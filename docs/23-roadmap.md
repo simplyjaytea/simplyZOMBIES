@@ -271,10 +271,6 @@ the people pieces reuse; raiders before settlers because the third side is a sea
 raider first touches. Each piece that adds a body or a kind inside ten days re-baselines the FAST
 balance record and says so in its record; `survivors_end >= 1` is never the lever.
 
-- **A body asleep in a building.** A worldgen pass writes `map.dormant` records into buildings
-  outside the home disc, boot spawns them like parked cars, and a Dormant shambler state casts no
-  sight and wakes to noise, scent or contact. New gate `godot:m2:dormant`; the boot-density pins
-  move with it.
 - **Each dead body differs.** A tint from the type's `variance.tints`, a body scaled against its
   own `bodyMax`, a crawler from birth — drawn on a `zombieLook` stream, stored on `zombieType`,
   read by `Appearance.for_entity` as a pass-through. New gate `godot:m2:variance`.
@@ -7964,6 +7960,117 @@ not a to-do list:
   survivable for the new guns, which is the result the loot weights were chosen for — the SMG and
   the carbine sit at weight three in a military cache a colony reaches rarely, and the melee four
   are commons that replace a knife rather than beat one.
+
+- **Zombies & World** — ~~a body asleep in a building~~ **landed** (`godot:m2:dormant`, the
+  chain's 71st gate), 2026-09-14, the third piece of the owner's procedural-population arc. Until
+  now nothing was ever indoors: `SimBoot.playable` scattered `wanderers_for_map(map)` bodies across
+  the open ground and the director walked packets in from the map edge, so a house was a container
+  with a roof on it. Now `SimWorldgen.generate` runs a **dormant pass** on its own
+  `worldgen.dormant` stream and writes `map.dormant`, an Array of `{x, y, building}` records beside
+  `buildings`, `vehicles` and `sites`, never serialised for the same reason they are not — the
+  map is regenerated from the seed. `SimRoster.spawn_dormant_from_manifest` turns each record into a
+  shambler at boot, immediately after `SimVehicles.spawn_from_manifest` and before the outdoor
+  scatter, on its own `dormant` stream so `placement` draws exactly what it drew before. A sixth
+  `ShamblerState`, **Dormant**, keeps that body still and blind until something wakes it. Two
+  helpers were extracted public for the strangers and settlers slices to reuse —
+  `SimWorldgen.indoor_tiles_of(map, building)` (which `_interior_floors` now delegates to, so
+  there is one answer to "what counts as indoors") and `SimWorldgen.far_buildings(map, metres)`,
+  which returns **indices** rather than records because `Array.find()` on Dictionaries matches by
+  value and a caller handed two identical house records back could not say which it held.
+  **Where the pass sits, and why:** after the attempt loop, not inside it. Inside would have been
+  safe to redo (every attempt calls `layout` again and gets a fresh tilemap), but "far from home"
+  is measured off `gate_a`, `gate_b` and the annex rect, and all three move every time the loop
+  re-sites the colony — a pass inside would answer the question about a colony that was then
+  thrown away. The dressing that follows cannot invalidate a record: `_dress_occluders`,
+  `_dress_terrain`, `_rubble` and `_paths` each return early on an indoor tile. **Content, and
+  these are first cuts for the owner:** `dormant: {chance, max}` on the building schema —
+  `0.35 / 2` on the seven residential templates (`house.small`, `house.narrow`, `house.gable`,
+  `house.large`, `house.corner`, `bungalow.flat`, `terrace.pair`) and the two cabins
+  (`cabin.small`, `cabin.long`, which are the forest district's residences), `0.35 / 1` on the
+  three sheds (`shed.tin`, `shed.lockup`, `shed.garage`), and **no block at all** on everything
+  commercial, civic and industrial, which reads as chance 0. The annex is a map patch rather than
+  a building template and never appears in `map.buildings`, so there was nothing there to set to
+  zero; it is excluded geometrically instead. The sheds were not in the plan's first cut and were
+  added deliberately: with residences alone the 64-tile miniature every gate boots placed **no
+  bodies on any of the four balance seeds**, so both the moved pins and the balance re-baseline
+  would have measured nothing. **Half of what was asked for did not ship, and this is which half:**
+  the plan wanted a dormant body woken by noise, scent or contact; it wakes on **noise or contact
+  only**. `heard` is corrected for the body's own groan ("a body cannot hear below its own noise")
+  and `smelled` has no such correction, while scent is designed to accumulate rather than decay in
+  seconds. Measured on seed 20260805 at 256 with the first cut in place: a sleeping shambler's own
+  residue puts **1.0** in its own cell on tick 20 — the first `SCENT_EMIT_INTERVAL` — against a
+  wake threshold of **0.00556** (`scentFloor` 0.005 / `scentSense` 0.9), 180 times over and rising
+  to ~40 by t+2000, and **all nineteen bodies on that map woke on their own smell on tick 21**. No
+  constant own-scent offset fixes it (the steady state is not a constant) and the neighbourhood
+  gradient does not either (`uphill_scent` at the body's own cell is null, because a body that has
+  lain somewhere all game *is* the local maximum). Residue is still laid in every state
+  (docs/14) — nothing special-cases that. The asymmetry between `heard` and `smelled` is a
+  standing property of `shambler.think` rather than anything this slice introduced, and it means
+  `smelled` is true for **every** zombie every tick — `_drift_upscent` is called on every
+  wandering body and finds no gradient at its own cell, so it is harmless today and still not what
+  the code reads as. That is left for the owner rather than fixed inside this slice; docs/30's
+  entry carries it. **Gated**, seven lanes, each proved red on purpose before it was trusted:
+  CONTENT (the nested `dormant` block, which *neither* validator can see — the Godot one is
+  shallow and the frozen oracle's `CONTENT_TYPES` never lists `buildings/`; sabotage: `max: -1` in
+  `house_small.json`, which `npm run godot:validate` passed with `GODOT_CONTENT_OK` and this lane
+  refused, plus five fabricated blocks refused inside the lane); MANIFEST (every record indoors, on
+  a non-solid Floor tile, inside the building it names, outside the annex and ≥ 32 m from both
+  gates, no two on one tile — 67 bodies across eight seed/size pairs; sabotage:
+  `far_buildings(map, 0.0)`, which put a record inside `GATE_EXCLUSION`; negative: the same seed
+  and size through a content tree with `chance: 0` on all 22 templates places **none** over 44 far
+  buildings, so the emptiness is the content and not the geometry); BOOT (entities == records,
+  each on its record's tile, each a shambler by the day-1 `pick_type`, and the district's count is
+  scatter + manifest; sabotage: spawn only the first record; negative: seed 20260805 at 64 has an
+  empty manifest and boots exactly 20 shamblers and nobody asleep, which is what says the counter
+  can tell nineteen from none); ASLEEP (three bodies in a real booted district still asleep and
+  still where they lay 200 ticks later; sabotage: put `smelled` back in the wake condition, which
+  is the regression above and reds this lane in one run); WAKE (a noise at a sleeping body's tile
+  wakes it and it walks 0.74 m; its twin in an identical silent world does neither; sabotage: drop
+  `heard` from the wake condition); NO SIGHT (textual — the Dormant arm must never call
+  `_seen_target`, because a shadowcast is the most expensive thing one of these bodies can do; the
+  arm is isolated by indentation and the isolator is *proved on the Seek arm*, which must contain
+  the call; sabotage: add a `_seen_target` call to the arm. The first run of this lane went red
+  against correct code because the arm's own **comment** names `_seen_target` — CLAUDE.md's "a
+  needle a comment can satisfy cannot fail" has a mirror, so the isolator strips comments); SAVE
+  (Dormant round-trips through real save text while a Wandering body beside it comes back
+  Wandering; sabotages: skip the restore, then make the control body dormant too). **Pins that
+  moved**: five assertions in three gates, each now reading
+  `wanderers_for(n) + map.dormant.size()` rather than a constant —
+  `check_m2_district.gd`'s day-1 boot and its BOOT DENSITY 256 lane, `check_m2_director.gd`'s DAY1
+  and CAP, and `check_worldgen.gd`'s twenty-two-world sweep, which was the one the plan did not
+  name and which found itself: it boots ten seeds across two districts at 64 and two at 256, and
+  the forest district's cabins put three extra bodies into `district.forest_edge at 128`. Dormant
+  bodies **do** count against the director's live cap — they are shamblers in the district from
+  tick 0 — so the 256 world's first dusk now stands at 99 live against a cap of 128 and still
+  reads `grace`. At 64 the pins add 0 on seed 20260805: `GATE_EXCLUSION` is 32 m and
+  that map is 64 across, so almost nothing is far enough out to hold anybody (check_m2_camp.gd's
+  header has the same arithmetic). **Measured**, a throwaway driver (deleted) mirroring the FAST
+  tier exactly — the same four seeds, ten compressed days, the same 2000-tick dusk window — run
+  before and after on this tree:
+
+  | seed | bodies asleep | shamblers at boot | survivors, end | distinct dead | grabs | nights refused `cap` |
+  |---|---|---|---|---|---|---|
+  | 20260805 | 0 | 20 → 20 | 3/3 → 3/3 | 1 → 1 | 117 → 117 | 0 → 0 |
+  | 404 | 1 | 20 → 21 | 1/3 → 1/3 | 3 → 3 | 124 → 145 | 0 → 0 |
+  | 31337 | 3 | 20 → 23 | 3/3 → 3/3 | 1 → 1 | 0 → 0 | 0 → 0 |
+  | 90210 | 0 | 20 → 20 | 2/3 → 2/3 | 4 → 4 | 153 → 153 | 0 → 0 |
+
+  `survivors_end >= 1` holds on every seed and no night was ever refused for the cap. The two
+  seeds that place nobody are **identical in every column**, which is the evidence that the new
+  stream shifts none of the old ones. Seed 404's single sleeping body is the whole of the
+  difference there: 21 more grabs over ten days, no extra death. The chain's own
+  `godot:m2:balance` agrees (`M2_BALANCE_OK`), with seed 31337's `max_live` at 32 — exactly the
+  64-tile cap, and the one number worth watching if this content is tuned up. **What the FAST
+  tier cannot see:** it runs at 64, where the shipped feature barely exists. The district that
+  ships is 256, and there the manifests are **19 / 12 / 18 / 14** bodies on the four seeds against
+  an 80-body scatter — a fifth again as many zombies, all of them indoors, none of them measured
+  by a ten-day campaign yet. That belongs to the FULL tier and the human playtest. **One more
+  half, named rather than hidden: a region has none of this.** `SimRegion._blit_cell` merges a
+  cell's `buildings`, `streets`, `vehicles` and `sites` into the region map and does not merge
+  `dormant`, so `playable_region` boots no sleeping bodies at all. Each cell's own generation
+  still runs the pass on its own stream, so nothing about a region changed and no gate moved; the
+  merge needs the record's `building` index re-based onto the region's combined array, which is
+  four lines and no gate of this slice's covers it. It belongs to whoever next touches the region.
 
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not

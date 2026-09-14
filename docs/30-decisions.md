@@ -4279,3 +4279,63 @@ appear is a dead entry rather than a balance knob, so the minimum stands; the sk
 a fixture tree taking a kind off the table is the only way a gate can show the number in the JSON
 is read at all, and `check_m2_roster.gd`'s SILENCED lane is that proof. The two helpers differ on
 purpose, and the divergence is written where both can be read.
+
+## A body asleep in a building, 2026-09-14
+
+The arc's third slice, and four calls that were mine to take inside it. The shape was the owner's
+already (a worldgen manifest, not a lazy spawn — the entry above); these are what building it
+turned up.
+
+**The pass sits after the attempt loop, not inside it.** `SimWorldgen.generate` runs layout, the
+annex stamp, the buildings, the doors, the vehicles and the sites inside a loop that can re-site
+the colony on another lot and run the whole thing again. Either place would have been
+deterministic — each attempt calls `layout` again and gets a brand-new tilemap, so a refused
+attempt's records go in the bin with the map that holds them. What decides it is what the pass is
+measuring: "far from home" reads `gate_a`, `gate_b` and the annex rect, and all three move every
+time the loop re-sites. A pass inside the loop answers the question about a colony that was then
+thrown away; a pass after it answers it about the colony the player wakes up in, and does the work
+once. The dressing that follows cannot invalidate a record — `_dress_occluders`, `_dress_terrain`,
+`_rubble` and `_paths` each return early on an indoor tile.
+
+**The first cuts: 0.35 and 2, and the sheds were added.** A residential template (the seven houses
+and the two cabins) declares `dormant: {chance: 0.35, max: 2}`; the three sheds declare
+`{chance: 0.35, max: 1}`; everything commercial, civic and industrial declares no block at all,
+which reads as zero. The annex is a map patch rather than a building template and never appears in
+`map.buildings`, so there was nothing there to set to zero — it is excluded geometrically. The
+sheds were not in the plan's first cut. They are there because with residences alone the 64-tile
+miniature every gate boots placed **no bodies on any of the four balance seeds**, so both the moved
+pins and the re-baseline would have measured nothing; a body in a lock-up is also squarely in
+genre. The shipped 256 district carries **19 / 12 / 18 / 14** bodies on those seeds against an
+80-body outdoor scatter. All five numbers are first cuts and the owner's to move.
+
+**Dormant bodies count against the director's live cap.** They are shamblers standing in the
+district from tick 0, `world.components.query(["shambler"])` counts them, and excusing them would
+have meant a second definition of "how full is this district". The 256 world's first dusk now
+stands at 99 live against a cap of 128 and still reads `grace`. Five assertions in three gates —
+`check_m2_district.gd`, `check_m2_director.gd` and `check_worldgen.gd` — read
+`wanderers_for(n) + map.dormant.size()` rather than a constant. The third was not on the list of
+pins this slice expected to move and was found by the chain rather than by reading: its
+twenty-two-world sweep boots `district.forest_edge` at 128, where the cabins are the residences.
+
+**A door being opened does not wake anybody, and neither does a smell.** The first is the plan's
+own first cut and it stands: an opened door is a noise or it is nothing, and a door hook would be a
+second way into the field for one event. The second was meant to be a wake channel and is not, and
+the reason is measured rather than argued. `heard` is corrected for the body's own groan — "a body
+cannot hear below its own noise" has been in `shambler.think` since the playable state — and
+`smelled` has no such correction, while scent is designed to accumulate rather than decay in
+seconds. On seed 20260805 at 256, a sleeping shambler's own residue puts **1.0** in its own cell on
+tick 20, the first `SCENT_EMIT_INTERVAL`, against a wake threshold of **0.00556**
+(`scentFloor` 0.005 / `scentSense` 0.9) — 180 times over, rising to ~40 by t+2000 — and every
+one of the nineteen bodies on that map woke on its own smell on tick 21. No constant offset fixes
+it, because the steady state is not a constant; the neighbourhood gradient does not either,
+because a body that has lain somewhere all game *is* the local maximum and `uphill_scent` at its
+own cell is null. So a dormant body wakes on noise or on contact, and residue is still laid in
+every state (docs/14) exactly as before.
+
+**What that leaves open, for the owner.** The asymmetry is older than this slice: because
+`smelled` has no own-scent correction, it is true for **every** zombie on **every** tick, so
+`_drift_upscent` is called for every wandering body and finds no gradient at its own cell. It is
+harmless today and it is still not what the code reads as, and a scent channel that could tell a
+survivor's trail from the body's own bedding would give the dormant state a second sense. It is
+not folded in here because it changes what every shambler in the game does, which is a balance
+change wearing a bug fix's clothes.

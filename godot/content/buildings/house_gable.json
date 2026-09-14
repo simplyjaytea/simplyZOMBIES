@@ -8,5 +8,6 @@
   "doors": [{"x": 2, "y": 7}, {"x": 8, "y": 7}],
   "tags": ["residential"],
   "weight": 8,
+  "dormant": {"chance": 0.35, "max": 2},
   "look": {"roof": "shingle", "wall": "timber"}
 }

@@ -8,5 +8,6 @@
   "doors": [{"x": 1, "y": 4}, {"x": 2, "y": 4}, {"x": 3, "y": 4}, {"x": 4, "y": 4}, {"x": 5, "y": 4}],
   "tags": ["shed"],
   "weight": 8,
+  "dormant": {"chance": 0.35, "max": 1},
   "look": {"roof": "tin", "wall": "block"}
 }
