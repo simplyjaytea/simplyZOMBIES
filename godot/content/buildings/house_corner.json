@@ -8,5 +8,6 @@
   "doors": [{"x": 0, "y": 3}, {"x": 4, "y": 9}],
   "tags": ["residential", "corner"],
   "weight": 6,
+  "dormant": {"chance": 0.35, "max": 2},
   "look": {"roof": "shingle", "wall": "timber"}
 }

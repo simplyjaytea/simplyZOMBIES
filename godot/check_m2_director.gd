@@ -69,8 +69,13 @@ func _day1_boot() -> bool:
 			s += 1
 		else:
 			other += 1
-	if s != SimBoot.wanderers_for(64) or other != 0:
-		push_error("day1 z shambler=%d (want %d) other=%d" % [s, SimBoot.wanderers_for(64), other])
+	# The scatter plus the manifest of bodies asleep indoors (the dormant slice, 2026-09-14). They
+	# are shamblers, they are in the district from tick 0, and `_live` below counts them against
+	# the cap -- which is the whole reason this pin moves rather than being excused. 0 on this seed
+	# at 64: see check_m2_district.gd's note on the gate-exclusion disc swallowing a 64-tile map.
+	var asleep: int = (boot["map"].dormant as Array).size()
+	if s != SimBoot.wanderers_for(64) + asleep or other != 0:
+		push_error("day1 z shambler=%d (want %d scatter + %d asleep) other=%d" % [s, SimBoot.wanderers_for(64), asleep, other])
 		return false
 	var before: int = _live(w)
 	_jump_dusk(w, 1)
@@ -348,12 +353,19 @@ func _the_cap_scales_with_the_district() -> bool:
 	if SimDirector.live_cap_for(w64) != 32:
 		push_error("cap: a 64 world reads %d, want 32" % SimDirector.live_cap_for(w64))
 		return false
-	var w: Variant = SimBoot.playable(20260805, 256)["world"]
+	var boot256: Dictionary = SimBoot.playable(20260805, 256)
+	var w: Variant = boot256["world"]
 	if SimDirector.live_cap_for(w) != 128:
 		push_error("cap: a 256 world reads %d, want 128" % SimDirector.live_cap_for(w))
 		return false
-	if _live(w) != 80:
-		push_error("cap: the 256 boot stood %d, not 80; the night below judges the wrong district" % _live(w))
+	# 80 scattered outdoors **plus the bodies asleep indoors** (the dormant slice, 2026-09-14).
+	# They are counted here rather than excused because `_live` counts them: a dormant body is a
+	# shambler in the district and fills the cap like any other, which is the decision docs/30
+	# records. 19 on this seed, so the first dusk stands at 99 against a cap of 128 and still is
+	# not refused -- and that headroom is the thing this lane is really about.
+	var want_live: int = 80 + (boot256["map"].dormant as Array).size()
+	if _live(w) != want_live:
+		push_error("cap: the 256 boot stood %d, not %d; the night below judges the wrong district" % [_live(w), want_live])
 		return false
 	var night: Variant = _run_night(w, 1)
 	if not night is Dictionary:
@@ -361,9 +373,9 @@ func _the_cap_scales_with_the_district() -> bool:
 		return false
 	var reason: String = String((night as Dictionary).get("reason", ""))
 	if reason == "cap":
-		push_error("cap: the 256 world's first dusk was refused for the cap with 80 live")
+		push_error("cap: the 256 world's first dusk was refused for the cap with %d live" % want_live)
 		return false
-	print("CAP OK 32 at 64, 128 at 256; the 256 world's first dusk with 80 live reads '%s', not 'cap'" % reason)
+	print("CAP OK 32 at 64, 128 at 256; the 256 world's first dusk with %d live reads '%s', not 'cap'" % [want_live, reason])
 	return true
 
 

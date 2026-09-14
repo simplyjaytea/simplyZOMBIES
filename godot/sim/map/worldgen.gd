@@ -47,6 +47,12 @@ const SimTileMapRes = preload("res://sim/map/tilemap.gd")
 const SimTemplatesRes = preload("res://sim/map/templates.gd")
 const SimPathRes = preload("res://sim/path.gd")
 const ContentLoaderRes = preload("res://platform/content_loader.gd")
+# The one module this generator reaches for, and only for a number. `ANNEX_BORDER_FULL`'s note
+# below already reasons the colony's margin out of `SimDirector.GATE_EXCLUSION`; the dormant pass
+# keeps a sleeping body off the same two gate anchors, and a second copy of 32.0 here is a copy
+# that drifts the day the director's is re-tuned. Nothing else in the module is used, and nothing
+# in the director reaches back here, so this stays a constant lookup rather than a dependency.
+const SimDirectorRes = preload("res://sim/modules/director.gd")
 
 const DEFAULT_DISTRICT: String = "district.residential_suburb"
 
@@ -217,6 +223,25 @@ static func generate(seed_val: int, size: int = SimTileMapRes.DISTRICT_TILES, co
 				])
 			break
 		attempt += 1
+
+	# The bodies asleep indoors, **after the attempt loop rather than inside it**, and the choice
+	# is worth its paragraph because either would have been deterministic.
+	#
+	# Inside the loop the pass would be safe to redo -- every attempt calls `layout` again and gets
+	# a brand-new tilemap object, so a refused attempt's records go in the bin with the map that
+	# holds them, and a fresh `_stream(seed, "dormant")` per attempt would place the same bodies on
+	# the attempt that is finally kept. Nothing would be wrong. It would just be work done on
+	# districts nobody plays, once per refused lot.
+	#
+	# After the loop it runs exactly once, on the map that shipped -- and that is the argument that
+	# actually decides it. "Far from home" is measured off `gate_a`, `gate_b` and the annex rect,
+	# and those three move with the colony every time the loop re-sites it. A pass inside the loop
+	# would be answering the question about a colony that was then thrown away; a pass here answers
+	# it about the colony the player wakes up in. The dressing that follows cannot invalidate a
+	# record either: `_dress_occluders`, `_dress_terrain`, `_rubble` and `_paths` each return early
+	# on an indoor tile (`is_indoors`), so an interior floor tile chosen here is the same tile when
+	# the generator hands the map back.
+	_dormant(map, seed_val, templates)
 
 	if dress:
 		# Read back off the map rather than out of the local: the manifest is the thing the loot
@@ -1183,24 +1208,166 @@ static func _take_tile(rng: Variant, candidates: Array, taken: Dictionary) -> in
 	return -1
 
 
-# The open indoor floor of one placed building, as tile indices in row-major order. Doorways are
-# not indoors (a template flags its perimeter 0), so a site never stands in a doorway.
+# The open indoor floor of one placed building, as tile indices in row-major order -- the sites
+# pass's own spelling of `indoor_tiles_of`, kept because a site is addressed by index everywhere
+# else in this pass. One scanner, two spellings: a second scan loop here is a second answer to
+# "what counts as indoors" and they would drift the first time either was tightened.
 static func _interior_floors(map: Variant, building: Dictionary) -> Array:
 	var out: Array = []
 	var w: int = int(map.w)
+	for tile in indoor_tiles_of(map, building):
+		out.append(int((tile as Vector2i).y) * w + int((tile as Vector2i).x))
+	return out
+
+
+# --- 6.5. the bodies asleep indoors -------------------------------------------------------------
+#
+# docs/14's dormant zombie, placed at generation time rather than spawned when somebody walks in.
+# The owner's call of 2026-09-14: a lazy spawn makes the district's population a function of where
+# the player has been, which docs/17's "the director is not a spawner" refuses and the balance
+# harness could not count. So this is a manifest, exactly like `vehicles` -- the generator writes
+# where the bodies are and `SimRoster.spawn_dormant_from_manifest` turns each record into an entity
+# at boot.
+#
+# Where they may lie is three filters, and each one is a fairness rule rather than a taste:
+#
+#   * **indoors** -- the whole point. Outdoors is already the wanderers' and the director's.
+#   * **outside the annex** -- a body in the colony's own kitchen at boot is the start docs/01 says
+#     may not exist, which is the same sentence `SimBoot.playable`'s scatter re-rolls against.
+#   * **clear of both gates** -- `SimDirector.GATE_EXCLUSION`. A night packet may not arrive inside
+#     that disc; a body that was already lying there since before day 1 is the same pressure with
+#     a longer fuse, and letting worldgen put one where the director may not put one would make the
+#     rule a rule about packets rather than about the ground in front of the colony.
+#
+# Determinism: one stream, `worldgen.dormant`, drawn in `far_buildings` order -- which is
+# `map.buildings` placement order filtered, never a Dictionary's key order -- and two draws per
+# qualifying building whatever its content says, so a template authored with no `dormant` block,
+# or with `chance: 0`, costs the same draws as one authored with bodies in it and cannot shift
+# every building after it. That is `SimVehicles.spawn_from_manifest`'s rule applied a step earlier.
+
+
+# The open indoor floor of one placed building, as absolute tiles in row-major order: indoors, a
+# Floor tile, and not solid. Doorways are not indoors (a template flags its perimeter 0), so
+# nothing placed through here ever stands in a doorway.
+#
+# Public because the dormant pass is the first of several to want it -- docs/23's stranger and the
+# settlers' camp both need "somewhere inside this building to put a body" and must get the same
+# answer this does.
+static func indoor_tiles_of(map: Variant, building: Dictionary) -> Array:
+	var out: Array = []
 	for j in int(building.get("h", 0)):
 		for i in int(building.get("w", 0)):
 			var tx: int = int(building.get("x", 0)) + i
 			var ty: int = int(building.get("y", 0)) + j
-			if tx < 0 or ty < 0 or tx >= w or ty >= int(map.h):
+			if not SimTileMapRes.is_indoors(map, tx, ty):
 				continue
-			var idx: int = ty * w + tx
-			if int(map.indoors[idx]) != 1:
+			if SimTileMapRes.tile_at(map, tx, ty) != SimTileMapRes.Tile.Floor:
 				continue
-			if int(map.tiles[idx]) != SimTileMapRes.Tile.Floor:
+			if SimTileMapRes.is_solid(map, tx, ty):
 				continue
-			out.append(idx)
+			out.append(Vector2i(tx, ty))
 	return out
+
+
+# Which placed buildings are far enough from the colony to put something in, as **indices into
+# `map.buildings`** in placement order. "Far" is `min_metres_from_home` from both gate anchors and
+# clear of the annex rect, measured from the building's nearest tile rather than its centre, so
+# every tile of a building this returns satisfies the distance -- a caller placing a body in the
+# corner nearest the colony does not have to re-check.
+#
+# Indices rather than the records themselves, and that is CLAUDE.md's trap rather than a style
+# choice: `Array.find()` on Dictionaries matches by **value**, so a caller handed two
+# value-identical house records back could not ask the map which of them it was holding. An index
+# always can.
+#
+# Public for the same reason `indoor_tiles_of` is: the stranger and the settlers' camp in docs/23
+# both ask this question, and a second copy of "far from home" is a second answer.
+static func far_buildings(map: Variant, min_metres_from_home: float) -> Array[int]:
+	var out: Array[int] = []
+	if map == null:
+		return out
+	var records: Variant = map.buildings
+	if not (records is Array):
+		return out
+	var annex: Rect2i = SimTileMapRes.annex_rect(map)
+	var gates: Array[Vector2i] = [SimTileMapRes.gate_a(map), SimTileMapRes.gate_b(map)]
+	var limit: float = min_metres_from_home * min_metres_from_home
+	for index in (records as Array).size():
+		var b: Dictionary = (records as Array)[index] as Dictionary
+		var rect: Rect2i = Rect2i(int(b.get("x", 0)), int(b.get("y", 0)), int(b.get("w", 0)), int(b.get("h", 0)))
+		if rect.size.x < 1 or rect.size.y < 1:
+			continue
+		if annex.size.x > 0 and annex.size.y > 0 and annex.intersects(rect):
+			continue
+		var near_a_gate: bool = false
+		for gate in gates:
+			if gate.x < 0 or gate.y < 0:
+				continue
+			# The nearest point of the footprint to the gate, clamped per axis -- the tile a body
+			# could be standing on that is closest to the colony.
+			var nx: float = float(clampi(gate.x, rect.position.x, rect.position.x + rect.size.x - 1))
+			var ny: float = float(clampi(gate.y, rect.position.y, rect.position.y + rect.size.y - 1))
+			var dx: float = nx - float(gate.x)
+			var dy: float = ny - float(gate.y)
+			if dx * dx + dy * dy < limit:
+				near_a_gate = true
+				break
+		if near_a_gate:
+			continue
+		out.append(index)
+	return out
+
+
+# The `dormant` block a building template declares, or the empty Dictionary for one that declares
+# none -- which reads as `chance 0` and is how every non-residential template ships.
+static func _dormant_of(templates_by_id: Dictionary, building_id: String) -> Dictionary:
+	var entry: Variant = templates_by_id.get(building_id)
+	if not (entry is Dictionary):
+		return {}
+	var block: Variant = (entry as Dictionary).get("dormant")
+	return block as Dictionary if block is Dictionary else {}
+
+
+static func _dormant(map: Variant, seed_val: int, templates: Array) -> void:
+	var far: Array[int] = far_buildings(map, SimDirectorRes.GATE_EXCLUSION)
+	if far.is_empty():
+		# No stream and no draws: a district whose every building sits in the colony's lap (the
+		# 64-tile miniature the gates boot is often exactly this) generates the map it always did.
+		return
+	var by_id: Dictionary = {}
+	for entry_v in templates:
+		if entry_v is Dictionary:
+			by_id[String((entry_v as Dictionary).get("id", ""))] = entry_v
+	var rng: Variant = _stream(seed_val, "dormant")
+	var out: Array = map.dormant as Array
+	for index in far:
+		var building: Dictionary = (map.buildings as Array)[index] as Dictionary
+		var block: Dictionary = _dormant_of(by_id, String(building.get("id", "")))
+		var chance: float = clampf(float(block.get("chance", 0.0)), 0.0, 1.0)
+		var most: int = maxi(0, int(block.get("max", 0)))
+		# Both draws, always, before anything can refuse the building -- the vehicles precedent.
+		# `most` is floored at 1 for the count draw so the draw exists even for a template that
+		# declares none; the result is thrown away below when it does.
+		var roll: float = float(rng.call("next"))
+		var wanted: int = int(rng.call("int_range", 1, maxi(most, 1)))
+		if roll >= chance or most < 1:
+			continue
+		var candidates: Array = indoor_tiles_of(map, building)
+		if candidates.is_empty():
+			continue
+		var taken: Dictionary = {}
+		for _body in mini(wanted, candidates.size()):
+			# Picked, then walked forward from the pick rather than re-rolled, so a crowded
+			# interior costs one draw like an empty one -- `_take_tile`'s rule, on tiles that are
+			# Vector2i here rather than indices.
+			var at: int = int(rng.call("int_range", 0, candidates.size() - 1))
+			for step in candidates.size():
+				var tile: Vector2i = candidates[(at + step) % candidates.size()] as Vector2i
+				if taken.has(tile):
+					continue
+				taken[tile] = true
+				out.append({"x": tile.x, "y": tile.y, "building": index})
+				break
 
 
 # Open outdoor ground within a couple of tiles of a placed building -- the driveway, the verge, the

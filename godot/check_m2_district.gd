@@ -227,8 +227,18 @@ func _playable_boot() -> bool:
 			screamers += 1
 		elif id == "zombie.bloater":
 			bloaters += 1
-	if zeds != SimBoot.wanderers_for(64) or screamers != 0 or bloaters != 0:
-		push_error("day-1 boot z=%d s=%d b=%d want %d shamblers" % [zeds, screamers, bloaters, SimBoot.wanderers_for(64)])
+	# The scatter **plus the bodies asleep indoors**, since the dormant slice of 2026-09-14: a
+	# dormant body is an ordinary shambler that happens to be lying down, it counts against the
+	# director's live cap like any other, and this pin has to move with it or it reads the feature
+	# as a leak. `map.dormant` is 0 on this seed at 64 -- GATE_EXCLUSION is 32 m and this map is 64
+	# across, so almost nothing is far enough from the gate to hold anybody (check_m2_camp.gd's
+	# header has the same arithmetic) -- so the number here is unchanged today and the expression
+	# is what keeps it honest when the content or the exclusion is re-tuned.
+	var asleep: int = (boot["map"].dormant as Array).size()
+	if zeds != SimBoot.wanderers_for(64) + asleep or screamers != 0 or bloaters != 0:
+		push_error("day-1 boot z=%d s=%d b=%d want %d shamblers (%d scatter + %d asleep)" % [
+			zeds, screamers, bloaters, SimBoot.wanderers_for(64) + asleep, SimBoot.wanderers_for(64), asleep,
+		])
 		return false
 	var ground: int = 0
 	for e2 in world.components.query(["itemBase", "position"]):
@@ -1486,8 +1496,13 @@ func _the_boot_population_scales_with_the_district() -> bool:
 	var boot: Dictionary = SimBoot.playable(20260805, 256)
 	var w: Variant = boot["world"]
 	var zeds: int = w.components.query(["shambler"]).size()
-	if zeds != 80:
-		push_error("density: a 256 boot stood %d shamblers, want 80" % zeds)
+	# The scatter is 80 and the bodies asleep indoors are on top of it -- 19 on this seed, which is
+	# where the shipped district actually feels the dormant slice (the 64-tile miniature above
+	# holds none). Split rather than folded into one number so a change to either half says which:
+	# `wanderers_for` is the density this lane is about, `map.dormant` is the manifest.
+	var asleep_256: int = (boot["map"].dormant as Array).size()
+	if zeds != 80 + asleep_256:
+		push_error("density: a 256 boot stood %d shamblers, want 80 scatter + %d asleep" % [zeds, asleep_256])
 		return false
 	var annex: Rect2i = SimTileMap.annex_rect(w.tilemap)
 	var inside: int = 0
@@ -1498,6 +1513,6 @@ func _the_boot_population_scales_with_the_district() -> bool:
 	if inside > 0:
 		push_error("density: %d of the 256 boot's shamblers stood inside the annex" % inside)
 		return false
-	print("BOOT DENSITY OK wanderers_for 20 / 40 / 80 at 64 / 128 / 256; a 256 boot stands 80, none in the annex")
+	print("BOOT DENSITY OK wanderers_for 20 / 40 / 80 at 64 / 128 / 256; a 256 boot stands 80 scattered plus %d asleep indoors, none in the annex" % asleep_256)
 	return true
 

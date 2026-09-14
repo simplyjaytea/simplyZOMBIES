@@ -210,3 +210,46 @@ static func spawn_zombie(world: Variant, x: float, y: float, type_id: String, rn
 		alarm["ticksUntilReady"] = 0
 		world.components.set_component(ent, "alarm", alarm)
 	return ent
+
+
+# The bodies the generator left asleep indoors, made into entities -- `SimVehicles.spawn_from_manifest`
+# for zombies, and deliberately the same shape: the manifest says where, this says what, and from
+# here on the entity is the truth and the record is only where it started. Called by
+# `SimBoot.playable` straight after the parked cars and before the outdoor scatter, so a dormant
+# body is in the district before the first tick rather than conjured when somebody opens a door.
+#
+# Why a manifest at all, since a lazy spawn would have been less code: the owner's call of
+# 2026-09-14. A body that appears when the player walks in makes the district's population a
+# function of where the player has been -- docs/17's "the director is not a spawner" refuses that,
+# and the balance harness, which counts bodies and never walks anywhere, could not see them at all.
+#
+# Determinism: its own `dormant` stream, and `pick_type` is asked at the **day-1 tick** rather than
+# at `world.tick`, because these bodies have been lying there since before the game started and the
+# wave schedule is about what the nights bring. On day 1 nothing but the shambler is due, so
+# `pick_type` short-circuits without a draw and every one of them is a shambler -- which is what
+# the gate asserts, and what keeps this pass free to grow a mix later without re-rolling the past.
+# A record refused below has already cost its type draw (the vehicles rule); a refusal here means a
+# malformed manifest, which is a code bug rather than a content one, so it is loud.
+static func spawn_dormant_from_manifest(world: Variant, map: Variant) -> Array[int]:
+	var spawned: Array[int] = []
+	if map == null:
+		return spawned
+	var records: Variant = map.get("dormant")
+	if not (records is Array):
+		return spawned
+	if (records as Array).is_empty():
+		return spawned
+	var rng: Variant = world.rng.stream("dormant")
+	var day_one: int = Clock.tick_on_day(1, Clock.DAY_BEGINS)
+	for rec in records as Array:
+		if not (rec is Dictionary):
+			continue
+		var r: Dictionary = rec as Dictionary
+		var type_id: String = pick_type(world, rng, day_one)
+		if not (r.has("x") and r.has("y")):
+			push_error("dormant: record %s names no tile, so nothing was put to sleep in it" % str(r))
+			continue
+		var ent: int = spawn_zombie(world, float(r["x"]) + 0.5, float(r["y"]) + 0.5, type_id, rng)
+		SimShamblerRes.make_dormant(world, ent)
+		spawned.append(ent)
+	return spawned

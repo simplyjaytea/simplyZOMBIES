@@ -23,12 +23,20 @@ extends RefCounted
 # cannot drift from the thing it describes. The event still fires and is still the right hook for
 # anything that wants to *react* to the moment; it is just not the source of truth for the speed.
 
+# **Dormant** is the sixth, and it is the only one nothing in the state machine ever enters on its
+# own: a body is *born* into it by `make_dormant`, from the worldgen manifest the generator wrote
+# into the buildings (docs/14's dormant zombie, the owner's arc of 2026-09-14). It stands still,
+# casts no sight at all -- see the arm in `think` for why that is the point rather than an economy
+# -- and leaves for Wander the first time it hears something, smells something, or something walks
+# into it. Nothing puts it back: waking is one-way, because a zombie that went back to sleep would
+# be a zombie the player had already dealt with turning up again.
 const ShamblerState: Dictionary = {
 	"Wander": 0,
 	"Seek": 1,
 	"Investigate": 2,
 	"Staggered": 3,
 	"Pursue": 4,
+	"Dormant": 5,
 }
 
 const DEFAULT_LOCOMOTION: Dictionary = {"speed": 0.8, "wander": 0.35, "mill": 0.25, "crawl": 0.25}
@@ -285,6 +293,28 @@ static func make_shambler(world: Variant, entity: int, rng: Variant, type_id: St
 		"scentSense": float(senses["scent"]),
 		"lightSense": float(senses["light"]),
 	})
+
+
+# Put a body that has just been made to sleep. One door into `Dormant` rather than a caller
+# reaching into the component and assigning a number, so the one place that knows what the state
+# means also knows what else has to be true of a body in it: it is not moving, and it is not part
+# way through a turn it would finish on its first tick awake.
+#
+# No RNG, deliberately: `spawn_dormant_from_manifest` draws for the body through `make_shambler`
+# and this must not add a draw between two records.
+static func make_dormant(world: Variant, entity: int) -> void:
+	var comp: Variant = world.components.get_component(entity, "shambler")
+	if not (comp is Dictionary):
+		push_error("dormant: entity %d has no shambler component to put to sleep" % entity)
+		return
+	(comp as Dictionary)["state"] = ShamblerState["Dormant"]
+	(comp as Dictionary)["ticksToTurn"] = 0
+	var vel: Variant = world.components.get_component(entity, "velocity")
+	if vel is Dictionary:
+		# `dx`/`dy`, never `x`/`y` -- CLAUDE.md's standing trap: a velocity written with the
+		# position's key names is a pin that pins nothing and raises nothing.
+		(vel as Dictionary)["dx"] = 0.0
+		(vel as Dictionary)["dy"] = 0.0
 
 
 static func _get_content_entry(world: Variant, type_id: String, id: String) -> Variant:
@@ -975,6 +1005,45 @@ static func register_module(world: Variant, _map: Variant) -> void:
 				vd["dy"] = 0.0
 				continue
 			match int(sd["state"]):
+				ShamblerState["Dormant"]:
+					# Asleep in a building since before day 1. Two things are load-bearing here.
+					#
+					# It does not move: velocity is pinned every tick rather than merely left
+					# alone, because something else (a shove, a restore, a stagger that has just
+					# expired) can have written one.
+					#
+					# And it never asks `_seen_target`. That is the throughput argument made
+					# structural: a shadowcast is the most expensive thing one of these bodies can
+					# do, and a district's worth of them lying in houses would pay for it every
+					# tick to look at a room with nobody in it. A sleeping body has its eyes shut,
+					# which is also the honest reading of docs/14 -- and `check_m2_dormant.gd`'s
+					# NO SIGHT lane reads this arm's own source and fails if the call comes back,
+					# because a comment cannot hold a cost down.
+					#
+					# It wakes on **noise** (`heard`, resolved above this match) and on somebody
+					# walking into it. Not on a door being opened: that is attention's job -- an
+					# opened door is a noise or it is nothing -- and a separate door hook would be
+					# a second way in for the same event (docs/30, 2026-09-14).
+					#
+					# And deliberately **not on `smelled`**, which the first cut of this arm did
+					# use and which measurement threw out. `heard` is corrected for the body's own
+					# groan ("a body cannot hear below its own noise", above); `smelled` has no
+					# such correction, and scent is designed to *accumulate* rather than decay in
+					# seconds. Measured on seed 20260805 at 256: a dormant shambler's own residue
+					# puts 1.0 in its own cell at t+20 -- the first `SCENT_EMIT_INTERVAL` -- against
+					# a wake threshold of 0.00556 (scentFloor 0.005 / scentSense 0.9), 180 times
+					# over, rising to ~40 by t+2000. Every one of the nineteen bodies on that map
+					# woke on its own smell on tick 21. No constant own-scent offset fixes it
+					# (the steady state is not a constant) and the neighbourhood gradient does not
+					# either (`uphill_scent` at a body's own cell is null, because a body that has
+					# lain somewhere all game *is* the local maximum). So scent is not a wake
+					# channel here, which is half of what the arc plan asked for, and the record
+					# says so. docs/30, 2026-09-14.
+					vd["dx"] = 0.0
+					vd["dy"] = 0.0
+					if heard or _contact_target(survivors, pd, CONTACT_METRES) != null:
+						sd["state"] = ShamblerState["Wander"]
+						sd["ticksToTurn"] = 0
 				ShamblerState["Staggered"]:
 					vd["dx"] = 0.0
 					vd["dy"] = 0.0

@@ -163,6 +163,25 @@
           }
         }
       }
+    },
+    "dormant": {
+      "type": "object",
+      "required": ["chance", "max"],
+      "additionalProperties": false,
+      "properties": {
+        "chance": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "How often a far copy of this template has anybody asleep in it at all. Rolled once per building by worldgen's `dormant` pass, on its own stream."
+        },
+        "max": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "At most this many bodies when the chance lands; the count is rolled 1..max and then clamped to how many indoor floor tiles the shell actually has. 0 is the same as declaring no block at all."
+        }
+      },
+      "description": "How many bodies lie asleep inside a copy of this template that the generator placed outside the annex and clear of both gates (docs/14's dormant zombie; the owner's 2026-09-14 arc). A template with no `dormant` block gets none, which is how every non-residential template ships. TWO validators will not catch a mistake in here and both are worth knowing about: the Godot validator is shallow, so it checks only that this is an object and never looks at `chance` or `max`; and the frozen TypeScript oracle's CONTENT_TYPES never lists `buildings/` at all, so `npm test`'s Ajv -- which does recurse -- never sees this file. check_m2_dormant.gd's CONTENT lane is the only thing that holds this shape, and that is why it exists."
     }
   }
 }
