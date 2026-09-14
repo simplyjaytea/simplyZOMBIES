@@ -45,26 +45,120 @@ func _run() -> void:
 func _fixture(seed_val: int, w: int = 24, h: int = 24) -> Dictionary:
 	return {"seed": seed_val, "tick_hz": 20, "map": {"width": w, "height": h, "walls": []}, "player": {"id": 0, "x": 12.0, "y": 12.0, "stance": 2}, "rng_probe": {"stream": "test", "samples": 0}}
 
+# --- MIX: the mix is content -------------------------------------------------------------------
+#
+# `pick_type` held 80/12/8 as three constants; each type now carries a `weight` and the draw is
+# one roll over the summed weights of the kinds whose wave has arrived. Four assertions, each run
+# red on purpose before it was trusted:
+#
+#  * PINNED -- the shipped tree on seed 20260805 draws exactly the sequence the hard-coded mix
+#    drew, fifty draws deep on day 7 with all three kinds due, off its own `mixProbe` stream.
+#    Captured by a throwaway driver from the old code before a line of it changed and pinned here
+#    as a literal. This is the whole byte-identity claim: it fails the moment a roll, the order of
+#    the pool or a shipped weight moves, and with it the `placement` and `director` streams every
+#    campaign draws its bodies from.
+#  * SILENCED -- a fixture tree with the shambler at `weight: 0` never draws one in 200 draws,
+#    where the shipped tree draws it four times in five. PINNED alone would pass against code
+#    that still had the constants in it; this is what says the number in the JSON is read.
+#  * HEAVY -- a fixture with the bloater at 100 against 1 and 1 draws bloaters overwhelmingly.
+#    The dead-socket half of SILENCED, which on its own is satisfied by code that only ever looks
+#    for a zero: here the weight has to be *summed*, not merely noticed.
+#  * QUIET -- fifty day-1 calls leave the stream's state exactly where it was, and the same fifty
+#    on day 7 move it. The short-circuit is what keeps days 1 and 2 byte-identical, and a state
+#    that crept would have shifted every later draw of every campaign.
+const PINNED_SEED: int = 20260805
+const PINNED_STREAM: String = "mixProbe"
+# h shambler, c screamer, b bloater -- 40 / 3 / 7 of the first fifty draws on day 7.
+const PINNED_DRAWS: String = "hhhhhbbbhhbhchhhbhhhhhhhhbbchhhhhhhhhhhhhhchhhhhhh"
+
+
 func _mix() -> bool:
-	var world: Variant = World.new(_fixture(7))
-	var rng: Variant = world.rng.stream("placement")
-	var early: Dictionary = {}
-	for i in 40:
-		var t: String = SimRoster.pick_type(world, rng, 0)
-		early[t] = int(early.get(t, 0)) + 1
-	if int(early.get(SimRoster.TYPE_SHAMBLER, 0)) != 40:
-		push_error("day 1 mix should be shambler-only %s" % str(early))
+	var day7: int = Clock.tick_on_day(7, 0.5)
+	var day1: int = Clock.tick_on_day(1, 0.5)
+	var code: Dictionary = {SimRoster.TYPE_SHAMBLER: "h", SimRoster.TYPE_SCREAMER: "c", SimRoster.TYPE_BLOATER: "b"}
+
+	# PINNED.
+	var world: Variant = World.new(_fixture(PINNED_SEED))
+	var rng: Variant = world.rng.stream(PINNED_STREAM)
+	var drawn: String = ""
+	for i in PINNED_DRAWS.length():
+		drawn += String(code.get(SimRoster.pick_type(world, rng, day7), "?"))
+	if drawn != PINNED_DRAWS:
+		push_error("MIX: seed %d no longer draws the sequence the hard-coded 80/12/8 drew\n  was %s\n  now %s" % [PINNED_SEED, PINNED_DRAWS, drawn])
 		return false
-	var late_tick: int = Clock.DAY_TICKS * 2
-	var counts: Dictionary = {SimRoster.TYPE_SHAMBLER: 0, SimRoster.TYPE_SCREAMER: 0, SimRoster.TYPE_BLOATER: 0}
-	for i in 200:
-		var t2: String = SimRoster.pick_type(world, rng, late_tick)
-		counts[t2] = int(counts[t2]) + 1
-	if int(counts[SimRoster.TYPE_SHAMBLER]) < 140 or int(counts[SimRoster.TYPE_SCREAMER]) < 10 or int(counts[SimRoster.TYPE_BLOATER]) < 5:
-		push_error("day 3 mix off %s" % str(counts))
+
+	# QUIET: day 1, where only the shambler is due, answers without touching the stream.
+	var quiet_world: Variant = World.new(_fixture(PINNED_SEED))
+	var quiet_rng: Variant = quiet_world.rng.stream(PINNED_STREAM)
+	var before: int = int(quiet_rng.call("save"))
+	for i in 50:
+		if SimRoster.pick_type(quiet_world, quiet_rng, day1) != SimRoster.TYPE_SHAMBLER:
+			push_error("MIX: day 1 drew something other than a shambler")
+			return false
+	var after: int = int(quiet_rng.call("save"))
+	if after != before:
+		push_error("MIX: fifty day-1 calls moved the stream %d -> %d; the short-circuit is gone and every later draw has shifted" % [before, after])
 		return false
-	print("MIX OK early=40 shambler late=%s" % str(counts))
+	for i in 50:
+		SimRoster.pick_type(quiet_world, quiet_rng, day7)
+	if int(quiet_rng.call("save")) == before:
+		# The negative half of QUIET: a `save()` that never moves would pass the check above
+		# whatever pick_type did with the stream.
+		push_error("MIX: fifty day-7 calls left the stream where it was -- `save()` is not reporting the draw")
+		return false
+
+	# SILENCED and HEAVY, against the shipped tree over the same seed and stream.
+	var shipped: Dictionary = _draw_counts(null, day7, 200)
+	var silenced: Dictionary = _draw_counts(_tree_with_weights({SimRoster.TYPE_SHAMBLER: 0}), day7, 200)
+	var heavy: Dictionary = _draw_counts(_tree_with_weights({SimRoster.TYPE_BLOATER: 100, SimRoster.TYPE_SHAMBLER: 1, SimRoster.TYPE_SCREAMER: 1}), day7, 200)
+	if int(shipped.get(SimRoster.TYPE_SHAMBLER, 0)) < 140:
+		push_error("MIX: the shipped tree should be mostly shamblers (%s)" % str(shipped))
+		return false
+	if int(silenced.get(SimRoster.TYPE_SHAMBLER, 0)) != 0:
+		push_error("MIX: a shambler at weight 0 was drawn %d times in 200 (%s)" % [int(silenced[SimRoster.TYPE_SHAMBLER]), str(silenced)])
+		return false
+	if int(silenced.get(SimRoster.TYPE_SCREAMER, 0)) + int(silenced.get(SimRoster.TYPE_BLOATER, 0)) != 200:
+		push_error("MIX: silencing the shambler should leave the other two kinds drawing (%s)" % str(silenced))
+		return false
+	if int(heavy.get(SimRoster.TYPE_BLOATER, 0)) < 180:
+		push_error("MIX: a bloater at 100 against 1 and 1 drew only %d of 200 -- the weight is counted, not summed (%s)" % [int(heavy.get(SimRoster.TYPE_BLOATER, 0)), str(heavy)])
+		return false
+	if int(heavy.get(SimRoster.TYPE_BLOATER, 0)) <= int(shipped.get(SimRoster.TYPE_BLOATER, 0)) * 3:
+		push_error("MIX: weighting the bloater up changed nothing much (heavy %s vs shipped %s)" % [str(heavy), str(shipped)])
+		return false
+	print("MIX OK pinned %d draws on seed %d unchanged; day-1 stream untouched (%d); shipped %s, shambler silenced %s, bloater at 100 %s" % [PINNED_DRAWS.length(), PINNED_SEED, before, str(shipped), str(silenced), str(heavy)])
 	return true
+
+
+# `count` draws on day `tick`, off the pinned seed and stream so the three trees are compared on
+# the same rolls. `tree` null is the shipped content.
+func _draw_counts(tree: Variant, tick: int, count: int) -> Dictionary:
+	var f: Dictionary = _fixture(PINNED_SEED)
+	if tree is Dictionary:
+		f["content_tree"] = tree
+	var world: Variant = World.new(f)
+	var rng: Variant = world.rng.stream(PINNED_STREAM)
+	var out: Dictionary = {}
+	for i in count:
+		var t: String = SimRoster.pick_type(world, rng, tick)
+		out[t] = int(out.get(t, 0)) + 1
+	return out
+
+
+# The shipped tree with `weight` overridden per type id -- the fixture shape `_tree_with_emits`
+# uses, and the reason `pick_type` tolerates a 0 the schema refuses.
+func _tree_with_weights(weights: Dictionary) -> Dictionary:
+	var src: Variant = World.new(_fixture(1))
+	var tree: Dictionary = {}
+	for path in src.content.keys():
+		var entry: Variant = src.content[path]
+		if entry is Dictionary and weights.has(String((entry as Dictionary).get("id", ""))):
+			var copy: Dictionary = (entry as Dictionary).duplicate(true)
+			copy["weight"] = int(weights[String(copy["id"])])
+			tree[path] = copy
+		else:
+			tree[path] = entry
+	return tree
 
 func _screamer_alarms() -> bool:
 	var world: Variant = World.new(_fixture(11))

@@ -4265,3 +4265,17 @@ new kinds' weights and waves, stranger beats, raider jitter, a looter's haul, th
 chance, the settler count and distance — are named in the plan beside their slice. Each lands
 in this file with the slice that takes it, in the dated form the playable-state entries set,
 so the owner reads one entry per number rather than a list here that would drift.
+
+**The mix's two calls, 2026-09-14** (the "mix is content" slice, docs/23's *Roster & the mix*).
+The plan said the weighted pool is "sorted by id"; it is sorted by id **descending**. Ascending
+lists bloater, screamer, shambler and would have handed roll 0 a bloater, which draws the same
+distribution but a different body, and every shipped campaign's zombies come off those rolls.
+Descending lists shambler, screamer, bloater — the order the three constants were written in — so
+0–79 is still a shambler, 80–91 a screamer, 92–99 a bloater, and the slice's byte-identity claim
+is about what spawns and not merely about how many numbers were drawn. The second call is
+`weight: 0`: the schema's `minimum` is 1, as the raider schema's is, but `pick_type` **skips** a 0
+rather than clamping it to 1 the way `SimRaiders.pick_type` does. A shipped type that can never
+appear is a dead entry rather than a balance knob, so the minimum stands; the skip exists because
+a fixture tree taking a kind off the table is the only way a gate can show the number in the JSON
+is read at all, and `check_m2_roster.gd`'s SILENCED lane is that proof. The two helpers differ on
+purpose, and the divergence is written where both can be read.
