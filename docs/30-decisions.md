@@ -4189,3 +4189,59 @@ points earlier than before. A fixture that hand-writes points and owns nothing i
 **One re-baseline, at the close.** As the roster arc did: every piece moves a number a campaign
 can feel, and four seeds before and after each of nine pieces is an overnight job apiece.
 
+
+## One web, and the captives, 2026-09-14
+
+The owner asked for NPC skills, for raiders to carry skills too *"for when the player or the
+colony captures them to recruit or enslave"*, and whether the NPC web should be the player's. The
+survey behind this entry found three things the questions assumed otherwise: every colonist —
+Mara, Ellis, each generated recruit — already carries the player's web and spends it along their
+focus, so "give NPCs skills" was landed before it was asked; raiders carry nothing and there is no
+capture, only docs/18's post-slice design of one; and the player's own web was auto-spent with no
+surface to change it. Four decisions, taken together.
+
+**One web for everybody.** docs/08 says every survivor starts at the same centre node and the web
+dies with the person, and nothing in the docs ever proposed a second one. A separate raider web
+would double every layout, autonomy and reader gate and hand a recruited captive a translation
+problem; a separate NPC web would put two shapes on the one K screen. Raiders differ in what they
+*arrive with*, not in the web: an archetype's `skills` are **node ids, granted at spawn with no
+points spent**, and not region points, because a raider has no focus row and points would be
+spent by the Auto path and the surplus pass, never by the author — a biography is nodes.
+`SimSkills.endow` is the one path into a web that does not pay, and it is spawn-only content.
+
+**Raider skills are live during the raid.** The alternative — points that only matter once the
+body is captured — is a number nothing reads during the fight, which is the dead-socket pattern
+this milestone has paid for eleven times. The same `resolve` on the actor's own scope makes a
+gunhand's steadier breath read through the cone refresh and a scav's surer grip through the swing
+with no new plumbing, so the band gets harder in the way the content says. Raiders **earn** like
+anybody (a shambler put down pays Melee or Ranged, spent along the Auto path, and a person killed
+pays nothing because the handler wants a `zombieType` on the victim); the alternative was a
+`raider` read inside skills.gd, which is exactly the special case "one web" exists to remove.
+`skillWeb` is now the one colonist component a raider carries, and the raider gate's LEDGER lane
+asserts it positively beside its four exclusions rather than leaving the list to widen.
+
+**A captured raider can be recruited or put to work.** docs/18 designs the recruit half — a
+prisoner eats, needs the quarantine room, can be offered a place, "arriving with real skills" —
+and the owner added the other: a held captive can be made to work. This is the first mechanic
+here that needs a tone stance, because no document states one; the nearest line is docs/18's cut
+of player-initiated raids "at the vision level", which stands. The stance, so the arc has a
+boundary before its first slice: a captive is **held, fed, guarded and offered**; forced labour is
+a price on the captive's mood and on the mood of colonists whose traits object, and an unguarded
+captive is a body that can leave, so the offer stays the honest path by construction and not by
+sermon; nothing is sold, tortured or bred, and the colony still never takes the offensive against
+another settlement. The standing pause on adjacent feature scope is amended by this decision and
+no other: the boot colony stays three, and a recruited captive is mid-game growth outside that
+pause. docs/23's what's-left names the six slices.
+
+**The player chooses their own nodes by default.** docs/08 says keystones are build-defining and
+"remain player decisions even for NPCs you otherwise ignore" — and the one survivor who is always
+you could not make one, because `_focus_of` read the absence of a job row as Auto. The fix is a
+**predicate, not a row**: `_focus_of` answers Manual for `world.player` and for any `controlled`
+body. A row attached at boot would have needed a second writer at succession, where
+`world.player` moves onto a body that keeps its own focus word and is hidden from the work grid
+by design; the predicate reads the two facts that define the player, in the file that already
+reads them for drift. "One field cannot disagree with itself" (the Focus entry above) still
+holds, because the player has no field. Three gates that had granted the player points and
+expected the sim to spend them were re-fixtured onto a colonist or onto the command, which is the
+honest shape anyway: a lane that proves a modifier applies "when the node is owned" should own it
+the way a player does.
