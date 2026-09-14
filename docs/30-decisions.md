@@ -4126,3 +4126,66 @@ rather than dressing the existing arm, because a comparison with no control is w
 mitigation ship inert and unnoticed in the first place. Two armour seeds, not four: the four-seed
 figure was taken by hand and agreed within 0.1%, and the direction is structural rather than
 statistical.
+
+## Readers first for the web, 2026-09-13
+
+The owner asked for more skills — weapons, crafting, and something for the NPC followers at camp —
+and the census that went looking for where to put them came back, as the roster's had the day
+before, with the reason there was nowhere obvious. This entry records that finding and the calls
+taken on it, because they set the arc's size and its order.
+
+**The finding.** The web's problem is not that it is small. It is that most of what it could point
+at is **unread**. The modifier registry names twenty-three stats and the sim resolves fifteen of
+them; of the seven an actor's own web can reach today, four are the melee and ranged numbers and
+the rest are carry, damage taken and stamina. Eight stats are resolved by nothing, and four of the
+fifteen shipped nodes target two of those — `healing_rate` behind both Medicine nodes,
+`repair_cost` behind both Craft nodes — so a survivor who drifts into Medicine or Craft buys nodes
+that change nothing and the screen shows them lit. "Followers at camp" has less than that: no
+leadership attribute (aptitudes are STR, DEX and CON), no relationships, and exactly one place in
+the game where one survivor's number reaches another, the pantry's best-living-colonist read.
+Adding nodes without readers would have grown that pile rather than the game.
+
+**Readers first, one per piece.** Each piece of the arc wires one stat into the sim with its own
+lane and then ships the nodes that reach it. `godot:m2:web`'s READERS lane makes that mechanical:
+every id the registry defines must be resolved by a function body under `godot/sim/`, or be named
+on one of two lists with its reason — `AWAITING_READER`, which the arc empties one piece at a
+time, and `EXCUSED_DEAD`, the five no piece reaches. Both lists are meant only to shrink, and the
+lane refuses a resolved stat that is still excused.
+
+**The five dead stats stay, excused by name.** `noise_propagation`, `structure_decay`,
+`temperature`, `condition_loss` and `bleed_on_hit` are resolved by nothing and no piece here
+reaches them. Striking them was offered and refused for now: two are still written by shipped
+affixes, so striking them edits affix content and moves the fingerprints `godot:check:mods`
+pins, which is a decision of its own. A named excuse is honest where a silent registration was
+not.
+
+**NPC reach is colony-reach nodes in existing regions.** A seventh region — Leadership, Camp —
+was offered and refused: it needs work that pays it and nothing does, a manual, a focus and drift
+rules, and touches nine enumerations across code, content, gates and docs, all for a stat the sim
+has no consumer of. The pantry already shows the shape that works: a node whose stat is read across
+the colony from whoever holds it best. So a ward rate speeds every treatment at camp while the
+medic who owns it is home, and someone to lean on damps an argument for the survivor standing
+beside them. docs/08's cut of a second, colony-wide progression layer stands — these are personal
+nodes with reach, not a research tree.
+
+**Minors and keystones; no notables.** A keystone is a rim node of cost three or more carrying its
+drawback as a second, negative modifier in the same node, under one source, so owning it and
+losing it are one act each; the auto-spend passes never buy one, because docs/08 says a keystone
+is chosen. A notable — a node that changes a behaviour rather than a number — would be the first
+`has_node` read inside the sim and a new mechanism per node, each with its own gate; that is an
+arc of its own and is not this one. Three of docs/08's named keystones are adapted rather than
+copied: "recoil" is the recover rung the fire state already has, so the cold shot pays in recovery;
+the quiet ones' firearm ban is a behaviour and becomes an accuracy cost; the field surgeon's cost
+is a permanent mood modifier.
+
+**Earned, not unspent.** Three reads treated `SimSkills.points` — what is still *banked* — as
+skill: the deep-wound suture floor, the sepsis roll's relief, and the modification bias. Every node
+bought made a survivor read as less skilled, which the focus slice named as an honest half and left
+alone. With the web widening it would have got worse with every piece, so all three read
+`SimSkills.earned` now — banked plus what the owned nodes cost. The behaviour change is real and
+one-directional: an Auto survivor reaches the suture floor and the full Craft bias three earned
+points earlier than before. A fixture that hand-writes points and owns nothing is unchanged.
+
+**One re-baseline, at the close.** As the roster arc did: every piece moves a number a campaign
+can feel, and four seeds before and after each of nine pieces is an overnight job apiece.
+

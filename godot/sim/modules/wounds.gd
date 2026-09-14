@@ -532,11 +532,12 @@ const CLOSE_TICKS: Dictionary = {
 const CLOSE_MEDICINE_FLOOR: int = 2
 
 # What a closed wound earns per resting tick, against an open-but-stopped wound's one. A whole
-# number by construction: `healedTicks` is an integer tick count, and a fractional multiplier would
-# either round away or force the field to a float that has to survive a JSON round-trip. The
-# UNCLOSED path multiplies by nothing at all -- it is still literally `+ 1` -- so an unsutured
-# wound recovers exactly as it did before this rung existed, which is the calibration the gate
-# pins.
+# number, still, but no longer because the clock is: since `healing_rate` began to be read
+# (2026-09-13, the wider-web arc's first piece) `healedTicks` accumulates as a float -- a
+# survivor deep in Medicine mends at 1.26 ticks a tick -- and every reader already cast it,
+# because JSON hands every number back as a float anyway. The UNCLOSED path at rate 1.0 is
+# still literally `+ 1`, so an unsutured wound on a survivor with no Medicine node recovers
+# exactly as it did before either rung existed, which is the calibration the gate pins.
 const CLOSED_RECOVERY_MUL: float = 2.0
 
 
@@ -1237,6 +1238,16 @@ static func register_module(world: Variant) -> void:
 			if not _is_recovering(w, int(entity)):
 				continue
 
+			# The patient's own `healing_rate`, read once per body per tick: the Medicine nodes
+			# that target it were the web's first dead sockets -- bought, lit on the screen, and
+			# read by nothing until 2026-09-13. Their scope is the survivor whose wound it is
+			# ("you tend your own wounds well"); a medic's reach over other people's wounds is
+			# the ward piece of the same arc, on its own stat. Both the wound's clock and the
+			# part's climb below take the same multiple, so a limb keeps pace with its wound.
+			var rate: float = 1.0
+			if w.modifiers != null and (w.modifiers as Object).has_method("resolve"):
+				rate = float(w.modifiers.call("resolve", "healing_rate", int(entity)))
+
 			var body: Dictionary = w.components.get_component(int(entity), "body") as Dictionary
 			# The worst open wound on each part sets that part's healing rate, so a limb
 			# carrying both a scratch and a deep wound mends at the deep wound's pace.
@@ -1267,8 +1278,8 @@ static func register_module(world: Variant) -> void:
 				if not worst_by_part.has(part) or sev > int(worst_by_part[part]):
 					worst_by_part[part] = sev
 					gain_by_part[part] = gain
-				wd["healedTicks"] = int(wd.get("healedTicks", 0)) + gain
-				if int(wd["healedTicks"]) >= recovery_days_for(String(wd.get("kind", "cut")), sev) * SimClock.DAY_TICKS:
+				wd["healedTicks"] = float(wd.get("healedTicks", 0)) + float(gain) * rate
+				if float(wd["healedTicks"]) >= float(recovery_days_for(String(wd.get("kind", "cut")), sev) * SimClock.DAY_TICKS):
 					closed.append(wd)
 
 			for part in worst_by_part.keys():
@@ -1281,7 +1292,7 @@ static func register_module(world: Variant) -> void:
 				var maxv: Variant = SimHealth.max_of(body, String(part))
 				if maxv == null or current >= float(int(maxv)):
 					continue
-				body[String(part)] = minf(float(int(maxv)), current + regen_per_tick(int(maxv), int(worst_by_part[part])) * float(int(gain_by_part.get(String(part), 1))))
+				body[String(part)] = minf(float(int(maxv)), current + regen_per_tick(int(maxv), int(worst_by_part[part])) * float(int(gain_by_part.get(String(part), 1))) * rate)
 
 			for done in closed:
 				var dd: Dictionary = done as Dictionary

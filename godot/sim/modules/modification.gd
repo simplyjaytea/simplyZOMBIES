@@ -185,7 +185,9 @@ static func apply(world: Variant, actor: int, item: int, consumable: int, target
 		return {"ok": false, "reason": "no-consumable"}
 
 	var rng: Variant = world.rng.stream(STREAM)
-	var craft: int = SimSkills.points(world, actor, "Craft")
+	# Earned Craft, not what is still banked: a node bought must not make the hands read as
+	# less practised (docs/30, "Readers first for the web").
+	var craft: int = SimSkills.earned(world, actor, "Craft")
 	var outcome: String = _outcome(world, rng, craft, hands)
 	if outcome != "success":
 		var broke: bool = _damage(world, item)

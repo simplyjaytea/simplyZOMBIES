@@ -23,6 +23,9 @@ const Hud = preload("res://ui/hud.gd")
 const SimChronicle = preload("res://sim/modules/chronicle.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
 const Pick = preload("res://presentation/pick.gd")
+const ContentReload = preload("res://platform/content_reload.gd")
+
+const RELOAD_GD: String = "res://platform/content_reload.gd"
 
 func _init() -> void:
 	call_deferred("_run")
@@ -40,8 +43,10 @@ func _run() -> void:
 	ok = _a_click_finds_a_colonist() and ok
 	var sheet_ok: bool = await _the_hidden_sheet_costs_nothing()
 	ok = sheet_ok and ok
+	var reload_ok: bool = await _an_untouched_tree_is_not_reloaded()
+	ok = reload_ok and ok
 	if ok:
-		print("HUD_OK prose only, day counter excepted, raw sheet gated, the body speaks for itself")
+		print("HUD_OK prose only, day counter excepted, raw sheet gated, the body speaks for itself, an untouched tree is not reloaded")
 		quit(0)
 	else:
 		push_error("HUD_FAIL")
@@ -478,4 +483,65 @@ func _the_body_speaks_for_itself() -> bool:
 		push_error("the pawn tag is not drawn inside a player-only branch, so it is a name plate over everybody")
 		return false
 	print("TAG OK a hurt body reads \"%s\", a well one reads nothing, bleeding shows, and the corner column is untouched" % hurt)
+	return true
+
+
+# The debug build's content-reload poll is not exempt from the frame budget either. It used to
+# validate the whole tree, then validate it again and load it again, twice a second, whether or
+# not a file had changed -- three full parses of every content file per poll. It fingerprints the
+# tree now (paths, modified times, lengths; a directory walk and no parse) and reloads only when
+# the fingerprint moves. True positive: with nothing touched, a forced poll leaves the live tree
+# alone -- a marker planted in `world.content` survives, where a reload replaces the Dictionary.
+# True negative: the reload path itself still replaces it when called, and the fold tells a
+# moved mtime from an unmoved one on a fabricated list, so "not reloaded" is not "cannot reload".
+func _an_untouched_tree_is_not_reloaded() -> bool:
+	# The fold can say no, without touching the shipped tree.
+	var same: Array = [["a.json", 100, 10], ["b.json", 200, 20]]
+	var moved: Array = [["a.json", 101, 10], ["b.json", 200, 20]]
+	var longer: Array = [["a.json", 100, 11], ["b.json", 200, 20]]
+	var a: int = ContentReload.fold_fingerprint(same)
+	if a != ContentReload.fold_fingerprint(same.duplicate(true)):
+		push_error("RELOAD-COST: the same list folds to two different fingerprints")
+		return false
+	if a == ContentReload.fold_fingerprint(moved) or a == ContentReload.fold_fingerprint(longer):
+		push_error("RELOAD-COST: a moved mtime or a changed length folds to the same fingerprint, so the poll would never reload")
+		return false
+	if ContentReload.content_fingerprint("res://content") != ContentReload.content_fingerprint("res://content"):
+		push_error("RELOAD-COST: the shipped tree fingerprints differently on two consecutive looks")
+		return false
+	var packed := load("res://presentation/main.tscn") as PackedScene
+	if packed == null:
+		push_error("cannot load the main scene")
+		return false
+	var main := packed.instantiate()
+	root.add_child(main)
+	await process_frame
+	var world: Variant = main.get("world")
+	if world == null:
+		push_error("the main scene did not construct a world")
+		main.queue_free()
+		return false
+	# One poll has run in _process by now and cached the fingerprint; if not, force it.
+	main.set("_content_poll_at", -1e9)
+	main.call("_poll_content_reload")
+	(world.content as Dictionary)["__probe"] = 1
+	main.set("_content_poll_at", -1e9)
+	main.call("_poll_content_reload")
+	var survived: bool = (world.content as Dictionary).has("__probe")
+	# The negative: the reload path, called directly, does replace the tree.
+	var res: Dictionary = ContentReload.try_reload_world(world)
+	var replaced: bool = bool(res.get("ok", false)) and not (world.content as Dictionary).has("__probe")
+	main.queue_free()
+	if not survived:
+		push_error("RELOAD-COST: a poll over an untouched tree reloaded it -- every debug frame pays for a parse nobody asked for")
+		return false
+	if not replaced:
+		push_error("RELOAD-COST: try_reload_world no longer replaces the tree, so the marker's survival proves nothing")
+		return false
+	# And the dead poller is gone: a function that answered "changed" whenever the tree was non-empty.
+	var src: String = FileAccess.get_file_as_string(RELOAD_GD)
+	if src.is_empty() or src.contains("return not paths.is_empty()"):
+		push_error("RELOAD-COST: content_reload.gd still carries the poller that answered true for any non-empty tree")
+		return false
+	print("RELOAD-COST OK a forced poll over an untouched tree left it alone, a direct reload replaced it, and the fold tells a moved file from an unmoved one")
 	return true

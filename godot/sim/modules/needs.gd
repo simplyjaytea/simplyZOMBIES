@@ -1877,7 +1877,9 @@ static func _daily_sepsis(world: Variant, ent: int, n: Dictionary) -> void:
 	var Wounds: GDScript = load("res://sim/modules/wounds.gd") as GDScript
 	if Wounds != null and Wounds.has_method("roll_sepsis"):
 		var SkillsRes: GDScript = load("res://sim/modules/skills.gd") as GDScript
-		var medicine: int = int(SkillsRes.call("points", world, ent, "Medicine")) if SkillsRes != null else 0
+		# Earned Medicine (banked plus what the owned nodes cost), so buying a node never makes a
+		# survivor's own wound more likely to turn (docs/30, "Readers first for the web").
+		var medicine: int = int(SkillsRes.call("earned", world, ent, "Medicine")) if SkillsRes != null else 0
 		Wounds.call("roll_sepsis", world, ent, mul, medicine)
 
 

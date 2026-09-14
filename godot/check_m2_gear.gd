@@ -58,8 +58,9 @@ func _run() -> void:
 	ok = _the_catalogue_is_findable_and_read() and ok
 	ok = _the_named_tier_is_authored_and_every_name_costs_something() and ok
 	ok = _the_camping_roster_is_reachable_authored_and_read() and ok
+	ok = _deep_pockets_is_felt_by_the_person_wearing_it() and ok
 	if ok:
-		print("M2_GEAR_OK slots have items, items are findable, coverage moves and composes by max, a command undresses one person, every base in the catalogue is reachable and read by something, the six named items are hand-authored, off both ladders, and each one charged for what it gives, and the camping roster is rolled by tables with both its grades priced and read")
+		print("M2_GEAR_OK slots have items, items are findable, coverage moves and composes by max, a command undresses one person, every base in the catalogue is reachable and read by something, the six named items are hand-authored, off both ladders, and each one charged for what it gives, the camping roster is rolled by tables with both its grades priced and read, and a pack of deep pockets is felt by whoever wears it")
 		quit(0)
 	else:
 		push_error("M2_GEAR_FAIL")
@@ -1109,4 +1110,69 @@ func _the_camping_roster_is_reachable_authored_and_read() -> bool:
 			return false
 
 	print("  CAMP: %d camping and utility bases, every one rolled by a table; bedQuality and hygiene are each an enum the sim prices and a price every enum reaches, both ladders strictly ordered; furnish_bed is reached from the Construct bed job and _spend_soap from the wash; a fabricated grade, a fabricated id and a digit in the prose are each refused" % entries.size())
+	return true
+
+
+# --- POCKETS -----------------------------------------------------------------------------------
+#
+# The `deep_pockets` suffix adds `carry_capacity` scoped to the *item*, and encumbrance resolved
+# `carry_capacity` on the *actor*; the two scopes never met, so the affix was rolled, named and
+# saved and moved nobody's load. `SimInventory.capacity_of` reads what is worn at use time. Both
+# halves: a bare pack adds nothing (or the fix would be "any pack adds capacity"), the same pack
+# on the ground adds nothing (the drop half, which a push-onto-the-wearer fix would get wrong),
+# and the worn one adds exactly what the content says -- read from the tree, not restated -- with
+# the consequence asserted through the encumbrance ratio, not just the number.
+func _deep_pockets_is_felt_by_the_person_wearing_it() -> bool:
+	var w: Variant = _world()
+	var affix: Variant = SimItems.content_entry(w, "affix", "affix.suffix.deep_pockets")
+	if not affix is Dictionary:
+		push_error("POCKETS: affix.suffix.deep_pockets is not content, so nothing was judged")
+		return false
+	var tier0: Dictionary = ((affix as Dictionary)["tiers"] as Array)[0] as Dictionary
+	var bonus: float = float(((tier0["modifiers"] as Array)[0] as Dictionary).get("value", 0.0))
+	if bonus <= 0.0:
+		push_error("POCKETS: the first tier adds nothing, so the assertion below would be vacuous")
+		return false
+	var base_cap: float = SimInventory.capacity_of(w, w.player)
+	# Control: a pack with nothing rolled on it adds nothing.
+	var plain: int = _spawn(w, "item.pack.hiking")
+	if not SimInventory.equip(w, w.player, plain, "back"):
+		push_error("POCKETS: the plain pack would not go on")
+		return false
+	if not is_equal_approx(SimInventory.capacity_of(w, w.player), base_cap):
+		push_error("POCKETS: a pack with no affix changed capacity %f -> %f" % [base_cap, SimInventory.capacity_of(w, w.player)])
+		return false
+	SimInventory.unequip(w, w.player, "back")
+	# Subject: the same pack, hand-rolled "of Deep Pockets" so no RNG draw is in the way.
+	var deep: int = _spawn(w, "item.pack.hiking")
+	w.components.set_component(deep, "affixes", {"prefixes": [], "suffixes": [{"id": "affix.suffix.deep_pockets", "tier": 0}]})
+	SimItems.reapply_affix_modifiers(w, deep)
+	var here: Dictionary = w.components.get_component(w.player, "position") as Dictionary
+	w.components.set_component(deep, "position", {"x": float(here["x"]), "y": float(here["y"])})
+	if not is_equal_approx(SimInventory.capacity_of(w, w.player), base_cap):
+		push_error("POCKETS: a deep-pockets pack on the ground at the feet changed capacity")
+		return false
+	if not SimInventory.equip(w, w.player, deep, "back"):
+		push_error("POCKETS: the deep-pockets pack would not go on")
+		return false
+	var worn_cap: float = SimInventory.capacity_of(w, w.player)
+	if not is_equal_approx(worn_cap, base_cap + bonus):
+		push_error("POCKETS: worn, capacity reads %f; the content says %f + %f" % [worn_cap, base_cap, bonus])
+		return false
+	# The consequence: the encumbrance ratio the overload penalty reads is against the new number.
+	w.step()
+	var enc: Dictionary = w.components.get_component(w.player, "encumbrance") as Dictionary
+	var kg: float = float(enc.get("kg", 0.0))
+	if kg <= 0.0:
+		push_error("POCKETS: the survivor carries nothing, so the ratio judges nothing")
+		return false
+	if not is_equal_approx(float(enc.get("ratio", 0.0)), kg / worn_cap):
+		push_error("POCKETS: the ratio reads %f against %f kg; capacity_of says %f" % [float(enc.get("ratio", 0.0)), kg, worn_cap])
+		return false
+	# And off again: the bonus leaves with the pack.
+	SimInventory.unequip(w, w.player, "back")
+	if not is_equal_approx(SimInventory.capacity_of(w, w.player), base_cap):
+		push_error("POCKETS: the bonus stayed after the pack came off")
+		return false
+	print("  POCKETS: a plain pack adds nothing, a deep-pockets pack on the ground adds nothing, worn it adds %.0f and the ratio follows, and it leaves with the pack" % bonus)
 	return true

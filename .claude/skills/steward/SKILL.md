@@ -10,12 +10,14 @@ is only about the pull request around it.
 
 ## What CI runs
 
-`.github/workflows/ci.yml`, three jobs. `check` is the one that decides: the TypeScript oracle
-(`npm run typecheck`, `lint`, `format:check`, `npm test`), `npm run sprites:check` (needs
-Pillow), `npm run check:routing`, the R1 parity and R6 gates, and then the whole
-`npm run godot:m2` chain -- about twelve minutes on its own. `godot-exports` packages Windows
-and web on a Windows runner and only runs once `check` is green. `performance` runs the two
-TypeScript benchmarks; a budget breach there is a failure, not a warning (docs/00, pillar 6).
+`.github/workflows/ci.yml`, four jobs since the 2026-09-12 split. `check` (25 min) is the
+TypeScript oracle (`npm run typecheck`, `lint`, `format:check`, `npm test`),
+`npm run sprites:check` (needs Pillow), `npm run check:routing`, R1 parity, the smoke, the
+content validator, the headless bench and the four R6 gates. `godot-m2` (45 min) is the whole
+`npm run godot:m2` chain on its own -- about twenty-seven minutes locally, 19-23 on CI -- split
+out after `check` was cancelled at 30m15s on the second-to-last gate. `godot-exports` packages
+Windows and web on a Windows runner and only runs once both are green. `performance` runs the
+two TypeScript benchmarks; a budget breach there is a failure, not a warning (docs/00, pillar 6).
 
 ## Before every push
 
@@ -34,9 +36,10 @@ TypeScript benchmarks; a budget breach there is a failure, not a warning (docs/0
   shutdown noise. Read the `_OK` line and the exit code.
 - `BENCH_OVER_BUDGET` from `godot:bench` exits 0 on purpose; `npm run bench` (TypeScript) does
   gate.
-- The `check` job's timeout is 30 minutes, sized to the measured chain. A run that dies with every
-  gate green and the balance harness still going is the chain having grown, not a flake: re-measure
-  and move the number in the workflow comment, never bump the timeout blind.
+- The `godot-m2` job's timeout is 45 minutes, sized with headroom over the measured chain (`check`
+  is 25 and no longer runs the chain). A run that dies with every gate green and the balance
+  harness still going is the chain having grown, not a flake: re-measure and move the number in
+  the workflow comment, never bump the timeout blind.
 - A `godot:m2` gate that goes red on a branch that did not touch its system is still this PR's to
   root-cause: gate worlds share one process, and a `static var` or an unrestored flag in one lane
   leaks into the next (the traps in `CLAUDE.md`).

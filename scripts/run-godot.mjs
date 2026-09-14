@@ -430,6 +430,9 @@ switch (mode) {
   case "--worn":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_worn.gd"];
     break;
+  case "--web-look":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_web_look.gd"];
+    break;
   case "--authored":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_authored.gd"];
     break;

@@ -5,6 +5,8 @@ const World = preload("res://sim/world.gd")
 const SimAptitudes = preload("res://sim/modules/aptitudes.gd")
 const SimSurvivors = preload("res://sim/modules/survivors.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
+const SimInventory = preload("res://sim/modules/inventory.gd")
+const SimItems = preload("res://sim/modules/items.gd")
 
 func _init() -> void:
 	call_deferred("_run")
@@ -18,8 +20,9 @@ func _run() -> void:
 	ok = _mara_spawns() and ok
 	ok = _roll_is_budgeted_and_seeded() and ok
 	ok = _save_roundtrip() and ok
+	ok = _gear_stacks_with_strength() and ok
 	if ok:
-		print("M2_STATS_OK midpoint formulas con dex mara roll save")
+		print("M2_STATS_OK midpoint formulas con dex mara roll save gear")
 		quit(0)
 	else:
 		push_error("M2_STATS_FAIL")
@@ -171,4 +174,33 @@ func _save_roundtrip() -> bool:
 		push_error("aptitudes save roundtrip drifted")
 		return false
 	print("SAVE OK")
+	return true
+
+
+# STR's carry and a pack "of Deep Pockets" compose: the gear read (SimInventory.capacity_of, the
+# gear gate's POCKETS lane) adds to the actor-scoped number this gate owns rather than replacing
+# it. STR 8 is +9 over the base 25; the suffix's top tier is read from the content.
+func _gear_stacks_with_strength() -> bool:
+	var w: Variant = World.new(_fixture(9))
+	SimInventory.register_module(w)
+	SimItems.register_module(w)
+	SimInventory.make_inventory(w, w.player)
+	SimAptitudes.apply(w, w.player, {"str": 8, "dex": 4, "con": 3})
+	var affix: Variant = SimItems.content_entry(w, "affix", "affix.suffix.deep_pockets")
+	if not affix is Dictionary:
+		push_error("GEAR: affix.suffix.deep_pockets is not content")
+		return false
+	var tiers: Array = (affix as Dictionary)["tiers"] as Array
+	var top: float = float((((tiers[tiers.size() - 1] as Dictionary)["modifiers"] as Array)[0] as Dictionary).get("value", 0.0))
+	var pack: int = SimItems.spawn_item(w, "item.pack.hiking", {"tier": "scavenged"})
+	w.components.set_component(pack, "affixes", {"prefixes": [], "suffixes": [{"id": "affix.suffix.deep_pockets", "tier": tiers.size() - 1}]})
+	SimItems.reapply_affix_modifiers(w, pack)
+	if not SimInventory.equip(w, w.player, pack, "back"):
+		push_error("GEAR: the pack would not go on")
+		return false
+	var carry: float = SimInventory.capacity_of(w, w.player)
+	if absf(carry - (34.0 + top)) > 0.001:
+		push_error("GEAR: STR 8 and a top-tier pack carry %s, expected %s" % [carry, 34.0 + top])
+		return false
+	print("GEAR OK STR 8 and deep pockets carry %.0f" % carry)
 	return true

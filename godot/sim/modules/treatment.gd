@@ -340,6 +340,14 @@ static func _plan(world: Variant, actor: int, patient: int, part: String, verb: 
 		return {"ok": false, "reason": _nothing_reason(world, patient, part, verb)}
 	var severity: int = int((wound as Dictionary).get("severity", SimWounds.Severity.Scratch))
 
+	# The treater's `treatment_speed`, the wider-web arc's first new stat (2026-09-13): practised
+	# hands bandage, clean and close in fewer ticks. Pressure is deliberately not scaled --
+	# `_bank_pressure` banks served ticks against the raw PRESSURE_TICKS, one currency, and a
+	# scaled press would be credited twice, once in its shorter span and once in the bank.
+	var speed: float = 1.0
+	if world.modifiers != null and (world.modifiers as Object).has_method("resolve"):
+		speed = float(world.modifiers.call("resolve", "treatment_speed", actor))
+
 	var ticks: int = 0
 	match verb:
 		"pressure":
@@ -350,11 +358,11 @@ static func _plan(world: Variant, actor: int, patient: int, part: String, verb: 
 		"bandage":
 			if String(_best_bandage(world, actor).get("tier", "")) == "":
 				return {"ok": false, "reason": "no-bandage"}
-			ticks = int(SimWounds.BANDAGE_TICKS.get(severity, 0))
+			ticks = _at_speed(int(SimWounds.BANDAGE_TICKS.get(severity, 0)), speed)
 		"clean":
 			if String(_best_clean(world, actor).get("tier", "")) == "":
 				return {"ok": false, "reason": "no-supply"}
-			ticks = int(SimWounds.CLEAN_TICKS.get(severity, 0))
+			ticks = _at_speed(int(SimWounds.CLEAN_TICKS.get(severity, 0)), speed)
 		"close":
 			# You close what you have already stopped. Checked before the kit and before the skill
 			# so the reason the panel shows is the one the survivor can actually act on.
@@ -369,10 +377,18 @@ static func _plan(world: Variant, actor: int, patient: int, part: String, verb: 
 			severity = int((closable as Dictionary).get("severity", SimWounds.Severity.Scratch))
 			if severity >= SimWounds.Severity.DeepWound and _medicine_of(world, actor) < SimWounds.CLOSE_MEDICINE_FLOOR:
 				return {"ok": false, "reason": "unskilled"}
-			ticks = int(SimWounds.CLOSE_TICKS.get(severity, 0))
+			ticks = _at_speed(int(SimWounds.CLOSE_TICKS.get(severity, 0)), speed)
 	if ticks <= 0:
 		return {"ok": false, "reason": "nothing-to-do"}
 	return {"ok": true, "ticks": ticks}
+
+
+# A span at a speed: a table entry of zero stays zero, so "nothing-to-do" still means that, and
+# anything else is at least one whole tick.
+static func _at_speed(base: int, speed: float) -> int:
+	if base <= 0:
+		return 0
+	return maxi(1, int(round(float(base) / maxf(0.1, speed))))
 
 
 # Why there was nothing to work on. `pressure` and `bandage` keep "not-bleeding" verbatim -- it is
@@ -1145,9 +1161,12 @@ static func _carried_close_kinds(world: Variant, actor: int) -> Array[String]:
 
 
 # The treater's Medicine, read from the one place that owns it. The actor's, not the patient's:
-# it is the hands doing the suturing that need to know what they are doing.
+# it is the hands doing the suturing that need to know what they are doing. *Earned*, not
+# unspent: `points` is what is still banked, and reading that as skill meant every node bought
+# made a medic read as less of one (docs/23's "honest halves" under the focus slice, closed
+# 2026-09-13 when the web began to widen -- docs/30, "Readers first for the web").
 static func _medicine_of(world: Variant, actor: int) -> int:
-	return int(SimSkills.points(world, actor, "Medicine"))
+	return int(SimSkills.earned(world, actor, "Medicine"))
 
 
 # The read model the panel uses to decide which verbs to offer. Same {ok, reason} the sim

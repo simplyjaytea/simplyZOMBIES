@@ -38,6 +38,9 @@ const SimItems = preload("res://sim/modules/items.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimClock = preload("res://sim/time/clock.gd")
 const SimStances = preload("res://sim/stances.gd")
+const SimSkills = preload("res://sim/modules/skills.gd")
+const SimJobs = preload("res://sim/modules/jobs.gd")
+const SimFortify = preload("res://sim/modules/fortify.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
 
 # torso max is 40, so 20 damage is half of it -- comfortably inside DeepWound's >= 0.40 band
@@ -82,6 +85,7 @@ func _run() -> void:
 	ok = _a_reopened_wound_is_dirty_again() and ok
 	ok = _the_new_supplies_are_findable() and ok
 	ok = _deterministic_replay() and ok
+	ok = _the_treatment_speed_is_read() and ok
 	if ok:
 		print("M2_TREATMENT_OK pressure is a commitment, a bandage is durable, the ladder cleans and closes, the infection verbs are reachable")
 		quit(0)
@@ -1641,3 +1645,124 @@ func _deterministic_replay() -> bool:
 		return false
 	print("DETERMINISM OK identical runs match, a 7-tick shift does not")
 	return true
+
+
+# --- SPEED -------------------------------------------------------------------------------
+#
+# `treatment_speed` is the wider-web arc's first new stat (docs/30, "Readers first for the web"):
+# the treater's hands divide the bandage, clean and close spans, and the NPC doctor's own span.
+# Pressure is deliberately not scaled -- R8 banks served ticks against the raw PRESSURE_TICKS,
+# one currency, and a scaled press would be credited twice -- so the lane asserts it unmoved,
+# which is the assertion most likely to be lost in a tidy-up. True negatives: the same modifier
+# on the patient moves nothing, and plain hands ask exactly the table. Then the keystone: a
+# Manual survivor with three Medicine points buys the field surgeon by `web.buy`, and both its
+# gift and its price land on the same survivor under one source, while an Auto survivor granted
+# the whole region never owns it.
+func _the_treatment_speed_is_read() -> bool:
+	var deep: int = SimWounds.Severity.DeepWound
+	var table: Dictionary = {
+		"bandage": int(SimWounds.BANDAGE_TICKS[deep]),
+		"clean": int(SimWounds.CLEAN_TICKS[deep]),
+		"close": int(SimWounds.CLOSE_TICKS[deep]),
+	}
+	# One wound per verb, in the state the verb wants: a bandage and a clean take a bleeding
+	# wound, a close takes one already stopped.
+	var parts: Dictionary = {"bandage": "torso", "clean": "arm_right", "close": "leg_left"}
+	for who in ["quick", "plain", "patient"]:
+		var w: Variant = _world()
+		var actor: int = w.player
+		var patient: int = _bystander(w, 9.0, 16.5)
+		_deep_wound(w, patient, "torso")
+		_deep_wound(w, patient, "arm_right")
+		_stopped_wound(w, patient, "leg_left")
+		_medicine(w, actor, SimWounds.CLOSE_MEDICINE_FLOOR)
+		_give(w, actor, "item.bandage.cloth", 2)
+		_give(w, actor, "item.antiseptic.bottle", 2)
+		_give(w, actor, "item.suture.kit", 2)
+		var scope: int = actor if who == "quick" else patient
+		if who != "plain":
+			w.modifiers.call("add", {"stat": "treatment_speed", "op": "mul", "value": 2.0, "source": "web.probe"}, scope)
+		var mul: float = 0.5 if who == "quick" else 1.0
+		for verb in table.keys():
+			var plan: Dictionary = SimTreatment.begin(w, actor, patient, String(parts[verb]), String(verb))
+			if not bool(plan.get("ok", false)):
+				push_error("SPEED: %s could not begin %s: %s" % [who, String(verb), str(plan.get("reason", ""))])
+				return false
+			SimTreatment.cancel(w, actor)
+			var want: int = int(round(float(table[verb]) * mul))
+			if int(plan.get("ticks", 0)) != want:
+				push_error("SPEED: %s hands asked %d ticks to %s a deep wound, expected %d" % [who, int(plan.get("ticks", 0)), String(verb), want])
+				return false
+		# Pressure: unmoved under every set of hands. A fresh, bleeding wound on another part.
+		_deep_wound(w, patient, "arm_left")
+		var press: Dictionary = SimTreatment.begin(w, actor, patient, "arm_left", "pressure")
+		SimTreatment.cancel(w, actor)
+		if int(press.get("ticks", 0)) != int(SimWounds.PRESSURE_TICKS[deep]):
+			push_error("SPEED: %s hands asked %d ticks of pressure, which R8 banks in raw ticks and must stay %d" % [who, int(press.get("ticks", 0)), int(SimWounds.PRESSURE_TICKS[deep])])
+			return false
+	# The NPC doctor's own span, and the job that reads it.
+	var jw: Variant = _world()
+	var doc: int = _bystander(jw, 9.0, 16.5)
+	jw.modifiers.call("add", {"stat": "treatment_speed", "op": "mul", "value": 2.0, "source": "web.probe"}, doc)
+	if SimJobs.treat_span(jw, jw.player) != int(SimFortify.CHANNEL_TICKS) or SimJobs.treat_span(jw, doc) != int(round(float(SimFortify.CHANNEL_TICKS) / 2.0)):
+		push_error("SPEED: the doctor's span reads %d plain and %d at x2, expected %d and %d" % [SimJobs.treat_span(jw, jw.player), SimJobs.treat_span(jw, doc), int(SimFortify.CHANNEL_TICKS), int(round(float(SimFortify.CHANNEL_TICKS) / 2.0))])
+		return false
+	var body: String = _function_body("res://sim/modules/jobs.gd", "_doctor_work")
+	if _missing_needle("nothing here", ["absent"]).is_empty():
+		push_error("SPEED: the needle scanner cannot say no")
+		return false
+	if body.is_empty() or not _missing_needle(body, ["treat_span(world, ent)"]).is_empty():
+		push_error("SPEED: _doctor_work does not read treat_span, so the NPC doctor's speed is a number nobody uses")
+		return false
+	# The keystone: chosen, never auto-bought; gift and price under one source.
+	var kw: Variant = _world()
+	var manual: int = _bystander(kw, 9.0, 16.5)
+	kw.components.set_component(manual, "identity", {"id": "survivor.probe", "name": "Probe", "unique": false, "backstory": ""})
+	SimJobs.attach(kw, manual, "Manual")
+	SimSkills.attach(kw, manual)
+	SimSkills._earn(kw, manual, "Medicine", 3)
+	# `_buy` is what the `web.buy` intake calls for a Manual survivor (the autonomy gate holds
+	# the intake itself); this bare world registers no skills module, so it is called direct.
+	if not SimSkills._buy(kw, manual, "med.surgeon") or not SimSkills.has_node(kw, manual, "med.surgeon"):
+		push_error("SPEED: a Manual survivor with three Medicine points could not buy the field surgeon")
+		return false
+	var gift: float = float(kw.modifiers.call("resolve", "treatment_speed", manual))
+	var price: float = float(kw.modifiers.call("resolve", "mood", manual))
+	if absf(gift - 1.35) > 0.001 or absf(price - (-6.0)) > 0.001:
+		push_error("SPEED: the field surgeon reads treatment_speed %.3f and mood %.1f; the content says 1.35 and -6" % [gift, price])
+		return false
+	var auto: int = _bystander(kw, 10.0, 16.5)
+	kw.components.set_component(auto, "identity", {"id": "survivor.probe", "name": "Probe", "unique": false, "backstory": ""})
+	SimJobs.attach(kw, auto, "Auto")
+	SimSkills.attach(kw, auto)
+	SimSkills._earn(kw, auto, "Medicine", 12)
+	if SimSkills.has_node(kw, auto, "med.surgeon"):
+		push_error("SPEED: an Auto survivor bought the field surgeon; a keystone is chosen, never auto-bought")
+		return false
+	print("SPEED OK x2 hands bandage, clean and close a deep wound in half the table and press for the full %d; the patient's modifier moves nothing; the doctor's span is %d at x2; the field surgeon is bought by hand, reads 1.35 and costs six of mood, and an Auto survivor never owns it" % [int(SimWounds.PRESSURE_TICKS[deep]), int(round(float(SimFortify.CHANNEL_TICKS) / 2.0))])
+	return true
+
+
+func _function_body(path: String, name: String) -> String:
+	var f: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return ""
+	var lines: PackedStringArray = f.get_as_text().split("\n")
+	var out: String = ""
+	var inside: bool = false
+	for line in lines:
+		if line.begins_with("func %s(" % name) or line.begins_with("static func %s(" % name):
+			inside = true
+			continue
+		if inside and (line.begins_with("func ") or line.begins_with("static func ")):
+			break
+		if inside:
+			out += line + "\n"
+	return out
+
+
+func _missing_needle(body: String, needles: Array) -> String:
+	for n in needles:
+		if not body.contains(String(n)):
+			return String(n)
+	return ""
