@@ -28,6 +28,7 @@ const SimRaiders = preload("res://sim/modules/raiders.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
 const SimShambler = preload("res://sim/modules/shambler.gd")
+const SimSkills = preload("res://sim/modules/skills.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
 const Appearance = preload("res://presentation/appearance.gd")
@@ -36,6 +37,8 @@ const Clock = preload("res://sim/time/clock.gd")
 
 const SEED: int = 20260805
 const MAP_TILES: int = 64
+const RANGED_GD: String = "res://sim/modules/ranged.gd"
+const NPC_COMBAT_GD: String = "res://sim/modules/npc_combat.gd"
 # Long enough for a band placed on a district edge to cross a 64 m district at 1.5 m/s and still
 # leave room for the assertion to be about the approach rather than about the last metre.
 const APPROACH_TICKS: int = 1200
@@ -58,8 +61,9 @@ func _run() -> void:
 	ok = _a_dead_raider_leaves_the_district_and_its_kit() and ok
 	ok = _a_raider_is_not_on_the_colony_ledger() and ok
 	ok = _a_band_that_has_lost_withdraws() and ok
+	ok = _a_raider_fights_with_what_it_arrived_with() and ok
 	if ok:
-		print("M2_RAIDERS_OK archetypes draw grace approach blood prey seed death ledger")
+		print("M2_RAIDERS_OK archetypes draw grace approach blood prey seed death ledger withdraw skilled")
 		quit(0)
 	else:
 		push_error("M2_RAIDERS_FAIL")
@@ -82,6 +86,11 @@ func _the_archetypes_are_well_formed() -> bool:
 	hex.compile("^#[0-9a-f]{6}$")
 	var looks: Dictionary = {}
 	var armed: int = 0
+	var endowed: int = 0
+	var nodes_by_id: Dictionary = SimSkills._nodes_by_id(SimSkills.definition())
+	if nodes_by_id.is_empty():
+		push_error("the skill web has no nodes, so nothing below about skills can be judged")
+		return false
 	for entry in pool:
 		var id: String = String(entry.get("id", ""))
 		if String(entry.get("allegiance", "")) != SimAllegiance.RAIDERS:
@@ -147,6 +156,48 @@ func _the_archetypes_are_well_formed() -> bool:
 				if v < 3 or v > 8:
 					push_error("%s aptitude %s=%d is outside SimAptitudes' 3..8 clamp" % [id, k, v])
 					return false
+		# What the archetype arrives knowing. The schema can say "an array of strings matching a
+		# pattern" and no more; that every string is a node in the web, that none repeats, and
+		# that the biography holds at most one keystone are this lane's to recurse into -- and
+		# then that the spawned body actually owns exactly that list, with nothing banked, so a
+		# raider's skills are the author's and not the surplus pass's.
+		var authored: Variant = entry.get("skills", [])
+		if authored is Array and not (authored as Array).is_empty():
+			var seen: Dictionary = {}
+			var keystones: int = 0
+			for nid_v in authored as Array:
+				var nid: String = String(nid_v)
+				if not nodes_by_id.has(nid):
+					push_error("%s skills name %s, which is not a node in the web" % [id, nid])
+					return false
+				if seen.has(nid):
+					push_error("%s skills name %s twice" % [id, nid])
+					return false
+				seen[nid] = true
+				if SimSkills.is_keystone(nodes_by_id[nid] as Dictionary):
+					keystones += 1
+			if keystones > 1:
+				push_error("%s arrives owning %d keystones -- docs/08 says a keystone is chosen, and one is a biography" % [id, keystones])
+				return false
+			var spawned: int = SimRaiders.spawn(w, 4.0, 4.0, id)
+			var web: Variant = w.components.get_component(spawned, "skillWeb")
+			if not web is Dictionary:
+				push_error("%s spawned with no skillWeb, so its skills read nothing" % id)
+				return false
+			var owned: Array = (web as Dictionary).get("nodes", []) as Array
+			if owned != (authored as Array):
+				push_error("%s was authored %s and spawned owning %s" % [id, str(authored), str(owned)])
+				return false
+			for r in SimSkills.REGIONS:
+				if SimSkills.points(w, spawned, String(r)) != 0:
+					push_error("%s spawned with %d %s points banked -- authored nodes are granted, not bought" % [id, SimSkills.points(w, spawned, String(r)), String(r)])
+					return false
+			var first: Dictionary = nodes_by_id[String((authored as Array)[0])] as Dictionary
+			if SimSkills.earned(w, spawned, String(first.get("region", ""))) != int(first.get("cost", 1)):
+				push_error("%s's %s reads %d earned in %s; the node costs %d" % [id, String(first.get("id", "")), SimSkills.earned(w, spawned, String(first.get("region", ""))), String(first.get("region", "")), int(first.get("cost", 1))])
+				return false
+			w.despawn(spawned)
+			endowed += 1
 		var look: Variant = entry.get("appearance", {})
 		if not (look is Dictionary) or not (look as Dictionary).has("sprite"):
 			push_error("%s declares no appearance.sprite -- the one shared body is the anonymity mechanism, not a nicety" % id)
@@ -166,6 +217,11 @@ func _the_archetypes_are_well_formed() -> bool:
 	# lane passed quietly on an empty set, which is the gate-that-cannot-fail hole.
 	if looks.size() == 0:
 		push_error("no archetype declared a look -- the shared-body assertion had nothing to judge")
+		return false
+	# Same hole, the skills half: with every archetype's `skills` absent the block above judges
+	# nothing and the "arrives with real skills" claim (docs/18) would pass on an empty set.
+	if endowed == 0:
+		push_error("no archetype declares any skills -- the biography assertions above had nothing to judge")
 		return false
 	if looks.size() > 1:
 		push_error("raider archetypes declare %d different bodies %s -- a glance must not say which one has the gun" % [looks.size(), str(looks.keys())])
@@ -203,7 +259,7 @@ func _the_archetypes_are_well_formed() -> bool:
 	if (undeclared["tint"] as Color) != Palette.COLOURS["raider"]:
 		push_error("an unknown raider archetype must fall back to the raider role colour, got %s" % str(undeclared["tint"]))
 		return false
-	print("ARCHETYPES OK %d entries, all armed, one shared body %s drawn unstained, glimpse radius %.0f == survivor" % [armed, str(looks.keys()), float(raider_look["radius"])])
+	print("ARCHETYPES OK %d entries, all armed, %d arrive with authored skills owned outright, one shared body %s drawn unstained, glimpse radius %.0f == survivor" % [armed, endowed, str(looks.keys()), float(raider_look["radius"])])
 	return true
 
 
@@ -674,6 +730,14 @@ func _a_raider_is_not_on_the_colony_ledger() -> bool:
 		if w.components.has_component(raider, component):
 			push_error("a raider carries '%s' -- it would be counted, fed or employed as a colonist" % component)
 			return false
+	# The one colonist component a raider does carry, by the 2026-09-14 decision that there is one
+	# web for everybody. Safe on this ledger because nothing that counts, feeds, employs or
+	# promotes reads `skillWeb` alone (drift queries it with `jobPriorities`, the harness counts
+	# `needs` + `body`) -- and asserted positively here so the exclusions above cannot quietly
+	# widen to it the next time somebody tidies this list.
+	if not w.components.has_component(raider, "skillWeb"):
+		push_error("a raider carries no 'skillWeb' -- one web for everybody, and its authored skills would read nothing")
+		return false
 	if not w.components.has_component(colonist, "needs"):
 		push_error("the control colonist carries no 'needs', so the exclusions above prove nothing")
 		return false
@@ -697,8 +761,160 @@ func _a_raider_is_not_on_the_colony_ledger() -> bool:
 	if SimAllegiance.enemies_of(w, raider).has(raider):
 		push_error("a raider is its own enemy")
 		return false
-	print("LEDGER OK raider carries no needs/identity/jobPriorities/recruit; colony count held at 1; hostility symmetric")
+	print("LEDGER OK raider carries no needs/identity/jobPriorities/recruit and does carry skillWeb; colony count held at 1; hostility symmetric")
 	return true
+
+
+# --- the web ----------------------------------------------------------------------------------
+
+# A raider fights with what it arrived with. One web for everybody (docs/30, 2026-09-14) is
+# only true if the archetype's authored node is *read* during the raid, not merely owned -- the
+# dead-socket rule -- so the claim is made on the stat a gunhand's `ranged.breath` moves, on the
+# fixture body, against the same archetype with its skills erased (exactly the base, no `web.`
+# source), and then followed one link further into the code that fires the shot. Then the three
+# things that must also be true of a raider's web: they earn a kill like anybody and spend it
+# along the Auto path, but never for a person; daily drift never sees them; and the modifiers go
+# with the body when it dies, which is the `remove_scope` line in `world.despawn`.
+func _a_raider_fights_with_what_it_arrived_with() -> bool:
+	# The scanners first, on a body they cannot satisfy, so a lane that reads nothing cannot pass.
+	if not _function_body(RANGED_GD, "no_such_function_here").is_empty():
+		push_error("SKILLED: _function_body found a body for a function that does not exist")
+		return false
+	if _missing_needle("abc", ["zzz"]) != "zzz":
+		push_error("SKILLED: _missing_needle did not report an absent needle")
+		return false
+	var w: Variant = _arena()
+	# The arena registers the combat modules and nothing else; the kill handler this lane's earn
+	# half exercises lives in skills.gd, so it is registered here rather than in the arena, where
+	# every other lane would then carry it for nothing.
+	SimSkills.register_module(w)
+	var gun: int = SimRaiders.spawn(w, 10.0, 10.0, "raider.gunhand")
+	w.events.drain()
+	if not SimSkills.has_node(w, gun, "ranged.breath"):
+		push_error("SKILLED: the gunhand did not arrive owning ranged.breath; the lane needs that node to judge anything")
+		return false
+	var acc: float = float(w.modifiers.call("resolve", "ranged_accuracy", gun))
+	if acc <= 1.0:
+		push_error("SKILLED: a gunhand with ranged.breath resolves ranged_accuracy %.3f against a base of 1.0" % acc)
+		return false
+	if not _web_sources(w, "ranged_accuracy", gun).has("web.ranged.breath"):
+		push_error("SKILLED: the gunhand's accuracy is not sourced from web.ranged.breath: %s" % str(_web_sources(w, "ranged_accuracy", gun)))
+		return false
+	# True negative: the same archetype, skills erased, is exactly the base. A copy of the
+	# *raider* content, never of the web -- `SimSkills._cached` is a static shared by every world.
+	var entry: Variant = SimRaiders.content_entry(w, "raider.gunhand")
+	if not entry is Dictionary or not (w.content is Dictionary):
+		push_error("SKILLED: could not read raider.gunhand out of the content tree to fabricate its twin")
+		return false
+	var plain: Dictionary = (entry as Dictionary).duplicate(true)
+	plain["id"] = "raider.probe"
+	plain.erase("skills")
+	(w.content as Dictionary)["raiders/_probe"] = plain
+	var probe: int = SimRaiders.spawn(w, 12.0, 10.0, "raider.probe")
+	w.events.drain()
+	if probe < 0 or not w.components.has_component(probe, "skillWeb"):
+		push_error("SKILLED: the skill-less twin did not spawn with an (empty) web")
+		return false
+	var plain_acc: float = float(w.modifiers.call("resolve", "ranged_accuracy", probe))
+	if plain_acc != 1.0 or not _web_sources(w, "ranged_accuracy", probe).is_empty():
+		push_error("SKILLED: the twin with no skills resolves %.3f with sources %s; it should be exactly 1.0 from nothing" % [plain_acc, str(_web_sources(w, "ranged_accuracy", probe))])
+		return false
+	# The reader, followed to where the shot is decided: the cone refresh resolves the stat on
+	# the shooter, the shot calls the refresh, and the NPC fire path calls the shot.
+	var cone: String = _function_body(RANGED_GD, "_refresh_cone")
+	var shot: String = _function_body(RANGED_GD, "_fire_shot")
+	var engage: String = _function_body(NPC_COMBAT_GD, "_engage")
+	if cone.is_empty() or shot.is_empty() or engage.is_empty():
+		push_error("SKILLED: could not read _refresh_cone, _fire_shot or _engage out of the sim")
+		return false
+	if not _missing_needle(cone, ["\"ranged_accuracy\", entity"]).is_empty():
+		push_error("SKILLED: _refresh_cone no longer resolves ranged_accuracy on the shooter")
+		return false
+	if not _missing_needle(shot, ["_refresh_cone("]).is_empty() or not _missing_needle(engage, ["try_begin_fire("]).is_empty():
+		push_error("SKILLED: the shot no longer refreshes the cone, or the NPC path no longer fires through try_begin_fire")
+		return false
+	# Earning. A shambler put down pays the gunhand like anybody -- Ranged, with a pistol in hand
+	# -- and with no focus row the point is spent along the Auto path, which is what "one web"
+	# means for a body nobody manages. A person killed pays nothing: the handler wants a
+	# `zombieType` on the victim, and that is the difference between practice and murder.
+	var ranged_before: int = SimSkills.earned(w, gun, "Ranged")
+	var nodes_before: int = SimSkills.node_count(w, gun)
+	var colonist: int = _colonist(w, 20.0, 20.0)
+	w.events.publish({"type": "entity.killed", "entity": colonist, "killer": gun, "x": 20.0, "y": 20.0})
+	w.step()
+	if SimSkills.earned(w, gun, "Ranged") != ranged_before or SimSkills.node_count(w, gun) != nodes_before:
+		push_error("SKILLED: killing a colonist paid the raider (Ranged %d→%d)" % [ranged_before, SimSkills.earned(w, gun, "Ranged")])
+		return false
+	var zed: int = int(w.entities.spawn())
+	w.components.set_component(zed, "zombieType", {"id": "zombie.shambler"})
+	w.components.set_component(zed, "body", {"head": 1.0, "torso": 40.0, "arms": 40.0, "legs": 40.0})
+	w.components.set_component(zed, "position", {"x": 11.0, "y": 10.0})
+	w.events.publish({"type": "entity.killed", "entity": zed, "killer": gun, "x": 11.0, "y": 10.0, "zombieType": "zombie.shambler"})
+	w.step()
+	if SimSkills.earned(w, gun, "Ranged") != ranged_before + 1:
+		push_error("SKILLED: a shambler put down did not pay the gunhand one Ranged point (%d→%d)" % [ranged_before, SimSkills.earned(w, gun, "Ranged")])
+		return false
+	if SimSkills.node_count(w, gun) != nodes_before + 1 or SimSkills.points(w, gun, "Ranged") != 0:
+		push_error("SKILLED: the earned point was not spent along the Auto path (nodes %d→%d, %d banked)" % [nodes_before, SimSkills.node_count(w, gun), SimSkills.points(w, gun, "Ranged")])
+		return false
+	# Drift never sees a raider: it queries `skillWeb` with `jobPriorities`, and a raider has no
+	# row to drift. The gunhand's driftDay stays where attach left it after a day is considered.
+	SimSkills._drift_all(w, 3)
+	var web: Dictionary = w.components.get_component(gun, "skillWeb") as Dictionary
+	if int(web.get("driftDay", 0)) != 0:
+		push_error("SKILLED: drift considered the raider (driftDay %d)" % int(web.get("driftDay", 0)))
+		return false
+	# And the modifiers die with the body. DEATH's own path -- the head destroyed, `finish_death`,
+	# a step so `health.reap` runs -- then the scope must be empty: exactly the base, no source.
+	var body: Dictionary = w.components.get_component(gun, "body") as Dictionary
+	body["head"] = 0.0
+	SimHealth.finish_death(w, gun)
+	w.step()
+	if w.components.has_component(gun, "skillWeb"):
+		push_error("SKILLED: the dead gunhand's skillWeb survived the despawn")
+		return false
+	var dead_acc: float = float(w.modifiers.call("resolve", "ranged_accuracy", gun))
+	if dead_acc != 1.0 or not _web_sources(w, "ranged_accuracy", gun).is_empty():
+		push_error("SKILLED: the dead gunhand's scope still resolves %.3f with sources %s -- world.despawn's remove_scope is not reaching the web" % [dead_acc, str(_web_sources(w, "ranged_accuracy", gun))])
+		return false
+	print("SKILLED OK gunhand ranged_accuracy %.3f from web.ranged.breath, its skill-less twin exactly 1.000; a shambler paid one Ranged point spent on the Auto path, a colonist paid nothing; drift skipped it; dead, exactly 1.000 from nothing" % acc)
+	return true
+
+
+# Every `web.` source contributing to `stat` on `scope`, from the store's own explanation.
+func _web_sources(w: Variant, stat: String, scope: int) -> Array[String]:
+	var out: Array[String] = []
+	var ex: Dictionary = w.modifiers.call("explain", stat, scope) as Dictionary
+	for c in ex.get("contributions", []) as Array:
+		var src: String = String((c as Dictionary).get("source", ""))
+		if src.begins_with("web."):
+			out.append(src)
+	return out
+
+
+func _function_body(path: String, name: String) -> String:
+	var f: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return ""
+	var lines: PackedStringArray = f.get_as_text().split("\n")
+	var out: String = ""
+	var inside: bool = false
+	for line in lines:
+		if line.begins_with("func %s(" % name) or line.begins_with("static func %s(" % name):
+			inside = true
+			continue
+		if inside and (line.begins_with("func ") or line.begins_with("static func ")):
+			break
+		if inside:
+			out += line + "\n"
+	return out
+
+
+func _missing_needle(body: String, needles: Array) -> String:
+	for n in needles:
+		if not body.contains(String(n)):
+			return String(n)
+	return ""
 
 
 # --- fixtures ---------------------------------------------------------------------------------

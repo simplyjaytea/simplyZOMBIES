@@ -62,7 +62,13 @@
         ]
       }
     },
-    "appearance": { "$ref": "#/$defs/appearance" }
+    "appearance": { "$ref": "#/$defs/appearance" },
+    "skills": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "What this archetype has already learned: node ids from colony/skill_web.json, granted at spawn with no points spent, so the same web every survivor walks is the one a raider arrives on (docs/30, 'One web, and the captives'). Nodes rather than points, because a raider has no focus row and points would be spent by the Auto path and the surplus pass, never by the author. Every id must be a node in the web; check_m2_raiders.gd asserts it, because the shallow validator cannot see inside an array.",
+      "items": { "type": "string", "pattern": "^[a-z]+\\.[a-z_]+$" }
+    }
   },
   "$defs": {
     "appearance": {
