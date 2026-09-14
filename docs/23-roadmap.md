@@ -265,15 +265,12 @@ than here.
 pause on new NPCs and roster growth is lifted
 ([docs/30](30-decisions.md#the-pause-lifted-procedural-people-raiders-and-zombies-2026-09-14));
 the plan, with each piece's mechanism, gate lanes and first cuts, is
-`.hermes/plans/2026-09-14_procedural-population-arc.md`. Thirteen pieces in the order they land:
+`.hermes/plans/2026-09-14_procedural-population-arc.md`. The pieces, in the order they land (a landed one moves to the record):
 zombies first because they are cheapest and the dormant piece builds the indoor-placement seam
 the people pieces reuse; raiders before settlers because the third side is a seam the individual
 raider first touches. Each piece that adds a body or a kind inside ten days re-baselines the FAST
 balance record and says so in its record; `survivors_end >= 1` is never the lever.
 
-- **One roll for everybody.** `SimRecruits.roll` moves verbatim into `sim/modules/people.gd` so
-  strangers, raiders and settlers draw from the same shape, draw order untouched and proved
-  byte-identical by a pinned roll. New gate `godot:m2:people`.
 - **The zombie mix is content.** `SimRoster.pick_type` reads a `weight` per type instead of three
   constants, shipped at 80/12/8 so every stream stays byte-identical; the MIX lane pins the old
   sequence.
@@ -1090,6 +1087,27 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   (`godot:m2:director`), save/load (`godot:m2:save`), the shallow skill web (`godot:m2:web`).
 - **The stance ladder, sim-owned** — Z/X/C/V plus the Sprint latch, with the zero-stamina gate in
   the sim (`godot:m2:stance`).
+
+**One roll for everybody** — **landed** (`npm run godot:m2:people` → `M2_PEOPLE_OK`, four lanes),
+2026-09-14, the first slice of the procedural-population arc (docs/30, "The pause lifted").
+`SimRecruits.roll` moved verbatim into `sim/modules/people.gd` as `SimPeople.roll(rng, look_rng,
+pool)`, draw order untouched, and the two private copies of the pool scan in `recruits.gd` and
+`survivors.gd` became one `SimPeople.pool(world, id)` — possible because `people.gd` preloads only
+`aptitudes.gd`, so neither caller's preload forms a cycle. **Byte-identical, proved rather than
+said**: the PIN lane holds the canonical seed's first *two* consecutive rolls as literals taken from
+the pre-extraction code with a throwaway driver (deleted), and compares the new code's output as
+strings — two rolls, because a roll that returned the right Dictionary off one extra draw would pass
+a one-roll pin and move every later call on the `recruits` stream, including `accept`'s transmit
+roll. DIVERGES is its true negative (seed 404 differs from the canonical pin and matches its own),
+POOL finds the block by id and returns empty for an unknown one, and READER isolates each caller's
+function body from the source and asserts `recruits.roll` calls `SimPeople.roll` with no `int_range`
+of its own, `survivors._generator_pool` calls `SimPeople.pool`, and the draws live in `people.gd`.
+Run red three ways before it was trusted: the surname drawn before the given name (PIN), one extra
+draw after the roll (PIN, on the second roll only — a one-roll pin would have stayed green), and
+`survivors.gd` re-inlining its own scan (READER). `godot:m2:recruits` is unchanged and green; no
+balance measurement is owed and none was taken. The one first cut, recorded here rather than in
+docs/30 because it changes nothing: every generated person's aptitudes stay STR/DEX/CON at a budget
+of 15, and docs/07's six wait for a reader.
 
 **Survivor generation: appearance, age, backstory, starting kit** — **landed**
 (`godot:m2:recruits`, seven new lanes). `SimRecruits.roll` already rolled a name, 2-3 traits, a
