@@ -81,6 +81,10 @@ func footer() -> String:
 	if _map.is_empty():
 		return "nothing to show — esc to close"
 	if bool(_map.get("manual", false)):
+		# Your own web is yours by construction (SimSkills._focus_of): no focus word, nobody
+		# spends it for you. A colonist's reads manual only because you set them so.
+		if _world != null and _who == int(_world.player):
+			return "amber: could learn now, click it · this web is yours and nobody spends it for you · a bright line: a path you have walked · dotted: no focus leads there · ringed: a keystone, it costs something · esc closes"
 		return "amber: could learn now, click it · a bright line: a path they have walked · dotted: no focus leads there · ringed: a keystone, it costs something · esc closes"
 	var who: String = String(_map.get("who", ""))
 	if _world != null and _who == int(_world.player):

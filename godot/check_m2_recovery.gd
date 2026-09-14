@@ -523,18 +523,21 @@ func _the_healing_rate_is_read() -> bool:
 	if absf(p_ticks - float(WINDOW)) > 0.5:
 		push_error("RATE: an unrated wound's clock read %.1f after %d resting ticks" % [p_ticks, WINDOW])
 		return false
-	# The content: a Medicine point buys med.hands on the Auto path, and the rate follows.
+	# The content: a Medicine point buys med.hands on the Auto path, and the rate follows. On a
+	# colonist, not the player: the player's own web is Manual by construction and banks the
+	# point rather than spending it (docs/30, "One web, and the captives").
 	var learner: Variant = _world()
-	SimJobs.attach(learner, learner.player, "Auto")
-	SimSkills.attach(learner, learner.player)
-	var before: float = float(learner.modifiers.call("resolve", "healing_rate", learner.player))
-	SimSkills._earn(learner, learner.player, "Medicine", 1)
-	var after: float = float(learner.modifiers.call("resolve", "healing_rate", learner.player))
+	var pupil: int = int(learner.entities.spawn())
+	SimJobs.attach(learner, pupil, "Auto")
+	SimSkills.attach(learner, pupil)
+	var before: float = float(learner.modifiers.call("resolve", "healing_rate", pupil))
+	SimSkills._earn(learner, pupil, "Medicine", 1)
+	var after: float = float(learner.modifiers.call("resolve", "healing_rate", pupil))
 	var node: Variant = null
 	for n in SimSkills.definition().get("nodes", []) as Array:
 		if String((n as Dictionary).get("id", "")) == "med.hands":
 			node = n
-	if not node is Dictionary or not SimSkills.has_node(learner, learner.player, "med.hands"):
+	if not node is Dictionary or not SimSkills.has_node(learner, pupil, "med.hands"):
 		push_error("RATE: one Medicine point did not buy med.hands, so the content half judged nothing")
 		return false
 	var want: float = float((node as Dictionary).get("value", 0.0))

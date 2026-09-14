@@ -616,6 +616,13 @@ func _screen_lane(w: Variant) -> bool:
 		push_error("SCREEN: your own web is headed %s" % String(panel.call("header_label")))
 		panel.queue_free()
 		return false
+	# And your own footer: the player reads Manual by construction (SimSkills._focus_of), so it
+	# says what amber means and that the web is yours -- a footer branch nothing read, until this.
+	var mine: String = String(panel.call("footer"))
+	if not mine.contains("amber") or not mine.contains("yours"):
+		push_error("SCREEN: your own footer does not say what amber means, or whose web it is: %s" % mine)
+		panel.queue_free()
+		return false
 	panel.queue_free()
 	# Textual: the input path pushes the command, and _ready loads nothing.
 	var input_body: String = _function_body(PANEL_GD, "_gui_input")
