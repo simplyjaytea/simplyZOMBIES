@@ -261,6 +261,59 @@ than here.
   generates a colony up to six, sets every row to Auto and asserts each took a job inside one day.
   Whether six on full auto is *viable* over ten days — the cliff — is unmeasured.
 
+**Procedural people, raiders and zombies — the owner's 2026-09-14 widening.** The 2026-09-01
+pause on new NPCs and roster growth is lifted
+([docs/30](30-decisions.md#the-pause-lifted-procedural-people-raiders-and-zombies-2026-09-14));
+the plan, with each piece's mechanism, gate lanes and first cuts, is
+`.hermes/plans/2026-09-14_procedural-population-arc.md`. Thirteen pieces in the order they land:
+zombies first because they are cheapest and the dormant piece builds the indoor-placement seam
+the people pieces reuse; raiders before settlers because the third side is a seam the individual
+raider first touches. Each piece that adds a body or a kind inside ten days re-baselines the FAST
+balance record and says so in its record; `survivors_end >= 1` is never the lever.
+
+- **One roll for everybody.** `SimRecruits.roll` moves verbatim into `sim/modules/people.gd` so
+  strangers, raiders and settlers draw from the same shape, draw order untouched and proved
+  byte-identical by a pinned roll. New gate `godot:m2:people`.
+- **The zombie mix is content.** `SimRoster.pick_type` reads a `weight` per type instead of three
+  constants, shipped at 80/12/8 so every stream stays byte-identical; the MIX lane pins the old
+  sequence.
+- **A body asleep in a building.** A worldgen pass writes `map.dormant` records into buildings
+  outside the home disc, boot spawns them like parked cars, and a Dormant shambler state casts no
+  sight and wakes to noise, scent or contact. New gate `godot:m2:dormant`; the boot-density pins
+  move with it.
+- **Each dead body differs.** A tint from the type's `variance.tints`, a body scaled against its
+  own `bodyMax`, a crawler from birth — drawn on a `zombieLook` stream, stored on `zombieType`,
+  read by `Appearance.for_entity` as a pass-through. New gate `godot:m2:variance`.
+- **Stalker and runner.** Two content entries on the wave schedule, tinted on the shambler's rig,
+  proving docs/14's "one JSON entry, zero code". A silhouette each is a follow-up piece.
+- **Armoured and heavy: gear on the dead.** A `worn` list a zombie equips at spawn and drops on
+  death, resisting through `armor_coverage_of` as it stands — closes "Armour on anything that is
+  not a survivor" below — and a heavy body whose breach factor lands only if board damage is
+  per-attacker; the record says which half.
+- **A stranger in a building.** On stranger beats a rolled survivor hides in a far building, walks
+  to a colonist who sees them, and is recruited by the E rung that already exists; the gate beat
+  and the dawn-leave learn to ignore them. New gate `godot:m2:strangers`.
+- **Raiders as individuals.** A `raider.person` record — name, age, features, look — beside the
+  `raider` component, never `identity`; kit rows with a chance and aptitudes with a range, on
+  their own streams so `raid` stays byte-identical. The name reaches the chronicle after a death
+  and nothing else.
+- **Raider roles, and the one who comes for the stores.** A `role` enum: the fighter of today, a
+  lookout that halts and turns the band at the first loss, a looter whose objective is the
+  stockpile and who withdraws once loaded — docs/18's "target stores first".
+- **A band passing through.** The director's encounter lever: a roaming band on a post-grace
+  dawn, objective a loot site, exit the far edge, fighting whatever it meets, sharing the raid
+  cap and publishing its reason.
+- **A third side: the allegiance seam.** `settlers` beside `colony` and `raiders`, `hostile` as a
+  relations table after the zombie short-circuit, succession filtered to the colony, the raider
+  schema's enum widened. New gate `godot:m2:allegiance`, blood drawn and not drawn as its two
+  halves.
+- **The settlers' camp.** A settlement sited off the layout in a far building and the named people
+  who hold it: identity yes, needs and job priorities no, so the ledger and the scheduler never
+  see them. New gate `godot:m2:settlers`.
+- **What the settlers do.** Mill near the camp, return at dusk, fight through the faction-blind
+  combat that exists, one of them willing to come along by the stranger rung; a roaming band
+  fights them and a wiped camp says so.
+
 **Medicine — the back half of treatment:**
 
 - **Supply quality tiers** — **moved into the alpha-roster group below** (2026-09-12), where it is

@@ -207,9 +207,12 @@ Milestone 2, the vertical slice — one district, a handful of survivors, enough
 find out whether the loop is fun. Its exit criterion is ten in-game days, permanent loss,
 succession, and still wanting another run.
 
-New NPCs and adjacent feature scope stay paused. The boot colony is **three by the owner's
-2026-09-01 decision** — the player, Mara, and Ellis (`survivor.unique.ellis`); further roster
-growth stays paused. The design record is
+The boot colony is **three by the owner's 2026-09-01 decision** — the player, Mara, and Ellis
+(`survivor.unique.ellis`). The pause that decision put on new NPCs and roster growth was
+**lifted by the owner on 2026-09-14** ([docs/30](docs/30-decisions.md), "The pause lifted"):
+generated people, raiders and zombies are an arc of thirteen named pieces in docs/23's what's
+left, landing slice by slice, and until a slice's record says otherwise the shipped population
+is three colonists, two raider archetypes and three zombie kinds. The design record is
 [`.hermes/plans/2026-08-17_065300-vertical-slice-design.md`](.hermes/plans/2026-08-17_065300-vertical-slice-design.md).
 It captures decisions, not shipped behavior: nothing counts as done until code and a focused Godot
 check prove it.
