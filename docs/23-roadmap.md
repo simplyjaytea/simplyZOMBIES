@@ -514,6 +514,9 @@ before it.
 - ~~**Raiders carry a web**~~ — **landed** 2026-09-14, see the record (`godot:m2:raiders`
   SKILLED, ARCHETYPES and LEDGER widened). One web for everybody, by the owner's decision of that
   day.
+- ~~**The player's own web is theirs**~~ — **landed** 2026-09-14, see the record
+  (`godot:m2:autonomy` YOURS; `godot:m2:web` MOD re-fixtured; `godot:check:web_look` SCREEN
+  widened).
 - **Build speed is read.** A new `build_speed` on the Construct and Repair spans and the player's
   fortify channel, through one helper both call; two Craft minors and **the fixer** keystone
   (faster building and cheaper repairs, slower on foot for the toolbag).
@@ -4664,6 +4667,33 @@ not a to-do list:
   and only by a hit roll flipping — and did not: all four rows byte-identical to the previous run.
   **Honest half.** The second-keystone refusal cannot be shown red on shipped content, which has
   one keystone; the duplicate check caught the sabotage that tried.
+- **Survivors** — ~~the player's own web is theirs~~ **landed** 2026-09-14 (`godot:m2:autonomy`,
+  new lane YOURS; `godot:m2:web` MOD re-fixtured to buy by command; `godot:check:web_look` SCREEN
+  reads your own footer), the second piece of the decision and a defect the survey found: the
+  player has no job row, so `_focus_of` read Auto, every click on your own nodes was refused
+  `"auto"`, and the footer sent you to a work grid that hides you by design — nobody could choose
+  their own keystone. `SimSkills._focus_of` now reads **Manual for `world.player` and for any
+  `controlled` body**, a predicate rather than a row: at succession `world.player` moves onto a body
+  that keeps its own focus word, so a row would need a second writer at the handoff, while the
+  predicate reads the two facts that define the player. An earn banks, the K screen's click buys,
+  keystones included; the successor's web is yours while you hold it and theirs again when you
+  leave; docs/30's "one field cannot disagree with itself" holds because the player has none. The
+  footer says so in your own case. **The lane.** YOURS, on a fresh boot: a buy with nothing banked
+  is refused `"points"` and not `"auto"`; a Haul point banks and buys nothing; the click buys it;
+  three Medicine by hand buy the surgeon and read 1.35 and −6 on one scope; the Auto colonist
+  beside you spends the same point the moment it lands, is refused `"auto"`, and never owns the
+  keystone; a handoff makes their web read manual and a handback unmakes it; through JSON and back
+  the click still buys. Three sabotages went red: the predicate dropped (`"auto"`), Manual allowed
+  to auto-spend (the point spent for you), and your footer without its amber. **Lanes that moved**,
+  because they had granted the player points and expected the sim to spend them: `godot:m2:web`'s
+  MOD buys `melee.grip` by command now and its MANUAL half no longer hands the player a job row;
+  `godot:m2:recovery`'s RATE content half learns on a colonist. EARN passes unchanged — it always
+  accepted banked points — and every other gate that attaches the player's web (teach, treatment,
+  upkeep, needs, splint, materials, jobs, bench, mods) was run and holds. **Measured**: the player's
+  first kill no longer buys *a surer grip* by itself; the FAST rows are byte-identical to the
+  previous run. **Honest half.** The `controlled` half of the predicate cannot be sabotaged red
+  today: `_handoff` writes `world.player` and `controlled` together, and a restore rebinds one from
+  the other, so the two never disagree; it is there for the day something does.
 - **UI & Death** — ~~the screen speaks of the colony~~ **landed** (`godot:check:hud`
   CHRONICLE, SELECTED, PICK), 2026-09-07, the thirteenth and last piece of the playable-state
   group and the owner's decision 12. What was wrong: `entity.killed`, `player.succeeded`,
