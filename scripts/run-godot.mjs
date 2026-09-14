@@ -130,6 +130,15 @@ switch (mode) {
       "res://check_m2_district.gd",
     ];
     break;
+  case "--m2-dormant":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_dormant.gd",
+    ];
+    break;
   case "--m2-gear":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_gear.gd"];
     break;

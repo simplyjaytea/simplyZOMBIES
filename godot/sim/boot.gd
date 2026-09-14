@@ -466,6 +466,13 @@ static func playable(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.D
 	# the balance harness and every 64-tile gate spawn zero of these and see no change at all.
 	# No RNG: one entity per record, in manifest order.
 	SimVehicles.spawn_from_manifest(world, map)
+	# And the bodies the generator left asleep inside the far buildings, on the same terms: one
+	# entity per manifest record, in manifest order, on the `dormant` stream rather than
+	# `placement`, so the outdoor scatter below draws exactly what it drew before this landed.
+	# At 64 the miniature the gates boot has one or two buildings far enough out to hold any, and
+	# on several seeds none at all -- see check_m2_dormant.gd, which says so and skips rather than
+	# passing quietly.
+	SimRoster.spawn_dormant_from_manifest(world, map)
 	var place_rng: Variant = world.rng.stream("placement")
 	# Never inside the colony's own walls. `SimDirector._legal_tile` has always refused to put a
 	# night packet in the annex, and this scatter used to get the same answer for nothing: the annex
