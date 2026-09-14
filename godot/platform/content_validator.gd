@@ -7,12 +7,23 @@ extends RefCounted
 # from the four canonical schemas under godot/content/schemas/. Full JSON Schema is not
 # reimplemented — this covers what those four schemas actually assert.
 
+# Content directories that deliberately have no schema. `content/colony/` is the one: its three
+# files are gated by the lanes that read them instead (`check_m2_autonomy`, `check_web_look`,
+# `check_appearance`), and the frozen oracle's CONTENT_TYPES does not list the directory either
+# (docs/30, "Who manages a survivor's skill web"). Anything else that is walked without a schema
+# is a validation failure -- docs/20: "Content errors must fail loudly at load, never silently at
+# hour thirty" -- so a new content directory cannot switch shape validation off for itself by
+# simply not being registered below. check_content.gd's SCHEMA-COVERAGE lane pins this list.
+const UNSCHEMA_EXEMPT: Array[String] = ["colony"]
+
+
 static func _load_schemas(root: String = "res://content") -> Dictionary:
 	var out: Dictionary = {}
-	# A schema missing from this list is not a loud failure: `_type_of_path` still names the type,
-	# `schemas.get(type_id)` returns null, and `_validate_shape` is simply never called for it --
-	# shallow validation switches itself off for that whole directory in silence. Registering the
-	# id here is what keeps it on.
+	# A schema missing from this list used to be a silent failure: `_type_of_path` still named
+	# the type, `schemas.get(type_id)` returned null, and `_validate_shape` was simply never
+	# called for it -- shallow validation switched itself off for that whole directory. Since
+	# 2026-09-13 `validate_tree` reports every walked type that has no schema (`missing_schemas`),
+	# so registering the id here is what keeps validation on, and forgetting to is what reds it.
 	for id in ["item", "zombie", "affix", "calibration", "survivor", "map", "loot", "building", "district", "raider", "prop", "player", "dressing", "vehicle", "weather", "climate", "container", "region"]:
 		var path: String = "%s/schemas/%s.schema.json" % [root, id]
 		var f := FileAccess.open(path, FileAccess.READ)
@@ -32,6 +43,7 @@ static func validate_tree(root: String = "res://content") -> Array[String]:
 	var issues: Array[String] = []
 	var seen: Dictionary = {} # "type:id" -> path
 	var by_id: Dictionary = {} # "type:id" -> entry
+	var walked: Array = [] # every type id the tree named, in walk order
 	# collect entries — skip schemas/ (they are schemas, not entries)
 	for path in tree.keys():
 		if String(path).begins_with("schemas/"):
@@ -39,6 +51,8 @@ static func validate_tree(root: String = "res://content") -> Array[String]:
 		var raw: Variant = tree[path]
 		var entries: Array = raw as Array if raw is Array else [raw]
 		var type_id: String = _type_of_path(String(path))
+		if not walked.has(type_id):
+			walked.append(type_id)
 		for entry_v in entries:
 			if not entry_v is Dictionary:
 				issues.append("%s: expected object" % path)
@@ -65,6 +79,9 @@ static func validate_tree(root: String = "res://content") -> Array[String]:
 					issues.append("%s: aptitudes sum %d != 15" % [path, total])
 			if type_id == "map":
 				issues.append_array(_validate_map_entry(e, path))
+	# A walked type with no schema is switched-off validation, and it says so.
+	for missing in missing_schemas(walked, schemas, UNSCHEMA_EXEMPT):
+		issues.append("%s/: no schema for content type \"%s\" -- shape validation is off for the whole directory; register it in _load_schemas or exempt it by name" % [missing, missing])
 	# extends + behavior + stat refs
 	for key in by_id.keys():
 		var e: Dictionary = by_id[key] as Dictionary
@@ -89,6 +106,19 @@ static func validate_tree(root: String = "res://content") -> Array[String]:
 			if not by_id.has(cur):
 				break
 	return issues
+
+# The type ids in `type_ids` that `schemas` has no entry for and `exempt` does not excuse. Pure,
+# so a gate can hand it a fabricated pair and see it say no.
+static func missing_schemas(type_ids: Array, schemas: Dictionary, exempt: Array) -> Array[String]:
+	var out: Array[String] = []
+	for t in type_ids:
+		var id: String = String(t)
+		if schemas.has(id) or exempt.has(id):
+			continue
+		if not out.has(id):
+			out.append(id)
+	return out
+
 
 static func _type_of_path(path: String) -> String:
 	if path.begins_with("items/"): return "item"

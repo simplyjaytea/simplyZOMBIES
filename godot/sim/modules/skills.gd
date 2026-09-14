@@ -269,7 +269,13 @@ static func _autospend(world: Variant, entity: int) -> void:
 		return
 	var paths: Dictionary = def.get("focusPaths", {}) as Dictionary
 	var path: Array = paths.get(focus, paths.get("Auto", [])) as Array
+	var by_id: Dictionary = _nodes_by_id(def)
 	for nid_v in path:
+		# A keystone on a path is content's mistake (the KEYSTONE lane refuses one); it is
+		# still never bought here.
+		var pn: Variant = by_id.get(String(nid_v))
+		if pn is Dictionary and is_keystone(pn as Dictionary):
+			continue
 		_buy(world, entity, String(nid_v))
 	# Second pass: what the focus path cannot take. Points are region-tagged (docs/08) and a
 	# path names five nodes at most, so everything earned off the path used to sit in the
@@ -295,7 +301,7 @@ static func _autospend(world: Variant, entity: int) -> void:
 				continue
 			var nd: Dictionary = n as Dictionary
 			var cid: String = String(nd.get("id", ""))
-			if owned.has(cid):
+			if owned.has(cid) or is_keystone(nd):
 				continue
 			var creg: String = String(nd.get("region", ""))
 			var ccost: int = int(nd.get("cost", 1))
@@ -308,6 +314,23 @@ static func _autospend(world: Variant, entity: int) -> void:
 			break
 		if not _buy(world, entity, best_id):
 			break
+
+
+# A keystone: a rim node that costs more and costs something -- its `modifiers` carry the gift
+# and the drawback together, under the one source, so owning it and losing it are one act each.
+# docs/08 says a keystone is chosen, so neither auto-spend pass ever buys one; only a Manual
+# survivor's `web.buy` reaches `_buy` for it (docs/30, "Readers first for the web").
+static func is_keystone(node: Dictionary) -> bool:
+	return bool(node.get("keystone", false))
+
+
+# What a node does: a minor is one stat, op and value on the node itself; a keystone carries a
+# `modifiers` array. One shape for the reader, so `_apply_mods` cannot forget a drawback.
+static func node_modifiers(node: Dictionary) -> Array:
+	var mods: Variant = node.get("modifiers")
+	if mods is Array:
+		return mods as Array
+	return [{"stat": node.get("stat", "move_speed"), "op": node.get("op", "mul"), "value": node.get("value", 1.0)}]
 
 
 static func _apply_mods(world: Variant, entity: int, owned: Array, nodes_by_id: Dictionary) -> void:
@@ -323,12 +346,14 @@ static func _apply_mods(world: Variant, entity: int, owned: Array, nodes_by_id: 
 		if not node is Dictionary:
 			continue
 		var nd: Dictionary = node as Dictionary
-		world.modifiers.call("add", {
-			"stat": String(nd.get("stat", "move_speed")),
-			"op": String(nd.get("op", "mul")),
-			"value": float(nd.get("value", 1.0)),
-			"source": SOURCE_PREFIX + String(nd.get("id", "")),
-		}, entity)
+		for m in node_modifiers(nd):
+			var md: Dictionary = m as Dictionary
+			world.modifiers.call("add", {
+				"stat": String(md.get("stat", "move_speed")),
+				"op": String(md.get("op", "mul")),
+				"value": float(md.get("value", 1.0)),
+				"source": SOURCE_PREFIX + String(nd.get("id", "")),
+			}, entity)
 
 
 static func node_count(world: Variant, entity: int) -> int:
@@ -375,8 +400,6 @@ static func web_view(world: Variant, entity: int) -> Dictionary:
 	if def.is_empty() or not web is Dictionary:
 		return out
 	var manual: bool = _focus_of(world, entity) == "Manual"
-	var pts: Dictionary = (web as Dictionary).get("points", {}) as Dictionary
-	var owned: Array = (web as Dictionary).get("nodes", []) as Array
 	var known: Array = []
 	var learnable: Array = []
 	for n in def.get("nodes", []) as Array:
@@ -385,17 +408,79 @@ static func web_view(world: Variant, entity: int) -> Dictionary:
 		var nd: Dictionary = n as Dictionary
 		var nid: String = String(nd.get("id", ""))
 		var prose: String = String(nd.get("name", ""))
-		if owned.has(nid):
-			known.append(prose)
-			continue
-		if not manual:
-			continue
-		if int(pts.get(String(nd.get("region", "")), 0)) < int(nd.get("cost", 1)):
-			continue
-		learnable.append({"node": nid, "name": prose})
+		match _node_state(web as Dictionary, nd, manual):
+			"known":
+				known.append(prose)
+			"learnable":
+				learnable.append({"node": nid, "name": prose})
 	out["known"] = known
 	out["learnable"] = learnable
 	return out
+
+
+# One node's standing with one survivor, as a word: "known" (owned), "learnable" (the learning is
+# in the player's hands and the region's banked points cover the cost), or "unknown". The one
+# place the affordability test is written, shared by the work grid's prose line (`web_view`) and
+# the web screen (`web_map`) so the two surfaces cannot disagree about what is clickable.
+static func _node_state(web: Dictionary, node: Dictionary, manual: bool) -> String:
+	var nid: String = String(node.get("id", ""))
+	if (web.get("nodes", []) as Array).has(nid):
+		return "known"
+	if not manual:
+		return "unknown"
+	var pts: Dictionary = web.get("points", {}) as Dictionary
+	if int(pts.get(String(node.get("region", "")), 0)) < int(node.get("cost", 1)):
+		return "unknown"
+	return "learnable"
+
+
+# The content, for the screen that draws the web as a web: `position` on a node is how it looks,
+# not what a survivor has, so the screen reads layout here and a survivor's standing from
+# `web_map`. One loader and one cache, rather than a second parse of the same file in the UI.
+static func definition() -> Dictionary:
+	return _web()
+
+
+# The web screen's read model: every node's standing with this survivor, every region's part in
+# their history, and nothing a number could be rebuilt from. `{}` for a body with no web.
+#
+#   {who: String, manual: bool,
+#    regions: [{region: String, lived: bool}],
+#    nodes:   [{node: String, name: String, region: String, state: "known"|"learnable"|"unknown",
+#               keystone: bool, price: String}]}
+#
+# `keystone` is the ring the screen draws and `price` the prose under a keystone's name -- what
+# it costs, in words; "" on a minor.
+#
+# `lived` reads `earned` -- banked points plus what the owned nodes cost -- so a survivor who
+# spent everything they earned in a region still reads as having lived there. No cost, no point
+# total, no count and no position crosses here; `web_view`'s argument (docs/30, "Who manages a
+# survivor's skill web") applies unchanged, and check_web_look.gd's MAP lane holds the shape.
+static func web_map(world: Variant, entity: int) -> Dictionary:
+	var def: Dictionary = _web()
+	var web: Variant = world.components.get_component(entity, "skillWeb")
+	if def.is_empty() or not web is Dictionary:
+		return {}
+	var manual: bool = _focus_of(world, entity) == "Manual"
+	var ident: Variant = world.components.get_component(entity, "identity")
+	var who: String = String((ident as Dictionary).get("name", "")) if ident is Dictionary else ""
+	var regions: Array = []
+	for r in def.get("regions", []) as Array:
+		regions.append({"region": String(r), "lived": earned(world, entity, String(r)) > 0})
+	var nodes: Array = []
+	for n in def.get("nodes", []) as Array:
+		if not n is Dictionary:
+			continue
+		var nd: Dictionary = n as Dictionary
+		nodes.append({
+			"node": String(nd.get("id", "")),
+			"name": String(nd.get("name", "")),
+			"region": String(nd.get("region", "")),
+			"state": _node_state(web as Dictionary, nd, manual),
+			"keystone": is_keystone(nd),
+			"price": String(nd.get("price", "")),
+		})
+	return {"who": who, "manual": manual, "regions": regions, "nodes": nodes}
 
 
 static func _nodes_by_id(def: Dictionary) -> Dictionary:

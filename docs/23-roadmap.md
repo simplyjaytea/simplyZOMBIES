@@ -486,6 +486,59 @@ projection stays flat top-down; 32 px a tile stays.
   the Dungeon Settlers HUD, a larger picture of the selected pawn is not a portrait, and which
   was meant is the owner's to say before this is pickable.
 
+**Skills — the wider web, opened by the owner (2026-09-13).** The direction is *"add more skills,
+include weapons, crafting, etc., and some for the eventual NPC followers at camp"*. The census that
+went looking for where to put them found the constraint that shapes the arc: a node does something
+only through a stat the sim resolves, and today seven actor-scoped stats do. Eight registry stats
+are read by nothing, and four of the fifteen shipped nodes point at two of them — the whole Medicine
+and Craft regions are dead sockets. So the web widens the way the roster did, **readers first**:
+each piece wires one stat (or one small family) into the sim with its own lane, then ships the
+nodes that reach it; no node may target a stat nothing resolves, and `godot:m2:web`'s READERS lane
+holds every registered stat to that. The owner's calls are in docs/30's "Readers first for the
+web": all four groups in scope (weapons, crafting, medicine, survival and endurance depth); NPC
+reach at camp is **colony-reach nodes in existing regions** on the pantry's best-living-colonist
+pattern, no new region and no new attribute; **minors and keystones** only, a keystone a rim node of
+cost three or more with a real drawback as a second modifier in the same node, never auto-bought,
+and no notables (nothing in the sim asks `has_node`); the five dead stats no piece reaches stay in
+the registry excused by name; and the two reads that treated *unspent* points as skill now read
+*earned*. One re-baseline is reserved for the close of the arc, per the roster's precedent. The
+pieces are ordered so that stopping after any one leaves the tree honest: the two dead regions come
+back alive first, weapons and crafting follow, colony reach comes last because it needs the readers
+before it.
+
+- ~~**Healing rate is read**~~ — **landed** 2026-09-13, see the record (`godot:m2:recovery`, RATE).
+- ~~**Repair cost is read**~~ — **landed** 2026-09-13, see the record (`godot:m2:upkeep`,
+  REPAIR-COST).
+- ~~**Treatment speed is read, and the first keystone**~~ — **landed** 2026-09-13, see the
+  record (`godot:m2:treatment` SPEED, `godot:m2:web` KEYSTONE).
+- **Build speed is read.** A new `build_speed` on the Construct and Repair spans and the player's
+  fortify channel, through one helper both call; two Craft minors and **the fixer** keystone
+  (faster building and cheaper repairs, slower on foot for the toolbag).
+- **Reload, and the shot's recoil.** New `reload_speed` on both reload spans and `shot_recovery`
+  on the existing recover rung — recoil is not a new mechanism, it is the rung that already
+  exists; two Ranged minors and **the cold shot** keystone (a much tighter cone, a much longer
+  recovery).
+- **Noise emission is read.** `noise_emission` on the shooter, the swinger and the walker, times
+  the item's own, through one helper the shot, the connect and the footstep all call; revives the
+  affix "of the Quiet Hand"; soft feet as a Survival minor and **the quiet ones** keystone (half
+  the noise, a duller aim — docs/08's firearm ban recast as a stat cost).
+- **Mood resilience is read.** A new `mood_resilience` divides what an argument and a bad night
+  take; two Endurance minors and **the long haul** keystone.
+- **Cook quality is read.** A new `cook_quality` on the cook multiplies a meal's spoil days at the
+  fire; a stew that keeps, and **keeper of the larder** as the keystone, whose spoilage half
+  already reaches the whole colony through the pantry.
+- **The ward, and someone to lean on.** The colony-reach pieces: `SimNeeds.colony_best` beside
+  `pantry_rate`; a `ward_rate` read colony-wide on the recovery clock when patient and holder are
+  both home, and a `steadying` read from the nearest survivor when an argument lands. Each carries
+  the dead-socket assertion that the holder out of range moves nothing.
+- **The re-baseline the arc reserves.** `godot:m2:balance`'s fast tier, before and after on one
+  driver, once, at the close.
+
+Named and dropped rather than smuggled: scavenge yield (the loot stream is pinned seed for seed and
+a yield stat is a rebalance of it), the stamina pool (`stamina.max` is an integer written once at
+spawn and wants a re-derive hook of its own), and modification outcomes (they read Craft directly
+and stay as they are).
+
 **Art & renderer — commissioned sprites, opened by the owner (2026-09-09).** The tier and its
 gate landed the same day (the record's "art we did not generate"). The piece that group named
 rather than built — the first commissioned body and the three gates it widens — **landed
@@ -749,12 +802,7 @@ session, each with its gate red both ways and its record.
   is still in the corner is **stamina**, which has no diegetic form yet and is the harder half,
   because a body that is out of breath has to *look* it rather than say so. Whatever it becomes,
   it is not a bar and not a word over anybody else's head.
-- **The skill web screen.** **Presentation only, now.** The mechanism underneath it landed with
-  [Focus and the Manual learn line](#the-record-by-system) — the `web.buy` command, the
-  `SimSkills.web_view` read model and the choice of who manages a survivor, all gated by
-  `godot:m2:autonomy`. What remains is a *screen*: the web drawn as a web, with regions and
-  adjacency and the shape of a survivor's history visible in it, rather than the one prose line
-  the work grid can fit. Nothing in the sim is waiting on it.
+- ~~**The skill web screen**~~ — **landed** 2026-09-13, see the record (`godot:check:web_look`).
 - **Prose that names its modifier sources.** "Slow because the leg is splinted", generated from
   the modifier pipeline rather than hand-authored per case.
 
@@ -854,10 +902,14 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   record's Jobs bullet, `godot:m2:jobs` COOK CLAIM. `_water_work` and `_repair_work` hand out an
   unclaimed target in the same shape and have not been measured to double up; the `reserved`
   component the Cook fix added is the seam if either ever does.
-- **A lull's opening edge is dead code.** `_begin_lull` guards its only write to `lullFromTick`
-  with `world.tick < lullFromTick`, and the field starts at 0 and is never written, so the
-  condition can never be true and the window is effectively `[0, lullUntilTick)`. `world.gd`'s
-  save comment already treats this field as load-bearing.
+- ~~**A lull's opening edge is dead code.**~~ **Already fixed, and this entry was stale.** The
+  guard it describes (`world.tick < lullFromTick`) is gone: `_begin_lull` writes the opening edge
+  whenever no lull is running (`tick >= lullUntilTick`), from the next dawn, and a second disaster
+  inside a lull extends `until` and leaves `from` alone — landed with the two-grace-nights slice
+  (`4b4bbfe`), `godot:m2:director`'s LULL-EDGE lane, which asserts `from_tick != 0` so the old
+  guard reds it. Found by reading on 2026-09-13; the one drift left beside it was `world.gd`'s
+  default director literal omitting `lullFromTick` (backfilled by `register_module`, so harmless),
+  which now carries it. Struck rather than deleted, as the bloater entry below.
 - ~~**An unreachable destination costs a full A\* every tick, forever.**~~ **Fixed 2026-09-10**
   (`godot:m2:jobs`, the PATHING lane), and it was worse than this entry said. `SimJobs._walk`'s
   re-plan condition read `pathGen != gen **or path.is_empty()**`, and empty is exactly what
@@ -872,27 +924,20 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   body drops the job and `_pick` hands back the same candidate on the next tick. `SimPath.find`
   itself is untouched: the caller still cannot tell "guard exhausted" from "no path", and it no
   longer needs to. The lane was proved red against the shipped condition.
-- **The content tree is re-parsed six times a second while you play.**
-  `main.gd::_poll_content_reload` runs every 0.5 s in a debug build and calls
-  `ContentValidator.validate_tree` and then `ContentReload.try_reload_world`, which validates again
-  and loads again — three full walks of all 27 JSON files, twice a second, with no change
-  detection. `ContentReload.poll_content_dir`, written to be that change detection, returns
-  `not paths.is_empty()` (always true) and is called by nothing.
-- **`write_file_atomic` is not atomic.** `platform/storage.gd` deletes the existing save before
-  renaming the temp file over it, which is the window the name, the comment and the module header
-  all promise there isn't.
-- **A missing schema silently disables validation for a whole content type.**
-  `content_validator.gd` treats it as a `push_warning` and a `continue`, and
-  `npm run godot:validate` still reports success.
+- ~~**The content tree is re-parsed six times a second while you play.**~~ **Fixed 2026-09-13**
+  (`godot:check:hud`, RELOAD-COST; the record's Kernel & review sweep bullet). It was 83 files, not
+  27, parsed three times per poll.
+- ~~**`write_file_atomic` is not atomic.**~~ **Fixed 2026-09-13** (`godot:m2:save`, ATOMIC; the
+  record's Kernel & review sweep bullet, which says what is still not closable on Windows).
+- ~~**A missing schema silently disables validation for a whole content type.**~~ **Fixed
+  2026-09-13** (`godot:validate`, SCHEMA-COVERAGE; the record's Kernel & review sweep bullet).
 - **`recorded` grows without bound.** `SimCommandQueue.recorded` deep-copies every command ever
   pushed and is read only by `parity_snapshot`. In a played session that is every movement command
   of every tick, kept for the life of the run.
-- **`deep_pockets` is computed in the wrong scope.** The suffix adds `carry_capacity` scoped to the
-  *item*; encumbrance resolves `carry_capacity` scoped to the *actor*. Rolled, named, saved, read
-  by nothing.
-- **`merge_into_stack` reads a failure as a success.** `merge_stacks` returns 0 both for "fully
-  merged" and for all five of its give-up paths, so `stow` can report an item stored that it did
-  not store.
+- ~~**`deep_pockets` is computed in the wrong scope.**~~ **Fixed 2026-09-13** (`godot:m2:gear`,
+  POCKETS, and `godot:m2:stats`, GEAR; the record's Kernel & review sweep bullet).
+- ~~**`merge_into_stack` reads a failure as a success.**~~ **Fixed 2026-09-13**
+  (`godot:check:inventory`, STACK; the record's Kernel & review sweep bullet).
 - **Sightings are recorded on geometry, not on sight.** `sightings.gd::_observe_one` uses
   `line_of_sight` rather than `detail`, so a survivor remembers — and the HUD reports — bodies
   standing in the 170-degree arc behind them. The information-stays-scarce ban is the reason to
@@ -942,15 +987,11 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   correctness"); `SimThreat.threat_within`, so fast-forward is never interrupted by a zombie the
   way the oracle's is; and `SimDirector.snapshot_of`, which `world.gd` deliberately replaced and
   which is now a second hand-listed copy of the director's save shape.
-- **`repair_cost` is a stat nothing resolves.** Declared in `sim/modifiers/stats.gd`, the target
-  of two shipped web nodes (`craft.tape`, `craft.scrap`) and of a suffix line, and no code calls
-  `resolve` on it, so those nodes are bought, applied, and felt by nobody. Named here because the
-  focus-auto-allocation slice made `craft.scrap` ownable for the first time and it would be
-  dishonest to record that as a node arriving in play: what arrived is a node that can be owned.
-  Repair spends **one whole scrap** (`_do_repair` through `_consume_owned`), and a ×0.9 on an
-  integer unit has no honest reader without a debt accumulator or a fractional cost — a design,
-  not a line, which is why it stayed when `spoilage_rate` got its reader (2026-09-06, the record's
-  Needs bullet, `godot:m2:needs` PANTRY).
+- ~~**`repair_cost` is a stat nothing resolves.**~~ **Fixed 2026-09-13** (`godot:m2:upkeep`,
+  REPAIR-COST; the record's "repair cost is read" entry under Survivors). The honest reader was
+  never the scrap — repair still spends one whole unit, as the 2026-09-06 reasoning said it must —
+  it is the ceiling, which is a float: `repair_cost` on the repairer times the item's own scales
+  how much ceiling a repair costs.
 - ~~**`bloater` contamination fires once per survivor, ever.**~~ **Already fixed, and this entry was
   stale.** The `contaminationRolled` boolean it describes no longer exists: `bloater.gd` keeps a
   `contaminationRolls` component whose rolls are an Array of `{flag, atTick}` records scanned by
@@ -4353,7 +4394,7 @@ not a to-do list:
   **The honest half.** This is the *mechanism* of "the skill web screen", not the screen. What
   ships is one prose line per row — "knows a surer grip · long legs — could learn: tape and
   patience, plain grit" — with the learnable names clickable. The web drawn *as a web*, with regions
-  and adjacency, is still in [what's left](#whats-left-in-milestone-2), annotated presentation-only.
+  and adjacency, landed on 2026-09-13 as the next entry.
   Nothing was measured about balance because nothing in the campaign path changed: the refactor into
   `_buy` is behaviour-identical (same order, same affordability, same modifier set), and the new
   intake consumes a command no headless driver pushes. Confirmed rather than assumed —
@@ -4368,6 +4409,190 @@ not a to-do list:
   the survivor was being asked to stay on the focus drift starts from. The assertion the old line
   was reaching for — that a command stamps provenance — is unchanged and now has both halves in
   `godot:m2:autonomy`'s CYCLE lane.
+- **Survivors / UI** — ~~the skill web screen~~ **landed** 2026-09-13
+  (`npm run godot:check:web_look` → `WEB_LOOK_OK`, lanes PLACED / WOVEN / MAP / SCREEN / WIRED; the
+  chain's **70th** gate). **K** opens the web for the colonist selected on the street, or for you,
+  and Esc closes it; screenshots for the owner in `.hermes/plans/2026-09-13_web-screen/`
+  (`web-manual.png`, `web-auto.png`). Presentation only: `godot/sim/` gained a read model and nothing
+  on the campaign path.
+  **Where a node sits is content.** docs/08's content shape had named `position` beside `cost` since
+  the web was specified and no node carried one; every node in `skill_web.json` does now, on the unit
+  square with the hub at the centre, six sectors laid as docs/08's diagram (Endurance up, Survival
+  down, Ranged and Melee to the right, Medicine and Craft to the left), cost-one nodes on an inner
+  ring and cost-two on an outer. `ui/web_layout.gd` is pure rules over that content — positions,
+  lines, where a region's word goes, and `problems()`, the one predicate that says whether a web is
+  well laid (every node placed and on the square, no two on top of each other, cheap nearer the hub
+  than dear within a region, each region one contiguous sector, every path naming real nodes, every
+  node on some line). Neither validator sees `content/colony/` — `godot:validate` is shallow and the
+  frozen oracle never reads the file — so PLACED runs the shipped web through that predicate and
+  then five deliberately broken copies, each of which must be refused for its own fault.
+  **The lines are the focus paths, by the owner's decision, and nothing else.** The shallow web has
+  no prerequisite links (ADR 0012), and a drawn line that meant nothing to the sim would read as a
+  rule that does not exist. So a line joins two nodes exactly where some `focusPaths` entry buys one
+  after the other — the arrays `_autospend` walks — a spoke runs from the hub to each path's first
+  node, and a node on **no** path is joined to the hub by a dotted line: `ranged.calm` and
+  `craft.scrap`, the two the surplus pass alone reaches, found by `drift_only()` rather than named,
+  so the day a path reaches one the dots become a line with nobody editing a list. WOVEN computes
+  the pair set a second way from the paths (16 lines, 3 spokes, 2 dotted on the shipped web), proves
+  the dotted rule and the missing-node refusal on a fixture, and asserts textually that
+  `_autospend` and `WebLayout.edges` read the same `focusPaths` key.
+  **A second read model, because the first is pinned.** `godot:m2:autonomy`'s VIEW lane holds
+  `web_view` to exactly `{known, learnable}` with a digit scan, and rightly, so the screen reads
+  `SimSkills.web_map` instead: `{who, manual, regions:[{region, lived}], nodes:[{node, name, region,
+  state}]}` with `state` one of three words. No cost, no point total, no count and no position
+  crosses — MAP pins the allowlist at all three levels, scans the JSON for a digit, and proves the
+  predicate refuses a `cost`, a fourth state word and a digit in a name. The two models share one
+  private `_node_state`, so the grid's prose line and the screen cannot disagree about what is
+  clickable, and MAP asserts they agree anyway. `lived` reads `earned` — banked plus what the owned
+  nodes cost — and the assertion that it does is on an **Auto twin** who spent every point: `lived`
+  from the banked points passes on the Manual survivor (three in hand) and fails only there.
+  **The screen.** Six fans round a hub, warm olive where the survivor has lived and a hairline where
+  they have not; the lines bright where both ends are known; discs bright for known, amber for
+  learnable, an outline for the rest, each with its prose name beside it in the same colour, to the
+  right on the web's right half and ending to the left on its left. Amber keeps its one meaning —
+  what a Manual survivor could learn now — and the footer says so in words; an Auto survivor's
+  footer says they are on their own path and how to change that. `layout_hits()` and `words()` are
+  pure over the map and the layout, so SCREEN judges the panel with no draw pass having run: its
+  click targets are exactly the learnable nodes, inside the panel and not overlapping; every word is
+  prose (no digit, no `a.b` id, no `a_b` key, the scanner proved against all three); a click pushes
+  `web.buy` through the queue and the sim learns the node, after which it is no longer a target;
+  the Auto twin has no targets and a refusal with reason `auto`. WIRED reads main.gd: the panel
+  loaded after the work grid (sibling order is z-order), K bound, Esc peeling the web before the
+  bench (the order predicate proved on the reversed arm), the per-frame re-pull with the selected
+  colonist, the six methods main.gd names present by those exact names (the `has_method` trap), and
+  the legend's K row in digit-free prose inside the `GROUPS` block.
+  **What follows the selection for free.** `_who()` — the HUD's own rule, factored out of
+  `_update_hud` unchanged — is what the web is pulled for every frame, so clicking another
+  colonist on the street re-points the screen and a selection that dies drops it back to you.
+  **Fifteen sabotages, each run red before the gate was trusted**, one per assertion the plan named:
+  a node with no position, a dear node inside the cheap ring, two regions interleaved, the last pair
+  dropped from every path, `drift_only` returning nothing, `lived` reading banked points, a `cost` on
+  a node entry, a fourth state word, the screen writing ids instead of names, a digit in the footer,
+  `_act` pushing the wrong command, no K arm, Esc peeling the bench first, `layout_hits` renamed,
+  the legend row deleted. One of them was itself wrong the first time: "move `craft.scrap` inward"
+  moved it to a spot still further from the hub than its region's cheap node, and the gate was right
+  to stay green — the second attempt, genuinely inside the ring, went red on the ring rule.
+  **Honest halves.** Fifteen hand-laid positions on two rings; there are no keystones, notables or
+  cross-links to lay because the shallow web has none. Region words sit at two radii (one above and
+  below, a wider one to the sides) because the header and footer cap the square vertically and the
+  panel has room beside it; a mis-laid node would drag its region's word, and PLACED's sector rule is
+  what stops that. The screen draws over the work grid rather than replacing its prose line, which
+  stays. No `SAVE_VERSION` move — the panel stores nothing per survivor and nothing new is saved.
+  Nothing was measured about balance because nothing on the campaign path changed; confirmed by the
+  balance rows of the `godot:m2` run rather than assumed.
+- **Survivors** — ~~healing rate is read~~ **landed** 2026-09-13 (`godot:m2:recovery`, lane RATE),
+  the first piece of the wider-web arc (docs/30, "Readers first for the web") and the one that
+  brings a dead region back. `healing_rate` had been in the registry since the web landed and was
+  resolved by nothing, so `med.hands` and `med.triage` were bought, lit on the screen and felt by
+  nobody. The recovery clock in `wounds.recover` reads it now, once per body per tick on the
+  **patient's own scope**, and both the wound's clock and the part's climb take the same multiple,
+  so a limb keeps pace with its wound. Two Medicine minors landed beside the two revived: *bed rest,
+  insisted on* (cost one, on the Medic path) and *a dressing changed often* (cost two, reached by
+  the surplus pass alone — the web's third dotted line). The region's two rings hold: both new
+  positions sit between Endurance's axis and the old Medicine pair, cheaper nearer the hub.
+  **Measured**, on a throwaway driver since deleted: one dressed laceration on a fed, idle body
+  closes in **6.00 days** unrated and in **4.75 days** with all four Medicine nodes owned (rate
+  1.2621) — a survivor deep in Medicine closes a laceration a day and a quarter sooner. No
+  campaign claim; the arc's re-baseline is reserved for its close.
+  **The lane.** RATE: a ×1.5 modifier on one body mends its wound and its part 1.5× as far as an
+  identical body in the same window (15000 against 10000 clock ticks; +0.3472 against +0.2315 of
+  torso); the same modifier on a stranger's scope moves the patient by nothing; the unrated clock
+  reads exactly one tick a tick, which is what PACE has always measured; and one Medicine point on
+  an Auto survivor buys `med.hands` and the resolved rate reads what the content says. Two
+  sabotages went red: dropping the multiply (`10000.0 against 10000.0, not 1.5x`) and reading the
+  rate off the wrong scope (`1.000x as far`). `godot:m2:web`'s READERS list of stats awaiting the
+  arc shrank by one in the same commit.
+  **Honest halves.** `healedTicks` is a float on the component now (it accumulated whole ticks
+  before): JSON already returned it as a float and every reader cast, so no save shape moved and
+  `SAVE_VERSION` stays 29; the constant's docstring that argued for the integer was rewritten
+  rather than left lying. The scope is the patient's own — a Medicine minor is "you tend your own
+  wounds well" — and the medic's reach over other people's wounds is the ward piece of the same
+  arc. Two of the web screen's own lanes needed widening for a region that grew: MAP's Auto twin
+  is now granted the whole Medicine region off the content rather than a literal three, and the
+  new node's first position put its name row over its neighbour's disc, which SCREEN's
+  no-overlap assertion caught before anybody saw it.
+- **Survivors** — ~~repair cost is read~~ **landed** 2026-09-13 (`godot:m2:upkeep`, lane
+  REPAIR-COST), the wider-web arc's second piece and the one that brings the Craft region back.
+  `repair_cost` had been written by `craft.tape`, `craft.scrap` and the affix "of Salvage" since
+  each landed, and resolved by nothing. `SimItems.repair_item` takes the repairer now and scales
+  the ceiling drop by `repair_cost_factor`: the repairer's own (the nodes, entity-scoped —
+  practised hands take less off a thing) **times** the item's own (the affix, item-scoped — some
+  things are made to be mended), where the item's own is its scoped resolve over the unscoped one,
+  a division because the stat multiplies, so a global modifier inside both scoped resolves is
+  counted once. Two Craft minors landed beside the two revived: *a patient hand with the file*
+  (cost one, on the Worker path) and *nothing wasted* (cost two, surplus-only, the web's fourth
+  dotted line); nineteen nodes now. The 2026-09-06 reasoning that left the stat dead — repair
+  spends one whole scrap and a tenth of an integer is a design — still holds for the scrap, which
+  is untouched; the ceiling was the float reader all along.
+  **Measured**, on a throwaway driver since deleted: one knife repaired five times from a full
+  ceiling ends at **0.7500** under plain hands, **0.7930** with the two original Craft nodes
+  (0.828), **0.8151** with all four (0.7394), and **0.8875** for a tier-two "of Salvage" knife
+  under plain hands — each within a ten-thousandth of the arithmetic. No campaign claim; the arc's
+  re-baseline is reserved for its close.
+  **The lane.** REPAIR-COST asks for exact numbers where the gate's old REPAIR lane asked only
+  "did it move": plain hands 0.9500, a ×0.5 repairer 0.9750, a salvage knife 0.9600, both 0.9800,
+  no repairer named 0.9500; a ×0.5 modifier on a stranger moves nothing; a global ×0.5 with the
+  salvage knife lands at 0.9800 — counted once, not twice (0.9900) and not never (0.9600); heavy
+  hands cannot push a ceiling through the floor; and one Craft point on a Worker buys `craft.tape`
+  and the hands read 0.92. Three sabotages went red: the factor dropped, the repairer read off the
+  item's scope, and the division dropped (the global counted twice, `0.9900`). READERS' awaiting
+  list is down to one, `noise_emission`.
+  **Honest halves.** The repair span is untouched — "of Salvage" promises *cheaper and faster* and
+  only the cheaper half ships here, because the span belongs to the build-speed piece and its own
+  stat. `REPAIR_GAIN` is untouched too, though a smaller drop lets one repair reach a hair higher
+  through the existing clamp — a side effect, named, not a second reader. The Tetanus Special's
+  "free to repair from scrap" is expressible now and still not shipped. And the Craft region's
+  word follows its nodes' centroid and now sits a pixel from a name; the screen's lanes judge node
+  against node, so that is a look call rather than a fault.
+- **Survivors** — ~~treatment speed is read, and the first keystone~~ **landed** 2026-09-13
+  (`godot:m2:treatment`, lane SPEED; `godot:m2:web`, lane KEYSTONE and REACH's keystone half;
+  `godot:check:web_look`'s PLACED, MAP and SCREEN widened), the wider-web arc's third piece, its
+  first *new* stat, and the piece that gives the web its first keystone and the shape a keystone
+  needs. `treatment_speed` (base 1.0, floor 0.1) divides the bandage, clean and close spans in
+  `SimTreatment._plan`, read once on the **treater**, and the NPC Doctor's own span through
+  `SimJobs.treat_span`. **Pressure is deliberately not scaled** and the lane holds it there:
+  `_bank_pressure` banks served ticks against the raw `PRESSURE_TICKS`, one currency, and a scaled
+  press would be credited twice, once in its shorter span and once in the bank. A zero in a span
+  table stays zero, so "nothing-to-do" still means that.
+  **The keystone shape.** A keystone is `keystone: true` with a `modifiers` array (the gift and
+  the drawback together, applied under the one `web.<id>` source so owning it and losing it are
+  one act each), a `drawback` naming the stat that is the price, and a `price` in words.
+  `_apply_mods` reads one shape for both kinds through `node_modifiers`; both auto-spend passes
+  skip a keystone, so only a Manual survivor's `web.buy` ever reaches `_buy` for one — docs/08's
+  "a keystone is chosen", made mechanical. `web_map` carries `keystone` (a boolean) and `price`
+  (a word) and nothing numeric; the screen draws a keystone as a larger ringed disc with its price
+  beneath its name, and its footer says what a ring means. Two Medicine nodes landed: *a quick
+  needle* (cost one, surplus-reached) and **the field surgeon** (cost three; treatment ×1.35; the
+  price is six of mood, "they have seen too much of it"; Manual-only). Twenty-one nodes, six on
+  dotted lines.
+  **Measured**, on a throwaway driver since deleted: a deep wound bandages in **539** ticks
+  against 800 and closes in **606** against 900 for a survivor owning the needle and the surgeon
+  (×1.485); the surgeon's mood reads −6 and the band on a fed body stays *content* — the price is
+  a shift, not a band, and the HUD's "Mood is turning" arrives six points sooner for them. No
+  campaign claim; the arc's re-baseline is reserved for its close.
+  **The lanes.** SPEED: ×2 hands ask half the table for all three verbs on one patient and the
+  full four hundred for a press; the same modifier on the patient moves nothing; plain hands ask
+  the table; the doctor's span reads twenty at ×2 and `_doctor_work` is read for `treat_span(`
+  with the scanner proved first; a Manual survivor with three Medicine buys the surgeon and reads
+  1.35 and −6 on one scope; an Auto survivor granted twelve never owns it. Three sabotages went
+  red: the divide dropped, pressure scaled too (`200 ticks of pressure`), the speed read off the
+  patient. KEYSTONE, on a pure predicate: cost three or more, a gift and a drawback in one node,
+  the drawback the wrong way by a direction table over actor-scoped stats, a digit-free price, on
+  no path, and a minor carrying none of it — five broken copies of the shipped web each refused.
+  REACH's keystone half: the Auto probe with the whole region banked never owns one, the Manual
+  probe owns it the moment it asks. PLACED gained "a keystone sits outside every minor of its
+  region" and a sixth broken copy.
+  **Honest halves.** Surgery's own `SURGERY_TICKS` is untouched — it is planned in `respond`,
+  not `_plan`, and is the infection verbs' business. The Medicine sector was re-laid three times
+  to fit a ringed disc and a price row, and the third time exposed a real fragility: the region
+  word's radius was chosen by "more vertical than horizontal", which for a diagonal sector is a
+  coin flip that a rim node can tip, and the word landed on the keystone's disc; it is "within
+  about twenty-five degrees of vertical" now, which separates the two axis regions from the four
+  diagonal ones with room to spare. The web screen's MAP lane grants the Medicine *minors* to its
+  Auto twin, since a keystone is never auto-bought. Screenshot for the owner:
+  `.hermes/plans/2026-09-13_web-screen/web-keystone.png`. And a structural slip in this record
+  file, found while writing this entry: the three entries before it had been inserted inside the
+  Focus-and-Manual entry, ahead of its closing paragraph; that paragraph is back where it belongs.
 - **UI & Death** — ~~the screen speaks of the colony~~ **landed** (`godot:check:hud`
   CHRONICLE, SELECTED, PICK), 2026-09-07, the thirteenth and last piece of the playable-state
   group and the owner's decision 12. What was wrong: `entity.killed`, `player.succeeded`,
@@ -6395,6 +6620,63 @@ not a to-do list:
     600-tick cooldown, while the sibling lane with a living survivor still alarms at magnitude
     300. Confirmed to fail against the bug it targets: reverting the `corpse` skip alarms on the
     corpse exactly like the living-survivor lane does.
+  - **Five more worked off the defect list on 2026-09-13**, the mechanical ones that needed no
+    rebalance, each its own commit with a lane run red before it was trusted; the sweep's own
+    count still stays thirteen. A sixth entry, the lull's opening edge, turned out to be already
+    fixed and was struck as stale rather than re-fixed.
+    - ~~`write_file_atomic` is not atomic~~ **fixed** (`godot:m2:save`, ATOMIC). The delete before
+      the rename is gone; POSIX rename replaces atomically on one filesystem, and a leftover temp
+      file from a crashed write is swept before writing instead. The lane writes twice under a
+      gate-only key and asserts the target present throughout and no temp file left, then reads
+      the body textually for a `da.remove(` naming the target, the scanner proved on a fabricated
+      body. Reinstating the delete reds it. **Two halves stay open by the engine's hand**: on
+      Windows `DirAccessWindows::rename` removes-then-renames internally, so the window shrinks to
+      the engine's and cannot be closed from GDScript; and Godot 4 exposes no fsync, so the
+      oracle's `fsyncSync` has no twin — `flush` empties Godot's buffer, not the page cache. Both
+      are written on the function rather than implied.
+    - ~~A missing schema silently disables validation~~ **fixed** (`godot:validate`,
+      SCHEMA-COVERAGE). `validate_tree` reports every walked type with no schema as an issue,
+      through a pure `missing_schemas` a gate can hand a fabricated pair. `content/colony/` is the
+      one named exemption, cited to docs/30's "Who manages a survivor's skill web": its three files
+      are gated by the lanes that read them. `check_content.gd`, which had no lanes, gains two: the
+      walk, and a lane that proves the detector refuses a ghost type, pins the exemption list to
+      exactly `colony`, and checks every schema file on disk is registered. Unregistering `region`
+      reds the run. Corrected in passing: the tree is 83 content files plus 18 schemas, not 27.
+    - ~~`merge_into_stack` reads a failure as a success~~ **fixed** (`godot:check:inventory`,
+      STACK). `merge_stacks` answers −1 refused, 0 consumed, N left; every refusal used to answer
+      0, the same word as "merged entirely", so `stow` reported an item put away that had gone
+      nowhere — alive, no `stored`, no `position`. `merge_into_stack` also skips a candidate with
+      no `stack` component before asking. The lane: a refused stack is not stored and comes back
+      to the ground through `pick_up_nearest`; four and three make seven with the source gone;
+      three over a full ten stay three and find a cell. Reverting one refusal to 0, or making a
+      full target refuse, each reds it. Nine `stow` sites in `jobs.gd` and the pick-up, unequip
+      and take-all paths change behaviour only where `stow` used to lie; the balance rows of the
+      `godot:m2` run are the check that nothing on the campaign path moved.
+    - ~~`deep_pockets` is computed in the wrong scope~~ **fixed** (`godot:m2:gear`, POCKETS;
+      `godot:m2:stats`, GEAR). The owner's call was the `worn_scent_of` shape: encumbrance reads
+      `SimInventory.capacity_of`, the actor's own number plus each *worn* item's scoped
+      contribution over the unscoped one, at use time, cached nowhere — so nothing is pushed onto
+      a wearer and nothing has to be taken off them when a pack is dropped, given away or stolen,
+      which is the leak a re-scoping fix would have had to close on eight item-moving paths. Worn
+      only, deliberately: the suffix applies to containers and armour, and a pack inside a pack
+      does not compound. POCKETS: a plain pack adds nothing, the deep pack on the ground adds
+      nothing, worn it adds the content's tier value (read from the tree) and the encumbrance ratio
+      follows, and the bonus leaves with the pack; GEAR: STR 8 and the top tier compose to 44.
+      Deleting the gear walk reds both. Named, not fixed: `split_stack` deep-copies `affixes`, so a
+      split deep-pockets *stack* would double the bonus — inert today because containers do not
+      stack, but the shape is there.
+    - ~~The content tree is re-parsed six times a second~~ **fixed** (`godot:check:hud`,
+      RELOAD-COST). The poll fingerprints the tree — paths, modified times, lengths, a directory
+      walk and no parse — and reloads only when the fingerprint moves; `poll_content_dir`, which
+      answered "changed" for any non-empty tree and was called by nothing, is retired, and the
+      separate `validate_tree` call in `main.gd` went with it, since `try_reload_world` validates
+      first anyway. The fold is on its own so the lane proves it on a fabricated list; the lane
+      then plants a marker in the live tree, forces a poll, and asserts the marker survived, and
+      calls the reload directly to prove it still replaces the tree. Making the compare always
+      miss reds it. **One contradiction found and not decided**: docs/30's "What hot reload made
+      structural" says reload must re-run the seed and never swap content under a live world, and
+      `try_reload_world` does exactly that swap, as it has since R5. The owner chose to keep the
+      swap and add the detection for now; the call itself is in `HANDOFF.md`'s waiting list.
 
 - **Kernel & tooling: the routing table** (`npm run check:routing`, `ROUTING_OK`, 2026-09-06).
   `AGENTS.md` carries a routing table — by kind of work and by system: what to read first, where

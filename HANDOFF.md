@@ -14,9 +14,9 @@ container running** lives in `AGENTS.md`.
 
 ---
 
-## State, as of 2026-09-12 (the alpha-roster arc)
+## State, as of 2026-09-13 (the skill web screen)
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **69 gates**
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **70 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
 drifting, so count it there rather than trusting this line) and exits 0, `npm test` is **45 files /
 594 tests** passing, and `godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check`
@@ -31,6 +31,76 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 [docs/23's flag record](docs/23-roadmap.md#where-milestone-2-stands), which now ends with the flip.
 
 ## What landed recently
+
+**2026-09-13 — treatment speed is read, and the web has its first keystone.** The third piece of
+the wider web and its first new stat: `treatment_speed` divides the bandage, clean and close spans
+on the treater and the NPC doctor's own span, never pressure (R8 banks raw ticks). The field
+surgeon is the first keystone — cost three, treatment ×1.35, and a price of six of mood in words on
+the screen — bought only by a Manual survivor's hand, never by either auto-spend pass, which the
+web gate's new KEYSTONE lane and REACH's keystone half hold. Measured: a deep wound bandages in 539
+ticks against 800 with a needle and a surgeon. Twenty-one nodes. The next piece is build speed.
+
+**2026-09-13 — repair cost is read: the second piece of the wider web, and the Craft region back.**
+`SimItems.repair_item` takes the repairer and scales the ceiling drop by `repair_cost`, the
+repairer's own times the item's own, so `craft.tape`, `craft.scrap` and the affix "of Salvage"
+do something for the first time; two Craft minors landed beside them (nineteen nodes). Measured on
+a throwaway driver: five repairs end at 0.75 under plain hands and 0.815 with every Craft node.
+Lane REPAIR-COST in `godot:m2:upkeep`, three sabotages red. The scrap a repair spends is still one
+whole unit, as docs/30's 2026-09-06 reasoning said it must be. The next piece is treatment speed,
+which introduces the first keystone and the node shape that carries a drawback.
+
+**2026-09-13 — healing rate is read: the first piece of the wider web, and a dead region back.**
+The recovery clock reads `healing_rate` on the patient's own scope, so `med.hands` and
+`med.triage` do something for the first time, and two Medicine minors landed beside them (the web
+is seventeen nodes now). Measured on a throwaway driver: a dressed laceration closes in 6.00 days
+unrated and 4.75 with every Medicine node owned. Lane RATE in `godot:m2:recovery`, both sabotages
+red. `healedTicks` is a float now, with no save shape moved. The next piece is repair cost, which
+brings the Craft region back the same way.
+
+**2026-09-13 — the skills turn opens an arc: readers first for the web.** The owner asked for
+more skills — weapons, crafting, and some for the NPC followers at camp — and the census came back
+with the roster's finding a day later: the web's problem is that most of what it could point at is
+**unread**. Four of the fifteen shipped nodes target stats nothing resolves, so the Medicine and
+Craft regions are dead sockets today, and "followers at camp" has no stat, no attribute and no
+relationship to reach. The arc is nine pieces in docs/23's what's-left, each one reader plus the
+nodes that reach it, with the calls in docs/30's "Readers first for the web": colony-reach nodes in
+existing regions rather than a seventh region, minors and keystones and no notables, the five dead
+stats kept and excused by name, and the three reads of *unspent* points as skill moved to *earned*
+in the opening commit (an Auto survivor reaches the suture floor three points earlier — a real,
+recorded shift). `godot:m2:web` gained READERS, which holds every registered stat to a reader or a
+named excuse, and its SURPLUS lane now reads the Craft region off the content instead of naming
+two nodes. One re-baseline is reserved for the close of the arc.
+
+**2026-09-13 — five defects worked off the sweep's list, and one found already fixed.** The
+mechanical ones that needed no rebalance, each its own commit with a lane run red first: the save
+is never absent from disk (`godot:m2:save` ATOMIC), a missing schema is a validation failure with
+`colony` the one named exemption (`godot:validate` SCHEMA-COVERAGE), a stack that cannot merge is
+not reported as stored (`godot:check:inventory` STACK), a pack of deep pockets is felt by whoever
+wears it (`godot:m2:gear` POCKETS, `godot:m2:stats` GEAR), and the content tree is read once and
+only when it changed (`godot:check:hud` RELOAD-COST). The lull's opening edge was already fixed
+by the two-grace-nights slice and its entry was struck as stale. Two things worth knowing: the
+atomic write is atomic on Unix only, because the engine's own Windows rename removes-then-renames
+and Godot 4 has no fsync, both now written on the function; and the reload work turned up a
+docs/30 decision the code has contradicted since R5, which is on the owner's list below. The CI
+prose in `.claude/skills/steward/SKILL.md` and `CLAUDE.md` was also corrected to the four-job
+layout of 2026-09-12.
+
+**2026-09-13 — the skill web screen, and the first slice of a skills turn.** The owner opened the
+skill system after the roster arc and picked the screen first: **K** draws the web as a web for the
+colonist selected on the street (or for you), Esc closes it, and `godot:check:web_look` is the
+chain's **70th** gate. Where a node sits is content now — docs/08 had named `position` beside
+`cost` since the web was specified and no node carried one — and the lines are the **focus paths**,
+by the owner's decision: a drawn line joins two nodes exactly where `_autospend` buys one after the
+other, and a node no path reaches (`ranged.calm`, `craft.scrap`) hangs off the hub by a dotted line
+the layout finds rather than names. Nothing mechanical moved; `sim/` gained a second read model,
+`SimSkills.web_map`, because the autonomy gate pins `web_view` to two keys and rightly so. It is
+words and booleans only, and its `lived` reads *earned* rather than banked — asserted on an Auto
+twin who spent every point, the only survivor it can fail on. Fifteen sabotages went red before the
+gate was trusted; one of them was itself wrong the first time and the record says which. Screenshots
+in `.hermes/plans/2026-09-13_web-screen/`. The record in docs/23 is the one copy of the detail.
+
+**What is next in the skills turn**, named in what's left already: diagnosis prose that scales with
+Medicine, and nobody reading a book or seeking comfort unaided. Neither was touched here.
 
 **2026-09-12 — the alpha-roster arc is closed: fifteen slices, and a re-baseline that vindicates
 the content and indicts one rule.** The roster went **152 → 362 bases** and the chain **57 → 69
@@ -731,6 +801,14 @@ same dead-socket pattern CLAUDE.md has been recording all milestone; the list is
 When you add a mechanism, add the assertion that something reaches it.
 
 ## What is waiting on the owner, not on code
+
+**Does hot reload swap content under a live world, or re-run the seed?** docs/30's "What hot reload
+made structural" decides the second — four things capture content at spawn, equip and boot, so a
+live swap leaves a world disagreeing with its own content — and `ContentReload.try_reload_world`
+has done the first since R5. The 2026-09-13 reload fix kept the swap and added change detection,
+by your call for that session; whether the swap stays, or the poll becomes validate-and-report
+with a fresh boot to take an edit, is the decision. Nothing measured: it is a question of what
+"reload" means, not of a number.
 
 **Should a wash require soap?** docs/04 says washing needs water *and* soap; only the water half is
 enforced. The camping slice shipped `hygiene` as banked charges a dirtying spends, and deliberately

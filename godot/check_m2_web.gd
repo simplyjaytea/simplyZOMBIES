@@ -104,7 +104,13 @@ func _run() -> void:
 	if not _drift_lane(w):
 		quit(1)
 		return
-	print("M2_WEB_OK earn focus mods npc surplus reach drift")
+	if not _readers_lane(w):
+		quit(1)
+		return
+	if not _keystone_lane():
+		quit(1)
+		return
+	print("M2_WEB_OK earn focus mods npc surplus reach drift readers keystone")
 	quit(0)
 
 
@@ -177,32 +183,151 @@ func _npc_lane(w: Variant) -> bool:
 
 
 # Points earned off the focus path used to be stranded for the life of the survivor.
+#
+# The Craft region is the fixture because the Auto path names no Craft node, so every Craft
+# node an Auto survivor owns was bought by the second pass. The region's minors are read off the
+# content rather than named here -- the web is widening (docs/30, "Readers first for the web"),
+# and a lane that said "craft.tape and craft.scrap is the whole region" went stale the day a
+# third Craft node landed. A keystone is deliberately not counted: the surplus pass never buys
+# one (only a Manual `web.buy` does), so the grant covers the minors and two more, and exactly
+# two must be left standing.
 func _surplus_lane(w: Variant) -> bool:
 	var def: Dictionary = SimSkills._web()
 	var auto_path: Array = (def.get("focusPaths", {}) as Dictionary).get("Auto", []) as Array
-	# The whole lane rests on the Auto path naming no Craft node, so say so out loud: if a
-	# content edit puts one there, this stops being evidence for the second pass and the gate
-	# says so instead of passing on a technicality.
-	if auto_path.has("craft.tape") or auto_path.has("craft.scrap"):
-		push_error("the Auto path now names a Craft node, so the surplus lane proves nothing")
+	var minors: Array = []
+	var keystones: Array = []
+	var minor_total: int = 0
+	for n in def.get("nodes", []) as Array:
+		var nd: Dictionary = n as Dictionary
+		if String(nd.get("region", "")) != "Craft":
+			continue
+		var cid: String = String(nd.get("id", ""))
+		# The whole lane rests on the Auto path naming no Craft node, so say so out loud: if a
+		# content edit puts one there, this stops being evidence for the second pass and the
+		# gate says so instead of passing on a technicality.
+		if auto_path.has(cid):
+			push_error("the Auto path now names the Craft node %s, so the surplus lane proves nothing" % cid)
+			return false
+		if bool(nd.get("keystone", false)):
+			keystones.append(cid)
+		else:
+			minors.append(cid)
+			minor_total += int(nd.get("cost", 1))
+	if minors.is_empty():
+		push_error("the web has no Craft minor, so the surplus lane asserted nothing")
 		return false
 	var rng: Variant = w.rng.stream("recruit")
 	var crafter: int = _spawn_colonist(w, rng, 3.0)
 	if crafter < 0:
 		push_error("could not generate a colonist, so the surplus lane asserted nothing")
 		return false
-	SimSkills._earn(w, crafter, "Craft", 5)
-	if not SimSkills.has_node(w, crafter, "craft.tape") or not SimSkills.has_node(w, crafter, "craft.scrap"):
-		push_error("5 Craft points bought no Craft node on a path that has none: nodes %s" % str(
-			(w.components.get_component(crafter, "skillWeb") as Dictionary).get("nodes", [])))
-		return false
-	# And the second pass buys what is affordable, not whatever it likes: craft.tape (1) and
-	# craft.scrap (2) is the whole region, so exactly 2 of the 5 are left standing.
+	SimSkills._earn(w, crafter, "Craft", minor_total + 2)
+	for cid in minors:
+		if not SimSkills.has_node(w, crafter, cid):
+			push_error("%d Craft points bought no %s on a path that has none: nodes %s" % [minor_total + 2, cid, str(
+				(w.components.get_component(crafter, "skillWeb") as Dictionary).get("nodes", []))])
+			return false
+	for kid in keystones:
+		if SimSkills.has_node(w, crafter, kid):
+			push_error("the surplus pass bought the keystone %s, which is the player's to choose" % kid)
+			return false
+	# And the second pass buys what is affordable, not whatever it likes: the minors are the
+	# whole of what it may buy, so exactly 2 of the grant are left standing.
 	if SimSkills.points(w, crafter, "Craft") != 2:
 		push_error("surplus spending left %d Craft points, expected 2" % SimSkills.points(w, crafter, "Craft"))
 		return false
-	print("SURPLUS OK craft.tape + craft.scrap off-path, 2 of 5 points left")
+	print("SURPLUS OK %s off-path, 2 of %d points left, %d keystone(s) untouched" % [str(minors), minor_total + 2, keystones.size()])
 	return true
+
+
+# --- READERS -----------------------------------------------------------------------------------
+#
+# Every stat in the registry is resolved by something under godot/sim/, or is named here with
+# the reason it is not. A stat nothing resolves is the dead socket this milestone has paid for
+# eleven times over, and the web is the content most likely to point at one: four of its fifteen
+# shipped nodes did (docs/30, "Readers first for the web"). Two lists, both meant to shrink:
+# AWAITING_READER is what the wider-web arc will wire, one slice each; EXCUSED_DEAD is what no
+# slice reaches and the owner chose to keep in the registry rather than strike -- two of them are
+# still written by shipped affixes, and striking them is its own decision. Adding a name to
+# either list is a decision, which is why they are here and not in the registry.
+const SIM_DIR: String = "res://sim"
+const AWAITING_READER: Array[String] = ["noise_emission"]
+const EXCUSED_DEAD: Array[String] = ["noise_propagation", "structure_decay", "temperature", "condition_loss", "bleed_on_hit"]
+
+
+func _readers_lane(w: Variant) -> bool:
+	var ids: Array[String] = w.stats.ids()
+	if ids.is_empty():
+		push_error("READERS: the registry is empty, so nothing was judged")
+		return false
+	var bodies: String = _sim_function_bodies()
+	if bodies.is_empty():
+		push_error("READERS: no function bodies read under %s" % SIM_DIR)
+		return false
+	# The scanner can say no: a stat nobody has ever heard of is not read.
+	if _is_resolved("no_such_stat_ever", bodies):
+		push_error("READERS: the scanner found a reader for a stat that does not exist, so its verdict means nothing")
+		return false
+	var read: Array[String] = []
+	var unread: Array[String] = []
+	for id in ids:
+		var resolved: bool = _is_resolved(id, bodies)
+		var excused: bool = AWAITING_READER.has(id) or EXCUSED_DEAD.has(id)
+		if resolved and excused:
+			push_error("READERS: %s is resolved and still on an excuse list -- take it off, the list is meant to shrink" % id)
+			return false
+		if not resolved and not excused:
+			unread.append(id)
+		elif resolved:
+			read.append(id)
+	if not unread.is_empty():
+		push_error("READERS: nothing under %s resolves %s -- a stat nothing reads is a dead socket; wire a reader or name it here with the reason" % [SIM_DIR, str(unread)])
+		return false
+	for id in AWAITING_READER:
+		if not ids.has(id):
+			push_error("READERS: %s is awaiting a reader and is not in the registry" % id)
+			return false
+	print("READERS OK %d stats resolved under sim/, %d awaiting the arc %s, %d excused by name" % [read.size(), AWAITING_READER.size(), str(AWAITING_READER), EXCUSED_DEAD.size()])
+	return true
+
+
+# Does any function body under sim/ resolve this stat by name? Both shapes the tree uses: the
+# direct call `resolve", "<id>"` (through `modifiers.call`) and the closure shape
+# `resolve.call("<id>")` that items.gd's profile builders use.
+func _is_resolved(id: String, bodies: String) -> bool:
+	return bodies.contains("\"resolve\", \"%s\"" % id) or bodies.contains("resolve.call(\"%s\")" % id)
+
+
+# Every function body under sim/, comments stripped, joined: a needle a comment could satisfy
+# cannot be trusted (CLAUDE.md's traps), so the scan reads code lines only.
+func _sim_function_bodies() -> String:
+	var paths: Array[String] = []
+	_collect_gd(SIM_DIR, paths)
+	var out: String = ""
+	for path in paths:
+		var f: FileAccess = FileAccess.open(path, FileAccess.READ)
+		if f == null:
+			continue
+		for line in f.get_as_text().split("\n"):
+			var code: String = line.strip_edges()
+			if code.begins_with("#"):
+				continue
+			var hash_at: int = code.find(" #")
+			if hash_at >= 0:
+				code = code.substr(0, hash_at)
+			out += code + "\n"
+	return out
+
+
+func _collect_gd(dir: String, out: Array[String]) -> void:
+	var d: DirAccess = DirAccess.open(dir)
+	if d == null:
+		return
+	for f in d.get_files():
+		if f.get_extension() == "gd":
+			out.append(dir.path_join(f))
+	for sub in d.get_directories():
+		_collect_gd(dir.path_join(sub), out)
 
 
 # Every node in the web is owned by somebody, eventually: on a focus path, or by the surplus
@@ -221,6 +346,7 @@ func _reach_lane(w: Variant) -> bool:
 		region_total[reg] = int(region_total.get(reg, 0)) + int((n as Dictionary).get("cost", 1))
 	var by_path: Array = []
 	var by_surplus: Array = []
+	var by_hand: Array = []
 	for n in nodes:
 		var nd: Dictionary = n as Dictionary
 		var nid: String = String(nd.get("id", ""))
@@ -234,6 +360,19 @@ func _reach_lane(w: Variant) -> bool:
 		# A region's whole cost, so the probe can afford every node in it and the only question
 		# left is whether anything ever offers to buy this one.
 		SimSkills._earn(w, probe, region, int(region_total.get(region, 1)))
+		if SimSkills.is_keystone(nd):
+			# A keystone is chosen: the Auto probe with the whole region banked never owns it,
+			# and a Manual probe with the same bank owns it the moment it asks.
+			if SimSkills.has_node(w, probe, nid):
+				push_error("%s is a keystone and the auto-spend bought it: a keystone is chosen, never auto-bought" % nid)
+				return false
+			var chooser: int = _probe(w, "Manual", "")
+			SimSkills._earn(w, chooser, region, int(region_total.get(region, 1)))
+			if not SimSkills._buy(w, chooser, nid) or not SimSkills.has_node(w, chooser, nid):
+				push_error("%s is a keystone a Manual survivor with the whole region banked could not buy: nobody in the game can own it" % nid)
+				return false
+			by_hand.append(nid)
+			continue
 		if not SimSkills.has_node(w, probe, nid):
 			push_error("%s (%s, cost %d) is on no focus path and the surplus pass never buys it: nobody in the game can own it" % [
 				nid, region, int(nd.get("cost", 1))])
@@ -248,8 +387,8 @@ func _reach_lane(w: Variant) -> bool:
 	if SimSkills.node_count(w, broke) != 0:
 		push_error("a probe with no points owns %d nodes" % SimSkills.node_count(w, broke))
 		return false
-	print("REACH OK %d nodes: %d by path, %d by surplus %s" % [
-		nodes.size(), by_path.size(), by_surplus.size(), str(by_surplus)])
+	print("REACH OK %d nodes: %d by path, %d by surplus %s, %d by hand only %s" % [
+		nodes.size(), by_path.size(), by_surplus.size(), str(by_surplus), by_hand.size(), str(by_hand)])
 	return true
 
 
@@ -335,3 +474,135 @@ func _drift_lane(w: Variant) -> bool:
 		return false
 	print("DRIFT OK medic after a day boundary; player-set held; nurse 1pt drifts, auditor 1pt does not; Rest votes for nobody")
 	return true
+
+
+# --- KEYSTONE ----------------------------------------------------------------------------------
+#
+# The shape of a keystone, held here because no schema covers skill_web.json: a rim node of cost
+# three or more, carrying its gift and its drawback together as `modifiers`, the drawback named
+# and moving its stat the wrong way, a price in words, and on no focus path (a keystone is
+# chosen). A minor is the flat trio and carries no `modifiers`. The direction table names only
+# actor-scoped stats, because an entity-scoped drawback on an item-scoped stat would be a no-op
+# that reads as a price paid. The predicate is pure, so five broken copies of the shipped web are
+# each refused for their own fault before the shipped web's pass means anything.
+const GOOD_UP: Array[String] = ["treatment_speed", "healing_rate", "ranged_accuracy", "melee_damage", "swing_speed", "swing_recovery", "stamina_recovery", "carry_capacity", "move_speed", "grab_escape", "mood"]
+const GOOD_DOWN: Array[String] = ["repair_cost", "damage_taken", "spoilage_rate", "infection_progression", "noise_emission"]
+
+
+func _moves_up(m: Dictionary) -> bool:
+	var op: String = String(m.get("op", "mul"))
+	var v: float = float(m.get("value", 1.0))
+	return v > 1.0 if op == "mul" else v > 0.0
+
+
+func _moves_down(m: Dictionary) -> bool:
+	var op: String = String(m.get("op", "mul"))
+	var v: float = float(m.get("value", 1.0))
+	return v < 1.0 if op == "mul" else v < 0.0
+
+
+func _is_good(m: Dictionary) -> bool:
+	var stat: String = String(m.get("stat", ""))
+	if GOOD_UP.has(stat):
+		return _moves_up(m)
+	if GOOD_DOWN.has(stat):
+		return _moves_down(m)
+	return false
+
+
+func _is_bad(m: Dictionary) -> bool:
+	var stat: String = String(m.get("stat", ""))
+	if GOOD_UP.has(stat):
+		return _moves_down(m)
+	if GOOD_DOWN.has(stat):
+		return _moves_up(m)
+	return false
+
+
+func _keystone_faults(def: Dictionary) -> Array[String]:
+	var out: Array[String] = []
+	var on_path: Dictionary = {}
+	for f in (def.get("focusPaths", {}) as Dictionary).keys():
+		for nid in (def.get("focusPaths", {}) as Dictionary)[f] as Array:
+			on_path[String(nid)] = String(f)
+	var digits: RegEx = RegEx.new()
+	digits.compile("[0-9]")
+	for n in def.get("nodes", []) as Array:
+		var nd: Dictionary = n as Dictionary
+		var nid: String = String(nd.get("id", ""))
+		if not SimSkills.is_keystone(nd):
+			if nd.has("modifiers") or nd.has("drawback") or nd.has("price"):
+				out.append("%s is a minor and carries a keystone's keys" % nid)
+			continue
+		if int(nd.get("cost", 1)) < 3:
+			out.append("%s is a keystone that costs %d; a keystone costs three or more" % [nid, int(nd.get("cost", 1))])
+		var mods: Variant = nd.get("modifiers")
+		if not mods is Array or (mods as Array).size() < 2:
+			out.append("%s is a keystone with no gift-and-drawback pair" % nid)
+			continue
+		var drawback: String = String(nd.get("drawback", ""))
+		var priced: bool = false
+		var given: bool = false
+		for m in mods as Array:
+			var md: Dictionary = m as Dictionary
+			if String(md.get("stat", "")) == drawback:
+				priced = _is_bad(md)
+			elif _is_good(md):
+				given = true
+		if drawback.is_empty() or not priced:
+			out.append("%s names no drawback, or its drawback moves its stat the right way" % nid)
+		if not given:
+			out.append("%s gives nothing the table calls good" % nid)
+		var price: String = String(nd.get("price", ""))
+		if price.strip_edges().is_empty() or digits.search(price) != null:
+			out.append("%s has no price in words, or a digit in it" % nid)
+		if on_path.has(nid):
+			out.append("%s is a keystone on the %s path; a keystone is chosen" % [nid, String(on_path[nid])])
+	return out
+
+
+func _keystone_lane() -> bool:
+	var def: Dictionary = SimSkills._web()
+	var keystones: Array = []
+	for n in def.get("nodes", []) as Array:
+		if SimSkills.is_keystone(n as Dictionary):
+			keystones.append(String((n as Dictionary).get("id", "")))
+	if keystones.is_empty():
+		push_error("KEYSTONE: the web has no keystone, so the shape was not judged")
+		return false
+	var faults: Array[String] = _keystone_faults(def)
+	if not faults.is_empty():
+		push_error("KEYSTONE: %s" % str(faults))
+		return false
+	# Five broken copies, each refused for its own fault.
+	var first: String = String(keystones[0])
+	var breaks: Array = [
+		["too cheap", func(d: Dictionary) -> void: _node_in(d, first)["cost"] = 2, "costs three or more"],
+		["a drawback the right way", func(d: Dictionary) -> void:
+			for m in _node_in(d, first)["modifiers"] as Array:
+				if String((m as Dictionary).get("stat", "")) == String(_node_in(d, first).get("drawback", "")):
+					(m as Dictionary)["value"] = 6.0, "moves its stat the right way"],
+		["on a path", func(d: Dictionary) -> void: ((d["focusPaths"] as Dictionary)["Fighter"] as Array).append(first), "is chosen"],
+		["no price", func(d: Dictionary) -> void: _node_in(d, first)["price"] = "", "no price in words"],
+		["a minor with keystone keys", func(d: Dictionary) -> void: _node_in(d, "melee.grip")["modifiers"] = [], "carries a keystone's keys"],
+	]
+	for br in breaks:
+		var broken: Dictionary = def.duplicate(true)
+		(br[1] as Callable).call(broken)
+		var found: Array[String] = _keystone_faults(broken)
+		var hit: bool = false
+		for msg in found:
+			if msg.contains(String(br[2])):
+				hit = true
+		if not hit:
+			push_error("KEYSTONE: %s was not refused for it (got %s)" % [String(br[0]), str(found)])
+			return false
+	print("KEYSTONE OK %s: cost three or more, a gift and a drawback under one node, a price in words, on no path; 5 broken copies each refused" % str(keystones))
+	return true
+
+
+func _node_in(def: Dictionary, nid: String) -> Dictionary:
+	for n in def.get("nodes", []) as Array:
+		if String((n as Dictionary).get("id", "")) == nid:
+			return n as Dictionary
+	return {}

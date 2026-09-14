@@ -58,7 +58,7 @@ var stats: Variant = null
 var modifiers: Variant = null
 var field: Variant = null
 var events: Variant = null
-var director: Dictionary = {"lullUntilTick": 0, "lastMigrationTick": 0, "nightsSinceQuiet": 0}
+var director: Dictionary = {"lullFromTick": 0, "lullUntilTick": 0, "lastMigrationTick": 0, "nightsSinceQuiet": 0}
 # The weather singleton (docs/adr/0015): scalars SimWeather owns, saved and restored exactly as the
 # director's are. Empty until SimWeather.register_module fills it, so a fixture that never
 # registers the module reads as dry.
