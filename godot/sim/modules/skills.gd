@@ -287,7 +287,18 @@ static func _earn(world: Variant, entity: int, region: String, amount: int) -> v
 	_autospend(world, entity)
 
 
+# Whose hand is on this web. A colonist's is their focus word (docs/30, "Who manages a survivor's
+# skill web": Focus is the whole surface, and anything but Manual means "you decide"). The body
+# you are playing is the one exception, and it is a predicate rather than a job row: the player
+# has no row, the work grid hides them by design, and at succession `world.player` moves onto a
+# body that keeps its own focus -- so "the player is Manual" is read off the two facts that
+# define the player (`world.player`, `controlled`) and not stored anywhere a handoff would have
+# to remember to write. The owner's 2026-09-14 decision (docs/30, "One web, and the captives"):
+# your own web is yours, nobody spends it for you, and the K screen's clicks buy, keystones
+# included.
 static func _focus_of(world: Variant, entity: int) -> String:
+	if entity == int(world.player) or world.components.has_component(entity, "controlled"):
+		return "Manual"
 	var jp: Variant = world.components.get_component(entity, "jobPriorities")
 	if jp is Dictionary:
 		return String((jp as Dictionary).get("focus", "Auto"))
