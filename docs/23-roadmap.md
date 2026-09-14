@@ -274,9 +274,6 @@ balance record and says so in its record; `survivors_end >= 1` is never the leve
 - **One roll for everybody.** `SimRecruits.roll` moves verbatim into `sim/modules/people.gd` so
   strangers, raiders and settlers draw from the same shape, draw order untouched and proved
   byte-identical by a pinned roll. New gate `godot:m2:people`.
-- **The zombie mix is content.** `SimRoster.pick_type` reads a `weight` per type instead of three
-  constants, shipped at 80/12/8 so every stream stays byte-identical; the MIX lane pins the old
-  sequence.
 - **A body asleep in a building.** A worldgen pass writes `map.dormant` records into buildings
   outside the home disc, boot spawns them like parked cars, and a Dormant shambler state casts no
   sight and wakes to noise, scent or contact. New gate `godot:m2:dormant`; the boot-density pins
@@ -5074,6 +5071,48 @@ not a to-do list:
   50 against 158 / 69 / 81 / 35 — what moved is the two later seeds' contact counts, which is
   the screamer and the bloater now able to grab from day 3 and each type hearing at its own
   threshold. Every band holds; nothing re-pinned.
+- **Roster & the mix** — ~~the zombie mix is content~~ **landed** (`godot:m2:roster` MIX:
+  PINNED, QUIET, SILENCED, HEAVY), 2026-09-14, the second piece of the procedural-population arc
+  and the first of its zombie group. What was wrong: `SimRoster.pick_type` held the composition
+  as three constants — `MIX_SHAMBLER` 80, `MIX_SCREAMER` 12, `MIX_BLOATER` 8 — and three type
+  ids beside them, so adding a kind meant editing the module docs/14 says is JSON alone,
+  and the shipped mix was the one number about zombies that content could not say. Now: every
+  zombie type carries a **`weight`** (`zombie.schema.json`, integer, `minimum: 1`, omitted counts
+  as 1 — the rule a raider archetype already followed), the three shipped entries declare 80 / 12
+  / 8, and `pick_type` builds its pool from the resolved entries (`extends` merged), drops the
+  `zombie.base` template the way `check_appearance.gd`'s `ROSTER_EXEMPT` drops it, filters by
+  `wave_allows`, and takes one `int_range(0, total - 1)` over the summed weights. Two details are
+  deliberate and commented as such. The pool is sorted by id **descending**, which is the one
+  total order that lists shambler, screamer, bloater — the order the constants were written in —
+  so a roll of 0–79 is still a shambler, 80–91 still a screamer and 92–99 still a bloater; any
+  order draws the same distribution, and this one draws the same *body*. And a declared
+  `weight: 0` **silences** a type rather than clamping up to 1 as `SimRaiders.pick_type` does: the
+  schema's minimum keeps a 0 out of shipped content, and it exists so a fixture tree can take a
+  kind off the table, which is the only way a gate can prove the number is read. The shambler-only
+  short-circuit is kept and is now the pool saying so — on days 1 and 2, where the screamer and
+  bloater are both wave 1, nothing but the shambler is due and the answer costs no draw.
+  **Measured: byte-identical, and that is the whole balance claim.** A throwaway driver
+  (`SimBoot.playable(20260805, 64)`, fifty `pick_type` calls on day 7 off its own `mixProbe`
+  stream, deleted) ran against the old code before a line changed and against the new code after:
+  the same fifty kinds in the same order, 40 shamblers / 3 screamers / 7 bloaters, and the same
+  stream state `105685602` at the end. That sequence is pinned in the lane as a literal, so the
+  `placement` and `director` streams — and the bodies every campaign spawns off them — are the
+  ones the hard-coded mix drew. `godot:m2:director` is green unchanged, GRACE included, which is
+  the district-edge half of the same claim. MIX: **PINNED** the fifty-draw literal on seed
+  20260805; **QUIET** fifty day-1 calls leave the stream at `3016675464` and fifty day-7 calls
+  move it (the negative half, so a `save()` that never moved could not pass); **SILENCED** a
+  fixture tree with the shambler at `weight: 0` draws 0 shamblers in 200 where the shipped tree
+  draws 159; **HEAVY** the bloater at 100 against 1 and 1 draws 192 of 200 where the shipped tree
+  draws 21. Run red on purpose, four ways: dropping the descending sort and pinning the shipped
+  shambler at 70 each turned PINNED red; clamping the weight with `maxi(1, …)` let 15 silenced
+  shamblers through and turned SILENCED red; flattening the HEAVY fixture's bloater to 1 dropped
+  it to 71 of 200 and turned HEAVY red; removing the short-circuit walked the day-1 stream to
+  `105685602` and turned QUIET red. `npm test` is the other half of the schema: the frozen
+  oracle's Ajv recurses, and a `weight: 0` in `shambler.json` fails `content-loads` with
+  `zombies/shambler.json > zombie.shambler > weight: must be >= 1` where `godot:validate` still
+  says `GODOT_CONTENT_OK`. No body count moved, so the FAST balance record is not re-baselined —
+  the arc's re-baseline rule applies to the pieces that add a kind or a body, and this one adds
+  neither.
 - **District & Director** — ~~the boot population scales with the district~~ **landed**
   (`godot:m2:district` BOOT DENSITY, `godot:m2:director` CAP, `godot:check:worldgen` at both
   sizes), 2026-09-06, the fourth piece of the playable-state group and the owner's decision 5.

@@ -1,8 +1,9 @@
 class_name SimRoster
 extends RefCounted
 
-# Composition. The mix is 80/12/8 among the types whose `introducedInWave` has arrived: wave 0
-# from day 1, and each later wave `WAVE_DAY_STRIDE` days after the one before it (wave 1 on day
+# Composition. The mix is content: every zombie type carries a `weight`, and one roll over the
+# summed weights of the types whose `introducedInWave` has arrived picks the kind -- wave 0 from
+# day 1, and each later wave `WAVE_DAY_STRIDE` days after the one before it (wave 1 on day
 # FAKE_WAVE_DAY, 3 -- the day the old hard-coded rule opened the mix). Clock.day_number is
 # 1-indexed. A draw is only made when something other than the shambler is on the table, so the
 # placement stream is untouched on the shambler-only days it was untouched on before.
@@ -22,9 +23,10 @@ const TYPE_BLOATER: String = "zombie.bloater"
 
 const FAKE_WAVE_DAY: int = 3
 const WAVE_DAY_STRIDE: int = FAKE_WAVE_DAY - 1
-const MIX_SHAMBLER: int = 80
-const MIX_SCREAMER: int = 12
-const MIX_BLOATER: int = 8
+# A type that declares no `weight` counts as one share, the way a raider archetype does
+# (`raider.schema.json`). The three shipped kinds declare 80 / 12 / 8, which is the mix that used
+# to live here as three constants.
+const DEFAULT_WEIGHT: int = 1
 
 
 # The resolved entry -- `extends` applied, per world. See SimShambler.resolved_entry.
@@ -54,18 +56,78 @@ static func has_behavior(world: Variant, type_id: String, tag: String) -> bool:
 	return behaviours is Array and (behaviours as Array).has(tag)
 
 
+# Every zombie kind that can be drawn, as resolved entries (`extends` applied), sorted by id
+# **descending**. The base is a template and not a kind -- it spawns nowhere and gets no art
+# either, which is what `check_appearance.gd`'s ROSTER_EXEMPT says about the same id.
+#
+# Descending rather than ascending is deliberate and not decoration: any total order draws the
+# same distribution, and this is the one that lists the shipped kinds shambler, screamer, bloater
+# -- the order the three constants used to be written in -- so on the shipped 80 / 12 / 8 a roll
+# of 0..79 is still a shambler, 80..91 still a screamer and 92..99 still a bloater. Every
+# campaign therefore draws the same kind for the same roll as the hard-coded mix did.
+# `check_m2_roster.gd`'s MIX lane pins the first fifty draws of seed 20260805 as a literal.
+static func types(world: Variant) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if world == null or world.content == null or not (world.content is Dictionary):
+		return out
+	var ids: Array[String] = []
+	for path in (world.content as Dictionary).keys():
+		var raw: Variant = (world.content as Dictionary)[path]
+		var entries: Array = raw as Array if raw is Array else [raw]
+		for entry in entries:
+			if not entry is Dictionary:
+				continue
+			var id: String = String((entry as Dictionary).get("id", ""))
+			if not id.begins_with("zombie.") or id == TYPE_BASE or ids.has(id):
+				continue
+			ids.append(id)
+	ids.sort()
+	ids.reverse()
+	for type_id in ids:
+		var resolved: Variant = content_entry(world, type_id)
+		if resolved is Dictionary:
+			out.append(resolved as Dictionary)
+	return out
+
+
+# A type's share of the mix, and the one place the `weight` key is read. Omitted counts as
+# `DEFAULT_WEIGHT`, and a declared **0 silences the type**: it is skipped and contributes nothing
+# to the total, so it can never be drawn. The schema's `minimum: 1` keeps a 0 out of shipped
+# content -- it is here so a fixture tree can take a kind off the table, which is how the MIX lane
+# proves the weight is read at all. (`SimRaiders.pick_type` clamps with `maxi(1, ...)` instead and
+# so cannot silence an archetype; the two differ on purpose, and only the zombie mix has a gate
+# that needs the zero.)
+static func weight_of(world: Variant, type_id: String) -> int:
+	var entry: Variant = content_entry(world, type_id)
+	if entry is Dictionary:
+		return maxi(0, int((entry as Dictionary).get("weight", DEFAULT_WEIGHT)))
+	return DEFAULT_WEIGHT
+
+
 static func pick_type(world: Variant, rng: Variant, at_tick: int = -1) -> String:
 	var tick: int = int(world.tick) if at_tick < 0 else at_tick
-	var screamer_due: bool = wave_allows(world, TYPE_SCREAMER, tick)
-	var bloater_due: bool = wave_allows(world, TYPE_BLOATER, tick)
-	if not screamer_due and not bloater_due:
+	var pool: Array[Dictionary] = []
+	var total: int = 0
+	for entry in types(world):
+		var type_id: String = String(entry.get("id", ""))
+		if not wave_allows(world, type_id, tick):
+			continue
+		var share: int = weight_of(world, type_id)
+		if share <= 0:
+			continue
+		pool.append({"id": type_id, "weight": share})
+		total += share
+	# Nothing but the shambler on the table -- days 1 and 2, where the screamer and the bloater
+	# are both wave 1 -- answers without a draw at all, which is what leaves the placement stream
+	# on those days byte-identical to the stream before the mix was content.
+	if total <= 0 or (pool.size() == 1 and String(pool[0]["id"]) == TYPE_SHAMBLER):
 		return TYPE_SHAMBLER
-	var roll: int = int(rng.call("int_range", 0, 99))
-	if roll < MIX_SHAMBLER:
-		return TYPE_SHAMBLER
-	if roll < MIX_SHAMBLER + MIX_SCREAMER:
-		return TYPE_SCREAMER if screamer_due else TYPE_SHAMBLER
-	return TYPE_BLOATER if bloater_due else TYPE_SHAMBLER
+	var roll: int = int(rng.call("int_range", 0, total - 1))
+	for record in pool:
+		roll -= int(record["weight"])
+		if roll < 0:
+			return String(record["id"])
+	return String(pool[pool.size() - 1]["id"])
 
 
 # The `emits` block as an attention emitter: `{channel, magnitude}` records, summed per channel.
