@@ -247,7 +247,29 @@ func _seeking_world(seed_val: int, type_id: String = "zombie.shambler") -> Dicti
 	w.components.set_component(w.player, "position", {"x": 22.5, "y": 12.5})
 	var z: int = SimRoster.spawn_zombie(w, 2.5, 12.5, type_id, w.rng.stream("shambler"))
 	w.components.set_component(z, "facing", {"radians": 0.0})
+	_pin_body(w, z, type_id)
 	return {"world": w, "zed": z}
+
+
+# The body put back to its type's authored numbers, undoing the per-body look roll
+# (`SimRoster.roll_look`, 2026-09-15: a size in [0.85, 1.15] on both `body` and `bodyMax`, and one
+# body in twenty born legless).
+#
+# Every lane in this gate measures a *named* body — a torso at 20 of 60 reading BadlyHurt, an
+# Unusable torso reading x0.5 — so a body that is its own size, or that arrives already crawling,
+# is a confound and not the thing under test. Silencing it here is `check_m2_contact.gd`'s
+# `_no_struggling` convention: say which half of the mechanism is being measured rather than
+# letting the other half spoil the sample. It is not hypothetical — seed 89's body rolled a
+# crawler, and HEAD-ONLY read the torso's x0.5 compounded with `crawlFactor` as x0.125.
+# `check_m2_variance.gd` is where the roll itself is measured.
+func _pin_body(w: Variant, z: int, type_id: String) -> void:
+	var entry: Variant = SimRoster.content_entry(w, type_id)
+	if not (entry is Dictionary) or not ((entry as Dictionary).get("body") is Dictionary):
+		push_error("_pin_body: %s declares no body block" % type_id)
+		return
+	var authored: Dictionary = ((entry as Dictionary)["body"] as Dictionary).duplicate()
+	w.components.set_component(z, "body", authored.duplicate())
+	w.components.set_component(z, "bodyMax", authored.duplicate())
 
 
 func _covered(fx: Dictionary, ticks: int) -> float:

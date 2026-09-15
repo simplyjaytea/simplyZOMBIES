@@ -683,6 +683,17 @@ static func for_entity(world: Variant, it: Dictionary) -> Dictionary:
 		if block.has("sprite"):
 			sprite_key = String(block["sprite"])
 
+	# One body's own colour, rolled at spawn from its type's `variance.tints` and carried here on
+	# the draw item (main.gd reads it off `zombieType`). Last, so it wins over the kind's shared
+	# tint: the block says what a shambler looks like and this says what *this* shambler looks
+	# like. Still content -- the hexes live in content/zombies/, this only prefers one of them --
+	# and empty for every body whose kind declares no palette, which falls through to the block
+	# above exactly as it did before any of this existed.
+	var rolled: String = String(it.get("tint", ""))
+	if not rolled.is_empty():
+		tint = Color(rolled)
+		declared_tint = true
+
 	var texture: Texture2D = resolve(sprite_key)
 	# A raider is drawn at a survivor's radius, deliberately. At Peripheral detail main.gd draws
 	# one anonymous disc of exactly this size and nothing else -- no sprite, no gear, no facing --
