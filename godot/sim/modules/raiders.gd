@@ -20,8 +20,15 @@ extends RefCounted
 #     colonist does.
 #
 # What *is* new is exactly two things: an archetype declared as content, and a walk towards the
-# gate. Deliberately nothing else -- no looting AI, no dialogue, no faction standing. docs/18's
-# factions are Milestone 3 and this must not pre-empt them.
+# gate. Deliberately nothing else -- no dialogue, no faction standing. docs/18's factions are
+# Milestone 3 and this must not pre-empt them.
+#
+# Since the roles slice a band also has something to *want*. An archetype declares a `role` from a
+# closed enum and `_approach` matches on it: a `fighter` is the walk above, unchanged; a `lookout`
+# halts LOOKOUT_METRES short and turns the band for home at the first loss; a `looter` walks at the
+# colony's stores instead of its gate, takes LOOT_TAKE things off the floor and leaves with them.
+# That is docs/18's "target stores first, people second, and will withdraw once loaded" -- still
+# not a faction, still no dialogue, and no standing.
 #
 # Since the individuals slice each body is also a *person*: `raider.person` carries the name, age,
 # features, look and backstory `SimPeople.roll` drew, the archetype's aptitudes may be declared as
@@ -42,12 +49,12 @@ const SimHealthRes = preload("res://sim/modules/health.gd")
 const SimHomeRes = preload("res://sim/home.gd")
 const SimInventoryRes = preload("res://sim/modules/inventory.gd")
 const SimItemsRes = preload("res://sim/modules/items.gd")
-const SimPathRes = preload("res://sim/path.gd")
+const SimNeedsRes = preload("res://sim/modules/needs.gd")
 const SimPeopleRes = preload("res://sim/modules/people.gd")
 const SimSightingsRes = preload("res://sim/modules/sightings.gd")
 const SimStancesRes = preload("res://sim/stances.gd")
-const SimTileMapRes = preload("res://sim/map/tilemap.gd")
 const SimVisibilityRes = preload("res://sim/vision/visibility.gd")
+const SimWalkRes = preload("res://sim/walk.gd")
 
 # Content lives in `godot/content/raiders/`, one entry per file, against
 # `content/schemas/raider.schema.json`. Its own directory rather than a tagged survivor entry,
@@ -100,6 +107,34 @@ const WITHDRAW_AFTER_TICKS: int = 6000
 # What the approach walks at. Read off the map rather than computed: `gate_a` is where a colony
 # is entered from, and the annex centre is the honest fallback for a district nobody stamped.
 const ARRIVE_METRES: float = 1.2
+
+# What a band member came to do. docs/18's raids are "a business": they "target stores first,
+# people second, and will withdraw once loaded" and "retreat when losses outweigh the haul". Until
+# this every raider did the one thing -- walk at the gate and fight until the clock ran out -- so
+# the business half of that sentence was a design note with no reader.
+#
+# A role is a **closed enum**, declared per archetype and never a free string. The schema's own
+# `role` enum is the first lock (the shallow validator does check a top-level enum), `spawn`'s
+# refusal below is the second, and `check_m2_raiders.gd` ROLE-READ is the third -- because the
+# quiet failure this has to be impossible is an archetype declaring `quartermaster` and getting a
+# fighter, which is the dead socket in its most expensive shape: content that reads as shipped
+# behaviour and is not.
+const ROLE_FIGHTER: String = "fighter"
+const ROLE_LOOKOUT: String = "lookout"
+const ROLE_LOOTER: String = "looter"
+const ROLES: Array[String] = [ROLE_FIGHTER, ROLE_LOOKOUT, ROLE_LOOTER]
+
+# Where a lookout stops. A watcher on the treeline (docs/18's own announcement of a raid) rather
+# than a body in the fight: far enough outside the longest reach in the tree that no halt, no
+# wall-following detour and no arrival tolerance could produce it by accident, and close enough
+# that they are still standing in the district with everything that implies -- a zombie sees them,
+# the colony can shoot at them, and they emit the same noise and scent anyone else does.
+const LOOKOUT_METRES: float = 12.0
+
+# How much a looter carries away. The plan's first cut, and the owner's to move: three things off
+# the floor of your stores. Not three *stacks* and not a pack's worth -- three item entities, which
+# on a stockpile of tins and bottles is a night's meals rather than a pantry.
+const LOOT_TAKE: int = 3
 
 
 static func content_entry(world: Variant, id: String) -> Variant:
@@ -174,6 +209,17 @@ static func spawn(world: Variant, x: float, y: float, type_id: String) -> int:
 	if not (entry is Dictionary):
 		return -1
 	var e: Dictionary = entry as Dictionary
+	# The role, refused before a single draw is spent. Two reasons for the order rather than one:
+	# a refused spawn must leave `raiderRoll` and `raiderLook` exactly where it found them, or a
+	# malformed archetype would reshuffle every body drawn after it; and an archetype nothing
+	# implements must not become a fighter by default, which is the whole point of the enum.
+	# `-1` is what `_emit_band` already handles -- it counts what it placed -- so a band short one
+	# body is the visible consequence, and a content tree that reaches here has been past the
+	# schema's enum first.
+	var role: String = String(e.get("role", ROLE_FIGHTER))
+	if not ROLES.has(role):
+		push_error("raider archetype %s declares role '%s', which nothing implements -- %s" % [String(e.get("id", type_id)), role, str(ROLES)])
+		return -1
 	# Drawn before the body exists, so the two streams are spent in one place and in one order
 	# however the caller got here -- the director's band, a fixture, a gate.
 	var roll_rng: Variant = world.rng.stream(ROLL_STREAM)
@@ -197,6 +243,14 @@ static func spawn(world: Variant, x: float, y: float, type_id: String) -> int:
 		# reads a raider's trait, and a field nothing reads is the mistake this milestone has paid
 		# for eleven times. `check_m2_raiders.gd` NO-IDENTITY.
 		"person": person,
+		# What they came to do, stamped on the body rather than looked up per tick: `_approach`
+		# asks this every tick for every raider, and it travels through a save with the rest of
+		# the component so a band restored mid-raid is still the band that set out.
+		"role": role,
+		# How many things off your floor this body is carrying. A looter's counter and nobody
+		# else's; it rides out of the district on `raid.withdrew` so a harness can see stores
+		# leaving without counting entities that no longer exist.
+		"looted": 0,
 		"path": [],
 		"pathGen": -1,
 		"goalX": -1,
@@ -401,13 +455,13 @@ static func _approach(world: Variant, ent: int) -> void:
 	if not (raider is Dictionary):
 		return
 	var r: Dictionary = raider as Dictionary
+	var role: String = String(r.get("role", ROLE_FIGHTER))
 	# On the way out: back to the tile it came in on, then gone. Nothing stops a withdrawal.
 	if bool(r.get("withdrawing", false)):
 		var entry := Vector2i(int(r.get("entryX", -1)), int(r.get("entryY", -1)))
 		var pos: Variant = world.components.get_component(ent, "position")
 		if entry.x < 0 or not (pos is Dictionary) or _at_tile(pos as Dictionary, entry, 1.5) or (r.get("path", []) as Array).is_empty() and int(r.get("pathGen", -1)) == int(world.mapGeneration):
-			world.events.publish({"type": "raid.withdrew", "entity": ent, "raidId": int(r.get("raidId", 0))})
-			world.despawn(ent)
+			_leave(world, ent, r)
 			return
 		_walk(world, ent, r, entry)
 		return
@@ -416,25 +470,161 @@ static func _approach(world: Variant, ent: int) -> void:
 		_begin_withdrawal(r)
 		_still(vel as Dictionary)
 		return
+	# The lookout's job, and the only thing about a raid that one body decides for everybody: at
+	# the *first* loss it turns the band for home, rather than at the half strength the clause
+	# above waits for. docs/18's "retreat when losses outweigh the haul" -- a band that brought a
+	# watcher retreats on a business's arithmetic rather than on a horde's.
+	if role == ROLE_LOOKOUT and int(r.get("bandSize", 0)) > 0 and _band_live(world, int(r.get("raidId", 0))) < int(r.get("bandSize", 0)):
+		_turn_band_home(world, int(r.get("raidId", 0)))
+		_still(vel as Dictionary)
+		return
+	# The looter's business, done at the stores, and it is asked BEFORE the halt below on purpose:
+	# docs/18's raiders "target stores first, people second". `_loot_step` answers true only when
+	# there is something of the colony's inside arm's reach or the arms are already full, so this
+	# is narrow -- a looter standing on your pantry with a defender closing takes the tin and then
+	# goes, and a looter anywhere else falls through and fights like anybody else. It costs it
+	# nothing defensively either: `npc_combat.gd` swings from where a body is standing and never
+	# reads a velocity, so a looter with its hand in your stores is still hitting back.
+	#
+	# The reason the order matters, and it is measured rather than assumed: the stockpile is where
+	# the colonists are, so a looter that does reach the shelf is inside somebody's reach before it
+	# is inside the tins' -- with the halt asked first it would stand there and fight over the
+	# pantry without ever touching it. What four forced raids on day 8 also measured is that the
+	# band is met 5 to 13 m short of the stores anyway, so no campaign has yet exercised either
+	# order; docs/23's record says so rather than claiming this bought something.
+	if role == ROLE_LOOTER and _loot_step(world, ent, r):
+		_still(vel as Dictionary)
+		return
 	# Stand and fight. `npc_combat.gd` never sets a velocity -- engaging is something you do from
 	# where you are standing -- so the halt has to come from here, and it is the difference
-	# between a band that fights the colony and a band that walks through it.
+	# between a band that fights the colony and a band that walks through it. Every role ends up
+	# here: a looter with nothing in reach is a man in a fight like the rest of them.
 	if _enemy_within(world, ent, HALT_METRES):
 		_still(vel as Dictionary)
 		return
-	var goal: Vector2i = _objective(world, r)
+	var goal: Vector2i = _objective(world, r, role, ent)
 	if goal.x < 0 or goal.y < 0:
 		_still(vel as Dictionary)
+		return
+	# A lookout stops short of the objective and watches it. Not `_walk` with a shorter path: it
+	# never plans the last LOOKOUT_METRES at all, which is what makes "does not close" a property
+	# of the approach rather than of where a tick happened to end.
+	if role == ROLE_LOOKOUT and _within_metres(world, ent, goal, LOOKOUT_METRES):
+		_still(vel as Dictionary)
+		_arrival_clock(world, r)
 		return
 	_walk(world, ent, r, goal)
 	# At the objective with nobody to fight: the clock runs, and when it is out the band goes.
 	if (r.get("path", []) as Array).is_empty():
-		if int(r.get("arrivedAtTick", -1)) < 0:
-			r["arrivedAtTick"] = int(world.tick)
-		elif int(world.tick) - int(r.get("arrivedAtTick", -1)) >= WITHDRAW_AFTER_TICKS:
-			_begin_withdrawal(r)
+		_arrival_clock(world, r)
 	else:
 		r["arrivedAtTick"] = -1
+
+
+# The one withdrawal clock, shared by every role: WITHDRAW_AFTER_TICKS standing at whatever this
+# body came to stand at. A looter that found an empty stockpile and a lookout that reached its
+# watching distance both run it, which is why a band that takes nothing leaves exactly when a band
+# of fighters would have.
+static func _arrival_clock(world: Variant, r: Dictionary) -> void:
+	if int(r.get("arrivedAtTick", -1)) < 0:
+		r["arrivedAtTick"] = int(world.tick)
+	elif int(world.tick) - int(r.get("arrivedAtTick", -1)) >= WITHDRAW_AFTER_TICKS:
+		_begin_withdrawal(r)
+
+
+# Out of the district, with everything in their hands and their pack. Announced before the body
+# goes, because afterwards nothing can tell what left: `raid.withdrew` carries the haul the way
+# `raider.killed` carries the person, and for the same reason -- handlers drain at the end of the
+# step, by which time the component is gone.
+#
+# The items are despawned rather than left behind, and that is the half that makes a looter a
+# *cost*. An item whose `stored` points at a despawned body is in nobody's hands and on no floor:
+# it would neither come back nor be gone, which is the quietly-not-what-you-stored family this
+# file already has two entries in. What a raid took is gone; what it dropped, it dropped when
+# somebody killed it (`SimRecruits._drop_kit`).
+static func _leave(world: Variant, ent: int, r: Dictionary) -> void:
+	# One added field, and it has a reader: `check_m2_balance.gd`'s run line prints `looted` so a
+	# campaign can show stores walking out. A count of everything carried was on this event for an
+	# hour and came back off it -- nothing read it, and a field nothing reads is the mistake this
+	# milestone has paid for eleven times.
+	world.events.publish({
+		"type": "raid.withdrew",
+		"entity": ent,
+		"raidId": int(r.get("raidId", 0)),
+		"looted": int(r.get("looted", 0)),
+	})
+	for item in SimInventoryRes.carried_items(world, ent):
+		world.despawn(int(item))
+	world.despawn(ent)
+
+
+# Every body of one raid turns for home. Written onto the components rather than published as an
+# event, because `events.publish` only queues and handlers run at `drain()` at the end of the step
+# -- a band told to leave by an event would take one more step towards the colony first, and on
+# the tick a lookout sees the first man fall that step is a blow landing.
+static func _turn_band_home(world: Variant, raid_id: int) -> void:
+	for other in world.components.query(["raider"]):
+		var o: Variant = world.components.get_component(int(other), "raider")
+		if o is Dictionary and int((o as Dictionary).get("raidId", 0)) == raid_id:
+			_begin_withdrawal(o as Dictionary)
+
+
+# Is this body within `metres` of the centre of `tile`?
+static func _within_metres(world: Variant, ent: int, tile: Vector2i, metres: float) -> bool:
+	var pos: Variant = world.components.get_component(ent, "position")
+	if not (pos is Dictionary):
+		return false
+	return _at_tile(pos as Dictionary, tile, metres)
+
+
+# What a looter does when it is standing where it was going. Three answers: it is loaded and goes;
+# something of yours is in reach and it takes it; or there is not, and it hands the tick back to
+# the walk above.
+#
+# `SimInventory.nearest_ground_item` and `pick_up_nearest` do the moving -- the same pair a
+# colonist picks a dropped weapon up with, reach limit (`PICKUP_REACH`) included. Nothing here
+# writes a `position` or a `stored` by hand; what this adds is the question of *whose* item it is,
+# which is the stockpile predicate the colony's own hauling already reads.
+static func _loot_step(world: Variant, ent: int, r: Dictionary) -> bool:
+	if int(r.get("looted", 0)) >= LOOT_TAKE:
+		_begin_withdrawal(r)
+		return true
+	var near: Variant = SimInventoryRes.nearest_ground_item(world, ent)
+	if near == null or not _is_stores(world, int(near)):
+		return false
+	if not SimInventoryRes.pick_up_nearest(world, ent):
+		# Nothing left to put it in. Loaded is loaded, whether the number says three or one -- the
+		# alternative is a body standing on your pantry failing the same pick-up forever.
+		_begin_withdrawal(r)
+		return true
+	r["looted"] = int(r.get("looted", 0)) + 1
+	world.events.publish({"type": "raid.looted", "entity": ent, "raidId": int(r.get("raidId", 0)), "item": int(near)})
+	if int(r.get("looted", 0)) >= LOOT_TAKE:
+		_begin_withdrawal(r)
+		return true
+	# Re-plan onto the next thing worth taking. The cache is cleared rather than recomputed every
+	# tick on purpose: the scan in `_loot_goal` walks the stores, and a looter pays for it once an
+	# armful rather than once a tick.
+	r["goalX"] = -1
+	r["goalY"] = -1
+	r["path"] = []
+	r["pathGen"] = -1
+	return true
+
+
+# Is this item lying on the colony's stores? `SimNeeds.is_stockpile_tile` is the colony's own
+# answer to that -- indoors, a floor, inside the annex -- and asking it here rather than writing a
+# second one is what stops a raider and a hauler disagreeing about where the pantry is.
+# `SimHome.rect` is the other half: home is where the colony *is*, so a camp's footprint with no
+# annex floor in it honestly has no stores and a looter there falls back to the gate.
+static func _is_stores(world: Variant, item: int) -> bool:
+	var pos: Variant = world.components.get_component(item, "position")
+	if not (pos is Dictionary):
+		return false
+	var tile := Vector2i(floori(float((pos as Dictionary)["x"])), floori(float((pos as Dictionary)["y"])))
+	if not SimHomeRes.rect(world).has_point(tile):
+		return false
+	return SimNeedsRes.is_stockpile_tile(world, tile.x, tile.y)
 
 
 static func _begin_withdrawal(r: Dictionary) -> void:
@@ -477,18 +667,72 @@ static func stamp_band(world: Variant, members: Array, raid_id: int) -> void:
 # cache is also what makes a camp established mid-raid not teleport a band that is already walking:
 # the raiders who set out for the annex finish walking to the annex, which is the honest behaviour
 # for people who cannot see that you have moved.
-static func _objective(world: Variant, r: Dictionary) -> Vector2i:
+# Both added arguments are trailing and defaulted, which is not a style choice: `check_m2_camp.gd`'s
+# READS lane calls `_objective(world, {})` with a fresh record and no body at all, to ask whether
+# the raiders read `SimHome` -- so the two-argument contract has a caller outside this file and
+# stays exactly as it was. Without an entity a looter has no "nearest" to measure from and falls
+# through to the shared answer, which is what that lane is asking about.
+static func _objective(world: Variant, r: Dictionary, role: String = ROLE_FIGHTER, ent: int = -1) -> Vector2i:
 	var cached := Vector2i(int(r.get("goalX", -1)), int(r.get("goalY", -1)))
 	if cached.x >= 0 and cached.y >= 0:
 		return cached
 	if world.tilemap == null:
 		return Vector2i(-1, -1)
-	var goal: Vector2i = SimHomeRes.approach(world)
+	# A looter is walking at your stores rather than at your gate, which is the whole of docs/18's
+	# "target stores first, people second". A district with no stores in it -- no annex, a camp, an
+	# unstamped fixture -- gives a looter the same answer it gives everybody else, so a looter
+	# where there is nothing to take is a fighter rather than a body standing still.
+	var goal: Vector2i = Vector2i(-1, -1)
+	if role == ROLE_LOOTER:
+		goal = _loot_goal(world, ent)
+	if goal.x < 0 or goal.y < 0:
+		goal = SimHomeRes.approach(world)
 	if goal.x < 0 or goal.y < 0:
 		return Vector2i(-1, -1)
 	r["goalX"] = goal.x
 	r["goalY"] = goal.y
 	return goal
+
+
+# Where the stores are worth walking to: the tile of the nearest thing of yours lying on them, and
+# failing that the nearest stores tile at all -- which is a looter arriving at an empty pantry,
+# standing there, and going home on the same clock a fighter goes home on.
+#
+# Scanned rather than kept: `SimNeeds.stockpile_items` is the colony's own list of what is lying on
+# its floor, and the rect underneath the fallback is `SimHome.rect`. A looter pays for this once
+# when it sets out and once per armful (`_loot_step` clears the cached goal), never once a tick.
+static func _loot_goal(world: Variant, ent: int) -> Vector2i:
+	var here: Variant = world.components.get_component(ent, "position")
+	if not (here is Dictionary):
+		return Vector2i(-1, -1)
+	var from := Vector2(float((here as Dictionary)["x"]), float((here as Dictionary)["y"]))
+	var rect: Rect2i = SimHomeRes.rect(world)
+	if rect.size.x <= 0 or rect.size.y <= 0:
+		return Vector2i(-1, -1)
+	var best := Vector2i(-1, -1)
+	var best_d: float = 1e12
+	for item in SimNeedsRes.stockpile_items(world):
+		var p: Variant = world.components.get_component(int(item), "position")
+		if not (p is Dictionary):
+			continue
+		var tile := Vector2i(floori(float((p as Dictionary)["x"])), floori(float((p as Dictionary)["y"])))
+		if not rect.has_point(tile):
+			continue
+		var d: float = from.distance_squared_to(Vector2(float(tile.x) + 0.5, float(tile.y) + 0.5))
+		if d < best_d:
+			best_d = d
+			best = tile
+	if best.x >= 0:
+		return best
+	for ty in range(rect.position.y, rect.position.y + rect.size.y):
+		for tx in range(rect.position.x, rect.position.x + rect.size.x):
+			if not SimNeedsRes.is_stockpile_tile(world, tx, ty):
+				continue
+			var d2: float = from.distance_squared_to(Vector2(float(tx) + 0.5, float(ty) + 0.5))
+			if d2 < best_d:
+				best_d = d2
+				best = Vector2i(tx, ty)
+	return best
 
 
 # The nearest enemy body inside `metres`, asked of `SimAllegiance.enemies_of` so the halt and
@@ -514,60 +758,13 @@ static func _enemy_within(world: Variant, ent: int, metres: float) -> bool:
 	return false
 
 
-# Grid A* towards the goal, re-planned when the map generation moves under it. jobs.gd's `_walk`,
-# minus the job bookkeeping: raiders are the second thing in the district that walks somewhere on
-# purpose, and giving them a second pathfinder would be two answers to one question.
+# Grid A* towards the goal, re-planned when the map generation moves under it. The body of this
+# lives in `SimWalk.step` since the stranger slice: raiders were the second thing in the district
+# that walked somewhere on purpose, a stranger in a house is the third, and a second copy of the
+# stepper is two answers to one question. This is the raider's call of it -- the `raider`
+# component is the record, and the speed is the archetype's through `move_speed`.
 static func _walk(world: Variant, ent: int, r: Dictionary, goal: Vector2i) -> void:
-	var pos: Variant = world.components.get_component(ent, "position")
-	var vel: Variant = world.components.get_component(ent, "velocity")
-	if not (pos is Dictionary) or not (vel is Dictionary):
-		return
-	var p: Dictionary = pos as Dictionary
-	var v: Dictionary = vel as Dictionary
-	var here := Vector2i(floori(float(p["x"])), floori(float(p["y"])))
-	var gen: int = int(world.mapGeneration)
-	var path: Array = r.get("path", []) as Array
-	if int(r.get("pathGen", -1)) != gen or path.is_empty():
-		var found: Array[Vector2i] = SimPathRes.find(world, here, goal)
-		path.clear()
-		for s in found:
-			path.append({"x": s.x, "y": s.y})
-		r["path"] = path
-		r["pathGen"] = gen
-	if path.is_empty():
-		# Arrived, or nowhere to go from here. A first-cut band stands its ground at the gate --
-		# there is no looting AI and no withdrawal, and inventing one here would be scope the
-		# slice deliberately does not take.
-		_still(v)
-		return
-	var step: Variant = path[0]
-	if not (step is Dictionary):
-		path.remove_at(0)
-		_still(v)
-		return
-	var tx: float = float(int((step as Dictionary).get("x", 0))) + 0.5
-	var ty: float = float(int((step as Dictionary).get("y", 0))) + 0.5
-	# A band opens the door it is walking through, the way a colonist does (SimJobs._walk).
-	# `load`, not a preload: fortify.gd is on this file's preload chain through vehicles.
-	var step_tx: int = int((step as Dictionary).get("x", 0))
-	var step_ty: int = int((step as Dictionary).get("y", 0))
-	if world.tilemap != null and SimTileMapRes.tile_at(world.tilemap, step_tx, step_ty) == SimTileMapRes.Tile.Door and world.is_blocked_tile(step_tx, step_ty):
-		var Fortify: GDScript = load("res://sim/modules/fortify.gd") as GDScript
-		Fortify.call("open_door", world, step_tx, step_ty)
-	var dx: float = tx - float(p["x"])
-	var dy: float = ty - float(p["y"])
-	if dx * dx + dy * dy < 0.04:
-		path.remove_at(0)
-		r["path"] = path
-		if path.is_empty():
-			_still(v)
-		return
-	var length: float = sqrt(dx * dx + dy * dy)
-	var speed: float = _speed_of(world, ent, r)
-	# `dx`/`dy`, never `x`/`y`: a velocity written with position's key names adds a pair of keys
-	# nothing reads and raises nothing (CLAUDE.md's `vel["x"]` trap).
-	v["dx"] = dx / length * speed
-	v["dy"] = dy / length * speed
+	SimWalkRes.step(world, ent, r, goal, _speed_of(world, ent, r))
 
 
 static func _speed_of(world: Variant, ent: int, r: Dictionary) -> float:
@@ -581,5 +778,4 @@ static func _speed_of(world: Variant, ent: int, r: Dictionary) -> float:
 
 
 static func _still(vel: Dictionary) -> void:
-	vel["dx"] = 0.0
-	vel["dy"] = 0.0
+	SimWalkRes.halt(vel)

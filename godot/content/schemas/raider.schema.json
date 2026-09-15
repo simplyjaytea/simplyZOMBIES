@@ -14,6 +14,12 @@
     },
     "name": { "type": "string", "description": "Human-readable archetype name." },
     "allegiance": { "$ref": "#/$defs/faction" },
+    "role": {
+      "type": "string",
+      "enum": ["fighter", "lookout", "looter"],
+      "default": "fighter",
+      "description": "What this archetype came to do, matched in SimRaiders._approach. `fighter` is the band that walks at the gate and fights until its withdrawal clock runs out, which is what every archetype did before roles existed. `lookout` halts SimRaiders.LOOKOUT_METRES short of the objective, never closes, and turns the whole band for home on the first casualty rather than at the half strength the shared clause waits for. `looter` walks at the colony's stores instead of its gate -- the nearest SimNeeds.is_stockpile_tile inside SimHome.rect -- takes LOOT_TAKE items off the floor and withdraws with them, and what it carries out is despawned rather than dropped, which is docs/18's 'target stores first, people second, and will withdraw once loaded'. A CLOSED enum and never a free string: the Godot validator does check a top-level enum, and SimRaiders.spawn refuses a role it does not implement rather than falling back to fighter, because an archetype that reads as shipped behaviour and silently is not is the most expensive shape of dead socket this milestone has. Omitted counts as `fighter`. A role is deliberately INVISIBLE to the player -- it changes nothing about dress, look or sprite, exactly as which archetype carries the gun does not (see the appearance note below); what gives a looter away is that it walks past you towards the pantry, which is behaviour and is earned."
+    },
     "weight": {
       "type": "integer",
       "minimum": 1,
