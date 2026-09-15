@@ -63,16 +63,23 @@ const POOL_ID: String = "colony.generator.settlers"
 const STREAM: String = "settlers"
 const LOOK_STREAM: String = "settlersLook"
 
-# How many, when the content declares nothing. **Two, and the number was measured rather than
-# picked.** Three was the plan's first cut and it put the district over its own zombie budget: a
-# settler who is bitten, dies and turns is a body `SimDirector.LIVE_CAP` never placed, and on seed
-# 31337 at 64 tiles the peak read 23 boot bodies + 6 director packets + 4 turns = **33 against a
-# cap of 32**, with `check_m2_balance.gd`'s `over_cap` invariant red for 76 ticks. At two the same
-# four seeds peak at 27 / 30 / 30 / 30 and `over_cap` is 0 everywhere -- two clear of the cap
-# rather than one inside it. The assertion was not touched; this number was (CLAUDE.md, and the
-# strangers slice's own precedent of moving the beat instead of the band). Small enough that the
-# camp reads as people living the way you are rather than as a rival power.
-const DEFAULT_COUNT: int = 2
+# How many, when the content declares nothing. Three, matching the colony's own boot size, so the
+# group reads as people living the way you are rather than as a rival power.
+#
+# **This number was moved to two and then moved back, and the round trip is worth recording.** At
+# three the district went over its own zombie budget on seed 31337 -- `check_m2_balance.gd`'s
+# `over_cap` invariant red for 76 ticks, and a throwaway driver put the arithmetic on it:
+# `peak=33 cap=32 boot_zeds=23 placed=6 turned=4`. A settler who is bitten, dies and turns is a
+# body `SimDirector.LIVE_CAP` never placed and cannot refuse, so cutting the count to two fixed
+# the number. It was fixing a symptom. The *cause* was the third filter in `site` below: the camp
+# was being put down in a house the generator had already put a body to sleep in, `check_m2_dormant`
+# went red for the same reason a lane later, and once the camp stopped sharing a house its people
+# stopped dying -- `turned` drops to 0 on that seed and the peaks read 27 / 27 / 28 / 30 against a
+# cap of 32 at **three** settlers. So three came back. What has **not** been fixed, and is not
+# this slice's to fix: nothing anywhere reconciles a turned body against the director's budget,
+# so a colony that loses several people to infection in one night can still push the district over
+# its own cap. Two slices in a row have now paid for that.
+const DEFAULT_COUNT: int = 3
 
 # How far from home, when the content declares nothing -- and this is `SimDirector.GATE_EXCLUSION`
 # by name rather than a second number, for the reason `SimWorldgen.far_buildings`' own comment
@@ -110,19 +117,48 @@ static func kit_of(block: Dictionary) -> Array:
 	return FALLBACK_KIT.duplicate(true)
 
 
+# The building indices `map.dormant` already has a body asleep in. The manifest is layout -- the
+# generator writes it in the same pass that places the buildings, before any entity exists -- so
+# reading it here keeps the siting inside docs/30's "reads the layout, and only the layout".
+static func _buildings_with_a_sleeper(map: Variant) -> Dictionary:
+	var out: Dictionary = {}
+	var records: Variant = map.get("dormant")
+	if not (records is Array):
+		return out
+	for rec in records as Array:
+		if rec is Dictionary and (rec as Dictionary).has("building"):
+			out[int((rec as Dictionary)["building"])] = true
+	return out
+
+
 # Which building the camp is in, as an **index into `map.buildings`**, or -1 when the district has
 # nowhere that qualifies. An index rather than the record, for `far_buildings`' own reason:
 # `Array.find()` on Dictionaries matches by value, so a caller handed one of two value-identical
 # house records back could not ask the map which it was holding (CLAUDE.md's erase/find trap).
 #
-# A building with no open indoor floor is skipped rather than chosen-and-abandoned, so the answer
-# is always a building somebody can actually stand in.
+# Three filters, and the third was found by a gate rather than reasoned out in advance:
+#
+#   * **far enough from home** -- `far_buildings`, the one answer to that question in the tree.
+#   * **somewhere to stand** -- a building with no open indoor floor is skipped rather than
+#     chosen-and-abandoned, so the answer is always a building somebody can actually stand in.
+#   * **nobody already asleep in it.** The dormant pass draws from the *same* `far_buildings` list
+#     at the *same* `GATE_EXCLUSION`, so the two passes compete for one set of houses, and a camp
+#     put down on top of a sleeping body is a group of people breathing beside something that
+#     wakes on scent. That is not a theory: `check_m2_dormant.gd`'s ASLEEP lane boots seed 31337
+#     at 64 and requires every sleeper to still be asleep 200 ticks later, and it went **red** the
+#     first time the camp was allowed to share a house -- "body 46 woke on its own after 200 ticks
+#     with nothing near it". The other gate was right and this one was wrong, so the siting moved,
+#     not the assertion. It also reads as the rule people would actually follow: you do not make
+#     camp in the room with the body in it.
 static func site(map: Variant, min_metres: float, rng: Variant) -> int:
 	if map == null:
 		return -1
 	var far: Array[int] = SimWorldgenRes.far_buildings(map, min_metres)
+	var asleep: Dictionary = _buildings_with_a_sleeper(map)
 	var usable: Array[int] = []
 	for index in far:
+		if asleep.has(int(index)):
+			continue
 		var building: Dictionary = (map.buildings as Array)[index] as Dictionary
 		if SimWorldgenRes.indoor_tiles_of(map, building).is_empty():
 			continue
@@ -159,12 +195,15 @@ static func spawn_camp(world: Variant, map: Variant) -> int:
 	# precedent). The ids come back as floats, which is why every reader here takes `int()`.
 	var members: Array = []
 	var ent: int = int(world.entities.spawn())
-	for i in wanted:
-		# One tile per member, walked forward from the pick rather than re-rolled, so a small
-		# house costs one draw a body like a large one -- `SimWorldgen._take_tile`'s rule. A
-		# building with fewer open tiles than members puts the rest on the tiles already used:
-		# bodies may share a tile everywhere else in this sim and refusing here would make the
-		# camp's size a function of the floor plan.
+	for _member in wanted:
+		# One draw a body, exactly, whatever the floor plan is -- so how much randomness a camp
+		# costs is a function of its declared count and nothing else, and a building template
+		# edited to hold one more room cannot shift the stream under everything spawned
+		# afterwards. Two members may land on the same tile and that is deliberate rather than
+		# tolerated: bodies overlap freely everywhere else in this sim, and walking the pick
+		# forward to a free tile (`SimWorldgen._take_tile`'s rule, which the dormant bodies need
+		# because a corpse per tile is what makes a house feel occupied) would make the camp's
+		# size a function of how many rooms the generator happened to give it.
 		var tile: Vector2i = floors[int(rng.call("int_range", 0, floors.size() - 1))] as Vector2i
 		var rolled: Dictionary = SimPeopleRes.roll(rng, look_rng, SimPeopleRes.pool(world, SimPeopleRes.SURVIVORS_POOL_ID))
 		members.append(spawn_settler(world, float(tile.x) + 0.5, float(tile.y) + 0.5, rolled, kit, rng))

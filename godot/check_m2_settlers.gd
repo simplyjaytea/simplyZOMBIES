@@ -11,9 +11,11 @@ extends SceneTree
 #            not list it) and the frozen oracle's CONTENT_TYPES never reaches it. Negative: six
 #            fabricated blocks, each refused by the same predicate.
 #   SITED    the camp is indoors, inside the building the component names, at least the declared
-#            distance from both gates and outside the annex, and the same seed sites it twice in
-#            the same place. Negative: the predicates are shown refusing a fabricated outdoor
-#            tile and a fabricated rect sitting on a gate.
+#            distance from both gates, outside the annex, **and not in a building the generator
+#            already put a body to sleep in**, and the same seed sites it twice in the same place.
+#            Negative: the predicates are shown refusing a fabricated outdoor tile and a
+#            fabricated rect sitting on a gate, and the sleeper filter is shown refusing a
+#            building the manifest names.
 #   BODIES   the declared count exists, each carries `identity` and the settlers faction, and
 #            **none** carries `needs` or `jobPriorities`. Negative, in the same world: the
 #            colony's own people must carry both, or the scanner cannot tell present from absent.
@@ -64,8 +66,12 @@ const GATE_TILES: int = 64
 const SHIPPED_TILES: int = 256
 
 # The one seed/size pair the whole gate leans on for its single-world lanes. Picked because it has
-# a camp at the gates' own size, so the expensive lanes never pay for a 256-tile boot.
-const LANE_SEED: int = 404
+# a camp at the gates' own size, so the expensive lanes never pay for a 256-tile boot. It was 404
+# until the sleeper filter landed: that district has exactly one building far enough from home and
+# the generator had already put a body to sleep in it, so 404 now sites no camp at 64 at all. Any
+# lane that finds no camp here says so and fails rather than passing quietly, which is how that
+# was noticed.
+const LANE_SEED: int = 31337
 const LANE_TILES: int = GATE_TILES
 
 const BALANCE_SOURCE: String = "res://check_m2_balance.gd"
@@ -285,6 +291,14 @@ func _sited() -> bool:
 			if Rect2i(int(building["x"]), int(building["y"]), int(building["w"]), int(building["h"])) != rect:
 				push_error("%s: seed %d at %d -- the settlement's rect %s is not building %d's %s" % [lane, int(seed_value), int(size), str(rect), int(s["building"]), str(building)])
 				return false
+			# And nobody was already asleep in it. The dormant pass draws from the same
+			# `far_buildings` list at the same distance, so the two compete for one set of
+			# houses; `check_m2_dormant.gd`'s ASLEEP lane went red the first time the camp was
+			# allowed to share one, because people breathing beside a body that wakes on scent
+			# wakes it. Asserted here rather than left to that gate to rediscover.
+			if _sleepers_in(w.tilemap).has(int(s["building"])):
+				push_error("%s: seed %d at %d -- the camp is in building %d, which the generator already put a body to sleep in" % [lane, int(seed_value), int(size), int(s["building"])])
+				return false
 			for m in s["members"] as Array:
 				var tile: Vector2i = _tile_of(w, int(m))
 				if not rect.has_point(tile):
@@ -301,6 +315,9 @@ func _sited() -> bool:
 	# and its people on the same tiles.
 	var a: Variant = SimBoot.playable(LANE_SEED, LANE_TILES)["world"]
 	var b: Variant = SimBoot.playable(LANE_SEED, LANE_TILES)["world"]
+	if _camp_of(a) < 0 or _camp_of(b) < 0:
+		push_error("%s: seed %d at %d sites no camp, so the determinism half has nothing to compare -- pick another LANE_SEED" % [lane, LANE_SEED, LANE_TILES])
+		return false
 	var sa: Dictionary = a.components.get_component(_camp_of(a), "settlement") as Dictionary
 	var sb: Dictionary = b.components.get_component(_camp_of(b), "settlement") as Dictionary
 	if int(sa["building"]) != int(sb["building"]):
@@ -331,10 +348,55 @@ func _sited() -> bool:
 	if _tile_bad(map, outdoors) == "":
 		push_error("%s: the outdoor tile %s passed the indoor test" % [lane, str(outdoors)])
 		return false
-	print("%s OK %d camp(s) judged over %d seed/size pairs (%d skipped); seed %d deterministic at building %d on %s; a rect on the gate and an outdoor tile both refused" % [
+	# And the sleeper filter's own negative: it has to be able to *find* a building the manifest
+	# names, or "the camp is never in one" is a sentence about an empty set. A district with no
+	# dormant manifest at all would satisfy the assertion above for free, so the lane insists on a
+	# fixture that has one and then shows `site` refusing every building in it.
+	var with_sleepers: int = 0
+	var judged_filter: int = 0
+	for size2 in [GATE_TILES, SHIPPED_TILES]:
+		for seed2 in FAST_SEEDS:
+			var w2: Variant = SimBoot.playable(int(seed2), int(size2))["world"]
+			var sleepers: Dictionary = _sleepers_in(w2.tilemap)
+			if sleepers.is_empty():
+				continue
+			with_sleepers += 1
+			var declared2: float = SimSettlers.min_metres_of(SimSettlers.pool(w2))
+			var far2: Array[int] = SimWorldgen.far_buildings(w2.tilemap, declared2)
+			# Every far building has a sleeper in it: `site` must now answer -1 whatever it rolls.
+			var all_taken: bool = true
+			for index2 in far2:
+				if not sleepers.has(int(index2)):
+					all_taken = false
+					break
+			if not all_taken:
+				continue
+			judged_filter += 1
+			if SimSettlers.site(w2.tilemap, declared2, w2.rng.stream("settlersFilterProbe")) >= 0:
+				push_error("%s: seed %d at %d has a sleeper in every far building and `site` chose one anyway" % [lane, int(seed2), int(size2)])
+				return false
+	if with_sleepers < 1:
+		push_error("%s: not one of the %d seed/size pairs has a dormant manifest, so the sleeper filter judged nothing" % [lane, FAST_SEEDS.size() * 2])
+		return false
+	print("%s OK %d camp(s) judged over %d seed/size pairs (%d skipped); seed %d deterministic at building %d on %s; a rect on the gate and an outdoor tile both refused; %d pair(s) carry sleepers and %d of them are fully taken and refused" % [
 		lane, judged, FAST_SEEDS.size() * 2, skipped, LANE_SEED, int(sa["building"]), str(tiles_a),
+		with_sleepers, judged_filter,
 	])
 	return true
+
+
+# The building indices the generator's `dormant` manifest names, read off the map the way
+# `SimSettlers._buildings_with_a_sleeper` does but written out here, so the lane is judging the
+# manifest rather than re-running the code that consults it.
+func _sleepers_in(map: Variant) -> Dictionary:
+	var out: Dictionary = {}
+	var records: Variant = map.get("dormant")
+	if not (records is Array):
+		return out
+	for rec in records as Array:
+		if rec is Dictionary and (rec as Dictionary).has("building"):
+			out[int((rec as Dictionary)["building"])] = true
+	return out
 
 
 # Why the camp's rect is wrong, or "". Distance from both gates and clear of the annex.

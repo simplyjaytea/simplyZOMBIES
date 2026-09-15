@@ -1,6 +1,6 @@
 {
   "id": "colony.generator.settlers",
-  "count": 2,
+  "count": 3,
   "minMetres": 32.0,
   "kit": [
     "item.bandage.cloth",
