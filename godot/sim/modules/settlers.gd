@@ -63,11 +63,16 @@ const POOL_ID: String = "colony.generator.settlers"
 const STREAM: String = "settlers"
 const LOOK_STREAM: String = "settlersLook"
 
-# How many, when the content declares nothing. Three, matching the colony's own boot size: a
-# group small enough to be people rather than a faction, and the same number the player has, so
-# "somebody else is out there living the way you are" is legible at a glance rather than being a
-# rival power.
-const DEFAULT_COUNT: int = 3
+# How many, when the content declares nothing. **Two, and the number was measured rather than
+# picked.** Three was the plan's first cut and it put the district over its own zombie budget: a
+# settler who is bitten, dies and turns is a body `SimDirector.LIVE_CAP` never placed, and on seed
+# 31337 at 64 tiles the peak read 23 boot bodies + 6 director packets + 4 turns = **33 against a
+# cap of 32**, with `check_m2_balance.gd`'s `over_cap` invariant red for 76 ticks. At two the same
+# four seeds peak at 27 / 30 / 30 / 30 and `over_cap` is 0 everywhere -- two clear of the cap
+# rather than one inside it. The assertion was not touched; this number was (CLAUDE.md, and the
+# strangers slice's own precedent of moving the beat instead of the band). Small enough that the
+# camp reads as people living the way you are rather than as a rival power.
+const DEFAULT_COUNT: int = 2
 
 # How far from home, when the content declares nothing -- and this is `SimDirector.GATE_EXCLUSION`
 # by name rather than a second number, for the reason `SimWorldgen.far_buildings`' own comment
