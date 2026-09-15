@@ -165,6 +165,7 @@ static func register_playable_modules(world: Variant, map: Variant) -> void:
 	SimNpcCombat.register_module(world)
 	SimRecruits.register_module(world)
 	SimStrangers.register_module(world)
+	SimSettlers.register_module(world)
 	SimSkills.register_module(world)
 	SimAttention.register_module(world, map)
 	SimShambler.register_module(world, map)
