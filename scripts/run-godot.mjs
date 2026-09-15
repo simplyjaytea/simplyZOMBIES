@@ -139,6 +139,15 @@ switch (mode) {
       "res://check_m2_dormant.gd",
     ];
     break;
+  case "--m2-variance":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_variance.gd",
+    ];
+    break;
   case "--m2-gear":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_gear.gd"];
     break;

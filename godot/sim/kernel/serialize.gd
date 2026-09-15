@@ -91,7 +91,13 @@ extends RefCounted
 # treating "no attachments component" as unblocked would make the required-slot rule unenforceable
 # the moment a barrel breaks off, and assembling on load would invent items the save never had.
 # Refused, same rule as v27.
-const SAVE_VERSION: int = 29
+#
+# v30: every dead body is an individual. `zombieType` gained a `tint` -- the colour rolled for
+# that one body out of its kind's `variance.tints` -- and `body`/`bodyMax` carry a per-body size
+# instead of the type's authored numbers. A v29 save has neither: its bodies would all come back
+# the kind's shared colour, which is cosmetic, and at the kind's authored size against maxima that
+# no longer match what the roll would have given them, which is not. Refused, same rule as v27.
+const SAVE_VERSION: int = 30
 
 
 static func canonicalize(value: Variant, path: String = "$") -> String:

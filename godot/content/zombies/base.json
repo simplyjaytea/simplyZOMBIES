@@ -5,6 +5,11 @@
   "sensory": { "noise": 0.3, "light": 0.2, "scent": 0.8 },
   "locomotion": { "speed": 1.0 },
   "body": { "head": 25, "torso": 60, "legs": 40 },
+  "variance": {
+    "tints": ["#ffffff", "#e9e3d6", "#dee3da", "#f0dcd2", "#d6d2c8"],
+    "body": 0.15,
+    "crawlers": 0.05
+  },
   "grab": { "strength": 0.5 },
   "spread": { "radians": 0.62 },
   "emits": [{ "channel": "scent", "magnitude": 1 }],

@@ -4339,3 +4339,71 @@ harmless today and it is still not what the code reads as, and a scent channel t
 survivor's trail from the body's own bedding would give the dormant state a second sense. It is
 not folded in here because it changes what every shambler in the game does, which is a balance
 change wearing a bug fix's clothes.
+
+## Each dead body differs, 2026-09-15
+
+The fourth piece of the procedural-population arc, and the calls inside it that were mine rather
+than the plan's.
+
+**The numbers are first cuts, for the owner.** Body **±15%**, crawlers **5%**, both on
+`zombie.base` so every kind inherits them, and a five-entry palette of near-whites there with a
+four-entry greener one on the bloater. The spread is the one worth arguing about: at ±15% a
+shambler's torso runs 51 to 69 against an authored 60 and its head 21 to 29 against 25, which is
+about one melee blow either way — enough that two bodies in a doorway are not interchangeable, and
+not enough that a kind stops being one kind. The schema caps it at 0.3 for that reason rather than
+leaving it open. 5% crawlers is one body in twenty, which at the shipped 256-tile district is four
+on a map and at the 64-tile miniature the gates boot is one or none; that is the frequency a thing
+should have if seeing it is supposed to mean something.
+
+**The tint is a modulate, so the palette is pallor and not costume.** A zombie's `appearance.tint`
+has always multiplied over its sprite, and the rolled colour goes through the same path, so a dark
+entry in `variance.tints` would not give one body a dark coat — it would dim the whole body,
+including the parts the artist lit. The five shipped entries sit between `#ffffff` and `#d6d2c8`.
+If this ever wants to say something louder than pallor it needs a second sprite, not a darker hex.
+
+**How it reaches the renderer: a pass-through, and deliberately not a lookup.** The rolled tint is
+stored on the existing `zombieType` component and `main.gd::_draw_entities` hands it to
+`Appearance.for_entity` beside the type id, which prefers it to the content block's when it is not
+empty. The alternative — a per-body content id, the way a colonist's `identity.look` points at an
+entry in `colony/looks.json` — was considered and not taken: a colonist has six looks and a zombie
+would need one content entry per body, which is a registry that grows with the population rather
+than with the design. So the *value* travels and the *palette* stays in content, and the draw loop
+still contains no branch on an id. The key is always present on the component, `""` for a kind that
+names no palette, so a save round-trips one shape.
+
+**`bodyMax` scales with `body`, and that is not an implementation detail.** `HURT_BELOW` is 1.0, so
+any integrity under its maximum is Hurt. Scaling the integrity alone would have made every
+smaller-than-average body Hurt from the tick it spawned — slower by `_torso_factor`, an NPC
+break-off candidate, and wrong in the condition prose — and scaling the maximum alone would have
+done the same to the larger ones. There is exactly one normaliser, `SimHealth.part_state_of`, and
+this keeps it telling the truth. The legs of a rolled crawler are zeroed *after* the maxima are
+taken, so a body born legless is `Unusable` against a real maximum and reaches the same
+`crawlFactor` path a body whose legs were shot out reaches. No second locomotion path was added.
+
+**Its own stream, and the pin that proves it.** The rolls come off `zombieLook` and never off the
+rng `spawn_zombie` is handed, which is `placement` at boot and `director` at night. The gate pins
+the `placement` state at the end of `SimBoot.playable(20260805, 64)` to a literal captured from the
+tree before a line of this existed, and pairs it with the assertion that `zombieLook` exists and has
+moved — the pin alone would pass just as happily against a slice that had been deleted.
+
+**What the measurement could and could not say.** The four fast seeds came back **byte-identical**
+before and after, and that is a result rather than a missing one: a body's size changes what it can
+absorb and nothing about how it moves, the FAST tier records nought to one colony kill a campaign,
+and the single crawler it rolled in four campaigns was placed too far out to reach anybody inside a
+2000-tick dusk window. The durability change is real and belongs to the FULL tier and to the
+256-tile district, where the same 5% is four crawlers on a map instead of one. Neither was run for
+this slice, and the record says so rather than implying the change is free.
+
+**What this does to gate fixtures, and the rule going forward.** A body spawned through
+`SimRoster` is no longer a standard body: it is its own size, and one in twenty is already
+crawling. That is the point of the slice and it is also a new way for a gate to go red against
+code that is correct — `check_m2_lethality.gd`'s HEAD-ONLY did, on seed 89, reading the torso's
+×0.5 compounded with `crawlFactor` as ×0.125. The fix is not to take the roll away from gates; it
+is the convention `check_m2_contact.gd`'s `_no_struggling` already set — a fixture that measures a
+*named* body pins it back to the type's authored numbers and says in a comment which half is under
+test. Every other gate in the chain was run individually, past the first failure rather than
+stopping at it, and none of the rest needed it: they either count bodies, measure sight, or kill by
+taking a head to zero, all of which are indifferent to a body's size. A gate written from here on
+that asserts an absolute integrity — "a torso at 20 of 60 is BadlyHurt" — needs the same pin, and a
+gate that asserts a *state* needs nothing, because a state is a fraction of a body's own maximum
+and that is exactly what this slice keeps true.

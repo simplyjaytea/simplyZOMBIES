@@ -28,6 +28,17 @@ const WAVE_DAY_STRIDE: int = FAKE_WAVE_DAY - 1
 # to live here as three constants.
 const DEFAULT_WEIGHT: int = 1
 
+# Every per-body look roll comes off this stream and nothing else does. It has its own name for
+# the reason CLAUDE.md gives: `spawn_zombie` is handed `placement` at boot and `director` at
+# night, and a draw threaded into either would shift every roll after it and move every campaign
+# that already exists. `check_m2_variance.gd` STREAM holds that -- the placement state after a
+# boot is pinned to the number the tree printed before a line of this was written.
+const LOOK_STREAM: String = "zombieLook"
+
+# The ceiling `zombie.schema.json` documents, said once here as well so a content edit that
+# somehow got past the schema still cannot make a kind stop being one kind.
+const MAX_BODY_VARIANCE: float = 0.3
+
 
 # The resolved entry -- `extends` applied, per world. See SimShambler.resolved_entry.
 static func content_entry(world: Variant, type_id: String) -> Variant:
@@ -175,17 +186,87 @@ static func _body_of(world: Variant, type_id: String) -> Dictionary:
 	return SimCombatRes.ZOMBIE_BODY.duplicate()
 
 
+# The type's `variance` block (`extends` applied), or {} for a kind that declares none.
+static func _variance_of(world: Variant, type_id: String) -> Dictionary:
+	var entry: Variant = content_entry(world, type_id)
+	if entry is Dictionary:
+		var v: Variant = (entry as Dictionary).get("variance")
+		if v is Dictionary:
+			return v as Dictionary
+	return {}
+
+
+# What makes one body itself rather than another of its kind: {tint, scale, crawler}, rolled once
+# at spawn on `LOOK_STREAM`.
+#
+# A kind with no `variance` block draws **nothing at all** and gets {} back -- the uniform body
+# every kind was before this landed, and the half of the STREAM claim a gate can drive from
+# content instead of from a flag.
+#
+# Draw order is fixed -- tint, then size, then the crawler roll -- because it is the order every
+# saved campaign replays. The tint draw is skipped when there is nothing to pick from (`rng.pick`
+# asserts on an empty array); the other two are always made, so a kind declaring `body: 0` costs
+# the same two rolls as one declaring 0.15 and retuning a number cannot reshuffle the bodies
+# spawned after it.
+static func roll_look(world: Variant, type_id: String) -> Dictionary:
+	var variance: Dictionary = _variance_of(world, type_id)
+	if variance.is_empty():
+		return {}
+	var rng: Variant = world.rng.stream(LOOK_STREAM)
+	var tint: String = ""
+	var tints: Variant = variance.get("tints")
+	if tints is Array and not (tints as Array).is_empty():
+		tint = String(rng.call("pick", tints as Array))
+	var spread: float = clampf(float(variance.get("body", 0.0)), 0.0, MAX_BODY_VARIANCE)
+	var scale: float = float(rng.call("float_range", 1.0 - spread, 1.0 + spread))
+	var crawler: bool = bool(rng.call("bool_chance", clampf(float(variance.get("crawlers", 0.0)), 0.0, 1.0)))
+	return {"tint": tint, "scale": scale, "crawler": crawler}
+
+
+# Every part of a body times one scale, whole numbers, never under 1.
+#
+# Both `body` and `bodyMax` are built from this, and that is the whole point: the CLAUDE.md trap
+# is that body parts do not share a scale -- a whole head is 25 where a whole torso is 60 -- and
+# `SimHealth.part_state_of` is the one normaliser. Scale the current integrity without scaling
+# the maximum beside it and a big body is born Hurt while a small one is hard to hurt at all.
+static func _scaled_body(body: Dictionary, scale: float) -> Dictionary:
+	if is_equal_approx(scale, 1.0):
+		return body
+	var out: Dictionary = {}
+	for part in body.keys():
+		out[part] = maxf(1.0, round(float(body[part]) * scale))
+	return out
+
+
 static func spawn_zombie(world: Variant, x: float, y: float, type_id: String, rng: Variant) -> int:
 	var ent: int = int(world.entities.spawn())
 	world.components.set_component(ent, "position", {"x": x, "y": y})
 	world.components.set_component(ent, "velocity", {"dx": 0.0, "dy": 0.0})
 	world.components.set_component(ent, "facing", {"radians": 0.0})
-	world.components.set_component(ent, "zombieType", {"id": type_id})
-	var body: Dictionary = _body_of(world, type_id)
-	world.components.set_component(ent, "body", body)
+	# Never off `rng`, which is `placement` at boot and `director` at night -- see `roll_look`.
+	var look: Dictionary = roll_look(world, type_id)
+	# `tint` is always on the component, "" when the kind names no palette, so a save round-trips
+	# one shape rather than two. Read by main.gd's entity pass and resolved by
+	# `Appearance.for_entity`, which takes a non-empty stored tint over the content block's.
+	# A pass-through, the way a colonist's `identity.look` already is: the draw loop carries a
+	# value content decided and decides nothing itself, so there is still no branch on an id in
+	# it. The difference from `identity.look`, and the reason it is a hex rather than an id, is
+	# in docs/30 -- one content entry per body is a registry that grows with the population.
+	world.components.set_component(ent, "zombieType", {"id": type_id, "tint": String(look.get("tint", ""))})
+	var body: Dictionary = _scaled_body(_body_of(world, type_id), float(look.get("scale", 1.0)))
 	# The type's own maxima, so `part_state_of` judges a screamer's torso against its 40 and
-	# not the shared table's 60 (health.gd).
+	# not the shared table's 60 (health.gd) -- and, since the size roll, so a body scaled up is
+	# judged against its *own* bigger torso rather than being born two thirds hurt.
 	world.components.set_component(ent, "bodyMax", body.duplicate())
+	# The legs are destroyed after the maxima are taken, deliberately: a crawler is a body whose
+	# legs are gone, not a body that never had any, so `bodyMax` keeps the number `part_state_of`
+	# reads Unusable against and `SimHealth.is_crawling` answers exactly as it does for a shambler
+	# whose legs were shot out. No second locomotion path -- `SimShambler._speed_of` applies
+	# `crawlFactor` to what this leaves behind, which is the reader `crawlFactor` waited a
+	# milestone for.
+	if bool(look.get("crawler", false)) and body.has("legs"):
+		body["legs"] = 0.0
+	world.components.set_component(ent, "body", body)
 	SimShamblerRes.make_shambler(world, ent, rng, type_id)
 	# Every zombie has eyes (the owner's decision 3, docs/30 "The playable state"): sight is a
 	# stimulus in shambler.think, and it was the screamer's alone until then.
