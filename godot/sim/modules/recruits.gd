@@ -318,6 +318,16 @@ static func _succession_pick(world: Variant, dead: int) -> int:
 			continue
 		if not world.components.has_component(ent, "needs") and not world.components.has_component(ent, "identity"):
 			continue
+		# An heir is one of *yours*. The guard above asks whether this body is a person, which was
+		# the same question right up until a third side existed: a settler carries an `identity`
+		# and would have passed it, so the player dying at a settlers' fence would have woken up
+		# in a stranger's body. `is_colony` is the seam that separates the two questions -- being
+		# a person is what makes a zombie chase you, being the colony is what makes you an heir --
+		# and a raider is now refused here twice over rather than by the accident of carrying no
+		# identity. check_m2_allegiance.gd's NO-HEIR lane and check_m2_raiders.gd's NO-IDENTITY
+		# lane hold both halves of that.
+		if not SimAllegiance.is_colony(world, ent):
+			continue
 		if world.components.has_component(ent, "controlled") and ent != dead:
 			# Another controlled body — still eligible if we are transferring.
 			pass

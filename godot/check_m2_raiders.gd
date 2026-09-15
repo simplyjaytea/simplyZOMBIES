@@ -1188,9 +1188,11 @@ func _a_band_of_four_are_four_people() -> bool:
 # body to the nearest candidate when they die. A raider carrying an identity would be an heir
 # standing at your wall, which is why the owner's 2026-09-14 call is a `person` record instead.
 #
-# The negative is what makes this an assertion rather than a coincidence: give the same raider an
-# identity and the same scan *does* pick them. So the exclusion is the absence of the component,
-# not a special case somewhere that could quietly stop being true.
+# The negative is what makes this an assertion rather than a coincidence, and since the allegiance
+# seam landed it takes two steps: an identity alone no longer makes a raider an heir, because
+# `_succession_pick` also asks `SimAllegiance.is_colony`, but an identity *and* the colony's own
+# allegiance does. So the exclusion is the two fields this band lacks, not a special case
+# somewhere that could quietly stop being true.
 func _a_raider_is_never_the_heir() -> bool:
 	var w: Variant = _arena()
 	var band: Array[int] = []
@@ -1224,10 +1226,18 @@ func _a_raider_is_never_the_heir() -> bool:
 		push_error("NO-IDENTITY: the far colonist did not inherit with a raider standing nearer")
 		return false
 	w2.components.set_component(near, "identity", {"id": "survivor.sabotage", "name": "Sabotage", "traits": []})
-	if SimRecruits._succession_pick(w2, dying2) != near:
-		push_error("NO-IDENTITY: a raider *with* an identity was still not picked -- the scan does not read `identity`, so the absence of one proves nothing")
+	if SimRecruits._succession_pick(w2, dying2) != ellis:
+		push_error("NO-IDENTITY: an identity alone made a raider the heir -- the allegiance seam's colony filter is not holding")
 		return false
-	print("NO-IDENTITY OK no band member carries `identity`, all four carry a person; Mara inherits over four raiders, Ellis over one, and only the sabotaged raider inherits")
+	# And with the colony's own allegiance on top of that identity, the same body *is* picked. Two
+	# fields now keep a raider out of the succession where one used to (the seam slice added
+	# `SimAllegiance.is_colony` to the scan, check_m2_allegiance.gd's NO-HEIR lane), and this is
+	# the negative that stops the pair of refusals above being a scan that refuses everybody.
+	SimAllegiance.attach(w2, near, SimAllegiance.COLONY)
+	if SimRecruits._succession_pick(w2, dying2) != near:
+		push_error("NO-IDENTITY: a body with an identity AND the colony's allegiance was still not picked -- the scan reads neither, so the refusals above prove nothing")
+		return false
+	print("NO-IDENTITY OK no band member carries `identity`, all four carry a person; Mara inherits over four raiders, Ellis over one and over a raider given an identity, and only that raider declared colony inherits")
 	return true
 
 
