@@ -247,6 +247,15 @@ switch (mode) {
       "res://check_m2_allegiance.gd",
     ];
     break;
+  case "--m2-settlers":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_settlers.gd",
+    ];
+    break;
   case "--m2-save":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_save.gd"];
     break;

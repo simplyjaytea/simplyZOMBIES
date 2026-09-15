@@ -4607,3 +4607,45 @@ trusted. No balance measurement is owed: no settler exists in any shipped spawn 
 answers exactly as `!=` did for the two factions that do, and nothing here draws from an RNG
 stream — which was proved rather than asserted, against the raid-stream pins and the R1 parity
 fixture.
+
+## The settlers' camp, 2026-09-15
+
+The seam from "A third side" got bodies. Four calls were taken here, and each was taken because
+the obvious answer was wrong in a way a measurement showed rather than an argument.
+
+**96 metres was the plan's first cut and it is 32, because 96 cannot be satisfied where the gates
+run.** `SimWorldgen.far_buildings(map, 96)` returns **zero** buildings on all four balance seeds
+at the 64-tile size every gate and the FAST balance tier boot — the district is 64 m across, so
+the rule is not strict, it is unsatisfiable, and a camp that exists only on the shipped 256 would
+be a feature the chain never sees and a balance claim with nothing in it. At
+`SimDirector.GATE_EXCLUSION`, 32 m, the same four seeds hold 0 / 1 / 3 / 2 qualifying buildings at
+64 and 44 / 55 / 44 / 43 at 256: the camp is real where the gates run, and the one seed with
+nowhere legal fires the gate's skip line for real rather than in theory. The second reason is the
+one `far_buildings`' own comment already gives — *a second copy of "far from home" is a second
+answer* — and the dormant pass, the director's packet legality and now the camp all take the one
+number. Three settlers, matching the colony's own boot size, so the group reads as people living
+the way you are rather than as a rival power.
+
+**A settler is a raider's faction handling with a survivor's identity, and the two components it
+deliberately lacks are the whole design.** `identity` **yes** — a raider is denied one because
+succession would make a band at your gate a queue of heirs, and the allegiance slice's `is_colony`
+closed that door, so the settlers can have their names, their backstories and `person_clause`'s
+prose. `needs` and `jobPriorities` **no**, and not as an omission: those two components are
+exactly what the colony's books are keyed on. `check_m2_balance.gd`'s `_survivors_alive` counts
+`needs` + `body`, `jobs.gd` queries `jobPriorities` + `identity`, and `npc_combat.gd`'s intake is
+`needs` or `raider`. Each of the three was read before the decision rather than assumed, and the
+gate asserts the first structurally, textually and empirically.
+
+**Siting reads the layout and only the layout, which this file has now recorded three times.** The
+camp is chosen from `far_buildings` and placed by `indoor_tiles_of`, so it asks `map.buildings`,
+`map.tiles` and `map.indoors` and nothing about vehicles, loot, rubble or props. Switching the
+dressing off cannot move it, which is the rule the region assembler broke by re-deriving a ranking
+one layer too late and moving the colony 45 tiles.
+
+**The camp has no behaviour, and saying so is the point of the entry.** Nothing mills, nothing
+returns at dusk, nothing fights back — `npc_combat`'s intake asks for `needs`, which a settler
+does not have — and nobody can be recruited. A camp today is three bodies standing in a building
+that breathe into the noise and scent fields and are eaten. The ten-day measurement says exactly
+that: `survivors_end` is unchanged on every seed, and on two of the three seeds that site a camp
+the whole camp is dead by day ten. That is the honest first reading of a slice that ships bodies
+without behaviour, not a balance finding, and the next slice is what it re-measures against.
