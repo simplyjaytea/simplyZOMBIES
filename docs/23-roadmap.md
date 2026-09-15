@@ -8783,8 +8783,9 @@ not a to-do list:
   exists only at 256 would be invisible to the chain and its balance measurement would be
   vacuous. At `SimDirector.GATE_EXCLUSION` (32 m) the four seeds hold 0 / 1 / 3 / 2 far buildings
   at 64 and 44 / 55 / 44 / 43 at 256: the camp is real where the gates run, seed 20260805 has
-  nowhere legal and fires the skip line for real rather than in theory, and the district's "far
-  from home" question keeps the one answer `SimWorldgen.far_buildings`' own comment asks for.
+  nowhere legal at all and fires the gate's skip line for real rather than in theory, and the
+  district's "far from home" question keeps the one answer `SimWorldgen.far_buildings`' own
+  comment asks for.
   docs/30, "The settlers' camp", carries the argument, and the strangers slice independently
   landed on the same constant for the same question a merge earlier.
   **Three filters, and the third was found by another gate rather than reasoned out.** `site`
