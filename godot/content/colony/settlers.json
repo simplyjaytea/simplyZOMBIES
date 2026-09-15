@@ -1,0 +1,11 @@
+{
+  "id": "colony.generator.settlers",
+  "count": 3,
+  "minMetres": 32.0,
+  "kit": [
+    "item.bandage.cloth",
+    { "item": "item.water.bottle", "chance": 0.6 },
+    { "item": "item.food.canned", "count": 2, "chance": 0.5 },
+    { "item": "item.knife.kitchen", "chance": 0.4 }
+  ]
+}

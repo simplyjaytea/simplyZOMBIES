@@ -110,7 +110,18 @@ extends RefCounted
 # aptitudes the fight they are in is being resolved with.
 #
 # Refused either way, the same rule as v27.
-const SAVE_VERSION: int = 30
+#
+# v31: somebody else lives here. A district now boots a `settlement` entity -- a building's rect,
+# the index of the building it sits in, and an Array of the member ids -- and a handful of bodies
+# carrying `allegiance.faction = "settlers"`, an `identity` and deliberately no `needs`. Two
+# streams are new, `settlers` and `settlersLook`, and both are spent at boot before the outdoor
+# scatter. A v30 save carries neither the entity nor the bodies, and there is no honest way to
+# read one: spawning the camp on load would invent people the save never had and would spend
+# streams the saved world had already spent elsewhere, while leaving it out would restore a
+# district whose `settlement` component names members that do not exist -- a camp of ids
+# pointing at nothing, which is the shape of a memory that is empty for reasons nothing reports.
+# Refused, same rule as v27.
+const SAVE_VERSION: int = 31
 
 
 static func canonicalize(value: Variant, path: String = "$") -> String:
