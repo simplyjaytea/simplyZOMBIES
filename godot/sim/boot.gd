@@ -31,6 +31,7 @@ const SimLightMod = preload("res://sim/modules/light.gd")
 const SimNoiseDevice = preload("res://sim/modules/noise_device.gd")
 const SimSurvivors = preload("res://sim/modules/survivors.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
+const SimSettlers = preload("res://sim/modules/settlers.gd")
 const SimFortify = preload("res://sim/modules/fortify.gd")
 const SimDirector = preload("res://sim/modules/director.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
@@ -475,6 +476,14 @@ static func playable(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.D
 	# on several seeds none at all -- see check_m2_dormant.gd, which says so and skips rather than
 	# passing quietly.
 	SimRoster.spawn_dormant_from_manifest(world, map)
+	# And the people who are not yours, living somewhere else in the same district. After the
+	# dormant spawn on purpose: both read `SimWorldgen.far_buildings`, and a camp sited before the
+	# sleepers were placed would still get the same answer -- the helper reads the layout, not the
+	# entity table -- but running them in the order the record describes is what lets a reader
+	# follow one list of draws. Its own `settlers` stream, so the outdoor scatter below draws
+	# exactly what it drew before this landed, and a district with no building far enough out
+	# spends no draws at all and boots the campaign it always did.
+	SimSettlers.spawn_camp(world, map)
 	var place_rng: Variant = world.rng.stream("placement")
 	# Never inside the colony's own walls. `SimDirector._legal_tile` has always refused to put a
 	# night packet in the annex, and this scatter used to get the same answer for nothing: the annex
