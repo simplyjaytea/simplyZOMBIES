@@ -41,7 +41,7 @@ func _run() -> void:
 	ok = _the_new_kinds_are_content() and ok
 	ok = _the_new_senses_are_read() and ok
 	if ok:
-		print("M2_ROSTER_OK mix alarm bloom exhausted, every zombie has eyes, extends resolved, senses and waves are content, the screamer sees what is lit at night, the dead write to the field from content, residue in every state, one roll a cloud, the stalker and the runner are two JSON entries a body reads")
+		print("M2_ROSTER_OK mix alarm bloom exhausted, every zombie has eyes, extends resolved, senses and waves are content, the screamer sees what is lit at night, the dead write to the field from content, residue in every state, one roll a cloud, four wave kinds are JSON entries a body reads")
 		quit(0)
 	else:
 		push_error("M2_ROSTER_FAIL")
@@ -61,14 +61,17 @@ func _fixture(seed_val: int, w: int = 24, h: int = 24) -> Dictionary:
 #    the moment a roll, the order of the pool or a shipped weight moves, and with it the
 #    `placement` and `director` streams every campaign draws its bodies from.
 #
-#    **Re-pinned 2026-09-15 by the stalker-and-runner slice, deliberately.** The literal it
-#    replaced was the sequence the hard-coded 80/12/8 drew, and that byte-identity claim belonged
-#    to the mix slice, which changed *what content could say* and nothing about what spawns. This
-#    slice puts two more kinds on the table from day 3 and day 7, so the day-7 sequence must move
-#    -- a re-pin that left it unchanged would mean the new kinds were never in the pool. The
-#    balance record carries the campaign half of the same change (docs/23). What the pin still
-#    guarantees, and why it is worth keeping: days 1 and 2 are untouched (QUIET below), and from
-#    here on any *unintended* movement of the draw is red again.
+#    **Re-pinned twice on 2026-09-15, both times deliberately.** First by the stalker-and-runner
+#    slice and then by the armoured-and-heavy one, and the reasoning is the same both times: the
+#    literal the first of them replaced was the sequence the hard-coded 80/12/8 drew, and that
+#    byte-identity claim belonged to the mix slice, which changed *what content could say* and
+#    nothing about what spawns. A slice that puts new kinds on the table changes what spawns **by
+#    design**, so the day-7 sequence must move -- a re-pin that left it unchanged would mean the
+#    new kinds were never in the pool. The armoured and the heavy are both wave 2, so they join
+#    the pool on day 5 and the day-7 draw is over seven kinds summing to 128. The balance record
+#    carries the campaign half of the same change (docs/23). What the pin still guarantees, and
+#    why it is worth keeping: days 1 and 2 are untouched (QUIET below), and from here on any
+#    *unintended* movement of the draw is red again.
 #  * SILENCED -- a fixture tree with the shambler at `weight: 0` never draws one in 200 draws,
 #    where the shipped tree draws it two times in three. PINNED alone would pass against code
 #    that still had the constants in it; this is what says the number in the JSON is read.
@@ -87,19 +90,23 @@ func _fixture(seed_val: int, w: int = 24, h: int = 24) -> Dictionary:
 #    outside the shipped runner band while the shambler stays inside the shipped shambler band, so
 #    the band is narrow enough to notice a weight and wide enough not to be noise.
 #
-# The two ids the stalker-and-runner slice added are named **here** and not in
-# `sim/modules/roster.gd` beside `TYPE_SHAMBLER` and the rest, on purpose: that slice's whole
-# claim is docs/14's "adding a zombie type is one JSON entry with zero code", and a
-# `const TYPE_STALKER` in the sim would have been the first line of code it cost. Nothing under
-# `godot/sim/` names either id; these two exist only so the lanes below can spell them.
+# The four ids the stalker-and-runner and armoured-and-heavy slices added are named **here** and
+# not in `sim/modules/roster.gd` beside `TYPE_SHAMBLER` and the rest, on purpose: the first
+# slice's whole claim is docs/14's "adding a zombie type is one JSON entry with zero code", and a
+# `const TYPE_STALKER` in the sim would have been the first line of code it cost. The second slice
+# did cost code -- a body may now wear a `worn` list -- but what that code reads is a *key*, never
+# an id, so the rule survives intact. Nothing under `godot/sim/` names any of these four; they
+# exist only so the lanes below can spell them.
 const TYPE_STALKER: String = "zombie.stalker"
 const TYPE_RUNNER: String = "zombie.runner"
+const TYPE_ARMORED: String = "zombie.armored"
+const TYPE_HEAVY: String = "zombie.heavy"
 
 const PINNED_SEED: int = 20260805
 const PINNED_STREAM: String = "mixProbe"
-# h shambler, c screamer, b bloater, t stalker, r runner -- 35 / 4 / 6 / 4 / 1 of the first fifty
-# draws on day 7, where all five kinds are due.
-const PINNED_DRAWS: String = "hhhthbbrhhbhchhhbhchhhthhbbchhthhhhhhhhthhchhhhhhh"
+# h shambler, c screamer, b bloater, t stalker, r runner, a armored, y heavy -- the first fifty
+# draws on day 7, where all seven kinds are due.
+const PINNED_DRAWS: String = "hhhthaabhhbcrchhahchhhthhaayhhthhhhchhhthcrhhhhhhh"
 # The share each kind's 2000-draw count may stray from its content weight, either way.
 const SHARE_TOLERANCE: float = 0.25
 const SHARE_DRAWS: int = 2000
@@ -108,7 +115,7 @@ const SHARE_DRAWS: int = 2000
 func _mix() -> bool:
 	var day7: int = Clock.tick_on_day(7, 0.5)
 	var day1: int = Clock.tick_on_day(1, 0.5)
-	var code: Dictionary = {SimRoster.TYPE_SHAMBLER: "h", SimRoster.TYPE_SCREAMER: "c", SimRoster.TYPE_BLOATER: "b", TYPE_STALKER: "t", TYPE_RUNNER: "r"}
+	var code: Dictionary = {SimRoster.TYPE_SHAMBLER: "h", SimRoster.TYPE_SCREAMER: "c", SimRoster.TYPE_BLOATER: "b", TYPE_STALKER: "t", TYPE_RUNNER: "r", TYPE_ARMORED: "a", TYPE_HEAVY: "y"}
 
 	# PINNED.
 	var world: Variant = World.new(_fixture(PINNED_SEED))
@@ -144,7 +151,7 @@ func _mix() -> bool:
 	# the one under test is flattened to 1, so the fixtures stay comparable as the roster grows.
 	var shipped: Dictionary = _draw_counts(null, day7, 200)
 	var silenced: Dictionary = _draw_counts(_tree_with_weights({SimRoster.TYPE_SHAMBLER: 0}), day7, 200)
-	var heavy: Dictionary = _draw_counts(_tree_with_weights({SimRoster.TYPE_BLOATER: 100, SimRoster.TYPE_SHAMBLER: 1, SimRoster.TYPE_SCREAMER: 1, TYPE_STALKER: 1, TYPE_RUNNER: 1}), day7, 200)
+	var heavy: Dictionary = _draw_counts(_tree_with_weights({SimRoster.TYPE_BLOATER: 100, SimRoster.TYPE_SHAMBLER: 1, SimRoster.TYPE_SCREAMER: 1, TYPE_STALKER: 1, TYPE_RUNNER: 1, TYPE_ARMORED: 1, TYPE_HEAVY: 1}), day7, 200)
 	if int(shipped.get(SimRoster.TYPE_SHAMBLER, 0)) < 110:
 		push_error("MIX: the shipped tree should still be mostly shamblers (%s)" % str(shipped))
 		return false
@@ -894,9 +901,17 @@ func _a_second_cloud_rolls_again() -> bool:
 # shape CLAUDE.md names; so each kind is spawned and its component read, and the negative is the
 # same spawn against a tree carrying different numbers, which must produce the fixture's values
 # rather than the shipped ones.
+#
+# The armoured and the heavy joined the table on 2026-09-15 and are held to exactly the same
+# standard. The armoured kind is the one that did cost a line of sim -- a body may now wear a
+# `worn` list -- but nothing about *this* lane changes for it: what its gear does is
+# check_m2_armored.gd's business, and what this lane asks is the same question it asks of the
+# other three, that the JSON is real and its numbers reach the component the brain reads.
 const NEW_KIND_PROFILES: Dictionary = {
 	"zombie.stalker": {"noise": 0.9, "light": 0.4, "scent": 0.4, "speed": 1.0, "wander": 0.45, "mill": 0.5},
 	"zombie.runner": {"noise": 0.9, "light": 0.9, "scent": 0.4, "speed": 1.4, "wander": 0.3, "mill": 0.3},
+	"zombie.armored": {"noise": 0.5, "light": 0.15, "scent": 0.5, "speed": 0.8, "wander": 0.3, "mill": 0.25},
+	"zombie.heavy": {"noise": 0.9, "light": 0.1, "scent": 0.2, "speed": 0.6, "wander": 0.25, "mill": 0.2},
 }
 # The fixture profile the negative writes over each kind. Every number differs from both shipped
 # rows above, so a component built from a constant cannot match it by accident.
@@ -938,8 +953,15 @@ func _the_new_kinds_are_content() -> bool:
 		var tree: Dictionary = _tree_with_profile(String(type_id), FIXTURE_PROFILE)
 		if not _component_carries(_daylight_world(73, tree), String(type_id), FIXTURE_PROFILE, "a fixture tree"):
 			return false
-	print("KINDS OK stalker and runner resolve with the base's spread, grab, behaviours and emits; their senses and speeds reach the spawned body's component, and a fixture tree's numbers reach it instead")
+	print("KINDS OK %d kinds (%s) resolve with the base's spread, grab, behaviours and emits; their senses and speeds reach the spawned body's component, and a fixture tree's numbers reach it instead" % [NEW_KIND_PROFILES.size(), ", ".join(_kind_names())])
 	return true
+
+
+func _kind_names() -> Array[String]:
+	var out: Array[String] = []
+	for id in NEW_KIND_PROFILES.keys():
+		out.append(String(id).trim_prefix("zombie."))
+	return out
 
 
 # One spawn, and every number the profile names read back off the `shambler` component.

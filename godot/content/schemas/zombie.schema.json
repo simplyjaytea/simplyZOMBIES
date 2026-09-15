@@ -97,6 +97,14 @@
       "description": "Health by body part. Meaningful damage is to the head or to locomotion.",
       "additionalProperties": { "type": "number", "minimum": 0 }
     },
+    "worn": {
+      "type": "array",
+      "description": "Item ids this kind's bodies wear. SimRoster.spawn_zombie gives such a body an inventory, equips each id into the slot its own base declares, and marks it `lootKit` so recruits._drop_kit leaves the gear on the floor when the body goes down -- the SimRecruits._turn_with_kit precedent, which is how a zombie has carried things since a colonist could turn. What it buys is armour on something that is not a survivor: SimInfection.armor_coverage_of reads `equipment` and never asked whose it was, and SimHealth.armor_damage_factor resists with it inside `damage_part`, so an armoured kind costs no new arithmetic at all (docs/14's second wave: accumulated debris and gear, resists light weapons). A zombie body is head/torso/legs, so an `armor` block naming a survivor's sided limbs covers nothing here and is neither an error nor any use. An id no item registry knows fails check_m2_armored.gd's WORN lane rather than spawning a body wearing nothing.",
+      "items": {
+        "type": "string",
+        "pattern": "^item\\.[a-z0-9_]+(\\.[a-z0-9_]+)*$"
+      }
+    },
     "grab": {
       "type": "object",
       "additionalProperties": false,

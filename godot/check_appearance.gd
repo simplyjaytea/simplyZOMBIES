@@ -370,6 +370,15 @@ const ROSTER: Array[Dictionary] = [
 	# (check_m2_variance.gd READER), and is therefore invisible to this lane by construction.
 	{"id": "zombie.stalker", "kind": "zombie", "probe": {"ztype": "zombie.stalker"}, "colonist": false},
 	{"id": "zombie.runner", "kind": "zombie", "probe": {"ztype": "zombie.runner"}, "colonist": false},
+	# And the two the armoured-and-heavy slice added, on the same terms and for the same reason.
+	# The armoured one is the awkward entry to leave here and that is exactly why it is written
+	# down: it is *wearing a vest and a helmet* the sim resolves and the paperdoll draws
+	# (check_worn.gd's REACHES lane walks equipped bases wherever they are worn), but the body
+	# under the gear is still the shambler's rig at the shambler's white, so the silhouette a
+	# player reads across a street is the shambler's silhouette. The heavy is worse off still --
+	# docs/14 calls it enormous and it draws at exactly one tile like everything else.
+	{"id": "zombie.armored", "kind": "zombie", "probe": {"ztype": "zombie.armored"}, "colonist": false},
+	{"id": "zombie.heavy", "kind": "zombie", "probe": {"ztype": "zombie.heavy"}, "colonist": false},
 	{"id": "raider.scav", "kind": "raider", "probe": {"raider": true, "cid": "raider.scav"}, "colonist": false},
 	{"id": "raider.gunhand", "kind": "raider", "probe": {"raider": true, "cid": "raider.gunhand"}, "colonist": false},
 	# The four rolled raider looks (the individuals slice), and `colonist: false` on every one of
@@ -403,15 +412,16 @@ const ROSTER_DIRS: Array[String] = ["players/", "zombies/", "survivors/uniques/"
 # (check_m2_raiders.gd asserts the same thing from the content side).
 #
 # The third group is the one that is a **gap rather than a decision**, and it is here so the gap
-# is written down where a reader will meet it: the stalker and the runner wear the shambler's
-# rig because a new sprite key is `sprites:check` work (Pillow, a byte comparison of generated
-# art) that the slice adding them deliberately did not take. docs/23's what's-left names the
-# follow-up. Until it lands, this line is the honest statement that two kinds with different
-# senses and different speeds are one picture.
+# is written down where a reader will meet it: the stalker, the runner, the armoured and the
+# heavy all wear the shambler's rig because a new sprite key is `sprites:check` work (Pillow, a
+# byte comparison of generated art) that the slices adding them deliberately did not take.
+# docs/23's what's-left names the one follow-up piece, "a silhouette per kind", and all four are
+# on it. Until it lands, this line is the honest statement that four kinds with different senses,
+# different speeds and -- since the armoured one -- different armour are one picture.
 const ROSTER_SHARED: Array = [
 	["colony.look.01", "colony.look.02", "colony.look.03", "colony.look.04", "colony.look.05", "colony.look.06"],
 	["raider.scav", "raider.gunhand", "raider.look.01", "raider.look.02", "raider.look.03", "raider.look.04"],
-	["zombie.shambler", "zombie.stalker", "zombie.runner"],
+	["zombie.shambler", "zombie.stalker", "zombie.runner", "zombie.armored", "zombie.heavy"],
 ]
 
 # One id per distinct picture; every pair must resolve different textures.
