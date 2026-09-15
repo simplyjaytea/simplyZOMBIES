@@ -125,6 +125,35 @@ const RAID_BAND_MAX: int = 4
 # the first cut claims to have balanced.
 const RAID_LIVE_CAP: int = 8
 
+# --- the crossing (a band passing through) -----------------------------------------------------
+#
+# docs/17's lever table names **Encounters** beside migration and site seeding, and the same
+# document opens by saying the director "is not a spawner": it does not place a horde at your gate.
+# A raid is the one thing it sends that *is* aimed at the colony, and it has been the only kind of
+# band since raiders landed -- `_draw_raid` decides it and `SimRaiders._objective` walks it to
+# home. So the district has had exactly one sort of armed stranger in it, and every one of them
+# was coming for you.
+#
+# A crossing is the other sort, and it is an Encounter rather than a second horde: a band drawn on
+# a **dawn** rather than a dusk, with a place in the district to be and a way out the far side,
+# fighting only what `SimAllegiance.enemies_of` puts inside `SimRaiders.HALT_METRES` of it on the
+# way. It is not placed at your wall, it is not aimed at your wall, and if the colony is nowhere
+# near its line it crosses the map and leaves without either side knowing. What makes that a
+# pacing lever rather than scenery is that it puts armed people between the colony and its
+# scavenging, which is pressure the player can walk into or walk around.
+#
+# Dawn on purpose, and not only to keep the two draws apart in the day: a band that walks in at
+# dusk is a band you meet in the dark at your gate, which is a raid whatever its objective says.
+# One that crosses in daylight is something you can see coming and decide about.
+const ROAM_STREAM: String = "raidRoam"
+
+# The chance, in percent, that a post-grace dawn sends one across. **A first cut**, the plan's own
+# (15), and measured rather than argued -- the before/after table is in docs/23's record under
+# Raiders. Below the raid's 20 because a crossing is the commoner event of the two in fiction and
+# the more expensive one in bodies: it shares RAID_LIVE_CAP with the raid, so every band crossing
+# at dawn is a band the dusk draw cannot send.
+const ROAM_CHANCE_PERCENT: int = 15
+
 # Sides, in the order _edges_by_side returns them.
 const SIDE_NAMES: Array[String] = ["north", "east", "south", "west"]
 # Every fourth edge tile is sampled when asking the field which way the noise points. The field is
@@ -245,13 +274,20 @@ static func register_module(world: Variant) -> void:
 			d["nightsSinceQuiet"] = 0
 		if not d.has("consecutiveSiege"):
 			d["consecutiveSiege"] = 0
-	world.systems.register("director.dusk", "director", 0, func(w: Variant) -> void:
+	# One system, two edges, and it was named `director.dusk` until the crossing slice gave the
+	# director something to decide at dawn as well. Renamed rather than joined by a second
+	# registration on purpose: `check_m2_harness.gd`'s Nothing Personal preset turns the director
+	# off by unregistering this by name (docs/17: "the game runs with it disabled"), and a second
+	# system would have left half the director running under a preset whose whole claim is that
+	# none of it is. One name, one off switch.
+	world.systems.register("director.cycle", "director", 0, func(w: Variant) -> void:
 		_tick_peak(w)
-		if Clock.phase_of(int(w.tick)) != Clock.Phase.Dusk:
-			return
-		if Clock.phase_of(int(w.tick) - 1) == Clock.Phase.Dusk:
-			return
-		_on_dusk(w)
+		var phase: int = Clock.phase_of(int(w.tick))
+		var before: int = Clock.phase_of(int(w.tick) - 1)
+		if phase == Clock.Phase.Dusk and before != Clock.Phase.Dusk:
+			_on_dusk(w)
+		elif phase == Clock.Phase.Dawn and before != Clock.Phase.Dawn:
+			_on_dawn(w)
 	)
 	world.events.subscribe({"id": "director.breach-lull", "type": "fortify.breached", "handler": func(_event: Dictionary) -> void:
 		_begin_lull(world, 1)
@@ -411,6 +447,159 @@ static func _draw_raid(world: Variant, day: int, lull: bool) -> void:
 	})
 
 
+# One dawn's crossing decision. Deliberately the same shape as `_on_dusk`'s raid half and nothing
+# else: a dawn does not draw a night, does not touch the strain table and does not move
+# `nightsSinceQuiet`. The director still makes exactly one pacing decision per night; this is the
+# Encounter lever, and it runs on its own clock so that the two cannot reshuffle each other.
+static func _on_dawn(world: Variant) -> void:
+	var day: int = Clock.day_number(int(world.tick))
+	var st: Dictionary = world.director as Dictionary
+	var lull: bool = int(world.tick) >= int(st.get("lullFromTick", 0)) and int(world.tick) < int(st.get("lullUntilTick", 0))
+	_draw_roam(world, day, lull)
+
+
+# The crossing draw, announced whether or not it sends anybody -- docs/17 rule 5, the same reason
+# `_draw_raid` announces a refusal. A player cannot be told where a band is going (the information
+# rule; see the note on the event below), but a gate and a harness can read why a dawn was empty,
+# and a lever nothing can observe is the one this document forbids outright.
+#
+# The refusal ladder is `_draw_raid`'s, in `_draw_raid`'s order and for its reasons: grace is a
+# fact about the day, the lull outranks the draw (rule 1), the cap is a budget, and only then is
+# the stream touched. Sharing RAID_FIRST_DAY rather than owning a second schedule is the whole of
+# "the district has no armed strangers in it during week one" -- two first days would mean the
+# grace the roadmap measured was only ever half a grace.
+#
+# `ROAM_STREAM`, never `RAID_STREAM`. Threading a second decision into `"raid"` would move every
+# band the record measured, and `check_m2_raiders.gd` pins that sequence twice over: against a
+# literal from the pre-individuals tree, and against a dawn that draws.
+static func _draw_roam(world: Variant, day: int, lull: bool) -> void:
+	var reason: String = "drawn"
+	var size: int = 0
+	var side: String = ""
+	var live: int = SimRaiders.live_count(world)
+	if day < RAID_FIRST_DAY:
+		reason = "grace"
+	elif lull:
+		reason = "lull"
+	elif live >= RAID_LIVE_CAP:
+		reason = "cap"
+	else:
+		var rng: Variant = world.rng.stream(ROAM_STREAM)
+		if int(rng.call("int_range", 0, 99)) >= ROAM_CHANCE_PERCENT:
+			reason = "quiet"
+		else:
+			size = int(rng.call("int_range", RAID_BAND_MIN, RAID_BAND_MAX))
+			# The shared budget, and the reason a crossing cannot stack on top of a raid: one cap
+			# over every raider standing in the district, whichever draw sent them. A dawn that
+			# would have made nine says so and sends nobody.
+			size = mini(size, RAID_LIVE_CAP - live)
+			if size <= 0:
+				reason = "cap"
+			else:
+				var site: Vector2i = _roam_site(world, rng)
+				if site.x < 0 or site.y < 0:
+					# A district with nothing far enough from the colony to be worth crossing for
+					# is a district with no crossing in it. Announced rather than turned into a
+					# raid with a different name: a band that fell back on the gate would be the
+					# silent adjustment rule 5 forbids, and the whole claim of this lever is that
+					# it is not aimed at you.
+					reason = "no-site"
+					size = 0
+				else:
+					var placed: Dictionary = _emit_band(world, size, rng, site)
+					side = String(placed["side"])
+					size = int(placed["placed"])
+					if size <= 0:
+						reason = "no-edge"
+	# What the player is told is nothing, and that is the information rule rather than an omission:
+	# nothing here reaches the chronicle or the HUD, so a band crossing the far side of the
+	# district is something you find out by seeing it. `director.raid` has the same silence for the
+	# same reason. What this event is for is rule 5 -- a gate, a harness and a save can all read
+	# what the director decided and why.
+	world.events.publish({
+		"type": "director.roam",
+		"day": day,
+		"size": size,
+		"side": side,
+		"reason": reason,
+	})
+
+
+# Where a crossing band is going: one of the district's own loot sites, drawn, and at least
+# `GATE_EXCLUSION` from home.
+#
+# `map.sites` rather than a tile of open ground, because a site is a place somebody would cross a
+# district *for* -- it is where `SimBoot.place_loot` put the pharmacy and the cupboards, so the
+# band's line is drawn between two things that exist in the fiction rather than between two
+# coordinates. It is also the half that makes a crossing cost the player something without the
+# band ever meeting them: a looter's armful comes off a site the colony had not reached yet.
+#
+# The exclusion is `GATE_EXCLUSION`, the same number and the same meaning `_legal_tile` gives an
+# entry tile, asked of `SimHome.near_any` so a camp counts as home as well. A band whose objective
+# were your own doorstep would be a raid that had been told to call itself something else.
+# Measured before it was written: at 64 tiles the four balance seeds keep 1, 1, 3 and 1 sites that
+# far out, and at the shipped 256 they keep 64, 69, 66 and 57 -- so the draw has something to
+# choose between at both scales, and `no-site` is a real refusal rather than the usual answer.
+static func _roam_site(world: Variant, rng: Variant) -> Vector2i:
+	var map: Variant = world.tilemap
+	if map == null:
+		return Vector2i(-1, -1)
+	var sites: Array = map.sites as Array
+	if sites.is_empty():
+		return Vector2i(-1, -1)
+	# A plain Array, appended to: `map.sites` is one, and a PackedArray taken out of a Dictionary
+	# and appended to is CLAUDE.md's first trap.
+	var far: Array[Vector2i] = []
+	for record in sites:
+		if not (record is Dictionary):
+			continue
+		var r: Dictionary = record as Dictionary
+		var tile := Vector2i(int(r.get("x", -1)), int(r.get("y", -1)))
+		if tile.x < 0 or tile.y < 0:
+			continue
+		if SimTileMap.is_solid(map, tile.x, tile.y):
+			continue
+		if SimHomeRes.near_any(world, float(tile.x) + 0.5, float(tile.y) + 0.5, GATE_EXCLUSION):
+			continue
+		far.append(tile)
+	if far.is_empty():
+		return Vector2i(-1, -1)
+	return far[int(rng.call("int_range", 0, far.size() - 1))]
+
+
+# The far edge: where a band that is passing through goes when it is done. The side opposite the
+# one it came in on, and within that side the legal tile nearest the objective -- so a crossing
+# reads as a line across the district rather than as an arrival and a retreat.
+#
+# It spends **no randomness**, which is not a style choice: `_emit_band` is called by the raid
+# draw off `"raid"` as well, and a draw here would move that stream for every band the record
+# measured the moment an objective was passed. Nearest-to-goal is deterministic and needs none.
+#
+# The two fallbacks are honest rather than tidy. A district whose opposite edge has no legal tile
+# hands the band the nearer of the two flanking edges; one with no second usable edge at all gets
+# (-1, -1), and `SimRaiders` reads that as "leave the way you came" -- a band that crossed as far
+# as it could and turned round, which is what a district with one usable edge physically is.
+static func _far_edge(sides: Array, from_side: int, goal: Vector2i) -> Vector2i:
+	var order: Array[int] = [(from_side + 2) % 4, (from_side + 1) % 4, (from_side + 3) % 4]
+	for side in order:
+		var pool: Array = sides[side] as Array
+		if pool.is_empty():
+			continue
+		var best := Vector2i(-1, -1)
+		var best_d: float = 1e12
+		for entry in pool:
+			var tile: Vector2i = entry
+			var dx: float = float(tile.x - goal.x)
+			var dy: float = float(tile.y - goal.y)
+			var d: float = dx * dx + dy * dy
+			if d < best_d:
+				best_d = d
+				best = tile
+		if best.x >= 0:
+			return best
+	return Vector2i(-1, -1)
+
+
 # Where a band comes in. The same edge legality a night packet gets -- no gate, no annex, nothing
 # inside GATE_EXCLUSION -- because the fairness rule those exclusions encode is about arriving
 # on top of the player, and it does not care what species did the arriving.
@@ -424,7 +613,14 @@ static func _draw_raid(world: Variant, day: int, lull: bool) -> void:
 # The band lands on consecutive tiles from one side's pool, so it arrives *together*: the pool is
 # built in scan order, so consecutive entries are neighbours, and four raiders spread over a
 # 256 m edge would be four lone raiders rather than a band.
-static func _emit_band(world: Variant, size: int, rng: Variant) -> Dictionary:
+#
+# `objective` is the crossing slice's one addition and it is trailing and defaulted, so the raid
+# draw's call is character-for-character the call it was and spends the same draws in the same
+# order -- which is what `check_m2_raiders.gd`'s STREAMS pin, a literal from the pre-individuals
+# tree, still holds against. Null is a raid: the band is stamped and walks at the colony. A
+# Vector2i is a crossing: the same band, plus a place to be and a far edge to leave by, both
+# written by `SimRaiders.stamp_crossing` onto the same component `stamp_band` just wrote.
+static func _emit_band(world: Variant, size: int, rng: Variant, objective: Variant = null) -> Dictionary:
 	var none: Dictionary = {"side": "", "placed": 0}
 	# Asked before a single draw is spent: a content tree with no `raiders/` directory in it must
 	# leave the stream exactly where it found it, or removing the archetypes would silently
@@ -454,6 +650,8 @@ static func _emit_band(world: Variant, size: int, rng: Variant) -> Dictionary:
 		return none
 	# The band knows itself: the night it came and how many, so it can leave at half strength.
 	SimRaiders.stamp_band(world, members, int(world.tick))
+	if objective is Vector2i:
+		SimRaiders.stamp_crossing(world, members, objective as Vector2i, _far_edge(sides, side, objective as Vector2i))
 	return {"side": SIDE_NAMES[side], "placed": placed}
 
 

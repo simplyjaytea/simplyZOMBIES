@@ -4823,3 +4823,72 @@ defensively, because `npc_combat.gd` swings from where a body stands and never r
 What the order has **not** bought yet is a robbery: on four forced raids the band is met five to
 thirteen metres short of the stores and `looted` reads 0, which docs/23's record states plainly
 rather than dressing up.
+
+## A band that is not coming for you, 2026-09-15
+
+The crossing slice: the director's Encounter lever, and the first band in the game that is not
+aimed at the colony. Five calls, each of which could honestly have gone the other way.
+
+**Fifteen per cent, at dawn, on its own stream.** The chance is the plan's first cut and the
+owner's to move; what is not arbitrary is where it sits. Below the raid's twenty because the two
+share `RAID_LIVE_CAP` — every band crossing at dawn is a band the dusk draw cannot send — and at
+dawn rather than dusk because a band that walks in at dusk is a band you meet in the dark at your
+gate, which is a raid whatever its objective record says. One that crosses in daylight is something
+you can see coming and decide about. `"raidRoam"` is its own stream for the reason
+`"directorNight"` and `"raid"` are: `check_m2_raiders.gd` holds `"raid"`'s byte sequence against a
+literal taken on the pre-individuals tree, every measured band in docs/23's record is a function of
+it, and a second decision threaded into it would move all of them. It shares `RAID_FIRST_DAY`
+rather than owning a second schedule, because two first days would mean the grace docs/23 measured
+was only ever half a grace.
+
+**The objective is a loot site, at least `GATE_EXCLUSION` from home.** A `map.sites` record rather
+than a tile of open ground, because a site is a place somebody would cross a district *for* — the
+band's line is drawn between two things that exist in the fiction. The exclusion is the same 32 m
+and the same meaning `_legal_tile` gives an entry tile, asked of `SimHome.near_any` so a camp
+counts as home too: a band whose objective were your own doorstep would be a raid that had been
+told to call itself something else. Measured before it was written — at 64 tiles the four balance
+seeds keep 1, 1, 3 and 1 sites that far out, at the shipped 256 they keep 64, 69, 66 and 57 — so
+`no-site` is a real refusal rather than the usual answer, and a district with nothing far enough
+away says so and sends nobody instead of falling back on the gate.
+
+**The far edge is the opposite side, nearest tile to the objective, drawn with no randomness.**
+`_emit_band` is the raid's emitter too, so a draw here would move `"raid"` the moment an objective
+was passed; nearest-to-goal is deterministic and needs none. A district whose opposite edge has no
+legal tile gets the nearer flank, and one with no second usable edge at all hands back (-1, -1),
+which `SimRaiders` reads as "leave the way you came" — a band that crossed as far as it could and
+turned round, which is what such a district physically is.
+
+**What the roles do while crossing, which is the call this slice had to make rather than inherit.**
+Both halves are decided against the *objective* rather than against the colony.
+
+A **looter** loots the place it crossed for and never your pantry. A band that crossed a district
+for a pharmacy and took nothing out of it is the contradiction; a looter that walked past its own
+objective to rob a colony it was not visiting would make the whole lever a raid with extra steps.
+So `_worth_taking` branches: a raid asks `_is_stores`, a crossing asks whether the thing is lying
+at its site. What it carries out is despawned with it, exactly as a raid's haul is, so a site the
+colony had not reached yet is now three things poorer — docs/12's scavenging squeeze arriving as
+somebody else rather than as a timer.
+
+A **lookout** does not halt while crossing. `LOOKOUT_METRES` is a watcher on the treeline *outside
+your gate*: it is a distance from a colony, and a band with no colony to watch has nothing to stand
+off from. A lookout halting twelve metres short of a cupboard is that clause read literally and
+meant nowhere. What does travel is the other half of the same role — the first man down still turns
+the whole band for the exit, because that is a fact about the band's arithmetic rather than about
+the colony, and it is docs/18's "retreat when losses outweigh the haul" applied to a crossing. So a
+watcher in a passing band walks with it and decides when it breaks off.
+
+**It is an Encounter, not a second horde, and docs/17's opening claim is what that means.** The
+director "is not a spawner": it does not place a horde at your gate, and where zombies arrive stays
+the attention field's business. A crossing does not touch that. It places nobody near the colony —
+the entry tile gets `_legal_tile`'s existing exclusions and the objective gets the same 32 m — it
+takes a slot out of the raid budget rather than opening a second one, and it fights only what
+`SimAllegiance.enemies_of` puts inside `HALT_METRES` of its own line. A colony that is nowhere near
+that line never meets it. The pressure it adds is armed people between you and your scavenging,
+which is something the player can walk into or walk around, rather than something delivered to the
+wall.
+
+**And the player is told nothing.** `director.roam` carries its reason for rule 5's sake — a lever
+nothing can observe is the one docs/17 forbids outright — but it reaches no chronicle line and no
+HUD clause, exactly as `director.raid` does not. Where a band is going, and that it is not coming
+for you, is something you find out by watching it, which is the information rule rather than an
+omission.
