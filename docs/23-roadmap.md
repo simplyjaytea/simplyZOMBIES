@@ -271,9 +271,6 @@ the people pieces reuse; raiders before settlers because the third side is a sea
 raider first touches. Each piece that adds a body or a kind inside ten days re-baselines the FAST
 balance record and says so in its record; `survivors_end >= 1` is never the lever.
 
-- **Each dead body differs.** A tint from the type's `variance.tints`, a body scaled against its
-  own `bodyMax`, a crawler from birth — drawn on a `zombieLook` stream, stored on `zombieType`,
-  read by `Appearance.for_entity` as a pass-through. New gate `godot:m2:variance`.
 - **Stalker and runner.** Two content entries on the wave schedule, tinted on the shambler's rig,
   proving docs/14's "one JSON entry, zero code". A silhouette each is a follow-up piece.
 - **Armoured and heavy: gear on the dead.** A `worn` list a zombie equips at spawn and drops on
@@ -5127,6 +5124,109 @@ not a to-do list:
   says `GODOT_CONTENT_OK`. No body count moved, so the FAST balance record is not re-baselined —
   the arc's re-baseline rule applies to the pieces that add a kind or a body, and this one adds
   neither.
+- **Roster & Presentation** — ~~each dead body differs~~ **landed** (`godot:m2:variance`, which
+  takes the `godot:m2` chain to 73 links), 2026-09-15, the fourth piece of the owner's
+  procedural-population arc and the second of its zombie group. What was wrong: every zombie of a
+  kind was the same body. One tint (or, since the sprites, no tint at all and a white modulate), one
+  head, one torso, one pair of legs, so twenty shamblers were one shambler drawn twenty times — and
+  `crawlFactor`, which the contact slice finally gave a reader, could only ever be reached by a body
+  whose legs something had already destroyed. Now `SimRoster.roll_look` rolls three things per body
+  at spawn: a **tint** picked from the type's `variance.tints`, a **size** drawn in
+  `[1 − variance.body, 1 + variance.body]` and applied to every part of **both** `body` and
+  `bodyMax`, and with probability `variance.crawlers` a body **born with its legs at zero**. The
+  tint is stored on the existing `zombieType` component (`{id, tint}`, the key always present and
+  `""` for a kind that names no palette, so a save round-trips one shape);
+  `main.gd::_draw_entities` carries it beside `ztype` and `Appearance.for_entity` prefers a
+  non-empty stored tint to the content block's — a pass-through the way a colonist's
+  `identity.look` is, a value content decided rather than a decision the draw loop takes, and
+  still no `if id == …` in that loop. (It is a hex and not a content id on purpose; docs/30 has
+  the reason, which is that one entry per body is a registry growing with the population.) Three
+  details are deliberate. **The rolls come off a new named stream, `zombieLook`**, and never off the
+  `rng` `spawn_zombie` is handed, which is `placement` at boot and `director` at night: three draws
+  a body threaded into either would have shifted every roll after them, which is every wanderer's
+  tile and every kind drawn for the rest of the campaign. **A kind with no `variance` block draws
+  nothing at all**, which is both the pre-slice behaviour preserved and the half of the stream claim
+  a gate can drive from content instead of a flag. And **`bodyMax` is scaled with `body`**, because
+  `SimHealth.part_state_of` is the one normaliser (CLAUDE.md's trap: the parts do not share a scale)
+  and `HURT_BELOW` is 1.0 — a body shrunk to 0.85 and judged against the authored 60 would be Hurt
+  from the tick it spawned, and the speed multiplier, the NPC break-off and the condition prose
+  would all have believed it. The legs are zeroed *after* the maxima are taken, so a born crawler
+  reads `Unusable` against a real maximum and reaches `SimShambler._speed_of`'s existing
+  `crawlFactor` rather than a second locomotion path. Content: `variance: {tints[], body, crawlers}`
+  in `zombie.schema.json` (recursive, so the frozen oracle's Ajv is what actually enforces it —
+  `godot:validate` is shallow and cannot see inside the block), with **first cuts for the owner** of
+  **body ±15%** and **crawlers 5%** on `zombie.base`, a five-entry near-white palette there (a tint
+  is a modulate over the sprite, so these are pallor and stain, not costume colours), and a
+  four-entry greener palette on the bloater. `SAVE_VERSION` 29 → 30: a v29 save carries bodies at
+  their kind's authored size against maxima the roll would not have given them, so it is refused
+  rather than migrated, and both pins moved (`check_m2_save.gd`, `check_m2_fortify.gd`). **Gated**,
+  six lanes, each with a true positive and a true negative and each run red on purpose before it was
+  trusted: DISTINCT (20 bodies of one kind carry 5 of the 5 palette colours and 14 torso maxima,
+  every tint `#rrggbb` lowercase and drawn from the kind's own palette; negative: the same 20
+  against a tree whose `variance` is all zeros give exactly one of each; sabotage: delete the
+  `variance` block from `base.json`, which `godot:validate` still passed); STATE (a scaled-up and a
+  scaled-down body both read `Unhurt` from `part_state_of` on every part, and the lane's own
+  negative is the shrunken integrity judged against the *authored* maxima, which must not read
+  Unhurt; sabotage: store `bodyMax` unscaled — the first version of this lane **picked its two
+  bodies off `bodyMax`** and so went quiet, "no scaled body to judge", against exactly that bug, and
+  now picks them off the integrity); CRAWLER (a body rolled at `crawlers: 1.0` covers 0.420 m
+  against an intact control's 1.680 m over 20 ticks, a ratio of 0.250 against a `crawlFactor` of
+  0.25, and its legs read `Unusable` against a maximum of 40; sabotages, both halves: drop the
+  leg-zeroing, then make `_speed_of` skip the crawl multiplier, which moved the ratio to 1.000 and
+  is the dead-socket half); STREAM (the `placement` stream ends `SimBoot.playable(20260805, 64)` on
+  **3003379315**, the number a throwaway driver printed on the tree before a line of this was
+  written, and `zombieLook` exists and has moved off its derived seed — the second half is what
+  keeps the pin from passing against a slice that was simply deleted, and it fired on the first
+  sabotage; sabotage: hand `roll_look` the rng `spawn_zombie` was called with, which moved placement
+  to 1356060793); READER (`for_entity` answers the stored tint for a body carrying one, the block's
+  tint for one that does not, and the block's again for an empty string, plus the socket question —
+  `_draw_entities` must read the component and put a `tint` key in the draw item; sabotages: delete
+  the stored-tint branch in `appearance.gd`, then drop the key from the `items.append` line); SAVE
+  (eight bodies through the **real save text** — `create_save` → `encode_save` → `decode_save` →
+  `apply_save`, because the component store's in-memory round trip hands back the same objects and
+  would carry a value JSON cannot represent without saying so — each tint and each scaled torso
+  maximum back on its own body; sabotage: skip `zombieType` in `ComponentStore.restore`, which
+  reported body 1 saving `#f0dcd2` and coming back `''`). Where a lane has nothing to judge it
+  prints a SKIP line and says so: under the deleted-`variance` sabotage STATE and SAVE both did,
+  correctly — with no roll there is no scaled body and no lost colour to judge — while DISTINCT and
+  STREAM went red, which is the shape a SKIP is supposed to have.
+  `godot:check:appearance` is green unchanged — the shipped kinds still
+  declare a sprite and no block tint, and the rolled colour arrives on the draw item rather than in
+  their content. **One pin moved outside the new gate, and the chain found it rather than a
+  reading did**: `check_m2_lethality.gd`'s `_seeking_world` spawns through `SimRoster`, seed 89's
+  body rolled a crawler, and HEAD-ONLY read the torso's ×0.5 compounded with `crawlFactor` as
+  ×0.125 — against code that was correct. The fixture pins the body back to its type's authored
+  numbers and says why, which is `check_m2_contact.gd`'s `_no_struggling` convention: name the half
+  under test rather than let the other spoil the sample. Every other gate in the chain was run
+  individually, past the first failure rather than stopping at it, to find the rest; there were
+  none, and the reason is that the only gate with an absolute body number in an assertion is that
+  one. The same trap is live inside the new gate and handled the same way — STATE skips a rolled
+  crawler when it picks its two bodies, or it would fail on the crawler roll one run in a handful.
+  **Measured**, a throwaway driver (deleted) mirroring the FAST tier exactly — the
+  same four seeds, ten compressed days, the same 2000-tick dusk window, `entity.killed`
+  de-duplicated by entity id — run before and after on this tree:
+
+  | seed | at boot | tints / maxima | crawlers | survivors, end | distinct dead | grabs |
+  |---|---|---|---|---|---|---|
+  | 20260805 | 20 | 5 / 13 | 0 | 3/3 → 3/3 | 1 → 1 | 117 → 117 |
+  | 404 | 21 | 5 / 14 | 1 | 1/3 → 1/3 | 3 → 3 | 145 → 145 |
+  | 31337 | 23 | 5 / 14 | 0 | 3/3 → 3/3 | 1 → 1 | 0 → 0 |
+  | 90210 | 20 | 5 / 12 | 0 | 2/3 → 2/3 | 4 → 4 | 153 → 153 |
+
+  **Byte-identical on all four seeds**, `survivors_end >= 1` on every one, and the chain's own
+  `godot:m2:balance` agrees (`M2_BALANCE_OK`, survivors 3 / 1 / 3 / 2, grabs 117 / 145 / 0 / 153,
+  kills 0 / 1 / 1 / 0, deaths 1 / 2 / 0 / 4 — the same lines the dormant slice recorded). That is a
+  result, not an absence of one, and the reason is worth writing down: **a body's size changes what
+  it can absorb and nothing about how it moves.** `_torso_factor` reads a *state*, and a fresh body
+  of any size is Unhurt, so every speed is what it was; `bite_damage_for` scales off the
+  **victim's** part maxima, not the biter's; grab strength is content. Only durability moved, and
+  the FAST tier records 0–1 colony kills a campaign, so it has no resolution to see ±15% of a head.
+  The crawler is the one behavioural change and there was exactly one in four campaigns (seed 404) —
+  at 5% over ~20 bodies that is the expected count, and at a quarter speed it was placed too far out
+  to reach anybody inside a 2000-tick dusk window. **What this cannot see, named rather than
+  hidden:** the durability change belongs to the FULL tier, where a campaign actually fights, and to
+  the 256-tile district, where 80 bodies rather than 20 make 5% crawlers four a map rather than one.
+  Neither is run here.
 - **District & Director** — ~~the boot population scales with the district~~ **landed**
   (`godot:m2:district` BOOT DENSITY, `godot:m2:director` CAP, `godot:check:worldgen` at both
   sizes), 2026-09-06, the fourth piece of the playable-state group and the owner's decision 5.
