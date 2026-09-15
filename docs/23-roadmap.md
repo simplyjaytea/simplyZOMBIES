@@ -911,6 +911,17 @@ each wants its own gate and several want a balance re-measurement, which is a sl
 than a line apiece. Worst first. What the same sweep *did* fix is in
 [the record](#the-record-by-system) under **Kernel & review sweep**.
 
+- **A melee raider band cannot reach a body that does not move.** `SimRaiders._approach` halts at
+  `HALT_METRES` (2.6 m) and every melee reach a raider kit carries is shorter — the rusted machete
+  is 1.2 plus `MELEE_REACH_FUDGE`, 1.55 — so nothing closes the last metre and a scav band stands
+  off a stationary colonist indefinitely, swinging at nothing. Found by the band-passing-through
+  slice (2026-09-15) when its ENGAGES lane went red against correct code and had to be written with
+  gunhands, whose range crosses the halt; the record says so rather than hiding the substitution.
+  It is masked in an ordinary campaign because colonists walk to jobs and shamblers close the
+  distance, which is where BLOOD and PREY get their contact — so this is a gap in the band's own
+  behaviour rather than something a played district shows. Fixing it is a halt that knows the
+  attacker's reach, which moves every raid's contact and therefore wants its own before-and-after.
+
 - **Every survivor shoots as though one arm were ruined.** `ranged.gd`'s `_refresh_cone` widens
   the aim cone by 0.15 when the worse arm is under 25, and `SimCombat.SURVIVOR_BODY` gives a
   *healthy* arm 20 — so the penalty is on for everybody, permanently, and a genuinely ruined arm
