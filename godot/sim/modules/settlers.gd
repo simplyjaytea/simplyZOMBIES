@@ -33,9 +33,10 @@ extends RefCounted
 # docs/23's next piece and it is not smuggled in here.
 #
 # Siting reads the layout and only the layout (docs/30, "Site the colony on the layout, never on
-# the finished map" -- the rule that generalises): `SimWorldgen.far_buildings` and
-# `indoor_tiles_of` ask `map.buildings`, `map.tiles` and `map.indoors` and nothing about
-# vehicles, loot, rubble or props, so switching the dressing off cannot move the camp.
+# the finished map" -- the rule that generalises): `SimWorldgen.far_buildings`, the `map.dormant`
+# manifest and `indoor_tiles_of` ask `map.buildings`, `map.tiles`, `map.indoors` and `map.dormant`
+# and nothing about vehicles, loot, rubble or props, so switching the dressing off cannot move
+# the camp.
 
 const SimAllegianceRes = preload("res://sim/modules/allegiance.gd")
 const SimAptitudesRes = preload("res://sim/modules/aptitudes.gd")
