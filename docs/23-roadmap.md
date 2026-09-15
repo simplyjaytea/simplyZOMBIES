@@ -8759,7 +8759,7 @@ not a to-do list:
   lanes, taking the `godot:m2` chain to 77 links), 2026-09-15, the second piece of the
   procedural-population arc's settlers group and the first time the allegiance seam carries bodies
   the sim itself spawned. A district now boots a `settlement {x, y, w, h, building, members}`
-  entity in one far building and **two** people standing in it, each rolled through
+  entity in one far building and **three** people standing in it, each rolled through
   `SimPeople.roll` against the survivors' own generator pool and built by
   `SimSettlers.spawn_settler` — a raider's faction handling with a survivor's identity. They carry
   a `body`, stamina, an inventory, an attention emitter, aptitudes, eyes, sightings and a
@@ -8785,10 +8785,21 @@ not a to-do list:
   at 64 and 44 / 55 / 44 / 43 at 256: the camp is real where the gates run, seed 20260805 has
   nowhere legal and fires the skip line for real rather than in theory, and the district's "far
   from home" question keeps the one answer `SimWorldgen.far_buildings`' own comment asks for.
-  docs/30, "The settlers' camp", carries the argument. Siting reads `far_buildings` and
-  `indoor_tiles_of` and therefore `map.buildings`, `map.tiles` and `map.indoors` and nothing
-  else — docs/30's "anything that decides where something is built reads the layout, and only the
-  layout".
+  docs/30, "The settlers' camp", carries the argument, and the strangers slice independently
+  landed on the same constant for the same question a merge earlier.
+  **Three filters, and the third was found by another gate rather than reasoned out.** `site`
+  takes `far_buildings`, drops anything with no open indoor floor, and then drops **any building
+  the generator already put a body to sleep in**. The dormant pass draws from the same
+  `far_buildings` list at the same `GATE_EXCLUSION`, so the two compete for one set of houses;
+  without the third filter `check_m2_dormant.gd`'s ASLEEP lane went red — "body 46 woke on its own
+  after 200 ticks with nothing near it" — because a camp of people breathing beside something that
+  wakes on scent wakes it. The other gate was right and this slice was wrong, so the siting moved
+  and no assertion did. It also reads as the rule people would follow: you do not make camp in the
+  room with the body in it. `map.dormant` is layout — the generator writes it in the pass that
+  places the buildings, before any entity exists — so reading it keeps the whole of siting inside
+  `map.buildings`, `map.tiles`, `map.indoors` and `map.dormant`, and nothing about vehicles, loot,
+  rubble or props: docs/30's "anything that decides where something is built reads the layout, and
+  only the layout".
   **Content:** `content/colony/settlers.json` (`colony.generator.settlers`: `count`, `minMetres`,
   `kit`), found by id through `SimPeople.pool` the way the survivor and raider pools are.
   `content/colony/` has no schema, no `content_validator.gd` type and no oracle `CONTENT_TYPES`
@@ -8804,24 +8815,29 @@ not a to-do list:
   Array that round-trips pointing at nothing is exactly the failure the trap describes.
   **The gate's seven lanes, each with its true negative and each proved red on purpose:** CONTENT
   (the six fabrications above; red for `minMetres` 4.0), SITED (indoors, inside the building the
-  component names, clear of the annex, at least the declared distance from both gates, and
-  deterministic for a seed — 7 camps judged over 8 seed/size pairs, seed 404 twice at building 2
-  on the same three tiles; red when `site` picks from every building instead of the far ones, and
-  its two predicates shown refusing a rect on gate A and an outdoor tile), BODIES (three settlers,
-  sixteen components each, neither of the two forbidden ones, and the colony's own two carrying
-  both so the scanner can tell present from absent; red when a settler is given `needs`), LEDGER
+  component names, clear of the annex, at least the declared distance from both gates, **not in a
+  building the generator already put a body to sleep in**, and deterministic for a seed — 6 camps
+  judged over 8 seed/size pairs with 2 skipped, seed 31337 twice at building 2 on the same three
+  tiles, 6 pairs carrying a dormant manifest and 1 of them fully taken and refused; red when
+  `site` picks from every building instead of the far ones, and its three predicates shown
+  refusing a rect on gate A, an outdoor tile, and every far building of a district whose far
+  buildings all hold a sleeper), BODIES (three settlers, sixteen components each, neither of the
+  two forbidden ones, and the colony's own two carrying both so the scanner can tell present from
+  absent; red when a settler is given `needs`), LEDGER
   (the harness's count reads 3 for a colony of 2 plus the player with three settlers standing, and
   giving one settler `needs` raises it to 4, so the counter can see a body it excludes — plus the
   textual half, `check_m2_balance.gd`'s `_survivors_alive` query line isolated by name and asked
   for `"needs"` *inside it*, never searched for as a bare word where a comment could satisfy the
-  needle; red for both halves), NO-HEIR (a colonist at 28.3 m inherits over a settler at 0.5 m,
+  needle; red for both halves), NO-HEIR (a colonist at 28.2 m inherits over a settler at 0.5 m,
   and that same body declared colony inherits; red when `_succession_pick`'s `is_colony` guard is
-  removed), PROSE (`person_clause` renders every settler non-empty and digit-free — "Farid Chen, a
-  fired security guard, greying at the temples; crooked nose, short hair" — and the digit scanner
-  is shown refusing a fabricated clause; red when a digit is appended to a name), SAVE (the camp
-  round-trips and a campless seed restores campless; red when `members` is a Dictionary). The SKIP
-  line fires on seed 20260805 at 64 and the lane fails only when *every* pair is empty, proved by
-  setting `minMetres` to 400 and watching all eight skip and SITED go red.
+  removed), PROSE (`person_clause` renders every settler non-empty and digit-free — "Farid Farouk,
+  a warehouse picker, greying at the temples; sun-worn face, quiet voice, scarred knuckles" — and
+  the digit scanner is shown refusing a fabricated clause; red when a digit is appended to a
+  name), SAVE (the camp round-trips and a campless seed restores campless; red when `members` is a
+  Dictionary). The SKIP line fires for real on **two** pairs — seed 20260805 at 64 has no building
+  far enough from home and seed 404's one far building already holds a sleeper — and the lane
+  fails only when *every* pair is empty, proved by setting `minMetres` to 400 and watching all
+  eight skip and SITED go red.
   **The hand-built settlers in `check_m2_allegiance.gd` and the real ones here do not agree, and
   the difference is worth writing down.** That gate's `_person` fixture gives its settler `needs`,
   because it needed `npc_combat` to drive both sides of a duel; the shipped settler has none. So
@@ -8841,44 +8857,46 @@ not a to-do list:
   column is the shipped content with `count: 0`, which returns from `spawn_camp` before the
   `settlers` stream is ever created and so is byte-identical to the pre-slice campaign:
 
-  | seed | survivors_end | killed (deduped) | people killed | settlers killed | grabs | max live |
-  |---|---|---|---|---|---|---|
-  | 20260805 | 3 → 3 | 1 → 1 | 0 → 0 | — (no camp) | 123 → 123 | 27 → 27 |
-  | 404 | 1 → 1 | 5 → 8 | 3 → 6 | 2 of 2 | 174 → 251 | 27 → 30 |
-  | 31337 | 3 → 3 | 1 → 3 | 0 → 2 | 2 of 2 | 0 → 58 | 28 → 30 |
-  | 90210 | 2 → 2 | 4 → 4 | 4 → 4 | 0 of 2 | 153 → 162 | 30 → 30 |
+  | seed | camps | survivors_end | killed (deduped) | people killed | settlers lost | grabs | peak live (cap 32) |
+  |---|---|---|---|---|---|---|---|
+  | 20260805 | 0 → 0 | 3 → 3 | 1 → 1 | 0 → 0 | — | 123 → 123 | 27 → 27 |
+  | 404 | 0 → 0 | 1 → 1 | 5 → 5 | 3 → 3 | — | 174 → 174 | 27 → 27 |
+  | 31337 | 0 → 1 | 3 → 3 | 1 → 1 | 0 → 0 | 0 of 3 | 0 → 0 | 28 → 28 |
+  | 90210 | 0 → 1 | 2 → 2 | 4 → 4 | 4 → 3 | 0 of 3 | 153 → 147 | 30 → 30 |
 
   `survivors_end` is **unchanged on every seed** — the colony neither gains nor loses for the
   camp's existence, which is the claim the ledger lane makes structurally and this makes
-  empirically. Seed 20260805 is identical throughout and is the control this measurement did not
-  have to arrange: its 64-tile district has no building far enough out, so it sites no camp and
-  spends no draws. What moves is the camp's own fate and the contact it attracts — living bodies
-  standing still in a house on the far side of the district pull zombies and cannot defend
-  themselves, so on two of the three seeds that site a camp the whole camp is dead inside ten
-  days, and on 31337 a seed that recorded **zero** grabs now records 58, all of them at the camp,
-  since the colony's own counters are unmoved. **That a camp of two is wiped in ten days is the
-  honest first reading of a slice that ships bodies with no behaviour, not a balance finding** —
-  the next slice gives them somewhere to be and something to do, and this table is what it
-  re-measures against.
-  **The count moved from three to two, and the over-cap invariant is why.** At three,
-  `check_m2_balance.gd` went red on seed 31337 — "exceeded the live cap on 76 ticks (max 33)" —
-  and a throwaway driver (deleted) put the arithmetic on it before anything was changed:
-  `peak=33 cap=32 boot_zeds=23 placed=6 turned=4`. A settler who is bitten, dies and turns is a
-  zombie the district's `LIVE_CAP` never placed and cannot refuse, which is the same accounting
-  gap the strangers slice hit a merge earlier from the other direction. That slice moved its beat
-  rather than the assertion; this one moves its count, because a camp exists at boot and has no
-  beat to move. At two the same four seeds peak at **27 / 30 / 30 / 30** with `over_ticks` 0
-  everywhere — two clear of the cap rather than one inside it — and `godot:m2:balance` is green
-  with its bands and its `over_cap` invariant untouched. **No assertion was moved and none was
-  widened.** What is still open, and is not this slice's to close: nothing anywhere reconciles a
-  turned body against the director's budget, so a colony that loses three people to infection in
-  one night can still push the district over its own cap. It is named here because two slices in
-  a row have now paid for it.
-  **First cuts, the owner's to move:** two settlers (measured, above); 32 m; the survivors' own
-  name and backstory pool rather than a settler-specific one; a kit of a bandage always and a
-  bottle, two tins and a kitchen knife on 0.6 / 0.5 / 0.4, with no armour in it deliberately —
-  `SimDirector._has_armor` scans every `identity`'s equipped items, and a settler in a helmet
-  would quietly move a director decision the colony made.
+  empirically — and `over_ticks` against the live cap is **0** on all four. Two of the seeds are
+  controls this measurement did not have to arrange: 20260805's 64-tile district has no building
+  far enough from home at all, and 404's one far building already holds a sleeping body, so
+  neither sites a camp and both come back identical. On the two that do, the camp is quiet: it
+  costs the colony nothing, it loses nobody, and the district's peak zombie count does not move.
+  That quiet is a fact about this tier rather than about the camp — the FAST tier runs 2,000 ticks
+  of each dusk and nothing walks the district in between, so what it measures is what a house full
+  of living bodies costs a district, not what meeting one is worth. The latter is the ten-day human
+  playtest's question and it is still owed.
+  **Two numbers moved during the measurement and one of them moved back; the round trip is the
+  useful part.** At three settlers the first run went red — "exceeded the live cap on 76 ticks
+  (max 33)" on seed 31337 — and a throwaway driver (deleted) put the arithmetic on it before
+  anything was changed: `peak=33 cap=32 boot_zeds=23 placed=6 turned=4`. A settler who is bitten,
+  dies and turns is a zombie `SimDirector.LIVE_CAP` never placed and cannot refuse, which is the
+  same accounting gap the strangers slice hit a merge earlier from the other direction. The count
+  was cut to two and the number went green — and that was a symptom fix. The **cause** surfaced
+  one gate later, in `check_m2_dormant.gd`: "body 46 woke on its own after 200 ticks with
+  nothing near it". The dormant pass draws from the *same* `far_buildings` list at the *same*
+  distance, so the camp was put down in a house that already had a body asleep in it, they woke it,
+  and they were the ones who died and turned. Adding the sleeper filter to `site` fixed both gates
+  at once, `turned` fell to 0 on that seed, and **three** settlers now peak at 27 / 27 / 28 / 30
+  against a cap of 32 — so the count went back to the plan's first cut. **No assertion was moved
+  or widened at any point.** What is still open, and is not this slice's to close: nothing
+  reconciles a turned body against the director's budget, so a colony that loses several people to
+  infection in one night can still push the district over its own cap. It is named here because
+  two slices in a row have paid for it.
+  **First cuts, the owner's to move:** three settlers; 32 m; the survivors' own name and backstory
+  pool rather than a settler-specific one; a kit of a bandage always and a bottle, two tins and a
+  kitchen knife on 0.6 / 0.5 / 0.4, with no armour in it deliberately — `SimDirector._has_armor`
+  scans every `identity`'s equipped items, and a settler in a helmet would quietly move a director
+  decision the colony made.
 
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not

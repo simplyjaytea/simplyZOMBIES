@@ -4826,8 +4826,9 @@ rather than dressing up.
 
 ## The settlers' camp, 2026-09-15
 
-The seam from "A third side" got bodies. Five calls were taken here, and each was taken because
-the obvious answer was wrong in a way a measurement showed rather than an argument.
+The seam from "A third side" got bodies. Six calls were taken here, and every one of them was
+taken because a measurement or a gate said the obvious answer was wrong — none of them from an
+argument.
 
 **96 metres was the plan's first cut and it is 32, because 96 cannot be satisfied where the gates
 run.** `SimWorldgen.far_buildings(map, 96)` returns **zero** buildings on all four balance seeds
@@ -4843,18 +4844,31 @@ number. It is also the number the strangers slice independently landed on for th
 a merge earlier, which is the strongest evidence available that the district has one answer to
 "far from home" rather than three.
 
-**Three settlers became two, and the district's zombie budget decided it.** Three was the plan's
-first cut and `check_m2_balance.gd` went red on seed 31337 — "exceeded the live cap on 76 ticks
-(max 33)". A throwaway driver put the arithmetic on it before anything was changed:
+**The camp does not share a house with a sleeping body, and another gate is what said so.** The
+dormant pass and the camp both draw from `far_buildings` at the same `GATE_EXCLUSION`, so they
+compete for one set of houses. With no third filter the camp was sited on top of a sleeper, and
+`check_m2_dormant.gd`'s ASLEEP lane went red — "body 46 woke on its own after 200 ticks with
+nothing near it" — because people breathing beside something that wakes on scent wake it. The
+other gate was right and this slice was wrong, so the siting moved and no assertion did.
+`map.dormant` is layout, written in the pass that places the buildings, so reading it keeps siting
+inside the layout rule above. It is also the rule people would actually follow: you do not make
+camp in the room with the body in it.
+
+**Three settlers became two and then went back to three, and the round trip is the useful part.**
+At three, `check_m2_balance.gd` went red on seed 31337 — "exceeded the live cap on 76 ticks
+(max 33)" — and a throwaway driver put the arithmetic on it before anything was changed:
 `peak=33 cap=32 boot_zeds=23 placed=6 turned=4`. A settler who is bitten, dies and turns is a
 zombie `SimDirector.LIVE_CAP` never placed and cannot refuse, which is the same accounting gap
-the strangers slice hit from the other direction; that slice moved its beat rather than the
-assertion, and this one moves its count, because a camp exists at boot and has no beat to move.
-At two the same four seeds peak at 27 / 30 / 30 / 30 with the over-cap invariant clean on every
-one. **The gap itself is not closed and is not this slice's to close:** nothing anywhere
-reconciles a turned body against the director's budget, so a colony losing three people to
-infection in one night can still push the district over its own cap. Two slices in a row have now
-paid for it, which is why it is written down here rather than only in a record.
+the strangers slice hit from the other direction. Cutting the count to two turned the number
+green, and it was a symptom fix: the *cause* was the shared house above, surfaced one gate later.
+With the sleeper filter in, the settlers stop dying, `turned` falls to 0 on that seed, and three
+settlers peak at 27 / 27 / 28 / 30 against a cap of 32 — so the plan's first cut came back. **The
+lesson is the one CLAUDE.md already states and this slice paid for anyway: a number that makes a
+gate green is not the same thing as a diagnosis.** **The gap itself is not closed and is not this
+slice's to close:** nothing anywhere reconciles a turned body against the director's budget, so a
+colony losing several people to infection in one night can still push the district over its own
+cap. Two slices in a row have now paid for it, which is why it is written down here rather than
+only in a record.
 
 **A settler is a raider's faction handling with a survivor's identity, and the two components it
 deliberately lacks are the whole design.** `identity` **yes** — a raider is denied one because
@@ -4867,15 +4881,19 @@ exactly what the colony's books are keyed on. `check_m2_balance.gd`'s `_survivor
 gate asserts the first structurally, textually and empirically.
 
 **Siting reads the layout and only the layout, which this file has now recorded three times.** The
-camp is chosen from `far_buildings` and placed by `indoor_tiles_of`, so it asks `map.buildings`,
-`map.tiles` and `map.indoors` and nothing about vehicles, loot, rubble or props. Switching the
-dressing off cannot move it, which is the rule the region assembler broke by re-deriving a ranking
-one layer too late and moving the colony 45 tiles.
+camp is chosen from `far_buildings`, filtered by the dormant manifest and placed by
+`indoor_tiles_of`, so it asks `map.buildings`, `map.tiles`, `map.indoors` and `map.dormant` and
+nothing about vehicles, loot, rubble or props. Switching the dressing off cannot move it, which is
+the rule the region assembler broke by re-deriving a ranking one layer too late and moving the
+colony 45 tiles.
 
 **The camp has no behaviour, and saying so is the point of the entry.** Nothing mills, nothing
 returns at dusk, nothing fights back — `npc_combat`'s intake asks for `needs`, which a settler
 does not have — and nobody can be recruited. A camp today is three bodies standing in a building
 that breathe into the noise and scent fields and are eaten. The ten-day measurement says exactly
-that: `survivors_end` is unchanged on every seed, and on two of the three seeds that site a camp
-the whole camp is dead by day ten. That is the honest first reading of a slice that ships bodies
-without behaviour, not a balance finding, and the next slice is what it re-measures against.
+that: `survivors_end` is unchanged on every seed, `over_ticks` against the live cap is 0 on all
+four, and on the two seeds that site a camp at 64 tiles the camp costs the colony nothing and
+loses nobody. That quiet is a fact about the tier rather than about the camp — the FAST tier runs
+2,000 ticks of each dusk and nothing walks the district in between — so what it measures is what a
+house full of living bodies costs a district, not what meeting one is worth. The latter is the
+ten-day human playtest's question, and the next slice is what this table re-measures against.
