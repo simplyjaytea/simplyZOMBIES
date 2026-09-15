@@ -37,9 +37,10 @@ extends SceneTree
 #            without one, and the member ids are resolved back to live bodies rather than
 #            compared as numbers -- an Array of ids that comes back pointing at nothing is
 #            exactly the silent-empty-memory shape CLAUDE.md's JSON-keys trap describes.
-#   SKIP     a seed whose district has no building far enough out says so on its own line and the
-#            lane fails only if *every* pair is empty. This is not hypothetical: at 64 tiles the
-#            gates' miniature has no qualifying building at all on seed 20260805, measured.
+#   SKIP     a seed whose district has nowhere legal for a camp says so on its own line and the
+#            lane fails only if *every* pair is empty. This is not hypothetical: at 64 tiles seed
+#            20260805 has no building far enough from home at all, and seed 404's one far building
+#            already holds a sleeping body, so two of the eight pairs skip. Measured.
 #
 # What this gate deliberately does not assert, because the slice deliberately does not build it:
 # that a settler does anything. They stand where they were spawned. Behaviour is docs/23's next
