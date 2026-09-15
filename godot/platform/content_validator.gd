@@ -7,9 +7,10 @@ extends RefCounted
 # from the four canonical schemas under godot/content/schemas/. Full JSON Schema is not
 # reimplemented — this covers what those four schemas actually assert.
 
-# Content directories that deliberately have no schema. `content/colony/` is the one: its three
+# Content directories that deliberately have no schema. `content/colony/` is the one: its four
 # files are gated by the lanes that read them instead (`check_m2_autonomy`, `check_web_look`,
-# `check_appearance`), and the frozen oracle's CONTENT_TYPES does not list the directory either
+# `check_appearance`, and `check_m2_raiders` for the raider generator that joined it with the
+# individuals slice), and the frozen oracle's CONTENT_TYPES does not list the directory either
 # (docs/30, "Who manages a survivor's skill web"). Anything else that is walked without a schema
 # is a validation failure -- docs/20: "Content errors must fail loudly at load, never silently at
 # hour thirty" -- so a new content directory cannot switch shape validation off for itself by

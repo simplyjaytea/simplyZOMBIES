@@ -280,10 +280,6 @@ balance record and says so in its record; `survivors_end >= 1` is never the leve
 - **A stranger in a building.** On stranger beats a rolled survivor hides in a far building, walks
   to a colonist who sees them, and is recruited by the E rung that already exists; the gate beat
   and the dawn-leave learn to ignore them. New gate `godot:m2:strangers`.
-- **Raiders as individuals.** A `raider.person` record — name, age, features, look — beside the
-  `raider` component, never `identity`; kit rows with a chance and aptitudes with a range, on
-  their own streams so `raid` stays byte-identical. The name reaches the chronicle after a death
-  and nothing else.
 - **Raider roles, and the one who comes for the stores.** A `role` enum: the fighter of today, a
   lookout that halts and turns the band at the first loss, a looter whose objective is the
   stockpile and who withdraws once loaded — docs/18's "target stores first".
@@ -8171,6 +8167,81 @@ not a to-do list:
   still runs the pass on its own stream, so nothing about a region changed and no gate moved; the
   merge needs the record's `building` index re-based onto the region's combined array, which is
   four lines and no gate of this slice's covers it. It belongs to whoever next touches the region.
+
+- **The director and the raiders** — ~~raiders as individuals~~ **landed** (`godot:m2:raiders`,
+  nine new lanes on the chain's 35th gate, nineteen in all), 2026-09-15, the fourth piece of the
+  owner's procedural-population arc and the first of its raider group. Two archetypes shipped and
+  every body of one *was* the same body — same aptitudes, same kit, no name, one look. Now each
+  is a person. `SimRaiders.spawn` rolls `raider.person = {name, age, features, look, backstoryId}`
+  through `SimPeople.roll` against its own generator block,
+  `content/colony/raider_looks.json` (`colony.generator.raiders`: 16 given names, 16 surnames, 8
+  features, 4 age bands, 8 backstories, 4 looks), found by id the way the survivors' block is.
+  **A `person` record and never an `identity`, which is the owner's call of 2026-09-14 and not
+  this slice's**: five things read `identity` and one of them is `SimRecruits._succession_pick`,
+  which hands the player's body to the nearest body carrying `needs` or `identity` — so a raider
+  with one would be an heir standing at your wall. The traits the shared roll also returns are
+  dropped, because nothing reads a raider's trait.
+  **What varies, and where it comes from.** `aptitudes` values may be a two-element `[min, max]`
+  rolled per body (the shipped entries are their old numbers ±1, clamped into `SimAptitudes`'
+  3..8; a raider is not budget-checked, so the triple no longer sums to fifteen), and a `kit` row
+  may carry a `chance`. Bare values and bare rows work exactly as before, and a row that declares
+  a chance spends exactly one draw whatever the odds are — so editing a `0.5` to `1.0` does not
+  move the stream under every later raider. The gate refuses an archetype whose every weapon row
+  is behind odds: arms may not roll away.
+  **Streams:** `raiderRoll` (person, kit odds, aptitude jitter) and `raiderLook` (age, look). The
+  director's `raid` stream is untouched and that is **pinned, not asserted** — STREAMS holds its
+  state after `_emit_band` places four against literals taken from the pre-individuals tree with a
+  throwaway driver (deleted), on two seeds, and proves the pin can fail by spending one more draw.
+  **The look, and the half of it that did not ship.** `main.gd`'s entity pass hands over
+  `person.look` and falls back to the archetype id — a data pass-through, no `if id ==` in the
+  draw loop — and the four look entries in `content/colony/looks.json` join
+  `check_appearance.gd`'s roster so none of them can gain art unjudged. They declare **no tint**,
+  and that is a measurement rather than an omission: `raider_drab` is at the floor of the
+  palette's ground-contrast guard already, a tint is a multiply, and the rig composes to a median
+  luma of **0.3831** against a street floor of **0.3796** — 0.0035 of headroom, which permits
+  nothing darker than a factor of 0.991, a wash within one per cent of white. LOOKS computes and
+  prints those numbers every run. So the per-body variation a raider actually shows today is
+  **what they are wearing**: a canvas cap at even odds and a school bag a little under, on both
+  archetypes, drawn by the gear layers that already existed (`godot:check:worn`).
+  **Information stays scarce, and the rule is written down:** what a raider *wears* may vary
+  between bodies but never between archetypes; what they *hold* is the archetype and is visible by
+  design. NO-TELL spawns sixteen of each archetype and requires the look sets to overlap, refuses
+  two disjoint sets through the same predicate, refuses an archetype that declares looks of its
+  own, and compares the worn rows of every archetype — odds included — for equality.
+  **The name reaches the player in one place and only once they are dead**:
+  `SimRecruits.handle_death` carries the record on `raider.killed` (published before the despawn,
+  since handlers drain after it), and `chronicle.gd` writes *One of the raiders was Ada Kovac, a
+  debt collector once, grey and still walking; a split lip, bad teeth.* — never "%s is dead", so a
+  colonist's line and a raider's cannot be confused, and nothing at all while they stand there.
+  `SimRaiders.person_clause` is the reader for every field of the record (the story line and the
+  age band's prose looked up in content at read time, the features as what a look at the body
+  shows), which is what keeps the record off the dead-socket list; it is digit-free, and
+  `godot:check:hud` is green.
+  **Save:** `SAVE_VERSION` 30 — a v29 raider has no `person`, so a restored band would be
+  nameless, wearing the archetype instead of the look it was saved in, and fighting with aptitudes
+  the save never had. SAVE round-trips a record through `JSON.stringify` and a real `restore`,
+  beside a second body of the same archetype that came back as itself.
+  **Balance, measured before and after on one throwaway driver (deleted), four fast seeds,
+  de-duplicated by entity id.** Ten compressed days, the FAST tier's own shape —
+  `survivors_end` **3 / 1 / 3 / 2 → 3 / 1 / 3 / 2**, killed **1 / 3 / 1 / 4 → 1 / 3 / 1 / 4**,
+  grabs **117 / 145 / 0 / 153 → 117 / 145 / 0 / 154**: the tier is unmoved, and that is the
+  expected answer rather than a good one — raids start on day 8, a raid is a 20% roll, so ten days
+  is three coin tosses and two of the four seeds drew a band of two with a 2,000-tick window to
+  cross a district in. So the fight was measured where it happens: a band of four (the shipped 4:1
+  weights, placed by hand on a legal edge) walked into the same four colonies on day 8 and fought
+  out over 12,000 ticks — `survivors_end` **2 / 0 / 2 / 2 → 1 / 1 / 2 / 1**, killed
+  **10 / 12 / 9 / 11 → 11 / 11 / 9 / 8**, dead raiders **1 / 1 / 1 / 0 → 0 / 1 / 1 / 1**, grabs
+  **131 / 137 / 152 / 66 → 224 / 154 / 89 / 135**. A forced worst-case band costs about one more
+  colonist across four seeds and kills exactly as many raiders as it did; the seed that **wiped**
+  before (404, survivors_end 0) now ends with one. `survivors_end >= 1` holds on every seed of
+  both blocks, so nothing was narrowed. `godot:m2:balance` is green with its bands unchanged.
+  **First cuts, the owner's to move:** jitter ±1; no traits on a raider; the odds all 0.4–0.5; a
+  cap and a bag as the worn variation and no armour beyond the cap's 0.15; four look ids that all
+  resolve one body. Each new lane was run red on purpose before it was trusted — an age band with
+  no prose (POOL), a dark wash (LOOKS), the ranges collapsed (DISTINCT), an `identity` on a spawned
+  raider (NO-IDENTITY), the draw loop handing over the archetype id again (LOOK-READER), a cap only
+  the scavenger can wear (NO-TELL), the person rolled off the `raid` stream (STREAMS), one name for
+  every body (SAVE), and the record left off the killed event (CHRONICLE).
 
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not

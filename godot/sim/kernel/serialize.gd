@@ -92,11 +92,24 @@ extends RefCounted
 # the moment a barrel breaks off, and assembling on load would invent items the save never had.
 # Refused, same rule as v27.
 #
-# v30: every dead body is an individual. `zombieType` gained a `tint` -- the colour rolled for
-# that one body out of its kind's `variance.tints` -- and `body`/`bodyMax` carry a per-body size
-# instead of the type's authored numbers. A v29 save has neither: its bodies would all come back
-# the kind's shared colour, which is cosmetic, and at the kind's authored size against maxima that
-# no longer match what the roll would have given them, which is not. Refused, same rule as v27.
+# v30: every body in the district is an individual, living or dead. Two slices landed together
+# and share one version, because a save written between them never existed.
+#
+# The dead: `zombieType` gained a `tint` -- the colour rolled for that one body out of its kind's
+# `variance.tints` -- and `body`/`bodyMax` carry a per-body size instead of the type's authored
+# numbers. A v29 save has neither: its bodies would all come back the kind's shared colour, which
+# is cosmetic, and at the kind's authored size against maxima that no longer match what the roll
+# would have given them, which is not.
+#
+# The raiders: the `raider` component carries a `person` record -- name, age, features, look,
+# backstory -- rolled at spawn on two new streams, and the archetype's aptitudes and kit are
+# rolled per body rather than copied. A v29 save's raiders have no `person`: restored into a v30
+# world every one of them would be nameless (the chronicle's line over a dead raider reads off
+# that record and would say nothing), would fall back to the archetype's one body instead of the
+# look they were saved wearing, and the bodies standing in the district would no longer match the
+# aptitudes the fight they are in is being resolved with.
+#
+# Refused either way, the same rule as v27.
 const SAVE_VERSION: int = 30
 
 

@@ -1823,11 +1823,18 @@ func _draw_entities() -> void:
 				if cid.is_empty():
 					cid = String((ident as Dictionary).get("id", ""))
 		elif is_raider:
-			# The archetype id, exactly as a zombie hands over its type id: how a raider looks is
-			# a property of its content entry, never an `if id == ...` in this loop.
+			# The rolled look if this body has one, else the archetype id -- the same two-step a
+			# generated colonist takes above, and for the same reason: how a raider looks is a
+			# property of a content entry, never an `if id == ...` in this loop. The look is drawn
+			# from a pool that has no idea which archetype asked for it, so it varies *who* a
+			# raider is and never says what they carry (check_m2_raiders.gd NO-TELL).
 			var rd: Variant = world.components.get_component(int(ent), "raider")
 			if rd is Dictionary:
-				cid = String((rd as Dictionary).get("id", ""))
+				var person: Variant = (rd as Dictionary).get("person", {})
+				if person is Dictionary:
+					cid = String((person as Dictionary).get("look", ""))
+				if cid.is_empty():
+					cid = String((rd as Dictionary).get("id", ""))
 		items.append({"x": x, "y": y, "sx": float(sc["sx"]), "sy": float(sc["sy"]), "d": depth, "det": det, "player": is_player, "unique": is_unique, "zed": is_zed, "bait": is_bait, "raider": is_raider, "ztype": ztype, "tint": ztint, "cid": cid, "id": int(ent)})
 	# The trees join the same sort: each is a picture standing on its trunk tile's south-edge
 	# centre, so a body north of the trunk sorts behind it and one south sorts in front

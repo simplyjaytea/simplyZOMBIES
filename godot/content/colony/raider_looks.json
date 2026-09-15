@@ -1,0 +1,66 @@
+{
+  "id": "colony.generator.raiders",
+  "given": [
+    "Ada",
+    "Boyd",
+    "Cass",
+    "Devin",
+    "Esme",
+    "Franco",
+    "Gita",
+    "Halvard",
+    "Ines",
+    "Jory",
+    "Kestrel",
+    "Lom",
+    "Mirela",
+    "Nate",
+    "Oksana",
+    "Pell"
+  ],
+  "surnames": [
+    "Ashgrove",
+    "Barrow",
+    "Corrigan",
+    "Draper",
+    "Eastcott",
+    "Fenn",
+    "Gallo",
+    "Hollis",
+    "Ivers",
+    "Jankovic",
+    "Kovac",
+    "Lange",
+    "Marsh",
+    "Nunez",
+    "Ozols",
+    "Pike"
+  ],
+  "features": [
+    "a shaved head",
+    "a split lip",
+    "bad teeth",
+    "tattooed knuckles",
+    "a burnt forearm",
+    "one ear gone",
+    "a wiry frame",
+    "a heavy brow"
+  ],
+  "ageBands": [
+    { "id": "young", "min": 17, "max": 24, "prose": "young enough to still be proving it" },
+    { "id": "adult", "min": 25, "max": 44, "prose": "somewhere in the middle of a hard life" },
+    { "id": "midlife", "min": 45, "max": 59, "prose": "grey and still walking" },
+    { "id": "elder", "min": 60, "max": 72, "prose": "old for this world" }
+  ],
+  "looks": ["raider.look.01", "raider.look.02", "raider.look.03", "raider.look.04"],
+  "backstories": [
+    { "id": "debt_collector", "line": "a debt collector once" },
+    { "id": "bar_bouncer", "line": "a bouncer once" },
+    { "id": "quarry_hand", "line": "a quarry hand once" },
+    { "id": "army_washout", "line": "thrown out of the army" },
+    { "id": "petrol_thief", "line": "a petrol thief" },
+    { "id": "farmhand", "line": "a farmhand once" },
+    { "id": "ward_orderly", "line": "a hospital orderly once" },
+    { "id": "no_one_says", "line": "nobody here knows" }
+  ]
+}

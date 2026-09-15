@@ -17,6 +17,7 @@ extends SceneTree
 const World = preload("res://sim/world.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const SimAllegiance = preload("res://sim/modules/allegiance.gd")
+const SimChronicle = preload("res://sim/modules/chronicle.gd")
 const SimDirector = preload("res://sim/modules/director.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
@@ -24,8 +25,10 @@ const SimItems = preload("res://sim/modules/items.gd")
 const SimMelee = preload("res://sim/modules/melee.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimNpcCombat = preload("res://sim/modules/npc_combat.gd")
+const SimPeople = preload("res://sim/modules/people.gd")
 const SimRaiders = preload("res://sim/modules/raiders.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
+const SimRecruits = preload("res://sim/modules/recruits.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
 const SimShambler = preload("res://sim/modules/shambler.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
@@ -33,6 +36,7 @@ const SimWounds = preload("res://sim/modules/wounds.gd")
 const Appearance = preload("res://presentation/appearance.gd")
 const Palette = preload("res://presentation/palette.gd")
 const Clock = preload("res://sim/time/clock.gd")
+const ContentLoader = preload("res://platform/content_loader.gd")
 
 const SEED: int = 20260805
 const MAP_TILES: int = 64
@@ -40,6 +44,21 @@ const MAP_TILES: int = 64
 # leave room for the assertion to be about the approach rather than about the last metre.
 const APPROACH_TICKS: int = 1200
 const ARENA_TICKS: int = 900
+
+# How far above the brightest ground a body's composed luma has to sit to still read as a body.
+# check_appearance.gd's GREY_CLEARANCE, by name and by value: the colonist rig is held to exactly
+# this over the same six surface tints, and a raider wearing a wash is that question asked of a
+# rig that is not achromatic. One number in two places rather than two numbers -- the comment is
+# the link, since a gate may not preload another gate.
+const GROUND_CLEARANCE: float = 0.06
+
+# The `"raid"` stream's state after `_emit_band` places a band of four, measured on the
+# pre-individuals tree with a throwaway driver on 2026-09-15 and pinned here. Two seeds, because
+# one pin that happened to be the state of an untouched stream would say nothing about a second.
+const RAID_PINS: Array[Dictionary] = [
+	{"seed": 20260805, "after": 1359491022},
+	{"seed": 404, "after": 1660534035},
+]
 
 
 func _init() -> void:
@@ -58,8 +77,17 @@ func _run() -> void:
 	ok = _a_dead_raider_leaves_the_district_and_its_kit() and ok
 	ok = _a_raider_is_not_on_the_colony_ledger() and ok
 	ok = _a_band_that_has_lost_withdraws() and ok
+	ok = _the_person_pool_is_well_formed() and ok
+	ok = _every_look_is_one_body_and_clears_the_street() and ok
+	ok = _a_band_of_four_are_four_people() and ok
+	ok = _a_raider_is_never_the_heir() and ok
+	ok = _the_rolled_look_reaches_the_renderer() and ok
+	ok = _a_look_carries_no_tell() and ok
+	ok = _the_raid_stream_has_not_moved() and ok
+	ok = _a_person_survives_a_save() and ok
+	ok = _a_dead_raider_is_named_once() and ok
 	if ok:
-		print("M2_RAIDERS_OK archetypes draw grace approach blood prey seed death ledger")
+		print("M2_RAIDERS_OK archetypes draw grace approach blood prey seed death ledger withdraw pool looks distinct no-identity look-reader no-tell streams save chronicle")
 		quit(0)
 	else:
 		push_error("M2_RAIDERS_FAIL")
@@ -92,15 +120,17 @@ func _the_archetypes_are_well_formed() -> bool:
 			push_error("%s carries no kit -- an unarmed raider is a pedestrian" % id)
 			return false
 		var has_weapon: bool = false
+		var armed_certain: bool = false
 		var needs_ammo: String = ""
 		var carries: Dictionary = {}
 		for row in kit as Array:
 			# The two shapes a kit row may take, recursed because the shallow validator cannot.
 			var item_id: String = ""
+			var certain: bool = true
 			if row is Dictionary:
 				var r: Dictionary = row as Dictionary
 				for k in r.keys():
-					if not ["item", "count"].has(String(k)):
+					if not ["item", "count", "chance"].has(String(k)):
 						push_error("%s kit row has unknown key '%s'" % [id, str(k)])
 						return false
 				item_id = String(r.get("item", ""))
@@ -111,6 +141,13 @@ func _the_archetypes_are_well_formed() -> bool:
 				if r.has("count") and not _whole_at_least(r["count"], 1):
 					push_error("%s kit row for %s has count %s, which is not a positive whole number" % [id, item_id, str(r["count"])])
 					return false
+				# The third shape, and the only one that can leave a raider without something: odds.
+				if r.has("chance"):
+					var chance: float = float(r["chance"])
+					if chance <= 0.0 or chance > 1.0:
+						push_error("%s kit row for %s declares chance %s, outside (0, 1] -- a row that can never arrive is a row nobody wrote" % [id, item_id, str(r["chance"])])
+						return false
+					certain = chance >= 1.0
 			else:
 				item_id = String(row)
 			if SimItems.content_entry(w, "item", item_id) == null:
@@ -121,10 +158,20 @@ func _the_archetypes_are_well_formed() -> bool:
 			var ranged: Variant = SimItems.ranged_profile_of(w, probe)
 			if SimItems.melee_profile_of(w, probe) != null or ranged != null:
 				has_weapon = true
+				# One weapon has to be *certain*. A second one behind odds is a raider who
+				# sometimes has a knife as well, which is the point of the odds; but an archetype
+				# whose every armed row could roll away would walk pedestrians at your gate on
+				# some seeds and raiders on others, and nothing else here would notice --
+				# `has_weapon` only asks whether the archetype declares one at all.
+				if certain:
+					armed_certain = true
 			if ranged is Dictionary and not String((ranged as Dictionary).get("ammo", "")).is_empty():
 				needs_ammo = String((ranged as Dictionary)["ammo"])
 		if not has_weapon:
 			push_error("%s carries nothing that melee.gd or ranged.gd would recognise as a weapon" % id)
+			return false
+		if not armed_certain:
+			push_error("%s declares weapons and every one of them is behind a chance -- an archetype's arms may not roll away" % id)
 			return false
 		# A weapon that eats ammunition has to arrive with some, and with more than the one round
 		# `spawn_item` gives an undeclared stack -- otherwise the archetype fires once and then
@@ -138,15 +185,28 @@ func _the_archetypes_are_well_formed() -> bool:
 				push_error("%s arrives with %d rounds of %s -- a magazine is 8" % [id, carried, needs_ammo])
 				return false
 		armed += 1
+		# Aptitudes take two shapes since the individuals slice -- one number every body of the
+		# archetype shares, or a two-element [min, max] rolled per body -- and both sit inside a
+		# block the shallow validator does not open. `int([5, 7])` is not a cast GDScript makes
+		# quietly either: it raises, so a range shipped without this arm would take the gate down
+		# with a stack trace instead of a sentence.
 		var apt: Variant = entry.get("aptitudes", {})
 		if apt is Dictionary:
 			for k in ["str", "dex", "con"]:
 				if not (apt as Dictionary).has(k):
 					continue
-				var v: int = int((apt as Dictionary)[k])
-				if v < 3 or v > 8:
-					push_error("%s aptitude %s=%d is outside SimAptitudes' 3..8 clamp" % [id, k, v])
+				var raw: Variant = (apt as Dictionary)[k]
+				var bounds: Array = raw as Array if raw is Array else [raw, raw]
+				if bounds.size() != 2:
+					push_error("%s aptitude %s is %s -- a range is exactly [min, max]" % [id, k, str(raw)])
 					return false
+				if int(bounds[0]) > int(bounds[1]):
+					push_error("%s aptitude %s range %s runs backwards" % [id, k, str(raw)])
+					return false
+				for bound in bounds:
+					if not _whole_at_least(bound, 3) or int(bound) > 8:
+						push_error("%s aptitude %s=%s is outside SimAptitudes\' 3..8 clamp" % [id, k, str(bound)])
+						return false
 		var look: Variant = entry.get("appearance", {})
 		if not (look is Dictionary) or not (look as Dictionary).has("sprite"):
 			push_error("%s declares no appearance.sprite -- the one shared body is the anonymity mechanism, not a nicety" % id)
@@ -716,7 +776,17 @@ func _fixture() -> Dictionary:
 # The combat modules over a blank map, with no district and no anchors -- check_m2_npc_combat's
 # arena, plus the raider approach where a lane needs it.
 func _arena() -> Variant:
-	var w: Variant = World.new(_fixture())
+	return _arena_with({})
+
+
+# The same arena over a content tree the caller has edited -- DISTINCT's negative boots the
+# archetypes with their odds made certain and their ranges collapsed. An empty tree means "the
+# shipped one", since `World` loads it itself when the fixture names none.
+func _arena_with(tree: Dictionary) -> Variant:
+	var fixture: Dictionary = _fixture()
+	if not tree.is_empty():
+		fixture["content_tree"] = tree
+	var w: Variant = World.new(fixture)
 	w.tick = Clock.tick_at_time_of_day(Clock.DAY_BEGINS)
 	SimBoot.attach_kernel(w, SimTileMap.blank_map(32, 32))
 	SimHealth.register_module(w)
@@ -921,3 +991,672 @@ func _a_band_that_has_lost_withdraws() -> bool:
 		return false
 	print("WITHDRAW OK a band alone at the gate arrived at tick %d and was gone at %d (3 withdrew); with a colonist in reach it stayed; the last of four left within %d ticks of the other three falling" % [int(alone["arrived"]), int(alone["gone"]), gone2])
 	return true
+
+
+# --- who they are ------------------------------------------------------------------------------
+
+# POOL: the generator block behind `raider.person`, and every field of that record having
+# somewhere to come from. `content/colony/` has no schema and no validator type on purpose
+# (content_validator.gd's UNSCHEMA_EXEMPT), so nothing but this lane ever looks at its shape --
+# the same argument the archetype lane above makes about nested blocks, one directory further out.
+func _the_person_pool_is_well_formed() -> bool:
+	var w: Variant = World.new(_fixture())
+	var pool: Dictionary = SimPeople.pool(w, SimRaiders.PEOPLE_POOL_ID)
+	if pool.is_empty():
+		push_error("POOL: no generator block carries id '%s' -- SimPeople.roll would fall back to one of everything and a band would be four men called Sam Doe" % SimRaiders.PEOPLE_POOL_ID)
+		return false
+	for key in ["given", "surnames", "features", "looks", "ageBands", "backstories"]:
+		var v: Variant = pool.get(key, null)
+		if not (v is Array) or (v as Array).is_empty():
+			push_error("POOL: the raider generator declares no %s" % key)
+			return false
+	# A band of four has to be able to *be* four people. With a pool smaller than this the
+	# DISTINCT lane below would be measuring the pool rather than the roll.
+	if (pool["given"] as Array).size() < 8 or (pool["surnames"] as Array).size() < 8:
+		push_error("POOL: %d given names x %d surnames is too small a pool for a band of four to differ by" % [(pool["given"] as Array).size(), (pool["surnames"] as Array).size()])
+		return false
+	# The dead-socket question, asked of content: `age` reaches the player only as an age band's
+	# prose and `backstoryId` only as a backstory's line, so a band with no prose or a story with
+	# no line is a field of the record nothing can ever say out loud.
+	for band in pool["ageBands"] as Array:
+		if not (band is Dictionary):
+			push_error("POOL: an age band is not an object: %s" % str(band))
+			return false
+		var b: Dictionary = band as Dictionary
+		if String(b.get("prose", "")).is_empty():
+			push_error("POOL: age band '%s' carries no prose, so a raider's age would reach nobody" % String(b.get("id", "?")))
+			return false
+		if int(b.get("min", 0)) <= 0 or int(b.get("max", 0)) < int(b.get("min", 0)):
+			push_error("POOL: age band '%s' has no usable range (%s..%s)" % [String(b.get("id", "?")), str(b.get("min")), str(b.get("max"))])
+			return false
+	for story in pool["backstories"] as Array:
+		if not (story is Dictionary):
+			push_error("POOL: a backstory is not an object: %s" % str(story))
+			return false
+		var st: Dictionary = story as Dictionary
+		if String(st.get("id", "")).is_empty() or String(st.get("line", "")).is_empty():
+			push_error("POOL: backstory %s has no id or no line, so `backstoryId` would read as nothing" % str(st))
+			return false
+	# The scan's own true negative: `pool` finds a block by id and nothing else, so an id nothing
+	# declares must come back empty rather than as the first block that happens to have one.
+	if not SimPeople.pool(w, "colony.generator.nobody").is_empty():
+		push_error("POOL: an id nothing declares came back with a block -- the scan is not matching on the id")
+		return false
+	# And the prose it all feeds: a clause built from a fabricated record says the name, the
+	# story, the age in words and the features, and carries no digit. A record with no name says
+	# nothing at all, which is what keeps a nameless body out of the chronicle.
+	var first_story: Dictionary = (pool["backstories"] as Array)[0] as Dictionary
+	var first_band: Dictionary = (pool["ageBands"] as Array)[0] as Dictionary
+	var probe: Dictionary = {
+		"name": "Ada Kovac",
+		"age": int(first_band.get("min", 20)),
+		"features": ["a split lip"],
+		"look": "",
+		"backstoryId": String(first_story.get("id", "")),
+	}
+	var clause: String = SimRaiders.person_clause(w, probe)
+	for needle in ["Ada Kovac", String(first_story.get("line", "")), String(first_band.get("prose", "")), "a split lip"]:
+		if clause.find(String(needle)) < 0:
+			push_error("POOL: the clause '%s' does not carry '%s' -- that field of the record reaches nobody" % [clause, String(needle)])
+			return false
+	if not _digits(clause).is_empty():
+		push_error("POOL: the clause '%s' carries the digits '%s', and the chronicle it feeds is on the HUD" % [clause, _digits(clause)])
+		return false
+	probe["name"] = ""
+	if not SimRaiders.person_clause(w, probe).is_empty():
+		push_error("POOL: a record with no name still composed a clause")
+		return false
+	print("POOL OK %d x %d names, %d features, %d looks, %d age bands all with prose, %d backstories all with a line; clause '%s'" % [
+		(pool["given"] as Array).size(), (pool["surnames"] as Array).size(), (pool["features"] as Array).size(),
+		(pool["looks"] as Array).size(), (pool["ageBands"] as Array).size(), (pool["backstories"] as Array).size(), clause,
+	])
+	return true
+
+
+# LOOKS: the ids the pool names are real look entries and every one of them wears the one shared
+# raider body -- and the second half of the lane is the measurement that says why none of them
+# carries a wash, which is the half a reader will otherwise ask about.
+#
+# `raider_drab` is at the floor of the palette's ground-contrast guard already: tools/sprites'
+# palette.py calls it "as dark as the drab can go and still read as a body rather than a hole in
+# the street". A tint is a multiply, so a look could only darken it, and the composed median of
+# this rig sits a few thousandths above the street as it is. So the per-body variation a raider
+# actually shows is what they are *wearing* -- the kit rows with odds on them, which draw on the
+# pawn -- and the look id stays the hook a per-body picture attaches to when the art exists. The
+# numbers below are what makes that a measurement rather than an opinion; they are printed, so
+# the day the rig is re-authored lighter the headroom is on the line where it is decided.
+func _every_look_is_one_body_and_clears_the_street() -> bool:
+	var w: Variant = World.new(_fixture())
+	var pool: Dictionary = SimPeople.pool(w, SimRaiders.PEOPLE_POOL_ID)
+	var looks: Array = pool.get("looks", []) as Array
+	if looks.size() < 2:
+		push_error("LOOKS: %d look in the pool -- a look that cannot vary is a field nothing reads" % looks.size())
+		return false
+	var types: Array[Dictionary] = SimRaiders.types(w)
+	if types.is_empty():
+		push_error("LOOKS: no archetypes, so there is no shared body to compare against")
+		return false
+	var shared_sprite: String = String((types[0].get("appearance", {}) as Dictionary).get("sprite", ""))
+	var body: Texture2D = Appearance.resolve(shared_sprite)
+	if body == null:
+		push_error("LOOKS: the shared body '%s' resolved no texture" % shared_sprite)
+		return false
+	var img: Image = body.get_image()
+	var plain: float = _median_composed_luma(img, Color.WHITE)
+	var floor_luma: float = _brightest_surface() + GROUND_CLEARANCE
+	for look_v in looks:
+		var look_id: String = String(look_v)
+		var block: Dictionary = Appearance.of_content(w, "raider", look_id)
+		if block.is_empty():
+			push_error("LOOKS: the pool names '%s' and no content entry carries that id" % look_id)
+			return false
+		if String(block.get("sprite", "")) != shared_sprite:
+			push_error("LOOKS: '%s' draws '%s' where the archetypes draw '%s' -- a per-look body is the same free read on the band a per-archetype one would be" % [look_id, String(block.get("sprite", "")), shared_sprite])
+			return false
+		# No tint, and that is the finding rather than an omission: see the arithmetic below.
+		if block.has("tint"):
+			var composed: float = _median_composed_luma(img, Color(String(block["tint"])))
+			if composed < floor_luma:
+				push_error("LOOKS: '%s' composes to median luma %.4f, under the street's %.4f -- that raider is a hole in the road" % [look_id, composed, floor_luma])
+				return false
+		# The renderer hands the look over: the shared texture, drawn unstained. Texture identity,
+		# because Appearance._cache holds one object per key.
+		var drawn: Dictionary = Appearance.for_entity(w, {"raider": true, "cid": look_id})
+		if drawn["texture"] != Appearance.resolve(shared_sprite):
+			push_error("LOOKS: '%s' resolved a different texture from the shared body" % look_id)
+			return false
+		if (drawn["tint"] as Color) != Color.WHITE and not block.has("tint"):
+			push_error("LOOKS: '%s' declares no tint and did not draw white, got %s" % [look_id, str(drawn["tint"])])
+			return false
+	# Why there is no wash, in numbers: the rig's own composed median against the street, and the
+	# lightest wash that would still clear it. A tint darker than that factor sinks the body, and
+	# the four hexes it leaves room for are within a per-cent of white -- a look nobody could see.
+	var headroom: float = plain - floor_luma
+	if headroom < 0.0:
+		push_error("LOOKS: the untinted body composes to %.4f, already under the street's %.4f -- that is an art regression, not a look question" % [plain, floor_luma])
+		return false
+	# The two true negatives. An id nothing declares resolves nothing (so the lookups above are
+	# lookups), and the ground predicate can fail -- colony.look.03's retired brown is the tint the
+	# colonist composition was regraded away from, and it sinks this body too.
+	if not Appearance.of_content(w, "raider", "raider.look.does_not_exist").is_empty():
+		push_error("LOOKS: an undeclared look id came back with an appearance block")
+		return false
+	if _median_composed_luma(img, Color("#5c4632")) >= floor_luma:
+		push_error("LOOKS: the retired #5c4632 clears the street threshold, so the ground arithmetic above reads nothing")
+		return false
+	print("LOOKS OK %d ids, one body '%s' drawn unstained; composed median %.4f over a street floor of %.4f leaves %.4f, so the lightest wash this rig could wear is a factor of %.3f -- no tint ships" % [
+		looks.size(), shared_sprite, plain, floor_luma, headroom, floor_luma / plain,
+	])
+	return true
+
+
+# DISTINCT: a band of four is four people. Names differ, kits differ, aptitudes differ -- and the
+# true negative is the same four bodies drawn from a tree whose odds are all certain and whose
+# aptitude ranges are collapsed, which is the archetype as it shipped before this slice: one man,
+# four times. The names still differ there, which is what says the negative collapsed the two
+# things it meant to and not the whole roll.
+func _a_band_of_four_are_four_people() -> bool:
+	var varied: Dictionary = _band_signatures(_arena(), 4)
+	if int(varied["names"]) < 2:
+		push_error("DISTINCT: four raiders drew %d name(s) -- %s" % [int(varied["names"]), str(varied["nameList"])])
+		return false
+	if int(varied["kits"]) < 2:
+		push_error("DISTINCT: four raiders carry %d distinct kit(s) at the shipped odds -- %s" % [int(varied["kits"]), str(varied["kitList"])])
+		return false
+	if int(varied["apts"]) < 2:
+		push_error("DISTINCT: four raiders rolled %d distinct aptitude set(s) -- %s" % [int(varied["apts"]), str(varied["aptList"])])
+		return false
+	var flat: Dictionary = _band_signatures(_arena_with(_flat_tree()), 4)
+	if int(flat["kits"]) != 1:
+		push_error("DISTINCT: with every kit chance at 1.0 the four kits still differed (%s) -- the odds are not what varies them" % str(flat["kitList"]))
+		return false
+	if int(flat["apts"]) != 1:
+		push_error("DISTINCT: with every aptitude range collapsed the four bodies still differed (%s) -- the range is not what varies them" % str(flat["aptList"]))
+		return false
+	if int(flat["names"]) < 2:
+		push_error("DISTINCT: the collapsed tree also stopped the names varying, so it collapsed more than the two things it meant to")
+		return false
+	print("DISTINCT OK four scavengers: %d names, %d kits, %d aptitude sets; with odds certain and ranges collapsed, %d kit, %d aptitude set, %d names" % [
+		int(varied["names"]), int(varied["kits"]), int(varied["apts"]), int(flat["kits"]), int(flat["apts"]), int(flat["names"]),
+	])
+	return true
+
+
+# NO IDENTITY, and it is the one that matters. `identity` is read by five things -- the draw
+# loop's "is this a survivor", `SimJobs.work_view`, `SimAllegiance.is_person`, the director's
+# unique-death lull and `SimRecruits._succession_pick` -- and the last of those hands the player's
+# body to the nearest candidate when they die. A raider carrying an identity would be an heir
+# standing at your wall, which is why the owner's 2026-09-14 call is a `person` record instead.
+#
+# The negative is what makes this an assertion rather than a coincidence: give the same raider an
+# identity and the same scan *does* pick them. So the exclusion is the absence of the component,
+# not a special case somewhere that could quietly stop being true.
+func _a_raider_is_never_the_heir() -> bool:
+	var w: Variant = _arena()
+	var band: Array[int] = []
+	for i in 4:
+		band.append(SimRaiders.spawn(w, 12.0 + float(i), 12.0, "raider.scav"))
+	w.events.drain()
+	for ent in band:
+		if w.components.has_component(int(ent), "identity"):
+			push_error("NO-IDENTITY: a spawned raider carries an `identity` component")
+			return false
+		if String(_person_of(w, int(ent)).get("name", "")).is_empty():
+			push_error("NO-IDENTITY: a spawned raider carries no person record either, so the band is anonymous rather than not-a-colonist")
+			return false
+	# Mara further away than the band, the player dying where the raiders are standing.
+	var mara: int = _named_colonist(w, "survivor.unique.mara", "Mara", 30.0, 12.0)
+	var dying: int = int(w.player)
+	w.components.set_component(dying, "position", {"x": 12.0, "y": 12.0})
+	var heir: int = SimRecruits._succession_pick(w, dying)
+	if heir != mara:
+		push_error("NO-IDENTITY: the player died among four raiders and the body went to %d, not to Mara (%d)" % [heir, mara])
+		return false
+	# The same shape without Mara's short circuit: the colonist across the district inherits over
+	# the raider standing on the corpse -- and then, with an identity on that raider, does not.
+	var w2: Variant = _arena()
+	var ellis: int = _named_colonist(w2, "survivor.unique.ellis", "Ellis", 30.0, 12.0)
+	var near: int = SimRaiders.spawn(w2, 12.5, 12.0, "raider.scav")
+	w2.events.drain()
+	var dying2: int = int(w2.player)
+	w2.components.set_component(dying2, "position", {"x": 12.0, "y": 12.0})
+	if SimRecruits._succession_pick(w2, dying2) != ellis:
+		push_error("NO-IDENTITY: the far colonist did not inherit with a raider standing nearer")
+		return false
+	w2.components.set_component(near, "identity", {"id": "survivor.sabotage", "name": "Sabotage", "traits": []})
+	if SimRecruits._succession_pick(w2, dying2) != near:
+		push_error("NO-IDENTITY: a raider *with* an identity was still not picked -- the scan does not read `identity`, so the absence of one proves nothing")
+		return false
+	print("NO-IDENTITY OK no band member carries `identity`, all four carry a person; Mara inherits over four raiders, Ellis over one, and only the sabotaged raider inherits")
+	return true
+
+
+# LOOK READER: the rolled look reaches the renderer as a pass-through, and the draw loop is where
+# that has to be asserted -- `for_entity` answering correctly proves nothing if `main.gd` never
+# hands it the person's look. Textual, over the raider arm alone: the colonist arm a few lines
+# above reads `identity.look` in the same words, so a needle over the whole function would be
+# satisfied by the wrong reader (CLAUDE.md on needles that survive a refactor).
+func _the_rolled_look_reaches_the_renderer() -> bool:
+	var w: Variant = _arena()
+	var ent: int = SimRaiders.spawn(w, 10.0, 10.0, "raider.scav")
+	w.events.drain()
+	var person: Dictionary = _person_of(w, ent)
+	var look_id: String = String(person.get("look", ""))
+	if look_id.is_empty():
+		push_error("LOOK-READER: a spawned raider rolled no look")
+		return false
+	# The look id resolves a body of its own, and an id the pool does not declare does not: that
+	# difference is the whole of "the renderer reads it", and it holds whether or not a look ever
+	# declares a tint (LOOKS explains why none does today).
+	var with_look: Dictionary = Appearance.for_entity(w, {"raider": true, "cid": look_id})
+	if with_look["texture"] == null:
+		push_error("LOOK-READER: the rolled look '%s' resolved no texture" % look_id)
+		return false
+	var unknown: Dictionary = Appearance.for_entity(w, {"raider": true, "cid": "raider.look.nobody_declares_this"})
+	if unknown["texture"] != null or (unknown["tint"] as Color) != Palette.COLOURS["raider"]:
+		push_error("LOOK-READER: an undeclared look still resolved a body, so resolving one proves nothing")
+		return false
+	# A raider with no rolled look falls back to its archetype, and the two draw the same body --
+	# both halves, or "the look is read" would pass against a renderer that had stopped reading
+	# the archetype at all, and "one body" would stop being true the moment art per look lands
+	# without this lane noticing.
+	var without: Dictionary = Appearance.for_entity(w, {"raider": true, "cid": "raider.scav"})
+	if (without["tint"] as Color) != Color.WHITE:
+		push_error("LOOK-READER: a raider with no rolled look must draw its archetype's own body unstained, got %s" % str(without["tint"]))
+		return false
+	if with_look["texture"] != without["texture"]:
+		push_error("LOOK-READER: the look and the archetype resolved different textures")
+		return false
+	var arm: String = _raider_arm()
+	if arm.is_empty():
+		push_error("LOOK-READER: could not isolate the `elif is_raider:` arm of main.gd's _draw_entities -- reading the wrong file or the wrong function")
+		return false
+	for needle in ["\"person\"", "\"look\"", "\"id\""]:
+		if arm.find(String(needle)) < 0:
+			push_error("LOOK-READER: the draw loop's raider arm does not mention %s, so the rolled look is a field nothing reads:\n%s" % [String(needle), arm])
+			return false
+	# The ban, over the code of the arm and never its prose: the comment above it *says* the words
+	# "if id ==" on purpose, and a needle a comment can satisfy -- or fail -- is the needle that
+	# turned two gates red against correct code this milestone.
+	var code: String = _without_comments(arm)
+	if code.find("if id ==") >= 0 or code.find("== \"raider.") >= 0:
+		push_error("LOOK-READER: the draw loop's raider arm branches on a content id -- the very thing appearance.gd exists to prevent:\n%s" % code)
+		return false
+	if code.find("get(\"person\"") < 0:
+		push_error("LOOK-READER: the raider arm's *code* never reads `person`, only its comment does:\n%s" % code)
+		return false
+	print("LOOK-READER OK '%s' resolves a body where an undeclared id resolves none, an unrolled raider falls back to the archetype, and the draw loop's raider arm hands over the person's look" % look_id)
+	return true
+
+
+# NO TELL: what a raider looks like may say *who* they are and never *what they carry*. Two
+# halves, because two things can carry a tell. The look pool is drawn on its own stream with no
+# idea which archetype asked, so both archetypes must be able to wear the same look; and the worn
+# kit -- which, unlike a look, is visible on the pawn today -- must be declared identically by
+# every archetype, odds included. Either one partitioned would let a glance across a street
+# answer "is that the one with the gun", which is the certainty docs/01 clause 4 refuses.
+func _a_look_carries_no_tell() -> bool:
+	var w: Variant = _arena()
+	var seen: Dictionary = {"raider.scav": {}, "raider.gunhand": {}}
+	for i in 16:
+		for type_id in ["raider.scav", "raider.gunhand"]:
+			var ent: int = SimRaiders.spawn(w, 8.0 + float(i % 8), 8.0, String(type_id))
+			if ent < 0:
+				push_error("NO-TELL: %s failed to spawn" % String(type_id))
+				return false
+			(seen[type_id] as Dictionary)[String(_person_of(w, ent).get("look", ""))] = true
+		w.events.drain()
+	var scav: Dictionary = seen["raider.scav"] as Dictionary
+	var gun: Dictionary = seen["raider.gunhand"] as Dictionary
+	if scav.size() < 2 or gun.size() < 2:
+		push_error("NO-TELL: the archetypes drew %d and %d distinct looks -- with a single look each, sharing one would prove nothing" % [scav.size(), gun.size()])
+		return false
+	if not _overlaps(scav, gun):
+		push_error("NO-TELL: no look was worn by both archetypes (%s vs %s) -- the pool is partitioned and a glance says who has the gun" % [str(scav.keys()), str(gun.keys())])
+		return false
+	# The predicate's own true negative, on fabricated sets: a partition must fail the same test
+	# the real draw just passed.
+	if _overlaps({"a": true, "b": true}, {"c": true, "d": true}):
+		push_error("NO-TELL: the overlap predicate accepted two disjoint sets, so it reads nothing")
+		return false
+	# And structurally: the pool belongs to the generator, never to an archetype. An archetype
+	# that declared looks of its own would partition it at the source.
+	for entry in SimRaiders.types(w):
+		if entry.has("looks") or entry.has("person"):
+			push_error("NO-TELL: archetype %s declares looks of its own -- the pool must be archetype-blind" % String(entry.get("id", "?")))
+			return false
+	# The other half, and the one with teeth while the looks all resolve one body: what a raider
+	# is *wearing* is what a glance can actually tell apart, because worn gear draws on the pawn.
+	# So the worn rows -- everything with an equip slot that is not a hand -- must be identical
+	# across the archetypes, odds included. What they are *holding* is the archetype and is
+	# visible by design: you can see what a man is carrying. Wearing is who; holding is what.
+	var worn_by: Dictionary = {}
+	for entry in SimRaiders.types(w):
+		worn_by[String(entry.get("id", "?"))] = _worn_rows(w, entry)
+	var ids: Array = worn_by.keys()
+	ids.sort()
+	if ids.size() < 2:
+		push_error("NO-TELL: one archetype, so the worn-gear comparison judged nothing")
+		return false
+	var first: Dictionary = worn_by[ids[0]] as Dictionary
+	if first.is_empty():
+		push_error("NO-TELL: no archetype declares anything worn, so the comparison below is vacuous")
+		return false
+	for i in range(1, ids.size()):
+		var other: Dictionary = worn_by[ids[i]] as Dictionary
+		if JSON.stringify(other) != JSON.stringify(first):
+			push_error("NO-TELL: %s wears %s and %s wears %s -- a cap only one archetype can be wearing answers 'which one has the gun'" % [String(ids[0]), JSON.stringify(first), String(ids[i]), JSON.stringify(other)])
+			return false
+	# The comparison can fail: two maps that differ by one row must not compare equal.
+	var sabotage: Dictionary = (first as Dictionary).duplicate()
+	sabotage["item.sabotage"] = 0.5
+	if JSON.stringify(sabotage) == JSON.stringify(first):
+		push_error("NO-TELL: the worn-gear comparison accepted an extra row, so it reads nothing")
+		return false
+	print("NO-TELL OK scav drew %s, gunhand drew %s, %d shared; both wear %s at the same odds" % [str(scav.keys()), str(gun.keys()), _shared_count(scav, gun), JSON.stringify(first)])
+	return true
+
+
+# STREAMS: the `"raid"` stream has not moved. The director draws the night, the side, the entry
+# tile and every member's archetype off it; `check_m2_balance.gd`'s measured bands and every raid
+# number in docs/23's record are a function of that byte sequence, and a person rolled on it would
+# have shifted all of them. The pins below are the stream's state after `_emit_band` places four,
+# taken with a throwaway driver on the pre-individuals tree.
+func _the_raid_stream_has_not_moved() -> bool:
+	for row in RAID_PINS:
+		var pin: Dictionary = row as Dictionary
+		var seed_value: int = int(pin["seed"])
+		var w: Variant = SimBoot.playable(seed_value, MAP_TILES)["world"]
+		var rng: Variant = w.rng.stream(SimDirector.RAID_STREAM)
+		var placed: Dictionary = SimDirector._emit_band(w, 4, rng)
+		if int(placed["placed"]) != 4:
+			push_error("STREAMS: seed %d placed %d of 4, so the draws the pin covers were not all made" % [seed_value, int(placed["placed"])])
+			return false
+		var state: int = int(rng.call("save"))
+		if state != int(pin["after"]):
+			push_error("STREAMS: seed %d left the '%s' stream at %d, not the pre-individuals %d -- something new is drawing off the director's raid stream" % [seed_value, SimDirector.RAID_STREAM, state, int(pin["after"])])
+			return false
+		# The pin can fail: one more draw off the same stream moves it.
+		rng.call("int_range", 0, 99)
+		if int(rng.call("save")) == int(pin["after"]):
+			push_error("STREAMS: an extra draw left the stream where it was, so the pin reads nothing")
+			return false
+	print("STREAMS OK '%s' state after a band of four is unmoved on %d seeds" % [SimDirector.RAID_STREAM, RAID_PINS.size()])
+	return true
+
+
+# SAVE: the person record round-trips. It is a Dictionary of words on a component, so it travels
+# the way everything else does -- but it is new keys on an existing component, which is a
+# `SAVE_VERSION` bump (kernel/serialize.gd v30) and worth proving rather than assuming. Both
+# halves: the text a save would actually write, and the world a load rebuilds from it.
+func _a_person_survives_a_save() -> bool:
+	var w: Variant = _arena()
+	var ent: int = SimRaiders.spawn(w, 10.0, 10.0, "raider.gunhand")
+	var other: int = SimRaiders.spawn(w, 11.0, 10.0, "raider.gunhand")
+	w.events.drain()
+	var before: Dictionary = _person_of(w, ent)
+	if String(before.get("name", "")).is_empty():
+		push_error("SAVE: the raider carries no person record, so the round trip judges nothing")
+		return false
+	var text: String = JSON.stringify(w.snapshot())
+	var parsed: Variant = JSON.parse_string(text)
+	if not (parsed is Dictionary):
+		push_error("SAVE: the snapshot did not survive JSON at all")
+		return false
+	var w2: Variant = _arena()
+	w2.restore(parsed as Dictionary)
+	var after: Dictionary = _person_of(w2, ent)
+	for key in ["name", "look", "backstoryId"]:
+		if String(after.get(key, "")) != String(before.get(key, "")):
+			push_error("SAVE: `%s` came back as '%s', was '%s'" % [key, String(after.get(key, "")), String(before.get(key, ""))])
+			return false
+	if int(after.get("age", -1)) != int(before.get("age", -2)):
+		push_error("SAVE: `age` came back as %s, was %s" % [str(after.get("age")), str(before.get("age"))])
+		return false
+	if _joined(after.get("features", [])) != _joined(before.get("features", [])):
+		push_error("SAVE: `features` came back as %s, were %s" % [str(after.get("features")), str(before.get("features"))])
+		return false
+	# The comparison is not vacuous: the other body of the same archetype is a different person,
+	# and it came back as *that* one rather than as a copy of the first.
+	var other_after: Dictionary = _person_of(w2, other)
+	if String(other_after.get("name", "")) == String(after.get("name", "")):
+		push_error("SAVE: both raiders came back with one name, so the comparison above would pass against any record at all")
+		return false
+	if String(other_after.get("name", "")) != String(_person_of(w, other).get("name", "")):
+		push_error("SAVE: the second raider's record did not survive")
+		return false
+	print("SAVE OK '%s' (%s, %s) round-tripped through JSON and a restore, beside a second body that stayed itself" % [String(after["name"]), String(after["backstoryId"]), String(after["look"])])
+	return true
+
+
+# CHRONICLE: the one place a raider's name reaches the player, and only once they are dead. The
+# record is read off the `raider.killed` event because `handle_death` despawns the body before any
+# handler drains (CLAUDE.md: publish only queues), which is also why the event carries the record
+# instead of the handler looking it up.
+func _a_dead_raider_is_named_once() -> bool:
+	var w: Variant = _arena()
+	SimChronicle.register_module(w)
+	var ent: int = SimRaiders.spawn(w, 10.0, 10.0, "raider.scav")
+	w.events.drain()
+	var person: Dictionary = _person_of(w, ent)
+	var name: String = String(person.get("name", ""))
+	w.tick = 1000
+	w.step()
+	if not SimChronicle.lines(w).is_empty():
+		push_error("CHRONICLE: a raider standing at the wall put a line on the screen -- a band is anonymous until it is dead")
+		return false
+	var body: Dictionary = w.components.get_component(ent, "body") as Dictionary
+	body["head"] = 0.0
+	SimHealth.finish_death(w, ent)
+	w.step()
+	var lines: Array[String] = SimChronicle.lines(w)
+	if lines.size() != 1:
+		push_error("CHRONICLE: one dead raider wrote %d line(s): %s" % [lines.size(), str(lines)])
+		return false
+	if String(lines[0]).find(name) < 0:
+		push_error("CHRONICLE: '%s' does not name the dead raider '%s'" % [String(lines[0]), name])
+		return false
+	if String(lines[0]).find("One of the raiders") < 0:
+		push_error("CHRONICLE: '%s' reads like a colonist's line -- the two must not be confusable" % String(lines[0]))
+		return false
+	if not _digits(String(lines[0])).is_empty():
+		push_error("CHRONICLE: '%s' carries digits and the chronicle is on the HUD" % String(lines[0]))
+		return false
+	# Twice published is once written, the rule `entity.killed` needed first.
+	w.events.publish({"type": "raider.killed", "entity": ent, "id": "raider.scav", "person": person})
+	w.step()
+	if SimChronicle.lines(w).size() != 1:
+		push_error("CHRONICLE: a second `raider.killed` for one body wrote a second line: %s" % str(SimChronicle.lines(w)))
+		return false
+	# And a body with no record says nothing rather than "One of the raiders was .".
+	w.events.publish({"type": "raider.killed", "entity": ent + 500, "id": "raider.scav", "person": {}})
+	w.step()
+	if SimChronicle.lines(w).size() != 1:
+		push_error("CHRONICLE: a nameless raider wrote a line: %s" % str(SimChronicle.lines(w)))
+		return false
+	print("CHRONICLE OK '%s', written once, digit-free; nothing said while they were alive" % String(lines[0]))
+	return true
+
+
+# --- fixtures and helpers for the individuals lanes --------------------------------------------
+
+# `_colonist`, with an identity id the succession scan actually looks for.
+func _named_colonist(w: Variant, id: String, name: String, x: float, y: float) -> int:
+	var ent: int = _colonist(w, x, y)
+	w.components.set_component(ent, "identity", {"id": id, "name": name, "traits": []})
+	return ent
+
+
+# Spawns `n` scavengers into a world and reports how much they differ: distinct names, distinct
+# kits (the sorted item bases they carry, counts included) and distinct aptitude triples.
+func _band_signatures(w: Variant, n: int) -> Dictionary:
+	var names: Dictionary = {}
+	var kits: Dictionary = {}
+	var apts: Dictionary = {}
+	for i in n:
+		var ent: int = SimRaiders.spawn(w, 10.0 + float(i), 10.0, "raider.scav")
+		if ent < 0:
+			continue
+		names[String(_person_of(w, ent).get("name", ""))] = true
+		kits[_kit_signature(w, ent)] = true
+		apts[JSON.stringify(w.components.get_component(ent, "aptitudes"))] = true
+	w.events.drain()
+	return {
+		"names": names.size(), "kits": kits.size(), "apts": apts.size(),
+		"nameList": names.keys(), "kitList": kits.keys(), "aptList": apts.keys(),
+	}
+
+
+func _kit_signature(w: Variant, ent: int) -> String:
+	var rows: Array[String] = []
+	for item in SimInventory.carried_items(w, ent):
+		var base: Variant = w.components.get_component(int(item), "itemBase")
+		var stack: Variant = w.components.get_component(int(item), "stack")
+		var count: int = int((stack as Dictionary).get("count", 1)) if stack is Dictionary else 1
+		rows.append("%s x%d" % [String((base as Dictionary).get("baseId", "?")) if base is Dictionary else "?", count])
+	rows.sort()
+	return String(",").join(PackedStringArray(rows))
+
+
+# The shipped content tree with every kit chance certain and every aptitude range collapsed to its
+# floor: the archetypes exactly as they were before this slice, for DISTINCT's negative.
+func _flat_tree() -> Dictionary:
+	var tree: Dictionary = ContentLoader.load_tree()
+	for path in tree.keys():
+		if not String(path).begins_with("raiders/"):
+			continue
+		var raw: Variant = tree[path]
+		var entries: Array = raw as Array if raw is Array else [raw]
+		for entry in entries:
+			if not (entry is Dictionary):
+				continue
+			var e: Dictionary = entry as Dictionary
+			for row in e.get("kit", []) as Array:
+				if row is Dictionary and (row as Dictionary).has("chance"):
+					(row as Dictionary)["chance"] = 1.0
+			var apt: Variant = e.get("aptitudes", {})
+			if apt is Dictionary:
+				for k in (apt as Dictionary).keys():
+					var v: Variant = (apt as Dictionary)[k]
+					if v is Array and (v as Array).size() == 2:
+						(apt as Dictionary)[k] = int((v as Array)[0])
+	return tree
+
+
+# The raider arm of main.gd's entity pass, isolated from the colonist arm above it: from the
+# `elif is_raider:` label to the `items.append(` that closes the collection loop.
+func _raider_arm() -> String:
+	var f: FileAccess = FileAccess.open("res://presentation/main.gd", FileAccess.READ)
+	if f == null:
+		return ""
+	var text: String = f.get_as_text()
+	var head: int = text.find("func _draw_entities(")
+	if head < 0:
+		return ""
+	var arm: int = text.find("elif is_raider:", head)
+	if arm < 0:
+		return ""
+	var tail: int = text.find("items.append(", arm)
+	if tail < 0:
+		return ""
+	return text.substr(arm, tail - arm)
+
+
+# The rows of a kit that draw *on* the body rather than in a hand: item id -> the odds it arrives
+# with, `1.0` for a row that always does. A weapon is excluded by its slot, which is what lets the
+# archetypes differ in arms and not in dress.
+func _worn_rows(w: Variant, entry: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	for row in entry.get("kit", []) as Array:
+		var item_id: String = String((row as Dictionary).get("item", "")) if row is Dictionary else String(row)
+		if item_id.is_empty():
+			continue
+		var base: Variant = SimItems.content_entry(w, "item", item_id)
+		if not (base is Dictionary):
+			continue
+		var slot: String = String((base as Dictionary).get("equipSlot", ""))
+		if slot.is_empty() or slot == "primary" or slot == "secondary":
+			continue
+		out[item_id] = float((row as Dictionary).get("chance", 1.0)) if row is Dictionary else 1.0
+	return out
+
+
+# The code of a scanned block, with every comment line dropped. A textual needle must be shown
+# what it is reading (CLAUDE.md's `_low_arms` precedent), and prose that quotes the very pattern
+# it forbids is the cheapest way to fool one.
+func _without_comments(block: String) -> String:
+	var out: Array[String] = []
+	for line in block.split("\n"):
+		if String(line).strip_edges().begins_with("#"):
+			continue
+		out.append(String(line))
+	return "\n".join(out)
+
+
+# The person record off a live body. A gate-side reader on purpose: the two things that ship and
+# read this record -- the draw loop's `cid` and `handle_death`'s published event -- both already
+# hold the `raider` component when they want it, so an accessor in `raiders.gd` would have been a
+# public function only a gate ever called, which is the shape of half the dead sockets this
+# milestone has had to name.
+func _person_of(w: Variant, entity: int) -> Dictionary:
+	var rd: Variant = w.components.get_component(entity, "raider")
+	if not (rd is Dictionary):
+		return {}
+	var person: Variant = (rd as Dictionary).get("person", {})
+	return person as Dictionary if person is Dictionary else {}
+
+
+func _overlaps(a: Dictionary, b: Dictionary) -> bool:
+	for k in a.keys():
+		if b.has(k):
+			return true
+	return false
+
+
+func _shared_count(a: Dictionary, b: Dictionary) -> int:
+	var n: int = 0
+	for k in a.keys():
+		if b.has(k):
+			n += 1
+	return n
+
+
+func _joined(v: Variant) -> String:
+	if not (v is Array):
+		return ""
+	var out: Array[String] = []
+	for x in v as Array:
+		out.append(String(x))
+	return String("|").join(PackedStringArray(out))
+
+
+func _digits(s: String) -> String:
+	var out: String = ""
+	for i in s.length():
+		if s[i] >= "0" and s[i] <= "9":
+			out += s[i]
+	return out
+
+
+# The median luma of the body's opaque pixels once `tint` has multiplied them -- the composition
+# the screen actually draws, rather than the ramp in isolation.
+func _median_composed_luma(img: Image, tint: Color) -> float:
+	var lumas: Array[float] = []
+	for y in img.get_height():
+		for x in img.get_width():
+			var px: Color = img.get_pixel(x, y)
+			if px.a <= 0.0:
+				continue
+			lumas.append(0.2126 * px.r * tint.r + 0.7152 * px.g * tint.g + 0.0722 * px.b * tint.b)
+	if lumas.is_empty():
+		return 0.0
+	lumas.sort()
+	return lumas[lumas.size() / 2]
+
+
+func _brightest_surface() -> float:
+	var best: float = 0.0
+	for i in Palette.SURFACE_TINTS.size():
+		var c: Color = Palette.SURFACE_TINTS[i]
+		best = maxf(best, 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b)
+	return best
