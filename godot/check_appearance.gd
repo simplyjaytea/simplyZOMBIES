@@ -364,6 +364,11 @@ const ROSTER: Array[Dictionary] = [
 	{"id": "zombie.bloater", "kind": "zombie", "probe": {"ztype": "zombie.bloater"}, "colonist": false},
 	{"id": "raider.scav", "kind": "raider", "probe": {"raider": true, "cid": "raider.scav"}, "colonist": false},
 	{"id": "raider.gunhand", "kind": "raider", "probe": {"raider": true, "cid": "raider.gunhand"}, "colonist": false},
+	# The two role archetypes (the roles slice). Same body as the other two, and that is the
+	# information rule rather than a shortcut: a picture that said "this one came for your pantry"
+	# would answer, from across a street, the question a raid is supposed to make you guess at.
+	{"id": "raider.looter", "kind": "raider", "probe": {"raider": true, "cid": "raider.looter"}, "colonist": false},
+	{"id": "raider.lookout", "kind": "raider", "probe": {"raider": true, "cid": "raider.lookout"}, "colonist": false},
 	# The four rolled raider looks (the individuals slice), and `colonist: false` on every one of
 	# them is the finding rather than an oversight: a raider look declares no tint, because
 	# `raider_drab` sits at the floor of the ground-contrast guard already
@@ -395,7 +400,10 @@ const ROSTER_DIRS: Array[String] = ["players/", "zombies/", "survivors/uniques/"
 # (check_m2_raiders.gd asserts the same thing from the content side).
 const ROSTER_SHARED: Array = [
 	["colony.look.01", "colony.look.02", "colony.look.03", "colony.look.04", "colony.look.05", "colony.look.06"],
-	["raider.scav", "raider.gunhand", "raider.look.01", "raider.look.02", "raider.look.03", "raider.look.04"],
+	[
+		"raider.scav", "raider.gunhand", "raider.looter", "raider.lookout",
+		"raider.look.01", "raider.look.02", "raider.look.03", "raider.look.04",
+	],
 ]
 
 # One id per distinct picture; every pair must resolve different textures.

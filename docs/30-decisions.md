@@ -4539,3 +4539,58 @@ trusted. No balance measurement is owed: no settler exists in any shipped spawn 
 answers exactly as `!=` did for the two factions that do, and nothing here draws from an RNG
 stream — which was proved rather than asserted, against the raid-stream pins and the R1 parity
 fixture.
+
+## What a raider came for, 2026-09-15
+
+Raider roles, the second slice of the procedural-population arc's raider group. docs/18 has always
+said a raid is a business — "target stores first, people second, and will withdraw once loaded;
+retreat when losses outweigh the haul" — and until this every raider walked at the gate and fought
+until a clock ran out, so that sentence had no reader. `godot:m2:raiders` is the gate. What follows
+is the calls this took, none of which the plan made.
+
+**Both shipped archetypes stay fighters, and the roles arrive as new archetypes.** `raider.scav` is
+weight 4 of 5: it is four fifths of every band this repo has measured, and re-roling it would turn
+every raid in every campaign into a robbery in a one-line content edit — a balance change wearing a
+content edit's clothes. So `scav` and `gunhand` declare `fighter` explicitly and behave exactly as
+they did, and the new behaviour arrives as `raider.looter` (Bagman, weight 2) and `raider.lookout`
+(Watcher, weight 1). The cost of that choice is real and is the honest one: the weighted draw moves
+from 4:1 to 4:1:2:1, so band *composition* changes on every seed, and that is measured rather than
+asserted. The alternative — new archetypes at weight 0, so nothing moves — would have shipped two
+dead sockets, which is the thing this milestone has paid for eleven times.
+
+**A looter takes three things, and only what is on the floor.** Both are the plan's first cuts and
+both are the owner's to move. Three item *entities*, not three stacks and not a packful: on a
+stockpile of tins and bottles that is a night's meals rather than a pantry, and it is small enough
+that the first campaign to lose some of it is an annoyance rather than a wipe. Containers are out of
+scope on purpose — opening a cupboard is a search job with its own timing, noise and content hooks,
+and a raider doing it would be a second implementation of the Scavenge job rather than a role. What
+a looter carries out is **despawned** when it leaves the district, because an item whose `stored`
+points at a despawned body is in nobody's hands and on no floor: it would neither come back nor be
+gone. Killed on the way out, it drops the lot.
+
+**A lookout stands twelve metres out.** Far enough outside every reach in the content tree that no
+halt, no wall-following detour and no arrival tolerance produces it by accident, and close enough
+that the watcher is still a body in the district — a zombie sees them, the colony can shoot at them,
+they make the same noise anyone else does. It turns the band for home at the **first** loss, where
+the shipped rule waits for half the band to fall, and it writes that decision onto the other bodies'
+components rather than publishing an event: handlers drain at the end of the step, so a band told to
+leave by an event would take one more step towards the colony first, and on the tick a watcher sees
+the first man fall that step is a blow landing.
+
+**A role is invisible, and that is the information rule rather than an omission.** Nothing about
+dress, sprite, look or name says which body came for your pantry, exactly as nothing says which one
+has the pistol: the new archetypes wear the identical worn rows at identical odds (the gate's
+NO-TELL lane walks every archetype, so it caught the question before it could be asked), draw from
+the same archetype-blind look pool, and resolve the one shared body. What gives a looter away is
+that it walks *past* you towards the stores, which is behaviour a player has to read and is earned.
+The HUD says nothing about any of it.
+
+**The looter takes before it fights.** The halt that makes a raider stop and fight is asked after
+the looter's armful, not before, because the stockpile is where the colonists are: a looter that
+reaches the shelf is inside somebody's reach before it is inside the tins', so with the order the
+other way round it would stand over your pantry fighting and never touch it. The window is narrow —
+something of yours in arm's reach, or arms already full — and it costs the body nothing
+defensively, because `npc_combat.gd` swings from where a body stands and never reads a velocity.
+What the order has **not** bought yet is a robbery: on four forced raids the band is met five to
+thirteen metres short of the stores and `looted` reads 0, which docs/23's record states plainly
+rather than dressing up.

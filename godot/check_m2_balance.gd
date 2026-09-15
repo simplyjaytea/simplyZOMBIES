@@ -306,6 +306,20 @@ func _blank_run(seed_value: int, arm: String, w: Variant) -> Dictionary:
 		"quiet_nights": 0,
 		"breaches": 0,
 		"withdrew": 0,
+		# What the raid carried off your floor, summed off `raid.withdrew`'s own `looted` field
+		# rather than counted as entities: a looted item is despawned when its carrier leaves the
+		# district, so by the time anything could count them there is nothing left to count. A
+		# looter that is killed on the way out never publishes it, which is correct -- it dropped
+		# the lot. Reported, not banded: whether a band contains a looter at all is a weighted
+		# draw, so a floor here would be a coin toss (`raids` and `raiders_in` above, same reason).
+		#
+		# `taken` beside it is the two numbers a reader needs to tell apart. `looted` counts what
+		# reached the district edge; `taken` counts every `raid.looted` -- a hand closing on
+		# something of yours -- so a band that emptied your shelf and then died on the way out
+		# reads 0 and 6 rather than 0 and nothing. It is also the honest answer to "does a looter
+		# ever reach the stores in a real campaign", which on every seed measured so far is no.
+		"looted": 0,
+		"taken": 0,
 		# The raid, reported rather than banded. A band is a 20% roll on a post-grace night and a
 		# ten-day campaign has three of those, so a floor here would be a coin toss; what the
 		# harness owes is the number, plus the assertion that already covers it -- a colony wiped
@@ -370,8 +384,11 @@ func _observe(w: Variant, run: Dictionary, before: Variant) -> void:
 					run["raiders_in"] = int(run["raiders_in"]) + int(ev.get("size", 0))
 			"raider.killed":
 				(run["dead_raiders"] as Dictionary)[int(ev.get("entity", -1))] = true
+			"raid.looted":
+				run["taken"] = int(run.get("taken", 0)) + 1
 			"raid.withdrew":
 				run["withdrew"] = int(run.get("withdrew", 0)) + 1
+				run["looted"] = int(run.get("looted", 0)) + int(ev.get("looted", 0))
 			"fortify.breached":
 				run["breaches"] = int(run["breaches"]) + 1
 			"recruit.arrived":
@@ -454,10 +471,11 @@ func _close_run(w: Variant, run: Dictionary) -> void:
 
 
 func _print_run(label: String, run: Dictionary) -> void:
-	print("%s seed=%d arm=%s days=%d siege=%d quiet=%d packets=%d raids=%d(%din/%ddown/%dleft) breaches=%d kills=%d(m%d/r%d) deaths=%d turned=%d recruits=%d max_live=%d survivors=%d/%d over=%s grabs=%d searches=%d broken=%s" % [
+	print("%s seed=%d arm=%s days=%d siege=%d quiet=%d packets=%d raids=%d(%din/%ddown/%dleft/%dtaken/%dlooted) breaches=%d kills=%d(m%d/r%d) deaths=%d turned=%d recruits=%d max_live=%d survivors=%d/%d over=%s grabs=%d searches=%d broken=%s" % [
 		label, int(run["seed"]), String(run["arm"]), int(run["days"]),
 		int(run["siege_nights"]), int(run["quiet_nights"]), int(run["packets"]),
 		int(run["raids"]), int(run["raiders_in"]), int(run["raiders_killed"]), int(run.get("withdrew", 0)),
+		int(run.get("taken", 0)), int(run.get("looted", 0)),
 		int(run["breaches"]), int(run["kills"]), int(run["melee_kills"]), int(run["ranged_kills"]),
 		int(run["deaths"]), int(run["turned"]), int(run["recruits"]), int(run["max_live"]),
 		int(run["survivors_end"]), int(run["survivors_start"]), str(run["run_over"]),
