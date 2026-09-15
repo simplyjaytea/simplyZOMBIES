@@ -8808,12 +8808,13 @@ not a to-do list:
   it runs one predicate over the shipped file and then over six fabrications — a near-miss id, no
   count, a camp on the doorstep at 4 m, a kit naming an item that does not exist, a percentage
   where odds go, and a block that is not an object — and requires each to be refused.
-  **Save:** `SAVE_VERSION` 30 → 31, with its ledger entry; the twin pins in `check_m2_save.gd` and
-  `check_m2_fortify.gd` moved with it. `members` is an **Array of ids**, never a Dictionary keyed
-  by entity id — JSON has no integer keys and such a component comes back with String keys and
-  misses silently — and the SAVE lane resolves each id back to a live body carrying `identity`,
-  the settlers faction and no `needs`, rather than comparing two lists of integers, because an
-  Array that round-trips pointing at nothing is exactly the failure the trap describes.
+  **Save:** `SAVE_VERSION` **31 → 32**, with its ledger entry sitting after the strangers slice's
+  v31; the twin pins in `check_m2_save.gd` and `check_m2_fortify.gd` moved with it. `members` is
+  an **Array of ids**, never a Dictionary keyed by entity id — JSON has no integer keys and such a
+  component comes back with String keys and misses silently — and the SAVE lane resolves each id
+  back to a live body carrying `identity`, the settlers faction and no `needs`, rather than
+  comparing two lists of integers, because an Array that round-trips pointing at nothing is
+  exactly the failure the trap describes.
   **The gate's seven lanes, each with its true negative and each proved red on purpose:** CONTENT
   (the six fabrications above; red for `minMetres` 4.0), SITED (indoors, inside the building the
   component names, clear of the annex, at least the declared distance from both gates, **not in a
@@ -8824,9 +8825,9 @@ not a to-do list:
   refusing a rect on gate A, an outdoor tile, and every far building of a district whose far
   buildings all hold a sleeper), BODIES (three settlers, sixteen components each, neither of the
   two forbidden ones, and the colony's own two carrying both so the scanner can tell present from
-  absent; red when a settler is given `needs`), LEDGER
-  (the harness's count reads 3 for a colony of 2 plus the player with three settlers standing, and
-  giving one settler `needs` raises it to 4, so the counter can see a body it excludes — plus the
+  absent; red when a settler is given `needs`), LEDGER (the harness's count reads 3 for a colony
+  of 2 plus the player with three settlers standing, and giving one settler `needs` raises it to
+  4, so the counter can see a body it excludes — plus the
   textual half, `check_m2_balance.gd`'s `_survivors_alive` query line isolated by name and asked
   for `"needs"` *inside it*, never searched for as a bare word where a comment could satisfy the
   needle; red for both halves), NO-HEIR (a colonist at 28.2 m inherits over a settler at 0.5 m,
