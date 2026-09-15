@@ -130,7 +130,20 @@ extends RefCounted
 # district whose `settlement` component names members that do not exist -- a camp of ids
 # pointing at nothing, which is the shape of a memory that is empty for reasons nothing reports.
 # Refused, the same rule as v27.
-const SAVE_VERSION: int = 32
+#
+# v33: the camp has a day. Three shapes are new. Each settler carries a `settler` component -- the
+# camp centre and the tile they sleep on, the goal they are walking to, and the `path`/`pathGen`
+# record `SimWalk.step` owns -- so a save carries the walk in progress rather than restoring three
+# people who have forgotten where they were going. One of them carries a
+# `recruit {waiting, stranger}` tag, which is the strangers slice's shape on a body that is not a
+# stranger, and it is what the E rung finds. And the `settlement` gains a `fell` flag, written by
+# the handler that retires a camp whose last member died. A v32 save has none of the three:
+# restored into a v33 world its settlers would stand exactly where the camp slice left them (no
+# `settler` component, so `settlers.day` never reaches them), nobody in the camp could be
+# recruited, and a camp that had already been wiped before the save would publish `settlement.fell`
+# a second time on the first tick after the load. A fourth stream is new with them, `settlersMill`,
+# spent per turn rather than at boot. Refused either way, the same rule as v27.
+const SAVE_VERSION: int = 33
 
 
 static func canonicalize(value: Variant, path: String = "$") -> String:
