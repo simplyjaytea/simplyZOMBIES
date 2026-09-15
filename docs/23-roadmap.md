@@ -271,8 +271,14 @@ the people pieces reuse; raiders before settlers because the third side is a sea
 raider first touches. Each piece that adds a body or a kind inside ten days re-baselines the FAST
 balance record and says so in its record; `survivors_end >= 1` is never the lever.
 
-- **Stalker and runner.** Two content entries on the wave schedule, tinted on the shambler's rig,
-  proving docs/14's "one JSON entry, zero code". A silhouette each is a follow-up piece.
+- **A silhouette per kind.** The stalker and the runner ship on the shambler's `zombie_shambler`
+  rig, so two kinds with different senses and different speeds are one picture — a per-body tint
+  apart, which is pallor and not a shape. One sprite key each in `tools/sprites/`, regenerated and
+  byte-compared by `npm run sprites:check` (Pillow, and the CPython float trap in CLAUDE.md), the
+  content `appearance.sprite` repointed, and `check_appearance.gd`'s third `ROSTER_SHARED` group
+  retired in favour of two more `ROSTER_DISTINCT` rows. Read as a silhouette first: a lean,
+  forward-leaning stalker and a low, sprinting runner, distinguishable at 32 px from the shambler
+  and from each other, per the brief in `godot/assets/sprites/README.md`.
 - **Armoured and heavy: gear on the dead.** A `worn` list a zombie equips at spawn and drops on
   death, resisting through `armor_coverage_of` as it stands — closes "Armour on anything that is
   not a survivor" below — and a heavy body whose breach factor lands only if board damage is
@@ -5116,6 +5122,108 @@ not a to-do list:
   says `GODOT_CONTENT_OK`. No body count moved, so the FAST balance record is not re-baselined —
   the arc's re-baseline rule applies to the pieces that add a kind or a body, and this one adds
   neither.
+- **Roster & Content** — ~~stalker and runner~~ **landed** (`godot:m2:roster` KINDS, WAVE, MIX
+  SHARES, READER; `godot:check:appearance` ROSTER), 2026-09-15, the fifth piece of the owner's
+  procedural-population arc and the third of its zombie group. What was wrong: docs/14 names a
+  roster of eight kinds and three shipped, and its closing claim — **"adding a zombie type is one
+  JSON entry with zero code, provided its behavior composes from existing tags"** — had never been
+  tested, because each of the three was landed beside the code that made it work. Now
+  `zombie.stalker` and `zombie.runner` are two files under `godot/content/zombies/`, each
+  `extends zombie.base`, each declaring `introducedInWave`, `weight`, `appearance`, `body`,
+  `sensory`, `locomotion` and the variance slice's `variance` block. **The claim held, and
+  `godot/sim/` has an empty diff for this slice** — even the two type ids are named in
+  `check_m2_roster.gd` rather than beside `SimRoster.TYPE_SHAMBLER`, because a `const
+  TYPE_STALKER` in the sim would have been the first line of code the claim cost. **Where it did
+  not hold, and this is the finding rather than the failure:** docs/14's runner is "Fast,
+  sustained pursuit", and only the *fast* half is content. The *sustained* half is
+  `SimShambler.COMMIT_TICKS`, a module constant every kind shares with no content key behind it,
+  so the shipped runner gives up exactly when a shambler does. A content axis for it was not
+  invented inside the slice whose purpose was to find out whether the existing axes were enough;
+  docs/30 has the reading, which is that docs/14's qualifier is doing real work and a kind whose
+  defining trait is a *duration* is not a roster entry yet. The numbers come from docs/14's
+  sensory table rather than from the arc plan's shorthand — the shipped three fix the dialect
+  (High 0.9, Moderate 0.4, Low 0.1–0.2), so the stalker is `{noise 0.9, light 0.4, scent 0.4}` and
+  the runner `{noise 0.9, light 0.9, scent 0.4}`, which restores the runner's ear that the plan's
+  "light-led" had dropped. Speeds are the plan's first cuts and agree with docs/14's prose:
+  stalker **1.0** ("faster" than the shambler's 0.8) with `wander` 0.45 and `mill` 0.5 for
+  "investigates aggressively", runner **1.4** ("fast"). Waves and weights are docs/14's and the
+  plan's: stalker **wave 1, day 3, weight 10**; runner **wave 3, day 7, weight 6**, both inside
+  the ten days the harness runs. Both draw `zombie_shambler`, which is a **named gap** — "a
+  silhouette per kind" is now its own piece in what's left, and `check_appearance.gd` carries a
+  third `ROSTER_SHARED` group whose comment says it is a gap and not a decision; what separates
+  one body from another today is the per-body tint each kind rolls from its own `variance.tints`
+  palette, ashen and flushed, which is pallor rather than a shape. **Gated**, four lanes, each
+  with a true positive and a true negative and each run red on purpose: **KINDS** (each id
+  resolves with the base's `spread`, `grab`, `behaviors` and `emits` applied, declares all seven
+  keys the shipped kinds declare, and — the half that matters — its `sensory` and `locomotion`
+  numbers land on the **spawned body's `shambler` component**, `seekSpeed` through the same
+  `SimLocomotion.zombie_speed` the sim used rather than a multiplier copied into the gate; the
+  negative is the same spawn against a tree carrying six different numbers, which must produce the
+  fixture's values. Sabotages, three: stalker `sensory.noise` 0.9 → 0.2 read back 0.2 on the
+  component; `make_shambler`'s `_locomotion_of` replaced by `DEFAULT_LOCOMOTION` read `seekSpeed`
+  1.68 against 2.10, which is the dead-socket half — a lane stopping at the resolved dictionary
+  would have passed it; misspelling `extends` in `stalker.json` lost `spread`); **WAVE** (each
+  kind absent on the day before its wave and present on the day of it, asked of `wave_allows` and
+  then of `pick_type` over 400 draws a day on one tree and one stream — day 1 is 400 shamblers,
+  day 3 has stalkers and no runner, day 7 has both. Sabotage: the runner moved to wave 1 turned it
+  red on day 5); **MIX SHARES** (2000 day-7 draws, every kind inside ±25% of `weight / summed
+  weight` summed from the resolved entries rather than from a literal — shambler 1390/1379,
+  stalker 177/172, screamer 198/207, bloater 132/138, runner 103/103 of a total of 116; its own
+  negative is a tree with the runner at 1, which must fall below the shipped runner floor while
+  the shambler stays inside the shipped shambler band. Sabotage: halving `pick_type`'s roll range,
+  which SILENCED and HEAVY both survived at 178 of 200 and which SHARES caught at stalker 333
+  against 172); **READER** (the dead socket, asked of behaviour: a survivor 10 m off is inside a
+  runner's 11.38 m of `sight_reach` and outside a shambler's 3.79 m, so the runner closes and the
+  shambler never leaves Wander; a noise at 3× the field floor is over a stalker's 0.9 threshold
+  (0.056) and under a shambler's 0.2 (0.250), so the stalker goes to Seek on the tick it arrives
+  and the shambler does not — with the survivor parked 15 m away, past a stalker's 7.6 m of sight,
+  so sound is the only stimulus in that fixture. Sabotages: runner `light` 0.9 → 0.1 dropped its
+  reach to 3.79 m and it never closed; stalker `noise` 0.9 → 0.2 made both bodies deaf to the same
+  sound). `SIGHT_ENABLED` is pinned on for the sight half and restored, the convention EYES
+  already follows. **The MIX PINNED literal was re-pinned, and the distinction is the point**: that
+  fifty-draw sequence belonged to the mix slice, whose claim was that making the mix content
+  changed nothing about what spawns, and **this slice changes what spawns on purpose** — a re-pin
+  that left day 7 unchanged would have meant the new kinds were never in the pool. Days 1 and 2 are
+  untouched (QUIET: the shambler-only short-circuit still answers without a draw, stream state
+  `3016675464`), and from here any *unintended* movement is red again; SHARES is what replaces the
+  claim the re-pin spent. `npm test` is the other half of the schema — the frozen oracle's Ajv
+  recurses into `sensory`, `locomotion` and `variance` where `godot:validate` stops at the top
+  level — and both are green. **Measured**, a throwaway driver (deleted) mirroring the FAST tier
+  exactly — the same four seeds, ten compressed days, the same 2000-tick dusk window, the `mixed`
+  arm at 64 tiles, `entity.killed` de-duplicated by entity id — run on this tree with the two new
+  files out of the content directory and then back in:
+
+  | seed | survivors, end | distinct dead | grabs | packets | kinds that reached the district |
+  |---|---|---|---|---|---|
+  | 20260805 | 3/3 → 3/3 | 1 → 1 | 117 → 123 | 2 → 2 | + a stalker |
+  | 404 | 1/3 → 1/3 | 3 → 3 | 145 → 145 | 1 → 1 | + a stalker |
+  | 31337 | 3/3 → 3/3 | 1 → 1 | 0 → 0 | 3 → 2 | + a stalker, + a runner |
+  | 90210 | 2/3 → 2/3 | 4 → 4 | 154 → 154 | 2 → 2 | none drawn |
+
+  **`survivors_end >= 1` holds on every seed and was not touched**, and no seed wiped, so neither
+  weight moved and neither wave was pushed later. The chain's own `godot:m2:balance` agrees
+  (`M2_BALANCE_OK`, survivors 3 / 1 / 3 / 2, grabs 123 / 145 / 0 / 154, kills 0 / 1 / 1 / 0, deaths
+  1 / 2 / 0 / 4, packets 2 / 1 / 2 / 2, max_live 27 / 25 / 28 / 30 — against the variance slice's
+  117 / 145 / 0 / 153 and packets 2 / 1 / 3 / 2). This is **re-baseline #6**, and the arc's rule
+  is why: a piece that puts a new kind inside the ten days owes one. Two lines moved and neither
+  is waved at. Grabs on 20260805 went 117 → 123 — six grabs on one of the three seeds a stalker
+  reached, where the other two did not move at all, which is the size of the noise a single
+  differently-shaped body makes over ten compressed nights rather than a measured effect of it.
+  Packets on 31337 went 3 → 2 because `pick_type` draws off the
+  **director's own stream**: the number of draws is unchanged (one
+  `int_range` a body, as before), but the *kind* each roll returns is not, and a different body
+  makes a different night, which the director then reads. **What the compressed 64-tile tier can
+  and cannot see about these kinds, named rather than hidden.** It can see that they arrive on
+  schedule and that the colony survives them — which is the assertion that matters and the one
+  that must never be the lever. It cannot see what either kind is *for*. The tier jumps to dusk
+  and steps 2,000 ticks, about 100 seconds of sim, which the balance gate's own header already
+  records as too short for a district-edge packet to cross a district: a stalker reached the map
+  on three seeds and a runner on one, and on the fourth neither was drawn at all, so the sample is
+  one or two bodies a campaign against twenty-odd shamblers. A runner's speed only matters in a
+  chase that the window has no room for, and a stalker's ear only matters over a night of the
+  colony's own noise, which the compression deletes between windows along with hunger. Both belong
+  to the FULL tier at 256 tiles, where a campaign actually fights and eighty bodies make the mix's
+  ~9% stalkers seven rather than one; neither is run here.
 - **Roster & Presentation** — ~~each dead body differs~~ **landed** (`godot:m2:variance`, which
   takes the `godot:m2` chain to 73 links), 2026-09-15, the fourth piece of the owner's
   procedural-population arc and the second of its zombie group. What was wrong: every zombie of a

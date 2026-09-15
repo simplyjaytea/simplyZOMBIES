@@ -1,0 +1,12 @@
+{
+  "id": "zombie.stalker",
+  "extends": "zombie.base",
+  "name": "Stalker",
+  "introducedInWave": 1,
+  "weight": 10,
+  "appearance": { "sprite": "zombie_shambler" },
+  "sensory": { "noise": 0.9, "light": 0.4, "scent": 0.4 },
+  "locomotion": { "speed": 1.0, "wander": 0.45, "mill": 0.5, "crawl": 0.25 },
+  "body": { "head": 25, "torso": 50, "legs": 40 },
+  "variance": { "tints": ["#dcdde2", "#cfd2d9", "#e3e2e6", "#c8ccd4"] }
+}

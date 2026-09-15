@@ -4489,6 +4489,74 @@ than asserted: the gate holds the stream's state after `_emit_band` places four 
 taken from the pre-individuals tree with a throwaway driver on two seeds, and proves the pin can
 fail by spending one more draw.
 
+## The stalker and the runner, and what "zero code" turned out to mean (2026-09-15)
+
+The fifth piece of the owner's procedural-population arc, and the one that was written as an
+experiment rather than a feature: docs/14 closes with **"adding a zombie type is one JSON entry
+with zero code, provided its behavior composes from existing tags"**, and nobody had tested it,
+because the three kinds that ship were each landed alongside the code that made them work. The
+stalker and the runner were picked to test it because docs/14 itself sorts them onto opposite
+sides of the qualifier — "stalkers and armored zombies compose from tags that exist or nearly do
+… screamers and runners need sight".
+
+**It held, with one half of one kind left out, and the half is named below.** Two files under
+`godot/content/zombies/`, `zombie.schema.json` untouched, and **not one line under `godot/sim/`**
+— `git diff` over that directory is empty for this slice, which is the claim stated as something
+checkable rather than as a feeling. Even the two type ids live in `check_m2_roster.gd` rather than
+beside `TYPE_SHAMBLER` in `sim/modules/roster.gd`: a `const TYPE_STALKER` in the sim would have
+been the first line of code the claim cost, and there was no reason to spend it.
+
+**What did not compose: the runner's "sustained pursuit".** docs/14's runner row is "Fast,
+sustained pursuit", and the *fast* half is one number in `locomotion.speed`. The *sustained* half
+is `SimShambler.COMMIT_TICKS`, a module constant shared by every kind, and there is no content key
+for it — a runner that gives up exactly when a shambler does is what shipped. Adding one would
+have been a new content axis inside a slice whose whole purpose was to find out whether the
+existing ones were enough, so it was not added. docs/23's record says which half shipped, and the
+honest reading of the experiment is that the qualifier in docs/14 is doing real work: **the
+roster is cheap, and a kind whose defining trait is a duration is not a roster entry yet.**
+
+**The numbers, and where each came from.** docs/14's sensory table is words — Low, Moderate,
+High — and the shipped three already fix the dialect: High is 0.9, Moderate 0.4, Low 0.1–0.2. So
+the stalker is `{noise 0.9, light 0.4, scent 0.4}` and the runner `{noise 0.9, light 0.9, scent
+0.4}`, both read straight off that table rather than off the arc plan, which had called the runner
+"light-led" and left its ear out. Speeds are the plan's first cuts and agree with docs/14's prose:
+the stalker at **1.0** is "faster" than the shambler's 0.8, the runner at **1.4** is "fast". One
+thing the reader should know about 1.4: a human sprint is 3× a walk (`SimLocomotion.SPRINT_SPEED`),
+so a runner cannot be walked away from and *can* still be sprinted away from while the stamina
+lasts, which is a softer reading of docs/14's "Not outrunning it" than the table implies. It is
+left where it is because a first cut that has not been played is not a place to spend a second
+guess. The stalker's "investigates aggressively" is `wander` 0.45 and `mill` 0.5 against the
+shambler's 0.35 and 0.25 — existing keys, no new mechanism.
+
+**Waves 1 and 3, which is where docs/14 puts them**, not where a flatter schedule would. docs/14
+has the stalker in the first mutation wave beside the screamer and the runner in the third; the
+compressed schedule is `1 + wave × WAVE_DAY_STRIDE`, so the stalker arrives on **day 3** and the
+runner on **day 7**, both inside the ten days the campaign harness runs. Weights are the plan's
+cuts, **10** and **6** against the shambler's 80 — the runner low on purpose, because it is the
+kind most likely to change a night. The balance measurement did not ask for either to move.
+
+**The MIX lane's pinned sequence was re-pinned, deliberately, and the distinction matters.** That
+literal — fifty day-7 draws of seed 20260805 — was captured by the mix slice, whose claim was
+that making the mix content changed *nothing about what spawns*. This slice changes what spawns on
+purpose: two kinds join the pool from day 3 and day 7, so the day-7 sequence must move, and a
+re-pin that left it unchanged would have meant the new kinds were never in the pool at all. What
+survives the re-pin is what the pin is for: days 1 and 2 are still untouched (the shambler-only
+short-circuit, QUIET), and from here any *unintended* movement is red again. What the re-pin costs
+is a claim, and the replacement for it is a new lane rather than a promise — SHARES draws two
+thousand day-7 rolls and holds every kind inside ±25% of `weight / summed weight`, computed from
+the resolved entries rather than from a number copied into the gate, so the shipped mix is still
+proved to be the mix content asks for.
+
+**They look exactly like a shambler, and that is a gap with a name.** Both declare
+`appearance.sprite: zombie_shambler`. A new sprite key is `sprites:check` work — Pillow, a byte
+comparison of generated PNGs, and the CPython float trap in CLAUDE.md — which is a different kind
+of slice from this one, so it is a named follow-up in docs/23's what's-left rather than something
+smuggled in here. What does tell one body from another today is the per-body tint each kind rolls
+from its own `variance.tints` palette (the variance slice's pipeline, ashen for the stalker,
+flushed for the runner), and that is pallor, not a silhouette: in a crowd at 2× you cannot tell
+which one is fast. `check_appearance.gd` records the gap where a reader will meet it, as a third
+`ROSTER_SHARED` group whose comment says it is a gap and not a decision.
+
 ## A third side, 2026-09-15
 
 The allegiance seam, the first slice of the procedural-population arc's settlers group, and a
