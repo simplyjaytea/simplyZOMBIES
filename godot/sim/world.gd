@@ -66,6 +66,10 @@ var weather: Dictionary = {}
 var needsHoldMax: bool = false
 var runOver: bool = false
 var recruits: Dictionary = {"accepted": 0, "spawned": []}
+# The stranger beats that have already fired (sim/modules/strangers.gd), carried exactly as
+# `recruits` is. One key, `spawned`: how many the colony has taken in is `recruits.accepted` and
+# always will be, because a stranger is accepted through the same rung and shares the same cap.
+var strangers: Dictionary = {"spawned": []}
 # The chronicle (sim/modules/chronicle.gd): what happened to the colony, as `{tick, kind, name,
 # e}` records -- an Array, never an id-keyed Dictionary, because a save has no integer keys.
 # world.gd carries it the way it carries `recruits`: a shape it saves and restores without
@@ -211,6 +215,7 @@ func snapshot() -> Dictionary:
 			"accepted": int(recruits.get("accepted", 0)),
 			"spawned": (recruits.get("spawned", []) as Array).duplicate(),
 		},
+		"strangers": {"spawned": (strangers.get("spawned", []) as Array).duplicate()},
 		"runOver": runOver,
 		"player": int(player),
 		"chronicle": chronicle.duplicate(true),
@@ -240,6 +245,15 @@ func restore(snap: Dictionary) -> void:
 			"accepted": int(r.get("accepted", 0)),
 			"spawned": (r.get("spawned", []) as Array).duplicate(),
 		}
+	if snap.has("strangers") and snap["strangers"] is Dictionary:
+		# Back to ints on the way in. JSON has no integer type and a day written as 5 comes back
+		# as 5.0, which `Array.has(day)` still answers correctly -- and which anything comparing
+		# the list itself, a gate included, does not. One coercion here rather than a float
+		# leaking through every reader.
+		var days: Array = []
+		for d in ((snap["strangers"] as Dictionary).get("spawned", []) as Array):
+			days.append(int(d))
+		strangers = {"spawned": days}
 	runOver = bool(snap.get("runOver", false))
 	chronicle = []
 	if snap.has("chronicle") and snap["chronicle"] is Array:

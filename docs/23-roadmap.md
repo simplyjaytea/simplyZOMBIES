@@ -277,9 +277,6 @@ balance record and says so in its record; `survivors_end >= 1` is never the leve
   death, resisting through `armor_coverage_of` as it stands — closes "Armour on anything that is
   not a survivor" below — and a heavy body whose breach factor lands only if board damage is
   per-attacker; the record says which half.
-- **A stranger in a building.** On stranger beats a rolled survivor hides in a far building, walks
-  to a colonist who sees them, and is recruited by the E rung that already exists; the gate beat
-  and the dawn-leave learn to ignore them. New gate `godot:m2:strangers`.
 - **Raider roles, and the one who comes for the stores.** A `role` enum: the fighter of today, a
   lookout that halts and turns the band at the first loss, a looter whose objective is the
   stockpile and who withdraws once loaded — docs/18's "target stores first".
@@ -8289,6 +8286,114 @@ not a to-do list:
   RNG stream. Proved rather than asserted: `godot:m2:balance` green with its bands unchanged,
   `check_m2_raiders.gd`'s STREAMS pins on the `raid` stream unmoved, and `godot:test`'s R1 parity
   fixture byte-identical.
+
+- **Recruits, and the second way in** — ~~a stranger in a building~~ **landed**
+  (`godot:m2:strangers`, nine lanes, taking the `godot:m2` chain to 75 links), 2026-09-15, the
+  seventh piece of the owner's procedural-population arc. The colony could only grow one way:
+  `SimRecruits._tick_beats` puts a rolled survivor at the gate on days 8, 12 and 16 and the dawn
+  takes them away again. docs/07 names three routes and this is the second of them — somebody
+  sheltering in a building out in the district, who comes out when they see you.
+  **Almost none of it is new mechanism, which is the point.** New `sim/modules/strangers.gd` on
+  `"director"/11`, one slot after the gate beat. The body is `SimRecruits.spawn_generated` — the
+  same call the gate makes, so a stranger is the same kind of person, rolled through
+  `SimPeople.roll` off two streams of its own (`strangers`, `strangerLook`), kitted, given eyes,
+  colony-aligned. The placement is the dormant slice's `SimWorldgen.far_buildings` +
+  `indoor_tiles_of`, which were made public for exactly this caller. The walk is `SimWalk.step`.
+  And the acceptance is the **E rung that already exists**: they wear the same
+  `recruit {waiting: true}` tag, so `SimFortify`'s ladder finds them through
+  `SimRecruits.waiting_in_reach` and takes them in through `accept`, carrying the same hidden-bite
+  roll at the same `TRANSMIT_P`. Nothing here accepts anybody, no field on the new component says
+  anything about the bite, and no line is written about it — one place where a recruit can turn
+  out to be carrying something, which is what keeps it hidden.
+  **The AI is two states.** *Hiding*: no velocity, no path. *Approaching*: when a colony body is
+  inside the stranger's **own** line of sight — walls and range, cast from their eyes, not a
+  distance check — they walk to `APPROACH_METRES` of them and stand. Out of sight they keep
+  walking to where the colonist *was*, a remembered point and never a track (`sightings.gd`'s
+  rule). After `STRANGER_DAYS` unaccepted they give up through `SimRecruits.begin_leave`, and the
+  chronicle says nothing: its two existing lines are *The stranger at the gate has gone* and
+  *So-and-so has walked out*, and both are false about somebody who was never at the gate and
+  whose name the colony may never have learned. `_tick_leave` now publishes whatever reason the
+  `leaving` record names (`mood` by default, so every older caller is unchanged) and the chronicle
+  skips `stranger`. No new prose anywhere; `godot:check:hud` green.
+  **One stepper, two callers.** `SimRaiders._walk` became `SimWalk.step(world, ent, rec, goal,
+  speed)` in `sim/walk.gd` and raiders call it unchanged, each keeping its own record dict — a
+  second copy is two answers to "what is a wall", and they drift the first time either learns
+  something. `speed` is a parameter rather than a field, so a derived number stays out of the save.
+  `SimJobs._walk` is deliberately not folded in (it carries the reservation, the arrival test and
+  the encumbrance).
+  **The two regressions this could have caused, both fixed and both gated.**
+  `_tick_beats` refused to fire while *any* `recruit` component existed and `_tick_dawn_leave`
+  despawned *every* waiting one, so a stranger hiding on day 5 would have cancelled the day-8 gate
+  beat and died at the first dawn. Both go through one new predicate, `_waiting_at_the_gate`, so
+  the two cannot come to disagree about what a stranger is.
+  **Nine lanes, each with its true negative.** PLACED: indoors, inside a building
+  `far_buildings` returned, outside the annex and clear of both gates, over five seed/size pairs
+  (one skipped and said so — at 64 tiles most seeds hold nothing legal); negatives, the predicate
+  refuses the colony's own start tile, and a district with **no buildings at all** places nobody
+  and spends neither the beat day nor a draw off the stream. DAYLIGHT: the beat fires in the day
+  and in none of dawn, dusk or night, and spends the day only when it places — four probes, one
+  fixture each, and exactly one of them may place anybody. HIDES: on the same tile after 1,200
+  ticks with nobody near, and **1.02 m** the moment a colonist stands in sight, so the stillness is
+  a measurement. APPROACHES: **15.0 m closed in 414 ticks** to a colonist in sight, standing at
+  1.99 m and still there 200 ticks later; the negative is a colonist **3.0 m away behind a wall**,
+  never noticed — the blind tile is chosen no further off than the visible one, so distance cannot
+  explain either half, and the path is checked to be an Array of `{x, y}` records. RECRUIT: the E
+  press through the real command queue takes them in, colony 1 → 2, tag gone, `stranger` component
+  released the next tick so two systems are never steering one body; negative, the same press five
+  metres off accepts nobody. LEDGER: `_survivors_alive`-style counting unmoved at 3 by a hiding
+  stranger and 4 once accepted, **plus** the textual half — `check_m2_balance.gd`'s own counter
+  still excludes `recruit`, isolated to that function's body so no comment can satisfy the needle.
+  GATE BEAT: day 8 fires over a hidden stranger *and* is still blocked by a gate recruit; one dawn
+  takes the gate recruit *and* leaves the stranger. LEAVES: gone after three days with no line
+  written, while a stranger placed today stays and the gate recruit turned away at the same dawn
+  still gets its line. SAVE: both strangers round-trip in their own states through real save text,
+  path records and `world.strangers.spawned` included.
+  Each lane was run red on purpose before it was trusted — the placement moved to the building's
+  outside corner (PLACED), the daylight guard deleted so the beat fired in all four phases
+  (DAYLIGHT), the `line_of_sight` test deleted so a body 65 m away was noticed
+  (HIDES, and APPROACHES' wall negative), `SPEED` zeroed (HIDES' movement half and APPROACHES'
+  positive), the tag written `waiting: false` (RECRUIT and LEDGER), the balance harness's `recruit`
+  exclusion removed (LEDGER's textual half), `query(["recruit"])` put back in `_tick_beats` and
+  again in `_tick_dawn_leave` (GATE BEAT, one half each), the departure reason hardcoded to `mood`
+  so the chronicle wrote a line (LEAVES), the give-up clock pushed out of reach (LEAVES), and
+  `strangers` dropped from the snapshot (SAVE).
+  **Save:** `SAVE_VERSION` **31**. A v30 save has no `stranger` component, no `stranger` flag on
+  the recruit tag and no `world.strangers.spawned`; restored, every stranger already placed would
+  read as somebody at the gate — cancelling the next gate beat and despawned at the first dawn —
+  and every stranger beat already paid for would fire again. The twin pins in `check_m2_save.gd`
+  and `check_m2_fortify.gd` moved with it.
+  **They arrive in daylight, and a measurement forced it.** The beat first fired on whatever tick
+  of the beat day the world was running: dawn in a real campaign, **dusk** in the balance
+  harness's compressed tier. A stranger placed at dusk is placed into the night the director is
+  filling, and on seed 31337 both of them were killed and **turned** inside the window they
+  arrived in — two shamblers the director never placed, taking the live count to **33 against a
+  cap of 32** and `check_m2_balance.gd`'s `over_cap` invariant red. A throwaway driver (deleted)
+  put the number on it — `PEAK live=33 cap=32 of which turned-from-a-person=2` — before anything
+  was changed; the assertion was not touched, the beat was (CLAUDE.md: move the beats, never the
+  assertion). With the guard in, `godot:m2:balance` is green and its FAST tier is **byte-identical
+  to the pre-slice baseline**, because that tier only ever runs dusk windows and now places
+  nobody: `INVARIANTS OK placement, cap 32 at 64 tiles`, survivors 3 / 1 / 3 / 2, grabs
+  117 / 145 / 0 / 154.
+  **Balance, measured before and after on one throwaway driver (deleted), four fast seeds, ten
+  days compressed to the *working day* — `check_m2_balance.gd`'s own armour-arm move and its own
+  reason ("the dusk window never touches the colony") — `entity.killed` de-duplicated by entity
+  id.** `survivors_end` **2 / 1 / 2 / 2 → 2 / 1 / 2 / 2**, killed **5 / 3 / 3 / 2 →
+  5 / 5 / 5 / 3**, of which people **2 / 2 / 1 / 1 → 2 / 4 / 3 / 2**, grabs
+  **100 / 142 / 38 / 42 → 100 / 167 / 95 / 106**, peak zombies **20 / 22 / 23 / 21 →
+  20 / 24 / 24 / 21** with `over_cap` **0** on every seed. Seed 20260805's 64-tile district has no
+  building far enough from home, so it places nobody and comes back **byte-identical** — the
+  control this measurement did not have to arrange. On the other three two strangers each are
+  placed and felt: the contact roughly doubles on 31337 and 90210, and the extra deaths are the
+  strangers themselves, not colonists. **`survivors_end` is unmoved on all four and `>= 1`
+  everywhere**, so nothing was narrowed and no first cut was moved.
+  **What this still cannot see, stated rather than implied:** the window is 2,000 ticks of the
+  working day, ten times; the colony never walks out to look for anybody, so no stranger is ever
+  *found*. It measures what a living body in a house costs the district, not what meeting one is
+  worth. That is the ten-day human playtest's question and it is still owed.
+  **First cuts, the owner's to move:** beats on days 5, 10 and 14; at most two live at once;
+  `SimDirector.GATE_EXCLUSION` (32 m) as the distance from home, the dormant bodies' own; three
+  days of waiting; and strangers share `SimRecruits.CAP`, so the colony still tops out where it
+  did.
 
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not
