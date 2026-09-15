@@ -16,6 +16,9 @@ const SimCombat = preload("res://sim/combat.gd")
 const SimLight = preload("res://sim/modules/light.gd")
 const SimAttentionEmitter = preload("res://sim/modules/attention_emitter.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
+# `zombie_speed` -- so the KINDS lane compares the component against the same conversion
+# `make_shambler` used rather than against a multiplier copied into this file.
+const SimLocomotion = preload("res://sim/locomotion.gd")
 
 func _init() -> void:
 	call_deferred("_run")
@@ -35,8 +38,10 @@ func _run() -> void:
 	ok = _the_dead_write_to_the_field_from_content() and ok
 	ok = _residue_is_laid_in_every_state() and ok
 	ok = _a_second_cloud_rolls_again() and ok
+	ok = _the_new_kinds_are_content() and ok
+	ok = _the_new_senses_are_read() and ok
 	if ok:
-		print("M2_ROSTER_OK mix alarm bloom exhausted, every zombie has eyes, extends resolved, senses and waves are content, the screamer sees what is lit at night, the dead write to the field from content, residue in every state, one roll a cloud")
+		print("M2_ROSTER_OK mix alarm bloom exhausted, every zombie has eyes, extends resolved, senses and waves are content, the screamer sees what is lit at night, the dead write to the field from content, residue in every state, one roll a cloud, the stalker and the runner are two JSON entries a body reads")
 		quit(0)
 	else:
 		push_error("M2_ROSTER_FAIL")
@@ -48,34 +53,62 @@ func _fixture(seed_val: int, w: int = 24, h: int = 24) -> Dictionary:
 # --- MIX: the mix is content -------------------------------------------------------------------
 #
 # `pick_type` held 80/12/8 as three constants; each type now carries a `weight` and the draw is
-# one roll over the summed weights of the kinds whose wave has arrived. Four assertions, each run
+# one roll over the summed weights of the kinds whose wave has arrived. Five assertions, each run
 # red on purpose before it was trusted:
 #
-#  * PINNED -- the shipped tree on seed 20260805 draws exactly the sequence the hard-coded mix
-#    drew, fifty draws deep on day 7 with all three kinds due, off its own `mixProbe` stream.
-#    Captured by a throwaway driver from the old code before a line of it changed and pinned here
-#    as a literal. This is the whole byte-identity claim: it fails the moment a roll, the order of
-#    the pool or a shipped weight moves, and with it the `placement` and `director` streams every
-#    campaign draws its bodies from.
+#  * PINNED -- the shipped tree on seed 20260805 draws exactly one sequence, fifty draws deep on
+#    day 7 with every kind due, off its own `mixProbe` stream, pinned here as a literal. It fails
+#    the moment a roll, the order of the pool or a shipped weight moves, and with it the
+#    `placement` and `director` streams every campaign draws its bodies from.
+#
+#    **Re-pinned 2026-09-15 by the stalker-and-runner slice, deliberately.** The literal it
+#    replaced was the sequence the hard-coded 80/12/8 drew, and that byte-identity claim belonged
+#    to the mix slice, which changed *what content could say* and nothing about what spawns. This
+#    slice puts two more kinds on the table from day 3 and day 7, so the day-7 sequence must move
+#    -- a re-pin that left it unchanged would mean the new kinds were never in the pool. The
+#    balance record carries the campaign half of the same change (docs/23). What the pin still
+#    guarantees, and why it is worth keeping: days 1 and 2 are untouched (QUIET below), and from
+#    here on any *unintended* movement of the draw is red again.
 #  * SILENCED -- a fixture tree with the shambler at `weight: 0` never draws one in 200 draws,
-#    where the shipped tree draws it four times in five. PINNED alone would pass against code
+#    where the shipped tree draws it two times in three. PINNED alone would pass against code
 #    that still had the constants in it; this is what says the number in the JSON is read.
-#  * HEAVY -- a fixture with the bloater at 100 against 1 and 1 draws bloaters overwhelmingly.
+#  * HEAVY -- a fixture with the bloater at 100 against 1 apiece draws bloaters overwhelmingly.
 #    The dead-socket half of SILENCED, which on its own is satisfied by code that only ever looks
 #    for a zero: here the weight has to be *summed*, not merely noticed.
 #  * QUIET -- fifty day-1 calls leave the stream's state exactly where it was, and the same fifty
 #    on day 7 move it. The short-circuit is what keeps days 1 and 2 byte-identical, and a state
-#    that crept would have shifted every later draw of every campaign.
+#    that crept would have shifted every later draw of every campaign. Still true with five kinds
+#    on the roster, because the stalker is wave 1 and the runner wave 3: on day 1 the shambler is
+#    still the only thing due, and the pool still answers without a draw.
+#  * SHARES -- the lane the re-pin owes. A literal sequence says "this did not move"; it does not
+#    say the shipped mix is *what content asked for*. Two thousand day-7 draws, every kind's count
+#    inside ±25% of `weight / summed weight`, computed from the resolved entries rather than from
+#    a number copied into this file. Its negative is a tree with the runner at 1: that draw falls
+#    outside the shipped runner band while the shambler stays inside the shipped shambler band, so
+#    the band is narrow enough to notice a weight and wide enough not to be noise.
+#
+# The two ids the stalker-and-runner slice added are named **here** and not in
+# `sim/modules/roster.gd` beside `TYPE_SHAMBLER` and the rest, on purpose: that slice's whole
+# claim is docs/14's "adding a zombie type is one JSON entry with zero code", and a
+# `const TYPE_STALKER` in the sim would have been the first line of code it cost. Nothing under
+# `godot/sim/` names either id; these two exist only so the lanes below can spell them.
+const TYPE_STALKER: String = "zombie.stalker"
+const TYPE_RUNNER: String = "zombie.runner"
+
 const PINNED_SEED: int = 20260805
 const PINNED_STREAM: String = "mixProbe"
-# h shambler, c screamer, b bloater -- 40 / 3 / 7 of the first fifty draws on day 7.
-const PINNED_DRAWS: String = "hhhhhbbbhhbhchhhbhhhhhhhhbbchhhhhhhhhhhhhhchhhhhhh"
+# h shambler, c screamer, b bloater, t stalker, r runner -- 35 / 4 / 6 / 4 / 1 of the first fifty
+# draws on day 7, where all five kinds are due.
+const PINNED_DRAWS: String = "hhhthbbrhhbhchhhbhchhhthhbbchhthhhhhhhhthhchhhhhhh"
+# The share each kind's 2000-draw count may stray from its content weight, either way.
+const SHARE_TOLERANCE: float = 0.25
+const SHARE_DRAWS: int = 2000
 
 
 func _mix() -> bool:
 	var day7: int = Clock.tick_on_day(7, 0.5)
 	var day1: int = Clock.tick_on_day(1, 0.5)
-	var code: Dictionary = {SimRoster.TYPE_SHAMBLER: "h", SimRoster.TYPE_SCREAMER: "c", SimRoster.TYPE_BLOATER: "b"}
+	var code: Dictionary = {SimRoster.TYPE_SHAMBLER: "h", SimRoster.TYPE_SCREAMER: "c", SimRoster.TYPE_BLOATER: "b", TYPE_STALKER: "t", TYPE_RUNNER: "r"}
 
 	# PINNED.
 	var world: Variant = World.new(_fixture(PINNED_SEED))
@@ -84,7 +117,7 @@ func _mix() -> bool:
 	for i in PINNED_DRAWS.length():
 		drawn += String(code.get(SimRoster.pick_type(world, rng, day7), "?"))
 	if drawn != PINNED_DRAWS:
-		push_error("MIX: seed %d no longer draws the sequence the hard-coded 80/12/8 drew\n  was %s\n  now %s" % [PINNED_SEED, PINNED_DRAWS, drawn])
+		push_error("MIX: seed %d no longer draws the pinned day-7 sequence\n  was %s\n  now %s" % [PINNED_SEED, PINNED_DRAWS, drawn])
 		return false
 
 	# QUIET: day 1, where only the shambler is due, answers without touching the stream.
@@ -107,26 +140,87 @@ func _mix() -> bool:
 		push_error("MIX: fifty day-7 calls left the stream where it was -- `save()` is not reporting the draw")
 		return false
 
-	# SILENCED and HEAVY, against the shipped tree over the same seed and stream.
+	# SILENCED and HEAVY, against the shipped tree over the same seed and stream. Every kind but
+	# the one under test is flattened to 1, so the fixtures stay comparable as the roster grows.
 	var shipped: Dictionary = _draw_counts(null, day7, 200)
 	var silenced: Dictionary = _draw_counts(_tree_with_weights({SimRoster.TYPE_SHAMBLER: 0}), day7, 200)
-	var heavy: Dictionary = _draw_counts(_tree_with_weights({SimRoster.TYPE_BLOATER: 100, SimRoster.TYPE_SHAMBLER: 1, SimRoster.TYPE_SCREAMER: 1}), day7, 200)
-	if int(shipped.get(SimRoster.TYPE_SHAMBLER, 0)) < 140:
-		push_error("MIX: the shipped tree should be mostly shamblers (%s)" % str(shipped))
+	var heavy: Dictionary = _draw_counts(_tree_with_weights({SimRoster.TYPE_BLOATER: 100, SimRoster.TYPE_SHAMBLER: 1, SimRoster.TYPE_SCREAMER: 1, TYPE_STALKER: 1, TYPE_RUNNER: 1}), day7, 200)
+	if int(shipped.get(SimRoster.TYPE_SHAMBLER, 0)) < 110:
+		push_error("MIX: the shipped tree should still be mostly shamblers (%s)" % str(shipped))
 		return false
 	if int(silenced.get(SimRoster.TYPE_SHAMBLER, 0)) != 0:
 		push_error("MIX: a shambler at weight 0 was drawn %d times in 200 (%s)" % [int(silenced[SimRoster.TYPE_SHAMBLER]), str(silenced)])
 		return false
-	if int(silenced.get(SimRoster.TYPE_SCREAMER, 0)) + int(silenced.get(SimRoster.TYPE_BLOATER, 0)) != 200:
-		push_error("MIX: silencing the shambler should leave the other two kinds drawing (%s)" % str(silenced))
+	var silenced_rest: int = 0
+	for kind in silenced.keys():
+		if String(kind) != SimRoster.TYPE_SHAMBLER:
+			silenced_rest += int(silenced[kind])
+	if silenced_rest != 200:
+		push_error("MIX: silencing the shambler should leave every other kind drawing (%s)" % str(silenced))
 		return false
 	if int(heavy.get(SimRoster.TYPE_BLOATER, 0)) < 180:
-		push_error("MIX: a bloater at 100 against 1 and 1 drew only %d of 200 -- the weight is counted, not summed (%s)" % [int(heavy.get(SimRoster.TYPE_BLOATER, 0)), str(heavy)])
+		push_error("MIX: a bloater at 100 against 1 apiece drew only %d of 200 -- the weight is counted, not summed (%s)" % [int(heavy.get(SimRoster.TYPE_BLOATER, 0)), str(heavy)])
 		return false
 	if int(heavy.get(SimRoster.TYPE_BLOATER, 0)) <= int(shipped.get(SimRoster.TYPE_BLOATER, 0)) * 3:
 		push_error("MIX: weighting the bloater up changed nothing much (heavy %s vs shipped %s)" % [str(heavy), str(shipped)])
 		return false
+	if not _shares(day7):
+		return false
 	print("MIX OK pinned %d draws on seed %d unchanged; day-1 stream untouched (%d); shipped %s, shambler silenced %s, bloater at 100 %s" % [PINNED_DRAWS.length(), PINNED_SEED, before, str(shipped), str(silenced), str(heavy)])
+	return true
+
+
+# SHARES. Every kind due on `tick` is drawn at the share its own `weight` asks for, against a
+# total this lane sums from the resolved entries rather than from a number written here -- so the
+# assertion follows a content edit instead of having to be chased after one. The band is
+# SHARE_TOLERANCE either way over SHARE_DRAWS draws.
+#
+# The negative is the discrimination question, which a band alone cannot answer: a tree with the
+# runner at `weight: 1` must put the runner *outside* the shipped runner band while the shambler
+# stays inside the shipped shambler band. A band wide enough to pass anything would fail that.
+func _shares(tick: int) -> bool:
+	var probe: Variant = World.new(_fixture(1))
+	var weights: Dictionary = {}
+	var total: int = 0
+	for entry in SimRoster.types(probe):
+		var type_id: String = String(entry.get("id", ""))
+		if not SimRoster.wave_allows(probe, type_id, tick):
+			continue
+		weights[type_id] = SimRoster.weight_of(probe, type_id)
+		total += int(weights[type_id])
+	if weights.size() < 2 or total <= 0:
+		push_error("SHARES: %d kind(s) due on the day under test -- nothing to judge a mix against" % weights.size())
+		return false
+	var drawn: Dictionary = _draw_counts(null, tick, SHARE_DRAWS)
+	var bands: Dictionary = {}
+	var report: Array[String] = []
+	for type_id in weights.keys():
+		var expected: float = float(SHARE_DRAWS) * float(weights[type_id]) / float(total)
+		var low: float = expected * (1.0 - SHARE_TOLERANCE)
+		var high: float = expected * (1.0 + SHARE_TOLERANCE)
+		bands[type_id] = [low, high]
+		var got: int = int(drawn.get(type_id, 0))
+		report.append("%s w%d %d/%.0f" % [String(type_id).trim_prefix("zombie."), int(weights[type_id]), got, expected])
+		if float(got) < low or float(got) > high:
+			push_error("SHARES: %s carries weight %d of %d, so %d draws should be %.0f +/-%d%%, got %d (%s)" % [type_id, int(weights[type_id]), total, SHARE_DRAWS, expected, int(SHARE_TOLERANCE * 100.0), got, str(drawn)])
+			return false
+	if not bands.has(TYPE_RUNNER) or not bands.has(SimRoster.TYPE_SHAMBLER):
+		push_error("SHARES: the negative needs the runner and the shambler both due on the day under test")
+		return false
+	var quieter: Dictionary = _draw_counts(_tree_with_weights({TYPE_RUNNER: 1}), tick, SHARE_DRAWS)
+	var runner_band: Array = bands[TYPE_RUNNER] as Array
+	var shambler_band: Array = bands[SimRoster.TYPE_SHAMBLER] as Array
+	var quiet_runner: int = int(quieter.get(TYPE_RUNNER, 0))
+	var quiet_shambler: int = int(quieter.get(SimRoster.TYPE_SHAMBLER, 0))
+	if float(quiet_runner) >= float(runner_band[0]):
+		push_error("SHARES: a runner dropped to weight 1 still drew %d, inside the shipped band [%.0f, %.0f] -- the band cannot see a weight" % [quiet_runner, float(runner_band[0]), float(runner_band[1])])
+		return false
+	if float(quiet_shambler) < float(shambler_band[0]) or float(quiet_shambler) > float(shambler_band[1]):
+		push_error("SHARES: dropping the runner moved the shambler to %d, outside its shipped band [%.0f, %.0f] -- the band is too narrow to be about the runner" % [quiet_shambler, float(shambler_band[0]), float(shambler_band[1])])
+		return false
+	print("SHARES OK %d draws over %d kinds summing to %d: %s (+/-%d%%); the runner at weight 1 falls to %d, under its shipped floor %.0f, and the shambler stays at %d" % [
+		SHARE_DRAWS, weights.size(), total, ", ".join(report), int(SHARE_TOLERANCE * 100.0), quiet_runner, float(runner_band[0]), quiet_shambler,
+	])
 	return true
 
 
@@ -588,7 +682,47 @@ func _waves_are_content() -> bool:
 	if not drew.has(SimRoster.TYPE_BLOATER):
 		push_error("WAVE: the wave-1 bloater should still be drawn on day 3 (%s)" % str(drew))
 		return false
-	print("WAVE OK shipped screamer day 3; moved to wave 2 it waits for day 5; day-3 draws %s" % str(drew))
+
+	# The two kinds the stalker-and-runner slice added, each asked the same pair of questions:
+	# absent on the day before its wave opens, present on the day it does. The stalker is wave 1
+	# (day 3), the runner wave 3 (day 7) -- `first_day_of_wave` is 1 + wave * WAVE_DAY_STRIDE, and
+	# the numbers are spelled out here rather than computed from it so a stride edit is visible.
+	var day7: int = Clock.tick_on_day(7, 0.5)
+	if SimRoster.wave_allows(w, TYPE_STALKER, day1) or not SimRoster.wave_allows(w, TYPE_STALKER, day3):
+		push_error("WAVE: the stalker is wave 1 and belongs on day 3, not day 1")
+		return false
+	if SimRoster.wave_allows(w, TYPE_RUNNER, day5) or not SimRoster.wave_allows(w, TYPE_RUNNER, day7):
+		push_error("WAVE: the runner is wave 3 and belongs on day 7, not day 5")
+		return false
+	# And `pick_type` honours it, which is the half that matters: a schedule nothing draws against
+	# is a number in a file. Same tree, same stream, three days.
+	var sched: Variant = World.new(_fixture(47))
+	var srng: Variant = sched.rng.stream("placement")
+	var on1: Dictionary = {}
+	var on3: Dictionary = {}
+	var on7: Dictionary = {}
+	for i in 400:
+		var t1: String = SimRoster.pick_type(sched, srng, day1)
+		on1[t1] = int(on1.get(t1, 0)) + 1
+	for i in 400:
+		var t3: String = SimRoster.pick_type(sched, srng, day3)
+		on3[t3] = int(on3.get(t3, 0)) + 1
+	for i in 400:
+		var t7: String = SimRoster.pick_type(sched, srng, day7)
+		on7[t7] = int(on7.get(t7, 0)) + 1
+	if on1.has(TYPE_STALKER) or on1.has(TYPE_RUNNER):
+		push_error("WAVE: a day-1 draw produced a stalker or a runner (%s)" % str(on1))
+		return false
+	if not on3.has(TYPE_STALKER):
+		push_error("WAVE: 400 day-3 draws produced no stalker, and it is wave 1 (%s)" % str(on3))
+		return false
+	if on3.has(TYPE_RUNNER):
+		push_error("WAVE: a day-3 draw produced a wave-3 runner (%s)" % str(on3))
+		return false
+	if not on7.has(TYPE_RUNNER) or not on7.has(TYPE_STALKER):
+		push_error("WAVE: 400 day-7 draws are missing one of the two new kinds (%s)" % str(on7))
+		return false
+	print("WAVE OK shipped screamer day 3; moved to wave 2 it waits for day 5; day-3 draws %s; stalker day 3 and runner day 7, 400 draws a day: %s / %s / %s" % [str(drew), str(on1), str(on3), str(on7)])
 	return true
 
 
@@ -741,4 +875,190 @@ func _a_second_cloud_rolls_again() -> bool:
 		push_error("BLOOM-TWICE: two rolls should be two recorded exposures, got %d" % n)
 		return false
 	print("BLOOM-TWICE OK one cloud one roll (held over 40 ticks), a second cloud a second roll, two exposures recorded")
+	return true
+
+
+# --- The stalker and the runner, slice 5 of the procedural-population arc ---------------------
+#
+# docs/14 ends with a claim: "adding a zombie type is one JSON entry with zero code, provided its
+# behavior composes from existing tags". The stalker and the runner are that claim put on trial
+# -- two files under `content/zombies/`, nothing under `godot/sim/` touched, which is why the two
+# ids are spelled at the top of *this* file and nowhere in the sim.
+#
+# KINDS is the two halves of "the entry is real". First, `resolved_entry` answers for each id
+# with `extends zombie.base` applied, so a child that declares neither `spread` nor `grab` nor
+# `behaviors` nor `emits` still has all four. Second -- and this is the half that matters -- the
+# `sensory` and `locomotion` numbers land on the **spawned body's `shambler` component**, because
+# that is what `shambler.think` reads every tick. A lane that stopped at the resolved dictionary
+# would pass against a `make_shambler` that ignored content entirely, which is the dead-socket
+# shape CLAUDE.md names; so each kind is spawned and its component read, and the negative is the
+# same spawn against a tree carrying different numbers, which must produce the fixture's values
+# rather than the shipped ones.
+const NEW_KIND_PROFILES: Dictionary = {
+	"zombie.stalker": {"noise": 0.9, "light": 0.4, "scent": 0.4, "speed": 1.0, "wander": 0.45, "mill": 0.5},
+	"zombie.runner": {"noise": 0.9, "light": 0.9, "scent": 0.4, "speed": 1.4, "wander": 0.3, "mill": 0.3},
+}
+# The fixture profile the negative writes over each kind. Every number differs from both shipped
+# rows above, so a component built from a constant cannot match it by accident.
+const FIXTURE_PROFILE: Dictionary = {"noise": 0.15, "light": 0.05, "scent": 0.65, "speed": 0.55, "wander": 0.9, "mill": 0.8}
+
+
+func _the_new_kinds_are_content() -> bool:
+	var probe: Variant = _daylight_world(73)
+	for type_id in NEW_KIND_PROFILES.keys():
+		var entry: Variant = SimRoster.content_entry(probe, String(type_id))
+		if not entry is Dictionary:
+			push_error("KINDS: %s does not resolve -- its content file is not in the tree" % type_id)
+			return false
+		var e: Dictionary = entry as Dictionary
+		for inherited in ["spread", "grab", "behaviors", "emits"]:
+			if not e.has(inherited):
+				push_error("KINDS: %s resolved without the base's `%s` -- `extends` did not apply (%s)" % [type_id, inherited, str(e.keys())])
+				return false
+		if not SimRoster.has_behavior(probe, String(type_id), "grab"):
+			push_error("KINDS: %s cannot grab -- it did not inherit the base's behaviours" % type_id)
+			return false
+		for declared in ["introducedInWave", "weight", "appearance", "body", "sensory", "locomotion", "variance"]:
+			if not e.has(declared):
+				push_error("KINDS: %s declares no `%s`, which every shipped kind declares" % [type_id, declared])
+				return false
+		if String((e["appearance"] as Dictionary).get("sprite", "")) == "":
+			push_error("KINDS: %s names no sprite key, so it has no picture at all" % type_id)
+			return false
+		var tints: Variant = (e["variance"] as Dictionary).get("tints")
+		if not tints is Array or (tints as Array).size() < 2:
+			push_error("KINDS: %s declares no palette of its own, so every body of it is the same body again" % type_id)
+			return false
+
+	# The component, from the shipped tree and then from a tree that disagrees with it.
+	for type_id in NEW_KIND_PROFILES.keys():
+		var shipped: Dictionary = NEW_KIND_PROFILES[type_id] as Dictionary
+		if not _component_carries(_daylight_world(73), String(type_id), shipped, "the shipped tree"):
+			return false
+		var tree: Dictionary = _tree_with_profile(String(type_id), FIXTURE_PROFILE)
+		if not _component_carries(_daylight_world(73, tree), String(type_id), FIXTURE_PROFILE, "a fixture tree"):
+			return false
+	print("KINDS OK stalker and runner resolve with the base's spread, grab, behaviours and emits; their senses and speeds reach the spawned body's component, and a fixture tree's numbers reach it instead")
+	return true
+
+
+# One spawn, and every number the profile names read back off the `shambler` component.
+# `seekSpeed` is the content multiplier through `SimLocomotion.zombie_speed`, and `wanderSpeed`
+# and `millSpeed` are fractions of it -- the schema's "a faster type is faster in every state
+# without four numbers to keep in agreement", asked of the component rather than of the schema.
+func _component_carries(world: Variant, type_id: String, want: Dictionary, label: String) -> bool:
+	var zed: int = SimRoster.spawn_zombie(world, 12.5, 12.5, type_id, world.rng.stream("shambler"))
+	var comp: Variant = world.components.get_component(zed, "shambler")
+	if not comp is Dictionary:
+		push_error("KINDS: a spawned %s has no shambler component at all" % type_id)
+		return false
+	var sd: Dictionary = comp as Dictionary
+	var seek: float = SimLocomotion.zombie_speed(float(want["speed"]))
+	var checks: Array = [
+		["noiseSense", float(want["noise"])],
+		["lightSense", float(want["light"])],
+		["scentSense", float(want["scent"])],
+		["seekSpeed", seek],
+		["wanderSpeed", seek * float(want["wander"])],
+		["millSpeed", seek * float(want["mill"])],
+	]
+	for row in checks:
+		var key: String = String((row as Array)[0])
+		var expected: float = float((row as Array)[1])
+		var got: float = float(sd.get(key, -999.0))
+		if absf(got - expected) > 0.0001:
+			push_error("KINDS: %s from %s carries %s %.4f, want %.4f -- the component is not built from the entry" % [type_id, label, key, got, expected])
+			return false
+	return true
+
+
+# The shipped tree with one kind's `sensory` and `locomotion` blocks replaced outright.
+# `_tree_with_emits` is the precedent; `crawl` is carried over from the shipped entry because the
+# profile does not name one and a block that dropped it would inherit the base's instead, which
+# is a second thing changing at once.
+func _tree_with_profile(type_id: String, profile: Dictionary) -> Dictionary:
+	var src: Variant = World.new(_fixture(1))
+	var tree: Dictionary = {}
+	for path in src.content.keys():
+		var entry: Variant = src.content[path]
+		if entry is Dictionary and String((entry as Dictionary).get("id", "")) == type_id:
+			var copy: Dictionary = (entry as Dictionary).duplicate(true)
+			var crawl: float = float(((copy.get("locomotion", {})) as Dictionary).get("crawl", 0.25))
+			copy["sensory"] = {"noise": float(profile["noise"]), "light": float(profile["light"]), "scent": float(profile["scent"])}
+			copy["locomotion"] = {"speed": float(profile["speed"]), "wander": float(profile["wander"]), "mill": float(profile["mill"]), "crawl": crawl}
+			tree[path] = copy
+		else:
+			tree[path] = entry
+	return tree
+
+
+# READER -- the dead-socket half, asked of behaviour rather than of a number in a file. Each new
+# kind is given the one stimulus its docs/14 row is about, with the shambler beside it in the
+# same fixture on the same tick as the negative.
+#
+#  * **The runner is led by what it can see.** `sight_reach` is the observer's 12 m times
+#    sqrt(`lightSense`), so a survivor ten metres off is inside a runner's 11.4 m and well
+#    outside a shambler's 3.8 m: the runner closes on them and the shambler never leaves Wander.
+#    SIGHT_ENABLED is pinned on and put back, the convention EYES already follows -- one gate
+#    process shares the static across every world it boots.
+#  * **The stalker hunts by sound.** `shambler.think`'s `heard` is
+#    `noise_at >= own_noise + floor / noiseSense`, and neither kind emits noise, so a sound at
+#    three times the field floor is over a stalker's 0.9 threshold (1.11x floor) and under a
+#    shambler's 0.2 (5x floor): the stalker goes to Seek on the tick it arrives and the shambler
+#    does not. The survivor is parked fifteen metres away, past a stalker's 7.6 m of sight, so
+#    the only stimulus in that fixture is the sound.
+func _the_new_senses_are_read() -> bool:
+	var was: bool = SimShambler.SIGHT_ENABLED
+	SimShambler.SIGHT_ENABLED = true
+	var seen: Dictionary = {}
+	for type_id in [TYPE_RUNNER, SimRoster.TYPE_SHAMBLER]:
+		var w: Variant = _daylight_world(79)
+		w.components.set_component(w.player, "position", {"x": 16.5, "y": 12.5})
+		var z: int = SimRoster.spawn_zombie(w, 6.5, 12.5, String(type_id), w.rng.stream("shambler"))
+		w.components.set_component(z, "facing", {"radians": 0.0})
+		var sd: Dictionary = w.components.get_component(z, "shambler") as Dictionary
+		var sought: bool = false
+		for i in 40:
+			w.step()
+			var st: int = int(sd["state"])
+			if st == SimShambler.ShamblerState["Seek"] or st == SimShambler.ShamblerState["Pursue"]:
+				sought = true
+		seen[type_id] = {"sought": sought, "reach": SimShambler.sight_reach(w, z, sd)}
+	SimShambler.SIGHT_ENABLED = was
+	var runner_saw: Dictionary = seen[TYPE_RUNNER] as Dictionary
+	var shambler_saw: Dictionary = seen[SimRoster.TYPE_SHAMBLER] as Dictionary
+	if not bool(runner_saw["sought"]) or float(runner_saw["reach"]) < 10.0:
+		push_error("READER: a runner (light 0.9, reach %.2f m) did not close on a survivor 10 m away" % float(runner_saw["reach"]))
+		return false
+	if bool(shambler_saw["sought"]) or float(shambler_saw["reach"]) >= 10.0:
+		push_error("READER: a shambler (light 0.1, reach %.2f m) saw a survivor 10 m away -- the negative has nothing to separate" % float(shambler_saw["reach"]))
+		return false
+
+	var heard: Dictionary = {}
+	var floor_v: float = 0.0
+	for type_id in [TYPE_STALKER, SimRoster.TYPE_SHAMBLER]:
+		var w2: Variant = _daylight_world(83)
+		w2.components.set_component(w2.player, "position", {"x": 1.5, "y": 22.5})
+		floor_v = float(w2.field.calibration["floor"])
+		var z2: int = SimRoster.spawn_zombie(w2, 12.5, 12.5, String(type_id), w2.rng.stream("shambler"))
+		w2.components.set_component(z2, "facing", {"radians": 0.0})
+		var sd2: Dictionary = w2.components.get_component(z2, "shambler") as Dictionary
+		w2.field.emit_noise(12.5, 12.5, floor_v * 3.0)
+		w2.step()
+		var sense: float = float(sd2.get("noiseSense", 0.0))
+		heard[type_id] = {"state": int(sd2["state"]), "sense": sense, "needs": floor_v / sense if sense > 0.0 else INF}
+	var stalker_heard: Dictionary = heard[TYPE_STALKER] as Dictionary
+	var shambler_heard: Dictionary = heard[SimRoster.TYPE_SHAMBLER] as Dictionary
+	if absf(float(stalker_heard["sense"]) - 0.9) > 0.0001 or absf(float(shambler_heard["sense"]) - 0.2) > 0.0001:
+		push_error("READER: noiseSense did not come from content (stalker %s, shambler %s)" % [str(stalker_heard), str(shambler_heard)])
+		return false
+	if int(stalker_heard["state"]) != SimShambler.ShamblerState["Seek"]:
+		push_error("READER: a stalker (noise 0.9, needs %.5f) did not hear a sound at 3x the floor %.5f (%s)" % [float(stalker_heard["needs"]), floor_v * 3.0, str(stalker_heard)])
+		return false
+	if int(shambler_heard["state"]) == SimShambler.ShamblerState["Seek"]:
+		push_error("READER: a shambler (noise 0.2, needs %.5f) heard the same sound -- the negative has nothing to separate (%s)" % [float(shambler_heard["needs"]), str(shambler_heard)])
+		return false
+	print("READER OK sight at 10 m: runner reach %.2f m closes, shambler reach %.2f m does not; sound at 3x floor %.5f: stalker needs %.5f and seeks, shambler needs %.5f and does not" % [
+		float(runner_saw["reach"]), float(shambler_saw["reach"]), floor_v * 3.0, float(stalker_heard["needs"]), float(shambler_heard["needs"]),
+	])
 	return true

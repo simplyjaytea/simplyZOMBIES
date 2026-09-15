@@ -362,6 +362,14 @@ const ROSTER: Array[Dictionary] = [
 	{"id": "zombie.shambler", "kind": "zombie", "probe": {"ztype": "zombie.shambler"}, "colonist": false},
 	{"id": "zombie.screamer", "kind": "zombie", "probe": {"ztype": "zombie.screamer"}, "colonist": false},
 	{"id": "zombie.bloater", "kind": "zombie", "probe": {"ztype": "zombie.bloater"}, "colonist": false},
+	# The two wave kinds the stalker-and-runner slice added. They declare the shambler's own
+	# sprite key and no block tint, so they resolve its texture and draw white here -- which is
+	# exactly the gap docs/23's "a silhouette per kind" follow-up piece names. What tells one
+	# from another on the ground today is the per-body colour rolled from each kind's own
+	# `variance.tints` palette, which arrives on the draw item rather than in the block
+	# (check_m2_variance.gd READER), and is therefore invisible to this lane by construction.
+	{"id": "zombie.stalker", "kind": "zombie", "probe": {"ztype": "zombie.stalker"}, "colonist": false},
+	{"id": "zombie.runner", "kind": "zombie", "probe": {"ztype": "zombie.runner"}, "colonist": false},
 	{"id": "raider.scav", "kind": "raider", "probe": {"raider": true, "cid": "raider.scav"}, "colonist": false},
 	{"id": "raider.gunhand", "kind": "raider", "probe": {"raider": true, "cid": "raider.gunhand"}, "colonist": false},
 	# The four rolled raider looks (the individuals slice), and `colonist: false` on every one of
@@ -393,9 +401,17 @@ const ROSTER_DIRS: Array[String] = ["players/", "zombies/", "survivors/uniques/"
 # raider carries the gun is not something a look across a street may answer, and the looks are
 # in the same group because a per-look sprite would answer it through the back door
 # (check_m2_raiders.gd asserts the same thing from the content side).
+#
+# The third group is the one that is a **gap rather than a decision**, and it is here so the gap
+# is written down where a reader will meet it: the stalker and the runner wear the shambler's
+# rig because a new sprite key is `sprites:check` work (Pillow, a byte comparison of generated
+# art) that the slice adding them deliberately did not take. docs/23's what's-left names the
+# follow-up. Until it lands, this line is the honest statement that two kinds with different
+# senses and different speeds are one picture.
 const ROSTER_SHARED: Array = [
 	["colony.look.01", "colony.look.02", "colony.look.03", "colony.look.04", "colony.look.05", "colony.look.06"],
 	["raider.scav", "raider.gunhand", "raider.look.01", "raider.look.02", "raider.look.03", "raider.look.04"],
+	["zombie.shambler", "zombie.stalker", "zombie.runner"],
 ]
 
 # One id per distinct picture; every pair must resolve different textures.
