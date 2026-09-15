@@ -4339,3 +4339,84 @@ harmless today and it is still not what the code reads as, and a scent channel t
 survivor's trail from the body's own bedding would give the dormant state a second sense. It is
 not folded in here because it changes what every shambler in the game does, which is a balance
 change wearing a bug fix's clothes.
+
+## Four raiders are four men, 2026-09-15
+
+The fourth slice of the procedural-population arc, and the first of its raider group. Two
+archetypes shipped and every body of one was the same body: same aptitudes, same kit, same look,
+no name. Now each is a person. What follows is the calls this took; the shape of the record is
+not one of them.
+
+**A `person` record and never an `identity`, and that is the owner's, not mine.** It is written
+into the arc plan the owner approved on 2026-09-14 ("Raiders carry a `raider.person` record, never
+`identity`; five readers of `identity` would otherwise see a raider, one of them succession"), and
+this slice implements it rather than re-deciding it. The five were read before a line was written
+and they are `main.gd`'s "is this a survivor" in the entity pass, `SimJobs.work_view`,
+`SimAllegiance.is_person`, the director's unique-death lull and `SimRecruits._succession_pick`.
+The last is the one that matters: it hands the player's body to the nearest body carrying `needs`
+or `identity`, so a raider with an identity would be an heir standing at your wall. The gate's
+NO-IDENTITY lane asserts the negative *and* its converse — a raider given an identity by the lane
+itself **is** picked, which is what makes the absence of the component load-bearing rather than
+coincidental.
+
+**The jitter is ±1, and it is a first cut.** Each archetype's `aptitudes` may now be a
+two-element `[min, max]` rolled per body, and the two shipped entries are their old numbers plus
+and minus one, clamped into `SimAptitudes`' 3..8: scav `str [5,7] dex [4,6] con [4,6]`, gunhand
+`str [4,6] dex [5,7] con [4,6]`. A raider is not budget-checked the way a colonist is, so the
+triple no longer sums to fifteen and does not have to. ±1 was chosen because it is the smallest
+width that can be measured at all and because a wider one is a balance change dressed as
+individuality; the measurement is in docs/23's record, both columns, same driver.
+
+**Odds go on the extras, never on the arms.** A kit row may carry a `chance`, rolled per body, and
+the gate refuses an archetype whose every weapon row is behind one — a band that walked
+pedestrians at your gate on some seeds and raiders on others would be a raid that varies in the
+one way it must not. A row that declares a chance spends exactly one draw whatever the odds are,
+so editing a `0.5` to `1.0` does not move the stream under every later raider; a bare row spends
+none, which is what keeps an archetype that declares no odds byte-identical to the way it spawned
+before.
+
+**The look pool is kept tell-free by construction, not by care.** `content/colony/raider_looks.json`
+holds one flat `looks` list and the draw happens on `raiderLook` with no idea which archetype
+asked, so a scav and a gunhand can and do wear the same one; the gate spawns sixteen of each and
+requires the two sets to overlap, and refuses two disjoint sets through the same predicate. An
+archetype that declared looks of its own would partition the pool at the source and is refused
+too. The rule underneath, written down because the next raider slice will want it: **what a raider
+is wearing may vary between bodies but never between archetypes; what they are holding is the
+archetype.** Worn gear draws on the pawn, so a cap only the scavenger could be wearing would
+answer "which one has the gun" across a street — the certainty docs/01 clause 4 refuses. A weapon
+in a hand is visible by design, because you can see what a man is carrying. The gate compares the
+worn rows of every archetype, odds included, and requires them identical.
+
+**A raider look declares no tint, and that is a measurement rather than an omission.**
+`raider_drab` is at the floor of the palette's ground-contrast guard already — tools/sprites'
+`palette.py` calls it "as dark as the drab can go and still read as a body rather than a hole in
+the street" — and a tint is a multiply, so any wash can only darken it. Measured over the real
+pixels: the shipped rig composes to a median luma of **0.3831** against a street floor of
+**0.3796**, which leaves **0.0035** and permits nothing darker than a factor of 0.991 — a wash
+within one per cent of white, which is a look the renderer reads and nobody can see. So the four
+look entries all resolve the one body, the look id is the hook a per-body picture attaches to when
+the art exists, and the per-body variation a raider actually shows today is **what they are
+wearing**: a canvas cap at even odds and a school bag a little under, on both archetypes. The
+numbers are printed by the gate's LOOKS lane every run, so the day the rig is re-authored lighter
+the headroom is on the line where it is decided.
+
+**What the chronicle says, and when.** A raider's name reaches the player in exactly one place and
+only once they are dead: `One of the raiders was Ada Kovac, a debt collector once, grey and still
+walking; a split lip, bad teeth.` Not "%s is dead" — a colonist's death and a raider's must not
+read the same way in the same column — and nothing at all while they are standing there, because
+a band at the wall is anonymous by contract. The sentence is `SimRaiders.person_clause`, built the
+way `SimSurvivors.person_clause` builds a colonist's, and it is deliberately the reader for
+*every* field of the record: the name, the backstory's line and the age band's prose looked up in
+content at read time (so editing a line changes what an existing save says, with no migration),
+and the features as what a look at the body shows. A field of that record with nothing to read it
+would have been the dead socket this milestone has paid for eleven times. It is digit-free because
+the chronicle is on the HUD. The line is long — a little over a hundred characters in the corner
+column — and if the owner finds it busy on a raid night, shortening it is one call in
+`_line_of` and no change to what is recorded.
+
+**Two new streams, and the old one pinned.** The person, the kit odds and the aptitude jitter draw
+on `raiderRoll`; the age and the look on `raiderLook`, which is `SimPeople.roll`'s own split and
+not this slice's to reorder. The director's `raid` stream is untouched, and that is pinned rather
+than asserted: the gate holds the stream's state after `_emit_band` places four against literals
+taken from the pre-individuals tree with a throwaway driver on two seeds, and proves the pin can
+fail by spending one more draw.
