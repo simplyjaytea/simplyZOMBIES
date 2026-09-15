@@ -30,6 +30,11 @@ extends RefCounted
 # That is docs/18's "target stores first, people second, and will withdraw once loaded" -- still
 # not a faction, still no dialogue, and no standing.
 #
+# Since the crossing slice a band also has somewhere else to be. The director's dawn draw can send
+# one *through* the district instead of at it: an objective, a far edge, and a fight only with what
+# walks into `HALT_METRES` of its line. Two fields on the component carry all of it and every other
+# line in this file is shared with the raid -- see the block at `OBJECTIVE_SITE` below.
+#
 # Since the individuals slice each body is also a *person*: `raider.person` carries the name, age,
 # features, look and backstory `SimPeople.roll` drew, the archetype's aptitudes may be declared as
 # ranges and its kit rows may carry odds, so two scavengers are two men rather than one man twice.
@@ -135,6 +140,39 @@ const LOOKOUT_METRES: float = 12.0
 # the floor of your stores. Not three *stacks* and not a pack's worth -- three item entities, which
 # on a stockpile of tins and bottles is a night's meals rather than a pantry.
 const LOOT_TAKE: int = 3
+
+# --- a band passing through --------------------------------------------------------------------
+#
+# The other thing a band can be, since the crossing slice: not coming for you. `SimDirector`'s
+# dawn draw (`_draw_roam`) stamps an objective and an exit on the bodies it places, and those two
+# fields are the whole difference between a raid and a crossing in this file. Everything else --
+# the walk, the halt, the fight, the withdrawal clock, `raid.withdrew` -- is reused exactly as it
+# stands, which is the point: a crossing is an Encounter built out of a raid's machinery, not a
+# second kind of raider with its own code path.
+#
+# What the two fields do, in one place, because they are read four lines apart in four different
+# methods below:
+#
+#   * `objective` `{kind: "site", x, y}` replaces the gate as the thing `_objective` walks at, and
+#     replaces the colony's stores as the thing a looter reads (`_worth_taking`).
+#   * `exitX`/`exitY` replaces the entry tile as the thing a withdrawal walks back to
+#     (`_leave_tile`), so a band that is done keeps going instead of turning round.
+#
+# **No `SAVE_VERSION` bump**, and the rule is `kernel/serialize.gd`'s own: a bump is for a save
+# whose restored world would be quietly *wrong*. A v31 save has no crossings in it -- the draw did
+# not exist -- so every raider in one is a raid band, and a raid band is exactly what these
+# defaults describe: no objective, no exit, walk at the gate, leave the way you came. The keys
+# being absent restores the right behaviour rather than a plausible wrong one. `camp.gd` states
+# the same rule for the case one step further out.
+const OBJECTIVE_SITE: String = "site"
+
+# How far from a site's own tile a thing still counts as lying *at* that site. `SimBoot.place_loot`
+# scatters a table along a row at `SimLoot.SPREAD_METRES` (0.4 m) a step, so a table of eight is
+# about three metres wide; four covers it with room for a body standing at the end of the row, and
+# `SimInventory.PICKUP_REACH` (1.5 m) is the real limit on what a looter can actually reach anyway.
+# It exists so the predicate is about the *place* rather than about arm's length: a crossing looter
+# takes what is at the pharmacy, not whatever it happens to walk past on the way.
+const SITE_REACH: float = 4.0
 
 
 static func content_entry(world: Variant, id: String) -> Variant:
@@ -265,6 +303,12 @@ static func spawn(world: Variant, x: float, y: float, type_id: String) -> int:
 		"entryY": floori(y),
 		"arrivedAtTick": -1,
 		"withdrawing": false,
+		# Empty and (-1, -1) is a raid: walk at the colony, leave the way you came. A crossing is
+		# what `stamp_crossing` writes over them, and nothing else ever does -- a body a fixture
+		# spawned alone is a raider at the gate, exactly as it was before this slice.
+		"objective": {},
+		"exitX": -1,
+		"exitY": -1,
 	})
 	# The declared allegiance, not a constant: this field is what `SimAllegiance.hostile` reads,
 	# and the gate proves it by flipping it to "colony" and watching the colony stop shooting.
@@ -456,14 +500,15 @@ static func _approach(world: Variant, ent: int) -> void:
 		return
 	var r: Dictionary = raider as Dictionary
 	var role: String = String(r.get("role", ROLE_FIGHTER))
-	# On the way out: back to the tile it came in on, then gone. Nothing stops a withdrawal.
+	# On the way out: a raid back to the tile it came in on, a crossing on to the far edge, then
+	# gone either way. Nothing stops a withdrawal.
 	if bool(r.get("withdrawing", false)):
-		var entry := Vector2i(int(r.get("entryX", -1)), int(r.get("entryY", -1)))
+		var out: Vector2i = _leave_tile(r)
 		var pos: Variant = world.components.get_component(ent, "position")
-		if entry.x < 0 or not (pos is Dictionary) or _at_tile(pos as Dictionary, entry, 1.5) or (r.get("path", []) as Array).is_empty() and int(r.get("pathGen", -1)) == int(world.mapGeneration):
+		if out.x < 0 or not (pos is Dictionary) or _at_tile(pos as Dictionary, out, 1.5) or (r.get("path", []) as Array).is_empty() and int(r.get("pathGen", -1)) == int(world.mapGeneration):
 			_leave(world, ent, r)
 			return
-		_walk(world, ent, r, entry)
+		_walk(world, ent, r, out)
 		return
 	# Cut below half its number, the band leaves at once.
 	if int(r.get("bandSize", 0)) > 0 and _band_live(world, int(r.get("raidId", 0))) * 2 < int(r.get("bandSize", 0)):
@@ -509,7 +554,17 @@ static func _approach(world: Variant, ent: int) -> void:
 	# A lookout stops short of the objective and watches it. Not `_walk` with a shorter path: it
 	# never plans the last LOOKOUT_METRES at all, which is what makes "does not close" a property
 	# of the approach rather than of where a tick happened to end.
-	if role == ROLE_LOOKOUT and _within_metres(world, ent, goal, LOOKOUT_METRES):
+	#
+	# **Not while crossing**, and this is the half of the roles question the crossing slice had to
+	# answer. `LOOKOUT_METRES` is a watcher on the treeline *outside your gate* -- it is a distance
+	# from a colony, and a band that is not coming for a colony has nothing to stand off from. A
+	# lookout halting twelve metres short of a cupboard is the clause read literally and meant
+	# nowhere. What does travel is the other half of the same role, six branches up: the first man
+	# down still turns the whole band for the exit, because that is a fact about the band's
+	# arithmetic rather than about the colony, and it is exactly docs/18's "retreat when losses
+	# outweigh the haul" applied to a crossing. So a lookout in a passing band walks with it and
+	# decides when it breaks off.
+	if role == ROLE_LOOKOUT and not is_crossing(r) and _within_metres(world, ent, goal, LOOKOUT_METRES):
 		_still(vel as Dictionary)
 		_arrival_clock(world, r)
 		return
@@ -590,7 +645,7 @@ static func _loot_step(world: Variant, ent: int, r: Dictionary) -> bool:
 		_begin_withdrawal(r)
 		return true
 	var near: Variant = SimInventoryRes.nearest_ground_item(world, ent)
-	if near == null or not _is_stores(world, int(near)):
+	if near == null or not _worth_taking(world, r, int(near)):
 		return false
 	if not SimInventoryRes.pick_up_nearest(world, ent):
 		# Nothing left to put it in. Loaded is loaded, whether the number says three or one -- the
@@ -610,6 +665,43 @@ static func _loot_step(world: Variant, ent: int, r: Dictionary) -> bool:
 	r["path"] = []
 	r["pathGen"] = -1
 	return true
+
+
+# Whose things are worth taking, which is a different question for a band at your gate and a band
+# passing through -- and it is the other half of the roles question the crossing slice had to
+# answer.
+#
+# A raid's looter takes the colony's stores; that is docs/18's "target stores first" and it stays
+# exactly as it was. A crossing's looter takes what is lying **at the site it crossed for**, and
+# never goes near your pantry: it is not coming for you, and a looter that walked past its own
+# objective to rob a colony it was not visiting would turn the whole lever into a raid with extra
+# steps. Read the other way round, the role is what makes the objective pay: a band that crossed a
+# district for a pharmacy and took nothing out of it is the contradiction, not this.
+#
+# What it costs the player is real and is the point: the armful leaves the district on
+# `raid.withdrew` with the body carrying it, so a site the colony had not reached yet is a site
+# that is now three things poorer. docs/12's scavenging squeeze, arriving as somebody else rather
+# than as a timer.
+static func _worth_taking(world: Variant, r: Dictionary, item: int) -> bool:
+	if is_crossing(r):
+		return _at_objective(world, r, item)
+	return _is_stores(world, item)
+
+
+# Is this item lying at the place the band crossed for? Measured from the site's own tile rather
+# than from the body, so "at the site" is a fact about the place and not about where a looter
+# happens to be standing when it asks.
+static func _at_objective(world: Variant, r: Dictionary, item: int) -> bool:
+	var o: Variant = r.get("objective", {})
+	if not (o is Dictionary):
+		return false
+	var site := Vector2i(int((o as Dictionary).get("x", -1)), int((o as Dictionary).get("y", -1)))
+	if site.x < 0 or site.y < 0:
+		return false
+	var pos: Variant = world.components.get_component(item, "position")
+	if not (pos is Dictionary):
+		return false
+	return _at_tile(pos as Dictionary, site, SITE_REACH)
 
 
 # Is this item lying on the colony's stores? `SimNeeds.is_stockpile_tile` is the colony's own
@@ -657,6 +749,54 @@ static func stamp_band(world: Variant, members: Array, raid_id: int) -> void:
 			(r as Dictionary)["bandSize"] = members.size()
 
 
+# And, for a band that is only passing through, where it is going and where it leaves. Called by
+# `SimDirector._emit_band` immediately after `stamp_band` and by nothing else, so a band is a raid
+# unless the dawn draw said otherwise.
+#
+# The cached goal and the path are cleared with it, which is not housekeeping: `spawn` may already
+# have been followed by a tick of walking in a fixture, and a body carrying a path towards the gate
+# would finish walking to the gate before noticing it was somewhere else. `_begin_withdrawal`
+# clears the same three for the same reason.
+#
+# An `exit_tile` of (-1, -1) is allowed and means "leave the way you came" -- see `SimDirector`'s
+# `_far_edge`, which returns it for a district with only one usable edge.
+static func stamp_crossing(world: Variant, members: Array, site: Vector2i, exit_tile: Vector2i) -> void:
+	for ent in members:
+		var r: Variant = world.components.get_component(int(ent), "raider")
+		if not (r is Dictionary):
+			continue
+		var rec: Dictionary = r as Dictionary
+		rec["objective"] = {"kind": OBJECTIVE_SITE, "x": site.x, "y": site.y}
+		rec["exitX"] = exit_tile.x
+		rec["exitY"] = exit_tile.y
+		rec["goalX"] = -1
+		rec["goalY"] = -1
+		rec["path"] = []
+		rec["pathGen"] = -1
+
+
+## Is this body crossing the district rather than coming for the colony?
+##
+## The `kind` is asked rather than assumed, so the record is a closed shape from the day it lands:
+## an objective naming something nothing implements reads as no objective at all and the band is a
+## raid, which is the loud-by-omission answer rather than a body walking at (0, 0).
+static func is_crossing(r: Dictionary) -> bool:
+	var o: Variant = r.get("objective", {})
+	return o is Dictionary and String((o as Dictionary).get("kind", "")) == OBJECTIVE_SITE
+
+
+# Where a band goes when it is done with whatever it came to do. A raid walks back to the tile it
+# came in on; a crossing keeps going and leaves by the far edge the director stamped on it. One
+# field decides which, and everything underneath -- the path, the arrival test, `_leave` and the
+# `raid.withdrew` it publishes -- is the same machinery for both.
+static func _leave_tile(r: Dictionary) -> Vector2i:
+	var ex: int = int(r.get("exitX", -1))
+	var ey: int = int(r.get("exitY", -1))
+	if ex >= 0 and ey >= 0:
+		return Vector2i(ex, ey)
+	return Vector2i(int(r.get("entryX", -1)), int(r.get("entryY", -1)))
+
+
 # Where the band is going. The gate, because that is how a colony is entered; the centre when a
 # district carries no gate anchor; nothing at all when it carries no colony either, which is what an
 # unstamped fixture map honestly is. That ladder now lives in `SimHome.approach` -- this was the one
@@ -678,6 +818,19 @@ static func _objective(world: Variant, r: Dictionary, role: String = ROLE_FIGHTE
 		return cached
 	if world.tilemap == null:
 		return Vector2i(-1, -1)
+	# A band that is only passing through walks at the place it came for, whatever its role. This
+	# is asked before the role ladder rather than folded into it because it is a different
+	# question: the role says what a body wants *when it gets where it is going*, and the crossing
+	# says where that is. A looter crossing still loots -- at the site, see `_worth_taking` -- and
+	# a lookout crossing still turns the band at the first loss; neither of them is walking at your
+	# gate, and neither of them is asked to.
+	if is_crossing(r):
+		var o: Dictionary = r["objective"] as Dictionary
+		var site := Vector2i(int(o.get("x", -1)), int(o.get("y", -1)))
+		if site.x >= 0 and site.y >= 0:
+			r["goalX"] = site.x
+			r["goalY"] = site.y
+			return site
 	# A looter is walking at your stores rather than at your gate, which is the whole of docs/18's
 	# "target stores first, people second". A district with no stores in it -- no annex, a camp, an
 	# unstamped fixture -- gives a looter the same answer it gives everybody else, so a looter
