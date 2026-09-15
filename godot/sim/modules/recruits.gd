@@ -282,10 +282,16 @@ static func handle_death(world: Variant, entity: int) -> bool:
 		# bus would find an id with nothing attached and book a raider as a colonist. That is
 		# exactly what the balance harness did on its first run with raids live.
 		var rd: Variant = world.components.get_component(entity, "raider")
+		var person: Variant = (rd as Dictionary).get("person", {}) if rd is Dictionary else {}
 		world.events.publish({
 			"type": "raider.killed",
 			"entity": entity,
 			"id": String((rd as Dictionary).get("id", "")) if rd is Dictionary else "",
+			# Who they were, carried on the event rather than looked up by the handler: the
+			# despawn below takes `raider` with it and handlers run at `drain()`, at the end of
+			# the step, so a chronicle that read the component would find nothing every time.
+			# This is what the colony learns off the body -- `chronicle.gd`'s raider line.
+			"person": (person as Dictionary).duplicate(true) if person is Dictionary else {},
 		})
 		_drop_kit(world, entity)
 		world.despawn(entity)

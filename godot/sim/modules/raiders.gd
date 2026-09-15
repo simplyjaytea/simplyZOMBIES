@@ -23,6 +23,12 @@ extends RefCounted
 # gate. Deliberately nothing else -- no looting AI, no dialogue, no faction standing. docs/18's
 # factions are Milestone 3 and this must not pre-empt them.
 #
+# Since the individuals slice each body is also a *person*: `raider.person` carries the name, age,
+# features, look and backstory `SimPeople.roll` drew, the archetype's aptitudes may be declared as
+# ranges and its kit rows may carry odds, so two scavengers are two men rather than one man twice.
+# It is a record on the `raider` component and never an `identity` component -- see the note where
+# it is written, below.
+#
 # What a raider is kept out of, on purpose, and how: no `needs` component, so needs.gd never
 # ticks them, `jobs.gd` never routes them (it queries `jobPriorities` + `identity`, and they
 # have neither), the stockpile never counts them, `recruits.gd` never converts them, and -- the
@@ -37,6 +43,7 @@ const SimHomeRes = preload("res://sim/home.gd")
 const SimInventoryRes = preload("res://sim/modules/inventory.gd")
 const SimItemsRes = preload("res://sim/modules/items.gd")
 const SimPathRes = preload("res://sim/path.gd")
+const SimPeopleRes = preload("res://sim/modules/people.gd")
 const SimSightingsRes = preload("res://sim/modules/sightings.gd")
 const SimStancesRes = preload("res://sim/stances.gd")
 const SimTileMapRes = preload("res://sim/map/tilemap.gd")
@@ -52,6 +59,24 @@ const SimVisibilityRes = preload("res://sim/vision/visibility.gd")
 # `survivor.unique.`, which is not a list a raider belongs on. `content/loot/` is the precedent
 # for a Godot-only content type, down to registering the id in `content_validator.gd`.
 const CONTENT_TYPE: String = "raider"
+
+# Who the body is, as opposed to which archetype it came off. The generator block lives in
+# `content/colony/raider_looks.json` and is found by id, exactly the way the survivors' block is
+# (`SimPeople.pool`) -- `content/colony/` has no schema and no validator type, so the id is the
+# only handle and `check_m2_raiders.gd` is the only thing that checks its shape.
+const PEOPLE_POOL_ID: String = "colony.generator.raiders"
+
+# Two streams, and neither of them is `"raid"`. The director draws the night, the side, the band
+# size and each member's archetype off `"raid"` (SimDirector.RAID_STREAM); every measured band in
+# the record depends on that byte sequence, and a new draw threaded into it would move every
+# campaign's raids. So who a raider *is* is drawn here instead: `raiderRoll` carries the person
+# (name, story, features) and then the kit and the aptitude jitter, `raiderLook` the age and the
+# look -- that split is `SimPeople.roll`'s own and is not ours to reorder, since
+# `check_m2_people.gd` pins the survivor roll's bytes through the same function.
+# `check_m2_raiders.gd`'s STREAMS lane holds `"raid"`'s state after `_emit_band` against a
+# literal taken from the pre-individuals code.
+const ROLL_STREAM: String = "raiderRoll"
+const LOOK_STREAM: String = "raiderLook"
 
 # How fast a raider walks in, in metres per second, when their entry declares nothing. Between a
 # shambler's 0.8 and a colonist hurrying to a job (jobs.gd's 2.1): a band on its way somewhere,
@@ -149,6 +174,11 @@ static func spawn(world: Variant, x: float, y: float, type_id: String) -> int:
 	if not (entry is Dictionary):
 		return -1
 	var e: Dictionary = entry as Dictionary
+	# Drawn before the body exists, so the two streams are spent in one place and in one order
+	# however the caller got here -- the director's band, a fixture, a gate.
+	var roll_rng: Variant = world.rng.stream(ROLL_STREAM)
+	var look_rng: Variant = world.rng.stream(LOOK_STREAM)
+	var person: Dictionary = roll_person(world, roll_rng, look_rng)
 	var ent: int = int(world.entities.spawn())
 	world.components.set_component(ent, "position", {"x": x, "y": y})
 	world.components.set_component(ent, "velocity", {"dx": 0.0, "dy": 0.0})
@@ -159,6 +189,14 @@ static func spawn(world: Variant, x: float, y: float, type_id: String) -> int:
 	# and this mirrors it deliberately rather than inventing a second path representation.
 	world.components.set_component(ent, "raider", {
 		"id": String(e.get("id", type_id)),
+		# Who this one is: `{name, age, features, look, backstoryId}` and deliberately **not** an
+		# `identity` component (the owner's call, 2026-09-14). Five things read `identity` and one
+		# of them is succession -- `SimRecruits._succession_pick` takes the nearest body carrying
+		# `needs` or `identity` -- so an identity here would make the band at your gate a queue of
+		# heirs to your own body. The trait list `SimPeople.roll` also returns is dropped: nothing
+		# reads a raider's trait, and a field nothing reads is the mistake this milestone has paid
+		# for eleven times. `check_m2_raiders.gd` NO-IDENTITY.
+		"person": person,
 		"path": [],
 		"pathGen": -1,
 		"goalX": -1,
@@ -184,7 +222,7 @@ static func spawn(world: Variant, x: float, y: float, type_id: String) -> int:
 	# the attention side: footsteps into the noise field, body scent into the scent field, both
 	# read by the shambler gradient with nothing about raiders in it.
 	SimAttentionRes.make_emitter(world, ent)
-	SimAptitudesRes.apply(world, ent, e.get("aptitudes", {}))
+	SimAptitudesRes.apply(world, ent, roll_aptitudes(e.get("aptitudes", {}), roll_rng))
 	# Eyes, so `SimRanged.can_target` refuses a raider a shot through a wall the same way it
 	# refuses a colonist one -- without an observer that check returns true and a raider would
 	# be the one body in the district that could shoot through masonry.
@@ -197,14 +235,24 @@ static func spawn(world: Variant, x: float, y: float, type_id: String) -> int:
 	var kit: Variant = e.get("kit", [])
 	if kit is Array:
 		for row in kit as Array:
-			# A kit row is a bare id, or `{item, count}` where the quantity matters. Ammunition
-			# forced the second form: `spawn_item` defaults a stack to one, so a gunhand declared
-			# as a bare "item.ammo.9mm" arrived with a single round and spent the raid reloading.
+			# A kit row is a bare id, or `{item, count, chance}` where the quantity or the odds
+			# matter. Ammunition forced the count: `spawn_item` defaults a stack to one, so a
+			# gunhand declared as a bare "item.ammo.9mm" arrived with a single round and spent the
+			# raid reloading. Telling one body of a band from another forced the chance.
 			var item_id: String = ""
 			var count: int = 1
 			if row is Dictionary:
 				item_id = String((row as Dictionary).get("item", ""))
 				count = maxi(1, int((row as Dictionary).get("count", 1)))
+				# A row that declares a chance spends exactly one draw whatever the odds are, so
+				# how much randomness a band costs is a function of the content's shape and not of
+				# its numbers -- a chance edited from 0.5 to 1.0 must not move the stream under
+				# every later raider. A bare row spends none, which is what keeps an archetype
+				# that declares no odds byte-identical to the way it spawned before this slice.
+				if (row as Dictionary).has("chance"):
+					var chance: float = float((row as Dictionary)["chance"])
+					if not bool(roll_rng.call("bool_chance", chance)):
+						continue
 			else:
 				item_id = String(row)
 			if item_id.is_empty():
@@ -216,6 +264,105 @@ static func spawn(world: Variant, x: float, y: float, type_id: String) -> int:
 				world.components.set_component(item, "position", {"x": x, "y": y})
 	world.events.publish({"type": "raider.arrived", "entity": ent, "id": String(e.get("id", type_id)), "x": x, "y": y})
 	return ent
+
+
+# One person, off the shared roll. `SimPeople.roll` is the draw a recruit at the gate makes
+# (docs/30, "The pause lifted"), and a raider makes the same one against its own pool -- so a
+# stranger, a colonist and the man walking at your wall are generated by one function and not by
+# three that drift. What is kept is the record `raider.person` carries; the traits, the aptitudes
+# and the backstory kit the roll also returns are dropped on purpose: aptitudes come from the
+# archetype's own range below, a raider owns no backstory kit, and nothing anywhere reads a
+# raider's trait.
+#
+# An empty pool is survivable rather than fatal: `SimPeople.roll` falls back to one of everything,
+# so a content tree with no raider generator in it spawns a band of people all called Sam Doe
+# instead of crashing a campaign at the gate. The gate is what refuses that, not the sim.
+static func roll_person(world: Variant, roll_rng: Variant, look_rng: Variant) -> Dictionary:
+	var rolled: Dictionary = SimPeopleRes.roll(roll_rng, look_rng, SimPeopleRes.pool(world, PEOPLE_POOL_ID))
+	return {
+		"name": String(rolled.get("name", "")),
+		"age": int(rolled.get("age", 0)),
+		"features": (rolled.get("features", []) as Array).duplicate(),
+		"look": String(rolled.get("look", "")),
+		"backstoryId": String(rolled.get("backstoryId", "")),
+	}
+
+
+# The archetype's aptitudes, with the ones declared as a range rolled per body. A bare number is
+# left exactly as it was, so an archetype that declares none of this spawns the way it always did.
+#
+# The keys are walked in a fixed order rather than in `declared.keys()` order, because the draw
+# order *is* the determinism: JSON hands Godot its keys in file order, so a content edit that
+# reordered `dex` and `con` inside the block would silently reshuffle every band after it.
+static func roll_aptitudes(declared: Variant, rng: Variant) -> Dictionary:
+	var out: Dictionary = {}
+	if not (declared is Dictionary):
+		return out
+	var d: Dictionary = declared as Dictionary
+	for key in ["str", "dex", "con"]:
+		if not d.has(key):
+			continue
+		var v: Variant = d[key]
+		if v is Array and (v as Array).size() == 2:
+			var lo: int = int((v as Array)[0])
+			var hi: int = int((v as Array)[1])
+			out[key] = int(rng.call("int_range", mini(lo, hi), maxi(lo, hi)))
+		else:
+			out[key] = int(v)
+	return out
+
+
+# One prose sentence naming who a dead raider was: `SimSurvivors.person_clause`'s shape, against
+# the raiders' pool instead of the colony's. It takes the record rather than an entity, because
+# the only thing that reads it is the chronicle and by the time that drains the body has been
+# despawned (`SimRecruits.handle_death` publishes `raider.killed` with the record on it, *before*
+# the despawn, for exactly this reason).
+#
+# This is what every field of `raider.person` is for. The name is the point; the story line and
+# the age band's prose are looked up in content at read time, so editing a line changes what an
+# existing save says without a migration; and the features are what a look at the body shows.
+# Digit-free -- the age is a band's words, never the number -- because the chronicle is on the
+# HUD and `check_hud.gd` allows no digit there but the day counter.
+static func person_clause(world: Variant, person: Dictionary) -> String:
+	var name: String = String(person.get("name", ""))
+	if name.is_empty():
+		return ""
+	var pool: Dictionary = SimPeopleRes.pool(world, PEOPLE_POOL_ID)
+	var parts: Array[String] = [name]
+	var story: String = _story_line(pool, String(person.get("backstoryId", "")))
+	if story != "":
+		parts.append(story)
+	var age_prose: String = _age_prose(pool, int(person.get("age", 0)))
+	if age_prose != "":
+		parts.append(age_prose)
+	var clause: String = ", ".join(parts)
+	var feats: Array = person.get("features", []) as Array if person.get("features", []) is Array else []
+	if not feats.is_empty():
+		var words: Array[String] = []
+		for f in feats:
+			words.append(String(f))
+		clause += "; " + ", ".join(words)
+	return clause
+
+
+static func _story_line(pool: Dictionary, backstory_id: String) -> String:
+	if backstory_id.is_empty():
+		return ""
+	for story in pool.get("backstories", []) as Array:
+		if story is Dictionary and String((story as Dictionary).get("id", "")) == backstory_id:
+			return String((story as Dictionary).get("line", ""))
+	return ""
+
+
+static func _age_prose(pool: Dictionary, age: int) -> String:
+	if age <= 0:
+		return ""
+	for band in pool.get("ageBands", []) as Array:
+		if not (band is Dictionary):
+			continue
+		if age >= int((band as Dictionary).get("min", 0)) and age <= int((band as Dictionary).get("max", 999)):
+			return String((band as Dictionary).get("prose", ""))
+	return ""
 
 
 # Kit into the hand it belongs to rather than the pack. `SimSurvivors._hold_it`'s rule and its
