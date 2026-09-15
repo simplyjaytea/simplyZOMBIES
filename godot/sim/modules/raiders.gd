@@ -42,12 +42,11 @@ const SimHealthRes = preload("res://sim/modules/health.gd")
 const SimHomeRes = preload("res://sim/home.gd")
 const SimInventoryRes = preload("res://sim/modules/inventory.gd")
 const SimItemsRes = preload("res://sim/modules/items.gd")
-const SimPathRes = preload("res://sim/path.gd")
 const SimPeopleRes = preload("res://sim/modules/people.gd")
 const SimSightingsRes = preload("res://sim/modules/sightings.gd")
 const SimStancesRes = preload("res://sim/stances.gd")
-const SimTileMapRes = preload("res://sim/map/tilemap.gd")
 const SimVisibilityRes = preload("res://sim/vision/visibility.gd")
+const SimWalkRes = preload("res://sim/walk.gd")
 
 # Content lives in `godot/content/raiders/`, one entry per file, against
 # `content/schemas/raider.schema.json`. Its own directory rather than a tagged survivor entry,
@@ -514,60 +513,13 @@ static func _enemy_within(world: Variant, ent: int, metres: float) -> bool:
 	return false
 
 
-# Grid A* towards the goal, re-planned when the map generation moves under it. jobs.gd's `_walk`,
-# minus the job bookkeeping: raiders are the second thing in the district that walks somewhere on
-# purpose, and giving them a second pathfinder would be two answers to one question.
+# Grid A* towards the goal, re-planned when the map generation moves under it. The body of this
+# lives in `SimWalk.step` since the stranger slice: raiders were the second thing in the district
+# that walked somewhere on purpose, a stranger in a house is the third, and a second copy of the
+# stepper is two answers to one question. This is the raider's call of it -- the `raider`
+# component is the record, and the speed is the archetype's through `move_speed`.
 static func _walk(world: Variant, ent: int, r: Dictionary, goal: Vector2i) -> void:
-	var pos: Variant = world.components.get_component(ent, "position")
-	var vel: Variant = world.components.get_component(ent, "velocity")
-	if not (pos is Dictionary) or not (vel is Dictionary):
-		return
-	var p: Dictionary = pos as Dictionary
-	var v: Dictionary = vel as Dictionary
-	var here := Vector2i(floori(float(p["x"])), floori(float(p["y"])))
-	var gen: int = int(world.mapGeneration)
-	var path: Array = r.get("path", []) as Array
-	if int(r.get("pathGen", -1)) != gen or path.is_empty():
-		var found: Array[Vector2i] = SimPathRes.find(world, here, goal)
-		path.clear()
-		for s in found:
-			path.append({"x": s.x, "y": s.y})
-		r["path"] = path
-		r["pathGen"] = gen
-	if path.is_empty():
-		# Arrived, or nowhere to go from here. A first-cut band stands its ground at the gate --
-		# there is no looting AI and no withdrawal, and inventing one here would be scope the
-		# slice deliberately does not take.
-		_still(v)
-		return
-	var step: Variant = path[0]
-	if not (step is Dictionary):
-		path.remove_at(0)
-		_still(v)
-		return
-	var tx: float = float(int((step as Dictionary).get("x", 0))) + 0.5
-	var ty: float = float(int((step as Dictionary).get("y", 0))) + 0.5
-	# A band opens the door it is walking through, the way a colonist does (SimJobs._walk).
-	# `load`, not a preload: fortify.gd is on this file's preload chain through vehicles.
-	var step_tx: int = int((step as Dictionary).get("x", 0))
-	var step_ty: int = int((step as Dictionary).get("y", 0))
-	if world.tilemap != null and SimTileMapRes.tile_at(world.tilemap, step_tx, step_ty) == SimTileMapRes.Tile.Door and world.is_blocked_tile(step_tx, step_ty):
-		var Fortify: GDScript = load("res://sim/modules/fortify.gd") as GDScript
-		Fortify.call("open_door", world, step_tx, step_ty)
-	var dx: float = tx - float(p["x"])
-	var dy: float = ty - float(p["y"])
-	if dx * dx + dy * dy < 0.04:
-		path.remove_at(0)
-		r["path"] = path
-		if path.is_empty():
-			_still(v)
-		return
-	var length: float = sqrt(dx * dx + dy * dy)
-	var speed: float = _speed_of(world, ent, r)
-	# `dx`/`dy`, never `x`/`y`: a velocity written with position's key names adds a pair of keys
-	# nothing reads and raises nothing (CLAUDE.md's `vel["x"]` trap).
-	v["dx"] = dx / length * speed
-	v["dy"] = dy / length * speed
+	SimWalkRes.step(world, ent, r, goal, _speed_of(world, ent, r))
 
 
 static func _speed_of(world: Variant, ent: int, r: Dictionary) -> float:
@@ -581,5 +533,4 @@ static func _speed_of(world: Variant, ent: int, r: Dictionary) -> float:
 
 
 static func _still(vel: Dictionary) -> void:
-	vel["dx"] = 0.0
-	vel["dy"] = 0.0
+	SimWalkRes.halt(vel)

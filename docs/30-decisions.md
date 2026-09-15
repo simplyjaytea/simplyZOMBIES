@@ -4607,3 +4607,105 @@ trusted. No balance measurement is owed: no settler exists in any shipped spawn 
 answers exactly as `!=` did for the two factions that do, and nothing here draws from an RNG
 stream — which was proved rather than asserted, against the raid-stream pins and the R1 parity
 fixture.
+
+## A stranger in a building, 2026-09-15
+
+The second of docs/07's three recruitment routes — "a scavenging encounter" — and the seventh
+slice of the procedural-population arc. Until now the colony could only grow one way: somebody
+turns up at the gate on days 8, 12 and 16 and is gone by dawn. Now somebody is also sheltering in
+a building out in the district, and comes out when they see you. `godot:m2:strangers` is the gate.
+What follows is the calls this took.
+
+**The acceptance is the rung that already exists, and building a second one was the mistake on
+offer.** A stranger wears the same `recruit {waiting: true}` tag a gate recruit does, so
+`SimFortify`'s E ladder finds them through `SimRecruits.waiting_in_reach` and takes them in
+through `SimRecruits.accept` — the same call, carrying the same hidden-bite roll at the same
+`TRANSMIT_P`. Nothing in `strangers.gd` accepts anybody. That is what keeps the bite hidden: there
+is exactly one place in the sim where a recruit can turn out to be carrying something, and a
+second acceptance path would have been a second place to forget to roll it. No field on the
+`stranger` component says anything about the bite, nothing is published about it, and the module
+never asks.
+
+**The colony is told nothing, at either end.** A gate recruit publishes `recruit.arrived` and the
+chronicle writes *Someone is waiting at the gate.* A stranger publishes nothing when they are
+placed: they are two hundred metres away in a house nobody has been in, and a line about them
+would hand the player a fact nobody in the colony has (docs/01 clause 4). The same at the other
+end — the chronicle's existing lines are *The stranger at the gate has gone* and *So-and-so has
+walked out*, and both are false about somebody who was never at the gate and whose name the colony
+may never have learned. So `recruits._tick_leave` now publishes whatever reason the `leaving`
+record names (`mood` by default, which is every caller that came before) and the chronicle skips
+`stranger` outright. What you learn about a stranger is what you saw. No new prose was written,
+and `godot:check:hud` is untouched and green.
+
+**Sight decides the approach, and it is the real sight system.** They come out when a colony body
+is inside their *own* observer's line of sight — walls and range, cast from their eyes, which
+`SimRecruits.spawn_generated` has always given them. A distance check would have been four lines
+and wrong in the way that matters: the point of hiding in a building is the building, and somebody
+who walks out through a wall to meet you across it is not sheltering, they are homing. The gate's
+negative is exactly that case — a colonist the same distance away with a wall between is not
+approached and not even noticed — and the code was run with the sight test deleted to prove the
+lane can say so. `line_of_sight` rather than `detail`, and that is the one place this is
+deliberately *less* strict than a colonist's attention: `detail` narrows by the facing cone,
+and somebody hiding in a room is watching the room rather than holding a heading. The range is the
+honest one either way — it closes in at night and in fog, so a stranger notices you across a lit
+room and not across a dark district.
+
+**Once they have seen you they walk to where you were, not to where you are.** The `stranger`
+component carries a goal point that is refreshed while the colonist is in sight and kept when they
+are not — a remembered position and never a track, the same rule `sightings.gd` keeps and the same
+reason: a body that followed somebody it cannot see would be a lie the player could read off the
+screen.
+
+**One stepper for everybody who walks and is not on a job.** `SimRaiders._walk` was a private
+grid-A* stepper doing exactly what a stranger needs, so it moved to `SimWalk.step(world, ent, rec,
+goal, speed)` and both callers reach it, each keeping its own record dict. Copying it was the
+cheaper edit and the wrong one: two walkers that start identical drift the first time either
+learns something — a surface cost, a crowd, a door that is locked rather than merely shut — and
+then a raider and a stranger disagree about what a wall is. `speed` is a parameter rather than a
+field on the record, because a raider's comes off its archetype through `move_speed` modifiers
+every tick and a stranger's is one constant, and writing it into the record would put a derived
+number in the save. `SimJobs._walk` is deliberately not folded in: it carries the reservation, the
+arrival test the job's own state machine reads, the stance and the encumbrance, and pulling that
+apart is a refactor of the scheduler rather than a shared helper.
+
+**Two rules in `recruits.gd` had to learn what a stranger is, and both were regressions waiting to
+happen.** The gate beat refused to fire while *any* `recruit` component existed, and the dawn
+leave despawned *every* waiting recruit — so before this slice a stranger hiding in a house on day
+5 would silently have cancelled the day-8 gate beat and died at the first dawn. Both now go
+through one predicate, `_waiting_at_the_gate`, so the two cannot come to disagree about what a
+stranger is, and the gate holds both halves of both: day 8 fires over a hidden stranger and is
+still blocked by a gate recruit; one dawn takes the gate recruit and leaves the stranger. Each was
+run red on purpose by putting the old `query(["recruit"])` back.
+
+**They arrive in daylight, and that is the one call here that a measurement forced.** The beat
+first fired on whatever tick of the beat day the world happened to be running — dawn in a real
+campaign, and **dusk** in the balance harness's compressed tier, which jumps to each day's dusk
+and steps a window. A stranger placed at dusk is placed into the night the director is filling,
+and on seed 31337 both of them were killed and **turned** inside the window they arrived in: two
+shamblers the district gained that the director never placed, and a live count of 33 against a cap
+of 32, which is `check_m2_balance.gd`'s standing invariant and not something to widen. A throwaway
+driver (deleted) put the number on it — `PEAK live=33 cap=32 of which turned-from-a-person=2` —
+before anything was changed, which is the only reason the guard is a day rather than a guess. So
+the arrival has a time of day, the way the dawn leave already did, and it is the honest rule as
+well as the cheap one: somebody sheltering in a building comes out when they see a colonist, and a
+colonist is out in the district during the working day. The gate's DAYLIGHT lane runs the same
+beat day at dawn, day, dusk and night and requires exactly one of them to place anybody.
+
+**The first cuts, all the owner's to move.** Beats on days **5, 10 and 14**, between the gate's 8,
+12 and 16 rather than on them, so the two routes into the colony are felt as two rather than as a
+busy week. At most **two** live at once, because finding one should be an event and a district
+with one in every other house is a population. They are placed at least `SimDirector.GATE_EXCLUSION`
+(32 m) from both gates and clear of the annex — the dormant bodies' own distance rather than a
+second constant, since it is already the answer to "far enough from home that this is something
+you went out and found". They wait **three days** and then walk out. And they share
+`SimRecruits.CAP`: the colony still tops out where it did, because a second route in with a cap of
+its own would have doubled the ceiling, which is a balance change smuggled in beside a feature.
+None of the five moved under measurement — the before/after run in docs/23's record leaves
+`survivors_end` unchanged on all four fast seeds — so they are first cuts in the honest sense:
+numbers that have been checked for harm and not yet chosen for feel.
+
+**Save:** `SAVE_VERSION` 31. A v30 save has no `stranger` component, no `stranger` flag on the
+recruit tag and no `world.strangers.spawned`, and each is wrong on its own — restored, every
+stranger already placed would read as somebody at the gate (cancelling the next gate beat, and
+despawned at the first dawn), and every stranger beat the campaign had already paid for would fire
+again.

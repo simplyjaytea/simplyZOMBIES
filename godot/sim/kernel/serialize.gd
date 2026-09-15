@@ -110,7 +110,15 @@ extends RefCounted
 # aptitudes the fight they are in is being resolved with.
 #
 # Refused either way, the same rule as v27.
-const SAVE_VERSION: int = 30
+# v31: somebody hiding in a building. A save carries a `stranger` component per body still
+# waiting to be found ({state, sinceTick, path, pathGen, goalX, goalY}), a `stranger` flag on the
+# `recruit` tag they wear, and `world.strangers.spawned` -- which stranger beats have already
+# fired, alongside the gate's own list. A v30 save has none of the three, and each of them is
+# wrong on its own: restored into a v31 world every stranger already placed would be a waiting
+# recruit with no flag, which the gate beat reads as somebody at the gate (so the next gate beat
+# is cancelled) and the dawn leave despawns on sight; and an empty `spawned` list would fire every
+# stranger beat the campaign had already paid for a second time. Refused, the same rule as v27.
+const SAVE_VERSION: int = 31
 
 
 static func canonicalize(value: Variant, path: String = "$") -> String:
