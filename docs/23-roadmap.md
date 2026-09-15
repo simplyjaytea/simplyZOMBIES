@@ -8756,10 +8756,10 @@ not a to-do list:
   fighter (ROLE-READ), and the shipped scavenger re-declared a looter (FIGHTER).
 
 - **The raiders and the settlers** — ~~the settlers' camp~~ **landed** (`godot:m2:settlers`, seven
-  lanes, taking the `godot:m2` chain to 75 links), 2026-09-15, the second piece of the
+  lanes, taking the `godot:m2` chain to 77 links), 2026-09-15, the second piece of the
   procedural-population arc's settlers group and the first time the allegiance seam carries bodies
   the sim itself spawned. A district now boots a `settlement {x, y, w, h, building, members}`
-  entity in one far building and **three** people standing in it, each rolled through
+  entity in one far building and **two** people standing in it, each rolled through
   `SimPeople.roll` against the survivors' own generator pool and built by
   `SimSettlers.spawn_settler` — a raider's faction handling with a survivor's identity. They carry
   a `body`, stamina, an inventory, an attention emitter, aptitudes, eyes, sightings and a
@@ -8838,29 +8838,41 @@ not a to-do list:
   | seed | survivors_end | killed (deduped) | people killed | settlers killed | grabs | max live |
   |---|---|---|---|---|---|---|
   | 20260805 | 3 → 3 | 1 → 1 | 0 → 0 | — (no camp) | 123 → 123 | 27 → 27 |
-  | 404 | 1 → 1 | 3 → 6 | 1 → 4 | 3 of 3 | 145 → 203 | 25 → 28 |
-  | 31337 | 3 → 3 | 1 → 4 | 0 → 4 | 3 of 3 | 0 → 237 | 28 → 33 |
-  | 90210 | 2 → 2 | 4 → 4 | 4 → 3 | 0 of 3 | 154 → 147 | 30 → 30 |
+  | 404 | 1 → 1 | 5 → 8 | 3 → 6 | 2 of 2 | 174 → 251 | 27 → 30 |
+  | 31337 | 3 → 3 | 1 → 3 | 0 → 2 | 2 of 2 | 0 → 58 | 28 → 30 |
+  | 90210 | 2 → 2 | 4 → 4 | 4 → 4 | 0 of 2 | 153 → 162 | 30 → 30 |
 
   `survivors_end` is **unchanged on every seed** — the colony neither gains nor loses for the
   camp's existence, which is the claim the ledger lane makes structurally and this makes
-  empirically. Seed 20260805 is identical throughout and is the control: it has no qualifying
-  building, so it spends no draws. What moves is the camp's own fate and the grabs it attracts:
-  three living bodies standing still in a house on the far side of the district pull zombies and
-  cannot defend themselves, so on two seeds of three with a camp the whole camp is dead inside ten
-  days, and on 31337 a seed that recorded **zero** grabs now records 237 — all of them at the
-  camp, since the colony's own counters are unmoved. `max_live` rises by 3 and 5 on those two
-  seeds: a settler who is bitten, infected and dies turns, and a body the director never placed is
-  still a body under the cap. `godot:m2:balance` is green with its bands unchanged and its
-  `over_cap` invariant clean, so the rise stays inside the budget; no assertion was moved. **That two camps
-  of three are wiped in ten days is the honest first reading of a slice that ships bodies with no
-  behaviour, not a balance finding** — the next slice gives them somewhere to be and something to
-  do, and this table is what it re-measures against.
-  **First cuts, the owner's to move:** three settlers; 32 m; the survivors' own name and backstory
-  pool rather than a settler-specific one; a kit of a bandage always and a bottle, two tins and a
-  kitchen knife on 0.6 / 0.5 / 0.4, with no armour in it deliberately — `SimDirector._has_armor`
-  scans every `identity`'s equipped items, and a settler in a helmet would quietly move a director
-  decision the colony made.
+  empirically. Seed 20260805 is identical throughout and is the control this measurement did not
+  have to arrange: its 64-tile district has no building far enough out, so it sites no camp and
+  spends no draws. What moves is the camp's own fate and the contact it attracts — living bodies
+  standing still in a house on the far side of the district pull zombies and cannot defend
+  themselves, so on two of the three seeds that site a camp the whole camp is dead inside ten
+  days, and on 31337 a seed that recorded **zero** grabs now records 58, all of them at the camp,
+  since the colony's own counters are unmoved. **That a camp of two is wiped in ten days is the
+  honest first reading of a slice that ships bodies with no behaviour, not a balance finding** —
+  the next slice gives them somewhere to be and something to do, and this table is what it
+  re-measures against.
+  **The count moved from three to two, and the over-cap invariant is why.** At three,
+  `check_m2_balance.gd` went red on seed 31337 — "exceeded the live cap on 76 ticks (max 33)" —
+  and a throwaway driver (deleted) put the arithmetic on it before anything was changed:
+  `peak=33 cap=32 boot_zeds=23 placed=6 turned=4`. A settler who is bitten, dies and turns is a
+  zombie the district's `LIVE_CAP` never placed and cannot refuse, which is the same accounting
+  gap the strangers slice hit a merge earlier from the other direction. That slice moved its beat
+  rather than the assertion; this one moves its count, because a camp exists at boot and has no
+  beat to move. At two the same four seeds peak at **27 / 30 / 30 / 30** with `over_ticks` 0
+  everywhere — two clear of the cap rather than one inside it — and `godot:m2:balance` is green
+  with its bands and its `over_cap` invariant untouched. **No assertion was moved and none was
+  widened.** What is still open, and is not this slice's to close: nothing anywhere reconciles a
+  turned body against the director's budget, so a colony that loses three people to infection in
+  one night can still push the district over its own cap. It is named here because two slices in
+  a row have now paid for it.
+  **First cuts, the owner's to move:** two settlers (measured, above); 32 m; the survivors' own
+  name and backstory pool rather than a settler-specific one; a kit of a bandage always and a
+  bottle, two tins and a kitchen knife on 0.6 / 0.5 / 0.4, with no armour in it deliberately —
+  `SimDirector._has_armor` scans every `identity`'s equipped items, and a settler in a helmet
+  would quietly move a director decision the colony made.
 
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not

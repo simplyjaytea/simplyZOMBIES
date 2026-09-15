@@ -4826,7 +4826,7 @@ rather than dressing up.
 
 ## The settlers' camp, 2026-09-15
 
-The seam from "A third side" got bodies. Four calls were taken here, and each was taken because
+The seam from "A third side" got bodies. Five calls were taken here, and each was taken because
 the obvious answer was wrong in a way a measurement showed rather than an argument.
 
 **96 metres was the plan's first cut and it is 32, because 96 cannot be satisfied where the gates
@@ -4839,8 +4839,22 @@ be a feature the chain never sees and a balance claim with nothing in it. At
 nowhere legal fires the gate's skip line for real rather than in theory. The second reason is the
 one `far_buildings`' own comment already gives — *a second copy of "far from home" is a second
 answer* — and the dormant pass, the director's packet legality and now the camp all take the one
-number. Three settlers, matching the colony's own boot size, so the group reads as people living
-the way you are rather than as a rival power.
+number. It is also the number the strangers slice independently landed on for the same question
+a merge earlier, which is the strongest evidence available that the district has one answer to
+"far from home" rather than three.
+
+**Three settlers became two, and the district's zombie budget decided it.** Three was the plan's
+first cut and `check_m2_balance.gd` went red on seed 31337 — "exceeded the live cap on 76 ticks
+(max 33)". A throwaway driver put the arithmetic on it before anything was changed:
+`peak=33 cap=32 boot_zeds=23 placed=6 turned=4`. A settler who is bitten, dies and turns is a
+zombie `SimDirector.LIVE_CAP` never placed and cannot refuse, which is the same accounting gap
+the strangers slice hit from the other direction; that slice moved its beat rather than the
+assertion, and this one moves its count, because a camp exists at boot and has no beat to move.
+At two the same four seeds peak at 27 / 30 / 30 / 30 with the over-cap invariant clean on every
+one. **The gap itself is not closed and is not this slice's to close:** nothing anywhere
+reconciles a turned body against the director's budget, so a colony losing three people to
+infection in one night can still push the district over its own cap. Two slices in a row have now
+paid for it, which is why it is written down here rather than only in a record.
 
 **A settler is a raider's faction handling with a survivor's identity, and the two components it
 deliberately lacks are the whole design.** `identity` **yes** — a raider is denied one because
