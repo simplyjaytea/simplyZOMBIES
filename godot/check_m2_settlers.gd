@@ -37,18 +37,43 @@ extends SceneTree
 #            without one, and the member ids are resolved back to live bodies rather than
 #            compared as numbers -- an Array of ids that comes back pointing at nothing is
 #            exactly the silent-empty-memory shape CLAUDE.md's JSON-keys trap describes.
+#   STAYS    over a long stretch of a working day with every threat taken out of the district, no
+#            settler is ever further from the camp's centre than `CAMP_RADIUS` -- **and they move**,
+#            which is the half that stops this being a lane three bodies standing still would pass.
+#            Two negatives: the leash scanner is shown finding a settler shoved twenty metres out,
+#            and the movement counter is shown reading zero for the same body once its `settler`
+#            component is taken away, which is also what proves the walking comes from this module.
+#   FIGHTS   an armed settler and a shambler at the camp: the settler connects. Negative, the same
+#            fixture without the shambler: the same body swings at nothing for the same span.
+#   RECRUIT  the E rung on the willing one -- `use.context` down `SimFortify`'s ladder, exactly the
+#            press a stranger is taken in by -- produces a colonist with `needs`, `jobPriorities`,
+#            `skillWeb` and the colony's own faction, and the harness's count rises by one.
+#            Negative: the same press at the same range on a settler who is *not* the willing one
+#            recruits nobody and moves no count.
+#   RAIDERS  the table says the two sides fight, and then they do: a scav beside the camp trades
+#            blows with it. Negative: the identical body declared `settlers` instead stands there
+#            for the same span and nothing is thrown.
+#   FELL     `settlement.fell` fires when the last member dies, once, and not before -- the two
+#            deaths before it fire nothing -- and the camp reads as fallen afterwards, which is the
+#            event's one reader. Second fixture, the other way a camp empties: every member
+#            despawned, which is what a body that died and *turned* leaves behind, and the camp
+#            still says so with no `settler` component anywhere in the district.
 #   SKIP     a seed whose district has nowhere legal for a camp says so on its own line and the
 #            lane fails only if *every* pair is empty. This is not hypothetical: at 64 tiles seed
 #            20260805 has no building far enough from home at all, and seed 404's one far building
 #            already holds a sleeping body, so two of the eight pairs skip. Measured.
 #
-# What this gate deliberately does not assert, because the slice deliberately does not build it:
-# that a settler does anything. They stand where they were spawned. Behaviour is docs/23's next
-# piece.
+# What this gate still does not assert, because nothing builds it: that a settler forages, builds,
+# trades or answers the colony in any way. A camp is people living their own day beside yours.
 
 const World = preload("res://sim/world.gd")
+const Clock = preload("res://sim/time/clock.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const SimAllegiance = preload("res://sim/modules/allegiance.gd")
+const SimInventory = preload("res://sim/modules/inventory.gd")
+const SimItems = preload("res://sim/modules/items.gd")
+const SimRaiders = preload("res://sim/modules/raiders.gd")
+const SimRoster = preload("res://sim/modules/roster.gd")
 const SimDirector = preload("res://sim/modules/director.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimPeople = preload("res://sim/modules/people.gd")
@@ -91,8 +116,13 @@ func _run() -> void:
 	ok = _no_heir() and ok
 	ok = _prose() and ok
 	ok = _save() and ok
+	ok = _stays() and ok
+	ok = _fights() and ok
+	ok = _recruit() and ok
+	ok = _raiders() and ok
+	ok = _fell() and ok
 	if ok:
-		print("M2_SETTLERS_OK content sited bodies ledger no-heir prose save")
+		print("M2_SETTLERS_OK content sited bodies ledger no-heir prose save stays fights recruit raiders fell")
 		quit(0)
 	else:
 		push_error("M2_SETTLERS_FAIL")
@@ -549,12 +579,26 @@ func _ledger() -> bool:
 		return false
 	# The negative: the counter has to be able to see a body it is supposed to exclude, or the
 	# equality above is satisfied by a counter that counts nothing.
-	w.components.set_component(int(settlers[0]), "needs", {"hunger": 50.0, "thirst": 50.0, "rest": 50.0})
+	#
+	# **Not the willing one.** One member of the camp wears the `recruit` tag the E rung reads, and
+	# `_survivors_alive` excludes a waiting recruit *as well as* a body with no `needs` -- so
+	# handing that particular body a `needs` component would leave the count where it was for the
+	# wrong reason, and the lane would go red against a ledger that was right. The subject moved,
+	# so the needle follows it: the fabrication goes on a settler who is not waiting on anybody.
+	var plain: int = -1
+	for e in settlers:
+		if not w.components.has_component(int(e), "recruit"):
+			plain = int(e)
+			break
+	if plain < 0:
+		push_error("%s: every settler in the camp is a waiting recruit, so the negative below would be excluded twice over and prove nothing" % lane)
+		return false
+	w.components.set_component(plain, "needs", {"hunger": 50.0, "thirst": 50.0, "rest": 50.0})
 	var raised: int = _survivors_alive(w)
 	if raised != counted + 1:
 		push_error("%s: giving a settler `needs` moved the count from %d to %d -- the ledger is not keyed on the component the sim withholds" % [lane, counted, raised])
 		return false
-	w.components.remove(int(settlers[0]), "needs")
+	w.components.remove(plain, "needs")
 	# And the textual half, because the two above would both still pass if the harness stopped
 	# keying on `needs` tomorrow. The query line is isolated by name first and asked for `"needs"`
 	# *inside it* -- never searched for as a bare word in that file, where a comment could satisfy
@@ -761,3 +805,504 @@ func _a_seed_with_no_camp() -> int:
 		if w.components.query(["settlement"]).is_empty():
 			return int(seed_value)
 	return 0
+
+
+# --- the shared fixture for every behaviour lane -------------------------------------------------
+
+# Deep into a working day, so nobody in these lanes is walking home: `SimSettlers` returns at dusk,
+# and a lane that stepped across `Clock.DAY_ENDS` would be measuring the return rather than the
+# thing it named. 0.3 of a day is mid-morning.
+const DAY_AT: float = 0.3
+# A long stretch. At `SimSettlers.SPEED` this is ninety metres of walking, against a leash of ten.
+const STAYS_TICKS: int = 2000
+# How far a settler must actually get over that stretch before the lane believes the camp is
+# alive. Deliberately a fraction of the ninety metres available -- what is being refused is three
+# bodies standing still, not a pace.
+const MOVED_MIN: float = 3.0
+# The control span for the same counter with the module switched off, and the slack it is allowed.
+# Not zero: `movement.integrate` is still running, and a body with a velocity already spent on the
+# tick the component was taken away finishes that step.
+const CONTROL_TICKS: int = 400
+const CONTROL_SLACK: float = 0.2
+# Long enough for a shambler standing a metre and a half off to close, wind up and land a blow,
+# and for the settler to answer it.
+const FIGHT_TICKS: int = 600
+# Where a shambler is put when a lane wants one at the camp: a step and a half off, so it has to
+# close before anything can happen and the lane is not measuring a body spawned inside a swing.
+const BESIDE_METRES: float = 1.6
+# And where a *person* is put, which is a different number for a measured reason. Two people
+# standing still never close a gap: `npc_combat` sets no velocity at all, and a raider with no
+# objective halts where it is (`SimRaiders._approach`). So the two have to start inside a blow of
+# each other or they stand a metre apart facing each other for the rest of the campaign -- which
+# is what the first cut of the RAIDERS lane measured at 1.6 m, against a kitchen knife's 0.9 m
+# reach plus `SimMelee.MELEE_REACH_FUDGE` (0.35) and a rusted machete's 1.2 plus the same.
+const BLADE_METRES: float = 1.0
+# The E rung's own range, taken from the strangers gate's RECRUIT lane: `SimFortify.REACH` less a
+# hand's breadth, which is where a player stands when they mean to speak to somebody.
+const REACH_METRES: float = 0.9
+
+
+# The lane seed's camp, its settlers and its centre, or an empty Dictionary with the error already
+# pushed. Every behaviour lane starts here, so a LANE_SEED that stops siting a camp fails once with
+# one sentence rather than five times with five.
+func _fixture_world(lane: String) -> Dictionary:
+	var w: Variant = SimBoot.playable(LANE_SEED, LANE_TILES)["world"]
+	var camp: int = _camp_of(w)
+	if camp < 0:
+		push_error("%s: seed %d at %d booted no camp, so this lane has nothing to judge -- pick another LANE_SEED" % [lane, LANE_SEED, LANE_TILES])
+		return {}
+	var settlers: Array[int] = SimSettlers.members_of(w)
+	if settlers.size() < 2:
+		push_error("%s: the camp booted %d settler(s); this lane needs one who is willing and one who is not" % [lane, settlers.size()])
+		return {}
+	var s: Dictionary = w.components.get_component(camp, "settlement") as Dictionary
+	# The camp's centre, computed here from the settlement's own rect rather than imported from
+	# `SimSettlers._centre_of`: the leash is being judged against the geometry, not against the
+	# function that chose it.
+	var centre := Vector2(
+		float(int(s["x"]) + int(s["w"]) / 2) + 0.5,
+		float(int(s["y"]) + int(s["h"]) / 2) + 0.5,
+	)
+	w.tick = Clock.tick_on_day(2, DAY_AT)
+	return {"world": w, "camp": camp, "settlers": settlers, "centre": centre}
+
+
+# Every zombie and every raider out of the district. Behaviour lanes are about one thing each, and
+# a wanderer that happens to walk into the camp halfway through STAYS would make a leash assertion
+# a coin toss -- the settlers stand still when something is near, which is correct and is not what
+# that lane is measuring.
+func _clear_threats(w: Variant) -> int:
+	var gone: int = 0
+	for e in w.components.query(["shambler"]):
+		w.despawn(int(e))
+		gone += 1
+	for e in w.components.query(["raider"]):
+		w.despawn(int(e))
+		gone += 1
+	return gone
+
+
+# The settler who is not the willing one. Every fighting lane wants this body rather than the
+# first: `npc_combat._engages` refuses a `recruit`, so the willing one deliberately does not
+# fight, and a lane that picked them would be red about a refusal that is on purpose.
+func _a_fighter(w: Variant, settlers: Array[int]) -> int:
+	for e in settlers:
+		if not w.components.has_component(int(e), "recruit"):
+			return int(e)
+	return -1
+
+
+func _the_willing(w: Variant, settlers: Array[int]) -> int:
+	for e in settlers:
+		if w.components.has_component(int(e), "recruit"):
+			return int(e)
+	return -1
+
+
+# A knife in the hand, through the same equip the boot uses, so the `meleeWeapon` component
+# arrives by the event that always attaches it rather than by being written here.
+func _arm(w: Variant, ent: int) -> bool:
+	if w.components.has_component(ent, "meleeWeapon"):
+		return true
+	SimInventory.equip(w, ent, SimItems.spawn_item(w, "item.knife.kitchen", {"tier": "scavenged"}))
+	w.events.drain()
+	return w.components.has_component(ent, "meleeWeapon")
+
+
+func _pos(w: Variant, ent: int) -> Vector2:
+	var p: Variant = w.components.get_component(ent, "position")
+	if not (p is Dictionary):
+		return Vector2(-1.0, -1.0)
+	return Vector2(float((p as Dictionary)["x"]), float((p as Dictionary)["y"]))
+
+
+func _put(w: Variant, ent: int, x: float, y: float) -> void:
+	w.components.set_component(ent, "position", {"x": x, "y": y})
+
+
+# The furthest any of these bodies is from the camp's centre. The one scan both halves of STAYS
+# use: the positive asserts it stays under the leash and the negative asserts it can see a body
+# that is not, so the sentence "nobody left the yard" is never a sentence about a scanner that
+# says yes to anything.
+func _worst_from(w: Variant, bodies: Array[int], centre: Vector2) -> float:
+	var worst: float = 0.0
+	for e in bodies:
+		var at: Vector2 = _pos(w, int(e))
+		if at.x < 0.0:
+			continue
+		worst = maxf(worst, centre.distance_to(at))
+	return worst
+
+
+# --- STAYS ---------------------------------------------------------------------------------
+
+func _stays() -> bool:
+	var lane: String = "STAYS"
+	var built: Dictionary = _fixture_world(lane)
+	if built.is_empty():
+		return false
+	var w: Variant = built["world"]
+	var settlers: Array[int] = built["settlers"] as Array[int]
+	var centre: Vector2 = built["centre"] as Vector2
+	_clear_threats(w)
+	var worst: float = _worst_from(w, settlers, centre)
+	# A plain Dictionary of accumulators, never an int captured in a closure: a GDScript lambda
+	# captures primitives by value (CLAUDE.md's trap list). Nothing here is a lambda, but the same
+	# record is read back below and the shape is the one this repo keeps.
+	var moved: Dictionary = {}
+	var last: Dictionary = {}
+	for e in settlers:
+		moved[int(e)] = 0.0
+		last[int(e)] = _pos(w, int(e))
+	for _t in STAYS_TICKS:
+		w.step()
+		for e in settlers:
+			var ent: int = int(e)
+			var at: Vector2 = _pos(w, ent)
+			if at.x < 0.0:
+				continue
+			moved[ent] = float(moved[ent]) + (last[ent] as Vector2).distance_to(at)
+			last[ent] = at
+		worst = maxf(worst, _worst_from(w, settlers, centre))
+	if worst > SimSettlers.CAMP_RADIUS:
+		push_error("%s: a settler reached %.2f m from the camp's centre over %d ticks, outside the %.1f m leash" % [lane, worst, STAYS_TICKS, SimSettlers.CAMP_RADIUS])
+		return false
+	# And they are not three bodies standing still, which is the half that makes the leash mean
+	# anything at all.
+	for e in settlers:
+		if float(moved[int(e)]) < MOVED_MIN:
+			push_error("%s: settler %d walked %.2f m in %d ticks -- a camp that does not move satisfies a leash for free" % [lane, int(e), float(moved[int(e)]), STAYS_TICKS])
+			return false
+	# Negative, the counter: the same body with its `settler` component taken away must read ~zero
+	# over a control span. This is also what proves the walking above came from `settlers.day` and
+	# not from something else in the tick.
+	var control: int = int(settlers[0])
+	w.components.remove(control, "settler")
+	var vel: Variant = w.components.get_component(control, "velocity")
+	if vel is Dictionary:
+		(vel as Dictionary)["dx"] = 0.0
+		(vel as Dictionary)["dy"] = 0.0
+	var still: float = 0.0
+	var was: Vector2 = _pos(w, control)
+	for _t in CONTROL_TICKS:
+		w.step()
+		var at2: Vector2 = _pos(w, control)
+		still += was.distance_to(at2)
+		was = at2
+	if still > CONTROL_SLACK:
+		push_error("%s: settler %d still walked %.2f m in %d ticks with no `settler` component, so the movement above is not this module's" % [lane, control, still, CONTROL_TICKS])
+		return false
+	# Negative, the leash scanner: it has to be able to see a body outside the radius, or "nobody
+	# ever left" is a sentence about a scan that measures nothing.
+	_put(w, control, centre.x + SimSettlers.CAMP_RADIUS * 2.0, centre.y)
+	var shoved: float = _worst_from(w, settlers, centre)
+	if shoved <= SimSettlers.CAMP_RADIUS:
+		push_error("%s: a settler standing %.1f m out read as %.2f m, so the leash scan cannot fail" % [lane, SimSettlers.CAMP_RADIUS * 2.0, shoved])
+		return false
+	print("%s OK %d settlers over %d ticks: furthest %.2f m against a leash of %.1f m, each walked at least %.1f m; with the component gone the same body walked %.2f m in %d, and a body shoved out reads %.1f m" % [
+		lane, settlers.size(), STAYS_TICKS, worst, SimSettlers.CAMP_RADIUS, MOVED_MIN, still, CONTROL_TICKS, shoved,
+	])
+	return true
+
+
+# --- FIGHTS ---------------------------------------------------------------------------------
+
+func _fights() -> bool:
+	var lane: String = "FIGHTS"
+	var built: Dictionary = _fixture_world(lane)
+	if built.is_empty():
+		return false
+	var w: Variant = built["world"]
+	var settlers: Array[int] = built["settlers"] as Array[int]
+	_clear_threats(w)
+	var fighter: int = _a_fighter(w, settlers)
+	if fighter < 0:
+		push_error("%s: every settler in the camp is the willing one, so there is nobody this module is allowed to act for" % lane)
+		return false
+	if not _arm(w, fighter):
+		push_error("%s: settler %d could not be given a knife, so nothing below can swing" % [lane, fighter])
+		return false
+	# An Array and never a captured int, for the reason CLAUDE.md gives: a closure assigning to an
+	# outer primitive mutates its own copy and reads back unchanged.
+	var landed: Array = []
+	w.events.subscribe({"id": "settlers.gate.hit", "type": "attack.connected", "handler": func(ev: Dictionary) -> void:
+		if int(ev.get("attacker", -1)) == fighter:
+			landed.append(int(ev.get("target", -1)))
+	})
+	# The negative first, in the same fixture: no shambler, the same span, the same armed body.
+	for _t in FIGHT_TICKS:
+		w.step()
+	if not landed.is_empty():
+		push_error("%s: settler %d landed %d blow(s) with nothing in the district to fight" % [lane, fighter, landed.size()])
+		return false
+	# The positive: one shambler, close enough to be a melee problem and far enough to have to
+	# take a step first.
+	var at: Vector2 = _pos(w, fighter)
+	var kind: String = SimRoster.pick_type(w, w.rng.stream("settlersGateProbe"))
+	var zed: int = SimRoster.spawn_zombie(w, at.x + BESIDE_METRES, at.y, kind, w.rng.stream("settlersGateProbe"))
+	if zed < 0:
+		push_error("%s: could not spawn a `%s` beside the camp" % [lane, kind])
+		return false
+	w.events.drain()
+	for _t in FIGHT_TICKS:
+		w.step()
+	if landed.is_empty():
+		push_error("%s: settler %d stood beside a shambler for %d ticks and never connected" % [lane, fighter, FIGHT_TICKS])
+		return false
+	print("%s OK settler %d landed %d blow(s) on a `%s` at %.1f m in %d ticks; the same body with nothing there landed none over the same span" % [
+		lane, fighter, landed.size(), kind, BESIDE_METRES, FIGHT_TICKS,
+	])
+	return true
+
+
+# --- RECRUIT ---------------------------------------------------------------------------------
+
+func _recruit() -> bool:
+	var lane: String = "RECRUIT"
+	var built: Dictionary = _fixture_world(lane)
+	if built.is_empty():
+		return false
+	var w: Variant = built["world"]
+	var settlers: Array[int] = built["settlers"] as Array[int]
+	_clear_threats(w)
+	var willing: int = _the_willing(w, settlers)
+	if willing < 0:
+		push_error("%s: no member of the camp carries the `recruit` tag, so nobody can be taken in" % lane)
+		return false
+	var other: int = _a_fighter(w, settlers)
+	if other < 0:
+		push_error("%s: every settler is willing, so the negative below has no subject" % lane)
+		return false
+	# The E ladder tries the ground and the cupboards before it reaches the people, on purpose, so
+	# the fixture clears both -- otherwise this lane measures which rung came first rather than
+	# whether the recruit rung fires at all. The strangers gate's RECRUIT lane does the same.
+	for item in w.components.query(["item", "position"]):
+		w.despawn(int(item))
+	for box in w.components.query(["searchable"]):
+		w.despawn(int(box))
+	var player: int = int(w.player)
+	var before: int = _survivors_alive(w)
+	# The negative: the same press, at the same range, on the settler who is *not* willing.
+	var stand: Vector2 = _pos(w, other)
+	_put(w, player, stand.x + REACH_METRES, stand.y)
+	if SimRecruits.waiting_in_reach(w, player) == other:
+		push_error("%s: settler %d is not the willing one and `waiting_in_reach` offered them anyway" % [lane, other])
+		return false
+	w.commands.push({"type": "use.context"})
+	w.step()
+	if w.components.has_component(other, "needs") or SimAllegiance.is_colony(w, other):
+		push_error("%s: E on a settler who was never willing made a colonist of them" % lane)
+		return false
+	if _survivors_alive(w) != before:
+		push_error("%s: the colony went from %d to %d without anybody being accepted" % [lane, before, _survivors_alive(w)])
+		return false
+	# What that press landed on instead: with nobody acceptable in reach the ladder falls through
+	# to the building rungs and starts a channel on the player, and `fortify.intake` skips a body
+	# mid-channel entirely -- so the press below would have been swallowed before it reached a
+	# rung. Cleared and reported rather than worked around.
+	var started: bool = w.components.has_component(player, "construct")
+	if started:
+		w.components.remove(player, "construct")
+	# The positive: standing at the willing one.
+	var at: Vector2 = _pos(w, willing)
+	_put(w, player, at.x + REACH_METRES, at.y)
+	if SimRecruits.waiting_in_reach(w, player) != willing:
+		push_error("%s: the willing settler is not in reach of the E rung at %.1f m, so the press below measures nothing" % [lane, REACH_METRES])
+		return false
+	w.commands.push({"type": "use.context"})
+	w.step()
+	if w.components.has_component(willing, "recruit"):
+		push_error("%s: E at arm's length did not take the willing settler in" % lane)
+		return false
+	for needed in ["needs", "jobPriorities", "skillWeb", "identity", "body"]:
+		if not w.components.has_component(willing, String(needed)):
+			push_error("%s: the accepted body has no `%s`, so it is not a colonist -- `accept` has to attach what a settler was withheld" % [lane, String(needed)])
+			return false
+	if not SimAllegiance.is_colony(w, willing):
+		push_error("%s: the accepted body still reads as `%s`" % [lane, SimAllegiance.faction_of(w, willing)])
+		return false
+	var after: int = _survivors_alive(w)
+	if after != before + 1:
+		push_error("%s: the harness's colonist count went from %d to %d on one acceptance" % [lane, before, after])
+		return false
+	# One more tick, and the module lets go of them: a colonist steered by `settlers.day` and by
+	# `jobs.ai` at once is two systems writing one velocity.
+	w.step()
+	if w.components.has_component(willing, "settler"):
+		push_error("%s: the accepted body still carries a `settler` component, so this module is still steering a colonist" % lane)
+		return false
+	if SimSettlers.members_of(w).has(willing):
+		push_error("%s: the accepted body still reads as one of the district's settlers" % lane)
+		return false
+	print("%s OK the existing E rung took the willing settler in -- colony %d to %d, needs/jobPriorities/skillWeb attached, faction `%s`, `settler` released; the same press on a settler who was not willing recruited nobody (it fell through to a building channel: %s)" % [
+		lane, before, after, SimAllegiance.faction_of(w, willing), str(started),
+	])
+	return true
+
+
+# --- RAIDERS ---------------------------------------------------------------------------------
+
+func _raiders() -> bool:
+	var lane: String = "RAIDERS"
+	# The table, asserted rather than assumed -- both the pair that must fight and the pair that
+	# must not, because a table edited into "everybody fights everybody" would satisfy the first
+	# half on its own.
+	if not SimAllegiance.factions_hostile(SimAllegiance.RAIDERS, SimAllegiance.SETTLERS):
+		push_error("%s: the allegiance table does not make raiders and settlers hostile" % lane)
+		return false
+	if SimAllegiance.factions_hostile(SimAllegiance.COLONY, SimAllegiance.SETTLERS):
+		push_error("%s: the allegiance table makes the colony and the settlers hostile" % lane)
+		return false
+	var built: Dictionary = _fixture_world(lane)
+	if built.is_empty():
+		return false
+	var w: Variant = built["world"]
+	var settlers: Array[int] = built["settlers"] as Array[int]
+	_clear_threats(w)
+	var fighter: int = _a_fighter(w, settlers)
+	if fighter < 0 or not _arm(w, fighter):
+		push_error("%s: no armed settler to put a band in front of" % lane)
+		return false
+	var at: Vector2 = _pos(w, fighter)
+	var band: int = SimRaiders.spawn(w, at.x + BLADE_METRES, at.y, "raider.scav")
+	if band < 0:
+		push_error("%s: `raider.scav` did not spawn" % lane)
+		return false
+	w.events.drain()
+	# Two counters and not one, because "the camp fights" has to be a claim about the camp. A
+	# single tally of blows in either direction stayed green through a sabotage that took the
+	# settlers straight back out of `npc_combat._combatants` -- the raider was still swinging, so
+	# the lane reported a fight in which one side never raised a hand.
+	var by_settler: Array = []
+	var by_band: Array = []
+	w.events.subscribe({"id": "settlers.gate.band", "type": "attack.connected", "handler": func(ev: Dictionary) -> void:
+		var a: int = int(ev.get("attacker", -1))
+		var t: int = int(ev.get("target", -1))
+		if a == fighter and t == band:
+			by_settler.append(t)
+		elif a == band and t == fighter:
+			by_band.append(t)
+	})
+	# The negative first, and it is one field: the identical body, in the identical place, with
+	# the identical weapon, declared a settler instead of a raider. Nothing is thrown.
+	SimAllegiance.attach(w, band, SimAllegiance.SETTLERS)
+	for _t in FIGHT_TICKS:
+		w.step()
+	if not (by_settler.is_empty() and by_band.is_empty()):
+		push_error("%s: %d blow(s) were traded with a body declared `%s`" % [lane, by_settler.size() + by_band.size(), SimAllegiance.SETTLERS])
+		return false
+	# The positive: the same body, put back where it started and back on its own side.
+	SimAllegiance.attach(w, band, SimAllegiance.RAIDERS)
+	at = _pos(w, fighter)
+	_put(w, band, at.x + BLADE_METRES, at.y)
+	for _t in FIGHT_TICKS:
+		w.step()
+	if by_settler.is_empty():
+		push_error("%s: a scav stood %.1f m from an armed settler for %d ticks and the settler never threw anything (the band threw %d)" % [lane, BLADE_METRES, FIGHT_TICKS, by_band.size()])
+		return false
+	# The band's own blows are **reported and not required**, and that is a measurement rather than
+	# a shrug: an armed settler often puts the scav down before it answers (three knife blows is
+	# enough), so asserting a return blow would be asserting that the camp fights *badly*. That the
+	# band swings at all is `check_m2_raiders.gd`'s claim, over its own fixture.
+	print("%s OK the table makes raiders and settlers hostile and the colony and the settlers not; %d blow(s) from the camp and %d back from the band in %d ticks (the band still standing: %s), and none either way while the same body was declared a settler" % [
+		lane, by_settler.size(), by_band.size(), FIGHT_TICKS,
+		str(w.components.has_component(band, "raider")),
+	])
+	return true
+
+
+# --- FELL ---------------------------------------------------------------------------------
+
+# A head taken off, through the event every other killer in the game publishes -- `health.gd`'s
+# `attack.connected` handler is the one place a body dies -- so this lane kills the way the world
+# kills rather than by writing a zero into a body.
+func _kill(w: Variant, ent: int) -> void:
+	w.events.publish({"type": "attack.connected", "attacker": -1, "target": ent, "bodyPart": "head", "damage": 999.0})
+	w.step()
+
+
+func _fell() -> bool:
+	var lane: String = "FELL"
+	var built: Dictionary = _fixture_world(lane)
+	if built.is_empty():
+		return false
+	var w: Variant = built["world"]
+	var camp: int = int(built["camp"])
+	var settlers: Array[int] = built["settlers"] as Array[int]
+	_clear_threats(w)
+	var fell: Array = []
+	w.events.subscribe({"id": "settlers.gate.fell", "type": "settlement.fell", "handler": func(ev: Dictionary) -> void:
+		fell.append(int(ev.get("entity", -1)))
+	})
+	var s: Dictionary = w.components.get_component(camp, "settlement") as Dictionary
+	if bool(s.get("fell", false)):
+		push_error("%s: the camp booted already fallen" % lane)
+		return false
+	# Every member but the last. Each death is a step and then some, and the camp must stay
+	# standing through all of it -- the negative, and it is the whole first half of the lane.
+	for i in settlers.size() - 1:
+		_kill(w, int(settlers[i]))
+		for _t in 20:
+			w.step()
+		if not fell.is_empty():
+			push_error("%s: the camp fell with %d member(s) still alive" % [lane, settlers.size() - i - 1])
+			return false
+		if bool((w.components.get_component(camp, "settlement") as Dictionary).get("fell", false)):
+			push_error("%s: the settlement reads as fallen with %d member(s) still alive" % [lane, settlers.size() - i - 1])
+			return false
+	# And the last one.
+	_kill(w, int(settlers[settlers.size() - 1]))
+	w.step()
+	if fell.size() != 1:
+		push_error("%s: the last member died and `settlement.fell` fired %d time(s)" % [lane, fell.size()])
+		return false
+	if int(fell[0]) != camp:
+		push_error("%s: `settlement.fell` named entity %d, not the camp %d" % [lane, int(fell[0]), camp])
+		return false
+	# The reader. The event is not a dead socket: the module subscribes to it and retires the camp,
+	# which is what stops the scan finding the same empty camp on every remaining tick.
+	var after: Variant = w.components.get_component(camp, "settlement")
+	if not (after is Dictionary) or not bool((after as Dictionary).get("fell", false)):
+		push_error("%s: nothing read `settlement.fell` -- the settlement does not know it is gone" % lane)
+		return false
+	# Once, and only once: a scan that fired on the state rather than on the change would say it
+	# again on every tick for the rest of the campaign.
+	for _t in 200:
+		w.step()
+	if fell.size() != 1:
+		push_error("%s: `settlement.fell` fired %d times over 200 further ticks" % [lane, fell.size()])
+		return false
+	# And the second way a camp empties, which is the one that nearly got away. A settler who is
+	# bitten, dies and **turns** is despawned by `SimRecruits._turn_with_kit`, and `world.despawn`
+	# takes every component with it -- so a camp wiped that way ends with no `settler` components
+	# at all, and a watch that hung off the body count would have stayed silent for exactly the
+	# camp that was overrun. Measured on seed 31337's own campaign: the settler lost there came
+	# back with no identity, no allegiance and no corpse. Fresh world, every member despawned, and
+	# the camp still has to say so.
+	var built2: Dictionary = _fixture_world(lane)
+	if built2.is_empty():
+		return false
+	var w2: Variant = built2["world"]
+	var camp2: int = int(built2["camp"])
+	_clear_threats(w2)
+	var fell2: Array = []
+	w2.events.subscribe({"id": "settlers.gate.fell2", "type": "settlement.fell", "handler": func(ev: Dictionary) -> void:
+		fell2.append(int(ev.get("entity", -1)))
+	})
+	for e in built2["settlers"] as Array[int]:
+		w2.despawn(int(e))
+	if w2.components.count("settler") != 0:
+		push_error("%s: despawning every member left %d `settler` component(s), so this half is not the case it means to be" % [lane, int(w2.components.count("settler"))])
+		return false
+	for _t in 20:
+		w2.step()
+	if fell2.size() != 1:
+		push_error("%s: a camp whose members all turned fired `settlement.fell` %d time(s)" % [lane, fell2.size()])
+		return false
+	if not bool((w2.components.get_component(camp2, "settlement") as Dictionary).get("fell", false)):
+		push_error("%s: the turned-out camp was not retired" % lane)
+		return false
+	print("%s OK %d deaths and nothing said, then the last one fired `settlement.fell` once for camp %d and the settlement read it; still once %d ticks later; and a camp whose every member was despawned -- the turn path, no components left -- fired it once too" % [
+		lane, settlers.size() - 1, camp, 200,
+	])
+	return true

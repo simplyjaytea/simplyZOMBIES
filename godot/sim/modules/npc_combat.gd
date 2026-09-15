@@ -106,15 +106,31 @@ static func register_module(world: Variant) -> void:
 	)
 
 
-# Everybody this module is an intake for: the colony (`needs`) and the band at the gate
-# (`raider`). Two queries rather than one on `allegiance`, deliberately -- the colony's own gate
-# fixtures build an NPC out of `needs` + a body and nothing else, and re-rooting the roster on a
-# component they do not carry would have silently stopped them fighting. Sorted, because
-# `components.query` sorts and an engagement order that depended on table iteration would not
-# survive a save/load.
+# Everybody this module is an intake for: the colony (`needs`), the band at the gate (`raider`),
+# and the camp out in the district (the settlers faction). Three queries rather than one on
+# `allegiance`, deliberately -- the colony's own gate fixtures build an NPC out of `needs` + a body
+# and nothing else, and re-rooting the roster on a component they do not carry would have silently
+# stopped them fighting. Sorted, because `components.query` sorts and an engagement order that
+# depended on table iteration would not survive a save/load.
+#
+# **The third query is the settlers slice's one honest option, and the two it is not are worth
+# naming.** A settler has no `needs` and no `jobPriorities`, and that is not an oversight: those
+# two components are what the colony's books are keyed on -- `check_m2_balance.gd`'s
+# `_survivors_alive` counts `needs` + `body`, and `jobs.gd` queries `jobPriorities` + `identity`.
+# So *giving* a settler `needs` to get them in here would put a camp on the colony's ledger and
+# its work panel, which the camp slice went out of its way to prevent; and *widening* the first
+# query to something every body carries would change which bodies this module schedules for
+# everybody, colonists included. Asking for the third faction **by name** changes the roster by
+# exactly the bodies it names and nothing else, which is how the raiders were added to this same
+# function and is the only one of the three that can be read at a glance.
 static func _combatants(world: Variant) -> Array[int]:
 	var out: Array[int] = world.components.query(["needs", "position", "facing"])
 	for ent in world.components.query(["raider", "position", "facing"]):
+		if not out.has(int(ent)):
+			out.append(int(ent))
+	for ent in world.components.query(["allegiance", "position", "facing"]):
+		if SimAllegiance.faction_of(world, int(ent)) != SimAllegiance.SETTLERS:
+			continue
 		if not out.has(int(ent)):
 			out.append(int(ent))
 	out.sort()
