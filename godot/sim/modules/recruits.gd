@@ -69,7 +69,12 @@ static func _tick_beats(world: Variant) -> void:
 		return
 	if int(st.get("accepted", 0)) >= CAP:
 		return
-	if not world.components.query(["recruit"]).is_empty():
+	# A recruit already waiting blocks the beat -- the colony deals with one person at a time --
+	# but a **stranger** is not at the gate and is not waiting on this decision. Narrowed by the
+	# strangers slice: before it, somebody hiding in a house on day 5 silently cancelled the day-8
+	# gate beat and the colony never learned why. `check_m2_strangers.gd`'s GATE BEAT lane holds
+	# both halves -- a hidden stranger does not block day 8, a waiting gate recruit still does.
+	if not _waiting_at_the_gate(world).is_empty():
 		return
 	# A stranger arrives at the gate, and where the gate is comes off the map. A district with no
 	# gate anchor has nowhere for one to turn up, so the beat does not fire -- checked before the
@@ -92,11 +97,29 @@ static func _tick_dawn_leave(world: Variant) -> void:
 	var phase: int = Clock.phase_of(int(world.tick))
 	if phase != Clock.Phase.Dawn or Clock.phase_of(int(world.tick) - 1) == Clock.Phase.Dawn:
 		return
+	# Every waiting recruit **at the gate** goes at dawn. A stranger in a building is not waiting
+	# at the gate and keeps their own clock (`SimStrangers.STRANGER_DAYS`); despawning them here
+	# would have killed every one of them on the first dawn after they were placed, which is the
+	# second regression this narrowing exists to prevent.
+	for e in _waiting_at_the_gate(world):
+		world.events.publish({"type": "recruit.left", "entity": int(e), "reason": "dawn"})
+		world.despawn(int(e))
+
+
+# The recruits standing at the gate waiting to be spoken to: `recruit {waiting: true}` without
+# `stranger`. One predicate for both the beat and the dawn leave, so the two cannot come to
+# disagree about what a stranger is.
+static func _waiting_at_the_gate(world: Variant) -> Array[int]:
+	var out: Array[int] = []
 	for e in world.components.query(["recruit"]):
 		var r: Variant = world.components.get_component(int(e), "recruit")
-		if r is Dictionary and bool((r as Dictionary).get("waiting", false)):
-			world.events.publish({"type": "recruit.left", "entity": int(e), "reason": "dawn"})
-			world.despawn(int(e))
+		if not (r is Dictionary):
+			continue
+		if bool((r as Dictionary).get("stranger", false)):
+			continue
+		if bool((r as Dictionary).get("waiting", false)):
+			out.append(int(e))
+	return out
 
 
 static func _tick_leave(world: Variant) -> void:
@@ -119,7 +142,12 @@ static func _tick_leave(world: Variant) -> void:
 				(lv as Dictionary)["pathGen"] = job.get("pathGen", -1)
 				arrived = here == dest
 			if arrived or int((lv as Dictionary)["ticksLeft"]) <= 0:
-				world.events.publish({"type": "recruit.left", "entity": int(e), "reason": "mood"})
+				# Whatever put them on the road says why. "mood" for a colonist who walked out,
+				# which is every caller that came before the strangers slice and so is the
+				# default; "stranger" for somebody who gave up on a colony that never came to
+				# find them, which the chronicle deliberately says nothing about (see
+				# `SimStrangers._give_up`).
+				world.events.publish({"type": "recruit.left", "entity": int(e), "reason": String((lv as Dictionary).get("reason", "mood"))})
 				world.despawn(int(e))
 
 
