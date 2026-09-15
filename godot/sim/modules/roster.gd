@@ -14,6 +14,8 @@ const SimCombatRes = preload("res://sim/combat.gd")
 const SimVisibility = preload("res://sim/vision/visibility.gd")
 const SimAttentionEmitter = preload("res://sim/modules/attention_emitter.gd")
 const SimLightMod = preload("res://sim/modules/light.gd")
+const SimInventoryRes = preload("res://sim/modules/inventory.gd")
+const SimItemsRes = preload("res://sim/modules/items.gd")
 const Clock = preload("res://sim/time/clock.gd")
 
 const TYPE_BASE: String = "zombie.base"
@@ -290,7 +292,55 @@ static func spawn_zombie(world: Variant, x: float, y: float, type_id: String, rn
 			alarm = {"magnitude": 300, "relay": true, "cooldownTicks": 600}
 		alarm["ticksUntilReady"] = 0
 		world.components.set_component(ent, "alarm", alarm)
+	_wear_the_kit(world, ent, type_id, x, y)
 	return ent
+
+
+# What a body of this kind is wearing, from the resolved entry's `worn` list. A kind that
+# declares none gets [] and the block below is skipped entirely, so nothing about a shambler
+# changed: no inventory, no equipment, no `lootKit`.
+static func worn_of(world: Variant, type_id: String) -> Array[String]:
+	var out: Array[String] = []
+	var entry: Variant = content_entry(world, type_id)
+	if entry is Dictionary and (entry as Dictionary).get("worn") is Array:
+		for id in (entry as Dictionary)["worn"] as Array:
+			var s: String = String(id)
+			if not s.is_empty():
+				out.append(s)
+	return out
+
+
+# Armour on something that is not a survivor -- docs/23's open defect, closed here, and closed
+# with no new arithmetic anywhere. `SimInfection.armor_coverage_of` reads the target's
+# `equipment` and has never asked whose body it is; `SimHealth.armor_damage_factor` multiplies
+# by it inside `damage_part`, the one closure in the sim that moves integrity. What was missing
+# was only that a zombie had no `equipment` component to read, so an armoured kind could not
+# exist. Giving one an inventory and equipping its `worn` list is the whole mechanism.
+#
+# `SimRecruits._turn_with_kit` is the precedent and the shape is deliberately its shape: an
+# inventory, the gear on the body, and `lootKit` so `SimRecruits._drop_kit` puts it on the floor
+# when the body goes down -- which is already what the shambler arm of `handle_death` calls. So
+# the armour a kind wears is armour the colony can take off it, which is what keeps an armoured
+# kind a loot source rather than only a wall. check_m2_armored.gd WORN and DROP.
+#
+# A piece that will not go on (a slot `EQUIP_SLOTS` does not know, two things wanting one slot)
+# is dropped at the body's feet rather than silently despawned, because an item that reaches
+# neither a slot nor the ground is an entity nothing can ever find -- and the gate's WORN lane
+# reads the slots, so a piece that quietly failed to fit would be caught rather than hidden.
+#
+# Determinism: this makes no draw of its own, and `SimItems.spawn_item` touches only the `loot`
+# stream -- never `placement` or `director`, the two streams `spawn_zombie` is handed.
+# check_m2_variance.gd's STREAM pin is what holds that.
+static func _wear_the_kit(world: Variant, ent: int, type_id: String, x: float, y: float) -> void:
+	var worn: Array[String] = worn_of(world, type_id)
+	if worn.is_empty():
+		return
+	SimInventoryRes.make_inventory(world, ent)
+	for item_id in worn:
+		var item: int = SimItemsRes.spawn_item(world, item_id, {"tier": "scavenged"})
+		if not SimInventoryRes.equip(world, ent, item):
+			world.components.set_component(item, "position", {"x": x, "y": y})
+	world.components.set_component(ent, "lootKit", {})
 
 
 # The bodies the generator left asleep indoors, made into entities -- `SimVehicles.spawn_from_manifest`
