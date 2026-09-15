@@ -110,6 +110,7 @@ extends RefCounted
 # aptitudes the fight they are in is being resolved with.
 #
 # Refused either way, the same rule as v27.
+#
 # v31: somebody hiding in a building. A save carries a `stranger` component per body still
 # waiting to be found ({state, sinceTick, path, pathGen, goalX, goalY}), a `stranger` flag on the
 # `recruit` tag they wear, and `world.strangers.spawned` -- which stranger beats have already
@@ -118,7 +119,18 @@ extends RefCounted
 # recruit with no flag, which the gate beat reads as somebody at the gate (so the next gate beat
 # is cancelled) and the dawn leave despawns on sight; and an empty `spawned` list would fire every
 # stranger beat the campaign had already paid for a second time. Refused, the same rule as v27.
-const SAVE_VERSION: int = 31
+#
+# v32: somebody else lives here. A district now boots a `settlement` entity -- a building's rect,
+# the index of the building it sits in, and an Array of the member ids -- and a handful of bodies
+# carrying `allegiance.faction = "settlers"`, an `identity` and deliberately no `needs`. Two
+# streams are new, `settlers` and `settlersLook`, and both are spent at boot before the outdoor
+# scatter. A v31 save carries neither the entity nor the bodies, and there is no honest way to
+# read one: spawning the camp on load would invent people the save never had and would spend
+# streams the saved world had already spent elsewhere, while leaving it out would restore a
+# district whose `settlement` component names members that do not exist -- a camp of ids
+# pointing at nothing, which is the shape of a memory that is empty for reasons nothing reports.
+# Refused, the same rule as v27.
+const SAVE_VERSION: int = 32
 
 
 static func canonicalize(value: Variant, path: String = "$") -> String:
