@@ -245,6 +245,12 @@ static func spawn_settler(world: Variant, x: float, y: float, rolled: Dictionary
 # has exactly one answer in this tree and a second marker would be a second answer that drifts.
 # Sorted, because `components.query` sorts and anything derived from an unsorted scan would not
 # survive a save.
+#
+# **Its only reader today is `check_m2_settlers.gd`, and that is said out loud rather than left to
+# be found.** It is not a decoration on a gate: the district's living settlers by faction and the
+# `settlement.members` list the camp wrote are two independent answers to "who is in the camp",
+# and BODIES asserts they agree -- a settlement whose list had drifted from the bodies standing in
+# it would otherwise be invisible. The behaviour slice is what gives it a reader in the sim.
 static func members_of(world: Variant) -> Array[int]:
 	var out: Array[int] = []
 	for e in world.components.query(["identity", "body"]):

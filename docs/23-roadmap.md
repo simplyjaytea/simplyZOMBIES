@@ -8830,6 +8830,12 @@ not a to-do list:
   `is_colony` — and `check_m2_allegiance.gd` stays green unchanged. When the behaviour slice gives
   the camp an intake, that difference closes; until then it is a fixture that is ahead of the
   shipped body, named here rather than left to be discovered.
+  **One helper's only reader today is the gate, and it is named rather than left to be found.**
+  `SimSettlers.members_of` scans the district for living bodies reading as `settlers`, which is a
+  second and independent answer to "who is in the camp" beside the `settlement.members` list the
+  spawner wrote; BODIES asserts the two agree, so a settlement whose list had drifted from the
+  bodies standing in it could not pass. Nothing in the sim calls it until the behaviour slice
+  does, and its own comment says so.
   **Balance, measured on a throwaway driver mirroring the FAST tier exactly** (four seeds, 64
   tiles, ten days, jump to each dusk then 2,000 ticks), before and after on one tree — the before
   column is the shipped content with `count: 0`, which returns from `spawn_camp` before the
