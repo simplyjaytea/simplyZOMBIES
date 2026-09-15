@@ -4966,3 +4966,65 @@ loses nobody. That quiet is a fact about the tier rather than about the camp —
 2,000 ticks of each dusk and nothing walks the district in between — so what it measures is what a
 house full of living bodies costs a district, not what meeting one is worth. The latter is the
 ten-day human playtest's question, and the next slice is what this table re-measures against.
+
+## What the settlers do, 2026-09-15
+
+The camp got a day, and the arc that began with the allegiance seam is finished. Five calls were
+taken, and the first one is the one the entry above said this slice would have to answer.
+
+**A third query by name, not a widened intake and not `needs` on a settler.** `npc_combat`'s roster
+was "everybody with `needs`" plus "everybody with `raider`", and a settler has neither on purpose.
+Three options, and the two refused are the argument for the one taken. Giving a settler `needs`
+would have undone the camp slice in a line: that component is what `check_m2_balance.gd`'s
+`_survivors_alive` counts, so a camp would have walked onto the colony's ledger, and `jobs.gd`
+queries `jobPriorities` + `identity`, so the scheduler and the work panel would have followed.
+Widening the first query to something every body carries — `position`, `body`, `allegiance` on its
+own — would have changed *which bodies this module schedules for everybody*, colonists included,
+which is a change to how every NPC in the game fights, made in passing, to get three people in a
+house to swing a knife. So the roster gained a third query that asks for the settlers faction by
+name: it adds exactly the bodies it names and nothing else, it is the same move that added the
+raiders to the same function a slice earlier, and it is the only one of the three a reader can
+judge at a glance. The ledger did not move, and the gate still says so structurally, textually and
+empirically.
+
+**The leash is a guarantee because the plan is vetted, not because the goal is.** A settler mills
+inside `CAMP_RADIUS` of the camp's centre, and the obvious implementation — draw a goal inside the
+circle — is not enough: a grid path between two points inside a circle can bulge outside it to get
+round a wall, so a lane written against the goal alone would have had to forgive a bulge it could
+not bound, which is a lane that cannot fail. Instead the whole plan is thrown away unless every
+waypoint is inside the leash, and a body walking the straight segment between two waypoints that
+are both inside a circle never leaves it. That is what lets the gate assert ten metres outright.
+It is also load-bearing rather than decorative, and the sabotage pass is what proved it: widening
+the goal draw to three times the leash left the lane **green** at 3.77 m, because the wide goals
+were simply refused; only dropping the waypoint test as well put a settler 12.18 m out.
+
+**The willing one wears the strangers slice's tag and not its component.** `recruit {waiting,
+stranger}` is what the E rung finds, so recruiting a settler runs down `SimFortify`'s existing
+ladder into `SimRecruits.accept` — one acceptance path in the tree, one hidden-bite roll on it, and
+no second rung. The `stranger` *component* was deliberately not given: `SimStrangers` would steer
+them (two systems writing one velocity), they would burn a slot in its `LIVE_CAP`, and after
+`STRANGER_DAYS` they would walk to the colony's gate to be despawned — somebody leaving their own
+camp to vanish. `accept` now attaches `needs`, `jobPriorities`, `skillWeb` and the colony faction
+when they are absent, which is a no-op for every body that came before and is the moment a settler
+stops being one.
+
+**`settlement.fell` is published, and the chronicle is refused as its reader.** The reader is the
+module's own retirement of the camp, which is what stops the scan finding the same empty camp on
+every remaining tick. The chronicle was the obvious alternative and it is the wrong one: it is what
+happened to the colony *as the screen can say it*, and a camp two hundred metres away being
+overrun is not something anybody in the colony saw. A line about it would hand the player a fact
+nobody has — clause 4, and the same refusal `SimStrangers._give_up` already makes over a stranger
+who walks away. What tells you the camp fell is walking out there.
+
+**The FAST tier cannot see this slice, so the measurement moved to daylight.** The tier jumps to
+`Clock.DAY_ENDS` and runs 2,000 ticks, which is entirely dusk — and at dusk a settler is home and
+standing, so every column on every seed came back byte-identical before and after. That is a fact
+about the tier and not a null result, and rather than report it as one the same driver was run at
+the armour tier's working-day fraction: the two campless seeds stay identical, and on the two with
+a camp two more bodies die and thirty to fifty more grabs happen, with `survivors_end` unchanged on
+every seed and each camp losing one of its three over ten days. The over-cap invariant did not
+trip (peaks of 24 and 22 against a cap of 32), but **the gap behind it was exercised for the third
+slice running**: the settler lost on seed 31337 was diagnosed rather than assumed — no identity, no
+allegiance, no corpse, which is `_turn_with_kit`'s signature — so a bitten settler died, turned,
+and became a zombie the director never placed and cannot refuse. Nothing reconciles that against
+the budget yet, and three slices have now paid for it.

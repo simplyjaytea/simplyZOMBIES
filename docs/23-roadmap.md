@@ -282,9 +282,6 @@ balance record and says so in its record; `survivors_end >= 1` is never the leve
   glance rather than only in the damage arithmetic, and a heavy that is visibly bigger than one
   tile — distinguishable at 32 px from the shambler and from each other, per the brief in
   `godot/assets/sprites/README.md`.
-- **What the settlers do.** Mill near the camp, return at dusk, fight through the faction-blind
-  combat that exists, one of them willing to come along by the stranger rung; a roaming band
-  fights them and a wiped camp says so.
 
 **Medicine — the back half of treatment:**
 
@@ -8886,8 +8883,8 @@ not a to-do list:
   milling, no dusk return, no recruitment rung, and — because `npc_combat`'s intake asks for
   `needs` — no fighting back. A camp today is bodies standing in a building. They breathe into the
   noise and scent fields like anybody, a shambler comes for them because `is_person` reads their
-  `identity`, and they do not raise a hand. docs/23's "What the settlers do" is the next piece and
-  none of it was smuggled in here.
+  `identity`, and they do not raise a hand. That was true for one day: "What the settlers do"
+  landed 2026-09-15 and is the entry below this one. None of it was smuggled in here.
   **The distance is 32 m, not the plan's first-cut 96, and the number was measured before it was
   taken.** `far_buildings(map, 96)` returns **zero** buildings on every one of the four balance
   seeds at the 64-tile size every gate and the FAST balance tier boot — the map is 64 m across, so
@@ -9011,6 +9008,184 @@ not a to-do list:
   kitchen knife on 0.6 / 0.5 / 0.4, with no armour in it deliberately — `SimDirector._has_armor`
   scans every `identity`'s equipped items, and a settler in a helmet would quietly move a director
   decision the colony made.
+
+- **The raiders and the settlers** — ~~what the settlers do~~ **landed** (`godot:m2:settlers`,
+  seven lanes to **twelve**; the chain stays 77 links because the script is the same one),
+  2026-09-15, the third piece of the procedural-population arc's settlers group and the **last
+  slice of the thirteen-piece arc**. The camp above shipped three people standing in a building
+  with nothing that made them do anything; this gives them a day. They mill inside a leash of the
+  camp, they walk home at dusk, they fight what comes, one of them will come with you, and a camp
+  whose last member dies says so.
+  **The `needs` intake was the whole problem and the answer is a third query by name.**
+  `npc_combat._combatants` asked for `needs` (the colony) or `raider` (the band), and a settler has
+  neither — deliberately, because those two components are what the colony's books are keyed on.
+  Three options were read before one was taken, and the two that were not are worth the sentence:
+  *giving* a settler `needs` would have put a camp on `check_m2_balance.gd`'s `_survivors_alive`
+  (which counts `needs` + `body`), on `jobs.gd`'s scheduler (which queries `jobPriorities` +
+  `identity`) and on the work panel, undoing the whole of the camp slice's design; and *widening*
+  the first query to a component every body carries would have changed which bodies this module
+  schedules for everybody, colonists included, which is a change to how every NPC in the game is
+  scheduled smuggled in beside a camp. The third query asks
+  `query(["allegiance", "position", "facing"])` and keeps only `SimAllegiance.SETTLERS` — it adds
+  exactly the bodies it names, it is how the raiders were added to the same function, and it is the
+  one of the three that can be read at a glance. **The ledger did not move**: LEDGER still reads 3
+  for a colony of 2 plus the player with three settlers standing, and `_survivors_alive`'s query
+  line is still asserted textually to key on `needs`.
+  **What milling is, and why the leash is a guarantee rather than a hope.** `SimSettlers` registers
+  `settlers.day` at `"ai"/0` beside `raiders.approach` and `shambler.think`, so the velocity it
+  decides is spent by `movement.integrate` on the same tick and `npc.combat` at `combat/-5` still
+  gets the last word on facing. The shape is the shambler's wander — an angle, a radius, and a
+  countdown of 20 to 120 ticks between walks — expressed through **`SimWalk.step`**, the stepper
+  the raiders and the strangers already share, rather than a second walker: a settler rounds a
+  corner and opens the door in the way exactly as they do. A goal is drawn inside `CAMP_RADIUS` of
+  the camp's centre and then the *plan* is thrown away unless **every waypoint** is inside it too,
+  because a grid path between two points inside a circle can bulge outside it to get round a wall,
+  and a body walking the straight segment between two waypoints that are both inside a circle never
+  leaves it. That is what lets the STAYS lane assert ten metres outright instead of ten metres plus
+  a tolerance — and the vetting is load-bearing rather than decorative: widening the *draw* to three
+  times the leash left the gate green at 3.77 m, because the wide goals were simply refused; only
+  dropping the waypoint test as well put a settler 12.18 m out and turned the lane red.
+  **The camp's kit was going into the pack, and nothing could have swung.** `spawn_settler` stowed
+  every kit row, so the 40%-chance kitchen knife sat in a satchel — and a knife in a satchel raises
+  no `meleeWeapon`, which is the component `npc_combat._melee_reach` reads. The intake above would
+  have found the settlers, turned them to face the shambler and had nothing in their hands. The fix
+  is one line and it is `SimSurvivors._hold_it`, the same call the boot colony and the raiders
+  already make; it spends no draw, so the camp's stream is untouched.
+  **The willing one wears the strangers slice's tag and not its component, and the difference is
+  the design.** One member carries `recruit {waiting: true, stranger: true}`, which is what
+  `SimRecruits.waiting_in_reach` finds and what `SimFortify`'s E rung hands to `accept` — so there
+  is exactly one acceptance path in the tree and exactly one hidden-bite roll on it. The `stranger`
+  **flag** is what `recruits.gd` narrows its gate beat and its dawn leave on, so a willing settler
+  neither cancels the day-8 beat nor is despawned at dawn for standing somewhere that is not the
+  gate. The `stranger` **component** is deliberately absent: `SimStrangers._tick_behaviour` would
+  steer them (two systems writing one velocity), `live_count` would burn a slot in its `LIVE_CAP`,
+  and after `STRANGER_DAYS` they would walk to the colony's gate to be despawned — a person leaving
+  their own camp to vanish. *Which* member is willing is the first body the camp rolled rather than
+  a draw of its own: another draw would move what every later save of the `settlers` stream says for
+  a decision not worth randomness, and who that person is already differs per seed. **Nothing tells
+  the player any of it** — no line, no marker, no field — which is clause 4 exactly as the strangers
+  slice left it: what you learn about the camp is what you learn by walking out and pressing E.
+  **`SimRecruits.accept` now attaches what a settler was withheld.** `needs`, `jobPriorities`,
+  `skillWeb` and the colony's own faction, each behind a "when absent" guard, so every line is a
+  no-op for a gate recruit and for a stranger (both are `spawn_generated` bodies that carry all
+  four). Without it, accepting a settler produced a body the harness could not count, `jobs.gd`
+  would never schedule and `needs.gd` would never drain — and `accept`'s own three lines setting
+  hunger, thirst and rest wrote into the detached `blank()` that `SimNeeds.of` answers a missing
+  component with. The web is on the list for the same reason the other three are: a colonist whose
+  Focus pays into nothing is a half-colonist that nothing reports.
+  **`settlement.fell`, and what reads it.** A camp whose members are all dead publishes it once,
+  and the reader is the module's own subscription, which writes `fell`/`fellTick` onto the
+  settlement and stops the scan finding the same empty camp on every remaining tick. **The
+  chronicle was considered and refused**: it is "what happened to the colony, as the screen can say
+  it", and a camp two hundred metres away being overrun is not something anybody in the colony saw
+  — a line about it would hand the player a fact nobody has, which is the same refusal
+  `SimStrangers._give_up` already makes over a stranger who walks away. "The last member dies" is
+  meant literally: a member who was *recruited* is alive in your colony, so a camp does not fall
+  because you saved somebody out of it, and a member who died and turned was despawned by
+  `_turn_with_kit` and reads as gone, which is what they are.
+  **Three fields were written and taken back out before the commit, by this slice's own
+  dead-socket pass.** The `settler` component carried a `state` (Mill/Return), the settlement a
+  `fellTick`, and `settlement.fell` an `x`/`y` — and nothing read any of the three. The state is a
+  pure function of the clock, asked fresh every tick, so a stored copy is a second answer with no
+  reader; the stranger's component keeps one only because Hiding/Approaching is a latch nothing can
+  re-derive. The event carries `entity` alone, because its one reader resolves the settlement from
+  the id and a rect on the payload would copy a component the handler already holds.
+  **And one helper the camp record predicted a reader for still has none.** That entry said the
+  behaviour slice would give `SimSettlers.members_of` a caller in the sim; it did not.
+  `settlers.day` reads the `settler` component, and `_watch_camps` reads the settlement's own
+  member list, which are the two things each needs. `members_of` stays what it was — the gate's
+  independent second answer to "who is in the camp", now read by five lanes instead of one — and
+  its comment says so rather than repeating the prediction.
+  **Save:** `SAVE_VERSION` **32 → 33**, ledger entry after v32's, twin pins in `check_m2_save.gd`
+  and `check_m2_fortify.gd` moved. Three persisted shapes are new — the `settler` component (state,
+  camp centre, home tile, goal, and the `path`/`pathGen` record `SimWalk.step` owns, so a save
+  carries the walk in progress), the `recruit` tag on a body that is not a stranger, and the
+  settlement's `fell`/`fellTick` — plus a fourth stream, `settlersMill`, spent per turn rather than
+  at boot.
+  **The five new lanes, each with its true negative and each proved red on purpose:** STAYS (three
+  settlers over 2,000 ticks of a working day with every threat cleared out of the district: furthest
+  **6.01 m** against a leash of 10.0, and each walked at least 3 m — red at 12.18 m when the
+  waypoint vetting is dropped, and red with "walked 0.00 m" when `_mill` is stubbed out; and two
+  negatives for the two scanners, the same body reading 0.00 m over 400 ticks once its `settler`
+  component is taken away, which is also what proves the walking is this module's, and a body shoved
+  twice the leash out reading 20.0 m), FIGHTS (an armed settler lands three blows on a shambler
+  spawned 1.6 m off inside 600 ticks, and the same body over the same span with nothing in the
+  district lands none — red when the settlers arm of `_combatants` is removed), RECRUIT (E through
+  `use.context` down the real ladder takes the willing one in: colony 3 → 4, `needs`,
+  `jobPriorities`, `skillWeb`, faction `colony`, `recruit` gone and `settler` released a tick later;
+  the same press at the same range on a settler who is not willing recruits nobody and moves no
+  count — red when `accept` stops attaching `needs`), RAIDERS (the table asserted both ways round —
+  raiders and settlers hostile, colony and settlers not — then three blows from the camp in 600
+  ticks against a scav at blade range, and **none either way** while the identical body is declared
+  a settler instead; red when `[RAIDERS, SETTLERS]` leaves `HOSTILE_PAIRS`), FELL (two deaths and
+  nothing said, then the last one fires `settlement.fell` exactly once and the settlement reads
+  fallen, still once 200 ticks later, **and a second fixture for the other way a camp empties** —
+  every member despawned, which is what a body that died and turned leaves behind, with no
+  `settler` component anywhere in the district and the camp still saying so; red when the scan
+  fires at one survivor instead of none, and red on the second fixture when the camp watch is hung
+  off the body count).
+  **That second fixture exists because the slice wrote the bug and caught it before it shipped.**
+  `settlers.day` skipped its whole body when the district held no `settler` component — which is
+  the cheap and obvious guard, and wrong for the camp watch: a settler who is bitten, dies and
+  turns is despawned by `_turn_with_kit` and `world.despawn` takes every component with it, so a
+  camp wiped by *turning* ends with zero `settler` components and the one camp that was actually
+  overrun would have been the one camp that never said so. Two guards now, the walk on the bodies
+  and the watch on the settlements, and the lane that would have caught it exists.
+  **One lane was wrong and a sabotage is what said so.** RAIDERS first counted blows in *either*
+  direction, and it stayed green through the sabotage that took the settlers straight back out of
+  `_combatants` — the scav was still swinging, so the lane reported a fight in which one side never
+  raised a hand. It counts the two directions separately now and requires the camp's. The band's own
+  answer is **reported and not required**, which is a measurement rather than a shrug: three knife
+  blows put the scav down before it answered (`the band still standing: false`), so requiring a
+  return blow would be requiring the camp to fight badly, and that the band swings at all is
+  `check_m2_raiders.gd`'s claim over its own fixture.
+  **The blade range is a measured number too.** The first cut stood the scav at 1.6 m and neither
+  body moved for 600 ticks: `npc_combat` sets no velocity at all and a raider with no objective
+  halts where it is, so two people standing still never close a gap — against a kitchen knife's
+  0.9 m plus `SimMelee.MELEE_REACH_FUDGE` and a rusted machete's 1.2 plus the same. A shambler
+  closes by itself, which is why FIGHTS keeps 1.6 m and RAIDERS uses 1.0.
+  **The divergence the camp record named has closed.** `check_m2_allegiance.gd`'s `_person` fixture
+  gives its settler `needs` because it needed `npc_combat` to drive both sides of a duel; the
+  shipped settler still has none and now fights anyway, so the fixture is no longer ahead of the
+  body. That gate stays green unchanged.
+  **Balance, two windows, throwaway driver deleted after.** The first mirrors
+  `check_m2_balance.gd`'s FAST tier **exactly** — four seeds, 64 tiles, ten days, jump to each
+  dusk then 2,000 ticks, the mixed arm — and every column on every seed is **byte-identical
+  before and after**. That is not a
+  null result, it is structural and it is worth stating: the tier's window runs from
+  `Clock.DAY_ENDS` for 2,000 ticks, which is entirely **Dusk**, and at dusk a settler is home and
+  standing. The FAST tier cannot see this slice at all. So the measurement that answers the question
+  is the second window, the armour tier's working-day fraction (0.35, phase Day at both ends) over
+  the same seeds, days and window, run before and after on one tree with the module registration and
+  the equip line switched off for the before arm:
+
+  | seed | camp | survivors_end | killed (deduped) | people killed | settlers left | grabs | peak live (cap 32) |
+  |---|---|---|---|---|---|---|---|
+  | 20260805 | no | 2 → 2 | 5 → 5 | 2 → 2 | — | 100 → 100 | 20 → 20 |
+  | 404 | no | 1 → 1 | 5 → 5 | 4 → 4 | — | 167 → 167 | 24 → 24 |
+  | 31337 | yes | 2 → 2 | 5 → 7 | 3 → 4 | 3 → 2 | 128 → 177 | 24 → 24 |
+  | 90210 | yes | 2 → 2 | 2 → 4 | 1 → 3 | 3 → 2 | 89 → 119 | 21 → 22 |
+
+  The two campless seeds come back identical, which is the control this measurement did not have to
+  arrange. On the two with a camp the district gets busier — two more bodies dead on each, thirty to
+  fifty more grabs — and **`survivors_end` is unchanged on every seed**: the colony neither gains
+  nor loses for a camp that is now awake, which is the same claim the ledger lane makes
+  structurally. Each camp loses one of its three over ten days.
+  **The over-cap invariant did not trip, and the gap was exercised.** `over_ticks` is **0** on all
+  four seeds in both windows, at peaks of 24 and 22 against a cap of 32. But the settler lost on
+  31337 was diagnosed rather than assumed: a census driver found body 53 gone with **no identity, no
+  allegiance and no corpse**, which is `_turn_with_kit`'s signature — bitten, died, turned, and
+  became a shambler `SimDirector.LIVE_CAP` never placed and cannot refuse. That is the same gap the
+  strangers and camp slices both paid for, now exercised by a third slice and still not closed by
+  any of them; it stays named in [what's left](#whats-left-in-milestone-2) rather than tuned around.
+  No assertion was moved or widened at any point.
+  **First cuts, the owner's to move:** `CAMP_RADIUS` 10 m (the camp's yard, well inside
+  `SimNpcCombat.ENGAGE_METRES` so a settler never mills out of its own combat envelope); `SPEED`
+  0.9 m/s (slower than the stranger's 1.2, which is somebody crossing a district to reach you);
+  20–120 ticks between walks, the shambler's own numbers; four goal draws a turn, all four spent
+  whatever the first lands on, so a turn costs the stream the same whatever the district is built
+  like; `ALARM_METRES` 8, distance only and no sightline, because what it gates is standing still
+  rather than shooting; and the willing one recruiting for free, which is the plan's first cut.
 
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not

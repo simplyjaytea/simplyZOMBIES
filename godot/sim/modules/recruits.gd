@@ -229,6 +229,26 @@ static func accept(world: Variant, entity: int) -> bool:
 				"vector": "hidden-bite",
 			}],
 		})
+	# What a colonist has and this body may not have had. A recruit at the gate and a stranger in a
+	# house are both `spawn_generated` bodies and carry all four already, so every line here is a
+	# no-op for them; a **settler** is not, and the camp's whole design is that they are not. Their
+	# module withholds `needs` and `jobPriorities` on purpose -- those two are what the colony's
+	# ledger and its scheduler are keyed on -- and they carry the settlers faction, so joining is
+	# the moment all three change. Without this, accepting one produced a colonist the harness
+	# could not count, `jobs.gd` would never schedule, `needs.gd` would never drain, and whose
+	# hunger the three lines below wrote into a Dictionary nothing owned (`SimNeeds.of` answers a
+	# missing component with a detached `blank()`).
+	if not world.components.has_component(entity, "needs"):
+		SimNeeds.attach(world, entity, {"hunger": 50.0, "thirst": 50.0, "rest": 50.0})
+	if not world.components.has_component(entity, "jobPriorities"):
+		SimJobs.attach(world, entity, "Auto")
+	# And the web, for the same reason and with the same guard: a colonist with no `skillWeb` is
+	# one whose Focus pays into nothing and whose web screen is empty -- a half-colonist that
+	# nothing reports, which is the shape this milestone keeps finding.
+	if not world.components.has_component(entity, "skillWeb"):
+		SimSkills.attach(world, entity)
+	if not SimAllegiance.is_colony(world, entity):
+		SimAllegiance.attach(world, entity, SimAllegiance.COLONY)
 	var n: Dictionary = SimNeeds.of(world, entity)
 	n["hunger"] = 50.0
 	n["thirst"] = 50.0
