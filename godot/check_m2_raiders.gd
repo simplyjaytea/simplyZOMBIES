@@ -86,8 +86,12 @@ func _run() -> void:
 	ok = _the_raid_stream_has_not_moved() and ok
 	ok = _a_person_survives_a_save() and ok
 	ok = _a_dead_raider_is_named_once() and ok
+	ok = _a_looter_takes_the_stores() and ok
+	ok = _a_lookout_halts_short() and ok
+	ok = _a_role_is_read_and_a_strange_one_refused() and ok
+	ok = _the_shipped_archetypes_still_fight() and ok
 	if ok:
-		print("M2_RAIDERS_OK archetypes draw grace approach blood prey seed death ledger withdraw pool looks distinct no-identity look-reader no-tell streams save chronicle")
+		print("M2_RAIDERS_OK archetypes draw grace approach blood prey seed death ledger withdraw pool looks distinct no-identity look-reader no-tell streams save chronicle looter lookout role-read fighter")
 		quit(0)
 	else:
 		push_error("M2_RAIDERS_FAIL")
@@ -1670,3 +1674,450 @@ func _brightest_surface() -> float:
 		var c: Color = Palette.SURFACE_TINTS[i]
 		best = maxf(best, 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b)
 	return best
+
+
+# --- roles: the one who comes for the stores ---------------------------------------------------
+
+# How long a looter is given to cross the fixture, fill its arms and walk back out. Its objective
+# is about 16 m from where it comes in at 1.6 m/s, so 2,000 ticks (100 s) is generous for the
+# round trip and far short of WITHDRAW_AFTER_TICKS -- which matters, because a looter that left on
+# the *clock* rather than because it was loaded would pass a shorter assertion by accident.
+const LOOT_TICKS: int = 2000
+# Where the fixture's stores are: three tiles of the annex, spread far enough apart that the
+# looter has to walk between them rather than reaching all three from where it stood.
+const STORE_TILES: Array[Vector2i] = [Vector2i(13, 19), Vector2i(17, 22), Vector2i(18, 24)]
+
+
+# LOOTER TAKES. Items left on the colony's floor leave the district with the raider, and the
+# negative is the same body in the same fixture with the floor swept: it stands at the empty
+# pantry and goes home on the clock a fighter goes home on, having taken nothing. That pair is
+# what says a looter is not merely a differently-timed fighter -- one of them costs you the tins.
+#
+# The third case is the one that keeps the despawn honest. A looter killed with its arms full
+# drops what it took back onto your floor (`SimRecruits._drop_kit`), so "the items are gone" is a
+# property of the *withdrawal* and not of a raider having touched them.
+func _a_looter_takes_the_stores() -> bool:
+	var stocked: Dictionary = _loot_run(true)
+	if not bool(stocked["ok"]):
+		return false
+	if int(stocked["looted"]) != SimRaiders.LOOT_TAKE:
+		push_error("LOOTER: the looter left with %d of the %d it came for (%s)" % [int(stocked["looted"]), SimRaiders.LOOT_TAKE, str(stocked)])
+		return false
+	if int(stocked["left_on_floor"]) != 0:
+		push_error("LOOTER: %d of the stores were still on the colony's floor when the band had gone" % int(stocked["left_on_floor"]))
+		return false
+	if int(stocked["still_in_world"]) != 0:
+		push_error("LOOTER: %d looted items are still entities in the district -- they went nowhere, they just stopped being findable" % int(stocked["still_in_world"]))
+		return false
+	if int(stocked["gone_at"]) < 0:
+		push_error("LOOTER: the looter never left (%s)" % str(stocked))
+		return false
+	if int(stocked["gone_at"]) >= SimRaiders.WITHDRAW_AFTER_TICKS:
+		push_error("LOOTER: it left after %d ticks, which is the standing clock rather than a full pack" % int(stocked["gone_at"]))
+		return false
+
+	# The negative: nothing on the floor, so nothing to take and nothing to leave with.
+	var empty: Dictionary = _loot_run(false)
+	if not bool(empty["ok"]):
+		return false
+	if int(empty["looted"]) != 0:
+		push_error("LOOTER: a swept stockpile still yielded %d items" % int(empty["looted"]))
+		return false
+	if int(empty["gone_at"]) >= 0:
+		push_error("LOOTER: with nothing to take the looter left inside %d ticks -- it must stand there on the shared clock like anybody else" % LOOT_TICKS)
+		return false
+	if not bool(empty["arrived"]):
+		push_error("LOOTER: with nothing to take the looter never reached the stores at all, so the clock it is supposed to be running was never started")
+		return false
+
+	# And the same body killed with its arms full: the tins come back.
+	var killed: Dictionary = _loot_run(true, true)
+	if not bool(killed["ok"]):
+		return false
+	if int(killed["stocked_back"]) != SimRaiders.LOOT_TAKE:
+		push_error("LOOTER: a looter killed carrying %d of your tins put %d of them back on your floor -- the despawn is firing on death rather than on withdrawal (%s)" % [SimRaiders.LOOT_TAKE, int(killed["stocked_back"]), str(killed)])
+		return false
+	print("LOOTER OK %d items off the stockpile left the district at tick %d and are gone from the world; a swept stockpile yielded %d and the body stayed for the clock; a looter killed with the same %d in its arms dropped every one of them back on your floor" % [
+		int(stocked["looted"]), int(stocked["gone_at"]), int(empty["looted"]), int(killed["stocked_back"]),
+	])
+	return true
+
+
+# One looter, one fixture, one answer. `stock` decides whether there is anything on the colony's
+# floor; `kill_when_loaded` kills the body the moment it has an armful, which is the third case.
+func _loot_run(stock: bool, kill_when_loaded: bool = false) -> Dictionary:
+	var out: Dictionary = {"ok": false, "looted": 0, "gone_at": -1, "left_on_floor": 0, "still_in_world": 0, "stocked_back": 0, "arrived": false}
+	var w: Variant = _stores_arena()
+	var items: Array[int] = []
+	if stock:
+		items = _stock_the_pantry(w)
+		if items.size() < SimRaiders.LOOT_TAKE:
+			push_error("LOOTER: the fixture put %d items on the stockpile and a looter takes %d" % [items.size(), SimRaiders.LOOT_TAKE])
+			return out
+	var ent: int = SimRaiders.spawn(w, 14.5, 3.5, "raider.looter")
+	if ent < 0:
+		push_error("LOOTER: raider.looter did not spawn")
+		return out
+	SimRaiders.stamp_band(w, [ent], 11)
+	var taken: Array = []
+	w.events.subscribe({"id": "check.looted-%s-%s" % [str(stock), str(kill_when_loaded)], "type": "raid.withdrew", "handler": func(e: Dictionary) -> void:
+		taken.append(int(e.get("looted", 0)))
+	})
+	var killed_it: bool = false
+	for t in LOOT_TICKS:
+		w.step()
+		var r: Variant = w.components.get_component(ent, "raider")
+		if r is Dictionary and int((r as Dictionary).get("arrivedAtTick", -1)) >= 0:
+			out["arrived"] = true
+		if kill_when_loaded and not killed_it and r is Dictionary and int((r as Dictionary).get("looted", 0)) >= SimRaiders.LOOT_TAKE:
+			out["looted"] = int((r as Dictionary).get("looted", 0))
+			(w.components.get_component(ent, "body") as Dictionary)["head"] = 0.0
+			SimHealth.finish_death(w, ent)
+			killed_it = true
+			# The kit falls on the tick it dies; one more step drains the events it published.
+			w.step()
+			break
+		if SimRaiders.live_count(w) == 0:
+			out["gone_at"] = t
+			break
+	if not kill_when_loaded:
+		out["looted"] = int(taken[0]) if not taken.is_empty() else 0
+	if kill_when_loaded and not killed_it:
+		push_error("LOOTER: the body never filled its arms, so the death case judged nothing")
+		return out
+	var on_floor: Dictionary = {}
+	for ground in SimInventory.ground_items(w):
+		on_floor[int(ground)] = true
+	for item in items:
+		if w.components.has_component(int(item), "itemBase"):
+			out["still_in_world"] = int(out["still_in_world"]) + 1
+		# The tins by id, not a count of what is lying there: a killed raider's own kit falls too,
+		# and "six things on the floor" would pass whether or not any of them were yours.
+		if on_floor.has(int(item)):
+			out["stocked_back"] = int(out["stocked_back"]) + 1
+	out["left_on_floor"] = SimNeeds.stockpile_items(w).size()
+	out["ok"] = true
+	return out
+
+
+# LOOKOUT HALTS. It stops LOOKOUT_METRES short of the objective and never closes; the true
+# negative is a scavenger walking the same fixture from the same tile, which does. Both halves
+# matter: "it stopped" would pass for a body that never moved at all, so the lookout is also
+# required to have *walked* -- it closes the distance down to its watching range and then stops.
+#
+# The second half is the band: a raid carrying a lookout turns for home on the FIRST loss, where
+# the shipped rule waits for half the band to fall. The negative is the same band of three with
+# the lookout swapped for a third scavenger, which stands its ground with one man down.
+func _a_lookout_halts_short() -> bool:
+	var w: Variant = _stores_arena()
+	var goal := Vector2i(16, 20)
+	var watcher: int = SimRaiders.spawn(w, 14.5, 3.5, "raider.lookout")
+	var fighter: int = SimRaiders.spawn(w, 15.5, 3.5, "raider.scav")
+	if watcher < 0 or fighter < 0:
+		push_error("LOOKOUT: the fixture could not place both bodies")
+		return false
+	SimRaiders.stamp_band(w, [watcher], 21)
+	SimRaiders.stamp_band(w, [fighter], 22)
+	var start: float = _metres_to(w, watcher, goal)
+	var closest_watcher: float = 1e12
+	var closest_fighter: float = 1e12
+	for _t in APPROACH_TICKS:
+		w.step()
+		closest_watcher = minf(closest_watcher, _metres_to(w, watcher, goal))
+		closest_fighter = minf(closest_fighter, _metres_to(w, fighter, goal))
+	# Two floors, and the absolute one is not redundant. Measuring the halt only against the
+	# constant is a gate that cannot fail: with LOOKOUT_METRES edited to 0 the watcher walks all
+	# the way to the gate and "no closer than the halt" is satisfied by a body standing in the
+	# doorway. Run exactly that way on purpose, and this is the pair that caught it.
+	if SimRaiders.LOOKOUT_METRES <= SimRaiders.HALT_METRES:
+		push_error("LOOKOUT: the watching distance is %.1f m and a fighter already halts at %.1f -- a lookout inside weapon reach is a fighter" % [SimRaiders.LOOKOUT_METRES, SimRaiders.HALT_METRES])
+		return false
+	if closest_watcher <= SimRaiders.HALT_METRES:
+		push_error("LOOKOUT: the watcher closed to %.2f m, which is inside the reach every raider already stops at -- it did not stand off, it joined in" % closest_watcher)
+		return false
+	if closest_watcher < SimRaiders.LOOKOUT_METRES - 1.5:
+		push_error("LOOKOUT: the watcher closed to %.2f m of its objective, inside its %.1f m halt" % [closest_watcher, SimRaiders.LOOKOUT_METRES])
+		return false
+	if start - closest_watcher < 2.0:
+		push_error("LOOKOUT: the watcher started %.2f m out and got no closer than %.2f -- a body that never walked would pass the halt assertion above" % [start, closest_watcher])
+		return false
+	if closest_fighter > SimRaiders.HALT_METRES:
+		push_error("LOOKOUT: the scavenger beside it only reached %.2f m, so 'a fighter closes' is not what this fixture shows" % closest_fighter)
+		return false
+
+	# The band, and the first loss.
+	var turned: Dictionary = _band_with_a_watcher(true)
+	var held: Dictionary = _band_with_a_watcher(false)
+	if int(turned["withdrawing"]) + int(turned["gone"]) != 2:
+		push_error("LOOKOUT: a band carrying a watcher did not turn for home when the first man fell (%s)" % str(turned))
+		return false
+	if int(held["withdrawing"]) != 0 or int(held["gone"]) != 0:
+		push_error("LOOKOUT: a band of three scavengers left with one man down, so the first-loss rule is not the lookout's (%s)" % str(held))
+		return false
+	print("LOOKOUT OK the watcher walked %.1f m in and stopped %.2f m out (halt %.1f) while the scavenger beside it reached %.2f m; a band carrying one turned for home on the first loss where three scavengers held" % [
+		start - closest_watcher, closest_watcher, SimRaiders.LOOKOUT_METRES, closest_fighter,
+	])
+	return true
+
+
+# A band of three, one of whom is a watcher when `watching`. One man is killed and the other two
+# are read: how many are on their way out, and how many have already gone.
+func _band_with_a_watcher(watching: bool) -> Dictionary:
+	var w: Variant = _stores_arena()
+	var band: Array = []
+	band.append(SimRaiders.spawn(w, 13.5, 3.5, "raider.scav"))
+	band.append(SimRaiders.spawn(w, 14.5, 3.5, "raider.scav"))
+	band.append(SimRaiders.spawn(w, 15.5, 3.5, "raider.lookout" if watching else "raider.scav"))
+	SimRaiders.stamp_band(w, band, 31)
+	for _t in 60:
+		w.step()
+	(w.components.get_component(int(band[0]), "body") as Dictionary)["head"] = 0.0
+	SimHealth.finish_death(w, int(band[0]))
+	for _t in 200:
+		w.step()
+	var out: Dictionary = {"withdrawing": 0, "gone": 0}
+	for i in [1, 2]:
+		var r: Variant = w.components.get_component(int(band[i]), "raider")
+		if not (r is Dictionary):
+			out["gone"] = int(out["gone"]) + 1
+		elif bool((r as Dictionary).get("withdrawing", false)):
+			out["withdrawing"] = int(out["withdrawing"]) + 1
+	return out
+
+
+# ROLE READ. The dead-socket assertion, in both directions.
+#
+# Downward: an archetype declaring a role nothing implements is REFUSED -- `spawn` hands back -1,
+# no body is made, and neither of the two roll streams is spent, so a malformed entry cannot
+# quietly reshuffle the bodies drawn after it. The control is the identical fabricated tree with
+# the role spelled correctly, which spawns; without it "nothing spawned" would pass against a
+# fixture that was broken for some other reason.
+#
+# Upward: every role in the enum is declared by something reachable, and each of the three
+# produces DIFFERENT OBSERVABLE BEHAVIOUR -- asserted on what the bodies did in one fixture (how
+# close each came to the objective, and what it walked out with) rather than on the string in the
+# JSON, which is the assertion a role could have passed while doing nothing at all.
+func _a_role_is_read_and_a_strange_one_refused() -> bool:
+	var strange: Variant = _arena_with(_tree_with_role("quartermaster"))
+	SimRaiders.register_module(strange)
+	var before: Array = (strange.rng.names as Array).duplicate()
+	# `spawn` refuses loudly (docs/20: content errors fail at load, never at hour thirty), so the
+	# ERROR line that follows this one is this lane's own sabotage rather than a gate going red.
+	print("ROLE-READ: the refusal below is deliberate --")
+	var refused: int = SimRaiders.spawn(strange, 10.0, 10.0, "raider.scav")
+	if refused >= 0:
+		push_error("ROLE-READ: an archetype declaring role 'quartermaster' spawned a body, which means it is quietly a fighter")
+		return false
+	if SimRaiders.live_count(strange) != 0:
+		push_error("ROLE-READ: the refused spawn left %d raiders standing" % SimRaiders.live_count(strange))
+		return false
+	if (strange.rng.names as Array).size() != before.size():
+		push_error("ROLE-READ: the refusal opened %s -- a refused body must not spend the roll streams under the bodies after it" % str((strange.rng.names as Array)))
+		return false
+	var fixed: Variant = _arena_with(_tree_with_role("looter"))
+	SimRaiders.register_module(fixed)
+	var accepted: int = SimRaiders.spawn(fixed, 10.0, 10.0, "raider.scav")
+	if accepted < 0:
+		push_error("ROLE-READ: the same fabricated tree with a real role also refused to spawn, so the refusal above proves nothing about the role")
+		return false
+	if String((fixed.components.get_component(accepted, "raider") as Dictionary).get("role", "")) != SimRaiders.ROLE_LOOTER:
+		push_error("ROLE-READ: the declared role did not reach the body's own component")
+		return false
+
+	# Every role in the enum is declared by a shipped archetype that can actually be drawn, and
+	# every shipped archetype declares a role the enum knows. A role with no archetype is a socket
+	# with nothing plugged into it; an archetype with weight 0 would be one with the plug cut off.
+	var w: Variant = _arena()
+	var declared: Dictionary = {}
+	for entry in SimRaiders.types(w):
+		var role: String = String(entry.get("role", SimRaiders.ROLE_FIGHTER))
+		if not SimRaiders.ROLES.has(role):
+			push_error("ROLE-READ: shipped archetype %s declares role '%s', which is not in %s" % [String(entry.get("id", "?")), role, str(SimRaiders.ROLES)])
+			return false
+		if maxi(1, int(entry.get("weight", 1))) < 1:
+			push_error("ROLE-READ: %s can never be drawn, so its role ships as a dead socket" % String(entry.get("id", "?")))
+			return false
+		declared[role] = String(entry.get("id", "?"))
+	for role in SimRaiders.ROLES:
+		if not declared.has(role):
+			push_error("ROLE-READ: role '%s' is implemented and no archetype declares it -- a role nothing can be drawn as is a dead socket" % String(role))
+			return false
+
+	# And the behaviour, one fixture, three bodies, three answers.
+	var seen: Dictionary = _behaviour_by_role()
+	var signatures: Dictionary = {}
+	for role in seen.keys():
+		var row: Dictionary = seen[role] as Dictionary
+		signatures[String(role)] = "closed=%s took=%d" % [str(bool(row["closed"])), int(row["took"])]
+	var distinct: Dictionary = {}
+	for sig in signatures.values():
+		distinct[String(sig)] = true
+	if distinct.size() != SimRaiders.ROLES.size():
+		push_error("ROLE-READ: the three roles produced %d distinct behaviours %s -- at least two of them are the same thing under different names" % [distinct.size(), str(signatures)])
+		return false
+	print("ROLE-READ OK 'quartermaster' refused with the streams untouched and the same tree accepted with a real role; %s; behaviour %s" % [str(declared), str(signatures)])
+	return true
+
+
+# One stocked fixture per role, each body given the same start and the same time. What comes back
+# is what a watcher on the wall could have seen: did it close on the objective, and what did it
+# carry out.
+func _behaviour_by_role() -> Dictionary:
+	var by_role: Dictionary = {}
+	var ids: Dictionary = {
+		SimRaiders.ROLE_FIGHTER: "raider.scav",
+		SimRaiders.ROLE_LOOKOUT: "raider.lookout",
+		SimRaiders.ROLE_LOOTER: "raider.looter",
+	}
+	for role in SimRaiders.ROLES:
+		var w: Variant = _stores_arena()
+		_stock_the_pantry(w)
+		var ent: int = SimRaiders.spawn(w, 14.5, 3.5, String(ids[role]))
+		SimRaiders.stamp_band(w, [ent], 41)
+		var took: Array = []
+		w.events.subscribe({"id": "check.role-" + String(role), "type": "raid.withdrew", "handler": func(e: Dictionary) -> void:
+			took.append(int(e.get("looted", 0)))
+		})
+		var closest: float = 1e12
+		var carried_out: int = 0
+		for _t in LOOT_TICKS:
+			w.step()
+			if SimRaiders.live_count(w) == 0:
+				break
+			closest = minf(closest, _metres_to(w, ent, Vector2i(16, 20)))
+		if not took.is_empty():
+			carried_out = int(took[0])
+		by_role[String(role)] = {"closed": closest <= SimRaiders.HALT_METRES, "took": carried_out}
+	return by_role
+
+
+# FIGHTER UNCHANGED. The two shipped archetypes declare `fighter`, and a fighter is the raid this
+# repo already measured: it walks at the gate, it walks *past* your stores without touching them,
+# and a body whose component carries no role at all -- a raider restored from a save written
+# before roles existed -- ends up on the same square metre as one that declares the default.
+func _the_shipped_archetypes_still_fight() -> bool:
+	var w0: Variant = _arena()
+	for id in ["raider.scav", "raider.gunhand"]:
+		var entry: Variant = SimRaiders.content_entry(w0, String(id))
+		if not (entry is Dictionary):
+			push_error("FIGHTER: %s is not in the tree" % String(id))
+			return false
+		if String((entry as Dictionary).get("role", SimRaiders.ROLE_FIGHTER)) != SimRaiders.ROLE_FIGHTER:
+			push_error("FIGHTER: the shipped %s declares role '%s' -- changing what a shipped archetype does moves every raid in every campaign" % [String(id), String((entry as Dictionary).get("role", ""))])
+			return false
+
+	# A scavenger in the looter's own fixture: same stores, same floor, and it takes nothing.
+	var w: Variant = _stores_arena()
+	var items: Array[int] = _stock_the_pantry(w)
+	var ent: int = SimRaiders.spawn(w, 14.5, 3.5, "raider.scav")
+	SimRaiders.stamp_band(w, [ent], 51)
+	for _t in LOOT_TICKS:
+		w.step()
+		if SimRaiders.live_count(w) == 0:
+			break
+	var still_there: int = SimNeeds.stockpile_items(w).size()
+	if still_there != items.size():
+		push_error("FIGHTER: a scavenger standing on the stores took %d of them" % [items.size() - still_there])
+		return false
+	var r: Variant = w.components.get_component(ent, "raider")
+	if r is Dictionary and int((r as Dictionary).get("looted", 0)) != 0:
+		push_error("FIGHTER: a scavenger's own counter says it looted %d" % int((r as Dictionary).get("looted", 0)))
+		return false
+
+	# The default, and a save that predates the field: identical walks.
+	var declared: Vector2 = _walk_of("raider.scav", false)
+	var undeclared: Vector2 = _walk_of("raider.scav", true)
+	if declared.distance_to(undeclared) > 0.001:
+		push_error("FIGHTER: a body with no `role` on its component walked to %s where a declared fighter walked to %s -- the default is not the shipped behaviour" % [str(undeclared), str(declared)])
+		return false
+	# The comparison can fail: a lookout in the same fixture must not land on the same metre.
+	var watcher: Vector2 = _walk_of("raider.lookout", false)
+	if declared.distance_to(watcher) < 1.0:
+		push_error("FIGHTER: a lookout finished within a metre of the fighter, so 'identical walks' above is a comparison that cannot fail")
+		return false
+	print("FIGHTER OK both shipped archetypes declare fighter; one stood on %d stockpiled items and took none; a body with no role on it walked to %s, exactly where the declared fighter did, where a lookout stopped at %s" % [
+		items.size(), str(undeclared), str(watcher),
+	])
+	return true
+
+
+# Where one body of `type_id` is after a fixed walk. `strip_role` deletes the field from the
+# component the moment it is spawned, which is the shape a raider restored from a pre-roles save
+# arrives in.
+func _walk_of(type_id: String, strip_role: bool) -> Vector2:
+	var w: Variant = _stores_arena()
+	var ent: int = SimRaiders.spawn(w, 14.5, 3.5, type_id)
+	if strip_role:
+		(w.components.get_component(ent, "raider") as Dictionary).erase("role")
+	SimRaiders.stamp_band(w, [ent], 61)
+	for _t in 600:
+		w.step()
+	var pos: Variant = w.components.get_component(ent, "position")
+	if not (pos is Dictionary):
+		return Vector2(-1.0, -1.0)
+	return Vector2(float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]))
+
+
+# --- fixtures for the role lanes ---------------------------------------------------------------
+
+# The withdrawal arena with a colony worth robbing: gates, an annex, and the annex's floor marked
+# indoors -- which is what `SimNeeds.is_stockpile_tile` asks for on top of the tile being a floor
+# inside the rect. A blank map is all floor and nothing is marked indoors, so without this the
+# colony has a pantry nobody can find, and every looter in this gate would quietly be a fighter.
+func _stores_arena() -> Variant:
+	var w: Variant = _arena()
+	SimRaiders.register_module(w)
+	w.tilemap.anchors = {"gate_a": {"x": 16, "y": 20}, "gate_b": {"x": 17, "y": 20}, "annex": {"x": 12, "y": 18, "w": 8, "h": 8}}
+	for ty in range(18, 26):
+		for tx in range(12, 20):
+			w.tilemap.indoors[ty * int(w.tilemap.w) + tx] = 1
+	if not SimNeeds.is_stockpile_tile(w, STORE_TILES[0].x, STORE_TILES[0].y):
+		push_error("the stores fixture built a stockpile the colony's own predicate does not recognise")
+	return w
+
+
+# Three things of the colony's on the colony's floor. Returned by id so a lane can ask afterwards
+# whether they are still in the world at all.
+#
+# Three DIFFERENT bases, and that is the fixture being shown what it is reading rather than a
+# preference: `SimInventory.stow` merges stacks, so three tins picked up one after another become
+# one entity of three and two despawns -- and a lane counting entities would have read that as two
+# of the three tins never leaving the district. Nothing is wrong with the merge; it is the wrong
+# thing to count. None of the three is in any raider kit either, so a body's own bandage cannot
+# pour into the colony's.
+const STORE_BASES: Array[String] = ["item.food.beans.dry", "item.food.preserves.jar", "item.food.fruit.windfall"]
+
+
+func _stock_the_pantry(w: Variant) -> Array[int]:
+	var out: Array[int] = []
+	for i in STORE_TILES.size():
+		var tile: Vector2i = STORE_TILES[i]
+		var item: int = SimItems.spawn_item(w, STORE_BASES[i % STORE_BASES.size()], {"tier": "scavenged"})
+		w.components.set_component(item, "position", {"x": float(tile.x) + 0.5, "y": float(tile.y) + 0.5})
+		out.append(item)
+	return out
+
+
+func _metres_to(world: Variant, ent: int, tile: Vector2i) -> float:
+	var pos: Variant = world.components.get_component(ent, "position")
+	if not (pos is Dictionary):
+		return 1e12
+	var dx: float = float(tile.x) + 0.5 - float((pos as Dictionary)["x"])
+	var dy: float = float(tile.y) + 0.5 - float((pos as Dictionary)["y"])
+	return sqrt(dx * dx + dy * dy)
+
+
+# The shipped content tree with every raider archetype's role replaced by `role`. A fabricated
+# tree rather than an edited file, so the refusal is proved against something the validator would
+# have caught and the shipped content stays exactly as it ships.
+func _tree_with_role(role: String) -> Dictionary:
+	var tree: Dictionary = ContentLoader.load_tree()
+	for path in tree.keys():
+		if not String(path).begins_with("raiders/"):
+			continue
+		var raw: Variant = tree[path]
+		var entries: Array = raw as Array if raw is Array else [raw]
+		for entry in entries:
+			if entry is Dictionary:
+				(entry as Dictionary)["role"] = role
+	return tree

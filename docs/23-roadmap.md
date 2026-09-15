@@ -282,9 +282,6 @@ balance record and says so in its record; `survivors_end >= 1` is never the leve
   glance rather than only in the damage arithmetic, and a heavy that is visibly bigger than one
   tile — distinguishable at 32 px from the shambler and from each other, per the brief in
   `godot/assets/sprites/README.md`.
-- **Raider roles, and the one who comes for the stores.** A `role` enum: the fighter of today, a
-  lookout that halts and turns the band at the first loss, a looter whose objective is the
-  stockpile and who withdraws once loaded — docs/18's "target stores first".
 - **A band passing through.** The director's encounter lever: a roaming band on a post-grace
   dawn, objective a loot site, exit the far edge, fighting whatever it meets, sharing the raid
   cap and publishing its reason.
@@ -8651,6 +8648,115 @@ not a to-do list:
   `SimDirector.GATE_EXCLUSION` (32 m) as the distance from home, the dormant bodies' own; three
   days of waiting; and strangers share `SimRecruits.CAP`, so the colony still tops out where it
   did.
+- **The raiders and what they came for** — ~~raider roles, and the one who comes for the stores~~
+  **landed** (`godot:m2:raiders`, four new lanes on the chain's 35th gate, twenty-three in all),
+  2026-09-15, the second piece of the procedural-population arc's raider group. Every raider did one
+  thing: walk at the gate and fight until the withdrawal clock ran out. docs/18 says a raid is a
+  business — "target stores first, people second, and will withdraw once loaded; retreat when losses
+  outweigh the haul" — and that sentence had no reader. It has three now.
+  **The enum, and why it is an enum.** `role` on the archetype — `fighter`, `lookout`, `looter` —
+  matched in `SimRaiders._approach` and stamped onto the body at spawn, so the tick loop reads a
+  field rather than the content tree. Three locks rather than one, because the failure that must be
+  impossible is an archetype declaring `quartermaster` and quietly behaving like a fighter: the
+  schema's own top-level `enum` (which the shallow validator does check), `SimRaiders.spawn`
+  **refusing** an unimplemented role with `-1` before it spends a single draw off `raiderRoll` or
+  `raiderLook`, and the gate's ROLE-READ lane.
+  **Which archetype got which role, and the reasoning.** Both shipped archetypes stay `fighter`,
+  declared explicitly; the roles arrive as two new archetypes, `raider.looter` (Bagman, weight 2,
+  crowbar) and `raider.lookout` (Watcher, weight 1, steel pipe). Making the scavenger a looter was
+  the alternative and it is a balance change smuggled in a content edit: `scav` is four fifths of
+  every band this repo has ever measured, so re-roling it would turn every raid in every campaign
+  into a robbery in one line. New archetypes dilute instead — the draw goes from 4:1 to 4:1:2:1, so
+  a band of four now carries a looter about half the time — and they are reachable by construction,
+  which ROLE-READ asserts (weight > 0, every role declared by something, every declared role
+  implemented).
+  **What each one does.** A `fighter` is the old walk, byte for byte. A `lookout` halts
+  `LOOKOUT_METRES` (12 m) short of the objective and never plans the last stretch at all, and at the
+  **first** loss turns the whole band for home — written straight onto the other bodies' components
+  rather than published as an event, because handlers drain at the end of the step and a band told
+  to leave by an event would take one more step towards the colony first. A `looter` walks at the
+  colony's stores instead of its gate: the tile of the nearest ground item lying on a
+  `SimNeeds.is_stockpile_tile` inside `SimHome.rect`, falling back to the nearest stores tile and
+  then to the gate, so a camp or an unstamped map gives a looter a fighter's answer rather than a
+  body standing still. It takes with `SimInventory.nearest_ground_item` + `pick_up_nearest` — the
+  colonist's own pair, reach limit included, nothing moved by hand — and at `LOOT_TAKE` (3) it
+  withdraws.
+  **What it carries out is despawned**, because an item whose `stored` points at a despawned body is
+  in nobody's hands and on no floor: neither gone nor back, which is the quietly-not-what-you-stored
+  family. Killed on the way out it drops the lot, through `SimRecruits._drop_kit`, which is what
+  keeps "gone" a property of the withdrawal.
+  **The one ordering decision.** The looter's take is asked **before** the enemy halt, because the
+  stockpile is where the colonists are: a looter that reaches the shelf is inside somebody's reach
+  before it is inside the tins', so with the halt first it would stand over your pantry fighting
+  and never touch it. `_loot_step` answers true only with something of yours in arm's reach or with
+  its arms already full, so the window is narrow, and it costs the body nothing defensively —
+  `npc_combat.gd` swings from where a body stands and never reads a velocity. It has not yet bought
+  a robbery in a campaign either; see the measurement below, which says so rather than implying the
+  order fixed something.
+  **The gate**, four lanes, each with its negative in the same fixture, each run red on purpose.
+  LOOTER: three things on the stockpile floor leave the district at tick 560 and are gone from the
+  world; the same body on a swept stockpile takes nothing and stands there for the shared clock; and
+  the same body killed with its arms full puts all three back on your floor. LOOKOUT: the watcher
+  walks 5.1 m in and stops 12.00 m out while a scavenger beside it in the same fixture reaches 0.13
+  m, and a band carrying a watcher turns for home on the first loss where three scavengers hold.
+  ROLE-READ: `quartermaster` is refused with the two roll streams untouched, the identical
+  fabricated tree with a real role spawns (so the refusal is about the role and not the fixture),
+  and the three roles are required to produce **different observable behaviour** — `fighter
+  closed=true took=0`, `lookout closed=false took=0`, `looter closed=true took=3`, asserted on what
+  the bodies did rather than on the string in the JSON. FIGHTER: both shipped archetypes declare
+  `fighter`, a scavenger standing on three stockpiled items takes none of them, and a body with **no
+  `role` on its component at all** — a raider restored from a pre-roles save — walks to the same
+  square metre as a declared fighter, with a lookout's finish a metre away as the comparison's own
+  true negative.
+  **Two of the sabotages found real holes in the lanes rather than confirming them.** Measuring the
+  watcher's halt only against `LOOKOUT_METRES` is a gate that cannot fail: edited to 0 the watcher
+  walked into the doorway and "no closer than the halt" was satisfied, so the lane now carries an
+  absolute floor as well (`HALT_METRES`, the distance every raider already stops at). And the
+  fixture's three tins started life as three of one base: `SimInventory.stow` merges stacks, so they
+  became one entity and two despawns, and a lane counting entities read that as two tins never
+  leaving the district. Three different bases, none of them in any raider kit.
+  **Balance, measured before and after on one throwaway driver (deleted), four seeds,
+  `entity.killed` de-duplicated by entity id.** The FAST tier's compressed ten days: `survivors_end`
+  **3 / 1 / 3 / 2 → 3 / 1 / 3 / 2**, killed **1 / 3 / 1 / 4 → 1 / 3 / 1 / 4**, grabs **117 / 145 / 0
+  / 154 → 117 / 145 / 0 / 153**, items out of the colony **0 → 0**. One grab on one seed is the
+  whole difference, and it is the expected one: two of the four seeds draw a band at all, and the
+  wider archetype pool changes who those two bodies are.
+  **The tier the fast one cannot reach, same driver.** A band of four drawn on day 8 into a live
+  district and fought out over 12,000 ticks: `survivors_end` **2 / 1 / 3 / 1 → 1 / 2 / 3 / 0**,
+  killed **14 / 12 / 1 / 8 → 17 / 7 / 1 / 8**, grabs **66 / 276 / 78 / 87 → 167 / 138 / 78 / 178**,
+  items out of the colony **0 → 0**. These are not the same four bands — moving the weights is
+  exactly what changes who gets drawn — so the swing is composition rather than a change to how a
+  fight resolves, and the seed that ends at 0 is a forced worst case rather than the shipped
+  schedule. The assertion that is actually gated, `survivors_end >= 1` across the fast tier, holds
+  on every seed and was not touched.
+  **And the roles exercised on purpose, because a drawn band may contain neither.** The same 12,000
+  ticks with the band built by hand — two scavengers, a looter and a watcher — and the boot
+  wanderers removed, so what is measured is the band against the colony (the APPROACH lane's own
+  technique). Before, four scavengers: `survivors_end` **3 / 1 / 3 / 3**, killed **0 / 2 / 0 / 0**,
+  withdrawals **0 / 0 / 0 / 0** — the band walks to the gate and stands there for the rest of the
+  run. After: `survivors_end` **3 / 1 / 3 / 3**, killed **0 / 3 / 0 / 0**, withdrawals **1 / 3 / 1 /
+  1**. The watcher goes home on its own clock on three seeds, and on seed 404 the first loss turns
+  the whole band for home — three withdrawals against a band that had never once left.
+  **The half that has not landed, named rather than hidden: no loot has ever left a campaign.**
+  `looted` is 0 on every seed of every block above, and the reason is not the mechanism — it is that
+  the stores are behind the people. Traced with a throwaway driver: a looter walks at the annex
+  rather than the gate (3.6 m from a tin at tick 300, where a fighter is still heading for the
+  gate), and is then met by a defender and halts, or is grabbed, 5 to 13 m short of the shelf. So
+  what shipped is a raider with a different heading and a proven ability to rob an undefended
+  pantry, which the gate demonstrates end to end in a real world — paths, inventory, withdrawal —
+  and a campaign has not yet shown. `check_m2_balance.gd`'s run line now prints `taken` beside
+  `looted` for exactly this reason: `taken` counts hands closing on your things, so the next person
+  to look can tell "never reached the stores" from "reached them and died on the way out" without a
+  driver. What would change the answer is a band that screens its looter, and that is not this
+  slice.
+  **First cuts, the owner's to move** (docs/30, "What a raider came for"): three items, off the
+  floor only and never out of a container; a watcher at twelve metres; the new archetypes at weights
+  2 and 1 against the scavenger's 4; and a role that is invisible — same body, same worn rows at the
+  same odds, nothing on the HUD — so what gives a looter away is that it walks past you. Each lane
+  was run red on purpose before it was trusted: the withdrawal made to leave the items behind
+  (LOOTER), the take disabled (LOOTER), the lookout's halt deleted and then set to 0 m (LOOKOUT,
+  which is how the vacuous assertion was found), the role refusal turned into a silent fallback to
+  fighter (ROLE-READ), and the shipped scavenger re-declared a looter (FIGHTER).
 
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not

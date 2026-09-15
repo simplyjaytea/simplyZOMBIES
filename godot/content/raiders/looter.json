@@ -1,17 +1,15 @@
 {
-  "id": "raider.gunhand",
-  "name": "Gunhand",
+  "id": "raider.looter",
+  "name": "Bagman",
   "allegiance": "raiders",
-  "role": "fighter",
-  "weight": 1,
-  "speed": 1.4,
+  "role": "looter",
+  "weight": 2,
+  "speed": 1.6,
   "aptitudes": { "str": [4, 6], "dex": [5, 7], "con": [4, 6] },
   "appearance": { "sprite": "raider_body" },
   "kit": [
-    "item.pistol.service",
-    { "item": "item.ammo.9mm", "count": 16 },
+    "item.crowbar.steel",
     { "item": "item.bandage.cloth", "chance": 0.5 },
-    { "item": "item.knife.kitchen", "chance": 0.5 },
     { "item": "item.food.canned", "chance": 0.5 },
     { "item": "item.cap.canvas", "chance": 0.5 },
     { "item": "item.pack.school", "chance": 0.4 }
