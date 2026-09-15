@@ -1,0 +1,17 @@
+{
+  "id": "raider.lookout",
+  "name": "Watcher",
+  "allegiance": "raiders",
+  "role": "lookout",
+  "weight": 1,
+  "speed": 1.5,
+  "aptitudes": { "str": [4, 6], "dex": [5, 7], "con": [4, 6] },
+  "appearance": { "sprite": "raider_body" },
+  "kit": [
+    "item.pipe.steel",
+    { "item": "item.bandage.cloth", "chance": 0.5 },
+    { "item": "item.water.bottle", "chance": 0.5 },
+    { "item": "item.cap.canvas", "chance": 0.5 },
+    { "item": "item.pack.school", "chance": 0.4 }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "id": "raider.looter",
+  "name": "Bagman",
+  "allegiance": "raiders",
+  "role": "looter",
+  "weight": 2,
+  "speed": 1.6,
+  "aptitudes": { "str": [4, 6], "dex": [5, 7], "con": [4, 6] },
+  "appearance": { "sprite": "raider_body" },
+  "kit": [
+    "item.crowbar.steel",
+    { "item": "item.bandage.cloth", "chance": 0.5 },
+    { "item": "item.food.canned", "chance": 0.5 },
+    { "item": "item.cap.canvas", "chance": 0.5 },
+    { "item": "item.pack.school", "chance": 0.4 }
+  ]
+}
