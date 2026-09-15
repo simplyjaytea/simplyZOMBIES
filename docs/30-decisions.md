@@ -4556,3 +4556,54 @@ from its own `variance.tints` palette (the variance slice's pipeline, ashen for 
 flushed for the runner), and that is pallor, not a silhouette: in a crowd at 2× you cannot tell
 which one is fast. `check_appearance.gd` records the gap where a reader will meet it, as a third
 `ROSTER_SHARED` group whose comment says it is a gap and not a decision.
+
+## A third side, 2026-09-15
+
+The allegiance seam, the first slice of the procedural-population arc's settlers group, and a
+small one on purpose: the settler pieces that follow need a side that is not the colony and not
+hostile to it, and this lands that side and the proof it works before anything stands on it.
+`godot:m2:allegiance` is the gate. What follows is the calls this took.
+
+**The table is kept symmetric by the lookup, not by discipline.** `HOSTILE_PAIRS` declares each
+hostile pair **once** — raiders against the colony, raiders against the settlers — and
+`factions_hostile` tries a pair both ways round before answering, so there is no second direction
+to write and no way to edit the list into a table where the colony is at war with the raiders
+while the raiders are at peace with the colony. A dictionary of rows would have needed both halves
+kept in step by hand, which is the bug the brief named. The gate asserts the property anyway
+(SYMMETRY, over every ordered pair) and proves that assertion can fail by running the identical
+walk against a lookup that deliberately answers one way round only; it also refuses a table that
+is all war or all peace, because either is perfectly symmetric and says nothing. The zombie short
+circuit did not move: it is still the first thing `hostile` does, before any faction is read, for
+the reason the file has always given — a shambler carries no allegiance component, so `faction_of`
+would call it a colonist and the colony would stop defending itself.
+
+**`is_colony` means one of yours, which stopped being the same question as "not an enemy".** It is
+one line, `faction_of(world, entity) == COLONY`, and it has exactly one reader outside the gate:
+`SimRecruits._succession_pick`. That scan took an `identity` as proof of colony membership, which
+was true right up until a third side existed — a settler carries an identity, so the player dying
+at a stranger's fence would have woken up in the stranger's body. A settler is still a *person*
+everywhere else and `is_person` was deliberately not touched: a zombie chases them, a screamer
+raises the alarm about them, and being a person is what makes you edible while being the colony is
+what makes you an heir. The change also means a raider is now refused an inheritance twice over
+rather than by the accident of carrying no identity, which is why `check_m2_raiders.gd`'s
+NO-IDENTITY negative gained a step: it asserts the raider given an identity is *still* refused,
+and that the same body given the colony's allegiance is picked, so the refusal cannot quietly
+become a scan that refuses everybody.
+
+**docs/18's factions are still Milestone 3, and this is not them.** It is one string, three
+values and a table of which pairs fight. No standing, no reputation, no trade, no diplomacy, no
+way for a side to change its mind about you. The raider schema's `allegiance` is now a `$ref` to
+a single `$defs/faction` allowing `raiders` and `settlers`; `colony` is deliberately not on that
+list, because an archetype declaring it would be a colonist spawned outside the roster with no
+needs and no place on the ledger. The Godot content validator does not resolve `$ref` and the
+frozen oracle never reads `content/raiders/`, so that enum's reader is the gate — checked against
+the code's own constants and against every shipped archetype, which is the dead-socket rule
+applied to a schema rather than to a component.
+
+**Nothing spawns a settler yet, and the gate is the only thing that exercises the value.** That is
+the condition under which a gate quietly stops proving anything, so every lane carries its true
+negative in the same fixture as its positive, and each was run red on purpose before it was
+trusted. No balance measurement is owed: no settler exists in any shipped spawn path, the table
+answers exactly as `!=` did for the two factions that do, and nothing here draws from an RNG
+stream — which was proved rather than asserted, against the raid-stream pins and the R1 parity
+fixture.
