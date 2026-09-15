@@ -91,7 +91,15 @@ extends RefCounted
 # treating "no attachments component" as unblocked would make the required-slot rule unenforceable
 # the moment a barrel breaks off, and assembling on load would invent items the save never had.
 # Refused, same rule as v27.
-const SAVE_VERSION: int = 29
+#
+# v30: raiders are individuals. The `raider` component carries a `person` record -- name, age,
+# features, look, backstory -- rolled at spawn on two new streams, and the archetype's aptitudes
+# and kit are rolled per body rather than copied. A v29 save's raiders have no `person`: restored
+# into a v30 world every one of them would be nameless (the chronicle's line over a dead raider
+# reads off that record and would say nothing), would fall back to the archetype's one body
+# instead of the look they were saved wearing, and the bodies standing in the district would no
+# longer match the aptitudes the fight they are in was being resolved with. Refused, same rule.
+const SAVE_VERSION: int = 30
 
 
 static func canonicalize(value: Variant, path: String = "$") -> String:

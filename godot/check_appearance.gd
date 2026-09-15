@@ -364,23 +364,38 @@ const ROSTER: Array[Dictionary] = [
 	{"id": "zombie.bloater", "kind": "zombie", "probe": {"ztype": "zombie.bloater"}, "colonist": false},
 	{"id": "raider.scav", "kind": "raider", "probe": {"raider": true, "cid": "raider.scav"}, "colonist": false},
 	{"id": "raider.gunhand", "kind": "raider", "probe": {"raider": true, "cid": "raider.gunhand"}, "colonist": false},
+	# The four rolled raider looks (the individuals slice), and `colonist: false` on every one of
+	# them is the finding rather than an oversight: a raider look declares no tint, because
+	# `raider_drab` sits at the floor of the ground-contrast guard already
+	# (tools/sprites/palette.py) and a modulate can only darken it. So all four wear the one body
+	# unstained, exactly as the two archetypes do, and they are here so that the day a look does
+	# get a picture of its own, this roster is what refuses to let it pass unjudged.
+	# check_m2_raiders.gd's LOOKS lane computes and prints the headroom that says why.
+	{"id": "raider.look.01", "kind": "raider", "probe": {"raider": true, "cid": "raider.look.01"}, "colonist": false},
+	{"id": "raider.look.02", "kind": "raider", "probe": {"raider": true, "cid": "raider.look.02"}, "colonist": false},
+	{"id": "raider.look.03", "kind": "raider", "probe": {"raider": true, "cid": "raider.look.03"}, "colonist": false},
+	{"id": "raider.look.04", "kind": "raider", "probe": {"raider": true, "cid": "raider.look.04"}, "colonist": false},
 ]
 
 # zombie.base spawns nowhere and gets no art -- it is the `extends` parent the wave types
 # inherit stats (never looks) from, and the roadmap record says so.
 const ROSTER_EXEMPT: Array[String] = ["zombie.base"]
 
-# Where roster ids live. colony/ also holds the generator and the skill web, which are not
-# bodies, so the colony entry names the one file rather than the directory.
+# Where roster ids live. colony/ also holds the two generators and the skill web, which are not
+# bodies, so the colony entry names the one file rather than the directory -- and `looks.json` is
+# that one file for the raiders' rolled looks as well as the colonists', because a look entry is
+# an id with an appearance block wherever it is worn and a second home for the same shape is how
+# a roster grows a body nothing judges.
 const ROSTER_DIRS: Array[String] = ["players/", "zombies/", "survivors/uniques/", "raiders/", "colony/looks.json"]
 
 # Ids that deliberately resolve one shared texture: six colonists are one rig (the tint is
-# the identity), and every raider archetype is one body (which raider carries the gun is not
-# something a look across a street may answer -- check_m2_raiders.gd asserts the same thing
-# from the content side).
+# the identity), and every raider archetype *and every rolled raider look* is one body -- which
+# raider carries the gun is not something a look across a street may answer, and the looks are
+# in the same group because a per-look sprite would answer it through the back door
+# (check_m2_raiders.gd asserts the same thing from the content side).
 const ROSTER_SHARED: Array = [
 	["colony.look.01", "colony.look.02", "colony.look.03", "colony.look.04", "colony.look.05", "colony.look.06"],
-	["raider.scav", "raider.gunhand"],
+	["raider.scav", "raider.gunhand", "raider.look.01", "raider.look.02", "raider.look.03", "raider.look.04"],
 ]
 
 # One id per distinct picture; every pair must resolve different textures.
