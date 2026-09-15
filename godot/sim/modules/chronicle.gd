@@ -84,11 +84,19 @@ static func register_module(world: Variant) -> void:
 	})
 	world.events.subscribe({"type": "recruit.left", "id": "chronicle.left", "order": ORDER, "handler": func(ev: Dictionary) -> void:
 		var ent: int = int(ev.get("entity", -1))
+		var why: String = String(ev.get("reason", ""))
+		# Somebody who was hiding in a building and gave up (`reason: stranger`) leaves no line at
+		# all. Both of the lines below would be a lie about them: "The stranger at the gate has
+		# gone" says where they were and they were never there, and their name says the colony
+		# knew it -- and a colonist who never walked out that way never met them. What you learn
+		# about a stranger is what you saw, which is docs/01 clause 4 with no new prose attached.
+		if why == "stranger":
+			return
 		# A stranger who gave up waiting at dawn, or was turned away, has no name the colony
 		# learned; a colonist who walked out over mood (`reason: mood`) does. The despawn has
 		# already run by drain time, so the name is whatever the body still answers to -- "" for
 		# the stranger, which `lines` reads as the stranger's line.
-		var name: String = _name_of(world, ent) if String(ev.get("reason", "")) == "mood" else ""
+		var name: String = _name_of(world, ent) if why == "mood" else ""
 		_write(world, "left", name, ent)
 	})
 
