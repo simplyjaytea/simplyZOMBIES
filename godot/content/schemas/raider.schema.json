@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://simplyzombies.dev/schemas/raider.schema.json",
   "title": "Raider archetype",
-  "description": "An armed hostile human, drawn by the director as a band and walked in from the edge of the district. A raider is a survivor-shaped body with `allegiance.faction` set against the colony -- everything that then happens to them (melee, ranged, wounds, bleeding, being chased by zombies) is machinery that already existed, so adding an archetype is a JSON file and no code. Deliberately NOT a survivor entry: the survivor schema forbids unknown keys and its validator enforces aptitudes summing to 15, `SimSurvivors.list_uniques` boots everything under survivors/ whose id starts with survivor.unique., and the frozen TypeScript oracle reads a fixed list of content directories, which this one is not on. NOTE: the Godot content validator is shallow -- it checks top-level types, enums and patterns and rejects unexpected top-level keys, but does not recurse into `aptitudes`, `kit` or `appearance`. check_m2_raiders.gd is the gate that does, and it is why a wrong key inside a nested block cannot sit here unnoticed the way one did in item.wrap.cloth's armor block.",
+  "description": "An armed hostile human, drawn by the director as a band and walked in from the edge of the district. A raider is a survivor-shaped body with `allegiance.faction` set to a side that is not the colony -- everything that then happens to them (melee, ranged, wounds, bleeding, being chased by zombies) is machinery that already existed, so adding an archetype is a JSON file and no code. Deliberately NOT a survivor entry: the survivor schema forbids unknown keys and its validator enforces aptitudes summing to 15, `SimSurvivors.list_uniques` boots everything under survivors/ whose id starts with survivor.unique., and the frozen TypeScript oracle reads a fixed list of content directories, which this one is not on. NOTE: the Godot content validator is shallow -- it checks top-level types, enums and patterns and rejects unexpected top-level keys, but does not recurse into `aptitudes`, `kit` or `appearance`. check_m2_raiders.gd is the gate that does, and it is why a wrong key inside a nested block cannot sit here unnoticed the way one did in item.wrap.cloth's armor block.",
   "type": "object",
   "required": ["id", "name", "allegiance", "kit"],
   "additionalProperties": false,
@@ -13,12 +13,7 @@
       "description": "Stable namespaced id. Permanent once shipped."
     },
     "name": { "type": "string", "description": "Human-readable archetype name." },
-    "allegiance": {
-      "type": "string",
-      "enum": ["raiders"],
-      "description": "Which side this archetype fights on, copied onto the spawned body's `allegiance` component and read by SimAllegiance.hostile. One value for now on purpose: docs/18's factions are Milestone 3, and an enum with one member is the seam they widen rather than a system pretending to exist.",
-      "default": "raiders"
-    },
+    "allegiance": { "$ref": "#/$defs/faction" },
     "weight": {
       "type": "integer",
       "minimum": 1,
@@ -71,6 +66,12 @@
     "appearance": { "$ref": "#/$defs/appearance" }
   },
   "$defs": {
+    "faction": {
+      "type": "string",
+      "enum": ["raiders", "settlers"],
+      "description": "Which side this archetype fights on, copied onto the spawned body's `allegiance` component and read by SimAllegiance.hostile. Two values since the allegiance seam widened: `raiders` is the band at the gate, `settlers` a third side that is hostile to the raiders and at peace with the colony. `colony` is deliberately NOT here -- an archetype declaring it would be a colonist spawned outside the roster, with no needs and no place on the ledger. One `$defs` entry rather than an inline enum so there is exactly one definition of what a faction may be; note the Godot content validator does not resolve `$ref`, so this enum's reader is check_m2_allegiance.gd, which walks the shipped entries against SimAllegiance's own constants and refuses a value that is in neither.",
+      "default": "raiders"
+    },
     "aptitude": {
       "oneOf": [
         { "type": "integer", "minimum": 3, "maximum": 8 },

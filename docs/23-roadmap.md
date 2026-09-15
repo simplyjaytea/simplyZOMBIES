@@ -292,10 +292,6 @@ balance record and says so in its record; `survivors_end >= 1` is never the leve
 - **A band passing through.** The director's encounter lever: a roaming band on a post-grace
   dawn, objective a loot site, exit the far edge, fighting whatever it meets, sharing the raid
   cap and publishing its reason.
-- **A third side: the allegiance seam.** `settlers` beside `colony` and `raiders`, `hostile` as a
-  relations table after the zombie short-circuit, succession filtered to the colony, the raider
-  schema's enum widened. New gate `godot:m2:allegiance`, blood drawn and not drawn as its two
-  halves.
 - **The settlers' camp.** A settlement sited off the layout in a far building and the named people
   who hold it: identity yes, needs and job priorities no, so the ledger and the scheduler never
   see them. New gate `godot:m2:settlers`.
@@ -8350,6 +8346,57 @@ not a to-do list:
   raider (NO-IDENTITY), the draw loop handing over the archetype id again (LOOK-READER), a cap only
   the scavenger can wear (NO-TELL), the person rolled off the `raid` stream (STREAMS), one name for
   every body (SAVE), and the record left off the killed event (CHRONICLE).
+
+- **The raiders and the settlers** — ~~a third side: the allegiance seam~~ **landed**
+  (`godot:m2:allegiance`, six lanes, taking the `godot:m2` chain to 74 links), 2026-09-15, the
+  first piece of the procedural-population arc's settlers group. `SimAllegiance` answered "is that
+  one my enemy" with `!=`, so anybody who was not you was your enemy. The settlers need a side
+  that is neither the colony nor hostile to it, and the difference between `!=` and a relations
+  table is the whole of this slice. `SETTLERS` joins `COLONY` and `RAIDERS`; `hostile` keeps the
+  zombie short circuit exactly where it was — before the factions are ever compared, because a
+  shambler carries no allegiance component and `faction_of` would call it a colonist — and then
+  consults `factions_hostile` over a `const HOSTILE_PAIRS` declared **in one direction only**:
+  raiders against the colony, raiders against the settlers, everything else peace. The lookup
+  tries each pair both ways round, so the symmetry is a property of the lookup rather than of the
+  data and there is no second direction to forget to write. SYMMETRY asserts it anyway over every
+  ordered pair, refuses a table that is all war or all peace (either is symmetric for free), and
+  proves the walk can fail by running the identical walk against a deliberately one-way lookup.
+  **`is_colony` is the other half, and it is a narrower question than "not an enemy".**
+  `SimRecruits._succession_pick` took an `identity` as proof of colony membership, and a settler
+  carries one — so the player dying at a stranger's fence would have woken up in the stranger's
+  body. The scan asks `SimAllegiance.is_colony` as well now, and that is its only reader outside
+  the gate. A settler is a *person* everywhere else: `is_person` is untouched, so a zombie chases
+  them and a screamer still raises the alarm about them.
+  **The schema:** `raider.schema.json`'s `allegiance` is a `$ref` to a new `$defs/faction` — one
+  definition — widened to `["raiders", "settlers"]`, with `colony` deliberately off it, since an
+  archetype declaring it would be a colonist spawned outside the roster. The Godot validator does
+  not resolve `$ref` and the frozen oracle never reads `content/raiders/`, so that enum's reader
+  is the gate's SCHEMA lane, which walks it against `SimAllegiance`'s own constants and against
+  every shipped archetype: the dead-socket rule applied to a schema.
+  **Nothing uses the third value in anger** — no settler bodies, no camp, nothing in the shipped
+  tree spawns one, which is the next slice. So this gate is the only thing in the tree that
+  exercises the value at all, and that is exactly the condition under which a gate quietly stops
+  proving anything; every lane carries its negative in the same fixture. PEACE: a settler and a
+  colonist with kitchen knives at 1.2 m for 900 ticks, **0 hits, 0 wounds** — and the same two
+  bodies with that one field flipped to `raiders`, **8 hits, 7 wounds**. WAR: a settler and a
+  raider from the shipped spawner, 4 and 3 hits over 6 wounds; the same two both declared
+  settlers, 0/0. PREY: a shambler pursues a settler, closes 1.49 m and lands 15 claws; the same
+  body with its person marker removed, neither. NO-HEIR: the colonist across the district inherits
+  over a settler standing 0.5 m from the corpse, and that same settler declared colony inherits.
+  Each lane was run red on purpose before it was trusted — the colony declared hostile to the
+  settlers (PEACE), the raiders/settlers row deleted (WAR), `is_person` refusing a settler (PREY),
+  the `is_colony` guard removed from the scan (NO-HEIR), the lookup made one-way (SYMMETRY), and
+  the enum narrowed back to `["raiders"]` (SCHEMA). `check_m2_raiders.gd`'s BLOOD is untouched and
+  green; its NO-IDENTITY negative gained a step, because an identity alone no longer makes a
+  raider an heir — it asserts the raider given an identity is still refused, and that the same
+  body given the colony's allegiance is picked, so the pair of refusals cannot be a scan that
+  refuses everybody.
+  **No balance measurement is owed, and that is a claim rather than a gap.** No settler exists in
+  any shipped spawn path, the table answers exactly as `!=` did for the two factions that do
+  exist, and `is_colony` only narrows a scan no raider has ever passed; nothing here draws from an
+  RNG stream. Proved rather than asserted: `godot:m2:balance` green with its bands unchanged,
+  `check_m2_raiders.gd`'s STREAMS pins on the `raid` stream unmoved, and `godot:test`'s R1 parity
+  fixture byte-identical.
 
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not
