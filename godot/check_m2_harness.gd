@@ -109,8 +109,11 @@ func _turtle_floor() -> bool:
 
 func _nothing_personal() -> bool:
 	var w: Variant = _boot()
-	if not w.systems.unregister("director.dusk"):
-		push_error("director.dusk missing")
+	# `director.cycle`, not `director.dusk`: the crossing slice gave the director a dawn decision
+	# as well, and both edges live in the one registered system so that turning the director off
+	# turns all of it off. If this name ever drifts again, the push_error below is what says so.
+	if not w.systems.unregister("director.cycle"):
+		push_error("director.cycle missing")
 		return false
 	var packets: int = 0
 	for day in [8, 9, 10]:

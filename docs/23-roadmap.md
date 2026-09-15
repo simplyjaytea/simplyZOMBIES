@@ -282,9 +282,6 @@ balance record and says so in its record; `survivors_end >= 1` is never the leve
   glance rather than only in the damage arithmetic, and a heavy that is visibly bigger than one
   tile — distinguishable at 32 px from the shambler and from each other, per the brief in
   `godot/assets/sprites/README.md`.
-- **A band passing through.** The director's encounter lever: a roaming band on a post-grace
-  dawn, objective a loot site, exit the far edge, fighting whatever it meets, sharing the raid
-  cap and publishing its reason.
 - **The settlers' camp.** A settlement sited off the layout in a far building and the named people
   who hold it: identity yes, needs and job priorities no, so the ledger and the scheduler never
   see them. New gate `godot:m2:settlers`.
@@ -8757,6 +8754,110 @@ not a to-do list:
   (LOOTER), the take disabled (LOOTER), the lookout's halt deleted and then set to 0 m (LOOKOUT,
   which is how the vacuous assertion was found), the role refusal turned into a silent fallback to
   fighter (ROLE-READ), and the shipped scavenger re-declared a looter (FIGHTER).
+- **A band passing through** — ~~the director's Encounter lever: a band that is not coming for
+  you~~ **landed** (`godot:m2:raiders`, six new lanes on the chain's 35th gate, twenty-nine in all),
+  2026-09-15, the third piece of the procedural-population arc's raider group. Every band the
+  director had ever sent came for the colony: `_draw_raid` decided a raid at dusk and
+  `SimRaiders._objective` walked it to the gate, so the district had exactly one sort of armed
+  stranger in it. docs/17's lever table names **Encounters** beside migration and site seeding, and
+  that row had no reader.
+  **The draw.** On a post-grace dawn, with `ROAM_CHANCE_PERCENT` (15, a first cut), off a new
+  `"raidRoam"` stream, `SimDirector._draw_roam` emits a band whose objective is a `map.sites`
+  record at least `GATE_EXCLUSION` (32 m) from home, asked of `SimHome.near_any` so a camp counts
+  as home too. `director.roam` carries what it decided and why — `grace`, `lull`, `cap`, `quiet`,
+  `no-site`, `no-edge`, `drawn` — on the same refusal ladder and in the same order as
+  `_draw_raid`'s, so grace is a fact about the day, the lull outranks the draw (docs/17 rule 1),
+  the cap is a budget, and only then is the stream touched.
+  **One emitter, not two.** `_emit_band` takes a trailing, defaulted `objective`: null is the raid
+  it always was, character for character and draw for draw, and a `Vector2i` is the same band plus
+  `SimRaiders.stamp_crossing`. The far edge is the side opposite the entry, nearest legal tile to
+  the objective, and it spends **no randomness** — a draw there would have moved `"raid"` for
+  every band the record measured the moment an objective was passed.
+  **One withdrawal, not two.** Two fields on the `raider` component carry the whole difference:
+  `objective` `{kind: "site", x, y}` replaces the gate in `_objective`, and `exitX`/`exitY` replace
+  the entry tile in `_leave_tile`. The path, the arrival clock, `_begin_withdrawal`, `_leave` and
+  `raid.withdrew` are the raid's, unchanged. **No `SAVE_VERSION` bump**, and the rule is
+  `kernel/serialize.gd`'s own: a v31 save has no crossings in it, so every raider in one is a raid
+  band, and the defaults these keys are absent for describe exactly that — the absence restores
+  the right behaviour rather than a plausible wrong one.
+  **What the roles do while crossing**, decided against the objective rather than the colony
+  (docs/30, "A band that is not coming for you"). A **looter** loots the place it crossed for and
+  never your pantry: `_worth_taking` branches, a raid asking `_is_stores` and a crossing asking
+  whether the thing is lying at its site. A band that crossed a district for a pharmacy and took
+  nothing out of it is the contradiction. A **lookout** does not halt while crossing —
+  `LOOKOUT_METRES` is a distance from a colony's gate and a band with no colony to watch has
+  nothing to stand off from — but its **first-loss** retreat stands, because that is a fact about
+  the band's arithmetic and turns a crossing for the exit exactly where docs/18 says a business
+  would break off.
+  **Why this is an Encounter and not a second horde.** It places nobody near the colony (the entry
+  tile keeps `_legal_tile`'s exclusions, the objective gets the same 32 m), it takes a slot out of
+  `RAID_LIVE_CAP` rather than opening a second budget, and it fights only what
+  `SimAllegiance.enemies_of` puts inside `HALT_METRES` of its own line. Nothing tells the player
+  where it is going or that it is not coming for them: `director.roam` reaches no chronicle line
+  and no HUD clause, the same silence `director.raid` keeps.
+  **One rename, and it is load-bearing.** `director.dusk` is `director.cycle`: the dawn edge lives
+  in the same registered system as the dusk one, because `check_m2_harness.gd`'s Nothing Personal
+  preset turns the director off by unregistering it **by name**, and a second registration would
+  have left half the director running under a preset whose whole claim is that none of it is.
+  **The gate**, six lanes, each with its negative in the same fixture, each run red on purpose.
+  CROSSES: a stamped band enters at (16, 2), reaches (16, 20) at 0.00 m, is gone at tick 6,780
+  with three `raid.withdrew`, ends 1.48 m off the far edge (16, 61) and never comes nearer home
+  than 38.0 m against a 32 m exclusion — where the *identical unstamped* band walks to 4.1 m of
+  home and never gets within 18.0 m of the site. ENGAGES: a colonist on the band's line takes 6
+  blows and 2 wounds; the same colonist 45 m aside takes 0 and 0 and the band reaches its objective
+  at 0.13 m. STREAM: a `"raid"` stream opened and spent by a real `_emit_band` is byte-unmoved at
+  1991326692 across 60 dawns that drew 10 crossings, with `"raidRoam"` proven to have been opened
+  and the comparison proven able to fail by one extra draw — beside the older STREAMS lane, which
+  pins the same stream against a literal taken on the pre-individuals tree. EVENT: 6 grace dawns
+  refuse with the stream untouched, 10 of 60 post-grace dawns draw, 29 bodies all bound for a real
+  `map.sites` tile ≥ 32 m from home with an exit on a different edge, and `quiet` is required to
+  appear so the refusal half is reachable. CAP: forty days of both draws with nothing culled — 2
+  raids, 3 crossings, both live together on 34 of them, peak 8 of 8, `cap` refused 31 dawns — and
+  the negative control, the same forty dawns on a district emptied between each, refused **none**,
+  so `cap` says something about how many are standing there. ROAM-ROLES: the crossing looter leaves
+  with 3 from its site while 3 identical things ten metres short of it, walked over inside
+  `PICKUP_REACH`, are untouched and the colony's own 3 stores are intact at 38 m; the crossing
+  lookout closes to 0.19 m where the raiding one holds at 11.99 m.
+  **What ENGAGES had to be written around, stated rather than papered over.** `_approach` halts at
+  `HALT_METRES` (2.6 m) and every melee reach in a raider's kit is shorter — the rusted machete is
+  1.2 m plus `SimMelee.MELEE_REACH_FUDGE`, so 1.55 — so against a colonist who never moves nothing
+  closes the last metre and a scavenger band stands there indefinitely. Written with scavengers the
+  lane went red with "hits 0, band stopped 10.5 m short of the site", blaming code that was doing
+  what it says. That gap is pre-existing and is not this slice's — in a campaign colonists walk to
+  jobs and shamblers close, which is where BLOOD and PREY get their contact — so the lane uses
+  gunhands, whose 25 m reaches across the halt, rather than widening the halt to make a gate pass.
+  **Balance, owed and paid, on throwaway drivers (deleted), four fast seeds, `entity.killed`
+  de-duplicated by entity id. Which number came from where is stated rather than blurred, because
+  the honest headline is that the compressed tier could not reach this at all.**
+  *The tier, first.* `check_m2_balance.gd`'s FAST tier jumps to each day's **dusk** and a
+  crossing is drawn at **dawn**, so the shipped harness cannot see one. The driver mirrors it
+  exactly — same four seeds, ten compressed days, the same 2,000-tick window — and adds a dawn
+  edge with its own window, which is the one thing it does that the shipped tier does not.
+  Before (the draw off, which is the pre-slice tree for every other stream) against after (15%):
+  `survivors_end` **3 / 3 / 1 / 1 → 3 / 3 / 1 / 1**, killed **0 / 1 / 3 / 5 → 0 / 1 / 3 / 5**,
+  grabs **4 / 6 / 27 / 75 → 4 / 6 / 27 / 75**, crossings drawn **0 → 0**. **Byte-identical**,
+  and the reason is not that the mechanism is asleep.
+  *Diagnosed rather than theorised*, with a second driver that ran the dawns and printed the
+  ladder's own answer: every seed gives **six grace dawns (days 2-7) and exactly three post-grace
+  ones (days 8, 9, 10)**, and all twelve rolled `quiet`. At 15% that is 0.85¹² ≈ 14% —
+  unlucky rather than broken, and `RAID_FIRST_DAY` is what makes the sample three deep instead of
+  nine. So a ten-day campaign is a coin the crossing usually loses, which is what an Encounter at a
+  first cut should be, and it is also why the number below had to be forced.
+  *The tier the compressed one cannot reach, same driver.* The **worst legal crossing**
+  (`RAID_BAND_MAX`, four bodies) placed at day 8's dawn on a live district with 12,000 ticks to
+  work, against the identical world with no band — the raiders record's own forced technique.
+  `survivors_end` **2 / 2 / 2 / 2 → 2 / 2 / 1 / 2**, killed **2 / 2 / 2 / 2 → 3 / 2 / 10 / 2**,
+  grabs **167 / 77 / 27 / 49 → 71 / 122 / 184 / 33**. On 20260805 and 90210 the band crossed and
+  left the district (four `raid.withdrew` each, nothing standing); on 404 it was still crossing when
+  the window closed; on 31337 it was killed to the last man and cost the colony a colonist — ten
+  dead in the window against two. **`survivors_end >= 1` on every seed of both blocks**, so nothing
+  was narrowed and the first cut was not moved. The grabs swing both ways because four armed people
+  walking a line through a live district change where the dead go, which is the pressure this lever
+  is *for*; it is not a claim that a crossing is safer than no crossing.
+  **First cuts, the owner's to move** (docs/30, "A band that is not coming for you"):
+  `ROAM_CHANCE_PERCENT` 15 per post-grace dawn; the objective a `map.sites` record at
+  `GATE_EXCLUSION` from home; band size shared with the raid's `RAID_BAND_MIN`..`MAX`; and
+  `RAID_FIRST_DAY` shared rather than owned, so grace is one grace.
 
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not

@@ -20,6 +20,7 @@ const SimAllegiance = preload("res://sim/modules/allegiance.gd")
 const SimChronicle = preload("res://sim/modules/chronicle.gd")
 const SimDirector = preload("res://sim/modules/director.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
+const SimHome = preload("res://sim/home.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimMelee = preload("res://sim/modules/melee.gd")
@@ -90,8 +91,14 @@ func _run() -> void:
 	ok = _a_lookout_halts_short() and ok
 	ok = _a_role_is_read_and_a_strange_one_refused() and ok
 	ok = _the_shipped_archetypes_still_fight() and ok
+	ok = _a_band_crosses_the_district_and_leaves_by_the_far_edge() and ok
+	ok = _a_crossing_band_fights_what_stands_in_its_way() and ok
+	ok = _a_crossing_does_not_move_the_raid_stream() and ok
+	ok = _every_dawn_says_what_it_drew() and ok
+	ok = _a_crossing_and_a_raid_share_one_cap() and ok
+	ok = _the_roles_are_read_against_the_crossing() and ok
 	if ok:
-		print("M2_RAIDERS_OK archetypes draw grace approach blood prey seed death ledger withdraw pool looks distinct no-identity look-reader no-tell streams save chronicle looter lookout role-read fighter")
+		print("M2_RAIDERS_OK archetypes draw grace approach blood prey seed death ledger withdraw pool looks distinct no-identity look-reader no-tell streams save chronicle looter lookout role-read fighter crosses engages roam-stream event cap roam-roles")
 		quit(0)
 	else:
 		push_error("M2_RAIDERS_FAIL")
@@ -2121,3 +2128,613 @@ func _tree_with_role(role: String) -> Dictionary:
 			if entry is Dictionary:
 				(entry as Dictionary)["role"] = role
 	return tree
+
+
+# --- a band passing through ---------------------------------------------------------------------
+#
+# The crossing slice. `SimDirector._draw_roam` draws one on a post-grace dawn off its own stream,
+# `_emit_band` stamps an objective and a far edge onto the bodies it placed, and `SimRaiders`
+# walks them across the district and out the other side. Six lanes, and the shape of each is the
+# one this file already uses: a true positive and a true negative that differ in exactly the field
+# under test.
+#
+# What the negatives are actually for, stated once because it is the whole argument of the slice:
+# a crossing that arrives at the gate, or that fights the colony, is a raid with a different event
+# name. So every lane below has an arm in which the *same fixture* behaves like a raid, and the
+# claim is the difference between them rather than either one on its own.
+
+# The crossing arena. 64 m of blank district, the colony in the south-east corner, the band's line
+# down the west side: the nearest any body on that line comes to home is 36 m, against a
+# GATE_EXCLUSION of 32. On the 32 m arena every other lane in this file uses, *nothing* is 32 m
+# from anything, so CROSSES's "never comes near home" half would have been unmeasurable there
+# rather than merely awkward -- which is the difference between a gate that is hard to write and
+# one that cannot fail.
+const CROSS_TILES: int = 64
+const CROSS_ENTRY := Vector2i(16, 2)
+const CROSS_SITE := Vector2i(16, 20)
+const CROSS_EXIT := Vector2i(16, 61)
+const CROSS_ANNEX := Rect2i(50, 50, 9, 9)
+const CROSS_GATE := Vector2i(54, 50)
+# Indoor floor inside the annex, which is what `SimNeeds.is_stockpile_tile` wants on top of the
+# rect -- `_stores_arena`'s trick at the other end of the map.
+const CROSS_STORES: Array[Vector2i] = [Vector2i(52, 54), Vector2i(53, 54), Vector2i(54, 54)]
+# Three things lying on the band's own path, ten metres short of the objective. They are the true
+# negative for `SimRaiders._worth_taking`: a crossing looter walks over them, well inside
+# `SimInventory.PICKUP_REACH`, and leaves them because they are not at the place it crossed for.
+const CROSS_DECOY := Vector2i(16, 10)
+# Long enough for the whole crossing at raider speed: 18 tiles in, WITHDRAW_AFTER_TICKS standing
+# there, 41 tiles out, which is about 6,800 ticks at 1.5 m/s.
+const CROSS_TICKS: int = 8500
+# Long enough for a band to walk the diagonal to the gate (about 640) with room to spare, and
+# deliberately shorter than the withdrawal clock so the raid arm is judged on where it went rather
+# than on where it ended up.
+const RAID_ARM_TICKS: int = 1500
+
+
+# CROSSES. A band with an objective enters at one edge, reaches it, leaves by the far one and is
+# gone -- and never comes within GATE_EXCLUSION of home on the way. The true negative is the same
+# three bodies on the same tiles with the objective not stamped: they walk at the colony, arrive,
+# and would have gone back out the edge they came in by.
+func _a_band_crosses_the_district_and_leaves_by_the_far_edge() -> bool:
+	var results: Dictionary = {}
+	for case in ["crossing", "raid"]:
+		var w: Variant = _crossing_arena()
+		var band: Array = _cross_band(w, 3, "raider.scav")
+		if case == "crossing":
+			SimRaiders.stamp_crossing(w, band, CROSS_SITE, CROSS_EXIT)
+		results[case] = _watch_the_band(w, band, "cross-" + case, CROSS_TICKS if case == "crossing" else RAID_ARM_TICKS)
+	var crossing: Dictionary = results["crossing"]
+	var raid: Dictionary = results["raid"]
+
+	if int(crossing["gone"]) < 0 or int(crossing["withdrew"]) != 3:
+		push_error("CROSSES: the band did not leave the district (%s)" % str(crossing))
+		return false
+	if float(crossing["to_site"]) > 2.0:
+		push_error("CROSSES: the band never reached its objective -- closest approach %.1f m to %s" % [float(crossing["to_site"]), str(CROSS_SITE)])
+		return false
+	if float(crossing["last_to_exit"]) > 3.0:
+		push_error("CROSSES: the band left from %.1f m off the far edge tile %s, so it did not leave by it" % [float(crossing["last_to_exit"]), str(CROSS_EXIT)])
+		return false
+	# The half that says "passing through" rather than "a raid with extra steps". The exit is on
+	# the opposite edge from the entry, so a band that turned round and went back out the way it
+	# came would fail this even having withdrawn cleanly.
+	if float(crossing["last_to_entry"]) < float(crossing["last_to_exit"]):
+		push_error("CROSSES: the band ended nearer the edge it came in by (%.1f m) than the far one (%.1f m)" % [float(crossing["last_to_entry"]), float(crossing["last_to_exit"])])
+		return false
+	if float(crossing["to_home"]) <= SimDirector.GATE_EXCLUSION:
+		push_error("CROSSES: a band that is not coming for the colony came within %.1f m of it, inside the %.0f m exclusion" % [float(crossing["to_home"]), SimDirector.GATE_EXCLUSION])
+		return false
+
+	# The negative. Without the stamp the identical fixture is a raid: it walks at the colony and
+	# gets inside the exclusion it has no business being inside, which is what makes the assertion
+	# above a fact about the objective rather than about the arena's geometry.
+	if float(raid["to_home"]) > SimDirector.GATE_EXCLUSION:
+		push_error("CROSSES: the unstamped band never approached the colony either (%.1f m), so the crossing's distance proves nothing" % float(raid["to_home"]))
+		return false
+	if float(raid["to_site"]) <= 4.0:
+		push_error("CROSSES: the unstamped band walked to the site as well (%.1f m), so the objective is reaching nothing" % float(raid["to_site"]))
+		return false
+	print("CROSSES OK stamped: reached %s at %.2f m, gone at tick %d (3 withdrew) %.2f m off the far edge %s, nearest home %.1f m > %.0f; unstamped: nearest home %.1f m, nearest site %.1f m" % [
+		str(CROSS_SITE), float(crossing["to_site"]), int(crossing["gone"]), float(crossing["last_to_exit"]), str(CROSS_EXIT),
+		float(crossing["to_home"]), SimDirector.GATE_EXCLUSION, float(raid["to_home"]), float(raid["to_site"]),
+	])
+	return true
+
+
+# ENGAGES. A colonist standing on the band's line is fought; the same colonist standing forty-five
+# metres off it is passed, and the band reaches its objective without a blow struck. That negative
+# is the whole difference between an Encounter and a horde at the gate: a crossing fights what it
+# meets and looks for nobody.
+#
+# **Gunhands, and the reason is measured rather than stylistic.** `_approach` halts at
+# `HALT_METRES` (2.6 m) and every melee reach in a raider's kit is shorter than that -- the rusted
+# machete is 1.2 m plus `SimMelee.MELEE_REACH_FUDGE`, so 1.55. Against a colonist who never moves,
+# nothing closes the last metre and a scavenger band stands at 2.6 m indefinitely: written as
+# scavengers this lane went red with "hits 0, band stopped 10.5 m short of the site", blaming code
+# that was doing exactly what it says. That gap is pre-existing and is not this slice's -- in a
+# campaign colonists walk to jobs and shamblers close, which is how `BLOOD` and `PREY` above get
+# their contact -- so the lane is written with the weapon that reaches across the halt rather than
+# by widening the halt to make a gate pass.
+func _a_crossing_band_fights_what_stands_in_its_way() -> bool:
+	var results: Dictionary = {}
+	for case in ["in-the-way", "aside"]:
+		var w: Variant = _crossing_arena()
+		SimWounds.register_module(w)
+		var band: Array = _cross_band(w, 3, "raider.gunhand")
+		SimRaiders.stamp_crossing(w, band, CROSS_SITE, CROSS_EXIT)
+		# On the line at (16, 12), or off it at (16 + 45, 12). Forty-five metres is well outside
+		# the service pistol's 25 m and outside `SimNpcCombat.ENGAGE_METRES` (20) -- and outside a
+		# raider's 12 m glimpse, so the aside colonist is never even seen. The arm is "nobody is in
+		# the way", not "somebody is in the way and was missed".
+		var at_x: float = float(CROSS_ENTRY.x) + 0.5 + (0.0 if case == "in-the-way" else 45.0)
+		var colonist: int = _colonist(w, at_x, 12.5)
+		SimInventory.equip(w, colonist, SimItems.spawn_item(w, "item.knife.kitchen", {"tier": "scavenged"}))
+		# A Dictionary and an Array, never a captured `int`: an accumulator a lambda writes to is
+		# CLAUDE.md's lambda-capture trap, and these are read after the loop either way.
+		var hits: Dictionary = {"n": 0}
+		var reached: Array[float] = [1e12]
+		var hurt: Array[int] = [0]
+		var site_centre := Vector2(float(CROSS_SITE.x) + 0.5, float(CROSS_SITE.y) + 0.5)
+		for _t in 1500:
+			w.step()
+			for ent in band:
+				var pos: Variant = w.components.get_component(int(ent), "position")
+				if pos is Dictionary:
+					reached[0] = minf(reached[0], Vector2(float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"])).distance_to(site_centre))
+			# Sampled and kept at its maximum: a body that dies is despawned and its injuries go
+			# with it, so a count taken at the end would read zero for whoever lost.
+			hurt[0] = maxi(hurt[0], _wound_count(w, colonist))
+			for e in w.events.drained:
+				var ev: Dictionary = e as Dictionary
+				if String(ev.get("type", "")) != "attack.connected":
+					continue
+				if band.has(int(ev.get("attacker", -1))) or band.has(int(ev.get("target", -1))):
+					hits["n"] = int(hits["n"]) + 1
+		results[case] = {"hits": int(hits["n"]), "to_site": reached[0], "wounds": hurt[0]}
+	var met: Dictionary = results["in-the-way"]
+	var passed: Dictionary = results["aside"]
+	if int(met["hits"]) < 1:
+		push_error("ENGAGES: a colonist standing on the band's line was never touched in 1500 ticks (%s)" % str(met))
+		return false
+	if int(met["wounds"]) < 1:
+		push_error("ENGAGES: blows landed on the colonist in the way and left no wound (%s)" % str(met))
+		return false
+	if int(passed["hits"]) != 0:
+		push_error("ENGAGES: a colonist forty-five metres off the line was fought anyway (%d blows) -- the band is hunting rather than crossing" % int(passed["hits"]))
+		return false
+	if int(passed["wounds"]) != 0:
+		push_error("ENGAGES: a colonist forty-five metres off the line took %d wounds anyway" % int(passed["wounds"]))
+		return false
+	if float(passed["to_site"]) > 2.0:
+		push_error("ENGAGES: with nobody in the way the band still did not reach its objective (%.1f m), so the quiet arm is measuring a stall" % float(passed["to_site"]))
+		return false
+	print("ENGAGES OK on the line: %d blows and %d wounds on the colonist; aside: 0 blows, 0 wounds and the site reached at %.2f m" % [
+		int(met["hits"]), int(met["wounds"]), float(passed["to_site"]),
+	])
+	return true
+
+
+# STREAM. The `"raid"` stream is where the director draws the night's band -- the side, the entry
+# tile and every member's archetype -- and every raid number in docs/23's record is a function of
+# that byte sequence. The crossing draws off `"raidRoam"` instead, and this is the assertion that
+# it does: a stream opened and spent by a raid, then sixty dawns some of which send a band across,
+# and the state has not moved a bit.
+#
+# `_the_raid_stream_has_not_moved` above is the other half and the older one: it pins the state
+# after `_emit_band` against a literal taken on the pre-individuals tree. That literal is what says
+# the sequence is the *same* one the record measured; this lane says the dawn draw does not touch
+# it. Neither is redundant -- a pin cannot notice a stream that is never opened, and a delta cannot
+# notice a sequence that moved before this lane started watching.
+func _a_crossing_does_not_move_the_raid_stream() -> bool:
+	var w: Variant = SimBoot.playable(SEED, MAP_TILES)["world"]
+	var rng: Variant = w.rng.stream(SimDirector.RAID_STREAM)
+	# Spent first, so the pin is a state the raid draw actually reaches rather than a fresh
+	# stream's zero -- which any stream in the world would match.
+	SimDirector._emit_band(w, 2, rng)
+	_cull_raiders(w)
+	var before: int = int(rng.call("save"))
+	var drawn: int = 0
+	var dawns: int = 0
+	for day in range(SimDirector.RAID_FIRST_DAY, SimDirector.RAID_FIRST_DAY + 60):
+		var roam: Variant = _run_dawn(w, day)
+		dawns += 1
+		if roam is Dictionary and int((roam as Dictionary)["size"]) > 0:
+			drawn += 1
+		_cull_raiders(w)
+	if drawn < 1:
+		push_error("STREAM: %d dawns and not one crossing -- the draw is unreachable, so nothing below was judged" % dawns)
+		return false
+	if not (w.rng.names as Array).has(SimDirector.ROAM_STREAM):
+		push_error("STREAM: %d crossings were drawn without the '%s' stream ever being opened" % [drawn, SimDirector.ROAM_STREAM])
+		return false
+	var after: int = int(rng.call("save"))
+	if after != before:
+		push_error("STREAM: %d crossings moved the '%s' stream from %d to %d -- the dawn draw is threaded into the raid's sequence" % [drawn, SimDirector.RAID_STREAM, before, after])
+		return false
+	# The comparison can fail: one draw off the same stream moves it.
+	rng.call("int_range", 0, 99)
+	if int(rng.call("save")) == before:
+		push_error("STREAM: an extra draw left the stream where it was, so the comparison above reads nothing")
+		return false
+	print("STREAM OK %d crossings over %d dawns off '%s' left '%s' at %d, unmoved" % [drawn, dawns, SimDirector.ROAM_STREAM, SimDirector.RAID_STREAM, before])
+	return true
+
+
+# EVENT. docs/17 rule 5: the director's adjustments must be observable. Every dawn says what it
+# decided and why -- including the dawns that send nobody -- and the band it does send is going
+# somewhere a crossing is allowed to go: a `map.sites` record, at least GATE_EXCLUSION from home,
+# with an exit on a different edge from the one it came in by.
+#
+# The negative is grace: before RAID_FIRST_DAY every dawn refuses, says so, and -- the half that
+# makes it an assertion rather than a tautology -- never opens the stream, so a refused crossing
+# costs no randomness and the schedule does not move every campaign's rolls.
+func _every_dawn_says_what_it_drew() -> bool:
+	var w: Variant = SimBoot.playable(SEED, MAP_TILES)["world"]
+	var grace: int = 0
+	for day in range(2, SimDirector.RAID_FIRST_DAY):
+		var early: Variant = _run_dawn(w, day)
+		if not (early is Dictionary):
+			push_error("EVENT: dawn of day %d said nothing about a crossing" % day)
+			return false
+		if String((early as Dictionary)["reason"]) != "grace" or int((early as Dictionary)["size"]) != 0:
+			push_error("EVENT: dawn of day %d, before RAID_FIRST_DAY %d, gave reason '%s' and size %d" % [day, SimDirector.RAID_FIRST_DAY, String((early as Dictionary)["reason"]), int((early as Dictionary)["size"])])
+			return false
+		grace += 1
+	if grace < 1:
+		push_error("EVENT: RAID_FIRST_DAY is %d, so grace covers no dawns and the refusal judged nothing" % SimDirector.RAID_FIRST_DAY)
+		return false
+	if (w.rng.names as Array).has(SimDirector.ROAM_STREAM):
+		push_error("EVENT: the '%s' stream was opened during grace -- a refused crossing must not spend randomness" % SimDirector.ROAM_STREAM)
+		return false
+
+	var sites: Dictionary = {}
+	for record in w.tilemap.sites as Array:
+		sites[Vector2i(int((record as Dictionary).get("x", -1)), int((record as Dictionary).get("y", -1)))] = true
+	var reasons: Dictionary = {}
+	var drawn: int = 0
+	var judged: int = 0
+	var home: Vector2 = SimHome.centre(w)
+	for day in range(SimDirector.RAID_FIRST_DAY, SimDirector.RAID_FIRST_DAY + 60):
+		var before: Array[int] = w.components.query(["raider"])
+		var roam: Variant = _run_dawn(w, day)
+		if not (roam is Dictionary):
+			push_error("EVENT: dawn of day %d said nothing -- rule 5 is that the decision is observable whether or not it sends anybody" % day)
+			return false
+		var reason: String = String((roam as Dictionary).get("reason", ""))
+		if reason.is_empty():
+			push_error("EVENT: dawn of day %d: a decision with no stated reason" % day)
+			return false
+		reasons[reason] = int(reasons.get(reason, 0)) + 1
+		var arrived: Array[int] = []
+		for ent in w.components.query(["raider"]):
+			if not before.has(int(ent)):
+				arrived.append(int(ent))
+		if arrived.size() != int((roam as Dictionary)["size"]):
+			push_error("EVENT: dawn of day %d announced %d and %d arrived" % [day, int((roam as Dictionary)["size"]), arrived.size()])
+			return false
+		if not arrived.is_empty():
+			drawn += 1
+			for ent in arrived:
+				judged += 1
+				if not _crossing_is_legal(w, int(ent), sites, home):
+					return false
+		_cull_raiders(w)
+	if drawn < 1:
+		push_error("EVENT: sixty post-grace dawns and not one crossing -- the draw is unreachable, so nothing above was judged")
+		return false
+	if judged < 1:
+		push_error("EVENT: no crossing body was judged, so the placement assertion is vacuous")
+		return false
+	if not reasons.has("quiet"):
+		push_error("EVENT: sixty dawns and every one of them drew -- the refusal half of the ladder is unreachable (%s)" % str(reasons))
+		return false
+	print("EVENT OK %d dawns refused for grace with the stream untouched; %d of 60 post-grace dawns drew, %d bodies all bound for a site >= %.0f m from home with an exit on another edge; reasons %s" % [
+		grace, drawn, judged, SimDirector.GATE_EXCLUSION, str(reasons),
+	])
+	return true
+
+
+# CAP. `RAID_LIVE_CAP` is the raider budget, kept apart from the horde's LIVE_CAP on purpose, and
+# a crossing shares it with a raid rather than opening a second one -- so the two cannot stack past
+# what the director claims to have balanced.
+#
+# The positive is the invariant over forty days of both draws with nothing culled. The negative is
+# the refusal being reachable: a district already holding RAID_LIVE_CAP raiders refuses a dawn and
+# says "cap", and a district holding none does not.
+func _a_crossing_and_a_raid_share_one_cap() -> bool:
+	var w: Variant = SimBoot.playable(SEED, MAP_TILES)["world"]
+	for zed in w.components.query(["shambler"]):
+		w.despawn(int(zed))
+	var peak: int = 0
+	var reasons: Dictionary = {}
+	var both: int = 0
+	var raids: int = 0
+	var crossings: int = 0
+	for day in range(SimDirector.RAID_FIRST_DAY, SimDirector.RAID_FIRST_DAY + 40):
+		var raid: Variant = _run_night(w, day)
+		if raid is Dictionary and int((raid as Dictionary)["size"]) > 0:
+			raids += 1
+		var roam: Variant = _run_dawn(w, day + 1)
+		if roam is Dictionary:
+			reasons[String((roam as Dictionary)["reason"])] = int(reasons.get(String((roam as Dictionary)["reason"]), 0)) + 1
+			if int((roam as Dictionary)["size"]) > 0:
+				crossings += 1
+		var live: int = SimRaiders.live_count(w)
+		peak = maxi(peak, live)
+		if live > SimDirector.RAID_LIVE_CAP:
+			push_error("CAP: %d raiders standing in the district on day %d, over the %d the director budgets" % [live, day, SimDirector.RAID_LIVE_CAP])
+			return false
+		var mixed: Array[int] = _by_kind(w)
+		if mixed[0] > 0 and mixed[1] > 0:
+			both += 1
+	if raids < 1 or crossings < 1:
+		push_error("CAP: %d raids and %d crossings over forty days -- with one of them unreachable the shared budget is untested" % [raids, crossings])
+		return false
+	if both < 1:
+		push_error("CAP: a raid and a crossing were never live together, so nothing here measured them sharing anything")
+		return false
+	if not reasons.has("cap"):
+		push_error("CAP: forty days of both draws and no dawn was ever refused for the cap (%s) -- the refusal is unreachable" % str(reasons))
+		return false
+	if peak > SimDirector.RAID_LIVE_CAP:
+		push_error("CAP: peak %d over %d" % [peak, SimDirector.RAID_LIVE_CAP])
+		return false
+	# The negative control: an empty district is not refused for a budget it is nowhere near.
+	var fresh: Variant = SimBoot.playable(SEED, MAP_TILES)["world"]
+	var empty_refusals: int = 0
+	for day in range(SimDirector.RAID_FIRST_DAY, SimDirector.RAID_FIRST_DAY + 40):
+		var roam2: Variant = _run_dawn(fresh, day)
+		if roam2 is Dictionary and String((roam2 as Dictionary)["reason"]) == "cap":
+			empty_refusals += 1
+		_cull_raiders(fresh)
+	if empty_refusals != 0:
+		push_error("CAP: %d dawns were refused for the cap on a district that was emptied between every one of them, so 'cap' says nothing about how many are standing there" % empty_refusals)
+		return false
+	print("CAP OK forty days of both draws: %d raids, %d crossings, both live together on %d of them, peak %d of %d, reasons %s; nothing refused on an emptied district" % [
+		raids, crossings, both, peak, SimDirector.RAID_LIVE_CAP, str(reasons),
+	])
+	return true
+
+
+# ROAM-ROLES. What the roles slice's archetypes do while crossing, which is the one design question
+# this slice had to answer rather than inherit. The answer, and both halves are gated here:
+#
+#   * a **looter** loots the place it crossed for and never your pantry. The stores are stocked and
+#     thirty-eight metres away; it takes the three things at the site, walks over three identical
+#     things ten metres short of it without touching them, and leaves.
+#   * a **lookout** does not halt while crossing: `LOOKOUT_METRES` is a distance from a colony's
+#     gate and a band with no colony to watch has nothing to stand off from. The same archetype on
+#     a raid still stops short, which is what makes this a decision rather than a regression.
+func _the_roles_are_read_against_the_crossing() -> bool:
+	# The looter, crossing.
+	var w: Variant = _crossing_arena()
+	_stock_the_colony(w)
+	var decoys: Array[int] = _drop_three(w, CROSS_DECOY)
+	var haul: Array[int] = _drop_three(w, CROSS_SITE)
+	var band: Array = _cross_band(w, 1, "raider.looter")
+	SimRaiders.stamp_crossing(w, band, CROSS_SITE, CROSS_EXIT)
+	var looted: Dictionary = {"n": -1}
+	w.events.subscribe({"id": "check.roam-looter", "type": "raid.withdrew", "handler": func(e: Dictionary) -> void:
+		looted["n"] = int(e.get("looted", 0))
+	})
+	var watched: Dictionary = _watch_the_band(w, band, "roam-looter-walk", CROSS_TICKS)
+	if int(watched["gone"]) < 0:
+		push_error("ROAM-ROLES: the crossing looter never left the district (%s)" % str(watched))
+		return false
+	if int(looted["n"]) != SimRaiders.LOOT_TAKE:
+		push_error("ROAM-ROLES: the crossing looter left with %d things, not the %d at its site" % [int(looted["n"]), SimRaiders.LOOT_TAKE])
+		return false
+	for item in haul:
+		if w.entities.is_alive(int(item)):
+			push_error("ROAM-ROLES: a thing at the site is still in the world after the band left with it (%d)" % int(item))
+			return false
+	# The true negative for `_worth_taking`, and it is a sharp one: three identical things, in arm's
+	# reach, on the tile the band walked over -- refused because they are not at the objective.
+	var left_behind: int = 0
+	for item in decoys:
+		if w.entities.is_alive(int(item)) and w.components.has_component(int(item), "position"):
+			left_behind += 1
+	if left_behind != decoys.size():
+		push_error("ROAM-ROLES: %d of %d things lying ten metres short of the site went with the band -- a crossing looter is taking whatever it walks past" % [decoys.size() - left_behind, decoys.size()])
+		return false
+	if float(watched["to_home"]) <= SimDirector.GATE_EXCLUSION:
+		push_error("ROAM-ROLES: the crossing looter came within %.1f m of a stocked colony" % float(watched["to_home"]))
+		return false
+	var pantry: int = 0
+	for tile in CROSS_STORES:
+		for item in SimNeeds.stockpile_items(w):
+			var pos: Variant = w.components.get_component(int(item), "position")
+			if pos is Dictionary and Vector2i(floori(float((pos as Dictionary)["x"])), floori(float((pos as Dictionary)["y"]))) == tile:
+				pantry += 1
+	if pantry != CROSS_STORES.size():
+		push_error("ROAM-ROLES: the colony's stores hold %d of the %d they started with -- a crossing looter robbed a pantry it was not going to" % [pantry, CROSS_STORES.size()])
+		return false
+
+	# The lookout, crossing and raiding, in the same arena so the two numbers are comparable.
+	var closes: Dictionary = {}
+	for case in ["crossing", "raid"]:
+		var w2: Variant = _crossing_arena()
+		var watch: Array = _cross_band(w2, 1, "raider.lookout")
+		var target: Vector2i = CROSS_SITE
+		if case == "crossing":
+			SimRaiders.stamp_crossing(w2, watch, CROSS_SITE, CROSS_EXIT)
+		else:
+			target = CROSS_GATE
+		var best: float = 1e12
+		var centre := Vector2(float(target.x) + 0.5, float(target.y) + 0.5)
+		for _t in 1500:
+			w2.step()
+			var pos: Variant = w2.components.get_component(int(watch[0]), "position")
+			if pos is Dictionary:
+				best = minf(best, Vector2(float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"])).distance_to(centre))
+		closes[case] = best
+	if float(closes["crossing"]) > 2.0:
+		push_error("ROAM-ROLES: the crossing lookout stopped %.1f m short of its objective -- it is still watching a gate that is not there" % float(closes["crossing"]))
+		return false
+	if float(closes["raid"]) < SimRaiders.LOOKOUT_METRES - 1.0:
+		push_error("ROAM-ROLES: the raiding lookout closed to %.1f m of the gate, inside its %.0f m halt -- the crossing's number proves nothing if the halt is gone for everybody" % [float(closes["raid"]), SimRaiders.LOOKOUT_METRES])
+		return false
+	print("ROAM-ROLES OK the crossing looter left with %d from its site, %d decoys in arm's reach untouched and the colony's %d stores intact at %.0f m; the crossing lookout closed to %.2f m where the raiding one held at %.2f m (halt %.0f)" % [
+		int(looted["n"]), left_behind, pantry, float(watched["to_home"]), float(closes["crossing"]), float(closes["raid"]), SimRaiders.LOOKOUT_METRES,
+	])
+	return true
+
+
+# --- fixtures and helpers for the crossing lanes ------------------------------------------------
+
+# The blank 64 m district described at CROSS_TILES, with a colony in the south-east corner: gates,
+# an annex, and the annex's floor marked indoors so `SimNeeds.is_stockpile_tile` can find a pantry
+# in it. `_stores_arena` does the same at 32 m; this is that arena grown until GATE_EXCLUSION fits
+# inside it.
+func _crossing_arena() -> Variant:
+	var w: Variant = World.new(_fixture())
+	w.tick = Clock.tick_at_time_of_day(Clock.DAY_BEGINS)
+	SimBoot.attach_kernel(w, SimTileMap.blank_map(CROSS_TILES, CROSS_TILES))
+	SimHealth.register_module(w)
+	SimMelee.register_module(w)
+	SimRanged.register_module(w)
+	SimInventory.register_module(w)
+	SimItems.register_module(w)
+	SimNpcCombat.register_module(w)
+	SimRaiders.register_module(w)
+	w.tilemap.anchors = {
+		"gate_a": {"x": CROSS_GATE.x, "y": CROSS_GATE.y},
+		"gate_b": {"x": CROSS_GATE.x + 1, "y": CROSS_GATE.y},
+		"annex": {"x": CROSS_ANNEX.position.x, "y": CROSS_ANNEX.position.y, "w": CROSS_ANNEX.size.x, "h": CROSS_ANNEX.size.y},
+	}
+	for ty in range(CROSS_ANNEX.position.y, CROSS_ANNEX.position.y + CROSS_ANNEX.size.y):
+		for tx in range(CROSS_ANNEX.position.x, CROSS_ANNEX.position.x + CROSS_ANNEX.size.x):
+			w.tilemap.indoors[ty * int(w.tilemap.w) + tx] = 1
+	return w
+
+
+# A band on the entry tile, side by side the way `_emit_band` places one.
+func _cross_band(w: Variant, size: int, type_id: String) -> Array:
+	var out: Array = []
+	for i in size:
+		out.append(SimRaiders.spawn(w, float(CROSS_ENTRY.x) + 0.5 + float(i), float(CROSS_ENTRY.y) + 0.5, type_id))
+	SimRaiders.stamp_band(w, out, 21)
+	return out
+
+
+# Step the world and watch a band: how close it came to the objective, to home, where each body was
+# standing the last time anybody could see it, and when the district was empty of them.
+#
+# Every accumulator is a Dictionary or an Array on purpose. The lambda below is the one that has to
+# be a reference type (CLAUDE.md's lambda-capture trap), and the rest follow it rather than having
+# two conventions in one function.
+func _watch_the_band(w: Variant, band: Array, tag: String, ticks: int) -> Dictionary:
+	var withdrew: Array = []
+	w.events.subscribe({"id": "check." + tag, "type": "raid.withdrew", "handler": func(e: Dictionary) -> void:
+		withdrew.append(int(e.get("entity", -1)))
+	})
+	var last: Dictionary = {}
+	var to_site: Array[float] = [1e12]
+	var to_home: Array[float] = [1e12]
+	var gone: int = -1
+	var site_centre := Vector2(float(CROSS_SITE.x) + 0.5, float(CROSS_SITE.y) + 0.5)
+	var home: Vector2 = SimHome.centre(w)
+	for t in ticks:
+		w.step()
+		for ent in band:
+			var pos: Variant = w.components.get_component(int(ent), "position")
+			if not (pos is Dictionary):
+				continue
+			var p := Vector2(float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]))
+			# Sampled every tick and kept, because `_leave` despawns the body: a position read at
+			# the end of the run would be no position at all for whoever left first.
+			last[int(ent)] = p
+			to_site[0] = minf(to_site[0], p.distance_to(site_centre))
+			to_home[0] = minf(to_home[0], p.distance_to(home))
+		if SimRaiders.live_count(w) == 0:
+			gone = t
+			break
+	var last_exit: float = 0.0
+	var last_entry: float = 0.0
+	var exit_centre := Vector2(float(CROSS_EXIT.x) + 0.5, float(CROSS_EXIT.y) + 0.5)
+	var entry_centre := Vector2(float(CROSS_ENTRY.x) + 0.5, float(CROSS_ENTRY.y) + 0.5)
+	for ent in band:
+		if not last.has(int(ent)):
+			continue
+		last_exit = maxf(last_exit, (last[int(ent)] as Vector2).distance_to(exit_centre))
+		last_entry = maxf(last_entry, (last[int(ent)] as Vector2).distance_to(entry_centre))
+	return {
+		"gone": gone, "withdrew": withdrew.size(), "to_site": to_site[0], "to_home": to_home[0],
+		"last_to_exit": last_exit, "last_to_entry": last_entry,
+	}
+
+
+# Three things of three different bases on one tile, laid out the way `SimLoot.scatter` lays a
+# table out -- a row at SPREAD_METRES. Three bases rather than three tins because `stow` merges
+# stacks, which is `_stock_the_pantry`'s own lesson one tile further along.
+func _drop_three(w: Variant, tile: Vector2i) -> Array[int]:
+	var out: Array[int] = []
+	for i in 3:
+		var item: int = SimItems.spawn_item(w, STORE_BASES[i % STORE_BASES.size()], {"tier": "scavenged"})
+		w.components.set_component(item, "position", {"x": float(tile.x) + 0.5 + 0.4 * float(i), "y": float(tile.y) + 0.5})
+		out.append(item)
+	return out
+
+
+# The colony's own stores, in the crossing arena: something for a looter to be shown not taking.
+func _stock_the_colony(w: Variant) -> void:
+	for i in CROSS_STORES.size():
+		var tile: Vector2i = CROSS_STORES[i]
+		var item: int = SimItems.spawn_item(w, STORE_BASES[i % STORE_BASES.size()], {"tier": "scavenged"})
+		w.components.set_component(item, "position", {"x": float(tile.x) + 0.5, "y": float(tile.y) + 0.5})
+	if not SimNeeds.is_stockpile_tile(w, CROSS_STORES[0].x, CROSS_STORES[0].y):
+		push_error("the crossing arena built a stockpile the colony's own predicate does not recognise")
+
+
+# Steps one dawn and returns the `director.roam` event it published, or null. `_run_night`'s twin
+# at the other end of the day: the tick is set one short of the dawn edge so the system's own
+# "phase changed this tick" test fires exactly once.
+func _run_dawn(world: Variant, day: int) -> Variant:
+	world.tick = Clock.tick_on_day(day, 0.0) - 1
+	world.step()
+	for e in world.events.drained:
+		if String((e as Dictionary).get("type", "")) == "director.roam":
+			return e
+	return null
+
+
+# How many raiders in the district are crossing, and how many are at the gate: [raids, crossings].
+func _by_kind(world: Variant) -> Array[int]:
+	var out: Array[int] = [0, 0]
+	for ent in world.components.query(["raider"]):
+		var r: Variant = world.components.get_component(int(ent), "raider")
+		if not (r is Dictionary):
+			continue
+		if SimRaiders.is_crossing(r as Dictionary):
+			out[1] += 1
+		else:
+			out[0] += 1
+	return out
+
+
+# Is this body a legally placed crossing? Its objective is one of the district's own loot sites, it
+# is at least GATE_EXCLUSION from home, and the exit stamped on it is on a different edge from the
+# one it came in by.
+func _crossing_is_legal(world: Variant, ent: int, sites: Dictionary, home: Vector2) -> bool:
+	var r: Variant = world.components.get_component(ent, "raider")
+	if not (r is Dictionary):
+		push_error("EVENT: a body the dawn placed carries no raider component")
+		return false
+	var rec: Dictionary = r as Dictionary
+	if not SimRaiders.is_crossing(rec):
+		push_error("EVENT: the dawn placed a body with no objective on it -- a crossing that is a raid under a different event name")
+		return false
+	var o: Dictionary = rec["objective"] as Dictionary
+	var site := Vector2i(int(o.get("x", -1)), int(o.get("y", -1)))
+	if not sites.has(site):
+		push_error("EVENT: the band is bound for %s, which is not one of the district's loot sites" % str(site))
+		return false
+	var d: float = Vector2(float(site.x) + 0.5, float(site.y) + 0.5).distance_to(home)
+	if d < SimDirector.GATE_EXCLUSION:
+		push_error("EVENT: the band is bound for %s, %.1f m from home and inside the %.0f m exclusion" % [str(site), d, SimDirector.GATE_EXCLUSION])
+		return false
+	var entry := Vector2i(int(rec.get("entryX", -1)), int(rec.get("entryY", -1)))
+	var out := Vector2i(int(rec.get("exitX", -1)), int(rec.get("exitY", -1)))
+	if out.x < 0 or out.y < 0:
+		push_error("EVENT: the band carries no exit tile, so it would leave the way it came in")
+		return false
+	if _side_of(world, entry) == _side_of(world, out):
+		push_error("EVENT: the band came in at %s and leaves at %s, both on the %s edge" % [str(entry), str(out), _side_of(world, entry)])
+		return false
+	return true
+
+
+# Which edge a tile is on, by the same split `SimDirector._edges_by_side` uses -- north and south
+# take the corners.
+func _side_of(world: Variant, tile: Vector2i) -> String:
+	var h: int = int(world.tilemap.h)
+	var w: int = int(world.tilemap.w)
+	if tile.y <= 2:
+		return "north"
+	if tile.y >= h - 3:
+		return "south"
+	if tile.x >= w - 3:
+		return "east"
+	if tile.x <= 2:
+		return "west"
+	return "inland"
