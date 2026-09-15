@@ -4709,3 +4709,62 @@ recruit tag and no `world.strangers.spawned`, and each is wrong on its own — r
 stranger already placed would read as somebody at the gate (cancelling the next gate beat, and
 despawned at the first dawn), and every stranger beat the campaign had already paid for would fire
 again.
+
+## Armour on the dead, and the half of the heavy that had nowhere to go, 2026-09-15
+
+The armoured-and-heavy slice of the procedural-population arc. `godot:m2:armored` is the gate and
+docs/23's record carries the evidence; what follows is the calls this took.
+
+**A zombie may wear things, and that is the whole of the armour mechanic.** `armor_coverage_of`
+already read the target's `equipment` without asking whose body it was, and `armor_damage_factor`
+already multiplied by it inside `damage_part`. The defect docs/23 carried was never about
+arithmetic — it was that no zombie had an `equipment` component to read. So the fix is a `worn`
+list on the type and four lines in `spawn_zombie`: an inventory, `equip` per id, `lootKit`. The
+alternative considered and refused was a coverage number on the zombie entry itself, which would
+have been a second way to say what an `armor` block already says and a second thing to keep in
+step with it.
+
+**Which armour a dead body may wear: only what the loot tables already ship, and only two pieces.**
+`item.vest.scrap` and `item.helmet.bike`. The reason is the loop rather than the balance: gear a
+corpse drops is gear the colony can use, and a piece the district cannot otherwise produce would
+make the armoured kind a *source* of something new instead of a harder version of a fight. Two
+rather than a full kit because a zombie body is head/torso/legs — gloves, boots and trousers cover
+parts it does not have, and putting them on would be flavour with no reader. This is a first cut
+and is written down as one: a later slice may give the kind a rolled kit, and the gate reads the
+declared list rather than a literal, so it will follow.
+
+**The armoured body is a shambler's body.** Tempting to make it tougher underneath as well; refused
+on docs/14's rule 5 — a new type invalidates a strategy, not a stat. What makes it "resists light
+weapons" is that a vest and a helmet are on it, which the player can see coming off the corpse and
+can wear themselves. A kind that was *also* bigger would be two mechanics under one name and the
+armour would be untestable inside it.
+
+**Weights 8 and 4, both wave 2.** docs/14 puts armoured and heavy in the second wave and
+`WAVE_DAY_STRIDE` makes that day 5, inside the ten days the harness runs. The weights are first
+cuts sized against the shipped ladder (shambler 80, screamer 12, stalker 10, bloater 8, runner 6):
+the armoured one sits with the bloater at 8, and the heavy is deliberately the rarest thing on the
+table at 4, because it is the only body that is straightforwardly harder to kill and rarity is the
+cheapest lever to pull back if it turns out to be too much. No seed wiped, so neither was pulled.
+
+**The breach half did not ship, and that was the right outcome rather than a shortfall.** The arc
+plan proposed `breach: {factor}` on the heavy, read wherever `fortify.breached` damage is dealt.
+There is nowhere to read it. `SimFortify._presses` returns a **count of bodies per tile** and
+`_press` spends `pressure_of(n)` on it; no entity reaches that arithmetic at any point, so a
+per-attacker factor has no possible reader. Writing the key anyway would have been the twelfth dead
+socket, and building the reader means rewriting pressure as a weighted sum — which moves every
+shipped fortify number and every balance figure below them, and is a slice with its own gate. So
+the heavy that shipped is a big slow body and not yet docs/14's "wrecks structures fast", the
+schema has no `breach` property, and the gate's BREACH lane says so and skips while *measuring* the
+reason: one heavy and one shambler break the same board on the identical tick, and two shamblers
+break it in a third of the time. The lane goes red the day anything declares the key without a
+reader, which is what makes a skip worth keeping.
+
+**The MIX pin was re-spent, for the second time in one day.** `check_m2_roster.gd`'s fifty-draw
+day-7 literal is a byte-identity claim that belonged to the mix slice — which changed what content
+could *say* about the composition and nothing about what spawns. A slice that adds kinds changes
+what spawns by design, so the sequence must move; a re-pin that left it alone would mean the new
+kinds were never in the pool. What the pin still buys is that any *unintended* movement is red
+from here, and days 1 and 2 stay byte-identical through the shambler-only short-circuit. SHARES,
+now over seven kinds summing to 128, is what replaces the claim the re-pin spent, and the
+`placement` stream pin in `check_m2_variance.gd` is unmoved — nothing here draws on a stream a
+campaign is made of.

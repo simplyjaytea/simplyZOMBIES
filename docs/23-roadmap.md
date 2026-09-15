@@ -271,18 +271,17 @@ the people pieces reuse; raiders before settlers because the third side is a sea
 raider first touches. Each piece that adds a body or a kind inside ten days re-baselines the FAST
 balance record and says so in its record; `survivors_end >= 1` is never the lever.
 
-- **A silhouette per kind.** The stalker and the runner ship on the shambler's `zombie_shambler`
-  rig, so two kinds with different senses and different speeds are one picture — a per-body tint
-  apart, which is pallor and not a shape. One sprite key each in `tools/sprites/`, regenerated and
-  byte-compared by `npm run sprites:check` (Pillow, and the CPython float trap in CLAUDE.md), the
-  content `appearance.sprite` repointed, and `check_appearance.gd`'s third `ROSTER_SHARED` group
-  retired in favour of two more `ROSTER_DISTINCT` rows. Read as a silhouette first: a lean,
-  forward-leaning stalker and a low, sprinting runner, distinguishable at 32 px from the shambler
-  and from each other, per the brief in `godot/assets/sprites/README.md`.
-- **Armoured and heavy: gear on the dead.** A `worn` list a zombie equips at spawn and drops on
-  death, resisting through `armor_coverage_of` as it stands — closes "Armour on anything that is
-  not a survivor" below — and a heavy body whose breach factor lands only if board damage is
-  per-attacker; the record says which half.
+- **A silhouette per kind.** The stalker, the runner, the armoured and the heavy all ship on the
+  shambler's `zombie_shambler` rig, so four kinds with different senses, different speeds and —
+  since the armoured one — different armour are one picture, a per-body tint apart, which is
+  pallor and not a shape. One sprite key each in `tools/sprites/`, regenerated and byte-compared
+  by `npm run sprites:check` (Pillow, and the CPython float trap in CLAUDE.md), the content
+  `appearance.sprite` repointed, and `check_appearance.gd`'s third `ROSTER_SHARED` group retired
+  in favour of four more `ROSTER_DISTINCT` rows. Read as a silhouette first: a lean,
+  forward-leaning stalker, a low sprinting runner, a plated armoured body whose gear reads at a
+  glance rather than only in the damage arithmetic, and a heavy that is visibly bigger than one
+  tile — distinguishable at 32 px from the shambler and from each other, per the brief in
+  `godot/assets/sprites/README.md`.
 - **Raider roles, and the one who comes for the stores.** A `role` enum: the fighter of today, a
   lookout that halts and turns the band at the first loss, a looter whose objective is the
   stockpile and who withdraws once loaded — docs/18's "target stores first".
@@ -455,10 +454,10 @@ system.
   lamp needs the light scan to walk worn gear, and after the burn slice it walks `LIGHT_SLOTS`,
   which covers the head — so this is now much closer than it was, and wants a `mount` slot plus
   content rather than a reader.
-- **Armour on anything that is not a survivor.** `armor_coverage_of` reads `equipped_items`, and
-  zombies have no `equipment` component at all, so an armoured zombie kind — which docs/10's
-  Quietkeeper drawback ("useless against armored types") assumes exists — remains unimplemented.
-  Raiders do benefit correctly, if an archetype kit ever carries armour; none does.
+- ~~**Armour on anything that is not a survivor**~~ — **closed** 2026-09-15 by the
+  armoured-and-heavy slice, see the record. A zombie kind may declare `worn`, and
+  `SimRoster.spawn_zombie` gives such a body the `equipment` component `armor_coverage_of` was
+  always willing to read.
 - ~~**Named items, the fourth tier**~~ — **landed** 2026-09-12, see the record.
 - **Choosing which round to fire.** The ammo slice shipped the mechanism and not the choice: with
   buckshot and slugs both in the pack the pick order decides, and the only way to fire the slug is
@@ -5119,6 +5118,155 @@ not a to-do list:
   says `GODOT_CONTENT_OK`. No body count moved, so the FAST balance record is not re-baselined —
   the arc's re-baseline rule applies to the pieces that add a kind or a body, and this one adds
   neither.
+- **Roster & Combat** — ~~armoured and heavy: gear on the dead~~ **landed** (`godot:m2:armored`,
+  which is one of the two new links that took the `godot:m2` chain to 76 (it and the strangers
+  gate landed in one merge; count the chain in `package.json`); plus `godot:m2:roster` KINDS, MIX PINNED and
+  SHARES, and `godot:check:appearance` ROSTER), 2026-09-15, a piece of the owner's
+  procedural-population arc and the fourth of its zombie group. **It closes docs/23's open defect
+  "Armour on anything that is not a survivor"**, which has been in the list since the armour slice:
+  `SimInfection.armor_coverage_of` reads the target's `equipment` and has never asked whose body it
+  is, and `SimHealth.armor_damage_factor` multiplies by it inside `damage_part` — the one closure
+  in the sim that moves integrity — but a zombie had no `equipment` component at all, so an
+  armoured kind could not exist and docs/10's Quietkeeper drawback ("useless against armored
+  types") named something that was not in the game. **The mechanism was already written; what was
+  missing was a body to read it off.** A kind may now declare `worn: [item ids]`;
+  `SimRoster.spawn_zombie` gives such a body `SimInventory.make_inventory`, equips each id into the
+  slot its own base declares, and marks it `lootKit` so `SimRecruits._drop_kit` — which the
+  shambler arm of `handle_death` already calls — leaves the gear on the floor. That is the whole
+  sim diff, fifty lines including the comment, and `SimRecruits._turn_with_kit` is its precedent:
+  a zombie carrying things is how a colonist has turned since succession landed. **No new
+  arithmetic anywhere**, which is the claim WORN refuses to take on trust.
+
+  **What shipped as content.** `zombie.armored` and `zombie.heavy`, both `extends zombie.base`,
+  both **wave 2 — day 5**, inside the ten days the harness runs. Sensory weights come from docs/14's
+  table in the dialect the shipped kinds fixed (High 0.9, Moderate 0.4–0.5, Low 0.1–0.2): armoured
+  `{noise 0.5, light 0.15, scent 0.5}` for docs/14's Moderate/Low/Moderate, heavy
+  `{noise 0.9, light 0.1, scent 0.2}` for its High/Low/Low, so a generator still pulls in every
+  heavy in the district and a scent-managed base does not. The armoured body is deliberately a
+  **shambler's** body — `{head 25, torso 60, legs 40}` at speed 0.8 — because what makes it
+  "resists light weapons" is the gear and not a bigger number; docs/14's rule 5 is that a new type
+  invalidates a strategy rather than adding a stat, and an armoured kind that was also tougher
+  underneath would be two mechanics wearing one name. The heavy is the plan's
+  `{head 40, torso 120, legs 80}` at speed **0.6**, and that is all it is. **Which armour a dead
+  body may wear is a deliberate first cut**: only gear the loot tables already ship, so the colony
+  can find what it takes off a corpse — `item.vest.scrap` (torso 0.6, from `loot.military_cache`)
+  and `item.helmet.bike` (head 0.45, from `loot.commercial`). A zombie body is head/torso/legs, so
+  the sided-limb coverage on both those bases covers nothing here and is neither an error nor any
+  use. Measured on the body: an unhurt armoured torso lets through **0.7000** of a blow against a
+  bare shambler's exact **1.0000**, its head **0.7750**, and its **legs 1.0000** — nothing it wears
+  covers a leg.
+
+  **The breach half did not ship, and this is the honest half of the record.** The plan proposed
+  `breach: {factor}` on the heavy, read wherever `fortify.breached` damage is dealt. It has nowhere
+  to be read: `SimFortify._presses` walks every pressing body and returns a **count per tile**, and
+  `_press` spends `pressure_of(n)` — an `int` in, superlinear out, so three bodies are worth six —
+  and no entity ever reaches that arithmetic. Giving a `breach` key a reader means rewriting
+  pressure as a weighted sum, which moves every shipped fortify number and every balance figure
+  downstream of them; that is a slice of its own and was not smuggled into this one. So **no
+  `breach` key exists** — neither in the schema nor in the heavy's JSON — because a key with no
+  reader is the dead-socket mistake this milestone has paid for eleven times, and the gate's BREACH
+  lane **says so and skips** rather than passing quietly. The skip is held honest two ways: it
+  fails if anything anywhere ever declares a `breach` key, and it *measures* the reason — one heavy
+  and one shambler each break the same board on tick **160**, while two shamblers break it on tick
+  **54**, so the measurement can see pressure change and what it cannot see is which body is
+  applying it. The heavy that shipped is therefore a big slow body and not yet docs/14's "wrecks
+  structures fast". That half is **not** a named piece in what's left, deliberately: it is not a
+  zombie entry at all but a rewrite of `SimFortify`'s pressure model, and naming it here would put
+  it in the roster arc where it does not belong. It is recorded in this entry and in docs/30, and
+  whoever next opens the fortify code should start from the BREACH lane's note.
+
+  **Gated**, four lanes, each with a true positive and a true negative and each run red on purpose:
+  **WORN** (every id any kind's `worn` list names exists in the item registry — TN, a fabricated
+  `item.vest.unobtanium` is refused by the same predicate; the spawned body is *wearing* them, in
+  the slots `vest` and `head` their own bases declare; the factor above; and then the outcome, one
+  real blow each on the real bus, the armoured torso losing **4.200** of a 6.0 blow against the
+  bare body's **6.000**. Sampled on fresh bodies only, because `damage_part` clamps at zero and a
+  hurt part measures the clamp rather than the armour — the rewrite the armour slice's own gate
+  needed. Its second TN is the one that catches the worst bug available here, a mitigation that
+  ignored `bodyPart`: the same armoured body's uncovered legs take all **6.000**. Sabotages, two:
+  dropping the `_wear_the_kit` call from `spawn_zombie` spawned a body with no `equipment`
+  component at all with the JSON unchanged; `equip` swapped for `stow` spawned one *carrying* the
+  vest and the helmet and wearing neither, which is the more plausible bug and the one a lane
+  reading only the item entities would have passed); **DROP** (kill one and both pieces carry a
+  `position` at the body's tile and are in nobody's equipment slots. TN: a bare shambler killed the
+  same way leaves nothing and carries no `lootKit`, so the lane is not counting items that were
+  already lying about. Sabotage: dropping the `lootKit` line left 0 of 2 pieces on the floor —
+  the gear stayed on a despawned id forever); **BREACH** (above; sabotage: writing
+  `"breach": {"factor": 3.0}` into `heavy.json` turned it red, which is exactly the mistake it
+  exists to refuse); **HEAVY** (the big body on behaviour twice over — over eight matched pairs on
+  eight seeds it took **69** blows to the head to put down against a shambler's **43**, every pair
+  heavier, and it covered **1.260 m** against the shambler's **1.680 m** in twenty ticks of Pursue,
+  a ratio of **0.750** against the **0.750** its own `locomotion.speed` asks for. Eight pairs rather
+  than one because `variance.body` scales every body by up to ±15%. Both TNs are the same
+  measurements run shambler-against-shambler, which come back equal and 1.000. Sabotage: copying
+  the shambler's `body` and `speed` into `heavy.json` took the put-down count to 43 against 43 in
+  0 of 8 pairs). The roster gate's **KINDS** lane grew both kinds as two more rows of
+  `NEW_KIND_PROFILES`, so the same assertion that the stalker's and the runner's numbers reach the
+  spawned body's `shambler` component now covers four kinds and its fixture-tree negative with
+  them. `npm run godot:validate` and `npm test` are both green — the schema's new `worn` array is
+  the kind of nested shape only the frozen oracle's Ajv recurses into.
+
+  **The MIX PINNED literal was re-pinned, and that was spent on purpose.** The fifty-draw day-7
+  sequence is the second re-pin in one day and the reasoning is the stalker slice's: byte-identity
+  belonged to the mix slice, which changed what content could *say* and nothing about what spawns,
+  and **a slice that puts kinds on the table changes what spawns by design** — a re-pin that left
+  day 7 unchanged would mean the new kinds were never in the pool. Days 1 and 2 are untouched
+  (QUIET: the shambler-only short-circuit still answers without a draw, stream state
+  `3016675464`), `godot:m2:variance` STREAM still reads the pinned `placement` state `3003379315`
+  at the end of `SimBoot.playable(20260805, 64)` — nothing this slice does draws on the streams a
+  campaign is made of, and `SimItems.spawn_item` touches only `loot` — and SHARES is what replaces
+  the claim the re-pin spent: 2000 day-7 draws over **seven** kinds summing to **128**, every kind
+  inside ±25% of its own weight (shambler w80 1254/1250, stalker w10 162/156, screamer w12 197/188,
+  bloater w8 122/125, armoured w8 121/125, runner w6 83/94, heavy w4 61/62).
+
+  **Measured**, a throwaway driver (deleted) mirroring the FAST tier exactly — the same four seeds,
+  ten compressed days, the same 2000-tick dusk window, the `mixed` arm at 64 tiles, `entity.killed`
+  de-duplicated by entity id — run on this tree with the two new files out of the content directory
+  and then back in:
+
+  | seed | survivors, end | distinct dead | grabs | packets | kinds standing at the end |
+  |---|---|---|---|---|---|
+  | 20260805 | 3 → 3 | 1 → 1 | 123 → 123 | 2 → 2 | 24 shamblers, a stalker, **an armoured** |
+  | 404 | 2 → 2 | 3 → 5 | 145 → 174 | 1 → 1 | 21 shamblers, a screamer, a stalker |
+  | 31337 | 4 → 4 | 1 → 1 | 0 → 0 | 2 → 2 | 26 shamblers, a stalker, a bloater |
+  | 90210 | 2 → 2 | 4 → 4 | 154 → 154 | 2 → 2 | 26 shamblers |
+
+  (The driver's survivor count includes the recruit each seed gains, which the balance gate's own
+  `_survivors_alive` excludes; it is the same count on both columns, which is all a before/after
+  needs.) **`survivors_end >= 1` holds on every seed and was not touched**, no seed wiped, so
+  neither weight moved and neither wave was pushed later. **Three of the four seeds did not move at
+  all**, and the fourth moved in one direction: 404 went from 3 distinct dead to 5 and from 145
+  grabs to 174. The chain's own `godot:m2:balance` agrees and localises it — survivors
+  3 / 1 / 3 / 2, grabs 123 / 174 / 0 / 154, kills 0 / 1 / 1 / 0, deaths 1 / **4** / 0 / 4, packets
+  2 / 1 / 2 / 2, max_live 27 / 27 / 28 / 30, against the stalker slice's 123 / 145 / 0 / 154 and
+  deaths 1 / **2** / 0 / 4 — so seed 404 lost two more colonists and only seed 404. That is
+  **re-baseline #7**, and the arc's rule is why: a piece that puts a new kind inside the ten days
+  owes one. The two deaths are not waved at and they are not attributed to the armour either: 404
+  is the seed that draws a raid and the one whose grab count is highest, `pick_type` draws off the
+  director's own stream so a different kind on the same roll makes a different night, and the
+  census column above says no armoured or heavy body was standing on 404 at all. **What the
+  compressed 64-tile tier can and cannot see about a heavy, named rather than hidden.** It can see
+  that these kinds arrive on schedule and that the colony survives them, which is the assertion
+  that matters and the one that must never be the lever. It cannot see a heavy at all: the tier
+  jumps to dusk and steps 2,000 ticks, about 100 seconds of sim, which the balance gate's own
+  header records as too short for a district-edge packet to cross a district — and a heavy walks
+  at 0.6, slower than anything else on the table, so the window is the *worst* place to look for
+  one. At weight 4 of 128 it is ~3% of a
+  night's draw, and across four campaigns **not one was drawn**; one armoured body reached the
+  ground, on 20260805. So the armour's effect on a campaign is untested by construction, and what
+  is tested is that it stops a blow (WORN, on integrity actually removed) and that the colony
+  survives the mix containing it. Both kinds belong to the FULL tier at 256 tiles, where eighty
+  bodies make a 3% heavy two or three rather than none; it is not run here.
+
+  **Art is a named gap, not a decision.** Both kinds draw `zombie_shambler` with no
+  `appearance.tint`, so what separates one from another today is the per-body colour each rolls
+  from its own `variance.tints` palette — the armoured a cold steel-grey, the heavy a sallow
+  bone — which is pallor and not a shape. They joined the existing "a silhouette per kind" piece in
+  what's left rather than starting a second one, and `check_appearance.gd`'s third `ROSTER_SHARED`
+  group now names four kinds with a comment saying it is a gap. The armoured one is the awkward
+  entry and the comment says so: it is wearing a vest and a helmet the paperdoll draws, but the
+  body under the gear is the shambler's rig, and docs/14 calls the heavy enormous while it draws at
+  exactly one tile like everything else.
 - **Roster & Content** — ~~stalker and runner~~ **landed** (`godot:m2:roster` KINDS, WAVE, MIX
   SHARES, READER; `godot:check:appearance` ROSTER), 2026-09-15, the fifth piece of the owner's
   procedural-population arc and the third of its zombie group. What was wrong: docs/14 names a
@@ -8396,7 +8544,8 @@ not a to-do list:
   fixture byte-identical.
 
 - **Recruits, and the second way in** — ~~a stranger in a building~~ **landed**
-  (`godot:m2:strangers`, nine lanes, taking the `godot:m2` chain to 75 links), 2026-09-15, the
+  (`godot:m2:strangers`, nine lanes, one of the two new links that took the chain to 76 --
+  the armoured gate landed in the same merge), 2026-09-15, the
   seventh piece of the owner's procedural-population arc. The colony could only grow one way:
   `SimRecruits._tick_beats` puts a rolled survivor at the gate on days 8, 12 and 16 and the dawn
   takes them away again. docs/07 names three routes and this is the second of them — somebody
