@@ -62,7 +62,7 @@ const GROUPS: Array = [
 		["- / =", "slower, faster"],
 		["P", "pause"],
 		["F5 / F9", "save and load"],
-		["Esc", "settings"],
+		["Esc", "menu — resume, save, load, settings, or back to the title"],
 		["F1", "these keys"],
 	]],
 ]

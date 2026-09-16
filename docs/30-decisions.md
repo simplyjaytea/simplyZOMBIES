@@ -5136,6 +5136,20 @@ default town** (seed 20260805) from every screen; the random reroll goes with F2
 writes at each dawn, and on the web build at dawn only. A volume row, the first thing in the tree
 to reach `AudioServer`. No digit anywhere on the shell.
 
+**Three calls the shell made while it was built, 2026-09-16.** Not reversals of anything above —
+answers the paragraph did not have to give, written down because each is the kind of thing a later
+session would otherwise re-decide differently. **"No digit anywhere on the shell" reaches past the
+shell's own panel**: the quick strip draws during ordinary play whether or not the sheet is open,
+which is exactly what it is for, so over the title it was six belt slots and their key numbers
+under a menu. The strip, the HUD, the corner doll and the dashboard are all peeled outside a run,
+by the same transition that raises the menu. **New run from an untouched title plays the world
+that is already standing**, rather than booting a second identical one — it *is* the fixed default
+town, and the decision above is about which town, not about how many times it is built; one flag
+tells an untouched title from one you quit back to, and from the pause menu or the run-over screen
+it is a real reboot. **Escape peels by focus**, not by a chain of `elif`s that re-derives the
+order: `_focus()` already names the screen in front, and the second copy of that order was wrong —
+a settings sheet over an open skill web closed the web underneath it.
+
 **The HUD keeps its prose model and takes the chrome.** Two cards in `ui/chrome.gd`'s skin, a
 "you" and a "world", the arrays every `check_hud` lane reads untouched; a contextual action line
 that names E, T and H only when a sim read model already says what is there — the sim decides

@@ -176,6 +176,32 @@ static func lines(world: Variant) -> Array[String]:
 	return out
 
 
+# The run's own epitaph: the last `max_lines` records, newest first, **ignoring the window**.
+# The second reader this file's header reserved (docs/30, "The playable state"), built for the
+# alpha shell's run-over screen -- the run is over, so "recent enough to still be news" is the
+# wrong question entirely: what the screen wants is the last things that happened, whenever they
+# happened, and the death that ended the run is by definition the newest of them.
+#
+# The window is not a parameter with a large default: `LINE_TICKS` would still be doing the
+# deciding, and a screen that showed a death from two hours ago and not one from three would be
+# arbitrary in a way nobody could see. It is the same line builder `lines()` uses, so the two
+# screens cannot drift into saying the same event differently, and it is prose for the same
+# reason -- no digit reaches a player's screen but the day counter.
+static func epitaph(world: Variant, max_lines: int) -> Array[String]:
+	var out: Array[String] = []
+	if world == null or max_lines <= 0:
+		return out
+	var recs: Array = world.chronicle as Array
+	for i in range(recs.size() - 1, -1, -1):
+		var line: String = _line_of(world, recs[i] as Dictionary)
+		if line.is_empty():
+			continue
+		out.append(line)
+		if out.size() >= max_lines:
+			break
+	return out
+
+
 static func _line_of(world: Variant, rec: Dictionary) -> String:
 	var name: String = String(rec.get("name", ""))
 	var ent: int = int(rec.get("e", -1))

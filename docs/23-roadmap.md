@@ -486,21 +486,7 @@ the order they land:
 - ~~**Per-gate wall time**~~ — **landed**, see the record.
 - ~~**The play gate**~~ — **landed**, see the record.
 - ~~**The input split**~~ — **landed**, see the record.
-- **The shell.** `godot/presentation/session.gd` owns boot, new run, save, load and a four-state
-  machine (title, playing, paused, run over); `godot/ui/shell.gd` draws the title (new run ·
-  continue when a save exists and is not over · quit, hidden on the web), the pause menu on Esc
-  (resume · save · load · settings · quit to title) and the run-over screen, which halts the sim
-  and speaks the chronicle through a new `SimChronicle.epitaph` that ignores the HUD's window.
-  Autosave at each dawn and on the window's close request (dawn only on the web); quit to title
-  saves first; a volume row that is the first thing to reach `AudioServer`. Boot still happens in
-  `_ready` — the smoke and the HUD gates assert a world one frame in — and the title sits over
-  it. No digit on any of the three screens. Lanes: the sim waits on the title; the continue row
-  appears only with a live save; the run-over screen freezes ticks and new run yields a new world
-  that moves; the dawn edge writes a save and ordinary ticks do not; the close request writes one
-  and the title does not; the bus moves with the row. *Files:* `godot/presentation/session.gd`,
-  `godot/ui/shell.gd`, `godot/presentation/main.gd`, `godot/presentation/input_map.gd`,
-  `godot/presentation/sfx.gd`, `godot/ui/settings_panel.gd`, `godot/ui/prefs.gd`,
-  `godot/sim/modules/chronicle.gd`, `godot/check_play.gd`.
+- ~~**The shell**~~ — **landed**, see the record.
 - ~~**The HUD in the chrome**~~ — **landed**, see the record.
 - ~~**The dev menu reaches a raider band and a stranger**~~ — **landed**, see the record.
 - **The capability walkthrough.** One scripted drive per item on the owner's bar through the
@@ -1140,6 +1126,12 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   correctness"); `SimThreat.threat_within`, so fast-forward is never interrupted by a zombie the
   way the oracle's is; and `SimDirector.snapshot_of`, which `world.gd` deliberately replaced and
   which is now a second hand-listed copy of the director's save shape.
+- **A fourth, found by the alpha shell and carried rather than deleted.** The map object `SimBoot`
+  hands back beside the world — `main.gd`'s `_map`, written by every boot since the district
+  landed and read by no line of the game. The shell moved it to `presentation/session.gd`'s
+  `map` and **named it there in a comment** rather than dropping it inside a slice about menus:
+  the drawing reaches the same map through `world.tilemap`, so either deleting it or giving it the
+  reader it was presumably meant to have is a decision of its own.
 - ~~**`repair_cost` is a stat nothing resolves.**~~ **Fixed 2026-09-13** (`godot:m2:upkeep`,
   REPAIR-COST; the record's "repair cost is read" entry under Survivors). The honest reader was
   never the scrap — repair still spends one whole unit, as the 2026-09-06 reasoning said it must —
@@ -7479,6 +7471,126 @@ not a to-do list:
   offered `Z`/`X`/`C`/`V` and `1`/`2`/`3` from before the Ctrl ladder and the quick strip — and it
   now says outright that it is a third copy no gate judges and that the in-game sheet is the
   authority.
+- **The alpha shell** — ~~the shell~~ **landed** 2026-09-16 (`npm run godot:check:play` →
+  **`PLAY_OK`**, lanes **TITLE**, **PAUSE**, **NOTICE**, **RUN-OVER**, **AUTOSAVE**, **CLOSE**,
+  **VOLUME** and a widened **SOCKET** and **SETTINGS**, no lane skipped, 25.6 s of its 60 s budget;
+  `npm run godot:check:hud` → **`HUD_OK`**, new lane **SHELL**, 23 words across the three screens
+  and not a digit among them). The game has a front door: it opens on a **title**, pauses to a
+  **menu**, ends on a screen that **speaks the chronicle**, and writes its own save at each dawn
+  and when the window closes. Screenshots of all three are under
+  `.hermes/plans/2026-09-16_alpha-shell/`.
+  **`godot/presentation/session.gd`** (new, RefCounted) owns the run's lifecycle: `State`
+  {TITLE, PLAYING, PAUSED, RUN_OVER}, the world, map, fixture, district, region and seed,
+  `boot` / `new_run` / `save` / `load` / `has_continue` / `autosave_if_dawn` / `enter` /
+  `is_live`. `main.gd` loses `_boot_world` outright and keeps `_save` and `_load` as the two
+  keys' forwards to it; it goes to 2,120 lines with the shell's wiring in it. **`main.gd` keeps a
+  plain `var world`**, reassigned by a new `_on_world_replaced` after every transition, because
+  sixteen gates and `test/project_smoke.gd` read `main.get("world")` one frame after
+  instantiating the scene and a field that became `session.world` would have turned all of them
+  into dead sockets at once.
+  **The title is a state, not a deferred boot** — the same reason: `_ready` boots the world
+  exactly as before and `_enter_state(TITLE)` draws the menu over the district you are about to
+  play. A parity run (`--parity`) enters PLAYING directly, because a menu in front of
+  `godot:test` would have stopped the clock the oracle is compared against.
+  **`godot/ui/shell.gd`** (new, Control, added last in `_ensure_ui` so it draws over everything,
+  `MOUSE_FILTER_STOP` only while visible) draws all three screens in `ui/chrome.gd`'s skin with
+  drawn rows and their hit rects: TITLE (the game's name · new run · continue, only when
+  `has_continue` · quit, hidden on the web, since a browser tab has nothing to quit to),
+  PAUSED (resume · save · load · settings · quit to title) and RUN_OVER (the epitaph · new run ·
+  quit to title). Keys arrive through the router's new **`shell` focus** and clicks through
+  `_gui_input`; both end in one `on_action: Callable`, so the panel decides which row was chosen
+  and `main.gd` decides what a row means. `rows()`, `lines()` and `words()` are the read side,
+  exposed the way `SimSkills.web_map` is, because a screen that can only be judged by its pixels
+  cannot be gated.
+  **`SimChronicle.epitaph(world, max_lines)`** is the second reader `chronicle.gd`'s header had
+  reserved: the last records through the same `_line_of` builder `lines()` uses, **ignoring
+  `LINE_TICKS`**. The window is the HUD's question ("is this still news"), and at the end of a
+  run it is the wrong one; it is not a parameter with a large default, because then `LINE_TICKS`
+  would still be deciding and a screen that showed a death from two hours ago and not one from
+  three would be arbitrary in a way nobody could see.
+  **The owner's decisions, each as shipped.** New run boots `SimBoot.DISTRICT_SEED` from every
+  screen — and from an untouched title it plays the world `_ready` already booted, because that
+  world *is* the fixed town and a second identical boot is a second boot; `_world_played` is the
+  one flag that tells an untouched title from one you quit back to. Quit to title autosaves when
+  the run is live and not over, and so does `NOTIFICATION_WM_CLOSE_REQUEST`, synchronously, on
+  desktop only — a browser tab's close is not reliably delivered and a half-written slot is worse
+  than no autosave, so the web build has the dawn edge and nothing else. **P stays the soft
+  pause** and is deliberately not a fifth state: P holds the world still with the street in front
+  of you, Escape puts a menu there. Escape with nothing open pauses; **settings is a row on that
+  menu**, not a key of its own, and opening it closes the menu, because the shell is in front of
+  everything in the focus order and a settings sheet behind it would never see its own Escape. A
+  save that will not load leaves the player on the title with **one fixed sentence** — *"that save
+  was written by another version of the game"* — never `decode_save`'s own message, which carries
+  the two save-format numbers.
+  **The router** gains `shell` at the front of `FOCUSES` (the slot the input split had reserved in
+  a comment) and an `ALLOWED` row of exactly `move`, `dismiss` and `escape`: the menu is not
+  somewhere you can shoot. A press under that focus goes to `shell.key(ke)` and **returns**, since
+  every key it takes means something else further down the match — Enter dismisses the legend, W
+  joins the held set and walks the body behind the menu. The Escape arm was rewritten to branch on
+  `_focus()` rather than to re-derive the order in a chain of `elif`s, which also fixed a
+  settings sheet over an open web closing the web underneath it.
+  **The legend now opens on the first entry to PLAYING**, not at boot: a panel of keys over a menu
+  is a panel about a game you have not started. Same pref, same three dismissals.
+  **Volume** is `ui/prefs.gd`'s `volume` (default 1.0) and a second row on the settings sheet,
+  pushed at the master bus by a new `sfx.apply_volume()` — the first thing in this tree ever to
+  touch `AudioServer`, from both ends of the dead socket: there was no row *and* no reader. The
+  clamp had to be split to do it: `FLOORS` is per-key, 0.15 for the opacity (a panel at nought
+  alpha is one you cannot find again) and **nought for the volume**, because mute is the point of
+  the row; `opacity`/`set_opacity` stay as forwards to one `level`/`set_level` pair so there is
+  still exactly one clamp.
+  **The quick strip was the one screen that did not peel itself.** It draws during ordinary play
+  whether or not the sheet is open, which is what it is for — and over the title it is six belt
+  slots and their key numbers under a menu. `_enter_state` hides the sheet, the HUD, the corner
+  doll and the dashboard outside a run, and the TITLE lane asserts the strip is gone.
+  Every new lane was run red first, against the code and never the gate. **TITLE**: booting into
+  PLAYING gave *"TITLE: the scene booted into state 1, not TITLE"*, and leaving the strip up gave
+  *"TITLE: the quick strip is still drawn under the title"*; the continue row is asked three ways
+  — no slot, a live slot, and the wreck of a finished run — because one way does not show the
+  question is being asked. **PAUSE**: *"PAUSE: Escape on the street left the session in state 1,
+  not PAUSED"*, with the true negative that Escape still **peels** first (with the skill web open
+  it closes the web and the run keeps going). **NOTICE** is the lane the fixed sentence would
+  otherwise not have had: the menu's `load` row is the **only** way to reach it, because the
+  title's `continue` row is not offered at all for a slot that will not decode, so without a lane
+  the sentence was prose nothing on screen could show. It writes the stale slot `check_m2_save.gd`
+  uses, presses the row, and asserts the run is left where it was, the sentence is on the menu,
+  and the decoder's own message is **not** — red first, with the notice passed as `""`:
+  *"NOTICE: the menu says nothing about the save it refused"*. **RUN-OVER** stops skipping:
+  *"RUN-OVER: the run ended and the session is in state 1, not RUN_OVER"*. It kills one colonist,
+  jumps the clock past `LINE_TICKS` (rather than stepping twenty-four thousand ticks of a
+  sixty-second budget), asserts the HUD has forgotten that line and the epitaph has not, then
+  corpses the rest of the colony so succession has nobody to hand the camera to, and asserts the
+  screen's lines **equal**
+  `SimChronicle.epitaph(world, 5)`, are digit-free, and that "new run" hands back a *different
+  world object* that ticks — the object identity is the half a cleared `runOver` would pass.
+  **AUTOSAVE**: with the dawn scan neutered, *"AUTOSAVE: the first tick of day two wrote no
+  save"*; both negatives are what make it an edge rather than a phase — five ordinary ticks write
+  nothing, and a finished run writes nothing at the very same tick, because a run-over slot is one
+  the title would refuse and the player would find their run gone. The edge is asked with the span
+  the frame covered, not "is it dawn now", since a frame carries up to fifty ticks at speed ten.
+  **CLOSE**: *"CLOSE: closing the window mid-run wrote no save"*, with the title half asserting
+  the opposite and the web branch read textually, because it cannot be driven headless.
+  **VOLUME**: putting the opacity floor back on the volume row gave *"VOLUME: nought came back as
+  0.150; the opacity floor is clamping the volume row"* — and the first cut of that lane restored
+  the pref *before* formatting the message and reported 1.000, a gate blaming the wrong number,
+  which is the failure mode the trap list names; it reads the value before it restores now.
+  **SETTINGS** was rewritten rather than loosened: leaving the menu up under the sheet gave
+  *"SETTINGS: the menu is still up under the settings sheet, so the sheet never sees a key"*.
+  **SOCKET** went red twice while it was being written, both times correctly — *"SOCKET:
+  res://presentation/session.gd has no `func has_continue(`"* (the needle knew `\nfunc` and not
+  `\nstatic func`) and *"SOCKET: main.gd's _process never mentions `autosave_if_dawn(`"* (the call
+  goes through `session.call("autosave_if_dawn"`, so there is no paren after the name). Both
+  needles were fixed by following the code, not by dropping them, and the `_process` pair is now
+  the call **as written** (`session.call("autosave_if_dawn"`, `SessionRes.State.RUN_OVER`) because
+  `_process` has comments about both and a needle a comment can satisfy cannot fail.
+  **`check_hud.gd`'s SHELL lane** drives `show_state` through all three screens with a fabricated
+  epitaph and scans `words()`: red first with a `· day 3` appended to the footer —
+  *"SHELL: the title, with a run to continue carries digits (3)"* — and the scanner is shown
+  failing on *"You lasted 3 days."*, which is exactly what the run-over screen would say the day
+  somebody decides it should name the day it ended.
+  Two existing lanes changed because the behaviour under them did: **LEGEND** now presses Enter on
+  the title before it looks for the keys (and asserts they are *not* over the title), and
+  **SETTINGS** walks to the menu's settings row instead of pressing Escape twice. `check_play`'s
+  `_boot` presses Enter for "new run" before it peels the legend.
 - **The alpha shell** — the capability walkthrough, first pass, 2026-09-16. A throwaway
   `godot/walkthrough_driver.gd` (deleted before this commit, per AGENTS.md's "Screenshots")
   booted `presentation/main.tscn` the way `check_play.gd` does — `root.push_input` for every key,
