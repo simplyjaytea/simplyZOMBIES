@@ -8,16 +8,20 @@ extends Control
 const Chrome = preload("res://ui/chrome.gd")
 const UiPrefs = preload("res://ui/prefs.gd")
 
-const PANEL_SIZE: Vector2 = Vector2(640, 258)
+const PANEL_SIZE: Vector2 = Vector2(640, 330)
 const ROW_H: float = 72.0
 const TRACK_W: float = 300.0
 const TRACK_H: float = 6.0
 const HANDLE_R: float = 11.0
 
-# Each row is one preference; min is the floor prefs.gd clamps to anyway. The pinned-bag row
-# went with the pinnable bags in the 2026-09-08 overhaul -- there is nothing left to pin.
+# Each row is one preference, and the floor it clamps to lives in `ui/prefs.gd`'s FLOORS -- the
+# panel draws the handle between that floor and one, so the two cannot disagree about where the
+# leftmost notch is. The pinned-bag row went with the pinnable bags in the 2026-09-08 overhaul --
+# there is nothing left to pin. The volume row is the alpha shell's (docs/30, 2026-09-16) and it
+# is the first thing in the tree that reaches `AudioServer`, through `presentation/sfx.gd`.
 const ROWS: Array[Dictionary] = [
 	{"key": "inventory_opacity", "label": "panel opacity"},
+	{"key": "volume", "label": "volume"},
 ]
 
 # Called with no arguments after a value changes, so open screens can re-tint immediately.
@@ -42,10 +46,17 @@ func _track_rect(row: int) -> Rect2:
 	return Rect2(Vector2(p.position.x + PANEL_SIZE.x - 40.0 - TRACK_W, y), Vector2(TRACK_W, TRACK_H))
 
 
+# Where the leftmost notch of a row sits. Read off prefs rather than the old literal 0.15: the
+# volume row's floor is nought, because mute is a setting and a volume you cannot turn off is the
+# same mistake as a legend you cannot dismiss.
+func _floor_of(row: int) -> float:
+	return float(UiPrefs.FLOORS.get(String(ROWS[row]["key"]), 0.0))
+
+
 func _set_from(row: int, x: float) -> void:
 	var track: Rect2 = _track_rect(row)
 	var t: float = clampf((x - track.position.x) / track.size.x, 0.0, 1.0)
-	UiPrefs.set_opacity(String(ROWS[row]["key"]), lerpf(0.15, 1.0, t))
+	UiPrefs.set_level(String(ROWS[row]["key"]), lerpf(_floor_of(row), 1.0, t))
 	if on_changed.is_valid():
 		on_changed.call()
 	queue_redraw()
@@ -85,7 +96,7 @@ func _draw() -> void:
 		draw_string(font, Vector2(p.position.x + 40.0, label_y), String(ROWS[i]["label"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Chrome.TEXT)
 		var track: Rect2 = _track_rect(i)
 		draw_rect(track, Chrome.CELL_EDGE)
-		var t: float = inverse_lerp(0.15, 1.0, UiPrefs.opacity(String(ROWS[i]["key"])))
+		var t: float = inverse_lerp(_floor_of(i), 1.0, UiPrefs.level(String(ROWS[i]["key"])))
 		var filled: Rect2 = Rect2(track.position, Vector2(track.size.x * clampf(t, 0.0, 1.0), track.size.y))
 		draw_rect(filled, Chrome.ACCENT)
 		var handle: Vector2 = track.position + Vector2(track.size.x * clampf(t, 0.0, 1.0), track.size.y / 2.0)

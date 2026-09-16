@@ -120,8 +120,12 @@ npm run godot:run    # Godot — the game (also: godot:editor)
 
 ## Controls
 
-**`F1` shows the keys in game**, and they appear on a fresh run until you dismiss them — this list
-is the same thing in text. The in-game sheet is the authority: it is held to
+The game opens on a **title** — new run, continue when there is a save, quit — drawn over the
+district it is about to play. `Esc` pauses to a menu from there on, and the run ends on a screen
+that says what happened to the colony.
+
+**`F1` shows the keys in game**, and they appear when a run starts until you dismiss them — this
+list is the same thing in text. The in-game sheet is the authority: it is held to
 `presentation/input_map.gd`'s bindings in both directions by `godot:check:play`'s KEYS lane, and
 this table is a third copy that no gate judges.
 
@@ -130,7 +134,7 @@ this table is a third copy that no gate judges.
 | **Move** | `WASD` walk · `Shift` sprint (fast, and loud — latches while held) · `Ctrl+Z`/`Ctrl+C`/`Ctrl+S`/`Ctrl+V` crawl, crouch, stand, jog |
 | **Act** | `F` swing, or struggle out of a grab · `H` pull someone out of a grab · `G` or click — fire · `R` reload · `E` interact — pick up, open a cupboard or a car · `T` first aid (bandage if you have one, bare hands if not; again to stop — and while something has hold of you, your own bare hands on your own wound is still allowed) · `C` make camp where you stand (`Shift+C` to strike it) · `1`…`6` use what is on your belt and in your pockets · `Space` shout — heard across the district |
 | **Look** | `Tab` gear and injuries (drag to move, right-click or `R` to rotate) · `J` work priorities · `K` the skill web · `O` attention overlay: noise, scent, sight, light · `M` raw developer sheets · scroll wheel zoom |
-| **Run** | `-`/`=` slower, faster (1×, 3×, 10×) · `P` pause · `F5`/`F9` save and load · `Esc` settings · `F1` the key list |
+| **Run** | `-`/`=` slower, faster (1×, 3×, 10×) · `P` pause · `F5`/`F9` save and load · `Esc` the menu — resume, save, load, settings, or back to the title · `F1` the key list |
 
 A day is four hours at 1×, so press `=` twice and wait for dark.
 

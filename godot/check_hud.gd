@@ -27,6 +27,8 @@ const ContentReload = preload("res://platform/content_reload.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const SimFortify = preload("res://sim/modules/fortify.gd")
+const Shell = preload("res://ui/shell.gd")
+const Session = preload("res://presentation/session.gd")
 
 const RELOAD_GD: String = "res://platform/content_reload.gd"
 const FORTIFY_GD: String = "res://sim/modules/fortify.gd"
@@ -48,6 +50,7 @@ func _run() -> void:
 	ok = _the_action_line_names_the_top_rung() and ok
 	ok = _a_selected_colonist_is_spoken_of() and ok
 	ok = _a_click_finds_a_colonist() and ok
+	ok = _the_shell_speaks_in_words() and ok
 	var sheet_ok: bool = await _the_hidden_sheet_costs_nothing()
 	ok = sheet_ok and ok
 	var reload_ok: bool = await _an_untouched_tree_is_not_reloaded()
@@ -579,6 +582,77 @@ func _a_click_finds_a_colonist() -> bool:
 		push_error("a click on your own pawn did not answer the player: %d" % Pick.pick_colonist(w, camera, on_player))
 		return false
 	print("PICK OK Mara hit, street and the dead missed, self answers self")
+	return true
+
+
+# The three screens that are not the game -- the title, the pause menu and the run-over screen --
+# are under the same ban as the HUD, and the owner said so in the same breath: "no digit anywhere
+# on the shell" (docs/30, "The alpha shell, 2026-09-16"). Not even the day the run ended, which is
+# the one digit the HUD is allowed and the one this screen would most naturally reach for.
+#
+# `ui/shell.gd` exposes `words()` for the same reason `SimSkills.web_map` exposes its own: a
+# screen that can only be judged by its pixels cannot be gated. Every heading, every line of
+# prose, every row label and the notice go through it, so a digit added to any of them is caught
+# here and not by somebody reading a screenshot.
+#
+# Driven, not read: the panel is stood up and asked for each of its three states in turn, with a
+# fabricated epitaph so the run-over screen has prose to say. And the scanner is shown failing on
+# the line it exists to catch -- an epitaph with a count in it.
+func _the_shell_speaks_in_words() -> bool:
+	var shell: Control = Shell.new()
+	root.add_child(shell)
+	var screens: Array = [
+		["the title, with a run to continue", Shell.TITLE, {"has_continue": true, "is_web": false}],
+		["the title in a browser, refusing a save", Shell.TITLE, {"has_continue": false, "is_web": true, "notice": Session.STALE_NOTICE}],
+		["the pause menu", Shell.PAUSED, {}],
+		["the run-over screen", Shell.RUN_OVER, {"epitaph": ["Mara Sato is dead.", "You are dead.", "There is nobody left to be."]}],
+	]
+	var counted: int = 0
+	for screen in screens:
+		var what: String = String((screen as Array)[0])
+		shell.call("show_state", int((screen as Array)[1]), (screen as Array)[2] as Dictionary)
+		var words: Array = Array(shell.call("words"))
+		if words.is_empty():
+			shell.queue_free()
+			push_error("SHELL: %s draws no words at all, so nothing here is judged" % what)
+			return false
+		if Array(shell.call("rows")).is_empty():
+			shell.queue_free()
+			push_error("SHELL: %s offers no rows, so the screen cannot be left" % what)
+			return false
+		for word in words:
+			counted += 1
+			var digits: String = _digits(String(word))
+			if not digits.is_empty():
+				shell.queue_free()
+				push_error("SHELL: %s carries digits (%s): '%s'" % [what, digits, String(word)])
+				return false
+	# The rows follow their context, which is what makes the words above the *right* words: a
+	# title with no save does not offer to continue one, and a browser tab has nothing to quit to.
+	shell.call("show_state", Shell.TITLE, {"has_continue": false, "is_web": true})
+	var bare: Array = Array(shell.call("rows"))
+	if bare.has("continue") or bare.has("quit"):
+		shell.queue_free()
+		push_error("SHELL: a web title with no save still offers %s" % str(bare))
+		return false
+	shell.call("show_state", Shell.TITLE, {"has_continue": true, "is_web": false})
+	var full: Array = Array(shell.call("rows"))
+	if not full.has("continue") or not full.has("quit"):
+		shell.queue_free()
+		push_error("SHELL: a desktop title with a save offers only %s" % str(full))
+		return false
+	# And the scanner can fail. The same screen with a count in its epitaph -- which is what it
+	# would say the day somebody decides the run-over screen should name the day it ended.
+	shell.call("show_state", Shell.RUN_OVER, {"epitaph": ["You lasted 3 days."]})
+	var caught: bool = false
+	for word in Array(shell.call("words")):
+		if not _digits(String(word)).is_empty():
+			caught = true
+	shell.queue_free()
+	if not caught:
+		push_error("SHELL: the scanner passed 'You lasted 3 days.' on the run-over screen, so it is judging nothing")
+		return false
+	print("SHELL OK %d words across the title, the pause menu and the run-over screen, not a digit among them, and the rows follow the save and the platform" % counted)
 	return true
 
 

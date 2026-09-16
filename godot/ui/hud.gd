@@ -441,7 +441,7 @@ func _draw_card(font: Font, view: Vector2, lines: Array[String], label: String, 
 func _draw_action_bar(font: Font, view: Vector2) -> void:
 	# Digit-free, like every other line on this screen: the strip draws its own key names, and the
 	# speed keys are punctuation now rather than the number row (docs/30, "The inventory sheet").
-	var keys: String = "F1 keys · Tab gear · J work · P pause · - = speed · Esc settings · O overlay · M raw"
+	var keys: String = "F1 keys · Tab gear · J work · P pause · - = speed · Esc menu · O overlay · M raw"
 	var size: int = FONT_SIZE - 2
 	var runs: Array = []
 	for clause in _action.split(ACTION_SEP, false):

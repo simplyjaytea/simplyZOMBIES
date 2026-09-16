@@ -105,11 +105,11 @@ const BINDINGS: Dictionary = {
 	"debug": {"keys": [KEY_F8], "ctrl": false, "legend": []},
 }
 
-# The screens, in the order `_focus` asks about them. A future `shell` focus -- the title, the
-# pause menu and the run-over screen the next slice builds -- belongs at the front of this list
-# and of `_focus`'s arms: it sits in front of everything else on screen, so it takes the keys
-# first. Nothing here reserves it; this comment is the whole reservation.
-const FOCUSES: Array[String] = ["legend", "settings", "web", "bench", "sheet", "work", "street"]
+# The screens, in the order `_focus` asks about them. `shell` -- the title, the pause menu and
+# the run-over screen -- is at the front because it sits in front of everything else on screen,
+# so it takes the keys first: the slot this list reserved for it in a comment until the shell
+# landed (docs/30, "The alpha shell, 2026-09-16").
+const FOCUSES: Array[String] = ["shell", "legend", "settings", "web", "bench", "sheet", "work", "street"]
 
 # What still fires under each screen. `street` is deliberately absent: it is the one focus with
 # no gate at all, and an empty row here would read as "nothing fires" rather than "everything
@@ -117,6 +117,11 @@ const FOCUSES: Array[String] = ["legend", "settings", "web", "bench", "sheet", "
 # rotated on R and spent the belt on the number row, the web has always closed on its own K, and
 # the legend has always gone down on any of F1, Escape and Enter.
 const ALLOWED: Dictionary = {
+	# The shell is a menu and nothing else gets through it: the four navigation keys and the two
+	# that choose or go back. `move` is here because Up, Down, W and S answer "move" in the
+	# vocabulary below -- they are the same four keys, and under this focus they walk a cursor
+	# rather than a body. Nothing else fires, so a title screen is not somewhere you can shoot.
+	"shell": ["move", "dismiss", "escape"],
 	"legend": ["legend", "escape", "dismiss"],
 	"settings": ["escape"],
 	"web": ["web", "escape", "legend"],
@@ -133,6 +138,11 @@ const ALLOWED: Dictionary = {
 func _focus() -> String:
 	if main == null:
 		return "street"
+	# The shell first: the title, the pause menu and the run-over screen are in front of
+	# everything, including the settings sheet the pause menu itself opens (which is why opening
+	# settings from the menu closes the menu -- see main.gd's `_on_shell_action`).
+	if _is_up(main._shell):
+		return "shell"
 	if _is_up(main._legend):
 		return "legend"
 	if _is_up(main._settings):
@@ -207,6 +217,14 @@ func _input(event: InputEvent) -> void:
 		if not _allows(focus, action):
 			_release_the_street()
 			return
+		# The shell answers its own keys and the game sees none of them. It returns here rather
+		# than falling through the match below, because every key it takes means something else
+		# down there: Enter dismisses the legend, Escape peels a panel, W joins the held set and
+		# walks the body behind the menu.
+		if focus == "shell":
+			if main._shell != null and bool(main._shell.call("key", ke)):
+				main.queue_redraw()
+			return
 		# The one interact key, named once (INTERACT_KEY) rather than as a literal in the match
 		# below, because a match arm binds an identifier instead of comparing against it. It
 		# pushes `use.context` and nothing else: fortify's ladder (SimFortify._use_context)
@@ -229,21 +247,31 @@ func _input(event: InputEvent) -> void:
 				# three explicit dismissals that make it stay down across a boot.
 				if main._legend != null and main._legend.visible: main._dismiss_legend()
 			KEY_ESCAPE:
-				# Escape peels layers in order: the legend, then an open container, then
-				# settings. The container before settings because it is the thing you most
-				# recently opened, and closing it is what walking away would have done.
+				# Escape peels layers in order, and the order is `_focus()`'s own rather than a
+				# second list beside it: the screen in front is the screen Escape is talking to.
+				# It used to be a chain of `elif`s over the same panels in a different order, and
+				# a settings sheet over an open web closed the web underneath it.
+				#
+				# The legend first (it is drawn over everything but the shell), then settings,
+				# then the web before the bench -- the web is the thing most recently opened by a
+				# key, and closing it is what looking back at the street would have done.
 				if main._legend != null and main._legend.visible:
 					main._dismiss_legend()
-				elif main._web_panel != null and main._web_panel.visible:
-					# The web before the bench: it is the thing most recently opened by a key,
-					# and closing it is what looking back at the street would have done.
+				elif main._web_panel != null and focus == "web":
 					main._set_web_open(false)
-				elif main.world != null and main._bench_panel != null and main._bench_panel.visible:
+				elif main.world != null and main._bench_panel != null and focus == "bench":
 					main.world.commands.push({"type": "bench.close"})
+				elif main._settings != null and main._settings.visible:
+					# Back to whatever opened it, which is the pause menu when the run is paused.
+					main.call("_close_settings")
 				elif main.world != null and main._inventory_panel != null and main._inventory_panel.has_method("loot_open") and bool(main._inventory_panel.call("loot_open")):
 					main.world.commands.push({"type": "container.close"})
+				elif focus == "street":
+					# Nothing open: the pause menu. Escape used to open the settings sheet from
+					# here, and settings is a row on that menu now (docs/30, "The alpha shell").
+					main.call("_pause_to_menu")
 				elif main._settings != null:
-					main._settings.visible = not main._settings.visible
+					main._settings.visible = true
 			KEY_TAB:
 				main._set_inventory_open(not main.inventory_open)
 			KEY_J:

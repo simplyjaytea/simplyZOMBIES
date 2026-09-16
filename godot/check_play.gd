@@ -31,16 +31,24 @@ extends SceneTree
 #   TICKS      the loop advances the world, and P stops it
 #   WALK       a held key moves the body, release stops it, two keys sum to a diagonal
 #   SHEET      Tab opens the sheet and peels the four things that sit under it
-#   SETTINGS   Escape peels in order -- the legend first, settings only once it is gone
+#   SETTINGS   Escape peels in order -- the legend first, the pause menu only once it is gone,
+#              and settings is a row on that menu rather than a key of its own
 #   ROUNDTRIP  F5 writes a save F9 restores; a corrupt slot leaves the world untouched
 #   CAMP-KEY   C is the camp key and only the camp key; Ctrl+C is the stance and only the stance
 #   FOCUS      an open sheet swallows the street's keys, and the body stops at the panel
+#   PAUSE      Escape on the street pauses to the menu and gives the street back
+#   NOTICE     a save this build cannot read leaves the run alone and says one fixed sentence
+#   VOLUME     the settings row reaches the audio bus, and nought is mute
+#   AUTOSAVE   the first tick of a day writes the slot; an ordinary tick and a finished run do not
 #   LEGEND     a dismissed legend stays dismissed across a boot, and F1 brings it back
+#   TITLE      the game opens on a menu over a world that is not ticking, and "new run" plays it
+#   CLOSE      the window's close request writes a save from a run, and nothing from the title
+#   RUN-OVER   the run ends on a screen that speaks the chronicle, and new run yields a live world
 #   DRAW       `_draw` completes by day and by night, and does not when the node is hidden
-#   RUN-OVER   skipped, loudly, until the shell exists
 #   SCENE      the scene this gate drives is the scene `project.godot` ships
 #   KEYS       every legend row is bound and every binding has a row, both directions
-#   SOCKET     the keys live in the router, and main.gd's frame loop reaches it
+#   SOCKET     the keys live in the router, the run's lifecycle lives in the session, and
+#              main.gd's frame loop reaches both
 #   BUDGET     the whole gate under a minute
 #
 # A lane with no data says so and skips; it never passes quietly.
@@ -63,6 +71,10 @@ const Clock = preload("res://sim/time/clock.gd")
 const Legend = preload("res://ui/legend.gd")
 const UiPrefs = preload("res://ui/prefs.gd")
 const InputMapRes = preload("res://presentation/input_map.gd")
+const Session = preload("res://presentation/session.gd")
+const SimChronicle = preload("res://sim/modules/chronicle.gd")
+const SimRecruits = preload("res://sim/modules/recruits.gd")
+const SimAllegiance = preload("res://sim/modules/allegiance.gd")
 const SimSave = preload("res://sim/save.gd")
 
 # The frame loop's own delta. main.gd's TICK_SECONDS, named again here rather than read off the
@@ -86,6 +98,7 @@ const PRESSED_KEYS: Array = [
 	["F9", "F9 reads it back"],
 	["F1", "F1 raises the legend"],
 	["C", "C makes camp"],
+	["K", "K opens the skill web, which Escape peels before it pauses anything"],
 	["Ctrl+C", "Ctrl+C crouches"],
 	["Ctrl+S", "Ctrl+S stands"],
 	["F", "F swings, and does not while the sheet is open"],
@@ -136,7 +149,6 @@ func _run() -> void:
 	ok = _the_scene_driven_is_the_scene_shipped() and ok
 	ok = _every_key_pressed_is_a_key_the_legend_names() and ok
 	ok = _the_keys_live_in_the_router() and ok
-	ok = _the_run_over_screen() and ok
 
 	# Before the boot the rest of the lanes share, because this one wants a machine that has
 	# never seen the game: it deletes the prefs file and asserts the legend opens on top of a
@@ -160,7 +172,22 @@ func _run() -> void:
 	ok = _c_is_the_camp_key_and_ctrl_c_is_the_stance(main) and ok
 	var focus_ok: bool = await _the_open_sheet_swallows_the_street(main)
 	ok = focus_ok and ok
+	var pause_ok: bool = await _escape_pauses_to_the_menu(main)
+	ok = pause_ok and ok
+	var notice_ok: bool = await _a_refused_save_says_one_sentence(main)
+	ok = notice_ok and ok
+	ok = _the_volume_row_reaches_the_bus(main) and ok
+	# Last on this scene: it puts the world's clock on the eve of day two and leaves it there.
+	ok = _a_dawn_writes_the_slot(main) and ok
 	main.queue_free()
+	await process_frame
+
+	# Their own scenes: the first wants a machine whose game has not been started, and the second
+	# destroys the colony it is booted with.
+	var title_ok: bool = await _the_title_waits_over_a_still_world()
+	ok = title_ok and ok
+	var over_ok: bool = await _the_run_over_screen()
+	ok = over_ok and ok
 
 	var draw_ok: bool = await _the_screen_draws_by_day_and_by_night()
 	ok = draw_ok and ok
@@ -171,7 +198,7 @@ func _run() -> void:
 
 	if ok:
 		var skipped: String = "no lane skipped" if _skips.is_empty() else "skipped: %s" % ", ".join(PackedStringArray(_skips))
-		print("PLAY_OK the scene boots, ticks, walks, opens its screens, saves and loads, camps on C and crouches on Ctrl+C, refuses the street's keys under an open sheet, keeps a dismissed legend dismissed, and draws by day and by night in %d ms (%s)" % [elapsed, skipped])
+		print("PLAY_OK the scene boots to a title over a still world, ticks, walks, opens its screens, saves and loads, camps on C and crouches on Ctrl+C, refuses the street's keys under an open sheet, pauses to a menu on Escape, moves the audio bus, writes the slot at dawn and on the window's close, ends on a screen that speaks the chronicle and starts again, keeps a dismissed legend dismissed, and draws by day and by night in %d ms (%s)" % [elapsed, skipped])
 		quit(0)
 	else:
 		push_error("PLAY_FAIL")
@@ -246,19 +273,73 @@ func _boot_scene() -> Node:
 	return main
 
 
-# The same boot, with the player standing on the street. The legend is a focus of its own since
-# the input split -- it swallows every key but F1, Escape and Enter, which is exactly what a modal
-# panel should do and exactly what would make TICKS, WALK and ROUNDTRIP judge nothing at all. So
-# it is peeled the way a player peels it, with Escape, before any lane presses anything.
+# The same boot, with the player standing on the street -- which since the alpha shell means two
+# presses rather than none. The game opens on the title, so Enter chooses its first row ("new
+# run") the way a player would; and the legend is a focus of its own since the input split, so it
+# swallows every key but F1, Escape and Enter, which is exactly what a modal panel should do and
+# exactly what would make TICKS, WALK and ROUNDTRIP judge nothing at all. Both are peeled the way
+# a player peels them, before any lane presses anything.
 func _boot() -> Node:
 	var main: Node = await _boot_scene()
 	if main == null:
 		return null
+	var shell: Variant = main.get("_shell")
+	if shell != null and bool((shell as CanvasItem).visible):
+		_tap(KEY_ENTER)
+		await process_frame
 	var legend: Variant = main.get("_legend")
 	if legend != null and bool((legend as CanvasItem).visible):
 		_tap(KEY_ESCAPE)
 		await process_frame
+	# The two presses above ran through the real frame the scene was still processing for; a lane
+	# that counts ticks starts from a known debt, the same reason _boot_scene clears it.
+	main.set("accumulator", 0.0)
 	return main
+
+
+# The session behind the scene: the four-state machine, the save and the boot.
+func _session(main: Node) -> Variant:
+	return main.get("session")
+
+
+func _state(main: Node) -> int:
+	var session: Variant = _session(main)
+	return int(session.state) if session != null else -1
+
+
+func _shell_of(main: Node) -> Variant:
+	return main.get("_shell")
+
+
+func _shell_rows(main: Node) -> Array:
+	var shell: Variant = _shell_of(main)
+	return [] if shell == null else Array(shell.call("rows"))
+
+
+func _remove_save() -> void:
+	if FileAccess.file_exists(SAVE_PATH):
+		var da := DirAccess.open("user://")
+		if da != null:
+			da.remove(SAVE_PATH.get_file())
+
+
+func _write_save_of(world: Variant, run_over: bool) -> void:
+	var was: bool = bool(world.runOver)
+	world.runOver = run_over
+	var text: String = SimSave.encode_save(SimSave.create_save(world))
+	world.runOver = was
+	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if f != null:
+		f.store_string(text)
+		f.flush()
+
+
+func _digits_in(text: String) -> String:
+	var found: String = ""
+	for c in text:
+		if c >= "0" and c <= "9":
+			found += c
+	return found
 
 
 # The child node that owns the keys. Fetched rather than assumed: a lane that called `pump` on
@@ -487,15 +568,23 @@ func _tab_opens_the_sheet(main: Node) -> bool:
 
 # --- SETTINGS ---------------------------------------------------------------------------------
 
-# Escape peels layers in an order main.gd's own comment states: the legend first, because it is
-# the thing in front of you, and settings only once nothing else is open. The negative is the
-# first press -- if Escape opened settings while the legend was up, the player would be reading
-# two panels at once, and the assertion that catches that is "settings is still hidden here".
+# Escape peels layers in an order `input_map.gd`'s Escape arm states, and the order is `_focus()`'s
+# own: the legend first, because it is the thing in front of you, and the pause menu only once
+# nothing else is open. The negative is the first press -- if Escape raised the menu while the
+# legend was up, the player would be reading two panels at once, and the assertion that catches
+# that is "the shell is still hidden here".
+#
+# Settings is no longer a key. It is a row on the pause menu since the alpha shell (docs/30,
+# 2026-09-16), so this lane walks to it the way a player does and asserts the two things that
+# arrangement has to get right: the menu stands aside while the sheet is up (the shell is in
+# front of everything in the focus order, so a settings panel behind it would never see its own
+# Escape), and Escape inside the sheet goes back to the menu rather than to the street.
 func _escape_peels_in_order(main: Node) -> bool:
 	var legend: Variant = main.get("_legend")
 	var settings: Variant = main.get("_settings")
-	if legend == null or settings == null:
-		return _skip("SETTINGS", "the scene built no legend or settings panel")
+	var shell: Variant = main.get("_shell")
+	if legend == null or settings == null or shell == null:
+		return _skip("SETTINGS", "the scene built no legend, settings panel or shell")
 	if not bool((legend as CanvasItem).visible):
 		_tap(KEY_F1)
 		await process_frame
@@ -506,20 +595,53 @@ func _escape_peels_in_order(main: Node) -> bool:
 	if bool((legend as CanvasItem).visible):
 		push_error("SETTINGS: Escape did not close the legend")
 		return false
+	if bool((shell as CanvasItem).visible):
+		push_error("SETTINGS: Escape raised the pause menu behind the legend it was closing")
+		return false
 	if bool((settings as CanvasItem).visible):
 		push_error("SETTINGS: Escape opened settings behind the legend it was closing")
 		return false
 	_tap(KEY_ESCAPE)
 	await process_frame
+	if not bool((shell as CanvasItem).visible):
+		push_error("SETTINGS: a second Escape did not raise the pause menu")
+		return false
+	if bool((settings as CanvasItem).visible):
+		push_error("SETTINGS: Escape still opens the settings sheet directly; it is a menu row now")
+		return false
+	var rows: Array = _shell_rows(main)
+	var at: int = rows.find("settings")
+	if at < 0:
+		push_error("SETTINGS: the pause menu offers no settings row: %s" % str(rows))
+		return false
+	for _i in range(at):
+		_tap(KEY_S)
+	await process_frame
+	if int(shell.get("cursor")) != at:
+		push_error("SETTINGS: %d presses of S left the menu on row %d, not %d" % [at, int(shell.get("cursor")), at])
+		return false
+	_tap(KEY_ENTER)
+	await process_frame
 	if not bool((settings as CanvasItem).visible):
-		push_error("SETTINGS: a second Escape did not open settings")
+		push_error("SETTINGS: the menu's settings row did not open the sheet")
+		return false
+	if bool((shell as CanvasItem).visible):
+		push_error("SETTINGS: the menu is still up under the settings sheet, so the sheet never sees a key")
 		return false
 	_tap(KEY_ESCAPE)
 	await process_frame
 	if bool((settings as CanvasItem).visible):
-		push_error("SETTINGS: Escape did not close settings again")
+		push_error("SETTINGS: Escape did not close the settings sheet again")
 		return false
-	print("SETTINGS OK Escape peels the legend first and opens settings only once it is gone")
+	if not bool((shell as CanvasItem).visible):
+		push_error("SETTINGS: closing the settings sheet dropped the player past the menu that opened it")
+		return false
+	_tap(KEY_ESCAPE)
+	await process_frame
+	if bool((shell as CanvasItem).visible):
+		push_error("SETTINGS: Escape on the pause menu did not give the street back")
+		return false
+	print("SETTINGS OK Escape peels the legend first, raises the menu only once it is gone, the menu's row opens settings and stands aside, and Escape walks back out through both")
 	return true
 
 
@@ -795,9 +917,18 @@ func _the_legend_stays_dismissed() -> bool:
 	if legend == null:
 		first.queue_free()
 		return _skip("LEGEND", "the scene built no legend")
+	# Not over the title. Since the alpha shell the game opens on a menu, and a panel of keys over
+	# a menu is a panel about a game you have not started -- so the keys are offered on the first
+	# entry to PLAYING instead, which is what Enter on the title's first row asks for.
+	if bool((legend as CanvasItem).visible):
+		first.queue_free()
+		push_error("LEGEND: the keys are drawn over the title, before the run has started")
+		return false
+	_tap(KEY_ENTER)
+	await process_frame
 	if not bool((legend as CanvasItem).visible):
 		first.queue_free()
-		push_error("LEGEND: a fresh machine did not open on the keys")
+		push_error("LEGEND: a fresh machine did not open on the keys when the run started")
 		return false
 	_tap(KEY_ENTER)
 	await process_frame
@@ -822,6 +953,8 @@ func _the_legend_stays_dismissed() -> bool:
 	if again == null:
 		second.queue_free()
 		return _skip("LEGEND", "the second boot built no legend")
+	_tap(KEY_ENTER)
+	await process_frame
 	if bool((again as CanvasItem).visible):
 		second.queue_free()
 		push_error("LEGEND: the keys came back at the next boot despite the dismissal")
@@ -902,16 +1035,495 @@ func _the_screen_draws_by_day_and_by_night() -> bool:
 
 # --- RUN-OVER ---------------------------------------------------------------------------------
 
-# The lane the shell turns on. Today the last survivor dies, `world.runOver` goes true, the HUD
-# prints one line and the sim keeps ticking over the corpse -- there is no screen to assert and
-# nothing to stop. Skipping loudly rather than passing quietly is the rule (CLAUDE.md's
-# conventions); when `presentation/session.gd` exists this becomes: run over halts the ticks, the
-# screen names the chronicle's last lines, and a new run yields a world that moves again.
+# The lane the shell turned on. It skipped, loudly, from the day this gate landed until
+# `presentation/session.gd` existed: the last survivor died, `world.runOver` went true, the HUD
+# printed one line and the sim kept ticking over the corpse -- there was no screen to assert and
+# nothing to stop. Now there is, and the skip is the assertion.
+#
+# Four things, and the third is the one the epitaph exists for. The run ends; the clock stops;
+# the screen speaks the chronicle **past its own window**, so a death from earlier in the run is
+# still there when the run's own last line is written; and "new run" hands back a different world
+# object that moves.
 func _the_run_over_screen() -> bool:
-	if ResourceLoader.exists(SESSION_GD):
-		push_error("RUN-OVER: %s exists now, so this lane must stop skipping and assert the shell" % SESSION_GD)
+	var main: Node = await _boot()
+	if main == null:
 		return false
-	return _skip("RUN-OVER", "the shell does not exist yet; the lane lands with presentation/session.gd")
+	var world: Variant = main.get("world")
+	var shell: Variant = main.get("_shell")
+	if shell == null:
+		main.queue_free()
+		return _skip("RUN-OVER", "the scene built no shell to end on")
+
+	# One real death first, so the chronicle has a line that is genuinely older than the screen's
+	# window by the time the run ends. The tick is then jumped rather than played: LINE_TICKS is
+	# two game hours and twenty-four thousand ticks of real stepping is most of this gate's budget.
+	var early: int = -1
+	for e in world.components.query(["identity", "position"]):
+		if int(e) != int(world.player) and SimAllegiance.is_colony(world, int(e)):
+			early = int(e)
+			break
+	if early < 0:
+		main.queue_free()
+		return _skip("RUN-OVER", "the boot colony has nobody but the player to lose first")
+	world.events.publish({"type": "entity.killed", "entity": early})
+	_frames(main, 1)
+	var early_lines: Array = SimChronicle.lines(world)
+	if early_lines.is_empty():
+		main.queue_free()
+		return _skip("RUN-OVER", "the first death wrote no chronicle line to age out")
+	var aged: String = String(early_lines[0])
+	world.tick += SimChronicle.LINE_TICKS + 1
+	if not SimChronicle.lines(world).is_empty():
+		main.queue_free()
+		push_error("RUN-OVER: the line this lane aged out is still inside the HUD's window")
+		return false
+
+	# And then the colony. Every other body of yours is a corpse, so succession has nobody to
+	# hand the camera to and the player's death is the run's.
+	for e in world.components.query(["position"]):
+		var ent: int = int(e)
+		if ent == int(world.player):
+			continue
+		if world.components.has_component(ent, "shambler"):
+			continue
+		if not SimAllegiance.is_colony(world, ent):
+			continue
+		world.components.set_component(ent, "corpse", {"sinceTick": int(world.tick)})
+	SimRecruits.handle_death(world, int(world.player))
+	_frames(main, 1)
+	if not bool(world.runOver):
+		main.queue_free()
+		return _skip("RUN-OVER", "the player's death did not end the run, so there is no screen to judge")
+	if _state(main) != Session.State.RUN_OVER:
+		main.queue_free()
+		push_error("RUN-OVER: the run ended and the session is in state %d, not RUN_OVER" % _state(main))
+		return false
+	if not bool((shell as CanvasItem).visible):
+		main.queue_free()
+		push_error("RUN-OVER: the run ended and no screen came up")
+		return false
+	var frozen: int = int(world.tick)
+	_frames(main, 10)
+	if int(world.tick) != frozen:
+		main.queue_free()
+		push_error("RUN-OVER: the world advanced %d ticks after the run was over" % (int(world.tick) - frozen))
+		return false
+
+	var spoken: Array = Array(shell.call("lines"))
+	var expected: Array = Array(SimChronicle.epitaph(world, 5))
+	if spoken != expected:
+		main.queue_free()
+		push_error("RUN-OVER: the screen says %s and the chronicle's epitaph is %s" % [str(spoken), str(expected)])
+		return false
+	if spoken.is_empty():
+		main.queue_free()
+		return _skip("RUN-OVER", "the run ended with an empty chronicle, so there is no epitaph to read")
+	for line in spoken:
+		if not _digits_in(String(line)).is_empty():
+			main.queue_free()
+			push_error("RUN-OVER: an epitaph line carries a digit: '%s'" % String(line))
+			return false
+	if not spoken.has(aged):
+		main.queue_free()
+		push_error("RUN-OVER: the epitaph dropped '%s', which the HUD's window had already forgotten" % aged)
+		return false
+
+	# New run, from the row a player would press. A *different world object*, not the same one
+	# with its flag cleared: the identity check is the half that a `runOver = false` would pass.
+	var rows: Array = _shell_rows(main)
+	if rows.is_empty() or String(rows[0]) != "new run":
+		main.queue_free()
+		push_error("RUN-OVER: the screen's first row is %s, not a new run" % str(rows))
+		return false
+	_tap(KEY_ENTER)
+	await process_frame
+	var fresh: Variant = main.get("world")
+	if fresh == world:
+		main.queue_free()
+		push_error("RUN-OVER: new run handed back the same world object the run ended in")
+		return false
+	if bool(fresh.runOver):
+		main.queue_free()
+		push_error("RUN-OVER: the new run is over before it started")
+		return false
+	if _state(main) != Session.State.PLAYING:
+		main.queue_free()
+		push_error("RUN-OVER: new run left the session in state %d, not PLAYING" % _state(main))
+		return false
+	var started: int = int(fresh.tick)
+	_frames(main, 10)
+	var moved: int = int(fresh.tick) - started
+	main.queue_free()
+	await process_frame
+	if moved != 10:
+		push_error("RUN-OVER: the new run advanced %d ticks in ten frames" % moved)
+		return false
+	print("RUN-OVER OK the run ends on a screen that freezes the clock and speaks %d lines of the chronicle including one the HUD had forgotten, and new run hands back a world that moves" % spoken.size())
+	return true
+
+
+# --- TITLE and CLOSE ----------------------------------------------------------------------------
+
+# The game opens on a menu, over a world that is already booted and is not moving. Both halves
+# matter: the world has to exist one frame in, because `test/project_smoke.gd` and `check_hud.gd`
+# both assert it does, and it must not be *ticking*, because a title screen the district plays on
+# behind is a run you are losing without watching.
+#
+# The continue row is asked three ways, which is the only way to show the question is being
+# asked at all: no slot, a live slot, and the wreck of a finished run.
+#
+# CLOSE rides on this scene rather than booting a seventh: it is the same two states, and the
+# assertion is the same file appearing or not appearing.
+func _the_title_waits_over_a_still_world() -> bool:
+	_remove_save()
+	var main: Node = await _boot_scene()
+	if main == null:
+		return false
+	var shell: Variant = main.get("_shell")
+	var hud: Variant = main.get("_hud")
+	var world: Variant = main.get("world")
+	if shell == null or _session(main) == null:
+		main.queue_free()
+		return _skip("TITLE", "the scene built no shell or session")
+	if _state(main) != Session.State.TITLE:
+		main.queue_free()
+		push_error("TITLE: the scene booted into state %d, not TITLE" % _state(main))
+		return false
+	if not bool((shell as CanvasItem).visible):
+		main.queue_free()
+		push_error("TITLE: the game opened with no title on screen")
+		return false
+	if hud != null and bool((hud as CanvasItem).visible):
+		main.queue_free()
+		push_error("TITLE: the player's HUD prints over the title")
+		return false
+	# And the quick strip with it. It draws during ordinary play whether or not the sheet is open,
+	# so it is the one screen that does not peel itself -- and over the title it is six belt slots
+	# and their key numbers under a menu, which is how a digit reaches a screen the owner said
+	# would carry none.
+	var sheet: Variant = main.get("_inventory_panel")
+	if sheet != null and bool((sheet as CanvasItem).visible):
+		main.queue_free()
+		push_error("TITLE: the quick strip is still drawn under the title")
+		return false
+	var before: int = int(world.tick)
+	var stood: Dictionary = _pos(main)
+	_frames(main, 10)
+	if int(world.tick) != before:
+		main.queue_free()
+		push_error("TITLE: the world advanced %d ticks behind the title" % (int(world.tick) - before))
+		return false
+	if _moved(stood, _pos(main)) > 0.001:
+		main.queue_free()
+		push_error("TITLE: the body moved behind the title")
+		return false
+
+	# No slot, so nothing to continue.
+	if _shell_rows(main).has("continue"):
+		main.queue_free()
+		push_error("TITLE: a machine with no save offers to continue one: %s" % str(_shell_rows(main)))
+		return false
+	# A live slot, so there is.
+	_write_save_of(world, false)
+	main.call("_enter_state", Session.State.TITLE)
+	if not _shell_rows(main).has("continue"):
+		main.queue_free()
+		push_error("TITLE: a live save is on disk and the title does not offer it: %s" % str(_shell_rows(main)))
+		return false
+	# And the wreck of a finished run, which is not a run to go back to.
+	_write_save_of(world, true)
+	main.call("_enter_state", Session.State.TITLE)
+	if _shell_rows(main).has("continue"):
+		main.queue_free()
+		push_error("TITLE: the title offers to continue a run that was already over")
+		return false
+
+	# The window's close request, from the title: there is no run to write down.
+	_remove_save()
+	main.call("_enter_state", Session.State.TITLE)
+	main.notification(Node.NOTIFICATION_WM_CLOSE_REQUEST)
+	if FileAccess.file_exists(SAVE_PATH):
+		main.queue_free()
+		push_error("CLOSE: closing the window from the title wrote a save of a run nobody started")
+		return false
+
+	# New run, off the first row, the way a player presses it.
+	var rows: Array = _shell_rows(main)
+	if rows.is_empty() or String(rows[0]) != "new run":
+		main.queue_free()
+		push_error("TITLE: the title's first row is %s, not a new run" % str(rows))
+		return false
+	_tap(KEY_ENTER)
+	await process_frame
+	if _state(main) != Session.State.PLAYING:
+		main.queue_free()
+		push_error("TITLE: Enter on the new-run row left the session in state %d" % _state(main))
+		return false
+	if bool((shell as CanvasItem).visible):
+		main.queue_free()
+		push_error("TITLE: the menu is still on screen with the run running behind it")
+		return false
+	world = main.get("world")
+	var started: int = int(world.tick)
+	_frames(main, 20)
+	if int(world.tick) - started != 20:
+		main.queue_free()
+		push_error("TITLE: twenty frames of the started run advanced %d ticks" % (int(world.tick) - started))
+		return false
+
+	# And the same close request, from a live run: this one is written down.
+	main.notification(Node.NOTIFICATION_WM_CLOSE_REQUEST)
+	if not FileAccess.file_exists(SAVE_PATH):
+		main.queue_free()
+		push_error("CLOSE: closing the window mid-run wrote no save")
+		return false
+	var decoded: Dictionary = SimSave.decode_save(FileAccess.get_file_as_string(SAVE_PATH))
+	main.queue_free()
+	await process_frame
+	if decoded.has("__error"):
+		push_error("CLOSE: the save written on the window's close will not decode (%s)" % String(decoded["__error"]))
+		return false
+	# The web build is excluded from this and cannot be driven headless, so it is read where it is
+	# written -- a textual half beside an executed one, named as such.
+	var closer: String = _function_body(MAIN_GD, "_notification")
+	if closer.find("NOTIFICATION_WM_CLOSE_REQUEST") < 0 or closer.find("OS.has_feature(\"web\")") < 0:
+		push_error("CLOSE: main.gd's _notification does not answer the close request, or does not excuse the web build")
+		return false
+	print("TITLE OK the game opens on a menu over a world that is not ticking, the continue row follows the slot three ways, and Enter starts a run that moves")
+	print("CLOSE OK the window's close writes a decodable save from a live run and nothing from the title, and the web build is excused in the handler")
+	return true
+
+
+# --- PAUSE --------------------------------------------------------------------------------------
+
+# Escape on the street, with nothing open, is the pause menu (the owner's decision of 2026-09-16;
+# it used to open the settings sheet). Positive: the menu comes up and the clock stops. Negative:
+# Escape is still a peel first -- with the skill web open it closes the web and the run keeps
+# going, which is the assertion that stops "Escape always pauses" from being the implementation.
+func _escape_pauses_to_the_menu(main: Node) -> bool:
+	var shell: Variant = main.get("_shell")
+	var web: Variant = main.get("_web_panel")
+	var world: Variant = main.get("world")
+	if shell == null:
+		return _skip("PAUSE", "the scene built no shell to pause into")
+	if _state(main) != Session.State.PLAYING:
+		return _skip("PAUSE", "the scene is not playing, so there is nothing to pause")
+	_tap(KEY_ESCAPE)
+	await process_frame
+	if _state(main) != Session.State.PAUSED:
+		push_error("PAUSE: Escape on the street left the session in state %d, not PAUSED" % _state(main))
+		return false
+	if not bool((shell as CanvasItem).visible):
+		push_error("PAUSE: the session paused and no menu came up")
+		return false
+	var held_at: int = int(world.tick)
+	_frames(main, 10)
+	if int(world.tick) != held_at:
+		push_error("PAUSE: the world advanced %d ticks behind the pause menu" % (int(world.tick) - held_at))
+		return false
+	_tap(KEY_ESCAPE)
+	await process_frame
+	if _state(main) != Session.State.PLAYING or bool((shell as CanvasItem).visible):
+		push_error("PAUSE: Escape on the menu did not give the street back")
+		return false
+	_frames(main, 5)
+	if int(world.tick) != held_at + 5:
+		push_error("PAUSE: the clock did not start again (tick %d, expected %d)" % [int(world.tick), held_at + 5])
+		return false
+	if web == null:
+		return _skip("PAUSE", "the scene built no skill web, so the peel half judges nothing")
+	_tap(KEY_K)
+	await process_frame
+	if not bool((web as CanvasItem).visible):
+		return _skip("PAUSE", "K did not open the web, so the peel half judges nothing")
+	_tap(KEY_ESCAPE)
+	await process_frame
+	if bool((web as CanvasItem).visible):
+		push_error("PAUSE: Escape did not close the web it was peeling")
+		return false
+	if _state(main) != Session.State.PLAYING or bool((shell as CanvasItem).visible):
+		push_error("PAUSE: Escape closed the web and paused the run as well; the peel comes first")
+		return false
+	print("PAUSE OK Escape on the street raises the menu and stops the clock, gives both back, and still peels an open screen before it pauses anything")
+	return true
+
+
+# --- NOTICE -------------------------------------------------------------------------------------
+
+# A save the build cannot read leaves the player where they are and says **one fixed sentence**.
+# The sentence exists because the alternative is `SimSave.decode_save`'s own message -- "save
+# format 13, this build reads 33" -- which is two digits on a player's screen and two numbers that
+# mean nothing to the person reading them.
+#
+# The menu's `load` row is the only way to reach it: the title's `continue` row is not offered at
+# all for a slot that will not decode (`has_continue` asks the same question), so without this
+# lane the notice would be prose nothing on screen could ever show. Both halves are asserted --
+# the sentence is there, and the decoder's is not.
+func _a_refused_save_says_one_sentence(main: Node) -> bool:
+	var shell: Variant = main.get("_shell")
+	var world: Variant = main.get("world")
+	if shell == null:
+		return _skip("NOTICE", "the scene built no shell to say anything")
+	if _state(main) != Session.State.PLAYING:
+		return _skip("NOTICE", "the scene is not playing, so there is no menu to reach the row from")
+	# A slot from a build that is not this one. The literal `check_m2_save.gd` uses for the same
+	# refusal, so the two gates agree on what a stale save looks like.
+	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if f == null:
+		return _skip("NOTICE", "cannot write a stale slot to be refused")
+	f.store_string("{\"snapshot\":{\"version\":13},\"meta\":{}}")
+	f.flush()
+	f = null
+	_tap(KEY_ESCAPE)
+	await process_frame
+	var rows: Array = _shell_rows(main)
+	var at: int = rows.find("load")
+	if at < 0:
+		_remove_save()
+		return _skip("NOTICE", "the pause menu offers no load row")
+	for _i in range(at):
+		_tap(KEY_S)
+	var held_at: int = int(world.tick)
+	_tap(KEY_ENTER)
+	await process_frame
+	var words: Array = Array(shell.call("words"))
+	var still_up: bool = bool((shell as CanvasItem).visible)
+	var state_after: int = _state(main)
+	var tick_after: int = int(world.tick)
+	_remove_save()
+	if not still_up or state_after != Session.State.PAUSED:
+		push_error("NOTICE: a save that will not decode took the player off the menu anyway (state %d)" % state_after)
+		return false
+	if tick_after != held_at:
+		push_error("NOTICE: the refused load moved the world %d ticks" % (tick_after - held_at))
+		return false
+	var said: bool = false
+	for word in words:
+		if String(word) == Session.STALE_NOTICE:
+			said = true
+		if not _digits_in(String(word)).is_empty():
+			push_error("NOTICE: the refusal put a digit on the menu: '%s'" % String(word))
+			return false
+		if String(word).find("save format") >= 0:
+			push_error("NOTICE: the decoder's own message reached the screen: '%s'" % String(word))
+			return false
+	if not said:
+		push_error("NOTICE: the menu says nothing about the save it refused: %s" % str(words))
+		return false
+	_tap(KEY_ESCAPE)
+	await process_frame
+	if _state(main) != Session.State.PLAYING:
+		push_error("NOTICE: Escape did not give the street back after the refusal")
+		return false
+	print("NOTICE OK a save from another build leaves the run where it was and says one sentence, with no digit and none of the decoder's own message")
+	return true
+
+
+# --- VOLUME -------------------------------------------------------------------------------------
+
+# The settings sheet's volume row, and the first thing in this tree ever to reach `AudioServer`.
+# Half way is half way in decibels, nought is mute -- and the mute half is the one that needed a
+# decision, because `ui/prefs.gd`'s opacity clamp would have made the leftmost notch a game you
+# can still hear. The textual halves are the dead-socket question from both ends: the sfx node
+# has to reach the bus at all, and main.gd's prefs callback has to reach the sfx node.
+func _the_volume_row_reaches_the_bus(main: Node) -> bool:
+	var sfx: Variant = main.get("_sfx")
+	if sfx == null or not (sfx as Node).has_method("apply_volume"):
+		return _skip("VOLUME", "the scene built no sfx node with a volume to apply")
+	var was: float = UiPrefs.volume()
+	UiPrefs.set_volume(0.5)
+	main.call("_on_ui_prefs_changed")
+	var half: float = AudioServer.get_bus_volume_db(0)
+	if absf(half - linear_to_db(0.5)) > 0.01:
+		UiPrefs.set_volume(was)
+		main.call("_on_ui_prefs_changed")
+		push_error("VOLUME: half volume put the bus at %.3f dB, not %.3f" % [half, linear_to_db(0.5)])
+		return false
+	UiPrefs.set_volume(0.0)
+	# Read *before* the restore below, not after: the first cut of this lane put the row back to
+	# where it found it and then printed `UiPrefs.volume()` in the failure message, so a clamped
+	# nought was reported as the value it had been restored to. A gate that blames the wrong
+	# number is worse than no gate.
+	var stored: float = UiPrefs.volume()
+	if stored != 0.0:
+		UiPrefs.set_volume(was)
+		main.call("_on_ui_prefs_changed")
+		push_error("VOLUME: nought came back as %.3f; the opacity floor is clamping the volume row" % stored)
+		return false
+	main.call("_on_ui_prefs_changed")
+	var mute: float = AudioServer.get_bus_volume_db(0)
+	UiPrefs.set_volume(was)
+	main.call("_on_ui_prefs_changed")
+	if mute > -60.0:
+		push_error("VOLUME: nought on the row left the bus at %.3f dB, which is not mute" % mute)
+		return false
+	var sfx_src: String = FileAccess.get_file_as_string("res://presentation/sfx.gd")
+	if sfx_src.find("AudioServer.set_bus_volume_db") < 0:
+		push_error("VOLUME: presentation/sfx.gd never reaches AudioServer, so the row moves nothing a player hears")
+		return false
+	if _function_body(MAIN_GD, "_on_ui_prefs_changed").find("apply_volume") < 0:
+		push_error("VOLUME: main.gd's prefs callback never applies the volume, so the slider is silent until a reboot")
+		return false
+	var rows: String = ""
+	for line in FileAccess.get_file_as_string("res://ui/settings_panel.gd").split("\n"):
+		if String(line).find("\"key\": \"volume\"") >= 0:
+			rows = String(line)
+	if rows.is_empty():
+		push_error("VOLUME: the settings sheet has no volume row, so nothing on screen moves the bus")
+		return false
+	print("VOLUME OK half way is %.2f dB, nought is %.2f dB and is stored as nought, the sheet has the row and main.gd's callback applies it" % [half, mute])
+	return true
+
+
+# --- AUTOSAVE -----------------------------------------------------------------------------------
+
+# The slot is written at each dawn (and on the window's close, and on quit to title -- the owner's
+# decision of 2026-09-16). This lane is the dawn half, and its two negatives are what make it an
+# *edge* rather than a phase: an ordinary tick writes nothing, and a run that is already over
+# writes nothing at the very same tick, because a run-over slot is one the title would refuse to
+# offer and the player would find their run gone.
+#
+# It runs last on this scene: it leaves the clock on the eve of day two.
+func _a_dawn_writes_the_slot(main: Node) -> bool:
+	var world: Variant = main.get("world")
+	if _state(main) != Session.State.PLAYING:
+		return _skip("AUTOSAVE", "the scene is not playing, so no frame will reach the edge")
+	_remove_save()
+	_frames(main, 5)
+	if FileAccess.file_exists(SAVE_PATH):
+		push_error("AUTOSAVE: five ordinary ticks wrote a save")
+		return false
+	var dawn: int = Clock.tick_on_day(2, 0.0)
+	if Clock.phase_of(dawn) != Clock.Phase.Dawn or Clock.phase_of(dawn - 1) == Clock.Phase.Dawn:
+		return _skip("AUTOSAVE", "the tick this lane calls dawn is not the first tick of a day")
+	world.tick = dawn - 1
+	main.set("accumulator", 0.0)
+	_frames(main, 1)
+	if not FileAccess.file_exists(SAVE_PATH):
+		push_error("AUTOSAVE: the first tick of day two wrote no save")
+		return false
+	var decoded: Dictionary = SimSave.decode_save(FileAccess.get_file_as_string(SAVE_PATH))
+	if decoded.has("__error"):
+		push_error("AUTOSAVE: the dawn save will not decode (%s)" % String(decoded["__error"]))
+		return false
+	var at: int = int((decoded.get("meta", {}) as Dictionary).get("savedAtTick", -1))
+	if at != dawn:
+		push_error("AUTOSAVE: the dawn save is stamped tick %d, not the dawn tick %d" % [at, dawn])
+		return false
+	# And the same edge with the run already over.
+	_remove_save()
+	world.tick = dawn - 1
+	world.runOver = true
+	main.set("accumulator", 0.0)
+	_frames(main, 1)
+	var wrote: bool = FileAccess.file_exists(SAVE_PATH)
+	world.runOver = false
+	main.call("_enter_state", Session.State.PLAYING)
+	if wrote:
+		push_error("AUTOSAVE: a finished run wrote a save at the dawn edge; the title would offer a run that is over")
+		return false
+	print("AUTOSAVE OK the first tick of a day writes the slot stamped on that tick, an ordinary tick writes nothing, and a finished run writes nothing at the same edge")
+	return true
 
 
 # --- SCENE ------------------------------------------------------------------------------------
@@ -1103,7 +1715,63 @@ func _the_keys_live_in_the_router() -> bool:
 	if router_src.find("OS.is_debug_build()", f8) < 0:
 		push_error("SOCKET: F8 is bound without an OS.is_debug_build() guard; a player can open the dev menu")
 		return false
-	print("SOCKET OK main.gd handles no input, the router has _input, _unhandled_input and pump, _ready builds it, _process pumps it, F2 is gone and F8 is debug-only")
+
+	# The second half of the split: the run's lifecycle lives in the session, the shell is built,
+	# and main.gd's frame loop reaches both. Every one of these is a socket the lanes above would
+	# still pass without -- a session whose save nothing calls, a shell nothing stands up.
+	var session_src: String = FileAccess.get_file_as_string(SESSION_GD)
+	if session_src.is_empty():
+		push_error("SOCKET: could not read %s; the run's lifecycle has nowhere to live" % SESSION_GD)
+		return false
+	# `\nfunc` and `\nstatic func` both, because `has_continue` is static -- the title asks it
+	# before anything has been loaded -- and a needle that only knew one of the two spellings
+	# would have gone red against a file that was right.
+	for fn in ["boot(", "new_run(", "save(", "load(", "has_continue(", "autosave_if_dawn("]:
+		if not session_src.contains("\nfunc %s" % fn) and not session_src.contains("\nstatic func %s" % fn):
+			push_error("SOCKET: %s has no `func %s`" % [SESSION_GD, fn])
+			return false
+	# The call as written, not the bare word: `_process` has a comment about the autosave edge and
+	# another about the end of the run, and a needle a comment can satisfy cannot fail
+	# (CLAUDE.md's READ_KEYS lesson).
+	var proc: String = _function_body(MAIN_GD, "_process")
+	for needle in ["session.call(\"autosave_if_dawn\"", "SessionRes.State.RUN_OVER"]:
+		if not proc.contains(needle):
+			push_error("SOCKET: main.gd's _process does not contain `%s`, so the dawn edge or the end of the run is never seen" % needle)
+			return false
+	if not _function_body(MAIN_GD, "_ensure_ui").contains("res://ui/shell.gd"):
+		push_error("SOCKET: main.gd's _ensure_ui never builds the shell, so there is no title, menu or run-over screen")
+		return false
+	if not _function_body(MAIN_GD, "_notification").contains("NOTIFICATION_WM_CLOSE_REQUEST"):
+		push_error("SOCKET: main.gd's _notification never answers the window's close request")
+		return false
+	# The boot path moved whole. `_boot_world` is gone outright; `_save` and `_load` survive as the
+	# two keys' forwards and must reach the session rather than keep their own copy of the slot --
+	# two paths to one file is how F5 and the pause menu's own row come to mean different things.
+	if main_src.contains("\nfunc _boot_world("):
+		push_error("SOCKET: main.gd still owns _boot_world; the boot path belongs to the session now")
+		return false
+	for fn in ["_save", "_load"]:
+		var body: String = _function_body(MAIN_GD, fn)
+		if body.is_empty():
+			continue
+		if not body.contains("session.call("):
+			push_error("SOCKET: main.gd's %s does not go through the session" % fn)
+			return false
+		if body.contains("SimSave") or body.contains("PlatformStorage"):
+			push_error("SOCKET: main.gd's %s still writes the slot itself beside the session's copy" % fn)
+			return false
+	# And the shell has the router's attention: a focus at the front of the order, a row in the
+	# table that says what still fires under it, and a hand-off of the event itself.
+	if InputMapRes.FOCUSES.is_empty() or String(InputMapRes.FOCUSES[0]) != "shell":
+		push_error("SOCKET: 'shell' is not at the front of the router's focus order: %s" % str(InputMapRes.FOCUSES))
+		return false
+	if not (InputMapRes.ALLOWED as Dictionary).has("shell"):
+		push_error("SOCKET: the router's ALLOWED table has no shell row, so the menu's own keys are refused")
+		return false
+	if not _function_body(INPUT_MAP_GD, "_input").contains("_shell.call(\"key\""):
+		push_error("SOCKET: the router never hands a key to the shell, so the menu cannot be driven")
+		return false
+	print("SOCKET OK main.gd handles no input and owns no boot, the router has _input, _unhandled_input and pump and a shell focus at the front, the session has boot, new run, save, load, continue and the dawn edge, _ready builds the router, _ensure_ui builds the shell, _process pumps and autosaves and ends the run, _notification answers the close, F2 is gone and F8 is debug-only")
 	return true
 
 

@@ -23,7 +23,10 @@ drifting, so count it there rather than trusting this line) and exits 0, `npm te
 job runs those plus typecheck, lint and format; its `performance` job runs the two TypeScript
 benchmarks.
 
-The game is playable — `npm run godot:run`, needs a display. It boots on day 1 in daylight with
+The game is playable — `npm run godot:run`, needs a display. Since the alpha shell landed it
+**boots to a title** (new run · continue when there is a save · quit) drawn over the district it
+is about to play, Escape pauses to a menu, and the run ends on a screen that speaks the
+chronicle. Behind that it is day 1 in daylight with
 **three colonists** (you, Mara, and Ellis — the bigger-colony decision), and the survival loop is
 **on**: `SimShambler.GRABS_ENABLED` ships `true`, so a shambler in reach swipes, closes into a
 hold, bites, and a bite can infect. Wounds bleed; pressure, bandaging, rescue and recovery are all
