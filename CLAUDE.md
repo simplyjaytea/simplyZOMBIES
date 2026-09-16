@@ -107,6 +107,7 @@ npm run godot:m2:fog       # sight collapsed both ways, one content number → M
 npm run godot:ban:healthbar  # the health-bar ban   → BAN_HEALTH_BAR_OK
 npm run godot:check:appearance # the sprite pipeline → APPEARANCE_OK
 npm run godot:check:hud      # HUD speaks in prose   → HUD_OK
+npm run godot:check:play     # the gate that plays it: boots the scene, presses keys → PLAY_OK
 npm run godot:check:respond  # the antibiotics word  → RESPOND_OK
 npm run godot:check:camera   # smoothed follow, shake → CAMERA_OK
 npm run godot:check:light    # sight-derived wash, lit ∩ seen pools → LIGHT_LOOK_OK
@@ -126,7 +127,7 @@ npm run check:routing    # AGENTS.md's routing table resolves; every check_*.gd 
 npm run check:timing     # the per-gate timing table names every mode the chain ran → TIMING_OK
 ```
 
-Those are the ones worth naming, not all of them: `godot:m2` chains **77**, and the authoritative
+Those are the ones worth naming, not all of them: `godot:m2` chains **78**, and the authoritative
 list is the `godot:m2:chain` script in `package.json` (`godot:m2` itself is
 `node scripts/m2-chain.mjs`, which reads that list and runs it) — read it there rather than
 trusting a copy here, because a copy here is one more thing that drifts. Run an individual gate

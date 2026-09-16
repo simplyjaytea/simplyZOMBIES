@@ -484,18 +484,7 @@ at a time; the first and the sixth touch disjoint files and may run beside them.
 the order they land:
 
 - ~~**Per-gate wall time**~~ — **landed**, see the record.
-- **The play gate.** `godot/check_play.gd` (`npm run godot:check:play`, in the chain) boots
-  `res://presentation/main.tscn` headless, pushes keys through the viewport and steps the real
-  frame loop: ticks advance and P stops them; WASD moves the body and release stops it; Tab and
-  Esc open what they say, in the peel order; F5 then F9 round-trips and a corrupt slot leaves the
-  world untouched; **C pushes exactly one camp command and no stance, Ctrl+C exactly one stance
-  and no camp** — red against the parent commit, which is the double bind this gate found;
-  `_draw` completes by day and by night, proved by a line at its end that an aborted draw never
-  reaches; the scene driven is the scene `project.godot` ships; the key the gate presses is the key
-  the legend names; under a minute. The run-over lane skips loudly until the shell exists. Lands
-  with the minimal C/Ctrl fix in the same commit, because a gate cannot land red in the chain.
-  *Files:* `godot/check_play.gd`, `godot/presentation/main.gd` (the stance lines and the camp
-  arm only), `godot/ui/legend.gd`, `scripts/run-godot.mjs`, `package.json`, `AGENTS.md`'s table.
+- ~~**The play gate**~~ — **landed**, see the record.
 - **The input split.** Keys move to `godot/presentation/input_map.gd`, a child Node with its own
   `_input` and `_unhandled_input` so every needle that read `_input` follows by one path constant
   (`check_web_look`, `check_vehicles` three times, `check_inventory`); one `BINDINGS` table, the
@@ -7266,6 +7255,61 @@ not a to-do list:
   --camera             0.27  0
   TOTAL             2986.33
   ```
+- **The alpha shell** — ~~the play gate~~ **landed** 2026-09-16 (`npm run godot:check:play` →
+  **`PLAY_OK`**, eleven lanes, 13.0 s of a 60 s budget, measured inside a green 78-gate chain),
+  the first gate in this tree that plays
+  the game. Everything else either drives the sim with no screen or reads a presentation file as
+  text; `test/project_smoke.gd` awaits one frame and asks whether a world exists. So the whole
+  presentation layer — input, the frame loop, save and load, and 1,250 lines of drawing — was
+  executed by nothing, and a null dereference on night three would have passed all 77 gates.
+  `godot/check_play.gd` boots `res://presentation/main.tscn` headless, pushes real key events
+  through the viewport with `root.push_input` and runs the real frame loop by calling
+  `main._process(1/20)`. Both mechanisms are deliberate: `push_input` is synchronous and walks
+  the engine's own `_input` → GUI → `_unhandled_input` order, so the gate still reaches the
+  handler after the input split moves it out of `main.gd` (calling `main._input` directly would
+  have become a dead socket the day that lands, and `Input.parse_input_event` buffers to the next
+  frame and mutates the global `Input.is_key_pressed` the game itself reads). The scene's own
+  `_process` is switched off while the gate drives, and the boot frame's accumulator zeroed, so a
+  lane can count ticks. The lanes: **TICKS** (20 frames, 20 ticks; P, pressed as a key, holds the
+  world still and gives it back), **WALK** (held W walks 4.10 m north, release stops it inside
+  0.000 m, W+D sums to the diagonal 1,−1 read off the pumped command rather than off a position
+  that a wall could also explain), **SHEET** (Tab peels all four things `_set_inventory_open`
+  owns and gives them back), **SETTINGS** (Escape closes the legend and leaves settings shut —
+  the peel order main.gd's own comment states — and opens it only on the second press),
+  **ROUNDTRIP** (F5 writes a decodable save, F9 restores the tick and the body to within 0.001 m,
+  and a slot that is not a save at all leaves the live world untouched), **CAMP-KEY**, **DRAW**,
+  **SCENE** (the scene driven is `project.godot`'s `run/main_scene`), **KEYS** (every one of the
+  eleven keys the gate presses has a legend row, matched as whole tokens because "C" is inside
+  "Ctrl+C"), **BUDGET**, and **RUN-OVER**, which skips.
+  **CAMP-KEY was run red against the parent commit first**, the way `check_camera.gd`'s SHORT STEP
+  lane was proved: ``CAMP-KEY: C pushed 1 `stance` commands the press had no business pushing``.
+  That is the double bind the audit found (docs/30, "The alpha shell, 2026-09-16") — `C` fell
+  through the camp arm of the match *and* the walk-stance line below it, so standing up from a
+  crouch also moved home. The minimal fix rides in this commit, because a gate cannot land red in
+  the chain: camp **keeps C** and the ladder moved onto **Ctrl** by the owner's decision — Ctrl+Z
+  prone, Ctrl+C crouch, Ctrl+S stand, Ctrl+V jog, Shift still the sprint latch, Ctrl+W never
+  bound. The camp arm reads `ke.shift_pressed` off the event rather than `Input.is_key_pressed`,
+  which is what makes a strike injectable at all; Ctrl-modified keys are kept out of the held
+  movement set, so Ctrl+S stands without stepping backwards (the lane asserts `_held` directly);
+  and `legend.gd`'s Move group names the ladder as Ctrl, with the key column widened for it. The
+  lane now proves C → exactly one `camp.establish` and no stance, Shift+C → one `camp.abandon`,
+  Ctrl+C → one `stance` on rung 1 and no `camp.*`, and its predicate is shown to bite on three
+  fabricated pending lists first.
+  **DRAW** is the reader assertion the dead-socket rule asks for: one line at the very end of
+  `_draw`, `_drew_tick = int(world.tick)`, is the only thing in `main.gd` that exists for a gate,
+  and it is the difference between "the engine called `_draw`" and "`_draw` reached the bottom" —
+  an aborted draw never gets there. The lane runs the draw path on day one *and* on night three
+  (the wash, the light pools and the fog are a different set of branches, and 2 a.m. on day three
+  is exactly where nobody had looked), and its true negative hides the node and demands the
+  counter stay where it was put. Headless is not an excuse: the dummy rendering driver calls
+  `_draw` and throws the commands away.
+  **RUN-OVER skips, loudly** (`RUN-OVER SKIP the shell does not exist yet; the lane lands with
+  presentation/session.gd`, named again on the `PLAY_OK` line) because there is nothing to assert
+  yet — the last survivor dies, `world.runOver` goes true, the HUD prints one line and the sim
+  keeps ticking over the corpse. The lane is **red if `presentation/session.gd` ever exists while
+  it is still skipping**, so the shell cannot land without turning it on. Not proved here and
+  named rather than assumed: that the web export's `preventDefault` keeps Ctrl+S out of the
+  browser's save dialogue, which is a published-build check in the walkthrough piece.
 - **Death & succession** — ~~the colony morale hit on a death~~ **landed** (`godot:m2:needs`,
   GRIEF and ONCE), leaving the balance-grid proof that "the run ends only when the last survivor
   dies". docs/04 lists **grief** and **witnessing a death** as two separate negative mood sources
