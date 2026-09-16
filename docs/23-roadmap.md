@@ -1070,9 +1070,8 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   record's Kernel & review sweep bullet, which says what is still not closable on Windows).
 - ~~**A missing schema silently disables validation for a whole content type.**~~ **Fixed
   2026-09-13** (`godot:validate`, SCHEMA-COVERAGE; the record's Kernel & review sweep bullet).
-- **`recorded` grows without bound.** `SimCommandQueue.recorded` deep-copies every command ever
-  pushed and is read only by `parity_snapshot`. In a played session that is every movement command
-  of every tick, kept for the life of the run.
+- ~~**`recorded` grows without bound.**~~ **Fixed 2026-09-16** (`godot:m2:save`, RECORD; the
+  record's Kernel & review sweep bullet).
 - ~~**`deep_pockets` is computed in the wrong scope.**~~ **Fixed 2026-09-13** (`godot:m2:gear`,
   POCKETS, and `godot:m2:stats`, GEAR; the record's Kernel & review sweep bullet).
 - ~~**`merge_into_stack` reads a failure as a success.**~~ **Fixed 2026-09-13**
@@ -7837,6 +7836,25 @@ not a to-do list:
       `try_reload_world` does exactly that swap, as it has since R5. The owner chose to keep the
       swap and add the detection for now; the call itself is in `HANDOFF.md`'s waiting list.
 
+- **Kernel & review sweep: `recorded` no longer grows without bound** (`godot:m2:save`, RECORD,
+  2026-09-16). `SimCommandQueue.recorded` deep-copied every command ever pushed and was read only
+  by `parity_snapshot`, so a played session grew it by every movement command of every tick, for
+  the life of the run — a memory leak in the one thing the alpha is about, a session somebody
+  plays. Recording is opt-in now: `record` defaults `false`, and `take()` only appends when it is
+  on. The one caller that reads `recorded` back — R1 parity's `run_fixture`, into
+  `parity_snapshot`'s `"commands"` key, diffed against the frozen fixture under `godot/parity/` —
+  turns its own queue's `record` on before stepping, so `npm run godot:test` stays byte-identical
+  (`R1_PARITY_OK`, unchanged). `check_r6_soak.gd`'s input-loss lane, which reads `recorded` back
+  directly, does the same. The RECORD lane in `check_m2_save.gd` is three assertions: a world
+  booted the default way, stepped 12 ticks with a movement command pushed every tick, ends with
+  `recorded.size() == 0` (true positive — proved red against the shipped code first:
+  `RECORD default: recorded held 12 entries with record left false`, `M2_SAVE_FAIL`, exit 1); the
+  identical shape with `record = true` holds exactly 12 (true negative, so the zero above is the
+  flag working rather than the append having quietly broken for everyone); and a reader check that
+  isolates `run_fixture`'s own function body and asks for the exact line `commands.record = true`,
+  not a substring search a comment could satisfy (CLAUDE.md's `begins_with("const READ_KEYS")`
+  precedent) — reverting the fix reds all three. `recorded` is not part of the save format
+  (`world.gd`'s `snapshot()`/`restore()` never touch it), so nothing needed to change there.
 - **Kernel & tooling: the routing table** (`npm run check:routing`, `ROUTING_OK`, 2026-09-06).
   `AGENTS.md` carries a routing table — by kind of work and by system: what to read first, where
   the code lives, which gate judges it, where the record goes — and a Node gate judges the table
