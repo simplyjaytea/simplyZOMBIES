@@ -517,9 +517,7 @@ the order they land:
   reach run-over and start again, and the Ctrl+S web-build check — all four sit behind **The
   shell** above and cannot be driven until it lands.
 - *Named, not in the arc:* **a seed you can type** (the web build has no command line, so the
-  fixed town is the only town it can boot); **the ladder names its rung** (`_use_context` split
-  into a pure rung read and an actor, so the action line can name the top rung of E rather than
-  only what the existing read models say).
+  fixed town is the only town it can boot).
 
 **Art & renderer — overcast or torchlight, decided by the owner (2026-09-08), on the Dungeon
 Settlers spine.** The direction is docs/30's "Overcast or torchlight": a hybrid that keeps the
@@ -7364,6 +7362,41 @@ not a to-do list:
   `_update_hud` never hands the action line to the HUD"*. `check_inventory`'s `var keys: String`
   needle is untouched, and the hint still reads "Esc settings" because the shell slice that
   renames it had not landed in this tree.
+- **The alpha shell** — ~~the ladder names its rung~~ **landed** 2026-09-16 (`npm run
+  godot:check:hud` → **`HUD_OK`**, lane **RUNG**). `SimFortify._use_context` used to decide and
+  act on the whole E ladder in one pass; the six upper rungs — dismount, the loose item, the
+  container, the door, a waiting stranger, the car — already had their own HUD read models
+  (`SimVehicles.hud_clause`, `SimContainers.hud_clause`, `look_at`'s window/noisemaker/device), so
+  what the bar could never say was the rest of it: sleep, the fire, a filter, the latrine, a
+  bench, a window it is actually facing, the trap, the bait, a lift, a barricade. `SimFortify.
+  rung_of(world, actor) -> Dictionary` is the split — a pure read, `{"verb", "target", "prose"}`,
+  that returns `{}` while one of the six upper rungs would fire (asked with `_door_would_toggle`,
+  `SimVehicles.nearest_in_reach` and the rest, never by mutating to find out) and otherwise names
+  the rung `_use_context` would actually take, in the same order, down to the same fallback ("lay
+  a trip alarm" on any open tile with none laid yet). Two small pure predicates carry a decision
+  that used to be a side effect: `_would_boil` and `_would_purify` read a lit campfire and
+  `needs.gd`'s own `_carried_treatable` / `_carried_purifier` rather than spending the water to
+  find out, and `_door_would_toggle` reads `door_state` rather than opening or closing the door.
+  `_use_context` is unchanged through the car section — `check_vehicles.gd`'s SOCKETS needle still
+  finds `SimVehicles.dismount(`, `mount(`, `nearest_in_reach(`, `at_hood(`, `check_hood(` and
+  `begin_refuel(` inside it, because nothing there moved — and past it now calls `rung_of` once
+  and dispatches on `rung.verb`, so the ladder is decided once and acted on once rather than
+  decided-and-acted at every rung in turn. `hud.gd`'s `_reach_clause` asks `SimFortify.rung_of`
+  between the look-at group and the cupboard/car clauses on purpose: those two already answer for
+  themselves, so naming a lower rung ahead of them would be the HUD contradicting its own key.
+  The **RUNG** lane: standing at reach of a boarded window with an empty `look` dict (so the
+  pre-existing window clause cannot be the one answering), the bar reads `"E — board up the
+  window"`, digit-free; three tiles off the same window and facing a wall (open floor would offer
+  the free alarm rung, which is not "nothing"), the bar reads `""`; a fabricated
+  `"E — sleep for 8 hours"` proves the scanner would still catch a rung that broke the ban; and,
+  the dead-socket half past a stripped comment, `_use_context` calls `rung_of` on a line of its
+  own (`var rung: Dictionary = rung_of(world, actor)`) and `_reach_clause` reaches
+  `SimFortify.rung_of(` too. Red first, against the code before this slice: *"RUNG: beside a
+  boardable window with no look-at, the bar does not name rung_of's word: ''"* — `rung_of` did not
+  exist and the empty `look` dict left `_reach_clause` nothing to answer with. **What it does
+  not do:** it names E's top rung only; it does not enumerate the ladder, and a rung already
+  covered by its own read model — mount, refuel, a hood, a container — stays silent here rather
+  than being renamed a second way.
 - **The alpha shell** — ~~the input split~~ **landed** 2026-09-16 (`npm run godot:check:play` →
   **`PLAY_OK`**, lanes **FOCUS**, **LEGEND**, **KEYS** and **SOCKET** beside the eleven the play
   gate already had; 20.2 s of its 60 s budget). Every key the game reads now lives in
