@@ -106,6 +106,11 @@ const WORLD_GD: String = "res://sim/world.gd"
 const BOOT_GD: String = "res://sim/boot.gd"
 const SHAMBLER_GD: String = "res://sim/modules/shambler.gd"
 const MAIN_GD: String = "res://presentation/main.gd"
+# The keys moved out of main.gd into their own child node with the alpha shell's input split
+# (docs/30, "The alpha shell, 2026-09-16"). Three needles in this file read `_input` and the
+# named interact key; they follow by this one constant, which is the whole reason the split put
+# the handlers in a Node with a function still called `_input`.
+const INPUT_MAP_GD: String = "res://presentation/input_map.gd"
 const DRESSING_GD: String = "res://presentation/dressing.gd"
 const DASH_GD: String = "res://ui/dashboard.gd"
 const FORTIFY_GD: String = "res://sim/modules/fortify.gd"
@@ -1014,11 +1019,14 @@ func _e_is_the_door(stash: Dictionary) -> bool:
 		return false
 	_v(w, car)["speed"] = 0.0
 	# Nothing in presentation pushes the toggle any more: E is the one door.
-	var input_body: String = _function_body(MAIN_GD, "_input")
-	if input_body.contains("SimVehicles.TOGGLE") or input_body.contains("vehicle.toggle"):
-		push_error("E-KEY: main.gd still pushes the toggle from a key of its own; the owner's decision is E")
+	var input_body: String = _function_body(INPUT_MAP_GD, "_input")
+	if input_body.is_empty():
+		push_error("E-KEY: could not read _input out of %s" % INPUT_MAP_GD)
 		return false
-	print("E-KEY OK a knife at the door is picked up before the car; with nothing loose E gets in; from the wheel E gets out and leaves the knife under the car; at speed E does nothing; no key of its own remains in main.gd")
+	if input_body.contains("SimVehicles.TOGGLE") or input_body.contains("vehicle.toggle"):
+		push_error("E-KEY: the key router still pushes the toggle from a key of its own; the owner's decision is E")
+		return false
+	print("E-KEY OK a knife at the door is picked up before the car; with nothing loose E gets in; from the wheel E gets out and leaves the knife under the car; at speed E does nothing; no key of its own remains in the router")
 	return true
 
 
@@ -1397,14 +1405,14 @@ func _the_hood_speaks_in_words(stash: Dictionary) -> bool:
 	if not SimVehicles.hood_view(w, car)["prose"].contains("dry") or bool(SimVehicles.hood_view(w, car)["runs"]):
 		push_error("HOOD: a dry tank reads %s" % str(SimVehicles.hood_view(w, car)))
 		return false
-	# The interact key is named once in main.gd and the legend says what E does at a car.
-	var main_code: String = _code_of(MAIN_GD)
+	# The interact key is named once in the key router and the legend says what E does at a car.
+	var main_code: String = _code_of(INPUT_MAP_GD)
 	if not main_code.contains("const INTERACT_KEY: Key = KEY_E"):
-		push_error("HOOD: main.gd does not name INTERACT_KEY as E")
+		push_error("HOOD: %s does not name INTERACT_KEY as E" % INPUT_MAP_GD)
 		return false
-	var input_body: String = _function_body(MAIN_GD, "_input")
+	var input_body: String = _function_body(INPUT_MAP_GD, "_input")
 	if not input_body.contains("INTERACT_KEY") or input_body.contains("KEY_E:"):
-		push_error("HOOD: main.gd's _input does not route the named interact key, or still matches a literal E")
+		push_error("HOOD: the router's _input does not route the named interact key, or still matches a literal E")
 		return false
 	var legend: String = _code_of("res://ui/legend.gd")
 	if not legend.contains("\"E\"") or not legend.contains("hood"):
@@ -2449,7 +2457,7 @@ func _the_sockets_are_wired() -> bool:
 		[SHAMBLER_GD, "_gather_survivors", ["\"mounted\"", "\"cab\""], "a driver would be chased and grabbed through the door, or a rider sheltered by a bicycle"],
 		[FORTIFY_GD, "_use_context", ["SimVehicles.dismount(", "SimVehicles.mount(", "SimVehicles.nearest_in_reach(", "SimVehicles.at_hood(", "SimVehicles.check_hood(", "SimVehicles.begin_refuel("], "E would never open a car door or a hood, or pour a can"],
 		[FORTIFY_GD, "register_module", ["\"refuel\""], "E would look under the hood mid-pour and fall through the ladder"],
-		[MAIN_GD, "_input", ["\"use.context\""], "no key would push the context command"],
+		[INPUT_MAP_GD, "_input", ["\"use.context\""], "no key would push the context command"],
 		[MAIN_GD, "_draw_entities", ["\"mounted\"", "\"cab\"", "SimVehicles.ground_point("], "the driver's pawn would draw on the bonnet, or a rider would vanish off a bicycle"],
 		[WORLDGEN_GD, "_vehicle_tails", ["mini(cw, ch) < 2"], "a car-boot site could stand on a bicycle"],
 		[WORLDGEN_GD, "_vehicles", ["width - 1 - breadth"], "a one-wide class would park in a two-wide lane"],
@@ -2467,7 +2475,7 @@ func _the_sockets_are_wired() -> bool:
 		if not missing.is_empty():
 			push_error("SOCKETS: %s::%s does not contain %s; %s" % [check[0], check[1], missing, check[3]])
 			return false
-	print("SOCKETS OK world skips the vehicle component and re-syncs the shadow on restore; boot registers the module and spawns from the manifest; the shambler's gather skips a mounted cab; main draws a rider on an open vehicle; worldgen parks a one-wide body in a one-wide lane and hosts no boot on it; fortify's E ladder mounts and dismounts; main.gd pushes the context command, skips the mounted body, keys its index on the vehicle generation and reads the HUD clause; dressing hashes paint on the home corner and stands the picture on the live ground point; the scanner was proved on a fabricated string")
+	print("SOCKETS OK world skips the vehicle component and re-syncs the shadow on restore; boot registers the module and spawns from the manifest; the shambler's gather skips a mounted cab; main draws a rider on an open vehicle; worldgen parks a one-wide body in a one-wide lane and hosts no boot on it; fortify's E ladder mounts and dismounts; the key router pushes the context command; main.gd skips the mounted body, keys its index on the vehicle generation and reads the HUD clause; dressing hashes paint on the home corner and stands the picture on the live ground point; the scanner was proved on a fabricated string")
 	return true
 
 
