@@ -5085,3 +5085,72 @@ slice running**: the settler lost on seed 31337 was diagnosed rather than assume
 allegiance, no corpse, which is `_turn_with_kit`'s signature — so a bitten settler died, turned,
 and became a zombie the director never placed and cannot refuse. Nothing reconciles that against
 the budget yet, and three slices have now paid for it.
+
+## The alpha shell, 2026-09-16
+
+The owner asked for an audit of the game and a plan to an early alpha that a stranger can play,
+with the building delegated to other models and the planning and the review kept with one. Three
+code-grounded surveys (what a player can do, the health of the tree, the balance evidence) found
+the same thing from three sides: **the systems are far more complete than the loop, and nobody
+has ever played it.** Every playtest the docs mention is prospective; the only campaign evidence
+is the FAST tier, a 64-tile, dusk-only, four-seed proxy that asserts survival rather than measures
+it; the director is silent for seven of ten nights; and the game itself has one scene and no
+shell — no title, no pause menu, no run-over screen, no autosave, and a `main.gd` of 2,200 lines
+that owns input, boot, save and drawing together and is driven by no gate. The owner's answers
+are the decisions below; the pieces are docs/23's what's-left group of the same name.
+
+**What "early alpha" means here** is a capability list rather than a date: move and interact with
+the environment and drive a car; find loot, wield a weapon and fire it; fight zombies and raiders;
+make a camp and recruit; open the inventory and read the body; open the skill web. Every item
+already exists in code. The alpha's work is to prove each is reachable in play, fix what blocks
+it, and wrap it in a shell a stranger can use — not to add systems.
+
+**Net first, split second.** `main.gd` is split only as far as the shell needs — input out, the
+run's lifecycle out — and only after one executing gate boots `main.tscn` and drives it with
+synthetic input. Drawing stays where it is, because sixteen gates read `main.gd` as text and
+following sixteen needles is a slice with no player-visible payoff. The gate drives events
+through the viewport (`push_input`), not by calling `_input` directly, so a moved handler is
+still reached rather than left a dead socket.
+
+**Camp keeps C; the stance ladder moves onto Ctrl.** The audit found C bound twice — the camp
+arm and the walk stance both fire on every press, so standing up from a crouch started moving
+home. Offered a new letter for camp, the owner kept C for the deliberate commitment and moved the
+ladder: Ctrl+Z prone, Ctrl+C crouch, Ctrl+S stand, Ctrl+V jog, Shift still the sprint latch.
+Ctrl+W is never bound because the browser owns it. Ctrl-modified keys leave the movement set, so
+Ctrl+S does not also step back.
+
+**The day stays four real hours.** Shortening the clock or adding a sleep-to-dawn was offered;
+the owner left it for the ten-day playtest, which is the only judge of most first cuts. That
+makes raiders (day 8, a fifth of nights) and the gate beats late-game content inside a session, and
+the owner chose the **dev menu** as the reach: F8 gains a raider band and a stranger, behind the
+same `debug.spawn` command, invisible to a player. The strangers and settlers of the
+population arc reach earlier on their own (a stranger beat on day 5, a settler camp from boot),
+and the walkthrough records which of the bar's items each path proves.
+
+**The shell.** A title over the already-booted world (the smoke and the HUD gates assert a world
+one frame after instantiation, so the title is a state, not a deferred boot): new run, continue
+when a save exists, quit. Esc with nothing open pauses to a menu; P stays the soft pause. The
+run-over screen halts the sim and speaks the chronicle's last lines. **New run boots the fixed
+default town** (seed 20260805) from every screen; the random reroll goes with F2, which is
+**deleted**. **Quit to title autosaves first**, as the window's close request does; autosave also
+writes at each dawn, and on the web build at dawn only. A volume row, the first thing in the tree
+to reach `AudioServer`. No digit anywhere on the shell.
+
+**The HUD keeps its prose model and takes the chrome.** Two cards in `ui/chrome.gd`'s skin, a
+"you" and a "world", the arrays every `check_hud` lane reads untouched; a contextual action line
+that names E, T and H only when a sim read model already says what is there — the sim decides
+the verb, presentation names the key. The design is frozen from mockups with the owner before
+code. The full "top rung of E" read is named as a follow-up rather than folded in, because it
+splits `_use_context` under `check_vehicles`' needles.
+
+**The desk is for any agent.** `AGENTS.md` gains a section written for whichever assistant picks
+the project up — Claude, ChatGPT, Astra, Sol — with the claim mechanism being the branch name and
+the routing table being the map, and no ledger, because a ledger is the drift this repo retired.
+
+**Named for later, so no alpha slice builds across them.** Two voice pieces the owner wants after
+the alpha: the player's own microphone as a noise source in single player, and proximity voice
+for PvPvE with multiplayer. The seam is decided now: the sim never reads a microphone. A platform
+capture measures loudness and pushes a command, the way a shout is a command, so it is recorded,
+replayable and saved like every input and the parity and two-world gates are untouched.
+Calibration is content; it ships off by default. docs/23's Milestone 3A and 3C carry the two
+entries.
