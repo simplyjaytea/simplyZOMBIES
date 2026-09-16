@@ -882,9 +882,10 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
 
 0f. **The camp's four first cuts** (2026-09-10). The seam slice landed home as relocatable
    (`godot:m2:camp`, nine lanes) and took four calls without asking, each one line if re-decided.
-   **The key**: camp is **C**, shift+C to strike, rather than a rung on E's context ladder — the
-   argument is that moving home by accident is worse than one more key, but E-with-a-confirm is a
-   real alternative. **The clock**: establishing costs fortify's ordinary 40-tick channel, because
+   **The key** — **decided 2026-09-16**: camp keeps **C**, shift+C to strike, and the stance
+   ladder that had shared the letter (the audit found both arms firing on every press) moves onto
+   Ctrl — docs/30's "The alpha shell" and docs/23's group of that name; the fix lands with the
+   play gate. E-with-a-confirm was offered again and not taken. **The clock**: establishing costs fortify's ordinary 40-tick channel, because
    the labour cost is the deferred slice; it is currently cheaper than boarding a window and louder
    than one, which is half of the commitment Task 8 asks for. **The footprint**: a camp's rect is
    radius 1 — the tile and everything touching it — which is what the director's quiet floor reads

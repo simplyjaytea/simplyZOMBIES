@@ -464,6 +464,95 @@ system.
 - ~~**The balance re-baseline the arc reserves**~~ — **run** 2026-09-12, see the record. It
   closes the arc.
 
+**The alpha shell — authorised by the owner, 2026-09-16.** The audit that opened this group
+([docs/30](30-decisions.md#the-alpha-shell-2026-09-16)) found the game has one scene and no
+shell: no title, no pause menu, no run-over screen, no autosave, `C` bound to both the camp and
+the walk stance, keys that fire under any open panel, a settings sheet with one row and no
+volume, a legend that re-shows every launch, and a `main.gd` that owns input, boot, save and
+drawing together and is driven by no gate — the smoke awaits one frame and nothing steps the real
+scene with input. The owner's alpha bar is a capability list every item of which already exists
+in code (move and interact, drive; loot, wield, fire; fight zombies and raiders; camp and recruit;
+the inventory and the body; the skill web), so the work is to prove each reachable, fix what
+blocks it, and put a shell around it. The decisions: **net first, split second** — one executing
+gate before anything moves, then input and the run's lifecycle out of `main.gd` while the drawing
+stays where sixteen textual gates read it; **camp keeps C and the stance ladder moves onto Ctrl**
+(Ctrl+Z prone, Ctrl+C crouch, Ctrl+S stand, Ctrl+V jog, Shift the sprint latch, Ctrl+W never);
+**the day stays four real hours**; **new run boots the fixed default town** and F2 goes;
+**quit to title autosaves**; the HUD keeps its prose and takes the chrome; no digits but the day
+counter, no health bar, no name plates. Serial on `main.gd` — pieces two to five are one agent's
+at a time; the first and the sixth touch disjoint files and may run beside them. The pieces, in
+the order they land:
+
+- **Per-gate wall time.** `scripts/run-godot.mjs` prints each gate's wall time and `godot:m2`
+  prints a sorted table at the end, with an assertion under `scripts/` that the table names every
+  mode the chain ran. Node only. The chain is twenty-seven minutes with no attribution today, and
+  every later piece here quotes its own cost from this table. *Files:* `scripts/run-godot.mjs`,
+  `scripts/`, `package.json`.
+- **The play gate.** `godot/check_play.gd` (`npm run godot:check:play`, in the chain) boots
+  `res://presentation/main.tscn` headless, pushes keys through the viewport and steps the real
+  frame loop: ticks advance and P stops them; WASD moves the body and release stops it; Tab and
+  Esc open what they say, in the peel order; F5 then F9 round-trips and a corrupt slot leaves the
+  world untouched; **C pushes exactly one camp command and no stance, Ctrl+C exactly one stance
+  and no camp** — red against the parent commit, which is the double bind this gate found;
+  `_draw` completes by day and by night, proved by a line at its end that an aborted draw never
+  reaches; the scene driven is the scene `project.godot` ships; the key the gate presses is the key
+  the legend names; under a minute. The run-over lane skips loudly until the shell exists. Lands
+  with the minimal C/Ctrl fix in the same commit, because a gate cannot land red in the chain.
+  *Files:* `godot/check_play.gd`, `godot/presentation/main.gd` (the stance lines and the camp
+  arm only), `godot/ui/legend.gd`, `scripts/run-godot.mjs`, `package.json`, `AGENTS.md`'s table.
+- **The input split.** Keys move to `godot/presentation/input_map.gd`, a child Node with its own
+  `_input` and `_unhandled_input` so every needle that read `_input` follows by one path constant
+  (`check_web_look`, `check_vehicles` three times, `check_inventory`); one `BINDINGS` table, the
+  rebind seam; keys gated on which screen has focus, and leaving the street clears held movement;
+  F2 deleted, F8 dev-only and off the legend; the legend stays dismissed through `ui/prefs.gd`.
+  Lanes in the play gate: a held W with the sheet open moves nothing and F pushes no swing; a
+  dismissed legend stays dismissed across a boot and F1 brings it back; every legend key is bound
+  and every binding has a legend row; `main.gd` has no `func _input(` and its `_process` reaches
+  the router. *Files:* `godot/presentation/input_map.gd`, `godot/presentation/main.gd`,
+  `godot/ui/legend.gd`, `godot/ui/prefs.gd`, the four gates named.
+- **The shell.** `godot/presentation/session.gd` owns boot, new run, save, load and a four-state
+  machine (title, playing, paused, run over); `godot/ui/shell.gd` draws the title (new run ·
+  continue when a save exists and is not over · quit, hidden on the web), the pause menu on Esc
+  (resume · save · load · settings · quit to title) and the run-over screen, which halts the sim
+  and speaks the chronicle through a new `SimChronicle.epitaph` that ignores the HUD's window.
+  Autosave at each dawn and on the window's close request (dawn only on the web); quit to title
+  saves first; a volume row that is the first thing to reach `AudioServer`. Boot still happens in
+  `_ready` — the smoke and the HUD gates assert a world one frame in — and the title sits over
+  it. No digit on any of the three screens. Lanes: the sim waits on the title; the continue row
+  appears only with a live save; the run-over screen freezes ticks and new run yields a new world
+  that moves; the dawn edge writes a save and ordinary ticks do not; the close request writes one
+  and the title does not; the bus moves with the row. *Files:* `godot/presentation/session.gd`,
+  `godot/ui/shell.gd`, `godot/presentation/main.gd`, `godot/presentation/input_map.gd`,
+  `godot/presentation/sfx.gd`, `godot/ui/settings_panel.gd`, `godot/ui/prefs.gd`,
+  `godot/sim/modules/chronicle.gd`, `godot/check_play.gd`.
+- **The HUD in the chrome.** Two cards in `ui/chrome.gd`'s skin, a "you" and a "world", the
+  `_left`/`_right` arrays every `check_hud` lane reads untouched and the card headers chrome
+  rather than lines; an action line above the quick strip naming E, T and H only when
+  `SimFortify.look_at`, `SimContainers.hud_clause`, `SimVehicles.hud_clause`,
+  `SimTreatment.context` or `SimShambler.rescue_target` already says what is there — the sim
+  decides the verb, presentation names the key. Design frozen from two or three mockups with the
+  owner first, screenshots under `.hermes/plans/2026-09-16_alpha-hud/`. A new ACTION lane in
+  `check_hud` scans the line for digits and proves the scanner on a fabricated "E — 3 boards".
+  `_update_hud` stays on `main.gd` for the SHEET-COST lane. *Files:* `godot/ui/hud.gd`,
+  `godot/presentation/main.gd` (`_update_hud` only), `godot/check_hud.gd`.
+- **The dev menu reaches a raider band and a stranger.** F8 gains `raider` and `stranger` kinds
+  through the same `debug.spawn` command and the existing spawn paths, so a tester can reach
+  "fight raiders" and "recruit" inside a session without waiting for day eight; invisible to a
+  player. Lane: the spawned band is hostile and carries a web; the stranger is acceptable at the
+  gate. *Files:* `godot/ui/debug_panel.gd`, `godot/sim/modules/debug.gd`, one lane in
+  `godot:m2:raiders` and one in `godot:m2:recruits`.
+- **The capability walkthrough.** One scripted drive per item on the owner's bar through the
+  play gate's harness, with a screenshot: move and interact, drive a car, loot a cupboard, wield
+  and fire, fight a shambler, fight a raider, make camp, recruit, open the inventory and read a
+  wound, open the web, die and succeed, reach run-over and start again; Ctrl+S on the published
+  web build checked by hand, since the browser's own binding cannot be proved headless. What
+  fails becomes a named defect here, fixed if small and in scope, named if not. The result is the
+  alpha's record: which item is proved by which lane, and which is not.
+- *Named, not in the arc:* **a seed you can type** (the web build has no command line, so the
+  fixed town is the only town it can boot); **the ladder names its rung** (`_use_context` split
+  into a pure rung read and an actor, so the action line can name the top rung of E rather than
+  only what the existing read models say).
+
 **Art & renderer — overcast or torchlight, decided by the owner (2026-09-08), on the Dungeon
 Settlers spine.** The direction is docs/30's "Overcast or torchlight": a hybrid that keeps the
 pawn, wall, roof, tree and vehicle spine and takes Zero Sievert's world — the grade, density,
@@ -9330,6 +9419,17 @@ adding more geography:
 6. Named items, unique survivors, remaining modification consumables, traps, and bait (the boot
    colony's two uniques shipped in Milestone 2; the one trap and one bait emitter the slice once
    promised were cut here by the owner on 2026-09-06 — docs/15 is their spec, unchanged)
+7. **The player's own microphone as a noise source** (owner, 2026-09-16 — docs/30's "The alpha
+   shell"). A platform-layer capture measures loudness and pushes a `voice.noise` command with a
+   magnitude, the way a shout is a command; a sim module turns it into a `noise.emitted` at the
+   player's tile. The sim never reads the microphone, so the command is recorded, replayable and
+   saved like every other input and the parity and two-world gates stay untouched. Calibration
+   (the silence floor, what loudness is a shout) is content; off by default, opt-in from the
+   settings sheet with a plain sentence; the HUD says "they can hear you" in prose, never a meter.
+   Its gate proves a fabricated capture level moves the field by the shout arithmetic and that
+   mic-off pushes nothing. Owner calls before it is pickable: default-off versus a first-run
+   prompt; whether raiders hear it as the dead do; whether it counts toward the director's
+   week-peak noise. It is also the capture that Milestone 3C's proximity voice reuses.
 
 That order is deliberate. WIS lookout needs a lookout job; CHA needs relationships; INT needs the web;
 temperature needs weather. CHA trade and WIS raider warnings activate fully when factions arrive in
@@ -9389,6 +9489,14 @@ frame budget, then prove fixed, nomad, and hybrid colonies all have distinct via
 Multiplayer is independent of world range: authoritative host, survivor-versus-survivor play in one
 district, filtered client views, recovery runs, and voice as an emitter. The visibility primitive now
 exists; what remains unproven is per-client filtering, leakage, synchronization, and host cost.
+
+**Proximity voice, for PvPvE** (owner, 2026-09-16 — docs/30's "The alpha shell"). Voice between
+players attenuated by distance and occluded by the same shadowcast walls use for sight, routed
+peer to peer (`WebRTCMultiplayerPeer` is the web build's only seam), and heard by the dead and by
+raiders through the same loudness number Milestone 3A's microphone piece pushes — one capture,
+three listeners. Risk 9 applies: a voice packet carries no position the listener has not already
+earned. Not designed further until the transport, hosting and authority decisions above are the
+owner's.
 
 **Exit criterion:** two clients can play one district without receiving hidden entity or attention
 information, while the host remains deterministic and inside the single-player frame budget.

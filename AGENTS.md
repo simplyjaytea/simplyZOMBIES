@@ -33,10 +33,10 @@ exactly the failure the project keeps re-learning. The pointers:
   work is" section carries the three state facts worth repeating (the survival loop, on since
   2026-09-01; the top-down presentation track, whose art direction is the Dungeon Settlers look
   of 2026-09-03; the dead-socket pattern).
-- `HANDOFF.md` names what is waiting on the owner. Those items — sepsis lethality, whether a roof
-  covers a known building's unseen walls, whether the one-handed weapons need their own
-  silhouettes at 32 px, and how dense a forest stand may get — are **decisions, never picked
-  unilaterally**. Read the list there rather than trusting a count here. (The `GRABS_ENABLED` flip
+- `HANDOFF.md` names what is waiting on the owner. Those items — whether a roof covers a known
+  building's unseen walls, whether the one-handed weapons need their own silhouettes at 32 px,
+  how dense a forest stand may get, the grace-night flip, and the rest of that list — are
+  **decisions, never picked unilaterally**. Read the list there rather than trusting a count here. (The `GRABS_ENABLED` flip
   and the colony-shape call it waited on were decided by the owner 2026-09-01 and are landed; the
   flag record in docs/23 closes with them. The art-style pick was decided 2026-09-01 and
   re-decided 2026-09-03; docs/30 carries both.)
@@ -47,6 +47,43 @@ exactly the failure the project keeps re-learning. The pointers:
   (`survivor.unique.ellis`). The pause that decision put on new NPCs and roster growth was
   lifted on 2026-09-14 (docs/30, "The pause lifted"); the procedural-population arc in docs/23's
   what's left is where the roster grows, one gated slice at a time.
+
+## Working alongside other agents
+
+More than one assistant works on this repository — Claude, ChatGPT, Astra, Sol, or a person —
+sometimes at the same time. Nothing in this section is specific to any of them; where a tool's
+own wrapper exists it is named as a wrapper around the plain command, never as the command.
+
+- **Orient the same way regardless of who you are.** `CLAUDE.md` top to bottom (it is the
+  project's rules, not a Claude-only file), then `HANDOFF.md`, then docs/23's
+  [what's left](docs/23-roadmap.md#whats-left-in-milestone-2). The [routing table](#routing-table)
+  below is the map of which files belong to which system and which gate judges them; `npm run
+  check:routing` keeps it true.
+- **Claim a piece by branch name.** `<agent>/<piece-slug>` — `astra/dev-menu-raiders`,
+  `sol/per-gate-timing`, `claude/<anything>` — pushed early, so `git branch -r` is the live list
+  of who is on what. There is deliberately **no claim ledger in any file**: a list of who holds
+  what is status, this file carries none, and the checkbox ledger this project retired drifted
+  four times for exactly that reason. A pushed branch cannot drift.
+- **Stay on disjoint files.** Pick a piece whose *files* line (each entry in the alpha-shell
+  group names its files; other groups name their system, and the routing table names the system's
+  files) does not overlap a branch already pushed. Some tracks are serial by construction — the
+  alpha shell's pieces two to five all edit `godot/presentation/main.gd` and land one after
+  another on one branch — and a second agent takes a piece beside them rather than one of them.
+- **The gates are the same for everyone.** Before any commit: `npm run godot:m2`; `npm test` as
+  well for anything under `godot/content/`; `npm run check:routing` for anything touching
+  `package.json` scripts, `scripts/run-godot.mjs`, a `godot/check_*.gd` or this table;
+  `npm run sprites:check` after touching `tools/sprites/` or a PNG it generates. The engine
+  install is `bash scripts/setup-web-session.sh` — `.claude/hooks/session-start.sh` is only the
+  wrapper Claude Code on the web runs around it. Expected-noise notes are in
+  [Headless verification](#headless-verification-no-display-needed).
+- **The record discipline is the same for everyone.** A piece lands with its record: deleted from
+  what's left and written into [the record, by
+  system](docs/23-roadmap.md#the-record-by-system) in the same commit, named, gated, measured.
+  Nothing on `HANDOFF.md`'s owner list is decided by any agent; a piece that needs one of those
+  decisions stops and asks.
+- **Handing a piece over mid-flight.** Push the branch. Say in the last commit message whether
+  the gate is red or green and which lane. Put the next step in the pull request body, not in a
+  status file. The next agent starts from the branch and that body, and from nothing else.
 
 ## Routing table
 
@@ -215,6 +252,8 @@ drift, and `format:check` flagging `.scratch/*.html`) that have all since been *
 regression, most likely yours.
 
 One thing that is *not* environment breakage and is not yours either: `npm run godot:m2` takes
-about **twelve minutes** here (measured 2026-09-04; `CLAUDE.md` carries the figure).
-`godot:m2:balance` (~4.5 min) and `godot:m2:lethality` are most of it.
+about **twenty-seven minutes** here (26m45s at 69 gates, measured 2026-09-12; the chain has grown
+since, and `CLAUDE.md` carries the figure). `godot:m2:balance` (~4.5 min) and `godot:m2:lethality`
+are most of it; the per-gate timing table the alpha-shell group adds is where the real number
+lives once it lands.
 Run the single `godot:m2:<name>` gate you are iterating on and save the chain for the commit.
