@@ -4190,6 +4190,156 @@ points earlier than before. A fixture that hand-writes points and owns nothing i
 can feel, and four seeds before and after each of nine pieces is an overnight job apiece.
 
 
+## The pause lifted: procedural people, raiders and zombies, 2026-09-14
+
+On 2026-09-01 the owner grew the boot colony to three and paused new NPCs and roster growth so
+the survival loop could be flipped on and measured with the colony held still. Thirteen days
+later the owner opened a plan to "procedurally generate new NPCs, raiders, and of course zombies
+on the map" and answered the questions the plan turned on. This entry records those answers,
+because between them they lift a standing pause and widen the milestone in one direction docs/18
+had put in Milestone 3. The plan itself is
+`.hermes/plans/2026-09-14_procedural-population-arc.md`; the pieces are docs/23's group of the
+same name.
+
+**The pause is lifted.** The sentence in `CLAUDE.md` and `AGENTS.md` that said "new NPCs and
+adjacent feature scope stay paused" is amended in this commit rather than deleted, because the
+half of it that was a decision — three at boot — still stands. What changes is that the roster
+may grow again, and how it grows is content and a generator rather than a fourth JSON under
+`survivors/uniques/`.
+
+**"Procedural" means three things at once, and the census says which the tree already has.**
+The owner chose all three readings: *individuals vary* (each raider and zombie a distinct body —
+kit, aptitudes, look, features, condition), *bodies appear by new paths* (strangers met on runs,
+roaming bands, zombies inside buildings, not only the gate and the district edge), and *more kinds
+as content* (docs/14's stalker, runner, armoured and heavy; docs/18's raider roles). Survivors
+already have the first — `SimRecruits.roll` has drawn a name, traits, a backstory, an age and a
+look since the pipeline landed — and only ever arrive by the gate on three fixed days. Raiders
+have none of the three: two archetypes, every body identical, one entry path. Zombies have the
+second at the edge and in the boot scatter, and the mix is three ids and three constants in
+`SimRoster.pick_type` rather than content. So the arc is mostly readers and paths, not pools.
+
+**Survivors: strangers in the district, and a settler group with its own camp.** Offered the
+gate beats made richer, strangers hidden in buildings, or both plus another group, the owner took
+the widest. docs/18's factions stay Milestone 3 *as a system*: what this adds is one more string
+in `SimAllegiance`, a camp sited off the layout, and bodies that hold it — no standing, no
+reputation, no trade. The seam docs/30's raiders entry said factions would widen is the one they
+widen.
+
+**Zombies: each body differs, docs/14's kinds, and dormant bodies inside buildings.** All three,
+by the owner. Variance is content (`variance: {tints, body, crawlers}` on the type) and the
+picked values are stored on the body so the draw loop grows a pass-through and not an id branch.
+New kinds ship tinted on the shambler's rig until art exists — a silhouette is `sprites:check`
+work and its own piece. Armour on the dead closes docs/23's open "Armour on anything that is not
+a survivor", because `armor_coverage_of` already reads the target's equipment with no faction
+filter and a zombie that wears a vest resists with no new arithmetic.
+
+**Three structural calls, offered with a recommendation and taken as recommended.**
+
+- **A raider carries a `raider.person` record, never `identity`.** `identity` is read by five
+  things — the draw path's "is this a survivor", `_succession_pick`, the job scheduler,
+  `is_person`, and the director's unique-death lull — and a raider with one becomes a possible
+  heir. A person record beside the `raider` component gives them a name, an age, features and
+  a look that reach the chronicle after a death and nothing else, which is also what the
+  hardcore contract's information clause wants: a tint varies who a raider is, not what they
+  carry.
+- **Dormant zombies are a manifest written at world generation and spawned at boot**, the
+  `map.vehicles` precedent, not a lazy spawn on approach. A lazy spawn would make the population
+  a function of where the player walks, which is docs/17's "the director is not a spawner"
+  reversed at the level of a building, and the balance harness could not count it. The manifest
+  costs one indoor scan per building and the density gate can pin it.
+- **Zombies first, then raiders, then people.** The zombie slices are the cheapest, they
+  re-baseline the harness in three known steps, and the dormant slice builds the
+  indoor-placement helper that strangers and the settler camp both reuse. Raiders come before
+  settlers because the third side is a seam the individual-raider slice first touches, and a
+  seam is gated before anything stands on it.
+
+**What this does not change.** Three at boot. `GRACE_NIGHTS` stays at 7 and its flip stays
+the owner's, blocked on the over-cap placement in HANDOFF's item 5. "An outpost that draws
+raiders" stays the owner's and is not folded into the roaming-band slice. The horde entity stays
+Milestone 3B. Every ban stands: a generated raider's name is never on the HUD, a stranger's bite
+is as hidden as a gate recruit's, and the condition view gains no field. `survivors_end >= 1`
+is not relaxed for any slice; where a seed wipes, the levers are content numbers.
+
+**The first cuts each slice will take** — dormant density, body variance, crawler share, the
+new kinds' weights and waves, stranger beats, raider jitter, a looter's haul, the roaming
+chance, the settler count and distance — are named in the plan beside their slice. Each lands
+in this file with the slice that takes it, in the dated form the playable-state entries set,
+so the owner reads one entry per number rather than a list here that would drift.
+
+**The mix's two calls, 2026-09-14** (the "mix is content" slice, docs/23's *Roster & the mix*).
+The plan said the weighted pool is "sorted by id"; it is sorted by id **descending**. Ascending
+lists bloater, screamer, shambler and would have handed roll 0 a bloater, which draws the same
+distribution but a different body, and every shipped campaign's zombies come off those rolls.
+Descending lists shambler, screamer, bloater — the order the three constants were written in — so
+0–79 is still a shambler, 80–91 a screamer, 92–99 a bloater, and the slice's byte-identity claim
+is about what spawns and not merely about how many numbers were drawn. The second call is
+`weight: 0`: the schema's `minimum` is 1, as the raider schema's is, but `pick_type` **skips** a 0
+rather than clamping it to 1 the way `SimRaiders.pick_type` does. A shipped type that can never
+appear is a dead entry rather than a balance knob, so the minimum stands; the skip exists because
+a fixture tree taking a kind off the table is the only way a gate can show the number in the JSON
+is read at all, and `check_m2_roster.gd`'s SILENCED lane is that proof. The two helpers differ on
+purpose, and the divergence is written where both can be read.
+
+## A body asleep in a building, 2026-09-14
+
+The arc's third slice, and four calls that were mine to take inside it. The shape was the owner's
+already (a worldgen manifest, not a lazy spawn — the entry above); these are what building it
+turned up.
+
+**The pass sits after the attempt loop, not inside it.** `SimWorldgen.generate` runs layout, the
+annex stamp, the buildings, the doors, the vehicles and the sites inside a loop that can re-site
+the colony on another lot and run the whole thing again. Either place would have been
+deterministic — each attempt calls `layout` again and gets a brand-new tilemap, so a refused
+attempt's records go in the bin with the map that holds them. What decides it is what the pass is
+measuring: "far from home" reads `gate_a`, `gate_b` and the annex rect, and all three move every
+time the loop re-sites. A pass inside the loop answers the question about a colony that was then
+thrown away; a pass after it answers it about the colony the player wakes up in, and does the work
+once. The dressing that follows cannot invalidate a record — `_dress_occluders`, `_dress_terrain`,
+`_rubble` and `_paths` each return early on an indoor tile.
+
+**The first cuts: 0.35 and 2, and the sheds were added.** A residential template (the seven houses
+and the two cabins) declares `dormant: {chance: 0.35, max: 2}`; the three sheds declare
+`{chance: 0.35, max: 1}`; everything commercial, civic and industrial declares no block at all,
+which reads as zero. The annex is a map patch rather than a building template and never appears in
+`map.buildings`, so there was nothing there to set to zero — it is excluded geometrically. The
+sheds were not in the plan's first cut. They are there because with residences alone the 64-tile
+miniature every gate boots placed **no bodies on any of the four balance seeds**, so both the moved
+pins and the re-baseline would have measured nothing; a body in a lock-up is also squarely in
+genre. The shipped 256 district carries **19 / 12 / 18 / 14** bodies on those seeds against an
+80-body outdoor scatter. All five numbers are first cuts and the owner's to move.
+
+**Dormant bodies count against the director's live cap.** They are shamblers standing in the
+district from tick 0, `world.components.query(["shambler"])` counts them, and excusing them would
+have meant a second definition of "how full is this district". The 256 world's first dusk now
+stands at 99 live against a cap of 128 and still reads `grace`. Five assertions in three gates —
+`check_m2_district.gd`, `check_m2_director.gd` and `check_worldgen.gd` — read
+`wanderers_for(n) + map.dormant.size()` rather than a constant. The third was not on the list of
+pins this slice expected to move and was found by the chain rather than by reading: its
+twenty-two-world sweep boots `district.forest_edge` at 128, where the cabins are the residences.
+
+**A door being opened does not wake anybody, and neither does a smell.** The first is the plan's
+own first cut and it stands: an opened door is a noise or it is nothing, and a door hook would be a
+second way into the field for one event. The second was meant to be a wake channel and is not, and
+the reason is measured rather than argued. `heard` is corrected for the body's own groan — "a body
+cannot hear below its own noise" has been in `shambler.think` since the playable state — and
+`smelled` has no such correction, while scent is designed to accumulate rather than decay in
+seconds. On seed 20260805 at 256, a sleeping shambler's own residue puts **1.0** in its own cell on
+tick 20, the first `SCENT_EMIT_INTERVAL`, against a wake threshold of **0.00556**
+(`scentFloor` 0.005 / `scentSense` 0.9) — 180 times over, rising to ~40 by t+2000 — and every
+one of the nineteen bodies on that map woke on its own smell on tick 21. No constant offset fixes
+it, because the steady state is not a constant; the neighbourhood gradient does not either,
+because a body that has lain somewhere all game *is* the local maximum and `uphill_scent` at its
+own cell is null. So a dormant body wakes on noise or on contact, and residue is still laid in
+every state (docs/14) exactly as before.
+
+**What that leaves open, for the owner.** The asymmetry is older than this slice: because
+`smelled` has no own-scent correction, it is true for **every** zombie on **every** tick, so
+`_drift_upscent` is called for every wandering body and finds no gradient at its own cell. It is
+harmless today and it is still not what the code reads as, and a scent channel that could tell a
+survivor's trail from the body's own bedding would give the dormant state a second sense. It is
+not folded in here because it changes what every shambler in the game does, which is a balance
+change wearing a bug fix's clothes.
+
 ## One web, and the captives, 2026-09-14
 
 The owner asked for NPC skills, for raiders to carry skills too *"for when the player or the
@@ -4245,3 +4395,693 @@ holds, because the player has no field. Three gates that had granted the player 
 expected the sim to spend them were re-fixtured onto a colonist or onto the command, which is the
 honest shape anyway: a lane that proves a modifier applies "when the node is owned" should own it
 the way a player does.
+
+
+## Each dead body differs, 2026-09-15
+
+The fourth piece of the procedural-population arc, and the calls inside it that were mine rather
+than the plan's.
+
+**The numbers are first cuts, for the owner.** Body **±15%**, crawlers **5%**, both on
+`zombie.base` so every kind inherits them, and a five-entry palette of near-whites there with a
+four-entry greener one on the bloater. The spread is the one worth arguing about: at ±15% a
+shambler's torso runs 51 to 69 against an authored 60 and its head 21 to 29 against 25, which is
+about one melee blow either way — enough that two bodies in a doorway are not interchangeable, and
+not enough that a kind stops being one kind. The schema caps it at 0.3 for that reason rather than
+leaving it open. 5% crawlers is one body in twenty, which at the shipped 256-tile district is four
+on a map and at the 64-tile miniature the gates boot is one or none; that is the frequency a thing
+should have if seeing it is supposed to mean something.
+
+**The tint is a modulate, so the palette is pallor and not costume.** A zombie's `appearance.tint`
+has always multiplied over its sprite, and the rolled colour goes through the same path, so a dark
+entry in `variance.tints` would not give one body a dark coat — it would dim the whole body,
+including the parts the artist lit. The five shipped entries sit between `#ffffff` and `#d6d2c8`.
+If this ever wants to say something louder than pallor it needs a second sprite, not a darker hex.
+
+**How it reaches the renderer: a pass-through, and deliberately not a lookup.** The rolled tint is
+stored on the existing `zombieType` component and `main.gd::_draw_entities` hands it to
+`Appearance.for_entity` beside the type id, which prefers it to the content block's when it is not
+empty. The alternative — a per-body content id, the way a colonist's `identity.look` points at an
+entry in `colony/looks.json` — was considered and not taken: a colonist has six looks and a zombie
+would need one content entry per body, which is a registry that grows with the population rather
+than with the design. So the *value* travels and the *palette* stays in content, and the draw loop
+still contains no branch on an id. The key is always present on the component, `""` for a kind that
+names no palette, so a save round-trips one shape.
+
+**`bodyMax` scales with `body`, and that is not an implementation detail.** `HURT_BELOW` is 1.0, so
+any integrity under its maximum is Hurt. Scaling the integrity alone would have made every
+smaller-than-average body Hurt from the tick it spawned — slower by `_torso_factor`, an NPC
+break-off candidate, and wrong in the condition prose — and scaling the maximum alone would have
+done the same to the larger ones. There is exactly one normaliser, `SimHealth.part_state_of`, and
+this keeps it telling the truth. The legs of a rolled crawler are zeroed *after* the maxima are
+taken, so a body born legless is `Unusable` against a real maximum and reaches the same
+`crawlFactor` path a body whose legs were shot out reaches. No second locomotion path was added.
+
+**Its own stream, and the pin that proves it.** The rolls come off `zombieLook` and never off the
+rng `spawn_zombie` is handed, which is `placement` at boot and `director` at night. The gate pins
+the `placement` state at the end of `SimBoot.playable(20260805, 64)` to a literal captured from the
+tree before a line of this existed, and pairs it with the assertion that `zombieLook` exists and has
+moved — the pin alone would pass just as happily against a slice that had been deleted.
+
+**What the measurement could and could not say.** The four fast seeds came back **byte-identical**
+before and after, and that is a result rather than a missing one: a body's size changes what it can
+absorb and nothing about how it moves, the FAST tier records nought to one colony kill a campaign,
+and the single crawler it rolled in four campaigns was placed too far out to reach anybody inside a
+2000-tick dusk window. The durability change is real and belongs to the FULL tier and to the
+256-tile district, where the same 5% is four crawlers on a map instead of one. Neither was run for
+this slice, and the record says so rather than implying the change is free.
+
+**What this does to gate fixtures, and the rule going forward.** A body spawned through
+`SimRoster` is no longer a standard body: it is its own size, and one in twenty is already
+crawling. That is the point of the slice and it is also a new way for a gate to go red against
+code that is correct — `check_m2_lethality.gd`'s HEAD-ONLY did, on seed 89, reading the torso's
+×0.5 compounded with `crawlFactor` as ×0.125. The fix is not to take the roll away from gates; it
+is the convention `check_m2_contact.gd`'s `_no_struggling` already set — a fixture that measures a
+*named* body pins it back to the type's authored numbers and says in a comment which half is under
+test. Every other gate in the chain was run individually, past the first failure rather than
+stopping at it, and none of the rest needed it: they either count bodies, measure sight, or kill by
+taking a head to zero, all of which are indifferent to a body's size. A gate written from here on
+that asserts an absolute integrity — "a torso at 20 of 60 is BadlyHurt" — needs the same pin, and a
+gate that asserts a *state* needs nothing, because a state is a fraction of a body's own maximum
+and that is exactly what this slice keeps true.
+
+## Four raiders are four men, 2026-09-15
+
+The fourth slice of the procedural-population arc, and the first of its raider group. Two
+archetypes shipped and every body of one was the same body: same aptitudes, same kit, same look,
+no name. Now each is a person. What follows is the calls this took; the shape of the record is
+not one of them.
+
+**A `person` record and never an `identity`, and that is the owner's, not mine.** It is written
+into the arc plan the owner approved on 2026-09-14 ("Raiders carry a `raider.person` record, never
+`identity`; five readers of `identity` would otherwise see a raider, one of them succession"), and
+this slice implements it rather than re-deciding it. The five were read before a line was written
+and they are `main.gd`'s "is this a survivor" in the entity pass, `SimJobs.work_view`,
+`SimAllegiance.is_person`, the director's unique-death lull and `SimRecruits._succession_pick`.
+The last is the one that matters: it hands the player's body to the nearest body carrying `needs`
+or `identity`, so a raider with an identity would be an heir standing at your wall. The gate's
+NO-IDENTITY lane asserts the negative *and* its converse — a raider given an identity by the lane
+itself **is** picked, which is what makes the absence of the component load-bearing rather than
+coincidental.
+
+**The jitter is ±1, and it is a first cut.** Each archetype's `aptitudes` may now be a
+two-element `[min, max]` rolled per body, and the two shipped entries are their old numbers plus
+and minus one, clamped into `SimAptitudes`' 3..8: scav `str [5,7] dex [4,6] con [4,6]`, gunhand
+`str [4,6] dex [5,7] con [4,6]`. A raider is not budget-checked the way a colonist is, so the
+triple no longer sums to fifteen and does not have to. ±1 was chosen because it is the smallest
+width that can be measured at all and because a wider one is a balance change dressed as
+individuality; the measurement is in docs/23's record, both columns, same driver.
+
+**Odds go on the extras, never on the arms.** A kit row may carry a `chance`, rolled per body, and
+the gate refuses an archetype whose every weapon row is behind one — a band that walked
+pedestrians at your gate on some seeds and raiders on others would be a raid that varies in the
+one way it must not. A row that declares a chance spends exactly one draw whatever the odds are,
+so editing a `0.5` to `1.0` does not move the stream under every later raider; a bare row spends
+none, which is what keeps an archetype that declares no odds byte-identical to the way it spawned
+before.
+
+**The look pool is kept tell-free by construction, not by care.** `content/colony/raider_looks.json`
+holds one flat `looks` list and the draw happens on `raiderLook` with no idea which archetype
+asked, so a scav and a gunhand can and do wear the same one; the gate spawns sixteen of each and
+requires the two sets to overlap, and refuses two disjoint sets through the same predicate. An
+archetype that declared looks of its own would partition the pool at the source and is refused
+too. The rule underneath, written down because the next raider slice will want it: **what a raider
+is wearing may vary between bodies but never between archetypes; what they are holding is the
+archetype.** Worn gear draws on the pawn, so a cap only the scavenger could be wearing would
+answer "which one has the gun" across a street — the certainty docs/01 clause 4 refuses. A weapon
+in a hand is visible by design, because you can see what a man is carrying. The gate compares the
+worn rows of every archetype, odds included, and requires them identical.
+
+**A raider look declares no tint, and that is a measurement rather than an omission.**
+`raider_drab` is at the floor of the palette's ground-contrast guard already — tools/sprites'
+`palette.py` calls it "as dark as the drab can go and still read as a body rather than a hole in
+the street" — and a tint is a multiply, so any wash can only darken it. Measured over the real
+pixels: the shipped rig composes to a median luma of **0.3831** against a street floor of
+**0.3796**, which leaves **0.0035** and permits nothing darker than a factor of 0.991 — a wash
+within one per cent of white, which is a look the renderer reads and nobody can see. So the four
+look entries all resolve the one body, the look id is the hook a per-body picture attaches to when
+the art exists, and the per-body variation a raider actually shows today is **what they are
+wearing**: a canvas cap at even odds and a school bag a little under, on both archetypes. The
+numbers are printed by the gate's LOOKS lane every run, so the day the rig is re-authored lighter
+the headroom is on the line where it is decided.
+
+**What the chronicle says, and when.** A raider's name reaches the player in exactly one place and
+only once they are dead: `One of the raiders was Ada Kovac, a debt collector once, grey and still
+walking; a split lip, bad teeth.` Not "%s is dead" — a colonist's death and a raider's must not
+read the same way in the same column — and nothing at all while they are standing there, because
+a band at the wall is anonymous by contract. The sentence is `SimRaiders.person_clause`, built the
+way `SimSurvivors.person_clause` builds a colonist's, and it is deliberately the reader for
+*every* field of the record: the name, the backstory's line and the age band's prose looked up in
+content at read time (so editing a line changes what an existing save says, with no migration),
+and the features as what a look at the body shows. A field of that record with nothing to read it
+would have been the dead socket this milestone has paid for eleven times. It is digit-free because
+the chronicle is on the HUD. The line is long — a little over a hundred characters in the corner
+column — and if the owner finds it busy on a raid night, shortening it is one call in
+`_line_of` and no change to what is recorded.
+
+**Two new streams, and the old one pinned.** The person, the kit odds and the aptitude jitter draw
+on `raiderRoll`; the age and the look on `raiderLook`, which is `SimPeople.roll`'s own split and
+not this slice's to reorder. The director's `raid` stream is untouched, and that is pinned rather
+than asserted: the gate holds the stream's state after `_emit_band` places four against literals
+taken from the pre-individuals tree with a throwaway driver on two seeds, and proves the pin can
+fail by spending one more draw.
+
+## The stalker and the runner, and what "zero code" turned out to mean (2026-09-15)
+
+The fifth piece of the owner's procedural-population arc, and the one that was written as an
+experiment rather than a feature: docs/14 closes with **"adding a zombie type is one JSON entry
+with zero code, provided its behavior composes from existing tags"**, and nobody had tested it,
+because the three kinds that ship were each landed alongside the code that made them work. The
+stalker and the runner were picked to test it because docs/14 itself sorts them onto opposite
+sides of the qualifier — "stalkers and armored zombies compose from tags that exist or nearly do
+… screamers and runners need sight".
+
+**It held, with one half of one kind left out, and the half is named below.** Two files under
+`godot/content/zombies/`, `zombie.schema.json` untouched, and **not one line under `godot/sim/`**
+— `git diff` over that directory is empty for this slice, which is the claim stated as something
+checkable rather than as a feeling. Even the two type ids live in `check_m2_roster.gd` rather than
+beside `TYPE_SHAMBLER` in `sim/modules/roster.gd`: a `const TYPE_STALKER` in the sim would have
+been the first line of code the claim cost, and there was no reason to spend it.
+
+**What did not compose: the runner's "sustained pursuit".** docs/14's runner row is "Fast,
+sustained pursuit", and the *fast* half is one number in `locomotion.speed`. The *sustained* half
+is `SimShambler.COMMIT_TICKS`, a module constant shared by every kind, and there is no content key
+for it — a runner that gives up exactly when a shambler does is what shipped. Adding one would
+have been a new content axis inside a slice whose whole purpose was to find out whether the
+existing ones were enough, so it was not added. docs/23's record says which half shipped, and the
+honest reading of the experiment is that the qualifier in docs/14 is doing real work: **the
+roster is cheap, and a kind whose defining trait is a duration is not a roster entry yet.**
+
+**The numbers, and where each came from.** docs/14's sensory table is words — Low, Moderate,
+High — and the shipped three already fix the dialect: High is 0.9, Moderate 0.4, Low 0.1–0.2. So
+the stalker is `{noise 0.9, light 0.4, scent 0.4}` and the runner `{noise 0.9, light 0.9, scent
+0.4}`, both read straight off that table rather than off the arc plan, which had called the runner
+"light-led" and left its ear out. Speeds are the plan's first cuts and agree with docs/14's prose:
+the stalker at **1.0** is "faster" than the shambler's 0.8, the runner at **1.4** is "fast". One
+thing the reader should know about 1.4: a human sprint is 3× a walk (`SimLocomotion.SPRINT_SPEED`),
+so a runner cannot be walked away from and *can* still be sprinted away from while the stamina
+lasts, which is a softer reading of docs/14's "Not outrunning it" than the table implies. It is
+left where it is because a first cut that has not been played is not a place to spend a second
+guess. The stalker's "investigates aggressively" is `wander` 0.45 and `mill` 0.5 against the
+shambler's 0.35 and 0.25 — existing keys, no new mechanism.
+
+**Waves 1 and 3, which is where docs/14 puts them**, not where a flatter schedule would. docs/14
+has the stalker in the first mutation wave beside the screamer and the runner in the third; the
+compressed schedule is `1 + wave × WAVE_DAY_STRIDE`, so the stalker arrives on **day 3** and the
+runner on **day 7**, both inside the ten days the campaign harness runs. Weights are the plan's
+cuts, **10** and **6** against the shambler's 80 — the runner low on purpose, because it is the
+kind most likely to change a night. The balance measurement did not ask for either to move.
+
+**The MIX lane's pinned sequence was re-pinned, deliberately, and the distinction matters.** That
+literal — fifty day-7 draws of seed 20260805 — was captured by the mix slice, whose claim was
+that making the mix content changed *nothing about what spawns*. This slice changes what spawns on
+purpose: two kinds join the pool from day 3 and day 7, so the day-7 sequence must move, and a
+re-pin that left it unchanged would have meant the new kinds were never in the pool at all. What
+survives the re-pin is what the pin is for: days 1 and 2 are still untouched (the shambler-only
+short-circuit, QUIET), and from here any *unintended* movement is red again. What the re-pin costs
+is a claim, and the replacement for it is a new lane rather than a promise — SHARES draws two
+thousand day-7 rolls and holds every kind inside ±25% of `weight / summed weight`, computed from
+the resolved entries rather than from a number copied into the gate, so the shipped mix is still
+proved to be the mix content asks for.
+
+**They look exactly like a shambler, and that is a gap with a name.** Both declare
+`appearance.sprite: zombie_shambler`. A new sprite key is `sprites:check` work — Pillow, a byte
+comparison of generated PNGs, and the CPython float trap in CLAUDE.md — which is a different kind
+of slice from this one, so it is a named follow-up in docs/23's what's-left rather than something
+smuggled in here. What does tell one body from another today is the per-body tint each kind rolls
+from its own `variance.tints` palette (the variance slice's pipeline, ashen for the stalker,
+flushed for the runner), and that is pallor, not a silhouette: in a crowd at 2× you cannot tell
+which one is fast. `check_appearance.gd` records the gap where a reader will meet it, as a third
+`ROSTER_SHARED` group whose comment says it is a gap and not a decision.
+
+## A third side, 2026-09-15
+
+The allegiance seam, the first slice of the procedural-population arc's settlers group, and a
+small one on purpose: the settler pieces that follow need a side that is not the colony and not
+hostile to it, and this lands that side and the proof it works before anything stands on it.
+`godot:m2:allegiance` is the gate. What follows is the calls this took.
+
+**The table is kept symmetric by the lookup, not by discipline.** `HOSTILE_PAIRS` declares each
+hostile pair **once** — raiders against the colony, raiders against the settlers — and
+`factions_hostile` tries a pair both ways round before answering, so there is no second direction
+to write and no way to edit the list into a table where the colony is at war with the raiders
+while the raiders are at peace with the colony. A dictionary of rows would have needed both halves
+kept in step by hand, which is the bug the brief named. The gate asserts the property anyway
+(SYMMETRY, over every ordered pair) and proves that assertion can fail by running the identical
+walk against a lookup that deliberately answers one way round only; it also refuses a table that
+is all war or all peace, because either is perfectly symmetric and says nothing. The zombie short
+circuit did not move: it is still the first thing `hostile` does, before any faction is read, for
+the reason the file has always given — a shambler carries no allegiance component, so `faction_of`
+would call it a colonist and the colony would stop defending itself.
+
+**`is_colony` means one of yours, which stopped being the same question as "not an enemy".** It is
+one line, `faction_of(world, entity) == COLONY`, and it has exactly one reader outside the gate:
+`SimRecruits._succession_pick`. That scan took an `identity` as proof of colony membership, which
+was true right up until a third side existed — a settler carries an identity, so the player dying
+at a stranger's fence would have woken up in the stranger's body. A settler is still a *person*
+everywhere else and `is_person` was deliberately not touched: a zombie chases them, a screamer
+raises the alarm about them, and being a person is what makes you edible while being the colony is
+what makes you an heir. The change also means a raider is now refused an inheritance twice over
+rather than by the accident of carrying no identity, which is why `check_m2_raiders.gd`'s
+NO-IDENTITY negative gained a step: it asserts the raider given an identity is *still* refused,
+and that the same body given the colony's allegiance is picked, so the refusal cannot quietly
+become a scan that refuses everybody.
+
+**docs/18's factions are still Milestone 3, and this is not them.** It is one string, three
+values and a table of which pairs fight. No standing, no reputation, no trade, no diplomacy, no
+way for a side to change its mind about you. The raider schema's `allegiance` is now a `$ref` to
+a single `$defs/faction` allowing `raiders` and `settlers`; `colony` is deliberately not on that
+list, because an archetype declaring it would be a colonist spawned outside the roster with no
+needs and no place on the ledger. The Godot content validator does not resolve `$ref` and the
+frozen oracle never reads `content/raiders/`, so that enum's reader is the gate — checked against
+the code's own constants and against every shipped archetype, which is the dead-socket rule
+applied to a schema rather than to a component.
+
+**Nothing spawns a settler yet, and the gate is the only thing that exercises the value.** That is
+the condition under which a gate quietly stops proving anything, so every lane carries its true
+negative in the same fixture as its positive, and each was run red on purpose before it was
+trusted. No balance measurement is owed: no settler exists in any shipped spawn path, the table
+answers exactly as `!=` did for the two factions that do, and nothing here draws from an RNG
+stream — which was proved rather than asserted, against the raid-stream pins and the R1 parity
+fixture.
+
+## A stranger in a building, 2026-09-15
+
+The second of docs/07's three recruitment routes — "a scavenging encounter" — and the seventh
+slice of the procedural-population arc. Until now the colony could only grow one way: somebody
+turns up at the gate on days 8, 12 and 16 and is gone by dawn. Now somebody is also sheltering in
+a building out in the district, and comes out when they see you. `godot:m2:strangers` is the gate.
+What follows is the calls this took.
+
+**The acceptance is the rung that already exists, and building a second one was the mistake on
+offer.** A stranger wears the same `recruit {waiting: true}` tag a gate recruit does, so
+`SimFortify`'s E ladder finds them through `SimRecruits.waiting_in_reach` and takes them in
+through `SimRecruits.accept` — the same call, carrying the same hidden-bite roll at the same
+`TRANSMIT_P`. Nothing in `strangers.gd` accepts anybody. That is what keeps the bite hidden: there
+is exactly one place in the sim where a recruit can turn out to be carrying something, and a
+second acceptance path would have been a second place to forget to roll it. No field on the
+`stranger` component says anything about the bite, nothing is published about it, and the module
+never asks.
+
+**The colony is told nothing, at either end.** A gate recruit publishes `recruit.arrived` and the
+chronicle writes *Someone is waiting at the gate.* A stranger publishes nothing when they are
+placed: they are two hundred metres away in a house nobody has been in, and a line about them
+would hand the player a fact nobody in the colony has (docs/01 clause 4). The same at the other
+end — the chronicle's existing lines are *The stranger at the gate has gone* and *So-and-so has
+walked out*, and both are false about somebody who was never at the gate and whose name the colony
+may never have learned. So `recruits._tick_leave` now publishes whatever reason the `leaving`
+record names (`mood` by default, which is every caller that came before) and the chronicle skips
+`stranger` outright. What you learn about a stranger is what you saw. No new prose was written,
+and `godot:check:hud` is untouched and green.
+
+**Sight decides the approach, and it is the real sight system.** They come out when a colony body
+is inside their *own* observer's line of sight — walls and range, cast from their eyes, which
+`SimRecruits.spawn_generated` has always given them. A distance check would have been four lines
+and wrong in the way that matters: the point of hiding in a building is the building, and somebody
+who walks out through a wall to meet you across it is not sheltering, they are homing. The gate's
+negative is exactly that case — a colonist the same distance away with a wall between is not
+approached and not even noticed — and the code was run with the sight test deleted to prove the
+lane can say so. `line_of_sight` rather than `detail`, and that is the one place this is
+deliberately *less* strict than a colonist's attention: `detail` narrows by the facing cone,
+and somebody hiding in a room is watching the room rather than holding a heading. The range is the
+honest one either way — it closes in at night and in fog, so a stranger notices you across a lit
+room and not across a dark district.
+
+**Once they have seen you they walk to where you were, not to where you are.** The `stranger`
+component carries a goal point that is refreshed while the colonist is in sight and kept when they
+are not — a remembered position and never a track, the same rule `sightings.gd` keeps and the same
+reason: a body that followed somebody it cannot see would be a lie the player could read off the
+screen.
+
+**One stepper for everybody who walks and is not on a job.** `SimRaiders._walk` was a private
+grid-A* stepper doing exactly what a stranger needs, so it moved to `SimWalk.step(world, ent, rec,
+goal, speed)` and both callers reach it, each keeping its own record dict. Copying it was the
+cheaper edit and the wrong one: two walkers that start identical drift the first time either
+learns something — a surface cost, a crowd, a door that is locked rather than merely shut — and
+then a raider and a stranger disagree about what a wall is. `speed` is a parameter rather than a
+field on the record, because a raider's comes off its archetype through `move_speed` modifiers
+every tick and a stranger's is one constant, and writing it into the record would put a derived
+number in the save. `SimJobs._walk` is deliberately not folded in: it carries the reservation, the
+arrival test the job's own state machine reads, the stance and the encumbrance, and pulling that
+apart is a refactor of the scheduler rather than a shared helper.
+
+**Two rules in `recruits.gd` had to learn what a stranger is, and both were regressions waiting to
+happen.** The gate beat refused to fire while *any* `recruit` component existed, and the dawn
+leave despawned *every* waiting recruit — so before this slice a stranger hiding in a house on day
+5 would silently have cancelled the day-8 gate beat and died at the first dawn. Both now go
+through one predicate, `_waiting_at_the_gate`, so the two cannot come to disagree about what a
+stranger is, and the gate holds both halves of both: day 8 fires over a hidden stranger and is
+still blocked by a gate recruit; one dawn takes the gate recruit and leaves the stranger. Each was
+run red on purpose by putting the old `query(["recruit"])` back.
+
+**They arrive in daylight, and that is the one call here that a measurement forced.** The beat
+first fired on whatever tick of the beat day the world happened to be running — dawn in a real
+campaign, and **dusk** in the balance harness's compressed tier, which jumps to each day's dusk
+and steps a window. A stranger placed at dusk is placed into the night the director is filling,
+and on seed 31337 both of them were killed and **turned** inside the window they arrived in: two
+shamblers the district gained that the director never placed, and a live count of 33 against a cap
+of 32, which is `check_m2_balance.gd`'s standing invariant and not something to widen. A throwaway
+driver (deleted) put the number on it — `PEAK live=33 cap=32 of which turned-from-a-person=2` —
+before anything was changed, which is the only reason the guard is a day rather than a guess. So
+the arrival has a time of day, the way the dawn leave already did, and it is the honest rule as
+well as the cheap one: somebody sheltering in a building comes out when they see a colonist, and a
+colonist is out in the district during the working day. The gate's DAYLIGHT lane runs the same
+beat day at dawn, day, dusk and night and requires exactly one of them to place anybody.
+
+**The first cuts, all the owner's to move.** Beats on days **5, 10 and 14**, between the gate's 8,
+12 and 16 rather than on them, so the two routes into the colony are felt as two rather than as a
+busy week. At most **two** live at once, because finding one should be an event and a district
+with one in every other house is a population. They are placed at least `SimDirector.GATE_EXCLUSION`
+(32 m) from both gates and clear of the annex — the dormant bodies' own distance rather than a
+second constant, since it is already the answer to "far enough from home that this is something
+you went out and found". They wait **three days** and then walk out. And they share
+`SimRecruits.CAP`: the colony still tops out where it did, because a second route in with a cap of
+its own would have doubled the ceiling, which is a balance change smuggled in beside a feature.
+None of the five moved under measurement — the before/after run in docs/23's record leaves
+`survivors_end` unchanged on all four fast seeds — so they are first cuts in the honest sense:
+numbers that have been checked for harm and not yet chosen for feel.
+
+**Save:** `SAVE_VERSION` 31. A v30 save has no `stranger` component, no `stranger` flag on the
+recruit tag and no `world.strangers.spawned`, and each is wrong on its own — restored, every
+stranger already placed would read as somebody at the gate (cancelling the next gate beat, and
+despawned at the first dawn), and every stranger beat the campaign had already paid for would fire
+again.
+
+## Armour on the dead, and the half of the heavy that had nowhere to go, 2026-09-15
+
+The armoured-and-heavy slice of the procedural-population arc. `godot:m2:armored` is the gate and
+docs/23's record carries the evidence; what follows is the calls this took.
+
+**A zombie may wear things, and that is the whole of the armour mechanic.** `armor_coverage_of`
+already read the target's `equipment` without asking whose body it was, and `armor_damage_factor`
+already multiplied by it inside `damage_part`. The defect docs/23 carried was never about
+arithmetic — it was that no zombie had an `equipment` component to read. So the fix is a `worn`
+list on the type and four lines in `spawn_zombie`: an inventory, `equip` per id, `lootKit`. The
+alternative considered and refused was a coverage number on the zombie entry itself, which would
+have been a second way to say what an `armor` block already says and a second thing to keep in
+step with it.
+
+**Which armour a dead body may wear: only what the loot tables already ship, and only two pieces.**
+`item.vest.scrap` and `item.helmet.bike`. The reason is the loop rather than the balance: gear a
+corpse drops is gear the colony can use, and a piece the district cannot otherwise produce would
+make the armoured kind a *source* of something new instead of a harder version of a fight. Two
+rather than a full kit because a zombie body is head/torso/legs — gloves, boots and trousers cover
+parts it does not have, and putting them on would be flavour with no reader. This is a first cut
+and is written down as one: a later slice may give the kind a rolled kit, and the gate reads the
+declared list rather than a literal, so it will follow.
+
+**The armoured body is a shambler's body.** Tempting to make it tougher underneath as well; refused
+on docs/14's rule 5 — a new type invalidates a strategy, not a stat. What makes it "resists light
+weapons" is that a vest and a helmet are on it, which the player can see coming off the corpse and
+can wear themselves. A kind that was *also* bigger would be two mechanics under one name and the
+armour would be untestable inside it.
+
+**Weights 8 and 4, both wave 2.** docs/14 puts armoured and heavy in the second wave and
+`WAVE_DAY_STRIDE` makes that day 5, inside the ten days the harness runs. The weights are first
+cuts sized against the shipped ladder (shambler 80, screamer 12, stalker 10, bloater 8, runner 6):
+the armoured one sits with the bloater at 8, and the heavy is deliberately the rarest thing on the
+table at 4, because it is the only body that is straightforwardly harder to kill and rarity is the
+cheapest lever to pull back if it turns out to be too much. No seed wiped, so neither was pulled.
+
+**The breach half did not ship, and that was the right outcome rather than a shortfall.** The arc
+plan proposed `breach: {factor}` on the heavy, read wherever `fortify.breached` damage is dealt.
+There is nowhere to read it. `SimFortify._presses` returns a **count of bodies per tile** and
+`_press` spends `pressure_of(n)` on it; no entity reaches that arithmetic at any point, so a
+per-attacker factor has no possible reader. Writing the key anyway would have been the twelfth dead
+socket, and building the reader means rewriting pressure as a weighted sum — which moves every
+shipped fortify number and every balance figure below them, and is a slice with its own gate. So
+the heavy that shipped is a big slow body and not yet docs/14's "wrecks structures fast", the
+schema has no `breach` property, and the gate's BREACH lane says so and skips while *measuring* the
+reason: one heavy and one shambler break the same board on the identical tick, and two shamblers
+break it in a third of the time. The lane goes red the day anything declares the key without a
+reader, which is what makes a skip worth keeping.
+
+**The MIX pin was re-spent, for the second time in one day.** `check_m2_roster.gd`'s fifty-draw
+day-7 literal is a byte-identity claim that belonged to the mix slice — which changed what content
+could *say* about the composition and nothing about what spawns. A slice that adds kinds changes
+what spawns by design, so the sequence must move; a re-pin that left it alone would mean the new
+kinds were never in the pool. What the pin still buys is that any *unintended* movement is red
+from here, and days 1 and 2 stay byte-identical through the shambler-only short-circuit. SHARES,
+now over seven kinds summing to 128, is what replaces the claim the re-pin spent, and the
+`placement` stream pin in `check_m2_variance.gd` is unmoved — nothing here draws on a stream a
+campaign is made of.
+
+## What a raider came for, 2026-09-15
+
+Raider roles, the second slice of the procedural-population arc's raider group. docs/18 has always
+said a raid is a business — "target stores first, people second, and will withdraw once loaded;
+retreat when losses outweigh the haul" — and until this every raider walked at the gate and fought
+until a clock ran out, so that sentence had no reader. `godot:m2:raiders` is the gate. What follows
+is the calls this took, none of which the plan made.
+
+**Both shipped archetypes stay fighters, and the roles arrive as new archetypes.** `raider.scav` is
+weight 4 of 5: it is four fifths of every band this repo has measured, and re-roling it would turn
+every raid in every campaign into a robbery in a one-line content edit — a balance change wearing a
+content edit's clothes. So `scav` and `gunhand` declare `fighter` explicitly and behave exactly as
+they did, and the new behaviour arrives as `raider.looter` (Bagman, weight 2) and `raider.lookout`
+(Watcher, weight 1). The cost of that choice is real and is the honest one: the weighted draw moves
+from 4:1 to 4:1:2:1, so band *composition* changes on every seed, and that is measured rather than
+asserted. The alternative — new archetypes at weight 0, so nothing moves — would have shipped two
+dead sockets, which is the thing this milestone has paid for eleven times.
+
+**A looter takes three things, and only what is on the floor.** Both are the plan's first cuts and
+both are the owner's to move. Three item *entities*, not three stacks and not a packful: on a
+stockpile of tins and bottles that is a night's meals rather than a pantry, and it is small enough
+that the first campaign to lose some of it is an annoyance rather than a wipe. Containers are out of
+scope on purpose — opening a cupboard is a search job with its own timing, noise and content hooks,
+and a raider doing it would be a second implementation of the Scavenge job rather than a role. What
+a looter carries out is **despawned** when it leaves the district, because an item whose `stored`
+points at a despawned body is in nobody's hands and on no floor: it would neither come back nor be
+gone. Killed on the way out, it drops the lot.
+
+**A lookout stands twelve metres out.** Far enough outside every reach in the content tree that no
+halt, no wall-following detour and no arrival tolerance produces it by accident, and close enough
+that the watcher is still a body in the district — a zombie sees them, the colony can shoot at them,
+they make the same noise anyone else does. It turns the band for home at the **first** loss, where
+the shipped rule waits for half the band to fall, and it writes that decision onto the other bodies'
+components rather than publishing an event: handlers drain at the end of the step, so a band told to
+leave by an event would take one more step towards the colony first, and on the tick a watcher sees
+the first man fall that step is a blow landing.
+
+**A role is invisible, and that is the information rule rather than an omission.** Nothing about
+dress, sprite, look or name says which body came for your pantry, exactly as nothing says which one
+has the pistol: the new archetypes wear the identical worn rows at identical odds (the gate's
+NO-TELL lane walks every archetype, so it caught the question before it could be asked), draw from
+the same archetype-blind look pool, and resolve the one shared body. What gives a looter away is
+that it walks *past* you towards the stores, which is behaviour a player has to read and is earned.
+The HUD says nothing about any of it.
+
+**The looter takes before it fights.** The halt that makes a raider stop and fight is asked after
+the looter's armful, not before, because the stockpile is where the colonists are: a looter that
+reaches the shelf is inside somebody's reach before it is inside the tins', so with the order the
+other way round it would stand over your pantry fighting and never touch it. The window is narrow —
+something of yours in arm's reach, or arms already full — and it costs the body nothing
+defensively, because `npc_combat.gd` swings from where a body stands and never reads a velocity.
+What the order has **not** bought yet is a robbery: on four forced raids the band is met five to
+thirteen metres short of the stores and `looted` reads 0, which docs/23's record states plainly
+rather than dressing up.
+
+## A band that is not coming for you, 2026-09-15
+
+The crossing slice: the director's Encounter lever, and the first band in the game that is not
+aimed at the colony. Five calls, each of which could honestly have gone the other way.
+
+**Fifteen per cent, at dawn, on its own stream.** The chance is the plan's first cut and the
+owner's to move; what is not arbitrary is where it sits. Below the raid's twenty because the two
+share `RAID_LIVE_CAP` — every band crossing at dawn is a band the dusk draw cannot send — and at
+dawn rather than dusk because a band that walks in at dusk is a band you meet in the dark at your
+gate, which is a raid whatever its objective record says. One that crosses in daylight is something
+you can see coming and decide about. `"raidRoam"` is its own stream for the reason
+`"directorNight"` and `"raid"` are: `check_m2_raiders.gd` holds `"raid"`'s byte sequence against a
+literal taken on the pre-individuals tree, every measured band in docs/23's record is a function of
+it, and a second decision threaded into it would move all of them. It shares `RAID_FIRST_DAY`
+rather than owning a second schedule, because two first days would mean the grace docs/23 measured
+was only ever half a grace.
+
+**The objective is a loot site, at least `GATE_EXCLUSION` from home.** A `map.sites` record rather
+than a tile of open ground, because a site is a place somebody would cross a district *for* — the
+band's line is drawn between two things that exist in the fiction. The exclusion is the same 32 m
+and the same meaning `_legal_tile` gives an entry tile, asked of `SimHome.near_any` so a camp
+counts as home too: a band whose objective were your own doorstep would be a raid that had been
+told to call itself something else. Measured before it was written — at 64 tiles the four balance
+seeds keep 1, 1, 3 and 1 sites that far out, at the shipped 256 they keep 64, 69, 66 and 57 — so
+`no-site` is a real refusal rather than the usual answer, and a district with nothing far enough
+away says so and sends nobody instead of falling back on the gate.
+
+**The far edge is the opposite side, nearest tile to the objective, drawn with no randomness.**
+`_emit_band` is the raid's emitter too, so a draw here would move `"raid"` the moment an objective
+was passed; nearest-to-goal is deterministic and needs none. A district whose opposite edge has no
+legal tile gets the nearer flank, and one with no second usable edge at all hands back (-1, -1),
+which `SimRaiders` reads as "leave the way you came" — a band that crossed as far as it could and
+turned round, which is what such a district physically is.
+
+**What the roles do while crossing, which is the call this slice had to make rather than inherit.**
+Both halves are decided against the *objective* rather than against the colony.
+
+A **looter** loots the place it crossed for and never your pantry. A band that crossed a district
+for a pharmacy and took nothing out of it is the contradiction; a looter that walked past its own
+objective to rob a colony it was not visiting would make the whole lever a raid with extra steps.
+So `_worth_taking` branches: a raid asks `_is_stores`, a crossing asks whether the thing is lying
+at its site. What it carries out is despawned with it, exactly as a raid's haul is, so a site the
+colony had not reached yet is now three things poorer — docs/12's scavenging squeeze arriving as
+somebody else rather than as a timer.
+
+A **lookout** does not halt while crossing. `LOOKOUT_METRES` is a watcher on the treeline *outside
+your gate*: it is a distance from a colony, and a band with no colony to watch has nothing to stand
+off from. A lookout halting twelve metres short of a cupboard is that clause read literally and
+meant nowhere. What does travel is the other half of the same role — the first man down still turns
+the whole band for the exit, because that is a fact about the band's arithmetic rather than about
+the colony, and it is docs/18's "retreat when losses outweigh the haul" applied to a crossing. So a
+watcher in a passing band walks with it and decides when it breaks off.
+
+**It is an Encounter, not a second horde, and docs/17's opening claim is what that means.** The
+director "is not a spawner": it does not place a horde at your gate, and where zombies arrive stays
+the attention field's business. A crossing does not touch that. It places nobody near the colony —
+the entry tile gets `_legal_tile`'s existing exclusions and the objective gets the same 32 m — it
+takes a slot out of the raid budget rather than opening a second one, and it fights only what
+`SimAllegiance.enemies_of` puts inside `HALT_METRES` of its own line. A colony that is nowhere near
+that line never meets it. The pressure it adds is armed people between you and your scavenging,
+which is something the player can walk into or walk around, rather than something delivered to the
+wall.
+
+**And the player is told nothing.** `director.roam` carries its reason for rule 5's sake — a lever
+nothing can observe is the one docs/17 forbids outright — but it reaches no chronicle line and no
+HUD clause, exactly as `director.raid` does not. Where a band is going, and that it is not coming
+for you, is something you find out by watching it, which is the information rule rather than an
+omission.
+
+## The settlers' camp, 2026-09-15
+
+The seam from "A third side" got bodies. Six calls were taken here, and every one of them was
+taken because a measurement or a gate said the obvious answer was wrong — none of them from an
+argument.
+
+**96 metres was the plan's first cut and it is 32, because 96 cannot be satisfied where the gates
+run.** `SimWorldgen.far_buildings(map, 96)` returns **zero** buildings on all four balance seeds
+at the 64-tile size every gate and the FAST balance tier boot — the district is 64 m across, so
+the rule is not strict, it is unsatisfiable, and a camp that exists only on the shipped 256 would
+be a feature the chain never sees and a balance claim with nothing in it. At
+`SimDirector.GATE_EXCLUSION`, 32 m, the same four seeds hold 0 / 1 / 3 / 2 qualifying buildings at
+64 and 44 / 55 / 44 / 43 at 256: the camp is real where the gates run, and the one seed with
+nowhere legal fires the gate's skip line for real rather than in theory. The second reason is the
+one `far_buildings`' own comment already gives — *a second copy of "far from home" is a second
+answer* — and the dormant pass, the director's packet legality and now the camp all take the one
+number. It is also the number the strangers slice independently landed on for the same question
+a merge earlier, which is the strongest evidence available that the district has one answer to
+"far from home" rather than three.
+
+**The camp does not share a house with a sleeping body, and another gate is what said so.** The
+dormant pass and the camp both draw from `far_buildings` at the same `GATE_EXCLUSION`, so they
+compete for one set of houses. With no third filter the camp was sited on top of a sleeper, and
+`check_m2_dormant.gd`'s ASLEEP lane went red — "body 46 woke on its own after 200 ticks with
+nothing near it" — because people breathing beside something that wakes on scent wake it. The
+other gate was right and this slice was wrong, so the siting moved and no assertion did.
+`map.dormant` is layout, written in the pass that places the buildings, so reading it keeps siting
+inside the layout rule above. It is also the rule people would actually follow: you do not make
+camp in the room with the body in it.
+
+**Three settlers became two and then went back to three, and the round trip is the useful part.**
+At three, `check_m2_balance.gd` went red on seed 31337 — "exceeded the live cap on 76 ticks
+(max 33)" — and a throwaway driver put the arithmetic on it before anything was changed:
+`peak=33 cap=32 boot_zeds=23 placed=6 turned=4`. A settler who is bitten, dies and turns is a
+zombie `SimDirector.LIVE_CAP` never placed and cannot refuse, which is the same accounting gap
+the strangers slice hit from the other direction. Cutting the count to two turned the number
+green, and it was a symptom fix: the *cause* was the shared house above, surfaced one gate later.
+With the sleeper filter in, the settlers stop dying, `turned` falls to 0 on that seed, and three
+settlers peak at 27 / 27 / 28 / 30 against a cap of 32 — so the plan's first cut came back. **The
+lesson is the one CLAUDE.md already states and this slice paid for anyway: a number that makes a
+gate green is not the same thing as a diagnosis.** **The gap itself is not closed and is not this
+slice's to close:** nothing anywhere reconciles a turned body against the director's budget, so a
+colony losing several people to infection in one night can still push the district over its own
+cap. Two slices in a row have now paid for it, which is why it is written down here rather than
+only in a record.
+
+**A settler is a raider's faction handling with a survivor's identity, and the two components it
+deliberately lacks are the whole design.** `identity` **yes** — a raider is denied one because
+succession would make a band at your gate a queue of heirs, and the allegiance slice's `is_colony`
+closed that door, so the settlers can have their names, their backstories and `person_clause`'s
+prose. `needs` and `jobPriorities` **no**, and not as an omission: those two components are
+exactly what the colony's books are keyed on. `check_m2_balance.gd`'s `_survivors_alive` counts
+`needs` + `body`, `jobs.gd` queries `jobPriorities` + `identity`, and `npc_combat.gd`'s intake is
+`needs` or `raider`. Each of the three was read before the decision rather than assumed, and the
+gate asserts the first structurally, textually and empirically.
+
+**Siting reads the layout and only the layout, which this file has now recorded three times.** The
+camp is chosen from `far_buildings`, filtered by the dormant manifest and placed by
+`indoor_tiles_of`, so it asks `map.buildings`, `map.tiles`, `map.indoors` and `map.dormant` and
+nothing about vehicles, loot, rubble or props. Switching the dressing off cannot move it, which is
+the rule the region assembler broke by re-deriving a ranking one layer too late and moving the
+colony 45 tiles.
+
+**The camp has no behaviour, and saying so is the point of the entry.** Nothing mills, nothing
+returns at dusk, nothing fights back — `npc_combat`'s intake asks for `needs`, which a settler
+does not have — and nobody can be recruited. A camp today is three bodies standing in a building
+that breathe into the noise and scent fields and are eaten. The ten-day measurement says exactly
+that: `survivors_end` is unchanged on every seed, `over_ticks` against the live cap is 0 on all
+four, and on the two seeds that site a camp at 64 tiles the camp costs the colony nothing and
+loses nobody. That quiet is a fact about the tier rather than about the camp — the FAST tier runs
+2,000 ticks of each dusk and nothing walks the district in between — so what it measures is what a
+house full of living bodies costs a district, not what meeting one is worth. The latter is the
+ten-day human playtest's question, and the next slice is what this table re-measures against.
+
+## What the settlers do, 2026-09-15
+
+The camp got a day, and the arc that began with the allegiance seam is finished. Five calls were
+taken, and the first one is the one the entry above said this slice would have to answer.
+
+**A third query by name, not a widened intake and not `needs` on a settler.** `npc_combat`'s roster
+was "everybody with `needs`" plus "everybody with `raider`", and a settler has neither on purpose.
+Three options, and the two refused are the argument for the one taken. Giving a settler `needs`
+would have undone the camp slice in a line: that component is what `check_m2_balance.gd`'s
+`_survivors_alive` counts, so a camp would have walked onto the colony's ledger, and `jobs.gd`
+queries `jobPriorities` + `identity`, so the scheduler and the work panel would have followed.
+Widening the first query to something every body carries — `position`, `body`, `allegiance` on its
+own — would have changed *which bodies this module schedules for everybody*, colonists included,
+which is a change to how every NPC in the game fights, made in passing, to get three people in a
+house to swing a knife. So the roster gained a third query that asks for the settlers faction by
+name: it adds exactly the bodies it names and nothing else, it is the same move that added the
+raiders to the same function a slice earlier, and it is the only one of the three a reader can
+judge at a glance. The ledger did not move, and the gate still says so structurally, textually and
+empirically.
+
+**The leash is a guarantee because the plan is vetted, not because the goal is.** A settler mills
+inside `CAMP_RADIUS` of the camp's centre, and the obvious implementation — draw a goal inside the
+circle — is not enough: a grid path between two points inside a circle can bulge outside it to get
+round a wall, so a lane written against the goal alone would have had to forgive a bulge it could
+not bound, which is a lane that cannot fail. Instead the whole plan is thrown away unless every
+waypoint is inside the leash, and a body walking the straight segment between two waypoints that
+are both inside a circle never leaves it. That is what lets the gate assert ten metres outright.
+It is also load-bearing rather than decorative, and the sabotage pass is what proved it: widening
+the goal draw to three times the leash left the lane **green** at 3.77 m, because the wide goals
+were simply refused; only dropping the waypoint test as well put a settler 12.18 m out.
+
+**The willing one wears the strangers slice's tag and not its component.** `recruit {waiting,
+stranger}` is what the E rung finds, so recruiting a settler runs down `SimFortify`'s existing
+ladder into `SimRecruits.accept` — one acceptance path in the tree, one hidden-bite roll on it, and
+no second rung. The `stranger` *component* was deliberately not given: `SimStrangers` would steer
+them (two systems writing one velocity), they would burn a slot in its `LIVE_CAP`, and after
+`STRANGER_DAYS` they would walk to the colony's gate to be despawned — somebody leaving their own
+camp to vanish. `accept` now attaches `needs`, `jobPriorities`, `skillWeb` and the colony faction
+when they are absent, which is a no-op for every body that came before and is the moment a settler
+stops being one.
+
+**`settlement.fell` is published, and the chronicle is refused as its reader.** The reader is the
+module's own retirement of the camp, which is what stops the scan finding the same empty camp on
+every remaining tick. The chronicle was the obvious alternative and it is the wrong one: it is what
+happened to the colony *as the screen can say it*, and a camp two hundred metres away being
+overrun is not something anybody in the colony saw. A line about it would hand the player a fact
+nobody has — clause 4, and the same refusal `SimStrangers._give_up` already makes over a stranger
+who walks away. What tells you the camp fell is walking out there.
+
+**The FAST tier cannot see this slice, so the measurement moved to daylight.** The tier jumps to
+`Clock.DAY_ENDS` and runs 2,000 ticks, which is entirely dusk — and at dusk a settler is home and
+standing, so every column on every seed came back byte-identical before and after. That is a fact
+about the tier and not a null result, and rather than report it as one the same driver was run at
+the armour tier's working-day fraction: the two campless seeds stay identical, and on the two with
+a camp two more bodies die and thirty to fifty more grabs happen, with `survivors_end` unchanged on
+every seed and each camp losing one of its three over ten days. The over-cap invariant did not
+trip (peaks of 24 and 22 against a cap of 32), but **the gap behind it was exercised for the third
+slice running**: the settler lost on seed 31337 was diagnosed rather than assumed — no identity, no
+allegiance, no corpse, which is `_turn_with_kit`'s signature — so a bitten settler died, turned,
+and became a zombie the director never placed and cannot refuse. Nothing reconciles that against
+the budget yet, and three slices have now paid for it.

@@ -8,5 +8,6 @@
   "doors": [{"x": 4, "y": 4}, {"x": 5, "y": 4}],
   "tags": ["cabin"],
   "weight": 6,
+  "dormant": {"chance": 0.35, "max": 2},
   "look": {"roof": "shingle", "wall": "timber"}
 }

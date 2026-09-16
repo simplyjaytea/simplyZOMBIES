@@ -23,6 +23,35 @@
       "minimum": 0,
       "description": "Mutation wave that introduces this type. 0 is present from the start."
     },
+    "weight": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Relative share of the mix, drawn by SimRoster.pick_type against the summed weights of the types whose wave has arrived. Omitted counts as 1, the same rule a raider archetype follows. Shipped at 80 / 12 / 8, which is the mix that used to be three constants in roster.gd. The minimum is 1 because a shipped type that can never appear is a dead entry, not a balance knob; pick_type still skips a 0 so a gate fixture can take a kind off the table."
+    },
+    "variance": {
+      "type": "object",
+      "description": "How much one body of this kind differs from the next. Drawn per body at spawn on SimRoster's own `zombieLook` stream -- never on the stream that placed it, so adding or retuning any of this leaves every existing campaign's placement and director draws byte-identical (check_m2_variance.gd STREAM). Omit the block entirely and the kind spawns uniform, which is what every kind did before this existed.",
+      "additionalProperties": false,
+      "properties": {
+        "tints": {
+          "type": "array",
+          "description": "The palette one body's colour is picked from. A modulate over the type's sprite, exactly like `appearance.tint` -- so these are pallor and stain, near-white, not costume colours: a dark entry here darkens the whole body. Empty or absent picks nothing and every body of the kind draws its appearance block's colour.",
+          "items": { "type": "string", "pattern": "^#[0-9a-f]{6}$" }
+        },
+        "body": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.3,
+          "description": "Half-width of the per-body size roll: a scale drawn in [1 - body, 1 + body] and applied to every part of both `body` and `bodyMax`, so SimHealth.part_state_of still reads a body against its own maximum and a big one is not born Hurt. 0 spawns every body at the authored size. Capped at 0.3 because past that the kind stops being one kind."
+        },
+        "crawlers": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Probability that a body is born with its legs already destroyed -- a crawler, reaching the same `crawlFactor` path a shambler whose legs were shot out reaches (SimShambler._speed_of). 0 spawns none."
+        }
+      }
+    },
     "sensory": {
       "type": "object",
       "description": "Channel weights. docs/14-zombies.md#sensory-profiles: there is no single silence.",
@@ -67,6 +96,14 @@
       "type": "object",
       "description": "Health by body part. Meaningful damage is to the head or to locomotion.",
       "additionalProperties": { "type": "number", "minimum": 0 }
+    },
+    "worn": {
+      "type": "array",
+      "description": "Item ids this kind's bodies wear. SimRoster.spawn_zombie gives such a body an inventory, equips each id into the slot its own base declares, and marks it `lootKit` so recruits._drop_kit leaves the gear on the floor when the body goes down -- the SimRecruits._turn_with_kit precedent, which is how a zombie has carried things since a colonist could turn. What it buys is armour on something that is not a survivor: SimInfection.armor_coverage_of reads `equipment` and never asked whose it was, and SimHealth.armor_damage_factor resists with it inside `damage_part`, so an armoured kind costs no new arithmetic at all (docs/14's second wave: accumulated debris and gear, resists light weapons). A zombie body is head/torso/legs, so an `armor` block naming a survivor's sided limbs covers nothing here and is neither an error nor any use. An id no item registry knows fails check_m2_armored.gd's WORN lane rather than spawning a body wearing nothing.",
+      "items": {
+        "type": "string",
+        "pattern": "^item\\.[a-z0-9_]+(\\.[a-z0-9_]+)*$"
+      }
     },
     "grab": {
       "type": "object",

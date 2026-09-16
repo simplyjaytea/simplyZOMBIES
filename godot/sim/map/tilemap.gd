@@ -138,6 +138,18 @@ var vehicle_generation: int = 0
 # regenerated from the seed -- but the shape is the shape regardless, and iterating an Array is
 # also what keeps the pass's draw order independent of Dictionary ordering.
 var sites: Array = []
+# The bodies asleep indoors, in placement order: {x, y, building} per body, in absolute tiles --
+# `building` the **index into `buildings`** of the shell it is lying in, which is what names one
+# house rather than the template id several houses share. Written by the generator's
+# `worldgen.dormant` pass on far buildings only (outside the annex, clear of both gates); read by
+# `SimRoster.spawn_dormant_from_manifest`, which turns each record into a zombie the way
+# `SimVehicles.spawn_from_manifest` turns a parked-car record into a car.
+#
+# An Array of records for the reason `sites` and `vehicles` are, and never serialised for the
+# reason they are not: the map is regenerated from the seed, and the bodies themselves are
+# entities whose components round-trip. Empty on a blank map, on a fixture, and on any district
+# whose templates declare no `dormant` block.
+var dormant: Array = []
 
 func _init(width: int, height: int, tile: int = Tile.Floor) -> void:
 	w = width
@@ -158,6 +170,7 @@ func _init(width: int, height: int, tile: int = Tile.Floor) -> void:
 	vehicles = []
 	vehicle_generation = 0
 	sites = []
+	dormant = []
 
 
 static func blank_map(width: int, height: int, tile: int = Tile.Floor) -> Variant:

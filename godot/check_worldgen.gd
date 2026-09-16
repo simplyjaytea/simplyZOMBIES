@@ -313,11 +313,20 @@ func _boot_and_judge(seed_value: int, size: int, district_id: String, stash: Dic
 		push_error("%s: %d loot sites name tables nothing resolves: %s" % [where, unresolved.size(), str(unresolved)])
 		return {}
 
-	# 4. Twenty wanderers, none of them in the colony.
+	# 4. Twenty wanderers, none of them in the colony -- **plus** the bodies the generator left
+	# asleep indoors (the dormant slice, 2026-09-14). They are shamblers standing in the district
+	# from tick 0, so they are counted here rather than excused; what the density lane below and
+	# `check_m2_district.gd` BOOT DENSITY are about is `wanderers_for`, and `map.dormant.size()` is
+	# the manifest beside it. The exclusion check that follows still reads every one of them: a
+	# dormant body inside the annex would be the same fairness failure as a scattered one, and the
+	# generator's own filter is what keeps it out.
 	var zeds: int = world.components.query(["shambler"]).size()
-	var want: int = SimBoot.wanderers_for(int(map.w))
+	var asleep: int = (map.dormant as Array).size()
+	var want: int = SimBoot.wanderers_for(int(map.w)) + asleep
 	if zeds != want:
-		push_error("%s: booted %d shamblers, and SimBoot.wanderers_for(%d) is %d" % [where, zeds, int(map.w), want])
+		push_error("%s: booted %d shamblers, and SimBoot.wanderers_for(%d) is %d plus %d asleep indoors" % [
+			where, zeds, int(map.w), SimBoot.wanderers_for(int(map.w)), asleep,
+		])
 		return {}
 	var inside: int = _wanderers_inside(world, annex)
 	if not _exclusion_ok(inside):
