@@ -101,8 +101,9 @@ func _run() -> void:
 	ok = _a_crossing_and_a_raid_share_one_cap() and ok
 	ok = _the_roles_are_read_against_the_crossing() and ok
 	ok = _a_raider_fights_with_what_it_arrived_with() and ok
+	ok = _the_dev_menu_reaches_a_band() and ok
 	if ok:
-		print("M2_RAIDERS_OK archetypes draw grace approach blood prey seed death ledger withdraw pool looks distinct no-identity look-reader no-tell streams save chronicle looter lookout role-read fighter crosses engages roam-stream event cap roam-roles skilled")
+		print("M2_RAIDERS_OK archetypes draw grace approach blood prey seed death ledger withdraw pool looks distinct no-identity look-reader no-tell streams save chronicle looter lookout role-read fighter crosses engages roam-stream event cap roam-roles skilled debug-band")
 		quit(0)
 	else:
 		push_error("M2_RAIDERS_FAIL")
@@ -986,6 +987,88 @@ func _missing_needle(body: String, needles: Array) -> String:
 		if not body.contains(String(n)):
 			return String(n)
 	return ""
+
+
+# --- the F8 dev menu: a band on demand ----------------------------------------------------------
+#
+# The alpha shell's dev-menu piece (docs/23, "the dev menu reaches a raider band and a stranger"):
+# F8's raider rows push `debug.spawn` and `SimDebug` reaches the exact machinery a night's draw
+# does -- `SimRaiders.spawn_band` then `stamp_band` -- so a band a tester summons is a band the
+# director could have drawn: hostile, each a rolled person carrying a web. Four claims, each with
+# its negative: `"band.4"` places exactly four rather than merely "some"; the cap refuses a
+# request that would exceed it rather than exceeding it (`RAID_LIVE_CAP` is a district-wide budget
+# shared with a crossing, and this is the same rule applied to a dev spawn); a fabricated command
+# naming a size of zero spawns nobody; and the panel itself offers both new kinds, read out of
+# `_rows()` and not merely somewhere in the file -- CLAUDE.md's dead-socket rule, applied to the
+# desk rather than to a mechanism, the same way `check_m2_attach.gd`'s findability lane is.
+func _the_dev_menu_reaches_a_band() -> bool:
+	var w: Variant = SimBoot.playable(SEED, MAP_TILES)["world"]
+	var before: Array[int] = w.components.query(["raider"])
+	var pos: Variant = w.components.get_component(int(w.player), "position")
+	var px: float = float((pos as Dictionary)["x"])
+	var py: float = float((pos as Dictionary)["y"])
+	w.commands.push({"type": "debug.spawn", "kind": "raider", "id": "band.4", "x": px + 8.0, "y": py})
+	w.step()
+	var spawned: Array[int] = []
+	for e in w.components.query(["raider"]):
+		if not before.has(int(e)):
+			spawned.append(int(e))
+	if spawned.size() != 4:
+		push_error("DEBUG-BAND: 'band.4' spawned %d raiders, not 4" % spawned.size())
+		return false
+	for ent in spawned:
+		if not SimAllegiance.hostile(w, ent, int(w.player)):
+			push_error("DEBUG-BAND: raider %d is not hostile to the player" % ent)
+			return false
+		var rd: Variant = w.components.get_component(ent, "raider")
+		if not (rd is Dictionary) or String(((rd as Dictionary).get("person", {}) as Dictionary).get("name", "")).is_empty():
+			push_error("DEBUG-BAND: raider %d carries no raider.person" % ent)
+			return false
+		var web: Variant = w.components.get_component(ent, "skillWeb")
+		if not (web is Dictionary) or ((web as Dictionary).get("points", {}) as Dictionary).is_empty():
+			push_error("DEBUG-BAND: raider %d carries no non-empty skillWeb" % ent)
+			return false
+	# The cap, shared with a night's raid and a dawn's crossing: fill it, then ask for one more.
+	var room: int = SimDirector.RAID_LIVE_CAP - SimRaiders.live_count(w)
+	if room > 0:
+		w.commands.push({"type": "debug.spawn", "kind": "raider", "id": "band.%d" % room, "x": px + 8.0, "y": py + 4.0})
+		w.step()
+	var at_cap: int = SimRaiders.live_count(w)
+	if at_cap < SimDirector.RAID_LIVE_CAP:
+		push_error("DEBUG-BAND: could not fill the cap to test it -- %d live of %d" % [at_cap, SimDirector.RAID_LIVE_CAP])
+		return false
+	w.commands.push({"type": "debug.spawn", "kind": "raider", "id": "band.2", "x": px + 8.0, "y": py + 8.0})
+	w.step()
+	var refused: bool = false
+	for e in w.events.drained:
+		var ev: Dictionary = e as Dictionary
+		if String(ev.get("type", "")) == "debug.refused" and String(ev.get("kind", "")) == "raider" and String(ev.get("reason", "")) == "cap":
+			refused = true
+	if not refused:
+		push_error("DEBUG-BAND: a request past the cap (%d live, cap %d) published no debug.refused" % [at_cap, SimDirector.RAID_LIVE_CAP])
+		return false
+	if SimRaiders.live_count(w) != at_cap:
+		push_error("DEBUG-BAND: live count moved from %d to %d on a request the cap should have refused" % [at_cap, SimRaiders.live_count(w)])
+		return false
+	# True negative: a fabricated command naming a size of zero spawns nobody.
+	var w2: Variant = SimBoot.playable(SEED, MAP_TILES)["world"]
+	var before2: int = SimRaiders.live_count(w2)
+	w2.commands.push({"type": "debug.spawn", "kind": "raider", "id": "band.0", "size": 0, "x": 5.0, "y": 5.0})
+	w2.step()
+	if SimRaiders.live_count(w2) != before2:
+		push_error("DEBUG-BAND: a fabricated size of zero spawned %d raiders" % (SimRaiders.live_count(w2) - before2))
+		return false
+	# Dead socket: the panel offers both kinds inside `_rows()` itself, not merely in a comment.
+	var rows_body: String = _function_body("res://ui/debug_panel.gd", "_rows")
+	if rows_body.is_empty():
+		push_error("DEBUG-BAND: could not read debug_panel.gd's _rows()")
+		return false
+	var missing: String = _missing_needle(rows_body, ["\"raider\"", "\"stranger\""])
+	if not missing.is_empty():
+		push_error("DEBUG-BAND: debug_panel.gd's _rows() does not offer %s" % missing)
+		return false
+	print("DEBUG-BAND OK 'band.4' spawned 4 hostile bodies, each with a person and a web; a request past the cap (%d live, cap %d) was refused rather than exceeded; a fabricated size of zero spawned nobody; the panel's _rows() offers both kinds" % [at_cap, SimDirector.RAID_LIVE_CAP])
+	return true
 
 
 # --- fixtures ---------------------------------------------------------------------------------
