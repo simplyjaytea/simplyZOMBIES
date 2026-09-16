@@ -39,6 +39,7 @@ func _run() -> void:
 	ok = _the_raw_sheet_stays_behind_m() and ok
 	ok = _the_scanner_can_actually_fail() and ok
 	ok = _the_chronicle_speaks_of_the_colony() and ok
+	ok = _the_action_line_names_keys_only() and ok
 	ok = _a_selected_colonist_is_spoken_of() and ok
 	ok = _a_click_finds_a_colonist() and ok
 	var sheet_ok: bool = await _the_hidden_sheet_costs_nothing()
@@ -274,6 +275,126 @@ func _the_chronicle_speaks_of_the_colony() -> bool:
 		return false
 	print("CHRONICLE OK one line a death, aged out, saved")
 	return true
+
+
+# The action bar's line: which key does what, right here. docs/30's "The alpha shell" -- the sim
+# decides the verb, presentation names the key -- so this lane asks two things of it.
+#
+# The prose half: the line names E for a boarded window and carries no digit, with the scanner
+# proved on the literal "E — 3 boards", which is what the line would look like if somebody
+# swapped a read model's prose for a count. The em dash is not decoration here: the bar splits on
+# it to draw the key in amber and the words in khaki, so a clause without one loses its accent.
+#
+# The reach half: every source is asked for a true positive, because a clause that can never
+# appear is a key the bar will never name -- the look-at first, the `hint` main.gd resolved for
+# this frame behind it (the parameter would otherwise be a dead socket in the signature), T for a
+# bleeding body and H for a held one. True negatives all round: a content-error hint is not an
+# action, a survivor standing in an empty street with nothing wrong gets no line at all, and the
+# whole line is "" for a null world.
+#
+# And the dead-socket half, textually: `_update_hud` in main.gd has to hand the line over, or
+# every clause above is prose nothing draws. The needle is the call as written rather than
+# `set_action(` alone, because `_hud` is typed `Control` and the call goes through `call()` --
+# and a needle a comment could satisfy cannot fail (CLAUDE.md, the READ_KEYS lesson).
+func _the_action_line_names_keys_only() -> bool:
+	var w: Variant = _suffering_world()
+	SimWounds.append_wound(w, w.player, "laceration", "torso", -1, 30.0)
+	var look: Dictionary = {"window": "boarded, holding"}
+	var line: String = Hud.action_line(w, w.player, look, "a hint nobody should need")
+	if line.is_empty():
+		push_error("ACTION: a survivor at a boarded window is offered nothing")
+		return false
+	if line.find("E — boarded, holding") < 0:
+		push_error("ACTION: the line does not name E for the window in reach: '%s'" % line)
+		return false
+	if not _digits(line).is_empty():
+		push_error("ACTION: the action line carries digits (%s): '%s'" % [_digits(line), line])
+		return false
+	# The scanner that just passed it has to be able to fail: the same line with a count in it.
+	if _digits("E — 3 boards").is_empty():
+		push_error("ACTION: the digit scanner passed the line it exists to catch: 'E — 3 boards'")
+		return false
+	# T, from the bleeding torso -- a rung the sim would allow, named in the sim's own terms.
+	if line.find("T — ") < 0:
+		push_error("ACTION: a bleeding survivor is offered no aid key: '%s'" % line)
+		return false
+	# H, for a neighbour with something holding her, by name.
+	var mara: int = _person(w, "Mara Sato", 8.5, 8.0)
+	w.components.set_component(mara, "grabbed", {"by": 4242, "sinceTick": 0})
+	var held: String = Hud.action_line(w, w.player, look, "")
+	if held.find("H — pull Mara Sato free") < 0:
+		push_error("ACTION: nobody is offered the rescue key for a held colonist: '%s'" % held)
+		return false
+	# The clauses join, in the order the keys sit under the hand.
+	if held.find("E — ") > held.find("T — ") or held.find("T — ") > held.find("H — "):
+		push_error("ACTION: the clauses are not in E, T, H order: '%s'" % held)
+		return false
+	# `hint` is read: with the look-at silent it is the E clause, and it never wins over one.
+	var hinted: String = Hud.action_line(w, w.player, {}, "the gate stands open")
+	if hinted.find("E — the gate stands open") < 0:
+		push_error("ACTION: main.gd's own context line never reaches the bar: '%s'" % hinted)
+		return false
+	if line.find("the gate") >= 0 or Hud.action_line(w, w.player, look, "the gate stands open").find("the gate") >= 0:
+		push_error("ACTION: the hint displaced the look-at clause it is a fallback for")
+		return false
+	# A content error is a fault report main.gd borrows the hint for, not something E does.
+	if Hud.action_line(w, w.player, {}, "content: boom").find("E") >= 0:
+		push_error("ACTION: a content error was offered as an action")
+		return false
+	# The true negative that matters: nothing to do, no line.
+	var quiet: Variant = World.new(_fixture())
+	SimHealth.make_survivor_body(quiet, quiet.player)
+	SimNeeds.attach(quiet, quiet.player, {"hunger": 100.0, "thirst": 100.0, "rest": 100.0})
+	var nothing: String = Hud.action_line(quiet, int(quiet.player), {}, "")
+	if not nothing.is_empty():
+		push_error("ACTION: a survivor in an empty street with nothing wrong is offered '%s'" % nothing)
+		return false
+	if not Hud.action_line(null, 0, {}, "").is_empty():
+		push_error("ACTION: a null world produced a line")
+		return false
+	# The reader. Without this every clause above is prose nothing draws.
+	var body: String = _function_body("res://presentation/main.gd", "_update_hud")
+	if body.is_empty():
+		push_error("ACTION: could not read _update_hud out of main.gd -- the reach assertion had nothing to judge")
+		return false
+	# Comment lines dropped first: the whole point of a reach assertion is that it fails when the
+	# call goes, and a needle a commented-out call still satisfies would not.
+	var code: String = ""
+	for row in body.split("\n"):
+		if not String(row).strip_edges().begins_with("#"):
+			code += String(row) + "\n"
+	if code.find("_hud.call(\"set_action\"") < 0:
+		push_error("ACTION: _update_hud never hands the action line to the HUD")
+		return false
+	if body.find("_hud.call(\"set_actionx\"") >= 0:
+		push_error("ACTION: the needle matched a call that does not exist, so this lane is not reading what it thinks")
+		return false
+	# And the HUD has to draw what it was handed.
+	var hud_src: String = FileAccess.get_file_as_string("res://ui/hud.gd")
+	if hud_src.find("func _draw_action_bar(") < 0 or _function_body("res://ui/hud.gd", "_draw").find("_draw_action_bar(") < 0:
+		push_error("ACTION: the HUD holds an action line that nothing draws")
+		return false
+	print("ACTION OK '%s', digit-free, E/T/H in order, the hint behind the look-at, and _update_hud hands it over" % held)
+	return true
+
+
+# The same slice check_camera.gd takes out of main.gd, for the same reason: an assertion about
+# what a function contains has to be reading that function and not a mention of it elsewhere.
+func _function_body(path: String, name: String) -> String:
+	var f: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return ""
+	var out: String = ""
+	var inside: bool = false
+	for line in f.get_as_text().split("\n"):
+		if line.begins_with("func %s(" % name):
+			inside = true
+			continue
+		if inside and line.begins_with("func "):
+			break
+		if inside:
+			out += line + "\n"
+	return out
 
 
 # The other half of decision 12: the HUD refreshed for a colonist speaks of her, never as "You".

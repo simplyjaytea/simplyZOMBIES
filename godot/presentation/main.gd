@@ -941,6 +941,10 @@ func _update_hud() -> void:
 		if not _content_error.is_empty():
 			context = "content: %s" % _content_error
 		_hud.set("hint", context)
+		# What the contextual keys would do, right here: the sim's read models decide the verb --
+		# fortify's look-at, the cupboard, the car, the aid ladder, the hands on a neighbour --
+		# and the line only names the key. check_hud's ACTION lane asserts both halves.
+		_hud.call("set_action", HudRead.action_line(world, world.player, look, context))
 		_hud.call("refresh", world, who, base)
 	# The dashboard reads the seat every refresh: {} off the wheel hides it.
 	if _dashboard != null and _dashboard.has_method("set_view"):
