@@ -39,6 +39,7 @@ const UNROUTED_CHECKS = {
 const OUTSIDE_M2 = {
   "godot:m2:balance:full": "the ~9 h grid, opt-in by BALANCE_FULL=1",
   "godot:m2:harness:full": "the full harness, opt-in by HARNESS_FULL=1",
+  "godot:m2:chain": "the chain's own && list, read by scripts/m2-chain.mjs, not a gate itself",
 };
 
 // --- pure functions, so the self-test can feed them fabricated input --------------------------
@@ -235,7 +236,11 @@ function judgeTree() {
       checkFiles,
       runner: readFileSync(resolve(ROOT, "scripts/run-godot.mjs"), "utf8"),
       scripts: fs.scripts,
-      m2Chain: fs.scripts.get("godot:m2") ?? "",
+      // godot:m2 itself is `node scripts/m2-chain.mjs` (scripts/m2-chain.mjs prints the
+      // per-gate timing table, scripts/check-timing.mjs gates it) -- the authoritative list of
+      // what it runs is godot:m2:chain, the && string that script parses at run time. Reading
+      // that key here, rather than godot:m2, is what keeps this the one list both readers share.
+      m2Chain: fs.scripts.get("godot:m2:chain") ?? "",
       unrouted: UNROUTED_CHECKS,
       outsideM2: OUTSIDE_M2,
     }),

@@ -99,6 +99,13 @@ jobs:
       - name: Routing table and gate reachability
         run: npm run check:routing
 
+      # The per-gate timing table godot:m2 prints (scripts/m2-chain.mjs) is only useful if it
+      # cannot come up short: this self-tests it against fabricated GATE_TIME lines and checks
+      # that godot:m2 still delegates to it and run-godot.mjs still prints the line it reads.
+      # Node only, no engine involved.
+      - name: Per-gate timing table
+        run: npm run check:timing
+
       - name: Godot R1 parity
         run: npm run godot:test
 
