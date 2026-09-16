@@ -34,8 +34,12 @@ const SimInfection = preload("res://sim/modules/infection.gd")
 const SimCamp = preload("res://sim/modules/camp.gd")
 const SimChronicle = preload("res://sim/modules/chronicle.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
+const SimTreatment = preload("res://sim/modules/treatment.gd")
+const SimShambler = preload("res://sim/modules/shambler.gd")
+const SimVehicles = preload("res://sim/modules/vehicles.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const Palette = preload("res://presentation/palette.gd")
+const Chrome = preload("res://ui/chrome.gd")
 
 const MARGIN: float = 24.0
 const LINE: float = 34.0
@@ -47,6 +51,22 @@ const SMALL_SIZE: int = 22
 # key-line lane is what would notice if they drifted far enough to overlap.
 const STRIP_CLEARANCE: float = 116.0
 
+# The two cards and the action bar -- the owner's pick of 2026-09-16 ("Option A, two cards",
+# docs/30's "The alpha shell"). The numbers are the mockup's, doubled: the artboards were drawn
+# at 960x540 against a screenshot of the shipped 1920x1080 screen.
+#
+# A card is a *minimum* width, not a fixed one. A chronicle line longer than the nominal box
+# would otherwise hang off the left edge of a right-aligned card, which is the one way a drawn
+# panel can look broken; `_draw_card` grows the box to whatever the widest line needs.
+const CARD_ALPHA: float = 0.86
+const YOU_CARD_W: float = 472.0
+const OUT_CARD_W: float = 496.0
+const CARD_PAD: float = 14.0      # inner left/right gutter, and the skirt below the last line
+const BAR_W: float = 1296.0
+const BAR_H: float = 48.0
+const BAR_GAP: float = 12.0       # between a key and its words, and around the separating dot
+const ACTION_SEP: String = " · "
+
 # Worst-part states from condition.gd, as a sentence rather than a grade.
 const CONDITION_PROSE: Array[String] = ["", "hurt", "badly hurt", "barely standing"]
 
@@ -56,6 +76,7 @@ var hint: String = ""
 var _left: Array[String] = []
 var _right: Array[String] = []
 var _raw: String = ""
+var _action: String = ""
 
 
 func _ready() -> void:
@@ -229,30 +250,212 @@ static func pawn_tag(world: Variant, actor: int) -> String:
 	return " · ".join(parts)
 
 
+# --- the action line -----------------------------------------------------------------------
+#
+# What the three contextual keys would do, right here, in the words the sim already uses.
+# **The sim decides the verb; presentation names the key.** Nothing here tells the player
+# anything a read model was not already willing to say for some other screen, and when no read
+# model says anything the line is "" and the bar draws nothing at all.
+#
+# Digit-free by construction rather than by scrubbing: every clause is either a sim read model
+# already under the HUD's digit ban (fortify's window prose, the noise device's one word, the
+# container and vehicle clauses) or a phrase built here out of a part label and a person's name.
+# check_hud's ACTION lane scans the built line and proves its scanner on "E — 3 boards".
+#
+# **`SimTreatment.context` is deliberately not called.** It reads like the T key's read model and
+# it is not one: it cancels a running channel and calls `begin`, so a HUD that asked it "what
+# would T do?" four times a second would *start treating people*. The two facts it branches on
+# are pure, and they are what this reads instead -- a channel already on this body, and
+# `_nearest_needing_care`, which is `context`'s own patient pick with none of the doing. The verb
+# is still the sim's: `options_for` dry-runs every rung and this names the first one that would
+# actually be allowed, so the bar cannot offer a rung the sim would refuse.
+const VERB_PROSE: Dictionary = {
+	"pressure": "press",
+	"bandage": "dress",
+	"clean": "clean",
+	"close": "stitch",
+}
+
+
+static func action_line(world: Variant, actor: int, look: Dictionary, hint: String) -> String:
+	if world == null or actor < 0:
+		return ""
+	var clauses: Array[String] = []
+	var reach: String = _reach_clause(world, actor, look, hint)
+	if not reach.is_empty():
+		clauses.append("E — " + reach)
+	var aid: String = _aid_clause(world, actor)
+	if not aid.is_empty():
+		clauses.append("T — " + aid)
+	var rescue: String = _rescue_clause(world, actor)
+	if not rescue.is_empty():
+		clauses.append("H — " + rescue)
+	return ACTION_SEP.join(clauses)
+
+
+# E, in main.gd's own order: the window you are facing, the bait, the device under your hand,
+# then the cupboard, then the car. `hint` is the context line main.gd has already resolved for
+# this frame, and it is the last word rather than the first -- mostly it is the same fortify
+# look-at read through a different door, so it only wins when this file's own sources have gone
+# quiet and main.gd knows about something they do not. The content-error hint is not an action:
+# it is a fault report main.gd borrows the hint line for, and naming a key beside it would be a
+# lie about what E does.
+static func _reach_clause(world: Variant, actor: int, look: Dictionary, hint: String) -> String:
+	for key in ["window", "noisemaker", "device"]:
+		var clause: String = String(look.get(key, ""))
+		if not clause.is_empty():
+			return clause
+	var here: String = SimContainers.hud_clause(world, actor)
+	if not here.is_empty():
+		return here
+	var car: String = SimVehicles.hud_clause(world, actor)
+	if not car.is_empty():
+		return car
+	if not hint.is_empty() and not hint.begins_with("content: "):
+		return hint
+	return ""
+
+
+# T. A channel already running says the one thing the key does to it, which is end it; otherwise
+# the nearest body that wants a rung, the wound the condition view ranks first, and the rung the
+# sim would actually allow.
+static func _aid_clause(world: Variant, actor: int) -> String:
+	if world.components.has_component(actor, "treatment"):
+		return "stop"
+	var patient: int = SimTreatment._nearest_needing_care(world, actor)
+	if patient < 0:
+		return ""
+	var part: String = _worst_part(world, patient)
+	if part.is_empty():
+		return ""
+	var verb: String = ""
+	for option in SimTreatment.options_for(world, actor, patient, part):
+		var o: Dictionary = option as Dictionary
+		if bool(o.get("ok", false)):
+			verb = String(o.get("verb", ""))
+			break
+	if verb.is_empty() or not VERB_PROSE.has(verb):
+		return ""
+	var label: String = SimCondition.label_of(part)
+	if patient == actor:
+		return "%s your %s" % [String(VERB_PROSE[verb]), label]
+	return "%s %s's %s" % [String(VERB_PROSE[verb]), _name_of(world, patient, "their"), label]
+
+
+# Which wound is "the" wound, in the order the condition view already ranks parts -- bleeding
+# first, because blood loss is the only thing on that ladder that kills.
+static func _worst_part(world: Variant, patient: int) -> String:
+	var view: Dictionary = SimCondition.view(world, patient)
+	if view.is_empty():
+		return ""
+	var wounded: String = ""
+	for entry in view.get("parts", []) as Array:
+		var d: Dictionary = entry as Dictionary
+		if bool(d.get("bleeding", false)):
+			return String(d.get("part", ""))
+		if wounded.is_empty() and bool(d.get("wounded", false)):
+			wounded = String(d.get("part", ""))
+	return wounded
+
+
+# H. Somebody in reach with a zombie's hands on them, by name, because who it is decides whether
+# you go.
+static func _rescue_clause(world: Variant, actor: int) -> String:
+	var victim: int = SimShambler.rescue_target(world, actor)
+	if victim < 0:
+		return ""
+	return "pull %s free" % _name_of(world, victim, "them")
+
+
+static func _name_of(world: Variant, entity: int, fallback: String) -> String:
+	var ident: Variant = world.components.get_component(entity, "identity")
+	if ident is Dictionary:
+		var name: String = String((ident as Dictionary).get("name", ""))
+		if not name.is_empty():
+			return name
+	return fallback
+
+
+# main.gd hands the line over once a frame; the bar draws "" as nothing at all.
+func set_action(text: String) -> void:
+	if text == _action:
+		return
+	_action = text
+	queue_redraw()
+
+
 func _draw() -> void:
 	var font: Font = ThemeDB.fallback_font
 	var view: Vector2 = get_viewport_rect().size
+	# The two cards. The columns themselves are untouched -- the header is chrome, never a line
+	# in `_left`, so a healthy survivor is still a one-line card and check_hud's QUIET lane still
+	# has the array it judges.
+	_draw_card(font, view, _left, "you", false)
+	_draw_card(font, view, _right, "outside", true)
+	_draw_action_bar(font, view)
 
-	var y: float = MARGIN + FONT_SIZE
-	for i in _left.size():
-		# The first line is who you are; the rest are what is happening to you.
-		var colour: Color = Palette.COLOURS["player"] if i == 0 else Palette.COLOURS["survivor"]
-		draw_string(font, Vector2(MARGIN, y), _left[i], HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, colour)
+	if show_raw and not _raw.is_empty():
+		# The developer sheet, wrapped so a long line does not run off the district, and above
+		# the action bar rather than through it.
+		draw_string(font, Vector2(MARGIN, view.y - MARGIN - STRIP_CLEARANCE - BAR_H - LINE), _raw, HORIZONTAL_ALIGNMENT_LEFT, view.x - MARGIN * 2.0, SMALL_SIZE, Palette.COLOURS["outline"])
+
+
+# One card in `ui/chrome.gd`'s skin: panel, bracketed corners, a header strip, and the column's
+# lines inside it. It sizes to its content in both directions -- a card with a fixed height would
+# either clip the chronicle or hang an empty box over the street on a quiet day.
+func _draw_card(font: Font, view: Vector2, lines: Array[String], label: String, right: bool) -> void:
+	if lines.is_empty():
+		return
+	var width: float = OUT_CARD_W if right else YOU_CARD_W
+	for line in lines:
+		width = maxf(width, font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x + CARD_PAD * 2.0)
+	var height: float = Chrome.HEADER_H + lines.size() * LINE + CARD_PAD
+	var left: float = view.x - MARGIN - width if right else MARGIN
+	var rect := Rect2(Vector2(left, MARGIN), Vector2(width, height))
+	Chrome.panel(self, rect, CARD_ALPHA)
+	var y: float = Chrome.header(self, rect, label, CARD_ALPHA) + FONT_SIZE + 2.0
+	for i in lines.size():
+		# The first line of the "you" card is who you are; the rest are what is happening.
+		var colour: Color = Palette.COLOURS["player"] if i == 0 and not right else Palette.COLOURS["survivor"]
+		var x: float = left + CARD_PAD
+		if right:
+			x = left + width - CARD_PAD - font.get_string_size(lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x
+		draw_string(font, Vector2(x, y), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, colour)
 		y += LINE
 
-	y = MARGIN + FONT_SIZE
-	for line in _right:
-		var w: float = font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x
-		draw_string(font, Vector2(view.x - MARGIN - w, y), line, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, Palette.COLOURS["survivor"])
-		y += LINE
 
-	# Bottom-right: the stance paperdoll owns the bottom-left corner now.
+# The action bar, centred above the quick strip: the contextual clauses with their key in amber,
+# then the standing key hint in the tail, all measured first and placed as one centred group so
+# the bar reads as one line rather than three columns that drift apart as the line changes.
+func _draw_action_bar(font: Font, view: Vector2) -> void:
 	# Digit-free, like every other line on this screen: the strip draws its own key names, and the
 	# speed keys are punctuation now rather than the number row (docs/30, "The inventory sheet").
 	var keys: String = "F1 keys · Tab gear · J work · P pause · - = speed · Esc settings · O overlay · M raw"
-	var kw: float = font.get_string_size(keys, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE).x
-	draw_string(font, Vector2(view.x - MARGIN - kw, view.y - MARGIN - STRIP_CLEARANCE), keys, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE, Palette.COLOURS["outline"])
-
-	if show_raw and not _raw.is_empty():
-		# The developer sheet, wrapped so a long line does not run off the district.
-		draw_string(font, Vector2(MARGIN, view.y - MARGIN - STRIP_CLEARANCE - LINE * 2.0), _raw, HORIZONTAL_ALIGNMENT_LEFT, view.x - MARGIN * 2.0, SMALL_SIZE, Palette.COLOURS["outline"])
+	var size: int = FONT_SIZE - 2
+	var runs: Array = []
+	for clause in _action.split(ACTION_SEP, false):
+		if not runs.is_empty():
+			runs.append(["·", size, Chrome.TEXT_FAINT])
+		var parts: PackedStringArray = String(clause).split(" — ")
+		if parts.size() >= 2:
+			runs.append([String(parts[0]), size, Chrome.ACCENT])
+			runs.append([" — ".join(parts.slice(1)), size, Chrome.TEXT])
+		else:
+			runs.append([String(clause), size, Chrome.TEXT])
+	if not runs.is_empty():
+		runs.append(["·", size, Chrome.TEXT_FAINT])
+	runs.append([keys, SMALL_SIZE - 2, Chrome.TEXT_DIM])
+	var total: float = BAR_GAP * float(runs.size() - 1)
+	for run in runs:
+		total += font.get_string_size(String((run as Array)[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, int((run as Array)[1])).x
+	# Like the cards, the bar is a minimum rather than a fixed box: a car's clause is a whole
+	# sentence and a group wider than 1296 would otherwise hang out of both ends of its own panel.
+	var bar_w: float = clampf(total + CARD_PAD * 2.0, BAR_W, view.x - MARGIN * 2.0)
+	var bar := Rect2(Vector2(roundf((view.x - bar_w) * 0.5), view.y - MARGIN - STRIP_CLEARANCE - BAR_H), Vector2(bar_w, BAR_H))
+	Chrome.panel(self, bar, CARD_ALPHA)
+	var x: float = bar.position.x + (bar.size.x - total) * 0.5
+	var baseline: float = bar.position.y + bar.size.y * 0.5 + float(size) * 0.36
+	for run in runs:
+		var r: Array = run as Array
+		draw_string(font, Vector2(x, baseline), String(r[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, int(r[1]), r[2] as Color)
+		x += font.get_string_size(String(r[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, int(r[1])).x + BAR_GAP

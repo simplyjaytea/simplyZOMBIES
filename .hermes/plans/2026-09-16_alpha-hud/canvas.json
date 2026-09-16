@@ -1,0 +1,80 @@
+{
+  "pages": [
+    {
+      "id": "page-1",
+      "name": "Chosen: two cards"
+    },
+    {
+      "id": "page-2",
+      "name": "Alternatives"
+    }
+  ],
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 960,
+      "h": 540,
+      "title": "Two cards \u2014 chosen 2026-09-16",
+      "page": "page-1"
+    },
+    {
+      "file": "Today.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 960,
+      "h": 540,
+      "title": "Today (shipped)",
+      "page": "page-2"
+    },
+    {
+      "file": "OptionB.dc.html",
+      "x": 1040,
+      "y": 0,
+      "w": 960,
+      "h": 540,
+      "title": "Option B \u2014 one plate along the bottom",
+      "page": "page-2"
+    },
+    {
+      "file": "OptionC.dc.html",
+      "x": 0,
+      "y": 680,
+      "w": 960,
+      "h": 540,
+      "title": "Option C \u2014 brackets only",
+      "page": "page-2"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "brief",
+      "x": 0,
+      "y": -150,
+      "w": 560,
+      "page": "page-1",
+      "text": "Option A, picked by the owner 2026-09-16. Half scale over the shipped screenshot. Full-scale geometry for the build: 'you' card at (24,24) 472\u00d7168, 'outside' card right-aligned 496\u00d7200, both with ui/chrome.gd's 40px header and 14px brackets; text 26px on 34px lines, first 'you' line in the player colour; action bar 1296\u00d748 centred above the quick strip, E/T keys in accent, verbs in khaki, the key hint at 20px dim in its tail. The two HUD arrays stay exactly what check_hud reads; headers are chrome, not lines."
+    },
+    {
+      "id": "note-b",
+      "x": 1040,
+      "y": -120,
+      "w": 420,
+      "page": "page-2",
+      "text": "Option B \u2014 one plate. Not chosen. Most map visible; long sentences wrap badly in a third of a bar."
+    },
+    {
+      "id": "note-c",
+      "x": 0,
+      "y": 1260,
+      "w": 420,
+      "page": "page-2",
+      "text": "Option C \u2014 brackets only. Not chosen. Closest to today; little legibility gain over busy tiles."
+    }
+  ],
+  "launch": {
+    "view": "canvas",
+    "page": "page-1"
+  }
+}
