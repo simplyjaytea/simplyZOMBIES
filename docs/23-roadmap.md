@@ -509,7 +509,13 @@ the order they land:
   wound, open the web, die and succeed, reach run-over and start again; Ctrl+S on the published
   web build checked by hand, since the browser's own binding cannot be proved headless. What
   fails becomes a named defect here, fixed if small and in scope, named if not. The result is the
-  alpha's record: which item is proved by which lane, and which is not.
+  alpha's record: which item is proved by which lane, and which is not. **First pass landed**
+  2026-09-16, see the record: the ten items that do not need the shell (move and interact,
+  drive, loot, wield and fire, fight a shambler, fight raiders, camp, recruit, the inventory and
+  the body, the skill web) all proved, with a screenshot per item under
+  `.hermes/plans/2026-09-16_alpha-walkthrough/`. **Waiting on the second pass**: die and succeed,
+  reach run-over and start again, and the Ctrl+S web-build check — all four sit behind **The
+  shell** above and cannot be driven until it lands.
 - *Named, not in the arc:* **a seed you can type** (the web build has no command line, so the
   fixed town is the only town it can boot); **the ladder names its rung** (`_use_context` split
   into a pure rung read and an actor, so the action line can name the top rung of E rather than
@@ -1160,6 +1166,18 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   missing `velocity` as motionless and `check_topdown.gd`'s GLIMPSE lane holds it, so the dead are
   no longer drawn as bodies standing in the dark — and the art half is the what's-left entry
   "a corpse reads as a corpse".
+- **A debug-spawned stackable item is always a bare stack of one.** `SimDebug`'s `item` arm
+  (`sim/modules/debug.gd`) calls `SimItems.spawn_item(w, id, {})` with no `count`, so an
+  ammunition round spawned from the F8 panel or a `debug.spawn` command pushed by hand always
+  arrives as a single unit; `_fire_shot`'s `_consume_ammo` (`sim/modules/ranged.gd`) despawns a
+  count-of-one round on the shot that spends it, so firing once with only one round on hand
+  leaves nothing for `_pick_round` to find on the next reload. Found by the capability
+  walkthrough's "wield and fire a weapon" lane (2026-09-16, the record below), which works
+  around it by spawning two rounds rather than one. Never reaches a real player, whose starting
+  stack comes off `spawn_item`'s own `count` clamp — the gap is in the dev tooling alone. Mildest
+  of this list on purpose, last for it: nothing a player can reach is wrong, only a debug
+  convenience is thinner than it looks. Fixing it is a `count` field on the `debug.spawn`
+  command, read by the item arm and passed through to `spawn_item`'s `options`.
 
 **Parked until Milestone 3A — blocked by missing systems, not by choices:**
 
@@ -7428,6 +7446,69 @@ not a to-do list:
   offered `Z`/`X`/`C`/`V` and `1`/`2`/`3` from before the Ctrl ladder and the quick strip — and it
   now says outright that it is a third copy no gate judges and that the in-game sheet is the
   authority.
+- **The alpha shell** — the capability walkthrough, first pass, 2026-09-16. A throwaway
+  `godot/walkthrough_driver.gd` (deleted before this commit, per AGENTS.md's "Screenshots")
+  booted `presentation/main.tscn` the way `check_play.gd` does — `root.push_input` for every key,
+  `main.call("_process", 1.0/20.0)` to drive ticks — and worked the ten items on the owner's bar
+  that do not need the shell (docs/30, "The alpha shell, 2026-09-16"). All ten proved, each
+  against an observable the sim already exposes rather than the driver's own say-so:
+  - **move and interact** — held D walked the body and release stopped it, read off the position
+    component; E on a door pushed `use.context` and `SimFortify.toggle_door` flipped its `open`
+    flag. A house's door usually has furniture on the other side of it and `_use_context` tries a
+    loose item and a container before a door, so the driver tries doors until one actually
+    toggles rather than trusting the first it finds.
+  - **drive a car** — a vehicle off `SimVehicles.spawn_from_manifest`'s own list; E mounted, held
+    W moved it, E at a full stop dismounted. Held W for only a dozen ticks: a longer hold, driven
+    blind with no steering and no obstacle read, ran a class carrying no `cab` into a wall and
+    found `vehicles.gd`'s own crash rule the hard way — a rider with no cab is thrown clear on
+    impact, correct behaviour and not a defect, but not a dismount either, so the two are kept
+    apart in the driver's own report.
+  - **find loot** — E on a `searchable` opened the transfer view (`Containers.open`) and
+    `container.takeAll` moved what fit into the pack. That command is a mouse-click word in the
+    transfer window with no keyboard binding, so the driver pushed the same command the click
+    sends rather than hit-testing the widget; a real player uses the mouse there.
+  - **wield and fire a weapon** — `debug.spawn` stood a pistol and two rounds of 9mm at the
+    player's feet, E picked them up, `item.equip` armed the pistol, G fired it (mag decremented,
+    a `noise.emitted` at magnitude 180) and R reloaded it. Two rounds, not one — see the new
+    defect in [what's left](#whats-left-in-milestone-2), last on that list.
+  - **fight a shambler** — a knife picked up and equipped, `zombie.shambler` spawned at melee
+    range; the driver closed distance with real `move` commands whenever the gap opened past the
+    knife's reach and pressed F once inside it. `attack.connected` fired on the zombie and
+    `sim/condition.gd`'s own view of the player picked up a new wound (torso, hurt, bleeding)
+    from the bite, shown in prose on the screenshot. Standing still and swinging was the first
+    cut and it failed for twenty rounds straight: a shambler's approach and whatever keeps two
+    bodies from overlapping can hold a stable gap that a defender who never moves does not close
+    — the same shape, for one body, as "a melee raider band cannot reach a body that does not
+    move" in [what's left](#whats-left-in-milestone-2), the worst-first defect this same walk
+    ran straight into next.
+  - **fight raiders** — `debug.spawn` kind `raider` id `band.2` stood a two-man band, pulled to
+    short range by a direct position write after spawning at the map edge (the approach walk
+    itself untested here — a stationary band's own known defect, above, is exactly that it
+    cannot close the last metre), and G/F landed a hit inside the lane's own budget.
+  - **make camp** — C pushed `camp.establish`, the forty-tick channel completed and
+    `SimHome.centre` moved onto the new tile — the HUD's own "your camp is here" is in the
+    screenshot; Shift+C struck it.
+  - **recruit** — `debug.spawn` kind `stranger` stood one at `SimTileMap.gate_a`; E accepted them
+    (`SimRecruits.accept`), the colony's `is_colony` count rose by one, and the new body carries
+    `needs` and `jobPriorities`, the two components only a colonist has.
+  - **inventory and the body** — Tab opened the sheet with the shambler bite still open; the
+    paperdoll marked the torso and the sheet's own prose read "hurt · bleeding · watch" — no
+    digit anywhere in it, the same ban `check_ban_health_bar.gd` polices held on a hand-driven
+    screen too.
+  - **the skill web** — K opened it with nobody else selected, which `main._who()` defaults to
+    the player.
+
+  Screenshots, one per item, at `.hermes/plans/2026-09-16_alpha-walkthrough/`. **No gate
+  changed** with this piece — `npm run godot:smoke` and `npm run check:routing` both stayed
+  green — so the walkthrough is a point-in-time proof rather than something a chain re-asserts,
+  the way AGENTS.md's screenshot section has always worked. Two things a real player could not
+  reach the way this driver did are named at the point above rather than hidden in a log: the
+  loot lane's mouse-only take-all, and the raider/shambler approach closed by writing a position
+  rather than by anyone's feet. One new defect named in the what's-left list above (worst first,
+  last of the list): a debug-spawned stackable item is always a bare stack of one, found by the
+  "wield and fire a weapon" lane. **The second pass** — die and succeed, reach run-over and start
+  again, Ctrl+S on the web build — waits on **The shell** above; the what's-left entry says so
+  rather than striking a bullet four fifths done.
 - **Death & succession** — ~~the colony morale hit on a death~~ **landed** (`godot:m2:needs`,
   GRIEF and ONCE), leaving the balance-grid proof that "the run ends only when the last survivor
   dies". docs/04 lists **grief** and **witnessing a death** as two separate negative mood sources
