@@ -85,6 +85,9 @@ func _soak_input_loss() -> bool:
 	# input queued at tick N must be consumed exactly at N, not lost or duplicated
 	var fixture: Dictionary = {"seed": 7, "tick_hz": 20, "map": {"width": 12, "height": 10, "walls": []}, "player": {"id": 0, "x": 3.5, "y": 3.5, "stance": 2}, "rng_probe": {"stream": "test", "samples": 0}}
 	var w: Variant = World.new(fixture)
+	# Recording is opt-in (command_queue.gd) and off by default; this lane means to check the
+	# recorded ledger itself, so it turns recording on the way the R1 parity path does.
+	w.commands.record = true
 	# queue 10 moves, one per tick
 	for t in range(1, 11):
 		w.commands.push({"type": "move", "dx": 0.1, "dy": 0.0})
