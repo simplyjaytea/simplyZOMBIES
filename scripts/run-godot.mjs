@@ -515,10 +515,24 @@ switch (mode) {
     throw new Error(`Unknown Godot mode: ${mode}`);
 }
 
+// Every mode -- a single check script, or the two-invocation --export -- prints exactly one
+// GATE_TIME line for the whole mode run, success or failure, so a shell chain of these (the
+// godot:m2 chain) can be timed per gate without changing any gate's exit code or its own _OK
+// output. scripts/m2-chain.mjs (and its self-test, scripts/check-timing.mjs) are the readers.
+const modeStarted = process.hrtime.bigint();
+
+/** Print the GATE_TIME line for this whole mode invocation, then exit with `code`. Called
+ *  exactly once per process, whichever path gets there first. */
+const finish = (code) => {
+  const seconds = Number(process.hrtime.bigint() - modeStarted) / 1e9;
+  console.log(`GATE_TIME mode=${mode} seconds=${seconds.toFixed(2)} exit=${code}`);
+  process.exit(code);
+};
+
 const run = (invocation) => {
   const result = spawnSync(executable, invocation, { cwd: root, stdio: "inherit" });
   if (result.error !== undefined) throw result.error;
-  if (result.status !== 0) process.exit(result.status ?? 1);
+  if (result.status !== 0) finish(result.status ?? 1);
 };
 
 if (mode === "--export") {
@@ -532,3 +546,5 @@ if (mode === "--export") {
 } else {
   run(args);
 }
+
+finish(0);

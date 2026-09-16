@@ -483,11 +483,7 @@ counter, no health bar, no name plates. Serial on `main.gd` — pieces two to fi
 at a time; the first and the sixth touch disjoint files and may run beside them. The pieces, in
 the order they land:
 
-- **Per-gate wall time.** `scripts/run-godot.mjs` prints each gate's wall time and `godot:m2`
-  prints a sorted table at the end, with an assertion under `scripts/` that the table names every
-  mode the chain ran. Node only. The chain is twenty-seven minutes with no attribution today, and
-  every later piece here quotes its own cost from this table. *Files:* `scripts/run-godot.mjs`,
-  `scripts/`, `package.json`.
+- ~~**Per-gate wall time**~~ — **landed**, see the record.
 - **The play gate.** `godot/check_play.gd` (`npm run godot:check:play`, in the chain) boots
   `res://presentation/main.tscn` headless, pushes keys through the viewport and steps the real
   frame loop: ticks advance and P stops them; WASD moves the body and release stops it; Tab and
@@ -7157,6 +7153,119 @@ not a to-do list:
   This system's open tails (the diegetic readouts, prose from modifier sources, the skill web
   screen, the attachment-fitting surface, the patient-and-part selection the other infection verbs
   wait on, the parked warmth/hygiene slots) are in [what's left](#whats-left-in-milestone-2).
+- **The alpha shell** — ~~per-gate wall time~~ **landed** 2026-09-16 (`npm run check:timing`,
+  `TIMING_OK`), the arc's first piece: the chain was twenty-seven minutes with no attribution,
+  and every later alpha-shell piece is meant to quote its own cost from this table.
+  `scripts/run-godot.mjs` prints one `GATE_TIME mode=<mode> seconds=<n> exit=<code>` line at the
+  end of every mode it runs, success or failure, without moving a gate's own exit code or its
+  `_OK` line — every path through the file, the ordinary case and every early failure, now funnels
+  through one `finish()` that prints the line and then exits. `godot:m2:chain` in `package.json`
+  keeps the exact `&&` string the chain used to be (77 scripts), unrun, as the one list both
+  `scripts/check-routing.mjs` and the new `scripts/m2-chain.mjs` read rather than each keeping a
+  copy; `godot:m2` itself is now `node scripts/m2-chain.mjs`, which runs those same 77 scripts in
+  order, stops at the first failure exactly as `&&` did, and prints a `GATE_TIME_TABLE` — every
+  gate it ran, slowest first, with a total — recovered from each one's `GATE_TIME` line.
+  `scripts/check-timing.mjs` is the assertion that the table cannot come up short: `buildTable` is
+  a pure function over the modes a chain attempt ran and the `GATE_TIME` rows collected from it,
+  and the self-test feeds it fabricated input only, per the piece's own "mock the engine, never
+  run the real chain inside the self-test" — a complete three-mode fixture produces a three-row
+  table, slowest first, with the right total, and the same fixture missing one mode's row (or
+  carrying an extra one) is refused by name rather than silently rendered short. `check-timing`
+  also reads the real tree, textually, for the two things a refactor could quietly break: that
+  `godot:m2` still says `node scripts/m2-chain.mjs`, and that `run-godot.mjs` still prints the
+  `GATE_TIME` line every row is built from — the dead-socket question asked of this mechanism
+  itself.
+  Measured on a shared project container, **contended** with at least one other `godot:m2` chain
+  running on the same machine at the same time (this file's own "about twenty-seven minutes" is
+  the quiet-container number), so every figure below is inflated over an uncontended run and is a
+  one-time reading rather than a budget to hold anyone to: the full 77-gate `npm run godot:m2`
+  took **2986.33 s** (49m46s) and exited 0, all 77 gates green. Its five slowest were
+  `--m2-balance` at 959.38 s, `--m2-storm` at 453.90 s, `--m2-needs` at 242.14 s, `--m2-raiders`
+  at 155.43 s and `--m2` (lethality) at 144.34 s — those five alone are 1955.19 s, two thirds of
+  the whole chain, on a container that was also running someone else's chain. The full table,
+  slowest first, exactly as `GATE_TIME_TABLE` printed it:
+
+  ```
+  mode              seconds   exit
+  --m2-balance       959.38  0
+  --m2-storm         453.90  0
+  --m2-needs         242.14  0
+  --m2-raiders       155.43  0
+  --m2               144.34  0
+  --m2-cold          138.80  0
+  --m2-weather       116.62  0
+  --worldgen          70.83  0
+  --m2-settlers       60.41  0
+  --m2-strangers      56.21  0
+  --m2-camp           51.73  0
+  --m2-region         50.24  0
+  --m2-heat           43.72  0
+  --m2-recovery       32.79  0
+  --m2-ranged         30.52  0
+  --loot              28.10  0
+  --m2-jobs           27.10  0
+  --m2-npc            20.40  0
+  --m2-recruits       17.56  0
+  --m2-warmth         16.19  0
+  --m2-district       15.25  0
+  --m2-wounds         15.10  0
+  --m2-filter         13.90  0
+  --m2-director       13.76  0
+  --m2-vehicles       11.47  0
+  --water             11.16  0
+  --m2-fog            10.88  0
+  --m2-treatment      10.71  0
+  --m2-noise          10.70  0
+  --m2-dormant         9.95  0
+  --buildings          9.39  0
+  --m2-harness         8.00  0
+  --hud                6.44  0
+  --wrecks             5.86  0
+  --m2-web             5.71  0
+  --m2-allegiance      5.12  0
+  --m2-contact         4.86  0
+  --m2-roster          4.85  0
+  --m2-attach          4.84  0
+  --m2-save            4.84  0
+  --m2-splint          4.28  0
+  --road               3.90  0
+  --m2-aim             3.77  0
+  --m2-medicine        3.63  0
+  --m2-comfort         3.53  0
+  --m2-light-burn      3.32  0
+  --m2-transform       3.17  0
+  --m2-ammo            3.16  0
+  --m2-autonomy        3.12  0
+  --m2-upkeep          3.12  0
+  --m2-stance          3.02  0
+  --mods               2.71  0
+  --m2-people          2.68  0
+  --m2-armored         2.51  0
+  --inventory          2.51  0
+  --m2-swipe           2.40  0
+  --m2-sight           2.32  0
+  --m2-fortify         2.22  0
+  --m2-materials       2.16  0
+  --m2-gear            2.14  0
+  --m2-bench           2.13  0
+  --m2-variance        2.04  0
+  --m2-teach           1.95  0
+  --roof               1.95  0
+  --light              1.88  0
+  --m2-stats           1.86  0
+  --trees              1.86  0
+  --worn               1.86  0
+  --web-look           1.85  0
+  --topdown            1.76  0
+  --weather            1.76  0
+  --appearance         1.67  0
+  --m2-armor           1.50  0
+  --respond            1.48  0
+  --ban-health-bar     1.29  0
+  --authored           0.35  0
+  --camera             0.27  0
+  TOTAL             2986.33
+  ```
 - **Death & succession** — ~~the colony morale hit on a death~~ **landed** (`godot:m2:needs`,
   GRIEF and ONCE), leaving the balance-grid proof that "the run ends only when the last survivor
   dies". docs/04 lists **grief** and **witnessing a death** as two separate negative mood sources
