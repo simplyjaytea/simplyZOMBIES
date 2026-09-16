@@ -884,10 +884,12 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    (`godot:m2:camp`, nine lanes) and took four calls without asking, each one line if re-decided.
    **The key** — **decided 2026-09-16**: camp keeps **C**, shift+C to strike, and the stance
    ladder that had shared the letter (the audit found both arms firing on every press) moves onto
-   Ctrl — docs/30's "The alpha shell" and docs/23's group of that name; the fix lands with the
-   play gate. E-with-a-confirm was offered again and not taken. **The clock**: establishing costs fortify's ordinary 40-tick channel, because
-   the labour cost is the deferred slice; it is currently cheaper than boarding a window and louder
-   than one, which is half of the commitment Task 8 asks for. **The footprint**: a camp's rect is
+   Ctrl — docs/30's "The alpha shell" and docs/23's group of that name; the fix **landed** with
+   the play gate on 2026-09-16 (`npm run godot:check:play`, the CAMP-KEY lane; docs/23's record).
+   E-with-a-confirm was offered again and not taken. **The clock**: establishing costs fortify's
+   ordinary 40-tick channel, because the labour cost is the deferred slice; it is currently
+   cheaper than boarding a window and louder than one, which is half of the commitment Task 8
+   asks for. **The footprint**: a camp's rect is
    radius 1 — the tile and everything touching it — which is what the director's quiet floor reads
    as "how loud is it at home"; the 32 m keep-off is `GATE_EXCLUSION`'s and is unchanged.
    **Abandonment reverts home to the annex** rather than to the previous camp, which is the simplest

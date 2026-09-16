@@ -14,7 +14,11 @@ const PAD: float = 36.0
 const LINE: float = 38.0
 const TITLE_GAP: float = 20.0
 const GROUP_GAP: float = 18.0
-const KEY_COLUMN: float = 264.0
+# Wide enough for the widest key cell, which is the stance ladder's "Ctrl+Z / Ctrl+C / Ctrl+S /
+# Ctrl+V" since the ladder moved onto Ctrl (docs/30, "The alpha shell, 2026-09-16"). The bare
+# letters fitted in 264; spelling the modifier out is what makes the row readable as the ladder
+# rather than as four letters that collide with the camp key.
+const KEY_COLUMN: float = 500.0
 const FONT_SIZE: int = 24
 const TITLE_SIZE: int = 30
 
@@ -22,7 +26,7 @@ const GROUPS: Array = [
 	["Move", [
 		["WASD", "walk"],
 		["Shift", "sprint — fast, and loud, latches while held"],
-		["Z / X / C / V", "crawl, crouch, walk, jog"],
+		["Ctrl+Z / Ctrl+C / Ctrl+S / Ctrl+V", "crawl, crouch, stand, jog"],
 	]],
 	["Act", [
 		["Mouse", "aim — you turn to the cursor while standing; moving, you face where you go"],
@@ -69,7 +73,7 @@ func _draw() -> void:
 	for group in GROUPS:
 		rows += ((group as Array)[1] as Array).size()
 	var height: float = PAD * 2.0 + TITLE_GAP + LINE * float(rows + GROUPS.size()) + GROUP_GAP * float(GROUPS.size())
-	var width: float = 1060.0
+	var width: float = 1320.0
 	var origin := Vector2(
 		roundf((view.x - width) / 2.0),
 		roundf((view.y - height) / 2.0),

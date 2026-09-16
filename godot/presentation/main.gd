@@ -152,10 +152,15 @@ var _last_dy: float = 0.0
 # swung the bearing -- the sim ignores aim while moving anyway (world.gd's "aim" case), this
 # just keeps the command queue from carrying a no-op per polled motion event.
 var _last_aim: float = 1e9
-# Which of the non-sprint rungs (Z/X/C/V) is selected, so releasing Shift returns to it rather
-# than to a fixed default. Presentation-local only -- the sim never reads this, it only ever
-# sees the stance commands _push_stance sends.
+# Which of the non-sprint rungs (Ctrl+Z/Ctrl+C/Ctrl+S/Ctrl+V) is selected, so releasing Shift
+# returns to it rather than to a fixed default. Presentation-local only -- the sim never reads
+# this, it only ever sees the stance commands _push_stance sends.
 var _selected_stance: int = 2 # Walk
+
+# The tick of the last frame `_draw` finished. Written on its last line and read by
+# check_play.gd's DRAW lane, which is the only executing proof that the draw path completed
+# rather than raising partway down. Never read by the game.
+var _drew_tick: int = -1
 
 # Cardinal: screen axes are world axes under the top-down projection, so W is
 # straight up. Holding two adjacent keys still sums to a diagonal, same as ever.
@@ -537,8 +542,19 @@ func _input(event: InputEvent) -> void:
 				# with a trap and a bait already down -- is worse than one more key. E stays
 				# "act on what is in front of you"; C is a deliberate commitment, which is what
 				# Task 8 asks a camp to be. Shift+C strikes it; the sim decides which camp.
-				if world != null:
-					if Input.is_key_pressed(KEY_SHIFT):
+				#
+				# `not ke.ctrl_pressed` is the half of the double bind that lived here: C used to
+				# fall through this arm *and* the walk-stance line below, so one press moved home
+				# and stood the body up. The owner kept camp on C and moved the ladder onto Ctrl
+				# (docs/30, "The alpha shell, 2026-09-16"), so Ctrl+C is the crouch and belongs to
+				# the line below, not to this arm.
+				#
+				# `ke.shift_pressed`, not `Input.is_key_pressed(KEY_SHIFT)`: the flag rides on the
+				# event, so a pushed event carries its own modifier and check_play.gd's CAMP-KEY
+				# lane can tell a strike from an establish. The global read saw only a physical
+				# keyboard, which is why nothing could ever test it.
+				if world != null and not ke.ctrl_pressed:
+					if ke.shift_pressed:
 						world.commands.push({"type": "camp.abandon"})
 					else:
 						world.commands.push({"type": "camp.establish"})
@@ -558,19 +574,26 @@ func _input(event: InputEvent) -> void:
 					_debug_panel.visible = not _debug_panel.visible
 					if _debug_panel.visible and _debug_panel.has_method("set_world"):
 						_debug_panel.call("set_world", world)
-		# movement keys tracked for pump
-		if MOVE_KEYS.has(ke.keycode):
+		# movement keys tracked for pump -- but never a Ctrl-modified one. Ctrl+S is the stand
+		# rung of the ladder below, and a body that stood up and walked backwards at the same
+		# time would be the double bind again in a second place.
+		if MOVE_KEYS.has(ke.keycode) and not ke.ctrl_pressed:
 			_held[ke.keycode] = true
 		# Shift is a latch on rung 4 (Sprint), not a key with its own stance number: press
-		# pushes Sprint, release returns to whichever of Z/X/C/V was last selected. The sim
-		# decides whether the request is honoured -- see the zero-stamina gate in world.gd's
+		# pushes Sprint, release returns to whichever rung of the Ctrl ladder was last selected.
+		# The sim decides whether the request is honoured -- see the zero-stamina gate in world.gd's
 		# "stance" command case.
 		if ke.keycode == KEY_SHIFT: _push_stance(4)
-		# stance keys Z/X/C/V
-		if ke.keycode == KEY_Z: _selected_stance = 0; _push_stance(0)
-		if ke.keycode == KEY_X: _selected_stance = 1; _push_stance(1)
-		if ke.keycode == KEY_C: _selected_stance = 2; _push_stance(2)
-		if ke.keycode == KEY_V: _selected_stance = 3; _push_stance(3)
+		# The stance ladder, on Ctrl since the owner's decision of 2026-09-16 (docs/30, "The
+		# alpha shell"): Ctrl+Z prone, Ctrl+C crouch, Ctrl+S stand, Ctrl+V jog, Shift the sprint
+		# latch above. It used to be the bare letters Z/X/C/V, and the C rung fired on the same
+		# press as the camp arm in the match above -- standing up from a crouch started moving
+		# home. The modifier is what separates them; `ke.ctrl_pressed` reads it off the event, so
+		# a gate can inject it. Ctrl+W is deliberately not a rung: the browser owns it.
+		if ke.ctrl_pressed and ke.keycode == KEY_Z: _selected_stance = 0; _push_stance(0)
+		if ke.ctrl_pressed and ke.keycode == KEY_C: _selected_stance = 1; _push_stance(1)
+		if ke.ctrl_pressed and ke.keycode == KEY_S: _selected_stance = 2; _push_stance(2)
+		if ke.ctrl_pressed and ke.keycode == KEY_V: _selected_stance = 3; _push_stance(3)
 		queue_redraw()
 	if event is InputEventKey and not event.pressed:
 		var ke2: InputEventKey = event as InputEventKey
@@ -651,7 +674,7 @@ func _push_stance(target: int) -> void:
 	# "stance" command case and the player.advance-posture system) owns ticks_left and the
 	# current/target transition entirely; this used to reach into posture directly and set
 	# ticks_left on a dict that (pre-SimStances.make_posture) never had that key at all, an
-	# invalid-index crash on every Z/X/C/V press.
+	# invalid-index crash on every stance-key press.
 	world.commands.push({"type": "stance", "stance": target})
 
 func _pump_input() -> void:
@@ -956,6 +979,12 @@ func _draw() -> void:
 	_draw_fog()
 	_draw_night_wash()
 	# glimpse drawn by Control; nothing else needed here
+	# The last line of the frame, and the only thing in this file that exists for a gate:
+	# check_play.gd cannot tell "the engine called _draw" from "_draw reached the bottom"
+	# without it, and the difference is exactly the class of bug the play gate was built to
+	# catch -- a null dereference three quarters of the way down _draw_entities on night three.
+	# An aborted draw never gets here, so the counter lagging the tick is the failure.
+	_drew_tick = int(world.tick)
 
 func _draw_district() -> void:
 	var zoom: float = float(camera["zoom"])
