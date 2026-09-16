@@ -31,12 +31,14 @@ const SimLightMod = preload("res://sim/modules/light.gd")
 const SimNoiseDevice = preload("res://sim/modules/noise_device.gd")
 const SimSurvivors = preload("res://sim/modules/survivors.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
+const SimSettlers = preload("res://sim/modules/settlers.gd")
 const SimFortify = preload("res://sim/modules/fortify.gd")
 const SimDirector = preload("res://sim/modules/director.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimNpcCombat = preload("res://sim/modules/npc_combat.gd")
 const SimRecruits = preload("res://sim/modules/recruits.gd")
+const SimStrangers = preload("res://sim/modules/strangers.gd")
 const SimSkills = preload("res://sim/modules/skills.gd")
 const SimSightings = preload("res://sim/modules/sightings.gd")
 const SimWeather = preload("res://sim/modules/weather.gd")
@@ -162,6 +164,8 @@ static func register_playable_modules(world: Variant, map: Variant) -> void:
 	SimJobs.register_module(world)
 	SimNpcCombat.register_module(world)
 	SimRecruits.register_module(world)
+	SimStrangers.register_module(world)
+	SimSettlers.register_module(world)
 	SimSkills.register_module(world)
 	SimAttention.register_module(world, map)
 	SimShambler.register_module(world, map)
@@ -466,6 +470,21 @@ static func playable(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.D
 	# the balance harness and every 64-tile gate spawn zero of these and see no change at all.
 	# No RNG: one entity per record, in manifest order.
 	SimVehicles.spawn_from_manifest(world, map)
+	# And the bodies the generator left asleep inside the far buildings, on the same terms: one
+	# entity per manifest record, in manifest order, on the `dormant` stream rather than
+	# `placement`, so the outdoor scatter below draws exactly what it drew before this landed.
+	# At 64 the miniature the gates boot has one or two buildings far enough out to hold any, and
+	# on several seeds none at all -- see check_m2_dormant.gd, which says so and skips rather than
+	# passing quietly.
+	SimRoster.spawn_dormant_from_manifest(world, map)
+	# And the people who are not yours, living somewhere else in the same district. After the
+	# dormant spawn on purpose: both read `SimWorldgen.far_buildings`, and a camp sited before the
+	# sleepers were placed would still get the same answer -- the helper reads the layout, not the
+	# entity table -- but running them in the order the record describes is what lets a reader
+	# follow one list of draws. Its own `settlers` stream, so the outdoor scatter below draws
+	# exactly what it drew before this landed, and a district with no building far enough out
+	# spends no draws at all and boots the campaign it always did.
+	SimSettlers.spawn_camp(world, map)
 	var place_rng: Variant = world.rng.stream("placement")
 	# Never inside the colony's own walls. `SimDirector._legal_tile` has always refused to put a
 	# night packet in the annex, and this scatter used to get the same answer for nothing: the annex

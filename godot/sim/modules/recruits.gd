@@ -21,6 +21,7 @@ const SimPath = preload("res://sim/path.gd")
 const SimSkills = preload("res://sim/modules/skills.gd")
 const SimSurvivors = preload("res://sim/modules/survivors.gd")
 const SimAllegiance = preload("res://sim/modules/allegiance.gd")
+const SimPeople = preload("res://sim/modules/people.gd")
 
 const BEATS: Array[int] = [8, 12, 16]
 const TRANSMIT_P: float = 0.15
@@ -68,7 +69,12 @@ static func _tick_beats(world: Variant) -> void:
 		return
 	if int(st.get("accepted", 0)) >= CAP:
 		return
-	if not world.components.query(["recruit"]).is_empty():
+	# A recruit already waiting blocks the beat -- the colony deals with one person at a time --
+	# but a **stranger** is not at the gate and is not waiting on this decision. Narrowed by the
+	# strangers slice: before it, somebody hiding in a house on day 5 silently cancelled the day-8
+	# gate beat and the colony never learned why. `check_m2_strangers.gd`'s GATE BEAT lane holds
+	# both halves -- a hidden stranger does not block day 8, a waiting gate recruit still does.
+	if not _waiting_at_the_gate(world).is_empty():
 		return
 	# A stranger arrives at the gate, and where the gate is comes off the map. A district with no
 	# gate anchor has nowhere for one to turn up, so the beat does not fire -- checked before the
@@ -91,11 +97,29 @@ static func _tick_dawn_leave(world: Variant) -> void:
 	var phase: int = Clock.phase_of(int(world.tick))
 	if phase != Clock.Phase.Dawn or Clock.phase_of(int(world.tick) - 1) == Clock.Phase.Dawn:
 		return
+	# Every waiting recruit **at the gate** goes at dawn. A stranger in a building is not waiting
+	# at the gate and keeps their own clock (`SimStrangers.STRANGER_DAYS`); despawning them here
+	# would have killed every one of them on the first dawn after they were placed, which is the
+	# second regression this narrowing exists to prevent.
+	for e in _waiting_at_the_gate(world):
+		world.events.publish({"type": "recruit.left", "entity": int(e), "reason": "dawn"})
+		world.despawn(int(e))
+
+
+# The recruits standing at the gate waiting to be spoken to: `recruit {waiting: true}` without
+# `stranger`. One predicate for both the beat and the dawn leave, so the two cannot come to
+# disagree about what a stranger is.
+static func _waiting_at_the_gate(world: Variant) -> Array[int]:
+	var out: Array[int] = []
 	for e in world.components.query(["recruit"]):
 		var r: Variant = world.components.get_component(int(e), "recruit")
-		if r is Dictionary and bool((r as Dictionary).get("waiting", false)):
-			world.events.publish({"type": "recruit.left", "entity": int(e), "reason": "dawn"})
-			world.despawn(int(e))
+		if not (r is Dictionary):
+			continue
+		if bool((r as Dictionary).get("stranger", false)):
+			continue
+		if bool((r as Dictionary).get("waiting", false)):
+			out.append(int(e))
+	return out
 
 
 static func _tick_leave(world: Variant) -> void:
@@ -118,7 +142,12 @@ static func _tick_leave(world: Variant) -> void:
 				(lv as Dictionary)["pathGen"] = job.get("pathGen", -1)
 				arrived = here == dest
 			if arrived or int((lv as Dictionary)["ticksLeft"]) <= 0:
-				world.events.publish({"type": "recruit.left", "entity": int(e), "reason": "mood"})
+				# Whatever put them on the road says why. "mood" for a colonist who walked out,
+				# which is every caller that came before the strangers slice and so is the
+				# default; "stranger" for somebody who gave up on a colony that never came to
+				# find them, which the chronicle deliberately says nothing about (see
+				# `SimStrangers._give_up`).
+				world.events.publish({"type": "recruit.left", "entity": int(e), "reason": String((lv as Dictionary).get("reason", "mood"))})
 				world.despawn(int(e))
 
 
@@ -133,111 +162,13 @@ static func _tick_corpse(world: Variant) -> void:
 				(em as Dictionary)["scent"] = CORPSE_SCENT_OLD
 
 
-# Removes every id conflicting with `picked_id` from `bag`, per `traitConflicts` -- content, not
-# a GDScript constant (docs/30). `bag` is a plain Array (a reference type in GDScript, unlike a
-# PackedStringArray -- CLAUDE.md's packed-array trap), so the erase is visible to the caller's
-# copy of the same array; `Array.erase` matches Strings by value, which is exactly what a trait id
-# needs (the by-value/by-reference trap only bites Dictionaries and other composite elements).
-# Called both after the backstory `bias` pre-pick (before the loop starts) and after every loop
-# pick -- the bias case is the one a naive implementation misses, since it runs before `bag` is
-# ever touched by the loop.
-static func _erase_conflicts_of(bag: Array, picked_id: String, conflicts: Array) -> void:
-	for pair in conflicts:
-		var p: Array = pair as Array
-		if p.size() != 2:
-			continue
-		var a: String = String(p[0])
-		var b: String = String(p[1])
-		if a == picked_id:
-			bag.erase(b)
-		elif b == picked_id:
-			bag.erase(a)
-
-
+# The roll lives in `people.gd` now (docs/30, "The pause lifted", 2026-09-14): one shape for a
+# recruit at the gate, a stranger in a building, a raider with a name and a settler at a camp.
+# This is the recruit's call of it -- the `recruits` stream for the identity, `recruitLook` for
+# the age and the look -- and `check_m2_people.gd` pins the canonical seed's first two rolls so
+# the move is byte-identical rather than said to be.
 static func roll(world: Variant, rng: Variant) -> Dictionary:
-	var pool: Dictionary = _pool(world)
-	var given: Array = pool.get("given", ["Sam"]) as Array
-	var surnames: Array = pool.get("surnames", ["Doe"]) as Array
-	var traits: Array = pool.get("traits", ["optimist"]) as Array
-	var stories: Array = pool.get("backstories", [{"id": "cyclist", "label": "cyclist", "kit": []}]) as Array
-	var features: Array = pool.get("features", ["tired eyes"]) as Array
-	var g: String = String(given[int(rng.call("int_range", 0, given.size() - 1))])
-	var s: String = String(surnames[int(rng.call("int_range", 0, surnames.size() - 1))])
-	var story: Dictionary = stories[int(rng.call("int_range", 0, stories.size() - 1))] as Dictionary
-	var conflicts: Array = pool.get("traitConflicts", []) as Array
-	var picked: Array = []
-	var bag: Array = traits.duplicate()
-	var bias: String = String(story.get("bias", ""))
-	if bias != "" and bag.has(bias):
-		picked.append(bias)
-		bag.erase(bias)
-		_erase_conflicts_of(bag, bias, conflicts)
-	var want: int = int(rng.call("int_range", 2, 3))
-	while picked.size() < want and not bag.is_empty():
-		var i: int = int(rng.call("int_range", 0, bag.size() - 1))
-		var picked_id: String = String(bag[i])
-		picked.append(picked_id)
-		bag.remove_at(i)
-		_erase_conflicts_of(bag, picked_id, conflicts)
-	var apt: Dictionary = {"str": 5, "dex": 5, "con": 5}
-	var comps: Array[Dictionary] = SimAptitudes.compositions()
-	apt = comps[int(rng.call("int_range", 0, comps.size() - 1))]
-	var feat: Array = []
-	var fbag: Array = features.duplicate()
-	var fn: int = int(rng.call("int_range", 2, 3))
-	while feat.size() < fn and not fbag.is_empty():
-		var fi: int = int(rng.call("int_range", 0, fbag.size() - 1))
-		feat.append(String(fbag[fi]))
-		fbag.remove_at(fi)
-	# Age and visual look draw from their own stream, `recruitLook` -- never from `rng` above.
-	# `rng` is the `recruits` stream, and its draw order (name, surname, story, traits,
-	# composition, features) is measured by the balance harness; a new draw threaded into it
-	# would land every later call, including `accept`'s 15% transmit roll, on a different byte
-	# of the stream. A second named stream costs nothing and perturbs nothing (docs/23,
-	# CLAUDE.md's "new randomness gets its own stream").
-	var look_rng: Variant = world.rng.stream("recruitLook")
-	var bands: Array = pool.get("ageBands", [{"id": "adult", "min": 25, "max": 44, "prose": "", "nudge": {}}]) as Array
-	var band: Dictionary = bands[int(look_rng.call("int_range", 0, bands.size() - 1))] as Dictionary
-	var age: int = int(look_rng.call("int_range", int(band.get("min", 18)), int(band.get("max", 60))))
-	var looks: Array = pool.get("looks", []) as Array
-	var look_id: String = ""
-	if not looks.is_empty():
-		look_id = String(looks[int(look_rng.call("int_range", 0, looks.size() - 1))])
-	# Both nudges feed the one clamp-and-rebalance-to-15 loop below, applied before it runs
-	# rather than each getting its own pass, so a backstory and an age band pulling the same
-	# stat land as one combined push, not a push-then-push that could overshoot and silently
-	# clamp twice.
-	for nudge in [story.get("nudge", {}), band.get("nudge", {})]:
-		if nudge is Dictionary:
-			for k in (nudge as Dictionary).keys():
-				apt[k] = clampi(int(apt.get(k, 5)) + int((nudge as Dictionary)[k]), 3, 8)
-	var sum: int = int(apt["str"]) + int(apt["dex"]) + int(apt["con"])
-	while sum != 15:
-		var k2: String = "con"
-		if sum > 15:
-			if int(apt["str"]) >= int(apt["dex"]) and int(apt["str"]) >= int(apt["con"]):
-				k2 = "str"
-			elif int(apt["dex"]) >= int(apt["con"]):
-				k2 = "dex"
-			apt[k2] = maxi(3, int(apt[k2]) - 1)
-		else:
-			if int(apt["str"]) <= int(apt["dex"]) and int(apt["str"]) <= int(apt["con"]):
-				k2 = "str"
-			elif int(apt["dex"]) <= int(apt["con"]):
-				k2 = "dex"
-			apt[k2] = mini(8, int(apt[k2]) + 1)
-		sum = int(apt["str"]) + int(apt["dex"]) + int(apt["con"])
-	return {
-		"name": g + " " + s,
-		"backstory": String(story.get("label", "")),
-		"backstoryId": String(story.get("id", "")),
-		"traits": picked,
-		"aptitudes": apt,
-		"kit": (story.get("kit", []) as Array).duplicate(),
-		"features": feat,
-		"age": age,
-		"look": look_id,
-	}
+	return SimPeople.roll(rng, world.rng.stream("recruitLook"), _pool(world))
 
 
 static func spawn_generated(world: Variant, rolled: Dictionary, x: float, y: float) -> int:
@@ -298,6 +229,26 @@ static func accept(world: Variant, entity: int) -> bool:
 				"vector": "hidden-bite",
 			}],
 		})
+	# What a colonist has and this body may not have had. A recruit at the gate and a stranger in a
+	# house are both `spawn_generated` bodies and carry all four already, so every line here is a
+	# no-op for them; a **settler** is not, and the camp's whole design is that they are not. Their
+	# module withholds `needs` and `jobPriorities` on purpose -- those two are what the colony's
+	# ledger and its scheduler are keyed on -- and they carry the settlers faction, so joining is
+	# the moment all three change. Without this, accepting one produced a colonist the harness
+	# could not count, `jobs.gd` would never schedule, `needs.gd` would never drain, and whose
+	# hunger the three lines below wrote into a Dictionary nothing owned (`SimNeeds.of` answers a
+	# missing component with a detached `blank()`).
+	if not world.components.has_component(entity, "needs"):
+		SimNeeds.attach(world, entity, {"hunger": 50.0, "thirst": 50.0, "rest": 50.0})
+	if not world.components.has_component(entity, "jobPriorities"):
+		SimJobs.attach(world, entity, "Auto")
+	# And the web, for the same reason and with the same guard: a colonist with no `skillWeb` is
+	# one whose Focus pays into nothing and whose web screen is empty -- a half-colonist that
+	# nothing reports, which is the shape this milestone keeps finding.
+	if not world.components.has_component(entity, "skillWeb"):
+		SimSkills.attach(world, entity)
+	if not SimAllegiance.is_colony(world, entity):
+		SimAllegiance.attach(world, entity, SimAllegiance.COLONY)
 	var n: Dictionary = SimNeeds.of(world, entity)
 	n["hunger"] = 50.0
 	n["thirst"] = 50.0
@@ -379,10 +330,16 @@ static func handle_death(world: Variant, entity: int) -> bool:
 		# bus would find an id with nothing attached and book a raider as a colonist. That is
 		# exactly what the balance harness did on its first run with raids live.
 		var rd: Variant = world.components.get_component(entity, "raider")
+		var person: Variant = (rd as Dictionary).get("person", {}) if rd is Dictionary else {}
 		world.events.publish({
 			"type": "raider.killed",
 			"entity": entity,
 			"id": String((rd as Dictionary).get("id", "")) if rd is Dictionary else "",
+			# Who they were, carried on the event rather than looked up by the handler: the
+			# despawn below takes `raider` with it and handlers run at `drain()`, at the end of
+			# the step, so a chronicle that read the component would find nothing every time.
+			# This is what the colony learns off the body -- `chronicle.gd`'s raider line.
+			"person": (person as Dictionary).duplicate(true) if person is Dictionary else {},
 		})
 		_drop_kit(world, entity)
 		world.despawn(entity)
@@ -408,6 +365,16 @@ static func _succession_pick(world: Variant, dead: int) -> int:
 		if world.components.has_component(ent, "corpse") or world.components.has_component(ent, "shambler"):
 			continue
 		if not world.components.has_component(ent, "needs") and not world.components.has_component(ent, "identity"):
+			continue
+		# An heir is one of *yours*. The guard above asks whether this body is a person, which was
+		# the same question right up until a third side existed: a settler carries an `identity`
+		# and would have passed it, so the player dying at a settlers' fence would have woken up
+		# in a stranger's body. `is_colony` is the seam that separates the two questions -- being
+		# a person is what makes a zombie chase you, being the colony is what makes you an heir --
+		# and a raider is now refused here twice over rather than by the accident of carrying no
+		# identity. check_m2_allegiance.gd's NO-HEIR lane and check_m2_raiders.gd's NO-IDENTITY
+		# lane hold both halves of that.
+		if not SimAllegiance.is_colony(world, ent):
 			continue
 		if world.components.has_component(ent, "controlled") and ent != dead:
 			# Another controlled body — still eligible if we are transferring.
@@ -530,11 +497,4 @@ static func _drop_kit(world: Variant, entity: int) -> void:
 
 
 static func _pool(world: Variant) -> Dictionary:
-	if world == null or world.content == null:
-		return {}
-	var c: Variant = world.content
-	if c is Dictionary:
-		for v in (c as Dictionary).values():
-			if v is Dictionary and String((v as Dictionary).get("id", "")) == "colony.generator.survivors":
-				return v as Dictionary
-	return {}
+	return SimPeople.pool(world, SimPeople.SURVIVORS_POOL_ID)

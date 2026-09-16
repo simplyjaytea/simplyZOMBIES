@@ -20,11 +20,14 @@ extends RefCounted
 # `entity.killed` fires more than once for one body (health.gd on a destroyed head, infection.gd
 # on a put-down and again on turning -- CLAUDE.md's trap list), so a death is recorded once per
 # entity id; and it fires for zombies, whose deaths are not the colony's news, so a body with no
-# `identity` is not written down. The shape is attention_read.gd's: one static read model, no
+# `identity` is not written down. A raider has no `identity` either, by decision, and reaches this
+# file by its own door instead: `raider.killed`, which carries the person record because the body
+# is despawned before this drains. The shape is attention_read.gd's: one static read model, no
 # state of its own -- everything lives on the world, never in a `static var` (the two-worlds
 # trap).
 
 const Clock = preload("res://sim/time/clock.gd")
+const SimRaiders = preload("res://sim/modules/raiders.gd")
 
 # How long a line stays on the screen after its event: two game hours. Long enough to be read
 # by somebody who was busy when it happened, short enough that a death on day two is not still
@@ -41,12 +44,15 @@ const LINES_MAX: int = 3
 # the event made it -- a corpse still carries its `identity`.
 const ORDER: int = 900
 
-const KINDS: Array[String] = ["died", "succeeded", "over", "arrived", "joined", "bereaved", "left"]
+const KINDS: Array[String] = ["died", "succeeded", "over", "arrived", "joined", "bereaved", "left", "raider"]
 
 
 static func register_module(world: Variant) -> void:
 	world.events.subscribe({"type": "entity.killed", "id": "chronicle.killed", "order": ORDER, "handler": func(ev: Dictionary) -> void:
 		_on_killed(world, ev)
+	})
+	world.events.subscribe({"type": "raider.killed", "id": "chronicle.raider", "order": ORDER, "handler": func(ev: Dictionary) -> void:
+		_on_raider_killed(world, ev)
 	})
 	world.events.subscribe({"type": "player.succeeded", "id": "chronicle.succeeded", "order": ORDER, "handler": func(ev: Dictionary) -> void:
 		var to: int = int(ev.get("to", -1))
@@ -78,11 +84,19 @@ static func register_module(world: Variant) -> void:
 	})
 	world.events.subscribe({"type": "recruit.left", "id": "chronicle.left", "order": ORDER, "handler": func(ev: Dictionary) -> void:
 		var ent: int = int(ev.get("entity", -1))
+		var why: String = String(ev.get("reason", ""))
+		# Somebody who was hiding in a building and gave up (`reason: stranger`) leaves no line at
+		# all. Both of the lines below would be a lie about them: "The stranger at the gate has
+		# gone" says where they were and they were never there, and their name says the colony
+		# knew it -- and a colonist who never walked out that way never met them. What you learn
+		# about a stranger is what you saw, which is docs/01 clause 4 with no new prose attached.
+		if why == "stranger":
+			return
 		# A stranger who gave up waiting at dawn, or was turned away, has no name the colony
 		# learned; a colonist who walked out over mood (`reason: mood`) does. The despawn has
 		# already run by drain time, so the name is whatever the body still answers to -- "" for
 		# the stranger, which `lines` reads as the stranger's line.
-		var name: String = _name_of(world, ent) if String(ev.get("reason", "")) == "mood" else ""
+		var name: String = _name_of(world, ent) if why == "mood" else ""
 		_write(world, "left", name, ent)
 	})
 
@@ -102,6 +116,31 @@ static func _on_killed(world: Variant, ev: Dictionary) -> void:
 		if String((rec as Dictionary).get("kind", "")) == "died" and int((rec as Dictionary).get("e", -1)) == ent:
 			return
 	_write(world, "died", _name_of(world, ent), ent)
+
+
+# The one place a raider's name reaches the player, and only once they are dead. A band at the
+# wall is anonymous by contract -- docs/01 clause 4, and the reason every archetype wears one body
+# -- so nothing says who they are while they are standing there; afterwards the colony is over the
+# body and can read a name off it. `raider.killed` carries the record because the despawn has
+# already taken the component by the time this drains (`SimRecruits.handle_death`).
+#
+# `raider.killed` is published once a body, unlike `entity.killed`, but the same de-duplication
+# stands anyway: it costs one scan and it is the difference between a trap this file already
+# knows about and a trap it has to learn twice.
+static func _on_raider_killed(world: Variant, ev: Dictionary) -> void:
+	var ent: int = int(ev.get("entity", -1))
+	if ent < 0:
+		return
+	var person: Variant = ev.get("person", {})
+	if not (person is Dictionary):
+		return
+	var clause: String = SimRaiders.person_clause(world, person as Dictionary)
+	if clause.is_empty():
+		return
+	for rec in world.chronicle as Array:
+		if String((rec as Dictionary).get("kind", "")) == "raider" and int((rec as Dictionary).get("e", -1)) == ent:
+			return
+	_write(world, "raider", clause, ent)
 
 
 static func _write(world: Variant, kind: String, name: String, ent: int) -> void:
@@ -167,4 +206,11 @@ static func _line_of(world: Variant, rec: Dictionary) -> String:
 			if name.is_empty():
 				return "The stranger at the gate has gone."
 			return "%s has walked out." % name
+		"raider":
+			# "One of the raiders", never the name alone: a colonist's death and a raider's must
+			# not read the same way in the same column, and the phrase is the honest one -- this
+			# is the colony standing over somebody it killed and learning that much, no more.
+			if name.is_empty():
+				return ""
+			return "One of the raiders was %s." % name
 	return ""

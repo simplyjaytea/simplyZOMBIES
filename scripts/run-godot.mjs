@@ -130,6 +130,24 @@ switch (mode) {
       "res://check_m2_district.gd",
     ];
     break;
+  case "--m2-dormant":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_dormant.gd",
+    ];
+    break;
+  case "--m2-variance":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_variance.gd",
+    ];
+    break;
   case "--m2-gear":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_gear.gd"];
     break;
@@ -144,6 +162,15 @@ switch (mode) {
     break;
   case "--m2-armor":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_armor.gd"];
+    break;
+  case "--m2-armored":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_armored.gd",
+    ];
     break;
   case "--m2-ammo":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_ammo.gd"];
@@ -220,6 +247,24 @@ switch (mode) {
       "res://check_m2_raiders.gd",
     ];
     break;
+  case "--m2-allegiance":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_allegiance.gd",
+    ];
+    break;
+  case "--m2-settlers":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_settlers.gd",
+    ];
+    break;
   case "--m2-save":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_save.gd"];
     break;
@@ -228,6 +273,15 @@ switch (mode) {
     break;
   case "--m2-jobs":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_jobs.gd"];
+    break;
+  case "--m2-strangers":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_strangers.gd",
+    ];
     break;
   case "--m2-recruits":
     args = [
@@ -243,6 +297,9 @@ switch (mode) {
     break;
   case "--m2-teach":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_teach.gd"];
+    break;
+  case "--m2-people":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_people.gd"];
     break;
   case "--m2-web":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_web.gd"];

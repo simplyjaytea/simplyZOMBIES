@@ -4,6 +4,7 @@ extends RefCounted
 # Unique survivor pipeline per .scratch/simplyzombies/issues/05-unique-npc.md.
 # Drop another JSON in godot/content/survivors/uniques/ — no code change. Generator is later.
 
+const SimPeople = preload("res://sim/modules/people.gd")
 const SimAptitudesRes = preload("res://sim/modules/aptitudes.gd")
 const SimStancesRes = preload("res://sim/stances.gd")
 const SimHealthRes = preload("res://sim/modules/health.gd")
@@ -191,20 +192,11 @@ static func person_clause(world: Variant, ent: int) -> String:
 	return clause
 
 
-# The generator's own content block, found the same way `SimRecruits._pool` finds it. Kept as
-# its own small scan rather than a shared helper, because `survivors.gd` and `recruits.gd`
-# already `preload` each other one way (recruits -> survivors) and a preload back the other way
-# is a cycle; `_content_entry`-style duplication is the accepted shape for this codebase (see
-# `presentation/appearance.gd`'s own comment on the same triplication).
+# The generator's own content block. This used to be a private copy of `SimRecruits._pool`,
+# because `recruits.gd` preloads this file and a preload back would be a cycle; `people.gd`
+# preloads neither, so both now call its one `pool` scan (docs/30, "The pause lifted").
 static func _generator_pool(world: Variant) -> Dictionary:
-	if world == null or world.content == null:
-		return {}
-	var c: Variant = world.content
-	if c is Dictionary:
-		for v in (c as Dictionary).values():
-			if v is Dictionary and String((v as Dictionary).get("id", "")) == "colony.generator.survivors":
-				return v as Dictionary
-	return {}
+	return SimPeople.pool(world, SimPeople.SURVIVORS_POOL_ID)
 
 
 # The authored line for a generated backstory, or a hand-authored unique's own `backstory`

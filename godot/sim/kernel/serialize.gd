@@ -91,7 +91,59 @@ extends RefCounted
 # treating "no attachments component" as unblocked would make the required-slot rule unenforceable
 # the moment a barrel breaks off, and assembling on load would invent items the save never had.
 # Refused, same rule as v27.
-const SAVE_VERSION: int = 29
+#
+# v30: every body in the district is an individual, living or dead. Two slices landed together
+# and share one version, because a save written between them never existed.
+#
+# The dead: `zombieType` gained a `tint` -- the colour rolled for that one body out of its kind's
+# `variance.tints` -- and `body`/`bodyMax` carry a per-body size instead of the type's authored
+# numbers. A v29 save has neither: its bodies would all come back the kind's shared colour, which
+# is cosmetic, and at the kind's authored size against maxima that no longer match what the roll
+# would have given them, which is not.
+#
+# The raiders: the `raider` component carries a `person` record -- name, age, features, look,
+# backstory -- rolled at spawn on two new streams, and the archetype's aptitudes and kit are
+# rolled per body rather than copied. A v29 save's raiders have no `person`: restored into a v30
+# world every one of them would be nameless (the chronicle's line over a dead raider reads off
+# that record and would say nothing), would fall back to the archetype's one body instead of the
+# look they were saved wearing, and the bodies standing in the district would no longer match the
+# aptitudes the fight they are in is being resolved with.
+#
+# Refused either way, the same rule as v27.
+#
+# v31: somebody hiding in a building. A save carries a `stranger` component per body still
+# waiting to be found ({state, sinceTick, path, pathGen, goalX, goalY}), a `stranger` flag on the
+# `recruit` tag they wear, and `world.strangers.spawned` -- which stranger beats have already
+# fired, alongside the gate's own list. A v30 save has none of the three, and each of them is
+# wrong on its own: restored into a v31 world every stranger already placed would be a waiting
+# recruit with no flag, which the gate beat reads as somebody at the gate (so the next gate beat
+# is cancelled) and the dawn leave despawns on sight; and an empty `spawned` list would fire every
+# stranger beat the campaign had already paid for a second time. Refused, the same rule as v27.
+#
+# v32: somebody else lives here. A district now boots a `settlement` entity -- a building's rect,
+# the index of the building it sits in, and an Array of the member ids -- and a handful of bodies
+# carrying `allegiance.faction = "settlers"`, an `identity` and deliberately no `needs`. Two
+# streams are new, `settlers` and `settlersLook`, and both are spent at boot before the outdoor
+# scatter. A v31 save carries neither the entity nor the bodies, and there is no honest way to
+# read one: spawning the camp on load would invent people the save never had and would spend
+# streams the saved world had already spent elsewhere, while leaving it out would restore a
+# district whose `settlement` component names members that do not exist -- a camp of ids
+# pointing at nothing, which is the shape of a memory that is empty for reasons nothing reports.
+# Refused, the same rule as v27.
+#
+# v33: the camp has a day. Three shapes are new. Each settler carries a `settler` component -- the
+# camp centre and the tile they sleep on, the goal they are walking to, and the `path`/`pathGen`
+# record `SimWalk.step` owns -- so a save carries the walk in progress rather than restoring three
+# people who have forgotten where they were going. One of them carries a
+# `recruit {waiting, stranger}` tag, which is the strangers slice's shape on a body that is not a
+# stranger, and it is what the E rung finds. And the `settlement` gains a `fell` flag, written by
+# the handler that retires a camp whose last member died. A v32 save has none of the three:
+# restored into a v33 world its settlers would stand exactly where the camp slice left them (no
+# `settler` component, so `settlers.day` never reaches them), nobody in the camp could be
+# recruited, and a camp that had already been wiped before the save would publish `settlement.fell`
+# a second time on the first tick after the load. A fourth stream is new with them, `settlersMill`,
+# spent per turn rather than at boot. Refused either way, the same rule as v27.
+const SAVE_VERSION: int = 33
 
 
 static func canonicalize(value: Variant, path: String = "$") -> String:

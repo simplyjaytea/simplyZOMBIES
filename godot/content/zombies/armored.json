@@ -1,0 +1,13 @@
+{
+  "id": "zombie.armored",
+  "extends": "zombie.base",
+  "name": "Armored",
+  "introducedInWave": 2,
+  "weight": 8,
+  "appearance": { "sprite": "zombie_shambler" },
+  "sensory": { "noise": 0.5, "light": 0.15, "scent": 0.5 },
+  "locomotion": { "speed": 0.8, "wander": 0.3, "mill": 0.25, "crawl": 0.25 },
+  "body": { "head": 25, "torso": 60, "legs": 40 },
+  "worn": ["item.vest.scrap", "item.helmet.bike"],
+  "variance": { "tints": ["#c6c8cc", "#bcc0c6", "#d2d3d6", "#b8bcc2"] }
+}

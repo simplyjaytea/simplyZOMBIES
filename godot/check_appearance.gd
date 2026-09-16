@@ -362,25 +362,74 @@ const ROSTER: Array[Dictionary] = [
 	{"id": "zombie.shambler", "kind": "zombie", "probe": {"ztype": "zombie.shambler"}, "colonist": false},
 	{"id": "zombie.screamer", "kind": "zombie", "probe": {"ztype": "zombie.screamer"}, "colonist": false},
 	{"id": "zombie.bloater", "kind": "zombie", "probe": {"ztype": "zombie.bloater"}, "colonist": false},
+	# The two wave kinds the stalker-and-runner slice added. They declare the shambler's own
+	# sprite key and no block tint, so they resolve its texture and draw white here -- which is
+	# exactly the gap docs/23's "a silhouette per kind" follow-up piece names. What tells one
+	# from another on the ground today is the per-body colour rolled from each kind's own
+	# `variance.tints` palette, which arrives on the draw item rather than in the block
+	# (check_m2_variance.gd READER), and is therefore invisible to this lane by construction.
+	{"id": "zombie.stalker", "kind": "zombie", "probe": {"ztype": "zombie.stalker"}, "colonist": false},
+	{"id": "zombie.runner", "kind": "zombie", "probe": {"ztype": "zombie.runner"}, "colonist": false},
+	# And the two the armoured-and-heavy slice added, on the same terms and for the same reason.
+	# The armoured one is the awkward entry to leave here and that is exactly why it is written
+	# down: it is *wearing a vest and a helmet* the sim resolves and the paperdoll draws
+	# (check_worn.gd's REACHES lane walks equipped bases wherever they are worn), but the body
+	# under the gear is still the shambler's rig at the shambler's white, so the silhouette a
+	# player reads across a street is the shambler's silhouette. The heavy is worse off still --
+	# docs/14 calls it enormous and it draws at exactly one tile like everything else.
+	{"id": "zombie.armored", "kind": "zombie", "probe": {"ztype": "zombie.armored"}, "colonist": false},
+	{"id": "zombie.heavy", "kind": "zombie", "probe": {"ztype": "zombie.heavy"}, "colonist": false},
 	{"id": "raider.scav", "kind": "raider", "probe": {"raider": true, "cid": "raider.scav"}, "colonist": false},
 	{"id": "raider.gunhand", "kind": "raider", "probe": {"raider": true, "cid": "raider.gunhand"}, "colonist": false},
+	# The two role archetypes (the roles slice). Same body as the other two, and that is the
+	# information rule rather than a shortcut: a picture that said "this one came for your pantry"
+	# would answer, from across a street, the question a raid is supposed to make you guess at.
+	{"id": "raider.looter", "kind": "raider", "probe": {"raider": true, "cid": "raider.looter"}, "colonist": false},
+	{"id": "raider.lookout", "kind": "raider", "probe": {"raider": true, "cid": "raider.lookout"}, "colonist": false},
+	# The four rolled raider looks (the individuals slice), and `colonist: false` on every one of
+	# them is the finding rather than an oversight: a raider look declares no tint, because
+	# `raider_drab` sits at the floor of the ground-contrast guard already
+	# (tools/sprites/palette.py) and a modulate can only darken it. So all four wear the one body
+	# unstained, exactly as the two archetypes do, and they are here so that the day a look does
+	# get a picture of its own, this roster is what refuses to let it pass unjudged.
+	# check_m2_raiders.gd's LOOKS lane computes and prints the headroom that says why.
+	{"id": "raider.look.01", "kind": "raider", "probe": {"raider": true, "cid": "raider.look.01"}, "colonist": false},
+	{"id": "raider.look.02", "kind": "raider", "probe": {"raider": true, "cid": "raider.look.02"}, "colonist": false},
+	{"id": "raider.look.03", "kind": "raider", "probe": {"raider": true, "cid": "raider.look.03"}, "colonist": false},
+	{"id": "raider.look.04", "kind": "raider", "probe": {"raider": true, "cid": "raider.look.04"}, "colonist": false},
 ]
 
 # zombie.base spawns nowhere and gets no art -- it is the `extends` parent the wave types
 # inherit stats (never looks) from, and the roadmap record says so.
 const ROSTER_EXEMPT: Array[String] = ["zombie.base"]
 
-# Where roster ids live. colony/ also holds the generator and the skill web, which are not
-# bodies, so the colony entry names the one file rather than the directory.
+# Where roster ids live. colony/ also holds the two generators and the skill web, which are not
+# bodies, so the colony entry names the one file rather than the directory -- and `looks.json` is
+# that one file for the raiders' rolled looks as well as the colonists', because a look entry is
+# an id with an appearance block wherever it is worn and a second home for the same shape is how
+# a roster grows a body nothing judges.
 const ROSTER_DIRS: Array[String] = ["players/", "zombies/", "survivors/uniques/", "raiders/", "colony/looks.json"]
 
 # Ids that deliberately resolve one shared texture: six colonists are one rig (the tint is
-# the identity), and every raider archetype is one body (which raider carries the gun is not
-# something a look across a street may answer -- check_m2_raiders.gd asserts the same thing
-# from the content side).
+# the identity), and every raider archetype *and every rolled raider look* is one body -- which
+# raider carries the gun is not something a look across a street may answer, and the looks are
+# in the same group because a per-look sprite would answer it through the back door
+# (check_m2_raiders.gd asserts the same thing from the content side).
+#
+# The third group is the one that is a **gap rather than a decision**, and it is here so the gap
+# is written down where a reader will meet it: the stalker, the runner, the armoured and the
+# heavy all wear the shambler's rig because a new sprite key is `sprites:check` work (Pillow, a
+# byte comparison of generated art) that the slices adding them deliberately did not take.
+# docs/23's what's-left names the one follow-up piece, "a silhouette per kind", and all four are
+# on it. Until it lands, this line is the honest statement that four kinds with different senses,
+# different speeds and -- since the armoured one -- different armour are one picture.
 const ROSTER_SHARED: Array = [
 	["colony.look.01", "colony.look.02", "colony.look.03", "colony.look.04", "colony.look.05", "colony.look.06"],
-	["raider.scav", "raider.gunhand"],
+	[
+		"raider.scav", "raider.gunhand", "raider.looter", "raider.lookout",
+		"raider.look.01", "raider.look.02", "raider.look.03", "raider.look.04",
+	],
+	["zombie.shambler", "zombie.stalker", "zombie.runner", "zombie.armored", "zombie.heavy"],
 ]
 
 # One id per distinct picture; every pair must resolve different textures.
