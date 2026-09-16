@@ -878,10 +878,23 @@ func _the_windows_are_gone_and_the_keys_moved() -> bool:
 	var prefs: String = FileAccess.get_file_as_string("res://ui/prefs.gd")
 	if prefs.find("\"windows\"") >= 0 or prefs.find("pinned_opacity") >= 0:
 		faults.append("ui/prefs.gd still remembers window positions or the pinned-bag opacity")
+	# The keys and the hand-off are two files since the alpha shell's input split (docs/30, "The
+	# alpha shell, 2026-09-16"): `presentation/input_map.gd` binds them and main.gd still owns
+	# `_strip_use`, which is what the panel's `strip_use` is called through. Asking each file for
+	# its own half is the point -- a needle that scanned both together would pass with the
+	# binding in the wrong file.
+	var keys: String = FileAccess.get_file_as_string("res://presentation/input_map.gd")
+	if keys.is_empty():
+		faults.append("presentation/input_map.gd would not open, so nothing here judges the keys")
+	if keys.find("KEY_1: speed") >= 0 or keys.find("KEY_2: speed") >= 0:
+		faults.append("the key router still binds the number row to speed")
+	for needed in ["KEY_MINUS", "KEY_EQUAL", "_strip_use"]:
+		if keys.find(needed) < 0:
+			faults.append("presentation/input_map.gd never mentions %s" % needed)
 	var main: String = FileAccess.get_file_as_string("res://presentation/main.gd")
 	if main.find("KEY_1: speed") >= 0 or main.find("KEY_2: speed") >= 0:
 		faults.append("main.gd still binds the number row to speed")
-	for needed in ["KEY_MINUS", "KEY_EQUAL", "_strip_use", "strip_use"]:
+	for needed in ["_strip_use", "strip_use"]:
 		if main.find(needed) < 0:
 			faults.append("main.gd never mentions %s" % needed)
 	var legend: String = FileAccess.get_file_as_string("res://ui/legend.gd")
@@ -1020,13 +1033,26 @@ func _a_cupboard_is_a_column_and_a_window() -> bool:
 		panel.queue_free()
 		return false
 
-	# And the reader half, textually: main.gd feeds the window and Escape closes the box.
-	var main_src: String = FileAccess.get_file_as_string("res://presentation/main.gd")
-	for needed in ["set_loot", "SimContainers.open_view", "container.close", "loot_open"]:
-		if main_src.find(needed) < 0:
-			push_error("main.gd never mentions %s, so the window is drawn by nothing or closed by nothing" % needed)
+	# And the reader half, textually, in the two files that hold it since the alpha shell's input
+	# split (docs/30, "The alpha shell, 2026-09-16"): main.gd's `_update_hud` feeds the window,
+	# and the Escape that closes the box is in the key router with the rest of the peel order.
+	# Each needle asks the file that should hold it, so a half-done move is red rather than
+	# quietly satisfied by the other half.
+	var readers: Array = [
+		["res://presentation/main.gd", ["set_loot", "SimContainers.open_view"], "the window is drawn by nothing"],
+		["res://presentation/input_map.gd", ["container.close", "loot_open"], "the box is closed by nothing"],
+	]
+	for reader in readers:
+		var src: String = FileAccess.get_file_as_string(String((reader as Array)[0]))
+		if src.is_empty():
+			push_error("%s would not open, so the reader half judges nothing" % String((reader as Array)[0]))
 			panel.queue_free()
 			return false
+		for needed in (reader as Array)[1] as Array:
+			if src.find(String(needed)) < 0:
+				push_error("%s never mentions %s, so %s" % [String((reader as Array)[0]), String(needed), String((reader as Array)[2])])
+				panel.queue_free()
+				return false
 	# The key sheet has to say the verb changed: E opened a container by tipping it onto the floor
 	# before this, and a player told to "search" a cupboard will not know a window is coming.
 	var legend_src: String = FileAccess.get_file_as_string("res://ui/legend.gd")

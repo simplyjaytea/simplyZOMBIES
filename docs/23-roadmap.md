@@ -485,16 +485,7 @@ the order they land:
 
 - ~~**Per-gate wall time**~~ — **landed**, see the record.
 - ~~**The play gate**~~ — **landed**, see the record.
-- **The input split.** Keys move to `godot/presentation/input_map.gd`, a child Node with its own
-  `_input` and `_unhandled_input` so every needle that read `_input` follows by one path constant
-  (`check_web_look`, `check_vehicles` three times, `check_inventory`); one `BINDINGS` table, the
-  rebind seam; keys gated on which screen has focus, and leaving the street clears held movement;
-  F2 deleted, F8 dev-only and off the legend; the legend stays dismissed through `ui/prefs.gd`.
-  Lanes in the play gate: a held W with the sheet open moves nothing and F pushes no swing; a
-  dismissed legend stays dismissed across a boot and F1 brings it back; every legend key is bound
-  and every binding has a legend row; `main.gd` has no `func _input(` and its `_process` reaches
-  the router. *Files:* `godot/presentation/input_map.gd`, `godot/presentation/main.gd`,
-  `godot/ui/legend.gd`, `godot/ui/prefs.gd`, the four gates named.
+- ~~**The input split**~~ — **landed**, see the record.
 - **The shell.** `godot/presentation/session.gd` owns boot, new run, save, load and a four-state
   machine (title, playing, paused, run over); `godot/ui/shell.gd` draws the title (new run ·
   continue when a save exists and is not over · quit, hidden on the web), the pause menu on Esc
@@ -1917,7 +1908,7 @@ not a to-do list:
   ~~The seeded sandbox boot~~ **landed** (`godot:check:worldgen`, the chain's 34th gate) — the
   arc's sixth slice, the one that hands the sandbox to a player. `--seed=N` and `--district=<id>`
   parse from the user args after `--` (the `--parity` precedent; a malformed value warns and
-  boots the default rather than dying), and F2 leaves for another city: a fresh run on a
+  boots the default rather than dying), and F2 left for another city: a fresh run on a
   presentation-side random seed, same district, through the one `_boot_world` path `_ready`
   itself uses — every per-run read model reset, the sim RNG ban untouched because the roll lives
   in `presentation/` and the chosen seed then determines everything downstream. The seed and
@@ -2524,8 +2515,9 @@ not a to-do list:
   **a region's districts are no longer the 256 m every balance band was measured on**, so those
   bands describe the single-district game and not the region.
 
-  **The region is opt-in, not the default.** `--region=<id>` boots it and F2 rerolls it; the game
-  still boots a single district. 1.48× is above the clock but with far less room than a district's
+  **The region is opt-in, not the default.** `--region=<id>` boots it; the game still boots a single
+  district. (F2 rerolled it when this landed; F2 was deleted by the input split, 2026-09-16, and
+  nothing rerolls a seed now.) 1.48× is above the clock but with far less room than a district's
   4.15×, and this container has measured the same district at 55 and 83 ticks/s on different days —
   so the margin is real but container-dependent, and flipping the default is a decision to make
   after playing it rather than one to take from a table. **No `SAVE_VERSION` bump**: a save carries
@@ -4284,9 +4276,10 @@ not a to-do list:
   state lives in `camera.gd` — the true, unshaken follow centre and the shake offset both live on
   `main.gd` as instance Dictionaries (`_camera_centre`, `_shake`), the same reason the camera
   itself has always been a plain Dictionary rather than a singleton: two worlds a gate boots in
-  one process must not share either. Boot, F2 ("leave for another city") and F9 (load) all call a
-  new `_snap_camera()` rather than let the smoothed follow arrive on its own — the reboot/load
-  recentre stays unsmoothed, as `_boot_world`'s own comment already promised it would.
+  one process must not share either. Boot, F2 ("leave for another city", deleted by the input
+  split on 2026-09-16) and F9 (load) all call a new `_snap_camera()` rather than let the smoothed
+  follow arrive on its own — the reboot/load recentre stays unsmoothed, as `_boot_world`'s own
+  comment already promised it would.
 
   **No zoom smoothing, deliberately.** The ladder is pinned to power-of-two multiples of the
   art-native 64 px/m specifically so nearest-neighbour scaling never shimmers; a tween between two
@@ -4303,8 +4296,8 @@ not a to-do list:
   `SHAKE_BITE_PX` 8, `SHAKE_GRAB_PX` 4, all comfortably clear of "1 px at rest zoom 64" so pixel
   snapping never quantizes a kick away — capped at `SHAKE_CAP_PX` 14 combined and decaying at
   `SHAKE_DECAY_RATE` 10 nats/s, the same frame-rate-independent shape the follow uses. Direction
-  is randomised through a presentation-side `RandomNumberGenerator` (`main.gd`'s own F2 comment
-  already sanctions RNG here) — never a sim stream, which would put the camera's wobble on the
+  is randomised through a presentation-side `RandomNumberGenerator` (the sim RNG ban is `sim/`
+  only, so presentation may roll) — never a sim stream, which would put the camera's wobble on the
   seeded sequence and make a replay's *view* depend on how hard something got hit. The displayed
   `camera` Dictionary — what every draw call and `_aim_at` reads — is built in exactly one place,
   `_update_camera`: smoothed centre plus the shake offset (converted from pixels to world units by
@@ -7353,6 +7346,88 @@ not a to-do list:
   `_update_hud` never hands the action line to the HUD"*. `check_inventory`'s `var keys: String`
   needle is untouched, and the hint still reads "Esc settings" because the shell slice that
   renames it had not landed in this tree.
+- **The alpha shell** — ~~the input split~~ **landed** 2026-09-16 (`npm run godot:check:play` →
+  **`PLAY_OK`**, lanes **FOCUS**, **LEGEND**, **KEYS** and **SOCKET** beside the eleven the play
+  gate already had; 20.2 s of its 60 s budget). Every key the game reads now lives in
+  `godot/presentation/input_map.gd`, a **child Node** built in `main.gd`'s `_ready` after
+  `_ensure_ui` — a Node and not a helper, because the engine's own dispatch has to reach it: the
+  play gate pushes events through the viewport, so a handler main called by hand would have been
+  the dead socket the play gate's header warned about. `main.gd` loses `_input`,
+  `_unhandled_input`, `_pump_input`, `_aim_at`, `_push_stance`, the five held-key vars,
+  `MOVE_KEYS` and `INTERACT_KEY`, and keeps the screens a press reaches (`_set_inventory_open`,
+  `_set_web_open`, `_toggle_legend`, `_save`, `_load`, `_update_hud`) and all the drawing; its
+  `_process` calls `pump()`. It goes from 2,242 lines to 2,021.
+  **`BINDINGS` is the rebind seam** — action → keycodes, a modifier column, and the token the
+  legend prints — and raw keycodes rather than InputMap actions for two reasons that are both
+  load-bearing: the textual gates slice this file for `KEY_*` literals, and
+  `Input.is_action_pressed` cannot see an event pushed synchronously through the viewport, so an
+  action-based router would be judged on an input path no player uses. It is read on **every**
+  keystroke rather than sitting beside a switch that repeats it: `_action_for` resolves the event
+  to an action, and that one answer gates the press, drives the stance ladder and decides whether
+  the key joins the held-movement set. The modifier column is where "C is camp and Ctrl+C is the
+  crouch" is now written down.
+  **`_focus()` and `ALLOWED`** are the behaviour change: `legend` / `settings` / `web` / `bench` /
+  `sheet` / `work` / `street` in that precedence, and a per-focus list of the actions that still
+  fire (sheet keeps Tab, Esc, R, 1–6, M, F1; web K, Esc, F1; settings and bench Esc; legend F1,
+  Esc, Enter; work J, Esc; the street everything). Before this, every key fired under every open
+  panel. Leaving the street clears the held set and pushes one zero move, so opening the sheet
+  mid-stride stops the body instead of walking it behind the panel — and that release fires on
+  **two edges only**, the press that took the focus off the street and a press the table refused.
+  The first cut released after *every* off-street press, which sounds safer and is not: the
+  red-first run of the FOCUS lane put `"move"` into the sheet's row and the lane **passed**,
+  because the unconditional release was stopping the body whatever the table said. A focus table
+  no gate can turn red is a focus table that quietly stops being read, so the release was narrowed
+  to the two edges and the lane goes red on that same sabotage. A `shell` focus for the next slice
+  is reserved in a comment and in no code.
+  **F2 is deleted** — the binding and `_leave_for_another_city`, by the owner's decision that a
+  new run boots the fixed town from a menu — and **F8 is bound only under `OS.is_debug_build()`**
+  and off `ui/legend.gd`'s GROUPS. **The legend stays dismissed**: `ui/prefs.gd` gains a boolean
+  half (`flag` / `set_flag`) and a `legend_dismissed` default, `_ensure_ui` reads it, and only the
+  three explicit dismissals write it — F1 toggling off, the Escape peel, Enter. Opening the sheet
+  or the web still only hides the panel. Its header had promised this since it landed and nothing
+  had ever stored it, so every launch opened on the keys.
+  The four lanes, each run red first. **FOCUS**: with `"move"` added to the sheet's `ALLOWED`,
+  *"FOCUS: W pushed { "type": "move", "dx": 0.0, "dy": -1.0 } with the sheet open"*; with the
+  street-release edge disabled, *"FOCUS: opening the sheet left [87] held, so the walk continues
+  behind it"*. The lane walks the body south first and measures how far a held W then carries it
+  on the open street, because WALK has already put it against whatever is north of the spawn and
+  a "did not move" measured there reads the map rather than the focus table — with no room it says
+  so and judges nothing. It also learned the hard way to let the sim **take** the zero move
+  (five frames) instead of draining it out of the queue: the gate was throwing the stop away and
+  then blaming the router for a body that kept walking. **LEGEND** boots the scene twice with
+  `UiPrefs._loaded` reset between them, because a flag held in the scene would pass an in-scene
+  assertion and still greet the player at the next launch; red first as *"LEGEND: the keys came
+  back at the next boot despite the dismissal"* (with `visible = true` restored) and *"LEGEND:
+  Enter closed the panel and remembered nothing"* (with the `set_flag` removed). **KEYS** now
+  reads the legend and `BINDINGS` against each other **both ways** — every one of the legend's 30
+  key tokens is bound by a `BINDINGS` row, by `MOVE_KEYS` or by `INTERACT_KEY`, and every binding
+  has a legend row or is excused **by name** in the gate's `UNLISTED` (only `dismiss`, because
+  Enter opens nothing, and `debug`, because F8 is dev-only). Red first three ways: a fabricated
+  `["Q", …]` row gave *"KEYS: the legend names 'Q' and nothing in BINDINGS, MOVE_KEYS or
+  INTERACT_KEY binds it"*, deleting the J row gave *"KEYS: 'work' is bound to the legend row 'J',
+  which the legend does not have"*, and putting F8 back gave *"KEYS: the legend still offers
+  'F8'; it is dev-only or deleted"*. **SOCKET** is the split itself, textually: red first as
+  *"SOCKET: main.gd still handles input itself, so two nodes answer the same key"*, *"SOCKET:
+  main.gd's _process never calls pump(), so a held key moves nothing"*, *"SOCKET: F8 is bound
+  without an OS.is_debug_build() guard; a player can open the dev menu"* and *"SOCKET:
+  '_leave_for_another_city' is still in the tree; F2 was deleted, not hidden"*.
+  **Every needle that read the moved code was followed, and none was dropped**, which is the rule
+  the two gates this milestone turned red over: `check_web_look.gd:674` (`_function_body(MAIN_GD,
+  "_input")` → `INPUT_MAP_GD`; `_ensure_ui`, `_update_hud` and `_set_web_open` stayed on
+  `MAIN_GD`), `check_vehicles.gd:1017` (E-KEY's no-toggle slice), `:1402-1406` (the whole-file
+  `const INTERACT_KEY: Key = KEY_E` and the HOOD `_input` slice) and `:2452` (SOCKETS' `use.context`
+  row), and `check_inventory.gd:881` and `:1024`, both **split** rather than moved — the router is
+  asked for `KEY_MINUS`, `KEY_EQUAL`, `_strip_use`, `container.close` and `loot_open`, main.gd for
+  `_strip_use`, `strip_use`, `set_loot` and `SimContainers.open_view`, so a half-done move is red
+  instead of being satisfied by the other half. `check_camera.gd`'s `_snap_camera` message lost its
+  mention of F2. `check_play.gd`'s own harness follows the same way: `main.call("_pump_input")`
+  becomes `router.call("pump")` and `main.get("_held")` becomes the router's, and `_boot` now peels
+  the legend with Escape before any lane presses anything, because the legend is a focus of its own
+  and would otherwise swallow every key TICKS, WALK and ROUNDTRIP press.
+  `README.md`'s Controls table was brought back in line while the keys were open — it still
+  offered `Z`/`X`/`C`/`V` and `1`/`2`/`3` from before the Ctrl ladder and the quick strip — and it
+  now says outright that it is a third copy no gate judges and that the in-game sheet is the
+  authority.
 - **Death & succession** — ~~the colony morale hit on a death~~ **landed** (`godot:m2:needs`,
   GRIEF and ONCE), leaving the balance-grid proof that "the run ends only when the last survivor
   dies". docs/04 lists **grief** and **witnessing a death** as two separate negative mood sources
