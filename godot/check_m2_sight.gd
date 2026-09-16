@@ -26,6 +26,7 @@ const SimSurvivors = preload("res://sim/modules/survivors.gd")
 const SimVisibility = preload("res://sim/vision/visibility.gd")
 const SimLight = preload("res://sim/modules/light.gd")
 const Clock = preload("res://sim/time/clock.gd")
+const SimStancesRes = preload("res://sim/stances.gd")
 
 const MAP_TILES: int = 24
 const WALL_X: int = 12
@@ -45,6 +46,10 @@ func _run() -> void:
 	ok = _the_prose_degrades() and ok
 	ok = _an_npc_fires_at_a_remembered_position() and ok
 	ok = _a_zombie_sees_what_is_lit_at_night() and ok
+	ok = _crouching_lowers_the_eye_over_low_cover() and ok
+	ok = _the_visibility_path_reads_eye_of() and ok
+	ok = _a_hostile_behind_the_observer_is_not_recorded() and ok
+	ok = _observe_one_reads_detail_not_line_of_sight() and ok
 	if ok:
 		print("M2_SIGHT_OK sight memory prose recall, and a zombie sees what is lit at night")
 		quit(0)
@@ -431,4 +436,182 @@ func _a_zombie_sees_what_is_lit_at_night() -> bool:
 		push_error("NIGHT-LIT: the player's eyes took the lit-target rule -- roofs and the wash key on tiles_for(player), see the comment")
 		return false
 	print("NIGHT-LIT OK lit=%d dark=%d behind_wall=%d player_eyes=%d" % [int(results["lit"]), int(results["dark"]), int(results["lit-behind-wall"]), int(results["player-eyes-lit"])])
+	return true
+
+
+# --- EYE ---------------------------------------------------------------------------------------
+#
+# `SimStances.eye_of` was one of docs/23's four named-but-unfixed dead sockets: called by
+# nothing, with no code writing `observer["eye"]`, so `Opacity.Low` / `Tile.Low` cover blocked
+# nobody -- a crouched survivor saw over a low wall exactly as well as a standing one. Fixed by
+# folding the write into `SimVisibility.refresh` (the port of src/sim/modules/stance.ts's
+# `stance.eyes`), so an observer's eye follows its posture every tick before the shadowcast that
+# depends on it runs.
+
+# A 16x16 floor with one `Tile.Low` cell at (8,8), between a player at tile 4 and a target at
+# tile 12 -- `test/integration/stances.test.ts`'s `withLowCover` fixture, built by hand for the
+# same reason it gives: the shipped district scatters low cover on open ground, and a test that
+# hunted for a useful one would be asserting the generator's luck rather than the rule.
+func _world_low_cover() -> Variant:
+	var f: Dictionary = {"seed": 77, "tick_hz": 20, "map": {"width": 16, "height": 16, "walls": []}, "player": {"id": 0, "x": 4.5, "y": 8.5, "stance": SimStancesRes.Stance.Walk}, "rng_probe": {"stream": "test", "samples": 0}}
+	var w: Variant = World.new(f)
+	w.tick = Clock.tick_at_time_of_day(Clock.DAY_BEGINS)
+	var map: Variant = SimTileMap.blank_map(16, 16)
+	map.tiles[8 * 16 + 8] = SimTileMap.Tile.Low
+	SimBoot.attach_kernel(w, map)
+	w.components.set_component(w.player, "facing", {"radians": 0.0})
+	return w
+
+
+func _settle_stance(w: Variant, from_stance: int, to_stance: int) -> void:
+	w.commands.push({"type": "stance", "stance": to_stance})
+	for i in SimStancesRes.stance_change_ticks(from_stance, to_stance) + 1:
+		w.step()
+
+
+func _crouching_lowers_the_eye_over_low_cover() -> bool:
+	var w: Variant = _world_low_cover()
+	SimSurvivors.give_eyes(w, w.player)
+	w.step()
+
+	# True positive's control: standing sees straight over a Low tile, or the rest proves nothing.
+	if not bool(w.vision.call("can_see", w.player, 12.5, 8.5)):
+		push_error("EYE: a standing survivor could not see across a Low tile -- the control proves nothing")
+		return false
+	var obs: Dictionary = w.components.get_component(w.player, "observer") as Dictionary
+	if int(obs["eye"]) != SimTileMap.Eye.Standing:
+		push_error("EYE: a fresh survivor's observer did not start at Eye.Standing (%d)" % int(obs["eye"]))
+		return false
+
+	# The positive: crouch, and the same Low tile now blocks the same sightline.
+	_settle_stance(w, SimStancesRes.Stance.Walk, SimStancesRes.Stance.Crouch)
+	if int(obs["eye"]) != SimTileMap.Eye.Crouched:
+		push_error("EYE: crouching never wrote Eye.Crouched onto the observer (%d)" % int(obs["eye"]))
+		return false
+	if bool(w.vision.call("can_see", w.player, 12.5, 8.5)):
+		push_error("EYE: a crouched survivor still saw straight over a Low tile")
+		return false
+
+	# The negative: stand back up on the same body, over the same tile, and the sightline returns
+	# -- proving the block above came from the eye and not from some other side effect of crouching.
+	_settle_stance(w, SimStancesRes.Stance.Crouch, SimStancesRes.Stance.Walk)
+	if int(obs["eye"]) != SimTileMap.Eye.Standing:
+		push_error("EYE: standing back up did not restore Eye.Standing (%d)" % int(obs["eye"]))
+		return false
+	if not bool(w.vision.call("can_see", w.player, 12.5, 8.5)):
+		push_error("EYE: standing back up did not restore the sightline over the Low tile")
+		return false
+	print("EYE OK standing=see crouched=blocked restored=see")
+	return true
+
+
+func _code_of(path: String) -> String:
+	var f: FileAccess = FileAccess.open(path, FileAccess.READ)
+	return "" if f == null else f.get_as_text()
+
+
+# The dead-socket rule (CLAUDE.md): a gate proving `eye_of` returns the right number does not
+# prove anything calls it. Isolated to a non-comment line containing the call, so a prose mention
+# in a comment (this file has several, on purpose) cannot satisfy it -- `check_m2_teach.gd`'s
+# `READ_KEYS` scan is the precedent for reading the source rather than trusting a behavioural
+# proxy alone.
+func _the_visibility_path_reads_eye_of() -> bool:
+	var code: String = _code_of("res://sim/vision/visibility.gd")
+	if code.is_empty():
+		push_error("EYE-READER: could not read sim/vision/visibility.gd")
+		return false
+	var calls: int = 0
+	for line in code.split("\n"):
+		var trimmed: String = String(line).strip_edges()
+		if trimmed.begins_with("#"):
+			continue
+		if trimmed.contains("eye_of("):
+			calls += 1
+	if calls == 0:
+		push_error("EYE-READER: sim/vision/visibility.gd has no live call to eye_of -- the write in the EYE lane above is not reachable from the visibility path")
+		return false
+	print("EYE-READER OK eye_of called from %d non-comment line(s) of sim/vision/visibility.gd" % calls)
+	return true
+
+
+# --- BEHIND ------------------------------------------------------------------------------------
+#
+# sightings.gd:147 recorded a sighting off `line_of_sight` -- walls and range, with no facing
+# arc -- so a survivor remembered, and the HUD reported, a body standing anywhere in the
+# 170-degree blind arc behind them. `_observe_containers` a few lines above already asked
+# `detail`, which narrows by the same focal/peripheral cone `SimVisibility.detail` uses for
+# ranged targeting; `_observe_one` now asks the same question. Per the hardcore contract's
+# clause 4, information stays scarce -- a colonist does not get to know what is behind their
+# own back.
+
+func _behind_world() -> Variant:
+	var f: Dictionary = {"seed": 77, "tick_hz": 20, "map": {"width": MAP_TILES, "height": MAP_TILES, "walls": []}, "player": {"id": 0, "x": 8.5, "y": 8.5, "stance": SimStancesRes.Stance.Walk}, "rng_probe": {"stream": "test", "samples": 0}}
+	var w: Variant = World.new(f)
+	w.tick = Clock.tick_at_time_of_day(Clock.DAY_BEGINS)
+	var map: Variant = SimTileMap.blank_map(MAP_TILES, MAP_TILES)
+	SimBoot.attach_kernel(w, map)
+	SimSightings.register_module(w)
+	SimSurvivors.give_eyes(w, w.player)
+	SimSightings.attach(w, w.player)
+	# Facing east: everything west of the observer is behind them.
+	w.components.set_component(w.player, "facing", {"radians": 0.0})
+	return w
+
+
+func _a_hostile_behind_the_observer_is_not_recorded() -> bool:
+	var w: Variant = _behind_world()
+	# In line-of-sight geometry alone (open ground, no wall) but due west -- squarely in the
+	# 170-degree arc `detail`'s peripheral cone leaves uncovered, per daylight_eyes' half-angles.
+	var behind: int = _zombie(w, 2.5, 8.5)
+	w.step()
+	if bool(w.vision.call("line_of_sight", w.player, 2.5, 8.5)) != true:
+		push_error("BEHIND: the geometry control failed -- open ground due west is not even in line of sight, so this lane proves nothing")
+		return false
+	if SimSightings.recall(w, w.player, behind) != null:
+		push_error("BEHIND: a hostile standing behind the observer, in geometric line of sight, was recorded as seen")
+		return false
+
+	# The negative: the identical hostile, same distance, directly ahead instead. Same fixture,
+	# same facing, only the bearing changed -- if this one is not recorded either, the lane above
+	# proved nothing about facing at all.
+	var w2: Variant = _behind_world()
+	var ahead: int = _zombie(w2, 14.5, 8.5)
+	w2.step()
+	if SimSightings.recall(w2, w2.player, ahead) == null:
+		push_error("BEHIND: the same hostile directly ahead of the observer was not recorded -- the control proves nothing")
+		return false
+	print("BEHIND OK behind=unrecorded ahead=recorded")
+	return true
+
+
+# Isolated to `_observe_one`'s own body, not the file as a whole -- `_observe_containers` calls
+# `detail` too, and a scan of the whole file would pass even if `_observe_one` still called
+# `line_of_sight`, which is the exact bug this lane exists to catch.
+func _observe_one_reads_detail_not_line_of_sight() -> bool:
+	var code: String = _code_of("res://sim/modules/sightings.gd")
+	if code.is_empty():
+		push_error("BEHIND-READER: could not read sim/modules/sightings.gd")
+		return false
+	var lines: PackedStringArray = code.split("\n")
+	var start: int = -1
+	var end: int = lines.size()
+	for i in lines.size():
+		var trimmed: String = String(lines[i]).strip_edges()
+		if trimmed.begins_with("static func _observe_one("):
+			start = i
+			continue
+		if start >= 0 and i > start and trimmed.begins_with("static func "):
+			end = i
+			break
+	if start < 0:
+		push_error("BEHIND-READER: sim/modules/sightings.gd has no _observe_one -- this lane is reading the wrong file")
+		return false
+	var body: String = "\n".join(lines.slice(start, end))
+	if not body.contains("world.vision.call(\"detail\""):
+		push_error("BEHIND-READER: _observe_one no longer calls detail -- the fix in the BEHIND lane is not reachable")
+		return false
+	if body.contains("world.vision.call(\"line_of_sight\""):
+		push_error("BEHIND-READER: _observe_one still calls line_of_sight alongside detail")
+		return false
+	print("BEHIND-READER OK _observe_one (lines %d-%d) reads detail, not line_of_sight" % [start + 1, end])
 	return true
