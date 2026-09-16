@@ -123,12 +123,17 @@ npm run godot:r6         # parity, coverage, mutation, soak, bench, validate
 npm run godot:run        # play it (DISPLAY=:1 on a headless VM)
 npm run sprites:check    # generated art still matches tools/sprites/ → SPRITES_OK
 npm run check:routing    # AGENTS.md's routing table resolves; every check_*.gd is reachable → ROUTING_OK
+npm run check:timing     # the per-gate timing table names every mode the chain ran → TIMING_OK
 ```
 
-Those are the ones worth naming, not all of them: `godot:m2` chains **70**, and the authoritative
-list is the `godot:m2` script in `package.json` — read it there rather than trusting a copy here,
-because a copy here is one more thing that drifts. Run an individual gate with the
-`godot:m2:<name>` script beside it when you are iterating; run the chain before you commit.
+Those are the ones worth naming, not all of them: `godot:m2` chains **77**, and the authoritative
+list is the `godot:m2:chain` script in `package.json` (`godot:m2` itself is
+`node scripts/m2-chain.mjs`, which reads that list and runs it) — read it there rather than
+trusting a copy here, because a copy here is one more thing that drifts. Run an individual gate
+with the `godot:m2:<name>` script beside it when you are iterating; run the chain before you
+commit. `godot:m2` prints a `GATE_TIME_TABLE` at the end — every gate it ran, slowest first, with
+a total — built from the `GATE_TIME` line `scripts/run-godot.mjs` prints after every mode, success
+or failure; `npm run check:timing` is the gate that proves the table cannot come up short.
 
 `sprites:check` is the one gate deliberately **outside** `godot:m2`: it needs Pillow
 (`pip install pillow==12.3.0`) and that chain stays engine-only and pip-free, so it runs as its
@@ -143,6 +148,12 @@ doc anchor that no longer resolves, then asks the dead-socket question of the ga
 from `package.json`, every `godot:m2:*` / `godot:check:*` / `godot:ban:*` script inside the
 `godot:m2` chain or excused by name). Run it after touching any of those four things. Node only,
 about a second.
+
+`check:timing` is a third gate outside `godot:m2`, beside it rather than in it: it self-tests
+`scripts/m2-chain.mjs`'s per-gate timing table against fabricated `GATE_TIME` lines (never the
+real engine) and checks that `godot:m2` still delegates to it and that `run-godot.mjs` still
+prints the line the table is built from. Run it after touching `scripts/run-godot.mjs`,
+`scripts/m2-chain.mjs` or the `godot:m2:chain` list. Node only, about a second.
 
 `godot:m2` prints `ObjectDB ... leaked at exit` and `resources still in use` *after* it reports
 success. That is engine shutdown noise, not a failure — check the `_OK` line and the exit code.
