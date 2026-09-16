@@ -520,12 +520,7 @@ the order they land:
   `check_hud` scans the line for digits and proves the scanner on a fabricated "E — 3 boards".
   `_update_hud` stays on `main.gd` for the SHEET-COST lane. *Files:* `godot/ui/hud.gd`,
   `godot/presentation/main.gd` (`_update_hud` only), `godot/check_hud.gd`.
-- **The dev menu reaches a raider band and a stranger.** F8 gains `raider` and `stranger` kinds
-  through the same `debug.spawn` command and the existing spawn paths, so a tester can reach
-  "fight raiders" and "recruit" inside a session without waiting for day eight; invisible to a
-  player. Lane: the spawned band is hostile and carries a web; the stranger is acceptable at the
-  gate. *Files:* `godot/ui/debug_panel.gd`, `godot/sim/modules/debug.gd`, one lane in
-  `godot:m2:raiders` and one in `godot:m2:recruits`.
+- ~~**The dev menu reaches a raider band and a stranger**~~ — **landed**, see the record.
 - **The capability walkthrough.** One scripted drive per item on the owner's bar through the
   play gate's harness, with a screenshot: move and interact, drive a car, loot a cupboard, wield
   and fire, fight a shambler, fight a raider, make camp, recruit, open the inventory and read a
@@ -7310,6 +7305,27 @@ not a to-do list:
   it is still skipping**, so the shell cannot land without turning it on. Not proved here and
   named rather than assumed: that the web export's `preventDefault` keeps Ctrl+S out of the
   browser's save dialogue, which is a published-build check in the walkthrough piece.
+- **The alpha shell** — ~~the dev menu reaches a raider band and a stranger~~ **landed** 2026-09-16
+  (`godot:m2:raiders`'s DEBUG-BAND lane, `godot:m2:recruits`'s DEBUG-STRANGER lane): F8 gains a
+  `raider` kind and a `stranger` kind on `debug.spawn`, both reaching the machinery a real night
+  already uses rather than a second recipe for the same body. A raider row (`"band.2"` /
+  `"band.4"`) rolls a band through a new `SimRaiders.spawn_band`, factored out of
+  `SimDirector._emit_band` so the director's own draw and the dev menu call the one function;
+  `stamp_band` afterwards makes it a band that can lose men and withdraw exactly like a drawn one.
+  DEBUG-BAND measured `"band.4"` placing exactly four hostile bodies, each carrying a
+  `raider.person` and a non-empty `skillWeb`, then filled `RAID_LIVE_CAP` and watched a fifth
+  request refused with `debug.refused` (reason `cap`) rather than exceeding it, live count
+  unmoved; a fabricated command naming a size of zero spawned nobody. A stranger row rolls a
+  person through the gate beat's own two calls (`SimRecruits.roll` then `spawn_generated`) and
+  stands them at the gate the way `_tick_beats` does — `SimRecruits.accept` itself only asks
+  whether a body carries `recruit.waiting`, but the gate is where a player goes looking for one.
+  DEBUG-STRANGER measured one new `recruit.waiting` body landing within a metre of the gate
+  anchor, `accept` turning it into a colonist (identity, needs, jobPriorities, colony allegiance),
+  and `accept` on nothing waiting doing nothing. Both lanes hold the dead-socket half too:
+  `debug_panel.gd`'s `_rows()` is read as text and DEBUG-BAND refuses unless it literally offers
+  both kinds. *Files:* `godot/ui/debug_panel.gd`, `godot/sim/modules/debug.gd`,
+  `godot/sim/modules/raiders.gd` (`spawn_band`), `godot/sim/modules/director.gd` (`_emit_band`
+  calls it), `godot/check_m2_raiders.gd`, `godot/check_m2_recruits.gd`.
 - **Death & succession** — ~~the colony morale hit on a death~~ **landed** (`godot:m2:needs`,
   GRIEF and ONCE), leaving the balance-grid proof that "the run ends only when the last survivor
   dies". docs/04 lists **grief** and **witnessing a death** as two separate negative mood sources

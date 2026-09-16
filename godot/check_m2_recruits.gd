@@ -2,6 +2,7 @@ extends SceneTree
 # Day-8 gate beat, accept 15% transmitted, Inspect skilled vs untrained, death/leave, and the
 # survivor-generation surface: shape, readers, kit-in-hand, age, prose, looks, determinism.
 
+const SimAllegiance = preload("res://sim/modules/allegiance.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const SimRecruits = preload("res://sim/modules/recruits.gd")
 const SimSurvivors = preload("res://sim/modules/survivors.gd")
@@ -11,6 +12,7 @@ const SimInfection = preload("res://sim/modules/infection.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimItems = preload("res://sim/modules/items.gd")
+const SimTileMap = preload("res://sim/map/tilemap.gd")
 const Appearance = preload("res://presentation/appearance.gd")
 const Palette = preload("res://presentation/palette.gd")
 const Clock = preload("res://sim/time/clock.gd")
@@ -35,8 +37,9 @@ func _run() -> void:
 	ok = _conflicts_true_negative() and ok
 	ok = _conflicts_bias() and ok
 	ok = _conflicts_dead_socket() and ok
+	ok = _debug_stranger() and ok
 	if ok:
-		print("M2_RECRUITS_OK beat transmit inspect death shape readers kit age prose looks determinism conflicts-truepos conflicts-trueneg conflicts-bias conflicts-deadsocket")
+		print("M2_RECRUITS_OK beat transmit inspect death shape readers kit age prose looks determinism conflicts-truepos conflicts-trueneg conflicts-bias conflicts-deadsocket debug-stranger")
 		quit(0)
 	else:
 		push_error("M2_RECRUITS_FAIL")
@@ -666,4 +669,68 @@ func _conflicts_dead_socket() -> bool:
 			push_error("conflicts dead socket: trait %s is neither read by sim code nor named in the INERT allowlist -- a silently-dead ninth trait" % id)
 			return false
 	print("CONFLICTS DEAD SOCKET OK traitConflicts ids all in pool; %d read (%s), %d inert (%s)" % [read_by_sim.size(), str(read_by_sim), inert_allowlist.size(), str(inert_allowlist)])
+	return true
+
+# --- the F8 dev menu: a stranger at the gate on demand ------------------------------------------
+#
+# The alpha shell's dev-menu piece (docs/23, "the dev menu reaches a raider band and a stranger"):
+# F8's stranger row pushes `debug.spawn` and `SimDebug` reaches the gate beat's own two calls,
+# `SimRecruits.roll` then `spawn_generated`, tagged `recruit {waiting: true}` the way `_tick_beats`
+# tags one -- so the body this produces is a recruit the gate beat could have produced on day
+# eight, not a second recipe for the same person. `accept` itself never asks where a body is
+# standing (only `waiting`), so the useful claim is placement: it lands at the gate, the way the
+# beat's own body does, which is what makes E reachable there without the player wandering the
+# district looking for it. The true negative is `accept`'s own baseline: nothing waiting, nothing
+# happens.
+func _debug_stranger() -> bool:
+	var w: Variant = _world()
+	var before: Array[int] = w.components.query(["recruit"])
+	w.commands.push({"type": "debug.spawn", "kind": "stranger", "id": "gate", "x": 0.0, "y": 0.0})
+	w.step()
+	var waiting: Array[int] = []
+	for e in w.components.query(["recruit"]):
+		if before.has(int(e)):
+			continue
+		var r: Variant = w.components.get_component(int(e), "recruit")
+		if r is Dictionary and bool((r as Dictionary).get("waiting", false)):
+			waiting.append(int(e))
+	if waiting.size() != 1:
+		push_error("DEBUG-STRANGER: expected exactly one new waiting recruit, got %d" % waiting.size())
+		return false
+	var ent: int = waiting[0]
+	if not w.components.has_component(ent, "identity"):
+		push_error("DEBUG-STRANGER: the spawned body carries no identity")
+		return false
+	# At the gate, the way the beat places one -- within the same offset `_tick_beats` uses
+	# (`gate + (0.5, 1.5)`), not merely "somewhere in the district".
+	var gate: Vector2i = SimTileMap.gate_a(w.tilemap)
+	var pos: Variant = w.components.get_component(ent, "position")
+	if not (pos is Dictionary):
+		push_error("DEBUG-STRANGER: the spawned body carries no position")
+		return false
+	var dx: float = float((pos as Dictionary)["x"]) - (float(gate.x) + 0.5)
+	var dy: float = float((pos as Dictionary)["y"]) - (float(gate.y) + 1.5)
+	if dx * dx + dy * dy > 1.0:
+		push_error("DEBUG-STRANGER: spawned at (%.2f, %.2f), not the gate %s" % [float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]), str(gate)])
+		return false
+	# Accept turns it into a colonist: identity (already asserted above) plus needs, a job row and
+	# colony allegiance, and the `recruit` tag comes off.
+	if not SimRecruits.accept(w, ent):
+		push_error("DEBUG-STRANGER: accept refused a freshly spawned waiting recruit")
+		return false
+	if w.components.has_component(ent, "recruit"):
+		push_error("DEBUG-STRANGER: accept left the recruit tag on")
+		return false
+	if not w.components.has_component(ent, "needs") or not w.components.has_component(ent, "jobPriorities"):
+		push_error("DEBUG-STRANGER: the accepted body carries no needs/jobPriorities -- not a colonist")
+		return false
+	if not SimAllegiance.is_colony(w, ent):
+		push_error("DEBUG-STRANGER: the accepted body is not on the colony's allegiance")
+		return false
+	# True negative: with nothing waiting, accept does nothing.
+	var ghost: int = int(w.entities.spawn())
+	if SimRecruits.accept(w, ghost):
+		push_error("DEBUG-STRANGER: accept returned true for a body with no recruit component")
+		return false
+	print("DEBUG-STRANGER OK one waiting recruit spawned %.2f m off the gate anchor; accept made it a colonist (identity, needs, jobPriorities, colony allegiance); accept on nothing waiting did nothing" % sqrt(dx * dx + dy * dy))
 	return true
