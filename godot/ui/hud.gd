@@ -37,6 +37,7 @@ const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimTreatment = preload("res://sim/modules/treatment.gd")
 const SimShambler = preload("res://sim/modules/shambler.gd")
 const SimVehicles = preload("res://sim/modules/vehicles.gd")
+const SimFortify = preload("res://sim/modules/fortify.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const Palette = preload("res://presentation/palette.gd")
 const Chrome = preload("res://ui/chrome.gd")
@@ -294,17 +295,27 @@ static func action_line(world: Variant, actor: int, look: Dictionary, hint: Stri
 
 
 # E, in main.gd's own order: the window you are facing, the bait, the device under your hand,
-# then the cupboard, then the car. `hint` is the context line main.gd has already resolved for
-# this frame, and it is the last word rather than the first -- mostly it is the same fortify
-# look-at read through a different door, so it only wins when this file's own sources have gone
-# quiet and main.gd knows about something they do not. The content-error hint is not an action:
-# it is a fault report main.gd borrows the hint line for, and naming a key beside it would be a
-# lie about what E does.
+# then the top rung of the rest of the ladder, then the cupboard, then the car. `hint` is the
+# context line main.gd has already resolved for this frame, and it is the last word rather than
+# the first -- mostly it is the same fortify look-at read through a different door, so it only
+# wins when this file's own sources have gone quiet and main.gd knows about something they do not.
+# The content-error hint is not an action: it is a fault report main.gd borrows the hint line for,
+# and naming a key beside it would be a lie about what E does.
+#
+# `SimFortify.rung_of` is deliberately asked after the look-at group and before the cupboard and
+# the car: those two already have their own read models (`SimContainers.hud_clause`,
+# `SimVehicles.hud_clause`) and `rung_of` says nothing while either would fire, so the order here
+# never contradicts the order `_use_context` actually takes. Past that, this is the one place the
+# bar names sleep, a fire, a filter, the latrine, a bench, a trap, the bait, a lift, a barricade --
+# docs/23's follow-up "the ladder names its rung": the sim decides the verb, this only asks it.
 static func _reach_clause(world: Variant, actor: int, look: Dictionary, hint: String) -> String:
 	for key in ["window", "noisemaker", "device"]:
 		var clause: String = String(look.get(key, ""))
 		if not clause.is_empty():
 			return clause
+	var rung: String = String(SimFortify.rung_of(world, actor).get("prose", ""))
+	if not rung.is_empty():
+		return rung
 	var here: String = SimContainers.hud_clause(world, actor)
 	if not here.is_empty():
 		return here
