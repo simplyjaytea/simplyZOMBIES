@@ -5143,6 +5143,29 @@ the verb, presentation names the key. The design is frozen from mockups with the
 code. The full "top rung of E" read is named as a follow-up rather than folded in, because it
 splits `_use_context` under `check_vehicles`' needles.
 
+**The HUD design, picked the same day: Option A, two cards.** Four artboards went to the owner
+over a screenshot of the shipped screen — today's bare corner text, a **one-plate bar** that
+gathered everything into a single strip along the bottom, a **brackets-only** treatment that kept
+the corners where they are and drew nothing but chrome ticks around them, and **two cards**. The
+owner took the cards. The reasoning, in the order it decided the pick: it is the **cheapest
+against `check_hud`**, because the columns stay the arrays every lane already reads and the card
+header is chrome rather than a line — the one-plate bar would have rebuilt `_left` and `_right`
+into a single ordered list and put six green lanes through a rewrite for a layout change; it is
+the **most legible over busy tiles**, since a filled panel at alpha 0.86 is the only one of the
+three that gives every clause a background rather than relying on the street being dark where the
+text happens to fall — the one plate showed the most map and wrapped a long sentence badly inside
+a third of a bar, and brackets-only was closest to what already ships and gained the least; and
+the cost, taken knowingly, is that it puts **the most chrome on the street** — two panels and a
+bar where brackets-only would have put none. Geometry, shipped:
+cards at the `MARGIN` (24) corners, minimum 472 wide for "you" and 496 for "outside", height
+`HEADER_H + lines × LINE` plus a skirt, growing in both directions with their content; the action
+bar 1296×48 centred at `view.y − MARGIN − STRIP_CLEARANCE − BAR_H`, its clauses at `FONT_SIZE − 2`
+with the key in `Chrome.ACCENT`, and the key hint at `SMALL_SIZE − 2` in `Chrome.TEXT_DIM` in the
+tail. The bar takes chrome's own 14 px bracket rather than the mockup's 12, because a second copy
+of the bracket arithmetic in `hud.gd` is exactly the drift `ui/chrome.gd` exists to prevent. The
+artboards, the canvas file and both screenshots are the record, under
+`.hermes/plans/2026-09-16_alpha-hud/`.
+
 **The desk is for any agent.** `AGENTS.md` gains a section written for whichever assistant picks
 the project up — Claude, ChatGPT, Astra, Sol — with the claim mechanism being the branch name and
 the routing table being the map, and no ledger, because a ledger is the drift this repo retired.

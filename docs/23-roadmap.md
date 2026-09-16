@@ -510,16 +510,7 @@ the order they land:
   `godot/ui/shell.gd`, `godot/presentation/main.gd`, `godot/presentation/input_map.gd`,
   `godot/presentation/sfx.gd`, `godot/ui/settings_panel.gd`, `godot/ui/prefs.gd`,
   `godot/sim/modules/chronicle.gd`, `godot/check_play.gd`.
-- **The HUD in the chrome.** Two cards in `ui/chrome.gd`'s skin, a "you" and a "world", the
-  `_left`/`_right` arrays every `check_hud` lane reads untouched and the card headers chrome
-  rather than lines; an action line above the quick strip naming E, T and H only when
-  `SimFortify.look_at`, `SimContainers.hud_clause`, `SimVehicles.hud_clause`,
-  `SimTreatment.context` or `SimShambler.rescue_target` already says what is there — the sim
-  decides the verb, presentation names the key. Design frozen from two or three mockups with the
-  owner first, screenshots under `.hermes/plans/2026-09-16_alpha-hud/`. A new ACTION lane in
-  `check_hud` scans the line for digits and proves the scanner on a fabricated "E — 3 boards".
-  `_update_hud` stays on `main.gd` for the SHEET-COST lane. *Files:* `godot/ui/hud.gd`,
-  `godot/presentation/main.gd` (`_update_hud` only), `godot/check_hud.gd`.
+- ~~**The HUD in the chrome**~~ — **landed**, see the record.
 - ~~**The dev menu reaches a raider band and a stranger**~~ — **landed**, see the record.
 - **The capability walkthrough.** One scripted drive per item on the owner's bar through the
   play gate's harness, with a screenshot: move and interact, drive a car, loot a cupboard, wield
@@ -7326,6 +7317,42 @@ not a to-do list:
   both kinds. *Files:* `godot/ui/debug_panel.gd`, `godot/sim/modules/debug.gd`,
   `godot/sim/modules/raiders.gd` (`spawn_band`), `godot/sim/modules/director.gd` (`_emit_band`
   calls it), `godot/check_m2_raiders.gd`, `godot/check_m2_recruits.gd`.
+- **The alpha shell** — ~~the HUD in the chrome~~ **landed** 2026-09-16
+  (`npm run godot:check:hud` → **`HUD_OK`**, lane ACTION), the owner's **Option A, two cards**
+  picked from four artboards the same day ([docs/30](30-decisions.md#the-alpha-shell-2026-09-16),
+  the mockups and both screenshots under `.hermes/plans/2026-09-16_alpha-hud/`). The corner
+  columns are now cards in `ui/chrome.gd`'s skin — a **"you"** card at the top left and an
+  **"outside"** card at the top right, panel at alpha 0.86 with bracketed corners and a header
+  strip, sized to their content in both directions so a healthy survivor's card is one line tall
+  and a long chronicle line widens the box rather than hanging off it. **The arrays are
+  untouched**: the header is chrome, never a line in `_left`, which is what keeps the QUIET lane
+  judging the column it exists to hold down, and LINES, RAW, CHRONICLE, SELECTED, TAG and
+  SHEET-COST all pass unweakened. Below them an **action bar** (1296×48, centred above the quick
+  strip) carries the contextual clauses — the key in amber, the words in khaki, a faint dot
+  between them — with the standing key hint in its tail, all measured and placed as one centred
+  group. The line itself is `Hud.action_line(world, actor, look, hint)`: **E** from
+  `SimFortify.look_at` in main.gd's own key order, else `SimContainers.hud_clause`, else
+  `SimVehicles.hud_clause`, else the context line `_update_hud` already resolved (and never a
+  content error, which is a fault report rather than an action); **T** from the aid ladder;
+  **H** from `SimShambler.rescue_target`, by name. Digit-free by construction and `""` when no
+  read model says anything, so the bar is the key hint alone on a quiet street. **One deviation
+  from the plan, and it is the reason the plan said to read each read model before calling it:
+  `SimTreatment.context` is not a read model.** It cancels a running channel and calls `begin`,
+  so a HUD asking it "what would T do?" four times a second would have started treating people;
+  the clause reads the two pure facts it branches on instead — the `treatment` component for
+  "T — stop", and `_nearest_needing_care` for the patient — and takes the verb from
+  `options_for`, which dry-runs every rung, so the bar cannot offer one the sim would refuse.
+  The **ACTION** lane proves all of it: the line names E for a boarded window, carries no digit
+  with its scanner proved on the literal `"E — 3 boards"`, produces T for a bleeding torso and
+  `H — pull Mara Sato free` for a held colonist in E/T/H order, falls back to the hint and
+  refuses a content error, says nothing at all for a well survivor in an empty street, and —
+  the dead-socket half, comment lines stripped first so a commented-out call cannot satisfy it —
+  `_update_hud` hands the line over and `_draw` draws the bar. Red first, twice: a digit welded
+  onto the line gave *"ACTION: the action line carries digits (3): 'E — boarded, holding · T —
+  press your torso (3 boards)'"*, and commenting out the call in `_update_hud` gave *"ACTION:
+  `_update_hud` never hands the action line to the HUD"*. `check_inventory`'s `var keys: String`
+  needle is untouched, and the hint still reads "Esc settings" because the shell slice that
+  renames it had not landed in this tree.
 - **Death & succession** — ~~the colony morale hit on a death~~ **landed** (`godot:m2:needs`,
   GRIEF and ONCE), leaving the balance-grid proof that "the run ends only when the last survivor
   dies". docs/04 lists **grief** and **witnessing a death** as two separate negative mood sources
