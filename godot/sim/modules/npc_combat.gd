@@ -234,13 +234,9 @@ static func _engage(world: Variant, ent: int, anyone_held: bool = false) -> void
 
 # The same reach the swing will resolve against, so an NPC starts a wind-up exactly when a blow
 # would land rather than against a second number that could drift from `_resolve_strike`'s.
+# `SimMelee.reach_of` is the one resolver now; raiders.gd's approach halt reads it too.
 static func _melee_reach(world: Variant, ent: int) -> float:
-	var weapon: Variant = world.components.get_component(ent, "meleeWeapon")
-	if not weapon is Dictionary:
-		return 0.0
-	if not world.components.has_component(ent, "swing"):
-		return 0.0
-	return float((weapon as Dictionary).get("reachMetres", 1.4)) + SimMelee.MELEE_REACH_FUDGE
+	return SimMelee.reach_of(world, ent)
 
 
 static func _ranged_range(world: Variant, ent: int) -> float:

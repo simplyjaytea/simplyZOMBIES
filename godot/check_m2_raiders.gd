@@ -94,6 +94,8 @@ func _run() -> void:
 	ok = _a_lookout_halts_short() and ok
 	ok = _a_role_is_read_and_a_strange_one_refused() and ok
 	ok = _the_shipped_archetypes_still_fight() and ok
+	ok = _a_melee_raider_reaches_a_body_that_does_not_move() and ok
+	ok = _the_halt_reads_the_wielded_reach() and ok
 	ok = _a_band_crosses_the_district_and_leaves_by_the_far_edge() and ok
 	ok = _a_crossing_band_fights_what_stands_in_its_way() and ok
 	ok = _a_crossing_does_not_move_the_raid_stream() and ok
@@ -103,7 +105,7 @@ func _run() -> void:
 	ok = _a_raider_fights_with_what_it_arrived_with() and ok
 	ok = _the_dev_menu_reaches_a_band() and ok
 	if ok:
-		print("M2_RAIDERS_OK archetypes draw grace approach blood prey seed death ledger withdraw pool looks distinct no-identity look-reader no-tell streams save chronicle looter lookout role-read fighter crosses engages roam-stream event cap roam-roles skilled debug-band")
+		print("M2_RAIDERS_OK archetypes draw grace approach blood prey seed death ledger withdraw pool looks distinct no-identity look-reader no-tell streams save chronicle looter lookout role-read fighter reach reads-reach crosses engages roam-stream event cap roam-roles skilled debug-band")
 		quit(0)
 	else:
 		push_error("M2_RAIDERS_FAIL")
@@ -2347,6 +2349,85 @@ func _the_shipped_archetypes_still_fight() -> bool:
 	return true
 
 
+# REACH. docs/23's defect, struck in the same commit as this lane: a melee raider halted at the
+# flat `HALT_METRES` (2.6 m) no matter what was in its hand, and every melee reach in the tree is
+# shorter than that -- the rusted machete's is 1.55 m (`SimMelee.reach_of`, 1.2 plus
+# `MELEE_REACH_FUDGE`) -- so a scavenger stood a full metre outside its own weapon's reach,
+# swinging at nothing, against a colonist who never moved. `_halt_metres` is the fix: the lesser of
+# HALT_METRES and this body's own wielded reach, minus a margin so the swing lands inside the arc
+# rather than balanced on its edge.
+#
+# The fixture is `_stores_arena`'s colony with a colonist pinned exactly on the gate tile and given
+# nothing that could move it -- no job, no `jobPriorities`, not even a weapon to answer with, which
+# is "a body that does not move" read as literally as the defect's own words. A lone `raider.scav`
+# -- the shipped archetype whose kit's machete carries no `chance` row, so it is unconditional --
+# spawns ten metres off and gets a bounded APPROACH_TICKS to close and land a blow.
+#
+# **Run red against the parent commit first**, the way `check_camera.gd`'s SHORT STEP lane and
+# CAMP-KEY were: with `_halt_metres` reverted to `return HALT_METRES` unconditionally, this fixture
+# reproduced `REACH: a machete raider never landed a blow on a colonist standing still at the gate
+# in 1200 ticks (closest approach 2.60 m)` -- docs/23's record carries that line, and this comment
+# is what makes the claim checkable rather than asserted.
+func _a_melee_raider_reaches_a_body_that_does_not_move() -> bool:
+	var w: Variant = _stores_arena()
+	SimWounds.register_module(w)
+	var gate := Vector2(16.5, 20.5)
+	var colonist: int = _colonist(w, gate.x, gate.y)
+	var ent: int = SimRaiders.spawn(w, gate.x, gate.y - 10.0, "raider.scav")
+	if ent < 0:
+		push_error("REACH: raider.scav would not spawn -- the fixture cannot ask anything of it")
+		return false
+	SimRaiders.stamp_band(w, [ent], 81)
+	var hits: Dictionary = {"n": 0}
+	var closest: Array[float] = [1e12]
+	for _t in APPROACH_TICKS:
+		w.step()
+		var pos: Variant = w.components.get_component(ent, "position")
+		if pos is Dictionary:
+			closest[0] = minf(closest[0], Vector2(float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"])).distance_to(gate))
+		for e in w.events.drained:
+			var ev: Dictionary = e as Dictionary
+			if String(ev.get("type", "")) != "attack.connected":
+				continue
+			if int(ev.get("attacker", -1)) == ent and int(ev.get("target", -1)) == colonist:
+				hits["n"] = int(hits["n"]) + 1
+		if int(hits["n"]) > 0:
+			break
+	if int(hits["n"]) < 1:
+		push_error("REACH: a machete raider never landed a blow on a colonist standing still at the gate in %d ticks (closest approach %.2f m)" % [APPROACH_TICKS, closest[0]])
+		return false
+	if _wound_count(w, colonist) < 1:
+		push_error("REACH: the raider's blow connected but left the colonist with no wound to show for it")
+		return false
+	print("REACH OK a machete raider closed to %.2f m of a colonist standing still at the gate and landed a blow" % closest[0])
+	return true
+
+
+# READS-REACH. The dead-socket rule: a halt that only changes with the weapon in hand if
+# `_approach` actually calls the resolver that knows the weapon, not a second copy of the number
+# living beside it. Both needles are asked of an isolated function body with its comment lines
+# stripped (`_function_body` + `_without_comments`, this file's own precedent for `check_m2_teach`'s
+# "isolate the line first" rule) so neither this lane's own prose nor either function's doc block
+# can satisfy them.
+func _the_halt_reads_the_wielded_reach() -> bool:
+	var approach_body: String = _without_comments(_function_body("res://sim/modules/raiders.gd", "_approach"))
+	if approach_body.is_empty():
+		push_error("READS-REACH: `_approach` was not found in raiders.gd -- the needle has nothing to search")
+		return false
+	if not approach_body.contains("_halt_metres(world, ent)"):
+		push_error("READS-REACH: `_approach` no longer calls `_halt_metres` -- the halt has gone back to a flat constant nothing about the weapon can move")
+		return false
+	var halt_body: String = _without_comments(_function_body("res://sim/modules/raiders.gd", "_halt_metres"))
+	if halt_body.is_empty():
+		push_error("READS-REACH: `_halt_metres` was not found in raiders.gd -- the needle has nothing to search")
+		return false
+	if not halt_body.contains("SimMeleeRes.reach_of("):
+		push_error("READS-REACH: `_halt_metres` no longer reads `SimMelee.reach_of` -- a second copy of the reach formula has crept back in")
+		return false
+	print("READS-REACH OK `_approach` calls `_halt_metres`, which reads `SimMelee.reach_of` -- one resolver, not a second copy of the number")
+	return true
+
+
 # Where one body of `type_id` is after a fixed walk. `strip_role` deletes the field from the
 # component the moment it is spawned, which is the shape a raider restored from a pre-roles save
 # arrives in.
@@ -2525,26 +2606,28 @@ func _a_band_crosses_the_district_and_leaves_by_the_far_edge() -> bool:
 # is the whole difference between an Encounter and a horde at the gate: a crossing fights what it
 # meets and looks for nobody.
 #
-# **Gunhands, and the reason is measured rather than stylistic.** `_approach` halts at
-# `HALT_METRES` (2.6 m) and every melee reach in a raider's kit is shorter than that -- the rusted
-# machete is 1.2 m plus `SimMelee.MELEE_REACH_FUDGE`, so 1.55. Against a colonist who never moves,
-# nothing closes the last metre and a scavenger band stands at 2.6 m indefinitely: written as
-# scavengers this lane went red with "hits 0, band stopped 10.5 m short of the site", blaming code
-# that was doing exactly what it says. That gap is pre-existing and is not this slice's -- in a
-# campaign colonists walk to jobs and shamblers close, which is how `BLOOD` and `PREY` above get
-# their contact -- so the lane is written with the weapon that reaches across the halt rather than
-# by widening the halt to make a gate pass.
+# **The substitution ended, 2026-09-16.** This lane used to spawn `raider.gunhand` rather than a
+# melee band, and said so here: `_approach` halted at the flat `HALT_METRES` (2.6 m) no matter what
+# a raider carried, and every melee reach in the tree is shorter than that -- the rusted machete's
+# is 1.55 m (`SimMelee.reach_of`, 1.2 plus `MELEE_REACH_FUDGE`) -- so nothing closed the last metre
+# and a scavenger band stood at 2.6 m indefinitely, swinging at nothing. Written as scavengers this
+# lane went red with "hits 0, band stopped 10.5 m short of the site", blaming code that was doing
+# exactly what it said; the pistol's 25 m range crosses the halt, so a gunhand was the only band
+# that could prove the crossing engages anything at all. `_halt_metres` (the REACH lane, above, and
+# docs/23's defect it fixes) closed that gap, and this lane now spawns what it was written to prove
+# in the first place -- a melee band, `raider.scav`.
 func _a_crossing_band_fights_what_stands_in_its_way() -> bool:
 	var results: Dictionary = {}
 	for case in ["in-the-way", "aside"]:
 		var w: Variant = _crossing_arena()
 		SimWounds.register_module(w)
-		var band: Array = _cross_band(w, 3, "raider.gunhand")
+		var band: Array = _cross_band(w, 3, "raider.scav")
 		SimRaiders.stamp_crossing(w, band, CROSS_SITE, CROSS_EXIT)
 		# On the line at (16, 12), or off it at (16 + 45, 12). Forty-five metres is well outside
-		# the service pistol's 25 m and outside `SimNpcCombat.ENGAGE_METRES` (20) -- and outside a
-		# raider's 12 m glimpse, so the aside colonist is never even seen. The arm is "nobody is in
-		# the way", not "somebody is in the way and was missed".
+		# `SimNpcCombat.ENGAGE_METRES` (20) -- which already bounds a melee band's own reach, since
+		# `_engage`'s `furthest` is `max(reach, range)` and a scavenger has no ranged weapon at all
+		# -- so the aside colonist is never even a candidate. The arm is "nobody is in the way", not
+		# "somebody is in the way and was missed".
 		var at_x: float = float(CROSS_ENTRY.x) + 0.5 + (0.0 if case == "in-the-way" else 45.0)
 		var colonist: int = _colonist(w, at_x, 12.5)
 		SimInventory.equip(w, colonist, SimItems.spawn_item(w, "item.knife.kitchen", {"tier": "scavenged"}))

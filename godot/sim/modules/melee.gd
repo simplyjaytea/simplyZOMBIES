@@ -13,6 +13,22 @@ const REFUSE_EXHAUSTED_SWINGS: bool = false
 const EXHAUSTION_SOURCE: String = "exhaustion.stamina"
 
 
+# The reach of whatever an entity is holding, `MELEE_REACH_FUDGE` already folded in -- the one
+# resolver. `_resolve_strike` below reads the weapon dictionary it is handed directly (it is
+# already inside the swing intake that fetched it), but every caller asking "how close before a
+# blow of this entity's would land" -- `SimNpcCombat._melee_reach`'s engage distance, and the
+# raider halt in raiders.gd -- reads this rather than carrying a second copy of the formula. Zero
+# for empty hands and for a body with no `swing` component to resolve a wind-up through, which is
+# `SimNpcCombat._melee_reach`'s own guard, moved here so both readers get it for free.
+static func reach_of(world: Variant, entity: int) -> float:
+	var weapon: Variant = world.components.get_component(entity, "meleeWeapon")
+	if not (weapon is Dictionary):
+		return 0.0
+	if not world.components.has_component(entity, "swing"):
+		return 0.0
+	return float((weapon as Dictionary).get("reachMetres", 1.4)) + MELEE_REACH_FUDGE
+
+
 static func make_melee_armed(world: Variant, entity: int, weapon: Dictionary = {}) -> void:
 	var profile: Dictionary = weapon if not weapon.is_empty() else SimCombat.ZOMBIE_BODY
 	# Default to bat if no profile given

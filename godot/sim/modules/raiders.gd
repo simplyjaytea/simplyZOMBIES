@@ -66,6 +66,7 @@ const SimHealthRes = preload("res://sim/modules/health.gd")
 const SimHomeRes = preload("res://sim/home.gd")
 const SimInventoryRes = preload("res://sim/modules/inventory.gd")
 const SimItemsRes = preload("res://sim/modules/items.gd")
+const SimMeleeRes = preload("res://sim/modules/melee.gd")
 const SimNeedsRes = preload("res://sim/modules/needs.gd")
 const SimPeopleRes = preload("res://sim/modules/people.gd")
 const SimSightingsRes = preload("res://sim/modules/sightings.gd")
@@ -111,10 +112,22 @@ const DEFAULT_SPEED: float = 1.5
 # How close an enemy comes before a raider stops walking and starts fighting. A swing has a
 # wind-up, so a raider who kept walking would cross a defender's reach and be past them before
 # the blow landed -- measured as "0 connects" the first time this ran without it. Just outside
-# the longest melee reach in the content tree (the spear's 2.4 m) so a raider carrying anything
-# halts at a distance its own weapon can work at, and `npc_combat.gd` -- which never sets a
-# velocity, by design -- does the rest.
+# the longest melee reach in the content tree (the spear's 2.4 m), which is a ceiling for a
+# gunhand -- whose range crosses it anyway -- but not a floor: a machete's reach is 1.55 m
+# (`SimMelee.reach_of`, 1.2 plus `MELEE_REACH_FUDGE`) and a raider that halted at the flat 2.6 m
+# regardless stood a full metre outside it, swinging at nothing forever against a body that never
+# moved -- docs/23's defect, **Fixed 2026-09-16** below. `_halt_metres` is what a raider actually
+# stops at; this constant is its ceiling, still read directly by a gunhand (no `meleeWeapon`, so
+# the resolver hands its 0.0 straight back) and by the withdrawal-clock comment two lines down,
+# which is about "nothing left to fight" rather than about any one body's reach.
 const HALT_METRES: float = 2.6
+# The margin subtracted off a melee raider's own reach before it is compared against HALT_METRES,
+# so the halt lands strictly inside the arc rather than balanced on its edge. Movement is ticked,
+# not continuous: at DEFAULT_SPEED (1.5 m/s) and the sim's 20 Hz, a raider can cross 0.075 m
+# between the check that halts it and the tick that draws it, so stopping exactly at the reach
+# boundary would sometimes overshoot it by a fraction of a tick's travel. Two ticks' worth of
+# headroom.
+const HALT_REACH_MARGIN: float = 0.15
 # A band that has nothing to fight goes home (the playable-state group's eleventh piece): at
 # its objective with no enemy in HALT_METRES for WITHDRAW_AFTER_TICKS it walks back to where it
 # came in and leaves, and a band cut below half the size it arrived at leaves at once. Before
@@ -586,8 +599,10 @@ static func _approach(world: Variant, ent: int) -> void:
 	# Stand and fight. `npc_combat.gd` never sets a velocity -- engaging is something you do from
 	# where you are standing -- so the halt has to come from here, and it is the difference
 	# between a band that fights the colony and a band that walks through it. Every role ends up
-	# here: a looter with nothing in reach is a man in a fight like the rest of them.
-	if _enemy_within(world, ent, HALT_METRES):
+	# here: a looter with nothing in reach is a man in a fight like the rest of them. The halt
+	# knows this body's own reach (`_halt_metres`) rather than assuming HALT_METRES is short
+	# enough for whatever it is carrying -- see that constant's comment for the gap this closes.
+	if _enemy_within(world, ent, _halt_metres(world, ent)):
 		_still(vel as Dictionary)
 		return
 	var goal: Vector2i = _objective(world, r, role, ent)
@@ -929,6 +944,19 @@ static func _loot_goal(world: Variant, ent: int) -> Vector2i:
 				best_d = d2
 				best = Vector2i(tx, ty)
 	return best
+
+
+# Where this body actually stops: the lesser of HALT_METRES and its own wielded melee reach
+# (`SimMelee.reach_of` -- the one resolver `_resolve_strike`'s swing and `npc_combat.gd`'s engage
+# distance already read, so this is a third caller rather than a second copy of the formula) minus
+# HALT_REACH_MARGIN. A gunhand's `meleeWeapon` component does not exist, so the resolver hands back
+# 0.0 and this returns HALT_METRES unchanged -- their pistol's range already crosses it, which is
+# `check_m2_raiders.gd`'s own reason for using one to write the ENGAGES lane before this fix.
+static func _halt_metres(world: Variant, ent: int) -> float:
+	var reach: float = SimMeleeRes.reach_of(world, ent)
+	if reach <= 0.0:
+		return HALT_METRES
+	return minf(HALT_METRES, reach - HALT_REACH_MARGIN)
 
 
 # The nearest enemy body inside `metres`, asked of `SimAllegiance.enemies_of` so the halt and
