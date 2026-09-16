@@ -144,7 +144,15 @@ static func _observe_one(world: Variant, observer: int, hostiles: Array) -> void
 			continue
 		var x: float = float((there as Dictionary)["x"])
 		var y: float = float((there as Dictionary)["y"])
-		if not bool(world.vision.call("line_of_sight", observer, x, y)):
+		# `detail`, not `line_of_sight` -- the same fix `_observe_containers` above already made,
+		# and docs/23's defect list named this call as the one spot that hadn't (2026-09-16). A
+		# survivor's field of view is a focal/peripheral cone, not the raw 360-degree shadowcast:
+		# `line_of_sight` only asks about walls and range, so a hostile standing in the 170-degree
+		# arc behind the observer's facing was being recorded, remembered, and reported on the HUD
+		# -- information the hardcore contract's clause 4 says the player has not earned.
+		# 0 is `SimVisibility.Detail.Unseen`; the literal because this module cannot name that
+		# class at parse time (`_observe_containers` above reads it the same way).
+		if int(world.vision.call("detail", observer, x, y)) == 0:
 			continue
 		# Watched it fall. A body you saw go down is not a body you are still wary of, so the
 		# record goes rather than ageing out -- and a kill out of sight leaves its record

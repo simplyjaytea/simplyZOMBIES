@@ -1033,9 +1033,19 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   every firefight, which is a balance change wanting its own slice and its own measurement rather
   than a quiet ride beside a change about rate of fire. `check_m2_aim`'s CONE lane neutralises it
   by hand and says why, and caught it by refusing to compare two saturated values.
-- **Crouching never lowers your eye.** `SimStances.eye_of` is called by nothing and no code ever
-  writes `observer["eye"]`, so `Opacity.Low` / `Tile.Low` cover blocks nobody. The frozen oracle
-  has this (`stance.eyes`); the port dropped it.
+- ~~**Crouching never lowers your eye.**~~ **Fixed 2026-09-16** (`godot:m2:sight`, the EYE and
+  EYE-READER lanes). `SimVisibility.refresh` now reads a queried entity's `posture`, if it has
+  one, and writes `observer["eye"]` from `SimStances.eye_of` every tick, before the shadowcast
+  that key depends on runs — a port of the oracle's `stance.eyes` (`src/sim/modules/stance.ts`),
+  folded into the refresh that was already threading `eye` end to end rather than a second system.
+  EYE proves a standing survivor sees straight across a `Tile.Low` cell, a crouched one does not,
+  and standing back up on the same body over the same tile restores the sightline; EYE-READER
+  isolates the call to a non-comment line of `sim/vision/visibility.gd`, so a refactor that moved
+  it without a caller could not pass quietly. This closes one of the four dead sockets named in
+  CLAUDE.md's "the sweep left four sockets named but unfixed" — three remain
+  (`sim/spatial/hash.gd`, `SimThreat.threat_within`, `SimDirector.snapshot_of`). The campaign
+  effect of low cover finally blocking a crouched body is unmeasured: `godot:m2:balance`,
+  `godot:m2:director` and `godot:m2:npc` stay green, but nothing here claims a balance outcome.
 - **`Bury` reads "the corpse has no position" as "I am carrying it".** `_do_bury`'s hole; the
   Cook half of this entry (no claim on the raw, a meal out of nothing) landed 2026-09-06 — the
   record's Jobs bullet, `godot:m2:jobs` COOK CLAIM. `_water_work` and `_repair_work` hand out an
@@ -1076,10 +1086,17 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   POCKETS, and `godot:m2:stats`, GEAR; the record's Kernel & review sweep bullet).
 - ~~**`merge_into_stack` reads a failure as a success.**~~ **Fixed 2026-09-13**
   (`godot:check:inventory`, STACK; the record's Kernel & review sweep bullet).
-- **Sightings are recorded on geometry, not on sight.** `sightings.gd::_observe_one` uses
-  `line_of_sight` rather than `detail`, so a survivor remembers — and the HUD reports — bodies
-  standing in the 170-degree arc behind them. The information-stays-scarce ban is the reason to
-  care.
+- ~~**Sightings are recorded on geometry, not on sight.**~~ **Fixed 2026-09-16**
+  (`godot:m2:sight`, the BEHIND and BEHIND-READER lanes). `sightings.gd::_observe_one` now asks
+  `detail`, the same focal/peripheral read `_observe_containers` a few lines above it already
+  used, rather than `line_of_sight`'s walls-and-range-only geometry — so a hostile standing in the
+  170-degree arc behind an observer's facing is neither recorded nor recalled, and the HUD's
+  memory prose stays silent about it, per the hardcore contract's clause 4 (information stays
+  scarce). BEHIND pairs an identical hostile due west of a west-blind, east-facing observer
+  (unrecorded) against the same hostile due east (recorded); BEHIND-READER isolates
+  `_observe_one`'s own body — not the file as a whole, since `_observe_containers` calls `detail`
+  too — and asserts it calls `detail` and not `line_of_sight`. Narrows what a colonist remembers;
+  no campaign outcome is claimed, and `godot:m2:balance` stays green.
 - **Four of the five infection verbs, and six other commands, have no way in.** `item.modify`,
   `item.attach`, `item.detach`, `item.split`, `item.pickUp` and `container.search` are live command
   handlers that nothing — no key, no button, no NPC decision — ever pushes, and the
@@ -6427,6 +6444,26 @@ not a to-do list:
   was called by nothing**: `world.gd` hand-listed three director keys, so `lullFromTick` and
   `weekPeakNoise` were written every night and dropped by every save. `world.gd` now copies the
   director's scalars generically, so a future dial is saved without world.gd learning what it is.
+  **The eye and the blind arc, 2026-09-16** closed two more named defects on this same seam
+  (`godot:m2:sight`, four new lanes: EYE, EYE-READER, BEHIND, BEHIND-READER). `SimStances.eye_of`
+  had been threaded end to end and called by nothing since the port — `SimVisibility.refresh` now
+  reads a queried entity's `posture`, if it has one, and writes `observer["eye"]` from it every
+  tick, before the shadowcast that key depends on runs, so `Opacity.Low` / `Tile.Low` cover
+  finally blocks a crouched sightline the way the frozen oracle's `stance.eyes` always did; EYE
+  proves a standing survivor sees straight across a `Tile.Low` cell, a crouched one does not, and
+  standing back up restores it, and EYE-READER isolates the call to a non-comment line so a
+  refactor cannot silently drop it again. Separately, `sightings.gd::_observe_one` had been asking
+  `line_of_sight` — walls and range only — where `_observe_containers` a few lines above it already
+  asked `detail`, so a hostile standing in the 170-degree arc behind an observer's own facing was
+  being recorded, remembered and reported on the HUD; `_observe_one` now asks `detail` too.
+  BEHIND pairs an identical hostile due west of a west-blind, east-facing observer (unrecorded)
+  against the same hostile due east (recorded), and BEHIND-READER isolates `_observe_one`'s own
+  body — not the file as a whole, since `_observe_containers`'s call to `detail` would otherwise
+  satisfy the needle even if `_observe_one` still called `line_of_sight` — and asserts which of the
+  two calls it makes. Both lanes were shown red against the shipped code before the fix. Neither
+  change claims a balance outcome: `godot:m2:balance`, `godot:m2:director` and `godot:m2:npc` were
+  run and stayed green, but a campaign-level measurement of tighter cover or narrower memory is
+  unmeasured and left for a slice that claims one.
 - **Health & injury** — ~~the remaining injury types (fracture, sprain, burn, concussion)~~
   **landed** (`godot:m2:wounds`, KINDS and CAUSES). docs/05's injury table has nine rows and three
   shipped, as *severities* of one bleeding wound. The four remaining are structurally different —

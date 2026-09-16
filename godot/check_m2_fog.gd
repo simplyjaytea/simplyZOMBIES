@@ -617,9 +617,9 @@ func _night_reading(kind: String, lamp: bool) -> Dictionary:
 
 # --- MEMORY ---------------------------------------------------------------------------------
 
-# One layer downstream: `SimSightings` records what `line_of_sight` answers, so a body the fog
-# hides is a body the colony never knew was there, and the prose that reads that memory says
-# nothing. The clear-sky world is the control for both halves.
+# One layer downstream: `SimSightings` records what `detail` answers, so a body the fog hides
+# is a body the colony never knew was there, and the prose that reads that memory says nothing.
+# The clear-sky world is the control for both halves.
 func _what_is_not_seen_is_not_remembered() -> bool:
 	var clear: Dictionary = _stage("clear", -1.0, false)
 	var fog: Dictionary = _stage("fog", -1.0, false)
