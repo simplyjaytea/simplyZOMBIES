@@ -33,8 +33,9 @@ func _run() -> void:
 	ok = _content_lane() and ok
 	ok = _view_lane(w) and ok
 	ok = _save_lane(w) and ok
+	ok = _yours_lane() and ok
 	if ok:
-		print("M2_AUTONOMY_OK cycle drift manual-holds buy content view save")
+		print("M2_AUTONOMY_OK cycle drift manual-holds buy content view save yours")
 		quit(0)
 	else:
 		push_error("M2_AUTONOMY_FAIL")
@@ -272,6 +273,109 @@ func _buy_lane(w: Variant) -> bool:
 			push_error("BUY: refusal \"%s\" published web.learned as well" % String(c["reason"]))
 			return false
 	print("BUY OK surv.haul bought and announced; auto/unknown/owned/points each refused with nothing spent")
+	return true
+
+
+# --- 8. YOURS ----------------------------------------------------------------------------------
+#
+# Your own web is yours. The player has no job row and no focus word, and reads Manual by
+# construction (SimSkills._focus_of; docs/30, "One web, and the captives"): an earn banks, the
+# K screen's click buys, a keystone included, and the body you take over at succession is yours
+# the same way. The true negative is a generated colonist on Auto beside you, who spends the same
+# point the moment it lands and is refused the same click. On a fresh boot, so the lanes above
+# have not already spent or set anything on this player.
+func _yours_lane() -> bool:
+	var w: Variant = SimBoot.playable(20260830, 64)["world"]
+	var me: int = int(w.player)
+	if w.components.has_component(me, "jobPriorities"):
+		push_error("YOURS: the player boots with a job row, so 'Manual by construction' is not what this proves")
+		return false
+	var learned: Array = _collect(w, ["web.learned"])
+	var refused: Array = _collect(w, ["web.refused"])
+	# (a) Refused for want of points, not as somebody else's to spend.
+	w.commands.push({"type": "web.buy", "entity": me, "node": "surv.haul"})
+	w.step()
+	if refused.size() != 1 or String((refused[0] as Dictionary).get("reason", "")) != "points":
+		push_error("YOURS: a fresh player's buy was refused as %s, not \"points\"" % str(refused))
+		return false
+	refused.clear()
+	# (b) An earn banks; nothing is bought for you.
+	var nodes_before: int = SimSkills.node_count(w, me)
+	w.events.publish({"type": "job.completed", "entity": me, "kind": "Haul"})
+	w.events.drain()
+	if SimSkills.points(w, me, "Survival") != 1 or SimSkills.node_count(w, me) != nodes_before:
+		push_error("YOURS: the player's Haul point was spent for them (%d banked, nodes %d→%d)" % [
+			SimSkills.points(w, me, "Survival"), nodes_before, SimSkills.node_count(w, me)])
+		return false
+	# (c) The click buys.
+	w.commands.push({"type": "web.buy", "entity": me, "node": "surv.haul"})
+	w.step()
+	if not SimSkills.has_node(w, me, "surv.haul") or learned.size() != 1:
+		push_error("YOURS: the player's own click did not buy surv.haul (%s)" % str(learned))
+		return false
+	# (d) A keystone, by the player's hand, drawback paid.
+	_grant(w, me, "Medicine", 3)
+	if SimSkills.node_count(w, me) != nodes_before + 1:
+		push_error("YOURS: three Medicine points were spent for the player")
+		return false
+	w.commands.push({"type": "web.buy", "entity": me, "node": "med.surgeon"})
+	w.step()
+	if not SimSkills.has_node(w, me, "med.surgeon"):
+		push_error("YOURS: the player could not buy the keystone: %s" % str(refused))
+		return false
+	if float(w.modifiers.call("resolve", "treatment_speed", me)) <= 1.0 or float(w.modifiers.call("resolve", "mood", me)) >= 0.0:
+		push_error("YOURS: the keystone bought by hand reads treatment_speed %.2f, mood %.1f" % [
+			float(w.modifiers.call("resolve", "treatment_speed", me)), float(w.modifiers.call("resolve", "mood", me))])
+		return false
+	# (e) The colonist beside you, on Auto, on the same evidence.
+	var mate: int = _spawn_colonist(w, 3.0)
+	if mate < 0 or _focus_of(w, mate) != "Auto":
+		push_error("YOURS: could not generate an Auto colonist beside the player")
+		return false
+	w.events.publish({"type": "job.completed", "entity": mate, "kind": "Haul"})
+	w.events.drain()
+	if not SimSkills.has_node(w, mate, "surv.haul"):
+		push_error("YOURS: the Auto colonist banked the point the player would; the negative proves nothing")
+		return false
+	refused.clear()
+	w.commands.push({"type": "web.buy", "entity": mate, "node": "surv.cook"})
+	w.step()
+	if refused.size() != 1 or String((refused[0] as Dictionary).get("reason", "")) != "auto":
+		push_error("YOURS: the Auto colonist's buy was not refused as auto: %s" % str(refused))
+		return false
+	_grant(w, mate, "Medicine", 3)
+	if SimSkills.has_node(w, mate, "med.surgeon"):
+		push_error("YOURS: the surplus pass bought the colonist a keystone")
+		return false
+	# (f) Succession: the body you take over is yours the same way, and yours only while you have it.
+	var before_map: Dictionary = SimSkills.web_map(w, mate)
+	if bool(before_map.get("manual", true)):
+		push_error("YOURS: the colonist reads manual before any handoff")
+		return false
+	SimRecruits._handoff(w, me, mate)
+	if not bool(SimSkills.web_map(w, mate).get("manual", false)) or bool(SimSkills.web_map(w, me).get("manual", true)):
+		push_error("YOURS: after a handoff the successor reads manual=%s and the old body manual=%s" % [
+			str(SimSkills.web_map(w, mate).get("manual")), str(SimSkills.web_map(w, me).get("manual"))])
+		return false
+	SimRecruits._handoff(w, mate, me)
+	if bool(SimSkills.web_map(w, mate).get("manual", true)):
+		push_error("YOURS: the colonist stayed manual after the player left their body")
+		return false
+	# (g) Through JSON and back, and still yours.
+	var back: Variant = JSON.parse_string(JSON.stringify(w.snapshot()))
+	if not back is Dictionary:
+		push_error("YOURS: the snapshot did not survive JSON")
+		return false
+	w.restore(back as Dictionary)
+	me = int(w.player)
+	learned.clear()
+	_grant(w, me, "Endurance", 1)
+	w.commands.push({"type": "web.buy", "entity": me, "node": "end.legs"})
+	w.step()
+	if not SimSkills.has_node(w, me, "end.legs"):
+		push_error("YOURS: after a load the player's click no longer buys: %s" % str(refused))
+		return false
+	print("YOURS OK the player banks and buys by hand, keystone included; the Auto colonist spent and was refused; the successor's web is yours while you hold it; a load keeps it")
 	return true
 
 

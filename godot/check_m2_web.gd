@@ -64,8 +64,20 @@ func _run() -> void:
 			quit(1)
 			return
 		print("FOCUS OK medic nodes %d" % SimSkills.node_count(w, mara))
-	# Modifier applies when node owned
-	SimSkills._earn(w, player, "Melee", 5)
+	# Modifier applies when node owned. Bought by command, the way the player's own web is
+	# spent: the player reads Manual by construction (docs/30, "One web, and the captives"), so
+	# an earn banks and nothing is owned until the click.
+	SimSkills._earn(w, player, "Melee", 1)
+	if SimSkills.has_node(w, player, "melee.grip"):
+		push_error("the player's own point was auto-spent; the player's web is theirs to spend")
+		quit(1)
+		return
+	w.commands.push({"type": "web.buy", "entity": player, "node": "melee.grip"})
+	w.step()
+	if not SimSkills.has_node(w, player, "melee.grip"):
+		push_error("the player's web.buy of melee.grip did not land")
+		quit(1)
+		return
 	var dmg: float = float(w.modifiers.call("resolve", "melee_damage", player))
 	# `> 1.0`, not `< 1.0`. `melee_damage` has base 1.0 (sim/modifiers/stats.gd), so a resolve
 	# with **no** skill modifier at all returns exactly 1.0 and sailed past the old comparison --
@@ -76,8 +88,8 @@ func _run() -> void:
 		quit(1)
 		return
 	print("MOD OK melee_damage %.3f" % dmg)
-	# Manual must not auto-spend; Rest earns Endurance (docs/08).
-	SimJobs.set_focus(w, player, "Manual")
+	# Manual must not auto-spend; Rest earns Endurance (docs/08). The player is Manual by
+	# construction, so nothing is set here -- this used to hand the player a job row by hand.
 	var nodes_before_manual: int = SimSkills.node_count(w, player)
 	w.events.publish({"type": "job.completed", "entity": player, "kind": "Rest"})
 	w.events.publish({"type": "job.completed", "entity": player, "kind": "Rest"})

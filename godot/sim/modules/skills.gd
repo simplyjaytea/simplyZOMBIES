@@ -222,6 +222,43 @@ static func _buy(world: Variant, entity: int, node_id: String) -> bool:
 	return true
 
 
+# The one path into a web that does not pay, and it is spawn-only content: a raider archetype's
+# `skills` are the nodes a person arrives already owning -- docs/08's biography, written by the
+# author rather than walked -- so they are granted outright, no affordability check and no points
+# spent, and applied once. Nothing at play time reaches this; `_buy` stays the one place a node is
+# *bought*. Unknown ids are refused loudly rather than skipped in silence, because a misspelt node
+# is exactly the nested content error the shallow validator waves through. Returns the count
+# granted, so a caller (and the raider gate) can tell an authored list from an empty one.
+static func endow(world: Variant, entity: int, node_ids: Array) -> int:
+	var def: Dictionary = _web()
+	if def.is_empty():
+		return 0
+	var nodes_by_id: Dictionary = _nodes_by_id(def)
+	var web: Variant = world.components.get_component(entity, "skillWeb")
+	if not web is Dictionary:
+		return 0
+	var w: Dictionary = web as Dictionary
+	# A plain Array copy -- `nodes` came through JSON as one, and a packed array here would be
+	# appended to as a value and lost (CLAUDE.md's first trap).
+	var owned: Array = (w.get("nodes", []) as Array).duplicate()
+	var granted: int = 0
+	for nid_v in node_ids:
+		var nid: String = String(nid_v)
+		if not nodes_by_id.has(nid):
+			push_error("skills.endow: '%s' is not a node in the web" % nid)
+			continue
+		if owned.has(nid):
+			continue
+		owned.append(nid)
+		granted += 1
+	if granted == 0:
+		return 0
+	w["nodes"] = owned
+	world.components.set_component(entity, "skillWeb", w)
+	_apply_mods(world, entity, owned, nodes_by_id)
+	return granted
+
+
 # The one way into `_earn` from outside this file, and deliberately the only one: a book, read by
 # SimNeeds.read_book, pays into the same purse a kill and a finished job pay into, so points from
 # a page and points from an afternoon are indistinguishable once they land and `_autospend` gets
@@ -250,7 +287,18 @@ static func _earn(world: Variant, entity: int, region: String, amount: int) -> v
 	_autospend(world, entity)
 
 
+# Whose hand is on this web. A colonist's is their focus word (docs/30, "Who manages a survivor's
+# skill web": Focus is the whole surface, and anything but Manual means "you decide"). The body
+# you are playing is the one exception, and it is a predicate rather than a job row: the player
+# has no row, the work grid hides them by design, and at succession `world.player` moves onto a
+# body that keeps its own focus -- so "the player is Manual" is read off the two facts that
+# define the player (`world.player`, `controlled`) and not stored anywhere a handoff would have
+# to remember to write. The owner's 2026-09-14 decision (docs/30, "One web, and the captives"):
+# your own web is yours, nobody spends it for you, and the K screen's clicks buy, keystones
+# included.
 static func _focus_of(world: Variant, entity: int) -> String:
+	if entity == int(world.player) or world.components.has_component(entity, "controlled"):
+		return "Manual"
 	var jp: Variant = world.components.get_component(entity, "jobPriorities")
 	if jp is Dictionary:
 		return String((jp as Dictionary).get("focus", "Auto"))
