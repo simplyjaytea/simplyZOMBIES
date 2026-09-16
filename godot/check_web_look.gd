@@ -40,6 +40,10 @@ const WebLayout = preload("res://ui/web_layout.gd")
 
 const WEB_PATH: String = "res://content/colony/skill_web.json"
 const MAIN_GD: String = "res://presentation/main.gd"
+# K, and the Escape that peels the web before the bench, moved out of main.gd with the alpha
+# shell's input split (docs/30, "The alpha shell, 2026-09-16"). `_ensure_ui`, `_update_hud` and
+# `_set_web_open` stayed; only the `_input` needle below follows this constant.
+const INPUT_MAP_GD: String = "res://presentation/input_map.gd"
 const PANEL_GD: String = "res://ui/web_panel.gd"
 const LAYOUT_GD: String = "res://ui/web_layout.gd"
 const SKILLS_GD: String = "res://sim/modules/skills.gd"
@@ -671,12 +675,12 @@ func _wired_lane() -> bool:
 		push_error("WIRED: the needle scanner cannot say no")
 		return false
 	var ensure: String = _function_body(MAIN_GD, "_ensure_ui")
-	var input: String = _function_body(MAIN_GD, "_input")
+	var input: String = _function_body(INPUT_MAP_GD, "_input")
 	var hud: String = _function_body(MAIN_GD, "_update_hud")
 	var opener: String = _function_body(MAIN_GD, "_set_web_open")
-	for pair in [["_ensure_ui", ensure], ["_input", input], ["_update_hud", hud], ["_set_web_open", opener]]:
-		if String(pair[1]).is_empty():
-			push_error("WIRED: could not read %s out of %s" % [String(pair[0]), MAIN_GD])
+	for pair in [["_ensure_ui", ensure, MAIN_GD], ["_input", input, INPUT_MAP_GD], ["_update_hud", hud, MAIN_GD], ["_set_web_open", opener, MAIN_GD]]:
+		if String((pair as Array)[1]).is_empty():
+			push_error("WIRED: could not read %s out of %s" % [String((pair as Array)[0]), String((pair as Array)[2])])
 			return false
 	var m: String = _missing_needle(ensure, ["res://ui/web_panel.gd", "_web_panel"])
 	if not m.is_empty():

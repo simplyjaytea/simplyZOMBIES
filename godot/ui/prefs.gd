@@ -13,6 +13,10 @@ const PATH: String = "user://ui_prefs.json"
 
 const DEFAULTS: Dictionary = {
 	"inventory_opacity": 0.95,
+	# Has the player put the key list away for good? False on a fresh machine, so a first run
+	# opens on the legend; set by the three explicit dismissals (F1 off, Escape, Enter) and by
+	# nothing else. `main.gd`'s `_ensure_ui` is the one reader.
+	"legend_dismissed": false,
 }
 
 static var _cache: Dictionary = {}
@@ -49,3 +53,16 @@ static func set_opacity(key: String, value: float) -> void:
 	_cache[key] = clampf(value, 0.15, 1.0)
 	_save()
 
+
+# The boolean half. A pref file written by an older build has no row for a flag added since, so
+# the default answers rather than `false` answering for everything -- the same fallback the
+# opacity getter uses, and the reason DEFAULTS carries the flag at all.
+static func flag(key: String) -> bool:
+	_ensure()
+	return bool(_cache.get(key, DEFAULTS.get(key, false)))
+
+
+static func set_flag(key: String, value: bool) -> void:
+	_ensure()
+	_cache[key] = value
+	_save()

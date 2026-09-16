@@ -176,7 +176,7 @@ func _dead_socket_main_gd_wires_the_helpers() -> bool:
 		push_error("could not read _snap_camera out of %s" % MAIN_GD)
 		return false
 	if not snap_fn.contains("CameraUtil.snap("):
-		push_error("_snap_camera does not call CameraUtil.snap: boot/load/F2 would recentre through the smoothed follow instead of jumping")
+		push_error("_snap_camera does not call CameraUtil.snap: boot and load would recentre through the smoothed follow instead of jumping")
 		return false
 
 	var shake_fn: String = _function_body(MAIN_GD, "_camera_shake_from_events")
