@@ -14,9 +14,9 @@ container running** lives in `AGENTS.md`.
 
 ---
 
-## State, as of 2026-09-14 (one web for everybody)
+## State, as of 2026-09-16 (the population arc, all thirteen slices)
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **70 gates**
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **77 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
 drifting, so count it there rather than trusting this line) and exits 0, `npm test` is **45 files /
 594 tests** passing, and `godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check`
@@ -31,6 +31,39 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 [docs/23's flag record](docs/23-roadmap.md#where-milestone-2-stands), which now ends with the flip.
 
 ## What landed recently
+
+**2026-09-15/16 — procedural people, raiders and zombies: an arc of thirteen slices, all
+landed.** The owner lifted the 2026-09-01 pause on new NPCs and roster growth (docs/30, "The pause
+lifted") and answered the three structural questions the plan turned on: a raider carries a
+`raider.person` record and **never** `identity`; dormant zombies are a generation-time manifest,
+not a lazy spawn; zombies first, then raiders, then people. Thirteen named pieces landed slice by
+slice, each with its own gate built beside it — the chain went **70 → 77 links** and gained
+`godot:m2:people`, `:dormant`, `:variance`, `:armored`, `:strangers`, `:allegiance` and
+`:settlers`. What the district boots is not what it was: zombies now sleep inside buildings and
+wake on noise or contact, every dead body differs by tint, size and a chance of being born a
+crawler, five kinds ship where three did, a raider is an individual with a name and a role, a
+stranger can be hiding in a house, and a non-hostile settler camp stands somewhere off the colony
+ledger. `survivors_end >= 1` held on every seed of every run and was never touched; the slices
+that add bodies re-baselined and said so in their records.
+
+**The one finding to carry forward is on the owner's list below, item 5.** Three slices hit the
+same gap independently: *nothing places past `LIVE_CAP`* — bodies **turn** past it, because the
+two paths that make a shambler out of an infected death carry no cap check. That is very likely
+the blocker the `GRACE_NIGHTS` item has been describing as "something places past the clamp".
+
+**Two claims were tested rather than asserted.** docs/14's "one JSON entry, zero code" for a new
+zombie kind **held** — the stalker-and-runner slice's diff over `godot/sim/` is empty — except for
+the runner's *sustained* pursuit, which is a shared module constant with no content key, named
+rather than faked. And the heavy's `breach` factor had nowhere to read it because board damage is
+not per-attacker, so that slice shipped the body and said which half.
+
+**What did not ship is recorded, not implied:** a sleeper wakes on noise or contact and not on
+scent (its own residue is 180× the threshold, and the `heard`/`smelled` asymmetry is older than
+this arc and yours); a raider look carries no tint, measured; all four new kinds reuse the
+shambler sprite, so **"A silhouette per kind"** is the one piece still open in that group and it
+needs Pillow, which this container does not have; and a melee raider band cannot reach a
+stationary body — the halt is 2.6 m against a machete's 1.55 m reach, found by a gate going red
+against correct code and now in docs/23's defect list.
 
 **2026-09-14 — one web for everybody: raiders carry it, and yours is yours.** The owner asked for
 NPC and raider skills and a captive path; the survey found colonists already carry the player's
@@ -1005,7 +1038,15 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    band green — so sight ships on (decision 3 executed under the standing assertion, the
    commit after the torso slice's) and this item is now the table alone: flip `GRACE_NIGHTS`
    to 2 once the over-cap placement is found and seed 20260805 is re-read with sight already
-   on.
+   on. **The population arc found what it is, 2026-09-15, and did not act on it**, because the
+   flip is yours: *nothing places past the clamp*. `SimDirector` refuses a spawn past
+   `live_cap_for(world)` with reason `cap` and always has — but `infection.gd` and
+   `SimRecruits._turn_with_kit` create a shambler from a body that dies infected with **no cap
+   check at all**, so a colony that loses people to bites grows the horde past a budget the
+   director is still honouring. Three separate slices hit it independently (the dormant, the
+   camp and the settlers' day, each diagnosing it from the same signature: no identity, no
+   allegiance, no corpse). It is in docs/23's defect list. Whether the turn should be clamped,
+   or the cap should exclude turned bodies, is a balance call and therefore this item's.
 6. **The playable-state slices' first-cut calls**, 2026-09-07, each inside one of the owner's
    twelve decisions, each recorded in docs/30's entry for its slice, and each a one-constant
    change if re-decided. The eyes: a zombie's sight reach is `range × sqrt(lightSense)` scaled

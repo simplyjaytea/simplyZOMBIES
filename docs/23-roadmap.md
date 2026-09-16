@@ -960,6 +960,27 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   behaviour rather than something a played district shows. Fixing it is a halt that knows the
   attacker's reach, which moves every raid's contact and therefore wants its own before-and-after.
 
+- **A body that turns walks past the horde budget nothing else may cross.** `SimDirector` refuses
+  a spawn once `live` reaches `live_cap_for(world)` and publishes the refusal with reason `cap` —
+  but `infection.gd`'s turning and `SimRecruits._turn_with_kit` both create a shambler with **no
+  cap check at all**, so every colonist, settler or stranger who dies infected adds a body the
+  director is still budgeting against and cannot refuse. Found independently by three slices of
+  the population arc (2026-09-15: the dormant sleeper, the settlers' camp and the settlers' day),
+  each diagnosing the same signature on an over-cap seed — a zombie with no identity, no
+  allegiance and no corpse, which is `_turn_with_kit`'s fingerprint. It bears directly on
+  `HANDOFF.md`'s open owner item 5, whose blocker is described as "something places past the
+  clamp once the table opens on night 3": nothing *places* past it. Not fixed here on purpose —
+  clamping the turn and excluding turned bodies from the cap are different games, and the choice
+  belongs with the `GRACE_NIGHTS` flip it blocks.
+
+- **`stranger.approaching` is published and read by nothing.** `strangers.gd:290` publishes it on
+  the transition out of hiding, and no handler, gate lane or screen subscribes — the eleventh-plus
+  instance of the pattern CLAUDE.md names, found by the settlers slice running the dead-socket rule
+  over its own diff (that pass removed three fields before committing; this one is in the slice
+  before it and was left rather than silently deleted). Either the chronicle says a stranger has
+  stepped out — which is information the player arguably should not have for free, so it is a
+  design call and not a cleanup — or the publish goes.
+
 - **Every survivor shoots as though one arm were ruined.** `ranged.gd`'s `_refresh_cone` widens
   the aim cone by 0.15 when the worse arm is under 25, and `SimCombat.SURVIVOR_BODY` gives a
   *healthy* arm 20 — so the penalty is on for everybody, permanently, and a genuinely ruined arm
