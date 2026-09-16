@@ -46,6 +46,18 @@ extends RefCounted
 # have neither), the stockpile never counts them, `recruits.gd` never converts them, and -- the
 # one that would have been silent and wrong -- `check_m2_balance.gd`'s `_survivors_alive` counts
 # `needs` + `body`, so a raid could otherwise have *raised* the colony's survivor count.
+#
+# The one colonist component a raider *does* carry, since the owner's 2026-09-14 decision that
+# there is one skill web for everybody (docs/30, "One web, and the captives"): `skillWeb`. The
+# archetype's `skills` are granted at spawn by `SimSkills.endow`, so a gunhand's steadier breath
+# reads through the same `ranged_accuracy` resolve a colonist's does and the band is harder in the
+# way the content says -- and when one is captured, the web they arrived with is the web they
+# keep. It is safe on the ledger above because nothing that counts, feeds, employs or promotes
+# reads `skillWeb` alone: `_drift_all` queries it *with* `jobPriorities`, the web gate's FOCUS
+# lane queries it with `identity`, and the harness counts `needs` + `body`. Raiders earn like
+# anybody else (a shambler put down pays Melee or Ranged), and with no focus row they spend
+# along the Auto path; the alternative was a `raider` read inside skills.gd, which is the special
+# case the decision exists to remove.
 
 const SimAllegianceRes = preload("res://sim/modules/allegiance.gd")
 const SimAptitudesRes = preload("res://sim/modules/aptitudes.gd")
@@ -57,6 +69,7 @@ const SimItemsRes = preload("res://sim/modules/items.gd")
 const SimNeedsRes = preload("res://sim/modules/needs.gd")
 const SimPeopleRes = preload("res://sim/modules/people.gd")
 const SimSightingsRes = preload("res://sim/modules/sightings.gd")
+const SimSkillsRes = preload("res://sim/modules/skills.gd")
 const SimStancesRes = preload("res://sim/stances.gd")
 const SimVisibilityRes = preload("res://sim/vision/visibility.gd")
 const SimWalkRes = preload("res://sim/walk.gd")
@@ -321,6 +334,13 @@ static func spawn(world: Variant, x: float, y: float, type_id: String) -> int:
 	# read by the shambler gradient with nothing about raiders in it.
 	SimAttentionRes.make_emitter(world, ent)
 	SimAptitudesRes.apply(world, ent, roll_aptitudes(e.get("aptitudes", {}), roll_rng))
+	# The web, and what this archetype arrives already knowing on it. `attach` first (an empty
+	# web, every region at zero), then the authored nodes granted outright -- see the header on
+	# why a raider carries this one colonist component and why it is nodes rather than points.
+	SimSkillsRes.attach(world, ent)
+	var authored: Variant = e.get("skills", [])
+	if authored is Array:
+		SimSkillsRes.endow(world, ent, authored as Array)
 	# Eyes, so `SimRanged.can_target` refuses a raider a shot through a wall the same way it
 	# refuses a colonist one -- without an observer that check returns true and a raider would
 	# be the one body in the district that could shoot through masonry.

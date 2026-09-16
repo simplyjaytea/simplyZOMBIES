@@ -14,7 +14,7 @@ container running** lives in `AGENTS.md`.
 
 ---
 
-## State, as of 2026-09-13 (the skill web screen)
+## State, as of 2026-09-14 (one web for everybody)
 
 Green, and verified this session rather than quoted: `npm run godot:m2` chains **70 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
@@ -31,6 +31,18 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 [docs/23's flag record](docs/23-roadmap.md#where-milestone-2-stands), which now ends with the flip.
 
 ## What landed recently
+
+**2026-09-14 — one web for everybody: raiders carry it, and yours is yours.** The owner asked for
+NPC and raider skills and a captive path; the survey found colonists already carry the player's
+web, raiders carry nothing, and the player's own web was auto-spent with no way to choose. Two
+slices landed on the four decisions in docs/30's "One web, and the captives": a raider archetype's
+`skills` are node ids granted at spawn (a gunhand's steadier breath reads on its shots; raiders
+earn kills and spend along Auto; `godot:m2:raiders` SKILLED), and the player reads Manual by
+predicate — an earn banks, the K screen's click buys, keystones included, and the body you take
+over at succession is yours the same way (`godot:m2:autonomy` YOURS). A **captives arc** is open in
+docs/23's what's-left with six named slices (the yield, the binding, the holding room, the offer,
+put to work, the re-baseline) and its tone stance recorded; it is the owner's exception to the
+pause on adjacent scope. Nothing on the campaign path moved: the FAST rows are byte-identical.
 
 **2026-09-13 — treatment speed is read, and the web has its first keystone.** The third piece of
 the wider web and its first new stat: `treatment_speed` divides the bandage, clean and close spans

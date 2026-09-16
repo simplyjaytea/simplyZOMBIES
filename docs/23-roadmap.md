@@ -533,6 +533,12 @@ before it.
   REPAIR-COST).
 - ~~**Treatment speed is read, and the first keystone**~~ — **landed** 2026-09-13, see the
   record (`godot:m2:treatment` SPEED, `godot:m2:web` KEYSTONE).
+- ~~**Raiders carry a web**~~ — **landed** 2026-09-14, see the record (`godot:m2:raiders`
+  SKILLED, ARCHETYPES and LEDGER widened). One web for everybody, by the owner's decision of that
+  day.
+- ~~**The player's own web is theirs**~~ — **landed** 2026-09-14, see the record
+  (`godot:m2:autonomy` YOURS; `godot:m2:web` MOD re-fixtured; `godot:check:web_look` SCREEN
+  widened).
 - **Build speed is read.** A new `build_speed` on the Construct and Repair spans and the player's
   fortify channel, through one helper both call; two Craft minors and **the fixer** keystone
   (faster building and cheaper repairs, slower on foot for the toolbag).
@@ -560,6 +566,44 @@ Named and dropped rather than smuggled: scavenge yield (the loot stream is pinne
 a yield stat is a rebalance of it), the stamina pool (`stamina.max` is an integer written once at
 spawn and wants a re-derive hook of its own), and modification outcomes (they read Craft directly
 and stay as they are).
+
+**Captives, opened by the owner (2026-09-14).** The direction is *"raiders should have skills too,
+for when the player or the colony captures them to recruit or enslave"*. The survey found that
+[docs/18](18-factions.md) already designs the capture (a prisoner eats, needs the quarantine room,
+can be recruited "arriving with real skills") and files it post-slice; that no line of code models a
+non-lethal defeat (`npc_combat.gd` says break-off is not surrender and a gate holds it); and that
+the only restraint primitive in the sim is the shambler's grab. The owner's calls are in docs/30's
+"One web, and the captives": one skill web for everybody, so a captive keeps the web they arrived
+on; raider skills live during the raid (landed above); and a held captive **can be recruited or put
+to work** — recruitment the honest path, forced labour a price on the captive and on the colonists
+who object, an unguarded captive a body that can leave — which is the first mechanic here to need
+a tone stance, and the entry records it. Its entry was written as an exception to the standing
+pause on adjacent feature scope; the same day's "The pause lifted" removes the pause it was an
+exception to, so this is simply named work now. The boot colony stays three either way, and a
+recruited captive is mid-game growth. The slices, ordered so stopping after any one leaves the tree
+honest; each is a session with its own lane, and a `godot:m2:captives` gate arrives with the
+second:
+
+- **The yield.** A raider that is critically injured, alone (its band below half), with an armed
+  enemy in reach, stops fighting: a `yielded` state, `raider.yielded`, colony NPCs stop swinging at
+  it and `raiders._approach` stills it. The same body with its band intact keeps fighting, and a
+  colonist never yields — `check_m2_npc_combat`'s no-surrender lane stays.
+- **The binding and the walk.** `captive.bind` on a yielded body in reach: `raider` becomes
+  `captive` (so the raid cap frees, which is why a dead raider despawns today), allegiance a new
+  `CAPTIVE` hostile to nobody, kit dropped at the binder's feet, an escort to the holding tile.
+  Refused on a fighting raider. `pick.gd` and the LEDGER lane learn the component.
+- **The holding room.** The quarantine room gets its reader at last; the captive gets `needs`, fed
+  by a Tend job; an unguarded night rolls escape on a new `captive` RNG stream. Fed lives, unfed
+  starves, guarded never escapes, unguarded does. `check_m2_balance._survivors_alive` excludes
+  `captive` — the one that would be silent and wrong.
+- **The offer.** `captive.recruit` after held days: an identity from the generator's backstory, an
+  Auto job row, allegiance COLONY, the web as it arrived plus what was earned. Refused early; the
+  survivor count rises only now. The relationship penalty waits on relationships.
+- **Put to work.** A captive on the work grid with a narrow column set, routed only while guarded;
+  a `mood add` on the captive and on colonists whose trait objects; unguarded work rolls escape.
+  Guarded work completes and earns; the objector's mood moves; unguarded routes nothing.
+- **The re-baseline the arc reserves.** `godot:m2:balance`'s fast tier, once, at the close, with
+  `held` beside `in/down/left`.
 
 **Art & renderer — commissioned sprites, opened by the owner (2026-09-09).** The tier and its
 gate landed the same day (the record's "art we did not generate"). The piece that group named
@@ -4647,6 +4691,64 @@ not a to-do list:
   `.hermes/plans/2026-09-13_web-screen/web-keystone.png`. And a structural slip in this record
   file, found while writing this entry: the three entries before it had been inserted inside the
   Focus-and-Manual entry, ahead of its closing paragraph; that paragraph is back where it belongs.
+- **Survivors** — ~~raiders carry a web~~ **landed** 2026-09-14 (`godot:m2:raiders`, new lane
+  SKILLED; ARCHETYPES and LEDGER widened), the first of two pieces the owner's "one web for
+  everybody" decision asked for (docs/30, "One web, and the captives"). `SimRaiders.spawn` attaches
+  a `skillWeb` and `SimSkills.endow` grants the archetype's `skills` — **node ids, zero banked
+  points**: a raider has no focus row, so points would have been spent by the Auto path and the
+  surplus pass and never by the author, and a biography is nodes. `endow` is the one path into a
+  web that does not pay, spawn-only, and it refuses an unknown id out loud. The gunhand arrives
+  with *a steadier breath*, the scav with *a surer grip*, and both read with no new plumbing: the
+  cone refresh resolves `ranged_accuracy` on the shooter and the swing resolves `melee_damage` on
+  the attacker, so the band is harder in exactly the way the content says. Raiders earn like
+  anybody — a shambler put down pays Melee or Ranged, spent along the Auto path — and never for a
+  person, since the kill handler wants a `zombieType` on the victim; drift never sees them (it
+  queries `skillWeb` *with* `jobPriorities`); `world.despawn`'s `remove_scope` takes the modifiers
+  with the body. The frozen oracle never reads `content/raiders/`, so the schema key is Godot-only.
+  **The lanes.** SKILLED: a gunhand resolves `ranged_accuracy` above one with source
+  `web.ranged.breath`; the same archetype with `skills` erased (a copy of the *raider* content,
+  never of the static web cache) resolves exactly one from nothing; the reader is followed into
+  `_refresh_cone`, `_fire_shot` and `_engage` with the scanners proved first; a colonist killed
+  pays nothing and a shambler pays one point spent at once; `_drift_all` leaves `driftDay` at
+  zero; dead, exactly one from nothing. ARCHETYPES recurses into `skills`: every id a node, none
+  twice, at most one keystone, and the spawned body owns exactly the authored list with every
+  region at zero and `earned` reading the node's cost — with a vacuity guard, since every
+  archetype's list absent would have judged nothing. LEDGER asserts `skillWeb` *positively* beside
+  its four exclusions, so the list cannot quietly widen to it. Six sabotages went red: the attach
+  dropped, the endow dropped, a misspelt id, a node named twice, the schema key deleted
+  (`godot:validate`), and `world.despawn` reverted to the `removeScope` spelling CLAUDE.md
+  records. **Measured**: BLOOD asserts a connect either way and a four-percent edge cannot fail it;
+  `attach` and `endow` spend no RNG stream, so the FAST rows can move only on the two raiding seeds
+  and only by a hit roll flipping — and did not: all four rows byte-identical to the previous run.
+  **Honest half.** The second-keystone refusal cannot be shown red on shipped content, which has
+  one keystone; the duplicate check caught the sabotage that tried.
+- **Survivors** — ~~the player's own web is theirs~~ **landed** 2026-09-14 (`godot:m2:autonomy`,
+  new lane YOURS; `godot:m2:web` MOD re-fixtured to buy by command; `godot:check:web_look` SCREEN
+  reads your own footer), the second piece of the decision and a defect the survey found: the
+  player has no job row, so `_focus_of` read Auto, every click on your own nodes was refused
+  `"auto"`, and the footer sent you to a work grid that hides you by design — nobody could choose
+  their own keystone. `SimSkills._focus_of` now reads **Manual for `world.player` and for any
+  `controlled` body**, a predicate rather than a row: at succession `world.player` moves onto a body
+  that keeps its own focus word, so a row would need a second writer at the handoff, while the
+  predicate reads the two facts that define the player. An earn banks, the K screen's click buys,
+  keystones included; the successor's web is yours while you hold it and theirs again when you
+  leave; docs/30's "one field cannot disagree with itself" holds because the player has none. The
+  footer says so in your own case. **The lane.** YOURS, on a fresh boot: a buy with nothing banked
+  is refused `"points"` and not `"auto"`; a Haul point banks and buys nothing; the click buys it;
+  three Medicine by hand buy the surgeon and read 1.35 and −6 on one scope; the Auto colonist
+  beside you spends the same point the moment it lands, is refused `"auto"`, and never owns the
+  keystone; a handoff makes their web read manual and a handback unmakes it; through JSON and back
+  the click still buys. Three sabotages went red: the predicate dropped (`"auto"`), Manual allowed
+  to auto-spend (the point spent for you), and your footer without its amber. **Lanes that moved**,
+  because they had granted the player points and expected the sim to spend them: `godot:m2:web`'s
+  MOD buys `melee.grip` by command now and its MANUAL half no longer hands the player a job row;
+  `godot:m2:recovery`'s RATE content half learns on a colonist. EARN passes unchanged — it always
+  accepted banked points — and every other gate that attaches the player's web (teach, treatment,
+  upkeep, needs, splint, materials, jobs, bench, mods) was run and holds. **Measured**: the player's
+  first kill no longer buys *a surer grip* by itself; the FAST rows are byte-identical to the
+  previous run. **Honest half.** The `controlled` half of the predicate cannot be sabotaged red
+  today: `_handoff` writes `world.player` and `controlled` together, and a restore rebinds one from
+  the other, so the two never disagree; it is there for the day something does.
 - **UI & Death** — ~~the screen speaks of the colony~~ **landed** (`godot:check:hud`
   CHRONICLE, SELECTED, PICK), 2026-09-07, the thirteenth and last piece of the playable-state
   group and the owner's decision 12. What was wrong: `entity.killed`, `player.succeeded`,
