@@ -5191,3 +5191,18 @@ capture measures loudness and pushes a command, the way a shout is a command, so
 replayable and saved like every input and the parity and two-world gates are untouched.
 Calibration is content; it ships off by default. docs/23's Milestone 3A and 3C carry the two
 entries.
+
+## The release package, 2026-09-17
+
+The owner asked, with the alpha bar proved end to end, for a release on GitHub that can be
+downloaded and launched like an executable. Decided: **a `Release` workflow run by hand with a
+version**, never on push — a release is a deliberate act and CI already publishes the web build
+on every green commit. **Windows first**, because that is what was asked for and what CI's
+`godot-exports` job already boots on a real Windows runner; the web build rides in the same
+release as a zip for anyone self-hosting. **Pre-release by default and `v0.x` versions** until
+the ten-day playtest says otherwise — an early alpha should not look like a 1.0 on the releases
+page. **No code signing**: the notes say SmartScreen will warn once; buying a certificate is the
+owner's call, not a workflow's. **Nothing new is judged**: the workflow reuses the export smoke
+the CI job runs, and a release is only ever cut from a ref CI already passed. A Linux build and a
+macOS build are named in docs/23's what's-left rather than folded in — Linux is cheap and can
+follow; macOS is blocked on a signing identity, which is a decision and a purchase.

@@ -494,6 +494,11 @@ the order they land:
   pause menu, the title on a fresh boot, and Ctrl+S on the published web build), and re-ran the
   first pass's ten against this head. All fifteen of the owner's bar items are proved; the
   record's closing table names the lane or screenshot for each.
+- ~~**The release package**~~ — **landed** 2026-09-17, see the record (asked for by the owner
+  once the walkthrough closed: a downloadable Windows build). *Still named:* **a Linux and a
+  macOS build** — a Linux preset is one template and one runner mode away and rides the same
+  workflow; macOS needs the owner's signing identity before Gatekeeper will open it, so it is not
+  a packaging change alone.
 - *Named, not in the arc:* **a seed you can type** (the web build has no command line, so the
   fixed town is the only town it can boot).
 
@@ -7851,6 +7856,23 @@ not a to-do list:
   | 13 | the pause menu | second pass, `13_pause_menu.png` (all five rows walked; title offers "continue" after quit-to-title) |
   | 14 | the title | second pass, `14_title.png` (fresh boot, state `TITLE`, no `continue` offered) |
   | 15 | Ctrl+S on the published web build | second pass, `15_ctrl_s_web_before.png` / `15_ctrl_s_web_after.png` (headless Playwright proxy: no download/dialog/navigation, stance word "crouching" -> "walking"; a hand check on a real desktop browser is the one thing this does not stand in for) |
+- **The alpha shell** — ~~the release package~~ **landed** 2026-09-17 (`.github/workflows/release.yml`,
+  run by hand with a version; judged by the same boot smoke CI's `godot-exports` job runs, and by
+  the release it publishes existing). The owner asked, once all fifteen bar items were proved, for
+  a build a stranger can download and launch like an executable. The workflow is CI's
+  `godot-exports` job with a tail: the same pinned engine and templates (the SHA-512s are the ones
+  in `ci.yml`, `pages.yml` and `scripts/setup-web-session.sh`), `npm run godot:export` for the
+  Windows executable (the preset embeds the pack, so it is one file) and the web build,
+  `npm run godot:smoke:exports` so nothing unbooted is published, then two zips, a
+  `SHA256SUMS.txt`, notes that say where the save lives and that SmartScreen will warn once
+  because nothing is code-signed, and `gh release create v<version>` on the commit it ran on, a
+  pre-release by default. It refuses a version whose tag already exists. **What it does not do:**
+  no Linux or macOS build (named above), no code signing, no installer, no auto-update, and it
+  never decides what to ship — CI's gates said the ref was green, this only packages it. The
+  Windows export was also run here on Linux against the same preset (a 112 MB single-file
+  executable, cross-exported headless) to prove the preset exports without a Windows machine; the
+  boot smoke of that file needs Windows, which is why the workflow runs on `windows-latest` as the
+  CI job does.
 - **Death & succession** — ~~the colony morale hit on a death~~ **landed** (`godot:m2:needs`,
   GRIEF and ONCE), leaving the balance-grid proof that "the run ends only when the last survivor
   dies". docs/04 lists **grief** and **witnessing a death** as two separate negative mood sources

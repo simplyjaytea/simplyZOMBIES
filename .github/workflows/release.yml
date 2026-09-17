@@ -1,0 +1,187 @@
+# Release: the downloadable build. Run by hand from the Actions tab (or the API) with a version;
+# it exports the Windows executable and the web build with the same engine, the same templates
+# and the same boot smoke CI's godot-exports job uses, zips them, and publishes a GitHub release
+# tagged v<version> on the commit it ran on. Nothing here decides balance or content: it is the
+# packaging of whatever the ref already is, and CI's own gates are what said the ref was green.
+#
+# The engine pin and the template pin are the same version and SHA-512 as ci.yml, pages.yml and
+# scripts/setup-web-session.sh -- change one, change all of them (CLAUDE.md, the engine pin).
+
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version without the leading v, e.g. 0.1.0-alpha.1"
+        required: true
+        type: string
+      prerelease:
+        description: "Mark the release as a pre-release"
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Refuse a version that already has a tag
+        shell: pwsh
+        run: |
+          $tag = "v${{ inputs.version }}"
+          git fetch --tags --quiet
+          if (git tag --list $tag) { throw "Tag $tag already exists; pick a new version" }
+
+      - name: Cache Godot
+        id: godot-windows-cache
+        uses: actions/cache@v4
+        with:
+          path: .ci-tools/godot
+          key: godot-4.7.1-${{ runner.os }}-standard
+
+      - name: Install Godot 4.7.1
+        if: steps.godot-windows-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path .ci-tools/godot -Force | Out-Null
+          $archive = Resolve-Path .ci-tools/godot | Join-Path -ChildPath godot.zip
+          Invoke-WebRequest -UseBasicParsing -Uri https://github.com/godotengine/godot/releases/download/4.7.1-stable/Godot_v4.7.1-stable_win64.exe.zip -OutFile $archive
+          $expected = "a6b02c527c18ba9936e63562032701432b2dc57d98d6483ceaccb00fe14af16af5773ae8a55e7b4d614edf121c4d9e420d870f804edb1dac16362298a01ce6c4"
+          if ((Get-FileHash -Algorithm SHA512 $archive).Hash.ToLowerInvariant() -ne $expected) { throw "Godot checksum mismatch" }
+          Expand-Archive -LiteralPath $archive -DestinationPath .ci-tools/godot
+          Remove-Item -LiteralPath $archive
+
+      - name: Configure Godot
+        shell: pwsh
+        run: |
+          $godot = Resolve-Path .ci-tools/godot/Godot_v4.7.1-stable_win64.exe
+          "GODOT_BIN=$godot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Cache Godot export templates
+        id: template-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/AppData/Roaming/Godot/export_templates/4.7.1.stable
+          key: godot-4.7.1-${{ runner.os }}-web-windows-release-templates
+
+      - name: Install release export templates
+        if: steps.template-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP export-templates.tpz
+          Invoke-WebRequest -UseBasicParsing -Uri https://github.com/godotengine/godot/releases/download/4.7.1-stable/Godot_v4.7.1-stable_export_templates.tpz -OutFile $archive
+          $expected = "afcc83d8d3d298038f19c58744a0d660fa75dd4baa33cb55d1011bb2565a2a8c2381728924564cb909e37c205a23f21b521b23bd057993afd43ae4da0b2f9d47"
+          if ((Get-FileHash -Algorithm SHA512 $archive).Hash.ToLowerInvariant() -ne $expected) { throw "Template checksum mismatch" }
+          $destination = Join-Path $env:APPDATA Godot/export_templates/4.7.1.stable
+          New-Item -ItemType Directory -Path $destination -Force | Out-Null
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $wanted = @(
+            "templates/version.txt",
+            "templates/web_nothreads_release.zip",
+            "templates/web_release.zip",
+            "templates/windows_release_x86_64.exe",
+            "templates/windows_release_x86_64_console.exe"
+          )
+          $zip = [System.IO.Compression.ZipFile]::OpenRead($archive)
+          try {
+            foreach ($name in $wanted) {
+              $entry = $zip.GetEntry($name)
+              if ($null -eq $entry) { throw "Missing template entry: $name" }
+              $target = Join-Path $destination ([System.IO.Path]::GetFileName($entry.FullName))
+              [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $target, $false)
+            }
+          } finally {
+            $zip.Dispose()
+          }
+
+      - name: Cache Playwright Chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/AppData/Local/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - run: npx playwright install chromium
+
+      - name: Export the Windows executable and the web build
+        run: npm run godot:export
+
+      - name: Boot both exports before publishing them
+        run: npm run godot:smoke:exports
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $version = "${{ inputs.version }}"
+          New-Item -ItemType Directory -Path release -Force | Out-Null
+          $launch = @(
+            "simplyZOMBIES v$version",
+            "",
+            "Unzip anywhere and run simplyZOMBIES.exe. There is no installer and nothing is",
+            "written outside your user folder: the save lives in %APPDATA%\Godot\app_userdata\simplyZOMBIES.",
+            "",
+            "Windows SmartScreen may warn on first launch because the executable is not code-signed.",
+            "F1 in game shows the keys. This is an early alpha: saves may not survive the next version."
+          ) -join "`r`n"
+          Set-Content -Path dist-godot/windows/README.txt -Value $launch -Encoding utf8
+          Compress-Archive -Path dist-godot/windows/* -DestinationPath "release/simplyZOMBIES-v$version-windows-x86_64.zip"
+          Compress-Archive -Path dist-godot/web/* -DestinationPath "release/simplyZOMBIES-v$version-web.zip"
+          Get-ChildItem release | ForEach-Object {
+            "$((Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLowerInvariant())  $($_.Name)"
+          } | Set-Content -Path release/SHA256SUMS.txt -Encoding ascii
+          Get-Content release/SHA256SUMS.txt
+
+      - name: Write the release notes
+        shell: pwsh
+        run: |
+          $version = "${{ inputs.version }}"
+          $sha = "${{ github.sha }}"
+          $notes = @(
+            "## simplyZOMBIES v$version",
+            "",
+            "Built from ``$sha`` on ``${{ github.ref_name }}`` with Godot 4.7.1, by the Release workflow.",
+            "",
+            "**Windows:** download ``simplyZOMBIES-v$version-windows-x86_64.zip``, unzip it anywhere, run ``simplyZOMBIES.exe``.",
+            "No installer. Saves live under ``%APPDATA%\Godot\app_userdata\simplyZOMBIES``. SmartScreen may warn once: the build is not code-signed.",
+            "",
+            "**Browser:** the same build is playable at the project's Pages site; ``simplyZOMBIES-v$version-web.zip`` is that build for self-hosting (serve it over HTTP, it will not run from ``file://``).",
+            "",
+            "Press ``F1`` in game for the keys. Early alpha: a later version may not read this one's saves.",
+            "",
+            "``SHA256SUMS.txt`` lists the checksums of both archives."
+          ) -join "`n"
+          Set-Content -Path release/NOTES.md -Value $notes -Encoding utf8
+
+      - name: Publish the release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = "${{ inputs.version }}"
+          $flags = @()
+          if ("${{ inputs.prerelease }}" -eq "true") { $flags += "--prerelease" }
+          gh release create "v$version" `
+            "release/simplyZOMBIES-v$version-windows-x86_64.zip" `
+            "release/simplyZOMBIES-v$version-web.zip" `
+            "release/SHA256SUMS.txt" `
+            --target "${{ github.sha }}" `
+            --title "simplyZOMBIES v$version" `
+            --notes-file release/NOTES.md `
+            @flags
