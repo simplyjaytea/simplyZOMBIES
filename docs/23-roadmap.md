@@ -512,9 +512,8 @@ bubbles — authored lines for the player and the colonists, sound-words for the
 colonists muttering their needs — over focal bodies only and never a name. Serial on `main.gd`,
 in this order; each lands with its own gate:
 
-- **Bare hands.** `SimCombat.BARE_HANDS` on every survivor whose hands are empty, flagged
-  `unarmed` so `SimMelee.is_unarmed` is the one predicate the re-arm job and the balance gate's
-  ARMED assertion read. `npm run godot:m2:hands` → `M2_HANDS_OK`.
+- ~~**Bare hands**~~ — **landed** 2026-09-17, see the record (`npm run godot:m2:hands` →
+  `M2_HANDS_OK`).
 - **The afterimage and the remembered map.** `SimSightings` remembers every body with a kind
   (the HUD's clause and the NPC's recall keep asking for hostiles only) and keeps a per-observer
   `explored` bitset; the renderer draws the last-seen picture fading over the fresh band, the
@@ -10162,6 +10161,58 @@ not a to-do list:
   whatever the first lands on, so a turn costs the stream the same whatever the district is built
   like; `ALARM_METRES` 8, distance only and no sightline, because what it gates is standing still
   rather than shooting; and the willing one recruiting for free, which is the plan's first cut.
+
+- **After the shell** — ~~bare hands~~ **landed** 2026-09-17 (`npm run godot:m2:hands` →
+  **`M2_HANDS_OK`**, six lanes). With nothing equipped, `F` and the click did nothing:
+  `melee.intake` queries `["swing", "meleeWeapon", "controlled"]` and an empty hand had no
+  `meleeWeapon` at all, so the command fell through, and an NPC's only answer to standing unarmed
+  was a Rearm walk that could find nothing. Now `SimCombat.BARE_HANDS` — reach 1.0 m, weight
+  0.6, damage 4, stagger 6, speed 1.3, recovery 0.8, stamina 0.7, the ordinary connect noise,
+  `source` −1 (the value a bite already sends, so the wear handler needs no new case), `blocked`
+  "", and `unarmed: true` — is set by `SimMelee.ensure_hands` after the kit equips in
+  `spawn_unique`, `spawn_generated`, `spawn_settler` and `boot_playable`, and comes back the
+  instant a weapon leaves the primary slot (the unequip handler used to remove `meleeWeapon` and
+  `swing`; it removes the profile and calls `ensure_hands`). **`SimMelee.is_unarmed` is the one
+  predicate** — no `rangedWeapon`, and no `meleeWeapon` or one flagged `unarmed` — and the two
+  readers that used to ask "is there a `meleeWeapon`" ask it instead: `SimJobs._unarmed` (the
+  Rearm trigger) and `check_m2_balance.gd`'s `_unarmed_colonists` (the ARMED assertion, which
+  would otherwise have read every boot as fully armed forever and never gone red again).
+  `SimAttachments.refusal_clause` skips a `source` −1 profile before it can look item −1 up.
+  Raiders deliberately do not get hands this slice (their re-arm reasoning at `raiders.gd`'s kit
+  comment is its own record). The lanes: **HANDS** (a booted survivor with nothing equipped
+  carries `unarmed: true`, a `swing` winds up and `attack.connected` lands on a shambler ahead at
+  `BARE_HANDS.damage × the live melee_damage modifier`; the same body with a bat lands the bat's
+  number, and unequipping the bat returns hands, never an absent component), **PREDICATE** (true
+  for hands, false for a bat, false for hands beside a pistol), **READERS** (textual: the
+  isolated bodies of `_unarmed` and `_unarmed_colonists` each call `SimMelee.is_unarmed(`, with
+  comments stripped first so a comment cannot satisfy the needle, and the scanner proved on a
+  fabricated body), **REARM** (an unarmed colonist with a bat 3 m away takes the Rearm job; the
+  same colonist armed never does), **NOISE** (a punch is heard at `MELEE_CONNECT_NOISE` from the
+  puncher), **SPAWN** (every colonist `SimBoot.playable` boots carries a `meleeWeapon`, and
+  stripping one's kit moves the unarmed count 0 → 1, so the ARMED assertion still can). READERS
+  and REARM were run red with `_unarmed` reverted to the raw component check before being
+  trusted. **One existing lane re-read:** `check_m2_npc_combat.gd`'s REARM asserted "not picked
+  back up" as `not has_component("meleeWeapon")`, which hands made permanently true; it asks the
+  primary slot by item id now, which is what the words meant. **And a second, in
+  `check_m2_raiders.gd`'s PREY arena**, which "disarmed" a raider with `SimInventory.unequip` and
+  expected the shambler to eat it: the unequip now hands out fists, and a fist-fighting raider
+  punching every seven ticks at stagger 6 never let the claw finish its twenty-tick wind-up —
+  measured with a driver, fifteen punches and a dead shambler at tick 123, no claw landed — which
+  is exactly the stagger-lock the armed arm of that lane is written around for the machete
+  (stagger 5, a blow every twelve to eighteen ticks). The arena strips the hands too now,
+  *after* its drain (the `item.unequipped` handler runs at the drain, so a removal ahead of it
+  removes nothing — CLAUDE.md's trap, paid again), so it still proves a person who cannot keep
+  a zombie off is eaten. Two behaviour changes worth naming:
+  `npc_combat`'s "reach first" branch — *a shambler at arm's length is a melee problem even for
+  someone holding a bow* — is live for an archer now, because the archer has hands; and
+  `skills.gd`'s kill credit by `meleeWeapon` presence credits a punch kill to Melee, accepted.
+  **Balance, re-read** (`godot:m2:balance`, fast tier, inside the green chain): survivors
+  3 / 1 / 3 / 2 of 3 on the four seeds, unchanged from the standing baseline (3 / 1 / 3 / 2);
+  grabs 123 / 174 / 0 / 147 against the baseline's 117 / 145 / 0 / 154, deaths 1 / 4 / 0 / 4.
+  Every band held and no invariant moved. Read plainly: a colonist punching instead of standing
+  empty-handed does not change who survives ten days on the FAST tier; the grabs moved on two
+  seeds because a punch staggers and a stagger breaks a hold, which is the mechanic and not a
+  drift.
 
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not

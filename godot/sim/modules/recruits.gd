@@ -22,6 +22,7 @@ const SimSkills = preload("res://sim/modules/skills.gd")
 const SimSurvivors = preload("res://sim/modules/survivors.gd")
 const SimAllegiance = preload("res://sim/modules/allegiance.gd")
 const SimPeople = preload("res://sim/modules/people.gd")
+const SimMeleeRes = preload("res://sim/modules/melee.gd")
 
 const BEATS: Array[int] = [8, 12, 16]
 const TRANSMIT_P: float = 0.15
@@ -202,6 +203,9 @@ static func spawn_generated(world: Variant, rolled: Dictionary, x: float, y: flo
 	SimSkills.attach(world, ent)
 	SimSurvivors.give_eyes(world, ent)
 	SimSurvivors.equip_kit(world, ent, rolled.get("kit", []) as Array, x, y)
+	# Same as `SimSurvivors.spawn_unique`: after the kit, so a real weapon wins the hand it
+	# belongs in and a generated colonist with nothing rolled still has something to swing.
+	SimMeleeRes.ensure_hands(world, ent)
 	return ent
 
 
@@ -404,6 +408,10 @@ static func _handoff(world: Variant, dead: int, next: int) -> void:
 	world.player = next
 	world.components.set_component(next, "controlled", {})
 	SimSurvivors.give_eyes(world, next)
+	# The successor already spawned with hands or a kit weapon; this is a net for the body that
+	# somehow reaches control with neither -- never a real path today, but succession is the one
+	# handoff cheap enough to guard anyway.
+	SimMeleeRes.ensure_hands(world, next)
 	if world.components.has_component(next, "job"):
 		world.components.remove(next, "job")
 	world.runOver = false

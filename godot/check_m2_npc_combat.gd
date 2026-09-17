@@ -714,7 +714,13 @@ func _a_dropped_weapon_is_picked_back_up() -> bool:
 		return false
 	for _i in 200:
 		w4.step()
-	if w4.components.has_component(npc4, "meleeWeapon"):
+	# Not "has no meleeWeapon at all" any more: `SimMelee.ensure_hands` fires on the same
+	# unequip that dropped the broken knife, so this colonist has hands within the tick --
+	# correctly, that is the whole point of bare hands. What this assertion is actually about
+	# is whether the *broken knife itself* got picked back up, so it asks the equipment slot
+	# by item id rather than trusting a `meleeWeapon` component's mere presence to mean that.
+	var slots4: Dictionary = (w4.components.get_component(npc4, "equipment") as Dictionary).get("slots", {}) as Dictionary
+	if int(slots4.get("primary", -1)) == int(worn):
 		push_error("REARM: the colonist picked the broken knife back up")
 		return false
 	print("REARM OK armed with the bat at tick %d and swung it; a broken bat is left; an armed colonist keeps the knife; a worn-out knife drops at the feet and stays there" % armed_at)
