@@ -1,0 +1,42 @@
+[gd_resource type="SpriteFrames" load_steps=5 format=3]
+
+[ext_resource type="Texture2D" path="res://art/simplyzombies/groups/wearables/native/gear-backpack-s.png" id="1"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies/groups/wearables/native/gear-backpack-e.png" id="2"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies/groups/wearables/native/gear-backpack-n.png" id="3"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies/groups/wearables/native/gear-backpack-w.png" id="4"]
+
+[resource]
+animations = [
+{
+"frames": [
+{"duration": 1.0, "texture": ExtResource("1")}
+],
+"loop": false,
+"name": &"idle_s",
+"speed": 1.0
+},
+{
+"frames": [
+{"duration": 1.0, "texture": ExtResource("2")}
+],
+"loop": false,
+"name": &"idle_e",
+"speed": 1.0
+},
+{
+"frames": [
+{"duration": 1.0, "texture": ExtResource("3")}
+],
+"loop": false,
+"name": &"idle_n",
+"speed": 1.0
+},
+{
+"frames": [
+{"duration": 1.0, "texture": ExtResource("4")}
+],
+"loop": false,
+"name": &"idle_w",
+"speed": 1.0
+}
+]

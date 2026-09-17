@@ -15,6 +15,16 @@ unzip the Windows archive anywhere and run `simplyZOMBIES.exe` (no installer; Sm
 once because the build is not signed). The same build runs in a browser from the project's Pages
 site. Early alpha: a later version may not read this one's saves.
 
+## Art pack
+
+The [outpost asset pack](godot/art/simplyzombies/README.md) contains the delivered character,
+environment, equipment and animated-effects artwork, with native PNGs, source sheets, atlases,
+manifests and Godot SpriteFrames resources. View the
+[asset catalog](godot/art/simplyzombies/previews/asset-catalog.png), or download and open the
+[offline interactive preview](godot/art/simplyzombies/simplyzombies-production-preview.html).
+The pack is checked in at `res://art/simplyzombies/`; connecting it to the live renderer remains
+separate work, recorded in [the roadmap](docs/23-roadmap.md#the-record-by-system).
+
 ---
 
 ## The loop, in five lines

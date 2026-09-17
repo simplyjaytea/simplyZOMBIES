@@ -1,0 +1,902 @@
+{
+  "format_version": 1,
+  "title": "simplyZOMBIES compact survivor wearables",
+  "canvas": [
+    32,
+    48
+  ],
+  "anchor": [
+    16,
+    40
+  ],
+  "base_reference": "character-revision/pack/native/survivor_{s,e,n,w}.png",
+  "direction_order": [
+    "s",
+    "e",
+    "n",
+    "w"
+  ],
+  "processing": "Generated isolated equipment, cropped from actual RGBA alpha bounds, resized with nearest-neighbor into directional fit boxes, padded with transparency. No pixel repaint, palette edit or procedural background removal. Fit resizing may use separate X and Y ratios.",
+  "status": "Four wearable items, four static directional overlays each; not animated per-frame rigs.",
+  "assets": [
+    {
+      "id": "gear-vest",
+      "label": "Olive utility vest",
+      "category": "wearable",
+      "path": "native/gear-vest-s.png",
+      "size": [
+        32,
+        48
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "offset": [
+        0,
+        0
+      ],
+      "directions": [
+        "s",
+        "e",
+        "n",
+        "w"
+      ],
+      "frames": {
+        "idle_s": [
+          {
+            "path": "native/gear-vest-s.png"
+          }
+        ],
+        "idle_e": [
+          {
+            "path": "native/gear-vest-e.png"
+          }
+        ],
+        "idle_n": [
+          {
+            "path": "native/gear-vest-n.png"
+          }
+        ],
+        "idle_w": [
+          {
+            "path": "native/gear-vest-w.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "atlas": "native/gear-vest-atlas.png",
+      "z_by_direction": {
+        "s": 2,
+        "e": 2,
+        "n": 2,
+        "w": 2
+      },
+      "fit": {
+        "s": {
+          "occupied_size": [
+            13,
+            11
+          ],
+          "placement": [
+            10,
+            22
+          ],
+          "z": 2
+        },
+        "e": {
+          "occupied_size": [
+            9,
+            11
+          ],
+          "placement": [
+            12,
+            22
+          ],
+          "z": 2
+        },
+        "n": {
+          "occupied_size": [
+            14,
+            11
+          ],
+          "placement": [
+            10,
+            22
+          ],
+          "z": 2
+        },
+        "w": {
+          "occupied_size": [
+            9,
+            11
+          ],
+          "placement": [
+            11,
+            22
+          ],
+          "z": 2
+        }
+      },
+      "state": "standing-overlay",
+      "notes": "Static four-direction overlay fitted to approved survivor idle. No human parts baked in. Animated walk fit needs future per-frame rigging."
+    },
+    {
+      "id": "gear-helmet",
+      "label": "Olive steel helmet",
+      "category": "wearable",
+      "path": "native/gear-helmet-s.png",
+      "size": [
+        32,
+        48
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "offset": [
+        0,
+        0
+      ],
+      "directions": [
+        "s",
+        "e",
+        "n",
+        "w"
+      ],
+      "frames": {
+        "idle_s": [
+          {
+            "path": "native/gear-helmet-s.png"
+          }
+        ],
+        "idle_e": [
+          {
+            "path": "native/gear-helmet-e.png"
+          }
+        ],
+        "idle_n": [
+          {
+            "path": "native/gear-helmet-n.png"
+          }
+        ],
+        "idle_w": [
+          {
+            "path": "native/gear-helmet-w.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "atlas": "native/gear-helmet-atlas.png",
+      "z_by_direction": {
+        "s": 5,
+        "e": 5,
+        "n": 5,
+        "w": 5
+      },
+      "fit": {
+        "s": {
+          "occupied_size": [
+            16,
+            9
+          ],
+          "placement": [
+            8,
+            10
+          ],
+          "z": 5
+        },
+        "e": {
+          "occupied_size": [
+            16,
+            9
+          ],
+          "placement": [
+            9,
+            10
+          ],
+          "z": 5
+        },
+        "n": {
+          "occupied_size": [
+            16,
+            9
+          ],
+          "placement": [
+            9,
+            10
+          ],
+          "z": 5
+        },
+        "w": {
+          "occupied_size": [
+            16,
+            9
+          ],
+          "placement": [
+            8,
+            10
+          ],
+          "z": 5
+        }
+      },
+      "state": "standing-overlay",
+      "notes": "Static four-direction overlay fitted to approved survivor idle. No human parts baked in. Animated walk fit needs future per-frame rigging."
+    },
+    {
+      "id": "gear-gasmask",
+      "label": "Graphite respirator",
+      "category": "wearable",
+      "path": "native/gear-gasmask-s.png",
+      "size": [
+        32,
+        48
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "offset": [
+        0,
+        0
+      ],
+      "directions": [
+        "s",
+        "e",
+        "n",
+        "w"
+      ],
+      "frames": {
+        "idle_s": [
+          {
+            "path": "native/gear-gasmask-s.png"
+          }
+        ],
+        "idle_e": [
+          {
+            "path": "native/gear-gasmask-e.png"
+          }
+        ],
+        "idle_n": [
+          {
+            "path": "native/gear-gasmask-n.png"
+          }
+        ],
+        "idle_w": [
+          {
+            "path": "native/gear-gasmask-w.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "atlas": "native/gear-gasmask-atlas.png",
+      "z_by_direction": {
+        "s": 4,
+        "e": 4,
+        "n": 4,
+        "w": 4
+      },
+      "fit": {
+        "s": {
+          "occupied_size": [
+            12,
+            11
+          ],
+          "placement": [
+            10,
+            14
+          ],
+          "z": 4
+        },
+        "e": {
+          "occupied_size": [
+            13,
+            11
+          ],
+          "placement": [
+            11,
+            14
+          ],
+          "z": 4
+        },
+        "n": {
+          "occupied_size": [
+            12,
+            10
+          ],
+          "placement": [
+            10,
+            13
+          ],
+          "z": 4
+        },
+        "w": {
+          "occupied_size": [
+            13,
+            11
+          ],
+          "placement": [
+            8,
+            14
+          ],
+          "z": 4
+        }
+      },
+      "state": "standing-overlay",
+      "notes": "Static four-direction overlay fitted to approved survivor idle. No human parts baked in. Animated walk fit needs future per-frame rigging."
+    },
+    {
+      "id": "gear-backpack",
+      "label": "Tan canvas backpack",
+      "category": "wearable",
+      "path": "native/gear-backpack-s.png",
+      "size": [
+        32,
+        48
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "offset": [
+        0,
+        0
+      ],
+      "directions": [
+        "s",
+        "e",
+        "n",
+        "w"
+      ],
+      "frames": {
+        "idle_s": [
+          {
+            "path": "native/gear-backpack-s.png"
+          }
+        ],
+        "idle_e": [
+          {
+            "path": "native/gear-backpack-e.png"
+          }
+        ],
+        "idle_n": [
+          {
+            "path": "native/gear-backpack-n.png"
+          }
+        ],
+        "idle_w": [
+          {
+            "path": "native/gear-backpack-w.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "atlas": "native/gear-backpack-atlas.png",
+      "z_by_direction": {
+        "s": 3,
+        "e": -1,
+        "n": 3,
+        "w": -1
+      },
+      "fit": {
+        "s": {
+          "occupied_size": [
+            13,
+            10
+          ],
+          "placement": [
+            9,
+            23
+          ],
+          "z": 3
+        },
+        "e": {
+          "occupied_size": [
+            8,
+            12
+          ],
+          "placement": [
+            5,
+            22
+          ],
+          "z": -1
+        },
+        "n": {
+          "occupied_size": [
+            14,
+            12
+          ],
+          "placement": [
+            9,
+            22
+          ],
+          "z": 3
+        },
+        "w": {
+          "occupied_size": [
+            8,
+            12
+          ],
+          "placement": [
+            21,
+            22
+          ],
+          "z": -1
+        }
+      },
+      "state": "standing-overlay",
+      "notes": "Static four-direction overlay fitted to approved survivor idle. No human parts baked in. Animated walk fit needs future per-frame rigging."
+    }
+  ],
+  "extraction": [
+    {
+      "id": "gear-vest-s",
+      "source": "sources/vest.png",
+      "source_cell": [
+        0,
+        0,
+        768,
+        512
+      ],
+      "alpha_bbox_in_cell": [
+        261,
+        149,
+        586,
+        431
+      ],
+      "native_size": [
+        32,
+        48
+      ],
+      "fitted_size": [
+        13,
+        11
+      ],
+      "placement": [
+        10,
+        22
+      ],
+      "path": "native/gear-vest-s.png"
+    },
+    {
+      "id": "gear-vest-e",
+      "source": "sources/vest.png",
+      "source_cell": [
+        768,
+        0,
+        1536,
+        512
+      ],
+      "alpha_bbox_in_cell": [
+        223,
+        146,
+        449,
+        432
+      ],
+      "native_size": [
+        32,
+        48
+      ],
+      "fitted_size": [
+        9,
+        11
+      ],
+      "placement": [
+        12,
+        22
+      ],
+      "path": "native/gear-vest-e.png"
+    },
+    {
+      "id": "gear-vest-n",
+      "source": "sources/vest.png",
+      "source_cell": [
+        0,
+        512,
+        768,
+        1024
+      ],
+      "alpha_bbox_in_cell": [
+        262,
+        100,
+        586,
+        377
+      ],
+      "native_size": [
+        32,
+        48
+      ],
+      "fitted_size": [
+        14,
+        11
+      ],
+      "placement": [
+        10,
+        22
+      ],
+      "path": "native/gear-vest-n.png"
+    },
+    {
+      "id": "gear-vest-w",
+      "source": "sources/vest.png",
+      "source_cell": [
+        768,
+        512,
+        1536,
+        1024
+      ],
+      "alpha_bbox_in_cell": [
+        225,
+        100,
+        454,
+        381
+      ],
+      "native_size": [
+        32,
+        48
+      ],
+      "fitted_size": [
+        9,
+        11
+      ],
+      "placement": [
+        11,
+        22
+      ],
+      "path": "native/gear-vest-w.png"
+    },
+    {
+      "id": "gear-helmet-s",
+      "source": "sources/helmet.png",
+      "source_cell": [
+        0,
+        0,
+        761,
+        516
+      ],
+      "alpha_bbox_in_cell": [
+        343,
+        217,
+        650,
+        459
+      ],
+      "native_size": [
+        32,
+        48
+      ],
+      "fitted_size": [
+        16,
+        9
+      ],
+      "placement": [
+        8,
+        10
+      ],
+      "path": "native/gear-helmet-s.png"
+    },
+    {
+      "id": "gear-helmet-e",
+      "source": "sources/helmet.png",
+      "source_cell": [
+        761,
+        516,
+        1522,
+        1033
+      ],
+      "alpha_bbox_in_cell": [
+        108,
+        90,
+        429,
+        328
+      ],
+      "native_size": [
+        32,
+        48
+      ],
+      "fitted_size": [
+        16,
+        9
+      ],
+      "placement": [
+        9,
+        10
+      ],
+      "path": "native/gear-helmet-e.png"
+    },
+    {
+      "id": "gear-helmet-n",
+      "source": "sources/helmet.png",
+      "source_cell": [
+        0,
+        516,
+        761,
+        1033
+      ],
+      "alpha_bbox_in_cell": [
+        357,
+        88,
+        654,
+        328
+      ],
+      "native_size": [
+        32,
+        48
+      ],
+      "fitted_size": [
+        16,
+        9
+      ],
+      "placement": [
+        9,
+        10
+      ],
+      "path": "native/gear-helmet-n.png"
+    },
+    {
+      "id": "gear-helmet-w",
+      "source": "sources/helmet.png",
+      "source_cell": [
+        761,
+        0,
+        1522,
+        516
+      ],
+      "alpha_bbox_in_cell": [
+        98,
+        219,
+        422,
+        458
+      ],
+      "native_size": [
+        32,
+        48
+      ],
+      "fitted_size": [
+        16,
+        9
+      ],
+      "placement": [
+        8,
+        10
+      ],
+      "path": "native/gear-helmet-w.png"
+    },
+    {
+      "id": "gear-gasmask-s",
+      "source": "sources/gasmask.png",
+      "source_cell": [
+        0,
+        0,
+        661,
+        595
+      ],
+      "alpha_bbox_in_cell": [
+        144,
+        145,
+        567,
+        551
+      ],
+      "native_size": [
+        32,
+        48
+      ],
+      "fitted_size": [
+        12,
+        11
+      ],
+      "placement": [
+        10,
+        14
+      ],
+      "path": "native/gear-gasmask-s.png"
+    },
+    {
+      "id": "gear-gasmask-e",
+      "source": "sources/gasmask.png",
+      "source_cell": [
+        661,
+        0,
+        1322,
+        595
+      ],
+      "alpha_bbox_in_cell": [
+        121,
+        145,
+        565,
+        552
+      ],
+      "native_size": [
+        32,
+        48
+      ],
+      "fitted_size": [
+        13,
+        11
+      ],
+      "placement": [
+        11,
+        14
+      ],
+      "path": "native/gear-gasmask-e.png"
+    },
+    {
+      "id": "gear-gasmask-n",
+      "source": "sources/gasmask.png",
+      "source_cell": [
+        0,
+        595,
+        661,
+        1190
+      ],
+      "alpha_bbox_in_cell": [
+        152,
+        83,
+        560,
+        459
+      ],
+      "native_size": [
+        32,
+        48
+      ],
+      "fitted_size": [
+        12,
+        10
+      ],
+      "placement": [
+        10,
+        13
+      ],
+      "path": "native/gear-gasmask-n.png"
+    },
+    {
+      "id": "gear-gasmask-w",
+      "source": "sources/gasmask.png",
+      "source_cell": [
+        661,
+        595,
+        1322,
+        1190
+      ],
+      "alpha_bbox_in_cell": [
+        70,
+        83,
+        515,
+        493
+      ],
+      "native_size": [
+        32,
+        48
+      ],
+      "fitted_size": [
+        13,
+        11
+      ],
+      "placement": [
+        8,
+        14
+      ],
+      "path": "native/gear-gasmask-w.png"
+    },
+    {
+      "id": "gear-backpack-s",
+      "source": "sources/backpack.png",
+      "source_cell": [
+        0,
+        0,
+        656,
+        599
+      ],
+      "alpha_bbox_in_cell": [
+        173,
+        200,
+        498,
+        467
+      ],
+      "native_size": [
+        32,
+        48
+      ],
+      "fitted_size": [
+        13,
+        10
+      ],
+      "placement": [
+        9,
+        23
+      ],
+      "path": "native/gear-backpack-s.png"
+    },
+    {
+      "id": "gear-backpack-e",
+      "source": "sources/backpack.png",
+      "source_cell": [
+        656,
+        0,
+        1312,
+        599
+      ],
+      "alpha_bbox_in_cell": [
+        156,
+        178,
+        468,
+        545
+      ],
+      "native_size": [
+        32,
+        48
+      ],
+      "fitted_size": [
+        8,
+        12
+      ],
+      "placement": [
+        5,
+        22
+      ],
+      "path": "native/gear-backpack-e.png"
+    },
+    {
+      "id": "gear-backpack-n",
+      "source": "sources/backpack.png",
+      "source_cell": [
+        0,
+        599,
+        656,
+        1199
+      ],
+      "alpha_bbox_in_cell": [
+        127,
+        82,
+        549,
+        435
+      ],
+      "native_size": [
+        32,
+        48
+      ],
+      "fitted_size": [
+        14,
+        12
+      ],
+      "placement": [
+        9,
+        22
+      ],
+      "path": "native/gear-backpack-n.png"
+    },
+    {
+      "id": "gear-backpack-w",
+      "source": "sources/backpack.png",
+      "source_cell": [
+        656,
+        599,
+        1312,
+        1199
+      ],
+      "alpha_bbox_in_cell": [
+        180,
+        82,
+        483,
+        441
+      ],
+      "native_size": [
+        32,
+        48
+      ],
+      "fitted_size": [
+        8,
+        12
+      ],
+      "placement": [
+        21,
+        22
+      ],
+      "path": "native/gear-backpack-w.png"
+    }
+  ],
+  "layer_order_note": "Backpack east/west behind body; all other entries over body at z values. Draw gasmask before helmet. South backpack is front straps only; north is exterior backpack."
+}

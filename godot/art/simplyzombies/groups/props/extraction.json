@@ -1,0 +1,827 @@
+[
+  {
+    "id": "nature-pine",
+    "source": "sources/nature-source.png",
+    "sourceCell": [
+      0,
+      0,
+      400,
+      680
+    ],
+    "alphaCropInCell": [
+      77,
+      71,
+      370,
+      646
+    ],
+    "resize": [
+      45,
+      88
+    ],
+    "origin": [
+      9,
+      6
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "nature-broadleaf",
+    "source": "sources/nature-source.png",
+    "sourceCell": [
+      400,
+      0,
+      830,
+      680
+    ],
+    "alphaCropInCell": [
+      23,
+      134,
+      410,
+      638
+    ],
+    "resize": [
+      66,
+      86
+    ],
+    "origin": [
+      7,
+      8
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "nature-dead-tree",
+    "source": "sources/nature-source.png",
+    "sourceCell": [
+      830,
+      0,
+      1160,
+      680
+    ],
+    "alphaCropInCell": [
+      22,
+      168,
+      284,
+      639
+    ],
+    "resize": [
+      46,
+      82
+    ],
+    "origin": [
+      9,
+      12
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "nature-bush",
+    "source": "sources/nature-source.png",
+    "sourceCell": [
+      1160,
+      0,
+      1536,
+      680
+    ],
+    "alphaCropInCell": [
+      45,
+      452,
+      294,
+      646
+    ],
+    "resize": [
+      28,
+      22
+    ],
+    "origin": [
+      2,
+      8
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "nature-reeds",
+    "source": "sources/nature-source.png",
+    "sourceCell": [
+      0,
+      680,
+      384,
+      1024
+    ],
+    "alphaCropInCell": [
+      137,
+      60,
+      323,
+      291
+    ],
+    "resize": [
+      20,
+      25
+    ],
+    "origin": [
+      2,
+      5
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "nature-rock-cluster",
+    "source": "sources/nature-source.png",
+    "sourceCell": [
+      384,
+      680,
+      768,
+      1024
+    ],
+    "alphaCropInCell": [
+      91,
+      112,
+      339,
+      270
+    ],
+    "resize": [
+      28,
+      18
+    ],
+    "origin": [
+      2,
+      4
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "nature-stump",
+    "source": "sources/nature-source.png",
+    "sourceCell": [
+      768,
+      680,
+      1152,
+      1024
+    ],
+    "alphaCropInCell": [
+      86,
+      120,
+      258,
+      275
+    ],
+    "resize": [
+      20,
+      18
+    ],
+    "origin": [
+      2,
+      4
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "nature-fallen-log",
+    "source": "sources/nature-source.png",
+    "sourceCell": [
+      1152,
+      680,
+      1536,
+      1024
+    ],
+    "alphaCropInCell": [
+      17,
+      121,
+      299,
+      283
+    ],
+    "resize": [
+      35,
+      20
+    ],
+    "origin": [
+      6,
+      2
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "prop-barrel",
+    "source": "sources/props-source.png",
+    "sourceCell": [
+      0,
+      0,
+      362,
+      300
+    ],
+    "alphaCropInCell": [
+      112,
+      45,
+      240,
+      267
+    ],
+    "resize": [
+      14,
+      24
+    ],
+    "origin": [
+      5,
+      6
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "prop-dumpster",
+    "source": "sources/props-source.png",
+    "sourceCell": [
+      362,
+      0,
+      724,
+      300
+    ],
+    "alphaCropInCell": [
+      45,
+      59,
+      310,
+      264
+    ],
+    "resize": [
+      36,
+      28
+    ],
+    "origin": [
+      6,
+      2
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "prop-concrete-barrier",
+    "source": "sources/props-source.png",
+    "sourceCell": [
+      724,
+      0,
+      1086,
+      300
+    ],
+    "alphaCropInCell": [
+      42,
+      126,
+      320,
+      250
+    ],
+    "resize": [
+      44,
+      20
+    ],
+    "origin": [
+      2,
+      2
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "prop-pallet-stack",
+    "source": "sources/props-source.png",
+    "sourceCell": [
+      1086,
+      0,
+      1448,
+      300
+    ],
+    "alphaCropInCell": [
+      62,
+      83,
+      304,
+      267
+    ],
+    "resize": [
+      28,
+      21
+    ],
+    "origin": [
+      2,
+      9
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "prop-workbench",
+    "source": "sources/props-source.png",
+    "sourceCell": [
+      0,
+      300,
+      362,
+      530
+    ],
+    "alphaCropInCell": [
+      51,
+      39,
+      319,
+      205
+    ],
+    "resize": [
+      42,
+      26
+    ],
+    "origin": [
+      3,
+      4
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "prop-bed",
+    "source": "sources/props-source.png",
+    "sourceCell": [
+      362,
+      300,
+      724,
+      530
+    ],
+    "alphaCropInCell": [
+      58,
+      33,
+      340,
+      210
+    ],
+    "resize": [
+      42,
+      26
+    ],
+    "origin": [
+      3,
+      4
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "prop-chair",
+    "source": "sources/props-source.png",
+    "sourceCell": [
+      724,
+      300,
+      1086,
+      530
+    ],
+    "alphaCropInCell": [
+      154,
+      18,
+      259,
+      209
+    ],
+    "resize": [
+      13,
+      24
+    ],
+    "origin": [
+      5,
+      6
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "prop-table",
+    "source": "sources/props-source.png",
+    "sourceCell": [
+      1086,
+      300,
+      1448,
+      530
+    ],
+    "alphaCropInCell": [
+      81,
+      34,
+      300,
+      197
+    ],
+    "resize": [
+      34,
+      25
+    ],
+    "origin": [
+      3,
+      5
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "prop-fridge",
+    "source": "sources/props-source.png",
+    "sourceCell": [
+      0,
+      530,
+      362,
+      800
+    ],
+    "alphaCropInCell": [
+      109,
+      16,
+      247,
+      256
+    ],
+    "resize": [
+      20,
+      35
+    ],
+    "origin": [
+      2,
+      3
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "prop-shelf",
+    "source": "sources/props-source.png",
+    "sourceCell": [
+      362,
+      530,
+      724,
+      800
+    ],
+    "alphaCropInCell": [
+      73,
+      49,
+      304,
+      242
+    ],
+    "resize": [
+      32,
+      27
+    ],
+    "origin": [
+      4,
+      3
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "prop-medical-cabinet",
+    "source": "sources/props-source.png",
+    "sourceCell": [
+      724,
+      530,
+      1086,
+      800
+    ],
+    "alphaCropInCell": [
+      116,
+      54,
+      276,
+      229
+    ],
+    "resize": [
+      21,
+      23
+    ],
+    "origin": [
+      1,
+      7
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "prop-streetlamp",
+    "source": "sources/props-source.png",
+    "sourceCell": [
+      1086,
+      530,
+      1448,
+      800
+    ],
+    "alphaCropInCell": [
+      142,
+      2,
+      249,
+      255
+    ],
+    "resize": [
+      21,
+      50
+    ],
+    "origin": [
+      1,
+      12
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "prop-road-sign",
+    "source": "sources/props-source.png",
+    "sourceCell": [
+      0,
+      800,
+      362,
+      1086
+    ],
+    "alphaCropInCell": [
+      112,
+      12,
+      237,
+      248
+    ],
+    "resize": [
+      19,
+      35
+    ],
+    "origin": [
+      2,
+      3
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "prop-traffic-cone",
+    "source": "sources/props-source.png",
+    "sourceCell": [
+      362,
+      800,
+      724,
+      1086
+    ],
+    "alphaCropInCell": [
+      114,
+      33,
+      256,
+      231
+    ],
+    "resize": [
+      14,
+      20
+    ],
+    "origin": [
+      1,
+      2
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "prop-trash-bags",
+    "source": "sources/props-source.png",
+    "sourceCell": [
+      724,
+      800,
+      1086,
+      1086
+    ],
+    "alphaCropInCell": [
+      71,
+      47,
+      314,
+      244
+    ],
+    "resize": [
+      26,
+      21
+    ],
+    "origin": [
+      3,
+      1
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "prop-fence-post",
+    "source": "sources/props-source.png",
+    "sourceCell": [
+      1086,
+      800,
+      1448,
+      1086
+    ],
+    "alphaCropInCell": [
+      160,
+      24,
+      217,
+      244
+    ],
+    "resize": [
+      7,
+      28
+    ],
+    "origin": [
+      4,
+      2
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "prop-wood-crate-closed",
+    "source": "sources/containers-source.png",
+    "sourceCell": [
+      0,
+      0,
+      550,
+      342
+    ],
+    "alphaCropInCell": [
+      181,
+      129,
+      479,
+      326
+    ],
+    "resize": [
+      26,
+      17
+    ],
+    "origin": [
+      3,
+      13
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "prop-wood-crate-open",
+    "source": "sources/containers-source.png",
+    "sourceCell": [
+      550,
+      0,
+      1010,
+      342
+    ],
+    "alphaCropInCell": [
+      71,
+      12,
+      366,
+      327
+    ],
+    "resize": [
+      26,
+      28
+    ],
+    "origin": [
+      3,
+      2
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "prop-wood-crate-empty",
+    "source": "sources/containers-source.png",
+    "sourceCell": [
+      1010,
+      0,
+      1536,
+      342
+    ],
+    "alphaCropInCell": [
+      52,
+      12,
+      346,
+      327
+    ],
+    "resize": [
+      26,
+      28
+    ],
+    "origin": [
+      3,
+      2
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "prop-metal-footlocker-closed",
+    "source": "sources/containers-source.png",
+    "sourceCell": [
+      0,
+      342,
+      550,
+      680
+    ],
+    "alphaCropInCell": [
+      176,
+      108,
+      483,
+      308
+    ],
+    "resize": [
+      26,
+      17
+    ],
+    "origin": [
+      3,
+      13
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "prop-metal-footlocker-open",
+    "source": "sources/containers-source.png",
+    "sourceCell": [
+      550,
+      342,
+      1010,
+      680
+    ],
+    "alphaCropInCell": [
+      65,
+      13,
+      372,
+      308
+    ],
+    "resize": [
+      26,
+      25
+    ],
+    "origin": [
+      3,
+      5
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "prop-metal-footlocker-empty",
+    "source": "sources/containers-source.png",
+    "sourceCell": [
+      1010,
+      342,
+      1536,
+      680
+    ],
+    "alphaCropInCell": [
+      46,
+      13,
+      353,
+      308
+    ],
+    "resize": [
+      26,
+      25
+    ],
+    "origin": [
+      3,
+      5
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "prop-medical-box-closed",
+    "source": "sources/containers-source.png",
+    "sourceCell": [
+      0,
+      680,
+      550,
+      1024
+    ],
+    "alphaCropInCell": [
+      177,
+      82,
+      484,
+      301
+    ],
+    "resize": [
+      26,
+      19
+    ],
+    "origin": [
+      3,
+      11
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "prop-medical-box-open",
+    "source": "sources/containers-source.png",
+    "sourceCell": [
+      550,
+      680,
+      1010,
+      1024
+    ],
+    "alphaCropInCell": [
+      67,
+      10,
+      370,
+      301
+    ],
+    "resize": [
+      26,
+      25
+    ],
+    "origin": [
+      3,
+      5
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  },
+  {
+    "id": "prop-medical-box-empty",
+    "source": "sources/containers-source.png",
+    "sourceCell": [
+      1010,
+      680,
+      1536,
+      1024
+    ],
+    "alphaCropInCell": [
+      46,
+      10,
+      351,
+      301
+    ],
+    "resize": [
+      26,
+      25
+    ],
+    "origin": [
+      3,
+      5
+    ],
+    "operation": "crop, nearest-neighbor resize, transparent padding; original alpha preserved"
+  }
+]

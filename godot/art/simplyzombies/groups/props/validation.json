@@ -1,0 +1,712 @@
+{
+  "assets": [
+    {
+      "id": "nature-pine",
+      "size": [
+        64,
+        96
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        9,
+        6,
+        54,
+        94
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "d666d5f9e7c5a212b07d77fa6454f4c857375b4d7ca2991ea5a1b4594a1b43cb"
+    },
+    {
+      "id": "nature-broadleaf",
+      "size": [
+        80,
+        96
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        7,
+        8,
+        73,
+        94
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "4204c47f4c6ad63f5977a254be850a38fc596be8a021d5d3bcdfdb593d7307a5"
+    },
+    {
+      "id": "nature-dead-tree",
+      "size": [
+        64,
+        96
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        9,
+        12,
+        55,
+        94
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "14232d240fb885deac0f0f2f497e6e81876d8b3275305ee740643f58af06093e"
+    },
+    {
+      "id": "nature-bush",
+      "size": [
+        32,
+        32
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        2,
+        8,
+        30,
+        30
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "74b1e9d6c6c3337644e255ee4e9471e36cb1a3c6829d1b78c81497f7eada0806"
+    },
+    {
+      "id": "nature-reeds",
+      "size": [
+        24,
+        32
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        2,
+        5,
+        22,
+        30
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "e558342c0a37754fc6a51a82e7cb513338ccc1fd4e6f7a2e0e27afbd07ea65d4"
+    },
+    {
+      "id": "nature-rock-cluster",
+      "size": [
+        32,
+        24
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        2,
+        4,
+        30,
+        22
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "9fcaeaedb142c70fa7a6c7ec30be003f50a4f6c1d5efea09fb0f6850fa135a99"
+    },
+    {
+      "id": "nature-stump",
+      "size": [
+        24,
+        24
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        2,
+        4,
+        22,
+        22
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "7adb3abe761ec05e8caeecd93fa5081e5f3a9d883bb5785c021a3eccc918033e"
+    },
+    {
+      "id": "nature-fallen-log",
+      "size": [
+        48,
+        24
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        6,
+        2,
+        41,
+        22
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "6b2a3cac556221985fcea8aa835889c37a93aa6fe0beab54bd6c694226cd3e77"
+    },
+    {
+      "id": "prop-barrel",
+      "size": [
+        24,
+        32
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        5,
+        6,
+        19,
+        30
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "e7c48663306358086272d717ff7eaae308d2b1fdfa06cf4eeb008bdb97d9fc22"
+    },
+    {
+      "id": "prop-dumpster",
+      "size": [
+        48,
+        32
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        255
+      ],
+      "occupiedBounds": [
+        6,
+        2,
+        42,
+        30
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "ee021a375de6ca9bee6caa6a401cb81dc97b4101ae40d98cfe2fe7944353616f"
+    },
+    {
+      "id": "prop-concrete-barrier",
+      "size": [
+        48,
+        24
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        255
+      ],
+      "occupiedBounds": [
+        2,
+        2,
+        46,
+        22
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "217d7c5a78c458aacafa3ea8558cff439311bd1a92058556506e2b1c570c6a18"
+    },
+    {
+      "id": "prop-pallet-stack",
+      "size": [
+        32,
+        32
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        2,
+        9,
+        30,
+        30
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "c78926183fe4b9a5262ecf6a32fb2a73b79a64ca075e4c53a56f30caa3dd5308"
+    },
+    {
+      "id": "prop-workbench",
+      "size": [
+        48,
+        32
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        255
+      ],
+      "occupiedBounds": [
+        3,
+        4,
+        45,
+        30
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "ea505ce5a4c11f013043862a810ce42dfab52527ebe8a1da6f0532e4bd2de907"
+    },
+    {
+      "id": "prop-bed",
+      "size": [
+        48,
+        32
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        255
+      ],
+      "occupiedBounds": [
+        3,
+        4,
+        45,
+        30
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "86185afea60021575d975cf400800d149733056ec8f408f29a5a7db9f64f95cb"
+    },
+    {
+      "id": "prop-chair",
+      "size": [
+        24,
+        32
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        255
+      ],
+      "occupiedBounds": [
+        5,
+        6,
+        18,
+        30
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "03ff8eddc46d5c3d9b543d4deb702b53fa1d4dca48cede286914db44ae61df46"
+    },
+    {
+      "id": "prop-table",
+      "size": [
+        40,
+        32
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        255
+      ],
+      "occupiedBounds": [
+        3,
+        5,
+        37,
+        30
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "9b0a40e8fc2ef49f79de775224c50d681dfb72c21d5f9ef5e04a60b28c35d171"
+    },
+    {
+      "id": "prop-fridge",
+      "size": [
+        24,
+        40
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        255
+      ],
+      "occupiedBounds": [
+        2,
+        3,
+        22,
+        38
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "a337ba7313ce31f0c32f2cedf7dbd9310aded525b02c07d1dd75ad1bbd14228e"
+    },
+    {
+      "id": "prop-shelf",
+      "size": [
+        40,
+        32
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        255
+      ],
+      "occupiedBounds": [
+        4,
+        3,
+        36,
+        30
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "75839678edcbb3d84e24e8963ad32671933c50da79e659fa84f8813a96757ce5"
+    },
+    {
+      "id": "prop-medical-cabinet",
+      "size": [
+        24,
+        32
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        255
+      ],
+      "occupiedBounds": [
+        1,
+        7,
+        22,
+        30
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "46a3252ff3aa7177b3df5eda53265bec855eeb610d144555b3a88b5ee683ded6"
+    },
+    {
+      "id": "prop-streetlamp",
+      "size": [
+        24,
+        64
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        1,
+        12,
+        22,
+        62
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "90720ca65f5e50c7343cc4e7d7dbaa40932043507289b50f538631246d685021"
+    },
+    {
+      "id": "prop-road-sign",
+      "size": [
+        24,
+        40
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        255
+      ],
+      "occupiedBounds": [
+        2,
+        3,
+        21,
+        38
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "365a6d4bb4e11b1b8d88e11886634a3cd7c20626d2f88d3e1501e5e4d3f3eb5f"
+    },
+    {
+      "id": "prop-traffic-cone",
+      "size": [
+        16,
+        24
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        1,
+        2,
+        15,
+        22
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "9e0afacfee0dc6a32cb69f46d7f584f14895b90bf5f0a447e9cce3852f35ef15"
+    },
+    {
+      "id": "prop-trash-bags",
+      "size": [
+        32,
+        24
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        3,
+        1,
+        29,
+        22
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "a357f8fba4927cd5d03037bb4731f31c84e38d9fcee9b4fb55f5ba2f982fb710"
+    },
+    {
+      "id": "prop-fence-post",
+      "size": [
+        16,
+        32
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        4,
+        2,
+        11,
+        30
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "dbb0f8c168a086655e412c109d581955c2ee75ca7203ec968166a4430d9f9c57"
+    },
+    {
+      "id": "prop-wood-crate-closed",
+      "size": [
+        32,
+        32
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        3,
+        13,
+        29,
+        30
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "1af109b31a8caa7b6d1235f7e3943e0309272dceed56ef06eb344377ee36b83a"
+    },
+    {
+      "id": "prop-wood-crate-open",
+      "size": [
+        32,
+        32
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        3,
+        2,
+        29,
+        30
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "1dabc82d76ce14e655d0e70b12c89aee225f0644168ebcb503ccb333f71cc7f6"
+    },
+    {
+      "id": "prop-wood-crate-empty",
+      "size": [
+        32,
+        32
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        3,
+        2,
+        29,
+        30
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "7916de8aad618230e5529145710ae8bcd7d3eb273e3e615c54a4588784167f37"
+    },
+    {
+      "id": "prop-metal-footlocker-closed",
+      "size": [
+        32,
+        32
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        3,
+        13,
+        29,
+        30
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "b6eb212b32d2c1fd75e51d0c8b340fc2927d49cecaaf711e4b7813b34c2efbc9"
+    },
+    {
+      "id": "prop-metal-footlocker-open",
+      "size": [
+        32,
+        32
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        3,
+        5,
+        29,
+        30
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "f22e134351f297c75eb327ec66e423f1e62d3a27ae57a7dccb7f466db261171b"
+    },
+    {
+      "id": "prop-metal-footlocker-empty",
+      "size": [
+        32,
+        32
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        3,
+        5,
+        29,
+        30
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "dbb3919f1255d30b9e312de445881fce90b46336cef1061f0fba8b2adda195b4"
+    },
+    {
+      "id": "prop-medical-box-closed",
+      "size": [
+        32,
+        32
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        3,
+        11,
+        29,
+        30
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "2c5be30b7e4533288c49f0e4fcd1249920b1f5d0eb37af7a70ab5044a145d416"
+    },
+    {
+      "id": "prop-medical-box-open",
+      "size": [
+        32,
+        32
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        3,
+        5,
+        29,
+        30
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "bad82e79b9e71994c3056e312c459a1decc05a3afc31874d35d239ad8844b28e"
+    },
+    {
+      "id": "prop-medical-box-empty",
+      "size": [
+        32,
+        32
+      ],
+      "RGBA": true,
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        3,
+        5,
+        29,
+        30
+      ],
+      "transparentOuterBorder": true,
+      "sha256": "a4652e712e250976d30bd9668997c7199f50c4517d345f5b4f0b66d7d5c8c35b"
+    }
+  ],
+  "stateGroups": [
+    {
+      "id": "prop-wood-crate",
+      "distinctImages": true,
+      "sameCanvas": true,
+      "bottoms": [
+        30,
+        30,
+        30
+      ],
+      "widths": [
+        26,
+        26,
+        26
+      ]
+    },
+    {
+      "id": "prop-metal-footlocker",
+      "distinctImages": true,
+      "sameCanvas": true,
+      "bottoms": [
+        30,
+        30,
+        30
+      ],
+      "widths": [
+        26,
+        26,
+        26
+      ]
+    },
+    {
+      "id": "prop-medical-box",
+      "distinctImages": true,
+      "sameCanvas": true,
+      "bottoms": [
+        30,
+        30,
+        30
+      ],
+      "widths": [
+        26,
+        26,
+        26
+      ]
+    }
+  ],
+  "passed": true
+}

@@ -1,0 +1,5653 @@
+{
+  "title": "simplyZOMBIES / Outpost asset workshop",
+  "version": 4,
+  "artDirection": "Original compact survival pixel art informed by ZERO Sievert screenshots; no copied game sprites.",
+  "canvas": {
+    "width": 640,
+    "height": 448,
+    "tileSize": 32
+  },
+  "assets": [
+    {
+      "id": "survivor",
+      "label": "Survivor walk",
+      "category": "Characters",
+      "path": "textures/characters/survivor_s.png",
+      "frameSize": [
+        32,
+        48
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "frames": {
+        "idle_s": [
+          {
+            "path": "textures/characters/survivor_s.png"
+          }
+        ],
+        "idle_e": [
+          {
+            "path": "textures/characters/survivor_e.png"
+          }
+        ],
+        "idle_n": [
+          {
+            "path": "textures/characters/survivor_n.png"
+          }
+        ],
+        "idle_w": [
+          {
+            "path": "textures/characters/survivor_w.png"
+          }
+        ],
+        "walk_s": [
+          {
+            "path": "textures/characters/survivor_walk_s_00.png"
+          },
+          {
+            "path": "textures/characters/survivor_walk_s_01.png"
+          },
+          {
+            "path": "textures/characters/survivor_walk_s_02.png"
+          },
+          {
+            "path": "textures/characters/survivor_walk_s_03.png"
+          }
+        ],
+        "walk_e": [
+          {
+            "path": "textures/characters/survivor_walk_e_00.png"
+          },
+          {
+            "path": "textures/characters/survivor_walk_e_01.png"
+          },
+          {
+            "path": "textures/characters/survivor_walk_e_02.png"
+          },
+          {
+            "path": "textures/characters/survivor_walk_e_03.png"
+          }
+        ],
+        "walk_n": [
+          {
+            "path": "textures/characters/survivor_walk_n_00.png"
+          },
+          {
+            "path": "textures/characters/survivor_walk_n_01.png"
+          },
+          {
+            "path": "textures/characters/survivor_walk_n_02.png"
+          },
+          {
+            "path": "textures/characters/survivor_walk_n_03.png"
+          }
+        ],
+        "walk_w": [
+          {
+            "path": "textures/characters/survivor_walk_w_00.png"
+          },
+          {
+            "path": "textures/characters/survivor_walk_w_01.png"
+          },
+          {
+            "path": "textures/characters/survivor_walk_w_02.png"
+          },
+          {
+            "path": "textures/characters/survivor_walk_w_03.png"
+          }
+        ]
+      },
+      "fps": {
+        "idle": 1,
+        "walk": 8
+      },
+      "rotateWithAim": false,
+      "flipWithAim": false,
+      "staticDirections": false,
+      "layer": "body",
+      "z": 0,
+      "offset": [
+        0,
+        0
+      ],
+      "defaultEnabled": true
+    },
+    {
+      "id": "shambler",
+      "label": "Shambler walk",
+      "category": "Characters",
+      "path": "textures/characters/shambler_s.png",
+      "frameSize": [
+        32,
+        48
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "frames": {
+        "idle_s": [
+          {
+            "path": "textures/characters/shambler_s.png"
+          }
+        ],
+        "idle_e": [
+          {
+            "path": "textures/characters/shambler_e.png"
+          }
+        ],
+        "idle_n": [
+          {
+            "path": "textures/characters/shambler_n.png"
+          }
+        ],
+        "idle_w": [
+          {
+            "path": "textures/characters/shambler_w.png"
+          }
+        ],
+        "walk_s": [
+          {
+            "path": "textures/characters/shambler_walk_s_00.png"
+          },
+          {
+            "path": "textures/characters/shambler_walk_s_01.png"
+          },
+          {
+            "path": "textures/characters/shambler_walk_s_02.png"
+          },
+          {
+            "path": "textures/characters/shambler_walk_s_03.png"
+          }
+        ],
+        "walk_e": [
+          {
+            "path": "textures/characters/shambler_walk_e_00.png"
+          },
+          {
+            "path": "textures/characters/shambler_walk_e_01.png"
+          },
+          {
+            "path": "textures/characters/shambler_walk_e_02.png"
+          },
+          {
+            "path": "textures/characters/shambler_walk_e_03.png"
+          }
+        ],
+        "walk_n": [
+          {
+            "path": "textures/characters/shambler_walk_n_00.png"
+          },
+          {
+            "path": "textures/characters/shambler_walk_n_01.png"
+          },
+          {
+            "path": "textures/characters/shambler_walk_n_02.png"
+          },
+          {
+            "path": "textures/characters/shambler_walk_n_03.png"
+          }
+        ],
+        "walk_w": [
+          {
+            "path": "textures/characters/shambler_walk_w_00.png"
+          },
+          {
+            "path": "textures/characters/shambler_walk_w_01.png"
+          },
+          {
+            "path": "textures/characters/shambler_walk_w_02.png"
+          },
+          {
+            "path": "textures/characters/shambler_walk_w_03.png"
+          }
+        ]
+      },
+      "fps": {
+        "idle": 1,
+        "walk": 5
+      },
+      "rotateWithAim": false,
+      "flipWithAim": false,
+      "staticDirections": false
+    },
+    {
+      "id": "tile-asphalt-a",
+      "label": "Slate asphalt A",
+      "category": "terrain",
+      "path": "groups/environment/textures/tile-asphalt-a.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "opaque",
+      "tileSize": [
+        32,
+        32
+      ],
+      "repeat": "visual 2x2 preview checked; no autotile rules supplied",
+      "group": "environment"
+    },
+    {
+      "id": "tile-asphalt-b",
+      "label": "Cracked asphalt B",
+      "category": "terrain",
+      "path": "groups/environment/textures/tile-asphalt-b.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "opaque",
+      "tileSize": [
+        32,
+        32
+      ],
+      "repeat": "visual 2x2 preview checked; no autotile rules supplied",
+      "group": "environment"
+    },
+    {
+      "id": "tile-concrete-a",
+      "label": "Worn concrete A",
+      "category": "terrain",
+      "path": "groups/environment/textures/tile-concrete-a.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "opaque",
+      "tileSize": [
+        32,
+        32
+      ],
+      "repeat": "visual 2x2 preview checked; no autotile rules supplied",
+      "group": "environment"
+    },
+    {
+      "id": "tile-concrete-b",
+      "label": "Chipped concrete B",
+      "category": "terrain",
+      "path": "groups/environment/textures/tile-concrete-b.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "opaque",
+      "tileSize": [
+        32,
+        32
+      ],
+      "repeat": "visual 2x2 preview checked; no autotile rules supplied",
+      "group": "environment"
+    },
+    {
+      "id": "tile-grass-a",
+      "label": "Olive grass A",
+      "category": "terrain",
+      "path": "groups/environment/textures/tile-grass-a.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "opaque",
+      "tileSize": [
+        32,
+        32
+      ],
+      "repeat": "visual 2x2 preview checked; no autotile rules supplied",
+      "group": "environment"
+    },
+    {
+      "id": "tile-grass-b",
+      "label": "Olive grass B",
+      "category": "terrain",
+      "path": "groups/environment/textures/tile-grass-b.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "opaque",
+      "tileSize": [
+        32,
+        32
+      ],
+      "repeat": "visual 2x2 preview checked; no autotile rules supplied",
+      "group": "environment"
+    },
+    {
+      "id": "tile-dirt-a",
+      "label": "Ochre dirt A",
+      "category": "terrain",
+      "path": "groups/environment/textures/tile-dirt-a.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "opaque",
+      "tileSize": [
+        32,
+        32
+      ],
+      "repeat": "visual 2x2 preview checked; no autotile rules supplied",
+      "group": "environment"
+    },
+    {
+      "id": "tile-dirt-b",
+      "label": "Ochre dirt B",
+      "category": "terrain",
+      "path": "groups/environment/textures/tile-dirt-b.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "opaque",
+      "tileSize": [
+        32,
+        32
+      ],
+      "repeat": "visual 2x2 preview checked; no autotile rules supplied",
+      "group": "environment"
+    },
+    {
+      "id": "tile-wood-floor",
+      "label": "Wood plank floor",
+      "category": "terrain",
+      "path": "groups/environment/textures/tile-wood-floor.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "opaque",
+      "tileSize": [
+        32,
+        32
+      ],
+      "repeat": "visual 2x2 preview checked; no autotile rules supplied",
+      "group": "environment"
+    },
+    {
+      "id": "tile-interior-tile",
+      "label": "Teal and cream floor",
+      "category": "terrain",
+      "path": "groups/environment/textures/tile-interior-tile.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "opaque",
+      "tileSize": [
+        32,
+        32
+      ],
+      "repeat": "visual 2x2 preview checked; no autotile rules supplied",
+      "group": "environment"
+    },
+    {
+      "id": "tile-rubble",
+      "label": "Rubble ground",
+      "category": "terrain",
+      "path": "groups/environment/textures/tile-rubble.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "opaque",
+      "tileSize": [
+        32,
+        32
+      ],
+      "repeat": "visual 2x2 preview checked; no autotile rules supplied",
+      "group": "environment"
+    },
+    {
+      "id": "tile-water",
+      "label": "Still teal water",
+      "category": "terrain",
+      "path": "groups/environment/textures/tile-water.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "opaque",
+      "tileSize": [
+        32,
+        32
+      ],
+      "repeat": "visual 2x2 preview checked; no autotile rules supplied",
+      "group": "environment"
+    },
+    {
+      "id": "wall-plaster",
+      "label": "Cream plaster wall",
+      "category": "architecture",
+      "path": "groups/environment/textures/wall-plaster.png",
+      "size": [
+        64,
+        48
+      ],
+      "anchor": [
+        32,
+        44
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "y-sort",
+      "geometryNote": "Native canvas and pivot are normalized. Source state wear/perspective may vary slightly; collision and exact map snapping require engine setup.",
+      "group": "environment"
+    },
+    {
+      "id": "wall-brick",
+      "label": "Red brick wall",
+      "category": "architecture",
+      "path": "groups/environment/textures/wall-brick.png",
+      "size": [
+        64,
+        48
+      ],
+      "anchor": [
+        32,
+        44
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "y-sort",
+      "geometryNote": "Native canvas and pivot are normalized. Source state wear/perspective may vary slightly; collision and exact map snapping require engine setup.",
+      "group": "environment"
+    },
+    {
+      "id": "wall-interior",
+      "label": "Interior blue wall",
+      "category": "architecture",
+      "path": "groups/environment/textures/wall-interior.png",
+      "size": [
+        64,
+        48
+      ],
+      "anchor": [
+        32,
+        44
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "y-sort",
+      "geometryNote": "Native canvas and pivot are normalized. Source state wear/perspective may vary slightly; collision and exact map snapping require engine setup.",
+      "group": "environment"
+    },
+    {
+      "id": "wall-corner-nw",
+      "label": "Cream north-west corner",
+      "category": "architecture",
+      "path": "groups/environment/textures/wall-corner-nw.png",
+      "size": [
+        64,
+        64
+      ],
+      "anchor": [
+        32,
+        64
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "y-sort",
+      "geometryNote": "Native canvas and pivot are normalized. Source state wear/perspective may vary slightly; collision and exact map snapping require engine setup.",
+      "joins": [
+        "north",
+        "west"
+      ],
+      "group": "environment"
+    },
+    {
+      "id": "wall-corner-ne",
+      "label": "Cream north-east corner",
+      "category": "architecture",
+      "path": "groups/environment/textures/wall-corner-ne.png",
+      "size": [
+        64,
+        64
+      ],
+      "anchor": [
+        32,
+        64
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "y-sort",
+      "geometryNote": "Native canvas and pivot are normalized. Source state wear/perspective may vary slightly; collision and exact map snapping require engine setup.",
+      "joins": [
+        "north",
+        "east"
+      ],
+      "group": "environment"
+    },
+    {
+      "id": "wall-door-closed",
+      "label": "Olive door closed",
+      "category": "architecture",
+      "path": "groups/environment/textures/wall-door-closed.png",
+      "size": [
+        64,
+        48
+      ],
+      "anchor": [
+        32,
+        44
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "y-sort",
+      "geometryNote": "Native canvas and pivot are normalized. Source state wear/perspective may vary slightly; collision and exact map snapping require engine setup.",
+      "state": "closed",
+      "stateGroup": "olive-door",
+      "interaction": "switch sprite by state",
+      "group": "environment"
+    },
+    {
+      "id": "wall-door-open",
+      "label": "Olive door open",
+      "category": "architecture",
+      "path": "groups/environment/textures/wall-door-open.png",
+      "size": [
+        64,
+        48
+      ],
+      "anchor": [
+        32,
+        44
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "y-sort",
+      "geometryNote": "Native canvas and pivot are normalized. Source state wear/perspective may vary slightly; collision and exact map snapping require engine setup.",
+      "state": "open",
+      "stateGroup": "olive-door",
+      "interaction": "switch sprite by state",
+      "group": "environment"
+    },
+    {
+      "id": "wall-window-intact",
+      "label": "Intact window",
+      "category": "architecture",
+      "path": "groups/environment/textures/wall-window-intact.png",
+      "size": [
+        64,
+        48
+      ],
+      "anchor": [
+        32,
+        44
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "y-sort",
+      "geometryNote": "Native canvas and pivot are normalized. Source state wear/perspective may vary slightly; collision and exact map snapping require engine setup.",
+      "state": "intact",
+      "stateGroup": "window",
+      "interaction": "switch sprite by state",
+      "group": "environment"
+    },
+    {
+      "id": "wall-window-broken",
+      "label": "Broken window",
+      "category": "architecture",
+      "path": "groups/environment/textures/wall-window-broken.png",
+      "size": [
+        64,
+        48
+      ],
+      "anchor": [
+        32,
+        44
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "y-sort",
+      "geometryNote": "Native canvas and pivot are normalized. Source state wear/perspective may vary slightly; collision and exact map snapping require engine setup.",
+      "state": "broken",
+      "stateGroup": "window",
+      "interaction": "switch sprite by state",
+      "group": "environment"
+    },
+    {
+      "id": "wall-fence-horizontal",
+      "label": "Chain-link fence horizontal",
+      "category": "architecture",
+      "path": "groups/environment/textures/wall-fence-horizontal.png",
+      "size": [
+        64,
+        32
+      ],
+      "anchor": [
+        32,
+        32
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "y-sort",
+      "geometryNote": "Native canvas and pivot are normalized. Source state wear/perspective may vary slightly; collision and exact map snapping require engine setup.",
+      "group": "environment"
+    },
+    {
+      "id": "wall-fence-vertical",
+      "label": "Chain-link fence vertical",
+      "category": "architecture",
+      "path": "groups/environment/textures/wall-fence-vertical.png",
+      "size": [
+        32,
+        64
+      ],
+      "anchor": [
+        16,
+        64
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "y-sort",
+      "geometryNote": "Native canvas and pivot are normalized. Source state wear/perspective may vary slightly; collision and exact map snapping require engine setup.",
+      "group": "environment"
+    },
+    {
+      "id": "wall-gate-closed",
+      "label": "Chain-link gate closed",
+      "category": "architecture",
+      "path": "groups/environment/textures/wall-gate-closed.png",
+      "size": [
+        64,
+        48
+      ],
+      "anchor": [
+        32,
+        32
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "y-sort",
+      "geometryNote": "Native canvas and pivot are normalized. Source state wear/perspective may vary slightly; collision and exact map snapping require engine setup.",
+      "state": "closed",
+      "stateGroup": "chain-link-gate",
+      "interaction": "switch sprite by state",
+      "group": "environment"
+    },
+    {
+      "id": "wall-gate-open",
+      "label": "Chain-link gate open",
+      "category": "architecture",
+      "path": "groups/environment/textures/wall-gate-open.png",
+      "size": [
+        64,
+        48
+      ],
+      "anchor": [
+        32,
+        32
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "y-sort",
+      "geometryNote": "Native canvas and pivot are normalized. Source state wear/perspective may vary slightly; collision and exact map snapping require engine setup.",
+      "state": "open",
+      "stateGroup": "chain-link-gate",
+      "interaction": "switch sprite by state",
+      "group": "environment"
+    },
+    {
+      "id": "overlay-grass-north",
+      "label": "Grass fringe north",
+      "category": "terrain-overlay",
+      "path": "groups/environment/textures/overlay-grass-north.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "ground-overlay",
+      "tileSize": [
+        32,
+        32
+      ],
+      "group": "environment"
+    },
+    {
+      "id": "overlay-grass-east",
+      "label": "Grass fringe east",
+      "category": "terrain-overlay",
+      "path": "groups/environment/textures/overlay-grass-east.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "ground-overlay",
+      "tileSize": [
+        32,
+        32
+      ],
+      "group": "environment"
+    },
+    {
+      "id": "overlay-grass-south",
+      "label": "Grass fringe south",
+      "category": "terrain-overlay",
+      "path": "groups/environment/textures/overlay-grass-south.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "ground-overlay",
+      "tileSize": [
+        32,
+        32
+      ],
+      "group": "environment"
+    },
+    {
+      "id": "overlay-grass-west",
+      "label": "Grass fringe west",
+      "category": "terrain-overlay",
+      "path": "groups/environment/textures/overlay-grass-west.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "ground-overlay",
+      "tileSize": [
+        32,
+        32
+      ],
+      "group": "environment"
+    },
+    {
+      "id": "overlay-road-dashed",
+      "label": "Dashed ochre road line",
+      "category": "terrain-overlay",
+      "path": "groups/environment/textures/overlay-road-dashed.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "ground-overlay",
+      "tileSize": [
+        32,
+        32
+      ],
+      "group": "environment"
+    },
+    {
+      "id": "overlay-road-solid",
+      "label": "Solid ochre road line",
+      "category": "terrain-overlay",
+      "path": "groups/environment/textures/overlay-road-solid.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "ground-overlay",
+      "tileSize": [
+        32,
+        32
+      ],
+      "group": "environment"
+    },
+    {
+      "id": "overlay-puddle",
+      "label": "Slate puddle",
+      "category": "terrain-overlay",
+      "path": "groups/environment/textures/overlay-puddle.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "ground-overlay",
+      "tileSize": [
+        32,
+        32
+      ],
+      "group": "environment"
+    },
+    {
+      "id": "overlay-debris",
+      "label": "Rubble and paper debris",
+      "category": "terrain-overlay",
+      "path": "groups/environment/textures/overlay-debris.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "ground-overlay",
+      "tileSize": [
+        32,
+        32
+      ],
+      "group": "environment"
+    },
+    {
+      "id": "nature-pine",
+      "label": "Pine tree",
+      "category": "nature",
+      "path": "groups/props/native/nature-pine.png",
+      "size": [
+        64,
+        96
+      ],
+      "anchor": [
+        32,
+        94
+      ],
+      "atlasRect": [
+        16,
+        0,
+        64,
+        96
+      ],
+      "group": "props"
+    },
+    {
+      "id": "nature-broadleaf",
+      "label": "Broadleaf tree",
+      "category": "nature",
+      "path": "groups/props/native/nature-broadleaf.png",
+      "size": [
+        80,
+        96
+      ],
+      "anchor": [
+        40,
+        94
+      ],
+      "atlasRect": [
+        104,
+        0,
+        80,
+        96
+      ],
+      "group": "props"
+    },
+    {
+      "id": "nature-dead-tree",
+      "label": "Dead tree",
+      "category": "nature",
+      "path": "groups/props/native/nature-dead-tree.png",
+      "size": [
+        64,
+        96
+      ],
+      "anchor": [
+        32,
+        94
+      ],
+      "atlasRect": [
+        208,
+        0,
+        64,
+        96
+      ],
+      "group": "props"
+    },
+    {
+      "id": "nature-bush",
+      "label": "Low bush",
+      "category": "nature",
+      "path": "groups/props/native/nature-bush.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        30
+      ],
+      "atlasRect": [
+        320,
+        64,
+        32,
+        32
+      ],
+      "group": "props"
+    },
+    {
+      "id": "nature-reeds",
+      "label": "Reeds",
+      "category": "nature",
+      "path": "groups/props/native/nature-reeds.png",
+      "size": [
+        24,
+        32
+      ],
+      "anchor": [
+        12,
+        30
+      ],
+      "atlasRect": [
+        420,
+        64,
+        24,
+        32
+      ],
+      "group": "props"
+    },
+    {
+      "id": "nature-rock-cluster",
+      "label": "Rock cluster",
+      "category": "nature",
+      "path": "groups/props/native/nature-rock-cluster.png",
+      "size": [
+        32,
+        24
+      ],
+      "anchor": [
+        16,
+        22
+      ],
+      "atlasRect": [
+        512,
+        72,
+        32,
+        24
+      ],
+      "group": "props"
+    },
+    {
+      "id": "nature-stump",
+      "label": "Tree stump",
+      "category": "nature",
+      "path": "groups/props/native/nature-stump.png",
+      "size": [
+        24,
+        24
+      ],
+      "anchor": [
+        12,
+        22
+      ],
+      "atlasRect": [
+        36,
+        168,
+        24,
+        24
+      ],
+      "group": "props"
+    },
+    {
+      "id": "nature-fallen-log",
+      "label": "Fallen log",
+      "category": "nature",
+      "path": "groups/props/native/nature-fallen-log.png",
+      "size": [
+        48,
+        24
+      ],
+      "anchor": [
+        24,
+        22
+      ],
+      "atlasRect": [
+        120,
+        168,
+        48,
+        24
+      ],
+      "group": "props"
+    },
+    {
+      "id": "prop-barrel",
+      "label": "Oil barrel",
+      "category": "prop",
+      "path": "groups/props/native/prop-barrel.png",
+      "size": [
+        24,
+        32
+      ],
+      "anchor": [
+        12,
+        30
+      ],
+      "atlasRect": [
+        228,
+        160,
+        24,
+        32
+      ],
+      "group": "props"
+    },
+    {
+      "id": "prop-dumpster",
+      "label": "Dumpster",
+      "category": "prop",
+      "path": "groups/props/native/prop-dumpster.png",
+      "size": [
+        48,
+        32
+      ],
+      "anchor": [
+        24,
+        30
+      ],
+      "atlasRect": [
+        312,
+        160,
+        48,
+        32
+      ],
+      "group": "props"
+    },
+    {
+      "id": "prop-concrete-barrier",
+      "label": "Concrete barrier",
+      "category": "prop",
+      "path": "groups/props/native/prop-concrete-barrier.png",
+      "size": [
+        48,
+        24
+      ],
+      "anchor": [
+        24,
+        22
+      ],
+      "atlasRect": [
+        408,
+        168,
+        48,
+        24
+      ],
+      "group": "props"
+    },
+    {
+      "id": "prop-pallet-stack",
+      "label": "Pallet stack",
+      "category": "prop",
+      "path": "groups/props/native/prop-pallet-stack.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        30
+      ],
+      "atlasRect": [
+        512,
+        160,
+        32,
+        32
+      ],
+      "group": "props"
+    },
+    {
+      "id": "prop-workbench",
+      "label": "Scavenger workbench",
+      "category": "prop",
+      "path": "groups/props/native/prop-workbench.png",
+      "size": [
+        48,
+        32
+      ],
+      "anchor": [
+        24,
+        30
+      ],
+      "atlasRect": [
+        24,
+        256,
+        48,
+        32
+      ],
+      "group": "props"
+    },
+    {
+      "id": "prop-bed",
+      "label": "Bed",
+      "category": "prop",
+      "path": "groups/props/native/prop-bed.png",
+      "size": [
+        48,
+        32
+      ],
+      "anchor": [
+        24,
+        30
+      ],
+      "atlasRect": [
+        120,
+        256,
+        48,
+        32
+      ],
+      "group": "props"
+    },
+    {
+      "id": "prop-chair",
+      "label": "Wooden chair",
+      "category": "prop",
+      "path": "groups/props/native/prop-chair.png",
+      "size": [
+        24,
+        32
+      ],
+      "anchor": [
+        12,
+        30
+      ],
+      "atlasRect": [
+        228,
+        256,
+        24,
+        32
+      ],
+      "group": "props"
+    },
+    {
+      "id": "prop-table",
+      "label": "Wooden table",
+      "category": "prop",
+      "path": "groups/props/native/prop-table.png",
+      "size": [
+        40,
+        32
+      ],
+      "anchor": [
+        20,
+        30
+      ],
+      "atlasRect": [
+        316,
+        256,
+        40,
+        32
+      ],
+      "group": "props"
+    },
+    {
+      "id": "prop-fridge",
+      "label": "Old refrigerator",
+      "category": "prop",
+      "path": "groups/props/native/prop-fridge.png",
+      "size": [
+        24,
+        40
+      ],
+      "anchor": [
+        12,
+        38
+      ],
+      "atlasRect": [
+        420,
+        248,
+        24,
+        40
+      ],
+      "group": "props"
+    },
+    {
+      "id": "prop-shelf",
+      "label": "Supply shelf",
+      "category": "prop",
+      "path": "groups/props/native/prop-shelf.png",
+      "size": [
+        40,
+        32
+      ],
+      "anchor": [
+        20,
+        30
+      ],
+      "atlasRect": [
+        508,
+        256,
+        40,
+        32
+      ],
+      "group": "props"
+    },
+    {
+      "id": "prop-medical-cabinet",
+      "label": "Medical cabinet",
+      "category": "prop",
+      "path": "groups/props/native/prop-medical-cabinet.png",
+      "size": [
+        24,
+        32
+      ],
+      "anchor": [
+        12,
+        30
+      ],
+      "atlasRect": [
+        36,
+        352,
+        24,
+        32
+      ],
+      "group": "props"
+    },
+    {
+      "id": "prop-streetlamp",
+      "label": "Streetlamp",
+      "category": "prop",
+      "path": "groups/props/native/prop-streetlamp.png",
+      "size": [
+        24,
+        64
+      ],
+      "anchor": [
+        12,
+        62
+      ],
+      "atlasRect": [
+        132,
+        320,
+        24,
+        64
+      ],
+      "group": "props"
+    },
+    {
+      "id": "prop-road-sign",
+      "label": "Blank road sign",
+      "category": "prop",
+      "path": "groups/props/native/prop-road-sign.png",
+      "size": [
+        24,
+        40
+      ],
+      "anchor": [
+        12,
+        38
+      ],
+      "atlasRect": [
+        228,
+        344,
+        24,
+        40
+      ],
+      "group": "props"
+    },
+    {
+      "id": "prop-traffic-cone",
+      "label": "Traffic cone",
+      "category": "prop",
+      "path": "groups/props/native/prop-traffic-cone.png",
+      "size": [
+        16,
+        24
+      ],
+      "anchor": [
+        8,
+        22
+      ],
+      "atlasRect": [
+        328,
+        360,
+        16,
+        24
+      ],
+      "group": "props"
+    },
+    {
+      "id": "prop-trash-bags",
+      "label": "Rubbish bags",
+      "category": "prop",
+      "path": "groups/props/native/prop-trash-bags.png",
+      "size": [
+        32,
+        24
+      ],
+      "anchor": [
+        16,
+        22
+      ],
+      "atlasRect": [
+        416,
+        360,
+        32,
+        24
+      ],
+      "group": "props"
+    },
+    {
+      "id": "prop-fence-post",
+      "label": "Fence post",
+      "category": "prop",
+      "path": "groups/props/native/prop-fence-post.png",
+      "size": [
+        16,
+        32
+      ],
+      "anchor": [
+        8,
+        30
+      ],
+      "atlasRect": [
+        520,
+        352,
+        16,
+        32
+      ],
+      "group": "props"
+    },
+    {
+      "id": "prop-wood-crate-closed",
+      "label": "Wooden crate / closed",
+      "category": "container",
+      "path": "groups/props/native/prop-wood-crate-closed.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        30
+      ],
+      "state": "closed",
+      "stateGroup": "prop-wood-crate",
+      "atlasRect": [
+        32,
+        448,
+        32,
+        32
+      ],
+      "group": "props"
+    },
+    {
+      "id": "prop-wood-crate-open",
+      "label": "Wooden crate / open",
+      "category": "container",
+      "path": "groups/props/native/prop-wood-crate-open.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        30
+      ],
+      "state": "open",
+      "stateGroup": "prop-wood-crate",
+      "atlasRect": [
+        128,
+        448,
+        32,
+        32
+      ],
+      "group": "props"
+    },
+    {
+      "id": "prop-wood-crate-empty",
+      "label": "Wooden crate / empty",
+      "category": "container",
+      "path": "groups/props/native/prop-wood-crate-empty.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        30
+      ],
+      "state": "empty",
+      "stateGroup": "prop-wood-crate",
+      "atlasRect": [
+        224,
+        448,
+        32,
+        32
+      ],
+      "group": "props"
+    },
+    {
+      "id": "prop-metal-footlocker-closed",
+      "label": "Metal footlocker / closed",
+      "category": "container",
+      "path": "groups/props/native/prop-metal-footlocker-closed.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        30
+      ],
+      "state": "closed",
+      "stateGroup": "prop-metal-footlocker",
+      "atlasRect": [
+        320,
+        448,
+        32,
+        32
+      ],
+      "group": "props"
+    },
+    {
+      "id": "prop-metal-footlocker-open",
+      "label": "Metal footlocker / open",
+      "category": "container",
+      "path": "groups/props/native/prop-metal-footlocker-open.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        30
+      ],
+      "state": "open",
+      "stateGroup": "prop-metal-footlocker",
+      "atlasRect": [
+        416,
+        448,
+        32,
+        32
+      ],
+      "group": "props"
+    },
+    {
+      "id": "prop-metal-footlocker-empty",
+      "label": "Metal footlocker / empty",
+      "category": "container",
+      "path": "groups/props/native/prop-metal-footlocker-empty.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        30
+      ],
+      "state": "empty",
+      "stateGroup": "prop-metal-footlocker",
+      "atlasRect": [
+        512,
+        448,
+        32,
+        32
+      ],
+      "group": "props"
+    },
+    {
+      "id": "prop-medical-box-closed",
+      "label": "Medical box / closed",
+      "category": "container",
+      "path": "groups/props/native/prop-medical-box-closed.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        30
+      ],
+      "state": "closed",
+      "stateGroup": "prop-medical-box",
+      "atlasRect": [
+        32,
+        544,
+        32,
+        32
+      ],
+      "group": "props"
+    },
+    {
+      "id": "prop-medical-box-open",
+      "label": "Medical box / open",
+      "category": "container",
+      "path": "groups/props/native/prop-medical-box-open.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        30
+      ],
+      "state": "open",
+      "stateGroup": "prop-medical-box",
+      "atlasRect": [
+        128,
+        544,
+        32,
+        32
+      ],
+      "group": "props"
+    },
+    {
+      "id": "prop-medical-box-empty",
+      "label": "Medical box / empty",
+      "category": "container",
+      "path": "groups/props/native/prop-medical-box-empty.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        30
+      ],
+      "state": "empty",
+      "stateGroup": "prop-medical-box",
+      "atlasRect": [
+        224,
+        544,
+        32,
+        32
+      ],
+      "group": "props"
+    },
+    {
+      "id": "item-pistol",
+      "label": "Pistol",
+      "category": "inventory",
+      "itemCategory": "weapon",
+      "path": "groups/items/icons/item-pistol.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        21
+      ],
+      "iconOnly": true,
+      "heldAsset": "weapon-pistol",
+      "group": "items"
+    },
+    {
+      "id": "item-revolver",
+      "label": "Revolver",
+      "category": "inventory",
+      "itemCategory": "weapon",
+      "path": "groups/items/icons/item-revolver.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        17
+      ],
+      "iconOnly": true,
+      "heldAsset": "weapon-revolver",
+      "group": "items"
+    },
+    {
+      "id": "item-smg",
+      "label": "Smg",
+      "category": "inventory",
+      "itemCategory": "weapon",
+      "path": "groups/items/icons/item-smg.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        19
+      ],
+      "iconOnly": true,
+      "heldAsset": "weapon-smg",
+      "group": "items"
+    },
+    {
+      "id": "item-pump-shotgun",
+      "label": "Pump Shotgun",
+      "category": "inventory",
+      "itemCategory": "weapon",
+      "path": "groups/items/icons/item-pump-shotgun.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        11
+      ],
+      "iconOnly": true,
+      "heldAsset": "weapon-pump-shotgun",
+      "group": "items"
+    },
+    {
+      "id": "item-assault-rifle",
+      "label": "Assault Rifle",
+      "category": "inventory",
+      "itemCategory": "weapon",
+      "path": "groups/items/icons/item-assault-rifle.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        12
+      ],
+      "iconOnly": true,
+      "heldAsset": "weapon-assault-rifle",
+      "group": "items"
+    },
+    {
+      "id": "item-bolt-rifle",
+      "label": "Bolt Rifle",
+      "category": "inventory",
+      "itemCategory": "weapon",
+      "path": "groups/items/icons/item-bolt-rifle.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        10
+      ],
+      "iconOnly": true,
+      "heldAsset": "weapon-bolt-rifle",
+      "group": "items"
+    },
+    {
+      "id": "item-bow",
+      "label": "Bow",
+      "category": "inventory",
+      "itemCategory": "weapon",
+      "path": "groups/items/icons/item-bow.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        9,
+        27
+      ],
+      "iconOnly": true,
+      "heldAsset": "weapon-bow",
+      "group": "items"
+    },
+    {
+      "id": "item-crossbow",
+      "label": "Crossbow",
+      "category": "inventory",
+      "itemCategory": "weapon",
+      "path": "groups/items/icons/item-crossbow.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        14
+      ],
+      "iconOnly": true,
+      "heldAsset": "weapon-crossbow",
+      "group": "items"
+    },
+    {
+      "id": "item-kitchen-knife",
+      "label": "Kitchen Knife",
+      "category": "inventory",
+      "itemCategory": "weapon",
+      "path": "groups/items/icons/item-kitchen-knife.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        27
+      ],
+      "iconOnly": true,
+      "heldAsset": "weapon-kitchen-knife",
+      "group": "items"
+    },
+    {
+      "id": "item-hatchet",
+      "label": "Hatchet",
+      "category": "inventory",
+      "itemCategory": "weapon",
+      "path": "groups/items/icons/item-hatchet.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        26
+      ],
+      "iconOnly": true,
+      "heldAsset": "weapon-hatchet",
+      "group": "items"
+    },
+    {
+      "id": "item-crowbar",
+      "label": "Crowbar",
+      "category": "inventory",
+      "itemCategory": "weapon",
+      "path": "groups/items/icons/item-crowbar.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        27
+      ],
+      "iconOnly": true,
+      "heldAsset": "weapon-crowbar",
+      "group": "items"
+    },
+    {
+      "id": "item-baseball-bat",
+      "label": "Baseball Bat",
+      "category": "inventory",
+      "itemCategory": "weapon",
+      "path": "groups/items/icons/item-baseball-bat.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        26,
+        27
+      ],
+      "iconOnly": true,
+      "heldAsset": "weapon-baseball-bat",
+      "group": "items"
+    },
+    {
+      "id": "item-pistol-rounds",
+      "label": "Pistol Rounds",
+      "category": "inventory",
+      "itemCategory": "ammo",
+      "path": "groups/items/icons/item-pistol-rounds.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        17
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-rifle-rounds",
+      "label": "Rifle Rounds",
+      "category": "inventory",
+      "itemCategory": "ammo",
+      "path": "groups/items/icons/item-rifle-rounds.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        22,
+        27
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-shells",
+      "label": "Shells",
+      "category": "inventory",
+      "itemCategory": "ammo",
+      "path": "groups/items/icons/item-shells.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        17
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-arrows",
+      "label": "Arrows",
+      "category": "inventory",
+      "itemCategory": "ammo",
+      "path": "groups/items/icons/item-arrows.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        26,
+        27
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-bolts",
+      "label": "Bolts",
+      "category": "inventory",
+      "itemCategory": "ammo",
+      "path": "groups/items/icons/item-bolts.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        26
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-empty-magazine",
+      "label": "Empty Magazine",
+      "category": "inventory",
+      "itemCategory": "ammo",
+      "path": "groups/items/icons/item-empty-magazine.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        19,
+        27
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-water-bottle",
+      "label": "Water Bottle",
+      "category": "inventory",
+      "itemCategory": "food-drink",
+      "path": "groups/items/icons/item-water-bottle.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        11,
+        27
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-tin-beans",
+      "label": "Tin Beans",
+      "category": "inventory",
+      "itemCategory": "food-drink",
+      "path": "groups/items/icons/item-tin-beans.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        21,
+        27
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-tinned-meat",
+      "label": "Tinned Meat",
+      "category": "inventory",
+      "itemCategory": "food-drink",
+      "path": "groups/items/icons/item-tinned-meat.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        25
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-bread",
+      "label": "Bread",
+      "category": "inventory",
+      "itemCategory": "food-drink",
+      "path": "groups/items/icons/item-bread.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        22
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-apple",
+      "label": "Apple",
+      "category": "inventory",
+      "itemCategory": "food-drink",
+      "path": "groups/items/icons/item-apple.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        23,
+        27
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-mre",
+      "label": "Mre",
+      "category": "inventory",
+      "itemCategory": "food-drink",
+      "path": "groups/items/icons/item-mre.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        23,
+        27
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-bandage-roll",
+      "label": "Bandage Roll",
+      "category": "inventory",
+      "itemCategory": "medical",
+      "path": "groups/items/icons/item-bandage-roll.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        21
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-first-aid-kit",
+      "label": "First Aid Kit",
+      "category": "inventory",
+      "itemCategory": "medical",
+      "path": "groups/items/icons/item-first-aid-kit.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        26
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-painkillers",
+      "label": "Painkillers",
+      "category": "inventory",
+      "itemCategory": "medical",
+      "path": "groups/items/icons/item-painkillers.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        15,
+        27
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-antiseptic",
+      "label": "Antiseptic",
+      "category": "inventory",
+      "itemCategory": "medical",
+      "path": "groups/items/icons/item-antiseptic.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        14,
+        27
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-splint",
+      "label": "Splint",
+      "category": "inventory",
+      "itemCategory": "medical",
+      "path": "groups/items/icons/item-splint.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        24
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-antibiotics",
+      "label": "Antibiotics",
+      "category": "inventory",
+      "itemCategory": "medical",
+      "path": "groups/items/icons/item-antibiotics.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        22,
+        27
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-scrap",
+      "label": "Scrap",
+      "category": "inventory",
+      "itemCategory": "crafting",
+      "path": "groups/items/icons/item-scrap.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        26
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-wood-planks",
+      "label": "Wood Planks",
+      "category": "inventory",
+      "itemCategory": "crafting",
+      "path": "groups/items/icons/item-wood-planks.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        26
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-cloth",
+      "label": "Cloth",
+      "category": "inventory",
+      "itemCategory": "crafting",
+      "path": "groups/items/icons/item-cloth.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        23
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-wire",
+      "label": "Wire",
+      "category": "inventory",
+      "itemCategory": "crafting",
+      "path": "groups/items/icons/item-wire.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        25
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-electronics",
+      "label": "Electronics",
+      "category": "inventory",
+      "itemCategory": "crafting",
+      "path": "groups/items/icons/item-electronics.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        22
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-battery",
+      "label": "Battery",
+      "category": "inventory",
+      "itemCategory": "crafting",
+      "path": "groups/items/icons/item-battery.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        23
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-fuel-can",
+      "label": "Fuel Can",
+      "category": "inventory",
+      "itemCategory": "crafting",
+      "path": "groups/items/icons/item-fuel-can.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        20,
+        27
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-toolkit",
+      "label": "Toolkit",
+      "category": "inventory",
+      "itemCategory": "crafting",
+      "path": "groups/items/icons/item-toolkit.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        24
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-backpack",
+      "label": "Backpack",
+      "category": "inventory",
+      "itemCategory": "gear",
+      "path": "groups/items/icons/item-backpack.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        26,
+        27
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-helmet",
+      "label": "Helmet",
+      "category": "inventory",
+      "itemCategory": "gear",
+      "path": "groups/items/icons/item-helmet.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        26
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-vest",
+      "label": "Vest",
+      "category": "inventory",
+      "itemCategory": "gear",
+      "path": "groups/items/icons/item-vest.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        25,
+        27
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-gas-mask",
+      "label": "Gas Mask",
+      "category": "inventory",
+      "itemCategory": "gear",
+      "path": "groups/items/icons/item-gas-mask.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        24,
+        27
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-flashlight",
+      "label": "Flashlight",
+      "category": "inventory",
+      "itemCategory": "gear",
+      "path": "groups/items/icons/item-flashlight.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        25
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-radio",
+      "label": "Radio",
+      "category": "inventory",
+      "itemCategory": "gear",
+      "path": "groups/items/icons/item-radio.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        13,
+        27
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-binoculars",
+      "label": "Binoculars",
+      "category": "inventory",
+      "itemCategory": "gear",
+      "path": "groups/items/icons/item-binoculars.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        22
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-map",
+      "label": "Map",
+      "category": "inventory",
+      "itemCategory": "gear",
+      "path": "groups/items/icons/item-map.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        27
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-key",
+      "label": "Key",
+      "category": "inventory",
+      "itemCategory": "gear",
+      "path": "groups/items/icons/item-key.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        26,
+        27
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "item-repair-kit",
+      "label": "Repair Kit",
+      "category": "inventory",
+      "itemCategory": "gear",
+      "path": "groups/items/icons/item-repair-kit.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        23
+      ],
+      "iconOnly": true,
+      "group": "items"
+    },
+    {
+      "id": "weapon-pistol",
+      "label": "Pistol held",
+      "category": "held-weapon",
+      "path": "groups/items/held/weapon-pistol.png",
+      "size": [
+        24,
+        16
+      ],
+      "occupiedSize": [
+        12,
+        9
+      ],
+      "anchor": [
+        8.18,
+        8.85
+      ],
+      "grip": [
+        8.18,
+        8.85
+      ],
+      "muzzle": [
+        17.37,
+        5.41
+      ],
+      "tip": [
+        17.37,
+        5.41
+      ],
+      "facing": "east",
+      "inventoryAsset": "item-pistol",
+      "weapon": {
+        "grip": [
+          8.18,
+          8.85
+        ],
+        "muzzle": [
+          17.37,
+          5.41
+        ],
+        "demoFxType": "pistol",
+        "demoCooldownSeconds": 0.3,
+        "demoOnly": true
+      },
+      "group": "items"
+    },
+    {
+      "id": "weapon-revolver",
+      "label": "Revolver held",
+      "category": "held-weapon",
+      "path": "groups/items/held/weapon-revolver.png",
+      "size": [
+        24,
+        16
+      ],
+      "occupiedSize": [
+        15,
+        9
+      ],
+      "anchor": [
+        5.9,
+        9.25
+      ],
+      "grip": [
+        5.9,
+        9.25
+      ],
+      "muzzle": [
+        18.48,
+        4.85
+      ],
+      "tip": [
+        18.48,
+        4.85
+      ],
+      "facing": "east",
+      "inventoryAsset": "item-revolver",
+      "weapon": {
+        "grip": [
+          5.9,
+          9.25
+        ],
+        "muzzle": [
+          18.48,
+          4.85
+        ],
+        "demoFxType": "pistol",
+        "demoCooldownSeconds": 0.45,
+        "demoOnly": true
+      },
+      "group": "items"
+    },
+    {
+      "id": "weapon-smg",
+      "label": "Smg held",
+      "category": "held-weapon",
+      "path": "groups/items/held/weapon-smg.png",
+      "size": [
+        32,
+        16
+      ],
+      "occupiedSize": [
+        19,
+        10
+      ],
+      "anchor": [
+        16.84,
+        9.71
+      ],
+      "grip": [
+        16.84,
+        9.71
+      ],
+      "muzzle": [
+        24.45,
+        6.21
+      ],
+      "tip": [
+        24.45,
+        6.21
+      ],
+      "facing": "east",
+      "inventoryAsset": "item-smg",
+      "weapon": {
+        "grip": [
+          16.84,
+          9.71
+        ],
+        "muzzle": [
+          24.45,
+          6.21
+        ],
+        "demoFxType": "smg",
+        "demoCooldownSeconds": 0.11,
+        "demoOnly": true
+      },
+      "group": "items"
+    },
+    {
+      "id": "weapon-pump-shotgun",
+      "label": "Pump Shotgun held",
+      "category": "held-weapon",
+      "path": "groups/items/held/weapon-pump-shotgun.png",
+      "size": [
+        48,
+        16
+      ],
+      "occupiedSize": [
+        25,
+        7
+      ],
+      "anchor": [
+        20.8,
+        7.86
+      ],
+      "grip": [
+        20.8,
+        7.86
+      ],
+      "muzzle": [
+        35.55,
+        5.5
+      ],
+      "tip": [
+        35.55,
+        5.5
+      ],
+      "facing": "east",
+      "inventoryAsset": "item-pump-shotgun",
+      "weapon": {
+        "grip": [
+          20.8,
+          7.86
+        ],
+        "muzzle": [
+          35.55,
+          5.5
+        ],
+        "demoFxType": "shotgun",
+        "demoCooldownSeconds": 0.9,
+        "demoOnly": true
+      },
+      "group": "items"
+    },
+    {
+      "id": "weapon-assault-rifle",
+      "label": "Assault Rifle held",
+      "category": "held-weapon",
+      "path": "groups/items/held/weapon-assault-rifle.png",
+      "size": [
+        48,
+        16
+      ],
+      "occupiedSize": [
+        26,
+        9
+      ],
+      "anchor": [
+        18.3,
+        7.78
+      ],
+      "grip": [
+        18.3,
+        7.78
+      ],
+      "muzzle": [
+        36.58,
+        5.14
+      ],
+      "tip": [
+        36.58,
+        5.14
+      ],
+      "facing": "east",
+      "inventoryAsset": "item-assault-rifle",
+      "weapon": {
+        "grip": [
+          18.3,
+          7.78
+        ],
+        "muzzle": [
+          36.58,
+          5.14
+        ],
+        "demoFxType": "rifle",
+        "demoCooldownSeconds": 0.15,
+        "demoOnly": true
+      },
+      "group": "items"
+    },
+    {
+      "id": "weapon-bolt-rifle",
+      "label": "Bolt Rifle held",
+      "category": "held-weapon",
+      "path": "groups/items/held/weapon-bolt-rifle.png",
+      "size": [
+        48,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        7
+      ],
+      "anchor": [
+        19.32,
+        8.44
+      ],
+      "grip": [
+        19.32,
+        8.44
+      ],
+      "muzzle": [
+        36.42,
+        5.41
+      ],
+      "tip": [
+        36.42,
+        5.41
+      ],
+      "facing": "east",
+      "inventoryAsset": "item-bolt-rifle",
+      "weapon": {
+        "grip": [
+          19.32,
+          8.44
+        ],
+        "muzzle": [
+          36.42,
+          5.41
+        ],
+        "demoFxType": "rifle",
+        "demoCooldownSeconds": 1.2,
+        "demoOnly": true
+      },
+      "group": "items"
+    },
+    {
+      "id": "weapon-bow",
+      "label": "Bow held",
+      "category": "held-weapon",
+      "path": "groups/items/held/weapon-bow.png",
+      "size": [
+        24,
+        32
+      ],
+      "occupiedSize": [
+        14,
+        22
+      ],
+      "anchor": [
+        10.02,
+        16.16
+      ],
+      "grip": [
+        10.02,
+        16.16
+      ],
+      "muzzle": [
+        18.26,
+        16.08
+      ],
+      "tip": [
+        18.26,
+        16.08
+      ],
+      "facing": "east",
+      "inventoryAsset": "item-bow",
+      "weapon": {
+        "grip": [
+          10.02,
+          16.16
+        ],
+        "muzzle": [
+          18.26,
+          16.08
+        ],
+        "demoFxType": "arrow",
+        "demoCooldownSeconds": 0.8,
+        "demoOnly": true
+      },
+      "group": "items"
+    },
+    {
+      "id": "weapon-crossbow",
+      "label": "Crossbow held",
+      "category": "held-weapon",
+      "path": "groups/items/held/weapon-crossbow.png",
+      "size": [
+        48,
+        24
+      ],
+      "occupiedSize": [
+        25,
+        12
+      ],
+      "anchor": [
+        19.04,
+        13.14
+      ],
+      "grip": [
+        19.04,
+        13.14
+      ],
+      "muzzle": [
+        35.27,
+        11.89
+      ],
+      "tip": [
+        35.27,
+        11.89
+      ],
+      "facing": "east",
+      "inventoryAsset": "item-crossbow",
+      "weapon": {
+        "grip": [
+          19.04,
+          13.14
+        ],
+        "muzzle": [
+          35.27,
+          11.89
+        ],
+        "demoFxType": "bolt",
+        "demoCooldownSeconds": 1.1,
+        "demoOnly": true
+      },
+      "group": "items"
+    },
+    {
+      "id": "weapon-kitchen-knife",
+      "label": "Kitchen Knife held",
+      "category": "held-weapon",
+      "path": "groups/items/held/weapon-kitchen-knife.png",
+      "size": [
+        24,
+        16
+      ],
+      "occupiedSize": [
+        14,
+        3
+      ],
+      "anchor": [
+        8.05,
+        7.45
+      ],
+      "grip": [
+        8.05,
+        7.45
+      ],
+      "muzzle": [
+        18.69,
+        6.78
+      ],
+      "tip": [
+        18.69,
+        6.78
+      ],
+      "facing": "east",
+      "inventoryAsset": "item-kitchen-knife",
+      "weapon": {
+        "grip": [
+          8.05,
+          7.45
+        ],
+        "muzzle": [
+          18.69,
+          6.78
+        ],
+        "demoFxType": "melee",
+        "demoCooldownSeconds": 0.35,
+        "demoOnly": true
+      },
+      "group": "items"
+    },
+    {
+      "id": "weapon-hatchet",
+      "label": "Hatchet held",
+      "category": "held-weapon",
+      "path": "groups/items/held/weapon-hatchet.png",
+      "size": [
+        24,
+        16
+      ],
+      "occupiedSize": [
+        16,
+        7
+      ],
+      "anchor": [
+        7.27,
+        6.72
+      ],
+      "grip": [
+        7.27,
+        6.72
+      ],
+      "muzzle": [
+        19.37,
+        7.61
+      ],
+      "tip": [
+        19.37,
+        7.61
+      ],
+      "facing": "east",
+      "inventoryAsset": "item-hatchet",
+      "weapon": {
+        "grip": [
+          7.27,
+          6.72
+        ],
+        "muzzle": [
+          19.37,
+          7.61
+        ],
+        "demoFxType": "melee",
+        "demoCooldownSeconds": 0.55,
+        "demoOnly": true
+      },
+      "group": "items"
+    },
+    {
+      "id": "weapon-crowbar",
+      "label": "Crowbar held",
+      "category": "held-weapon",
+      "path": "groups/items/held/weapon-crowbar.png",
+      "size": [
+        32,
+        16
+      ],
+      "occupiedSize": [
+        22,
+        5
+      ],
+      "anchor": [
+        8.48,
+        7.36
+      ],
+      "grip": [
+        8.48,
+        7.36
+      ],
+      "muzzle": [
+        26.28,
+        7.25
+      ],
+      "tip": [
+        26.28,
+        7.25
+      ],
+      "facing": "east",
+      "inventoryAsset": "item-crowbar",
+      "weapon": {
+        "grip": [
+          8.48,
+          7.36
+        ],
+        "muzzle": [
+          26.28,
+          7.25
+        ],
+        "demoFxType": "melee",
+        "demoCooldownSeconds": 0.6,
+        "demoOnly": true
+      },
+      "group": "items"
+    },
+    {
+      "id": "weapon-baseball-bat",
+      "label": "Baseball Bat held",
+      "category": "held-weapon",
+      "path": "groups/items/held/weapon-baseball-bat.png",
+      "size": [
+        32,
+        16
+      ],
+      "occupiedSize": [
+        22,
+        4
+      ],
+      "anchor": [
+        9.17,
+        8.2
+      ],
+      "grip": [
+        9.17,
+        8.2
+      ],
+      "muzzle": [
+        26.83,
+        7.97
+      ],
+      "tip": [
+        26.83,
+        7.97
+      ],
+      "facing": "east",
+      "inventoryAsset": "item-baseball-bat",
+      "weapon": {
+        "grip": [
+          9.17,
+          8.2
+        ],
+        "muzzle": [
+          26.83,
+          7.97
+        ],
+        "demoFxType": "melee",
+        "demoCooldownSeconds": 0.65,
+        "demoOnly": true
+      },
+      "group": "items"
+    },
+    {
+      "id": "fx-pistol-muzzle",
+      "label": "Pistol muzzle flash",
+      "category": "effects",
+      "path": "groups/effects/frames/fx-pistol-muzzle-00.png",
+      "size": [
+        32,
+        16
+      ],
+      "anchor": [
+        3,
+        8
+      ],
+      "frames": {
+        "play": [
+          {
+            "path": "groups/effects/frames/fx-pistol-muzzle-00.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-pistol-muzzle-01.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-pistol-muzzle-02.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-pistol-muzzle-03.png"
+          }
+        ]
+      },
+      "fps": 24,
+      "duration": 0.16666666666666666,
+      "loop": false,
+      "atlas": {
+        "path": "groups/effects/atlases/fx-pistol-muzzle.png",
+        "columns": 4,
+        "rows": 1,
+        "frameSize": [
+          32,
+          16
+        ]
+      },
+      "blend": "normal",
+      "facing": "right",
+      "attachment": "weapon muzzle",
+      "group": "effects"
+    },
+    {
+      "id": "fx-rifle-muzzle",
+      "label": "Rifle muzzle flash",
+      "category": "effects",
+      "path": "groups/effects/frames/fx-rifle-muzzle-00.png",
+      "size": [
+        32,
+        16
+      ],
+      "anchor": [
+        3,
+        8
+      ],
+      "frames": {
+        "play": [
+          {
+            "path": "groups/effects/frames/fx-rifle-muzzle-00.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-rifle-muzzle-01.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-rifle-muzzle-02.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-rifle-muzzle-03.png"
+          }
+        ]
+      },
+      "fps": 24,
+      "duration": 0.16666666666666666,
+      "loop": false,
+      "atlas": {
+        "path": "groups/effects/atlases/fx-rifle-muzzle.png",
+        "columns": 4,
+        "rows": 1,
+        "frameSize": [
+          32,
+          16
+        ]
+      },
+      "blend": "normal",
+      "facing": "right",
+      "attachment": "weapon muzzle",
+      "group": "effects"
+    },
+    {
+      "id": "fx-shotgun-muzzle",
+      "label": "Shotgun muzzle flash",
+      "category": "effects",
+      "path": "groups/effects/frames/fx-shotgun-muzzle-00.png",
+      "size": [
+        32,
+        16
+      ],
+      "anchor": [
+        3,
+        8
+      ],
+      "frames": {
+        "play": [
+          {
+            "path": "groups/effects/frames/fx-shotgun-muzzle-00.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-shotgun-muzzle-01.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-shotgun-muzzle-02.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-shotgun-muzzle-03.png"
+          }
+        ]
+      },
+      "fps": 20,
+      "duration": 0.2,
+      "loop": false,
+      "atlas": {
+        "path": "groups/effects/atlases/fx-shotgun-muzzle.png",
+        "columns": 4,
+        "rows": 1,
+        "frameSize": [
+          32,
+          16
+        ]
+      },
+      "blend": "normal",
+      "facing": "right",
+      "attachment": "weapon muzzle",
+      "group": "effects"
+    },
+    {
+      "id": "fx-metal-sparks",
+      "label": "Metal impact sparks",
+      "category": "effects",
+      "path": "groups/effects/frames/fx-metal-sparks-00.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "frames": {
+        "play": [
+          {
+            "path": "groups/effects/frames/fx-metal-sparks-00.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-metal-sparks-01.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-metal-sparks-02.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-metal-sparks-03.png"
+          }
+        ]
+      },
+      "fps": 12,
+      "duration": 0.3333333333333333,
+      "loop": false,
+      "atlas": {
+        "path": "groups/effects/atlases/fx-metal-sparks.png",
+        "columns": 4,
+        "rows": 1,
+        "frameSize": [
+          32,
+          32
+        ]
+      },
+      "blend": "normal",
+      "group": "effects"
+    },
+    {
+      "id": "fx-concrete-dust",
+      "label": "Concrete impact dust",
+      "category": "effects",
+      "path": "groups/effects/frames/fx-concrete-dust-00.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        20
+      ],
+      "frames": {
+        "play": [
+          {
+            "path": "groups/effects/frames/fx-concrete-dust-00.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-concrete-dust-01.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-concrete-dust-02.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-concrete-dust-03.png"
+          }
+        ]
+      },
+      "fps": 12,
+      "duration": 0.3333333333333333,
+      "loop": false,
+      "atlas": {
+        "path": "groups/effects/atlases/fx-concrete-dust.png",
+        "columns": 4,
+        "rows": 1,
+        "frameSize": [
+          32,
+          32
+        ]
+      },
+      "blend": "normal",
+      "group": "effects"
+    },
+    {
+      "id": "fx-wood-splinters",
+      "label": "Wood impact splinters",
+      "category": "effects",
+      "path": "groups/effects/frames/fx-wood-splinters-00.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        20
+      ],
+      "frames": {
+        "play": [
+          {
+            "path": "groups/effects/frames/fx-wood-splinters-00.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-wood-splinters-01.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-wood-splinters-02.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-wood-splinters-03.png"
+          }
+        ]
+      },
+      "fps": 12,
+      "duration": 0.3333333333333333,
+      "loop": false,
+      "atlas": {
+        "path": "groups/effects/atlases/fx-wood-splinters.png",
+        "columns": 4,
+        "rows": 1,
+        "frameSize": [
+          32,
+          32
+        ]
+      },
+      "blend": "normal",
+      "group": "effects"
+    },
+    {
+      "id": "fx-blood-hit",
+      "label": "Blood hit",
+      "category": "effects",
+      "path": "groups/effects/frames/fx-blood-hit-00.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "frames": {
+        "play": [
+          {
+            "path": "groups/effects/frames/fx-blood-hit-00.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-blood-hit-01.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-blood-hit-02.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-blood-hit-03.png"
+          }
+        ]
+      },
+      "fps": 12,
+      "duration": 0.3333333333333333,
+      "loop": false,
+      "atlas": {
+        "path": "groups/effects/atlases/fx-blood-hit.png",
+        "columns": 4,
+        "rows": 1,
+        "frameSize": [
+          32,
+          32
+        ]
+      },
+      "blend": "normal",
+      "group": "effects"
+    },
+    {
+      "id": "fx-water-splash",
+      "label": "Water splash",
+      "category": "effects",
+      "path": "groups/effects/frames/fx-water-splash-00.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        26
+      ],
+      "frames": {
+        "play": [
+          {
+            "path": "groups/effects/frames/fx-water-splash-00.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-water-splash-01.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-water-splash-02.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-water-splash-03.png"
+          }
+        ]
+      },
+      "fps": 12,
+      "duration": 0.3333333333333333,
+      "loop": false,
+      "atlas": {
+        "path": "groups/effects/atlases/fx-water-splash.png",
+        "columns": 4,
+        "rows": 1,
+        "frameSize": [
+          32,
+          32
+        ]
+      },
+      "blend": "normal",
+      "group": "effects"
+    },
+    {
+      "id": "fx-explosion",
+      "label": "Small explosion",
+      "category": "effects",
+      "path": "groups/effects/frames/fx-explosion-00.png",
+      "size": [
+        64,
+        64
+      ],
+      "anchor": [
+        32,
+        56
+      ],
+      "frames": {
+        "play": [
+          {
+            "path": "groups/effects/frames/fx-explosion-00.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-explosion-01.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-explosion-02.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-explosion-03.png"
+          }
+        ]
+      },
+      "fps": 12,
+      "duration": 0.3333333333333333,
+      "loop": false,
+      "atlas": {
+        "path": "groups/effects/atlases/fx-explosion.png",
+        "columns": 4,
+        "rows": 1,
+        "frameSize": [
+          64,
+          64
+        ]
+      },
+      "blend": "normal",
+      "group": "effects"
+    },
+    {
+      "id": "fx-flame-loop",
+      "label": "Flame loop",
+      "category": "effects",
+      "path": "groups/effects/frames/fx-flame-loop-00.png",
+      "size": [
+        32,
+        48
+      ],
+      "anchor": [
+        16,
+        44
+      ],
+      "frames": {
+        "loop": [
+          {
+            "path": "groups/effects/frames/fx-flame-loop-00.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-flame-loop-01.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-flame-loop-02.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-flame-loop-03.png"
+          }
+        ]
+      },
+      "fps": 8,
+      "duration": 0.5,
+      "loop": true,
+      "atlas": {
+        "path": "groups/effects/atlases/fx-flame-loop.png",
+        "columns": 4,
+        "rows": 1,
+        "frameSize": [
+          32,
+          48
+        ]
+      },
+      "blend": "normal",
+      "group": "effects"
+    },
+    {
+      "id": "fx-smoke-loop",
+      "label": "Smoke loop",
+      "category": "effects",
+      "path": "groups/effects/frames/fx-smoke-loop-00.png",
+      "size": [
+        48,
+        64
+      ],
+      "anchor": [
+        24,
+        60
+      ],
+      "frames": {
+        "loop": [
+          {
+            "path": "groups/effects/frames/fx-smoke-loop-00.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-smoke-loop-01.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-smoke-loop-02.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-smoke-loop-03.png"
+          }
+        ]
+      },
+      "fps": 6,
+      "duration": 0.6666666666666666,
+      "loop": true,
+      "atlas": {
+        "path": "groups/effects/atlases/fx-smoke-loop.png",
+        "columns": 4,
+        "rows": 1,
+        "frameSize": [
+          48,
+          64
+        ]
+      },
+      "blend": "normal",
+      "group": "effects"
+    },
+    {
+      "id": "fx-ejected-casing",
+      "label": "Ejected casing bounce",
+      "category": "effects",
+      "path": "groups/effects/frames/fx-ejected-casing-00.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        28
+      ],
+      "frames": {
+        "play": [
+          {
+            "path": "groups/effects/frames/fx-ejected-casing-00.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-ejected-casing-01.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-ejected-casing-02.png"
+          },
+          {
+            "path": "groups/effects/frames/fx-ejected-casing-03.png"
+          }
+        ]
+      },
+      "fps": 12,
+      "duration": 0.3333333333333333,
+      "loop": false,
+      "atlas": {
+        "path": "groups/effects/atlases/fx-ejected-casing.png",
+        "columns": 4,
+        "rows": 1,
+        "frameSize": [
+          32,
+          32
+        ]
+      },
+      "blend": "normal",
+      "group": "effects"
+    },
+    {
+      "id": "fx-blood-pool-dry",
+      "label": "Dried blood pool",
+      "category": "decals",
+      "path": "groups/effects/frames/fx-blood-pool-dry.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "loop": false,
+      "group": "effects"
+    },
+    {
+      "id": "fx-blood-pool-fresh",
+      "label": "Fresh blood pool",
+      "category": "decals",
+      "path": "groups/effects/frames/fx-blood-pool-fresh.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "loop": false,
+      "group": "effects"
+    },
+    {
+      "id": "fx-bullet-hole-metal",
+      "label": "Metal bullet hole",
+      "category": "decals",
+      "path": "groups/effects/frames/fx-bullet-hole-metal.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "loop": false,
+      "group": "effects"
+    },
+    {
+      "id": "fx-bullet-hole-concrete",
+      "label": "Concrete bullet hole",
+      "category": "decals",
+      "path": "groups/effects/frames/fx-bullet-hole-concrete.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "loop": false,
+      "group": "effects"
+    },
+    {
+      "id": "fx-scorch-mark",
+      "label": "Scorch mark",
+      "category": "decals",
+      "path": "groups/effects/frames/fx-scorch-mark.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "loop": false,
+      "group": "effects"
+    },
+    {
+      "id": "fx-wood-chips",
+      "label": "Wood chips",
+      "category": "decals",
+      "path": "groups/effects/frames/fx-wood-chips.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "loop": false,
+      "group": "effects"
+    },
+    {
+      "id": "fx-shell-pile",
+      "label": "Shell casing pile",
+      "category": "decals",
+      "path": "groups/effects/frames/fx-shell-pile.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "loop": false,
+      "group": "effects"
+    },
+    {
+      "id": "fx-footprint",
+      "label": "Muddy footprint",
+      "category": "decals",
+      "path": "groups/effects/frames/fx-footprint.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "loop": false,
+      "group": "effects"
+    },
+    {
+      "id": "vehicle-hatchback-intact",
+      "label": "Hatchback \u00b7 intact",
+      "category": "vehicles",
+      "path": "groups/utility/native/vehicle-hatchback-intact.png",
+      "size": [
+        96,
+        48
+      ],
+      "anchor": [
+        48,
+        46
+      ],
+      "state": "intact",
+      "variantGroup": "vehicle-hatchback",
+      "facing": "east",
+      "group": "utility"
+    },
+    {
+      "id": "vehicle-hatchback-wreck",
+      "label": "Hatchback \u00b7 wreck",
+      "category": "vehicles",
+      "path": "groups/utility/native/vehicle-hatchback-wreck.png",
+      "size": [
+        96,
+        48
+      ],
+      "anchor": [
+        48,
+        46
+      ],
+      "state": "wreck",
+      "variantGroup": "vehicle-hatchback",
+      "facing": "east",
+      "group": "utility"
+    },
+    {
+      "id": "vehicle-van-intact",
+      "label": "Van \u00b7 intact",
+      "category": "vehicles",
+      "path": "groups/utility/native/vehicle-van-intact.png",
+      "size": [
+        112,
+        56
+      ],
+      "anchor": [
+        56,
+        54
+      ],
+      "state": "intact",
+      "variantGroup": "vehicle-van",
+      "facing": "east",
+      "group": "utility"
+    },
+    {
+      "id": "vehicle-van-wreck",
+      "label": "Van \u00b7 wreck",
+      "category": "vehicles",
+      "path": "groups/utility/native/vehicle-van-wreck.png",
+      "size": [
+        112,
+        56
+      ],
+      "anchor": [
+        56,
+        54
+      ],
+      "state": "wreck",
+      "variantGroup": "vehicle-van",
+      "facing": "east",
+      "group": "utility"
+    },
+    {
+      "id": "vehicle-pickup-intact",
+      "label": "Pickup \u00b7 intact",
+      "category": "vehicles",
+      "path": "groups/utility/native/vehicle-pickup-intact.png",
+      "size": [
+        112,
+        56
+      ],
+      "anchor": [
+        56,
+        54
+      ],
+      "state": "intact",
+      "variantGroup": "vehicle-pickup",
+      "facing": "east",
+      "group": "utility"
+    },
+    {
+      "id": "vehicle-pickup-wreck",
+      "label": "Pickup \u00b7 wreck",
+      "category": "vehicles",
+      "path": "groups/utility/native/vehicle-pickup-wreck.png",
+      "size": [
+        112,
+        56
+      ],
+      "anchor": [
+        56,
+        54
+      ],
+      "state": "wreck",
+      "variantGroup": "vehicle-pickup",
+      "facing": "east",
+      "group": "utility"
+    },
+    {
+      "id": "vehicle-ambulance-intact",
+      "label": "Ambulance \u00b7 intact",
+      "category": "vehicles",
+      "path": "groups/utility/native/vehicle-ambulance-intact.png",
+      "size": [
+        112,
+        56
+      ],
+      "anchor": [
+        56,
+        54
+      ],
+      "state": "intact",
+      "variantGroup": "vehicle-ambulance",
+      "facing": "east",
+      "group": "utility"
+    },
+    {
+      "id": "vehicle-ambulance-wreck",
+      "label": "Ambulance \u00b7 wreck",
+      "category": "vehicles",
+      "path": "groups/utility/native/vehicle-ambulance-wreck.png",
+      "size": [
+        112,
+        56
+      ],
+      "anchor": [
+        56,
+        54
+      ],
+      "state": "wreck",
+      "variantGroup": "vehicle-ambulance",
+      "facing": "east",
+      "group": "utility"
+    },
+    {
+      "id": "utility-generator-off",
+      "label": "Generator off",
+      "category": "utilities",
+      "path": "groups/utility/native/utility-generator-off.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        44
+      ],
+      "group": "utility"
+    },
+    {
+      "id": "utility-generator-on",
+      "label": "Generator running",
+      "category": "utilities",
+      "path": "groups/utility/frames/utility-generator-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        44
+      ],
+      "frames": {
+        "running": [
+          {
+            "path": "groups/utility/frames/utility-generator-00.png"
+          },
+          {
+            "path": "groups/utility/frames/utility-generator-01.png"
+          },
+          {
+            "path": "groups/utility/frames/utility-generator-02.png"
+          },
+          {
+            "path": "groups/utility/frames/utility-generator-03.png"
+          }
+        ]
+      },
+      "fps": 6,
+      "loop": true,
+      "state": "running",
+      "group": "utility"
+    },
+    {
+      "id": "utility-barricade-intact",
+      "label": "Wood barricade intact",
+      "category": "utilities",
+      "path": "groups/utility/native/utility-barricade-intact.png",
+      "size": [
+        48,
+        40
+      ],
+      "anchor": [
+        24,
+        36
+      ],
+      "group": "utility"
+    },
+    {
+      "id": "utility-barricade-broken",
+      "label": "Wood barricade broken",
+      "category": "utilities",
+      "path": "groups/utility/native/utility-barricade-broken.png",
+      "size": [
+        48,
+        40
+      ],
+      "anchor": [
+        24,
+        36
+      ],
+      "group": "utility"
+    },
+    {
+      "id": "utility-rain-collector",
+      "label": "Rain collector",
+      "category": "utilities",
+      "path": "groups/utility/native/utility-rain-collector.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        44
+      ],
+      "group": "utility"
+    },
+    {
+      "id": "utility-stove",
+      "label": "Iron stove",
+      "category": "utilities",
+      "path": "groups/utility/native/utility-stove.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        36
+      ],
+      "group": "utility"
+    },
+    {
+      "id": "utility-worklamp-off",
+      "label": "Work lamp off",
+      "category": "utilities",
+      "path": "groups/utility/frames/utility-worklamp-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        44
+      ],
+      "state": "off",
+      "group": "utility"
+    },
+    {
+      "id": "utility-spike-trap-armed",
+      "label": "Spike trap armed",
+      "category": "utilities",
+      "path": "groups/utility/native/utility-spike-trap-armed.png",
+      "size": [
+        40,
+        40
+      ],
+      "anchor": [
+        20,
+        36
+      ],
+      "group": "utility"
+    },
+    {
+      "id": "utility-spike-trap-triggered",
+      "label": "Spike trap triggered",
+      "category": "utilities",
+      "path": "groups/utility/native/utility-spike-trap-triggered.png",
+      "size": [
+        40,
+        40
+      ],
+      "anchor": [
+        20,
+        36
+      ],
+      "group": "utility"
+    },
+    {
+      "id": "utility-worklamp-on",
+      "label": "Work lamp on",
+      "category": "utilities",
+      "path": "groups/utility/native/utility-worklamp-on.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        44
+      ],
+      "state": "on",
+      "group": "utility"
+    },
+    {
+      "id": "utility-worklamp-activation",
+      "label": "Work lamp activation",
+      "category": "utilities",
+      "path": "groups/utility/native/utility-worklamp-activation.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        44
+      ],
+      "frames": {
+        "activate": [
+          {
+            "path": "groups/utility/frames/utility-worklamp-00.png"
+          },
+          {
+            "path": "groups/utility/frames/utility-worklamp-01.png"
+          },
+          {
+            "path": "groups/utility/frames/utility-worklamp-02.png"
+          },
+          {
+            "path": "groups/utility/frames/utility-worklamp-03.png"
+          }
+        ]
+      },
+      "fps": 8,
+      "loop": false,
+      "holdLastFrame": true,
+      "group": "utility"
+    },
+    {
+      "id": "ui-crosshair",
+      "label": "Crosshair",
+      "category": "ui",
+      "path": "groups/utility/native/ui-crosshair.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ],
+      "group": "utility"
+    },
+    {
+      "id": "ui-interaction-hand",
+      "label": "Interaction Hand",
+      "category": "ui",
+      "path": "groups/utility/native/ui-interaction-hand.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ],
+      "group": "utility"
+    },
+    {
+      "id": "ui-backpack",
+      "label": "Backpack",
+      "category": "ui",
+      "path": "groups/utility/native/ui-backpack.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ],
+      "group": "utility"
+    },
+    {
+      "id": "ui-health",
+      "label": "Health",
+      "category": "ui",
+      "path": "groups/utility/native/ui-health.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ],
+      "group": "utility"
+    },
+    {
+      "id": "ui-hunger",
+      "label": "Hunger",
+      "category": "ui",
+      "path": "groups/utility/native/ui-hunger.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ],
+      "group": "utility"
+    },
+    {
+      "id": "ui-thirst",
+      "label": "Thirst",
+      "category": "ui",
+      "path": "groups/utility/native/ui-thirst.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ],
+      "group": "utility"
+    },
+    {
+      "id": "ui-stamina",
+      "label": "Stamina",
+      "category": "ui",
+      "path": "groups/utility/native/ui-stamina.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ],
+      "group": "utility"
+    },
+    {
+      "id": "ui-radio",
+      "label": "Radio",
+      "category": "ui",
+      "path": "groups/utility/native/ui-radio.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ],
+      "group": "utility"
+    },
+    {
+      "id": "ui-warning",
+      "label": "Warning",
+      "category": "ui",
+      "path": "groups/utility/native/ui-warning.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ],
+      "group": "utility"
+    },
+    {
+      "id": "ui-ammo",
+      "label": "Ammo",
+      "category": "ui",
+      "path": "groups/utility/native/ui-ammo.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ],
+      "group": "utility"
+    },
+    {
+      "id": "ui-lock",
+      "label": "Lock",
+      "category": "ui",
+      "path": "groups/utility/native/ui-lock.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ],
+      "group": "utility"
+    },
+    {
+      "id": "ui-work",
+      "label": "Work",
+      "category": "ui",
+      "path": "groups/utility/native/ui-work.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ],
+      "group": "utility"
+    },
+    {
+      "id": "ui-wound",
+      "label": "Wound",
+      "category": "ui",
+      "path": "groups/utility/native/ui-wound.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ],
+      "group": "utility"
+    },
+    {
+      "id": "ui-temperature",
+      "label": "Temperature",
+      "category": "ui",
+      "path": "groups/utility/native/ui-temperature.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ],
+      "group": "utility"
+    },
+    {
+      "id": "ui-map-marker",
+      "label": "Map Marker",
+      "category": "ui",
+      "path": "groups/utility/native/ui-map-marker.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ],
+      "group": "utility"
+    },
+    {
+      "id": "ui-exit",
+      "label": "Exit",
+      "category": "ui",
+      "path": "groups/utility/native/ui-exit.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ],
+      "group": "utility"
+    },
+    {
+      "id": "gear-vest",
+      "label": "Olive utility vest",
+      "category": "wearable",
+      "path": "groups/wearables/native/gear-vest-s.png",
+      "size": [
+        32,
+        48
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "offset": [
+        0,
+        0
+      ],
+      "directions": [
+        "s",
+        "e",
+        "n",
+        "w"
+      ],
+      "frames": {
+        "idle_s": [
+          {
+            "path": "groups/wearables/native/gear-vest-s.png"
+          }
+        ],
+        "idle_e": [
+          {
+            "path": "groups/wearables/native/gear-vest-e.png"
+          }
+        ],
+        "idle_n": [
+          {
+            "path": "groups/wearables/native/gear-vest-n.png"
+          }
+        ],
+        "idle_w": [
+          {
+            "path": "groups/wearables/native/gear-vest-w.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "atlas": "groups/wearables/native/gear-vest-atlas.png",
+      "z_by_direction": {
+        "s": 2,
+        "e": 2,
+        "n": 2,
+        "w": 2
+      },
+      "fit": {
+        "s": {
+          "occupied_size": [
+            13,
+            11
+          ],
+          "placement": [
+            10,
+            22
+          ],
+          "z": 2
+        },
+        "e": {
+          "occupied_size": [
+            9,
+            11
+          ],
+          "placement": [
+            12,
+            22
+          ],
+          "z": 2
+        },
+        "n": {
+          "occupied_size": [
+            14,
+            11
+          ],
+          "placement": [
+            10,
+            22
+          ],
+          "z": 2
+        },
+        "w": {
+          "occupied_size": [
+            9,
+            11
+          ],
+          "placement": [
+            11,
+            22
+          ],
+          "z": 2
+        }
+      },
+      "state": "standing-overlay",
+      "notes": "Static four-direction overlay fitted to approved survivor idle. No human parts baked in. Animated walk fit needs future per-frame rigging.",
+      "group": "wearables"
+    },
+    {
+      "id": "gear-helmet",
+      "label": "Olive steel helmet",
+      "category": "wearable",
+      "path": "groups/wearables/native/gear-helmet-s.png",
+      "size": [
+        32,
+        48
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "offset": [
+        0,
+        0
+      ],
+      "directions": [
+        "s",
+        "e",
+        "n",
+        "w"
+      ],
+      "frames": {
+        "idle_s": [
+          {
+            "path": "groups/wearables/native/gear-helmet-s.png"
+          }
+        ],
+        "idle_e": [
+          {
+            "path": "groups/wearables/native/gear-helmet-e.png"
+          }
+        ],
+        "idle_n": [
+          {
+            "path": "groups/wearables/native/gear-helmet-n.png"
+          }
+        ],
+        "idle_w": [
+          {
+            "path": "groups/wearables/native/gear-helmet-w.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "atlas": "groups/wearables/native/gear-helmet-atlas.png",
+      "z_by_direction": {
+        "s": 5,
+        "e": 5,
+        "n": 5,
+        "w": 5
+      },
+      "fit": {
+        "s": {
+          "occupied_size": [
+            16,
+            9
+          ],
+          "placement": [
+            8,
+            10
+          ],
+          "z": 5
+        },
+        "e": {
+          "occupied_size": [
+            16,
+            9
+          ],
+          "placement": [
+            9,
+            10
+          ],
+          "z": 5
+        },
+        "n": {
+          "occupied_size": [
+            16,
+            9
+          ],
+          "placement": [
+            9,
+            10
+          ],
+          "z": 5
+        },
+        "w": {
+          "occupied_size": [
+            16,
+            9
+          ],
+          "placement": [
+            8,
+            10
+          ],
+          "z": 5
+        }
+      },
+      "state": "standing-overlay",
+      "notes": "Static four-direction overlay fitted to approved survivor idle. No human parts baked in. Animated walk fit needs future per-frame rigging.",
+      "group": "wearables"
+    },
+    {
+      "id": "gear-gasmask",
+      "label": "Graphite respirator",
+      "category": "wearable",
+      "path": "groups/wearables/native/gear-gasmask-s.png",
+      "size": [
+        32,
+        48
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "offset": [
+        0,
+        0
+      ],
+      "directions": [
+        "s",
+        "e",
+        "n",
+        "w"
+      ],
+      "frames": {
+        "idle_s": [
+          {
+            "path": "groups/wearables/native/gear-gasmask-s.png"
+          }
+        ],
+        "idle_e": [
+          {
+            "path": "groups/wearables/native/gear-gasmask-e.png"
+          }
+        ],
+        "idle_n": [
+          {
+            "path": "groups/wearables/native/gear-gasmask-n.png"
+          }
+        ],
+        "idle_w": [
+          {
+            "path": "groups/wearables/native/gear-gasmask-w.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "atlas": "groups/wearables/native/gear-gasmask-atlas.png",
+      "z_by_direction": {
+        "s": 4,
+        "e": 4,
+        "n": 4,
+        "w": 4
+      },
+      "fit": {
+        "s": {
+          "occupied_size": [
+            12,
+            11
+          ],
+          "placement": [
+            10,
+            14
+          ],
+          "z": 4
+        },
+        "e": {
+          "occupied_size": [
+            13,
+            11
+          ],
+          "placement": [
+            11,
+            14
+          ],
+          "z": 4
+        },
+        "n": {
+          "occupied_size": [
+            12,
+            10
+          ],
+          "placement": [
+            10,
+            13
+          ],
+          "z": 4
+        },
+        "w": {
+          "occupied_size": [
+            13,
+            11
+          ],
+          "placement": [
+            8,
+            14
+          ],
+          "z": 4
+        }
+      },
+      "state": "standing-overlay",
+      "notes": "Static four-direction overlay fitted to approved survivor idle. No human parts baked in. Animated walk fit needs future per-frame rigging.",
+      "group": "wearables"
+    },
+    {
+      "id": "gear-backpack",
+      "label": "Tan canvas backpack",
+      "category": "wearable",
+      "path": "groups/wearables/native/gear-backpack-s.png",
+      "size": [
+        32,
+        48
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "offset": [
+        0,
+        0
+      ],
+      "directions": [
+        "s",
+        "e",
+        "n",
+        "w"
+      ],
+      "frames": {
+        "idle_s": [
+          {
+            "path": "groups/wearables/native/gear-backpack-s.png"
+          }
+        ],
+        "idle_e": [
+          {
+            "path": "groups/wearables/native/gear-backpack-e.png"
+          }
+        ],
+        "idle_n": [
+          {
+            "path": "groups/wearables/native/gear-backpack-n.png"
+          }
+        ],
+        "idle_w": [
+          {
+            "path": "groups/wearables/native/gear-backpack-w.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "atlas": "groups/wearables/native/gear-backpack-atlas.png",
+      "z_by_direction": {
+        "s": 3,
+        "e": -1,
+        "n": 3,
+        "w": -1
+      },
+      "fit": {
+        "s": {
+          "occupied_size": [
+            13,
+            10
+          ],
+          "placement": [
+            9,
+            23
+          ],
+          "z": 3
+        },
+        "e": {
+          "occupied_size": [
+            8,
+            12
+          ],
+          "placement": [
+            5,
+            22
+          ],
+          "z": -1
+        },
+        "n": {
+          "occupied_size": [
+            14,
+            12
+          ],
+          "placement": [
+            9,
+            22
+          ],
+          "z": 3
+        },
+        "w": {
+          "occupied_size": [
+            8,
+            12
+          ],
+          "placement": [
+            21,
+            22
+          ],
+          "z": -1
+        }
+      },
+      "state": "standing-overlay",
+      "notes": "Static four-direction overlay fitted to approved survivor idle. No human parts baked in. Animated walk fit needs future per-frame rigging.",
+      "group": "wearables"
+    }
+  ],
+  "scene": {
+    "width": 640,
+    "height": 448,
+    "ground": "tile-grass-a",
+    "groundVariants": [
+      "tile-grass-a",
+      "tile-grass-a",
+      "tile-grass-b"
+    ],
+    "spawn": [
+      310,
+      236
+    ],
+    "interactionDistance": 42,
+    "zones": [
+      {
+        "x": 96,
+        "y": 64,
+        "width": 352,
+        "height": 224,
+        "asset": "tile-dirt-a",
+        "variants": [
+          "tile-dirt-a",
+          "tile-dirt-a",
+          "tile-dirt-b"
+        ]
+      },
+      {
+        "x": 128,
+        "y": 96,
+        "width": 192,
+        "height": 96,
+        "asset": "tile-wood-floor",
+        "variants": [
+          "tile-wood-floor"
+        ]
+      },
+      {
+        "x": 320,
+        "y": 96,
+        "width": 96,
+        "height": 96,
+        "asset": "tile-interior-tile",
+        "variants": [
+          "tile-interior-tile"
+        ]
+      },
+      {
+        "x": 0,
+        "y": 288,
+        "width": 640,
+        "height": 96,
+        "asset": "tile-asphalt-a",
+        "variants": [
+          "tile-asphalt-a",
+          "tile-asphalt-a",
+          "tile-asphalt-b"
+        ]
+      },
+      {
+        "x": 96,
+        "y": 224,
+        "width": 352,
+        "height": 64,
+        "asset": "tile-concrete-a",
+        "variants": [
+          "tile-concrete-a",
+          "tile-concrete-a",
+          "tile-concrete-b"
+        ]
+      },
+      {
+        "x": 480,
+        "y": 160,
+        "width": 128,
+        "height": 128,
+        "asset": "tile-rubble",
+        "variants": [
+          "tile-rubble"
+        ]
+      },
+      {
+        "x": 0,
+        "y": 384,
+        "width": 128,
+        "height": 64,
+        "asset": "tile-water",
+        "variants": [
+          "tile-water"
+        ]
+      }
+    ],
+    "walls": [
+      {
+        "asset": "wall-plaster",
+        "x": 150,
+        "y": 103
+      },
+      {
+        "asset": "wall-window-intact",
+        "x": 198,
+        "y": 103
+      },
+      {
+        "asset": "wall-plaster",
+        "x": 246,
+        "y": 103
+      },
+      {
+        "asset": "wall-plaster",
+        "x": 294,
+        "y": 103
+      },
+      {
+        "asset": "wall-window-intact",
+        "x": 342,
+        "y": 103
+      },
+      {
+        "asset": "wall-plaster",
+        "x": 390,
+        "y": 103
+      },
+      {
+        "asset": "wall-corner-nw",
+        "x": 126,
+        "y": 103
+      },
+      {
+        "asset": "wall-corner-ne",
+        "x": 438,
+        "y": 103
+      },
+      {
+        "asset": "wall-interior",
+        "x": 344,
+        "y": 145
+      },
+      {
+        "asset": "wall-fence-horizontal",
+        "x": 128,
+        "y": 270
+      },
+      {
+        "asset": "wall-fence-horizontal",
+        "x": 190,
+        "y": 270
+      },
+      {
+        "asset": "wall-fence-horizontal",
+        "x": 376,
+        "y": 270
+      },
+      {
+        "asset": "wall-fence-horizontal",
+        "x": 438,
+        "y": 270
+      },
+      {
+        "asset": "wall-fence-vertical",
+        "x": 102,
+        "y": 170
+      },
+      {
+        "asset": "wall-fence-vertical",
+        "x": 102,
+        "y": 230
+      }
+    ],
+    "props": [
+      {
+        "asset": "wall-gate-open",
+        "x": 282,
+        "y": 270,
+        "states": [
+          "wall-gate-open",
+          "wall-gate-closed"
+        ],
+        "stateLabels": [
+          "open",
+          "closed"
+        ]
+      },
+      {
+        "asset": "nature-pine",
+        "x": 34,
+        "y": 102
+      },
+      {
+        "asset": "nature-pine",
+        "x": 76,
+        "y": 146
+      },
+      {
+        "asset": "nature-broadleaf",
+        "x": 37,
+        "y": 226
+      },
+      {
+        "asset": "nature-pine",
+        "x": 596,
+        "y": 123
+      },
+      {
+        "asset": "nature-pine",
+        "x": 550,
+        "y": 144
+      },
+      {
+        "asset": "nature-dead-tree",
+        "x": 618,
+        "y": 204
+      },
+      {
+        "asset": "nature-pine",
+        "x": 468,
+        "y": 77
+      },
+      {
+        "asset": "nature-broadleaf",
+        "x": 512,
+        "y": 92
+      },
+      {
+        "asset": "nature-pine",
+        "x": 180,
+        "y": 445
+      },
+      {
+        "asset": "nature-broadleaf",
+        "x": 595,
+        "y": 439
+      },
+      {
+        "asset": "nature-pine",
+        "x": 538,
+        "y": 440
+      },
+      {
+        "asset": "nature-bush",
+        "x": 92,
+        "y": 216
+      },
+      {
+        "asset": "nature-bush",
+        "x": 48,
+        "y": 267
+      },
+      {
+        "asset": "nature-bush",
+        "x": 462,
+        "y": 212
+      },
+      {
+        "asset": "nature-bush",
+        "x": 586,
+        "y": 250
+      },
+      {
+        "asset": "nature-bush",
+        "x": 470,
+        "y": 413
+      },
+      {
+        "asset": "nature-bush",
+        "x": 315,
+        "y": 416
+      },
+      {
+        "asset": "nature-bush",
+        "x": 92,
+        "y": 429
+      },
+      {
+        "asset": "nature-fallen-log",
+        "x": 56,
+        "y": 184
+      },
+      {
+        "asset": "nature-stump",
+        "x": 72,
+        "y": 245
+      },
+      {
+        "asset": "nature-rock-cluster",
+        "x": 458,
+        "y": 254
+      },
+      {
+        "asset": "nature-reeds",
+        "x": 119,
+        "y": 410
+      },
+      {
+        "asset": "prop-workbench",
+        "x": 158,
+        "y": 151
+      },
+      {
+        "asset": "prop-shelf",
+        "x": 206,
+        "y": 139
+      },
+      {
+        "asset": "prop-fridge",
+        "x": 264,
+        "y": 148
+      },
+      {
+        "asset": "prop-table",
+        "x": 233,
+        "y": 182
+      },
+      {
+        "asset": "prop-chair",
+        "x": 233,
+        "y": 207
+      },
+      {
+        "asset": "prop-bed",
+        "x": 374,
+        "y": 157
+      },
+      {
+        "asset": "prop-medical-cabinet",
+        "x": 398,
+        "y": 131
+      },
+      {
+        "asset": "prop-barrel",
+        "x": 124,
+        "y": 214
+      },
+      {
+        "asset": "prop-pallet-stack",
+        "x": 157,
+        "y": 214
+      },
+      {
+        "asset": "prop-dumpster",
+        "x": 435,
+        "y": 234
+      },
+      {
+        "asset": "prop-trash-bags",
+        "x": 463,
+        "y": 266
+      },
+      {
+        "asset": "prop-road-sign",
+        "x": 56,
+        "y": 304
+      },
+      {
+        "asset": "prop-traffic-cone",
+        "x": 421,
+        "y": 324
+      },
+      {
+        "asset": "prop-concrete-barrier",
+        "x": 449,
+        "y": 367
+      },
+      {
+        "asset": "prop-streetlamp",
+        "x": 75,
+        "y": 373
+      },
+      {
+        "asset": "prop-streetlamp",
+        "x": 549,
+        "y": 380
+      },
+      {
+        "asset": "prop-wood-crate-closed",
+        "x": 207,
+        "y": 234,
+        "states": [
+          "prop-wood-crate-closed",
+          "prop-wood-crate-open",
+          "prop-wood-crate-empty"
+        ],
+        "stateLabels": [
+          "closed",
+          "open",
+          "empty"
+        ]
+      },
+      {
+        "asset": "prop-metal-footlocker-closed",
+        "x": 250,
+        "y": 234,
+        "states": [
+          "prop-metal-footlocker-closed",
+          "prop-metal-footlocker-open",
+          "prop-metal-footlocker-empty"
+        ],
+        "stateLabels": [
+          "closed",
+          "open",
+          "empty"
+        ]
+      },
+      {
+        "asset": "prop-medical-box-closed",
+        "x": 380,
+        "y": 204,
+        "states": [
+          "prop-medical-box-closed",
+          "prop-medical-box-open",
+          "prop-medical-box-empty"
+        ],
+        "stateLabels": [
+          "closed",
+          "open",
+          "empty"
+        ]
+      },
+      {
+        "asset": "vehicle-hatchback-intact",
+        "x": 161,
+        "y": 355
+      },
+      {
+        "asset": "vehicle-ambulance-intact",
+        "x": 365,
+        "y": 352
+      },
+      {
+        "asset": "vehicle-pickup-wreck",
+        "x": 541,
+        "y": 257
+      },
+      {
+        "asset": "vehicle-van-wreck",
+        "x": 300,
+        "y": 427
+      },
+      {
+        "asset": "utility-generator-on",
+        "x": 434,
+        "y": 182
+      },
+      {
+        "asset": "utility-rain-collector",
+        "x": 464,
+        "y": 157
+      },
+      {
+        "asset": "utility-worklamp-activation",
+        "x": 423,
+        "y": 207
+      },
+      {
+        "asset": "utility-barricade-intact",
+        "x": 498,
+        "y": 364
+      },
+      {
+        "asset": "utility-spike-trap-armed",
+        "x": 518,
+        "y": 385
+      },
+      {
+        "asset": "utility-stove",
+        "x": 295,
+        "y": 144
+      },
+      {
+        "asset": "fx-flame-loop",
+        "x": 542,
+        "y": 244,
+        "sortY": 258
+      },
+      {
+        "asset": "fx-smoke-loop",
+        "x": 546,
+        "y": 225,
+        "sortY": 259
+      }
+    ],
+    "decals": [
+      {
+        "asset": "overlay-road-dashed",
+        "x": 16,
+        "y": 336,
+        "rotation": -1.57079632679,
+        "anchor": [
+          16,
+          16
+        ]
+      },
+      {
+        "asset": "overlay-road-dashed",
+        "x": 80,
+        "y": 336,
+        "rotation": -1.57079632679,
+        "anchor": [
+          16,
+          16
+        ]
+      },
+      {
+        "asset": "overlay-road-dashed",
+        "x": 144,
+        "y": 336,
+        "rotation": -1.57079632679,
+        "anchor": [
+          16,
+          16
+        ]
+      },
+      {
+        "asset": "overlay-road-dashed",
+        "x": 208,
+        "y": 336,
+        "rotation": -1.57079632679,
+        "anchor": [
+          16,
+          16
+        ]
+      },
+      {
+        "asset": "overlay-road-dashed",
+        "x": 272,
+        "y": 336,
+        "rotation": -1.57079632679,
+        "anchor": [
+          16,
+          16
+        ]
+      },
+      {
+        "asset": "overlay-road-dashed",
+        "x": 336,
+        "y": 336,
+        "rotation": -1.57079632679,
+        "anchor": [
+          16,
+          16
+        ]
+      },
+      {
+        "asset": "overlay-road-dashed",
+        "x": 400,
+        "y": 336,
+        "rotation": -1.57079632679,
+        "anchor": [
+          16,
+          16
+        ]
+      },
+      {
+        "asset": "overlay-road-dashed",
+        "x": 464,
+        "y": 336,
+        "rotation": -1.57079632679,
+        "anchor": [
+          16,
+          16
+        ]
+      },
+      {
+        "asset": "overlay-road-dashed",
+        "x": 528,
+        "y": 336,
+        "rotation": -1.57079632679,
+        "anchor": [
+          16,
+          16
+        ]
+      },
+      {
+        "asset": "overlay-road-dashed",
+        "x": 592,
+        "y": 336,
+        "rotation": -1.57079632679,
+        "anchor": [
+          16,
+          16
+        ]
+      },
+      {
+        "asset": "overlay-puddle",
+        "x": 170,
+        "y": 265
+      },
+      {
+        "asset": "overlay-puddle",
+        "x": 399,
+        "y": 257
+      },
+      {
+        "asset": "overlay-puddle",
+        "x": 568,
+        "y": 342
+      },
+      {
+        "asset": "overlay-debris",
+        "x": 92,
+        "y": 313
+      },
+      {
+        "asset": "overlay-debris",
+        "x": 416,
+        "y": 202
+      },
+      {
+        "asset": "overlay-debris",
+        "x": 523,
+        "y": 274
+      },
+      {
+        "asset": "overlay-debris",
+        "x": 386,
+        "y": 405
+      },
+      {
+        "asset": "overlay-grass-north",
+        "x": 96,
+        "y": 278
+      },
+      {
+        "asset": "overlay-grass-north",
+        "x": 128,
+        "y": 278
+      },
+      {
+        "asset": "overlay-grass-north",
+        "x": 160,
+        "y": 278
+      },
+      {
+        "asset": "overlay-grass-north",
+        "x": 192,
+        "y": 278
+      },
+      {
+        "asset": "overlay-grass-north",
+        "x": 224,
+        "y": 278
+      },
+      {
+        "asset": "overlay-grass-north",
+        "x": 256,
+        "y": 278
+      },
+      {
+        "asset": "overlay-grass-north",
+        "x": 288,
+        "y": 278
+      },
+      {
+        "asset": "overlay-grass-north",
+        "x": 320,
+        "y": 278
+      },
+      {
+        "asset": "overlay-grass-north",
+        "x": 352,
+        "y": 278
+      },
+      {
+        "asset": "overlay-grass-north",
+        "x": 384,
+        "y": 278
+      },
+      {
+        "asset": "overlay-grass-north",
+        "x": 416,
+        "y": 278
+      },
+      {
+        "asset": "fx-scorch-mark",
+        "x": 540,
+        "y": 253
+      },
+      {
+        "asset": "fx-blood-pool-dry",
+        "x": 485,
+        "y": 329
+      }
+    ],
+    "actors": [
+      {
+        "asset": "shambler",
+        "x": 478,
+        "y": 327,
+        "dir": "w",
+        "patrolA": [
+          478,
+          327
+        ],
+        "patrolB": [
+          582,
+          327
+        ],
+        "speed": 11,
+        "fps": 5
+      },
+      {
+        "asset": "shambler",
+        "x": 445,
+        "y": 412,
+        "dir": "e",
+        "patrolA": [
+          365,
+          412
+        ],
+        "patrolB": [
+          466,
+          412
+        ],
+        "speed": 9,
+        "fps": 5
+      }
+    ],
+    "collisions": [
+      {
+        "x": 126,
+        "y": 80,
+        "width": 48,
+        "height": 23
+      },
+      {
+        "x": 174,
+        "y": 80,
+        "width": 48,
+        "height": 23
+      },
+      {
+        "x": 222,
+        "y": 80,
+        "width": 48,
+        "height": 23
+      },
+      {
+        "x": 270,
+        "y": 80,
+        "width": 48,
+        "height": 23
+      },
+      {
+        "x": 318,
+        "y": 80,
+        "width": 48,
+        "height": 23
+      },
+      {
+        "x": 366,
+        "y": 80,
+        "width": 48,
+        "height": 23
+      }
+    ]
+  },
+  "character": {
+    "layers": [
+      "survivor"
+    ],
+    "directionCount": 4,
+    "initialAngle": 1.57079632679,
+    "movement": {
+      "speed": 42,
+      "fps": 8
+    },
+    "aimOrigin": [
+      0,
+      -12
+    ]
+  },
+  "showcase": {
+    "weapons": [
+      "weapon-pistol",
+      "weapon-revolver",
+      "weapon-smg",
+      "weapon-pump-shotgun",
+      "weapon-assault-rifle",
+      "weapon-bolt-rifle",
+      "weapon-bow",
+      "weapon-crossbow",
+      "weapon-kitchen-knife",
+      "weapon-hatchet",
+      "weapon-crowbar",
+      "weapon-baseball-bat"
+    ],
+    "gear": [
+      "gear-vest",
+      "gear-helmet",
+      "gear-gasmask",
+      "gear-backpack"
+    ],
+    "effects": {
+      "pistol": "fx-pistol-muzzle",
+      "rifle": "fx-rifle-muzzle",
+      "shotgun": "fx-shotgun-muzzle",
+      "concrete": "fx-concrete-dust",
+      "wood": "fx-wood-splinters",
+      "blood": "fx-blood-hit",
+      "casing": "fx-ejected-casing",
+      "explosion": "fx-explosion",
+      "flame": "fx-flame-loop",
+      "smoke": "fx-smoke-loop"
+    }
+  },
+  "integrationStatus": "Checked into godot/art/simplyzombies; live renderer integration remains pending."
+}

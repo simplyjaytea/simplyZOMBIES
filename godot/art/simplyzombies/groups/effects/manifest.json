@@ -1,0 +1,657 @@
+{
+  "version": 1,
+  "style": "Original compact pixel VFX for simplyZOMBIES; informed by ZERO Sievert reference screenshots.",
+  "nativeWorldTile": 32,
+  "assets": [
+    {
+      "id": "fx-pistol-muzzle",
+      "label": "Pistol muzzle flash",
+      "category": "effects",
+      "path": "frames/fx-pistol-muzzle-00.png",
+      "size": [
+        32,
+        16
+      ],
+      "anchor": [
+        3,
+        8
+      ],
+      "frames": {
+        "play": [
+          {
+            "path": "frames/fx-pistol-muzzle-00.png"
+          },
+          {
+            "path": "frames/fx-pistol-muzzle-01.png"
+          },
+          {
+            "path": "frames/fx-pistol-muzzle-02.png"
+          },
+          {
+            "path": "frames/fx-pistol-muzzle-03.png"
+          }
+        ]
+      },
+      "fps": 24,
+      "duration": 0.16666666666666666,
+      "loop": false,
+      "atlas": {
+        "path": "atlases/fx-pistol-muzzle.png",
+        "columns": 4,
+        "rows": 1,
+        "frameSize": [
+          32,
+          16
+        ]
+      },
+      "blend": "normal",
+      "facing": "right",
+      "attachment": "weapon muzzle"
+    },
+    {
+      "id": "fx-rifle-muzzle",
+      "label": "Rifle muzzle flash",
+      "category": "effects",
+      "path": "frames/fx-rifle-muzzle-00.png",
+      "size": [
+        32,
+        16
+      ],
+      "anchor": [
+        3,
+        8
+      ],
+      "frames": {
+        "play": [
+          {
+            "path": "frames/fx-rifle-muzzle-00.png"
+          },
+          {
+            "path": "frames/fx-rifle-muzzle-01.png"
+          },
+          {
+            "path": "frames/fx-rifle-muzzle-02.png"
+          },
+          {
+            "path": "frames/fx-rifle-muzzle-03.png"
+          }
+        ]
+      },
+      "fps": 24,
+      "duration": 0.16666666666666666,
+      "loop": false,
+      "atlas": {
+        "path": "atlases/fx-rifle-muzzle.png",
+        "columns": 4,
+        "rows": 1,
+        "frameSize": [
+          32,
+          16
+        ]
+      },
+      "blend": "normal",
+      "facing": "right",
+      "attachment": "weapon muzzle"
+    },
+    {
+      "id": "fx-shotgun-muzzle",
+      "label": "Shotgun muzzle flash",
+      "category": "effects",
+      "path": "frames/fx-shotgun-muzzle-00.png",
+      "size": [
+        32,
+        16
+      ],
+      "anchor": [
+        3,
+        8
+      ],
+      "frames": {
+        "play": [
+          {
+            "path": "frames/fx-shotgun-muzzle-00.png"
+          },
+          {
+            "path": "frames/fx-shotgun-muzzle-01.png"
+          },
+          {
+            "path": "frames/fx-shotgun-muzzle-02.png"
+          },
+          {
+            "path": "frames/fx-shotgun-muzzle-03.png"
+          }
+        ]
+      },
+      "fps": 20,
+      "duration": 0.2,
+      "loop": false,
+      "atlas": {
+        "path": "atlases/fx-shotgun-muzzle.png",
+        "columns": 4,
+        "rows": 1,
+        "frameSize": [
+          32,
+          16
+        ]
+      },
+      "blend": "normal",
+      "facing": "right",
+      "attachment": "weapon muzzle"
+    },
+    {
+      "id": "fx-metal-sparks",
+      "label": "Metal impact sparks",
+      "category": "effects",
+      "path": "frames/fx-metal-sparks-00.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "frames": {
+        "play": [
+          {
+            "path": "frames/fx-metal-sparks-00.png"
+          },
+          {
+            "path": "frames/fx-metal-sparks-01.png"
+          },
+          {
+            "path": "frames/fx-metal-sparks-02.png"
+          },
+          {
+            "path": "frames/fx-metal-sparks-03.png"
+          }
+        ]
+      },
+      "fps": 12,
+      "duration": 0.3333333333333333,
+      "loop": false,
+      "atlas": {
+        "path": "atlases/fx-metal-sparks.png",
+        "columns": 4,
+        "rows": 1,
+        "frameSize": [
+          32,
+          32
+        ]
+      },
+      "blend": "normal"
+    },
+    {
+      "id": "fx-concrete-dust",
+      "label": "Concrete impact dust",
+      "category": "effects",
+      "path": "frames/fx-concrete-dust-00.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        20
+      ],
+      "frames": {
+        "play": [
+          {
+            "path": "frames/fx-concrete-dust-00.png"
+          },
+          {
+            "path": "frames/fx-concrete-dust-01.png"
+          },
+          {
+            "path": "frames/fx-concrete-dust-02.png"
+          },
+          {
+            "path": "frames/fx-concrete-dust-03.png"
+          }
+        ]
+      },
+      "fps": 12,
+      "duration": 0.3333333333333333,
+      "loop": false,
+      "atlas": {
+        "path": "atlases/fx-concrete-dust.png",
+        "columns": 4,
+        "rows": 1,
+        "frameSize": [
+          32,
+          32
+        ]
+      },
+      "blend": "normal"
+    },
+    {
+      "id": "fx-wood-splinters",
+      "label": "Wood impact splinters",
+      "category": "effects",
+      "path": "frames/fx-wood-splinters-00.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        20
+      ],
+      "frames": {
+        "play": [
+          {
+            "path": "frames/fx-wood-splinters-00.png"
+          },
+          {
+            "path": "frames/fx-wood-splinters-01.png"
+          },
+          {
+            "path": "frames/fx-wood-splinters-02.png"
+          },
+          {
+            "path": "frames/fx-wood-splinters-03.png"
+          }
+        ]
+      },
+      "fps": 12,
+      "duration": 0.3333333333333333,
+      "loop": false,
+      "atlas": {
+        "path": "atlases/fx-wood-splinters.png",
+        "columns": 4,
+        "rows": 1,
+        "frameSize": [
+          32,
+          32
+        ]
+      },
+      "blend": "normal"
+    },
+    {
+      "id": "fx-blood-hit",
+      "label": "Blood hit",
+      "category": "effects",
+      "path": "frames/fx-blood-hit-00.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "frames": {
+        "play": [
+          {
+            "path": "frames/fx-blood-hit-00.png"
+          },
+          {
+            "path": "frames/fx-blood-hit-01.png"
+          },
+          {
+            "path": "frames/fx-blood-hit-02.png"
+          },
+          {
+            "path": "frames/fx-blood-hit-03.png"
+          }
+        ]
+      },
+      "fps": 12,
+      "duration": 0.3333333333333333,
+      "loop": false,
+      "atlas": {
+        "path": "atlases/fx-blood-hit.png",
+        "columns": 4,
+        "rows": 1,
+        "frameSize": [
+          32,
+          32
+        ]
+      },
+      "blend": "normal"
+    },
+    {
+      "id": "fx-water-splash",
+      "label": "Water splash",
+      "category": "effects",
+      "path": "frames/fx-water-splash-00.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        26
+      ],
+      "frames": {
+        "play": [
+          {
+            "path": "frames/fx-water-splash-00.png"
+          },
+          {
+            "path": "frames/fx-water-splash-01.png"
+          },
+          {
+            "path": "frames/fx-water-splash-02.png"
+          },
+          {
+            "path": "frames/fx-water-splash-03.png"
+          }
+        ]
+      },
+      "fps": 12,
+      "duration": 0.3333333333333333,
+      "loop": false,
+      "atlas": {
+        "path": "atlases/fx-water-splash.png",
+        "columns": 4,
+        "rows": 1,
+        "frameSize": [
+          32,
+          32
+        ]
+      },
+      "blend": "normal"
+    },
+    {
+      "id": "fx-explosion",
+      "label": "Small explosion",
+      "category": "effects",
+      "path": "frames/fx-explosion-00.png",
+      "size": [
+        64,
+        64
+      ],
+      "anchor": [
+        32,
+        56
+      ],
+      "frames": {
+        "play": [
+          {
+            "path": "frames/fx-explosion-00.png"
+          },
+          {
+            "path": "frames/fx-explosion-01.png"
+          },
+          {
+            "path": "frames/fx-explosion-02.png"
+          },
+          {
+            "path": "frames/fx-explosion-03.png"
+          }
+        ]
+      },
+      "fps": 12,
+      "duration": 0.3333333333333333,
+      "loop": false,
+      "atlas": {
+        "path": "atlases/fx-explosion.png",
+        "columns": 4,
+        "rows": 1,
+        "frameSize": [
+          64,
+          64
+        ]
+      },
+      "blend": "normal"
+    },
+    {
+      "id": "fx-flame-loop",
+      "label": "Flame loop",
+      "category": "effects",
+      "path": "frames/fx-flame-loop-00.png",
+      "size": [
+        32,
+        48
+      ],
+      "anchor": [
+        16,
+        44
+      ],
+      "frames": {
+        "loop": [
+          {
+            "path": "frames/fx-flame-loop-00.png"
+          },
+          {
+            "path": "frames/fx-flame-loop-01.png"
+          },
+          {
+            "path": "frames/fx-flame-loop-02.png"
+          },
+          {
+            "path": "frames/fx-flame-loop-03.png"
+          }
+        ]
+      },
+      "fps": 8,
+      "duration": 0.5,
+      "loop": true,
+      "atlas": {
+        "path": "atlases/fx-flame-loop.png",
+        "columns": 4,
+        "rows": 1,
+        "frameSize": [
+          32,
+          48
+        ]
+      },
+      "blend": "normal"
+    },
+    {
+      "id": "fx-smoke-loop",
+      "label": "Smoke loop",
+      "category": "effects",
+      "path": "frames/fx-smoke-loop-00.png",
+      "size": [
+        48,
+        64
+      ],
+      "anchor": [
+        24,
+        60
+      ],
+      "frames": {
+        "loop": [
+          {
+            "path": "frames/fx-smoke-loop-00.png"
+          },
+          {
+            "path": "frames/fx-smoke-loop-01.png"
+          },
+          {
+            "path": "frames/fx-smoke-loop-02.png"
+          },
+          {
+            "path": "frames/fx-smoke-loop-03.png"
+          }
+        ]
+      },
+      "fps": 6,
+      "duration": 0.6666666666666666,
+      "loop": true,
+      "atlas": {
+        "path": "atlases/fx-smoke-loop.png",
+        "columns": 4,
+        "rows": 1,
+        "frameSize": [
+          48,
+          64
+        ]
+      },
+      "blend": "normal"
+    },
+    {
+      "id": "fx-ejected-casing",
+      "label": "Ejected casing bounce",
+      "category": "effects",
+      "path": "frames/fx-ejected-casing-00.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        28
+      ],
+      "frames": {
+        "play": [
+          {
+            "path": "frames/fx-ejected-casing-00.png"
+          },
+          {
+            "path": "frames/fx-ejected-casing-01.png"
+          },
+          {
+            "path": "frames/fx-ejected-casing-02.png"
+          },
+          {
+            "path": "frames/fx-ejected-casing-03.png"
+          }
+        ]
+      },
+      "fps": 12,
+      "duration": 0.3333333333333333,
+      "loop": false,
+      "atlas": {
+        "path": "atlases/fx-ejected-casing.png",
+        "columns": 4,
+        "rows": 1,
+        "frameSize": [
+          32,
+          32
+        ]
+      },
+      "blend": "normal"
+    },
+    {
+      "id": "fx-blood-pool-dry",
+      "label": "Dried blood pool",
+      "category": "decals",
+      "path": "frames/fx-blood-pool-dry.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "loop": false
+    },
+    {
+      "id": "fx-blood-pool-fresh",
+      "label": "Fresh blood pool",
+      "category": "decals",
+      "path": "frames/fx-blood-pool-fresh.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "loop": false
+    },
+    {
+      "id": "fx-bullet-hole-metal",
+      "label": "Metal bullet hole",
+      "category": "decals",
+      "path": "frames/fx-bullet-hole-metal.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "loop": false
+    },
+    {
+      "id": "fx-bullet-hole-concrete",
+      "label": "Concrete bullet hole",
+      "category": "decals",
+      "path": "frames/fx-bullet-hole-concrete.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "loop": false
+    },
+    {
+      "id": "fx-scorch-mark",
+      "label": "Scorch mark",
+      "category": "decals",
+      "path": "frames/fx-scorch-mark.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "loop": false
+    },
+    {
+      "id": "fx-wood-chips",
+      "label": "Wood chips",
+      "category": "decals",
+      "path": "frames/fx-wood-chips.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "loop": false
+    },
+    {
+      "id": "fx-shell-pile",
+      "label": "Shell casing pile",
+      "category": "decals",
+      "path": "frames/fx-shell-pile.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "loop": false
+    },
+    {
+      "id": "fx-footprint",
+      "label": "Muddy footprint",
+      "category": "decals",
+      "path": "frames/fx-footprint.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "loop": false
+    }
+  ],
+  "notes": [
+    "Source illustration created with built-in image generation; native exports only crop, pad, and nearest-neighbor scale.",
+    "Four genuinely distinct frames per effect. Non-loop effects must hide after their duration; looping previews include a pause between one-shots.",
+    "All images retain real source alpha, including partial-alpha edge pixels. No baked checkerboards.",
+    "Muzzles face right; rotate around anchor to attach to a weapon muzzle.",
+    "Explosion anchor is its ground contact at [32,56]. Fire/smoke anchors attach to the emitter base.",
+    "Casing is a tiny four-pose bounce; arc positions are baked into its 32×32 canvas."
+  ]
+}

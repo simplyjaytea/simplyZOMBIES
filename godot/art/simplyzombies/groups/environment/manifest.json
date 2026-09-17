@@ -1,0 +1,1135 @@
+{
+  "name": "simplyZOMBIES environment revision",
+  "version": 1,
+  "worldTileSize": 32,
+  "camera": "elevated top-down orthographic",
+  "assets": [
+    {
+      "id": "tile-asphalt-a",
+      "label": "Slate asphalt A",
+      "category": "terrain",
+      "path": "textures/tile-asphalt-a.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "opaque",
+      "tileSize": [
+        32,
+        32
+      ],
+      "repeat": "visual 2x2 preview checked; no autotile rules supplied"
+    },
+    {
+      "id": "tile-asphalt-b",
+      "label": "Cracked asphalt B",
+      "category": "terrain",
+      "path": "textures/tile-asphalt-b.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "opaque",
+      "tileSize": [
+        32,
+        32
+      ],
+      "repeat": "visual 2x2 preview checked; no autotile rules supplied"
+    },
+    {
+      "id": "tile-concrete-a",
+      "label": "Worn concrete A",
+      "category": "terrain",
+      "path": "textures/tile-concrete-a.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "opaque",
+      "tileSize": [
+        32,
+        32
+      ],
+      "repeat": "visual 2x2 preview checked; no autotile rules supplied"
+    },
+    {
+      "id": "tile-concrete-b",
+      "label": "Chipped concrete B",
+      "category": "terrain",
+      "path": "textures/tile-concrete-b.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "opaque",
+      "tileSize": [
+        32,
+        32
+      ],
+      "repeat": "visual 2x2 preview checked; no autotile rules supplied"
+    },
+    {
+      "id": "tile-grass-a",
+      "label": "Olive grass A",
+      "category": "terrain",
+      "path": "textures/tile-grass-a.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "opaque",
+      "tileSize": [
+        32,
+        32
+      ],
+      "repeat": "visual 2x2 preview checked; no autotile rules supplied"
+    },
+    {
+      "id": "tile-grass-b",
+      "label": "Olive grass B",
+      "category": "terrain",
+      "path": "textures/tile-grass-b.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "opaque",
+      "tileSize": [
+        32,
+        32
+      ],
+      "repeat": "visual 2x2 preview checked; no autotile rules supplied"
+    },
+    {
+      "id": "tile-dirt-a",
+      "label": "Ochre dirt A",
+      "category": "terrain",
+      "path": "textures/tile-dirt-a.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "opaque",
+      "tileSize": [
+        32,
+        32
+      ],
+      "repeat": "visual 2x2 preview checked; no autotile rules supplied"
+    },
+    {
+      "id": "tile-dirt-b",
+      "label": "Ochre dirt B",
+      "category": "terrain",
+      "path": "textures/tile-dirt-b.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "opaque",
+      "tileSize": [
+        32,
+        32
+      ],
+      "repeat": "visual 2x2 preview checked; no autotile rules supplied"
+    },
+    {
+      "id": "tile-wood-floor",
+      "label": "Wood plank floor",
+      "category": "terrain",
+      "path": "textures/tile-wood-floor.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "opaque",
+      "tileSize": [
+        32,
+        32
+      ],
+      "repeat": "visual 2x2 preview checked; no autotile rules supplied"
+    },
+    {
+      "id": "tile-interior-tile",
+      "label": "Teal and cream floor",
+      "category": "terrain",
+      "path": "textures/tile-interior-tile.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "opaque",
+      "tileSize": [
+        32,
+        32
+      ],
+      "repeat": "visual 2x2 preview checked; no autotile rules supplied"
+    },
+    {
+      "id": "tile-rubble",
+      "label": "Rubble ground",
+      "category": "terrain",
+      "path": "textures/tile-rubble.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "opaque",
+      "tileSize": [
+        32,
+        32
+      ],
+      "repeat": "visual 2x2 preview checked; no autotile rules supplied"
+    },
+    {
+      "id": "tile-water",
+      "label": "Still teal water",
+      "category": "terrain",
+      "path": "textures/tile-water.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "opaque",
+      "tileSize": [
+        32,
+        32
+      ],
+      "repeat": "visual 2x2 preview checked; no autotile rules supplied"
+    },
+    {
+      "id": "wall-plaster",
+      "label": "Cream plaster wall",
+      "category": "architecture",
+      "path": "textures/wall-plaster.png",
+      "size": [
+        64,
+        48
+      ],
+      "anchor": [
+        32,
+        44
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "y-sort",
+      "geometryNote": "Native canvas and pivot are normalized. Source state wear/perspective may vary slightly; collision and exact map snapping require engine setup."
+    },
+    {
+      "id": "wall-brick",
+      "label": "Red brick wall",
+      "category": "architecture",
+      "path": "textures/wall-brick.png",
+      "size": [
+        64,
+        48
+      ],
+      "anchor": [
+        32,
+        44
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "y-sort",
+      "geometryNote": "Native canvas and pivot are normalized. Source state wear/perspective may vary slightly; collision and exact map snapping require engine setup."
+    },
+    {
+      "id": "wall-interior",
+      "label": "Interior blue wall",
+      "category": "architecture",
+      "path": "textures/wall-interior.png",
+      "size": [
+        64,
+        48
+      ],
+      "anchor": [
+        32,
+        44
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "y-sort",
+      "geometryNote": "Native canvas and pivot are normalized. Source state wear/perspective may vary slightly; collision and exact map snapping require engine setup."
+    },
+    {
+      "id": "wall-corner-nw",
+      "label": "Cream north-west corner",
+      "category": "architecture",
+      "path": "textures/wall-corner-nw.png",
+      "size": [
+        64,
+        64
+      ],
+      "anchor": [
+        32,
+        64
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "y-sort",
+      "geometryNote": "Native canvas and pivot are normalized. Source state wear/perspective may vary slightly; collision and exact map snapping require engine setup.",
+      "joins": [
+        "north",
+        "west"
+      ]
+    },
+    {
+      "id": "wall-corner-ne",
+      "label": "Cream north-east corner",
+      "category": "architecture",
+      "path": "textures/wall-corner-ne.png",
+      "size": [
+        64,
+        64
+      ],
+      "anchor": [
+        32,
+        64
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "y-sort",
+      "geometryNote": "Native canvas and pivot are normalized. Source state wear/perspective may vary slightly; collision and exact map snapping require engine setup.",
+      "joins": [
+        "north",
+        "east"
+      ]
+    },
+    {
+      "id": "wall-door-closed",
+      "label": "Olive door closed",
+      "category": "architecture",
+      "path": "textures/wall-door-closed.png",
+      "size": [
+        64,
+        48
+      ],
+      "anchor": [
+        32,
+        44
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "y-sort",
+      "geometryNote": "Native canvas and pivot are normalized. Source state wear/perspective may vary slightly; collision and exact map snapping require engine setup.",
+      "state": "closed",
+      "stateGroup": "olive-door",
+      "interaction": "switch sprite by state"
+    },
+    {
+      "id": "wall-door-open",
+      "label": "Olive door open",
+      "category": "architecture",
+      "path": "textures/wall-door-open.png",
+      "size": [
+        64,
+        48
+      ],
+      "anchor": [
+        32,
+        44
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "y-sort",
+      "geometryNote": "Native canvas and pivot are normalized. Source state wear/perspective may vary slightly; collision and exact map snapping require engine setup.",
+      "state": "open",
+      "stateGroup": "olive-door",
+      "interaction": "switch sprite by state"
+    },
+    {
+      "id": "wall-window-intact",
+      "label": "Intact window",
+      "category": "architecture",
+      "path": "textures/wall-window-intact.png",
+      "size": [
+        64,
+        48
+      ],
+      "anchor": [
+        32,
+        44
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "y-sort",
+      "geometryNote": "Native canvas and pivot are normalized. Source state wear/perspective may vary slightly; collision and exact map snapping require engine setup.",
+      "state": "intact",
+      "stateGroup": "window",
+      "interaction": "switch sprite by state"
+    },
+    {
+      "id": "wall-window-broken",
+      "label": "Broken window",
+      "category": "architecture",
+      "path": "textures/wall-window-broken.png",
+      "size": [
+        64,
+        48
+      ],
+      "anchor": [
+        32,
+        44
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "y-sort",
+      "geometryNote": "Native canvas and pivot are normalized. Source state wear/perspective may vary slightly; collision and exact map snapping require engine setup.",
+      "state": "broken",
+      "stateGroup": "window",
+      "interaction": "switch sprite by state"
+    },
+    {
+      "id": "wall-fence-horizontal",
+      "label": "Chain-link fence horizontal",
+      "category": "architecture",
+      "path": "textures/wall-fence-horizontal.png",
+      "size": [
+        64,
+        32
+      ],
+      "anchor": [
+        32,
+        32
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "y-sort",
+      "geometryNote": "Native canvas and pivot are normalized. Source state wear/perspective may vary slightly; collision and exact map snapping require engine setup."
+    },
+    {
+      "id": "wall-fence-vertical",
+      "label": "Chain-link fence vertical",
+      "category": "architecture",
+      "path": "textures/wall-fence-vertical.png",
+      "size": [
+        32,
+        64
+      ],
+      "anchor": [
+        16,
+        64
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "y-sort",
+      "geometryNote": "Native canvas and pivot are normalized. Source state wear/perspective may vary slightly; collision and exact map snapping require engine setup."
+    },
+    {
+      "id": "wall-gate-closed",
+      "label": "Chain-link gate closed",
+      "category": "architecture",
+      "path": "textures/wall-gate-closed.png",
+      "size": [
+        64,
+        48
+      ],
+      "anchor": [
+        32,
+        32
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "y-sort",
+      "geometryNote": "Native canvas and pivot are normalized. Source state wear/perspective may vary slightly; collision and exact map snapping require engine setup.",
+      "state": "closed",
+      "stateGroup": "chain-link-gate",
+      "interaction": "switch sprite by state"
+    },
+    {
+      "id": "wall-gate-open",
+      "label": "Chain-link gate open",
+      "category": "architecture",
+      "path": "textures/wall-gate-open.png",
+      "size": [
+        64,
+        48
+      ],
+      "anchor": [
+        32,
+        32
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "y-sort",
+      "geometryNote": "Native canvas and pivot are normalized. Source state wear/perspective may vary slightly; collision and exact map snapping require engine setup.",
+      "state": "open",
+      "stateGroup": "chain-link-gate",
+      "interaction": "switch sprite by state"
+    },
+    {
+      "id": "overlay-grass-north",
+      "label": "Grass fringe north",
+      "category": "terrain-overlay",
+      "path": "textures/overlay-grass-north.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "ground-overlay",
+      "tileSize": [
+        32,
+        32
+      ]
+    },
+    {
+      "id": "overlay-grass-east",
+      "label": "Grass fringe east",
+      "category": "terrain-overlay",
+      "path": "textures/overlay-grass-east.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "ground-overlay",
+      "tileSize": [
+        32,
+        32
+      ]
+    },
+    {
+      "id": "overlay-grass-south",
+      "label": "Grass fringe south",
+      "category": "terrain-overlay",
+      "path": "textures/overlay-grass-south.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "ground-overlay",
+      "tileSize": [
+        32,
+        32
+      ]
+    },
+    {
+      "id": "overlay-grass-west",
+      "label": "Grass fringe west",
+      "category": "terrain-overlay",
+      "path": "textures/overlay-grass-west.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "ground-overlay",
+      "tileSize": [
+        32,
+        32
+      ]
+    },
+    {
+      "id": "overlay-road-dashed",
+      "label": "Dashed ochre road line",
+      "category": "terrain-overlay",
+      "path": "textures/overlay-road-dashed.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "ground-overlay",
+      "tileSize": [
+        32,
+        32
+      ]
+    },
+    {
+      "id": "overlay-road-solid",
+      "label": "Solid ochre road line",
+      "category": "terrain-overlay",
+      "path": "textures/overlay-road-solid.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "ground-overlay",
+      "tileSize": [
+        32,
+        32
+      ]
+    },
+    {
+      "id": "overlay-puddle",
+      "label": "Slate puddle",
+      "category": "terrain-overlay",
+      "path": "textures/overlay-puddle.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "ground-overlay",
+      "tileSize": [
+        32,
+        32
+      ]
+    },
+    {
+      "id": "overlay-debris",
+      "label": "Rubble and paper debris",
+      "category": "terrain-overlay",
+      "path": "textures/overlay-debris.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0,
+        0
+      ],
+      "opacity": "transparent-rgba",
+      "drawLayer": "ground-overlay",
+      "tileSize": [
+        32,
+        32
+      ]
+    }
+  ],
+  "notes": [
+    "Original generated artwork inspired by reference screenshot pixel discipline.",
+    "Transparent sources retain their original alpha, including occasional fractional edge pixels.",
+    "Doors, windows and gate are discrete state sprites, not animated frame sequences.",
+    "Corner east is mechanically mirrored to correct generated handedness.",
+    "No engine TileSet, collision polygons or autotile adjacency rules are included."
+  ],
+  "atlases": [
+    {
+      "id": "terrain",
+      "path": "textures/terrain-atlas.png",
+      "size": [
+        128,
+        96
+      ],
+      "cellSize": [
+        32,
+        32
+      ],
+      "regions": [
+        {
+          "id": "tile-asphalt-a",
+          "rect": [
+            0,
+            0,
+            32,
+            32
+          ],
+          "anchor": [
+            0,
+            0
+          ]
+        },
+        {
+          "id": "tile-asphalt-b",
+          "rect": [
+            32,
+            0,
+            32,
+            32
+          ],
+          "anchor": [
+            0,
+            0
+          ]
+        },
+        {
+          "id": "tile-concrete-a",
+          "rect": [
+            64,
+            0,
+            32,
+            32
+          ],
+          "anchor": [
+            0,
+            0
+          ]
+        },
+        {
+          "id": "tile-concrete-b",
+          "rect": [
+            96,
+            0,
+            32,
+            32
+          ],
+          "anchor": [
+            0,
+            0
+          ]
+        },
+        {
+          "id": "tile-grass-a",
+          "rect": [
+            0,
+            32,
+            32,
+            32
+          ],
+          "anchor": [
+            0,
+            0
+          ]
+        },
+        {
+          "id": "tile-grass-b",
+          "rect": [
+            32,
+            32,
+            32,
+            32
+          ],
+          "anchor": [
+            0,
+            0
+          ]
+        },
+        {
+          "id": "tile-dirt-a",
+          "rect": [
+            64,
+            32,
+            32,
+            32
+          ],
+          "anchor": [
+            0,
+            0
+          ]
+        },
+        {
+          "id": "tile-dirt-b",
+          "rect": [
+            96,
+            32,
+            32,
+            32
+          ],
+          "anchor": [
+            0,
+            0
+          ]
+        },
+        {
+          "id": "tile-wood-floor",
+          "rect": [
+            0,
+            64,
+            32,
+            32
+          ],
+          "anchor": [
+            0,
+            0
+          ]
+        },
+        {
+          "id": "tile-interior-tile",
+          "rect": [
+            32,
+            64,
+            32,
+            32
+          ],
+          "anchor": [
+            0,
+            0
+          ]
+        },
+        {
+          "id": "tile-rubble",
+          "rect": [
+            64,
+            64,
+            32,
+            32
+          ],
+          "anchor": [
+            0,
+            0
+          ]
+        },
+        {
+          "id": "tile-water",
+          "rect": [
+            96,
+            64,
+            32,
+            32
+          ],
+          "anchor": [
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "id": "architecture",
+      "path": "textures/architecture-atlas.png",
+      "size": [
+        256,
+        256
+      ],
+      "cellSize": [
+        64,
+        64
+      ],
+      "regions": [
+        {
+          "id": "wall-plaster",
+          "rect": [
+            0,
+            0,
+            64,
+            48
+          ],
+          "anchor": [
+            32,
+            44
+          ]
+        },
+        {
+          "id": "wall-brick",
+          "rect": [
+            64,
+            0,
+            64,
+            48
+          ],
+          "anchor": [
+            32,
+            44
+          ]
+        },
+        {
+          "id": "wall-interior",
+          "rect": [
+            128,
+            0,
+            64,
+            48
+          ],
+          "anchor": [
+            32,
+            44
+          ]
+        },
+        {
+          "id": "wall-corner-nw",
+          "rect": [
+            192,
+            0,
+            64,
+            64
+          ],
+          "anchor": [
+            32,
+            64
+          ]
+        },
+        {
+          "id": "wall-corner-ne",
+          "rect": [
+            0,
+            64,
+            64,
+            64
+          ],
+          "anchor": [
+            32,
+            64
+          ]
+        },
+        {
+          "id": "wall-door-closed",
+          "rect": [
+            64,
+            64,
+            64,
+            48
+          ],
+          "anchor": [
+            32,
+            44
+          ]
+        },
+        {
+          "id": "wall-door-open",
+          "rect": [
+            128,
+            64,
+            64,
+            48
+          ],
+          "anchor": [
+            32,
+            44
+          ]
+        },
+        {
+          "id": "wall-window-intact",
+          "rect": [
+            192,
+            64,
+            64,
+            48
+          ],
+          "anchor": [
+            32,
+            44
+          ]
+        },
+        {
+          "id": "wall-window-broken",
+          "rect": [
+            0,
+            128,
+            64,
+            48
+          ],
+          "anchor": [
+            32,
+            44
+          ]
+        },
+        {
+          "id": "wall-fence-horizontal",
+          "rect": [
+            64,
+            128,
+            64,
+            32
+          ],
+          "anchor": [
+            32,
+            32
+          ]
+        },
+        {
+          "id": "wall-fence-vertical",
+          "rect": [
+            128,
+            128,
+            32,
+            64
+          ],
+          "anchor": [
+            16,
+            64
+          ]
+        },
+        {
+          "id": "wall-gate-closed",
+          "rect": [
+            192,
+            128,
+            64,
+            48
+          ],
+          "anchor": [
+            32,
+            32
+          ]
+        },
+        {
+          "id": "wall-gate-open",
+          "rect": [
+            0,
+            192,
+            64,
+            48
+          ],
+          "anchor": [
+            32,
+            32
+          ]
+        }
+      ]
+    },
+    {
+      "id": "overlays",
+      "path": "textures/overlays-atlas.png",
+      "size": [
+        128,
+        64
+      ],
+      "cellSize": [
+        32,
+        32
+      ],
+      "regions": [
+        {
+          "id": "overlay-grass-north",
+          "rect": [
+            0,
+            0,
+            32,
+            32
+          ],
+          "anchor": [
+            0,
+            0
+          ]
+        },
+        {
+          "id": "overlay-grass-east",
+          "rect": [
+            32,
+            0,
+            32,
+            32
+          ],
+          "anchor": [
+            0,
+            0
+          ]
+        },
+        {
+          "id": "overlay-grass-south",
+          "rect": [
+            64,
+            0,
+            32,
+            32
+          ],
+          "anchor": [
+            0,
+            0
+          ]
+        },
+        {
+          "id": "overlay-grass-west",
+          "rect": [
+            96,
+            0,
+            32,
+            32
+          ],
+          "anchor": [
+            0,
+            0
+          ]
+        },
+        {
+          "id": "overlay-road-dashed",
+          "rect": [
+            0,
+            32,
+            32,
+            32
+          ],
+          "anchor": [
+            0,
+            0
+          ]
+        },
+        {
+          "id": "overlay-road-solid",
+          "rect": [
+            32,
+            32,
+            32,
+            32
+          ],
+          "anchor": [
+            0,
+            0
+          ]
+        },
+        {
+          "id": "overlay-puddle",
+          "rect": [
+            64,
+            32,
+            32,
+            32
+          ],
+          "anchor": [
+            0,
+            0
+          ]
+        },
+        {
+          "id": "overlay-debris",
+          "rect": [
+            96,
+            32,
+            32,
+            32
+          ],
+          "anchor": [
+            0,
+            0
+          ]
+        }
+      ]
+    }
+  ]
+}

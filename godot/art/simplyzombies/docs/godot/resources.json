@@ -1,0 +1,588 @@
+{
+  "engine": "Godot 4 text resources",
+  "engineTested": false,
+  "pngResourcePrefix": "res://art/simplyzombies/",
+  "resources": [
+    {
+      "id": "survivor",
+      "resource": "survivor.tres",
+      "anchor": [
+        16,
+        40
+      ],
+      "nodeCentered": false,
+      "nodeOffset": [
+        -16.0,
+        -40.0
+      ],
+      "animations": [
+        {
+          "name": "idle_s",
+          "frames": 1,
+          "fps": 1.0,
+          "loop": true
+        },
+        {
+          "name": "idle_e",
+          "frames": 1,
+          "fps": 1.0,
+          "loop": true
+        },
+        {
+          "name": "idle_n",
+          "frames": 1,
+          "fps": 1.0,
+          "loop": true
+        },
+        {
+          "name": "idle_w",
+          "frames": 1,
+          "fps": 1.0,
+          "loop": true
+        },
+        {
+          "name": "walk_s",
+          "frames": 4,
+          "fps": 8.0,
+          "loop": true
+        },
+        {
+          "name": "walk_e",
+          "frames": 4,
+          "fps": 8.0,
+          "loop": true
+        },
+        {
+          "name": "walk_n",
+          "frames": 4,
+          "fps": 8.0,
+          "loop": true
+        },
+        {
+          "name": "walk_w",
+          "frames": 4,
+          "fps": 8.0,
+          "loop": true
+        }
+      ]
+    },
+    {
+      "id": "shambler",
+      "resource": "shambler.tres",
+      "anchor": [
+        16,
+        40
+      ],
+      "nodeCentered": false,
+      "nodeOffset": [
+        -16.0,
+        -40.0
+      ],
+      "animations": [
+        {
+          "name": "idle_s",
+          "frames": 1,
+          "fps": 1.0,
+          "loop": true
+        },
+        {
+          "name": "idle_e",
+          "frames": 1,
+          "fps": 1.0,
+          "loop": true
+        },
+        {
+          "name": "idle_n",
+          "frames": 1,
+          "fps": 1.0,
+          "loop": true
+        },
+        {
+          "name": "idle_w",
+          "frames": 1,
+          "fps": 1.0,
+          "loop": true
+        },
+        {
+          "name": "walk_s",
+          "frames": 4,
+          "fps": 5.0,
+          "loop": true
+        },
+        {
+          "name": "walk_e",
+          "frames": 4,
+          "fps": 5.0,
+          "loop": true
+        },
+        {
+          "name": "walk_n",
+          "frames": 4,
+          "fps": 5.0,
+          "loop": true
+        },
+        {
+          "name": "walk_w",
+          "frames": 4,
+          "fps": 5.0,
+          "loop": true
+        }
+      ]
+    },
+    {
+      "id": "fx-pistol-muzzle",
+      "resource": "fx-pistol-muzzle.tres",
+      "anchor": [
+        3,
+        8
+      ],
+      "nodeCentered": false,
+      "nodeOffset": [
+        -3.0,
+        -8.0
+      ],
+      "animations": [
+        {
+          "name": "play",
+          "frames": 4,
+          "fps": 24.0,
+          "loop": false
+        }
+      ]
+    },
+    {
+      "id": "fx-rifle-muzzle",
+      "resource": "fx-rifle-muzzle.tres",
+      "anchor": [
+        3,
+        8
+      ],
+      "nodeCentered": false,
+      "nodeOffset": [
+        -3.0,
+        -8.0
+      ],
+      "animations": [
+        {
+          "name": "play",
+          "frames": 4,
+          "fps": 24.0,
+          "loop": false
+        }
+      ]
+    },
+    {
+      "id": "fx-shotgun-muzzle",
+      "resource": "fx-shotgun-muzzle.tres",
+      "anchor": [
+        3,
+        8
+      ],
+      "nodeCentered": false,
+      "nodeOffset": [
+        -3.0,
+        -8.0
+      ],
+      "animations": [
+        {
+          "name": "play",
+          "frames": 4,
+          "fps": 20.0,
+          "loop": false
+        }
+      ]
+    },
+    {
+      "id": "fx-metal-sparks",
+      "resource": "fx-metal-sparks.tres",
+      "anchor": [
+        16,
+        16
+      ],
+      "nodeCentered": false,
+      "nodeOffset": [
+        -16.0,
+        -16.0
+      ],
+      "animations": [
+        {
+          "name": "play",
+          "frames": 4,
+          "fps": 12.0,
+          "loop": false
+        }
+      ]
+    },
+    {
+      "id": "fx-concrete-dust",
+      "resource": "fx-concrete-dust.tres",
+      "anchor": [
+        16,
+        20
+      ],
+      "nodeCentered": false,
+      "nodeOffset": [
+        -16.0,
+        -20.0
+      ],
+      "animations": [
+        {
+          "name": "play",
+          "frames": 4,
+          "fps": 12.0,
+          "loop": false
+        }
+      ]
+    },
+    {
+      "id": "fx-wood-splinters",
+      "resource": "fx-wood-splinters.tres",
+      "anchor": [
+        16,
+        20
+      ],
+      "nodeCentered": false,
+      "nodeOffset": [
+        -16.0,
+        -20.0
+      ],
+      "animations": [
+        {
+          "name": "play",
+          "frames": 4,
+          "fps": 12.0,
+          "loop": false
+        }
+      ]
+    },
+    {
+      "id": "fx-blood-hit",
+      "resource": "fx-blood-hit.tres",
+      "anchor": [
+        16,
+        16
+      ],
+      "nodeCentered": false,
+      "nodeOffset": [
+        -16.0,
+        -16.0
+      ],
+      "animations": [
+        {
+          "name": "play",
+          "frames": 4,
+          "fps": 12.0,
+          "loop": false
+        }
+      ]
+    },
+    {
+      "id": "fx-water-splash",
+      "resource": "fx-water-splash.tres",
+      "anchor": [
+        16,
+        26
+      ],
+      "nodeCentered": false,
+      "nodeOffset": [
+        -16.0,
+        -26.0
+      ],
+      "animations": [
+        {
+          "name": "play",
+          "frames": 4,
+          "fps": 12.0,
+          "loop": false
+        }
+      ]
+    },
+    {
+      "id": "fx-explosion",
+      "resource": "fx-explosion.tres",
+      "anchor": [
+        32,
+        56
+      ],
+      "nodeCentered": false,
+      "nodeOffset": [
+        -32.0,
+        -56.0
+      ],
+      "animations": [
+        {
+          "name": "play",
+          "frames": 4,
+          "fps": 12.0,
+          "loop": false
+        }
+      ]
+    },
+    {
+      "id": "fx-flame-loop",
+      "resource": "fx-flame-loop.tres",
+      "anchor": [
+        16,
+        44
+      ],
+      "nodeCentered": false,
+      "nodeOffset": [
+        -16.0,
+        -44.0
+      ],
+      "animations": [
+        {
+          "name": "loop",
+          "frames": 4,
+          "fps": 8.0,
+          "loop": true
+        }
+      ]
+    },
+    {
+      "id": "fx-smoke-loop",
+      "resource": "fx-smoke-loop.tres",
+      "anchor": [
+        24,
+        60
+      ],
+      "nodeCentered": false,
+      "nodeOffset": [
+        -24.0,
+        -60.0
+      ],
+      "animations": [
+        {
+          "name": "loop",
+          "frames": 4,
+          "fps": 6.0,
+          "loop": true
+        }
+      ]
+    },
+    {
+      "id": "fx-ejected-casing",
+      "resource": "fx-ejected-casing.tres",
+      "anchor": [
+        16,
+        28
+      ],
+      "nodeCentered": false,
+      "nodeOffset": [
+        -16.0,
+        -28.0
+      ],
+      "animations": [
+        {
+          "name": "play",
+          "frames": 4,
+          "fps": 12.0,
+          "loop": false
+        }
+      ]
+    },
+    {
+      "id": "utility-generator-on",
+      "resource": "utility-generator-on.tres",
+      "anchor": [
+        20,
+        44
+      ],
+      "nodeCentered": false,
+      "nodeOffset": [
+        -20.0,
+        -44.0
+      ],
+      "animations": [
+        {
+          "name": "running",
+          "frames": 4,
+          "fps": 6.0,
+          "loop": true
+        }
+      ]
+    },
+    {
+      "id": "utility-worklamp-activation",
+      "resource": "utility-worklamp-activation.tres",
+      "anchor": [
+        20,
+        44
+      ],
+      "nodeCentered": false,
+      "nodeOffset": [
+        -20.0,
+        -44.0
+      ],
+      "animations": [
+        {
+          "name": "activate",
+          "frames": 4,
+          "fps": 8.0,
+          "loop": false
+        }
+      ]
+    },
+    {
+      "id": "gear-vest",
+      "resource": "gear-vest.tres",
+      "anchor": [
+        16,
+        40
+      ],
+      "nodeCentered": false,
+      "nodeOffset": [
+        -16.0,
+        -40.0
+      ],
+      "animations": [
+        {
+          "name": "idle_s",
+          "frames": 1,
+          "fps": 1.0,
+          "loop": false
+        },
+        {
+          "name": "idle_e",
+          "frames": 1,
+          "fps": 1.0,
+          "loop": false
+        },
+        {
+          "name": "idle_n",
+          "frames": 1,
+          "fps": 1.0,
+          "loop": false
+        },
+        {
+          "name": "idle_w",
+          "frames": 1,
+          "fps": 1.0,
+          "loop": false
+        }
+      ]
+    },
+    {
+      "id": "gear-helmet",
+      "resource": "gear-helmet.tres",
+      "anchor": [
+        16,
+        40
+      ],
+      "nodeCentered": false,
+      "nodeOffset": [
+        -16.0,
+        -40.0
+      ],
+      "animations": [
+        {
+          "name": "idle_s",
+          "frames": 1,
+          "fps": 1.0,
+          "loop": false
+        },
+        {
+          "name": "idle_e",
+          "frames": 1,
+          "fps": 1.0,
+          "loop": false
+        },
+        {
+          "name": "idle_n",
+          "frames": 1,
+          "fps": 1.0,
+          "loop": false
+        },
+        {
+          "name": "idle_w",
+          "frames": 1,
+          "fps": 1.0,
+          "loop": false
+        }
+      ]
+    },
+    {
+      "id": "gear-gasmask",
+      "resource": "gear-gasmask.tres",
+      "anchor": [
+        16,
+        40
+      ],
+      "nodeCentered": false,
+      "nodeOffset": [
+        -16.0,
+        -40.0
+      ],
+      "animations": [
+        {
+          "name": "idle_s",
+          "frames": 1,
+          "fps": 1.0,
+          "loop": false
+        },
+        {
+          "name": "idle_e",
+          "frames": 1,
+          "fps": 1.0,
+          "loop": false
+        },
+        {
+          "name": "idle_n",
+          "frames": 1,
+          "fps": 1.0,
+          "loop": false
+        },
+        {
+          "name": "idle_w",
+          "frames": 1,
+          "fps": 1.0,
+          "loop": false
+        }
+      ]
+    },
+    {
+      "id": "gear-backpack",
+      "resource": "gear-backpack.tres",
+      "anchor": [
+        16,
+        40
+      ],
+      "nodeCentered": false,
+      "nodeOffset": [
+        -16.0,
+        -40.0
+      ],
+      "animations": [
+        {
+          "name": "idle_s",
+          "frames": 1,
+          "fps": 1.0,
+          "loop": false
+        },
+        {
+          "name": "idle_e",
+          "frames": 1,
+          "fps": 1.0,
+          "loop": false
+        },
+        {
+          "name": "idle_n",
+          "frames": 1,
+          "fps": 1.0,
+          "loop": false
+        },
+        {
+          "name": "idle_w",
+          "frames": 1,
+          "fps": 1.0,
+          "loop": false
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "Resources contain SpriteFrames playback data only. Position, ground anchors, layer order, attachment and game state are set on scene nodes.",
+    "Static one-frame states with manifest fps=0 export with speed=1; this does not create animation.",
+    "Imports must be checked in the target Godot project. No engine binary was used during export."
+  ]
+}
