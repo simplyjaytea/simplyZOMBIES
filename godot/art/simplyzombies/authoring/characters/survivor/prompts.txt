@@ -1,0 +1,15 @@
+Use case: identity-preserve. Asset: actual game WALK animation sprite sheet.
+Use the attached four approved survivor views as the exact character design. Keep its chunky ZERO Sievert-like blocky head, sparse faceless design, dark hair shape, short broad torso, very short limbs, tan skin, charcoal briefs, heavy dark stepped outline, and simple pixel clusters. NO equipment or other clothing. No redesign, no eyes, no muscles, no long thin anatomy.
+
+Create exactly16 full-body sprites on a1024x1024 transparent sheet in4columns ×4rows with equal256x256cells, centered pelvis and a shared ground baseline inside everycell. Rows top-to-bottom: SOUTH(front), EAST(right), NORTH(back), WEST(left). Each row is a looping four-phase WALK cycle for that one view. Columns left-to-right:
+1 LEFT foot forward contact, RIGHT foot behind; RIGHT arm forward.
+2 LEFT foot planted beneath pelvis, RIGHT knee/foot lifted passing forward; torso raised one logical pixel.
+3 RIGHT foot forward contact, LEFT foot behind; LEFT arm forward.
+4 RIGHT foot planted beneath pelvis, LEFT knee/foot lifted passing forward; torso raised one logical pixel.
+For front/back, alternate one foot2pixelslower/otherfoot2pixelshigher and visible opposite shoulder/arm swing. For sideviews, contact feet clearly split front/back by3logicalpixels, then passing legs together with one bent foot offground. Feet genuinely change position and legs bend acrossframes. Four different silhouettes perrow: NOT four copies, not wholebodyrotation, not changing only hair/shading. Gentle controlled walking, not running or giant strides. Preserve body volume and head identity perfectly. The hips stay centered on the SAME axis inall4cells; allow only1logicalpixel vertical body bob, no horizontal head jitter.
+Each sprite is based on a32x48logical canvas with occupiedbodyheight28logicalpixels, similar to reference, and is shown here enlarged by crisp whole squarepixels. Consistent pixel scale acrossall16frames. South/north are clearly distinct using face vs backhair. West isleft-facing, east right-facing. No ghosts, motion lines, extra limbs, severed bodyparts, ground shadows, labels, gridlines, borders or gradients. True transparent RGBA background, no paintedcheckerboard or backdrop. Keep ample emptyspacebetweensprites.
+
+ALPHA CLEANUP PASSES
+Transparent background. Remove all gray and white background squares, making them fully transparent. Keep all sixteen sprite poses and their positions exactly.
+
+Remove background. TRANSPARENT BACKGROUND. Keep the sixteen characters.

@@ -1,0 +1,1537 @@
+{
+  "html": "/workspace/scratch/68a508d3c6e9/world-production/pack/simplyzombies-production-preview.html",
+  "result": "passed",
+  "canvas": [
+    1280,
+    896
+  ],
+  "assets": 187,
+  "embeddedImages": 279,
+  "animationSequences": 22,
+  "checkedFrames": 279,
+  "checks": [
+    "Every embedded asset and frame path resolves; all sampled source rectangles are within decoded PNG dimensions. Every animation sequence changes visible pixels at a fixed anchor.",
+    "WASD moves and animates the survivor; key release and map-edge blocking select idle without advancing stride phase.",
+    "Four facing controls, 1×/2×/4× scale controls and all mobile movement/release/cancel handlers work; text entry does not move the character.",
+    "Every gear checkbox updates the equipped layers; removing gear restores the bare survivor. Held pistol grip and muzzle transformations are finite and forward-facing in all four aim directions.",
+    "Fire button, F key and scene clicks produce muzzle flash, casing and impact. One-shot FX expire; pause freezes FX and suppresses new shots. Explosion and repeating FX-demo controls work.",
+    "Each nearby searchable container cycles its distinct image states and returns to its initial state.",
+    "Asset search and category filtering narrow and restore the catalog; all asset inspector previews and night lighting render.",
+    "Animated shamblers continue moving along their local patrol paths."
+  ],
+  "frames": [
+    {
+      "asset": "survivor",
+      "animation": "idle",
+      "direction": "s",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "survivor",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "survivor",
+      "animation": "idle",
+      "direction": "n",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "survivor",
+      "animation": "idle",
+      "direction": "w",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "survivor",
+      "animation": "walk",
+      "direction": "s",
+      "frames": 4,
+      "distinctRenderedFrames": 4
+    },
+    {
+      "asset": "survivor",
+      "animation": "walk",
+      "direction": "e",
+      "frames": 4,
+      "distinctRenderedFrames": 4
+    },
+    {
+      "asset": "survivor",
+      "animation": "walk",
+      "direction": "n",
+      "frames": 4,
+      "distinctRenderedFrames": 4
+    },
+    {
+      "asset": "survivor",
+      "animation": "walk",
+      "direction": "w",
+      "frames": 4,
+      "distinctRenderedFrames": 4
+    },
+    {
+      "asset": "shambler",
+      "animation": "idle",
+      "direction": "s",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "shambler",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "shambler",
+      "animation": "idle",
+      "direction": "n",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "shambler",
+      "animation": "idle",
+      "direction": "w",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "shambler",
+      "animation": "walk",
+      "direction": "s",
+      "frames": 4,
+      "distinctRenderedFrames": 4
+    },
+    {
+      "asset": "shambler",
+      "animation": "walk",
+      "direction": "e",
+      "frames": 4,
+      "distinctRenderedFrames": 4
+    },
+    {
+      "asset": "shambler",
+      "animation": "walk",
+      "direction": "n",
+      "frames": 4,
+      "distinctRenderedFrames": 4
+    },
+    {
+      "asset": "shambler",
+      "animation": "walk",
+      "direction": "w",
+      "frames": 4,
+      "distinctRenderedFrames": 4
+    },
+    {
+      "asset": "tile-asphalt-a",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "tile-asphalt-b",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "tile-concrete-a",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "tile-concrete-b",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "tile-grass-a",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "tile-grass-b",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "tile-dirt-a",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "tile-dirt-b",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "tile-wood-floor",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "tile-interior-tile",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "tile-rubble",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "tile-water",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "wall-plaster",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "wall-brick",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "wall-interior",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "wall-corner-nw",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "wall-corner-ne",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "wall-door-closed",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "wall-door-open",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "wall-window-intact",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "wall-window-broken",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "wall-fence-horizontal",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "wall-fence-vertical",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "wall-gate-closed",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "wall-gate-open",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "overlay-grass-north",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "overlay-grass-east",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "overlay-grass-south",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "overlay-grass-west",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "overlay-road-dashed",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "overlay-road-solid",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "overlay-puddle",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "overlay-debris",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "nature-pine",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "nature-broadleaf",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "nature-dead-tree",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "nature-bush",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "nature-reeds",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "nature-rock-cluster",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "nature-stump",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "nature-fallen-log",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "prop-barrel",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "prop-dumpster",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "prop-concrete-barrier",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "prop-pallet-stack",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "prop-workbench",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "prop-bed",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "prop-chair",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "prop-table",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "prop-fridge",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "prop-shelf",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "prop-medical-cabinet",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "prop-streetlamp",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "prop-road-sign",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "prop-traffic-cone",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "prop-trash-bags",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "prop-fence-post",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "prop-wood-crate-closed",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "prop-wood-crate-open",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "prop-wood-crate-empty",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "prop-metal-footlocker-closed",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "prop-metal-footlocker-open",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "prop-metal-footlocker-empty",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "prop-medical-box-closed",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "prop-medical-box-open",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "prop-medical-box-empty",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-pistol",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-revolver",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-smg",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-pump-shotgun",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-assault-rifle",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-bolt-rifle",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-bow",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-crossbow",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-kitchen-knife",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-hatchet",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-crowbar",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-baseball-bat",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-pistol-rounds",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-rifle-rounds",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-shells",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-arrows",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-bolts",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-empty-magazine",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-water-bottle",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-tin-beans",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-tinned-meat",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-bread",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-apple",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-mre",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-bandage-roll",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-first-aid-kit",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-painkillers",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-antiseptic",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-splint",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-antibiotics",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-scrap",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-wood-planks",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-cloth",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-wire",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-electronics",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-battery",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-fuel-can",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-toolkit",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-backpack",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-helmet",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-vest",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-gas-mask",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-flashlight",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-radio",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-binoculars",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-map",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-key",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "item-repair-kit",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "weapon-pistol",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "weapon-revolver",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "weapon-smg",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "weapon-pump-shotgun",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "weapon-assault-rifle",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "weapon-bolt-rifle",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "weapon-bow",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "weapon-crossbow",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "weapon-kitchen-knife",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "weapon-hatchet",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "weapon-crowbar",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "weapon-baseball-bat",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "fx-pistol-muzzle",
+      "animation": "play",
+      "direction": "e",
+      "frames": 4,
+      "distinctRenderedFrames": 4
+    },
+    {
+      "asset": "fx-rifle-muzzle",
+      "animation": "play",
+      "direction": "e",
+      "frames": 4,
+      "distinctRenderedFrames": 4
+    },
+    {
+      "asset": "fx-shotgun-muzzle",
+      "animation": "play",
+      "direction": "e",
+      "frames": 4,
+      "distinctRenderedFrames": 4
+    },
+    {
+      "asset": "fx-metal-sparks",
+      "animation": "play",
+      "direction": "e",
+      "frames": 4,
+      "distinctRenderedFrames": 4
+    },
+    {
+      "asset": "fx-concrete-dust",
+      "animation": "play",
+      "direction": "e",
+      "frames": 4,
+      "distinctRenderedFrames": 4
+    },
+    {
+      "asset": "fx-wood-splinters",
+      "animation": "play",
+      "direction": "e",
+      "frames": 4,
+      "distinctRenderedFrames": 4
+    },
+    {
+      "asset": "fx-blood-hit",
+      "animation": "play",
+      "direction": "e",
+      "frames": 4,
+      "distinctRenderedFrames": 4
+    },
+    {
+      "asset": "fx-water-splash",
+      "animation": "play",
+      "direction": "e",
+      "frames": 4,
+      "distinctRenderedFrames": 4
+    },
+    {
+      "asset": "fx-explosion",
+      "animation": "play",
+      "direction": "e",
+      "frames": 4,
+      "distinctRenderedFrames": 4
+    },
+    {
+      "asset": "fx-flame-loop",
+      "animation": "loop",
+      "direction": "e",
+      "frames": 4,
+      "distinctRenderedFrames": 4
+    },
+    {
+      "asset": "fx-smoke-loop",
+      "animation": "loop",
+      "direction": "e",
+      "frames": 4,
+      "distinctRenderedFrames": 4
+    },
+    {
+      "asset": "fx-ejected-casing",
+      "animation": "play",
+      "direction": "e",
+      "frames": 4,
+      "distinctRenderedFrames": 4
+    },
+    {
+      "asset": "fx-blood-pool-dry",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "fx-blood-pool-fresh",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "fx-bullet-hole-metal",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "fx-bullet-hole-concrete",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "fx-scorch-mark",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "fx-wood-chips",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "fx-shell-pile",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "fx-footprint",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "vehicle-hatchback-intact",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "vehicle-hatchback-wreck",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "vehicle-van-intact",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "vehicle-van-wreck",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "vehicle-pickup-intact",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "vehicle-pickup-wreck",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "vehicle-ambulance-intact",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "vehicle-ambulance-wreck",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "utility-generator-off",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "utility-generator-on",
+      "animation": "running",
+      "direction": "e",
+      "frames": 4,
+      "distinctRenderedFrames": 4
+    },
+    {
+      "asset": "utility-barricade-intact",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "utility-barricade-broken",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "utility-rain-collector",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "utility-stove",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "utility-worklamp-off",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "utility-spike-trap-armed",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "utility-spike-trap-triggered",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "utility-worklamp-on",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "utility-worklamp-activation",
+      "animation": "activate",
+      "direction": "e",
+      "frames": 4,
+      "distinctRenderedFrames": 4
+    },
+    {
+      "asset": "ui-crosshair",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "ui-interaction-hand",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "ui-backpack",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "ui-health",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "ui-hunger",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "ui-thirst",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "ui-stamina",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "ui-radio",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "ui-warning",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "ui-ammo",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "ui-lock",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "ui-work",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "ui-wound",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "ui-temperature",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "ui-map-marker",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "ui-exit",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "gear-vest",
+      "animation": "idle",
+      "direction": "s",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "gear-vest",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "gear-vest",
+      "animation": "idle",
+      "direction": "n",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "gear-vest",
+      "animation": "idle",
+      "direction": "w",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "gear-helmet",
+      "animation": "idle",
+      "direction": "s",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "gear-helmet",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "gear-helmet",
+      "animation": "idle",
+      "direction": "n",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "gear-helmet",
+      "animation": "idle",
+      "direction": "w",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "gear-gasmask",
+      "animation": "idle",
+      "direction": "s",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "gear-gasmask",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "gear-gasmask",
+      "animation": "idle",
+      "direction": "n",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "gear-gasmask",
+      "animation": "idle",
+      "direction": "w",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "gear-backpack",
+      "animation": "idle",
+      "direction": "s",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "gear-backpack",
+      "animation": "idle",
+      "direction": "e",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "gear-backpack",
+      "animation": "idle",
+      "direction": "n",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    },
+    {
+      "asset": "gear-backpack",
+      "animation": "idle",
+      "direction": "w",
+      "frames": 1,
+      "distinctRenderedFrames": 1
+    }
+  ],
+  "previews": [
+    "workshop-day-2x.png",
+    "workshop-equipped-2x.png",
+    "weapon-four-directions-4x.png",
+    "workshop-shot-2x.png",
+    "workshop-explosion-2x.png",
+    "workshop-night-2x.png",
+    "workshop-action-2x.png",
+    "workshop-action-2x.gif"
+  ],
+  "gif": {
+    "frames": 120,
+    "fps": 20,
+    "seconds": 6,
+    "renderer": "Emitted standalone HTML runtime and embedded PNGs",
+    "content": "Survivor movement, local shambler patrols, equipped pistol/clothing, shots and explosions."
+  },
+  "limitations": [
+    "Executed in @napi-rs/canvas with DOM event shims, not a full browser. Browser CSS layout and real browser event dispatch are not tested.",
+    "This standalone workshop is not a Godot game capture; no Godot integration is claimed.",
+    "Container opening is a discrete state swap, not an interpolated lid animation."
+  ]
+}

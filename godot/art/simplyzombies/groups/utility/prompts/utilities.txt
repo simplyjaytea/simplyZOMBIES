@@ -1,0 +1,14 @@
+Use case: stylized-concept. Asset type: original game sprite atlas for simplyZOMBIES.
+Create an EXACT 3-column by 3-row sheet of NINE isolated original survival utility sprites on genuinely transparent RGBA background. Equal cells, generous padding. No labels or grid or painted checkerboard.
+ZERO Sievert-inspired premium low-resolution pixel art: strong dark stepped outline, chunky broad color clusters, 3-4 flat shades per material, 3/4 elevated top-down orthographic game view (top and south-facing front visible). The objects should remain readable at 32-48 pixels, simple rectangular forms, sparse purposeful wear. Not isometric diamond, not photoreal, no smooth gradients, no soft shadows.
+Read row-major:
+1. olive portable electric generator OFF: compact rectangular metal engine in black carry frame, exhaust stub at upper left, dark status lamp, no smoke.
+2. the EXACT SAME generator ON: same framing/pose/scale, broad small green status lamp, one tiny gray puff from exhaust. Identical feet positions and silhouette.
+3. wooden barricade INTACT: four rugged upright brown planks braced by two diagonal slats, low sturdy supports, waist high.
+4. same wooden barricade BROKEN: the two middle planks snapped outward with jagged stubs, same two outer supports and footprint.
+5. rain collector: blue-gray industrial barrel under a square sloped olive canvas funnel, clearly compact and squat, wooden stand.
+6. squat iron wood-burning stove: graphite box, short chimney at rear, small amber fire visible through square door, two short legs.
+7. portable work lamp OFF: single square yellow floodlight on a low black tripod stand, dark muted cream glass, handle behind lamp.
+8. wooden spike trap ARMED: low square plank pressure plate with five coarse upright pointed stakes.
+9. the EXACT SAME spike trap TRIGGERED: stakes snapped or flattened, a muted red scrap snagged on one short stake, same square footprint and viewpoint.
+Preserve silhouettes and ground baseline between all matched states. No people, buildings, scenery, text, labels, numbers, gradients, bloom, broad cast shadows, checkerboard or background. Genuine transparent RGBA.

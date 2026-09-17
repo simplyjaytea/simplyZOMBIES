@@ -1,0 +1,356 @@
+{
+  "assetCount": 35,
+  "animationFrameCount": 8,
+  "checks": [
+    {
+      "id": "vehicle-hatchback-intact",
+      "pathsValid": true,
+      "size": [
+        96,
+        48
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "vehicle-hatchback-wreck",
+      "pathsValid": true,
+      "size": [
+        96,
+        48
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "vehicle-van-intact",
+      "pathsValid": true,
+      "size": [
+        112,
+        56
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "vehicle-van-wreck",
+      "pathsValid": true,
+      "size": [
+        112,
+        56
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "vehicle-pickup-intact",
+      "pathsValid": true,
+      "size": [
+        112,
+        56
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "vehicle-pickup-wreck",
+      "pathsValid": true,
+      "size": [
+        112,
+        56
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "vehicle-ambulance-intact",
+      "pathsValid": true,
+      "size": [
+        112,
+        56
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "vehicle-ambulance-wreck",
+      "pathsValid": true,
+      "size": [
+        112,
+        56
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "utility-generator-off",
+      "pathsValid": true,
+      "size": [
+        40,
+        48
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "utility-generator-on",
+      "pathsValid": true,
+      "size": [
+        40,
+        48
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 4
+    },
+    {
+      "id": "utility-barricade-intact",
+      "pathsValid": true,
+      "size": [
+        48,
+        40
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "utility-barricade-broken",
+      "pathsValid": true,
+      "size": [
+        48,
+        40
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "utility-rain-collector",
+      "pathsValid": true,
+      "size": [
+        40,
+        48
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "utility-stove",
+      "pathsValid": true,
+      "size": [
+        32,
+        40
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "utility-worklamp-off",
+      "pathsValid": true,
+      "size": [
+        40,
+        48
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "utility-spike-trap-armed",
+      "pathsValid": true,
+      "size": [
+        40,
+        40
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "utility-spike-trap-triggered",
+      "pathsValid": true,
+      "size": [
+        40,
+        40
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "utility-worklamp-on",
+      "pathsValid": true,
+      "size": [
+        40,
+        48
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "utility-worklamp-activation",
+      "pathsValid": true,
+      "size": [
+        40,
+        48
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 4
+    },
+    {
+      "id": "ui-crosshair",
+      "pathsValid": true,
+      "size": [
+        16,
+        16
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "ui-interaction-hand",
+      "pathsValid": true,
+      "size": [
+        16,
+        16
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "ui-backpack",
+      "pathsValid": true,
+      "size": [
+        16,
+        16
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "ui-health",
+      "pathsValid": true,
+      "size": [
+        16,
+        16
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "ui-hunger",
+      "pathsValid": true,
+      "size": [
+        16,
+        16
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "ui-thirst",
+      "pathsValid": true,
+      "size": [
+        16,
+        16
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "ui-stamina",
+      "pathsValid": true,
+      "size": [
+        16,
+        16
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "ui-radio",
+      "pathsValid": true,
+      "size": [
+        16,
+        16
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "ui-warning",
+      "pathsValid": true,
+      "size": [
+        16,
+        16
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "ui-ammo",
+      "pathsValid": true,
+      "size": [
+        16,
+        16
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "ui-lock",
+      "pathsValid": true,
+      "size": [
+        16,
+        16
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "ui-work",
+      "pathsValid": true,
+      "size": [
+        16,
+        16
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "ui-wound",
+      "pathsValid": true,
+      "size": [
+        16,
+        16
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "ui-temperature",
+      "pathsValid": true,
+      "size": [
+        16,
+        16
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "ui-map-marker",
+      "pathsValid": true,
+      "size": [
+        16,
+        16
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    },
+    {
+      "id": "ui-exit",
+      "pathsValid": true,
+      "size": [
+        16,
+        16
+      ],
+      "transparent": true,
+      "uniqueAnimationFrames": 0
+    }
+  ]
+}

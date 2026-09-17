@@ -1,0 +1,1598 @@
+[
+  {
+    "id": "item-pistol",
+    "source": "sources/icons-weapons-ammo.png",
+    "cell": [
+      0,
+      0,
+      314,
+      314
+    ],
+    "cropWithinCell": [
+      62,
+      105,
+      277,
+      273
+    ],
+    "nativeOccupied": [
+      27,
+      21
+    ],
+    "placement": [
+      2,
+      5
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-revolver",
+    "source": "sources/icons-weapons-ammo.png",
+    "cell": [
+      314,
+      0,
+      627,
+      314
+    ],
+    "cropWithinCell": [
+      26,
+      102,
+      282,
+      265
+    ],
+    "nativeOccupied": [
+      27,
+      17
+    ],
+    "placement": [
+      2,
+      7
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-smg",
+    "source": "sources/icons-weapons-ammo.png",
+    "cell": [
+      627,
+      0,
+      940,
+      314
+    ],
+    "cropWithinCell": [
+      16,
+      96,
+      289,
+      284
+    ],
+    "nativeOccupied": [
+      27,
+      19
+    ],
+    "placement": [
+      2,
+      6
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-pump-shotgun",
+    "source": "sources/icons-weapons-ammo.png",
+    "cell": [
+      940,
+      0,
+      1254,
+      314
+    ],
+    "cropWithinCell": [
+      1,
+      131,
+      294,
+      248
+    ],
+    "nativeOccupied": [
+      27,
+      11
+    ],
+    "placement": [
+      2,
+      10
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-assault-rifle",
+    "source": "sources/icons-weapons-ammo.png",
+    "cell": [
+      0,
+      314,
+      314,
+      627
+    ],
+    "cropWithinCell": [
+      22,
+      112,
+      311,
+      245
+    ],
+    "nativeOccupied": [
+      27,
+      12
+    ],
+    "placement": [
+      2,
+      10
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-bolt-rifle",
+    "source": "sources/icons-weapons-ammo.png",
+    "cell": [
+      314,
+      314,
+      627,
+      627
+    ],
+    "cropWithinCell": [
+      7,
+      117,
+      309,
+      224
+    ],
+    "nativeOccupied": [
+      27,
+      10
+    ],
+    "placement": [
+      2,
+      11
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-bow",
+    "source": "sources/icons-weapons-ammo.png",
+    "cell": [
+      627,
+      314,
+      940,
+      627
+    ],
+    "cropWithinCell": [
+      121,
+      16,
+      211,
+      299
+    ],
+    "nativeOccupied": [
+      9,
+      27
+    ],
+    "placement": [
+      11,
+      2
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-crossbow",
+    "source": "sources/icons-weapons-ammo.png",
+    "cell": [
+      940,
+      314,
+      1254,
+      627
+    ],
+    "cropWithinCell": [
+      8,
+      83,
+      289,
+      232
+    ],
+    "nativeOccupied": [
+      27,
+      14
+    ],
+    "placement": [
+      2,
+      9
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-kitchen-knife",
+    "source": "sources/icons-weapons-ammo.png",
+    "cell": [
+      0,
+      627,
+      314,
+      940
+    ],
+    "cropWithinCell": [
+      39,
+      24,
+      290,
+      271
+    ],
+    "nativeOccupied": [
+      27,
+      27
+    ],
+    "placement": [
+      2,
+      2
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-hatchet",
+    "source": "sources/icons-weapons-ammo.png",
+    "cell": [
+      314,
+      627,
+      627,
+      940
+    ],
+    "cropWithinCell": [
+      31,
+      21,
+      296,
+      277
+    ],
+    "nativeOccupied": [
+      27,
+      26
+    ],
+    "placement": [
+      2,
+      3
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-crowbar",
+    "source": "sources/icons-weapons-ammo.png",
+    "cell": [
+      627,
+      627,
+      940,
+      940
+    ],
+    "cropWithinCell": [
+      25,
+      15,
+      291,
+      281
+    ],
+    "nativeOccupied": [
+      27,
+      27
+    ],
+    "placement": [
+      2,
+      2
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-baseball-bat",
+    "source": "sources/icons-weapons-ammo.png",
+    "cell": [
+      940,
+      627,
+      1254,
+      940
+    ],
+    "cropWithinCell": [
+      18,
+      10,
+      283,
+      281
+    ],
+    "nativeOccupied": [
+      26,
+      27
+    ],
+    "placement": [
+      3,
+      2
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-pistol-rounds",
+    "source": "sources/icons-weapons-ammo.png",
+    "cell": [
+      0,
+      940,
+      314,
+      1254
+    ],
+    "cropWithinCell": [
+      76,
+      92,
+      271,
+      213
+    ],
+    "nativeOccupied": [
+      27,
+      17
+    ],
+    "placement": [
+      2,
+      7
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-rifle-rounds",
+    "source": "sources/icons-weapons-ammo.png",
+    "cell": [
+      314,
+      940,
+      627,
+      1254
+    ],
+    "cropWithinCell": [
+      69,
+      16,
+      242,
+      224
+    ],
+    "nativeOccupied": [
+      22,
+      27
+    ],
+    "placement": [
+      5,
+      2
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-shells",
+    "source": "sources/icons-weapons-ammo.png",
+    "cell": [
+      627,
+      940,
+      940,
+      1254
+    ],
+    "cropWithinCell": [
+      40,
+      80,
+      266,
+      219
+    ],
+    "nativeOccupied": [
+      27,
+      17
+    ],
+    "placement": [
+      2,
+      7
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-arrows",
+    "source": "sources/icons-weapons-ammo.png",
+    "cell": [
+      940,
+      940,
+      1254,
+      1254
+    ],
+    "cropWithinCell": [
+      29,
+      6,
+      276,
+      261
+    ],
+    "nativeOccupied": [
+      26,
+      27
+    ],
+    "placement": [
+      3,
+      2
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-bolts",
+    "source": "sources/icons-consumables.png",
+    "cell": [
+      0,
+      0,
+      314,
+      314
+    ],
+    "cropWithinCell": [
+      28,
+      41,
+      272,
+      276
+    ],
+    "nativeOccupied": [
+      27,
+      26
+    ],
+    "placement": [
+      2,
+      3
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-empty-magazine",
+    "source": "sources/icons-consumables.png",
+    "cell": [
+      314,
+      0,
+      627,
+      314
+    ],
+    "cropWithinCell": [
+      100,
+      25,
+      276,
+      280
+    ],
+    "nativeOccupied": [
+      19,
+      27
+    ],
+    "placement": [
+      6,
+      2
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-water-bottle",
+    "source": "sources/icons-consumables.png",
+    "cell": [
+      627,
+      0,
+      940,
+      314
+    ],
+    "cropWithinCell": [
+      103,
+      26,
+      211,
+      287
+    ],
+    "nativeOccupied": [
+      11,
+      27
+    ],
+    "placement": [
+      10,
+      2
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-tin-beans",
+    "source": "sources/icons-consumables.png",
+    "cell": [
+      940,
+      0,
+      1254,
+      314
+    ],
+    "cropWithinCell": [
+      81,
+      44,
+      252,
+      268
+    ],
+    "nativeOccupied": [
+      21,
+      27
+    ],
+    "placement": [
+      5,
+      2
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-tinned-meat",
+    "source": "sources/icons-consumables.png",
+    "cell": [
+      0,
+      314,
+      314,
+      627
+    ],
+    "cropWithinCell": [
+      46,
+      56,
+      264,
+      261
+    ],
+    "nativeOccupied": [
+      27,
+      25
+    ],
+    "placement": [
+      2,
+      3
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-bread",
+    "source": "sources/icons-consumables.png",
+    "cell": [
+      314,
+      314,
+      627,
+      627
+    ],
+    "cropWithinCell": [
+      45,
+      68,
+      279,
+      257
+    ],
+    "nativeOccupied": [
+      27,
+      22
+    ],
+    "placement": [
+      2,
+      5
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-apple",
+    "source": "sources/icons-consumables.png",
+    "cell": [
+      627,
+      314,
+      940,
+      627
+    ],
+    "cropWithinCell": [
+      63,
+      43,
+      253,
+      268
+    ],
+    "nativeOccupied": [
+      23,
+      27
+    ],
+    "placement": [
+      4,
+      2
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-mre",
+    "source": "sources/icons-consumables.png",
+    "cell": [
+      940,
+      314,
+      1254,
+      627
+    ],
+    "cropWithinCell": [
+      57,
+      26,
+      273,
+      285
+    ],
+    "nativeOccupied": [
+      23,
+      27
+    ],
+    "placement": [
+      4,
+      2
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-bandage-roll",
+    "source": "sources/icons-consumables.png",
+    "cell": [
+      0,
+      627,
+      314,
+      940
+    ],
+    "cropWithinCell": [
+      29,
+      53,
+      279,
+      252
+    ],
+    "nativeOccupied": [
+      27,
+      21
+    ],
+    "placement": [
+      2,
+      5
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-first-aid-kit",
+    "source": "sources/icons-consumables.png",
+    "cell": [
+      314,
+      627,
+      627,
+      940
+    ],
+    "cropWithinCell": [
+      32,
+      26,
+      279,
+      260
+    ],
+    "nativeOccupied": [
+      27,
+      26
+    ],
+    "placement": [
+      2,
+      3
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-painkillers",
+    "source": "sources/icons-consumables.png",
+    "cell": [
+      627,
+      627,
+      940,
+      940
+    ],
+    "cropWithinCell": [
+      88,
+      25,
+      226,
+      279
+    ],
+    "nativeOccupied": [
+      15,
+      27
+    ],
+    "placement": [
+      8,
+      2
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-antiseptic",
+    "source": "sources/icons-consumables.png",
+    "cell": [
+      940,
+      627,
+      1254,
+      940
+    ],
+    "cropWithinCell": [
+      100,
+      28,
+      229,
+      279
+    ],
+    "nativeOccupied": [
+      14,
+      27
+    ],
+    "placement": [
+      9,
+      2
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-splint",
+    "source": "sources/icons-consumables.png",
+    "cell": [
+      0,
+      940,
+      314,
+      1254
+    ],
+    "cropWithinCell": [
+      30,
+      24,
+      284,
+      253
+    ],
+    "nativeOccupied": [
+      27,
+      24
+    ],
+    "placement": [
+      2,
+      4
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-antibiotics",
+    "source": "sources/icons-consumables.png",
+    "cell": [
+      314,
+      940,
+      627,
+      1254
+    ],
+    "cropWithinCell": [
+      66,
+      25,
+      248,
+      246
+    ],
+    "nativeOccupied": [
+      22,
+      27
+    ],
+    "placement": [
+      5,
+      2
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-scrap",
+    "source": "sources/icons-consumables.png",
+    "cell": [
+      627,
+      940,
+      940,
+      1254
+    ],
+    "cropWithinCell": [
+      26,
+      25,
+      284,
+      278
+    ],
+    "nativeOccupied": [
+      27,
+      26
+    ],
+    "placement": [
+      2,
+      3
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-wood-planks",
+    "source": "sources/icons-consumables.png",
+    "cell": [
+      940,
+      940,
+      1254,
+      1254
+    ],
+    "cropWithinCell": [
+      24,
+      17,
+      284,
+      266
+    ],
+    "nativeOccupied": [
+      27,
+      26
+    ],
+    "placement": [
+      2,
+      3
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-cloth",
+    "source": "sources/icons-crafting-gear.png",
+    "cell": [
+      0,
+      0,
+      314,
+      314
+    ],
+    "cropWithinCell": [
+      47,
+      75,
+      289,
+      285
+    ],
+    "nativeOccupied": [
+      27,
+      23
+    ],
+    "placement": [
+      2,
+      4
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-wire",
+    "source": "sources/icons-crafting-gear.png",
+    "cell": [
+      314,
+      0,
+      627,
+      314
+    ],
+    "cropWithinCell": [
+      46,
+      64,
+      278,
+      282
+    ],
+    "nativeOccupied": [
+      27,
+      25
+    ],
+    "placement": [
+      2,
+      3
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-electronics",
+    "source": "sources/icons-crafting-gear.png",
+    "cell": [
+      627,
+      0,
+      940,
+      314
+    ],
+    "cropWithinCell": [
+      30,
+      80,
+      269,
+      272
+    ],
+    "nativeOccupied": [
+      27,
+      22
+    ],
+    "placement": [
+      2,
+      5
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-battery",
+    "source": "sources/icons-crafting-gear.png",
+    "cell": [
+      940,
+      0,
+      1254,
+      314
+    ],
+    "cropWithinCell": [
+      31,
+      73,
+      267,
+      278
+    ],
+    "nativeOccupied": [
+      27,
+      23
+    ],
+    "placement": [
+      2,
+      4
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-fuel-can",
+    "source": "sources/icons-crafting-gear.png",
+    "cell": [
+      0,
+      314,
+      314,
+      627
+    ],
+    "cropWithinCell": [
+      67,
+      21,
+      262,
+      285
+    ],
+    "nativeOccupied": [
+      20,
+      27
+    ],
+    "placement": [
+      6,
+      2
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-toolkit",
+    "source": "sources/icons-crafting-gear.png",
+    "cell": [
+      314,
+      314,
+      627,
+      627
+    ],
+    "cropWithinCell": [
+      37,
+      51,
+      279,
+      262
+    ],
+    "nativeOccupied": [
+      27,
+      24
+    ],
+    "placement": [
+      2,
+      4
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-backpack",
+    "source": "sources/icons-crafting-gear.png",
+    "cell": [
+      627,
+      314,
+      940,
+      627
+    ],
+    "cropWithinCell": [
+      19,
+      21,
+      278,
+      290
+    ],
+    "nativeOccupied": [
+      26,
+      27
+    ],
+    "placement": [
+      3,
+      2
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-helmet",
+    "source": "sources/icons-crafting-gear.png",
+    "cell": [
+      940,
+      314,
+      1254,
+      627
+    ],
+    "cropWithinCell": [
+      24,
+      50,
+      269,
+      285
+    ],
+    "nativeOccupied": [
+      27,
+      26
+    ],
+    "placement": [
+      2,
+      3
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-vest",
+    "source": "sources/icons-crafting-gear.png",
+    "cell": [
+      0,
+      627,
+      314,
+      940
+    ],
+    "cropWithinCell": [
+      47,
+      23,
+      286,
+      278
+    ],
+    "nativeOccupied": [
+      25,
+      27
+    ],
+    "placement": [
+      3,
+      2
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-gas-mask",
+    "source": "sources/icons-crafting-gear.png",
+    "cell": [
+      314,
+      627,
+      627,
+      940
+    ],
+    "cropWithinCell": [
+      48,
+      8,
+      284,
+      274
+    ],
+    "nativeOccupied": [
+      24,
+      27
+    ],
+    "placement": [
+      4,
+      2
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-flashlight",
+    "source": "sources/icons-crafting-gear.png",
+    "cell": [
+      627,
+      627,
+      940,
+      940
+    ],
+    "cropWithinCell": [
+      30,
+      34,
+      269,
+      253
+    ],
+    "nativeOccupied": [
+      27,
+      25
+    ],
+    "placement": [
+      2,
+      3
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-radio",
+    "source": "sources/icons-crafting-gear.png",
+    "cell": [
+      940,
+      627,
+      1254,
+      940
+    ],
+    "cropWithinCell": [
+      90,
+      3,
+      223,
+      277
+    ],
+    "nativeOccupied": [
+      13,
+      27
+    ],
+    "placement": [
+      9,
+      2
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-binoculars",
+    "source": "sources/icons-crafting-gear.png",
+    "cell": [
+      0,
+      940,
+      314,
+      1254
+    ],
+    "cropWithinCell": [
+      34,
+      28,
+      299,
+      242
+    ],
+    "nativeOccupied": [
+      27,
+      22
+    ],
+    "placement": [
+      2,
+      5
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-map",
+    "source": "sources/icons-crafting-gear.png",
+    "cell": [
+      314,
+      940,
+      627,
+      1254
+    ],
+    "cropWithinCell": [
+      40,
+      3,
+      287,
+      249
+    ],
+    "nativeOccupied": [
+      27,
+      27
+    ],
+    "placement": [
+      2,
+      2
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-key",
+    "source": "sources/icons-crafting-gear.png",
+    "cell": [
+      627,
+      940,
+      940,
+      1254
+    ],
+    "cropWithinCell": [
+      42,
+      16,
+      259,
+      242
+    ],
+    "nativeOccupied": [
+      26,
+      27
+    ],
+    "placement": [
+      3,
+      2
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "item-repair-kit",
+    "source": "sources/icons-crafting-gear.png",
+    "cell": [
+      940,
+      940,
+      1254,
+      1254
+    ],
+    "cropWithinCell": [
+      16,
+      17,
+      279,
+      242
+    ],
+    "nativeOccupied": [
+      27,
+      23
+    ],
+    "placement": [
+      2,
+      4
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. No repainting or palette replacement."
+  },
+  {
+    "id": "weapon-pistol",
+    "source": "sources/held-weapons.png",
+    "cell": [
+      130,
+      60,
+      390,
+      230
+    ],
+    "cropWithinCell": [
+      43,
+      34,
+      214,
+      157
+    ],
+    "nativeOccupied": [
+      12,
+      9
+    ],
+    "placement": [
+      6,
+      3
+    ],
+    "gripSource": [
+      204,
+      174
+    ],
+    "muzzleSource": [
+      335,
+      127
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. Measurement mask only; alpha preserved."
+  },
+  {
+    "id": "weapon-revolver",
+    "source": "sources/held-weapons.png",
+    "cell": [
+      610,
+      60,
+      900,
+      235
+    ],
+    "cropWithinCell": [
+      46,
+      29,
+      275,
+      160
+    ],
+    "nativeOccupied": [
+      15,
+      9
+    ],
+    "placement": [
+      4,
+      3
+    ],
+    "gripSource": [
+      685,
+      180
+    ],
+    "muzzleSource": [
+      877,
+      116
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. Measurement mask only; alpha preserved."
+  },
+  {
+    "id": "weapon-smg",
+    "source": "sources/held-weapons.png",
+    "cell": [
+      1120,
+      60,
+      1450,
+      235
+    ],
+    "cropWithinCell": [
+      27,
+      26,
+      304,
+      166
+    ],
+    "nativeOccupied": [
+      19,
+      10
+    ],
+    "placement": [
+      6,
+      3
+    ],
+    "gripSource": [
+      1305,
+      180
+    ],
+    "muzzleSource": [
+      1416,
+      131
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. Measurement mask only; alpha preserved."
+  },
+  {
+    "id": "weapon-pump-shotgun",
+    "source": "sources/held-weapons.png",
+    "cell": [
+      40,
+      325,
+      465,
+      470
+    ],
+    "cropWithinCell": [
+      19,
+      18,
+      412,
+      125
+    ],
+    "nativeOccupied": [
+      25,
+      7
+    ],
+    "placement": [
+      11,
+      4
+    ],
+    "gripSource": [
+      213,
+      402
+    ],
+    "muzzleSource": [
+      445,
+      366
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. Measurement mask only; alpha preserved."
+  },
+  {
+    "id": "weapon-assault-rifle",
+    "source": "sources/held-weapons.png",
+    "cell": [
+      530,
+      315,
+      1000,
+      480
+    ],
+    "cropWithinCell": [
+      24,
+      19,
+      455,
+      162
+    ],
+    "nativeOccupied": [
+      26,
+      9
+    ],
+    "placement": [
+      11,
+      3
+    ],
+    "gripSource": [
+      675,
+      410
+    ],
+    "muzzleSource": [
+      978,
+      368
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. Measurement mask only; alpha preserved."
+  },
+  {
+    "id": "weapon-bolt-rifle",
+    "source": "sources/held-weapons.png",
+    "cell": [
+      1080,
+      320,
+      1515,
+      460
+    ],
+    "cropWithinCell": [
+      5,
+      24,
+      425,
+      128
+    ],
+    "nativeOccupied": [
+      27,
+      7
+    ],
+    "placement": [
+      10,
+      4
+    ],
+    "gripSource": [
+      1230,
+      410
+    ],
+    "muzzleSource": [
+      1496,
+      365
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. Measurement mask only; alpha preserved."
+  },
+  {
+    "id": "weapon-bow",
+    "source": "sources/held-weapons.png",
+    "cell": [
+      180,
+      480,
+      385,
+      780
+    ],
+    "cropWithinCell": [
+      20,
+      16,
+      190,
+      284
+    ],
+    "nativeOccupied": [
+      14,
+      22
+    ],
+    "placement": [
+      5,
+      5
+    ],
+    "gripSource": [
+      261,
+      632
+    ],
+    "muzzleSource": [
+      361,
+      631
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. Measurement mask only; alpha preserved."
+  },
+  {
+    "id": "weapon-crossbow",
+    "source": "sources/held-weapons.png",
+    "cell": [
+      570,
+      530,
+      940,
+      730
+    ],
+    "cropWithinCell": [
+      16,
+      21,
+      358,
+      184
+    ],
+    "nativeOccupied": [
+      25,
+      12
+    ],
+    "placement": [
+      11,
+      6
+    ],
+    "gripSource": [
+      696,
+      648
+    ],
+    "muzzleSource": [
+      918,
+      631
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. Measurement mask only; alpha preserved."
+  },
+  {
+    "id": "weapon-kitchen-knife",
+    "source": "sources/held-weapons.png",
+    "cell": [
+      1150,
+      580,
+      1450,
+      705
+    ],
+    "cropWithinCell": [
+      11,
+      36,
+      286,
+      94
+    ],
+    "nativeOccupied": [
+      14,
+      3
+    ],
+    "placement": [
+      5,
+      6
+    ],
+    "gripSource": [
+      1221,
+      644
+    ],
+    "muzzleSource": [
+      1430,
+      631
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. Measurement mask only; alpha preserved."
+  },
+  {
+    "id": "weapon-hatchet",
+    "source": "sources/held-weapons.png",
+    "cell": [
+      70,
+      810,
+      405,
+      960
+    ],
+    "cropWithinCell": [
+      14,
+      14,
+      317,
+      140
+    ],
+    "nativeOccupied": [
+      16,
+      7
+    ],
+    "placement": [
+      4,
+      4
+    ],
+    "gripSource": [
+      146,
+      873
+    ],
+    "muzzleSource": [
+      375,
+      889
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. Measurement mask only; alpha preserved."
+  },
+  {
+    "id": "weapon-crowbar",
+    "source": "sources/held-weapons.png",
+    "cell": [
+      570,
+      815,
+      965,
+      945
+    ],
+    "cropWithinCell": [
+      16,
+      23,
+      383,
+      114
+    ],
+    "nativeOccupied": [
+      22,
+      5
+    ],
+    "placement": [
+      5,
+      5
+    ],
+    "gripSource": [
+      644,
+      881
+    ],
+    "muzzleSource": [
+      941,
+      879
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. Measurement mask only; alpha preserved."
+  },
+  {
+    "id": "weapon-baseball-bat",
+    "source": "sources/held-weapons.png",
+    "cell": [
+      1080,
+      820,
+      1500,
+      940
+    ],
+    "cropWithinCell": [
+      20,
+      27,
+      405,
+      98
+    ],
+    "nativeOccupied": [
+      22,
+      4
+    ],
+    "placement": [
+      5,
+      6
+    ],
+    "gripSource": [
+      1173,
+      886
+    ],
+    "muzzleSource": [
+      1482,
+      882
+    ],
+    "method": "Original RGBA crop, nearest-neighbor resize, transparent padding. Measurement mask only; alpha preserved."
+  }
+]

@@ -1,0 +1,1 @@
+Remove the checkerboard background. Genuine TRANSPARENT RGBA BACKGROUND, including the holes between the shoulder straps. Keep the four backpack equipment sprites, their arrangement, colors, pixel shapes and scale unchanged. No painted checkerboard, no background, no labels.

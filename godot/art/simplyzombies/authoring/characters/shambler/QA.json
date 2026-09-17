@@ -1,0 +1,160 @@
+{
+  "mode": "RGBA",
+  "native_size": [
+    32,
+    48
+  ],
+  "atlas_size": [
+    128,
+    192
+  ],
+  "fps": 5,
+  "transparent_background": true,
+  "directions": {
+    "s": {
+      "unique_complete_frames": 4,
+      "unique_lower_body_silhouettes": 4,
+      "successive_changed_visible_lower_body_pixels": [
+        127,
+        116,
+        125,
+        131
+      ],
+      "occupied_bounds": [
+        [
+          7,
+          12,
+          25,
+          40
+        ],
+        [
+          7,
+          11,
+          25,
+          40
+        ],
+        [
+          7,
+          11,
+          25,
+          40
+        ],
+        [
+          7,
+          12,
+          25,
+          40
+        ]
+      ]
+    },
+    "e": {
+      "unique_complete_frames": 4,
+      "unique_lower_body_silhouettes": 4,
+      "successive_changed_visible_lower_body_pixels": [
+        109,
+        120,
+        122,
+        110
+      ],
+      "occupied_bounds": [
+        [
+          8,
+          12,
+          25,
+          40
+        ],
+        [
+          8,
+          12,
+          25,
+          40
+        ],
+        [
+          8,
+          12,
+          25,
+          40
+        ],
+        [
+          8,
+          12,
+          25,
+          40
+        ]
+      ]
+    },
+    "n": {
+      "unique_complete_frames": 4,
+      "unique_lower_body_silhouettes": 4,
+      "successive_changed_visible_lower_body_pixels": [
+        124,
+        126,
+        121,
+        117
+      ],
+      "occupied_bounds": [
+        [
+          7,
+          12,
+          25,
+          40
+        ],
+        [
+          7,
+          11,
+          25,
+          40
+        ],
+        [
+          7,
+          12,
+          25,
+          40
+        ],
+        [
+          7,
+          12,
+          25,
+          40
+        ]
+      ]
+    },
+    "w": {
+      "unique_complete_frames": 4,
+      "unique_lower_body_silhouettes": 4,
+      "successive_changed_visible_lower_body_pixels": [
+        119,
+        120,
+        116,
+        117
+      ],
+      "occupied_bounds": [
+        [
+          8,
+          12,
+          25,
+          40
+        ],
+        [
+          8,
+          12,
+          24,
+          40
+        ],
+        [
+          7,
+          12,
+          25,
+          40
+        ],
+        [
+          7,
+          12,
+          24,
+          39
+        ]
+      ]
+    }
+  },
+  "visual_review": "Contact sheet inspected at 8\u00d7. All four rows contain clear foot displacement and alternating compact/gathered silhouettes. Side views preserve the shambler hunch; north shows the back of the head. One uniform scale and fixed source cell registration retain the generated vertical bob. Targeted leg edit improved passing poses. Native poses are generated artwork and may benefit from hand-tuned production polish."
+}

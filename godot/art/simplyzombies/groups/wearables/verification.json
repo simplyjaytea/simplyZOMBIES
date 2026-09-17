@@ -1,0 +1,289 @@
+{
+  "passed": true,
+  "directional_assets": 16,
+  "source_sheets": 4,
+  "checks": [
+    "All native frame references exist and decode as RGBA.",
+    "All native overlays are 32\u00d748 and contain actual transparent pixels.",
+    "No source body art is embedded in the wearable files.",
+    "Four-direction individual and combined idle fit contact sheet visually inspected."
+  ],
+  "limits": [
+    "Static overlays; no per-walk-frame deformation.",
+    "No exact color-count enforcement."
+  ],
+  "files": [
+    {
+      "path": "native/gear-vest-s.png",
+      "size": [
+        32,
+        48
+      ],
+      "alpha_range": [
+        0,
+        254
+      ],
+      "occupied_bbox": [
+        10,
+        22,
+        23,
+        33
+      ]
+    },
+    {
+      "path": "native/gear-vest-e.png",
+      "size": [
+        32,
+        48
+      ],
+      "alpha_range": [
+        0,
+        254
+      ],
+      "occupied_bbox": [
+        12,
+        22,
+        21,
+        33
+      ]
+    },
+    {
+      "path": "native/gear-vest-n.png",
+      "size": [
+        32,
+        48
+      ],
+      "alpha_range": [
+        0,
+        254
+      ],
+      "occupied_bbox": [
+        10,
+        22,
+        24,
+        33
+      ]
+    },
+    {
+      "path": "native/gear-vest-w.png",
+      "size": [
+        32,
+        48
+      ],
+      "alpha_range": [
+        0,
+        253
+      ],
+      "occupied_bbox": [
+        11,
+        22,
+        20,
+        33
+      ]
+    },
+    {
+      "path": "native/gear-helmet-s.png",
+      "size": [
+        32,
+        48
+      ],
+      "alpha_range": [
+        0,
+        255
+      ],
+      "occupied_bbox": [
+        8,
+        10,
+        24,
+        19
+      ]
+    },
+    {
+      "path": "native/gear-helmet-e.png",
+      "size": [
+        32,
+        48
+      ],
+      "alpha_range": [
+        0,
+        254
+      ],
+      "occupied_bbox": [
+        9,
+        10,
+        25,
+        19
+      ]
+    },
+    {
+      "path": "native/gear-helmet-n.png",
+      "size": [
+        32,
+        48
+      ],
+      "alpha_range": [
+        0,
+        254
+      ],
+      "occupied_bbox": [
+        9,
+        10,
+        25,
+        19
+      ]
+    },
+    {
+      "path": "native/gear-helmet-w.png",
+      "size": [
+        32,
+        48
+      ],
+      "alpha_range": [
+        0,
+        254
+      ],
+      "occupied_bbox": [
+        8,
+        10,
+        24,
+        19
+      ]
+    },
+    {
+      "path": "native/gear-gasmask-s.png",
+      "size": [
+        32,
+        48
+      ],
+      "alpha_range": [
+        0,
+        254
+      ],
+      "occupied_bbox": [
+        10,
+        14,
+        22,
+        25
+      ]
+    },
+    {
+      "path": "native/gear-gasmask-e.png",
+      "size": [
+        32,
+        48
+      ],
+      "alpha_range": [
+        0,
+        254
+      ],
+      "occupied_bbox": [
+        11,
+        14,
+        24,
+        25
+      ]
+    },
+    {
+      "path": "native/gear-gasmask-n.png",
+      "size": [
+        32,
+        48
+      ],
+      "alpha_range": [
+        0,
+        255
+      ],
+      "occupied_bbox": [
+        10,
+        13,
+        22,
+        23
+      ]
+    },
+    {
+      "path": "native/gear-gasmask-w.png",
+      "size": [
+        32,
+        48
+      ],
+      "alpha_range": [
+        0,
+        255
+      ],
+      "occupied_bbox": [
+        8,
+        14,
+        21,
+        25
+      ]
+    },
+    {
+      "path": "native/gear-backpack-s.png",
+      "size": [
+        32,
+        48
+      ],
+      "alpha_range": [
+        0,
+        254
+      ],
+      "occupied_bbox": [
+        9,
+        23,
+        22,
+        33
+      ]
+    },
+    {
+      "path": "native/gear-backpack-e.png",
+      "size": [
+        32,
+        48
+      ],
+      "alpha_range": [
+        0,
+        254
+      ],
+      "occupied_bbox": [
+        5,
+        22,
+        13,
+        34
+      ]
+    },
+    {
+      "path": "native/gear-backpack-n.png",
+      "size": [
+        32,
+        48
+      ],
+      "alpha_range": [
+        0,
+        254
+      ],
+      "occupied_bbox": [
+        9,
+        22,
+        23,
+        34
+      ]
+    },
+    {
+      "path": "native/gear-backpack-w.png",
+      "size": [
+        32,
+        48
+      ],
+      "alpha_range": [
+        0,
+        254
+      ],
+      "occupied_bbox": [
+        21,
+        22,
+        29,
+        34
+      ]
+    }
+  ]
+}

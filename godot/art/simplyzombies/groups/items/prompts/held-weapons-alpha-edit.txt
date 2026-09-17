@@ -1,0 +1,1 @@
+Remove the background and all glows. Keep the twelve weapon pixel sprites unchanged in the same positions. TRANSPARENT BACKGROUND. Crisp opaque weapon shapes with zero opacity outside their contours. No shadows, no checkerboard, no fog.

@@ -1,0 +1,824 @@
+[
+  {
+    "id": "tile-asphalt-a",
+    "source": "sources/terrain-refined-sheet.png",
+    "cell": [
+      0,
+      0,
+      362,
+      362
+    ],
+    "cropWithinCell": [
+      8,
+      8,
+      354,
+      354
+    ],
+    "outputSize": [
+      32,
+      32
+    ],
+    "resampling": "nearest"
+  },
+  {
+    "id": "tile-asphalt-b",
+    "source": "sources/terrain-refined-sheet.png",
+    "cell": [
+      362,
+      0,
+      724,
+      362
+    ],
+    "cropWithinCell": [
+      8,
+      8,
+      354,
+      354
+    ],
+    "outputSize": [
+      32,
+      32
+    ],
+    "resampling": "nearest"
+  },
+  {
+    "id": "tile-concrete-a",
+    "source": "sources/terrain-refined-sheet.png",
+    "cell": [
+      724,
+      0,
+      1086,
+      362
+    ],
+    "cropWithinCell": [
+      8,
+      8,
+      354,
+      354
+    ],
+    "outputSize": [
+      32,
+      32
+    ],
+    "resampling": "nearest"
+  },
+  {
+    "id": "tile-concrete-b",
+    "source": "sources/terrain-refined-sheet.png",
+    "cell": [
+      1086,
+      0,
+      1448,
+      362
+    ],
+    "cropWithinCell": [
+      8,
+      8,
+      354,
+      354
+    ],
+    "outputSize": [
+      32,
+      32
+    ],
+    "resampling": "nearest"
+  },
+  {
+    "id": "tile-grass-a",
+    "source": "sources/terrain-refined-sheet.png",
+    "cell": [
+      0,
+      362,
+      362,
+      724
+    ],
+    "cropWithinCell": [
+      8,
+      8,
+      354,
+      354
+    ],
+    "outputSize": [
+      32,
+      32
+    ],
+    "resampling": "nearest"
+  },
+  {
+    "id": "tile-grass-b",
+    "source": "sources/terrain-refined-sheet.png",
+    "cell": [
+      362,
+      362,
+      724,
+      724
+    ],
+    "cropWithinCell": [
+      8,
+      8,
+      354,
+      354
+    ],
+    "outputSize": [
+      32,
+      32
+    ],
+    "resampling": "nearest"
+  },
+  {
+    "id": "tile-dirt-a",
+    "source": "sources/terrain-refined-sheet.png",
+    "cell": [
+      724,
+      362,
+      1086,
+      724
+    ],
+    "cropWithinCell": [
+      8,
+      8,
+      354,
+      354
+    ],
+    "outputSize": [
+      32,
+      32
+    ],
+    "resampling": "nearest"
+  },
+  {
+    "id": "tile-dirt-b",
+    "source": "sources/terrain-refined-sheet.png",
+    "cell": [
+      1086,
+      362,
+      1448,
+      724
+    ],
+    "cropWithinCell": [
+      8,
+      8,
+      354,
+      354
+    ],
+    "outputSize": [
+      32,
+      32
+    ],
+    "resampling": "nearest"
+  },
+  {
+    "id": "tile-wood-floor",
+    "source": "sources/terrain-refined-sheet.png",
+    "cell": [
+      0,
+      724,
+      362,
+      1086
+    ],
+    "cropWithinCell": [
+      8,
+      8,
+      354,
+      354
+    ],
+    "outputSize": [
+      32,
+      32
+    ],
+    "resampling": "nearest"
+  },
+  {
+    "id": "tile-interior-tile",
+    "source": "sources/terrain-refined-sheet.png",
+    "cell": [
+      362,
+      724,
+      724,
+      1086
+    ],
+    "cropWithinCell": [
+      60,
+      60,
+      300,
+      300
+    ],
+    "outputSize": [
+      32,
+      32
+    ],
+    "resampling": "nearest"
+  },
+  {
+    "id": "tile-rubble",
+    "source": "sources/terrain-refined-sheet.png",
+    "cell": [
+      724,
+      724,
+      1086,
+      1086
+    ],
+    "cropWithinCell": [
+      8,
+      8,
+      354,
+      354
+    ],
+    "outputSize": [
+      32,
+      32
+    ],
+    "resampling": "nearest"
+  },
+  {
+    "id": "tile-water",
+    "source": "sources/terrain-refined-sheet.png",
+    "cell": [
+      1086,
+      724,
+      1448,
+      1086
+    ],
+    "cropWithinCell": [
+      8,
+      8,
+      354,
+      354
+    ],
+    "outputSize": [
+      32,
+      32
+    ],
+    "resampling": "nearest"
+  },
+  {
+    "id": "wall-plaster",
+    "source": "sources/architecture-sheet.png",
+    "cell": [
+      0,
+      0,
+      314,
+      314
+    ],
+    "cropWithinCell": [
+      32,
+      119,
+      282,
+      262
+    ],
+    "outputSize": [
+      64,
+      48
+    ],
+    "contentSize": [
+      64,
+      40
+    ],
+    "resampling": "nearest",
+    "transform": null
+  },
+  {
+    "id": "wall-brick",
+    "source": "sources/architecture-sheet.png",
+    "cell": [
+      314,
+      0,
+      627,
+      314
+    ],
+    "cropWithinCell": [
+      31,
+      118,
+      282,
+      262
+    ],
+    "outputSize": [
+      64,
+      48
+    ],
+    "contentSize": [
+      64,
+      40
+    ],
+    "resampling": "nearest",
+    "transform": null
+  },
+  {
+    "id": "wall-interior",
+    "source": "sources/architecture-sheet.png",
+    "cell": [
+      627,
+      0,
+      940,
+      314
+    ],
+    "cropWithinCell": [
+      32,
+      119,
+      282,
+      262
+    ],
+    "outputSize": [
+      64,
+      48
+    ],
+    "contentSize": [
+      64,
+      40
+    ],
+    "resampling": "nearest",
+    "transform": null
+  },
+  {
+    "id": "wall-corner-nw",
+    "source": "sources/architecture-sheet.png",
+    "cell": [
+      940,
+      0,
+      1254,
+      314
+    ],
+    "cropWithinCell": [
+      56,
+      48,
+      281,
+      283
+    ],
+    "outputSize": [
+      64,
+      64
+    ],
+    "contentSize": [
+      64,
+      64
+    ],
+    "resampling": "nearest",
+    "transform": null
+  },
+  {
+    "id": "wall-corner-ne",
+    "source": "sources/architecture-sheet.png",
+    "cell": [
+      0,
+      314,
+      314,
+      627
+    ],
+    "cropWithinCell": [
+      35,
+      40,
+      282,
+      284
+    ],
+    "outputSize": [
+      64,
+      64
+    ],
+    "contentSize": [
+      64,
+      64
+    ],
+    "resampling": "nearest",
+    "transform": "horizontal mirror corrects the generated corner handedness"
+  },
+  {
+    "id": "wall-door-closed",
+    "source": "sources/architecture-sheet.png",
+    "cell": [
+      314,
+      314,
+      627,
+      627
+    ],
+    "cropWithinCell": [
+      31,
+      90,
+      282,
+      257
+    ],
+    "outputSize": [
+      64,
+      48
+    ],
+    "contentSize": [
+      64,
+      40
+    ],
+    "resampling": "nearest",
+    "transform": null
+  },
+  {
+    "id": "wall-door-open",
+    "source": "sources/architecture-sheet.png",
+    "cell": [
+      627,
+      314,
+      940,
+      627
+    ],
+    "cropWithinCell": [
+      32,
+      89,
+      282,
+      271
+    ],
+    "outputSize": [
+      64,
+      48
+    ],
+    "contentSize": [
+      64,
+      44
+    ],
+    "resampling": "nearest",
+    "transform": null
+  },
+  {
+    "id": "wall-window-intact",
+    "source": "sources/architecture-sheet.png",
+    "cell": [
+      940,
+      314,
+      1254,
+      627
+    ],
+    "cropWithinCell": [
+      32,
+      89,
+      283,
+      255
+    ],
+    "outputSize": [
+      64,
+      48
+    ],
+    "contentSize": [
+      64,
+      40
+    ],
+    "resampling": "nearest",
+    "transform": null
+  },
+  {
+    "id": "wall-window-broken",
+    "source": "sources/architecture-sheet.png",
+    "cell": [
+      0,
+      627,
+      314,
+      940
+    ],
+    "cropWithinCell": [
+      32,
+      86,
+      284,
+      256
+    ],
+    "outputSize": [
+      64,
+      48
+    ],
+    "contentSize": [
+      64,
+      40
+    ],
+    "resampling": "nearest",
+    "transform": null
+  },
+  {
+    "id": "wall-fence-horizontal",
+    "source": "sources/architecture-sheet.png",
+    "cell": [
+      314,
+      627,
+      627,
+      940
+    ],
+    "cropWithinCell": [
+      15,
+      103,
+      298,
+      236
+    ],
+    "outputSize": [
+      64,
+      32
+    ],
+    "contentSize": [
+      64,
+      30
+    ],
+    "resampling": "nearest",
+    "transform": null
+  },
+  {
+    "id": "wall-fence-vertical",
+    "source": "sources/architecture-sheet.png",
+    "cell": [
+      627,
+      627,
+      940,
+      940
+    ],
+    "cropWithinCell": [
+      139,
+      34,
+      176,
+      285
+    ],
+    "outputSize": [
+      32,
+      64
+    ],
+    "contentSize": [
+      10,
+      64
+    ],
+    "resampling": "nearest",
+    "transform": null
+  },
+  {
+    "id": "wall-gate-closed",
+    "source": "sources/architecture-sheet.png",
+    "cell": [
+      940,
+      627,
+      1254,
+      940
+    ],
+    "cropWithinCell": [
+      16,
+      104,
+      298,
+      236
+    ],
+    "outputSize": [
+      64,
+      48
+    ],
+    "contentSize": [
+      64,
+      30
+    ],
+    "resampling": "nearest",
+    "transform": null
+  },
+  {
+    "id": "wall-gate-open",
+    "source": "sources/architecture-sheet.png",
+    "cell": [
+      0,
+      940,
+      314,
+      1254
+    ],
+    "cropWithinCell": [
+      30,
+      82,
+      286,
+      250
+    ],
+    "outputSize": [
+      64,
+      48
+    ],
+    "contentSize": [
+      64,
+      40
+    ],
+    "resampling": "nearest",
+    "transform": null
+  },
+  {
+    "id": "overlay-grass-north",
+    "source": "sources/overlay-sheet.png",
+    "cell": [
+      0,
+      0,
+      444,
+      444
+    ],
+    "cropWithinCell": [
+      67,
+      59,
+      400,
+      229
+    ],
+    "outputSize": [
+      32,
+      32
+    ],
+    "contentSize": [
+      32,
+      16
+    ],
+    "contentOrigin": [
+      0,
+      0
+    ],
+    "resampling": "nearest"
+  },
+  {
+    "id": "overlay-grass-east",
+    "source": "sources/overlay-sheet.png",
+    "cell": [
+      444,
+      0,
+      887,
+      444
+    ],
+    "cropWithinCell": [
+      194,
+      59,
+      377,
+      412
+    ],
+    "outputSize": [
+      32,
+      32
+    ],
+    "contentSize": [
+      16,
+      32
+    ],
+    "contentOrigin": [
+      16,
+      0
+    ],
+    "resampling": "nearest"
+  },
+  {
+    "id": "overlay-grass-south",
+    "source": "sources/overlay-sheet.png",
+    "cell": [
+      887,
+      0,
+      1330,
+      444
+    ],
+    "cropWithinCell": [
+      49,
+      248,
+      387,
+      412
+    ],
+    "outputSize": [
+      32,
+      32
+    ],
+    "contentSize": [
+      32,
+      16
+    ],
+    "contentOrigin": [
+      0,
+      16
+    ],
+    "resampling": "nearest"
+  },
+  {
+    "id": "overlay-grass-west",
+    "source": "sources/overlay-sheet.png",
+    "cell": [
+      1330,
+      0,
+      1774,
+      444
+    ],
+    "cropWithinCell": [
+      53,
+      59,
+      243,
+      412
+    ],
+    "outputSize": [
+      32,
+      32
+    ],
+    "contentSize": [
+      16,
+      32
+    ],
+    "contentOrigin": [
+      0,
+      0
+    ],
+    "resampling": "nearest"
+  },
+  {
+    "id": "overlay-road-dashed",
+    "source": "sources/overlay-sheet.png",
+    "cell": [
+      0,
+      444,
+      444,
+      887
+    ],
+    "cropWithinCell": [
+      216,
+      37,
+      252,
+      378
+    ],
+    "outputSize": [
+      32,
+      32
+    ],
+    "contentSize": [
+      3,
+      32
+    ],
+    "contentOrigin": [
+      15,
+      0
+    ],
+    "resampling": "nearest"
+  },
+  {
+    "id": "overlay-road-solid",
+    "source": "sources/overlay-sheet.png",
+    "cell": [
+      444,
+      444,
+      887,
+      887
+    ],
+    "cropWithinCell": [
+      196,
+      37,
+      233,
+      378
+    ],
+    "outputSize": [
+      32,
+      32
+    ],
+    "contentSize": [
+      3,
+      32
+    ],
+    "contentOrigin": [
+      15,
+      0
+    ],
+    "resampling": "nearest"
+  },
+  {
+    "id": "overlay-puddle",
+    "source": "sources/overlay-sheet.png",
+    "cell": [
+      887,
+      444,
+      1330,
+      887
+    ],
+    "cropWithinCell": [
+      75,
+      89,
+      356,
+      356
+    ],
+    "outputSize": [
+      32,
+      32
+    ],
+    "contentSize": [
+      28,
+      28
+    ],
+    "contentOrigin": [
+      2,
+      2
+    ],
+    "resampling": "nearest"
+  },
+  {
+    "id": "overlay-debris",
+    "source": "sources/overlay-sheet.png",
+    "cell": [
+      1330,
+      444,
+      1774,
+      887
+    ],
+    "cropWithinCell": [
+      72,
+      82,
+      367,
+      360
+    ],
+    "outputSize": [
+      32,
+      32
+    ],
+    "contentSize": [
+      28,
+      28
+    ],
+    "contentOrigin": [
+      2,
+      2
+    ],
+    "resampling": "nearest"
+  }
+]
