@@ -216,10 +216,13 @@ func _input(event: InputEvent) -> void:
 		var action: String = _action_for(ke)
 		var focus: String = _focus()
 		# Any key that reaches the street closes the context menu -- one press, one meaning, the
-		# same rule a click off it follows below. The key still does whatever it always did; this
-		# only lets go of a menu that was left open over it.
-		if focus == "street":
-			_close_context_menu()
+		# same rule a click off it follows below. A movement key still walks (the menu was simply
+		# in the way); Escape is *spent* on the menu, because it is the thing in front and the
+		# peel order below would otherwise raise the pause menu on the same press -- which is
+		# exactly the double meaning the alpha shell's audit found on C.
+		if focus == "street" and _close_context_menu() and ke.keycode == KEY_ESCAPE:
+			main.queue_redraw()
+			return
 		if not _allows(focus, action):
 			_release_the_street()
 			return

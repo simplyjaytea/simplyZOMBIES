@@ -351,6 +351,20 @@ func _speed() -> bool:
 
 # --- RIGHT-CLICK -----------------------------------------------------------------------------
 
+# A key press and release through the viewport, the way check_play.gd presses its keys.
+func _tap(code: Key) -> void:
+	var down := InputEventKey.new()
+	down.keycode = code
+	down.physical_keycode = code
+	down.pressed = true
+	root.push_input(down)
+	var up := InputEventKey.new()
+	up.keycode = code
+	up.physical_keycode = code
+	up.pressed = false
+	root.push_input(up)
+
+
 func _mouse(pos: Vector2, button: int, pressed: bool) -> InputEventMouseButton:
 	var ev := InputEventMouseButton.new()
 	ev.position = pos
@@ -536,8 +550,30 @@ func _right_click() -> bool:
 				push_error("RIGHT-CLICK: the click that closed the menu also swung (%s)" % str(types2))
 				ok = false
 
+		# Escape is spent on the open menu: it closes and the pause menu does not rise on the same
+		# press. The negative is the same key with no menu open, which must still reach the peel
+		# order and pause -- otherwise "Escape closed the menu" could be "Escape reaches nothing".
+		root.push_input(_mouse(screen_pos, MOUSE_BUTTON_RIGHT, true))
+		root.push_input(_mouse(screen_pos, MOUSE_BUTTON_RIGHT, false))
+		if menu == null or not bool(menu.call("is_open")):
+			push_error("RIGHT-CLICK: re-opening the menu for the Escape lane failed")
+			ok = false
+		else:
+			_tap(KEY_ESCAPE)
+			var shell: Variant = main.get("_shell")
+			if bool(menu.call("is_open")):
+				push_error("RIGHT-CLICK: Escape left the menu open")
+				ok = false
+			if shell != null and bool((shell as CanvasItem).visible):
+				push_error("RIGHT-CLICK: the Escape that closed the menu also raised the pause menu -- one press, two meanings")
+				ok = false
+			_tap(KEY_ESCAPE)
+			if shell == null or not bool((shell as CanvasItem).visible):
+				push_error("RIGHT-CLICK: with no menu open, Escape no longer raises the pause menu -- the Escape lane cannot fail")
+				ok = false
+
 	main.queue_free()
 	await process_frame
 	if ok:
-		print("RIGHT-CLICK OK the scene opens the menu on a Focal shambler, dispatches its row and closes on anything else")
+		print("RIGHT-CLICK OK the scene opens the menu on a Focal shambler, dispatches its row, closes on anything else, and Escape is spent on it")
 	return ok

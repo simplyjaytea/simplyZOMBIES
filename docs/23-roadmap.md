@@ -10291,8 +10291,16 @@ not a to-do list:
   everything outside it still reaches the world; `input_map.gd` opens it on a right click under
   the `street` focus, and any left click that reaches the router while it is open closes it and
   is swallowed (one press, one meaning — a click that closes a menu never also swings), as does
-  any key that reaches the street. The legend gains the `Right-click` row and `check_play.gd`'s
-  KEYS lane knows it lives in `_unhandled_input` beside `Click`. The lanes: **VERBS** (an item
+  any key that reaches the street — a movement key still walks, and **Escape is spent on the
+  menu**: it closes and the pause menu does not rise on the same press, which the first screenshot
+  pass caught (the Escape that closed the menu paused the game) and the RIGHT-CLICK lane now holds
+  with its negative (with no menu open, Escape must still pause). The legend gains the
+  `Right-click` row and `check_play.gd`'s KEYS lane knows it lives in `_unhandled_input` beside
+  `Click`. Screenshots for the owner, driven and captured by a throwaway `SceneTree` script
+  (deleted): `.hermes/plans/2026-09-17_after-the-shell/` — the shout's bubble, a shambler's
+  sound-word and the menu's `attack` / `walk here` rows over it, the afterimage a second and six
+  seconds after looking away, and the remembered map once the player has walked on. The lanes:
+  **VERBS** (an item
   in reach offers `pick up`, the same item ten metres away offers `walk over` and not `pick up`;
   a shut door offers `open the door` and an open one `shut the door`; a colonist offers `pull …
   free` only while grabbed; a shambler offers `attack`; your own tile offers `shout`, and
