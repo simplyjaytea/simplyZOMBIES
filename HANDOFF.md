@@ -1071,6 +1071,22 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    None of these was asked about, because the session was autonomous; each is the kind of
    number the ten-day playtest is for.
 
+7. **Does a raid that can actually connect get to wipe the colony?** The melee-reach fix
+   (docs/23's defect list, "A melee raider band cannot reach a body that does not move", built
+   2026-09-16 on branch `claude/raider-reach-halt` and deliberately not landed) is a correctness
+   fix, not a difficulty dial — a raider closes to its own weapon's reach instead of standing a
+   metre short of everything — but `npm run godot:m2:balance`'s FAST tier measured what it
+   costs: seed 404's `mixed` arm was already down to its last colonist before the fix, and after
+   it that colonist dies too (`survivors_end` 1→0, `run_over` true). That fails `_assert_bands`'s
+   standing `survivors_end >= 1`, the assertion CLAUDE.md says was considered and rejected to
+   relax after the `GRABS_ENABLED` flip, so the fix cannot land green as the tree stands. Three
+   ways out, none taken unilaterally: the shipped default is meant to absorb a raid this lethal
+   (permanent loss is Milestone 2's own exit criterion) and the assertion changes; the assertion
+   was unknowingly grading the reach bug rather than the difficulty and the FAST seed set or its
+   floor changes; or a raider first-cut number (band size, `HALT_METRES` itself, the withdraw
+   rule) moves and is re-measured. The branch carries its gate, its record and both measurement
+   tables, and merges the moment one of the three is picked.
+
 ## How a session runs
 
 The loop is [CLAUDE.md's workflow section](CLAUDE.md#the-workflow), in eight steps: orient in the
