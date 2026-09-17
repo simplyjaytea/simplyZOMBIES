@@ -1,0 +1,769 @@
+{
+  "version": 1,
+  "name": "simplyZOMBIES nature, props and container states",
+  "logicalTileSize": 32,
+  "referenceCharacterHeight": 28,
+  "camera": "elevated top-down orthographic",
+  "assets": [
+    {
+      "id": "nature-pine",
+      "label": "Pine tree",
+      "category": "nature",
+      "path": "native/nature-pine.png",
+      "size": [
+        64,
+        96
+      ],
+      "anchor": [
+        32,
+        94
+      ],
+      "atlasRect": [
+        16,
+        0,
+        64,
+        96
+      ]
+    },
+    {
+      "id": "nature-broadleaf",
+      "label": "Broadleaf tree",
+      "category": "nature",
+      "path": "native/nature-broadleaf.png",
+      "size": [
+        80,
+        96
+      ],
+      "anchor": [
+        40,
+        94
+      ],
+      "atlasRect": [
+        104,
+        0,
+        80,
+        96
+      ]
+    },
+    {
+      "id": "nature-dead-tree",
+      "label": "Dead tree",
+      "category": "nature",
+      "path": "native/nature-dead-tree.png",
+      "size": [
+        64,
+        96
+      ],
+      "anchor": [
+        32,
+        94
+      ],
+      "atlasRect": [
+        208,
+        0,
+        64,
+        96
+      ]
+    },
+    {
+      "id": "nature-bush",
+      "label": "Low bush",
+      "category": "nature",
+      "path": "native/nature-bush.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        30
+      ],
+      "atlasRect": [
+        320,
+        64,
+        32,
+        32
+      ]
+    },
+    {
+      "id": "nature-reeds",
+      "label": "Reeds",
+      "category": "nature",
+      "path": "native/nature-reeds.png",
+      "size": [
+        24,
+        32
+      ],
+      "anchor": [
+        12,
+        30
+      ],
+      "atlasRect": [
+        420,
+        64,
+        24,
+        32
+      ]
+    },
+    {
+      "id": "nature-rock-cluster",
+      "label": "Rock cluster",
+      "category": "nature",
+      "path": "native/nature-rock-cluster.png",
+      "size": [
+        32,
+        24
+      ],
+      "anchor": [
+        16,
+        22
+      ],
+      "atlasRect": [
+        512,
+        72,
+        32,
+        24
+      ]
+    },
+    {
+      "id": "nature-stump",
+      "label": "Tree stump",
+      "category": "nature",
+      "path": "native/nature-stump.png",
+      "size": [
+        24,
+        24
+      ],
+      "anchor": [
+        12,
+        22
+      ],
+      "atlasRect": [
+        36,
+        168,
+        24,
+        24
+      ]
+    },
+    {
+      "id": "nature-fallen-log",
+      "label": "Fallen log",
+      "category": "nature",
+      "path": "native/nature-fallen-log.png",
+      "size": [
+        48,
+        24
+      ],
+      "anchor": [
+        24,
+        22
+      ],
+      "atlasRect": [
+        120,
+        168,
+        48,
+        24
+      ]
+    },
+    {
+      "id": "prop-barrel",
+      "label": "Oil barrel",
+      "category": "prop",
+      "path": "native/prop-barrel.png",
+      "size": [
+        24,
+        32
+      ],
+      "anchor": [
+        12,
+        30
+      ],
+      "atlasRect": [
+        228,
+        160,
+        24,
+        32
+      ]
+    },
+    {
+      "id": "prop-dumpster",
+      "label": "Dumpster",
+      "category": "prop",
+      "path": "native/prop-dumpster.png",
+      "size": [
+        48,
+        32
+      ],
+      "anchor": [
+        24,
+        30
+      ],
+      "atlasRect": [
+        312,
+        160,
+        48,
+        32
+      ]
+    },
+    {
+      "id": "prop-concrete-barrier",
+      "label": "Concrete barrier",
+      "category": "prop",
+      "path": "native/prop-concrete-barrier.png",
+      "size": [
+        48,
+        24
+      ],
+      "anchor": [
+        24,
+        22
+      ],
+      "atlasRect": [
+        408,
+        168,
+        48,
+        24
+      ]
+    },
+    {
+      "id": "prop-pallet-stack",
+      "label": "Pallet stack",
+      "category": "prop",
+      "path": "native/prop-pallet-stack.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        30
+      ],
+      "atlasRect": [
+        512,
+        160,
+        32,
+        32
+      ]
+    },
+    {
+      "id": "prop-workbench",
+      "label": "Scavenger workbench",
+      "category": "prop",
+      "path": "native/prop-workbench.png",
+      "size": [
+        48,
+        32
+      ],
+      "anchor": [
+        24,
+        30
+      ],
+      "atlasRect": [
+        24,
+        256,
+        48,
+        32
+      ]
+    },
+    {
+      "id": "prop-bed",
+      "label": "Bed",
+      "category": "prop",
+      "path": "native/prop-bed.png",
+      "size": [
+        48,
+        32
+      ],
+      "anchor": [
+        24,
+        30
+      ],
+      "atlasRect": [
+        120,
+        256,
+        48,
+        32
+      ]
+    },
+    {
+      "id": "prop-chair",
+      "label": "Wooden chair",
+      "category": "prop",
+      "path": "native/prop-chair.png",
+      "size": [
+        24,
+        32
+      ],
+      "anchor": [
+        12,
+        30
+      ],
+      "atlasRect": [
+        228,
+        256,
+        24,
+        32
+      ]
+    },
+    {
+      "id": "prop-table",
+      "label": "Wooden table",
+      "category": "prop",
+      "path": "native/prop-table.png",
+      "size": [
+        40,
+        32
+      ],
+      "anchor": [
+        20,
+        30
+      ],
+      "atlasRect": [
+        316,
+        256,
+        40,
+        32
+      ]
+    },
+    {
+      "id": "prop-fridge",
+      "label": "Old refrigerator",
+      "category": "prop",
+      "path": "native/prop-fridge.png",
+      "size": [
+        24,
+        40
+      ],
+      "anchor": [
+        12,
+        38
+      ],
+      "atlasRect": [
+        420,
+        248,
+        24,
+        40
+      ]
+    },
+    {
+      "id": "prop-shelf",
+      "label": "Supply shelf",
+      "category": "prop",
+      "path": "native/prop-shelf.png",
+      "size": [
+        40,
+        32
+      ],
+      "anchor": [
+        20,
+        30
+      ],
+      "atlasRect": [
+        508,
+        256,
+        40,
+        32
+      ]
+    },
+    {
+      "id": "prop-medical-cabinet",
+      "label": "Medical cabinet",
+      "category": "prop",
+      "path": "native/prop-medical-cabinet.png",
+      "size": [
+        24,
+        32
+      ],
+      "anchor": [
+        12,
+        30
+      ],
+      "atlasRect": [
+        36,
+        352,
+        24,
+        32
+      ]
+    },
+    {
+      "id": "prop-streetlamp",
+      "label": "Streetlamp",
+      "category": "prop",
+      "path": "native/prop-streetlamp.png",
+      "size": [
+        24,
+        64
+      ],
+      "anchor": [
+        12,
+        62
+      ],
+      "atlasRect": [
+        132,
+        320,
+        24,
+        64
+      ]
+    },
+    {
+      "id": "prop-road-sign",
+      "label": "Blank road sign",
+      "category": "prop",
+      "path": "native/prop-road-sign.png",
+      "size": [
+        24,
+        40
+      ],
+      "anchor": [
+        12,
+        38
+      ],
+      "atlasRect": [
+        228,
+        344,
+        24,
+        40
+      ]
+    },
+    {
+      "id": "prop-traffic-cone",
+      "label": "Traffic cone",
+      "category": "prop",
+      "path": "native/prop-traffic-cone.png",
+      "size": [
+        16,
+        24
+      ],
+      "anchor": [
+        8,
+        22
+      ],
+      "atlasRect": [
+        328,
+        360,
+        16,
+        24
+      ]
+    },
+    {
+      "id": "prop-trash-bags",
+      "label": "Rubbish bags",
+      "category": "prop",
+      "path": "native/prop-trash-bags.png",
+      "size": [
+        32,
+        24
+      ],
+      "anchor": [
+        16,
+        22
+      ],
+      "atlasRect": [
+        416,
+        360,
+        32,
+        24
+      ]
+    },
+    {
+      "id": "prop-fence-post",
+      "label": "Fence post",
+      "category": "prop",
+      "path": "native/prop-fence-post.png",
+      "size": [
+        16,
+        32
+      ],
+      "anchor": [
+        8,
+        30
+      ],
+      "atlasRect": [
+        520,
+        352,
+        16,
+        32
+      ]
+    },
+    {
+      "id": "prop-wood-crate-closed",
+      "label": "Wooden crate / closed",
+      "category": "container",
+      "path": "native/prop-wood-crate-closed.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        30
+      ],
+      "state": "closed",
+      "stateGroup": "prop-wood-crate",
+      "atlasRect": [
+        32,
+        448,
+        32,
+        32
+      ]
+    },
+    {
+      "id": "prop-wood-crate-open",
+      "label": "Wooden crate / open",
+      "category": "container",
+      "path": "native/prop-wood-crate-open.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        30
+      ],
+      "state": "open",
+      "stateGroup": "prop-wood-crate",
+      "atlasRect": [
+        128,
+        448,
+        32,
+        32
+      ]
+    },
+    {
+      "id": "prop-wood-crate-empty",
+      "label": "Wooden crate / empty",
+      "category": "container",
+      "path": "native/prop-wood-crate-empty.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        30
+      ],
+      "state": "empty",
+      "stateGroup": "prop-wood-crate",
+      "atlasRect": [
+        224,
+        448,
+        32,
+        32
+      ]
+    },
+    {
+      "id": "prop-metal-footlocker-closed",
+      "label": "Metal footlocker / closed",
+      "category": "container",
+      "path": "native/prop-metal-footlocker-closed.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        30
+      ],
+      "state": "closed",
+      "stateGroup": "prop-metal-footlocker",
+      "atlasRect": [
+        320,
+        448,
+        32,
+        32
+      ]
+    },
+    {
+      "id": "prop-metal-footlocker-open",
+      "label": "Metal footlocker / open",
+      "category": "container",
+      "path": "native/prop-metal-footlocker-open.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        30
+      ],
+      "state": "open",
+      "stateGroup": "prop-metal-footlocker",
+      "atlasRect": [
+        416,
+        448,
+        32,
+        32
+      ]
+    },
+    {
+      "id": "prop-metal-footlocker-empty",
+      "label": "Metal footlocker / empty",
+      "category": "container",
+      "path": "native/prop-metal-footlocker-empty.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        30
+      ],
+      "state": "empty",
+      "stateGroup": "prop-metal-footlocker",
+      "atlasRect": [
+        512,
+        448,
+        32,
+        32
+      ]
+    },
+    {
+      "id": "prop-medical-box-closed",
+      "label": "Medical box / closed",
+      "category": "container",
+      "path": "native/prop-medical-box-closed.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        30
+      ],
+      "state": "closed",
+      "stateGroup": "prop-medical-box",
+      "atlasRect": [
+        32,
+        544,
+        32,
+        32
+      ]
+    },
+    {
+      "id": "prop-medical-box-open",
+      "label": "Medical box / open",
+      "category": "container",
+      "path": "native/prop-medical-box-open.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        30
+      ],
+      "state": "open",
+      "stateGroup": "prop-medical-box",
+      "atlasRect": [
+        128,
+        544,
+        32,
+        32
+      ]
+    },
+    {
+      "id": "prop-medical-box-empty",
+      "label": "Medical box / empty",
+      "category": "container",
+      "path": "native/prop-medical-box-empty.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        30
+      ],
+      "state": "empty",
+      "stateGroup": "prop-medical-box",
+      "atlasRect": [
+        224,
+        544,
+        32,
+        32
+      ]
+    }
+  ],
+  "stateGroups": [
+    {
+      "id": "prop-wood-crate",
+      "label": "Wooden crate",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        30
+      ],
+      "states": {
+        "closed": "prop-wood-crate-closed",
+        "open": "prop-wood-crate-open",
+        "empty": "prop-wood-crate-empty"
+      },
+      "defaultState": "closed",
+      "transitionOrder": [
+        "closed",
+        "open",
+        "empty"
+      ],
+      "notes": "Three discrete states; not an interpolated opening animation."
+    },
+    {
+      "id": "prop-metal-footlocker",
+      "label": "Metal footlocker",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        30
+      ],
+      "states": {
+        "closed": "prop-metal-footlocker-closed",
+        "open": "prop-metal-footlocker-open",
+        "empty": "prop-metal-footlocker-empty"
+      },
+      "defaultState": "closed",
+      "transitionOrder": [
+        "closed",
+        "open",
+        "empty"
+      ],
+      "notes": "Three discrete states; not an interpolated opening animation."
+    },
+    {
+      "id": "prop-medical-box",
+      "label": "Medical box",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        30
+      ],
+      "states": {
+        "closed": "prop-medical-box-closed",
+        "open": "prop-medical-box-open",
+        "empty": "prop-medical-box-empty"
+      },
+      "defaultState": "closed",
+      "transitionOrder": [
+        "closed",
+        "open",
+        "empty"
+      ],
+      "notes": "Three discrete states; not an interpolated opening animation."
+    }
+  ],
+  "notes": [
+    "Original artwork informed by official ZERO Sievert screenshots; no copied game sprites.",
+    "Static objects use ground anchors at the bottom center of padded logical canvases.",
+    "Three searchable containers have fixed 32x32 canvases and [16,30] ground anchors.",
+    "Container sprite state changes are discrete; GIF is a state-transition preview.",
+    "All PNG alpha is preserved from generated RGBA source."
+  ],
+  "atlas": "props-atlas.png"
+}

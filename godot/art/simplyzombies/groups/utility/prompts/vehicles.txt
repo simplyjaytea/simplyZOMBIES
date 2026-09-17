@@ -1,0 +1,9 @@
+Use case: stylized-concept. Asset type: original game sprite atlas for simplyZOMBIES.
+Create an EXACT 2-column by 4-row sheet of EIGHT original vehicle sprites, on a genuinely transparent RGBA background. Every cell has generous blank padding, no ground, no contact shadow, no labels, no grid.
+Style target: ZERO Sievert's chunky handmade low resolution pixel art: elevated top-down three-quarter camera, rectangular orthographic silhouettes, black stepped outlines, broad flat pixels, maximum 3-4 tones per material. The roof and SOUTH side of each vehicle are visible. All face EAST, front bumper on RIGHT. NOT isometric diamond perspective, NOT realistic, NO gradients, no fine texture. Design should survive shrinking each vehicle to roughly 90 pixels wide and 42 pixels tall. Restrained worn olive, faded teal, dusty cream, graphite wheels, blue-gray windows, sparse rust.
+Rows, left to right:
+Row 1: faded teal compact four-door hatchback, intact | EXACT same hatchback, wrecked: crumpled right hood, cracked windshield, rusty panels, flat front tire.
+Row 2: dusty cream delivery van, intact | EXACT same van, wrecked: broken windshield, dented nose, missing front wheel, sparse dark rust.
+Row 3: olive utility pickup truck with open empty cargo bed, intact | EXACT same pickup, wrecked: crushed hood and bent bed side.
+Row 4: cream ambulance with muted red stripe and simple red medical cross, intact | EXACT same ambulance, wrecked: broken roof light, dented panels, cracked windows.
+PAIR ALIGNMENT IS CRITICAL: intact and wreck in each row use the SAME camera, SAME scale, SAME basic footprint and SAME cell alignment. Wheels touch the same baseline. Wreck damage may remove small areas but must not shift or resize vehicle. Crisp fat pixel clusters. No humans, occupants, guns, text, logos, flames, smoke, scenery, checkerboard, solid color background. TRUE transparency.

@@ -1,0 +1,1151 @@
+{
+  "passed": true,
+  "errors": [],
+  "assets": 60,
+  "uniqueSprites": 60,
+  "inventory": 48,
+  "held": 12,
+  "visualInspection": "Inventory and held contact sheets inspected at native and 3x/4x. Distinct items and readable silhouettes; no solid background rectangles.",
+  "tests": [
+    {
+      "id": "item-pistol",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        2,
+        5,
+        29,
+        26
+      ],
+      "sha256": "86cb7a3e4bd79c9518b0cd4e277092624f802b4356ea6cf1168c7809baa18b54"
+    },
+    {
+      "id": "item-revolver",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        255
+      ],
+      "occupiedBounds": [
+        2,
+        7,
+        29,
+        24
+      ],
+      "sha256": "0b7e47109824721223d17d4966e4fa3a6a4b6d3306c461e1034153fe78ac37f6"
+    },
+    {
+      "id": "item-smg",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        2,
+        6,
+        29,
+        25
+      ],
+      "sha256": "09128074e1029f31ce80845adfcf5207d59fc32ebfa1f529e77ddc7ff77f2af8"
+    },
+    {
+      "id": "item-pump-shotgun",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        255
+      ],
+      "occupiedBounds": [
+        2,
+        10,
+        29,
+        21
+      ],
+      "sha256": "3f6a681790c51e4a446c47966e8e5bb86ee3f59caab51fa8af11787b6bcec695"
+    },
+    {
+      "id": "item-assault-rifle",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        2,
+        10,
+        29,
+        22
+      ],
+      "sha256": "bca074907e48f172718dfde4657daa50c52bf1d5a468a51f350fcc139e5b4ef3"
+    },
+    {
+      "id": "item-bolt-rifle",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        2,
+        11,
+        29,
+        21
+      ],
+      "sha256": "6ca78230d0f87c7aca94e31a7fd3ddc8cae22b0ba52962d7c92a073a3f91f9f3"
+    },
+    {
+      "id": "item-bow",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        11,
+        2,
+        20,
+        29
+      ],
+      "sha256": "45eb8c20e3832428c1dceb2d35077a5cc1f503ee19d483f9cac3697efa5eac9e"
+    },
+    {
+      "id": "item-crossbow",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        2,
+        9,
+        29,
+        23
+      ],
+      "sha256": "6b9ecfec17c3f3b2018723a2627d77f08f545aaccec7e1cfa60e2ed147acb5fb"
+    },
+    {
+      "id": "item-kitchen-knife",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        2,
+        2,
+        29,
+        29
+      ],
+      "sha256": "e123964bafa80fc44a93347f6f85eaffbf90c990963e2de2f24c62660b0c6608"
+    },
+    {
+      "id": "item-hatchet",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        2,
+        3,
+        29,
+        29
+      ],
+      "sha256": "e04f44f5361e846463d8c56c607639b0b83cfa826167d1d5f505fd4f6d1ee01c"
+    },
+    {
+      "id": "item-crowbar",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        2,
+        2,
+        29,
+        29
+      ],
+      "sha256": "ef7507e86598868d887a491565b4e19ef9da9943b2fb585c0bb1318597bce3bc"
+    },
+    {
+      "id": "item-baseball-bat",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        3,
+        2,
+        29,
+        29
+      ],
+      "sha256": "9cd7f208d2ad9d7828b8698ecb10e5f6046877dc54f973785af673bf558a484b"
+    },
+    {
+      "id": "item-pistol-rounds",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        2,
+        7,
+        29,
+        24
+      ],
+      "sha256": "d179902591efd150015660b80438f5407d95cc12f65d949f2e226f9d0e1e07b3"
+    },
+    {
+      "id": "item-rifle-rounds",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        5,
+        2,
+        27,
+        29
+      ],
+      "sha256": "712ecb5fcbf5f24f2673a7019db2a000a78058d33570d0655ffd7f6a23583eaf"
+    },
+    {
+      "id": "item-shells",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        2,
+        7,
+        29,
+        24
+      ],
+      "sha256": "4dbabed68a1c2bdc34c0ed6308500be77053cfdc3755dadb429027f9810cf6bc"
+    },
+    {
+      "id": "item-arrows",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        255
+      ],
+      "occupiedBounds": [
+        3,
+        2,
+        29,
+        29
+      ],
+      "sha256": "85da033ec8991fa6484d2db345e7929b4a40c46a8a02f6260f23d0e8f93a26bf"
+    },
+    {
+      "id": "item-bolts",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        2,
+        3,
+        29,
+        29
+      ],
+      "sha256": "61c71bf25022614ff986dab64f2737ce4267ee6324d6179bc51189fd18b72b6b"
+    },
+    {
+      "id": "item-empty-magazine",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        255
+      ],
+      "occupiedBounds": [
+        6,
+        2,
+        25,
+        29
+      ],
+      "sha256": "1a3e10caa2117fcbe3cff3f6a9c2efb5835cf57de50971bff1fd14c4e736645b"
+    },
+    {
+      "id": "item-water-bottle",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        10,
+        2,
+        21,
+        29
+      ],
+      "sha256": "97a5aeb409076170a6778708cc7d026d1c02e3e1e5e60b05d865fa6c023a9227"
+    },
+    {
+      "id": "item-tin-beans",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        5,
+        2,
+        26,
+        29
+      ],
+      "sha256": "e5f5e80ece54bf928470a7312ee44919ba146b8b70ea3be267c1cee2952cf4d1"
+    },
+    {
+      "id": "item-tinned-meat",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        2,
+        3,
+        29,
+        28
+      ],
+      "sha256": "dfc40eb56e6b5bac290cc8bed6a30de8b644f6376ddf6fc392461da1f8321ffb"
+    },
+    {
+      "id": "item-bread",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        255
+      ],
+      "occupiedBounds": [
+        2,
+        5,
+        29,
+        27
+      ],
+      "sha256": "5e0d4ac49897154ee8e42437738aefce1801ca766823a5f5f40bf7285c164444"
+    },
+    {
+      "id": "item-apple",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        4,
+        2,
+        27,
+        29
+      ],
+      "sha256": "ddaa922ba8bae89ebb41d75ded4642dedd07717327b078a949fc96350b915eb8"
+    },
+    {
+      "id": "item-mre",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        255
+      ],
+      "occupiedBounds": [
+        4,
+        2,
+        27,
+        29
+      ],
+      "sha256": "58960be948006f59ed45d79cb79bcf3cc907cbc89c14af22f022f67b88e70015"
+    },
+    {
+      "id": "item-bandage-roll",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        255
+      ],
+      "occupiedBounds": [
+        2,
+        5,
+        29,
+        26
+      ],
+      "sha256": "91787ad679b71a5590f2697c25610605e3be5986195d6e0075d592b38ea9ad94"
+    },
+    {
+      "id": "item-first-aid-kit",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        255
+      ],
+      "occupiedBounds": [
+        2,
+        3,
+        29,
+        29
+      ],
+      "sha256": "7292e5c090af3f62f486e7d7afc43110f851eb3df8f2b70f8e759804422abaf5"
+    },
+    {
+      "id": "item-painkillers",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        8,
+        2,
+        23,
+        29
+      ],
+      "sha256": "6f204d4d96b9b63520498cda6a8091f0fa38906aaf52105d36402c168f15b5cc"
+    },
+    {
+      "id": "item-antiseptic",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        9,
+        2,
+        23,
+        29
+      ],
+      "sha256": "7e77041a3bf0b62e98c58bb961a25b16156c5cd4e033dc451145e36799413bb5"
+    },
+    {
+      "id": "item-splint",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        255
+      ],
+      "occupiedBounds": [
+        2,
+        4,
+        29,
+        28
+      ],
+      "sha256": "e8aab4b5f492ad12f9b340ad4c0a4124010428b0e07d256ac922c151e35d25f8"
+    },
+    {
+      "id": "item-antibiotics",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        5,
+        2,
+        27,
+        29
+      ],
+      "sha256": "44d92f70fa64173c213205b6eb496c305db1c7ef818de030381051919b3ac7e2"
+    },
+    {
+      "id": "item-scrap",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        255
+      ],
+      "occupiedBounds": [
+        2,
+        3,
+        29,
+        29
+      ],
+      "sha256": "c0fe412302d03ba69db24a965d9899d0129f721418af66ebf1c2e4b619968e3c"
+    },
+    {
+      "id": "item-wood-planks",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        255
+      ],
+      "occupiedBounds": [
+        2,
+        3,
+        29,
+        29
+      ],
+      "sha256": "c8d1a82c826688a90662215c3596e84f9d113dd4e7267b1d1d7d8de1c80ac272"
+    },
+    {
+      "id": "item-cloth",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        2,
+        4,
+        29,
+        27
+      ],
+      "sha256": "255a05617119c380f7c4f9c1412cc4e3b0bf9ee0f33c65d91f948b0f647f45df"
+    },
+    {
+      "id": "item-wire",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        2,
+        3,
+        29,
+        28
+      ],
+      "sha256": "e71a6c8c2335709f88c56980d6a7a1b9990a041a3643a8efeaafa496731f5975"
+    },
+    {
+      "id": "item-electronics",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        255
+      ],
+      "occupiedBounds": [
+        2,
+        5,
+        29,
+        27
+      ],
+      "sha256": "e2a9e5d28e209f845cbac4857c7ec6b8a657812bcb4d8872a9f367529579063c"
+    },
+    {
+      "id": "item-battery",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        2,
+        4,
+        29,
+        27
+      ],
+      "sha256": "53ff75051dff62a1b2a19c54e47d9cdb17d27245b248e0c43afeb12f808641ec"
+    },
+    {
+      "id": "item-fuel-can",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        255
+      ],
+      "occupiedBounds": [
+        6,
+        2,
+        26,
+        29
+      ],
+      "sha256": "6dd2975290de350a053222201dc66f122649a42658e391b47a6f797f5fee5b5c"
+    },
+    {
+      "id": "item-toolkit",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        255
+      ],
+      "occupiedBounds": [
+        2,
+        4,
+        29,
+        28
+      ],
+      "sha256": "12c9b4479147539cd1d7b3de145043cae2001717492bbbf7b84b17136b91970a"
+    },
+    {
+      "id": "item-backpack",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        3,
+        2,
+        29,
+        29
+      ],
+      "sha256": "6b7639ed6a87714b144dd2a348806d278bea819c830d54e9deee4df389c69af9"
+    },
+    {
+      "id": "item-helmet",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        255
+      ],
+      "occupiedBounds": [
+        2,
+        3,
+        29,
+        29
+      ],
+      "sha256": "203434c864fc64bb6c960d4195899f5eebdaabecc08caf45278d99475f5409e5"
+    },
+    {
+      "id": "item-vest",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        255
+      ],
+      "occupiedBounds": [
+        3,
+        2,
+        28,
+        29
+      ],
+      "sha256": "dec5713e84e1493fd45a6dc39156a9651bf2e67c10d421ae0d37e3b23506dfd1"
+    },
+    {
+      "id": "item-gas-mask",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        255
+      ],
+      "occupiedBounds": [
+        4,
+        2,
+        28,
+        29
+      ],
+      "sha256": "7310645ff5b75fa30ad737f4d2a0f42c4034b545b8aad119165317e9bbbe050c"
+    },
+    {
+      "id": "item-flashlight",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        255
+      ],
+      "occupiedBounds": [
+        2,
+        3,
+        29,
+        28
+      ],
+      "sha256": "10af9e6d16bfa5d42e2849a54686c280b3a0fd638d1497270dc8d3f2337ce381"
+    },
+    {
+      "id": "item-radio",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        9,
+        2,
+        22,
+        29
+      ],
+      "sha256": "4dd56adbbb1fb916ea4b4b94ee5d7f78b89dc00ba47815707dbf21a9caa92a7c"
+    },
+    {
+      "id": "item-binoculars",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        255
+      ],
+      "occupiedBounds": [
+        2,
+        5,
+        29,
+        27
+      ],
+      "sha256": "f07f579024c68f8dc3d1a79f43acdca6c62c7ba4da97467bf9b79d882e7ee0da"
+    },
+    {
+      "id": "item-map",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        2,
+        2,
+        29,
+        29
+      ],
+      "sha256": "0962c8715eb00c047da6095d3383ce88d18cb83fb6d9debf4c30f7d279084327"
+    },
+    {
+      "id": "item-key",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        3,
+        2,
+        29,
+        29
+      ],
+      "sha256": "880278fc86194c1c8a9c9c964656dbf8cda636574aa01ac043b4e11a8a933c38"
+    },
+    {
+      "id": "item-repair-kit",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        2,
+        4,
+        29,
+        27
+      ],
+      "sha256": "9405650370c4d16d9b3c9070ac8f7d6f402cea475c73e0c71cde68672df4c3e7"
+    },
+    {
+      "id": "weapon-pistol",
+      "size": [
+        24,
+        16
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        6,
+        3,
+        18,
+        12
+      ],
+      "sha256": "4289b252854e13a8ba9dfbf1059ab215ddcc8dbc621494df1072aa8779a8191d"
+    },
+    {
+      "id": "weapon-revolver",
+      "size": [
+        24,
+        16
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        4,
+        3,
+        19,
+        12
+      ],
+      "sha256": "d11b35d6a04af3687babaa82afc1deb21b6e7dadc9e6e54e4e18ee0b1d689a13"
+    },
+    {
+      "id": "weapon-smg",
+      "size": [
+        32,
+        16
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        6,
+        3,
+        25,
+        13
+      ],
+      "sha256": "b4a8708ff7c9e08eee3bff7851df8bdf4d136d7d9ce72551321549142a4ad743"
+    },
+    {
+      "id": "weapon-pump-shotgun",
+      "size": [
+        48,
+        16
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        11,
+        4,
+        36,
+        11
+      ],
+      "sha256": "6244051a258ee2e54741fb8b52255b16686fd91547f32b7cf4974033458da5cc"
+    },
+    {
+      "id": "weapon-assault-rifle",
+      "size": [
+        48,
+        16
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        11,
+        3,
+        37,
+        12
+      ],
+      "sha256": "4f206e4075ad5f53a5757aad9b809597a91c9702cd7b1d9443f604920406b494"
+    },
+    {
+      "id": "weapon-bolt-rifle",
+      "size": [
+        48,
+        16
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        10,
+        4,
+        37,
+        11
+      ],
+      "sha256": "82d45923b26556e784db21ef91064b7205b5109c89577a75e368faa8ee35e2f0"
+    },
+    {
+      "id": "weapon-bow",
+      "size": [
+        24,
+        32
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        5,
+        5,
+        19,
+        27
+      ],
+      "sha256": "cbbf2790e49b2d2e0d43c601c2e398466dd4b14e37ea389d143ef330b03b8b9e"
+    },
+    {
+      "id": "weapon-crossbow",
+      "size": [
+        48,
+        24
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        11,
+        6,
+        36,
+        18
+      ],
+      "sha256": "3214ddfc3aaf22dc38973cd0394d0fa7b3d0198f0adb7e1b24fc9b43ef8a07e4"
+    },
+    {
+      "id": "weapon-kitchen-knife",
+      "size": [
+        24,
+        16
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        5,
+        6,
+        19,
+        9
+      ],
+      "sha256": "9a0a8fa8f45a361057e9b0dc76ea566ab53f1dc1652dd47e5db2137f7ae49a91"
+    },
+    {
+      "id": "weapon-hatchet",
+      "size": [
+        24,
+        16
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        4,
+        4,
+        20,
+        11
+      ],
+      "sha256": "f0d311280e5cda9d5d82e4cfc26a48a897c3ed2c3d089c0b5df391d668f311f2"
+    },
+    {
+      "id": "weapon-crowbar",
+      "size": [
+        32,
+        16
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        253
+      ],
+      "occupiedBounds": [
+        5,
+        5,
+        27,
+        10
+      ],
+      "sha256": "80025cb8b2d3997eed7e0b48f0833a44b5b1ecf8183c83dbb8f7f474361f0287"
+    },
+    {
+      "id": "weapon-baseball-bat",
+      "size": [
+        32,
+        16
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        254
+      ],
+      "occupiedBounds": [
+        5,
+        6,
+        27,
+        10
+      ],
+      "sha256": "abde95b36933f3642e9ceff34829f21185af59fbcf4eedab860ad49a6d331407"
+    }
+  ]
+}

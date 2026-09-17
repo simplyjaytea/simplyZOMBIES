@@ -1,0 +1,1 @@
+TRANSPARENT BACKGROUND. Remove all the gray squares behind and inside the four objects. Keep only the four pixel art equipment sprites. Export transparent alpha, not a visual simulation of transparency.

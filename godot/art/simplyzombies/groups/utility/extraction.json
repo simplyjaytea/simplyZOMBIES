@@ -1,0 +1,815 @@
+[
+  {
+    "id": "vehicle-hatchback-intact",
+    "source": "sources/vehicles.png",
+    "sourceRect": [
+      0,
+      0,
+      620,
+      304
+    ],
+    "opaqueBounds": [
+      123,
+      63,
+      558,
+      282
+    ],
+    "scale": 0.1963470319634703,
+    "paddingAnchor": [
+      48,
+      46
+    ]
+  },
+  {
+    "id": "vehicle-hatchback-wreck",
+    "source": "sources/vehicles.png",
+    "sourceRect": [
+      620,
+      0,
+      1239,
+      304
+    ],
+    "opaqueBounds": [
+      79,
+      63,
+      513,
+      281
+    ],
+    "scale": 0.1963470319634703,
+    "paddingAnchor": [
+      48,
+      46
+    ]
+  },
+  {
+    "id": "vehicle-van-intact",
+    "source": "sources/vehicles.png",
+    "sourceRect": [
+      0,
+      304,
+      620,
+      593
+    ],
+    "opaqueBounds": [
+      91,
+      20,
+      575,
+      265
+    ],
+    "scale": 0.20816326530612245,
+    "paddingAnchor": [
+      56,
+      54
+    ]
+  },
+  {
+    "id": "vehicle-van-wreck",
+    "source": "sources/vehicles.png",
+    "sourceRect": [
+      620,
+      304,
+      1239,
+      593
+    ],
+    "opaqueBounds": [
+      51,
+      20,
+      538,
+      263
+    ],
+    "scale": 0.20816326530612245,
+    "paddingAnchor": [
+      56,
+      54
+    ]
+  },
+  {
+    "id": "vehicle-pickup-intact",
+    "source": "sources/vehicles.png",
+    "sourceRect": [
+      0,
+      593,
+      620,
+      871
+    ],
+    "opaqueBounds": [
+      83,
+      21,
+      588,
+      255
+    ],
+    "scale": 0.2082514734774067,
+    "paddingAnchor": [
+      56,
+      54
+    ]
+  },
+  {
+    "id": "vehicle-pickup-wreck",
+    "source": "sources/vehicles.png",
+    "sourceRect": [
+      620,
+      593,
+      1239,
+      871
+    ],
+    "opaqueBounds": [
+      36,
+      21,
+      545,
+      254
+    ],
+    "scale": 0.2082514734774067,
+    "paddingAnchor": [
+      56,
+      54
+    ]
+  },
+  {
+    "id": "vehicle-ambulance-intact",
+    "source": "sources/vehicles.png",
+    "sourceRect": [
+      0,
+      871,
+      620,
+      1269
+    ],
+    "opaqueBounds": [
+      74,
+      20,
+      591,
+      324
+    ],
+    "scale": 0.16721311475409836,
+    "paddingAnchor": [
+      56,
+      54
+    ]
+  },
+  {
+    "id": "vehicle-ambulance-wreck",
+    "source": "sources/vehicles.png",
+    "sourceRect": [
+      620,
+      871,
+      1239,
+      1269
+    ],
+    "opaqueBounds": [
+      29,
+      20,
+      555,
+      325
+    ],
+    "scale": 0.16721311475409836,
+    "paddingAnchor": [
+      56,
+      54
+    ]
+  },
+  {
+    "id": "utility-generator-off",
+    "source": "sources/utilities.png",
+    "sourceRect": [
+      0,
+      0,
+      412,
+      425
+    ],
+    "opaqueBounds": [
+      55,
+      116,
+      355,
+      398
+    ],
+    "scale": 0.10631229235880399,
+    "paddingAnchor": [
+      20,
+      44
+    ]
+  },
+  {
+    "id": "utility-generator-on",
+    "source": "sources/utilities.png",
+    "sourceRect": [
+      412,
+      0,
+      823,
+      425
+    ],
+    "opaqueBounds": [
+      55,
+      32,
+      356,
+      398
+    ],
+    "scale": 0.10631229235880399,
+    "paddingAnchor": [
+      20,
+      44
+    ]
+  },
+  {
+    "id": "utility-barricade-intact",
+    "source": "sources/utilities.png",
+    "sourceRect": [
+      823,
+      0,
+      1235,
+      425
+    ],
+    "opaqueBounds": [
+      23,
+      127,
+      374,
+      398
+    ],
+    "scale": 0.11864406779661017,
+    "paddingAnchor": [
+      24,
+      36
+    ]
+  },
+  {
+    "id": "utility-barricade-broken",
+    "source": "sources/utilities.png",
+    "sourceRect": [
+      0,
+      425,
+      412,
+      849
+    ],
+    "opaqueBounds": [
+      32,
+      113,
+      386,
+      384
+    ],
+    "scale": 0.11864406779661017,
+    "paddingAnchor": [
+      24,
+      36
+    ]
+  },
+  {
+    "id": "utility-rain-collector",
+    "source": "sources/utilities.png",
+    "sourceRect": [
+      412,
+      425,
+      823,
+      849
+    ],
+    "opaqueBounds": [
+      53,
+      34,
+      356,
+      384
+    ],
+    "scale": 0.11428571428571428,
+    "paddingAnchor": [
+      20,
+      44
+    ]
+  },
+  {
+    "id": "utility-stove",
+    "source": "sources/utilities.png",
+    "sourceRect": [
+      823,
+      425,
+      1235,
+      849
+    ],
+    "opaqueBounds": [
+      78,
+      27,
+      324,
+      378
+    ],
+    "scale": 0.09686609686609686,
+    "paddingAnchor": [
+      16,
+      36
+    ]
+  },
+  {
+    "id": "utility-worklamp-off",
+    "source": "sources/utilities.png",
+    "sourceRect": [
+      0,
+      849,
+      412,
+      1274
+    ],
+    "opaqueBounds": [
+      72,
+      34,
+      329,
+      357
+    ],
+    "scale": 0.09907120743034056,
+    "paddingAnchor": [
+      20,
+      44
+    ]
+  },
+  {
+    "id": "utility-spike-trap-armed",
+    "source": "sources/utilities.png",
+    "sourceRect": [
+      412,
+      849,
+      823,
+      1274
+    ],
+    "opaqueBounds": [
+      37,
+      62,
+      364,
+      361
+    ],
+    "scale": 0.10397553516819572,
+    "paddingAnchor": [
+      20,
+      36
+    ]
+  },
+  {
+    "id": "utility-spike-trap-triggered",
+    "source": "sources/utilities.png",
+    "sourceRect": [
+      823,
+      849,
+      1235,
+      1274
+    ],
+    "opaqueBounds": [
+      17,
+      140,
+      344,
+      363
+    ],
+    "scale": 0.10397553516819572,
+    "paddingAnchor": [
+      20,
+      36
+    ]
+  },
+  {
+    "id": "utility-generator-00",
+    "source": "sources/utility-animations.png",
+    "sourceRect": [
+      0,
+      0,
+      384,
+      512
+    ],
+    "opaqueBounds": [
+      50,
+      140,
+      346,
+      451
+    ],
+    "scale": 0.10738255033557047,
+    "sourceGround": 451,
+    "sourceCenterX": 198.0,
+    "paddingAnchor": [
+      20,
+      44
+    ]
+  },
+  {
+    "id": "utility-generator-01",
+    "source": "sources/utility-animations.png",
+    "sourceRect": [
+      384,
+      0,
+      768,
+      512
+    ],
+    "opaqueBounds": [
+      46,
+      84,
+      344,
+      451
+    ],
+    "scale": 0.10738255033557047,
+    "sourceGround": 451,
+    "sourceCenterX": 195.0,
+    "paddingAnchor": [
+      20,
+      44
+    ]
+  },
+  {
+    "id": "utility-generator-02",
+    "source": "sources/utility-animations.png",
+    "sourceRect": [
+      768,
+      0,
+      1152,
+      512
+    ],
+    "opaqueBounds": [
+      44,
+      84,
+      341,
+      451
+    ],
+    "scale": 0.10738255033557047,
+    "sourceGround": 451,
+    "sourceCenterX": 192.5,
+    "paddingAnchor": [
+      20,
+      44
+    ]
+  },
+  {
+    "id": "utility-generator-03",
+    "source": "sources/utility-animations.png",
+    "sourceRect": [
+      1152,
+      0,
+      1536,
+      512
+    ],
+    "opaqueBounds": [
+      42,
+      75,
+      339,
+      451
+    ],
+    "scale": 0.10738255033557047,
+    "sourceGround": 451,
+    "sourceCenterX": 190.5,
+    "paddingAnchor": [
+      20,
+      44
+    ]
+  },
+  {
+    "id": "utility-worklamp-00",
+    "source": "sources/utility-animations.png",
+    "sourceRect": [
+      0,
+      512,
+      384,
+      1024
+    ],
+    "opaqueBounds": [
+      66,
+      83,
+      319,
+      391
+    ],
+    "scale": 0.1038961038961039,
+    "sourceGround": 391,
+    "sourceCenterX": 192.5,
+    "paddingAnchor": [
+      20,
+      44
+    ]
+  },
+  {
+    "id": "utility-worklamp-01",
+    "source": "sources/utility-animations.png",
+    "sourceRect": [
+      384,
+      512,
+      768,
+      1024
+    ],
+    "opaqueBounds": [
+      65,
+      83,
+      319,
+      391
+    ],
+    "scale": 0.1038961038961039,
+    "sourceGround": 391,
+    "sourceCenterX": 192,
+    "paddingAnchor": [
+      20,
+      44
+    ]
+  },
+  {
+    "id": "utility-worklamp-02",
+    "source": "sources/utility-animations.png",
+    "sourceRect": [
+      768,
+      512,
+      1152,
+      1024
+    ],
+    "opaqueBounds": [
+      64,
+      83,
+      316,
+      391
+    ],
+    "scale": 0.1038961038961039,
+    "sourceGround": 391,
+    "sourceCenterX": 190,
+    "paddingAnchor": [
+      20,
+      44
+    ]
+  },
+  {
+    "id": "utility-worklamp-03",
+    "source": "sources/utility-animations.png",
+    "sourceRect": [
+      1152,
+      512,
+      1536,
+      1024
+    ],
+    "opaqueBounds": [
+      58,
+      50,
+      324,
+      391
+    ],
+    "scale": 0.1038961038961039,
+    "sourceGround": 391,
+    "sourceCenterX": 191,
+    "paddingAnchor": [
+      20,
+      44
+    ]
+  },
+  {
+    "id": "ui-crosshair",
+    "source": "sources/ui-icons.png",
+    "sourceRect": [
+      0,
+      0,
+      314,
+      314
+    ],
+    "opaqueBounds": [
+      67,
+      84,
+      292,
+      313
+    ],
+    "scale": 0.0611353711790393
+  },
+  {
+    "id": "ui-interaction-hand",
+    "source": "sources/ui-icons.png",
+    "sourceRect": [
+      314,
+      0,
+      627,
+      314
+    ],
+    "opaqueBounds": [
+      58,
+      85,
+      268,
+      306
+    ],
+    "scale": 0.06334841628959276
+  },
+  {
+    "id": "ui-backpack",
+    "source": "sources/ui-icons.png",
+    "sourceRect": [
+      627,
+      0,
+      940,
+      314
+    ],
+    "opaqueBounds": [
+      44,
+      84,
+      270,
+      308
+    ],
+    "scale": 0.061946902654867256
+  },
+  {
+    "id": "ui-health",
+    "source": "sources/ui-icons.png",
+    "sourceRect": [
+      940,
+      0,
+      1254,
+      314
+    ],
+    "opaqueBounds": [
+      39,
+      99,
+      243,
+      301
+    ],
+    "scale": 0.06862745098039216
+  },
+  {
+    "id": "ui-hunger",
+    "source": "sources/ui-icons.png",
+    "sourceRect": [
+      0,
+      314,
+      314,
+      627
+    ],
+    "opaqueBounds": [
+      93,
+      81,
+      267,
+      302
+    ],
+    "scale": 0.06334841628959276
+  },
+  {
+    "id": "ui-thirst",
+    "source": "sources/ui-icons.png",
+    "sourceRect": [
+      314,
+      314,
+      627,
+      627
+    ],
+    "opaqueBounds": [
+      90,
+      95,
+      239,
+      297
+    ],
+    "scale": 0.06930693069306931
+  },
+  {
+    "id": "ui-stamina",
+    "source": "sources/ui-icons.png",
+    "sourceRect": [
+      627,
+      314,
+      940,
+      627
+    ],
+    "opaqueBounds": [
+      81,
+      81,
+      228,
+      300
+    ],
+    "scale": 0.0639269406392694
+  },
+  {
+    "id": "ui-radio",
+    "source": "sources/ui-icons.png",
+    "sourceRect": [
+      940,
+      314,
+      1254,
+      627
+    ],
+    "opaqueBounds": [
+      38,
+      75,
+      244,
+      295
+    ],
+    "scale": 0.06363636363636363
+  },
+  {
+    "id": "ui-warning",
+    "source": "sources/ui-icons.png",
+    "sourceRect": [
+      0,
+      627,
+      314,
+      940
+    ],
+    "opaqueBounds": [
+      68,
+      75,
+      290,
+      269
+    ],
+    "scale": 0.06306306306306306
+  },
+  {
+    "id": "ui-ammo",
+    "source": "sources/ui-icons.png",
+    "sourceRect": [
+      314,
+      627,
+      627,
+      940
+    ],
+    "opaqueBounds": [
+      96,
+      61,
+      249,
+      275
+    ],
+    "scale": 0.06542056074766354
+  },
+  {
+    "id": "ui-lock",
+    "source": "sources/ui-icons.png",
+    "sourceRect": [
+      627,
+      627,
+      940,
+      940
+    ],
+    "opaqueBounds": [
+      71,
+      60,
+      241,
+      277
+    ],
+    "scale": 0.06451612903225806
+  },
+  {
+    "id": "ui-work",
+    "source": "sources/ui-icons.png",
+    "sourceRect": [
+      940,
+      627,
+      1254,
+      940
+    ],
+    "opaqueBounds": [
+      25,
+      61,
+      254,
+      269
+    ],
+    "scale": 0.0611353711790393
+  },
+  {
+    "id": "ui-wound",
+    "source": "sources/ui-icons.png",
+    "sourceRect": [
+      0,
+      940,
+      314,
+      1254
+    ],
+    "opaqueBounds": [
+      65,
+      81,
+      298,
+      195
+    ],
+    "scale": 0.060085836909871244
+  },
+  {
+    "id": "ui-temperature",
+    "source": "sources/ui-icons.png",
+    "sourceRect": [
+      314,
+      940,
+      627,
+      1254
+    ],
+    "opaqueBounds": [
+      110,
+      19,
+      226,
+      247
+    ],
+    "scale": 0.06140350877192982
+  },
+  {
+    "id": "ui-map-marker",
+    "source": "sources/ui-icons.png",
+    "sourceRect": [
+      627,
+      940,
+      940,
+      1254
+    ],
+    "opaqueBounds": [
+      76,
+      33,
+      228,
+      242
+    ],
+    "scale": 0.06698564593301436
+  },
+  {
+    "id": "ui-exit",
+    "source": "sources/ui-icons.png",
+    "sourceRect": [
+      940,
+      940,
+      1254,
+      1254
+    ],
+    "opaqueBounds": [
+      54,
+      33,
+      260,
+      235
+    ],
+    "scale": 0.06796116504854369
+  }
+]

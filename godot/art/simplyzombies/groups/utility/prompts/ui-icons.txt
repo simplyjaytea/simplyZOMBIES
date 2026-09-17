@@ -1,0 +1,9 @@
+Use case: stylized-concept. Asset type: tiny ORIGINAL game UI pixel icon atlas for simplyZOMBIES.
+Create exactly SIXTEEN independent chunky pixel glyphs in a strict 4-column by 4-row layout, each centered in its own equally sized cell with generous empty transparent padding. Genuine RGBA transparency. Flat front-facing UI symbols, not physical 3D objects.
+Style matches ZERO Sievert's readable survival-game HUD: extremely simple, crisp thick stepped pixel shapes, pale warm ivory fill, charcoal near-black 1-pixel-style outline, no gradients, no glow, no buttons, no border panels. Each icon designed on a tiny 16 by 16 logical pixel canvas, at most 14 by 14 occupied pixels. Enlarge using large square blocks only. Distinctive silhouettes. Two or three flat colors maximum.
+Exactly this order left-to-right:
+Row 1: crosshair with clear center gap; open interaction hand; small square backpack; medical plus cross.
+Row 2: fork-and-knife hunger symbol; single water droplet; lightning bolt stamina; small portable radio with antenna.
+Row 3: warning triangle with one exclamation mark; pair of ammunition cartridges; closed padlock; crossed hammer and wrench.
+Row 4: bandage with darker central pad; thermometer; map location pin with hole; doorway with right-pointing exit arrow.
+All must be legible after nearest-neighbor reduction to16×16. No letters, words, numbers, decorative frames, sheet grid, textures, shadows, checkerboards or colored backgrounds. Match weight and ivory color across the complete icon set.

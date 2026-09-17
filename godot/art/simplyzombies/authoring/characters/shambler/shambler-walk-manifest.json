@@ -1,0 +1,656 @@
+{
+  "title": "simplyZOMBIES shambler directional walk",
+  "character": "shambler",
+  "state": "walk",
+  "directions": [
+    "s",
+    "e",
+    "n",
+    "w"
+  ],
+  "frames_per_direction": 4,
+  "fps": 5,
+  "loop": true,
+  "cell_size": [
+    32,
+    48
+  ],
+  "pivot": [
+    16,
+    40
+  ],
+  "atlas": "native/shambler-walk-atlas.png",
+  "source": "source/shambler-walk-rgba.png",
+  "source_size": [
+    1024,
+    1536
+  ],
+  "uniform_scale": 0.09523809523809523,
+  "processing": "Source bounds located at alpha >=128; original RGBA values preserved within each crop. Each crop transformed with uniform nearest-neighbor scale, fixed original cell center x=128 and a shared ground baseline per row. No per-frame body bounds centering, silhouette editing, color changes, or alpha thresholding.",
+  "frames": [
+    {
+      "id": "shambler_walk_s_00",
+      "direction": "s",
+      "frame": 0,
+      "texture": "native/shambler_walk_s_00.png",
+      "atlas_rect": [
+        0,
+        0,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "source_cell": [
+        0,
+        0,
+        256,
+        380
+      ],
+      "source_crop_bbox": [
+        36,
+        56,
+        227,
+        354
+      ],
+      "source_registration": [
+        128,
+        354
+      ],
+      "occupied_bbox": [
+        7,
+        12,
+        25,
+        40
+      ],
+      "sha256": "0f2ca18cddc0b0e24a0d8b39282930db65f61f53550791c16518f33a7fbb2786"
+    },
+    {
+      "id": "shambler_walk_s_01",
+      "direction": "s",
+      "frame": 1,
+      "texture": "native/shambler_walk_s_01.png",
+      "atlas_rect": [
+        32,
+        0,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "source_cell": [
+        256,
+        0,
+        256,
+        380
+      ],
+      "source_crop_bbox": [
+        33,
+        52,
+        225,
+        352
+      ],
+      "source_registration": [
+        128,
+        354
+      ],
+      "occupied_bbox": [
+        7,
+        11,
+        25,
+        40
+      ],
+      "sha256": "bfb783fb6d0116cf5d22bac60f6788129b13525cd380620de8dbace2a003c9e7"
+    },
+    {
+      "id": "shambler_walk_s_02",
+      "direction": "s",
+      "frame": 2,
+      "texture": "native/shambler_walk_s_02.png",
+      "atlas_rect": [
+        64,
+        0,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "source_cell": [
+        512,
+        0,
+        256,
+        380
+      ],
+      "source_crop_bbox": [
+        32,
+        52,
+        223,
+        354
+      ],
+      "source_registration": [
+        128,
+        354
+      ],
+      "occupied_bbox": [
+        7,
+        11,
+        25,
+        40
+      ],
+      "sha256": "6d9a25cbbb72a8e6c60c682876809fbbe145beb96535e0db93ac6be72b906639"
+    },
+    {
+      "id": "shambler_walk_s_03",
+      "direction": "s",
+      "frame": 3,
+      "texture": "native/shambler_walk_s_03.png",
+      "atlas_rect": [
+        96,
+        0,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "source_cell": [
+        768,
+        0,
+        256,
+        380
+      ],
+      "source_crop_bbox": [
+        30,
+        56,
+        220,
+        352
+      ],
+      "source_registration": [
+        128,
+        354
+      ],
+      "occupied_bbox": [
+        7,
+        12,
+        25,
+        40
+      ],
+      "sha256": "3723e2cb4b5ed6c706a21d541547b05b7067e638166d9bd3cd34815ad39a7c2c"
+    },
+    {
+      "id": "shambler_walk_e_00",
+      "direction": "e",
+      "frame": 0,
+      "texture": "native/shambler_walk_e_00.png",
+      "atlas_rect": [
+        0,
+        48,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "source_cell": [
+        0,
+        380,
+        256,
+        370
+      ],
+      "source_crop_bbox": [
+        48,
+        33,
+        227,
+        324
+      ],
+      "source_registration": [
+        128,
+        325
+      ],
+      "occupied_bbox": [
+        8,
+        12,
+        25,
+        40
+      ],
+      "sha256": "f3f218667e5f42340073052edfb139a4f39aac0cfa5ebdd9d8cc033da382919e"
+    },
+    {
+      "id": "shambler_walk_e_01",
+      "direction": "e",
+      "frame": 1,
+      "texture": "native/shambler_walk_e_01.png",
+      "atlas_rect": [
+        32,
+        48,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "source_cell": [
+        256,
+        380,
+        256,
+        370
+      ],
+      "source_crop_bbox": [
+        43,
+        32,
+        224,
+        324
+      ],
+      "source_registration": [
+        128,
+        325
+      ],
+      "occupied_bbox": [
+        8,
+        12,
+        25,
+        40
+      ],
+      "sha256": "62f4fe433fb145e426667e082cd575936aa2184b8d04ae9c5316317962de6549"
+    },
+    {
+      "id": "shambler_walk_e_02",
+      "direction": "e",
+      "frame": 2,
+      "texture": "native/shambler_walk_e_02.png",
+      "atlas_rect": [
+        64,
+        48,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "source_cell": [
+        512,
+        380,
+        256,
+        370
+      ],
+      "source_crop_bbox": [
+        43,
+        29,
+        223,
+        324
+      ],
+      "source_registration": [
+        128,
+        325
+      ],
+      "occupied_bbox": [
+        8,
+        12,
+        25,
+        40
+      ],
+      "sha256": "e7e01c4a93fb5ae72b0e51d26433601f7c5f606846d9eb2ef103bd5195b9c61c"
+    },
+    {
+      "id": "shambler_walk_e_03",
+      "direction": "e",
+      "frame": 3,
+      "texture": "native/shambler_walk_e_03.png",
+      "atlas_rect": [
+        96,
+        48,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "source_cell": [
+        768,
+        380,
+        256,
+        370
+      ],
+      "source_crop_bbox": [
+        42,
+        33,
+        220,
+        324
+      ],
+      "source_registration": [
+        128,
+        325
+      ],
+      "occupied_bbox": [
+        8,
+        12,
+        25,
+        40
+      ],
+      "sha256": "e40144f40fea0f848363816bede4a40367d4f9e19b9d6bfb53b19b7121c88000"
+    },
+    {
+      "id": "shambler_walk_n_00",
+      "direction": "n",
+      "frame": 0,
+      "texture": "native/shambler_walk_n_00.png",
+      "atlas_rect": [
+        0,
+        96,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "source_cell": [
+        0,
+        750,
+        256,
+        355
+      ],
+      "source_crop_bbox": [
+        33,
+        31,
+        227,
+        318
+      ],
+      "source_registration": [
+        128,
+        321
+      ],
+      "occupied_bbox": [
+        7,
+        12,
+        25,
+        40
+      ],
+      "sha256": "dafef3e01e04279da4b09344662530ded412476aa19ff330a1c15dc4e2b08580"
+    },
+    {
+      "id": "shambler_walk_n_01",
+      "direction": "n",
+      "frame": 1,
+      "texture": "native/shambler_walk_n_01.png",
+      "atlas_rect": [
+        32,
+        96,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "source_cell": [
+        256,
+        750,
+        256,
+        355
+      ],
+      "source_crop_bbox": [
+        32,
+        17,
+        225,
+        319
+      ],
+      "source_registration": [
+        128,
+        321
+      ],
+      "occupied_bbox": [
+        7,
+        11,
+        25,
+        40
+      ],
+      "sha256": "da8da7ea473e140f74014696d556db878e6eaa42743cb68499074abdb3e120c9"
+    },
+    {
+      "id": "shambler_walk_n_02",
+      "direction": "n",
+      "frame": 2,
+      "texture": "native/shambler_walk_n_02.png",
+      "atlas_rect": [
+        64,
+        96,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "source_cell": [
+        512,
+        750,
+        256,
+        355
+      ],
+      "source_crop_bbox": [
+        31,
+        26,
+        223,
+        320
+      ],
+      "source_registration": [
+        128,
+        321
+      ],
+      "occupied_bbox": [
+        7,
+        12,
+        25,
+        40
+      ],
+      "sha256": "12e86229a058802731131c03c8cca285510c3b24f3a38641026802607e4fd636"
+    },
+    {
+      "id": "shambler_walk_n_03",
+      "direction": "n",
+      "frame": 3,
+      "texture": "native/shambler_walk_n_03.png",
+      "atlas_rect": [
+        96,
+        96,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "source_cell": [
+        768,
+        750,
+        256,
+        355
+      ],
+      "source_crop_bbox": [
+        30,
+        23,
+        220,
+        316
+      ],
+      "source_registration": [
+        128,
+        321
+      ],
+      "occupied_bbox": [
+        7,
+        12,
+        25,
+        40
+      ],
+      "sha256": "5e77adeda253472bb1dbe9e782cd40b27e851a8e94a44501e59ad4e969ce8786"
+    },
+    {
+      "id": "shambler_walk_w_00",
+      "direction": "w",
+      "frame": 0,
+      "texture": "native/shambler_walk_w_00.png",
+      "atlas_rect": [
+        0,
+        144,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "source_cell": [
+        0,
+        1105,
+        256,
+        431
+      ],
+      "source_crop_bbox": [
+        39,
+        18,
+        223,
+        312
+      ],
+      "source_registration": [
+        128,
+        312
+      ],
+      "occupied_bbox": [
+        8,
+        12,
+        25,
+        40
+      ],
+      "sha256": "5ec9f6ca24a7508a01e945470b46a2d13317280ba46b177f8f7f008226dd461c"
+    },
+    {
+      "id": "shambler_walk_w_01",
+      "direction": "w",
+      "frame": 1,
+      "texture": "native/shambler_walk_w_01.png",
+      "atlas_rect": [
+        32,
+        144,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "source_cell": [
+        256,
+        1105,
+        256,
+        431
+      ],
+      "source_crop_bbox": [
+        40,
+        17,
+        217,
+        307
+      ],
+      "source_registration": [
+        128,
+        312
+      ],
+      "occupied_bbox": [
+        8,
+        12,
+        24,
+        40
+      ],
+      "sha256": "2ce9fcadbd44ee9e892b1e1464e79576a671fa6ed76db38a649b35c676dd3a94"
+    },
+    {
+      "id": "shambler_walk_w_02",
+      "direction": "w",
+      "frame": 2,
+      "texture": "native/shambler_walk_w_02.png",
+      "atlas_rect": [
+        64,
+        144,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "source_cell": [
+        512,
+        1105,
+        256,
+        431
+      ],
+      "source_crop_bbox": [
+        33,
+        16,
+        219,
+        312
+      ],
+      "source_registration": [
+        128,
+        312
+      ],
+      "occupied_bbox": [
+        7,
+        12,
+        25,
+        40
+      ],
+      "sha256": "e477d1af1a8d1ed10c75c4ea87eb8b4c3f22fd4951456c2026f4015fe3c80008"
+    },
+    {
+      "id": "shambler_walk_w_03",
+      "direction": "w",
+      "frame": 3,
+      "texture": "native/shambler_walk_w_03.png",
+      "atlas_rect": [
+        96,
+        144,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "source_cell": [
+        768,
+        1105,
+        256,
+        431
+      ],
+      "source_crop_bbox": [
+        33,
+        19,
+        215,
+        306
+      ],
+      "source_registration": [
+        128,
+        312
+      ],
+      "occupied_bbox": [
+        7,
+        12,
+        24,
+        39
+      ],
+      "sha256": "21b8a3046ef20a0f2d30ee19e51d2fa7517aaf04eaf06dba403fbc1bd84bf87d"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "godot_version": "4.7.1.stable.official.a13da4feb",
+  "import": {
+    "status": "passed",
+    "spriteframes_resources": 20,
+    "native_primary_frame_pngs": 279,
+    "scope": "Separate temporary Godot project; imports PNGs and loads every generated SpriteFrames resource and frame texture."
+  },
+  "asset_audit": {
+    "status": "passed",
+    "assets": 187,
+    "unique_native_pngs": 279,
+    "multi_frame_states": 22
+  },
+  "runtime_integration": "Not connected to the live game renderer.",
+  "source_crops": "Reproducible intermediates omitted; original generation sheets and native outputs retained.",
+  "static_checks": {
+    "typecheck": "passed",
+    "lint": "passed",
+    "format": "passed"
+  },
+  "game_regression": {
+    "status": "passed across original, focused retry and resumed runs",
+    "gates_verified": 82,
+    "base_commit": "ab482250ef6b8370c069d5f88ada86fc64be5fa0",
+    "detail": "The initial npm run godot:m2 passed 21 gates, then stalled in godot:m2:noise and was interrupted. The unchanged noise gate passed on a focused retry; all remaining 60 gates passed in their original order. No assertions or gate scripts were changed."
+  }
+}

@@ -1846,6 +1846,28 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **Art delivery — the outpost asset pack, 2026-09-17.** The owner asked to put the
+  approved standalone art delivery into the repository. It is preserved under
+  `godot/art/simplyzombies/`: 187 asset entries, including 185 new entries and the two
+  approved characters, 279 unique native PNGs, atlases, generation sources and prompts,
+  manifests, previews and 20 Godot SpriteFrames resources. `res://art/simplyzombies/`
+  matches those resources' paths. Equipment remains separate from the human base.
+  `python godot/art/simplyzombies/docs/audit_pack.py
+  godot/art/simplyzombies/manifest.json --out godot/art/simplyzombies/docs` passes with
+  zero errors or warnings; it checks IDs, paths, native sizes, real alpha, anchors,
+  weapon sockets and distinct animation frames. A temporary Godot 4.7.1 project imports
+  the textures and loads all 20 resources (`OUTPOST_RESOURCES_OK`). The pack's preserved
+  Canvas runtime report checks movement, equipment, firing effects, lifetime, pause,
+  containers and filtering. Source sheets and preview renders carry `.gdignore` files;
+  reproducible intermediate crops are omitted, while all native outputs and originals
+  remain. **This lands the delivery, not the renderer change:** the live generated/authored
+  registry, body compositor, HUD and game mechanics do not consume the new pack yet.
+  The four-direction flattened bodies and static wearable overlays still need adaptation
+  to the decoupled paperdoll; no open renderer slice or owner decision is closed here.
+  Typecheck, lint and formatting pass. All 82 M2 gates pass across the original run,
+  a focused retry of a stalled noise gate, and the resumed remaining gates; no assertions
+  or gate scripts changed. The delivery receipt records that interrupted-run detail.
+
 - **World & map** — ~~the three location loot tables~~ **landed** (`godot:check:loot`): what a
   place yields is content now, not two hardcoded kits in `boot.gd`. `content/loot/tables.json`
   holds `residential`, `medical` and `military_cache` against a new `loot.schema.json`, each

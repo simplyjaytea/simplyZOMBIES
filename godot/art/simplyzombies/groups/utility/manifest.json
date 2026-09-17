@@ -1,0 +1,635 @@
+{
+  "name": "simplyZOMBIES vehicles, utilities and HUD",
+  "version": 1,
+  "worldTileSize": 32,
+  "characterOccupiedHeight": 28,
+  "rendering": "nearest-neighbor",
+  "assets": [
+    {
+      "id": "vehicle-hatchback-intact",
+      "label": "Hatchback \u00b7 intact",
+      "category": "vehicles",
+      "path": "native/vehicle-hatchback-intact.png",
+      "size": [
+        96,
+        48
+      ],
+      "anchor": [
+        48,
+        46
+      ],
+      "state": "intact",
+      "variantGroup": "vehicle-hatchback",
+      "facing": "east"
+    },
+    {
+      "id": "vehicle-hatchback-wreck",
+      "label": "Hatchback \u00b7 wreck",
+      "category": "vehicles",
+      "path": "native/vehicle-hatchback-wreck.png",
+      "size": [
+        96,
+        48
+      ],
+      "anchor": [
+        48,
+        46
+      ],
+      "state": "wreck",
+      "variantGroup": "vehicle-hatchback",
+      "facing": "east"
+    },
+    {
+      "id": "vehicle-van-intact",
+      "label": "Van \u00b7 intact",
+      "category": "vehicles",
+      "path": "native/vehicle-van-intact.png",
+      "size": [
+        112,
+        56
+      ],
+      "anchor": [
+        56,
+        54
+      ],
+      "state": "intact",
+      "variantGroup": "vehicle-van",
+      "facing": "east"
+    },
+    {
+      "id": "vehicle-van-wreck",
+      "label": "Van \u00b7 wreck",
+      "category": "vehicles",
+      "path": "native/vehicle-van-wreck.png",
+      "size": [
+        112,
+        56
+      ],
+      "anchor": [
+        56,
+        54
+      ],
+      "state": "wreck",
+      "variantGroup": "vehicle-van",
+      "facing": "east"
+    },
+    {
+      "id": "vehicle-pickup-intact",
+      "label": "Pickup \u00b7 intact",
+      "category": "vehicles",
+      "path": "native/vehicle-pickup-intact.png",
+      "size": [
+        112,
+        56
+      ],
+      "anchor": [
+        56,
+        54
+      ],
+      "state": "intact",
+      "variantGroup": "vehicle-pickup",
+      "facing": "east"
+    },
+    {
+      "id": "vehicle-pickup-wreck",
+      "label": "Pickup \u00b7 wreck",
+      "category": "vehicles",
+      "path": "native/vehicle-pickup-wreck.png",
+      "size": [
+        112,
+        56
+      ],
+      "anchor": [
+        56,
+        54
+      ],
+      "state": "wreck",
+      "variantGroup": "vehicle-pickup",
+      "facing": "east"
+    },
+    {
+      "id": "vehicle-ambulance-intact",
+      "label": "Ambulance \u00b7 intact",
+      "category": "vehicles",
+      "path": "native/vehicle-ambulance-intact.png",
+      "size": [
+        112,
+        56
+      ],
+      "anchor": [
+        56,
+        54
+      ],
+      "state": "intact",
+      "variantGroup": "vehicle-ambulance",
+      "facing": "east"
+    },
+    {
+      "id": "vehicle-ambulance-wreck",
+      "label": "Ambulance \u00b7 wreck",
+      "category": "vehicles",
+      "path": "native/vehicle-ambulance-wreck.png",
+      "size": [
+        112,
+        56
+      ],
+      "anchor": [
+        56,
+        54
+      ],
+      "state": "wreck",
+      "variantGroup": "vehicle-ambulance",
+      "facing": "east"
+    },
+    {
+      "id": "utility-generator-off",
+      "label": "Generator off",
+      "category": "utilities",
+      "path": "native/utility-generator-off.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        44
+      ]
+    },
+    {
+      "id": "utility-generator-on",
+      "label": "Generator running",
+      "category": "utilities",
+      "path": "frames/utility-generator-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        44
+      ],
+      "frames": {
+        "running": [
+          {
+            "path": "frames/utility-generator-00.png"
+          },
+          {
+            "path": "frames/utility-generator-01.png"
+          },
+          {
+            "path": "frames/utility-generator-02.png"
+          },
+          {
+            "path": "frames/utility-generator-03.png"
+          }
+        ]
+      },
+      "fps": 6,
+      "loop": true,
+      "state": "running"
+    },
+    {
+      "id": "utility-barricade-intact",
+      "label": "Wood barricade intact",
+      "category": "utilities",
+      "path": "native/utility-barricade-intact.png",
+      "size": [
+        48,
+        40
+      ],
+      "anchor": [
+        24,
+        36
+      ]
+    },
+    {
+      "id": "utility-barricade-broken",
+      "label": "Wood barricade broken",
+      "category": "utilities",
+      "path": "native/utility-barricade-broken.png",
+      "size": [
+        48,
+        40
+      ],
+      "anchor": [
+        24,
+        36
+      ]
+    },
+    {
+      "id": "utility-rain-collector",
+      "label": "Rain collector",
+      "category": "utilities",
+      "path": "native/utility-rain-collector.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        44
+      ]
+    },
+    {
+      "id": "utility-stove",
+      "label": "Iron stove",
+      "category": "utilities",
+      "path": "native/utility-stove.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        36
+      ]
+    },
+    {
+      "id": "utility-worklamp-off",
+      "label": "Work lamp off",
+      "category": "utilities",
+      "path": "frames/utility-worklamp-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        44
+      ],
+      "state": "off"
+    },
+    {
+      "id": "utility-spike-trap-armed",
+      "label": "Spike trap armed",
+      "category": "utilities",
+      "path": "native/utility-spike-trap-armed.png",
+      "size": [
+        40,
+        40
+      ],
+      "anchor": [
+        20,
+        36
+      ]
+    },
+    {
+      "id": "utility-spike-trap-triggered",
+      "label": "Spike trap triggered",
+      "category": "utilities",
+      "path": "native/utility-spike-trap-triggered.png",
+      "size": [
+        40,
+        40
+      ],
+      "anchor": [
+        20,
+        36
+      ]
+    },
+    {
+      "id": "utility-worklamp-on",
+      "label": "Work lamp on",
+      "category": "utilities",
+      "path": "native/utility-worklamp-on.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        44
+      ],
+      "state": "on"
+    },
+    {
+      "id": "utility-worklamp-activation",
+      "label": "Work lamp activation",
+      "category": "utilities",
+      "path": "native/utility-worklamp-activation.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        44
+      ],
+      "frames": {
+        "activate": [
+          {
+            "path": "frames/utility-worklamp-00.png"
+          },
+          {
+            "path": "frames/utility-worklamp-01.png"
+          },
+          {
+            "path": "frames/utility-worklamp-02.png"
+          },
+          {
+            "path": "frames/utility-worklamp-03.png"
+          }
+        ]
+      },
+      "fps": 8,
+      "loop": false,
+      "holdLastFrame": true
+    },
+    {
+      "id": "ui-crosshair",
+      "label": "Crosshair",
+      "category": "ui",
+      "path": "native/ui-crosshair.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ]
+    },
+    {
+      "id": "ui-interaction-hand",
+      "label": "Interaction Hand",
+      "category": "ui",
+      "path": "native/ui-interaction-hand.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ]
+    },
+    {
+      "id": "ui-backpack",
+      "label": "Backpack",
+      "category": "ui",
+      "path": "native/ui-backpack.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ]
+    },
+    {
+      "id": "ui-health",
+      "label": "Health",
+      "category": "ui",
+      "path": "native/ui-health.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ]
+    },
+    {
+      "id": "ui-hunger",
+      "label": "Hunger",
+      "category": "ui",
+      "path": "native/ui-hunger.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ]
+    },
+    {
+      "id": "ui-thirst",
+      "label": "Thirst",
+      "category": "ui",
+      "path": "native/ui-thirst.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ]
+    },
+    {
+      "id": "ui-stamina",
+      "label": "Stamina",
+      "category": "ui",
+      "path": "native/ui-stamina.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ]
+    },
+    {
+      "id": "ui-radio",
+      "label": "Radio",
+      "category": "ui",
+      "path": "native/ui-radio.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ]
+    },
+    {
+      "id": "ui-warning",
+      "label": "Warning",
+      "category": "ui",
+      "path": "native/ui-warning.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ]
+    },
+    {
+      "id": "ui-ammo",
+      "label": "Ammo",
+      "category": "ui",
+      "path": "native/ui-ammo.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ]
+    },
+    {
+      "id": "ui-lock",
+      "label": "Lock",
+      "category": "ui",
+      "path": "native/ui-lock.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ]
+    },
+    {
+      "id": "ui-work",
+      "label": "Work",
+      "category": "ui",
+      "path": "native/ui-work.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ]
+    },
+    {
+      "id": "ui-wound",
+      "label": "Wound",
+      "category": "ui",
+      "path": "native/ui-wound.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ]
+    },
+    {
+      "id": "ui-temperature",
+      "label": "Temperature",
+      "category": "ui",
+      "path": "native/ui-temperature.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ]
+    },
+    {
+      "id": "ui-map-marker",
+      "label": "Map Marker",
+      "category": "ui",
+      "path": "native/ui-map-marker.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ]
+    },
+    {
+      "id": "ui-exit",
+      "label": "Exit",
+      "category": "ui",
+      "path": "native/ui-exit.png",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        8,
+        8
+      ]
+    }
+  ],
+  "notes": [
+    "Original generated pixel artwork, informed by ZERO Sievert screenshots; no extracted game art.",
+    "Ground anchors are shared within state pairs. Generator smoke and worklamp activation use actual distinct frame shapes.",
+    "Vehicles are east-facing static intact/wreck states, not driving animations.",
+    "Worklamp activation is a one-shot animation that holds its final frame.",
+    "Spikes and barricades have static intact/broken state art, not destruction animation.",
+    "Sprites preserve source RGBA, including a few partly transparent edge pixels."
+  ],
+  "atlases": [
+    {
+      "id": "generator",
+      "path": "atlases/utility-generator.png",
+      "cellSize": [
+        40,
+        48
+      ],
+      "grid": [
+        4,
+        1
+      ],
+      "assetId": "utility-generator-on",
+      "state": "running",
+      "fps": 6,
+      "loop": true
+    },
+    {
+      "id": "worklamp",
+      "path": "atlases/utility-worklamp.png",
+      "cellSize": [
+        40,
+        48
+      ],
+      "grid": [
+        4,
+        1
+      ],
+      "assetId": "utility-worklamp-activation",
+      "state": "activate",
+      "fps": 8,
+      "loop": false
+    },
+    {
+      "id": "ui-icons",
+      "path": "atlases/ui-icons.png",
+      "cellSize": [
+        16,
+        16
+      ],
+      "grid": [
+        4,
+        4
+      ],
+      "order": [
+        "ui-crosshair",
+        "ui-interaction-hand",
+        "ui-backpack",
+        "ui-health",
+        "ui-hunger",
+        "ui-thirst",
+        "ui-stamina",
+        "ui-radio",
+        "ui-warning",
+        "ui-ammo",
+        "ui-lock",
+        "ui-work",
+        "ui-wound",
+        "ui-temperature",
+        "ui-map-marker",
+        "ui-exit"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+[
+  {
+    "id": "tile-asphalt-a",
+    "meanWrappedEdgeRgbDifference": 1.74,
+    "meanInteriorNeighborRgbDifference": 4.52
+  },
+  {
+    "id": "tile-asphalt-b",
+    "meanWrappedEdgeRgbDifference": 1.85,
+    "meanInteriorNeighborRgbDifference": 5.57
+  },
+  {
+    "id": "tile-concrete-a",
+    "meanWrappedEdgeRgbDifference": 2.86,
+    "meanInteriorNeighborRgbDifference": 3.7
+  },
+  {
+    "id": "tile-concrete-b",
+    "meanWrappedEdgeRgbDifference": 2.12,
+    "meanInteriorNeighborRgbDifference": 3.55
+  },
+  {
+    "id": "tile-grass-a",
+    "meanWrappedEdgeRgbDifference": 0.96,
+    "meanInteriorNeighborRgbDifference": 3.74
+  },
+  {
+    "id": "tile-grass-b",
+    "meanWrappedEdgeRgbDifference": 0.89,
+    "meanInteriorNeighborRgbDifference": 3.61
+  },
+  {
+    "id": "tile-dirt-a",
+    "meanWrappedEdgeRgbDifference": 1.8,
+    "meanInteriorNeighborRgbDifference": 4.19
+  },
+  {
+    "id": "tile-dirt-b",
+    "meanWrappedEdgeRgbDifference": 0.97,
+    "meanInteriorNeighborRgbDifference": 4.05
+  },
+  {
+    "id": "tile-wood-floor",
+    "meanWrappedEdgeRgbDifference": 3.74,
+    "meanInteriorNeighborRgbDifference": 11.26
+  },
+  {
+    "id": "tile-interior-tile",
+    "meanWrappedEdgeRgbDifference": 81.89,
+    "meanInteriorNeighborRgbDifference": 9.41
+  },
+  {
+    "id": "tile-rubble",
+    "meanWrappedEdgeRgbDifference": 6.28,
+    "meanInteriorNeighborRgbDifference": 7.97
+  },
+  {
+    "id": "tile-water",
+    "meanWrappedEdgeRgbDifference": 2.45,
+    "meanInteriorNeighborRgbDifference": 3.14
+  }
+]

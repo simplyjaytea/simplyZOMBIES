@@ -1,0 +1,8 @@
+Use case: stylized-concept.
+Asset type: production pixel-art ground TILE SHEET for an original top-down zombie survival game, matching the chunky readable pixel discipline of ZERO Sievert.
+Create exactly 12 square seamless repeating material swatches in a perfect edge-to-edge 4-column by 3-row grid on a 1024 by 768 image, each swatch 256 by 256. No gutters, no borders, no labels, no blank margin. This is a practical texture atlas, not a presentation.
+ORDER:
+row1 asphalt charcoal slate A; asphalt charcoal slate B with one tiny crack; worn light cool-gray concrete A; worn concrete B with sparse faint chip.
+row2 dark olive forest grass A; dark olive forest grass B; dry dusty ochre-brown soil A; dry dusty ochre-brown soil B.
+row3 warm brown wooden floor planks aligned vertically; faded teal and cream interior floor squares; scattered gray rubble on dirt; opaque dark desaturated teal still water with sparse horizontal highlights.
+Every patch should look like a 32x32 native pixel tile enlarged exactly8x with hard square pixels, chunky two-to-four-pixel clusters. Restrained three or four flat shades per material. Grass is a flat top-down ground texture, no grass blades protruding, no green vignette. Dirt and asphalt contain a few tiny clusters only, not photorealistic grit. Concrete contains no square slab border. Water flat colors without gradients. Make all opposing edges of each swatch seamless so repeated copies don't create a visible boundary. Absolutely NO bevels, shadows, inset panels, darkening at tile edges, checkerboard frames, text or logos. Uniform flat overhead light. All pixels fully opaque.

@@ -1,0 +1,102 @@
+[gd_resource type="SpriteFrames" load_steps=21 format=3]
+
+[ext_resource type="Texture2D" path="res://art/simplyzombies/textures/characters/shambler_s.png" id="1"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies/textures/characters/shambler_e.png" id="2"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies/textures/characters/shambler_n.png" id="3"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies/textures/characters/shambler_w.png" id="4"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies/textures/characters/shambler_walk_s_00.png" id="5"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies/textures/characters/shambler_walk_s_01.png" id="6"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies/textures/characters/shambler_walk_s_02.png" id="7"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies/textures/characters/shambler_walk_s_03.png" id="8"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies/textures/characters/shambler_walk_e_00.png" id="9"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies/textures/characters/shambler_walk_e_01.png" id="10"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies/textures/characters/shambler_walk_e_02.png" id="11"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies/textures/characters/shambler_walk_e_03.png" id="12"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies/textures/characters/shambler_walk_n_00.png" id="13"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies/textures/characters/shambler_walk_n_01.png" id="14"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies/textures/characters/shambler_walk_n_02.png" id="15"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies/textures/characters/shambler_walk_n_03.png" id="16"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies/textures/characters/shambler_walk_w_00.png" id="17"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies/textures/characters/shambler_walk_w_01.png" id="18"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies/textures/characters/shambler_walk_w_02.png" id="19"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies/textures/characters/shambler_walk_w_03.png" id="20"]
+
+[resource]
+animations = [
+{
+"frames": [
+{"duration": 1.0, "texture": ExtResource("1")}
+],
+"loop": true,
+"name": &"idle_s",
+"speed": 1.0
+},
+{
+"frames": [
+{"duration": 1.0, "texture": ExtResource("2")}
+],
+"loop": true,
+"name": &"idle_e",
+"speed": 1.0
+},
+{
+"frames": [
+{"duration": 1.0, "texture": ExtResource("3")}
+],
+"loop": true,
+"name": &"idle_n",
+"speed": 1.0
+},
+{
+"frames": [
+{"duration": 1.0, "texture": ExtResource("4")}
+],
+"loop": true,
+"name": &"idle_w",
+"speed": 1.0
+},
+{
+"frames": [
+{"duration": 1.0, "texture": ExtResource("5")},
+{"duration": 1.0, "texture": ExtResource("6")},
+{"duration": 1.0, "texture": ExtResource("7")},
+{"duration": 1.0, "texture": ExtResource("8")}
+],
+"loop": true,
+"name": &"walk_s",
+"speed": 5.0
+},
+{
+"frames": [
+{"duration": 1.0, "texture": ExtResource("9")},
+{"duration": 1.0, "texture": ExtResource("10")},
+{"duration": 1.0, "texture": ExtResource("11")},
+{"duration": 1.0, "texture": ExtResource("12")}
+],
+"loop": true,
+"name": &"walk_e",
+"speed": 5.0
+},
+{
+"frames": [
+{"duration": 1.0, "texture": ExtResource("13")},
+{"duration": 1.0, "texture": ExtResource("14")},
+{"duration": 1.0, "texture": ExtResource("15")},
+{"duration": 1.0, "texture": ExtResource("16")}
+],
+"loop": true,
+"name": &"walk_n",
+"speed": 5.0
+},
+{
+"frames": [
+{"duration": 1.0, "texture": ExtResource("17")},
+{"duration": 1.0, "texture": ExtResource("18")},
+{"duration": 1.0, "texture": ExtResource("19")},
+{"duration": 1.0, "texture": ExtResource("20")}
+],
+"loop": true,
+"name": &"walk_w",
+"speed": 5.0
+}
+]

@@ -1,0 +1,878 @@
+{
+  "title": "simplyZOMBIES survivor directional walk",
+  "character": "survivor",
+  "state": "walk",
+  "directions": [
+    "s",
+    "e",
+    "n",
+    "w"
+  ],
+  "frames_per_direction": 4,
+  "fps": 8,
+  "loop": true,
+  "cell_size": [
+    32,
+    48
+  ],
+  "pivot": [
+    16,
+    40
+  ],
+  "atlas": "native/survivor-walk-atlas.png",
+  "source": "source/survivor-walk-rgba.png",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "uniform_scale": 0.11382113821138211,
+  "source_median_occupied_height": 246.0,
+  "target_median_occupied_height": 28,
+  "source_alpha": {
+    "zero": 1111483,
+    "nonzero": 461033,
+    "unique_values": 256
+  },
+  "processing": "Original RGBA preserved. Full source cells sampled with one uniform nearest-neighbor scale; a shared ground baseline per direction preserves vertical motion. X registration uses the upper 100-pixel head silhouette axis, not arm/leg bounds, to retain relative limb motion while correcting uneven source columns. Target head x matches approved idle. No repainting, recoloring, alpha thresholding, or silhouette edits. Alpha >=128 is used only for measurements.",
+  "gait_review": {
+    "observed": "All four directions have four distinct leg silhouettes. Side views alternate a wide contact pose and a narrow passing pose; front/back views alternate the leading leg. Shared registration preserves a one-pixel crown-height change; west has a less regular crown cadence than east. Feet stay at y=40 except west passing pose 1 ending at y=39.",
+    "idle_comparison": "Approved idles remain untouched. Walk silhouettes are 27\u201329 px tall around the approved 28 px median, registered to the same ground pivot and directional head axis. Generated walk artwork has brighter skin and slightly narrower front/back shoulders, so a small visual transition remains.",
+    "limitations": "Four-frame prototype locomotion loops. Some side-view opposite-leg contact poses are close in outline; changed leg shading and distinct lower-body silhouettes carry the alternation. This is a flattened character animation, not yet separated into paper-doll parts."
+  },
+  "validation": [
+    {
+      "direction": "s",
+      "unique_rgba_frames": 4,
+      "unique_silhouettes": 4,
+      "unique_leg_silhouettes": 4,
+      "occupied_heights": [
+        27,
+        28,
+        27,
+        28
+      ]
+    },
+    {
+      "direction": "e",
+      "unique_rgba_frames": 4,
+      "unique_silhouettes": 4,
+      "unique_leg_silhouettes": 4,
+      "occupied_heights": [
+        28,
+        29,
+        28,
+        29
+      ]
+    },
+    {
+      "direction": "n",
+      "unique_rgba_frames": 4,
+      "unique_silhouettes": 4,
+      "unique_leg_silhouettes": 4,
+      "occupied_heights": [
+        27,
+        28,
+        27,
+        28
+      ]
+    },
+    {
+      "direction": "w",
+      "unique_rgba_frames": 4,
+      "unique_silhouettes": 4,
+      "unique_leg_silhouettes": 4,
+      "occupied_heights": [
+        29,
+        28,
+        28,
+        29
+      ]
+    }
+  ],
+  "frames": [
+    {
+      "id": "survivor_walk_s_00",
+      "direction": "s",
+      "row": 0,
+      "frame": 0,
+      "source_cell": [
+        0,
+        0,
+        313,
+        323
+      ],
+      "source_occupied_bbox": [
+        83,
+        63,
+        241,
+        304
+      ],
+      "source_head_detection_rect": [
+        0,
+        58,
+        313,
+        100
+      ],
+      "source_registration": [
+        163.0,
+        304
+      ],
+      "target_head_axis_x": 16,
+      "texture": "native/survivor_walk_s_00.png",
+      "atlas_rect": [
+        0,
+        0,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "occupied_bbox": [
+        7,
+        13,
+        25,
+        40
+      ],
+      "sha256": "cef0df9f721055ea8dd99d39da7783e729446f69e0048aec6763252adae4b00e",
+      "silhouette_sha256": "fd1c435249ac546587ad39121bc25bf1d04bb8f2b0f72714eab33357328b469f",
+      "legs_silhouette_sha256": "a0caca276646618dcc68b47682275c82b316b8fe354617f9b4f8725d2988ef95"
+    },
+    {
+      "id": "survivor_walk_s_01",
+      "direction": "s",
+      "row": 0,
+      "frame": 1,
+      "source_cell": [
+        313,
+        0,
+        314,
+        323
+      ],
+      "source_occupied_bbox": [
+        81,
+        58,
+        235,
+        304
+      ],
+      "source_head_detection_rect": [
+        313,
+        58,
+        314,
+        100
+      ],
+      "source_registration": [
+        157.5,
+        304
+      ],
+      "target_head_axis_x": 16,
+      "texture": "native/survivor_walk_s_01.png",
+      "atlas_rect": [
+        32,
+        0,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "occupied_bbox": [
+        7,
+        12,
+        25,
+        40
+      ],
+      "sha256": "cc650e9e321fc9f5c54263a849ec5f4951b6f2eef6be3f6f2574b282269dee86",
+      "silhouette_sha256": "d2faef40871c6575a6ccd6da4bd9bd442bc513d7c1b37611539a9a0499edc3db",
+      "legs_silhouette_sha256": "cc06d76d7058b78fd91790567b1a2b7575e4b276642e2a8d113b31a523e9f900"
+    },
+    {
+      "id": "survivor_walk_s_02",
+      "direction": "s",
+      "row": 0,
+      "frame": 2,
+      "source_cell": [
+        627,
+        0,
+        313,
+        323
+      ],
+      "source_occupied_bbox": [
+        76,
+        63,
+        233,
+        304
+      ],
+      "source_head_detection_rect": [
+        627,
+        58,
+        313,
+        100
+      ],
+      "source_registration": [
+        154.5,
+        304
+      ],
+      "target_head_axis_x": 16,
+      "texture": "native/survivor_walk_s_02.png",
+      "atlas_rect": [
+        64,
+        0,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "occupied_bbox": [
+        7,
+        13,
+        25,
+        40
+      ],
+      "sha256": "79f1c471cc28765fbe44cbcda7c27a4bef02466e2319cac614877a7003c16233",
+      "silhouette_sha256": "d8f28a43d597f5475fbac5160a87cc0751e29cfd5b03b38f91693eea2635be4b",
+      "legs_silhouette_sha256": "c3c4ed2e4bdb0a037a6a9b780c2e79bc8a79c7ab9192b11fc0b671d9cc149e83"
+    },
+    {
+      "id": "survivor_walk_s_03",
+      "direction": "s",
+      "row": 0,
+      "frame": 3,
+      "source_cell": [
+        940,
+        0,
+        314,
+        323
+      ],
+      "source_occupied_bbox": [
+        73,
+        58,
+        226,
+        304
+      ],
+      "source_head_detection_rect": [
+        940,
+        58,
+        314,
+        100
+      ],
+      "source_registration": [
+        149.5,
+        304
+      ],
+      "target_head_axis_x": 16,
+      "texture": "native/survivor_walk_s_03.png",
+      "atlas_rect": [
+        96,
+        0,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "occupied_bbox": [
+        7,
+        12,
+        25,
+        40
+      ],
+      "sha256": "bfd2056ed8325da58432f074ac916c2a43215682adf2e33ada10da5e585faa6c",
+      "silhouette_sha256": "6e17f73c26099e541594b1d94be6115659cb84a44dd534f85f0fcd7d3ad0d555",
+      "legs_silhouette_sha256": "17f0d869a085e3a8baf9291977b59253ceb49ce1d9c96b6b3be8bf403b1a5b8b"
+    },
+    {
+      "id": "survivor_walk_e_00",
+      "direction": "e",
+      "row": 1,
+      "frame": 0,
+      "source_cell": [
+        0,
+        323,
+        313,
+        296
+      ],
+      "source_occupied_bbox": [
+        96,
+        22,
+        235,
+        275
+      ],
+      "source_head_detection_rect": [
+        0,
+        342,
+        313,
+        100
+      ],
+      "source_registration": [
+        174.5,
+        272
+      ],
+      "target_head_axis_x": 17,
+      "texture": "native/survivor_walk_e_00.png",
+      "atlas_rect": [
+        0,
+        48,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "occupied_bbox": [
+        8,
+        12,
+        24,
+        40
+      ],
+      "sha256": "7ae4b04f41db54e343d4dafbeeb428e493e1af51bfffbd4f63bf84266475b1d2",
+      "silhouette_sha256": "492bc7a831469a7bf439d8e9757707c17cbda839d66b543524b85175e3734c6f",
+      "legs_silhouette_sha256": "e35bf513591cad24039eda9eed1ec32cf019ccaa73827217d50447bb8a4272a2"
+    },
+    {
+      "id": "survivor_walk_e_01",
+      "direction": "e",
+      "row": 1,
+      "frame": 1,
+      "source_cell": [
+        313,
+        323,
+        314,
+        296
+      ],
+      "source_occupied_bbox": [
+        103,
+        19,
+        231,
+        274
+      ],
+      "source_head_detection_rect": [
+        313,
+        342,
+        314,
+        100
+      ],
+      "source_registration": [
+        170.5,
+        272
+      ],
+      "target_head_axis_x": 17,
+      "texture": "native/survivor_walk_e_01.png",
+      "atlas_rect": [
+        32,
+        48,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "occupied_bbox": [
+        9,
+        11,
+        24,
+        40
+      ],
+      "sha256": "715464c4fdb85a11a650e48157bfbad360ed24cb802201f5a91a1de5abc1c2fe",
+      "silhouette_sha256": "c2af18eef636fbd198d38bee9390d52ad064ef35194071158c92dc730afc6170",
+      "legs_silhouette_sha256": "5e6d4d5c6a1280edc4340acc777b18efab5b496a3c8de5ba57e62c72f05f60ad"
+    },
+    {
+      "id": "survivor_walk_e_02",
+      "direction": "e",
+      "row": 1,
+      "frame": 2,
+      "source_cell": [
+        627,
+        323,
+        313,
+        296
+      ],
+      "source_occupied_bbox": [
+        84,
+        22,
+        220,
+        275
+      ],
+      "source_head_detection_rect": [
+        627,
+        342,
+        313,
+        100
+      ],
+      "source_registration": [
+        161.0,
+        272
+      ],
+      "target_head_axis_x": 17,
+      "texture": "native/survivor_walk_e_02.png",
+      "atlas_rect": [
+        64,
+        48,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "occupied_bbox": [
+        8,
+        12,
+        24,
+        40
+      ],
+      "sha256": "0f2b51f1fd6cc76cbe7bbe35ec2b94e01ae047e3a70d5ea4aba12463c66b9161",
+      "silhouette_sha256": "2d9c0a0be2685fa0faeb2422928d12958ba4316c9f7ff5a25794ad1e928db212",
+      "legs_silhouette_sha256": "4cd8980ab87565f160c7ea3e692a8f53a01abac5a50bd1dda0328a04ee097c00"
+    },
+    {
+      "id": "survivor_walk_e_03",
+      "direction": "e",
+      "row": 1,
+      "frame": 3,
+      "source_cell": [
+        940,
+        323,
+        314,
+        296
+      ],
+      "source_occupied_bbox": [
+        95,
+        19,
+        216,
+        274
+      ],
+      "source_head_detection_rect": [
+        940,
+        342,
+        314,
+        100
+      ],
+      "source_registration": [
+        156.5,
+        272
+      ],
+      "target_head_axis_x": 17,
+      "texture": "native/survivor_walk_e_03.png",
+      "atlas_rect": [
+        96,
+        48,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "occupied_bbox": [
+        10,
+        11,
+        24,
+        40
+      ],
+      "sha256": "45330a8f1d7bde81a87a308d07f5791acf182a10cf26ec2c136f76b530539092",
+      "silhouette_sha256": "425e8b914fdcfbb83d83ca9306585015aa882298f282734e48bc4f4e4b4bd579",
+      "legs_silhouette_sha256": "b2a11c33ac8814a72f5da39ad235ec9873301ea4634a7277767f7962319811ea"
+    },
+    {
+      "id": "survivor_walk_n_00",
+      "direction": "n",
+      "row": 2,
+      "frame": 0,
+      "source_cell": [
+        0,
+        619,
+        313,
+        281
+      ],
+      "source_occupied_bbox": [
+        81,
+        25,
+        249,
+        265
+      ],
+      "source_head_detection_rect": [
+        0,
+        639,
+        313,
+        100
+      ],
+      "source_registration": [
+        165.5,
+        265
+      ],
+      "target_head_axis_x": 16.5,
+      "texture": "native/survivor_walk_n_00.png",
+      "atlas_rect": [
+        0,
+        96,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "occupied_bbox": [
+        7,
+        13,
+        26,
+        40
+      ],
+      "sha256": "e2fec0e361c5161472d7623ef827a54b3b187a56f5261cba6810892cc9db3baa",
+      "silhouette_sha256": "e41223a3d5b6573386dc97002d6796372acb717aed80626c3f278f343bb042ad",
+      "legs_silhouette_sha256": "23a13ba300e1849b27ab46baa476ef12016f2f55f0d21fcf8e0e48216aa248d3"
+    },
+    {
+      "id": "survivor_walk_n_01",
+      "direction": "n",
+      "row": 2,
+      "frame": 1,
+      "source_cell": [
+        313,
+        619,
+        314,
+        281
+      ],
+      "source_occupied_bbox": [
+        80,
+        20,
+        234,
+        264
+      ],
+      "source_head_detection_rect": [
+        313,
+        639,
+        314,
+        100
+      ],
+      "source_registration": [
+        157.5,
+        265
+      ],
+      "target_head_axis_x": 16.5,
+      "texture": "native/survivor_walk_n_01.png",
+      "atlas_rect": [
+        32,
+        96,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "occupied_bbox": [
+        8,
+        12,
+        25,
+        40
+      ],
+      "sha256": "208b6a8a2fa2fa0a17ca1c73edceb7445d0169c7ca5813a4517738f527e686ad",
+      "silhouette_sha256": "9bdf15168ab36a5834fcda3e13e65d01ea3c1b595be554a0956f5d375967036f",
+      "legs_silhouette_sha256": "b888ce2cb64a43c292058a3cc62d83b6a055383603a9569b6ef064b81fec5952"
+    },
+    {
+      "id": "survivor_walk_n_02",
+      "direction": "n",
+      "row": 2,
+      "frame": 2,
+      "source_cell": [
+        627,
+        619,
+        313,
+        281
+      ],
+      "source_occupied_bbox": [
+        72,
+        25,
+        240,
+        265
+      ],
+      "source_head_detection_rect": [
+        627,
+        639,
+        313,
+        100
+      ],
+      "source_registration": [
+        156.5,
+        265
+      ],
+      "target_head_axis_x": 16.5,
+      "texture": "native/survivor_walk_n_02.png",
+      "atlas_rect": [
+        64,
+        96,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "occupied_bbox": [
+        7,
+        13,
+        26,
+        40
+      ],
+      "sha256": "90b9682f38a1f18866a33d1fdf5993a3661656c13bda7c09f1064a7c24bb3f47",
+      "silhouette_sha256": "a42c99efc2f74bfb1d4a0a4ef601385d61743144a0deedc5db31dea121c82f9f",
+      "legs_silhouette_sha256": "c04dff074b534d25edce21390adeb5bcd30529feb22ff097f178b21d9b789f6c"
+    },
+    {
+      "id": "survivor_walk_n_03",
+      "direction": "n",
+      "row": 2,
+      "frame": 3,
+      "source_cell": [
+        940,
+        619,
+        314,
+        281
+      ],
+      "source_occupied_bbox": [
+        69,
+        20,
+        226,
+        264
+      ],
+      "source_head_detection_rect": [
+        940,
+        639,
+        314,
+        100
+      ],
+      "source_registration": [
+        148.0,
+        265
+      ],
+      "target_head_axis_x": 16.5,
+      "texture": "native/survivor_walk_n_03.png",
+      "atlas_rect": [
+        96,
+        96,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "occupied_bbox": [
+        8,
+        12,
+        25,
+        40
+      ],
+      "sha256": "d6a1e3cf4174c49ed8d6e5a91fda4fdd17d3054d9de282351fdf2adc300c8890",
+      "silhouette_sha256": "e827f1d6ae19bdd09478482f1c68adffd8ea289120db0aca629753a0c1504c72",
+      "legs_silhouette_sha256": "297f53480e2bdbc44b2ae30cf7ec39a3a1d3a4ea0aab53d95502d8f976729b20"
+    },
+    {
+      "id": "survivor_walk_w_00",
+      "direction": "w",
+      "row": 3,
+      "frame": 0,
+      "source_cell": [
+        0,
+        900,
+        313,
+        354
+      ],
+      "source_occupied_bbox": [
+        96,
+        18,
+        235,
+        274
+      ],
+      "source_head_detection_rect": [
+        0,
+        917,
+        313,
+        100
+      ],
+      "source_registration": [
+        156.5,
+        271
+      ],
+      "target_head_axis_x": 16,
+      "texture": "native/survivor_walk_w_00.png",
+      "atlas_rect": [
+        0,
+        144,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "occupied_bbox": [
+        9,
+        11,
+        25,
+        40
+      ],
+      "sha256": "a02717a8c898096950135672c87c96a30dddb1203c6e029b7844b374979b636b",
+      "silhouette_sha256": "9bac69290ed068b25ae9fce434eb3120120282570988f1131a11253001add82f",
+      "legs_silhouette_sha256": "83c54a593cdb5101e62eb0102efa3a302f6919c2c3c3e61b72256529bc568a9a"
+    },
+    {
+      "id": "survivor_walk_w_01",
+      "direction": "w",
+      "row": 3,
+      "frame": 1,
+      "source_cell": [
+        313,
+        900,
+        314,
+        354
+      ],
+      "source_occupied_bbox": [
+        94,
+        17,
+        221,
+        261
+      ],
+      "source_head_detection_rect": [
+        313,
+        917,
+        314,
+        100
+      ],
+      "source_registration": [
+        157.0,
+        271
+      ],
+      "target_head_axis_x": 16,
+      "texture": "native/survivor_walk_w_01.png",
+      "atlas_rect": [
+        32,
+        144,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "occupied_bbox": [
+        9,
+        11,
+        23,
+        39
+      ],
+      "sha256": "1d7316047e4c3764728b8f78cce27f54a45a2781d1609c08f007780a408cbe0f",
+      "silhouette_sha256": "dd6c785a04f17369162a0868ae96ab775be021efdf0b5206dcd4a1db4e2e0cae",
+      "legs_silhouette_sha256": "d3348920511d7d56e654a59aa35b6d47fce9bd0f890d559f376292ef272d8b28"
+    },
+    {
+      "id": "survivor_walk_w_02",
+      "direction": "w",
+      "row": 3,
+      "frame": 2,
+      "source_cell": [
+        627,
+        900,
+        313,
+        354
+      ],
+      "source_occupied_bbox": [
+        86,
+        22,
+        223,
+        274
+      ],
+      "source_head_detection_rect": [
+        627,
+        917,
+        313,
+        100
+      ],
+      "source_registration": [
+        150.0,
+        271
+      ],
+      "target_head_axis_x": 16,
+      "texture": "native/survivor_walk_w_02.png",
+      "atlas_rect": [
+        64,
+        144,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "occupied_bbox": [
+        9,
+        12,
+        24,
+        40
+      ],
+      "sha256": "da6fc03f94d438f962c0c84d28b34fc2370c7cc9278ba2890e520d8c1c9f9109",
+      "silhouette_sha256": "729c2180ff2e1fc2fc2608219b3d79fa20499d171d058e1b0b3b14c3e70729be",
+      "legs_silhouette_sha256": "23359d68d3220cc3680adac0f3da05b309fc0aef328d3ade395137f7a6609392"
+    },
+    {
+      "id": "survivor_walk_w_03",
+      "direction": "w",
+      "row": 3,
+      "frame": 3,
+      "source_cell": [
+        940,
+        900,
+        314,
+        354
+      ],
+      "source_occupied_bbox": [
+        83,
+        17,
+        209,
+        272
+      ],
+      "source_head_detection_rect": [
+        940,
+        917,
+        314,
+        100
+      ],
+      "source_registration": [
+        144.0,
+        271
+      ],
+      "target_head_axis_x": 16,
+      "texture": "native/survivor_walk_w_03.png",
+      "atlas_rect": [
+        96,
+        144,
+        32,
+        48
+      ],
+      "pivot": [
+        16,
+        40
+      ],
+      "occupied_bbox": [
+        9,
+        11,
+        23,
+        40
+      ],
+      "sha256": "ed72daf0e4f96a52268029a6cdadbabc81a5fb205440a063d4251af9720976a0",
+      "silhouette_sha256": "b3f387727799a3d6eaae0b91ab604fe8fa19dadc02bf39d462d16fb19709b9e5",
+      "legs_silhouette_sha256": "7abc42ef549dc612f9b3a15171c119c0ed0f51e26c4af8dc56c3f9e066540f88"
+    }
+  ]
+}

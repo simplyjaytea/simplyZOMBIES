@@ -1,0 +1,238 @@
+{
+  "assetCount": 33,
+  "opaqueTerrainCount": 12,
+  "transparentArchitectureAndOverlays": 21,
+  "checks": [
+    {
+      "id": "tile-asphalt-a",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 0,
+      "fractionalAlphaPixels": 0
+    },
+    {
+      "id": "tile-asphalt-b",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 0,
+      "fractionalAlphaPixels": 0
+    },
+    {
+      "id": "tile-concrete-a",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 0,
+      "fractionalAlphaPixels": 0
+    },
+    {
+      "id": "tile-concrete-b",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 0,
+      "fractionalAlphaPixels": 0
+    },
+    {
+      "id": "tile-grass-a",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 0,
+      "fractionalAlphaPixels": 0
+    },
+    {
+      "id": "tile-grass-b",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 0,
+      "fractionalAlphaPixels": 0
+    },
+    {
+      "id": "tile-dirt-a",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 0,
+      "fractionalAlphaPixels": 0
+    },
+    {
+      "id": "tile-dirt-b",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 0,
+      "fractionalAlphaPixels": 0
+    },
+    {
+      "id": "tile-wood-floor",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 0,
+      "fractionalAlphaPixels": 0
+    },
+    {
+      "id": "tile-interior-tile",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 0,
+      "fractionalAlphaPixels": 0
+    },
+    {
+      "id": "tile-rubble",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 0,
+      "fractionalAlphaPixels": 0
+    },
+    {
+      "id": "tile-water",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 0,
+      "fractionalAlphaPixels": 0
+    },
+    {
+      "id": "wall-plaster",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 513,
+      "fractionalAlphaPixels": 2550
+    },
+    {
+      "id": "wall-brick",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 514,
+      "fractionalAlphaPixels": 2472
+    },
+    {
+      "id": "wall-interior",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 514,
+      "fractionalAlphaPixels": 2554
+    },
+    {
+      "id": "wall-corner-nw",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 1429,
+      "fractionalAlphaPixels": 2660
+    },
+    {
+      "id": "wall-corner-ne",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 1489,
+      "fractionalAlphaPixels": 2570
+    },
+    {
+      "id": "wall-door-closed",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 514,
+      "fractionalAlphaPixels": 2550
+    },
+    {
+      "id": "wall-door-open",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 479,
+      "fractionalAlphaPixels": 2589
+    },
+    {
+      "id": "wall-window-intact",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 513,
+      "fractionalAlphaPixels": 2551
+    },
+    {
+      "id": "wall-window-broken",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 516,
+      "fractionalAlphaPixels": 2541
+    },
+    {
+      "id": "wall-fence-horizontal",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 282,
+      "fractionalAlphaPixels": 1763
+    },
+    {
+      "id": "wall-fence-vertical",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 1411,
+      "fractionalAlphaPixels": 634
+    },
+    {
+      "id": "wall-gate-closed",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 1235,
+      "fractionalAlphaPixels": 1833
+    },
+    {
+      "id": "wall-gate-open",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 1302,
+      "fractionalAlphaPixels": 1768
+    },
+    {
+      "id": "overlay-grass-north",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 648,
+      "fractionalAlphaPixels": 374
+    },
+    {
+      "id": "overlay-grass-east",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 661,
+      "fractionalAlphaPixels": 361
+    },
+    {
+      "id": "overlay-grass-south",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 684,
+      "fractionalAlphaPixels": 335
+    },
+    {
+      "id": "overlay-grass-west",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 676,
+      "fractionalAlphaPixels": 347
+    },
+    {
+      "id": "overlay-road-dashed",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 942,
+      "fractionalAlphaPixels": 82
+    },
+    {
+      "id": "overlay-road-solid",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 928,
+      "fractionalAlphaPixels": 96
+    },
+    {
+      "id": "overlay-puddle",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 454,
+      "fractionalAlphaPixels": 563
+    },
+    {
+      "id": "overlay-debris",
+      "sizeMatches": true,
+      "nonempty": true,
+      "transparentPixels": 577,
+      "fractionalAlphaPixels": 444
+    }
+  ]
+}
