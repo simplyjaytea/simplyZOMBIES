@@ -1,5 +1,6 @@
-# Release: the downloadable build. Run by hand from the Actions tab (or the API) with a version;
-# it exports the Windows executable and the web build with the same engine, the same templates
+# Release: the downloadable build. Run by hand from the Actions tab (or the API) with a version,
+# or by pushing a tag `v<version>` (GitHub only lists a hand-run workflow once it is on the default
+# branch, and a tag runs this file from the commit the tag names, so both roads lead here). It exports the Windows executable and the web build with the same engine, the same templates
 # and the same boot smoke CI's godot-exports job uses, zips them, and publishes a GitHub release
 # tagged v<version> on the commit it ran on. Nothing here decides balance or content: it is the
 # packaging of whatever the ref already is, and CI's own gates are what said the ref was green.
@@ -10,6 +11,8 @@
 name: Release
 
 on:
+  push:
+    tags: ["v*"]
   workflow_dispatch:
     inputs:
       version:
@@ -26,7 +29,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: release-${{ inputs.version }}
+  group: release-${{ inputs.version || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -43,10 +46,23 @@ jobs:
 
       - run: npm ci
 
-      - name: Refuse a version that already has a tag
+      - name: Resolve the version
         shell: pwsh
         run: |
-          $tag = "v${{ inputs.version }}"
+          $version = "${{ inputs.version }}"
+          if (-not $version) { $version = "${{ github.ref_name }}" -replace "^v", "" }
+          if (-not $version) { throw "No version: run with an input or push a v<version> tag" }
+          $prerelease = "${{ inputs.prerelease }}"
+          if (-not $prerelease) { $prerelease = "true" }
+          "RELEASE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "RELEASE_PRERELEASE=$prerelease" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "version $version prerelease $prerelease"
+
+      - name: Refuse a version that already has a tag
+        if: github.ref_type != 'tag'
+        shell: pwsh
+        run: |
+          $tag = "v$env:RELEASE_VERSION"
           git fetch --tags --quiet
           if (git tag --list $tag) { throw "Tag $tag already exists; pick a new version" }
 
@@ -129,7 +145,7 @@ jobs:
       - name: Package
         shell: pwsh
         run: |
-          $version = "${{ inputs.version }}"
+          $version = $env:RELEASE_VERSION
           New-Item -ItemType Directory -Path release -Force | Out-Null
           $launch = @(
             "simplyZOMBIES v$version",
@@ -151,7 +167,7 @@ jobs:
       - name: Write the release notes
         shell: pwsh
         run: |
-          $version = "${{ inputs.version }}"
+          $version = $env:RELEASE_VERSION
           $sha = "${{ github.sha }}"
           $notes = @(
             "## simplyZOMBIES v$version",
@@ -174,9 +190,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $version = "${{ inputs.version }}"
+          $version = $env:RELEASE_VERSION
           $flags = @()
-          if ("${{ inputs.prerelease }}" -eq "true") { $flags += "--prerelease" }
+          if ($env:RELEASE_PRERELEASE -eq "true") { $flags += "--prerelease" }
           gh release create "v$version" `
             "release/simplyZOMBIES-v$version-windows-x86_64.zip" `
             "release/simplyZOMBIES-v$version-web.zip" `

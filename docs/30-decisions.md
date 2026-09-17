@@ -5196,7 +5196,7 @@ entries.
 
 The owner asked, with the alpha bar proved end to end, for a release on GitHub that can be
 downloaded and launched like an executable. Decided: **a `Release` workflow run by hand with a
-version**, never on push — a release is a deliberate act and CI already publishes the web build
+version, or by a pushed `v<version>` tag**, never on a branch push — a release is a deliberate act and CI already publishes the web build
 on every green commit. **Windows first**, because that is what was asked for and what CI's
 `godot-exports` job already boots on a real Windows runner; the web build rides in the same
 release as a zip for anyone self-hosting. **Pre-release by default and `v0.x` versions** until

@@ -7857,7 +7857,7 @@ not a to-do list:
   | 14 | the title | second pass, `14_title.png` (fresh boot, state `TITLE`, no `continue` offered) |
   | 15 | Ctrl+S on the published web build | second pass, `15_ctrl_s_web_before.png` / `15_ctrl_s_web_after.png` (headless Playwright proxy: no download/dialog/navigation, stance word "crouching" -> "walking"; a hand check on a real desktop browser is the one thing this does not stand in for) |
 - **The alpha shell** — ~~the release package~~ **landed** 2026-09-17 (`.github/workflows/release.yml`,
-  run by hand with a version; judged by the same boot smoke CI's `godot-exports` job runs, and by
+  run by hand with a version or by pushing a `v<version>` tag; judged by the same boot smoke CI's `godot-exports` job runs, and by
   the release it publishes existing). The owner asked, once all fifteen bar items were proved, for
   a build a stranger can download and launch like an executable. The workflow is CI's
   `godot-exports` job with a tail: the same pinned engine and templates (the SHA-512s are the ones
@@ -7866,7 +7866,9 @@ not a to-do list:
   `npm run godot:smoke:exports` so nothing unbooted is published, then two zips, a
   `SHA256SUMS.txt`, notes that say where the save lives and that SmartScreen will warn once
   because nothing is code-signed, and `gh release create v<version>` on the commit it ran on, a
-  pre-release by default. It refuses a version whose tag already exists. **What it does not do:**
+  pre-release by default. It refuses a version whose tag already exists, and a pushed `v` tag
+  runs it from the tagged commit — the road that works before the workflow is on `main`, since
+  GitHub lists a hand-run workflow only once the default branch carries it. **What it does not do:**
   no Linux or macOS build (named above), no code signing, no installer, no auto-update, and it
   never decides what to ship — CI's gates said the ref was green, this only packages it. The
   Windows export was also run here on Linux against the same preset (a 112 MB single-file
