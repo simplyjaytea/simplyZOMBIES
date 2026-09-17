@@ -58,5 +58,7 @@ static func register_module(world: Variant) -> void:
 				"magnitude": mag,
 				"source": int(entity),
 			})
+			# speech.gd's bubble beside the noise -- the scream cry itself, not the alarm's radius.
+			w.events.publish({"type": "zombie.screamed", "entity": int(entity)})
 			ad["ticksUntilReady"] = int(ad.get("cooldownTicks", 600))
 	)

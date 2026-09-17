@@ -1,0 +1,72 @@
+[
+  {
+    "id": "speech.shout",
+    "description": "The `shout` command's own bubble: a colonist calling attention to themselves, spoken over the noise it already publishes. Every line is digit-free and names nobody, per the hardcore contract.",
+    "lines": ["Hey! Over here!", "Come on, then!"]
+  },
+  {
+    "id": "speech.grabbed",
+    "description": "A shambler has just closed a hold (`grab.started`). Never 'I'm bitten' -- a grab is not a bite, and the hardcore contract hides which one a hold becomes until treatment finds it.",
+    "lines": ["Get it off me!", "Get off!"]
+  },
+  {
+    "id": "speech.rescued",
+    "description": "Said by whoever pulled a held colonist free (`grab.broken` with cause rescue), not by the one who was held.",
+    "lines": ["Got you — move!", "I've got you!"]
+  },
+  {
+    "id": "speech.treating",
+    "description": "Said by the treater, not the patient, when a treatment channel begins (`treatment.begun`).",
+    "lines": ["Hold still.", "This is going to sting."]
+  },
+  {
+    "id": "speech.joined",
+    "description": "Said by whoever just joined the colony (`survivor.joined`) -- a recruit taken in, or a body the world spawned.",
+    "lines": ["Alright. I'm with you.", "Good to be somewhere."]
+  },
+  {
+    "id": "speech.hail",
+    "description": "A waiting recruit or stranger, the first time the controlled body comes into reach of them.",
+    "lines": ["You there. Got room for one more?", "Wait — can you help me?"]
+  },
+  {
+    "id": "speech.zombie.noticed",
+    "description": "A shambler's own state machine crossing from Wander/Investigate into Seek or Pursue -- a sound-word, not a word, and never a name (it does not know one).",
+    "lines": ["hhrrrh…", "…nnngh"]
+  },
+  {
+    "id": "speech.zombie.scream",
+    "description": "A screamer's alarm cry, alongside its noise.emitted (zombie.screamed).",
+    "lines": ["RRAAAGH—", "RRAAAGH!"]
+  },
+  {
+    "id": "speech.mutter.hungry",
+    "description": "A colonist's own worst need band is hunger -- the same reading SimNeeds.hud_clause would rank first, restricted to the seven bands a mutter is allowed to name.",
+    "lines": ["I could eat.", "Wish I'd eaten more."]
+  },
+  {
+    "id": "speech.mutter.thirsty",
+    "lines": ["Could use some water.", "My mouth's dry."]
+  },
+  {
+    "id": "speech.mutter.tired",
+    "lines": ["I need to sit down.", "I could use some sleep."]
+  },
+  {
+    "id": "speech.mutter.cold",
+    "lines": ["It's cold out here.", "I can't feel my hands."]
+  },
+  {
+    "id": "speech.mutter.hot",
+    "lines": ["It's too hot for this.", "I need some shade."]
+  },
+  {
+    "id": "speech.mutter.soaked",
+    "lines": ["I'm soaked through.", "This coat isn't keeping anything out."]
+  },
+  {
+    "id": "speech.mutter.shaken",
+    "description": "The grief band -- a fever line would only be allowed here if hud_clause would already say it, and it never does for grief, so this stays a plain 'shaken', nothing that names an illness.",
+    "lines": ["I keep thinking about it.", "I can't stop shaking."]
+  }
+]

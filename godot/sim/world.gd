@@ -457,6 +457,9 @@ func _apply_commands(_world: Variant) -> void:
 						"magnitude": 120.0,
 						"source": int(entity)
 					})
+					# speech.gd's own bubble over the noise: this file publishes and never
+					# subscribes, the same shape stance.collapsed is published in below.
+					events.publish({"type": "shouted", "entity": int(entity)})
 				"stance":
 					# Presentation only ever pushes the command (main.gd:_push_stance) -- this is
 					# the one place a stance request actually lands on posture. Out-of-range is

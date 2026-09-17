@@ -110,6 +110,7 @@ npm run godot:check:appearance # the sprite pipeline → APPEARANCE_OK
 npm run godot:check:hud      # HUD speaks in prose   → HUD_OK
 npm run godot:check:play     # the gate that plays it: boots the scene, presses keys → PLAY_OK
 npm run godot:check:context  # the right-click menu, and walk-here → CONTEXT_OK
+npm run godot:check:speech   # speech bubbles: a line said, and who says it → SPEECH_OK
 npm run godot:check:respond  # the antibiotics word  → RESPOND_OK
 npm run godot:check:camera   # smoothed follow, shake → CAMERA_OK
 npm run godot:check:light    # sight-derived wash, lit ∩ seen pools → LIGHT_LOOK_OK

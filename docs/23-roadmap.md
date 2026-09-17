@@ -518,10 +518,8 @@ in this order; each lands with its own gate:
   (`godot:m2:sight` KINDS and EXPLORED; `npm run godot:check:memory` → `MEMORY_LOOK_OK`).
 - ~~**The right-click menu, and walk-here**~~ — **landed** 2026-09-17, see the record
   (`npm run godot:check:context` → `CONTEXT_OK`).
-- **Speech bubbles.** `SimSpeech` says an authored line from `content/speech/` on a trigger
-  (the shout, a grab, a rescue, first aid, a recruit, a hail, a zombie noticing you, a scream) and
-  colonists mutter the band `hud_clause` already speaks; the renderer draws it over focal bodies
-  only. `npm run godot:check:speech` → `SPEECH_OK`.
+- ~~**Speech bubbles**~~ — **landed** 2026-09-17, see the record (`npm run godot:check:speech`
+  → `SPEECH_OK`).
 
 **Art & renderer — overcast or torchlight, decided by the owner (2026-09-08), on the Dungeon
 Settlers spine.** The direction is docs/30's "Overcast or torchlight": a hybrid that keeps the
@@ -10310,6 +10308,52 @@ not a to-do list:
   swing). The one ergonomic rule worth writing down: the row you can see and the row you can
   click are one arithmetic (`verb_rects` beside `draw_menu`), which is the inventory sheet's rule
   since the treatment words landed.
+
+- **After the shell** — ~~speech bubbles~~ **landed** 2026-09-17 (`npm run godot:check:speech` →
+  **`SPEECH_OK`**, six lanes, chained after `godot:check:context`). Nobody spoke: the shout was
+  a noise, a grab was a component, the chronicle was a corner column. **Sim:**
+  `godot/sim/modules/speech.gd` (`SimSpeech`) keeps a `saying {text, since, until}` component on
+  the speaker — a flat record of a String and two ints, so a save carries it — set by
+  `say(world, ent, key, ticks)` from an authored line under `speech.<key>` in
+  `content/speech/lines.json` (a new content kind with its own `speech.schema.json`, registered
+  in `content_validator.gd`'s list and `_type_of_path`; the frozen oracle ignores the directory
+  and `npm test` is green), drawn on its own `speech` RNG stream, expired by `speech.expire`.
+  The triggers are subscriptions, the speaker the entity the event names: `shouted` (new, the
+  `shout` arm in `world.gd` publishes it beside its noise), `grab.started` (the victim),
+  `grab.broken` with cause `rescue` (the rescuer), `treatment.begun` (the treater, never when
+  treating yourself), `survivor.joined`, `zombie.noticed` (new, `shambler.gd` publishes it on the
+  edges out of Wander into Seek or Pursue, rate-limited by a `noticedAt` stamp to one per 200
+  ticks), `zombie.screamed` (new, `screamer.gd` beside its alarm); `speech.hail` says `hail`
+  once per waiting recruit or stranger the moment the controlled body first comes into its
+  reach (`hailed: true` on the recruit record); `speech.mutter` rolls `MUTTER_P` 0.15 every
+  `MUTTER_EVERY` 400 ticks per NPC colonist with needs and says `mutter.<band>` for the band
+  `SimNeeds.worst_band` names — a new reader beside `hud_clause` returning one of hungry /
+  thirsty / tired / cold / hot / soaked / shaken off the same ranked picks, "" when nothing is
+  worth saying, so a fed, rested colonist never mutters and the controlled body never does.
+  Fifteen keys, thirty lines, every one digit-free and nameless and none saying anything the
+  hardcore contract hides; zombies get sound-words ("hhrrrh…", "RRAAAGH—"). **Presentation:**
+  `_draw_entities` appends `{id, sx, sy, r}` to `_focal_drawn` after the body blit, which is
+  after the Peripheral bail, so only bodies drawn at Focal and the player can carry a bubble;
+  `_draw_bubbles()` (from `_draw`, after the afterimages and before the weather) draws a dark
+  plate with a tail above the head in `Chrome`'s skin at `TAG_SIZE`, wrapped at 200 px, fading
+  over the last 20 ticks, zombies in the dim text — no transform anywhere (`check_topdown`'s
+  counter stays at zero). This is spoken words over a focal body and never a name; docs/30's
+  entry says why it sits beside the name-plate refusal rather than amending it. The lanes:
+  **SAY** (a key sets a line from content, an unknown key sets nothing, the line expires on
+  schedule), **TRIGGERS** (each event makes its named entity speak the right key and nobody
+  else; a `noise.emitted` alone speaks for nobody; treating yourself says nothing; the hail
+  fires once per recruit and never out of reach; and the three new publish sites are proved
+  through the real mechanism — a pushed `shout`, a real shambler's Wander → Pursue edge, a real
+  screamer's alarm — rather than a hand-built event), **CONTENT** (every key in
+  `SimSpeech.KEYS` has an entry with at least one digit-free, nameless line; scanner proved on a
+  fabricated body), **MUTTER** (a starving NPC mutters "I could eat." within 4,000 ticks, a fed
+  one and the controlled body never — the lane latches the first read every tick, because a
+  line that lasts sixty ticks is gone by the time a loop ends, the drain trap one step further
+  down the same road), **SAVE** (`saying` survives a `SimSave` round trip) and **READER**
+  (textual, isolated: `_draw` calls `_draw_bubbles()` after `_draw_entities()`, `_draw_bubbles`
+  reads `"saying"` and `_focal_drawn`, and the append sits after the Peripheral bail). Nothing
+  the balance harness measures moves: a bubble is a component with words and the shout's noise
+  is untouched.
 
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not

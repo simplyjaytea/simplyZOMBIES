@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://simplyzombies.dev/schemas/speech.schema.json",
+  "title": "A speech line",
+  "description": "One entry a body can say out loud: a bubble over its head, drawn only while it is a Focal body (main.gd's _draw_bubbles), never a name plate. The id is speech.<key> and SimSpeech.say(world, ent, key, ticks) reads it by that key. `lines` is picked from with world.rng.stream(\"speech\") so the same trigger does not say the same sentence every time. `ticks` defaults to SimSpeech.SAY_TICKS (60, three seconds) when absent; a scream sets its own (40). Every line must be digit-free and must name nobody -- the hardcore contract's ban on certainty the player has not earned, made mechanical by check_speech.gd's CONTENT lane. NOTE: the content validator is shallow -- it checks these top-level types and rejects unexpected top-level keys, but does not recurse into the `lines` array's own contents (each entry's type, non-emptiness); check_speech.gd's CONTENT lane holds that inner shape.",
+  "type": "object",
+  "required": ["id", "lines"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^speech\\.[a-z0-9_.]+$",
+      "description": "Stable namespaced id, speech.<key>. Permanent once shipped."
+    },
+    "description": { "type": "string" },
+    "lines": {
+      "type": "array",
+      "description": "One or more lines to draw from on the speech stream. Every one digit-free, names nobody, and carries no {name}-style placeholder -- check_speech.gd's CONTENT lane scans each one."
+    },
+    "ticks": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "How long the bubble stands before speech.expire removes it. Defaults to SimSpeech.SAY_TICKS when absent."
+    }
+  }
+}

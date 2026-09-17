@@ -14,6 +14,7 @@ const Appearance = preload("res://presentation/appearance.gd")
 const HudRead = preload("res://ui/hud.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
 const ItemGlyph = preload("res://presentation/item_glyph.gd")
+const Chrome = preload("res://ui/chrome.gd")
 # The tag beside the player's body: big enough to read at a glance mid-fight, small enough that it
 # is not competing with the HUD's own columns.
 const TAG_SIZE: int = 20
@@ -182,6 +183,13 @@ var _dressing_from: Variant = null
 # Peripheral glimpse never writes here, so a body only ever glimpsed has no picture to fade -- the
 # anonymity clause holds even in memory. Cleared on every world replace.
 var _last_look: Dictionary = {}
+# Every Focal body's `{id, sx, sy, r}` this frame, and the player's own -- cleared at the top of
+# `_draw_entities` and appended right after that body's blit, so a body only ever glimpsed
+# Peripherally (which bailed to the anonymous disc before reaching the blit) is never in it.
+# `_draw_bubbles` is the one reader: a speech bubble is drawn only over a body this list names,
+# which is what keeps the name-plate refusal's peripheral-anonymity clause holding for words the
+# same way it already holds for the afterimage's picture.
+var _focal_drawn: Array[Dictionary] = []
 var _content_poll_at: float = -1e9
 # The content tree as last seen by the reload poll; a reload happens only when this moves.
 var _content_fingerprint: int = 0
@@ -314,6 +322,7 @@ func _on_world_replaced() -> void:
 	_fingerprint_at = -1e9
 	_content_error = ""
 	_last_look = {}
+	_focal_drawn = []
 	if _context_menu != null:
 		_context_menu.call("close")
 	tick_count = 0
@@ -1050,6 +1059,7 @@ func _draw() -> void:
 	_draw_light_pools()
 	_draw_entities()
 	_draw_afterimages()
+	_draw_bubbles()
 	_draw_rain()
 	_draw_lightning()
 	_draw_fog()
@@ -1877,6 +1887,7 @@ func _fill_pool_tiles(tiles: Array, col: Color) -> void:
 
 func _draw_entities() -> void:
 	if world == null: return
+	_focal_drawn = []
 	# One art pixel in screen pixels, asked once: the camera cannot change inside a draw
 	# pass, and every body, shadow and glimpse disc below is sized off the same answer --
 	# a rig that ignored the zoom would draw a 64 px body over a 16 px tile.
@@ -2097,6 +2108,10 @@ func _draw_entities() -> void:
 		else:
 			draw_circle(Vector2(sx, sy), r, col)
 			draw_circle(Vector2(sx, sy), r, col.lightened(0.25), false, 2.4 if bool(it["player"]) else 1.6)
+		# `_draw_bubbles`'s only reader: a Focal body just blitted, the player included (its `det`
+		# is pinned Focal above and never bails), so a speech bubble can stand over it. A body only
+		# ever glimpsed Peripherally bailed out before reaching this line.
+		_focal_drawn.append({"id": eid, "sx": sx, "sy": sy, "r": r})
 		# Facing + aim sway (cone half-angle). No hit % — wobble is the readout.
 		# The line draws for every body, the player's included: a flip is a two-state readout of
 		# a continuous heading, so the picture can never say more than "east or west" and the
@@ -2224,6 +2239,82 @@ func _draw_afterimages() -> void:
 		# never drawn since the world was loaded): the anonymous glimpse disc, on the same fade.
 		var glimpse: Color = Palette.COLOURS["glimpse"] as Color
 		draw_circle(Vector2(sx, sy), 8.0, Color(glimpse.r, glimpse.g, glimpse.b, 0.75 * alpha))
+
+
+# Speech bubbles: what a body just said, spoken over words -- never a name (docs/30's name-plate
+# refusal, three times over, is about a word that identifies a body; a bubble carries what it
+# said, which is the narrow case that refusal was never about). Reads `saying` and `_focal_drawn`
+# only, and only for the entities `_focal_drawn` names: a body only ever glimpsed Peripherally
+# never entered that list (the append sits after the Peripheral bail in `_draw_entities`), so the
+# same anonymity clause that already holds for the afterimage's picture holds here for words.
+const BUBBLE_WRAP_PX: float = 200.0
+const BUBBLE_PAD_PX: float = 8.0
+const BUBBLE_LIFT_PX: float = 14.0
+# The last 20 ticks (one second) of a line's life fade it out, rather than a hard cut, the same
+# shape the mark and the afterimage already fade on -- so a bubble ending mid-scene never looks
+# like a draw call that stopped.
+const BUBBLE_FADE_TICKS: int = 20
+
+
+func _draw_bubbles() -> void:
+	if world == null or _focal_drawn.is_empty(): return
+	var font: Font = Chrome.font()
+	var now: int = int(world.tick)
+	for row in _focal_drawn:
+		var it: Dictionary = row as Dictionary
+		var eid: int = int(it["id"])
+		var saying: Variant = world.components.get_component(eid, "saying")
+		if not (saying is Dictionary): continue
+		var s: Dictionary = saying as Dictionary
+		var text: String = String(s.get("text", ""))
+		if text.is_empty(): continue
+		var left: int = int(s.get("until", 0)) - now
+		if left <= 0: continue
+		var alpha: float = 1.0 if left >= BUBBLE_FADE_TICKS else float(left) / float(BUBBLE_FADE_TICKS)
+		var lines: Array[String] = _wrap_bubble_text(font, text, BUBBLE_WRAP_PX)
+		var line_h: float = float(TAG_SIZE) * 1.2
+		var block_w: float = 0.0
+		for l in lines:
+			block_w = maxf(block_w, font.get_string_size(l, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE).x)
+		var sx: float = float(it["sx"])
+		var sy: float = float(it["sy"])
+		var top: float = sy - float(it["r"]) - BUBBLE_LIFT_PX - line_h * float(lines.size()) - BUBBLE_PAD_PX * 2.0
+		var plate := Rect2(Vector2(sx - block_w / 2.0 - BUBBLE_PAD_PX, top), Vector2(block_w + BUBBLE_PAD_PX * 2.0, line_h * float(lines.size()) + BUBBLE_PAD_PX * 2.0))
+		var fill: Color = Chrome.PANEL
+		fill.a = 0.85 * alpha
+		draw_rect(plate, fill)
+		var edge: Color = Chrome.PANEL_EDGE
+		edge.a = alpha
+		draw_rect(plate, edge, false, 1.0)
+		# A small tail pointing down at the head -- the one thing that reads a plate as spoken
+		# rather than as a floating card.
+		var tail_base_y: float = plate.position.y + plate.size.y
+		draw_colored_polygon(PackedVector2Array([Vector2(sx - 6.0, tail_base_y), Vector2(sx + 6.0, tail_base_y), Vector2(sx, tail_base_y + 7.0)]), fill)
+		# A zombie's sound-word draws dim (it is a noise, not somebody talking); everybody else in
+		# the plate's own text colour.
+		var is_zombie: bool = world.components.has_component(eid, "shambler")
+		var text_col: Color = Chrome.TEXT_DIM if is_zombie else Chrome.TEXT
+		text_col.a = alpha
+		for i in lines.size():
+			var ly: float = plate.position.y + BUBBLE_PAD_PX + line_h * float(i) + float(TAG_SIZE) * 0.85
+			draw_string(font, Vector2(plate.position.x + BUBBLE_PAD_PX, ly), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, text_col)
+
+
+# Greedy word wrap at `max_width`, measured the same way every other panel in this codebase
+# measures a line (`font.get_string_size`). Static and pure so a gate can call it without a scene.
+static func _wrap_bubble_text(font: Font, text: String, max_width: float) -> Array[String]:
+	var lines: Array[String] = []
+	var current: String = ""
+	for word in text.split(" "):
+		var candidate: String = word if current.is_empty() else current + " " + word
+		if not current.is_empty() and font.get_string_size(candidate, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE).x > max_width:
+			lines.append(current)
+			current = word
+		else:
+			current = candidate
+	if not current.is_empty():
+		lines.append(current)
+	return lines
 
 
 # The sky, over the bodies and under the night wash: a survivor standing in it is standing in
