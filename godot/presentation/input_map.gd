@@ -30,6 +30,7 @@ extends Node
 
 const CameraUtil = preload("res://presentation/camera.gd")
 const Pick = preload("res://presentation/pick.gd")
+const SimContext = preload("res://sim/context.gd")
 
 # The node this routes for. Set by main.gd before `add_child`, and `Variant` rather than a typed
 # reference on purpose: main.gd preloads this script, so naming its type here would be a cycle.
@@ -214,6 +215,11 @@ func _input(event: InputEvent) -> void:
 		# sitting beside a switch that repeats it.
 		var action: String = _action_for(ke)
 		var focus: String = _focus()
+		# Any key that reaches the street closes the context menu -- one press, one meaning, the
+		# same rule a click off it follows below. The key still does whatever it always did; this
+		# only lets go of a menu that was left open over it.
+		if focus == "street":
+			_close_context_menu()
 		if not _allows(focus, action):
 			_release_the_street()
 			return
@@ -407,6 +413,23 @@ func _unhandled_input(event: InputEvent) -> void:
 		if bearing != null and absf(angle_difference(float(bearing), _last_aim)) > 0.02:
 			_last_aim = float(bearing)
 			main.world.commands.push({"type": "aim", "radians": _last_aim})
+	# The right-click street menu -- only under focus street with the sheet closed, per its own
+	# header: the inventory sheet and the loot window handle their own right-clicks (they
+	# `accept_event`), so this is never reached while either is up, and the two guards below
+	# (`inventory_open`, `_focus() == "street"`) are what refuse it under every other screen.
+	if event is InputEventMouseButton and event.pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_RIGHT:
+		if main.world != null and not main.inventory_open and _focus() == "street":
+			var mb2: InputEventMouseButton = event as InputEventMouseButton
+			var hit: Dictionary = Pick.pick_at(main.world, main.camera, mb2.position)
+			var rows: Array[Dictionary] = SimContext.verbs_at(main.world, int(main.world.player), hit)
+			main._open_context_menu(mb2.position, hit, rows)
+		return
+	# Any left click that reaches here landed off the menu -- a click the menu's own `_gui_input`
+	# would otherwise have consumed and this handler would never see -- so it closes the menu
+	# rather than also attacking: one press, one meaning, the same rule a key follows in `_input`.
+	if event is InputEventMouseButton and event.pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+		if _close_context_menu():
+			return
 	if event is InputEventMouseButton and event.pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 		if main.world != null and not main.inventory_open:
 			# A click on a colonist selects them -- their needs, pain and condition take the
@@ -431,6 +454,16 @@ func _unhandled_input(event: InputEvent) -> void:
 				main.world.commands.push({"type": "fire"})
 			else:
 				main.world.commands.push({"type": "swing"})
+
+
+# Closes the street context menu if it is open, and says whether it was -- callers use the answer
+# to swallow the press that closed it, so a click or a key that only meant "never mind" never also
+# fires a swing or a movement key's other meaning underneath the menu it dismissed.
+func _close_context_menu() -> bool:
+	if main == null or main._context_menu == null or not bool(main._context_menu.call("is_open")):
+		return false
+	main._context_menu.call("close")
+	return true
 
 
 # The bearing from the player's body to a screen point, in world space -- what an aim command

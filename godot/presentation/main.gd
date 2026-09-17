@@ -118,6 +118,7 @@ var _settings: Control = null
 var _shell: Control = null
 var _debug_panel: Control = null
 var _bench_panel: Control = null
+var _context_menu: Control = null
 var _selected: int = -1
 
 # paperdoll glimpse state (bottom-right diagram, not world sprite)
@@ -313,6 +314,8 @@ func _on_world_replaced() -> void:
 	_fingerprint_at = -1e9
 	_content_error = ""
 	_last_look = {}
+	if _context_menu != null:
+		_context_menu.call("close")
 	tick_count = 0
 	# The frame that replaced the world is still carrying the last one's tick debt; spending it
 	# on the new world would run a handful of ticks before the player has seen the street.
@@ -530,6 +533,15 @@ func _ensure_ui() -> void:
 		_shell.visible = false
 		_shell.set("on_action", _on_shell_action)
 		layer.add_child(_shell)
+	# The right-click street menu, added last so sibling order draws it over everything else on
+	# this layer -- harmless, because `input_map.gd` only ever opens it under focus street, which
+	# is exactly when nothing else on this layer is visible to be drawn over.
+	var context_script: GDScript = load("res://ui/context_menu.gd") as GDScript
+	if context_script != null:
+		_context_menu = context_script.new() as Control
+		_context_menu.name = "ContextMenu"
+		_context_menu.set("main", self)
+		layer.add_child(_context_menu)
 
 func _on_ui_prefs_changed() -> void:
 	if _inventory_panel != null and _inventory_panel.has_method("refresh_style"):
@@ -581,6 +593,46 @@ func _set_inventory_open(open: bool) -> void:
 	# noise.
 	if _paperdoll != null:
 		_paperdoll.visible = not open
+
+
+# The right-click menu. `input_map.gd` has already asked `Pick.pick_at` and `SimContext.verbs_at`
+# -- this only ever opens what the sim already decided, exactly the hand-off `_strip_use` below
+# makes to the inventory panel.
+func _open_context_menu(pos: Vector2, _hit: Dictionary, rows: Array[Dictionary]) -> void:
+	if _context_menu != null:
+		_context_menu.call("open", pos, rows)
+
+
+# What a click on a row means. Every row but two carries a real command in `row.command` and this
+# pushes it verbatim -- one hand-off, not a second vocabulary the menu invented. The two
+# exceptions are named in `SimContext.verbs_at`'s own header: `{}` is "look at", which is
+# presentation's to answer (the same selection a left click on a colonist already makes) rather
+# than the sim's, and `attack.context` is a marker for the two commands a swing actually needs
+# (`aim`, then whichever of `fire`/`swing` is in hand) rather than a command `world.gd` itself
+# would recognise.
+func _context_pick(row: Dictionary) -> void:
+	if world == null:
+		return
+	var command: Dictionary = row.get("command", {}) as Dictionary
+	var target: int = int(row.get("target", -1))
+	if command.is_empty():
+		_selected = -1 if target == int(world.player) else target
+		_update_hud()
+		queue_redraw()
+		return
+	if String(command.get("type", "")) == "attack.context":
+		var at_pos: Variant = world.components.get_component(target, "position")
+		var my_pos: Variant = world.components.get_component(int(world.player), "position")
+		if at_pos is Dictionary and my_pos is Dictionary:
+			var dx: float = float((at_pos as Dictionary)["x"]) - float((my_pos as Dictionary)["x"])
+			var dy: float = float((at_pos as Dictionary)["y"]) - float((my_pos as Dictionary)["y"])
+			world.commands.push({"type": "aim", "radians": atan2(dy, dx)})
+		if world.components.has_component(int(world.player), "rangedWeapon"):
+			world.commands.push({"type": "fire"})
+		else:
+			world.commands.push({"type": "swing"})
+		return
+	world.commands.push(command)
 
 
 # The strip's keys. The panel owns the mapping -- it draws the same six rows it spends -- so this

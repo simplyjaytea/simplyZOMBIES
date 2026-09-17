@@ -516,9 +516,8 @@ in this order; each lands with its own gate:
   `M2_HANDS_OK`).
 - ~~**The afterimage and the remembered map**~~ — **landed** 2026-09-17, see the record
   (`godot:m2:sight` KINDS and EXPLORED; `npm run godot:check:memory` → `MEMORY_LOOK_OK`).
-- **The right-click menu, and walk-here.** `SimContext.verbs_at` builds the rows off the
-  modules' own predicates; `walk.to` is a command the stick cancels; `Pick.pick_at` says what is
-  under the cursor. `npm run godot:check:context` → `CONTEXT_OK`.
+- ~~**The right-click menu, and walk-here**~~ — **landed** 2026-09-17, see the record
+  (`npm run godot:check:context` → `CONTEXT_OK`).
 - **Speech bubbles.** `SimSpeech` says an authored line from `content/speech/` on a trigger
   (the shout, a grab, a rescue, first aid, a recruit, a hail, a zombie noticing you, a scream) and
   colonists mutter the band `hud_clause` already speaks; the renderer draws it over focal bodies
@@ -10256,6 +10255,61 @@ not a to-do list:
   are inside the noise (the absolute figure is a loaded container, another worker's gates running
   beside it, not the quiet 55–83 the record measures the district at). A region map is the size
   ceiling: 912² tiles is 104 KB of bitset per observer in the save.
+
+- **After the shell** — ~~the right-click menu, and walk-here~~ **landed** 2026-09-17
+  (`npm run godot:check:context` → **`CONTEXT_OK`**, four lanes, chained after
+  `godot:check:play`). Every verb was a key and the mouse could only aim, attack and select; the
+  owner asked for a menu a new player can play from, and took walk-here with it. **The sim
+  decides the rows.** `godot/sim/context.gd`'s `SimContext.verbs_at(world, actor, hit)` builds
+  `{text, command}` rows off the modules' own predicates and nothing else — `work_panel.gd`'s
+  rule, a row present iff the sim would accept the command behind it, nothing greyed and nothing
+  explained: `pick up the <name>` (`item.pickup`, new, by id, inside `PICKUP_REACH`), `open the
+  <cupboard>` (`container.open`, which now takes an id and falls back to the nearest for E),
+  `open the door` / `shut the door` (`door.toggle`, new, through `_in_reach_tile` and
+  `toggle_door`), the fortify rung's own prose when `rung_of`'s target is the thing clicked
+  (`use.context`), the car's `get in` / `get on` / `look under the hood` / `fill the tank`
+  when `nearest_in_reach` is the car clicked (`use.context`), `press`/`dress`/`clean`/`stitch`
+  `<name>'s <part>` from `options_for` on a colonist (`treat.begin`), `pull <name> free` when
+  `rescue_target` is that colonist (`rescue`), `talk to them` for a waiting recruit or stranger
+  (`use.context`), `attack` on a zombie or raider (the screen turns it into `aim` and then
+  `fire` or `swing`, exactly as the left click does), `look at <name>` on a colonist (selection,
+  no command — a click never orders a person, because that is the micromanagement cliff Risk 1
+  is measuring), `walk here` / `walk over` on any walkable tile that is not your own
+  (`walk.to`), and on your own tile `make camp here` or `strike the camp` and `shout`. Names
+  come from `identity.name` the way the HUD's do; every text is digit-free.
+  **Walk-here is a command the stick cancels.** `walk.to {tx, ty}` puts a `walkTo` record on the
+  controlled body and the new `player.walk-to` system (`input`, order 2) steps it with
+  `SimWalk.step` — the stepper raiders and strangers already use, which re-plans when the map
+  generation moves and opens the door in its way — at `World.move_speed_of(entity)`, the `move`
+  arm's own stance × surface × modifier arithmetic extracted so there is one copy (R1 parity is
+  byte-identical, `npm run godot:test`). **Any `move` command removes it**, zero or not, so a key
+  always beats a click; arrival or no route removes it too, which is why an unreachable click
+  costs one failed A* (the 132 ms `jobs.gd` measured) once and never again. **The screen:**
+  `Pick.pick_at` says what is under the cursor — a body (zombies and raiders included, Focal
+  only, the anonymity rule the colonist pick already kept), a ground item (Focal), a cupboard,
+  prop, vehicle or door on a seen *or remembered* tile, else the tile itself — and
+  `godot/ui/context_menu.gd` is the loot window's shape: a Control sized exactly to the drawn
+  menu (`ItemMenu.draw_menu` and `verb_rects`, reused), `MOUSE_FILTER_STOP` only while open, so
+  everything outside it still reaches the world; `input_map.gd` opens it on a right click under
+  the `street` focus, and any left click that reaches the router while it is open closes it and
+  is swallowed (one press, one meaning — a click that closes a menu never also swings), as does
+  any key that reaches the street. The legend gains the `Right-click` row and `check_play.gd`'s
+  KEYS lane knows it lives in `_unhandled_input` beside `Click`. The lanes: **VERBS** (an item
+  in reach offers `pick up`, the same item ten metres away offers `walk over` and not `pick up`;
+  a shut door offers `open the door` and an open one `shut the door`; a colonist offers `pull …
+  free` only while grabbed; a shambler offers `attack`; your own tile offers `shout`, and
+  `make camp here` only where `can_establish`; a wall tile offers nothing; every text is
+  digit-free with the scanner proved on a fabricated `"walk 3 m"`), **DISPATCH** (the pickup
+  lands the item in the pack, the door toggles, `walk.to` carries the body to within half a
+  metre and removes `walkTo`, a `move` pushed mid-walk removes it and the body stops where it
+  was pushed, a routeless `walk.to` is gone on the first tick), **SPEED** (`move_speed_of`
+  equals the velocity the `move` arm writes for the same stance and ground, read off the
+  component), and **RIGHT-CLICK** (the booted scene opens the menu on a Focal shambler with an
+  `attack` row, a left click on that row pushes `aim` and `swing` and closes it, a right click
+  under the open sheet opens nothing, and a left click off the menu closes it and pushes no
+  swing). The one ergonomic rule worth writing down: the row you can see and the row you can
+  click are one arithmetic (`verb_rects` beside `draw_menu`), which is the inventory sheet's rule
+  since the treatment words landed.
 
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not

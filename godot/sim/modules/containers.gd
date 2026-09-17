@@ -84,7 +84,11 @@ static func register_module(world: Variant) -> void:
 							w.events.publish({"type": "container.refused", "entity": int(actor), "reason": String(res.get("reason", "unknown"))})
 				"container.open":
 					for actor2 in w.components.query(["controlled", "position"]):
-						var res2: Dictionary = open_nearest(w, int(actor2))
+						# The right-click menu names a specific box; every other caller (the E
+						# key) still means "whichever is nearest" -- `open` carries the reach
+						# guard either way, so a command naming a box across the room refuses
+						# rather than reaching for it.
+						var res2: Dictionary = open(w, int(actor2), int(c["container"])) if c.has("container") else open_nearest(w, int(actor2))
 						if not bool(res2.get("ok", false)):
 							w.events.publish({"type": "container.refused", "entity": int(actor2), "reason": String(res2.get("reason", "unknown"))})
 				"container.close":
