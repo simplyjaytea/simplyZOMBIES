@@ -1000,16 +1000,20 @@ each wants its own gate and several want a balance re-measurement, which is a sl
 than a line apiece. Worst first. What the same sweep *did* fix is in
 [the record](#the-record-by-system) under **Kernel & review sweep**.
 
-- **A melee raider band cannot reach a body that does not move.** `SimRaiders._approach` halts at
-  `HALT_METRES` (2.6 m) and every melee reach a raider kit carries is shorter — the rusted machete
-  is 1.2 plus `MELEE_REACH_FUDGE`, 1.55 — so nothing closes the last metre and a scav band stands
-  off a stationary colonist indefinitely, swinging at nothing. Found by the band-passing-through
-  slice (2026-09-15) when its ENGAGES lane went red against correct code and had to be written with
-  gunhands, whose range crosses the halt; the record says so rather than hiding the substitution.
-  It is masked in an ordinary campaign because colonists walk to jobs and shamblers close the
-  distance, which is where BLOOD and PREY get their contact — so this is a gap in the band's own
-  behaviour rather than something a played district shows. Fixing it is a halt that knows the
-  attacker's reach, which moves every raid's contact and therefore wants its own before-and-after.
+- ~~**A melee raider band cannot reach a body that does not move.**~~ **Fixed 2026-09-16**
+  (`godot:m2:raiders`, lanes REACH and READS-REACH; the record's raiders family, new bullet after
+  "A band passing through"). `_approach` now halts a raider at the lesser of `HALT_METRES` and its
+  own wielded reach, minus a small margin so the swing lands — read off one new resolver,
+  `SimMelee.reach_of`, rather than a second copy of the number. The crossing slice's ENGAGES lane,
+  written around this with gunhands, now uses the melee band it was meant to.
+- **A melee swing's cone does not ask allegiance before it lands.** `_resolve_strike` "resolves
+  against whatever body is in the cone" (this file's own header on `raiders.gd`) with no faction
+  check at all, so three raiders converging tightly on one target can catch *each other*. Masked
+  before the reach fix above because a band never stood close enough to land a blow on anybody;
+  the reach fix's own gate-writing pass watched raider 11 put down two bandmates in the fixture
+  that used to prove a band "stays" (see the record's raiders bullet). Not fixed here — it is a
+  question about every melee swing in the tree, not about a raider's approach, and wants its own
+  gate and its own before-and-after.
 
 - **A body that turns walks past the horde budget nothing else may cross.** `SimDirector` refuses
   a spawn once `live` reaches `live_cap_for(world)` and publishes the refusal with reason `cap` —
@@ -9346,6 +9350,85 @@ not a to-do list:
   `ROAM_CHANCE_PERCENT` 15 per post-grace dawn; the objective a `map.sites` record at
   `GATE_EXCLUSION` from home; band size shared with the raid's `RAID_BAND_MIN`..`MAX`; and
   `RAID_FIRST_DAY` shared rather than owned, so grace is one grace.
+
+- **The band closes the last metre** — ~~a melee raider band cannot reach a body that does not
+  move~~ **Fixed 2026-09-16** (`godot:m2:raiders`, two new lanes on the chain's 35th gate, thirty-one
+  in all: REACH and READS-REACH). docs/23's first open defect: `_approach` halted every raider at
+  the flat `HALT_METRES` (2.6 m) whatever it carried, and every melee reach in the tree is shorter
+  than that — the rusted machete's is 1.55 m (`SimMelee.MELEE_REACH_FUDGE`, 0.35, folded onto the
+  base 1.2) — so a scav band stood a full metre outside its own weapon's reach, swinging at
+  nothing, against a colonist who never moved. Found by the band-passing-through slice above when
+  its ENGAGES lane went red against correct code and had to be written with gunhands, whose 25 m
+  range crosses the halt.
+  **One resolver, three readers.** `SimMelee.reach_of(world, entity)` is new: a weapon's
+  `reachMetres` plus `MELEE_REACH_FUDGE`, zero for empty hands or a body with no `swing` component
+  to wind up through. `SimNpcCombat._melee_reach` — which used to carry the same formula a second
+  time — is now a one-line delegate to it, and `SimRaiders._halt_metres` is the third caller: the
+  lesser of `HALT_METRES` and this body's own resolved reach, minus `HALT_REACH_MARGIN` (0.15 m).
+  The margin exists because movement is ticked at 20 Hz, not continuous — a raider at
+  `DEFAULT_SPEED` covers 0.075 m a tick, so halting exactly on the reach boundary would sometimes
+  overshoot it by a fraction of a tick's travel. A gunhand's `meleeWeapon` component does not
+  exist, so the resolver hands back 0.0 and `_halt_metres` returns `HALT_METRES` unchanged — its
+  pistol's range already crosses it, which is exactly why the crossing slice's ENGAGES lane could
+  be written with one in the first place.
+  **The gate, run red first.** REACH: `_stores_arena`'s colony with a colonist pinned on the gate
+  tile and given nothing that could move it — no job, no `jobPriorities`, not even a weapon to
+  answer with — and a lone `raider.scav` (the shipped archetype whose kit's machete carries no
+  `chance` row, so it is unconditional) ten metres off, given a bounded `APPROACH_TICKS` (1,200) to
+  close and land a blow. Run against `_halt_metres` reverted to `return HALT_METRES`
+  unconditionally, the same fixture reproduced `REACH: a machete raider never landed a blow on a
+  colonist standing still at the gate in 1200 ticks (closest approach 2.58 m)` — the CAMP-KEY/SHORT
+  STEP precedent, proved red before the fix was trusted. With the fix it closes to **1.38 m** and
+  lands a blow that leaves a wound. READS-REACH is the reader assertion: `_approach`'s own function
+  body, comments stripped, is asked for a literal call to `_halt_metres`, and `_halt_metres`'s own
+  body for a literal call to `SimMeleeRes.reach_of` — isolated per function the way
+  `check_m2_teach.gd` isolates a key list, so neither this lane's prose nor either function's doc
+  block can satisfy the needle. The crossing slice's ENGAGES lane, written around the defect with
+  gunhands, now spawns the melee band (`raider.scav`) it was meant to prove in the first place —
+  its own comment says the substitution ended rather than quietly dropping the needle.
+  **A second finding, named rather than fixed here.** Three raiders converging on one gate tile
+  stand close enough to *each other* for `_resolve_strike`'s cone — which "resolves against
+  whatever body is in the cone" with no allegiance check at all, by design, per this file's own
+  header — to land on a bandmate instead of the colonist it was aimed at. Silent before this fix,
+  because nobody ever stood close enough to land a blow on anybody; the gate-writing pass watched
+  it happen in the fixture `godot:m2:raiders`' own WITHDRAW lane used to prove a band "stays
+  engaged" indefinitely, which is why that lane's "engaged" case is now one raider rather than
+  three, with the colonist's `head` inflated so combat outcome stops being what the lane measures.
+  See docs/23's open defect list, "A melee swing's cone does not ask allegiance before it lands."
+  **Measured, on a throwaway driver (`godot/measure_raider_reach.gd`, deleted before commit) that
+  boots `SimBoot.playable(seed, 64)`, spawns one `raider.scav` band fifteen metres out from the
+  colony's own gate with `SimRaiders.spawn_band`, and counts over a bounded 6,000-tick window —
+  four seeds, before the fix against after:**
+  | seed | before: hits / colonist wounds / raider deaths | after: hits / colonist wounds / raider deaths |
+  |---|---|---|
+  | 20260805 | 4 / 2 / 2 of 3 | 6 / 3 / 1 of 3 |
+  | 404 | 1 / 1 / 2 of 3 | 1 / 1 / 2 of 3 |
+  | 31337 | 14 / 7 / 2 of 3 | 21 / 9 / 2 of 3 |
+  | 90210 | 49 / 8 / 0 of 3 | 23 / 3 / 0 of 3 |
+  No consistent direction — a played colony already gets contact with a stationary bug, because
+  colonists walk to jobs and a halted raider still swings at whoever wanders into its actual reach
+  (this driver's own colonists are not pinned the way the gate's REACH fixture's is), and once
+  either side starts dying sooner under the fix there are fewer ticks left in the window for
+  further hits to land. That is not a null result: it is the defect's own claim, that the gap
+  is "masked in an ordinary campaign," read back off real numbers instead of asserted. The gate's
+  REACH lane, not this table, is the clean before-and-after, because it is the one fixture where
+  nothing but the halt distance can explain zero hits becoming one.
+  **`npm run godot:m2:balance` (FAST tier) moved, and it matters.** `survivors_end` per seed,
+  before → after: 20260805 **3→3**, 404 **1→0**, 31337 **3→3**, 90210 **2→2**. Seed 404's FAST
+  `mixed` arm was already down to its last colonist before this fix (a raid landing atop ordinary
+  zombie contact); after it, that colonist dies too and the run ends wiped
+  (`run_over=true`, one barricade breach where before there was none). This turns the chain's own
+  `_assert_bands` lane red — `BANDS: seed 404 lost the whole colony inside the compressed
+  campaign` — the standing assertion CLAUDE.md names as deliberately never relaxed. **Not decided
+  here**: whether the shipped default absorbs a raid this lethal (permanent loss is Milestone 2's
+  own exit criterion), whether `_assert_bands` was unknowingly grading the reach bug rather than
+  the difficulty, or whether a first-cut raider number needs to move. Named on `HANDOFF.md`'s
+  waiting-on-the-owner list rather than decided unilaterally; `godot:m2:balance` and `godot:m2`
+  are red on this seed until it is.
+  *Files:* `godot/sim/modules/melee.gd` (`reach_of`), `godot/sim/modules/npc_combat.gd`
+  (`_melee_reach`, now a delegate), `godot/sim/modules/raiders.gd` (`_halt_metres`,
+  `HALT_REACH_MARGIN`), `godot/check_m2_raiders.gd` (REACH, READS-REACH, the ENGAGES substitution,
+  the WITHDRAW fixture).
 
 - **The raiders and the settlers** — ~~the settlers' camp~~ **landed** (`godot:m2:settlers`, seven
   lanes, taking the `godot:m2` chain to 77 links), 2026-09-15, the second piece of the

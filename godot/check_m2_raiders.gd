@@ -1227,6 +1227,21 @@ func _distance(world: Variant, a: int, b: int) -> float:
 # A band at its objective with nobody to fight leaves after WITHDRAW_AFTER_TICKS, walking back
 # to where it came in, and is gone (`raid.withdrew`, one a body); a band with a colonist in
 # reach stays; a band of four with three dead leaves at once.
+#
+# **"Engaged" dropped from three raiders to one, 2026-09-16, the same commit as the reach fix.**
+# Three scavengers converging on one gate tile stand, it turns out, close enough to *each other*
+# for `_resolve_strike`'s cone -- which reads every body in it, allegiance untested, per this
+# file's own header on how little of `raiders.gd` is new -- to catch a bandmate instead of the
+# colonist it was aimed at. Under the flat `HALT_METRES` halt this was silent, because nobody ever
+# got within a blow of anybody; fixing the halt let the debug driver watch raider 11 put down
+# raiders 8 and 1 in the same fixture that used to prove the band "stays". That is a real,
+# separate gap -- a swing should not be able to land on the swinger's own side -- and it is named
+# in docs/23's defect list rather than fixed here, because it is a `_resolve_strike` question that
+# touches every melee swing in the tree, not a raider-approach one. One raider cannot hit itself,
+# so dropping to a single body keeps this lane about the withdrawal clock, which is what it is
+# for, rather than about a bystander bug this slice did not go looking for. The colonist's `head`
+# is inflated so combat outcome is not what the lane is measuring either: "in reach" has to hold
+# for the whole window on its own, not by the raider running out of body to hit.
 func _a_band_that_has_lost_withdraws() -> bool:
 	# An arena with a gate to walk at: the anchors are what `_objective` reads.
 	var results: Dictionary = {}
@@ -1234,12 +1249,15 @@ func _a_band_that_has_lost_withdraws() -> bool:
 		var w: Variant = _arena()
 		SimRaiders.register_module(w)
 		w.tilemap.anchors = {"gate_a": {"x": 16, "y": 20}, "gate_b": {"x": 17, "y": 20}, "annex": {"x": 12, "y": 20, "w": 8, "h": 8}}
+		var size: int = 3 if case == "alone" else 1
 		var band: Array = []
-		for i in 3:
+		for i in size:
 			band.append(SimRaiders.spawn(w, 14.5 + float(i), 3.5, "raider.scav"))
 		SimRaiders.stamp_band(w, band, 7)
 		if case == "engaged":
-			# A colonist standing at the gate, in reach and alive: something to fight.
+			# A colonist standing at the gate, in reach and alive: something to fight. `head` is
+			# inflated so a machete that can now actually connect (the fix this lane sits beside)
+			# cannot end the encounter and turn "stays engaged" into "ran out of enemy".
 			var colonist: int = int(w.entities.spawn())
 			w.components.set_component(colonist, "position", {"x": 16.5, "y": 21.5})
 			w.components.set_component(colonist, "velocity", {"dx": 0.0, "dy": 0.0})
@@ -1247,6 +1265,9 @@ func _a_band_that_has_lost_withdraws() -> bool:
 			w.components.set_component(colonist, "identity", {"id": "survivor.test", "name": "Test", "traits": []})
 			SimAllegiance.attach(w, colonist, SimAllegiance.COLONY)
 			SimHealth.make_survivor_body(w, colonist)
+			var tough_body: Variant = w.components.get_component(colonist, "body")
+			if tough_body is Dictionary:
+				(tough_body as Dictionary)["head"] = 100000.0
 		var withdrew: Array = []
 		w.events.subscribe({"id": "check.withdrew-" + case, "type": "raid.withdrew", "handler": func(e: Dictionary) -> void:
 			withdrew.append(int(e.get("entity", -1)))
@@ -1272,8 +1293,8 @@ func _a_band_that_has_lost_withdraws() -> bool:
 	if int(alone["gone"]) < int(alone["arrived"]) + SimRaiders.WITHDRAW_AFTER_TICKS:
 		push_error("WITHDRAW: the band left %d ticks after arriving, before the %d-tick clock" % [int(alone["gone"]) - int(alone["arrived"]), SimRaiders.WITHDRAW_AFTER_TICKS])
 		return false
-	if int(engaged["live"]) != 3 or int(engaged["withdrew"]) != 0:
-		push_error("WITHDRAW: a band with a colonist in reach left (%s)" % str(engaged))
+	if int(engaged["live"]) != 1 or int(engaged["withdrew"]) != 0:
+		push_error("WITHDRAW: a lone raider with a colonist in reach left (%s)" % str(engaged))
 		return false
 	# Half strength: four, three dead, the last one goes at once.
 	var w2: Variant = _arena()

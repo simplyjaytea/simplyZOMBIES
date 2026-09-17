@@ -865,6 +865,18 @@ addition, and a district that rolled no soap would have no way back from `filthy
 (see docs/23): the content is innocent, the armour-acquisition rule costs two of four seeds their
 colonists. The ten-day playtest is the right judge, and the lever is one static.
 
+**Does a raid that can now actually connect get to wipe the colony?** 2026-09-16's melee-reach fix
+(docs/23's record, "The band closes the last metre") is a correctness fix, not a difficulty dial —
+a raider now closes to its own weapon's reach instead of standing a metre short of everything — but
+`npm run godot:m2:balance`'s FAST tier measured what it costs: seed 404's `mixed` arm was already
+down to its last colonist before the fix, and after it that colonist dies too, wiping the colony
+(`survivors_end` 1→0, `run_over` false→true). That fails `_assert_bands`'s standing
+`survivors_end >= 1` — the same assertion CLAUDE.md says was "considered and rejected" to relax
+after the `GRABS_ENABLED` flip — so `godot:m2:balance` and `godot:m2` are red on this one seed
+until it is decided whether the shipped default is meant to absorb a raid this lethal (permanent
+loss is Milestone 2's own exit criterion), whether the assertion was unknowingly grading the bug
+rather than the difficulty, or whether a raider first-cut number needs to move.
+
 These are design calls. They have been measured, written up, and deliberately **not** decided.
 (Sepsis came off this list on 2026-09-06 — **lethal untreated**, one of the owner's twelve
 playable-state decisions in docs/30's "The playable state" entry; it lands as the lethality piece
