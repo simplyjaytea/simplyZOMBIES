@@ -8,6 +8,13 @@ follow signals.
 
 **The better you live, the harder they come.**
 
+## Download
+
+The latest build is on the [releases page](https://github.com/simplyjaytea/simplyZOMBIES/releases):
+unzip the Windows archive anywhere and run `simplyZOMBIES.exe` (no installer; SmartScreen may warn
+once because the build is not signed). The same build runs in a browser from the project's Pages
+site. Early alpha: a later version may not read this one's saves.
+
 ---
 
 ## The loop, in five lines
