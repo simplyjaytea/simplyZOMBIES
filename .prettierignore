@@ -8,3 +8,8 @@ godot/parity/expected/
 # The docs are hand-wrapped prose; prettier's reflow fights the authored line breaks.
 docs/
 *.md
+
+# The design records under .hermes/plans/ are artefacts rather than source: the HUD mockups
+# are canvas-editor artboards whose absolutely-positioned divs a reflow would rewrite without
+# improving, and the canvas.json beside them is the editor's own file. Same reasoning as docs/.
+.hermes/

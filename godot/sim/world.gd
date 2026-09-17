@@ -137,6 +137,10 @@ func step() -> void:
 
 
 func run_fixture(fixture: Dictionary) -> Dictionary:
+	# The one caller that reads `commands.recorded` back (parity_snapshot below, into the
+	# "commands" key R1 diffs against the frozen fixture) turns recording on for its own queue.
+	# Recording is off by default -- see command_queue.gd -- so a played session never pays for it.
+	commands.record = true
 	var by_tick: Dictionary = {}
 	for command_value: Variant in fixture["commands"]:
 		var timed: Dictionary = command_value as Dictionary

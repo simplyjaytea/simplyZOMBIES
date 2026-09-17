@@ -24,8 +24,15 @@ const SimChronicle = preload("res://sim/modules/chronicle.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
 const Pick = preload("res://presentation/pick.gd")
 const ContentReload = preload("res://platform/content_reload.gd")
+const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimBoot = preload("res://sim/boot.gd")
+const SimFortify = preload("res://sim/modules/fortify.gd")
+const Shell = preload("res://ui/shell.gd")
+const Session = preload("res://presentation/session.gd")
 
 const RELOAD_GD: String = "res://platform/content_reload.gd"
+const FORTIFY_GD: String = "res://sim/modules/fortify.gd"
+const HUD_GD: String = "res://ui/hud.gd"
 
 func _init() -> void:
 	call_deferred("_run")
@@ -39,14 +46,17 @@ func _run() -> void:
 	ok = _the_raw_sheet_stays_behind_m() and ok
 	ok = _the_scanner_can_actually_fail() and ok
 	ok = _the_chronicle_speaks_of_the_colony() and ok
+	ok = _the_action_line_names_keys_only() and ok
+	ok = _the_action_line_names_the_top_rung() and ok
 	ok = _a_selected_colonist_is_spoken_of() and ok
 	ok = _a_click_finds_a_colonist() and ok
+	ok = _the_shell_speaks_in_words() and ok
 	var sheet_ok: bool = await _the_hidden_sheet_costs_nothing()
 	ok = sheet_ok and ok
 	var reload_ok: bool = await _an_untouched_tree_is_not_reloaded()
 	ok = reload_ok and ok
 	if ok:
-		print("HUD_OK prose only, day counter excepted, raw sheet gated, the body speaks for itself, an untouched tree is not reloaded")
+		print("HUD_OK prose only, day counter excepted, raw sheet gated, the body speaks for itself, the action bar names the top rung, an untouched tree is not reloaded")
 		quit(0)
 	else:
 		push_error("HUD_FAIL")
@@ -276,6 +286,218 @@ func _the_chronicle_speaks_of_the_colony() -> bool:
 	return true
 
 
+# The action bar's line: which key does what, right here. docs/30's "The alpha shell" -- the sim
+# decides the verb, presentation names the key -- so this lane asks two things of it.
+#
+# The prose half: the line names E for a boarded window and carries no digit, with the scanner
+# proved on the literal "E — 3 boards", which is what the line would look like if somebody
+# swapped a read model's prose for a count. The em dash is not decoration here: the bar splits on
+# it to draw the key in amber and the words in khaki, so a clause without one loses its accent.
+#
+# The reach half: every source is asked for a true positive, because a clause that can never
+# appear is a key the bar will never name -- the look-at first, the `hint` main.gd resolved for
+# this frame behind it (the parameter would otherwise be a dead socket in the signature), T for a
+# bleeding body and H for a held one. True negatives all round: a content-error hint is not an
+# action, a survivor standing in an empty street with nothing wrong gets no line at all, and the
+# whole line is "" for a null world.
+#
+# And the dead-socket half, textually: `_update_hud` in main.gd has to hand the line over, or
+# every clause above is prose nothing draws. The needle is the call as written rather than
+# `set_action(` alone, because `_hud` is typed `Control` and the call goes through `call()` --
+# and a needle a comment could satisfy cannot fail (CLAUDE.md, the READ_KEYS lesson).
+func _the_action_line_names_keys_only() -> bool:
+	var w: Variant = _suffering_world()
+	SimWounds.append_wound(w, w.player, "laceration", "torso", -1, 30.0)
+	var look: Dictionary = {"window": "boarded, holding"}
+	var line: String = Hud.action_line(w, w.player, look, "a hint nobody should need")
+	if line.is_empty():
+		push_error("ACTION: a survivor at a boarded window is offered nothing")
+		return false
+	if line.find("E — boarded, holding") < 0:
+		push_error("ACTION: the line does not name E for the window in reach: '%s'" % line)
+		return false
+	if not _digits(line).is_empty():
+		push_error("ACTION: the action line carries digits (%s): '%s'" % [_digits(line), line])
+		return false
+	# The scanner that just passed it has to be able to fail: the same line with a count in it.
+	if _digits("E — 3 boards").is_empty():
+		push_error("ACTION: the digit scanner passed the line it exists to catch: 'E — 3 boards'")
+		return false
+	# T, from the bleeding torso -- a rung the sim would allow, named in the sim's own terms.
+	if line.find("T — ") < 0:
+		push_error("ACTION: a bleeding survivor is offered no aid key: '%s'" % line)
+		return false
+	# H, for a neighbour with something holding her, by name.
+	var mara: int = _person(w, "Mara Sato", 8.5, 8.0)
+	w.components.set_component(mara, "grabbed", {"by": 4242, "sinceTick": 0})
+	var held: String = Hud.action_line(w, w.player, look, "")
+	if held.find("H — pull Mara Sato free") < 0:
+		push_error("ACTION: nobody is offered the rescue key for a held colonist: '%s'" % held)
+		return false
+	# The clauses join, in the order the keys sit under the hand.
+	if held.find("E — ") > held.find("T — ") or held.find("T — ") > held.find("H — "):
+		push_error("ACTION: the clauses are not in E, T, H order: '%s'" % held)
+		return false
+	# `hint` is read: with the look-at silent it is the E clause, and it never wins over one.
+	var hinted: String = Hud.action_line(w, w.player, {}, "the gate stands open")
+	if hinted.find("E — the gate stands open") < 0:
+		push_error("ACTION: main.gd's own context line never reaches the bar: '%s'" % hinted)
+		return false
+	if line.find("the gate") >= 0 or Hud.action_line(w, w.player, look, "the gate stands open").find("the gate") >= 0:
+		push_error("ACTION: the hint displaced the look-at clause it is a fallback for")
+		return false
+	# A content error is a fault report main.gd borrows the hint for, not something E does.
+	if Hud.action_line(w, w.player, {}, "content: boom").find("E") >= 0:
+		push_error("ACTION: a content error was offered as an action")
+		return false
+	# The true negative that matters: nothing to do, no line.
+	var quiet: Variant = World.new(_fixture())
+	SimHealth.make_survivor_body(quiet, quiet.player)
+	SimNeeds.attach(quiet, quiet.player, {"hunger": 100.0, "thirst": 100.0, "rest": 100.0})
+	var nothing: String = Hud.action_line(quiet, int(quiet.player), {}, "")
+	if not nothing.is_empty():
+		push_error("ACTION: a survivor in an empty street with nothing wrong is offered '%s'" % nothing)
+		return false
+	if not Hud.action_line(null, 0, {}, "").is_empty():
+		push_error("ACTION: a null world produced a line")
+		return false
+	# The reader. Without this every clause above is prose nothing draws.
+	var body: String = _function_body("res://presentation/main.gd", "_update_hud")
+	if body.is_empty():
+		push_error("ACTION: could not read _update_hud out of main.gd -- the reach assertion had nothing to judge")
+		return false
+	# Comment lines dropped first: the whole point of a reach assertion is that it fails when the
+	# call goes, and a needle a commented-out call still satisfies would not.
+	var code: String = ""
+	for row in body.split("\n"):
+		if not String(row).strip_edges().begins_with("#"):
+			code += String(row) + "\n"
+	if code.find("_hud.call(\"set_action\"") < 0:
+		push_error("ACTION: _update_hud never hands the action line to the HUD")
+		return false
+	if body.find("_hud.call(\"set_actionx\"") >= 0:
+		push_error("ACTION: the needle matched a call that does not exist, so this lane is not reading what it thinks")
+		return false
+	# And the HUD has to draw what it was handed.
+	var hud_src: String = FileAccess.get_file_as_string("res://ui/hud.gd")
+	if hud_src.find("func _draw_action_bar(") < 0 or _function_body("res://ui/hud.gd", "_draw").find("_draw_action_bar(") < 0:
+		push_error("ACTION: the HUD holds an action line that nothing draws")
+		return false
+	print("ACTION OK '%s', digit-free, E/T/H in order, the hint behind the look-at, and _update_hud hands it over" % held)
+	return true
+
+
+# A world with a real map rather than a fabricated `look` dict, so the rung this builds names is
+# `SimFortify.rung_of`'s own decision and not a string this file made up for it. Player facing a
+# window at (10, 12) from (10.5, 13.5) -- the same tile and reach check_m2_fortify.gd's `_world()`
+# uses, so a change to either fixture's arithmetic is visible in both gates rather than only one.
+#
+# `wall_face` blocks the true negative's own facing tile: on open floor, empty ground with no
+# alarm laid yet is itself a free rung ("lay a trip alarm", `_use_context`'s last-resort clause),
+# so the one way to ask for truly nothing in reach is a facing tile that is not floor at all.
+func _rung_window_world(px: float = 10.5, py: float = 13.5, wall_face: bool = false) -> Variant:
+	var f: Dictionary = {"seed": 31, "tick_hz": 20, "map": {"width": 24, "height": 24, "walls": []}, "player": {"id": 0, "x": px, "y": py, "stance": 2}, "rng_probe": {"stream": "test", "samples": 0}}
+	var w: Variant = World.new(f)
+	var map: Variant = SimTileMap.blank_map(24, 24)
+	SimBoot.attach_kernel(w, map)
+	SimHealth.register_module(w)
+	SimFortify.register_module(w)
+	w.components.set_component(w.player, "facing", {"radians": -PI / 2.0})
+	SimHealth.make_survivor_body(w, w.player)
+	w.tilemap.tiles[12 * int(w.tilemap.w) + 10] = SimTileMap.Tile.Window
+	if wall_face:
+		var here: Vector2i = Vector2i(floori(px), floori(py))
+		w.tilemap.tiles[(here.y - 1) * int(w.tilemap.w) + here.x] = SimTileMap.Tile.Wall
+	return w
+
+
+# docs/23's follow-up "the ladder names its rung": `_use_context` decides and acts on six upper
+# rungs in one breath and the rest of the ladder in a second, `rung_of`, that names what it found
+# rather than doing it. This lane asks both the words and the wiring.
+#
+# True positive: standing at reach of a boardable window with an otherwise empty `look` dict (so
+# the pre-existing window clause above cannot be the one answering), the bar still names E with
+# rung_of's own word and no digit. True negative: three tiles off the same window, nothing is
+# named at all -- healthy, unheld, nothing in reach. The fabricated half proves the scanner this
+# lane leans on would catch a rung that broke the rule, the way the window lane already proved it
+# on "E — 3 boards". And the reader half: `_use_context` calls `rung_of` on a line of its own
+# rather than inlining the decision back into itself, and `action_line`'s reach clause asks it too
+# -- both isolated past a stripped comment, so a commented-out call cannot satisfy either needle.
+func _the_action_line_names_the_top_rung() -> bool:
+	var near: Variant = _rung_window_world()
+	var near_line: String = Hud.action_line(near, near.player, {}, "")
+	if near_line.find("E — board up the window") < 0:
+		push_error("RUNG: beside a boardable window with no look-at, the bar does not name rung_of's word: '%s'" % near_line)
+		return false
+	if not _digits(near_line).is_empty():
+		push_error("RUNG: the rung's own clause carries digits (%s): '%s'" % [_digits(near_line), near_line])
+		return false
+	# The true negative: three tiles off the window and facing a wall, healthy, alone, nothing to
+	# open, sleep at or board -- and the facing tile is not floor, so the free "lay a trip alarm"
+	# fallback that open ground would otherwise offer cannot fire either. Not the same body as the
+	# true positive -- position is read at construction, not moved.
+	var far: Variant = _rung_window_world(10.5, 16.5, true)
+	var far_line: String = Hud.action_line(far, far.player, {}, "")
+	if not far_line.is_empty():
+		push_error("RUNG: a survivor with nothing in reach is offered '%s'" % far_line)
+		return false
+	# The scanner proved on the window clause above catches a fabricated line built out of
+	# rung_of's own vocabulary just as it caught "E — 3 boards" -- a different rung, the same rule.
+	if _digits("E — sleep for 8 hours").is_empty():
+		push_error("RUNG: the digit scanner passed a fabricated rung line it exists to catch")
+		return false
+	# The reader, on `_use_context`'s side: one line, past a stripped comment, calling rung_of --
+	# not the decision folded back into the acting function.
+	var use_ctx_body: String = _function_body(FORTIFY_GD, "_use_context")
+	if use_ctx_body.is_empty():
+		push_error("RUNG: could not read _use_context out of %s -- the reach assertion had nothing to judge" % FORTIFY_GD)
+		return false
+	var rung_call_found: bool = false
+	for row in use_ctx_body.split("\n"):
+		if String(row).strip_edges().begins_with("var rung: Dictionary = rung_of("):
+			rung_call_found = true
+			break
+	if not rung_call_found:
+		push_error("RUNG: _use_context never calls rung_of on a line of its own -- the decision and the act have drifted back together")
+		return false
+	# The reader, on the HUD's side: `_reach_clause` has to ask the same function, past a stripped
+	# comment so a mention in prose cannot satisfy it.
+	var reach_body: String = _function_body(HUD_GD, "_reach_clause")
+	if reach_body.is_empty():
+		push_error("RUNG: could not read _reach_clause out of %s -- the reach assertion had nothing to judge" % HUD_GD)
+		return false
+	var reach_code: String = ""
+	for row in reach_body.split("\n"):
+		if not String(row).strip_edges().begins_with("#"):
+			reach_code += String(row) + "\n"
+	if reach_code.find("SimFortify.rung_of(") < 0:
+		push_error("RUNG: action_line's reach clause never asks rung_of for the top rung")
+		return false
+	print("RUNG OK '%s' beside the window, nothing three tiles off it, digit-free both ways, and both readers reach rung_of" % near_line)
+	return true
+
+
+# The same slice check_camera.gd takes out of main.gd, for the same reason: an assertion about
+# what a function contains has to be reading that function and not a mention of it elsewhere.
+# Matches a bare "func" or a "static func" opener -- hud.gd's action clauses and fortify's rung
+# read are both static, and a needle that only found instance methods would silently skip them.
+func _function_body(path: String, name: String) -> String:
+	var f: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return ""
+	var out: String = ""
+	var inside: bool = false
+	for line in f.get_as_text().split("\n"):
+		if line.begins_with("func %s(" % name) or line.begins_with("static func %s(" % name):
+			inside = true
+			continue
+		if inside and (line.begins_with("func ") or line.begins_with("static func ")):
+			break
+		if inside:
+			out += line + "\n"
+	return out
+
+
 # The other half of decision 12: the HUD refreshed for a colonist speaks of her, never as "You".
 # Mara is hurt on every axis the left column reads -- needs, pain, sepsis, condition -- so every
 # clause that used to say "You" about the player is produced about her. True negative: the
@@ -360,6 +582,77 @@ func _a_click_finds_a_colonist() -> bool:
 		push_error("a click on your own pawn did not answer the player: %d" % Pick.pick_colonist(w, camera, on_player))
 		return false
 	print("PICK OK Mara hit, street and the dead missed, self answers self")
+	return true
+
+
+# The three screens that are not the game -- the title, the pause menu and the run-over screen --
+# are under the same ban as the HUD, and the owner said so in the same breath: "no digit anywhere
+# on the shell" (docs/30, "The alpha shell, 2026-09-16"). Not even the day the run ended, which is
+# the one digit the HUD is allowed and the one this screen would most naturally reach for.
+#
+# `ui/shell.gd` exposes `words()` for the same reason `SimSkills.web_map` exposes its own: a
+# screen that can only be judged by its pixels cannot be gated. Every heading, every line of
+# prose, every row label and the notice go through it, so a digit added to any of them is caught
+# here and not by somebody reading a screenshot.
+#
+# Driven, not read: the panel is stood up and asked for each of its three states in turn, with a
+# fabricated epitaph so the run-over screen has prose to say. And the scanner is shown failing on
+# the line it exists to catch -- an epitaph with a count in it.
+func _the_shell_speaks_in_words() -> bool:
+	var shell: Control = Shell.new()
+	root.add_child(shell)
+	var screens: Array = [
+		["the title, with a run to continue", Shell.TITLE, {"has_continue": true, "is_web": false}],
+		["the title in a browser, refusing a save", Shell.TITLE, {"has_continue": false, "is_web": true, "notice": Session.STALE_NOTICE}],
+		["the pause menu", Shell.PAUSED, {}],
+		["the run-over screen", Shell.RUN_OVER, {"epitaph": ["Mara Sato is dead.", "You are dead.", "There is nobody left to be."]}],
+	]
+	var counted: int = 0
+	for screen in screens:
+		var what: String = String((screen as Array)[0])
+		shell.call("show_state", int((screen as Array)[1]), (screen as Array)[2] as Dictionary)
+		var words: Array = Array(shell.call("words"))
+		if words.is_empty():
+			shell.queue_free()
+			push_error("SHELL: %s draws no words at all, so nothing here is judged" % what)
+			return false
+		if Array(shell.call("rows")).is_empty():
+			shell.queue_free()
+			push_error("SHELL: %s offers no rows, so the screen cannot be left" % what)
+			return false
+		for word in words:
+			counted += 1
+			var digits: String = _digits(String(word))
+			if not digits.is_empty():
+				shell.queue_free()
+				push_error("SHELL: %s carries digits (%s): '%s'" % [what, digits, String(word)])
+				return false
+	# The rows follow their context, which is what makes the words above the *right* words: a
+	# title with no save does not offer to continue one, and a browser tab has nothing to quit to.
+	shell.call("show_state", Shell.TITLE, {"has_continue": false, "is_web": true})
+	var bare: Array = Array(shell.call("rows"))
+	if bare.has("continue") or bare.has("quit"):
+		shell.queue_free()
+		push_error("SHELL: a web title with no save still offers %s" % str(bare))
+		return false
+	shell.call("show_state", Shell.TITLE, {"has_continue": true, "is_web": false})
+	var full: Array = Array(shell.call("rows"))
+	if not full.has("continue") or not full.has("quit"):
+		shell.queue_free()
+		push_error("SHELL: a desktop title with a save offers only %s" % str(full))
+		return false
+	# And the scanner can fail. The same screen with a count in its epitaph -- which is what it
+	# would say the day somebody decides the run-over screen should name the day it ended.
+	shell.call("show_state", Shell.RUN_OVER, {"epitaph": ["You lasted 3 days."]})
+	var caught: bool = false
+	for word in Array(shell.call("words")):
+		if not _digits(String(word)).is_empty():
+			caught = true
+	shell.queue_free()
+	if not caught:
+		push_error("SHELL: the scanner passed 'You lasted 3 days.' on the run-over screen, so it is judging nothing")
+		return false
+	print("SHELL OK %d words across the title, the pause menu and the run-over screen, not a digit among them, and the rows follow the save and the platform" % counted)
 	return true
 
 

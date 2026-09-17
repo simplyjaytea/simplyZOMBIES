@@ -5085,3 +5085,124 @@ slice running**: the settler lost on seed 31337 was diagnosed rather than assume
 allegiance, no corpse, which is `_turn_with_kit`'s signature — so a bitten settler died, turned,
 and became a zombie the director never placed and cannot refuse. Nothing reconciles that against
 the budget yet, and three slices have now paid for it.
+
+## The alpha shell, 2026-09-16
+
+The owner asked for an audit of the game and a plan to an early alpha that a stranger can play,
+with the building delegated to other models and the planning and the review kept with one. Three
+code-grounded surveys (what a player can do, the health of the tree, the balance evidence) found
+the same thing from three sides: **the systems are far more complete than the loop, and nobody
+has ever played it.** Every playtest the docs mention is prospective; the only campaign evidence
+is the FAST tier, a 64-tile, dusk-only, four-seed proxy that asserts survival rather than measures
+it; the director is silent for seven of ten nights; and the game itself has one scene and no
+shell — no title, no pause menu, no run-over screen, no autosave, and a `main.gd` of 2,200 lines
+that owns input, boot, save and drawing together and is driven by no gate. The owner's answers
+are the decisions below; the pieces are docs/23's what's-left group of the same name.
+
+**What "early alpha" means here** is a capability list rather than a date: move and interact with
+the environment and drive a car; find loot, wield a weapon and fire it; fight zombies and raiders;
+make a camp and recruit; open the inventory and read the body; open the skill web. Every item
+already exists in code. The alpha's work is to prove each is reachable in play, fix what blocks
+it, and wrap it in a shell a stranger can use — not to add systems.
+
+**Net first, split second.** `main.gd` is split only as far as the shell needs — input out, the
+run's lifecycle out — and only after one executing gate boots `main.tscn` and drives it with
+synthetic input. Drawing stays where it is, because sixteen gates read `main.gd` as text and
+following sixteen needles is a slice with no player-visible payoff. The gate drives events
+through the viewport (`push_input`), not by calling `_input` directly, so a moved handler is
+still reached rather than left a dead socket.
+
+**Camp keeps C; the stance ladder moves onto Ctrl.** The audit found C bound twice — the camp
+arm and the walk stance both fire on every press, so standing up from a crouch started moving
+home. Offered a new letter for camp, the owner kept C for the deliberate commitment and moved the
+ladder: Ctrl+Z prone, Ctrl+C crouch, Ctrl+S stand, Ctrl+V jog, Shift still the sprint latch.
+Ctrl+W is never bound because the browser owns it. Ctrl-modified keys leave the movement set, so
+Ctrl+S does not also step back.
+
+**The day stays four real hours.** Shortening the clock or adding a sleep-to-dawn was offered;
+the owner left it for the ten-day playtest, which is the only judge of most first cuts. That
+makes raiders (day 8, a fifth of nights) and the gate beats late-game content inside a session, and
+the owner chose the **dev menu** as the reach: F8 gains a raider band and a stranger, behind the
+same `debug.spawn` command, invisible to a player. The strangers and settlers of the
+population arc reach earlier on their own (a stranger beat on day 5, a settler camp from boot),
+and the walkthrough records which of the bar's items each path proves.
+
+**The shell.** A title over the already-booted world (the smoke and the HUD gates assert a world
+one frame after instantiation, so the title is a state, not a deferred boot): new run, continue
+when a save exists, quit. Esc with nothing open pauses to a menu; P stays the soft pause. The
+run-over screen halts the sim and speaks the chronicle's last lines. **New run boots the fixed
+default town** (seed 20260805) from every screen; the random reroll goes with F2, which is
+**deleted**. **Quit to title autosaves first**, as the window's close request does; autosave also
+writes at each dawn, and on the web build at dawn only. A volume row, the first thing in the tree
+to reach `AudioServer`. No digit anywhere on the shell.
+
+**Three calls the shell made while it was built, 2026-09-16.** Not reversals of anything above —
+answers the paragraph did not have to give, written down because each is the kind of thing a later
+session would otherwise re-decide differently. **"No digit anywhere on the shell" reaches past the
+shell's own panel**: the quick strip draws during ordinary play whether or not the sheet is open,
+which is exactly what it is for, so over the title it was six belt slots and their key numbers
+under a menu. The strip, the HUD, the corner doll and the dashboard are all peeled outside a run,
+by the same transition that raises the menu. **New run from an untouched title plays the world
+that is already standing**, rather than booting a second identical one — it *is* the fixed default
+town, and the decision above is about which town, not about how many times it is built; one flag
+tells an untouched title from one you quit back to, and from the pause menu or the run-over screen
+it is a real reboot. **Escape peels by focus**, not by a chain of `elif`s that re-derives the
+order: `_focus()` already names the screen in front, and the second copy of that order was wrong —
+a settings sheet over an open skill web closed the web underneath it.
+
+**The HUD keeps its prose model and takes the chrome.** Two cards in `ui/chrome.gd`'s skin, a
+"you" and a "world", the arrays every `check_hud` lane reads untouched; a contextual action line
+that names E, T and H only when a sim read model already says what is there — the sim decides
+the verb, presentation names the key. The design is frozen from mockups with the owner before
+code. The full "top rung of E" read is named as a follow-up rather than folded in, because it
+splits `_use_context` under `check_vehicles`' needles.
+
+**The HUD design, picked the same day: Option A, two cards.** Four artboards went to the owner
+over a screenshot of the shipped screen — today's bare corner text, a **one-plate bar** that
+gathered everything into a single strip along the bottom, a **brackets-only** treatment that kept
+the corners where they are and drew nothing but chrome ticks around them, and **two cards**. The
+owner took the cards. The reasoning, in the order it decided the pick: it is the **cheapest
+against `check_hud`**, because the columns stay the arrays every lane already reads and the card
+header is chrome rather than a line — the one-plate bar would have rebuilt `_left` and `_right`
+into a single ordered list and put six green lanes through a rewrite for a layout change; it is
+the **most legible over busy tiles**, since a filled panel at alpha 0.86 is the only one of the
+three that gives every clause a background rather than relying on the street being dark where the
+text happens to fall — the one plate showed the most map and wrapped a long sentence badly inside
+a third of a bar, and brackets-only was closest to what already ships and gained the least; and
+the cost, taken knowingly, is that it puts **the most chrome on the street** — two panels and a
+bar where brackets-only would have put none. Geometry, shipped:
+cards at the `MARGIN` (24) corners, minimum 472 wide for "you" and 496 for "outside", height
+`HEADER_H + lines × LINE` plus a skirt, growing in both directions with their content; the action
+bar 1296×48 centred at `view.y − MARGIN − STRIP_CLEARANCE − BAR_H`, its clauses at `FONT_SIZE − 2`
+with the key in `Chrome.ACCENT`, and the key hint at `SMALL_SIZE − 2` in `Chrome.TEXT_DIM` in the
+tail. The bar takes chrome's own 14 px bracket rather than the mockup's 12, because a second copy
+of the bracket arithmetic in `hud.gd` is exactly the drift `ui/chrome.gd` exists to prevent. The
+artboards, the canvas file and both screenshots are the record, under
+`.hermes/plans/2026-09-16_alpha-hud/`.
+
+**The desk is for any agent.** `AGENTS.md` gains a section written for whichever assistant picks
+the project up — Claude, ChatGPT, Astra, Sol — with the claim mechanism being the branch name and
+the routing table being the map, and no ledger, because a ledger is the drift this repo retired.
+
+**Named for later, so no alpha slice builds across them.** Two voice pieces the owner wants after
+the alpha: the player's own microphone as a noise source in single player, and proximity voice
+for PvPvE with multiplayer. The seam is decided now: the sim never reads a microphone. A platform
+capture measures loudness and pushes a command, the way a shout is a command, so it is recorded,
+replayable and saved like every input and the parity and two-world gates are untouched.
+Calibration is content; it ships off by default. docs/23's Milestone 3A and 3C carry the two
+entries.
+
+## The release package, 2026-09-17
+
+The owner asked, with the alpha bar proved end to end, for a release on GitHub that can be
+downloaded and launched like an executable. Decided: **a `Release` workflow run by hand with a
+version, or by a pushed `v<version>` tag**, never on a branch push — a release is a deliberate act and CI already publishes the web build
+on every green commit. **Windows first**, because that is what was asked for and what CI's
+`godot-exports` job already boots on a real Windows runner; the web build rides in the same
+release as a zip for anyone self-hosting. **Pre-release by default and `v0.x` versions** until
+the ten-day playtest says otherwise — an early alpha should not look like a 1.0 on the releases
+page. **No code signing**: the notes say SmartScreen will warn once; buying a certificate is the
+owner's call, not a workflow's. **Nothing new is judged**: the workflow reuses the export smoke
+the CI job runs, and a release is only ever cut from a ref CI already passed. A Linux build and a
+macOS build are named in docs/23's what's-left rather than folded in — Linux is cheap and can
+follow; macOS is blocked on a signing identity, which is a decision and a purchase.

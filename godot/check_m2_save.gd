@@ -16,6 +16,7 @@ const SimContainers = preload("res://sim/modules/containers.gd")
 const PlatformStorage = preload("res://platform/storage.gd")
 
 const STORAGE_GD: String = "res://platform/storage.gd"
+const WORLD_GD: String = "res://sim/world.gd"
 # A key of this gate's own, so the lane never touches a real save slot.
 const ATOMIC_KEY: String = "m2_save_gate.atomic"
 
@@ -31,8 +32,9 @@ func _run() -> void:
 	ok = _a_despawn_leaves_nothing_behind() and ok
 	ok = _a_cupboard_and_the_hand_on_it_survive() and ok
 	ok = _the_save_is_never_absent_from_disk() and ok
+	ok = _recording_is_opt_in() and ok
 	if ok:
-		print("M2_SAVE_OK v%d ticket10 needs-era despawn-clean container-grid atomic" % int(SimSerialize.SAVE_VERSION))
+		print("M2_SAVE_OK v%d ticket10 needs-era despawn-clean container-grid atomic record-opt-in" % int(SimSerialize.SAVE_VERSION))
 		quit(0)
 	else:
 		push_error("M2_SAVE_FAIL")
@@ -412,6 +414,57 @@ func _removes_the_target(body: String) -> bool:
 		if line.contains("da.remove(") and line.contains("target"):
 			return true
 	return false
+
+
+# "`recorded` grows without bound" (docs/23's defect list): `SimCommandQueue.recorded` used to
+# deep-copy every command ever pushed, for the life of a played session, and nothing read it back
+# outside a parity or replay path. Recording is now opt-in (command_queue.gd's `record`, default
+# false) and this lane is the gate that proves the fix without proving it against a fixture that
+# never pressures the leak the way a real session would.
+func _recording_is_opt_in() -> bool:
+	var n: int = 12
+	# True positive: a world booted the default way, stepped with a movement command every tick,
+	# never grows `recorded` -- the leak this piece closes.
+	var w: Variant = SimBoot.playable(20260805, 64)["world"]
+	for _i in range(n):
+		w.commands.push({"type": "move", "dx": 1.0, "dy": 0.0})
+		w.step()
+	var off_count: int = (w.commands.recorded as Array).size()
+	if off_count != 0:
+		push_error("RECORD default: recorded held %d entries with record left false" % off_count)
+		return false
+	# True negative: the identical shape, but with recording turned on, holds exactly what was
+	# pushed -- so the zero above is the flag working, not the append having quietly broken for
+	# everyone.
+	var w2: Variant = SimBoot.playable(20260805, 64)["world"]
+	w2.commands.record = true
+	for _j in range(n):
+		w2.commands.push({"type": "move", "dx": 1.0, "dy": 0.0})
+		w2.step()
+	var on_count: int = (w2.commands.recorded as Array).size()
+	if on_count != n:
+		push_error("RECORD on: recorded held %d entries, want %d" % [on_count, n])
+		return false
+	# Reader: the one path that reads `commands.recorded` back -- R1 parity's `run_fixture`, into
+	# `parity_snapshot`'s "commands" key, diffed against the frozen fixture under godot/parity/ --
+	# has to turn recording on itself or that fixture's populated command list would go quietly
+	# empty. Isolate `run_fixture`'s own body and ask for the exact statement, not the word
+	# "record" -- this file's own comments say that word, and a comment cannot satisfy an
+	# exact-line match the way it could satisfy a substring search.
+	var body: String = _function_body(WORLD_GD, "run_fixture")
+	if body.is_empty():
+		push_error("RECORD reader: run_fixture not found in sim/world.gd")
+		return false
+	var turns_on: bool = false
+	for line in body.split("\n"):
+		if line.strip_edges() == "commands.record = true":
+			turns_on = true
+			break
+	if not turns_on:
+		push_error("RECORD reader: run_fixture never sets commands.record = true -- R1 parity would silently diff against an empty commands list")
+		return false
+	print("RECORD OK default-empty %d on-exact %d run_fixture-turns-on" % [off_count, on_count])
+	return true
 
 
 func _function_body(path: String, name: String) -> String:

@@ -34,9 +34,8 @@ const SimInfection = preload("res://sim/modules/infection.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const SimSurvivors = preload("res://sim/modules/survivors.gd")
 const SimAptitudes = preload("res://sim/modules/aptitudes.gd")
-const SimSave = preload("res://sim/save.gd")
-const PlatformStorage = preload("res://platform/storage.gd")
 const ContentReload = preload("res://platform/content_reload.gd")
+const SimChronicle = preload("res://sim/modules/chronicle.gd")
 const SimVisibility = preload("res://sim/vision/visibility.gd")
 const SimSightings = preload("res://sim/modules/sightings.gd")
 const Pick = preload("res://presentation/pick.gd")
@@ -44,19 +43,24 @@ const SimLight = preload("res://sim/vision/light.gd")
 const SimFortify = preload("res://sim/modules/fortify.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
 const PresentationSfx = preload("res://presentation/sfx.gd")
+const InputMapRes = preload("res://presentation/input_map.gd")
+const SessionRes = preload("res://presentation/session.gd")
+const UiPrefs = preload("res://ui/prefs.gd")
 
 const TICK_HZ: int = 20
 const TICK_SECONDS: float = 1.0 / 20.0
 const NIGHT_WASH: float = 0.8
 const MEMORY_TICKS: int = 60
+# The run's own state -- the world, the map, the district and region it stands in, the four-state
+# machine and the save slot -- lives in `presentation/session.gd` since the alpha shell (docs/30,
+# 2026-09-16). It used to be six vars and four methods on this file.
+#
+# `world` stays here as a plain field, assigned by `_on_world_replaced` after every transition,
+# because sixteen gates and `test/project_smoke.gd` read `main.get("world")` one frame after
+# instantiating this scene. It is one assignment and it keeps every one of them alive.
+var session: Variant = null
 var world: Variant = null
 var content: Dictionary = {}
-var fixture: Dictionary = {}
-# The district id the session started with, so F2 ("leave for another city") rerolls the seed
-# but keeps the same district rather than silently switching one out from under the player.
-var _district_id: String = SimBoot.DEFAULT_DISTRICT
-# Empty unless the session booted a region; F2 then rerolls a region rather than a district.
-var _region_id: String = ""
 var camera: Dictionary = CameraUtil.create_camera()
 # The true, unshaken follow centre -- what follow_smoothed advances every frame. `camera`
 # itself is the *displayed* camera (centre + shake, combined in _update_camera, the one
@@ -91,6 +95,9 @@ var _web_panel: Control = null
 var _paperdoll: Control = null
 var _dashboard: Control = null
 var _settings: Control = null
+# The title, the pause menu and the run-over screen (ui/shell.gd), added last in `_ensure_ui` so
+# it draws over everything else on the layer.
+var _shell: Control = null
 var _debug_panel: Control = null
 var _bench_panel: Control = null
 var _selected: int = -1
@@ -104,8 +111,16 @@ var _fingerprint: String = ""
 var _fingerprint_at: float = -1e9
 var _visibility: Variant = null
 var _light: Variant = null
-var _map: Variant = null
 var _content_error: String = ""
+# Has the key list been offered yet, this process? The legend is raised on the **first** entry to
+# PLAYING and never over the title -- a panel of keys over a menu is a panel about a game you
+# have not started. A later new run does not offer it again: you have seen it.
+var _legend_offered: bool = false
+# Has the standing world been played? "New run" from the title plays the world `_ready` already
+# booted, because that world **is** the fixed default town and rebooting it would cost a boot to
+# arrive at the same district. Once it has been played -- and quit to title leaves a played world
+# standing behind the menu -- "new run" has to build a fresh one.
+var _world_played: bool = false
 # Doorway tiles, {tile index: true}, and the map object they were read off. Rebuilt when the map
 # changes identity (a reboot, a load) and never per frame -- see _threshold_tiles.
 var _thresholds: Dictionary = {}
@@ -143,39 +158,27 @@ var _content_poll_at: float = -1e9
 # The content tree as last seen by the reload poll; a reload happens only when this moves.
 var _content_fingerprint: int = 0
 var _sfx: Node = null
+# Every key the game reads, since the alpha shell's input split (docs/30, "The alpha shell,
+# 2026-09-16"): a child Node with its own `_input` and `_unhandled_input`, built in `_ready`
+# after the UI it routes for. This file no longer has a `_input` at all -- what it keeps is the
+# screens a press reaches (`_set_inventory_open`, `_set_web_open`, `_toggle_legend`, `_save`,
+# `_load`) and the drawing.
+var _input_map: Node = null
 
-# movement input held
-var _held: Dictionary = {}
-var _last_dx: float = 0.0
-var _last_dy: float = 0.0
-# Last aim angle pushed, so mouse motion only sends a command when the cursor has actually
-# swung the bearing -- the sim ignores aim while moving anyway (world.gd's "aim" case), this
-# just keeps the command queue from carrying a no-op per polled motion event.
-var _last_aim: float = 1e9
-# Which of the non-sprint rungs (Z/X/C/V) is selected, so releasing Shift returns to it rather
-# than to a fixed default. Presentation-local only -- the sim never reads this, it only ever
-# sees the stance commands _push_stance sends.
-var _selected_stance: int = 2 # Walk
+# The tick of the last frame `_draw` finished. Written on its last line and read by
+# check_play.gd's DRAW lane, which is the only executing proof that the draw path completed
+# rather than raising partway down. Never read by the game.
+var _drew_tick: int = -1
 
-# Cardinal: screen axes are world axes under the top-down projection, so W is
-# straight up. Holding two adjacent keys still sums to a diagonal, same as ever.
-# The interact key. E, by the owner's 2026-09-05 decision: doors, hoods, loot and everything
-# else on the context ladder hang off this one key, and the legend names it once.
-const INTERACT_KEY: Key = KEY_E
 # A rider drawn on an open vehicle: how far above the machine's ground point the pawn's soles
 # stand (a saddle is about that high off the road), and how far in front of the picture it
 # sorts. Both are readouts of the interface, not lengths the sim knows.
 const RIDER_LIFT_M: float = 0.35
 const RIDER_DEPTH_EPS: float = 0.01
-const MOVE_KEYS: Dictionary = {
-	KEY_W: {"dx": 0.0, "dy": -1.0}, KEY_UP: {"dx": 0.0, "dy": -1.0},
-	KEY_S: {"dx": 0.0, "dy": 1.0}, KEY_DOWN: {"dx": 0.0, "dy": 1.0},
-	KEY_A: {"dx": -1.0, "dy": 0.0}, KEY_LEFT: {"dx": -1.0, "dy": 0.0},
-	KEY_D: {"dx": 1.0, "dy": 0.0}, KEY_RIGHT: {"dx": 1.0, "dy": 0.0},
-}
 
 func _ready() -> void:
 	content = ContentLoader.load_tree()
+	session = SessionRes.new()
 	var parity: bool = false
 	var seed_arg: int = SimBoot.DISTRICT_SEED
 	var district_arg: String = SimBoot.DEFAULT_DISTRICT
@@ -216,9 +219,11 @@ func _ready() -> void:
 		var fixture_path: String = "res://parity/r1-walking-skeleton.json"
 		var f := FileAccess.open(fixture_path, FileAccess.READ)
 		if f != null:
-			fixture = JSON.parse_string(f.get_as_text())
-			world = WorldRes.new(fixture)
-			for cmd_v in fixture.get("commands", []):
+			var parity_fixture: Dictionary = JSON.parse_string(f.get_as_text()) as Dictionary
+			session.fixture = parity_fixture
+			world = WorldRes.new(parity_fixture)
+			session.world = world
+			for cmd_v in parity_fixture.get("commands", []):
 				var timed: Dictionary = cmd_v as Dictionary
 				var at_tick: int = int(timed.get("tick", 0))
 				var cmd: Dictionary = timed.duplicate(true)
@@ -228,37 +233,51 @@ func _ready() -> void:
 				(commands_by_tick[at_tick] as Array).append(cmd)
 		if world != null:
 			SimSurvivors.boot_playable(world)
+		# A parity run is not a game with a shell around it: it replays a fixture's commands and
+		# is compared tick for tick against the frozen oracle, so it starts in PLAYING with no
+		# title in front of it. A menu here would have stopped the clock and `godot:test` with it.
+		session.enter(SessionRes.State.PLAYING)
 	else:
-		_boot_world(seed_arg, district_arg, region_arg)
+		session.boot(seed_arg, district_arg, region_arg)
+		_on_world_replaced()
 	_shake_rng.randomize()
 	_resize_camera()
 	_snap_camera()
 	_ensure_ui()
+	# After _ensure_ui, because the router asks the panels it just built which screen has focus.
+	_input_map = InputMapRes.new()
+	_input_map.set("main", self)
+	add_child(_input_map)
 	_sfx = PresentationSfx.new()
 	add_child(_sfx)
+	# The title, over the world that has just been booted. A *state*, never a deferred boot: the
+	# smoke and the HUD gates both assert `main.get("world") != null` one frame after they
+	# instantiate this scene, and the street behind the menu is the district you are about to
+	# play (docs/30, "The alpha shell, 2026-09-16").
+	if not parity:
+		_enter_state(SessionRes.State.TITLE)
 	queue_redraw()
 	print("GODOT_R1_READY")
 	if world != null:
 		print("GODOT_R4_READY zoom %.1f map %dx%d" % [float(camera["zoom"]), int(world.map_width), int(world.map_height)])
 
-# Boots (or reboots) the playable world on a given seed and district. _ready calls this once on
-# startup and F2 ("leave for another city") calls it again on a fresh random seed, so the two
-# share exactly one boot path -- nothing about standing up a world may live only in _ready.
-# Does not touch _ensure_ui() or _sfx: those are scene children created once, not per-run state.
-func _boot_world(seed_val: int, district_id: String, region_id: String = "") -> void:
-	_region_id = region_id
-	var boot: Dictionary = SimBoot.playable_region(seed_val, region_id) if not region_id.is_empty() else SimBoot.playable(seed_val, SimTileMap.DISTRICT_TILES, district_id)
-	world = boot["world"]
-	_map = boot["map"]
+# The presentation half of a boot. `session.boot` stands the world up; this is everything the
+# *screen* has to forget about the one before it, and it runs after every call that replaces the
+# world -- the boot in `_ready`, the shell's "new run", nothing else.
+#
+# It was the tail of `_boot_world`, which was the one boot path when boot and screen lived in the
+# same file. They are two files now (docs/30, "The alpha shell") and the split is exactly here:
+# nothing below reads the sim except to copy the world across and take its vision and light.
+func _on_world_replaced() -> void:
+	world = session.world
+	if world == null:
+		return
 	_visibility = world.vision
 	_light = world.light
-	fixture = {"seed": int(world.seed), "tick_hz": TICK_HZ}
-	_district_id = district_id
-	# Per-run presentation state that _ready would otherwise leave stale on a reboot: the
-	# cached player-id selection, the paperdoll glimpse and dev-sheet fingerprint (all read
-	# models over the *previous* world), and the tick tally. The camera itself recentres
-	# below, unsmoothed -- _snap_camera, not the per-frame follow, so a reboot is never
-	# watched swooping in from wherever the old world's camera happened to be.
+	# Per-run presentation state that would otherwise be stale over the new world: the cached
+	# player-id selection, the paperdoll glimpse and dev-sheet fingerprint (all read models over
+	# the *previous* world), and the tick tally. The tile caches need no line here -- each one
+	# remembers which map object it was built from and rebuilds itself when that changes.
 	_selected = -1
 	_glimpse_parts = []
 	_glimpse_stance = 2
@@ -267,23 +286,32 @@ func _boot_world(seed_val: int, district_id: String, region_id: String = "") -> 
 	_fingerprint_at = -1e9
 	_content_error = ""
 	tick_count = 0
+	# The frame that replaced the world is still carrying the last one's tick debt; spending it
+	# on the new world would run a handful of ticks before the player has seen the street.
+	accumulator = 0.0
 	_resize_camera()
+	# Unsmoothed, not the per-frame follow: a fresh or loaded world is never watched swooping in
+	# from wherever the old world's camera happened to be, or shaking from a hit that landed in a
+	# different run entirely.
 	_snap_camera()
-
-# F2: a fresh run on a new random seed, same district the session started with. The seed is
-# generated here, presentation-side, and everything downstream of it is deterministic --
-# RandomNumberGenerator is fine in godot/presentation/ (the sim/ RNG ban is sim/ only).
-func _leave_for_another_city() -> void:
-	var rng := RandomNumberGenerator.new()
-	rng.randomize()
-	var new_seed: int = rng.randi_range(1, 0x7fffffff) # positive 32-bit: SimBoot.playable's seed
-	_boot_world(new_seed, _district_id, _region_id)
-	queue_redraw()
 
 func _notification(what: int) -> void:
 	if what == 413: # NOTIFICATION_RESIZED
 		_resize_camera()
 		queue_redraw()
+	elif what == NOTIFICATION_WM_CLOSE_REQUEST:
+		# The window's close button, and the last thing that happens before the tree takes it.
+		# Synchronous on purpose: `auto_accept_quit` is on, so there is no frame after this one
+		# to defer a write into. The web build is excluded because a browser tab's close is not
+		# reliably delivered and a half-written slot is worse than no autosave -- there the dawn
+		# edge is the only autosave, which is the owner's decision of 2026-09-16.
+		if OS.has_feature("web"):
+			return
+		if session == null or not bool(session.call("is_live")):
+			return
+		if world == null or bool(world.runOver):
+			return
+		session.call("save")
 
 func _resize_camera() -> void:
 	var vp: Vector2 = get_viewport_rect().size
@@ -292,7 +320,7 @@ func _resize_camera() -> void:
 	camera["height"] = vp.y
 
 # Jumps the follow centre straight to the clamped player position and clears any shake in
-# flight -- boot, F2 and F9 all call this instead of letting the per-frame follow arrive on
+# flight -- boot and F9 (load) both call this instead of letting the per-frame follow arrive on
 # its own, so a fresh or loaded world is never watched swooping in from an unrelated camera
 # position (or shaking from a hit that happened in a different run entirely).
 func _snap_camera() -> void:
@@ -376,12 +404,19 @@ func _ensure_ui() -> void:
 		_hud = hud_script.new() as Control
 		_hud.name = "Hud"
 		layer.add_child(_hud)
-	# The keys, shown once on a fresh run so the bindings are discoverable without README.md.
+	# The keys, shown on a fresh run so the bindings are discoverable without README.md -- and
+	# only until the player says otherwise. `legend_dismissed` is a presentation pref, not save
+	# state: it survives the run's death the way the panel opacity does, because "a legend you
+	# cannot turn off is a legend you resent" was never meant to mean "for this run only".
+	#
+	# Built hidden since the alpha shell: the game opens on the title now, and a panel of keys
+	# over a menu is a panel about a game you have not started. `_enter_state` raises it on the
+	# first entry to PLAYING instead, reading the same pref.
 	var legend_script: GDScript = load("res://ui/legend.gd") as GDScript
 	if legend_script != null:
 		_legend = legend_script.new() as Control
 		_legend.name = "Legend"
-		_legend.visible = true
+		_legend.visible = false
 		layer.add_child(_legend)
 	# inventory layer (always present: draws the full screen on Tab, and any pinned bag
 	# windows while playing; input passes through it when closed)
@@ -450,219 +485,30 @@ func _ensure_ui() -> void:
 		_debug_panel.position = Vector2(16, 120)
 		_debug_panel.size = Vector2(480, 820)
 		layer.add_child(_debug_panel)
-	# settings (Esc), topmost so it draws over every other screen
+	# settings, opened from the pause menu, over every other screen but the shell
 	var settings_script: GDScript = load("res://ui/settings_panel.gd") as GDScript
 	if settings_script != null:
 		_settings = settings_script.new() as Control
 		_settings.visible = false
 		_settings.set("on_changed", _on_ui_prefs_changed)
 		layer.add_child(_settings)
-
-func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo:
-		var ke: InputEventKey = event as InputEventKey
-		# The one interact key, named once (INTERACT_KEY) rather than as a literal in the match
-		# below, because a match arm binds an identifier instead of comparing against it. It
-		# pushes `use.context` and nothing else: fortify's ladder (SimFortify._use_context)
-		# decides what "interact" means where you stand -- a loose item, a container, a
-		# survivor at the gate, a car's hood from the nose, its door from the side, out from
-		# the wheel, a window, a bed. Nothing here knows which; the sim decides.
-		if ke.keycode == INTERACT_KEY:
-			if world != null: world.commands.push({"type": "use.context"})
-		match ke.keycode:
-			KEY_F5: _save()
-			KEY_F9: _load()
-			KEY_F2: _leave_for_another_city()
-			KEY_P: _toggle_pause()
-			KEY_M:
-				show_sheets = not show_sheets
-				if _hud != null: _hud.set("show_raw", show_sheets)
-			KEY_O: _cycle_overlay()
-			KEY_F1: _toggle_legend()
-			KEY_ENTER, KEY_KP_ENTER:
-				# Dismiss-only: Enter closes the legend but never opens anything.
-				if _legend != null and _legend.visible: _legend.visible = false
-			KEY_ESCAPE:
-				# Escape peels layers in order: the legend, then an open container, then
-				# settings. The container before settings because it is the thing you most
-				# recently opened, and closing it is what walking away would have done.
-				if _legend != null and _legend.visible:
-					_legend.visible = false
-				elif _web_panel != null and _web_panel.visible:
-					# The web before the bench: it is the thing most recently opened by a key,
-					# and closing it is what looking back at the street would have done.
-					_set_web_open(false)
-				elif world != null and _bench_panel != null and _bench_panel.visible:
-					world.commands.push({"type": "bench.close"})
-				elif world != null and _inventory_panel != null and _inventory_panel.has_method("loot_open") and bool(_inventory_panel.call("loot_open")):
-					world.commands.push({"type": "container.close"})
-				elif _settings != null:
-					_settings.visible = not _settings.visible
-			KEY_TAB:
-				_set_inventory_open(not inventory_open)
-			KEY_J:
-				work_open = not work_open
-				if _work_panel != null:
-					_work_panel.visible = work_open
-					if work_open and _work_panel.has_method("set_world"):
-						_work_panel.call("set_world", world)
-			KEY_K:
-				# Tab owns the screen while the sheet is up, the same rule the R arm keeps.
-				if not inventory_open:
-					_set_web_open(not web_open)
-			KEY_SPACE:
-				if world != null: world.commands.push({"type": "shout"})
-			KEY_F:
-				if world != null: world.commands.push({"type": "swing"})
-			KEY_H:
-				# Its own key rather than another meaning for F: swinging at the shambler that
-				# has hold of somebody is a different answer, and both must stay available.
-				# Who gets pulled out is the sim's decision -- see SimShambler.rescue_target.
-				if world != null: world.commands.push({"type": "rescue"})
-			KEY_G:
-				if world != null: world.commands.push({"type": "fire"})
-			KEY_R:
-				if inventory_open and _inventory_panel != null and _inventory_panel.has_method("rotate"):
-					_inventory_panel.call("rotate")
-				elif world != null:
-					world.commands.push({"type": "reload"})
-			KEY_T:
-				# One key, two meanings, both decided in the sim: start first aid on the
-				# wound that matters, or stop the one already in progress. Presentation
-				# picks neither the target nor the verb -- see SimTreatment.context.
-				if world != null: world.commands.push({"type": "treat.context"})
-			KEY_C:
-				# Camp: its own key rather than a rung on E's ladder, because establishing one
-				# moves where home is and doing that by accident -- pressing E on empty ground
-				# with a trap and a bait already down -- is worse than one more key. E stays
-				# "act on what is in front of you"; C is a deliberate commitment, which is what
-				# Task 8 asks a camp to be. Shift+C strikes it; the sim decides which camp.
-				if world != null:
-					if Input.is_key_pressed(KEY_SHIFT):
-						world.commands.push({"type": "camp.abandon"})
-					else:
-						world.commands.push({"type": "camp.establish"})
-			# The number row belongs to the quick strip since the 2026-09-08 overhaul, so
-			# speed moved to the two keys beside it. A key that means two things mid-fight
-			# is what the one-interact-key rule exists to avoid; P still pauses.
-			KEY_MINUS, KEY_KP_SUBTRACT: _step_speed(-1)
-			KEY_EQUAL, KEY_KP_ADD: _step_speed(1)
-			KEY_1: _strip_use(0)
-			KEY_2: _strip_use(1)
-			KEY_3: _strip_use(2)
-			KEY_4: _strip_use(3)
-			KEY_5: _strip_use(4)
-			KEY_6: _strip_use(5)
-			KEY_F8:
-				if _debug_panel != null:
-					_debug_panel.visible = not _debug_panel.visible
-					if _debug_panel.visible and _debug_panel.has_method("set_world"):
-						_debug_panel.call("set_world", world)
-		# movement keys tracked for pump
-		if MOVE_KEYS.has(ke.keycode):
-			_held[ke.keycode] = true
-		# Shift is a latch on rung 4 (Sprint), not a key with its own stance number: press
-		# pushes Sprint, release returns to whichever of Z/X/C/V was last selected. The sim
-		# decides whether the request is honoured -- see the zero-stamina gate in world.gd's
-		# "stance" command case.
-		if ke.keycode == KEY_SHIFT: _push_stance(4)
-		# stance keys Z/X/C/V
-		if ke.keycode == KEY_Z: _selected_stance = 0; _push_stance(0)
-		if ke.keycode == KEY_X: _selected_stance = 1; _push_stance(1)
-		if ke.keycode == KEY_C: _selected_stance = 2; _push_stance(2)
-		if ke.keycode == KEY_V: _selected_stance = 3; _push_stance(3)
-		queue_redraw()
-	if event is InputEventKey and not event.pressed:
-		var ke2: InputEventKey = event as InputEventKey
-		if MOVE_KEYS.has(ke2.keycode): _held.erase(ke2.keycode)
-		if ke2.keycode == KEY_SHIFT: _push_stance(_selected_stance)
-
-# Pointer input lives in _unhandled_input, not _input, so any Control that consumed the
-# click -- a pinned bag window, the settings sheet, the work grid -- has already eaten it
-# and a click on UI never doubles as a trigger pull. GUI handling runs between the two.
-func _unhandled_input(event: InputEvent) -> void:
-	# Wheel zoom through the fixed ladder -- power-of-two multiples of the art-native
-	# 32 so nearest-neighbour scaling never shimmers. Not while the inventory is open:
-	# the wheel belongs to the panel there.
-	if event is InputEventMouseButton and event.pressed and not inventory_open:
-		var mb: InputEventMouseButton = event as InputEventMouseButton
-		if mb.button_index == MOUSE_BUTTON_WHEEL_UP:
-			CameraUtil.zoom_step(camera, 1)
-			queue_redraw()
-		elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			CameraUtil.zoom_step(camera, -1)
-			queue_redraw()
-	# Mouse motion proposes an aim bearing; the sim takes it only while the body is
-	# stationary (world.gd's "aim" case), so this is turning on the spot to track the
-	# cursor, never steering.
-	if event is InputEventMouseMotion and world != null and not inventory_open:
-		var bearing: Variant = _aim_at((event as InputEventMouseMotion).position)
-		if bearing != null and absf(angle_difference(float(bearing), _last_aim)) > 0.02:
-			_last_aim = float(bearing)
-			world.commands.push({"type": "aim", "radians": _last_aim})
-	if event is InputEventMouseButton and event.pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
-		if world != null and not inventory_open:
-			# A click on a colonist selects them -- their needs, pain and condition take the
-			# HUD's left column in the third person until you click yourself or they die. A
-			# click on your own pawn clears it. Anything else is the attack below, exactly as
-			# before: Pick answers -1 for the street, a zombie, a corpse, a body you cannot see.
-			var hit: int = Pick.pick_colonist(world, camera, (event as InputEventMouseButton).position)
-			if hit >= 0:
-				_selected = -1 if hit == int(world.player) else hit
-				_update_hud()
-				queue_redraw()
-				return
-			# Aim at the click first, then attack with whatever is actually in hand: the
-			# trigger if a ranged weapon is equipped (fire converts itself to a reload on an
-			# empty magazine -- ranged.gd owns that), the swing otherwise. G and F remain as
-			# the key equivalents; the sim decides everything past the verb.
-			var at: Variant = _aim_at((event as InputEventMouseButton).position)
-			if at != null:
-				_last_aim = float(at)
-				world.commands.push({"type": "aim", "radians": _last_aim})
-			if world.components.has_component(int(world.player), "rangedWeapon"):
-				world.commands.push({"type": "fire"})
-			else:
-				world.commands.push({"type": "swing"})
-
-
-# The bearing from the player's body to a screen point, in world space -- what an aim command
-# carries. Null when there is nothing to aim from.
-func _aim_at(screen_pos: Vector2) -> Variant:
-	if world == null:
-		return null
-	var pos: Variant = world.components.get_component(int(world.player), "position")
-	if not (pos is Dictionary):
-		return null
-	var at: Dictionary = CameraUtil.screen_to_world(camera, screen_pos.x, screen_pos.y)
-	var dx: float = float(at["x"]) - float((pos as Dictionary)["x"])
-	var dy: float = float(at["y"]) - float((pos as Dictionary)["y"])
-	if dx == 0.0 and dy == 0.0:
-		return null
-	return atan2(dy, dx)
+	# The shell -- the title, the pause menu and the run-over screen -- last of all, so it draws
+	# over every other screen on this layer. Sibling order is z-order here, and the shell is the
+	# one panel that is in front of the game rather than part of it.
+	var shell_script: GDScript = load("res://ui/shell.gd") as GDScript
+	if shell_script != null:
+		_shell = shell_script.new() as Control
+		_shell.name = "Shell"
+		_shell.visible = false
+		_shell.set("on_action", _on_shell_action)
+		layer.add_child(_shell)
 
 func _on_ui_prefs_changed() -> void:
 	if _inventory_panel != null and _inventory_panel.has_method("refresh_style"):
 		_inventory_panel.call("refresh_style")
-
-func _push_stance(target: int) -> void:
-	if world == null: return
-	# Reads sim, never writes it -- this file's own header. The stance module (world.gd's
-	# "stance" command case and the player.advance-posture system) owns ticks_left and the
-	# current/target transition entirely; this used to reach into posture directly and set
-	# ticks_left on a dict that (pre-SimStances.make_posture) never had that key at all, an
-	# invalid-index crash on every Z/X/C/V press.
-	world.commands.push({"type": "stance", "stance": target})
-
-func _pump_input() -> void:
-	if world == null: return
-	var dx: float = 0.0; var dy: float = 0.0
-	for k in _held.keys():
-		var d: Dictionary = MOVE_KEYS.get(int(k), {}) as Dictionary
-		dx += float(d.get("dx", 0.0)); dy += float(d.get("dy", 0.0))
-	if dx != _last_dx or dy != _last_dy:
-		world.commands.push({"type": "move", "dx": dx, "dy": dy})
-		_last_dx = dx; _last_dy = dy
+	# The volume row, straight at the master bus, so the slider is heard while it is dragged.
+	if _sfx != null and _sfx.has_method("apply_volume"):
+		_sfx.call("apply_volume")
 
 # Opening and closing the sheet, in one place rather than inline in the key handler, because it
 # is four things and not one: the flag, the panel, and the two layers that sit *under* the sheet
@@ -727,9 +573,25 @@ func _step_speed(step: int) -> void:
 	speed = SPEED_LADDER[clampi(at + step, 0, SPEED_LADDER.size() - 1)]
 
 
+# F1, both ways. Turning it off is an explicit dismissal and is remembered; turning it on is
+# not the reverse of that -- F1 always re-shows the keys, and the pref stays set, so the panel
+# comes back for as long as you want it and still does not greet you at the next boot.
 func _toggle_legend() -> void:
-	if _legend != null:
-		_legend.visible = not _legend.visible
+	if _legend == null:
+		return
+	_legend.visible = not _legend.visible
+	if not _legend.visible:
+		UiPrefs.set_flag("legend_dismissed", true)
+
+
+# The other two explicit dismissals, Escape and Enter. Every other way the panel goes down --
+# opening the sheet, opening the web -- only hides it, and the keys greet the next run, because
+# those are not the player saying "I have read this".
+func _dismiss_legend() -> void:
+	if _legend == null:
+		return
+	_legend.visible = false
+	UiPrefs.set_flag("legend_dismissed", true)
 
 
 func _cycle_overlay() -> void:
@@ -740,25 +602,161 @@ func _cycle_overlay() -> void:
 func _toggle_pause() -> void:
 	paused = not paused
 
+# F5 and F9, still the two keys a player has for the slot, and now one-line forwards: the save
+# itself is `presentation/session.gd`'s, so the pause menu's own rows and these two keys cannot
+# come to mean different things.
 func _save() -> void:
-	if world == null: return
-	var text: String = SimSave.encode_save(SimSave.create_save(world))
-	PlatformStorage.write_save(text)
+	if session != null:
+		session.call("save")
 
 func _load() -> void:
-	if world == null: return
-	if bool(world.runOver): return
-	var raw: String = PlatformStorage.read_save()
-	if raw.is_empty(): return
-	var parsed: Dictionary = SimSave.decode_save(raw)
-	if parsed.has("__error"): return
-	var snap: Variant = parsed.get("snapshot", {})
-	if snap is Dictionary and bool((snap as Dictionary).get("runOver", false)):
+	if session == null:
 		return
-	SimSave.apply_save(world, parsed)
-	# The loaded body can be anywhere on the map; recentre unsmoothed rather than let the
-	# per-frame follow visibly pan there from wherever the camera sat before the load.
-	_snap_camera()
+	if bool(session.call("load")):
+		# The loaded body can be anywhere on the map; recentre unsmoothed rather than let the
+		# per-frame follow visibly pan there from wherever the camera sat before the load.
+		_snap_camera()
+
+# --- the shell ---------------------------------------------------------------------------------
+
+# How many of the chronicle's last lines the run-over screen speaks. Five rather than the HUD's
+# three: the HUD is a corner of a live game and this is the whole screen at the end of a run.
+const EPITAPH_LINES: int = 5
+
+# Every transition between the four states goes through here, and nothing else changes
+# `session.state`. What it owns is the *screen* side of a transition -- which panels are up --
+# because the state itself is one assignment and the six things that follow from it are not.
+func _enter_state(next: int) -> void:
+	session.call("enter", next)
+	world = session.world
+	var playing: bool = next == SessionRes.State.PLAYING
+	var in_run: bool = playing or next == SessionRes.State.PAUSED
+	# The HUD and the corner doll belong to a run in progress: over the title they would be a
+	# body's needs and wounds beside a menu, and over the run-over screen they would be a dead
+	# survivor's. `inventory_open` still peels them under an open sheet -- see _set_inventory_open.
+	if _hud != null:
+		_hud.visible = in_run and not inventory_open
+	if _paperdoll != null:
+		_paperdoll.visible = in_run and not inventory_open
+	# The quick strip draws during ordinary play whether or not the sheet is open, which is the
+	# whole point of it -- and which is why it has to be peeled here by hand: over the title it is
+	# six empty belt slots and their key numbers under a menu, the one place a digit on screen is
+	# not a key you can press.
+	if _inventory_panel != null:
+		_inventory_panel.visible = in_run
+	if not in_run:
+		if _legend != null:
+			_legend.visible = false
+		if _settings != null:
+			_settings.visible = false
+	if playing:
+		_world_played = true
+		if _shell != null:
+			_shell.call("close")
+		# The keys, once per process and only on the street. The pref is the same one the three
+		# explicit dismissals write, so a player who has put them away never sees them again.
+		if not _legend_offered:
+			_legend_offered = true
+			if _legend != null and not UiPrefs.flag("legend_dismissed"):
+				_legend.visible = true
+	else:
+		_show_shell()
+	queue_redraw()
+
+
+# Is a run standing in front of the player -- playing, or paused with the street behind the menu?
+# What the screens that belong to a run ask before they draw themselves.
+func _in_a_run() -> bool:
+	return session != null and bool(session.call("is_live"))
+
+
+# Raise the shell on whatever state the session is in, with the context it cannot work out for
+# itself. `notice` is the one fixed sentence a refused save leaves behind.
+func _show_shell(notice: String = "") -> void:
+	if _shell == null:
+		return
+	var ctx: Dictionary = {"is_web": OS.has_feature("web"), "notice": notice}
+	if session.state == SessionRes.State.TITLE:
+		# Asked here and not remembered: the slot can have been written by the run standing behind
+		# this very menu, a moment ago, by "quit to title".
+		ctx["has_continue"] = SessionRes.has_continue()
+	elif session.state == SessionRes.State.RUN_OVER:
+		ctx["epitaph"] = SimChronicle.epitaph(world, EPITAPH_LINES)
+	_shell.call("show_state", session.state, ctx)
+
+
+# What a row on the shell does. The shell itself decides nothing -- it says which row was chosen
+# and this decides what that means, which is why "new run" can mean two different things without
+# the menu knowing about either.
+func _on_shell_action(id: String) -> void:
+	match id:
+		"new_run":
+			# The world `_ready` booted **is** the fixed default town, so a new run from an
+			# untouched title plays it rather than paying for an identical second boot. From the
+			# pause menu, the run-over screen, or a title you quit back to, it is a real reboot.
+			if _world_played:
+				session.call("new_run")
+				_on_world_replaced()
+			_enter_state(SessionRes.State.PLAYING)
+		"continue", "load":
+			if bool(session.call("load")):
+				_snap_camera()
+				_enter_state(SessionRes.State.PLAYING)
+			else:
+				# Stay where you are and say one sentence. Never the decoder's own message: it
+				# carries the two save-format numbers, which is a digit on a player's screen and
+				# a pair of numbers that mean nothing to the person reading them.
+				_show_shell(String(session.notice))
+		"resume":
+			_enter_state(SessionRes.State.PLAYING)
+		"save":
+			session.call("save")
+			_enter_state(SessionRes.State.PLAYING)
+		"settings":
+			# The sheet takes the screen from the menu rather than sitting over it: the shell is
+			# in front of everything in the router's focus order, so a settings panel behind it
+			# would be a panel whose own Escape never reached it.
+			if _settings != null:
+				if _shell != null:
+					_shell.call("close")
+				_settings.visible = true
+		"quit_to_title":
+			_quit_to_title()
+		"quit":
+			get_tree().quit()
+		"escape":
+			# Escape means "back". On the pause menu that is the street; on the title and the
+			# run-over screen there is nothing behind to go back to.
+			if session.state == SessionRes.State.PAUSED:
+				_enter_state(SessionRes.State.PLAYING)
+
+
+# Leaving a run for the title writes the slot first (the owner's decision of 2026-09-16), so the
+# "continue" row the title is about to draw picks up where you stopped -- the same thing the
+# window's close request does. A finished run writes nothing: there is nothing to come back to.
+func _quit_to_title() -> void:
+	if session == null:
+		return
+	if bool(session.call("is_live")) and world != null and not bool(world.runOver):
+		session.call("save")
+	_enter_state(SessionRes.State.TITLE)
+
+
+# Escape on the street with nothing open. The soft pause on P is untouched and does something
+# else: P holds the world still with the street in front of you, this puts a menu there.
+func _pause_to_menu() -> void:
+	if session == null or session.state != SessionRes.State.PLAYING:
+		return
+	_enter_state(SessionRes.State.PAUSED)
+
+
+# Escape inside the settings sheet. It goes back to whatever opened it -- the pause menu, if the
+# run is paused -- rather than dropping the player onto the street a state behind.
+func _close_settings() -> void:
+	if _settings != null:
+		_settings.visible = false
+	if session != null and session.state != SessionRes.State.PLAYING:
+		_show_shell()
 
 func _poll_content_reload() -> void:
 	if not OS.is_debug_build():
@@ -792,16 +790,21 @@ func _process(delta: float) -> void:
 	# wall-clock delta, not on the sim's fixed tick, so they must not wait behind `paused`'s
 	# early return below or a shake in flight would freeze mid-decay instead of finishing.
 	_update_camera(delta)
-	if paused:
+	# The clock runs in PLAYING and nowhere else. The title, the pause menu and the run-over
+	# screen all hold it still, and so does P -- the soft pause, which is the same early return it
+	# always was and is deliberately not a fifth state: P stops the world with the street still in
+	# front of you, and Escape puts a menu there.
+	if session == null or session.state != SessionRes.State.PLAYING or paused:
 		_update_hud()
 		if CameraUtil.shake_magnitude(_shake) > CameraUtil.SHAKE_EPSILON:
 			queue_redraw()
 		return
-	_pump_input()
+	if _input_map != null: _input_map.pump()
 	# speed scales tick debt: more ticks per frame, not smaller tick
 	var ticks_needed: int = int(floor(delta / TICK_SECONDS * float(speed) + accumulator / TICK_SECONDS))
 	accumulator += delta * float(speed)
 	var ticks_done: int = 0
+	var prev_tick: int = int(world.tick)
 	var cap: int = maxi(1, 5 * speed)
 	while accumulator >= TICK_SECONDS and ticks_done < cap:
 		accumulator -= TICK_SECONDS
@@ -820,6 +823,15 @@ func _process(delta: float) -> void:
 				accumulator = 0.0
 				break
 	if ticks_done > 0:
+		# The autosave edge, asked once a frame with the span the frame covered rather than "is it
+		# dawn now": a frame carries as many as fifty ticks at speed ten and the first tick of a
+		# day can fall anywhere inside it.
+		session.call("autosave_if_dawn", prev_tick, int(world.tick))
+		# And the end of the run. `runOver` is set inside a tick by SimRecruits.handle_death, so
+		# it is read after the loop and not subscribed to: the screen wants the world as it
+		# stands once the tick that ended it has finished, not mid-drain.
+		if bool(world.runOver):
+			_enter_state(SessionRes.State.RUN_OVER)
 		_update_condition_view()
 		_update_hud()
 	queue_redraw()
@@ -882,7 +894,7 @@ func _update_hud() -> void:
 	# throw every id away. Measured 0.0007 ms against 0.0068 ms -- small, but it was ten times
 	# the price for strictly less information.
 	var zeds: int = int(world.components.count("shambler"))
-	var base: String = "tick %d  pos %.1f,%.1f  %s %.2f  light %.2f  %s  %dx %s  STR %d CON %d DEX %d  %s  zed %d  F swing G fire  fp %s  dx:%s  seed %d  district %s" % [int(world.tick), x, y, phase, tod, light, attention_channel, speed, ("PAUSED" if paused else ""), int(apt["str"]), int(apt["con"]), int(apt["dex"]), companion, zeds, _fingerprint, diag_label, int(world.seed), _district_id]
+	var base: String = "tick %d  pos %.1f,%.1f  %s %.2f  light %.2f  %s  %dx %s  STR %d CON %d DEX %d  %s  zed %d  F swing G fire  fp %s  dx:%s  seed %d  district %s" % [int(world.tick), x, y, phase, tod, light, attention_channel, speed, ("PAUSED" if paused else ""), int(apt["str"]), int(apt["con"]), int(apt["dex"]), companion, zeds, _fingerprint, diag_label, int(world.seed), String(session.district_id)]
 	# One look-at, read twice. It used to be computed once for the dev sheet and again, with
 	# identical arguments on the same tick, for the player's context line a few lines below.
 	var look: Dictionary = {}
@@ -918,10 +930,16 @@ func _update_hud() -> void:
 		if not _content_error.is_empty():
 			context = "content: %s" % _content_error
 		_hud.set("hint", context)
+		# What the contextual keys would do, right here: the sim's read models decide the verb --
+		# fortify's look-at, the cupboard, the car, the aid ladder, the hands on a neighbour --
+		# and the line only names the key. check_hud's ACTION lane asserts both halves.
+		_hud.call("set_action", HudRead.action_line(world, world.player, look, context))
 		_hud.call("refresh", world, who, base)
-	# The dashboard reads the seat every refresh: {} off the wheel hides it.
+	# The dashboard reads the seat every refresh: {} off the wheel hides it -- and so does leaving
+	# the run, because a speedometer still lit over the title is the last frame of a run that is
+	# no longer standing.
 	if _dashboard != null and _dashboard.has_method("set_view"):
-		_dashboard.call("set_view", SimVehicles.dash_view(world, world.player))
+		_dashboard.call("set_view", SimVehicles.dash_view(world, world.player) if _in_a_run() else {})
 	if _work_panel != null and _work_panel.visible and _work_panel.has_method("set_world"):
 		_work_panel.call("set_world", world)
 	# The web follows the selection every frame: click another colonist on the street and the
@@ -956,6 +974,12 @@ func _draw() -> void:
 	_draw_fog()
 	_draw_night_wash()
 	# glimpse drawn by Control; nothing else needed here
+	# The last line of the frame, and the only thing in this file that exists for a gate:
+	# check_play.gd cannot tell "the engine called _draw" from "_draw reached the bottom"
+	# without it, and the difference is exactly the class of bug the play gate was built to
+	# catch -- a null dereference three quarters of the way down _draw_entities on night three.
+	# An aborted draw never gets here, so the counter lagging the tick is the failure.
+	_drew_tick = int(world.tick)
 
 func _draw_district() -> void:
 	var zoom: float = float(camera["zoom"])

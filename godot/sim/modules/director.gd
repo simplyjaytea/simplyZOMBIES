@@ -637,22 +637,22 @@ static func _emit_band(world: Variant, size: int, rng: Variant, objective: Varia
 	var side: int = int(usable[int(rng.call("int_range", 0, usable.size() - 1))])
 	var pool: Array = sides[side] as Array
 	var at: int = int(rng.call("int_range", 0, pool.size() - 1))
-	var placed: int = 0
-	var members: Array = []
+	var positions: Array = []
 	for i in size:
 		var pick: Vector2i = pool[(at + i) % pool.size()]
-		var type_id: String = SimRaiders.pick_type(world, rng)
-		var ent: int = SimRaiders.spawn(world, float(pick.x) + 0.5, float(pick.y) + 0.5, type_id)
-		if ent >= 0:
-			placed += 1
-			members.append(ent)
-	if placed <= 0:
+		positions.append(Vector2(float(pick.x) + 0.5, float(pick.y) + 0.5))
+	# One archetype draw and one `spawn` per position -- `SimRaiders.spawn_band` -- so the F8 dev
+	# menu's raider band is this exact call with a different `positions` list rather than a second
+	# recipe for the same body. The draw order is unchanged: `pick_type` then `spawn`, once per
+	# position, in the order the positions were built above.
+	var members: Array = SimRaiders.spawn_band(world, positions, rng)
+	if members.is_empty():
 		return none
 	# The band knows itself: the night it came and how many, so it can leave at half strength.
 	SimRaiders.stamp_band(world, members, int(world.tick))
 	if objective is Vector2i:
 		SimRaiders.stamp_crossing(world, members, objective as Vector2i, _far_edge(sides, side, objective as Vector2i))
-	return {"side": SIDE_NAMES[side], "placed": placed}
+	return {"side": SIDE_NAMES[side], "placed": members.size()}
 
 
 # Returns the side it came from, for the `director.night` event. docs/17's migration lever says a

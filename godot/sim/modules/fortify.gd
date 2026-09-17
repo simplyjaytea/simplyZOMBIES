@@ -391,6 +391,154 @@ static func can_scrap(map: Variant, tx: int, ty: int) -> bool:
 	return false
 
 
+# The top rung of E, read rather than taken. `_use_context` below decides and acts in the same
+# breath for six rungs -- dismount, the loose item, the container, the door, a waiting stranger,
+# the car -- and each of those already has its own read model on the HUD (`SimVehicles.hud_clause`,
+# `SimContainers.hud_clause`, `look_at` above), so this asks only whether one of them would fire
+# and, if so, says nothing: naming a lower rung while a higher one is what E would actually do
+# would be the HUD lying about its own key. Past that gate this is the one place that names the
+# rest of the ladder -- the fire, the bed, the latrine, the bench, the trap, the bait, the barricade
+# -- in the same words `action_line` puts on the bar. Pure: no component is set, no event is
+# published, nothing here is the verb itself. docs/30, "The alpha shell" -- the sim decides the
+# verb, presentation names the key -- and this is the sim's half of that for the follow-up docs/23
+# named "the ladder names its rung".
+static func rung_of(world: Variant, actor: int) -> Dictionary:
+	if world == null or actor < 0 or world.tilemap == null:
+		return {}
+	if world.components.has_component(actor, "mounted"):
+		return {}
+	if SimInventory.nearest_ground_item(world, actor) != null:
+		return {}
+	var Containers: GDScript = load("res://sim/modules/containers.gd") as GDScript
+	if Containers != null and Containers.has_method("open"):
+		if int(Containers.call("nearest", world, actor, false, Containers.Want.Openable)) >= 0:
+			return {}
+	var door_tile: Vector2i = _door_in_reach(world, actor)
+	if door_tile.x >= 0 and _door_would_toggle(world, door_tile.x, door_tile.y):
+		return {}
+	var Recruits: GDScript = load("res://sim/modules/recruits.gd") as GDScript
+	if Recruits != null and Recruits.has_method("waiting_in_reach"):
+		if int(Recruits.call("waiting_in_reach", world, actor)) >= 0:
+			return {}
+	if SimVehicles.nearest_in_reach(world, actor) != SimVehicles.NO_DRIVER:
+		return {}
+	# Past the six gates above, this is the one read naming the rest of the ladder -- sleep, the
+	# fire, a filter, the latrine, the bench, a window, the trap, the bait, a lift, the barricade --
+	# in the same order `_use_context` takes them, so "the top rung" means the same thing here as it
+	# does there.
+	var Needs: GDScript = load("res://sim/modules/needs.gd") as GDScript
+	if Needs != null:
+		var here: Vector2i = _tile_of(world, actor)
+		var hx: float = float(here.x) + 0.5
+		var hy: float = float(here.y) + 0.5
+		var bed: int = int(Needs.call("nearest_bed", world, hx, hy, false))
+		var fire: int = int(Needs.call("nearest_campfire", world, hx, hy, false))
+		if bed >= 0 and _same_tile(world, actor, bed):
+			return {"verb": "sleep", "target": bed, "prose": "lie down and sleep"}
+		if fire >= 0 and _entity_in_reach(world, actor, fire):
+			if _would_boil(world, actor, fire):
+				return {"verb": "boil", "target": fire, "prose": "boil a bottle at the fire"}
+			if _campfire_lit(world, fire):
+				return {"verb": "fire", "target": fire, "prose": "put out the fire"}
+			return {"verb": "fire", "target": fire, "prose": "light the fire"}
+		if _would_purify(world, actor):
+			return {"verb": "purify", "target": -1, "prose": "purify a bottle with your filter"}
+		var latrine: int = int(Needs.call("nearest_latrine", world, hx, hy))
+		if latrine >= 0 and _entity_in_reach(world, actor, latrine):
+			return {"verb": "relieve", "target": latrine, "prose": "use the latrine"}
+		if bed >= 0 and _entity_in_reach(world, actor, bed):
+			return {"verb": "sleep", "target": bed, "prose": "lie down and sleep"}
+	var Gunsmith: GDScript = _Gunsmith()
+	if int(Gunsmith.call("bench_in_reach", world, actor)) >= 0 and int(Gunsmith.call("focus_of", world, actor)) < 0:
+		if _would_open_bench(world, actor, Gunsmith):
+			return {"verb": "open_bench", "target": -1, "prose": "open the bench"}
+	var face: Vector2i = _facing_tile(world, actor)
+	if SimTileMap.tile_at(world.tilemap, face.x, face.y) == SimTileMap.Tile.Window and _in_reach_tile(world, actor, face.x, face.y):
+		return {"verb": "window", "target": face, "prose": "board up the window"}
+	var here2: Vector2i = _tile_of(world, actor)
+	var alarm: Variant = _first(world, "alarmLine")
+	if alarm != null:
+		var line: Variant = world.components.get_component(int(alarm), "alarmLine")
+		if line is Dictionary and (_cell_in((line as Dictionary).get("cells", []), here2) or _cell_in((line as Dictionary).get("cells", []), face)):
+			if not bool((line as Dictionary).get("armed", false)):
+				return {"verb": "arm_alarm", "target": int(alarm), "prose": "arm the trip line"}
+			return {}
+	var bait: Variant = _first(world, "noisemaker")
+	if bait != null and _entity_in_reach(world, actor, int(bait)):
+		return {"verb": "wind", "target": int(bait), "prose": "wind the noisemaker"}
+	if can_lift_noise(world, actor):
+		return {"verb": "lift_noise", "target": -1, "prose": "take up the noise device"}
+	if can_scrap(world.tilemap, face.x, face.y) and carried_material(world, actor, recipe_kind("scrap")) >= 0 and world.components.query(["scrapBarricade"]).is_empty():
+		return {"verb": "scrap", "target": face, "prose": "raise a scrap barricade"}
+	if _empty_floor(world, face.x, face.y):
+		if alarm == null:
+			return {"verb": "alarm", "target": face, "prose": "lay a trip alarm"}
+		elif bait == null:
+			return {"verb": "noisemaker", "target": face, "prose": "set a noisemaker"}
+		elif int(Gunsmith.call("bench_in_reach", world, actor)) < 0 and material_count(world, actor, recipe_kind("bench")) >= int(Gunsmith.get("BENCH_SCRAP")):
+			return {"verb": "bench", "target": face, "prose": "build a bench"}
+	return {}
+
+
+# Whether `toggle_door` would open or close the door at this tile, asked without doing it: a
+# broken door refuses either way and a shut one always opens, so the only real question is whether
+# closing an open one would shut on somebody standing in the doorway. `_use_context`'s door rung and
+# `rung_of`'s gate for it share this rather than one trusting the other's side effect.
+static func _door_would_toggle(world: Variant, tx: int, ty: int) -> bool:
+	var d: Variant = door_state(world, tx, ty)
+	if not d is Dictionary or int((d as Dictionary).get("stage", 0)) >= DOOR_BROKEN:
+		return false
+	if bool((d as Dictionary).get("open", false)):
+		return not _tile_occupied(world, tx, ty)
+	return true
+
+
+static func _campfire_lit(world: Variant, fire: int) -> bool:
+	var cf: Variant = world.components.get_component(fire, "campfire")
+	return cf is Dictionary and bool((cf as Dictionary).get("lit", false))
+
+
+# Whether `SimNeeds.boil` would take rather than refuse, asked without spending the water: a lit
+# fire and something carried that names what it becomes when it is made safe. `_carried_treatable`
+# is needs.gd's own read of the pack, called rather than copied for the reason `carried_material`
+# below is not a second table.
+static func _would_boil(world: Variant, actor: int, fire: int) -> bool:
+	if not _campfire_lit(world, fire):
+		return false
+	var Needs: GDScript = load("res://sim/modules/needs.gd") as GDScript
+	if Needs == null or not Needs.has_method("_carried_treatable"):
+		return false
+	var found: Variant = Needs.call("_carried_treatable", world, actor)
+	return found is Dictionary and int((found as Dictionary).get("item", -1)) >= 0
+
+
+# Whether `SimNeeds.purify` would take: something carried that names what it becomes, and a
+# purifier with a use left in the same pack.
+static func _would_purify(world: Variant, actor: int) -> bool:
+	var Needs: GDScript = load("res://sim/modules/needs.gd") as GDScript
+	if Needs == null or not Needs.has_method("_carried_treatable") or not Needs.has_method("_carried_purifier"):
+		return false
+	var found: Variant = Needs.call("_carried_treatable", world, actor)
+	if not (found is Dictionary) or int((found as Dictionary).get("item", -1)) < 0:
+		return false
+	return int(Needs.call("_carried_purifier", world, actor)) >= 0
+
+
+# Whether `Gunsmith.open_bench` would take: the reach and the empty focus are already this
+# rung's own guard, and the one thing left to ask is whether `first_workpiece` finds anything
+# with an attachment slot to put on the bench at all -- `open_bench` itself refuses on exactly
+# that, and asking `SimAttachments.slots_of` here is the same read it would make, not a second
+# table of what counts as a workpiece.
+static func _would_open_bench(world: Variant, actor: int, gunsmith: GDScript) -> bool:
+	var item: int = int(gunsmith.call("first_workpiece", world, actor))
+	if item < 0:
+		return false
+	var Attachments: GDScript = load("res://sim/modules/attachments.gd") as GDScript
+	if Attachments == null or not Attachments.has_method("slots_of"):
+		return false
+	return not (Attachments.call("slots_of", world, item) as Array).is_empty()
+
+
 static func _use_context(world: Variant, actor: int) -> void:
 	# From the wheel, E means one thing: out. Nothing lower on this ladder is reachable from
 	# inside a car -- the body's position is the car's centre, so "nearest ground item" would
@@ -455,86 +603,56 @@ static func _use_context(world: Variant, actor: int) -> void:
 		else:
 			SimVehicles.mount(world, actor, car)
 		return
+	# Past the loot, the people and the car: one decision, `rung_of`, and the acting half below
+	# names each verb it can hand back. Sleep, the fire, a filter, the latrine, the bench, a
+	# window, the trap, the bait, a lift, the barricade -- the same ladder this used to decide and
+	# act on in one pass, now decided once and acted on here.
+	var rung: Dictionary = rung_of(world, actor)
 	var Needs: GDScript = load("res://sim/modules/needs.gd") as GDScript
-	if Needs != null:
-		var here: Vector2i = _tile_of(world, actor)
-		var hx: float = float(here.x) + 0.5
-		var hy: float = float(here.y) + 0.5
-		var bed: int = int(Needs.call("nearest_bed", world, hx, hy, false))
-		var fire: int = int(Needs.call("nearest_campfire", world, hx, hy, false))
-		# Same-tile bed wins so E sleeps; fire is the next reach target.
-		if bed >= 0 and _same_tile(world, actor, bed):
-			Needs.call("start_sleep", world, actor, bed)
-			return
-		if fire >= 0 and _entity_in_reach(world, actor, fire):
-			# A bottle of well water at a lit fire boils before the fire is touched; at an unlit
-			# one `boil` refuses and E lights it, so the next E boils -- the ladder, not a new key.
-			if bool((Needs.call("boil", world, actor, fire) as Dictionary).get("ok", false)):
-				return
-			Needs.call("toggle_fire", world, fire)
-			return
-		# No fire in reach, and that is the whole point of this rung: docs/04's other two routes to
-		# safe water -- filters and chemicals -- are the ones you can use standing in a stranger's
-		# kitchen. It sits *below* the fire because a fire costs nothing and a filter has a finite
-		# number of litres in it, and it is guarded by both halves (something untreated in the pack
-		# and something that treats it), so on a body carrying neither the ladder falls through to
-		# the latrine exactly as it always did.
-		if bool((Needs.call("purify", world, actor) as Dictionary).get("ok", false)):
-			return
-		# The latrine, before the reach-bed fallback: a bed you are merely near is somewhere to
-		# sleep later, and this is not something anybody is standing next to by accident.
-		var latrine: int = int(Needs.call("nearest_latrine", world, hx, hy))
-		if latrine >= 0 and _entity_in_reach(world, actor, latrine):
-			if bool(Needs.call("relieve_at", world, actor, latrine)):
-				return
-		if bed >= 0 and _entity_in_reach(world, actor, bed):
-			Needs.call("start_sleep", world, actor, bed)
-			return
-	# The bench, before the window and the traps: standing at one, E puts what is in your hands on
-	# it. It is the surface `item.attach` and `item.detach` have never had, and it goes on the
-	# ladder rather than on a key of its own for the reason the car did (docs/30, "Driving") --
-	# the sim decides what E means where you are standing.
 	var Gunsmith: GDScript = _Gunsmith()
-	if int(Gunsmith.call("bench_in_reach", world, actor)) >= 0 and int(Gunsmith.call("focus_of", world, actor)) < 0:
-		if bool(Gunsmith.call("open_bench", world, actor, int(Gunsmith.call("first_workpiece", world, actor)))):
-			return
-	var face: Vector2i = _facing_tile(world, actor)
-	if SimTileMap.tile_at(world.tilemap, face.x, face.y) == SimTileMap.Tile.Window and _in_reach_tile(world, actor, face.x, face.y):
-		_start(world, actor, "window", face.x, face.y)
-		return
-	var here: Vector2i = _tile_of(world, actor)
-	var alarm: Variant = _first(world, "alarmLine")
-	if alarm != null:
-		var line: Variant = world.components.get_component(int(alarm), "alarmLine")
-		if line is Dictionary and (_cell_in((line as Dictionary).get("cells", []), here) or _cell_in((line as Dictionary).get("cells", []), face)):
-			if not bool((line as Dictionary).get("armed", false)):
+	match String(rung.get("verb", "")):
+		"sleep":
+			if Needs != null:
+				Needs.call("start_sleep", world, actor, int(rung.get("target", -1)))
+		"boil":
+			if Needs != null:
+				Needs.call("boil", world, actor, int(rung.get("target", -1)))
+		"fire":
+			if Needs != null:
+				Needs.call("toggle_fire", world, int(rung.get("target", -1)))
+		"purify":
+			if Needs != null:
+				Needs.call("purify", world, actor)
+		"relieve":
+			if Needs != null:
+				Needs.call("relieve_at", world, actor, int(rung.get("target", -1)))
+		"open_bench":
+			Gunsmith.call("open_bench", world, actor, int(Gunsmith.call("first_workpiece", world, actor)))
+		"window":
+			var wt: Vector2i = rung.get("target", Vector2i(-1, -1))
+			_start(world, actor, "window", wt.x, wt.y)
+		"arm_alarm":
+			var line: Variant = world.components.get_component(int(rung.get("target", -1)), "alarmLine")
+			if line is Dictionary:
 				(line as Dictionary)["armed"] = true
-			return
-	var bait: Variant = _first(world, "noisemaker")
-	if bait != null and _entity_in_reach(world, actor, int(bait)):
-		var pos: Variant = world.components.get_component(int(bait), "position")
-		if pos is Dictionary:
-			_start(world, actor, "wind", floori(float((pos as Dictionary)["x"])), floori(float((pos as Dictionary)["y"])))
-		return
-	# The noise device you put down, after the free bait and before anything that builds: a thing
-	# you stood on a tile on purpose is a thing E takes back up. This is the half of the owner's
-	# 2026-09-12 decision that the floodlight deliberately does not have -- there is no verb that
-	# takes a planted floodlight down, and there is one here.
-	if lift_noise(world, actor):
-		return
-	if can_scrap(world.tilemap, face.x, face.y) and carried_material(world, actor, recipe_kind("scrap")) >= 0 and world.components.query(["scrapBarricade"]).is_empty():
-		_start(world, actor, "scrap", face.x, face.y)
-		return
-	if _empty_floor(world, face.x, face.y):
-		if alarm == null:
-			_start(world, actor, "alarm", face.x, face.y)
-		elif bait == null:
-			_start(world, actor, "noisemaker", face.x, face.y)
-		elif _Gunsmith().call("bench_in_reach", world, actor) < 0 and material_count(world, actor, recipe_kind("bench")) >= int(_Gunsmith().get("BENCH_SCRAP")):
-			# Last on the ladder and the only rung that is furniture: a gunsmithing bench, once
-			# the trap and the bait are down and there is scrap to spare. Standing at one already
-			# falls through, so E at a bench is never spent building a second.
-			_start(world, actor, "bench", face.x, face.y)
+		"wind":
+			var pos: Variant = world.components.get_component(int(rung.get("target", -1)), "position")
+			if pos is Dictionary:
+				_start(world, actor, "wind", floori(float((pos as Dictionary)["x"])), floori(float((pos as Dictionary)["y"])))
+		"lift_noise":
+			lift_noise(world, actor)
+		"scrap":
+			var st: Vector2i = rung.get("target", Vector2i(-1, -1))
+			_start(world, actor, "scrap", st.x, st.y)
+		"alarm":
+			var at: Vector2i = rung.get("target", Vector2i(-1, -1))
+			_start(world, actor, "alarm", at.x, at.y)
+		"noisemaker":
+			var nt: Vector2i = rung.get("target", Vector2i(-1, -1))
+			_start(world, actor, "noisemaker", nt.x, nt.y)
+		"bench":
+			var bt: Vector2i = rung.get("target", Vector2i(-1, -1))
+			_start(world, actor, "bench", bt.x, bt.y)
 
 
 static func _intake_verb(world: Variant, actor: int, c: Dictionary) -> void:
