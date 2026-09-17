@@ -154,6 +154,9 @@ switch (mode) {
   case "--m2-swipe":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_swipe.gd"];
     break;
+  case "--m2-hands":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_hands.gd"];
+    break;
   case "--m2-bench":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_bench.gd"];
     break;
@@ -442,6 +445,12 @@ switch (mode) {
   case "--play":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_play.gd"];
     break;
+  case "--context":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_context.gd"];
+    break;
+  case "--speech":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_speech.gd"];
+    break;
   case "--inventory":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_inventory.gd"];
     break;
@@ -470,6 +479,15 @@ switch (mode) {
       resolve(root, "godot"),
       "--script",
       "res://check_light_look.gd",
+    ];
+    break;
+  case "--memory":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_memory_look.gd",
     ];
     break;
   case "--road":

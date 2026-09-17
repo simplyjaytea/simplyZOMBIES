@@ -2992,3 +2992,63 @@ static func _hud_band(picks: Array[Dictionary], key: String, band: String, _pane
 				picks.append({"rank": 15, "hud": "You need a wash.", "panel": "You need a wash."})
 			"filthy":
 				picks.append({"rank": 5, "hud": "You're filthy.", "panel": "You're filthy. Don't cook. Don't treat."})
+
+
+# speech.gd's `speech.mutter.<band>` key: the band `hud_clause` would have named first, narrowed
+# to the seven this slice allows a mutter to name -- hungry, thirsty, tired, cold, hot, soaked,
+# shaken. Relief, hygiene and mood-turning are excluded on purpose: those are the HUD's own
+# business (docs/30's forthcoming entry), and a mutter naming "unwashed" or "mood is turning" out
+# loud would be a wider claim than a bubble is meant to make. Same rank numbers `_hud_pool` and
+# `_hud_band` use for the same pools, so a mutter and the HUD line can never quietly disagree about
+# which reading is worse -- and the same reason `hud_clause`'s stimulant/slept/soiled rows have no
+# band here: none of those seven keys covers them, and inventing an eighth for a slice that named
+# exactly seven would be smuggling in a piece nobody asked for. "" when nothing here is worth
+# saying, which is a fed, rested, dry, temperate, ungrieving colonist -- the common case.
+static func worst_band(world: Variant, entity: int) -> String:
+	var n: Dictionary = of(world, entity)
+	var crisis: String = String(n.get("crisis", "none"))
+	var picks: Array[Dictionary] = []
+	var hunger: float = float(n.get("hunger", 100.0))
+	if crisis == "starving" or hunger <= 0.0:
+		picks.append({"rank": 2, "band": "hungry"})
+	elif hunger < SOFT:
+		picks.append({"rank": 12, "band": "hungry"})
+	elif hunger <= SEEK_STOP:
+		picks.append({"rank": 22, "band": "hungry"})
+	var thirst: float = float(n.get("thirst", 100.0))
+	if crisis == "dehydrating" or thirst <= 0.0:
+		picks.append({"rank": 1, "band": "thirsty"})
+	elif thirst < SOFT:
+		picks.append({"rank": 11, "band": "thirsty"})
+	elif thirst <= SEEK_STOP:
+		picks.append({"rank": 21, "band": "thirsty"})
+	var rest: float = float(n.get("rest", 100.0))
+	if crisis == "passed_out" or rest <= 0.0:
+		picks.append({"rank": 3, "band": "tired"})
+	elif rest < SOFT:
+		picks.append({"rank": 13, "band": "tired"})
+	elif rest <= SEEK_STOP:
+		picks.append({"rank": 23, "band": "tired"})
+	match String(n.get("temperature", "comfortable")):
+		"a_little_cold":
+			picks.append({"rank": 24, "band": "cold"})
+		"very_cold":
+			picks.append({"rank": 14, "band": "cold"})
+		"extremely_cold":
+			picks.append({"rank": 4, "band": "cold"})
+		"a_little_hot":
+			picks.append({"rank": 24, "band": "hot"})
+		"very_hot":
+			picks.append({"rank": 14, "band": "hot"})
+		"extremely_hot":
+			picks.append({"rank": 4, "band": "hot"})
+	if int(n.get("wetUntilTick", -1)) > int(world.tick):
+		picks.append({"rank": 20, "band": "soaked"})
+	if world.modifiers != null:
+		var mood: float = float(world.modifiers.call("resolve", "mood", entity))
+		if float(n.get("grief", 0.0)) >= GRIEF_HEARD and mood > -80.0:
+			picks.append({"rank": 45, "band": "shaken"})
+	if picks.is_empty():
+		return ""
+	picks.sort_custom(func(a, b): return int(a["rank"]) < int(b["rank"]))
+	return String(picks[0]["band"])

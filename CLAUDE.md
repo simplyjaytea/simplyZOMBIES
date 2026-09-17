@@ -83,6 +83,7 @@ npm run godot:m2:balance # the balance harness, fast tier → M2_BALANCE_OK (~4.
 npm run godot:m2:sight   # sightlines and memory     → M2_SIGHT_OK
 npm run godot:m2:attach  # attachment slots          → M2_ATTACH_OK
 npm run godot:m2:ammo    # calibers, and what a round changes → M2_AMMO_OK
+npm run godot:m2:hands   # bare hands, never actually empty  → M2_HANDS_OK
 npm run godot:m2:wounds  # severity, the bleed clock  → M2_WOUNDS_OK
 npm run godot:m2:treatment # pressure and bandaging   → M2_TREATMENT_OK
 npm run godot:m2:medicine  # supply grades: antibiotics, painkillers, a cure for illness → M2_MEDICINE_OK
@@ -108,9 +109,12 @@ npm run godot:ban:healthbar  # the health-bar ban   → BAN_HEALTH_BAR_OK
 npm run godot:check:appearance # the sprite pipeline → APPEARANCE_OK
 npm run godot:check:hud      # HUD speaks in prose   → HUD_OK
 npm run godot:check:play     # the gate that plays it: boots the scene, presses keys → PLAY_OK
+npm run godot:check:context  # the right-click menu, and walk-here → CONTEXT_OK
+npm run godot:check:speech   # speech bubbles: a line said, and who says it → SPEECH_OK
 npm run godot:check:respond  # the antibiotics word  → RESPOND_OK
 npm run godot:check:camera   # smoothed follow, shake → CAMERA_OK
 npm run godot:check:light    # sight-derived wash, lit ∩ seen pools → LIGHT_LOOK_OK
+npm run godot:check:memory   # the afterimage, and the remembered map dimmed → MEMORY_LOOK_OK
 npm run godot:check:road     # street manifest, paint, palette, rubble → ROAD_LOOK_OK
 npm run godot:check:water    # deep water solid and clear, the ford slow and loud → WATER_OK
 npm run godot:m2:region      # four districts in one space, each identical to itself → M2_REGION_OK

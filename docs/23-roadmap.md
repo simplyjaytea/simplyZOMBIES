@@ -502,6 +502,25 @@ the order they land:
 - *Named, not in the arc:* **a seed you can type** (the web build has no command line, so the
   fixed town is the only town it can boot).
 
+**After the shell — the owner's four asks, 2026-09-17.** Playing the alpha shell, the owner
+asked for four things, and answered the design questions each raised the same day
+([docs/30](30-decisions.md#what-the-owner-asked-for-after-the-shell-2026-09-17)): sight that does
+not cut — an afterimage where a body was last seen and a remembered map, the cone's angles
+unchanged; bare hands that punch, weakly, and still count as unarmed; a right-click menu that
+offers only what the sim would accept on what was clicked, walk-here included; and speech
+bubbles — authored lines for the player and the colonists, sound-words for the dead, and
+colonists muttering their needs — over focal bodies only and never a name. Serial on `main.gd`,
+in this order; each lands with its own gate:
+
+- ~~**Bare hands**~~ — **landed** 2026-09-17, see the record (`npm run godot:m2:hands` →
+  `M2_HANDS_OK`).
+- ~~**The afterimage and the remembered map**~~ — **landed** 2026-09-17, see the record
+  (`godot:m2:sight` KINDS and EXPLORED; `npm run godot:check:memory` → `MEMORY_LOOK_OK`).
+- ~~**The right-click menu, and walk-here**~~ — **landed** 2026-09-17, see the record
+  (`npm run godot:check:context` → `CONTEXT_OK`).
+- ~~**Speech bubbles**~~ — **landed** 2026-09-17, see the record (`npm run godot:check:speech`
+  → `SPEECH_OK`).
+
 **Art & renderer — overcast or torchlight, decided by the owner (2026-09-08), on the Dungeon
 Settlers spine.** The direction is docs/30's "Overcast or torchlight": a hybrid that keeps the
 pawn, wall, roof, tree and vehicle spine and takes Zero Sievert's world — the grade, density,
@@ -520,11 +539,9 @@ projection stays flat top-down; 32 px a tile stays.
   lifts off blue-black to a dark grey so the district sits in weather rather than in a cave.
   docs/30's entry gets the clause-by-clause "what the warm grade becomes" the 2026-09-03 entry
   gave the overcast one.
-- **The remembered map, dimmed.** Tiles the survivor has seen persist desaturated from the
-  sightings and `memory` tint the sim already keeps; bodies are never drawn in them; a tile
-  never seen stays the void. `check_light_look.gd`'s draw ⊆ seen becomes draw ⊆ seen ∪
-  remembered with the true negative that a never-seen tile is refused, and the anonymity
-  clause holds because memory holds no bodies.
+- ~~**The remembered map, dimmed.**~~ — **landed** 2026-09-17 inside the "After the shell"
+  group's afterimage piece, see the record (`npm run godot:check:memory` → `MEMORY_LOOK_OK`;
+  `godot:m2:sight`'s EXPLORED lane).
 - **The wall face hangs south.** Every wall tile whose south neighbour is open ground draws its
   cap in its own tile and a one-tile face over the tile to the south, the face a member of the
   entity y-sort at the wall's ground point so a body on that tile draws over it, the way a body
@@ -10135,6 +10152,216 @@ not a to-do list:
   whatever the first lands on, so a turn costs the stream the same whatever the district is built
   like; `ALARM_METRES` 8, distance only and no sightline, because what it gates is standing still
   rather than shooting; and the willing one recruiting for free, which is the plan's first cut.
+
+- **After the shell** — ~~bare hands~~ **landed** 2026-09-17 (`npm run godot:m2:hands` →
+  **`M2_HANDS_OK`**, six lanes). With nothing equipped, `F` and the click did nothing:
+  `melee.intake` queries `["swing", "meleeWeapon", "controlled"]` and an empty hand had no
+  `meleeWeapon` at all, so the command fell through, and an NPC's only answer to standing unarmed
+  was a Rearm walk that could find nothing. Now `SimCombat.BARE_HANDS` — reach 1.0 m, weight
+  0.6, damage 4, stagger 6, speed 1.3, recovery 0.8, stamina 0.7, the ordinary connect noise,
+  `source` −1 (the value a bite already sends, so the wear handler needs no new case), `blocked`
+  "", and `unarmed: true` — is set by `SimMelee.ensure_hands` after the kit equips in
+  `spawn_unique`, `spawn_generated`, `spawn_settler` and `boot_playable`, and comes back the
+  instant a weapon leaves the primary slot (the unequip handler used to remove `meleeWeapon` and
+  `swing`; it removes the profile and calls `ensure_hands`). **`SimMelee.is_unarmed` is the one
+  predicate** — no `rangedWeapon`, and no `meleeWeapon` or one flagged `unarmed` — and the two
+  readers that used to ask "is there a `meleeWeapon`" ask it instead: `SimJobs._unarmed` (the
+  Rearm trigger) and `check_m2_balance.gd`'s `_unarmed_colonists` (the ARMED assertion, which
+  would otherwise have read every boot as fully armed forever and never gone red again).
+  `SimAttachments.refusal_clause` skips a `source` −1 profile before it can look item −1 up.
+  Raiders deliberately do not get hands this slice (their re-arm reasoning at `raiders.gd`'s kit
+  comment is its own record). The lanes: **HANDS** (a booted survivor with nothing equipped
+  carries `unarmed: true`, a `swing` winds up and `attack.connected` lands on a shambler ahead at
+  `BARE_HANDS.damage × the live melee_damage modifier`; the same body with a bat lands the bat's
+  number, and unequipping the bat returns hands, never an absent component), **PREDICATE** (true
+  for hands, false for a bat, false for hands beside a pistol), **READERS** (textual: the
+  isolated bodies of `_unarmed` and `_unarmed_colonists` each call `SimMelee.is_unarmed(`, with
+  comments stripped first so a comment cannot satisfy the needle, and the scanner proved on a
+  fabricated body), **REARM** (an unarmed colonist with a bat 3 m away takes the Rearm job; the
+  same colonist armed never does), **NOISE** (a punch is heard at `MELEE_CONNECT_NOISE` from the
+  puncher), **SPAWN** (every colonist `SimBoot.playable` boots carries a `meleeWeapon`, and
+  stripping one's kit moves the unarmed count 0 → 1, so the ARMED assertion still can). READERS
+  and REARM were run red with `_unarmed` reverted to the raw component check before being
+  trusted. **One existing lane re-read:** `check_m2_npc_combat.gd`'s REARM asserted "not picked
+  back up" as `not has_component("meleeWeapon")`, which hands made permanently true; it asks the
+  primary slot by item id now, which is what the words meant. **And a second, in
+  `check_m2_raiders.gd`'s PREY arena**, which "disarmed" a raider with `SimInventory.unequip` and
+  expected the shambler to eat it: the unequip now hands out fists, and a fist-fighting raider
+  punching every seven ticks at stagger 6 never let the claw finish its twenty-tick wind-up —
+  measured with a driver, fifteen punches and a dead shambler at tick 123, no claw landed — which
+  is exactly the stagger-lock the armed arm of that lane is written around for the machete
+  (stagger 5, a blow every twelve to eighteen ticks). The arena strips the hands too now,
+  *after* its drain (the `item.unequipped` handler runs at the drain, so a removal ahead of it
+  removes nothing — CLAUDE.md's trap, paid again), so it still proves a person who cannot keep
+  a zombie off is eaten. Two behaviour changes worth naming:
+  `npc_combat`'s "reach first" branch — *a shambler at arm's length is a melee problem even for
+  someone holding a bow* — is live for an archer now, because the archer has hands; and
+  `skills.gd`'s kill credit by `meleeWeapon` presence credits a punch kill to Melee, accepted.
+  **Balance, re-read** (`godot:m2:balance`, fast tier, inside the green chain): survivors
+  3 / 1 / 3 / 2 of 3 on the four seeds, unchanged from the standing baseline (3 / 1 / 3 / 2);
+  grabs 123 / 174 / 0 / 147 against the baseline's 117 / 145 / 0 / 154, deaths 1 / 4 / 0 / 4.
+  Every band held and no invariant moved. Read plainly: a colonist punching instead of standing
+  empty-handed does not change who survives ten days on the FAST tier; the grabs moved on two
+  seeds because a punch staggers and a stagger breaks a hold, which is the mechanic and not a
+  drift.
+
+- **After the shell** — ~~the afterimage and the remembered map~~ **landed** 2026-09-17
+  (`godot:m2:sight` gains **KINDS** and **EXPLORED**; `npm run godot:check:memory` →
+  **`MEMORY_LOOK_OK`**, chained after `godot:check:light`), and it absorbs the art group's
+  ~~the remembered map, dimmed~~. The jar the owner named was two clocks disagreeing: the sim
+  remembered a body for two minutes in three bands, and the renderer drew an 8 px dot fading over
+  its own private `MEMORY_TICKS = 60` while every tile outside the shadowcast cut to black the
+  frame it left. **Sim:** `SimSightings._observe_one` records **every body** (query `body` +
+  `position`, the observer excluded, the dead still erased when watched falling) and each record
+  carries a `kind` — `zombie`, `raider`, `person` — with a missing kind reading `zombie`, the only
+  kind an older save could hold, so no `SAVE_VERSION` bump. `remembered()` takes an optional
+  `kinds` filter; `clause()` (the HUD's "one of them, east") and `freshest_within()` (what
+  `npc_combat._shoot_where_it_was` fires at) ask for `HOSTILE_KINDS` only, so a remembered
+  colonist is never "one of them" and nobody shoots at where Mara was. The remembered map is a
+  per-observer `explored` component — `{w, h, bits}`, a base64 bitset over the map, a String
+  and never a `PackedByteArray` (CLAUDE.md's trap) — merged from the shadowcast's own
+  `VisibleTiles` only on the tick that cast recomputed: `SimVisibility` bumps a `cast_gen` on
+  every recast and exposes `cast_generation(observer)`, and the observer's `sightings` record
+  keeps the generation it last merged (`exploredGen`, on the record, not a static). Every
+  observer with sightings keeps one, so succession hands the camera to a colonist with their own
+  map. **Presentation:** `_last_look` caches the picture of every body drawn at Focal — look,
+  gear layers, flip — and `_draw_afterimages()` (called from `_draw` after `_draw_entities`)
+  blits that frozen picture at the **sim's remembered x, y** for every remembered row the player
+  can no longer see, at `afterimage_alpha(age) = 1 − age / FRESH_TICKS`, so the picture is gone
+  the moment the HUD stops saying "a moment ago"; a body only ever glimpsed has no picture and
+  fades as the anonymous disc. The mark then fades over `RECENT_TICKS`; the renderer's private
+  constant is deleted. `_blit_body`'s gear layers borrow the body tint's alpha now (they drew
+  white at full alpha, which was invisible until a body needed to fade under them). The tile loop
+  draws a tile that is in `explored` but not in `seen` through the same two `match` arms with its
+  colour through `Palette.remembered()` (a lerp toward the new `rememberedTint`, then darkened)
+  and no paint, kerb or scatter; roofs, trees and parked vehicles take the same tint through a
+  composite seen ∪ explored view; bodies, ground items and props never draw on a remembered tile.
+  The lanes — **KINDS** (a shambler and a colonist in view record `zombie` and `person`; the
+  clause reads "one of them" with the colonist closer; `freshest_within` returns the shambler
+  despite range; a colonist alone yields "" and null), **EXPLORED** (a tile in the cast is known
+  after one tick, a tile behind the wall run never, the bits survive walking away and a
+  `SimSave` encode/decode round trip, and a second observer's map is its own), and in the look
+  gate **CACHE** (a Focal body is cached, one directly behind the player is not), **AFTERIMAGE**
+  (the fade's ceiling, floor and midpoint; a body that leaves view stays remembered and the frame
+  still finishes; textually, `_draw_afterimages` reads `SimSightings.remembered(` and never
+  `get_component(` — scanner proved on a fabricated body), **MAP** (a walked-away tile stays
+  known and the frame draws; `_draw_district` reaches `Palette.remembered(` with exactly one
+  `continue` kept) and **NO-BODIES** (the item, prop and body branches still gate on `Focal` and
+  bail on `Unseen`). Cost, measured on the full 256-tile district with a driver (deleted): the
+  same 2,000 ticks after a 200-tick warm-up on the commit before this slice and on this one,
+  under the same load, read 27.2 and 27.1 ticks/s — the merge, the wider observe and the kind
+  are inside the noise (the absolute figure is a loaded container, another worker's gates running
+  beside it, not the quiet 55–83 the record measures the district at). A region map is the size
+  ceiling: 912² tiles is 104 KB of bitset per observer in the save.
+
+- **After the shell** — ~~the right-click menu, and walk-here~~ **landed** 2026-09-17
+  (`npm run godot:check:context` → **`CONTEXT_OK`**, four lanes, chained after
+  `godot:check:play`). Every verb was a key and the mouse could only aim, attack and select; the
+  owner asked for a menu a new player can play from, and took walk-here with it. **The sim
+  decides the rows.** `godot/sim/context.gd`'s `SimContext.verbs_at(world, actor, hit)` builds
+  `{text, command}` rows off the modules' own predicates and nothing else — `work_panel.gd`'s
+  rule, a row present iff the sim would accept the command behind it, nothing greyed and nothing
+  explained: `pick up the <name>` (`item.pickup`, new, by id, inside `PICKUP_REACH`), `open the
+  <cupboard>` (`container.open`, which now takes an id and falls back to the nearest for E),
+  `open the door` / `shut the door` (`door.toggle`, new, through `_in_reach_tile` and
+  `toggle_door`), the fortify rung's own prose when `rung_of`'s target is the thing clicked
+  (`use.context`), the car's `get in` / `get on` / `look under the hood` / `fill the tank`
+  when `nearest_in_reach` is the car clicked (`use.context`), `press`/`dress`/`clean`/`stitch`
+  `<name>'s <part>` from `options_for` on a colonist (`treat.begin`), `pull <name> free` when
+  `rescue_target` is that colonist (`rescue`), `talk to them` for a waiting recruit or stranger
+  (`use.context`), `attack` on a zombie or raider (the screen turns it into `aim` and then
+  `fire` or `swing`, exactly as the left click does), `look at <name>` on a colonist (selection,
+  no command — a click never orders a person, because that is the micromanagement cliff Risk 1
+  is measuring), `walk here` / `walk over` on any walkable tile that is not your own
+  (`walk.to`), and on your own tile `make camp here` or `strike the camp` and `shout`. Names
+  come from `identity.name` the way the HUD's do; every text is digit-free.
+  **Walk-here is a command the stick cancels.** `walk.to {tx, ty}` puts a `walkTo` record on the
+  controlled body and the new `player.walk-to` system (`input`, order 2) steps it with
+  `SimWalk.step` — the stepper raiders and strangers already use, which re-plans when the map
+  generation moves and opens the door in its way — at `World.move_speed_of(entity)`, the `move`
+  arm's own stance × surface × modifier arithmetic extracted so there is one copy (R1 parity is
+  byte-identical, `npm run godot:test`). **Any `move` command removes it**, zero or not, so a key
+  always beats a click; arrival or no route removes it too, which is why an unreachable click
+  costs one failed A* (the 132 ms `jobs.gd` measured) once and never again. **The screen:**
+  `Pick.pick_at` says what is under the cursor — a body (zombies and raiders included, Focal
+  only, the anonymity rule the colonist pick already kept), a ground item (Focal), a cupboard,
+  prop, vehicle or door on a seen *or remembered* tile, else the tile itself — and
+  `godot/ui/context_menu.gd` is the loot window's shape: a Control sized exactly to the drawn
+  menu (`ItemMenu.draw_menu` and `verb_rects`, reused), `MOUSE_FILTER_STOP` only while open, so
+  everything outside it still reaches the world; `input_map.gd` opens it on a right click under
+  the `street` focus, and any left click that reaches the router while it is open closes it and
+  is swallowed (one press, one meaning — a click that closes a menu never also swings), as does
+  any key that reaches the street — a movement key still walks, and **Escape is spent on the
+  menu**: it closes and the pause menu does not rise on the same press, which the first screenshot
+  pass caught (the Escape that closed the menu paused the game) and the RIGHT-CLICK lane now holds
+  with its negative (with no menu open, Escape must still pause). The legend gains the
+  `Right-click` row and `check_play.gd`'s KEYS lane knows it lives in `_unhandled_input` beside
+  `Click`. Screenshots for the owner, driven and captured by a throwaway `SceneTree` script
+  (deleted): `.hermes/plans/2026-09-17_after-the-shell/` — the shout's bubble, a shambler's
+  sound-word and the menu's `attack` / `walk here` rows over it, the afterimage a second and six
+  seconds after looking away, and the remembered map once the player has walked on. The lanes:
+  **VERBS** (an item
+  in reach offers `pick up`, the same item ten metres away offers `walk over` and not `pick up`;
+  a shut door offers `open the door` and an open one `shut the door`; a colonist offers `pull …
+  free` only while grabbed; a shambler offers `attack`; your own tile offers `shout`, and
+  `make camp here` only where `can_establish`; a wall tile offers nothing; every text is
+  digit-free with the scanner proved on a fabricated `"walk 3 m"`), **DISPATCH** (the pickup
+  lands the item in the pack, the door toggles, `walk.to` carries the body to within half a
+  metre and removes `walkTo`, a `move` pushed mid-walk removes it and the body stops where it
+  was pushed, a routeless `walk.to` is gone on the first tick), **SPEED** (`move_speed_of`
+  equals the velocity the `move` arm writes for the same stance and ground, read off the
+  component), and **RIGHT-CLICK** (the booted scene opens the menu on a Focal shambler with an
+  `attack` row, a left click on that row pushes `aim` and `swing` and closes it, a right click
+  under the open sheet opens nothing, and a left click off the menu closes it and pushes no
+  swing). The one ergonomic rule worth writing down: the row you can see and the row you can
+  click are one arithmetic (`verb_rects` beside `draw_menu`), which is the inventory sheet's rule
+  since the treatment words landed.
+
+- **After the shell** — ~~speech bubbles~~ **landed** 2026-09-17 (`npm run godot:check:speech` →
+  **`SPEECH_OK`**, six lanes, chained after `godot:check:context`). Nobody spoke: the shout was
+  a noise, a grab was a component, the chronicle was a corner column. **Sim:**
+  `godot/sim/modules/speech.gd` (`SimSpeech`) keeps a `saying {text, since, until}` component on
+  the speaker — a flat record of a String and two ints, so a save carries it — set by
+  `say(world, ent, key, ticks)` from an authored line under `speech.<key>` in
+  `content/speech/lines.json` (a new content kind with its own `speech.schema.json`, registered
+  in `content_validator.gd`'s list and `_type_of_path`; the frozen oracle ignores the directory
+  and `npm test` is green), drawn on its own `speech` RNG stream, expired by `speech.expire`.
+  The triggers are subscriptions, the speaker the entity the event names: `shouted` (new, the
+  `shout` arm in `world.gd` publishes it beside its noise), `grab.started` (the victim),
+  `grab.broken` with cause `rescue` (the rescuer), `treatment.begun` (the treater, never when
+  treating yourself), `survivor.joined`, `zombie.noticed` (new, `shambler.gd` publishes it on the
+  edges out of Wander into Seek or Pursue, rate-limited by a `noticedAt` stamp to one per 200
+  ticks), `zombie.screamed` (new, `screamer.gd` beside its alarm); `speech.hail` says `hail`
+  once per waiting recruit or stranger the moment the controlled body first comes into its
+  reach (`hailed: true` on the recruit record); `speech.mutter` rolls `MUTTER_P` 0.15 every
+  `MUTTER_EVERY` 400 ticks per NPC colonist with needs and says `mutter.<band>` for the band
+  `SimNeeds.worst_band` names — a new reader beside `hud_clause` returning one of hungry /
+  thirsty / tired / cold / hot / soaked / shaken off the same ranked picks, "" when nothing is
+  worth saying, so a fed, rested colonist never mutters and the controlled body never does.
+  Fifteen keys, thirty lines, every one digit-free and nameless and none saying anything the
+  hardcore contract hides; zombies get sound-words ("hhrrrh…", "RRAAAGH—"). **Presentation:**
+  `_draw_entities` appends `{id, sx, sy, r}` to `_focal_drawn` after the body blit, which is
+  after the Peripheral bail, so only bodies drawn at Focal and the player can carry a bubble;
+  `_draw_bubbles()` (from `_draw`, after the afterimages and before the weather) draws a dark
+  plate with a tail above the head in `Chrome`'s skin at `TAG_SIZE`, wrapped at 200 px, fading
+  over the last 20 ticks, zombies in the dim text — no transform anywhere (`check_topdown`'s
+  counter stays at zero). This is spoken words over a focal body and never a name; docs/30's
+  entry says why it sits beside the name-plate refusal rather than amending it. The lanes:
+  **SAY** (a key sets a line from content, an unknown key sets nothing, the line expires on
+  schedule), **TRIGGERS** (each event makes its named entity speak the right key and nobody
+  else; a `noise.emitted` alone speaks for nobody; treating yourself says nothing; the hail
+  fires once per recruit and never out of reach; and the three new publish sites are proved
+  through the real mechanism — a pushed `shout`, a real shambler's Wander → Pursue edge, a real
+  screamer's alarm — rather than a hand-built event), **CONTENT** (every key in
+  `SimSpeech.KEYS` has an entry with at least one digit-free, nameless line; scanner proved on a
+  fabricated body), **MUTTER** (a starving NPC mutters "I could eat." within 4,000 ticks, a fed
+  one and the controlled body never — the lane latches the first read every tick, because a
+  line that lasts sixty ticks is gone by the time a loop ends, the drain trap one step further
+  down the same road), **SAVE** (`saying` survives a `SimSave` round trip) and **READER**
+  (textual, isolated: `_draw` calls `_draw_bubbles()` after `_draw_entities()`, `_draw_bubbles`
+  reads `"saying"` and `_focal_drawn`, and the append sits after the Peripheral bail). Nothing
+  the balance harness measures moves: a bubble is a component with words and the shout's noise
+  is untouched.
 
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not

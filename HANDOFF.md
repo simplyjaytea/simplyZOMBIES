@@ -1087,6 +1087,17 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    rule) moves and is re-measured. The branch carries its gate, its record and both measurement
    tables, and merges the moment one of the three is picked.
 
+8. **The four asks' first-cut numbers** (2026-09-17, docs/30's "What the owner asked for after
+   the shell"). The owner picked the shape of each piece; the numbers inside were taken in the
+   session and are each one line if re-decided. **Bare hands** (`SimCombat.BARE_HANDS`): reach
+   1.0 m, weight 0.6, damage 4 (three to a shambler's head, fifteen to its torso), stagger 6,
+   speed 1.3, recovery 0.8, stamina 0.7, the ordinary connect noise. **The afterimage** fades
+   over the sim's `FRESH_TICKS` (ten seconds) and the mark over `RECENT_TICKS` (a minute) — those
+   are the prose's own bands, deliberately not new constants; if the picture should linger
+   longer, the band moves and the HUD's "a moment ago" moves with it. **The mutters**
+   (`SimSpeech.MUTTER_EVERY` 400 ticks, `MUTTER_P` 0.15): a colonist in a need band speaks about
+   once every two minutes; a line's horizon is `SAY_TICKS` 60 (three seconds), a scream 40.
+
 ## How a session runs
 
 The loop is [CLAUDE.md's workflow section](CLAUDE.md#the-workflow), in eight steps: orient in the
