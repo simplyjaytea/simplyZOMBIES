@@ -502,6 +502,33 @@ the order they land:
 - *Named, not in the arc:* **a seed you can type** (the web build has no command line, so the
   fixed town is the only town it can boot).
 
+**After the shell — the owner's four asks, 2026-09-17.** Playing the alpha shell, the owner
+asked for four things, and answered the design questions each raised the same day
+([docs/30](30-decisions.md#what-the-owner-asked-for-after-the-shell-2026-09-17)): sight that does
+not cut — an afterimage where a body was last seen and a remembered map, the cone's angles
+unchanged; bare hands that punch, weakly, and still count as unarmed; a right-click menu that
+offers only what the sim would accept on what was clicked, walk-here included; and speech
+bubbles — authored lines for the player and the colonists, sound-words for the dead, and
+colonists muttering their needs — over focal bodies only and never a name. Serial on `main.gd`,
+in this order; each lands with its own gate:
+
+- **Bare hands.** `SimCombat.BARE_HANDS` on every survivor whose hands are empty, flagged
+  `unarmed` so `SimMelee.is_unarmed` is the one predicate the re-arm job and the balance gate's
+  ARMED assertion read. `npm run godot:m2:hands` → `M2_HANDS_OK`.
+- **The afterimage and the remembered map.** `SimSightings` remembers every body with a kind
+  (the HUD's clause and the NPC's recall keep asking for hostiles only) and keeps a per-observer
+  `explored` bitset; the renderer draws the last-seen picture fading over the fresh band, the
+  mark over the recent band, and the explored tiles dimmed — bodies never. `godot:m2:sight`
+  grows KINDS and EXPLORED; `npm run godot:check:memory` → `MEMORY_LOOK_OK`. This absorbs
+  the art group's **the remembered map, dimmed** below.
+- **The right-click menu, and walk-here.** `SimContext.verbs_at` builds the rows off the
+  modules' own predicates; `walk.to` is a command the stick cancels; `Pick.pick_at` says what is
+  under the cursor. `npm run godot:check:context` → `CONTEXT_OK`.
+- **Speech bubbles.** `SimSpeech` says an authored line from `content/speech/` on a trigger
+  (the shout, a grab, a rescue, first aid, a recruit, a hail, a zombie noticing you, a scream) and
+  colonists mutter the band `hud_clause` already speaks; the renderer draws it over focal bodies
+  only. `npm run godot:check:speech` → `SPEECH_OK`.
+
 **Art & renderer — overcast or torchlight, decided by the owner (2026-09-08), on the Dungeon
 Settlers spine.** The direction is docs/30's "Overcast or torchlight": a hybrid that keeps the
 pawn, wall, roof, tree and vehicle spine and takes Zero Sievert's world — the grade, density,
