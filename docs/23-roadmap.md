@@ -489,19 +489,11 @@ the order they land:
 - ~~**The shell**~~ — **landed**, see the record.
 - ~~**The HUD in the chrome**~~ — **landed**, see the record.
 - ~~**The dev menu reaches a raider band and a stranger**~~ — **landed**, see the record.
-- **The capability walkthrough.** One scripted drive per item on the owner's bar through the
-  play gate's harness, with a screenshot: move and interact, drive a car, loot a cupboard, wield
-  and fire, fight a shambler, fight a raider, make camp, recruit, open the inventory and read a
-  wound, open the web, die and succeed, reach run-over and start again; Ctrl+S on the published
-  web build checked by hand, since the browser's own binding cannot be proved headless. What
-  fails becomes a named defect here, fixed if small and in scope, named if not. The result is the
-  alpha's record: which item is proved by which lane, and which is not. **First pass landed**
-  2026-09-16, see the record: the ten items that do not need the shell (move and interact,
-  drive, loot, wield and fire, fight a shambler, fight raiders, camp, recruit, the inventory and
-  the body, the skill web) all proved, with a screenshot per item under
-  `.hermes/plans/2026-09-16_alpha-walkthrough/`. **Waiting on the second pass**: die and succeed,
-  reach run-over and start again, and the Ctrl+S web-build check — all four sit behind **The
-  shell** above and cannot be driven until it lands.
+- ~~**The capability walkthrough**~~ — **landed** 2026-09-16, see the record: the second pass drove
+  the five items that needed the shell (die and succeed, reach run-over and start again, the
+  pause menu, the title on a fresh boot, and Ctrl+S on the published web build), and re-ran the
+  first pass's ten against this head. All fifteen of the owner's bar items are proved; the
+  record's closing table names the lane or screenshot for each.
 - *Named, not in the arc:* **a seed you can type** (the web build has no command line, so the
   fixed town is the only town it can boot).
 
@@ -7690,6 +7682,151 @@ not a to-do list:
   "wield and fire a weapon" lane. **The second pass** — die and succeed, reach run-over and start
   again, Ctrl+S on the web build — waits on **The shell** above; the what's-left entry says so
   rather than striking a bullet four fifths done.
+- **The alpha shell** — the capability walkthrough, second pass, 2026-09-16. A second throwaway
+  `godot/walkthrough_driver2.gd` (deleted before this commit, same discipline as the first pass)
+  booted `presentation/main.tscn` the same way the first pass and `check_play.gd` do —
+  `root.push_input` for every key, `main.call("_process", 1.0/20.0)` for ticks, `_boot()` pressing
+  Enter for "new run" and then Escape for the legend now that the shell sits in front of both —
+  and drove the five items that sat behind **The shell**, plus a quick re-check of the first
+  pass's ten against this head.
+
+  - **die and succeed** — a `zombie.shambler` spawned at the player's own feet, then two
+    `attack.connected` events published straight onto the bus (attacker the shambler,
+    `bodyPart: "head"`, `damage: 8.0` twice — `SimHealth.BITE_DAMAGE`, the same ceiling a real
+    bite carries, delivered directly rather than waited on the live grab/bite roll, whose
+    `HELD_HIT_LOCATION_WEIGHTS` collapses the head's own share to nearly nothing inside a
+    grapple). The "real cause through the sim" option the task names, run through the same
+    `damage_part -> entity.killed -> health.reap -> finish_death -> SimRecruits.handle_death`
+    chain a live bite would, with the attacker and the body part chosen rather than rolled. Two
+    frames apart on purpose, CLAUDE.md's drain-timing trap paid for deliberately: the first
+    tick's `drain()` is what runs `damage_part` and zeroes the head, appending the player to
+    `health.gd`'s `killed` closure; only the *next* tick's `health.reap` system calls
+    `finish_death`. With Ellis and Mara both still standing, `_succession_pick` prefers
+    `survivor.unique.mara` by name and `_handoff` moves `world.player` onto her (entity 94, was
+    0), sets `controlled`, and leaves `runOver` false — Ellis is still up, so the run does not
+    end. The observables: `world.player` changed and the old body a corpse with nothing else
+    disturbed; the chronicle (`SimChronicle.lines`, the "outside" card) reads `["You are Mara
+    Sato now.", "The colony saw it happen.", "Someone is dead."]` — a death line and a
+    succession line, in that order, exactly `chronicle.gd`'s `_line_of` "died"/"succeeded"
+    cases (the task's own text says the "you" card names the new body; what actually carries the
+    name is the "outside" card's chronicle line, since `_self_lines`' name only ever differs from
+    plain "You" when the inspected actor is *not* `world.player` — corrected here rather than
+    left to read as if the "you" card had said "Mara"); and the pawn ring and its condition tag
+    (`main.gd`'s `it["player"]`, `HudRead.pawn_tag`) are both keyed off `world.player` rather than
+    a stored id, so the screenshot's ring is already on Mara's body. Screenshot
+    `11_die_and_succeed.png`.
+  - **reach run-over and start again** — the whole colony corpsed except the player, matching
+    `check_play.gd`'s own RUN-OVER lane (every other colonist a `corpse` component, nobody left
+    to hand the camera to), then `SimRecruits.handle_death(world, int(world.player))` called
+    directly — the sanctioned fallback the task names, used here because item 11 just proved the
+    live-succession half of this same call and this item's job is the *screen*, not a second
+    kill. With no heir, `handle_death` sets `world.runOver = true`; the next real frame's
+    `main.gd`'s own `_process` (not the driver) reads it and enters `RUN_OVER`, so the
+    transition is the game's own code. Session state `RUN_OVER`, the shell visible, and ten more
+    frames leave `world.tick` exactly where it was — the clock is frozen. The shell's `lines()`
+    read `["There is nobody left to be."]`, digit-free, matching `SimChronicle.epitaph(world,
+    5)`. Screenshot `12_run_over.png`. Pressing Enter on "new run" (row 0 of `RUN_OVER`'s two
+    rows) hands back a *different* world object — the identity check `check_play.gd`'s own lane
+    insists on — that is not itself over, in state `PLAYING`, and ticks ten times in the next ten
+    frames.
+  - **the pause menu** — Escape from the street opened the menu (state `PAUSED`); each row was
+    walked from a freshly reopened menu (`show_state` resets `cursor` to 0 every time it opens,
+    so a row is reached with N presses of S/Down rather than a remembered cursor): **resume**
+    (row 0) returned to `PLAYING`; **save** (row 1) wrote `user://simplyzombies.save.json` and
+    returned to `PLAYING`; **load** (row 2) read it back without losing the run (`world.player`
+    unchanged); **settings** (row 3) opened `_settings` over the closed menu (`_shell.close()`
+    first, per `_on_shell_action`'s own comment about the focus order) and Escape closed it and
+    raised the menu again (`_close_settings`'s `_show_shell()`); **quit to title** (row 4) wrote
+    the save a second time (the run was live and not over) and entered `TITLE`. The title's rows
+    are now `["new run", "continue", "quit"]` — `has_continue` reads the slot `quit_to_title`
+    just wrote — and that is the required screenshot, `13_pause_menu.png`. Pressing "continue"
+    resumed at the same tick and the same player id the menu was opened at.
+  - **the title** — a fresh boot (`_remove_save()` first) opens on state `TITLE` over a world
+    that is not ticking, rows `["new run", "quit"]` (no `continue`: nothing to offer). Screenshot
+    `14_title.png` — the walkthrough's own copy beside the shell agent's
+    `.hermes/plans/2026-09-16_alpha-shell/title.png`, so the walkthrough's set is complete on its
+    own rather than borrowing that one.
+  - **Ctrl+S on the published web build** — `SETUP_EXPORT_TEMPLATES=1 bash
+    scripts/setup-web-session.sh` reached the network on this container and installed 4.7.1's
+    templates in about eight seconds; `npm run godot:export:web` built `dist-godot/web/`.
+    Playwright's own npm package here does not match the browser revision already unpacked at
+    `/opt/pw-browsers` (it asks for a `-1234` revision; the container has `-1194`), so the smoke
+    script's bare `chromium.launch()` fails outright — a throwaway driver
+    (`ctrl_s_web_driver.mjs`, deleted before this commit) launched with an explicit
+    `executablePath: "/opt/pw-browsers/chromium-1194/chrome-linux/chrome"` instead. It served
+    `dist-godot/web/` over a local static server (`scripts/smoke-godot-exports.mjs`'s own
+    pattern), waited for the `GODOT_R1_READY` console line, pressed Enter on the title and
+    Escape to peel the legend, then Ctrl+C to crouch (off the boot default "walking", so Ctrl+S
+    has somewhere to return from) and screenshotted, then focused the canvas, pressed Ctrl+S, and
+    screenshotted again. Both halves the task asks for: **(a)** no `download` event, no `dialog`
+    event, and the page's own URL unchanged — the browser's native "Save Page As" did not fire;
+    **(b)** the paperdoll's stance word (`ui/paperdoll.gd`'s `_pose_for_stance` / `SimStances.
+    name_of`, the same digit-free label the health-bar ban leaves standing) reads "crouching"
+    before and "walking" after, so the keystroke reached the game as `Ctrl+S -> stand` rather
+    than being swallowed. Screenshots `15_ctrl_s_web_before.png` and `15_ctrl_s_web_after.png`.
+    **The caveat the task itself names is still live**: headless Chromium may not intercept the
+    OS-level "Save Page As" accelerator the way a real desktop browser's chrome does — the whole
+    reason this item was written as "checked by hand" rather than gated — so a positive result
+    here says the keystroke was not silently eaten in *this* browser and *this* mode, not that no
+    real browser will ever grab it first. Treated as proved by the headless proxy the task
+    allows, one hand check on a real desktop browser short of the thing itself.
+
+  And a quick recheck of the first pass's ten, a second boot per item against this head, using
+  the same techniques: **move and interact** — held D moved the body 2.10 m in twenty frames,
+  release moved it 0.00 m further. **drive** — E at a parked vehicle (off
+  `SimVehicles.spawn_from_manifest`'s own list) set `mounted`. **loot** — E on a `searchable`
+  opened it; `container.takeAll` pushed as before. **wield and fire** — a debug-spawned
+  `item.pistol.service` and `item.ammo.9mm`, picked up, `item.equip`, `reload`, `fire` — the
+  pistol carries a `rangedWeapon` component afterward. **fight a shambler** — a
+  `zombie.shambler` at melee range; forty presses of F left its own torso integrity at 41.3 from
+  68.0 (a swing at a zombie does not wound the swinger, so this recheck reads the zombie's own
+  body rather than the first pass's read of the player's). **fight raiders** — a two-man
+  `band.2`; the first pass's own note about a stationary target held here too until the band was
+  kept at melee range between presses (one raider stepped back on its own after the first tick,
+  plausibly kiting for its own ranged weapon rather than trading blows) — with that correction, F
+  landed a hit inside thirty presses. **make camp** — C moved `SimHome.centre` from
+  (125.0, 123.0) to (120.5, 117.5). **recruit** — the debug-spawned stranger's own entity id (off
+  the `debug.spawned` event, not "the" first `recruit`-tagged body a query happens to return: this
+  seed's settlers-camp arc already had one of its own waiting at the gate from boot, and the
+  first cut of this recheck accepted *her* by mistake before being corrected to track the
+  spawned id) went from `recruit: {waiting: true}` to no `recruit` component at all and colony
+  rose from 2 to 3. **inventory and the body** — Tab still opens the sheet. **the skill web** — K
+  still opens it. All ten still reachable; nothing first pass proved has moved, including the
+  door and loose-item lanes — "the ladder names its rung" (the record above) added HUD text for
+  the *lower* rungs (sleep, the fire, a filter, the latrine, a bench, the trap, the bait, a lift,
+  a barricade); the door and the loose item were already among the *upper* rungs with their own
+  read models before that slice, so their action-bar line is unchanged and no first-pass
+  screenshot needed retaking.
+
+  One environment observation, not a game defect: every boot during the ten-item recheck (which
+  never calls `_remove_save()`) found a save slot on the shared `user://` already refusing to
+  decode (`"this is not a save"`, `Expected 'true', 'false', or 'null', got 'this'`) — a fixture
+  some other process on this box had left there mid-test, exactly the shape `check_play.gd`'s own
+  NOTICE lane exercises on purpose. `main.gd` absorbed it the same way every time (the console
+  shows the decode error; the title simply does not offer "continue"), and it never touched any
+  of the ten items — `_remove_save()` at the top of items 11 through 14 cleared it for the rest of
+  this run. No new defect surfaced this pass.
+
+  **No gate changed** with this piece either — `npm run godot:smoke` and `npm run check:routing`
+  both stayed green. All fifteen of the owner's bar items are now proved:
+
+  | # | Item | Proved by |
+  |---|---|---|
+  | 1 | move and interact | first pass, `01_move_interact.png`; re-driven this pass (held D moved, release stopped) |
+  | 2 | drive a car | first pass, `02_drive.png`; re-driven this pass (E mounted a manifest vehicle) |
+  | 3 | find loot | first pass, `03_loot.png`; re-driven this pass (E opened a searchable, `container.takeAll`) |
+  | 4 | wield and fire a weapon | first pass, `04_wield_fire.png`; re-driven this pass (equip, reload, fire) |
+  | 5 | fight a shambler | first pass, `05_fight_shambler.png`; re-driven this pass (the zombie's own torso integrity fell) |
+  | 6 | fight raiders | first pass, `06_fight_raiders.png`; re-driven this pass (`attack.connected` landed) |
+  | 7 | make camp | first pass, `07_camp.png`; re-driven this pass (`SimHome.centre` moved) |
+  | 8 | recruit | first pass, `08_recruit.png`; re-driven this pass (the spawned stranger's `recruit` component cleared) |
+  | 9 | the inventory and the body | first pass, `09_inventory_body.png`; re-driven this pass (Tab opened the sheet) |
+  | 10 | the skill web | first pass, `10_skill_web.png`; re-driven this pass (K opened it) |
+  | 11 | die and succeed | second pass, `11_die_and_succeed.png` (`world.player` changed, chronicle's succession line, another colonist still up) |
+  | 12 | reach run-over and start again | second pass, `12_run_over.png` (state `RUN_OVER`, frozen clock, digit-free epitaph, "new run" a different ticking world) |
+  | 13 | the pause menu | second pass, `13_pause_menu.png` (all five rows walked; title offers "continue" after quit-to-title) |
+  | 14 | the title | second pass, `14_title.png` (fresh boot, state `TITLE`, no `continue` offered) |
+  | 15 | Ctrl+S on the published web build | second pass, `15_ctrl_s_web_before.png` / `15_ctrl_s_web_after.png` (headless Playwright proxy: no download/dialog/navigation, stance word "crouching" -> "walking"; a hand check on a real desktop browser is the one thing this does not stand in for) |
 - **Death & succession** — ~~the colony morale hit on a death~~ **landed** (`godot:m2:needs`,
   GRIEF and ONCE), leaving the balance-grid proof that "the run ends only when the last survivor
   dies". docs/04 lists **grief** and **witnessing a death** as two separate negative mood sources
