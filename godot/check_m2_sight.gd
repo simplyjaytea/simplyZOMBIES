@@ -27,6 +27,7 @@ const SimVisibility = preload("res://sim/vision/visibility.gd")
 const SimLight = preload("res://sim/modules/light.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const SimStancesRes = preload("res://sim/stances.gd")
+const SimSave = preload("res://sim/save.gd")
 
 const MAP_TILES: int = 24
 const WALL_X: int = 12
@@ -50,6 +51,8 @@ func _run() -> void:
 	ok = _the_visibility_path_reads_eye_of() and ok
 	ok = _a_hostile_behind_the_observer_is_not_recorded() and ok
 	ok = _observe_one_reads_detail_not_line_of_sight() and ok
+	ok = _kinds_are_recorded_and_only_hostiles_are_a_threat() and ok
+	ok = _the_remembered_map_marks_the_cast_and_survives_a_save() and ok
 	if ok:
 		print("M2_SIGHT_OK sight memory prose recall, and a zombie sees what is lit at night")
 		quit(0)
@@ -614,4 +617,124 @@ func _observe_one_reads_detail_not_line_of_sight() -> bool:
 		push_error("BEHIND-READER: _observe_one still calls line_of_sight alongside detail")
 		return false
 	print("BEHIND-READER OK _observe_one (lines %d-%d) reads detail, not line_of_sight" % [start + 1, end])
+	return true
+
+
+# --- KINDS ---------------------------------------------------------------------------------
+#
+# Slice 2, sight memory. `_observe_one` used to query `["shambler", "position"]` alone, so a
+# colonist glimpsed and then lost behind a building left no trace an NPC or the HUD could read.
+# Every body with a `body` and a `position` now qualifies, tagged with a `kind`, and `clause()`
+# and `freshest_within` narrow back down to the two hostile kinds -- a remembered colonist must
+# never read as a threat, on the HUD or down an NPC's barrel.
+
+func _colonist(w: Variant, x: float, y: float) -> int:
+	var ent: int = int(w.entities.spawn())
+	w.components.set_component(ent, "position", {"x": x, "y": y})
+	SimHealth.make_survivor_body(w, ent)
+	return ent
+
+
+func _kinds_are_recorded_and_only_hostiles_are_a_threat() -> bool:
+	var w: Variant = _world(false)
+	SimSurvivors.give_eyes(w, w.player)
+	var z: int = _zombie(w, 16.5, 12.5)
+	# Closer to the player than the shambler is -- if the exemption below fell through, this is
+	# the body a naive "closest thing remembered" would pick instead.
+	var person: int = _colonist(w, 12.5, 12.5)
+	w.step()
+
+	var z_row: Variant = SimSightings.recall(w, w.player, z)
+	var p_row: Variant = SimSightings.recall(w, w.player, person)
+	if not z_row is Dictionary or String((z_row as Dictionary)["kind"]) != "zombie":
+		push_error("KINDS: the shambler's own record does not carry kind zombie (%s)" % str(z_row))
+		return false
+	if not p_row is Dictionary or String((p_row as Dictionary)["kind"]) != "person":
+		push_error("KINDS: the colonist's own record does not carry kind person (%s)" % str(p_row))
+		return false
+
+	var clause: String = SimSightings.clause(w, w.player)
+	if not clause.contains("one of them"):
+		push_error("KINDS: with one hostile and one colonist in view, the clause reads '%s', not 'one of them'" % clause)
+		return false
+	var closest: Variant = SimSightings.freshest_within(w, w.player, 20.0)
+	if not closest is Dictionary or int((closest as Dictionary)["entity"]) != z:
+		push_error("KINDS: freshest_within with a colonist standing closer than the shambler returned %s, not the shambler" % str(closest))
+		return false
+
+	# The negative: the same colonist, alone -- nothing hostile left to report or fire at. Without
+	# this, the exemption above could just as well be "the shambler happened to win," proving
+	# nothing about the colonist being filtered rather than merely outranked.
+	var w2: Variant = _world(false)
+	SimSurvivors.give_eyes(w2, w2.player)
+	_colonist(w2, 12.5, 12.5)
+	w2.step()
+	if SimSightings.clause(w2, w2.player) != "":
+		push_error("KINDS: a colonist alone in view produced a clause -- a remembered person read as a threat")
+		return false
+	if SimSightings.freshest_within(w2, w2.player, 20.0) != null:
+		push_error("KINDS: freshest_within returned a colonist -- an NPC would fire at somebody on its own side")
+		return false
+	print("KINDS OK zombie=zombie person=person clause='%s' (colonist excluded), freshest=shambler despite range, colonist-alone=quiet" % clause)
+	return true
+
+
+# --- EXPLORED --------------------------------------------------------------------------------
+#
+# The remembered map: a per-observer bitset over every tile the shadowcast has ever reached,
+# merged only on the tick the cast actually recomputes (SimVisibility.cast_generation). Walking
+# away must not clear a bit -- that is the whole point, `main.gd`'s dimmed street outside the
+# current cone -- and a save is a JSON round trip, which is exactly where a PackedByteArray
+# component would come back wrong and a base64 String does not (CLAUDE.md's packed-array trap).
+
+func _the_remembered_map_marks_the_cast_and_survives_a_save() -> bool:
+	var w: Variant = _world(true, true)
+	SimSurvivors.give_eyes(w, w.player)
+	w.step()
+
+	# True positive: a tile beside the observer, and one reached only through the open doorway.
+	if not SimSightings.knows_tile(w, w.player, 8, DOOR_Y):
+		push_error("EXPLORED: a tile well inside the observer's own cast was never marked explored")
+		return false
+	if not SimSightings.knows_tile(w, w.player, 16, DOOR_Y):
+		push_error("EXPLORED: the tile seen through the doorway was never marked explored")
+		return false
+	# The negative: a tile behind the solid run of wall, off the door row, that the shadowcast
+	# never reaches at all.
+	if SimSightings.knows_tile(w, w.player, 16, DOOR_Y - 8):
+		push_error("EXPLORED: a tile behind a solid wall run reads explored -- the shadowcast never reached it")
+		return false
+
+	# Walk away: the bit must stay set once the observer can no longer see the tile.
+	w.components.set_component(w.player, "position", {"x": 2.5, "y": 2.5})
+	for i in 5:
+		w.step()
+	if bool(w.vision.call("can_see", w.player, 16.5, float(DOOR_Y) + 0.5)):
+		push_error("EXPLORED: the observer can still see the far tile -- the walk-away control proves nothing")
+		return false
+	if not SimSightings.knows_tile(w, w.player, 16, DOOR_Y):
+		push_error("EXPLORED: a tile explored earlier was forgotten once the observer walked away")
+		return false
+
+	# The save round trip: real JSON text, not a Dictionary handed back to itself -- the trap a
+	# PackedByteArray component falls into and a base64 String does not.
+	var text: String = SimSave.encode_save(SimSave.create_save(w))
+	var decoded: Dictionary = SimSave.decode_save_or_throw(text)
+	w.restore(decoded["snapshot"] as Dictionary)
+	if not SimSightings.knows_tile(w, w.player, 16, DOOR_Y):
+		push_error("EXPLORED: the remembered map did not survive a save/load round trip")
+		return false
+
+	# A second observer's map is its own: sharing the world and the tick is not sharing memory.
+	var second: int = int(w.entities.spawn())
+	w.components.set_component(second, "position", {"x": 2.5, "y": 2.5})
+	w.components.set_component(second, "facing", {"radians": 0.0})
+	SimHealth.make_survivor_body(w, second)
+	SimSurvivors.give_eyes(w, second)
+	SimSightings.attach(w, second)
+	w.step()
+	if SimSightings.knows_tile(w, second, 16, DOOR_Y):
+		push_error("EXPLORED: a second observer who never stood near the doorway already knows the far tile -- the maps are not per-observer")
+		return false
+	print("EXPLORED OK the cast marks explored tiles, a wall run is never marked, the map survives walking away and a save round trip, and a second observer keeps its own")
 	return true

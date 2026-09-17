@@ -475,6 +475,15 @@ switch (mode) {
       "res://check_light_look.gd",
     ];
     break;
+  case "--memory":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_memory_look.gd",
+    ];
+    break;
   case "--road":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_road_look.gd"];
     break;

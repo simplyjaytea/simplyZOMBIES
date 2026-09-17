@@ -112,6 +112,7 @@ npm run godot:check:play     # the gate that plays it: boots the scene, presses 
 npm run godot:check:respond  # the antibiotics word  → RESPOND_OK
 npm run godot:check:camera   # smoothed follow, shake → CAMERA_OK
 npm run godot:check:light    # sight-derived wash, lit ∩ seen pools → LIGHT_LOOK_OK
+npm run godot:check:memory   # the afterimage, and the remembered map dimmed → MEMORY_LOOK_OK
 npm run godot:check:road     # street manifest, paint, palette, rubble → ROAD_LOOK_OK
 npm run godot:check:water    # deep water solid and clear, the ford slow and loud → WATER_OK
 npm run godot:m2:region      # four districts in one space, each identical to itself → M2_REGION_OK

@@ -112,6 +112,11 @@ func refresh(world: Variant, map: Variant, sight_mul: float = 1.0) -> void:
 				"cos_focal": 1.0, "cos_peripheral": 1.0,
 				"range_squared": 0.0,
 				"full_squared": 0.0, "lit_target": false, "light": null,
+				# Bumped every time the shadowcast below actually recomputes. The remembered-map
+				# merge (SimSightings) pays for a base64 decode/re-encode only on the tick this
+				# changes -- `cast_generation` is its read of the same counter, so a body that has
+				# not moved costs that merge nothing.
+				"cast_gen": 0,
 			}
 			_views[entity] = view
 
@@ -130,6 +135,7 @@ func refresh(world: Variant, map: Variant, sight_mul: float = 1.0) -> void:
 			vd["range_tiles"] = range_tiles
 			vd["eye"] = eye
 			vd["gen"] = gen
+			vd["cast_gen"] = int(vd["cast_gen"]) + 1
 			recomputes += 1
 
 		(view as Dictionary)["x"] = float((pos as Dictionary)["x"])
@@ -173,6 +179,17 @@ func _sight_metres(world: Variant, observer: Dictionary, x: float, y: float) -> 
 	if light_idx != null:
 		lit = light_idx.lit_metres(x, y)
 	return min(float(observer["range_metres"]), max(ambient, lit))
+
+
+## How many times this observer's shadowcast has actually recomputed, or -1 for an observer with
+## no view at all (never refreshed). A body standing still reads the same number tick after tick;
+## the remembered-map merge in `sightings.gd` uses that to skip its own cost on every tick but the
+## one where the geometry genuinely changed.
+func cast_generation(observer: int) -> int:
+	var v: Variant = _views.get(observer)
+	if v == null:
+		return -1
+	return int((v as Dictionary).get("cast_gen", 0))
 
 
 func tiles_for(observer: int) -> Variant:
