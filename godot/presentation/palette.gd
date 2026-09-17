@@ -97,6 +97,12 @@ const COLOURS: Dictionary = {
 	# deliberately drab and deliberately visible, never a thing to rely on.
 	"prop": Color("#6a5c4c"),
 	"memory": Color("#454a38"),
+	# What a tile, a tree or a parked car is pulled towards once it has left the current cone but
+	# not the observer's memory of it -- the remembered map (docs/23, "The remembered map,
+	# dimmed"). A muted, slightly cooler cousin of `memory`'s own dot rather than the same key
+	# reused, so the two can move independently: one is a mark on the ground, this is a filter
+	# over everything the street still remembers looking like.
+	"rememberedTint": Color("#393d30"),
 	# The roof a known building draws over the interior the survivor cannot see, when the
 	# building's look names a material nobody has drawn yet -- the supported fallback, one warm
 	# dark slab. A material with art draws its own sheet (dressing/street.json's `roofs`). The
@@ -272,6 +278,31 @@ const AIM_EDGE_DIM: float = 0.7
 # a drift the way `INDOOR_MIX` leaves the surface showing through a board floor, and not 0.0 --
 # a cover that changes nothing is a dead socket. The owner's call, 2026-09-06.
 const SNOW_COVER_MAX: float = 0.55
+
+# How far a remembered tile, tree or vehicle is pulled towards `rememberedTint`, and how much
+# darker the result is besides: one function (`remembered`, below), so the whole memory look tunes
+# by two numbers rather than one authored colour per material. Not 1.0 -- the surface still has to
+# read as itself, the way `INDOOR_MIX` leaves a floor's own surface showing through its board mix
+# -- and not 0.0, which would be the memory look's own dead socket.
+const REMEMBERED_MIX: float = 0.45
+const REMEMBERED_DARKEN: float = 0.30
+
+
+# A colour as the remembered map draws it: pulled towards `rememberedTint` and darkened, alpha
+# untouched (Color.darkened leaves it alone) so this works equally on an opaque tile fill and on a
+# translucent modulate for a tree or a parked car's texture. One function for every arm the tile
+# loop's `match` picks a colour with, so a remembered street is a filter over the same picture
+# rather than a second one authored per material.
+static func remembered(col: Color) -> Color:
+	var target: Color = COLOURS["rememberedTint"] as Color
+	var mixed := Color(
+		lerpf(col.r, target.r, REMEMBERED_MIX),
+		lerpf(col.g, target.g, REMEMBERED_MIX),
+		lerpf(col.b, target.b, REMEMBERED_MIX),
+		col.a,
+	)
+	return mixed.darkened(REMEMBERED_DARKEN)
+
 
 # Four tints indexed by PartState (Unhurt 0..Unusable 3), read by the inventory panel and the
 # paperdoll.

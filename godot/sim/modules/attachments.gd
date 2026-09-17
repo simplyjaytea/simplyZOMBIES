@@ -735,6 +735,12 @@ static func refusal_clause(world: Variant, entity: int) -> String:
 		var w: Variant = world.components.get_component(entity, comp)
 		if not w is Dictionary:
 			continue
+		# Hands (combat.gd's BARE_HANDS, `source: -1`) are never blocked -- `blocked` stays "" and
+		# the loop below would already continue past them -- but the guard is explicit rather than
+		# relying on that: a profile with no real item behind it must never reach
+		# `item_base_of`, which is a lookup by item id, not by weapon kind.
+		if int((w as Dictionary).get("source", -1)) == -1:
+			continue
 		var reason: String = String((w as Dictionary).get("blocked", ""))
 		if reason == "":
 			continue

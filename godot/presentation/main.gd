@@ -14,6 +14,7 @@ const Appearance = preload("res://presentation/appearance.gd")
 const HudRead = preload("res://ui/hud.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
 const ItemGlyph = preload("res://presentation/item_glyph.gd")
+const Chrome = preload("res://ui/chrome.gd")
 # The tag beside the player's body: big enough to read at a glance mid-fight, small enough that it
 # is not competing with the HUD's own columns.
 const TAG_SIZE: int = 20
@@ -50,7 +51,25 @@ const UiPrefs = preload("res://ui/prefs.gd")
 const TICK_HZ: int = 20
 const TICK_SECONDS: float = 1.0 / 20.0
 const NIGHT_WASH: float = 0.8
-const MEMORY_TICKS: int = 60
+# The small memory dot at the end of `_draw_entities` used to fade over its own three-second
+# clock; it now fades over `SimSightings.RECENT_TICKS`, the sim's own "worth mentioning, not worth
+# trusting" band, so the mark on screen and a colonist's decision to still be wary are the same
+# recollection (docs/23, "The remembered map, dimmed"). The literal constant is gone rather than
+# kept beside the sim's -- two clocks for one fade is exactly the drift this slice closes.
+
+## A presentation-only duck-typed view over two tile sets at once: `has_tile` is true wherever
+## either one says so. Trees and parked vehicles stand in the entity sort on a subset of what the
+## observer can see -- this widens "can see" to "can see or remembers", so a car parked outside a
+## remembered building still stands there, dimmed, and `Dressing.tree_tiles` /
+## `Dressing.vehicle_records` need no second code path to ask for it.
+class CompositeSeen extends RefCounted:
+	var seen: Variant = null
+	var explored: Variant = null
+
+	func has_tile(tx: int, ty: int) -> bool:
+		if seen != null and bool((seen as Object).call("has_tile", tx, ty)):
+			return true
+		return explored != null and bool((explored as Object).call("has_tile", tx, ty))
 # The run's own state -- the world, the map, the district and region it stands in, the four-state
 # machine and the save slot -- lives in `presentation/session.gd` since the alpha shell (docs/30,
 # 2026-09-16). It used to be six vars and four methods on this file.
@@ -100,6 +119,7 @@ var _settings: Control = null
 var _shell: Control = null
 var _debug_panel: Control = null
 var _bench_panel: Control = null
+var _context_menu: Control = null
 var _selected: int = -1
 
 # paperdoll glimpse state (bottom-right diagram, not world sprite)
@@ -154,6 +174,22 @@ var _vehicle_index_gen: int = -1
 # what invalidates it -- see _dressing.
 var _dressing_cache: Dictionary = {}
 var _dressing_from: Variant = null
+# Entity id -> the look a Focal body drew this frame: `{look, equip, flip}`, from
+# `Appearance.for_entity`, `equipment_layers_for` and `Appearance.body_flip` at the moment the body
+# was last actually blitted. Presentation-only and never read by the sim -- `_draw_afterimages`
+# blits the same picture, frozen, at the position `SimSightings.remembered` still holds once the
+# body itself is Unseen, so a wall's afterimage is what the observer's memory looked like, not a
+# stale copy of live components (there is no live copy: a despawned body leaves this be). A
+# Peripheral glimpse never writes here, so a body only ever glimpsed has no picture to fade -- the
+# anonymity clause holds even in memory. Cleared on every world replace.
+var _last_look: Dictionary = {}
+# Every Focal body's `{id, sx, sy, r}` this frame, and the player's own -- cleared at the top of
+# `_draw_entities` and appended right after that body's blit, so a body only ever glimpsed
+# Peripherally (which bailed to the anonymous disc before reaching the blit) is never in it.
+# `_draw_bubbles` is the one reader: a speech bubble is drawn only over a body this list names,
+# which is what keeps the name-plate refusal's peripheral-anonymity clause holding for words the
+# same way it already holds for the afterimage's picture.
+var _focal_drawn: Array[Dictionary] = []
 var _content_poll_at: float = -1e9
 # The content tree as last seen by the reload poll; a reload happens only when this moves.
 var _content_fingerprint: int = 0
@@ -285,6 +321,10 @@ func _on_world_replaced() -> void:
 	_fingerprint = ""
 	_fingerprint_at = -1e9
 	_content_error = ""
+	_last_look = {}
+	_focal_drawn = []
+	if _context_menu != null:
+		_context_menu.call("close")
 	tick_count = 0
 	# The frame that replaced the world is still carrying the last one's tick debt; spending it
 	# on the new world would run a handful of ticks before the player has seen the street.
@@ -502,6 +542,15 @@ func _ensure_ui() -> void:
 		_shell.visible = false
 		_shell.set("on_action", _on_shell_action)
 		layer.add_child(_shell)
+	# The right-click street menu, added last so sibling order draws it over everything else on
+	# this layer -- harmless, because `input_map.gd` only ever opens it under focus street, which
+	# is exactly when nothing else on this layer is visible to be drawn over.
+	var context_script: GDScript = load("res://ui/context_menu.gd") as GDScript
+	if context_script != null:
+		_context_menu = context_script.new() as Control
+		_context_menu.name = "ContextMenu"
+		_context_menu.set("main", self)
+		layer.add_child(_context_menu)
 
 func _on_ui_prefs_changed() -> void:
 	if _inventory_panel != null and _inventory_panel.has_method("refresh_style"):
@@ -553,6 +602,46 @@ func _set_inventory_open(open: bool) -> void:
 	# noise.
 	if _paperdoll != null:
 		_paperdoll.visible = not open
+
+
+# The right-click menu. `input_map.gd` has already asked `Pick.pick_at` and `SimContext.verbs_at`
+# -- this only ever opens what the sim already decided, exactly the hand-off `_strip_use` below
+# makes to the inventory panel.
+func _open_context_menu(pos: Vector2, _hit: Dictionary, rows: Array[Dictionary]) -> void:
+	if _context_menu != null:
+		_context_menu.call("open", pos, rows)
+
+
+# What a click on a row means. Every row but two carries a real command in `row.command` and this
+# pushes it verbatim -- one hand-off, not a second vocabulary the menu invented. The two
+# exceptions are named in `SimContext.verbs_at`'s own header: `{}` is "look at", which is
+# presentation's to answer (the same selection a left click on a colonist already makes) rather
+# than the sim's, and `attack.context` is a marker for the two commands a swing actually needs
+# (`aim`, then whichever of `fire`/`swing` is in hand) rather than a command `world.gd` itself
+# would recognise.
+func _context_pick(row: Dictionary) -> void:
+	if world == null:
+		return
+	var command: Dictionary = row.get("command", {}) as Dictionary
+	var target: int = int(row.get("target", -1))
+	if command.is_empty():
+		_selected = -1 if target == int(world.player) else target
+		_update_hud()
+		queue_redraw()
+		return
+	if String(command.get("type", "")) == "attack.context":
+		var at_pos: Variant = world.components.get_component(target, "position")
+		var my_pos: Variant = world.components.get_component(int(world.player), "position")
+		if at_pos is Dictionary and my_pos is Dictionary:
+			var dx: float = float((at_pos as Dictionary)["x"]) - float((my_pos as Dictionary)["x"])
+			var dy: float = float((at_pos as Dictionary)["y"]) - float((my_pos as Dictionary)["y"])
+			world.commands.push({"type": "aim", "radians": atan2(dy, dx)})
+		if world.components.has_component(int(world.player), "rangedWeapon"):
+			world.commands.push({"type": "fire"})
+		else:
+			world.commands.push({"type": "swing"})
+		return
+	world.commands.push(command)
 
 
 # The strip's keys. The panel owns the mapping -- it draws the same six rows it spends -- so this
@@ -969,6 +1058,8 @@ func _draw() -> void:
 	_draw_district()
 	_draw_light_pools()
 	_draw_entities()
+	_draw_afterimages()
+	_draw_bubbles()
 	_draw_rain()
 	_draw_lightning()
 	_draw_fog()
@@ -990,6 +1081,9 @@ func _draw_district() -> void:
 	var seen: Variant = null
 	if world.vision != null:
 		seen = world.vision.tiles_for(int(world.player))
+	# The remembered map: everything the player's own shadowcast has ever reached, dimmed rather
+	# than black once the current cone has moved past it (docs/23, "The remembered map, dimmed").
+	var explored: Variant = SimSightings.explored_view(world, int(world.player))
 	var bounds: Dictionary = TopDownProjection.visible_bounds(camera, 2.0)
 	var min_x: int = maxi(0, floori(float(bounds["minX"])))
 	var max_x: int = mini(int(world.map_width) - 1, ceili(float(bounds["maxX"])))
@@ -1001,9 +1095,16 @@ func _draw_district() -> void:
 	var snow_cover: float = SimWeather.snow_cover(world)
 	for ty in range(min_y, max_y + 1):
 		for tx in range(min_x, max_x + 1):
-			# Walls block sight: only draw tiles the player has a sightline to (windows stay Clear).
-			if seen != null and not (seen as Object).call("has_tile", tx, ty):
-				continue
+			# Walls block sight: draw a tile the player has a sightline to (windows stay Clear), or
+			# one they no longer do but have stood inside before -- dimmed, below -- and skip a
+			# tile that is neither: a tile never cast is a tile never drawn.
+			var live: bool = seen == null or bool((seen as Object).call("has_tile", tx, ty))
+			var remembered: bool = false
+			if not live:
+				if explored != null and bool((explored as Object).call("has_tile", tx, ty)):
+					remembered = true
+				else:
+					continue
 			var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(tx) + 0.5, float(ty) + 0.5)
 			var rect := Rect2(roundf(float(sc["sx"]) - half), roundf(float(sc["sy"]) - half), zoom, zoom)
 			var tile: int = SimTileMap.Tile.Floor
@@ -1054,6 +1155,11 @@ func _draw_district() -> void:
 			elif world.is_blocked_tile(tx, ty):
 				col = Palette.COLOURS["wall"]
 				tile = SimTileMap.Tile.Wall
+			# A remembered tile draws through the same arms below with a muted, darker version of
+			# whatever colour they would have picked -- one mix, applied once, rather than a second
+			# colour authored per material.
+			if remembered:
+				col = Palette.remembered(col)
 			match tile:
 				SimTileMap.Tile.Wall, SimTileMap.Tile.Screen:
 					# A wall in a building with a look draws its material: the cap seen from
@@ -1132,6 +1238,12 @@ func _draw_district() -> void:
 					if _is_threshold(tx, ty):
 						_draw_threshold(rect, floor_col, tx, ty)
 						_draw_door_face(rect, dress, tx, ty)
+					elif remembered:
+						# A remembered street is a memory of a surface, not a memory of the litter
+						# on it: no road paint, no dash, no kerb, no scrap -- the scatter this arm
+						# draws below is texture for a place you can see right now, and a tile out
+						# of the current cone gets the plain, dimmed floor and nothing painted on it.
+						_draw_floor_tile(rect, floor_col, tx, ty, Appearance.ground_row_for(world.tilemap, tx, ty, false))
 					else:
 						# The road dressing, composed over the same rect: RoadPaint.mask_for
 						# (cached per map in _road_mask) says what this tile of pavement is, a
@@ -1168,7 +1280,7 @@ func _draw_district() -> void:
 	# The roofs, over the interiors the survivor cannot see: they fill tiles the loop above
 	# skipped as unseen, so a roof draws where the screen was black and never where the sim
 	# can see (RoofLook.roof_tiles is the rule; check_roof_look.gd holds it both ways).
-	_draw_roofs(dress, seen, bounds)
+	_draw_roofs(dress, seen, explored, bounds)
 	# Props last, over the ground and under the bodies _draw_entities sorts: a container, a bed,
 	# a campfire and the well all stood invisible in this district until this call existed.
 	_draw_props()
@@ -1608,7 +1720,7 @@ func _draw_door_face(rect: Rect2, dress: Dictionary, tx: int, ty: int) -> void:
 # material, the palette's roof slab. Drawn after the tile loop (those tiles were skipped as
 # unseen, so this is the first paint on them) and before the props, which are never drawn on
 # an unseen tile anyway.
-func _draw_roofs(dress: Dictionary, seen: Variant, bounds: Dictionary) -> void:
+func _draw_roofs(dress: Dictionary, seen: Variant, explored: Variant, bounds: Dictionary) -> void:
 	if world.tilemap == null or seen == null:
 		return
 	var zoom: float = float(camera["zoom"])
@@ -1629,10 +1741,14 @@ func _draw_roofs(dress: Dictionary, seen: Variant, bounds: Dictionary) -> void:
 			var material: String = String(look.get("roof", ""))
 			var slope: int = RoofLook.slope_of(RoofLook.rect_of(world.tilemap, building), t.y, Dressing.roof_pitched(dress, material))
 			texture = Appearance.resolve(Dressing.roof_key(dress, material, slope))
+		# The one difference the remembered map makes here: a roof over a tile this observer has
+		# stood under before draws dimmed, the same tint the floor beneath it would if it were ever
+		# drawn -- an unexplored roof stays the flat, unweighted unknown it always was.
+		var remembered: bool = explored != null and bool((explored as Object).call("has_tile", t.x, t.y))
 		if texture != null:
-			draw_texture_rect(texture, rect, false)
+			draw_texture_rect(texture, rect, false, Palette.remembered(Color.WHITE) if remembered else Color.WHITE)
 		else:
-			draw_rect(rect, Palette.COLOURS["roof"])
+			draw_rect(rect, Palette.remembered(Palette.COLOURS["roof"]) if remembered else Palette.COLOURS["roof"])
 
 
 # Everything standing in the district that is neither a body nor a carried item. What each one
@@ -1771,6 +1887,7 @@ func _fill_pool_tiles(tiles: Array, col: Color) -> void:
 
 func _draw_entities() -> void:
 	if world == null: return
+	_focal_drawn = []
 	# One art pixel in screen pixels, asked once: the camera cannot change inside a draw
 	# pass, and every body, shadow and glimpse disc below is sized off the same answer --
 	# a rig that ignored the zoom would draw a 64 px body over a 16 px tile.
@@ -1874,14 +1991,25 @@ func _draw_entities() -> void:
 	var seen: Variant = null
 	if world.vision != null:
 		seen = world.vision.tiles_for(int(world.player))
-	for t in Dressing.tree_tiles(world.tilemap, seen, TopDownProjection.visible_bounds(camera, 2.0)):
+	# A composite of the current cone and the remembered map: a tree or a parked car the observer
+	# once stood beside keeps standing there, dimmed, rather than blinking out the instant the cone
+	# moves off it -- the same "draw is a subset of seen" rule, widened to seen-or-remembered.
+	var explored: Variant = SimSightings.explored_view(world, int(world.player))
+	var composite: Variant = null
+	if seen != null or explored != null:
+		var cs := CompositeSeen.new()
+		cs.seen = seen
+		cs.explored = explored
+		composite = cs
+	for t in Dressing.tree_tiles(world.tilemap, composite, TopDownProjection.visible_bounds(camera, 2.0)):
 		var tree_key: String = Dressing.tree_key(dress, int(world.seed), t.x, t.y)
 		if tree_key.is_empty() or Appearance.resolve(tree_key) == null:
 			continue
 		var tx_w: float = float(t.x) + 0.5
 		var ty_w: float = float(t.y) + 1.0
 		var tsc: Dictionary = TopDownProjection.world_to_screen(camera, tx_w, ty_w)
-		items.append({"kind": "tree", "key": tree_key, "sx": float(tsc["sx"]), "sy": float(tsc["sy"]), "d": TopDownProjection.depth_of(tx_w, ty_w), "det": SimVisibility.Detail.Focal})
+		var t_remembered: bool = not (seen != null and bool((seen as Object).call("has_tile", t.x, t.y)))
+		items.append({"kind": "tree", "key": tree_key, "sx": float(tsc["sx"]), "sy": float(tsc["sy"]), "d": TopDownProjection.depth_of(tx_w, ty_w), "det": SimVisibility.Detail.Focal, "remembered": t_remembered})
 	# The parked vehicles join the same sort on the same rule: each is one three-quarter picture
 	# standing on its footprint's south-edge centre (docs/30, decision 11), so a body north of a
 	# car is behind it and one south is in front. Draw is a subset of seen -- vehicle_records
@@ -1896,7 +2024,7 @@ func _draw_entities() -> void:
 		records = world.tilemap.get("vehicles")
 	if records is Array:
 		var box: Dictionary = TopDownProjection.visible_bounds(camera, float(Appearance.vehicle_reach_tiles()))
-		for i in Dressing.vehicle_records(world.tilemap, seen, box):
+		for i in Dressing.vehicle_records(world.tilemap, composite, box):
 			var rec: Dictionary = (records as Array)[i] as Dictionary
 			var vkey: String = Dressing.vehicle_key(world, rec, int(world.seed))
 			if vkey.is_empty() or Appearance.resolve(vkey) == null:
@@ -1904,7 +2032,8 @@ func _draw_entities() -> void:
 			var gp: Vector2 = Dressing.vehicle_ground_point(rec)
 			var vsc: Dictionary = TopDownProjection.world_to_screen(camera, gp.x, gp.y)
 			var flip: float = Appearance.vehicle_flip(String(rec.get("facing", "")))
-			items.append({"kind": "vehicle", "key": vkey, "flip": flip, "sx": float(vsc["sx"]), "sy": float(vsc["sy"]), "d": TopDownProjection.depth_of(gp.x, gp.y), "det": SimVisibility.Detail.Focal})
+			var v_remembered: bool = not Dressing.vehicle_is_seen(rec, seen)
+			items.append({"kind": "vehicle", "key": vkey, "flip": flip, "sx": float(vsc["sx"]), "sy": float(vsc["sy"]), "d": TopDownProjection.depth_of(gp.x, gp.y), "det": SimVisibility.Detail.Focal, "remembered": v_remembered})
 	items.sort_custom(func(a, b): return float(a["d"]) < float(b["d"]))
 	for it in items:
 		if String(it.get("kind", "")) == "tree":
@@ -1969,10 +2098,20 @@ func _draw_entities() -> void:
 			# Drawn white, never the role/tint colour: a backpack is its own object, not a
 			# stand-in shape for the entity itself.
 			var equip: Array[Dictionary] = Appearance.equipment_layers_for(world, eid)
-			_blit_body(Appearance.body_rect(sx, sy, size, Appearance.body_flip(screen_ang)), texture, col, equip)
+			var flip: float = Appearance.body_flip(screen_ang)
+			_blit_body(Appearance.body_rect(sx, sy, size, flip), texture, col, equip)
+			# The afterimage's own copy of this look, frozen at the moment a Focal body was drawn.
+			# A Peripheral glimpse never reaches this line (it bailed to the anonymous disc above),
+			# so a body only ever glimpsed never gets a remembered picture -- the anonymity clause
+			# holds in memory the same way it holds live.
+			_last_look[eid] = {"look": look, "equip": equip, "flip": flip}
 		else:
 			draw_circle(Vector2(sx, sy), r, col)
 			draw_circle(Vector2(sx, sy), r, col.lightened(0.25), false, 2.4 if bool(it["player"]) else 1.6)
+		# `_draw_bubbles`'s only reader: a Focal body just blitted, the player included (its `det`
+		# is pinned Focal above and never bails), so a speech bubble can stand over it. A body only
+		# ever glimpsed Peripherally bailed out before reaching this line.
+		_focal_drawn.append({"id": eid, "sx": sx, "sy": sy, "r": r})
 		# Facing + aim sway (cone half-angle). No hit % — wobble is the readout.
 		# The line draws for every body, the player's included: a flip is a two-state readout of
 		# a continuous heading, so the picture can never say more than "east or west" and the
@@ -2036,19 +2175,146 @@ func _draw_entities() -> void:
 			draw_texture_rect(art, item_rect, false, look["tint"] as Color if bool(look["declaredTint"]) else Color.WHITE)
 		else:
 			ItemGlyph.draw_glyph(self, item_rect, int(look["glyph"]), look["tint"] as Color)
-	# last-known marks fading. The positions are the *simulation's* memory, not a second copy
-	# kept by the renderer: a mark on the ground and a colonist's decision to shoot at one have
-	# to be the same recollection, or the mark is telling the player something nobody in the
-	# world knows. MEMORY_TICKS stays a presentation constant because how long a mark is drawn
-	# is a drawing question -- the sim remembers for far longer than this fades.
+	# Last-known marks fading. The positions are the *simulation's* memory, not a second copy kept
+	# by the renderer: a mark on the ground and a colonist's decision to shoot at one have to be
+	# the same recollection, or the mark is telling the player something nobody in the world knows.
+	# Re-timed off `SimSightings.RECENT_TICKS` -- "worth mentioning, not worth trusting" -- rather
+	# than a presentation-only three-second clock: the sim's own bands are the one clock now, and
+	# the afterimage picture (`_draw_afterimages`, drawn after this function) covers the shorter,
+	# crisper `FRESH_TICKS` band this mark used to stand in for alone.
 	var mem: Color = Palette.COLOURS["memory"] as Color
 	for row in SimSightings.remembered(world, int(world.player)):
 		var m: Dictionary = row as Dictionary
 		var age: int = int(m["age"])
-		if age <= 0 or age > MEMORY_TICKS: continue
+		if age <= 0 or age > SimSightings.RECENT_TICKS: continue
 		var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(m["x"]), float(m["y"]))
-		var a: float = 0.5 * (1.0 - float(age) / float(MEMORY_TICKS))
+		var a: float = 0.5 * (1.0 - float(age) / float(SimSightings.RECENT_TICKS))
 		draw_circle(Vector2(float(sc["sx"]), float(sc["sy"])), 8.0, Color(mem.r, mem.g, mem.b, a))
+
+
+# The picture's own fade, over `SimSightings.FRESH_TICKS` -- "still where you left it" -- down to
+# 0 exactly when the prose stops saying "a moment ago". Pure so check_memory_look.gd can call it
+# without booting a scene.
+static func afterimage_alpha(age: int) -> float:
+	if age <= 0 or age >= SimSightings.FRESH_TICKS:
+		return 0.0
+	return 1.0 - float(age) / float(SimSightings.FRESH_TICKS)
+
+
+# The afterimage: a crisp, frozen copy of a Focal body's last look, standing at the *sim's*
+# remembered position, fading to nothing over `afterimage_alpha`'s own band -- separate from, and
+# shorter than, the last-known mark `_draw_entities` still draws off `RECENT_TICKS`. Reads
+# `SimSightings.remembered` and nothing else about the entity: a despawned body still has one,
+# because the observer's memory of it does not depend on it still existing.
+func _draw_afterimages() -> void:
+	if world == null: return
+	var px_scale: float = Appearance.blit_scale(float(camera["zoom"]))
+	for row in SimSightings.remembered(world, int(world.player)):
+		var m: Dictionary = row as Dictionary
+		var age: int = int(m["age"])
+		var alpha: float = afterimage_alpha(age)
+		if alpha <= 0.0:
+			continue
+		var mx: float = float(m["x"])
+		var my: float = float(m["y"])
+		# A body still in the current cone draws itself in `_draw_entities`; the afterimage is only
+		# for the exact point the observer can no longer see, so the two never double up.
+		if world.vision != null and int(world.vision.detail(int(world.player), mx, my)) != SimVisibility.Detail.Unseen:
+			continue
+		var sc: Dictionary = TopDownProjection.world_to_screen(camera, mx, my)
+		var sx: float = float(sc["sx"])
+		var sy: float = float(sc["sy"])
+		var cache: Variant = _last_look.get(int(m["entity"]))
+		if cache is Dictionary:
+			var c: Dictionary = cache as Dictionary
+			var look: Dictionary = c["look"] as Dictionary
+			var texture: Texture2D = look["texture"] as Texture2D
+			if texture != null:
+				var size: Vector2 = texture.get_size() * px_scale
+				var col: Color = look["tint"] as Color
+				var faded := Color(col.r, col.g, col.b, alpha)
+				_blit_body(Appearance.body_rect(sx, sy, size, float(c["flip"])), texture, faded, c["equip"] as Array[Dictionary])
+				continue
+		# No cached picture (a body only ever glimpsed Peripherally, or one this observer has
+		# never drawn since the world was loaded): the anonymous glimpse disc, on the same fade.
+		var glimpse: Color = Palette.COLOURS["glimpse"] as Color
+		draw_circle(Vector2(sx, sy), 8.0, Color(glimpse.r, glimpse.g, glimpse.b, 0.75 * alpha))
+
+
+# Speech bubbles: what a body just said, spoken over words -- never a name (docs/30's name-plate
+# refusal, three times over, is about a word that identifies a body; a bubble carries what it
+# said, which is the narrow case that refusal was never about). Reads `saying` and `_focal_drawn`
+# only, and only for the entities `_focal_drawn` names: a body only ever glimpsed Peripherally
+# never entered that list (the append sits after the Peripheral bail in `_draw_entities`), so the
+# same anonymity clause that already holds for the afterimage's picture holds here for words.
+const BUBBLE_WRAP_PX: float = 200.0
+const BUBBLE_PAD_PX: float = 8.0
+const BUBBLE_LIFT_PX: float = 14.0
+# The last 20 ticks (one second) of a line's life fade it out, rather than a hard cut, the same
+# shape the mark and the afterimage already fade on -- so a bubble ending mid-scene never looks
+# like a draw call that stopped.
+const BUBBLE_FADE_TICKS: int = 20
+
+
+func _draw_bubbles() -> void:
+	if world == null or _focal_drawn.is_empty(): return
+	var font: Font = Chrome.font()
+	var now: int = int(world.tick)
+	for row in _focal_drawn:
+		var it: Dictionary = row as Dictionary
+		var eid: int = int(it["id"])
+		var saying: Variant = world.components.get_component(eid, "saying")
+		if not (saying is Dictionary): continue
+		var s: Dictionary = saying as Dictionary
+		var text: String = String(s.get("text", ""))
+		if text.is_empty(): continue
+		var left: int = int(s.get("until", 0)) - now
+		if left <= 0: continue
+		var alpha: float = 1.0 if left >= BUBBLE_FADE_TICKS else float(left) / float(BUBBLE_FADE_TICKS)
+		var lines: Array[String] = _wrap_bubble_text(font, text, BUBBLE_WRAP_PX)
+		var line_h: float = float(TAG_SIZE) * 1.2
+		var block_w: float = 0.0
+		for l in lines:
+			block_w = maxf(block_w, font.get_string_size(l, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE).x)
+		var sx: float = float(it["sx"])
+		var sy: float = float(it["sy"])
+		var top: float = sy - float(it["r"]) - BUBBLE_LIFT_PX - line_h * float(lines.size()) - BUBBLE_PAD_PX * 2.0
+		var plate := Rect2(Vector2(sx - block_w / 2.0 - BUBBLE_PAD_PX, top), Vector2(block_w + BUBBLE_PAD_PX * 2.0, line_h * float(lines.size()) + BUBBLE_PAD_PX * 2.0))
+		var fill: Color = Chrome.PANEL
+		fill.a = 0.85 * alpha
+		draw_rect(plate, fill)
+		var edge: Color = Chrome.PANEL_EDGE
+		edge.a = alpha
+		draw_rect(plate, edge, false, 1.0)
+		# A small tail pointing down at the head -- the one thing that reads a plate as spoken
+		# rather than as a floating card.
+		var tail_base_y: float = plate.position.y + plate.size.y
+		draw_colored_polygon(PackedVector2Array([Vector2(sx - 6.0, tail_base_y), Vector2(sx + 6.0, tail_base_y), Vector2(sx, tail_base_y + 7.0)]), fill)
+		# A zombie's sound-word draws dim (it is a noise, not somebody talking); everybody else in
+		# the plate's own text colour.
+		var is_zombie: bool = world.components.has_component(eid, "shambler")
+		var text_col: Color = Chrome.TEXT_DIM if is_zombie else Chrome.TEXT
+		text_col.a = alpha
+		for i in lines.size():
+			var ly: float = plate.position.y + BUBBLE_PAD_PX + line_h * float(i) + float(TAG_SIZE) * 0.85
+			draw_string(font, Vector2(plate.position.x + BUBBLE_PAD_PX, ly), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, text_col)
+
+
+# Greedy word wrap at `max_width`, measured the same way every other panel in this codebase
+# measures a line (`font.get_string_size`). Static and pure so a gate can call it without a scene.
+static func _wrap_bubble_text(font: Font, text: String, max_width: float) -> Array[String]:
+	var lines: Array[String] = []
+	var current: String = ""
+	for word in text.split(" "):
+		var candidate: String = word if current.is_empty() else current + " " + word
+		if not current.is_empty() and font.get_string_size(candidate, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE).x > max_width:
+			lines.append(current)
+			current = word
+		else:
+			current = candidate
+	if not current.is_empty():
+		lines.append(current)
+	return lines
 
 
 # The sky, over the bodies and under the night wash: a survivor standing in it is standing in
@@ -2155,7 +2421,10 @@ func _blit_tree(it: Dictionary, px_scale: float, focal_points: Array[Vector2]) -
 	var size: Vector2 = texture.get_size() * px_scale
 	var rect: Rect2 = Appearance.body_rect(float(it["sx"]), float(it["sy"]), size, 1.0)
 	var alpha: float = Dressing.tree_alpha(rect, focal_points)
-	draw_texture_rect(texture, rect, false, Color(1.0, 1.0, 1.0, alpha))
+	var tint: Color = Color(1.0, 1.0, 1.0, alpha)
+	if bool(it.get("remembered", false)):
+		tint = Palette.remembered(tint)
+	draw_texture_rect(texture, rect, false, tint)
 
 
 # One parked vehicle: a three-quarter picture standing feet-anchored on its footprint's south-edge
@@ -2172,7 +2441,8 @@ func _blit_vehicle(it: Dictionary, px_scale: float) -> void:
 	if texture == null:
 		return
 	var size: Vector2 = texture.get_size() * px_scale
-	draw_texture_rect(texture, Appearance.body_rect(float(it["sx"]), float(it["sy"]), size, float(it["flip"])), false)
+	var tint: Color = Palette.remembered(Color.WHITE) if bool(it.get("remembered", false)) else Color.WHITE
+	draw_texture_rect(texture, Appearance.body_rect(float(it["sx"]), float(it["sy"]), size, float(it["flip"])), false, tint)
 
 
 # One body and everything it is wearing, composited at one rect: under-body layers, the body,
@@ -2184,13 +2454,18 @@ func _blit_vehicle(it: Dictionary, px_scale: float) -> void:
 # generated on the pawn canvas beside the rigs (tools/sprites/parts/gear.py); what a survivor
 # wears beyond the pack and the bat is the worn-look slice's work (docs/23).
 func _blit_body(rect: Rect2, texture: Texture2D, col: Color, equip: Array[Dictionary]) -> void:
+	# The gear draws white, never in the body's tint (a backpack is its own object) -- but it
+	# borrows the tint's *alpha*, so an afterimage fades as one picture. Before the afterimage
+	# every caller passed alpha 1.0 and this was invisible; a fading body under solid gear was
+	# the first thing the afterimage showed.
+	var gear := Color(1.0, 1.0, 1.0, col.a)
 	for layer in equip:
 		if not bool(layer["over"]):
-			draw_texture_rect(layer["texture"] as Texture2D, _layer_rect(rect, layer), false)
+			draw_texture_rect(layer["texture"] as Texture2D, _layer_rect(rect, layer), false, gear)
 	draw_texture_rect(texture, rect, false, col)
 	for layer in equip:
 		if bool(layer["over"]):
-			draw_texture_rect(layer["texture"] as Texture2D, _layer_rect(rect, layer), false)
+			draw_texture_rect(layer["texture"] as Texture2D, _layer_rect(rect, layer), false, gear)
 
 
 # Where one layer of a composite goes. Every gear overlay shares the body's rect exactly -- that

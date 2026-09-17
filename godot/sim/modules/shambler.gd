@@ -58,6 +58,13 @@ const RELEASE_METRES: float = 3.2
 const MILL_TICKS: int = 90
 const COMMIT_TICKS: int = 400
 
+# How often the same body can publish `zombie.noticed` again: 200 ticks (ten seconds), so a body
+# whose contact/sight/hearing checks flicker it between Wander and Seek/Pursue on a noisy tick
+# does not spam speech.gd's bubble, while a genuinely fresh notice -- coming back to Wander for a
+# while and then noticing again -- still says so promptly. Read off `sd["noticedAt"]`, a tick
+# stamp rather than a bool, so it survives a save the same way every other shambler clock does.
+const NOTICE_COOLDOWN_TICKS: int = 200
+
 # The swipe: a clawed cuff from a Pursuing shambler -- landed as the one zombie damage path
 # outside GRABS_ENABLED while that flag was false, and kept deliberately not a bite now that
 # grabs are live. It publishes `attack.connected`, the same channel a survivor's swing uses, so
@@ -777,6 +784,18 @@ static func _release_grab(world: Variant, source: int, cause: String = "geometry
 		_break_away(world, freed, source)
 
 
+# speech.gd's trigger for a sound-word bubble: published on the edge into Seek or Pursue from
+# Wander/Investigate (never on the Seek -> Pursue edge, which is a body already alert closing the
+# last few metres, not a fresh notice), rate-limited by NOTICE_COOLDOWN_TICKS so a body flickering
+# between states on a noisy tick says it once, not every tick.
+static func _notice(world: Variant, entity: int, sd: Dictionary) -> void:
+	var now: int = int(world.tick)
+	if now - int(sd.get("noticedAt", -NOTICE_COOLDOWN_TICKS)) < NOTICE_COOLDOWN_TICKS:
+		return
+	sd["noticedAt"] = now
+	world.events.publish({"type": "zombie.noticed", "entity": entity})
+
+
 # Points a just-freed survivor away from whoever was holding them and commits them to that
 # heading for BREAK_AWAY_TICKS. Direction is taken once, at the moment of release, rather than
 # re-derived per tick: this is somebody shoving off and stumbling clear, not a pursuit solver, and
@@ -1098,14 +1117,17 @@ static func register_module(world: Variant, _map: Variant) -> void:
 					var seen2: Variant = _seen_target(w, int(entity), survivors, sd)
 					if caught2 != null:
 						sd["state"] = ShamblerState["Pursue"]
+						_notice(w, int(entity), sd)
 						_chase(w, int(caught2), pd, vd, sd, seek)
 					elif seen2 != null:
 						sd["state"] = ShamblerState["Seek"]
 						sd["ticksCommitted"] = COMMIT_TICKS
+						_notice(w, int(entity), sd)
 						_chase(w, int(seen2), pd, vd, sd, seek)
 					elif heard:
 						sd["state"] = ShamblerState["Seek"]
 						sd["ticksCommitted"] = COMMIT_TICKS
+						_notice(w, int(entity), sd)
 						_steer_uphill(field, pd, vd, sd, seek)
 					elif int(sd["ticksToTurn"]) <= 0:
 						var angle2: float = rng.call("float_range", 0.0, PI * 2.0)

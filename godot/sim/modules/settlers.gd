@@ -60,6 +60,7 @@ const SimStancesRes = preload("res://sim/stances.gd")
 const SimSurvivorsRes = preload("res://sim/modules/survivors.gd")
 const SimWalkRes = preload("res://sim/walk.gd")
 const SimWorldgenRes = preload("res://sim/map/worldgen.gd")
+const SimMeleeRes = preload("res://sim/modules/melee.gd")
 
 # The generator block, found by id the way the survivor and raider pools are. `content/colony/`
 # has no schema and no validator type (`platform/content_validator.gd` does not list it) and the
@@ -349,15 +350,19 @@ static func spawn_settler(world: Variant, x: float, y: float, rolled: Dictionary
 			continue
 		var item: int = SimItemsRes.spawn_item(world, item_id, {"tier": "scavenged", "count": count})
 		# Into the hand it belongs to before the pack, which is `SimSurvivors._hold_it`'s rule and
-		# `SimRaiders`' reason for reusing it: **a knife in a satchel raises no `meleeWeapon`**,
-		# and `npc_combat._melee_reach` reads that component and not the pack. Until this line the
-		# camp's kit went straight to `stow`, so the whole group stood in a building holding their
-		# knives in their bags -- the combat intake below would have found them, faced the
-		# shambler and had nothing to swing. It costs no draw, so the camp's stream is untouched.
+		# `SimRaiders`' reason for reusing it: **a knife in a satchel never becomes the `meleeWeapon`
+		# component**, and `npc_combat._melee_reach` reads that component and not the pack. Until
+		# this line the camp's kit went straight to `stow`, so the whole group stood in a building
+		# holding their knives in their bags -- the combat intake below would have found them faced
+		# the shambler with only the punch `ensure_hands` leaves everyone, never the knife they
+		# carried. It costs no draw, so the camp's stream is untouched.
 		if SimSurvivorsRes._hold_it(world, ent, item):
 			continue
 		if not SimInventoryRes.stow(world, ent, item):
 			world.components.set_component(item, "position", {"x": x, "y": y})
+	# After the kit, same as a colonist: a camp whose loot rolled nothing to hold still has
+	# hands, and a settler who caught a knife keeps it.
+	SimMeleeRes.ensure_hands(world, ent)
 	return ent
 
 

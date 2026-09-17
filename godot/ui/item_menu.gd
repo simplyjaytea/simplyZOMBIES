@@ -18,7 +18,19 @@ const MIN_W: float = 150.0
 # The one verb that is the obvious thing to do with the item under the cursor, drawn in the accent
 # the way the treatment responses are. Everything else is plain text -- amber is chrome.gd's one
 # colour for the thing that matters, and a menu where every row is amber has no accent at all.
-const LEAD: Dictionary = {"use": true, "equip": true}
+# "attack", "pick up" and "walk here"/"walk over" joined this set with the right-click street menu
+# (`ui/context_menu.gd`), whose rows carry the object too ("pick up the tin can") -- a *prefix*
+# match (`_is_lead` below) rather than the loot menu's own exact words, so a full sentence still
+# lights up on the word that made it the obvious thing to do. One accent list for every word menu
+# in the game, not a second one the street menu would have needed to keep in step with this.
+const LEAD: Dictionary = {"use": true, "equip": true, "attack": true, "pick up": true, "walk here": true, "walk over": true}
+
+
+static func _is_lead(verb: String) -> bool:
+	for key in LEAD.keys():
+		if verb.begins_with(String(key)):
+			return true
+	return false
 
 
 static func size_of(verbs: Array) -> Vector2:
@@ -37,7 +49,7 @@ static func draw_menu(ci: CanvasItem, at: Vector2, verbs: Array, alpha: float) -
 	var font: Font = Chrome.font()
 	for i in verbs.size():
 		var verb: String = String(verbs[i])
-		var col: Color = Chrome.ACCENT if LEAD.has(verb) else Chrome.TEXT
+		var col: Color = Chrome.ACCENT if _is_lead(verb) else Chrome.TEXT
 		ci.draw_string(font, at + Vector2(PAD_X, PAD_Y + ROW_H * float(i) + ROW_H * 0.7), verb, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, col)
 
 

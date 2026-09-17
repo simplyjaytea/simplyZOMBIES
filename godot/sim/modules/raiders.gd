@@ -507,8 +507,12 @@ static func _age_prose(pool: Dictionary, age: int) -> String:
 
 
 # Kit into the hand it belongs to rather than the pack. `SimSurvivors._hold_it`'s rule and its
-# reasoning: a weapon in a satchel raises no `meleeWeapon`, so a raider carrying a machete in
-# their bag would arrive unable to fight and the whole raid would be a walk.
+# reasoning: a weapon in a satchel never becomes the `meleeWeapon` component, so a raider
+# carrying a machete in their bag would arrive with only its bare hands' worth of a threat and
+# the whole raid would be a walk. A raider whose kit rolled nothing to hold stays that way --
+# unlike a colonist or a settler, a raider is not given `SimMelee.ensure_hands` at spawn; its
+# own re-arm reasoning is its own record. One that *loses* its weapon mid-raid gets fists like
+# anybody, because the unequip handler in melee.gd does not ask whose side a hand is on.
 static func _hold_it(world: Variant, ent: int, item: int) -> bool:
 	var slot: Variant = SimInventoryRes.equip_slot_for(world, item)
 	if slot == null:

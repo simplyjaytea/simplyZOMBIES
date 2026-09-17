@@ -123,6 +123,7 @@ const NOT_A_BINDING: Dictionary = {
 	"E": "INTERACT_KEY",
 	"Mouse": "_unhandled_input",
 	"Click": "_unhandled_input",
+	"Right-click": "_unhandled_input",
 	"Wheel": "_unhandled_input",
 }
 

@@ -706,6 +706,14 @@ static func _intake_verb(world: Variant, actor: int, c: Dictionary) -> void:
 			if home >= 0:
 				SimCampRes.abandon(world, home)
 
+		# The right-click menu's door row: a specific tile rather than E's "the one in front of
+		# or under you" (`_door_in_reach`) -- reach-checked here the same way every other named tile
+		# on this ladder is, so a door clicked from across the room refuses rather than swinging
+		# open at a distance.
+		"door.toggle":
+			if _in_reach_tile(world, actor, tx, ty):
+				toggle_door(world, tx, ty)
+
 
 static func _start(world: Variant, actor: int, verb: String, tx: int, ty: int) -> void:
 	if not _can_channel(world, actor):
