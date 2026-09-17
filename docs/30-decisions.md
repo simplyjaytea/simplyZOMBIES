@@ -5206,3 +5206,59 @@ owner's call, not a workflow's. **Nothing new is judged**: the workflow reuses t
 the CI job runs, and a release is only ever cut from a ref CI already passed. A Linux build and a
 macOS build are named in docs/23's what's-left rather than folded in — Linux is cheap and can
 follow; macOS is blocked on a signing identity, which is a decision and a purchase.
+
+## What the owner asked for after the shell, 2026-09-17
+
+Four asks from playing the alpha shell, each answered by the owner the same day from a short
+list of offers; the pieces are docs/23's "After the shell" group and land one at a time, serial
+on `main.gd`.
+
+- **Sight persists on the sim's own clock, and the cone does not widen.** The ask was *"the
+  player looks away, but the image is still there for a while — at least the last known
+  position — less jarring"*. The offer taken: **afterimage and remembered map, angles unchanged**
+  (widening the 60° / 190° eyes was offered and refused: `daylight_eyes` is the same code the
+  dead see with, so it is a balance number and would re-baseline the record). The afterimage is
+  the last picture drawn of a body, frozen — flip, gear, tint as they were the frame it was last
+  in focus — standing on the **sim's** remembered position (`SimSightings`), never on the body's
+  live one, and it fades out over exactly `FRESH_TICKS` so the picture is gone the moment the
+  HUD stops saying "a moment ago"; the mark then fades over `RECENT_TICKS`. One clock, two
+  readouts: `main.gd`'s private `MEMORY_TICKS = 60` is deleted, because a presentation
+  constant that disagreed with the prose's bands was the jar. A body only ever glimpsed has no
+  picture to freeze and fades as the anonymous disc — the peripheral-anonymity clause survives
+  by construction, not by a check. `SimSightings` now records **every body, with a kind**, and
+  the two readers that meant "hostile" (`clause`, `freshest_within`) ask for hostiles by name,
+  so nobody shoots at where Mara was. The remembered map is a per-observer `explored` bitset,
+  merged only on the ticks a shadowcast recasts; tiles in it draw dimmed and desaturated and
+  **nothing that moves is ever drawn on one** — that is docs/23's "the remembered map, dimmed"
+  piece, absorbed here with the gate change it specified.
+- **Bare hands are a weapon that counts as no weapon.** Offered: a weak punch; a shove that
+  staggers and never damages; fists as good as a kitchen knife. Taken: **the weak punch**.
+  `SimCombat.BARE_HANDS` — reach 1.0 m, weight 0.6, damage 4 (a head takes three, a torso
+  fifteen), stagger 6, speed 1.3, recovery 0.8, stamina 0.7, the ordinary connect noise — is
+  set on every survivor whose hands are empty and comes back the moment a weapon is unequipped,
+  so `F` and the click always do something. It carries `unarmed: true`, and **`SimMelee.is_unarmed`
+  is the one predicate**: the re-arm job, the balance gate's ARMED assertion and anything else
+  that used to ask "is there a `meleeWeapon`" ask it instead, so a colonist with fists still
+  walks to the bat on the ground and a campaign that boots a fist-only colonist is still refused.
+  The numbers are first cuts and sit in HANDOFF's list.
+- **The mouse reaches the sim's vocabulary, and walk-here is a command the stick cancels.**
+  A right-click on the street opens the same drawn word menu the inventory sheet uses, and the
+  rows come from `SimContext.verbs_at`, which asks the modules' own predicates — a row is present
+  iff the sim would accept the command behind it (`work_panel.gd`'s rule; nothing greyed, nothing
+  explained). Walk-here was offered as out of scope and the owner **took it**: `walk.to` puts a
+  `walkTo` on the controlled body and `SimWalk` — the stepper raiders and strangers already use —
+  carries it at the `move` command's own speed (`World.move_speed_of`, extracted so there is one
+  copy); **any `move` command removes it**, so a key press always wins over a click, and arrival or
+  no route removes it too. A click on a colonist looks at them (selection) and never orders
+  them — a click that ordered a person would be the micromanagement cliff docs/23's Risk 1 is
+  measuring, and the menu must not pre-empt that measurement.
+- **Spoken words over a focal body are not a name plate.** Name plates are refused three times
+  in this file, and this entry does not amend that: a bubble carries **what a body just said**,
+  authored per trigger in `content/speech/`, never who they are, never a number, never anything
+  the hardcore contract hides (no line says "I'm bitten"). It draws only over a body drawn at
+  Focal this frame and over the player — a glimpsed body gets no bubble, exactly as it gets no
+  facing — and it is sim state (`saying`, with a horizon), so a save carries it and a gate can
+  ask. Zombies get sound-words on the edge into pursuit and on the screamer's alarm, which reveal
+  nothing the noise itself did not; colonists mutter the band `needs.hud_clause` already speaks,
+  on a rolled, rate-limited clock (`MUTTER_EVERY`, `MUTTER_P`, first cuts in HANDOFF), so a
+  bubble is flavour and never a status readout.
