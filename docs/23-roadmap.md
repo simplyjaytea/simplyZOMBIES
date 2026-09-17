@@ -464,6 +464,44 @@ system.
 - ~~**The balance re-baseline the arc reserves**~~ — **run** 2026-09-12, see the record. It
   closes the arc.
 
+**The alpha shell — authorised by the owner, 2026-09-16.** The audit that opened this group
+([docs/30](30-decisions.md#the-alpha-shell-2026-09-16)) found the game has one scene and no
+shell: no title, no pause menu, no run-over screen, no autosave, `C` bound to both the camp and
+the walk stance, keys that fire under any open panel, a settings sheet with one row and no
+volume, a legend that re-shows every launch, and a `main.gd` that owns input, boot, save and
+drawing together and is driven by no gate — the smoke awaits one frame and nothing steps the real
+scene with input. The owner's alpha bar is a capability list every item of which already exists
+in code (move and interact, drive; loot, wield, fire; fight zombies and raiders; camp and recruit;
+the inventory and the body; the skill web), so the work is to prove each reachable, fix what
+blocks it, and put a shell around it. The decisions: **net first, split second** — one executing
+gate before anything moves, then input and the run's lifecycle out of `main.gd` while the drawing
+stays where sixteen textual gates read it; **camp keeps C and the stance ladder moves onto Ctrl**
+(Ctrl+Z prone, Ctrl+C crouch, Ctrl+S stand, Ctrl+V jog, Shift the sprint latch, Ctrl+W never);
+**the day stays four real hours**; **new run boots the fixed default town** and F2 goes;
+**quit to title autosaves**; the HUD keeps its prose and takes the chrome; no digits but the day
+counter, no health bar, no name plates. Serial on `main.gd` — pieces two to five are one agent's
+at a time; the first and the sixth touch disjoint files and may run beside them. The pieces, in
+the order they land:
+
+- ~~**Per-gate wall time**~~ — **landed**, see the record.
+- ~~**The play gate**~~ — **landed**, see the record.
+- ~~**The input split**~~ — **landed**, see the record.
+- ~~**The shell**~~ — **landed**, see the record.
+- ~~**The HUD in the chrome**~~ — **landed**, see the record.
+- ~~**The dev menu reaches a raider band and a stranger**~~ — **landed**, see the record.
+- ~~**The capability walkthrough**~~ — **landed** 2026-09-16, see the record: the second pass drove
+  the five items that needed the shell (die and succeed, reach run-over and start again, the
+  pause menu, the title on a fresh boot, and Ctrl+S on the published web build), and re-ran the
+  first pass's ten against this head. All fifteen of the owner's bar items are proved; the
+  record's closing table names the lane or screenshot for each.
+- ~~**The release package**~~ — **landed** 2026-09-17, see the record (asked for by the owner
+  once the walkthrough closed: a downloadable Windows build). *Still named:* **a Linux and a
+  macOS build** — a Linux preset is one template and one runner mode away and rides the same
+  workflow; macOS needs the owner's signing identity before Gatekeeper will open it, so it is not
+  a packaging change alone.
+- *Named, not in the arc:* **a seed you can type** (the web build has no command line, so the
+  fixed town is the only town it can boot).
+
 **Art & renderer — overcast or torchlight, decided by the owner (2026-09-08), on the Dungeon
 Settlers spine.** The direction is docs/30's "Overcast or torchlight": a hybrid that keeps the
 pawn, wall, roof, tree and vehicle spine and takes Zero Sievert's world — the grade, density,
@@ -959,6 +997,30 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   distance, which is where BLOOD and PREY get their contact — so this is a gap in the band's own
   behaviour rather than something a played district shows. Fixing it is a halt that knows the
   attacker's reach, which moves every raid's contact and therefore wants its own before-and-after.
+  **Built and measured 2026-09-16, and parked rather than landed.** The fix exists, on branch
+  `claude/raider-reach-halt` and not on `main`: one resolver `SimMelee.reach_of` read by
+  `SimNpcCombat._melee_reach` and a new `SimRaiders._halt_metres` (the lesser of `HALT_METRES` and
+  the body's own reach less a 0.15 m tick margin), with `check_m2_raiders.gd` lanes REACH (a
+  machete raider against a colonist pinned at the gate, run red first: `closest approach 2.58 m`,
+  no blow in 1,200 ticks; green at 1.38 m with a wound) and READS-REACH, and the crossing slice's
+  ENGAGES lane back on the melee band it was written for. The before-and-after it wanted was
+  taken, and it is why the fix is parked: on a throwaway six-thousand-tick driver over four seeds
+  the direction was inconsistent (the masking above, read off real numbers), but
+  `npm run godot:m2:balance`'s FAST tier moved on one seed — 404's `mixed` arm, already down to
+  its last colonist, loses that colonist once a raid can connect (`survivors_end` 1→0,
+  `run_over` true), which turns `_assert_bands`'s standing `survivors_end >= 1` red, the
+  assertion CLAUDE.md says was considered and rejected to relax. Whether the shipped default is
+  meant to absorb a raid that lethal, whether that assertion was grading the bug rather than the
+  difficulty, or whether a raider first-cut number moves, is the owner's — `HANDOFF.md` item 7 —
+  and the branch waits on it with its record written.
+- **A melee swing's cone does not ask allegiance before it lands.** `_resolve_strike` "resolves
+  against whatever body is in the cone" (`raiders.gd`'s own header) with no faction check at all,
+  so three raiders converging tightly on one target can catch *each other*. Masked today because a
+  band never stands close enough to land a blow on anybody; the parked reach fix above watched a
+  raider put down two bandmates in the fixture that used to prove a band "stays", which is why that
+  branch's WITHDRAW lane engages one raider rather than three. Not fixed with the reach: it is a
+  question about every melee swing in the tree, not about a raider's approach, and wants its own
+  gate and its own before-and-after.
 
 - **A body that turns walks past the horde budget nothing else may cross.** `SimDirector` refuses
   a spawn once `live` reaches `live_cap_for(world)` and publishes the refusal with reason `cap` —
@@ -992,9 +1054,19 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   every firefight, which is a balance change wanting its own slice and its own measurement rather
   than a quiet ride beside a change about rate of fire. `check_m2_aim`'s CONE lane neutralises it
   by hand and says why, and caught it by refusing to compare two saturated values.
-- **Crouching never lowers your eye.** `SimStances.eye_of` is called by nothing and no code ever
-  writes `observer["eye"]`, so `Opacity.Low` / `Tile.Low` cover blocks nobody. The frozen oracle
-  has this (`stance.eyes`); the port dropped it.
+- ~~**Crouching never lowers your eye.**~~ **Fixed 2026-09-16** (`godot:m2:sight`, the EYE and
+  EYE-READER lanes). `SimVisibility.refresh` now reads a queried entity's `posture`, if it has
+  one, and writes `observer["eye"]` from `SimStances.eye_of` every tick, before the shadowcast
+  that key depends on runs — a port of the oracle's `stance.eyes` (`src/sim/modules/stance.ts`),
+  folded into the refresh that was already threading `eye` end to end rather than a second system.
+  EYE proves a standing survivor sees straight across a `Tile.Low` cell, a crouched one does not,
+  and standing back up on the same body over the same tile restores the sightline; EYE-READER
+  isolates the call to a non-comment line of `sim/vision/visibility.gd`, so a refactor that moved
+  it without a caller could not pass quietly. This closes one of the four dead sockets named in
+  CLAUDE.md's "the sweep left four sockets named but unfixed" — three remain
+  (`sim/spatial/hash.gd`, `SimThreat.threat_within`, `SimDirector.snapshot_of`). The campaign
+  effect of low cover finally blocking a crouched body is unmeasured: `godot:m2:balance`,
+  `godot:m2:director` and `godot:m2:npc` stay green, but nothing here claims a balance outcome.
 - **`Bury` reads "the corpse has no position" as "I am carrying it".** `_do_bury`'s hole; the
   Cook half of this entry (no claim on the raw, a meal out of nothing) landed 2026-09-06 — the
   record's Jobs bullet, `godot:m2:jobs` COOK CLAIM. `_water_work` and `_repair_work` hand out an
@@ -1029,17 +1101,23 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   record's Kernel & review sweep bullet, which says what is still not closable on Windows).
 - ~~**A missing schema silently disables validation for a whole content type.**~~ **Fixed
   2026-09-13** (`godot:validate`, SCHEMA-COVERAGE; the record's Kernel & review sweep bullet).
-- **`recorded` grows without bound.** `SimCommandQueue.recorded` deep-copies every command ever
-  pushed and is read only by `parity_snapshot`. In a played session that is every movement command
-  of every tick, kept for the life of the run.
+- ~~**`recorded` grows without bound.**~~ **Fixed 2026-09-16** (`godot:m2:save`, RECORD; the
+  record's Kernel & review sweep bullet).
 - ~~**`deep_pockets` is computed in the wrong scope.**~~ **Fixed 2026-09-13** (`godot:m2:gear`,
   POCKETS, and `godot:m2:stats`, GEAR; the record's Kernel & review sweep bullet).
 - ~~**`merge_into_stack` reads a failure as a success.**~~ **Fixed 2026-09-13**
   (`godot:check:inventory`, STACK; the record's Kernel & review sweep bullet).
-- **Sightings are recorded on geometry, not on sight.** `sightings.gd::_observe_one` uses
-  `line_of_sight` rather than `detail`, so a survivor remembers — and the HUD reports — bodies
-  standing in the 170-degree arc behind them. The information-stays-scarce ban is the reason to
-  care.
+- ~~**Sightings are recorded on geometry, not on sight.**~~ **Fixed 2026-09-16**
+  (`godot:m2:sight`, the BEHIND and BEHIND-READER lanes). `sightings.gd::_observe_one` now asks
+  `detail`, the same focal/peripheral read `_observe_containers` a few lines above it already
+  used, rather than `line_of_sight`'s walls-and-range-only geometry — so a hostile standing in the
+  170-degree arc behind an observer's facing is neither recorded nor recalled, and the HUD's
+  memory prose stays silent about it, per the hardcore contract's clause 4 (information stays
+  scarce). BEHIND pairs an identical hostile due west of a west-blind, east-facing observer
+  (unrecorded) against the same hostile due east (recorded); BEHIND-READER isolates
+  `_observe_one`'s own body — not the file as a whole, since `_observe_containers` calls `detail`
+  too — and asserts it calls `detail` and not `line_of_sight`. Narrows what a colonist remembers;
+  no campaign outcome is claimed, and `godot:m2:balance` stays green.
 - **Four of the five infection verbs, and six other commands, have no way in.** `item.modify`,
   `item.attach`, `item.detach`, `item.split`, `item.pickUp` and `container.search` are live command
   handlers that nothing — no key, no button, no NPC decision — ever pushes, and the
@@ -1085,6 +1163,12 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   correctness"); `SimThreat.threat_within`, so fast-forward is never interrupted by a zombie the
   way the oracle's is; and `SimDirector.snapshot_of`, which `world.gd` deliberately replaced and
   which is now a second hand-listed copy of the director's save shape.
+- **A fourth, found by the alpha shell and carried rather than deleted.** The map object `SimBoot`
+  hands back beside the world — `main.gd`'s `_map`, written by every boot since the district
+  landed and read by no line of the game. The shell moved it to `presentation/session.gd`'s
+  `map` and **named it there in a comment** rather than dropping it inside a slice about menus:
+  the drawing reaches the same map through `world.tilemap`, so either deleting it or giving it the
+  reader it was presumably meant to have is a decision of its own.
 - ~~**`repair_cost` is a stat nothing resolves.**~~ **Fixed 2026-09-13** (`godot:m2:upkeep`,
   REPAIR-COST; the record's "repair cost is read" entry under Survivors). The honest reader was
   never the scrap — repair still spends one whole unit, as the 2026-09-06 reasoning said it must —
@@ -1109,6 +1193,18 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   missing `velocity` as motionless and `check_topdown.gd`'s GLIMPSE lane holds it, so the dead are
   no longer drawn as bodies standing in the dark — and the art half is the what's-left entry
   "a corpse reads as a corpse".
+- **A debug-spawned stackable item is always a bare stack of one.** `SimDebug`'s `item` arm
+  (`sim/modules/debug.gd`) calls `SimItems.spawn_item(w, id, {})` with no `count`, so an
+  ammunition round spawned from the F8 panel or a `debug.spawn` command pushed by hand always
+  arrives as a single unit; `_fire_shot`'s `_consume_ammo` (`sim/modules/ranged.gd`) despawns a
+  count-of-one round on the shot that spends it, so firing once with only one round on hand
+  leaves nothing for `_pick_round` to find on the next reload. Found by the capability
+  walkthrough's "wield and fire a weapon" lane (2026-09-16, the record below), which works
+  around it by spawning two rounds rather than one. Never reaches a real player, whose starting
+  stack comes off `spawn_item`'s own `count` clamp — the gap is in the dev tooling alone. Mildest
+  of this list on purpose, last for it: nothing a player can reach is wrong, only a debug
+  convenience is thinner than it looks. Fixing it is a `count` field on the `debug.spawn`
+  command, read by the item arm and passed through to `spawn_item`'s `options`.
 
 **Parked until Milestone 3A — blocked by missing systems, not by choices:**
 
@@ -1857,7 +1953,7 @@ not a to-do list:
   ~~The seeded sandbox boot~~ **landed** (`godot:check:worldgen`, the chain's 34th gate) — the
   arc's sixth slice, the one that hands the sandbox to a player. `--seed=N` and `--district=<id>`
   parse from the user args after `--` (the `--parity` precedent; a malformed value warns and
-  boots the default rather than dying), and F2 leaves for another city: a fresh run on a
+  boots the default rather than dying), and F2 left for another city: a fresh run on a
   presentation-side random seed, same district, through the one `_boot_world` path `_ready`
   itself uses — every per-run read model reset, the sim RNG ban untouched because the roll lives
   in `presentation/` and the chosen seed then determines everything downstream. The seed and
@@ -2464,8 +2560,9 @@ not a to-do list:
   **a region's districts are no longer the 256 m every balance band was measured on**, so those
   bands describe the single-district game and not the region.
 
-  **The region is opt-in, not the default.** `--region=<id>` boots it and F2 rerolls it; the game
-  still boots a single district. 1.48× is above the clock but with far less room than a district's
+  **The region is opt-in, not the default.** `--region=<id>` boots it; the game still boots a single
+  district. (F2 rerolled it when this landed; F2 was deleted by the input split, 2026-09-16, and
+  nothing rerolls a seed now.) 1.48× is above the clock but with far less room than a district's
   4.15×, and this container has measured the same district at 55 and 83 ticks/s on different days —
   so the margin is real but container-dependent, and flipping the default is a decision to make
   after playing it rather than one to take from a table. **No `SAVE_VERSION` bump**: a save carries
@@ -4224,9 +4321,10 @@ not a to-do list:
   state lives in `camera.gd` — the true, unshaken follow centre and the shake offset both live on
   `main.gd` as instance Dictionaries (`_camera_centre`, `_shake`), the same reason the camera
   itself has always been a plain Dictionary rather than a singleton: two worlds a gate boots in
-  one process must not share either. Boot, F2 ("leave for another city") and F9 (load) all call a
-  new `_snap_camera()` rather than let the smoothed follow arrive on its own — the reboot/load
-  recentre stays unsmoothed, as `_boot_world`'s own comment already promised it would.
+  one process must not share either. Boot, F2 ("leave for another city", deleted by the input
+  split on 2026-09-16) and F9 (load) all call a new `_snap_camera()` rather than let the smoothed
+  follow arrive on its own — the reboot/load recentre stays unsmoothed, as `_boot_world`'s own
+  comment already promised it would.
 
   **No zoom smoothing, deliberately.** The ladder is pinned to power-of-two multiples of the
   art-native 64 px/m specifically so nearest-neighbour scaling never shimmers; a tween between two
@@ -4243,8 +4341,8 @@ not a to-do list:
   `SHAKE_BITE_PX` 8, `SHAKE_GRAB_PX` 4, all comfortably clear of "1 px at rest zoom 64" so pixel
   snapping never quantizes a kick away — capped at `SHAKE_CAP_PX` 14 combined and decaying at
   `SHAKE_DECAY_RATE` 10 nats/s, the same frame-rate-independent shape the follow uses. Direction
-  is randomised through a presentation-side `RandomNumberGenerator` (`main.gd`'s own F2 comment
-  already sanctions RNG here) — never a sim stream, which would put the camera's wobble on the
+  is randomised through a presentation-side `RandomNumberGenerator` (the sim RNG ban is `sim/`
+  only, so presentation may roll) — never a sim stream, which would put the camera's wobble on the
   seeded sequence and make a replay's *view* depend on how hard something got hit. The displayed
   `camera` Dictionary — what every draw call and `_aim_at` reads — is built in exactly one place,
   `_update_camera`: smoothed centre plus the shake offset (converted from pixels to world units by
@@ -6367,6 +6465,26 @@ not a to-do list:
   was called by nothing**: `world.gd` hand-listed three director keys, so `lullFromTick` and
   `weekPeakNoise` were written every night and dropped by every save. `world.gd` now copies the
   director's scalars generically, so a future dial is saved without world.gd learning what it is.
+  **The eye and the blind arc, 2026-09-16** closed two more named defects on this same seam
+  (`godot:m2:sight`, four new lanes: EYE, EYE-READER, BEHIND, BEHIND-READER). `SimStances.eye_of`
+  had been threaded end to end and called by nothing since the port — `SimVisibility.refresh` now
+  reads a queried entity's `posture`, if it has one, and writes `observer["eye"]` from it every
+  tick, before the shadowcast that key depends on runs, so `Opacity.Low` / `Tile.Low` cover
+  finally blocks a crouched sightline the way the frozen oracle's `stance.eyes` always did; EYE
+  proves a standing survivor sees straight across a `Tile.Low` cell, a crouched one does not, and
+  standing back up restores it, and EYE-READER isolates the call to a non-comment line so a
+  refactor cannot silently drop it again. Separately, `sightings.gd::_observe_one` had been asking
+  `line_of_sight` — walls and range only — where `_observe_containers` a few lines above it already
+  asked `detail`, so a hostile standing in the 170-degree arc behind an observer's own facing was
+  being recorded, remembered and reported on the HUD; `_observe_one` now asks `detail` too.
+  BEHIND pairs an identical hostile due west of a west-blind, east-facing observer (unrecorded)
+  against the same hostile due east (recorded), and BEHIND-READER isolates `_observe_one`'s own
+  body — not the file as a whole, since `_observe_containers`'s call to `detail` would otherwise
+  satisfy the needle even if `_observe_one` still called `line_of_sight` — and asserts which of the
+  two calls it makes. Both lanes were shown red against the shipped code before the fix. Neither
+  change claims a balance outcome: `godot:m2:balance`, `godot:m2:director` and `godot:m2:npc` were
+  run and stayed green, but a campaign-level measurement of tighter cover or narrower memory is
+  unmeasured and left for a slice that claims one.
 - **Health & injury** — ~~the remaining injury types (fracture, sprain, burn, concussion)~~
   **landed** (`godot:m2:wounds`, KINDS and CAUSES). docs/05's injury table has nine rows and three
   shipped, as *severities* of one bleeding wound. The four remaining are structurally different —
@@ -7068,6 +7186,695 @@ not a to-do list:
   This system's open tails (the diegetic readouts, prose from modifier sources, the skill web
   screen, the attachment-fitting surface, the patient-and-part selection the other infection verbs
   wait on, the parked warmth/hygiene slots) are in [what's left](#whats-left-in-milestone-2).
+- **The alpha shell** — ~~per-gate wall time~~ **landed** 2026-09-16 (`npm run check:timing`,
+  `TIMING_OK`), the arc's first piece: the chain was twenty-seven minutes with no attribution,
+  and every later alpha-shell piece is meant to quote its own cost from this table.
+  `scripts/run-godot.mjs` prints one `GATE_TIME mode=<mode> seconds=<n> exit=<code>` line at the
+  end of every mode it runs, success or failure, without moving a gate's own exit code or its
+  `_OK` line — every path through the file, the ordinary case and every early failure, now funnels
+  through one `finish()` that prints the line and then exits. `godot:m2:chain` in `package.json`
+  keeps the exact `&&` string the chain used to be (77 scripts), unrun, as the one list both
+  `scripts/check-routing.mjs` and the new `scripts/m2-chain.mjs` read rather than each keeping a
+  copy; `godot:m2` itself is now `node scripts/m2-chain.mjs`, which runs those same 77 scripts in
+  order, stops at the first failure exactly as `&&` did, and prints a `GATE_TIME_TABLE` — every
+  gate it ran, slowest first, with a total — recovered from each one's `GATE_TIME` line.
+  `scripts/check-timing.mjs` is the assertion that the table cannot come up short: `buildTable` is
+  a pure function over the modes a chain attempt ran and the `GATE_TIME` rows collected from it,
+  and the self-test feeds it fabricated input only, per the piece's own "mock the engine, never
+  run the real chain inside the self-test" — a complete three-mode fixture produces a three-row
+  table, slowest first, with the right total, and the same fixture missing one mode's row (or
+  carrying an extra one) is refused by name rather than silently rendered short. `check-timing`
+  also reads the real tree, textually, for the two things a refactor could quietly break: that
+  `godot:m2` still says `node scripts/m2-chain.mjs`, and that `run-godot.mjs` still prints the
+  `GATE_TIME` line every row is built from — the dead-socket question asked of this mechanism
+  itself.
+  Measured on a shared project container, **contended** with at least one other `godot:m2` chain
+  running on the same machine at the same time (this file's own "about twenty-seven minutes" is
+  the quiet-container number), so every figure below is inflated over an uncontended run and is a
+  one-time reading rather than a budget to hold anyone to: the full 77-gate `npm run godot:m2`
+  took **2986.33 s** (49m46s) and exited 0, all 77 gates green. Its five slowest were
+  `--m2-balance` at 959.38 s, `--m2-storm` at 453.90 s, `--m2-needs` at 242.14 s, `--m2-raiders`
+  at 155.43 s and `--m2` (lethality) at 144.34 s — those five alone are 1955.19 s, two thirds of
+  the whole chain, on a container that was also running someone else's chain. The full table,
+  slowest first, exactly as `GATE_TIME_TABLE` printed it:
+
+  ```
+  mode              seconds   exit
+  --m2-balance       959.38  0
+  --m2-storm         453.90  0
+  --m2-needs         242.14  0
+  --m2-raiders       155.43  0
+  --m2               144.34  0
+  --m2-cold          138.80  0
+  --m2-weather       116.62  0
+  --worldgen          70.83  0
+  --m2-settlers       60.41  0
+  --m2-strangers      56.21  0
+  --m2-camp           51.73  0
+  --m2-region         50.24  0
+  --m2-heat           43.72  0
+  --m2-recovery       32.79  0
+  --m2-ranged         30.52  0
+  --loot              28.10  0
+  --m2-jobs           27.10  0
+  --m2-npc            20.40  0
+  --m2-recruits       17.56  0
+  --m2-warmth         16.19  0
+  --m2-district       15.25  0
+  --m2-wounds         15.10  0
+  --m2-filter         13.90  0
+  --m2-director       13.76  0
+  --m2-vehicles       11.47  0
+  --water             11.16  0
+  --m2-fog            10.88  0
+  --m2-treatment      10.71  0
+  --m2-noise          10.70  0
+  --m2-dormant         9.95  0
+  --buildings          9.39  0
+  --m2-harness         8.00  0
+  --hud                6.44  0
+  --wrecks             5.86  0
+  --m2-web             5.71  0
+  --m2-allegiance      5.12  0
+  --m2-contact         4.86  0
+  --m2-roster          4.85  0
+  --m2-attach          4.84  0
+  --m2-save            4.84  0
+  --m2-splint          4.28  0
+  --road               3.90  0
+  --m2-aim             3.77  0
+  --m2-medicine        3.63  0
+  --m2-comfort         3.53  0
+  --m2-light-burn      3.32  0
+  --m2-transform       3.17  0
+  --m2-ammo            3.16  0
+  --m2-autonomy        3.12  0
+  --m2-upkeep          3.12  0
+  --m2-stance          3.02  0
+  --mods               2.71  0
+  --m2-people          2.68  0
+  --m2-armored         2.51  0
+  --inventory          2.51  0
+  --m2-swipe           2.40  0
+  --m2-sight           2.32  0
+  --m2-fortify         2.22  0
+  --m2-materials       2.16  0
+  --m2-gear            2.14  0
+  --m2-bench           2.13  0
+  --m2-variance        2.04  0
+  --m2-teach           1.95  0
+  --roof               1.95  0
+  --light              1.88  0
+  --m2-stats           1.86  0
+  --trees              1.86  0
+  --worn               1.86  0
+  --web-look           1.85  0
+  --topdown            1.76  0
+  --weather            1.76  0
+  --appearance         1.67  0
+  --m2-armor           1.50  0
+  --respond            1.48  0
+  --ban-health-bar     1.29  0
+  --authored           0.35  0
+  --camera             0.27  0
+  TOTAL             2986.33
+  ```
+- **The alpha shell** — ~~the play gate~~ **landed** 2026-09-16 (`npm run godot:check:play` →
+  **`PLAY_OK`**, eleven lanes, 13.0 s of a 60 s budget, measured inside a green 78-gate chain),
+  the first gate in this tree that plays
+  the game. Everything else either drives the sim with no screen or reads a presentation file as
+  text; `test/project_smoke.gd` awaits one frame and asks whether a world exists. So the whole
+  presentation layer — input, the frame loop, save and load, and 1,250 lines of drawing — was
+  executed by nothing, and a null dereference on night three would have passed all 77 gates.
+  `godot/check_play.gd` boots `res://presentation/main.tscn` headless, pushes real key events
+  through the viewport with `root.push_input` and runs the real frame loop by calling
+  `main._process(1/20)`. Both mechanisms are deliberate: `push_input` is synchronous and walks
+  the engine's own `_input` → GUI → `_unhandled_input` order, so the gate still reaches the
+  handler after the input split moves it out of `main.gd` (calling `main._input` directly would
+  have become a dead socket the day that lands, and `Input.parse_input_event` buffers to the next
+  frame and mutates the global `Input.is_key_pressed` the game itself reads). The scene's own
+  `_process` is switched off while the gate drives, and the boot frame's accumulator zeroed, so a
+  lane can count ticks. The lanes: **TICKS** (20 frames, 20 ticks; P, pressed as a key, holds the
+  world still and gives it back), **WALK** (held W walks 4.10 m north, release stops it inside
+  0.000 m, W+D sums to the diagonal 1,−1 read off the pumped command rather than off a position
+  that a wall could also explain), **SHEET** (Tab peels all four things `_set_inventory_open`
+  owns and gives them back), **SETTINGS** (Escape closes the legend and leaves settings shut —
+  the peel order main.gd's own comment states — and opens it only on the second press),
+  **ROUNDTRIP** (F5 writes a decodable save, F9 restores the tick and the body to within 0.001 m,
+  and a slot that is not a save at all leaves the live world untouched), **CAMP-KEY**, **DRAW**,
+  **SCENE** (the scene driven is `project.godot`'s `run/main_scene`), **KEYS** (every one of the
+  eleven keys the gate presses has a legend row, matched as whole tokens because "C" is inside
+  "Ctrl+C"), **BUDGET**, and **RUN-OVER**, which skips.
+  **CAMP-KEY was run red against the parent commit first**, the way `check_camera.gd`'s SHORT STEP
+  lane was proved: ``CAMP-KEY: C pushed 1 `stance` commands the press had no business pushing``.
+  That is the double bind the audit found (docs/30, "The alpha shell, 2026-09-16") — `C` fell
+  through the camp arm of the match *and* the walk-stance line below it, so standing up from a
+  crouch also moved home. The minimal fix rides in this commit, because a gate cannot land red in
+  the chain: camp **keeps C** and the ladder moved onto **Ctrl** by the owner's decision — Ctrl+Z
+  prone, Ctrl+C crouch, Ctrl+S stand, Ctrl+V jog, Shift still the sprint latch, Ctrl+W never
+  bound. The camp arm reads `ke.shift_pressed` off the event rather than `Input.is_key_pressed`,
+  which is what makes a strike injectable at all; Ctrl-modified keys are kept out of the held
+  movement set, so Ctrl+S stands without stepping backwards (the lane asserts `_held` directly);
+  and `legend.gd`'s Move group names the ladder as Ctrl, with the key column widened for it. The
+  lane now proves C → exactly one `camp.establish` and no stance, Shift+C → one `camp.abandon`,
+  Ctrl+C → one `stance` on rung 1 and no `camp.*`, and its predicate is shown to bite on three
+  fabricated pending lists first.
+  **DRAW** is the reader assertion the dead-socket rule asks for: one line at the very end of
+  `_draw`, `_drew_tick = int(world.tick)`, is the only thing in `main.gd` that exists for a gate,
+  and it is the difference between "the engine called `_draw`" and "`_draw` reached the bottom" —
+  an aborted draw never gets there. The lane runs the draw path on day one *and* on night three
+  (the wash, the light pools and the fog are a different set of branches, and 2 a.m. on day three
+  is exactly where nobody had looked), and its true negative hides the node and demands the
+  counter stay where it was put. Headless is not an excuse: the dummy rendering driver calls
+  `_draw` and throws the commands away.
+  **RUN-OVER skips, loudly** (`RUN-OVER SKIP the shell does not exist yet; the lane lands with
+  presentation/session.gd`, named again on the `PLAY_OK` line) because there is nothing to assert
+  yet — the last survivor dies, `world.runOver` goes true, the HUD prints one line and the sim
+  keeps ticking over the corpse. The lane is **red if `presentation/session.gd` ever exists while
+  it is still skipping**, so the shell cannot land without turning it on. Not proved here and
+  named rather than assumed: that the web export's `preventDefault` keeps Ctrl+S out of the
+  browser's save dialogue, which is a published-build check in the walkthrough piece.
+- **The alpha shell** — ~~the dev menu reaches a raider band and a stranger~~ **landed** 2026-09-16
+  (`godot:m2:raiders`'s DEBUG-BAND lane, `godot:m2:recruits`'s DEBUG-STRANGER lane): F8 gains a
+  `raider` kind and a `stranger` kind on `debug.spawn`, both reaching the machinery a real night
+  already uses rather than a second recipe for the same body. A raider row (`"band.2"` /
+  `"band.4"`) rolls a band through a new `SimRaiders.spawn_band`, factored out of
+  `SimDirector._emit_band` so the director's own draw and the dev menu call the one function;
+  `stamp_band` afterwards makes it a band that can lose men and withdraw exactly like a drawn one.
+  DEBUG-BAND measured `"band.4"` placing exactly four hostile bodies, each carrying a
+  `raider.person` and a non-empty `skillWeb`, then filled `RAID_LIVE_CAP` and watched a fifth
+  request refused with `debug.refused` (reason `cap`) rather than exceeding it, live count
+  unmoved; a fabricated command naming a size of zero spawned nobody. A stranger row rolls a
+  person through the gate beat's own two calls (`SimRecruits.roll` then `spawn_generated`) and
+  stands them at the gate the way `_tick_beats` does — `SimRecruits.accept` itself only asks
+  whether a body carries `recruit.waiting`, but the gate is where a player goes looking for one.
+  DEBUG-STRANGER measured one new `recruit.waiting` body landing within a metre of the gate
+  anchor, `accept` turning it into a colonist (identity, needs, jobPriorities, colony allegiance),
+  and `accept` on nothing waiting doing nothing. Both lanes hold the dead-socket half too:
+  `debug_panel.gd`'s `_rows()` is read as text and DEBUG-BAND refuses unless it literally offers
+  both kinds. *Files:* `godot/ui/debug_panel.gd`, `godot/sim/modules/debug.gd`,
+  `godot/sim/modules/raiders.gd` (`spawn_band`), `godot/sim/modules/director.gd` (`_emit_band`
+  calls it), `godot/check_m2_raiders.gd`, `godot/check_m2_recruits.gd`.
+- **The alpha shell** — ~~the HUD in the chrome~~ **landed** 2026-09-16
+  (`npm run godot:check:hud` → **`HUD_OK`**, lane ACTION), the owner's **Option A, two cards**
+  picked from four artboards the same day ([docs/30](30-decisions.md#the-alpha-shell-2026-09-16),
+  the mockups and both screenshots under `.hermes/plans/2026-09-16_alpha-hud/`). The corner
+  columns are now cards in `ui/chrome.gd`'s skin — a **"you"** card at the top left and an
+  **"outside"** card at the top right, panel at alpha 0.86 with bracketed corners and a header
+  strip, sized to their content in both directions so a healthy survivor's card is one line tall
+  and a long chronicle line widens the box rather than hanging off it. **The arrays are
+  untouched**: the header is chrome, never a line in `_left`, which is what keeps the QUIET lane
+  judging the column it exists to hold down, and LINES, RAW, CHRONICLE, SELECTED, TAG and
+  SHEET-COST all pass unweakened. Below them an **action bar** (1296×48, centred above the quick
+  strip) carries the contextual clauses — the key in amber, the words in khaki, a faint dot
+  between them — with the standing key hint in its tail, all measured and placed as one centred
+  group. The line itself is `Hud.action_line(world, actor, look, hint)`: **E** from
+  `SimFortify.look_at` in main.gd's own key order, else `SimContainers.hud_clause`, else
+  `SimVehicles.hud_clause`, else the context line `_update_hud` already resolved (and never a
+  content error, which is a fault report rather than an action); **T** from the aid ladder;
+  **H** from `SimShambler.rescue_target`, by name. Digit-free by construction and `""` when no
+  read model says anything, so the bar is the key hint alone on a quiet street. **One deviation
+  from the plan, and it is the reason the plan said to read each read model before calling it:
+  `SimTreatment.context` is not a read model.** It cancels a running channel and calls `begin`,
+  so a HUD asking it "what would T do?" four times a second would have started treating people;
+  the clause reads the two pure facts it branches on instead — the `treatment` component for
+  "T — stop", and `_nearest_needing_care` for the patient — and takes the verb from
+  `options_for`, which dry-runs every rung, so the bar cannot offer one the sim would refuse.
+  The **ACTION** lane proves all of it: the line names E for a boarded window, carries no digit
+  with its scanner proved on the literal `"E — 3 boards"`, produces T for a bleeding torso and
+  `H — pull Mara Sato free` for a held colonist in E/T/H order, falls back to the hint and
+  refuses a content error, says nothing at all for a well survivor in an empty street, and —
+  the dead-socket half, comment lines stripped first so a commented-out call cannot satisfy it —
+  `_update_hud` hands the line over and `_draw` draws the bar. Red first, twice: a digit welded
+  onto the line gave *"ACTION: the action line carries digits (3): 'E — boarded, holding · T —
+  press your torso (3 boards)'"*, and commenting out the call in `_update_hud` gave *"ACTION:
+  `_update_hud` never hands the action line to the HUD"*. `check_inventory`'s `var keys: String`
+  needle is untouched, and the hint still reads "Esc settings" because the shell slice that
+  renames it had not landed in this tree.
+- **The alpha shell** — ~~the ladder names its rung~~ **landed** 2026-09-16 (`npm run
+  godot:check:hud` → **`HUD_OK`**, lane **RUNG**). `SimFortify._use_context` used to decide and
+  act on the whole E ladder in one pass; the six upper rungs — dismount, the loose item, the
+  container, the door, a waiting stranger, the car — already had their own HUD read models
+  (`SimVehicles.hud_clause`, `SimContainers.hud_clause`, `look_at`'s window/noisemaker/device), so
+  what the bar could never say was the rest of it: sleep, the fire, a filter, the latrine, a
+  bench, a window it is actually facing, the trap, the bait, a lift, a barricade. `SimFortify.
+  rung_of(world, actor) -> Dictionary` is the split — a pure read, `{"verb", "target", "prose"}`,
+  that returns `{}` while one of the six upper rungs would fire (asked with `_door_would_toggle`,
+  `SimVehicles.nearest_in_reach` and the rest, never by mutating to find out) and otherwise names
+  the rung `_use_context` would actually take, in the same order, down to the same fallback ("lay
+  a trip alarm" on any open tile with none laid yet). Two small pure predicates carry a decision
+  that used to be a side effect: `_would_boil` and `_would_purify` read a lit campfire and
+  `needs.gd`'s own `_carried_treatable` / `_carried_purifier` rather than spending the water to
+  find out, and `_door_would_toggle` reads `door_state` rather than opening or closing the door.
+  `_use_context` is unchanged through the car section — `check_vehicles.gd`'s SOCKETS needle still
+  finds `SimVehicles.dismount(`, `mount(`, `nearest_in_reach(`, `at_hood(`, `check_hood(` and
+  `begin_refuel(` inside it, because nothing there moved — and past it now calls `rung_of` once
+  and dispatches on `rung.verb`, so the ladder is decided once and acted on once rather than
+  decided-and-acted at every rung in turn. `hud.gd`'s `_reach_clause` asks `SimFortify.rung_of`
+  between the look-at group and the cupboard/car clauses on purpose: those two already answer for
+  themselves, so naming a lower rung ahead of them would be the HUD contradicting its own key.
+  The **RUNG** lane: standing at reach of a boarded window with an empty `look` dict (so the
+  pre-existing window clause cannot be the one answering), the bar reads `"E — board up the
+  window"`, digit-free; three tiles off the same window and facing a wall (open floor would offer
+  the free alarm rung, which is not "nothing"), the bar reads `""`; a fabricated
+  `"E — sleep for 8 hours"` proves the scanner would still catch a rung that broke the ban; and,
+  the dead-socket half past a stripped comment, `_use_context` calls `rung_of` on a line of its
+  own (`var rung: Dictionary = rung_of(world, actor)`) and `_reach_clause` reaches
+  `SimFortify.rung_of(` too. Red first, against the code before this slice: *"RUNG: beside a
+  boardable window with no look-at, the bar does not name rung_of's word: ''"* — `rung_of` did not
+  exist and the empty `look` dict left `_reach_clause` nothing to answer with. **What it does
+  not do:** it names E's top rung only; it does not enumerate the ladder, and a rung already
+  covered by its own read model — mount, refuel, a hood, a container — stays silent here rather
+  than being renamed a second way.
+- **The alpha shell** — ~~the input split~~ **landed** 2026-09-16 (`npm run godot:check:play` →
+  **`PLAY_OK`**, lanes **FOCUS**, **LEGEND**, **KEYS** and **SOCKET** beside the eleven the play
+  gate already had; 20.2 s of its 60 s budget). Every key the game reads now lives in
+  `godot/presentation/input_map.gd`, a **child Node** built in `main.gd`'s `_ready` after
+  `_ensure_ui` — a Node and not a helper, because the engine's own dispatch has to reach it: the
+  play gate pushes events through the viewport, so a handler main called by hand would have been
+  the dead socket the play gate's header warned about. `main.gd` loses `_input`,
+  `_unhandled_input`, `_pump_input`, `_aim_at`, `_push_stance`, the five held-key vars,
+  `MOVE_KEYS` and `INTERACT_KEY`, and keeps the screens a press reaches (`_set_inventory_open`,
+  `_set_web_open`, `_toggle_legend`, `_save`, `_load`, `_update_hud`) and all the drawing; its
+  `_process` calls `pump()`. It goes from 2,242 lines to 2,021.
+  **`BINDINGS` is the rebind seam** — action → keycodes, a modifier column, and the token the
+  legend prints — and raw keycodes rather than InputMap actions for two reasons that are both
+  load-bearing: the textual gates slice this file for `KEY_*` literals, and
+  `Input.is_action_pressed` cannot see an event pushed synchronously through the viewport, so an
+  action-based router would be judged on an input path no player uses. It is read on **every**
+  keystroke rather than sitting beside a switch that repeats it: `_action_for` resolves the event
+  to an action, and that one answer gates the press, drives the stance ladder and decides whether
+  the key joins the held-movement set. The modifier column is where "C is camp and Ctrl+C is the
+  crouch" is now written down.
+  **`_focus()` and `ALLOWED`** are the behaviour change: `legend` / `settings` / `web` / `bench` /
+  `sheet` / `work` / `street` in that precedence, and a per-focus list of the actions that still
+  fire (sheet keeps Tab, Esc, R, 1–6, M, F1; web K, Esc, F1; settings and bench Esc; legend F1,
+  Esc, Enter; work J, Esc; the street everything). Before this, every key fired under every open
+  panel. Leaving the street clears the held set and pushes one zero move, so opening the sheet
+  mid-stride stops the body instead of walking it behind the panel — and that release fires on
+  **two edges only**, the press that took the focus off the street and a press the table refused.
+  The first cut released after *every* off-street press, which sounds safer and is not: the
+  red-first run of the FOCUS lane put `"move"` into the sheet's row and the lane **passed**,
+  because the unconditional release was stopping the body whatever the table said. A focus table
+  no gate can turn red is a focus table that quietly stops being read, so the release was narrowed
+  to the two edges and the lane goes red on that same sabotage. A `shell` focus for the next slice
+  is reserved in a comment and in no code.
+  **F2 is deleted** — the binding and `_leave_for_another_city`, by the owner's decision that a
+  new run boots the fixed town from a menu — and **F8 is bound only under `OS.is_debug_build()`**
+  and off `ui/legend.gd`'s GROUPS. **The legend stays dismissed**: `ui/prefs.gd` gains a boolean
+  half (`flag` / `set_flag`) and a `legend_dismissed` default, `_ensure_ui` reads it, and only the
+  three explicit dismissals write it — F1 toggling off, the Escape peel, Enter. Opening the sheet
+  or the web still only hides the panel. Its header had promised this since it landed and nothing
+  had ever stored it, so every launch opened on the keys.
+  The four lanes, each run red first. **FOCUS**: with `"move"` added to the sheet's `ALLOWED`,
+  *"FOCUS: W pushed { "type": "move", "dx": 0.0, "dy": -1.0 } with the sheet open"*; with the
+  street-release edge disabled, *"FOCUS: opening the sheet left [87] held, so the walk continues
+  behind it"*. The lane walks the body south first and measures how far a held W then carries it
+  on the open street, because WALK has already put it against whatever is north of the spawn and
+  a "did not move" measured there reads the map rather than the focus table — with no room it says
+  so and judges nothing. It also learned the hard way to let the sim **take** the zero move
+  (five frames) instead of draining it out of the queue: the gate was throwing the stop away and
+  then blaming the router for a body that kept walking. **LEGEND** boots the scene twice with
+  `UiPrefs._loaded` reset between them, because a flag held in the scene would pass an in-scene
+  assertion and still greet the player at the next launch; red first as *"LEGEND: the keys came
+  back at the next boot despite the dismissal"* (with `visible = true` restored) and *"LEGEND:
+  Enter closed the panel and remembered nothing"* (with the `set_flag` removed). **KEYS** now
+  reads the legend and `BINDINGS` against each other **both ways** — every one of the legend's 30
+  key tokens is bound by a `BINDINGS` row, by `MOVE_KEYS` or by `INTERACT_KEY`, and every binding
+  has a legend row or is excused **by name** in the gate's `UNLISTED` (only `dismiss`, because
+  Enter opens nothing, and `debug`, because F8 is dev-only). Red first three ways: a fabricated
+  `["Q", …]` row gave *"KEYS: the legend names 'Q' and nothing in BINDINGS, MOVE_KEYS or
+  INTERACT_KEY binds it"*, deleting the J row gave *"KEYS: 'work' is bound to the legend row 'J',
+  which the legend does not have"*, and putting F8 back gave *"KEYS: the legend still offers
+  'F8'; it is dev-only or deleted"*. **SOCKET** is the split itself, textually: red first as
+  *"SOCKET: main.gd still handles input itself, so two nodes answer the same key"*, *"SOCKET:
+  main.gd's _process never calls pump(), so a held key moves nothing"*, *"SOCKET: F8 is bound
+  without an OS.is_debug_build() guard; a player can open the dev menu"* and *"SOCKET:
+  '_leave_for_another_city' is still in the tree; F2 was deleted, not hidden"*.
+  **Every needle that read the moved code was followed, and none was dropped**, which is the rule
+  the two gates this milestone turned red over: `check_web_look.gd:674` (`_function_body(MAIN_GD,
+  "_input")` → `INPUT_MAP_GD`; `_ensure_ui`, `_update_hud` and `_set_web_open` stayed on
+  `MAIN_GD`), `check_vehicles.gd:1017` (E-KEY's no-toggle slice), `:1402-1406` (the whole-file
+  `const INTERACT_KEY: Key = KEY_E` and the HOOD `_input` slice) and `:2452` (SOCKETS' `use.context`
+  row), and `check_inventory.gd:881` and `:1024`, both **split** rather than moved — the router is
+  asked for `KEY_MINUS`, `KEY_EQUAL`, `_strip_use`, `container.close` and `loot_open`, main.gd for
+  `_strip_use`, `strip_use`, `set_loot` and `SimContainers.open_view`, so a half-done move is red
+  instead of being satisfied by the other half. `check_camera.gd`'s `_snap_camera` message lost its
+  mention of F2. `check_play.gd`'s own harness follows the same way: `main.call("_pump_input")`
+  becomes `router.call("pump")` and `main.get("_held")` becomes the router's, and `_boot` now peels
+  the legend with Escape before any lane presses anything, because the legend is a focus of its own
+  and would otherwise swallow every key TICKS, WALK and ROUNDTRIP press.
+  `README.md`'s Controls table was brought back in line while the keys were open — it still
+  offered `Z`/`X`/`C`/`V` and `1`/`2`/`3` from before the Ctrl ladder and the quick strip — and it
+  now says outright that it is a third copy no gate judges and that the in-game sheet is the
+  authority.
+- **The alpha shell** — ~~the shell~~ **landed** 2026-09-16 (`npm run godot:check:play` →
+  **`PLAY_OK`**, lanes **TITLE**, **PAUSE**, **NOTICE**, **RUN-OVER**, **AUTOSAVE**, **CLOSE**,
+  **VOLUME** and a widened **SOCKET** and **SETTINGS**, no lane skipped, 25.6 s of its 60 s budget;
+  `npm run godot:check:hud` → **`HUD_OK`**, new lane **SHELL**, 23 words across the three screens
+  and not a digit among them). The game has a front door: it opens on a **title**, pauses to a
+  **menu**, ends on a screen that **speaks the chronicle**, and writes its own save at each dawn
+  and when the window closes. Screenshots of all three are under
+  `.hermes/plans/2026-09-16_alpha-shell/`.
+  **`godot/presentation/session.gd`** (new, RefCounted) owns the run's lifecycle: `State`
+  {TITLE, PLAYING, PAUSED, RUN_OVER}, the world, map, fixture, district, region and seed,
+  `boot` / `new_run` / `save` / `load` / `has_continue` / `autosave_if_dawn` / `enter` /
+  `is_live`. `main.gd` loses `_boot_world` outright and keeps `_save` and `_load` as the two
+  keys' forwards to it; it goes to 2,120 lines with the shell's wiring in it. **`main.gd` keeps a
+  plain `var world`**, reassigned by a new `_on_world_replaced` after every transition, because
+  sixteen gates and `test/project_smoke.gd` read `main.get("world")` one frame after
+  instantiating the scene and a field that became `session.world` would have turned all of them
+  into dead sockets at once.
+  **The title is a state, not a deferred boot** — the same reason: `_ready` boots the world
+  exactly as before and `_enter_state(TITLE)` draws the menu over the district you are about to
+  play. A parity run (`--parity`) enters PLAYING directly, because a menu in front of
+  `godot:test` would have stopped the clock the oracle is compared against.
+  **`godot/ui/shell.gd`** (new, Control, added last in `_ensure_ui` so it draws over everything,
+  `MOUSE_FILTER_STOP` only while visible) draws all three screens in `ui/chrome.gd`'s skin with
+  drawn rows and their hit rects: TITLE (the game's name · new run · continue, only when
+  `has_continue` · quit, hidden on the web, since a browser tab has nothing to quit to),
+  PAUSED (resume · save · load · settings · quit to title) and RUN_OVER (the epitaph · new run ·
+  quit to title). Keys arrive through the router's new **`shell` focus** and clicks through
+  `_gui_input`; both end in one `on_action: Callable`, so the panel decides which row was chosen
+  and `main.gd` decides what a row means. `rows()`, `lines()` and `words()` are the read side,
+  exposed the way `SimSkills.web_map` is, because a screen that can only be judged by its pixels
+  cannot be gated.
+  **`SimChronicle.epitaph(world, max_lines)`** is the second reader `chronicle.gd`'s header had
+  reserved: the last records through the same `_line_of` builder `lines()` uses, **ignoring
+  `LINE_TICKS`**. The window is the HUD's question ("is this still news"), and at the end of a
+  run it is the wrong one; it is not a parameter with a large default, because then `LINE_TICKS`
+  would still be deciding and a screen that showed a death from two hours ago and not one from
+  three would be arbitrary in a way nobody could see.
+  **The owner's decisions, each as shipped.** New run boots `SimBoot.DISTRICT_SEED` from every
+  screen — and from an untouched title it plays the world `_ready` already booted, because that
+  world *is* the fixed town and a second identical boot is a second boot; `_world_played` is the
+  one flag that tells an untouched title from one you quit back to. Quit to title autosaves when
+  the run is live and not over, and so does `NOTIFICATION_WM_CLOSE_REQUEST`, synchronously, on
+  desktop only — a browser tab's close is not reliably delivered and a half-written slot is worse
+  than no autosave, so the web build has the dawn edge and nothing else. **P stays the soft
+  pause** and is deliberately not a fifth state: P holds the world still with the street in front
+  of you, Escape puts a menu there. Escape with nothing open pauses; **settings is a row on that
+  menu**, not a key of its own, and opening it closes the menu, because the shell is in front of
+  everything in the focus order and a settings sheet behind it would never see its own Escape. A
+  save that will not load leaves the player on the title with **one fixed sentence** — *"that save
+  was written by another version of the game"* — never `decode_save`'s own message, which carries
+  the two save-format numbers.
+  **The router** gains `shell` at the front of `FOCUSES` (the slot the input split had reserved in
+  a comment) and an `ALLOWED` row of exactly `move`, `dismiss` and `escape`: the menu is not
+  somewhere you can shoot. A press under that focus goes to `shell.key(ke)` and **returns**, since
+  every key it takes means something else further down the match — Enter dismisses the legend, W
+  joins the held set and walks the body behind the menu. The Escape arm was rewritten to branch on
+  `_focus()` rather than to re-derive the order in a chain of `elif`s, which also fixed a
+  settings sheet over an open web closing the web underneath it.
+  **The legend now opens on the first entry to PLAYING**, not at boot: a panel of keys over a menu
+  is a panel about a game you have not started. Same pref, same three dismissals.
+  **Volume** is `ui/prefs.gd`'s `volume` (default 1.0) and a second row on the settings sheet,
+  pushed at the master bus by a new `sfx.apply_volume()` — the first thing in this tree ever to
+  touch `AudioServer`, from both ends of the dead socket: there was no row *and* no reader. The
+  clamp had to be split to do it: `FLOORS` is per-key, 0.15 for the opacity (a panel at nought
+  alpha is one you cannot find again) and **nought for the volume**, because mute is the point of
+  the row; `opacity`/`set_opacity` stay as forwards to one `level`/`set_level` pair so there is
+  still exactly one clamp.
+  **The quick strip was the one screen that did not peel itself.** It draws during ordinary play
+  whether or not the sheet is open, which is what it is for — and over the title it is six belt
+  slots and their key numbers under a menu. `_enter_state` hides the sheet, the HUD, the corner
+  doll and the dashboard outside a run, and the TITLE lane asserts the strip is gone.
+  Every new lane was run red first, against the code and never the gate. **TITLE**: booting into
+  PLAYING gave *"TITLE: the scene booted into state 1, not TITLE"*, and leaving the strip up gave
+  *"TITLE: the quick strip is still drawn under the title"*; the continue row is asked three ways
+  — no slot, a live slot, and the wreck of a finished run — because one way does not show the
+  question is being asked. **PAUSE**: *"PAUSE: Escape on the street left the session in state 1,
+  not PAUSED"*, with the true negative that Escape still **peels** first (with the skill web open
+  it closes the web and the run keeps going). **NOTICE** is the lane the fixed sentence would
+  otherwise not have had: the menu's `load` row is the **only** way to reach it, because the
+  title's `continue` row is not offered at all for a slot that will not decode, so without a lane
+  the sentence was prose nothing on screen could show. It writes the stale slot `check_m2_save.gd`
+  uses, presses the row, and asserts the run is left where it was, the sentence is on the menu,
+  and the decoder's own message is **not** — red first, with the notice passed as `""`:
+  *"NOTICE: the menu says nothing about the save it refused"*. **RUN-OVER** stops skipping:
+  *"RUN-OVER: the run ended and the session is in state 1, not RUN_OVER"*. It kills one colonist,
+  jumps the clock past `LINE_TICKS` (rather than stepping twenty-four thousand ticks of a
+  sixty-second budget), asserts the HUD has forgotten that line and the epitaph has not, then
+  corpses the rest of the colony so succession has nobody to hand the camera to, and asserts the
+  screen's lines **equal**
+  `SimChronicle.epitaph(world, 5)`, are digit-free, and that "new run" hands back a *different
+  world object* that ticks — the object identity is the half a cleared `runOver` would pass.
+  **AUTOSAVE**: with the dawn scan neutered, *"AUTOSAVE: the first tick of day two wrote no
+  save"*; both negatives are what make it an edge rather than a phase — five ordinary ticks write
+  nothing, and a finished run writes nothing at the very same tick, because a run-over slot is one
+  the title would refuse and the player would find their run gone. The edge is asked with the span
+  the frame covered, not "is it dawn now", since a frame carries up to fifty ticks at speed ten.
+  **CLOSE**: *"CLOSE: closing the window mid-run wrote no save"*, with the title half asserting
+  the opposite and the web branch read textually, because it cannot be driven headless.
+  **VOLUME**: putting the opacity floor back on the volume row gave *"VOLUME: nought came back as
+  0.150; the opacity floor is clamping the volume row"* — and the first cut of that lane restored
+  the pref *before* formatting the message and reported 1.000, a gate blaming the wrong number,
+  which is the failure mode the trap list names; it reads the value before it restores now.
+  **SETTINGS** was rewritten rather than loosened: leaving the menu up under the sheet gave
+  *"SETTINGS: the menu is still up under the settings sheet, so the sheet never sees a key"*.
+  **SOCKET** went red twice while it was being written, both times correctly — *"SOCKET:
+  res://presentation/session.gd has no `func has_continue(`"* (the needle knew `\nfunc` and not
+  `\nstatic func`) and *"SOCKET: main.gd's _process never mentions `autosave_if_dawn(`"* (the call
+  goes through `session.call("autosave_if_dawn"`, so there is no paren after the name). Both
+  needles were fixed by following the code, not by dropping them, and the `_process` pair is now
+  the call **as written** (`session.call("autosave_if_dawn"`, `SessionRes.State.RUN_OVER`) because
+  `_process` has comments about both and a needle a comment can satisfy cannot fail.
+  **`check_hud.gd`'s SHELL lane** drives `show_state` through all three screens with a fabricated
+  epitaph and scans `words()`: red first with a `· day 3` appended to the footer —
+  *"SHELL: the title, with a run to continue carries digits (3)"* — and the scanner is shown
+  failing on *"You lasted 3 days."*, which is exactly what the run-over screen would say the day
+  somebody decides it should name the day it ended.
+  Two existing lanes changed because the behaviour under them did: **LEGEND** now presses Enter on
+  the title before it looks for the keys (and asserts they are *not* over the title), and
+  **SETTINGS** walks to the menu's settings row instead of pressing Escape twice. `check_play`'s
+  `_boot` presses Enter for "new run" before it peels the legend.
+- **The alpha shell** — the capability walkthrough, first pass, 2026-09-16. A throwaway
+  `godot/walkthrough_driver.gd` (deleted before this commit, per AGENTS.md's "Screenshots")
+  booted `presentation/main.tscn` the way `check_play.gd` does — `root.push_input` for every key,
+  `main.call("_process", 1.0/20.0)` to drive ticks — and worked the ten items on the owner's bar
+  that do not need the shell (docs/30, "The alpha shell, 2026-09-16"). All ten proved, each
+  against an observable the sim already exposes rather than the driver's own say-so:
+  - **move and interact** — held D walked the body and release stopped it, read off the position
+    component; E on a door pushed `use.context` and `SimFortify.toggle_door` flipped its `open`
+    flag. A house's door usually has furniture on the other side of it and `_use_context` tries a
+    loose item and a container before a door, so the driver tries doors until one actually
+    toggles rather than trusting the first it finds.
+  - **drive a car** — a vehicle off `SimVehicles.spawn_from_manifest`'s own list; E mounted, held
+    W moved it, E at a full stop dismounted. Held W for only a dozen ticks: a longer hold, driven
+    blind with no steering and no obstacle read, ran a class carrying no `cab` into a wall and
+    found `vehicles.gd`'s own crash rule the hard way — a rider with no cab is thrown clear on
+    impact, correct behaviour and not a defect, but not a dismount either, so the two are kept
+    apart in the driver's own report.
+  - **find loot** — E on a `searchable` opened the transfer view (`Containers.open`) and
+    `container.takeAll` moved what fit into the pack. That command is a mouse-click word in the
+    transfer window with no keyboard binding, so the driver pushed the same command the click
+    sends rather than hit-testing the widget; a real player uses the mouse there.
+  - **wield and fire a weapon** — `debug.spawn` stood a pistol and two rounds of 9mm at the
+    player's feet, E picked them up, `item.equip` armed the pistol, G fired it (mag decremented,
+    a `noise.emitted` at magnitude 180) and R reloaded it. Two rounds, not one — see the new
+    defect in [what's left](#whats-left-in-milestone-2), last on that list.
+  - **fight a shambler** — a knife picked up and equipped, `zombie.shambler` spawned at melee
+    range; the driver closed distance with real `move` commands whenever the gap opened past the
+    knife's reach and pressed F once inside it. `attack.connected` fired on the zombie and
+    `sim/condition.gd`'s own view of the player picked up a new wound (torso, hurt, bleeding)
+    from the bite, shown in prose on the screenshot. Standing still and swinging was the first
+    cut and it failed for twenty rounds straight: a shambler's approach and whatever keeps two
+    bodies from overlapping can hold a stable gap that a defender who never moves does not close
+    — the same shape, for one body, as "a melee raider band cannot reach a body that does not
+    move" in [what's left](#whats-left-in-milestone-2), the worst-first defect this same walk
+    ran straight into next.
+  - **fight raiders** — `debug.spawn` kind `raider` id `band.2` stood a two-man band, pulled to
+    short range by a direct position write after spawning at the map edge (the approach walk
+    itself untested here — a stationary band's own known defect, above, is exactly that it
+    cannot close the last metre), and G/F landed a hit inside the lane's own budget.
+  - **make camp** — C pushed `camp.establish`, the forty-tick channel completed and
+    `SimHome.centre` moved onto the new tile — the HUD's own "your camp is here" is in the
+    screenshot; Shift+C struck it.
+  - **recruit** — `debug.spawn` kind `stranger` stood one at `SimTileMap.gate_a`; E accepted them
+    (`SimRecruits.accept`), the colony's `is_colony` count rose by one, and the new body carries
+    `needs` and `jobPriorities`, the two components only a colonist has.
+  - **inventory and the body** — Tab opened the sheet with the shambler bite still open; the
+    paperdoll marked the torso and the sheet's own prose read "hurt · bleeding · watch" — no
+    digit anywhere in it, the same ban `check_ban_health_bar.gd` polices held on a hand-driven
+    screen too.
+  - **the skill web** — K opened it with nobody else selected, which `main._who()` defaults to
+    the player.
+
+  Screenshots, one per item, at `.hermes/plans/2026-09-16_alpha-walkthrough/`. **No gate
+  changed** with this piece — `npm run godot:smoke` and `npm run check:routing` both stayed
+  green — so the walkthrough is a point-in-time proof rather than something a chain re-asserts,
+  the way AGENTS.md's screenshot section has always worked. Two things a real player could not
+  reach the way this driver did are named at the point above rather than hidden in a log: the
+  loot lane's mouse-only take-all, and the raider/shambler approach closed by writing a position
+  rather than by anyone's feet. One new defect named in the what's-left list above (worst first,
+  last of the list): a debug-spawned stackable item is always a bare stack of one, found by the
+  "wield and fire a weapon" lane. **The second pass** — die and succeed, reach run-over and start
+  again, Ctrl+S on the web build — waits on **The shell** above; the what's-left entry says so
+  rather than striking a bullet four fifths done.
+- **The alpha shell** — the capability walkthrough, second pass, 2026-09-16. A second throwaway
+  `godot/walkthrough_driver2.gd` (deleted before this commit, same discipline as the first pass)
+  booted `presentation/main.tscn` the same way the first pass and `check_play.gd` do —
+  `root.push_input` for every key, `main.call("_process", 1.0/20.0)` for ticks, `_boot()` pressing
+  Enter for "new run" and then Escape for the legend now that the shell sits in front of both —
+  and drove the five items that sat behind **The shell**, plus a quick re-check of the first
+  pass's ten against this head.
+
+  - **die and succeed** — a `zombie.shambler` spawned at the player's own feet, then two
+    `attack.connected` events published straight onto the bus (attacker the shambler,
+    `bodyPart: "head"`, `damage: 8.0` twice — `SimHealth.BITE_DAMAGE`, the same ceiling a real
+    bite carries, delivered directly rather than waited on the live grab/bite roll, whose
+    `HELD_HIT_LOCATION_WEIGHTS` collapses the head's own share to nearly nothing inside a
+    grapple). The "real cause through the sim" option the task names, run through the same
+    `damage_part -> entity.killed -> health.reap -> finish_death -> SimRecruits.handle_death`
+    chain a live bite would, with the attacker and the body part chosen rather than rolled. Two
+    frames apart on purpose, CLAUDE.md's drain-timing trap paid for deliberately: the first
+    tick's `drain()` is what runs `damage_part` and zeroes the head, appending the player to
+    `health.gd`'s `killed` closure; only the *next* tick's `health.reap` system calls
+    `finish_death`. With Ellis and Mara both still standing, `_succession_pick` prefers
+    `survivor.unique.mara` by name and `_handoff` moves `world.player` onto her (entity 94, was
+    0), sets `controlled`, and leaves `runOver` false — Ellis is still up, so the run does not
+    end. The observables: `world.player` changed and the old body a corpse with nothing else
+    disturbed; the chronicle (`SimChronicle.lines`, the "outside" card) reads `["You are Mara
+    Sato now.", "The colony saw it happen.", "Someone is dead."]` — a death line and a
+    succession line, in that order, exactly `chronicle.gd`'s `_line_of` "died"/"succeeded"
+    cases (the task's own text says the "you" card names the new body; what actually carries the
+    name is the "outside" card's chronicle line, since `_self_lines`' name only ever differs from
+    plain "You" when the inspected actor is *not* `world.player` — corrected here rather than
+    left to read as if the "you" card had said "Mara"); and the pawn ring and its condition tag
+    (`main.gd`'s `it["player"]`, `HudRead.pawn_tag`) are both keyed off `world.player` rather than
+    a stored id, so the screenshot's ring is already on Mara's body. Screenshot
+    `11_die_and_succeed.png`.
+  - **reach run-over and start again** — the whole colony corpsed except the player, matching
+    `check_play.gd`'s own RUN-OVER lane (every other colonist a `corpse` component, nobody left
+    to hand the camera to), then `SimRecruits.handle_death(world, int(world.player))` called
+    directly — the sanctioned fallback the task names, used here because item 11 just proved the
+    live-succession half of this same call and this item's job is the *screen*, not a second
+    kill. With no heir, `handle_death` sets `world.runOver = true`; the next real frame's
+    `main.gd`'s own `_process` (not the driver) reads it and enters `RUN_OVER`, so the
+    transition is the game's own code. Session state `RUN_OVER`, the shell visible, and ten more
+    frames leave `world.tick` exactly where it was — the clock is frozen. The shell's `lines()`
+    read `["There is nobody left to be."]`, digit-free, matching `SimChronicle.epitaph(world,
+    5)`. Screenshot `12_run_over.png`. Pressing Enter on "new run" (row 0 of `RUN_OVER`'s two
+    rows) hands back a *different* world object — the identity check `check_play.gd`'s own lane
+    insists on — that is not itself over, in state `PLAYING`, and ticks ten times in the next ten
+    frames.
+  - **the pause menu** — Escape from the street opened the menu (state `PAUSED`); each row was
+    walked from a freshly reopened menu (`show_state` resets `cursor` to 0 every time it opens,
+    so a row is reached with N presses of S/Down rather than a remembered cursor): **resume**
+    (row 0) returned to `PLAYING`; **save** (row 1) wrote `user://simplyzombies.save.json` and
+    returned to `PLAYING`; **load** (row 2) read it back without losing the run (`world.player`
+    unchanged); **settings** (row 3) opened `_settings` over the closed menu (`_shell.close()`
+    first, per `_on_shell_action`'s own comment about the focus order) and Escape closed it and
+    raised the menu again (`_close_settings`'s `_show_shell()`); **quit to title** (row 4) wrote
+    the save a second time (the run was live and not over) and entered `TITLE`. The title's rows
+    are now `["new run", "continue", "quit"]` — `has_continue` reads the slot `quit_to_title`
+    just wrote — and that is the required screenshot, `13_pause_menu.png`. Pressing "continue"
+    resumed at the same tick and the same player id the menu was opened at.
+  - **the title** — a fresh boot (`_remove_save()` first) opens on state `TITLE` over a world
+    that is not ticking, rows `["new run", "quit"]` (no `continue`: nothing to offer). Screenshot
+    `14_title.png` — the walkthrough's own copy beside the shell agent's
+    `.hermes/plans/2026-09-16_alpha-shell/title.png`, so the walkthrough's set is complete on its
+    own rather than borrowing that one.
+  - **Ctrl+S on the published web build** — `SETUP_EXPORT_TEMPLATES=1 bash
+    scripts/setup-web-session.sh` reached the network on this container and installed 4.7.1's
+    templates in about eight seconds; `npm run godot:export:web` built `dist-godot/web/`.
+    Playwright's own npm package here does not match the browser revision already unpacked at
+    `/opt/pw-browsers` (it asks for a `-1234` revision; the container has `-1194`), so the smoke
+    script's bare `chromium.launch()` fails outright — a throwaway driver
+    (`ctrl_s_web_driver.mjs`, deleted before this commit) launched with an explicit
+    `executablePath: "/opt/pw-browsers/chromium-1194/chrome-linux/chrome"` instead. It served
+    `dist-godot/web/` over a local static server (`scripts/smoke-godot-exports.mjs`'s own
+    pattern), waited for the `GODOT_R1_READY` console line, pressed Enter on the title and
+    Escape to peel the legend, then Ctrl+C to crouch (off the boot default "walking", so Ctrl+S
+    has somewhere to return from) and screenshotted, then focused the canvas, pressed Ctrl+S, and
+    screenshotted again. Both halves the task asks for: **(a)** no `download` event, no `dialog`
+    event, and the page's own URL unchanged — the browser's native "Save Page As" did not fire;
+    **(b)** the paperdoll's stance word (`ui/paperdoll.gd`'s `_pose_for_stance` / `SimStances.
+    name_of`, the same digit-free label the health-bar ban leaves standing) reads "crouching"
+    before and "walking" after, so the keystroke reached the game as `Ctrl+S -> stand` rather
+    than being swallowed. Screenshots `15_ctrl_s_web_before.png` and `15_ctrl_s_web_after.png`.
+    **The caveat the task itself names is still live**: headless Chromium may not intercept the
+    OS-level "Save Page As" accelerator the way a real desktop browser's chrome does — the whole
+    reason this item was written as "checked by hand" rather than gated — so a positive result
+    here says the keystroke was not silently eaten in *this* browser and *this* mode, not that no
+    real browser will ever grab it first. Treated as proved by the headless proxy the task
+    allows, one hand check on a real desktop browser short of the thing itself.
+
+  And a quick recheck of the first pass's ten, a second boot per item against this head, using
+  the same techniques: **move and interact** — held D moved the body 2.10 m in twenty frames,
+  release moved it 0.00 m further. **drive** — E at a parked vehicle (off
+  `SimVehicles.spawn_from_manifest`'s own list) set `mounted`. **loot** — E on a `searchable`
+  opened it; `container.takeAll` pushed as before. **wield and fire** — a debug-spawned
+  `item.pistol.service` and `item.ammo.9mm`, picked up, `item.equip`, `reload`, `fire` — the
+  pistol carries a `rangedWeapon` component afterward. **fight a shambler** — a
+  `zombie.shambler` at melee range; forty presses of F left its own torso integrity at 41.3 from
+  68.0 (a swing at a zombie does not wound the swinger, so this recheck reads the zombie's own
+  body rather than the first pass's read of the player's). **fight raiders** — a two-man
+  `band.2`; the first pass's own note about a stationary target held here too until the band was
+  kept at melee range between presses (one raider stepped back on its own after the first tick,
+  plausibly kiting for its own ranged weapon rather than trading blows) — with that correction, F
+  landed a hit inside thirty presses. **make camp** — C moved `SimHome.centre` from
+  (125.0, 123.0) to (120.5, 117.5). **recruit** — the debug-spawned stranger's own entity id (off
+  the `debug.spawned` event, not "the" first `recruit`-tagged body a query happens to return: this
+  seed's settlers-camp arc already had one of its own waiting at the gate from boot, and the
+  first cut of this recheck accepted *her* by mistake before being corrected to track the
+  spawned id) went from `recruit: {waiting: true}` to no `recruit` component at all and colony
+  rose from 2 to 3. **inventory and the body** — Tab still opens the sheet. **the skill web** — K
+  still opens it. All ten still reachable; nothing first pass proved has moved, including the
+  door and loose-item lanes — "the ladder names its rung" (the record above) added HUD text for
+  the *lower* rungs (sleep, the fire, a filter, the latrine, a bench, the trap, the bait, a lift,
+  a barricade); the door and the loose item were already among the *upper* rungs with their own
+  read models before that slice, so their action-bar line is unchanged and no first-pass
+  screenshot needed retaking.
+
+  One environment observation, not a game defect: every boot during the ten-item recheck (which
+  never calls `_remove_save()`) found a save slot on the shared `user://` already refusing to
+  decode (`"this is not a save"`, `Expected 'true', 'false', or 'null', got 'this'`) — a fixture
+  some other process on this box had left there mid-test, exactly the shape `check_play.gd`'s own
+  NOTICE lane exercises on purpose. `main.gd` absorbed it the same way every time (the console
+  shows the decode error; the title simply does not offer "continue"), and it never touched any
+  of the ten items — `_remove_save()` at the top of items 11 through 14 cleared it for the rest of
+  this run. No new defect surfaced this pass.
+
+  **No gate changed** with this piece either — `npm run godot:smoke` and `npm run check:routing`
+  both stayed green. All fifteen of the owner's bar items are now proved:
+
+  | # | Item | Proved by |
+  |---|---|---|
+  | 1 | move and interact | first pass, `01_move_interact.png`; re-driven this pass (held D moved, release stopped) |
+  | 2 | drive a car | first pass, `02_drive.png`; re-driven this pass (E mounted a manifest vehicle) |
+  | 3 | find loot | first pass, `03_loot.png`; re-driven this pass (E opened a searchable, `container.takeAll`) |
+  | 4 | wield and fire a weapon | first pass, `04_wield_fire.png`; re-driven this pass (equip, reload, fire) |
+  | 5 | fight a shambler | first pass, `05_fight_shambler.png`; re-driven this pass (the zombie's own torso integrity fell) |
+  | 6 | fight raiders | first pass, `06_fight_raiders.png`; re-driven this pass (`attack.connected` landed) |
+  | 7 | make camp | first pass, `07_camp.png`; re-driven this pass (`SimHome.centre` moved) |
+  | 8 | recruit | first pass, `08_recruit.png`; re-driven this pass (the spawned stranger's `recruit` component cleared) |
+  | 9 | the inventory and the body | first pass, `09_inventory_body.png`; re-driven this pass (Tab opened the sheet) |
+  | 10 | the skill web | first pass, `10_skill_web.png`; re-driven this pass (K opened it) |
+  | 11 | die and succeed | second pass, `11_die_and_succeed.png` (`world.player` changed, chronicle's succession line, another colonist still up) |
+  | 12 | reach run-over and start again | second pass, `12_run_over.png` (state `RUN_OVER`, frozen clock, digit-free epitaph, "new run" a different ticking world) |
+  | 13 | the pause menu | second pass, `13_pause_menu.png` (all five rows walked; title offers "continue" after quit-to-title) |
+  | 14 | the title | second pass, `14_title.png` (fresh boot, state `TITLE`, no `continue` offered) |
+  | 15 | Ctrl+S on the published web build | second pass, `15_ctrl_s_web_before.png` / `15_ctrl_s_web_after.png` (headless Playwright proxy: no download/dialog/navigation, stance word "crouching" -> "walking"; a hand check on a real desktop browser is the one thing this does not stand in for) |
+- **The alpha shell** — ~~the release package~~ **landed** 2026-09-17 (`.github/workflows/release.yml`,
+  run by hand with a version or by pushing a `v<version>` tag; judged by the same boot smoke CI's `godot-exports` job runs, and by
+  the release it publishes existing). The owner asked, once all fifteen bar items were proved, for
+  a build a stranger can download and launch like an executable. The workflow is CI's
+  `godot-exports` job with a tail: the same pinned engine and templates (the SHA-512s are the ones
+  in `ci.yml`, `pages.yml` and `scripts/setup-web-session.sh`), `npm run godot:export` for the
+  Windows executable (the preset embeds the pack, so it is one file) and the web build,
+  `npm run godot:smoke:exports` so nothing unbooted is published, then two zips, a
+  `SHA256SUMS.txt`, notes that say where the save lives and that SmartScreen will warn once
+  because nothing is code-signed, and `gh release create v<version>` on the commit it ran on, a
+  pre-release by default. It refuses a version whose tag already exists, and a pushed `v` tag
+  runs it from the tagged commit — the road that works before the workflow is on `main`, since
+  GitHub lists a hand-run workflow only once the default branch carries it. **What it does not do:**
+  no Linux or macOS build (named above), no code signing, no installer, no auto-update, and it
+  never decides what to ship — CI's gates said the ref was green, this only packages it. The
+  Windows export was also run here on Linux against the same preset (a 112 MB single-file
+  executable, cross-exported headless) to prove the preset exports without a Windows machine; the
+  boot smoke of that file needs Windows, which is why the workflow runs on `windows-latest` as the
+  CI job does.
 - **Death & succession** — ~~the colony morale hit on a death~~ **landed** (`godot:m2:needs`,
   GRIEF and ONCE), leaving the balance-grid proof that "the run ends only when the last survivor
   dies". docs/04 lists **grief** and **witnessing a death** as two separate negative mood sources
@@ -7251,6 +8058,25 @@ not a to-do list:
       `try_reload_world` does exactly that swap, as it has since R5. The owner chose to keep the
       swap and add the detection for now; the call itself is in `HANDOFF.md`'s waiting list.
 
+- **Kernel & review sweep: `recorded` no longer grows without bound** (`godot:m2:save`, RECORD,
+  2026-09-16). `SimCommandQueue.recorded` deep-copied every command ever pushed and was read only
+  by `parity_snapshot`, so a played session grew it by every movement command of every tick, for
+  the life of the run — a memory leak in the one thing the alpha is about, a session somebody
+  plays. Recording is opt-in now: `record` defaults `false`, and `take()` only appends when it is
+  on. The one caller that reads `recorded` back — R1 parity's `run_fixture`, into
+  `parity_snapshot`'s `"commands"` key, diffed against the frozen fixture under `godot/parity/` —
+  turns its own queue's `record` on before stepping, so `npm run godot:test` stays byte-identical
+  (`R1_PARITY_OK`, unchanged). `check_r6_soak.gd`'s input-loss lane, which reads `recorded` back
+  directly, does the same. The RECORD lane in `check_m2_save.gd` is three assertions: a world
+  booted the default way, stepped 12 ticks with a movement command pushed every tick, ends with
+  `recorded.size() == 0` (true positive — proved red against the shipped code first:
+  `RECORD default: recorded held 12 entries with record left false`, `M2_SAVE_FAIL`, exit 1); the
+  identical shape with `record = true` holds exactly 12 (true negative, so the zero above is the
+  flag working rather than the append having quietly broken for everyone); and a reader check that
+  isolates `run_fixture`'s own function body and asks for the exact line `commands.record = true`,
+  not a substring search a comment could satisfy (CLAUDE.md's `begins_with("const READ_KEYS")`
+  precedent) — reverting the fix reds all three. `recorded` is not part of the save format
+  (`world.gd`'s `snapshot()`/`restore()` never touch it), so nothing needed to change there.
 - **Kernel & tooling: the routing table** (`npm run check:routing`, `ROUTING_OK`, 2026-09-06).
   `AGENTS.md` carries a routing table — by kind of work and by system: what to read first, where
   the code lives, which gate judges it, where the record goes — and a Node gate judges the table
@@ -9330,6 +10156,17 @@ adding more geography:
 6. Named items, unique survivors, remaining modification consumables, traps, and bait (the boot
    colony's two uniques shipped in Milestone 2; the one trap and one bait emitter the slice once
    promised were cut here by the owner on 2026-09-06 — docs/15 is their spec, unchanged)
+7. **The player's own microphone as a noise source** (owner, 2026-09-16 — docs/30's "The alpha
+   shell"). A platform-layer capture measures loudness and pushes a `voice.noise` command with a
+   magnitude, the way a shout is a command; a sim module turns it into a `noise.emitted` at the
+   player's tile. The sim never reads the microphone, so the command is recorded, replayable and
+   saved like every other input and the parity and two-world gates stay untouched. Calibration
+   (the silence floor, what loudness is a shout) is content; off by default, opt-in from the
+   settings sheet with a plain sentence; the HUD says "they can hear you" in prose, never a meter.
+   Its gate proves a fabricated capture level moves the field by the shout arithmetic and that
+   mic-off pushes nothing. Owner calls before it is pickable: default-off versus a first-run
+   prompt; whether raiders hear it as the dead do; whether it counts toward the director's
+   week-peak noise. It is also the capture that Milestone 3C's proximity voice reuses.
 
 That order is deliberate. WIS lookout needs a lookout job; CHA needs relationships; INT needs the web;
 temperature needs weather. CHA trade and WIS raider warnings activate fully when factions arrive in
@@ -9389,6 +10226,14 @@ frame budget, then prove fixed, nomad, and hybrid colonies all have distinct via
 Multiplayer is independent of world range: authoritative host, survivor-versus-survivor play in one
 district, filtered client views, recovery runs, and voice as an emitter. The visibility primitive now
 exists; what remains unproven is per-client filtering, leakage, synchronization, and host cost.
+
+**Proximity voice, for PvPvE** (owner, 2026-09-16 — docs/30's "The alpha shell"). Voice between
+players attenuated by distance and occluded by the same shadowcast walls use for sight, routed
+peer to peer (`WebRTCMultiplayerPeer` is the web build's only seam), and heard by the dead and by
+raiders through the same loudness number Milestone 3A's microphone piece pushes — one capture,
+three listeners. Risk 9 applies: a voice packet carries no position the listener has not already
+earned. Not designed further until the transport, hosting and authority decisions above are the
+owner's.
 
 **Exit criterion:** two clients can play one district without receiving hidden entity or attention
 information, while the host remains deterministic and inside the single-player frame budget.

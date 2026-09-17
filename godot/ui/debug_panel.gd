@@ -4,6 +4,12 @@ extends Control
 # of the player-facing HUD contract (the HUD gate reads hud.gd's lines, and nothing here
 # is prose the player is owed). Everything it does goes through the `debug.spawn` command,
 # so a spawned zombie arrives inside the tick like any other change to the world.
+#
+# The alpha shell's dev-menu piece adds two rows ahead of the item list: a raider band (two
+# sizes) and a stranger at the gate, both so a tester can reach "fight raiders" and
+# "recruit" without waiting for day eight. Their labels are words, not the row's id --
+# `"band.2"` reads as "raider band of two" -- because this panel is dev-only and exempt
+# from `check_hud`, not because the ban on digits does not apply to it in spirit.
 
 const Chrome = preload("res://ui/chrome.gd")
 const UiText = preload("res://ui/text.gd")
@@ -13,6 +19,7 @@ const PANEL_W: float = 480.0
 const ROW_H: float = 34.0
 const ITEM_FONT: int = 18
 const ZOMBIE_SPAWN_METRES: float = 6.0
+const RAIDER_SPAWN_METRES: float = 8.0
 
 var _world: Variant = null
 var _item_ids: Array[String] = []
@@ -49,6 +56,12 @@ func _rows() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for z in _zombie_ids():
 		out.append({"kind": "zombie", "id": z})
+	# Reach "fight raiders" and "recruit" without waiting for day eight (docs/23, "the dev
+	# menu reaches a raider band and a stranger"). Both push through `debug.spawn` like
+	# every other row here.
+	out.append({"kind": "raider", "id": "band.2", "label": "raider band of two"})
+	out.append({"kind": "raider", "id": "band.4", "label": "raider band of four"})
+	out.append({"kind": "stranger", "id": "gate", "label": "a stranger at the gate"})
 	for i in _item_ids.size():
 		out.append({"kind": "item", "id": _item_ids[i]})
 	return out
@@ -66,12 +79,19 @@ func _spawn(kind: String, id: String) -> void:
 		return
 	var x: float = float((pos as Dictionary)["x"])
 	var y: float = float((pos as Dictionary)["y"])
-	if kind == "zombie":
-		# Ahead of the player, so the spawn is visible and not on top of them.
+	if kind == "zombie" or kind == "raider":
+		# Ahead of the player, so the spawn is visible and not on top of them. A raider band
+		# stands further out than a lone zombie -- `SimDebug` spreads it sideways from this
+		# point, and a band spread from six metres out can land a member behind the player.
 		var facing: Variant = _world.components.get_component(int(_world.player), "facing")
 		var ang: float = float((facing as Dictionary).get("radians", 0.0)) if facing is Dictionary else 0.0
-		x += cos(ang) * ZOMBIE_SPAWN_METRES
-		y += sin(ang) * ZOMBIE_SPAWN_METRES
+		var reach: float = RAIDER_SPAWN_METRES if kind == "raider" else ZOMBIE_SPAWN_METRES
+		x += cos(ang) * reach
+		y += sin(ang) * reach
+	elif kind == "stranger":
+		# `SimDebug` places a stranger at the gate itself, not at the player's feet -- the x/y
+		# here are unused past the command shape every `debug.spawn` carries.
+		pass
 	else:
 		x += 0.8
 	_world.commands.push({"type": "debug.spawn", "kind": kind, "id": id, "x": x, "y": y})
@@ -101,7 +121,7 @@ func _draw() -> void:
 	Chrome.panel(self, rect, 0.96)
 	Chrome.header(self, rect, "debug — spawn", 0.96)
 	var font: Font = Chrome.font()
-	draw_string(font, Vector2(14.0, Chrome.HEADER_H + 30.0), "click to spawn at your feet (items) or ahead of you (zombies) · wheel scrolls", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Chrome.TEXT_DIM)
+	draw_string(font, Vector2(14.0, Chrome.HEADER_H + 30.0), "click to spawn at your feet (items), ahead of you (zombies, raiders) or at the gate (stranger) · wheel scrolls", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Chrome.TEXT_DIM)
 	var rows: Array[Dictionary] = _rows()
 	var y: float = Chrome.HEADER_H + 48.0
 	var shown: int = 0
@@ -109,8 +129,10 @@ func _draw() -> void:
 		if shown >= _visible_rows():
 			break
 		var r: Dictionary = rows[i]
-		var is_z: bool = String(r["kind"]) == "zombie"
-		var label: String = UiText.fit(font, String(r["id"]), ITEM_FONT, size.x - 28.0)
-		draw_string(font, Vector2(14.0, y + 24.0), label, HORIZONTAL_ALIGNMENT_LEFT, -1, ITEM_FONT, Chrome.DANGER if is_z else Chrome.TEXT)
+		var kind: String = String(r["kind"])
+		var is_hostile: bool = kind == "zombie" or kind == "raider"
+		var text: String = String(r.get("label", r["id"]))
+		var label: String = UiText.fit(font, text, ITEM_FONT, size.x - 28.0)
+		draw_string(font, Vector2(14.0, y + 24.0), label, HORIZONTAL_ALIGNMENT_LEFT, -1, ITEM_FONT, Chrome.DANGER if is_hostile else Chrome.TEXT)
 		y += ROW_H
 		shown += 1

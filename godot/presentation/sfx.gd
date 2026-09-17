@@ -3,6 +3,14 @@ extends Node
 # Picks: Q1:A committed WAVs · Q2:B camera listener · Q3:B bow clip ·
 # Q4:B oneshot pool · Q5:B stop/restart bait by reach · Q6:A no gate.
 
+const UiPrefs = preload("res://ui/prefs.gd")
+
+# Silence, in decibels. `linear_to_db(0.0)` is negative infinity, which the bus will take and
+# nothing else will -- a printed `-inf` is not a number a gate can compare and a slider that
+# stored it would never come back. So nought on the row is this, and it is far enough below
+# anything audible that "mute" is honest.
+const AUDIO_MIN_DB: float = -80.0
+
 const FALL_PER_M: float = 0.7
 const REF_MAG: float = 180.0
 const POOL: int = 3
@@ -35,6 +43,20 @@ func _ready() -> void:
 		var stream: Variant = _load_wav(String(PATHS[key]))
 		if stream != null:
 			_streams[key] = stream
+	apply_volume()
+
+
+# The settings sheet's volume row, pushed at the master bus. This file had never touched
+# `AudioServer` -- every clip played at whatever the bus happened to be, and there was no row to
+# change it with, which is the dead-socket shape from the other end: a mixer nothing reaches.
+#
+# The bus and not the players: a per-player `volume_db` would have to be re-applied to each of
+# the pool on every change and would still miss the loop, and the master bus is what a platform
+# mute would move anyway. main.gd calls this from `_on_ui_prefs_changed`, so the slider is heard
+# while it is being dragged.
+func apply_volume() -> void:
+	var v: float = UiPrefs.volume()
+	AudioServer.set_bus_volume_db(0, AUDIO_MIN_DB if v <= 0.0 else linear_to_db(maxf(v, 0.0001)))
 
 
 func _load_wav(path: String) -> Variant:

@@ -23,7 +23,10 @@ drifting, so count it there rather than trusting this line) and exits 0, `npm te
 job runs those plus typecheck, lint and format; its `performance` job runs the two TypeScript
 benchmarks.
 
-The game is playable — `npm run godot:run`, needs a display. It boots on day 1 in daylight with
+The game is playable — `npm run godot:run`, needs a display. Since the alpha shell landed it
+**boots to a title** (new run · continue when there is a save · quit) drawn over the district it
+is about to play, Escape pauses to a menu, and the run ends on a screen that speaks the
+chronicle. Behind that it is day 1 in daylight with
 **three colonists** (you, Mara, and Ellis — the bigger-colony decision), and the survival loop is
 **on**: `SimShambler.GRABS_ENABLED` ships `true`, so a shambler in reach swipes, closes into a
 hold, bites, and a bite can infect. Wounds bleed; pressure, bandaging, rescue and recovery are all
@@ -882,11 +885,14 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
 
 0f. **The camp's four first cuts** (2026-09-10). The seam slice landed home as relocatable
    (`godot:m2:camp`, nine lanes) and took four calls without asking, each one line if re-decided.
-   **The key**: camp is **C**, shift+C to strike, rather than a rung on E's context ladder — the
-   argument is that moving home by accident is worse than one more key, but E-with-a-confirm is a
-   real alternative. **The clock**: establishing costs fortify's ordinary 40-tick channel, because
-   the labour cost is the deferred slice; it is currently cheaper than boarding a window and louder
-   than one, which is half of the commitment Task 8 asks for. **The footprint**: a camp's rect is
+   **The key** — **decided 2026-09-16**: camp keeps **C**, shift+C to strike, and the stance
+   ladder that had shared the letter (the audit found both arms firing on every press) moves onto
+   Ctrl — docs/30's "The alpha shell" and docs/23's group of that name; the fix **landed** with
+   the play gate on 2026-09-16 (`npm run godot:check:play`, the CAMP-KEY lane; docs/23's record).
+   E-with-a-confirm was offered again and not taken. **The clock**: establishing costs fortify's
+   ordinary 40-tick channel, because the labour cost is the deferred slice; it is currently
+   cheaper than boarding a window and louder than one, which is half of the commitment Task 8
+   asks for. **The footprint**: a camp's rect is
    radius 1 — the tile and everything touching it — which is what the director's quiet floor reads
    as "how loud is it at home"; the 32 m keep-off is `GATE_EXCLUSION`'s and is unchanged.
    **Abandonment reverts home to the annex** rather than to the previous camp, which is the simplest
@@ -1064,6 +1070,22 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    hours, three at most; a click selects and never orders; a thin ring marks the selection.
    None of these was asked about, because the session was autonomous; each is the kind of
    number the ten-day playtest is for.
+
+7. **Does a raid that can actually connect get to wipe the colony?** The melee-reach fix
+   (docs/23's defect list, "A melee raider band cannot reach a body that does not move", built
+   2026-09-16 on branch `claude/raider-reach-halt` and deliberately not landed) is a correctness
+   fix, not a difficulty dial — a raider closes to its own weapon's reach instead of standing a
+   metre short of everything — but `npm run godot:m2:balance`'s FAST tier measured what it
+   costs: seed 404's `mixed` arm was already down to its last colonist before the fix, and after
+   it that colonist dies too (`survivors_end` 1→0, `run_over` true). That fails `_assert_bands`'s
+   standing `survivors_end >= 1`, the assertion CLAUDE.md says was considered and rejected to
+   relax after the `GRABS_ENABLED` flip, so the fix cannot land green as the tree stands. Three
+   ways out, none taken unilaterally: the shipped default is meant to absorb a raid this lethal
+   (permanent loss is Milestone 2's own exit criterion) and the assertion changes; the assertion
+   was unknowingly grading the reach bug rather than the difficulty and the FAST seed set or its
+   floor changes; or a raider first-cut number (band size, `HALT_METRES` itself, the withdraw
+   rule) moves and is re-measured. The branch carries its gate, its record and both measurement
+   tables, and merges the moment one of the three is picked.
 
 ## How a session runs
 

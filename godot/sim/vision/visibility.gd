@@ -8,6 +8,7 @@ extends RefCounted
 const SimTileMapRes = preload("res://sim/map/tilemap.gd")
 const Shadowcast = preload("res://sim/vision/shadowcast.gd")
 const Clock = preload("res://sim/time/clock.gd")
+const SimStancesRes = preload("res://sim/stances.gd")
 
 enum Detail { Unseen = 0, Peripheral = 1, Focal = 2 }
 
@@ -75,6 +76,15 @@ func refresh(world: Variant, map: Variant, sight_mul: float = 1.0) -> void:
 
 		var tile_x: int = floori(float((pos as Dictionary)["x"]) / float(SimTileMapRes.TILE_METRES))
 		var tile_y: int = floori(float((pos as Dictionary)["y"]) / float(SimTileMapRes.TILE_METRES))
+		# Eye level follows the rung -- the write `SimStances.eye_of` existed for and nothing
+		# called (docs/23's dead-socket list). Port of `stance.eyes` (src/sim/modules/stance.ts):
+		# crouch and crawl look from Eye.Crouched, everything else from Eye.Standing, so docs/28's
+		# Low occluder class finally has something to be low *relative to*. An entity with no
+		# posture (a zombie; a fixture that never gave one) keeps whatever its `observer` record
+		# was built with, which is `Eye.Standing` for every spawner in the tree today.
+		var posture_c: Variant = world.components.get_component(entity, "posture")
+		if posture_c != null:
+			(obs as Dictionary)["eye"] = SimStancesRes.eye_of(int((posture_c as Dictionary)["current"]))
 		var lit_target: bool = bool((obs as Dictionary).get("lit_target", false))
 		# A lit-target observer's ambient reach is ambient alone: standing in a light does not
 		# let the dead see further into the dark (the light at the *target* is what `detail`

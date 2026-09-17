@@ -13,6 +13,24 @@ const PATH: String = "user://ui_prefs.json"
 
 const DEFAULTS: Dictionary = {
 	"inventory_opacity": 0.95,
+	# Has the player put the key list away for good? False on a fresh machine, so a first run
+	# opens on the legend; set by the three explicit dismissals (F1 off, Escape, Enter) and by
+	# nothing else. `main.gd`'s `_enter_state` is the one reader: the keys are raised on the first
+	# entry to PLAYING and never over the title, which is where they were raised before the shell.
+	"legend_dismissed": false,
+	# The master volume, nought to one, read by `presentation/sfx.gd` and pushed at the audio bus
+	# there -- the first thing in this tree ever to reach `AudioServer` (docs/30, "The alpha
+	# shell", 2026-09-16). A preference and not save state, for the same reason the opacity is.
+	"volume": 1.0,
+}
+
+# The floor each slider clamps to. Opacity has one, because a panel at nought alpha is a panel
+# you cannot find again; **volume does not**, because nought is mute and mute is the whole point
+# of the row. There was one shared 0.15 clamp here until the volume row landed, and leaving it
+# shared would have made the leftmost notch a game you can still hear.
+const FLOORS: Dictionary = {
+	"inventory_opacity": 0.15,
+	"volume": 0.0,
 }
 
 static var _cache: Dictionary = {}
@@ -39,13 +57,50 @@ static func _save() -> void:
 		f.store_string(JSON.stringify(_cache))
 
 
-static func opacity(key: String) -> float:
+# Every slider in `ui/settings_panel.gd` goes through these two, with its floor read off FLOORS
+# rather than written into the call -- one clamp, so a row cannot be stored outside the range the
+# panel will draw it in.
+static func level(key: String) -> float:
 	_ensure()
-	return clampf(float(_cache.get(key, DEFAULTS.get(key, 1.0))), 0.15, 1.0)
+	var floor_at: float = float(FLOORS.get(key, 0.0))
+	return clampf(float(_cache.get(key, DEFAULTS.get(key, 1.0))), floor_at, 1.0)
+
+
+static func set_level(key: String, value: float) -> void:
+	_ensure()
+	_cache[key] = clampf(value, float(FLOORS.get(key, 0.0)), 1.0)
+	_save()
+
+
+# The opacity pair, kept as the name three panels already call: a forward to `level`, not a
+# second clamp beside it.
+static func opacity(key: String) -> float:
+	return level(key)
 
 
 static func set_opacity(key: String, value: float) -> void:
-	_ensure()
-	_cache[key] = clampf(value, 0.15, 1.0)
-	_save()
+	set_level(key, value)
 
+
+# What `presentation/sfx.gd` reads on every change and at boot. Nought is mute and is stored as
+# nought -- see FLOORS.
+static func volume() -> float:
+	return level("volume")
+
+
+static func set_volume(value: float) -> void:
+	set_level("volume", value)
+
+
+# The boolean half. A pref file written by an older build has no row for a flag added since, so
+# the default answers rather than `false` answering for everything -- the same fallback the
+# opacity getter uses, and the reason DEFAULTS carries the flag at all.
+static func flag(key: String) -> bool:
+	_ensure()
+	return bool(_cache.get(key, DEFAULTS.get(key, false)))
+
+
+static func set_flag(key: String, value: bool) -> void:
+	_ensure()
+	_cache[key] = value
+	_save()

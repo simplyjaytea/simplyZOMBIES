@@ -33,10 +33,10 @@ exactly the failure the project keeps re-learning. The pointers:
   work is" section carries the three state facts worth repeating (the survival loop, on since
   2026-09-01; the top-down presentation track, whose art direction is the Dungeon Settlers look
   of 2026-09-03; the dead-socket pattern).
-- `HANDOFF.md` names what is waiting on the owner. Those items — sepsis lethality, whether a roof
-  covers a known building's unseen walls, whether the one-handed weapons need their own
-  silhouettes at 32 px, and how dense a forest stand may get — are **decisions, never picked
-  unilaterally**. Read the list there rather than trusting a count here. (The `GRABS_ENABLED` flip
+- `HANDOFF.md` names what is waiting on the owner. Those items — whether a roof covers a known
+  building's unseen walls, whether the one-handed weapons need their own silhouettes at 32 px,
+  how dense a forest stand may get, the grace-night flip, and the rest of that list — are
+  **decisions, never picked unilaterally**. Read the list there rather than trusting a count here. (The `GRABS_ENABLED` flip
   and the colony-shape call it waited on were decided by the owner 2026-09-01 and are landed; the
   flag record in docs/23 closes with them. The art-style pick was decided 2026-09-01 and
   re-decided 2026-09-03; docs/30 carries both.)
@@ -47,6 +47,43 @@ exactly the failure the project keeps re-learning. The pointers:
   (`survivor.unique.ellis`). The pause that decision put on new NPCs and roster growth was
   lifted on 2026-09-14 (docs/30, "The pause lifted"); the procedural-population arc in docs/23's
   what's left is where the roster grows, one gated slice at a time.
+
+## Working alongside other agents
+
+More than one assistant works on this repository — Claude, ChatGPT, Astra, Sol, or a person —
+sometimes at the same time. Nothing in this section is specific to any of them; where a tool's
+own wrapper exists it is named as a wrapper around the plain command, never as the command.
+
+- **Orient the same way regardless of who you are.** `CLAUDE.md` top to bottom (it is the
+  project's rules, not a Claude-only file), then `HANDOFF.md`, then docs/23's
+  [what's left](docs/23-roadmap.md#whats-left-in-milestone-2). The [routing table](#routing-table)
+  below is the map of which files belong to which system and which gate judges them; `npm run
+  check:routing` keeps it true.
+- **Claim a piece by branch name.** `<agent>/<piece-slug>` — `astra/dev-menu-raiders`,
+  `sol/per-gate-timing`, `claude/<anything>` — pushed early, so `git branch -r` is the live list
+  of who is on what. There is deliberately **no claim ledger in any file**: a list of who holds
+  what is status, this file carries none, and the checkbox ledger this project retired drifted
+  four times for exactly that reason. A pushed branch cannot drift.
+- **Stay on disjoint files.** Pick a piece whose *files* line (each entry in the alpha-shell
+  group names its files; other groups name their system, and the routing table names the system's
+  files) does not overlap a branch already pushed. Some tracks are serial by construction — the
+  alpha shell's pieces two to five all edit `godot/presentation/main.gd` and land one after
+  another on one branch — and a second agent takes a piece beside them rather than one of them.
+- **The gates are the same for everyone.** Before any commit: `npm run godot:m2`; `npm test` as
+  well for anything under `godot/content/`; `npm run check:routing` for anything touching
+  `package.json` scripts, `scripts/run-godot.mjs`, a `godot/check_*.gd` or this table;
+  `npm run sprites:check` after touching `tools/sprites/` or a PNG it generates. The engine
+  install is `bash scripts/setup-web-session.sh` — `.claude/hooks/session-start.sh` is only the
+  wrapper Claude Code on the web runs around it. Expected-noise notes are in
+  [Headless verification](#headless-verification-no-display-needed).
+- **The record discipline is the same for everyone.** A piece lands with its record: deleted from
+  what's left and written into [the record, by
+  system](docs/23-roadmap.md#the-record-by-system) in the same commit, named, gated, measured.
+  Nothing on `HANDOFF.md`'s owner list is decided by any agent; a piece that needs one of those
+  decisions stops and asks.
+- **Handing a piece over mid-flight.** Push the branch. Say in the last commit message whether
+  the gate is red or green and which lane. Put the next step in the pull request body, not in a
+  status file. The next agent starts from the branch and that body, and from nothing else.
 
 ## Routing table
 
@@ -66,12 +103,12 @@ row when a system gains a home; the gate goes red when a route stops being true.
 | Content (an item, a zombie, a loot table, a weather kind) | [docs/20 Part 2](docs/20-ecs-and-content.md#part-2-content) and the schema under `godot/content/schemas/` | `godot/content/` | `npm run godot:validate` **and** `npm test` (only the oracle's Ajv recurses), plus the nested-shape gate for that block | the record |
 | How a thing looks | [the Dungeon Settlers look](docs/30-decisions.md#the-dungeon-settlers-look-2026-09-03), `godot/assets/sprites/README.md` | `godot/presentation/`, `godot/assets/sprites/`, `tools/sprites/` | the `godot:check:<look>` gate for that layer; `npm run sprites:check` after touching `tools/sprites/` | the record, with a screenshot under `.hermes/plans/` for the owner to judge |
 | Art somebody drew for us | [the brief](godot/assets/sprites/README.md), [art we did not generate](docs/30-decisions.md#art-we-did-not-generate-2026-09-09) | `godot/assets/sprites/authored.json` declares it; the PNG sits beside it | `npm run godot:check:authored` holds it to the published bounds and refuses art nothing reads; `npm run sprites:check` proves it is present at the canvas it declares | the record |
-| What the screen says | [hardcore contract clause 4](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable), the vocabulary in [CONTEXT.md](CONTEXT.md) | `godot/ui/`, the read models `godot/sim/condition.gd`, `godot/sim/attention_read.gd`, `godot/sim/modules/chronicle.gd` and `SimSkills.web_map` in `godot/sim/modules/skills.gd`; the click that picks a colonist, `godot/presentation/pick.gd` | `npm run godot:check:hud`, `npm run godot:check:inventory`, `npm run godot:ban:healthbar`, `npm run godot:check:respond`, `npm run godot:check:web_look` | the record |
+| What the screen says | [hardcore contract clause 4](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable), the vocabulary in [CONTEXT.md](CONTEXT.md) | `godot/ui/`, the read models `godot/sim/condition.gd`, `godot/sim/attention_read.gd`, `godot/sim/modules/chronicle.gd` and `SimSkills.web_map` in `godot/sim/modules/skills.gd`; the click that picks a colonist, `godot/presentation/pick.gd`; the keys that reach any of it, `godot/presentation/input_map.gd`; the run's four states and the three screens that are not the game, `godot/presentation/session.gd` and `godot/ui/shell.gd` | `npm run godot:check:hud`, `npm run godot:check:inventory`, `npm run godot:ban:healthbar`, `npm run godot:check:respond`, `npm run godot:check:web_look`; and `npm run godot:check:play`, which boots `godot/presentation/main.tscn` and presses the keys | the record |
 | A claim about balance | [the workflow's step 5](CLAUDE.md#the-workflow), [docs/22 on measuring](docs/22-performance.md#measuring) | a throwaway driver, deleted afterwards | `npm run godot:m2:balance` and `npm run godot:m2:harness`; the before/after numbers | the record, numbers included |
 | The save format | [docs/19's save model](docs/19-architecture.md#save-model) | `godot/sim/kernel/serialize.gd` (`SAVE_VERSION`), `godot/sim/save.gd` | `npm run godot:m2:save` | the record |
 | A gate, new or fixed | [a gate that cannot fail](CLAUDE.md#conventions), the dead-socket rule in [CLAUDE.md](CLAUDE.md#where-the-work-is) | `godot/check_*.gd`, a mode in `scripts/run-godot.mjs`, a script in `package.json`, a link in the `godot:m2` chain | `npm run check:routing` proves it is reachable | the record |
 | The frozen TypeScript oracle | the top of this file | `src/`, `test/`, `bench/` | `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm test`, `npm run bench` | nothing: it gains no features |
-| CI, scripts, hooks, this table | [CLAUDE.md's verifying section](CLAUDE.md#verifying-a-change) | `.github/workflows/`, `scripts/`, `.claude/` | `npm run check:routing`, `npm run format:check`; the engine pin in `scripts/run-godot.mjs` | the record's Kernel & tooling entry |
+| CI, scripts, hooks, this table | [CLAUDE.md's verifying section](CLAUDE.md#verifying-a-change) | `.github/workflows/` (`.github/workflows/ci.yml` the gates, `.github/workflows/pages.yml` the web build, `.github/workflows/release.yml` the downloadable build, run by hand with a version or by a pushed `v` tag), `scripts/`, `.claude/` | `npm run check:routing`, `npm run check:timing`, `npm run format:check`; the engine pin in `scripts/run-godot.mjs` | the record's Kernel & tooling entry |
 | Driving a pull request | `.claude/skills/steward/SKILL.md` | -- | whatever CI reports; `npm run godot:m2` before every push | the PR itself |
 | Playing it, or a screenshot | [Running the game](#running-the-game-gui) below | `godot/presentation/main.tscn` | `npm run godot:run` | -- |
 
@@ -109,11 +146,11 @@ gates, the first is the one to iterate on:
 | Sightlines and memory | [docs/28](docs/28-visibility-and-sightlines.md) | `godot/sim/vision/`, `godot/sim/modules/sightings.gd` | `godot:m2:sight` |
 | Save and load | [docs/19](docs/19-architecture.md#save-model) | `godot/sim/kernel/serialize.gd`, `godot/sim/save.gd` | `godot:m2:save` |
 | The look | [docs/30](docs/30-decisions.md#the-dungeon-settlers-look-2026-09-03) | `godot/presentation/`, `tools/sprites/` | `godot:check:topdown`, `godot:check:appearance`, `godot:check:camera`, `godot:check:light`, `godot:check:road`, `godot:check:water`, `godot:check:wrecks`, `godot:check:roof`, `godot:check:trees`, `godot:check:worn`, `godot:check:authored`, `sprites:check` |
-| The screen | [docs/01](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable) | `godot/ui/` | `godot:check:hud`, `godot:check:inventory`, `godot:check:respond`, `godot:check:web_look`, `godot:ban:healthbar` |
+| The screen | [docs/01](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable) | `godot/ui/`, `godot/presentation/main.gd`, `godot/presentation/input_map.gd` | `godot:check:hud`, `godot:check:inventory`, `godot:check:respond`, `godot:check:web_look`, `godot:ban:healthbar`, `godot:check:play` (the one gate that executes the scene: `godot/check_play.gd`) |
 | Balance and the campaign harness | [docs/22](docs/22-performance.md#measuring) | `godot/check_m2_balance.gd`, `godot/check_m2_harness.gd` | `godot:m2:balance`, `godot:m2:harness` |
 | Performance | [docs/22](docs/22-performance.md) | `godot/bench/bench.gd`, `bench/` | `godot:bench`, `bench`, `bench:frame` |
 | Content loading and validation | [docs/20](docs/20-ecs-and-content.md) | `godot/platform/`, `godot/content/schemas/` | `godot:validate`, `test` |
-| The engine, CI and the desk | this file | `scripts/run-godot.mjs`, `.github/workflows/ci.yml`, `.claude/hooks/session-start.sh` | `check:routing`, `godot:smoke`, `godot:r6:coverage` |
+| The engine, CI and the desk | this file | `scripts/run-godot.mjs`, `.github/workflows/ci.yml`, `.claude/hooks/session-start.sh` | `check:routing`, `check:timing`, `godot:smoke`, `godot:r6:coverage` |
 
 ## Two different containers, two different starting states
 
@@ -215,6 +252,8 @@ drift, and `format:check` flagging `.scratch/*.html`) that have all since been *
 regression, most likely yours.
 
 One thing that is *not* environment breakage and is not yours either: `npm run godot:m2` takes
-about **twelve minutes** here (measured 2026-09-04; `CLAUDE.md` carries the figure).
-`godot:m2:balance` (~4.5 min) and `godot:m2:lethality` are most of it.
+about **twenty-seven minutes** here (26m45s at 69 gates, measured 2026-09-12; the chain has grown
+since, and `CLAUDE.md` carries the figure). `godot:m2:balance` (~4.5 min) and `godot:m2:lethality`
+are most of it; the per-gate timing table the alpha-shell group adds is where the real number
+lives once it lands.
 Run the single `godot:m2:<name>` gate you are iterating on and save the chain for the commit.
