@@ -19,6 +19,7 @@ const SimCampRes = preload("res://sim/modules/camp.gd")
 const SimFortifyRes = preload("res://sim/modules/fortify.gd")
 const SimVehiclesRes = preload("res://sim/modules/vehicles.gd")
 const SimStancesRes = preload("res://sim/stances.gd")
+const SimWalkRes = preload("res://sim/walk.gd")
 
 const TICK_HZ: int = 20
 const TICK_SECONDS: float = 1.0 / TICK_HZ
@@ -124,6 +125,11 @@ func _init(fixture: Dictionary) -> void:
 	# stamina drain (SimStances.drain_per_tick) is published, not mutated in place, so
 	# health.gd's stamina.spent channel stays the one writer of the pool.
 	systems.register("player.advance-posture", "input", 1, _advance_posture)
+	# Order 2: after apply-commands has had the chance to remove this tick's `move` command's
+	# `walkTo` (the stick beats the click) and after advance-posture has settled this tick's
+	# stance, so a walk-to steps at the speed the body is actually standing in this tick rather
+	# than the one it was in before a stance command that arrived the same tick took effect.
+	systems.register("player.walk-to", "input", 2, _walk_to)
 	systems.register("movement.integrate", "movement", 0, _integrate_movement)
 
 
@@ -350,6 +356,28 @@ func surface_speed_at(x: float, y: float) -> float:
 	return SimSurfaceRes.speed_on(SimSurfaceRes.surface_at(tilemap, tx, ty))
 
 
+# How fast `entity` is allowed to move this tick, stance and ground and modifiers combined --
+# `_apply_commands`'s "move" arm and `player.walk-to` both spend a direction at this speed, and
+# this is the one place the arithmetic lives so a walk ordered by a click is neither faster nor
+# slower than the same walk ordered by the stick. Direction is the caller's: this answers only
+# "how fast", never "which way".
+func move_speed_of(entity: int) -> float:
+	var posture: Variant = components.get_component(entity, "posture")
+	var stance: int = int((posture as Dictionary)["current"]) if posture is Dictionary else int(SimStancesRes.Stance.Walk)
+	var speed: float = WALK_SPEED * SimStancesRes.SPEED_FACTOR[stance]
+	# The ground you are standing on, beside the rung you are on: docs/24's surface table, ×1.0 on
+	# paved down to ×0.6 through undergrowth. Sampled here rather than at integration so it sits
+	# with the other two multipliers and answers the same question they do -- how fast is this
+	# body allowed to go this tick. Noise deliberately does *not* follow it (docs/30): emission
+	# reads the rung, so wading into undergrowth slows you without quieting you.
+	var body_pos: Variant = components.get_component(entity, "position")
+	if body_pos is Dictionary:
+		speed *= surface_speed_at(float((body_pos as Dictionary)["x"]), float((body_pos as Dictionary)["y"]))
+	if modifiers != null and (modifiers as Object).has_method("resolve"):
+		speed *= float(modifiers.call("resolve", "move_speed", entity))
+	return speed
+
+
 func _build_map(map_fixture: Dictionary) -> void:
 	map_width = int(map_fixture["width"])
 	map_height = int(map_fixture["height"])
@@ -376,6 +404,11 @@ func _apply_commands(_world: Variant) -> void:
 		for command in (commands as Variant).current as Array:
 			match String((command as Dictionary)["type"]):
 				"move":
+					# The stick beats the click: any `move` command, zero-length or not, cancels a
+					# standing `walk.to` -- one hand on the wheel at a time, and it is whichever
+					# hand moved last. Removed before the zero-length `continue` below on purpose,
+					# so a released key (which sends a zero vector) still lets go of a walk-to.
+					components.remove(int(entity), "walkTo")
 					var dx: float = float((command as Dictionary)["dx"])
 					var dy: float = float((command as Dictionary)["dy"])
 					var length: float = sqrt(dx * dx + dy * dy)
@@ -383,22 +416,27 @@ func _apply_commands(_world: Variant) -> void:
 						velocity["dx"] = 0.0
 						velocity["dy"] = 0.0
 						continue
-					var stance: int = int(posture["current"])
-					var speed: float = WALK_SPEED * SimStancesRes.SPEED_FACTOR[stance]
-					# The ground you are standing on, beside the rung you are on: docs/24's
-					# surface table, ×1.0 on paved down to ×0.6 through undergrowth. Sampled
-					# here rather than at integration so it sits with the other two multipliers
-					# and answers the same question they do -- how fast is this body allowed to
-					# go this tick. Noise deliberately does *not* follow it (docs/30): emission
-					# reads the rung, so wading into undergrowth slows you without quieting you.
-					speed *= surface_speed_at(float(body_pos["x"]), float(body_pos["y"]))
-					if modifiers != null and (modifiers as Object).has_method("resolve"):
-						speed *= float(modifiers.call("resolve", "move_speed", int(entity)))
+					var speed: float = move_speed_of(int(entity))
 					velocity["dx"] = dx / length * speed
 					velocity["dy"] = dy / length * speed
 				"wait":
 					velocity["dx"] = 0.0
 					velocity["dy"] = 0.0
+				"walk.to":
+					# The right-click menu's "walk here": a standing intent the sim keeps from
+					# tick to tick, unlike `move`'s direction spent the instant it moves you.
+					# `player.walk-to` (input, order 2) is what actually steps it -- this only
+					# writes the destination, so a `walk.to` and a `move` on the same tick agree
+					# about which one wins (whichever's arm the match reaches; `move` clears this
+					# key unconditionally, so a walk-to written after a zero move on the same
+					# tick still stands, and a move written after a walk-to on the same tick
+					# still cancels it, because the match runs the tick's commands in order).
+					components.set_component(int(entity), "walkTo", {
+						"tx": int((command as Dictionary)["tx"]),
+						"ty": int((command as Dictionary)["ty"]),
+						"path": [],
+						"pathGen": -1,
+					})
 				"aim":
 					# Presentation proposes a facing; the sim decides whether it takes. Only a
 					# stationary body turns to aim -- movement.integrate derives facing from
@@ -474,6 +512,25 @@ func _advance_posture(_world: Variant) -> void:
 			# Publish, don't mutate: stamina.spent is the one write channel (health.gd) and
 			# it resets ticksUntilRecovery, which is what makes exertion pause recovery.
 			events.publish({"type": "stamina.spent", "entity": int(entity), "amount": drain})
+
+
+# Steps every standing `walk.to` one tick towards its tile, at the same speed the stick would
+# spend (`move_speed_of`), and lets go the moment `SimWalk.step` leaves the record's own `path`
+# empty -- arrived, or nowhere left to route from here. `SimWalk` is the one stepper the raiders
+# and the strangers already use; a click and a band both cross the district through the same A*
+# and the same door-opening, so a player is never watching an escort out-navigate the one thing
+# their own walk-here just ordered.
+func _walk_to(_world: Variant) -> void:
+	for entity in (components as RefCounted).call("query", ["walkTo", "controlled", "position", "velocity"]) as Array:
+		var e: int = int(entity)
+		var rec: Variant = components.get_component(e, "walkTo")
+		if not (rec is Dictionary):
+			continue
+		var wt: Dictionary = rec as Dictionary
+		var goal := Vector2i(int(wt.get("tx", 0)), int(wt.get("ty", 0)))
+		SimWalkRes.step(self, e, wt, goal, move_speed_of(e))
+		if (wt.get("path", []) as Array).is_empty():
+			components.remove(e, "walkTo")
 
 
 func _integrate_movement(_world: Variant) -> void:

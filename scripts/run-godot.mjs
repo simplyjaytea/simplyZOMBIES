@@ -445,6 +445,9 @@ switch (mode) {
   case "--play":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_play.gd"];
     break;
+  case "--context":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_context.gd"];
+    break;
   case "--inventory":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_inventory.gd"];
     break;

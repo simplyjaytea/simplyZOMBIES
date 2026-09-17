@@ -470,12 +470,34 @@ static func pick_up_nearest(world: Variant, actor: int) -> bool:
 	var item: Variant = nearest_ground_item(world, actor)
 	if item == null:
 		return false
-	world.components.remove(int(item), "position")
-	if not stow(world, actor, int(item)) and not equip(world, actor, int(item)):
-		drop_at_feet(world, actor, int(item))
+	return pick_up_item(world, actor, int(item))
+
+
+# The shared body of a pick-up, whichever item chose it: E's "nearest" and the right-click menu's
+# "this one, by id" both land here rather than each rolling their own stow/equip/drop-at-feet
+# fallback.
+static func pick_up_item(world: Variant, actor: int, item: int) -> bool:
+	world.components.remove(item, "position")
+	if not stow(world, actor, item) and not equip(world, actor, item):
+		drop_at_feet(world, actor, item)
 		return false
-	world.events.publish({"type": "item.pickedUp", "entity": actor, "item": int(item)})
+	world.events.publish({"type": "item.pickedUp", "entity": actor, "item": item})
 	return true
+
+
+# Whether `item` is a ground item `actor` could reach out and take -- the same test
+# `nearest_ground_item` makes, asked of a specific id rather than of "whichever is closest", for
+# `item.pickup`'s reach guard.
+static func _can_pick_up(world: Variant, actor: int, item: int) -> bool:
+	if not world.components.has_component(item, "itemBase") or world.components.has_component(item, "stored"):
+		return false
+	var here: Variant = world.components.get_component(actor, "position")
+	var there: Variant = world.components.get_component(item, "position")
+	if not (here is Dictionary) or not (there is Dictionary):
+		return false
+	var dx: float = float((there as Dictionary)["x"]) - float((here as Dictionary)["x"])
+	var dy: float = float((there as Dictionary)["y"]) - float((here as Dictionary)["y"])
+	return dx * dx + dy * dy <= PICKUP_REACH * PICKUP_REACH
 
 static func make_inventory(world: Variant, entity: int) -> void:
 	world.components.set_component(entity, "container", {"w": int(POCKET_GRID["w"]), "h": int(POCKET_GRID["h"]), "items": []})
@@ -816,6 +838,14 @@ static func register_module(world: Variant) -> void:
 					# for whatever was nearest to each of them. The player is who pressed it.
 					for actor in w.components.query(["equipment", "controlled"]):
 						pick_up_nearest(w, int(actor))
+				"item.pickup":
+					# The right-click menu's row: a specific item, by id, rather than E's "whatever
+					# is nearest" -- the menu named the item the cursor was over, and this is the
+					# reach guard that says whether the actor who clicked can actually reach it.
+					for actor in w.components.query(["equipment", "controlled"]):
+						var target: int = int(c.get("item", -1))
+						if target >= 0 and _can_pick_up(w, int(actor), target):
+							pick_up_item(w, int(actor), target)
 				"item.split":
 					split_stack(w, int(c["item"]), int(c["count"]))
 				"item.use", "item.wash":
