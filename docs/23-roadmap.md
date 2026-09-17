@@ -992,6 +992,30 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   distance, which is where BLOOD and PREY get their contact — so this is a gap in the band's own
   behaviour rather than something a played district shows. Fixing it is a halt that knows the
   attacker's reach, which moves every raid's contact and therefore wants its own before-and-after.
+  **Built and measured 2026-09-16, and parked rather than landed.** The fix exists, on branch
+  `claude/raider-reach-halt` and not on `main`: one resolver `SimMelee.reach_of` read by
+  `SimNpcCombat._melee_reach` and a new `SimRaiders._halt_metres` (the lesser of `HALT_METRES` and
+  the body's own reach less a 0.15 m tick margin), with `check_m2_raiders.gd` lanes REACH (a
+  machete raider against a colonist pinned at the gate, run red first: `closest approach 2.58 m`,
+  no blow in 1,200 ticks; green at 1.38 m with a wound) and READS-REACH, and the crossing slice's
+  ENGAGES lane back on the melee band it was written for. The before-and-after it wanted was
+  taken, and it is why the fix is parked: on a throwaway six-thousand-tick driver over four seeds
+  the direction was inconsistent (the masking above, read off real numbers), but
+  `npm run godot:m2:balance`'s FAST tier moved on one seed — 404's `mixed` arm, already down to
+  its last colonist, loses that colonist once a raid can connect (`survivors_end` 1→0,
+  `run_over` true), which turns `_assert_bands`'s standing `survivors_end >= 1` red, the
+  assertion CLAUDE.md says was considered and rejected to relax. Whether the shipped default is
+  meant to absorb a raid that lethal, whether that assertion was grading the bug rather than the
+  difficulty, or whether a raider first-cut number moves, is the owner's — `HANDOFF.md` item 7 —
+  and the branch waits on it with its record written.
+- **A melee swing's cone does not ask allegiance before it lands.** `_resolve_strike` "resolves
+  against whatever body is in the cone" (`raiders.gd`'s own header) with no faction check at all,
+  so three raiders converging tightly on one target can catch *each other*. Masked today because a
+  band never stands close enough to land a blow on anybody; the parked reach fix above watched a
+  raider put down two bandmates in the fixture that used to prove a band "stays", which is why that
+  branch's WITHDRAW lane engages one raider rather than three. Not fixed with the reach: it is a
+  question about every melee swing in the tree, not about a raider's approach, and wants its own
+  gate and its own before-and-after.
 
 - **A body that turns walks past the horde budget nothing else may cross.** `SimDirector` refuses
   a spawn once `live` reaches `live_cap_for(world)` and publishes the refusal with reason `cap` —
