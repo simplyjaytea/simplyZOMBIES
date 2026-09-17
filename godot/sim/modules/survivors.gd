@@ -17,6 +17,7 @@ const SimSkillsRes = preload("res://sim/modules/skills.gd")
 const SimSightingsRes = preload("res://sim/modules/sightings.gd")
 const SimVisibilityRes = preload("res://sim/vision/visibility.gd")
 const SimAllegianceRes = preload("res://sim/modules/allegiance.gd")
+const SimMeleeRes = preload("res://sim/modules/melee.gd")
 
 
 static func entry_of(world: Variant, id: String) -> Variant:
@@ -129,6 +130,9 @@ static func spawn_unique(world: Variant, id: String, x: float, y: float) -> int:
 	give_eyes(world, ent)
 	var kit: Variant = e.get("kit", [])
 	equip_kit(world, ent, kit as Array if kit is Array else [], x, y)
+	# After the kit, not before: a bat kit wins the hand it belongs in, and a kit with nothing
+	# to hold (or none at all) leaves this survivor throwing punches instead of standing empty.
+	SimMeleeRes.ensure_hands(world, ent)
 	world.events.publish({"type": "survivor.joined", "entity": ent, "id": id})
 	return ent
 
@@ -253,6 +257,10 @@ static func boot_playable(world: Variant) -> int:
 	SimNeedsRes.attach(world, world.player)
 	SimSkillsRes.attach(world, world.player)
 	give_eyes(world, world.player)
+	# `boot_playable` never equips a kit itself -- `SimBoot.playable` hands the player the annex
+	# knife afterwards, which overwrites this the instant it lands -- so without this call a
+	# fresh boot has a player with no `meleeWeapon` at all until that knife equips.
+	SimMeleeRes.ensure_hands(world, world.player)
 	var pos: Variant = world.components.get_component(world.player, "position")
 	var px: float = float((pos as Dictionary)["x"]) if pos is Dictionary else 5.0
 	var py: float = float((pos as Dictionary)["y"]) if pos is Dictionary else 5.0

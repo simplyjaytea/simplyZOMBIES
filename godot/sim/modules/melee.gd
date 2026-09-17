@@ -28,6 +28,31 @@ static func make_melee_armed(world: Variant, entity: int, weapon: Dictionary = {
 	world.components.set_component(entity, "meleeWeapon", profile)
 	world.components.set_component(entity, "swing", {"state": SwingState.Idle, "ticksLeft": 0})
 
+
+# Hands, so nobody is ever caught with no `meleeWeapon` at all -- see combat.gd's BARE_HANDS for
+# why "no weapon" and "cannot fight" stopped being the same fact. Idempotent both ways: called
+# after a kit equips (a bat kit wins, a pistol-only kit gets hands) and from the unequip handler
+# below (hands come back the instant a weapon leaves the hand that held it). Only fills what is
+# missing, so a real weapon and an in-flight swing are both left alone.
+static func ensure_hands(world: Variant, ent: int) -> void:
+	if not world.components.has_component(ent, "meleeWeapon"):
+		world.components.set_component(ent, "meleeWeapon", SimCombat.BARE_HANDS.duplicate())
+	if not world.components.has_component(ent, "swing"):
+		world.components.set_component(ent, "swing", {"state": SwingState.Idle, "ticksLeft": 0})
+
+
+# The one predicate for "fighting with nothing" -- jobs.gd's Rearm trigger and the balance gate's
+# ARMED assertion both used to ask `not has_component("meleeWeapon")`, which hands broke: a
+# colonist with hands now always carries one. A ranged weapon still counts as armed on its own,
+# the way it always has.
+static func is_unarmed(world: Variant, ent: int) -> bool:
+	if world.components.has_component(ent, "rangedWeapon"):
+		return false
+	var mw: Variant = world.components.get_component(ent, "meleeWeapon")
+	if not mw is Dictionary:
+		return true
+	return bool((mw as Dictionary).get("unarmed", false))
+
 # The one place a hit location is rolled, for swings and bites alike -- CLAUDE.md's
 # "one canonical place". `weights` overrides the default table for callers whose geometry is not
 # a free swing: shambler.gd's bite passes SimCombat.HELD_HIT_LOCATION_WEIGHTS, because a mouth
@@ -110,8 +135,11 @@ static func register_module(world: Variant) -> void:
 			return
 		if SimItemsRes.melee_profile_of(world, int(event["item"])) == null:
 			return
+		# Hands come back, not an absent component -- the profile is removed and `ensure_hands`
+		# fills it with BARE_HANDS. `swing` is left untouched rather than reset: whatever it was
+		# doing (Idle, or mid wind-up) it goes on doing with a new pair of hands under it.
 		world.components.remove(int(event["entity"]), "meleeWeapon")
-		world.components.remove(int(event["entity"]), "swing")
+		ensure_hands(world, int(event["entity"]))
 	})
 
 	world.events.subscribe({"id": "melee.stagger-interrupts", "type": "entity.staggered", "handler": func(event: Dictionary) -> void:

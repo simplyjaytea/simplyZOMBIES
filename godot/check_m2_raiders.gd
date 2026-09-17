@@ -664,6 +664,14 @@ func _prey_arena(marked: bool, armed: bool) -> Dictionary:
 	SimShambler.register_module(w, SimTileMap.blank_map(32, 32))
 	var raider: int = SimRaiders.spawn(w, 16.0, 16.0, "raider.scav")
 	if not armed:
+		# Unequipping the machete is no longer "cannot fight back": the unequip handler hands
+		# every body its fists (combat.gd's BARE_HANDS, the bare-hands slice), and a raider
+		# punching every seven ticks at stagger 6 keeps the claw from ever finishing its
+		# wind-up exactly as the machete did -- the same measured behaviour the armed arena
+		# above is written around. What this arena has to prove is that a zombie eats a raider
+		# who *cannot* keep it off, so the hands go too: the profile and the swing, the way a
+		# body with no arms would stand. Hands are a fact about people now, and this fixture is
+		# the one place a person deliberately has none.
 		SimInventory.unequip(w, raider, "primary")
 	if not marked:
 		# Everything else about this body is unchanged -- position, emitter, flesh, hands. Only
@@ -672,6 +680,12 @@ func _prey_arena(marked: bool, armed: bool) -> Dictionary:
 	# Nobody else in the district, so the only thing a shambler could be chasing is the raider.
 	var z: int = SimRoster.spawn_zombie(w, 17.5, 16.0, SimRoster.TYPE_SHAMBLER, w.rng.stream("shambler"))
 	w.events.drain()
+	if not armed:
+		# After the drain, not before: `unequip` only *queues* `item.unequipped`, and the handler
+		# that fills the hand with BARE_HANDS runs when the queue drains (CLAUDE.md's trap). A
+		# removal ahead of it removes nothing and the raider punches from the first tick.
+		w.components.remove(raider, "meleeWeapon")
+		w.components.remove(raider, "swing")
 	var start: float = _distance(w, z, raider)
 	var pursued: bool = false
 	var closest: float = start

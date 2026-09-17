@@ -7,6 +7,26 @@ const COS_SWING_HALF_ANGLE: float = 0.8253356149096783
 const WINDUP_TICKS: int = 6
 const RECOVER_TICKS: int = 8
 
+# A punch, for the hands that are never actually empty. Before this a colonist or the player with
+# nothing equipped had no `meleeWeapon` at all, so `melee.intake`'s query
+# (`["swing","meleeWeapon","controlled"]`) never matched them: F and a left click did nothing, and
+# an NPC's only answer to standing unarmed was a Rearm walk that could fail to find anything.
+# `blocked` stays "" -- hands are never refused the way a spear with no head is -- and `source`
+# stays -1, the same value `_resolve_strike` already sends for a zombie's bite, so nothing reading
+# a weapon's `source` needs a real item to look up. `unarmed` is the one field nothing else on a
+# weapon profile carries; it is what `SimMelee.is_unarmed` reads, and the whole reason it exists
+# is that "no meleeWeapon component" stopped being the same question as "fighting with nothing".
+#
+# First-cut numbers, waiting on the owner (HANDOFF.md): weight 0.6 and speed 1.3 keep the swing
+# quick -- lighter and faster than the 1.2/1.0 bat default `make_melee_armed` falls back to --
+# and damage 4 against a shambler's head (25, x3 for HEAD_DAMAGE_MULTIPLIER = 12) takes three
+# punches, a torso (60) fifteen.
+const BARE_HANDS: Dictionary = {
+	"reachMetres": 1.0, "weight": 0.6, "damage": 4, "staggerTicks": 6, "speed": 1.3,
+	"recovery": 0.8, "stamina": 0.7, "connectNoise": MELEE_CONNECT_NOISE, "source": -1,
+	"blocked": "", "unarmed": true,
+}
+
 # The ranged equivalents, and they live here for the same reason the melee pair does: the clocks a
 # weapon runs on are combat's arithmetic, not one module's private calibration. docs/09-combat.md's
 # ladder is "raise -> steady -> fire -> recover -> (reload)", and until 2026-09-10 all three of

@@ -20,6 +20,7 @@ const SimWeather = preload("res://sim/modules/weather.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
 const SimSightings = preload("res://sim/modules/sightings.gd")
+const SimMelee = preload("res://sim/modules/melee.gd")
 
 const COLUMNS: Array[String] = [
 	"Firefight", "Patient", "Doctor", "Rest", "Cook", "Hunt", "Construct", "Repair",
@@ -1214,7 +1215,11 @@ static func _consume_owned(world: Variant, item: int) -> bool:
 # for the rest of the run. `check_m2_npc_combat.gd` REARM.
 
 static func _unarmed(world: Variant, ent: int) -> bool:
-	return not world.components.has_component(ent, "meleeWeapon") and not world.components.has_component(ent, "rangedWeapon")
+	# Routed through the one predicate rather than the raw components: a colonist's hands are a
+	# `meleeWeapon` too now (combat.gd's BARE_HANDS), so "has no meleeWeapon" stopped meaning
+	# "cannot fight" the moment `ensure_hands` shipped. `SimMelee.is_unarmed` is what still asks
+	# the right question.
+	return SimMelee.is_unarmed(world, ent)
 
 
 # A weapon is anything the hands take (`equipSlot` primary); working means its condition is

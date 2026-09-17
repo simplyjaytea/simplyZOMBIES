@@ -37,6 +37,7 @@ const SimItems = preload("res://sim/modules/items.gd")
 const SimRecruits = preload("res://sim/modules/recruits.gd")
 const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
+const SimMelee = preload("res://sim/modules/melee.gd")
 const Clock = preload("res://sim/time/clock.gd")
 
 const DAYS: int = 10
@@ -1044,12 +1045,15 @@ func _colonists(w: Variant) -> Array[int]:
 	return out
 
 
-# "Armed" asked of the components combat actually reads, not of what is in somebody's pack: a
-# knife in a satchel raises no `meleeWeapon`, and `melee.gd` and `npc_combat.gd` both look here.
+# "Armed" asked the way combat actually asks it, not "has a meleeWeapon component" -- since
+# `SimMelee.ensure_hands` a colonist with empty hands still carries one, flagged `unarmed`, so
+# the raw component check would report a fresh boot as fully armed forever and this assertion
+# could never go red. `SimMelee.is_unarmed` is the one predicate; a knife in a satchel still
+# raises no `meleeWeapon` at all, and `melee.gd` and `npc_combat.gd` both look here.
 func _unarmed_colonists(w: Variant) -> Array[int]:
 	var out: Array[int] = []
 	for ent in _colonists(w):
-		if w.components.has_component(int(ent), "meleeWeapon") or w.components.has_component(int(ent), "rangedWeapon"):
+		if not SimMelee.is_unarmed(w, int(ent)):
 			continue
 		out.append(int(ent))
 	return out
