@@ -206,6 +206,23 @@ static func _record_is_seen(r: Dictionary, seen: Variant, box: Rect2i) -> bool:
 	return false
 
 
+# Whether any tile of a record's whole footprint (not clipped to the visible box, unlike
+# `_record_is_seen` above) is in `seen`. What tells the renderer's memory look a currently-visible
+# car apart from one it only remembers: `vehicle_records` above answers "draw it" off `seen` union
+# `explored` composite, and this answers "with today's own eyes, or from memory" so the picture can
+# be tinted accordingly.
+static func vehicle_is_seen(r: Dictionary, seen: Variant) -> bool:
+	if seen == null:
+		return false
+	var x: int = int(r.get("x", 0))
+	var y: int = int(r.get("y", 0))
+	for dy in int(r.get("h", 0)):
+		for dx in int(r.get("w", 0)):
+			if bool((seen as Object).call("has_tile", x + dx, y + dy)):
+				return true
+	return false
+
+
 # The picture for one manifest record: the class's own variant list, picked by a pure hash of the
 # map seed and the record's north-west corner -- once for the whole car, never per tile, so a
 # sedan is one colour end to end -- and then that variant's key for the axis it is parked on.

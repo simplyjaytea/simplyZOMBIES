@@ -514,12 +514,8 @@ in this order; each lands with its own gate:
 
 - ~~**Bare hands**~~ — **landed** 2026-09-17, see the record (`npm run godot:m2:hands` →
   `M2_HANDS_OK`).
-- **The afterimage and the remembered map.** `SimSightings` remembers every body with a kind
-  (the HUD's clause and the NPC's recall keep asking for hostiles only) and keeps a per-observer
-  `explored` bitset; the renderer draws the last-seen picture fading over the fresh band, the
-  mark over the recent band, and the explored tiles dimmed — bodies never. `godot:m2:sight`
-  grows KINDS and EXPLORED; `npm run godot:check:memory` → `MEMORY_LOOK_OK`. This absorbs
-  the art group's **the remembered map, dimmed** below.
+- ~~**The afterimage and the remembered map**~~ — **landed** 2026-09-17, see the record
+  (`godot:m2:sight` KINDS and EXPLORED; `npm run godot:check:memory` → `MEMORY_LOOK_OK`).
 - **The right-click menu, and walk-here.** `SimContext.verbs_at` builds the rows off the
   modules' own predicates; `walk.to` is a command the stick cancels; `Pick.pick_at` says what is
   under the cursor. `npm run godot:check:context` → `CONTEXT_OK`.
@@ -546,11 +542,9 @@ projection stays flat top-down; 32 px a tile stays.
   lifts off blue-black to a dark grey so the district sits in weather rather than in a cave.
   docs/30's entry gets the clause-by-clause "what the warm grade becomes" the 2026-09-03 entry
   gave the overcast one.
-- **The remembered map, dimmed.** Tiles the survivor has seen persist desaturated from the
-  sightings and `memory` tint the sim already keeps; bodies are never drawn in them; a tile
-  never seen stays the void. `check_light_look.gd`'s draw ⊆ seen becomes draw ⊆ seen ∪
-  remembered with the true negative that a never-seen tile is refused, and the anonymity
-  clause holds because memory holds no bodies.
+- ~~**The remembered map, dimmed.**~~ — **landed** 2026-09-17 inside the "After the shell"
+  group's afterimage piece, see the record (`npm run godot:check:memory` → `MEMORY_LOOK_OK`;
+  `godot:m2:sight`'s EXPLORED lane).
 - **The wall face hangs south.** Every wall tile whose south neighbour is open ground draws its
   cap in its own tile and a one-tile face over the tile to the south, the face a member of the
   entity y-sort at the wall's ground point so a body on that tile draws over it, the way a body
@@ -10213,6 +10207,55 @@ not a to-do list:
   empty-handed does not change who survives ten days on the FAST tier; the grabs moved on two
   seeds because a punch staggers and a stagger breaks a hold, which is the mechanic and not a
   drift.
+
+- **After the shell** — ~~the afterimage and the remembered map~~ **landed** 2026-09-17
+  (`godot:m2:sight` gains **KINDS** and **EXPLORED**; `npm run godot:check:memory` →
+  **`MEMORY_LOOK_OK`**, chained after `godot:check:light`), and it absorbs the art group's
+  ~~the remembered map, dimmed~~. The jar the owner named was two clocks disagreeing: the sim
+  remembered a body for two minutes in three bands, and the renderer drew an 8 px dot fading over
+  its own private `MEMORY_TICKS = 60` while every tile outside the shadowcast cut to black the
+  frame it left. **Sim:** `SimSightings._observe_one` records **every body** (query `body` +
+  `position`, the observer excluded, the dead still erased when watched falling) and each record
+  carries a `kind` — `zombie`, `raider`, `person` — with a missing kind reading `zombie`, the only
+  kind an older save could hold, so no `SAVE_VERSION` bump. `remembered()` takes an optional
+  `kinds` filter; `clause()` (the HUD's "one of them, east") and `freshest_within()` (what
+  `npc_combat._shoot_where_it_was` fires at) ask for `HOSTILE_KINDS` only, so a remembered
+  colonist is never "one of them" and nobody shoots at where Mara was. The remembered map is a
+  per-observer `explored` component — `{w, h, bits}`, a base64 bitset over the map, a String
+  and never a `PackedByteArray` (CLAUDE.md's trap) — merged from the shadowcast's own
+  `VisibleTiles` only on the tick that cast recomputed: `SimVisibility` bumps a `cast_gen` on
+  every recast and exposes `cast_generation(observer)`, and the observer's `sightings` record
+  keeps the generation it last merged (`exploredGen`, on the record, not a static). Every
+  observer with sightings keeps one, so succession hands the camera to a colonist with their own
+  map. **Presentation:** `_last_look` caches the picture of every body drawn at Focal — look,
+  gear layers, flip — and `_draw_afterimages()` (called from `_draw` after `_draw_entities`)
+  blits that frozen picture at the **sim's remembered x, y** for every remembered row the player
+  can no longer see, at `afterimage_alpha(age) = 1 − age / FRESH_TICKS`, so the picture is gone
+  the moment the HUD stops saying "a moment ago"; a body only ever glimpsed has no picture and
+  fades as the anonymous disc. The mark then fades over `RECENT_TICKS`; the renderer's private
+  constant is deleted. `_blit_body`'s gear layers borrow the body tint's alpha now (they drew
+  white at full alpha, which was invisible until a body needed to fade under them). The tile loop
+  draws a tile that is in `explored` but not in `seen` through the same two `match` arms with its
+  colour through `Palette.remembered()` (a lerp toward the new `rememberedTint`, then darkened)
+  and no paint, kerb or scatter; roofs, trees and parked vehicles take the same tint through a
+  composite seen ∪ explored view; bodies, ground items and props never draw on a remembered tile.
+  The lanes — **KINDS** (a shambler and a colonist in view record `zombie` and `person`; the
+  clause reads "one of them" with the colonist closer; `freshest_within` returns the shambler
+  despite range; a colonist alone yields "" and null), **EXPLORED** (a tile in the cast is known
+  after one tick, a tile behind the wall run never, the bits survive walking away and a
+  `SimSave` encode/decode round trip, and a second observer's map is its own), and in the look
+  gate **CACHE** (a Focal body is cached, one directly behind the player is not), **AFTERIMAGE**
+  (the fade's ceiling, floor and midpoint; a body that leaves view stays remembered and the frame
+  still finishes; textually, `_draw_afterimages` reads `SimSightings.remembered(` and never
+  `get_component(` — scanner proved on a fabricated body), **MAP** (a walked-away tile stays
+  known and the frame draws; `_draw_district` reaches `Palette.remembered(` with exactly one
+  `continue` kept) and **NO-BODIES** (the item, prop and body branches still gate on `Focal` and
+  bail on `Unseen`). Cost, measured on the full 256-tile district with a driver (deleted): the
+  same 2,000 ticks after a 200-tick warm-up on the commit before this slice and on this one,
+  under the same load, read 27.2 and 27.1 ticks/s — the merge, the wider observe and the kind
+  are inside the noise (the absolute figure is a loaded container, another worker's gates running
+  beside it, not the quiet 55–83 the record measures the district at). A region map is the size
+  ceiling: 912² tiles is 104 KB of bitset per observer in the save.
 
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not
