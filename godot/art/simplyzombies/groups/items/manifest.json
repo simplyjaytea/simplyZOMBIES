@@ -1,0 +1,1534 @@
+{
+  "version": 1,
+  "group": "core-items-weapons",
+  "title": "Core item set and held weapons",
+  "description": "48 inventory icons and 12 separate held weapons. Concrete core item set; does not assert complete game catalog coverage. Gear icons are inventory representations, not fitted character overlays.",
+  "nativePixelArt": true,
+  "pixelSampling": "nearest",
+  "assets": [
+    {
+      "id": "item-pistol",
+      "label": "Pistol",
+      "category": "inventory",
+      "itemCategory": "weapon",
+      "path": "icons/item-pistol.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        21
+      ],
+      "iconOnly": true,
+      "heldAsset": "weapon-pistol"
+    },
+    {
+      "id": "item-revolver",
+      "label": "Revolver",
+      "category": "inventory",
+      "itemCategory": "weapon",
+      "path": "icons/item-revolver.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        17
+      ],
+      "iconOnly": true,
+      "heldAsset": "weapon-revolver"
+    },
+    {
+      "id": "item-smg",
+      "label": "Smg",
+      "category": "inventory",
+      "itemCategory": "weapon",
+      "path": "icons/item-smg.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        19
+      ],
+      "iconOnly": true,
+      "heldAsset": "weapon-smg"
+    },
+    {
+      "id": "item-pump-shotgun",
+      "label": "Pump Shotgun",
+      "category": "inventory",
+      "itemCategory": "weapon",
+      "path": "icons/item-pump-shotgun.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        11
+      ],
+      "iconOnly": true,
+      "heldAsset": "weapon-pump-shotgun"
+    },
+    {
+      "id": "item-assault-rifle",
+      "label": "Assault Rifle",
+      "category": "inventory",
+      "itemCategory": "weapon",
+      "path": "icons/item-assault-rifle.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        12
+      ],
+      "iconOnly": true,
+      "heldAsset": "weapon-assault-rifle"
+    },
+    {
+      "id": "item-bolt-rifle",
+      "label": "Bolt Rifle",
+      "category": "inventory",
+      "itemCategory": "weapon",
+      "path": "icons/item-bolt-rifle.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        10
+      ],
+      "iconOnly": true,
+      "heldAsset": "weapon-bolt-rifle"
+    },
+    {
+      "id": "item-bow",
+      "label": "Bow",
+      "category": "inventory",
+      "itemCategory": "weapon",
+      "path": "icons/item-bow.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        9,
+        27
+      ],
+      "iconOnly": true,
+      "heldAsset": "weapon-bow"
+    },
+    {
+      "id": "item-crossbow",
+      "label": "Crossbow",
+      "category": "inventory",
+      "itemCategory": "weapon",
+      "path": "icons/item-crossbow.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        14
+      ],
+      "iconOnly": true,
+      "heldAsset": "weapon-crossbow"
+    },
+    {
+      "id": "item-kitchen-knife",
+      "label": "Kitchen Knife",
+      "category": "inventory",
+      "itemCategory": "weapon",
+      "path": "icons/item-kitchen-knife.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        27
+      ],
+      "iconOnly": true,
+      "heldAsset": "weapon-kitchen-knife"
+    },
+    {
+      "id": "item-hatchet",
+      "label": "Hatchet",
+      "category": "inventory",
+      "itemCategory": "weapon",
+      "path": "icons/item-hatchet.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        26
+      ],
+      "iconOnly": true,
+      "heldAsset": "weapon-hatchet"
+    },
+    {
+      "id": "item-crowbar",
+      "label": "Crowbar",
+      "category": "inventory",
+      "itemCategory": "weapon",
+      "path": "icons/item-crowbar.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        27
+      ],
+      "iconOnly": true,
+      "heldAsset": "weapon-crowbar"
+    },
+    {
+      "id": "item-baseball-bat",
+      "label": "Baseball Bat",
+      "category": "inventory",
+      "itemCategory": "weapon",
+      "path": "icons/item-baseball-bat.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        26,
+        27
+      ],
+      "iconOnly": true,
+      "heldAsset": "weapon-baseball-bat"
+    },
+    {
+      "id": "item-pistol-rounds",
+      "label": "Pistol Rounds",
+      "category": "inventory",
+      "itemCategory": "ammo",
+      "path": "icons/item-pistol-rounds.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        17
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-rifle-rounds",
+      "label": "Rifle Rounds",
+      "category": "inventory",
+      "itemCategory": "ammo",
+      "path": "icons/item-rifle-rounds.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        22,
+        27
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-shells",
+      "label": "Shells",
+      "category": "inventory",
+      "itemCategory": "ammo",
+      "path": "icons/item-shells.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        17
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-arrows",
+      "label": "Arrows",
+      "category": "inventory",
+      "itemCategory": "ammo",
+      "path": "icons/item-arrows.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        26,
+        27
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-bolts",
+      "label": "Bolts",
+      "category": "inventory",
+      "itemCategory": "ammo",
+      "path": "icons/item-bolts.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        26
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-empty-magazine",
+      "label": "Empty Magazine",
+      "category": "inventory",
+      "itemCategory": "ammo",
+      "path": "icons/item-empty-magazine.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        19,
+        27
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-water-bottle",
+      "label": "Water Bottle",
+      "category": "inventory",
+      "itemCategory": "food-drink",
+      "path": "icons/item-water-bottle.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        11,
+        27
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-tin-beans",
+      "label": "Tin Beans",
+      "category": "inventory",
+      "itemCategory": "food-drink",
+      "path": "icons/item-tin-beans.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        21,
+        27
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-tinned-meat",
+      "label": "Tinned Meat",
+      "category": "inventory",
+      "itemCategory": "food-drink",
+      "path": "icons/item-tinned-meat.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        25
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-bread",
+      "label": "Bread",
+      "category": "inventory",
+      "itemCategory": "food-drink",
+      "path": "icons/item-bread.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        22
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-apple",
+      "label": "Apple",
+      "category": "inventory",
+      "itemCategory": "food-drink",
+      "path": "icons/item-apple.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        23,
+        27
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-mre",
+      "label": "Mre",
+      "category": "inventory",
+      "itemCategory": "food-drink",
+      "path": "icons/item-mre.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        23,
+        27
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-bandage-roll",
+      "label": "Bandage Roll",
+      "category": "inventory",
+      "itemCategory": "medical",
+      "path": "icons/item-bandage-roll.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        21
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-first-aid-kit",
+      "label": "First Aid Kit",
+      "category": "inventory",
+      "itemCategory": "medical",
+      "path": "icons/item-first-aid-kit.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        26
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-painkillers",
+      "label": "Painkillers",
+      "category": "inventory",
+      "itemCategory": "medical",
+      "path": "icons/item-painkillers.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        15,
+        27
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-antiseptic",
+      "label": "Antiseptic",
+      "category": "inventory",
+      "itemCategory": "medical",
+      "path": "icons/item-antiseptic.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        14,
+        27
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-splint",
+      "label": "Splint",
+      "category": "inventory",
+      "itemCategory": "medical",
+      "path": "icons/item-splint.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        24
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-antibiotics",
+      "label": "Antibiotics",
+      "category": "inventory",
+      "itemCategory": "medical",
+      "path": "icons/item-antibiotics.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        22,
+        27
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-scrap",
+      "label": "Scrap",
+      "category": "inventory",
+      "itemCategory": "crafting",
+      "path": "icons/item-scrap.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        26
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-wood-planks",
+      "label": "Wood Planks",
+      "category": "inventory",
+      "itemCategory": "crafting",
+      "path": "icons/item-wood-planks.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        26
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-cloth",
+      "label": "Cloth",
+      "category": "inventory",
+      "itemCategory": "crafting",
+      "path": "icons/item-cloth.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        23
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-wire",
+      "label": "Wire",
+      "category": "inventory",
+      "itemCategory": "crafting",
+      "path": "icons/item-wire.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        25
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-electronics",
+      "label": "Electronics",
+      "category": "inventory",
+      "itemCategory": "crafting",
+      "path": "icons/item-electronics.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        22
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-battery",
+      "label": "Battery",
+      "category": "inventory",
+      "itemCategory": "crafting",
+      "path": "icons/item-battery.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        23
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-fuel-can",
+      "label": "Fuel Can",
+      "category": "inventory",
+      "itemCategory": "crafting",
+      "path": "icons/item-fuel-can.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        20,
+        27
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-toolkit",
+      "label": "Toolkit",
+      "category": "inventory",
+      "itemCategory": "crafting",
+      "path": "icons/item-toolkit.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        24
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-backpack",
+      "label": "Backpack",
+      "category": "inventory",
+      "itemCategory": "gear",
+      "path": "icons/item-backpack.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        26,
+        27
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-helmet",
+      "label": "Helmet",
+      "category": "inventory",
+      "itemCategory": "gear",
+      "path": "icons/item-helmet.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        26
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-vest",
+      "label": "Vest",
+      "category": "inventory",
+      "itemCategory": "gear",
+      "path": "icons/item-vest.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        25,
+        27
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-gas-mask",
+      "label": "Gas Mask",
+      "category": "inventory",
+      "itemCategory": "gear",
+      "path": "icons/item-gas-mask.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        24,
+        27
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-flashlight",
+      "label": "Flashlight",
+      "category": "inventory",
+      "itemCategory": "gear",
+      "path": "icons/item-flashlight.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        25
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-radio",
+      "label": "Radio",
+      "category": "inventory",
+      "itemCategory": "gear",
+      "path": "icons/item-radio.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        13,
+        27
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-binoculars",
+      "label": "Binoculars",
+      "category": "inventory",
+      "itemCategory": "gear",
+      "path": "icons/item-binoculars.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        22
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-map",
+      "label": "Map",
+      "category": "inventory",
+      "itemCategory": "gear",
+      "path": "icons/item-map.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        27
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-key",
+      "label": "Key",
+      "category": "inventory",
+      "itemCategory": "gear",
+      "path": "icons/item-key.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        26,
+        27
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "item-repair-kit",
+      "label": "Repair Kit",
+      "category": "inventory",
+      "itemCategory": "gear",
+      "path": "icons/item-repair-kit.png",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        23
+      ],
+      "iconOnly": true
+    },
+    {
+      "id": "weapon-pistol",
+      "label": "Pistol held",
+      "category": "held-weapon",
+      "path": "held/weapon-pistol.png",
+      "size": [
+        24,
+        16
+      ],
+      "occupiedSize": [
+        12,
+        9
+      ],
+      "anchor": [
+        8.18,
+        8.85
+      ],
+      "grip": [
+        8.18,
+        8.85
+      ],
+      "muzzle": [
+        17.37,
+        5.41
+      ],
+      "tip": [
+        17.37,
+        5.41
+      ],
+      "facing": "east",
+      "inventoryAsset": "item-pistol",
+      "weapon": {
+        "grip": [
+          8.18,
+          8.85
+        ],
+        "muzzle": [
+          17.37,
+          5.41
+        ],
+        "demoFxType": "pistol",
+        "demoCooldownSeconds": 0.3,
+        "demoOnly": true
+      }
+    },
+    {
+      "id": "weapon-revolver",
+      "label": "Revolver held",
+      "category": "held-weapon",
+      "path": "held/weapon-revolver.png",
+      "size": [
+        24,
+        16
+      ],
+      "occupiedSize": [
+        15,
+        9
+      ],
+      "anchor": [
+        5.9,
+        9.25
+      ],
+      "grip": [
+        5.9,
+        9.25
+      ],
+      "muzzle": [
+        18.48,
+        4.85
+      ],
+      "tip": [
+        18.48,
+        4.85
+      ],
+      "facing": "east",
+      "inventoryAsset": "item-revolver",
+      "weapon": {
+        "grip": [
+          5.9,
+          9.25
+        ],
+        "muzzle": [
+          18.48,
+          4.85
+        ],
+        "demoFxType": "pistol",
+        "demoCooldownSeconds": 0.45,
+        "demoOnly": true
+      }
+    },
+    {
+      "id": "weapon-smg",
+      "label": "Smg held",
+      "category": "held-weapon",
+      "path": "held/weapon-smg.png",
+      "size": [
+        32,
+        16
+      ],
+      "occupiedSize": [
+        19,
+        10
+      ],
+      "anchor": [
+        16.84,
+        9.71
+      ],
+      "grip": [
+        16.84,
+        9.71
+      ],
+      "muzzle": [
+        24.45,
+        6.21
+      ],
+      "tip": [
+        24.45,
+        6.21
+      ],
+      "facing": "east",
+      "inventoryAsset": "item-smg",
+      "weapon": {
+        "grip": [
+          16.84,
+          9.71
+        ],
+        "muzzle": [
+          24.45,
+          6.21
+        ],
+        "demoFxType": "smg",
+        "demoCooldownSeconds": 0.11,
+        "demoOnly": true
+      }
+    },
+    {
+      "id": "weapon-pump-shotgun",
+      "label": "Pump Shotgun held",
+      "category": "held-weapon",
+      "path": "held/weapon-pump-shotgun.png",
+      "size": [
+        48,
+        16
+      ],
+      "occupiedSize": [
+        25,
+        7
+      ],
+      "anchor": [
+        20.8,
+        7.86
+      ],
+      "grip": [
+        20.8,
+        7.86
+      ],
+      "muzzle": [
+        35.55,
+        5.5
+      ],
+      "tip": [
+        35.55,
+        5.5
+      ],
+      "facing": "east",
+      "inventoryAsset": "item-pump-shotgun",
+      "weapon": {
+        "grip": [
+          20.8,
+          7.86
+        ],
+        "muzzle": [
+          35.55,
+          5.5
+        ],
+        "demoFxType": "shotgun",
+        "demoCooldownSeconds": 0.9,
+        "demoOnly": true
+      }
+    },
+    {
+      "id": "weapon-assault-rifle",
+      "label": "Assault Rifle held",
+      "category": "held-weapon",
+      "path": "held/weapon-assault-rifle.png",
+      "size": [
+        48,
+        16
+      ],
+      "occupiedSize": [
+        26,
+        9
+      ],
+      "anchor": [
+        18.3,
+        7.78
+      ],
+      "grip": [
+        18.3,
+        7.78
+      ],
+      "muzzle": [
+        36.58,
+        5.14
+      ],
+      "tip": [
+        36.58,
+        5.14
+      ],
+      "facing": "east",
+      "inventoryAsset": "item-assault-rifle",
+      "weapon": {
+        "grip": [
+          18.3,
+          7.78
+        ],
+        "muzzle": [
+          36.58,
+          5.14
+        ],
+        "demoFxType": "rifle",
+        "demoCooldownSeconds": 0.15,
+        "demoOnly": true
+      }
+    },
+    {
+      "id": "weapon-bolt-rifle",
+      "label": "Bolt Rifle held",
+      "category": "held-weapon",
+      "path": "held/weapon-bolt-rifle.png",
+      "size": [
+        48,
+        16
+      ],
+      "occupiedSize": [
+        27,
+        7
+      ],
+      "anchor": [
+        19.32,
+        8.44
+      ],
+      "grip": [
+        19.32,
+        8.44
+      ],
+      "muzzle": [
+        36.42,
+        5.41
+      ],
+      "tip": [
+        36.42,
+        5.41
+      ],
+      "facing": "east",
+      "inventoryAsset": "item-bolt-rifle",
+      "weapon": {
+        "grip": [
+          19.32,
+          8.44
+        ],
+        "muzzle": [
+          36.42,
+          5.41
+        ],
+        "demoFxType": "rifle",
+        "demoCooldownSeconds": 1.2,
+        "demoOnly": true
+      }
+    },
+    {
+      "id": "weapon-bow",
+      "label": "Bow held",
+      "category": "held-weapon",
+      "path": "held/weapon-bow.png",
+      "size": [
+        24,
+        32
+      ],
+      "occupiedSize": [
+        14,
+        22
+      ],
+      "anchor": [
+        10.02,
+        16.16
+      ],
+      "grip": [
+        10.02,
+        16.16
+      ],
+      "muzzle": [
+        18.26,
+        16.08
+      ],
+      "tip": [
+        18.26,
+        16.08
+      ],
+      "facing": "east",
+      "inventoryAsset": "item-bow",
+      "weapon": {
+        "grip": [
+          10.02,
+          16.16
+        ],
+        "muzzle": [
+          18.26,
+          16.08
+        ],
+        "demoFxType": "arrow",
+        "demoCooldownSeconds": 0.8,
+        "demoOnly": true
+      }
+    },
+    {
+      "id": "weapon-crossbow",
+      "label": "Crossbow held",
+      "category": "held-weapon",
+      "path": "held/weapon-crossbow.png",
+      "size": [
+        48,
+        24
+      ],
+      "occupiedSize": [
+        25,
+        12
+      ],
+      "anchor": [
+        19.04,
+        13.14
+      ],
+      "grip": [
+        19.04,
+        13.14
+      ],
+      "muzzle": [
+        35.27,
+        11.89
+      ],
+      "tip": [
+        35.27,
+        11.89
+      ],
+      "facing": "east",
+      "inventoryAsset": "item-crossbow",
+      "weapon": {
+        "grip": [
+          19.04,
+          13.14
+        ],
+        "muzzle": [
+          35.27,
+          11.89
+        ],
+        "demoFxType": "bolt",
+        "demoCooldownSeconds": 1.1,
+        "demoOnly": true
+      }
+    },
+    {
+      "id": "weapon-kitchen-knife",
+      "label": "Kitchen Knife held",
+      "category": "held-weapon",
+      "path": "held/weapon-kitchen-knife.png",
+      "size": [
+        24,
+        16
+      ],
+      "occupiedSize": [
+        14,
+        3
+      ],
+      "anchor": [
+        8.05,
+        7.45
+      ],
+      "grip": [
+        8.05,
+        7.45
+      ],
+      "muzzle": [
+        18.69,
+        6.78
+      ],
+      "tip": [
+        18.69,
+        6.78
+      ],
+      "facing": "east",
+      "inventoryAsset": "item-kitchen-knife",
+      "weapon": {
+        "grip": [
+          8.05,
+          7.45
+        ],
+        "muzzle": [
+          18.69,
+          6.78
+        ],
+        "demoFxType": "melee",
+        "demoCooldownSeconds": 0.35,
+        "demoOnly": true
+      }
+    },
+    {
+      "id": "weapon-hatchet",
+      "label": "Hatchet held",
+      "category": "held-weapon",
+      "path": "held/weapon-hatchet.png",
+      "size": [
+        24,
+        16
+      ],
+      "occupiedSize": [
+        16,
+        7
+      ],
+      "anchor": [
+        7.27,
+        6.72
+      ],
+      "grip": [
+        7.27,
+        6.72
+      ],
+      "muzzle": [
+        19.37,
+        7.61
+      ],
+      "tip": [
+        19.37,
+        7.61
+      ],
+      "facing": "east",
+      "inventoryAsset": "item-hatchet",
+      "weapon": {
+        "grip": [
+          7.27,
+          6.72
+        ],
+        "muzzle": [
+          19.37,
+          7.61
+        ],
+        "demoFxType": "melee",
+        "demoCooldownSeconds": 0.55,
+        "demoOnly": true
+      }
+    },
+    {
+      "id": "weapon-crowbar",
+      "label": "Crowbar held",
+      "category": "held-weapon",
+      "path": "held/weapon-crowbar.png",
+      "size": [
+        32,
+        16
+      ],
+      "occupiedSize": [
+        22,
+        5
+      ],
+      "anchor": [
+        8.48,
+        7.36
+      ],
+      "grip": [
+        8.48,
+        7.36
+      ],
+      "muzzle": [
+        26.28,
+        7.25
+      ],
+      "tip": [
+        26.28,
+        7.25
+      ],
+      "facing": "east",
+      "inventoryAsset": "item-crowbar",
+      "weapon": {
+        "grip": [
+          8.48,
+          7.36
+        ],
+        "muzzle": [
+          26.28,
+          7.25
+        ],
+        "demoFxType": "melee",
+        "demoCooldownSeconds": 0.6,
+        "demoOnly": true
+      }
+    },
+    {
+      "id": "weapon-baseball-bat",
+      "label": "Baseball Bat held",
+      "category": "held-weapon",
+      "path": "held/weapon-baseball-bat.png",
+      "size": [
+        32,
+        16
+      ],
+      "occupiedSize": [
+        22,
+        4
+      ],
+      "anchor": [
+        9.17,
+        8.2
+      ],
+      "grip": [
+        9.17,
+        8.2
+      ],
+      "muzzle": [
+        26.83,
+        7.97
+      ],
+      "tip": [
+        26.83,
+        7.97
+      ],
+      "facing": "east",
+      "inventoryAsset": "item-baseball-bat",
+      "weapon": {
+        "grip": [
+          9.17,
+          8.2
+        ],
+        "muzzle": [
+          26.83,
+          7.97
+        ],
+        "demoFxType": "melee",
+        "demoCooldownSeconds": 0.65,
+        "demoOnly": true
+      }
+    }
+  ],
+  "counts": {
+    "inventory": 48,
+    "heldWeapons": 12
+  },
+  "notes": [
+    "Grip/muzzle coordinates use top-left texture origin and east/right weapon aim.",
+    "Cooldown and FX metadata are preview timings only, not game balance or combat logic.",
+    "Hatchet tip indicates head position; its cutting edge angles downward/right.",
+    "Weapon sprite art is static; runtime rotation/recoil and separate FX provide actions.",
+    "Original generated alpha is preserved, including a few partially transparent edge pixels.",
+    "Icons contain simplified pictograms only; no textual item labels are baked into the art."
+  ]
+}

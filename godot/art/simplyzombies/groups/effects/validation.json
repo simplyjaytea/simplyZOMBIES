@@ -1,0 +1,624 @@
+{
+  "assets": 20,
+  "animated": 12,
+  "uniqueAnimationFrames": 48,
+  "staticDecals": 8,
+  "checks": [
+    {
+      "id": "fx-pistol-muzzle",
+      "path": "frames/fx-pistol-muzzle-00.png",
+      "size": [
+        32,
+        16
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 462,
+      "nonemptyPixels": 50
+    },
+    {
+      "id": "fx-pistol-muzzle",
+      "path": "frames/fx-pistol-muzzle-01.png",
+      "size": [
+        32,
+        16
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 361,
+      "nonemptyPixels": 151
+    },
+    {
+      "id": "fx-pistol-muzzle",
+      "path": "frames/fx-pistol-muzzle-02.png",
+      "size": [
+        32,
+        16
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 394,
+      "nonemptyPixels": 118
+    },
+    {
+      "id": "fx-pistol-muzzle",
+      "path": "frames/fx-pistol-muzzle-03.png",
+      "size": [
+        32,
+        16
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 461,
+      "nonemptyPixels": 51
+    },
+    {
+      "id": "fx-rifle-muzzle",
+      "path": "frames/fx-rifle-muzzle-00.png",
+      "size": [
+        32,
+        16
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 423,
+      "nonemptyPixels": 89
+    },
+    {
+      "id": "fx-rifle-muzzle",
+      "path": "frames/fx-rifle-muzzle-01.png",
+      "size": [
+        32,
+        16
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 360,
+      "nonemptyPixels": 152
+    },
+    {
+      "id": "fx-rifle-muzzle",
+      "path": "frames/fx-rifle-muzzle-02.png",
+      "size": [
+        32,
+        16
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 409,
+      "nonemptyPixels": 103
+    },
+    {
+      "id": "fx-rifle-muzzle",
+      "path": "frames/fx-rifle-muzzle-03.png",
+      "size": [
+        32,
+        16
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 471,
+      "nonemptyPixels": 41
+    },
+    {
+      "id": "fx-shotgun-muzzle",
+      "path": "frames/fx-shotgun-muzzle-00.png",
+      "size": [
+        32,
+        16
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 414,
+      "nonemptyPixels": 98
+    },
+    {
+      "id": "fx-shotgun-muzzle",
+      "path": "frames/fx-shotgun-muzzle-01.png",
+      "size": [
+        32,
+        16
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 319,
+      "nonemptyPixels": 193
+    },
+    {
+      "id": "fx-shotgun-muzzle",
+      "path": "frames/fx-shotgun-muzzle-02.png",
+      "size": [
+        32,
+        16
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 359,
+      "nonemptyPixels": 153
+    },
+    {
+      "id": "fx-shotgun-muzzle",
+      "path": "frames/fx-shotgun-muzzle-03.png",
+      "size": [
+        32,
+        16
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 480,
+      "nonemptyPixels": 32
+    },
+    {
+      "id": "fx-metal-sparks",
+      "path": "frames/fx-metal-sparks-00.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 870,
+      "nonemptyPixels": 154
+    },
+    {
+      "id": "fx-metal-sparks",
+      "path": "frames/fx-metal-sparks-01.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 816,
+      "nonemptyPixels": 208
+    },
+    {
+      "id": "fx-metal-sparks",
+      "path": "frames/fx-metal-sparks-02.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 784,
+      "nonemptyPixels": 240
+    },
+    {
+      "id": "fx-metal-sparks",
+      "path": "frames/fx-metal-sparks-03.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 935,
+      "nonemptyPixels": 89
+    },
+    {
+      "id": "fx-concrete-dust",
+      "path": "frames/fx-concrete-dust-00.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 920,
+      "nonemptyPixels": 104
+    },
+    {
+      "id": "fx-concrete-dust",
+      "path": "frames/fx-concrete-dust-01.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 777,
+      "nonemptyPixels": 247
+    },
+    {
+      "id": "fx-concrete-dust",
+      "path": "frames/fx-concrete-dust-02.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 776,
+      "nonemptyPixels": 248
+    },
+    {
+      "id": "fx-concrete-dust",
+      "path": "frames/fx-concrete-dust-03.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 986,
+      "nonemptyPixels": 38
+    },
+    {
+      "id": "fx-wood-splinters",
+      "path": "frames/fx-wood-splinters-00.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 930,
+      "nonemptyPixels": 94
+    },
+    {
+      "id": "fx-wood-splinters",
+      "path": "frames/fx-wood-splinters-01.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 829,
+      "nonemptyPixels": 195
+    },
+    {
+      "id": "fx-wood-splinters",
+      "path": "frames/fx-wood-splinters-02.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 806,
+      "nonemptyPixels": 218
+    },
+    {
+      "id": "fx-wood-splinters",
+      "path": "frames/fx-wood-splinters-03.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 1000,
+      "nonemptyPixels": 24
+    },
+    {
+      "id": "fx-blood-hit",
+      "path": "frames/fx-blood-hit-00.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 948,
+      "nonemptyPixels": 76
+    },
+    {
+      "id": "fx-blood-hit",
+      "path": "frames/fx-blood-hit-01.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 876,
+      "nonemptyPixels": 148
+    },
+    {
+      "id": "fx-blood-hit",
+      "path": "frames/fx-blood-hit-02.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 908,
+      "nonemptyPixels": 116
+    },
+    {
+      "id": "fx-blood-hit",
+      "path": "frames/fx-blood-hit-03.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 975,
+      "nonemptyPixels": 49
+    },
+    {
+      "id": "fx-water-splash",
+      "path": "frames/fx-water-splash-00.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 932,
+      "nonemptyPixels": 92
+    },
+    {
+      "id": "fx-water-splash",
+      "path": "frames/fx-water-splash-01.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 770,
+      "nonemptyPixels": 254
+    },
+    {
+      "id": "fx-water-splash",
+      "path": "frames/fx-water-splash-02.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 868,
+      "nonemptyPixels": 156
+    },
+    {
+      "id": "fx-water-splash",
+      "path": "frames/fx-water-splash-03.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 935,
+      "nonemptyPixels": 89
+    },
+    {
+      "id": "fx-explosion",
+      "path": "frames/fx-explosion-00.png",
+      "size": [
+        64,
+        64
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 3728,
+      "nonemptyPixels": 368
+    },
+    {
+      "id": "fx-explosion",
+      "path": "frames/fx-explosion-01.png",
+      "size": [
+        64,
+        64
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 2457,
+      "nonemptyPixels": 1639
+    },
+    {
+      "id": "fx-explosion",
+      "path": "frames/fx-explosion-02.png",
+      "size": [
+        64,
+        64
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 2363,
+      "nonemptyPixels": 1733
+    },
+    {
+      "id": "fx-explosion",
+      "path": "frames/fx-explosion-03.png",
+      "size": [
+        64,
+        64
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 2878,
+      "nonemptyPixels": 1218
+    },
+    {
+      "id": "fx-flame-loop",
+      "path": "frames/fx-flame-loop-00.png",
+      "size": [
+        32,
+        48
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 1097,
+      "nonemptyPixels": 439
+    },
+    {
+      "id": "fx-flame-loop",
+      "path": "frames/fx-flame-loop-01.png",
+      "size": [
+        32,
+        48
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 1082,
+      "nonemptyPixels": 454
+    },
+    {
+      "id": "fx-flame-loop",
+      "path": "frames/fx-flame-loop-02.png",
+      "size": [
+        32,
+        48
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 1085,
+      "nonemptyPixels": 451
+    },
+    {
+      "id": "fx-flame-loop",
+      "path": "frames/fx-flame-loop-03.png",
+      "size": [
+        32,
+        48
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 1075,
+      "nonemptyPixels": 461
+    },
+    {
+      "id": "fx-smoke-loop",
+      "path": "frames/fx-smoke-loop-00.png",
+      "size": [
+        48,
+        64
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 1953,
+      "nonemptyPixels": 1119
+    },
+    {
+      "id": "fx-smoke-loop",
+      "path": "frames/fx-smoke-loop-01.png",
+      "size": [
+        48,
+        64
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 1802,
+      "nonemptyPixels": 1270
+    },
+    {
+      "id": "fx-smoke-loop",
+      "path": "frames/fx-smoke-loop-02.png",
+      "size": [
+        48,
+        64
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 1784,
+      "nonemptyPixels": 1288
+    },
+    {
+      "id": "fx-smoke-loop",
+      "path": "frames/fx-smoke-loop-03.png",
+      "size": [
+        48,
+        64
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 1900,
+      "nonemptyPixels": 1172
+    },
+    {
+      "id": "fx-ejected-casing",
+      "path": "frames/fx-ejected-casing-00.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 1010,
+      "nonemptyPixels": 14
+    },
+    {
+      "id": "fx-ejected-casing",
+      "path": "frames/fx-ejected-casing-01.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 1009,
+      "nonemptyPixels": 15
+    },
+    {
+      "id": "fx-ejected-casing",
+      "path": "frames/fx-ejected-casing-02.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 1012,
+      "nonemptyPixels": 12
+    },
+    {
+      "id": "fx-ejected-casing",
+      "path": "frames/fx-ejected-casing-03.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 1009,
+      "nonemptyPixels": 15
+    },
+    {
+      "id": "fx-blood-pool-dry",
+      "path": "frames/fx-blood-pool-dry.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 849,
+      "nonemptyPixels": 175
+    },
+    {
+      "id": "fx-blood-pool-fresh",
+      "path": "frames/fx-blood-pool-fresh.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 749,
+      "nonemptyPixels": 275
+    },
+    {
+      "id": "fx-bullet-hole-metal",
+      "path": "frames/fx-bullet-hole-metal.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 979,
+      "nonemptyPixels": 45
+    },
+    {
+      "id": "fx-bullet-hole-concrete",
+      "path": "frames/fx-bullet-hole-concrete.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 926,
+      "nonemptyPixels": 98
+    },
+    {
+      "id": "fx-scorch-mark",
+      "path": "frames/fx-scorch-mark.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 660,
+      "nonemptyPixels": 364
+    },
+    {
+      "id": "fx-wood-chips",
+      "path": "frames/fx-wood-chips.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 871,
+      "nonemptyPixels": 153
+    },
+    {
+      "id": "fx-shell-pile",
+      "path": "frames/fx-shell-pile.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 906,
+      "nonemptyPixels": 118
+    },
+    {
+      "id": "fx-footprint",
+      "path": "frames/fx-footprint.png",
+      "size": [
+        32,
+        32
+      ],
+      "hasAlpha": true,
+      "emptyPixels": 909,
+      "nonemptyPixels": 115
+    }
+  ]
+}

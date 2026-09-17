@@ -1,0 +1,1157 @@
+{
+  "method": "Mechanical crops, nearest-neighbor scaling and transparent padding; no pixel repainting or background removal.",
+  "sourceRects": [
+    {
+      "id": "fx-pistol-muzzle",
+      "frame": 0,
+      "source": "sources/combat-flashes.png",
+      "rect": [
+        0,
+        0,
+        314,
+        314
+      ],
+      "destinationRect": [
+        -2,
+        -5,
+        24,
+        24
+      ],
+      "sourceAnchor": [
+        73,
+        176
+      ],
+      "scale": 0.075
+    },
+    {
+      "id": "fx-pistol-muzzle",
+      "frame": 1,
+      "source": "sources/combat-flashes.png",
+      "rect": [
+        314,
+        0,
+        313,
+        314
+      ],
+      "destinationRect": [
+        -2,
+        -5,
+        23,
+        24
+      ],
+      "sourceAnchor": [
+        73,
+        176
+      ],
+      "scale": 0.075
+    },
+    {
+      "id": "fx-pistol-muzzle",
+      "frame": 2,
+      "source": "sources/combat-flashes.png",
+      "rect": [
+        627,
+        0,
+        314,
+        314
+      ],
+      "destinationRect": [
+        -2,
+        -5,
+        24,
+        24
+      ],
+      "sourceAnchor": [
+        73,
+        176
+      ],
+      "scale": 0.075
+    },
+    {
+      "id": "fx-pistol-muzzle",
+      "frame": 3,
+      "source": "sources/combat-flashes.png",
+      "rect": [
+        941,
+        0,
+        313,
+        314
+      ],
+      "destinationRect": [
+        -2,
+        -5,
+        23,
+        24
+      ],
+      "sourceAnchor": [
+        73,
+        176
+      ],
+      "scale": 0.075
+    },
+    {
+      "id": "fx-rifle-muzzle",
+      "frame": 0,
+      "source": "sources/combat-flashes.png",
+      "rect": [
+        0,
+        314,
+        314,
+        313
+      ],
+      "destinationRect": [
+        -2,
+        -5,
+        24,
+        23
+      ],
+      "sourceAnchor": [
+        73,
+        176
+      ],
+      "scale": 0.075
+    },
+    {
+      "id": "fx-rifle-muzzle",
+      "frame": 1,
+      "source": "sources/combat-flashes.png",
+      "rect": [
+        314,
+        314,
+        356,
+        313
+      ],
+      "destinationRect": [
+        -2,
+        -5,
+        27,
+        23
+      ],
+      "sourceAnchor": [
+        73,
+        176
+      ],
+      "scale": 0.075
+    },
+    {
+      "id": "fx-rifle-muzzle",
+      "frame": 2,
+      "source": "sources/combat-flashes.png",
+      "rect": [
+        670,
+        314,
+        271,
+        313
+      ],
+      "destinationRect": [
+        1,
+        -5,
+        20,
+        23
+      ],
+      "sourceAnchor": [
+        73,
+        176
+      ],
+      "scale": 0.075
+    },
+    {
+      "id": "fx-rifle-muzzle",
+      "frame": 3,
+      "source": "sources/combat-flashes.png",
+      "rect": [
+        941,
+        314,
+        313,
+        313
+      ],
+      "destinationRect": [
+        -2,
+        -5,
+        23,
+        23
+      ],
+      "sourceAnchor": [
+        73,
+        176
+      ],
+      "scale": 0.075
+    },
+    {
+      "id": "fx-shotgun-muzzle",
+      "frame": 0,
+      "source": "sources/combat-flashes.png",
+      "rect": [
+        0,
+        627,
+        314,
+        314
+      ],
+      "destinationRect": [
+        -2,
+        -4,
+        24,
+        24
+      ],
+      "sourceAnchor": [
+        73,
+        166
+      ],
+      "scale": 0.075
+    },
+    {
+      "id": "fx-shotgun-muzzle",
+      "frame": 1,
+      "source": "sources/combat-flashes.png",
+      "rect": [
+        314,
+        627,
+        313,
+        314
+      ],
+      "destinationRect": [
+        -2,
+        -4,
+        23,
+        24
+      ],
+      "sourceAnchor": [
+        73,
+        166
+      ],
+      "scale": 0.075
+    },
+    {
+      "id": "fx-shotgun-muzzle",
+      "frame": 2,
+      "source": "sources/combat-flashes.png",
+      "rect": [
+        627,
+        627,
+        314,
+        314
+      ],
+      "destinationRect": [
+        -2,
+        -4,
+        24,
+        24
+      ],
+      "sourceAnchor": [
+        73,
+        166
+      ],
+      "scale": 0.075
+    },
+    {
+      "id": "fx-shotgun-muzzle",
+      "frame": 3,
+      "source": "sources/combat-flashes.png",
+      "rect": [
+        941,
+        627,
+        313,
+        314
+      ],
+      "destinationRect": [
+        -2,
+        -4,
+        23,
+        24
+      ],
+      "sourceAnchor": [
+        73,
+        166
+      ],
+      "scale": 0.075
+    },
+    {
+      "id": "fx-metal-sparks",
+      "frame": 0,
+      "source": "sources/combat-flashes.png",
+      "rect": [
+        0,
+        941,
+        314,
+        313
+      ],
+      "destinationRect": [
+        0,
+        1,
+        30,
+        30
+      ],
+      "sourceAnchor": [
+        164,
+        158
+      ],
+      "scale": 0.095
+    },
+    {
+      "id": "fx-metal-sparks",
+      "frame": 1,
+      "source": "sources/combat-flashes.png",
+      "rect": [
+        314,
+        941,
+        313,
+        313
+      ],
+      "destinationRect": [
+        0,
+        1,
+        30,
+        30
+      ],
+      "sourceAnchor": [
+        164,
+        158
+      ],
+      "scale": 0.095
+    },
+    {
+      "id": "fx-metal-sparks",
+      "frame": 2,
+      "source": "sources/combat-flashes.png",
+      "rect": [
+        627,
+        941,
+        314,
+        313
+      ],
+      "destinationRect": [
+        0,
+        1,
+        30,
+        30
+      ],
+      "sourceAnchor": [
+        164,
+        158
+      ],
+      "scale": 0.095
+    },
+    {
+      "id": "fx-metal-sparks",
+      "frame": 3,
+      "source": "sources/combat-flashes.png",
+      "rect": [
+        941,
+        941,
+        313,
+        313
+      ],
+      "destinationRect": [
+        0,
+        1,
+        30,
+        30
+      ],
+      "sourceAnchor": [
+        164,
+        158
+      ],
+      "scale": 0.095
+    },
+    {
+      "id": "fx-concrete-dust",
+      "frame": 0,
+      "source": "sources/impacts.png",
+      "rect": [
+        0,
+        0,
+        314,
+        314
+      ],
+      "destinationRect": [
+        2,
+        1,
+        27,
+        27
+      ],
+      "sourceAnchor": [
+        164,
+        220
+      ],
+      "scale": 0.085
+    },
+    {
+      "id": "fx-concrete-dust",
+      "frame": 1,
+      "source": "sources/impacts.png",
+      "rect": [
+        314,
+        0,
+        313,
+        314
+      ],
+      "destinationRect": [
+        2,
+        1,
+        27,
+        27
+      ],
+      "sourceAnchor": [
+        164,
+        220
+      ],
+      "scale": 0.085
+    },
+    {
+      "id": "fx-concrete-dust",
+      "frame": 2,
+      "source": "sources/impacts.png",
+      "rect": [
+        627,
+        0,
+        353,
+        314
+      ],
+      "destinationRect": [
+        2,
+        1,
+        30,
+        27
+      ],
+      "sourceAnchor": [
+        164,
+        220
+      ],
+      "scale": 0.085
+    },
+    {
+      "id": "fx-concrete-dust",
+      "frame": 3,
+      "source": "sources/impacts.png",
+      "rect": [
+        980,
+        0,
+        274,
+        314
+      ],
+      "destinationRect": [
+        5,
+        1,
+        23,
+        27
+      ],
+      "sourceAnchor": [
+        164,
+        220
+      ],
+      "scale": 0.085
+    },
+    {
+      "id": "fx-wood-splinters",
+      "frame": 0,
+      "source": "sources/impacts.png",
+      "rect": [
+        0,
+        314,
+        314,
+        313
+      ],
+      "destinationRect": [
+        2,
+        1,
+        27,
+        27
+      ],
+      "sourceAnchor": [
+        164,
+        220
+      ],
+      "scale": 0.085
+    },
+    {
+      "id": "fx-wood-splinters",
+      "frame": 1,
+      "source": "sources/impacts.png",
+      "rect": [
+        314,
+        314,
+        313,
+        313
+      ],
+      "destinationRect": [
+        2,
+        1,
+        27,
+        27
+      ],
+      "sourceAnchor": [
+        164,
+        220
+      ],
+      "scale": 0.085
+    },
+    {
+      "id": "fx-wood-splinters",
+      "frame": 2,
+      "source": "sources/impacts.png",
+      "rect": [
+        627,
+        314,
+        353,
+        313
+      ],
+      "destinationRect": [
+        2,
+        1,
+        30,
+        27
+      ],
+      "sourceAnchor": [
+        164,
+        220
+      ],
+      "scale": 0.085
+    },
+    {
+      "id": "fx-wood-splinters",
+      "frame": 3,
+      "source": "sources/impacts.png",
+      "rect": [
+        980,
+        314,
+        274,
+        313
+      ],
+      "destinationRect": [
+        5,
+        1,
+        23,
+        27
+      ],
+      "sourceAnchor": [
+        164,
+        220
+      ],
+      "scale": 0.085
+    },
+    {
+      "id": "fx-blood-hit",
+      "frame": 0,
+      "source": "sources/impacts.png",
+      "rect": [
+        0,
+        627,
+        314,
+        314
+      ],
+      "destinationRect": [
+        2,
+        -1,
+        27,
+        27
+      ],
+      "sourceAnchor": [
+        164,
+        195
+      ],
+      "scale": 0.085
+    },
+    {
+      "id": "fx-blood-hit",
+      "frame": 1,
+      "source": "sources/impacts.png",
+      "rect": [
+        314,
+        627,
+        313,
+        314
+      ],
+      "destinationRect": [
+        2,
+        -1,
+        27,
+        27
+      ],
+      "sourceAnchor": [
+        164,
+        195
+      ],
+      "scale": 0.085
+    },
+    {
+      "id": "fx-blood-hit",
+      "frame": 2,
+      "source": "sources/impacts.png",
+      "rect": [
+        627,
+        627,
+        353,
+        314
+      ],
+      "destinationRect": [
+        2,
+        -1,
+        30,
+        27
+      ],
+      "sourceAnchor": [
+        164,
+        195
+      ],
+      "scale": 0.085
+    },
+    {
+      "id": "fx-blood-hit",
+      "frame": 3,
+      "source": "sources/impacts.png",
+      "rect": [
+        980,
+        627,
+        274,
+        314
+      ],
+      "destinationRect": [
+        5,
+        -1,
+        23,
+        27
+      ],
+      "sourceAnchor": [
+        164,
+        195
+      ],
+      "scale": 0.085
+    },
+    {
+      "id": "fx-water-splash",
+      "frame": 0,
+      "source": "sources/impacts.png",
+      "rect": [
+        0,
+        941,
+        314,
+        313
+      ],
+      "destinationRect": [
+        1,
+        5,
+        28,
+        28
+      ],
+      "sourceAnchor": [
+        164,
+        232
+      ],
+      "scale": 0.09
+    },
+    {
+      "id": "fx-water-splash",
+      "frame": 1,
+      "source": "sources/impacts.png",
+      "rect": [
+        314,
+        941,
+        313,
+        313
+      ],
+      "destinationRect": [
+        1,
+        5,
+        28,
+        28
+      ],
+      "sourceAnchor": [
+        164,
+        232
+      ],
+      "scale": 0.09
+    },
+    {
+      "id": "fx-water-splash",
+      "frame": 2,
+      "source": "sources/impacts.png",
+      "rect": [
+        627,
+        941,
+        314,
+        313
+      ],
+      "destinationRect": [
+        1,
+        5,
+        28,
+        28
+      ],
+      "sourceAnchor": [
+        164,
+        232
+      ],
+      "scale": 0.09
+    },
+    {
+      "id": "fx-water-splash",
+      "frame": 3,
+      "source": "sources/impacts.png",
+      "rect": [
+        941,
+        941,
+        313,
+        313
+      ],
+      "destinationRect": [
+        1,
+        5,
+        28,
+        28
+      ],
+      "sourceAnchor": [
+        164,
+        232
+      ],
+      "scale": 0.09
+    },
+    {
+      "id": "fx-explosion",
+      "frame": 0,
+      "source": "sources/fire-smoke-casing.png",
+      "rect": [
+        0,
+        0,
+        314,
+        314
+      ],
+      "destinationRect": [
+        2,
+        2,
+        57,
+        57
+      ],
+      "sourceAnchor": [
+        164,
+        299
+      ],
+      "scale": 0.18
+    },
+    {
+      "id": "fx-explosion",
+      "frame": 1,
+      "source": "sources/fire-smoke-casing.png",
+      "rect": [
+        314,
+        0,
+        313,
+        314
+      ],
+      "destinationRect": [
+        2,
+        2,
+        56,
+        57
+      ],
+      "sourceAnchor": [
+        164,
+        299
+      ],
+      "scale": 0.18
+    },
+    {
+      "id": "fx-explosion",
+      "frame": 2,
+      "source": "sources/fire-smoke-casing.png",
+      "rect": [
+        627,
+        0,
+        314,
+        314
+      ],
+      "destinationRect": [
+        2,
+        2,
+        57,
+        57
+      ],
+      "sourceAnchor": [
+        164,
+        299
+      ],
+      "scale": 0.18
+    },
+    {
+      "id": "fx-explosion",
+      "frame": 3,
+      "source": "sources/fire-smoke-casing.png",
+      "rect": [
+        941,
+        0,
+        313,
+        314
+      ],
+      "destinationRect": [
+        2,
+        2,
+        56,
+        57
+      ],
+      "sourceAnchor": [
+        164,
+        299
+      ],
+      "scale": 0.18
+    },
+    {
+      "id": "fx-flame-loop",
+      "frame": 0,
+      "source": "sources/fire-smoke-casing.png",
+      "rect": [
+        0,
+        314,
+        314,
+        313
+      ],
+      "destinationRect": [
+        -6,
+        5,
+        41,
+        41
+      ],
+      "sourceAnchor": [
+        168,
+        299
+      ],
+      "scale": 0.13
+    },
+    {
+      "id": "fx-flame-loop",
+      "frame": 1,
+      "source": "sources/fire-smoke-casing.png",
+      "rect": [
+        314,
+        314,
+        313,
+        313
+      ],
+      "destinationRect": [
+        -6,
+        5,
+        41,
+        41
+      ],
+      "sourceAnchor": [
+        168,
+        299
+      ],
+      "scale": 0.13
+    },
+    {
+      "id": "fx-flame-loop",
+      "frame": 2,
+      "source": "sources/fire-smoke-casing.png",
+      "rect": [
+        627,
+        314,
+        314,
+        313
+      ],
+      "destinationRect": [
+        -6,
+        5,
+        41,
+        41
+      ],
+      "sourceAnchor": [
+        168,
+        299
+      ],
+      "scale": 0.13
+    },
+    {
+      "id": "fx-flame-loop",
+      "frame": 3,
+      "source": "sources/fire-smoke-casing.png",
+      "rect": [
+        941,
+        314,
+        313,
+        313
+      ],
+      "destinationRect": [
+        -6,
+        5,
+        41,
+        41
+      ],
+      "sourceAnchor": [
+        168,
+        299
+      ],
+      "scale": 0.13
+    },
+    {
+      "id": "fx-smoke-loop",
+      "frame": 0,
+      "source": "sources/fire-smoke-casing.png",
+      "rect": [
+        0,
+        627,
+        314,
+        314
+      ],
+      "destinationRect": [
+        -8,
+        3,
+        60,
+        60
+      ],
+      "sourceAnchor": [
+        168,
+        301
+      ],
+      "scale": 0.19
+    },
+    {
+      "id": "fx-smoke-loop",
+      "frame": 1,
+      "source": "sources/fire-smoke-casing.png",
+      "rect": [
+        314,
+        627,
+        313,
+        314
+      ],
+      "destinationRect": [
+        -8,
+        3,
+        59,
+        60
+      ],
+      "sourceAnchor": [
+        168,
+        301
+      ],
+      "scale": 0.19
+    },
+    {
+      "id": "fx-smoke-loop",
+      "frame": 2,
+      "source": "sources/fire-smoke-casing.png",
+      "rect": [
+        627,
+        627,
+        314,
+        314
+      ],
+      "destinationRect": [
+        -8,
+        3,
+        60,
+        60
+      ],
+      "sourceAnchor": [
+        168,
+        301
+      ],
+      "scale": 0.19
+    },
+    {
+      "id": "fx-smoke-loop",
+      "frame": 3,
+      "source": "sources/fire-smoke-casing.png",
+      "rect": [
+        941,
+        627,
+        313,
+        314
+      ],
+      "destinationRect": [
+        -8,
+        3,
+        59,
+        60
+      ],
+      "sourceAnchor": [
+        168,
+        301
+      ],
+      "scale": 0.19
+    },
+    {
+      "id": "fx-ejected-casing",
+      "frame": 0,
+      "source": "sources/fire-smoke-casing.png",
+      "rect": [
+        0,
+        941,
+        314,
+        313
+      ],
+      "destinationRect": [
+        7,
+        15,
+        17,
+        17
+      ],
+      "sourceAnchor": [
+        164,
+        236
+      ],
+      "scale": 0.055
+    },
+    {
+      "id": "fx-ejected-casing",
+      "frame": 1,
+      "source": "sources/fire-smoke-casing.png",
+      "rect": [
+        314,
+        941,
+        313,
+        313
+      ],
+      "destinationRect": [
+        7,
+        15,
+        17,
+        17
+      ],
+      "sourceAnchor": [
+        164,
+        236
+      ],
+      "scale": 0.055
+    },
+    {
+      "id": "fx-ejected-casing",
+      "frame": 2,
+      "source": "sources/fire-smoke-casing.png",
+      "rect": [
+        627,
+        941,
+        314,
+        313
+      ],
+      "destinationRect": [
+        7,
+        15,
+        17,
+        17
+      ],
+      "sourceAnchor": [
+        164,
+        236
+      ],
+      "scale": 0.055
+    },
+    {
+      "id": "fx-ejected-casing",
+      "frame": 3,
+      "source": "sources/fire-smoke-casing.png",
+      "rect": [
+        941,
+        941,
+        313,
+        313
+      ],
+      "destinationRect": [
+        7,
+        15,
+        17,
+        17
+      ],
+      "sourceAnchor": [
+        164,
+        236
+      ],
+      "scale": 0.055
+    },
+    {
+      "id": "fx-blood-pool-dry",
+      "source": "sources/decals.png",
+      "rect": [
+        0,
+        0,
+        444,
+        444
+      ],
+      "method": "alpha trim then nearest-neighbor fit",
+      "maxSide": 26
+    },
+    {
+      "id": "fx-blood-pool-fresh",
+      "source": "sources/decals.png",
+      "rect": [
+        444,
+        0,
+        526,
+        444
+      ],
+      "method": "alpha trim then nearest-neighbor fit",
+      "maxSide": 30
+    },
+    {
+      "id": "fx-bullet-hole-metal",
+      "source": "sources/decals.png",
+      "rect": [
+        1030,
+        0,
+        301,
+        444
+      ],
+      "method": "alpha trim then nearest-neighbor fit",
+      "maxSide": 10
+    },
+    {
+      "id": "fx-bullet-hole-concrete",
+      "source": "sources/decals.png",
+      "rect": [
+        1331,
+        0,
+        443,
+        444
+      ],
+      "method": "alpha trim then nearest-neighbor fit",
+      "maxSide": 14
+    },
+    {
+      "id": "fx-scorch-mark",
+      "source": "sources/decals.png",
+      "rect": [
+        0,
+        444,
+        444,
+        443
+      ],
+      "method": "alpha trim then nearest-neighbor fit",
+      "maxSide": 30
+    },
+    {
+      "id": "fx-wood-chips",
+      "source": "sources/decals.png",
+      "rect": [
+        444,
+        444,
+        443,
+        443
+      ],
+      "method": "alpha trim then nearest-neighbor fit",
+      "maxSide": 20
+    },
+    {
+      "id": "fx-shell-pile",
+      "source": "sources/decals.png",
+      "rect": [
+        887,
+        444,
+        444,
+        443
+      ],
+      "method": "alpha trim then nearest-neighbor fit",
+      "maxSide": 16
+    },
+    {
+      "id": "fx-footprint",
+      "source": "sources/decals.png",
+      "rect": [
+        1331,
+        444,
+        443,
+        443
+      ],
+      "method": "alpha trim then nearest-neighbor fit",
+      "maxSide": 20
+    }
+  ]
+}
