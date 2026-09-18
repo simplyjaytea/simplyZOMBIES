@@ -74,6 +74,22 @@ the six status icons stay refused.
   Python. Proof: `npm run godot:smoke` → `GODOT_PROJECT_SMOKE_OK` exit 0; `npm run
   sprites:check` → `SPRITES_OK` (172 generated keys, 1 guide sheet, 2 authored keys, 33
   materials). ObjectDB-leak lines after `_OK` are the documented shutdown noise.
-- **Next: Phase 1** — merge PR #138, delete `.scratch/simplyzombies/`, delete the 26 merged
-  remote branches, `git gc`, then verify `check:routing` + `npm test` + `godot:m2` on merged
-  main. Pause here for the owner.
+- **2026-09-19 — Phase 1 DONE.** PR #138 merged (`7264706`, all four checks SUCCESS); plan doc
+  landed `6954af7`; `.scratch/simplyzombies/` (18 files) deleted `1b6965d`; both pushed to
+  `origin/main` (now `1b6965d`). **27 merged remote branches deleted** — `origin` now carries
+  only `main` and `claude/raider-reach-halt` (the parked owner decision, untouched). `git gc`
+  ran; no size change (92.6 MB) because every object is reachable from `main`, which is
+  expected. Verification on merged main, all green: `npm run check:routing` → `ROUTING_OK`
+  (111 paths, 90 scripts, 64 links, 91 check scripts); `npm test` → 45 files / 594 tests;
+  `npm run godot:m2` → **82 gates, every mode exit 0, TOTAL 1908.78 s (~31.8 min)**.
+- **Windows trap found and fixed (worth carrying forward).** `core.autocrlf` was `true` with
+  no `.gitattributes`, so the checkout was CRLF while every blob is LF. `check_m2_dormant.gd`'s
+  `_arm_lines` exact-matches `Array` elements after splitting on `\n`, so the trailing `\r`
+  made the Seek arm invisible → `NO SIGHT: the isolator found no Seek arm` →
+  `M2_DORMANT_FAIL`. Not a code regression; a checkout artifact. Fixed locally with
+  `git config core.autocrlf false` then `git rm --cached -r . && git reset --hard`; re-ran
+  dormant → `M2_DORMANT_OK`, then the whole chain green. **Recommend (owner's call): a committed
+  `.gitattributes` with `* text=auto eol=lf`** so any Windows contributor gets LF without
+  knowing this. Not added unilaterally — it is repo policy.
+- **Next: Phase 2, piece 1 — "The bodies turn and walk"**, branch `kimi/pack-bodies`. Pause here
+  for the owner.
