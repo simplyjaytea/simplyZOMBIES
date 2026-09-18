@@ -394,10 +394,22 @@ static func _read_authored() -> void:
 		if not (entry is Dictionary):
 			continue
 		var canvas: Variant = (entry as Dictionary).get("canvas")
-		if canvas is Array and (canvas as Array).size() == 2:
-			_authored[String(key)] = Vector2i(int((canvas as Array)[0]), int((canvas as Array)[1]))
+		if not (canvas is Array and (canvas as Array).size() == 2):
+			continue
+		var shape: Vector2i = Vector2i(int((canvas as Array)[0]), int((canvas as Array)[1]))
+		_authored[String(key)] = shape
 		if String((entry as Dictionary).get("kind", "")) == "rig":
 			_authored_rigs.append(String(key))
+		# A family: `members` names several keys that each draw from their own file at the
+		# family's own canvas (docs/30, "The outpost pack, adopted"). The family key itself is
+		# never a file -- `canvas_of(family_key)` still answers, from the assignment above, but
+		# nothing resolves a texture for it -- so every member gets the same shape here and none
+		# of them join `_authored_rigs`: a member is not itself declared `kind: "rig"`, and the
+		# family key that is stays the one thing three gates iterate.
+		var members: Variant = (entry as Dictionary).get("members")
+		if members is Dictionary:
+			for member_key in (members as Dictionary).keys():
+				_authored[String(member_key)] = shape
 	_authored_rigs.sort()
 
 

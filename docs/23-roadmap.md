@@ -521,6 +521,59 @@ in this order; each lands with its own gate:
 - ~~**Speech bubbles**~~ — **landed** 2026-09-17, see the record (`npm run godot:check:speech`
   → `SPEECH_OK`).
 
+**Art & renderer — the outpost pack, decided by the owner (2026-09-17), overwriting the
+generated art it replaces.** The direction is
+[docs/30's entry](30-decisions.md#the-outpost-pack-adopted-2026-09-17): four-direction bodies
+with a walk cycle, superseding the decoupled paperdoll's rotation, from-above head and per-slot
+canvas decisions (its aim and muzzle-socket decisions stand, unaffected); every human in the
+game moves onto the one pack survivor body and the shambler zombie kind onto the pack's, while
+the screamer and the bloater — which the pack does not supply — keep their generated rigs; walls
+become y-sorted modules standing on a run's south edge; and sockets land now for effects,
+east-west vehicles and the cursor, with held weapons, utilities, decals and the six status icons
+named for the report rather than built.
+The tier tooling — a `source` `build.py` can reproduce, a `members` family, and the READS lane
+accepting any declarer — landed the same day, proved on the two containers (see the record). The
+pieces below are in the order they land, each one session, each with its gate red both ways and
+its record; the health-bar ban, the digit ban, the prose HUD, 32 px a tile at 2× and the flat
+projection are untouched.
+
+- ~~**The tier gains a reproducible source, proved on the containers.**~~ — **landed** 2026-09-17,
+  see the record (`npm run sprites:check`'s reproduction; `npm run godot:check:authored` → the
+  new SOURCE lane and the widened READS lane; `npm run godot:check:appearance` → PROPS at the
+  pack's own footprint).
+- **The bodies turn and walk.** The pack's four-direction survivor, its four-frame walk keyed to
+  `world.tick`, and its four wearables per direction (vest, helmet, gasmask, backpack; 16
+  directional overlay PNGs) become the look for every human in the game — the player, Mara,
+  Ellis, the colonist template, the raider — replacing five of the generated tier's eight rigs
+  and their overlays; the pack's shambler replaces the generated one the same way. The screamer
+  and the bloater, which the pack does not supply, keep their generated rigs (decision 2 of the
+  record entry) until a later fixture round or a pack update grows more bodies.
+- **The ground is the pack's.** An atlas composed from the pack's twelve terrain tiles and eight
+  ground overlays, in `Appearance.GROUND_ATLAS_KEY`'s place; the palette rows the road and weather
+  lanes hold to are regraded to the pack's own means rather than the generator's.
+- **Trees, the bed and the heaps.** The pack's eight nature sprites and its bed and wreck-adjacent
+  props replace their generated equivalents; the tree canopy is where the 2026-09-17 amendment to
+  "one tile wide" (docs/30) is first exercised for real.
+- **The walls are modules.** The pack's thirteen wall/fence/door/window states become per-tile
+  half pieces, y-sorted on the run's south edge in place of the generated thick-mass wall and cap
+  (decision 3 of the record entry; supersedes "walls gain thickness" and absorbs "the wall face
+  hangs south," both above).
+- **A picture per item base.** Moved into this group 2026-09-17 from the inventory-sheet group
+  below: the pack's 48 inventory icons, already at the ground-item canvas, land as
+  `appearance.sprite` for the shipped bases rather than a new generator module drawing them.
+  Named here only so the cross-reference resolves.
+- **The shot is seen.** Muzzle flash, blood hit, casing and campfire flame, drawn from sim events
+  off the pack's twelve four-frame effect sheets, in place of today's `draw_rect` stand-ins.
+- **The cars are the pack's, east-west.** Footprints shrink to the pack's own sedan 2×3, van and
+  truck 2×4 (named above); north-south driving keeps the generated art and today's larger
+  footprints, per decision 11 of the Dungeon Settlers look ("a car seen from behind").
+- **The cursor.** The pack's crosshair and interaction-hand icons — the two UI icons decision 4
+  of the record entry calls non-status and sockets now.
+- **The needs-assets report.** A report, not a build: what the pack ships that this arc did not
+  socket — twelve held weapons, eleven utility entries, eight decals, and the UI icons beyond the
+  cursor and the six refused status icons (backpack, ammo, radio, warning, lock, work, map-marker,
+  exit) — named for whichever later slice reads one, per decision 4's "report-only" half.
+
 **Art & renderer — overcast or torchlight, decided by the owner (2026-09-08), on the Dungeon
 Settlers spine.** The direction is docs/30's "Overcast or torchlight": a hybrid that keeps the
 pawn, wall, roof, tree and vehicle spine and takes Zero Sievert's world — the grade, density,
@@ -700,7 +753,8 @@ untouched, and the peripheral-anonymity clause is proved *more* strongly than be
   composed output is byte-identical, so `sprites:check` passing unchanged *is* the gate, with the
   true negative inside `--check`. Nothing new is written to disk — a slot PNG nothing reads is
   the dead-socket shape. The fixture round's poser proved this shape already.
-- **The paperdoll on 32×48 — the bodies.** The root canvas and the published skeleton are
+- **The paperdoll on 32×48 — the bodies — superseded 2026-09-17, see the outpost-pack group
+  above (docs/30, "The outpost pack, adopted").** The root canvas and the published skeleton are
   re-authored; the head becomes a from-above crown with no face; torso and head take a
   pivot-relative radial tone source, because a rotating slot cannot keep a screen-fixed light,
   and legs keep the top-left one. The bridge that keeps this one session: the generator authors
@@ -708,12 +762,14 @@ untouched, and the peripheral-anonymity clause is proved *more* strongly than be
   untouched until the torso turns. Every hand-copied number moves in one commit and the record
   lists them: `PAWN_CANVAS`, the FLIP lane's shape and its exact rect, `check_worn`'s and
   `check_authored`'s `SKEL_*`, the published bounds, the guide's copies, the README.
-- **The paperdoll on 32×48 — the gear, per slot.** Every overlay becomes a slot piece on its
+- **The paperdoll on 32×48 — the gear, per slot — superseded 2026-09-17, see the outpost-pack
+  group above (docs/30, "The outpost pack, adopted").** Every overlay becomes a slot piece on its
   slot's canvas; weapons move to the spec's weapon canvases and the generator **measures** their
   grip, foregrip and muzzle rather than having them hand-guessed off the drawn sprite, which is
   how the nine existing `partAnchors` were arrived at. The measurements are asserted stable in
   `--check` and are not written to disk until the slice that reads them.
-- **The torso turns.** The renderer slice: one transform group per body inside the existing
+- **The torso turns — superseded 2026-09-17, see the outpost-pack group above (docs/30, "The
+  outpost pack, adopted").** The renderer slice: one transform group per body inside the existing
   y-sorted draw, in the **matrix form only** through one push helper and one reset helper —
   chosen because the existing zero-transform counters key on `draw_set_transform(` and the matrix
   form does not match that needle, so those counters keep meaning what they mean, and the new
@@ -725,19 +781,23 @@ untouched, and the peripheral-anonymity clause is proved *more* strongly than be
   holding the hand-declared content equal to the generator's measurements. `WORN_LOOK_OK`'s FITS
   goes **per cell**, or it goes weaker with no red line. Perf is measured before and after with
   the ground slice's own driver; a budget breach fails the slice.
-- **The frames.** The four-frame walk on the legs strip, eight directions, keyed to `world.tick`
-  with its phase scaled by the stance's pace, reversed for a backpedal when the aim opposes the
-  movement. All eight directions are emitted rather than mirrored, so the per-column fit check
-  never has to reason about a negative rect.
+- **The frames — superseded 2026-09-17, see the outpost-pack group above (docs/30, "The outpost
+  pack, adopted").** The four-frame walk on the legs strip, eight directions, keyed to
+  `world.tick` with its phase scaled by the stance's pace, reversed for a backpedal when the aim
+  opposes the movement. All eight directions are emitted rather than mirrored, so the per-column
+  fit check never has to reason about a negative rect.
 - **The sim reads the muzzle.** One helper converts a socket in canvas pixels to a world offset
   under the aim, and **the renderer calls the same helper**, so the drawn muzzle and the fired
   muzzle cannot disagree. The shot ray, the noise position and the flash all move there; a muzzle
   inside a solid tile falls back to the body centre (docs/30 decision 10). `ejection_port` and
   the recoil numbers are **not** added until something reads them.
-- **The commissioned player, as slot layers.** The re-commission decision 9 defers: the player
+- **The commissioned player, as slot layers — superseded 2026-09-17, see the outpost-pack group
+  above (docs/30, "The outpost pack, adopted").** The re-commission decision 9 defers: the player
   drawn as legs strip, torso, from-above head and arm on the spec canvases, through the same tone
   pass and outline, declared in the authored manifest. The union roster and the envelope clause
-  go live on an authored rig again.
+  go live on an authored rig again. Decision 2 of the outpost-pack entry moves the player onto
+  the pack survivor body instead ("The bodies turn and walk," above), so there is no separate
+  player re-commission left to do.
 
 **Art & renderer — the character overhaul, decided by the owner (2026-09-09), from a fixture
 round.** The direction is docs/30's "The character overhaul": the squat proportion kept and read
@@ -900,13 +960,12 @@ gains a reader** with a drawn class glyph until per-base art exists; and **the p
 pixel body chart** through `tools/sprites`. The pieces below are in the order they land, each one
 session, each with its gate red both ways and its record.
 
-- **A picture per item base.** The glyph piece gave `appearance.sprite` a reader and every base
-  a shape chosen by its class; what it did not give anybody is a fire axe that looks like a fire
-  axe. One 32 px picture per shipped base, generated in a new `tools/sprites/parts/items.py`
-  against the ground-item canvas, each declared as its base's `sprite` key, judged by
-  `npm run sprites:check` and `check_appearance`'s ITEMS lane (which already refuses a declared
-  key with no file behind it). The classes that matter first are the ones a player sorts a bag
-  by at a glance: weapons, food, dressings, ammunition.
+- **A picture per item base — moved into the outpost-pack group above, 2026-09-17.** The glyph
+  piece gave `appearance.sprite` a reader and every base a shape chosen by its class; what it did
+  not give anybody is a fire axe that looks like a fire axe. The owner's adoption of the pack
+  (docs/30, "The outpost pack, adopted") answers this with its 48 inventory icons rather than a
+  new generator module, so the piece moved rather than staying open twice. Named here only so
+  the cross-reference resolves.
 - **Colonists finish a cupboard the player started.** A box is `searched` from its first open,
   and `jobs._scavenge_work` filters on exactly that — so a cupboard the player opened, took two
   things out of and walked away from is invisible to every colonist forever. It was true of the
@@ -1867,6 +1926,50 @@ not a to-do list:
   Typecheck, lint and formatting pass. All 82 M2 gates pass across the original run,
   a focused retry of a stalled noise gate, and the resumed remaining gates; no assertions
   or gate scripts changed. The delivery receipt records that interrupted-run detail.
+
+- **Art & renderer — the tier learns a reproducible source, proved on the containers,
+  2026-09-17.** The owner's decision to adopt the outpost pack (docs/30, "The outpost pack,
+  adopted") needed a way for pack art to enter `godot/assets/sprites/` reproducibly before any
+  renderer change could consume it; this slice is that tooling, proved on one real adoption
+  rather than left as scaffolding. `godot/assets/sprites/authored.json` entries gain an optional
+  `source: {path, crop?, pad?}` — `path` relative to `godot/`, crop then pad, never repainted or
+  resized — and `tools/sprites/build.py` reproduces it: `write_authored_source` composes and
+  saves the PNG, `check_authored_source` compares decoded RGBA bytes the same way a generated
+  key is checked, and `--only <key>` builds or checks a single sourced key. An entry may instead
+  be a **family** (`members`, several sourced keys sharing one canvas under a key that is not
+  itself a file), parsed and flattened on both sides — `authored()`/`authored_sources()` in
+  Python, `Appearance._read_authored` in GDScript — and proved by fabrication in
+  `check_authored.gd`'s MANIFEST lane (no shipped family exists yet). `check_authored.gd` gains a
+  **SOURCE** lane (every sourced key resolves a texture at its declared canvas; the pixel
+  comparison is `sprites:check`'s, outside this chain) and the **READS** lane changes from
+  last-writer-wins to membership — `reads` must be *one of* the content ids that declare the key,
+  not the most recently loaded one, closing a latent bug (two bases sharing one icon would have
+  failed) before a pack body shared by two entries could trip it. `KINDS` gains five placeholders
+  for later slices (`pack_rig`, `pack_overlay`, `module`, `sheet`, `prop`), accepted by MANIFEST
+  and judged by no shape lane yet.
+  **Proved on the containers**: `prop.container` and `prop.container.searched` now declare a
+  `source` pointing at the pack's `prop-wood-crate-closed.png` and `prop-wood-crate-empty.png`
+  (both 32×32, no crop or pad needed), and `python3 tools/sprites/build.py --only prop_container
+  --only prop_container_searched` (run once per key) overwrote the two committed PNGs with the
+  pack art — the first pixels this milestone has taken from the pack rather than from a
+  generator or a one-off commission. `stations.json`'s `size` moves from 0.62 to **0.8** (closed:
+  opaque box 26×17, `round(0.8×32) = 26`, exact) and **0.85** (empty: opaque box 26×28,
+  `round(0.85×32) = 27`, 1 px inside `FOOTPRINT_SLACK_PX`), because the pack's crate is a
+  different, larger footprint than the generated one it replaces. Measured:
+  `npm run sprites:check` → `SPRITES_OK 172 generated keys ... 2 authored keys reproduced from
+  their source, 0 present at the canvas they declare ...`; `npm run godot:check:authored` →
+  `MANIFEST OK 2 authored keys declared ..., seven malformed fabrications refused and three
+  sound ones (a rig, a source, a family) accepted`, `SOURCE OK 2 sourced keys resolve at their
+  declared canvas`, `READS OK 2 authored keys are each named by one of the content entries that
+  declare them`; `npm run godot:check:appearance` → `PROPS OK 7 ids, 7 with art drawn unstained
+  at their declared footprint, distinct looks, both state pairs different pictures, unknown id
+  degrades`. `npm run godot:validate` and `npm test` both pass on the `size` edit — the frozen
+  oracle's Ajv recurses into `prop.schema.json`'s `size` bound (`0.1`–`1.0`) where the shallow
+  validator does not, and both had to agree per CLAUDE.md's traps list. **This lands the tooling
+  and one adoption, not the renderer change**: `godot/presentation/` still draws every body,
+  wall, tree, effect and vehicle from the generated tier exactly as before; the nine pieces
+  docs/23's "the outpost pack" group names are what consumes the pack for everything else, slice
+  by slice.
 
 - **World & map** — ~~the three location loot tables~~ **landed** (`godot:check:loot`): what a
   place yields is content now, not two hardcoded kits in `boot.gd`. `content/loot/tables.json`

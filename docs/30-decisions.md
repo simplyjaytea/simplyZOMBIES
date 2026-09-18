@@ -5262,3 +5262,94 @@ on `main.gd`.
   nothing the noise itself did not; colonists mutter the band `needs.hud_clause` already speaks,
   on a rolled, rate-limited clock (`MUTTER_EVERY`, `MUTTER_P`, first cuts in HANDOFF), so a
   bubble is flavour and never a status readout.
+
+## The outpost pack, adopted, 2026-09-17
+
+The owner asked for the hand-made outpost asset pack (`godot/art/simplyzombies/`, its own
+`README.md`, `STYLE.md` and `manifest.json`) to be incorporated into the live renderer, **and to
+overwrite the generated art it replaces** — the reverse of "Art we did not generate"
+(2026-09-09), which chose commissioned-to-spec over a bought pack. Four questions came with it,
+and the owner answered each from a short list of offers the same day.
+
+1. **Bodies are four-directional, with the walk cycle.** The pack's survivor and shambler ship
+   four idle views and a four-frame walk each way, not a rotating torso. This **supersedes**
+   decisions 1, 3 and 4 of "The decoupled paperdoll" (2026-09-11) — full 360° torso rotation, the
+   head seen from above, and per-slot canvases with normalized pivots — none of which a
+   four-direction sprite set has any use for. **Decisions 7 and 8 stay open**: aim as a second
+   heading, priced at a walk, and the sim reading a muzzle socket, are unaffected by how a body is
+   drawn and remain undecided pieces in their own right (docs/23's what's left).
+2. **Every human draws on the pack survivor body; the screamer and the bloater keep their
+   generated rigs.** The pack ships one survivor and one shambler, and every human in the game —
+   the player, Mara, Ellis, the colonist template, the raider — moves onto the one pack survivor
+   body, differentiated by wearables and tint the way the generated eight already are; the
+   shambler zombie kind moves onto the pack's shambler the same way. The screamer and the bloater
+   are not in the pack, so of the generated tier's eight rigs only those two survive as generated
+   art, and nothing about either changes. A colony of identical pack survivors is the shipped
+   shape until the pack (or a fixture round) grows more human bodies, not a bug in this decision.
+3. **Walls are y-sorted modules, standing on the run's south edge.** This **supersedes** "walls
+   gain thickness ... draws inside its own footprint" (the Dungeon Settlers look, 2026-09-03) and
+   **absorbs** "the wall face hangs south" (docs/23's what's left, added 2026-09-08): the pack has
+   no per-tile thick-mass wall to draw inside a footprint, only wall/fence/door/window pieces
+   meant to stand on a run's edge and sort against the bodies crossing it, which is what the
+   south-face amendment was already asking for. One rule replaces two.
+4. **Sockets now for effects, east-west vehicles and the non-status cursor icons; report-only for
+   the rest.** Held weapons, utilities, decals, and the pack's six status icons (health, hunger,
+   thirst, stamina, temperature, wound) get no socket in this arc — the six status icons **stay
+   refused**, under the icon-row ban the HUD's prose already stands on, not merely deferred. The
+   crosshair and the interaction hand are not status and get a piece (docs/23's "The cursor").
+   Held weapons, utilities and decals are named in docs/23's "The needs-assets report" piece
+   rather than decided here, because none of the four questions this entry answers reached them.
+
+**This amends "Art we did not generate" (2026-09-09), rather than reversing it.** That entry's
+whole premise was that commissioned art meets the project's geometry because it was drawn to it;
+the outpost pack was drawn for this project too and independently **meets the same published
+numbers**: height 28, soles on row 39, shoulders 20 on row 25, head 12 on row 18 (measured off
+`textures/characters/survivor_s.png`, a 32×48 canvas) — the identical figures `check_authored.gd`
+already holds `player_body` to. So it **is** commissioned art in that entry's sense, and its
+geometry stays gated the same way. What does not carry over is the **colour** half of the spec:
+the `#161614` outline, the twenty-colour cap and the generator's highlight-share ceiling are
+properties of the four-tone assembler in `tools/sprites/`, and the pack was never drawn against
+them — it reads by its own near-black (but anti-aliased, not flat `#161614`) outline and 130–240
+opaque colours a figure. `check_authored.gd`'s TONES and HIGHLIGHT lanes stay scoped to
+`kind == "rig"`, never to a pack body's `kind`, which is the mechanical form of "geometry gated,
+colour not" — a later slice that judges a pack rig's geometry adds it there without adding it to
+either colour lane.
+
+**This amends the Dungeon Settlers look's tree rule.** "A tree is ... one tile wide" (2026-09-03)
+was a rule about *canopies*, chosen because a canopy wider than its trunk would hide a body east
+or west of it with no depth rule to answer that. The pack's nature sprites are not all one tile
+wide, and the rule that already answers a hidden body — "the tree fades, never the body" (the
+same entry, the very next clause) — answers this case too: a canopy may now be wider than its
+trunk tile, because whatever it would hide fades through it rather than behind it. The opaque,
+solid `Tree` tile and the feet-anchored, y-sorted trunk are unchanged.
+
+**Named for a later slice, not decided here:** the three shipped car footprints — sedan 2×5, van
+2×6, truck 2×7 (the main-area entry above) — will shrink to **sedan 2×3, van and truck 2×4** when
+"The cars are the pack's, east-west" lands, because the pack's vehicle art is drawn at those
+footprints. North-south driving keeps the generated art at today's footprints until that slice,
+so nothing shrinks in this commit.
+
+**What this re-affirms, named because this is the entry an artwork swap would otherwise have to
+re-litigate:** the health-bar ban and the digit ban; the prose HUD; the refusal of bars, icon rows
+and name plates; 32 px a tile at 2×; the flat top-down projection; `FOOT_DROP_PX` and the feet
+anchor; the peripheral-anonymity clause; and `godot/sim/`'s total ignorance of any of this —
+`Appearance` is the only reader of `authored.json`, and no sim module gained one.
+
+**What this makes structural.** The authored tier gains a **reproducible** `source`: `path`
+(under `godot/`), optional `crop`, optional `pad` — crop then pad, never repainted or resized,
+`godot/art/simplyzombies/STYLE.md`'s own rule for its mechanical steps, applied to how this
+project draws from it. `tools/sprites/build.py` can now *write* an authored key, not just check
+its existence, and `--check` holds a sourced key to decoded pixels the same way it holds a
+generated one — `sprites:check` re-derives the art from the pack on every run, so a hand-edited
+PNG that drifted from its source is a red build, exactly as a hand-edited generated PNG always
+was. A **family** (`members`, several sourced keys sharing one canvas under a key that is not
+itself a file) is the shape later slices need for many pictures under one declaration — a walk
+cycle's frames, a garment's four sides — and lands now, proven by fabrication in
+`check_authored.gd`'s MANIFEST lane, ahead of the slice that uses it for real. The READS lane's
+`reads` now accepts **any** content id that declares the key, not only the most recently loaded
+one — the old comparison was last-writer-wins, a latent bug rather than a rule anyone chose, and
+this closes it before a pack body shared by two content entries could trip it. **Adoption is a
+deletion, applied slice by slice**: `tools/sprites/README.md`'s standing rule that hand-made art
+retires the generator code that used to draw the same thing held for the two containers in this
+commit (`props.py`'s crate functions were already gone, from the first authored art in 2026-09-10)
+and applies again to every generated key a later slice in this arc replaces.

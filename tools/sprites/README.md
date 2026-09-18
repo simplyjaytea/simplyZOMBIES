@@ -172,6 +172,13 @@ exactly what it does on a person who turns round, which was not true when a rig 
   into the pawn's taller rect stretches rather than sits. The rule stands for whenever hand-polish
   next replaces something here: a hand-authored file has no key in this package, so *adopting*
   one is a deletion, not an addition — delete the generated key in the same commit as the
-  authored PNG, or `--check` and the committed file disagree forever.
+  authored PNG, or `--check` and the committed file disagree forever. **Adopting from the outpost
+  pack (docs/30, "The outpost pack, adopted") is the same rule, mechanised**: an `authored.json`
+  entry may carry a `source` — a path under `godot/art/simplyzombies/`, cropped and padded only,
+  never repainted, the pack's own `STYLE.md` rule — and `authored()`/`render_source()` in this
+  file reproduce it, so `--check` holds a pack key to decoded pixels exactly as it holds a
+  generated one. A `source` may instead be a `members` **family**, several such keys sharing one
+  canvas under a key that is not itself a file, for art that is one declaration but many
+  pictures (a walk cycle's frames, a garment's four sides).
 - **Every PNG lands in the same slice as its reader.** Nothing mechanical stops a stray generated
   file that no content entry names; the workflow is what stops it.
