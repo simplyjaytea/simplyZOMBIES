@@ -340,7 +340,11 @@ func _rule_places(key: String) -> bool:
 		return true
 	if key == Appearance.GROUND_ATLAS_KEY:
 		return true
-	if Appearance.PAWN_KEYS.has(key) or Appearance.TREE_KEYS.has(key):
+	# TREE_KEYS retired with the outpost pack's trees (docs/23, "Trees, the bed and the heaps"):
+	# the dressing block's trees.tall is the one tree vocabulary and each key's canvas is its own
+	# authored declaration, so no tree key is rule-placed any more -- a pack tree is exactly the
+	# shape the authored tier exists to declare.
+	if Appearance.PAWN_KEYS.has(key):
 		return true
 	return Appearance.vehicle_canvas(key) != Vector2i.ZERO
 
@@ -883,6 +887,29 @@ func _authored_art_is_read_by_something() -> bool:
 				push_error("authored.json declares '%s' read by slot '%s', which the renderer does not map (Appearance.PACK_WEARABLE_SLOTS %s)" % [name, slot, str(Appearance.PACK_WEARABLE_SLOTS)])
 				return false
 			continue
+		# A dressing picture (a tree, a heap, a scatter scrap) is read by the dressing block, not
+		# by an entry's appearance block: `dressing.street` names the content block whose art
+		# lists (heaps, litter, rubble, trees) draw it. For a family, every member must be named
+		# -- the block hash-picks among the members, so a member the block never picks is a
+		# picture that ships and never draws. The dead-socket question is still asked, only the
+		# reader is a dressing list, not a content id.
+		if claims.begins_with("dressing."):
+			var dressing_id: String = claims
+			var named: Dictionary = _keys_the_dressing_names(dressing_id)
+			if named.is_empty():
+				push_error("authored.json declares '%s' read by dressing block '%s', which resolves no content -- the reader is a lie" % [name, dressing_id])
+				return false
+			var wanted: Array[String] = []
+			if (entries[key] as Dictionary).has("members"):
+				for member_key in ((entries[key] as Dictionary)["members"] as Dictionary).keys():
+					wanted.append(String(member_key))
+			else:
+				wanted.append(name)
+			for want in wanted:
+				if not named.has(want):
+					push_error("authored.json says dressing block '%s' draws '%s' and its lists do not name it: art nothing draws" % [dressing_id, want])
+					return false
+			continue
 		if not declared.has(name):
 			push_error("authored.json declares '%s' and no content entry's appearance block names it: art nothing draws" % name)
 			return false
@@ -904,6 +931,50 @@ func _authored_art_is_read_by_something() -> bool:
 	if Appearance.PACK_WEARABLE_SLOTS.has("nonesuch"):
 		push_error("a fabricated slot is somehow in PACK_WEARABLE_SLOTS; the slot-reader negative cannot be built")
 		return false
+	# TN for the dressing reader: a key the dressing block does not name is refused by the same
+	# membership the real trees just passed. Proved on the real block's own lists, so the negative
+	# starts from a reader that exists.
+	var real_dressing: Dictionary = _keys_the_dressing_names("dressing.street")
+	if real_dressing.is_empty():
+		push_error("dressing.street resolves no content; the dressing-reader negative has nothing to scan")
+		return false
+	if real_dressing.has("tree_no_such"):
+		push_error("a fabricated tree key is somehow named by the shipped dressing block; the dressing-reader negative cannot be built")
+		return false
 
-	print("READS OK %d authored keys are each named by one of the content entries that declare them, or by a slot the renderer maps" % entries.size())
+	print("READS OK %d authored keys are each named by one of the content entries that declare them, by a slot the renderer maps, or by a dressing block's art lists" % entries.size())
 	return true
+
+
+# Every string any value of the named dressing block carries -- the keys its heaps, litter,
+# rubble and trees lists name, collected recursively so a later list needs no lane of its own.
+# {} when the block id resolves no content, which the caller reports as a lying reader.
+func _keys_the_dressing_names(dressing_id: String) -> Dictionary:
+	var out: Dictionary = {}
+	var tree: Dictionary = ContentLoader.load_tree()
+	for path in tree.keys():
+		var raw: Variant = tree[path]
+		var entries_d: Array = raw as Array if raw is Array else [raw]
+		for entry_v in entries_d:
+			if not (entry_v is Dictionary):
+				continue
+			var entry: Dictionary = entry_v as Dictionary
+			if String(entry.get("id", "")) != dressing_id:
+				continue
+			_collect_strings(entry.get("trees"), out)
+			for field in ["heaps", "litter", "rubble"]:
+				_collect_strings(entry.get(field), out)
+			return out
+	return out
+
+
+func _collect_strings(value: Variant, out: Dictionary) -> void:
+	if value is Array:
+		for item in value as Array:
+			_collect_strings(item, out)
+	elif value is Dictionary:
+		for k in (value as Dictionary).keys():
+			_collect_strings((value as Dictionary)[k], out)
+	elif value is String:
+		if not (value as String).is_empty():
+			out[value as String] = true

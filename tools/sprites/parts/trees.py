@@ -36,7 +36,10 @@ from palette import OUTLINE, RAMPS
 
 TREE_W = SIZE
 TREE_H = 3 * SIZE
-TREE_KEYS = ("tree_pine_a", "tree_pine_b", "tree_pine_c")
+# Retired with the outpost pack (docs/23, "Trees, the bed and the heaps"): the pack's three
+# trees replaced these, and the dressing block's trees.tall names the pack keys now. The
+# procedural renderer below stays for the record; nothing generates from it.
+TREE_KEYS = ()
 
 # The trunk, from the soles up: three stacked segments narrowing upward, in pivot coordinates
 # (negative y is up). 3.5 at the foot is an eight-pixel trunk on the last row.

@@ -553,9 +553,9 @@ projection are untouched.
   palette rows the road and weather lanes hold to are regraded to the pack's own means rather than
   the generator's. The eight overlays dress the floors (road paint, litter, tufts, reeds, dust)
   rather than standing alone; the twelfth tile (interior ceramic) waits for a future indoor row.
-- **Trees, the bed and the heaps.** The pack's eight nature sprites and its bed and wreck-adjacent
-  props replace their generated equivalents; the tree canopy is where the 2026-09-17 amendment to
-  "one tile wide" (docs/30) is first exercised for real.
+- ~~**Trees, the bed and the heaps.**~~ — **landed** 2026-09-19, see the record. The pack's eight
+  nature sprites and its bed replace their generated equivalents, and the canopy amendment to
+  "one tile wide" (docs/30) is exercised by all three trees.
 - **The walls are modules.** The pack's thirteen wall/fence/door/window states become per-tile
   half pieces, y-sorted on the run's south edge in place of the generated thick-mass wall and cap
   (decision 3 of the record entry; supersedes "walls gain thickness" and absorbs "the wall face
@@ -2046,6 +2046,39 @@ not a to-do list:
   or hue-readable art the luma-only premise cannot credit) and six wall/roof ramps the pack
   ground sits inside. **What is named**: the twelfth tile, the overlay dressing pass, and a
   hue-aware contrast guard if the owner wants the number back.
+
+- **Art & renderer — trees, the bed and the heaps, 2026-09-19** (`npm run godot:m2` → 82 gates,
+  all exit 0; `npm run sprites:check` → `SPRITES_OK 169 generated ... 69 authored`). The third
+  pack renderer slice, and the one that retires the one-tile canopy rule for real.
+  **The trees.** A `tree_pack` authored family — `tree_pine`, `tree_broadleaf`, `tree_dead` —
+  reproduced from `nature-*.png`, each cropped to its own content and padded centred onto one
+  shared **80×96** canvas with the sole on the bottom row. Every one is wider than its 32 px
+  trunk tile (45, 66, 46 px of canopy), which is the canopy amendment (docs/30, 2026-09-17)
+  exercised three times over: `TREE_KEYS`/`TREE_CANVAS` retired from `appearance.gd` — the
+  dressing block's `trees.tall` is now the one tree vocabulary and each key's canvas is its own
+  authored declaration — and `check_trees.gd` re-pinned to the family (`CANOPY_MIN_PX 40` is the
+  amendment as a number: a tree may not shrink back into one tile). The generated procedural
+  trees retire from the generator too (`trees.py`'s `TREE_KEYS` is empty, their three PNGs
+  deleted) — the first part of the generated tier actually deleted rather than left unreferenced,
+  because their canvas rule left with them. The fade rule (`Dressing.tree_alpha`, "the tree
+  fades, never the body") is untouched and is the rule that answers a wide canopy.
+  **The heaps and the scatter.** `street.json`'s lists re-keyed to pack art: the heaps (junk on a
+  Low tile no car covers) are the pack's trash bags and barrel; the litter list takes the pack's
+  ground vegetation (bush, reeds, stump — overgrowth claiming the pavement), the rubble list its
+  deadfall (rock cluster, fallen log). All eight are authored `tile` keys at 32×32 reproduced
+  with crop+pad, centred, and the drawn path is untouched (`_draw_heap`/`_draw_scatter` stretch
+  whatever resolves into the tile rect).
+  **The bed.** `prop.bed` declares `pack_bed` at size 1.0. The pack drew the bed 48 px wide for
+  a footprint the one-tile prop system cannot declare (size clamps at 1.0), so the art is cropped
+  to the 32-wide window the prop contract draws — a mechanical crop, documented, and the multi-tile
+  prop it was drawn for is a named follow-up.
+  **The gate work.** `check_authored.gd`'s READS gains the `dressing.street` reader: a dressing
+  picture is named by the dressing block's own lists, and the lane collects every string the
+  block carries (families judged member by member — a member the block never hash-picks is a
+  picture that ships and never draws) with a true negative on the shipped block. `check_trees.gd`
+  re-pins KEYS/TIERS/RECT to the pack family and bounds. **What is named**: the multi-tile prop
+  the bed was drawn for; and the generated heap/litter/rubble keys (`low_heap_*`, `debris_*`)
+  remain generated but unreferenced, joining piece 1's rigs in the retirement follow-up.
 
 - **World & map** — ~~the three location loot tables~~ **landed** (`godot:check:loot`): what a
   place yields is content now, not two hardcoded kits in `boot.gd`. `content/loot/tables.json`

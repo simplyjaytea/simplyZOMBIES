@@ -8,9 +8,10 @@ extends SceneTree
 # Nine lanes, every assertion with a true positive and a true negative, because a gate that
 # cannot fail is worse than no gate:
 #
-#   KEYS         the three tree keys, through the dressing block: trees.tall == TREE_KEYS, every
-#                key resolves art at TREE_CANVAS, canvas_of/anchor_of agree, tree_key covers all
-#                three over a scan -- refused for a fabricated key, an empty block, an empty list.
+#   KEYS         the three tree keys, through the dressing block: trees.tall == the pack family,
+#                every key resolves art at its authored canvas, canvas_of/anchor_of agree,
+#                tree_key covers all three over a scan -- refused for a fabricated key, an empty
+#                block, an empty list.
 #   SORT         a hand list sorts body/tree/body by depth, exactly as _draw_entities' own
 #                comparator does -- refused for a tree appended after the sort and for a sort on x.
 #   RECT         body_rect on the tree canvas stands on the feet line at all four zoom rungs --
@@ -89,10 +90,10 @@ func _run() -> void:
 	if ok:
 		print(
 			(
-				"TREES_OK %d tree keys resolve at %s; the depth sort places body/tree/body; body_rect stands on the feet line at %d rungs; TREE_FADE_ALPHA %.2f fades only a point inside; TILES answered %d/%d seen trees on the hand map; the draw loop reaches every helper in order; Tile.Tree's opacity/solidity are unmoved and the pick stays a hash; suburb@%d stood %d of %d Tree tiles as drawable; the three pictures stand inside their tier; %.1f s of a %.0f s budget"
+				"TREES_OK %d pack tree keys resolve at %s; the depth sort places body/tree/body; body_rect stands on the feet line at %d rungs; TREE_FADE_ALPHA %.2f fades only a point inside; TILES answered %d/%d seen trees on the hand map; the draw loop reaches every helper in order; Tile.Tree's opacity/solidity are unmoved and the pick stays a hash; suburb@%d stood %d of %d Tree tiles as drawable; the three pictures stand inside their tier; %.1f s of a %.0f s budget"
 				% [
-					Appearance.TREE_KEYS.size(),
-					str(Appearance.TREE_CANVAS),
+					EXPECT_TREES.size(),
+					str(TREE_CANVAS_PX),
 					int(CameraUtil.ZOOM_STEPS.size()),
 					Dressing.TREE_FADE_ALPHA,
 					int(_stash.get("tiles_seen", 0)),
@@ -146,6 +147,17 @@ func _seen_of(coords: Array) -> FakeSeen:
 # --- lane 1: KEYS ----------------------------------------------------------------------------
 
 
+# The expected tree vocabulary. Since the outpost pack (docs/23, "Trees, the bed and the heaps")
+# the dressing block's `trees.tall` IS the one list -- Appearance.TREE_KEYS retired with the
+# one-tile canopy rule -- so the gate names its expectation here, the same convention
+# check_worn.gd's EXPECT_ORDER uses: the three pack trees, in the order the block lists them.
+const EXPECT_TREES: Array[String] = ["tree_pine", "tree_broadleaf", "tree_dead"]
+# The canvas the family is declared on: 2.5 tiles wide by 3 tall -- the canopy amendment
+# (docs/30, 2026-09-17) made a fixed one-tile canvas wrong, so the gate measures the declared
+# canvas rather than Appearance carrying one.
+const TREE_CANVAS_PX: Vector2i = Vector2i(80, 96)
+
+
 func _the_keys_resolve_and_can_say_no() -> bool:
 	Appearance.forget()
 	var world: Variant = World.new(_fixture())
@@ -162,46 +174,46 @@ func _the_keys_resolve_and_can_say_no() -> bool:
 		push_error("trees.tall is not an array")
 		return false
 	var listed: Array = tall as Array
-	if listed.size() != Appearance.TREE_KEYS.size():
-		push_error("trees.tall lists %d keys, Appearance.TREE_KEYS names %d" % [listed.size(), Appearance.TREE_KEYS.size()])
+	if listed.size() != EXPECT_TREES.size():
+		push_error("trees.tall lists %d keys, the pack family names %d" % [listed.size(), EXPECT_TREES.size()])
 		return false
-	for want_key in Appearance.TREE_KEYS:
+	for want_key in EXPECT_TREES:
 		if not listed.has(want_key):
-			push_error("Appearance.TREE_KEYS names '%s' but trees.tall does not" % want_key)
+			push_error("the pack family names '%s' but trees.tall does not" % want_key)
 			return false
 	for got_key in listed:
-		if not Appearance.TREE_KEYS.has(String(got_key)):
-			push_error("trees.tall names '%s', which Appearance.TREE_KEYS does not" % got_key)
+		if not EXPECT_TREES.has(String(got_key)):
+			push_error("trees.tall names '%s', which the pack family does not" % got_key)
 			return false
 
-	for key in Appearance.TREE_KEYS:
+	for key in EXPECT_TREES:
 		var tex: Variant = Appearance.resolve(key)
 		if tex == null:
 			push_error("tree key '%s' resolves no picture" % key)
 			return false
-		if Vector2i((tex as Texture2D).get_size()) != Appearance.TREE_CANVAS:
-			push_error("tree key '%s' is %s, not TREE_CANVAS %s" % [key, str((tex as Texture2D).get_size()), str(Appearance.TREE_CANVAS)])
+		if Vector2i((tex as Texture2D).get_size()) != TREE_CANVAS_PX:
+			push_error("tree key '%s' is %s, not the declared tree canvas %s" % [key, str((tex as Texture2D).get_size()), str(TREE_CANVAS_PX)])
 			return false
-		if Appearance.canvas_of(key) != Appearance.TREE_CANVAS:
-			push_error("canvas_of('%s') is %s, not TREE_CANVAS" % [key, str(Appearance.canvas_of(key))])
+		if Appearance.canvas_of(key) != TREE_CANVAS_PX:
+			push_error("canvas_of('%s') is %s, not the declared tree canvas" % [key, str(Appearance.canvas_of(key))])
 			return false
 
-	if Appearance.anchor_of(Appearance.TREE_CANVAS) != Appearance.Anchor.Feet:
-		push_error("anchor_of(TREE_CANVAS) is not Feet; a 32x96 canvas is not square")
+	if Appearance.anchor_of(TREE_CANVAS_PX) != Appearance.Anchor.Feet:
+		push_error("anchor_of(%s) is not Feet; the tree canvas is not square" % str(TREE_CANVAS_PX))
 		return false
 
 	# tree_key covers all three keys over a 16x16 scan of one seed.
 	var counts: Dictionary = {}
-	for key2 in Appearance.TREE_KEYS:
+	for key2 in EXPECT_TREES:
 		counts[key2] = 0
 	for ty in 16:
 		for tx in 16:
 			var picked: String = Dressing.tree_key(block, CANON_SEED, tx, ty)
 			if not counts.has(picked):
-				push_error("tree_key(%d,%d) answered '%s', not one of %s" % [tx, ty, picked, str(Appearance.TREE_KEYS)])
+				push_error("tree_key(%d,%d) answered '%s', not one of %s" % [tx, ty, picked, str(EXPECT_TREES)])
 				return false
 			counts[picked] = int(counts[picked]) + 1
-	for key3 in Appearance.TREE_KEYS:
+	for key3 in EXPECT_TREES:
 		if int(counts[key3]) == 0:
 			push_error("tree_key never picked '%s' over a 16x16 scan; the variation is dead" % key3)
 			return false
@@ -223,7 +235,7 @@ func _the_keys_resolve_and_can_say_no() -> bool:
 		push_error("canvas_of on an unknown key is not the tile square %s" % str(Vector2i(native, native)))
 		return false
 
-	print("KEYS OK trees.tall == Appearance.TREE_KEYS (%d keys); every key resolves at TREE_CANVAS %s with canvas_of/anchor_of (Feet) agreeing; tree_key covered all 3 over a 16x16 scan %s; a fabricated key, an empty block and an empty tall list all answer nothing" % [listed.size(), str(Appearance.TREE_CANVAS), str(counts)])
+	print("KEYS OK trees.tall == the pack tree family (%d keys at %s); every key resolves at its authored canvas with canvas_of/anchor_of (Feet) agreeing; tree_key covered all 3 over a 16x16 scan %s; a fabricated key, an empty block and an empty tall list all answer nothing" % [listed.size(), str(TREE_CANVAS_PX), str(counts)])
 	return true
 
 
@@ -284,15 +296,15 @@ func _the_rect_stands_on_its_feet_at_every_rung() -> bool:
 	var sy: float = 200.0
 	for zoom in CameraUtil.ZOOM_STEPS:
 		var scale: float = Appearance.blit_scale(zoom)
-		var size: Vector2 = Vector2(Appearance.TREE_CANVAS) * scale
+		var size: Vector2 = Vector2(TREE_CANVAS_PX) * scale
 		var rect: Rect2 = Appearance.body_rect(sx, sy, size, 1.0)
 		var want_bottom: float = sy + Appearance.FOOT_DROP_PX
 		var got_bottom: float = rect.position.y + rect.size.y
 		if got_bottom != want_bottom:
 			push_error("zoom %.0f: bottom is %.2f, want %.2f (sy + FOOT_DROP_PX)" % [zoom, got_bottom, want_bottom])
 			return false
-		if rect.size.x != 32.0 * scale:
-			push_error("zoom %.0f: width is %.2f, want %.2f" % [zoom, rect.size.x, 32.0 * scale])
+		if rect.size.x != 80.0 * scale:
+			push_error("zoom %.0f: width is %.2f, want %.2f" % [zoom, rect.size.x, 80.0 * scale])
 			return false
 		if rect.size.y != 96.0 * scale:
 			push_error("zoom %.0f: height is %.2f, want %.2f" % [zoom, rect.size.y, 96.0 * scale])
@@ -308,7 +320,7 @@ func _the_rect_stands_on_its_feet_at_every_rung() -> bool:
 		push_error("a square canvas's bottom landed on the feet line; the centred negative is dead")
 		return false
 
-	print("RECT OK bottom == sy + %.1f, width 32*scale, height 96*scale, left == round(sx - width/2) at all %d zoom rungs; a square canvas centres instead" % [Appearance.FOOT_DROP_PX, CameraUtil.ZOOM_STEPS.size()])
+	print("RECT OK bottom == sy + %.1f, width 80*scale, height 96*scale, left == round(sx - width/2) at all %d zoom rungs; a square canvas centres instead" % [Appearance.FOOT_DROP_PX, CameraUtil.ZOOM_STEPS.size()])
 	return true
 
 
@@ -551,15 +563,19 @@ func _the_shipped_suburb_stands_its_trees() -> bool:
 # --- lane 9: TIERS ---------------------------------------------------------------------------
 
 
-# The bounds every tree picture is authored to, and the one place they are a rule rather than a
-# sentence: assets/sprites/README.md quotes this lane, and slice 9's stands author against it.
+# The bounds every tree picture is authored to, measured off the pack trees (docs/23, "Trees,
+# the bed and the heaps"), and the one place they are a rule rather than a sentence. The one-tile
+# canopy rule is amended (docs/30, 2026-09-17): every pack tree is WIDER than its 32 px trunk
+# tile -- CANOPY_MIN_PX is that amendment as a number, the floor that says a pack tree may not
+# shrink back into one tile.
 const SIDE_CLEAR_PX: int = 3
-const WIDTH_MIN: int = 20
-const WIDTH_MAX: int = 26
-const HEIGHT_MIN: int = 84
-const HEIGHT_MAX: int = 92
-const TIP_ROW_MAX: int = 11
-const FOOT_MIN: int = 5
+const CANOPY_MIN_PX: int = 40
+const WIDTH_MIN: int = 44
+const WIDTH_MAX: int = 68
+const HEIGHT_MIN: int = 80
+const HEIGHT_MAX: int = 90
+const TIP_ROW_MAX: int = 14
+const FOOT_MIN: int = 3
 const FOOT_MAX: int = 9
 
 
@@ -598,11 +614,11 @@ func _judge_tier(b: Dictionary) -> String:
 		return "is %d px wide, outside [%d, %d]" % [w, WIDTH_MIN, WIDTH_MAX]
 	if h < HEIGHT_MIN or h > HEIGHT_MAX:
 		return "is %d px tall, outside [%d, %d]" % [h, HEIGHT_MIN, HEIGHT_MAX]
-	if int(b["max_y"]) != int(Appearance.TREE_CANVAS.y) - 1:
-		return "stands on row %d, not the sole line %d" % [int(b["max_y"]), int(Appearance.TREE_CANVAS.y) - 1]
+	if int(b["max_y"]) != int(TREE_CANVAS_PX.y) - 1:
+		return "stands on row %d, not the sole line %d" % [int(b["max_y"]), int(TREE_CANVAS_PX.y) - 1]
 	if int(b["min_y"]) > TIP_ROW_MAX:
 		return "tips at row %d, below the top %d rows" % [int(b["min_y"]), TIP_ROW_MAX + 1]
-	if int(b["min_x"]) < SIDE_CLEAR_PX or int(b["max_x"]) > int(Appearance.TREE_CANVAS.x) - 1 - SIDE_CLEAR_PX:
+	if int(b["min_x"]) < SIDE_CLEAR_PX or int(b["max_x"]) > int(TREE_CANVAS_PX.x) - 1 - SIDE_CLEAR_PX:
 		return "reaches x [%d, %d], inside the %d px side margin" % [int(b["min_x"]), int(b["max_x"]), SIDE_CLEAR_PX]
 	if int(b["foot"]) < FOOT_MIN or int(b["foot"]) > FOOT_MAX:
 		return "stands on a %d px foot, outside [%d, %d]" % [int(b["foot"]), FOOT_MIN, FOOT_MAX]
@@ -613,7 +629,7 @@ func _the_pictures_stand_inside_their_tier() -> bool:
 	Appearance.forget()
 	var boxes: Array = []
 	var datas: Array = []
-	for key in Appearance.TREE_KEYS:
+	for key in EXPECT_TREES:
 		var tex: Variant = Appearance.resolve(key)
 		if tex == null:
 			push_error("tree key '%s' resolves no picture; TIERS has nothing to judge" % key)
@@ -634,8 +650,8 @@ func _the_pictures_stand_inside_their_tier() -> bool:
 
 	# TN, through the same predicate: a canvas filled edge to edge is too wide, and a picture
 	# hanging above the sole line does not stand on it.
-	var w: int = int(Appearance.TREE_CANVAS.x)
-	var h: int = int(Appearance.TREE_CANVAS.y)
+	var w: int = int(TREE_CANVAS_PX.x)
+	var h: int = int(TREE_CANVAS_PX.y)
 	var solid: Image = Image.create(w, h, false, Image.FORMAT_RGBA8)
 	solid.fill(Color(0.0, 0.0, 0.0, 1.0))
 	if _judge_tier(_bounds_of(solid)).is_empty():
@@ -650,7 +666,7 @@ func _the_pictures_stand_inside_their_tier() -> bool:
 		push_error("a picture hanging above the sole line passed the tier bounds; TIERS cannot say no")
 		return false
 
-	print("TIERS OK %d pictures at %s: boxes %s, all standing on row %d, tips within the top %d rows, %d clear px either side, feet in [%d, %d], pairwise distinct; a fully opaque canvas and one hanging above the sole line are both refused" % [Appearance.TREE_KEYS.size(), str(Appearance.TREE_CANVAS), str(boxes), h - 1, TIP_ROW_MAX + 1, SIDE_CLEAR_PX, FOOT_MIN, FOOT_MAX])
+	print("TIERS OK %d pack pictures at %s: boxes %s, all standing on row %d, tips within the top %d rows, %d clear px either side, feet in [%d, %d], pairwise distinct; every one is wider than its %d px trunk tile (the canopy amendment, docs/30 2026-09-17), and a fully opaque canvas and one hanging above the sole line are both refused" % [EXPECT_TREES.size(), str(TREE_CANVAS_PX), str(boxes), h - 1, TIP_ROW_MAX + 1, SIDE_CLEAR_PX, FOOT_MIN, FOOT_MAX, CANOPY_MIN_PX])
 	return true
 
 

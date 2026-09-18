@@ -119,5 +119,14 @@ the six status icons stay refused.
   twelfth tile (interior ceramic), a hue-aware contrast guard, and the overlay dressing pass.
   Screenshot: `.hermes/plans/2026-09-19_outpost-pack/pack-ground.png` (for the owner — the brighter
   dirt and the pack floors).
-- **Next: Phase 2, piece 3 — "Trees, the bed and the heaps"**, branch `kimi/pack-nature`. Pause here
-  for the owner.
+- **2026-09-19 — Phase 2, piece 3 DONE — "Trees, the bed and the heaps"** (`kimi/pack-nature`, not
+  yet merged). Pack trees land as a `tree_pack` family at 80×96 (pine 45, broadleaf 66, dead 46 px
+  wide — the canopy amendment exercised ×3); `TREE_KEYS`/`TREE_CANVAS` retired (trees.tall is the
+  one list, canvases via authored.json); the generated procedural trees **deleted** from the
+  generator (first generated art actually retired, because their canvas rule left). Heaps → pack
+  trash-bags + barrel; litter → bush/reeds/stump (overgrowth); rubble → rock/log (deadfall); bed →
+  `pack_bed` cropped to the 32-wide window, size 1.0. READS gains the `dressing.street` reader.
+  Full `godot:m2` → 82 gates green; `sprites:check` → 169 generated + 69 authored. **Named:** the
+  multi-tile prop the bed was drawn for; generated heap/scatter keys join the retirement follow-up.
+- **Next: Phase 2, piece 4 — "The walls are modules"**, branch `kimi/pack-walls`. Pause here for
+  the owner.

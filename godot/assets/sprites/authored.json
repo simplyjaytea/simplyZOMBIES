@@ -54,6 +54,121 @@
     "MANIFEST for later slices to read; nothing draws from either yet."
   ],
   "keys": {
+    "deadfall_log": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/nature-fallen-log.png",
+        "crop": [
+          8,
+          2,
+          32,
+          20
+        ],
+        "pad": [
+          32,
+          32,
+          0,
+          6
+        ]
+      }
+    },
+    "deadfall_rock": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/nature-rock-cluster.png",
+        "crop": [
+          2,
+          4,
+          28,
+          18
+        ],
+        "pad": [
+          32,
+          32,
+          2,
+          7
+        ]
+      }
+    },
+    "heap_barrel": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/prop-barrel.png",
+        "crop": [
+          5,
+          6,
+          14,
+          24
+        ],
+        "pad": [
+          32,
+          32,
+          9,
+          4
+        ]
+      }
+    },
+    "heap_trash": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/prop-trash-bags.png",
+        "crop": [
+          3,
+          1,
+          26,
+          21
+        ],
+        "pad": [
+          32,
+          32,
+          3,
+          5
+        ]
+      }
+    },
+    "pack_bed": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "prop.bed",
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/prop-bed.png",
+        "crop": [
+          8,
+          4,
+          32,
+          26
+        ],
+        "pad": [
+          32,
+          32,
+          0,
+          3
+        ]
+      }
+    },
     "prop_container": {
       "canvas": [
         32,
@@ -74,6 +189,75 @@
       "reads": "prop.container.searched",
       "source": {
         "path": "art/simplyzombies/groups/props/native/prop-wood-crate-empty.png"
+      }
+    },
+    "scrub_bush": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/nature-bush.png",
+        "crop": [
+          2,
+          8,
+          28,
+          22
+        ],
+        "pad": [
+          32,
+          32,
+          2,
+          5
+        ]
+      }
+    },
+    "scrub_reeds": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/nature-reeds.png",
+        "crop": [
+          2,
+          5,
+          20,
+          25
+        ],
+        "pad": [
+          32,
+          32,
+          6,
+          3
+        ]
+      }
+    },
+    "scrub_stump": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/nature-stump.png",
+        "crop": [
+          2,
+          4,
+          20,
+          18
+        ],
+        "pad": [
+          32,
+          32,
+          6,
+          7
+        ]
       }
     },
     "shambler_pack": {
@@ -531,6 +715,67 @@
               0,
               32,
               40
+            ]
+          }
+        }
+      }
+    },
+    "tree_pack": {
+      "canvas": [
+        80,
+        96
+      ],
+      "kind": "prop",
+      "reads": "dressing.street",
+      "members": {
+        "tree_pine": {
+          "source": {
+            "path": "art/simplyzombies/groups/props/native/nature-pine.png",
+            "crop": [
+              9,
+              6,
+              45,
+              88
+            ],
+            "pad": [
+              80,
+              96,
+              17,
+              8
+            ]
+          }
+        },
+        "tree_broadleaf": {
+          "source": {
+            "path": "art/simplyzombies/groups/props/native/nature-broadleaf.png",
+            "crop": [
+              7,
+              8,
+              66,
+              86
+            ],
+            "pad": [
+              80,
+              96,
+              7,
+              10
+            ]
+          }
+        },
+        "tree_dead": {
+          "source": {
+            "path": "art/simplyzombies/groups/props/native/nature-dead-tree.png",
+            "crop": [
+              9,
+              12,
+              46,
+              82
+            ],
+            "pad": [
+              80,
+              96,
+              17,
+              14
             ]
           }
         }

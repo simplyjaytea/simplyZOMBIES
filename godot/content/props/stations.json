@@ -12,7 +12,7 @@
   {
     "id": "prop.bed",
     "name": "Bed",
-    "appearance": { "sprite": "prop_bed", "shape": "slab", "size": 0.82 }
+    "appearance": { "sprite": "pack_bed", "shape": "slab", "size": 1.0 }
   },
   {
     "id": "prop.campfire",

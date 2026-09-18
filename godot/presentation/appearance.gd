@@ -248,12 +248,15 @@ const EDGE_SHAPES: int = 8
 # tree): it takes no edge and gives none, so a floor beside a wall keeps its own colour to the
 # wall's foot, where the wall's own picture is the edge.
 const ROW_NONE: int = 255
-# The trees: one tall feet-anchored picture per tree tile, one tile wide and three tall, hung on
-# the trunk tile's south-edge centre and y-sorted with the bodies (docs/30, the Dungeon
-# Settlers look, decisions 4 and 9). Named here the way the pawn keys are, because canvas_of is
-# what check_appearance.gd's canvas lanes read; mirrored by tools/sprites/build.py's TREE_KEYS.
-const TREE_KEYS: Array[String] = ["tree_pine_a", "tree_pine_b", "tree_pine_c"]
-const TREE_CANVAS: Vector2i = Vector2i(int(CameraUtil.ART_NATIVE), int(CameraUtil.ART_NATIVE) * 3)
+
+
+# The trees: one tall feet-anchored picture per tree tile, hung on the trunk tile's
+# south-edge centre and y-sorted with the bodies. Since the outpost pack (docs/23, "Trees,
+# the bed and the heaps") the pictures are authored art named by the dressing block's
+# `trees.tall` -- the content list is the one tree vocabulary, and each key's canvas comes
+# from authored.json. The generated 32x96 `tree_pine_*` keys and the one-tile-wide canopy
+# rule retired with them; docs/30's 2026-09-17 amendment lets a canopy be wider than its
+# trunk tile, because "the tree fades, never the body" is the rule that answers it.
 
 # The vehicles: one three-quarter picture per class x variant x axis (docs/30, the Dungeon
 # Settlers look, decision 11). A car seen from the side is a different picture, not a rotation,
@@ -587,8 +590,6 @@ static func canvas_of(key: String) -> Vector2i:
 		return Vector2i((GROUND_VARIANTS + EDGE_SHAPES) * n, GROUND_ROWS * n)
 	if PAWN_KEYS.has(key):
 		return PAWN_CANVAS
-	if TREE_KEYS.has(key):
-		return TREE_CANVAS
 	var vehicle: Vector2i = vehicle_canvas(key)
 	if vehicle != Vector2i.ZERO:
 		return vehicle

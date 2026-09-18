@@ -1,15 +1,15 @@
 {
   "id": "dressing.street",
   "name": "Street dressing",
-  "heaps": ["low_heap_a", "low_heap_b"],
+  "heaps": ["heap_trash", "heap_barrel"],
   "litter": [
-    "debris_litter_a",
-    "debris_litter_b",
-    "debris_litter_c"
+    "scrub_bush",
+    "scrub_reeds",
+    "scrub_stump"
   ],
   "rubble": [
-    "debris_rubble_a",
-    "debris_rubble_b"
+    "deadfall_rock",
+    "deadfall_log"
   ],
   "walls": {
     "timber": { "cap": "wall_timber_cap", "face": "wall_timber_face" },
@@ -23,5 +23,5 @@
     "tar": { "flat": "roof_tar_flat" }
   },
   "faces": { "window": "face_window", "door": "face_door", "garage": "face_garage" },
-  "trees": { "tall": ["tree_pine_a", "tree_pine_b", "tree_pine_c"] }
+  "trees": { "tall": ["tree_pine", "tree_broadleaf", "tree_dead"] }
 }

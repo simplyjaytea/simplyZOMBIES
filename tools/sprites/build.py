@@ -114,8 +114,10 @@ CANVAS = {
 }
 for _key in PAWN_KEYS:
     CANVAS[_key] = (characters.PAWN_W, characters.PAWN_H)
-# The trees: one tile wide and three tall, feet-anchored like a pawn, mirrored on the Godot
-# side by `Appearance.TREE_KEYS` and `TREE_CANVAS` under the same two-copies arrangement.
+# The trees: retired from the generator with the outpost pack (docs/23, "Trees, the bed and the
+# heaps") -- the pack's three trees are authored keys reproduced from their sources, and the
+# procedural `trees.py` generates nothing. `trees.TREE_KEYS` is empty; the loop below stays for
+# the record and adds nothing.
 for _key in trees.TREE_KEYS:
     CANVAS[_key] = (trees.TREE_W, trees.TREE_H)
 # The vehicles: two shapes a class, one per axis, feet-anchored on the footprint's south edge --
