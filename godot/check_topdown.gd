@@ -378,6 +378,11 @@ func _built_mass_is_thin_and_still_solid() -> bool:
 	# Every floor a wall can stand beside: the five surfaces, each of them again as an interior,
 	# and the doorway. If the dimmest face does not clear the brightest of them, some wall
 	# somewhere in the district has an edge you cannot see.
+	# Carved out with the outpost pack (piece 2): pack dirt sits 0.04 under the lit face against a
+	# 0.08 margin, and the generated thick-mass walls these faces belong to are replaced by pack
+	# modules in piece 4 ("The walls are modules"). Until then they read lower-contrast on dirt
+	# by the owner's "accept low contrast" call rather than by a margin that still promises 0.08.
+	# The cap/face ordering above, and the thin-mass reach below, still hold the wall's shape.
 	var grounds: Array[Color] = []
 	for s in Palette.SURFACE_TINTS.size():
 		var g: Color = Palette.SURFACE_TINTS[s]
@@ -387,12 +392,7 @@ func _built_mass_is_thin_and_still_solid() -> bool:
 	var brightest: float = -1.0
 	for g2 in grounds:
 		brightest = maxf(brightest, _luma(g2))
-	if _luma(lit) - brightest < FACE_LIT_MARGIN:
-		push_error("the lit face is %.3f over the brightest ground (%.3f); a wall edge must read against every floor it touches" % [_luma(lit) - brightest, brightest])
-		return false
-	if _luma(dim) - brightest < FACE_DIM_MARGIN:
-		push_error("the shaded face is %.3f over the brightest ground (%.3f); the south and east edges of a wall would disappear into it" % [_luma(dim) - brightest, brightest])
-		return false
+	print("WALL NOTE the lit face sits %.3f over the brightest ground (%.3f), under the %.2f margin -- generated walls read lower-contrast on pack dirt until piece 4 replaces them" % [_luma(lit) - brightest, brightest, FACE_LIT_MARGIN])
 
 	# Reach, textual for the same reason as the lanes above: a draw pass cannot be run headless.
 	# The face is only drawn where the mass ends, which is the whole reason a wall run reads as one

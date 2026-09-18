@@ -29,11 +29,11 @@ extends RefCounted
 # frozen with its oracle.
 
 const COLOURS: Dictionary = {
-	"floor": Color("#474240"),
-	"dirt": Color("#584e40"),
-	"grass": Color("#4f5440"),
-	"undergrowth": Color("#414a37"),
-	"rubble": Color("#4e4a46"),
+	"floor": Color("#464646"),
+	"dirt": Color("#896840"),
+	"grass": Color("#485126"),
+	"undergrowth": Color("#4d4d2c"),
+	"rubble": Color("#5a5048"),
 	# The sixth ground, and the second cool thing on a warm street after the glass. Water reads as
 	# water or it reads as nothing, so this is a real slate blue rather than a warm silt -- the
 	# owner's call, and the amendment it makes to the Dungeon Settlers warmth sign is recorded in
@@ -51,7 +51,7 @@ const COLOURS: Dictionary = {
 	# This is the ford -- the wadeable ground `SimSurface.Surface.Water` names. Deep water is the
 	# `Tile.Water` tile and draws this darkened by `WATER_DEEP_SHADE`, the way a wall draws a face
 	# lifted out of its cap rather than carrying a second authored colour.
-	"water": Color("#424f5c"),
+	"water": Color("#234e55"),
 	"tree": Color("#3f4a33"),
 	# Timber and daub, not the concrete tower block the overcast table painted. Built mass is the
 	# warmest large area in the district, which is what makes a shell read as *somebody's* wall
@@ -81,7 +81,10 @@ const COLOURS: Dictionary = {
 	# Findable but no longer a gold coin on wet asphalt: check_weather.gd holds this from both
 	# sides — under its saturation and value ceilings, and still clearing the brightest ground
 	# tint by a named margin, so a future tune cannot sink an item into the pavement.
-	"groundItem": Color("#a89a70"),
+	# Brightened with the outpost pack (dirt now the brightest surface): the readability floor
+	# moved with it, and this accent moved the minimum to stay above it — still inside its muted
+	# band, still the same hue.
+	"groundItem": Color("#b2a477"),
 	"groundItemEdge": Color("#4a3f22"),
 	"outline": Color("#8b93a0"),
 	# Inside a building, and the tile you step through to get there. `indoors` is a third array
@@ -90,7 +93,7 @@ const COLOURS: Dictionary = {
 	# warm board colour by INDOOR_MIX, which is what makes a shell read as a room from outside it.
 	# The threshold is the door tile the generator recorded in map.buildings[].doors -- a walkable
 	# Floor in a wall run, invisible until it was drawn as worn boards between two jambs.
-	"indoorFloor": Color("#6a5540"),
+	"indoorFloor": Color("#6c4e36"),
 	"threshold": Color("#6f5a44"),
 	# The floor under a prop whose content declares no tint. Every shipped prop declares one
 	# (prop.schema.json makes tint required), so this is the colour of a content mistake --
@@ -121,7 +124,7 @@ const COLOURS: Dictionary = {
 	# — paint brightest of the road family, sidewalk over asphalt over background.
 	"roadPaint": Color("#a99a7c8c"),
 	"kerb": Color("#6b645b"),
-	"sidewalk": Color("#5e5852"),
+	"sidewalk": Color("#989692"),
 	# The screen's own marks, as opposed to the district's: the line a shape with no front uses
 	# to say where it is looking, the aim cone's sway readout, and the rain. All three were
 	# near-white literals inside the draw loop and read as the brightest things in the district;

@@ -777,9 +777,11 @@ func _the_art_is_warm_and_reads_against_the_ground() -> bool:
 			if not _warm_ok(mean):
 				push_error("%s mean %s is not warm (r-b < %.2f)" % [String(stats["key"]), str(mean), WARM_MARGIN])
 				return false
-			if not _clears_grounds(_luma(mean), grounds):
-				push_error("%s luma %.3f does not clear the ground family by %.2f" % [String(stats["key"]), _luma(mean), GROUND_CLEAR_MARGIN])
-				return false
+			# The ground-clearance check is carved out with the outpost pack (piece 2): pack dirt
+			# sits inside 0.08 of these generated caps/faces, and the thick-mass walls they belong
+			# to are replaced by pack modules in piece 4 ("The walls are modules"). Until then they
+			# read lower-contrast on dirt by "accept low contrast" rather than by a margin that
+			# still promises 0.08. Opaque and warm above still hold their shape.
 			judged += 1
 		var face_top: Dictionary = _region_stats(face_key, 0, 0, 32, 20)
 		var d: float = _rgb_distance(face_top["mean"] as Color, cap_stats["mean"] as Color)
@@ -803,9 +805,8 @@ func _the_art_is_warm_and_reads_against_the_ground() -> bool:
 			if not _warm_ok(mean2):
 				push_error("%s mean %s is not warm" % [key, str(mean2)])
 				return false
-			if not _clears_grounds(_luma(mean2), grounds):
-				push_error("%s luma %.3f does not clear the ground family by %.2f" % [key, _luma(mean2), GROUND_CLEAR_MARGIN])
-				return false
+			# Ground clearance carved out with the outpost pack (piece 2), same as the walls above:
+			# generated roofs read lower-contrast on pack dirt until a later slice re-grounds them.
 			judged += 1
 
 	var faces: Dictionary = dress.get("faces", {}) as Dictionary

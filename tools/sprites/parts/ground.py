@@ -57,274 +57,176 @@ ROWS = ["paved", "dirt", "grass", "undergrowth", "rubble", "water", "sidewalk", 
 SHEET_W = (len(VARIANTS) + len(edges.SHAPES)) * SIZE
 SHEET_H = len(ROWS) * SIZE
 
+"""The ground atlas: one sheet of tileable ground-surface cells, blitted by region.
+
+`ground_atlas.png` is not a prop or a body -- it is the thing every other generated sprite is
+drawn *over*. Seven rows (`ROWS` below, top to bottom) times four variants (columns, "a".."d")
+of one 32x32 cell each, so the sheet is `4 * SIZE` wide and `7 * SIZE` tall. The renderer picks
+a row by surface (five of them are `palette.SURFACE_TINTS`'s own five ground surfaces; the other
+two are the paint layer's sidewalk slab and an indoor board floor) and a variant per tile so a
+run of the same surface does not read as one repeated stamp.
+
+Since the outpost pack (docs/30, "The outpost pack, adopted"), the floor cells are *composed*
+from the pack's terrain tiles and ground overlays rather than procedurally marked: each variant
+is a pack tile, optionally with a pack overlay composited over it (road paint on asphalt, litter
+on paving, tufts on grass -- the pack's own two-layer structure, terrain then overlays), then
+mean-corrected onto its row tint. The edge cells stay procedural fringe geometry (`parts/edges`)
+re-tinted to the pack rows, because the pack ships decorative fringes, not a complete autotile
+set. The row tints are the pack's own means (palette.py), regraded raw per the owner's call --
+the warm-mood guards that used to hold them are carved out for pack rows in
+`check_road_look.gd`, and the record says which half.
+"""
+
+from pathlib import Path
+
+from PIL import Image
+
+from draw import SIZE
+from palette import PAINT_TINTS, SURFACE_TINTS, to_rgb
+from parts import edges
+
+VARIANTS = "abcd"
+# Mirrors `Appearance.GroundRow` exactly, and the order is load-bearing: the first six are the
+# `SimSurface.Surface` values in their own order, because `ground_row_for` returns a surface int
+# as a row. So "water" sits at 5 and the two paint substitutions follow it -- a water row appended
+# after "boards" would draw the river as pavement.
+ROWS = ["paved", "dirt", "grass", "undergrowth", "rubble", "water", "sidewalk", "boards"]
+
+# Four variant columns, then the eight edge cells of `parts/edges.py` -- one texture, so an
+# edge blit batches with the floor blit it follows (the module docstring there has the
+# measurement). Mirrored by Appearance.canvas_of on the Godot side.
+SHEET_W = (len(VARIANTS) + len(edges.SHAPES)) * SIZE
+SHEET_H = len(ROWS) * SIZE
+
 # Row tint, one lookup that covers both source tables -- rows 0-5 are the ground surfaces
 # (`SURFACE_TINTS`), rows 6-7 the paint layer's slab and board floor (`PAINT_TINTS`).
 _TINT_HEX = {**SURFACE_TINTS, **PAINT_TINTS}
 
-# The value-delta a mark may push a pixel by, converted from the brief's luma bounds
-# (tint_luma + 0.06 at the top, tint_luma - 0.10 at the bottom) through the linearity noted
-# above: `delta_v = delta_luma * (v0 / tint_luma)`. Held a little inside that line rather than
-# run up to it, because the per-cell mean-correction step (`_finish_cell`) adds one more small
-# uniform shift on top of every mark afterwards.
-LIGHT_CAP = 0.050
-DARK_CAP = -0.085
+# The pack's ground art, under godot/. `extract.py`'s mechanical steps (crop, nearest-neighbor
+# scale, pad) produced the native 32x32 tiles and overlays; this module only *arranges* them
+# (overlay over tile, both at native size) and mean-corrects the result onto the row tint, never
+# repaints a pixel.
+_PACK_DIR = (
+    Path(__file__).resolve().parents[3] / "godot" / "art" / "simplyzombies"
+    / "groups" / "environment" / "textures"
+)
 
-# The ambient per-pixel wobble every cell gets before its marks, so a lightly-marked cell (a
-# paved slab between cracks) still has nonzero variance rather than reading as a flat fill.
-DITHER = 0.014
-
-
-def _hsv_of(tint_hex):
-    r, g, b = (c / 255.0 for c in to_rgb(tint_hex))
-    return colorsys.rgb_to_hsv(r, g, b)
-
-
-def _blank(fill=0.0):
-    return [[fill for _ in range(SIZE)] for _ in range(SIZE)]
-
-
-def _mark_min(mark, x, y, dv):
-    """Darken toward `dv` (more negative wins) -- a dark mark never gets darker by stacking."""
-    if 0 <= x < SIZE and 0 <= y < SIZE:
-        mark[y][x] = min(mark[y][x], dv)
-
-
-def _mark_max(mark, x, y, dv):
-    """Lighten toward `dv` (more positive wins) -- the light-mark counterpart to `_mark_min`."""
-    if 0 <= x < SIZE and 0 <= y < SIZE:
-        mark[y][x] = max(mark[y][x], dv)
-
-
-def _finish_cell(row, v0, h, s, mark):
-    """Dither + mark deltas -> a 32x32 list of (r, g, b) bytes, mean-corrected onto the tint."""
-    dither = _blank()
-    for y in range(SIZE):
-        for x in range(SIZE):
-            dither[y][x] = row.rng.uniform(-DITHER, DITHER)
-
-    raw = [[v0 + dither[y][x] + mark[y][x] for x in range(SIZE)] for y in range(SIZE)]
-    mean_v = sum(sum(r) for r in raw) / (SIZE * SIZE)
-    correction = v0 - mean_v  # forces mean(value) back onto the tint's own value, exactly
-
-    out = _blank((0, 0, 0))
-    for y in range(SIZE):
-        for x in range(SIZE):
-            v = max(0.0, min(1.0, raw[y][x] + correction))
-            fr, fg, fb = colorsys.hsv_to_rgb(h, s, v)
-            out[y][x] = (
-                max(0, min(255, int(round(fr * 255.0)))),
-                max(0, min(255, int(round(fg * 255.0)))),
-                max(0, min(255, int(round(fb * 255.0)))),
-            )
-    return out
-
-
-class _Row:
-    """One cell's worth of authoring state: the rng, and the two delta grids marks write into."""
-
-    def __init__(self, name, variant):
-        self.rng = random.Random("ground_atlas:%s:%s" % (name, variant))
-        self.light = _blank()
-        self.dark = _blank()
-
-    def light_at(self, x, y, dv=LIGHT_CAP):
-        _mark_max(self.light, x, y, dv)
-
-    def dark_at(self, x, y, dv=DARK_CAP):
-        _mark_min(self.dark, x, y, dv)
-
-    def merged(self):
-        return [[self.light[y][x] + self.dark[y][x] for x in range(SIZE)] for y in range(SIZE)]
-
-
-# --- per-row texture -------------------------------------------------------------------------
-# Each function scatters marks onto a fresh `_Row` using its own seeded rng, per the module
-# docstring and the package README's speckle convention -- deterministic per (row, variant), so
-# regenerating one cell never moves another.
-
-
-def _paved(row):
-    rng = row.rng
-    # Faint crack polylines: a short random walk, each step darkened.
-    for _ in range(rng.randint(1, 2)):
-        x = rng.randint(2, SIZE - 3)
-        y = rng.randint(2, SIZE - 3)
-        steps = rng.randint(9, 15)
-        for _ in range(steps):
-            row.dark_at(x, y, -0.045)
-            x += rng.choice((-1, 0, 0, 1))
-            y += rng.choice((0, 1, 1, 1))
-            x = max(0, min(SIZE - 1, x))
-            y = max(0, min(SIZE - 1, y))
-    # A few darker pebble pixels.
-    for _ in range(rng.randint(6, 10)):
-        x, y = rng.randint(0, SIZE - 1), rng.randint(0, SIZE - 1)
-        row.dark_at(x, y, -0.06)
-
-
-def _dirt(row):
-    rng = row.rng
-    # Scattered 1x1 and 2x1 pebbles/clods, lighter and darker.
-    for _ in range(rng.randint(9, 14)):
-        x, y = rng.randint(0, SIZE - 2), rng.randint(0, SIZE - 1)
-        wide = rng.random() < 0.5
-        if rng.random() < 0.5:
-            row.light_at(x, y, 0.045)
-            if wide:
-                row.light_at(x + 1, y, 0.045)
-        else:
-            row.dark_at(x, y, -0.05)
-            if wide:
-                row.dark_at(x + 1, y, -0.05)
-    # Faint horizontal streaks.
-    for _ in range(rng.randint(2, 3)):
-        y = rng.randint(0, SIZE - 1)
-        x0 = rng.randint(0, SIZE - 6)
-        length = rng.randint(3, 5)
-        dv = rng.choice((-0.025, 0.022))
-        for i in range(length):
-            (row.dark_at if dv < 0 else row.light_at)(x0 + i, y, dv)
-
-
-def _grass(row):
-    rng = row.rng
-    # Short vertical blade ticks, lighter.
-    for _ in range(rng.randint(11, 15)):
-        x = rng.randint(0, SIZE - 1)
-        y = rng.randint(0, SIZE - 2)
-        row.light_at(x, y, 0.045)
-        row.light_at(x, y + 1, 0.035)
-    # A few darker specks.
-    for _ in range(rng.randint(5, 8)):
-        x, y = rng.randint(0, SIZE - 1), rng.randint(0, SIZE - 1)
-        row.dark_at(x, y, -0.045)
-    # 2-3 tiny lighter tufts (small clusters, brighter than a single blade tick).
-    for _ in range(rng.randint(2, 3)):
-        x, y = rng.randint(0, SIZE - 2), rng.randint(0, SIZE - 2)
-        for ox, oy in ((0, 0), (1, 0), (0, 1)):
-            row.light_at(x + ox, y + oy, 0.05)
-
-
-def _undergrowth(row):
-    rng = row.rng
-    # Denser darker ticks -- the busiest row.
-    for _ in range(rng.randint(20, 26)):
-        x = rng.randint(0, SIZE - 1)
-        y = rng.randint(0, SIZE - 2)
-        row.dark_at(x, y, -0.06)
-        row.dark_at(x, y + 1, -0.045)
-    # Small 2x2 leaf blobs, darker still at the core.
-    for _ in range(rng.randint(4, 6)):
-        x, y = rng.randint(0, SIZE - 2), rng.randint(0, SIZE - 2)
-        for ox, oy in ((0, 0), (1, 0), (0, 1), (1, 1)):
-            row.dark_at(x + ox, y + oy, -0.07)
-    # A handful of lighter flecks so the row is not darkness-only, which the mean-correction
-    # step would otherwise have to make up entirely on its own.
-    for _ in range(rng.randint(4, 6)):
-        x, y = rng.randint(0, SIZE - 1), rng.randint(0, SIZE - 1)
-        row.light_at(x, y, 0.035)
-
-
-def _rubble(row):
-    rng = row.rng
-    # 2-3 chunky lighter blocks with a 1px dark shadow edge on the south/east side.
-    for _ in range(rng.randint(2, 3)):
-        w = rng.randint(2, 3)
-        h = rng.randint(2, 3)
-        x = rng.randint(0, SIZE - w - 1)
-        y = rng.randint(0, SIZE - h - 1)
-        for ox in range(w):
-            for oy in range(h):
-                row.light_at(x + ox, y + oy, 0.048)
-        for ox in range(w):
-            row.dark_at(x + ox, y + h, -0.07)
-        for oy in range(h):
-            row.dark_at(x + w, y + oy, -0.07)
-    # Grit: sparse dark specks.
-    for _ in range(rng.randint(10, 16)):
-        x, y = rng.randint(0, SIZE - 1), rng.randint(0, SIZE - 1)
-        row.dark_at(x, y, -0.05)
-
-
-def _sidewalk(row):
-    rng = row.rng
-    # The slab seam: one darker line along the top edge, one along the left edge, held to the
-    # same edges on every variant so tiled cells line up into a continuous grout run.
-    for x in range(SIZE):
-        row.dark_at(x, 0, -0.05)
-    for y in range(SIZE):
-        row.dark_at(0, y, -0.05)
-    # Light speckle across the slab face.
-    for _ in range(rng.randint(14, 20)):
-        x, y = rng.randint(1, SIZE - 1), rng.randint(1, SIZE - 1)
-        if rng.random() < 0.5:
-            row.light_at(x, y, 0.03)
-        else:
-            row.dark_at(x, y, -0.03)
-
-
-def _boards(row):
-    rng = row.rng
-    plank_h = SIZE // 4
-    # Darker seams between the four planks.
-    for seam_y in (plank_h - 1, 2 * plank_h - 1, 3 * plank_h - 1):
-        for x in range(SIZE):
-            row.dark_at(x, seam_y, -0.075)
-    # Faint horizontal grain ticks inside each plank.
-    for plank in range(4):
-        y_lo = plank * plank_h
-        y_hi = y_lo + plank_h - 1
-        for _ in range(rng.randint(3, 4)):
-            x0 = rng.randint(0, SIZE - 4)
-            y = rng.randint(y_lo, max(y_lo, y_hi - 1))
-            length = rng.randint(2, 3)
-            dv = rng.choice((-0.03, 0.028))
-            for i in range(length):
-                (row.dark_at if dv < 0 else row.light_at)(x0 + i, y, dv)
-
-
-def _water(row):
-    rng = row.rng
-    # Ripples read horizontal, which is what separates water from every other row here: the five
-    # grounds are speckle and blocks, so a directional mark is the cue that this surface moves.
-    # Two or three short crests, each a light line with a dark trough directly under it -- the
-    # same light-over-dark pairing `_rubble` uses for a block edge, laid flat instead of boxed.
-    for _ in range(rng.randint(2, 3)):
-        w = rng.randint(4, SIZE - 6)
-        x = rng.randint(0, SIZE - w - 1)
-        y = rng.randint(1, SIZE - 3)
-        for ox in range(w):
-            row.light_at(x + ox, y, 0.040)
-        # The trough is shorter than its crest and inset, so a ripple tapers rather than reading
-        # as a two-pixel bar.
-        for ox in range(1, w - 1):
-            row.dark_at(x + ox, y + 1, -0.055)
-    # Glints: a few single light pixels, sparser than the grounds' grit, so still water still has
-    # something on it at 32 px without turning into noise.
-    for _ in range(rng.randint(3, 5)):
-        x, y = rng.randint(0, SIZE - 1), rng.randint(0, SIZE - 1)
-        row.light_at(x, y, 0.030)
-
-
-_TEXTURES = {
-    "paved": _paved,
-    "dirt": _dirt,
-    "grass": _grass,
-    "undergrowth": _undergrowth,
-    "rubble": _rubble,
-    "water": _water,
-    "sidewalk": _sidewalk,
-    "boards": _boards,
+# Row -> four (tile, overlay-or-None), in variant order. Every row's four cells are pixel-distinct
+# (a tile and that tile with an overlay composited over it are never the same bytes), which is
+# what `check_road_look.gd`'s TEXTURE lane demands of four names. The overlays are the pack's own
+# ground dressing at the places they read: road paint on the asphalt street, litter on paving and
+# dirt, tufts on grass and scrub, reeds and drift in the water, dust on indoor floors.
+PACK_CELLS = {
+    "paved": [
+        ("tile-asphalt-a.png", None),
+        ("tile-asphalt-b.png", None),
+        ("tile-asphalt-a.png", "overlay-road-dashed.png"),
+        ("tile-asphalt-b.png", "overlay-road-solid.png"),
+    ],
+    "dirt": [
+        ("tile-dirt-a.png", None),
+        ("tile-dirt-b.png", None),
+        ("tile-dirt-a.png", "overlay-debris.png"),
+        ("tile-dirt-b.png", "overlay-puddle.png"),
+    ],
+    "grass": [
+        ("tile-grass-a.png", None),
+        ("tile-grass-b.png", None),
+        ("tile-grass-a.png", "overlay-grass-north.png"),
+        ("tile-grass-b.png", "overlay-grass-south.png"),
+    ],
+    "undergrowth": [
+        ("tile-dirt-a.png", "overlay-grass-north.png"),
+        ("tile-dirt-b.png", "overlay-grass-south.png"),
+        ("tile-grass-a.png", "overlay-grass-east.png"),
+        ("tile-grass-b.png", "overlay-grass-west.png"),
+    ],
+    "rubble": [
+        ("tile-rubble.png", None),
+        ("tile-rubble.png", "overlay-debris.png"),
+        ("tile-rubble.png", "overlay-grass-north.png"),
+        ("tile-rubble.png", "overlay-puddle.png"),
+    ],
+    "water": [
+        ("tile-water.png", None),
+        ("tile-water.png", "overlay-debris.png"),
+        ("tile-water.png", "overlay-grass-north.png"),
+        ("tile-water.png", "overlay-grass-south.png"),
+    ],
+    "sidewalk": [
+        ("tile-concrete-a.png", None),
+        ("tile-concrete-b.png", None),
+        ("tile-concrete-a.png", "overlay-debris.png"),
+        ("tile-concrete-b.png", "overlay-debris.png"),
+    ],
+    "boards": [
+        ("tile-wood-floor.png", None),
+        ("tile-wood-floor.png", "overlay-debris.png"),
+        ("tile-wood-floor.png", "overlay-puddle.png"),
+        ("tile-wood-floor.png", "overlay-grass-east.png"),
+    ],
+    # `tile-interior-tile.png` (the pack's twelfth terrain tile, an indoor ceramic) has no row:
+    # Boards is wood, and a teal tile corrected onto a brown tint would keep its checkerboard but
+    # lose its colour. It is named for a future indoor-tile row rather than forced in here.
 }
 
 
-def _cell(name, variant):
-    tint_hex = _TINT_HEX[name]
-    h, s, v0 = _hsv_of(tint_hex)
-    row = _Row(name, variant)
-    _TEXTURES[name](row)
-    return _finish_cell(row, v0, h, s, row.merged())
+def _load(name):
+    path = _PACK_DIR / name
+    if not path.exists():
+        raise SystemExit("ground.py: pack art %r does not exist" % name)
+    return Image.open(path).convert("RGBA")
 
+
+def _mean(cell):
+    """Mean (r, g, b) in 0..1 of a 32x32 RGBA cell's opaque pixels (ground cells are opaque)."""
+    px = list(cell.convert("RGB").getdata())
+    n = len(px)
+    return (sum(p[0] for p in px) / n / 255.0, sum(p[1] for p in px) / n / 255.0, sum(p[2] for p in px) / n / 255.0)
+
+
+def _correct(cell, tint_hex):
+    """Scale a composed cell per channel so its mean lands exactly on the row tint.
+
+    The pack tile plus its overlay rarely averages to the row's own mean (a puddle darkens dirt,
+    a dash brightens asphalt), and `check_road_look.gd`'s TEXTURE lane requires every variant
+    within 0.03 of it -- so the modulated blit still averages to the flat colour. A per-channel
+    multiplicative scale (not an additive shift, which clips at black and leaves a residual)
+    preserves the pack's relative shading and contrast; it is the mean-correction the procedural
+    `_finish_cell` used to do, applied to composed art rather than to marks.
+    """
+    tr, tg, tb = (c / 255.0 for c in to_rgb(tint_hex))
+    mr, mg, mb = _mean(cell)
+    sr = tr / mr if mr > 0.0001 else 1.0
+    sg = tg / mg if mg > 0.0001 else 1.0
+    sb = tb / mb if mb > 0.0001 else 1.0
+    out = Image.new("RGBA", cell.size)
+    src = list(cell.getdata())
+    out.putdata([
+        (
+            max(0, min(255, int(round(p[0] * sr)))),
+            max(0, min(255, int(round(p[1] * sg)))),
+            max(0, min(255, int(round(p[2] * sb)))),
+            p[3],
+        )
+        for p in src
+    ])
+    return out
+
+
+def _cell(name, variant):
+    """One 32x32 cell as an RGBA Image: the pack tile, the pack overlay over it, corrected."""
+    tile_name, overlay_name = PACK_CELLS[name][VARIANTS.index(variant)]
+    cell = _load(tile_name)
+    if cell.size != (SIZE, SIZE):
+        raise SystemExit("ground.py: pack tile %r is %dx%d, not %dx%d" % (tile_name, cell.size[0], cell.size[1], SIZE, SIZE))
+    if overlay_name is not None:
+        overlay = _load(overlay_name)
+        if overlay.size != (SIZE, SIZE):
+            raise SystemExit("ground.py: pack overlay %r is %dx%d, not %dx%d" % (overlay_name, overlay.size[0], overlay.size[1], SIZE, SIZE))
+        cell = cell.copy()
+        cell.alpha_composite(overlay)
+    return _correct(cell, _TINT_HEX[name])
 
 def ground_atlas():
     image = Image.new("RGBA", (SHEET_W, SHEET_H), (0, 0, 0, 0))
@@ -335,7 +237,7 @@ def ground_atlas():
             ox, oy = c * SIZE, r * SIZE
             for y in range(SIZE):
                 for x in range(SIZE):
-                    cr, cg, cb = cell[y][x]
+                    cr, cg, cb, _a = cell.getpixel((x, y))
                     px[oy + y][ox + x] = (cr, cg, cb, 255)
         for e, shape in enumerate(edges.SHAPES):
             cell = edges.edge_cell(name, shape)

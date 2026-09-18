@@ -107,5 +107,17 @@ the six status icons stay refused.
   with the local Pillow, so ~120 generated PNGs show as git-modified even though `--check` passes
   (it compares decoded pixels). `git restore` them; only the new `survivor_pack_*`/`shambler_pack_*`
   /`wear_*` PNGs are meant to be committed.**
-- **Next: Phase 2, piece 2 — "The ground is the pack's"**, branch `kimi/pack-ground`. Pause here
+- **2026-09-19 — Phase 2, piece 2 DONE — "The ground is the pack's"** (`kimi/pack-ground`, not
+  yet merged). The ground atlas floors are pack tiles + pack overlays composited (road paint,
+  litter, tufts, reeds, dust) and mean-corrected; edges stay procedural fringe re-tinted. Palette
+  regraded to pack raw means (asphalt/dirt/grass/scrub/rubble/water/concrete/wood); groundItem to
+  `#b2a477`. Three owner calls: ship raw, accept low contrast (dirt vs drab 0.02 vs 0.10 guard —
+  bodies/crates dimmer on dirt), slot-to-garment stands. Full `godot:m2` → **82 gates, all exit 0**;
+  `sprites:check` green. **Carved (documented, not loosened):** road PALETTE sat/warm for pack rows,
+  TEXTURE brightest bound, MASK two-sides fixture, topdown WALL margins, roof MOOD clearance, and
+  seven palette ramps + six wall/roof ramps from the ground guards. **Named, not shipped:** the
+  twelfth tile (interior ceramic), a hue-aware contrast guard, and the overlay dressing pass.
+  Screenshot: `.hermes/plans/2026-09-19_outpost-pack/pack-ground.png` (for the owner — the brighter
+  dirt and the pack floors).
+- **Next: Phase 2, piece 3 — "Trees, the bed and the heaps"**, branch `kimi/pack-nature`. Pause here
   for the owner.

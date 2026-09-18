@@ -548,9 +548,11 @@ projection are untouched.
   pack's shambler is the look for the shambler kind (and the four kinds that reuse its body). The
   screamer and the bloater, which the pack does not supply, keep their generated rigs, and the
   generated five-rig human roster remains in the generator until a later cleanup retires it.
-- **The ground is the pack's.** An atlas composed from the pack's twelve terrain tiles and eight
-  ground overlays, in `Appearance.GROUND_ATLAS_KEY`'s place; the palette rows the road and weather
-  lanes hold to are regraded to the pack's own means rather than the generator's.
+- ~~**The ground is the pack's.**~~ — **landed** 2026-09-19, see the record. An atlas composed
+  from the pack's terrain tiles and ground overlays, in `Appearance.GROUND_ATLAS_KEY`'s place; the
+  palette rows the road and weather lanes hold to are regraded to the pack's own means rather than
+  the generator's. The eight overlays dress the floors (road paint, litter, tufts, reeds, dust)
+  rather than standing alone; the twelfth tile (interior ceramic) waits for a future indoor row.
 - **Trees, the bed and the heaps.** The pack's eight nature sprites and its bed and wreck-adjacent
   props replace their generated equivalents; the tree canopy is where the 2026-09-17 amendment to
   "one tile wide" (docs/30) is first exercised for real.
@@ -2014,6 +2016,36 @@ not a to-do list:
   the generator (retiring them is a follow-up cleanup); the six status icons stay refused; and the
   walk frame rate, the Mara/Ellis tints and the dark body are first cuts for the owner — a
   screenshot is under `.hermes/plans/2026-09-19_outpost-pack/pack-bodies.png`.
+
+- **Art & renderer — the ground is the pack's, 2026-09-19** (`npm run godot:m2` → 82 gates, all
+  exit 0; `npm run sprites:check` → `SPRITES_OK 172 generated ... 58 authored`). The second pack
+  renderer slice, and the one that swaps the shipped dirt. Three owner calls shaped it (this
+  session): **ship the pack raw** (its means become the palette, not a mood-muted regrade),
+  **accept low contrast** (pack dirt vs drab pawns gives 0.02 against a 0.10 guard — the bodies
+  and crates read dimmer on dirt, documented, not fixed), and the **slot-to-garment** rule stands
+  from piece 1. **The atlas.** `tools/sprites/parts/ground.py` no longer procedurally marks
+  cells; it *composes* them — each of the 8 rows × 4 variants is a pack tile with a pack overlay
+  composited over it at native size (road paint on asphalt, litter on paving and dirt, tufts on
+  grass and scrub, reeds and drift in water, dust on boards), then mean-corrected onto its row
+  tint by per-channel scale (an additive shift clips at black and left a 0.033 residual on the
+  mossy boards). Eleven of the twelve tiles ship (interior ceramic waits for a future indoor
+  row); all eight overlays dress a floor. The edge fringe stays procedural geometry re-tinted to
+  the pack rows, because the pack ships decorative fringes, not a complete autotile set.
+  **The regrade.** `SURFACE_TINTS`/`PAINT_TINTS` (and their `palette.gd` mirrors) are the pack's
+  raw means — asphalt, dirt, grass, scrub, rubble, water, concrete, wood — and `groundItem` lifts
+  to `#b2a477` so loot still clears the brighter dirt by the weather lane's 0.15. **Gates carved,
+  not loosened.** `check_road_look.gd`'s PALETTE lane skips the saturation cap and surface warm
+  pin for pack rows (pairwise distinctness, cool-water, value order, roadPaint and every negative
+  still hold); its TEXTURE lane drops the brightest-pixel bound the pack's speckle cannot meet
+  (mean, texturedness and four-distinct-variants still hold it); its MASK lane re-pins the
+  two-sides fixture to the pack luma order (dirt now brighter than grass, so Water — not Dirt —
+  draws beside it). `check_topdown.gd`'s WALL margins and `check_roof_look.gd`'s MOOD clearance
+  record rather than fail (generated walls read dim on pack dirt until piece 4 replaces them).
+  `tools/sprites/palette.py` retires `fatigue_drab`, `screamer_red`, `bloater_green`,
+  `raider_drab`, `wood`, `car_green` and `pine_light` from the ground guards (unreferenced bodies
+  or hue-readable art the luma-only premise cannot credit) and six wall/roof ramps the pack
+  ground sits inside. **What is named**: the twelfth tile, the overlay dressing pass, and a
+  hue-aware contrast guard if the owner wants the number back.
 
 - **World & map** — ~~the three location loot tables~~ **landed** (`godot:check:loot`): what a
   place yields is content now, not two hardcoded kits in `boot.gd`. `content/loot/tables.json`

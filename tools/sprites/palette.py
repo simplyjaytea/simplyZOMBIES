@@ -170,17 +170,17 @@ GROUND_CONTRAST_EITHER = 0.08
 # the ground means editing both in the same commit; a stale copy here makes the guard lie
 # about a district nobody is drawing any more.
 SURFACE_TINTS = {
-    "paved": "#474240",
-    "dirt": "#584e40",
-    "grass": "#4f5440",
-    "undergrowth": "#414a37",
-    "rubble": "#4e4a46",
+    "paved": "#464646",
+    "dirt": "#896840",
+    "grass": "#485126",
+    "undergrowth": "#4d4d2c",
+    "rubble": "#5a5048",
     # The sixth ground, and the one entry here that is deliberately cool: water reads as water.
     # `check_road_look.gd`'s COOL_SURFACES judges it with the cool pin instead of the warm one,
     # and the saturation cap still applies (0.283, inside 0.30). docs/30 carries the amendment.
     # Dark on purpose: `guard_against_ground` below refuses a water bright enough to be the
     # brightest ground, because the drab pawn ramps stop clearing it by GROUND_CONTRAST.
-    "water": "#424f5c",
+    "water": "#234e55",
 }
 
 # A HARD COPY of two entries from `COLOURS` in godot/presentation/palette.gd -- the paint layer's
@@ -190,8 +190,8 @@ SURFACE_TINTS = {
 # nobody is drawing any more. `sidewalk` matches `COLOURS["sidewalk"]`; `boards` matches
 # `COLOURS["indoorFloor"]`.
 PAINT_TINTS = {
-    "sidewalk": "#5e5852",
-    "boards": "#6a5540",
+    "sidewalk": "#989692",
+    "boards": "#6c4e36",
 }
 
 
@@ -524,26 +524,38 @@ RAMPS = {
 # colour that meets the ground there is `grey x tint`, not grey alone, and
 # `check_appearance.gd`'s `_colonists_are_tinted_grey` lane is the assertion that computes
 # that composition and holds *it*, not this ramp in isolation, to the ground.
-GROUND_FACING = ["skin", "fatigue_drab", "gore_rot", "screamer_red", "bloater_green", "raider_drab"]
+GROUND_FACING = ["skin", "gore_rot"]
+# `screamer_red`, `bloater_green` and `raider_drab` left with the outpost pack. `raider_drab`
+# paints the generated raider_body, unreferenced since piece 1 moved raiders to the pack
+# survivor. `screamer_red` and `bloater_green` still paint drawn bodies, but pack dirt leaves
+# them 0.03 and 0.08 over the street against a 0.10 guard; they read by hue against brown dirt
+# (red/green vs brown), which this luma-only guard does not credit. "Accept low contrast" (piece
+# 2) is the authority; a hue-aware guard is a follow-up if the owner wants the number back.
+# `fatigue_drab` left this list with the outpost pack (docs/30): the generated bodies it paints
+# are unreferenced since piece 1, and pack dirt leaves it 0.02 over the street against a 0.10
+# guard. Retiring the ramp is piece 1's named follow-up; until then it is unjudged, not held to
+# a dark-ground premise the district no longer meets ("ship raw" + "accept low contrast").
 
 # The standing things, held to the either-direction rule instead. `glass` and `ash` are
 # deliberately absent for the same reason `strap` is absent above: both are drawn inside another
 # material's silhouette (a windscreen in a car shell, ash inside a stone ring) and neither ever
-# meets the street.
+# meets the street. `wood` left with the outpost pack: pack dirt sits 0.05 from its mid against a
+# 0.08 either-side guard, and wooden props now read lower-contrast on dirt by the owner's "accept
+# low contrast" call (piece 2) rather than by a guard that still promises 0.08.
 GROUND_READING = [
-    "wood",
     "cloth",
     "stone",
     "ember",
     "car_pale",
-    "car_green",
     "car_burnt",
     "concrete",
     "litter",
     "pine_dark",
-    "pine_light",
     "bark",
 ]
+# `car_green` and `pine_light` left with the outpost pack: pack dirt sits 0.04 and 0.03 from
+# their mids against a 0.08 either-side guard. A green car and a light pine on dirt read by hue
+# (green vs brown), which this luma-only guard does not credit. "Accept low contrast" (piece 2).
 
 for _name in GROUND_FACING:
     guard_against_ground(_name, RAMPS[_name])
@@ -556,14 +568,13 @@ for _name in GROUND_FACING:
 # the same clearance on the decoded pictures rather than on the ramp, so the two agree by
 # construction rather than by trust.
 BUILT_READING = [
-    "wall_timber",
-    "wall_brick",
-    "wall_render",
-    "wall_block",
-    "roof_shingle",
-    "roof_tin",
     "roof_tar",
 ]
+# The six wall/roof materials left with the outpost pack: pack dirt/sidewalk sit 0.02-0.08 from
+# their mids against a 0.08 either-side guard. The generated thick-mass walls these paint are
+# replaced by pack modules in piece 4 ("The walls are modules"); until then they read
+# lower-contrast on pack ground by the owner's "accept low contrast" call (piece 2) rather than
+# by a guard that still promises 0.08. `roof_tar` (dark, 0.12 clear) stays.
 
 
 def guard_either_side_of_floors(name, steps):
