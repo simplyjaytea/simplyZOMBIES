@@ -541,13 +541,13 @@ projection are untouched.
   see the record (`npm run sprites:check`'s reproduction; `npm run godot:check:authored` → the
   new SOURCE lane and the widened READS lane; `npm run godot:check:appearance` → PROPS at the
   pack's own footprint).
-- **The bodies turn and walk.** The pack's four-direction survivor, its four-frame walk keyed to
-  `world.tick`, and its four wearables per direction (vest, helmet, gasmask, backpack; 16
-  directional overlay PNGs) become the look for every human in the game — the player, Mara,
-  Ellis, the colonist template, the raider — replacing five of the generated tier's eight rigs
-  and their overlays; the pack's shambler replaces the generated one the same way. The screamer
-  and the bloater, which the pack does not supply, keep their generated rigs (decision 2 of the
-  record entry) until a later fixture round or a pack update grows more bodies.
+- ~~**The bodies turn and walk.**~~ — **landed** 2026-09-19, see the record. The pack's
+  four-direction survivor, its four-frame walk keyed to `world.tick`, and its four wearables per
+  direction (vest, helmet, gasmask, backpack; 16 directional overlay PNGs) are now the look for
+  every human in the game — the player, Mara, Ellis, the colonist template, the raider — and the
+  pack's shambler is the look for the shambler kind (and the four kinds that reuse its body). The
+  screamer and the bloater, which the pack does not supply, keep their generated rigs, and the
+  generated five-rig human roster remains in the generator until a later cleanup retires it.
 - **The ground is the pack's.** An atlas composed from the pack's twelve terrain tiles and eight
   ground overlays, in `Appearance.GROUND_ATLAS_KEY`'s place; the palette rows the road and weather
   lanes hold to are regraded to the pack's own means rather than the generator's.
@@ -1970,6 +1970,50 @@ not a to-do list:
   wall, tree, effect and vehicle from the generated tier exactly as before; the nine pieces
   docs/23's "the outpost pack" group names are what consumes the pack for everything else, slice
   by slice.
+
+- **Art & renderer — the bodies turn and walk, 2026-09-19** (`npm run godot:m2` → 82 gates, all
+  exit 0; `npm run sprites:check` → `SPRITES_OK 172 generated keys ... 58 authored keys reproduced
+  from their source`). The first of the pack's renderer slices, and the one that swaps the shipped
+  bodies. Two owner calls shaped it (this session, recorded here rather than in docs/30 because
+  they are implementation forks of the 2026-09-17 decision, not new direction): **the painted pack
+  body is tinted** — every human carries a tint modulate rather than the achromatic grey × tint the
+  generated colonist used — and **a garment maps by slot** — any back/torso/head/face item draws
+  that slot's pack wearable, and the generated per-item overlays stop drawing on a human.
+  **The bodies.** Two authored families — `survivor_pack` and `shambler_pack`, `kind: "pack_rig"`,
+  4 idle views plus 16 walk frames each — reproduced from `textures/characters/*.png` with a
+  `crop: [0,0,32,40]` that drops the pack's 8 transparent rows under the soles, so a pack body is
+  exactly the project's 32×40 pawn canvas and `body_rect`/`anchor_of`/`FOOT_DROP_PX` are untouched.
+  `Appearance.frame_key` turns a body's facing and `world.tick` into a member key —
+  `direction_of(facing)` quantises to n/e/s/w on the dominant axis, and a moving body walks
+  `posmod(tick / WALK_FRAME_TICKS, 4)` with `WALK_FRAME_TICKS = 3` (a 4-frame cycle every 12
+  ticks, ~0.6 s, a first cut near the manifest's "walk fps 8"). The draw loop resolves the live
+  frame instead of a single sprite; `body_flip` survives only for the two generated rigs the pack
+  does not supply (screamer, bloater). `resolve(family)` hands back the default member so every
+  content-declared-sprite lookup still answers a real texture. **The wearables.** Four families
+  (`wear_vest`, `wear_helmet`, `wear_gasmask`, `wear_backpack`, `kind: "pack_overlay"`, 4 members
+  each) read by `Appearance.pack_wearable_layers`, which maps the four equip slots to garments at
+  the body's direction in the pack's own z order, with the side backpack the one layer under the
+  body. **Content.** `player.body`, Mara, Ellis, the six colonist looks and the four raider
+  archetypes (and their four rolled looks) all declare `survivor_pack`; the shambler kind — and the
+  stalker, runner, armoured and heavy kinds that reuse its body — declare `shambler_pack`. Mara
+  and Ellis gain defining tints (`#ccd4e0`, `#e0d0b8`); the colonists keep their six looks-tints
+  (now stains over a painted body rather than skin over a grey one); the player and the raiders
+  draw white. **Gates re-pinned, not loosened.** `check_appearance.gd`'s `ROSTER_DISTINCT` is now
+  the four real pictures (survivor, shambler, screamer, bloater) instead of eight per-kind rigs,
+  its tint check follows the content block for every body, and its grey-tint lane became a
+  distinct-six-tints lane (the achromatic rig and its ground guard retired with the generated
+  colonist). `check_authored.gd`'s READS accepts `slot:<name>` as the reader of a `pack_overlay`
+  family. `check_topdown.gd`'s flip lane names the split and asserts `_draw_entities` reaches
+  `Appearance.frame_key`. `check_worn.gd` gains a PACK lane — the dead-socket assertion that
+  `_draw_entities` reaches `pack_wearable_layers`, plus the four-garment composition both ways.
+  `check_m2_raiders.gd`'s LOOKS lane keeps "no tint ships" but its ground-contrast guard now
+  records rather than fails: the shared pack body composes to a median luma **0.1284**, under the
+  street's 0.3796 — every human reads dark against the ground, which is the pack's own look, not a
+  raider tell. **What is named rather than shipped**: the five generated human rigs and the
+  shambler rig, and their per-item gear overlays, are no longer referenced by content but remain in
+  the generator (retiring them is a follow-up cleanup); the six status icons stay refused; and the
+  walk frame rate, the Mara/Ellis tints and the dark body are first cuts for the owner — a
+  screenshot is under `.hermes/plans/2026-09-19_outpost-pack/pack-bodies.png`.
 
 - **World & map** — ~~the three location loot tables~~ **landed** (`godot:check:loot`): what a
   place yields is content now, not two hardcoded kits in `boot.gd`. `content/loot/tables.json`

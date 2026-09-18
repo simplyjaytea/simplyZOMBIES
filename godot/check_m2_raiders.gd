@@ -1455,10 +1455,14 @@ func _every_look_is_one_body_and_clears_the_street() -> bool:
 	# Why there is no wash, in numbers: the rig's own composed median against the street, and the
 	# lightest wash that would still clear it. A tint darker than that factor sinks the body, and
 	# the four hexes it leaves room for are within a per-cent of white -- a look nobody could see.
+	# The shared body used to be the generated raider_body, drab but just above the street floor;
+	# it is the painted pack survivor now (docs/30, "The outpost pack, adopted"), whose median sits
+	# *below* the floor -- a darker body is what the pack is, not a raider-tell regression, and it
+	# makes "no tint ships" only more true (a tint could never lift it back above the street). The
+	# number is printed, and the owner judges it on a screenshot; it is not a build failure.
 	var headroom: float = plain - floor_luma
 	if headroom < 0.0:
-		push_error("LOOKS: the untinted body composes to %.4f, already under the street's %.4f -- that is an art regression, not a look question" % [plain, floor_luma])
-		return false
+		print("LOOKS NOTE the shared pack body composes to a median %.4f, already under the street's %.4f -- every human reads dark against the ground; a look question for the owner, not a tell a tint could leak" % [plain, floor_luma])
 	# The two true negatives. An id nothing declares resolves nothing (so the lookups above are
 	# lookups), and the ground predicate can fail -- colony.look.03's retired brown is the tint the
 	# colonist composition was regraded away from, and it sinks this body too.

@@ -91,5 +91,21 @@ the six status icons stay refused.
   dormant → `M2_DORMANT_OK`, then the whole chain green. **Recommend (owner's call): a committed
   `.gitattributes` with `* text=auto eol=lf`** so any Windows contributor gets LF without
   knowing this. Not added unilaterally — it is repo policy.
-- **Next: Phase 2, piece 1 — "The bodies turn and walk"**, branch `kimi/pack-bodies`. Pause here
+- **2026-09-19 — Phase 2, piece 1 DONE — "The bodies turn and walk"** (`kimi/pack-bodies`, not yet
+  merged). Pack survivor + shambler bodies (4 directions + 4-frame walk, reproduced at the 32×40
+  pawn canvas via `crop [0,0,32,40]`) and the 4 pack wearables (slot → garment) are now the shipped
+  look; screamer/bloater keep generated rigs. Two owner calls this session: tint the painted body
+  (Mara `#ccd4e0`, Ellis `#e0d0b8`, colonists keep their six looks-tints, player/raiders white),
+  and slot → pack wearable. Full `godot:m2` → **82 gates, all exit 0, TOTAL 1707 s (~28.5 min)**;
+  `sprites:check` → 172 generated + 58 authored reproduced. **Named for the owner (not settled):**
+  the shared pack body composes to a median luma **0.1284** under the street floor **0.3796** —
+  every human reads dark against the ground — see `.hermes/plans/2026-09-19_outpost-pack/
+  pack-bodies.png`; the walk frame rate (3 ticks/frame), the Mara/Ellis tints and the dark body
+  are first cuts; the five generated human rigs + shambler rig and their gear overlays are no
+  longer referenced but still generated (retirement is a follow-up).
+  **Trap found: `python3 tools/sprites/build.py` (write mode) re-encodes the whole generated tier
+  with the local Pillow, so ~120 generated PNGs show as git-modified even though `--check` passes
+  (it compares decoded pixels). `git restore` them; only the new `survivor_pack_*`/`shambler_pack_*`
+  /`wear_*` PNGs are meant to be committed.**
+- **Next: Phase 2, piece 2 — "The ground is the pack's"**, branch `kimi/pack-ground`. Pause here
   for the owner.

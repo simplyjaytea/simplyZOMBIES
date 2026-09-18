@@ -2082,29 +2082,40 @@ func _draw_entities() -> void:
 		# yours to read. Nothing else about the pawn changes.
 		if eid == _selected:
 			draw_arc(Vector2(sx, sy + Appearance.FOOT_DROP_PX), r * 0.7, 0.0, TAU, 24, Palette.COLOURS["player"], 1.5)
+		var sprite_key: String = String(look.get("sprite", ""))
+		var moving: bool = Appearance.moving(world.components.get_component(eid, "velocity"))
 		var texture: Texture2D = look["texture"] as Texture2D
+		if not sprite_key.is_empty():
+			# A pack body resolves its live direction/walk frame; anything else resolves its own
+			# key (a cache hit when it is the one for_entity already resolved).
+			texture = Appearance.resolve(Appearance.frame_key(sprite_key, screen_ang, moving, int(world.tick)))
 		if texture != null:
 			# Scaled by px_scale so a body covers the same fraction of a tile at every step on
 			# the zoom ladder. Where the picture hangs is Appearance.body_rect's answer: a pawn
 			# (taller than wide) stands with its soles on the shadow line, a tile-square picture
-			# centres on the ground point, and a body facing west is the same picture in a
+			# centres on the ground point. A generated body facing west is the same picture in a
 			# negative-width rect -- the renderer mirrors it, and no transform is set anywhere in
-			# this loop. Nobody rotates, the player included (docs/30, the Dungeon Settlers look);
-			# check_topdown.gd's flip lane counts the transforms here and requires zero.
+			# this loop (check_topdown.gd's flip lane counts them and requires zero). A pack body
+			# faces by direction instead (docs/30, the outpost pack) and is never mirrored.
 			var size: Vector2 = texture.get_size() * px_scale
-			# Equipped gear composites at the identical rect the body draws at -- an
-			# equipSprite is authored on the same feet-anchored canvas, so there is no per-item
-			# offset to compute here, and a negative width mirrors the gear with its wearer.
-			# Drawn white, never the role/tint colour: a backpack is its own object, not a
-			# stand-in shape for the entity itself.
-			var equip: Array[Dictionary] = Appearance.equipment_layers_for(world, eid)
+			var equip: Array[Dictionary]
 			var flip: float = Appearance.body_flip(screen_ang)
+			if Appearance.is_family(sprite_key):
+				# The pack's four garments, one per equipped slot, each at the body's direction --
+				# the generated per-item overlays stop drawing on a pack body (docs/30, decision 4).
+				equip = Appearance.pack_wearable_layers(world, eid, screen_ang)
+				flip = 1.0
+			else:
+				# Equipped gear composites at the identical rect the body draws at -- an
+				# equipSprite is authored on the same feet-anchored canvas, so there is no per-item
+				# offset to compute here, and a negative width mirrors the gear with its wearer.
+				equip = Appearance.equipment_layers_for(world, eid)
 			_blit_body(Appearance.body_rect(sx, sy, size, flip), texture, col, equip)
 			# The afterimage's own copy of this look, frozen at the moment a Focal body was drawn.
 			# A Peripheral glimpse never reaches this line (it bailed to the anonymous disc above),
 			# so a body only ever glimpsed never gets a remembered picture -- the anonymity clause
 			# holds in memory the same way it holds live.
-			_last_look[eid] = {"look": look, "equip": equip, "flip": flip}
+			_last_look[eid] = {"look": look, "equip": equip, "flip": flip, "texture": texture}
 		else:
 			draw_circle(Vector2(sx, sy), r, col)
 			draw_circle(Vector2(sx, sy), r, col.lightened(0.25), false, 2.4 if bool(it["player"]) else 1.6)
@@ -2228,7 +2239,7 @@ func _draw_afterimages() -> void:
 		if cache is Dictionary:
 			var c: Dictionary = cache as Dictionary
 			var look: Dictionary = c["look"] as Dictionary
-			var texture: Texture2D = look["texture"] as Texture2D
+			var texture: Texture2D = c["texture"] as Texture2D
 			if texture != null:
 				var size: Vector2 = texture.get_size() * px_scale
 				var col: Color = look["tint"] as Color

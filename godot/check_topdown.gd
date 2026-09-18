@@ -40,7 +40,7 @@ func _run() -> void:
 	ok = _bodies_scale_with_the_zoom() and ok
 	ok = _a_still_body_is_not_glimpsed() and ok
 	if ok:
-		print("TOPDOWN_OK axes aligned, round-trip exact, depth is y, bounds are the AABB, ground tinted from the map, interiors and doorways drawn, props resolved from content, built mass capped and faced, nobody rotates and every body flips, bodies scale with the zoom, a still body is not glimpsed")
+		print("TOPDOWN_OK axes aligned, round-trip exact, depth is y, bounds are the AABB, ground tinted from the map, interiors and doorways drawn, props resolved from content, built mass capped and faced, nobody rotates, a pack body faces by direction and a generated one flips, bodies scale with the zoom, a still body is not glimpsed")
 		quit(0)
 	else:
 		push_error("TOPDOWN_FAIL")
@@ -417,14 +417,17 @@ func _built_mass_is_thin_and_still_solid() -> bool:
 	return true
 
 
-# Nobody rotates, and every body flips.
+# Nobody rotates; a generated body flips, a pack body faces by direction.
 #
 # docs/30's Dungeon Settlers decision (2026-09-03) reverses "only the player rotates": every rig
 # is a face-on pawn standing on its own point, heading is a horizontal flip, and the one
 # transform the old player rig turned under is gone from the loop. The flip is a negative-width
 # rect handed to the renderer -- probed in 4.7.1 to mirror the texture at position .. position +
-# |width| -- so `body_rect` keeps its left edge and a body never leaves its point. The
-# peripheral-anonymity clause (docs/01 clause 4) is unharmed because a glimpsed body never
+# |width| -- so `body_rect` keeps its left edge and a body never leaves its point. The outpost
+# pack (2026-09-17) widened this: a pack body faces by *direction* instead of flipping, chosen
+# through `Appearance.frame_key` off the same heading. The flip still holds for the two generated
+# rigs the pack does not supply (screamer, bloater), which is what `body_flip` keeps serving.
+# The peripheral-anonymity clause (docs/01 clause 4) is unharmed because a glimpsed body never
 # reaches the blit: the disc branch `continue`s before facing is read, asserted below as an
 # index order in the source rather than trusted.
 #
@@ -542,6 +545,7 @@ func _bodies_face_by_flipping() -> bool:
 		return false
 	var missing: String = _needles_missing(body, [
 		"Appearance.body_flip(",
+		"Appearance.frame_key(",
 		"Appearance.body_rect(",
 		"_blit_body(",
 		"Palette.COLOURS[\"facing\"]",
@@ -592,7 +596,7 @@ func _bodies_face_by_flipping() -> bool:
 		if resolver.contains(gone):
 			push_error("appearance.gd still carries %s; the rotation retired with the pawn slice" % gone)
 			return false
-	print("FLIP OK east +1, west -1, north and south unflipped; square centres and the pawn stands, soles on +%.0f at all %d rungs, Rect2(68, 23, 64, 80) at 64; %d pawn keys on %s; zero transforms in the loop and zero in all of main.gd (both counters proved), the disc bails before the blit, three helpers gone" % [Appearance.FOOT_DROP_PX, ZOOMS.size(), pawns, str(Appearance.PAWN_CANVAS)])
+	print("FLIP OK east +1, west -1, north and south unflipped; square centres and the pawn stands, soles on +%.0f at all %d rungs, Rect2(68, 23, 64, 80) at 64; %d pawn keys on %s; zero transforms in the loop and zero in all of main.gd (both counters proved), the disc bails before the blit, _draw_entities reaches frame_key for the pack bodies and body_flip for the generated two, three helpers gone" % [Appearance.FOOT_DROP_PX, ZOOMS.size(), pawns, str(Appearance.PAWN_CANVAS)])
 	return true
 
 

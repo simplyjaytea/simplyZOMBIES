@@ -872,10 +872,20 @@ func _authored_art_is_read_by_something() -> bool:
 	# nothing extra to special-case for it.
 	for key in entries.keys():
 		var name: String = String(key)
+		var claims: String = String((entries[key] as Dictionary).get("reads", ""))
+		# A pack_overlay garment is read by the renderer's slot mapping, not by a content entry:
+		# `slot:<name>` names the equip slot whose filled item draws the garment (docs/30, "The
+		# outpost pack, adopted", decisions 2 and 4). The dead-socket question is still asked --
+		# is that slot one the renderer maps? -- only the reader is a slot, not a content id.
+		if claims.begins_with("slot:"):
+			var slot: String = claims.substr(5)
+			if not Appearance.PACK_WEARABLE_SLOTS.has(slot):
+				push_error("authored.json declares '%s' read by slot '%s', which the renderer does not map (Appearance.PACK_WEARABLE_SLOTS %s)" % [name, slot, str(Appearance.PACK_WEARABLE_SLOTS)])
+				return false
+			continue
 		if not declared.has(name):
 			push_error("authored.json declares '%s' and no content entry's appearance block names it: art nothing draws" % name)
 			return false
-		var claims: String = String((entries[key] as Dictionary).get("reads", ""))
 		var readers: Array = declared[name] as Array
 		if not _reads_claim_is_sound(readers, claims):
 			push_error("authored.json says '%s' is read by '%s'; the content entries that actually declare it are %s" % [name, claims, str(readers)])
@@ -889,6 +899,11 @@ func _authored_art_is_read_by_something() -> bool:
 	if not _reads_claim_is_sound(["a.id", "b.id"], "a.id"):
 		push_error("the reads predicate refused the first of two sound readers; two bases sharing one icon would fail")
 		return false
+	# TN for the slot reader: a slot the renderer does not map is refused, so "slot:<name>" is a
+	# reader the gate actually checks rather than a prefix it accepts blindly.
+	if Appearance.PACK_WEARABLE_SLOTS.has("nonesuch"):
+		push_error("a fabricated slot is somehow in PACK_WEARABLE_SLOTS; the slot-reader negative cannot be built")
+		return false
 
-	print("READS OK %d authored keys are each named by one of the content entries that declare them" % entries.size())
+	print("READS OK %d authored keys are each named by one of the content entries that declare them, or by a slot the renderer maps" % entries.size())
 	return true

@@ -132,6 +132,17 @@ static func resolve(key: String) -> Texture2D:
 		return null
 	if _cache.has(key):
 		return _cache[key] as Texture2D
+	# A family key names no file; resolve its default member (the east idle view) so a caller that
+	# asks "does this content sprite resolve art" gets a real picture. The live draw loop picks the
+	# current direction/frame through `frame_key`, never this.
+	if is_family(key):
+		var members: Array[String] = family_members(key)
+		if members.is_empty():
+			_cache[key] = null
+			return null
+		var member: Texture2D = resolve(members[0])
+		_cache[key] = member
+		return member
 	var path: String = "%s/%s.png" % [SPRITE_DIR, key]
 	var texture: Texture2D = null
 	if ResourceLoader.exists(path):
@@ -154,6 +165,7 @@ static func forget() -> void:
 	# the whole failure mode a cache invalidation exists to prevent.
 	_authored.clear()
 	_authored_rigs.clear()
+	_authored_families.clear()
 	_authored_read = false
 
 
@@ -358,6 +370,11 @@ static func chart_rect(key: String) -> Rect2:
 const AUTHORED_PATH: String = "res://assets/sprites/authored.json"
 static var _authored: Dictionary = {}
 static var _authored_rigs: Array[String] = []
+# `{family key: {kind, members}}` for every declaration that is a `members` family -- the shape
+# the renderer needs to turn a family key into one of its member pictures (a body's direction, a
+# walk frame, a garment's side). The family key itself is never a file, so it is deliberately NOT
+# in `_authored`; only its members are.
+static var _authored_families: Dictionary = {}
 static var _authored_read: bool = false
 
 
@@ -380,6 +397,7 @@ static func _read_authored() -> void:
 	_authored_read = true
 	_authored = {}
 	_authored_rigs = []
+	_authored_families = {}
 	if not FileAccess.file_exists(AUTHORED_PATH):
 		return
 	var text: String = FileAccess.get_file_as_string(AUTHORED_PATH)
@@ -408,8 +426,15 @@ static func _read_authored() -> void:
 		# family key that is stays the one thing three gates iterate.
 		var members: Variant = (entry as Dictionary).get("members")
 		if members is Dictionary:
+			var member_keys: Array[String] = []
 			for member_key in (members as Dictionary).keys():
 				_authored[String(member_key)] = shape
+				member_keys.append(String(member_key))
+			member_keys.sort()
+			_authored_families[String(key)] = {
+				"kind": String((entry as Dictionary).get("kind", "")),
+				"members": member_keys,
+			}
 	_authored_rigs.sort()
 
 
@@ -426,6 +451,126 @@ static func authored_canvases() -> Dictionary:
 static func authored_rig_keys() -> Array[String]:
 	_read_authored()
 	return _authored_rigs.duplicate()
+
+
+# Whether a key names a `members` family rather than a file. A family is a declaration over many
+# pictures (a body's four directions and walk frames, a garment's four sides); its own key never
+# resolves a texture, so every caller that resolves content art has to ask this before `resolve`.
+static func is_family(key: String) -> bool:
+	_read_authored()
+	return _authored_families.has(key)
+
+
+# The `kind` a family is declared under -- `pack_rig` for a body that turns and walks, `pack_overlay`
+# for a garment -- or "" when the key is not a family.
+static func family_kind(key: String) -> String:
+	_read_authored()
+	var family: Variant = _authored_families.get(key)
+	return "" if not (family is Dictionary) else String((family as Dictionary).get("kind", ""))
+
+
+# The member keys of a family, sorted, or [] when the key is not a family.
+static func family_members(key: String) -> Array[String]:
+	_read_authored()
+	var family: Variant = _authored_families.get(key)
+	return [] if not (family is Dictionary) else ((family as Dictionary)["members"] as Array[String]).duplicate()
+
+
+# --- the four-direction bodies ---------------------------------------------------------------
+#
+# The outpost pack's bodies (docs/30, "The outpost pack, adopted", decision 1) are four-direction
+# pictures rather than one face-on pawn that flips: a survivor and a shambler each ship four idle
+# views and a four-frame walk per direction. A body facing between two cardinals still shows one
+# of them -- the dominant axis, with the diagonal left to the facing line the draw loop already
+# draws for every body. This supersedes the flip for pack bodies only: the screamer and the bloater
+# keep their generated face-on rigs and `body_flip`.
+
+# The four directions a facing angle maps to. Screen axes are world axes under the flat top-down
+# projection (angle 0 is +x east, +y is south/down), so the four cards the pack ships are:
+#   n (up), e (right), s (down), w (left).
+static func direction_of(facing: float) -> String:
+	var c: float = cos(facing)
+	var s: float = sin(facing)
+	if absf(c) >= absf(s):
+		return "e" if c >= 0.0 else "w"
+	return "s" if s >= 0.0 else "n"
+
+
+# How many ticks one walk frame holds. A four-frame cycle then spans four of these; at the sim's
+# TICK_HZ 20 a first cut of 3 gives a cycle every 12 ticks (0.6 s), close to the pack manifest's
+# walk "fps 8" (0.5 s a cycle). First cut, named for the owner rather than measured.
+const WALK_FRAME_TICKS: int = 3
+
+
+# The member suffix for a body's current state: the direction when still, the walk frame when
+# moving. Member keys are authored as `{family}_{dir}` and `{family}_walk_{dir}_{frame}`, so this
+# and `frame_key` are the one place that spelling lives.
+static func frame_token(facing: float, moving: bool, tick: int) -> String:
+	var dir: String = direction_of(facing)
+	if not moving:
+		return dir
+	var f: int = posmod(int(tick) / WALK_FRAME_TICKS, 4)
+	return "walk_%s_%02d" % [dir, f]
+
+
+# The key to draw for a body whose content declares `sprite_key`. A pack body resolves its current
+# direction/frame member; anything else (a generated rig, a prop) is its own key unchanged.
+static func frame_key(sprite_key: String, facing: float, moving: bool, tick: int) -> String:
+	if is_family(sprite_key) and family_kind(sprite_key) == "pack_rig":
+		return "%s_%s" % [sprite_key, frame_token(facing, moving, tick)]
+	return sprite_key
+
+
+# The four equip slots the pack ships a garment for, in the order they layer over the body (the
+# wearables' own `z_by_direction`: vest 2, backpack 3, gasmask 4, helmet 5). A side backpack
+# (east/west) is the one piece that hangs *behind* the body instead of in front, and `back` is
+# therefore the slot whose layer may be under. This is the renderer-side reader of the wearables --
+# the dead-socket assertion is check_authored.gd's READS lane, which accepts `slot:<name>` as the
+# reader for a `pack_overlay` family.
+const PACK_WEARABLE_SLOTS: Array[String] = ["back", "torso", "head", "face"]
+const PACK_WEARABLES: Array[Dictionary] = [
+	{"slot": "torso", "key": "wear_vest", "z": 2},
+	{"slot": "back", "key": "wear_backpack", "z": 3},
+	{"slot": "face", "key": "wear_gasmask", "z": 4},
+	{"slot": "head", "key": "wear_helmet", "z": 5},
+]
+
+
+# The gear layers for a pack body, one per equipped garment in the four slots the pack ships, each
+# resolved to the body's current direction. This replaces `equipment_layers_for` for a pack body:
+# the generated per-item overlays stop drawing on humans (docs/30, decision 4 -- held weapons,
+# utilities and decals get no socket in this arc), and the slot the sim fills is what chooses the
+# garment. Ordered exactly as `_blit_body` composes: the side backpack under the body, then the
+# rest over it in their z order. An empty slot, an unknown garment, or an entity with no equipment
+# (every zombie but the armoured kind) all fall out silently, the same as equipment_layers_for.
+static func pack_wearable_layers(world: Variant, actor: int, facing: float) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if world == null or world.components == null:
+		return out
+	var eq: Variant = world.components.get_component(actor, "equipment")
+	if not (eq is Dictionary):
+		return out
+	var slots: Variant = (eq as Dictionary).get("slots")
+	if not (slots is Dictionary):
+		return out
+	var dir: String = direction_of(facing)
+	var side: bool = dir == "e" or dir == "w"
+	var over: Array[Dictionary] = []
+	for entry in PACK_WEARABLES:
+		var slot: String = String((entry as Dictionary)["slot"])
+		if not (slots as Dictionary).has(slot) or (slots as Dictionary)[slot] == null:
+			continue
+		var texture: Texture2D = resolve("%s_%s" % [String((entry as Dictionary)["key"]), dir])
+		if texture == null:
+			continue
+		if slot == "back" and side:
+			out.append({"texture": texture, "over": false})
+		else:
+			over.append({"texture": texture, "over": true, "z": int((entry as Dictionary)["z"])})
+	over.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a["z"]) < int(b["z"]))
+	for layer in over:
+		out.append({"texture": layer["texture"] as Texture2D, "over": true})
+	return out
 
 
 static func canvas_of(key: String) -> Vector2i:
@@ -713,7 +858,7 @@ static func for_entity(world: Variant, it: Dictionary) -> Dictionary:
 	# raiders the wanderer's smaller radius and the glimpse would quietly tell the player "that
 	# one is not one of yours", which is the certainty docs/01 clause 4 refuses them.
 	var radius: float = 14.0 if is_player else (12.0 if (is_unique or is_raider) else 10.0)
-	return {"texture": texture, "tint": modulate_for(texture != null, declared_tint, tint), "radius": radius}
+	return {"texture": texture, "tint": modulate_for(texture != null, declared_tint, tint), "radius": radius, "sprite": sprite_key}
 
 
 # How many screen pixels one art pixel covers at this zoom. The sprites are authored against

@@ -4,7 +4,7 @@
   "name": "Stalker",
   "introducedInWave": 1,
   "weight": 10,
-  "appearance": { "sprite": "zombie_shambler" },
+  "appearance": { "sprite": "shambler_pack" },
   "sensory": { "noise": 0.9, "light": 0.4, "scent": 0.4 },
   "locomotion": { "speed": 1.0, "wander": 0.45, "mill": 0.5, "crawl": 0.25 },
   "body": { "head": 25, "torso": 50, "legs": 40 },

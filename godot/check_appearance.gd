@@ -37,7 +37,7 @@ func _run() -> void:
 	ok = _items_look_like_something() and ok
 	ok = _the_body_chart_is_ten_parts_in_three_poses() and ok
 	if ok:
-		print("APPEARANCE_OK schema keys resolve, fallback intact, the player has a body, the roster resolves shared and distinct rigs, colonists compose grey x tint over the ground, items resolve art or a class glyph, the body chart is ten parts in three poses")
+		print("APPEARANCE_OK schema keys resolve, fallback intact, the player has a body, the roster resolves shared and distinct rigs, colonists carry distinct tints over the one pack body, items resolve art or a class glyph, the body chart is ten parts in three poses")
 		quit(0)
 	else:
 		push_error("APPEARANCE_FAIL")
@@ -432,10 +432,14 @@ const ROSTER_SHARED: Array = [
 	["zombie.shambler", "zombie.stalker", "zombie.runner", "zombie.armored", "zombie.heavy"],
 ]
 
-# One id per distinct picture; every pair must resolve different textures.
+# One id per distinct picture; every pair must resolve different textures. Since the outpost pack
+# (docs/30) put every human on the one survivor body and the shambler-kind on the one shambler
+# body, the distinct pictures are: the pack survivor, the pack shambler, and the two generated
+# rigs the pack does not supply (screamer, bloater). The five human kinds that used to be five
+# distinct rigs are one body now, told apart by tint and gear -- the owner's call, recorded in
+# docs/30 and re-pinned here.
 const ROSTER_DISTINCT: Array[String] = [
-	"player.body", "survivor.unique.mara", "survivor.unique.ellis", "colony.look.01",
-	"zombie.shambler", "zombie.screamer", "zombie.bloater", "raider.scav",
+	"player.body", "zombie.shambler", "zombie.screamer", "zombie.bloater",
 ]
 
 
@@ -454,13 +458,13 @@ func _the_roster_resolves_bodies() -> bool:
 			push_error("%s resolves no texture; its content declares a sprite key and nothing read it" % id)
 			return false
 		textures[id] = look["texture"]
-		if bool(row["colonist"]):
-			var block: Dictionary = Appearance.of_content(w, String(row["kind"]), id)
-			if not block.has("tint"):
-				push_error("%s declares no tint beside its sprite; six colonists with no tints are six identical grey people" % id)
-				return false
+		var block: Dictionary = Appearance.of_content(w, String(row["kind"]), id)
+		if bool(row["colonist"]) and not block.has("tint"):
+			push_error("%s declares no tint beside its sprite; six colonists with no tints are six identical people" % id)
+			return false
+		if block.has("tint"):
 			if (look["tint"] as Color) != Color(String(block["tint"])):
-				push_error("%s: for_entity did not hand the looks.json tint to the modulate, got %s" % [id, str(look["tint"])])
+				push_error("%s: for_entity did not hand the content tint to the modulate, got %s" % [id, str(look["tint"])])
 				return false
 		elif (look["tint"] as Color) != Color.WHITE:
 			push_error("%s has art with no declared tint and must draw white, got %s" % [id, str(look["tint"])])
@@ -575,13 +579,22 @@ func _composed_clears(median_grey: float, tint: Color) -> bool:
 	return median_grey * _luma(tint) >= brightest + GREY_CLEARANCE
 
 
-# The colonist rig is achromatic and the looks.json tint supplies all the colour -- the one
-# legitimate grayscale-to-tint case on the roster. Because the rig is achromatic
-# (r == g == b), the modulate product's luma is exactly grey x luma(tint), which is what
-# makes the ground-contrast guard computable here at all: palette.py's import-time guard
-# cannot see the composition, so this lane is its other half and GROUND_FACING's comment
-# names it. check_m2_recruits.gd independently pins that every rolled look declares a tint;
-# this lane pins the pairing and the arithmetic.
+# The colonist distinction: six rolled looks over the one pack survivor body, each a distinct tint
+# the renderer modulates onto the painted body. The achromatic grey rig this lane used to hold --
+# and the ground-contrast arithmetic it made computable -- retired with the generated colonist when
+# every human moved onto the painted pack body (docs/30, "The outpost pack, adopted"). A painted
+# body is tinted directly, so what survives is the guarantee underneath the old one: six looks are
+# six *different* hexes, and for_entity applies the one the look declares.
+func _tints_are_distinct(cols: Array) -> bool:
+	var seen: Dictionary = {}
+	for c in cols:
+		var k: String = (c as Color).to_html(false)
+		if seen.has(k):
+			return false
+		seen[k] = true
+	return true
+
+
 func _colonists_are_tinted_grey() -> bool:
 	Appearance.forget()
 	var w: Variant = World.new(_fixture())
@@ -591,80 +604,32 @@ func _colonists_are_tinted_grey() -> bool:
 	for n in range(1, 7):
 		var id: String = "colony.look.%02d" % n
 		var block: Dictionary = Appearance.of_content(w, "survivor", id)
-		if String(block.get("sprite", "")) != "survivor_colonist":
-			push_error("%s does not declare sprite 'survivor_colonist'; the composition needs both halves" % id)
+		if String(block.get("sprite", "")) != "survivor_pack":
+			push_error("%s does not declare sprite 'survivor_pack'; every human shares the one pack body" % id)
 			return false
 		var t: Variant = block.get("tint")
 		if not (t is String) or hex.search(String(t)) == null:
 			push_error("%s tint '%s' is not #rrggbb lowercase" % [id, str(t)])
 			return false
-		tints.append(Color(String(t)))
+		var col: Color = Color(String(t))
+		tints.append(col)
+		var look: Dictionary = Appearance.for_entity(w, {"unique": true, "cid": id})
+		if (look["tint"] as Color) != col:
+			push_error("%s: for_entity did not modulate the body by the look's tint, got %s" % [id, str(look["tint"])])
+			return false
 	if tints.size() != 6:
 		push_error("expected 6 colony looks, judged %d" % tints.size())
 		return false
-
-	var tex: Variant = Appearance.resolve("survivor_colonist")
-	if tex == null:
-		push_error("survivor_colonist resolved no texture")
+	if not _tints_are_distinct(tints):
+		push_error("the six colonist looks do not carry six distinct tints; a shared tint is one person six times")
 		return false
-	var img: Image = (tex as Texture2D).get_image()
-	var lumas: Array[float] = []
-	var worst_delta: int = 0
-	var worst_at: Vector2i = Vector2i(-1, -1)
-	for y in img.get_height():
-		for x in img.get_width():
-			var px: Color = img.get_pixel(x, y)
-			if px.a <= 0.0:
-				continue
-			if not _is_achromatic(px):
-				push_error("survivor_colonist pixel (%d,%d) is not achromatic: %s -- a coloured pixel here fights the tint instead of carrying it" % [x, y, str(px)])
-				return false
-			var delta: int = maxi(absi(int(round(px.r * 255.0)) - int(round(px.g * 255.0))), absi(int(round(px.g * 255.0)) - int(round(px.b * 255.0))))
-			if delta > worst_delta:
-				worst_delta = delta
-				worst_at = Vector2i(x, y)
-			lumas.append(_luma(px))
-	if lumas.is_empty():
-		push_error("survivor_colonist has no opaque pixels -- the achromatic assertion had nothing to judge")
-		return false
-	lumas.sort()
-	var median: float = lumas[lumas.size() / 2]
-	var brightest: float = 0.0
-	for i in Palette.SURFACE_TINTS.size():
-		brightest = maxf(brightest, _luma(Palette.SURFACE_TINTS[i]))
-	var tightest: float = 1.0
-	for tint in tints:
-		if not _composed_clears(median, tint):
-			push_error("median grey %.4f x tint %s luma %.4f = %.4f, under the ground threshold %.4f -- that colonist is a silhouette on undergrowth" % [median, str(tint), _luma(tint), median * _luma(tint), brightest + GREY_CLEARANCE])
-			return false
-		tightest = minf(tightest, median * _luma(tint) - (brightest + GREY_CLEARANCE))
-
-	# True negatives, through the same predicates the shipped data just passed. The brown is
-	# colony.look.03's retired tint: the regrade exists because the composition failed on it.
-	if _composed_clears(median, Color("#5c4632")):
-		push_error("the retired #5c4632 clears the composed-luminance guard; the predicate reads nothing")
-		return false
-	if _is_achromatic(Color(0.6, 0.5, 0.4)):
-		push_error("_is_achromatic accepted a colour 25 bytes off grey; the bound reads nothing")
-		return false
-	# And on real data: Mara's rig is painted in colour, so if every one of her opaque pixels
-	# passes the achromatic bound, the bound is not measuring what it claims to.
-	var mara_tex: Variant = Appearance.resolve("survivor_mara")
-	if mara_tex == null:
-		push_error("survivor_mara resolved no texture for the achromatic negative")
-		return false
-	var mara_img: Image = (mara_tex as Texture2D).get_image()
-	var coloured: int = 0
-	for y2 in mara_img.get_height():
-		for x2 in mara_img.get_width():
-			var px2: Color = mara_img.get_pixel(x2, y2)
-			if px2.a > 0.0 and not _is_achromatic(px2):
-				coloured += 1
-	if coloured == 0:
-		push_error("every opaque pixel of survivor_mara passed the achromatic bound; a check Mara's art satisfies reads nothing")
+	# TN: the same distinctness predicate refuses a duplicated tint, so the positive above is a
+	# check that can fail rather than a count that always reads six.
+	if _tints_are_distinct([Color("#a89478"), Color("#a89478")]):
+		push_error("two identical tints were judged distinct; the colonist distinction reads nothing")
 		return false
 	Appearance.forget()
-	print("GREY OK %d opaque px, worst delta %d at %s, median %.4f, threshold %.4f, tightest margin +%.3f, retired brown refused, %d coloured px on mara" % [lumas.size(), worst_delta, str(worst_at), median, brightest + GREY_CLEARANCE, tightest, coloured])
+	print("GREY OK 6 colonist looks each declare a distinct tint over the one pack body and for_entity applies it; the achromatic rig and its ground guard retired with the generated colonist")
 	return true
 
 # A role colour stands in for missing art; it must not filter art that exists. Drawn as a

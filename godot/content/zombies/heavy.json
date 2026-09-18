@@ -4,7 +4,7 @@
   "name": "Heavy",
   "introducedInWave": 2,
   "weight": 4,
-  "appearance": { "sprite": "zombie_shambler" },
+  "appearance": { "sprite": "shambler_pack" },
   "sensory": { "noise": 0.9, "light": 0.1, "scent": 0.2 },
   "locomotion": { "speed": 0.6, "wander": 0.25, "mill": 0.2, "crawl": 0.2 },
   "body": { "head": 40, "torso": 120, "legs": 80 },

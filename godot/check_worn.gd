@@ -48,6 +48,7 @@ const Appearance = preload("res://presentation/appearance.gd")
 const CANON_SEED: int = 20260805
 const GATE_SIZE: int = 64
 const BUDGET_SECONDS: float = 60.0
+const MAIN_GD: String = "res://presentation/main.gd"
 
 var _stash: Dictionary = {}
 
@@ -105,6 +106,7 @@ func _run() -> void:
 	ok = _the_shared_bet_holds() and ok
 	ok = _the_shipped_colony_reaches_it() and ok
 	ok = _a_fitted_part_reaches_the_composite() and ok
+	ok = _the_pack_wearables_draw() and ok
 
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
 	if seconds > BUDGET_SECONDS:
@@ -905,4 +907,112 @@ func _a_fitted_part_reaches_the_composite() -> bool:
 		return false
 
 	print("  PARTS OK %d part pictures at the pawn canvas; a fitted can adds one over-layer at its host's anchor, an unanchored host adds one at the origin" % judged)
+	return true
+
+
+# --- PACK --------------------------------------------------------------------------------------
+#
+# The pack wearables (docs/30, "The outpost pack, adopted", decisions 2 and 4): a pack body's gear
+# is four garments -- vest, helmet, gasmask, backpack -- one per equipped slot, each at the body's
+# direction, replacing the generated per-item overlays on a human. This is the dead-socket lane for
+# that mechanism: the draw loop reaches `pack_wearable_layers`, and a fully-kitted pack body
+# composes the four garments in the pack's own z order, with the side backpack the one layer under
+# the body. The generated `equipment_layers_for` path stays for the two rigs the pack does not
+# supply, and is judged by the six lanes above.
+
+func _function_body(path: String, name: String) -> String:
+	var f: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return ""
+	var lines: PackedStringArray = f.get_as_text().split("\n")
+	var out: String = ""
+	var inside: bool = false
+	for line in lines:
+		if line.begins_with("func %s(" % name):
+			inside = true
+			continue
+		if inside and line.begins_with("func "):
+			break
+		if inside:
+			out += line + "\n"
+	return out
+
+
+func _layer_is(layer: Dictionary, key: String, over: bool) -> bool:
+	var tex: Variant = layer.get("texture")
+	if tex == null:
+		return false
+	return tex == Appearance.resolve(key) and bool(layer.get("over", false)) == over
+
+
+func _the_pack_wearables_draw() -> bool:
+	var lane: String = "PACK"
+	# Reach, textual: the draw loop asks pack_wearable_layers for a pack body. A correct resolver
+	# nothing calls is the dead-socket shape; the reader is what this asserts.
+	var body: String = _function_body(MAIN_GD, "_draw_entities")
+	if body.is_empty():
+		push_error("%s: could not read _draw_entities -- the reach assertion had nothing to judge" % lane)
+		return false
+	if not body.contains("Appearance.pack_wearable_layers("):
+		push_error("%s: _draw_entities does not call Appearance.pack_wearable_layers -- the pack garments resolve nothing the draw loop reaches" % lane)
+		return false
+	if not body.contains("Appearance.is_family("):
+		push_error("%s: _draw_entities does not ask Appearance.is_family -- a pack body would take the generated equipment path" % lane)
+		return false
+
+	# Composition, on a real fixture: four slots filled, four garments, the pack's own z order.
+	Appearance.forget()
+	var fixture: Dictionary = _fixture()
+	fixture["content_tree"] = ContentLoader.load_tree()
+	var w: Variant = World.new(fixture)
+	var actor: int = int(w.entities.spawn())
+	var slot_items: Dictionary = {}
+	for slot in ["back", "torso", "head", "face"]:
+		var item: int = int(w.entities.spawn())
+		slot_items[slot] = item
+	w.components.set_component(actor, "equipment", {"slots": slot_items})
+
+	# East (facing 0): the side backpack hangs under the body; the rest over, vest then gasmask
+	# then helmet.
+	var east: Array[Dictionary] = Appearance.pack_wearable_layers(w, actor, 0.0)
+	if east.size() != 4:
+		push_error("%s: a kitted pack body facing east composed %d layers, want 4" % [lane, east.size()])
+		return false
+	if not _layer_is(east[0], "wear_backpack_e", false) \
+			or not _layer_is(east[1], "wear_vest_e", true) \
+			or not _layer_is(east[2], "wear_gasmask_e", true) \
+			or not _layer_is(east[3], "wear_helmet_e", true):
+		push_error("%s: the east layers are %s, want backpack under then vest, gasmask, helmet over" % [lane, str(east)])
+		return false
+
+	# South (facing PI/2): the backpack's front straps draw over, so all four are over in order
+	# vest, backpack, gasmask, helmet.
+	var south: Array[Dictionary] = Appearance.pack_wearable_layers(w, actor, PI / 2.0)
+	if south.size() != 4:
+		push_error("%s: a kitted pack body facing south composed %d layers, want 4" % [lane, south.size()])
+		return false
+	for i in south.size():
+		if not bool((south[i] as Dictionary).get("over", true)):
+			push_error("%s: a south-facing backpack must draw over (its front straps), but layer %d is under" % [lane, i])
+			return false
+	if not _layer_is(south[0], "wear_vest_s", true) \
+			or not _layer_is(south[1], "wear_backpack_s", true) \
+			or not _layer_is(south[2], "wear_gasmask_s", true) \
+			or not _layer_is(south[3], "wear_helmet_s", true):
+		push_error("%s: the south layers are %s, want vest, backpack, gasmask, helmet all over" % [lane, str(south)])
+		return false
+
+	# TN, both shapes: an entity with no equipment composes nothing, and a bare slot draws no
+	# garment (a bare back is not a backpack).
+	if not Appearance.pack_wearable_layers(w, int(w.entities.spawn()), 0.0).is_empty():
+		push_error("%s: a body with no equipment composed a garment" % lane)
+		return false
+	var one_slot: int = int(w.entities.spawn())
+	w.components.set_component(one_slot, "equipment", {"slots": {"torso": int(w.entities.spawn())}})
+	var one: Array[Dictionary] = Appearance.pack_wearable_layers(w, one_slot, 0.0)
+	if one.size() != 1 or not _layer_is(one[0], "wear_vest_e", true):
+		push_error("%s: a torso-only body composed %s, want the one vest" % [lane, str(one)])
+		return false
+
+	print("  PACK OK _draw_entities reaches pack_wearable_layers for a pack body; a kitted body composes the four garments in the pack's z order (backpack under east, over south), and no-equipment / a bare slot draw nothing")
 	return true
