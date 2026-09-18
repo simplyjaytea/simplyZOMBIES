@@ -22,8 +22,10 @@ environment, equipment and animated-effects artwork, with native PNGs, source sh
 manifests and Godot SpriteFrames resources. View the
 [asset catalog](godot/art/simplyzombies/previews/asset-catalog.png), or download and open the
 [offline interactive preview](godot/art/simplyzombies/simplyzombies-production-preview.html).
-The pack is checked in at `res://art/simplyzombies/`; connecting it to the live renderer remains
-separate work, recorded in [the roadmap](docs/23-roadmap.md#the-record-by-system).
+The pack is checked in at `res://art/simplyzombies/` and is being adopted into the live renderer
+slice by slice, per [the roadmap's "Art & renderer — the outpost pack"
+group](docs/23-roadmap.md#whats-left-in-milestone-2); what has landed is in
+[the record](docs/23-roadmap.md#the-record-by-system).
 
 ---
 

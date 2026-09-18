@@ -8,6 +8,14 @@ extends SceneTree
 # `tools/sprites/build.py` proves each declared key is present at the canvas it claims; this gate
 # is the half that needs decoded pixels and the numbers GDScript already carries.
 #
+# The owner's call of 2026-09-17 (docs/30, "The outpost pack, adopted") opened a second door into
+# the same tier: an entry may now declare a `source` under `godot/art/simplyzombies/` that
+# `build.py` reproduces (crop, then pad, never repainted), or a `members` family sharing one
+# canvas across several such sources. A pack key is still `kind`, `canvas` and `reads`, still
+# judged by MANIFEST, TIER and READS exactly as a commissioned one is, and by
+# SPEC/INTERIOR/TONES/HIGHLIGHT only when `kind` is `"rig"`. What changed below is a new lane,
+# SOURCE, and what `reads` is allowed to name -- see both in the five lanes just below.
+#
 # **The bounds below are held against the eight generated rigs too, and that is the point.** A
 # spec measured only against art that does not exist yet is a spec nobody can be held to; a spec
 # the shipped roster already satisfies is one an artist can be handed. If a bound here ever goes
@@ -32,24 +40,35 @@ extends SceneTree
 # the widest row above the middle is not its head (it is the shoulders). `SHOULDER_Y` and
 # `HEAD_CY` say where to look, so what is measured is the thing the bound is about.
 #
-# Four lanes, each with a true positive and a true negative, because a gate that cannot fail is
+# Five lanes, each with a true positive and a true negative, because a gate that cannot fail is
 # worse than no gate:
 #
 #   MANIFEST  authored.json parses and every entry is well formed -- a two-integer canvas, a
-#             known kind, a non-empty `reads`. `Appearance.canvas_of` answers the declared canvas
-#             for a declared key. TN: four fabricated entries, each malformed one way, each
-#             refused by the same predicate the real ones go through.
+#             known kind, a non-empty `reads`, and, where present, a well-shaped `source`
+#             (a `path` that exists, `crop`/`pad` each four integers), `members` (a Dictionary of
+#             `^[a-z0-9_.]+$` keys each carrying a sound `source`), `anchor` ([x, y]) and
+#             `palette` (`"generator"` or `"pack"`). `Appearance.canvas_of` answers the declared
+#             canvas for a declared key. TN: seven fabricated entries, each malformed one way,
+#             each refused by the same predicate the real ones go through.
 #   TIER      no declared key collides with a rule `canvas_of` already places. The other half of
 #             this -- that no declared key is also in the Python registry -- is build.py's, which
 #             is the only side that can see a registry. TN: a fabricated declaration of
 #             `player_body`.
+#   SOURCE    every sourced key or family member resolves a texture at the canvas its entry
+#             declares. The pixel-for-pixel proof that the file matches what the source
+#             reproduces is `sprites:check`'s (`tools/sprites/build.py --check`), which runs
+#             outside this chain; this lane is the half a Godot process can prove on its own. TN:
+#             a fabricated source whose path does not exist.
 #   SPEC      the bounds above, on decoded pixels, for every generated rig AND every authored key
 #             of kind `rig`. TN: six fabrications off a real rig, each breaking exactly one bound,
 #             each refused by its own code rather than by "something went wrong".
 #   READS     the dead-socket lane: every authored key is named by some content entry's
-#             appearance block, and `reads` says which. Art nothing draws is the shape this
-#             milestone has paid for twelve times. Says so and SKIPS when the tier is empty,
-#             which it is until the first commissioned sprite lands.
+#             appearance block, and `reads` names one of the ids that actually does -- since
+#             2026-09-17 it need not be the *only* one, so two bases sharing an icon can each
+#             claim it (the old last-writer-wins comparison was a latent bug this never shipped a
+#             fixture for). Art nothing draws is the shape this milestone has paid for twelve
+#             times. Says so and SKIPS when the tier is empty, which it is until the first
+#             commissioned sprite lands.
 #
 # What this gate deliberately does NOT do, named so the next session does not think it was
 # missed: it does not put an authored rig into `Appearance.PAWN_KEYS`. One key belongs to one
@@ -68,7 +87,16 @@ const Appearance = preload("res://presentation/appearance.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
 
 const AUTHORED_PATH: String = "res://assets/sprites/authored.json"
-const KINDS: Array[String] = ["rig", "overlay", "tile"]
+
+# `pack_rig`/`pack_overlay`/`module`/`sheet`/`prop` are the outpost pack's later slices'
+# placeholders (docs/30, "The outpost pack, adopted"): accepted here, judged by no shape lane
+# yet, one gains a lane when the slice that reads it lands.
+const KINDS: Array[String] = ["rig", "overlay", "tile", "pack_rig", "pack_overlay", "module", "sheet", "prop"]
+
+# A member key inside a `members` family, and a sourced entry's own key -- both are a
+# `godot/assets/sprites/<key>.png` basename, so both share the pattern `check_appearance.gd`'s
+# own KEY constant already uses for a content-declared sprite string.
+const KEY_FORMAT: String = "^[a-z0-9_.]+$"
 
 # The four-tone model (docs/30, "The decoupled paperdoll", decision 5). `tools/sprites` writes
 # the manifest beside the art; this gate is the half that judges the pixels against it.
@@ -123,13 +151,14 @@ func _run() -> void:
 	var ok: bool = true
 	ok = _the_manifest_is_well_formed() and ok
 	ok = _no_key_is_in_both_tiers() and ok
+	ok = _every_source_resolves_at_its_declared_canvas() and ok
 	ok = _every_rig_meets_the_published_bounds() and ok
 	ok = _no_rig_draws_ink_inside_its_silhouette() and ok
 	ok = _every_rig_is_four_tones_a_material() and ok
 	ok = _no_highlight_covers_more_than_its_share() and ok
 	ok = _authored_art_is_read_by_something() and ok
 	if ok:
-		print("AUTHORED_OK the manifest is well formed, no key is in two tiers, every rig meets the published bounds, no rig draws ink inside its silhouette, every rig is four tones a material, no highlight covers more than its share, and authored art is read by something")
+		print("AUTHORED_OK the manifest is well formed, no key is in two tiers, every sourced key resolves at its declared canvas, every rig meets the published bounds, no rig draws ink inside its silhouette, every rig is four tones a material, no highlight covers more than its share, and authored art is read by something")
 		quit(0)
 	else:
 		push_error("AUTHORED_FAIL")
@@ -146,6 +175,31 @@ func _entries() -> Dictionary:
 		return {}
 	var keys: Variant = (parsed as Dictionary).get("keys")
 	return keys as Dictionary if keys is Dictionary else {}
+
+
+# Whether an optional `source` block is well formed: a `path` that resolves under res://, and
+# `crop`/`pad` each exactly four numbers when present. Shape only -- whether the file at `path`
+# actually reproduces the committed PNG is decoded pixels, which is SOURCE's job below (and
+# `sprites:check`'s beyond this chain), not this predicate's.
+func _complaint_about_source(source_v: Variant) -> String:
+	if not (source_v is Dictionary):
+		return "declares a `source` that is not an object"
+	var source: Dictionary = source_v as Dictionary
+	var path: String = String(source.get("path", "")).strip_edges()
+	if path.is_empty():
+		return "declares a `source` with no `path`"
+	if not FileAccess.file_exists("res://%s" % path):
+		return "declares a `source.path` of '%s', which does not exist" % path
+	for field in ["crop", "pad"]:
+		if not source.has(field):
+			continue
+		var arr: Variant = source[field]
+		if not (arr is Array and (arr as Array).size() == 4):
+			return "declares `%s` %s; it is four integers" % [field, str(arr)]
+		for v in (arr as Array):
+			if not (v is float or v is int):
+				return "declares `%s` %s; it is four integers" % [field, str(arr)]
+	return ""
 
 
 # Whether one declaration is well formed, as one predicate so the loop below and the negatives
@@ -167,6 +221,39 @@ func _complaint(entry_v: Variant) -> String:
 		return "declares kind '%s'; it is one of %s" % [kind, ", ".join(KINDS)]
 	if String(entry.get("reads", "")).strip_edges().is_empty():
 		return "names no `reads`; art nothing draws is a dead socket, so say what draws it"
+	if entry.has("source"):
+		var source_complaint: String = _complaint_about_source(entry.get("source"))
+		if not source_complaint.is_empty():
+			return source_complaint
+	if entry.has("members"):
+		var members_v: Variant = entry.get("members")
+		if not (members_v is Dictionary):
+			return "declares `members` that is not an object"
+		var members: Dictionary = members_v as Dictionary
+		if members.is_empty():
+			return "declares `members` with nothing in it"
+		var key_format := RegEx.new()
+		key_format.compile(KEY_FORMAT)
+		for member_key in members.keys():
+			if key_format.search(String(member_key)) == null:
+				return "declares a member key '%s' that is not %s" % [String(member_key), KEY_FORMAT]
+			var member_v: Variant = members[member_key]
+			if not (member_v is Dictionary) or not (member_v as Dictionary).has("source"):
+				return "declares member '%s' with no `source`" % String(member_key)
+			var member_complaint: String = _complaint_about_source((member_v as Dictionary).get("source"))
+			if not member_complaint.is_empty():
+				return "declares member '%s' whose source %s" % [String(member_key), member_complaint]
+	if entry.has("anchor"):
+		var anchor_v: Variant = entry.get("anchor")
+		if not (anchor_v is Array and (anchor_v as Array).size() == 2):
+			return "declares anchor %s; it is [x, y] in pixels" % str(anchor_v)
+		for v in (anchor_v as Array):
+			if not (v is float or v is int):
+				return "declares anchor %s; both are whole numbers of pixels" % str(anchor_v)
+	if entry.has("palette"):
+		var palette: String = String(entry.get("palette", ""))
+		if not ["generator", "pack"].has(palette):
+			return "declares palette '%s'; it is 'generator' or 'pack'" % palette
 	return ""
 
 
@@ -192,14 +279,23 @@ func _the_manifest_is_well_formed() -> bool:
 			push_error("authored.json: '%s' declares %dx%d and Appearance.canvas_of answers %s" % [String(key), want.x, want.y, str(Appearance.canvas_of(String(key)))])
 			return false
 
-	# TN: four malformed entries, each wrong one way, each refused by the same predicate the real
+	# TN: seven malformed entries, each wrong one way, each refused by the same predicate the real
 	# ones went through. A lane whose negatives are checked by a second copy of the rule proves
-	# the copy, not the rule.
+	# the copy, not the rule. The real crate PNG is the "exists" fixture for the source cases --
+	# proving a bad source is refused starting from a path that resolves, not from a name that was
+	# always going to fail.
+	var real_source_path: String = "art/simplyzombies/groups/props/native/prop-wood-crate-closed.png"
 	var fabricated: Array = [
 		["no_canvas", {"kind": "rig", "reads": "x"}],
 		["short_canvas", {"canvas": [32], "kind": "rig", "reads": "x"}],
 		["bad_kind", {"canvas": [32, 40], "kind": "sprite", "reads": "x"}],
 		["no_reads", {"canvas": [32, 40], "kind": "rig"}],
+		["missing_source", {"canvas": [32, 32], "kind": "tile", "reads": "x",
+			"source": {"path": "art/simplyzombies/groups/props/native/does-not-exist.png"}}],
+		["short_crop", {"canvas": [32, 32], "kind": "tile", "reads": "x",
+			"source": {"path": real_source_path, "crop": [0, 0, 32]}}],
+		["member_no_source", {"canvas": [32, 32], "kind": "pack_rig", "reads": "x",
+			"members": {"m": {}}}],
 	]
 	for pair in fabricated:
 		if _complaint((pair as Array)[1]).is_empty():
@@ -207,6 +303,14 @@ func _the_manifest_is_well_formed() -> bool:
 			return false
 	if not _complaint({"canvas": [32, 40], "kind": "rig", "reads": "survivor.unique.x"}).is_empty():
 		push_error("the manifest predicate refused a sound fabricated entry; it would refuse real art too")
+		return false
+	if not _complaint({"canvas": [32, 32], "kind": "tile", "reads": "x",
+			"source": {"path": real_source_path}}).is_empty():
+		push_error("the manifest predicate refused a sound source entry; it would refuse real pack art too")
+		return false
+	if not _complaint({"canvas": [32, 32], "kind": "pack_rig", "reads": "x",
+			"members": {"m": {"source": {"path": real_source_path}}}}).is_empty():
+		push_error("the manifest predicate refused a sound family entry; it would refuse real pack art too")
 		return false
 
 	# `Appearance.authored_rig_keys()` is the renderer-side reader three gates share, and it reads
@@ -222,7 +326,7 @@ func _the_manifest_is_well_formed() -> bool:
 		push_error("authored.json declares rigs %s and Appearance.authored_rig_keys() answers %s" % [str(rigs_here), str(Appearance.authored_rig_keys())])
 		return false
 
-	print("MANIFEST OK %d authored keys declared (%d of kind rig, agreed by both readers), four malformed fabrications refused and a sound one accepted" % [entries.size(), rigs_here.size()])
+	print("MANIFEST OK %d authored keys declared (%d of kind rig, agreed by both readers), seven malformed fabrications refused and three sound ones (a rig, a source, a family) accepted" % [entries.size(), rigs_here.size()])
 	return true
 
 
@@ -255,6 +359,63 @@ func _no_key_is_in_both_tiers() -> bool:
 		push_error("the tier predicate sees an undeclared key as rule-placed; it would refuse every authored key")
 		return false
 	print("TIER OK no declared key collides with a rule, and the predicate separates a generated key from an authored one")
+	return true
+
+
+# --- the source tier -------------------------------------------------------------------------
+
+# Every `source` as `{key: Dictionary}`, flattened over families exactly the way
+# `Appearance._read_authored` flattens `members`: a family's own key is never a file, so only its
+# members contribute here, each keyed by its own member name.
+func _sources() -> Dictionary:
+	var out: Dictionary = {}
+	for key in _entries().keys():
+		var entry: Dictionary = _entries()[key] as Dictionary
+		if entry.has("source"):
+			out[String(key)] = entry["source"]
+		var members_v: Variant = entry.get("members")
+		if members_v is Dictionary:
+			for member_key in (members_v as Dictionary).keys():
+				var member_v: Variant = (members_v as Dictionary)[member_key]
+				if member_v is Dictionary and (member_v as Dictionary).has("source"):
+					out[String(member_key)] = (member_v as Dictionary)["source"]
+	return out
+
+
+# SOURCE: every sourced key or family member resolves a texture, and it is the canvas its entry
+# declares. The pixel-for-pixel proof that the committed file is what the source actually
+# reproduces belongs to `sprites:check` (`tools/sprites/build.py --check`), which runs outside
+# this chain (CLAUDE.md's verifying section) and reads Pillow, not Godot; this lane is the half a
+# Godot process can prove without it. SKIPS, loudly, the way READS does, while nothing is sourced
+# yet -- which was true until the two containers adopted the outpost pack's crate art.
+func _every_source_resolves_at_its_declared_canvas() -> bool:
+	var sources: Dictionary = _sources()
+	if sources.is_empty():
+		print("SOURCE SKIPPED no authored key declares a `source` yet")
+		return true
+	var judged: int = 0
+	for key in sources.keys():
+		var complaint: String = _complaint_about_source(sources[key])
+		if not complaint.is_empty():
+			push_error("authored.json: '%s' %s" % [String(key), complaint])
+			return false
+		var canvas: Vector2i = Appearance.canvas_of(String(key))
+		var image: Image = _image_of(String(key))
+		if image == null:
+			push_error("%s does not resolve; the source lane had nothing to judge" % String(key))
+			return false
+		if Vector2i(image.get_width(), image.get_height()) != canvas:
+			push_error("%s is %dx%d; authored.json declares %s and its source is supposed to reproduce exactly that (sprites:check proves the pixels match)" % [String(key), image.get_width(), image.get_height(), str(canvas)])
+			return false
+		judged += 1
+
+	# TN: a source whose path does not exist is refused by the same predicate the real entries
+	# went through.
+	if _complaint_about_source({"path": "art/simplyzombies/groups/props/native/does-not-exist.png"}).is_empty():
+		push_error("the source predicate accepted a path that does not exist; it proves nothing")
+		return false
+
+	print("SOURCE OK %d sourced keys resolve at their declared canvas (the pixel-for-pixel proof is sprites:check's, outside this chain)" % judged)
 	return true
 
 
@@ -658,6 +819,10 @@ func _no_highlight_covers_more_than_its_share() -> bool:
 
 # --- the dead-socket lane -------------------------------------------------------------------
 
+# `{sprite key: Array[String]}`, every content id whose appearance block declares it -- not the
+# last one loaded. Until 2026-09-17 this kept only the most recent id, which is a latent bug
+# rather than a rule anyone chose: two bases sharing one icon would have failed the moment the
+# second was authored, because the first id it named was silently overwritten.
 func _keys_content_declares() -> Dictionary:
 	var out: Dictionary = {}
 	var tree: Dictionary = ContentLoader.load_tree()
@@ -675,8 +840,17 @@ func _keys_content_declares() -> Dictionary:
 				continue
 			for prop in ["sprite", "equipSprite", "equipSpriteFront"]:
 				if (block as Dictionary).has(prop):
-					out[String((block as Dictionary)[prop])] = String(entry.get("id", "?"))
+					var sprite_key: String = String((block as Dictionary)[prop])
+					var readers: Array = out.get(sprite_key, [])
+					readers.append(String(entry.get("id", "?")))
+					out[sprite_key] = readers
 	return out
+
+
+# Whether a claimed `reads` is one of the content ids that actually declare the key -- membership,
+# not equality, which is the fix for the last-writer-wins bug `_keys_content_declares` describes.
+func _reads_claim_is_sound(readers: Array, claim: String) -> bool:
+	return readers.has(claim)
 
 
 func _authored_art_is_read_by_something() -> bool:
@@ -693,14 +867,28 @@ func _authored_art_is_read_by_something() -> bool:
 		print("READS SKIPPED the authored tier is empty, so there is no commissioned art to find a reader for; %d content-declared keys were loaded and the lane is ready for the first one" % declared.size())
 		return true
 
+	# `entries.keys()` are authored.json's top-level keys only -- a family's members never appear
+	# here, so a family is judged by its family key exactly as a flat entry is, and there is
+	# nothing extra to special-case for it.
 	for key in entries.keys():
 		var name: String = String(key)
 		if not declared.has(name):
 			push_error("authored.json declares '%s' and no content entry's appearance block names it: art nothing draws" % name)
 			return false
 		var claims: String = String((entries[key] as Dictionary).get("reads", ""))
-		if String(declared[name]) != claims:
-			push_error("authored.json says '%s' is read by '%s'; it is actually declared by '%s'" % [name, claims, String(declared[name])])
+		var readers: Array = declared[name] as Array
+		if not _reads_claim_is_sound(readers, claims):
+			push_error("authored.json says '%s' is read by '%s'; the content entries that actually declare it are %s" % [name, claims, str(readers)])
 			return false
-	print("READS OK %d authored keys are each named by the content entry they claim" % entries.size())
+
+	# TN, both shapes: a claim absent from its readers is refused, and a key with two readers
+	# accepts either of them -- the second is the fix itself, proved rather than assumed.
+	if _reads_claim_is_sound(["a.id"], "b.id"):
+		push_error("the reads predicate accepted a claim absent from its readers; it proves nothing")
+		return false
+	if not _reads_claim_is_sound(["a.id", "b.id"], "a.id"):
+		push_error("the reads predicate refused the first of two sound readers; two bases sharing one icon would fail")
+		return false
+
+	print("READS OK %d authored keys are each named by one of the content entries that declare them" % entries.size())
 	return true
