@@ -7,6 +7,9 @@
     "that sprites are commissioned to this project's own spec rather than bought as a pack, so",
     "an authored key is held to the same canvas, the same anchor and the same published bounds",
     "as the rig it stands beside -- `npm run godot:check:authored` is where that is mechanical.",
+    "The owner's call of 2026-09-17 (docs/30, 'The outpost pack, adopted') was the opposite for",
+    "a second batch: `godot/art/simplyzombies/` is a hand-made pack and it is adopted whole,",
+    "overwriting the generated art it replaces.",
     "",
     "Read by two things, which is the whole point of it being a file rather than a list in code:",
     "tools/sprites/build.py (so --check knows not to try to regenerate it) and",
@@ -14,16 +17,41 @@
     "arrangement every other shape table in this project carries -- PAWN_KEYS in Python and in",
     "GDScript, VEHICLE_FOOTPRINTS in both -- is what this replaces for authored art.",
     "",
+    "An entry may declare `source`: `{path, crop?, pad?}`, `path` relative to godot/ (the same",
+    "string as after res://). tools/sprites/build.py reproduces it -- crop, then pad, never",
+    "repainted or resized, godot/art/simplyzombies/STYLE.md's own rule for its mechanical steps",
+    "-- so `--check` holds a sourced key to decoded pixels the same way it holds a generated one,",
+    "and `python3 tools/sprites/build.py` can write it. A key with no `source` (every",
+    "commissioned one so far) keeps the existence-and-shape check only: nothing here can",
+    "reproduce a PNG an artist delivered by hand.",
+    "",
+    "An entry may instead be a **family**: `members` names several keys that each carry their",
+    "own `source` and share the family's `canvas`. The family key itself is not a file -- it is",
+    "the one `reads` and `kind` are declared against, for art that is one declaration but many",
+    "pictures (a walk cycle's frames, a garment's four sides). `godot:check:authored`'s READS",
+    "lane judges a family by its family key; a member is never content-named on its own.",
+    "",
     "`kind` decides which bounds the gate holds a key to:",
     "  rig      a body. The published bounds in README.md: height, head, shoulders, clearance,",
     "           soles on the bottom row. The eight generated rigs are held to the same numbers",
     "           by the same lane, so the spec cannot drift from the art that already meets it.",
     "  overlay  a piece of equipment composited onto a body. WORN_LOOK_OK owns its fit.",
     "  tile     a tile-sized picture seen from above, centred on its ground point.",
+    "  pack_rig / pack_overlay / module / sheet / prop",
+    "           placeholders for the outpost pack's later slices -- bodies that turn and walk,",
+    "           worn gear, wall modules, animated effect sheets, and prop pictures generally.",
+    "           MANIFEST accepts them today; no shape lane judges one yet, and each gains one",
+    "           when the slice that reads it lands (docs/23's 'Art & renderer -- the outpost",
+    "           pack' group).",
     "",
     "`reads` names what draws it -- a content id whose appearance block declares the key. Art",
     "nothing reads is the dead-socket shape this project has paid for twelve times, so the gate",
-    "refuses a key that names nothing rather than letting it sit here looking finished."
+    "refuses a key that names nothing rather than letting it sit here looking finished. Since",
+    "2026-09-17 `reads` only has to be ONE of the content ids that declare the key, not the last",
+    "one loaded -- two bases sharing one icon are both allowed to claim it.",
+    "",
+    "Optional `anchor: [x, y]` (pixels) and `palette: \"generator\"|\"pack\"` are accepted by",
+    "MANIFEST for later slices to read; nothing draws from either yet."
   ],
   "keys": {
     "prop_container": {
@@ -32,7 +60,10 @@
         32
       ],
       "kind": "tile",
-      "reads": "prop.container"
+      "reads": "prop.container",
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/prop-wood-crate-closed.png"
+      }
     },
     "prop_container_searched": {
       "canvas": [
@@ -40,7 +71,10 @@
         32
       ],
       "kind": "tile",
-      "reads": "prop.container.searched"
+      "reads": "prop.container.searched",
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/prop-wood-crate-empty.png"
+      }
     }
   }
 }
