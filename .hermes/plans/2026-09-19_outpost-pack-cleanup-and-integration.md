@@ -140,4 +140,4 @@ the six status icons stay refused.
   interior walls / corners / verticals (procedural), fences+gates (no fence tile), generated
   caps/faces of retired materials join the retirement follow-up.
 - **Next: Phase 2, piece 5 — "A picture per item base"**, branch `kimi/pack-icons`. Pause here
-  for the owner.
+  for the owner. Pieces 3+4 are stacked on the one branch (linear commits, green at the tip).
