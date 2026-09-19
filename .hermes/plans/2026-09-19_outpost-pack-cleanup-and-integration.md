@@ -65,9 +65,9 @@ the six status icons stay refused.
   if `node_modules` is ever reinstalled, rerun that or check `node_modules/.bin/esbuild
   --version`). Godot 4.7.1 verified at the probed path (`--version` →
   `4.7.1.stable.official.a13da4feb`). Python 3.12.10 at
-  `%LOCALAPPDATA%\Programs\Python\Python312\` with Pillow 12.3.0 (CI's pin); a `python3.exe`
+  `%LOCALAPPDATA%\Programs\Python\Python312` with Pillow 12.3.0 (CI's pin); a `python3.exe`
   copy of `python.exe` was made in that dir because `sprites:check` calls `python3` and the
-  Windows installer does not create one; the dir + `Scripts\` were prepended to the **user**
+  Windows installer does not create one; the dir + `Scripts` were prepended to the **user**
   PATH, so any *new* terminal resolves `python3`. **Trap for this session's agent shell:**
   processes already running (and their children) keep the old PATH, so this session prepends
   `$env:LOCALAPPDATA\Programs\Python\Python312` to `$env:Path` inside each command that needs
@@ -128,8 +128,8 @@ the six status icons stay refused.
   `pack_bed` cropped to the 32-wide window, size 1.0. READS gains the `dressing.street` reader.
   Full `godot:m2` → 82 gates green; `sprites:check` → 169 generated + 69 authored. **Named:** the
   multi-tile prop the bed was drawn for; generated heap/scatter keys join the retirement follow-up.
-- **2026-09-19 — Phase 2, piece 4 DONE — "The walls are modules"** (`kimi/pack-walls`, not yet
-  merged). Building fronts are pack standing modules in the entity sort: per front tile a
+- **2026-09-19 — Phase 2, piece 4 DONE — "The walls are modules"** (stacked on
+  `kimi/pack-nature` as `f4061e7`, pushed). Building fronts are pack standing modules in the entity sort: per front tile a
   32-wide half by run parity (tiles compose the 64-wide module with zero overlap), doors/windows
   whole on their tile's centre, anchored at the pack's `(w/2, 44)` on the south-edge centre,
   y-sorted with bodies at `ty+1.0` (+0.0001 so neighbour halves draw after), seen/remembered
@@ -139,5 +139,20 @@ the six status icons stay refused.
   open/closed, windows the pane. Full `godot:m2` → 82 gates green. **Named, not shipped:**
   interior walls / corners / verticals (procedural), fences+gates (no fence tile), generated
   caps/faces of retired materials join the retirement follow-up.
-- **Next: Phase 2, piece 5 — "A picture per item base"**, branch `kimi/pack-icons`. Pause here
-  for the owner. Pieces 3+4 are stacked on the one branch (linear commits, green at the tip).
+- **Session wrap, 2026-09-19.** Branch state at the end of the session, all pushed: main
+  still at 69fffd9 (Phase 1); piece 1 on `kimi/pack-bodies` (5ac46ed), piece 2 on
+  `kimi/pack-ground` (f30d2c6), pieces 3+4 stacked on `kimi/pack-nature` (5b5a67e + f4061e7,
+  the tip at 97a55c4) -- each green at its own tip when it landed (82 M2 gates, 594 tests,
+  sprites, routing). **Nothing is merged yet**; the merges are the next unit of work, then the
+  remaining arc on top of them.
+- **What is left, with the session end estimate** (about 8-10 working hours, 2-3 sessions):
+  merge the three branches (~30 min); piece 5, the 48 item icons (~1.5 h); piece 6, the shot
+  seen (~2 h, one fork: which effect events map to sockets); piece 7, the cars east-west
+  (~1.5 h); piece 8, the cursor (~45 min); piece 9, the needs-assets report (~15 min); the
+  generated-tier retirement cleanup (~1 h); .gitattributes and the owner look call (~30 min).
+  Each piece still costs one full godot:m2 verify (~28 min) before its commit.
+- **Waiting on the owner to judge, none of it blocking a merge:** the pack-bodies screenshot
+  (.hermes/plans/2026-09-19_outpost-pack/pack-bodies.png -- the shared body reads dark, median
+  luma 0.128 under the street floor 0.38), the 3-tick walk rate, the Mara/Ellis tints, the
+  brighter dirt and the dim generated walls, and the .gitattributes eol=lf decision.
+- **Next: piece 5**, on the branch the owner picks up after the merges. Pause here.
