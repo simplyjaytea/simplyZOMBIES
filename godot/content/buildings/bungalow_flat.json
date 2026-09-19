@@ -9,5 +9,5 @@
   "tags": ["residential"],
   "weight": 7,
   "dormant": {"chance": 0.35, "max": 2},
-  "look": {"roof": "shingle", "wall": "render"}
+  "look": {"roof": "shingle", "wall": "plaster"}
 }

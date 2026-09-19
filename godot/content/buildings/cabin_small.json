@@ -9,5 +9,5 @@
   "tags": ["cabin"],
   "weight": 10,
   "dormant": {"chance": 0.35, "max": 2},
-  "look": {"roof": "shingle", "wall": "timber"}
+  "look": {"roof": "shingle", "wall": "plaster"}
 }

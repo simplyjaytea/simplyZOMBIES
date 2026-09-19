@@ -53,7 +53,7 @@ const GATE_SIZE: int = 64
 const BUDGET_SECONDS: float = 60.0
 
 const ROOFS: Array[String] = ["shingle", "tin", "tar"]
-const WALLS: Array[String] = ["timber", "brick", "render", "block"]
+const WALLS: Array[String] = ["plaster", "brick"]
 
 # check_road_look.gd's WARM_MARGIN, copied: that file is a SceneTree entrypoint, not a class
 # another script can import, so the value travels by comment rather than by reference.
@@ -287,7 +287,7 @@ func _the_look_resolves_and_can_say_no() -> bool:
 			return false
 
 	# True negatives, through the same predicate as the real templates above.
-	if _material_resolves(dress, {"roof": "thatch", "wall": "timber"}).is_empty():
+	if _material_resolves(dress, {"roof": "thatch", "wall": "plaster"}).is_empty():
 		push_error("a fabricated look naming 'thatch' resolved cleanly; the table refusal is dead")
 		return false
 	if _material_resolves(dress, {}).is_empty():
@@ -295,9 +295,9 @@ func _the_look_resolves_and_can_say_no() -> bool:
 		return false
 	var broken: Dictionary = dress.duplicate(true)
 	var broken_walls: Dictionary = broken["walls"] as Dictionary
-	var broken_timber: Dictionary = broken_walls["timber"] as Dictionary
-	broken_timber["cap"] = "wall_no_such_file"
-	if _material_resolves(broken, {"roof": "shingle", "wall": "timber"}).is_empty():
+	var broken_plaster: Dictionary = broken_walls["plaster"] as Dictionary
+	broken_plaster["cap"] = "wall_no_such_file"
+	if _material_resolves(broken, {"roof": "shingle", "wall": "plaster"}).is_empty():
 		push_error("a wall cap naming a nonexistent file resolved cleanly; resolve()'s null is not reaching this lane")
 		return false
 

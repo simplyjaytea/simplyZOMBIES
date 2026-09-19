@@ -128,5 +128,16 @@ the six status icons stay refused.
   `pack_bed` cropped to the 32-wide window, size 1.0. READS gains the `dressing.street` reader.
   Full `godot:m2` → 82 gates green; `sprites:check` → 169 generated + 69 authored. **Named:** the
   multi-tile prop the bed was drawn for; generated heap/scatter keys join the retirement follow-up.
-- **Next: Phase 2, piece 4 — "The walls are modules"**, branch `kimi/pack-walls`. Pause here for
-  the owner.
+- **2026-09-19 — Phase 2, piece 4 DONE — "The walls are modules"** (`kimi/pack-walls`, not yet
+  merged). Building fronts are pack standing modules in the entity sort: per front tile a
+  32-wide half by run parity (tiles compose the 64-wide module with zero overlap), doors/windows
+  whole on their tile's centre, anchored at the pack's `(w/2, 44)` on the south-edge centre,
+  y-sorted with bodies at `ty+1.0` (+0.0001 so neighbour halves draw after), seen/remembered
+  composite. Tile pass yields caps for fronts (`check_memory_look` MAP-READER counts 4
+  continues). Building looks re-keyed timber/render/block → plaster; walls enum now
+  [plaster, brick] (both schemas + district alpha); street.json `modules` table; doors show
+  open/closed, windows the pane. Full `godot:m2` → 82 gates green. **Named, not shipped:**
+  interior walls / corners / verticals (procedural), fences+gates (no fence tile), generated
+  caps/faces of retired materials join the retirement follow-up.
+- **Next: Phase 2, piece 5 — "A picture per item base"**, branch `kimi/pack-icons`. Pause here
+  for the owner.

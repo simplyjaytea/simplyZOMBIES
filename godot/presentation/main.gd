@@ -1166,14 +1166,21 @@ func _draw_district() -> void:
 					# above, or the face where the street is to its south (RoofLook decides,
 					# Dressing names the picture). Everything else -- a screen, a barricade, a
 					# wall no template stamped -- keeps the procedural cap and bands, the
-					# supported fallback and check_topdown.gd's WALL lane's subject.
+					# supported fallback and check_topdown.gd's WALL lane's subject. A module
+					# front yields to the pack piece the entity sort draws: ground only here.
+					if not _wall_module_of(tx, ty).is_empty():
+						continue
 					if not _draw_wall_art(rect, dress, tx, ty, false):
 						_draw_solid_tile(rect, col, tx, ty)
 				SimTileMap.Tile.Window:
 					# A window is a hole in masonry, so the tile is masonry and the glass is the
 					# pane: the tile colour that used to fill it edge to edge is handed to the
 					# pane instead, which is where the state a boarded-up window reaches stage 3
-					# in still shows. In a face the pane is the face's own window picture.
+					# in still shows. In a face the pane is the face's own window picture. A
+					# module front yields to the pack piece the entity sort draws, same as a
+					# wall front above.
+					if not _wall_module_of(tx, ty).is_empty():
+						continue
 					if not _draw_wall_art(rect, dress, tx, ty, true):
 						_draw_solid_tile(rect, Palette.COLOURS["wall"], tx, ty)
 						_draw_window_glass(rect, tx, ty, col)
@@ -1197,7 +1204,10 @@ func _draw_district() -> void:
 					# doorway (the class's palette colour, `door`); open or broken, the doorway it
 					# always was -- the threshold boards between the jambs and the face picture.
 					# The state is the overlay `sync_map` wrote off the `door` entity; a Door tile
-					# with no overlay (a map nobody booted) is open.
+					# with no overlay (a map nobody booted) is open. A module front yields to the
+					# pack piece the entity sort draws, both states.
+					if not _wall_module_of(tx, ty).is_empty():
+						continue
 					var door_ov: Variant = SimTileMap.overlay_at(world.tilemap, tx, ty)
 					var shut: bool = door_ov is Dictionary and String((door_ov as Dictionary).get("kind", "")) == "door" and not bool((door_ov as Dictionary).get("open", false))
 					if shut:
@@ -1714,6 +1724,131 @@ func _draw_door_face(rect: Rect2, dress: Dictionary, tx: int, ty: int) -> void:
 		draw_texture_rect(texture, rect, false)
 
 
+# A wall front: the pack's standing module, hung on the run's south edge the way a tree is
+# (its anchor a fixed canvas point, so the piece's face hangs south over the neighbours' tiles),
+# never flipped, never rotated, and NEVER faded -- a wall occludes for real, and the sim's sight
+# is what says whether its tile draws at all. Drawn white: a front is its own object, and a
+# remembered one goes through the mapped dark.
+func _blit_wall_mod(it: Dictionary, px_scale: float) -> void:
+	var texture: Texture2D = Appearance.resolve(String(it["key"]))
+	if texture == null:
+		return
+	var s: float = px_scale
+	var size: Vector2 = (texture as Texture2D).get_size() * s
+	# The pack anchors a wall piece at its centre, 4 px above the canvas bottom: content rows
+	# 4..43, so the canvas point (width/2, 44) is the ground point the piece stands on.
+	var anchor: Vector2 = Vector2(size.x / 2.0, 44.0 * s)
+	var rect := Rect2(float(it["sx"]) - anchor.x, float(it["sy"]) - anchor.y, size.x, size.y)
+	var tint := Color(1.0, 1.0, 1.0, 1.0)
+	if bool(it.get("remembered", false)):
+		tint = Palette.remembered(tint)
+	draw_texture_rect(texture, rect, false, tint)
+
+
+# No drawn art for this tile, or it is not a wall tile a module can draw. The pack's standing
+# modules take over a building's outdoor front (docs/23, "The walls are modules", decision 3 of
+# the record entry): a solid Wall/Window/Door tile with open, outdoor ground to its south, in a
+# building whose look the dressing names, carrying no barricade -- a boarded window or a scrap
+# barricade still reads as boarded masonry (the procedural cap's subject), while a door's own
+# overlay is the state its module shows. A Screen tile keeps the procedural cap: furniture walls
+# are not building fronts.
+# Whether the seen-or-explored composite carries the tile: `main.gd` builds the same composite
+# in `_draw_entities` before the trees and the cars pick from it -- a front the survivor once
+# stood beside draws dimmed, the same as a car it remembers.
+func _composite_has(composite: Variant, tx: int, ty: int) -> bool:
+	if composite == null:
+		return false
+	return bool((composite as Object).call("has_tile", tx, ty))
+
+
+func _wall_module_of(tx: int, ty: int) -> Dictionary:
+	if world == null or world.tilemap == null:
+		return {}
+	var tile: int = int(SimTileMap.tile_at(world.tilemap, tx, ty))
+	if tile != SimTileMap.Tile.Wall and tile != SimTileMap.Tile.Window and tile != SimTileMap.Tile.Door:
+		return {}
+	var ov: Variant = SimTileMap.overlay_at(world.tilemap, tx, ty)
+	if ov is Dictionary and String((ov as Dictionary).get("kind", "")) != "door":
+		return {}
+	if not RoofLook.south_open(world.tilemap, tx, ty):
+		return {}
+	if _look_at(tx, ty).is_empty():
+		return {}
+	return {"front": true}
+
+
+# The westmost tile of the horizontal front run (tx, ty) belongs to: the run walks west over
+# contiguous front tiles of the same building. Bounded by the walk itself, so a long run is a
+# short walk from each drawn tile rather than a per-frame whole-map pass.
+func _wall_run_start(tx: int, ty: int) -> int:
+	var w: int = int(world.tilemap.w)
+	var index: PackedInt32Array = _building_index()
+	if ty < 0 or ty >= int(world.tilemap.h) or tx < 0 or tx >= w:
+		return tx
+	var at: int = ty * w + tx
+	if at < 0 or at >= index.size():
+		return tx
+	var mine: int = int(index[at])
+	var x: int = tx
+	while x > 0:
+		var west_at: int = ty * w + (x - 1)
+		if _wall_module_of(x - 1, ty).is_empty() or west_at >= index.size() or int(index[west_at]) != mine:
+			break
+		x -= 1
+	return x
+
+
+# The front faces, as pack modules in the entity sort (docs/23, "The walls are modules",
+# decision 3 of the record entry). ONE rule: every front tile stands its own 32-wide piece -- a
+# straight tile takes the half its run position names, so tiles compose the pack's 64-wide
+# module across the run without a pixel of overlap, and a door or a window takes its whole
+# piece on its own tile's centre, because a door tile is a tile and the pack drew no half of
+# one; the half tile it spills east feeds under the neighbours' halves, which draw after it.
+# § Draw is a subset of seen, on the seen-or-remembered composite -- the trees' own rule -- and
+# a remembered front draws dimmed through its item. Nothing fades: a wall occludes for real.
+func _wall_module_items(items: Array[Dictionary], seen: Variant, composite: Variant, bounds: Dictionary) -> void:
+	if world.tilemap == null or world.map_width <= 0:
+		return
+	var min_x: int = maxi(0, floori(float(bounds.get("minX", 0.0))))
+	var max_x: int = mini(int(world.map_width) - 1, ceili(float(bounds.get("maxX", 0.0))))
+	var min_y: int = maxi(0, floori(float(bounds.get("minY", 0.0))))
+	var max_y: int = mini(int(world.map_height) - 1, ceili(float(bounds.get("maxY", 0.0))))
+	for ty in range(min_y, max_y + 1):
+		for tx in range(min_x, max_x + 1):
+			if _wall_module_of(tx, ty).is_empty():
+				continue
+			# Draw is a subset of seen, and a front the survivor remembers rather than sees
+			# draws dimmed. A world with no vision at all draws every front -- the gate
+			# fixture's case, and the same answer the tile pass gives.
+			var remembered: bool = false
+			if not _composite_has(composite, tx, ty):
+				continue
+			if seen != null:
+				remembered = not bool((seen as Object).call("has_tile", tx, ty))
+			var dress: Dictionary = _dressing()
+			var material: String = String(_look_at(tx, ty).get("wall", "plaster"))
+			var mate: int = int(SimTileMap.tile_at(world.tilemap, tx, ty))
+			var ov: Variant = SimTileMap.overlay_at(world.tilemap, tx, ty)
+			var key: String = ""
+			var anchor: float = float(tx) + 0.5
+			var depth: float = float(ty) + 1.0
+			if mate == SimTileMap.Tile.Door:
+				var shut: bool = ov is Dictionary and not bool((ov as Dictionary).get("open", false))
+				key = Dressing.wall_module_key(dress, material, "door_closed" if shut else "door_open")
+				depth += 0.0001
+			elif mate == SimTileMap.Tile.Window:
+				key = Dressing.wall_module_key(dress, material, "window")
+				depth += 0.0001
+			else:
+				# The straight wall: the half the run position names, one 32-wide span per tile.
+				var even: bool = (tx - _wall_run_start(tx, ty)) % 2 == 0
+				key = Dressing.wall_module_key(dress, material, "straight_half_l" if even else "straight_half_r")
+			if key.is_empty() or Appearance.resolve(key) == null:
+				continue
+			var sc: Dictionary = TopDownProjection.world_to_screen(camera, anchor, depth)
+			items.append({"kind": "wall", "key": key, "sx": float(sc["sx"]), "sy": float(sc["sy"]), "d": TopDownProjection.depth_of(anchor, depth), "det": SimVisibility.Detail.Focal, "remembered": remembered})
+
+
 # The roofs: RoofLook.roof_tiles says which interior tiles the survivor cannot see belong to a
 # building they can see part of, and each takes its material's sheet -- the north or south half
 # of a pitched roof about the footprint's ridge row, or the flat one -- or, with no art for the
@@ -2034,6 +2169,11 @@ func _draw_entities() -> void:
 			var flip: float = Appearance.vehicle_flip(String(rec.get("facing", "")))
 			var v_remembered: bool = not Dressing.vehicle_is_seen(rec, seen)
 			items.append({"kind": "vehicle", "key": vkey, "flip": flip, "sx": float(vsc["sx"]), "sy": float(vsc["sy"]), "d": TopDownProjection.depth_of(gp.x, gp.y), "det": SimVisibility.Detail.Focal, "remembered": v_remembered})
+	# The building fronts join the same sort: each front tile stands its pack module on the run's
+	# south edge, y-sorted with the bodies crossing it (docs/23, "The walls are modules"). A front
+	# reaches a little south of its own tile, so the same 2.0-tile margin the trees and the
+	# vehicles take is one a module shares.
+	_wall_module_items(items, seen, composite, TopDownProjection.visible_bounds(camera, 2.0))
 	items.sort_custom(func(a, b): return float(a["d"]) < float(b["d"]))
 	for it in items:
 		if String(it.get("kind", "")) == "tree":
@@ -2041,6 +2181,9 @@ func _draw_entities() -> void:
 			continue
 		if String(it.get("kind", "")) == "vehicle":
 			_blit_vehicle(it, px_scale)
+			continue
+		if String(it.get("kind", "")) == "wall":
+			_blit_wall_mod(it, px_scale)
 			continue
 		var sx: float = float(it["sx"]); var sy: float = float(it["sy"])
 		# Colours and sprites come from content now, not from a chain of type-id checks here.

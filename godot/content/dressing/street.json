@@ -1,7 +1,10 @@
 {
   "id": "dressing.street",
   "name": "Street dressing",
-  "heaps": ["heap_trash", "heap_barrel"],
+  "heaps": [
+    "heap_trash",
+    "heap_barrel"
+  ],
   "litter": [
     "scrub_bush",
     "scrub_reeds",
@@ -12,16 +15,51 @@
     "deadfall_log"
   ],
   "walls": {
-    "timber": { "cap": "wall_timber_cap", "face": "wall_timber_face" },
-    "brick": { "cap": "wall_brick_cap", "face": "wall_brick_face" },
-    "render": { "cap": "wall_render_cap", "face": "wall_render_face" },
-    "block": { "cap": "wall_block_cap", "face": "wall_block_face" }
+    "plaster": {
+      "cap": "wall_render_cap",
+      "face": "wall_render_face"
+    },
+    "brick": {
+      "cap": "wall_brick_cap",
+      "face": "wall_brick_face"
+    }
   },
   "roofs": {
-    "shingle": { "n": "roof_shingle_n", "s": "roof_shingle_s" },
-    "tin": { "n": "roof_tin_n", "s": "roof_tin_s" },
-    "tar": { "flat": "roof_tar_flat" }
+    "shingle": {
+      "n": "roof_shingle_n",
+      "s": "roof_shingle_s"
+    },
+    "tin": {
+      "n": "roof_tin_n",
+      "s": "roof_tin_s"
+    },
+    "tar": {
+      "flat": "roof_tar_flat"
+    }
   },
-  "faces": { "window": "face_window", "door": "face_door", "garage": "face_garage" },
-  "trees": { "tall": ["tree_pine", "tree_broadleaf", "tree_dead"] }
+  "faces": {
+    "window": "face_window",
+    "door": "face_door",
+    "garage": "face_garage"
+  },
+  "modules": {
+    "straight_half_l": {
+      "plaster": "wall_plaster_hl",
+      "brick": "wall_brick_hl"
+    },
+    "straight_half_r": {
+      "plaster": "wall_plaster_hr",
+      "brick": "wall_brick_hr"
+    },
+    "window": "wall_module_window",
+    "door_closed": "wall_module_door_closed",
+    "door_open": "wall_module_door_open"
+  },
+  "trees": {
+    "tall": [
+      "tree_pine",
+      "tree_broadleaf",
+      "tree_dead"
+    ]
+  }
 }

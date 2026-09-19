@@ -781,6 +781,135 @@
         }
       }
     },
+    "wall_brick_hl": {
+      "canvas": [
+        32,
+        48
+      ],
+      "kind": "module",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/groups/environment/textures/wall-brick.png",
+        "crop": [
+          0,
+          4,
+          32,
+          40
+        ],
+        "pad": [
+          32,
+          48,
+          0,
+          4
+        ]
+      }
+    },
+    "wall_brick_hr": {
+      "canvas": [
+        32,
+        48
+      ],
+      "kind": "module",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/groups/environment/textures/wall-brick.png",
+        "crop": [
+          32,
+          4,
+          32,
+          40
+        ],
+        "pad": [
+          32,
+          48,
+          0,
+          4
+        ]
+      }
+    },
+    "wall_pack": {
+      "canvas": [
+        64,
+        48
+      ],
+      "kind": "module",
+      "reads": "dressing.street",
+      "members": {
+        "wall_module_door_closed": {
+          "source": {
+            "path": "art/simplyzombies/groups/environment/textures/wall-door-closed.png"
+          }
+        },
+        "wall_module_door_open": {
+          "source": {
+            "path": "art/simplyzombies/groups/environment/textures/wall-door-open.png",
+            "crop": [
+              0,
+              4,
+              64,
+              44
+            ],
+            "pad": [
+              64,
+              48,
+              0,
+              4
+            ]
+          }
+        },
+        "wall_module_window": {
+          "source": {
+            "path": "art/simplyzombies/groups/environment/textures/wall-window-intact.png"
+          }
+        }
+      }
+    },
+    "wall_plaster_hl": {
+      "canvas": [
+        32,
+        48
+      ],
+      "kind": "module",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/groups/environment/textures/wall-plaster.png",
+        "crop": [
+          0,
+          4,
+          32,
+          40
+        ],
+        "pad": [
+          32,
+          48,
+          0,
+          4
+        ]
+      }
+    },
+    "wall_plaster_hr": {
+      "canvas": [
+        32,
+        48
+      ],
+      "kind": "module",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/groups/environment/textures/wall-plaster.png",
+        "crop": [
+          32,
+          4,
+          32,
+          40
+        ],
+        "pad": [
+          32,
+          48,
+          0,
+          4
+        ]
+      }
+    },
     "wear_backpack": {
       "canvas": [
         32,

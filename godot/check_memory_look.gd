@@ -319,10 +319,10 @@ func _the_remembered_map_stays_known_after_walking_away(main: Node, world: Varia
 	if not district.contains("Palette.remembered("):
 		push_error("MAP-READER: _draw_district never reaches Palette.remembered( -- a remembered tile would draw exactly as an unseen one")
 		return false
-	if district.count("continue") != 1:
-		push_error("MAP-READER: _draw_district holds %d `continue` statements in its tile loop, not the one escape hatch for a tile that is neither seen nor explored" % district.count("continue"))
+	if district.count("continue") != 4:
+		push_error("MAP-READER: _draw_district holds %d `continue` statements, not the four (the escape hatch for a tile neither seen nor explored, and the three module yields -- a wall, window or door front the pack's entity-sort module draws, which the tile pass must not cap over)" % district.count("continue"))
 		return false
-	print("MAP OK a tile explored a moment ago stays known after walking away, the frame carrying it finished drawing (tick %d), and the tile loop reaches Palette.remembered( with its one continue intact" % after)
+	print("MAP OK a tile explored a moment ago stays known after walking away, the frame carrying it finished drawing (tick %d), and the tile loop reaches Palette.remembered( with its one unseen escape and three module yields intact" % after)
 	return true
 
 

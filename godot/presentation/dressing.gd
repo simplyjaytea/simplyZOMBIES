@@ -337,6 +337,23 @@ static func wall_key(block: Dictionary, material: String, face: bool) -> String:
 	return String((entry as Dictionary).get("face" if face else "cap", ""))
 
 
+# The pack's wall modules (docs/23, "The walls are modules"): `slot` is "straight_half_l" or
+# "straight_half_r" -- the half one front tile draws, per the run position -- and any other slot
+# ("interior", "window", "door_closed", "door_open") reads the top-level module it names. ""
+# for anything the block does not declare, and the caller draws the procedural cap.
+static func wall_module_key(block: Dictionary, material: String, slot: String) -> String:
+	var modules: Variant = block.get("modules")
+	if not (modules is Dictionary):
+		return ""
+	var slots: Dictionary = modules as Dictionary
+	if slot == "straight_half_l" or slot == "straight_half_r":
+		var per: Variant = (slots as Dictionary).get(slot)
+		if not (per is Dictionary):
+			return ""
+		return String((per as Dictionary).get(material, ""))
+	return String((slots as Dictionary).get(slot, ""))
+
+
 static func _roof_entry(block: Dictionary, material: String) -> Dictionary:
 	var roofs: Variant = block.get("roofs")
 	if not (roofs is Dictionary):

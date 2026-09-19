@@ -168,6 +168,6 @@
   "weight": 4,
   "look": {
     "roof": "tin",
-    "wall": "render"
+    "wall": "plaster"
   }
 }

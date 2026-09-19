@@ -4,7 +4,13 @@
   "title": "Dressing",
   "description": "What the *map* looks like where the sim has only a tile class. A Low tile is 'cover you can shoot over' to every mechanism that walks, sees or shoots -- the sim knows nothing finer -- and this entry is what says the ones no parked vehicle covers are heaps of junk. Same rule as prop.schema.json and for the same reason (CLAUDE.md, 'how a thing looks is content, not code'): presentation/dressing.gd resolves keys out of this block and main.gd blits them, and neither contains a sprite key of its own. NOTE: the content validator is shallow -- it checks these top-level types and rejects unexpected top-level keys, and never once looks inside `wrecks` -- so the whole nested shape below is enforced by check_wrecks.gd, which resolves every key it declares and refuses a fabricated one.",
   "type": "object",
-  "required": ["id", "name", "heaps", "litter", "rubble"],
+  "required": [
+    "id",
+    "name",
+    "heaps",
+    "litter",
+    "rubble"
+  ],
   "additionalProperties": false,
   "properties": {
     "id": {
@@ -19,17 +25,26 @@
     "heaps": {
       "type": "array",
       "description": "How a Low tile draws when no parked vehicle covers it: a heap of junk, one key per tile, picked by a pure hash of the map seed and the tile (never a sim RNG stream -- presentation may not spend a draw the layout would have to account for). A Low tile a `map.vehicles` record does cover draws nothing here at all: the car is one feet-anchored three-quarter picture standing in the entity sort, and presentation/main.gd's tile branch defers the whole footprint to it. The two cases are mutually exclusive by construction and check_wrecks.gd holds the draw loop to it. The front/mid/rear car segment sets this replaced retired with the per-tile vehicle convention (docs/30, the Dungeon Settlers look, decision 11). An empty list draws the renderer's procedural cover block, which is the supported fallback.",
-      "items": { "type": "string", "pattern": "^[a-z0-9_.]+$" }
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9_.]+$"
+      }
     },
     "litter": {
       "type": "array",
       "description": "Cosmetic scatter keys for street pavement, hash-picked per tile and sparse. Purely decorative: litter marks nothing, blocks nothing and is drawn on tiles the sim considers empty paving.",
-      "items": { "type": "string", "pattern": "^[a-z0-9_.]+$" }
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9_.]+$"
+      }
     },
     "rubble": {
       "type": "array",
       "description": "Scatter keys drawn over tiles whose surface layer is SURFACE_RUBBLE -- the ground the worldgen rubble pass places. Unlike litter this one lies over something the sim does read (rubble slows a body and loudens a step), but the art still says nothing the surface did not already say.",
-      "items": { "type": "string", "pattern": "^[a-z0-9_.]+$" }
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9_.]+$"
+      }
     },
     "walls": {
       "type": "object",
@@ -50,9 +65,16 @@
       "properties": {
         "tall": {
           "type": "array",
-          "items": { "type": "string", "pattern": "^[a-z0-9_.]+$" }
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9_.]+$"
+          }
         }
       }
+    },
+    "modules": {
+      "type": "object",
+      "description": "The wall modules a building front stands (docs/23, 'The walls are modules'): per-material halves under 'straight_half_l'/'straight_half_r' and the material-independent states 'interior', 'window', 'door_closed', 'door_open'. Optional; the shallow validator never looks inside it -- check_roof_look.gd's look lane and check_authored.gd's dressing reader resolve every key it declares and refuse a fabricated one."
     }
   }
 }

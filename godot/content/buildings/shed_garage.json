@@ -9,5 +9,5 @@
   "tags": ["shed"],
   "weight": 8,
   "dormant": {"chance": 0.35, "max": 1},
-  "look": {"roof": "tin", "wall": "block"}
+  "look": {"roof": "tin", "wall": "plaster"}
 }

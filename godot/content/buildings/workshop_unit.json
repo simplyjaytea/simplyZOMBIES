@@ -8,5 +8,5 @@
   "doors": [{"x": 2, "y": 8}, {"x": 3, "y": 8}, {"x": 4, "y": 8}, {"x": 5, "y": 8}],
   "tags": ["commercial"],
   "weight": 6,
-  "look": {"roof": "tin", "wall": "block"}
+  "look": {"roof": "tin", "wall": "plaster"}
 }

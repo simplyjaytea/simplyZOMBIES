@@ -962,12 +962,12 @@ func _keys_the_dressing_names(dressing_id: String) -> Dictionary:
 			if String(entry.get("id", "")) != dressing_id:
 				continue
 			_collect_strings(entry.get("trees"), out)
+			_collect_strings(entry.get("walls"), out)
+			_collect_strings(entry.get("modules"), out)
 			for field in ["heaps", "litter", "rubble"]:
 				_collect_strings(entry.get(field), out)
 			return out
 	return out
-
-
 func _collect_strings(value: Variant, out: Dictionary) -> void:
 	if value is Array:
 		for item in value as Array:

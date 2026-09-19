@@ -451,6 +451,6 @@
   "weight": 8,
   "look": {
     "roof": "tin",
-    "wall": "block"
+    "wall": "plaster"
   }
 }

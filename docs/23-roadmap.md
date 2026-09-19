@@ -556,10 +556,12 @@ projection are untouched.
 - ~~**Trees, the bed and the heaps.**~~ — **landed** 2026-09-19, see the record. The pack's eight
   nature sprites and its bed replace their generated equivalents, and the canopy amendment to
   "one tile wide" (docs/30) is exercised by all three trees.
-- **The walls are modules.** The pack's thirteen wall/fence/door/window states become per-tile
-  half pieces, y-sorted on the run's south edge in place of the generated thick-mass wall and cap
-  (decision 3 of the record entry; supersedes "walls gain thickness" and absorbs "the wall face
-  hangs south," both above).
+- ~~**The walls are modules.**~~ — **landed** 2026-09-19, see the record. The pack's
+  wall/fence/door/window states became y-sorted standing pieces on the run's south edge in place
+  of the generated thick-mass wall art, superseding "walls gain thickness" and absorbing "the
+  wall face hangs south". The record names the half: interiors, corners, vertical runs and the
+  fences/gates keep the procedural cap in the tile pass — the pack drew no piece for them and the
+  sim names no fence tile.
 - **A picture per item base.** Moved into this group 2026-09-17 from the inventory-sheet group
   below: the pack's 48 inventory icons, already at the ground-item canvas, land as
   `appearance.sprite` for the shipped bases rather than a new generator module drawing them.
@@ -2079,6 +2081,38 @@ not a to-do list:
   re-pins KEYS/TIERS/RECT to the pack family and bounds. **What is named**: the multi-tile prop
   the bed was drawn for; and the generated heap/litter/rubble keys (`low_heap_*`, `debris_*`)
   remain generated but unreferenced, joining piece 1's rigs in the retirement follow-up.
+
+- **Art & renderer — the walls are modules, 2026-09-19** (`npm run godot:m2` → 82 gates, all
+  exit 0). Decision 3 of the "The outpost pack, adopted" record entry executed, superseding
+  "walls gain thickness" and absorbing "the wall face hangs south" into one rule: the front a
+  building shows the street is the pack's standing wall in the entity sort, not mass inside its
+  footprint. **The composition, and the reason it is pieces not pairs.** Each outdoor-front tile
+  (solid Wall/Window/Door, `RoofLook.south_open`, a building look, no barricade — the same
+  predicate `_wall_module_of` answers to both the collector and the tile pass's skips) stands
+  its own 32-wide piece: a straight wall takes the half its run position names (left on even
+  offsets, right on odd, walks west from the run start), so tiles compose the pack's 64-wide
+  module across the run without a pixel of overlap and an odd tail is the loader's half; a door
+  or a window takes its whole 64-wide piece on its own tile's centre, standing mid-run by the
+  half tile that makes the seam the record names rather than hides (the pack drew a 2-tile piece
+  and the sim's door is one tile). Doors show state (`door_closed`/`door_open`, the open piece's
+  transparent doorway lets the body behind it read through), windows the pane piece. Anchoring
+  is the tree's own geometry — the pack's ground anchor `(w/2, 44)` stands on the tile's
+  south-edge centre, depth there at `ty + 1.0` (a body south of the wall draws in front, north
+  behind, and the open door's hole shows who is at it); fronts sit `+0.0001` on the depth so the
+  straight halves their spill feeds under draw after them. Draw is a subset of seen on the
+  seen-or-remembered composite, and a remembered front dims through its item; nothing fades —
+  a wall occludes for real. The tile pass yields its cap/face/pane/draw for a front tile (the
+  three new `continue`s `check_memory_look.gd`'s MAP-READER counts, beside the unseen escape),
+  and `_draw_wall_art`'s face path retires with the generated faces. **The content.**
+  `street.json` gains `modules` (per-material halves, window, door states) and the walls table
+  keeps the caps for the two remaining look materials: the building looks re-keyed
+  **timber/render/block → plaster** (20 templates, the district alpha and both `look.wall`
+  schemas now `[plaster, brick]`), because the pack drew two straight materials and the reads
+  read closer than the names did. **Named, not shipped**: interior walls (south is indoor —
+  not a front, the procedural cap stays), corners and vertical runs (the pack's corner pieces
+  wait for a corner vocabulary, the vertical fence for a run geometry), the fences and gates
+  (the sim names no fence tile), and the generated wall caps/faces of the four retired
+  materials remain generated but unreferenced in the retirement follow-up.
 
 - **World & map** — ~~the three location loot tables~~ **landed** (`godot:check:loot`): what a
   place yields is content now, not two hardcoded kits in `boot.gd`. `content/loot/tables.json`

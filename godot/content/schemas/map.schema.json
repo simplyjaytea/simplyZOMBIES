@@ -118,7 +118,7 @@
           "description": "Roof material. The name resolves through content/dressing/street.json's `roofs` table to the sprite keys the renderer blits -- presentation/roof_look.gd decides cap vs face per tile and which interior tiles take a roof. A material with no table entry draws the procedural wall, which is the supported fallback."
         },
         "wall": {
-          "enum": ["timber", "brick", "render", "block"],
+          "enum": ["plaster", "brick"],
           "description": "Wall material. The name resolves through content/dressing/street.json's `walls` table to the sprite keys the renderer blits -- presentation/roof_look.gd decides cap vs face per tile and which interior tiles take a roof. A material with no table entry draws the procedural wall, which is the supported fallback."
         }
       },

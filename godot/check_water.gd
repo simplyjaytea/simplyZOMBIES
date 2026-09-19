@@ -341,7 +341,11 @@ func _the_draw_path_reaches_water_in_both_of_its_two_matches() -> bool:
 	# colon too, which is why counting the bare needle over the whole file answered 3 and not 2.
 	var first: int = src.find("match tile:")
 	var second: int = src.find("match tile:", first + 1)
-	var blocks: Array[String] = [src.substr(first, second - first), src.substr(second, 4000)]
+	# The window is 5200 chars and not 4000: the wall-module slices (docs/23, "The walls are
+	# modules") landed above the water arm in the draw match and pushed it past the old window,
+	# which is a read that came up short rather than an arm that stopped drawing -- proven by the
+	# offsets the lane now reports rather than trusted.
+	var blocks: Array[String] = [src.substr(first, second - first), src.substr(second, 5200)]
 	var names: Array[String] = ["the colour match", "the draw match"]
 	for i in blocks.size():
 		if not (blocks[i] as String).contains("SimTileMap.Tile.Water:"):
