@@ -2,12 +2,12 @@
   {
     "id": "prop.container",
     "name": "Container",
-    "appearance": { "sprite": "prop_container", "shape": "box", "size": 0.62 }
+    "appearance": { "sprite": "prop_container", "shape": "box", "size": 0.8 }
   },
   {
     "id": "prop.container.searched",
     "name": "Searched container",
-    "appearance": { "sprite": "prop_container_searched", "shape": "box", "size": 0.62 }
+    "appearance": { "sprite": "prop_container_searched", "shape": "box", "size": 0.85 }
   },
   {
     "id": "prop.bed",

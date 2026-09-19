@@ -19,13 +19,21 @@ reason a colour is that colour.
 ## Two tiers: generated, and authored
 
 Everything above is the *generated* tier and it is still almost all of the directory. The
-second tier is art this package did not draw -- commissioned to the project's own spec, the
-owner's call of 2026-09-09 (docs/30, "Art we did not generate") -- and it is declared in
-`godot/assets/sprites/authored.json` rather than inferred from a filename. `--check` holds an
-authored key to the two things it can prove without a generator: the file is there, and it is
-on the canvas it declares. Everything else about it -- the published bounds a body is drawn
-to, and whether anything reads it -- is `npm run godot:check:authored`, because those are
-measurements on decoded pixels against numbers GDScript already carries.
+second tier is art this package did not draw, and it splits in two. *Commissioned* art (the
+owner's call of 2026-09-09, docs/30 "Art we did not generate") has no source this package can
+reproduce -- an artist delivered the PNG -- so `--check` holds it to the two things provable
+without one: the file is there, and it is on the canvas it declares. *Pack* art (the owner's
+call of 2026-09-17, docs/30 "The outpost pack, adopted") comes from
+`godot/art/simplyzombies/` and its entry in `authored.json` may carry a `source`: a path under
+`godot/`, an optional `crop` and an optional `pad`. For a sourced key this package reproduces
+the committed PNG exactly -- crop, then pad, never repainted or resized -- so `--check` holds
+it to decoded pixels the same way it holds a generated key, and `python3 tools/sprites/build.py`
+can write it. A `source` may instead be a **family**: `members` names several keys that each
+draw from their own source at the family's canvas, for art that is one declaration but many
+files (a walk cycle's frames, a garment's four sides) -- the family key itself names no file.
+Either way, everything about an authored key beyond its pixels -- the published bounds a body
+is drawn to, and whether anything reads it -- is `npm run godot:check:authored`, because those
+are measurements against numbers GDScript already carries.
 
 The tier is declared rather than assumed for the same reason the registry is: an undeclared
 PNG in this directory used to be a file nobody could account for, and now it is a build
@@ -245,26 +253,123 @@ def check(key, render):
     return True
 
 
-def authored():
-    """The declared authored keys as `{key: (w, h)}`. An absent file is an empty tier, not an
-    error: the declaration is what makes a key authored, and a project with no commissioned art
-    yet has nothing to declare."""
+def _canvas_of(key, canvas):
+    if not (isinstance(canvas, list) and len(canvas) == 2 and all(isinstance(v, int) for v in canvas)):
+        raise SystemExit("authored.json: %r declares canvas %r; it is [width, height]" % (key, canvas))
+    return (canvas[0], canvas[1])
+
+
+def _load_authored_data():
     if not AUTHORED_PATH.exists():
         return {}
-    data = json.loads(AUTHORED_PATH.read_text())
+    return json.loads(AUTHORED_PATH.read_text()).get("keys", {})
+
+
+def authored():
+    """The declared authored keys AND every family member, as `{key: (w, h)}`. A member shares
+    its family's canvas and its family's key is not itself a file (`members` says so), so the
+    family key is left out here -- everything in this dict is something `write`/`check` can hold
+    a PNG to. An absent file is an empty tier, not an error: the declaration is what makes a key
+    authored, and a project with no commissioned art yet has nothing to declare."""
     out = {}
-    for key, entry in sorted(data.get("keys", {}).items()):
-        canvas = entry.get("canvas")
-        if not (isinstance(canvas, list) and len(canvas) == 2 and all(isinstance(v, int) for v in canvas)):
-            raise SystemExit("authored.json: %r declares canvas %r; it is [width, height]" % (key, canvas))
-        out[key] = (canvas[0], canvas[1])
+    for key, entry in sorted(_load_authored_data().items()):
+        canvas = _canvas_of(key, entry.get("canvas"))
+        members = entry.get("members")
+        if isinstance(members, dict):
+            for member_key in sorted(members):
+                out[member_key] = canvas
+        else:
+            out[key] = canvas
     return out
 
 
+def authored_sources():
+    """`{key: source}` for every authored key or family member that declares a `source` -- the
+    ones this package can reproduce and `--check` can hold to decoded pixels rather than only to
+    existence and shape. A family's own key never has a source (it is not a file); only its
+    members can."""
+    out = {}
+    for key, entry in sorted(_load_authored_data().items()):
+        source = entry.get("source")
+        if isinstance(source, dict):
+            out[key] = source
+        members = entry.get("members")
+        if isinstance(members, dict):
+            for member_key, member in sorted(members.items()):
+                member_source = member.get("source") if isinstance(member, dict) else None
+                if isinstance(member_source, dict):
+                    out[member_key] = member_source
+    return out
+
+
+def render_source(source):
+    """The picture a `source` block reproduces: crop, then pad, never repainted or resized --
+    `godot/art/simplyzombies/STYLE.md`'s own rule for this package's mechanical steps, applied to
+    ours. Raises rather than returning a sentinel, the same as `_canvas_of` does for a malformed
+    canvas: a malformed `source` is a broken declaration, not a per-key failure to collect
+    alongside a pixel mismatch, and `check_authored.gd`'s own SOURCE/MANIFEST lanes are what give
+    a malformed entry a clean per-key error instead of a crash."""
+    path_str = source.get("path")
+    if not (isinstance(path_str, str) and path_str):
+        raise SystemExit("authored.json: source %r has no path" % (source,))
+    path = ROOT / "godot" / path_str
+    if not path.exists():
+        raise SystemExit("authored.json: source path %r does not exist" % path_str)
+    image = Image.open(path).convert("RGBA")
+    crop = source.get("crop")
+    if crop is not None:
+        if not (isinstance(crop, list) and len(crop) == 4):
+            raise SystemExit("authored.json: source crop %r is not [x, y, w, h]" % (crop,))
+        x, y, w, h = (int(v) for v in crop)
+        image = image.crop((x, y, x + w, y + h))
+    pad = source.get("pad")
+    if pad is not None:
+        if not (isinstance(pad, list) and len(pad) == 4):
+            raise SystemExit("authored.json: source pad %r is not [w, h, ox, oy]" % (pad,))
+        w, h, ox, oy = (int(v) for v in pad)
+        canvas = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        canvas.paste(image, (ox, oy), image)
+        image = canvas
+    return image
+
+
+def write_authored_source(key, source, canvas):
+    image = render_source(source)
+    if image.size != canvas:
+        raise SystemExit("%s: source reproduces %dx%d; authored.json declares %dx%d" % (key, image.size[0], image.size[1], *canvas))
+    target = path_for(key)
+    image.save(target)
+    print("wrote %s (reproduced from its source)" % target.relative_to(ROOT))
+
+
+def check_authored_source(key, source, canvas):
+    """A sourced authored key, held to what `render_source` can prove: the committed PNG is the
+    declared canvas AND decoded-pixel-identical to what the source reproduces -- the same
+    standard a generated key gets, because a `source` is a generator in every sense that matters
+    here."""
+    target = path_for(key)
+    if not target.exists():
+        print("MISSING %s: authored.json declares %r with a source and no file is committed" % (target.relative_to(ROOT), key))
+        return False
+    fresh = render_source(source)
+    if fresh.size != canvas:
+        raise SystemExit("%s: source reproduces %dx%d; authored.json declares %dx%d" % (key, fresh.size[0], fresh.size[1], *canvas))
+    committed = Image.open(target)
+    if committed.size != fresh.size:
+        print("SIZE %s: committed %dx%d, source reproduces %dx%d" % (target.relative_to(ROOT), *committed.size, *fresh.size))
+        return False
+    want, got = pixels(committed), pixels(fresh)
+    if want != got:
+        differing = sum(1 for i in range(0, len(want), 4) if want[i : i + 4] != got[i : i + 4])
+        print("DIFFERS %s: %d of %d pixels -- reproduced from its source; regenerate and commit the PNG with the change that moved it" % (target.relative_to(ROOT), differing, len(want) // 4))
+        return False
+    return True
+
+
 def check_authored(key, canvas):
-    """An authored key, held to the two things provable without a generator: it is there, and it
-    is the shape it says it is. The published bounds and whether anything reads it are
-    `godot:check:authored`, which measures decoded pixels against numbers GDScript carries."""
+    """An unsourced authored key, held to the two things provable without a generator: it is
+    there, and it is the shape it says it is. The published bounds and whether anything reads it
+    are `godot:check:authored`, which measures decoded pixels against numbers GDScript carries."""
     target = path_for(key)
     if not target.exists():
         print("MISSING %s: authored.json declares %r and no file is committed" % (target.relative_to(ROOT), key))
@@ -284,17 +389,33 @@ def main(argv=None):
 
     keys = registry()
     hand = authored()
+    sources = authored_sources()
     both = sorted(set(keys) & set(hand))
     if both:
         # A key cannot be in both tiers: one says "regenerate me and compare every pixel" and the
         # other says "do not". Silently preferring either is how a generator quietly stops being
-        # the source of record for art somebody is still editing by hand.
+        # the source of record for art somebody is still editing by hand. `hand` already carries
+        # every family member flattened in, so a member claimed by a generator module is refused
+        # here exactly as a flat authored key always was -- one set, one membership test.
         raise SystemExit("%s declared in both tiers: the registry generates it and authored.json "
                          "claims it is authored" % ", ".join(both))
     if args.only:
         if args.only in hand:
-            raise SystemExit("%r is authored, not generated: authored.json declares it and this "
-                             "package does not draw it, so there is nothing to build" % args.only)
+            if args.only not in sources:
+                raise SystemExit("%r is authored with no source: authored.json declares it and "
+                                 "there is nothing to reproduce it from, so there is nothing to "
+                                 "build" % args.only)
+            source, canvas = sources[args.only], hand[args.only]
+            if args.check:
+                ok = check_authored_source(args.only, source, canvas)
+                if not ok:
+                    print("SPRITES_FAIL 1 of 1 keys do not match the committed art: %s" % args.only)
+                    return 1
+                print("SPRITES_OK 1 authored key reproduced from its source and matches the "
+                      "committed PNG pixel for pixel")
+                return 0
+            write_authored_source(args.only, source, canvas)
+            return 0
         if args.only not in keys:
             raise SystemExit("no registry key %r; known keys: %s" % (args.only, ", ".join(sorted(keys))))
         keys = {args.only: keys[args.only]}
@@ -305,6 +426,11 @@ def main(argv=None):
         for key in sorted(keys):
             write(key, keys[key])
         if not args.only:
+            # Keys without a source are untouched here, same as always: they exist or they don't,
+            # and nothing in this package can regenerate them.
+            for key in sorted(hand):
+                if key in sources:
+                    write_authored_source(key, sources[key], hand[key])
             for key in sorted(guide.REGISTRY):
                 write_guide(key, guide.REGISTRY[key])
             write_tones()
@@ -314,7 +440,11 @@ def main(argv=None):
     # The authored tier and the guides are skipped under --only, which names one registry key by
     # definition.
     if not args.only:
-        bad += [key for key in sorted(hand) if not check_authored(key, hand[key])]
+        for key in sorted(hand):
+            ok = check_authored_source(key, sources[key], hand[key]) if key in sources \
+                else check_authored(key, hand[key])
+            if not ok:
+                bad.append(key)
         bad += [key for key in sorted(guide.REGISTRY) if not check_guide(key, guide.REGISTRY[key])]
         if not check_tones():
             bad.append("tones.json")
@@ -329,10 +459,13 @@ def main(argv=None):
     if args.only:
         print("SPRITES_OK %d generated keys match the committed PNGs pixel for pixel" % len(keys))
     else:
+        sourced = sorted(k for k in hand if k in sources)
+        unsourced = sorted(k for k in hand if k not in sources)
         print("SPRITES_OK %d generated keys match the committed PNGs pixel for pixel, %d guide "
-              "sheet(s) match the published skeleton, %d authored keys are present at the "
-              "canvas they declare, and the tone manifest holds %d materials"
-              % (len(keys), len(guide.REGISTRY), len(hand), len(tones_document())))
+              "sheet(s) match the published skeleton, %d authored keys reproduced from their "
+              "source, %d present at the canvas they declare, and the tone manifest holds %d "
+              "materials"
+              % (len(keys), len(guide.REGISTRY), len(sourced), len(unsourced), len(tones_document())))
     return 0
 
 

@@ -35,6 +35,18 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 
 ## What landed recently
 
+**2026-09-17 — the outpost pack, adopted: the tier tooling, proved on the containers.** The
+owner decided to adopt the hand-made outpost pack (`godot/art/simplyzombies/`) over the
+generated art, overwriting what is there (docs/30, "The outpost pack, adopted"). This slice
+lands only the decision record and the tooling that lets pack art enter
+`godot/assets/sprites/` reproducibly — an authored key gains a `source` (crop/pad, no
+repainting) `tools/sprites/build.py` can write and `sprites:check` re-derives, and a `members`
+family for later slices with many pictures under one declaration — proved on one real adoption:
+`prop_container` and `prop_container_searched` now draw the pack's crate art (sizes 0.8/0.85).
+Nothing in `godot/presentation/` reads the pack yet. The nine pieces that do are docs/23's new
+["Art & renderer — the outpost pack"](docs/23-roadmap.md#whats-left-in-milestone-2) group,
+which also marks the decoupled-paperdoll pieces it supersedes.
+
 **2026-09-15/16 — procedural people, raiders and zombies: an arc of thirteen slices, all
 landed.** The owner lifted the 2026-09-01 pause on new NPCs and roster growth (docs/30, "The pause
 lifted") and answered the three structural questions the plan turned on: a raider carries a
@@ -1097,6 +1109,13 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    longer, the band moves and the HUD's "a moment ago" moves with it. **The mutters**
    (`SimSpeech.MUTTER_EVERY` 400 ticks, `MUTTER_P` 0.15): a colonist in a need band speaks about
    once every two minutes; a line's horizon is `SAY_TICKS` 60 (three seconds), a scream 40.
+
+9. **What the needs-assets report turns up, once it exists.** The outpost-pack arc (docs/23's
+   "Art & renderer — the outpost pack", 2026-09-17) names held weapons, utilities, decals and
+   the six status icons for "The needs-assets report" rather than building a socket for any of
+   them now — the status icons stay refused under the icon-row ban, but the rest are simply
+   unbuilt. Nothing is measured or decided yet; there is nothing to decide until that report
+   runs and says which of those families a later slice should actually socket.
 
 ## How a session runs
 

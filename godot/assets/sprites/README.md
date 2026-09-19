@@ -60,10 +60,12 @@ and axis, under "The vehicle" below — and took the nine `wreck_car_*` segment 
 **Almost everything in this directory is generated.** `tools/sprites` draws it and
 `npm run sprites:check` re-renders every key and compares decoded pixels, so a palette edited
 without regenerating is a red build. Art this project did **not** draw is the second tier, and it
-is declared in `authored.json` beside these PNGs rather than inferred from a filename. The owner's
-call of 2026-09-09 (docs/30, "Art we did not generate") is that sprites are **commissioned to this
-spec** rather than bought as a pack — so an artist comes to the geometry below, and nothing here
-bends to accommodate a pack's grid.
+is declared in `authored.json` beside these PNGs rather than inferred from a filename. It splits
+in two: art commissioned to this project's own spec (the owner's call of 2026-09-09, docs/30 "Art
+we did not generate" — an artist comes to the geometry below, and nothing here bends to
+accommodate a pack's grid) and art from the hand-made outpost pack, adopted whole (the owner's
+call of 2026-09-17, docs/30 "The outpost pack, adopted"). The brief below is the commissioned
+half's spec; "Declaring a delivered sprite," further down, has the pack half's `source` shape.
 
 **If you are the artist, this section is the whole brief.** Every number in it is checked by
 `npm run godot:check:authored`, and every number in it is already met by the eight bodies this
@@ -171,10 +173,36 @@ once when the canvas went 32×48 → 32×40. Its colours:
 }
 ```
 
-`kind` is `rig`, `overlay` or `tile` and decides which bounds apply. `reads` names the content
-entry whose `appearance` block declares the key — the gate refuses a declaration that names
-nothing, because art nothing draws is the dead-socket shape this milestone has paid for twelve
-times. A key may be in one tier only: `build.py` refuses one the registry also generates.
+`kind` is `rig`, `overlay`, `tile`, or one of five outpost-pack placeholders (`pack_rig`,
+`pack_overlay`, `module`, `sheet`, `prop`) named below, and decides which bounds apply. `reads`
+names one of the content entries whose `appearance` block declares the key — the gate refuses a
+declaration that names nothing, because art nothing draws is the dead-socket shape this milestone
+has paid for twelve times. A key may be in one tier only: `build.py` refuses one the registry also
+generates.
+
+**Pack art (docs/30, "The outpost pack, adopted") declares a `source` instead of delivering a
+loose PNG**, so the key stays reproducible rather than becoming a second untracked original:
+
+```json
+"keys": {
+  "prop_container": {
+    "canvas": [32, 32], "kind": "tile", "reads": "prop.container",
+    "source": { "path": "art/simplyzombies/groups/props/native/prop-wood-crate-closed.png" }
+  }
+}
+```
+
+`source.path` is relative to `godot/` (the same string as after `res://`); optional `crop:
+[x, y, w, h]` and `pad: [w, h, ox, oy]` apply mechanically, in that order — the pack's own
+`STYLE.md` rule that its art is cropped, resized and padded but never repainted. `python3
+tools/sprites/build.py` reproduces the PNG from its source, and `npm run sprites:check` re-derives
+it on every run and compares decoded pixels the same way it holds a generated key, so a hand-edited
+copy of a pack file is a red build exactly as a hand-edited generated PNG is. `prop_container` and
+`prop_container_searched` are the first two keys drawn this way (2026-09-17), replacing the crate
+commissioned in 2026-09-10 with the pack's own. A `source` may instead sit inside a **family** —
+several `members`, each a key with its own `source`, sharing the family's `canvas` — for art that
+is one declaration but many pictures, such as a walk cycle's frames; the family key names no file
+of its own.
 
 **Known limit, named rather than discovered.** An authored rig is not yet in
 `Appearance.PAWN_KEYS`, which `check_topdown.gd`'s flip lane iterates and `check_worn.gd`'s rig
