@@ -1,0 +1,1090 @@
+{
+  "image": "atlas.png",
+  "size": [
+    512,
+    512
+  ],
+  "gutter": 2,
+  "sprites": {
+    "panel_danger": {
+      "rect": [
+        2,
+        2,
+        64,
+        64
+      ],
+      "path": "textures/panel_danger.png"
+    },
+    "panel_dialog": {
+      "rect": [
+        70,
+        2,
+        64,
+        64
+      ],
+      "path": "textures/panel_dialog.png"
+    },
+    "panel_inset": {
+      "rect": [
+        138,
+        2,
+        64,
+        64
+      ],
+      "path": "textures/panel_inset.png"
+    },
+    "panel_notice": {
+      "rect": [
+        206,
+        2,
+        64,
+        64
+      ],
+      "path": "textures/panel_notice.png"
+    },
+    "panel_standard": {
+      "rect": [
+        274,
+        2,
+        64,
+        64
+      ],
+      "path": "textures/panel_standard.png"
+    },
+    "panel_tooltip": {
+      "rect": [
+        342,
+        2,
+        64,
+        64
+      ],
+      "path": "textures/panel_tooltip.png"
+    },
+    "control_scroll_track": {
+      "rect": [
+        410,
+        2,
+        12,
+        64
+      ],
+      "path": "controls/control_scroll_track.png"
+    },
+    "scroll_track": {
+      "rect": [
+        426,
+        2,
+        12,
+        64
+      ],
+      "path": "textures/scroll_track.png"
+    },
+    "button_danger": {
+      "rect": [
+        2,
+        70,
+        96,
+        32
+      ],
+      "path": "textures/button_danger.png"
+    },
+    "button_disabled": {
+      "rect": [
+        102,
+        70,
+        96,
+        32
+      ],
+      "path": "textures/button_disabled.png"
+    },
+    "button_focus": {
+      "rect": [
+        202,
+        70,
+        96,
+        32
+      ],
+      "path": "textures/button_focus.png"
+    },
+    "button_hover": {
+      "rect": [
+        302,
+        70,
+        96,
+        32
+      ],
+      "path": "textures/button_hover.png"
+    },
+    "button_normal": {
+      "rect": [
+        402,
+        70,
+        96,
+        32
+      ],
+      "path": "textures/button_normal.png"
+    },
+    "button_pressed": {
+      "rect": [
+        2,
+        106,
+        96,
+        32
+      ],
+      "path": "textures/button_pressed.png"
+    },
+    "focus_pulse_0": {
+      "rect": [
+        102,
+        106,
+        32,
+        32
+      ],
+      "path": "animations/focus_pulse_0.png"
+    },
+    "focus_pulse_1": {
+      "rect": [
+        138,
+        106,
+        32,
+        32
+      ],
+      "path": "animations/focus_pulse_1.png"
+    },
+    "focus_pulse_2": {
+      "rect": [
+        174,
+        106,
+        32,
+        32
+      ],
+      "path": "animations/focus_pulse_2.png"
+    },
+    "focus_pulse_3": {
+      "rect": [
+        210,
+        106,
+        32,
+        32
+      ],
+      "path": "animations/focus_pulse_3.png"
+    },
+    "item_ping_0": {
+      "rect": [
+        246,
+        106,
+        32,
+        32
+      ],
+      "path": "animations/item_ping_0.png"
+    },
+    "item_ping_1": {
+      "rect": [
+        282,
+        106,
+        32,
+        32
+      ],
+      "path": "animations/item_ping_1.png"
+    },
+    "item_ping_2": {
+      "rect": [
+        318,
+        106,
+        32,
+        32
+      ],
+      "path": "animations/item_ping_2.png"
+    },
+    "item_ping_3": {
+      "rect": [
+        354,
+        106,
+        32,
+        32
+      ],
+      "path": "animations/item_ping_3.png"
+    },
+    "slot_disabled": {
+      "rect": [
+        390,
+        106,
+        32,
+        32
+      ],
+      "path": "textures/slot_disabled.png"
+    },
+    "slot_empty": {
+      "rect": [
+        426,
+        106,
+        32,
+        32
+      ],
+      "path": "textures/slot_empty.png"
+    },
+    "slot_hover": {
+      "rect": [
+        462,
+        106,
+        32,
+        32
+      ],
+      "path": "textures/slot_hover.png"
+    },
+    "slot_invalid": {
+      "rect": [
+        2,
+        142,
+        32,
+        32
+      ],
+      "path": "textures/slot_invalid.png"
+    },
+    "slot_pressed": {
+      "rect": [
+        38,
+        142,
+        32,
+        32
+      ],
+      "path": "textures/slot_pressed.png"
+    },
+    "slot_selected": {
+      "rect": [
+        74,
+        142,
+        32,
+        32
+      ],
+      "path": "textures/slot_selected.png"
+    },
+    "tab_hover": {
+      "rect": [
+        110,
+        142,
+        80,
+        24
+      ],
+      "path": "textures/tab_hover.png"
+    },
+    "tab_normal": {
+      "rect": [
+        194,
+        142,
+        80,
+        24
+      ],
+      "path": "textures/tab_normal.png"
+    },
+    "tab_selected": {
+      "rect": [
+        278,
+        142,
+        80,
+        24
+      ],
+      "path": "textures/tab_selected.png"
+    },
+    "control_cursor_arrow": {
+      "rect": [
+        362,
+        142,
+        24,
+        24
+      ],
+      "path": "controls/control_cursor_arrow.png"
+    },
+    "control_cursor_blocked": {
+      "rect": [
+        390,
+        142,
+        24,
+        24
+      ],
+      "path": "controls/control_cursor_blocked.png"
+    },
+    "control_cursor_hand": {
+      "rect": [
+        418,
+        142,
+        24,
+        24
+      ],
+      "path": "controls/control_cursor_hand.png"
+    },
+    "control_cursor_move": {
+      "rect": [
+        446,
+        142,
+        24,
+        24
+      ],
+      "path": "controls/control_cursor_move.png"
+    },
+    "glyph_back": {
+      "rect": [
+        474,
+        142,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_back.png"
+    },
+    "glyph_belt": {
+      "rect": [
+        2,
+        178,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_belt.png"
+    },
+    "glyph_close": {
+      "rect": [
+        30,
+        178,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_close.png"
+    },
+    "glyph_condition": {
+      "rect": [
+        58,
+        178,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_condition.png"
+    },
+    "glyph_down": {
+      "rect": [
+        86,
+        178,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_down.png"
+    },
+    "glyph_drop": {
+      "rect": [
+        114,
+        178,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_drop.png"
+    },
+    "glyph_eyes": {
+      "rect": [
+        142,
+        178,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_eyes.png"
+    },
+    "glyph_face": {
+      "rect": [
+        170,
+        178,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_face.png"
+    },
+    "glyph_feet": {
+      "rect": [
+        198,
+        178,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_feet.png"
+    },
+    "glyph_gloves": {
+      "rect": [
+        226,
+        178,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_gloves.png"
+    },
+    "glyph_head": {
+      "rect": [
+        254,
+        178,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_head.png"
+    },
+    "glyph_inspect": {
+      "rect": [
+        282,
+        178,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_inspect.png"
+    },
+    "glyph_inventory": {
+      "rect": [
+        310,
+        178,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_inventory.png"
+    },
+    "glyph_journal": {
+      "rect": [
+        338,
+        178,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_journal.png"
+    },
+    "glyph_left": {
+      "rect": [
+        366,
+        178,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_left.png"
+    },
+    "glyph_legs": {
+      "rect": [
+        394,
+        178,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_legs.png"
+    },
+    "glyph_lock": {
+      "rect": [
+        422,
+        178,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_lock.png"
+    },
+    "glyph_move": {
+      "rect": [
+        450,
+        178,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_move.png"
+    },
+    "glyph_pause": {
+      "rect": [
+        478,
+        178,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_pause.png"
+    },
+    "glyph_primary": {
+      "rect": [
+        2,
+        206,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_primary.png"
+    },
+    "glyph_right": {
+      "rect": [
+        30,
+        206,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_right.png"
+    },
+    "glyph_rotate": {
+      "rect": [
+        58,
+        206,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_rotate.png"
+    },
+    "glyph_search": {
+      "rect": [
+        86,
+        206,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_search.png"
+    },
+    "glyph_secondary": {
+      "rect": [
+        114,
+        206,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_secondary.png"
+    },
+    "glyph_settings": {
+      "rect": [
+        142,
+        206,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_settings.png"
+    },
+    "glyph_skills": {
+      "rect": [
+        170,
+        206,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_skills.png"
+    },
+    "glyph_torso": {
+      "rect": [
+        198,
+        206,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_torso.png"
+    },
+    "glyph_up": {
+      "rect": [
+        226,
+        206,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_up.png"
+    },
+    "glyph_use": {
+      "rect": [
+        254,
+        206,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_use.png"
+    },
+    "glyph_vest": {
+      "rect": [
+        282,
+        206,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_vest.png"
+    },
+    "glyph_warning": {
+      "rect": [
+        310,
+        206,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_warning.png"
+    },
+    "glyph_work": {
+      "rect": [
+        338,
+        206,
+        24,
+        24
+      ],
+      "path": "glyphs/glyph_work.png"
+    },
+    "keycap": {
+      "rect": [
+        366,
+        206,
+        24,
+        24
+      ],
+      "path": "textures/keycap.png"
+    },
+    "saved_tick_0": {
+      "rect": [
+        394,
+        206,
+        24,
+        24
+      ],
+      "path": "animations/saved_tick_0.png"
+    },
+    "saved_tick_1": {
+      "rect": [
+        422,
+        206,
+        24,
+        24
+      ],
+      "path": "animations/saved_tick_1.png"
+    },
+    "saved_tick_2": {
+      "rect": [
+        450,
+        206,
+        24,
+        24
+      ],
+      "path": "animations/saved_tick_2.png"
+    },
+    "saved_tick_3": {
+      "rect": [
+        478,
+        206,
+        24,
+        24
+      ],
+      "path": "animations/saved_tick_3.png"
+    },
+    "control_scroll_thumb": {
+      "rect": [
+        2,
+        234,
+        12,
+        20
+      ],
+      "path": "controls/control_scroll_thumb.png"
+    },
+    "control_scroll_thumb_hover": {
+      "rect": [
+        18,
+        234,
+        12,
+        20
+      ],
+      "path": "controls/control_scroll_thumb_hover.png"
+    },
+    "control_toggle_off": {
+      "rect": [
+        34,
+        234,
+        32,
+        16
+      ],
+      "path": "controls/control_toggle_off.png"
+    },
+    "control_toggle_on": {
+      "rect": [
+        70,
+        234,
+        32,
+        16
+      ],
+      "path": "controls/control_toggle_on.png"
+    },
+    "busy_0": {
+      "rect": [
+        106,
+        234,
+        16,
+        16
+      ],
+      "path": "animations/busy_0.png"
+    },
+    "busy_1": {
+      "rect": [
+        126,
+        234,
+        16,
+        16
+      ],
+      "path": "animations/busy_1.png"
+    },
+    "busy_2": {
+      "rect": [
+        146,
+        234,
+        16,
+        16
+      ],
+      "path": "animations/busy_2.png"
+    },
+    "busy_3": {
+      "rect": [
+        166,
+        234,
+        16,
+        16
+      ],
+      "path": "animations/busy_3.png"
+    },
+    "control_checkbox_disabled": {
+      "rect": [
+        186,
+        234,
+        16,
+        16
+      ],
+      "path": "controls/control_checkbox_disabled.png"
+    },
+    "control_checkbox_mixed": {
+      "rect": [
+        206,
+        234,
+        16,
+        16
+      ],
+      "path": "controls/control_checkbox_mixed.png"
+    },
+    "control_checkbox_off": {
+      "rect": [
+        226,
+        234,
+        16,
+        16
+      ],
+      "path": "controls/control_checkbox_off.png"
+    },
+    "control_checkbox_on": {
+      "rect": [
+        246,
+        234,
+        16,
+        16
+      ],
+      "path": "controls/control_checkbox_on.png"
+    },
+    "control_radio_off": {
+      "rect": [
+        266,
+        234,
+        16,
+        16
+      ],
+      "path": "controls/control_radio_off.png"
+    },
+    "control_radio_on": {
+      "rect": [
+        286,
+        234,
+        16,
+        16
+      ],
+      "path": "controls/control_radio_on.png"
+    },
+    "glyph_back_small": {
+      "rect": [
+        306,
+        234,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_back_small.png"
+    },
+    "glyph_belt_small": {
+      "rect": [
+        326,
+        234,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_belt_small.png"
+    },
+    "glyph_close_small": {
+      "rect": [
+        346,
+        234,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_close_small.png"
+    },
+    "glyph_condition_small": {
+      "rect": [
+        366,
+        234,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_condition_small.png"
+    },
+    "glyph_down_small": {
+      "rect": [
+        386,
+        234,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_down_small.png"
+    },
+    "glyph_drop_small": {
+      "rect": [
+        406,
+        234,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_drop_small.png"
+    },
+    "glyph_eyes_small": {
+      "rect": [
+        426,
+        234,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_eyes_small.png"
+    },
+    "glyph_face_small": {
+      "rect": [
+        446,
+        234,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_face_small.png"
+    },
+    "glyph_feet_small": {
+      "rect": [
+        466,
+        234,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_feet_small.png"
+    },
+    "glyph_gloves_small": {
+      "rect": [
+        486,
+        234,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_gloves_small.png"
+    },
+    "glyph_head_small": {
+      "rect": [
+        2,
+        258,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_head_small.png"
+    },
+    "glyph_inspect_small": {
+      "rect": [
+        22,
+        258,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_inspect_small.png"
+    },
+    "glyph_inventory_small": {
+      "rect": [
+        42,
+        258,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_inventory_small.png"
+    },
+    "glyph_journal_small": {
+      "rect": [
+        62,
+        258,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_journal_small.png"
+    },
+    "glyph_left_small": {
+      "rect": [
+        82,
+        258,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_left_small.png"
+    },
+    "glyph_legs_small": {
+      "rect": [
+        102,
+        258,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_legs_small.png"
+    },
+    "glyph_lock_small": {
+      "rect": [
+        122,
+        258,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_lock_small.png"
+    },
+    "glyph_move_small": {
+      "rect": [
+        142,
+        258,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_move_small.png"
+    },
+    "glyph_pause_small": {
+      "rect": [
+        162,
+        258,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_pause_small.png"
+    },
+    "glyph_primary_small": {
+      "rect": [
+        182,
+        258,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_primary_small.png"
+    },
+    "glyph_right_small": {
+      "rect": [
+        202,
+        258,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_right_small.png"
+    },
+    "glyph_rotate_small": {
+      "rect": [
+        222,
+        258,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_rotate_small.png"
+    },
+    "glyph_search_small": {
+      "rect": [
+        242,
+        258,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_search_small.png"
+    },
+    "glyph_secondary_small": {
+      "rect": [
+        262,
+        258,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_secondary_small.png"
+    },
+    "glyph_settings_small": {
+      "rect": [
+        282,
+        258,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_settings_small.png"
+    },
+    "glyph_skills_small": {
+      "rect": [
+        302,
+        258,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_skills_small.png"
+    },
+    "glyph_torso_small": {
+      "rect": [
+        322,
+        258,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_torso_small.png"
+    },
+    "glyph_up_small": {
+      "rect": [
+        342,
+        258,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_up_small.png"
+    },
+    "glyph_use_small": {
+      "rect": [
+        362,
+        258,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_use_small.png"
+    },
+    "glyph_vest_small": {
+      "rect": [
+        382,
+        258,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_vest_small.png"
+    },
+    "glyph_warning_small": {
+      "rect": [
+        402,
+        258,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_warning_small.png"
+    },
+    "glyph_work_small": {
+      "rect": [
+        422,
+        258,
+        16,
+        16
+      ],
+      "path": "glyphs/small/glyph_work_small.png"
+    },
+    "control_slider_rail": {
+      "rect": [
+        442,
+        258,
+        64,
+        8
+      ],
+      "path": "controls/control_slider_rail.png"
+    },
+    "divider": {
+      "rect": [
+        2,
+        278,
+        64,
+        4
+      ],
+      "path": "textures/divider.png"
+    }
+  }
+}

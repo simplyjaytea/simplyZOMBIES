@@ -1,0 +1,35 @@
+Use case: ui-mockup.
+Create a premium full-screen INVENTORY UI design mockup for simplyZOMBIES, 16:9 landscape, matching reference image 1's HUD exactly as one coherent interface family. Reference 1 is the approved direction for chrome, colors, typography, pixel scale and background world. Reference 2 supplies our original consumable item artwork. These are style references, not panels to reproduce inside the UI.
+
+Visual direction: original ZERO Sievert-inspired survival pixel art, crisp intentional bitmap lettering, muted charcoal-olive panels #141810, olive separators #3c422c, cream labels #c8c2a6, amber #c99a3f reserved for selection/focus, desaturated red #b5502f for a wound note. Flat colors, near-black recessed slots, small corner chips, fine pixel edge highlights. Match the HUD's narrow worn metal frames but keep the interior clean and readable. No smooth rendering, no glass, no rounded cards, no gradients, no glossy bevels. Strong spacing and hierarchy. All text is game UI, not a presentation caption.
+
+Show the full inventory as a carefully aligned three-column screen over a very darkened, still pixel-sharp outpost background. It occupies most of the screen with an outer margin. Header "INVENTORY" on the left, "YOU" beside it, and a small "Tab Close" key hint on the far right. Beneath:
+LEFT COLUMN, about 38% width, title "EQUIPMENT":
+- A compact faceless pixel survivor in a plain cream undershirt and dark trousers, centered. Body has NO weapon, helmet, armor or backpack baked into it. Keep the head/body proportions consistent with the small survivor in reference 1; magnify with nearest-neighbor-like block pixels.
+- Twelve clean labeled equipment slots, six to either side of the body.
+Left side labels exactly "HEAD", "EYES", "FACE", "GLOVES", "BELT", "PRIMARY".
+Right side labels exactly "VEST", "TORSO", "LEGS", "FEET", "BACK", "SECONDARY".
+- Discrete gear icons can sit within several slots: shirt, trousers, boots, belt and a tan backpack, plus a kitchen knife in primary. Most head/face slots empty with subtle outline hints. Gear remains visually separate from the central base body.
+- A slim condition area beneath the figure, with a subtle amber marker pointing at the left forearm and only these prose lines:
+"LEFT ARM"
+"A shallow scrape."
+"It aches when you move."
+No numeric condition values.
+
+MIDDLE COLUMN, about 37% width, title "CARRIED":
+- Three clearly separated bag sections, top to bottom: "POCKETS", "BELT", "CANVAS PACK".
+- Precisely aligned square slot grids, consistent cell size throughout. Keep many cells empty. A few objects occupy logical rectangular regions: water bottle, food tin, bandage roll, pill bottle, cloth bundle, ammunition box, flashlight, wood bundle, knife.
+- Every object is a crisp original pixel sprite like reference 2, presented clearly against dark recessed cells.
+- Select one bandage roll in POCKETS with amber corner brackets and a small discrete stack count "3". Other items are muted olive, no rarity colors.
+
+RIGHT COLUMN, about 21% width, title "INSPECT":
+- A larger bandage sprite centered in a square dark item well.
+- Exact item title "BANDAGE ROLL".
+- Exact description split into comfortable lines: "Clean cloth for binding a wound."
+- Exact item condition: "Clean".
+- Exact discrete quantity: "Stack: 3".
+- Compact matching buttons "Use", "Move", "Drop", with Use as the amber focused button and Drop as subtle rust-red text. Do not invent damage, healing or weight stats.
+
+Bottom: the same centered 6-slot quick-access strip from reference 1, numbered 1 through 6, containing bandage, water, food tin, knife, flashlight, an empty last slot. It must not overlap the column content. A narrow footer hint "Drag to move     Right-click for actions".
+Composition must feel like a usable polished game interface with ample gutters, calm empty cells and excellent legibility, not a noisy collage.
+Hard prohibitions: NO health/needs bars, NO meters, NO percentages, NO durability gauges, NO numerical injuries, NO hidden infection diagnosis, NO rarity tiers, NO comparison stat tables, NO RPG stats. Only item stack counts and shortcut numbers are allowed. Do not add an explanatory design title outside the game UI. Deliver one screen.

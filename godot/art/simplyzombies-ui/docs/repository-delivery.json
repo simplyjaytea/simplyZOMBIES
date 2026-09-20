@@ -1,0 +1,424 @@
+{
+  "date": "2026-09-20",
+  "base_commit": "69fffd9a4c8f91ff1828ccf389fa6e5674b3eda4",
+  "resource_root": "res://art/simplyzombies-ui/",
+  "scope": "UI assets, native resources, demo, previews, provenance and tooling; no live UI reskin",
+  "asset_checks": 998,
+  "godot_checks": 349,
+  "preview_checks": 19,
+  "engine": "4.7.1",
+  "typecheck": "passed",
+  "lint": "passed",
+  "format_check": "passed",
+  "m2": {
+    "base_commit": "69fffd9a4c8f91ff1828ccf389fa6e5674b3eda4",
+    "total": 82,
+    "initial_passed": 1,
+    "focused_retry": "godot:m2:stats",
+    "resumed": [
+      {
+        "gate": "godot:m2:roster",
+        "exit": 0,
+        "seconds": 5.58
+      },
+      {
+        "gate": "godot:m2:district",
+        "exit": 0,
+        "seconds": 14.46
+      },
+      {
+        "gate": "godot:m2:dormant",
+        "exit": 0,
+        "seconds": 9.6
+      },
+      {
+        "gate": "godot:m2:variance",
+        "exit": 0,
+        "seconds": 2.42
+      },
+      {
+        "gate": "godot:m2:region",
+        "exit": 0,
+        "seconds": 46.43
+      },
+      {
+        "gate": "godot:m2:camp",
+        "exit": 0,
+        "seconds": 50.4
+      },
+      {
+        "gate": "godot:m2:ranged",
+        "exit": 0,
+        "seconds": 32.84
+      },
+      {
+        "gate": "godot:m2:sight",
+        "exit": 0,
+        "seconds": 2.82
+      },
+      {
+        "gate": "godot:m2:attach",
+        "exit": 0,
+        "seconds": 5.58
+      },
+      {
+        "gate": "godot:m2:armor",
+        "exit": 0,
+        "seconds": 3.52
+      },
+      {
+        "gate": "godot:m2:armored",
+        "exit": 0,
+        "seconds": 3.53
+      },
+      {
+        "gate": "godot:m2:ammo",
+        "exit": 0,
+        "seconds": 3.63
+      },
+      {
+        "gate": "godot:m2:bench",
+        "exit": 0,
+        "seconds": 2.32
+      },
+      {
+        "gate": "godot:m2:gear",
+        "exit": 0,
+        "seconds": 2.43
+      },
+      {
+        "gate": "godot:m2:fortify",
+        "exit": 0,
+        "seconds": 2.58
+      },
+      {
+        "gate": "godot:m2:materials",
+        "exit": 0,
+        "seconds": 2.53
+      },
+      {
+        "gate": "godot:m2:transform",
+        "exit": 0,
+        "seconds": 3.42
+      },
+      {
+        "gate": "godot:m2:comfort",
+        "exit": 0,
+        "seconds": 3.83
+      },
+      {
+        "gate": "godot:m2:teach",
+        "exit": 0,
+        "seconds": 2.27
+      },
+      {
+        "gate": "godot:m2:noise",
+        "exit": 0,
+        "seconds": 12.45
+      },
+      {
+        "gate": "godot:m2:director",
+        "exit": 0,
+        "seconds": 14.81
+      },
+      {
+        "gate": "godot:m2:raiders",
+        "exit": 0,
+        "seconds": 160.22
+      },
+      {
+        "gate": "godot:m2:allegiance",
+        "exit": 0,
+        "seconds": 5.79
+      },
+      {
+        "gate": "godot:m2:settlers",
+        "exit": 0,
+        "seconds": 59.12
+      },
+      {
+        "gate": "godot:m2:save",
+        "exit": 0,
+        "seconds": 5.29
+      },
+      {
+        "gate": "godot:m2:needs",
+        "exit": 0,
+        "seconds": 239.52
+      },
+      {
+        "gate": "godot:m2:jobs",
+        "exit": 0,
+        "seconds": 26.38
+      },
+      {
+        "gate": "godot:m2:recruits",
+        "exit": 0,
+        "seconds": 17.62
+      },
+      {
+        "gate": "godot:m2:strangers",
+        "exit": 0,
+        "seconds": 50.16
+      },
+      {
+        "gate": "godot:m2:people",
+        "exit": 0,
+        "seconds": 2.17
+      },
+      {
+        "gate": "godot:m2:aim",
+        "exit": 0,
+        "seconds": 3.43
+      },
+      {
+        "gate": "godot:m2:web",
+        "exit": 0,
+        "seconds": 6.13
+      },
+      {
+        "gate": "godot:m2:autonomy",
+        "exit": 0,
+        "seconds": 2.82
+      },
+      {
+        "gate": "godot:m2:upkeep",
+        "exit": 0,
+        "seconds": 2.62
+      },
+      {
+        "gate": "godot:m2:npc",
+        "exit": 0,
+        "seconds": 15.91
+      },
+      {
+        "gate": "godot:m2:stance",
+        "exit": 0,
+        "seconds": 2.68
+      },
+      {
+        "gate": "godot:m2:contact",
+        "exit": 0,
+        "seconds": 4.53
+      },
+      {
+        "gate": "godot:m2:swipe",
+        "exit": 0,
+        "seconds": 1.77
+      },
+      {
+        "gate": "godot:m2:hands",
+        "exit": 0,
+        "seconds": 6.39
+      },
+      {
+        "gate": "godot:m2:wounds",
+        "exit": 0,
+        "seconds": 17.28
+      },
+      {
+        "gate": "godot:m2:treatment",
+        "exit": 0,
+        "seconds": 8.7
+      },
+      {
+        "gate": "godot:m2:medicine",
+        "exit": 0,
+        "seconds": 2.57
+      },
+      {
+        "gate": "godot:m2:filter",
+        "exit": 0,
+        "seconds": 18.84
+      },
+      {
+        "gate": "godot:m2:light_burn",
+        "exit": 0,
+        "seconds": 3.12
+      },
+      {
+        "gate": "godot:m2:recovery",
+        "exit": 0,
+        "seconds": 27.1
+      },
+      {
+        "gate": "godot:m2:splint",
+        "exit": 0,
+        "seconds": 3.18
+      },
+      {
+        "gate": "godot:m2:vehicles",
+        "exit": 0,
+        "seconds": 9.45
+      },
+      {
+        "gate": "godot:m2:weather",
+        "exit": 0,
+        "seconds": 94.92
+      },
+      {
+        "gate": "godot:m2:storm",
+        "exit": 0,
+        "seconds": 392.88
+      },
+      {
+        "gate": "godot:m2:cold",
+        "exit": 0,
+        "seconds": 143.38
+      },
+      {
+        "gate": "godot:m2:heat",
+        "exit": 0,
+        "seconds": 45.83
+      },
+      {
+        "gate": "godot:m2:warmth",
+        "exit": 0,
+        "seconds": 15.46
+      },
+      {
+        "gate": "godot:m2:fog",
+        "exit": 0,
+        "seconds": 11.08
+      },
+      {
+        "gate": "godot:m2:harness",
+        "exit": 0,
+        "seconds": 8.09
+      },
+      {
+        "gate": "godot:m2:balance",
+        "exit": 0,
+        "seconds": 949.52
+      },
+      {
+        "gate": "godot:ban:healthbar",
+        "exit": 0,
+        "seconds": 1.72
+      },
+      {
+        "gate": "godot:check:appearance",
+        "exit": 0,
+        "seconds": 2.03
+      },
+      {
+        "gate": "godot:check:loot",
+        "exit": 0,
+        "seconds": 28.78
+      },
+      {
+        "gate": "godot:check:mods",
+        "exit": 0,
+        "seconds": 3.08
+      },
+      {
+        "gate": "godot:check:hud",
+        "exit": 0,
+        "seconds": 5.88
+      },
+      {
+        "gate": "godot:check:play",
+        "exit": 0,
+        "seconds": 26.33
+      },
+      {
+        "gate": "godot:check:context",
+        "exit": 0,
+        "seconds": 9.97
+      },
+      {
+        "gate": "godot:check:speech",
+        "exit": 0,
+        "seconds": 4.18
+      },
+      {
+        "gate": "godot:check:inventory",
+        "exit": 0,
+        "seconds": 2.67
+      },
+      {
+        "gate": "godot:check:topdown",
+        "exit": 0,
+        "seconds": 2.07
+      },
+      {
+        "gate": "godot:check:buildings",
+        "exit": 0,
+        "seconds": 9.31
+      },
+      {
+        "gate": "godot:check:worldgen",
+        "exit": 0,
+        "seconds": 77.89
+      },
+      {
+        "gate": "godot:check:respond",
+        "exit": 0,
+        "seconds": 2.07
+      },
+      {
+        "gate": "godot:check:camera",
+        "exit": 0,
+        "seconds": 0.62
+      },
+      {
+        "gate": "godot:check:light",
+        "exit": 0,
+        "seconds": 2.17
+      },
+      {
+        "gate": "godot:check:memory",
+        "exit": 0,
+        "seconds": 5.09
+      },
+      {
+        "gate": "godot:check:road",
+        "exit": 0,
+        "seconds": 4.43
+      },
+      {
+        "gate": "godot:check:water",
+        "exit": 0,
+        "seconds": 11.45
+      },
+      {
+        "gate": "godot:check:wrecks",
+        "exit": 0,
+        "seconds": 7.91
+      },
+      {
+        "gate": "godot:check:weather",
+        "exit": 0,
+        "seconds": 3.44
+      },
+      {
+        "gate": "godot:check:roof",
+        "exit": 0,
+        "seconds": 2.58
+      },
+      {
+        "gate": "godot:check:trees",
+        "exit": 0,
+        "seconds": 2.17
+      },
+      {
+        "gate": "godot:check:worn",
+        "exit": 0,
+        "seconds": 2.07
+      },
+      {
+        "gate": "godot:check:authored",
+        "exit": 0,
+        "seconds": 0.62
+      },
+      {
+        "gate": "godot:check:web_look",
+        "exit": 0,
+        "seconds": 3.38
+      }
+    ],
+    "status": "passed"
+  },
+  "m2_note": "Initial npm run godot:m2 completed lethality then stalled in stats without an assertion failure. Stats passed in a fresh process; the remaining 80 unchanged scripts ran in chain order with exit 0. No gates or assertions changed.",
+  "browser_window_smoke": "not performed"
+}

@@ -1,0 +1,871 @@
+{
+  "status": "Complete: native RGBA exports, atlas and Godot resources.",
+  "resource_root": "res://art/simplyzombies-ui/",
+  "sheets": {
+    "chrome": {
+      "path": "sources/chrome.png",
+      "columns": 6,
+      "row_boundaries": [
+        0,
+        316,
+        497,
+        727,
+        1024
+      ],
+      "assets": [
+        {
+          "id": "panel_standard",
+          "size": [
+            64,
+            64
+          ],
+          "nine_slice": [
+            10,
+            10,
+            10,
+            10
+          ]
+        },
+        {
+          "id": "panel_dialog",
+          "size": [
+            64,
+            64
+          ],
+          "nine_slice": [
+            12,
+            12,
+            12,
+            12
+          ]
+        },
+        {
+          "id": "panel_inset",
+          "size": [
+            64,
+            64
+          ],
+          "nine_slice": [
+            10,
+            10,
+            10,
+            10
+          ]
+        },
+        {
+          "id": "panel_tooltip",
+          "size": [
+            64,
+            64
+          ],
+          "nine_slice": [
+            10,
+            10,
+            10,
+            10
+          ]
+        },
+        {
+          "id": "panel_notice",
+          "size": [
+            64,
+            64
+          ],
+          "nine_slice": [
+            10,
+            10,
+            10,
+            10
+          ]
+        },
+        {
+          "id": "panel_danger",
+          "size": [
+            64,
+            64
+          ],
+          "nine_slice": [
+            10,
+            10,
+            10,
+            10
+          ]
+        },
+        {
+          "id": "button_normal",
+          "size": [
+            96,
+            32
+          ],
+          "nine_slice": [
+            9,
+            6,
+            9,
+            6
+          ]
+        },
+        {
+          "id": "button_hover",
+          "size": [
+            96,
+            32
+          ],
+          "nine_slice": [
+            9,
+            6,
+            9,
+            6
+          ]
+        },
+        {
+          "id": "button_pressed",
+          "size": [
+            96,
+            32
+          ],
+          "nine_slice": [
+            9,
+            6,
+            9,
+            6
+          ]
+        },
+        {
+          "id": "button_disabled",
+          "size": [
+            96,
+            32
+          ],
+          "nine_slice": [
+            9,
+            6,
+            9,
+            6
+          ]
+        },
+        {
+          "id": "button_focus",
+          "size": [
+            96,
+            32
+          ],
+          "nine_slice": [
+            9,
+            6,
+            9,
+            6
+          ]
+        },
+        {
+          "id": "button_danger",
+          "size": [
+            96,
+            32
+          ],
+          "nine_slice": [
+            9,
+            6,
+            9,
+            6
+          ]
+        },
+        {
+          "id": "slot_empty",
+          "size": [
+            32,
+            32
+          ],
+          "nine_slice": [
+            6,
+            6,
+            6,
+            6
+          ]
+        },
+        {
+          "id": "slot_hover",
+          "size": [
+            32,
+            32
+          ],
+          "nine_slice": [
+            6,
+            6,
+            6,
+            6
+          ]
+        },
+        {
+          "id": "slot_selected",
+          "size": [
+            32,
+            32
+          ],
+          "nine_slice": [
+            6,
+            6,
+            6,
+            6
+          ]
+        },
+        {
+          "id": "slot_pressed",
+          "size": [
+            32,
+            32
+          ],
+          "nine_slice": [
+            6,
+            6,
+            6,
+            6
+          ]
+        },
+        {
+          "id": "slot_disabled",
+          "size": [
+            32,
+            32
+          ],
+          "nine_slice": [
+            6,
+            6,
+            6,
+            6
+          ]
+        },
+        {
+          "id": "slot_invalid",
+          "size": [
+            32,
+            32
+          ],
+          "nine_slice": [
+            6,
+            6,
+            6,
+            6
+          ]
+        },
+        {
+          "id": "tab_normal",
+          "size": [
+            80,
+            24
+          ],
+          "nine_slice": [
+            6,
+            5,
+            6,
+            5
+          ]
+        },
+        {
+          "id": "tab_selected",
+          "size": [
+            80,
+            24
+          ],
+          "nine_slice": [
+            6,
+            5,
+            6,
+            5
+          ]
+        },
+        {
+          "id": "tab_hover",
+          "size": [
+            80,
+            24
+          ],
+          "nine_slice": [
+            6,
+            5,
+            6,
+            5
+          ]
+        },
+        {
+          "id": "keycap",
+          "size": [
+            24,
+            24
+          ],
+          "nine_slice": [
+            5,
+            5,
+            5,
+            5
+          ]
+        },
+        {
+          "id": "divider",
+          "size": [
+            64,
+            4
+          ],
+          "nine_slice": [
+            2,
+            0,
+            2,
+            0
+          ]
+        },
+        {
+          "id": "scroll_track",
+          "size": [
+            12,
+            64
+          ],
+          "nine_slice": [
+            3,
+            6,
+            3,
+            6
+          ]
+        }
+      ]
+    },
+    "glyphs": {
+      "path": "sources/glyphs.png",
+      "columns": 8,
+      "row_boundaries": [
+        0,
+        277,
+        506,
+        690,
+        887
+      ],
+      "assets": [
+        {
+          "id": "glyph_head",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_eyes",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_face",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_gloves",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_belt",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_primary",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_vest",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_torso",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_legs",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_feet",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_back",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_secondary",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_inventory",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_condition",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_work",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_skills",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_settings",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_journal",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_pause",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_close",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_up",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_down",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_left",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_right",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_inspect",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_use",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_move",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_drop",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_rotate",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_search",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_lock",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "glyph_warning",
+          "size": [
+            24,
+            24
+          ],
+          "alternate_size": [
+            16,
+            16
+          ]
+        }
+      ]
+    },
+    "controls": {
+      "path": "sources/controls.png",
+      "columns": 4,
+      "rows": 4,
+      "assets": [
+        {
+          "id": "checkbox_off",
+          "size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "checkbox_on",
+          "size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "checkbox_mixed",
+          "size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "checkbox_disabled",
+          "size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "radio_off",
+          "size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "radio_on",
+          "size": [
+            16,
+            16
+          ]
+        },
+        {
+          "id": "toggle_off",
+          "size": [
+            32,
+            16
+          ]
+        },
+        {
+          "id": "toggle_on",
+          "size": [
+            32,
+            16
+          ]
+        },
+        {
+          "id": "scroll_track",
+          "size": [
+            12,
+            64
+          ]
+        },
+        {
+          "id": "scroll_thumb",
+          "size": [
+            12,
+            20
+          ]
+        },
+        {
+          "id": "scroll_thumb_hover",
+          "size": [
+            12,
+            20
+          ]
+        },
+        {
+          "id": "slider_rail",
+          "size": [
+            64,
+            8
+          ]
+        },
+        {
+          "id": "cursor_arrow",
+          "size": [
+            24,
+            24
+          ]
+        },
+        {
+          "id": "cursor_hand",
+          "size": [
+            24,
+            24
+          ]
+        },
+        {
+          "id": "cursor_move",
+          "size": [
+            24,
+            24
+          ]
+        },
+        {
+          "id": "cursor_blocked",
+          "size": [
+            24,
+            24
+          ]
+        }
+      ]
+    },
+    "motion": {
+      "path": "sources/motion.png",
+      "columns": 4,
+      "rows": 4,
+      "shared_frame_bounds": true,
+      "animations": [
+        {
+          "id": "focus_pulse",
+          "size": [
+            32,
+            32
+          ],
+          "frames": 4,
+          "fps": 6,
+          "loop": true
+        },
+        {
+          "id": "busy",
+          "size": [
+            16,
+            16
+          ],
+          "frames": 4,
+          "fps": 8,
+          "loop": true
+        },
+        {
+          "id": "item_ping",
+          "size": [
+            32,
+            32
+          ],
+          "frames": 4,
+          "fps": 12,
+          "loop": false
+        },
+        {
+          "id": "saved_tick",
+          "size": [
+            24,
+            24
+          ],
+          "frames": 4,
+          "fps": 10,
+          "loop": false
+        }
+      ]
+    }
+  },
+  "counts": {
+    "chrome": 24,
+    "glyphs": 32,
+    "controls": 16,
+    "animations": 4,
+    "animation_frames": 16,
+    "total_drawn_components_or_frames": 88
+  }
+}
