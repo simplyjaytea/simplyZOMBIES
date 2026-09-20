@@ -1,0 +1,190 @@
+[gd_resource type="Theme" format=3]
+
+[ext_resource type="StyleBox" path="res://art/simplyzombies-ui/styles/button_disabled.tres" id="1_6jfu7"]
+[ext_resource type="StyleBox" path="res://art/simplyzombies-ui/styles/button_focus.tres" id="2_vi54q"]
+[ext_resource type="StyleBox" path="res://art/simplyzombies-ui/styles/button_hover.tres" id="3_wu3y5"]
+[ext_resource type="StyleBox" path="res://art/simplyzombies-ui/styles/button_normal.tres" id="4_yko5w"]
+[ext_resource type="StyleBox" path="res://art/simplyzombies-ui/styles/button_pressed.tres" id="5_th3f0"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies-ui/controls/control_checkbox_on.png" id="6_aild6"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies-ui/controls/control_checkbox_disabled.png" id="7_evvbb"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies-ui/controls/control_checkbox_mixed.png" id="8_326tm"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies-ui/controls/control_radio_on.png" id="9_ao7i4"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies-ui/controls/control_radio_off.png" id="10_fwvrt"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies-ui/controls/control_checkbox_off.png" id="11_3c7ep"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies-ui/controls/control_toggle_on.png" id="12_02jox"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies-ui/controls/control_toggle_off.png" id="13_8ig1c"]
+[ext_resource type="StyleBox" path="res://art/simplyzombies-ui/styles/button_danger.tres" id="14_u0kd0"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies-ui/controls/control_scroll_thumb.png" id="15_bur5b"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies-ui/controls/control_scroll_thumb_hover.png" id="16_q5alf"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies-ui/controls/control_slider_rail.png" id="17_0vw3m"]
+[ext_resource type="StyleBox" path="res://art/simplyzombies-ui/styles/panel_inset.tres" id="18_ge7ny"]
+[ext_resource type="StyleBox" path="res://art/simplyzombies-ui/styles/panel_standard.tres" id="19_tc6qh"]
+[ext_resource type="StyleBox" path="res://art/simplyzombies-ui/styles/panel_dialog.tres" id="20_hss3x"]
+[ext_resource type="StyleBox" path="res://art/simplyzombies-ui/styles/slot_disabled.tres" id="21_gx60v"]
+[ext_resource type="StyleBox" path="res://art/simplyzombies-ui/styles/slot_hover.tres" id="22_xi13w"]
+[ext_resource type="StyleBox" path="res://art/simplyzombies-ui/styles/slot_selected.tres" id="23_vcydj"]
+[ext_resource type="StyleBox" path="res://art/simplyzombies-ui/styles/slot_empty.tres" id="24_o1nc3"]
+[ext_resource type="StyleBox" path="res://art/simplyzombies-ui/styles/tab_hover.tres" id="25_fyqxb"]
+[ext_resource type="StyleBox" path="res://art/simplyzombies-ui/styles/tab_selected.tres" id="26_7mrt5"]
+[ext_resource type="StyleBox" path="res://art/simplyzombies-ui/styles/tab_normal.tres" id="27_w5a8m"]
+[ext_resource type="StyleBox" path="res://art/simplyzombies-ui/styles/panel_tooltip.tres" id="28_fw4sh"]
+[ext_resource type="Texture2D" path="res://art/simplyzombies-ui/controls/control_scroll_track.png" id="29_urji0"]
+[ext_resource type="FontFile" path="res://art/simplyzombies-ui/fonts/VT323-Pixel.res" id="30_6ae6q"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_eho3t"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_bog0l"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_d17ug"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_st0ul"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_rl8mj"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_yv2r4"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_1wnmg"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_xjwb5"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_wd6e1"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_w05yi"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_0yxtb"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_0ho5i"]
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_4vsd6"]
+texture = ExtResource("17_0vw3m")
+texture_margin_left = 3.0
+texture_margin_right = 3.0
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_bg7nq"]
+texture = ExtResource("15_bur5b")
+texture_margin_left = 3.0
+texture_margin_top = 4.0
+texture_margin_right = 3.0
+texture_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_x60e7"]
+texture = ExtResource("16_q5alf")
+texture_margin_left = 3.0
+texture_margin_top = 4.0
+texture_margin_right = 3.0
+texture_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_18po5"]
+texture = ExtResource("16_q5alf")
+texture_margin_left = 3.0
+texture_margin_top = 4.0
+texture_margin_right = 3.0
+texture_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_0l133"]
+texture = ExtResource("29_urji0")
+texture_margin_left = 3.0
+texture_margin_top = 5.0
+texture_margin_right = 3.0
+texture_margin_bottom = 5.0
+
+[resource]
+default_font = ExtResource("30_6ae6q")
+default_font_size = 22
+Button/colors/font_color = Color(0.78431374, 0.7607843, 0.6509804, 1)
+Button/colors/font_disabled_color = Color(0.5019608, 0.47843137, 0.3882353, 1)
+Button/colors/font_focus_color = Color(0.89411765, 0.8509804, 0.6784314, 1)
+Button/colors/font_hover_color = Color(0.89411765, 0.8509804, 0.6784314, 1)
+Button/colors/font_pressed_color = Color(0.7882353, 0.6039216, 0.24705882, 1)
+Button/constants/h_separation = 6
+Button/constants/outline_size = 0
+Button/styles/disabled = ExtResource("1_6jfu7")
+Button/styles/focus = ExtResource("2_vi54q")
+Button/styles/hover = ExtResource("3_wu3y5")
+Button/styles/normal = ExtResource("4_yko5w")
+Button/styles/pressed = ExtResource("5_th3f0")
+CheckBox/colors/font_color = Color(0.78431374, 0.7607843, 0.6509804, 1)
+CheckBox/colors/font_disabled_color = Color(0.5019608, 0.47843137, 0.3882353, 1)
+CheckBox/colors/font_focus_color = Color(0.89411765, 0.8509804, 0.6784314, 1)
+CheckBox/colors/font_hover_color = Color(0.89411765, 0.8509804, 0.6784314, 1)
+CheckBox/colors/font_pressed_color = Color(0.7882353, 0.6039216, 0.24705882, 1)
+CheckBox/icons/checked = ExtResource("6_aild6")
+CheckBox/icons/checked_disabled = ExtResource("7_evvbb")
+CheckBox/icons/indeterminate = ExtResource("8_326tm")
+CheckBox/icons/radio_checked = ExtResource("9_ao7i4")
+CheckBox/icons/radio_unchecked = ExtResource("10_fwvrt")
+CheckBox/icons/unchecked = ExtResource("11_3c7ep")
+CheckBox/icons/unchecked_disabled = ExtResource("11_3c7ep")
+CheckBox/styles/disabled = SubResource("StyleBoxEmpty_eho3t")
+CheckBox/styles/focus = ExtResource("2_vi54q")
+CheckBox/styles/hover = SubResource("StyleBoxEmpty_bog0l")
+CheckBox/styles/hover_pressed = SubResource("StyleBoxEmpty_d17ug")
+CheckBox/styles/normal = SubResource("StyleBoxEmpty_st0ul")
+CheckBox/styles/pressed = SubResource("StyleBoxEmpty_rl8mj")
+CheckButton/colors/font_color = Color(0.78431374, 0.7607843, 0.6509804, 1)
+CheckButton/colors/font_disabled_color = Color(0.5019608, 0.47843137, 0.3882353, 1)
+CheckButton/colors/font_focus_color = Color(0.89411765, 0.8509804, 0.6784314, 1)
+CheckButton/colors/font_hover_color = Color(0.89411765, 0.8509804, 0.6784314, 1)
+CheckButton/colors/font_pressed_color = Color(0.7882353, 0.6039216, 0.24705882, 1)
+CheckButton/icons/checked = ExtResource("12_02jox")
+CheckButton/icons/checked_disabled = ExtResource("12_02jox")
+CheckButton/icons/unchecked = ExtResource("13_8ig1c")
+CheckButton/icons/unchecked_disabled = ExtResource("13_8ig1c")
+CheckButton/styles/disabled = SubResource("StyleBoxEmpty_yv2r4")
+CheckButton/styles/focus = ExtResource("2_vi54q")
+CheckButton/styles/hover = SubResource("StyleBoxEmpty_1wnmg")
+CheckButton/styles/hover_pressed = SubResource("StyleBoxEmpty_xjwb5")
+CheckButton/styles/normal = SubResource("StyleBoxEmpty_wd6e1")
+CheckButton/styles/pressed = SubResource("StyleBoxEmpty_w05yi")
+DangerButton/base_type = &"Button"
+DangerButton/styles/normal = ExtResource("14_u0kd0")
+HSlider/icons/grabber = ExtResource("15_bur5b")
+HSlider/icons/grabber_disabled = ExtResource("15_bur5b")
+HSlider/icons/grabber_highlight = ExtResource("16_q5alf")
+HSlider/styles/grabber_area = SubResource("StyleBoxEmpty_0yxtb")
+HSlider/styles/grabber_area_highlight = SubResource("StyleBoxEmpty_0ho5i")
+HSlider/styles/slider = SubResource("StyleBoxTexture_4vsd6")
+InsetPanel/base_type = &"Panel"
+InsetPanel/styles/panel = ExtResource("18_ge7ny")
+Label/colors/font_color = Color(0.78431374, 0.7607843, 0.6509804, 1)
+Label/colors/font_disabled_color = Color(0.5019608, 0.47843137, 0.3882353, 1)
+Label/colors/font_focus_color = Color(0.89411765, 0.8509804, 0.6784314, 1)
+Label/colors/font_hover_color = Color(0.89411765, 0.8509804, 0.6784314, 1)
+Label/colors/font_pressed_color = Color(0.7882353, 0.6039216, 0.24705882, 1)
+LineEdit/colors/font_color = Color(0.78431374, 0.7607843, 0.6509804, 1)
+LineEdit/colors/font_disabled_color = Color(0.5019608, 0.47843137, 0.3882353, 1)
+LineEdit/colors/font_focus_color = Color(0.89411765, 0.8509804, 0.6784314, 1)
+LineEdit/colors/font_hover_color = Color(0.89411765, 0.8509804, 0.6784314, 1)
+LineEdit/colors/font_pressed_color = Color(0.7882353, 0.6039216, 0.24705882, 1)
+LineEdit/styles/focus = ExtResource("2_vi54q")
+LineEdit/styles/normal = ExtResource("18_ge7ny")
+MutedLabel/base_type = &"Label"
+MutedLabel/colors/font_color = Color(0.5019608, 0.47843137, 0.3882353, 1)
+Panel/styles/panel = ExtResource("19_tc6qh")
+PanelContainer/styles/panel = ExtResource("19_tc6qh")
+PopupPanel/styles/panel = ExtResource("20_hss3x")
+SlotButton/base_type = &"Button"
+SlotButton/styles/disabled = ExtResource("21_gx60v")
+SlotButton/styles/focus = ExtResource("2_vi54q")
+SlotButton/styles/hover = ExtResource("22_xi13w")
+SlotButton/styles/hover_pressed = ExtResource("23_vcydj")
+SlotButton/styles/normal = ExtResource("24_o1nc3")
+SlotButton/styles/pressed = ExtResource("23_vcydj")
+TabBar/colors/font_color = Color(0.78431374, 0.7607843, 0.6509804, 1)
+TabBar/colors/font_disabled_color = Color(0.5019608, 0.47843137, 0.3882353, 1)
+TabBar/colors/font_focus_color = Color(0.89411765, 0.8509804, 0.6784314, 1)
+TabBar/colors/font_hover_color = Color(0.89411765, 0.8509804, 0.6784314, 1)
+TabBar/colors/font_pressed_color = Color(0.7882353, 0.6039216, 0.24705882, 1)
+TabBar/colors/font_selected_color = Color(0.89411765, 0.8509804, 0.6784314, 1)
+TabBar/colors/font_unselected_color = Color(0.5019608, 0.47843137, 0.3882353, 1)
+TabBar/styles/tab_disabled = ExtResource("1_6jfu7")
+TabBar/styles/tab_focus = ExtResource("2_vi54q")
+TabBar/styles/tab_hovered = ExtResource("25_fyqxb")
+TabBar/styles/tab_selected = ExtResource("26_7mrt5")
+TabBar/styles/tab_unselected = ExtResource("27_w5a8m")
+TooltipLabel/colors/font_color = Color(0.78431374, 0.7607843, 0.6509804, 1)
+TooltipPanel/styles/panel = ExtResource("28_fw4sh")
+VScrollBar/styles/grabber = SubResource("StyleBoxTexture_bg7nq")
+VScrollBar/styles/grabber_highlight = SubResource("StyleBoxTexture_x60e7")
+VScrollBar/styles/grabber_pressed = SubResource("StyleBoxTexture_18po5")
+VScrollBar/styles/scroll = SubResource("StyleBoxTexture_0l133")
