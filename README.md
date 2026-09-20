@@ -29,6 +29,17 @@ group](docs/23-roadmap.md#whats-left-in-milestone-2); what has landed is in
 
 ---
 
+## UI kit
+
+The [UI Field Kit](godot/art/simplyzombies-ui/README.md) contains 120 transparent PNG
+exports, panel and control frames, equipment/action glyphs, cursors, four UI
+animations, an atlas, and native Godot resources. See the
+[sprite catalog](godot/art/simplyzombies-ui/previews/simplyzombies-ui-catalog.png),
+[animation preview](godot/art/simplyzombies-ui/previews/simplyzombies-ui-motion.gif), or
+[offline preview](godot/art/simplyzombies-ui/simplyzombies-ui-preview.html).
+Run `godot/art/simplyzombies-ui/demo/demo.tscn` in Godot to try the native controls.
+Applying the kit to the live CanvasItem UI is a separate change.
+
 ## The loop, in five lines
 
 1. **Dawn** — count what last night cost. Treat wounds, repair walls, burn the bodies.

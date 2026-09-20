@@ -1,0 +1,22 @@
+Use case: ui-mockup.
+Create one polished PAUSE MENU screen for simplyZOMBIES, wide 16:9 landscape. Reference image 1 is the established gameplay HUD and world art; reference image 2 is the matching inventory. The pause menu MUST be part of this same original bespoke pixel interface family: use the identical crisp bitmap typography, sparse worn olive metal outlines, flat dark charcoal-olive fills, ivory labels, and amber focused-state corner brackets. ZERO Sievert-inspired post-apocalyptic survival pixel sensibility, original design.
+
+Background: the same elevated top-down outpost world as reference 1, darkened substantially so the pause menu reads immediately. Keep the background pixels sharp, not blurred. The full composition remains tasteful with the dark outpost visible behind the UI. Hide the gameplay HUD and inventory completely.
+
+Center a single refined narrow rectangular pause panel, about one-third screen width and two-thirds screen height, ample inner padding. Dark olive-black fill #141810, header band #1d2314, fine olive outlines #3c422c, very restrained pixel-wear at a few edges, a few subtle square notches. Sharp square corners. Cream text #c8c2a6. Amber #c99a3f only on the focused row and small cursor. No gradients, no rounded cards, no blur, no glow, no photographic textures, no ornamental gears or screws. The panel must feel like a piece of surplus field equipment, not a web modal.
+
+Header exact text: "PAUSED".
+Below the header, five equal-height menu rows with exact labels in this order:
+"Resume"
+"Save"
+"Load"
+"Settings"
+"Quit to title"
+
+"Resume" is the focused row: a subtle muted olive inset fill, short amber corner brackets, and a small amber stepped triangular cursor to its left. Other rows are readable cream text on dark fill, separated by thin olive rules, generous but compact spacing. Give the final row a little extra breathing room, with understated warm rust text instead of bright red.
+Under the rows a short, small cream helper sentence with exact wording:
+"Returning to title saves your progress."
+At the very bottom of the panel, a clear subdued footer:
+"Arrow keys or mouse · Enter chooses"
+
+No logo is needed on a pause screen. NO numbers anywhere, NO health bars, NO percentages, NO game statistics, NO counters, NO slot dates, NO enemy counts, NO day number, NO minimap, NO invented mission text. Do not show settings sliders or extra panels. Deliver one clean full-screen menu mockup with excellent legibility and consistent pixel sizes.

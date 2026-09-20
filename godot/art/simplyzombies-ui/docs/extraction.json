@@ -1,0 +1,1018 @@
+{
+  "mask": "Keep max(RGB)<85 OR (chroma>20 AND R>=B AND G>=B); remove connected components smaller than 48 source pixels. Binary alpha. Zero transparent RGB.",
+  "resampling": "nearest",
+  "sheets": {
+    "chrome": [
+      {
+        "id": "panel_standard",
+        "rect_xyxy": [
+          40,
+          84,
+          242,
+          275
+        ],
+        "padding": 1,
+        "stretch": true
+      },
+      {
+        "id": "panel_dialog",
+        "rect_xyxy": [
+          292,
+          78,
+          502,
+          282
+        ],
+        "padding": 1,
+        "stretch": true
+      },
+      {
+        "id": "panel_inset",
+        "rect_xyxy": [
+          549,
+          84,
+          751,
+          275
+        ],
+        "padding": 1,
+        "stretch": true
+      },
+      {
+        "id": "panel_tooltip",
+        "rect_xyxy": [
+          796,
+          84,
+          998,
+          275
+        ],
+        "padding": 1,
+        "stretch": true
+      },
+      {
+        "id": "panel_notice",
+        "rect_xyxy": [
+          1047,
+          83,
+          1251,
+          275
+        ],
+        "padding": 1,
+        "stretch": true
+      },
+      {
+        "id": "panel_danger",
+        "rect_xyxy": [
+          1298,
+          84,
+          1499,
+          275
+        ],
+        "padding": 1,
+        "stretch": true
+      },
+      {
+        "id": "button_normal",
+        "rect_xyxy": [
+          36,
+          366,
+          249,
+          447
+        ],
+        "padding": 1,
+        "stretch": true
+      },
+      {
+        "id": "button_hover",
+        "rect_xyxy": [
+          288,
+          366,
+          508,
+          448
+        ],
+        "padding": 1,
+        "stretch": true
+      },
+      {
+        "id": "button_pressed",
+        "rect_xyxy": [
+          542,
+          366,
+          755,
+          449
+        ],
+        "padding": 1,
+        "stretch": true
+      },
+      {
+        "id": "button_disabled",
+        "rect_xyxy": [
+          790,
+          366,
+          1006,
+          447
+        ],
+        "padding": 1,
+        "stretch": true
+      },
+      {
+        "id": "button_focus",
+        "rect_xyxy": [
+          1050,
+          352,
+          1248,
+          461
+        ],
+        "padding": 1,
+        "stretch": true
+      },
+      {
+        "id": "button_danger",
+        "rect_xyxy": [
+          1291,
+          366,
+          1501,
+          446
+        ],
+        "padding": 1,
+        "stretch": true
+      },
+      {
+        "id": "slot_empty",
+        "rect_xyxy": [
+          60,
+          533,
+          232,
+          698
+        ],
+        "padding": 1,
+        "stretch": true
+      },
+      {
+        "id": "slot_hover",
+        "rect_xyxy": [
+          311,
+          532,
+          485,
+          698
+        ],
+        "padding": 1,
+        "stretch": true
+      },
+      {
+        "id": "slot_selected",
+        "rect_xyxy": [
+          563,
+          531,
+          737,
+          699
+        ],
+        "padding": 1,
+        "stretch": true
+      },
+      {
+        "id": "slot_pressed",
+        "rect_xyxy": [
+          812,
+          532,
+          985,
+          697
+        ],
+        "padding": 1,
+        "stretch": true
+      },
+      {
+        "id": "slot_disabled",
+        "rect_xyxy": [
+          1063,
+          532,
+          1235,
+          698
+        ],
+        "padding": 1,
+        "stretch": true
+      },
+      {
+        "id": "slot_invalid",
+        "rect_xyxy": [
+          1314,
+          532,
+          1484,
+          696
+        ],
+        "padding": 1,
+        "stretch": true
+      },
+      {
+        "id": "tab_normal",
+        "rect_xyxy": [
+          37,
+          819,
+          249,
+          888
+        ],
+        "padding": 1,
+        "stretch": true
+      },
+      {
+        "id": "tab_selected",
+        "rect_xyxy": [
+          292,
+          817,
+          507,
+          889
+        ],
+        "padding": 1,
+        "stretch": true
+      },
+      {
+        "id": "tab_hover",
+        "rect_xyxy": [
+          545,
+          816,
+          759,
+          889
+        ],
+        "padding": 1,
+        "stretch": true
+      },
+      {
+        "id": "keycap",
+        "rect_xyxy": [
+          833,
+          788,
+          959,
+          913
+        ],
+        "padding": 1,
+        "stretch": true
+      },
+      {
+        "id": "divider",
+        "rect_xyxy": [
+          1040,
+          842,
+          1262,
+          854
+        ],
+        "padding": 1,
+        "stretch": true
+      },
+      {
+        "id": "scroll_track",
+        "rect_xyxy": [
+          1379,
+          749,
+          1417,
+          957
+        ],
+        "padding": 1,
+        "stretch": true
+      }
+    ],
+    "glyphs": [
+      {
+        "id": "glyph_head",
+        "rect_xyxy": [
+          38,
+          102,
+          191,
+          244
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_eyes",
+        "rect_xyxy": [
+          251,
+          129,
+          417,
+          208
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_face",
+        "rect_xyxy": [
+          473,
+          99,
+          637,
+          243
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_gloves",
+        "rect_xyxy": [
+          704,
+          83,
+          847,
+          247
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_belt",
+        "rect_xyxy": [
+          916,
+          130,
+          1080,
+          217
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_primary",
+        "rect_xyxy": [
+          1186,
+          75,
+          1254,
+          259
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_vest",
+        "rect_xyxy": [
+          1356,
+          95,
+          1506,
+          249
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_torso",
+        "rect_xyxy": [
+          1572,
+          102,
+          1737,
+          246
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_legs",
+        "rect_xyxy": [
+          53,
+          306,
+          176,
+          467
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_feet",
+        "rect_xyxy": [
+          243,
+          323,
+          414,
+          458
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_back",
+        "rect_xyxy": [
+          473,
+          301,
+          637,
+          470
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_secondary",
+        "rect_xyxy": [
+          712,
+          314,
+          849,
+          460
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_inventory",
+        "rect_xyxy": [
+          914,
+          309,
+          1078,
+          465
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_condition",
+        "rect_xyxy": [
+          1169,
+          299,
+          1270,
+          472
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_work",
+        "rect_xyxy": [
+          1353,
+          317,
+          1522,
+          466
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_skills",
+        "rect_xyxy": [
+          1579,
+          319,
+          1730,
+          459
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_settings",
+        "rect_xyxy": [
+          50,
+          531,
+          178,
+          665
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_journal",
+        "rect_xyxy": [
+          247,
+          538,
+          422,
+          664
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_pause",
+        "rect_xyxy": [
+          502,
+          541,
+          608,
+          653
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_close",
+        "rect_xyxy": [
+          718,
+          541,
+          835,
+          655
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_up",
+        "rect_xyxy": [
+          928,
+          549,
+          1068,
+          645
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_down",
+        "rect_xyxy": [
+          1146,
+          555,
+          1294,
+          651
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_left",
+        "rect_xyxy": [
+          1389,
+          534,
+          1477,
+          665
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_right",
+        "rect_xyxy": [
+          1611,
+          534,
+          1698,
+          664
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_inspect",
+        "rect_xyxy": [
+          53,
+          715,
+          192,
+          856
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_use",
+        "rect_xyxy": [
+          262,
+          713,
+          404,
+          865
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_move",
+        "rect_xyxy": [
+          479,
+          710,
+          630,
+          862
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_drop",
+        "rect_xyxy": [
+          713,
+          730,
+          840,
+          847
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_rotate",
+        "rect_xyxy": [
+          932,
+          721,
+          1061,
+          856
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_search",
+        "rect_xyxy": [
+          1134,
+          719,
+          1298,
+          862
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_lock",
+        "rect_xyxy": [
+          1389,
+          719,
+          1494,
+          847
+        ],
+        "padding": 2,
+        "stretch": false
+      },
+      {
+        "id": "glyph_warning",
+        "rect_xyxy": [
+          1581,
+          719,
+          1730,
+          850
+        ],
+        "padding": 2,
+        "stretch": false
+      }
+    ],
+    "controls": [
+      {
+        "id": "control_checkbox_off",
+        "rect_xyxy": [
+          106,
+          107,
+          240,
+          244
+        ],
+        "padding": 1,
+        "stretch": false
+      },
+      {
+        "id": "control_checkbox_on",
+        "rect_xyxy": [
+          410,
+          109,
+          545,
+          243
+        ],
+        "padding": 1,
+        "stretch": false
+      },
+      {
+        "id": "control_checkbox_mixed",
+        "rect_xyxy": [
+          709,
+          109,
+          845,
+          243
+        ],
+        "padding": 1,
+        "stretch": false
+      },
+      {
+        "id": "control_checkbox_disabled",
+        "rect_xyxy": [
+          1014,
+          109,
+          1148,
+          243
+        ],
+        "padding": 1,
+        "stretch": false
+      },
+      {
+        "id": "control_radio_off",
+        "rect_xyxy": [
+          102,
+          417,
+          240,
+          556
+        ],
+        "padding": 1,
+        "stretch": false
+      },
+      {
+        "id": "control_radio_on",
+        "rect_xyxy": [
+          406,
+          417,
+          544,
+          556
+        ],
+        "padding": 1,
+        "stretch": false
+      },
+      {
+        "id": "control_toggle_off",
+        "rect_xyxy": [
+          671,
+          434,
+          870,
+          546
+        ],
+        "padding": 1,
+        "stretch": false
+      },
+      {
+        "id": "control_toggle_on",
+        "rect_xyxy": [
+          986,
+          434,
+          1183,
+          546
+        ],
+        "padding": 1,
+        "stretch": false
+      },
+      {
+        "id": "control_scroll_track",
+        "rect_xyxy": [
+          146,
+          651,
+          193,
+          914
+        ],
+        "padding": 1,
+        "stretch": false
+      },
+      {
+        "id": "control_scroll_thumb",
+        "rect_xyxy": [
+          442,
+          728,
+          506,
+          842
+        ],
+        "padding": 1,
+        "stretch": false
+      },
+      {
+        "id": "control_scroll_thumb_hover",
+        "rect_xyxy": [
+          745,
+          728,
+          810,
+          843
+        ],
+        "padding": 1,
+        "stretch": false
+      },
+      {
+        "id": "control_slider_rail",
+        "rect_xyxy": [
+          968,
+          771,
+          1202,
+          805
+        ],
+        "padding": 1,
+        "stretch": false
+      },
+      {
+        "id": "control_cursor_arrow",
+        "rect_xyxy": [
+          130,
+          1026,
+          215,
+          1168
+        ],
+        "padding": 1,
+        "stretch": false
+      },
+      {
+        "id": "control_cursor_hand",
+        "rect_xyxy": [
+          400,
+          1007,
+          540,
+          1175
+        ],
+        "padding": 1,
+        "stretch": false
+      },
+      {
+        "id": "control_cursor_move",
+        "rect_xyxy": [
+          689,
+          1007,
+          856,
+          1171
+        ],
+        "padding": 1,
+        "stretch": false
+      },
+      {
+        "id": "control_cursor_blocked",
+        "rect_xyxy": [
+          1014,
+          1014,
+          1160,
+          1161
+        ],
+        "padding": 1,
+        "stretch": false
+      }
+    ],
+    "motion": [
+      {
+        "id": "focus_pulse",
+        "source_rects_xyxy": [
+          [
+            101,
+            130,
+            223,
+            247
+          ],
+          [
+            397,
+            113,
+            550,
+            263
+          ],
+          [
+            681,
+            87,
+            890,
+            293
+          ],
+          [
+            1032,
+            119,
+            1166,
+            251
+          ]
+        ],
+        "anchors_xy": [
+          [
+            162.0,
+            188.5
+          ],
+          [
+            473.5,
+            188.0
+          ],
+          [
+            785.5,
+            190.0
+          ],
+          [
+            1099.0,
+            185.0
+          ]
+        ],
+        "shared_bounds_ltrb": [
+          -105,
+          -103,
+          105,
+          103
+        ]
+      },
+      {
+        "id": "busy",
+        "source_rects_xyxy": [
+          [
+            140,
+            412,
+            230,
+            510
+          ],
+          [
+            442,
+            473,
+            531,
+            566
+          ],
+          [
+            726,
+            473,
+            816,
+            566
+          ],
+          [
+            1033,
+            412,
+            1119,
+            510
+          ]
+        ],
+        "anchors_xy": [
+          [
+            185,
+            461
+          ],
+          [
+            483,
+            518
+          ],
+          [
+            772,
+            518
+          ],
+          [
+            1074,
+            462
+          ]
+        ],
+        "shared_bounds_ltrb": [
+          -46,
+          -50,
+          48,
+          49
+        ]
+      },
+      {
+        "id": "item_ping",
+        "source_rects_xyxy": [
+          [
+            120,
+            755,
+            197,
+            832
+          ],
+          [
+            408,
+            726,
+            534,
+            855
+          ],
+          [
+            719,
+            727,
+            850,
+            855
+          ],
+          [
+            1033,
+            727,
+            1162,
+            849
+          ]
+        ],
+        "anchors_xy": [
+          [
+            158.5,
+            793.5
+          ],
+          [
+            471.0,
+            790.5
+          ],
+          [
+            784.5,
+            791.0
+          ],
+          [
+            1097.5,
+            788.0
+          ]
+        ],
+        "shared_bounds_ltrb": [
+          -66,
+          -65,
+          66,
+          65
+        ]
+      },
+      {
+        "id": "saved_tick",
+        "source_rects_xyxy": [
+          [
+            118,
+            1060,
+            177,
+            1120
+          ],
+          [
+            429,
+            1085,
+            505,
+            1148
+          ],
+          [
+            724,
+            1051,
+            846,
+            1150
+          ],
+          [
+            1037,
+            992,
+            1186,
+            1150
+          ]
+        ],
+        "anchors_xy": [
+          [
+            180,
+            1084
+          ],
+          [
+            482,
+            1112
+          ],
+          [
+            785,
+            1100
+          ],
+          [
+            1098,
+            1100
+          ]
+        ],
+        "shared_bounds_ltrb": [
+          -62,
+          -108,
+          88,
+          50
+        ]
+      }
+    ]
+  }
+}

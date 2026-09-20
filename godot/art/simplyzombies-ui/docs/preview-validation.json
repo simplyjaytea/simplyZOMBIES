@@ -1,0 +1,27 @@
+{
+  "renderer": "@napi-rs/canvas; shared browser canvas renderer",
+  "checks": [
+    "Inventory selection updates inspected item",
+    "Action feedback changes",
+    "Mode navigation works",
+    "Checkbox toggles",
+    "Switch toggles",
+    "Disabled button is not actionable",
+    "Reduced motion toggles",
+    "Reduced saved tick resolves to completed frame",
+    "Looping animation advances",
+    "Looping animation wraps",
+    "One-shot holds final frame",
+    "Tab focuses a control",
+    "Enter activates a control",
+    "Escape opens pause",
+    "Resume returns to inventory",
+    "Inventory hit regions stay inside canvas",
+    "Components hit regions stay inside canvas",
+    "Motion hit regions stay inside canvas",
+    "Pause hit regions stay inside canvas"
+  ],
+  "checks_passed": 19,
+  "browser_window_tested": false,
+  "note": "Native browser canvas drawing is shared; browser DOM/font loading has not been exercised in a browser window in this environment."
+}

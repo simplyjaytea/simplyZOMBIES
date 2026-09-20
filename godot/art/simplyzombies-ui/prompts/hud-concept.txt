@@ -1,0 +1,24 @@
+Use case: ui-mockup.
+Create one premium bespoke in-game HUD design mockup for the survival game simplyZOMBIES. Full-screen 16:9 landscape, ideally 1920x1080. This is a visual design proposal, not a poster or website.
+
+Reference image 1 is our approved original game world: use its exact visual language and keep a closely matching elevated top-down outpost scene, compact faceless survivor, small worn vehicles, olive trees, wood, concrete, rusty fences and dusty road. Reference image 2 is our original item art: use matching small pixel icons in the quick slots. Do not put the reference item sheet itself on screen.
+
+Visual direction: bespoke military-surplus field interface, ZERO Sievert-inspired pixel aesthetic, original UI design. Crisp low-resolution pixel clusters and integer-scaled bitmap text. Square geometry, stepped corners, one-pixel edge highlights, very sparse chipped paint at corners. Flat near-black charcoal-olive panels #141810, header #1d2314, fine olive edge #3c422c, warm cream text #c8c2a6, secondary text lighter and readable, amber selection #c99a3f, restrained brick-red #b5502f. Dark gunmetal shadows, a little canvas-tan detail. No smooth gradients, no rounded cards, no glass blur, no neon, no ornate screws, no shiny bevels, no general full-screen texture over text. Well-spaced, sharp and readable.
+
+Composition:
+- The world occupies most of the image and the central play space stays open. A compact plain-clothed survivor without a backpack or helmet stands near a closed wooden crate.
+- One modest top-left panel, about a quarter of screen width, with an understated 16px bandage icon and these exact lines, clearly typeset:
+"YOU"
+"Thirsty. Tired."
+"Your left arm aches."
+- One equally restrained top-right panel with these exact lines:
+"DAY 7 · LATE AFTERNOON"
+"The rain is letting up."
+"Something moved beyond the fence."
+- A small world-space interaction label beside the wooden crate: an amber outlined keycap "E", followed by "Search wooden crate".
+- Bottom center: a compact six-slot quick-access strip, each numbered 1 through 6. Crisp item sprites: bandage roll, water bottle, food tin, kitchen knife, flashlight, empty last slot. Only the bandage slot is selected with amber corner marks. A small discrete stack count "3" in that slot is allowed. No other counters.
+- Below that a thin understated key legend reading exactly "Tab Inventory     J Work     K Skills     P Pause". Leave comfortable screen margins.
+- A small simple ivory aiming crosshair on the ground away from the labels.
+UI edges should feel as deliberately pixel-made as the environment. Premium polish comes from hierarchy, proportions, clean negative space, and consistent pixel scale.
+
+Hard constraints: NO health bars, NO stamina/hunger/thirst gauges, NO threat meter, NO numeric injury or infection values, NO enemy counter, NO minimap or enemy radar, NO XP, NO rarity glow, NO mission list, NO made-up objective banner, NO extra decorative captions. Do not create a large game logo. Textual conditions are intentional. Deliver only the one polished game-screen mockup.
