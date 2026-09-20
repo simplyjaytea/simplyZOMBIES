@@ -1,0 +1,2270 @@
+{
+  "name": "simplyZOMBIES UI",
+  "version": "1.0.0",
+  "resource_root": "res://art/simplyzombies-ui/",
+  "pixel_filter": "nearest",
+  "alpha": "binary RGBA; transparent pixels have zero RGB",
+  "palette": {
+    "background": "#10130e",
+    "panel": "#141810",
+    "edge": "#3c422c",
+    "text": "#c8c2a6",
+    "muted": "#807a63",
+    "focus": "#c99a3f",
+    "danger": "#b5502f"
+  },
+  "counts": {
+    "logical_assets": 76,
+    "native_pngs": 120,
+    "glyph_variants": 32,
+    "animation_frames": 16
+  },
+  "assets": [
+    {
+      "id": "panel_standard",
+      "path": "textures/panel_standard.png",
+      "size": [
+        64,
+        64
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        10,
+        10,
+        10,
+        10
+      ]
+    },
+    {
+      "id": "panel_dialog",
+      "path": "textures/panel_dialog.png",
+      "size": [
+        64,
+        64
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        12,
+        12,
+        12,
+        12
+      ]
+    },
+    {
+      "id": "panel_inset",
+      "path": "textures/panel_inset.png",
+      "size": [
+        64,
+        64
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        10,
+        10,
+        10,
+        10
+      ]
+    },
+    {
+      "id": "panel_tooltip",
+      "path": "textures/panel_tooltip.png",
+      "size": [
+        64,
+        64
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        10,
+        10,
+        10,
+        10
+      ]
+    },
+    {
+      "id": "panel_notice",
+      "path": "textures/panel_notice.png",
+      "size": [
+        64,
+        64
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        10,
+        10,
+        10,
+        10
+      ]
+    },
+    {
+      "id": "panel_danger",
+      "path": "textures/panel_danger.png",
+      "size": [
+        64,
+        64
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        10,
+        10,
+        10,
+        10
+      ]
+    },
+    {
+      "id": "button_normal",
+      "path": "textures/button_normal.png",
+      "size": [
+        96,
+        32
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        9,
+        6,
+        9,
+        6
+      ]
+    },
+    {
+      "id": "button_hover",
+      "path": "textures/button_hover.png",
+      "size": [
+        96,
+        32
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        9,
+        6,
+        9,
+        6
+      ]
+    },
+    {
+      "id": "button_pressed",
+      "path": "textures/button_pressed.png",
+      "size": [
+        96,
+        32
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        9,
+        6,
+        9,
+        6
+      ]
+    },
+    {
+      "id": "button_disabled",
+      "path": "textures/button_disabled.png",
+      "size": [
+        96,
+        32
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        9,
+        6,
+        9,
+        6
+      ]
+    },
+    {
+      "id": "button_focus",
+      "path": "textures/button_focus.png",
+      "size": [
+        96,
+        32
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        9,
+        6,
+        9,
+        6
+      ]
+    },
+    {
+      "id": "button_danger",
+      "path": "textures/button_danger.png",
+      "size": [
+        96,
+        32
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        9,
+        6,
+        9,
+        6
+      ]
+    },
+    {
+      "id": "slot_empty",
+      "path": "textures/slot_empty.png",
+      "size": [
+        32,
+        32
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    {
+      "id": "slot_hover",
+      "path": "textures/slot_hover.png",
+      "size": [
+        32,
+        32
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    {
+      "id": "slot_selected",
+      "path": "textures/slot_selected.png",
+      "size": [
+        32,
+        32
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    {
+      "id": "slot_pressed",
+      "path": "textures/slot_pressed.png",
+      "size": [
+        32,
+        32
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    {
+      "id": "slot_disabled",
+      "path": "textures/slot_disabled.png",
+      "size": [
+        32,
+        32
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    {
+      "id": "slot_invalid",
+      "path": "textures/slot_invalid.png",
+      "size": [
+        32,
+        32
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    {
+      "id": "tab_normal",
+      "path": "textures/tab_normal.png",
+      "size": [
+        80,
+        24
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        6,
+        5,
+        6,
+        5
+      ]
+    },
+    {
+      "id": "tab_selected",
+      "path": "textures/tab_selected.png",
+      "size": [
+        80,
+        24
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        6,
+        5,
+        6,
+        5
+      ]
+    },
+    {
+      "id": "tab_hover",
+      "path": "textures/tab_hover.png",
+      "size": [
+        80,
+        24
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        6,
+        5,
+        6,
+        5
+      ]
+    },
+    {
+      "id": "keycap",
+      "path": "textures/keycap.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        5,
+        5,
+        5,
+        5
+      ]
+    },
+    {
+      "id": "divider",
+      "path": "textures/divider.png",
+      "size": [
+        64,
+        4
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        2,
+        0,
+        2,
+        0
+      ]
+    },
+    {
+      "id": "scroll_track",
+      "path": "textures/scroll_track.png",
+      "size": [
+        12,
+        64
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        3,
+        6,
+        3,
+        6
+      ]
+    },
+    {
+      "id": "glyph_head",
+      "path": "glyphs/glyph_head.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_head_small.png"
+    },
+    {
+      "id": "glyph_eyes",
+      "path": "glyphs/glyph_eyes.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_eyes_small.png"
+    },
+    {
+      "id": "glyph_face",
+      "path": "glyphs/glyph_face.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_face_small.png"
+    },
+    {
+      "id": "glyph_gloves",
+      "path": "glyphs/glyph_gloves.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_gloves_small.png"
+    },
+    {
+      "id": "glyph_belt",
+      "path": "glyphs/glyph_belt.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_belt_small.png"
+    },
+    {
+      "id": "glyph_primary",
+      "path": "glyphs/glyph_primary.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_primary_small.png"
+    },
+    {
+      "id": "glyph_vest",
+      "path": "glyphs/glyph_vest.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_vest_small.png"
+    },
+    {
+      "id": "glyph_torso",
+      "path": "glyphs/glyph_torso.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_torso_small.png"
+    },
+    {
+      "id": "glyph_legs",
+      "path": "glyphs/glyph_legs.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_legs_small.png"
+    },
+    {
+      "id": "glyph_feet",
+      "path": "glyphs/glyph_feet.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_feet_small.png"
+    },
+    {
+      "id": "glyph_back",
+      "path": "glyphs/glyph_back.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_back_small.png"
+    },
+    {
+      "id": "glyph_secondary",
+      "path": "glyphs/glyph_secondary.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_secondary_small.png"
+    },
+    {
+      "id": "glyph_inventory",
+      "path": "glyphs/glyph_inventory.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_inventory_small.png"
+    },
+    {
+      "id": "glyph_condition",
+      "path": "glyphs/glyph_condition.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_condition_small.png"
+    },
+    {
+      "id": "glyph_work",
+      "path": "glyphs/glyph_work.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_work_small.png"
+    },
+    {
+      "id": "glyph_skills",
+      "path": "glyphs/glyph_skills.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_skills_small.png"
+    },
+    {
+      "id": "glyph_settings",
+      "path": "glyphs/glyph_settings.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_settings_small.png"
+    },
+    {
+      "id": "glyph_journal",
+      "path": "glyphs/glyph_journal.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_journal_small.png"
+    },
+    {
+      "id": "glyph_pause",
+      "path": "glyphs/glyph_pause.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_pause_small.png"
+    },
+    {
+      "id": "glyph_close",
+      "path": "glyphs/glyph_close.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_close_small.png"
+    },
+    {
+      "id": "glyph_up",
+      "path": "glyphs/glyph_up.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_up_small.png"
+    },
+    {
+      "id": "glyph_down",
+      "path": "glyphs/glyph_down.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_down_small.png"
+    },
+    {
+      "id": "glyph_left",
+      "path": "glyphs/glyph_left.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_left_small.png"
+    },
+    {
+      "id": "glyph_right",
+      "path": "glyphs/glyph_right.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_right_small.png"
+    },
+    {
+      "id": "glyph_inspect",
+      "path": "glyphs/glyph_inspect.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_inspect_small.png"
+    },
+    {
+      "id": "glyph_use",
+      "path": "glyphs/glyph_use.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_use_small.png"
+    },
+    {
+      "id": "glyph_move",
+      "path": "glyphs/glyph_move.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_move_small.png"
+    },
+    {
+      "id": "glyph_drop",
+      "path": "glyphs/glyph_drop.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_drop_small.png"
+    },
+    {
+      "id": "glyph_rotate",
+      "path": "glyphs/glyph_rotate.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_rotate_small.png"
+    },
+    {
+      "id": "glyph_search",
+      "path": "glyphs/glyph_search.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_search_small.png"
+    },
+    {
+      "id": "glyph_lock",
+      "path": "glyphs/glyph_lock.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_lock_small.png"
+    },
+    {
+      "id": "glyph_warning",
+      "path": "glyphs/glyph_warning.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_warning_small.png"
+    },
+    {
+      "id": "control_checkbox_off",
+      "path": "controls/control_checkbox_off.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "controls"
+    },
+    {
+      "id": "control_checkbox_on",
+      "path": "controls/control_checkbox_on.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "controls"
+    },
+    {
+      "id": "control_checkbox_mixed",
+      "path": "controls/control_checkbox_mixed.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "controls"
+    },
+    {
+      "id": "control_checkbox_disabled",
+      "path": "controls/control_checkbox_disabled.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "controls"
+    },
+    {
+      "id": "control_radio_off",
+      "path": "controls/control_radio_off.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "controls"
+    },
+    {
+      "id": "control_radio_on",
+      "path": "controls/control_radio_on.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "controls"
+    },
+    {
+      "id": "control_toggle_off",
+      "path": "controls/control_toggle_off.png",
+      "size": [
+        32,
+        16
+      ],
+      "category": "controls"
+    },
+    {
+      "id": "control_toggle_on",
+      "path": "controls/control_toggle_on.png",
+      "size": [
+        32,
+        16
+      ],
+      "category": "controls"
+    },
+    {
+      "id": "control_scroll_track",
+      "path": "controls/control_scroll_track.png",
+      "size": [
+        12,
+        64
+      ],
+      "category": "controls"
+    },
+    {
+      "id": "control_scroll_thumb",
+      "path": "controls/control_scroll_thumb.png",
+      "size": [
+        12,
+        20
+      ],
+      "category": "controls"
+    },
+    {
+      "id": "control_scroll_thumb_hover",
+      "path": "controls/control_scroll_thumb_hover.png",
+      "size": [
+        12,
+        20
+      ],
+      "category": "controls"
+    },
+    {
+      "id": "control_slider_rail",
+      "path": "controls/control_slider_rail.png",
+      "size": [
+        64,
+        8
+      ],
+      "category": "controls"
+    },
+    {
+      "id": "control_cursor_arrow",
+      "path": "controls/control_cursor_arrow.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "controls",
+      "hotspot": [
+        6,
+        2
+      ]
+    },
+    {
+      "id": "control_cursor_hand",
+      "path": "controls/control_cursor_hand.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "controls",
+      "hotspot": [
+        9,
+        2
+      ]
+    },
+    {
+      "id": "control_cursor_move",
+      "path": "controls/control_cursor_move.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "controls",
+      "hotspot": [
+        12,
+        12
+      ]
+    },
+    {
+      "id": "control_cursor_blocked",
+      "path": "controls/control_cursor_blocked.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "controls",
+      "hotspot": [
+        12,
+        12
+      ]
+    },
+    {
+      "id": "focus_pulse",
+      "category": "animation",
+      "size": [
+        32,
+        32
+      ],
+      "frames": [
+        "animations/focus_pulse_0.png",
+        "animations/focus_pulse_1.png",
+        "animations/focus_pulse_2.png",
+        "animations/focus_pulse_3.png"
+      ],
+      "fps": 6,
+      "loop": true,
+      "reduced_motion_frame": 0
+    },
+    {
+      "id": "busy",
+      "category": "animation",
+      "size": [
+        16,
+        16
+      ],
+      "frames": [
+        "animations/busy_0.png",
+        "animations/busy_1.png",
+        "animations/busy_2.png",
+        "animations/busy_3.png"
+      ],
+      "fps": 8,
+      "loop": true,
+      "reduced_motion_frame": 0
+    },
+    {
+      "id": "item_ping",
+      "category": "animation",
+      "size": [
+        32,
+        32
+      ],
+      "frames": [
+        "animations/item_ping_0.png",
+        "animations/item_ping_1.png",
+        "animations/item_ping_2.png",
+        "animations/item_ping_3.png"
+      ],
+      "fps": 12,
+      "loop": false,
+      "reduced_motion_frame": 0
+    },
+    {
+      "id": "saved_tick",
+      "category": "animation",
+      "size": [
+        24,
+        24
+      ],
+      "frames": [
+        "animations/saved_tick_0.png",
+        "animations/saved_tick_1.png",
+        "animations/saved_tick_2.png",
+        "animations/saved_tick_3.png"
+      ],
+      "fps": 10,
+      "loop": false,
+      "reduced_motion_frame": 2
+    }
+  ],
+  "sprites": [
+    {
+      "id": "panel_standard",
+      "path": "textures/panel_standard.png",
+      "size": [
+        64,
+        64
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        10,
+        10,
+        10,
+        10
+      ]
+    },
+    {
+      "id": "panel_dialog",
+      "path": "textures/panel_dialog.png",
+      "size": [
+        64,
+        64
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        12,
+        12,
+        12,
+        12
+      ]
+    },
+    {
+      "id": "panel_inset",
+      "path": "textures/panel_inset.png",
+      "size": [
+        64,
+        64
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        10,
+        10,
+        10,
+        10
+      ]
+    },
+    {
+      "id": "panel_tooltip",
+      "path": "textures/panel_tooltip.png",
+      "size": [
+        64,
+        64
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        10,
+        10,
+        10,
+        10
+      ]
+    },
+    {
+      "id": "panel_notice",
+      "path": "textures/panel_notice.png",
+      "size": [
+        64,
+        64
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        10,
+        10,
+        10,
+        10
+      ]
+    },
+    {
+      "id": "panel_danger",
+      "path": "textures/panel_danger.png",
+      "size": [
+        64,
+        64
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        10,
+        10,
+        10,
+        10
+      ]
+    },
+    {
+      "id": "button_normal",
+      "path": "textures/button_normal.png",
+      "size": [
+        96,
+        32
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        9,
+        6,
+        9,
+        6
+      ]
+    },
+    {
+      "id": "button_hover",
+      "path": "textures/button_hover.png",
+      "size": [
+        96,
+        32
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        9,
+        6,
+        9,
+        6
+      ]
+    },
+    {
+      "id": "button_pressed",
+      "path": "textures/button_pressed.png",
+      "size": [
+        96,
+        32
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        9,
+        6,
+        9,
+        6
+      ]
+    },
+    {
+      "id": "button_disabled",
+      "path": "textures/button_disabled.png",
+      "size": [
+        96,
+        32
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        9,
+        6,
+        9,
+        6
+      ]
+    },
+    {
+      "id": "button_focus",
+      "path": "textures/button_focus.png",
+      "size": [
+        96,
+        32
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        9,
+        6,
+        9,
+        6
+      ]
+    },
+    {
+      "id": "button_danger",
+      "path": "textures/button_danger.png",
+      "size": [
+        96,
+        32
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        9,
+        6,
+        9,
+        6
+      ]
+    },
+    {
+      "id": "slot_empty",
+      "path": "textures/slot_empty.png",
+      "size": [
+        32,
+        32
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    {
+      "id": "slot_hover",
+      "path": "textures/slot_hover.png",
+      "size": [
+        32,
+        32
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    {
+      "id": "slot_selected",
+      "path": "textures/slot_selected.png",
+      "size": [
+        32,
+        32
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    {
+      "id": "slot_pressed",
+      "path": "textures/slot_pressed.png",
+      "size": [
+        32,
+        32
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    {
+      "id": "slot_disabled",
+      "path": "textures/slot_disabled.png",
+      "size": [
+        32,
+        32
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    {
+      "id": "slot_invalid",
+      "path": "textures/slot_invalid.png",
+      "size": [
+        32,
+        32
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        6,
+        6,
+        6,
+        6
+      ]
+    },
+    {
+      "id": "tab_normal",
+      "path": "textures/tab_normal.png",
+      "size": [
+        80,
+        24
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        6,
+        5,
+        6,
+        5
+      ]
+    },
+    {
+      "id": "tab_selected",
+      "path": "textures/tab_selected.png",
+      "size": [
+        80,
+        24
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        6,
+        5,
+        6,
+        5
+      ]
+    },
+    {
+      "id": "tab_hover",
+      "path": "textures/tab_hover.png",
+      "size": [
+        80,
+        24
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        6,
+        5,
+        6,
+        5
+      ]
+    },
+    {
+      "id": "keycap",
+      "path": "textures/keycap.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        5,
+        5,
+        5,
+        5
+      ]
+    },
+    {
+      "id": "divider",
+      "path": "textures/divider.png",
+      "size": [
+        64,
+        4
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        2,
+        0,
+        2,
+        0
+      ]
+    },
+    {
+      "id": "scroll_track",
+      "path": "textures/scroll_track.png",
+      "size": [
+        12,
+        64
+      ],
+      "category": "chrome",
+      "nine_slice_ltrb": [
+        3,
+        6,
+        3,
+        6
+      ]
+    },
+    {
+      "id": "glyph_head",
+      "path": "glyphs/glyph_head.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_head_small.png"
+    },
+    {
+      "id": "glyph_head_small",
+      "path": "glyphs/small/glyph_head_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_head"
+    },
+    {
+      "id": "glyph_eyes",
+      "path": "glyphs/glyph_eyes.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_eyes_small.png"
+    },
+    {
+      "id": "glyph_eyes_small",
+      "path": "glyphs/small/glyph_eyes_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_eyes"
+    },
+    {
+      "id": "glyph_face",
+      "path": "glyphs/glyph_face.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_face_small.png"
+    },
+    {
+      "id": "glyph_face_small",
+      "path": "glyphs/small/glyph_face_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_face"
+    },
+    {
+      "id": "glyph_gloves",
+      "path": "glyphs/glyph_gloves.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_gloves_small.png"
+    },
+    {
+      "id": "glyph_gloves_small",
+      "path": "glyphs/small/glyph_gloves_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_gloves"
+    },
+    {
+      "id": "glyph_belt",
+      "path": "glyphs/glyph_belt.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_belt_small.png"
+    },
+    {
+      "id": "glyph_belt_small",
+      "path": "glyphs/small/glyph_belt_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_belt"
+    },
+    {
+      "id": "glyph_primary",
+      "path": "glyphs/glyph_primary.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_primary_small.png"
+    },
+    {
+      "id": "glyph_primary_small",
+      "path": "glyphs/small/glyph_primary_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_primary"
+    },
+    {
+      "id": "glyph_vest",
+      "path": "glyphs/glyph_vest.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_vest_small.png"
+    },
+    {
+      "id": "glyph_vest_small",
+      "path": "glyphs/small/glyph_vest_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_vest"
+    },
+    {
+      "id": "glyph_torso",
+      "path": "glyphs/glyph_torso.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_torso_small.png"
+    },
+    {
+      "id": "glyph_torso_small",
+      "path": "glyphs/small/glyph_torso_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_torso"
+    },
+    {
+      "id": "glyph_legs",
+      "path": "glyphs/glyph_legs.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_legs_small.png"
+    },
+    {
+      "id": "glyph_legs_small",
+      "path": "glyphs/small/glyph_legs_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_legs"
+    },
+    {
+      "id": "glyph_feet",
+      "path": "glyphs/glyph_feet.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_feet_small.png"
+    },
+    {
+      "id": "glyph_feet_small",
+      "path": "glyphs/small/glyph_feet_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_feet"
+    },
+    {
+      "id": "glyph_back",
+      "path": "glyphs/glyph_back.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_back_small.png"
+    },
+    {
+      "id": "glyph_back_small",
+      "path": "glyphs/small/glyph_back_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_back"
+    },
+    {
+      "id": "glyph_secondary",
+      "path": "glyphs/glyph_secondary.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_secondary_small.png"
+    },
+    {
+      "id": "glyph_secondary_small",
+      "path": "glyphs/small/glyph_secondary_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_secondary"
+    },
+    {
+      "id": "glyph_inventory",
+      "path": "glyphs/glyph_inventory.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_inventory_small.png"
+    },
+    {
+      "id": "glyph_inventory_small",
+      "path": "glyphs/small/glyph_inventory_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_inventory"
+    },
+    {
+      "id": "glyph_condition",
+      "path": "glyphs/glyph_condition.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_condition_small.png"
+    },
+    {
+      "id": "glyph_condition_small",
+      "path": "glyphs/small/glyph_condition_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_condition"
+    },
+    {
+      "id": "glyph_work",
+      "path": "glyphs/glyph_work.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_work_small.png"
+    },
+    {
+      "id": "glyph_work_small",
+      "path": "glyphs/small/glyph_work_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_work"
+    },
+    {
+      "id": "glyph_skills",
+      "path": "glyphs/glyph_skills.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_skills_small.png"
+    },
+    {
+      "id": "glyph_skills_small",
+      "path": "glyphs/small/glyph_skills_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_skills"
+    },
+    {
+      "id": "glyph_settings",
+      "path": "glyphs/glyph_settings.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_settings_small.png"
+    },
+    {
+      "id": "glyph_settings_small",
+      "path": "glyphs/small/glyph_settings_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_settings"
+    },
+    {
+      "id": "glyph_journal",
+      "path": "glyphs/glyph_journal.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_journal_small.png"
+    },
+    {
+      "id": "glyph_journal_small",
+      "path": "glyphs/small/glyph_journal_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_journal"
+    },
+    {
+      "id": "glyph_pause",
+      "path": "glyphs/glyph_pause.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_pause_small.png"
+    },
+    {
+      "id": "glyph_pause_small",
+      "path": "glyphs/small/glyph_pause_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_pause"
+    },
+    {
+      "id": "glyph_close",
+      "path": "glyphs/glyph_close.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_close_small.png"
+    },
+    {
+      "id": "glyph_close_small",
+      "path": "glyphs/small/glyph_close_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_close"
+    },
+    {
+      "id": "glyph_up",
+      "path": "glyphs/glyph_up.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_up_small.png"
+    },
+    {
+      "id": "glyph_up_small",
+      "path": "glyphs/small/glyph_up_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_up"
+    },
+    {
+      "id": "glyph_down",
+      "path": "glyphs/glyph_down.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_down_small.png"
+    },
+    {
+      "id": "glyph_down_small",
+      "path": "glyphs/small/glyph_down_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_down"
+    },
+    {
+      "id": "glyph_left",
+      "path": "glyphs/glyph_left.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_left_small.png"
+    },
+    {
+      "id": "glyph_left_small",
+      "path": "glyphs/small/glyph_left_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_left"
+    },
+    {
+      "id": "glyph_right",
+      "path": "glyphs/glyph_right.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_right_small.png"
+    },
+    {
+      "id": "glyph_right_small",
+      "path": "glyphs/small/glyph_right_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_right"
+    },
+    {
+      "id": "glyph_inspect",
+      "path": "glyphs/glyph_inspect.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_inspect_small.png"
+    },
+    {
+      "id": "glyph_inspect_small",
+      "path": "glyphs/small/glyph_inspect_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_inspect"
+    },
+    {
+      "id": "glyph_use",
+      "path": "glyphs/glyph_use.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_use_small.png"
+    },
+    {
+      "id": "glyph_use_small",
+      "path": "glyphs/small/glyph_use_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_use"
+    },
+    {
+      "id": "glyph_move",
+      "path": "glyphs/glyph_move.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_move_small.png"
+    },
+    {
+      "id": "glyph_move_small",
+      "path": "glyphs/small/glyph_move_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_move"
+    },
+    {
+      "id": "glyph_drop",
+      "path": "glyphs/glyph_drop.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_drop_small.png"
+    },
+    {
+      "id": "glyph_drop_small",
+      "path": "glyphs/small/glyph_drop_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_drop"
+    },
+    {
+      "id": "glyph_rotate",
+      "path": "glyphs/glyph_rotate.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_rotate_small.png"
+    },
+    {
+      "id": "glyph_rotate_small",
+      "path": "glyphs/small/glyph_rotate_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_rotate"
+    },
+    {
+      "id": "glyph_search",
+      "path": "glyphs/glyph_search.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_search_small.png"
+    },
+    {
+      "id": "glyph_search_small",
+      "path": "glyphs/small/glyph_search_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_search"
+    },
+    {
+      "id": "glyph_lock",
+      "path": "glyphs/glyph_lock.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_lock_small.png"
+    },
+    {
+      "id": "glyph_lock_small",
+      "path": "glyphs/small/glyph_lock_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_lock"
+    },
+    {
+      "id": "glyph_warning",
+      "path": "glyphs/glyph_warning.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "glyphs",
+      "small_path": "glyphs/small/glyph_warning_small.png"
+    },
+    {
+      "id": "glyph_warning_small",
+      "path": "glyphs/small/glyph_warning_small.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "glyph_variant",
+      "variant_of": "glyph_warning"
+    },
+    {
+      "id": "control_checkbox_off",
+      "path": "controls/control_checkbox_off.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "controls"
+    },
+    {
+      "id": "control_checkbox_on",
+      "path": "controls/control_checkbox_on.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "controls"
+    },
+    {
+      "id": "control_checkbox_mixed",
+      "path": "controls/control_checkbox_mixed.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "controls"
+    },
+    {
+      "id": "control_checkbox_disabled",
+      "path": "controls/control_checkbox_disabled.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "controls"
+    },
+    {
+      "id": "control_radio_off",
+      "path": "controls/control_radio_off.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "controls"
+    },
+    {
+      "id": "control_radio_on",
+      "path": "controls/control_radio_on.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "controls"
+    },
+    {
+      "id": "control_toggle_off",
+      "path": "controls/control_toggle_off.png",
+      "size": [
+        32,
+        16
+      ],
+      "category": "controls"
+    },
+    {
+      "id": "control_toggle_on",
+      "path": "controls/control_toggle_on.png",
+      "size": [
+        32,
+        16
+      ],
+      "category": "controls"
+    },
+    {
+      "id": "control_scroll_track",
+      "path": "controls/control_scroll_track.png",
+      "size": [
+        12,
+        64
+      ],
+      "category": "controls"
+    },
+    {
+      "id": "control_scroll_thumb",
+      "path": "controls/control_scroll_thumb.png",
+      "size": [
+        12,
+        20
+      ],
+      "category": "controls"
+    },
+    {
+      "id": "control_scroll_thumb_hover",
+      "path": "controls/control_scroll_thumb_hover.png",
+      "size": [
+        12,
+        20
+      ],
+      "category": "controls"
+    },
+    {
+      "id": "control_slider_rail",
+      "path": "controls/control_slider_rail.png",
+      "size": [
+        64,
+        8
+      ],
+      "category": "controls"
+    },
+    {
+      "id": "control_cursor_arrow",
+      "path": "controls/control_cursor_arrow.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "controls",
+      "hotspot": [
+        6,
+        2
+      ]
+    },
+    {
+      "id": "control_cursor_hand",
+      "path": "controls/control_cursor_hand.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "controls",
+      "hotspot": [
+        9,
+        2
+      ]
+    },
+    {
+      "id": "control_cursor_move",
+      "path": "controls/control_cursor_move.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "controls",
+      "hotspot": [
+        12,
+        12
+      ]
+    },
+    {
+      "id": "control_cursor_blocked",
+      "path": "controls/control_cursor_blocked.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "controls",
+      "hotspot": [
+        12,
+        12
+      ]
+    },
+    {
+      "id": "focus_pulse_0",
+      "path": "animations/focus_pulse_0.png",
+      "size": [
+        32,
+        32
+      ],
+      "category": "animation_frame",
+      "animation": "focus_pulse",
+      "frame": 0
+    },
+    {
+      "id": "focus_pulse_1",
+      "path": "animations/focus_pulse_1.png",
+      "size": [
+        32,
+        32
+      ],
+      "category": "animation_frame",
+      "animation": "focus_pulse",
+      "frame": 1
+    },
+    {
+      "id": "focus_pulse_2",
+      "path": "animations/focus_pulse_2.png",
+      "size": [
+        32,
+        32
+      ],
+      "category": "animation_frame",
+      "animation": "focus_pulse",
+      "frame": 2
+    },
+    {
+      "id": "focus_pulse_3",
+      "path": "animations/focus_pulse_3.png",
+      "size": [
+        32,
+        32
+      ],
+      "category": "animation_frame",
+      "animation": "focus_pulse",
+      "frame": 3
+    },
+    {
+      "id": "busy_0",
+      "path": "animations/busy_0.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "animation_frame",
+      "animation": "busy",
+      "frame": 0
+    },
+    {
+      "id": "busy_1",
+      "path": "animations/busy_1.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "animation_frame",
+      "animation": "busy",
+      "frame": 1
+    },
+    {
+      "id": "busy_2",
+      "path": "animations/busy_2.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "animation_frame",
+      "animation": "busy",
+      "frame": 2
+    },
+    {
+      "id": "busy_3",
+      "path": "animations/busy_3.png",
+      "size": [
+        16,
+        16
+      ],
+      "category": "animation_frame",
+      "animation": "busy",
+      "frame": 3
+    },
+    {
+      "id": "item_ping_0",
+      "path": "animations/item_ping_0.png",
+      "size": [
+        32,
+        32
+      ],
+      "category": "animation_frame",
+      "animation": "item_ping",
+      "frame": 0
+    },
+    {
+      "id": "item_ping_1",
+      "path": "animations/item_ping_1.png",
+      "size": [
+        32,
+        32
+      ],
+      "category": "animation_frame",
+      "animation": "item_ping",
+      "frame": 1
+    },
+    {
+      "id": "item_ping_2",
+      "path": "animations/item_ping_2.png",
+      "size": [
+        32,
+        32
+      ],
+      "category": "animation_frame",
+      "animation": "item_ping",
+      "frame": 2
+    },
+    {
+      "id": "item_ping_3",
+      "path": "animations/item_ping_3.png",
+      "size": [
+        32,
+        32
+      ],
+      "category": "animation_frame",
+      "animation": "item_ping",
+      "frame": 3
+    },
+    {
+      "id": "saved_tick_0",
+      "path": "animations/saved_tick_0.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "animation_frame",
+      "animation": "saved_tick",
+      "frame": 0
+    },
+    {
+      "id": "saved_tick_1",
+      "path": "animations/saved_tick_1.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "animation_frame",
+      "animation": "saved_tick",
+      "frame": 1
+    },
+    {
+      "id": "saved_tick_2",
+      "path": "animations/saved_tick_2.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "animation_frame",
+      "animation": "saved_tick",
+      "frame": 2
+    },
+    {
+      "id": "saved_tick_3",
+      "path": "animations/saved_tick_3.png",
+      "size": [
+        24,
+        24
+      ],
+      "category": "animation_frame",
+      "animation": "saved_tick",
+      "frame": 3
+    }
+  ]
+}

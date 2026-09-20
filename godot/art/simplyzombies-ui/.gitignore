@@ -1,0 +1,4 @@
+*.import
+*.uid
+previews/motion-frames/
+__pycache__/

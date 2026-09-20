@@ -1905,6 +1905,23 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **UI asset delivery — the approved UI Field Kit, 2026-09-20.** The owner-approved
+  kit is versioned under `godot/art/simplyzombies-ui/`: 120 native RGBA PNGs across
+  76 logical assets, a 512×512 atlas, 24 StyleBoxTexture resources, a Theme, four
+  animated SpriteFrames, pixel font and license, cursors and a CanvasItem helper.
+  A native demo, offline preview, sources and rebuild tools accompany the resources.
+  `python3 godot/art/simplyzombies-ui/tools/validate_assets.py` passes 998 checks;
+  Godot 4.7.1 running `res://art/simplyzombies-ui/tools/validate.gd` passes 349 checks;
+  `node godot/art/simplyzombies-ui/tools/verify_preview.cjs` passes 19 checks over
+  four rendered views. Typecheck, lint and formatting pass. All 82 M2 gates pass
+  across the initial lethality run, a fresh stats retry after a stalled process,
+  and the remaining 80 scripts in chain order, with no gate or assertion changes.
+  `docs/repository-delivery.json` inside the kit records that detail. A browser-window
+  smoke test was not performed. This delivers assets and a demo; applying the skin
+  to the live CanvasItem UI remains separate work. Preview sample counts do not
+  amend the information or digit bans, and no open renderer slice or owner decision
+  is closed by this delivery.
+
 - **Art delivery — the outpost asset pack, 2026-09-17.** The owner asked to put the
   approved standalone art delivery into the repository. It is preserved under
   `godot/art/simplyzombies/`: 187 asset entries, including 185 new entries and the two
