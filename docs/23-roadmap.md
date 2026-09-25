@@ -597,10 +597,6 @@ time left are untouched.
   glyphs — through the same `Kit.style(` path the PANEL and HELPERS lanes already hold the chrome
   to, so this piece adds no lane of its own; `rows()`, `words()` and the id arrays `check_hud`
   and `check_context` read stay unchanged.
-- **Bubbles and the dashboard in kit frames.** Speech bubbles draw through `Chrome.frame(...,
-  "panel_tooltip", ...)` and the vehicle dashboard's housings become kit frames, with the tail,
-  `"saying"`, the dials, lamps, letters, the charge bar and its no-digit-literal rule unchanged.
-  Judged by the OUTLIERS lane.
 - **The four cursors.** `ui/cursors.gd` installs arrow, hand, move and blocked at the manifest's
   own hotspots; a drag `SimInventory.can_place` refuses shows blocked plus `slot_invalid`. Judged
   by the CURSORS lane.
@@ -2100,6 +2096,26 @@ not a to-do list:
   or left open:** at 1280 × 720 the bar keeps F1 through Esc and drops the O and M hints; the
   corner doll still overlaps the bar's left end there, as "One typeface" recorded; and "open the
   door" wears the search glyph, because the spec maps every "open" to it.
+
+- **UI — bubbles and the dashboard in kit frames, 2026-09-25.** The fourth piece of the "UI Field
+  Kit, live" group to land ([docs/30](30-decisions.md#the-ui-field-kit-live-2026-09-25)). The two
+  outliers Chrome's panel/cell/item_plate/header trio never reached now frame themselves through
+  `Chrome.frame`: `main.gd`'s `_draw_bubbles` plate is `Chrome.frame(self, plate, "panel_tooltip",
+  0.85 * alpha)`, falling back to the old drawn fill only under the tooltip style's own margins,
+  and a new static `_bubble_plate` helper pads the plate up to those margins (`Chrome.Kit.margins`,
+  at the owner's 2×) rather than losing the frame, the bottom edge still anchored just above the
+  head so the tail triangle never moves; `saying` and `_focal_drawn` are unchanged. `dashboard.gd`'s
+  three housings are kit frames too — `panel_standard` for the car cluster, `panel_inset` for the
+  smaller handlebar and board — each falling back to its old PANEL/RIM rect under the margins; the
+  dials, needles, lamps, letters and charge bar inside them are untouched. **Gated** by
+  `godot:check:ui_skin`'s OUTLIERS lane, replacing its stub: it follows `_draw_bubbles`,
+  `_draw_cluster`, `_draw_handlebar` and `_draw_board` to `Chrome.frame(`, sizes a representative
+  one-line bubble through `_bubble_plate` itself and checks it clears `panel_tooltip`'s margins,
+  and refuses a call only in a comment, a rect-only body and a plate shrunk under the margins — all
+  four sabotaged and confirmed red before being restored. HELPERS' pending list is empty with this
+  piece: `frame` has real callers in both files. `godot:check:speech`, `godot:m2:vehicles` (its
+  DASH lane unchanged), `godot:check:hud`, `godot:check:play` and `godot:check:appearance` stay
+  green.
 
 - **Art delivery — the outpost asset pack, 2026-09-17.** The owner asked to put the
   approved standalone art delivery into the repository. It is preserved under

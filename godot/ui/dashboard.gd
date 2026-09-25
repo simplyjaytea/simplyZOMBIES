@@ -20,6 +20,12 @@ extends Control
 # numbers is exactly as scarce as a real one. Every value comes from SimVehicles.dash_view, whose
 # keys are DASH_KEYS and whose only numbers are the two needle fractions; not a digit is drawn
 # here, and check_vehicles.gd's DASH lane scans this file's string literals to hold that.
+#
+# Since the owner's 2026-09-25 decision (docs/30, "The UI Field Kit, live") each layout's housing
+# is the kit's own frame -- the car cluster gets `panel_standard`, the smaller handlebar and board
+# housings `panel_inset` -- drawn through `Chrome.frame`, with the old PANEL/RIM rect kept only as
+# the fallback for a rect under the kit style's own margins. The dials, needles, lamps, letters
+# and charge bar inside them are unchanged: they were never the outlier the kit reskins.
 
 const Palette = preload("res://presentation/palette.gd")
 const SimVehicles = preload("res://sim/modules/vehicles.gd")
@@ -112,8 +118,9 @@ func _draw_cluster() -> void:
 	var vp: Vector2 = get_viewport_rect().size
 	var origin := Vector2(roundf((vp.x - PANEL_W) / 2.0), vp.y - BOTTOM - PANEL_H)
 	var panel := Rect2(origin, Vector2(PANEL_W, PANEL_H))
-	draw_rect(panel, PANEL)
-	draw_rect(panel, RIM, false, 2.0)
+	if not Chrome.frame(self, panel, "panel_standard", 1.0):
+		draw_rect(panel, PANEL)
+		draw_rect(panel, RIM, false, 2.0)
 
 	# The speedometer, left: no numbers on the dial, nine tick marks, a needle.
 	var speedo_c := origin + Vector2(DIAL_INSET, 72.0)
@@ -183,8 +190,9 @@ func _draw_handlebar() -> void:
 	var vp: Vector2 = get_viewport_rect().size
 	var origin := Vector2(roundf((vp.x - HANDLEBAR_W) / 2.0), vp.y - BOTTOM - HANDLEBAR_H)
 	var panel := Rect2(origin, Vector2(HANDLEBAR_W, HANDLEBAR_H))
-	draw_rect(panel, PANEL)
-	draw_rect(panel, RIM, false, 2.0)
+	if not Chrome.frame(self, panel, "panel_inset", 1.0):
+		draw_rect(panel, PANEL)
+		draw_rect(panel, RIM, false, 2.0)
 
 	# One small speed dial, left, the speed word under it.
 	var speedo_c := origin + Vector2(76.0, 56.0)
@@ -221,8 +229,9 @@ func _draw_board() -> void:
 	var vp: Vector2 = get_viewport_rect().size
 	var origin := Vector2(roundf((vp.x - BOARD_W) / 2.0), vp.y - BOTTOM - BOARD_H)
 	var panel := Rect2(origin, Vector2(BOARD_W, BOARD_H))
-	draw_rect(panel, PANEL)
-	draw_rect(panel, RIM, false, 2.0)
+	if not Chrome.frame(self, panel, "panel_inset", 1.0):
+		draw_rect(panel, PANEL)
+		draw_rect(panel, RIM, false, 2.0)
 
 	# The motion word, left; the speed pips beside it -- PIPS squares, lit up to the fraction.
 	draw_string(font, Vector2(origin.x + 14.0, origin.y + 32.0), String(_view.get("motion", "")), HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, LIT)
