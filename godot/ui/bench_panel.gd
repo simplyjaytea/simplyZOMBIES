@@ -120,10 +120,13 @@ func _draw() -> void:
 		Chrome.cell(self, r2, 1.0)
 		draw_string(font, Vector2(r2.position.x + ROW_INSET, r2.position.y + ROW_BASE), UiText.fit(font, "%s → %s" % [String(offer.get("name", "")), String(offer.get("noun", ""))], BODY_SIZE, col_w - ROW_INSET * 2.0), HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_SIZE, Chrome.TEXT)
 		var cy: float = r2.position.y + ROW_BASE + LINE - 6.0
+		var asc: float = Chrome.ascent(SMALL)
 		for change_v in changes:
 			var change: Dictionary = change_v as Dictionary
 			var word: String = String(change.get("change", ""))
-			draw_string(font, Vector2(r2.position.x + ROW_INSET + 6.0, cy), "%s %s %s" % [_arrow(word), String(change.get("word", "")), word], HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL, _change_colour(word))
+			var gy: float = cy - asc + (asc - Chrome.GLYPH_SMALL) / 2.0
+			var gw: float = _draw_arrow(self, Vector2(r2.position.x + ROW_INSET + 6.0, gy), word, 1.0)
+			draw_string(font, Vector2(r2.position.x + ROW_INSET + 6.0 + gw + 4.0, cy), "%s %s" % [String(change.get("word", "")), word], HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL, _change_colour(word))
 			cy += LINE - 6.0
 		_hits.append({"rect": r2, "kind": "fit", "item": int(offer.get("item", -1)), "slot": String(offer.get("slot", ""))})
 		ry += h + 6.0
@@ -161,14 +164,23 @@ func _gui_input(event: InputEvent) -> void:
 		return
 
 
-static func _arrow(change: String) -> String:
+# The kit glyph(s) for a change word, drawn at `at` (top-left, whole pixels): one arrow for
+# better or worse, and the left/right pair standing in for a two-headed arrow where neither face
+# draws one (docs/23's record, "UI -- one typeface"; docs/30, "The UI Field Kit, live"). Returns
+# the width it took, so the caller can put the word after it.
+static func _draw_arrow(ci: CanvasItem, at: Vector2, change: String, alpha: float) -> float:
+	var gap: float = 2.0
 	match change:
 		"better":
-			return "▲"
+			Chrome.glyph(ci, "up", at, true, alpha)
+			return Chrome.GLYPH_SMALL
 		"worse":
-			return "▼"
+			Chrome.glyph(ci, "down", at, true, alpha)
+			return Chrome.GLYPH_SMALL
 		_:
-			return "↔"
+			Chrome.glyph(ci, "left", at, true, alpha)
+			Chrome.glyph(ci, "right", at + Vector2(Chrome.GLYPH_SMALL + gap, 0.0), true, alpha)
+			return Chrome.GLYPH_SMALL * 2.0 + gap
 
 
 static func _change_colour(change: String) -> Color:

@@ -110,7 +110,7 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, view), dim)
 	var panel := Rect2(origin, Vector2(width, height))
 	Chrome.panel(self, panel, 0.97)
-	Chrome.header(self, panel, "keys", 0.97)
+	Chrome.header(self, panel, "keys", 0.97, "journal")
 	var hint: String = "F1 to close"
 	var hint_w: float = font.get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, Chrome.FONT_SIZE).x
 	draw_string(font, Vector2(origin.x + width - PAD - hint_w, origin.y + Chrome.header_baseline()), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, Chrome.FONT_SIZE, Chrome.TEXT_DIM)
