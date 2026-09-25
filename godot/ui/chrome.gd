@@ -120,7 +120,7 @@ static func _metrics() -> Font:
 static func panel(ci: CanvasItem, rect: Rect2, alpha: float) -> void:
 	var r: Rect2 = _snap(rect)
 	if frame(ci, r, "panel_standard", alpha):
-		var edge_pass: StyleBoxTexture = Kit.style("panel_standard", r, minf(1.0, alpha + 0.15), false)
+		var edge_pass: Kit.Style = Kit.style("panel_standard", r, minf(1.0, alpha + 0.15), false)
 		if edge_pass != null:
 			edge_pass.draw(ci.get_canvas_item(), r)
 		return
@@ -178,7 +178,7 @@ static func item_plate(ci: CanvasItem, rect: Rect2, alpha: float) -> void:
 # the caller can draw its own fallback.
 static func frame(ci: CanvasItem, rect: Rect2, id: String, alpha: float) -> bool:
 	var r: Rect2 = _snap(rect)
-	var sb: StyleBoxTexture = Kit.style(id, r, alpha)
+	var sb: Kit.Style = Kit.style(id, r, alpha)
 	if sb == null:
 		return false
 	sb.draw(ci.get_canvas_item(), r)
