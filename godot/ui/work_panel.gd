@@ -24,10 +24,19 @@ const COL_W: float = 70.0
 const ROW_H: float = 70.0
 const GRID_X: float = 240.0
 const GRID_Y: float = 88.0
-const CLAUSE_DY: float = 18.0
-const LEARN_DY: float = 36.0
-# What the name column gives up so the focus word has somewhere to sit.
-const FOCUS_W: float = 88.0
+const CLAUSE_DY: float = 22.0
+const LEARN_DY: float = 44.0
+# What the name column gives up so the focus word has somewhere to sit: the longest, "fighter",
+# at SMALL_SIZE and a gap.
+const FOCUS_W: float = 64.0
+# The left gutter: clear of the kit frame's ten-pixel border with room to breathe.
+const GUTTER: float = 24.0
+# Sizes from the ladder (ui/chrome.gd's LADDER): the name and the priorities at the body size,
+# and everything a row says under its name -- the column heads, the focus word, who they are and
+# what they know -- a rung down, because eighteen columns of 70 px and three lines in a 70 px row
+# is what this grid has to fit.
+const NAME_SIZE: int = 25
+const SMALL_SIZE: int = 20
 
 # The five self-managing focuses and the one that is not, in the order a click walks them. Manual
 # is last so it is one right-click away from Auto, and Auto is first because it is the handback --
@@ -108,44 +117,46 @@ func _act(hit: Dictionary, right: bool) -> void:
 # that is clicked cannot drift apart.
 func _word_rect(font: Font, at: Vector2, word: String, font_size: int) -> Rect2:
 	var w: float = font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
-	return Rect2(Vector2(at.x, at.y - float(font_size) * 0.8), Vector2(w, float(font_size) * 1.15))
+	# The typeface's own ascent and line height (Chrome's, which a fallback cannot stretch), not a
+	# fraction of the size: the fraction was the engine font's, and VT323's line is a fifth shorter.
+	return Rect2(Vector2(at.x, at.y - Chrome.ascent(font_size)), Vector2(w, Chrome.line_height(font_size)))
 
 
 func _draw() -> void:
-	var font: Font = ThemeDB.fallback_font
+	var font: Font = Chrome.font()
 	_hit.clear()
 	Chrome.panel(self, Rect2(Vector2.ZERO, size), 0.95)
-	Chrome.header(self, Rect2(Vector2.ZERO, size), "work — click a cell to change priority · click their word to change focus — manual puts their learning in your hands", 0.95)
+	Chrome.header(self, Rect2(Vector2.ZERO, size), "work — click a cell to change priority · click their word to change focus — manual puts their learning in your hands", 0.95, "work")
 	# The priority scale, which the grid previously assumed you already knew. 1 is most
 	# urgent; docs/07's row is an ordering the player sets, not a hidden stat, so the
 	# numbers are the honest presentation here.
-	draw_string(font, Vector2(16, 64), "1 first · 4 last · – never", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Chrome.TEXT_DIM)
+	draw_string(font, Vector2(GUTTER, 64), "1 first · 4 last · – never", HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE, Chrome.TEXT_DIM)
 	var ox: float = GRID_X
 	var oy: float = GRID_Y
 	var col_w: float = COL_W
 	for i in SimJobs.COLUMNS.size():
 		# Fit the real column name to its width rather than cutting every one to 3 letters,
 		# which made Construct and Cook read identically.
-		var name: String = UiText.fit(font, String(SimJobs.COLUMNS[i]), 18, col_w - 6.0)
+		var name: String = UiText.fit(font, String(SimJobs.COLUMNS[i]), SMALL_SIZE, col_w - 6.0)
 		var consumer: bool = SimJobs.CONSUMERS.has(SimJobs.COLUMNS[i])
-		draw_string(font, Vector2(ox + float(i) * col_w, oy - 4), name, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Chrome.TEXT if consumer else Chrome.TEXT_FAINT)
+		draw_string(font, Vector2(ox + float(i) * col_w, oy - 4), name, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE, Chrome.TEXT if consumer else Chrome.TEXT_FAINT)
 	for r in _rows.size():
 		var row: Dictionary = _rows[r]
 		var ent: int = int(row.get("entity", -1))
 		var row_y: float = oy + 28.0 + float(r) * ROW_H
-		var who: String = UiText.fit(font, String(row.get("name", "?")), 20, ox - 32.0 - FOCUS_W)
-		draw_string(font, Vector2(16, row_y), who, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT)
+		var who: String = UiText.fit(font, String(row.get("name", "?")), NAME_SIZE, ox - GUTTER - 16.0 - FOCUS_W)
+		draw_string(font, Vector2(GUTTER, row_y), who, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, Chrome.TEXT)
 		# Who manages this survivor, in one lowercase word at the end of their name. `work_view`
 		# has delivered `focus` since the grid was written and nothing had ever drawn it; this is
 		# the field being read at last, and the click target for changing it.
 		var focus: String = String(row.get("focus", "Auto"))
 		var word: String = focus.to_lower()
-		var word_w: float = font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
-		var word_at := Vector2(16.0 + (ox - 32.0) - word_w, row_y)
+		var word_w: float = font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE).x
+		var word_at := Vector2(ox - 16.0 - word_w, row_y)
 		# Amber is reserved for the one thing that matters (chrome.gd), and among these six words
 		# exactly one means "you are doing this yourself".
-		draw_string(font, word_at, word, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Chrome.ACCENT if focus == "Manual" else Chrome.TEXT_DIM)
-		_hit.append({"rect": _word_rect(font, word_at, word, 18), "entity": ent, "node": "", "focus": focus})
+		draw_string(font, word_at, word, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE, Chrome.ACCENT if focus == "Manual" else Chrome.TEXT_DIM)
+		_hit.append({"rect": _word_rect(font, word_at, word, SMALL_SIZE), "entity": ent, "node": "", "focus": focus})
 		# Who they are, past the name: backstory, roughly how old they read, what a look at
 		# them shows -- one prose sentence, no digits, `identity`'s dead sockets read at last.
 		# The row already says the name, so the clause's own leading "name, " is dropped here
@@ -155,8 +166,8 @@ func _draw() -> void:
 		if clause.begins_with(lead):
 			clause = clause.substr(lead.length())
 		if not clause.is_empty():
-			var fitted: String = UiText.fit(font, clause, 14, ox - 32.0)
-			draw_string(font, Vector2(16, row_y + CLAUSE_DY), fitted, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Chrome.TEXT_DIM)
+			var fitted: String = UiText.fit(font, clause, SMALL_SIZE, ox - GUTTER - 16.0)
+			draw_string(font, Vector2(GUTTER, row_y + CLAUSE_DY), fitted, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE, Chrome.TEXT_DIM)
 		_draw_learning(font, ent, row_y + LEARN_DY)
 		var cols: Dictionary = row.get("cols", {}) as Dictionary
 		for i in SimJobs.COLUMNS.size():
@@ -164,7 +175,7 @@ func _draw() -> void:
 			var label: String = "–" if v <= 0 else str(v)
 			# Urgent work reads brighter, so a row's shape is visible without reading digits.
 			var tint: Color = Chrome.TEXT_FAINT if v <= 0 else Chrome.TEXT.lerp(Chrome.TEXT_DIM, float(v - 1) / 3.0)
-			draw_string(font, Vector2(ox + float(i) * col_w, row_y), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, tint)
+			draw_string(font, Vector2(ox + float(i) * col_w, row_y), label, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, tint)
 
 
 # What this survivor has learned, and -- when the learning is the player's job -- what they could
@@ -177,24 +188,24 @@ func _draw_learning(font: Font, ent: int, y: float) -> void:
 	var view: Dictionary = SimSkills.web_view(_world, ent)
 	var known: Array = view.get("known", []) as Array
 	var learnable: Array = view.get("learnable", []) as Array
-	var x: float = 16.0
+	var x: float = GUTTER
 	if not known.is_empty():
 		var head: String = "knows " + " · ".join(PackedStringArray(known))
-		draw_string(font, Vector2(x, y), head, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Chrome.TEXT_DIM)
-		x += font.get_string_size(head, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
+		draw_string(font, Vector2(x, y), head, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE, Chrome.TEXT_DIM)
+		x += font.get_string_size(head, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE).x
 	if learnable.is_empty():
 		return
 	var lead: String = " — could learn: " if not known.is_empty() else "could learn: "
-	draw_string(font, Vector2(x, y), lead, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Chrome.TEXT_DIM)
-	x += font.get_string_size(lead, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
+	draw_string(font, Vector2(x, y), lead, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE, Chrome.TEXT_DIM)
+	x += font.get_string_size(lead, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE).x
 	for i in learnable.size():
 		var it: Dictionary = learnable[i] as Dictionary
 		var label: String = String(it.get("name", ""))
 		var at := Vector2(x, y)
-		draw_string(font, at, label, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Chrome.ACCENT)
-		_hit.append({"rect": _word_rect(font, at, label, 14), "entity": ent, "node": String(it.get("node", "")), "focus": ""})
-		x += font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
+		draw_string(font, at, label, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE, Chrome.ACCENT)
+		_hit.append({"rect": _word_rect(font, at, label, SMALL_SIZE), "entity": ent, "node": String(it.get("node", "")), "focus": ""})
+		x += font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE).x
 		if i < learnable.size() - 1:
 			var sep: String = ", "
-			draw_string(font, Vector2(x, y), sep, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Chrome.TEXT_DIM)
-			x += font.get_string_size(sep, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
+			draw_string(font, Vector2(x, y), sep, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE, Chrome.TEXT_DIM)
+			x += font.get_string_size(sep, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE).x

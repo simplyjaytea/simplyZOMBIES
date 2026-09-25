@@ -14,6 +14,24 @@ container running** lives in `AGENTS.md`.
 
 ---
 
+## Start here: paused mid-arc, 2026-09-25
+
+Two arcs are open on branch `claude/serene-ride-r1p6y0` (PR #140), paused for usage, everything
+committed. **The pickup doc is
+[`.hermes/plans/2026-09-25_ui-kit-and-outpost-pickup.md`](.hermes/plans/2026-09-25_ui-kit-and-outpost-pickup.md)**
+— what landed, what is next in order, which worker model each piece wants, and the measured
+findings every outpost slice must honour.
+
+- **The UI Field Kit, live** (docs/23 "UI — the UI Field Kit, live"; docs/30 "The UI Field Kit,
+  live"): eight of nine pieces landed, gated by `npm run godot:check:ui_skin` → `UI_SKIN_OK`. Left:
+  **"Saved, picked up, busy"**, then the close-out (chain count in `CLAUDE.md`, the gate's header
+  comment, a full `godot:m2`).
+- **The whole outpost pack** (docs/23 "Art & renderer — the outpost pack"; docs/30 "The whole
+  outpost pack, 2026-09-25", the owner's six answers): the pad fix and the needs-assets report
+  landed; next are **"The bodies turn and walk"** and **"The cars are the pack's, east-west"**
+  (both were started and stopped uncommitted — start them fresh), then item pictures, the ground,
+  trees, gear, walls (picture round first), effects and the cursor.
+
 ## State, as of 2026-09-16 (the population arc, all thirteen slices)
 
 Green, and verified this session rather than quoted: `npm run godot:m2` chains **77 gates**
@@ -1110,12 +1128,42 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    (`SimSpeech.MUTTER_EVERY` 400 ticks, `MUTTER_P` 0.15): a colonist in a need band speaks about
    once every two minutes; a line's horizon is `SAY_TICKS` 60 (three seconds), a scream 40.
 
-9. **What the needs-assets report turns up, once it exists.** The outpost-pack arc (docs/23's
-   "Art & renderer — the outpost pack", 2026-09-17) names held weapons, utilities, decals and
-   the six status icons for "The needs-assets report" rather than building a socket for any of
-   them now — the status icons stay refused under the icon-row ban, but the rest are simply
-   unbuilt. Nothing is measured or decided yet; there is nothing to decide until that report
-   runs and says which of those families a later slice should actually socket.
+9. **The needs-assets report is written, and it turned up five questions rather than zero**
+   (2026-09-25, docs/23's record, "Art — the outpost pack's needs-assets report"). The report the
+   outpost-pack arc named for held weapons, utilities, decals and the extra UI icons is done; none
+   of what it found is decided, because every open item is a shape call rather than a number.
+   **Should a container's material say what tier it holds?** Giving the metal footlocker and the
+   medical box their own look — six of the pack's nine container states — announces a loot table
+   before anyone opens the container, which clause 4 (docs/01) exists to refuse; the shipped rule
+   is deliberately one look for every container today, and only the owner can spend that
+   certainty. (The seventh state, `prop-wood-crate-open`, needs no such call: the sim already
+   tells a searched-but-not-emptied container apart from an emptied one, and only
+   `appearance.gd`'s draw switch is missing it, so that one can simply land.)
+   **Do the pack's utilities become new mechanics, or stay decoration?** A generator, a rain
+   collector, a stove distinct from the campfire, and a spike trap a raider or a zombie can
+   trigger are none of them systems the sim has today; building the art is the smaller half of
+   giving any of them a socket, and whether that arc is worth opening at all is the owner's call.
+   **Do fences and gates become their own tile kind?** Slice 5's own prose counts all thirteen of
+   the pack's wall states, but a fence and a gate have no counterpart in `SimTileMap.Tile` today —
+   only a wall, a window and a door do — so landing those five states in full means new sim
+   content, not only a renderer change; whether that is worth doing now, or the slice ships its
+   other eight and leaves fence and gate for a later piece, is the owner's to pick.
+   **Do held weapons get a hand socket before aim is decided?** docs/30's decisions 7 and 8 of
+   "The outpost pack, adopted" (aim as a second heading, a muzzle socket) are still open; a
+   held-weapon overlay could land unaimed now and be revisited, or wait for those two — either is
+   one line of scope, and it is the owner's to set rather than the next session's to guess.
+   **Is a footprint decal a certainty the player should have?** A trail rendered where an actor
+   walked, unseen by the player, is the kind of information clause 4 refuses; whether the whole
+   decal group (`fx-blood-pool-*`, `fx-bullet-hole-*`, `fx-scorch-mark`, `fx-wood-chips`,
+   `fx-shell-pile`, `fx-footprint`) is worth a persisted-mark sim fact at all, and whether
+   `fx-footprint` specifically would be scoped to ground the player's own sightline has already
+   swept, are both open.
+
+10. **The UI's type sizes** (2026-09-25, docs/23's record, "UI — one typeface"). The ladder is
+   20 / 25 / 30 / 50 in VT323; the HUD cards, action bar, shell rows and panel titles took 30,
+   which keeps their old capital height but is not pixel-exact (strokes land 1 and 2 px wide) —
+   crisp 25 reads smaller, 50 reads loud. One line per file if re-decided; the FONT lane holds
+   whatever is picked to the ladder.
 
 ## How a session runs
 

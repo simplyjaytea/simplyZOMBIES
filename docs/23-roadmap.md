@@ -568,11 +568,41 @@ projection are untouched.
   truck 2×4 (named above); north-south driving keeps the generated art and today's larger
   footprints, per decision 11 of the Dungeon Settlers look ("a car seen from behind").
 - **The cursor.** The pack's crosshair and interaction-hand icons — the two UI icons decision 4
-  of the record entry calls non-status and sockets now.
-- **The needs-assets report.** A report, not a build: what the pack ships that this arc did not
-  socket — twelve held weapons, eleven utility entries, eight decals, and the UI icons beyond the
-  cursor and the six refused status icons (backpack, ammo, radio, warning, lock, work, map-marker,
-  exit) — named for whichever later slice reads one, per decision 4's "report-only" half.
+  of the record entry calls non-status and sockets now. The UI Field Kit's four OS pointers
+  (arrow, hand, move, blocked) land in `ui/cursors.gd` under the UI-kit group, and this slice's
+  crosshair and interaction hand join that table rather than a second one; this slice stays open.
+  By the owner's 2026-09-25 answer (docs/30, "The whole outpost pack") the cursors split by
+  place: the pack's crosshair over the world while playing, the pack's hand over a *seen* thing
+  with a verb, the kit's pointers over every panel.
+- **Held weapons in the hand.** The pack's twelve held-weapon sprites drawn at a hand point per
+  view on the four-direction body — reopened from the report by the owner on 2026-09-25 (docs/30,
+  "The whole outpost pack"). Lands with or after the pack-gear half of "The bodies turn and walk".
+- **Furnishings and container kinds.** The pack's furnishing props as dressing that never touches
+  balance and never becomes sim state, and its container kinds keyed by loot table — reopened the
+  same day. A furnishing must not become cover, a pathing block or loot unless a later decision
+  says so.
+- **Nature extras.** Bush and reeds on outdoor tiles; rock, stump and log as dressing — reopened the
+  same day. Rides the "A padded source copies, never blends" fix (landed) and the trees slice's
+  READS widening to dressing blocks.
+- **Props for things that exist.** The pack's barricade, work lamp and stove pictures for the
+  game's existing barricade, lamp and stove — reopened the same day. A picture swap on things the
+  sim already has, never a new mechanic.
+
+**UI — the UI Field Kit, live, decided by the owner (2026-09-25).** The direction is [docs/30's
+entry](30-decisions.md#the-ui-field-kit-live-2026-09-25): the whole kit — chrome textures,
+glyphs, the four OS cursors and the four UI animations — replaces the hand-drawn `ui/chrome.gd`
+(14 callers) and its `ThemeDB.fallback_font`. Every piece is judged by one new gate, `npm run
+godot:check:ui_skin` → `UI_SKIN_OK`, a named lane per claim; the runtime never preloads a kit
+`.tres` (none import headless) and instead builds StyleBoxTextures and frame lists from the
+manifest and PNGs in code, the way `presentation/appearance.gd`'s `resolve()` already does. The
+pieces below are in the order they land, each one session, each with its gate red both ways and
+its record; the health-bar ban, the digit ban, the prose HUD and the busy loop's refusal to read
+time left are untouched.
+
+- **Saved, picked up, busy.** `session.gd` gains a `saved` signal the HUD reads as a "saved" tick
+  in the card header; the player's long-dead-socket `item.pickedUp` event finally gets a reader,
+  `item_ping` on the slot; and a live channel (treatment, construct, rescue, refuel, siphon)
+  shows the `busy` loop, which never reads `ticksLeft`. Judged by the EVENTS lane.
 
 **Art & renderer — overcast or torchlight, decided by the owner (2026-09-08), on the Dungeon
 Settlers spine.** The direction is docs/30's "Overcast or torchlight": a hybrid that keeps the
@@ -1920,7 +1950,317 @@ not a to-do list:
   smoke test was not performed. This delivers assets and a demo; applying the skin
   to the live CanvasItem UI remains separate work. Preview sample counts do not
   amend the information or digit bans, and no open renderer slice or owner decision
-  is closed by this delivery.
+  is closed by this delivery. That live-UI work is now named in [what's
+  left](#whats-left-in-milestone-2)'s "UI — the UI Field Kit, live" group, decided
+  by the owner 2026-09-25.
+
+- **UI — the chrome wears the kit, 2026-09-25.** The first piece of the "UI Field Kit, live"
+  group ([docs/30](30-decisions.md#the-ui-field-kit-live-2026-09-25)). A new `ui/kit.gd` is the
+  one door to `godot/art/simplyzombies-ui/`: it loads the kit's PNGs the two-path way
+  `appearance.gd`'s `resolve()` does (verified headless on this container: every kit `.tres` and
+  `theme.tres` load null with "referenced non-existent resource", a kit PNG has no loader, and
+  `Image.load` reads it), scales each 2× with nearest filtering once at load, and builds cached
+  `StyleBoxTexture`s — keyed by id, centre and opacity to the whole percent — from a `NINE` table
+  of the manifest's native margins, doubled when built, the centre tiled, and null for a rect
+  smaller than those margins so the caller falls back to a drawn fill. `ui/chrome.gd` keeps every
+  colour, `HEADER_H`, `FONT_SIZE`, `font()` and every caller's signature: `panel` is
+  `panel_standard` drawn twice, the frame at its opacity and the border alone 0.15 above it;
+  `header` keeps its strip, inset inside the frame's border, over the kit `divider`, with an
+  optional small glyph before the label; `cell` is `slot_empty` (the pocket grid's 52 px cells
+  clear the doubled 24 px of margin, and the bench's rows clear it too); `item_plate` is
+  `panel_inset` (the smallest plate, 48 px, clears 40). The dead `pin()` and `BRACKET` are gone.
+  **Gated** by `npm run godot:check:ui_skin` → `UI_SKIN_OK`, new, last in the `godot:m2` chain:
+  KIT holds `NINE` to `manifest.json` and every `styles/*.tres` as text, holds every kit chrome
+  id to worn-or-unused-with-a-reason, and names the three departures — `OWNER_SCALE` 2,
+  `CENTRE_MODE_DEVIATION` (the centre tiles, not the `.tres` stretch), the keycap alone at 1× in
+  `Kit.NATIVE_STYLES` — refusing eight fabricated disagreements, among them a tiled style with no
+  deviation named and a deviation naming no departure; RESOLVE resolves all 18 worn textures and
+  all 32 glyphs at both sizes headless at the manifest's size times their scale, and a made-up
+  one to null; PANEL builds the style at a set opacity with doubled margins, cached, and refuses
+  a rect one pixel under them, then follows `panel`, `cell`, `item_plate` and `header` one call
+  deep to `Kit.style(` and `.draw(`, refusing a rect-only body, a dead link and a commented
+  needle; HELPERS refuses a public chrome helper with no caller in `godot/ui/` or `main.gd`.
+  FONT, GLYPHS, KEYCAPS, OUTLIERS, CURSORS, MOTION and EVENTS print `SKIP <LANE>: not landed`,
+  one function each, for their slices to replace. The sabotage pass turned the gate red ten ways
+  before this landed — a wrong margin in `NINE`, `Chrome.panel` with the kit only in a comment,
+  an uncalled helper, `slot_empty.png` removed, a pending helper given a caller, a tab style
+  worn, the deviation set to stretch, the deviation emptied, the code set back to stretch, and
+  `SCALE` set to 1. **What is half-shipped, on purpose:** `frame`, `keycap` and `glyph` have no
+  caller outside `chrome.gd` yet — HELPERS lists them as pending, prints a SKIP naming the slice
+  that reads each, and goes red the moment one gains a caller without leaving that list; the
+  font is still the engine fallback until "One typeface"; and some screens' content gutters,
+  sized for the old hairline, now sit close to the ten-pixel border, which that same slice
+  refits. **Edges by style, the owner's decision the same day**
+  ([docs/30](30-decisions.md#the-ui-field-kit-live-2026-09-25)): a `StyleBoxTexture`'s axis modes
+  cover its edge strips as well as its centre, so tiling both axes drew a fragment of every button
+  and slot bracket along every border as a row of tick marks, while stretching the edges lengthens
+  a dashed line's dashes and every bracket arm in them. `Kit.style` now hands back a cached
+  `Kit.Style` pair drawn by one `.draw()`: the frame, drawing no centre, and the centre alone
+  (`region_rect` the texture inside the frame's margins), always tiled. `slot_empty`, the six
+  panels and the divider tile their edges (`Kit.EDGE_TILED`); the buttons, the other slots and the
+  keycap stretch theirs (`Kit.EDGE_STRETCHED`). Where a corner piece runs past the manifest's
+  margins the style draws at `Kit.WIDENED_MARGINS`, widened just enough to hold it: seven
+  bracketed styles (the focus button's to [18, 10, 17, 10] native) and, by the owner's follow-up
+  the same day, three panels whose corner highlight the tiled edge had repeated as a tick down the
+  rim (the pause dialog's to [14, 13, 12, 12]), plus `panel_danger` at [10, 11, 10, 10] set by
+  eye, because its red rim breaks along its whole length. KIT holds every consumed style to
+  exactly one group and each frame to its group's mode and margins; re-measures every frame's
+  corner piece on the native pixels (no ink carried across a margin into an edge strip, and a
+  pixel less on any widened side lets some through), with `panel_danger`'s remaining runs — the
+  rim's own — pinned at three and each of its widened sides required to remove one; and checks
+  every surface a style draws on, the HUD cards and dialogs included, still clears its doubled
+  margins. Twenty-six fabricated disagreements are refused, among them a style in both groups and
+  in neither, a tiled-edge frame that stretches, a bracketed one that tiles, the focus button and
+  the pause dialog each at the kit's own margins and a pixel wider than they need, and
+  `panel_danger` at the kit's margins.
+
+- **UI — one typeface, 2026-09-25.** The second piece of the "UI Field Kit, live" group
+  ([docs/30](30-decisions.md#the-ui-field-kit-live-2026-09-25)). `Chrome.font()` loads the kit's
+  `fonts/VT323-Pixel.res` lazily — never through `preload`; it is a self-contained FontFile and
+  loads headless — and hands back one cached `FontVariation` over it, antialiasing and hinting
+  off as the kit configured them, the engine's fallback font in its fallbacks, and the "fi"
+  ligature off (VT323 carries one, which on a monospace pixel face drew "first" a cell short).
+  Every screen draws with it: `hud.gd`, `legend.gd`, `work_panel.gd`, `paperdoll.gd`,
+  `dashboard.gd` (three layouts) and `main.gd`'s pawn tag no longer name `ThemeDB.fallback_font`,
+  and nothing under `godot/ui/` or `godot/presentation/` but `chrome.gd` does. **The size
+  ladder is 20 / 25 / 30 / 50** (`Chrome.LADDER`): 25 and 50 are VT323's pixel-exact sizes (a
+  0.04 em grid), 20 and 30 are one rung either side where a layout needs them. Every old size
+  moved by one rule — VT323's capitals are 0.56 em against the engine font's 0.71, so an old
+  size times about 1.3, snapped to the nearest rung, keeps the capital height and the line
+  height near where they were while each line comes out a little narrower: 13–16 → 20, 18–20 →
+  25, 22–26 → 30, the title's 52 → 50. So the HUD cards and the action bar's clauses, the
+  bench's and inspect pane's titles, the shell's rows and the dashboard's motion word are 30;
+  body text, the header labels, the legend and the quick strip's names are 25; the skill web's
+  words, the work grid's column heads and clauses, bag names and every footer hint are 20; the
+  title and the car's gear letters are 50. **Refit around the new metrics:** the legend is two
+  wrapped columns filled in reading order and broken where the taller column is shortest (a
+  group the break cuts in two repeats its name), its key cell a 150 px cap with a wider key on
+  its own line, stepping down to 20 when it will not fit the window — it had been one 1320 px
+  column 1342 px tall, spilling off a 1080 screen with the E row running off its right edge — and
+  it is now added to the UI layer after the corner doll and the quick strip, whose layer used to
+  draw over its wash; the "F1 to close" hint is measured, not a fixed 156 px back from the edge;
+  `work_panel`'s header fits at 25 (it overran 1520 px at the engine font) and its focus word's
+  reserve is the longest word's width; `bench_panel`'s condition word is measured and
+  right-aligned rather than a fixed `col_w - 96` that cut "barely holding" off, its rows taller
+  so a line clears the slot frame's dashes; the dashboard's lamps are one measured, centred row
+  and each dial's word hangs under it in its own row above the rule (the car's panel 600 × 200,
+  the handlebar's 460 × 160, the board's 320 × 80), where before the words sat on the rule and
+  the fuel word ran past the panel; the action bar steps a rung down when the window is too
+  narrow for it and is capped at the window's width, which a `clampf` with its floor above its
+  ceiling had not done on a 1280 window. **The 2× frame's crowded gutters:** the HUD cards'
+  gutter is 24 (was 14 against a ten-pixel border), the pockets header's "on you" sits 22 in on
+  the header label's own line, the body panel's slots and hint line 24 in, the word menu's pad
+  22 × 12. Header labels are centred in the strip from the face's metrics
+  (`Chrome.header_baseline`), and a word's click rectangle is built from `Chrome.ascent` and
+  `Chrome.line_height`: a Font's own metrics are the tallest of it and its fallbacks, so the
+  variation reports the engine font's 35 px line at 25 where every glyph it draws is VT323's 25
+  — the skill web's click targets overlapped on it until the rectangles used the face's.
+  **Gated** by `godot:check:ui_skin`'s FONT lane, in five parts each red both ways: FACE holds
+  `Chrome.font()` to a cached variation over the kit's VT323 with the engine font behind it and
+  the ligature off, and refuses a variation over the engine font, one without fallbacks and one
+  with the ligature on; FALLBACK shows the fallback is not dead (VT323 lacks Ж, the engine font
+  carries it) and holds every non-ASCII character in a screen's string literals and the
+  content's text to being carried by one face or named in `FONT_NO_FACE`, refusing a fabricated
+  one; METRICS holds the helpers to the face's own line and shows the variation's differs; SCAN
+  refuses `ThemeDB.fallback_font` in any `.gd` under `godot/ui/` or `godot/presentation/` but
+  `chrome.gd`, comments stripped, and is shown both ways on fabricated sources; LADDER reads every
+  `*SIZE`/`*FONT`/`*SMALL`/`*TIGHT` int const and every literal size in a `draw_string` or
+  `get_string_size` call — 59 today — and refuses one off the ladder, a fabricated 18 both ways.
+  The sabotage pass turned it red nine ways before this landed: no fallbacks, a wrong font path,
+  the ligature on, the cache removed, a ✓ in a legend row, the variation's metrics in the
+  helper, the engine font named in `paperdoll.gd`, a const at 18, a call at 22. **What is not
+  what the plan said, and what is half-shipped:** the engine's fallback font (Open Sans) does
+  **not** carry → ▲ ▼ ↔ either — the plan and docs/30 assumed it did — so on a desktop build
+  those four reach the screen through the operating system's own font fallback, exactly as they
+  did before this slice, and a web build, which has none, draws a box for them now as it did
+  then; they are named in `FONT_NO_FACE` with that reason, ▲ ▼ ↔ go when "The shell's rows are
+  buttons" turns the bench arrows into kit glyphs, and → in the bench's offer line stays until
+  something replaces it. 30 is not pixel-exact: its strokes land 1 and 2 px wide, visible under a
+  magnifier, and whether the HUD and the rows should drop to a crisp 25 or climb to 50 is the
+  owner's to judge (HANDOFF.md). And a 1280 × 720 window still has layout that predates the
+  typeface and is not this slice's: the work panel's fixed 1520 px, the inventory sheet's
+  columns, the quick strip's six slots and the corner doll over the action bar, measured the
+  same against the S1 tree.
+
+- **UI — keys wear keycaps, 2026-09-25.** The third piece of the "UI Field Kit, live" group to land
+  ([docs/30](30-decisions.md#the-ui-field-kit-live-2026-09-25)). The action bar draws every key it
+  names as the kit's keycap (`Chrome.keycap`, at the kit's native 1×) with its words after it: E, T
+  and H from `action_line`'s own clauses, whose prose is unchanged, and each key of the standing hint,
+  still the one unchanged `var keys: String` line `check_inventory` reads. What the bar draws is a
+  pure list, `Hud.keycaps(action, tail)` — a clause split at " — ", a hint token split at its first
+  lowercase word so "- = speed" is two keys — laid out by a pure `Hud.fit_bar`, which keeps the
+  one-rung step-down "One typeface" gave the bar and then, where a cap's rim and padding still
+  overrun the window (a 1280 window with the cupboard's clause did), drops the hint's tokens from
+  its end, down to F1, never a clause. A cap's label sits a rung below its words, and the bar grew
+  from the alpha shell's 48 px to 56 so a cap clears the frame's ten-pixel border. The centring
+  measures caps with a named copy of `Chrome.keycap`'s arithmetic, but the draw advances by the width
+  `keycap` returns, so drift could only move the centring. The word menu gains a gutter of the
+  kit's 16 px glyphs by verb prefix — use, drop, inspect and look at, search and open, walk and
+  move — present only when some row has one, and part of `ItemMenu.size_of`, so `verb_rects` and
+  `draw_menu` still share one layout (`check_context`'s click lane unchanged and green).
+  **Gated** by `godot:check:ui_skin`'s KEYCAPS lane, replacing its stub: every cap `keycaps` gives
+  for the idle bar and for a real `action_line` with E, T and H all live is a key `input_map.gd`
+  binds (BINDINGS' legend column and `INTERACT_KEY`) and one the F1 legend names, carries no digit
+  unless it is a function key's name, and the tail rebuilt from the caps is the line; `fit_bar`
+  lays out all nine idle caps at 1920 and a prefix keeping E and F1 inside the room at 1280;
+  `_draw_action_bar`, comments stripped, reaches `fit_bar(keycaps(_action, keys))` and
+  `Chrome.keycap(`; the menu is wider by exactly its gutter when a glyph verb joins and not at all
+  when none does, every prefix finds a glyph that resolves, and `draw_menu` reaches `Chrome.glyph(`.
+  A fabricated "3 boards", "Q quit", an unbound lead, a keyless token, a keycap only in a comment
+  and a bar drawing a list of its own are each refused; `keycap` and `glyph` left HELPERS' pending
+  list. The sabotage pass turned it red eleven ways, among them "3 pause" in the key line — which
+  `check_inventory`'s lone-digit exemption passes and this lane refuses. **Not what the plan said,
+  or left open:** at 1280 × 720 the bar keeps F1 through Esc and drops the O and M hints; the
+  corner doll still overlaps the bar's left end there, as "One typeface" recorded; and "open the
+  door" wears the search glyph, because the spec maps every "open" to it.
+
+- **UI — bubbles and the dashboard in kit frames, 2026-09-25.** The fourth piece of the "UI Field
+  Kit, live" group to land ([docs/30](30-decisions.md#the-ui-field-kit-live-2026-09-25)). The two
+  outliers Chrome's panel/cell/item_plate/header trio never reached now frame themselves through
+  `Chrome.frame`: `main.gd`'s `_draw_bubbles` plate is `Chrome.frame(self, plate, "panel_tooltip",
+  0.85 * alpha)`, falling back to the old drawn fill only under the tooltip style's own margins,
+  and a new static `_bubble_plate` helper pads the plate up to those margins (`Chrome.Kit.margins`,
+  at the owner's 2×) rather than losing the frame, the bottom edge still anchored just above the
+  head so the tail triangle never moves; `saying` and `_focal_drawn` are unchanged. `dashboard.gd`'s
+  three housings are kit frames too — `panel_standard` for the car cluster, `panel_inset` for the
+  smaller handlebar and board — each falling back to its old PANEL/RIM rect under the margins; the
+  dials, needles, lamps, letters and charge bar inside them are untouched. **Gated** by
+  `godot:check:ui_skin`'s OUTLIERS lane, replacing its stub: it follows `_draw_bubbles`,
+  `_draw_cluster`, `_draw_handlebar` and `_draw_board` to `Chrome.frame(`, sizes a representative
+  one-line bubble through `_bubble_plate` itself and checks it clears `panel_tooltip`'s margins,
+  and refuses a call only in a comment, a rect-only body and a plate shrunk under the margins — all
+  four sabotaged and confirmed red before being restored. HELPERS' pending list is empty with this
+  piece: `frame` has real callers in both files. `godot:check:speech`, `godot:m2:vehicles` (its
+  DASH lane unchanged), `godot:check:hud`, `godot:check:play` and `godot:check:appearance` stay
+  green.
+
+- **UI — empty slots say what goes there, 2026-09-25.** The fifth piece of the "UI Field Kit, live"
+  group to land ([docs/30](30-decisions.md#the-ui-field-kit-live-2026-09-25)). The twelve
+  equipment slots draw through kit slot styles — `slot_empty` normally, `slot_selected` when the
+  slot holds the selected item — and an empty slot draws its matching 24 px equipment glyph beside
+  the unchanged "nothing" word, never in place of it; the quick strip's six slots wear the same two
+  styles, `slot_selected` following whichever belt or pocket item is picked, their "1"–"6" key
+  numerals untouched; the bag grid's selection ring is `slot_selected`, falling back to its old
+  accent ring only under the margins; and the survivor, inspect and bag headers gain a small glyph
+  through `Chrome.header`'s `glyph_name`. Every one of these draws through `Chrome.frame` and
+  `Chrome.glyph` — the slice was built while `frame` still waited on its first caller and carried
+  private copies of it; they were folded back into the one helper when the pieces merged, because
+  three copies of the snap-style-draw arithmetic are the drift `ui/chrome.gd` exists to prevent.
+  **Gated** by `godot:check:ui_skin`'s GLYPHS lane, replacing its stub: every one of the
+  manifest's 32 glyphs sits in exactly one of `READERS`, `PENDING_GLYPHS` and `UNUSED_GLYPHS`; the
+  twelve equipment glyphs are proved by reading `LEFT_SLOTS` and `RIGHT_SLOTS` off
+  `inventory_panel.gd` and following `_draw_body` to `Chrome.glyph(`; the header readers by a
+  position-aware scan that needs the name at the call's `glyph_name` argument — a first draft that
+  matched any argument would have read `settings_panel.gd`'s own "settings" title as a consumed
+  glyph; and the word menu's four (use, drop, search, move) through the `GLYPHS` table "Keys wear
+  keycaps" reads them by, checked to carry each into a file that reaches `Chrome.glyph(`. A glyph
+  in no list or two, a commented call, a call for another glyph, a label mistaken for a glyph, a
+  table missing the glyph and a pending glyph with a live caller are each refused; the table path
+  was sabotaged ("drop" remapped) and went red. `glyph_close` joins `glyph_lock` and `glyph_rotate`
+  unused, with its reason: the sheet has no close hint yet to draw it beside (the mockup's "Tab ·
+  Close" title bar is not built). `godot:check:inventory`, `:hud`, `:respond`, `:appearance` and
+  `:context` stay green, with `if not _open:` → `QuickStrip.draw_strip`, `column_labels()`,
+  `_draw` → `_draw_body(` → `_draw_responses(` and `Appearance.item_look` unchanged.
+
+- **UI — the shell's rows are buttons, 2026-09-25.** The sixth piece of the "UI Field Kit, live"
+  group to land ([docs/30](30-decisions.md#the-ui-field-kit-live-2026-09-25)). `ui/shell.gd`'s
+  title and pause screens wear the kit's `panel_dialog` and run-over wears `panel_danger`, through
+  `Chrome.frame(`, a drawn fallback kept under the margins. Every row is `button_normal`; the cursor
+  row layers `button_focus` over `button_hover`; `quit_to_title` always wears `button_danger`,
+  chosen or not, its label in `Chrome.DANGER`, as `previews/pause-approved.png` draws it. The old
+  amber bar is now the small `right` glyph beside the cursor row's label, every row's text at one x
+  whether or not it carries the marker; the pause and run-over headers gain `pause` and `warning`.
+  `settings_panel.gd`'s slider tracks draw the kit's `control_slider_rail.png` by hand — a control
+  with no `nine_slice_ltrb`, so two end caps at its own pixels and a stretched middle — and its
+  header gains `settings`. `bench_panel.gd`'s condition-change arrows are the kit's `up` and `down`
+  glyphs and a `left`+`right` pair for "different", retiring the ▲ ▼ ↔ that "One typeface" named
+  for the OS fallback (FONT_NO_FACE drops all three in this commit); the offer line's → stays
+  hand-drawn, because splitting it around a glyph would break `UiText.fit`'s truncation.
+  `legend.gd`, `work_panel.gd` and `web_panel.gd` gain the `journal`, `work` and `skills` header
+  glyphs; `debug_panel.gd` gets none. **Gated** by the lanes the earlier pieces built rather than
+  one of its own: PANEL and HELPERS hold `frame` to the kit, and GLYPHS now reads all ten of this
+  piece's glyphs at their literal call sites — `PENDING_GLYPHS` is empty, 29 of the 32 glyphs are
+  read and three unused with a reason. `rows()`, `words()`, `key()`, `show_state` and the row id
+  arrays are untouched, so `check_hud`'s SHELL lane and `check_play`'s title, pause and run-over
+  lanes read the same shell they always did; `check_m2_bench`'s `bench_view`/`item.detach`/
+  `item.attach`, `check_web_look`'s six method names and its no-`load(`-in-`_ready` rule,
+  `check_inventory`'s legend needles and `check_m2_raiders`' `_rows` all hold.
+  `godot:check:ui_skin`, `:hud`, `:play`, `:web_look`, `:inventory`, `:context`, `godot:m2:bench`
+  and `godot:m2:raiders` green on the merged tree.
+
+- **UI — the four cursors, 2026-09-25.** The seventh piece of the "UI Field Kit, live" group to
+  land ([docs/30](30-decisions.md#the-ui-field-kit-live-2026-09-25)). A new `ui/cursors.gd` holds
+  one table, `Input.CursorShape` → the kit pointer it wears, at the manifest's native size and
+  hotspot: arrow → `control_cursor_arrow` (6, 2), pointing hand → `control_cursor_hand` (9, 2),
+  forbidden → `control_cursor_blocked` (12, 12), and drag, can-drop and move all →
+  `control_cursor_move` (12, 12), so no path through a drag falls back to the system arrow.
+  `install()`, called first thing in `main.gd`'s `_ensure_ui`, hands each through `Kit.texture` to
+  `Input.set_custom_mouse_cursor` at the chrome's own 2× — 48 px pictures, each hotspot doubled
+  with its picture as the kit's integration notes ask — and is a no-op on the headless display
+  server every gate runs under. The screens name a shape, never a picture: `shell.gd`,
+  `context_menu.gd`, `settings_panel.gd` and `inventory_panel.gd` each gain a pure `cursor_at(p)`
+  and set `mouse_default_cursor_shape` from it where they already take the mouse — the hand over a
+  row, a verb, a slider and an item or occupied slot, the arrow elsewhere; the shell's rows and
+  the sheet's columns are now one layout function each (`_row_rects`, `_column_places`) that the
+  draw and the pointer share. A held item asks the sim: `_drop_verdict` puts
+  `SimInventory.can_place` to the exact cell and turn a release there would propose, and a refusal
+  wears blocked with the kit's `slot_invalid` drawn by the ghost over the cells the item would
+  cover, an acceptance wears move; the transfer window does the same. **Gated** by
+  `godot:check:ui_skin`'s CURSORS lane, replacing its stub: TABLE's ids, sizes and hotspots equal
+  `manifest.json`'s and every `control_cursor_*` is worn; each picture resolves through
+  `Kit.texture` at the manifest's size times `Kit.SCALE` with its hotspot inside it; `_ensure_ui`
+  reaches `UiCursors.install(`, which reaches `Input.set_custom_mouse_cursor(` and dresses all six
+  shapes; every screen's input path reaches its `cursor_at(` and `mouse_default_cursor_shape`, and
+  the ghost reaches `"slot_invalid"`; the shell, the menu, settings and the sheet each give the
+  hand where a press acts and the arrow where it does not; and in a small world a held tin over
+  every pocket cell is blocked exactly where `can_place` refuses and the move exactly where it
+  accepts, both seen. A hotspot one pixel off, a fifth pointer nobody wears, an install only in a
+  comment and a verdict ruling with `SimGrid.fits` alone are each refused; the sabotage pass turned
+  the lane red thirteen ways. **What it does not see, on purpose:** `can_place` is the grid, the
+  nesting and the depth and not the reach guard `inventory.intake` adds for a world container, so
+  a drag into a cupboard nobody is standing at can read as the move and be refused when it lands;
+  a drop on an equipment slot always reads as the move, because `SimInventory.equip` has no pure
+  predicate and an equip is still judged when its command arrives; and the refused frame is drawn
+  filled, covering the cell's item under the ghost. The OS pointer itself is not judged — headless
+  has none — and the outpost pack's crosshair and interaction hand (its open "The cursor" slice)
+  will join this same table.
+
+- **UI — UI motion, and a reduced-motion switch, 2026-09-25.** The eighth piece of the "UI Field
+  Kit, live" group to land ([docs/30](30-decisions.md#the-ui-field-kit-live-2026-09-25)). A new
+  `ui/motion.gd` holds one table of the kit's four animations — `focus_pulse` 4 frames at 6 fps
+  looping, `busy` 4 at 8 looping, `item_ping` 4 at 12 once, `saved_tick` 4 at 10 once, each with
+  the manifest's reduced-motion frame (0, 0, 0 and 2) — and three pure functions of the wall
+  clock: `frame_of(id, elapsed, reduced)` wraps a loop, holds a one-shot on its last frame and
+  answers the reduced frame at any time; `is_live` is false under reduced motion and once a
+  one-shot has played; `texture_of` loads `animations/<id>_<n>.png` through `Kit.texture` at the
+  chrome's 2×. Callers measure `Time.get_ticks_msec()`, never the sim's tick, so the pulse
+  breathes on a paused game, and nothing under `godot/sim/` reads any of it. `ui/prefs.gd` gains
+  `reduced_motion: false`, and `settings_panel.gd` a third row, "reduced motion", drawn with the
+  kit's `control_toggle_on`/`control_toggle_off` at 2× in one rect the draw, the click and
+  `cursor_at`'s hand share; the panel grows a row. `focus_pulse` is drawn by
+  `Motion.draw_focus` — its four quadrants 1:1 in the corners of the focused rect grown by
+  `PULSE_OUTSET`, nothing stretched, because no bracket in any frame crosses the texture's centre
+  lines — around the shell's cursor row and, through a new `focus_s` argument to
+  `BagGrid.draw_item` that `inventory_panel.gd` feeds from its own clock, around the selected
+  plate. Both screens queue a redraw from `_process` only while `Motion.is_live` and only when the
+  frame turns over (six a second, not sixty), plus one to settle on the rest frame if the switch
+  is thrown mid-breath. **Gated** by `godot:check:ui_skin`'s MOTION lane, replacing its stub:
+  TABLE equals every manifest animation record and every frame resolves at the manifest's size
+  times `Kit.SCALE`; each frame lands half a frame in, loops agree one period apart, one-shots
+  hold, reduced motion gives the manifest's frame at nine elapsed times and without it some time
+  gives another; `is_live` is false under reduced motion and for a finished one-shot;
+  `PULSE_CORNER` and `PULSE_OUTSET` are re-measured on the pixels; `DEFAULTS` carries the pref
+  false; a click through the settings sheet's own `_gui_input` on the toggle flips `UiPrefs` and
+  `Motion.reduced()` and a click on its corner flips nothing, the gate putting the pref back as it
+  found it; and, comments stripped, the shell's `_draw` and `draw_item` reach
+  `Motion.draw_focus(`, the inventory hands it `_pulse_elapsed()`, and both `_process`es reach
+  `Motion.is_live(`. A wrong fps, an uncarried animation, ink on the cut and a commented reader
+  are each refused; the sabotage pass turned the lane red thirty ways, one per assertion.
+  **Half-shipped, on purpose:** `busy`, `item_ping` and `saved_tick` are in the table and judged,
+  and nothing draws them yet — their readers are the next piece, "Saved, picked up, busy". The
+  settings rows are mouse-only, the toggle with them: the router's `settings` focus lets Escape
+  through and nothing else, and keyboard rows there would be a change to that table. The redraw
+  saving is read off the code, not measured: headless draws nothing to count.
 
 - **Art delivery — the outpost asset pack, 2026-09-17.** The owner asked to put the
   approved standalone art delivery into the repository. It is preserved under
@@ -1987,6 +2327,131 @@ not a to-do list:
   wall, tree, effect and vehicle from the generated tier exactly as before; the nine pieces
   docs/23's "the outpost pack" group names are what consumes the pack for everything else, slice
   by slice.
+
+- **Art — the outpost pack's needs-assets report, 2026-09-25.** The report decision 4 of "The
+  outpost pack, adopted" named rather than built — what the pack ships that no slice, or no
+  slice in full, has a sim fact to read — run now that the owner has asked for the whole pack to
+  be used (2026-09-25). It replaces the "The needs-assets report" line in what's-left with the
+  answer. Counted straight off `godot/art/simplyzombies/manifest.json`'s 187 entries rather than
+  assumed: the same pattern turns up three times *inside* an already-named slice before it turns
+  up in the groups nobody named at all — a slice's own prose counts every member of a manifest
+  category ("twelve terrain tiles," "thirteen wall/fence/door/window states," "the pack's twelve
+  four-frame effect sheets"), but not every member of that category already has a matching fact
+  in `godot/sim/`.
+
+- **Art — a padded source copies, never blends, 2026-09-25.** A fix the outpost arc needed before
+  any slice pads pack art. `tools/sprites/build.py`'s `render_source()` padded an authored source
+  onto a larger transparent canvas with `canvas.paste(image, (ox, oy), image)`, and Pillow's masked
+  paste blends a semi-transparent pixel with the transparent canvas — alpha a becomes about a²/255
+  and its colour darkens — a silent repaint of pack art, whose edges are nearly all fractional
+  alpha. `sprites:check` could not see it, because it compares a reproduction against a PNG the
+  same function wrote. The paste now copies without the mask. **Gated** by a self-test that runs
+  inside `npm run sprites:check` on every check: a fabricated image with alphas 1, 6, 128 and 200
+  padded through the fixed paste must equal its input byte for byte with the rest transparent, and
+  the old masked paste is computed alongside and must differ, so the test can fail. No committed
+  PNG changed (the two sourced crates are fully opaque); `SPRITES_OK`, `AUTHORED_OK` and
+  `APPEARANCE_OK` held.
+
+  - **Slice 3, the ground.** Two of its twelve terrain tiles have no row to land on:
+    `tile-interior-tile` (an indoor floor distinct from wood) has nowhere to go because
+    `Appearance.GroundRow` has eight rows and `Boards` is already the one "indoor floor" look,
+    with no per-building flooring-material fact to choose wood over tile; and of the eight ground
+    overlays, `overlay-puddle` has no weather fact behind it — rain wets a body (`needs.gd`'s
+    `wetUntilTick`) but never lays a wet patch on the ground the way it wets a person. The other
+    eighteen terrain and overlay entries already have a fact: paved, dirt, grass, undergrowth,
+    rubble and water map straight onto `SimSurface.Surface`, the grass-edge overlays onto the
+    existing grass-disc boundary rule, the road overlays onto the street manifest's own paint, and
+    `overlay-debris` onto the look `check:wrecks` already draws.
+  - **Slice 5, the walls.** Five of its thirteen wall/fence/door/window states have no tile or
+    entity to bind to: `wall-fence-horizontal`, `wall-fence-vertical`, `wall-gate-closed` and
+    `wall-gate-open` have no counterpart in `SimTileMap.Tile` (Floor, Wall, Window, Screen, Low,
+    Tree, Door, Water — no Fence, no Gate; the annex's `gate_a`/`gate_b` are anchor coordinates a
+    director reads, never an openable object), and `wall-window-broken` has no state either —
+    `fortify.gd`'s four window-board stages (`WINDOW_PROSE`) run "intact" to "gaps, light
+    leaking," never to a pane shattered by being fired through rather than boarded. The other
+    eight (plaster, brick, interior, both corners, door-closed/open, window-intact) already have
+    a tile or a board/door stage to read.
+  - **Slice 7, the shot.** Six of its twelve effect sheets have no event to fire them:
+    `fx-metal-sparks`, `fx-concrete-dust` and `fx-wood-splinters` would need an impact point (a
+    struck surface's material, published where a hit today only becomes damage), `fx-water-
+    splash` would need a wade/enter-water event (water today only multiplies speed and noise),
+    `fx-explosion` has nothing to attach to at all — no device in the game explodes — and
+    `fx-smoke-loop` has no ambient smoke source (a fire is lit or unlit; nothing emits smoke on
+    its own). The other six — the three muzzle flashes, `fx-blood-hit`, `fx-ejected-casing` and
+    `fx-flame-loop` — are exactly what the slice's own text names ("muzzle flash, blood hit,
+    casing and campfire flame") and already have the firing, wounding, ejection and lighting
+    events to read.
+
+  Four groups the roadmap ties to no system at all, named or proposed:
+
+  - **Held weapons, twelve** (`groups/items/held/weapon-*.png`: pistol, revolver, smg,
+    pump-shotgun, assault-rifle, bolt-rifle, bow, crossbow, kitchen-knife, hatchet, crowbar,
+    baseball-bat). Needs a per-direction hand socket on the pack survivor rig, naming which item
+    is equipped and orienting it to heading — slice 2 lands the body and its four wearables
+    (vest, helmet, gasmask, backpack) and says nothing about what a hand holds. No slice names
+    it; it also sits beside docs/30's two still-open aim and muzzle-socket decisions (7 and 8 of
+    "The outpost pack, adopted"), which a held-weapon overlay would have to agree with once
+    decided. Touches no standing ban.
+  - **Utilities, eleven** (`groups/utility/`: `utility-generator-off/on`,
+    `-barricade-intact/broken`, `-rain-collector`, `-stove`, `-worklamp-off/on/activation`,
+    `-spike-trap-armed/triggered`). No one fact covers the group. The worklamp pair is closest to
+    landable: a lamp's lit/unlit, burning-down state is a real, already-gated fact
+    (`M2_LIGHT_BURN_OK`), just not yet given this art. The barricade pair is partial:
+    `fortify.gd` tracks a window's board across four numeric stages, never a flat two-state prop.
+    The other seven — both generator states, the rain collector, the stove, and both spike-trap
+    states — have no sim fact of any kind: there is no power or generator mechanic
+    (`content/colony/generator.json` is an unrelated survivor name pool), no water-collecting
+    item, no stove distinct from the campfire `cooksInto` already reads, and no trap a raider or
+    a zombie can trigger. No slice names any of the eleven. Touches no standing ban.
+  - **Decals, eight** (`groups/effects/frames/`: `fx-blood-pool-dry/fresh`,
+    `fx-bullet-hole-metal/concrete`, `fx-scorch-mark`, `fx-wood-chips`, `fx-shell-pile`,
+    `fx-footprint`). These are marks that outlast the moment, a different fact than slice 7's
+    transient effects: a location, a surface or actor, and a tick, published once and read until
+    it fades, which nothing in `sim/` emits today. No slice names it. `fx-footprint` is the one
+    to watch before a reader is built for it: a trail rendered where an actor walked, unseen, is
+    exactly the certainty clause 4 of the hardcore contract refuses the player (docs/01,
+    "information is scarce and unreliable") unless it is scoped to ground the player's own
+    sightline has already swept.
+  - **UI icons beyond the cursor, eight** (`groups/utility/native/`: `ui-backpack`, `ui-radio`,
+    `ui-warning`, `ui-ammo`, `ui-lock`, `ui-work`, `ui-map-marker`, `ui-exit`). Each would need
+    its own fact (pack space, a call transmitted, a raised alert, a magazine's fullness, a locked
+    container, an assigned job, a waypoint, the district edge), and none has a reader named.
+    `ui-ammo` is the one to flag: an icon standing in for a count is the digit ban in a picture
+    rather than a numeral, and `check_hud.gd` would need to judge it the way it judges every
+    other HUD glyph. Decision 4 calls these "report-only," not refused the way the six status
+    icons are — but they sit in the same territory the icon-row ban already occupies, and naming
+    them here amends no ban.
+
+  One more group nobody asked to name, found while counting the rest:
+
+  - **Container states, seven of the family's nine** (`groups/props/native/`:
+    `prop-wood-crate-open`, `prop-metal-footlocker-closed/open/empty`,
+    `prop-medical-box-closed/open/empty`; the closed and empty wood-crate looks are the two
+    landed 2026-09-17). They split two ways. `prop-wood-crate-open` needs no new fact:
+    `containers.gd`'s own `hud_clause` already tells a searched-but-not-emptied container apart
+    from an emptied one, by `contents_of(target).is_empty()` — `presentation/appearance.gd:793`'s
+    container entry switches only on the `searched` flag, collapsing both into
+    `prop.container.searched`. The other six — every metal-footlocker and medical-box look — are
+    not missing a fact so much as spending one the game refuses to spend: a container that looks
+    like a medical box announces its loot table before anyone opens it, exactly the certainty
+    clause 4 forbids; the shipped rule is deliberately one look for every container regardless of
+    tier. No slice names any of the seven.
+
+  **What is already covered, corrected rather than assumed.** The pack's eight nature sprites
+  (`nature-pine`, `-broadleaf`, `-dead-tree`, `-bush`, `-reeds`, `-rock-cluster`, `-stump`,
+  `-fallen-log`) are not a gap: slice 4 ("Trees, the bed and the heaps") already names "the
+  pack's eight nature sprites," and the count matches exactly. The forty-eight inventory icons
+  are likewise already slice 6's, moved there 2026-09-17. Furnishing props are the real gap in
+  that neighbourhood: of the pack's sixteen `prop-*` entries (`groups/props/native/`), only
+  `prop-bed` is named, by slice 4; the other fifteen (barrel, dumpster, concrete-barrier,
+  pallet-stack, workbench, chair, table, fridge, shelf, medical-cabinet, streetlamp, road-sign,
+  traffic-cone, trash-bags, fence-post) have no `content/props/` entry at all —
+  `content/props/stations.json` places only container, bed, campfire, well and latrine, each a
+  functional entity the generator or a job spawns, and a purely decorative prop has no placement
+  pass to put it down at all. `prop-workbench` is the partial exception: `SimGunsmith.build`
+  already spawns a `bench` entity on `bench.built`, so the gameplay fact exists; nothing gives
+  that entity a content id or an `appearance.sprite`, so it still draws by fallback role colour.
+  No slice names any of the fifteen. Touches no standing ban.
 
 - **World & map** — ~~the three location loot tables~~ **landed** (`godot:check:loot`): what a
   place yields is content now, not two hardcoded kits in `boot.gd`. `content/loot/tables.json`

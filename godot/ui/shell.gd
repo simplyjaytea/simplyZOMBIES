@@ -25,6 +25,7 @@ extends Control
 # could not do that; a gate that read the source could not tell a drawn string from a comment.
 
 const Chrome = preload("res://ui/chrome.gd")
+const Motion = preload("res://ui/motion.gd")
 
 # The four states, named again here rather than imported from `presentation/session.gd`: this is
 # a UI panel and the sim-side lifecycle is not its dependency. `show_state` takes the int.
@@ -39,10 +40,17 @@ const PANEL_W: float = 640.0
 const ROW_H: float = 56.0
 const ROW_GAP: float = 6.0
 const PAD: float = 40.0
-const TITLE_SIZE: int = 52
-const ROW_SIZE: int = 26
-const LINE_SIZE: int = 22
+# Sizes from the ladder (ui/chrome.gd's LADDER): the name at VT323's large pixel-exact size, the
+# rows a rung up from the sentences so a menu reads as a menu.
+const TITLE_SIZE: int = 50
+const ROW_SIZE: int = 30
+const LINE_SIZE: int = 25
+const FOOTER_SIZE: int = 20
 const LINE_H: float = 34.0
+# Where a row's label starts: past the small marker glyph the cursor row draws, so every row's
+# text lands at the same x whether or not it is the one carrying the marker.
+const ROW_TEXT_X: float = 40.0
+const ROW_MARKER_X: float = 14.0
 
 # The rows each screen offers, as `[id, label]`. Ids are what `on_action` carries and labels are
 # what the screen says; they are not the same string because "quit to title" is two words the
@@ -56,6 +64,10 @@ const PAUSE_ROWS: Array = [
 	["quit_to_title", "quit to title"],
 ]
 const OVER_ROWS: Array = [["new_run", "new run"], ["quit_to_title", "quit to title"]]
+
+# The one row whose text always reads as a warning, chosen or not (docs/30, "The UI Field Kit,
+# live"): quitting the run is the one destructive choice a menu here offers.
+const DANGER_ROW: String = "quit_to_title"
 
 # The heading each screen carries in its chrome header, and the one sentence under the title's
 # name. Words, all of them.
@@ -73,6 +85,11 @@ var _rows: Array = []
 var _lines: Array[String] = []
 var _notice: String = ""
 var _hits: Array[Rect2] = []
+# The focus pulse on the cursor row (`ui/motion.gd`): when, on the wall clock, the cursor last came
+# to rest on a row -- so every move starts the breath from its rest frame -- and which frame the
+# last draw put on screen, so `_process` asks for a redraw only when the pulse turns over.
+var _focus_since_ms: int = 0
+var _pulse_frame: int = -1
 
 
 func _ready() -> void:
@@ -116,6 +133,7 @@ func show_state(next_state: int, ctx: Dictionary) -> void:
 				_lines.append("There is nobody left to be.")
 			_rows = OVER_ROWS.duplicate()
 	cursor = 0
+	_refocus()
 	visible = true
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	size = get_viewport_rect().size
@@ -176,10 +194,12 @@ func key(ke: InputEventKey) -> bool:
 	match ke.keycode:
 		KEY_UP, KEY_W:
 			cursor = (cursor - 1 + _rows.size()) % _rows.size()
+			_refocus()
 			queue_redraw()
 			return true
 		KEY_DOWN, KEY_S:
 			cursor = (cursor + 1) % _rows.size()
+			_refocus()
 			queue_redraw()
 			return true
 		KEY_ENTER, KEY_KP_ENTER:
@@ -191,6 +211,32 @@ func key(ke: InputEventKey) -> bool:
 			_act("escape")
 			return true
 	return false
+
+
+# The cursor came to rest on a row: its pulse starts over from the rest frame.
+func _refocus() -> void:
+	_focus_since_ms = Time.get_ticks_msec()
+
+
+# Seconds of wall clock the cursor row has worn its pulse -- never the sim's tick, so the pulse
+# keeps breathing on a paused game, which is where this menu is.
+func _focus_elapsed() -> float:
+	return float(Time.get_ticks_msec() - _focus_since_ms) / 1000.0
+
+
+# A redraw only while the pulse is live and only when its frame turns over: six a second at the
+# kit's six frames a second, none with the shell down. Under reduced motion the pulse is not live,
+# and the one redraw left is the one that settles it on its rest frame if the switch was thrown
+# mid-breath; after that, none.
+func _process(_delta: float) -> void:
+	if not visible or _rows.is_empty():
+		return
+	var elapsed: float = _focus_elapsed()
+	var still: bool = Motion.reduced()
+	if Motion.frame_of(Motion.PULSE_ID, elapsed, still) == _pulse_frame:
+		return
+	if Motion.is_live(Motion.PULSE_ID, elapsed, still) or still:
+		queue_redraw()
 
 
 func _choose(index: int) -> void:
@@ -215,8 +261,10 @@ func _gui_input(event: InputEvent) -> void:
 			if _hits[i].has_point(at):
 				if cursor != i:
 					cursor = i
+					_refocus()
 					queue_redraw()
 				break
+		mouse_default_cursor_shape = cursor_at(at) as Control.CursorShape
 	elif event is InputEventMouseButton:
 		var mb: InputEventMouseButton = event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
@@ -226,6 +274,34 @@ func _gui_input(event: InputEvent) -> void:
 					_choose(i)
 					break
 			accept_event()
+
+
+# Which pointer the kit dresses the mouse in at `p` (ui/cursors.gd): the hand over a row, since a
+# row is a button, and the arrow everywhere else on the screen. Pure -- the rows' rects are worked
+# out from the state, not read back from the last draw -- so the CURSORS lane can ask it without a
+# frame.
+func cursor_at(p: Vector2) -> int:
+	for rect in _row_rects():
+		if rect.has_point(p):
+			return Input.CURSOR_POINTING_HAND
+	return Input.CURSOR_ARROW
+
+
+# Every row's rect, top to bottom, in the arithmetic `_draw` lays them out with -- `_draw` takes
+# its rows from here, so the row you can see and the row the pointer answers to are one list.
+func _row_rects() -> Array[Rect2]:
+	var panel: Rect2 = _panel_rect()
+	var y: float = panel.position.y + Chrome.HEADER_H + PAD
+	if state == TITLE:
+		y += float(TITLE_SIZE) + 24.0
+	y += LINE_H * float(_lines.size())
+	if not _lines.is_empty():
+		y += 12.0
+	var out: Array[Rect2] = []
+	for i in _rows.size():
+		out.append(Rect2(Vector2(panel.position.x + PAD, y), Vector2(panel.size.x - PAD * 2.0, ROW_H)))
+		y += ROW_H + ROW_GAP
+	return out
 
 
 func _panel_rect() -> Rect2:
@@ -247,10 +323,26 @@ func _draw() -> void:
 	dim.a = 0.88
 	draw_rect(Rect2(Vector2.ZERO, view), dim)
 	var panel: Rect2 = _panel_rect()
-	Chrome.panel(self, panel, 0.98)
+	# The title and pause screens sit in the kit's dialog frame; the run-over screen, the one
+	# permanent loss, sits in its danger frame. A rect this size always clears the kit's margins,
+	# so the drawn fallback is only ever exercised by a fabricated kit file.
+	var panel_style: String = "panel_danger" if state == RUN_OVER else "panel_dialog"
+	if not Chrome.frame(self, panel, panel_style, 0.98):
+		var fill: Color = Chrome.PANEL
+		fill.a = 0.98
+		draw_rect(panel, fill)
+		var edge: Color = Chrome.DANGER if state == RUN_OVER else Chrome.PANEL_EDGE
+		edge.a = 1.0
+		draw_rect(panel, edge, false, 1.5)
 	var heading: String = String(HEADINGS.get(state, ""))
 	if not heading.is_empty():
-		Chrome.header(self, panel, heading, 0.98)
+		match state:
+			PAUSED:
+				Chrome.header(self, panel, heading, 0.98, "pause")
+			RUN_OVER:
+				Chrome.header(self, panel, heading, 0.98, "warning")
+			_:
+				Chrome.header(self, panel, heading, 0.98)
 	var font: Font = Chrome.font()
 	var y: float = panel.position.y + Chrome.HEADER_H + PAD
 	if state == TITLE:
@@ -261,21 +353,34 @@ func _draw() -> void:
 		y += LINE_H
 	if not _lines.is_empty():
 		y += 12.0
-	_hits = []
+	_hits = _row_rects()
 	for i in _rows.size():
-		var rect := Rect2(Vector2(panel.position.x + PAD, y), Vector2(panel.size.x - PAD * 2.0, ROW_H))
-		_hits.append(rect)
+		var rect: Rect2 = _hits[i]
 		var chosen: bool = i == cursor
-		var fill: Color = Chrome.HEADER if chosen else Chrome.CELL_BG
-		draw_rect(rect, fill)
-		draw_rect(rect, Chrome.ITEM_EDGE if chosen else Chrome.CELL_EDGE, false, 1.5)
+		var row_id: String = String((_rows[i] as Array)[0])
+		var is_danger: bool = row_id == DANGER_ROW
+		# Every row is a kit button: the danger row always wears the danger frame (it reads as a
+		# warning whether or not the cursor is on it), the cursor row wears the hover fill, and
+		# every other row the plain one -- with `button_focus` layered over the cursor row after,
+		# the way the approved mockup brackets it.
+		var base_id: String = "button_danger" if is_danger else ("button_hover" if chosen else "button_normal")
+		if not Chrome.frame(self, rect, base_id, 0.98):
+			var fill: Color = Chrome.HEADER if chosen else Chrome.CELL_BG
+			draw_rect(rect, fill)
+			draw_rect(rect, Chrome.DANGER if is_danger else (Chrome.ITEM_EDGE if chosen else Chrome.CELL_EDGE), false, 1.5)
 		if chosen:
-			# The marker is a bar, not a caret glyph: the fallback font has no reliable arrow and
-			# a drawn rectangle reads the same in every locale.
-			draw_rect(Rect2(rect.position, Vector2(4.0, rect.size.y)), Chrome.ACCENT)
-		draw_string(font, rect.position + Vector2(22.0, ROW_H - 19.0), String((_rows[i] as Array)[1]), HORIZONTAL_ALIGNMENT_LEFT, -1, ROW_SIZE, Chrome.ACCENT if chosen else Chrome.TEXT)
+			Chrome.frame(self, rect, "button_focus", 0.98)
+			# The row marker: a small `right` glyph rather than the drawn bar this replaced --
+			# the caret reads the same in every locale and the kit ships it.
+			Chrome.glyph(self, "right", rect.position + Vector2(ROW_MARKER_X, floorf((ROW_H - Chrome.GLYPH_SMALL) / 2.0)), true, 0.98)
+		var ink: Color = Chrome.DANGER if is_danger else (Chrome.ACCENT if chosen else Chrome.TEXT)
+		draw_string(font, rect.position + Vector2(ROW_TEXT_X, ROW_H - 19.0), String((_rows[i] as Array)[1]), HORIZONTAL_ALIGNMENT_LEFT, -1, ROW_SIZE, ink)
 		y += ROW_H + ROW_GAP
+	# The focus pulse around the cursor row, after every row so the breath is never painted over by
+	# the row below it. Reduced motion stands it on its rest frame.
+	if cursor >= 0 and cursor < _hits.size():
+		_pulse_frame = Motion.draw_focus(self, _hits[cursor], _focus_elapsed(), Motion.reduced(), 0.98)
 	if not _notice.is_empty():
 		draw_string(font, Vector2(panel.position.x + PAD, y + LINE_H - 12.0), _notice, HORIZONTAL_ALIGNMENT_LEFT, panel.size.x - PAD * 2.0, LINE_SIZE, Chrome.DANGER)
 		y += LINE_H
-	draw_string(font, Vector2(panel.position.x + PAD, panel.position.y + panel.size.y - 18.0), _footer(), HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Chrome.TEXT_DIM)
+	draw_string(font, Vector2(panel.position.x + PAD, panel.position.y + panel.size.y - 18.0), _footer(), HORIZONTAL_ALIGNMENT_LEFT, -1, FOOTER_SIZE, Chrome.TEXT_DIM)

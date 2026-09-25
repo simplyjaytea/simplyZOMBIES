@@ -511,6 +511,9 @@ switch (mode) {
   case "--web-look":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_web_look.gd"];
     break;
+  case "--ui-skin":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_ui_skin.gd"];
+    break;
   case "--authored":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_authored.gd"];
     break;

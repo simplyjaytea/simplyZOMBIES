@@ -124,6 +124,7 @@ npm run godot:check:roof     # wall caps and faces, roofs cut out where seen →
 npm run godot:check:trees    # tall trees in the entity sort, the fade → TREES_OK
 npm run godot:check:worn     # gear layers, order and skeleton fit → WORN_LOOK_OK
 npm run godot:check:web_look # the skill web drawn as a web, words only → WEB_LOOK_OK
+npm run godot:check:ui_skin  # the UI Field Kit, worn → UI_SKIN_OK
 npm run godot:r6         # parity, coverage, mutation, soak, bench, validate
 npm run godot:run        # play it (DISPLAY=:1 on a headless VM)
 npm run sprites:check    # generated art still matches tools/sprites/ → SPRITES_OK

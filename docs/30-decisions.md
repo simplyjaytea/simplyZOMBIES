@@ -5353,3 +5353,135 @@ deletion, applied slice by slice**: `tools/sprites/README.md`'s standing rule th
 retires the generator code that used to draw the same thing held for the two containers in this
 commit (`props.py`'s crate functions were already gone, from the first authored art in 2026-09-10)
 and applies again to every generated key a later slice in this arc replaces.
+
+
+## The UI Field Kit, live, 2026-09-25
+
+On 2026-09-25, with the UI Field Kit delivered and sitting unused since 2026-09-20 (docs/23's "UI
+asset delivery" record entry), the owner decided to take the whole kit into the live game:
+textures for the chrome, glyphs, the four OS cursors, and the four UI animations — nothing held
+back for a later pass.
+
+**The font becomes VT323** — bundled, SIL Open Font License, `OFL.txt` travels with it — with the
+engine's own fallback font behind it for the glyphs VT323 does not carry (Cyrillic, most Greek).
+Corrected when the slice landed: this entry first said the fallback carried → ▲ ▼ ↔, and it does
+not — neither face has them, so they draw through the operating system's fallback on desktop and
+as boxes on the web, exactly as before; the FONT lane names them in `FONT_NO_FACE`, and the bench
+arrows move to kit glyphs with the shell's rows.
+
+**Both outliers are reskinned.** Speech bubbles move into the kit's tooltip frame; the vehicle
+dashboard's housing moves into kit frames too, its dials, lamps, letters and charge bar still
+hand-drawn on top of it.
+
+**Kit pieces that conflict with a standing decision stay unused, each named with its reason, and
+the new gate lists them:** `button_disabled` and `slot_disabled`, because a verb is present or
+absent on this HUD and never greyed; the three scroll pieces, because the sheet has no scrollbar;
+the three tab styles, because no screen is tabbed; checkbox and radio, because the one switch
+this game has uses the toggle; `glyph_lock`, because there is no lock mechanic; and
+`glyph_rotate`, because the owner did not take it.
+
+**What this supersedes:** `ui/chrome.gd`'s header comment, "Everything is drawn (no textures),"
+and "The alpha shell"'s 14 px bracket on the action bar (2026-09-16, above) — the bar now takes
+the kit's own frame rather than a second copy of bracket arithmetic.
+
+**What this re-affirms**, named because a skin swap is exactly the kind of change that would
+otherwise have to re-litigate it: the prose HUD; the health-bar and digit bans; no status icons —
+`glyph_condition` is a header ornament only, never a status readout; no bars, no name plates, no
+greyed rows; and the busy loop still never encodes progress — it does not read time left.
+
+**Reduced motion defaults off**, a presentation preference in `ui/prefs.gd`, not a difficulty or
+accessibility flag the sim reads.
+
+**Why the runtime builds `StyleBoxTexture`s in code (`ui/kit.gd`) rather than loading the kit's
+`.tres` files:** no `.import` files are committed and headless CI never imports, so every kit
+`.tres` resolves null in the gates, and a `preload()` of one would stop `chrome.gd` compiling for
+every gate that boots `main.tscn`. The two-path loader `presentation/appearance.gd`'s `resolve()`
+already uses — `ResourceLoader` first, then `Image.load` plus `ImageTexture` — is the precedent.
+The kit's `manifest.json` and its `.tres` text, read as text rather than loaded as resources, are
+the spec the new gate compares the code's margins, hotspots and frame rates against.
+
+**The kit's four OS cursors and the outpost pack's open "The cursor" slice (docs/23's what's
+left) are one table, not two.** The kit supplies arrow, hand, move and blocked; the outpost
+pack's crosshair and interaction-hand icons join the same `ui/cursors.gd` install rather than a
+second cursor system, and that slice stays open.
+
+**The chrome draws at 2×, and its centre tiles** — follow-up decisions the owner made the same
+day, once the first slice had put the kit on screen at its native 1×. The approved mockups
+(`previews/inventory-approved.png`, `previews/hud-approved.png`) read at twice the kit's native
+pixels, which is also the 2× the world's 32 px tile is drawn at, so the frames looked thin
+beside both; `ui/kit.gd` now scales every chrome texture 2× with nearest filtering once, at load,
+and doubles every margin, while its `NINE` table keeps the manifest's native values so the gate
+still compares against the manifest and the `.tres` unscaled. And the kit's `.tres` files stretch
+(they set no axis mode), which across a tall panel smeared the centre's fine noise into soft
+blotches and vertical streaks, so the built styles tile the centre on both axes. **The edges are
+decided per style** — a third decision the same day, made from 3× crops of both modes. One
+`StyleBoxTexture`'s axis modes cover its edge strips as well as its centre, and neither mode suits
+every frame: tiled edges repeated a fragment of every corner bracket along the border as a row of
+tick marks, and stretched edges lengthened a dashed line's dashes and every bracket arm lying in
+them. So the dashed and noisy frames — `slot_empty`, the six panels and the divider — tile their
+edges (`Kit.EDGE_TILED`), and the bracketed ones — the buttons, the other slots and the keycap —
+stretch theirs as the `.tres` means. **Where a corner piece runs past the kit's margins, the
+margins widen** — the buttons' and slots' brackets first, then, by a fourth decision the same day,
+the panels' corner highlights, which the tiled edges had repeated as a small tick down the pause
+dialog's rim. Each such style draws at margins widened just enough that its whole corner piece sits
+in the corner, where a nine-slice draws it 1:1 (`Kit.WIDENED_MARGINS`, measured from the pixels);
+`panel_danger`'s red rim wobbles and breaks along its whole length, so its margins are set by eye
+(a top margin one wider, holding the amber fleck at the top of its right rim). Every departure from
+the kit's own files is named in the gate — `OWNER_SCALE`, `CENTRE_MODE_DEVIATION`,
+`EDGE_DEVIATION`, `MARGIN_DEVIATION` and `MARGINS_BY_EYE` in `check_ui_skin.gd` — rather than left
+for a later reader to take for drift. One style is held
+back from the 2×: the keycap, which sits inline in a line of text, where the HUD mockup draws it
+with a hairline amber rim that 2× would double around a single letter; it is named in
+`Kit.NATIVE_STYLES`. Glyphs draw at their native size (`Kit.GLYPH_SCALE` 1): a 2× glyph is taller
+than the 16–20 px line it labels.
+
+## The whole outpost pack, 2026-09-25
+
+The owner asked on 2026-09-25 for "the whole outpost pack" to be used in the game, and answered
+the questions that ask raised the same day. This entry extends "The outpost pack, adopted"
+(2026-09-17, above) rather than replacing it: its four decisions stand, and the arc is still the
+slices docs/23's outpost group names, landing one at a time with their gates.
+
+**Decision 4's report-only half is reopened for four families.** The pack's twelve held weapons
+(drawn in the hand of a four-direction body, below); the furnishing props, as scenery that never
+touches balance and never becomes sim state, and the container kinds keyed by loot table; the
+nature extras — bush and reeds on outdoor tiles, rock, stump and log as dressing; and the pack's
+art for things the game already has (the barricade, the work lamp, the stove). Each becomes a
+named piece in docs/23's outpost group before it is built. **What stays in the report**, because
+drawing it honestly needs a sim fact that does not exist: the decals (a blood pool, a footprint, a
+bullet hole or a scorch is a thing the sim would have to record first), the effects with no impact
+point (sparks, dust, splinters, splash, explosion), and anything that would be a new mechanic
+(generator, rain collector, spike trap). **The six status icons stay refused**, under the same
+icon-row ban the prose HUD stands on — "the whole pack" does not quietly amend a standing ban, and
+the owner was asked and did not reopen it.
+
+**The ground takes the pack's own grade.** The pack's tiles are brighter and more saturated than
+the warm-dark table (grass, dirt, water and wood all past the 0.30 ground-saturation cap
+`check_road_look`'s PALETTE lane holds), so either the lanes move or the art is repainted at draw
+time. The owner chose the pack: the ground lanes are re-pinned to a measured pack table, the old
+warm-dark table becomes the case they refuse, and the slice lands with a before/after screenshot
+pair. This supersedes docs/23's open "The grade: overcast day, warm night" as far as the ground is
+concerned and folds in HANDOFF's water-saturation item.
+
+**A four-direction body wears the pack's gear only.** The 47 generated equipment overlays are
+drawn face-on and cannot fit a body that turns. The pack's four-direction vest, helmet, gas mask
+and backpack are worn; held weapons draw at a hand point per view; every other clothing overlay is
+retired until four-sided art exists. The owner accepted the named gap that follows: an equipped
+jacket shows nothing on the body until then — the inventory and inspect text still say it is worn,
+so nothing the player needs is lost, only a picture.
+
+**Raiders share one tint.** With one shared pack rig a raider would be indistinguishable from the
+player's own people at focal range. One raider tint, the same for every raider, makes a raider
+read as a raider without telling the two archetypes apart, which `check_m2_raiders`' NO-TELL lane
+requires.
+
+**The walls get a picture round first.** The pack has no north-south run, no south-west or
+south-east corner, no timber or block material and no east-west door or window. One closed
+building is rendered two ways — the corner piece's leg cropped for north-south runs against
+today's generated faces — and the owner picks from the screenshots before the walls slice lands.
+Timber and block keep their generated faces either way.
+
+**Cursors split by place.** Over the world while playing: the pack's crosshair, and the pack's
+interaction hand over something the player can see and act on — never over something unseen,
+which would be information through a wall. Over any panel or menu: the UI kit's four pointers.
+Both live in `ui/cursors.gd`'s one table, as "The UI Field Kit, live" already said.

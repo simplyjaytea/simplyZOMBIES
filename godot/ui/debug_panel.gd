@@ -17,7 +17,7 @@ const SimRoster = preload("res://sim/modules/roster.gd")
 
 const PANEL_W: float = 480.0
 const ROW_H: float = 34.0
-const ITEM_FONT: int = 18
+const ITEM_FONT: int = 25
 const ZOMBIE_SPAWN_METRES: float = 6.0
 const RAIDER_SPAWN_METRES: float = 8.0
 
@@ -121,7 +121,7 @@ func _draw() -> void:
 	Chrome.panel(self, rect, 0.96)
 	Chrome.header(self, rect, "debug — spawn", 0.96)
 	var font: Font = Chrome.font()
-	draw_string(font, Vector2(14.0, Chrome.HEADER_H + 30.0), "click to spawn at your feet (items), ahead of you (zombies, raiders) or at the gate (stranger) · wheel scrolls", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Chrome.TEXT_DIM)
+	draw_string(font, Vector2(24.0, Chrome.HEADER_H + 30.0), "click to spawn at your feet (items), ahead of you (zombies, raiders) or at the gate (stranger) · wheel scrolls", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
 	var rows: Array[Dictionary] = _rows()
 	var y: float = Chrome.HEADER_H + 48.0
 	var shown: int = 0
@@ -132,7 +132,7 @@ func _draw() -> void:
 		var kind: String = String(r["kind"])
 		var is_hostile: bool = kind == "zombie" or kind == "raider"
 		var text: String = String(r.get("label", r["id"]))
-		var label: String = UiText.fit(font, text, ITEM_FONT, size.x - 28.0)
-		draw_string(font, Vector2(14.0, y + 24.0), label, HORIZONTAL_ALIGNMENT_LEFT, -1, ITEM_FONT, Chrome.DANGER if is_hostile else Chrome.TEXT)
+		var label: String = UiText.fit(font, text, ITEM_FONT, size.x - 48.0)
+		draw_string(font, Vector2(24.0, y + 24.0), label, HORIZONTAL_ALIGNMENT_LEFT, -1, ITEM_FONT, Chrome.DANGER if is_hostile else Chrome.TEXT)
 		y += ROW_H
 		shown += 1
