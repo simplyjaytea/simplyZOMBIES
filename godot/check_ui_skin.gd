@@ -18,20 +18,31 @@ extends SceneTree
 #   KIT       every margin in Kit.NINE equals manifest.json's `nine_slice_ltrb` and the style's
 #             .tres `texture_margin_*`, at native kit pixels; the .tres sets nothing the code does
 #             not build (no axis mode, no draw_center, no expand margin); every kit chrome id is
-#             either consumed or listed unused here with its reason. The two places the code
-#             departs from the kit's files on purpose are named, not silent: Kit.SCALE is the
-#             owner's OWNER_SCALE (with the keycap alone at 1x, named in Kit.NATIVE_STYLES), and
-#             every built style fills its edges and centre the way
-#             CENTRE_MODE_DEVIATION says rather than the .tres files' stretch. A fabricated record
-#             with one wrong margin, a fabricated .tres with one wrong margin, one with an axis
-#             mode, one with an expand margin, a chrome id in neither list, a tiled style with no
-#             deviation named, and a deviation that names no departure each fail the comparator
-#             that passed the shipped files.
+#             either consumed or listed unused here with its reason. The places the code departs
+#             from the kit's files on purpose are named, not silent: Kit.SCALE is the owner's
+#             OWNER_SCALE (the keycap alone at 1x, in Kit.NATIVE_STYLES); every built centre tiles
+#             (CENTRE_MODE_DEVIATION); every consumed style is in exactly one edge group, and its
+#             frame tiles its edges if it is in Kit.EDGE_TILED (EDGE_DEVIATION) and stretches them,
+#             the .tres meaning, if it is in Kit.BRACKET_MARGINS; and those margins are widened
+#             (MARGIN_DEVIATION) -- never narrower than the manifest's, and measured from the
+#             pixels: no bracket ink runs across a widened margin into a stretched edge, and one
+#             pixel less on any widened side lets it. Every surface a style is drawn on clears
+#             that style's doubled margins, so none falls back to a drawn fill. A fabricated
+#             record with one wrong margin, a fabricated .tres with one wrong margin, one with an
+#             axis mode, one with an expand margin, a chrome id in neither list, a style in both
+#             edge groups and one in neither, a tiled-edge style whose frame stretches, a
+#             bracketed one whose frame tiles, a stretched centre, a frame that draws its own
+#             centre, a centre tiling the whole texture, a bracket style at the kit's narrower
+#             margin, one a pixel wider than its bracket needs, one below the manifest's margin,
+#             a bracketed frame built at the manifest's margin, a shell row too short for its
+#             button and each deviation naming no departure each fail the comparator that passed
+#             the shipped files.
 #   RESOLVE   every NINE texture and every manifest glyph, both sizes, resolves headless at the
 #             manifest's size times its draw scale; a made-up style, texture and glyph resolve to
 #             null.
-#   PANEL     Kit.style hands back a textured StyleBoxTexture at the asked opacity, with margins at
-#             NINE times Kit.SCALE, cached, and null for a rect smaller than those margins; `Chrome.panel`, `cell`, `item_plate` and
+#   PANEL     Kit.style hands back a textured Kit.Style (frame and centre) at the asked opacity, with
+#             margins at NINE times Kit.SCALE, cached, and null for a rect smaller than those
+#             margins; `Chrome.panel`, `cell`, `item_plate` and
 #             `header` reach `Kit.style(` and `.draw(`, followed one call deep through `frame`,
 #             by a scanner that refuses a fabricated body that only draws rectangles, a link
 #             that does not reach the kit, and a needle that only a comment carries.
@@ -79,14 +90,29 @@ const PENDING: Dictionary = {
 # the kit's native pixels, as the approved mockups do and as the world's 32 px tile is drawn.
 const OWNER_SCALE: int = 2
 
-# The one way the built styles depart from the kit's .tres on purpose. Every style .tres sets no
-# axis mode, which is Godot's STRETCH; stretched across a tall panel the centre's fine noise
-# smeared into blotches and streaks, so by the same decision the styles tile on both axes. Named
-# here so the departure is a decision the gate can see, not a drift it cannot: a built style
-# that fills any other way than this says is a failure, and so is this entry naming no departure.
+# The three ways the built styles depart from the kit's .tres on purpose, each the owner's decision
+# of 2026-09-25 (docs/30, "The UI Field Kit, live"), named here so a departure is a decision the
+# gate can see, not a drift it cannot. Every style .tres sets no axis mode, which is Godot's
+# STRETCH on both the edges and the centre.
+#
+# The centre: stretched across a tall panel its fine noise smeared into blotches and streaks, so
+# every built centre tiles.
 const CENTRE_MODE_DEVIATION: Dictionary = {
-	"mode": StyleBoxTexture.AXIS_STRETCH_MODE_TILE,
+	"centre": StyleBoxTexture.AXIS_STRETCH_MODE_TILE,
 	"why": "docs/30, \"The UI Field Kit, live\": the owner tiled the centre on 2026-09-25; stretched, its noise smeared on tall panels",
+}
+# The edges, per style: tiled edges repeat a bracket's fragments along every border as tick marks,
+# stretched edges lengthen a dashed line's dashes and a noisy rim's grain, so the dashed and noisy
+# frames (Kit.EDGE_TILED) tile their edges and the bracketed ones keep the .tres files' stretch.
+const EDGE_DEVIATION: Dictionary = {
+	"tiled": StyleBoxTexture.AXIS_STRETCH_MODE_TILE,
+	"why": "docs/30, \"The UI Field Kit, live\": the owner chose edges per style on 2026-09-25; tiled, a bracket repeats; stretched, dashes and noise lose their rhythm",
+}
+# The margins: a stretched edge lengthens whatever of a bracket lies in it, so the bracketed styles
+# draw at Kit.BRACKET_MARGINS -- the manifest's margins widened just enough to hold each bracket.
+# Kit.NINE, which the manifest and .tres comparisons read, stays the manifest's.
+const MARGIN_DEVIATION: Dictionary = {
+	"why": "docs/30, \"The UI Field Kit, live\": a stretched edge lengthened every bracket arm in it, so each bracket's margins hold the whole bracket",
 }
 
 # The only keys a kit style's [resource] section may set: the ones kit.gd builds from.
@@ -295,21 +321,234 @@ func _coverage_faults(assets: Array, nine: Dictionary) -> Array[String]:
 
 
 # What is wrong with how a built style fills its edges and centre. The .tres files set no axis
-# mode (TRES_KEYS refuses one), so what they mean is STRETCH; the built style must match that, or
-# match a deviation that is named, has a reason, and actually departs from it.
-func _mode_faults(id: String, h: int, v: int, deviation: Dictionary) -> Array[String]:
+# mode (TRES_KEYS refuses one), so what they mean is STRETCH everywhere. The frame's edges must be
+# that stretch -- or, for a style in the tiled-edge group, the mode `edge_dev` names, which must
+# depart from the stretch and give a reason -- and the frame must draw no centre of its own. The
+# centre must match the stretch too, or match `centre_dev`, likewise named, reasoned and departing.
+# The centre fill must tile the texture inside the frame's margins, from the frame's own texture,
+# with no margins of its own.
+func _mode_faults(id: String, st: Kit.Style, centre_dev: Dictionary, edge_dev: Dictionary, tiled_edges: bool) -> Array[String]:
 	var faults: Array[String] = []
 	var tres_mode: int = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
-	var want: int = tres_mode
-	if not deviation.is_empty():
-		want = int(deviation.get("mode", tres_mode))
-		if want == tres_mode:
-			faults.append("CENTRE_MODE_DEVIATION names the .tres files' own stretch -- it departs from nothing")
-		if String(deviation.get("why", "")).strip_edges().is_empty():
+	var centre: int = tres_mode
+	if not centre_dev.is_empty():
+		centre = int(centre_dev.get("centre", tres_mode))
+		if centre == tres_mode:
+			faults.append("CENTRE_MODE_DEVIATION names the .tres files' own stretch for the centre -- it departs from nothing")
+		if String(centre_dev.get("why", "")).strip_edges().is_empty():
 			faults.append("CENTRE_MODE_DEVIATION gives no reason")
-	if h != want or v != want:
-		faults.append("%s: the built style fills with axis modes %d/%d; the .tres means %d and the named deviation %s" % [id, h, v, tres_mode, str(deviation.get("mode", "none"))])
+	var edges: int = tres_mode
+	if tiled_edges and not edge_dev.is_empty():
+		edges = int(edge_dev.get("tiled", tres_mode))
+		if edges == tres_mode:
+			faults.append("EDGE_DEVIATION names the .tres files' own stretch for the tiled-edge group -- it departs from nothing")
+		if String(edge_dev.get("why", "")).strip_edges().is_empty():
+			faults.append("EDGE_DEVIATION gives no reason")
+	if st == null or st.border == null or st.border.texture == null:
+		faults.append("%s: the built style has no textured frame" % id)
+		return faults
+	var b: StyleBoxTexture = st.border
+	if b.axis_stretch_horizontal != edges or b.axis_stretch_vertical != edges:
+		faults.append("%s: the frame fills its edges with axis modes %d/%d; its group (%s) means %d" % [id, b.axis_stretch_horizontal, b.axis_stretch_vertical, "tiled edges" if tiled_edges else "bracketed, stretched edges", edges])
+	if b.draw_center:
+		faults.append("%s: the frame draws its own centre, the frame's mode, under the centre fill" % id)
+	if st.centre == null:
+		faults.append("%s: the built style has no centre fill" % id)
+		return faults
+	var c: StyleBoxTexture = st.centre
+	if c.axis_stretch_horizontal != centre or c.axis_stretch_vertical != centre:
+		faults.append("%s: the centre fills with axis modes %d/%d; the .tres means %d and the named deviation %d" % [id, c.axis_stretch_horizontal, c.axis_stretch_vertical, tres_mode, centre])
+	if c.texture != b.texture:
+		faults.append("%s: the centre fill is not cut from the frame's texture" % id)
+	var size: Vector2 = b.texture.get_size()
+	var inside: Rect2 = Rect2(b.texture_margin_left, b.texture_margin_top, size.x - b.texture_margin_left - b.texture_margin_right, size.y - b.texture_margin_top - b.texture_margin_bottom)
+	if c.region_rect != inside:
+		faults.append("%s: the centre fill tiles %s of the texture, not %s inside the frame's margins" % [id, str(c.region_rect), str(inside)])
+	if c.texture_margin_left != 0.0 or c.texture_margin_top != 0.0 or c.texture_margin_right != 0.0 or c.texture_margin_bottom != 0.0:
+		faults.append("%s: the centre fill carries nine-slice margins of its own" % id)
 	return faults
+
+
+# A built frame is drawn at its style's own margins -- the widened ones for a bracketed style, the
+# manifest's for every other -- at its scale, and Kit.margins (every caller's "does it fit") agrees.
+func _draw_margin_faults(id: String, st: Kit.Style) -> Array[String]:
+	var faults: Array[String] = []
+	var want: Array[int] = []
+	for n in Kit.BRACKET_MARGINS.get(id, Kit.NINE[id]) as Array:
+		want.append(int(n) * Kit.scale_of(id))
+	var got: Array[int] = [int(st.border.texture_margin_left), int(st.border.texture_margin_top), int(st.border.texture_margin_right), int(st.border.texture_margin_bottom)]
+	if got != want or got != Kit.margins(id):
+		faults.append("%s's frame is drawn at margins %s (Kit.margins says %s), not %s" % [id, str(got), str(Kit.margins(id)), str(want)])
+	return faults
+
+
+# Every style NINE wears is in exactly one edge group -- `tiled` or a key of `brackets` -- and
+# neither group names a style NINE does not wear.
+func _group_faults(nine: Dictionary, tiled: Array, brackets: Dictionary) -> Array[String]:
+	var faults: Array[String] = []
+	for id_v in nine.keys():
+		var id: String = String(id_v)
+		if tiled.has(id) and brackets.has(id):
+			faults.append("%s is in both Kit.EDGE_TILED and Kit.BRACKET_MARGINS -- its edges cannot both tile and stretch" % id)
+		elif not tiled.has(id) and not brackets.has(id):
+			faults.append("%s is in neither Kit.EDGE_TILED nor Kit.BRACKET_MARGINS -- nobody decided how its edges fill" % id)
+	for id_v in tiled:
+		if not nine.has(String(id_v)):
+			faults.append("Kit.EDGE_TILED names %s, which NINE does not wear" % String(id_v))
+	for id_v in brackets.keys():
+		if not nine.has(String(id_v)):
+			faults.append("Kit.BRACKET_MARGINS names %s, which NINE does not wear" % String(id_v))
+	return faults
+
+
+# A pixel's ink, coarsely: transparent, plain (the dark olives every frame is built from), amber,
+# red, or pale (a highlight or a pale bracket). Coarse on purpose -- a bracket differs from the
+# rim it sits on by hue or by a jump in brightness, never by one shade of olive.
+func _ink(c: Color) -> int:
+	if c.a < 0.1:
+		return 0
+	if c.s > 0.55 and c.h > 0.05 and c.h < 0.16 and c.v > 0.45:
+		return 2
+	if c.s > 0.5 and (c.h < 0.05 or c.h > 0.95) and c.v > 0.3:
+		return 3
+	if c.v > 0.55:
+		return 4
+	return 1
+
+
+# Where a stretched edge would lengthen part of a bracket. `img` is the native texture and `m` the
+# native margins [l, t, r, b] it would be drawn at. Each of the four edge strips is read line by
+# line along its length -- a row of the top strip runs from the left corner to the right one -- and
+# "ink" is any pixel whose class is not the strip's dominant one. A run of ink that crosses a margin
+# (ink on both sides of it) and stops inside the strip is a piece of the corner carried into the
+# edge: stretched, it grows with the frame. Ink that runs the strip's whole length is the rim itself
+# (the danger button's red line), which stretching leaves as it is; ink that touches neither corner
+# is the edge's own detail, a highlight the kit drew there. So the rule is that the pixel on each
+# side of every margin, on every line, is not ink carried across it -- which also keeps the pixel
+# that ends a bracket (its shadow, its rim) inside the corner, where the stretch cannot smear it.
+func _protrusions(img: Image, m: Array) -> Array[String]:
+	var out: Array[String] = []
+	var w: int = img.get_width()
+	var h: int = img.get_height()
+	var l: int = int(m[0])
+	var t: int = int(m[1])
+	var r: int = int(m[2])
+	var b: int = int(m[3])
+	if l + r >= w or t + b >= h:
+		out.append("margins %s leave no edge to stretch in a %dx%d texture" % [str(m), w, h])
+		return out
+	# [name, first pixel of the first line, step along a line, step to the next line, lines, length]
+	var strips: Array = [
+		["top", Vector2i(l, 0), Vector2i(1, 0), Vector2i(0, 1), t, w - l - r],
+		["bottom", Vector2i(l, h - b), Vector2i(1, 0), Vector2i(0, 1), b, w - l - r],
+		["left", Vector2i(0, t), Vector2i(0, 1), Vector2i(1, 0), l, h - t - b],
+		["right", Vector2i(w - r, t), Vector2i(0, 1), Vector2i(1, 0), r, h - t - b],
+	]
+	for strip_v in strips:
+		var strip: Array = strip_v as Array
+		var along: Vector2i = strip[2]
+		var across: Vector2i = strip[3]
+		var n: int = int(strip[5])
+		var counts: Array[int] = [0, 0, 0, 0, 0]
+		for li in range(int(strip[4])):
+			for k in range(n):
+				counts[_ink(img.get_pixelv(strip[1] + across * li + along * k))] += 1
+		var dom: int = counts.find(counts.max())
+		for li in range(int(strip[4])):
+			var start: Vector2i = strip[1] + across * li
+			var ink: Array[bool] = []
+			for k in range(-1, n + 1):
+				ink.append(_ink(img.get_pixelv(start + along * k)) != dom)
+			# ink[0] is the corner pixel before the strip, ink[n + 1] the one after it.
+			var run: int = 0
+			while run < n and ink[run + 1]:
+				run += 1
+			if ink[0] and ink[1] and run < n:
+				out.append("%s edge, line %d: ink crosses the margin and runs %d px into the edge" % [String(strip[0]), li, run])
+			var back: int = 0
+			while back < n and ink[n - back]:
+				back += 1
+			if ink[n + 1] and ink[n] and back < n:
+				out.append("%s edge, line %d: ink crosses the far margin and runs %d px into the edge" % [String(strip[0]), li, back])
+	return out
+
+
+# What is wrong with one bracketed style's widened margins `want` against its native texture and
+# the manifest's `native` margins: narrower than the manifest on any side, a bracket carried into a
+# stretched edge, or a side a pixel wider than its bracket needs.
+func _bracket_faults(id: String, img: Image, want: Array, native: Array) -> Array[String]:
+	var faults: Array[String] = []
+	if img == null or img.is_empty():
+		faults.append("%s: no texture to measure its bracket on" % id)
+		return faults
+	if want.size() != 4:
+		faults.append("%s: Kit.BRACKET_MARGINS gives %s, not [l, t, r, b]" % [id, str(want)])
+		return faults
+	var sides: Array[String] = ["left", "top", "right", "bottom"]
+	for i in range(4):
+		if int(want[i]) < int(native[i]):
+			faults.append("%s: its %s margin %d is narrower than the manifest's %d" % [id, sides[i], int(want[i]), int(native[i])])
+	for p in _protrusions(img, want):
+		faults.append("%s at %s: %s" % [id, str(want), p])
+	for i in range(4):
+		if int(want[i]) <= int(native[i]):
+			continue
+		var less: Array = want.duplicate()
+		less[i] = int(less[i]) - 1
+		if _protrusions(img, less).is_empty():
+			faults.append("%s: its %s margin %d is wider than its bracket needs -- %d already holds it" % [id, sides[i], int(want[i]), int(less[i])])
+	return faults
+
+
+# Every surface a kit style is drawn on, at its smallest, read from the drawing file's own
+# constants: [where, style ids, size in screen pixels]. A surface that falls under a style's
+# doubled margins gets no kit frame at all -- `Kit.style` hands back null and the caller draws its
+# fallback -- so a widened margin must be checked against every one of them.
+func _surfaces() -> Array:
+	var shell: Dictionary = (load("res://ui/shell.gd") as GDScript).get_script_constant_map()
+	var bag: Dictionary = (load("res://ui/bag_grid.gd") as GDScript).get_script_constant_map()
+	var strip: Dictionary = (load("res://ui/quick_strip.gd") as GDScript).get_script_constant_map()
+	var inv: Dictionary = (load(INVENTORY_GD) as GDScript).get_script_constant_map()
+	var bench: Dictionary = (load("res://ui/bench_panel.gd") as GDScript).get_script_constant_map()
+	var hud: Dictionary = (load("res://ui/hud.gd") as GDScript).get_script_constant_map()
+	var cap: float = float((load(CHROME_GD) as GDScript).get_script_constant_map()["KEYCAP_MIN"])
+	var cell: float = float(bag["CELL"])
+	return [
+		["a shell row", ["button_normal", "button_hover", "button_focus", "button_danger"], Vector2(float(shell["PANEL_W"]) - float(shell["PAD"]) * 2.0, float(shell["ROW_H"]))],
+		["a bag cell", ["slot_empty"], Vector2(cell - 4.0, cell - 4.0)],
+		["a one-cell item plate and its selection ring", ["panel_inset", "slot_selected"], Vector2(cell - 8.0, cell - 8.0)],
+		["a quick-strip slot", ["slot_empty", "slot_selected"], Vector2(float(strip["SLOT_W"]), float(strip["SLOT_H"]))],
+		["an equipment slot", ["slot_empty", "slot_selected"], Vector2(float(inv["SLOT_W"]), float(inv["SLOT_H"]))],
+		["a bench row", ["slot_empty"], Vector2(200.0, float(bench["ROW_H"]) - 4.0)],
+		["the action bar", ["panel_standard"], Vector2(400.0, float(hud["BAR_H"]))],
+		["the smallest keycap", ["keycap"], Vector2(cap, cap)],
+	]
+
+
+func _surface_faults(surfaces: Array) -> Array[String]:
+	var faults: Array[String] = []
+	for s_v in surfaces:
+		var surf: Array = s_v as Array
+		for id_v in surf[1] as Array:
+			var id: String = String(id_v)
+			if Kit.style(id, Rect2(Vector2.ZERO, surf[2] as Vector2), 1.0) == null:
+				faults.append("%s (%s) is under %s's margins %s -- it would fall back to a drawn fill" % [String(surf[0]), str(surf[2]), id, str(Kit.margins(id))])
+	return faults
+
+
+# A copy of `st` with its frame and centre refilled in the given modes -- the shape a fabricated
+# disagreement takes, so the comparator judges the same Kit.Style it judges for the shipped kit.
+func _restyled(st: Kit.Style, edges: int, centre: int) -> Kit.Style:
+	var out := Kit.Style.new()
+	out.border = st.border.duplicate() as StyleBoxTexture
+	out.border.axis_stretch_horizontal = edges
+	out.border.axis_stretch_vertical = edges
+	out.centre = st.centre.duplicate() as StyleBoxTexture
+	out.centre.axis_stretch_horizontal = centre
+	out.centre.axis_stretch_vertical = centre
+	out.inset_begin = st.inset_begin
+	out.inset_end = st.inset_end
+	return out
 
 
 func _kit_lane(manifest: Dictionary) -> bool:
@@ -340,15 +579,44 @@ func _kit_lane(manifest: Dictionary) -> bool:
 	if Kit.scale_of("panel_standard") != OWNER_SCALE:
 		push_error("KIT: panel_standard draws at %dx, not the owner's %dx" % [Kit.scale_of("panel_standard"), OWNER_SCALE])
 		ok = false
+	for f in _group_faults(Kit.NINE, Kit.EDGE_TILED, Kit.BRACKET_MARGINS):
+		push_error("KIT: " + f)
+		ok = false
 	for id_v in Kit.NINE.keys():
-		var built: StyleBoxTexture = Kit.style(String(id_v), Rect2(0, 0, 400, 400), 1.0)
+		var id: String = String(id_v)
+		var built: Kit.Style = Kit.style(id, Rect2(0, 0, 400, 400), 1.0)
 		if built == null:
-			push_error("KIT: %s built no style at 400x400 -- its fill mode cannot be judged" % String(id_v))
+			push_error("KIT: %s built no style at 400x400 -- its fill mode cannot be judged" % id)
 			ok = false
 			continue
-		for f in _mode_faults(String(id_v), built.axis_stretch_horizontal, built.axis_stretch_vertical, CENTRE_MODE_DEVIATION):
+		for f in _mode_faults(id, built, CENTRE_MODE_DEVIATION, EDGE_DEVIATION, Kit.EDGE_TILED.has(id)):
 			push_error("KIT: " + f)
 			ok = false
+		for f in _draw_margin_faults(id, built):
+			push_error("KIT: " + f)
+			ok = false
+	# The widened margins, re-measured on the native pixels.
+	var widened: int = 0
+	for id_v in Kit.BRACKET_MARGINS.keys():
+		var id: String = String(id_v)
+		if not Kit.NINE.has(id):
+			continue
+		var native: Texture2D = Kit.texture("textures/%s.png" % id, 1)
+		for f in _bracket_faults(id, native.get_image() if native != null else null, Kit.BRACKET_MARGINS[id] as Array, Kit.NINE[id] as Array):
+			push_error("KIT: " + f)
+			ok = false
+		if Kit.BRACKET_MARGINS[id] != Kit.NINE[id]:
+			widened += 1
+	if widened == 0:
+		push_error("KIT: MARGIN_DEVIATION names a widening, and no Kit.BRACKET_MARGINS entry is wider than the manifest -- it departs from nothing")
+		ok = false
+	if String(MARGIN_DEVIATION.get("why", "")).strip_edges().is_empty():
+		push_error("KIT: MARGIN_DEVIATION gives no reason")
+		ok = false
+	var surfaces: Array = _surfaces()
+	for f in _surface_faults(surfaces):
+		push_error("KIT: " + f)
+		ok = false
 	for id_v in UNUSED_STYLES.keys():
 		if not assets.has(String(id_v)):
 			push_error("KIT: UNUSED_STYLES names %s, which the kit does not ship" % String(id_v))
@@ -372,18 +640,58 @@ func _kit_lane(manifest: Dictionary) -> bool:
 		ok = false
 	var tile: int = StyleBoxTexture.AXIS_STRETCH_MODE_TILE
 	var stretch: int = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
-	if not _mode_faults("panel_standard", tile, tile, CENTRE_MODE_DEVIATION).is_empty():
-		push_error("KIT: a tiled style under the named deviation was refused -- the comparator cannot pass")
+	var shipped: Kit.Style = Kit.style("button_focus", Rect2(0, 0, 400, 400), 1.0)
+	var dashed: Kit.Style = Kit.style("slot_empty", Rect2(0, 0, 400, 400), 1.0)
+	var focus_px: Texture2D = Kit.texture("textures/button_focus.png", 1)
+	if shipped == null or shipped.centre == null or dashed == null or dashed.centre == null or focus_px == null:
+		push_error("KIT: button_focus or slot_empty built no filled style -- the fill comparator's negatives cannot be judged")
 		ok = false
-	if _mode_faults("panel_standard", tile, tile, {}).is_empty():
-		push_error("KIT: a tiled style with no deviation named passed -- a silent departure from the .tres")
-		ok = false
-	if _mode_faults("panel_standard", stretch, stretch, CENTRE_MODE_DEVIATION).is_empty():
-		push_error("KIT: a stretched style under a deviation that says tile passed")
-		ok = false
-	if _mode_faults("panel_standard", stretch, stretch, {"mode": stretch, "why": "x"}).is_empty():
-		push_error("KIT: a deviation naming the .tres files' own stretch passed")
-		ok = false
+	else:
+		if not _mode_faults("button_focus", shipped, CENTRE_MODE_DEVIATION, EDGE_DEVIATION, false).is_empty() or not _mode_faults("slot_empty", dashed, CENTRE_MODE_DEVIATION, EDGE_DEVIATION, true).is_empty():
+			push_error("KIT: the shipped button_focus or slot_empty under the named deviations was refused -- the comparator cannot pass")
+			ok = false
+		var own_centre: Kit.Style = _restyled(shipped, stretch, tile)
+		own_centre.border.draw_center = true
+		var whole: Kit.Style = _restyled(shipped, stretch, tile)
+		whole.centre.region_rect = Rect2(Vector2.ZERO, whole.border.texture.get_size())
+		var both: Array = Kit.EDGE_TILED.duplicate()
+		both.append("button_focus")
+		var neither: Array = Kit.EDGE_TILED.duplicate()
+		neither.erase("slot_empty")
+		var focus_img: Image = focus_px.get_image()
+		var wide: Array = (Kit.BRACKET_MARGINS["button_focus"] as Array).duplicate()
+		wide[0] = int(wide[0]) + 1
+		# slot_hover's bracket sits inside the kit's own margins, so a top margin one under the
+		# manifest's is refused for that alone, not for a bracket it lets through.
+		var hover_px: Texture2D = Kit.texture("textures/slot_hover.png", 1)
+		var under: Array = (Kit.NINE["slot_hover"] as Array).duplicate()
+		under[1] = int(under[1]) - 1
+		var native_frame: Kit.Style = _restyled(shipped, stretch, tile)
+		native_frame.border.texture_margin_left = float(int(Kit.NINE["button_focus"][0]) * Kit.SCALE)
+		var short: Array = surfaces.duplicate()
+		short.append(["a fabricated 30 px shell row", ["button_danger"], Vector2(560.0, 30.0)])
+		var refusals: Array = [
+			["a style in both edge groups passed", _group_faults(Kit.NINE, both, Kit.BRACKET_MARGINS)],
+			["a style in neither edge group passed", _group_faults(Kit.NINE, neither, Kit.BRACKET_MARGINS)],
+			["a tiled-edge style whose frame stretches passed -- slot_empty's dashes would lengthen", _mode_faults("slot_empty", _restyled(dashed, stretch, tile), CENTRE_MODE_DEVIATION, EDGE_DEVIATION, true)],
+			["a bracketed style whose frame tiles passed -- every bracket fragment repeated along its border", _mode_faults("button_focus", _restyled(shipped, tile, tile), CENTRE_MODE_DEVIATION, EDGE_DEVIATION, false)],
+			["a tiled-edge style with no edge deviation named passed -- a silent departure from the .tres", _mode_faults("slot_empty", dashed, CENTRE_MODE_DEVIATION, {}, true)],
+			["a shipped style with no centre deviation named passed -- a silent departure from the .tres", _mode_faults("button_focus", shipped, {}, EDGE_DEVIATION, false)],
+			["a stretched centre under a deviation that says tile passed", _mode_faults("button_focus", _restyled(shipped, stretch, stretch), CENTRE_MODE_DEVIATION, EDGE_DEVIATION, false)],
+			["a frame that draws its own centre passed", _mode_faults("button_focus", own_centre, CENTRE_MODE_DEVIATION, EDGE_DEVIATION, false)],
+			["a centre fill tiling the whole texture, frame and all, passed", _mode_faults("button_focus", whole, CENTRE_MODE_DEVIATION, EDGE_DEVIATION, false)],
+			["a centre deviation naming the .tres files' own stretch passed", _mode_faults("button_focus", _restyled(shipped, stretch, stretch), {"centre": stretch, "why": "x"}, EDGE_DEVIATION, false)],
+			["an edge deviation naming the .tres files' own stretch passed", _mode_faults("slot_empty", _restyled(dashed, stretch, tile), CENTRE_MODE_DEVIATION, {"tiled": stretch, "why": "x"}, true)],
+			["button_focus at the kit's own margins, narrower than its bracket, passed", _bracket_faults("button_focus", focus_img, Kit.NINE["button_focus"] as Array, Kit.NINE["button_focus"] as Array)],
+			["button_focus a pixel wider than its bracket needs passed", _bracket_faults("button_focus", focus_img, wide, Kit.NINE["button_focus"] as Array)],
+			["slot_hover under the manifest's top margin passed", _bracket_faults("slot_hover", hover_px.get_image() if hover_px != null else null, under, Kit.NINE["slot_hover"] as Array)],
+			["a button_focus frame built at the kit's own left margin rather than its widened one passed", _draw_margin_faults("button_focus", native_frame)],
+			["a shell row too short for button_danger's widened margins passed", _surface_faults(short)],
+		]
+		for r_v in refusals:
+			if ((r_v as Array)[1] as Array).is_empty():
+				push_error("KIT: " + String((r_v as Array)[0]))
+				ok = false
 	var ghost: Array = (manifest.get("assets", []) as Array).duplicate(true)
 	ghost.append({"id": "panel_ghost", "category": "chrome", "nine_slice_ltrb": [4, 4, 4, 4]})
 	if _coverage_faults(ghost, Kit.NINE).is_empty():
@@ -391,7 +699,7 @@ func _kit_lane(manifest: Dictionary) -> bool:
 		ok = false
 	_stash["styles"] = checked
 	if ok:
-		print("KIT OK %d styles agree with manifest.json and their .tres at native pixels, drawn at the owner's %dx (%s at 1x, named) and tiled by the named deviation; %d kit chrome pieces left unused with a reason; eight fabricated disagreements each refused" % [checked, Kit.SCALE, ", ".join(Kit.NATIVE_STYLES), UNUSED_STYLES.size()])
+		print("KIT OK %d styles agree with manifest.json and their .tres at native pixels, drawn at the owner's %dx (%s at 1x, named), centres tiled; %d tile their edges and %d stretch them, %d of those at margins widened to hold their brackets, re-measured on the pixels; %d surfaces clear their styles' margins; %d kit chrome pieces left unused with a reason; twenty-one fabricated disagreements each refused" % [checked, Kit.SCALE, ", ".join(Kit.NATIVE_STYLES), Kit.EDGE_TILED.size(), Kit.BRACKET_MARGINS.size(), widened, surfaces.size(), UNUSED_STYLES.size()])
 	return ok
 
 
@@ -494,36 +802,39 @@ func _calls(body: String, fn: String) -> bool:
 func _panel_lane() -> bool:
 	var ok: bool = true
 	var big: Rect2 = Rect2(0, 0, 200, 120)
-	var sb: StyleBoxTexture = Kit.style("panel_standard", big, 0.4)
-	if sb == null or sb.texture == null:
-		push_error("PANEL: Kit.style(panel_standard, 200x120, 0.4) gave no textured style")
+	var sb: Kit.Style = Kit.style("panel_standard", big, 0.4)
+	if sb == null or sb.border == null or sb.border.texture == null or sb.centre == null:
+		push_error("PANEL: Kit.style(panel_standard, 200x120, 0.4) gave no textured frame and centre")
 		ok = false
 	else:
-		if absf(sb.modulate_color.a - 0.4) > 0.001:
-			push_error("PANEL: the style's opacity is %.3f, asked 0.4" % sb.modulate_color.a)
+		if absf(sb.border.modulate_color.a - 0.4) > 0.001 or absf(sb.centre.modulate_color.a - 0.4) > 0.001:
+			push_error("PANEL: the style's opacity is %.3f (frame) / %.3f (centre), asked 0.4" % [sb.border.modulate_color.a, sb.centre.modulate_color.a])
 			ok = false
-		var m: Array[int] = [int(sb.texture_margin_left), int(sb.texture_margin_top), int(sb.texture_margin_right), int(sb.texture_margin_bottom)]
+		var m: Array[int] = [int(sb.border.texture_margin_left), int(sb.border.texture_margin_top), int(sb.border.texture_margin_right), int(sb.border.texture_margin_bottom)]
 		var want_m: Array[int] = []
 		for n in _ints(Kit.NINE["panel_standard"]):
 			want_m.append(n * Kit.SCALE)
 		if m != want_m or m != Kit.margins("panel_standard"):
 			push_error("PANEL: the built style's margins %s are not Kit.NINE's times %d, %s" % [str(m), Kit.SCALE, str(want_m)])
 			ok = false
-		if Vector2i(sb.texture.get_size()) != Vector2i(64, 64) * Kit.SCALE:
-			push_error("PANEL: the built style's texture is %s, not the 64 px kit texture at %dx" % [str(sb.texture.get_size()), Kit.SCALE])
+		if sb.inset_begin != Vector2(want_m[0], want_m[1]) or sb.inset_end != Vector2(want_m[2], want_m[3]):
+			push_error("PANEL: the centre is drawn inset by %s/%s, not the frame's margins %s" % [str(sb.inset_begin), str(sb.inset_end), str(want_m)])
 			ok = false
-		if not sb.draw_center:
-			push_error("PANEL: the default style does not draw its centre")
+		if Vector2i(sb.border.texture.get_size()) != Vector2i(64, 64) * Kit.SCALE:
+			push_error("PANEL: the built style's texture is %s, not the 64 px kit texture at %dx" % [str(sb.border.texture.get_size()), Kit.SCALE])
 			ok = false
 		if not is_same(sb, Kit.style("panel_standard", big, 0.4)):
 			push_error("PANEL: the same style at the same opacity was built twice -- it is not cached")
 			ok = false
-		var edge: StyleBoxTexture = Kit.style("panel_standard", big, 0.4, false)
-		if edge == null or edge.draw_center or is_same(edge, sb):
+		var edge: Kit.Style = Kit.style("panel_standard", big, 0.4, false)
+		if edge == null or edge.centre != null or is_same(edge, sb):
 			push_error("PANEL: the border-only pass is missing, draws its centre, or shares the filled style")
 			ok = false
-		var faded: StyleBoxTexture = Kit.style("panel_standard", big, 0.9)
-		if faded == null or is_same(faded, sb) or absf(faded.modulate_color.a - 0.9) > 0.001:
+		elif not is_same(edge.border, sb.border):
+			push_error("PANEL: the border-only pass built its own frame -- one frame per id per opacity is the cache's promise")
+			ok = false
+		var faded: Kit.Style = Kit.style("panel_standard", big, 0.9)
+		if faded == null or is_same(faded, sb) or absf(faded.border.modulate_color.a - 0.9) > 0.001 or absf(faded.centre.modulate_color.a - 0.9) > 0.001:
 			push_error("PANEL: a different opacity did not give its own style")
 			ok = false
 	# The margin boundary, both sides of it: two 10 kit-pixel margins at Kit.SCALE.
@@ -566,7 +877,7 @@ func _panel_lane() -> bool:
 		push_error("PANEL: a fabricated panel that does reach the kit through frame() was refused -- the scanner cannot pass")
 		ok = false
 	if ok:
-		print("PANEL OK a textured style at the asked opacity and doubled margins, cached, border-only apart, none under its margins; panel, cell, item_plate and header reach Kit.style and draw it; a rect-only body, a dead link and a commented needle each refused")
+		print("PANEL OK a textured frame and centre at the asked opacity and doubled margins, cached, border-only apart on the same frame, none under its margins; panel, cell, item_plate and header reach Kit.style and draw it; a rect-only body, a dead link and a commented needle each refused")
 	return ok
 
 
@@ -931,14 +1242,10 @@ func _font_sizes(code: String) -> Array:
 #   UNUSED_GLYPHS   {glyph_id: reason} -- the owner did not take it, or it has nothing to attach
 #                   to yet, each said out loud rather than left silent.
 #
-# Chrome.frame is deliberately not called from any of this slice's four files: it is PENDING for
-# "The shell's rows are buttons" and "Bubbles and the dashboard in kit frames", and giving it a
-# caller here would consume it a slice early (the HELPERS lane would then refuse the very commit
-# that lands this one). `inventory_panel.gd`'s `_kit_frame`, `quick_strip.gd`'s `_frame` and
-# `bag_grid.gd`'s inline `Kit.style(...).draw(...)` do what `Chrome.frame` does -- a whole-pixel
-# `Kit.style` drawn, with a drawn fallback when the id or rect will not build one -- without
-# touching it. `Chrome.glyph` is different: it is PENDING for this very slice, and this slice
-# gives it callers, so it comes out of `check_ui_skin.gd`'s PENDING dict in the same commit.
+# Every kit frame this slice's files draw goes through `Chrome.frame`: `inventory_panel.gd`'s
+# equipment slots, `quick_strip.gd`'s boxes and `bag_grid.gd`'s selection ring -- none keeps a
+# private `Kit.style(...).draw(...)` of its own. `Chrome.glyph` left the PENDING dict in the commit
+# that landed this slice, which gave it callers.
 
 const INVENTORY_GD: String = "res://ui/inventory_panel.gd"
 

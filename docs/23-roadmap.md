@@ -1956,7 +1956,7 @@ not a to-do list:
   `theme.tres` load null with "referenced non-existent resource", a kit PNG has no loader, and
   `Image.load` reads it), scales each 2× with nearest filtering once at load, and builds cached
   `StyleBoxTexture`s — keyed by id, centre and opacity to the whole percent — from a `NINE` table
-  of the manifest's native margins, doubled when built, tiled on both axes, and null for a rect
+  of the manifest's native margins, doubled when built, the centre tiled, and null for a rect
   smaller than those margins so the caller falls back to a drawn fill. `ui/chrome.gd` keeps every
   colour, `HEADER_H`, `FONT_SIZE`, `font()` and every caller's signature: `panel` is
   `panel_standard` drawn twice, the frame at its opacity and the border alone 0.15 above it;
@@ -1967,7 +1967,7 @@ not a to-do list:
   **Gated** by `npm run godot:check:ui_skin` → `UI_SKIN_OK`, new, last in the `godot:m2` chain:
   KIT holds `NINE` to `manifest.json` and every `styles/*.tres` as text, holds every kit chrome
   id to worn-or-unused-with-a-reason, and names the three departures — `OWNER_SCALE` 2,
-  `CENTRE_MODE_DEVIATION` (tile, not the `.tres` files' stretch), the keycap alone at 1× in
+  `CENTRE_MODE_DEVIATION` (the centre tiles, not the `.tres` stretch), the keycap alone at 1× in
   `Kit.NATIVE_STYLES` — refusing eight fabricated disagreements, among them a tiled style with no
   deviation named and a deviation naming no departure; RESOLVE resolves all 18 worn textures and
   all 32 glyphs at both sizes headless at the manifest's size times their scale, and a made-up
@@ -1985,7 +1985,22 @@ not a to-do list:
   that reads each, and goes red the moment one gains a caller without leaving that list; the
   font is still the engine fallback until "One typeface"; and some screens' content gutters,
   sized for the old hairline, now sit close to the ten-pixel border, which that same slice
-  refits.
+  refits. **Edges by style, the owner's decision the same day**
+  ([docs/30](30-decisions.md#the-ui-field-kit-live-2026-09-25)): a `StyleBoxTexture`'s axis modes cover its edge strips as well as its centre, so tiling both
+  axes drew a fragment of every button and slot bracket along every border as a row of tick
+  marks, while stretching the edges lengthens a dashed line's dashes and every bracket arm in
+  them. `Kit.style` now hands back a cached `Kit.Style` pair drawn by one `.draw()`: the frame,
+  drawing no centre, and the centre alone (`region_rect` the texture inside the frame's margins),
+  always tiled. `slot_empty`, the six panels and the divider tile their edges (`Kit.EDGE_TILED`);
+  the buttons, the other slots and the keycap stretch theirs, at `Kit.BRACKET_MARGINS` — the
+  manifest's margins widened just enough to hold each bracket, seven of the ten wider (the focus
+  button's to [18, 10, 17, 10] native). KIT holds every consumed style to exactly one group,
+  each frame to its group's mode and margins, re-measures every widened margin on the native
+  pixels (no bracket ink carried across it into a stretched edge, and a pixel less on any widened
+  side lets some through), and checks every surface a style draws on still clears its doubled
+  margins; twenty-one fabricated disagreements are refused, among them a style in both groups and
+  in neither, a tiled-edge frame that stretches, a bracketed one that tiles, and the focus button
+  at the kit's own margins.
 
 - **UI — one typeface, 2026-09-25.** The second piece of the "UI Field Kit, live" group
   ([docs/30](30-decisions.md#the-ui-field-kit-live-2026-09-25)). `Chrome.font()` loads the kit's
