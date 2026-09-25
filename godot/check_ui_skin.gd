@@ -2028,9 +2028,371 @@ func _outliers_lane() -> bool:
 # --- 9. CURSORS --------------------------------------------------------------------------------
 
 
+# The four cursors (docs/23's what's left, "The UI Field Kit, live"): `ui/cursors.gd` installs the
+# kit's arrow, hand, move and blocked at the manifest's own hotspots, the screens say which shape
+# they want where through a pure `cursor_at`, and a drag the sim would refuse wears blocked with
+# the kit's `slot_invalid` over the cells. The OS pointer itself is never judged -- the headless
+# display server has none -- so the lane judges the table, who reaches it, and what each screen
+# asks for.
+#
+#   TABLE     every UiCursors.TABLE record's id, native size and native hotspot equal manifest.json's
+#             record for that id; arrow, hand, move and blocked are all named; every `control_cursor_*`
+#             the kit ships is worn by some shape. A fabricated record with the arrow's hotspot one
+#             pixel off, and a manifest carrying a fifth pointer nobody wears, each fail the
+#             comparator that passed the shipped table.
+#   SCALE     UiCursors.SCALE is the chrome's Kit.SCALE; every pointer resolves through Kit.texture at
+#             the manifest's size times that scale, its installed hotspot is the manifest's times the
+#             same and inside the picture; a pointer the kit does not ship resolves to nothing.
+#   REACH     `_ensure_ui`, comments stripped, reaches `UiCursors.install(`; `install` reaches
+#             `Input.set_custom_mouse_cursor(` through `texture_of(` and dresses every shape in TABLE
+#             (headless the call is a no-op; the count is not). Each screen's input path sets
+#             `mouse_default_cursor_shape` from its `cursor_at(`, and the ghost reaches the drop
+#             frame. The same predicate refuses a body with the install only in a comment.
+#   SURFACES  the shell's rows, a context-menu verb, a settings slider and an inventory item each
+#             give the hand; the shell's empty panel space, the menu's padding, the settings sheet's
+#             corner and the inventory sheet's margin each give the arrow -- and not the hand.
+#   DROP      in a small world, a held item over each pocket cell gives blocked exactly where
+#             `SimInventory.can_place` refuses and the move exactly where it accepts, both seen, the
+#             refusal with the cells it would cover; `_drop_verdict` asks `SimInventory.can_place(`
+#             and a fabricated verdict ruling with `SimGrid.fits` alone is refused. Every shape a
+#             screen answered with is one TABLE dresses.
+
+const UiCursors = preload("res://ui/cursors.gd")
+const CURSORS_GD: String = "res://ui/cursors.gd"
+const CURSORS_SHELL_GD: String = "res://ui/shell.gd"
+const CURSORS_CONTEXT_GD: String = "res://ui/context_menu.gd"
+const CURSORS_SETTINGS_GD: String = "res://ui/settings_panel.gd"
+const CursorsWorld = preload("res://sim/world.gd")
+const CursorsSimHealth = preload("res://sim/modules/health.gd")
+const CursorsSimNeeds = preload("res://sim/modules/needs.gd")
+const CursorsSimItems = preload("res://sim/modules/items.gd")
+const CursorsSimInventory = preload("res://sim/modules/inventory.gd")
+const CursorsBagGrid = preload("res://ui/bag_grid.gd")
+# The four pointers the kit ships, by the shape each must answer for.
+const CURSORS_REQUIRED: Dictionary = {
+	Input.CURSOR_ARROW: "control_cursor_arrow",
+	Input.CURSOR_POINTING_HAND: "control_cursor_hand",
+	Input.CURSOR_MOVE: "control_cursor_move",
+	Input.CURSOR_FORBIDDEN: "control_cursor_blocked",
+}
+
+
 func _cursors_lane() -> bool:
-	print("SKIP CURSORS: not landed")
+	var ok: bool = true
+	var manifest: Dictionary = _manifest()
+	var assets: Dictionary = _records(manifest, "assets")
+	var answered: Dictionary = {}
+
+	# TABLE: the code's copy against the manifest, at native pixels.
+	for shape_v in UiCursors.TABLE.keys():
+		for f in _cursor_faults(UiCursors.TABLE[shape_v], assets):
+			push_error("CURSORS: shape %d: %s" % [int(shape_v), f])
+			ok = false
+	for shape_v in CURSORS_REQUIRED.keys():
+		var entry: Variant = UiCursors.TABLE.get(shape_v, null)
+		if not (entry is Dictionary) or String((entry as Dictionary).get("id", "")) != String(CURSORS_REQUIRED[shape_v]):
+			push_error("CURSORS: shape %d does not wear %s" % [int(shape_v), String(CURSORS_REQUIRED[shape_v])])
+			ok = false
+	for f in _cursor_coverage_faults(manifest.get("assets", []) as Array, UiCursors.TABLE):
+		push_error("CURSORS: " + f)
+		ok = false
+	# True negatives: one pixel off, and a pointer nobody wears.
+	var bad: Dictionary = (UiCursors.TABLE[Input.CURSOR_ARROW] as Dictionary).duplicate(true)
+	bad["hotspot"] = Vector2i(7, 2)
+	if _cursor_faults(bad, assets).is_empty():
+		push_error("CURSORS: a table record with the arrow's hotspot at (7, 2) against the manifest's (6, 2) passed -- the comparator cannot fail")
+		ok = false
+	var ghost: Array = (manifest.get("assets", []) as Array).duplicate(true)
+	ghost.append({"id": "control_cursor_crosshair", "category": "controls", "size": [24, 24], "hotspot": [12, 12]})
+	if _cursor_coverage_faults(ghost, UiCursors.TABLE).is_empty():
+		push_error("CURSORS: a manifest pointer no shape wears passed")
+		ok = false
+
+	# SCALE: the chrome's scale, both the picture and the hotspot.
+	if UiCursors.SCALE != Kit.SCALE:
+		push_error("CURSORS: pointers install at %dx, the chrome draws at %dx" % [UiCursors.SCALE, Kit.SCALE])
+		ok = false
+	for shape_v in UiCursors.TABLE.keys():
+		var shape: int = int(shape_v)
+		var entry: Dictionary = UiCursors.TABLE[shape_v] as Dictionary
+		var rec: Dictionary = assets.get(String(entry.get("id", "")), {}) as Dictionary
+		var want_size: Array[int] = _ints(rec.get("size", null))
+		var want_hot: Array[int] = _ints(rec.get("hotspot", null))
+		var tex: Texture2D = UiCursors.texture_of(shape)
+		if tex == null:
+			push_error("CURSORS: %s did not resolve through Kit.texture" % String(entry.get("id", "")))
+			ok = false
+			continue
+		if want_size.size() != 2 or Vector2i(tex.get_size()) != Vector2i(want_size[0], want_size[1]) * UiCursors.SCALE:
+			push_error("CURSORS: %s resolved at %s, the manifest says %s at %dx" % [String(entry.get("id", "")), str(tex.get_size()), str(want_size), UiCursors.SCALE])
+			ok = false
+		var hot: Vector2 = UiCursors.hotspot_of(shape)
+		if want_hot.size() != 2 or Vector2i(hot) != Vector2i(want_hot[0], want_hot[1]) * UiCursors.SCALE:
+			push_error("CURSORS: %s installs its hotspot at %s, the manifest's %s at %dx is not that" % [String(entry.get("id", "")), str(hot), str(want_hot), UiCursors.SCALE])
+			ok = false
+		elif not Rect2(Vector2.ZERO, tex.get_size()).has_point(hot):
+			push_error("CURSORS: %s's hotspot %s is outside its own picture" % [String(entry.get("id", "")), str(hot)])
+			ok = false
+	if Kit.texture("controls/control_cursor_nonesuch.png", UiCursors.SCALE) != null:
+		push_error("CURSORS: a pointer the kit does not ship resolved")
+		ok = false
+
+	# REACH: main.gd installs, install dresses, and every screen's input path asks its cursor_at.
+	var ensure: String = String(_bodies(_text_of(MAIN_GD)).get("_ensure_ui", ""))
+	if not _cursor_reaches(ensure, ["UiCursors.install("]):
+		push_error("CURSORS: main.gd's _ensure_ui, comments stripped, never reaches UiCursors.install(")
+		ok = false
+	var install: String = String(_bodies(_text_of(CURSORS_GD)).get("install", ""))
+	if not _cursor_reaches(install, ["Input.set_custom_mouse_cursor(", "texture_of(", "TABLE"]):
+		push_error("CURSORS: UiCursors.install never reaches Input.set_custom_mouse_cursor( with a texture_of( from TABLE")
+		ok = false
+	var dressed: int = UiCursors.install()
+	if dressed != UiCursors.TABLE.size():
+		push_error("CURSORS: install dressed %d of %d shapes" % [dressed, UiCursors.TABLE.size()])
+		ok = false
+	var commented: String = String(_bodies("func _ensure_ui() -> void:\n\t# UiCursors.install()\n\tvar layer := CanvasLayer.new()\n").get("_ensure_ui", ""))
+	if _cursor_reaches(commented, ["UiCursors.install("]):
+		push_error("CURSORS: a fabricated _ensure_ui with the install only in a comment passed")
+		ok = false
+	var readers: Array = [
+		[CURSORS_SHELL_GD, "_gui_input", ["cursor_at(", "mouse_default_cursor_shape"]],
+		[CURSORS_CONTEXT_GD, "_gui_input", ["cursor_at(", "mouse_default_cursor_shape"]],
+		[CURSORS_SETTINGS_GD, "_gui_input", ["cursor_at(", "mouse_default_cursor_shape"]],
+		[INVENTORY_GD, "_gui_input", ["cursor_at(", "mouse_default_cursor_shape"]],
+		[INVENTORY_GD, "_loot_point", ["loot_cursor_at(", "mouse_default_cursor_shape"]],
+		[INVENTORY_GD, "_drop_verdict", ["SimInventory.can_place("]],
+		[INVENTORY_GD, "_draw_drop_hint_into", ["Chrome.frame(", "\"slot_invalid\"", "CURSOR_FORBIDDEN"]],
+	]
+	for r_v in readers:
+		var r: Array = r_v as Array
+		var body: String = String(_bodies(_text_of(String(r[0]))).get(String(r[1]), ""))
+		if not _cursor_reaches(body, r[2] as Array):
+			push_error("CURSORS: %s's %s, comments stripped, does not reach %s" % [String(r[0]), String(r[1]), str(r[2])])
+			ok = false
+	# The inner classes are indented, so `_bodies` does not split them out: the whole file, comments
+	# stripped, is asked instead -- the window hands its events to `_loot_point` and the ghost draws
+	# the refusal.
+	var inv_code: String = _code_of(_text_of(INVENTORY_GD))
+	for needle in ["panel.call(\"_loot_point\"", "panel.call(\"_draw_drop_hint_into\""]:
+		if not inv_code.contains(needle):
+			push_error("CURSORS: inventory_panel.gd never calls %s -- the pointer or the frame has no reader" % needle)
+			ok = false
+	var fits_only: String = String(_bodies("func _drop_verdict(places: Array, p: Vector2) -> Dictionary:\n\t# SimInventory.can_place(_world, item, box, x, y, r)\n\tvar ok: bool = SimGrid.fits(box, items, sizes, candidate)\n").get("_drop_verdict", ""))
+	if _cursor_reaches(fits_only, ["SimInventory.can_place("]):
+		push_error("CURSORS: a fabricated _drop_verdict ruling with SimGrid.fits, the sim's call only in a comment, passed")
+		ok = false
+
+	# SURFACES: the hand where a press acts, the arrow where it does not. At the game's own
+	# 1920 x 1080 rather than the headless root's 64 px square, so every screen lays out as it does
+	# in play; the root's size is put back after.
+	var root_was: Vector2i = root.size
+	root.size = Vector2i(1920, 1080)
+	var shell: Control = (load(CURSORS_SHELL_GD) as GDScript).new() as Control
+	root.add_child(shell)
+	shell.call("show_state", 2, {})
+	var rows: Array = shell.call("_row_rects") as Array
+	var panel_rect: Rect2 = shell.call("_panel_rect") as Rect2
+	var empty_panel: Vector2 = panel_rect.position + Vector2(8.0, panel_rect.size.y - 8.0)
+	if rows.is_empty():
+		push_error("CURSORS: the pause screen laid out no rows -- the shell's hand has nothing to judge")
+		ok = false
+	else:
+		for rect_v in rows:
+			var at_row: int = int(shell.call("cursor_at", (rect_v as Rect2).get_center()))
+			answered[at_row] = true
+			if at_row != Input.CURSOR_POINTING_HAND:
+				push_error("CURSORS: the shell over a row gave shape %d, not the hand" % at_row)
+				ok = false
+		var at_empty: int = int(shell.call("cursor_at", empty_panel))
+		answered[at_empty] = true
+		if not panel_rect.has_point(empty_panel) or at_empty == Input.CURSOR_POINTING_HAND or at_empty != Input.CURSOR_ARROW:
+			push_error("CURSORS: the shell over its own empty panel space gave shape %d, not the arrow" % at_empty)
+			ok = false
+	shell.free()
+
+	var menu: Control = (load(CURSORS_CONTEXT_GD) as GDScript).new() as Control
+	root.add_child(menu)
+	var verbs: Array[Dictionary] = [{"text": "walk here"}, {"text": "pick up the tin can"}]
+	menu.call("open", Vector2(100, 100), verbs)
+	var verb_rects: Array = (load(ITEM_MENU_GD) as GDScript).call("verb_rects", Vector2.ZERO, ["walk here", "pick up the tin can"]) as Array
+	var on_verb: int = int(menu.call("cursor_at", ((verb_rects[1] as Dictionary)["rect"] as Rect2).get_center()))
+	var in_pad: int = int(menu.call("cursor_at", Vector2(4.0, 3.0)))
+	answered[on_verb] = true
+	answered[in_pad] = true
+	if on_verb != Input.CURSOR_POINTING_HAND:
+		push_error("CURSORS: the context menu over a verb gave shape %d, not the hand" % on_verb)
+		ok = false
+	if in_pad != Input.CURSOR_ARROW:
+		push_error("CURSORS: the context menu over its top padding gave shape %d, not the arrow" % in_pad)
+		ok = false
+	menu.free()
+
+	var settings: Control = (load(CURSORS_SETTINGS_GD) as GDScript).new() as Control
+	root.add_child(settings)
+	var on_slider: int = int(settings.call("cursor_at", (settings.call("_grab_rect", 0) as Rect2).get_center()))
+	var in_corner: int = int(settings.call("cursor_at", (settings.call("_panel_rect") as Rect2).position + Vector2(8.0, 8.0)))
+	answered[on_slider] = true
+	answered[in_corner] = true
+	if on_slider != Input.CURSOR_POINTING_HAND:
+		push_error("CURSORS: the settings sheet over a slider gave shape %d, not the hand" % on_slider)
+		ok = false
+	if in_corner != Input.CURSOR_ARROW:
+		push_error("CURSORS: the settings panel's top-left corner gave shape %d, not the arrow" % in_corner)
+		ok = false
+	settings.free()
+
+	# DROP, and the inventory's hand: a small world, two things in the pockets.
+	ok = _cursor_drop_lane(answered) and ok
+	root.size = root_was
+
+	for shape_v in answered.keys():
+		if not UiCursors.TABLE.has(shape_v):
+			push_error("CURSORS: a screen answered with shape %d, which no kit pointer dresses" % int(shape_v))
+			ok = false
+	if ok:
+		print("CURSORS OK %d shapes wear the kit's four pointers at the manifest's sizes and hotspots, installed at the chrome's %dx; _ensure_ui reaches install and install reaches Input.set_custom_mouse_cursor; the shell's rows, a menu verb, a slider and an item give the hand and the space around each the arrow; a held item is blocked exactly where SimInventory.can_place refuses and the move where it accepts; a hotspot one pixel off, a pointer nobody wears, a commented install and a verdict of its own each refused" % [UiCursors.TABLE.size(), UiCursors.SCALE])
+	return ok
+
+
+# What is wrong with one TABLE record against the manifest, at native kit pixels. Empty when they
+# agree.
+func _cursor_faults(entry_v: Variant, assets: Dictionary) -> Array[String]:
+	var faults: Array[String] = []
+	if not (entry_v is Dictionary):
+		faults.append("the record is not a Dictionary")
+		return faults
+	var entry: Dictionary = entry_v as Dictionary
+	var id: String = String(entry.get("id", ""))
+	if not assets.has(id):
+		faults.append("%s is not a pointer manifest.json ships" % id)
+		return faults
+	var rec: Dictionary = assets[id] as Dictionary
+	if String(rec.get("category", "")) != "controls":
+		faults.append("%s is a %s, not a control" % [id, String(rec.get("category", ""))])
+	var size: Array[int] = _ints(rec.get("size", null))
+	var hot: Array[int] = _ints(rec.get("hotspot", null))
+	if size.size() != 2 or entry.get("size", null) != Vector2i(size[0], size[1]):
+		faults.append("%s's size %s against the manifest's %s" % [id, str(entry.get("size", null)), str(size)])
+	if hot.size() != 2 or entry.get("hotspot", null) != Vector2i(hot[0], hot[1]):
+		faults.append("%s's hotspot %s against the manifest's %s" % [id, str(entry.get("hotspot", null)), str(hot)])
+	return faults
+
+
+# Every `control_cursor_*` the manifest ships must be worn by some shape in `table`.
+func _cursor_coverage_faults(assets: Array, table: Dictionary) -> Array[String]:
+	var worn: Dictionary = {}
+	for entry_v in table.values():
+		worn[String((entry_v as Dictionary).get("id", ""))] = true
+	var faults: Array[String] = []
+	for rec_v in assets:
+		var id: String = String((rec_v as Dictionary).get("id", ""))
+		if id.begins_with("control_cursor_") and not worn.has(id):
+			faults.append("%s is a kit pointer no shape in UiCursors.TABLE wears" % id)
+	return faults
+
+
+# Whether a comment-stripped body carries every needle.
+func _cursor_reaches(body: String, needles: Array) -> bool:
+	if body.is_empty():
+		return false
+	for n in needles:
+		if not body.contains(String(n)):
+			return false
 	return true
+
+
+# The drop verdict against the sim's own `can_place`, cell by cell, and the inventory's hand and
+# arrow, in a world with two different things in the pockets.
+func _cursor_drop_lane(answered: Dictionary) -> bool:
+	var ok: bool = true
+	var w: Variant = CursorsWorld.new({
+		"seed": 4471,
+		"tick_hz": 20,
+		"map": {"width": 32, "height": 32, "walls": []},
+		"player": {"id": 0, "x": 8.5, "y": 16.5, "stance": 2},
+		"rng_probe": {"stream": "test", "samples": 0},
+	})
+	CursorsSimHealth.register_module(w)
+	CursorsSimNeeds.register_module(w)
+	CursorsSimItems.register_module(w)
+	CursorsSimInventory.register_module(w)
+	CursorsSimHealth.make_survivor_body(w, w.player)
+	CursorsSimHealth.make_stamina(w, w.player, 100)
+	CursorsSimNeeds.attach(w, w.player)
+	CursorsSimInventory.make_inventory(w, w.player)
+	var held: int = CursorsSimItems.spawn_item(w, "item.food.jerky", {"tier": "scavenged"})
+	var other: int = CursorsSimItems.spawn_item(w, "item.food.canned", {"tier": "scavenged"})
+	if not CursorsSimInventory.stow(w, w.player, held) or not CursorsSimInventory.stow(w, w.player, other):
+		push_error("CURSORS: the two tins would not go in the pockets -- DROP has nothing to judge")
+		return false
+
+	var panel: Control = (load(INVENTORY_GD) as GDScript).new() as Control
+	root.add_child(panel)
+	panel.call("set_world", w, w.player)
+	panel.call("set_open", true)
+	var pockets: Dictionary = {}
+	for placed_v in panel.call("_column_places") as Array:
+		var placed: Dictionary = placed_v as Dictionary
+		if int((placed["column"] as Dictionary).get("container", -1)) == int(w.player):
+			pockets = placed
+	if pockets.is_empty():
+		push_error("CURSORS: the open sheet laid out no pockets column")
+		panel.free()
+		return false
+	var column: Dictionary = pockets["column"] as Dictionary
+	var origin: Vector2 = CursorsBagGrid.origin_of(pockets["at"] as Vector2)
+	var cell_px: float = float(CursorsBagGrid.CELL)
+
+	# Nothing held: the hand over an item, the arrow over the sheet's margin.
+	var item_view: Dictionary = {}
+	for e in column.get("items", []) as Array:
+		if int((e as Dictionary).get("item", -1)) == other:
+			item_view = e as Dictionary
+	var over_item: Vector2 = origin + (Vector2(float(int(item_view.get("x", 0))), float(int(item_view.get("y", 0)))) + Vector2(0.5, 0.5)) * cell_px
+	var hand: int = int(panel.call("cursor_at", over_item))
+	var margin: int = int(panel.call("cursor_at", Vector2(4.0, 4.0)))
+	answered[hand] = true
+	answered[margin] = true
+	if item_view.is_empty() or hand != Input.CURSOR_POINTING_HAND:
+		push_error("CURSORS: the sheet over an item gave shape %d, not the hand" % hand)
+		ok = false
+	if margin != Input.CURSOR_ARROW:
+		push_error("CURSORS: the sheet's own margin gave shape %d, not the arrow" % margin)
+		ok = false
+
+	# Held: every pocket cell, the pointer against the sim's own verdict on that cell.
+	panel.call("_begin_drag", held, false, Vector2i.ONE)
+	var refused: int = 0
+	var accepted: int = 0
+	for cy in range(int(column.get("h", 0))):
+		for cx in range(int(column.get("w", 0))):
+			var p: Vector2 = origin + (Vector2(float(cx), float(cy)) + Vector2(0.5, 0.5)) * cell_px
+			var sim_ok: bool = bool(CursorsSimInventory.can_place(w, held, int(w.player), cx, cy, false).get("ok", false))
+			var shape: int = int(panel.call("cursor_at", p))
+			var hint: Dictionary = panel.call("drop_hint", p) as Dictionary
+			answered[shape] = true
+			if sim_ok:
+				accepted += 1
+				if shape != Input.CURSOR_MOVE:
+					push_error("CURSORS: can_place accepts cell (%d, %d) and the pointer is shape %d, not the move" % [cx, cy, shape])
+					ok = false
+			else:
+				refused += 1
+				var r: Rect2 = hint.get("rect", Rect2()) as Rect2
+				if shape != Input.CURSOR_FORBIDDEN:
+					push_error("CURSORS: can_place refuses cell (%d, %d) and the pointer is shape %d, not blocked" % [cx, cy, shape])
+					ok = false
+				elif not r.has_area() or not r.has_point(p):
+					push_error("CURSORS: a refused cell (%d, %d) carries no frame over the cells it would cover (%s)" % [cx, cy, str(r)])
+					ok = false
+	if refused == 0 or accepted == 0:
+		push_error("CURSORS: the pockets gave %d refused and %d accepted cells -- both are needed to judge the verdict" % [refused, accepted])
+		ok = false
+	panel.call("_cancel_drag")
+	panel.free()
+	if ok:
+		print("CURSORS DROP a held tin over %d pocket cells: blocked on the %d can_place refuses, framed; the move on the %d it accepts" % [refused + accepted, refused, accepted])
+	return ok
 
 
 # --- 10. MOTION --------------------------------------------------------------------------------

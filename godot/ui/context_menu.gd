@@ -73,10 +73,23 @@ func _draw() -> void:
 	ItemMenu.draw_menu(self, Vector2.ZERO, _texts(), 1.0)
 
 
+# Which pointer the kit dresses the mouse in at `p`, in this control's own frame (ui/cursors.gd):
+# the hand over a verb, the arrow over the menu's padding. The rows are `ItemMenu.verb_rects`, the
+# same rects a press is tested against, so the hand and the pick cannot disagree about a row.
+func cursor_at(p: Vector2) -> int:
+	for row in ItemMenu.verb_rects(Vector2.ZERO, _texts()):
+		if (row["rect"] as Rect2).has_point(p):
+			return Input.CURSOR_POINTING_HAND
+	return Input.CURSOR_ARROW
+
+
 # Every press this control receives closes it -- a row picks first when the press landed on one,
 # and either way the event is consumed here rather than falling through to `_unhandled_input`,
 # which is what keeps a click on the menu from also swinging at whatever is behind it.
 func _gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion:
+		mouse_default_cursor_shape = cursor_at((event as InputEventMouseMotion).position) as Control.CursorShape
+		return
 	if not (event is InputEventMouseButton) or not (event as InputEventMouseButton).pressed:
 		return
 	var mb: InputEventMouseButton = event as InputEventMouseButton

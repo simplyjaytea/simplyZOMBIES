@@ -228,6 +228,7 @@ func _gui_input(event: InputEvent) -> void:
 					cursor = i
 					queue_redraw()
 				break
+		mouse_default_cursor_shape = cursor_at(at) as Control.CursorShape
 	elif event is InputEventMouseButton:
 		var mb: InputEventMouseButton = event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
@@ -237,6 +238,34 @@ func _gui_input(event: InputEvent) -> void:
 					_choose(i)
 					break
 			accept_event()
+
+
+# Which pointer the kit dresses the mouse in at `p` (ui/cursors.gd): the hand over a row, since a
+# row is a button, and the arrow everywhere else on the screen. Pure -- the rows' rects are worked
+# out from the state, not read back from the last draw -- so the CURSORS lane can ask it without a
+# frame.
+func cursor_at(p: Vector2) -> int:
+	for rect in _row_rects():
+		if rect.has_point(p):
+			return Input.CURSOR_POINTING_HAND
+	return Input.CURSOR_ARROW
+
+
+# Every row's rect, top to bottom, in the arithmetic `_draw` lays them out with -- `_draw` takes
+# its rows from here, so the row you can see and the row the pointer answers to are one list.
+func _row_rects() -> Array[Rect2]:
+	var panel: Rect2 = _panel_rect()
+	var y: float = panel.position.y + Chrome.HEADER_H + PAD
+	if state == TITLE:
+		y += float(TITLE_SIZE) + 24.0
+	y += LINE_H * float(_lines.size())
+	if not _lines.is_empty():
+		y += 12.0
+	var out: Array[Rect2] = []
+	for i in _rows.size():
+		out.append(Rect2(Vector2(panel.position.x + PAD, y), Vector2(panel.size.x - PAD * 2.0, ROW_H)))
+		y += ROW_H + ROW_GAP
+	return out
 
 
 func _panel_rect() -> Rect2:
@@ -288,10 +317,9 @@ func _draw() -> void:
 		y += LINE_H
 	if not _lines.is_empty():
 		y += 12.0
-	_hits = []
+	_hits = _row_rects()
 	for i in _rows.size():
-		var rect := Rect2(Vector2(panel.position.x + PAD, y), Vector2(panel.size.x - PAD * 2.0, ROW_H))
-		_hits.append(rect)
+		var rect: Rect2 = _hits[i]
 		var chosen: bool = i == cursor
 		var row_id: String = String((_rows[i] as Array)[0])
 		var is_danger: bool = row_id == DANGER_ROW

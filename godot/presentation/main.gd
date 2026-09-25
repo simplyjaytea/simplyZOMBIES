@@ -15,6 +15,7 @@ const HudRead = preload("res://ui/hud.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
 const ItemGlyph = preload("res://presentation/item_glyph.gd")
 const Chrome = preload("res://ui/chrome.gd")
+const UiCursors = preload("res://ui/cursors.gd")
 # The tag beside the player's body: big enough to read at a glance mid-fight, small enough that it
 # is not competing with the HUD's own columns.
 const TAG_SIZE: int = 25
@@ -435,6 +436,9 @@ func _camera_shake_from_events(drained: Array) -> void:
 		CameraUtil.shake_impulse(_shake, mag, _shake_rng.randf_range(0.0, TAU), CameraUtil.SHAKE_CAP_PX)
 
 func _ensure_ui() -> void:
+	# The kit's four pointers, before any screen exists to name a shape (ui/cursors.gd). Headless
+	# this reaches a display server with no pointer and does nothing.
+	UiCursors.install()
 	var layer := CanvasLayer.new()
 	layer.name = "R4UI"
 	add_child(layer)
