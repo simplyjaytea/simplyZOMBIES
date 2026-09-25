@@ -73,8 +73,6 @@ const UNUSED_STYLES: Dictionary = {
 # in the commit that gives it a reader.
 const PENDING: Dictionary = {
 	"frame": "S4 The shell's rows are buttons, S6 Bubbles and the dashboard in kit frames",
-	"keycap": "S5 Keys wear keycaps",
-	"glyph": "S3 Empty slots say what goes there",
 }
 
 # The owner's 2026-09-25 decision (docs/30, "The UI Field Kit, live"): the chrome draws at twice
@@ -921,9 +919,300 @@ func _glyphs_lane() -> bool:
 # --- 7. KEYCAPS --------------------------------------------------------------------------------
 
 
+# Keys wear keycaps (docs/23's what's left, "The UI Field Kit, live"): the action bar draws every
+# key it names as the kit's keycap, and the word menu wears a gutter of small glyphs.
+#
+#   CAPS      `Hud.keycaps(action, tail)` -- the one list `_draw_action_bar` lays out -- is judged
+#             for the idle bar and for a real `Hud.action_line` with E, T and H all live, the tail
+#             read out of the bar's own single `var keys: String` line: every cap is a key
+#             `presentation/input_map.gd` binds (BINDINGS' legend column, and INTERACT_KEY) and a
+#             key `ui/legend.gd` names, so F1 can look it up; no cap carries a digit unless it is a
+#             function key's name or listed in KEYCAPS_DIGIT_KEYS (none: the belt's number keys are
+#             the quick strip's own labels, never the bar's); no token is words without a key; and
+#             the parse loses nothing -- the tail rebuilt from the list is the line. A fabricated
+#             "3 boards" and a fabricated "Q quit" each fail the same predicate, and "- = speed" is
+#             shown to parse as two keys.
+#   FIT       `Hud.fit_bar` lays out the whole list in a 1920 window's room, and on a 1280 window
+#             with a long E clause a prefix of it inside the room, E and F1 kept -- the hint gives
+#             way from its end, the clauses never.
+#   DRAWN     `_draw_action_bar`, comments stripped, lays out `fit_bar(` over
+#             `keycaps(_action, keys)` and reaches `Chrome.keycap(`; a fabricated body with the
+#             cap only in a comment, and one that draws caps from a list of its own, are each
+#             refused by the same scanner.
+#   GUTTER    `ItemMenu.size_of` carries the glyph gutter, so `verb_rects` -- which check_context
+#             holds to the drawn rows -- is wider by exactly `gutter_of` when a glyph verb joins
+#             the menu and not at all when none does; every verb prefix the gutter names finds a
+#             glyph that resolves, "attack" and "unequip" find none; `draw_menu` reaches
+#             `Chrome.glyph(` through `glyph_of(`, and `size_of` reaches `gutter_of(`.
+
+const KEYCAPS_HUD_GD: String = "res://ui/hud.gd"
+const KEYCAPS_MENU_GD: String = "res://ui/item_menu.gd"
+const KEYCAPS_INPUT_GD: String = "res://presentation/input_map.gd"
+const KEYCAPS_LEGEND_GD: String = "res://ui/legend.gd"
+# Digit-row keys the bar may draw as a cap. None today, deliberately: a lone digit on the bar
+# reads as a count, and the belt's number keys are labelled by the quick strip itself.
+const KEYCAPS_DIGIT_KEYS: Array[String] = []
+
+
 func _keycaps_lane() -> bool:
-	print("SKIP KEYCAPS: not landed")
-	return true
+	var ok: bool = true
+	var hud: GDScript = load(KEYCAPS_HUD_GD) as GDScript
+	var menu: GDScript = load(KEYCAPS_MENU_GD) as GDScript
+	if hud == null or menu == null:
+		push_error("KEYCAPS: ui/hud.gd or ui/item_menu.gd did not load -- nothing to judge")
+		return false
+	var bound: Dictionary = _keycaps_bound()
+	var legended: Dictionary = _keycaps_legended()
+	if bound.size() < 10 or legended.size() < 10:
+		push_error("KEYCAPS: read %d bound keys and %d legend keys -- too few to judge anything" % [bound.size(), legended.size()])
+		return false
+
+	# CAPS. The tail is the bar's own line, read out of the function that draws it.
+	var bodies: Dictionary = _bodies(_text_of(KEYCAPS_HUD_GD))
+	var tail: String = _keycaps_tail(String(bodies.get("_draw_action_bar", "")))
+	if tail.is_empty():
+		push_error("KEYCAPS: `_draw_action_bar` has no single-line `var keys: String` to read the tail from")
+		return false
+	var action: String = _keycaps_action()
+	for lead in ["E — ", "T — ", "H — "]:
+		if not action.contains(lead):
+			push_error("KEYCAPS: the fixture's action line never offered %s-- the lead caps have nothing to judge: '%s'" % [lead, action])
+			ok = false
+	var idle: Array = hud.call("keycaps", "", tail) as Array
+	var busy: Array = hud.call("keycaps", action, tail) as Array
+	var caps: int = 0
+	for pair in [["idle", idle], ["with E, T and H live", busy]]:
+		var faults: Array[String] = _keycaps_faults(pair[1] as Array, bound, legended)
+		if not faults.is_empty():
+			push_error("KEYCAPS: the bar %s draws caps that are not bound keys: %s" % [String(pair[0]), "; ".join(faults)])
+			ok = false
+	var leads: Array[String] = []
+	for e_v in busy:
+		var e: Dictionary = e_v as Dictionary
+		caps += (e.get("keys", []) as Array).size()
+		if bool(e.get("lead", false)):
+			leads.append(" ".join(e.get("keys", []) as Array))
+	if leads != ["E", "T", "H"]:
+		push_error("KEYCAPS: the lead caps are %s, not E, T, H in order" % str(leads))
+		ok = false
+	var rebuilt: Array[String] = []
+	for e_v in idle:
+		var e: Dictionary = e_v as Dictionary
+		if bool(e.get("lead", false)):
+			push_error("KEYCAPS: the idle bar drew a lead cap with no action line")
+			ok = false
+		var words: Array = (e.get("keys", []) as Array).duplicate()
+		words.append(String(e.get("word", "")))
+		rebuilt.append(" ".join(words))
+	if " · ".join(rebuilt) != tail:
+		push_error("KEYCAPS: the tail rebuilt from the caps is '%s', not the line '%s' -- the parse drops something" % [" · ".join(rebuilt), tail])
+		ok = false
+	var speed: Array = hud.call("keycaps", "", "- = speed") as Array
+	if speed.size() != 1 or (speed[0] as Dictionary).get("keys", []) != ["-", "="] or String((speed[0] as Dictionary).get("word", "")) != "speed":
+		push_error("KEYCAPS: '- = speed' did not parse as two keys and a word: %s" % str(speed))
+		ok = false
+	# FIT: what the bar lays out is the list, whole where there is room, and on a 1280 window with a
+	# long clause the list with the hint's tail left off -- a prefix, E and F1 kept, inside the room.
+	var font: Font = (load(CHROME_GD) as GDScript).call("font") as Font
+	var wide: Dictionary = hud.call("fit_bar", font, idle, 1920.0 - 96.0) as Dictionary
+	var all_idle: Array[String] = _keycaps_listed(idle)
+	if _keycaps_drawn(wide["runs"] as Array) != all_idle:
+		push_error("KEYCAPS: with a 1920 window's room the idle bar lays out %s, not its whole list %s" % [str(_keycaps_drawn(wide["runs"] as Array)), str(all_idle)])
+		ok = false
+	var long_list: Array = hud.call("keycaps", "E — There's a cupboard here worth going through.", tail) as Array
+	var narrow: Dictionary = hud.call("fit_bar", font, long_list, 1280.0 - 96.0) as Dictionary
+	var drawn: Array[String] = _keycaps_drawn(narrow["runs"] as Array)
+	var listed: Array[String] = _keycaps_listed(long_list)
+	if float(narrow["total"]) > 1280.0 - 96.0 or drawn.size() >= listed.size() or listed.slice(0, drawn.size()) != drawn or not drawn.has("E") or not drawn.has("F1"):
+		push_error("KEYCAPS: a 1280 window with a long clause lays out %s (%.0f px of %.0f) -- not a prefix of %s keeping E and F1 inside the room" % [str(drawn), float(narrow["total"]), 1280.0 - 96.0, str(listed)])
+		ok = false
+	# True negatives, through the same parse and the same predicate.
+	var counted: Array[String] = _keycaps_faults(hud.call("keycaps", "", "3 boards") as Array, bound, legended)
+	if counted.is_empty() or not "; ".join(counted).contains("digit"):
+		push_error("KEYCAPS: a fabricated '3 boards' cap was not refused for its digit: %s" % str(counted))
+		ok = false
+	if _keycaps_faults(hud.call("keycaps", "", "Q quit") as Array, bound, legended).is_empty():
+		push_error("KEYCAPS: a fabricated 'Q quit' cap, a key nothing binds, passed")
+		ok = false
+	if _keycaps_faults(hud.call("keycaps", "Q — quit", "") as Array, bound, legended).is_empty():
+		push_error("KEYCAPS: a fabricated lead clause on an unbound key passed")
+		ok = false
+	if _keycaps_faults(hud.call("keycaps", "", "keys") as Array, bound, legended).is_empty():
+		push_error("KEYCAPS: a fabricated token with words and no key passed")
+		ok = false
+
+	# DRAWN.
+	if not _keycaps_draws(bodies):
+		push_error("KEYCAPS: `_draw_action_bar` does not lay out fit_bar( over keycaps(_action, keys) and reach Chrome.keycap( -- the list judged above is not what the bar draws")
+		ok = false
+	var commented: Dictionary = _bodies("func _draw_action_bar(font, view):\n\tvar fit = fit_bar(font, keycaps(_action, keys), room)\n\t# w = Chrome.keycap(self, at, k, 25, 1.0)\n\tdraw_string(font, at, k)\n")
+	if _keycaps_draws(commented):
+		push_error("KEYCAPS: a fabricated bar that draws a keycap only in a comment passed")
+		ok = false
+	var own_list: Dictionary = _bodies("func _draw_action_bar(font, view):\n\tfor k in [\"E\", \"Tab\"]:\n\t\tChrome.keycap(self, at, k, 25, 1.0)\n")
+	if _keycaps_draws(own_list):
+		push_error("KEYCAPS: a fabricated bar drawing caps from a list of its own passed")
+		ok = false
+	var live: Dictionary = _bodies("func _draw_action_bar(font, view):\n\tvar fit = fit_bar(font, keycaps(_action, keys), room) # the list\n\tx += Chrome.keycap(self, at, k, 25, 1.0)\n")
+	if not _keycaps_draws(live):
+		push_error("KEYCAPS: a fabricated bar that does draw its caps was refused -- the scanner cannot pass")
+		ok = false
+
+	# GUTTER.
+	var gutter_ok: bool = _keycaps_gutter(menu)
+	ok = gutter_ok and ok
+	if ok:
+		print("KEYCAPS OK %d caps with E, T and H live and %d idle, each a bound key the legend names, digit-free but a function key's name; the tail rebuilds from its caps; '3 boards', 'Q quit', an unbound lead and a keyless token refused; all %d idle caps fit a 1920 window and %d of %d a 1280 one with a long clause, E and F1 kept; the bar draws fit_bar(keycaps(_action, keys)) through Chrome.keycap, and a commented call and a list of its own are refused; the word menu's glyph gutter is in size_of and so in verb_rects" % [caps, all_idle.size(), all_idle.size(), drawn.size(), listed.size()])
+	return ok
+
+
+# Every key name input_map.gd binds, as the legend column spells it (a "Ctrl+Z / Ctrl+C" cell
+# split into its keys), plus INTERACT_KEY, which is a constant rather than a BINDINGS row.
+func _keycaps_bound() -> Dictionary:
+	var out: Dictionary = {}
+	var script: GDScript = load(KEYCAPS_INPUT_GD) as GDScript
+	if script == null:
+		return out
+	var consts: Dictionary = script.get_script_constant_map()
+	for row_v in (consts.get("BINDINGS", {}) as Dictionary).values():
+		for cell in (row_v as Dictionary).get("legend", []) as Array:
+			for key in String(cell).split(" / ", false):
+				out[String(key).strip_edges()] = true
+	if consts.has("INTERACT_KEY"):
+		out[OS.get_keycode_string(int(consts["INTERACT_KEY"]))] = true
+	return out
+
+
+# Every key name the F1 legend shows, split the same way.
+func _keycaps_legended() -> Dictionary:
+	var out: Dictionary = {}
+	var script: GDScript = load(KEYCAPS_LEGEND_GD) as GDScript
+	if script == null:
+		return out
+	for group_v in script.get_script_constant_map().get("GROUPS", []) as Array:
+		for row_v in (group_v as Array)[1] as Array:
+			for key in String((row_v as Array)[0]).split(" / ", false):
+				out[String(key).strip_edges()] = true
+	return out
+
+
+# The literal of the one `var keys: String = "..."` line in a comment-stripped function body.
+func _keycaps_tail(body: String) -> String:
+	for raw in body.split("\n"):
+		var line: String = String(raw).strip_edges()
+		if line.begins_with("var keys: String = \"") and line.ends_with("\""):
+			return line.substr(line.find("\"") + 1, line.length() - line.find("\"") - 2)
+	return ""
+
+
+# A real action line with all three keys live: a boarded window in reach (E), a bleeding torso
+# (T), and Mara held beside the player (H) -- check_hud's ACTION fixture, rebuilt here so the
+# lead caps judged are ones `Hud.action_line` actually offers.
+func _keycaps_action() -> String:
+	var world_script: GDScript = load("res://sim/world.gd") as GDScript
+	var health: GDScript = load("res://sim/modules/health.gd") as GDScript
+	var wounds: GDScript = load("res://sim/modules/wounds.gd") as GDScript
+	var hud: GDScript = load(KEYCAPS_HUD_GD) as GDScript
+	var w: Variant = world_script.new({"seed": 31, "tick_hz": 20, "map": {"width": 16, "height": 16, "walls": []}, "player": {"id": 0, "x": 8.0, "y": 8.0, "stance": 2}, "rng_probe": {"stream": "test", "samples": 0}})
+	health.call("make_survivor_body", w, w.player)
+	wounds.call("append_wound", w, w.player, "laceration", "torso", -1, 30.0)
+	var mara: int = int(w.entities.spawn())
+	w.components.set_component(mara, "identity", {"id": "survivor.test.mara", "name": "Mara Sato"})
+	w.components.set_component(mara, "position", {"x": 8.5, "y": 8.0})
+	health.call("make_survivor_body", w, mara)
+	w.components.set_component(mara, "grabbed", {"by": 4242, "sinceTick": 0})
+	return String(hud.call("action_line", w, w.player, {"window": "boarded, holding"}, ""))
+
+
+# What is wrong with a list of bar entries. Empty when every cap is a bound, legended key name.
+func _keycaps_faults(entries: Array, bound: Dictionary, legended: Dictionary) -> Array[String]:
+	var faults: Array[String] = []
+	var fkey := RegEx.new()
+	fkey.compile("^F[0-9]+$")
+	for e_v in entries:
+		var e: Dictionary = e_v as Dictionary
+		var keys: Array = e.get("keys", []) as Array
+		if keys.is_empty():
+			faults.append("'%s' is drawn with no key" % String(e.get("word", "")))
+		for k_v in keys:
+			var k: String = String(k_v)
+			var has_digit: bool = false
+			for ch in k:
+				if ch >= "0" and ch <= "9":
+					has_digit = true
+			if has_digit and fkey.search(k) == null and not KEYCAPS_DIGIT_KEYS.has(k):
+				faults.append("'%s' puts a digit on a cap that is not a key's name" % k)
+			if not bound.has(k):
+				faults.append("'%s' is not a key input_map.gd binds" % k)
+			if not legended.has(k):
+				faults.append("'%s' is not a key the F1 legend names" % k)
+	return faults
+
+
+# Every key a `keycaps` list names, in order; and every cap a `fit_bar` row of runs lays out.
+func _keycaps_listed(entries: Array) -> Array[String]:
+	var out: Array[String] = []
+	for e_v in entries:
+		for k in (e_v as Dictionary).get("keys", []) as Array:
+			out.append(String(k))
+	return out
+
+
+func _keycaps_drawn(runs: Array) -> Array[String]:
+	var out: Array[String] = []
+	for r_v in runs:
+		if String((r_v as Array)[0]) == "cap":
+			out.append(String((r_v as Array)[1]))
+	return out
+
+
+# Does the bar draw the list: `keycaps(_action, keys)` and `fit_bar(` called as bare names, and
+# `Chrome.keycap(`, all in `_draw_action_bar`'s own comment-stripped body.
+func _keycaps_draws(bodies: Dictionary) -> bool:
+	var body: String = String(bodies.get("_draw_action_bar", ""))
+	var re := RegEx.new()
+	re.compile("(^|[^A-Za-z0-9_.])keycaps\\(\\s*_action\\s*,\\s*keys\\s*\\)")
+	return re.search(body) != null and _calls(body, "fit_bar") and body.contains("Chrome.keycap(")
+
+
+# The word menu's gutter, both ways, and its readers.
+func _keycaps_gutter(menu: GDScript) -> bool:
+	var ok: bool = true
+	var long: String = "a fabricated verb long enough to set the menu's width on its own"
+	var plain: Vector2 = menu.call("size_of", [long]) as Vector2
+	var marked: Vector2 = menu.call("size_of", [long, "use"]) as Vector2
+	var gutter: float = float(menu.call("gutter_of", [long, "use"]))
+	var small: Texture2D = Kit.glyph("use", true)
+	if small == null or gutter < float(small.get_width()) or absf(marked.x - plain.x - gutter) > 0.01:
+		push_error("KEYCAPS: a glyph verb widened the menu by %.1f, not its %.1f gutter (at least a small glyph wide)" % [marked.x - plain.x, gutter])
+		ok = false
+	if float(menu.call("gutter_of", [long, "attack"])) != 0.0:
+		push_error("KEYCAPS: a menu with no glyph verb carries a gutter")
+		ok = false
+	for pair in [[[long], plain.x], [[long, "use"], marked.x]]:
+		for row_v in menu.call("verb_rects", Vector2.ZERO, pair[0]) as Array:
+			var w: float = ((row_v as Dictionary)["rect"] as Rect2).size.x
+			if absf(w - float(pair[1])) > 0.01:
+				push_error("KEYCAPS: a click rect is %.1f wide where the menu is %.1f -- verb_rects left the gutter out" % [w, float(pair[1])])
+				ok = false
+	for pair in [["use", "use"], ["drop", "drop"], ["inspect", "inspect"], ["look at Mara Sato", "inspect"], ["open the crate", "search"], ["search", "search"], ["walk here", "move"], ["move", "move"]]:
+		var got: String = String(menu.call("glyph_of", String(pair[0])))
+		if got != String(pair[1]) or Kit.glyph(got, true) == null:
+			push_error("KEYCAPS: '%s' wears glyph '%s', not a resolving '%s'" % [String(pair[0]), got, String(pair[1])])
+			ok = false
+	for verb in ["attack", "unequip", "equip", "shout"]:
+		if not String(menu.call("glyph_of", verb)).is_empty():
+			push_error("KEYCAPS: '%s' wears a glyph the gutter does not name for it" % verb)
+			ok = false
+	var bodies: Dictionary = _bodies(_text_of(KEYCAPS_MENU_GD))
+	var draw: String = String(bodies.get("draw_menu", ""))
+	if not (draw.contains("Chrome.glyph(") and _calls(draw, "glyph_of") and _calls(draw, "gutter_of")):
+		push_error("KEYCAPS: draw_menu does not draw glyph_of's glyph through Chrome.glyph( at gutter_of's offset")
+		ok = false
+	if not _calls(String(bodies.get("size_of", "")), "gutter_of"):
+		push_error("KEYCAPS: size_of leaves gutter_of out, so verb_rects and draw_menu can disagree")
+		ok = false
+	return ok
 
 
 # --- 8. OUTLIERS -------------------------------------------------------------------------------

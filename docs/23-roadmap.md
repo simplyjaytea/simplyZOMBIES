@@ -597,9 +597,6 @@ time left are untouched.
   glyphs — through the same `Kit.style(` path the PANEL and HELPERS lanes already hold the chrome
   to, so this piece adds no lane of its own; `rows()`, `words()` and the id arrays `check_hud`
   and `check_context` read stay unchanged.
-- **Keys wear keycaps.** The action bar's E/T/H and tail keys, and the word menu's new gutter of
-  small glyphs for use/drop/inspect/search/move, draw as keycaps off the unchanged single-line
-  `var keys: String`; a fabricated "3 boards" cap label fails. Judged by the KEYCAPS lane.
 - **Bubbles and the dashboard in kit frames.** Speech bubbles draw through `Chrome.frame(...,
   "panel_tooltip", ...)` and the vehicle dashboard's housings become kit frames, with the tail,
   `"saying"`, the dials, lamps, letters, the charge bar and its no-digit-literal rule unchanged.
@@ -2071,6 +2068,38 @@ not a to-do list:
   typeface and is not this slice's: the work panel's fixed 1520 px, the inventory sheet's
   columns, the quick strip's six slots and the corner doll over the action bar, measured the
   same against the S1 tree.
+
+- **UI — keys wear keycaps, 2026-09-25.** The third piece of the "UI Field Kit, live" group to land
+  ([docs/30](30-decisions.md#the-ui-field-kit-live-2026-09-25)). The action bar draws every key it
+  names as the kit's keycap (`Chrome.keycap`, at the kit's native 1×) with its words after it: E, T
+  and H from `action_line`'s own clauses, whose prose is unchanged, and each key of the standing hint,
+  still the one unchanged `var keys: String` line `check_inventory` reads. What the bar draws is a
+  pure list, `Hud.keycaps(action, tail)` — a clause split at " — ", a hint token split at its first
+  lowercase word so "- = speed" is two keys — laid out by a pure `Hud.fit_bar`, which keeps the
+  one-rung step-down "One typeface" gave the bar and then, where a cap's rim and padding still
+  overrun the window (a 1280 window with the cupboard's clause did), drops the hint's tokens from
+  its end, down to F1, never a clause. A cap's label sits a rung below its words, and the bar grew
+  from the alpha shell's 48 px to 56 so a cap clears the frame's ten-pixel border. The centring
+  measures caps with a named copy of `Chrome.keycap`'s arithmetic, but the draw advances by the width
+  `keycap` returns, so drift could only move the centring. The word menu gains a gutter of the
+  kit's 16 px glyphs by verb prefix — use, drop, inspect and look at, search and open, walk and
+  move — present only when some row has one, and part of `ItemMenu.size_of`, so `verb_rects` and
+  `draw_menu` still share one layout (`check_context`'s click lane unchanged and green).
+  **Gated** by `godot:check:ui_skin`'s KEYCAPS lane, replacing its stub: every cap `keycaps` gives
+  for the idle bar and for a real `action_line` with E, T and H all live is a key `input_map.gd`
+  binds (BINDINGS' legend column and `INTERACT_KEY`) and one the F1 legend names, carries no digit
+  unless it is a function key's name, and the tail rebuilt from the caps is the line; `fit_bar`
+  lays out all nine idle caps at 1920 and a prefix keeping E and F1 inside the room at 1280;
+  `_draw_action_bar`, comments stripped, reaches `fit_bar(keycaps(_action, keys))` and
+  `Chrome.keycap(`; the menu is wider by exactly its gutter when a glyph verb joins and not at all
+  when none does, every prefix finds a glyph that resolves, and `draw_menu` reaches `Chrome.glyph(`.
+  A fabricated "3 boards", "Q quit", an unbound lead, a keyless token, a keycap only in a comment
+  and a bar drawing a list of its own are each refused; `keycap` and `glyph` left HELPERS' pending
+  list. The sabotage pass turned it red eleven ways, among them "3 pause" in the key line — which
+  `check_inventory`'s lone-digit exemption passes and this lane refuses. **Not what the plan said,
+  or left open:** at 1280 × 720 the bar keeps F1 through Esc and drops the O and M hints; the
+  corner doll still overlaps the bar's left end there, as "One typeface" recorded; and "open the
+  door" wears the search glyph, because the spec maps every "open" to it.
 
 - **Art delivery — the outpost asset pack, 2026-09-17.** The owner asked to put the
   approved standalone art delivery into the repository. It is preserved under

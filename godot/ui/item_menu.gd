@@ -33,11 +33,49 @@ static func _is_lead(verb: String) -> bool:
 	return false
 
 
+# The kit's small glyph beside a word, by the word's first words -- the same prefix match as
+# `_is_lead`, so the street menu's full sentences ("open the crate", "look at Mara", "walk here")
+# find their glyph on the verb that starts them. The UI Field Kit, live (docs/30): a glyph names
+# the kind of thing a row does, never a state -- there is no glyph for a verb the sim refused,
+# because a refused verb is not in the menu at all. A verb with none keeps its gutter blank.
+const GLYPHS: Dictionary = {
+	"use": "use",
+	"drop": "drop",
+	"inspect": "inspect",
+	"look at": "inspect",
+	"search": "search",
+	"open": "search",
+	"walk": "move",
+	"move": "move",
+}
+# Between the glyph gutter and the word.
+const GLYPH_GAP: float = 8.0
+
+
+# The kit glyph a row wears, or "" for none.
+static func glyph_of(verb: String) -> String:
+	for key in GLYPHS.keys():
+		if verb.begins_with(String(key)):
+			return String(GLYPHS[key])
+	return ""
+
+
+# How far the words sit right of the pad: a small glyph and its gap when any row in this menu
+# has a glyph, nothing when none does -- a menu of words with no glyph among them does not carry
+# an empty column. Part of `size_of`, so `draw_menu` and `verb_rects` share it.
+static func gutter_of(verbs: Array) -> float:
+	for verb in verbs:
+		if not glyph_of(String(verb)).is_empty():
+			return Chrome.GLYPH_SMALL + GLYPH_GAP
+	return 0.0
+
+
 static func size_of(verbs: Array) -> Vector2:
 	var font: Font = Chrome.font()
+	var gutter: float = gutter_of(verbs)
 	var wide: float = MIN_W
 	for verb in verbs:
-		wide = maxf(wide, font.get_string_size(String(verb), HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x + PAD_X * 2.0)
+		wide = maxf(wide, font.get_string_size(String(verb), HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x + gutter + PAD_X * 2.0)
 	return Vector2(wide, PAD_Y * 2.0 + ROW_H * float(verbs.size()))
 
 
@@ -47,10 +85,14 @@ static func draw_menu(ci: CanvasItem, at: Vector2, verbs: Array, alpha: float) -
 	var rect := Rect2(at, size_of(verbs))
 	Chrome.panel(ci, rect, minf(1.0, alpha + 0.05))
 	var font: Font = Chrome.font()
+	var gutter: float = gutter_of(verbs)
 	for i in verbs.size():
 		var verb: String = String(verbs[i])
 		var col: Color = Chrome.ACCENT if _is_lead(verb) else Chrome.TEXT
-		ci.draw_string(font, at + Vector2(PAD_X, PAD_Y + ROW_H * float(i) + ROW_H * 0.7), verb, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, col)
+		var mark: String = glyph_of(verb)
+		if not mark.is_empty():
+			Chrome.glyph(ci, mark, at + Vector2(PAD_X, PAD_Y + ROW_H * float(i) + floorf((ROW_H - Chrome.GLYPH_SMALL) / 2.0)), true, minf(1.0, alpha))
+		ci.draw_string(font, at + Vector2(PAD_X + gutter, PAD_Y + ROW_H * float(i) + ROW_H * 0.7), verb, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, col)
 
 
 # The rectangle for each row, in the same arithmetic `draw_menu` uses, so the word you can see and

@@ -41,6 +41,7 @@ const SimFortify = preload("res://sim/modules/fortify.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const Palette = preload("res://presentation/palette.gd")
 const Chrome = preload("res://ui/chrome.gd")
+const Kit = preload("res://ui/kit.gd")
 
 const MARGIN: float = 24.0
 const LINE: float = 34.0
@@ -69,8 +70,11 @@ const OUT_CARD_W: float = 496.0
 # border (Kit.SCALE times the manifest's five) with the same breathing room the old hairline had.
 const CARD_PAD: float = 24.0
 const BAR_W: float = 1296.0
-const BAR_H: float = 48.0
-const BAR_GAP: float = 12.0       # between a key and its words, and around the separating dot
+# Taller than the alpha shell's 48 since the keys wear keycaps: a cap stands about a line tall,
+# and 48 less the frame's ten-pixel border either side left it lapping over the rim.
+const BAR_H: float = 56.0
+const BAR_GAP: float = 12.0       # between words and the separating dot
+const CAP_GAP: float = 8.0        # between a keycap and the words, or the second cap, after it
 const ACTION_SEP: String = " · "
 
 # Worst-part states from condition.gd, as a sentence rather than a grade.
@@ -440,36 +444,21 @@ func _draw_card(font: Font, view: Vector2, lines: Array[String], label: String, 
 		y += LINE
 
 
-# The action bar, centred above the quick strip: the contextual clauses with their key in amber,
-# then the standing key hint in the tail, all measured first and placed as one centred group so
-# the bar reads as one line rather than three columns that drift apart as the line changes.
+# The action bar, centred above the quick strip: every key it names drawn as the kit's keycap
+# with its words after it -- the contextual clauses first at the card size, then the standing
+# key hint in the tail a rung smaller and dimmer -- measured first and placed as one centred
+# group so the bar reads as one line rather than three columns that drift apart as the line
+# changes. What it draws is `keycaps`' list and nothing else -- all of it, or on a window too
+# narrow for all of it the list with the hint's last tokens left off -- so the gate can judge the
+# caps without a pixel.
 func _draw_action_bar(font: Font, view: Vector2) -> void:
 	# Digit-free, like every other line on this screen: the strip draws its own key names, and the
 	# speed keys are punctuation now rather than the number row (docs/30, "The inventory sheet").
 	var keys: String = "F1 keys · Tab gear · J work · P pause · - = speed · Esc menu · O overlay · M raw"
-	var size: int = FONT_SIZE
-	var runs: Array = []
-	for clause in _action.split(ACTION_SEP, false):
-		if not runs.is_empty():
-			runs.append(["·", size, Chrome.TEXT_FAINT])
-		var parts: PackedStringArray = String(clause).split(" — ")
-		if parts.size() >= 2:
-			runs.append([String(parts[0]), size, Chrome.ACCENT])
-			runs.append([" — ".join(parts.slice(1)), size, Chrome.TEXT])
-		else:
-			runs.append([String(clause), size, Chrome.TEXT])
-	if not runs.is_empty():
-		runs.append(["·", size, Chrome.TEXT_FAINT])
-	runs.append([keys, SMALL_SIZE, Chrome.TEXT_DIM])
-	var total: float = _runs_width(font, runs)
-	# A window too narrow for the group takes the whole bar a rung down the size ladder, clauses and
-	# tail together, rather than let it hang out of both ends of its own panel -- a 1280 window was
-	# already past that edge with the engine font, before the typeface changed.
-	if total + CARD_PAD * 2.0 > view.x - MARGIN * 2.0:
-		size = SMALL_SIZE
-		for run in runs:
-			(run as Array)[1] = SMALL_SIZE if int((run as Array)[1]) == FONT_SIZE else TIGHT_SIZE
-		total = _runs_width(font, runs)
+	var fit: Dictionary = fit_bar(font, keycaps(_action, keys), view.x - MARGIN * 2.0 - CARD_PAD * 2.0)
+	var runs: Array = fit["runs"] as Array
+	var total: float = float(fit["total"])
+	var size: int = int(fit["size"])
 	# Like the cards, the bar is a minimum rather than a fixed box: a car's clause is a whole
 	# sentence and a group wider than 1296 would otherwise hang out of both ends of its own panel.
 	# The window's width wins over the nominal minimum: clampf with a floor above its ceiling handed
@@ -480,15 +469,141 @@ func _draw_action_bar(font: Font, view: Vector2) -> void:
 	var x: float = roundf(bar.position.x + (bar.size.x - total) * 0.5)
 	# The capitals centred on the bar's middle, from the face's own metrics.
 	var baseline: float = roundf(bar.position.y + bar.size.y * 0.5 + Chrome.cap_height(size) / 2.0)
-	for run in runs:
-		var r: Array = run as Array
-		draw_string(font, Vector2(x, baseline), String(r[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, int(r[1]), r[2] as Color)
-		x += font.get_string_size(String(r[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, int(r[1])).x + BAR_GAP
+	for i in runs.size():
+		var r: Array = runs[i] as Array
+		var w: float = float(r[4])
+		if String(r[0]) == "cap":
+			var top: float = roundf(bar.position.y + (bar.size.y - _cap_extent(font, String(r[1]), int(r[2])).y) * 0.5)
+			# The advance is the width the cap actually took, not the measured one, so a measure that
+			# drifted from Chrome.keycap's could only shift the centring -- never land a cap on the
+			# word beside it.
+			w = Chrome.keycap(self, Vector2(x, top), String(r[1]), int(r[2]), 1.0)
+		else:
+			draw_string(font, Vector2(x, baseline), String(r[1]), HORIZONTAL_ALIGNMENT_LEFT, -1, int(r[2]), r[3] as Color)
+		x += w + _gap_after(r)
 
 
-# The width of a row of [text, size, colour] runs laid end to end with BAR_GAP between them.
-static func _runs_width(font: Font, runs: Array) -> float:
-	var total: float = BAR_GAP * float(runs.size() - 1)
-	for run in runs:
-		total += font.get_string_size(String((run as Array)[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, int((run as Array)[1])).x
+# The keys the bar draws, in the order it draws them, each with the words that follow it: the
+# contextual clauses first (`lead`), then the standing hint's tokens. Pure, and the only thing
+# `_draw_action_bar` lays out, so `godot:check:ui_skin`'s KEYCAPS lane judges every cap on the bar
+# by calling this rather than by reading pixels.
+#
+# A clause is "<key> — <words>", exactly as `action_line` built it, and it keeps its words whole.
+# A hint token is split at its first word that begins with a lowercase letter: everything before
+# it is a key -- so "- = speed" is two keys and a word -- and everything from it on is the words.
+# The hint is written that way on purpose, key names in capitals or punctuation and the words in
+# lowercase prose, and a token that breaks the pattern shows up in the lane as a key nothing binds
+# rather than as a cap quietly drawn around a word.
+static func keycaps(action: String, tail: String) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for clause in action.split(ACTION_SEP, false):
+		var parts: PackedStringArray = String(clause).split(" — ")
+		if parts.size() >= 2:
+			out.append({"keys": [String(parts[0])], "word": " — ".join(parts.slice(1)), "lead": true})
+		else:
+			out.append({"keys": [], "word": String(clause), "lead": true})
+	for token in tail.split(ACTION_SEP, false):
+		var words: PackedStringArray = String(token).strip_edges().split(" ", false)
+		var caps: Array = []
+		var at: int = 0
+		while at < words.size() and not _is_word(words[at]):
+			caps.append(words[at])
+			at += 1
+		out.append({"keys": caps, "word": " ".join(words.slice(at)), "lead": false})
+	return out
+
+
+static func _is_word(token: String) -> bool:
+	return not token.is_empty() and token[0] >= "a" and token[0] <= "z"
+
+
+# `keycaps`' entries laid out for `room` pixels of bar: {runs, total, size}, `size` the clauses'
+# rung. Pure, so the gate can ask what a 1280 window draws without drawing it.
+#
+# A room too narrow for the group takes the whole bar a rung down the size ladder, clauses and
+# tail together, rather than let it hang out of both ends of its own panel -- a 1280 window was
+# already past that edge with the engine font, before the typeface changed. Still too wide -- a
+# keycap costs its rim and padding, so a 1280 window with a long E clause is past the edge even a
+# rung down -- and the standing hint gives way from its end, one token at a time, down to its
+# first, F1, which names every other key. The clauses never give way: they are what the keys would
+# do right here, and the hint is only a reminder of what F1 already lists.
+static func fit_bar(font: Font, entries: Array[Dictionary], room: float) -> Dictionary:
+	var kept: Array[Dictionary] = entries.duplicate()
+	var size: int = FONT_SIZE
+	var runs: Array = _bar_runs(font, kept, FONT_SIZE, SMALL_SIZE)
+	var total: float = _runs_width(runs)
+	if total > room:
+		size = SMALL_SIZE
+		runs = _bar_runs(font, kept, SMALL_SIZE, TIGHT_SIZE)
+		total = _runs_width(runs)
+	while total > room and _hints_in(kept) > 1:
+		kept.pop_back()
+		runs = _bar_runs(font, kept, size, SMALL_SIZE if size == FONT_SIZE else TIGHT_SIZE)
+		total = _runs_width(runs)
+	return {"runs": runs, "total": total, "size": size}
+
+
+# How many of the entries are the standing hint's, which always follow the clauses.
+static func _hints_in(entries: Array[Dictionary]) -> int:
+	var n: int = 0
+	for e in entries:
+		if not bool(e.get("lead", false)):
+			n += 1
+	return n
+
+
+# The entries as a row of runs, [kind, text, size, colour, width] with kind "cap", "text" or
+# "dot": the faint dot between entries, a cap per key, then the words. The lead clauses at `lead`,
+# the hint at `tail`; a cap's label sits a rung below the words it names (`_cap_size`), so the cap
+# -- label plus rim -- stands about as tall as the words' own line.
+static func _bar_runs(font: Font, entries: Array[Dictionary], lead: int, tail: int) -> Array:
+	var runs: Array = []
+	for i in entries.size():
+		var e: Dictionary = entries[i]
+		var leads: bool = bool(e.get("lead", false))
+		var size: int = lead if leads else tail
+		if i > 0:
+			runs.append(_run(font, "dot", "·", size, Chrome.TEXT_FAINT))
+		for key in e.get("keys", []) as Array:
+			runs.append(_run(font, "cap", String(key), _cap_size(size), Chrome.TEXT))
+		var word: String = String(e.get("word", ""))
+		if not word.is_empty():
+			runs.append(_run(font, "text", word, size, Chrome.TEXT if leads else Chrome.TEXT_DIM))
+	return runs
+
+
+static func _run(font: Font, kind: String, text: String, size: int, colour: Color) -> Array:
+	var w: float = _cap_extent(font, text, size).x if kind == "cap" else font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	return [kind, text, size, colour, w]
+
+
+# One rung down Chrome.LADDER, or the bottom rung.
+static func _cap_size(size: int) -> int:
+	var at: int = Chrome.LADDER.find(size)
+	return Chrome.LADDER[maxi(0, at - 1)] if at >= 0 else Chrome.LADDER[0]
+
+
+# How big `Chrome.keycap` will draw a cap: its arithmetic, measured ahead of the draw so the group
+# can be centred before any of it is placed. A copy, named as one -- which is why the draw loop
+# advances by what `Chrome.keycap` returns rather than by this.
+static func _cap_extent(font: Font, label: String, size: int) -> Vector2:
+	var text_w: float = ceilf(font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x)
+	var m: Array[int] = Kit.margins("keycap")
+	var pad: float = float(m[0]) + 4.0 if not m.is_empty() else 9.0
+	var h: float = maxf(Chrome.KEYCAP_MIN, float(size) + 8.0)
+	return Vector2(maxf(h, text_w + pad * 2.0), h)
+
+
+# A cap sits close to the word it names; everything else is BAR_GAP apart.
+static func _gap_after(run: Array) -> float:
+	return CAP_GAP if String(run[0]) == "cap" else BAR_GAP
+
+
+# The width of a row of runs laid end to end with their gaps between them.
+static func _runs_width(runs: Array) -> float:
+	var total: float = 0.0
+	for i in runs.size():
+		total += float((runs[i] as Array)[4])
+		if i + 1 < runs.size():
+			total += _gap_after(runs[i] as Array)
 	return total
