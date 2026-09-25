@@ -5400,3 +5400,19 @@ the spec the new gate compares the code's margins, hotspots and frame rates agai
 left) are one table, not two.** The kit supplies arrow, hand, move and blocked; the outpost
 pack's crosshair and interaction-hand icons join the same `ui/cursors.gd` install rather than a
 second cursor system, and that slice stays open.
+
+**The chrome draws at 2×, and its centre tiles** — two follow-up decisions the owner made the same
+day, once the first slice had put the kit on screen at its native 1×. The approved mockups
+(`previews/inventory-approved.png`, `previews/hud-approved.png`) read at twice the kit's native
+pixels, which is also the 2× the world's 32 px tile is drawn at, so the frames looked thin
+beside both; `ui/kit.gd` now scales every chrome texture 2× with nearest filtering once, at load,
+and doubles every margin, while its `NINE` table keeps the manifest's native values so the gate
+still compares against the manifest and the `.tres` unscaled. And the kit's `.tres` files stretch
+(they set no axis mode), which across a tall panel smeared the centre's fine noise into soft
+blotches and vertical streaks, so the built styles tile on both axes. Both departures from the
+kit's own files are named in the gate — `OWNER_SCALE` and `CENTRE_MODE_DEVIATION` in
+`check_ui_skin.gd` — rather than left for a later reader to take for drift. One style is held
+back from the 2×: the keycap, which sits inline in a line of text, where the HUD mockup draws it
+with a hairline amber rim that 2× would double around a single letter; it is named in
+`Kit.NATIVE_STYLES`. Glyphs draw at their native size (`Kit.GLYPH_SCALE` 1): a 2× glyph is taller
+than the 16–20 px line it labels.

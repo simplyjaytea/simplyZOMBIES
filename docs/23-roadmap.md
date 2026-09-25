@@ -587,14 +587,12 @@ pieces below are in the order they land, each one session, each with its gate re
 its record; the health-bar ban, the digit ban, the prose HUD and the busy loop's refusal to read
 time left are untouched.
 
-- **The chrome wears the kit.** `panel` becomes `panel_standard`, `header` a divider, `cell`
-  becomes `slot_empty` and `item_plate` becomes `panel_inset`, with new `frame`, `keycap` and
-  `glyph` helpers, every caller's name and signature unchanged; the dead `pin()` and `BRACKET`
-  are deleted. Judged by the KIT, RESOLVE, PANEL and HELPERS lanes of `UI_SKIN_OK`.
 - **One typeface.** Every UI font routes through `Chrome.font()`, VT323 with the engine's
   fallback font behind it for the glyphs VT323 lacks (→ ▲ ▼ ↔); fixed-offset layouts — the
   legend's 500 px column, `work_panel`'s header, `bench_panel`'s condition word, the dashboard
-  lamp labels — are refit around the new metrics. Judged by the FONT lane.
+  lamp labels — are refit around the new metrics, and so are the content gutters the 2× frame's
+  ten-pixel border now crowds (the HUD cards' right-aligned lines, the pockets header's "on
+  you", the body panel's hint line). Judged by the FONT lane.
 - **Empty slots say what goes there.** The 12 body slots draw their matching equipment glyph when
   empty, `slot_selected` marks the selection, and panel headers gain a glyph; every manifest
   glyph is consumed with a named reader or listed unused with a reason. Judged by the GLYPHS
@@ -1973,6 +1971,44 @@ not a to-do list:
   is closed by this delivery. That live-UI work is now named in [what's
   left](#whats-left-in-milestone-2)'s "UI — the UI Field Kit, live" group, decided
   by the owner 2026-09-25.
+
+- **UI — the chrome wears the kit, 2026-09-25.** The first piece of the "UI Field Kit, live"
+  group ([docs/30](30-decisions.md#the-ui-field-kit-live-2026-09-25)). A new `ui/kit.gd` is the
+  one door to `godot/art/simplyzombies-ui/`: it loads the kit's PNGs the two-path way
+  `appearance.gd`'s `resolve()` does (verified headless on this container: every kit `.tres` and
+  `theme.tres` load null with "referenced non-existent resource", a kit PNG has no loader, and
+  `Image.load` reads it), scales each 2× with nearest filtering once at load, and builds cached
+  `StyleBoxTexture`s — keyed by id, centre and opacity to the whole percent — from a `NINE` table
+  of the manifest's native margins, doubled when built, tiled on both axes, and null for a rect
+  smaller than those margins so the caller falls back to a drawn fill. `ui/chrome.gd` keeps every
+  colour, `HEADER_H`, `FONT_SIZE`, `font()` and every caller's signature: `panel` is
+  `panel_standard` drawn twice, the frame at its opacity and the border alone 0.15 above it;
+  `header` keeps its strip, inset inside the frame's border, over the kit `divider`, with an
+  optional small glyph before the label; `cell` is `slot_empty` (the pocket grid's 52 px cells
+  clear the doubled 24 px of margin, and the bench's rows clear it too); `item_plate` is
+  `panel_inset` (the smallest plate, 48 px, clears 40). The dead `pin()` and `BRACKET` are gone.
+  **Gated** by `npm run godot:check:ui_skin` → `UI_SKIN_OK`, new, last in the `godot:m2` chain:
+  KIT holds `NINE` to `manifest.json` and every `styles/*.tres` as text, holds every kit chrome
+  id to worn-or-unused-with-a-reason, and names the three departures — `OWNER_SCALE` 2,
+  `CENTRE_MODE_DEVIATION` (tile, not the `.tres` files' stretch), the keycap alone at 1× in
+  `Kit.NATIVE_STYLES` — refusing eight fabricated disagreements, among them a tiled style with no
+  deviation named and a deviation naming no departure; RESOLVE resolves all 18 worn textures and
+  all 32 glyphs at both sizes headless at the manifest's size times their scale, and a made-up
+  one to null; PANEL builds the style at a set opacity with doubled margins, cached, and refuses
+  a rect one pixel under them, then follows `panel`, `cell`, `item_plate` and `header` one call
+  deep to `Kit.style(` and `.draw(`, refusing a rect-only body, a dead link and a commented
+  needle; HELPERS refuses a public chrome helper with no caller in `godot/ui/` or `main.gd`.
+  FONT, GLYPHS, KEYCAPS, OUTLIERS, CURSORS, MOTION and EVENTS print `SKIP <LANE>: not landed`,
+  one function each, for their slices to replace. The sabotage pass turned the gate red ten ways
+  before this landed — a wrong margin in `NINE`, `Chrome.panel` with the kit only in a comment,
+  an uncalled helper, `slot_empty.png` removed, a pending helper given a caller, a tab style
+  worn, the deviation set to stretch, the deviation emptied, the code set back to stretch, and
+  `SCALE` set to 1. **What is half-shipped, on purpose:** `frame`, `keycap` and `glyph` have no
+  caller outside `chrome.gd` yet — HELPERS lists them as pending, prints a SKIP naming the slice
+  that reads each, and goes red the moment one gains a caller without leaving that list; the
+  font is still the engine fallback until "One typeface"; and some screens' content gutters,
+  sized for the old hairline, now sit close to the ten-pixel border, which that same slice
+  refits.
 
 - **Art delivery — the outpost asset pack, 2026-09-17.** The owner asked to put the
   approved standalone art delivery into the repository. It is preserved under
