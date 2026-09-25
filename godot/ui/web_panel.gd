@@ -29,12 +29,14 @@ const NODE_R: float = 9.0
 # A keystone's disc, and the ring outside it: the one thing on the web that costs something.
 const KEY_R: float = 12.5
 const RING_GAP: float = 3.0
-const PRICE_SIZE: int = 13
-const PRICE_DY: float = 17.0
-const NAME_GAP: float = 14.0
-const NAME_SIZE: int = 16
-const REGION_SIZE: int = 16
-const FOOTER_SIZE: int = 14
+# Every word on the web at the ladder's smallest rung (ui/chrome.gd's LADDER): twenty-odd names
+# round a 600 px web is the densest text in the game.
+const PRICE_SIZE: int = 20
+const PRICE_DY: float = 18.0
+const NAME_GAP: float = 10.0
+const NAME_SIZE: int = 20
+const REGION_SIZE: int = 20
+const FOOTER_SIZE: int = 20
 # Half the fan a region is drawn as: six regions, sixty degrees each.
 const FAN_HALF: float = PI / 6.0
 const FAN_RADIUS: float = 0.5
@@ -172,7 +174,9 @@ func _at(unit: Vector2) -> Vector2:
 # cannot drift apart (work_panel.gd's rule).
 func _word_rect(font: Font, at: Vector2, word: String, font_size: int) -> Rect2:
 	var w: float = font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
-	return Rect2(Vector2(at.x, at.y - float(font_size) * 0.8), Vector2(w, float(font_size) * 1.15))
+	# The typeface's own ascent and line height (Chrome's, which a fallback cannot stretch), not a
+	# fraction of the size: the fraction was the engine font's, and VT323's line is a fifth shorter.
+	return Rect2(Vector2(at.x, at.y - Chrome.ascent(font_size)), Vector2(w, Chrome.line_height(font_size)))
 
 
 # Where a node's name goes: to the right of the disc on the web's right half, ending to the left
@@ -208,9 +212,9 @@ func _draw() -> void:
 	var font: Font = Chrome.font()
 	_hit = layout_hits()
 	Chrome.panel(self, Rect2(Vector2.ZERO, size), 0.96)
-	Chrome.header(self, Rect2(Vector2.ZERO, size), header_label(), 0.96)
-	var footer_at := Vector2(16.0, size.y - 18.0)
-	draw_string(font, footer_at, UiText.fit(font, footer(), FOOTER_SIZE, size.x - 32.0), HORIZONTAL_ALIGNMENT_LEFT, -1, FOOTER_SIZE, Chrome.TEXT_FAINT)
+	Chrome.header(self, Rect2(Vector2.ZERO, size), header_label(), 0.96, "skills")
+	var footer_at := Vector2(24.0, size.y - 20.0)
+	draw_string(font, footer_at, UiText.fit(font, footer(), FOOTER_SIZE, size.x - 48.0), HORIZONTAL_ALIGNMENT_LEFT, -1, FOOTER_SIZE, Chrome.TEXT_FAINT)
 	if _map.is_empty() or _def.is_empty():
 		return
 	var pos: Dictionary = WebLayout.positions(_def)

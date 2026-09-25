@@ -14,11 +14,12 @@ const Chrome = preload("res://ui/chrome.gd")
 const UiText = preload("res://ui/text.gd")
 const Appearance = preload("res://presentation/appearance.gd")
 const ItemGlyph = preload("res://presentation/item_glyph.gd")
+const Motion = preload("res://ui/motion.gd")
 
 const CELL: int = 56
 const PAD: float = 10.0
-const NAME_SIZE: int = 15
-const COUNT_SIZE: int = 15
+const NAME_SIZE: int = 20
+const COUNT_SIZE: int = 20
 
 
 # The panel one grid needs, header included.
@@ -38,11 +39,12 @@ static func draw_bag(ci: CanvasItem, at: Vector2, column: Dictionary, alpha: flo
 	var h: int = int(column.get("h", 0))
 	var rect := Rect2(at, size_of(w, h))
 	Chrome.panel(ci, rect, alpha)
-	Chrome.header(ci, rect, String(column.get("label", "")), alpha)
+	Chrome.header(ci, rect, String(column.get("label", "")), alpha, "inventory")
 	var font: Font = Chrome.font()
 	if not note.is_empty():
 		var nw: float = font.get_string_size(note, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE).x
-		ci.draw_string(font, at + Vector2(rect.size.x - nw - 12.0, Chrome.HEADER_H - 14.0), note, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, Chrome.TEXT_DIM)
+		# Clear of the frame's ten-pixel border, on the header label's own line.
+		ci.draw_string(font, at + Vector2(rect.size.x - nw - 22.0, Chrome.header_baseline()), note, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, Chrome.TEXT_DIM)
 	var origin: Vector2 = origin_of(at)
 	for cy in range(h):
 		for cx in range(w):
@@ -55,17 +57,23 @@ static func draw_bag(ci: CanvasItem, at: Vector2, column: Dictionary, alpha: flo
 
 
 # One item plate. `highlight` is the selection ring the inspect pane's subject wears, so what the
-# pane is talking about and what you clicked cannot look like two different things.
-static func draw_item(ci: CanvasItem, origin: Vector2, d: Dictionary, alpha: float, highlight: bool, world: Variant = null) -> void:
+# pane is talking about and what you clicked cannot look like two different things. `focus_s` is
+# how long, in wall-clock seconds the caller measured, that ring has been on this item: with a
+# highlight and a `focus_s` of nought or more, the kit's focus pulse breathes around the plate
+# (`ui/motion.gd`), and the frame it drew is returned so the caller can redraw only when that
+# frame turns over. -1 when no pulse was drawn. This file is statics and keeps no clock of its own.
+static func draw_item(ci: CanvasItem, origin: Vector2, d: Dictionary, alpha: float, highlight: bool, world: Variant = null, focus_s: float = -1.0) -> int:
 	var iw: int = int(d.get("w", 1))
 	var ih: int = int(d.get("h", 1))
 	var at: Vector2 = origin + Vector2(float(int(d.get("x", 0)) * CELL) + 4.0, float(int(d.get("y", 0)) * CELL) + 4.0)
 	var plate := Rect2(at, Vector2(float(iw * CELL) - 8.0, float(ih * CELL) - 8.0))
 	Chrome.item_plate(ci, plate, alpha)
 	if highlight:
-		var ring: Color = Chrome.ACCENT
-		ring.a = minf(1.0, alpha + 0.1)
-		ci.draw_rect(plate, ring, false, 2.0)
+		var ring_alpha: float = minf(1.0, alpha + 0.1)
+		if not Chrome.frame(ci, plate, "slot_selected", ring_alpha):
+			var ring: Color = Chrome.ACCENT
+			ring.a = ring_alpha
+			ci.draw_rect(plate, ring, false, 2.0)
 	# The picture, through the same resolver the floor uses: a thing in a bag and the same thing
 	# dropped on the ground must not be able to look like two different objects.
 	if world != null:
@@ -89,7 +97,7 @@ static func draw_item(ci: CanvasItem, origin: Vector2, d: Dictionary, alpha: flo
 	if plate.size.x >= float(CELL) * 1.5 or font.get_string_size(name, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE).x <= plate.size.x - 10.0:
 		var tcol: Color = Chrome.TEXT
 		tcol.a = alpha
-		ci.draw_string(font, at + Vector2(5.0, 20.0), UiText.fit(font, name, NAME_SIZE, plate.size.x - 10.0), HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, tcol)
+		ci.draw_string(font, at + Vector2(6.0, 20.0), UiText.fit(font, name, NAME_SIZE, plate.size.x - 10.0), HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, tcol)
 	# The one number on this screen, and docs/10 says why it is allowed: counting discrete objects
 	# is not uncertainty being collapsed. Drawn in the corner in the accent so it reads as a tally
 	# rather than as a measurement of the item.
@@ -100,6 +108,10 @@ static func draw_item(ci: CanvasItem, origin: Vector2, d: Dictionary, alpha: flo
 		var ccol: Color = Chrome.ACCENT
 		ccol.a = alpha
 		ci.draw_string(font, at + plate.size - Vector2(cw + 4.0, 4.0), tally, HORIZONTAL_ALIGNMENT_LEFT, -1, COUNT_SIZE, ccol)
+	# The pulse last, over the picture and the name, so its brackets are never painted under them.
+	if highlight and focus_s >= 0.0:
+		return Motion.draw_focus(ci, plate, focus_s, Motion.reduced(), minf(1.0, alpha + 0.1))
+	return -1
 
 
 # Which cell a point lands in, or null when it is outside this grid. `at` is where the panel was

@@ -33,6 +33,7 @@ const BagGrid = preload("res://ui/bag_grid.gd")
 const InspectPane = preload("res://ui/inspect_pane.gd")
 const ItemMenu = preload("res://ui/item_menu.gd")
 const QuickStrip = preload("res://ui/quick_strip.gd")
+const Motion = preload("res://ui/motion.gd")
 
 # PartState 0..3 as words. Same four grades the paperdoll tints, never a number.
 const PART_STATE_WORDS: Array[String] = ["unhurt", "hurt", "badly hurt", "unusable"]
@@ -54,7 +55,7 @@ const SLOT_W: float = 190.0
 const SLOT_H: float = 58.0
 const SLOT_TOP: float = 78.0
 const SLOT_STEP: float = 74.0
-const SLOT_INSET: float = 16.0
+const SLOT_INSET: float = 24.0
 # The figure sits in the gap the two columns leave, and is sized from it rather than by eye: at
 # 660 wide with 190-wide slots inset 16, that gap is 248 px. A doll wider than the gap draws its
 # own stance word over the belt slot, which is how this number was found.
@@ -87,6 +88,12 @@ var _drag_dims: Vector2i = Vector2i.ONE
 
 # What the inspect pane is talking about, and the plate that wears the ring.
 var _selected: int = -1
+# The selected plate's focus pulse (`ui/motion.gd`): which item it last started on, when on the wall
+# clock, and which frame the last draw left on screen -- so a new selection starts the breath from
+# its rest frame, and `_process` redraws the columns only when the frame turns over.
+var _pulse_item: int = -1
+var _pulse_since_ms: int = 0
+var _pulse_frame: int = -1
 # Nested containers the player has opened, as an Array of item ids rather than a Dictionary keyed
 # by one: an Array is what survives a save if this ever moves into one, and it is pruned against
 # the view every refresh so a bag that was dropped does not leave a column behind.
@@ -104,7 +111,9 @@ var _menu_verbs: Array[String] = []
 var _hit: Array[Dictionary] = []
 
 # Where each column was drawn this frame: {at, column}. The hit test walks this rather than
-# recomputing the layout, so a click and a plate cannot disagree about where a bag is.
+# recomputing the layout, so a click and a plate cannot disagree about where a bag is. Filled from
+# `_column_places()`, the one arithmetic, which the pointer (`cursor_at`) reads directly because it
+# is asked between frames and by a gate that never draws.
 var _placed: Array[Dictionary] = []
 var _scroll: float = 0.0
 
@@ -148,6 +157,7 @@ class LootWindow:
 	func _gui_input(event: InputEvent) -> void:
 		if panel != null:
 			panel.call("_loot_input", event)
+			panel.call("_loot_point", event)
 
 
 class Columns:
@@ -188,6 +198,8 @@ class Ghost:
 		var px: Vector2 = Vector2(float(dims.x * GHOST_CELL), float(dims.y * GHOST_CELL))
 		var at: Vector2 = get_local_mouse_position() - px / 2.0
 		GhostChrome.item_plate(self, Rect2(at, px), 0.85)
+		# Over the plate, so the refusal is the last thing drawn where the item would land.
+		panel.call("_draw_drop_hint_into", self)
 
 
 func _ready() -> void:
@@ -216,6 +228,19 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	if _drag_item != -1 and _ghost != null:
 		_ghost.queue_redraw()
+	# The selected plate's pulse: a columns redraw only while it is live and its frame has turned
+	# over, or once to settle it on its rest frame when reduced motion is thrown mid-breath.
+	if _open and _selected != -1 and _pulse_item == _selected and _column_layer != null:
+		var elapsed: float = _pulse_elapsed()
+		var still: bool = Motion.reduced()
+		if Motion.frame_of(Motion.PULSE_ID, elapsed, still) != _pulse_frame and (Motion.is_live(Motion.PULSE_ID, elapsed, still) or still):
+			_column_layer.queue_redraw()
+
+
+# Wall-clock seconds the selected plate has worn its pulse. Never the sim's tick: the sheet is open
+# on a paused game as often as a running one.
+func _pulse_elapsed() -> float:
+	return float(Time.get_ticks_msec() - _pulse_since_ms) / 1000.0
 
 
 func _sync_size() -> void:
@@ -271,6 +296,8 @@ func rotate() -> void:
 const LOOT_PAD: float = 14.0
 const LOOT_GAP: float = 16.0
 const LOOT_FOOT: float = 34.0
+# The window's one clickable word; the draw and the pointer measure the same string.
+const LOOT_WORD: String = "take all that fits"
 func set_loot(view: Dictionary) -> void:
 	_loot = view if view is Dictionary else {}
 	if _loot_layer == null:
@@ -312,25 +339,19 @@ func _draw_loot_into(ci: CanvasItem) -> void:
 	var alpha: float = UiPrefs.opacity("inventory_opacity")
 	var rect := Rect2(Vector2.ZERO, (_loot_layer as Control).size)
 	Chrome.panel(ci, rect, alpha)
-	var mine: Dictionary = _pockets()
-	var box_at := Vector2(LOOT_PAD, LOOT_PAD)
-	var box_size: Vector2 = BagGrid.size_of(int(_loot.get("w", 0)), int(_loot.get("h", 0)))
-	var pockets_at := Vector2(LOOT_PAD + box_size.x + LOOT_GAP, LOOT_PAD)
-	BagGrid.draw_bag(ci, box_at, _loot, alpha, _drag_item, "here", _world)
-	BagGrid.draw_bag(ci, pockets_at, mine, alpha, _drag_item, "on you", _world)
-	_loot_placed.append({"at": box_at, "column": _loot})
-	_loot_placed.append({"at": pockets_at, "column": mine})
+	_loot_placed = _loot_places()
+	BagGrid.draw_bag(ci, _loot_placed[0]["at"] as Vector2, _loot, alpha, _drag_item, "here", _world)
+	BagGrid.draw_bag(ci, _loot_placed[1]["at"] as Vector2, _loot_placed[1]["column"] as Dictionary, alpha, _drag_item, "on you", _world)
 	# One clickable word, in work_panel.gd's idiom, and the sentence that says what it will and
 	# will not do -- *that fits* is half the verb, because the grid has already told you the axe
 	# will not go in.
 	var font: Font = Chrome.font()
-	var word: String = "take all that fits"
 	var at := Vector2(LOOT_PAD, rect.size.y - 12.0)
-	ci.draw_string(font, at, word, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Chrome.ACCENT)
-	_loot_hit.append({"rect": _word_rect(font, at, word, 18), "verb": "takeAll"})
+	ci.draw_string(font, at, LOOT_WORD, HORIZONTAL_ALIGNMENT_LEFT, -1, 25, Chrome.ACCENT)
+	_loot_hit.append({"rect": _loot_word_rect(), "verb": "takeAll"})
 	var hint: String = "drag between them · Esc closes"
-	var hw: float = font.get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
-	ci.draw_string(font, Vector2(rect.size.x - hw - LOOT_PAD, rect.size.y - 12.0), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Chrome.TEXT_DIM)
+	var hw: float = font.get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+	ci.draw_string(font, Vector2(rect.size.x - hw - LOOT_PAD, rect.size.y - 12.0), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
 
 
 func _loot_input(event: InputEvent) -> void:
@@ -367,6 +388,45 @@ func _loot_input(event: InputEvent) -> void:
 		if _drag_item != -1:
 			rotate()
 		(_loot_layer as Control).accept_event()
+
+
+# The window's two grids, the box and your pockets, as {at, column} in window-local coordinates --
+# the one arithmetic the draw and the pointer share.
+func _loot_places() -> Array[Dictionary]:
+	var box_size: Vector2 = BagGrid.size_of(int(_loot.get("w", 0)), int(_loot.get("h", 0)))
+	return [
+		{"at": Vector2(LOOT_PAD, LOOT_PAD), "column": _loot},
+		{"at": Vector2(LOOT_PAD + box_size.x + LOOT_GAP, LOOT_PAD), "column": _pockets()},
+	]
+
+
+func _loot_word_rect() -> Rect2:
+	var tall: float = (_loot_layer as Control).size.y if _loot_layer != null else 0.0
+	return _word_rect(Chrome.font(), Vector2(LOOT_PAD, tall - 12.0), LOOT_WORD, 25)
+
+
+# Which pointer the kit dresses the mouse in over the transfer window, at `p` in the window's own
+# frame: while an item is held, what `_drop_verdict` says of dropping it there; otherwise the hand
+# over an item or the take-all word, the arrow elsewhere.
+func loot_cursor_at(p: Vector2) -> int:
+	if _drag_item != -1:
+		return int(_drop_verdict(_loot_places(), p).get("shape", Input.CURSOR_MOVE))
+	if _loot.is_empty():
+		return Input.CURSOR_ARROW
+	if _loot_word_rect().has_point(p):
+		return Input.CURSOR_POINTING_HAND
+	for placed in _loot_places():
+		var cell: Variant = BagGrid.cell_at(placed["at"] as Vector2, placed["column"] as Dictionary, p)
+		if cell != null and BagGrid.item_at(placed["column"] as Dictionary, cell as Vector2i) is Dictionary:
+			return Input.CURSOR_POINTING_HAND
+	return Input.CURSOR_ARROW
+
+
+# Called by the window after every event it hands over, so the pointer follows the state the
+# event just left -- a press that lifts an item turns the hand into the move at once.
+func _loot_point(event: InputEvent) -> void:
+	if _loot_layer != null and event is InputEventMouse:
+		(_loot_layer as Control).mouse_default_cursor_shape = loot_cursor_at((event as InputEventMouse).position) as Control.CursorShape
 
 
 func _loot_item_under(p: Vector2) -> Variant:
@@ -521,6 +581,10 @@ func _gui_input(event: InputEvent) -> void:
 		elif mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed:
 			_right_at(mb.position)
 			accept_event()
+	# After the event has done what it does, so the pointer follows the state it left: a press
+	# that lifts an item shows the move at once, a release shows the hand or the arrow again.
+	if event is InputEventMouse:
+		mouse_default_cursor_shape = cursor_at((event as InputEventMouse).position) as Control.CursorShape
 
 
 func _press_at(p: Vector2) -> void:
@@ -704,6 +768,114 @@ func _item_under(p: Vector2) -> Variant:
 	return null
 
 
+# --- the pointer ------------------------------------------------------------------------
+#
+# Which of the kit's pointers (ui/cursors.gd) the mouse wears over the open sheet, at `p` in sheet
+# coordinates. The slots and grids come from the layout's own arithmetic, not the last frame, so it
+# can be asked between frames; the response words are the ones the last frame drew, exactly as a
+# press reads them. While an item is held it is `drop_hint`'s verdict; otherwise the hand over
+# anything a press acts on -- a menu word, a response word, a slot with something in it, an item
+# in a grid -- and the arrow elsewhere.
+func cursor_at(p: Vector2) -> int:
+	if _drag_item != -1:
+		return int(drop_hint(p).get("shape", Input.CURSOR_MOVE))
+	if not _open or _world == null or _view.is_empty():
+		return Input.CURSOR_ARROW
+	if _menu_item != -1:
+		for row in ItemMenu.verb_rects(_menu_at, _menu_verbs):
+			if (row["rect"] as Rect2).has_point(p):
+				return Input.CURSOR_POINTING_HAND
+		return Input.CURSOR_ARROW
+	for h in _hit:
+		if (h["rect"] as Rect2).has_point(p):
+			return Input.CURSOR_POINTING_HAND
+	for box in _slot_boxes():
+		if (box["rect"] as Rect2).has_point(p):
+			return Input.CURSOR_POINTING_HAND if _slot_item(String(box["slot"])) is Dictionary else Input.CURSOR_ARROW
+	for placed in _column_places():
+		var cell: Variant = BagGrid.cell_at(placed["at"] as Vector2, placed["column"] as Dictionary, p)
+		if cell != null and BagGrid.item_at(placed["column"] as Dictionary, cell as Vector2i) is Dictionary:
+			return Input.CURSOR_POINTING_HAND
+	return Input.CURSOR_ARROW
+
+
+# What letting go of the held item at `p` (sheet coordinates) would come to: `{shape, rect}`, the
+# shape the pointer wears and the cells the item would cover, or {} with nothing held. Over an
+# equipment slot it is the move with no cells -- `SimInventory.equip` has no pure predicate to ask,
+# so an equip is judged by the sim when the command lands, as it always was.
+func drop_hint(p: Vector2) -> Dictionary:
+	if _drag_item == -1:
+		return {}
+	for box in _slot_boxes():
+		if (box["rect"] as Rect2).has_point(p):
+			return {"shape": Input.CURSOR_MOVE, "rect": Rect2()}
+	return _drop_verdict(_column_places(), p)
+
+
+# The verdict on dropping the held item at `p` over one of `places` ({at, column}, in p's frame),
+# and it is the sim's: `SimInventory.can_place`, asked about exactly the cell and turn a release
+# there would propose -- never a second copy of the fit rules here. Refused, the pointer is blocked
+# and the kit's `slot_invalid` frame goes over the cells; accepted, it is the move. Over no grid at
+# all a release does nothing, which is the move too: the item is still in your hand.
+#
+# What this does not see: `can_place` is the grid, the nesting and the depth, and not the reach
+# guard `inventory.intake` adds for a world container (`_move_is_reachable`). So a drag into a
+# cupboard nobody is standing at can read as the move and be refused when it lands.
+func _drop_verdict(places: Array, p: Vector2) -> Dictionary:
+	if _world == null or _drag_item == -1:
+		return {"shape": Input.CURSOR_MOVE, "rect": Rect2()}
+	for placed in places:
+		var at: Vector2 = placed["at"] as Vector2
+		var column: Dictionary = placed["column"] as Dictionary
+		var cell: Variant = BagGrid.cell_at(at, column, p)
+		if cell == null:
+			continue
+		var c: Vector2i = cell as Vector2i
+		var verdict: Dictionary = SimInventory.can_place(_world, _drag_item, int(column.get("container", -1)), c.x, c.y, _drag_rotated)
+		var ok: bool = bool(verdict.get("ok", false))
+		return {
+			"shape": Input.CURSOR_MOVE if ok else Input.CURSOR_FORBIDDEN,
+			"rect": _footprint_rect(at, column, c),
+			"reason": String(verdict.get("reason", "")),
+		}
+	return {"shape": Input.CURSOR_MOVE, "rect": Rect2()}
+
+
+# The cells the held item would cover with its top-left at `cell`, clipped to the grid it is over:
+# its size from the sim's own view of it, turned the way the drag is turned.
+func _footprint_rect(at: Vector2, column: Dictionary, cell: Vector2i) -> Rect2:
+	var d: Dictionary = SimInventory.view_of(_world, _drag_item, {"rotated": _drag_rotated})
+	var origin: Vector2 = BagGrid.origin_of(at)
+	var cell_px: float = float(BagGrid.CELL)
+	var want := Rect2(origin + Vector2(float(cell.x), float(cell.y)) * cell_px, Vector2(float(int(d.get("w", 1))), float(int(d.get("h", 1)))) * cell_px)
+	var grid := Rect2(origin, Vector2(float(int(column.get("w", 0))), float(int(column.get("h", 0)))) * cell_px)
+	return want.intersection(grid)
+
+
+# Drawn by the ghost, over everything on the sheet: the kit's `slot_invalid` frame over the cells a
+# refused drop would cover. The ghost sits at the sheet's origin, so a sheet rect is a ghost rect;
+# the transfer window's rects are shifted by where the window stands.
+func _draw_drop_hint_into(ci: CanvasItem) -> void:
+	if _drag_item == -1:
+		return
+	var hint: Dictionary = {}
+	var shift: Vector2 = Vector2.ZERO
+	if _open:
+		hint = drop_hint(get_local_mouse_position())
+	elif loot_open():
+		var window: Control = _loot_layer as Control
+		hint = _drop_verdict(_loot_places(), window.get_local_mouse_position())
+		shift = window.position
+	if int(hint.get("shape", Input.CURSOR_MOVE)) != Input.CURSOR_FORBIDDEN:
+		return
+	var r: Rect2 = hint.get("rect", Rect2()) as Rect2
+	if not r.has_area():
+		return
+	r.position += shift
+	if not Chrome.frame(ci, r, "slot_invalid", 1.0):
+		ci.draw_rect(r, Chrome.DANGER, false, 2.0)
+
+
 func _begin_drag(item: int, rotated: bool, dims: Vector2i) -> void:
 	_drag_item = item
 	_drag_rotated = rotated
@@ -742,7 +914,7 @@ func _draw() -> void:
 	# Control ignores the mouse while closed, so nothing here can eat a click meant for the world.
 	if not _open:
 		if _world != null and not _view.is_empty():
-			QuickStrip.draw_strip(self, QuickStrip.rect_for(view, PAD, STRIP_H), SimInventory.quick_strip_view(_world, _actor), UiPrefs.opacity("inventory_opacity"))
+			QuickStrip.draw_strip(self, QuickStrip.rect_for(view, PAD, STRIP_H), SimInventory.quick_strip_view(_world, _actor), UiPrefs.opacity("inventory_opacity"), _selected)
 		return
 	var dim: Color = Chrome.FIELD
 	dim.a = 0.88
@@ -750,7 +922,7 @@ func _draw() -> void:
 	var alpha: float = UiPrefs.opacity("inventory_opacity")
 	var font: Font = Chrome.font()
 	if _view.is_empty():
-		draw_string(font, Vector2(PAD, PAD + 32.0), "no inventory", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Chrome.TEXT_DIM)
+		draw_string(font, Vector2(PAD, PAD + 32.0), "no inventory", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, Chrome.TEXT_DIM)
 		return
 	_draw_body(font, alpha)
 	if _column_layer != null:
@@ -759,7 +931,7 @@ func _draw() -> void:
 		_column_layer.size = area.size
 		_column_layer.queue_redraw()
 	InspectPane.draw_pane(self, _inspect_rect(), _inspect_view(), alpha)
-	QuickStrip.draw_strip(self, QuickStrip.rect_for(view, PAD, STRIP_H), SimInventory.quick_strip_view(_world, _actor) if _world != null else [], alpha)
+	QuickStrip.draw_strip(self, QuickStrip.rect_for(view, PAD, STRIP_H), SimInventory.quick_strip_view(_world, _actor) if _world != null else [], alpha, _selected)
 	ItemMenu.draw_menu(self, _menu_at, _menu_verbs, alpha)
 
 
@@ -772,7 +944,7 @@ func _inspect_view() -> Dictionary:
 func _draw_body(font: Font, alpha: float) -> void:
 	var body: Rect2 = _body_rect()
 	Chrome.panel(self, body, alpha)
-	Chrome.header(self, body, "survivor", alpha)
+	Chrome.header(self, body, "survivor", alpha, "condition")
 	# One screen (the owner's call, 2026-08-19): the doll carries injuries and armour, the slots
 	# flank it, and anything wrong with the body reads as prose below the figure.
 	_paperdoll.position = Vector2(body.position.x + body.size.x / 2.0 - DOLL_W / 2.0, body.position.y + DOLL_TOP)
@@ -780,14 +952,21 @@ func _draw_body(font: Font, alpha: float) -> void:
 	for box in _slot_boxes():
 		var rect: Rect2 = box["rect"] as Rect2
 		var it: Variant = _slot_item(String(box["slot"]))
-		draw_rect(rect, Chrome.SLOT_EMPTY)
-		draw_rect(rect, Chrome.PANEL_EDGE, false, 2.0)
-		draw_string(font, rect.position + Vector2(10.0, 18.0), String(box["slot"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Chrome.TEXT_DIM)
+		var picked: bool = it is Dictionary and int((it as Dictionary).get("item", -1)) == _selected
+		if not Chrome.frame(self, rect, "slot_selected" if picked else "slot_empty", alpha):
+			draw_rect(rect, Chrome.SLOT_EMPTY)
+			draw_rect(rect, Chrome.PANEL_EDGE, false, 2.0)
+		draw_string(font, rect.position + Vector2(10.0, 20.0), String(box["slot"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
 		if it is Dictionary:
-			var name: String = UiText.fit(font, String((it as Dictionary).get("name", "")), 18, SLOT_W - 20.0)
-			draw_string(font, rect.position + Vector2(10.0, 44.0), name, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Chrome.TEXT)
+			var name: String = UiText.fit(font, String((it as Dictionary).get("name", "")), 25, SLOT_W - 20.0)
+			draw_string(font, rect.position + Vector2(10.0, 46.0), name, HORIZONTAL_ALIGNMENT_LEFT, -1, 25, Chrome.TEXT)
 		else:
-			draw_string(font, rect.position + Vector2(10.0, 44.0), "nothing", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Chrome.TEXT_FAINT)
+			draw_string(font, rect.position + Vector2(10.0, 46.0), "nothing", HORIZONTAL_ALIGNMENT_LEFT, -1, 25, Chrome.TEXT_FAINT)
+			# An empty slot draws what goes there: the equipment glyph names the slot the same way
+			# the word above it does. Ornament, not a replacement -- the word stays, and the glyph
+			# is dimmed to sit behind it rather than compete with it (docs/30, "The UI Field Kit,
+			# live": no status icons, no readout the word does not already say).
+			Chrome.glyph(self, String(box["slot"]), rect.position + Vector2(rect.size.x - 24.0 - 8.0, 8.0), false, alpha * 0.55)
 	# The condition readout: only the parts with something to say, as prose under the doll. Same
 	# read model as the doll's tints and the HUD -- states and words, never a number (docs/01
 	# clause 4; check_ban_health_bar.gd).
@@ -799,17 +978,17 @@ func _draw_body(font: Font, alpha: float) -> void:
 	var cx: float = body.position.x + body.size.x / 2.0
 	if lines.is_empty():
 		var none: String = "no injuries"
-		draw_string(font, Vector2(cx - font.get_string_size(none, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x / 2.0, ly), none, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
+		draw_string(font, Vector2(roundf(cx - font.get_string_size(none, HORIZONTAL_ALIGNMENT_LEFT, -1, 25).x / 2.0), ly), none, HORIZONTAL_ALIGNMENT_LEFT, -1, 25, Chrome.TEXT_DIM)
 	else:
 		for line in lines:
 			var d2: Dictionary = line as Dictionary
 			var text: String = String(d2["text"])
-			var tw: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
-			draw_string(font, Vector2(cx - tw / 2.0, ly), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, d2["colour"] as Color)
+			var tw: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 25).x
+			draw_string(font, Vector2(roundf(cx - tw / 2.0), ly), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 25, d2["colour"] as Color)
 			ly += 28.0
 	_draw_responses(font, body, ly + 10.0)
 	var hint: String = "drag between bags · right-click for what you can do · R turns it"
-	draw_string(font, Vector2(body.position.x + SLOT_INSET, body.position.y + body.size.y - 22.0), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Chrome.TEXT_DIM)
+	draw_string(font, Vector2(body.position.x + SLOT_INSET, body.position.y + body.size.y - 22.0), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
 
 
 # Called by the clipped child, and drawing into it: `at` is built in sheet coordinates so the
@@ -818,13 +997,12 @@ func _draw_body(font: Font, alpha: float) -> void:
 func _draw_columns_into(ci: CanvasItem) -> void:
 	var alpha: float = UiPrefs.opacity("inventory_opacity")
 	var area: Rect2 = _column_rect()
-	_placed.clear()
-	var y: float = area.position.y - _scroll
+	_placed = _column_places()
 	var origin_for_selected: Variant = null
-	for column in _columns():
-		var d: Dictionary = column as Dictionary
+	for placed in _placed:
+		var d: Dictionary = placed["column"] as Dictionary
 		var box: Vector2 = BagGrid.size_of(int(d.get("w", 0)), int(d.get("h", 0)))
-		var at := Vector2(area.position.x, y)
+		var at: Vector2 = placed["at"] as Vector2
 		# Only what is on screen, so a deep loadout scrolls rather than painting under the strip.
 		if at.y + box.y > area.position.y and at.y < area.position.y + area.size.y:
 			var note: String = ""
@@ -836,19 +1014,37 @@ func _draw_columns_into(ci: CanvasItem) -> void:
 			var sel: Variant = _selected_in(d)
 			if sel is Dictionary:
 				origin_for_selected = {"origin": BagGrid.origin_of(at - area.position), "item": sel}
-		_placed.append({"at": at, "column": d})
-		y += box.y + GAP
 	# There is no scrollbar on this screen and there is not going to be one, so the one thing the
 	# wheel does has to be said out loud when it matters.
 	if _column_height() > area.size.y:
 		var font: Font = Chrome.font()
 		var note: String = "wheel to scroll"
-		var nw: float = font.get_string_size(note, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
-		ci.draw_string(font, Vector2(area.size.x - nw, area.size.y - 6.0), note, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Chrome.TEXT_DIM)
+		var nw: float = font.get_string_size(note, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+		ci.draw_string(font, Vector2(area.size.x - nw, area.size.y - 6.0), note, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
 	# The selection ring last, so it is never painted over by the next bag's panel.
 	if origin_for_selected is Dictionary:
 		var o: Dictionary = origin_for_selected as Dictionary
-		BagGrid.draw_item(ci, o["origin"] as Vector2, o["item"] as Dictionary, alpha, true, _world)
+		if _pulse_item != _selected:
+			_pulse_item = _selected
+			_pulse_since_ms = Time.get_ticks_msec()
+		_pulse_frame = BagGrid.draw_item(ci, o["origin"] as Vector2, o["item"] as Dictionary, alpha, true, _world, _pulse_elapsed())
+	else:
+		# Nothing selected on screen (none, or scrolled away): no pulse, so nothing to redraw for.
+		_pulse_item = -1
+
+
+# Every column's panel origin, {at, column}, in sheet coordinates: stacked down the column rect
+# from the scroll, a GAP apart. The one arithmetic -- the draw keeps what it returns as `_placed`
+# for the hit test, and the pointer asks it directly.
+func _column_places() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var area: Rect2 = _column_rect()
+	var y: float = area.position.y - _scroll
+	for column in _columns():
+		var d: Dictionary = column as Dictionary
+		out.append({"at": Vector2(area.position.x, y), "column": d})
+		y += BagGrid.size_of(int(d.get("w", 0)), int(d.get("h", 0))).y + GAP
+	return out
 
 
 func _selected_in(column: Dictionary) -> Variant:
@@ -878,30 +1074,32 @@ func _draw_responses(font: Font, body: Rect2, y: float) -> void:
 	var sep: String = " · "
 	# Centred by measurement, the way the condition lines above are, rather than nudged by a
 	# constant: a second response one day must not push the first off centre.
-	var total: float = font.get_string_size(lead, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+	var total: float = font.get_string_size(lead, HORIZONTAL_ALIGNMENT_LEFT, -1, 25).x
 	for i in rows.size():
-		total += font.get_string_size(String((rows[i] as Dictionary).get("text", "")), HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+		total += font.get_string_size(String((rows[i] as Dictionary).get("text", "")), HORIZONTAL_ALIGNMENT_LEFT, -1, 25).x
 		if i < rows.size() - 1:
-			total += font.get_string_size(sep, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
-	var at: float = body.position.x + body.size.x / 2.0 - total / 2.0
-	draw_string(font, Vector2(at, y), lead, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
-	at += font.get_string_size(lead, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+			total += font.get_string_size(sep, HORIZONTAL_ALIGNMENT_LEFT, -1, 25).x
+	var at: float = roundf(body.position.x + body.size.x / 2.0 - total / 2.0)
+	draw_string(font, Vector2(at, y), lead, HORIZONTAL_ALIGNMENT_LEFT, -1, 25, Chrome.TEXT_DIM)
+	at += font.get_string_size(lead, HORIZONTAL_ALIGNMENT_LEFT, -1, 25).x
 	for i in rows.size():
 		var row: Dictionary = rows[i] as Dictionary
 		var word: String = String(row.get("text", ""))
-		draw_string(font, Vector2(at, y), word, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.ACCENT)
-		_hit.append({"rect": _word_rect(font, Vector2(at, y), word, 20), "verb": String(row.get("verb", ""))})
-		at += font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+		draw_string(font, Vector2(at, y), word, HORIZONTAL_ALIGNMENT_LEFT, -1, 25, Chrome.ACCENT)
+		_hit.append({"rect": _word_rect(font, Vector2(at, y), word, 25), "verb": String(row.get("verb", ""))})
+		at += font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, 25).x
 		if i < rows.size() - 1:
-			draw_string(font, Vector2(at, y), sep, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
-			at += font.get_string_size(sep, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+			draw_string(font, Vector2(at, y), sep, HORIZONTAL_ALIGNMENT_LEFT, -1, 25, Chrome.TEXT_DIM)
+			at += font.get_string_size(sep, HORIZONTAL_ALIGNMENT_LEFT, -1, 25).x
 
 
 # The one place a word's extent is measured, so the rectangle that is drawn and the rectangle that
 # is clicked cannot drift apart. Same shape as work_panel.gd's, which set the convention.
 func _word_rect(font: Font, at: Vector2, word: String, font_size: int) -> Rect2:
 	var w: float = font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
-	return Rect2(Vector2(at.x, at.y - float(font_size) * 0.8), Vector2(w, float(font_size) * 1.15))
+	# The typeface's own ascent and line height (Chrome's, which a fallback cannot stretch), not a
+	# fraction of the size: the fraction was the engine font's, and VT323's line is a fifth shorter.
+	return Rect2(Vector2(at.x, at.y - Chrome.ascent(font_size)), Vector2(w, Chrome.line_height(font_size)))
 
 
 # One prose line per part that has anything to report: "left arm — badly hurt · bleeding".

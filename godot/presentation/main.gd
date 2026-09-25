@@ -15,9 +15,10 @@ const HudRead = preload("res://ui/hud.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
 const ItemGlyph = preload("res://presentation/item_glyph.gd")
 const Chrome = preload("res://ui/chrome.gd")
+const UiCursors = preload("res://ui/cursors.gd")
 # The tag beside the player's body: big enough to read at a glance mid-fight, small enough that it
 # is not competing with the HUD's own columns.
-const TAG_SIZE: int = 20
+const TAG_SIZE: int = 25
 const LightLook = preload("res://presentation/light_look.gd")
 const RoadPaint = preload("res://presentation/road_paint.gd")
 const RoofLook = preload("res://presentation/roof_look.gd")
@@ -435,6 +436,9 @@ func _camera_shake_from_events(drained: Array) -> void:
 		CameraUtil.shake_impulse(_shake, mag, _shake_rng.randf_range(0.0, TAU), CameraUtil.SHAKE_CAP_PX)
 
 func _ensure_ui() -> void:
+	# The kit's four pointers, before any screen exists to name a shape (ui/cursors.gd). Headless
+	# this reaches a display server with no pointer and does nothing.
+	UiCursors.install()
 	var layer := CanvasLayer.new()
 	layer.name = "R4UI"
 	add_child(layer)
@@ -444,20 +448,6 @@ func _ensure_ui() -> void:
 		_hud = hud_script.new() as Control
 		_hud.name = "Hud"
 		layer.add_child(_hud)
-	# The keys, shown on a fresh run so the bindings are discoverable without README.md -- and
-	# only until the player says otherwise. `legend_dismissed` is a presentation pref, not save
-	# state: it survives the run's death the way the panel opacity does, because "a legend you
-	# cannot turn off is a legend you resent" was never meant to mean "for this run only".
-	#
-	# Built hidden since the alpha shell: the game opens on the title now, and a panel of keys
-	# over a menu is a panel about a game you have not started. `_enter_state` raises it on the
-	# first entry to PLAYING instead, reading the same pref.
-	var legend_script: GDScript = load("res://ui/legend.gd") as GDScript
-	if legend_script != null:
-		_legend = legend_script.new() as Control
-		_legend.name = "Legend"
-		_legend.visible = false
-		layer.add_child(_legend)
 	# inventory layer (always present: draws the full screen on Tab, and any pinned bag
 	# windows while playing; input passes through it when closed)
 	var inv_script: GDScript = load("res://ui/inventory_panel.gd") as GDScript
@@ -525,6 +515,24 @@ func _ensure_ui() -> void:
 		_debug_panel.position = Vector2(16, 120)
 		_debug_panel.size = Vector2(480, 820)
 		layer.add_child(_debug_panel)
+	# The keys, shown on a fresh run so the bindings are discoverable without README.md -- and
+	# only until the player says otherwise. `legend_dismissed` is a presentation pref, not save
+	# state: it survives the run's death the way the panel opacity does, because "a legend you
+	# cannot turn off is a legend you resent" was never meant to mean "for this run only".
+	#
+	# Built hidden since the alpha shell: the game opens on the title now, and a panel of keys
+	# over a menu is a panel about a game you have not started. `_enter_state` raises it on the
+	# first entry to PLAYING instead, reading the same pref.
+	#
+	# Added here, after the corner doll, the quick strip's layer and the dashboard, because the
+	# legend is a layer *over* the street and dims it: before them, the strip and the doll drew on
+	# top of its wash and, on a window as short as 720, over its last rows.
+	var legend_script: GDScript = load("res://ui/legend.gd") as GDScript
+	if legend_script != null:
+		_legend = legend_script.new() as Control
+		_legend.name = "Legend"
+		_legend.visible = false
+		layer.add_child(_legend)
 	# settings, opened from the pause menu, over every other screen but the shell
 	var settings_script: GDScript = load("res://ui/settings_panel.gd") as GDScript
 	if settings_script != null:
@@ -2132,8 +2140,8 @@ func _draw_entities() -> void:
 		if bool(it["player"]):
 			var tag: String = HudRead.pawn_tag(world, eid)
 			if not tag.is_empty():
-				var tag_font: Font = ThemeDB.fallback_font
-				var tag_at := Vector2(sx + r + 10.0, sy - r - 6.0)
+				var tag_font: Font = Chrome.font()
+				var tag_at := Vector2(sx + r + 10.0, sy - r - 6.0).round()
 				# A dark backing pass rather than a panel: the tag sits on the street, and a box
 				# round it would read as chrome rather than as something you noticed.
 				draw_string(tag_font, tag_at + Vector2(1.0, 1.0), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, Color(0.0, 0.0, 0.0, 0.85))
@@ -2256,6 +2264,23 @@ const BUBBLE_LIFT_PX: float = 14.0
 const BUBBLE_FADE_TICKS: int = 20
 
 
+# The bubble's own rect: wide enough for its text, tall enough for its lines, and never smaller
+# than the tooltip frame's own margins (`Chrome.Kit.margins("panel_tooltip")`, the owner's 2x) --
+# padded rather than losing the frame (`Chrome.frame` falls back to a drawn fill under its
+# margins, and a normal one-line bubble should never hit that fallback). The bottom edge stays
+# anchored just above the head regardless, so growing the plate to clear the margins never moves
+# the tail. Static and pure, the same shape `_wrap_bubble_text` already is, so a gate can size a
+# representative bubble the same way this draws one without booting a scene.
+static func _bubble_plate(sx: float, sy: float, r: float, block_w: float, line_count: int, line_h: float) -> Rect2:
+	var m: Array[int] = Chrome.Kit.margins("panel_tooltip")
+	var min_w: float = float(m[0] + m[2]) + 4.0
+	var min_h: float = float(m[1] + m[3]) + 4.0
+	var w: float = maxf(block_w + BUBBLE_PAD_PX * 2.0, min_w)
+	var h: float = maxf(line_h * float(line_count) + BUBBLE_PAD_PX * 2.0, min_h)
+	var bottom: float = sy - r - BUBBLE_LIFT_PX
+	return Rect2(Vector2(sx - w / 2.0, bottom - h), Vector2(w, h))
+
+
 func _draw_bubbles() -> void:
 	if world == null or _focal_drawn.is_empty(): return
 	var font: Font = Chrome.font()
@@ -2278,16 +2303,17 @@ func _draw_bubbles() -> void:
 			block_w = maxf(block_w, font.get_string_size(l, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE).x)
 		var sx: float = float(it["sx"])
 		var sy: float = float(it["sy"])
-		var top: float = sy - float(it["r"]) - BUBBLE_LIFT_PX - line_h * float(lines.size()) - BUBBLE_PAD_PX * 2.0
-		var plate := Rect2(Vector2(sx - block_w / 2.0 - BUBBLE_PAD_PX, top), Vector2(block_w + BUBBLE_PAD_PX * 2.0, line_h * float(lines.size()) + BUBBLE_PAD_PX * 2.0))
+		var plate: Rect2 = _bubble_plate(sx, sy, float(it["r"]), block_w, lines.size(), line_h)
 		var fill: Color = Chrome.PANEL
 		fill.a = 0.85 * alpha
-		draw_rect(plate, fill)
-		var edge: Color = Chrome.PANEL_EDGE
-		edge.a = alpha
-		draw_rect(plate, edge, false, 1.0)
+		if not Chrome.frame(self, plate, "panel_tooltip", 0.85 * alpha):
+			draw_rect(plate, fill)
+			var edge: Color = Chrome.PANEL_EDGE
+			edge.a = alpha
+			draw_rect(plate, edge, false, 1.0)
 		# A small tail pointing down at the head -- the one thing that reads a plate as spoken
-		# rather than as a floating card.
+		# rather than as a floating card. Coloured to meet the frame: the kit's tooltip texture is
+		# the same dark olive `fill` already was, at the frame's own opacity.
 		var tail_base_y: float = plate.position.y + plate.size.y
 		draw_colored_polygon(PackedVector2Array([Vector2(sx - 6.0, tail_base_y), Vector2(sx + 6.0, tail_base_y), Vector2(sx, tail_base_y + 7.0)]), fill)
 		# A zombie's sound-word draws dim (it is a noise, not somebody talking); everybody else in
