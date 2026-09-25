@@ -24,7 +24,7 @@ const SMALL: int = 20
 
 static func draw_pane(ci: CanvasItem, rect: Rect2, view: Dictionary, alpha: float) -> void:
 	Chrome.panel(ci, rect, alpha)
-	Chrome.header(ci, rect, "inspect", alpha)
+	Chrome.header(ci, rect, "inspect", alpha, "inspect")
 	var font: Font = Chrome.font()
 	var x: float = rect.position.x + PAD
 	var wide: float = rect.size.x - PAD * 2.0
