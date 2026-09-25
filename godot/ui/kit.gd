@@ -37,10 +37,10 @@ const ROOT: String = "res://art/simplyzombies-ui/"
 # Every chrome texture is drawn at this many screen pixels per kit pixel.
 const SCALE: int = 2
 # The one style drawn at the kit's native 1x rather than SCALE. A keycap sits inline in a line of
-# 16-20 px text, where the approved HUD mockup draws it with a hairline amber rim; at 2x that rim
+# 20-30 px text, where the approved HUD mockup draws it with a hairline amber rim; at 2x that rim
 # doubles and its 10 px corners crowd a single letter. The gate's KIT lane names this too.
 const NATIVE_STYLES: Array[String] = ["keycap"]
-# Glyphs have their own scale: a glyph sits beside 16-20 px text, where a 2x glyph would be
+# Glyphs have their own scale: a glyph sits beside 20-30 px text, where a 2x glyph would be
 # taller than the line it labels.
 const GLYPH_SCALE: int = 1
 # How a built style fills its edges and centre -- the .tres files' STRETCH, deliberately not.

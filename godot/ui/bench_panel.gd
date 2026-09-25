@@ -19,12 +19,19 @@ const Chrome = preload("res://ui/chrome.gd")
 const UiText = preload("res://ui/text.gd")
 const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
 
-const PAD: float = 20.0
-const TITLE_SIZE: int = 24
-const BODY_SIZE: int = 18
-const SMALL: int = 15
-const LINE: float = 26.0
-const ROW_H: float = 34.0
+const PAD: float = 24.0
+const TITLE_SIZE: int = 30
+const BODY_SIZE: int = 25
+const SMALL: int = 20
+const LINE: float = 30.0
+const ROW_H: float = 44.0
+# Where a row's words sit inside its cell: the capitals of a BODY_SIZE line centred in ROW_H - 4.
+const ROW_BASE: float = 27.0
+# The gap between a part's name and its condition word, which is measured, not reserved: "barely
+# holding" is three times "sound", and a fixed column for it cut the long one off at the frame.
+const COND_GAP: float = 12.0
+# A row's words in from its cell's edges: clear of the kit slot frame's twelve-pixel border.
+const ROW_INSET: float = 16.0
 const COL_GAP: float = 24.0
 
 var _world: Variant = null
@@ -93,10 +100,12 @@ func _draw() -> void:
 		var col: Color = Chrome.TEXT if part >= 0 else Chrome.TEXT_DIM
 		if bool(row.get("required", false)) and part < 0:
 			col = Chrome.DANGER
-		draw_string(font, Vector2(r.position.x + 8.0, r.position.y + 22.0), UiText.fit(font, "%s — %s" % [noun, name], BODY_SIZE, col_w - 100.0), HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_SIZE, col)
 		var cond: String = String(row.get("condition", ""))
+		var cond_w: float = font.get_string_size(cond, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL).x if not cond.is_empty() else 0.0
+		var name_room: float = col_w - ROW_INSET * 2.0 - (cond_w + COND_GAP if cond_w > 0.0 else 0.0)
+		draw_string(font, Vector2(r.position.x + ROW_INSET, r.position.y + ROW_BASE), UiText.fit(font, "%s — %s" % [noun, name], BODY_SIZE, name_room), HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_SIZE, col)
 		if not cond.is_empty():
-			draw_string(font, Vector2(r.position.x + col_w - 96.0, r.position.y + 22.0), cond, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL, _band_colour(cond))
+			draw_string(font, Vector2(r.position.x + col_w - ROW_INSET - cond_w, r.position.y + ROW_BASE), cond, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL, _band_colour(cond))
 		if bool(row.get("removable", false)):
 			_hits.append({"rect": r, "kind": "strip", "part": part})
 		ly += ROW_H
@@ -105,15 +114,16 @@ func _draw() -> void:
 	for offer_v in _view.get("offers", []) as Array:
 		var offer: Dictionary = offer_v as Dictionary
 		var changes: Array = offer.get("changes", []) as Array
-		var h: float = ROW_H - 4.0 + float(changes.size()) * (LINE - 6.0)
+		# The change lines under the offer, and a skirt under the last so it clears the frame.
+		var h: float = ROW_H - 4.0 + float(changes.size()) * (LINE - 6.0) + (8.0 if not changes.is_empty() else 0.0)
 		var r2: Rect2 = Rect2(Vector2(right_x, ry), Vector2(col_w, h))
 		Chrome.cell(self, r2, 1.0)
-		draw_string(font, Vector2(r2.position.x + 8.0, r2.position.y + 22.0), UiText.fit(font, "%s → %s" % [String(offer.get("name", "")), String(offer.get("noun", ""))], BODY_SIZE, col_w - 16.0), HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_SIZE, Chrome.TEXT)
-		var cy: float = r2.position.y + 22.0 + LINE - 6.0
+		draw_string(font, Vector2(r2.position.x + ROW_INSET, r2.position.y + ROW_BASE), UiText.fit(font, "%s → %s" % [String(offer.get("name", "")), String(offer.get("noun", ""))], BODY_SIZE, col_w - ROW_INSET * 2.0), HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_SIZE, Chrome.TEXT)
+		var cy: float = r2.position.y + ROW_BASE + LINE - 6.0
 		for change_v in changes:
 			var change: Dictionary = change_v as Dictionary
 			var word: String = String(change.get("change", ""))
-			draw_string(font, Vector2(r2.position.x + 18.0, cy), "%s %s %s" % [_arrow(word), String(change.get("word", "")), word], HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL, _change_colour(word))
+			draw_string(font, Vector2(r2.position.x + ROW_INSET + 6.0, cy), "%s %s %s" % [_arrow(word), String(change.get("word", "")), word], HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL, _change_colour(word))
 			cy += LINE - 6.0
 		_hits.append({"rect": r2, "kind": "fit", "item": int(offer.get("item", -1)), "slot": String(offer.get("slot", ""))})
 		ry += h + 6.0

@@ -28,6 +28,7 @@ extends Control
 
 const Palette = preload("res://presentation/palette.gd")
 const Appearance = preload("res://presentation/appearance.gd")
+const Chrome = preload("res://ui/chrome.gd")
 const SimStances = preload("res://sim/stances.gd")
 
 enum OutlinePose { Stand = 0, Crouch = 1, Prone = 2 }
@@ -154,6 +155,6 @@ func _draw() -> void:
 	# Posture below the figure, in a word. No numbers cross the boundary (docs/05).
 	var stance: int = int(_view.get("stance", SimStances.Stance.Walk))
 	var label: String = SimStances.name_of(stance) if stance >= 0 and stance < SimStances.NAMES.size() else "walking"
-	var font: Font = ThemeDB.fallback_font
-	var lw: float = font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
-	draw_string(font, Vector2(size.x / 2.0 - lw / 2.0, size.y - 6.0), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Palette.COLOURS["outline"])
+	var font: Font = Chrome.font()
+	var lw: float = font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, Chrome.FONT_SIZE).x
+	draw_string(font, Vector2(roundf(size.x / 2.0 - lw / 2.0), size.y - 6.0), label, HORIZONTAL_ALIGNMENT_LEFT, -1, Chrome.FONT_SIZE, Palette.COLOURS["outline"])

@@ -17,8 +17,8 @@ const ItemGlyph = preload("res://presentation/item_glyph.gd")
 
 const CELL: int = 56
 const PAD: float = 10.0
-const NAME_SIZE: int = 15
-const COUNT_SIZE: int = 15
+const NAME_SIZE: int = 20
+const COUNT_SIZE: int = 20
 
 
 # The panel one grid needs, header included.
@@ -42,7 +42,8 @@ static func draw_bag(ci: CanvasItem, at: Vector2, column: Dictionary, alpha: flo
 	var font: Font = Chrome.font()
 	if not note.is_empty():
 		var nw: float = font.get_string_size(note, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE).x
-		ci.draw_string(font, at + Vector2(rect.size.x - nw - 12.0, Chrome.HEADER_H - 14.0), note, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, Chrome.TEXT_DIM)
+		# Clear of the frame's ten-pixel border, on the header label's own line.
+		ci.draw_string(font, at + Vector2(rect.size.x - nw - 22.0, Chrome.header_baseline()), note, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, Chrome.TEXT_DIM)
 	var origin: Vector2 = origin_of(at)
 	for cy in range(h):
 		for cx in range(w):
@@ -89,7 +90,7 @@ static func draw_item(ci: CanvasItem, origin: Vector2, d: Dictionary, alpha: flo
 	if plate.size.x >= float(CELL) * 1.5 or font.get_string_size(name, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE).x <= plate.size.x - 10.0:
 		var tcol: Color = Chrome.TEXT
 		tcol.a = alpha
-		ci.draw_string(font, at + Vector2(5.0, 20.0), UiText.fit(font, name, NAME_SIZE, plate.size.x - 10.0), HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, tcol)
+		ci.draw_string(font, at + Vector2(6.0, 20.0), UiText.fit(font, name, NAME_SIZE, plate.size.x - 10.0), HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, tcol)
 	# The one number on this screen, and docs/10 says why it is allowed: counting discrete objects
 	# is not uncertainty being collapsed. Drawn in the corner in the accent so it reads as a tally
 	# rather than as a measurement of the item.

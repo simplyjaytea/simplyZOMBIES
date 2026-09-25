@@ -587,12 +587,6 @@ pieces below are in the order they land, each one session, each with its gate re
 its record; the health-bar ban, the digit ban, the prose HUD and the busy loop's refusal to read
 time left are untouched.
 
-- **One typeface.** Every UI font routes through `Chrome.font()`, VT323 with the engine's
-  fallback font behind it for the glyphs VT323 lacks (→ ▲ ▼ ↔); fixed-offset layouts — the
-  legend's 500 px column, `work_panel`'s header, `bench_panel`'s condition word, the dashboard
-  lamp labels — are refit around the new metrics, and so are the content gutters the 2× frame's
-  ten-pixel border now crowds (the HUD cards' right-aligned lines, the pockets header's "on
-  you", the body panel's hint line). Judged by the FONT lane.
 - **Empty slots say what goes there.** The 12 body slots draw their matching equipment glyph when
   empty, `slot_selected` marks the selection, and panel headers gain a glyph; every manifest
   glyph is consumed with a named reader or listed unused with a reason. Judged by the GLYPHS
@@ -2009,6 +2003,74 @@ not a to-do list:
   font is still the engine fallback until "One typeface"; and some screens' content gutters,
   sized for the old hairline, now sit close to the ten-pixel border, which that same slice
   refits.
+
+- **UI — one typeface, 2026-09-25.** The second piece of the "UI Field Kit, live" group
+  ([docs/30](30-decisions.md#the-ui-field-kit-live-2026-09-25)). `Chrome.font()` loads the kit's
+  `fonts/VT323-Pixel.res` lazily — never through `preload`; it is a self-contained FontFile and
+  loads headless — and hands back one cached `FontVariation` over it, antialiasing and hinting
+  off as the kit configured them, the engine's fallback font in its fallbacks, and the "fi"
+  ligature off (VT323 carries one, which on a monospace pixel face drew "first" a cell short).
+  Every screen draws with it: `hud.gd`, `legend.gd`, `work_panel.gd`, `paperdoll.gd`,
+  `dashboard.gd` (three layouts) and `main.gd`'s pawn tag no longer name `ThemeDB.fallback_font`,
+  and nothing under `godot/ui/` or `godot/presentation/` but `chrome.gd` does. **The size
+  ladder is 20 / 25 / 30 / 50** (`Chrome.LADDER`): 25 and 50 are VT323's pixel-exact sizes (a
+  0.04 em grid), 20 and 30 are one rung either side where a layout needs them. Every old size
+  moved by one rule — VT323's capitals are 0.56 em against the engine font's 0.71, so an old
+  size times about 1.3, snapped to the nearest rung, keeps the capital height and the line
+  height near where they were while each line comes out a little narrower: 13–16 → 20, 18–20 →
+  25, 22–26 → 30, the title's 52 → 50. So the HUD cards and the action bar's clauses, the
+  bench's and inspect pane's titles, the shell's rows and the dashboard's motion word are 30;
+  body text, the header labels, the legend and the quick strip's names are 25; the skill web's
+  words, the work grid's column heads and clauses, bag names and every footer hint are 20; the
+  title and the car's gear letters are 50. **Refit around the new metrics:** the legend is two
+  wrapped columns filled in reading order and broken where the taller column is shortest (a
+  group the break cuts in two repeats its name), its key cell a 150 px cap with a wider key on
+  its own line, stepping down to 20 when it will not fit the window — it had been one 1320 px
+  column 1342 px tall, spilling off a 1080 screen with the E row running off its right edge — and
+  it is now added to the UI layer after the corner doll and the quick strip, whose layer used to
+  draw over its wash; the "F1 to close" hint is measured, not a fixed 156 px back from the edge;
+  `work_panel`'s header fits at 25 (it overran 1520 px at the engine font) and its focus word's
+  reserve is the longest word's width; `bench_panel`'s condition word is measured and
+  right-aligned rather than a fixed `col_w - 96` that cut "barely holding" off, its rows taller
+  so a line clears the slot frame's dashes; the dashboard's lamps are one measured, centred row
+  and each dial's word hangs under it in its own row above the rule (the car's panel 600 × 200,
+  the handlebar's 460 × 160, the board's 320 × 80), where before the words sat on the rule and
+  the fuel word ran past the panel; the action bar steps a rung down when the window is too
+  narrow for it and is capped at the window's width, which a `clampf` with its floor above its
+  ceiling had not done on a 1280 window. **The 2× frame's crowded gutters:** the HUD cards'
+  gutter is 24 (was 14 against a ten-pixel border), the pockets header's "on you" sits 22 in on
+  the header label's own line, the body panel's slots and hint line 24 in, the word menu's pad
+  22 × 12. Header labels are centred in the strip from the face's metrics
+  (`Chrome.header_baseline`), and a word's click rectangle is built from `Chrome.ascent` and
+  `Chrome.line_height`: a Font's own metrics are the tallest of it and its fallbacks, so the
+  variation reports the engine font's 35 px line at 25 where every glyph it draws is VT323's 25
+  — the skill web's click targets overlapped on it until the rectangles used the face's.
+  **Gated** by `godot:check:ui_skin`'s FONT lane, in five parts each red both ways: FACE holds
+  `Chrome.font()` to a cached variation over the kit's VT323 with the engine font behind it and
+  the ligature off, and refuses a variation over the engine font, one without fallbacks and one
+  with the ligature on; FALLBACK shows the fallback is not dead (VT323 lacks Ж, the engine font
+  carries it) and holds every non-ASCII character in a screen's string literals and the
+  content's text to being carried by one face or named in `FONT_NO_FACE`, refusing a fabricated
+  one; METRICS holds the helpers to the face's own line and shows the variation's differs; SCAN
+  refuses `ThemeDB.fallback_font` in any `.gd` under `godot/ui/` or `godot/presentation/` but
+  `chrome.gd`, comments stripped, and is shown both ways on fabricated sources; LADDER reads every
+  `*SIZE`/`*FONT`/`*SMALL`/`*TIGHT` int const and every literal size in a `draw_string` or
+  `get_string_size` call — 59 today — and refuses one off the ladder, a fabricated 18 both ways.
+  The sabotage pass turned it red nine ways before this landed: no fallbacks, a wrong font path,
+  the ligature on, the cache removed, a ✓ in a legend row, the variation's metrics in the
+  helper, the engine font named in `paperdoll.gd`, a const at 18, a call at 22. **What is not
+  what the plan said, and what is half-shipped:** the engine's fallback font (Open Sans) does
+  **not** carry → ▲ ▼ ↔ either — the plan and docs/30 assumed it did — so on a desktop build
+  those four reach the screen through the operating system's own font fallback, exactly as they
+  did before this slice, and a web build, which has none, draws a box for them now as it did
+  then; they are named in `FONT_NO_FACE` with that reason, ▲ ▼ ↔ go when "The shell's rows are
+  buttons" turns the bench arrows into kit glyphs, and → in the bench's offer line stays until
+  something replaces it. 30 is not pixel-exact: its strokes land 1 and 2 px wide, visible under a
+  magnifier, and whether the HUD and the rows should drop to a crisp 25 or climb to 50 is the
+  owner's to judge (HANDOFF.md). And a 1280 × 720 window still has layout that predates the
+  typeface and is not this slice's: the work panel's fixed 1520 px, the inventory sheet's
+  columns, the quick strip's six slots and the corner doll over the action bar, measured the
+  same against the S1 tree.
 
 - **Art delivery — the outpost asset pack, 2026-09-17.** The owner asked to put the
   approved standalone art delivery into the repository. It is preserved under

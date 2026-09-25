@@ -39,9 +39,12 @@ const PANEL_W: float = 640.0
 const ROW_H: float = 56.0
 const ROW_GAP: float = 6.0
 const PAD: float = 40.0
-const TITLE_SIZE: int = 52
-const ROW_SIZE: int = 26
-const LINE_SIZE: int = 22
+# Sizes from the ladder (ui/chrome.gd's LADDER): the name at VT323's large pixel-exact size, the
+# rows a rung up from the sentences so a menu reads as a menu.
+const TITLE_SIZE: int = 50
+const ROW_SIZE: int = 30
+const LINE_SIZE: int = 25
+const FOOTER_SIZE: int = 20
 const LINE_H: float = 34.0
 
 # The rows each screen offers, as `[id, label]`. Ids are what `on_action` carries and labels are
@@ -278,4 +281,4 @@ func _draw() -> void:
 	if not _notice.is_empty():
 		draw_string(font, Vector2(panel.position.x + PAD, y + LINE_H - 12.0), _notice, HORIZONTAL_ALIGNMENT_LEFT, panel.size.x - PAD * 2.0, LINE_SIZE, Chrome.DANGER)
 		y += LINE_H
-	draw_string(font, Vector2(panel.position.x + PAD, panel.position.y + panel.size.y - 18.0), _footer(), HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Chrome.TEXT_DIM)
+	draw_string(font, Vector2(panel.position.x + PAD, panel.position.y + panel.size.y - 18.0), _footer(), HORIZONTAL_ALIGNMENT_LEFT, -1, FOOTER_SIZE, Chrome.TEXT_DIM)

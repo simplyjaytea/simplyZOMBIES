@@ -1117,6 +1117,12 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    unbuilt. Nothing is measured or decided yet; there is nothing to decide until that report
    runs and says which of those families a later slice should actually socket.
 
+10. **The UI's type sizes** (2026-09-25, docs/23's record, "UI — one typeface"). The ladder is
+   20 / 25 / 30 / 50 in VT323; the HUD cards, action bar, shell rows and panel titles took 30,
+   which keeps their old capital height but is not pixel-exact (strokes land 1 and 2 px wide) —
+   crisp 25 reads smaller, 50 reads loud. One line per file if re-decided; the FONT lane holds
+   whatever is picked to the ladder.
+
 ## How a session runs
 
 The loop is [CLAUDE.md's workflow section](CLAUDE.md#the-workflow), in eight steps: orient in the

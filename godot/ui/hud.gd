@@ -44,8 +44,11 @@ const Chrome = preload("res://ui/chrome.gd")
 
 const MARGIN: float = 24.0
 const LINE: float = 34.0
-const FONT_SIZE: int = 26
-const SMALL_SIZE: int = 22
+# Sizes from the ladder (ui/chrome.gd's LADDER). The cards and the action bar's clauses at 30,
+# the standing key hint at 25, and a rung down each when the window is too narrow for the bar.
+const FONT_SIZE: int = 30
+const SMALL_SIZE: int = 25
+const TIGHT_SIZE: int = 20
 # What the quick strip takes off the bottom of the screen. A hard copy of
 # `ui/inventory_panel.gd`'s STRIP_H plus its margin -- the two are the same number in two files
 # because this one must not reach into the sheet to draw a line of text, and `godot:check:hud`'s
@@ -62,7 +65,9 @@ const STRIP_CLEARANCE: float = 116.0
 const CARD_ALPHA: float = 0.86
 const YOU_CARD_W: float = 472.0
 const OUT_CARD_W: float = 496.0
-const CARD_PAD: float = 14.0      # inner left/right gutter, and the skirt below the last line
+# Inner left/right gutter, and the skirt below the last line: clear of the kit frame's ten-pixel
+# border (Kit.SCALE times the manifest's five) with the same breathing room the old hairline had.
+const CARD_PAD: float = 24.0
 const BAR_W: float = 1296.0
 const BAR_H: float = 48.0
 const BAR_GAP: float = 12.0       # between a key and its words, and around the separating dot
@@ -396,7 +401,7 @@ func set_action(text: String) -> void:
 
 
 func _draw() -> void:
-	var font: Font = ThemeDB.fallback_font
+	var font: Font = Chrome.font()
 	var view: Vector2 = get_viewport_rect().size
 	# The two cards. The columns themselves are untouched -- the header is chrome, never a line
 	# in `_left`, so a healthy survivor is still a one-line card and check_hud's QUIET lane still
@@ -442,7 +447,7 @@ func _draw_action_bar(font: Font, view: Vector2) -> void:
 	# Digit-free, like every other line on this screen: the strip draws its own key names, and the
 	# speed keys are punctuation now rather than the number row (docs/30, "The inventory sheet").
 	var keys: String = "F1 keys · Tab gear · J work · P pause · - = speed · Esc menu · O overlay · M raw"
-	var size: int = FONT_SIZE - 2
+	var size: int = FONT_SIZE
 	var runs: Array = []
 	for clause in _action.split(ACTION_SEP, false):
 		if not runs.is_empty():
@@ -455,18 +460,35 @@ func _draw_action_bar(font: Font, view: Vector2) -> void:
 			runs.append([String(clause), size, Chrome.TEXT])
 	if not runs.is_empty():
 		runs.append(["·", size, Chrome.TEXT_FAINT])
-	runs.append([keys, SMALL_SIZE - 2, Chrome.TEXT_DIM])
-	var total: float = BAR_GAP * float(runs.size() - 1)
-	for run in runs:
-		total += font.get_string_size(String((run as Array)[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, int((run as Array)[1])).x
+	runs.append([keys, SMALL_SIZE, Chrome.TEXT_DIM])
+	var total: float = _runs_width(font, runs)
+	# A window too narrow for the group takes the whole bar a rung down the size ladder, clauses and
+	# tail together, rather than let it hang out of both ends of its own panel -- a 1280 window was
+	# already past that edge with the engine font, before the typeface changed.
+	if total + CARD_PAD * 2.0 > view.x - MARGIN * 2.0:
+		size = SMALL_SIZE
+		for run in runs:
+			(run as Array)[1] = SMALL_SIZE if int((run as Array)[1]) == FONT_SIZE else TIGHT_SIZE
+		total = _runs_width(font, runs)
 	# Like the cards, the bar is a minimum rather than a fixed box: a car's clause is a whole
 	# sentence and a group wider than 1296 would otherwise hang out of both ends of its own panel.
-	var bar_w: float = clampf(total + CARD_PAD * 2.0, BAR_W, view.x - MARGIN * 2.0)
+	# The window's width wins over the nominal minimum: clampf with a floor above its ceiling handed
+	# back the floor, and on a 1280 window the bar hung past both edges of the screen.
+	var bar_w: float = minf(maxf(total + CARD_PAD * 2.0, BAR_W), view.x - MARGIN * 2.0)
 	var bar := Rect2(Vector2(roundf((view.x - bar_w) * 0.5), view.y - MARGIN - STRIP_CLEARANCE - BAR_H), Vector2(bar_w, BAR_H))
 	Chrome.panel(self, bar, CARD_ALPHA)
-	var x: float = bar.position.x + (bar.size.x - total) * 0.5
-	var baseline: float = bar.position.y + bar.size.y * 0.5 + float(size) * 0.36
+	var x: float = roundf(bar.position.x + (bar.size.x - total) * 0.5)
+	# The capitals centred on the bar's middle, from the face's own metrics.
+	var baseline: float = roundf(bar.position.y + bar.size.y * 0.5 + Chrome.cap_height(size) / 2.0)
 	for run in runs:
 		var r: Array = run as Array
 		draw_string(font, Vector2(x, baseline), String(r[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, int(r[1]), r[2] as Color)
 		x += font.get_string_size(String(r[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, int(r[1])).x + BAR_GAP
+
+
+# The width of a row of [text, size, colour] runs laid end to end with BAR_GAP between them.
+static func _runs_width(font: Font, runs: Array) -> float:
+	var total: float = BAR_GAP * float(runs.size() - 1)
+	for run in runs:
+		total += font.get_string_size(String((run as Array)[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, int((run as Array)[1])).x
+	return total

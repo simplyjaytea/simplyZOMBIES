@@ -5363,7 +5363,11 @@ textures for the chrome, glyphs, the four OS cursors, and the four UI animations
 back for a later pass.
 
 **The font becomes VT323** — bundled, SIL Open Font License, `OFL.txt` travels with it — with the
-engine's own fallback font behind it for the glyphs VT323 does not carry (→ ▲ ▼ ↔).
+engine's own fallback font behind it for the glyphs VT323 does not carry (Cyrillic, most Greek).
+Corrected when the slice landed: this entry first said the fallback carried → ▲ ▼ ↔, and it does
+not — neither face has them, so they draw through the operating system's fallback on desktop and
+as boxes on the web, exactly as before; the FONT lane names them in `FONT_NO_FACE`, and the bench
+arrows move to kit glyphs with the shell's rows.
 
 **Both outliers are reskinned.** Speech bubbles move into the kit's tooltip frame; the vehicle
 dashboard's housing moves into kit frames too, its dials, lamps, letters and charge bar still
