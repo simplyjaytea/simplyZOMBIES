@@ -22,6 +22,11 @@ const DEFAULTS: Dictionary = {
 	# there -- the first thing in this tree ever to reach `AudioServer` (docs/30, "The alpha
 	# shell", 2026-09-16). A preference and not save state, for the same reason the opacity is.
 	"volume": 1.0,
+	# Stand every UI animation still on the frame the kit names for it (`ui/motion.gd`). Off on a
+	# fresh machine -- the owner's decision of 2026-09-25 (docs/30, "The UI Field Kit, live") -- and
+	# a preference, not a difficulty or accessibility flag the sim reads. The settings sheet's toggle
+	# row is the one writer.
+	"reduced_motion": false,
 }
 
 # The floor each slider clamps to. Opacity has one, because a panel at nought alpha is a panel

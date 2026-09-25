@@ -23,20 +23,25 @@ extends SceneTree
 #             OWNER_SCALE (the keycap alone at 1x, in Kit.NATIVE_STYLES); every built centre tiles
 #             (CENTRE_MODE_DEVIATION); every consumed style is in exactly one edge group, and its
 #             frame tiles its edges if it is in Kit.EDGE_TILED (EDGE_DEVIATION) and stretches them,
-#             the .tres meaning, if it is in Kit.BRACKET_MARGINS; and those margins are widened
-#             (MARGIN_DEVIATION) -- never narrower than the manifest's, and measured from the
-#             pixels: no bracket ink runs across a widened margin into a stretched edge, and one
-#             pixel less on any widened side lets it. Every surface a style is drawn on clears
-#             that style's doubled margins, so none falls back to a drawn fill. A fabricated
-#             record with one wrong margin, a fabricated .tres with one wrong margin, one with an
-#             axis mode, one with an expand margin, a chrome id in neither list, a style in both
-#             edge groups and one in neither, a tiled-edge style whose frame stretches, a
-#             bracketed one whose frame tiles, a stretched centre, a frame that draws its own
-#             centre, a centre tiling the whole texture, a bracket style at the kit's narrower
-#             margin, one a pixel wider than its bracket needs, one below the manifest's margin,
-#             a bracketed frame built at the manifest's margin, a shell row too short for its
-#             button and each deviation naming no departure each fail the comparator that passed
-#             the shipped files.
+#             the .tres meaning, if it is in Kit.EDGE_STRETCHED; and every frame holds its corner
+#             piece, measured from the pixels: no ink runs across a margin into an edge strip,
+#             where a tiled edge would repeat it and a stretched one lengthen it. Where the kit's
+#             own margins do not hold it, Kit.WIDENED_MARGINS widens them (MARGIN_DEVIATION) --
+#             never narrower than the manifest's, and one pixel less on any widened side lets the
+#             piece through. panel_danger alone is set by eye (MARGINS_BY_EYE: what the rule still
+#             finds there is pinned, and each widened side must remove some of it). Every surface
+#             a style is drawn on clears that style's doubled margins, so none falls back to a
+#             drawn fill. A fabricated record with one wrong margin, a fabricated .tres with one
+#             wrong margin, one with an axis mode, one with an expand margin, a chrome id in
+#             neither list, a style in both edge groups and one in neither, a tiled-edge style
+#             whose frame stretches, a bracketed one whose frame tiles, a stretched centre, a
+#             frame that draws its own centre, a centre tiling the whole texture, the focus button
+#             and the dialog panel each at the kit's narrower margins and a pixel wider than they
+#             need, a style below the manifest's margin, a widening that widens nothing,
+#             panel_danger at the kit's margins and a pixel wider than its eye-set ones, a frame
+#             built at the manifest's margin, a shell row too short for its button and each
+#             deviation naming no departure each fail the comparator that passed the shipped
+#             files.
 #   RESOLVE   every NINE texture and every manifest glyph, both sizes, resolves headless at the
 #             manifest's size times its draw scale; a made-up style, texture and glyph resolve to
 #             null.
@@ -54,8 +59,9 @@ extends SceneTree
 #             godot/ui/ or godot/presentation/ names the engine font; every text size is on
 #             Chrome.LADDER; every character the player can be shown is carried or named. Its five
 #             parts (FACE, FALLBACK, METRICS, SCAN, LADDER) are spelled out above `_font_lane`.
-#   GLYPHS, KEYCAPS, OUTLIERS, CURSORS, MOTION, EVENTS
-#             stubs, each printing `SKIP <LANE>: not landed` until its slice replaces it.
+#   GLYPHS, KEYCAPS, OUTLIERS, CURSORS, MOTION
+#             each spelled out above its own lane function.
+#   EVENTS    a stub, printing `SKIP EVENTS: not landed` until its slice replaces it.
 
 const Kit = preload("res://ui/kit.gd")
 
@@ -108,11 +114,26 @@ const EDGE_DEVIATION: Dictionary = {
 	"tiled": StyleBoxTexture.AXIS_STRETCH_MODE_TILE,
 	"why": "docs/30, \"The UI Field Kit, live\": the owner chose edges per style on 2026-09-25; tiled, a bracket repeats; stretched, dashes and noise lose their rhythm",
 }
-# The margins: a stretched edge lengthens whatever of a bracket lies in it, so the bracketed styles
-# draw at Kit.BRACKET_MARGINS -- the manifest's margins widened just enough to hold each bracket.
-# Kit.NINE, which the manifest and .tres comparisons read, stays the manifest's.
+# The margins: an edge strip repeats (tiled) or lengthens (stretched) whatever of a corner piece
+# lies in it, so where a bracket or a panel's corner highlight runs past the kit's margins the style
+# draws at Kit.WIDENED_MARGINS -- the manifest's margins widened just enough to hold it. Kit.NINE,
+# which the manifest and .tres comparisons read, stays the manifest's.
 const MARGIN_DEVIATION: Dictionary = {
-	"why": "docs/30, \"The UI Field Kit, live\": a stretched edge lengthened every bracket arm in it, so each bracket's margins hold the whole bracket",
+	"why": "docs/30, \"The UI Field Kit, live\": a corner piece in an edge strip lengthened on a stretched edge and repeated as a tick on a tiled one, so each style's margins hold its whole corner piece",
+}
+
+# The one style whose margins are set by eye rather than by `_protrusions`, with how many runs the
+# rule still reports at them. panel_danger's red rim is two pixels of hand-drawn wobble that breaks
+# and resumes along its whole length, so the rule reads the rim's own breaks as corner pieces and
+# would need margins past half the texture. By eye (a pixel map of the 64 px texture), its corner
+# pieces are the inner stubs at rows 5 and 58 and the amber at rows 3 and 60, all inside the kit's
+# 10; the one thing crossing a margin is the right rim's amber fleck at rows 6-10, which the top
+# margin of 10 cut a pixel short -- a one-pixel amber tick every tile down the right rim. At 11 it
+# ends in the corner, on the rim's own gap at row 11. The three runs left are the rim itself: the
+# bottom line past a dark fleck and a gap, and the left rim's long unbroken run. The gate pins that
+# count, so a new corner piece still turns it red, and holds every widened side to removing some.
+const MARGINS_BY_EYE: Dictionary = {
+	"panel_danger": {"accepted": 3, "why": "the red rim wobbles and breaks along its whole length; the amber fleck at the top of the right rim is held by a top margin of 11"},
 }
 
 # The only keys a kit style's [resource] section may set: the ones kit.gd builds from.
@@ -374,7 +395,7 @@ func _mode_faults(id: String, st: Kit.Style, centre_dev: Dictionary, edge_dev: D
 func _draw_margin_faults(id: String, st: Kit.Style) -> Array[String]:
 	var faults: Array[String] = []
 	var want: Array[int] = []
-	for n in Kit.BRACKET_MARGINS.get(id, Kit.NINE[id]) as Array:
+	for n in Kit.WIDENED_MARGINS.get(id, Kit.NINE[id]) as Array:
 		want.append(int(n) * Kit.scale_of(id))
 	var got: Array[int] = [int(st.border.texture_margin_left), int(st.border.texture_margin_top), int(st.border.texture_margin_right), int(st.border.texture_margin_bottom)]
 	if got != want or got != Kit.margins(id):
@@ -382,22 +403,19 @@ func _draw_margin_faults(id: String, st: Kit.Style) -> Array[String]:
 	return faults
 
 
-# Every style NINE wears is in exactly one edge group -- `tiled` or a key of `brackets` -- and
-# neither group names a style NINE does not wear.
-func _group_faults(nine: Dictionary, tiled: Array, brackets: Dictionary) -> Array[String]:
+# Every style NINE wears is in exactly one edge group, `tiled` or `stretched`, and neither group
+# names a style NINE does not wear.
+func _group_faults(nine: Dictionary, tiled: Array, stretched: Array) -> Array[String]:
 	var faults: Array[String] = []
 	for id_v in nine.keys():
 		var id: String = String(id_v)
-		if tiled.has(id) and brackets.has(id):
-			faults.append("%s is in both Kit.EDGE_TILED and Kit.BRACKET_MARGINS -- its edges cannot both tile and stretch" % id)
-		elif not tiled.has(id) and not brackets.has(id):
-			faults.append("%s is in neither Kit.EDGE_TILED nor Kit.BRACKET_MARGINS -- nobody decided how its edges fill" % id)
-	for id_v in tiled:
+		if tiled.has(id) and stretched.has(id):
+			faults.append("%s is in both Kit.EDGE_TILED and Kit.EDGE_STRETCHED -- its edges cannot both tile and stretch" % id)
+		elif not tiled.has(id) and not stretched.has(id):
+			faults.append("%s is in neither Kit.EDGE_TILED nor Kit.EDGE_STRETCHED -- nobody decided how its edges fill" % id)
+	for id_v in tiled + stretched:
 		if not nine.has(String(id_v)):
-			faults.append("Kit.EDGE_TILED names %s, which NINE does not wear" % String(id_v))
-	for id_v in brackets.keys():
-		if not nine.has(String(id_v)):
-			faults.append("Kit.BRACKET_MARGINS names %s, which NINE does not wear" % String(id_v))
+			faults.append("an edge group names %s, which NINE does not wear" % String(id_v))
 	return faults
 
 
@@ -444,6 +462,7 @@ func _protrusions(img: Image, m: Array) -> Array[String]:
 		["left", Vector2i(0, t), Vector2i(0, 1), Vector2i(1, 0), l, h - t - b],
 		["right", Vector2i(w - r, t), Vector2i(0, 1), Vector2i(1, 0), r, h - t - b],
 	]
+	var bounds: Rect2i = Rect2i(Vector2i.ZERO, img.get_size())
 	for strip_v in strips:
 		var strip: Array = strip_v as Array
 		var along: Vector2i = strip[2]
@@ -458,7 +477,10 @@ func _protrusions(img: Image, m: Array) -> Array[String]:
 			var start: Vector2i = strip[1] + across * li
 			var ink: Array[bool] = []
 			for k in range(-1, n + 1):
-				ink.append(_ink(img.get_pixelv(start + along * k)) != dom)
+				var at: Vector2i = start + along * k
+				# A strip with no corner beyond it (the divider has no top or bottom margin) has
+				# nothing there to carry across.
+				ink.append(bounds.has_point(at) and _ink(img.get_pixelv(at)) != dom)
 			# ink[0] is the corner pixel before the strip, ink[n + 1] the one after it.
 			var run: int = 0
 			while run < n and ink[run + 1]:
@@ -473,30 +495,48 @@ func _protrusions(img: Image, m: Array) -> Array[String]:
 	return out
 
 
-# What is wrong with one bracketed style's widened margins `want` against its native texture and
-# the manifest's `native` margins: narrower than the manifest on any side, a bracket carried into a
-# stretched edge, or a side a pixel wider than its bracket needs.
-func _bracket_faults(id: String, img: Image, want: Array, native: Array) -> Array[String]:
+# A Kit.WIDENED_MARGINS entry names a style NINE wears and widens it on at least one side -- an
+# entry equal to the manifest's margins is a deviation that departs from nothing.
+func _widening_faults(id: String, nine: Dictionary, widened: Dictionary) -> Array[String]:
+	var faults: Array[String] = []
+	if not nine.has(id):
+		faults.append("Kit.WIDENED_MARGINS names %s, which NINE does not wear" % id)
+	elif _ints(widened[id]) == _ints(nine[id]):
+		faults.append("Kit.WIDENED_MARGINS gives %s the manifest's own margins %s -- it widens nothing" % [id, str(_ints(nine[id]))])
+	return faults
+
+
+# What is wrong with one style's draw margins `want` against its native texture and the manifest's
+# `native` margins: narrower than the manifest on any side, a corner piece carried into an edge
+# strip, or a widened side a pixel wider than its corner piece needs. `accepted` is -1 for a style
+# measured by the rule; for one set by eye (MARGINS_BY_EYE) it is how many runs the rule may still
+# report, and a widened side must remove at least one of them.
+func _corner_faults(id: String, img: Image, want: Array, native: Array, accepted: int = -1) -> Array[String]:
 	var faults: Array[String] = []
 	if img == null or img.is_empty():
-		faults.append("%s: no texture to measure its bracket on" % id)
+		faults.append("%s: no texture to measure its corner piece on" % id)
 		return faults
 	if want.size() != 4:
-		faults.append("%s: Kit.BRACKET_MARGINS gives %s, not [l, t, r, b]" % [id, str(want)])
+		faults.append("%s: its margins %s are not [l, t, r, b]" % [id, str(want)])
 		return faults
 	var sides: Array[String] = ["left", "top", "right", "bottom"]
 	for i in range(4):
 		if int(want[i]) < int(native[i]):
 			faults.append("%s: its %s margin %d is narrower than the manifest's %d" % [id, sides[i], int(want[i]), int(native[i])])
-	for p in _protrusions(img, want):
-		faults.append("%s at %s: %s" % [id, str(want), p])
+	var found: Array[String] = _protrusions(img, want)
+	if accepted < 0:
+		for p in found:
+			faults.append("%s at %s: %s" % [id, str(want), p])
+	elif found.size() > accepted:
+		faults.append("%s at %s: the rule finds %d runs across its margins, and its eye-set margins accept %d -- a corner piece nobody looked at: %s" % [id, str(want), found.size(), accepted, str(found)])
 	for i in range(4):
 		if int(want[i]) <= int(native[i]):
 			continue
 		var less: Array = want.duplicate()
 		less[i] = int(less[i]) - 1
-		if _protrusions(img, less).is_empty():
-			faults.append("%s: its %s margin %d is wider than its bracket needs -- %d already holds it" % [id, sides[i], int(want[i]), int(less[i])])
+		var fewer: int = _protrusions(img, less).size()
+		if (accepted < 0 and fewer == 0) or (accepted >= 0 and fewer <= found.size()):
+			faults.append("%s: its %s margin %d is wider than its corner piece needs -- %d holds as much" % [id, sides[i], int(want[i]), int(less[i])])
 	return faults
 
 
@@ -521,6 +561,8 @@ func _surfaces() -> Array:
 		["an equipment slot", ["slot_empty", "slot_selected"], Vector2(float(inv["SLOT_W"]), float(inv["SLOT_H"]))],
 		["a bench row", ["slot_empty"], Vector2(200.0, float(bench["ROW_H"]) - 4.0)],
 		["the action bar", ["panel_standard"], Vector2(400.0, float(hud["BAR_H"]))],
+		["a one-line HUD card", ["panel_standard"], Vector2(minf(float(hud["YOU_CARD_W"]), float(hud["OUT_CARD_W"])), 40.0 + float(hud["CARD_PAD"]) + 20.0)],
+		["the pause and title dialog, and the run-over one, with nothing in them", ["panel_dialog", "panel_danger"], Vector2(float(shell["PANEL_W"]), 40.0 + float(shell["PAD"]) * 2.0 + 30.0)],
 		["the smallest keycap", ["keycap"], Vector2(cap, cap)],
 	]
 
@@ -579,7 +621,7 @@ func _kit_lane(manifest: Dictionary) -> bool:
 	if Kit.scale_of("panel_standard") != OWNER_SCALE:
 		push_error("KIT: panel_standard draws at %dx, not the owner's %dx" % [Kit.scale_of("panel_standard"), OWNER_SCALE])
 		ok = false
-	for f in _group_faults(Kit.NINE, Kit.EDGE_TILED, Kit.BRACKET_MARGINS):
+	for f in _group_faults(Kit.NINE, Kit.EDGE_TILED, Kit.EDGE_STRETCHED):
 		push_error("KIT: " + f)
 		ok = false
 	for id_v in Kit.NINE.keys():
@@ -595,20 +637,27 @@ func _kit_lane(manifest: Dictionary) -> bool:
 		for f in _draw_margin_faults(id, built):
 			push_error("KIT: " + f)
 			ok = false
-	# The widened margins, re-measured on the native pixels.
-	var widened: int = 0
-	for id_v in Kit.BRACKET_MARGINS.keys():
+	# Every frame holds its corner piece at the margins it draws at, re-measured on the native
+	# pixels: the widened ones where Kit.WIDENED_MARGINS has an entry, the manifest's otherwise.
+	for id_v in Kit.NINE.keys():
 		var id: String = String(id_v)
-		if not Kit.NINE.has(id):
-			continue
 		var native: Texture2D = Kit.texture("textures/%s.png" % id, 1)
-		for f in _bracket_faults(id, native.get_image() if native != null else null, Kit.BRACKET_MARGINS[id] as Array, Kit.NINE[id] as Array):
+		var by_eye: int = int((MARGINS_BY_EYE.get(id, {}) as Dictionary).get("accepted", -1))
+		for f in _corner_faults(id, native.get_image() if native != null else null, Kit.WIDENED_MARGINS.get(id, Kit.NINE[id]) as Array, Kit.NINE[id] as Array, by_eye):
 			push_error("KIT: " + f)
 			ok = false
-		if Kit.BRACKET_MARGINS[id] != Kit.NINE[id]:
-			widened += 1
+	for id_v in MARGINS_BY_EYE.keys():
+		if not Kit.WIDENED_MARGINS.has(String(id_v)) or String((MARGINS_BY_EYE[id_v] as Dictionary).get("why", "")).strip_edges().is_empty():
+			push_error("KIT: MARGINS_BY_EYE names %s, which Kit.WIDENED_MARGINS does not widen, or gives no reason" % String(id_v))
+			ok = false
+	var widened: int = 0
+	for id_v in Kit.WIDENED_MARGINS.keys():
+		for f in _widening_faults(String(id_v), Kit.NINE, Kit.WIDENED_MARGINS):
+			push_error("KIT: " + f)
+			ok = false
+		widened += 1
 	if widened == 0:
-		push_error("KIT: MARGIN_DEVIATION names a widening, and no Kit.BRACKET_MARGINS entry is wider than the manifest -- it departs from nothing")
+		push_error("KIT: MARGIN_DEVIATION names a widening, and Kit.WIDENED_MARGINS widens nothing -- it departs from nothing")
 		ok = false
 	if String(MARGIN_DEVIATION.get("why", "")).strip_edges().is_empty():
 		push_error("KIT: MARGIN_DEVIATION gives no reason")
@@ -659,8 +708,19 @@ func _kit_lane(manifest: Dictionary) -> bool:
 		var neither: Array = Kit.EDGE_TILED.duplicate()
 		neither.erase("slot_empty")
 		var focus_img: Image = focus_px.get_image()
-		var wide: Array = (Kit.BRACKET_MARGINS["button_focus"] as Array).duplicate()
+		var wide: Array = (Kit.WIDENED_MARGINS.get("button_focus", Kit.NINE["button_focus"]) as Array).duplicate()
 		wide[0] = int(wide[0]) + 1
+		var dialog_px: Texture2D = Kit.texture("textures/panel_dialog.png", 1)
+		var dialog_img: Image = dialog_px.get_image() if dialog_px != null else null
+		var dialog_wide: Array = (Kit.WIDENED_MARGINS.get("panel_dialog", Kit.NINE["panel_dialog"]) as Array).duplicate()
+		dialog_wide[1] = int(dialog_wide[1]) + 1
+		var danger_px: Texture2D = Kit.texture("textures/panel_danger.png", 1)
+		var danger_img: Image = danger_px.get_image() if danger_px != null else null
+		var danger_eye: int = int((MARGINS_BY_EYE["panel_danger"] as Dictionary)["accepted"])
+		var danger_wide: Array = (Kit.WIDENED_MARGINS.get("panel_danger", Kit.NINE["panel_danger"]) as Array).duplicate()
+		danger_wide[1] = int(danger_wide[1]) + 1
+		var no_widening: Dictionary = Kit.WIDENED_MARGINS.duplicate()
+		no_widening["slot_hover"] = Kit.NINE["slot_hover"]
 		# slot_hover's bracket sits inside the kit's own margins, so a top margin one under the
 		# manifest's is refused for that alone, not for a bracket it lets through.
 		var hover_px: Texture2D = Kit.texture("textures/slot_hover.png", 1)
@@ -671,8 +731,8 @@ func _kit_lane(manifest: Dictionary) -> bool:
 		var short: Array = surfaces.duplicate()
 		short.append(["a fabricated 30 px shell row", ["button_danger"], Vector2(560.0, 30.0)])
 		var refusals: Array = [
-			["a style in both edge groups passed", _group_faults(Kit.NINE, both, Kit.BRACKET_MARGINS)],
-			["a style in neither edge group passed", _group_faults(Kit.NINE, neither, Kit.BRACKET_MARGINS)],
+			["a style in both edge groups passed", _group_faults(Kit.NINE, both, Kit.EDGE_STRETCHED)],
+			["a style in neither edge group passed", _group_faults(Kit.NINE, neither, Kit.EDGE_STRETCHED)],
 			["a tiled-edge style whose frame stretches passed -- slot_empty's dashes would lengthen", _mode_faults("slot_empty", _restyled(dashed, stretch, tile), CENTRE_MODE_DEVIATION, EDGE_DEVIATION, true)],
 			["a bracketed style whose frame tiles passed -- every bracket fragment repeated along its border", _mode_faults("button_focus", _restyled(shipped, tile, tile), CENTRE_MODE_DEVIATION, EDGE_DEVIATION, false)],
 			["a tiled-edge style with no edge deviation named passed -- a silent departure from the .tres", _mode_faults("slot_empty", dashed, CENTRE_MODE_DEVIATION, {}, true)],
@@ -682,9 +742,14 @@ func _kit_lane(manifest: Dictionary) -> bool:
 			["a centre fill tiling the whole texture, frame and all, passed", _mode_faults("button_focus", whole, CENTRE_MODE_DEVIATION, EDGE_DEVIATION, false)],
 			["a centre deviation naming the .tres files' own stretch passed", _mode_faults("button_focus", _restyled(shipped, stretch, stretch), {"centre": stretch, "why": "x"}, EDGE_DEVIATION, false)],
 			["an edge deviation naming the .tres files' own stretch passed", _mode_faults("slot_empty", _restyled(dashed, stretch, tile), CENTRE_MODE_DEVIATION, {"tiled": stretch, "why": "x"}, true)],
-			["button_focus at the kit's own margins, narrower than its bracket, passed", _bracket_faults("button_focus", focus_img, Kit.NINE["button_focus"] as Array, Kit.NINE["button_focus"] as Array)],
-			["button_focus a pixel wider than its bracket needs passed", _bracket_faults("button_focus", focus_img, wide, Kit.NINE["button_focus"] as Array)],
-			["slot_hover under the manifest's top margin passed", _bracket_faults("slot_hover", hover_px.get_image() if hover_px != null else null, under, Kit.NINE["slot_hover"] as Array)],
+			["button_focus at the kit's own margins, narrower than its bracket, passed", _corner_faults("button_focus", focus_img, Kit.NINE["button_focus"] as Array, Kit.NINE["button_focus"] as Array)],
+			["button_focus a pixel wider than its bracket needs passed", _corner_faults("button_focus", focus_img, wide, Kit.NINE["button_focus"] as Array)],
+			["panel_dialog at the kit's own margins, its corner highlight ticking down the rim, passed", _corner_faults("panel_dialog", dialog_img, Kit.NINE["panel_dialog"] as Array, Kit.NINE["panel_dialog"] as Array)],
+			["panel_dialog a pixel wider than its corner piece needs passed", _corner_faults("panel_dialog", dialog_img, dialog_wide, Kit.NINE["panel_dialog"] as Array)],
+			["panel_danger at the kit's own margins, the amber fleck ticking down the right rim, passed", _corner_faults("panel_danger", danger_img, Kit.NINE["panel_danger"] as Array, Kit.NINE["panel_danger"] as Array, danger_eye)],
+			["panel_danger a pixel wider than its eye-set margins passed", _corner_faults("panel_danger", danger_img, danger_wide, Kit.NINE["panel_danger"] as Array, danger_eye)],
+			["slot_hover under the manifest's top margin passed", _corner_faults("slot_hover", hover_px.get_image() if hover_px != null else null, under, Kit.NINE["slot_hover"] as Array)],
+			["a widening that widens nothing passed", _widening_faults("slot_hover", Kit.NINE, no_widening)],
 			["a button_focus frame built at the kit's own left margin rather than its widened one passed", _draw_margin_faults("button_focus", native_frame)],
 			["a shell row too short for button_danger's widened margins passed", _surface_faults(short)],
 		]
@@ -699,7 +764,7 @@ func _kit_lane(manifest: Dictionary) -> bool:
 		ok = false
 	_stash["styles"] = checked
 	if ok:
-		print("KIT OK %d styles agree with manifest.json and their .tres at native pixels, drawn at the owner's %dx (%s at 1x, named), centres tiled; %d tile their edges and %d stretch them, %d of those at margins widened to hold their brackets, re-measured on the pixels; %d surfaces clear their styles' margins; %d kit chrome pieces left unused with a reason; twenty-one fabricated disagreements each refused" % [checked, Kit.SCALE, ", ".join(Kit.NATIVE_STYLES), Kit.EDGE_TILED.size(), Kit.BRACKET_MARGINS.size(), widened, surfaces.size(), UNUSED_STYLES.size()])
+		print("KIT OK %d styles agree with manifest.json and their .tres at native pixels, drawn at the owner's %dx (%s at 1x, named), centres tiled; %d tile their edges and %d stretch them; every frame holds its corner piece, re-measured on the pixels, %d at margins widened for it (%s by eye); %d surfaces clear their styles' margins; %d kit chrome pieces left unused with a reason; twenty-six fabricated disagreements each refused" % [checked, Kit.SCALE, ", ".join(Kit.NATIVE_STYLES), Kit.EDGE_TILED.size(), Kit.EDGE_STRETCHED.size(), widened, ", ".join(MARGINS_BY_EYE.keys()), surfaces.size(), UNUSED_STYLES.size()])
 	return ok
 
 
@@ -812,10 +877,10 @@ func _panel_lane() -> bool:
 			ok = false
 		var m: Array[int] = [int(sb.border.texture_margin_left), int(sb.border.texture_margin_top), int(sb.border.texture_margin_right), int(sb.border.texture_margin_bottom)]
 		var want_m: Array[int] = []
-		for n in _ints(Kit.NINE["panel_standard"]):
+		for n in _ints(Kit.WIDENED_MARGINS.get("panel_standard", Kit.NINE["panel_standard"])):
 			want_m.append(n * Kit.SCALE)
 		if m != want_m or m != Kit.margins("panel_standard"):
-			push_error("PANEL: the built style's margins %s are not Kit.NINE's times %d, %s" % [str(m), Kit.SCALE, str(want_m)])
+			push_error("PANEL: the built style's margins %s are not its draw margins times %d, %s" % [str(m), Kit.SCALE, str(want_m)])
 			ok = false
 		if sb.inset_begin != Vector2(want_m[0], want_m[1]) or sb.inset_end != Vector2(want_m[2], want_m[3]):
 			push_error("PANEL: the centre is drawn inset by %s/%s, not the frame's margins %s" % [str(sb.inset_begin), str(sb.inset_end), str(want_m)])
@@ -837,16 +902,18 @@ func _panel_lane() -> bool:
 		if faded == null or is_same(faded, sb) or absf(faded.border.modulate_color.a - 0.9) > 0.001 or absf(faded.centre.modulate_color.a - 0.9) > 0.001:
 			push_error("PANEL: a different opacity did not give its own style")
 			ok = false
-	# The margin boundary, both sides of it: two 10 kit-pixel margins at Kit.SCALE.
-	var edge_px: float = float(20 * Kit.SCALE)
-	if Kit.style("panel_standard", Rect2(0, 0, edge_px - 1.0, 120), 0.4) != null:
-		push_error("PANEL: a %d px wide rect under %d px of margins built a style" % [int(edge_px) - 1, int(edge_px)])
+	# The margin boundary, both sides of it, on each axis: the draw margins at Kit.SCALE.
+	var pm: Array[int] = Kit.margins("panel_standard")
+	var edge_w: float = float(pm[0] + pm[2])
+	var edge_h: float = float(pm[1] + pm[3])
+	if Kit.style("panel_standard", Rect2(0, 0, edge_w - 1.0, 120), 0.4) != null:
+		push_error("PANEL: a %d px wide rect under %d px of margins built a style" % [int(edge_w) - 1, int(edge_w)])
 		ok = false
-	if Kit.style("panel_standard", Rect2(0, 0, 200, edge_px - 1.0), 0.4) != null:
-		push_error("PANEL: a %d px tall rect under %d px of margins built a style" % [int(edge_px) - 1, int(edge_px)])
+	if Kit.style("panel_standard", Rect2(0, 0, 200, edge_h - 1.0), 0.4) != null:
+		push_error("PANEL: a %d px tall rect under %d px of margins built a style" % [int(edge_h) - 1, int(edge_h)])
 		ok = false
-	if Kit.style("panel_standard", Rect2(0, 0, edge_px, edge_px), 0.4) == null:
-		push_error("PANEL: a %d px rect, exactly the margins, built no style" % int(edge_px))
+	if Kit.style("panel_standard", Rect2(0, 0, edge_w, edge_h), 0.4) == null:
+		push_error("PANEL: a %dx%d px rect, exactly the margins, built no style" % [int(edge_w), int(edge_h)])
 		ok = false
 
 	# Textual: the shipped helpers reach the kit.
@@ -2398,9 +2465,346 @@ func _cursor_drop_lane(answered: Dictionary) -> bool:
 # --- 10. MOTION --------------------------------------------------------------------------------
 
 
+# UI motion, and a reduced-motion switch (docs/23's what's left, "The UI Field Kit, live"): the
+# kit's four animations play on the wall clock through `ui/motion.gd`, the focus pulse breathes on
+# the shell's cursor row and the sheet's selected plate, and the settings sheet's toggle stands
+# every one of them still.
+#
+#   TABLE     Motion.TABLE equals every manifest `animation` record -- frame count, fps, loop and
+#             `reduced_motion_frame` -- and names no animation the manifest does not ship; every
+#             frame is the manifest's own path and resolves through Kit.texture at the manifest's
+#             size times Kit.SCALE, and a frame past the last does not. A fabricated record with
+#             one wrong fps, and a manifest animation TABLE does not carry, each fail.
+#   CLOCK     `frame_of` steps a frame every 1/fps s; a loop at t and t + one period agree; a
+#             one-shot holds its last frame after its period; reduced motion gives the manifest's
+#             frame at every elapsed time asked -- and, the negative, without it some elapsed time
+#             gives a different frame, so the reduced answer is not the only answer. `is_live` is
+#             true for a loop and a playing one-shot, false under reduced motion and for a finished
+#             one-shot.
+#   PULSE     The pulse's layout constants are measured from its pixels: every frame is twice
+#             PULSE_CORNER square with no ink on the two rows and two columns either side of the
+#             cut, so no bracket straddles a quadrant; PULSE_OUTSET is the rest frame's first inked
+#             column and row. A fabricated frame with one pixel across the cut fails.
+#   PREF      `reduced_motion` defaults false in UiPrefs.DEFAULTS; the settings sheet's TOGGLES
+#             carries it; the sheet's draw reaches `_draw_toggle(`, which reaches both kit toggle
+#             pictures through Kit.texture, and both resolve at the manifest's size times Kit.SCALE,
+#             TOGGLE_NATIVE being that size. A click on the toggle's own rect, through the sheet's
+#             `_gui_input`, flips UiPrefs and Motion.reduced() with it and wears the hand; a click on
+#             the panel's corner flips nothing. The pref is put back as it was found.
+#   READERS   comments stripped: the shell's `_draw` and bag_grid's `draw_item` reach
+#             `Motion.draw_focus(`, which reaches `frame_of(` and `texture_of(`, which reaches
+#             `Kit.texture(`; the inventory's `_draw_columns_into` hands `draw_item` a
+#             `_pulse_elapsed()`; the shell's and the inventory's `_process` reach `Motion.is_live(`
+#             and a redraw. A fabricated `_draw` with the call only in a comment is refused.
+
+const Motion = preload("res://ui/motion.gd")
+const MotionPrefs = preload("res://ui/prefs.gd")
+const MOTION_GD: String = "res://ui/motion.gd"
+const MOTION_SHELL_GD: String = "res://ui/shell.gd"
+const MOTION_BAG_GD: String = "res://ui/bag_grid.gd"
+const MOTION_SETTINGS_GD: String = "res://ui/settings_panel.gd"
+const MOTION_PREF: String = "reduced_motion"
+
+
 func _motion_lane() -> bool:
-	print("SKIP MOTION: not landed")
-	return true
+	var ok: bool = true
+	var manifest: Dictionary = _manifest()
+	var anims: Dictionary = {}
+	for rec_v in manifest.get("assets", []) as Array:
+		if rec_v is Dictionary and String((rec_v as Dictionary).get("category", "")) == "animation":
+			anims[String((rec_v as Dictionary).get("id", ""))] = rec_v
+	if anims.is_empty():
+		push_error("MOTION: manifest.json carries no animation record -- TABLE has nothing to be judged against")
+		return false
+
+	# TABLE: the code's copy against the manifest.
+	for id_v in anims.keys():
+		var id: String = String(id_v)
+		for f in _motion_faults(id, Motion.TABLE.get(id, null), anims[id_v] as Dictionary):
+			push_error("MOTION: " + f)
+			ok = false
+	for id_v in Motion.TABLE.keys():
+		if not anims.has(id_v):
+			push_error("MOTION: TABLE carries %s, which manifest.json does not ship" % String(id_v))
+			ok = false
+	var bad: Dictionary = (Motion.TABLE["focus_pulse"] as Dictionary).duplicate(true)
+	bad["fps"] = 7
+	if _motion_faults("focus_pulse", bad, anims["focus_pulse"] as Dictionary).is_empty():
+		push_error("MOTION: a TABLE record with focus_pulse at 7 fps against the manifest's 6 passed -- the comparator cannot fail")
+		ok = false
+	var glint: Dictionary = {"id": "glint", "category": "animation", "size": [16, 16], "frames": ["animations/glint_0.png"], "fps": 4, "loop": true, "reduced_motion_frame": 0}
+	if _motion_faults("glint", Motion.TABLE.get("glint", null), glint).is_empty():
+		push_error("MOTION: a manifest animation TABLE does not carry passed")
+		ok = false
+
+	# Every frame resolves at the manifest's size, doubled; one past the last does not.
+	var frames_seen: int = 0
+	for id_v in anims.keys():
+		var id: String = String(id_v)
+		var rec: Dictionary = anims[id_v] as Dictionary
+		var size: Array[int] = _ints(rec.get("size", null))
+		var paths: Array = rec.get("frames", []) as Array
+		for n in paths.size():
+			if String(paths[n]) != "animations/%s_%d.png" % [id, n]:
+				push_error("MOTION: %s frame %d is %s in the manifest, not the path texture_of builds" % [id, n, String(paths[n])])
+				ok = false
+			var tex: Texture2D = Motion.texture_of(id, n)
+			if tex == null:
+				push_error("MOTION: %s frame %d did not resolve through Kit.texture" % [id, n])
+				ok = false
+			elif size.size() != 2 or Vector2i(tex.get_size()) != Vector2i(size[0], size[1]) * Kit.SCALE:
+				push_error("MOTION: %s frame %d resolved at %s, the manifest's %s at %dx is not that" % [id, n, str(tex.get_size()), str(size), Kit.SCALE])
+				ok = false
+			else:
+				frames_seen += 1
+		if Motion.texture_of(id, paths.size()) != null:
+			push_error("MOTION: %s resolved a frame past its last" % id)
+			ok = false
+	if Motion.texture_of("nonesuch", 0) != null or Motion.frame_of("nonesuch", 0.0, false) != -1:
+		push_error("MOTION: an animation the kit does not ship resolved")
+		ok = false
+
+	# CLOCK.
+	var times: Array[float] = [0.0, 0.05, 0.13, 0.31, 0.49, 0.77, 1.2, 3.7, 12.5]
+	for id_v in Motion.TABLE.keys():
+		var id: String = String(id_v)
+		var rec: Dictionary = Motion.TABLE[id_v] as Dictionary
+		var count: int = int(rec["frames"])
+		var fps: float = float(int(rec["fps"]))
+		var period: float = Motion.period_of(id)
+		var want_reduced: int = int((anims.get(id, {}) as Dictionary).get("reduced_motion_frame", -1))
+		for k in count:
+			var at: int = Motion.frame_of(id, (float(k) + 0.5) / fps, false)
+			if at != k:
+				push_error("MOTION: %s half way through its frame %d shows frame %d" % [id, k, at])
+				ok = false
+		var moved: bool = false
+		for t in times:
+			if bool(rec["loop"]) and Motion.frame_of(id, t, false) != Motion.frame_of(id, t + period, false):
+				push_error("MOTION: %s loops, and at %.2f s and one period later shows frames %d and %d" % [id, t, Motion.frame_of(id, t, false), Motion.frame_of(id, t + period, false)])
+				ok = false
+			if Motion.frame_of(id, t, true) != want_reduced:
+				push_error("MOTION: %s under reduced motion at %.2f s shows frame %d, the manifest's is %d" % [id, t, Motion.frame_of(id, t, true), want_reduced])
+				ok = false
+			if Motion.frame_of(id, t, false) != want_reduced:
+				moved = true
+			if Motion.is_live(id, t, true):
+				push_error("MOTION: %s is live under reduced motion at %.2f s" % [id, t])
+				ok = false
+		if not moved:
+			push_error("MOTION: %s without reduced motion never left its reduced frame over %d times -- the reduced answer is the only answer" % [id, times.size()])
+			ok = false
+		if bool(rec["loop"]):
+			if not Motion.is_live(id, 9.0, false):
+				push_error("MOTION: %s loops and is not live at 9 s" % id)
+				ok = false
+		else:
+			for t in [period + 0.001, period * 3.0, 60.0]:
+				if Motion.frame_of(id, float(t), false) != count - 1:
+					push_error("MOTION: %s is a one-shot and at %.2f s shows frame %d, not its held last frame %d" % [id, float(t), Motion.frame_of(id, float(t), false), count - 1])
+					ok = false
+				if Motion.is_live(id, float(t), false):
+					push_error("MOTION: %s finished at %.2f s and is still live" % [id, period])
+					ok = false
+			if not Motion.is_live(id, 0.0, false):
+				push_error("MOTION: %s is a one-shot and is not live at its start" % id)
+				ok = false
+
+	# PULSE: the layout constants, from the pixels.
+	for n in int((Motion.TABLE[Motion.PULSE_ID] as Dictionary)["frames"]):
+		var img: Image = _motion_image("animations/%s_%d.png" % [Motion.PULSE_ID, n])
+		for f in _pulse_split_faults(img):
+			push_error("MOTION: %s frame %d: %s" % [Motion.PULSE_ID, n, f])
+			ok = false
+	var rest: Image = _motion_image("animations/%s_%d.png" % [Motion.PULSE_ID, int((Motion.TABLE[Motion.PULSE_ID] as Dictionary)["reduced"])])
+	var first: Vector2i = _first_ink(rest)
+	if first != Vector2i(Motion.PULSE_OUTSET, Motion.PULSE_OUTSET):
+		push_error("MOTION: the rest frame's bracket starts at column %d, row %d; PULSE_OUTSET says %d" % [first.x, first.y, Motion.PULSE_OUTSET])
+		ok = false
+	var crossed: Image = _motion_image("animations/%s_0.png" % Motion.PULSE_ID)
+	if crossed != null:
+		crossed.set_pixel(Motion.PULSE_CORNER, 3, Color(1.0, 0.8, 0.3, 1.0))
+		if _pulse_split_faults(crossed).is_empty():
+			push_error("MOTION: a fabricated pulse frame with ink on the cut passed")
+			ok = false
+
+	# PREF: the default, the row, the pictures, and a real click.
+	if not MotionPrefs.DEFAULTS.has(MOTION_PREF) or typeof(MotionPrefs.DEFAULTS[MOTION_PREF]) != TYPE_BOOL or bool(MotionPrefs.DEFAULTS[MOTION_PREF]):
+		push_error("MOTION: UiPrefs.DEFAULTS does not carry reduced_motion as false (%s)" % str(MotionPrefs.DEFAULTS.get(MOTION_PREF, "missing")))
+		ok = false
+	var settings_src: GDScript = load(MOTION_SETTINGS_GD) as GDScript
+	var toggles: Array = settings_src.get_script_constant_map().get("TOGGLES", []) as Array
+	var has_row: bool = false
+	for t_v in toggles:
+		if String((t_v as Dictionary).get("key", "")) == MOTION_PREF:
+			has_row = true
+	if not has_row:
+		push_error("MOTION: the settings sheet's TOGGLES carries no reduced_motion row")
+		ok = false
+	var settings_code: String = _code_of(_text_of(MOTION_SETTINGS_GD))
+	var settings_bodies: Dictionary = _bodies(_text_of(MOTION_SETTINGS_GD))
+	for needle in ["\"controls/control_toggle_on.png\"", "\"controls/control_toggle_off.png\""]:
+		if not settings_code.contains(needle):
+			push_error("MOTION: settings_panel.gd, comments stripped, never names %s" % needle)
+			ok = false
+	if not _cursor_reaches(String(settings_bodies.get("_draw", "")), ["_draw_toggle("]):
+		push_error("MOTION: the settings sheet's _draw never reaches _draw_toggle(")
+		ok = false
+	if not _cursor_reaches(String(settings_bodies.get("_draw_toggle", "")), ["TOGGLE_ON_PATH", "TOGGLE_OFF_PATH", "Kit.texture("]):
+		push_error("MOTION: _draw_toggle does not reach both kit toggle pictures through Kit.texture(")
+		ok = false
+	var assets: Dictionary = _records(manifest, "assets")
+	var native: Vector2 = settings_src.get_script_constant_map().get("TOGGLE_NATIVE", Vector2.ZERO) as Vector2
+	for tid in ["control_toggle_on", "control_toggle_off"]:
+		var tsize: Array[int] = _ints((assets.get(tid, {}) as Dictionary).get("size", null))
+		var ttex: Texture2D = Kit.texture("controls/%s.png" % tid, Kit.SCALE)
+		if tsize.size() != 2 or Vector2i(native) != Vector2i(tsize[0], tsize[1]):
+			push_error("MOTION: TOGGLE_NATIVE is %s, the manifest's %s is %s" % [str(native), tid, str(tsize)])
+			ok = false
+		elif ttex == null or Vector2i(ttex.get_size()) != Vector2i(tsize[0], tsize[1]) * Kit.SCALE:
+			push_error("MOTION: %s did not resolve at the manifest's size times %d" % [tid, Kit.SCALE])
+			ok = false
+	ok = _motion_flip() and ok
+
+	# READERS: every link from a screen's draw to the kit, comments stripped.
+	var links: Array = [
+		[MOTION_SHELL_GD, "_draw", ["Motion.draw_focus("]],
+		[MOTION_BAG_GD, "draw_item", ["Motion.draw_focus(", "focus_s"]],
+		[MOTION_GD, "draw_focus", ["frame_of(", "texture_of("]],
+		[MOTION_GD, "texture_of", ["Kit.texture("]],
+		[MOTION_GD, "reduced", ["UiPrefs.flag(\"reduced_motion\")"]],
+		[INVENTORY_GD, "_draw_columns_into", ["BagGrid.draw_item(", "_pulse_elapsed()"]],
+		[MOTION_SHELL_GD, "_process", ["Motion.is_live(", "queue_redraw("]],
+		[INVENTORY_GD, "_process", ["Motion.is_live(", "_column_layer.queue_redraw("]],
+	]
+	for l_v in links:
+		var l: Array = l_v as Array
+		var body: String = String(_bodies(_text_of(String(l[0]))).get(String(l[1]), ""))
+		if not _cursor_reaches(body, l[2] as Array):
+			push_error("MOTION: %s's %s, comments stripped, does not reach %s" % [String(l[0]), String(l[1]), str(l[2])])
+			ok = false
+	var commented: String = String(_bodies("func _draw() -> void:\n\tvar r := Rect2()\n\t# Motion.draw_focus(self, r, 0.0, false)\n\tdraw_rect(r, Color.WHITE)\n").get("_draw", ""))
+	if _cursor_reaches(commented, ["Motion.draw_focus("]):
+		push_error("MOTION: a fabricated _draw with the pulse only in a comment passed")
+		ok = false
+
+	if ok:
+		print("MOTION OK %d animations agree with the manifest (frames, fps, loop, reduced frame), %d frames resolve at %dx; loops wrap, one-shots hold, reduced motion stands still and is not live; the pulse's corner and outset are its pixels'; the settings toggle wears the kit's pictures and a click on it flips the pref, restored; the shell's row and the selected plate reach Motion.draw_focus and redraw only while live; a wrong fps, an uncarried animation, ink across the cut and a commented reader each refused" % [Motion.TABLE.size(), frames_seen, Kit.SCALE])
+	return ok
+
+
+# What is wrong with one TABLE record against one manifest animation record. Empty when they agree.
+func _motion_faults(id: String, entry_v: Variant, rec: Dictionary) -> Array[String]:
+	var faults: Array[String] = []
+	if not (entry_v is Dictionary):
+		faults.append("%s is a manifest animation Motion.TABLE does not carry" % id)
+		return faults
+	var entry: Dictionary = entry_v as Dictionary
+	var want: Dictionary = {
+		"frames": (rec.get("frames", []) as Array).size(),
+		"fps": int(rec.get("fps", -1)),
+		"loop": bool(rec.get("loop", false)),
+		"reduced": int(rec.get("reduced_motion_frame", -1)),
+	}
+	for k in want.keys():
+		if not entry.has(k) or str(entry[k]) != str(want[k]):
+			faults.append("%s's %s is %s, the manifest's is %s" % [id, String(k), str(entry.get(k, "missing")), str(want[k])])
+	return faults
+
+
+func _motion_image(rel: String) -> Image:
+	var img := Image.new()
+	if img.load(Kit.ROOT + rel) != OK:
+		return null
+	return img
+
+
+# The pulse frame is cut into four quadrants at PULSE_CORNER: the frame must be exactly twice that
+# square, and the two rows and two columns either side of the cut must carry no ink.
+func _pulse_split_faults(img: Image) -> Array[String]:
+	var faults: Array[String] = []
+	if img == null:
+		faults.append("did not load")
+		return faults
+	var c: int = Motion.PULSE_CORNER
+	if img.get_width() != c * 2 or img.get_height() != c * 2:
+		faults.append("is %dx%d, not twice PULSE_CORNER (%d) square" % [img.get_width(), img.get_height(), c])
+		return faults
+	for i in img.get_width():
+		for line in [c - 1, c]:
+			if img.get_pixel(int(line), i).a > 0.0:
+				faults.append("ink at column %d, row %d, on the cut" % [int(line), i])
+			if img.get_pixel(i, int(line)).a > 0.0:
+				faults.append("ink at column %d, row %d, on the cut" % [i, int(line)])
+	return faults
+
+
+# The first column and the first row that carry any ink.
+func _first_ink(img: Image) -> Vector2i:
+	if img == null:
+		return Vector2i(-1, -1)
+	var col: int = -1
+	var row: int = -1
+	for x in img.get_width():
+		for y in img.get_height():
+			if img.get_pixel(x, y).a > 0.0:
+				if col == -1:
+					col = x
+				if row == -1 or y < row:
+					row = y
+	return Vector2i(col, row)
+
+
+# The settings sheet's own toggle path, through `_gui_input`, at the game's 1920 x 1080. The pref
+# is put back as it was found whatever happens, so no later gate boots with the switch thrown.
+func _motion_flip() -> bool:
+	var ok: bool = true
+	var was: bool = MotionPrefs.flag(MOTION_PREF)
+	var root_was: Vector2i = root.size
+	root.size = Vector2i(1920, 1080)
+	var settings: Control = (load(MOTION_SETTINGS_GD) as GDScript).new() as Control
+	root.add_child(settings)
+	var rect: Rect2 = settings.call("_toggle_rect", 0) as Rect2
+	var corner: Vector2 = (settings.call("_panel_rect") as Rect2).position + Vector2(8.0, 8.0)
+	if not rect.has_area() or not (settings.call("_panel_rect") as Rect2).encloses(rect):
+		push_error("MOTION: the toggle's rect %s is not inside the settings panel" % str(rect))
+		ok = false
+	if int(settings.call("cursor_at", rect.get_center())) != Input.CURSOR_POINTING_HAND:
+		push_error("MOTION: the settings sheet over the toggle does not give the hand")
+		ok = false
+	settings.call("_gui_input", _motion_click(corner))
+	if MotionPrefs.flag(MOTION_PREF) != was:
+		push_error("MOTION: a click on the settings panel's corner flipped reduced motion")
+		ok = false
+	settings.call("_gui_input", _motion_click(rect.get_center()))
+	var flipped: bool = MotionPrefs.flag(MOTION_PREF)
+	var reads: bool = Motion.reduced()
+	settings.call("_gui_input", _motion_click(rect.get_center()))
+	var back: bool = MotionPrefs.flag(MOTION_PREF)
+	settings.free()
+	root.size = root_was
+	MotionPrefs.set_flag(MOTION_PREF, was)
+	if flipped == was:
+		push_error("MOTION: a click on the toggle left reduced motion at %s" % str(was))
+		ok = false
+	elif reads != flipped:
+		push_error("MOTION: the toggle stored %s and Motion.reduced() read %s" % [str(flipped), str(reads)])
+		ok = false
+	if back != was:
+		push_error("MOTION: a second click on the toggle did not put reduced motion back")
+		ok = false
+	if MotionPrefs.flag(MOTION_PREF) != was:
+		push_error("MOTION: the gate left reduced motion at %s, not the %s it found" % [str(MotionPrefs.flag(MOTION_PREF)), str(was)])
+		ok = false
+	return ok
+
+
+func _motion_click(at: Vector2) -> InputEventMouseButton:
+	var mb := InputEventMouseButton.new()
+	mb.button_index = MOUSE_BUTTON_LEFT
+	mb.pressed = true
+	mb.position = at
+	return mb
 
 
 # --- 11. EVENTS --------------------------------------------------------------------------------

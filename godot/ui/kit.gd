@@ -33,9 +33,11 @@ extends RefCounted
 #    which run past the kit's nine-slice margins into the strips, repeat as a row of tick marks
 #    along every border; stretched, a dashed or noisy edge loses its even rhythm and a bracket arm
 #    grows with the frame. So the dashed and noisy frames (EDGE_TILED) tile their edges, and the
-#    bracketed ones stretch theirs, as the .tres means --
-#  - **with their margins widened** (BRACKET_MARGINS) just enough that each whole bracket sits in
-#    its corner, where a nine-slice draws it 1:1, so it keeps its drawn length at any size.
+#    bracketed ones (EDGE_STRETCHED) stretch theirs, as the .tres means.
+#  - **Widened margins** (WIDENED_MARGINS). Where a corner piece runs past the kit's margins into
+#    an edge strip -- a button's or slot's bracket, a panel's corner highlight -- the margins are
+#    widened just enough that the whole piece sits in its corner, drawn 1:1, so a stretched edge
+#    does not lengthen it and a tiled edge does not repeat it.
 # So a built Style is two StyleBoxTextures over one texture: the frame, its edges in its group's
 # mode and drawing no centre, and the centre alone -- `region_rect` the texture inset by the
 # frame's margins, no margins of its own -- tiled across the frame's content rect.
@@ -58,35 +60,44 @@ const GLYPH_SCALE: int = 1
 # header's second departure; the gate's CENTRE_MODE_DEVIATION).
 const CENTRE_MODE: StyleBoxTexture.AxisStretchMode = StyleBoxTexture.AXIS_STRETCH_MODE_TILE
 
-# The owner's per-style edge decision (docs/30, "The UI Field Kit, live", 2026-09-25): the frames
+# The owner's per-style edge decision (docs/30, "The UI Field Kit, live", 2026-09-25). The frames
 # whose edge strips carry a dashed line or fine noise tile their edges, so the rhythm stays even at
-# any size -- slot_empty's dashed inner line, the panels' worn rims, the divider's grain. Every
-# other style NINE wears is bracketed and is keyed in BRACKET_MARGINS below; its edges stretch, the
-# .tres meaning. The gate's KIT lane holds every style to exactly one of the two.
+# any size -- slot_empty's dashed inner line, the panels' worn rims, the divider's grain. The
+# bracketed frames stretch theirs, the .tres meaning, so a bracket is never repeated along a border.
+# The gate's KIT lane holds every style NINE wears to exactly one of the two lists.
 const EDGE_TILED: Array[String] = [
 	"panel_standard", "panel_dialog", "panel_inset", "panel_notice", "panel_danger", "panel_tooltip",
 	"slot_empty", "divider",
 ]
+const EDGE_STRETCHED: Array[String] = [
+	"button_normal", "button_hover", "button_pressed", "button_focus", "button_danger",
+	"slot_hover", "slot_pressed", "slot_selected", "slot_invalid", "keycap",
+]
 
-# The bracketed styles' draw margins [left, top, right, bottom] at native kit pixels (docs/30, "The
-# UI Field Kit, live", the owner's per-style decision of 2026-09-25). Each is the manifest's
-# `nine_slice_ltrb` widened just enough that the whole corner bracket -- its ink and the pixel that
-# ends it -- sits inside the corner, where a nine-slice draws it 1:1, so the stretched edge between
-# holds nothing of it. Measured from the pixels, not guessed: the gate's KIT lane re-measures every
-# entry and refuses one a pixel too narrow on any side, or a pixel wider than it needs. An entry
-# equal to NINE is a bracketed style whose bracket already sat inside the kit's own margins.
+# Draw margins [left, top, right, bottom] at native kit pixels for the styles whose corner piece
+# runs past the manifest's `nine_slice_ltrb` (docs/30, "The UI Field Kit, live", the owner's
+# decisions of 2026-09-25). A corner piece that crosses a margin is drawn in the edge strip, and an
+# edge strip repeats it (tiled: a tick every tile along the border) or lengthens it (stretched: a
+# bracket arm that grows with the frame). So each entry is the manifest's margins widened just
+# enough that the whole corner piece -- its ink and the pixel that ends it -- sits in the corner,
+# where a nine-slice draws it 1:1. Measured from the pixels, not guessed: the gate's KIT lane
+# re-measures every entry and refuses one a pixel too narrow on any side, or a pixel wider than it
+# needs. panel_danger is the one set by eye -- its red rim wobbles and breaks along its whole
+# length, so no margin separates a corner from it; the gate names why and pins what is left. A
+# style not keyed here draws at NINE, and the gate holds that its corner piece already fits.
 # NINE stays the manifest's values, which the gate still compares against the manifest and .tres.
-const BRACKET_MARGINS: Dictionary = {
+const WIDENED_MARGINS: Dictionary = {
 	"button_normal": [11, 9, 10, 8],
 	"button_hover": [13, 9, 12, 10],
 	"button_pressed": [12, 9, 11, 9],
 	"button_focus": [18, 10, 17, 10],
 	"button_danger": [12, 11, 12, 11],
-	"slot_hover": [6, 6, 6, 6],
-	"slot_pressed": [6, 6, 6, 6],
 	"slot_selected": [7, 7, 7, 7],
 	"slot_invalid": [6, 7, 7, 8],
-	"keycap": [5, 5, 5, 5],
+	"panel_standard": [11, 10, 10, 10],
+	"panel_dialog": [14, 13, 12, 12],
+	"panel_notice": [11, 12, 10, 10],
+	"panel_danger": [10, 11, 10, 10],
 }
 
 # Nine-slice margins [left, top, right, bottom] for every style the screens consume, copied from
@@ -240,14 +251,14 @@ static func edge_mode(id: String) -> StyleBoxTexture.AxisStretchMode:
 	return StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
 
 
-# The margins a built style uses, in screen pixels: its native draw margins -- BRACKET_MARGINS for a
-# bracketed style, the manifest's NINE otherwise -- times the style's scale. Empty for an id NINE
+# The margins a built style uses, in screen pixels: its native draw margins -- WIDENED_MARGINS where
+# it has an entry, the manifest's NINE otherwise -- times the style's scale. Empty for an id NINE
 # does not name. This is also every caller's "does it fit" and "how far in does content start".
 static func margins(id: String) -> Array[int]:
 	var out: Array[int] = []
 	if not NINE.has(id):
 		return out
-	for n in BRACKET_MARGINS.get(id, NINE[id]) as Array:
+	for n in WIDENED_MARGINS.get(id, NINE[id]) as Array:
 		out.append(int(n) * scale_of(id))
 	return out
 

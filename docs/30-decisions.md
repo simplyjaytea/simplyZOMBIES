@@ -5420,11 +5420,16 @@ every frame: tiled edges repeated a fragment of every corner bracket along the b
 tick marks, and stretched edges lengthened a dashed line's dashes and every bracket arm lying in
 them. So the dashed and noisy frames — `slot_empty`, the six panels and the divider — tile their
 edges (`Kit.EDGE_TILED`), and the bracketed ones — the buttons, the other slots and the keycap —
-stretch theirs as the `.tres` means, at margins widened just enough that each whole bracket sits
-in its corner, where a nine-slice draws it 1:1 (`Kit.BRACKET_MARGINS`, measured from the pixels).
-Every departure from the kit's own files is named in the gate — `OWNER_SCALE`,
-`CENTRE_MODE_DEVIATION`, `EDGE_DEVIATION` and `MARGIN_DEVIATION` in `check_ui_skin.gd` — rather
-than left for a later reader to take for drift. One style is held
+stretch theirs as the `.tres` means. **Where a corner piece runs past the kit's margins, the
+margins widen** — the buttons' and slots' brackets first, then, by a fourth decision the same day,
+the panels' corner highlights, which the tiled edges had repeated as a small tick down the pause
+dialog's rim. Each such style draws at margins widened just enough that its whole corner piece sits
+in the corner, where a nine-slice draws it 1:1 (`Kit.WIDENED_MARGINS`, measured from the pixels);
+`panel_danger`'s red rim wobbles and breaks along its whole length, so its margins are set by eye
+(a top margin one wider, holding the amber fleck at the top of its right rim). Every departure from
+the kit's own files is named in the gate — `OWNER_SCALE`, `CENTRE_MODE_DEVIATION`,
+`EDGE_DEVIATION`, `MARGIN_DEVIATION` and `MARGINS_BY_EYE` in `check_ui_skin.gd` — rather than left
+for a later reader to take for drift. One style is held
 back from the 2×: the keycap, which sits inline in a line of text, where the HUD mockup draws it
 with a hairline amber rim that 2× would double around a single letter; it is named in
 `Kit.NATIVE_STYLES`. Glyphs draw at their native size (`Kit.GLYPH_SCALE` 1): a 2× glyph is taller
