@@ -5429,3 +5429,54 @@ back from the 2×: the keycap, which sits inline in a line of text, where the HU
 with a hairline amber rim that 2× would double around a single letter; it is named in
 `Kit.NATIVE_STYLES`. Glyphs draw at their native size (`Kit.GLYPH_SCALE` 1): a 2× glyph is taller
 than the 16–20 px line it labels.
+
+## The whole outpost pack, 2026-09-25
+
+The owner asked on 2026-09-25 for "the whole outpost pack" to be used in the game, and answered
+the questions that ask raised the same day. This entry extends "The outpost pack, adopted"
+(2026-09-17, above) rather than replacing it: its four decisions stand, and the arc is still the
+slices docs/23's outpost group names, landing one at a time with their gates.
+
+**Decision 4's report-only half is reopened for four families.** The pack's twelve held weapons
+(drawn in the hand of a four-direction body, below); the furnishing props, as scenery that never
+touches balance and never becomes sim state, and the container kinds keyed by loot table; the
+nature extras — bush and reeds on outdoor tiles, rock, stump and log as dressing; and the pack's
+art for things the game already has (the barricade, the work lamp, the stove). Each becomes a
+named piece in docs/23's outpost group before it is built. **What stays in the report**, because
+drawing it honestly needs a sim fact that does not exist: the decals (a blood pool, a footprint, a
+bullet hole or a scorch is a thing the sim would have to record first), the effects with no impact
+point (sparks, dust, splinters, splash, explosion), and anything that would be a new mechanic
+(generator, rain collector, spike trap). **The six status icons stay refused**, under the same
+icon-row ban the prose HUD stands on — "the whole pack" does not quietly amend a standing ban, and
+the owner was asked and did not reopen it.
+
+**The ground takes the pack's own grade.** The pack's tiles are brighter and more saturated than
+the warm-dark table (grass, dirt, water and wood all past the 0.30 ground-saturation cap
+`check_road_look`'s PALETTE lane holds), so either the lanes move or the art is repainted at draw
+time. The owner chose the pack: the ground lanes are re-pinned to a measured pack table, the old
+warm-dark table becomes the case they refuse, and the slice lands with a before/after screenshot
+pair. This supersedes docs/23's open "The grade: overcast day, warm night" as far as the ground is
+concerned and folds in HANDOFF's water-saturation item.
+
+**A four-direction body wears the pack's gear only.** The 47 generated equipment overlays are
+drawn face-on and cannot fit a body that turns. The pack's four-direction vest, helmet, gas mask
+and backpack are worn; held weapons draw at a hand point per view; every other clothing overlay is
+retired until four-sided art exists. The owner accepted the named gap that follows: an equipped
+jacket shows nothing on the body until then — the inventory and inspect text still say it is worn,
+so nothing the player needs is lost, only a picture.
+
+**Raiders share one tint.** With one shared pack rig a raider would be indistinguishable from the
+player's own people at focal range. One raider tint, the same for every raider, makes a raider
+read as a raider without telling the two archetypes apart, which `check_m2_raiders`' NO-TELL lane
+requires.
+
+**The walls get a picture round first.** The pack has no north-south run, no south-west or
+south-east corner, no timber or block material and no east-west door or window. One closed
+building is rendered two ways — the corner piece's leg cropped for north-south runs against
+today's generated faces — and the owner picks from the screenshots before the walls slice lands.
+Timber and block keep their generated faces either way.
+
+**Cursors split by place.** Over the world while playing: the pack's crosshair, and the pack's
+interaction hand over something the player can see and act on — never over something unseen,
+which would be information through a wall. Over any panel or menu: the UI kit's four pointers.
+Both live in `ui/cursors.gd`'s one table, as "The UI Field Kit, live" already said.
