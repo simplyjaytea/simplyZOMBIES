@@ -14,6 +14,24 @@ container running** lives in `AGENTS.md`.
 
 ---
 
+## Start here: paused mid-arc, 2026-09-25
+
+Two arcs are open on branch `claude/serene-ride-r1p6y0` (PR #140), paused for usage, everything
+committed. **The pickup doc is
+[`.hermes/plans/2026-09-25_ui-kit-and-outpost-pickup.md`](.hermes/plans/2026-09-25_ui-kit-and-outpost-pickup.md)**
+— what landed, what is next in order, which worker model each piece wants, and the measured
+findings every outpost slice must honour.
+
+- **The UI Field Kit, live** (docs/23 "UI — the UI Field Kit, live"; docs/30 "The UI Field Kit,
+  live"): eight of nine pieces landed, gated by `npm run godot:check:ui_skin` → `UI_SKIN_OK`. Left:
+  **"Saved, picked up, busy"**, then the close-out (chain count in `CLAUDE.md`, the gate's header
+  comment, a full `godot:m2`).
+- **The whole outpost pack** (docs/23 "Art & renderer — the outpost pack"; docs/30 "The whole
+  outpost pack, 2026-09-25", the owner's six answers): the pad fix and the needs-assets report
+  landed; next are **"The bodies turn and walk"** and **"The cars are the pack's, east-west"**
+  (both were started and stopped uncommitted — start them fresh), then item pictures, the ground,
+  trees, gear, walls (picture round first), effects and the cursor.
+
 ## State, as of 2026-09-16 (the population arc, all thirteen slices)
 
 Green, and verified this session rather than quoted: `npm run godot:m2` chains **77 gates**

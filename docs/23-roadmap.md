@@ -571,6 +571,22 @@ projection are untouched.
   of the record entry calls non-status and sockets now. The UI Field Kit's four OS pointers
   (arrow, hand, move, blocked) land in `ui/cursors.gd` under the UI-kit group, and this slice's
   crosshair and interaction hand join that table rather than a second one; this slice stays open.
+  By the owner's 2026-09-25 answer (docs/30, "The whole outpost pack") the cursors split by
+  place: the pack's crosshair over the world while playing, the pack's hand over a *seen* thing
+  with a verb, the kit's pointers over every panel.
+- **Held weapons in the hand.** The pack's twelve held-weapon sprites drawn at a hand point per
+  view on the four-direction body — reopened from the report by the owner on 2026-09-25 (docs/30,
+  "The whole outpost pack"). Lands with or after the pack-gear half of "The bodies turn and walk".
+- **Furnishings and container kinds.** The pack's furnishing props as dressing that never touches
+  balance and never becomes sim state, and its container kinds keyed by loot table — reopened the
+  same day. A furnishing must not become cover, a pathing block or loot unless a later decision
+  says so.
+- **Nature extras.** Bush and reeds on outdoor tiles; rock, stump and log as dressing — reopened the
+  same day. Rides the "A padded source copies, never blends" fix (landed) and the trees slice's
+  READS widening to dressing blocks.
+- **Props for things that exist.** The pack's barricade, work lamp and stove pictures for the
+  game's existing barricade, lamp and stove — reopened the same day. A picture swap on things the
+  sim already has, never a new mechanic.
 
 **UI — the UI Field Kit, live, decided by the owner (2026-09-25).** The direction is [docs/30's
 entry](30-decisions.md#the-ui-field-kit-live-2026-09-25): the whole kit — chrome textures,
