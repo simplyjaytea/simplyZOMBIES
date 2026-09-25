@@ -5353,3 +5353,50 @@ deletion, applied slice by slice**: `tools/sprites/README.md`'s standing rule th
 retires the generator code that used to draw the same thing held for the two containers in this
 commit (`props.py`'s crate functions were already gone, from the first authored art in 2026-09-10)
 and applies again to every generated key a later slice in this arc replaces.
+
+
+## The UI Field Kit, live, 2026-09-25
+
+On 2026-09-25, with the UI Field Kit delivered and sitting unused since 2026-09-20 (docs/23's "UI
+asset delivery" record entry), the owner decided to take the whole kit into the live game:
+textures for the chrome, glyphs, the four OS cursors, and the four UI animations — nothing held
+back for a later pass.
+
+**The font becomes VT323** — bundled, SIL Open Font License, `OFL.txt` travels with it — with the
+engine's own fallback font behind it for the glyphs VT323 does not carry (→ ▲ ▼ ↔).
+
+**Both outliers are reskinned.** Speech bubbles move into the kit's tooltip frame; the vehicle
+dashboard's housing moves into kit frames too, its dials, lamps, letters and charge bar still
+hand-drawn on top of it.
+
+**Kit pieces that conflict with a standing decision stay unused, each named with its reason, and
+the new gate lists them:** `button_disabled` and `slot_disabled`, because a verb is present or
+absent on this HUD and never greyed; the three scroll pieces, because the sheet has no scrollbar;
+the three tab styles, because no screen is tabbed; checkbox and radio, because the one switch
+this game has uses the toggle; `glyph_lock`, because there is no lock mechanic; and
+`glyph_rotate`, because the owner did not take it.
+
+**What this supersedes:** `ui/chrome.gd`'s header comment, "Everything is drawn (no textures),"
+and "The alpha shell"'s 14 px bracket on the action bar (2026-09-16, above) — the bar now takes
+the kit's own frame rather than a second copy of bracket arithmetic.
+
+**What this re-affirms**, named because a skin swap is exactly the kind of change that would
+otherwise have to re-litigate it: the prose HUD; the health-bar and digit bans; no status icons —
+`glyph_condition` is a header ornament only, never a status readout; no bars, no name plates, no
+greyed rows; and the busy loop still never encodes progress — it does not read time left.
+
+**Reduced motion defaults off**, a presentation preference in `ui/prefs.gd`, not a difficulty or
+accessibility flag the sim reads.
+
+**Why the runtime builds `StyleBoxTexture`s in code (`ui/kit.gd`) rather than loading the kit's
+`.tres` files:** no `.import` files are committed and headless CI never imports, so every kit
+`.tres` resolves null in the gates, and a `preload()` of one would stop `chrome.gd` compiling for
+every gate that boots `main.tscn`. The two-path loader `presentation/appearance.gd`'s `resolve()`
+already uses — `ResourceLoader` first, then `Image.load` plus `ImageTexture` — is the precedent.
+The kit's `manifest.json` and its `.tres` text, read as text rather than loaded as resources, are
+the spec the new gate compares the code's margins, hotspots and frame rates against.
+
+**The kit's four OS cursors and the outpost pack's open "The cursor" slice (docs/23's what's
+left) are one table, not two.** The kit supplies arrow, hand, move and blocked; the outpost
+pack's crosshair and interaction-hand icons join the same `ui/cursors.gd` install rather than a
+second cursor system, and that slice stays open.

@@ -568,11 +568,61 @@ projection are untouched.
   truck 2×4 (named above); north-south driving keeps the generated art and today's larger
   footprints, per decision 11 of the Dungeon Settlers look ("a car seen from behind").
 - **The cursor.** The pack's crosshair and interaction-hand icons — the two UI icons decision 4
-  of the record entry calls non-status and sockets now.
+  of the record entry calls non-status and sockets now. The UI Field Kit's four OS pointers
+  (arrow, hand, move, blocked) land in `ui/cursors.gd` under the UI-kit group, and this slice's
+  crosshair and interaction hand join that table rather than a second one; this slice stays open.
 - **The needs-assets report.** A report, not a build: what the pack ships that this arc did not
   socket — twelve held weapons, eleven utility entries, eight decals, and the UI icons beyond the
   cursor and the six refused status icons (backpack, ammo, radio, warning, lock, work, map-marker,
   exit) — named for whichever later slice reads one, per decision 4's "report-only" half.
+
+**UI — the UI Field Kit, live, decided by the owner (2026-09-25).** The direction is [docs/30's
+entry](30-decisions.md#the-ui-field-kit-live-2026-09-25): the whole kit — chrome textures,
+glyphs, the four OS cursors and the four UI animations — replaces the hand-drawn `ui/chrome.gd`
+(14 callers) and its `ThemeDB.fallback_font`. Every piece is judged by one new gate, `npm run
+godot:check:ui_skin` → `UI_SKIN_OK`, a named lane per claim; the runtime never preloads a kit
+`.tres` (none import headless) and instead builds StyleBoxTextures and frame lists from the
+manifest and PNGs in code, the way `presentation/appearance.gd`'s `resolve()` already does. The
+pieces below are in the order they land, each one session, each with its gate red both ways and
+its record; the health-bar ban, the digit ban, the prose HUD and the busy loop's refusal to read
+time left are untouched.
+
+- **The chrome wears the kit.** `panel` becomes `panel_standard`, `header` a divider, `cell`
+  becomes `slot_empty` and `item_plate` becomes `panel_inset`, with new `frame`, `keycap` and
+  `glyph` helpers, every caller's name and signature unchanged; the dead `pin()` and `BRACKET`
+  are deleted. Judged by the KIT, RESOLVE, PANEL and HELPERS lanes of `UI_SKIN_OK`.
+- **One typeface.** Every UI font routes through `Chrome.font()`, VT323 with the engine's
+  fallback font behind it for the glyphs VT323 lacks (→ ▲ ▼ ↔); fixed-offset layouts — the
+  legend's 500 px column, `work_panel`'s header, `bench_panel`'s condition word, the dashboard
+  lamp labels — are refit around the new metrics. Judged by the FONT lane.
+- **Empty slots say what goes there.** The 12 body slots draw their matching equipment glyph when
+  empty, `slot_selected` marks the selection, and panel headers gain a glyph; every manifest
+  glyph is consumed with a named reader or listed unused with a reason. Judged by the GLYPHS
+  lane.
+- **The shell's rows are buttons.** The pause menu, settings, bench, legend, work and skills
+  panels draw their rows as `button_normal`/`button_focus`/`button_hover`, the title and pause
+  frames as `panel_dialog`, run-over as `panel_danger`, and the bench arrows as directional
+  glyphs — through the same `Kit.style(` path the PANEL and HELPERS lanes already hold the chrome
+  to, so this piece adds no lane of its own; `rows()`, `words()` and the id arrays `check_hud`
+  and `check_context` read stay unchanged.
+- **Keys wear keycaps.** The action bar's E/T/H and tail keys, and the word menu's new gutter of
+  small glyphs for use/drop/inspect/search/move, draw as keycaps off the unchanged single-line
+  `var keys: String`; a fabricated "3 boards" cap label fails. Judged by the KEYCAPS lane.
+- **Bubbles and the dashboard in kit frames.** Speech bubbles draw through `Chrome.frame(...,
+  "panel_tooltip", ...)` and the vehicle dashboard's housings become kit frames, with the tail,
+  `"saying"`, the dials, lamps, letters, the charge bar and its no-digit-literal rule unchanged.
+  Judged by the OUTLIERS lane.
+- **The four cursors.** `ui/cursors.gd` installs arrow, hand, move and blocked at the manifest's
+  own hotspots; a drag `SimInventory.can_place` refuses shows blocked plus `slot_invalid`. Judged
+  by the CURSORS lane.
+- **UI motion, and a reduced-motion switch.** `Motion.frame_of(id, elapsed, reduced)` is a pure
+  function of the wall clock giving a loop, one-shot and reduced frame; a new `reduced_motion`
+  pref (default off) gates `focus_pulse` on the shell's cursor row and the selected item, and
+  controls redraw only while an animation is live. Judged by the MOTION lane.
+- **Saved, picked up, busy.** `session.gd` gains a `saved` signal the HUD reads as a "saved" tick
+  in the card header; the player's long-dead-socket `item.pickedUp` event finally gets a reader,
+  `item_ping` on the slot; and a live channel (treatment, construct, rescue, refuel, siphon)
+  shows the `busy` loop, which never reads `ticksLeft`. Judged by the EVENTS lane.
 
 **Art & renderer — overcast or torchlight, decided by the owner (2026-09-08), on the Dungeon
 Settlers spine.** The direction is docs/30's "Overcast or torchlight": a hybrid that keeps the
@@ -1920,7 +1970,9 @@ not a to-do list:
   smoke test was not performed. This delivers assets and a demo; applying the skin
   to the live CanvasItem UI remains separate work. Preview sample counts do not
   amend the information or digit bans, and no open renderer slice or owner decision
-  is closed by this delivery.
+  is closed by this delivery. That live-UI work is now named in [what's
+  left](#whats-left-in-milestone-2)'s "UI — the UI Field Kit, live" group, decided
+  by the owner 2026-09-25.
 
 - **Art delivery — the outpost asset pack, 2026-09-17.** The owner asked to put the
   approved standalone art delivery into the repository. It is preserved under
