@@ -2323,6 +2323,19 @@ not a to-do list:
   four-frame effect sheets"), but not every member of that category already has a matching fact
   in `godot/sim/`.
 
+- **Art — a padded source copies, never blends, 2026-09-25.** A fix the outpost arc needed before
+  any slice pads pack art. `tools/sprites/build.py`'s `render_source()` padded an authored source
+  onto a larger transparent canvas with `canvas.paste(image, (ox, oy), image)`, and Pillow's masked
+  paste blends a semi-transparent pixel with the transparent canvas — alpha a becomes about a²/255
+  and its colour darkens — a silent repaint of pack art, whose edges are nearly all fractional
+  alpha. `sprites:check` could not see it, because it compares a reproduction against a PNG the
+  same function wrote. The paste now copies without the mask. **Gated** by a self-test that runs
+  inside `npm run sprites:check` on every check: a fabricated image with alphas 1, 6, 128 and 200
+  padded through the fixed paste must equal its input byte for byte with the rest transparent, and
+  the old masked paste is computed alongside and must differ, so the test can fail. No committed
+  PNG changed (the two sourced crates are fully opaque); `SPRITES_OK`, `AUTHORED_OK` and
+  `APPEARANCE_OK` held.
+
   - **Slice 3, the ground.** Two of its twelve terrain tiles have no row to land on:
     `tile-interior-tile` (an indoor floor distinct from wood) has nowhere to go because
     `Appearance.GroundRow` has eight rows and `Boards` is already the one "indoor floor" look,
