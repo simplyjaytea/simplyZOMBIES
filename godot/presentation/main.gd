@@ -2260,6 +2260,23 @@ const BUBBLE_LIFT_PX: float = 14.0
 const BUBBLE_FADE_TICKS: int = 20
 
 
+# The bubble's own rect: wide enough for its text, tall enough for its lines, and never smaller
+# than the tooltip frame's own margins (`Chrome.Kit.margins("panel_tooltip")`, the owner's 2x) --
+# padded rather than losing the frame (`Chrome.frame` falls back to a drawn fill under its
+# margins, and a normal one-line bubble should never hit that fallback). The bottom edge stays
+# anchored just above the head regardless, so growing the plate to clear the margins never moves
+# the tail. Static and pure, the same shape `_wrap_bubble_text` already is, so a gate can size a
+# representative bubble the same way this draws one without booting a scene.
+static func _bubble_plate(sx: float, sy: float, r: float, block_w: float, line_count: int, line_h: float) -> Rect2:
+	var m: Array[int] = Chrome.Kit.margins("panel_tooltip")
+	var min_w: float = float(m[0] + m[2]) + 4.0
+	var min_h: float = float(m[1] + m[3]) + 4.0
+	var w: float = maxf(block_w + BUBBLE_PAD_PX * 2.0, min_w)
+	var h: float = maxf(line_h * float(line_count) + BUBBLE_PAD_PX * 2.0, min_h)
+	var bottom: float = sy - r - BUBBLE_LIFT_PX
+	return Rect2(Vector2(sx - w / 2.0, bottom - h), Vector2(w, h))
+
+
 func _draw_bubbles() -> void:
 	if world == null or _focal_drawn.is_empty(): return
 	var font: Font = Chrome.font()
@@ -2282,16 +2299,17 @@ func _draw_bubbles() -> void:
 			block_w = maxf(block_w, font.get_string_size(l, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE).x)
 		var sx: float = float(it["sx"])
 		var sy: float = float(it["sy"])
-		var top: float = sy - float(it["r"]) - BUBBLE_LIFT_PX - line_h * float(lines.size()) - BUBBLE_PAD_PX * 2.0
-		var plate := Rect2(Vector2(sx - block_w / 2.0 - BUBBLE_PAD_PX, top), Vector2(block_w + BUBBLE_PAD_PX * 2.0, line_h * float(lines.size()) + BUBBLE_PAD_PX * 2.0))
+		var plate: Rect2 = _bubble_plate(sx, sy, float(it["r"]), block_w, lines.size(), line_h)
 		var fill: Color = Chrome.PANEL
 		fill.a = 0.85 * alpha
-		draw_rect(plate, fill)
-		var edge: Color = Chrome.PANEL_EDGE
-		edge.a = alpha
-		draw_rect(plate, edge, false, 1.0)
+		if not Chrome.frame(self, plate, "panel_tooltip", 0.85 * alpha):
+			draw_rect(plate, fill)
+			var edge: Color = Chrome.PANEL_EDGE
+			edge.a = alpha
+			draw_rect(plate, edge, false, 1.0)
 		# A small tail pointing down at the head -- the one thing that reads a plate as spoken
-		# rather than as a floating card.
+		# rather than as a floating card. Coloured to meet the frame: the kit's tooltip texture is
+		# the same dark olive `fill` already was, at the frame's own opacity.
 		var tail_base_y: float = plate.position.y + plate.size.y
 		draw_colored_polygon(PackedVector2Array([Vector2(sx - 6.0, tail_base_y), Vector2(sx + 6.0, tail_base_y), Vector2(sx, tail_base_y + 7.0)]), fill)
 		# A zombie's sound-word draws dim (it is a noise, not somebody talking); everybody else in

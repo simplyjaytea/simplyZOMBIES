@@ -72,7 +72,6 @@ const UNUSED_STYLES: Dictionary = {
 # (docs/23's what's-left, "The UI Field Kit, live") that gives it one. A name leaves this list
 # in the commit that gives it a reader.
 const PENDING: Dictionary = {
-	"frame": "S4 The shell's rows are buttons, S6 Bubbles and the dashboard in kit frames",
 }
 
 # The owner's 2026-09-25 decision (docs/30, "The UI Field Kit, live"): the chrome draws at twice
@@ -1218,9 +1217,83 @@ func _keycaps_gutter(menu: GDScript) -> bool:
 # --- 8. OUTLIERS -------------------------------------------------------------------------------
 
 
+# The two screens the kit's panel/cell/item_plate/header trio doesn't reach, S6 "Bubbles and the
+# dashboard in kit frames": a speech bubble's plate (main.gd) and a vehicle's dashboard housing
+# (dashboard.gd, all three layouts) each frame themselves through `Chrome.frame(` rather than
+# drawing their own rect and rim. True positives: `_draw_bubbles` reaches `Chrome.frame(` naming
+# `"panel_tooltip"`; `_draw_cluster`, `_draw_handlebar` and `_draw_board` each reach
+# `Chrome.frame(`; and a representative one-line bubble, sized the same way `_draw_bubbles` sizes
+# one (through main.gd's own `_bubble_plate`, exposed so this lane never boots a scene), is at
+# least as large as the tooltip style's own margins -- proof the frame really draws instead of
+# falling back. True negatives, through the same comment-stripped `_bodies` scanner PANEL already
+# uses: a call present only in a comment, a body that only calls `draw_rect`, and a plate shrunk
+# under the margins.
+
+const DASHBOARD_GD: String = "res://ui/dashboard.gd"
+
+
 func _outliers_lane() -> bool:
-	print("SKIP OUTLIERS: not landed")
-	return true
+	var ok: bool = true
+	var main_bodies: Dictionary = _bodies(_text_of(MAIN_GD))
+	var dash_bodies: Dictionary = _bodies(_text_of(DASHBOARD_GD))
+
+	var bubble: String = String(main_bodies.get("_draw_bubbles", ""))
+	if bubble.is_empty():
+		push_error("OUTLIERS: %s has no `func _draw_bubbles(`" % MAIN_GD)
+		ok = false
+	elif not (bubble.contains("Chrome.frame(") and bubble.contains("panel_tooltip")):
+		push_error("OUTLIERS: _draw_bubbles does not reach Chrome.frame( naming \"panel_tooltip\"")
+		ok = false
+
+	for fn in ["_draw_cluster", "_draw_handlebar", "_draw_board"]:
+		var body: String = String(dash_bodies.get(fn, ""))
+		if body.is_empty():
+			push_error("OUTLIERS: %s has no `func %s(`" % [DASHBOARD_GD, fn])
+			ok = false
+		elif not body.contains("Chrome.frame("):
+			push_error("OUTLIERS: dashboard.gd's %s does not reach Chrome.frame(" % fn)
+			ok = false
+
+	# The bubble plate really draws the frame: a representative one-line bubble, sized main.gd's
+	# own way, clears panel_tooltip's own margins.
+	var m: Array[int] = Kit.margins("panel_tooltip")
+	var main_script: GDScript = load(MAIN_GD) as GDScript
+	if main_script == null:
+		push_error("OUTLIERS: %s did not load" % MAIN_GD)
+		ok = false
+	elif not main_bodies.has("_bubble_plate"):
+		push_error("OUTLIERS: %s has no static `_bubble_plate` to size a representative bubble with" % MAIN_GD)
+		ok = false
+	else:
+		var tag_size: int = int(main_script.get("TAG_SIZE"))
+		var chrome: GDScript = load(CHROME_GD) as GDScript
+		var font: Font = chrome.call("font") as Font
+		var line_h: float = float(tag_size) * 1.2
+		var block_w: float = font.get_string_size("hello there", HORIZONTAL_ALIGNMENT_LEFT, -1, tag_size).x
+		var plate: Rect2 = main_script.call("_bubble_plate", 400.0, 400.0, 20.0, block_w, 1, line_h)
+		if plate.size.x < float(m[0] + m[2]) or plate.size.y < float(m[1] + m[3]):
+			push_error("OUTLIERS: a representative one-line bubble plate %s is smaller than panel_tooltip's margins %s -- Chrome.frame would fall back" % [str(plate.size), str(m)])
+			ok = false
+
+	# True negatives: a call present only in a comment, and a body that only draws rectangles.
+	var commented: Dictionary = _bodies("func _draw_bubbles() -> void:\n\t# Chrome.frame(self, plate, \"panel_tooltip\", a)\n\tdraw_rect(plate, fill)\n")
+	var commented_body: String = String(commented.get("_draw_bubbles", ""))
+	if commented_body.contains("Chrome.frame(") and commented_body.contains("panel_tooltip"):
+		push_error("OUTLIERS: a fabricated _draw_bubbles that reaches the kit only in a comment passed")
+		ok = false
+	var rects_only: Dictionary = _bodies("func _draw_cluster() -> void:\n\tdraw_rect(panel, PANEL)\n\tdraw_rect(panel, RIM, false, 2.0)\n")
+	if String(rects_only.get("_draw_cluster", "")).contains("Chrome.frame("):
+		push_error("OUTLIERS: a fabricated _draw_cluster that only calls draw_rect passed")
+		ok = false
+	# A plate shrunk under the margins is caught -- the comparator that passed the shipped one.
+	var shrunk: Rect2 = Rect2(Vector2.ZERO, Vector2(float(m[0] + m[2]) - 1.0, float(m[1] + m[3]) - 1.0))
+	if shrunk.size.x >= float(m[0] + m[2]) and shrunk.size.y >= float(m[1] + m[3]):
+		push_error("OUTLIERS: a plate one pixel under the margins was not judged smaller -- the comparator cannot say no")
+		ok = false
+
+	if ok:
+		print("OUTLIERS OK _draw_bubbles and all three dashboard layouts reach Chrome.frame(; a representative one-line bubble clears panel_tooltip's margins; a commented call, a rect-only body and a shrunk plate each refused")
+	return ok
 
 
 # --- 9. CURSORS --------------------------------------------------------------------------------
