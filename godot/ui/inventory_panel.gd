@@ -33,6 +33,7 @@ const BagGrid = preload("res://ui/bag_grid.gd")
 const InspectPane = preload("res://ui/inspect_pane.gd")
 const ItemMenu = preload("res://ui/item_menu.gd")
 const QuickStrip = preload("res://ui/quick_strip.gd")
+const Motion = preload("res://ui/motion.gd")
 
 # PartState 0..3 as words. Same four grades the paperdoll tints, never a number.
 const PART_STATE_WORDS: Array[String] = ["unhurt", "hurt", "badly hurt", "unusable"]
@@ -87,6 +88,12 @@ var _drag_dims: Vector2i = Vector2i.ONE
 
 # What the inspect pane is talking about, and the plate that wears the ring.
 var _selected: int = -1
+# The selected plate's focus pulse (`ui/motion.gd`): which item it last started on, when on the wall
+# clock, and which frame the last draw left on screen -- so a new selection starts the breath from
+# its rest frame, and `_process` redraws the columns only when the frame turns over.
+var _pulse_item: int = -1
+var _pulse_since_ms: int = 0
+var _pulse_frame: int = -1
 # Nested containers the player has opened, as an Array of item ids rather than a Dictionary keyed
 # by one: an Array is what survives a save if this ever moves into one, and it is pruned against
 # the view every refresh so a bag that was dropped does not leave a column behind.
@@ -221,6 +228,19 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	if _drag_item != -1 and _ghost != null:
 		_ghost.queue_redraw()
+	# The selected plate's pulse: a columns redraw only while it is live and its frame has turned
+	# over, or once to settle it on its rest frame when reduced motion is thrown mid-breath.
+	if _open and _selected != -1 and _pulse_item == _selected and _column_layer != null:
+		var elapsed: float = _pulse_elapsed()
+		var still: bool = Motion.reduced()
+		if Motion.frame_of(Motion.PULSE_ID, elapsed, still) != _pulse_frame and (Motion.is_live(Motion.PULSE_ID, elapsed, still) or still):
+			_column_layer.queue_redraw()
+
+
+# Wall-clock seconds the selected plate has worn its pulse. Never the sim's tick: the sheet is open
+# on a paused game as often as a running one.
+func _pulse_elapsed() -> float:
+	return float(Time.get_ticks_msec() - _pulse_since_ms) / 1000.0
 
 
 func _sync_size() -> void:
@@ -1004,7 +1024,13 @@ func _draw_columns_into(ci: CanvasItem) -> void:
 	# The selection ring last, so it is never painted over by the next bag's panel.
 	if origin_for_selected is Dictionary:
 		var o: Dictionary = origin_for_selected as Dictionary
-		BagGrid.draw_item(ci, o["origin"] as Vector2, o["item"] as Dictionary, alpha, true, _world)
+		if _pulse_item != _selected:
+			_pulse_item = _selected
+			_pulse_since_ms = Time.get_ticks_msec()
+		_pulse_frame = BagGrid.draw_item(ci, o["origin"] as Vector2, o["item"] as Dictionary, alpha, true, _world, _pulse_elapsed())
+	else:
+		# Nothing selected on screen (none, or scrolled away): no pulse, so nothing to redraw for.
+		_pulse_item = -1
 
 
 # Every column's panel origin, {at, column}, in sheet coordinates: stacked down the column rect

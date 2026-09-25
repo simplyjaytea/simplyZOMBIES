@@ -587,10 +587,6 @@ pieces below are in the order they land, each one session, each with its gate re
 its record; the health-bar ban, the digit ban, the prose HUD and the busy loop's refusal to read
 time left are untouched.
 
-- **UI motion, and a reduced-motion switch.** `Motion.frame_of(id, elapsed, reduced)` is a pure
-  function of the wall clock giving a loop, one-shot and reduced frame; a new `reduced_motion`
-  pref (default off) gates `focus_pulse` on the shell's cursor row and the selected item, and
-  controls redraw only while an animation is live. Judged by the MOTION lane.
 - **Saved, picked up, busy.** `session.gd` gains a `saved` signal the HUD reads as a "saved" tick
   in the card header; the player's long-dead-socket `item.pickedUp` event finally gets a reader,
   `item_ping` on the slot; and a live channel (treatment, construct, rescue, refuel, siphon)
@@ -1983,21 +1979,28 @@ not a to-do list:
   font is still the engine fallback until "One typeface"; and some screens' content gutters,
   sized for the old hairline, now sit close to the ten-pixel border, which that same slice
   refits. **Edges by style, the owner's decision the same day**
-  ([docs/30](30-decisions.md#the-ui-field-kit-live-2026-09-25)): a `StyleBoxTexture`'s axis modes cover its edge strips as well as its centre, so tiling both
-  axes drew a fragment of every button and slot bracket along every border as a row of tick
-  marks, while stretching the edges lengthens a dashed line's dashes and every bracket arm in
-  them. `Kit.style` now hands back a cached `Kit.Style` pair drawn by one `.draw()`: the frame,
-  drawing no centre, and the centre alone (`region_rect` the texture inside the frame's margins),
-  always tiled. `slot_empty`, the six panels and the divider tile their edges (`Kit.EDGE_TILED`);
-  the buttons, the other slots and the keycap stretch theirs, at `Kit.BRACKET_MARGINS` — the
-  manifest's margins widened just enough to hold each bracket, seven of the ten wider (the focus
-  button's to [18, 10, 17, 10] native). KIT holds every consumed style to exactly one group,
-  each frame to its group's mode and margins, re-measures every widened margin on the native
-  pixels (no bracket ink carried across it into a stretched edge, and a pixel less on any widened
-  side lets some through), and checks every surface a style draws on still clears its doubled
-  margins; twenty-one fabricated disagreements are refused, among them a style in both groups and
-  in neither, a tiled-edge frame that stretches, a bracketed one that tiles, and the focus button
-  at the kit's own margins.
+  ([docs/30](30-decisions.md#the-ui-field-kit-live-2026-09-25)): a `StyleBoxTexture`'s axis modes
+  cover its edge strips as well as its centre, so tiling both axes drew a fragment of every button
+  and slot bracket along every border as a row of tick marks, while stretching the edges lengthens
+  a dashed line's dashes and every bracket arm in them. `Kit.style` now hands back a cached
+  `Kit.Style` pair drawn by one `.draw()`: the frame, drawing no centre, and the centre alone
+  (`region_rect` the texture inside the frame's margins), always tiled. `slot_empty`, the six
+  panels and the divider tile their edges (`Kit.EDGE_TILED`); the buttons, the other slots and the
+  keycap stretch theirs (`Kit.EDGE_STRETCHED`). Where a corner piece runs past the manifest's
+  margins the style draws at `Kit.WIDENED_MARGINS`, widened just enough to hold it: seven
+  bracketed styles (the focus button's to [18, 10, 17, 10] native) and, by the owner's follow-up
+  the same day, three panels whose corner highlight the tiled edge had repeated as a tick down the
+  rim (the pause dialog's to [14, 13, 12, 12]), plus `panel_danger` at [10, 11, 10, 10] set by
+  eye, because its red rim breaks along its whole length. KIT holds every consumed style to
+  exactly one group and each frame to its group's mode and margins; re-measures every frame's
+  corner piece on the native pixels (no ink carried across a margin into an edge strip, and a
+  pixel less on any widened side lets some through), with `panel_danger`'s remaining runs — the
+  rim's own — pinned at three and each of its widened sides required to remove one; and checks
+  every surface a style draws on, the HUD cards and dialogs included, still clears its doubled
+  margins. Twenty-six fabricated disagreements are refused, among them a style in both groups and
+  in neither, a tiled-edge frame that stretches, a bracketed one that tiles, the focus button and
+  the pause dialog each at the kit's own margins and a pixel wider than they need, and
+  `panel_danger` at the kit's margins.
 
 - **UI — one typeface, 2026-09-25.** The second piece of the "UI Field Kit, live" group
   ([docs/30](30-decisions.md#the-ui-field-kit-live-2026-09-25)). `Chrome.font()` loads the kit's
@@ -2209,6 +2212,43 @@ not a to-do list:
   filled, covering the cell's item under the ghost. The OS pointer itself is not judged — headless
   has none — and the outpost pack's crosshair and interaction hand (its open "The cursor" slice)
   will join this same table.
+
+- **UI — UI motion, and a reduced-motion switch, 2026-09-25.** The eighth piece of the "UI Field
+  Kit, live" group to land ([docs/30](30-decisions.md#the-ui-field-kit-live-2026-09-25)). A new
+  `ui/motion.gd` holds one table of the kit's four animations — `focus_pulse` 4 frames at 6 fps
+  looping, `busy` 4 at 8 looping, `item_ping` 4 at 12 once, `saved_tick` 4 at 10 once, each with
+  the manifest's reduced-motion frame (0, 0, 0 and 2) — and three pure functions of the wall
+  clock: `frame_of(id, elapsed, reduced)` wraps a loop, holds a one-shot on its last frame and
+  answers the reduced frame at any time; `is_live` is false under reduced motion and once a
+  one-shot has played; `texture_of` loads `animations/<id>_<n>.png` through `Kit.texture` at the
+  chrome's 2×. Callers measure `Time.get_ticks_msec()`, never the sim's tick, so the pulse
+  breathes on a paused game, and nothing under `godot/sim/` reads any of it. `ui/prefs.gd` gains
+  `reduced_motion: false`, and `settings_panel.gd` a third row, "reduced motion", drawn with the
+  kit's `control_toggle_on`/`control_toggle_off` at 2× in one rect the draw, the click and
+  `cursor_at`'s hand share; the panel grows a row. `focus_pulse` is drawn by
+  `Motion.draw_focus` — its four quadrants 1:1 in the corners of the focused rect grown by
+  `PULSE_OUTSET`, nothing stretched, because no bracket in any frame crosses the texture's centre
+  lines — around the shell's cursor row and, through a new `focus_s` argument to
+  `BagGrid.draw_item` that `inventory_panel.gd` feeds from its own clock, around the selected
+  plate. Both screens queue a redraw from `_process` only while `Motion.is_live` and only when the
+  frame turns over (six a second, not sixty), plus one to settle on the rest frame if the switch
+  is thrown mid-breath. **Gated** by `godot:check:ui_skin`'s MOTION lane, replacing its stub:
+  TABLE equals every manifest animation record and every frame resolves at the manifest's size
+  times `Kit.SCALE`; each frame lands half a frame in, loops agree one period apart, one-shots
+  hold, reduced motion gives the manifest's frame at nine elapsed times and without it some time
+  gives another; `is_live` is false under reduced motion and for a finished one-shot;
+  `PULSE_CORNER` and `PULSE_OUTSET` are re-measured on the pixels; `DEFAULTS` carries the pref
+  false; a click through the settings sheet's own `_gui_input` on the toggle flips `UiPrefs` and
+  `Motion.reduced()` and a click on its corner flips nothing, the gate putting the pref back as it
+  found it; and, comments stripped, the shell's `_draw` and `draw_item` reach
+  `Motion.draw_focus(`, the inventory hands it `_pulse_elapsed()`, and both `_process`es reach
+  `Motion.is_live(`. A wrong fps, an uncarried animation, ink on the cut and a commented reader
+  are each refused; the sabotage pass turned the lane red thirty ways, one per assertion.
+  **Half-shipped, on purpose:** `busy`, `item_ping` and `saved_tick` are in the table and judged,
+  and nothing draws them yet — their readers are the next piece, "Saved, picked up, busy". The
+  settings rows are mouse-only, the toggle with them: the router's `settings` focus lets Escape
+  through and nothing else, and keyboard rows there would be a change to that table. The redraw
+  saving is read off the code, not measured: headless draws nothing to count.
 
 - **Art delivery — the outpost asset pack, 2026-09-17.** The owner asked to put the
   approved standalone art delivery into the repository. It is preserved under

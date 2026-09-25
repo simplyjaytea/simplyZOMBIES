@@ -25,6 +25,7 @@ extends Control
 # could not do that; a gate that read the source could not tell a drawn string from a comment.
 
 const Chrome = preload("res://ui/chrome.gd")
+const Motion = preload("res://ui/motion.gd")
 
 # The four states, named again here rather than imported from `presentation/session.gd`: this is
 # a UI panel and the sim-side lifecycle is not its dependency. `show_state` takes the int.
@@ -84,6 +85,11 @@ var _rows: Array = []
 var _lines: Array[String] = []
 var _notice: String = ""
 var _hits: Array[Rect2] = []
+# The focus pulse on the cursor row (`ui/motion.gd`): when, on the wall clock, the cursor last came
+# to rest on a row -- so every move starts the breath from its rest frame -- and which frame the
+# last draw put on screen, so `_process` asks for a redraw only when the pulse turns over.
+var _focus_since_ms: int = 0
+var _pulse_frame: int = -1
 
 
 func _ready() -> void:
@@ -127,6 +133,7 @@ func show_state(next_state: int, ctx: Dictionary) -> void:
 				_lines.append("There is nobody left to be.")
 			_rows = OVER_ROWS.duplicate()
 	cursor = 0
+	_refocus()
 	visible = true
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	size = get_viewport_rect().size
@@ -187,10 +194,12 @@ func key(ke: InputEventKey) -> bool:
 	match ke.keycode:
 		KEY_UP, KEY_W:
 			cursor = (cursor - 1 + _rows.size()) % _rows.size()
+			_refocus()
 			queue_redraw()
 			return true
 		KEY_DOWN, KEY_S:
 			cursor = (cursor + 1) % _rows.size()
+			_refocus()
 			queue_redraw()
 			return true
 		KEY_ENTER, KEY_KP_ENTER:
@@ -202,6 +211,32 @@ func key(ke: InputEventKey) -> bool:
 			_act("escape")
 			return true
 	return false
+
+
+# The cursor came to rest on a row: its pulse starts over from the rest frame.
+func _refocus() -> void:
+	_focus_since_ms = Time.get_ticks_msec()
+
+
+# Seconds of wall clock the cursor row has worn its pulse -- never the sim's tick, so the pulse
+# keeps breathing on a paused game, which is where this menu is.
+func _focus_elapsed() -> float:
+	return float(Time.get_ticks_msec() - _focus_since_ms) / 1000.0
+
+
+# A redraw only while the pulse is live and only when its frame turns over: six a second at the
+# kit's six frames a second, none with the shell down. Under reduced motion the pulse is not live,
+# and the one redraw left is the one that settles it on its rest frame if the switch was thrown
+# mid-breath; after that, none.
+func _process(_delta: float) -> void:
+	if not visible or _rows.is_empty():
+		return
+	var elapsed: float = _focus_elapsed()
+	var still: bool = Motion.reduced()
+	if Motion.frame_of(Motion.PULSE_ID, elapsed, still) == _pulse_frame:
+		return
+	if Motion.is_live(Motion.PULSE_ID, elapsed, still) or still:
+		queue_redraw()
 
 
 func _choose(index: int) -> void:
@@ -226,6 +261,7 @@ func _gui_input(event: InputEvent) -> void:
 			if _hits[i].has_point(at):
 				if cursor != i:
 					cursor = i
+					_refocus()
 					queue_redraw()
 				break
 		mouse_default_cursor_shape = cursor_at(at) as Control.CursorShape
@@ -340,6 +376,10 @@ func _draw() -> void:
 		var ink: Color = Chrome.DANGER if is_danger else (Chrome.ACCENT if chosen else Chrome.TEXT)
 		draw_string(font, rect.position + Vector2(ROW_TEXT_X, ROW_H - 19.0), String((_rows[i] as Array)[1]), HORIZONTAL_ALIGNMENT_LEFT, -1, ROW_SIZE, ink)
 		y += ROW_H + ROW_GAP
+	# The focus pulse around the cursor row, after every row so the breath is never painted over by
+	# the row below it. Reduced motion stands it on its rest frame.
+	if cursor >= 0 and cursor < _hits.size():
+		_pulse_frame = Motion.draw_focus(self, _hits[cursor], _focus_elapsed(), Motion.reduced(), 0.98)
 	if not _notice.is_empty():
 		draw_string(font, Vector2(panel.position.x + PAD, y + LINE_H - 12.0), _notice, HORIZONTAL_ALIGNMENT_LEFT, panel.size.x - PAD * 2.0, LINE_SIZE, Chrome.DANGER)
 		y += LINE_H
