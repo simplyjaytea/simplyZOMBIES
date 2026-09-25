@@ -10,9 +10,9 @@ extends RefCounted
 const Chrome = preload("res://ui/chrome.gd")
 
 const ROW_H: float = 32.0
-const PAD_X: float = 16.0
-const PAD_Y: float = 8.0
-const FONT_SIZE: int = 18
+const PAD_X: float = 22.0
+const PAD_Y: float = 12.0
+const FONT_SIZE: int = 25
 const MIN_W: float = 150.0
 
 # The one verb that is the obvious thing to do with the item under the cursor, drawn in the accent

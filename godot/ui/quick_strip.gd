@@ -17,16 +17,16 @@ const SLOTS: int = 6
 const SLOT_W: float = 210.0
 const SLOT_H: float = 62.0
 const GAP: float = 12.0
-const KEY_SIZE: int = 15
-const NAME_SIZE: int = 18
+const KEY_SIZE: int = 20
+const NAME_SIZE: int = 25
 
 
 static func draw_strip(ci: CanvasItem, rect: Rect2, rows: Array, alpha: float) -> void:
 	Chrome.panel(ci, rect, alpha)
 	var font: Font = Chrome.font()
 	var lead: String = "belt and pockets"
-	ci.draw_string(font, rect.position + Vector2(20.0, rect.size.y / 2.0 + 5.0), lead, HORIZONTAL_ALIGNMENT_LEFT, -1, KEY_SIZE, Chrome.TEXT_DIM)
-	var x: float = rect.position.x + 20.0 + font.get_string_size(lead, HORIZONTAL_ALIGNMENT_LEFT, -1, KEY_SIZE).x + 24.0
+	ci.draw_string(font, rect.position + Vector2(24.0, rect.size.y / 2.0 + 6.0), lead, HORIZONTAL_ALIGNMENT_LEFT, -1, KEY_SIZE, Chrome.TEXT_DIM)
+	var x: float = rect.position.x + 24.0 + font.get_string_size(lead, HORIZONTAL_ALIGNMENT_LEFT, -1, KEY_SIZE).x + 24.0
 	var y: float = rect.position.y + (rect.size.y - SLOT_H) / 2.0
 	for i in SLOTS:
 		var box := Rect2(Vector2(x, y), Vector2(SLOT_W, SLOT_H))

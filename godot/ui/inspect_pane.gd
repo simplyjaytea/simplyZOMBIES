@@ -15,11 +15,11 @@ extends RefCounted
 const Chrome = preload("res://ui/chrome.gd")
 const UiText = preload("res://ui/text.gd")
 
-const PAD: float = 20.0
-const TITLE_SIZE: int = 24
-const BODY_SIZE: int = 18
-const LINE: float = 26.0
-const SMALL: int = 15
+const PAD: float = 24.0
+const TITLE_SIZE: int = 30
+const BODY_SIZE: int = 25
+const LINE: float = 28.0
+const SMALL: int = 20
 
 
 static func draw_pane(ci: CanvasItem, rect: Rect2, view: Dictionary, alpha: float) -> void:

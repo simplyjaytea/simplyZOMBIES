@@ -39,7 +39,11 @@ extends SceneTree
 #             main.gd, comments stripped -- the dead-socket rule. A helper waiting on its slice is
 #             named in PENDING and printed as a SKIP; a PENDING helper that gains a caller is a
 #             failure until it leaves the list; a fabricated name has no caller.
-#   FONT, GLYPHS, KEYCAPS, OUTLIERS, CURSORS, MOTION, EVENTS
+#   FONT      Chrome.font() is the kit's VT323 over the engine font, and nothing else under
+#             godot/ui/ or godot/presentation/ names the engine font; every text size is on
+#             Chrome.LADDER; every character the player can be shown is carried or named. Its five
+#             parts (FACE, FALLBACK, METRICS, SCAN, LADDER) are spelled out above `_font_lane`.
+#   GLYPHS, KEYCAPS, OUTLIERS, CURSORS, MOTION, EVENTS
 #             stubs, each printing `SKIP <LANE>: not landed` until its slice replaces it.
 
 const Kit = preload("res://ui/kit.gd")
@@ -649,9 +653,261 @@ func _helpers_lane() -> bool:
 # --- 5. FONT -----------------------------------------------------------------------------------
 
 
+# One typeface (docs/23's record, "UI -- one typeface"): every screen draws with `Chrome.font()`,
+# the kit's VT323 with the engine's font behind it, at a size on `Chrome.LADDER`.
+#
+#   FACE      Chrome.font() is a FontVariation over the kit's VT323-Pixel.res (by path and by the
+#             face's own name), the engine's fallback font in its fallbacks, the "fi" ligature
+#             off, one cached object; a fabricated variation over the engine font, one with no
+#             fallbacks and one with the ligature on each fail the same checks.
+#   FALLBACK  the fallback matters: VT323 lacks a letter the engine font carries. And every
+#             non-ASCII character a screen or the content can put in front of the player is in
+#             VT323, in the fallback, or named in FONT_NO_FACE with its reason -- a character in
+#             none of the three fails, and so does a fabricated one.
+#   METRICS   Chrome.ascent and line_height are the face's own, not the variation's, which a
+#             fallback stretches to the engine font's taller line -- shown by the two differing.
+#   SCAN      no .gd under godot/ui/ or godot/presentation/ but chrome.gd names
+#             `ThemeDB.fallback_font`, comments stripped; a fabricated source that does is caught
+#             and one that only says so in a comment is not.
+#   LADDER    every text size a screen names -- an int const called *SIZE, *FONT, *SMALL or
+#             *TIGHT, and every literal size in a draw_string or get_string_size call -- is on
+#             Chrome.LADDER; a fabricated 18 is caught both ways and a fabricated 25 is not.
+
+const FONT_PATH: String = "res://art/simplyzombies-ui/fonts/VT323-Pixel.res"
+const FONT_DIRS: Array[String] = ["res://ui/", "res://presentation/"]
+const CONTENT_DIR: String = "res://content/"
+# A letter VT323 does not carry and the engine font does: the proof the fallback is not dead.
+const FONT_FALLBACK_PROBE: String = "Ж"
+# Characters the screens draw that neither face carries, each with its reason. A desktop build
+# draws them through the operating system's own font fallback; the web build has none and draws a
+# box -- which was as true under the engine font as under VT323, because the engine font does not
+# carry them either (docs/23's record, "UI -- one typeface"). Named here so a new one cannot arrive
+# unconsidered; one no source uses any more is reported, not failed, so the slice that retires it
+# can take it off this list.
+const FONT_NO_FACE: Dictionary = {
+	"→": "the bench's offer line (bench_panel.gd); neither face has it -- the OS fallback draws it on desktop",
+	"▲": "the bench's better arrow (bench_panel.gd); \"The shell's rows are buttons\" turns it into a kit glyph",
+	"▼": "the bench's worse arrow (bench_panel.gd); \"The shell's rows are buttons\" turns it into a kit glyph",
+	"↔": "the bench's same arrow (bench_panel.gd); \"The shell's rows are buttons\" turns it into a kit glyph",
+}
+
+
 func _font_lane() -> bool:
-	print("SKIP FONT: not landed")
-	return true
+	var ok: bool = true
+	var chrome: GDScript = load(CHROME_GD) as GDScript
+	if chrome == null:
+		push_error("FONT: %s did not load" % CHROME_GD)
+		return false
+	var f: Variant = chrome.call("font")
+	var engine: Font = ThemeDB.fallback_font
+
+	# FACE, with a true negative for every check.
+	var faults: Array[String] = _font_faults(f)
+	if not faults.is_empty():
+		push_error("FACE: Chrome.font() %s" % "; ".join(faults))
+		ok = false
+	if chrome.call("font") != f:
+		push_error("FACE: Chrome.font() built a second object; it is cached, not built per draw")
+		ok = false
+	var base: FontFile = (f as FontVariation).base_font as FontFile if f is FontVariation else null
+	var over_engine := FontVariation.new()
+	over_engine.base_font = engine
+	over_engine.fallbacks = [engine]
+	over_engine.opentype_features = {"liga": 0}
+	var no_fallback := FontVariation.new()
+	no_fallback.base_font = base
+	no_fallback.opentype_features = {"liga": 0}
+	var ligatured := FontVariation.new()
+	ligatured.base_font = base
+	ligatured.fallbacks = [engine]
+	for fake in [[over_engine, "the engine font as its face"], [no_fallback, "no fallbacks"], [ligatured, "the ligature on"]]:
+		if _font_faults((fake as Array)[0]).is_empty():
+			push_error("FACE: a variation with %s passed the checks the shipped font is held to; they cannot say no" % String((fake as Array)[1]))
+			ok = false
+
+	# FALLBACK: the fallback carries something the face does not, and every character the player
+	# can be shown is carried by one of them or named.
+	var probe: int = FONT_FALLBACK_PROBE.unicode_at(0)
+	if base == null or base.has_char(probe) or not engine.has_char(probe):
+		push_error("FALLBACK: VT323 should lack %s and the engine font carry it; the fallback proves nothing" % FONT_FALLBACK_PROBE)
+		ok = false
+	if _font_files(CONTENT_DIR, ".json").size() < 10:
+		push_error("FALLBACK: fewer than ten content files under %s; the coverage check judged too little" % CONTENT_DIR)
+		ok = false
+	var shown: Dictionary = _font_shown_chars()
+	var uncovered: Array[String] = _font_uncovered(base, engine, shown.keys())
+	if not uncovered.is_empty():
+		push_error("FALLBACK: neither VT323 nor the engine font carries %s, and FONT_NO_FACE does not name it (first seen in %s)" % [str(uncovered), str(uncovered.map(func(c: String) -> String: return String(shown[c])))])
+		ok = false
+	if _font_uncovered(base, engine, ["ↂ"]).is_empty():
+		push_error("FALLBACK: a character no face carries passed the coverage check; it cannot say no")
+		ok = false
+	for c in FONT_NO_FACE.keys():
+		if not shown.has(c):
+			print("NOTE FALLBACK: FONT_NO_FACE names %s and no source draws it any more; take it off the list" % String(c))
+
+	# METRICS: the helpers answer with the face's line, and the variation's own would not.
+	if base != null:
+		var face_ascent: float = base.get_ascent(25)
+		if float(chrome.call("ascent", 25)) != face_ascent or float(chrome.call("line_height", 25)) != base.get_height(25):
+			push_error("METRICS: Chrome.ascent/line_height at 25 are not VT323's own %.0f/%.0f" % [face_ascent, base.get_height(25)])
+			ok = false
+		if (f as Font).get_ascent(25) == face_ascent:
+			push_error("METRICS: the variation's ascent equals the face's; the fallback no longer stretches it and the helpers' reason is gone -- re-read them")
+			ok = false
+
+	# SCAN: nobody but chrome.gd names the engine font.
+	var sources: Dictionary = _font_sources()
+	var named: Array[String] = []
+	for path in sources.keys():
+		if String(path) != CHROME_GD and _font_names_engine(String(sources[path])):
+			named.append(String(path))
+	if not named.is_empty():
+		push_error("SCAN: %s name ThemeDB.fallback_font; every screen draws with Chrome.font()" % str(named))
+		ok = false
+	if not _font_names_engine(_code_of("func _draw() -> void:\n\tvar f: Font = ThemeDB.fallback_font\n")):
+		push_error("SCAN: a fabricated source naming the engine font passed; the scanner cannot say no")
+		ok = false
+	if _font_names_engine(_code_of("func _draw() -> void:\n\t# was ThemeDB.fallback_font\n\tvar f: Font = Chrome.font()\n")):
+		push_error("SCAN: a comment was read as code; the scanner cannot say yes")
+		ok = false
+	if sources.size() < 10:
+		push_error("SCAN: only %d sources read under %s; the scan judged too little" % [sources.size(), str(FONT_DIRS)])
+		ok = false
+
+	# LADDER: every size a screen names is a rung.
+	var ladder: Array = chrome.get("LADDER") as Array if chrome.get("LADDER") is Array else []
+	if ladder.is_empty():
+		push_error("LADDER: chrome.gd has no LADDER to hold the sizes to")
+		ok = false
+	var off: Array[String] = []
+	var judged: int = 0
+	for path in sources.keys():
+		var found: Array = _font_sizes(String(sources[path]))
+		judged += found.size()
+		for hit in found:
+			if not ladder.has(int((hit as Array)[0])):
+				off.append("%s: %s" % [String(path).get_file(), String((hit as Array)[1])])
+	if not off.is_empty():
+		push_error("LADDER: text sizes off %s: %s" % [str(ladder), str(off)])
+		ok = false
+	if judged < 20:
+		push_error("LADDER: only %d sizes found; the scan judged too little" % judged)
+		ok = false
+	var bad_const: Array = _font_sizes("const BODY_SIZE: int = 18\n")
+	var bad_call: Array = _font_sizes("\tdraw_string(f, p, s, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, c)\n")
+	var good_call: Array = _font_sizes("\tdraw_string(f, p, s, HORIZONTAL_ALIGNMENT_LEFT, -1, 25, c)\n")
+	if bad_const.size() != 1 or ladder.has(int((bad_const[0] as Array)[0])) or bad_call.size() != 1 or ladder.has(int((bad_call[0] as Array)[0])):
+		push_error("LADDER: a fabricated 18, as a const and as a call, was not caught; the scan cannot say no")
+		ok = false
+	if good_call.size() != 1 or not ladder.has(int((good_call[0] as Array)[0])):
+		push_error("LADDER: a fabricated 25 was not read as on the ladder; the scan cannot say yes")
+		ok = false
+
+	if ok:
+		print("FONT OK Chrome.font() is VT323 over the engine font, ligature off, cached, and three fabricated variations fail; the fallback carries %s and VT323 does not; %d characters the player can be shown are each carried or named (%d named); the metrics are the face's; %d sources name no engine font; %d text sizes all on %s" % [FONT_FALLBACK_PROBE, shown.size(), FONT_NO_FACE.size(), sources.size(), judged, str(ladder)])
+	return ok
+
+
+# What is wrong with `f` as the one UI font, or nothing.
+func _font_faults(f: Variant) -> Array[String]:
+	var out: Array[String] = []
+	if not (f is FontVariation):
+		out.append("is not a FontVariation")
+		return out
+	var v: FontVariation = f as FontVariation
+	var base: Font = v.base_font
+	if not (base is FontFile) or (base.resource_path != FONT_PATH and base.get_font_name() != "VT323"):
+		out.append("is not over the kit's VT323 (%s)" % (base.resource_path if base != null else "no base"))
+	if not v.fallbacks.has(ThemeDB.fallback_font):
+		out.append("has no engine fallback behind it")
+	var line := TextLine.new()
+	line.add_string("first", v, 25)
+	if TextServerManager.get_primary_interface().shaped_text_get_glyph_count(line.get_rid()) != 5:
+		out.append("shapes \"first\" as other than five cells (a ligature is on)")
+	return out
+
+
+# Every non-ASCII character in a string literal of a screen's code, and in the content's text,
+# mapped to the first file it was seen in.
+func _font_shown_chars() -> Dictionary:
+	var out: Dictionary = {}
+	var sources: Dictionary = _font_sources()
+	for path in sources.keys():
+		for lit in _font_literals(String(sources[path])):
+			for c in String(lit):
+				if c.unicode_at(0) > 126 and not out.has(c):
+					out[c] = String(path).get_file()
+	for path in _font_files(CONTENT_DIR, ".json"):
+		for c in _text_of(path):
+			if c.unicode_at(0) > 126 and not out.has(c):
+				out[c] = path.get_file()
+	return out
+
+
+# The characters in `chars` neither face carries and FONT_NO_FACE does not name.
+func _font_uncovered(base: Font, engine: Font, chars: Array) -> Array[String]:
+	var out: Array[String] = []
+	for c_v in chars:
+		var c: String = String(c_v)
+		var code: int = c.unicode_at(0)
+		if base != null and base.has_char(code):
+			continue
+		if engine.has_char(code) or FONT_NO_FACE.has(c):
+			continue
+		out.append(c)
+	return out
+
+
+func _font_names_engine(code: String) -> bool:
+	return code.contains("ThemeDB.fallback_font")
+
+
+# Every .gd under FONT_DIRS, comment-stripped, by path.
+func _font_sources() -> Dictionary:
+	var out: Dictionary = {}
+	for d in FONT_DIRS:
+		for path in _font_files(d, ".gd"):
+			out[path] = _code_of(_text_of(path))
+	return out
+
+
+func _font_files(dir_path: String, ext: String) -> Array[String]:
+	var out: Array[String] = []
+	var dir: DirAccess = DirAccess.open(dir_path)
+	if dir == null:
+		return out
+	for f in dir.get_files():
+		if f.ends_with(ext):
+			out.append(dir_path + f)
+	for sub in dir.get_directories():
+		out.append_array(_font_files(dir_path + sub + "/", ext))
+	return out
+
+
+# The contents of every double-quoted string literal in comment-stripped code.
+func _font_literals(code: String) -> Array[String]:
+	var out: Array[String] = []
+	var re := RegEx.new()
+	re.compile("\"((?:[^\"\\\\]|\\\\.)*)\"")
+	for m in re.search_all(code):
+		out.append(m.get_string(1))
+	return out
+
+
+# Every text size a source names, as [size, the text that named it]: an int const whose name
+# ends in a size word, and a literal size after a draw_string/get_string_size alignment and width.
+func _font_sizes(code: String) -> Array:
+	var out: Array = []
+	var konst := RegEx.new()
+	konst.compile("(?m)^const ([A-Z0-9_]*(?:SIZE|FONT|SMALL|TIGHT)[A-Z0-9_]*): int = (\\d+)\\s*$")
+	for m in konst.search_all(code):
+		out.append([int(m.get_string(2)), m.get_string(0).strip_edges()])
+	var call := RegEx.new()
+	call.compile("HORIZONTAL_ALIGNMENT_[A-Z]+,\\s*[^,()\\n]+,\\s*(\\d+)\\s*[,)]")
+	for m in call.search_all(code):
+		out.append([int(m.get_string(1)), m.get_string(0)])
+	return out
 
 
 # --- 6. GLYPHS ---------------------------------------------------------------------------------

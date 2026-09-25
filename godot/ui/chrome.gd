@@ -44,11 +44,75 @@ const HEADER_INSET: float = 5.0 * Kit.SCALE
 const DIVIDER_H: float = 4.0 * Kit.SCALE
 const GLYPH_SMALL: float = 16.0 * Kit.GLYPH_SCALE
 const KEYCAP_MIN: float = 24.0
-const FONT_SIZE: int = 20
+const FONT_SIZE: int = 25
+# Every size a screen draws text at. 25 and 50 are VT323's pixel-exact sizes; 20 and 30 are the
+# rungs either side of 25 a layout may take when 25 is too big for a dense grid or too small for
+# a line meant to be read across the room. `godot:check:ui_skin`'s FONT lane refuses a text size
+# under godot/ui/ or in main.gd that is not on this list.
+const LADDER: Array[int] = [20, 25, 30, 50]
+
+# The one typeface (docs/30, "The UI Field Kit, live"): the kit's VT323, as the kit itself
+# configured it for Godot -- `VT323-Pixel.res` is the TTF with antialiasing and hinting off, so
+# a glyph lands as hard pixels -- with the engine's own fallback font behind it. VT323 draws on a
+# grid of 0.04 em, so it is pixel-exact at 25 px (one font pixel, one screen pixel) and at 50, and
+# every size a screen asks for is on the ladder in docs/23's record, "UI -- one typeface".
+#
+# Loaded lazily and never through `preload`, for the reason kit.gd gives about the kit's .tres:
+# nothing is imported in a headless gate. The .res is a self-contained FontFile and does load
+# there, but a preload that ever failed would stop this file compiling for every screen, and a
+# `load` that fails only falls back to the engine font.
+const FONT_PATH: String = "res://art/simplyzombies-ui/fonts/VT323-Pixel.res"
+
+# Built once: a FontVariation is a Resource, and a new one per draw would churn a resource per
+# string per frame. Static for the reason kit.gd's caches are -- it is derived from a file on
+# disk, identical for every world, and nothing under godot/sim/ reads it.
+static var _font: Font = null
 
 
+# The font every screen draws with. The fallback chain is the engine's font: VT323 carries Latin,
+# and what it lacks (Cyrillic, some Greek and symbols) falls through to it before the OS's own
+# fallback is asked -- which is where → ▲ ▼ ↔ come from, since neither face has them. It is the only place in godot/ui/ and godot/presentation/ that names the
+# engine font; `godot:check:ui_skin`'s FONT lane holds every other file to that.
 static func font() -> Font:
-	return ThemeDB.fallback_font
+	if _font != null:
+		return _font
+	var base: Resource = load(FONT_PATH) if ResourceLoader.exists(FONT_PATH) else null
+	if not (base is FontFile):
+		_font = ThemeDB.fallback_font
+		return _font
+	var v := FontVariation.new()
+	v.base_font = base as FontFile
+	v.fallbacks = [ThemeDB.fallback_font]
+	# VT323 carries an "fi" ligature, which on a monospace pixel face draws "first" one cell short
+	# and breaks the grid every other word sits on; a measured width would disagree with a
+	# counted one. Off.
+	v.opentype_features = {"liga": 0}
+	_font = v
+	return _font
+
+
+# The typeface's own ascent, line height and capital height at `size`. Not `font().get_ascent`:
+# a Font's metrics are the tallest of it and its fallbacks, so the variation above answers with
+# the engine font's taller line (35 px at 25, where VT323's is 25) while every glyph it draws is
+# VT323's. A layout that centres or stacks lines asks these instead.
+static func ascent(size: int) -> float:
+	return _metrics().get_ascent(size)
+
+
+static func line_height(size: int) -> float:
+	return _metrics().get_height(size)
+
+
+# VT323's capitals are 0.56 em against an ascent of 0.8 em.
+static func cap_height(size: int) -> float:
+	return roundf(ascent(size) * 0.7)
+
+
+static func _metrics() -> Font:
+	var f: Font = font()
+	if f is FontVariation and (f as FontVariation).base_font != null:
+		return (f as FontVariation).base_font
+	return f
 
 
 # A panel: the kit's panel_standard frame at the given opacity, then its border alone at a
@@ -81,8 +145,16 @@ static func header(ci: CanvasItem, rect: Rect2, label: String, alpha: float, gly
 	if not glyph_name.is_empty() and Kit.glyph(glyph_name, true) != null:
 		glyph(ci, glyph_name, r.position + Vector2(x, floorf((HEADER_H - GLYPH_SMALL) / 2.0)), true, alpha)
 		x += GLYPH_SMALL + 8.0
-	ci.draw_string(font(), r.position + Vector2(x, HEADER_H - 13.0), label.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, TEXT)
+	ci.draw_string(font(), r.position + Vector2(x, header_baseline(inset)), label.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, TEXT)
 	return rect.position.y + HEADER_H
+
+
+# Where a header label's baseline sits below the panel's top: its capitals centred in the strip
+# between the frame's border and the divider, from the font's own metrics rather than a
+# hand-tuned offset -- so a hint a screen draws at the header's far end sits on the same line.
+static func header_baseline(inset: float = HEADER_INSET) -> float:
+	var cap: float = cap_height(FONT_SIZE)
+	return floorf(inset + (HEADER_H - DIVIDER_H - inset - cap) / 2.0 + cap)
 
 
 # One grid cell backing: the kit's empty slot.
@@ -127,7 +199,7 @@ static func keycap(ci: CanvasItem, at: Vector2, label: String, size: int, alpha:
 	var ink: Color = TEXT
 	ink.a = alpha
 	var f: Font = font()
-	var base: float = floorf(r.position.y + (h - f.get_height(size)) / 2.0 + f.get_ascent(size))
+	var base: float = floorf(r.position.y + (h - line_height(size)) / 2.0 + ascent(size))
 	ci.draw_string(f, Vector2(r.position.x + floorf((w - text_w) / 2.0), base), label, HORIZONTAL_ALIGNMENT_LEFT, -1, size, ink)
 	return w
 

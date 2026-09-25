@@ -93,7 +93,7 @@ func _draw() -> void:
 	var font: Font = Chrome.font()
 	for i in ROWS.size():
 		var label_y: float = p.position.y + Chrome.HEADER_H + 44.0 + float(i) * ROW_H + 34.0
-		draw_string(font, Vector2(p.position.x + 40.0, label_y), String(ROWS[i]["label"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Chrome.TEXT)
+		draw_string(font, Vector2(p.position.x + 40.0, label_y), String(ROWS[i]["label"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 25, Chrome.TEXT)
 		var track: Rect2 = _track_rect(i)
 		draw_rect(track, Chrome.CELL_EDGE)
 		var t: float = inverse_lerp(_floor_of(i), 1.0, UiPrefs.level(String(ROWS[i]["key"])))
@@ -103,4 +103,4 @@ func _draw() -> void:
 		draw_circle(handle, HANDLE_R, Chrome.TEXT)
 		draw_circle(handle, HANDLE_R, Chrome.ACCENT, false, 2.0)
 	var hint_y: float = p.position.y + PANEL_SIZE.y - 28.0
-	draw_string(font, Vector2(p.position.x + 40.0, hint_y), "Esc to close · changes apply immediately", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Chrome.TEXT_DIM)
+	draw_string(font, Vector2(p.position.x + 40.0, hint_y), "Esc to close · changes apply immediately", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)

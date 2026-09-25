@@ -17,7 +17,7 @@ const ItemGlyph = preload("res://presentation/item_glyph.gd")
 const Chrome = preload("res://ui/chrome.gd")
 # The tag beside the player's body: big enough to read at a glance mid-fight, small enough that it
 # is not competing with the HUD's own columns.
-const TAG_SIZE: int = 20
+const TAG_SIZE: int = 25
 const LightLook = preload("res://presentation/light_look.gd")
 const RoadPaint = preload("res://presentation/road_paint.gd")
 const RoofLook = preload("res://presentation/roof_look.gd")
@@ -444,20 +444,6 @@ func _ensure_ui() -> void:
 		_hud = hud_script.new() as Control
 		_hud.name = "Hud"
 		layer.add_child(_hud)
-	# The keys, shown on a fresh run so the bindings are discoverable without README.md -- and
-	# only until the player says otherwise. `legend_dismissed` is a presentation pref, not save
-	# state: it survives the run's death the way the panel opacity does, because "a legend you
-	# cannot turn off is a legend you resent" was never meant to mean "for this run only".
-	#
-	# Built hidden since the alpha shell: the game opens on the title now, and a panel of keys
-	# over a menu is a panel about a game you have not started. `_enter_state` raises it on the
-	# first entry to PLAYING instead, reading the same pref.
-	var legend_script: GDScript = load("res://ui/legend.gd") as GDScript
-	if legend_script != null:
-		_legend = legend_script.new() as Control
-		_legend.name = "Legend"
-		_legend.visible = false
-		layer.add_child(_legend)
 	# inventory layer (always present: draws the full screen on Tab, and any pinned bag
 	# windows while playing; input passes through it when closed)
 	var inv_script: GDScript = load("res://ui/inventory_panel.gd") as GDScript
@@ -525,6 +511,24 @@ func _ensure_ui() -> void:
 		_debug_panel.position = Vector2(16, 120)
 		_debug_panel.size = Vector2(480, 820)
 		layer.add_child(_debug_panel)
+	# The keys, shown on a fresh run so the bindings are discoverable without README.md -- and
+	# only until the player says otherwise. `legend_dismissed` is a presentation pref, not save
+	# state: it survives the run's death the way the panel opacity does, because "a legend you
+	# cannot turn off is a legend you resent" was never meant to mean "for this run only".
+	#
+	# Built hidden since the alpha shell: the game opens on the title now, and a panel of keys
+	# over a menu is a panel about a game you have not started. `_enter_state` raises it on the
+	# first entry to PLAYING instead, reading the same pref.
+	#
+	# Added here, after the corner doll, the quick strip's layer and the dashboard, because the
+	# legend is a layer *over* the street and dims it: before them, the strip and the doll drew on
+	# top of its wash and, on a window as short as 720, over its last rows.
+	var legend_script: GDScript = load("res://ui/legend.gd") as GDScript
+	if legend_script != null:
+		_legend = legend_script.new() as Control
+		_legend.name = "Legend"
+		_legend.visible = false
+		layer.add_child(_legend)
 	# settings, opened from the pause menu, over every other screen but the shell
 	var settings_script: GDScript = load("res://ui/settings_panel.gd") as GDScript
 	if settings_script != null:
@@ -2132,8 +2136,8 @@ func _draw_entities() -> void:
 		if bool(it["player"]):
 			var tag: String = HudRead.pawn_tag(world, eid)
 			if not tag.is_empty():
-				var tag_font: Font = ThemeDB.fallback_font
-				var tag_at := Vector2(sx + r + 10.0, sy - r - 6.0)
+				var tag_font: Font = Chrome.font()
+				var tag_at := Vector2(sx + r + 10.0, sy - r - 6.0).round()
 				# A dark backing pass rather than a panel: the tag sits on the street, and a box
 				# round it would read as chrome rather than as something you noticed.
 				draw_string(tag_font, tag_at + Vector2(1.0, 1.0), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, Color(0.0, 0.0, 0.0, 0.85))

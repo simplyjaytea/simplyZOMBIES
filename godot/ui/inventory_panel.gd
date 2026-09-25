@@ -54,7 +54,7 @@ const SLOT_W: float = 190.0
 const SLOT_H: float = 58.0
 const SLOT_TOP: float = 78.0
 const SLOT_STEP: float = 74.0
-const SLOT_INSET: float = 16.0
+const SLOT_INSET: float = 24.0
 # The figure sits in the gap the two columns leave, and is sized from it rather than by eye: at
 # 660 wide with 190-wide slots inset 16, that gap is 248 px. A doll wider than the gap draws its
 # own stance word over the belt slot, which is how this number was found.
@@ -326,11 +326,11 @@ func _draw_loot_into(ci: CanvasItem) -> void:
 	var font: Font = Chrome.font()
 	var word: String = "take all that fits"
 	var at := Vector2(LOOT_PAD, rect.size.y - 12.0)
-	ci.draw_string(font, at, word, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Chrome.ACCENT)
-	_loot_hit.append({"rect": _word_rect(font, at, word, 18), "verb": "takeAll"})
+	ci.draw_string(font, at, word, HORIZONTAL_ALIGNMENT_LEFT, -1, 25, Chrome.ACCENT)
+	_loot_hit.append({"rect": _word_rect(font, at, word, 25), "verb": "takeAll"})
 	var hint: String = "drag between them · Esc closes"
-	var hw: float = font.get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
-	ci.draw_string(font, Vector2(rect.size.x - hw - LOOT_PAD, rect.size.y - 12.0), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Chrome.TEXT_DIM)
+	var hw: float = font.get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+	ci.draw_string(font, Vector2(rect.size.x - hw - LOOT_PAD, rect.size.y - 12.0), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
 
 
 func _loot_input(event: InputEvent) -> void:
@@ -750,7 +750,7 @@ func _draw() -> void:
 	var alpha: float = UiPrefs.opacity("inventory_opacity")
 	var font: Font = Chrome.font()
 	if _view.is_empty():
-		draw_string(font, Vector2(PAD, PAD + 32.0), "no inventory", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Chrome.TEXT_DIM)
+		draw_string(font, Vector2(PAD, PAD + 32.0), "no inventory", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, Chrome.TEXT_DIM)
 		return
 	_draw_body(font, alpha)
 	if _column_layer != null:
@@ -782,12 +782,12 @@ func _draw_body(font: Font, alpha: float) -> void:
 		var it: Variant = _slot_item(String(box["slot"]))
 		draw_rect(rect, Chrome.SLOT_EMPTY)
 		draw_rect(rect, Chrome.PANEL_EDGE, false, 2.0)
-		draw_string(font, rect.position + Vector2(10.0, 18.0), String(box["slot"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Chrome.TEXT_DIM)
+		draw_string(font, rect.position + Vector2(10.0, 20.0), String(box["slot"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
 		if it is Dictionary:
-			var name: String = UiText.fit(font, String((it as Dictionary).get("name", "")), 18, SLOT_W - 20.0)
-			draw_string(font, rect.position + Vector2(10.0, 44.0), name, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Chrome.TEXT)
+			var name: String = UiText.fit(font, String((it as Dictionary).get("name", "")), 25, SLOT_W - 20.0)
+			draw_string(font, rect.position + Vector2(10.0, 46.0), name, HORIZONTAL_ALIGNMENT_LEFT, -1, 25, Chrome.TEXT)
 		else:
-			draw_string(font, rect.position + Vector2(10.0, 44.0), "nothing", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Chrome.TEXT_FAINT)
+			draw_string(font, rect.position + Vector2(10.0, 46.0), "nothing", HORIZONTAL_ALIGNMENT_LEFT, -1, 25, Chrome.TEXT_FAINT)
 	# The condition readout: only the parts with something to say, as prose under the doll. Same
 	# read model as the doll's tints and the HUD -- states and words, never a number (docs/01
 	# clause 4; check_ban_health_bar.gd).
@@ -799,17 +799,17 @@ func _draw_body(font: Font, alpha: float) -> void:
 	var cx: float = body.position.x + body.size.x / 2.0
 	if lines.is_empty():
 		var none: String = "no injuries"
-		draw_string(font, Vector2(cx - font.get_string_size(none, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x / 2.0, ly), none, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
+		draw_string(font, Vector2(roundf(cx - font.get_string_size(none, HORIZONTAL_ALIGNMENT_LEFT, -1, 25).x / 2.0), ly), none, HORIZONTAL_ALIGNMENT_LEFT, -1, 25, Chrome.TEXT_DIM)
 	else:
 		for line in lines:
 			var d2: Dictionary = line as Dictionary
 			var text: String = String(d2["text"])
-			var tw: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
-			draw_string(font, Vector2(cx - tw / 2.0, ly), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, d2["colour"] as Color)
+			var tw: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 25).x
+			draw_string(font, Vector2(roundf(cx - tw / 2.0), ly), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 25, d2["colour"] as Color)
 			ly += 28.0
 	_draw_responses(font, body, ly + 10.0)
 	var hint: String = "drag between bags · right-click for what you can do · R turns it"
-	draw_string(font, Vector2(body.position.x + SLOT_INSET, body.position.y + body.size.y - 22.0), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Chrome.TEXT_DIM)
+	draw_string(font, Vector2(body.position.x + SLOT_INSET, body.position.y + body.size.y - 22.0), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
 
 
 # Called by the clipped child, and drawing into it: `at` is built in sheet coordinates so the
@@ -843,8 +843,8 @@ func _draw_columns_into(ci: CanvasItem) -> void:
 	if _column_height() > area.size.y:
 		var font: Font = Chrome.font()
 		var note: String = "wheel to scroll"
-		var nw: float = font.get_string_size(note, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
-		ci.draw_string(font, Vector2(area.size.x - nw, area.size.y - 6.0), note, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Chrome.TEXT_DIM)
+		var nw: float = font.get_string_size(note, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+		ci.draw_string(font, Vector2(area.size.x - nw, area.size.y - 6.0), note, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
 	# The selection ring last, so it is never painted over by the next bag's panel.
 	if origin_for_selected is Dictionary:
 		var o: Dictionary = origin_for_selected as Dictionary
@@ -878,30 +878,32 @@ func _draw_responses(font: Font, body: Rect2, y: float) -> void:
 	var sep: String = " · "
 	# Centred by measurement, the way the condition lines above are, rather than nudged by a
 	# constant: a second response one day must not push the first off centre.
-	var total: float = font.get_string_size(lead, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+	var total: float = font.get_string_size(lead, HORIZONTAL_ALIGNMENT_LEFT, -1, 25).x
 	for i in rows.size():
-		total += font.get_string_size(String((rows[i] as Dictionary).get("text", "")), HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+		total += font.get_string_size(String((rows[i] as Dictionary).get("text", "")), HORIZONTAL_ALIGNMENT_LEFT, -1, 25).x
 		if i < rows.size() - 1:
-			total += font.get_string_size(sep, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
-	var at: float = body.position.x + body.size.x / 2.0 - total / 2.0
-	draw_string(font, Vector2(at, y), lead, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
-	at += font.get_string_size(lead, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+			total += font.get_string_size(sep, HORIZONTAL_ALIGNMENT_LEFT, -1, 25).x
+	var at: float = roundf(body.position.x + body.size.x / 2.0 - total / 2.0)
+	draw_string(font, Vector2(at, y), lead, HORIZONTAL_ALIGNMENT_LEFT, -1, 25, Chrome.TEXT_DIM)
+	at += font.get_string_size(lead, HORIZONTAL_ALIGNMENT_LEFT, -1, 25).x
 	for i in rows.size():
 		var row: Dictionary = rows[i] as Dictionary
 		var word: String = String(row.get("text", ""))
-		draw_string(font, Vector2(at, y), word, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.ACCENT)
-		_hit.append({"rect": _word_rect(font, Vector2(at, y), word, 20), "verb": String(row.get("verb", ""))})
-		at += font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+		draw_string(font, Vector2(at, y), word, HORIZONTAL_ALIGNMENT_LEFT, -1, 25, Chrome.ACCENT)
+		_hit.append({"rect": _word_rect(font, Vector2(at, y), word, 25), "verb": String(row.get("verb", ""))})
+		at += font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, 25).x
 		if i < rows.size() - 1:
-			draw_string(font, Vector2(at, y), sep, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
-			at += font.get_string_size(sep, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+			draw_string(font, Vector2(at, y), sep, HORIZONTAL_ALIGNMENT_LEFT, -1, 25, Chrome.TEXT_DIM)
+			at += font.get_string_size(sep, HORIZONTAL_ALIGNMENT_LEFT, -1, 25).x
 
 
 # The one place a word's extent is measured, so the rectangle that is drawn and the rectangle that
 # is clicked cannot drift apart. Same shape as work_panel.gd's, which set the convention.
 func _word_rect(font: Font, at: Vector2, word: String, font_size: int) -> Rect2:
 	var w: float = font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
-	return Rect2(Vector2(at.x, at.y - float(font_size) * 0.8), Vector2(w, float(font_size) * 1.15))
+	# The typeface's own ascent and line height (Chrome's, which a fallback cannot stretch), not a
+	# fraction of the size: the fraction was the engine font's, and VT323's line is a fifth shorter.
+	return Rect2(Vector2(at.x, at.y - Chrome.ascent(font_size)), Vector2(w, Chrome.line_height(font_size)))
 
 
 # One prose line per part that has anything to report: "left arm — badly hurt · bleeding".
