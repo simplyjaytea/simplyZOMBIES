@@ -742,7 +742,7 @@ func _draw() -> void:
 	# Control ignores the mouse while closed, so nothing here can eat a click meant for the world.
 	if not _open:
 		if _world != null and not _view.is_empty():
-			QuickStrip.draw_strip(self, QuickStrip.rect_for(view, PAD, STRIP_H), SimInventory.quick_strip_view(_world, _actor), UiPrefs.opacity("inventory_opacity"))
+			QuickStrip.draw_strip(self, QuickStrip.rect_for(view, PAD, STRIP_H), SimInventory.quick_strip_view(_world, _actor), UiPrefs.opacity("inventory_opacity"), _selected)
 		return
 	var dim: Color = Chrome.FIELD
 	dim.a = 0.88
@@ -759,7 +759,7 @@ func _draw() -> void:
 		_column_layer.size = area.size
 		_column_layer.queue_redraw()
 	InspectPane.draw_pane(self, _inspect_rect(), _inspect_view(), alpha)
-	QuickStrip.draw_strip(self, QuickStrip.rect_for(view, PAD, STRIP_H), SimInventory.quick_strip_view(_world, _actor) if _world != null else [], alpha)
+	QuickStrip.draw_strip(self, QuickStrip.rect_for(view, PAD, STRIP_H), SimInventory.quick_strip_view(_world, _actor) if _world != null else [], alpha, _selected)
 	ItemMenu.draw_menu(self, _menu_at, _menu_verbs, alpha)
 
 
@@ -772,7 +772,7 @@ func _inspect_view() -> Dictionary:
 func _draw_body(font: Font, alpha: float) -> void:
 	var body: Rect2 = _body_rect()
 	Chrome.panel(self, body, alpha)
-	Chrome.header(self, body, "survivor", alpha)
+	Chrome.header(self, body, "survivor", alpha, "condition")
 	# One screen (the owner's call, 2026-08-19): the doll carries injuries and armour, the slots
 	# flank it, and anything wrong with the body reads as prose below the figure.
 	_paperdoll.position = Vector2(body.position.x + body.size.x / 2.0 - DOLL_W / 2.0, body.position.y + DOLL_TOP)
@@ -780,14 +780,21 @@ func _draw_body(font: Font, alpha: float) -> void:
 	for box in _slot_boxes():
 		var rect: Rect2 = box["rect"] as Rect2
 		var it: Variant = _slot_item(String(box["slot"]))
-		draw_rect(rect, Chrome.SLOT_EMPTY)
-		draw_rect(rect, Chrome.PANEL_EDGE, false, 2.0)
+		var picked: bool = it is Dictionary and int((it as Dictionary).get("item", -1)) == _selected
+		if not Chrome.frame(self, rect, "slot_selected" if picked else "slot_empty", alpha):
+			draw_rect(rect, Chrome.SLOT_EMPTY)
+			draw_rect(rect, Chrome.PANEL_EDGE, false, 2.0)
 		draw_string(font, rect.position + Vector2(10.0, 20.0), String(box["slot"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
 		if it is Dictionary:
 			var name: String = UiText.fit(font, String((it as Dictionary).get("name", "")), 25, SLOT_W - 20.0)
 			draw_string(font, rect.position + Vector2(10.0, 46.0), name, HORIZONTAL_ALIGNMENT_LEFT, -1, 25, Chrome.TEXT)
 		else:
 			draw_string(font, rect.position + Vector2(10.0, 46.0), "nothing", HORIZONTAL_ALIGNMENT_LEFT, -1, 25, Chrome.TEXT_FAINT)
+			# An empty slot draws what goes there: the equipment glyph names the slot the same way
+			# the word above it does. Ornament, not a replacement -- the word stays, and the glyph
+			# is dimmed to sit behind it rather than compete with it (docs/30, "The UI Field Kit,
+			# live": no status icons, no readout the word does not already say).
+			Chrome.glyph(self, String(box["slot"]), rect.position + Vector2(rect.size.x - 24.0 - 8.0, 8.0), false, alpha * 0.55)
 	# The condition readout: only the parts with something to say, as prose under the doll. Same
 	# read model as the doll's tints and the HUD -- states and words, never a number (docs/01
 	# clause 4; check_ban_health_bar.gd).

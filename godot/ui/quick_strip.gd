@@ -21,7 +21,10 @@ const KEY_SIZE: int = 20
 const NAME_SIZE: int = 25
 
 
-static func draw_strip(ci: CanvasItem, rect: Rect2, rows: Array, alpha: float) -> void:
+# `selected` is the inventory sheet's currently-picked item, so a belt or pocket slot that holds
+# it wears the same ring the bag grid gives it -- what you clicked cannot look like two different
+# things depending on which panel it is drawn in. -1 (the default) picks nothing.
+static func draw_strip(ci: CanvasItem, rect: Rect2, rows: Array, alpha: float, selected: int = -1) -> void:
 	Chrome.panel(ci, rect, alpha)
 	var font: Font = Chrome.font()
 	var lead: String = "belt and pockets"
@@ -30,12 +33,14 @@ static func draw_strip(ci: CanvasItem, rect: Rect2, rows: Array, alpha: float) -
 	var y: float = rect.position.y + (rect.size.y - SLOT_H) / 2.0
 	for i in SLOTS:
 		var box := Rect2(Vector2(x, y), Vector2(SLOT_W, SLOT_H))
-		var bg: Color = Chrome.SLOT_EMPTY
-		bg.a = alpha
-		ci.draw_rect(box, bg)
-		var edge: Color = Chrome.PANEL_EDGE
-		edge.a = alpha
-		ci.draw_rect(box, edge, false, 2.0)
+		var picked: bool = selected != -1 and i < rows.size() and int((rows[i] as Dictionary).get("item", -1)) == selected
+		if not Chrome.frame(ci, box, "slot_selected" if picked else "slot_empty", alpha):
+			var bg: Color = Chrome.SLOT_EMPTY
+			bg.a = alpha
+			ci.draw_rect(box, bg)
+			var edge: Color = Chrome.PANEL_EDGE
+			edge.a = alpha
+			ci.draw_rect(box, edge, false, 2.0)
 		var key: Color = Chrome.ACCENT
 		key.a = alpha
 		ci.draw_string(font, box.position + Vector2(10.0, SLOT_H / 2.0 + 6.0), str(i + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, KEY_SIZE, key)

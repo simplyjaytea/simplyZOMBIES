@@ -38,7 +38,7 @@ static func draw_bag(ci: CanvasItem, at: Vector2, column: Dictionary, alpha: flo
 	var h: int = int(column.get("h", 0))
 	var rect := Rect2(at, size_of(w, h))
 	Chrome.panel(ci, rect, alpha)
-	Chrome.header(ci, rect, String(column.get("label", "")), alpha)
+	Chrome.header(ci, rect, String(column.get("label", "")), alpha, "inventory")
 	var font: Font = Chrome.font()
 	if not note.is_empty():
 		var nw: float = font.get_string_size(note, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE).x
@@ -64,9 +64,11 @@ static func draw_item(ci: CanvasItem, origin: Vector2, d: Dictionary, alpha: flo
 	var plate := Rect2(at, Vector2(float(iw * CELL) - 8.0, float(ih * CELL) - 8.0))
 	Chrome.item_plate(ci, plate, alpha)
 	if highlight:
-		var ring: Color = Chrome.ACCENT
-		ring.a = minf(1.0, alpha + 0.1)
-		ci.draw_rect(plate, ring, false, 2.0)
+		var ring_alpha: float = minf(1.0, alpha + 0.1)
+		if not Chrome.frame(ci, plate, "slot_selected", ring_alpha):
+			var ring: Color = Chrome.ACCENT
+			ring.a = ring_alpha
+			ci.draw_rect(plate, ring, false, 2.0)
 	# The picture, through the same resolver the floor uses: a thing in a bag and the same thing
 	# dropped on the ground must not be able to look like two different objects.
 	if world != null:

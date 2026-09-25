@@ -587,10 +587,6 @@ pieces below are in the order they land, each one session, each with its gate re
 its record; the health-bar ban, the digit ban, the prose HUD and the busy loop's refusal to read
 time left are untouched.
 
-- **Empty slots say what goes there.** The 12 body slots draw their matching equipment glyph when
-  empty, `slot_selected` marks the selection, and panel headers gain a glyph; every manifest
-  glyph is consumed with a named reader or listed unused with a reason. Judged by the GLYPHS
-  lane.
 - **The shell's rows are buttons.** The pause menu, settings, bench, legend, work and skills
   panels draw their rows as `button_normal`/`button_focus`/`button_hover`, the title and pause
   frames as `panel_dialog`, run-over as `panel_danger`, and the bench arrows as directional
@@ -2116,6 +2112,34 @@ not a to-do list:
   piece: `frame` has real callers in both files. `godot:check:speech`, `godot:m2:vehicles` (its
   DASH lane unchanged), `godot:check:hud`, `godot:check:play` and `godot:check:appearance` stay
   green.
+
+- **UI — empty slots say what goes there, 2026-09-25.** The fifth piece of the "UI Field Kit, live"
+  group to land ([docs/30](30-decisions.md#the-ui-field-kit-live-2026-09-25)). The twelve
+  equipment slots draw through kit slot styles — `slot_empty` normally, `slot_selected` when the
+  slot holds the selected item — and an empty slot draws its matching 24 px equipment glyph beside
+  the unchanged "nothing" word, never in place of it; the quick strip's six slots wear the same two
+  styles, `slot_selected` following whichever belt or pocket item is picked, their "1"–"6" key
+  numerals untouched; the bag grid's selection ring is `slot_selected`, falling back to its old
+  accent ring only under the margins; and the survivor, inspect and bag headers gain a small glyph
+  through `Chrome.header`'s `glyph_name`. Every one of these draws through `Chrome.frame` and
+  `Chrome.glyph` — the slice was built while `frame` still waited on its first caller and carried
+  private copies of it; they were folded back into the one helper when the pieces merged, because
+  three copies of the snap-style-draw arithmetic are the drift `ui/chrome.gd` exists to prevent.
+  **Gated** by `godot:check:ui_skin`'s GLYPHS lane, replacing its stub: every one of the
+  manifest's 32 glyphs sits in exactly one of `READERS`, `PENDING_GLYPHS` and `UNUSED_GLYPHS`; the
+  twelve equipment glyphs are proved by reading `LEFT_SLOTS` and `RIGHT_SLOTS` off
+  `inventory_panel.gd` and following `_draw_body` to `Chrome.glyph(`; the header readers by a
+  position-aware scan that needs the name at the call's `glyph_name` argument — a first draft that
+  matched any argument would have read `settings_panel.gd`'s own "settings" title as a consumed
+  glyph; and the word menu's four (use, drop, search, move) through the `GLYPHS` table "Keys wear
+  keycaps" reads them by, checked to carry each into a file that reaches `Chrome.glyph(`. A glyph
+  in no list or two, a commented call, a call for another glyph, a label mistaken for a glyph, a
+  table missing the glyph and a pending glyph with a live caller are each refused; the table path
+  was sabotaged ("drop" remapped) and went red. `glyph_close` joins `glyph_lock` and `glyph_rotate`
+  unused, with its reason: the sheet has no close hint yet to draw it beside (the mockup's "Tab ·
+  Close" title bar is not built). `godot:check:inventory`, `:hud`, `:respond`, `:appearance` and
+  `:context` stay green, with `if not _open:` → `QuickStrip.draw_strip`, `column_labels()`,
+  `_draw` → `_draw_body(` → `_draw_responses(` and `Appearance.item_look` unchanged.
 
 - **Art delivery — the outpost asset pack, 2026-09-17.** The owner asked to put the
   approved standalone art delivery into the repository. It is preserved under

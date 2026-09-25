@@ -52,6 +52,7 @@ const MANIFEST_PATH: String = "res://art/simplyzombies-ui/manifest.json"
 const STYLES_DIR: String = "res://art/simplyzombies-ui/styles/"
 const CHROME_GD: String = "res://ui/chrome.gd"
 const UI_DIR: String = "res://ui/"
+const ITEM_MENU_GD: String = "res://ui/item_menu.gd"
 const MAIN_GD: String = "res://presentation/main.gd"
 const BUDGET_SECONDS: float = 60.0
 
@@ -910,9 +911,434 @@ func _font_sizes(code: String) -> Array:
 # --- 6. GLYPHS ---------------------------------------------------------------------------------
 
 
+# Empty slots say what goes there (docs/23's record; the "UI Field Kit, live" what's-left group).
+# Every one of the manifest's 32 glyphs is in exactly one of three lists, so a new glyph the kit
+# ships cannot arrive unconsidered:
+#
+#   READERS         {glyph_id: {"file", "slice"}} -- consumed, with a named reader. The twelve
+#                   equipment glyphs (`glyph_head` .. `glyph_secondary`) are verified by the
+#                   EQUIP check below, because their reader is data-driven from
+#                   `inventory_panel.gd`'s LEFT_SLOTS/RIGHT_SLOTS rather than a literal in a
+#                   `Chrome.glyph(`/`Chrome.header(` call; every other entry is verified by
+#                   `_calls_with_glyph`, which finds the glyph's short name quoted at exactly the
+#                   glyph_name position of one of those calls, comments stripped, balanced parens
+#                   followed so a `Vector2(...)` argument does not truncate the scan early -- and
+#                   never at the *label* position, which a bare substring search cannot tell from
+#                   a glyph_name naming it (settings_panel.gd's own "settings" title is exactly
+#                   that shape).
+#   PENDING_GLYPHS  {glyph_id: slice name} -- awaits a later slice, printed as a SKIP. A pending
+#                   glyph that already has a caller anywhere under godot/ui/ is a failure, the
+#                   HELPERS lane's rule applied here: PENDING says "not yet", so the day it is
+#                   read is the day the name leaves this list, not the day it quietly still sits
+#                   in it.
+#   UNUSED_GLYPHS   {glyph_id: reason} -- the owner did not take it, or it has nothing to attach
+#                   to yet, each said out loud rather than left silent.
+#
+# Chrome.frame is deliberately not called from any of this slice's four files: it is PENDING for
+# "The shell's rows are buttons" and "Bubbles and the dashboard in kit frames", and giving it a
+# caller here would consume it a slice early (the HELPERS lane would then refuse the very commit
+# that lands this one). `inventory_panel.gd`'s `_kit_frame`, `quick_strip.gd`'s `_frame` and
+# `bag_grid.gd`'s inline `Kit.style(...).draw(...)` do what `Chrome.frame` does -- a whole-pixel
+# `Kit.style` drawn, with a drawn fallback when the id or rect will not build one -- without
+# touching it. `Chrome.glyph` is different: it is PENDING for this very slice, and this slice
+# gives it callers, so it comes out of `check_ui_skin.gd`'s PENDING dict in the same commit.
+
+const INVENTORY_GD: String = "res://ui/inventory_panel.gd"
+
+# The twelve equipment glyphs, verified by mapping (EQUIP below), and the four this slice reads
+# by a literal in a Chrome.glyph(/Chrome.header( call.
+const READERS: Dictionary = {
+	"glyph_head": {"file": INVENTORY_GD, "slice": "S3 Empty slots say what goes there"},
+	"glyph_eyes": {"file": INVENTORY_GD, "slice": "S3 Empty slots say what goes there"},
+	"glyph_face": {"file": INVENTORY_GD, "slice": "S3 Empty slots say what goes there"},
+	"glyph_gloves": {"file": INVENTORY_GD, "slice": "S3 Empty slots say what goes there"},
+	"glyph_belt": {"file": INVENTORY_GD, "slice": "S3 Empty slots say what goes there"},
+	"glyph_primary": {"file": INVENTORY_GD, "slice": "S3 Empty slots say what goes there"},
+	"glyph_vest": {"file": INVENTORY_GD, "slice": "S3 Empty slots say what goes there"},
+	"glyph_torso": {"file": INVENTORY_GD, "slice": "S3 Empty slots say what goes there"},
+	"glyph_legs": {"file": INVENTORY_GD, "slice": "S3 Empty slots say what goes there"},
+	"glyph_feet": {"file": INVENTORY_GD, "slice": "S3 Empty slots say what goes there"},
+	"glyph_back": {"file": INVENTORY_GD, "slice": "S3 Empty slots say what goes there"},
+	"glyph_secondary": {"file": INVENTORY_GD, "slice": "S3 Empty slots say what goes there"},
+	"glyph_condition": {"file": INVENTORY_GD, "slice": "S3 Empty slots say what goes there"},
+	"glyph_inspect": {"file": "res://ui/inspect_pane.gd", "slice": "S3 Empty slots say what goes there"},
+	"glyph_inventory": {"file": "res://ui/bag_grid.gd", "slice": "S3 Empty slots say what goes there"},
+	# The word menu's gutter reads its glyphs through a verb-prefix table, not a literal at the
+	# call: `table` names the const whose values must carry the glyph, in a file whose draw path
+	# reaches Chrome.glyph( (the KEYCAPS lane proves every prefix resolves and widens size_of).
+	"glyph_use": {"file": ITEM_MENU_GD, "table": "GLYPHS", "slice": "S5 Keys wear keycaps"},
+	"glyph_drop": {"file": ITEM_MENU_GD, "table": "GLYPHS", "slice": "S5 Keys wear keycaps"},
+	"glyph_search": {"file": ITEM_MENU_GD, "table": "GLYPHS", "slice": "S5 Keys wear keycaps"},
+	"glyph_move": {"file": ITEM_MENU_GD, "table": "GLYPHS", "slice": "S5 Keys wear keycaps"},
+}
+
+# Kit chrome the screens await a later slice for. "The shell's rows are buttons" reads the pause
+# menu, settings, bench, legend, work and skills panels' headers and the bench's directional
+# arrows.
+const PENDING_GLYPHS: Dictionary = {
+	"glyph_settings": "S4 The shell's rows are buttons",
+	"glyph_journal": "S4 The shell's rows are buttons",
+	"glyph_work": "S4 The shell's rows are buttons",
+	"glyph_skills": "S4 The shell's rows are buttons",
+	"glyph_pause": "S4 The shell's rows are buttons",
+	"glyph_warning": "S4 The shell's rows are buttons",
+	"glyph_up": "S4 The shell's rows are buttons",
+	"glyph_down": "S4 The shell's rows are buttons",
+	"glyph_left": "S4 The shell's rows are buttons",
+	"glyph_right": "S4 The shell's rows are buttons",
+}
+
+# The owner's 2026-09-25 decision (docs/30, "The UI Field Kit, live") keeps these out, each with
+# its reason. `glyph_close` joins them here rather than in READERS: the approved mockup draws it
+# beside a "Tab · Close" title bar (previews/inventory-approved.png), and this screen has no such
+# hint yet to attach it to -- inventory_panel.gd's own close hint is the Tab binding in the
+# action bar's legend (input_map.gd), not a word on this sheet.
+const UNUSED_GLYPHS: Dictionary = {
+	"glyph_lock": "no lock mechanic -- docs/30, \"The UI Field Kit, live\"",
+	"glyph_rotate": "not taken by the owner -- docs/30, \"The UI Field Kit, live\"",
+	"glyph_close": "the inventory sheet has no close hint yet to draw it beside -- the approved mockup's \"Tab · Close\" title bar is not built",
+}
+
+
+# Every glyph id under `manifest.json`'s "glyphs" category.
+func _all_glyphs(manifest: Dictionary) -> Array[String]:
+	var out: Array[String] = []
+	for rec_v in manifest.get("assets", []) as Array:
+		var rec: Dictionary = rec_v as Dictionary
+		if String(rec.get("category", "")) == "glyphs":
+			out.append(String(rec.get("id", "")))
+	return out
+
+
+# What is wrong with `glyphs` against the three lists: not in exactly one. Parameterised on the
+# three dicts (not the consts) so a fabricated combination can prove the comparator both ways.
+func _glyph_membership_faults(glyphs: Array, readers: Dictionary, pending: Dictionary, unused: Dictionary) -> Array[String]:
+	var faults: Array[String] = []
+	for g_v in glyphs:
+		var g: String = String(g_v)
+		var lists: int = int(readers.has(g)) + int(pending.has(g)) + int(unused.has(g))
+		if lists != 1:
+			faults.append("%s is in %d of READERS/PENDING_GLYPHS/UNUSED_GLYPHS, not exactly one" % [g, lists])
+	return faults
+
+
+# Two independent claims about `slots` (LEFT_SLOTS+RIGHT_SLOTS, read from inventory_panel.gd
+# rather than assumed), kept as separate comparators so a true-positive probe of one is not
+# tripped by the other -- a single-slot array proving coverage is not also a twelve-slot array.
+
+# The count is twelve.
+func _equip_count_faults(slots: Array) -> Array[String]:
+	var faults: Array[String] = []
+	if slots.size() != 12:
+		faults.append("LEFT_SLOTS+RIGHT_SLOTS name %d slots, expected 12" % slots.size())
+	return faults
+
+
+# Every slot has a `glyph_<slot>` entry in `readers`.
+func _equip_coverage_faults(slots: Array, readers: Dictionary) -> Array[String]:
+	var faults: Array[String] = []
+	for slot_v in slots:
+		var slot: String = String(slot_v)
+		var gid: String = "glyph_" + slot
+		if not readers.has(gid):
+			faults.append("equipment slot \"%s\" has no READERS entry (%s)" % [slot, gid])
+	return faults
+
+
+# The glyph_name argument's position in each callee's signature -- `glyph(ci, glyph_name, at,
+# small, alpha)`, `header(ci, rect, label, alpha, glyph_name = "")`. Position matters and a bare
+# substring search does not: `Chrome.header(self, p, "settings", 0.97)` (settings_panel.gd's own
+# title, four arguments, no glyph_name at all) contains the quoted word "settings" in its *label*
+# argument, which a substring check cannot tell from a glyph_name naming it -- proven below by the
+# LABEL-ONLY true negative, which a plain `.contains(quoted)` scan does not refuse.
+const GLYPH_ARG_INDEX: Dictionary = {"Chrome.glyph": 1, "Chrome.header": 4}
+
+
+# Every call to `callee(` in `code`, each as its own top-level argument list: commas and parens
+# inside a nested call (`Vector2(10.0, 20.0)`, `String(column.get("label", ""))`) or a quoted
+# string do not split or close it early.
+func _call_arg_lists(code: String, callee: String) -> Array:
+	var out: Array = []
+	var needle: String = callee + "("
+	var start: int = 0
+	while true:
+		var idx: int = code.find(needle, start)
+		if idx == -1:
+			break
+		var depth: int = 1
+		var i: int = idx + needle.length()
+		var arg_start: int = i
+		var args: Array[String] = []
+		var quote: String = ""
+		while i < code.length() and depth > 0:
+			var ch: String = code[i]
+			if quote != "":
+				if ch == "\\":
+					i += 2
+					continue
+				if ch == quote:
+					quote = ""
+			elif ch == "\"" or ch == "'":
+				quote = ch
+			elif ch == "(":
+				depth += 1
+			elif ch == ")":
+				depth -= 1
+				if depth == 0:
+					args.append(code.substr(arg_start, i - arg_start).strip_edges())
+					i += 1
+					break
+			elif ch == "," and depth == 1:
+				args.append(code.substr(arg_start, i - arg_start).strip_edges())
+				arg_start = i + 1
+			i += 1
+		out.append(args)
+		start = idx + needle.length()
+	return out
+
+
+# Whether `code` (comments stripped) calls `callee` with the quoted `short` glyph name at exactly
+# the glyph_name position `GLYPH_ARG_INDEX` names for it -- never merely somewhere in the call.
+func _calls_with_glyph(code: String, callee: String, short: String) -> bool:
+	var pos: int = int(GLYPH_ARG_INDEX.get(callee, -1))
+	if pos < 0:
+		return false
+	var quoted: String = "\"" + short + "\""
+	for args_v in _call_arg_lists(code, callee):
+		var args: Array = args_v as Array
+		if args.size() > pos and String(args[pos]) == quoted:
+			return true
+	return false
+
+
+# Every file a glyph may be read from, comment-stripped -- `godot/ui/*.gd` and `main.gd`, chrome
+# itself included: a glyph consumed only from a comment-stripped chrome.gd would still be a live
+# reader for `PENDING_GLYPHS`'s dead-socket check, even though none of this slice's readers are.
+func _glyph_sources() -> Dictionary:
+	var out: Dictionary = _caller_sources()
+	out[CHROME_GD] = _code_of(_text_of(CHROME_GD))
+	return out
+
+
+
+# Whether `file`'s const `table` (a Dictionary) carries `short` among its values -- the reader
+# shape for glyphs a screen picks by lookup rather than by a literal at the call.
+func _table_reads_glyph(file: String, table: String, short: String) -> bool:
+	var script: GDScript = load(file) as GDScript
+	if script == null:
+		return false
+	var consts: Dictionary = script.get_script_constant_map()
+	if not consts.has(table) or not (consts[table] is Dictionary):
+		return false
+	for v in (consts[table] as Dictionary).values():
+		if String(v) == short:
+			return true
+	return false
+
 func _glyphs_lane() -> bool:
-	print("SKIP GLYPHS: not landed")
-	return true
+	var ok: bool = true
+	var manifest: Dictionary = _manifest()
+	if manifest.is_empty():
+		push_error("GLYPHS: manifest.json did not parse -- nothing can be judged")
+		return false
+	var glyphs: Array[String] = _all_glyphs(manifest)
+	if glyphs.size() != 32:
+		push_error("GLYPHS: manifest names %d glyphs, expected 32 -- the coverage check judged the wrong count" % glyphs.size())
+		ok = false
+
+	# Membership: every glyph in exactly one list, true positive and both true negatives.
+	for f in _glyph_membership_faults(glyphs, READERS, PENDING_GLYPHS, UNUSED_GLYPHS):
+		push_error("GLYPHS: " + f)
+		ok = false
+	for name_v in [READERS.keys(), PENDING_GLYPHS.keys(), UNUSED_GLYPHS.keys()]:
+		for g_v in name_v:
+			if not glyphs.has(String(g_v)):
+				push_error("GLYPHS: %s is listed but the manifest ships no such glyph" % String(g_v))
+				ok = false
+	if _glyph_membership_faults(["glyph_zznonesuch"], READERS, PENDING_GLYPHS, UNUSED_GLYPHS).is_empty():
+		push_error("GLYPHS: a glyph in none of the three lists passed -- the comparator cannot say no")
+		ok = false
+	var doubled: Dictionary = {"glyph_zzboth": {"file": "x", "slice": "y"}}
+	if _glyph_membership_faults(["glyph_zzboth"], doubled, {"glyph_zzboth": "z"}, {}).is_empty():
+		push_error("GLYPHS: a glyph in two of the three lists passed -- the comparator cannot say no")
+		ok = false
+	if not _glyph_membership_faults(["glyph_zzone"], {"glyph_zzone": {}}, {}, {}).is_empty():
+		push_error("GLYPHS: a glyph in exactly one list was refused -- the comparator cannot say yes")
+		ok = false
+
+	# EQUIP: the twelve equipment glyphs, mapped from LEFT_SLOTS+RIGHT_SLOTS rather than a
+	# literal, so verified differently -- read the consts, not assumed, per CLAUDE.md's dead-socket
+	# rule ("is this findable" rather than "should be findable").
+	var inv_script: GDScript = load(INVENTORY_GD) as GDScript
+	var left: Array = inv_script.get("LEFT_SLOTS") as Array if inv_script != null and inv_script.get("LEFT_SLOTS") is Array else []
+	var right: Array = inv_script.get("RIGHT_SLOTS") as Array if inv_script != null and inv_script.get("RIGHT_SLOTS") is Array else []
+	var slots: Array[String] = []
+	for s in left:
+		slots.append(String(s))
+	for s in right:
+		slots.append(String(s))
+	for f in _equip_count_faults(slots):
+		push_error("GLYPHS: EQUIP: " + f)
+		ok = false
+	for f in _equip_coverage_faults(slots, READERS):
+		push_error("GLYPHS: EQUIP: " + f)
+		ok = false
+	var inv_bodies: Dictionary = _bodies(_text_of(INVENTORY_GD))
+	if not _reaches_needle(inv_bodies, "_draw_body", "Chrome.glyph("):
+		push_error("GLYPHS: EQUIP: _draw_body does not reach Chrome.glyph( for the equipment slots")
+		ok = false
+	# True negatives: a wrong count fails on its own, a slot name with no matching glyph id fails
+	# coverage on its own, a real slot with a real entry passes coverage, and a body that never
+	# reaches the call fails the dead-socket check.
+	if _equip_count_faults(["head"]).is_empty():
+		push_error("GLYPHS: EQUIP: a one-slot array passed the count check")
+		ok = false
+	if not _equip_count_faults(slots).is_empty():
+		push_error("GLYPHS: EQUIP: the real twelve slots failed the count check -- it cannot say yes")
+		ok = false
+	if _equip_coverage_faults(["nonesuch_slot"], READERS).is_empty():
+		push_error("GLYPHS: EQUIP: a slot with no matching glyph id passed coverage")
+		ok = false
+	if not _equip_coverage_faults(["head"], READERS).is_empty():
+		push_error("GLYPHS: EQUIP: a slot with a real READERS entry was refused coverage -- the comparator cannot say yes")
+		ok = false
+	if _reaches_needle({"_draw_body": "pass\n"}, "_draw_body", "Chrome.glyph("):
+		push_error("GLYPHS: EQUIP: a fabricated _draw_body with no Chrome.glyph( call passed")
+		ok = false
+	if not _reaches_needle({"_draw_body": "Chrome.glyph(self, slot, at, false, alpha)\n"}, "_draw_body", "Chrome.glyph("):
+		push_error("GLYPHS: EQUIP: a fabricated _draw_body that does call Chrome.glyph( was refused -- the scanner cannot say yes")
+		ok = false
+
+	# READERS (the four not covered by EQUIP): the file names the glyph's short name inside a
+	# Chrome.glyph(/Chrome.header( call, comments stripped.
+	var file_cache: Dictionary = {}
+	var equip_ids: Array[String] = []
+	for slot in slots:
+		equip_ids.append("glyph_" + slot)
+	var read_count: int = 0
+	for g_v in READERS.keys():
+		var g: String = String(g_v)
+		if equip_ids.has(g):
+			continue
+		var spec: Dictionary = READERS[g] as Dictionary
+		var file: String = String(spec.get("file", ""))
+		if String(spec.get("slice", "")).is_empty():
+			push_error("GLYPHS: READERS[%s] names no slice" % g)
+			ok = false
+		if not file_cache.has(file):
+			file_cache[file] = _code_of(_text_of(file))
+		var code: String = String(file_cache[file])
+		var short: String = g.trim_prefix("glyph_")
+		if spec.has("table"):
+			if _table_reads_glyph(file, String(spec["table"]), short) and code.contains("Chrome.glyph("):
+				read_count += 1
+			else:
+				push_error("GLYPHS: %s -- %s's %s does not carry \"%s\" into a Chrome.glyph( call" % [g, file, String(spec["table"]), short])
+				ok = false
+		elif _calls_with_glyph(code, "Chrome.header", short) or _calls_with_glyph(code, "Chrome.glyph", short):
+			read_count += 1
+		else:
+			push_error("GLYPHS: %s -- %s has no Chrome.header(/Chrome.glyph( call naming \"%s\"" % [g, file, short])
+			ok = false
+	# True negatives: the literal only in a comment, a call for a different glyph, and the true
+	# positive that a call carrying a nested Vector2(...) is still read whole.
+	var commented: String = _code_of("func _draw() -> void:\n\t# Chrome.glyph(self, \"zzghost\", at, true, alpha)\n\tpass\n")
+	if _calls_with_glyph(commented, "Chrome.glyph", "zzghost"):
+		push_error("GLYPHS: a Chrome.glyph( call only in a comment counted as a reader")
+		ok = false
+	var other: String = _code_of("func _draw() -> void:\n\tChrome.glyph(self, \"zzother\", at, true, alpha)\n")
+	if _calls_with_glyph(other, "Chrome.glyph", "zzghost"):
+		push_error("GLYPHS: a call naming a different glyph satisfied the check for zzghost")
+		ok = false
+	var live: String = _code_of("func _draw() -> void:\n\tChrome.glyph(self, \"zzghost\", Vector2(1.0, 2.0), true, alpha) # ok\n")
+	if not _calls_with_glyph(live, "Chrome.glyph", "zzghost"):
+		push_error("GLYPHS: a live call with a nested Vector2(...) argument was not found -- the scanner cannot say yes")
+		ok = false
+	# The false positive this position-aware scan exists to refuse: a header's *label*, not its
+	# glyph_name, spelling the same word -- settings_panel.gd's real "settings" title is exactly
+	# this shape (Chrome.header(self, p, "settings", 0.97), four arguments, no glyph_name at all).
+	var label_only: String = _code_of("func _draw() -> void:\n\tChrome.header(self, p, \"zzghost\", 0.97)\n")
+	if _calls_with_glyph(label_only, "Chrome.header", "zzghost"):
+		push_error("GLYPHS: a header whose *label* spells a glyph's short name, with no glyph_name argument, counted as a reader")
+		ok = false
+
+	# The table path, both ways: a glyph the named table does not carry, and a table that is not
+	# there, are each refused; the real "use" in ItemMenu.GLYPHS is found.
+	if _table_reads_glyph(ITEM_MENU_GD, "GLYPHS", "zzghost"):
+		push_error("GLYPHS: a glyph ItemMenu.GLYPHS does not carry was found in it")
+		ok = false
+	if _table_reads_glyph(ITEM_MENU_GD, "ZZ_NO_TABLE", "use"):
+		push_error("GLYPHS: a table that does not exist carried a glyph")
+		ok = false
+	if not _table_reads_glyph(ITEM_MENU_GD, "GLYPHS", "use"):
+		push_error("GLYPHS: ItemMenu.GLYPHS' real \"use\" was not found -- the table check cannot say yes")
+		ok = false
+
+	# PENDING_GLYPHS: named, awaits its slice, and prints a SKIP; a pending glyph that already has
+	# a caller anywhere is a failure -- HELPERS's rule applied to glyphs.
+	var sources: Dictionary = _glyph_sources()
+	for f in _pending_glyph_faults(PENDING_GLYPHS, sources):
+		push_error("GLYPHS: " + f)
+		ok = false
+	var fake_sources: Dictionary = {"res://ui/zz.gd": _code_of("func _draw() -> void:\n\tChrome.glyph(self, \"use\", at, true, alpha)\n")}
+	if _pending_glyph_faults({"glyph_use": "S5"}, fake_sources).is_empty():
+		push_error("GLYPHS: a pending glyph with a live caller passed -- the dead-socket check cannot say no")
+		ok = false
+	for g_v in PENDING_GLYPHS.keys():
+		print("SKIP GLYPHS: %s awaits %s" % [String(g_v).trim_prefix("glyph_"), String(PENDING_GLYPHS[g_v])])
+
+	# RESOLVE: every consumed glyph resolves headless at both sizes; a name the kit does not ship
+	# does not.
+	Kit.forget()
+	for g_v in READERS.keys():
+		var g: String = String(g_v)
+		var big: Texture2D = Kit.glyph(g)
+		var small: Texture2D = Kit.glyph(g, true)
+		if big == null or small == null:
+			push_error("GLYPHS: %s does not resolve headless at both sizes (big %s, small %s)" % [g, str(big != null), str(small != null)])
+			ok = false
+	if Kit.glyph("glyph_zznonesuch") != null or Kit.glyph("glyph_zznonesuch", true) != null:
+		push_error("GLYPHS: a glyph id the kit does not ship resolved")
+		ok = false
+
+	if ok:
+		print(
+			"GLYPHS OK %d/%d manifest glyphs consumed with a named reader (%d equipment, mapped from LEFT_SLOTS+RIGHT_SLOTS; %d by a literal in Chrome.glyph/header, both sizes headless), %d pending their slice, %d left unused with a reason; a glyph in none, both and two of the three lists, a commented call, a call for a different glyph, and a pending glyph with a live caller each refused"
+			% [READERS.size(), glyphs.size(), equip_ids.size(), read_count, PENDING_GLYPHS.size(), UNUSED_GLYPHS.size()]
+		)
+	return ok
+
+
+# What is wrong with `pending` against `sources`: a glyph still marked pending that some file
+# already reads. The reverse of HELPERS's rule -- a PENDING name must stay a dead socket until the
+# commit that takes it off this list.
+func _pending_glyph_faults(pending: Dictionary, sources: Dictionary) -> Array[String]:
+	var faults: Array[String] = []
+	for g_v in pending.keys():
+		var g: String = String(g_v)
+		var short: String = g.trim_prefix("glyph_")
+		for src_v in sources.values():
+			var code: String = String(src_v)
+			if _calls_with_glyph(code, "Chrome.glyph", short) or _calls_with_glyph(code, "Chrome.header", short):
+				faults.append("%s is PENDING (%s) but already has a caller -- take it out of PENDING_GLYPHS in the same commit" % [g, String(pending[g])])
+				break
+	return faults
+
+
+# Whether `fn`'s body in `bodies` contains `needle`, or calls another function in `bodies` that
+# does, one link deep -- `_reaches_kit`'s pattern generalised to any needle.
+func _reaches_needle(bodies: Dictionary, fn: String, needle: String) -> bool:
+	var body: String = String(bodies.get(fn, ""))
+	if body.contains(needle):
+		return true
+	for other_v in bodies.keys():
+		var other: String = String(other_v)
+		if other == fn:
+			continue
+		var callee: String = String(bodies[other])
+		if _calls(body, other) and callee.contains(needle):
+			return true
+	return false
 
 
 # --- 7. KEYCAPS --------------------------------------------------------------------------------
