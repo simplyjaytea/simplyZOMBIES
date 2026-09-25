@@ -70,12 +70,29 @@ func _set_from(row: int, x: float) -> void:
 	queue_redraw()
 
 
+# Where a press takes hold of a row's slider: the track, grown by the handle's reach. One rect for
+# the press and the pointer, so the hand shows exactly where a press would grab.
+func _grab_rect(row: int) -> Rect2:
+	return _track_rect(row).grow_individual(HANDLE_R, HANDLE_R * 2.0, HANDLE_R, HANDLE_R * 2.0)
+
+
+# Which pointer the kit dresses the mouse in at `p` (ui/cursors.gd): the hand over a slider a press
+# would take hold of, and all the way through a drag that has one, the arrow everywhere else.
+func cursor_at(p: Vector2) -> int:
+	if _drag_row != -1:
+		return Input.CURSOR_POINTING_HAND
+	for i in ROWS.size():
+		if _grab_rect(i).has_point(p):
+			return Input.CURSOR_POINTING_HAND
+	return Input.CURSOR_ARROW
+
+
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var mb: InputEventMouseButton = event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
 			for i in ROWS.size():
-				var track: Rect2 = _track_rect(i).grow_individual(HANDLE_R, HANDLE_R * 2.0, HANDLE_R, HANDLE_R * 2.0)
+				var track: Rect2 = _grab_rect(i)
 				if track.has_point(mb.position):
 					_drag_row = i
 					_set_from(i, mb.position.x)
@@ -87,6 +104,8 @@ func _gui_input(event: InputEvent) -> void:
 	elif event is InputEventMouseMotion and _drag_row != -1:
 		_set_from(_drag_row, (event as InputEventMouseMotion).position.x)
 		accept_event()
+	if event is InputEventMouse:
+		mouse_default_cursor_shape = cursor_at((event as InputEventMouse).position) as Control.CursorShape
 
 
 func _draw() -> void:

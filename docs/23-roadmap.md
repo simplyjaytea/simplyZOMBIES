@@ -587,9 +587,6 @@ pieces below are in the order they land, each one session, each with its gate re
 its record; the health-bar ban, the digit ban, the prose HUD and the busy loop's refusal to read
 time left are untouched.
 
-- **The four cursors.** `ui/cursors.gd` installs arrow, hand, move and blocked at the manifest's
-  own hotspots; a drag `SimInventory.can_place` refuses shows blocked plus `slot_invalid`. Judged
-  by the CURSORS lane.
 - **UI motion, and a reduced-motion switch.** `Motion.frame_of(id, elapsed, reduced)` is a pure
   function of the wall clock giving a loop, one-shot and reduced frame; a new `reduced_motion`
   pref (default off) gates `focus_pulse` on the shell's cursor row and the selected item, and
@@ -2175,6 +2172,43 @@ not a to-do list:
   `check_inventory`'s legend needles and `check_m2_raiders`' `_rows` all hold.
   `godot:check:ui_skin`, `:hud`, `:play`, `:web_look`, `:inventory`, `:context`, `godot:m2:bench`
   and `godot:m2:raiders` green on the merged tree.
+
+- **UI — the four cursors, 2026-09-25.** The seventh piece of the "UI Field Kit, live" group to
+  land ([docs/30](30-decisions.md#the-ui-field-kit-live-2026-09-25)). A new `ui/cursors.gd` holds
+  one table, `Input.CursorShape` → the kit pointer it wears, at the manifest's native size and
+  hotspot: arrow → `control_cursor_arrow` (6, 2), pointing hand → `control_cursor_hand` (9, 2),
+  forbidden → `control_cursor_blocked` (12, 12), and drag, can-drop and move all →
+  `control_cursor_move` (12, 12), so no path through a drag falls back to the system arrow.
+  `install()`, called first thing in `main.gd`'s `_ensure_ui`, hands each through `Kit.texture` to
+  `Input.set_custom_mouse_cursor` at the chrome's own 2× — 48 px pictures, each hotspot doubled
+  with its picture as the kit's integration notes ask — and is a no-op on the headless display
+  server every gate runs under. The screens name a shape, never a picture: `shell.gd`,
+  `context_menu.gd`, `settings_panel.gd` and `inventory_panel.gd` each gain a pure `cursor_at(p)`
+  and set `mouse_default_cursor_shape` from it where they already take the mouse — the hand over a
+  row, a verb, a slider and an item or occupied slot, the arrow elsewhere; the shell's rows and
+  the sheet's columns are now one layout function each (`_row_rects`, `_column_places`) that the
+  draw and the pointer share. A held item asks the sim: `_drop_verdict` puts
+  `SimInventory.can_place` to the exact cell and turn a release there would propose, and a refusal
+  wears blocked with the kit's `slot_invalid` drawn by the ghost over the cells the item would
+  cover, an acceptance wears move; the transfer window does the same. **Gated** by
+  `godot:check:ui_skin`'s CURSORS lane, replacing its stub: TABLE's ids, sizes and hotspots equal
+  `manifest.json`'s and every `control_cursor_*` is worn; each picture resolves through
+  `Kit.texture` at the manifest's size times `Kit.SCALE` with its hotspot inside it; `_ensure_ui`
+  reaches `UiCursors.install(`, which reaches `Input.set_custom_mouse_cursor(` and dresses all six
+  shapes; every screen's input path reaches its `cursor_at(` and `mouse_default_cursor_shape`, and
+  the ghost reaches `"slot_invalid"`; the shell, the menu, settings and the sheet each give the
+  hand where a press acts and the arrow where it does not; and in a small world a held tin over
+  every pocket cell is blocked exactly where `can_place` refuses and the move exactly where it
+  accepts, both seen. A hotspot one pixel off, a fifth pointer nobody wears, an install only in a
+  comment and a verdict ruling with `SimGrid.fits` alone are each refused; the sabotage pass turned
+  the lane red thirteen ways. **What it does not see, on purpose:** `can_place` is the grid, the
+  nesting and the depth and not the reach guard `inventory.intake` adds for a world container, so
+  a drag into a cupboard nobody is standing at can read as the move and be refused when it lands;
+  a drop on an equipment slot always reads as the move, because `SimInventory.equip` has no pure
+  predicate and an equip is still judged when its command arrives; and the refused frame is drawn
+  filled, covering the cell's item under the ghost. The OS pointer itself is not judged — headless
+  has none — and the outpost pack's crosshair and interaction hand (its open "The cursor" slice)
+  will join this same table.
 
 - **Art delivery — the outpost asset pack, 2026-09-17.** The owner asked to put the
   approved standalone art delivery into the repository. It is preserved under
