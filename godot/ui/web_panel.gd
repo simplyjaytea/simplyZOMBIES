@@ -212,7 +212,7 @@ func _draw() -> void:
 	var font: Font = Chrome.font()
 	_hit = layout_hits()
 	Chrome.panel(self, Rect2(Vector2.ZERO, size), 0.96)
-	Chrome.header(self, Rect2(Vector2.ZERO, size), header_label(), 0.96)
+	Chrome.header(self, Rect2(Vector2.ZERO, size), header_label(), 0.96, "skills")
 	var footer_at := Vector2(24.0, size.y - 20.0)
 	draw_string(font, footer_at, UiText.fit(font, footer(), FOOTER_SIZE, size.x - 48.0), HORIZONTAL_ALIGNMENT_LEFT, -1, FOOTER_SIZE, Chrome.TEXT_FAINT)
 	if _map.is_empty() or _def.is_empty():

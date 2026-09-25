@@ -6,6 +6,7 @@ extends Control
 # reach it.
 
 const Chrome = preload("res://ui/chrome.gd")
+const Kit = preload("res://ui/kit.gd")
 const UiPrefs = preload("res://ui/prefs.gd")
 
 const PANEL_SIZE: Vector2 = Vector2(640, 330)
@@ -13,6 +14,13 @@ const ROW_H: float = 72.0
 const TRACK_W: float = 300.0
 const TRACK_H: float = 6.0
 const HANDLE_R: float = 11.0
+
+# The rail is a control, not a chrome nine-slice -- it has no `nine_slice_ltrb` in the manifest,
+# so `godot:check:ui_skin`'s KIT lane does not hold it, and this file draws it by hand: two end
+# caps at the texture's own pixels and a stretched middle, the way a pill-shaped rail with rounded
+# ends has to be drawn without a nine-slice declaring where the ends stop.
+const RAIL_PATH: String = "controls/control_slider_rail.png"
+const RAIL_CAP_W: float = 4.0
 
 # Each row is one preference, and the floor it clamps to lives in `ui/prefs.gd`'s FLOORS -- the
 # panel draws the handle between that floor and one, so the two cannot disagree about where the
@@ -89,13 +97,13 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, view), dim)
 	var p: Rect2 = _panel_rect()
 	Chrome.panel(self, p, 0.97)
-	Chrome.header(self, p, "settings", 0.97)
+	Chrome.header(self, p, "settings", 0.97, "settings")
 	var font: Font = Chrome.font()
 	for i in ROWS.size():
 		var label_y: float = p.position.y + Chrome.HEADER_H + 44.0 + float(i) * ROW_H + 34.0
 		draw_string(font, Vector2(p.position.x + 40.0, label_y), String(ROWS[i]["label"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 25, Chrome.TEXT)
 		var track: Rect2 = _track_rect(i)
-		draw_rect(track, Chrome.CELL_EDGE)
+		_draw_rail(track)
 		var t: float = inverse_lerp(_floor_of(i), 1.0, UiPrefs.level(String(ROWS[i]["key"])))
 		var filled: Rect2 = Rect2(track.position, Vector2(track.size.x * clampf(t, 0.0, 1.0), track.size.y))
 		draw_rect(filled, Chrome.ACCENT)
@@ -104,3 +112,25 @@ func _draw() -> void:
 		draw_circle(handle, HANDLE_R, Chrome.ACCENT, false, 2.0)
 	var hint_y: float = p.position.y + PANEL_SIZE.y - 28.0
 	draw_string(font, Vector2(p.position.x + 40.0, hint_y), "Esc to close · changes apply immediately", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
+
+
+# The slider rail: the kit's `control_slider_rail.png`, whole pixels, its rounded ends drawn 1:1
+# from the texture's own left and right `RAIL_CAP_W` kit pixels (at `Kit.SCALE`) and the pill's
+# straight middle stretched to fill whatever is left. A rail the kit does not resolve falls back
+# to the hairline this replaced.
+func _draw_rail(rect: Rect2) -> void:
+	var r: Rect2 = Rect2(rect.position.round(), rect.size.round())
+	var tex: Texture2D = Kit.texture(RAIL_PATH)
+	if tex == null:
+		draw_rect(r, Chrome.CELL_EDGE)
+		return
+	var tex_size: Vector2 = tex.get_size()
+	var cap: float = RAIL_CAP_W * float(Kit.SCALE)
+	var left_src := Rect2(Vector2.ZERO, Vector2(cap, tex_size.y))
+	var right_src := Rect2(Vector2(tex_size.x - cap, 0.0), Vector2(cap, tex_size.y))
+	var mid_src := Rect2(Vector2(cap, 0.0), Vector2(tex_size.x - cap * 2.0, tex_size.y))
+	draw_texture_rect_region(tex, Rect2(r.position, Vector2(cap, r.size.y)), left_src)
+	draw_texture_rect_region(tex, Rect2(r.position + Vector2(r.size.x - cap, 0.0), Vector2(cap, r.size.y)), right_src)
+	var mid_w: float = r.size.x - cap * 2.0
+	if mid_w > 0.0:
+		draw_texture_rect_region(tex, Rect2(r.position + Vector2(cap, 0.0), Vector2(mid_w, r.size.y)), mid_src)

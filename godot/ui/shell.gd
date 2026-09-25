@@ -46,6 +46,10 @@ const ROW_SIZE: int = 30
 const LINE_SIZE: int = 25
 const FOOTER_SIZE: int = 20
 const LINE_H: float = 34.0
+# Where a row's label starts: past the small marker glyph the cursor row draws, so every row's
+# text lands at the same x whether or not it is the one carrying the marker.
+const ROW_TEXT_X: float = 40.0
+const ROW_MARKER_X: float = 14.0
 
 # The rows each screen offers, as `[id, label]`. Ids are what `on_action` carries and labels are
 # what the screen says; they are not the same string because "quit to title" is two words the
@@ -59,6 +63,10 @@ const PAUSE_ROWS: Array = [
 	["quit_to_title", "quit to title"],
 ]
 const OVER_ROWS: Array = [["new_run", "new run"], ["quit_to_title", "quit to title"]]
+
+# The one row whose text always reads as a warning, chosen or not (docs/30, "The UI Field Kit,
+# live"): quitting the run is the one destructive choice a menu here offers.
+const DANGER_ROW: String = "quit_to_title"
 
 # The heading each screen carries in its chrome header, and the one sentence under the title's
 # name. Words, all of them.
@@ -250,10 +258,26 @@ func _draw() -> void:
 	dim.a = 0.88
 	draw_rect(Rect2(Vector2.ZERO, view), dim)
 	var panel: Rect2 = _panel_rect()
-	Chrome.panel(self, panel, 0.98)
+	# The title and pause screens sit in the kit's dialog frame; the run-over screen, the one
+	# permanent loss, sits in its danger frame. A rect this size always clears the kit's margins,
+	# so the drawn fallback is only ever exercised by a fabricated kit file.
+	var panel_style: String = "panel_danger" if state == RUN_OVER else "panel_dialog"
+	if not Chrome.frame(self, panel, panel_style, 0.98):
+		var fill: Color = Chrome.PANEL
+		fill.a = 0.98
+		draw_rect(panel, fill)
+		var edge: Color = Chrome.DANGER if state == RUN_OVER else Chrome.PANEL_EDGE
+		edge.a = 1.0
+		draw_rect(panel, edge, false, 1.5)
 	var heading: String = String(HEADINGS.get(state, ""))
 	if not heading.is_empty():
-		Chrome.header(self, panel, heading, 0.98)
+		match state:
+			PAUSED:
+				Chrome.header(self, panel, heading, 0.98, "pause")
+			RUN_OVER:
+				Chrome.header(self, panel, heading, 0.98, "warning")
+			_:
+				Chrome.header(self, panel, heading, 0.98)
 	var font: Font = Chrome.font()
 	var y: float = panel.position.y + Chrome.HEADER_H + PAD
 	if state == TITLE:
@@ -269,14 +293,24 @@ func _draw() -> void:
 		var rect := Rect2(Vector2(panel.position.x + PAD, y), Vector2(panel.size.x - PAD * 2.0, ROW_H))
 		_hits.append(rect)
 		var chosen: bool = i == cursor
-		var fill: Color = Chrome.HEADER if chosen else Chrome.CELL_BG
-		draw_rect(rect, fill)
-		draw_rect(rect, Chrome.ITEM_EDGE if chosen else Chrome.CELL_EDGE, false, 1.5)
+		var row_id: String = String((_rows[i] as Array)[0])
+		var is_danger: bool = row_id == DANGER_ROW
+		# Every row is a kit button: the danger row always wears the danger frame (it reads as a
+		# warning whether or not the cursor is on it), the cursor row wears the hover fill, and
+		# every other row the plain one -- with `button_focus` layered over the cursor row after,
+		# the way the approved mockup brackets it.
+		var base_id: String = "button_danger" if is_danger else ("button_hover" if chosen else "button_normal")
+		if not Chrome.frame(self, rect, base_id, 0.98):
+			var fill: Color = Chrome.HEADER if chosen else Chrome.CELL_BG
+			draw_rect(rect, fill)
+			draw_rect(rect, Chrome.DANGER if is_danger else (Chrome.ITEM_EDGE if chosen else Chrome.CELL_EDGE), false, 1.5)
 		if chosen:
-			# The marker is a bar, not a caret glyph: the fallback font has no reliable arrow and
-			# a drawn rectangle reads the same in every locale.
-			draw_rect(Rect2(rect.position, Vector2(4.0, rect.size.y)), Chrome.ACCENT)
-		draw_string(font, rect.position + Vector2(22.0, ROW_H - 19.0), String((_rows[i] as Array)[1]), HORIZONTAL_ALIGNMENT_LEFT, -1, ROW_SIZE, Chrome.ACCENT if chosen else Chrome.TEXT)
+			Chrome.frame(self, rect, "button_focus", 0.98)
+			# The row marker: a small `right` glyph rather than the drawn bar this replaced --
+			# the caret reads the same in every locale and the kit ships it.
+			Chrome.glyph(self, "right", rect.position + Vector2(ROW_MARKER_X, floorf((ROW_H - Chrome.GLYPH_SMALL) / 2.0)), true, 0.98)
+		var ink: Color = Chrome.DANGER if is_danger else (Chrome.ACCENT if chosen else Chrome.TEXT)
+		draw_string(font, rect.position + Vector2(ROW_TEXT_X, ROW_H - 19.0), String((_rows[i] as Array)[1]), HORIZONTAL_ALIGNMENT_LEFT, -1, ROW_SIZE, ink)
 		y += ROW_H + ROW_GAP
 	if not _notice.is_empty():
 		draw_string(font, Vector2(panel.position.x + PAD, y + LINE_H - 12.0), _notice, HORIZONTAL_ALIGNMENT_LEFT, panel.size.x - PAD * 2.0, LINE_SIZE, Chrome.DANGER)

@@ -587,12 +587,6 @@ pieces below are in the order they land, each one session, each with its gate re
 its record; the health-bar ban, the digit ban, the prose HUD and the busy loop's refusal to read
 time left are untouched.
 
-- **The shell's rows are buttons.** The pause menu, settings, bench, legend, work and skills
-  panels draw their rows as `button_normal`/`button_focus`/`button_hover`, the title and pause
-  frames as `panel_dialog`, run-over as `panel_danger`, and the bench arrows as directional
-  glyphs — through the same `Kit.style(` path the PANEL and HELPERS lanes already hold the chrome
-  to, so this piece adds no lane of its own; `rows()`, `words()` and the id arrays `check_hud`
-  and `check_context` read stay unchanged.
 - **The four cursors.** `ui/cursors.gd` installs arrow, hand, move and blocked at the manifest's
   own hotspots; a drag `SimInventory.can_place` refuses shows blocked plus `slot_invalid`. Judged
   by the CURSORS lane.
@@ -2140,6 +2134,32 @@ not a to-do list:
   Close" title bar is not built). `godot:check:inventory`, `:hud`, `:respond`, `:appearance` and
   `:context` stay green, with `if not _open:` → `QuickStrip.draw_strip`, `column_labels()`,
   `_draw` → `_draw_body(` → `_draw_responses(` and `Appearance.item_look` unchanged.
+
+- **UI — the shell's rows are buttons, 2026-09-25.** The sixth piece of the "UI Field Kit, live"
+  group to land ([docs/30](30-decisions.md#the-ui-field-kit-live-2026-09-25)). `ui/shell.gd`'s
+  title and pause screens wear the kit's `panel_dialog` and run-over wears `panel_danger`, through
+  `Chrome.frame(`, a drawn fallback kept under the margins. Every row is `button_normal`; the cursor
+  row layers `button_focus` over `button_hover`; `quit_to_title` always wears `button_danger`,
+  chosen or not, its label in `Chrome.DANGER`, as `previews/pause-approved.png` draws it. The old
+  amber bar is now the small `right` glyph beside the cursor row's label, every row's text at one x
+  whether or not it carries the marker; the pause and run-over headers gain `pause` and `warning`.
+  `settings_panel.gd`'s slider tracks draw the kit's `control_slider_rail.png` by hand — a control
+  with no `nine_slice_ltrb`, so two end caps at its own pixels and a stretched middle — and its
+  header gains `settings`. `bench_panel.gd`'s condition-change arrows are the kit's `up` and `down`
+  glyphs and a `left`+`right` pair for "different", retiring the ▲ ▼ ↔ that "One typeface" named
+  for the OS fallback (FONT_NO_FACE drops all three in this commit); the offer line's → stays
+  hand-drawn, because splitting it around a glyph would break `UiText.fit`'s truncation.
+  `legend.gd`, `work_panel.gd` and `web_panel.gd` gain the `journal`, `work` and `skills` header
+  glyphs; `debug_panel.gd` gets none. **Gated** by the lanes the earlier pieces built rather than
+  one of its own: PANEL and HELPERS hold `frame` to the kit, and GLYPHS now reads all ten of this
+  piece's glyphs at their literal call sites — `PENDING_GLYPHS` is empty, 29 of the 32 glyphs are
+  read and three unused with a reason. `rows()`, `words()`, `key()`, `show_state` and the row id
+  arrays are untouched, so `check_hud`'s SHELL lane and `check_play`'s title, pause and run-over
+  lanes read the same shell they always did; `check_m2_bench`'s `bench_view`/`item.detach`/
+  `item.attach`, `check_web_look`'s six method names and its no-`load(`-in-`_ready` rule,
+  `check_inventory`'s legend needles and `check_m2_raiders`' `_rows` all hold.
+  `godot:check:ui_skin`, `:hud`, `:play`, `:web_look`, `:inventory`, `:context`, `godot:m2:bench`
+  and `godot:m2:raiders` green on the merged tree.
 
 - **Art delivery — the outpost asset pack, 2026-09-17.** The owner asked to put the
   approved standalone art delivery into the repository. It is preserved under

@@ -126,7 +126,7 @@ func _draw() -> void:
 	var font: Font = Chrome.font()
 	_hit.clear()
 	Chrome.panel(self, Rect2(Vector2.ZERO, size), 0.95)
-	Chrome.header(self, Rect2(Vector2.ZERO, size), "work — click a cell to change priority · click their word to change focus — manual puts their learning in your hands", 0.95)
+	Chrome.header(self, Rect2(Vector2.ZERO, size), "work — click a cell to change priority · click their word to change focus — manual puts their learning in your hands", 0.95, "work")
 	# The priority scale, which the grid previously assumed you already knew. 1 is most
 	# urgent; docs/07's row is an ordering the player sets, not a hidden stat, so the
 	# numbers are the honest presentation here.

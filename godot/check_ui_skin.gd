@@ -684,9 +684,6 @@ const FONT_FALLBACK_PROBE: String = "Ж"
 # can take it off this list.
 const FONT_NO_FACE: Dictionary = {
 	"→": "the bench's offer line (bench_panel.gd); neither face has it -- the OS fallback draws it on desktop",
-	"▲": "the bench's better arrow (bench_panel.gd); \"The shell's rows are buttons\" turns it into a kit glyph",
-	"▼": "the bench's worse arrow (bench_panel.gd); \"The shell's rows are buttons\" turns it into a kit glyph",
-	"↔": "the bench's same arrow (bench_panel.gd); \"The shell's rows are buttons\" turns it into a kit glyph",
 }
 
 
@@ -963,6 +960,16 @@ const READERS: Dictionary = {
 	"glyph_condition": {"file": INVENTORY_GD, "slice": "S3 Empty slots say what goes there"},
 	"glyph_inspect": {"file": "res://ui/inspect_pane.gd", "slice": "S3 Empty slots say what goes there"},
 	"glyph_inventory": {"file": "res://ui/bag_grid.gd", "slice": "S3 Empty slots say what goes there"},
+	"glyph_settings": {"file": "res://ui/settings_panel.gd", "slice": "S4 The shell's rows are buttons"},
+	"glyph_journal": {"file": "res://ui/legend.gd", "slice": "S4 The shell's rows are buttons"},
+	"glyph_work": {"file": "res://ui/work_panel.gd", "slice": "S4 The shell's rows are buttons"},
+	"glyph_skills": {"file": "res://ui/web_panel.gd", "slice": "S4 The shell's rows are buttons"},
+	"glyph_pause": {"file": "res://ui/shell.gd", "slice": "S4 The shell's rows are buttons"},
+	"glyph_warning": {"file": "res://ui/shell.gd", "slice": "S4 The shell's rows are buttons"},
+	"glyph_right": {"file": "res://ui/shell.gd", "slice": "S4 The shell's rows are buttons"},
+	"glyph_up": {"file": "res://ui/bench_panel.gd", "slice": "S4 The shell's rows are buttons"},
+	"glyph_down": {"file": "res://ui/bench_panel.gd", "slice": "S4 The shell's rows are buttons"},
+	"glyph_left": {"file": "res://ui/bench_panel.gd", "slice": "S4 The shell's rows are buttons"},
 	# The word menu's gutter reads its glyphs through a verb-prefix table, not a literal at the
 	# call: `table` names the const whose values must carry the glyph, in a file whose draw path
 	# reaches Chrome.glyph( (the KEYCAPS lane proves every prefix resolves and widens size_of).
@@ -972,20 +979,9 @@ const READERS: Dictionary = {
 	"glyph_move": {"file": ITEM_MENU_GD, "table": "GLYPHS", "slice": "S5 Keys wear keycaps"},
 }
 
-# Kit chrome the screens await a later slice for. "The shell's rows are buttons" reads the pause
-# menu, settings, bench, legend, work and skills panels' headers and the bench's directional
-# arrows.
+# Kit glyphs the screens await a later slice for. Empty since "The shell's rows are buttons" gave
+# the last ten their readers; kept, because a glyph that lands ahead of its reader belongs here.
 const PENDING_GLYPHS: Dictionary = {
-	"glyph_settings": "S4 The shell's rows are buttons",
-	"glyph_journal": "S4 The shell's rows are buttons",
-	"glyph_work": "S4 The shell's rows are buttons",
-	"glyph_skills": "S4 The shell's rows are buttons",
-	"glyph_pause": "S4 The shell's rows are buttons",
-	"glyph_warning": "S4 The shell's rows are buttons",
-	"glyph_up": "S4 The shell's rows are buttons",
-	"glyph_down": "S4 The shell's rows are buttons",
-	"glyph_left": "S4 The shell's rows are buttons",
-	"glyph_right": "S4 The shell's rows are buttons",
 }
 
 # The owner's 2026-09-25 decision (docs/30, "The UI Field Kit, live") keeps these out, each with
