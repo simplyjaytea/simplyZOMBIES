@@ -571,10 +571,6 @@ projection are untouched.
   of the record entry calls non-status and sockets now. The UI Field Kit's four OS pointers
   (arrow, hand, move, blocked) land in `ui/cursors.gd` under the UI-kit group, and this slice's
   crosshair and interaction hand join that table rather than a second one; this slice stays open.
-- **The needs-assets report.** A report, not a build: what the pack ships that this arc did not
-  socket — twelve held weapons, eleven utility entries, eight decals, and the UI icons beyond the
-  cursor and the six refused status icons (backpack, ammo, radio, warning, lock, work, map-marker,
-  exit) — named for whichever later slice reads one, per decision 4's "report-only" half.
 
 **UI — the UI Field Kit, live, decided by the owner (2026-09-25).** The direction is [docs/30's
 entry](30-decisions.md#the-ui-field-kit-live-2026-09-25): the whole kit — chrome textures,
@@ -2315,6 +2311,118 @@ not a to-do list:
   wall, tree, effect and vehicle from the generated tier exactly as before; the nine pieces
   docs/23's "the outpost pack" group names are what consumes the pack for everything else, slice
   by slice.
+
+- **Art — the outpost pack's needs-assets report, 2026-09-25.** The report decision 4 of "The
+  outpost pack, adopted" named rather than built — what the pack ships that no slice, or no
+  slice in full, has a sim fact to read — run now that the owner has asked for the whole pack to
+  be used (2026-09-25). It replaces the "The needs-assets report" line in what's-left with the
+  answer. Counted straight off `godot/art/simplyzombies/manifest.json`'s 187 entries rather than
+  assumed: the same pattern turns up three times *inside* an already-named slice before it turns
+  up in the groups nobody named at all — a slice's own prose counts every member of a manifest
+  category ("twelve terrain tiles," "thirteen wall/fence/door/window states," "the pack's twelve
+  four-frame effect sheets"), but not every member of that category already has a matching fact
+  in `godot/sim/`.
+
+  - **Slice 3, the ground.** Two of its twelve terrain tiles have no row to land on:
+    `tile-interior-tile` (an indoor floor distinct from wood) has nowhere to go because
+    `Appearance.GroundRow` has eight rows and `Boards` is already the one "indoor floor" look,
+    with no per-building flooring-material fact to choose wood over tile; and of the eight ground
+    overlays, `overlay-puddle` has no weather fact behind it — rain wets a body (`needs.gd`'s
+    `wetUntilTick`) but never lays a wet patch on the ground the way it wets a person. The other
+    eighteen terrain and overlay entries already have a fact: paved, dirt, grass, undergrowth,
+    rubble and water map straight onto `SimSurface.Surface`, the grass-edge overlays onto the
+    existing grass-disc boundary rule, the road overlays onto the street manifest's own paint, and
+    `overlay-debris` onto the look `check:wrecks` already draws.
+  - **Slice 5, the walls.** Five of its thirteen wall/fence/door/window states have no tile or
+    entity to bind to: `wall-fence-horizontal`, `wall-fence-vertical`, `wall-gate-closed` and
+    `wall-gate-open` have no counterpart in `SimTileMap.Tile` (Floor, Wall, Window, Screen, Low,
+    Tree, Door, Water — no Fence, no Gate; the annex's `gate_a`/`gate_b` are anchor coordinates a
+    director reads, never an openable object), and `wall-window-broken` has no state either —
+    `fortify.gd`'s four window-board stages (`WINDOW_PROSE`) run "intact" to "gaps, light
+    leaking," never to a pane shattered by being fired through rather than boarded. The other
+    eight (plaster, brick, interior, both corners, door-closed/open, window-intact) already have
+    a tile or a board/door stage to read.
+  - **Slice 7, the shot.** Six of its twelve effect sheets have no event to fire them:
+    `fx-metal-sparks`, `fx-concrete-dust` and `fx-wood-splinters` would need an impact point (a
+    struck surface's material, published where a hit today only becomes damage), `fx-water-
+    splash` would need a wade/enter-water event (water today only multiplies speed and noise),
+    `fx-explosion` has nothing to attach to at all — no device in the game explodes — and
+    `fx-smoke-loop` has no ambient smoke source (a fire is lit or unlit; nothing emits smoke on
+    its own). The other six — the three muzzle flashes, `fx-blood-hit`, `fx-ejected-casing` and
+    `fx-flame-loop` — are exactly what the slice's own text names ("muzzle flash, blood hit,
+    casing and campfire flame") and already have the firing, wounding, ejection and lighting
+    events to read.
+
+  Four groups the roadmap ties to no system at all, named or proposed:
+
+  - **Held weapons, twelve** (`groups/items/held/weapon-*.png`: pistol, revolver, smg,
+    pump-shotgun, assault-rifle, bolt-rifle, bow, crossbow, kitchen-knife, hatchet, crowbar,
+    baseball-bat). Needs a per-direction hand socket on the pack survivor rig, naming which item
+    is equipped and orienting it to heading — slice 2 lands the body and its four wearables
+    (vest, helmet, gasmask, backpack) and says nothing about what a hand holds. No slice names
+    it; it also sits beside docs/30's two still-open aim and muzzle-socket decisions (7 and 8 of
+    "The outpost pack, adopted"), which a held-weapon overlay would have to agree with once
+    decided. Touches no standing ban.
+  - **Utilities, eleven** (`groups/utility/`: `utility-generator-off/on`,
+    `-barricade-intact/broken`, `-rain-collector`, `-stove`, `-worklamp-off/on/activation`,
+    `-spike-trap-armed/triggered`). No one fact covers the group. The worklamp pair is closest to
+    landable: a lamp's lit/unlit, burning-down state is a real, already-gated fact
+    (`M2_LIGHT_BURN_OK`), just not yet given this art. The barricade pair is partial:
+    `fortify.gd` tracks a window's board across four numeric stages, never a flat two-state prop.
+    The other seven — both generator states, the rain collector, the stove, and both spike-trap
+    states — have no sim fact of any kind: there is no power or generator mechanic
+    (`content/colony/generator.json` is an unrelated survivor name pool), no water-collecting
+    item, no stove distinct from the campfire `cooksInto` already reads, and no trap a raider or
+    a zombie can trigger. No slice names any of the eleven. Touches no standing ban.
+  - **Decals, eight** (`groups/effects/frames/`: `fx-blood-pool-dry/fresh`,
+    `fx-bullet-hole-metal/concrete`, `fx-scorch-mark`, `fx-wood-chips`, `fx-shell-pile`,
+    `fx-footprint`). These are marks that outlast the moment, a different fact than slice 7's
+    transient effects: a location, a surface or actor, and a tick, published once and read until
+    it fades, which nothing in `sim/` emits today. No slice names it. `fx-footprint` is the one
+    to watch before a reader is built for it: a trail rendered where an actor walked, unseen, is
+    exactly the certainty clause 4 of the hardcore contract refuses the player (docs/01,
+    "information is scarce and unreliable") unless it is scoped to ground the player's own
+    sightline has already swept.
+  - **UI icons beyond the cursor, eight** (`groups/utility/native/`: `ui-backpack`, `ui-radio`,
+    `ui-warning`, `ui-ammo`, `ui-lock`, `ui-work`, `ui-map-marker`, `ui-exit`). Each would need
+    its own fact (pack space, a call transmitted, a raised alert, a magazine's fullness, a locked
+    container, an assigned job, a waypoint, the district edge), and none has a reader named.
+    `ui-ammo` is the one to flag: an icon standing in for a count is the digit ban in a picture
+    rather than a numeral, and `check_hud.gd` would need to judge it the way it judges every
+    other HUD glyph. Decision 4 calls these "report-only," not refused the way the six status
+    icons are — but they sit in the same territory the icon-row ban already occupies, and naming
+    them here amends no ban.
+
+  One more group nobody asked to name, found while counting the rest:
+
+  - **Container states, seven of the family's nine** (`groups/props/native/`:
+    `prop-wood-crate-open`, `prop-metal-footlocker-closed/open/empty`,
+    `prop-medical-box-closed/open/empty`; the closed and empty wood-crate looks are the two
+    landed 2026-09-17). They split two ways. `prop-wood-crate-open` needs no new fact:
+    `containers.gd`'s own `hud_clause` already tells a searched-but-not-emptied container apart
+    from an emptied one, by `contents_of(target).is_empty()` — `presentation/appearance.gd:793`'s
+    container entry switches only on the `searched` flag, collapsing both into
+    `prop.container.searched`. The other six — every metal-footlocker and medical-box look — are
+    not missing a fact so much as spending one the game refuses to spend: a container that looks
+    like a medical box announces its loot table before anyone opens it, exactly the certainty
+    clause 4 forbids; the shipped rule is deliberately one look for every container regardless of
+    tier. No slice names any of the seven.
+
+  **What is already covered, corrected rather than assumed.** The pack's eight nature sprites
+  (`nature-pine`, `-broadleaf`, `-dead-tree`, `-bush`, `-reeds`, `-rock-cluster`, `-stump`,
+  `-fallen-log`) are not a gap: slice 4 ("Trees, the bed and the heaps") already names "the
+  pack's eight nature sprites," and the count matches exactly. The forty-eight inventory icons
+  are likewise already slice 6's, moved there 2026-09-17. Furnishing props are the real gap in
+  that neighbourhood: of the pack's sixteen `prop-*` entries (`groups/props/native/`), only
+  `prop-bed` is named, by slice 4; the other fifteen (barrel, dumpster, concrete-barrier,
+  pallet-stack, workbench, chair, table, fridge, shelf, medical-cabinet, streetlamp, road-sign,
+  traffic-cone, trash-bags, fence-post) have no `content/props/` entry at all —
+  `content/props/stations.json` places only container, bed, campfire, well and latrine, each a
+  functional entity the generator or a job spawns, and a purely decorative prop has no placement
+  pass to put it down at all. `prop-workbench` is the partial exception: `SimGunsmith.build`
+  already spawns a `bench` entity on `bench.built`, so the gameplay fact exists; nothing gives
+  that entity a content id or an `appearance.sprite`, so it still draws by fallback role colour.
+  No slice names any of the fifteen. Touches no standing ban.
 
 - **World & map** — ~~the three location loot tables~~ **landed** (`godot:check:loot`): what a
   place yields is content now, not two hardcoded kits in `boot.gd`. `content/loot/tables.json`
