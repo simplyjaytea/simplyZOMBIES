@@ -19,6 +19,7 @@
     "size": { "w": 3, "h": 3 },
     "massKg": 2.1,
     "equipSlot": "vest",
+    "appearance": { "equipSprite": "item_gear_vest" },
     "armor": { "torso": 0.6, "arm_left": 0.3, "arm_right": 0.3 },
     "slots": ["plate", "lining", "pocket"]
   },
@@ -107,7 +108,7 @@
     "size": {"w": 2, "h": 2},
     "massKg": 0.4,
     "equipSlot": "head",
-    "appearance": {"equipSprite": "item_helmet_bike_equip"},
+    "appearance": {"equipSprite": "item_gear_helmet"},
     "armor": {"head": 0.45},
     "slots": ["face"]
   },
@@ -163,7 +164,7 @@
     "size": {"w": 2, "h": 2},
     "massKg": 0.35,
     "equipSlot": "head",
-    "appearance": {"equipSprite": "item_helmet_hardhat_equip"},
+    "appearance": {"equipSprite": "item_gear_helmet"},
     "armor": {"head": 0.35},
     "slots": ["face"]
   },
@@ -175,6 +176,7 @@
     "size": {"w": 3, "h": 3},
     "massKg": 3.4,
     "equipSlot": "vest",
+    "appearance": {"equipSprite": "item_gear_vest"},
     "armor": {"torso": 0.75, "arm_left": 0.4, "arm_right": 0.4},
     "slots": ["plate", "lining", "pocket"]
   },
@@ -197,6 +199,7 @@
     "size": {"w": 3, "h": 3},
     "massKg": 1.4,
     "equipSlot": "vest",
+    "appearance": {"equipSprite": "item_gear_vest"},
     "armor": {"torso": 0.7, "arm_left": 0.15, "arm_right": 0.15},
     "slots": ["plate", "lining", "pocket"],
     "requiredSlots": ["plate"],

@@ -541,13 +541,13 @@ projection are untouched.
   see the record (`npm run sprites:check`'s reproduction; `npm run godot:check:authored` → the
   new SOURCE lane and the widened READS lane; `npm run godot:check:appearance` → PROPS at the
   pack's own footprint).
-- **The bodies turn and walk.** The pack's four-direction survivor, its four-frame walk keyed to
-  `world.tick`, and its four wearables per direction (vest, helmet, gasmask, backpack; 16
-  directional overlay PNGs) become the look for every human in the game — the player, Mara,
-  Ellis, the colonist template, the raider — replacing five of the generated tier's eight rigs
-  and their overlays; the pack's shambler replaces the generated one the same way. The screamer
-  and the bloater, which the pack does not supply, keep their generated rigs (decision 2 of the
-  record entry) until a later fixture round or a pack update grows more bodies.
+- ~~**The bodies turn and walk.**~~ — **landed** 2026-09-26, see the record
+  (`npm run godot:check:authored` PACK, `godot:check:topdown` TURN, `godot:check:worn` TURNS).
+- **Pack gear on the body.** The half "The bodies turn and walk" left: retire the 43 face-on
+  generated equip overlays (51 before that slice) and their `parts/gear.py` code, per docs/30's
+  "The whole outpost pack". Until it lands a face-on overlay -- every held weapon, jacket, cap,
+  trousers, the duffel -- draws on a turning body's south view only and vanishes on the e, n and
+  w views. Lands with "Held weapons in the hand" below.
 - **The ground is the pack's.** An atlas composed from the pack's twelve terrain tiles and eight
   ground overlays, in `Appearance.GROUND_ATLAS_KEY`'s place; the palette rows the road and weather
   lanes hold to are regraded to the pack's own means rather than the generator's.
@@ -2452,6 +2452,53 @@ not a to-do list:
   already spawns a `bench` entity on `bench.built`, so the gameplay fact exists; nothing gives
   that entity a content id or an `appearance.sprite`, so it still draws by fallback role colour.
   No slice names any of the fifteen. Touches no standing ban.
+
+- **Art & renderer — the bodies turn and walk, 2026-09-26.** Every human (the player, Mara,
+  Ellis, the colony looks, every raider archetype and look) draws the outpost pack's survivor, and
+  the shambler with the four kinds that wear its key draws the pack's shambler: `authored.json`
+  families `body_survivor` / `body_shambler`, kind `pack_rig`, four idle views and a four-frame
+  walk each way (20 members each), every member cropped 32×48 → 32×40 on the pack's anchor row.
+  The pack's vest, helmet, gas mask and backpack are `item_gear_*` families (kind `pack_overlay`,
+  four views each) worn by the two helmets, three backpacks, three armour vests and the chest rig,
+  and the gas mask and half-mask respirator. `presentation/appearance.gd` gains `view_of`,
+  `turns`, `frame_key`, `walk_frame` (integer: `tick * fps / TICK_HZ + id`, fps copied from the
+  manifest: survivor 8, shambler 5), `body_view` (facing, else velocity, else south), `body_texture`,
+  `flip_for` (a turning body never mirrors) and `layer_over` (the manifest's per-view `z`, so the
+  backpack goes under seen from the side); `EQUIP_DRAW_ORDER` gains `vest` and `face`, ordered by
+  the manifest's z (vest 2, back 3, mask 4, helmet 5). `main.gd`'s entity loop reads all of it and
+  the afterimage freezes the frame it drew. Raiders share one tint, `#c4877a` (docs/30, "The whole
+  outpost pack"). **Retired in the same commit:** six generated rigs (`player_body`,
+  `survivor_mara`, `survivor_ellis`, `survivor_colonist`, `raider_body`, `zombie_shambler`) and
+  eight overlays (three backpacks with `_front` straps, two helmets), functions and PNGs.
+  **Gated:** `godot:check:authored` new PACK lane (members complete by convention; fps and z equal
+  to the manifest; every crop ends on the anchor row and drops nothing at or above `ALPHA_SOLID`
+  128; idle soles on row 39, walk soles within 1; every wearable view exactly on the manifest's
+  `fit`), MANIFEST validates `fps`/`z`; `godot:check:topdown` new TURN lane (views, diagonals, walk
+  rate counted on the tick, member resolution, face-on rigs keep their flip, draw-loop and
+  afterimage needles); `godot:check:worn` new TURNS lane (per-view composition, backpack under on
+  e/w only, face-on bat on the south view only); ORDER re-pinned to eight slots;
+  `check_appearance` ROSTER re-grouped and GREY replaced by COLONISTS; `check_m2_raiders` LOOKS and
+  ARCHETYPES now hold one body and one tint. **Measured:** `SPRITES_OK 158 generated ... 58
+  authored keys reproduced`; `PACK OK 2 pack rig(s) and 4 pack overlay(s), 56 members`;
+  `APPEARANCE_OK`, `AUTHORED_OK`, `WORN_LOOK_OK`, `TOPDOWN_OK`, `M2_RAIDERS_OK` (99 s),
+  `PLAY_OK`, `GODOT_PROJECT_SMOKE_OK`, `GODOT_CONTENT_OK`, `MEMORY_LOOK_OK`, `SPEECH_OK`,
+  `TREES_OK`, `ROOF_LOOK_OK`, `WRECKS_OK`, `M2_VARIANCE_OK`, `M2_RECRUITS_OK`, `ROUTING_OK`,
+  `TIMING_OK`; `npm test` 45 files / 594 tests. **Sabotage pass**, each red then reverted: fps
+  8→7 and backpack z e −1→1 (PACK), the same z (TURNS), `ALPHA_SOLID` 1 (PACK: a speck-inflated
+  32 px body), gas mask `reads` moved (READS), walk clock ignoring fps (TURN: 1 change a second),
+  face-on overlays on every view (TURNS), the draw loop dropping the view or calling `body_flip`
+  (TURN / FLIP needles), `flip_for` mirroring a turning body (TURN), a second raider tint
+  (`godot:m2:raiders` ARCHETYPES), a repeated colony tint (COLONISTS), `vest` dropped from the
+  order (ORDER), one hand-edited member pixel (`sprites:check`). **Half shipped, named:** face-on
+  overlays draw facing south only (above, "Pack gear on the body"); no held weapons; the
+  wearables are fitted to the idle views, so on walk frames the head bobs up to one row under the
+  helmet (survivor walk tops 11–13 against idle 12); the armoured zombie wears the survivor-fitted
+  helmet and vest on the shambler; colony tints now multiply coloured art (median luma 0.132
+  untinted, 0.077–0.105 tinted) and no lane guards body-against-ground contrast any more -- the
+  retired GREY and raider composed-luma checks had no subject once their rigs went, and the
+  pack's untinted survivor already sits under the street's luma, so "The ground is the pack's"
+  re-pins it; the player, Mara and Ellis are one picture (decision 2); the draw loop's added
+  per-body lookups were not perf-measured (no Godot frame-budget gate exists).
 
 - **World & map** — ~~the three location loot tables~~ **landed** (`godot:check:loot`): what a
   place yields is content now, not two hardcoded kits in `boot.gd`. `content/loot/tables.json`

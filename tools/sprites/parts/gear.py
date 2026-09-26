@@ -32,11 +32,14 @@ own silhouette either side of it rather than being repainted by it; and the held
 off `HAND_X`, the human hand, which is not where the bloater's hand is -- the shipped bat
 already made that trade, and nothing on the zombie roster carries equipment.
 
-The bases with a drawn slot and no key here are the ones whose slot the renderer does not draw:
-`vest`, `belt`, `feet`, `gloves`, `eyes` and `face` are equippable in content and absent from
-`Appearance.EQUIP_DRAW_ORDER`, so `item.vest.scrap`, `item.rig.chest`, `item.satchel.canvas`,
-`item.boots.leather`, `item.gloves.work`, `item.glasses.safety` and `item.mask.cloth` are
-skipped here on purpose -- a picture for a slot nothing composites is gear as a dead socket.
+The bases with a drawn slot and no key here are the ones whose slot the renderer does not draw
+(`belt`, `feet`, `gloves`, `eyes`), and the ones the outpost pack now dresses instead. The three
+backpacks and the two helmets were drawn here until 2026-09-26, when "The bodies turn and walk"
+(docs/23) put every human on the pack's four-direction survivor and its four-direction vest,
+helmet, gas mask and backpack replaced them: a face-on overlay cannot fit a body that turns, so
+their functions and PNGs went in the same commit, the standing rule for hand-made art
+(tools/sprites/README.md). Every key still here is face-on and draws on the survivor's south
+view only, until "Pack gear on the body" retires the rest (docs/30, "The whole outpost pack").
 """
 
 from draw import Canvas
@@ -57,71 +60,10 @@ from parts.characters import (
     TORSO_TOP_Y,
 )
 
-# The pack's own numbers, from the skeleton outwards. A pack worn on the back is a thing you
-# see the *edges* of from the front, so the shape has to clear the body somewhere or it is an
-# overlay that draws nothing a player can ever see -- gear as a dead socket. It clears it in
-# two places and deliberately nowhere else: one column of bag shows past each arm (10.5
-# half-width reaches dx +-10.5 where the family's widest arm reaches +-9.5), and a narrow top
-# hump shows either side of the neck. The first draft was 11.0 wide and square-topped, which
-# put a 22 px slab across both shoulders and read as wings rather than as luggage; the hump is
-# 6.0 so the head covers all but a column of it.
-PACK_HALF_W = 10.5
-PACK_TOP_Y = TORSO_TOP_Y - 0.5
-PACK_BOTTOM_Y = LEG_TOP_Y - 2.0
-PACK_HUMP_HALF_W = 6.0
-PACK_HUMP_TOP_Y = TORSO_TOP_Y - 2.5
-
 
 def _overlay():
     """The pawn canvas, empty: an overlay is authored in the body's own coordinates."""
     return Canvas(PAWN_W, PAWN_H, origin="feet")
-
-
-def item_pack_hiking_equip():
-    """The pack, drawn behind the body: a hump above the neck, the bag's corners at the arms.
-
-    `cloth[0]`, the ramp's darkest step, and not the mid tone: what shows of this is a thin
-    border round a body that is itself mid-toned cloth, and at `cloth[2]` the border was
-    brighter than every survivor on the roster -- the pack read as the loudest thing in the
-    picture, which a rucksack is not.
-    """
-    cloth = RAMPS["cloth"]
-    strap = RAMPS["strap"]
-    canvas = _overlay()
-    mid_y = (PACK_TOP_Y + PACK_BOTTOM_Y) / 2.0
-    half_h = (PACK_BOTTOM_Y - PACK_TOP_Y) / 2.0
-    canvas.rounded_rect(0.0, (PACK_HUMP_TOP_Y + PACK_TOP_Y) / 2.0, PACK_HUMP_HALF_W,
-                        (PACK_TOP_Y - PACK_HUMP_TOP_Y) / 2.0, 1.5, cloth[0])
-    canvas.rounded_rect(0.0, mid_y, PACK_HALF_W, half_h, 4.0, cloth[0])
-    # A lid across the top third and a compression strap under it, so the shape that shows
-    # past the shoulders is a piece of luggage rather than a rounded slab.
-    canvas.rounded_rect(0.0, PACK_TOP_Y + 2.5, PACK_HALF_W - 0.6, 2.6, 2.0, cloth[1],
-                        inside_only=True)
-    canvas.band((-PACK_HALF_W, mid_y + 2.0), (PACK_HALF_W, mid_y + 2.0), 2.0, strap[2])
-    canvas.tone_pass(tone_map())
-    canvas.outline(OUTLINE)
-    return canvas.to_image()
-
-
-def item_pack_hiking_equip_front():
-    """The two shoulder straps, drawn over the chest and nowhere near the silhouette edge.
-
-    They run from just inside the shoulder to the hip, staying within +-6.5 px of centre: the
-    torso's own outline sits at +-7.5, and a strap painted over it would erase the body's edge
-    on whichever rig is underneath.
-    """
-    strap = RAMPS["strap"]
-    canvas = _overlay()
-    for side in (-1.0, 1.0):
-        canvas.band(
-            (side * 5.4, SHOULDER_Y + 1.0),
-            (side * 2.6, LEG_TOP_Y - 1.0),
-            2.2,
-            strap[1],
-            inside_only=False,
-        )
-    canvas.tone_pass(tone_map())
-    return canvas.to_image()
 
 
 def item_bat_aluminium_equip():
@@ -760,27 +702,6 @@ def item_jacket_leather_equip():
     return canvas.to_image()
 
 
-HELMET_CY = HEAD_CY - 3.0
-HELMET_HALF_W = HEAD_R + 0.8
-
-
-def item_helmet_bike_equip():
-    """A bike helmet: a dome over the top of the skull, a column proud of it each side, vents.
-
-    Bounded by the face exactly as the cap is -- its lowest row is above the brow -- and told
-    apart from the cap by being a dome rather than a crown-and-peak: taller, rounder, and
-    `stone` rather than cloth. Two dark vents are what say "shell" at this size.
-    """
-    shell = RAMPS["stone"]
-    canvas = _overlay()
-    canvas.rounded_rect(0.0, HELMET_CY, HELMET_HALF_W, 2.4, 2.4, shell[3])
-    for side in (-1.0, 1.0):
-        canvas.rect(side * 2.2, HELMET_CY - 0.8, 0.5, 0.9, shell[0], inside_only=True)  # vents
-    canvas.tone_pass(tone_map())
-    canvas.outline(OUTLINE, "esw")
-    return canvas.to_image()
-
-
 def item_jeans_denim_equip():
     """Denim jeans: the trousers' shape in the `glass` ramp, with a seam and no turned cuff.
 
@@ -801,84 +722,6 @@ def item_jeans_denim_equip():
     canvas.rect(0.0, PANTS_BELT_Y, PANTS_SEAT_HALF_W - 0.5, 0.0, strap[1], inside_only=True)
     canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
-    return canvas.to_image()
-
-
-# --- the catalogue: two more packs, behind the body --------------------------------------------
-# Same rule as the hiking pack: a pack is seen by its edges, so each clears the arms by at least a
-# column and shows a hump beside the neck, and the front piece is straps only.
-
-SCHOOL_HALF_W = 10.2
-SCHOOL_TOP_Y = TORSO_TOP_Y + 1.5
-SCHOOL_BOTTOM_Y = LEG_TOP_Y - 2.5  # was -4.5 on the taller trunk; a bag two rows deep is a strap
-FRAME_HALF_W = 11.0
-FRAME_TOP_Y = TORSO_TOP_Y - 1.5
-FRAME_BOTTOM_Y = LEG_TOP_Y - 1.5
-FRAME_HUMP_HALF_W = 6.5
-FRAME_HUMP_TOP_Y = TORSO_TOP_Y - 4.0
-
-
-def item_pack_school_equip():
-    """A school bag: smaller and lower than the hiking pack, in the car-green ramp."""
-    bag = RAMPS["car_green"]
-    strap = RAMPS["strap"]
-    canvas = _overlay()
-    mid_y = (SCHOOL_TOP_Y + SCHOOL_BOTTOM_Y) / 2.0
-    canvas.rounded_rect(0.0, mid_y, SCHOOL_HALF_W, (SCHOOL_BOTTOM_Y - SCHOOL_TOP_Y) / 2.0, 3.0,
-                        bag[1])
-    canvas.rounded_rect(0.0, SCHOOL_TOP_Y + 2.0, SCHOOL_HALF_W - 0.6, 2.0, 1.5, bag[2],
-                        inside_only=True)  # the flap
-    canvas.band((-SCHOOL_HALF_W, mid_y + 1.5), (SCHOOL_HALF_W, mid_y + 1.5), 1.6, strap[2])
-    canvas.tone_pass(tone_map())
-    canvas.outline(OUTLINE)
-    return canvas.to_image()
-
-
-def item_pack_school_equip_front():
-    strap = RAMPS["strap"]
-    canvas = _overlay()
-    for side in (-1.0, 1.0):
-        canvas.band((side * 5.0, SHOULDER_Y + 1.0), (side * 3.4, LEG_TOP_Y - 3.0), 1.8, strap[2],
-                    inside_only=False)
-    canvas.tone_pass(tone_map())
-    return canvas.to_image()
-
-
-def item_pack_frame_equip():
-    """A frame pack: taller and wider than the hiking pack, with the frame's two rails showing.
-
-    `fatigue_drab` is the surplus-canvas ramp the raider already wears; the rails are `stone`.
-    Half a column wider than the hiking pack and a row taller at the hump, so the biggest bag in
-    the game reads as the biggest from the front too.
-    """
-    canvas_ramp = RAMPS["fatigue_drab"]
-    rail = RAMPS["stone"]
-    strap = RAMPS["strap"]
-    canvas = _overlay()
-    mid_y = (FRAME_TOP_Y + FRAME_BOTTOM_Y) / 2.0
-    canvas.rounded_rect(0.0, (FRAME_HUMP_TOP_Y + FRAME_TOP_Y) / 2.0, FRAME_HUMP_HALF_W,
-                        (FRAME_TOP_Y - FRAME_HUMP_TOP_Y) / 2.0, 1.5, canvas_ramp[1])
-    canvas.rounded_rect(0.0, mid_y, FRAME_HALF_W, (FRAME_BOTTOM_Y - FRAME_TOP_Y) / 2.0, 3.0,
-                        canvas_ramp[1])
-    for side in (-1.0, 1.0):
-        canvas.band((side * (FRAME_HALF_W - 1.0), FRAME_TOP_Y + 1.0),
-                    (side * (FRAME_HALF_W - 1.0), FRAME_BOTTOM_Y - 1.0), 1.0, rail[3],
-                    inside_only=True)  # the rails
-    canvas.band((-FRAME_HALF_W, mid_y + 3.0), (FRAME_HALF_W, mid_y + 3.0), 1.8, strap[2])
-    canvas.tone_pass(tone_map())
-    canvas.outline(OUTLINE)
-    return canvas.to_image()
-
-
-def item_pack_frame_equip_front():
-    strap = RAMPS["strap"]
-    canvas = _overlay()
-    for side in (-1.0, 1.0):
-        canvas.band((side * 5.6, SHOULDER_Y + 1.0), (side * 2.4, LEG_TOP_Y - 1.0), 2.4, strap[1],
-                    inside_only=False)
-    canvas.band((-4.0, SHOULDER_Y + 5.0), (4.0, SHOULDER_Y + 5.0), 1.6, strap[2],
-                inside_only=False)  # the sternum strap, which the hiking pack has not
-    canvas.tone_pass(tone_map())
     return canvas.to_image()
 
 
@@ -1085,28 +928,6 @@ def item_apron_welding_equip():
                     hide[4], inside_only=False)  # the neck strap, over the collarbone
     canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
-    return canvas.to_image()
-
-
-HARDHAT_CY = HEAD_CY - 3.2
-HARDHAT_BRIM_Y = HEAD_CY - 1.4
-
-
-def item_helmet_hardhat_equip():
-    """A hard hat: a low crown with a flat brim all the way round it.
-
-    Three head items now share one skull, so each has to be a different outline: the cap is a
-    crown with a peak on one side, the bike helmet a bare dome, and this a dome with a brim
-    proud on *both* sides. The brim is the read. `wall_brick`, the timber family's warm ramp --
-    a site hat is the one warm thing on a head, and the accent family is for light sources only.
-    """
-    shell = RAMPS["wall_brick"]
-    canvas = _overlay()
-    canvas.rounded_rect(0.0, HARDHAT_CY, HEAD_R - 0.8, 2.0, 1.8, shell[3])  # the crown
-    canvas.rect(0.0, HARDHAT_BRIM_Y, HEAD_R + 1.6, 0.5, shell[1])  # the brim, proud both sides
-    canvas.rect(0.0, HARDHAT_CY - 1.4, 0.5, 0.9, shell[4], inside_only=True)  # the centre rib
-    canvas.tone_pass(tone_map())
-    canvas.outline(OUTLINE, "esw")
     return canvas.to_image()
 
 
@@ -1414,8 +1235,6 @@ REGISTRY = {
     "item_attach_suppressor_part": item_attach_suppressor_part,
     "item_attach_optic_red_dot_part": item_attach_optic_red_dot_part,
     "item_attach_magazine_extended_part": item_attach_magazine_extended_part,
-    "item_pack_hiking_equip": item_pack_hiking_equip,
-    "item_pack_hiking_equip_front": item_pack_hiking_equip_front,
     "item_bat_aluminium_equip": item_bat_aluminium_equip,
     # legs, torso, head -- worn, drawn over the body
     "item_pants_canvas_equip": item_pants_canvas_equip,
@@ -1442,12 +1261,7 @@ REGISTRY = {
     "item_shotgun_pump_equip": item_shotgun_pump_equip,
     "item_rifle_hunting_equip": item_rifle_hunting_equip,
     "item_jacket_leather_equip": item_jacket_leather_equip,
-    "item_helmet_bike_equip": item_helmet_bike_equip,
     "item_jeans_denim_equip": item_jeans_denim_equip,
-    "item_pack_school_equip": item_pack_school_equip,
-    "item_pack_school_equip_front": item_pack_school_equip_front,
-    "item_pack_frame_equip": item_pack_frame_equip,
-    "item_pack_frame_equip_front": item_pack_frame_equip_front,
     "item_lantern_oil_equip": item_lantern_oil_equip,
     # the second catalogue (2026-09-09)
     "item_baton_police_equip": item_baton_police_equip,
@@ -1457,7 +1271,6 @@ REGISTRY = {
     "item_revolver_snub_equip": item_revolver_snub_equip,
     "item_rifle_rimfire_equip": item_rifle_rimfire_equip,
     "item_apron_welding_equip": item_apron_welding_equip,
-    "item_helmet_hardhat_equip": item_helmet_hardhat_equip,
     "item_duffel_canvas_equip": item_duffel_canvas_equip,
     "item_duffel_canvas_equip_front": item_duffel_canvas_equip_front,
     # the weapons catalogue (2026-09-10)

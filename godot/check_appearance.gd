@@ -30,14 +30,14 @@ func _run() -> void:
 	ok = _procedural_fallback_still_works() and ok
 	ok = _the_player_has_a_body() and ok
 	ok = _the_roster_resolves_bodies() and ok
-	ok = _colonists_are_tinted_grey() and ok
+	ok = _colonists_wear_the_pack_body_tinted() and ok
 	ok = _art_is_not_modulated_by_a_role_colour() and ok
 	ok = _equipped_gear_layers_resolve() and ok
 	ok = _props_look_like_something() and ok
 	ok = _items_look_like_something() and ok
 	ok = _the_body_chart_is_ten_parts_in_three_poses() and ok
 	if ok:
-		print("APPEARANCE_OK schema keys resolve, fallback intact, the player has a body, the roster resolves shared and distinct rigs, colonists compose grey x tint over the ground, items resolve art or a class glyph, the body chart is ten parts in three poses")
+		print("APPEARANCE_OK schema keys resolve, fallback intact, the player has a body, the roster resolves shared and distinct rigs, colonists wear the pack body with six tints, items resolve art or a class glyph, the body chart is ten parts in three poses")
 		quit(0)
 	else:
 		push_error("APPEARANCE_FAIL")
@@ -350,26 +350,26 @@ func _the_player_has_a_body() -> bool:
 # `c is Object` is false for it). Noted, not "fixed": the lookup is by id, the ids do not
 # collide, and a fix in passing is how a resolver grows a second code path.
 const ROSTER: Array[Dictionary] = [
-	{"id": "player.body", "kind": "player", "probe": {"player": true}, "colonist": false},
-	{"id": "survivor.unique.mara", "kind": "survivor", "probe": {"unique": true, "cid": "survivor.unique.mara"}, "colonist": false},
-	{"id": "survivor.unique.ellis", "kind": "survivor", "probe": {"unique": true, "cid": "survivor.unique.ellis"}, "colonist": false},
-	{"id": "colony.look.01", "kind": "survivor", "probe": {"unique": true, "cid": "colony.look.01"}, "colonist": true},
-	{"id": "colony.look.02", "kind": "survivor", "probe": {"unique": true, "cid": "colony.look.02"}, "colonist": true},
-	{"id": "colony.look.03", "kind": "survivor", "probe": {"unique": true, "cid": "colony.look.03"}, "colonist": true},
-	{"id": "colony.look.04", "kind": "survivor", "probe": {"unique": true, "cid": "colony.look.04"}, "colonist": true},
-	{"id": "colony.look.05", "kind": "survivor", "probe": {"unique": true, "cid": "colony.look.05"}, "colonist": true},
-	{"id": "colony.look.06", "kind": "survivor", "probe": {"unique": true, "cid": "colony.look.06"}, "colonist": true},
-	{"id": "zombie.shambler", "kind": "zombie", "probe": {"ztype": "zombie.shambler"}, "colonist": false},
-	{"id": "zombie.screamer", "kind": "zombie", "probe": {"ztype": "zombie.screamer"}, "colonist": false},
-	{"id": "zombie.bloater", "kind": "zombie", "probe": {"ztype": "zombie.bloater"}, "colonist": false},
+	{"id": "player.body", "kind": "player", "probe": {"player": true}, "tinted": false},
+	{"id": "survivor.unique.mara", "kind": "survivor", "probe": {"unique": true, "cid": "survivor.unique.mara"}, "tinted": false},
+	{"id": "survivor.unique.ellis", "kind": "survivor", "probe": {"unique": true, "cid": "survivor.unique.ellis"}, "tinted": false},
+	{"id": "colony.look.01", "kind": "survivor", "probe": {"unique": true, "cid": "colony.look.01"}, "tinted": true},
+	{"id": "colony.look.02", "kind": "survivor", "probe": {"unique": true, "cid": "colony.look.02"}, "tinted": true},
+	{"id": "colony.look.03", "kind": "survivor", "probe": {"unique": true, "cid": "colony.look.03"}, "tinted": true},
+	{"id": "colony.look.04", "kind": "survivor", "probe": {"unique": true, "cid": "colony.look.04"}, "tinted": true},
+	{"id": "colony.look.05", "kind": "survivor", "probe": {"unique": true, "cid": "colony.look.05"}, "tinted": true},
+	{"id": "colony.look.06", "kind": "survivor", "probe": {"unique": true, "cid": "colony.look.06"}, "tinted": true},
+	{"id": "zombie.shambler", "kind": "zombie", "probe": {"ztype": "zombie.shambler"}, "tinted": false},
+	{"id": "zombie.screamer", "kind": "zombie", "probe": {"ztype": "zombie.screamer"}, "tinted": false},
+	{"id": "zombie.bloater", "kind": "zombie", "probe": {"ztype": "zombie.bloater"}, "tinted": false},
 	# The two wave kinds the stalker-and-runner slice added. They declare the shambler's own
 	# sprite key and no block tint, so they resolve its texture and draw white here -- which is
 	# exactly the gap docs/23's "a silhouette per kind" follow-up piece names. What tells one
 	# from another on the ground today is the per-body colour rolled from each kind's own
 	# `variance.tints` palette, which arrives on the draw item rather than in the block
 	# (check_m2_variance.gd READER), and is therefore invisible to this lane by construction.
-	{"id": "zombie.stalker", "kind": "zombie", "probe": {"ztype": "zombie.stalker"}, "colonist": false},
-	{"id": "zombie.runner", "kind": "zombie", "probe": {"ztype": "zombie.runner"}, "colonist": false},
+	{"id": "zombie.stalker", "kind": "zombie", "probe": {"ztype": "zombie.stalker"}, "tinted": false},
+	{"id": "zombie.runner", "kind": "zombie", "probe": {"ztype": "zombie.runner"}, "tinted": false},
 	# And the two the armoured-and-heavy slice added, on the same terms and for the same reason.
 	# The armoured one is the awkward entry to leave here and that is exactly why it is written
 	# down: it is *wearing a vest and a helmet* the sim resolves and the paperdoll draws
@@ -377,26 +377,25 @@ const ROSTER: Array[Dictionary] = [
 	# under the gear is still the shambler's rig at the shambler's white, so the silhouette a
 	# player reads across a street is the shambler's silhouette. The heavy is worse off still --
 	# docs/14 calls it enormous and it draws at exactly one tile like everything else.
-	{"id": "zombie.armored", "kind": "zombie", "probe": {"ztype": "zombie.armored"}, "colonist": false},
-	{"id": "zombie.heavy", "kind": "zombie", "probe": {"ztype": "zombie.heavy"}, "colonist": false},
-	{"id": "raider.scav", "kind": "raider", "probe": {"raider": true, "cid": "raider.scav"}, "colonist": false},
-	{"id": "raider.gunhand", "kind": "raider", "probe": {"raider": true, "cid": "raider.gunhand"}, "colonist": false},
+	{"id": "zombie.armored", "kind": "zombie", "probe": {"ztype": "zombie.armored"}, "tinted": false},
+	{"id": "zombie.heavy", "kind": "zombie", "probe": {"ztype": "zombie.heavy"}, "tinted": false},
+	{"id": "raider.scav", "kind": "raider", "probe": {"raider": true, "cid": "raider.scav"}, "tinted": true},
+	{"id": "raider.gunhand", "kind": "raider", "probe": {"raider": true, "cid": "raider.gunhand"}, "tinted": true},
 	# The two role archetypes (the roles slice). Same body as the other two, and that is the
 	# information rule rather than a shortcut: a picture that said "this one came for your pantry"
 	# would answer, from across a street, the question a raid is supposed to make you guess at.
-	{"id": "raider.looter", "kind": "raider", "probe": {"raider": true, "cid": "raider.looter"}, "colonist": false},
-	{"id": "raider.lookout", "kind": "raider", "probe": {"raider": true, "cid": "raider.lookout"}, "colonist": false},
-	# The four rolled raider looks (the individuals slice), and `colonist: false` on every one of
-	# them is the finding rather than an oversight: a raider look declares no tint, because
-	# `raider_drab` sits at the floor of the ground-contrast guard already
-	# (tools/sprites/palette.py) and a modulate can only darken it. So all four wear the one body
-	# unstained, exactly as the two archetypes do, and they are here so that the day a look does
-	# get a picture of its own, this roster is what refuses to let it pass unjudged.
-	# check_m2_raiders.gd's LOOKS lane computes and prints the headroom that says why.
-	{"id": "raider.look.01", "kind": "raider", "probe": {"raider": true, "cid": "raider.look.01"}, "colonist": false},
-	{"id": "raider.look.02", "kind": "raider", "probe": {"raider": true, "cid": "raider.look.02"}, "colonist": false},
-	{"id": "raider.look.03", "kind": "raider", "probe": {"raider": true, "cid": "raider.look.03"}, "colonist": false},
-	{"id": "raider.look.04", "kind": "raider", "probe": {"raider": true, "cid": "raider.look.04"}, "colonist": false},
+	{"id": "raider.looter", "kind": "raider", "probe": {"raider": true, "cid": "raider.looter"}, "tinted": true},
+	{"id": "raider.lookout", "kind": "raider", "probe": {"raider": true, "cid": "raider.lookout"}, "tinted": true},
+	# The four rolled raider looks (the individuals slice). Since "The bodies turn and walk"
+	# (2026-09-26) every raider, archetype and look alike, wears the one pack survivor body under
+	# ONE raider tint (docs/30, "The whole outpost pack": with one shared rig a raider would
+	# otherwise be one of your own at a glance), so `tinted: true` on all eight, and the tint is
+	# the same hex on every one -- check_m2_raiders.gd's LOOKS lane is where "one tint, never two"
+	# is asserted, because two tints would tell the archetypes apart.
+	{"id": "raider.look.01", "kind": "raider", "probe": {"raider": true, "cid": "raider.look.01"}, "tinted": true},
+	{"id": "raider.look.02", "kind": "raider", "probe": {"raider": true, "cid": "raider.look.02"}, "tinted": true},
+	{"id": "raider.look.03", "kind": "raider", "probe": {"raider": true, "cid": "raider.look.03"}, "tinted": true},
+	{"id": "raider.look.04", "kind": "raider", "probe": {"raider": true, "cid": "raider.look.04"}, "tinted": true},
 ]
 
 # zombie.base spawns nowhere and gets no art -- it is the `extends` parent the wave types
@@ -410,10 +409,12 @@ const ROSTER_EXEMPT: Array[String] = ["zombie.base"]
 # a roster grows a body nothing judges.
 const ROSTER_DIRS: Array[String] = ["players/", "zombies/", "survivors/uniques/", "raiders/", "colony/looks.json"]
 
-# Ids that deliberately resolve one shared texture: six colonists are one rig (the tint is
-# the identity), and every raider archetype *and every rolled raider look* is one body -- which
-# raider carries the gun is not something a look across a street may answer, and the looks are
-# in the same group because a per-look sprite would answer it through the back door
+# Ids that deliberately resolve one shared texture. Since "The bodies turn and walk" (2026-09-26)
+# every human is one: the player, Mara, Ellis, the six colonists (the tint is their identity) and
+# every raider archetype *and every rolled raider look* stand on the outpost pack's one survivor
+# body (docs/30, "The outpost pack, adopted", decision 2 -- "a colony of identical pack survivors
+# is the shipped shape ... not a bug"). Which raider carries the gun is still not something a look
+# across a street may answer, and the raider tint is shared for that reason
 # (check_m2_raiders.gd asserts the same thing from the content side).
 #
 # The third group is the one that is a **gap rather than a decision**, and it is here so the gap
@@ -424,23 +425,25 @@ const ROSTER_DIRS: Array[String] = ["players/", "zombies/", "survivors/uniques/"
 # on it. Until it lands, this line is the honest statement that four kinds with different senses,
 # different speeds and -- since the armoured one -- different armour are one picture.
 const ROSTER_SHARED: Array = [
-	["colony.look.01", "colony.look.02", "colony.look.03", "colony.look.04", "colony.look.05", "colony.look.06"],
 	[
+		"player.body", "survivor.unique.mara", "survivor.unique.ellis",
+		"colony.look.01", "colony.look.02", "colony.look.03", "colony.look.04", "colony.look.05", "colony.look.06",
 		"raider.scav", "raider.gunhand", "raider.looter", "raider.lookout",
 		"raider.look.01", "raider.look.02", "raider.look.03", "raider.look.04",
 	],
 	["zombie.shambler", "zombie.stalker", "zombie.runner", "zombie.armored", "zombie.heavy"],
 ]
 
-# One id per distinct picture; every pair must resolve different textures.
+# One id per distinct picture; every pair must resolve different textures. Four since the pack
+# took the humans and the shambler: the pack survivor, the pack shambler, and the two generated
+# rigs the pack does not supply.
 const ROSTER_DISTINCT: Array[String] = [
-	"player.body", "survivor.unique.mara", "survivor.unique.ellis", "colony.look.01",
-	"zombie.shambler", "zombie.screamer", "zombie.bloater", "raider.scav",
+	"player.body", "zombie.shambler", "zombie.screamer", "zombie.bloater",
 ]
 
 
-# Every body resolves generated art through the resolver the draw loop asks, tinted exactly
-# as content declared: white for art with no tint, the looks.json tint for a colonist. The
+# Every body resolves its art through the resolver the draw loop asks, tinted exactly as content
+# declared: white for art with no tint, the declared tint for a colonist or a raider. The
 # sharing and distinctness assertions work by texture *identity* -- Appearance._cache holds
 # one Texture2D per key, so `==` says whether two ids reached one file.
 func _the_roster_resolves_bodies() -> bool:
@@ -454,10 +457,10 @@ func _the_roster_resolves_bodies() -> bool:
 			push_error("%s resolves no texture; its content declares a sprite key and nothing read it" % id)
 			return false
 		textures[id] = look["texture"]
-		if bool(row["colonist"]):
+		if bool(row["tinted"]):
 			var block: Dictionary = Appearance.of_content(w, String(row["kind"]), id)
 			if not block.has("tint"):
-				push_error("%s declares no tint beside its sprite; six colonists with no tints are six identical grey people" % id)
+				push_error("%s declares no tint beside its sprite; on one shared body the tint is the only thing telling it apart" % id)
 				return false
 			if (look["tint"] as Color) != Color(String(block["tint"])):
 				push_error("%s: for_entity did not hand the looks.json tint to the modulate, got %s" % [id, str(look["tint"])])
@@ -546,125 +549,67 @@ func _the_roster_resolves_bodies() -> bool:
 	return true
 
 
-func _luma(c: Color) -> float:
-	return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
+# The generated colonists wear the one pack body, and the looks.json tint is who they are.
+#
+# This lane was GREY until "The bodies turn and walk" (2026-09-26): the colonist rig was drawn
+# achromatic so the tint supplied all of its colour, and the lane held that pairing and a
+# composed-luminance guard -- median grey x tint luma, against the brightest ground -- that only
+# an achromatic rig makes computable. The rig was deleted with the other five human bodies when
+# every human moved onto the outpost pack's survivor, which is drawn in colour; a tint now
+# multiplies a coloured picture, so neither the achromatic bound nor the grey-times-tint
+# arithmetic has a subject any more. That is the colour half docs/30 ("The outpost pack,
+# adopted") says does not carry over to pack art -- the pack reads by its own outline, and its
+# untinted survivor already sits below this palette's street luma, so a luma guard here would be
+# red on the art itself. Contrast against the ground is re-pinned by "The ground is the pack's"
+# (docs/23), the slice that regrades the ground to the pack's own table. What survives here is
+# the half that still has a subject: each colony look pairs the shared human body with a tint,
+# and the six tints are six different people.
+func _tints_differ(tints: Array[String]) -> bool:
+	var seen: Dictionary = {}
+	for t in tints:
+		if seen.has(t):
+			return false
+		seen[t] = true
+	return true
 
 
-# On sRGB byte values, because that is what the achromatic bound is about: the outline
-# #161614 is (22, 22, 20), channel delta exactly 2, and it must stay inside the bound after
-# the shade pass multiplies it -- which is why _figure in the sprite package outlines last.
-func _is_achromatic(c: Color) -> bool:
-	var r: int = int(round(c.r * 255.0))
-	var g: int = int(round(c.g * 255.0))
-	var b: int = int(round(c.b * 255.0))
-	return maxi(absi(r - g), absi(g - b)) <= 2
-
-
-# Whether a grey of this luminance, multiplied by this tint, still reads against the
-# brightest ground the district can draw. The threshold reads the real palette, never a
-# copied number. This models the modulate as a per-channel multiply on sRGB values with
-# Rec. 709 luma and no linearisation -- which is what Godot's 2D Compatibility path does
-# and what tools/sprites/palette.py::luma already assumes. A model of the renderer, not a
-# rendering; if the renderer ever changes, this is the line to revisit.
-const GREY_CLEARANCE: float = 0.06
-
-func _composed_clears(median_grey: float, tint: Color) -> bool:
-	var brightest: float = 0.0
-	for i in Palette.SURFACE_TINTS.size():
-		brightest = maxf(brightest, _luma(Palette.SURFACE_TINTS[i]))
-	return median_grey * _luma(tint) >= brightest + GREY_CLEARANCE
-
-
-# The colonist rig is achromatic and the looks.json tint supplies all the colour -- the one
-# legitimate grayscale-to-tint case on the roster. Because the rig is achromatic
-# (r == g == b), the modulate product's luma is exactly grey x luma(tint), which is what
-# makes the ground-contrast guard computable here at all: palette.py's import-time guard
-# cannot see the composition, so this lane is its other half and GROUND_FACING's comment
-# names it. check_m2_recruits.gd independently pins that every rolled look declares a tint;
-# this lane pins the pairing and the arithmetic.
-func _colonists_are_tinted_grey() -> bool:
+func _colonists_wear_the_pack_body_tinted() -> bool:
 	Appearance.forget()
 	var w: Variant = World.new(_fixture())
 	var hex := RegEx.new()
 	hex.compile(HEX)
-	var tints: Array[Color] = []
+	# The body every human wears is whatever the player's own look names -- read, never copied,
+	# so this lane follows the body rather than remembering a key.
+	var body: String = String(Appearance.of_content(w, "player", Appearance.PLAYER_LOOK_ID).get("sprite", ""))
+	if body.is_empty() or not Appearance.turns(body):
+		push_error("%s names '%s', which is not a body that turns; the colonists have no shared pack body to be judged against" % [Appearance.PLAYER_LOOK_ID, body])
+		return false
+	var tints: Array[String] = []
 	for n in range(1, 7):
 		var id: String = "colony.look.%02d" % n
 		var block: Dictionary = Appearance.of_content(w, "survivor", id)
-		if String(block.get("sprite", "")) != "survivor_colonist":
-			push_error("%s does not declare sprite 'survivor_colonist'; the composition needs both halves" % id)
+		if String(block.get("sprite", "")) != body:
+			push_error("%s draws '%s', not the shared human body '%s'" % [id, String(block.get("sprite", "")), body])
 			return false
 		var t: Variant = block.get("tint")
 		if not (t is String) or hex.search(String(t)) == null:
-			push_error("%s tint '%s' is not #rrggbb lowercase" % [id, str(t)])
+			push_error("%s tint '%s' is not #rrggbb lowercase; without it six colonists are one person" % [id, str(t)])
 			return false
-		tints.append(Color(String(t)))
-	if tints.size() != 6:
-		push_error("expected 6 colony looks, judged %d" % tints.size())
+		tints.append(String(t))
+	if not _tints_differ(tints):
+		push_error("two colony looks declare the same tint %s; the tint is the whole of a colonist's identity" % str(tints))
 		return false
-
-	var tex: Variant = Appearance.resolve("survivor_colonist")
-	if tex == null:
-		push_error("survivor_colonist resolved no texture")
+	# True negatives, through the same predicate and the same pairing test the shipped data passed.
+	var twice: Array[String] = tints.duplicate()
+	twice[1] = twice[0]
+	if _tints_differ(twice):
+		push_error("a tint list with one colour twice passed; the distinctness predicate reads nothing")
 		return false
-	var img: Image = (tex as Texture2D).get_image()
-	var lumas: Array[float] = []
-	var worst_delta: int = 0
-	var worst_at: Vector2i = Vector2i(-1, -1)
-	for y in img.get_height():
-		for x in img.get_width():
-			var px: Color = img.get_pixel(x, y)
-			if px.a <= 0.0:
-				continue
-			if not _is_achromatic(px):
-				push_error("survivor_colonist pixel (%d,%d) is not achromatic: %s -- a coloured pixel here fights the tint instead of carrying it" % [x, y, str(px)])
-				return false
-			var delta: int = maxi(absi(int(round(px.r * 255.0)) - int(round(px.g * 255.0))), absi(int(round(px.g * 255.0)) - int(round(px.b * 255.0))))
-			if delta > worst_delta:
-				worst_delta = delta
-				worst_at = Vector2i(x, y)
-			lumas.append(_luma(px))
-	if lumas.is_empty():
-		push_error("survivor_colonist has no opaque pixels -- the achromatic assertion had nothing to judge")
-		return false
-	lumas.sort()
-	var median: float = lumas[lumas.size() / 2]
-	var brightest: float = 0.0
-	for i in Palette.SURFACE_TINTS.size():
-		brightest = maxf(brightest, _luma(Palette.SURFACE_TINTS[i]))
-	var tightest: float = 1.0
-	for tint in tints:
-		if not _composed_clears(median, tint):
-			push_error("median grey %.4f x tint %s luma %.4f = %.4f, under the ground threshold %.4f -- that colonist is a silhouette on undergrowth" % [median, str(tint), _luma(tint), median * _luma(tint), brightest + GREY_CLEARANCE])
-			return false
-		tightest = minf(tightest, median * _luma(tint) - (brightest + GREY_CLEARANCE))
-
-	# True negatives, through the same predicates the shipped data just passed. The brown is
-	# colony.look.03's retired tint: the regrade exists because the composition failed on it.
-	if _composed_clears(median, Color("#5c4632")):
-		push_error("the retired #5c4632 clears the composed-luminance guard; the predicate reads nothing")
-		return false
-	if _is_achromatic(Color(0.6, 0.5, 0.4)):
-		push_error("_is_achromatic accepted a colour 25 bytes off grey; the bound reads nothing")
-		return false
-	# And on real data: Mara's rig is painted in colour, so if every one of her opaque pixels
-	# passes the achromatic bound, the bound is not measuring what it claims to.
-	var mara_tex: Variant = Appearance.resolve("survivor_mara")
-	if mara_tex == null:
-		push_error("survivor_mara resolved no texture for the achromatic negative")
-		return false
-	var mara_img: Image = (mara_tex as Texture2D).get_image()
-	var coloured: int = 0
-	for y2 in mara_img.get_height():
-		for x2 in mara_img.get_width():
-			var px2: Color = mara_img.get_pixel(x2, y2)
-			if px2.a > 0.0 and not _is_achromatic(px2):
-				coloured += 1
-	if coloured == 0:
-		push_error("every opaque pixel of survivor_mara passed the achromatic bound; a check Mara's art satisfies reads nothing")
+	if Appearance.turns("zombie_screamer") or not Appearance.turns(body):
+		push_error("turns() cannot tell the pack body from a face-on rig; the pairing above proves nothing")
 		return false
 	Appearance.forget()
-	print("GREY OK %d opaque px, worst delta %d at %s, median %.4f, threshold %.4f, tightest margin +%.3f, retired brown refused, %d coloured px on mara" % [lumas.size(), worst_delta, str(worst_at), median, brightest + GREY_CLEARANCE, tightest, coloured])
+	print("COLONISTS OK 6 colony looks wear '%s' with 6 different tints %s; a repeated tint is refused (the achromatic rig and its grey-times-tint ground guard retired with the rig)" % [body, str(tints)])
 	return true
 
 # A role colour stands in for missing art; it must not filter art that exists. Drawn as a
@@ -695,8 +640,9 @@ const NO_ART_BASE: String = "item.glasses.safety"
 
 
 # Equipped-gear layers: a rendered slot holding an item with equipSprite must actually resolve
-# a texture (the true positives item.bat.aluminium and item.pack.hiking exist for, one over-body
-# and one under); an item with no equipSprite (NO_ART_BASE, whose art-lessness the lane
+# a texture (the true positives item.bat.aluminium and item.duffel.canvas exist for, one over-body
+# and one under -- the duffel since the hiking pack took the outpost pack's four-view backpack,
+# whose per-view layering check_worn.gd's TURNS lane owns); an item with no equipSprite (NO_ART_BASE, whose art-lessness the lane
 # verifies first), an item in a slot the renderer does not draw, and
 # an entity with no equipment component at all (every zombie) must all fall out silently rather
 # than erroring -- each is its own assertion so a regression in any one path fails here instead
@@ -709,7 +655,7 @@ func _equipped_gear_layers_resolve() -> bool:
 	var pack: int = int(w.entities.spawn())
 	var bare: int = int(w.entities.spawn())
 	w.components.set_component(bat, "itemBase", {"baseId": "item.bat.aluminium"})
-	w.components.set_component(pack, "itemBase", {"baseId": "item.pack.hiking"})
+	w.components.set_component(pack, "itemBase", {"baseId": "item.duffel.canvas"})
 	w.components.set_component(bare, "itemBase", {"baseId": NO_ART_BASE})
 
 	w.components.set_component(actor, "equipment", {"slots": {"primary": bat}})
@@ -718,23 +664,23 @@ func _equipped_gear_layers_resolve() -> bool:
 		push_error("primary slot holding item.bat.aluminium should yield one over-body layer with a texture, got %s" % str(layers))
 		return false
 
-	# item.pack.hiking declares both equipSprite (the pack body, under) and equipSpriteFront
-	# (the straps crossing the chest, always over regardless of the back slot's own default) --
-	# one equipped item, two layers, split correctly.
+	# item.duffel.canvas declares both equipSprite (the bag, under) and equipSpriteFront (the
+	# strap crossing the chest, always over regardless of the back slot's own default) -- one
+	# equipped item, two layers, split correctly.
 	w.components.set_component(actor, "equipment", {"slots": {"back": pack}})
 	layers = Appearance.equipment_layers_for(w, actor)
 	if layers.size() != 2 or layers[0].get("texture") == null or bool(layers[0].get("over", true)) \
 			or layers[1].get("texture") == null or not bool(layers[1].get("over", false)):
-		push_error("back slot holding item.pack.hiking should yield an under-body pack layer then an over-body strap layer, got %s" % str(layers))
+		push_error("back slot holding item.duffel.canvas should yield an under-body bag layer then an over-body strap layer, got %s" % str(layers))
 		return false
 
-	# Both a worn pack and a held weapon at once is the actual shipped case: three layers,
-	# correctly ordered under-then-over, not one clobbering another.
+	# Both a worn bag and a held weapon at once: three layers, correctly ordered under-then-over,
+	# not one clobbering another.
 	w.components.set_component(actor, "equipment", {"slots": {"back": pack, "primary": bat}})
 	layers = Appearance.equipment_layers_for(w, actor)
 	if layers.size() != 3 or bool(layers[0].get("over", true)) or not bool(layers[1].get("over", false)) \
 			or not bool(layers[2].get("over", false)):
-		push_error("back+primary together should yield three layers (pack under, pack straps over, bat over), got %s" % str(layers))
+		push_error("back+primary together should yield three layers (bag under, strap over, bat over), got %s" % str(layers))
 		return false
 
 	# The no-art negative checks its own subject first. It used to name a real weapon, and the

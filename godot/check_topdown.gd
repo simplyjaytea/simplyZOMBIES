@@ -37,10 +37,11 @@ func _run() -> void:
 	ok = _props_reach_the_draw_path() and ok
 	ok = _built_mass_is_thin_and_still_solid() and ok
 	ok = _bodies_face_by_flipping() and ok
+	ok = _bodies_turn_and_walk() and ok
 	ok = _bodies_scale_with_the_zoom() and ok
 	ok = _a_still_body_is_not_glimpsed() and ok
 	if ok:
-		print("TOPDOWN_OK axes aligned, round-trip exact, depth is y, bounds are the AABB, ground tinted from the map, interiors and doorways drawn, props resolved from content, built mass capped and faced, nobody rotates and every body flips, bodies scale with the zoom, a still body is not glimpsed")
+		print("TOPDOWN_OK axes aligned, round-trip exact, depth is y, bounds are the AABB, ground tinted from the map, interiors and doorways drawn, props resolved from content, built mass capped and faced, nobody rotates and a face-on body flips, the pack's bodies turn four ways and walk on the tick, bodies scale with the zoom, a still body is not glimpsed")
 		quit(0)
 	else:
 		push_error("TOPDOWN_FAIL")
@@ -417,7 +418,12 @@ func _built_mass_is_thin_and_still_solid() -> bool:
 	return true
 
 
-# Nobody rotates, and every body flips.
+# Nobody rotates, and a face-on body flips.
+#
+# Since "The bodies turn and walk" (2026-09-26) the face-on bodies are the two generated rigs the
+# outpost pack does not draw, the screamer and the bloater; every human and the shambler draw the
+# pack's own four views and never flip, which TURN below owns. What this lane still says of the
+# loop -- no transform anywhere in it, the disc bails before the blit -- holds for every body.
 #
 # docs/30's Dungeon Settlers decision (2026-09-03) reverses "only the player rotates": every rig
 # is a face-on pawn standing on its own point, heading is a horizontal flip, and the one
@@ -541,7 +547,7 @@ func _bodies_face_by_flipping() -> bool:
 		push_error("_draw_entities holds %d draw_set_transform( and %d _matrix( calls; nobody rotates, so the loop holds none" % [transforms, resets])
 		return false
 	var missing: String = _needles_missing(body, [
-		"Appearance.body_flip(",
+		"Appearance.flip_for(",
 		"Appearance.body_rect(",
 		"_blit_body(",
 		"Palette.COLOURS[\"facing\"]",
@@ -599,6 +605,173 @@ func _bodies_face_by_flipping() -> bool:
 # The first needle missing from a function body, or "" when all are present. Named so the
 # scale and glimpse lanes below can prove the scanner on a fabricated body before trusting
 # it on the real one -- a scanner that answers "" for everything is a gate that cannot fail.
+# The bodies turn and walk (docs/23, 2026-09-26; docs/30, "The outpost pack, adopted", decision 1).
+#
+# Every human draws on the outpost pack's survivor and the shambler on the pack's shambler: four
+# views, never mirrored, and a walk of four frames each way keyed to `world.tick`. The pure half is
+# exact answers from the functions the draw loop calls, each with its true negative -- a heading on
+# every quarter and on the diagonals, the walk's rate counted over one second of ticks against the
+# frame rate authored.json copies from the pack, a face-on rig that must keep flipping and must
+# never turn -- and every member a turning body can ask for resolves on the pawn canvas. The
+# textual half is the dead-socket assertion: `_draw_entities` must actually reach the view, the
+# frame, the per-view gear and the no-flip rule, with the tick handed over, and the afterimage must
+# freeze the frame it drew rather than the rest picture.
+const TURNING_BODIES: Array[String] = ["body_survivor", "body_shambler"]
+
+
+func _changes_in_one_second(fps: int, frames: int) -> int:
+	var changes: int = 0
+	var last: int = Appearance.walk_frame(0, fps, frames, 0)
+	for tick in range(1, 20 + 1):
+		var f: int = Appearance.walk_frame(tick, fps, frames, 0)
+		if f != last:
+			changes += 1
+		last = f
+	return changes
+
+
+func _bodies_turn_and_walk() -> bool:
+	Appearance.forget()
+	# The four views, and the diagonal rule: round half away from zero.
+	for probe in [
+		[0.0, "e"], [PI / 2.0, "s"], [PI, "w"], [-PI / 2.0, "n"], [3.0 * PI / 2.0, "n"], [TAU, "e"],
+		[0.3, "e"], [-0.3, "e"], [PI / 2.0 + 0.3, "s"], [PI - 0.3, "w"], [-PI + 0.3, "w"],
+		[PI / 4.0, "s"], [-PI / 4.0, "n"], [3.0 * PI / 4.0, "w"], [-3.0 * PI / 4.0, "w"],
+	]:
+		var got: String = Appearance.view_of(float((probe as Array)[0]))
+		if got != String((probe as Array)[1]):
+			push_error("TURN: view_of(%f) is '%s', not '%s'" % [float((probe as Array)[0]), got, String((probe as Array)[1])])
+			return false
+	var distinct: Dictionary = {}
+	for q in 4:
+		distinct[Appearance.view_of(float(q) * PI / 2.0)] = true
+	if distinct.size() != 4:
+		push_error("TURN: the four quarter turns show %d views; a turn that shows one picture is not a turn" % distinct.size())
+		return false
+
+	# Which keys turn: the two pack bodies and the four wearables do; a face-on rig, a member on its
+	# own, and nothing at all do not.
+	for key in TURNING_BODIES + ["item_gear_helmet", "item_gear_vest", "item_gear_gasmask", "item_gear_backpack"]:
+		if not Appearance.turns(String(key)):
+			push_error("TURN: '%s' does not turn" % key)
+			return false
+	for key in ["zombie_screamer", "zombie_bloater", "body_survivor_s", "", "item_bat_aluminium_equip"]:
+		if Appearance.turns(String(key)):
+			push_error("TURN: '%s' claims to turn; turns() cannot say no" % key)
+			return false
+
+	# The walk: four frames each way at the pack's own rate, counted over one second of the sim's
+	# ticks -- eight frame changes a second for the survivor, five for the shambler.
+	var rates: Dictionary = {"body_survivor": 8, "body_shambler": 5}
+	var members: int = 0
+	for key in TURNING_BODIES:
+		var frames: int = Appearance.walk_frames(key)
+		var fps: int = Appearance.walk_fps(key)
+		if frames != 4 or fps != int(rates[key]):
+			push_error("TURN: '%s' walks %d frames at %d fps; the pack draws 4 at %d" % [key, frames, fps, int(rates[key])])
+			return false
+		var changes: int = _changes_in_one_second(fps, frames)
+		if changes != fps:
+			push_error("TURN: '%s' changed frame %d times in one second of ticks at %d fps" % [key, changes, fps])
+			return false
+		# Every member it can ask for resolves, on the pawn canvas, and each view is its own picture.
+		var rest_views: Dictionary = {}
+		for view in Appearance.VIEWS:
+			var still: String = Appearance.frame_key(key, view, false, 0, 0)
+			if still != "%s_%s" % [key, view]:
+				push_error("TURN: '%s' standing facing '%s' asks for '%s'" % [key, view, still])
+				return false
+			for tick in 20:
+				for moving in [false, true]:
+					var k: String = Appearance.frame_key(key, view, moving, tick, 0)
+					var tex: Texture2D = Appearance.resolve(k)
+					if tex == null or Vector2i(tex.get_size()) != Appearance.PAWN_CANVAS:
+						push_error("TURN: '%s' does not resolve on the pawn canvas" % k)
+						return false
+			rest_views[Appearance.resolve(still)] = true
+			members += 1
+		if rest_views.size() != 4:
+			push_error("TURN: '%s''s four views resolve %d different pictures" % [key, rest_views.size()])
+			return false
+		# Moving walks; standing does not; the same tick is the same frame; the phase staggers.
+		if Appearance.frame_key(key, "e", true, 0, 0) == Appearance.frame_key(key, "e", false, 0, 0):
+			push_error("TURN: '%s' moving and standing ask for the same picture" % key)
+			return false
+		if Appearance.frame_key(key, "e", true, 7, 3) != Appearance.frame_key(key, "e", true, 7, 3):
+			push_error("TURN: '%s' asked twice for one tick answered two frames" % key)
+			return false
+		if Appearance.frame_key(key, "e", true, 0, 0) == Appearance.frame_key(key, "e", true, 0, 1):
+			push_error("TURN: '%s' staggered by one answered the same frame; a crowd would step as one" % key)
+			return false
+	# TN, the walk clock: no rate or no frames stands on frame 0 and never divides by zero.
+	if Appearance.walk_frame(123, 0, 4, 0) != 0 or Appearance.walk_frame(123, 8, 0, 0) != 0:
+		push_error("TURN: a walk with no rate or no frames did not stand on frame 0")
+		return false
+	if _changes_in_one_second(0, 4) != 0:
+		push_error("TURN: the one-second counter saw a zero-rate walk move; it counts nothing it should not")
+		return false
+	# TN, a face-on rig: it answers its own key walking or not, shows the rest view whatever its
+	# heading, and still flips -- the half of the roster the pack does not draw is untouched.
+	if Appearance.frame_key("zombie_screamer", "w", true, 5, 0) != "zombie_screamer":
+		push_error("TURN: a face-on rig asked for a walk frame")
+		return false
+	if Appearance.body_view("zombie_screamer", {"radians": PI}, {"dx": -1.0, "dy": 0.0}) != Appearance.VIEW_REST:
+		push_error("TURN: a face-on rig shows a view other than the rest view")
+		return false
+	if Appearance.flip_for("zombie_screamer", PI) != -1.0 or Appearance.flip_for("body_survivor", PI) != 1.0:
+		push_error("TURN: flip_for mirrors a turning body or stops mirroring a face-on one")
+		return false
+	# body_view: a facing component wins; with none the velocity decides; a velocity under the wrong
+	# keys (CLAUDE.md's velocity trap) is standing still, which shows the rest view.
+	if Appearance.body_view("body_survivor", {"radians": PI}, {"dx": 1.0, "dy": 0.0}) != "w":
+		push_error("TURN: a body facing west while moving east did not show its facing")
+		return false
+	if Appearance.body_view("body_shambler", null, {"dx": 0.0, "dy": -1.0}) != "n":
+		push_error("TURN: a zombie walking north with no facing component did not show 'n'")
+		return false
+	if Appearance.body_view("body_shambler", null, {"x": -1.0}) != Appearance.VIEW_REST:
+		push_error("TURN: a velocity written as {x} turned the body; nothing reads `x`")
+		return false
+	# body_texture: a look for a turning body answers the member; a face-on look answers its own.
+	Appearance.forget()
+	var look: Dictionary = {"sprite": "body_survivor", "texture": Appearance.resolve("body_survivor")}
+	if Appearance.body_texture(look, "w", false, 0, 0) != Appearance.resolve("body_survivor_w"):
+		push_error("TURN: body_texture facing west did not answer the west view")
+		return false
+	if Appearance.body_texture(look, "w", false, 0, 0) == look["texture"]:
+		push_error("TURN: body_texture facing west answered the rest picture")
+		return false
+	var face_on: Dictionary = {"sprite": "zombie_screamer", "texture": Appearance.resolve("zombie_screamer")}
+	if Appearance.body_texture(face_on, "w", true, 9, 0) != face_on["texture"]:
+		push_error("TURN: body_texture answered a face-on rig something other than its own picture")
+		return false
+
+	# The draw loop reaches all of it, and the tick is what it walks on. Proved on a fabricated body
+	# first: a scanner that finds everything proves nothing.
+	var needles: Array[String] = [
+		"Appearance.body_view(",
+		"Appearance.body_texture(look, view, Appearance.moving(vel_v), int(world.tick), eid)",
+		"Appearance.equipment_layers_for(world, eid, view)",
+		"Appearance.flip_for(sprite_key, screen_ang)",
+		"\"texture\": texture",
+	]
+	if _needles_missing("\tAppearance.body_view(a, b, c)\n", needles).is_empty():
+		push_error("TURN: the needle scanner found every needle in a body holding one; it cannot say no")
+		return false
+	var body: String = _function_body(MAIN_GD, "_draw_entities")
+	var missing: String = _needles_missing(body, needles)
+	if body.is_empty() or not missing.is_empty():
+		push_error("TURN: _draw_entities does not contain %s -- the view, the walk frame, the per-view gear or the no-flip rule is read by nothing" % missing)
+		return false
+	var after: String = _function_body(MAIN_GD, "_draw_afterimages")
+	if not after.contains("c.get(\"texture\""):
+		push_error("TURN: _draw_afterimages does not draw the frozen frame; a body that turned away would be remembered facing south")
+		return false
+	Appearance.forget()
+	print("TURN OK view_of answers the nearest quarter (diagonals round away from zero); %d turning bodies walk 4 frames at the pack's 8 and 5 fps, counted on the tick, %d views each on their own picture, every member on %s; a face-on rig keeps its one picture and its flip; a velocity under {x} does not turn a body; _draw_entities reaches the view, the tick-keyed frame, the per-view gear and flip_for, and the afterimage freezes the frame" % [TURNING_BODIES.size(), members / TURNING_BODIES.size(), str(Appearance.PAWN_CANVAS)])
+	return true
+
+
 func _needles_missing(body: String, needles: Array[String]) -> String:
 	for needle in needles:
 		if not body.contains(needle):
