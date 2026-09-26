@@ -62,6 +62,14 @@ extends SceneTree
 #   SPEC      the bounds above, on decoded pixels, for every generated rig AND every authored key
 #             of kind `rig`. TN: six fabrications off a real rig, each breaking exactly one bound,
 #             each refused by its own code rather than by "something went wrong".
+#   ICON      every authored key of kind `icon` -- an inventory picture, one item base seen from
+#             above -- is a picture (opaque pixels at ICON_ALPHA or more, not only the alpha-6
+#             specks the pack leaves inside its canvas), centred on its canvas within
+#             ICON_CENTRE_TOLERANCE, clear of the canvas edge, and the size and anchor the pack's
+#             own manifest says it is. That the floor and the bag plate then *draw* it is
+#             `godot:check:appearance`'s ITEMS lane. TN: five fabrications -- speck-only, a
+#             corner-flush picture, a real pixel in a corner, a wrong size, a wrong anchor -- and
+#             one control, a centred picture with a speck in the corner, which must pass.
 #   READS     the dead-socket lane: every authored key is named by some content entry's
 #             appearance block, and `reads` names one of the ids that actually does -- since
 #             2026-09-17 it need not be the *only* one, so two bases sharing an icon can each
@@ -91,7 +99,20 @@ const AUTHORED_PATH: String = "res://assets/sprites/authored.json"
 # `pack_rig`/`pack_overlay`/`module`/`sheet`/`prop` are the outpost pack's later slices'
 # placeholders (docs/30, "The outpost pack, adopted"): accepted here, judged by no shape lane
 # yet, one gains a lane when the slice that reads it lands.
-const KINDS: Array[String] = ["rig", "overlay", "tile", "pack_rig", "pack_overlay", "module", "sheet", "prop"]
+const KINDS: Array[String] = ["rig", "overlay", "tile", "icon", "pack_rig", "pack_overlay", "module", "sheet", "prop"]
+
+# The alpha at which a pixel is part of a picture rather than a speck. The pack's icons carry
+# alpha 1-6 specks (8 to 118 of them an icon, measured 2026-09-26) and a bounding box taken at
+# "alpha above zero" would treat every one as a real pixel; 128 is the named threshold the pickup
+# doc asks any lane judging pack geometry for -- it refuses a real pixel and accepts a speck.
+const ICON_ALPHA: int = 128
+# How far the opaque box's centre may sit from the canvas centre, in pixels, per axis. Measured
+# across the 48 icons: 0 or 1 (an odd-width box on an even canvas), so 2 is the first value a
+# corner-flush picture breaks and no shipped icon does.
+const ICON_CENTRE_TOLERANCE: int = 2
+# Fewest opaque pixels a picture may have. The smallest of the 48 is the bow's 75.
+const ICON_MIN_OPAQUE: int = 40
+const PACK_MANIFEST_PATH: String = "res://art/simplyzombies/manifest.json"
 
 # A member key inside a `members` family, and a sourced entry's own key -- both are a
 # `godot/assets/sprites/<key>.png` basename, so both share the pattern `check_appearance.gd`'s
@@ -152,13 +173,14 @@ func _run() -> void:
 	ok = _the_manifest_is_well_formed() and ok
 	ok = _no_key_is_in_both_tiers() and ok
 	ok = _every_source_resolves_at_its_declared_canvas() and ok
+	ok = _every_icon_is_a_centred_picture() and ok
 	ok = _every_rig_meets_the_published_bounds() and ok
 	ok = _no_rig_draws_ink_inside_its_silhouette() and ok
 	ok = _every_rig_is_four_tones_a_material() and ok
 	ok = _no_highlight_covers_more_than_its_share() and ok
 	ok = _authored_art_is_read_by_something() and ok
 	if ok:
-		print("AUTHORED_OK the manifest is well formed, no key is in two tiers, every sourced key resolves at its declared canvas, every rig meets the published bounds, no rig draws ink inside its silhouette, every rig is four tones a material, no highlight covers more than its share, and authored art is read by something")
+		print("AUTHORED_OK the manifest is well formed, no key is in two tiers, every sourced key resolves at its declared canvas, every icon is a centred picture, every rig meets the published bounds, no rig draws ink inside its silhouette, every rig is four tones a material, no highlight covers more than its share, and authored art is read by something")
 		quit(0)
 	else:
 		push_error("AUTHORED_FAIL")
@@ -416,6 +438,126 @@ func _every_source_resolves_at_its_declared_canvas() -> bool:
 		return false
 
 	print("SOURCE OK %d sourced keys resolve at their declared canvas (the pixel-for-pixel proof is sprites:check's, outside this chain)" % judged)
+	return true
+
+
+# --- the icons ---------------------------------------------------------------------------------
+
+func _opaque_box(image: Image) -> Dictionary:
+	var lo := Vector2i(image.get_width(), image.get_height())
+	var hi := Vector2i(-1, -1)
+	var count: int = 0
+	for y in range(image.get_height()):
+		for x in range(image.get_width()):
+			if roundi(image.get_pixel(x, y).a * 255.0) < ICON_ALPHA:
+				continue
+			count += 1
+			lo = Vector2i(mini(lo.x, x), mini(lo.y, y))
+			hi = Vector2i(maxi(hi.x, x), maxi(hi.y, y))
+	return {"count": count, "lo": lo, "hi": hi}
+
+
+# What is wrong with one icon, as words, or empty when nothing is. `expected_size` and `anchor` are
+# the pack's own manifest entry (`occupiedSize`, `anchor`); one predicate so the loop and the
+# fabrications that prove it go through the same code.
+func _icon_faults(image: Image, expected_size: Vector2i, anchor: Vector2i) -> Array[String]:
+	var out: Array[String] = []
+	var box: Dictionary = _opaque_box(image)
+	if int(box["count"]) < ICON_MIN_OPAQUE:
+		out.append("empty: %d pixels at alpha %d or more" % [int(box["count"]), ICON_ALPHA])
+		return out
+	var lo: Vector2i = box["lo"] as Vector2i
+	var hi: Vector2i = box["hi"] as Vector2i
+	var w: int = image.get_width()
+	var h: int = image.get_height()
+	if lo.x <= 0 or lo.y <= 0 or hi.x >= w - 1 or hi.y >= h - 1:
+		out.append("touches the canvas edge at %s..%s" % [str(lo), str(hi)])
+	var centre_off: Vector2 = Vector2(float(lo.x + hi.x + 1) * 0.5 - float(w) * 0.5, float(lo.y + hi.y + 1) * 0.5 - float(h) * 0.5)
+	if absf(centre_off.x) > float(ICON_CENTRE_TOLERANCE) or absf(centre_off.y) > float(ICON_CENTRE_TOLERANCE):
+		out.append("off-centre by %s" % str(centre_off))
+	var size: Vector2i = hi - lo + Vector2i(1, 1)
+	if size != expected_size:
+		out.append("occupies %s, the pack's manifest says %s" % [str(size), str(expected_size)])
+	if anchor != Vector2i(w / 2, h / 2):
+		out.append("the pack anchors it at %s, not its canvas centre" % str(anchor))
+	return out
+
+
+func _pack_asset(asset_id: String) -> Dictionary:
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(PACK_MANIFEST_PATH))
+	if not (parsed is Dictionary):
+		return {}
+	for asset in (parsed as Dictionary).get("assets", []) as Array:
+		if asset is Dictionary and String((asset as Dictionary).get("id", "")) == asset_id:
+			return asset as Dictionary
+	return {}
+
+
+# A 32x32 fabrication: `fill` at `alpha`, and optionally one more pixel at `corner_at`.
+func _blank_icon(fill: Rect2i, alpha: float, corner_alpha: float = -1.0, corner_at: Vector2i = Vector2i.ZERO) -> Image:
+	var image := Image.create(32, 32, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0, 0, 0, 0))
+	for y in range(fill.position.y, fill.end.y):
+		for x in range(fill.position.x, fill.end.x):
+			image.set_pixel(x, y, Color(0.6, 0.5, 0.3, alpha))
+	if corner_alpha >= 0.0:
+		image.set_pixel(corner_at.x, corner_at.y, Color(0.6, 0.5, 0.3, corner_alpha))
+	return image
+
+
+func _every_icon_is_a_centred_picture() -> bool:
+	var judged: int = 0
+	var entries: Dictionary = _entries()
+	for key in entries.keys():
+		var entry: Dictionary = entries[key] as Dictionary
+		if String(entry.get("kind", "")) != "icon":
+			continue
+		var source: Variant = entry.get("source")
+		var image: Image = _image_of(String(key))
+		if image == null or not (source is Dictionary):
+			push_error("icon '%s' has no picture or no source to judge it against" % String(key))
+			return false
+		var asset: Dictionary = _pack_asset(String((source as Dictionary).get("path", "")).get_file().get_basename())
+		if asset.is_empty():
+			push_error("icon '%s': no entry in the pack's manifest for its source, so its size and anchor cannot be judged" % String(key))
+			return false
+		var occ: Array = asset.get("occupiedSize", []) as Array
+		var anc: Array = asset.get("anchor", []) as Array
+		if occ.size() != 2 or anc.size() != 2:
+			push_error("icon '%s': the pack's manifest entry has no occupiedSize or anchor" % String(key))
+			return false
+		var faults: Array[String] = _icon_faults(image, Vector2i(int(occ[0]), int(occ[1])), Vector2i(int(anc[0]), int(anc[1])))
+		if not faults.is_empty():
+			push_error("icon '%s' is not a centred picture: %s" % [String(key), "; ".join(faults)])
+			return false
+		judged += 1
+	if judged == 0:
+		print("ICON SKIPPED no authored key is of kind `icon` yet")
+		return true
+
+	# The fabrications. A 16x12 block centred on the 32x32 canvas is the control.
+	var centred := Rect2i(8, 10, 16, 12)
+	var good_size := Vector2i(16, 12)
+	var centre := Vector2i(16, 16)
+	if not _icon_faults(_blank_icon(centred, 1.0), good_size, centre).is_empty():
+		push_error("the icon predicate refused a centred picture; it would refuse the real ones")
+		return false
+	if not _icon_faults(_blank_icon(centred, 1.0, 6.0 / 255.0, Vector2i(0, 0)), good_size, centre).is_empty():
+		push_error("the icon predicate counted an alpha-6 speck as a picture; the pack's icons would all be refused")
+		return false
+	var refusals: Array = [
+		["a speck-only image", _blank_icon(centred, 6.0 / 255.0), good_size, centre],
+		["a corner-flush picture", _blank_icon(Rect2i(0, 0, 16, 12), 1.0), good_size, centre],
+		["a real pixel in a corner", _blank_icon(centred, 1.0, 1.0, Vector2i(0, 0)), good_size, centre],
+		["a size the manifest does not say", _blank_icon(centred, 1.0), Vector2i(20, 12), centre],
+		["an anchor off the canvas centre", _blank_icon(centred, 1.0), good_size, Vector2i(16, 24)],
+	]
+	for row in refusals:
+		var r: Array = row as Array
+		if _icon_faults(r[1] as Image, r[2] as Vector2i, r[3] as Vector2i).is_empty():
+			push_error("the icon predicate accepted %s; it proves nothing" % String(r[0]))
+			return false
+	print("ICON OK %d icons are pictures above alpha %d, centred within %d px, clear of the edge, at the size and anchor the pack's manifest gives; a speck-only image, a corner-flush picture, a corner pixel, a wrong size and a wrong anchor are each refused, and a speck beside a centred picture is not" % [judged, ICON_ALPHA, ICON_CENTRE_TOLERANCE])
 	return true
 
 

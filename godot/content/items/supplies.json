@@ -9,6 +9,9 @@
       "h": 1
     },
     "massKg": 0.05,
+    "appearance": {
+      "sprite": "item_bandage_roll"
+    },
     "stack": 5,
     "bandageTier": "cloth"
   },
@@ -22,6 +25,9 @@
       "h": 1
     },
     "massKg": 0.04,
+    "appearance": {
+      "sprite": "item_cloth"
+    },
     "bandageTier": "dirty",
     "stack": 5
   },
@@ -35,6 +41,9 @@
       "h": 1
     },
     "massKg": 0.03,
+    "appearance": {
+      "sprite": "item_painkillers"
+    },
     "stack": 4,
     "painTier": "mild"
   },
@@ -66,6 +75,9 @@
       "h": 1
     },
     "massKg": 0.4,
+    "appearance": {
+      "sprite": "item_tin_beans"
+    },
     "stack": 3,
     "food": {
       "hunger": 40,
@@ -121,6 +133,9 @@
       "h": 1
     },
     "massKg": 0.3,
+    "appearance": {
+      "sprite": "item_scrap"
+    },
     "buildMaterial": "metal",
     "stack": 10
   },
@@ -175,6 +190,9 @@
       "h": 2
     },
     "massKg": 1.0,
+    "appearance": {
+      "sprite": "item_water_bottle"
+    },
     "cleanTier": "water",
     "drink": {
       "thirst": 50
@@ -191,6 +209,9 @@
       "h": 2
     },
     "massKg": 1.0,
+    "appearance": {
+      "sprite": "item_water_bottle"
+    },
     "cleanTier": "water",
     "boilsInto": "item.water.bottle",
     "drink": {
@@ -209,6 +230,9 @@
       "h": 1
     },
     "massKg": 0.25,
+    "appearance": {
+      "sprite": "item_antiseptic"
+    },
     "stack": 3,
     "cleanTier": "antiseptic"
   },
@@ -235,6 +259,9 @@
       "h": 2
     },
     "massKg": 0.4,
+    "appearance": {
+      "sprite": "item_splint"
+    },
     "stack": 2,
     "closeKind": "splint"
   },
@@ -259,6 +286,9 @@
       "h": 2
     },
     "massKg": 1.4,
+    "appearance": {
+      "sprite": "item_first_aid_kit"
+    },
     "bandageTier": "sterile"
   },
   {
@@ -271,6 +301,9 @@
       "h": 3
     },
     "massKg": 11.5,
+    "appearance": {
+      "sprite": "item_fuel_can"
+    },
     "fuel": {
       "litres": 10
     },
@@ -286,6 +319,9 @@
       "h": 2
     },
     "massKg": 0.08,
+    "appearance": {
+      "sprite": "item_antibiotics"
+    },
     "stack": 2,
     "antibioticTier": "clinical"
   },
@@ -398,6 +434,9 @@
       "h": 1
     },
     "massKg": 0.1,
+    "appearance": {
+      "sprite": "item_battery"
+    },
     "stack": 6,
     "lightFuel": "cell"
   },
@@ -411,6 +450,9 @@
       "h": 1
     },
     "massKg": 0.5,
+    "appearance": {
+      "sprite": "item_cloth"
+    },
     "stack": 4
   },
   {
@@ -422,7 +464,10 @@
       "w": 2,
       "h": 3
     },
-    "massKg": 4.0
+    "massKg": 4.0,
+    "appearance": {
+      "sprite": "item_fuel_can"
+    }
   },
   {
     "id": "item.can.fuel",
@@ -539,6 +584,9 @@
       "h": 2
     },
     "massKg": 0.6,
+    "appearance": {
+      "sprite": "item_mre"
+    },
     "food": {
       "hunger": 70,
       "mood": 2,
@@ -645,6 +693,9 @@
       "h": 1
     },
     "massKg": 0.2,
+    "appearance": {
+      "sprite": "item_antiseptic"
+    },
     "stack": 2,
     "cleanTier": "antiseptic"
   },
@@ -658,6 +709,9 @@
       "h": 1
     },
     "massKg": 0.4,
+    "appearance": {
+      "sprite": "item_tinned_meat"
+    },
     "stack": 3,
     "food": {
       "hunger": 30,
@@ -712,6 +766,9 @@
       "h": 1
     },
     "massKg": 0.36,
+    "appearance": {
+      "sprite": "item_tin_beans"
+    },
     "stack": 3,
     "food": {
       "hunger": 35,
@@ -748,6 +805,9 @@
       "h": 1
     },
     "massKg": 0.12,
+    "appearance": {
+      "sprite": "item_tinned_meat"
+    },
     "stack": 4,
     "food": {
       "hunger": 32,
@@ -927,6 +987,9 @@
       "h": 1
     },
     "massKg": 0.4,
+    "appearance": {
+      "sprite": "item_bread"
+    },
     "stack": 2,
     "food": {
       "hunger": 25,
@@ -963,6 +1026,9 @@
       "h": 1
     },
     "massKg": 0.6,
+    "appearance": {
+      "sprite": "item_apple"
+    },
     "stack": 4,
     "food": {
       "hunger": 15,
@@ -1135,6 +1201,9 @@
       "h": 1
     },
     "massKg": 0.1,
+    "appearance": {
+      "sprite": "item_antibiotics"
+    },
     "stack": 2,
     "antibioticTier": "veterinary"
   },
@@ -1148,6 +1217,9 @@
       "h": 1
     },
     "massKg": 0.05,
+    "appearance": {
+      "sprite": "item_antibiotics"
+    },
     "stack": 3,
     "antibioticTier": "improvised"
   },
@@ -1161,6 +1233,9 @@
       "h": 1
     },
     "massKg": 0.06,
+    "appearance": {
+      "sprite": "item_painkillers"
+    },
     "stack": 3,
     "painTier": "strong"
   },
@@ -1226,6 +1301,9 @@
       "h": 1
     },
     "massKg": 0.08,
+    "appearance": {
+      "sprite": "item_bandage_roll"
+    },
     "stack": 3,
     "closeKind": "wrap"
   }

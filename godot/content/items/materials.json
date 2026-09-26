@@ -36,6 +36,7 @@
     "class": "material",
     "size": { "w": 1, "h": 4 },
     "massKg": 2.5,
+    "appearance": { "sprite": "item_wood_planks" },
     "buildMaterial": "plank",
     "stack": 5
   },
@@ -216,6 +217,7 @@
     "class": "material",
     "size": { "w": 1, "h": 1 },
     "massKg": 0.5,
+    "appearance": { "sprite": "item_wire" },
     "buildMaterial": "wire",
     "stack": 6
   },
@@ -246,6 +248,7 @@
     "class": "material",
     "size": { "w": 1, "h": 1 },
     "massKg": 0.15,
+    "appearance": { "sprite": "item_electronics" },
     "buildMaterial": "circuit",
     "stack": 6
   },
