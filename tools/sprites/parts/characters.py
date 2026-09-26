@@ -9,6 +9,16 @@ Every function here ends on `Canvas.tone_pass`, the four-tone quantiser that rep
 continuous `nw_shade` in the same decision, and `Canvas.radial_shade` was deleted rather than
 left for a caller that no longer exists.
 
+**Two rigs are left here, the screamer and the bloater.** "The bodies turn and walk" (docs/23,
+2026-09-26) moved every human -- the player, Mara, Ellis, the colonist and the raider -- onto the
+outpost pack's four-direction survivor and the shambler onto the pack's own shambler, both
+sourced from `godot/art/simplyzombies/` through `assets/sprites/authored.json`. Their six
+functions and PNGs went in the same commit, the standing rule for hand-made art
+(tools/sprites/README.md). The pack does not draw a screamer or a bloater, so those two stay
+generated, face-on and flipped, until a fixture round or a pack update grows more bodies (docs/30,
+"The outpost pack, adopted", decision 2). The skeleton below still publishes for them, for the
+face-on gear overlays in `parts/gear.py`, and for the inventory chart in `parts/paperdoll.py`.
+
 The proportion is the owner's 2026-09-08 call (docs/30, "Overcast or torchlight"): a body about
 **one tile tall**, squashed the way RimWorld's and Zero Sievert's are -- the head keeps its
 10x11 and everything under it shortens, so a figure is a third head, a blocky trunk, and stub
@@ -234,194 +244,6 @@ def _pawn():
     return Canvas(PAWN_W, PAWN_H, origin="feet")
 
 
-def player_body():
-    """The player: the darkest jacket on the roster, and a pack strap across the chest.
-
-    Distinguished by gear and by value rather than by rotation -- the old rig was the one body
-    that turned, and nothing turns now, so the difference has to be paint. `fatigue_drab[0]` is
-    a step below every other survivor's cloth and the slung strap is a shape no other human
-    carries, which together are readable before the name plate is.
-    """
-    skin = RAMPS["skin"]
-    drab = RAMPS["fatigue_drab"]
-    strap = RAMPS["strap"]
-    canvas = _pawn()
-
-    def tells(c):
-        c.band((-6.4, SHOULDER_Y + 1.0), (5.2, LEG_TOP_Y - 1.0), 2.4, strap[2])
-        c.ellipse(5.4, LEG_TOP_Y - 1.0, 2.0, 1.8, strap[1])
-
-    _figure(
-        canvas,
-        {
-            "legs": (LEG_X, LEG_HALF, drab[0]),
-            "feet": (FOOT_X, FOOT_HALF, strap[0]),
-            "torso": (SHOULDER_HALF, TORSO_TOP_Y, LEG_TOP_Y, TORSO_RADIUS, drab[0]),
-            "arms": (HAND_X, ARM_HALF, SHOULDER_Y, HAND_Y, drab[1]),
-            "seam": (SHOULDER_HALF - 1.5, tones_of(drab)[0]),
-            "hands": (HAND_X, HAND_Y, HAND_R, skin[2]),
-            "hair": lambda c: c.ellipse(0.0, HEAD_CY - 3.2, 5.2, 3.0, strap[0]),
-            "head": (HEAD_CY, HEAD_R, HEAD_B, skin[2]),
-            "face": _face(tones_of(strap)[0]),
-            "tells": [tells],
-            "shade": "nw",
-        },
-    )
-    return canvas.to_image()
-
-
-def survivor_mara():
-    """Mara: the dark bob, drawn as two passes round the head rather than as one shape.
-
-    `hair_back` is the bob's outer silhouette and is 1 px wider than the skull on each side, so
-    what survives the head being drawn over it is a hair edge framing the face; `hair` is the
-    fringe across the crown. Two passes because a bob is hair *behind* a face as well as over
-    it, and one ellipse can only be one of those.
-    """
-    skin = RAMPS["skin"]
-    drab = RAMPS["fatigue_drab"]
-    hair = RAMPS["hair_black"]
-    canvas = _pawn()
-
-    _figure(
-        canvas,
-        {
-            "legs": (LEG_X, LEG_HALF, drab[1]),
-            "feet": (FOOT_X, FOOT_HALF, RAMPS["strap"][0]),
-            "torso": (SHOULDER_HALF, TORSO_TOP_Y, LEG_TOP_Y, TORSO_RADIUS, drab[2]),
-            # Sleeves rolled: the forearm half of the limb is skin, so the arm is drawn twice.
-            "arms": (HAND_X, ARM_HALF, SHOULDER_Y, HAND_Y, drab[1]),
-            "seam": (SHOULDER_HALF - 1.5, tones_of(drab)[0]),
-            "hands": (HAND_X, HAND_Y + 1.0, HAND_R + 0.6, skin[2]),
-            "hair_back": lambda c: c.ellipse(0.0, HEAD_CY + 0.5, HEAD_R + 0.4, HEAD_B, hair[2]),
-            "head": (HEAD_CY, HEAD_R - 0.6, HEAD_B - 0.6, skin[2]),
-            "hair": lambda c: c.ellipse(0.0, HEAD_CY - 3.6, HEAD_R - 0.6, 2.8, hair[1]),
-            "face": _face(tones_of(hair)[0]),
-            "shade": "nw",
-        },
-    )
-    return canvas.to_image()
-
-
-def survivor_ellis():
-    """Ellis: the broad one -- shoulders at the family bound, and a grey-flecked beard.
-
-    22 px is the README's human shoulder ceiling and this rig sits exactly on it, which is the
-    point: Ellis is read against the other two survivors by width alone at a glance, so the
-    width has to be the most it is allowed to be. The beard is `beard_grey` speckled over its
-    own region rather than a second ellipse, because flecks are what "greying" looks like.
-    """
-    skin = RAMPS["skin"]
-    drab = RAMPS["fatigue_drab"]
-    hair = RAMPS["hair_black"]
-    beard = RAMPS["beard_grey"]
-    canvas = _pawn()
-
-    def tells(c):
-        c.ellipse(0.0, HEAD_CY + 3.6, 4.0, 2.4, beard[1])
-        c.speckle("survivor_ellis", "grey", beard[3], 0.30,
-                  region=(-4.5, HEAD_CY + 1.5, 4.5, HEAD_CY + 5.5))
-
-    _figure(
-        canvas,
-        {
-            "legs": (LEG_X + 0.4, LEG_HALF + 0.3, drab[1]),
-            "feet": (FOOT_X + 0.4, FOOT_HALF + 0.2, RAMPS["strap"][0]),
-            "torso": (SHOULDER_HALF + 1.0, TORSO_TOP_Y, LEG_TOP_Y, TORSO_RADIUS + 0.5, drab[2]),
-            "arms": (HAND_X + 1.0, ARM_HALF, SHOULDER_Y, HAND_Y, drab[1]),
-            "seam": (SHOULDER_HALF - 0.5, tones_of(drab)[0]),
-            "hands": (HAND_X + 1.0, HAND_Y, HAND_R, skin[1]),
-            "hair": lambda c: c.ellipse(0.0, HEAD_CY - 3.4, 5.2, 2.8, hair[1]),
-            "head": (HEAD_CY, HEAD_R, HEAD_B, skin[1]),
-            "face": _face(tones_of(hair)[0]),
-            "tells": [tells],
-            "shade": "nw",
-        },
-    )
-    return canvas.to_image()
-
-
-def survivor_colonist():
-    """The achromatic rig: identity supplied entirely by the looks.json tint at draw time.
-
-    S = 0 by construction, and the *median* opaque pixel has to stay bright enough that
-    `median x luma(tint)` clears the brightest ground the district can draw -- the arithmetic
-    `check_appearance.gd`'s GREY lane owns, whose tightest tint is `#b58a63` (luma 0.5660) and
-    whose threshold is 0.3796, so the median must sit at or above 0.6707. Everything a person
-    is made of here -- legs, torso, arms, hands, head -- is therefore painted at the ramp's top
-    grey `#b8b8b8` (luma 0.7216, the muted family's V ceiling; the ramp's own [2], [3] and [4]
-    all clamp there, so there is nothing brighter to reach for). Only the boots, the face and
-    the outline sit below it, and between them they are well under half the opaque pixels.
-
-    The face is the grey ramp's **deep tone**, which since 2026-09-12 is what every rig's face
-    is -- this rig reached that answer first, for its own reason, and the four-tone model
-    generalised it. The original reason still holds for anything drawn before the pass: OUTLINE
-    is a channel delta of exactly 2, and multiplying it lands it at
-    delta 3 -- outside the achromatic bound. A pure grey multiplies to a pure grey at any gain,
-    which is the property this rig needs.
-
-    The shade gain is **0.07** where the rest of the family takes 0.12, and it is the one
-    number on this rig set by arithmetic rather than by eye. A quarter of the opaque pixels are
-    the outline and the arm seams are a step down from the body, so the median sits about a
-    third of the way up the shaded grey and the gain decides how far down that is. Measured, on
-    534 opaque pixels: 0.12, 0.09 and 0.08 all put the median byte at 180 -- a composed margin
-    of +0.0199 on the tightest tint, `#b58a63` -- and 0.07 puts it at 181, +0.0222, which is
-    the +0.02 this slice was asked for. Nothing on the Godot side moves to buy that: the
-    threshold is the ground's, and it is the rig that gives way.
-    """
-    grey = RAMPS["colonist_grey"]
-    canvas = _pawn()
-    _figure(
-        canvas,
-        {
-            "legs": (LEG_X, LEG_HALF, grey[2]),
-            "feet": (FOOT_X, FOOT_HALF, grey[1]),
-            "torso": (SHOULDER_HALF, TORSO_TOP_Y, LEG_TOP_Y, TORSO_RADIUS, grey[2]),
-            "arms": (HAND_X, ARM_HALF, SHOULDER_Y, HAND_Y, grey[2]),
-            "seam": (SHOULDER_HALF - 1.5, tones_of(grey)[1]),
-            "hands": (HAND_X, HAND_Y, HAND_R, grey[2]),
-            "head": (HEAD_CY, HEAD_R, HEAD_B, grey[2]),
-            "face": _face(tones_of(grey)[0]),
-            "shade": "nw",  # the 0.07 gain retired with nw_shade: tones are absolute, not a gain
-        },
-    )
-    return canvas.to_image()
-
-
-def zombie_shambler():
-    """The reaching arm is the read that says shambler at a glance.
-
-    Face-on, "trailing" is forward: the right limb swings out and down towards the viewer while
-    its shoulder stays where the skeleton puts it, which `trail` does by moving the band's far
-    end alone. The eyes are the head material's deep tone rather than OUTLINE -- a shambler is
-    not looking at
-    anything -- so the face reads as sunk sockets instead of a stare.
-    """
-    rot = RAMPS["gore_rot"]
-    canvas = _pawn()
-
-    def tells(c):
-        c.speckle("zombie_shambler", "rot", rot[0], 0.06)
-
-    _figure(
-        canvas,
-        {
-            "legs": (LEG_X, LEG_HALF, rot[1]),
-            "feet": (FOOT_X, FOOT_HALF, rot[0]),
-            "torso": (SHOULDER_HALF - 0.5, TORSO_TOP_Y + 1.0, LEG_TOP_Y, TORSO_RADIUS, rot[2]),
-            "arms": (HAND_X - 0.4, ARM_HALF - 0.1, SHOULDER_Y, HAND_Y, rot[1]),
-            "seam": (SHOULDER_HALF - 2.0, tones_of(rot)[0]),
-            "hands": (HAND_X - 0.4, HAND_Y, HAND_R, rot[0]),
-            "trail": (1.0, 1.6, 4.0),
-            "head": (HEAD_CY + 1.0, HEAD_R - 0.4, HEAD_B - 0.6, rot[2]),
-            "face": _face(tones_of(rot)[0]),
-            "tells": [tells],
-            "shade": "nw",
-        },
-    )
-    return canvas.to_image()
-
-
 def zombie_screamer():
     """Narrow, all head, and the mouth void: the one rig whose silhouette is a proportion.
 
@@ -502,50 +324,7 @@ def zombie_bloater():
     return canvas.to_image()
 
 
-def raider_body():
-    """One body for every raider archetype: a hood and crossed webbing.
-
-    Which raider carries the gun is not readable at a glance -- the shared body is the
-    mechanism, not an oversight, and `check_m2_raiders.gd` asserts it stays that way. The hood
-    is drawn as `hair_back` plus `hair` for the same reason Mara's bob is: a hood is cloth
-    behind a face as much as over it, and the face has to sit inside the opening.
-    """
-    skin = RAMPS["skin"]
-    drabber = RAMPS["raider_drab"]
-    strap = RAMPS["strap"]
-    canvas = _pawn()
-
-    def tells(c):
-        c.band((-6.4, SHOULDER_Y + 1.0), (5.6, LEG_TOP_Y - 2.0), 2.2, strap[1])
-        c.band((6.4, SHOULDER_Y + 1.0), (-5.6, LEG_TOP_Y - 2.0), 2.2, strap[1])
-
-    _figure(
-        canvas,
-        {
-            "legs": (LEG_X, LEG_HALF, drabber[1]),
-            "feet": (FOOT_X, FOOT_HALF, strap[0]),
-            "torso": (SHOULDER_HALF, TORSO_TOP_Y, LEG_TOP_Y, TORSO_RADIUS, drabber[2]),
-            "arms": (HAND_X, ARM_HALF, SHOULDER_Y, HAND_Y, drabber[1]),
-            "seam": (SHOULDER_HALF - 1.5, tones_of(drabber)[0]),
-            "hands": (HAND_X, HAND_Y, HAND_R, skin[1]),
-            "hair_back": lambda c: c.ellipse(0.0, HEAD_CY + 0.5, HEAD_R + 0.4, HEAD_B, drabber[0]),
-            "head": (HEAD_CY + 0.4, HEAD_R - 0.8, HEAD_B - 1.0, skin[1]),
-            "hair": lambda c: c.ellipse(0.0, HEAD_CY - 3.2, HEAD_R - 0.2, 3.2, drabber[0]),
-            "face": _face(tones_of(strap)[0]),
-            "tells": [tells],
-            "shade": "nw",
-        },
-    )
-    return canvas.to_image()
-
-
 REGISTRY = {
-    "player_body": player_body,
-    "survivor_mara": survivor_mara,
-    "survivor_ellis": survivor_ellis,
-    "survivor_colonist": survivor_colonist,
-    "zombie_shambler": zombie_shambler,
     "zombie_screamer": zombie_screamer,
     "zombie_bloater": zombie_bloater,
-    "raider_body": raider_body,
 }

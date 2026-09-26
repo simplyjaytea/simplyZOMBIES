@@ -269,8 +269,9 @@ drifted. Three things about the current state matter enough to repeat anyway:
   tile at 2×. **Its face-on pawn and its "nobody rotates" clause were reversed by the owner on
   2026-09-11** — docs/30's "The decoupled paperdoll" — so the bodies become a decoupled rig
   whose torso turns 360° to the aim while its legs follow the heading. That arc is slices, not a
-  landed state: what has landed is in docs/23's record, and until a slice says otherwise the
-  shipped bodies are still the face-on pawn described below. The 2026-09-03 entry itself
+  landed state: what has landed is in docs/23's record. Since 2026-09-26 ("The bodies turn and
+  walk", the outpost pack) every human and the shambler kinds draw the pack's four-direction
+  body; only the screamer and the bloater are still the face-on pawn described below. The 2026-09-03 entry itself
   superseded the 2026-09-01 style-B pick (the rotating player, the overcast mood) and records the
   twelve decisions and what each earlier clause becomes; the 2026-09-11 entry does the same for
   it, which is the third time the bodies have been re-decided — read docs/30 in date order rather
@@ -279,13 +280,15 @@ drifted. Three things about the current state matter enough to repeat anyway:
   deliberately does not list them: that list has now drifted three times, each time a slice landed
   without its copy here being updated, which is the same reason the milestone status lives in one
   place. What the style *is* **as shipped today** — the paperdoll arc changes this sentence's
-  first clause and nothing else in it: the table is warm; every body is a squat 32×40 face-on
-  pawn, one tile tall with a big head, that flips through a negative-width rect; walls draw their
+  first clause and nothing else in it: the table is warm; every human and the shambler is the
+  outpost pack's 32×40 body, four views that follow the heading and a walk keyed to
+  `world.tick`, never mirrored, while the screamer and the bloater are squat face-on pawns that
+  flip through a negative-width rect; walls draw their
   material's cap or south face and roofs cover what the sim cannot see; the darker ground draws a
   boundary once onto the lighter tile; a tree is a 32×96 picture standing in the entity sort; a
   parked car is a manifest record the layout wrote, drawn as one three-quarter picture per class,
-  variant and axis in that same sort; and equipment draws on the pawn, in one order, on one
-  skeleton. Where a piece has not landed yet, its code comments say so on purpose. The reference's
+  variant and axis in that same sort; and equipment draws on the body in one order -- the
+  pack's four wearables per view, every face-on overlay on the south view only. Where a piece has not landed yet, its code comments say so on purpose. The reference's
   HUD — portraits, bars, numbers, name plates — is explicitly not adopted.
 - **The dead-socket pattern.** This milestone has turned up **eleven** pieces of code that were
   complete, correct, often gated, and read by nothing: `crawlFactor`, the `Staggered` state,

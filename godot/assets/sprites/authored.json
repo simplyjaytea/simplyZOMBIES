@@ -37,12 +37,15 @@
     "           by the same lane, so the spec cannot drift from the art that already meets it.",
     "  overlay  a piece of equipment composited onto a body. WORN_LOOK_OK owns its fit.",
     "  tile     a tile-sized picture seen from above, centred on its ground point.",
-    "  pack_rig / pack_overlay / module / sheet / prop",
-    "           placeholders for the outpost pack's later slices -- bodies that turn and walk,",
-    "           worn gear, wall modules, animated effect sheets, and prop pictures generally.",
-    "           MANIFEST accepts them today; no shape lane judges one yet, and each gains one",
-    "           when the slice that reads it lands (docs/23's 'Art & renderer -- the outpost",
-    "           pack' group).",
+    "  pack_rig / pack_overlay",
+    "           a body that turns and walks, and a wearable that turns with it -- the outpost",
+    "           pack's survivor and shambler, and its vest, helmet, gas mask and backpack.",
+    "           `godot:check:authored`'s PACK lane judges both (since 2026-09-26).",
+    "  module / sheet / prop",
+    "           placeholders for the outpost pack's later slices -- wall modules, animated",
+    "           effect sheets, and prop pictures generally. MANIFEST accepts them today; no shape",
+    "           lane judges one yet, and each gains one when the slice that reads it lands",
+    "           (docs/23's 'Art & renderer -- the outpost pack' group).",
     "",
     "`reads` names what draws it -- a content id whose appearance block declares the key. Art",
     "nothing reads is the dead-socket shape this project has paid for twelve times, so the gate",
@@ -51,9 +54,732 @@
     "one loaded -- two bases sharing one icon are both allowed to claim it.",
     "",
     "Optional `anchor: [x, y]` (pixels) and `palette: \"generator\"|\"pack\"` are accepted by",
-    "MANIFEST for later slices to read; nothing draws from either yet."
+    "MANIFEST for later slices to read; nothing draws from either yet.",
+    "",
+    "A family that TURNS names its members by one convention, and the renderer finds them by it",
+    "(presentation/appearance.gd's `frame_key`): `<family>_<view>` is the picture standing still",
+    "facing s, e, n or w, and `<family>_walk_<view>_<frame>` is one frame of the walk that way.",
+    "`resolve(<family>)` answers the `_s` member, the picture a body at rest shows, so a content",
+    "entry names the family key exactly as it would name one file. Two more fields, each a COPY",
+    "of the pack's own `godot/art/simplyzombies/manifest.json`, because the renderer never loads",
+    "that file (a runtime reader of the pack would be a second path to the art) and the gate is",
+    "what holds the copy to it (`godot:check:authored`'s PACK lane):",
+    "  fps  the walk's frames per second, a pack_rig's `fps.walk`; the frame is chosen from",
+    "       `world.tick` with integer arithmetic, so it is the same on every machine.",
+    "  z    per view, a pack_overlay's `z_by_direction`; below zero it draws under the body, which",
+    "       is how the backpack hangs behind a body seen from the side.",
+    "Every member is cropped 32x48 -> 32x40 on the pack's own anchor row (the soles stay on row",
+    "39); what the crop drops is only the pack's sub-visible specks, and PACK proves that too."
   ],
   "keys": {
+    "body_shambler": {
+      "canvas": [
+        32,
+        40
+      ],
+      "kind": "pack_rig",
+      "reads": "zombie.shambler",
+      "palette": "pack",
+      "fps": 5,
+      "members": {
+        "body_shambler_s": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_s.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_e": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_e.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_n": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_n.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_w": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_w.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_s_0": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_s_00.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_s_1": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_s_01.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_s_2": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_s_02.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_s_3": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_s_03.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_e_0": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_e_00.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_e_1": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_e_01.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_e_2": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_e_02.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_e_3": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_e_03.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_n_0": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_n_00.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_n_1": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_n_01.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_n_2": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_n_02.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_n_3": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_n_03.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_w_0": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_w_00.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_w_1": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_w_01.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_w_2": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_w_02.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_w_3": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_w_03.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        }
+      }
+    },
+    "body_survivor": {
+      "canvas": [
+        32,
+        40
+      ],
+      "kind": "pack_rig",
+      "reads": "player.body",
+      "palette": "pack",
+      "fps": 8,
+      "members": {
+        "body_survivor_s": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_s.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_e": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_e.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_n": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_n.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_w": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_w.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_s_0": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_s_00.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_s_1": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_s_01.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_s_2": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_s_02.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_s_3": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_s_03.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_e_0": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_e_00.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_e_1": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_e_01.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_e_2": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_e_02.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_e_3": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_e_03.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_n_0": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_n_00.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_n_1": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_n_01.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_n_2": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_n_02.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_n_3": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_n_03.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_w_0": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_w_00.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_w_1": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_w_01.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_w_2": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_w_02.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_w_3": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_w_03.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        }
+      }
+    },
+    "item_gear_backpack": {
+      "canvas": [
+        32,
+        40
+      ],
+      "kind": "pack_overlay",
+      "reads": "item.pack.hiking",
+      "palette": "pack",
+      "z": {
+        "s": 3,
+        "e": -1,
+        "n": 3,
+        "w": -1
+      },
+      "members": {
+        "item_gear_backpack_s": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-backpack-s.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "item_gear_backpack_e": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-backpack-e.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "item_gear_backpack_n": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-backpack-n.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "item_gear_backpack_w": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-backpack-w.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        }
+      }
+    },
+    "item_gear_gasmask": {
+      "canvas": [
+        32,
+        40
+      ],
+      "kind": "pack_overlay",
+      "reads": "item.mask.gas",
+      "palette": "pack",
+      "z": {
+        "s": 4,
+        "e": 4,
+        "n": 4,
+        "w": 4
+      },
+      "members": {
+        "item_gear_gasmask_s": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-gasmask-s.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "item_gear_gasmask_e": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-gasmask-e.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "item_gear_gasmask_n": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-gasmask-n.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "item_gear_gasmask_w": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-gasmask-w.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        }
+      }
+    },
+    "item_gear_helmet": {
+      "canvas": [
+        32,
+        40
+      ],
+      "kind": "pack_overlay",
+      "reads": "item.helmet.bike",
+      "palette": "pack",
+      "z": {
+        "s": 5,
+        "e": 5,
+        "n": 5,
+        "w": 5
+      },
+      "members": {
+        "item_gear_helmet_s": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-helmet-s.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "item_gear_helmet_e": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-helmet-e.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "item_gear_helmet_n": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-helmet-n.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "item_gear_helmet_w": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-helmet-w.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        }
+      }
+    },
+    "item_gear_vest": {
+      "canvas": [
+        32,
+        40
+      ],
+      "kind": "pack_overlay",
+      "reads": "item.vest.carrier",
+      "palette": "pack",
+      "z": {
+        "s": 2,
+        "e": 2,
+        "n": 2,
+        "w": 2
+      },
+      "members": {
+        "item_gear_vest_s": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-vest-s.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "item_gear_vest_e": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-vest-e.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "item_gear_vest_n": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-vest-n.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "item_gear_vest_w": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-vest-w.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        }
+      }
+    },
     "prop_container": {
       "canvas": [
         32,

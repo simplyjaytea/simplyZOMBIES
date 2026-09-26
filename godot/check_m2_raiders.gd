@@ -49,12 +49,6 @@ const NPC_COMBAT_GD: String = "res://sim/modules/npc_combat.gd"
 const APPROACH_TICKS: int = 1200
 const ARENA_TICKS: int = 900
 
-# How far above the brightest ground a body's composed luma has to sit to still read as a body.
-# check_appearance.gd's GREY_CLEARANCE, by name and by value: the colonist rig is held to exactly
-# this over the same six surface tints, and a raider wearing a wash is that question asked of a
-# rig that is not achromatic. One number in two places rather than two numbers -- the comment is
-# the link, since a gate may not preload another gate.
-const GROUND_CLEARANCE: float = 0.06
 
 # The `"raid"` stream's state after `_emit_band` places a band of four, measured on the
 # pre-individuals tree with a throwaway driver on 2026-09-15 and pinned here. Two seeds, because
@@ -82,7 +76,7 @@ func _run() -> void:
 	ok = _a_raider_is_not_on_the_colony_ledger() and ok
 	ok = _a_band_that_has_lost_withdraws() and ok
 	ok = _the_person_pool_is_well_formed() and ok
-	ok = _every_look_is_one_body_and_clears_the_street() and ok
+	ok = _every_look_is_one_body_under_one_tint() and ok
 	ok = _a_band_of_four_are_four_people() and ok
 	ok = _a_raider_is_never_the_heir() and ok
 	ok = _the_rolled_look_reaches_the_renderer() and ok
@@ -274,10 +268,11 @@ func _the_archetypes_are_well_formed() -> bool:
 		if not (look is Dictionary) or not (look as Dictionary).has("sprite"):
 			push_error("%s declares no appearance.sprite -- the one shared body is the anonymity mechanism, not a nicety" % id)
 			return false
-		looks[String((look as Dictionary)["sprite"])] = true
-		# The hex shape survives conditionally: no archetype declares a tint today (the shared
-		# art draws unstained), but one that ever returns must still be well-formed rather than
-		# a play-time surprise the shallow validator waves through.
+		# The body AND its tint, as one key: since "The bodies turn and walk" (2026-09-26) every
+		# raider wears the pack survivor every human wears, and what tells a raider from one of
+		# your own is one raider tint (docs/30, "The whole outpost pack"). Two archetypes on two
+		# tints would be two bodies a glance can tell apart, so the tint is part of the body here.
+		looks["%s|%s" % [String((look as Dictionary)["sprite"]), String((look as Dictionary).get("tint", ""))]] = true
 		if (look as Dictionary).has("tint"):
 			var t: String = String((look as Dictionary)["tint"])
 			if hex.search(t) == null:
@@ -312,26 +307,27 @@ func _the_archetypes_are_well_formed() -> bool:
 	if float(zombie_look["radius"]) == float(survivor_look["radius"]):
 		push_error("a zombie and a survivor draw at the same radius, so the radius assertion above proves nothing")
 		return false
-	# The declared body reaches the renderer: the art resolves, draws unstained (no tint
-	# declared, so `modulate_for` answers white), and every archetype hands back the *same*
-	# Texture2D -- Appearance._cache holds one object per key, so `==` here is identity, and
-	# the sharing property is asserted at the resolver rather than assumed from the JSON.
+	# The declared body reaches the renderer: the art resolves, draws in the one raider tint, and
+	# every archetype hands back the *same* Texture2D and the same tint -- Appearance._cache holds
+	# one object per key, so `==` here is identity, and the sharing property is asserted at the
+	# resolver rather than assumed from the JSON. The body is the one every human wears, so the
+	# tint is what says "not one of yours": a raider drawn white would be a colonist at a glance.
 	if raider_look["texture"] == null:
 		push_error("%s declares appearance.sprite and resolved no texture" % String(pool[0].get("id", "")))
 		return false
-	if (raider_look["tint"] as Color) != Color.WHITE:
-		push_error("the shared raider body declares no tint and must draw white, got %s" % str(raider_look["tint"]))
+	if (raider_look["tint"] as Color) == Color.WHITE or (raider_look["tint"] as Color) == (survivor_look["tint"] as Color):
+		push_error("the shared raider body draws %s, the same as one of the player's own people -- the raider tint is what tells them apart" % str(raider_look["tint"]))
 		return false
 	for other in pool:
 		var other_look: Dictionary = Appearance.for_entity(w, {"raider": true, "cid": String((other as Dictionary).get("id", ""))})
-		if other_look["texture"] != raider_look["texture"]:
-			push_error("%s resolves a different texture from %s -- two bodies a glance can tell apart" % [String((other as Dictionary).get("id", "")), String(pool[0].get("id", ""))])
+		if other_look["texture"] != raider_look["texture"] or (other_look["tint"] as Color) != (raider_look["tint"] as Color):
+			push_error("%s resolves a different texture or tint from %s -- two bodies a glance can tell apart" % [String((other as Dictionary).get("id", "")), String(pool[0].get("id", ""))])
 			return false
 	var undeclared: Dictionary = Appearance.for_entity(w, {"raider": true, "cid": "raider.does_not_exist"})
 	if (undeclared["tint"] as Color) != Palette.COLOURS["raider"]:
 		push_error("an unknown raider archetype must fall back to the raider role colour, got %s" % str(undeclared["tint"]))
 		return false
-	print("ARCHETYPES OK %d entries, all armed, %d arrive with authored skills owned outright, one shared body %s drawn unstained, glimpse radius %.0f == survivor" % [armed, endowed, str(looks.keys()), float(raider_look["radius"])])
+	print("ARCHETYPES OK %d entries, all armed, %d arrive with authored skills owned outright, one shared body and tint %s, never the survivors' white, glimpse radius %.0f == survivor" % [armed, endowed, str(looks.keys()), float(raider_look["radius"])])
 	return true
 
 
@@ -1398,18 +1394,26 @@ func _the_person_pool_is_well_formed() -> bool:
 
 
 # LOOKS: the ids the pool names are real look entries and every one of them wears the one shared
-# raider body -- and the second half of the lane is the measurement that says why none of them
-# carries a wash, which is the half a reader will otherwise ask about.
+# raider body under the one raider tint the archetypes wear.
 #
-# `raider_drab` is at the floor of the palette's ground-contrast guard already: tools/sprites'
-# palette.py calls it "as dark as the drab can go and still read as a body rather than a hole in
-# the street". A tint is a multiply, so a look could only darken it, and the composed median of
-# this rig sits a few thousandths above the street as it is. So the per-body variation a raider
-# actually shows is what they are *wearing* -- the kit rows with odds on them, which draw on the
-# pawn -- and the look id stays the hook a per-body picture attaches to when the art exists. The
-# numbers below are what makes that a measurement rather than an opinion; they are printed, so
-# the day the rig is re-authored lighter the headroom is on the line where it is decided.
-func _every_look_is_one_body_and_clears_the_street() -> bool:
+# Until "The bodies turn and walk" (2026-09-26) this lane also measured why no look carried a
+# wash: the generated `raider_drab` rig sat a few thousandths above the street's composed luma, so
+# a multiply could only sink it. That rig was deleted when every human moved onto the outpost
+# pack's survivor, and the owner decided the same day that raiders share ONE tint (docs/30, "The
+# whole outpost pack") because on one shared body a raider would otherwise be one of your own at
+# a glance. The composed-luma arithmetic retired with the rig it measured: the pack survivor is
+# drawn in colour and reads by its own outline, and untinted it already sits under this palette's
+# street luma, so the measurement would be red on the art rather than on any look. Contrast
+# against the ground is re-pinned by "The ground is the pack's" (docs/23). What stays is the half
+# NO-TELL needs: one body, one tint, for every archetype and every look.
+func _one_tint(tints: Array[String]) -> bool:
+	for t in tints:
+		if t != tints[0]:
+			return false
+	return not tints.is_empty()
+
+
+func _every_look_is_one_body_under_one_tint() -> bool:
 	var w: Variant = World.new(_fixture())
 	var pool: Dictionary = SimPeople.pool(w, SimRaiders.PEOPLE_POOL_ID)
 	var looks: Array = pool.get("looks", []) as Array
@@ -1421,13 +1425,17 @@ func _every_look_is_one_body_and_clears_the_street() -> bool:
 		push_error("LOOKS: no archetypes, so there is no shared body to compare against")
 		return false
 	var shared_sprite: String = String((types[0].get("appearance", {}) as Dictionary).get("sprite", ""))
+	var shared_tint: String = String((types[0].get("appearance", {}) as Dictionary).get("tint", ""))
 	var body: Texture2D = Appearance.resolve(shared_sprite)
 	if body == null:
 		push_error("LOOKS: the shared body '%s' resolved no texture" % shared_sprite)
 		return false
-	var img: Image = body.get_image()
-	var plain: float = _median_composed_luma(img, Color.WHITE)
-	var floor_luma: float = _brightest_surface() + GROUND_CLEARANCE
+	if shared_tint.is_empty():
+		push_error("LOOKS: %s declares no tint; on the body every human wears, a raider with no tint is one of your own" % String(types[0].get("id", "")))
+		return false
+	var tints: Array[String] = []
+	for t_v in types:
+		tints.append(String(((t_v as Dictionary).get("appearance", {}) as Dictionary).get("tint", "")))
 	for look_v in looks:
 		var look_id: String = String(look_v)
 		var block: Dictionary = Appearance.of_content(w, "raider", look_id)
@@ -1437,39 +1445,31 @@ func _every_look_is_one_body_and_clears_the_street() -> bool:
 		if String(block.get("sprite", "")) != shared_sprite:
 			push_error("LOOKS: '%s' draws '%s' where the archetypes draw '%s' -- a per-look body is the same free read on the band a per-archetype one would be" % [look_id, String(block.get("sprite", "")), shared_sprite])
 			return false
-		# No tint, and that is the finding rather than an omission: see the arithmetic below.
-		if block.has("tint"):
-			var composed: float = _median_composed_luma(img, Color(String(block["tint"])))
-			if composed < floor_luma:
-				push_error("LOOKS: '%s' composes to median luma %.4f, under the street's %.4f -- that raider is a hole in the road" % [look_id, composed, floor_luma])
-				return false
-		# The renderer hands the look over: the shared texture, drawn unstained. Texture identity,
-		# because Appearance._cache holds one object per key.
+		tints.append(String(block.get("tint", "")))
+		# The renderer hands the look over: the shared texture, in the shared tint. Texture
+		# identity, because Appearance._cache holds one object per key.
 		var drawn: Dictionary = Appearance.for_entity(w, {"raider": true, "cid": look_id})
 		if drawn["texture"] != Appearance.resolve(shared_sprite):
 			push_error("LOOKS: '%s' resolved a different texture from the shared body" % look_id)
 			return false
-		if (drawn["tint"] as Color) != Color.WHITE and not block.has("tint"):
-			push_error("LOOKS: '%s' declares no tint and did not draw white, got %s" % [look_id, str(drawn["tint"])])
+		if (drawn["tint"] as Color) != Color(shared_tint):
+			push_error("LOOKS: '%s' draws %s, not the raider tint %s" % [look_id, str(drawn["tint"]), shared_tint])
 			return false
-	# Why there is no wash, in numbers: the rig's own composed median against the street, and the
-	# lightest wash that would still clear it. A tint darker than that factor sinks the body, and
-	# the four hexes it leaves room for are within a per-cent of white -- a look nobody could see.
-	var headroom: float = plain - floor_luma
-	if headroom < 0.0:
-		push_error("LOOKS: the untinted body composes to %.4f, already under the street's %.4f -- that is an art regression, not a look question" % [plain, floor_luma])
+	if not _one_tint(tints):
+		push_error("LOOKS: the archetypes and looks declare the tints %s; one raider tint, never two, or a tint tells them apart" % str(tints))
 		return false
-	# The two true negatives. An id nothing declares resolves nothing (so the lookups above are
-	# lookups), and the ground predicate can fail -- colony.look.03's retired brown is the tint the
-	# colonist composition was regraded away from, and it sinks this body too.
+	# The true negatives. An id nothing declares resolves nothing (so the lookups above are
+	# lookups), and the one-tint predicate refuses a set with a second hex in it.
 	if not Appearance.of_content(w, "raider", "raider.look.does_not_exist").is_empty():
 		push_error("LOOKS: an undeclared look id came back with an appearance block")
 		return false
-	if _median_composed_luma(img, Color("#5c4632")) >= floor_luma:
-		push_error("LOOKS: the retired #5c4632 clears the street threshold, so the ground arithmetic above reads nothing")
+	var two: Array[String] = tints.duplicate()
+	two.append("#5c4632")
+	if _one_tint(two) or _one_tint([] as Array[String]):
+		push_error("LOOKS: the one-tint predicate accepted two tints, or nothing at all")
 		return false
-	print("LOOKS OK %d ids, one body '%s' drawn unstained; composed median %.4f over a street floor of %.4f leaves %.4f, so the lightest wash this rig could wear is a factor of %.3f -- no tint ships" % [
-		looks.size(), shared_sprite, plain, floor_luma, headroom, floor_luma / plain,
+	print("LOOKS OK %d ids and %d archetypes, one body '%s' under one tint %s (the composed-luma headroom retired with the generated raider rig)" % [
+		looks.size(), types.size(), shared_sprite, shared_tint,
 	])
 	return true
 
@@ -1580,8 +1580,7 @@ func _the_rolled_look_reaches_the_renderer() -> bool:
 		push_error("LOOK-READER: a spawned raider rolled no look")
 		return false
 	# The look id resolves a body of its own, and an id the pool does not declare does not: that
-	# difference is the whole of "the renderer reads it", and it holds whether or not a look ever
-	# declares a tint (LOOKS explains why none does today).
+	# difference is the whole of "the renderer reads it", whatever tint a look declares.
 	var with_look: Dictionary = Appearance.for_entity(w, {"raider": true, "cid": look_id})
 	if with_look["texture"] == null:
 		push_error("LOOK-READER: the rolled look '%s' resolved no texture" % look_id)
@@ -1595,8 +1594,8 @@ func _the_rolled_look_reaches_the_renderer() -> bool:
 	# the archetype at all, and "one body" would stop being true the moment art per look lands
 	# without this lane noticing.
 	var without: Dictionary = Appearance.for_entity(w, {"raider": true, "cid": "raider.scav"})
-	if (without["tint"] as Color) != Color.WHITE:
-		push_error("LOOK-READER: a raider with no rolled look must draw its archetype's own body unstained, got %s" % str(without["tint"]))
+	if (without["tint"] as Color) != (with_look["tint"] as Color) or (without["tint"] as Color) == Color.WHITE:
+		push_error("LOOK-READER: a raider with no rolled look must draw its archetype's own body in the one raider tint, got %s against the look's %s" % [str(without["tint"]), str(with_look["tint"])])
 		return false
 	if with_look["texture"] != without["texture"]:
 		push_error("LOOK-READER: the look and the archetype resolved different textures")
@@ -1971,29 +1970,6 @@ func _digits(s: String) -> String:
 			out += s[i]
 	return out
 
-
-# The median luma of the body's opaque pixels once `tint` has multiplied them -- the composition
-# the screen actually draws, rather than the ramp in isolation.
-func _median_composed_luma(img: Image, tint: Color) -> float:
-	var lumas: Array[float] = []
-	for y in img.get_height():
-		for x in img.get_width():
-			var px: Color = img.get_pixel(x, y)
-			if px.a <= 0.0:
-				continue
-			lumas.append(0.2126 * px.r * tint.r + 0.7152 * px.g * tint.g + 0.0722 * px.b * tint.b)
-	if lumas.is_empty():
-		return 0.0
-	lumas.sort()
-	return lumas[lumas.size() / 2]
-
-
-func _brightest_surface() -> float:
-	var best: float = 0.0
-	for i in Palette.SURFACE_TINTS.size():
-		var c: Color = Palette.SURFACE_TINTS[i]
-		best = maxf(best, 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b)
-	return best
 
 
 # --- roles: the one who comes for the stores ---------------------------------------------------
