@@ -84,7 +84,13 @@ static func draw_item(ci: CanvasItem, origin: Vector2, d: Dictionary, alpha: flo
 		if art != null:
 			var modulate: Color = (look["tint"] as Color) if bool(look["declaredTint"]) else Color.WHITE
 			modulate.a = alpha
-			ci.draw_texture_rect(art, art_rect, false, modulate)
+			# The largest whole multiple of the art that fits the plate's picture box, centred on a whole
+			# pixel: a 32 px icon in a 37 px box would otherwise be stretched by 1.17 and come out with
+			# every sixth row doubled.
+			var art_size: Vector2 = art.get_size()
+			var whole: float = maxf(1.0, floorf(minf(art_rect.size.x / art_size.x, art_rect.size.y / art_size.y)))
+			var pic_size: Vector2 = art_size * whole
+			ci.draw_texture_rect(art, Rect2((art_rect.get_center() - pic_size * 0.5).round(), pic_size), false, modulate)
 		else:
 			var tint: Color = look["tint"] as Color
 			tint.a = alpha
