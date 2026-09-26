@@ -13,13 +13,20 @@ extends RefCounted
 const Chrome = preload("res://ui/chrome.gd")
 const UiText = preload("res://ui/text.gd")
 const Motion = preload("res://ui/motion.gd")
+const Appearance = preload("res://presentation/appearance.gd")
+const ItemPicture = preload("res://ui/item_picture.gd")
 
 const SLOTS: int = 6
-const SLOT_W: float = 210.0
+const SLOT_W: float = 246.0
 const SLOT_H: float = 62.0
 const GAP: float = 12.0
 const KEY_SIZE: int = 20
 const NAME_SIZE: int = 25
+# The picture's square in a slot: the pack's icon is 32 px, so this is one whole multiple of it and
+# the icon is never resampled. It sits between the key's numeral and the name, and the slot is as
+# much wider than it was as this and its gap take.
+const PICTURE: float = 32.0
+const PICTURE_GAP: float = 8.0
 
 
 # `selected` is the inventory sheet's currently-picked item, so a belt or pocket slot that holds
@@ -30,7 +37,11 @@ const NAME_SIZE: int = 25
 # still playing; {} for none. The slot holding that item wears it; an item that went into a bag
 # rather than onto the strip, or merged into a stack under another id, pings the strip's lead
 # instead -- something went in, and the sheet says where.
-static func draw_strip(ci: CanvasItem, rect: Rect2, rows: Array, alpha: float, selected: int = -1, ping: Dictionary = {}) -> void:
+#
+# `world` is what a picture is resolved against: a filled slot draws the same picture the bag plate
+# and the floor draw for that base -- the pack's icon, or its class's glyph where the pack has none --
+# through `Appearance.item_look`. With no world a slot is words alone, as it was before the pictures.
+static func draw_strip(ci: CanvasItem, rect: Rect2, rows: Array, alpha: float, selected: int = -1, ping: Dictionary = {}, world: Variant = null) -> void:
 	Chrome.panel(ci, rect, alpha)
 	var font: Font = Chrome.font()
 	var lead: String = "belt and pockets"
@@ -61,6 +72,12 @@ static func draw_strip(ci: CanvasItem, rect: Rect2, rows: Array, alpha: float, s
 			var col: Color = Chrome.TEXT
 			col.a = alpha
 			var wide: float = SLOT_W - 44.0
+			var name_x: float = 32.0
+			if world != null:
+				var look: Dictionary = Appearance.item_look(world, ItemPicture.base_of(world, int(d.get("item", -1))))
+				ItemPicture.draw(ci, Rect2(box.position + Vector2(name_x, (SLOT_H - PICTURE) / 2.0), Vector2(PICTURE, PICTURE)), look, alpha)
+				name_x += PICTURE + PICTURE_GAP
+				wide -= PICTURE + PICTURE_GAP
 			if count > 1:
 				var tally: String = "x%d" % count
 				var tw: float = font.get_string_size(tally, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE).x
@@ -68,7 +85,7 @@ static func draw_strip(ci: CanvasItem, rect: Rect2, rows: Array, alpha: float, s
 				tcol.a = alpha
 				ci.draw_string(font, box.position + Vector2(SLOT_W - tw - 10.0, SLOT_H / 2.0 + 6.0), tally, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, tcol)
 				wide -= tw + 8.0
-			ci.draw_string(font, box.position + Vector2(32.0, SLOT_H / 2.0 + 6.0), UiText.fit(font, text, NAME_SIZE, wide), HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, col)
+			ci.draw_string(font, box.position + Vector2(name_x, SLOT_H / 2.0 + 6.0), UiText.fit(font, text, NAME_SIZE, wide), HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, col)
 		else:
 			var dim: Color = Chrome.TEXT_DIM
 			dim.a = alpha
