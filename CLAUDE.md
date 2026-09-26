@@ -67,10 +67,12 @@ section came from.
 ## Verifying a change
 
 Correctness for a Godot change is the Godot gates. `npm run godot:m2` is the one to run before
-every commit — it chains all of them and takes **about twenty-seven minutes** (26m45s, 69 gates
-green, measured 2026-09-12 on a project container). It said twelve here for eight days, measured
-2026-09-04 when the chain was 51 gates; the alpha-roster arc added four gates and took the roster
-from 152 bases to 362, and a catalogue gate's cost scales with the roster. Budget for the real
+every commit — it chains all of them and takes **about thirty minutes** (31m29s, 83 gates green,
+measured 2026-09-26 on a four-core Windows desktop, with two worker slices running their own
+gates beside it for the last third; 26m45s for 69 gates on a project container on 2026-09-12). It
+said twelve here for eight days, measured 2026-09-04 when the chain was 51 gates; the alpha-roster
+arc added four gates and took the roster from 152 bases to 362, and a catalogue gate's cost scales
+with the roster. Budget for the real
 number — an instruction to run a twelve-minute command that actually takes twenty-seven is how a
 pre-commit check quietly stops being run:
 
@@ -132,7 +134,7 @@ npm run check:routing    # AGENTS.md's routing table resolves; every check_*.gd 
 npm run check:timing     # the per-gate timing table names every mode the chain ran → TIMING_OK
 ```
 
-Those are the ones worth naming, not all of them: `godot:m2` chains **78**, and the authoritative
+Those are the ones worth naming, not all of them: `godot:m2` chains **83**, and the authoritative
 list is the `godot:m2:chain` script in `package.json` (`godot:m2` itself is
 `node scripts/m2-chain.mjs`, which reads that list and runs it) — read it there rather than
 trusting a copy here, because a copy here is one more thing that drifts. Run an individual gate
@@ -269,8 +271,9 @@ drifted. Three things about the current state matter enough to repeat anyway:
   tile at 2×. **Its face-on pawn and its "nobody rotates" clause were reversed by the owner on
   2026-09-11** — docs/30's "The decoupled paperdoll" — so the bodies become a decoupled rig
   whose torso turns 360° to the aim while its legs follow the heading. That arc is slices, not a
-  landed state: what has landed is in docs/23's record, and until a slice says otherwise the
-  shipped bodies are still the face-on pawn described below. The 2026-09-03 entry itself
+  landed state: what has landed is in docs/23's record. Since 2026-09-26 ("The bodies turn and
+  walk", the outpost pack) every human and the shambler kinds draw the pack's four-direction
+  body; only the screamer and the bloater are still the face-on pawn described below. The 2026-09-03 entry itself
   superseded the 2026-09-01 style-B pick (the rotating player, the overcast mood) and records the
   twelve decisions and what each earlier clause becomes; the 2026-09-11 entry does the same for
   it, which is the third time the bodies have been re-decided — read docs/30 in date order rather
@@ -279,13 +282,15 @@ drifted. Three things about the current state matter enough to repeat anyway:
   deliberately does not list them: that list has now drifted three times, each time a slice landed
   without its copy here being updated, which is the same reason the milestone status lives in one
   place. What the style *is* **as shipped today** — the paperdoll arc changes this sentence's
-  first clause and nothing else in it: the table is warm; every body is a squat 32×40 face-on
-  pawn, one tile tall with a big head, that flips through a negative-width rect; walls draw their
+  first clause and nothing else in it: the table is warm; every human and the shambler is the
+  outpost pack's 32×40 body, four views that follow the heading and a walk keyed to
+  `world.tick`, never mirrored, while the screamer and the bloater are squat face-on pawns that
+  flip through a negative-width rect; walls draw their
   material's cap or south face and roofs cover what the sim cannot see; the darker ground draws a
   boundary once onto the lighter tile; a tree is a 32×96 picture standing in the entity sort; a
   parked car is a manifest record the layout wrote, drawn as one three-quarter picture per class,
-  variant and axis in that same sort; and equipment draws on the pawn, in one order, on one
-  skeleton. Where a piece has not landed yet, its code comments say so on purpose. The reference's
+  variant and axis in that same sort; and equipment draws on the body in one order -- the
+  pack's four wearables per view, every face-on overlay on the south view only. Where a piece has not landed yet, its code comments say so on purpose. The reference's
   HUD — portraits, bars, numbers, name plates — is explicitly not adopted.
 - **The dead-socket pattern.** This milestone has turned up **eleven** pieces of code that were
   complete, correct, often gated, and read by nothing: `crawlFactor`, the `Staggered` state,
@@ -457,6 +462,21 @@ Each of these was found the expensive way. They are not style opinions.
   pinned to 12.3.0, but the interpreter is not, so this class of divergence is invisible locally
   until CI says so. Pinning Python was considered and not taken: a generator that renders the
   same bytes on any interpreter is worth more than one that is only ever run on one.
+- **A CRLF checkout turns textual gates red against correct code.** With `core.autocrlf true`
+  (the Windows default) every working file ends its lines in a carriage return, and a gate that
+  matches a whole source line exactly never finds it: on 2026-09-26 `godot:m2:dormant` failed on
+  a clean `main` with "the isolator found no Seek arm". The repository's `.gitattributes` now pins
+  `* text=auto eol=lf`, so a fresh clone is LF everywhere; an older checkout needs
+  `git config core.autocrlf false` and a fresh checkout (`git rm -rq --cached . && git reset
+  --hard`, with any work stashed first).
+- **A clean git merge can leave a content object with the same key twice.** On 2026-09-26 one
+  branch added `"appearance": {"sprite": …}` above an item's `equipSlot` and another added
+  `"appearance": {"equipSprite": …}` below it; git saw two different hunks and merged both without
+  a conflict. Every JSON reader here, Godot's and Ajv's alike, keeps the *last* duplicate without a
+  word, so `godot:validate` and `npm test` were green while the item had silently lost its icon —
+  only `godot:check:authored`'s READS lane noticed, because the art it declared was now read by
+  nothing. After merging branches that both touched `godot/content/`, scan for duplicate keys
+  (Python's `json.load(..., object_pairs_hook=...)` sees them) before trusting a green validator.
 - **Throughput, measured:** ~1,085 ticks/second headless on this container, so a game day (288,000
   ticks) is about three minutes and a ten-day campaign about forty-five. Anything phrased as "run
   a few campaigns" is an overnight job — check the arithmetic before promising a grid.

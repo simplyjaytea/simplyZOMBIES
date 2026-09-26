@@ -17,7 +17,8 @@ the chrome wears the kit (2×, tiled centre, per-style edges, widened margins), 
 (VT323), empty slots say what goes there, the shell's rows are buttons, keys wear keycaps,
 bubbles and the dashboard in kit frames, the four cursors, UI motion and a reduced-motion switch.
 
-**Left, in order:**
+**Left, in order:** (2026-09-26: items 1 and 2 are done — docs/23's record, "UI — saved, picked
+up, busy". Item 3 is still open.)
 
 1. **Saved, picked up, busy** (the last UI piece; opus). Replace `_events_lane` in
    `godot/check_ui_skin.gd` (it is already a coroutine the runner awaits). `presentation/session.gd`

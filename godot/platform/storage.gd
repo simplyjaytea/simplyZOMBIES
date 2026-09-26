@@ -33,21 +33,28 @@ static func read_file(key: String) -> String:
 # window shrinks to the engine's and cannot be closed from GDScript. Godot 4 exposes no fsync, so
 # the oracle's `fsyncSync` (src/platform/storage.ts) has no twin here: `flush` empties Godot's
 # buffer, not the OS page cache.
-static func write_file_atomic(key: String, value: String) -> void:
+# Both writers answer whether the slot was written, so `presentation/session.gd` can say "saved"
+# only when it was: the asserts below stop a debug build, and a release build strips them.
+static func write_file_atomic(key: String, value: String) -> bool:
 	var target: String = _file_for(key)
 	var tmp: String = target + ".tmp"
 	var da := DirAccess.open("user://")
 	assert(da != null)
+	if da == null:
+		return false
 	# A crashed earlier write may have left its temp file behind; it is never read, only replaced.
 	if da.file_exists(tmp.get_file()):
 		da.remove(tmp.get_file())
 	var f := FileAccess.open(tmp, FileAccess.WRITE)
 	assert(f != null, "storage: cannot open %s for write" % tmp)
+	if f == null:
+		return false
 	f.store_string(value)
 	f.flush()
 	f = null
 	var err := da.rename(tmp.get_file(), target.get_file())
 	assert(err == OK, "storage: atomic rename failed %s -> %s (%d)" % [tmp, target, err])
+	return err == OK
 
 static func remove_file(key: String) -> void:
 	var path: String = _file_for(key)
@@ -83,20 +90,25 @@ static func read_web(key: String) -> String:
 	var f := FileAccess.open(path, FileAccess.READ)
 	return "" if f == null else f.get_as_text()
 
-static func write_web_double_buffered(key: String, value: String) -> void:
+static func write_web_double_buffered(key: String, value: String) -> bool:
 	var live: int = _live_slot(key)
 	var nxt: int = 1 if live == 0 else 0
 	var slot_path: String = _slot_key(key, nxt)
 	var f := FileAccess.open(slot_path, FileAccess.WRITE)
 	assert(f != null, "storage: cannot open slot %s" % slot_path)
+	if f == null:
+		return false
 	f.store_string(value)
 	f.flush()
 	f = null
 	# pointer flip — single small write, smallest crash window
 	var pf := FileAccess.open(_pointer_key(key), FileAccess.WRITE)
 	assert(pf != null)
+	if pf == null:
+		return false
 	pf.store_string(String.num_int64(nxt))
 	pf.flush()
+	return true
 
 static func remove_web(key: String) -> void:
 	var da := DirAccess.open("user://")
@@ -121,11 +133,10 @@ static func read_save() -> String:
 		return read_file(SAVE_KEY)
 	return read_file(SAVE_KEY)
 
-static func write_save(value: String) -> void:
+static func write_save(value: String) -> bool:
 	if OS.has_feature("web"):
-		write_web_double_buffered(SAVE_KEY, value)
-	else:
-		write_file_atomic(SAVE_KEY, value)
+		return write_web_double_buffered(SAVE_KEY, value)
+	return write_file_atomic(SAVE_KEY, value)
 
 static func remove_save() -> void:
 	if OS.has_feature("web"):

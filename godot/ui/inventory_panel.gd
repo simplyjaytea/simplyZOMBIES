@@ -93,6 +93,10 @@ var _selected: int = -1
 # its rest frame, and `_process` redraws the columns only when the frame turns over.
 var _pulse_item: int = -1
 var _pulse_since_ms: int = 0
+# The last thing the player picked up, and when on the wall clock: the quick strip's item_ping.
+# -1 for none. Set by `ping`, which `main.gd` calls off the drained `item.pickedUp` events.
+var _ping_item: int = -1
+var _ping_since_ms: int = 0
 var _pulse_frame: int = -1
 # Nested containers the player has opened, as an Array of item ids rather than a Dictionary keyed
 # by one: an Array is what survives a save if this ever moves into one, and it is pruned against
@@ -269,6 +273,27 @@ func set_open(open: bool) -> void:
 # Settings changed; everything that reads an opacity redraws.
 func refresh_style() -> void:
 	queue_redraw()
+
+
+# The player picked `item` up: the strip pings the slot it landed in, or its lead when it went
+# into a bag. A second pick-up restarts the ping on the newer item.
+func ping(item: int) -> void:
+	_ping_item = item
+	_ping_since_ms = Time.get_ticks_msec()
+	queue_redraw()
+
+
+# `{item, frame}` while the ping is still playing, {} once it has -- a one-shot that has reached
+# its held last frame is finished, and the strip goes back to plain.
+func _ping_view() -> Dictionary:
+	if _ping_item == -1:
+		return {}
+	var elapsed: float = float(Time.get_ticks_msec() - _ping_since_ms) / 1000.0
+	var still: bool = Motion.reduced()
+	if elapsed > Motion.period_of("item_ping") * 2.0:
+		_ping_item = -1
+		return {}
+	return {"item": _ping_item, "frame": Motion.frame_of("item_ping", elapsed, still)}
 
 
 func set_world(world: Variant, actor: int) -> void:
@@ -914,7 +939,7 @@ func _draw() -> void:
 	# Control ignores the mouse while closed, so nothing here can eat a click meant for the world.
 	if not _open:
 		if _world != null and not _view.is_empty():
-			QuickStrip.draw_strip(self, QuickStrip.rect_for(view, PAD, STRIP_H), SimInventory.quick_strip_view(_world, _actor), UiPrefs.opacity("inventory_opacity"), _selected)
+			QuickStrip.draw_strip(self, QuickStrip.rect_for(view, PAD, STRIP_H), SimInventory.quick_strip_view(_world, _actor), UiPrefs.opacity("inventory_opacity"), _selected, _ping_view())
 		return
 	var dim: Color = Chrome.FIELD
 	dim.a = 0.88
@@ -931,7 +956,7 @@ func _draw() -> void:
 		_column_layer.size = area.size
 		_column_layer.queue_redraw()
 	InspectPane.draw_pane(self, _inspect_rect(), _inspect_view(), alpha)
-	QuickStrip.draw_strip(self, QuickStrip.rect_for(view, PAD, STRIP_H), SimInventory.quick_strip_view(_world, _actor) if _world != null else [], alpha, _selected)
+	QuickStrip.draw_strip(self, QuickStrip.rect_for(view, PAD, STRIP_H), SimInventory.quick_strip_view(_world, _actor) if _world != null else [], alpha, _selected, _ping_view())
 	ItemMenu.draw_menu(self, _menu_at, _menu_verbs, alpha)
 
 

@@ -26,14 +26,21 @@ extends SceneTree
 # Measured off the committed PNGs on 2026-09-09, which is where every number below comes from:
 #
 #   rig                 shoulders   head   height   clearance   outline
-#   player_body                20     12       28           6   every edge pixel
-#   survivor_mara              20     12       28           5   every edge pixel
-#   survivor_ellis             22     12       28           5   every edge pixel
-#   survivor_colonist          20     12       28           6   every edge pixel
-#   raider_body                20     12       28           6   every edge pixel
-#   zombie_shambler            20     12       27           5   every edge pixel
+#   player_body                20     12       28           6   every edge pixel   (retired)
+#   survivor_mara              20     12       28           5   every edge pixel   (retired)
+#   survivor_ellis             22     12       28           5   every edge pixel   (retired)
+#   survivor_colonist          20     12       28           6   every edge pixel   (retired)
+#   raider_body                20     12       28           6   every edge pixel   (retired)
+#   zombie_shambler            20     12       27           5   every edge pixel   (retired)
 #   zombie_screamer            16     12       29           8   every edge pixel
 #   zombie_bloater             26     10       25           3   every edge pixel
+#
+# The six marked retired were deleted by "The bodies turn and walk" (2026-09-26), when every human
+# and the shambler moved onto the outpost pack's four-direction rigs. Their rows stay because the
+# bounds were set by them, and a bound whose evidence is erased is a bound nobody can re-derive.
+# The pack rigs are kind `pack_rig`, never judged by SPEC's outline rule or the colour lanes --
+# the "geometry gated, colour not" rule docs/30 set -- but PACK below holds their geometry, at a
+# named alpha threshold, to the same published height and the same sole row.
 #
 # Shoulders and head are read at the **published skeleton rows** rather than guessed from the
 # silhouette: the widest row of a body is not its shoulders (an outstretched arm is wider) and
@@ -62,6 +69,23 @@ extends SceneTree
 #   SPEC      the bounds above, on decoded pixels, for every generated rig AND every authored key
 #             of kind `rig`. TN: six fabrications off a real rig, each breaking exactly one bound,
 #             each refused by its own code rather than by "something went wrong".
+#   PACK      the outpost pack's families, held to the pack's own manifest: a `pack_rig` has four
+#             idle views and the same number of walk frames every way under authored.json's
+#             member-name convention, its `fps` is the manifest's `fps.walk`, its crop ends on the
+#             manifest's anchor row and drops no pixel at or above ALPHA_SOLID, its idle views
+#             stand on the bottom row at the published height and its walk frames within
+#             SOLE_LIFT_MAX of it; a `pack_overlay` has four views, its `z` is the manifest's
+#             `z_by_direction`, and each view's solid box is exactly the manifest's `fit` for it.
+#             TN: a fabrication per claim, each refused by its own predicate, and a sub-visible
+#             speck and a one-row step accepted.
+#   ICON      every authored key of kind `icon` -- an inventory picture, one item base seen from
+#             above -- is a picture (opaque pixels at ICON_ALPHA or more, not only the alpha-6
+#             specks the pack leaves inside its canvas), centred on its canvas within
+#             ICON_CENTRE_TOLERANCE, clear of the canvas edge, and the size and anchor the pack's
+#             own manifest says it is. That the floor and the bag plate then *draw* it is
+#             `godot:check:appearance`'s ITEMS lane. TN: five fabrications -- speck-only, a
+#             corner-flush picture, a real pixel in a corner, a wrong size, a wrong anchor -- and
+#             one control, a centred picture with a speck in the corner, which must pass.
 #   READS     the dead-socket lane: every authored key is named by some content entry's
 #             appearance block, and `reads` names one of the ids that actually does -- since
 #             2026-09-17 it need not be the *only* one, so two bases sharing an icon can each
@@ -88,10 +112,46 @@ const ContentLoader = preload("res://platform/content_loader.gd")
 
 const AUTHORED_PATH: String = "res://assets/sprites/authored.json"
 
-# `pack_rig`/`pack_overlay`/`module`/`sheet`/`prop` are the outpost pack's later slices'
-# placeholders (docs/30, "The outpost pack, adopted"): accepted here, judged by no shape lane
-# yet, one gains a lane when the slice that reads it lands.
-const KINDS: Array[String] = ["rig", "overlay", "tile", "pack_rig", "pack_overlay", "module", "sheet", "prop"]
+# `pack_rig`/`pack_overlay`/`module`/`sheet`/`prop` are the outpost pack's kinds (docs/30, "The
+# outpost pack, adopted"). `pack_rig` and `pack_overlay` gained their lane, PACK, with "The bodies
+# turn and walk" (2026-09-26); `module`, `sheet` and `prop` are accepted here and judged by no
+# shape lane yet, each gaining one when the slice that reads it lands. `icon` is an inventory
+# picture, judged by ICON since "A picture per item base" (2026-09-26).
+#
+# `vehicle` is a parked car's east-west picture from the pack (docs/23, "The cars are the pack's,
+# east-west"), and its shape lane lives beside the parking it judges: check_wrecks.gd's PACK lane
+# holds its painted span to the class's `lEw` and its crop to the pack's anchor row.
+const KINDS: Array[String] = ["rig", "overlay", "tile", "icon", "pack_rig", "pack_overlay", "module", "sheet", "prop", "vehicle"]
+
+# The pack's own spec for the art it ships, read as text and never loaded as a resource (the pack's
+# docs/godot/*.tres are null headless -- the UI kit's trap). PACK compares authored.json's copies of
+# `fps` and `z` against it, and its `anchor` and `fit` against the crop and the pixels.
+const PACK_MANIFEST_PATH: String = "res://art/simplyzombies/manifest.json"
+const PACK_ROOT: String = "art/simplyzombies/"
+
+# The alpha at which a pack pixel counts as drawn, as a byte. The pack's walk frames carry
+# sub-visible specks (alpha <= 6) out to the canvas edges -- the pickup's measured finding -- so
+# "drawn means alpha above zero" would make every box the whole canvas and an envelope that could
+# never fail. 128 is half coverage: it refuses a real pixel and accepts a speck, and PACK proves
+# both on fabricated pixels before it trusts either.
+const ALPHA_SOLID: int = 128
+
+# How many rows a walk frame's sole may lift off the bottom row: a step raises a foot. Measured
+# off the pack at ALPHA_SOLID: every idle view stands on row 39, and the highest walk-frame sole
+# is row 38 (the survivor walking west, frame 1).
+const SOLE_LIFT_MAX: int = 1
+
+# The alpha at which a pixel is part of a picture rather than a speck. The pack's icons carry
+# alpha 1-6 specks (8 to 118 of them an icon, measured 2026-09-26) and a bounding box taken at
+# "alpha above zero" would treat every one as a real pixel; 128 is the named threshold the pickup
+# doc asks any lane judging pack geometry for -- it refuses a real pixel and accepts a speck.
+const ICON_ALPHA: int = 128
+# How far the opaque box's centre may sit from the canvas centre, in pixels, per axis. Measured
+# across the 48 icons: 0 or 1 (an odd-width box on an even canvas), so 2 is the first value a
+# corner-flush picture breaks and no shipped icon does.
+const ICON_CENTRE_TOLERANCE: int = 2
+# Fewest opaque pixels a picture may have. The smallest of the 48 is the bow's 75.
+const ICON_MIN_OPAQUE: int = 40
 
 # A member key inside a `members` family, and a sourced entry's own key -- both are a
 # `godot/assets/sprites/<key>.png` basename, so both share the pattern `check_appearance.gd`'s
@@ -137,10 +197,13 @@ const OUTLINE: Color = Color("#161614")
 # it sits exactly on 26 with exactly 3 px of clearance, so it is the rig at the wall.
 const BROAD_RIGS: Array[String] = ["zombie_bloater"]
 
-const GENERATED_RIGS: Array[String] = [
-	"player_body", "survivor_mara", "survivor_ellis", "survivor_colonist",
-	"raider_body", "zombie_shambler", "zombie_screamer", "zombie_bloater",
-]
+const GENERATED_RIGS: Array[String] = ["zombie_screamer", "zombie_bloater"]
+
+# The generated rig every fabricated negative below starts from: a real body that passes, so each
+# negative is one broken bound away from shipped art. The player's rig until 2026-09-26; the
+# screamer since the player moved onto the pack survivor, because it is narrow (not in
+# BROAD_RIGS) and sits inside every bound with room to break each one on its own.
+const BASE_RIG: String = "zombie_screamer"
 
 
 func _init() -> void:
@@ -152,13 +215,15 @@ func _run() -> void:
 	ok = _the_manifest_is_well_formed() and ok
 	ok = _no_key_is_in_both_tiers() and ok
 	ok = _every_source_resolves_at_its_declared_canvas() and ok
+	ok = _every_icon_is_a_centred_picture() and ok
 	ok = _every_rig_meets_the_published_bounds() and ok
 	ok = _no_rig_draws_ink_inside_its_silhouette() and ok
 	ok = _every_rig_is_four_tones_a_material() and ok
 	ok = _no_highlight_covers_more_than_its_share() and ok
+	ok = _the_pack_families_keep_the_packs_own_spec() and ok
 	ok = _authored_art_is_read_by_something() and ok
 	if ok:
-		print("AUTHORED_OK the manifest is well formed, no key is in two tiers, every sourced key resolves at its declared canvas, every rig meets the published bounds, no rig draws ink inside its silhouette, every rig is four tones a material, no highlight covers more than its share, and authored art is read by something")
+		print("AUTHORED_OK the manifest is well formed, no key is in two tiers, every sourced key resolves at its declared canvas, every rig meets the published bounds, no rig draws ink inside its silhouette, every rig is four tones a material, no highlight covers more than its share, the pack families keep the pack's own spec, every icon is a centred picture, and authored art is read by something")
 		quit(0)
 	else:
 		push_error("AUTHORED_FAIL")
@@ -254,6 +319,20 @@ func _complaint(entry_v: Variant) -> String:
 		var palette: String = String(entry.get("palette", ""))
 		if not ["generator", "pack"].has(palette):
 			return "declares palette '%s'; it is 'generator' or 'pack'" % palette
+	if entry.has("fps"):
+		var fps_v: Variant = entry.get("fps")
+		if not (fps_v is float or fps_v is int) or int(fps_v) <= 0 or float(fps_v) != float(int(fps_v)):
+			return "declares fps %s; it is a positive whole number of frames a second" % str(fps_v)
+	if entry.has("z"):
+		var z_v: Variant = entry.get("z")
+		if not (z_v is Dictionary) or (z_v as Dictionary).is_empty():
+			return "declares z %s; it is {view: whole number}" % str(z_v)
+		for view in (z_v as Dictionary).keys():
+			if not Appearance.VIEWS.has(String(view)):
+				return "declares z for view '%s'; the views are %s" % [String(view), str(Appearance.VIEWS)]
+			var zv: Variant = (z_v as Dictionary)[view]
+			if not (zv is float or zv is int) or float(zv) != float(int(zv)):
+				return "declares z %s for view '%s'; it is a whole number" % [str(zv), String(view)]
 	return ""
 
 
@@ -296,6 +375,10 @@ func _the_manifest_is_well_formed() -> bool:
 			"source": {"path": real_source_path, "crop": [0, 0, 32]}}],
 		["member_no_source", {"canvas": [32, 32], "kind": "pack_rig", "reads": "x",
 			"members": {"m": {}}}],
+		["zero_fps", {"canvas": [32, 40], "kind": "pack_rig", "reads": "x", "fps": 0}],
+		["fractional_fps", {"canvas": [32, 40], "kind": "pack_rig", "reads": "x", "fps": 7.5}],
+		["z_bad_view", {"canvas": [32, 40], "kind": "pack_overlay", "reads": "x", "z": {"up": 1}}],
+		["z_not_whole", {"canvas": [32, 40], "kind": "pack_overlay", "reads": "x", "z": {"s": 0.5}}],
 	]
 	for pair in fabricated:
 		if _complaint((pair as Array)[1]).is_empty():
@@ -312,6 +395,10 @@ func _the_manifest_is_well_formed() -> bool:
 			"members": {"m": {"source": {"path": real_source_path}}}}).is_empty():
 		push_error("the manifest predicate refused a sound family entry; it would refuse real pack art too")
 		return false
+	if not _complaint({"canvas": [32, 40], "kind": "pack_overlay", "reads": "x", "fps": 8,
+			"z": {"s": 3, "e": -1, "n": 3, "w": -1}}).is_empty():
+		push_error("the manifest predicate refused a sound fps and z; it would refuse the real wearables too")
+		return false
 
 	# `Appearance.authored_rig_keys()` is the renderer-side reader three gates share, and it reads
 	# `kind` out of this same file. Two readers that must produce the same answer is the
@@ -326,7 +413,7 @@ func _the_manifest_is_well_formed() -> bool:
 		push_error("authored.json declares rigs %s and Appearance.authored_rig_keys() answers %s" % [str(rigs_here), str(Appearance.authored_rig_keys())])
 		return false
 
-	print("MANIFEST OK %d authored keys declared (%d of kind rig, agreed by both readers), seven malformed fabrications refused and three sound ones (a rig, a source, a family) accepted" % [entries.size(), rigs_here.size()])
+	print("MANIFEST OK %d authored keys declared (%d of kind rig, agreed by both readers), %d malformed fabrications refused and four sound ones (a rig, a source, a family, an fps with a z) accepted" % [entries.size(), rigs_here.size(), fabricated.size()])
 	return true
 
 
@@ -352,8 +439,8 @@ func _no_key_is_in_both_tiers() -> bool:
 			return false
 	# TN, both ways: a generated key must be seen as rule-placed, and a plausible authored one
 	# must not -- otherwise the predicate answers the same thing for everything.
-	if not _rule_places("player_body"):
-		push_error("the tier predicate does not see player_body as rule-placed; a zero above would prove nothing")
+	if not _rule_places(BASE_RIG):
+		push_error("the tier predicate does not see %s as rule-placed; a zero above would prove nothing" % BASE_RIG)
 		return false
 	if _rule_places("survivor_commissioned"):
 		push_error("the tier predicate sees an undeclared key as rule-placed; it would refuse every authored key")
@@ -416,6 +503,126 @@ func _every_source_resolves_at_its_declared_canvas() -> bool:
 		return false
 
 	print("SOURCE OK %d sourced keys resolve at their declared canvas (the pixel-for-pixel proof is sprites:check's, outside this chain)" % judged)
+	return true
+
+
+# --- the icons ---------------------------------------------------------------------------------
+
+func _opaque_box(image: Image) -> Dictionary:
+	var lo := Vector2i(image.get_width(), image.get_height())
+	var hi := Vector2i(-1, -1)
+	var count: int = 0
+	for y in range(image.get_height()):
+		for x in range(image.get_width()):
+			if roundi(image.get_pixel(x, y).a * 255.0) < ICON_ALPHA:
+				continue
+			count += 1
+			lo = Vector2i(mini(lo.x, x), mini(lo.y, y))
+			hi = Vector2i(maxi(hi.x, x), maxi(hi.y, y))
+	return {"count": count, "lo": lo, "hi": hi}
+
+
+# What is wrong with one icon, as words, or empty when nothing is. `expected_size` and `anchor` are
+# the pack's own manifest entry (`occupiedSize`, `anchor`); one predicate so the loop and the
+# fabrications that prove it go through the same code.
+func _icon_faults(image: Image, expected_size: Vector2i, anchor: Vector2i) -> Array[String]:
+	var out: Array[String] = []
+	var box: Dictionary = _opaque_box(image)
+	if int(box["count"]) < ICON_MIN_OPAQUE:
+		out.append("empty: %d pixels at alpha %d or more" % [int(box["count"]), ICON_ALPHA])
+		return out
+	var lo: Vector2i = box["lo"] as Vector2i
+	var hi: Vector2i = box["hi"] as Vector2i
+	var w: int = image.get_width()
+	var h: int = image.get_height()
+	if lo.x <= 0 or lo.y <= 0 or hi.x >= w - 1 or hi.y >= h - 1:
+		out.append("touches the canvas edge at %s..%s" % [str(lo), str(hi)])
+	var centre_off: Vector2 = Vector2(float(lo.x + hi.x + 1) * 0.5 - float(w) * 0.5, float(lo.y + hi.y + 1) * 0.5 - float(h) * 0.5)
+	if absf(centre_off.x) > float(ICON_CENTRE_TOLERANCE) or absf(centre_off.y) > float(ICON_CENTRE_TOLERANCE):
+		out.append("off-centre by %s" % str(centre_off))
+	var size: Vector2i = hi - lo + Vector2i(1, 1)
+	if size != expected_size:
+		out.append("occupies %s, the pack's manifest says %s" % [str(size), str(expected_size)])
+	if anchor != Vector2i(w / 2, h / 2):
+		out.append("the pack anchors it at %s, not its canvas centre" % str(anchor))
+	return out
+
+
+func _pack_asset(asset_id: String) -> Dictionary:
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(PACK_MANIFEST_PATH))
+	if not (parsed is Dictionary):
+		return {}
+	for asset in (parsed as Dictionary).get("assets", []) as Array:
+		if asset is Dictionary and String((asset as Dictionary).get("id", "")) == asset_id:
+			return asset as Dictionary
+	return {}
+
+
+# A 32x32 fabrication: `fill` at `alpha`, and optionally one more pixel at `corner_at`.
+func _blank_icon(fill: Rect2i, alpha: float, corner_alpha: float = -1.0, corner_at: Vector2i = Vector2i.ZERO) -> Image:
+	var image := Image.create(32, 32, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0, 0, 0, 0))
+	for y in range(fill.position.y, fill.end.y):
+		for x in range(fill.position.x, fill.end.x):
+			image.set_pixel(x, y, Color(0.6, 0.5, 0.3, alpha))
+	if corner_alpha >= 0.0:
+		image.set_pixel(corner_at.x, corner_at.y, Color(0.6, 0.5, 0.3, corner_alpha))
+	return image
+
+
+func _every_icon_is_a_centred_picture() -> bool:
+	var judged: int = 0
+	var entries: Dictionary = _entries()
+	for key in entries.keys():
+		var entry: Dictionary = entries[key] as Dictionary
+		if String(entry.get("kind", "")) != "icon":
+			continue
+		var source: Variant = entry.get("source")
+		var image: Image = _image_of(String(key))
+		if image == null or not (source is Dictionary):
+			push_error("icon '%s' has no picture or no source to judge it against" % String(key))
+			return false
+		var asset: Dictionary = _pack_asset(String((source as Dictionary).get("path", "")).get_file().get_basename())
+		if asset.is_empty():
+			push_error("icon '%s': no entry in the pack's manifest for its source, so its size and anchor cannot be judged" % String(key))
+			return false
+		var occ: Array = asset.get("occupiedSize", []) as Array
+		var anc: Array = asset.get("anchor", []) as Array
+		if occ.size() != 2 or anc.size() != 2:
+			push_error("icon '%s': the pack's manifest entry has no occupiedSize or anchor" % String(key))
+			return false
+		var faults: Array[String] = _icon_faults(image, Vector2i(int(occ[0]), int(occ[1])), Vector2i(int(anc[0]), int(anc[1])))
+		if not faults.is_empty():
+			push_error("icon '%s' is not a centred picture: %s" % [String(key), "; ".join(faults)])
+			return false
+		judged += 1
+	if judged == 0:
+		print("ICON SKIPPED no authored key is of kind `icon` yet")
+		return true
+
+	# The fabrications. A 16x12 block centred on the 32x32 canvas is the control.
+	var centred := Rect2i(8, 10, 16, 12)
+	var good_size := Vector2i(16, 12)
+	var centre := Vector2i(16, 16)
+	if not _icon_faults(_blank_icon(centred, 1.0), good_size, centre).is_empty():
+		push_error("the icon predicate refused a centred picture; it would refuse the real ones")
+		return false
+	if not _icon_faults(_blank_icon(centred, 1.0, 6.0 / 255.0, Vector2i(0, 0)), good_size, centre).is_empty():
+		push_error("the icon predicate counted an alpha-6 speck as a picture; the pack's icons would all be refused")
+		return false
+	var refusals: Array = [
+		["a speck-only image", _blank_icon(centred, 6.0 / 255.0), good_size, centre],
+		["a corner-flush picture", _blank_icon(Rect2i(0, 0, 16, 12), 1.0), good_size, centre],
+		["a real pixel in a corner", _blank_icon(centred, 1.0, 1.0, Vector2i(0, 0)), good_size, centre],
+		["a size the manifest does not say", _blank_icon(centred, 1.0), Vector2i(20, 12), centre],
+		["an anchor off the canvas centre", _blank_icon(centred, 1.0), good_size, Vector2i(16, 24)],
+	]
+	for row in refusals:
+		var r: Array = row as Array
+		if _icon_faults(r[1] as Image, r[2] as Vector2i, r[3] as Vector2i).is_empty():
+			push_error("the icon predicate accepted %s; it proves nothing" % String(r[0]))
+			return false
+	print("ICON OK %d icons are pictures above alpha %d, centred within %d px, clear of the edge, at the size and anchor the pack's manifest gives; a speck-only image, a corner-flush picture, a corner pixel, a wrong size and a wrong anchor are each refused, and a speck beside a centred picture is not" % [judged, ICON_ALPHA, ICON_CENTRE_TOLERANCE])
 	return true
 
 
@@ -541,9 +748,9 @@ func _every_rig_meets_the_published_bounds() -> bool:
 	# own code. Proved on the shipped art rather than on a drawn blank, so the fabrication starts
 	# from something that passes -- a negative built from nothing proves the emptiness, not the
 	# bound.
-	var base: Image = _image_of("player_body")
+	var base: Image = _image_of(BASE_RIG)
 	if base == null:
-		push_error("player_body does not resolve; the negatives cannot be fabricated")
+		push_error("%s does not resolve; the negatives cannot be fabricated" % BASE_RIG)
 		return false
 	var w: int = base.get_width()
 	var h: int = base.get_height()
@@ -576,7 +783,7 @@ func _every_rig_meets_the_published_bounds() -> bool:
 			push_error("a rig fabricated to break '%s' passed that bound; the assertion proves nothing" % code)
 			return false
 	if not _bounds_broken(base, true).is_empty():
-		push_error("the unmodified player rig broke a bound; the fabrications above start from something that already fails")
+		push_error("the unmodified %s broke a bound; the fabrications above start from something that already fails" % BASE_RIG)
 		return false
 
 	print("SPEC OK %d rigs inside height %d-%d, shoulders <= %d (%d narrow), head <= %d, clearance >= %d, soles on the bottom row, every edge pixel OUTLINE; six fabrications each refused by their own bound" % [judged, HEIGHT_MIN, HEIGHT_MAX, SHOULDER_MAX, SHOULDER_MAX_NARROW, HEAD_MAX, CLEARANCE_MIN])
@@ -645,9 +852,9 @@ func _no_rig_draws_ink_inside_its_silhouette() -> bool:
 	# TN: the same scanner, on a real rig with one interior pixel forced to OUTLINE, must find
 	# it. Proved on shipped art rather than on a drawn blank, so the fabrication starts from
 	# something that passes -- and proved *before* the zero above is trusted.
-	var base: Image = _image_of("player_body")
+	var base: Image = _image_of(BASE_RIG)
 	if base == null:
-		push_error("player_body does not resolve; the interior negative cannot be fabricated")
+		push_error("%s does not resolve; the interior negative cannot be fabricated" % BASE_RIG)
 		return false
 	var spoiled: Image = base.duplicate() as Image
 	var placed: bool = false
@@ -657,7 +864,7 @@ func _no_rig_draws_ink_inside_its_silhouette() -> bool:
 				spoiled.set_pixel(x, y, OUTLINE)
 				placed = true
 	if not placed:
-		push_error("no interior pixel exists on player_body to fabricate with; the lane proves nothing")
+		push_error("no interior pixel exists on %s to fabricate with; the lane proves nothing" % BASE_RIG)
 		return false
 	if _interior_ink(spoiled) == 0:
 		push_error("a fabricated interior OUTLINE pixel was not found; the interior scanner cannot say no")
@@ -710,9 +917,9 @@ func _every_rig_is_four_tones_a_material() -> bool:
 
 	# TN: one more colour than the cap must be refused. Fabricated by recolouring interior pixels
 	# of a real rig to values nothing else uses, so the negative is a rig that is otherwise sound.
-	var base: Image = _image_of("player_body")
+	var base: Image = _image_of(BASE_RIG)
 	if base == null:
-		push_error("player_body does not resolve; the tone negative cannot be fabricated")
+		push_error("%s does not resolve; the tone negative cannot be fabricated" % BASE_RIG)
 		return false
 	var over: Image = base.duplicate() as Image
 	var added: int = 0
@@ -792,9 +999,9 @@ func _no_highlight_covers_more_than_its_share() -> bool:
 
 	# TN, both bounds, on real art: a rig repainted entirely in one material's highlight must be
 	# refused by the ceiling, and the same rig with no highlight at all by the floor.
-	var base: Image = _image_of("player_body")
+	var base: Image = _image_of(BASE_RIG)
 	if base == null:
-		push_error("player_body does not resolve; the highlight negatives cannot be fabricated")
+		push_error("%s does not resolve; the highlight negatives cannot be fabricated" % BASE_RIG)
 		return false
 	var lit_key: String = String(highlights.keys()[0])
 	var flooded: Image = base.duplicate() as Image
@@ -814,6 +1021,321 @@ func _no_highlight_covers_more_than_its_share() -> bool:
 		return false
 
 	print("HIGHLIGHT OK %d rigs wear a highlight over 0%% and at most %.0f%% of the body (worst %s at %.1f%%); a flooded rig and a highlight-free one are both refused" % [judged, HIGHLIGHT_MAX * 100.0, worst_key, worst * 100.0])
+	return true
+
+
+# --- the outpost pack's families -------------------------------------------------------------
+#
+# PACK: "The bodies turn and walk" (docs/23, 2026-09-26) is the first slice that reads a family for
+# real, and a family copies three things out of the pack's manifest that the renderer then trusts
+# without ever opening the manifest: the walk's frame rate, each wearable's per-view layering, and
+# the anchor the crop keeps. A copy is a second statement of a fact, so this lane holds each copy
+# to the manifest, and the pixels to both, at ALPHA_SOLID -- never at "alpha above zero", which the
+# pack's specks would turn into an envelope that cannot fail.
+
+func _pack_assets() -> Array:
+	if not FileAccess.file_exists(PACK_MANIFEST_PATH):
+		return []
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(PACK_MANIFEST_PATH))
+	if not (parsed is Dictionary):
+		return []
+	var assets: Variant = (parsed as Dictionary).get("assets")
+	return assets as Array if assets is Array else []
+
+
+# The manifest asset a source path was cut from: the one whose `frames` list that file.
+func _asset_for_source(assets: Array, source_path: String) -> Dictionary:
+	if not source_path.begins_with(PACK_ROOT):
+		return {}
+	var rel: String = source_path.substr(PACK_ROOT.length())
+	for a in assets:
+		if not (a is Dictionary):
+			continue
+		var frames: Variant = (a as Dictionary).get("frames")
+		if not (frames is Dictionary):
+			continue
+		for clip in (frames as Dictionary).values():
+			if not (clip is Array):
+				continue
+			for f in clip as Array:
+				if f is Dictionary and String((f as Dictionary).get("path", "")) == rel:
+					return a as Dictionary
+	return {}
+
+
+func _is_solid(c: Color) -> bool:
+	return roundi(c.a * 255.0) >= ALPHA_SOLID
+
+
+# The box of pixels at or above ALPHA_SOLID, as {min_x, min_y, max_x, max_y}, or {} for none.
+func _solid_box(image: Image) -> Dictionary:
+	var box: Dictionary = {}
+	for y in image.get_height():
+		for x in image.get_width():
+			if not _is_solid(image.get_pixel(x, y)):
+				continue
+			if box.is_empty():
+				box = {"min_x": x, "min_y": y, "max_x": x, "max_y": y}
+			else:
+				box["min_x"] = mini(int(box["min_x"]), x)
+				box["min_y"] = mini(int(box["min_y"]), y)
+				box["max_x"] = maxi(int(box["max_x"]), x)
+				box["max_y"] = maxi(int(box["max_y"]), y)
+	return box
+
+
+# Whether a crop [x, y, w, h] leaves any solid pixel of the source outside it.
+func _crop_drops_solid(source: Image, crop: Array) -> bool:
+	var x0: int = int(crop[0])
+	var y0: int = int(crop[1])
+	var x1: int = x0 + int(crop[2])
+	var y1: int = y0 + int(crop[3])
+	for y in source.get_height():
+		for x in source.get_width():
+			if x >= x0 and x < x1 and y >= y0 and y < y1:
+				continue
+			if _is_solid(source.get_pixel(x, y)):
+				return true
+	return false
+
+
+# A turning body's members under authored.json's convention: `<key>_<view>` for each of the four
+# views, and `<key>_walk_<view>_<n>` for the same n = 0..frames-1 every way, and nothing else.
+func _rig_members_complaint(key: String, members: Array) -> String:
+	var want: Array[String] = []
+	var frames: int = 0
+	while members.has("%s_walk_%s_%d" % [key, Appearance.VIEW_REST, frames]):
+		frames += 1
+	if frames == 0:
+		return "has no walk frames under '%s_walk_%s_0'" % [key, Appearance.VIEW_REST]
+	for view in Appearance.VIEWS:
+		want.append("%s_%s" % [key, view])
+		for n in frames:
+			want.append("%s_walk_%s_%d" % [key, view, n])
+	for w in want:
+		if not members.has(w):
+			return "is missing member '%s'" % w
+	for m in members:
+		if not want.has(String(m)):
+			return "carries member '%s', which the convention does not name" % String(m)
+	return ""
+
+
+func _overlay_members_complaint(key: String, members: Array) -> String:
+	for view in Appearance.VIEWS:
+		if not members.has("%s_%s" % [key, view]):
+			return "is missing member '%s_%s'" % [key, view]
+	if members.size() != Appearance.VIEWS.size():
+		return "carries %d members; a wearable is one picture per view" % members.size()
+	return ""
+
+
+# Where a body's feet are, against the published bounds: an idle view stands on the bottom row, a
+# walk frame within SOLE_LIFT_MAX of it, and either stands between HEIGHT_MIN and HEIGHT_MAX tall.
+func _sole_complaint(box: Dictionary, h: int, idle: bool) -> String:
+	if box.is_empty():
+		return "draws nothing at or above alpha %d" % ALPHA_SOLID
+	var lift: int = h - 1 - int(box["max_y"])
+	if idle and lift != 0:
+		return "stands %d row(s) off the bottom row; an idle view's soles are the anchor" % lift
+	if lift < 0 or lift > SOLE_LIFT_MAX:
+		return "lifts its sole %d row(s); a step lifts at most %d" % [lift, SOLE_LIFT_MAX]
+	var height: int = int(box["max_y"]) - int(box["min_y"]) + 1
+	if height < HEIGHT_MIN or height > HEIGHT_MAX:
+		return "is %d px tall, outside %d-%d" % [height, HEIGHT_MIN, HEIGHT_MAX]
+	return ""
+
+
+func _fps_complaint(declared: Variant, asset: Dictionary) -> String:
+	var fps: Variant = asset.get("fps")
+	if not (fps is Dictionary) or not (fps as Dictionary).has("walk"):
+		return "comes from a manifest asset with no fps.walk"
+	if int(declared) != int((fps as Dictionary)["walk"]):
+		return "declares fps %s where the pack's manifest says %s" % [str(declared), str((fps as Dictionary)["walk"])]
+	return ""
+
+
+func _z_complaint(declared: Variant, asset: Dictionary) -> String:
+	var zs: Variant = asset.get("z_by_direction")
+	if not (declared is Dictionary) or not (zs is Dictionary):
+		return "has no z, or its manifest asset has no z_by_direction"
+	for view in Appearance.VIEWS:
+		if not (declared as Dictionary).has(view) or not (zs as Dictionary).has(view):
+			return "has no z for view '%s'" % view
+		if int((declared as Dictionary)[view]) != int((zs as Dictionary)[view]):
+			return "declares z %s for view '%s' where the pack's manifest says %s" % [str((declared as Dictionary)[view]), view, str((zs as Dictionary)[view])]
+	return ""
+
+
+# A wearable view's solid box against the manifest's own `fit` for that view: the placement is the
+# box's top-left and the occupied size its extent -- where the pack's author fitted it to the idle
+# survivor, so a picture that moved by a pixel no longer sits where it was drawn to sit.
+func _fit_complaint(box: Dictionary, fit: Variant) -> String:
+	if not (fit is Dictionary):
+		return "has no manifest fit"
+	var at: Array = (fit as Dictionary).get("placement", []) as Array
+	var size: Array = (fit as Dictionary).get("occupied_size", []) as Array
+	if at.size() != 2 or size.size() != 2 or box.is_empty():
+		return "has no box or a malformed fit"
+	var got: Array = [int(box["min_x"]), int(box["min_y"]), int(box["max_x"]) - int(box["min_x"]) + 1, int(box["max_y"]) - int(box["min_y"]) + 1]
+	var want: Array = [int(at[0]), int(at[1]), int(size[0]), int(size[1])]
+	if got != want:
+		return "sits at %s (x, y, w, h) where the manifest fits it at %s" % [str(got), str(want)]
+	return ""
+
+
+func _the_pack_families_keep_the_packs_own_spec() -> bool:
+	var assets: Array = _pack_assets()
+	if assets.is_empty():
+		push_error("%s is missing or has no assets; PACK cannot hold a copy to a spec it cannot read" % PACK_MANIFEST_PATH)
+		return false
+	var entries: Dictionary = _entries()
+	var rigs: int = 0
+	var overlays: int = 0
+	var judged: int = 0
+	for key in entries.keys():
+		var name: String = String(key)
+		var entry: Dictionary = entries[key] as Dictionary
+		var kind: String = String(entry.get("kind", ""))
+		if kind != "pack_rig" and kind != "pack_overlay":
+			continue
+		var members_v: Variant = entry.get("members")
+		if not (members_v is Dictionary):
+			push_error("PACK: '%s' is a %s with no members; a pack body or wearable is a family" % [name, kind])
+			return false
+		var members: Array = (members_v as Dictionary).keys()
+		var complaint: String = _rig_members_complaint(name, members) if kind == "pack_rig" else _overlay_members_complaint(name, members)
+		if not complaint.is_empty():
+			push_error("PACK: '%s' %s" % [name, complaint])
+			return false
+		if not Appearance.turns(name):
+			push_error("PACK: Appearance.turns('%s') is false; the renderer would draw one picture for every view" % name)
+			return false
+		var rest: String = "%s_%s" % [name, Appearance.VIEW_REST]
+		var rest_path: String = String((((members_v as Dictionary)[rest] as Dictionary)["source"] as Dictionary).get("path", ""))
+		var asset: Dictionary = _asset_for_source(assets, rest_path)
+		if asset.is_empty():
+			push_error("PACK: '%s' is cut from '%s', which no manifest asset lists" % [name, rest_path])
+			return false
+		var canvas: Array = entry["canvas"] as Array
+		var anchor: Array = asset.get("anchor", []) as Array
+		if anchor.size() != 2 or int(anchor[1]) != int(canvas[1]):
+			push_error("PACK: '%s' is %s tall and its manifest anchor is %s; the crop must end on the anchor row, so the soles stand where FOOT_DROP_PX puts them" % [name, str(canvas[1]), str(anchor)])
+			return false
+		for m in members:
+			var member: String = String(m)
+			var source: Dictionary = ((members_v as Dictionary)[m] as Dictionary)["source"] as Dictionary
+			var path: String = String(source.get("path", ""))
+			if String(_asset_for_source(assets, path).get("id", "")) != String(asset.get("id", "")):
+				push_error("PACK: '%s' is cut from '%s', not from the family's own manifest asset '%s'" % [member, path, String(asset.get("id", ""))])
+				return false
+			var crop: Array = source.get("crop", []) as Array
+			if crop != [0, 0, int(canvas[0]), int(canvas[1])] and crop != [0.0, 0.0, float(canvas[0]), float(canvas[1])]:
+				push_error("PACK: '%s' crops %s; a pack member is cut [0, 0, %s, %s], the anchor row as its bottom" % [member, str(crop), str(canvas[0]), str(canvas[1])])
+				return false
+			var original := Image.new()
+			if original.load("res://%s" % path) != OK:
+				push_error("PACK: '%s' does not load" % path)
+				return false
+			if _crop_drops_solid(original, crop):
+				push_error("PACK: cropping '%s' to %s drops a pixel at or above alpha %d; only the pack's specks may go" % [path, str(crop), ALPHA_SOLID])
+				return false
+			var image: Image = _image_of(member)
+			if image == null:
+				push_error("PACK: '%s' does not resolve" % member)
+				return false
+			var box: Dictionary = _solid_box(image)
+			if kind == "pack_rig":
+				var sole: String = _sole_complaint(box, image.get_height(), not member.contains("_walk_"))
+				if not sole.is_empty():
+					push_error("PACK: '%s' %s" % [member, sole])
+					return false
+			judged += 1
+		if kind == "pack_rig":
+			var fps_complaint: String = _fps_complaint(entry.get("fps"), asset)
+			if not fps_complaint.is_empty():
+				push_error("PACK: '%s' %s" % [name, fps_complaint])
+				return false
+			if Appearance.walk_fps(name) != int(entry.get("fps")):
+				push_error("PACK: Appearance.walk_fps('%s') answers %d where authored.json declares %s" % [name, Appearance.walk_fps(name), str(entry.get("fps"))])
+				return false
+			var walk: Array = ((asset.get("frames", {}) as Dictionary).get("walk_%s" % Appearance.VIEW_REST, []) as Array)
+			if Appearance.walk_frames(name) != walk.size():
+				push_error("PACK: '%s' walks %d frames and the manifest's walk_%s has %d" % [name, Appearance.walk_frames(name), Appearance.VIEW_REST, walk.size()])
+				return false
+			rigs += 1
+		else:
+			var z_complaint: String = _z_complaint(entry.get("z"), asset)
+			if not z_complaint.is_empty():
+				push_error("PACK: '%s' %s" % [name, z_complaint])
+				return false
+			for view in Appearance.VIEWS:
+				var z: int = int((entry["z"] as Dictionary)[view])
+				if Appearance.layer_over(name, view) != (z >= 0):
+					push_error("PACK: Appearance.layer_over('%s', '%s') disagrees with z %d" % [name, view, z])
+					return false
+				var fit: String = _fit_complaint(_solid_box(_image_of("%s_%s" % [name, view])), (asset.get("fit", {}) as Dictionary).get(view))
+				if not fit.is_empty():
+					push_error("PACK: '%s_%s' %s" % [name, view, fit])
+					return false
+			overlays += 1
+	if rigs == 0 or overlays == 0:
+		push_error("PACK judged %d pack rig(s) and %d pack overlay(s); the lane is here for both and had nothing to judge" % [rigs, overlays])
+		return false
+
+	# True negatives, one per claim, each through the predicate the real families just passed.
+	var speck := Image.create(4, 4, false, Image.FORMAT_RGBA8)
+	speck.set_pixel(1, 1, Color8(10, 10, 10, 6))
+	if not _solid_box(speck).is_empty():
+		push_error("PACK: a speck at alpha 6 counted as solid; every box would reach the canvas edge")
+		return false
+	speck.set_pixel(2, 2, Color8(10, 10, 10, ALPHA_SOLID))
+	if _solid_box(speck).is_empty():
+		push_error("PACK: a pixel at alpha %d did not count as solid; the threshold refuses real art" % ALPHA_SOLID)
+		return false
+	var tall := Image.create(32, 48, false, Image.FORMAT_RGBA8)
+	tall.set_pixel(16, 44, Color8(10, 10, 10, 6))
+	if _crop_drops_solid(tall, [0, 0, 32, 40]):
+		push_error("PACK: a crop dropping only a speck was refused; the pack's specks may go")
+		return false
+	tall.set_pixel(16, 45, Color8(10, 10, 10, 255))
+	if not _crop_drops_solid(tall, [0, 0, 32, 40]):
+		push_error("PACK: a crop dropping a solid pixel was accepted; a cropped-off foot would pass")
+		return false
+	var real: Array = ((entries["body_survivor"] as Dictionary)["members"] as Dictionary).keys() if entries.has("body_survivor") else []
+	if real.is_empty():
+		push_error("PACK: no body_survivor to fabricate member negatives from")
+		return false
+	var short: Array = real.duplicate()
+	short.erase("body_survivor_walk_n_3")
+	var extra: Array = real.duplicate()
+	extra.append("body_survivor_run_s_0")
+	if _rig_members_complaint("body_survivor", short).is_empty() or _rig_members_complaint("body_survivor", extra).is_empty():
+		push_error("PACK: a body missing a walk frame, or carrying one the convention does not name, passed")
+		return false
+	if _overlay_members_complaint("item_gear_x", ["item_gear_x_s", "item_gear_x_e", "item_gear_x_n"]).is_empty():
+		push_error("PACK: a wearable missing its west view passed")
+		return false
+	if _sole_complaint({"min_x": 8, "min_y": 10, "max_x": 20, "max_y": 37}, 40, true).is_empty():
+		push_error("PACK: an idle view standing two rows off the bottom passed; it would float")
+		return false
+	if not _sole_complaint({"min_x": 8, "min_y": 11, "max_x": 20, "max_y": 38}, 40, false).is_empty():
+		push_error("PACK: a walk frame lifting its sole one row was refused; the pack's own step would fail")
+		return false
+	if _sole_complaint({"min_x": 8, "min_y": 10, "max_x": 20, "max_y": 37}, 40, false).is_empty():
+		push_error("PACK: a walk frame lifting its sole two rows passed")
+		return false
+	if _fps_complaint(8, {"fps": {"walk": 5}}).is_empty() or not _fps_complaint(8, {"fps": {"walk": 8}}).is_empty():
+		push_error("PACK: the fps comparison cannot tell 8 from 5, or refuses 8 against 8")
+		return false
+	if _z_complaint({"s": 3, "e": 1, "n": 3, "w": -1}, {"z_by_direction": {"s": 3, "e": -1, "n": 3, "w": -1}}).is_empty():
+		push_error("PACK: a z that drew the backpack over the body seen from the east passed")
+		return false
+	if _fit_complaint({"min_x": 9, "min_y": 10, "max_x": 24, "max_y": 18}, {"placement": [8, 10], "occupied_size": [16, 9]}).is_empty():
+		push_error("PACK: a wearable one pixel off its manifest fit passed")
+		return false
+
+	print("PACK OK %d pack rig(s) and %d pack overlay(s), %d members: members complete by convention, fps and z equal the pack manifest's, every crop ends on the anchor row and drops only specks (alpha < %d), idle soles on the bottom row and walk soles within %d, every wearable view exactly on its manifest fit; a fabrication per claim refused, a speck, a one-row step and a matching fps accepted" % [rigs, overlays, judged, ALPHA_SOLID, SOLE_LIFT_MAX])
 	return true
 
 
@@ -840,11 +1362,27 @@ func _keys_content_declares() -> Dictionary:
 				continue
 			for prop in ["sprite", "equipSprite", "equipSpriteFront"]:
 				if (block as Dictionary).has(prop):
-					var sprite_key: String = String((block as Dictionary)[prop])
-					var readers: Array = out.get(sprite_key, [])
-					readers.append(String(entry.get("id", "?")))
-					out[sprite_key] = readers
+					_declared_by(out, String((block as Dictionary)[prop]), String(entry.get("id", "?")))
+			# A vehicle names its pictures per variant and axis rather than as one `sprite`
+			# (vehicle.schema.json), so the pack's east-west cars -- the first authored keys a
+			# vehicle declares -- would read as art nothing draws without this. One reader per
+			# class however many of its variants share the key: the pack draws one intact car.
+			var variants: Variant = (block as Dictionary).get("variants")
+			if variants is Array:
+				for variant_v in variants as Array:
+					if not (variant_v is Dictionary):
+						continue
+					for axis in ["ns", "ew"]:
+						if (variant_v as Dictionary).has(axis):
+							_declared_by(out, String((variant_v as Dictionary)[axis]), String(entry.get("id", "?")))
 	return out
+
+
+func _declared_by(out: Dictionary, sprite_key: String, id: String) -> void:
+	var readers: Array = out.get(sprite_key, [])
+	if not readers.has(id):
+		readers.append(id)
+	out[sprite_key] = readers
 
 
 # Whether a claimed `reads` is one of the content ids that actually declare the key -- membership,

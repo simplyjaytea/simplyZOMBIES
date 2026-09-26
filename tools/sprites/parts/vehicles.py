@@ -1,4 +1,13 @@
-"""The vehicles: one three-quarter picture per class, variant and axis. Forty-eight keys, eight classes -- the three cars here, the five light classes in `light_vehicles.py`.
+"""The vehicles: one three-quarter picture per class, variant and axis. Thirty-nine keys, eight classes -- the three cars here, north-south only, and the five light classes in `light_vehicles.py` on both axes.
+
+**Since 2026-09-26 the three cars' east-west pictures are the outpost pack's, not this file's**
+(docs/23, "The cars are the pack's, east-west"). The owner adopted the pack overwriting the
+generated art it replaces, and the pack draws a car side-on only: `_sedan_ew`, `_van_ew`,
+`_truck_ew` and the flank wheel they shared retired with the nine PNGs they wrote, and the
+east-west footprints shrank to the pack's (content's `lEw`: sedan 3, van and truck 4). What is
+said below about `_ew` pictures now describes the light classes and the history of the cars;
+the height rule it states is held on the pack's pictures by `check_wrecks.gd`'s SILHOUETTE lane
+at the pack's own measured rows.
 
 docs/30's Dungeon Settlers decision 11 retires the per-tile segment set for cars. A vehicle is
 **one picture**, feet-anchored on its footprint's south edge and y-sorted with the bodies and
@@ -107,11 +116,20 @@ def key_of(cls, variant, axis):
 
 # Every key this module renders, with the canvas it renders on. `build.py`'s CANVAS table reads
 # this rather than keeping a second list of vehicle keys.
+#
+# The three cars render north-south only. Their east-west pictures are the outpost pack's
+# (docs/23, "The cars are the pack's, east-west"): six authored keys in `authored.json`,
+# `vehicle_<class>_intact_ew` and `vehicle_<class>_wreck_ew`, reproduced from the pack's sources
+# by `build.py`'s authored tier, at the pack's own footprints (content's `lEw`) rather than
+# `canvas_ew`'s. `PACK_EW` is that list of classes, mirrored by `Appearance.VEHICLE_PACK_EW` so
+# `vehicle_canvas()` stops answering a canvas for the retired generated keys.
+PACK_EW = ("sedan", "van", "truck")
 CANVASES = {}
 for _cls in FOOTPRINTS:
     for _variant in VARIANTS:
         CANVASES[key_of(_cls, _variant, "ns")] = canvas_ns(_cls)
-        CANVASES[key_of(_cls, _variant, "ew")] = canvas_ew(_cls)
+        if _cls not in PACK_EW:
+            CANVASES[key_of(_cls, _variant, "ew")] = canvas_ew(_cls)
 VEHICLE_KEYS = tuple(CANVASES)
 
 # --- the projection ---------------------------------------------------------------------------
@@ -167,7 +185,8 @@ def light_radius(w, h):
 def plan_length(cls):
     """How long the body is in plan: the footprint less five pixels clear at each end.
 
-    Load-bearing on `_ew`, which is the picture the renderer mirrors -- a silhouette on the
+    Load-bearing on `_ew` when it was drawn here (the cars' now comes from the pack), the
+    picture the renderer mirrors -- a silhouette on the
     canvas edge clips itself the moment the vehicle faces west.
     """
     return FOOTPRINTS[cls][1] * SIZE - 10.0
@@ -262,21 +281,6 @@ def _finish(canvas):
     canvas.light_top_left(LIGHT_GAIN, light_radius(canvas.w, canvas.h))
     canvas.outline(OUTLINE)
     return canvas.to_image()
-
-
-def _wheel_ew(canvas, shell, burnt, x, radius):
-    """One wheel on a flank, sunk into its arch: arch, tyre, rim, hub, outward in.
-
-    The arch is drawn one pixel proud of the tyre so the wheel sits *in* the wing rather than
-    against it. The wheel's centre is `radius` less a pixel above the sole line, so the tyre
-    kisses the bottom row and nothing hangs below the anchor.
-    """
-    tyre, rim, hub = _rubber_of(shell, burnt)
-    cy = -(radius - 1.0)
-    canvas.ellipse(x, cy, radius + 1.0, radius + 1.0, shell[0])
-    canvas.ellipse(x, cy, radius, radius, tyre)
-    canvas.ellipse(x, cy - 0.5, radius * 0.45, radius * 0.45, rim)
-    canvas.ellipse(x, cy - 0.5, radius * 0.18, radius * 0.18, hub)
 
 
 def _tyre_hints_ns(canvas, shell, burnt, x, half_w, half_h):
@@ -388,100 +392,6 @@ def _sedan_ns(variant):
     return _finish(canvas)
 
 
-def _sedan_ew(variant):
-    """A sedan pointing east: a low flank, and the cabin standing up out of the lids above it."""
-    key = key_of("sedan", variant, "ew")
-    burnt = variant == "burnt"
-    shell = RAMPS[SHELLS[variant]]
-    dark_glass, mid_glass, lit_glass = _glass_of(shell, burnt)
-    ash = RAMPS["ash"]
-    canvas = Canvas(*canvas_ew("sedan"), origin="feet")
-    half_len = plan_length("sedan") / 2.0
-    belt = -SEDAN_DECK
-    deck_top = -(SEDAN_BREADTH + SEDAN_DECK)
-    roof_near = -(SEDAN_INSET + SEDAN_ROOF)
-    roof_far = -(SEDAN_BREADTH - SEDAN_INSET + SEDAN_ROOF)
-    # Where the cabin sits along the car. A sedan is more bonnet than boot, and that -- with the
-    # two lamps -- is the whole of how this picture says which way it points once mirrored.
-    cabin_rear, cabin_nose = -34.0, 26.0
-    roof_rear, roof_nose = -30.0, 20.0
-    wheel_rear, wheel_nose = -46.0, 42.0
-
-    # The mass: the body, whose top edge is the lids' far lip, and the cabin standing above it.
-    # Both in the shaded step, for the reason the nose-north mass is: what the mass still shows
-    # once the top plane is painted is the near flank, which faces the viewer and away from the
-    # light.
-    ends_half = -(deck_top + 6.0) / 2.0
-    canvas.rounded_rect(0.0, -ends_half, half_len, ends_half, 8.0, shell[1])
-    waist_x, waist_half = _band(-(half_len - 16.0), half_len - 16.0)
-    canvas.rounded_rect(waist_x, deck_top / 2.0, waist_half, -deck_top / 2.0, 7.0, shell[1])
-    cabin_x, cabin_half = _band(cabin_rear, cabin_nose)
-    cabin_y, cabin_half_h = _band(roof_far, belt)
-    canvas.rounded_rect(cabin_x, cabin_y, cabin_half, cabin_half_h, 6.0, shell[1])
-
-    # --- the top plane -------------------------------------------------------------------------
-    deck_c, deck_half = _band(belt, deck_top)
-    canvas.rect(0.0, deck_c, half_len - 2.0, deck_half, shell[2], inside_only=True)
-    # The far edge of the lids, where the car's other flank turns down out of sight, and the two
-    # wing seams either side of them. Without the three, a bonnet is forty-five pixels of nothing.
-    canvas.rect(0.0, deck_top + 2.5, half_len - 3.0, 2.5, shell[1], inside_only=True)
-    for seam in (belt - 10.0, deck_top + 10.0):
-        canvas.rect(0.0, seam, half_len - 4.0, 0.4, shell[1], inside_only=True)
-    for shut in (cabin_rear - 3.0, cabin_nose + 3.0, -(half_len - 9.0), half_len - 9.0):
-        canvas.rect(shut, deck_c, 0.4, deck_half - 1.0, shell[1], inside_only=True)
-    roof_x, roof_half = _band(roof_rear, roof_nose)
-    roof_c, roof_half_h = _band(roof_far, roof_near)
-    canvas.rounded_rect(roof_x, roof_c, roof_half, roof_half_h, 5.0, shell[4], inside_only=True)
-    canvas.rect(roof_x, roof_near, roof_half - 1.0, 0.6, shell[0], inside_only=True)
-
-    # --- the side glass, between the beltline and the roof's near edge --------------------------
-    glass_c, glass_half_h = _band(belt, roof_near)
-    canvas.rect(cabin_x, glass_c, cabin_half - 1.0, glass_half_h, dark_glass, inside_only=True)
-    # The two raked screens close the band at each end: from the side a windscreen is a wedge,
-    # which is the shape `band` draws between two points.
-    rake_top = roof_near - 2.0
-    canvas.band((roof_rear, rake_top), (cabin_rear - 3.0, belt - 2.0), 6.0, mid_glass)
-    canvas.band((roof_nose, rake_top), (cabin_nose + 3.0, belt - 2.0), 6.0, mid_glass)
-    for pillar in (cabin_rear + 2.0, -4.0, cabin_nose - 2.0):
-        canvas.rect(pillar, glass_c, 1.5, glass_half_h, shell[1], inside_only=True)
-    if not burnt:
-        canvas.rect(-18.0, glass_c - 3.0, 7.0, 0.6, lit_glass, inside_only=True)
-
-    # --- the near face: the flank -------------------------------------------------------------
-    # The flank is the mass showing through, so it needs no paint of its own -- but it is the
-    # largest single area on the picture, so it takes the lines a car's side actually has: a
-    # crease under the glass catching the light, and the sill under everything in its own shadow.
-    canvas.rect(0.0, belt + 2.0, half_len - 2.0, 0.6, shell[2], inside_only=True)
-    canvas.rect(0.0, -1.5, half_len - 4.0, 1.5, shell[0], inside_only=True)
-    for wheel in (wheel_rear, wheel_nose):
-        _wheel_ew(canvas, shell, burnt, wheel, 6.5)
-    for door in (-18.0, 8.0):
-        canvas.rect(door, -8.0, 0.5, 5.0, shell[0], inside_only=True)
-        canvas.rect(door + 7.0, -11.0, 2.5, 0.6, shell[3], inside_only=True)
-    # A lamp at each end of the flank. They swap ends with the mirror, which is what a car does.
-    for x_lamp, warm in ((half_len - 4.5, False), (-(half_len - 4.5), True)):
-        _lamp(canvas, _lamps_of(shell, burnt, warm), x_lamp, -9.0, 3.5, 3.0)
-    canvas.rect(cabin_nose - 3.0, belt - 2.0, 3.0, 1.5, shell[2], inside_only=True)
-
-    if burnt:
-        # Soot climbing out of the side glass onto the top plane, ash on the roof, and the same
-        # buckled bonnet the nose-north picture carries, here seen along the car.
-        near = roof_near
-        _soot(canvas, shell, ((-22.0, near, near - 12.0, 5.0), (-2.0, near, near - 14.0, 5.0),
-                              (16.0, near, near - 11.0, 5.0)))
-        canvas.ellipse(roof_x - 3.0, roof_c + 2.0, 9.0, 6.0, ash[0])
-        canvas.ellipse(roof_x + 11.0, roof_c - 5.0, 5.0, 3.5, ash[0])
-        canvas.ellipse(roof_x - 6.0, roof_c - 1.0, 4.0, 2.5, ash[2])
-        canvas.rect(half_len - 22.0, deck_c, 4.0, deck_half - 2.0, shell[0], inside_only=True)
-        canvas.rect(half_len - 27.0, deck_c, 1.0, deck_half - 3.0, ash[1], inside_only=True)
-
-    _wear(canvas, key, shell, burnt)
-    return _finish(canvas)
-
-
-# --- the van ----------------------------------------------------------------------------------
-
-
 def _van_ns(variant):
     """A van pointing north: two back doors the whole height of it, and one long roof."""
     key = key_of("van", variant, "ns")
@@ -550,83 +460,6 @@ def _van_ns(variant):
     canvas.rect(half - 1.0, roof_top / 2.0, 1.0, -roof_top / 2.0 - 2.0, shell[0], inside_only=True)
     _wear(canvas, key, shell, burnt)
     return _finish(canvas)
-
-
-def _van_ew(variant):
-    """A van pointing east: a flank as tall as the roof, and the roof laid flat above it."""
-    key = key_of("van", variant, "ew")
-    burnt = variant == "burnt"
-    shell = RAMPS[SHELLS[variant]]
-    dark_glass, mid_glass, lit_glass = _glass_of(shell, burnt)
-    ash = RAMPS["ash"]
-    canvas = Canvas(*canvas_ew("van"), origin="feet")
-    half_len = plan_length("van") / 2.0
-    top = -VAN_ROOF
-    belt = -18.0
-    roof_near = -(VAN_INSET + VAN_ROOF)
-    roof_far = -(VAN_BREADTH - VAN_INSET + VAN_ROOF)
-    bonnet_top = -(VAN_BREADTH + VAN_BONNET)
-    # Along the van, tail to nose: the cargo box, a cab door, a steep screen, a stub of bonnet.
-    box_front = half_len - 21.0
-    door_rear, door_nose = 38.0, box_front
-    bonnet_rear = half_len - 15.0
-    wheel_rear, wheel_nose = -52.0, 60.0
-
-    # The mass: the box, whose top edge is the roof's far lip, and the low nose in front of it.
-    box_x, box_half = _band(-half_len, box_front + 4.0)
-    canvas.rounded_rect(box_x, roof_far / 2.0, box_half, -roof_far / 2.0, 6.0, shell[1])
-    nose_x, nose_half = _band(box_front - 2.0, half_len)
-    canvas.rounded_rect(nose_x, bonnet_top / 2.0, nose_half, -bonnet_top / 2.0, 4.0, shell[1])
-
-    # --- the top plane -------------------------------------------------------------------------
-    bonnet_x, bonnet_half = _band(bonnet_rear, half_len - 1.0)
-    bonnet_c, bonnet_half_h = _band(belt, bonnet_top)
-    canvas.rect(bonnet_x, bonnet_c, bonnet_half, bonnet_half_h, shell[2], inside_only=True)
-    canvas.rect(bonnet_x, bonnet_top + 2.5, bonnet_half - 1.0, 2.5, shell[1], inside_only=True)
-    # The windscreen, steep: a short wedge from the roof's front corner down to the bonnet.
-    canvas.band((box_front, roof_near - 1.0), (bonnet_rear + 1.0, belt - 1.0), 8.0, mid_glass)
-    roof_x, roof_half = _band(-(half_len - 4.0), box_front)
-    roof_c, roof_half_h = _band(roof_far, roof_near)
-    canvas.rounded_rect(roof_x, roof_c, roof_half, roof_half_h, 4.0, shell[3], inside_only=True)
-    rib = -(half_len - 18.0)
-    while rib < box_front - 10.0:
-        canvas.rect(rib, roof_c, 0.5, roof_half_h - 2.0, shell[2], inside_only=True)
-        rib += 14.0
-    canvas.rect(roof_x, roof_near, roof_half - 1.0, 0.6, shell[0], inside_only=True)
-    canvas.rect(roof_x, roof_far + 2.0, roof_half - 1.0, 1.5, shell[2], inside_only=True)
-
-    # --- the near face: the whole flank -------------------------------------------------------
-    # A panel van's side is blank sheet from the belt up over the cargo; only the cab door has a
-    # window. The sliding door's seam and the cab door's shut line are the two verticals.
-    canvas.rect(0.0, belt, half_len - 2.0, 0.5, shell[2], inside_only=True)
-    canvas.rect(0.0, top + 1.5, half_len - 2.0, 0.6, shell[3], inside_only=True)
-    canvas.rect(0.0, -1.5, half_len - 4.0, 1.5, shell[0], inside_only=True)
-    door_x, door_half = _band(door_rear, door_nose)
-    canvas.rounded_rect(door_x, -28.0, door_half - 3.0, 7.0, 1.5, dark_glass, inside_only=True)
-    if not burnt:
-        canvas.rect(door_x - 4.0, -32.0, 5.0, 0.6, lit_glass, inside_only=True)
-    for shut in (door_rear, -4.0):
-        canvas.rect(shut, -19.0, 0.5, 17.0, shell[0], inside_only=True)
-    canvas.rect(door_rear + 5.0, -14.0, 2.5, 0.6, shell[3], inside_only=True)
-    canvas.rect(-9.0, -14.0, 2.5, 0.6, shell[3], inside_only=True)
-    for wheel in (wheel_rear, wheel_nose):
-        _wheel_ew(canvas, shell, burnt, wheel, 6.5)
-    _lamp(canvas, _lamps_of(shell, burnt, False), half_len - 4.5, -9.0, 3.5, 3.0)
-    _lamp(canvas, _lamps_of(shell, burnt, True), -(half_len - 3.5), -22.0, 2.2, 6.0)
-
-    if burnt:
-        _soot(canvas, shell, ((door_x - 8.0, roof_near, roof_near - 12.0, 5.0),
-                              (door_x + 6.0, roof_near, roof_near - 14.0, 5.0)))
-        canvas.ellipse(roof_x - 10.0, roof_c + 2.0, 22.0, 12.0, shell[0])
-        canvas.ellipse(roof_x + 30.0, roof_c - 8.0, 8.0, 5.0, ash[0])
-        canvas.ellipse(roof_x - 40.0, roof_c + 4.0, 6.0, 4.0, ash[2])
-        canvas.ellipse(roof_x + 8.0, roof_c + 10.0, 5.0, 3.0, ash[0])
-
-    _wear(canvas, key, shell, burnt)
-    return _finish(canvas)
-
-
-# --- the truck --------------------------------------------------------------------------------
 
 
 def _truck_ns(variant):
@@ -714,100 +547,12 @@ def _truck_ns(variant):
     return _finish(canvas)
 
 
-def _truck_ew(variant):
-    """A flatbed pointing east: the low bed along most of the flank, the tall cab at the nose."""
-    key = key_of("truck", variant, "ew")
-    burnt = variant == "burnt"
-    shell = RAMPS[SHELLS[variant]]
-    dark_glass, mid_glass, lit_glass = _glass_of(shell, burnt)
-    ash = RAMPS["ash"]
-    plank_dark, plank, plank_lit = _timber_of(burnt)
-    canvas = Canvas(*canvas_ew("truck"), origin="feet")
-    half_len = plan_length("truck") / 2.0
-    # Along the truck, tail to nose: the bed, the headboard, the cab, the bonnet.
-    bed_rear = -half_len
-    bed_front = bed_rear + TRUCK_BED_LEN
-    cab_rear = bed_front + 4.0
-    cab_front = half_len - 14.0
-    wheel_rear, wheel_nose = -62.0, 82.0
-    # Up the picture: the bed's side to its rail, the floor's plan, the far rail; the cab's flank
-    # to its top, the roof's plan; the bonnet's plan.
-    rail_top = -(TRUCK_BED + TRUCK_RAIL)
-    floor_far = -(TRUCK_BREADTH + TRUCK_BED)
-    rail_far = -(TRUCK_BREADTH + TRUCK_BED + TRUCK_RAIL)
-    cab_belt = -18.0
-    cab_top = -TRUCK_CAB
-    roof_near = -(TRUCK_INSET + TRUCK_CAB)
-    roof_far = -(TRUCK_BREADTH - TRUCK_INSET + TRUCK_CAB)
-    bonnet_top = -(TRUCK_BREADTH + TRUCK_BONNET)
-
-    # The mass, in three slabs: the bed up to its far rail, the cab up to its roof's far lip, the
-    # bonnet up to its own far lip.
-    bed_x, bed_half = _band(bed_rear, cab_rear)
-    canvas.rounded_rect(bed_x, rail_far / 2.0, bed_half, -rail_far / 2.0, 4.0, shell[1])
-    cab_x, cab_half = _band(cab_rear - 2.0, cab_front + 2.0)
-    canvas.rounded_rect(cab_x, roof_far / 2.0, cab_half, -roof_far / 2.0, 5.0, shell[1])
-    nose_x, nose_half = _band(cab_front - 1.0, half_len)
-    canvas.rounded_rect(nose_x, bonnet_top / 2.0, nose_half, -bonnet_top / 2.0, 4.0, shell[1])
-
-    # --- the bed: floor, then the two rails, near one last --------------------------------------
-    floor_x, floor_half = _band(bed_rear + 2.0, bed_front)
-    floor_c, floor_half_h = _band(-TRUCK_BED, floor_far)
-    canvas.rect(floor_x, floor_c, floor_half, floor_half_h, plank, inside_only=True)
-    seam = bed_rear + 12.0
-    while seam < bed_front - 4.0:
-        canvas.rect(seam, floor_c, 0.4, floor_half_h - 1.0, plank_dark, inside_only=True)
-        seam += 10.0
-    # The far rail: its south face rises from the floor's far edge, and its top is a lit line.
-    canvas.rect(floor_x, (floor_far + rail_far) / 2.0, floor_half, TRUCK_RAIL / 2.0, shell[1], inside_only=True)
-    canvas.rect(floor_x, rail_far + 1.0, floor_half - 1.0, 1.0, shell[3], inside_only=True)
-    # The near rail is the flank continuing up; only its top shows as a line.
-    canvas.rect(floor_x, rail_top + 1.0, floor_half - 1.0, 1.0, shell[3], inside_only=True)
-    # The headboard, edge-on: a thin upright between the bed and the cab.
-    canvas.rect(bed_front + 2.0, (rail_far - 4.0) / 2.0, 1.5, -(rail_far - 4.0) / 2.0, shell[2], inside_only=True)
-
-    # --- the cab: flank, glass, roof; then the bonnet -----------------------------------------
-    canvas.rect(cab_x, cab_top + 1.5, cab_half - 1.0, 0.6, shell[3], inside_only=True)
-    window_x, window_half = _band(cab_rear + 8.0, cab_front - 4.0)
-    canvas.rounded_rect(window_x, -28.0, window_half, 7.0, 1.5, dark_glass, inside_only=True)
-    canvas.rect(window_x - 2.0, -28.0, 1.2, 7.0, shell[1], inside_only=True)
-    if not burnt:
-        canvas.rect(window_x + 6.0, -32.0, 4.0, 0.6, lit_glass, inside_only=True)
-    canvas.rect(cab_rear + 12.0, -19.0, 0.5, 17.0, shell[0], inside_only=True)
-    canvas.rect(cab_rear + 17.0, -14.0, 2.5, 0.6, shell[3], inside_only=True)
-    canvas.band((cab_front, roof_near - 1.0), (cab_front + 8.0, cab_belt - 1.0), 7.0, mid_glass)
-    roof_x, roof_half = _band(cab_rear, cab_front)
-    roof_c, roof_half_h = _band(roof_far, roof_near)
-    canvas.rounded_rect(roof_x, roof_c, roof_half, roof_half_h, 4.0, shell[4], inside_only=True)
-    canvas.rect(roof_x, roof_near, roof_half - 1.0, 0.6, shell[0], inside_only=True)
-    bonnet_x, bonnet_half = _band(cab_front + 1.0, half_len - 1.0)
-    bonnet_c, bonnet_half_h = _band(cab_belt, bonnet_top)
-    canvas.rect(bonnet_x, bonnet_c, bonnet_half, bonnet_half_h, shell[2], inside_only=True)
-    canvas.rect(bonnet_x, bonnet_top + 2.5, bonnet_half - 1.0, 2.5, shell[1], inside_only=True)
-
-    # --- the near face: sill, wheels, lamps ---------------------------------------------------
-    canvas.rect(0.0, -1.5, half_len - 4.0, 1.5, shell[0], inside_only=True)
-    for wheel in (wheel_rear, wheel_nose):
-        _wheel_ew(canvas, shell, burnt, wheel, 7.5)
-    _lamp(canvas, _lamps_of(shell, burnt, False), half_len - 4.5, -9.0, 3.5, 3.0)
-    _lamp(canvas, _lamps_of(shell, burnt, True), -(half_len - 4.5), -9.0, 3.0, 2.5)
-
-    if burnt:
-        canvas.ellipse(floor_x - 20.0, floor_c + 6.0, 16.0, 9.0, ash[0])
-        canvas.ellipse(floor_x + 30.0, floor_c - 10.0, 9.0, 6.0, ash[2])
-        canvas.ellipse(floor_x + 8.0, floor_c + 14.0, 6.0, 4.0, ash[0])
-        _soot(canvas, shell, ((window_x - 6.0, roof_near, roof_near - 12.0, 5.0),
-                              (window_x + 7.0, roof_near, roof_near - 14.0, 5.0)))
-        canvas.ellipse(roof_x + 2.0, roof_c + 6.0, 8.0, 5.0, ash[0])
-
-    _wear(canvas, key, shell, burnt)
-    return _finish(canvas)
-
-
+# A car's east-west renderer is None: the pack draws that axis (PACK_EW above), and the
+# generator code that drew it retired with the nine PNGs it wrote.
 _RENDERERS = {
-    "sedan": (_sedan_ns, _sedan_ew),
-    "van": (_van_ns, _van_ew),
-    "truck": (_truck_ns, _truck_ew),
+    "sedan": (_sedan_ns, None),
+    "van": (_van_ns, None),
+    "truck": (_truck_ns, None),
 }
 _RENDERERS.update(light_vehicles.RENDERERS)
 
@@ -815,4 +560,5 @@ REGISTRY = {}
 for _cls, (_ns, _ew) in _RENDERERS.items():
     for _variant in VARIANTS:
         REGISTRY[key_of(_cls, _variant, "ns")] = (lambda f, v: lambda: f(v))(_ns, _variant)
-        REGISTRY[key_of(_cls, _variant, "ew")] = (lambda f, v: lambda: f(v))(_ew, _variant)
+        if _ew is not None:
+            REGISTRY[key_of(_cls, _variant, "ew")] = (lambda f, v: lambda: f(v))(_ew, _variant)

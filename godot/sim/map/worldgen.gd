@@ -327,6 +327,24 @@ static func templates_of(tree: Dictionary) -> Array:
 # The vehicle classes a content tree declares, sorted by id for the same reason the building pool
 # is: nothing this generator draws may depend on directory order. Which of them a district parks
 # is the district's own `vehicles.classes` list, not this -- this is only what exists to be named.
+# A footprint turned to the axis it is parked on, as (x extent, y extent) in tiles: `w` x `l` on
+# the north-south axis, and `lEw` x `w` on the east-west one, `lEw` falling back to `l` for a class
+# that declares no east-west length of its own. The one place a footprint is turned -- the parking
+# pass here and SimVehicles.extent_of both ask it, so a car the generator parks and the entity it
+# becomes cannot disagree about how long it is. The three cars declare `lEw` because they draw the
+# outpost pack's art east-west and that art is shorter than the generated north-south pictures
+# (docs/23, "The cars are the pack's, east-west"); the light classes do not, and are the same
+# length both ways. ZERO on either axis for a footprint with no usable `w` or `l`.
+static func vehicle_extent(footprint: Dictionary, axis: String) -> Vector2i:
+	var breadth: int = int(footprint.get("w", 0))
+	var length: int = int(footprint.get("l", 0))
+	if breadth < 1 or length < 1:
+		return Vector2i.ZERO
+	if axis == "ns":
+		return Vector2i(breadth, length)
+	return Vector2i(maxi(1, int(footprint.get("lEw", length))), breadth)
+
+
 static func vehicles_of(tree: Dictionary) -> Array:
 	var out: Array = []
 	for path in _sorted_keys(tree):
@@ -973,7 +991,10 @@ static func _vehicles(map: Variant, seed_val: int, district: Dictionary, templat
 			var pick: int = _weighted(rng, weights)
 			var shape: Dictionary = (classes[pick] as Dictionary)["footprint"] as Dictionary
 			var breadth: int = int(shape["w"])
-			var length: int = int(shape["l"])
+			# Turned to the street's axis by the one helper that turns footprints: a car on a
+			# horizontal street is its east-west length long, which for the three cars is the
+			# pack's picture and shorter than the north-south one.
+			var extent: Vector2i = vehicle_extent(shape, "ns" if String(span.get("axis", "x")) == "x" else "ew")
 			# The body sits inside the carriageway with a kerb row free on each side: offset 0 is
 			# the near kerb and width-1 the far one, so a 2-wide car starts at 1..width-3 and a
 			# 1-wide bicycle at 1..width-2. Still one draw whatever the range, so the class's
@@ -982,7 +1003,7 @@ static func _vehicles(map: Variant, seed_val: int, district: Dictionary, templat
 			var heading: int = int(rng.call("int_range", 0, 1))
 			if not present:
 				continue
-			var rect := Rect2i(at + lane, along, breadth, length) if vertical else Rect2i(along, at + lane, length, breadth)
+			var rect := Rect2i(at + lane, along, extent.x, extent.y) if vertical else Rect2i(along, at + lane, extent.x, extent.y)
 			# One picture per class x variant x axis (the owner's decision 11), so the record
 			# carries which axis it stands on and which end is the nose, and nothing rotates.
 			var axis: String = "ns" if vertical else "ew"

@@ -26,11 +26,12 @@ extends SceneTree
 # actually reads* rather than the helper that computed it -- a table that says a coat is warm is a
 # table agreeing with itself. A gate that cannot fail is worse than no gate.
 #
-# Nothing this slice authored declares an `appearance.equipSprite`: EQUIP_DRAW_ORDER in
-# presentation/appearance.gd covers back, legs, torso, primary, secondary and head only, so a
-# sprite key on the vest, belt, face, eyes, gloves or feet slot is a socket nothing reads. The
-# scarf, the bandana, the wool gloves, the sandals and both vests are deliberately drawn by
-# nothing until that slot list grows, and the ART lane below refuses art that would never draw.
+# Nothing this slice authored declares an `appearance.equipSprite`. EQUIP_DRAW_ORDER in
+# presentation/appearance.gd covered six slots when it landed; "The bodies turn and walk"
+# (2026-09-26) added vest and face for the pack's wearables, so a sprite key on the belt, eyes,
+# gloves or feet slot is still a socket nothing reads. The wool gloves and the sandals are
+# deliberately drawn by nothing until that slot list grows, and the ART lane below refuses art
+# that would never draw.
 
 const SimBoot = preload("res://sim/boot.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
@@ -75,7 +76,7 @@ const PONCHO: String = "item.poncho.rain"
 const NOON: float = 0.4
 const NIGHT: float = 0.8
 # The slots the renderer actually draws. A copy would drift, so it is read off the renderer.
-const DRAWN_SLOTS: Array[String] = ["back", "legs", "torso", "primary", "secondary", "head"]
+const DRAWN_SLOTS: Array[String] = ["legs", "torso", "vest", "back", "primary", "secondary", "face", "head"]
 
 
 func _init() -> void:
@@ -785,9 +786,9 @@ func _body_armour_is_no_longer_one_hardcoded_key() -> bool:
 # --- ART --------------------------------------------------------------------------------------
 #
 # The dead-socket rule, aimed at the one place this slice could quietly have created one.
-# `presentation/appearance.gd`'s EQUIP_DRAW_ORDER covers six slots; an `equipSprite` declared on
-# any other is a picture the renderer will never ask for. The scarf, the bandana, the wool gloves,
-# the sandals and both vests sit in exactly those slots, so the rule is checked here rather than
+# `presentation/appearance.gd`'s EQUIP_DRAW_ORDER covers eight slots; an `equipSprite` declared on
+# any other is a picture the renderer will never ask for. The wool gloves and the sandals sit in
+# exactly those other slots, so the rule is checked here rather than
 # trusted -- and checked against the renderer's own table, not a copy of it, since a copy is the
 # thing that drifts.
 func _nothing_declares_art_that_would_never_draw() -> bool:

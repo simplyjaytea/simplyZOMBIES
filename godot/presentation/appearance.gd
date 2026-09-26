@@ -20,6 +20,7 @@ const ItemGlyph = preload("res://presentation/item_glyph.gd")
 const CameraUtil = preload("res://presentation/camera.gd")
 const SimSurface = preload("res://sim/map/surface.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimClock = preload("res://sim/time/clock.gd")
 
 const SPRITE_DIR: String = "res://assets/sprites"
 
@@ -43,13 +44,16 @@ const PLAYER_LOOK_ID: String = "player.body"
 # rows of headroom for a helmet or a spear tip. Its blit height is 1.25 x zoom, an integer on
 # every rung of the ladder (20/40/80/160). The 32x48 canvas of 2026-09-03 held a 1.3-tile figure;
 # it was superseded, not resized -- every rig was re-authored on a shorter published skeleton.
-# Every body and every equip overlay is authored on it (PAWN_KEYS); tools/sprites/build.py
-# carries the mirror list, because Python cannot read GDScript.
+# Every generated body and every equip overlay is authored on it (PAWN_KEYS); tools/sprites/build.py
+# carries the mirror list, because Python cannot read GDScript. The outpost pack's four-direction
+# bodies and wearables stand on it too, cropped from the pack's 32x48 on its own anchor row, but
+# they are declared in authored.json rather than named here -- one key, one tier. Since "The
+# bodies turn and walk" (2026-09-26) the generated rigs are the screamer and the bloater only;
+# the other six, and the eight overlays the pack's backpack and helmet replaced, were deleted.
 const PAWN_CANVAS: Vector2i = Vector2i(int(CameraUtil.ART_NATIVE), int(CameraUtil.ART_NATIVE) * 5 / 4)
 const PAWN_KEYS: Array[String] = [
-	"player_body", "survivor_mara", "survivor_ellis", "survivor_colonist",
-	"zombie_shambler", "zombie_screamer", "zombie_bloater", "raider_body",
-	"item_pack_hiking_equip", "item_pack_hiking_equip_front", "item_bat_aluminium_equip",
+	"zombie_screamer", "zombie_bloater",
+	"item_bat_aluminium_equip",
 	"item_pants_canvas_equip", "item_wrap_cloth_equip", "item_cap_canvas_equip",
 	"item_knife_kitchen_equip", "item_machete_rusted_equip", "item_pipe_steel_equip",
 	"item_spear_improvised_equip", "item_axe_fire_equip", "item_sledge_demolition_equip",
@@ -57,12 +61,11 @@ const PAWN_KEYS: Array[String] = [
 	"item_pistol_service_equip",
 	"item_crowbar_steel_equip", "item_hatchet_camp_equip", "item_hammer_claw_equip",
 	"item_wrench_pipe_equip", "item_cleaver_butcher_equip", "item_shotgun_pump_equip",
-	"item_rifle_hunting_equip", "item_jacket_leather_equip", "item_helmet_bike_equip",
-	"item_jeans_denim_equip", "item_pack_school_equip", "item_pack_school_equip_front",
-	"item_pack_frame_equip", "item_pack_frame_equip_front", "item_lantern_oil_equip",
+	"item_rifle_hunting_equip", "item_jacket_leather_equip",
+	"item_jeans_denim_equip", "item_lantern_oil_equip",
 	"item_baton_police_equip", "item_shovel_sharpened_equip", "item_axe_splitting_equip",
 	"item_crossbow_hunting_equip", "item_revolver_snub_equip", "item_rifle_rimfire_equip",
-	"item_apron_welding_equip", "item_helmet_hardhat_equip",
+	"item_apron_welding_equip",
 	"item_duffel_canvas_equip", "item_duffel_canvas_equip_front",
 	# The weapons catalogue (2026-09-10).
 	"item_smg_compact_equip",
@@ -97,19 +100,24 @@ const FOOT_DROP_PX: float = 3.0
 # content one, because a new slot needs a decision about where in this order it sits.
 #
 # Only `back` goes under: a pack hangs behind the body. Clothing covers the body it is worn on,
-# and a held weapon is in front of the hand holding it, so everything else is over. `vest`,
-# `belt`, `feet`, `gloves`, `eyes` and `face` are equippable in content and deliberately not
-# here -- they are named on docs/23's what's-left as their own piece rather than smuggled in.
-# Until they are, an `appearance.equipSprite` on one of those six slots is a socket nothing
-# reads, which is why content/items/clothing.json declares none: the warmth slice authored a
-# scarf, a bandana, gloves, sandals and two vests and gave not one of them a sprite key, rather
-# than shipping art that never draws.
+# and a held weapon is in front of the hand holding it, so everything else is over. `vest` and
+# `face` joined on 2026-09-26 with the outpost pack's four-direction vest and gas mask ("The
+# bodies turn and walk"), and where they sit is the pack's own answer rather than a guess: its
+# manifest layers vest 2, backpack 3, gas mask 4 and helmet 5 over the body at 0, so `vest` comes
+# before `back` -- whose over-body piece, a front strap or the pack's own picture on a view that
+# shows it in front, draws at back's place in this list -- and `face` before `head`. An
+# under-body layer draws in the under pass wherever its slot sits here, so moving `back` down the
+# list moved only its over-body piece. `belt`, `feet`, `gloves` and `eyes` are equippable in
+# content and still deliberately not here; an `appearance.equipSprite` on one of those four is a
+# socket nothing reads, which is why content declares none.
 const EQUIP_DRAW_ORDER: Array[Dictionary] = [
-	{"slot": "back", "over": false},
 	{"slot": "legs", "over": true},
 	{"slot": "torso", "over": true},
+	{"slot": "vest", "over": true},
+	{"slot": "back", "over": false},
 	{"slot": "primary", "over": true},
 	{"slot": "secondary", "over": true},
+	{"slot": "face", "over": true},
 	{"slot": "head", "over": true},
 ]
 
@@ -142,6 +150,11 @@ static func resolve(key: String) -> Texture2D:
 		var img := Image.new()
 		if img.load(path) == OK:
 			texture = ImageTexture.create_from_image(img)
+	# A family that turns is one declaration and many pictures, and the key content names is the
+	# family's. Asked for as one picture it answers the one a body at rest shows, facing south and
+	# standing still; `frame_key` below is how the draw loop asks for any other.
+	if texture == null and turns(key):
+		texture = resolve("%s_%s" % [key, VIEW_REST])
 	_cache[key] = texture
 	return texture
 
@@ -154,6 +167,7 @@ static func forget() -> void:
 	# the whole failure mode a cache invalidation exists to prevent.
 	_authored.clear()
 	_authored_rigs.clear()
+	_families.clear()
 	_authored_read = false
 
 
@@ -265,6 +279,14 @@ const VEHICLE_FOOTPRINTS: Dictionary = {
 const VEHICLE_VARIANTS: Array[String] = ["pale", "green", "burnt"]
 const AXIS_NS: String = "ns"
 const AXIS_EW: String = "ew"
+# The classes whose east-west picture is the outpost pack's rather than the generator's (docs/23,
+# "The cars are the pack's, east-west"): authored keys in `authored.json`, placed by
+# `canvas_of`'s authored tier at the pack's own canvas, standing on content's `lEw` footprint.
+# `vehicle_canvas` answers ZERO for their generated east-west keys, which no longer exist, so a
+# rule cannot quietly place a picture that retired -- mirrored by tools/sprites/parts/vehicles.py's
+# PACK_EW under the same two-copies arrangement as VEHICLE_FOOTPRINTS, whose three car rows are
+# now the north-south footprints alone.
+const VEHICLE_PACK_EW: Array[String] = ["sedan", "van", "truck"]
 
 
 # The canvas `key` is authored on when it names a shipped vehicle picture, ZERO otherwise.
@@ -280,7 +302,7 @@ static func vehicle_canvas(key: String) -> Vector2i:
 	var n: int = int(CameraUtil.ART_NATIVE)
 	if parts[2] == AXIS_NS:
 		return Vector2i(foot.x * n, (foot.y + VEHICLE_ROOFLINE_TILES) * n)
-	if parts[2] == AXIS_EW:
+	if parts[2] == AXIS_EW and not VEHICLE_PACK_EW.has(parts[0]):
 		return Vector2i(foot.y * n, (foot.x + VEHICLE_ROOFLINE_TILES) * n)
 	return Vector2i.ZERO
 
@@ -358,6 +380,10 @@ static func chart_rect(key: String) -> Rect2:
 const AUTHORED_PATH: String = "res://assets/sprites/authored.json"
 static var _authored: Dictionary = {}
 static var _authored_rigs: Array[String] = []
+# `{family key: {"members": Array[String], "fps": int, "z": Dictionary}}` -- every family, kept
+# whole, because the draw loop asks a family for one member by name (`frame_key`) and an overlay
+# family which side of the body it goes on in one view (`layer_over`).
+static var _families: Dictionary = {}
 static var _authored_read: bool = false
 
 
@@ -380,6 +406,7 @@ static func _read_authored() -> void:
 	_authored_read = true
 	_authored = {}
 	_authored_rigs = []
+	_families = {}
 	if not FileAccess.file_exists(AUTHORED_PATH):
 		return
 	var text: String = FileAccess.get_file_as_string(AUTHORED_PATH)
@@ -408,8 +435,16 @@ static func _read_authored() -> void:
 		# family key that is stays the one thing three gates iterate.
 		var members: Variant = (entry as Dictionary).get("members")
 		if members is Dictionary:
+			var names: Array[String] = []
 			for member_key in (members as Dictionary).keys():
 				_authored[String(member_key)] = shape
+				names.append(String(member_key))
+			var z: Variant = (entry as Dictionary).get("z", {})
+			_families[String(key)] = {
+				"members": names,
+				"fps": int((entry as Dictionary).get("fps", 0)),
+				"z": z if z is Dictionary else {},
+			}
 	_authored_rigs.sort()
 
 
@@ -713,7 +748,9 @@ static func for_entity(world: Variant, it: Dictionary) -> Dictionary:
 	# raiders the wanderer's smaller radius and the glimpse would quietly tell the player "that
 	# one is not one of yours", which is the certainty docs/01 clause 4 refuses them.
 	var radius: float = 14.0 if is_player else (12.0 if (is_unique or is_raider) else 10.0)
-	return {"texture": texture, "tint": modulate_for(texture != null, declared_tint, tint), "radius": radius}
+	# `sprite` is the key the texture came from, handed on so the draw loop can ask a family that
+	# turns for the picture of one view and one step (`body_texture`); `texture` is the rest view.
+	return {"texture": texture, "tint": modulate_for(texture != null, declared_tint, tint), "radius": radius, "sprite": sprite_key}
 
 
 # How many screen pixels one art pixel covers at this zoom. The sprites are authored against
@@ -724,6 +761,19 @@ static func for_entity(world: Variant, it: Dictionary) -> Dictionary:
 # A zero zoom answers zero: a degenerate camera draws nothing rather than dividing wrong.
 static func blit_scale(zoom: float) -> float:
 	return zoom / CameraUtil.ART_NATIVE
+
+
+# The screen side of one item picture lying on the floor at this zoom. The pack's inventory icons
+# are 32x32 (docs/30, "The outpost pack, adopted"), so drawing one at the world's own pixel would
+# fill a whole tile with a pistol; half of it is half a tile, and `blit_scale` keeps it a power of
+# two at every rung of the ladder so nearest-neighbour drops whole rows. A bag plate is a different
+# question (`ui/bag_grid.gd` picks the largest whole multiple of the art that fits) and a base with
+# no picture draws its glyph at a third of a tile as it always did.
+const ITEM_ICON_FLOOR_SCALE: float = 0.5
+
+
+static func item_icon_px(zoom: float) -> float:
+	return CameraUtil.ART_NATIVE * blit_scale(zoom) * ITEM_ICON_FLOOR_SCALE
 
 
 # Whether a body is moving, read off its velocity component -- the peripheral-glimpse test.
@@ -768,13 +818,143 @@ static func body_rect(sx: float, sy: float, size: Vector2, flip: float) -> Rect2
 # of straight up or down, as painted (+1.0) otherwise -- north, south and east all draw the one
 # picture. A flip is a two-state readout of a continuous heading, which is why the indicator
 # line draws for every body: the picture can never say more than "east or west", and the line
-# carries the exact facing. Every body flips, the player included; the peripheral-anonymity
+# carries the exact facing. Since "The bodies turn and walk" (2026-09-26) only the face-on
+# generated rigs -- the screamer and the bloater -- are asked this; a body that turns draws its own
+# west view and never flips (`flip_for`, below). The peripheral-anonymity
 # clause is unharmed because a glimpsed body never reaches the blit -- it draws as the anonymous
 # disc and the loop moves on before facing is read.
 static func body_flip(facing: float) -> float:
 	if cos(facing) < 0.0:
 		return -1.0
 	return 1.0
+
+
+# --- the bodies that turn ---------------------------------------------------------------------
+#
+# "The bodies turn and walk" (docs/23, 2026-09-26; docs/30, "The outpost pack, adopted", decision
+# 1): every human draws on the outpost pack's survivor and the shambler on the pack's shambler,
+# four views and a four-frame walk each way, and the pack's vest, helmet, gas mask and backpack
+# are four views each. A body that turns is never mirrored -- the pack draws its own west view --
+# so `body_flip` above is left to the two generated rigs that still face the camera, the screamer
+# and the bloater. Which pictures a family has is authored.json's to say, by the member names its
+# note fixes; nothing here knows the word "survivor".
+
+# The four views in the order a quarter turn walks them on a y-down screen: east at 0, south at a
+# quarter turn, west at a half, north at three quarters.
+const VIEWS: Array[String] = ["e", "s", "w", "n"]
+# The view a body at rest shows when nothing says otherwise, and the one face-on art belongs to.
+const VIEW_REST: String = "s"
+
+
+# Which of the four views a heading shows: the nearest quarter turn. A heading exactly on a
+# diagonal rounds away from zero (GDScript's `roundi`), so south-east shows south and north-east
+# shows north -- a rule, stated, rather than whatever float noise decided.
+static func view_of(facing: float) -> String:
+	return VIEWS[posmod(roundi(facing / (PI / 2.0)), VIEWS.size())]
+
+
+# Whether `key` is a family with a picture for every view: a body or a wearable that turns.
+static func turns(key: String) -> bool:
+	if key.is_empty():
+		return false
+	_read_authored()
+	if not _families.has(key):
+		return false
+	var members: Array = (_families[key] as Dictionary)["members"] as Array
+	for view in VIEWS:
+		if not members.has("%s_%s" % [key, view]):
+			return false
+	return true
+
+
+# How many walk frames a turning family draws each way: the run `<key>_walk_s_0`, `_1`, ...
+# counted from zero until one is missing. Zero for a family that only stands (every wearable).
+static func walk_frames(key: String) -> int:
+	if not turns(key):
+		return 0
+	var members: Array = (_families[key] as Dictionary)["members"] as Array
+	var n: int = 0
+	while members.has("%s_walk_%s_%d" % [key, VIEW_REST, n]):
+		n += 1
+	return n
+
+
+# The walk's frame rate: authored.json's copy of the pack manifest's `fps.walk`.
+static func walk_fps(key: String) -> int:
+	_read_authored()
+	if not _families.has(key):
+		return 0
+	return int((_families[key] as Dictionary)["fps"])
+
+
+# Which walk frame a body shows on `tick`: the pack's frame rate against the sim's own clock, in
+# integers, so every machine draws the same frame on the same tick. `phase` staggers one body from
+# the next (the draw loop hands over the entity id) so a crowd does not step in lockstep. A zero
+# rate or no frames answers frame 0 -- a body with no walk stands; it never divides by zero.
+static func walk_frame(tick: int, fps: int, frames: int, phase: int) -> int:
+	if fps <= 0 or frames <= 0:
+		return 0
+	return posmod(tick * fps / SimClock.TICK_HZ + phase, frames)
+
+
+# The one picture a body draws: the member of its family for this view, walking or standing, or
+# the key itself for anything that does not turn (the generated screamer and bloater, and every
+# face-on overlay).
+static func frame_key(key: String, view: String, moving_now: bool, tick: int, phase: int) -> String:
+	if not turns(key):
+		return key
+	if moving_now:
+		var frames: int = walk_frames(key)
+		var fps: int = walk_fps(key)
+		if frames > 0 and fps > 0:
+			return "%s_walk_%s_%d" % [key, view, walk_frame(tick, fps, frames, phase)]
+	return "%s_%s" % [key, view]
+
+
+# The view one body shows. A body with a `facing` component shows its heading, which the sim
+# arbitrates (the aim command, then movement). A body with none -- every zombie -- shows the way
+# it is walking, read off the same velocity `moving` reads, and the rest view when it stands. A
+# body that does not turn always shows the rest view: face-on art has only the one.
+static func body_view(key: String, facing_v: Variant, vel: Variant) -> String:
+	if not turns(key):
+		return VIEW_REST
+	if facing_v is Dictionary:
+		return view_of(float((facing_v as Dictionary).get("radians", 0.0)))
+	if moving(vel):
+		var d: Dictionary = vel as Dictionary
+		return view_of(atan2(float(d.get("dy", 0.0)), float(d.get("dx", 0.0))))
+	return VIEW_REST
+
+
+# The picture for a body this frame, from the look `for_entity` answered: its family's member for
+# this view and step, or the look's own texture when the key does not turn.
+static func body_texture(look: Dictionary, view: String, moving_now: bool, tick: int, phase: int) -> Texture2D:
+	var key: String = String(look.get("sprite", ""))
+	var frame: String = frame_key(key, view, moving_now, tick, phase)
+	if frame != key:
+		var texture: Texture2D = resolve(frame)
+		if texture != null:
+			return texture
+	return look.get("texture") as Texture2D
+
+
+# The flip for a body: one that turns is never mirrored (the pack draws the west view), and a
+# face-on one flips the way it always has.
+static func flip_for(key: String, facing: float) -> float:
+	if turns(key):
+		return 1.0
+	return body_flip(facing)
+
+
+# Whether an overlay family's picture for `view` goes over the body: the pack manifest's own
+# `z_by_direction`, copied into authored.json as `z`, and below zero is behind -- the backpack seen
+# from the side. A key that is no family, or a view its `z` does not list, is over.
+static func layer_over(key: String, view: String) -> bool:
+	_read_authored()
+	if not _families.has(key):
+		return true
+	var z: Dictionary = (_families[key] as Dictionary)["z"] as Dictionary
+	return int(z.get(view, 0)) >= 0
 
 
 # The props that stand in a district, as component -> content id.
@@ -855,7 +1035,15 @@ static func prop_of(world: Variant, id: String) -> Dictionary:
 # item may also carry a front piece (straps crossing the torso) -- that piece is always an
 # over-body layer, independent of its slot's own default, because "in front of the body" is a
 # property of the strap, not of the slot it hangs from.
-static func equipment_layers_for(world: Variant, actor: int) -> Array[Dictionary]:
+#
+# `view` is the view the body under it shows (`body_view`), the rest view when omitted. A wearable
+# that turns -- the pack's vest, helmet, gas mask and backpack -- draws its member for that view,
+# over or under by the pack's own per-view layering (`layer_over`). A face-on overlay, and every
+# front piece and fitted part with it, draws on the rest view only: a picture drawn from the front
+# cannot fit a body seen from the side or the back, so on those views it is not drawn at all. That
+# is the half of "The bodies turn and walk" left to "Pack gear on the body" (docs/23), which
+# retires the face-on overlays; until it lands a jacket or a held weapon shows only facing south.
+static func equipment_layers_for(world: Variant, actor: int, view: String = VIEW_REST) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	if world == null or world.components == null:
 		return out
@@ -863,13 +1051,22 @@ static func equipment_layers_for(world: Variant, actor: int) -> Array[Dictionary
 	if not (eq is Dictionary):
 		return out
 	var slots: Dictionary = (eq as Dictionary).get("slots", {}) as Dictionary
+	var face_on: bool = view == VIEW_REST
 	for entry in EQUIP_DRAW_ORDER:
 		var block: Variant = _equip_block_for(world, slots.get(String(entry["slot"])))
 		if not (block is Dictionary):
 			continue
-		var texture: Texture2D = _resolve_equip_key(block as Dictionary, "equipSprite")
-		if texture != null:
-			out.append({"texture": texture, "over": bool(entry["over"])})
+		var key: String = String((block as Dictionary).get("equipSprite", ""))
+		if turns(key):
+			var turned: Texture2D = resolve("%s_%s" % [key, view])
+			if turned != null:
+				out.append({"texture": turned, "over": layer_over(key, view)})
+		elif face_on:
+			var texture: Texture2D = _resolve_equip_key(block as Dictionary, "equipSprite")
+			if texture != null:
+				out.append({"texture": texture, "over": bool(entry["over"])})
+		if not face_on:
+			continue
 		var front: Texture2D = _resolve_equip_key(block as Dictionary, "equipSpriteFront")
 		if front != null:
 			out.append({"texture": front, "over": true})

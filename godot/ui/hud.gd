@@ -42,6 +42,7 @@ const Clock = preload("res://sim/time/clock.gd")
 const Palette = preload("res://presentation/palette.gd")
 const Chrome = preload("res://ui/chrome.gd")
 const Kit = preload("res://ui/kit.gd")
+const Motion = preload("res://ui/motion.gd")
 
 const MARGIN: float = 24.0
 const LINE: float = 34.0
@@ -87,6 +88,25 @@ var _left: Array[String] = []
 var _right: Array[String] = []
 var _raw: String = ""
 var _action: String = ""
+# Wall-clock seconds (`Time.get_ticks_msec()`, the clock `ui/motion.gd` asks for) at the last
+# save that landed, and at the start of the channel now running; -1 for none. Presentation state
+# only: nothing under godot/sim/ reads either.
+var _saved_at: float = -1.0
+var _busy_since: float = -1.0
+var _busy_frame: int = -1
+
+# How long the "saved" stamp stays in the "outside" card's header after a save lands: the
+# one-shot plays and holds its last frame, then the stamp goes. Long enough to be read after an
+# F5; short enough that a dawn autosave is a moment, not a standing badge.
+const SAVED_HOLD_S: float = 3.0
+const SAVED_WORD: String = "saved"
+
+# The channels a survivor stands still for, by the component each module sets on the actor while
+# it runs: `sim/modules/treatment.gd`, `fortify.gd`'s construct, `shambler.gd`'s rescue and
+# `vehicles.gd`'s refuel and siphon. Every one of them carries a `ticksLeft`, and the busy mark
+# reads none of them: docs/30 ("The UI Field Kit, live") has busy say *that* you are occupied,
+# never how long is left -- a countdown is a progress bar, and a progress bar is a number.
+const CHANNELS: Array[String] = ["treatment", "construct", "rescue", "refuel", "siphon"]
 
 
 func _ready() -> void:
@@ -100,7 +120,50 @@ func refresh(world: Variant, actor: int, raw: String) -> void:
 	_left = _self_lines(world, actor)
 	_right = _world_lines(world, actor)
 	_raw = raw
+	var now: float = float(Time.get_ticks_msec()) / 1000.0
+	var channel: String = busy_channel(world, actor)
+	if channel.is_empty():
+		_busy_since = -1.0
+	elif _busy_since < 0.0:
+		_busy_since = now
+	_busy_frame = busy_frame(_busy_since, now, Motion.reduced())
 	queue_redraw()
+
+
+# A save landed: `presentation/session.gd`'s `saved` signal, connected by `main.gd`.
+func mark_saved() -> void:
+	_saved_at = float(Time.get_ticks_msec()) / 1000.0
+	queue_redraw()
+
+
+# Which frame of `saved_tick` the "outside" header wears `now_s` seconds of wall clock after a save
+# at `saved_at_s`, or -1 for no stamp: none has landed, or it landed more than SAVED_HOLD_S ago.
+static func saved_frame(saved_at_s: float, now_s: float, reduced_motion: bool) -> int:
+	if saved_at_s < 0.0:
+		return -1
+	var t: float = now_s - saved_at_s
+	if t < 0.0 or t > SAVED_HOLD_S:
+		return -1
+	return Motion.frame_of("saved_tick", t, reduced_motion)
+
+
+# The channel `actor` is standing still for, by its component name, or "" when none is running.
+# Asks whether the component is there and nothing about what is in it.
+static func busy_channel(world: Variant, actor: int) -> String:
+	if world == null:
+		return ""
+	for c in CHANNELS:
+		if world.components.has_component(actor, c):
+			return c
+	return ""
+
+
+# The busy loop's frame, from how long the channel has run on the wall clock and nothing else --
+# the same frame for a channel with a moment left and one with a minute. -1 when none is running.
+static func busy_frame(since_s: float, now_s: float, reduced_motion: bool) -> int:
+	if since_s < 0.0:
+		return -1
+	return Motion.frame_of("busy", now_s - since_s, reduced_motion)
 
 
 func _self_lines(world: Variant, actor: int) -> Array[String]:
@@ -434,6 +497,8 @@ func _draw_card(font: Font, view: Vector2, lines: Array[String], label: String, 
 	var rect := Rect2(Vector2(left, MARGIN), Vector2(width, height))
 	Chrome.panel(self, rect, CARD_ALPHA)
 	var y: float = Chrome.header(self, rect, label, CARD_ALPHA) + FONT_SIZE + 2.0
+	if right:
+		_draw_saved(font, rect)
 	for i in lines.size():
 		# The first line of the "you" card is who you are; the rest are what is happening.
 		var colour: Color = Palette.COLOURS["player"] if i == 0 and not right else Palette.COLOURS["survivor"]
@@ -442,6 +507,37 @@ func _draw_card(font: Font, view: Vector2, lines: Array[String], label: String, 
 			x = left + width - CARD_PAD - font.get_string_size(lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x
 		draw_string(font, Vector2(x, y), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, colour)
 		y += LINE
+
+
+# The "saved" stamp at the far end of the "outside" card's header: the kit's saved_tick at native
+# size (its 24 px doubled would stand taller than the strip) with the word before it, dim, on the
+# header label's own baseline. Chrome, never a line in `_right` -- check_hud's QUIET lane judges
+# that array, and a save is not news about the street.
+func _draw_saved(font: Font, rect: Rect2) -> void:
+	var frame: int = saved_frame(_saved_at, float(Time.get_ticks_msec()) / 1000.0, Motion.reduced())
+	var tex: Texture2D = Motion.texture_of("saved_tick", frame, 1)
+	if tex == null:
+		return
+	var side: float = tex.get_size().y
+	var right_x: float = rect.end.x - Chrome.HEADER_INSET - 10.0
+	var at := Vector2(right_x - side, rect.position.y + floorf((Chrome.HEADER_H - side) / 2.0))
+	draw_texture(tex, at)
+	var w: float = font.get_string_size(SAVED_WORD, HORIZONTAL_ALIGNMENT_LEFT, -1, Chrome.FONT_SIZE).x
+	draw_string(font, Vector2(at.x - 8.0 - w, rect.position.y + Chrome.header_baseline()), SAVED_WORD, HORIZONTAL_ALIGNMENT_LEFT, -1, Chrome.FONT_SIZE, Chrome.TEXT_DIM)
+
+
+# The busy loop at the action bar's left end, inside the frame's border, while a channel runs.
+# BUSY_ROOM is held clear of the words on both sides so the group stays centred and the loop can
+# never land on a keycap.
+const BUSY_ROOM: float = 40.0
+
+
+func _draw_busy(bar: Rect2) -> void:
+	var tex: Texture2D = Motion.texture_of("busy", _busy_frame)
+	if tex == null:
+		return
+	var side: float = tex.get_size().y
+	draw_texture(tex, Vector2(bar.position.x + 12.0, roundf(bar.position.y + (bar.size.y - side) * 0.5)))
 
 
 # The action bar, centred above the quick strip: every key it names drawn as the kit's keycap
@@ -455,7 +551,8 @@ func _draw_action_bar(font: Font, view: Vector2) -> void:
 	# Digit-free, like every other line on this screen: the strip draws its own key names, and the
 	# speed keys are punctuation now rather than the number row (docs/30, "The inventory sheet").
 	var keys: String = "F1 keys · Tab gear · J work · P pause · - = speed · Esc menu · O overlay · M raw"
-	var fit: Dictionary = fit_bar(font, keycaps(_action, keys), view.x - MARGIN * 2.0 - CARD_PAD * 2.0)
+	var busy_room: float = BUSY_ROOM * 2.0 if _busy_frame >= 0 else 0.0
+	var fit: Dictionary = fit_bar(font, keycaps(_action, keys), view.x - MARGIN * 2.0 - CARD_PAD * 2.0 - busy_room)
 	var runs: Array = fit["runs"] as Array
 	var total: float = float(fit["total"])
 	var size: int = int(fit["size"])
@@ -463,9 +560,11 @@ func _draw_action_bar(font: Font, view: Vector2) -> void:
 	# sentence and a group wider than 1296 would otherwise hang out of both ends of its own panel.
 	# The window's width wins over the nominal minimum: clampf with a floor above its ceiling handed
 	# back the floor, and on a 1280 window the bar hung past both edges of the screen.
-	var bar_w: float = minf(maxf(total + CARD_PAD * 2.0, BAR_W), view.x - MARGIN * 2.0)
+	var bar_w: float = minf(maxf(total + CARD_PAD * 2.0 + busy_room, BAR_W), view.x - MARGIN * 2.0)
 	var bar := Rect2(Vector2(roundf((view.x - bar_w) * 0.5), view.y - MARGIN - STRIP_CLEARANCE - BAR_H), Vector2(bar_w, BAR_H))
 	Chrome.panel(self, bar, CARD_ALPHA)
+	if _busy_frame >= 0:
+		_draw_busy(bar)
 	var x: float = roundf(bar.position.x + (bar.size.x - total) * 0.5)
 	# The capitals centred on the bar's middle, from the face's own metrics.
 	var baseline: float = roundf(bar.position.y + bar.size.y * 0.5 + Chrome.cap_height(size) / 2.0)
