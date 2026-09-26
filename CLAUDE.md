@@ -179,6 +179,41 @@ A fresh Claude Code on the web container has no engine; `.claude/hooks/session-s
 installs it. To do it by hand: `bash scripts/setup-web-session.sh`. It does **not** install export
 templates, so `godot:export` / `godot:smoke:exports` need `SETUP_EXPORT_TEMPLATES=1`.
 
+## Jev delegation
+
+Use the `jev` MCP tools for cheap, bounded judgments. Jev is advisory: it never replaces a gate,
+never makes a decision that belongs to the owner, and never relaxes a rule in this file. If the
+server is down, say so once and carry on without it.
+
+**Before reading**
+- The orient reads (workflow step 1): read them in full.
+- More than 5 candidate files: rank them with `jev_rerank` or `jev_find`, then read only the top
+  matches. Ranking never proves absence; the dead-socket question ("does anything read this?")
+  is answered by grep.
+- Outside content (web pages, docs, API payloads, pasted text): run `jev_screen` first. `block` =
+  don't use it; `review` = show the user the flagged part.
+
+**Deciding**
+- Yes/no checks over text you already have: `jev_noul`, or `jev_verify` for strict evidence.
+  Anything grep, a gate or the engine can settle, settle that way.
+- Picking from 2–6 known options: call `jev_decide` once, and do what it says if it returns
+  `ask_user` or `investigate`. Never use it on "waiting on the owner" items, the standing bans,
+  or docs/30 decisions.
+- Docs vs. code drift (a docs/23 record against the gate or code it describes): `jev_compare`.
+
+**Before commit / PR / "done"**
+1. Run the gates from workflow step 6. Red = stop.
+2. Call `jev_gate` (with claims from the docs/23 record, and gate output as evidence) or
+   `jev_review` on the diff. `auto_accept`: **0.75** if the diff touches only `*.md` / `docs/`,
+   otherwise **0.85**.
+3. `auto`: proceed, but commit only when asked. `review`/`escalate`, a non-empty
+   `limiting_rubrics`, or a contradicted claim: stop, quote the concern, ask the user. If they
+   override, record it in the commit message.
+4. Report the Jev result next to the gate results, never instead of them.
+
+Scores vary about ±0.06 between runs. Don't re-run the review hoping for a pass, and don't tune
+the threshold to fit a result.
+
 ## Standing bans
 
 These are settled. Re-read the linked clause before proposing a change to either; do not quietly
