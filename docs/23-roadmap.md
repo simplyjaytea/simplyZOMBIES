@@ -558,10 +558,10 @@ projection are untouched.
   half pieces, y-sorted on the run's south edge in place of the generated thick-mass wall and cap
   (decision 3 of the record entry; supersedes "walls gain thickness" and absorbs "the wall face
   hangs south," both above).
-- **A picture per item base.** Moved into this group 2026-09-17 from the inventory-sheet group
-  below: the pack's 48 inventory icons, already at the ground-item canvas, land as
-  `appearance.sprite` for the shipped bases rather than a new generator module drawing them.
-  Named here only so the cross-reference resolves.
+- ~~**A picture per item base.**~~ — **landed** 2026-09-26 for the floor and the bag plate, see
+  the record (`npm run godot:check:appearance` → PICTURES; `npm run godot:check:authored` →
+  ICON). The quick strip and the inspect pane are "Item pictures in the quick strip / inspect
+  pane" (piece 6b), still open and still drawing the class glyph.
 - **The shot is seen.** Muzzle flash, blood hit, casing and campfire flame, drawn from sim events
   off the pack's twelve four-frame effect sheets, in place of today's `draw_rect` stand-ins.
 - ~~**The cars are the pack's, east-west.**~~ — **landed** 2026-09-26, see the record
@@ -995,8 +995,8 @@ session, each with its gate red both ways and its record.
   piece gave `appearance.sprite` a reader and every base a shape chosen by its class; what it did
   not give anybody is a fire axe that looks like a fire axe. The owner's adoption of the pack
   (docs/30, "The outpost pack, adopted") answers this with its 48 inventory icons rather than a
-  new generator module, so the piece moved rather than staying open twice. Named here only so
-  the cross-reference resolves.
+  new generator module, so the piece moved rather than staying open twice. It landed there
+  2026-09-26 for the floor and the bag plate; named here only so the cross-reference resolves.
 - **Colonists finish a cupboard the player started.** A box is `searched` from its first open,
   and `jobs._scavenge_work` filters on exactly that — so a cupboard the player opened, took two
   things out of and walked away from is invisible to every colonist forever. It was true of the
@@ -2598,6 +2598,60 @@ not a to-do list:
   `check:timing` all pass. **Half shipped, on purpose:** the pack ships an ambulance nobody parks,
   and a car seen from behind is still the generated picture for both north-south facings (decision
   11's limit, unchanged).
+
+- **Art — a picture per item base, 2026-09-26.** The glyph piece gave `appearance.sprite` a
+  reader and every base a shape chosen by its class; this slice gives the bases the outpost pack
+  depicts the pack's own inventory icon, on the floor and on the bag-grid plate. **Coverage,
+  counted by the gate rather than claimed: 72 of 362 bases draw one of 41 pack icons, and 290
+  fall back to their class's glyph** — `PICTURES OK 72 of 362 bases draw one of the pack's 41
+  icons and 290 fall back`. Forty-one of the pack's forty-eight icons are declared in
+  `godot/assets/sprites/authored.json` as kind `icon`, each a `source` pointing at
+  `art/simplyzombies/groups/items/icons/` at its own 32×32 canvas (no crop, no pad: the pack's
+  icons are already the ground-item canvas and anchored at its centre), reproduced byte for byte
+  by `tools/sprites/build.py`; keys stay sorted under the `item_*` prefix. Several bases share a
+  picture where the pack draws one thing the game grades: every calibre of pistol round draws
+  `item_pistol_rounds`, every shotshell `item_shells`, the three backpacks `item_backpack`, the
+  three antibiotic grades `item_antibiotics`, clean and untreated water `item_water_bottle` — so a
+  picture never says what the name has not (clause 4). **The seven icons not used, and why**:
+  `item-assault-rifle`, `item-map`, `item-key` and `item-repair-kit` have no shipped base;
+  `item-baseball-bat` is a wooden bat and the one bat is aluminium; `item-helmet` is a military
+  helmet and the shipped helmets are a bike helmet and a hard hat; `item-radio` is a walkie-talkie
+  and the shipped radio is a transistor set. Each is a picture choice for the owner or a later
+  base, not a gap this slice may fill by resemblance.
+  **Drawn**: the floor (`main.gd`'s `_draw_entities`) sizes a picture by
+  `Appearance.item_icon_px(zoom)` — `ITEM_ICON_FLOOR_SCALE` 0.5 of the world's pixel, half a tile
+  at every rung of the zoom ladder, a whole ratio of the art so nearest-neighbour drops whole
+  rows — rather than squeezing it into the glyph's third of a tile; the bag plate
+  (`ui/bag_grid.gd`'s `draw_item`) draws the largest whole multiple of the art that fits its
+  picture box, centred on a whole pixel. A base with no picture draws its glyph exactly as
+  before. No generator code or PNG retired: the generator never drew per-base item art, which is
+  why the glyph existed. `godot/sim/` untouched; no id branch in any draw code.
+  **Gated.** `check_authored.gd` gains an **ICON** lane: every kind-`icon` key is a picture at
+  the named `ICON_ALPHA` 128 (the pack's alpha 1–6 specks are not pixels), centred on its canvas
+  within `ICON_CENTRE_TOLERANCE` 2, clear of the edge, at the `occupiedSize` and `anchor` the
+  pack's own `manifest.json` gives; five fabrications (speck-only, corner-flush, a real corner
+  pixel, a wrong size, a wrong anchor) are refused and a speck beside a centred picture passes.
+  `check_appearance.gd` gains a **PICTURES** lane: every declared item sprite resolves at 32×32,
+  is an authored key and carries no tint; a base with no sprite resolves no texture; two grade
+  families (the antibiotics, the two waters) must draw one picture, proved to be able to say no
+  on a fabricated pair; and the floor loop and the bag plate are read as source with comments
+  stripped (quote-aware, so `main.gd`'s `Color("#…")` literals survive) and must pass the
+  `item_look` texture to `draw_texture_rect` — the floor at `item_icon_px` — in that order; a
+  commented-out draw, a missing draw, a misordered draw and an unsized floor draw are each
+  refused by fabrication, and the zoom ladder must stay a whole ratio with a third-of-a-tile draw
+  refused. **Sabotage pass, 2026-09-26**, each red and restored: the bag plate's
+  `draw_texture_rect` replaced by `pass` → `PICTURES: the bag plate does not pass an item_look
+  texture to draw_texture_rect`; the floor's draw commented out → `PICTURES: the ground-item loop
+  does not pass …`; `item.ammo.bolt`'s sprite renamed to an undeclared key → `declares sprite
+  'item_bolts_x' and item_look resolved no texture`; the veterinary antibiotics given
+  `item_painkillers` → `… draw different pictures; a picture must not say what the name has
+  not`. **Verified**: `APPEARANCE_OK`, `AUTHORED_OK` (`ICON OK 41 icons`, `READS OK 43 authored
+  keys`), `GODOT_CONTENT_OK`, `npm test` 45 files / 594 tests, `SPRITES_OK … 43 authored keys
+  reproduced from their source`, `INVENTORY_OK`, `HUD_OK`, `PLAY_OK`,
+  `GODOT_PROJECT_SMOKE_OK`, `ROUTING_OK`, `TIMING_OK`; the full `godot:m2` chain was not run on
+  the slice's machine and is run after merge. **What did not ship**: the quick strip and the
+  inspect pane still draw the class glyph (piece 6b); held weapons in the hand are their own
+  piece; 290 bases have no pack picture and keep the glyph until more art exists.
 
 - **World & map** — ~~the three location loot tables~~ **landed** (`godot:check:loot`): what a
   place yields is content now, not two hardcoded kits in `boot.gd`. `content/loot/tables.json`

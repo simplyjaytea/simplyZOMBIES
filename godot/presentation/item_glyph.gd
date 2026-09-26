@@ -4,7 +4,8 @@ extends RefCounted
 # `item.appearance.sprite` has been in the schema since the appearance pipeline landed and read by
 # nothing -- the twelfth dead socket of the milestone, and a dropped item was a fixed ten-pixel
 # square whatever it was. `Appearance.item_look` gives it a reader; this file is what it falls
-# back to when a base declares no art, which today is every base.
+# back to when a base declares no art -- since the outpost pack's icons landed, the bases the pack
+# does not depict (`godot:check:appearance`'s PICTURES lane counts them).
 #
 # It is keyed by **class**, never by id. `presentation/appearance.gd`'s standing rule is that a
 # per-id branch in the draw loop is exactly what the content `appearance` block replaced, and a

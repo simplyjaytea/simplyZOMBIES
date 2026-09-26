@@ -35,9 +35,10 @@ func _run() -> void:
 	ok = _equipped_gear_layers_resolve() and ok
 	ok = _props_look_like_something() and ok
 	ok = _items_look_like_something() and ok
+	ok = _item_pictures_are_real_and_drawn() and ok
 	ok = _the_body_chart_is_ten_parts_in_three_poses() and ok
 	if ok:
-		print("APPEARANCE_OK schema keys resolve, fallback intact, the player has a body, the roster resolves shared and distinct rigs, colonists wear the pack body with six tints, items resolve art or a class glyph, the body chart is ten parts in three poses")
+		print("APPEARANCE_OK schema keys resolve, fallback intact, the player has a body, the roster resolves shared and distinct rigs, colonists wear the pack body with six tints, items resolve art or a class glyph, the pack's item pictures are declared, gated and drawn on the floor and the bag plate, the body chart is ten parts in three poses")
 		quit(0)
 	else:
 		push_error("APPEARANCE_FAIL")
@@ -967,6 +968,219 @@ func _items_look_like_something() -> bool:
 		push_error("the inventory grid does not call Appearance.item_look, so a bag and the floor can disagree about a thing")
 		return false
 	print("ITEMS OK %d bases resolve a look, %d classes have %d distinct glyphs, declared art and tint win, and the ground and the grid both read it" % [bases, classes.size(), seen.size()])
+	return true
+
+
+# --- ITEM PICTURES ------------------------------------------------------------------------
+
+# The outpost pack's inventory icons became `appearance.sprite` for the bases they depict
+# (docs/23, "A picture per item base"). ITEMS above proves the reader; this lane proves the four
+# things a picture per base could get wrong, each with a true positive and a true negative:
+# every declared item sprite is a real authored icon, a picture never carries a tint that would
+# modulate it, two grades of one thing draw one picture (a picture must not say what the name
+# has not), and the floor and the bag plate both *draw* what `item_look` resolved.
+
+# Source text with every `#` comment removed, quote-aware: a needle a comment can satisfy cannot
+# fail (CLAUDE.md's READ_KEYS note), and `main.gd` carries `Color("#rrggbb")` literals a bare split
+# on `#` would cut in half.
+func _without_comments(text: String) -> String:
+	var out: Array[String] = []
+	for line in text.split("\n"):
+		var l: String = String(line)
+		var quote: String = ""
+		var cut: int = -1
+		for i in range(l.length()):
+			var c: String = l[i]
+			if quote != "":
+				if c == "\\":
+					continue
+				if c == quote and (i == 0 or l[i - 1] != "\\"):
+					quote = ""
+			elif c == "\"" or c == "'":
+				quote = c
+			elif c == "#":
+				cut = i
+				break
+		out.append(l if cut < 0 else l.substr(0, cut))
+	return "\n".join(out)
+
+
+# The text of one function: its signature line and everything indented after it.
+func _function_text(code: String, signature_prefix: String) -> String:
+	var lines: PackedStringArray = code.split("\n")
+	var start: int = -1
+	for i in range(lines.size()):
+		if String(lines[i]).begins_with(signature_prefix):
+			start = i
+			break
+	if start < 0:
+		return ""
+	var body: Array[String] = [String(lines[start])]
+	for i in range(start + 1, lines.size()):
+		var line: String = String(lines[i])
+		if line.strip_edges() != "" and not line.begins_with("\t") and not line.begins_with(" "):
+			break
+		body.append(line)
+	return "\n".join(body)
+
+
+# Whether `needles` appear in `code` in that order once comments are gone. One predicate for the
+# real functions and the fabrications that prove it.
+func _appears_in_order(code: String, needles: Array) -> bool:
+	var at: int = 0
+	var bare: String = _without_comments(code)
+	for needle in needles:
+		var found: int = bare.find(String(needle), at)
+		if found < 0:
+			return false
+		at = found + String(needle).length()
+	return true
+
+
+# The floor keeps a picture at a whole fraction of the world's pixel: one predicate over a size and
+# a zoom so the ladder and a fabricated 0.34-of-a-tile draw are judged by the same code.
+func _is_whole_ratio(px: float, native: float) -> bool:
+	if px <= 0.0:
+		return false
+	var down: float = native / px
+	var up: float = px / native
+	return is_equal_approx(down, roundf(down)) or is_equal_approx(up, roundf(up))
+
+
+func _the_floor_and_the_bag_draw_the_picture() -> bool:
+	var floor_needles: Array = ["Appearance.item_look(", "look[\"texture\"]", "Appearance.item_icon_px(", "draw_texture_rect("]
+	var bag_needles: Array = ["Appearance.item_look(", "look[\"texture\"]", "draw_texture_rect("]
+	var main_src: String = FileAccess.get_file_as_string("res://presentation/main.gd")
+	var bag_src: String = FileAccess.get_file_as_string("res://ui/bag_grid.gd")
+	var floor_fn: String = _function_text(main_src, "func _draw_entities(")
+	var bag_fn: String = _function_text(bag_src, "static func draw_item(")
+	if floor_fn.is_empty() or bag_fn.is_empty():
+		push_error("PICTURES: could not find _draw_entities in main.gd or draw_item in bag_grid.gd; the draw assertion is reading the wrong place")
+		return false
+
+	# True negatives first, on fabricated bodies, so the scanner is shown to fail before it is
+	# trusted on real code. The control is a body shaped like the real one.
+	var control: String = "var look = Appearance.item_look(world, id)\nvar art = look[\"texture\"]\nvar px = Appearance.item_icon_px(z)\ndraw_texture_rect(art, r, false, c)\n"
+	if not _appears_in_order(control, floor_needles):
+		push_error("PICTURES: the draw scanner refused a body that draws the picture; it would refuse the real ones")
+		return false
+	var fabrications: Array = [
+		["a draw call that is only a comment", "var look = Appearance.item_look(world, id)\nvar art = look[\"texture\"]\nvar px = Appearance.item_icon_px(z)\n# draw_texture_rect(art, r, false, c)\n"],
+		["a look that never reaches a texture draw", "var look = Appearance.item_look(world, id)\nvar px = Appearance.item_icon_px(z)\nItemGlyph.draw_glyph(self, r, 0, c)\n"],
+		["a draw before the look it should have drawn", "draw_texture_rect(art, r, false, c)\nvar look = Appearance.item_look(world, id)\nvar art = look[\"texture\"]\nvar px = Appearance.item_icon_px(z)\n"],
+		["a floor draw that never sizes the picture", "var look = Appearance.item_look(world, id)\nvar art = look[\"texture\"]\ndraw_texture_rect(art, glyph_rect, false, c)\n"],
+	]
+	for row in fabrications:
+		if _appears_in_order(String((row as Array)[1]), floor_needles):
+			push_error("PICTURES: the draw scanner accepted %s; it proves nothing" % String((row as Array)[0]))
+			return false
+
+	if not _appears_in_order(floor_fn, floor_needles):
+		push_error("PICTURES: the ground-item loop does not pass an `item_look` texture to draw_texture_rect at Appearance.item_icon_px; a declared item sprite would resolve and never reach the floor")
+		return false
+	if not _appears_in_order(bag_fn, bag_needles):
+		push_error("PICTURES: the bag plate does not pass an `item_look` texture to draw_texture_rect; a declared item sprite would resolve and never reach a bag")
+		return false
+
+	# The floor's size rule: a whole ratio to the art at every rung of the zoom ladder, and the
+	# old third-of-a-tile draw (21.76 px at zoom 64) is the case it refuses.
+	for zoom in CameraUtil.ZOOM_STEPS:
+		var px: float = Appearance.item_icon_px(float(zoom))
+		if not is_equal_approx(px, float(zoom) * Appearance.ITEM_ICON_FLOOR_SCALE) or not _is_whole_ratio(px, CameraUtil.ART_NATIVE):
+			push_error("PICTURES: an item picture at zoom %s is %s px; that is not a whole ratio of the %d px art" % [str(zoom), str(px), int(CameraUtil.ART_NATIVE)])
+			return false
+	if _is_whole_ratio(64.0 * 0.34, CameraUtil.ART_NATIVE):
+		push_error("PICTURES: the whole-ratio predicate accepted a third of a tile; it proves nothing")
+		return false
+	return true
+
+
+func _item_pictures_are_real_and_drawn() -> bool:
+	var w: Variant = World.new({"seed": 4243, "tick_hz": 20, "map": {"width": 8, "height": 8, "walls": []}, "player": {"id": 0, "x": 1.5, "y": 1.5, "stance": 2}})
+	var native: int = int(CameraUtil.ART_NATIVE)
+	var authored: Dictionary = Appearance.authored_canvases()
+	var pictured: int = 0
+	var fallback: int = 0
+	var keys: Dictionary = {}
+	var by_id: Dictionary = {}
+	for path in (w.content as Dictionary).keys():
+		if not String(path).begins_with("items/"):
+			continue
+		for entry in (w.content as Dictionary)[path] as Array:
+			var d: Dictionary = entry as Dictionary
+			var id: String = String(d.get("id", ""))
+			var block: Dictionary = d.get("appearance", {}) as Dictionary
+			var look: Dictionary = Appearance.item_look(w, id)
+			by_id[id] = String(block.get("sprite", ""))
+			if block.has("sprite"):
+				var key: String = String(block["sprite"])
+				if look["texture"] == null:
+					push_error("PICTURES: %s declares sprite '%s' and item_look resolved no texture" % [id, key])
+					return false
+				if Vector2i((look["texture"] as Texture2D).get_size()) != Vector2i(native, native):
+					push_error("PICTURES: %s's picture '%s' is not the %dx%d icon canvas" % [id, key, native, native])
+					return false
+				if not authored.has(key):
+					push_error("PICTURES: %s declares sprite '%s', which authored.json does not declare; a picture must be the pack's, sourced and gated" % [id, key])
+					return false
+				if bool(look["declaredTint"]):
+					push_error("PICTURES: %s declares a tint beside sprite '%s'; the tint would modulate the pack's art" % [id, key])
+					return false
+				keys[key] = true
+				pictured += 1
+			else:
+				if look["texture"] != null:
+					push_error("PICTURES: %s declares no sprite and item_look resolved a texture anyway" % id)
+					return false
+				fallback += 1
+	if pictured == 0 or fallback == 0:
+		push_error("PICTURES: %d bases have a picture and %d fall back; the lane needs both to judge either" % [pictured, fallback])
+		return false
+
+	# A picture must not say what the name has not: the grades of one medicine, and clean and
+	# untreated water, draw one picture. One predicate over two ids; the fabrications prove it can
+	# say no, so "they share a key" is not a comparison that always passes.
+	var tree: Dictionary = w.content as Dictionary
+	tree["items/_gate_pictures.json"] = [
+		{"id": "item.gate.twin_a", "name": "Twin A", "class": "consumable", "size": {"w": 1, "h": 1}, "massKg": 0.1, "appearance": {"sprite": "item_antibiotics"}},
+		{"id": "item.gate.twin_b", "name": "Twin B", "class": "consumable", "size": {"w": 1, "h": 1}, "massKg": 0.1, "appearance": {"sprite": "item_antibiotics"}},
+		{"id": "item.gate.other", "name": "Other", "class": "consumable", "size": {"w": 1, "h": 1}, "massKg": 0.1, "appearance": {"sprite": "item_painkillers"}},
+	]
+	w.content_resolved = {}
+	if not _draw_one_picture(w, ["item.gate.twin_a", "item.gate.twin_b"]):
+		push_error("PICTURES: two bases declaring one key were judged to draw different pictures")
+		return false
+	if _draw_one_picture(w, ["item.gate.twin_a", "item.gate.other"]):
+		push_error("PICTURES: two bases declaring different keys were judged to draw one picture; the grade check proves nothing")
+		return false
+	for family in [
+		["item.antibiotics.course", "item.antibiotics.veterinary", "item.antibiotics.expired"],
+		["item.water.bottle", "item.water.bottle.untreated"],
+	]:
+		for id in family as Array:
+			if not by_id.has(String(id)) or String(by_id[String(id)]).is_empty():
+				push_error("PICTURES: %s is in a grade family that must draw one picture and declares none" % String(id))
+				return false
+		if not _draw_one_picture(w, family as Array):
+			push_error("PICTURES: %s draw different pictures; a picture must not say what the name has not" % str(family))
+			return false
+
+	if not _the_floor_and_the_bag_draw_the_picture():
+		return false
+	print("PICTURES OK %d of %d bases draw one of the pack's %d icons and %d fall back to their class's glyph; every declared item sprite resolves at %dx%d, is an authored key and carries no tint; the antibiotic grades and the two waters draw one picture; the floor and the bag plate both draw what item_look resolved, and a comment, a missing draw, a misordered draw and an unsized floor draw are each refused" % [pictured, pictured + fallback, keys.size(), fallback, native, native])
+	return true
+
+
+func _draw_one_picture(w: Variant, ids: Array) -> bool:
+	var first: Variant = null
+	for id in ids:
+		var tex: Variant = Appearance.item_look(w, String(id))["texture"]
+		if tex == null:
+			return false
+		if first == null:
+			first = tex
+		elif tex != first:
+			return false
 	return true
 
 

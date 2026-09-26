@@ -469,6 +469,14 @@ Each of these was found the expensive way. They are not style opinions.
   `* text=auto eol=lf`, so a fresh clone is LF everywhere; an older checkout needs
   `git config core.autocrlf false` and a fresh checkout (`git rm -rq --cached . && git reset
   --hard`, with any work stashed first).
+- **A clean git merge can leave a content object with the same key twice.** On 2026-09-26 one
+  branch added `"appearance": {"sprite": …}` above an item's `equipSlot` and another added
+  `"appearance": {"equipSprite": …}` below it; git saw two different hunks and merged both without
+  a conflict. Every JSON reader here, Godot's and Ajv's alike, keeps the *last* duplicate without a
+  word, so `godot:validate` and `npm test` were green while the item had silently lost its icon —
+  only `godot:check:authored`'s READS lane noticed, because the art it declared was now read by
+  nothing. After merging branches that both touched `godot/content/`, scan for duplicate keys
+  (Python's `json.load(..., object_pairs_hook=...)` sees them) before trusting a green validator.
 - **Throughput, measured:** ~1,085 ticks/second headless on this container, so a game day (288,000
   ticks) is about three minutes and a ten-day campaign about forty-five. Anything phrased as "run
   a few campaigns" is an overnight job — check the arithmetic before promising a grid.

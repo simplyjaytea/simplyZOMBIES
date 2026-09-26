@@ -763,6 +763,19 @@ static func blit_scale(zoom: float) -> float:
 	return zoom / CameraUtil.ART_NATIVE
 
 
+# The screen side of one item picture lying on the floor at this zoom. The pack's inventory icons
+# are 32x32 (docs/30, "The outpost pack, adopted"), so drawing one at the world's own pixel would
+# fill a whole tile with a pistol; half of it is half a tile, and `blit_scale` keeps it a power of
+# two at every rung of the ladder so nearest-neighbour drops whole rows. A bag plate is a different
+# question (`ui/bag_grid.gd` picks the largest whole multiple of the art that fits) and a base with
+# no picture draws its glyph at a third of a tile as it always did.
+const ITEM_ICON_FLOOR_SCALE: float = 0.5
+
+
+static func item_icon_px(zoom: float) -> float:
+	return CameraUtil.ART_NATIVE * blit_scale(zoom) * ITEM_ICON_FLOOR_SCALE
+
+
 # Whether a body is moving, read off its velocity component -- the peripheral-glimpse test.
 #
 # A missing component is *motionless, not unknown*: SimRecruits' corpse-making removes
