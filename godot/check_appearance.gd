@@ -13,6 +13,7 @@ const Appearance = preload("res://presentation/appearance.gd")
 const CameraUtil = preload("res://presentation/camera.gd")
 const Palette = preload("res://presentation/palette.gd")
 const ItemGlyph = preload("res://presentation/item_glyph.gd")
+const ItemPicture = preload("res://ui/item_picture.gd")
 const SimCondition = preload("res://sim/condition.gd")
 
 const SPRITE_DIR: String = "res://assets/sprites"
@@ -1049,7 +1050,7 @@ func _is_whole_ratio(px: float, native: float) -> bool:
 
 func _the_floor_and_the_bag_draw_the_picture() -> bool:
 	var floor_needles: Array = ["Appearance.item_look(", "look[\"texture\"]", "Appearance.item_icon_px(", "draw_texture_rect("]
-	var bag_needles: Array = ["Appearance.item_look(", "look[\"texture\"]", "draw_texture_rect("]
+	var bag_needles: Array = ["Appearance.item_look(", "ItemPicture.draw("]
 	var main_src: String = FileAccess.get_file_as_string("res://presentation/main.gd")
 	var bag_src: String = FileAccess.get_file_as_string("res://ui/bag_grid.gd")
 	var floor_fn: String = _function_text(main_src, "func _draw_entities(")
@@ -1079,7 +1080,7 @@ func _the_floor_and_the_bag_draw_the_picture() -> bool:
 		push_error("PICTURES: the ground-item loop does not pass an `item_look` texture to draw_texture_rect at Appearance.item_icon_px; a declared item sprite would resolve and never reach the floor")
 		return false
 	if not _appears_in_order(bag_fn, bag_needles):
-		push_error("PICTURES: the bag plate does not pass an `item_look` texture to draw_texture_rect; a declared item sprite would resolve and never reach a bag")
+		push_error("PICTURES: the bag plate does not hand an `item_look` to ItemPicture.draw; a declared item sprite would resolve and never reach a bag")
 		return false
 
 	# The floor's size rule: a whole ratio to the art at every rung of the zoom ladder, and the
@@ -1091,6 +1092,107 @@ func _the_floor_and_the_bag_draw_the_picture() -> bool:
 			return false
 	if _is_whole_ratio(64.0 * 0.34, CameraUtil.ART_NATIVE):
 		push_error("PICTURES: the whole-ratio predicate accepted a third of a tile; it proves nothing")
+		return false
+	return true
+
+
+# The quick strip and the inspect pane draw the picture the bag plate and the floor draw
+# (docs/23, "Item pictures in the quick strip / inspect pane"). Three things could go wrong, each
+# with a true positive and a true negative: a screen could stop calling the shared draw, the shared
+# draw could stop reaching a texture (or lose the glyph a base without a picture wears), and the
+# inventory sheet could stop handing the strip and the pane the world they resolve a picture
+# against. The bag plate rides the same predicates, so all three screens are held to one rule.
+func _the_strip_and_the_inspector_draw_the_picture() -> bool:
+	var caller_needles: Array = ["Appearance.item_look(", "ItemPicture.draw("]
+	var draw_needles: Array = ["look[\"texture\"]", "draw_texture_rect(", "ItemGlyph.draw_glyph("]
+	var callers: Array = [
+		["the quick strip", "res://ui/quick_strip.gd", "static func draw_strip("],
+		["the inspect pane", "res://ui/inspect_pane.gd", "static func draw_pane("],
+		["the bag plate", "res://ui/bag_grid.gd", "static func draw_item("],
+	]
+
+	# True negatives first, on fabricated bodies, so the scanners are shown to fail before they are
+	# trusted on real code.
+	var caller_control: String = "var look = Appearance.item_look(world, base)\nItemPicture.draw(ci, box, look, a)\n"
+	var draw_control: String = "var art = look[\"texture\"]\nci.draw_texture_rect(art, r, false, c)\nItemGlyph.draw_glyph(ci, box, 0, c)\n"
+	if not _appears_in_order(caller_control, caller_needles) or not _appears_in_order(draw_control, draw_needles):
+		push_error("PICTURES: a scanner refused a body shaped like the real one; it would refuse the real ones")
+		return false
+	var refused: Array = [
+		["a draw that is only a comment", caller_needles, "var look = Appearance.item_look(world, base)\n# ItemPicture.draw(ci, box, look, a)\n"],
+		["a look that is never drawn", caller_needles, "var look = Appearance.item_look(world, base)\nItemGlyph.draw_glyph(ci, box, 0, c)\n"],
+		["a draw made before the look", caller_needles, "ItemPicture.draw(ci, box, look, a)\nvar look = Appearance.item_look(world, base)\n"],
+		["a shared draw whose texture draw is only a comment", draw_needles, "var art = look[\"texture\"]\n# ci.draw_texture_rect(art, r, false, c)\nItemGlyph.draw_glyph(ci, box, 0, c)\n"],
+		["a shared draw with no glyph for a base with no picture", draw_needles, "var art = look[\"texture\"]\nci.draw_texture_rect(art, r, false, c)\n"],
+	]
+	for row in refused:
+		if _appears_in_order(String((row as Array)[2]), (row as Array)[1] as Array):
+			push_error("PICTURES: a scanner accepted %s; it proves nothing" % String((row as Array)[0]))
+			return false
+
+	for c in callers:
+		var src: String = FileAccess.get_file_as_string(String((c as Array)[1]))
+		var fn: String = _function_text(src, String((c as Array)[2]))
+		if fn.is_empty():
+			push_error("PICTURES: could not find %s in %s; the draw assertion is reading the wrong place" % [String((c as Array)[2]), String((c as Array)[1])])
+			return false
+		if not _appears_in_order(fn, caller_needles):
+			push_error("PICTURES: %s does not hand an `Appearance.item_look` to ItemPicture.draw; an item's picture would resolve and never reach it" % String((c as Array)[0]))
+			return false
+	var shared: String = _function_text(FileAccess.get_file_as_string("res://ui/item_picture.gd"), "static func draw(")
+	if not _appears_in_order(shared, draw_needles):
+		push_error("PICTURES: ItemPicture.draw does not reach a texture draw and then a glyph fallback; a declared sprite or a base with none would draw nothing")
+		return false
+
+	# The calls in the inventory sheet hand the screens the world they resolve a picture against.
+	var sheet: String = _without_comments(FileAccess.get_file_as_string("res://ui/inventory_panel.gd"))
+	var calls: Array[String] = ["QuickStrip.draw_strip(", "InspectPane.draw_pane("]
+	var seen_calls: int = 0
+	for line in sheet.split("\n"):
+		for call in calls:
+			if String(line).contains(call):
+				seen_calls += 1
+				if not String(line).strip_edges().ends_with("_world)"):
+					push_error("PICTURES: inventory_panel.gd calls %s without the world, so nothing can be resolved to a picture: %s" % [call, String(line).strip_edges()])
+					return false
+	if seen_calls < 3:
+		push_error("PICTURES: inventory_panel.gd has %d calls into the strip and the pane; the lane expected the strip twice and the pane once" % seen_calls)
+		return false
+	if "QuickStrip.draw_strip(self, r, rows, 1.0)".ends_with("_world)"):
+		push_error("PICTURES: the world-argument predicate accepted a call with no world; it proves nothing")
+		return false
+
+	# What the two screens resolve, against a real world: an item's base comes back from the item
+	# entity alone (the strip's rows and the inspect view carry no base id, and none may carry a
+	# digit), a pictured base draws its icon and one without draws its glyph, and a thing that is
+	# not an item resolves to nothing rather than to somebody else's picture.
+	var w: Variant = World.new({"seed": 4244, "tick_hz": 20, "map": {"width": 8, "height": 8, "walls": []}, "player": {"id": 0, "x": 1.5, "y": 1.5, "stance": 2}})
+	var pictured_id: String = "item.antibiotics.course"
+	var plain_id: String = ""
+	for path in (w.content as Dictionary).keys():
+		if not String(path).begins_with("items/"):
+			continue
+		for entry in (w.content as Dictionary)[path] as Array:
+			var d: Dictionary = entry as Dictionary
+			if plain_id.is_empty() and not (d.get("appearance", {}) as Dictionary).has("sprite"):
+				plain_id = String(d.get("id", ""))
+	var with_picture: int = w.entities.spawn()
+	w.components.set_component(with_picture, "itemBase", {"baseId": pictured_id})
+	var without: int = w.entities.spawn()
+	w.components.set_component(without, "itemBase", {"baseId": plain_id})
+	var not_an_item: int = w.entities.spawn()
+	if ItemPicture.base_of(w, with_picture) != pictured_id or ItemPicture.base_of(w, without) != plain_id:
+		push_error("PICTURES: ItemPicture.base_of did not return the base an item entity carries")
+		return false
+	if not ItemPicture.base_of(w, not_an_item).is_empty() or not ItemPicture.base_of(w, -1).is_empty() or not ItemPicture.base_of(null, with_picture).is_empty():
+		push_error("PICTURES: ItemPicture.base_of resolved a base for something that is not an item")
+		return false
+	if Appearance.item_look(w, ItemPicture.base_of(w, with_picture))["texture"] == null:
+		push_error("PICTURES: the strip's item %s resolves no picture, though it declares one" % pictured_id)
+		return false
+	var plain: Dictionary = Appearance.item_look(w, ItemPicture.base_of(w, without))
+	if plain_id.is_empty() or plain["texture"] != null:
+		push_error("PICTURES: the strip's item '%s', which declares no picture, resolved one or nothing at all" % plain_id)
 		return false
 	return true
 
@@ -1167,7 +1269,9 @@ func _item_pictures_are_real_and_drawn() -> bool:
 
 	if not _the_floor_and_the_bag_draw_the_picture():
 		return false
-	print("PICTURES OK %d of %d bases draw one of the pack's %d icons and %d fall back to their class's glyph; every declared item sprite resolves at %dx%d, is an authored key and carries no tint; the antibiotic grades and the two waters draw one picture; the floor and the bag plate both draw what item_look resolved, and a comment, a missing draw, a misordered draw and an unsized floor draw are each refused" % [pictured, pictured + fallback, keys.size(), fallback, native, native])
+	if not _the_strip_and_the_inspector_draw_the_picture():
+		return false
+	print("PICTURES OK %d of %d bases draw one of the pack's %d icons and %d fall back to their class's glyph; every declared item sprite resolves at %dx%d, is an authored key and carries no tint; the antibiotic grades and the two waters draw one picture; the floor and the bag plate both draw what item_look resolved, and a comment, a missing draw, a misordered draw and an unsized floor draw are each refused; the bag plate, the quick strip and the inspect pane draw it through one ItemPicture.draw, the sheet hands the last two its world, and a pictured base draws its icon on the strip while one without falls back to its class's glyph" % [pictured, pictured + fallback, keys.size(), fallback, native, native])
 	return true
 
 
