@@ -37,12 +37,22 @@
     "           by the same lane, so the spec cannot drift from the art that already meets it.",
     "  overlay  a piece of equipment composited onto a body. WORN_LOOK_OK owns its fit.",
     "  tile     a tile-sized picture seen from above, centred on its ground point.",
-    "  pack_rig / pack_overlay / module / sheet / prop",
-    "           placeholders for the outpost pack's later slices -- bodies that turn and walk,",
-    "           worn gear, wall modules, animated effect sheets, and prop pictures generally.",
-    "           MANIFEST accepts them today; no shape lane judges one yet, and each gains one",
-    "           when the slice that reads it lands (docs/23's 'Art & renderer -- the outpost",
-    "           pack' group).",
+    "  icon     an inventory picture: one item base seen from above on a 32x32 canvas, centred on",
+    "           the ground point and drawn on the floor and on a bag plate (`godot:check:authored`'s ICON",
+    "           lane; `godot:check:appearance`'s ITEMS lane owns the draw).",
+    "  pack_rig / pack_overlay",
+    "           a body that turns and walks, and a wearable that turns with it -- the outpost",
+    "           pack's survivor and shambler, and its vest, helmet, gas mask and backpack.",
+    "           `godot:check:authored`'s PACK lane judges both (since 2026-09-26).",
+    "  module / sheet / prop",
+    "           placeholders for the outpost pack's later slices -- wall modules, animated",
+    "           effect sheets, and prop pictures generally. MANIFEST accepts them today; no shape",
+    "           lane judges one yet, and each gains one when the slice that reads it lands",
+    "           (docs/23's 'Art & renderer -- the outpost pack' group).",
+    "  vehicle  a parked car's east-west picture, from the outpost pack (docs/23's 'The cars",
+    "           are the pack's, east-west'). Cropped to its anchor row, never padded, so the",
+    "           renderer's feet anchor is the pack's own. check_wrecks.gd's PACK lane is its",
+    "           shape lane: the painted span sets the class's `lEw`, and nothing else does.",
     "",
     "`reads` names what draws it -- a content id whose appearance block declares the key. Art",
     "nothing reads is the dead-socket shape this project has paid for twelve times, so the gate",
@@ -51,9 +61,1183 @@
     "one loaded -- two bases sharing one icon are both allowed to claim it.",
     "",
     "Optional `anchor: [x, y]` (pixels) and `palette: \"generator\"|\"pack\"` are accepted by",
-    "MANIFEST for later slices to read; nothing draws from either yet."
+    "MANIFEST for later slices to read; nothing draws from either yet.",
+    "",
+    "A family that TURNS names its members by one convention, and the renderer finds them by it",
+    "(presentation/appearance.gd's `frame_key`): `<family>_<view>` is the picture standing still",
+    "facing s, e, n or w, and `<family>_walk_<view>_<frame>` is one frame of the walk that way.",
+    "`resolve(<family>)` answers the `_s` member, the picture a body at rest shows, so a content",
+    "entry names the family key exactly as it would name one file. Two more fields, each a COPY",
+    "of the pack's own `godot/art/simplyzombies/manifest.json`, because the renderer never loads",
+    "that file (a runtime reader of the pack would be a second path to the art) and the gate is",
+    "what holds the copy to it (`godot:check:authored`'s PACK lane):",
+    "  fps  the walk's frames per second, a pack_rig's `fps.walk`; the frame is chosen from",
+    "       `world.tick` with integer arithmetic, so it is the same on every machine.",
+    "  z    per view, a pack_overlay's `z_by_direction`; below zero it draws under the body, which",
+    "       is how the backpack hangs behind a body seen from the side.",
+    "Every member is cropped 32x48 -> 32x40 on the pack's own anchor row (the soles stay on row",
+    "39); what the crop drops is only the pack's sub-visible specks, and PACK proves that too."
   ],
   "keys": {
+    "body_shambler": {
+      "canvas": [
+        32,
+        40
+      ],
+      "kind": "pack_rig",
+      "reads": "zombie.shambler",
+      "palette": "pack",
+      "fps": 5,
+      "members": {
+        "body_shambler_s": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_s.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_e": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_e.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_n": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_n.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_w": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_w.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_s_0": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_s_00.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_s_1": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_s_01.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_s_2": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_s_02.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_s_3": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_s_03.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_e_0": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_e_00.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_e_1": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_e_01.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_e_2": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_e_02.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_e_3": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_e_03.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_n_0": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_n_00.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_n_1": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_n_01.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_n_2": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_n_02.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_n_3": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_n_03.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_w_0": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_w_00.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_w_1": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_w_01.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_w_2": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_w_02.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_shambler_walk_w_3": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/shambler_walk_w_03.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        }
+      }
+    },
+    "body_survivor": {
+      "canvas": [
+        32,
+        40
+      ],
+      "kind": "pack_rig",
+      "reads": "player.body",
+      "palette": "pack",
+      "fps": 8,
+      "members": {
+        "body_survivor_s": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_s.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_e": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_e.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_n": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_n.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_w": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_w.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_s_0": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_s_00.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_s_1": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_s_01.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_s_2": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_s_02.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_s_3": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_s_03.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_e_0": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_e_00.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_e_1": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_e_01.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_e_2": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_e_02.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_e_3": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_e_03.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_n_0": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_n_00.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_n_1": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_n_01.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_n_2": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_n_02.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_n_3": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_n_03.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_w_0": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_w_00.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_w_1": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_w_01.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_w_2": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_w_02.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "body_survivor_walk_w_3": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/survivor_walk_w_03.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        }
+      }
+    },
+    "item_antibiotics": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.antibiotics.course",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-antibiotics.png"
+      }
+    },
+    "item_antiseptic": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.antiseptic.bottle",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-antiseptic.png"
+      }
+    },
+    "item_apple": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.food.apples",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-apple.png"
+      }
+    },
+    "item_arrows": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.ammo.arrow",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-arrows.png"
+      }
+    },
+    "item_backpack": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.pack.hiking",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-backpack.png"
+      }
+    },
+    "item_bandage_roll": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.bandage.cloth",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-bandage-roll.png"
+      }
+    },
+    "item_battery": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.battery",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-battery.png"
+      }
+    },
+    "item_binoculars": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.binoculars.field",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-binoculars.png"
+      }
+    },
+    "item_bolt_rifle": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.rifle.hunting",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-bolt-rifle.png"
+      }
+    },
+    "item_bolts": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.ammo.bolt",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-bolts.png"
+      }
+    },
+    "item_bow": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.bow.hunting",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-bow.png"
+      }
+    },
+    "item_bread": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.food.bread.stale",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-bread.png"
+      }
+    },
+    "item_cloth": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.cloth.bolt",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-cloth.png"
+      }
+    },
+    "item_crossbow": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.crossbow.hunting",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-crossbow.png"
+      }
+    },
+    "item_crowbar": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.crowbar.steel",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-crowbar.png"
+      }
+    },
+    "item_electronics": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.circuit.board",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-electronics.png"
+      }
+    },
+    "item_empty_magazine": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.part.magazine.standard",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-empty-magazine.png"
+      }
+    },
+    "item_first_aid_kit": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.medkit.field",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-first-aid-kit.png"
+      }
+    },
+    "item_flashlight": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.torch.handheld",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-flashlight.png"
+      }
+    },
+    "item_fuel_can": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.jerrycan.fuel",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-fuel-can.png"
+      }
+    },
+    "item_gas_mask": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.mask.gas",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-gas-mask.png"
+      }
+    },
+    "item_gear_backpack": {
+      "canvas": [
+        32,
+        40
+      ],
+      "kind": "pack_overlay",
+      "reads": "item.pack.hiking",
+      "palette": "pack",
+      "z": {
+        "s": 3,
+        "e": -1,
+        "n": 3,
+        "w": -1
+      },
+      "members": {
+        "item_gear_backpack_s": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-backpack-s.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "item_gear_backpack_e": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-backpack-e.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "item_gear_backpack_n": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-backpack-n.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "item_gear_backpack_w": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-backpack-w.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        }
+      }
+    },
+    "item_gear_gasmask": {
+      "canvas": [
+        32,
+        40
+      ],
+      "kind": "pack_overlay",
+      "reads": "item.mask.gas",
+      "palette": "pack",
+      "z": {
+        "s": 4,
+        "e": 4,
+        "n": 4,
+        "w": 4
+      },
+      "members": {
+        "item_gear_gasmask_s": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-gasmask-s.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "item_gear_gasmask_e": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-gasmask-e.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "item_gear_gasmask_n": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-gasmask-n.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "item_gear_gasmask_w": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-gasmask-w.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        }
+      }
+    },
+    "item_gear_helmet": {
+      "canvas": [
+        32,
+        40
+      ],
+      "kind": "pack_overlay",
+      "reads": "item.helmet.bike",
+      "palette": "pack",
+      "z": {
+        "s": 5,
+        "e": 5,
+        "n": 5,
+        "w": 5
+      },
+      "members": {
+        "item_gear_helmet_s": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-helmet-s.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "item_gear_helmet_e": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-helmet-e.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "item_gear_helmet_n": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-helmet-n.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "item_gear_helmet_w": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-helmet-w.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        }
+      }
+    },
+    "item_gear_vest": {
+      "canvas": [
+        32,
+        40
+      ],
+      "kind": "pack_overlay",
+      "reads": "item.vest.carrier",
+      "palette": "pack",
+      "z": {
+        "s": 2,
+        "e": 2,
+        "n": 2,
+        "w": 2
+      },
+      "members": {
+        "item_gear_vest_s": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-vest-s.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "item_gear_vest_e": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-vest-e.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "item_gear_vest_n": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-vest-n.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        },
+        "item_gear_vest_w": {
+          "source": {
+            "path": "art/simplyzombies/groups/wearables/native/gear-vest-w.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        }
+      }
+    },
+    "item_hatchet": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.hatchet.camp",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-hatchet.png"
+      }
+    },
+    "item_kitchen_knife": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.knife.kitchen",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-kitchen-knife.png"
+      }
+    },
+    "item_mre": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.food.ration",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-mre.png"
+      }
+    },
+    "item_painkillers": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.painkillers.blister",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-painkillers.png"
+      }
+    },
+    "item_pistol": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.pistol.service",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-pistol.png"
+      }
+    },
+    "item_pistol_rounds": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.ammo.9mm",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-pistol-rounds.png"
+      }
+    },
+    "item_pump_shotgun": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.shotgun.pump",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-pump-shotgun.png"
+      }
+    },
+    "item_revolver": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.revolver.snub",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-revolver.png"
+      }
+    },
+    "item_rifle_rounds": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.ammo.rifle",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-rifle-rounds.png"
+      }
+    },
+    "item_scrap": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.scrap.metal",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-scrap.png"
+      }
+    },
+    "item_shells": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.ammo.12g",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-shells.png"
+      }
+    },
+    "item_smg": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.smg.compact",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-smg.png"
+      }
+    },
+    "item_splint": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.splint.kit",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-splint.png"
+      }
+    },
+    "item_tin_beans": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.food.canned",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-tin-beans.png"
+      }
+    },
+    "item_tinned_meat": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.food.dogfood.tin",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-tinned-meat.png"
+      }
+    },
+    "item_toolkit": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.toolbox.steel",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-toolkit.png"
+      }
+    },
+    "item_vest": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.vest.carrier",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-vest.png"
+      }
+    },
+    "item_water_bottle": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.water.bottle",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-water-bottle.png"
+      }
+    },
+    "item_wire": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.wire.copper",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-wire.png"
+      }
+    },
+    "item_wood_planks": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.plank.sawn",
+      "source": {
+        "path": "art/simplyzombies/groups/items/icons/item-wood-planks.png"
+      }
+    },
     "prop_container": {
       "canvas": [
         32,
@@ -74,6 +1258,108 @@
       "reads": "prop.container.searched",
       "source": {
         "path": "art/simplyzombies/groups/props/native/prop-wood-crate-empty.png"
+      }
+    },
+    "vehicle_sedan_intact_ew": {
+      "canvas": [
+        96,
+        47
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.sedan",
+      "source": {
+        "path": "art/simplyzombies/groups/utility/native/vehicle-hatchback-intact.png",
+        "crop": [
+          0,
+          0,
+          96,
+          47
+        ]
+      }
+    },
+    "vehicle_sedan_wreck_ew": {
+      "canvas": [
+        96,
+        47
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.sedan",
+      "source": {
+        "path": "art/simplyzombies/groups/utility/native/vehicle-hatchback-wreck.png",
+        "crop": [
+          0,
+          0,
+          96,
+          47
+        ]
+      }
+    },
+    "vehicle_truck_intact_ew": {
+      "canvas": [
+        112,
+        55
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.truck",
+      "source": {
+        "path": "art/simplyzombies/groups/utility/native/vehicle-pickup-intact.png",
+        "crop": [
+          0,
+          0,
+          112,
+          55
+        ]
+      }
+    },
+    "vehicle_truck_wreck_ew": {
+      "canvas": [
+        112,
+        55
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.truck",
+      "source": {
+        "path": "art/simplyzombies/groups/utility/native/vehicle-pickup-wreck.png",
+        "crop": [
+          0,
+          0,
+          112,
+          55
+        ]
+      }
+    },
+    "vehicle_van_intact_ew": {
+      "canvas": [
+        112,
+        55
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.van",
+      "source": {
+        "path": "art/simplyzombies/groups/utility/native/vehicle-van-intact.png",
+        "crop": [
+          0,
+          0,
+          112,
+          55
+        ]
+      }
+    },
+    "vehicle_van_wreck_ew": {
+      "canvas": [
+        112,
+        55
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.van",
+      "source": {
+        "path": "art/simplyzombies/groups/utility/native/vehicle-van-wreck.png",
+        "crop": [
+          0,
+          0,
+          112,
+          55
+        ]
       }
     }
   }

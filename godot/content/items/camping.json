@@ -191,7 +191,8 @@
     "description": "Rubber-armoured and fogged in one barrel. The good barrel still brings a far street close enough to argue about.",
     "class": "material",
     "size": { "w": 2, "h": 2 },
-    "massKg": 0.8
+    "massKg": 0.8,
+    "appearance": { "sprite": "item_binoculars" }
   },
   {
     "id": "item.fishing.rod",

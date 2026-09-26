@@ -2,6 +2,26 @@
 
 Drop a PNG here and a content entry can use it. No code change, no editor round-trip.
 
+## The bodies turn, as of 2026-09-26 — read this first
+
+"The bodies turn and walk" (docs/23's record; docs/30, "The outpost pack, adopted", decision 1)
+moved every human — the player, Mara, Ellis, the colonist looks, every raider — onto the outpost
+pack's one survivor, and the shambler (with the stalker, runner, armoured and heavy that wear it)
+onto the pack's shambler. Each is a **family** in `authored.json`: four idle views and a
+four-frame walk each way, `body_survivor_s` / `body_survivor_walk_e_2` and so on, every member
+cropped from the pack's 32×48 to **32×40 on its own anchor row**, so the soles stay on row 39
+and every rule about the feet below still holds. A body that turns is **never mirrored** — the
+pack draws its own west view — and its walk frame is chosen from `world.tick` at the pack's own
+frame rate (`Appearance.frame_key`). The pack's vest, helmet, gas mask and backpack are families
+of four views too (`item_gear_*`), layered over or under the body per view by the pack's own
+`z`. Raiders wear the one body under one shared tint.
+
+What the rest of this file describes — the face-on pawn, flipped, and the generated rigs — is
+now **the screamer and the bloater only**, the two bodies the pack does not draw, plus every
+face-on equip overlay, which draws on a turning body's south view and on no other until "Pack gear
+on the body" retires them (docs/23). The six generated human and shambler rigs and the eight
+overlays the pack's backpack and helmet replaced were deleted in that commit.
+
 ## The pawn convention, as of 2026-09-08 — read this before the sections below
 
 The owner moved the art to **the Dungeon Settlers look** on 2026-09-03 (docs/30, "The Dungeon
@@ -204,11 +224,14 @@ several `members`, each a key with its own `source`, sharing the family's `canva
 is one declaration but many pictures, such as a walk cycle's frames; the family key names no file
 of its own.
 
-**Known limit, named rather than discovered.** An authored rig is not yet in
-`Appearance.PAWN_KEYS`, which `check_topdown.gd`'s flip lane iterates and `check_worn.gd`'s rig
-scan counts — and that count asserts exactly eight. The slice that lands the first commissioned
-body widens both, and widens `check_worn.gd`'s FITS envelope with them, so that equipment is
-measured against the new body too.
+**How the pack's bodies are judged.** They are kind `pack_rig` and `pack_overlay`, not `rig`, so
+`check_authored.gd`'s SPEC outline rule and its colour lanes never see them (docs/30: geometry
+gated, colour not). Its PACK lane holds their geometry instead, at a named alpha threshold
+(`ALPHA_SOLID`, 128 — the pack's frames carry sub-visible specks to the canvas edges): members
+complete by name, `fps` and `z` equal to the pack manifest's, every crop ending on the anchor row
+and dropping only specks, idle soles on the bottom row, and every wearable view exactly on the
+manifest's own `fit`. `check_topdown.gd`'s TURN lane and `check_worn.gd`'s TURNS lane judge the
+renderer's side of the same families.
 
 ## The convention
 

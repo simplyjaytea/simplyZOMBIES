@@ -541,13 +541,13 @@ projection are untouched.
   see the record (`npm run sprites:check`'s reproduction; `npm run godot:check:authored` → the
   new SOURCE lane and the widened READS lane; `npm run godot:check:appearance` → PROPS at the
   pack's own footprint).
-- **The bodies turn and walk.** The pack's four-direction survivor, its four-frame walk keyed to
-  `world.tick`, and its four wearables per direction (vest, helmet, gasmask, backpack; 16
-  directional overlay PNGs) become the look for every human in the game — the player, Mara,
-  Ellis, the colonist template, the raider — replacing five of the generated tier's eight rigs
-  and their overlays; the pack's shambler replaces the generated one the same way. The screamer
-  and the bloater, which the pack does not supply, keep their generated rigs (decision 2 of the
-  record entry) until a later fixture round or a pack update grows more bodies.
+- ~~**The bodies turn and walk.**~~ — **landed** 2026-09-26, see the record
+  (`npm run godot:check:authored` PACK, `godot:check:topdown` TURN, `godot:check:worn` TURNS).
+- **Pack gear on the body.** The half "The bodies turn and walk" left: retire the 43 face-on
+  generated equip overlays (51 before that slice) and their `parts/gear.py` code, per docs/30's
+  "The whole outpost pack". Until it lands a face-on overlay -- every held weapon, jacket, cap,
+  trousers, the duffel -- draws on a turning body's south view only and vanishes on the e, n and
+  w views. Lands with "Held weapons in the hand" below.
 - **The ground is the pack's.** An atlas composed from the pack's twelve terrain tiles and eight
   ground overlays, in `Appearance.GROUND_ATLAS_KEY`'s place; the palette rows the road and weather
   lanes hold to are regraded to the pack's own means rather than the generator's.
@@ -558,15 +558,15 @@ projection are untouched.
   half pieces, y-sorted on the run's south edge in place of the generated thick-mass wall and cap
   (decision 3 of the record entry; supersedes "walls gain thickness" and absorbs "the wall face
   hangs south," both above).
-- **A picture per item base.** Moved into this group 2026-09-17 from the inventory-sheet group
-  below: the pack's 48 inventory icons, already at the ground-item canvas, land as
-  `appearance.sprite` for the shipped bases rather than a new generator module drawing them.
-  Named here only so the cross-reference resolves.
+- ~~**A picture per item base.**~~ — **landed** 2026-09-26 for the floor and the bag plate, see
+  the record (`npm run godot:check:appearance` → PICTURES; `npm run godot:check:authored` →
+  ICON). The quick strip and the inspect pane are "Item pictures in the quick strip / inspect
+  pane" (piece 6b), still open and still drawing the class glyph.
 - **The shot is seen.** Muzzle flash, blood hit, casing and campfire flame, drawn from sim events
   off the pack's twelve four-frame effect sheets, in place of today's `draw_rect` stand-ins.
-- **The cars are the pack's, east-west.** Footprints shrink to the pack's own sedan 2×3, van and
-  truck 2×4 (named above); north-south driving keeps the generated art and today's larger
-  footprints, per decision 11 of the Dungeon Settlers look ("a car seen from behind").
+- ~~**The cars are the pack's, east-west.**~~ — **landed** 2026-09-26, see the record
+  (`npm run godot:check:wrecks` → the new PACK lane and SILHOUETTE at the pack's rows;
+  `npm run godot:m2:vehicles` → DRIVE's per-axis turn).
 - **The cursor.** The pack's crosshair and interaction-hand icons — the two UI icons decision 4
   of the record entry calls non-status and sockets now. The UI Field Kit's four OS pointers
   (arrow, hand, move, blocked) land in `ui/cursors.gd` under the UI-kit group, and this slice's
@@ -599,10 +599,11 @@ pieces below are in the order they land, each one session, each with its gate re
 its record; the health-bar ban, the digit ban, the prose HUD and the busy loop's refusal to read
 time left are untouched.
 
-- **Saved, picked up, busy.** `session.gd` gains a `saved` signal the HUD reads as a "saved" tick
-  in the card header; the player's long-dead-socket `item.pickedUp` event finally gets a reader,
-  `item_ping` on the slot; and a live channel (treatment, construct, rescue, refuel, siphon)
-  shows the `busy` loop, which never reads `ticksLeft`. Judged by the EVENTS lane.
+All nine pieces have landed (the last, "Saved, picked up, busy", 2026-09-26); their records are
+in the record, by system. Nothing is left in this group. What the arc left **known and not fixed**
+is in "One typeface"'s record: at 1280×720 the corner doll overlaps the action bar, the work panel
+is fixed at 1520 px, the inspect column overlaps the pockets and the quick strip's sixth slot is
+off screen, all older than the kit.
 
 **Art & renderer — overcast or torchlight, decided by the owner (2026-09-08), on the Dungeon
 Settlers spine.** The direction is docs/30's "Overcast or torchlight": a hybrid that keeps the
@@ -994,8 +995,8 @@ session, each with its gate red both ways and its record.
   piece gave `appearance.sprite` a reader and every base a shape chosen by its class; what it did
   not give anybody is a fire axe that looks like a fire axe. The owner's adoption of the pack
   (docs/30, "The outpost pack, adopted") answers this with its 48 inventory icons rather than a
-  new generator module, so the piece moved rather than staying open twice. Named here only so
-  the cross-reference resolves.
+  new generator module, so the piece moved rather than staying open twice. It landed there
+  2026-09-26 for the floor and the bag plate; named here only so the cross-reference resolves.
 - **Colonists finish a cupboard the player started.** A box is `searched` from its first open,
   and `jobs._scavenge_work` filters on exactly that — so a cupboard the player opened, took two
   things out of and walked away from is invisible to every colonist forever. It was true of the
@@ -2262,6 +2263,44 @@ not a to-do list:
   through and nothing else, and keyboard rows there would be a change to that table. The redraw
   saving is read off the code, not measured: headless draws nothing to count.
 
+- **UI — saved, picked up, busy, 2026-09-26.** The ninth and last piece of the "UI Field Kit,
+  live" group ([docs/30](30-decisions.md#the-ui-field-kit-live-2026-09-25)), and the readers the
+  motion piece left its three one-shots and loops waiting on. **Saved:** `presentation/session.gd`
+  gains `signal saved`, emitted inside `save()` only after the slot is written, so all five
+  callers — F5, the pause row, the dawn autosave, quit-to-title and the window's close request —
+  stamp through one connection in `main.gd`'s `_ready`. To make "only after the slot is written"
+  true in a release build, where the asserts are stripped, `platform/storage.gd`'s two writers and
+  `write_save` now return whether they wrote. The HUD's `mark_saved` records the wall clock, and
+  the "outside" card's header draws `saved_tick` at native size with the dim word "saved" before
+  it for `SAVED_HOLD_S` (three seconds) — chrome, never a line in `_right`, so check_hud's QUIET
+  lane is untouched. **Picked up:** `item.pickedUp`, published by every pick-up since the
+  inventory landed and read by nothing, gets its first reader: `main.gd`'s step loop hands each
+  tick's drained events to `QuickStrip.pickups_by`, which keeps only the player's, and the sheet's
+  new `ping` plays `item_ping` on the strip slot holding the item — or on the strip's lead when it
+  went into a bag or merged into a stack under another id. **Busy:** `hud.gd`'s `CHANNELS` names
+  the five components a survivor stands still for (treatment, construct, rescue, refuel, siphon);
+  `busy_channel` asks only whether one is present, and `busy_frame` only how long it has run on
+  the wall clock, so the loop at the action bar's left end says *that* you are occupied and never
+  how long is left. The bar keeps `BUSY_ROOM` clear on both sides while it shows, so the words
+  stay centred and the loop cannot land on a keycap. **Gated** by `godot:check:ui_skin`'s EVENTS
+  lane, replacing its stub. A save with no world returns false and fires nothing; one with a world
+  fires exactly once, and the player's real slot is read first and put back after. The stamp is
+  absent before a save, on frame 0 just after, gone after the hold, and on the manifest's frame
+  under reduced motion. `pickups_by` keeps the player's pick-up and refuses a colonist's and a
+  drop, on fabricated drains and on a real `SimInventory.pick_up_item` drained by a step.
+  `ping_slot_of` finds the holding slot and -1 otherwise, and the sheet's ping view is empty
+  before `ping` and carries the item after. `busy_channel` names each channel and "" for none.
+  Two treatments, three ticks and 197 ticks from done, give the same frame at five times.
+  `CHANNELS` equals a scan of `sim/modules/` for components set on an acting survivor with a
+  `ticksLeft`, so a sixth channel cannot land unread. Comments stripped, `main.gd` connects the
+  signal to a handler reaching `mark_saved`, the step loop reaches `_pings_from_events` and it
+  reaches `pickups_by` and `ping`, both strip draws pass `_ping_view()`, the card reaches
+  `_draw_saved` and the bar `_draw_busy`, and none of `busy_channel`, `busy_frame`, `refresh` or
+  `_draw_busy` names `ticksLeft`, by a scanner shown a fabricated body that does. The sabotage
+  pass ran three sabotages and got four refusals: a signal emitted before the write (both SAVED
+  counts), the step loop's reader removed, and `busy_frame` reading a `ticksLeft`. The pixels are read off the code, not seen:
+  headless draws nothing, and the screenshots for the owner are the next step.
+
 - **Art delivery — the outpost asset pack, 2026-09-17.** The owner asked to put the
   approved standalone art delivery into the repository. It is preserved under
   `godot/art/simplyzombies/`: 187 asset entries, including 185 new entries and the two
@@ -2452,6 +2491,167 @@ not a to-do list:
   already spawns a `bench` entity on `bench.built`, so the gameplay fact exists; nothing gives
   that entity a content id or an `appearance.sprite`, so it still draws by fallback role colour.
   No slice names any of the fifteen. Touches no standing ban.
+
+- **Art & renderer — the bodies turn and walk, 2026-09-26.** Every human (the player, Mara,
+  Ellis, the colony looks, every raider archetype and look) draws the outpost pack's survivor, and
+  the shambler with the four kinds that wear its key draws the pack's shambler: `authored.json`
+  families `body_survivor` / `body_shambler`, kind `pack_rig`, four idle views and a four-frame
+  walk each way (20 members each), every member cropped 32×48 → 32×40 on the pack's anchor row.
+  The pack's vest, helmet, gas mask and backpack are `item_gear_*` families (kind `pack_overlay`,
+  four views each) worn by the two helmets, three backpacks, three armour vests and the chest rig,
+  and the gas mask and half-mask respirator. `presentation/appearance.gd` gains `view_of`,
+  `turns`, `frame_key`, `walk_frame` (integer: `tick * fps / TICK_HZ + id`, fps copied from the
+  manifest: survivor 8, shambler 5), `body_view` (facing, else velocity, else south), `body_texture`,
+  `flip_for` (a turning body never mirrors) and `layer_over` (the manifest's per-view `z`, so the
+  backpack goes under seen from the side); `EQUIP_DRAW_ORDER` gains `vest` and `face`, ordered by
+  the manifest's z (vest 2, back 3, mask 4, helmet 5). `main.gd`'s entity loop reads all of it and
+  the afterimage freezes the frame it drew. Raiders share one tint, `#c4877a` (docs/30, "The whole
+  outpost pack"). **Retired in the same commit:** six generated rigs (`player_body`,
+  `survivor_mara`, `survivor_ellis`, `survivor_colonist`, `raider_body`, `zombie_shambler`) and
+  eight overlays (three backpacks with `_front` straps, two helmets), functions and PNGs.
+  **Gated:** `godot:check:authored` new PACK lane (members complete by convention; fps and z equal
+  to the manifest; every crop ends on the anchor row and drops nothing at or above `ALPHA_SOLID`
+  128; idle soles on row 39, walk soles within 1; every wearable view exactly on the manifest's
+  `fit`), MANIFEST validates `fps`/`z`; `godot:check:topdown` new TURN lane (views, diagonals, walk
+  rate counted on the tick, member resolution, face-on rigs keep their flip, draw-loop and
+  afterimage needles); `godot:check:worn` new TURNS lane (per-view composition, backpack under on
+  e/w only, face-on bat on the south view only); ORDER re-pinned to eight slots;
+  `check_appearance` ROSTER re-grouped and GREY replaced by COLONISTS; `check_m2_raiders` LOOKS and
+  ARCHETYPES now hold one body and one tint. **Measured:** `SPRITES_OK 158 generated ... 58
+  authored keys reproduced`; `PACK OK 2 pack rig(s) and 4 pack overlay(s), 56 members`;
+  `APPEARANCE_OK`, `AUTHORED_OK`, `WORN_LOOK_OK`, `TOPDOWN_OK`, `M2_RAIDERS_OK` (99 s),
+  `PLAY_OK`, `GODOT_PROJECT_SMOKE_OK`, `GODOT_CONTENT_OK`, `MEMORY_LOOK_OK`, `SPEECH_OK`,
+  `TREES_OK`, `ROOF_LOOK_OK`, `WRECKS_OK`, `M2_VARIANCE_OK`, `M2_RECRUITS_OK`, `ROUTING_OK`,
+  `TIMING_OK`; `npm test` 45 files / 594 tests. **Sabotage pass**, each red then reverted: fps
+  8→7 and backpack z e −1→1 (PACK), the same z (TURNS), `ALPHA_SOLID` 1 (PACK: a speck-inflated
+  32 px body), gas mask `reads` moved (READS), walk clock ignoring fps (TURN: 1 change a second),
+  face-on overlays on every view (TURNS), the draw loop dropping the view or calling `body_flip`
+  (TURN / FLIP needles), `flip_for` mirroring a turning body (TURN), a second raider tint
+  (`godot:m2:raiders` ARCHETYPES), a repeated colony tint (COLONISTS), `vest` dropped from the
+  order (ORDER), one hand-edited member pixel (`sprites:check`). **Half shipped, named:** face-on
+  overlays draw facing south only (above, "Pack gear on the body"); no held weapons; the
+  wearables are fitted to the idle views, so on walk frames the head bobs up to one row under the
+  helmet (survivor walk tops 11–13 against idle 12); the armoured zombie wears the survivor-fitted
+  helmet and vest on the shambler; colony tints now multiply coloured art (median luma 0.132
+  untinted, 0.077–0.105 tinted) and no lane guards body-against-ground contrast any more -- the
+  retired GREY and raider composed-luma checks had no subject once their rigs went, and the
+  pack's untinted survivor already sits under the street's luma, so "The ground is the pack's"
+  re-pins it; the player, Mara and Ellis are one picture (decision 2); the draw loop's added
+  per-body lookups were not perf-measured (no Godot frame-budget gate exists).
+
+- **Art — the cars are the pack's, east-west, 2026-09-26.** The outpost group's slice of that
+  name, footprints as the owner named them on 2026-09-17 (docs/30, "The outpost pack, adopted":
+  sedan 2×3, van and truck 2×4 east-west). **Sim first, because a footprint is sim content:**
+  `content/vehicles/{sedan,van,truck}.json` gain `footprint.lEw` (3, 4, 4; `vehicle.schema.json`
+  says absent means the same length both ways, so the five light classes are untouched), and one
+  helper turns a footprint to an axis — `SimWorldgen.vehicle_extent` — read by the parking pass
+  and by `SimVehicles.extent_of`, so a car the generator parks east-west and the same car turned
+  east-west by its driver are the same length (the entity carries `lEw`; a save from before it
+  reads as `l`). The parking pass's four draws per slot are unchanged. The loot HOST reads the
+  record's own `w`/`h` and needed nothing. **Then the art:** six authored keys,
+  `vehicle_<class>_{intact,wreck}_ew`, kind `vehicle`, reproduced by `build.py` from the pack's
+  hatchback, van and pickup cropped to their anchor rows (47 and 55, never padded — the anchor is
+  then the cropped canvas's bottom-centre pixel, which is where `Appearance.body_rect` already
+  stands a feet-anchored picture). Pale and green share the intact picture east-west and burnt
+  takes the wreck; north-south keeps all three generated paint jobs at 2×5 / 2×6 / 2×7.
+  `Appearance.VEHICLE_PACK_EW` (mirrored by `parts/vehicles.py`'s `PACK_EW`) stops the generated
+  rule placing the retired keys; `_sedan_ew`, `_van_ew`, `_truck_ew` and their flank wheel are
+  deleted with the nine PNGs they wrote (39 generated vehicle keys, from 48).
+
+  **Gated** by a new PACK lane in `npm run godot:check:wrecks` (→ `WRECKS_OK`, eleven lanes):
+  the classes on `VEHICLE_PACK_EW` name only authored keys east-west and only generated keys
+  north-south, and no other class names an authored key; each key is an east-facing pack vehicle
+  cropped from the origin to exactly its canvas with the pack's anchor on its bottom-centre
+  pixel; the painted span at `PACK_ALPHA` (128 — the pack carries alpha ≤ 6 specks, and a
+  fabricated speck at a canvas edge lengthens a car a tile at alpha > 0 and not at 128) rounds up
+  in whole tiles, by integer division, to exactly the class's `lEw` (hatchback 86 px → 3, van 102
+  → 4, pickup 106–107 → 4), no wider than it, and shorter than the north-south length. TN on
+  fabrications: a four-tile picture on three tiles, a speck lengthening a car, an uncropped
+  anchor, a pad, a south-facing source, and the list and the art drifting apart three ways.
+  SILHOUETTE now measures the pack's three pictures at `PACK_ALPHA` against the pack's own rows
+  (sedan ≤ 46, tall ≥ 48, margin 4; measured 44 against 49, the truck's cab 6 over both ends where
+  the van's roof is level) — **the height decision holds; its generator numbers do not**, because
+  the pack's pickup is drawn from above and its bed end and nose stand within two rows of each
+  other, so the truck's step is read as the cab's rise over both ends rather than the generator's
+  bed drop, and only a generated picture is held to the mirror clearance (the pack's pickup wreck
+  sits 2 px off its canvas edge). PLACED, MANIFEST and the hand map read content's `lEw` directly
+  rather than through the helper under test; `npm run godot:m2:vehicles` → DRIVE asserts the
+  turned sedan is content's east-west extent and that it differs from the north-south one laid
+  flat. `npm run godot:check:authored` → READS widened to vehicle `variants[].ns/ew`, without
+  which the pack keys read as art nothing draws.
+
+  **Sabotage pass, every one red and restored:** `VEHICLE_PACK_EW` without the truck (DRESSING and
+  PACK both name it); READS' variant walk removed ("art nothing draws"); `PACK_ALPHA` at 1
+  (SILHOUETTE's and PACK's speck fabrications); the sedan's `lEw` at 4 (PACK: "spans 3 tiles ...
+  parks it 4 long"); `vehicle_extent` ignoring `lEw` (PLACED: a van "parked 6x2 on the 'ew' axis,
+  where its class's footprint turned that way is (4, 2)"); `SimVehicles.extent_of` dropping `lEw`
+  (M2_VEHICLES SPAWN and DRIVE).
+
+  **Measured:** the balance harness (`npm run godot:m2:balance`, fast tier) before and after on
+  the same driver — all four FAST lines byte-identical (20260805: deaths=1 survivors=3/3
+  grabs=123; 404: deaths=4 survivors=1/3 grabs=174; 31337: deaths=0 survivors=3/3; 90210: deaths=4
+  survivors=2/3), `M2_BALANCE_OK` both times. The harness boots the 64-tile suburb, whose streets
+  are two wide and park nothing, so this was the expected result rather than a lucky one. The
+  suburb at 128 now parks 32..42 vehicles a map, 149 over PLACED's four seeds (`WRECKS_OK`).
+  `sprites:check` → `SPRITES_OK` (163 generated, 8 authored reproduced), `godot:validate`, `npm
+  test` (594), `godot:check:appearance`, `godot:m2:district`, `godot:smoke`, `check:routing`,
+  `check:timing` all pass. **Half shipped, on purpose:** the pack ships an ambulance nobody parks,
+  and a car seen from behind is still the generated picture for both north-south facings (decision
+  11's limit, unchanged).
+
+- **Art — a picture per item base, 2026-09-26.** The glyph piece gave `appearance.sprite` a
+  reader and every base a shape chosen by its class; this slice gives the bases the outpost pack
+  depicts the pack's own inventory icon, on the floor and on the bag-grid plate. **Coverage,
+  counted by the gate rather than claimed: 72 of 362 bases draw one of 41 pack icons, and 290
+  fall back to their class's glyph** — `PICTURES OK 72 of 362 bases draw one of the pack's 41
+  icons and 290 fall back`. Forty-one of the pack's forty-eight icons are declared in
+  `godot/assets/sprites/authored.json` as kind `icon`, each a `source` pointing at
+  `art/simplyzombies/groups/items/icons/` at its own 32×32 canvas (no crop, no pad: the pack's
+  icons are already the ground-item canvas and anchored at its centre), reproduced byte for byte
+  by `tools/sprites/build.py`; keys stay sorted under the `item_*` prefix. Several bases share a
+  picture where the pack draws one thing the game grades: every calibre of pistol round draws
+  `item_pistol_rounds`, every shotshell `item_shells`, the three backpacks `item_backpack`, the
+  three antibiotic grades `item_antibiotics`, clean and untreated water `item_water_bottle` — so a
+  picture never says what the name has not (clause 4). **The seven icons not used, and why**:
+  `item-assault-rifle`, `item-map`, `item-key` and `item-repair-kit` have no shipped base;
+  `item-baseball-bat` is a wooden bat and the one bat is aluminium; `item-helmet` is a military
+  helmet and the shipped helmets are a bike helmet and a hard hat; `item-radio` is a walkie-talkie
+  and the shipped radio is a transistor set. Each is a picture choice for the owner or a later
+  base, not a gap this slice may fill by resemblance.
+  **Drawn**: the floor (`main.gd`'s `_draw_entities`) sizes a picture by
+  `Appearance.item_icon_px(zoom)` — `ITEM_ICON_FLOOR_SCALE` 0.5 of the world's pixel, half a tile
+  at every rung of the zoom ladder, a whole ratio of the art so nearest-neighbour drops whole
+  rows — rather than squeezing it into the glyph's third of a tile; the bag plate
+  (`ui/bag_grid.gd`'s `draw_item`) draws the largest whole multiple of the art that fits its
+  picture box, centred on a whole pixel. A base with no picture draws its glyph exactly as
+  before. No generator code or PNG retired: the generator never drew per-base item art, which is
+  why the glyph existed. `godot/sim/` untouched; no id branch in any draw code.
+  **Gated.** `check_authored.gd` gains an **ICON** lane: every kind-`icon` key is a picture at
+  the named `ICON_ALPHA` 128 (the pack's alpha 1–6 specks are not pixels), centred on its canvas
+  within `ICON_CENTRE_TOLERANCE` 2, clear of the edge, at the `occupiedSize` and `anchor` the
+  pack's own `manifest.json` gives; five fabrications (speck-only, corner-flush, a real corner
+  pixel, a wrong size, a wrong anchor) are refused and a speck beside a centred picture passes.
+  `check_appearance.gd` gains a **PICTURES** lane: every declared item sprite resolves at 32×32,
+  is an authored key and carries no tint; a base with no sprite resolves no texture; two grade
+  families (the antibiotics, the two waters) must draw one picture, proved to be able to say no
+  on a fabricated pair; and the floor loop and the bag plate are read as source with comments
+  stripped (quote-aware, so `main.gd`'s `Color("#…")` literals survive) and must pass the
+  `item_look` texture to `draw_texture_rect` — the floor at `item_icon_px` — in that order; a
+  commented-out draw, a missing draw, a misordered draw and an unsized floor draw are each
+  refused by fabrication, and the zoom ladder must stay a whole ratio with a third-of-a-tile draw
+  refused. **Sabotage pass, 2026-09-26**, each red and restored: the bag plate's
+  `draw_texture_rect` replaced by `pass` → `PICTURES: the bag plate does not pass an item_look
+  texture to draw_texture_rect`; the floor's draw commented out → `PICTURES: the ground-item loop
+  does not pass …`; `item.ammo.bolt`'s sprite renamed to an undeclared key → `declares sprite
+  'item_bolts_x' and item_look resolved no texture`; the veterinary antibiotics given
+  `item_painkillers` → `… draw different pictures; a picture must not say what the name has
+  not`. **Verified**: `APPEARANCE_OK`, `AUTHORED_OK` (`ICON OK 41 icons`, `READS OK 43 authored
+  keys`), `GODOT_CONTENT_OK`, `npm test` 45 files / 594 tests, `SPRITES_OK … 43 authored keys
+  reproduced from their source`, `INVENTORY_OK`, `HUD_OK`, `PLAY_OK`,
+  `GODOT_PROJECT_SMOKE_OK`, `ROUTING_OK`, `TIMING_OK`; the full `godot:m2` chain was not run on
+  the slice's machine and is run after merge. **What did not ship**: the quick strip and the
+  inspect pane still draw the class glyph (piece 6b); held weapons in the hand are their own
+  piece; 290 bases have no pack picture and keep the glyph until more art exists.
 
 - **World & map** — ~~the three location loot tables~~ **landed** (`godot:check:loot`): what a
   place yields is content now, not two hardcoded kits in `boot.gd`. `content/loot/tables.json`

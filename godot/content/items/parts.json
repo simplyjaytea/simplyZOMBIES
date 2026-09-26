@@ -34,6 +34,7 @@
     "class": "attachment",
     "size": { "w": 1, "h": 1 },
     "massKg": 0.12,
+    "appearance": { "sprite": "item_empty_magazine" },
     "attachment": {
       "fits": ["magazine"],
       "fieldSwap": true,

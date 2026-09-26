@@ -14,23 +14,21 @@ container running** lives in `AGENTS.md`.
 
 ---
 
-## Start here: paused mid-arc, 2026-09-25
+## Start here: one arc open, 2026-09-26
 
-Two arcs are open on branch `claude/serene-ride-r1p6y0` (PR #140), paused for usage, everything
-committed. **The pickup doc is
+PR #140 merged. The UI arc is closed and the outpost pack is next. **The pickup doc is still
 [`.hermes/plans/2026-09-25_ui-kit-and-outpost-pickup.md`](.hermes/plans/2026-09-25_ui-kit-and-outpost-pickup.md)**
-— what landed, what is next in order, which worker model each piece wants, and the measured
-findings every outpost slice must honour.
+for the outpost pack's order, workers and measured findings. Its UI half is done.
 
 - **The UI Field Kit, live** (docs/23 "UI — the UI Field Kit, live"; docs/30 "The UI Field Kit,
-  live"): eight of nine pieces landed, gated by `npm run godot:check:ui_skin` → `UI_SKIN_OK`. Left:
-  **"Saved, picked up, busy"**, then the close-out (chain count in `CLAUDE.md`, the gate's header
-  comment, a full `godot:m2`).
+  live"): all nine pieces landed, the last, **"Saved, picked up, busy"**, on 2026-09-26, gated by
+  `npm run godot:check:ui_skin` → `UI_SKIN_OK` (EVENTS lane). Still owed to the owner:
+  screenshots at 1920×1080 and 1280×720.
 - **The whole outpost pack** (docs/23 "Art & renderer — the outpost pack"; docs/30 "The whole
   outpost pack, 2026-09-25", the owner's six answers): the pad fix and the needs-assets report
-  landed; next are **"The bodies turn and walk"** and **"The cars are the pack's, east-west"**
-  (both were started and stopped uncommitted — start them fresh), then item pictures, the ground,
-  trees, gear, walls (picture round first), effects and the cursor.
+  landed. Next are **"The bodies turn and walk"** and **"The cars are the pack's, east-west"**.
+  Both were started and stopped uncommitted, so start them fresh. After those: item pictures, the
+  ground, trees, gear, walls (picture round first), effects and the cursor.
 
 ## State, as of 2026-09-16 (the population arc, all thirteen slices)
 

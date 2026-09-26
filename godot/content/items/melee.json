@@ -7,7 +7,7 @@
     "size": { "w": 1, "h": 2 },
     "massKg": 0.2,
     "equipSlot": "primary",
-    "appearance": { "equipSprite": "item_knife_kitchen_equip" },
+    "appearance": { "sprite": "item_kitchen_knife", "equipSprite": "item_knife_kitchen_equip" },
     "slots": ["edge", "wrap"],
     "melee": { "reachMetres": 0.9, "weight": 0.6, "damage": 9, "staggerTicks": 4 }
   },
@@ -106,7 +106,7 @@
     "size": {"w": 1, "h": 3},
     "massKg": 2.3,
     "equipSlot": "primary",
-    "appearance": {"equipSprite": "item_crowbar_steel_equip"},
+    "appearance": {"sprite": "item_crowbar", "equipSprite": "item_crowbar_steel_equip"},
     "slots": ["wrap"],
     "melee": {"reachMetres": 1.1, "weight": 1.1, "damage": 10, "staggerTicks": 12}
   },
@@ -118,7 +118,7 @@
     "size": {"w": 1, "h": 2},
     "massKg": 0.9,
     "equipSlot": "primary",
-    "appearance": {"equipSprite": "item_hatchet_camp_equip"},
+    "appearance": {"sprite": "item_hatchet", "equipSprite": "item_hatchet_camp_equip"},
     "slots": ["edge", "haft", "wrap"],
     "melee": {"reachMetres": 1.0, "weight": 0.8, "damage": 12, "staggerTicks": 6}
   },

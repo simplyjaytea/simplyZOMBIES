@@ -78,12 +78,20 @@ func new_run() -> void:
 	boot(SimBoot.DISTRICT_SEED, district_id, region_id)
 
 
+# Emitted once for every write that landed, whichever path asked for it -- F5, the pause menu's
+# row, the dawn autosave, quit-to-title and the window's close request all come through `save()`
+# below, so the HUD's "saved" stamp connects here once rather than beside each caller. Never
+# emitted for a save that did not happen: no world, or a slot the storage layer could not write.
+signal saved
+
 # The save slot, written. Returns whether anything was written, so the autosave edge below and
 # the menu's own row can both say what happened rather than assume it.
 func save() -> bool:
 	if world == null:
 		return false
-	PlatformStorage.write_save(SimSave.encode_save(SimSave.create_save(world)))
+	if not PlatformStorage.write_save(SimSave.encode_save(SimSave.create_save(world))):
+		return false
+	saved.emit()
 	return true
 
 

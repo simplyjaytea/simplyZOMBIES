@@ -4,7 +4,7 @@
   "backstory": "Osaka-trained clinic nurse — failed pharmacy student. Reads wounds better than nothing, wastes less of a medkit.",
   "age": 34,
   "appearance": {
-    "sprite": "survivor_mara",
+    "sprite": "body_survivor",
     "features": ["chin-length black hair", "tired eyes", "rolled sleeves", "steady hands"],
     "portrait": "res://presentation/portraits/mara.png"
   },

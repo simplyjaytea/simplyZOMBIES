@@ -16,6 +16,7 @@ const SimContainers = preload("res://sim/modules/containers.gd")
 const ItemGlyph = preload("res://presentation/item_glyph.gd")
 const Chrome = preload("res://ui/chrome.gd")
 const UiCursors = preload("res://ui/cursors.gd")
+const QuickStrip = preload("res://ui/quick_strip.gd")
 # The tag beside the player's body: big enough to read at a glance mid-fight, small enough that it
 # is not competing with the HUD's own columns.
 const TAG_SIZE: int = 25
@@ -175,8 +176,8 @@ var _vehicle_index_gen: int = -1
 # what invalidates it -- see _dressing.
 var _dressing_cache: Dictionary = {}
 var _dressing_from: Variant = null
-# Entity id -> the look a Focal body drew this frame: `{look, equip, flip}`, from
-# `Appearance.for_entity`, `equipment_layers_for` and `Appearance.body_flip` at the moment the body
+# Entity id -> the look a Focal body drew this frame: `{look, texture, equip, flip}`, from
+# `Appearance.for_entity`, `body_texture`, `equipment_layers_for` and `flip_for` at the moment the body
 # was last actually blitted. Presentation-only and never read by the sim -- `_draw_afterimages`
 # blits the same picture, frozen, at the position `SimSightings.remembered` still holds once the
 # body itself is Unseen, so a wall's afterimage is what the observer's memory looked like, not a
@@ -216,6 +217,9 @@ const RIDER_DEPTH_EPS: float = 0.01
 func _ready() -> void:
 	content = ContentLoader.load_tree()
 	session = SessionRes.new()
+	# Every save that lands, from any of its five callers, stamps the HUD. Connected once: the
+	# session outlives every world it boots.
+	session.saved.connect(_on_saved)
 	var parity: bool = false
 	var seed_arg: int = SimBoot.DISTRICT_SEED
 	var district_arg: String = SimBoot.DEFAULT_DISTRICT
@@ -353,6 +357,19 @@ func _notification(what: int) -> void:
 		if world == null or bool(world.runOver):
 			return
 		session.call("save")
+
+# The quick strip's item_ping, fed from the same drained-events read as the shake above -- never a
+# subscription to the sim bus. `item.pickedUp` was published by every pick-up and read by nothing
+# until this; only the player's own pick-ups ping, because the strip is the player's belt.
+func _pings_from_events(drained: Array) -> void:
+	if _inventory_panel == null or world == null:
+		return
+	for item in QuickStrip.pickups_by(drained, world.player):
+		_inventory_panel.call("ping", item)
+
+func _on_saved() -> void:
+	if _hud != null:
+		_hud.call("mark_saved")
 
 func _resize_camera() -> void:
 	var vp: Vector2 = get_viewport_rect().size
@@ -914,6 +931,7 @@ func _process(delta: float) -> void:
 		if _sfx != null:
 			_sfx.tick(world, camera, world.events.drained)
 		_camera_shake_from_events(world.events.drained)
+		_pings_from_events(world.events.drained)
 		if speed >= 10:
 			speed = SimFortify.speed_after_events(speed, world.events.drained)
 			if speed < 10:
@@ -2090,29 +2108,37 @@ func _draw_entities() -> void:
 		# yours to read. Nothing else about the pawn changes.
 		if eid == _selected:
 			draw_arc(Vector2(sx, sy + Appearance.FOOT_DROP_PX), r * 0.7, 0.0, TAU, 24, Palette.COLOURS["player"], 1.5)
-		var texture: Texture2D = look["texture"] as Texture2D
+		# Which picture: a body that turns (docs/23, "The bodies turn and walk") shows the view its
+		# heading faces -- or, with no facing component, the way it walks -- and while it moves, the
+		# walk frame `world.tick` picks, staggered by its id so a crowd does not step as one. A
+		# face-on rig answers its one picture and the rest view, exactly as before.
+		var sprite_key: String = String(look.get("sprite", ""))
+		var vel_v: Variant = world.components.get_component(eid, "velocity")
+		var view: String = Appearance.body_view(sprite_key, facing_v, vel_v)
+		var texture: Texture2D = Appearance.body_texture(look, view, Appearance.moving(vel_v), int(world.tick), eid)
 		if texture != null:
 			# Scaled by px_scale so a body covers the same fraction of a tile at every step on
 			# the zoom ladder. Where the picture hangs is Appearance.body_rect's answer: a pawn
 			# (taller than wide) stands with its soles on the shadow line, a tile-square picture
-			# centres on the ground point, and a body facing west is the same picture in a
-			# negative-width rect -- the renderer mirrors it, and no transform is set anywhere in
-			# this loop. Nobody rotates, the player included (docs/30, the Dungeon Settlers look);
-			# check_topdown.gd's flip lane counts the transforms here and requires zero.
+			# centres on the ground point, and a face-on rig facing west is the same picture in a
+			# negative-width rect -- the renderer mirrors it. A body that turns draws the pack's own
+			# west view instead and is never mirrored (Appearance.flip_for). No transform is set
+			# anywhere in this loop; check_topdown.gd's flip lane counts them and requires zero.
 			var size: Vector2 = texture.get_size() * px_scale
 			# Equipped gear composites at the identical rect the body draws at -- an
 			# equipSprite is authored on the same feet-anchored canvas, so there is no per-item
 			# offset to compute here, and a negative width mirrors the gear with its wearer.
 			# Drawn white, never the role/tint colour: a backpack is its own object, not a
 			# stand-in shape for the entity itself.
-			var equip: Array[Dictionary] = Appearance.equipment_layers_for(world, eid)
-			var flip: float = Appearance.body_flip(screen_ang)
+			var equip: Array[Dictionary] = Appearance.equipment_layers_for(world, eid, view)
+			var flip: float = Appearance.flip_for(sprite_key, screen_ang)
 			_blit_body(Appearance.body_rect(sx, sy, size, flip), texture, col, equip)
-			# The afterimage's own copy of this look, frozen at the moment a Focal body was drawn.
+			# The afterimage's own copy of this look, frozen at the moment a Focal body was drawn --
+			# the very frame and view, so a body that turned away is remembered turned away.
 			# A Peripheral glimpse never reaches this line (it bailed to the anonymous disc above),
 			# so a body only ever glimpsed never gets a remembered picture -- the anonymity clause
 			# holds in memory the same way it holds live.
-			_last_look[eid] = {"look": look, "equip": equip, "flip": flip}
+			_last_look[eid] = {"look": look, "texture": texture, "equip": equip, "flip": flip}
 		else:
 			draw_circle(Vector2(sx, sy), r, col)
 			draw_circle(Vector2(sx, sy), r, col.lightened(0.25), false, 2.4 if bool(it["player"]) else 1.6)
@@ -2180,7 +2206,12 @@ func _draw_entities() -> void:
 		var item_rect := Rect2(float(sc["sx"]) - item_px * 0.5, float(sc["sy"]) - item_px * 0.5, item_px, item_px)
 		var art: Texture2D = look["texture"] as Texture2D
 		if art != null:
-			draw_texture_rect(art, item_rect, false, look["tint"] as Color if bool(look["declaredTint"]) else Color.WHITE)
+			# A picture is drawn at a whole fraction of the world's pixel, never squeezed into the
+			# glyph's third of a tile: 32 art pixels at half the world scale is half a tile at every
+			# step of the ladder, so nearest-neighbour drops rows evenly.
+			var pic_px: float = Appearance.item_icon_px(float(camera["zoom"]))
+			var pic_rect := Rect2((Vector2(float(sc["sx"]), float(sc["sy"])) - Vector2(pic_px, pic_px) * 0.5).round(), Vector2(pic_px, pic_px))
+			draw_texture_rect(art, pic_rect, false, look["tint"] as Color if bool(look["declaredTint"]) else Color.WHITE)
 		else:
 			ItemGlyph.draw_glyph(self, item_rect, int(look["glyph"]), look["tint"] as Color)
 	# Last-known marks fading. The positions are the *simulation's* memory, not a second copy kept
@@ -2236,7 +2267,7 @@ func _draw_afterimages() -> void:
 		if cache is Dictionary:
 			var c: Dictionary = cache as Dictionary
 			var look: Dictionary = c["look"] as Dictionary
-			var texture: Texture2D = look["texture"] as Texture2D
+			var texture: Texture2D = c.get("texture", look["texture"]) as Texture2D
 			if texture != null:
 				var size: Vector2 = texture.get_size() * px_scale
 				var col: Color = look["tint"] as Color

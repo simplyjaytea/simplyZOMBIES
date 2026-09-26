@@ -68,7 +68,7 @@
         "equipSprite": {
           "type": "string",
           "pattern": "^[a-z0-9_.]+$",
-          "description": "A different picture from `sprite`: what this looks like worn or held on a body, not lying on the ground. Authored on the same feet-anchored pawn canvas as the body it will be drawn over (32x40; presentation/appearance.gd's PAWN_KEYS and assets/sprites/README.md), so the renderer composites it at the identical rect with no per-item offset math and mirrors it with the body. Read only when this base occupies an equipment slot presentation.gd renders (currently back, primary, secondary); other slots leave it declared but unused until a body-part anchor exists for them."
+          "description": "A different picture from `sprite`: what this looks like worn or held on a body, not lying on the ground. Authored on the same feet-anchored pawn canvas as the body it will be drawn over (32x40; assets/sprites/README.md), so the renderer composites it at the identical rect with no per-item offset math. Either a face-on overlay (one file, drawn on a turning body's south view only and mirrored with a face-on one) or a family authored.json declares with one member per view (the outpost pack's `item_gear_*`), drawn in the view the body shows. Read only when this base occupies a slot presentation/appearance.gd's EQUIP_DRAW_ORDER draws (legs, torso, vest, back, primary, secondary, face, head)."
         },
         "equipSpriteFront": {
           "type": "string",

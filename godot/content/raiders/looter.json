@@ -6,7 +6,7 @@
   "weight": 2,
   "speed": 1.6,
   "aptitudes": { "str": [4, 6], "dex": [5, 7], "con": [4, 6] },
-  "appearance": { "sprite": "raider_body" },
+  "appearance": { "sprite": "body_survivor", "tint": "#c4877a" },
   "kit": [
     "item.crowbar.steel",
     { "item": "item.bandage.cloth", "chance": 0.5 },
