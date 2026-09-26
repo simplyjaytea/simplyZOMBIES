@@ -564,9 +564,9 @@ projection are untouched.
   Named here only so the cross-reference resolves.
 - **The shot is seen.** Muzzle flash, blood hit, casing and campfire flame, drawn from sim events
   off the pack's twelve four-frame effect sheets, in place of today's `draw_rect` stand-ins.
-- **The cars are the pack's, east-west.** Footprints shrink to the pack's own sedan 2×3, van and
-  truck 2×4 (named above); north-south driving keeps the generated art and today's larger
-  footprints, per decision 11 of the Dungeon Settlers look ("a car seen from behind").
+- ~~**The cars are the pack's, east-west.**~~ — **landed** 2026-09-26, see the record
+  (`npm run godot:check:wrecks` → the new PACK lane and SILHOUETTE at the pack's rows;
+  `npm run godot:m2:vehicles` → DRIVE's per-axis turn).
 - **The cursor.** The pack's crosshair and interaction-hand icons — the two UI icons decision 4
   of the record entry calls non-status and sockets now. The UI Field Kit's four OS pointers
   (arrow, hand, move, blocked) land in `ui/cursors.gd` under the UI-kit group, and this slice's
@@ -2538,6 +2538,66 @@ not a to-do list:
   pack's untinted survivor already sits under the street's luma, so "The ground is the pack's"
   re-pins it; the player, Mara and Ellis are one picture (decision 2); the draw loop's added
   per-body lookups were not perf-measured (no Godot frame-budget gate exists).
+
+- **Art — the cars are the pack's, east-west, 2026-09-26.** The outpost group's slice of that
+  name, footprints as the owner named them on 2026-09-17 (docs/30, "The outpost pack, adopted":
+  sedan 2×3, van and truck 2×4 east-west). **Sim first, because a footprint is sim content:**
+  `content/vehicles/{sedan,van,truck}.json` gain `footprint.lEw` (3, 4, 4; `vehicle.schema.json`
+  says absent means the same length both ways, so the five light classes are untouched), and one
+  helper turns a footprint to an axis — `SimWorldgen.vehicle_extent` — read by the parking pass
+  and by `SimVehicles.extent_of`, so a car the generator parks east-west and the same car turned
+  east-west by its driver are the same length (the entity carries `lEw`; a save from before it
+  reads as `l`). The parking pass's four draws per slot are unchanged. The loot HOST reads the
+  record's own `w`/`h` and needed nothing. **Then the art:** six authored keys,
+  `vehicle_<class>_{intact,wreck}_ew`, kind `vehicle`, reproduced by `build.py` from the pack's
+  hatchback, van and pickup cropped to their anchor rows (47 and 55, never padded — the anchor is
+  then the cropped canvas's bottom-centre pixel, which is where `Appearance.body_rect` already
+  stands a feet-anchored picture). Pale and green share the intact picture east-west and burnt
+  takes the wreck; north-south keeps all three generated paint jobs at 2×5 / 2×6 / 2×7.
+  `Appearance.VEHICLE_PACK_EW` (mirrored by `parts/vehicles.py`'s `PACK_EW`) stops the generated
+  rule placing the retired keys; `_sedan_ew`, `_van_ew`, `_truck_ew` and their flank wheel are
+  deleted with the nine PNGs they wrote (39 generated vehicle keys, from 48).
+
+  **Gated** by a new PACK lane in `npm run godot:check:wrecks` (→ `WRECKS_OK`, eleven lanes):
+  the classes on `VEHICLE_PACK_EW` name only authored keys east-west and only generated keys
+  north-south, and no other class names an authored key; each key is an east-facing pack vehicle
+  cropped from the origin to exactly its canvas with the pack's anchor on its bottom-centre
+  pixel; the painted span at `PACK_ALPHA` (128 — the pack carries alpha ≤ 6 specks, and a
+  fabricated speck at a canvas edge lengthens a car a tile at alpha > 0 and not at 128) rounds up
+  in whole tiles, by integer division, to exactly the class's `lEw` (hatchback 86 px → 3, van 102
+  → 4, pickup 106–107 → 4), no wider than it, and shorter than the north-south length. TN on
+  fabrications: a four-tile picture on three tiles, a speck lengthening a car, an uncropped
+  anchor, a pad, a south-facing source, and the list and the art drifting apart three ways.
+  SILHOUETTE now measures the pack's three pictures at `PACK_ALPHA` against the pack's own rows
+  (sedan ≤ 46, tall ≥ 48, margin 4; measured 44 against 49, the truck's cab 6 over both ends where
+  the van's roof is level) — **the height decision holds; its generator numbers do not**, because
+  the pack's pickup is drawn from above and its bed end and nose stand within two rows of each
+  other, so the truck's step is read as the cab's rise over both ends rather than the generator's
+  bed drop, and only a generated picture is held to the mirror clearance (the pack's pickup wreck
+  sits 2 px off its canvas edge). PLACED, MANIFEST and the hand map read content's `lEw` directly
+  rather than through the helper under test; `npm run godot:m2:vehicles` → DRIVE asserts the
+  turned sedan is content's east-west extent and that it differs from the north-south one laid
+  flat. `npm run godot:check:authored` → READS widened to vehicle `variants[].ns/ew`, without
+  which the pack keys read as art nothing draws.
+
+  **Sabotage pass, every one red and restored:** `VEHICLE_PACK_EW` without the truck (DRESSING and
+  PACK both name it); READS' variant walk removed ("art nothing draws"); `PACK_ALPHA` at 1
+  (SILHOUETTE's and PACK's speck fabrications); the sedan's `lEw` at 4 (PACK: "spans 3 tiles ...
+  parks it 4 long"); `vehicle_extent` ignoring `lEw` (PLACED: a van "parked 6x2 on the 'ew' axis,
+  where its class's footprint turned that way is (4, 2)"); `SimVehicles.extent_of` dropping `lEw`
+  (M2_VEHICLES SPAWN and DRIVE).
+
+  **Measured:** the balance harness (`npm run godot:m2:balance`, fast tier) before and after on
+  the same driver — all four FAST lines byte-identical (20260805: deaths=1 survivors=3/3
+  grabs=123; 404: deaths=4 survivors=1/3 grabs=174; 31337: deaths=0 survivors=3/3; 90210: deaths=4
+  survivors=2/3), `M2_BALANCE_OK` both times. The harness boots the 64-tile suburb, whose streets
+  are two wide and park nothing, so this was the expected result rather than a lucky one. The
+  suburb at 128 now parks 32..42 vehicles a map, 149 over PLACED's four seeds (`WRECKS_OK`).
+  `sprites:check` → `SPRITES_OK` (163 generated, 8 authored reproduced), `godot:validate`, `npm
+  test` (594), `godot:check:appearance`, `godot:m2:district`, `godot:smoke`, `check:routing`,
+  `check:timing` all pass. **Half shipped, on purpose:** the pack ships an ambulance nobody parks,
+  and a car seen from behind is still the generated picture for both north-south facings (decision
+  11's limit, unchanged).
 
 - **World & map** — ~~the three location loot tables~~ **landed** (`godot:check:loot`): what a
   place yields is content now, not two hardcoded kits in `boot.gd`. `content/loot/tables.json`

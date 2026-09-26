@@ -108,7 +108,11 @@ const AUTHORED_PATH: String = "res://assets/sprites/authored.json"
 # outpost pack, adopted"). `pack_rig` and `pack_overlay` gained their lane, PACK, with "The bodies
 # turn and walk" (2026-09-26); `module`, `sheet` and `prop` are accepted here and judged by no
 # shape lane yet, each gaining one when the slice that reads it lands.
-const KINDS: Array[String] = ["rig", "overlay", "tile", "pack_rig", "pack_overlay", "module", "sheet", "prop"]
+#
+# `vehicle` is a parked car's east-west picture from the pack (docs/23, "The cars are the pack's,
+# east-west"), and its shape lane lives beside the parking it judges: check_wrecks.gd's PACK lane
+# holds its painted span to the class's `lEw` and its crop to the pack's anchor row.
+const KINDS: Array[String] = ["rig", "overlay", "tile", "pack_rig", "pack_overlay", "module", "sheet", "prop", "vehicle"]
 
 # The pack's own spec for the art it ships, read as text and never loaded as a resource (the pack's
 # docs/godot/*.tres are null headless -- the UI kit's trap). PACK compares authored.json's copies of
@@ -1216,11 +1220,27 @@ func _keys_content_declares() -> Dictionary:
 				continue
 			for prop in ["sprite", "equipSprite", "equipSpriteFront"]:
 				if (block as Dictionary).has(prop):
-					var sprite_key: String = String((block as Dictionary)[prop])
-					var readers: Array = out.get(sprite_key, [])
-					readers.append(String(entry.get("id", "?")))
-					out[sprite_key] = readers
+					_declared_by(out, String((block as Dictionary)[prop]), String(entry.get("id", "?")))
+			# A vehicle names its pictures per variant and axis rather than as one `sprite`
+			# (vehicle.schema.json), so the pack's east-west cars -- the first authored keys a
+			# vehicle declares -- would read as art nothing draws without this. One reader per
+			# class however many of its variants share the key: the pack draws one intact car.
+			var variants: Variant = (block as Dictionary).get("variants")
+			if variants is Array:
+				for variant_v in variants as Array:
+					if not (variant_v is Dictionary):
+						continue
+					for axis in ["ns", "ew"]:
+						if (variant_v as Dictionary).has(axis):
+							_declared_by(out, String((variant_v as Dictionary)[axis]), String(entry.get("id", "?")))
 	return out
+
+
+func _declared_by(out: Dictionary, sprite_key: String, id: String) -> void:
+	var readers: Array = out.get(sprite_key, [])
+	if not readers.has(id):
+		readers.append(id)
+	out[sprite_key] = readers
 
 
 # Whether a claimed `reads` is one of the content ids that actually declare the key -- membership,

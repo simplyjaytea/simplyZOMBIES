@@ -10,8 +10,9 @@ extends RefCounted
 #
 # What a car is here, in the sim's terms:
 #
-#   * a `vehicle` component -- {class, w, l, heading, speed, driver, intent, home}. `w` and `l`
-#     are the content footprint (breadth across, length along); `heading` is one of n/s/e/w,
+#   * a `vehicle` component -- {class, w, l, lEw, heading, speed, driver, intent, home}. `w`, `l`
+#     and `lEw` are the content footprint (breadth across, length along, and the length along
+#     when the heading is east or west); `heading` is one of n/s/e/w,
 #     because nobody rotates (docs/30, the Dungeon Settlers look) and a car has exactly two
 #     pictures; `speed` is metres a second along the heading, never negative -- a car that wants
 #     to go the other way brakes to a stop and then turns round; `driver` is the entity at the
@@ -383,6 +384,11 @@ static func spawn_from_manifest(world: Variant, map: Variant) -> Array[int]:
 			"class": String(r.get("class", "")),
 			"w": breadth,
 			"l": length,
+			# The east-west length, which for the three cars is the pack picture's and shorter
+			# than `l` (SimWorldgen.vehicle_extent says why); `l` again for a class that
+			# declares none. A save from before this key existed has no `lEw`, and extent_of
+			# reads that as `l` -- the length it was parked at.
+			"lEw": SimWorldgen.vehicle_extent(foot, "ew").x,
 			"heading": facing,
 			"speed": 0.0,
 			"driver": NO_DRIVER,
@@ -1051,13 +1057,13 @@ static func axis_of(heading: String) -> String:
 	return "ns" if heading == "n" or heading == "s" else "ew"
 
 
-# The footprint's extent in tiles for a heading: (across x, across y).
+# The footprint's extent in tiles for a heading: (across x, across y). Turned by the generator's
+# own helper, so a car parked east-west and the same car turned east-west by its driver are the
+# same length -- which since the pack's cars is not the north-south length: a sedan is 2x5 facing
+# north or south and 3x2 facing east or west, and a turn about its centre changes both extents.
 static func extent_of(v: Dictionary, heading: String) -> Vector2i:
-	var breadth: int = int(v.get("w", 2))
 	var length: int = int(v.get("l", 5))
-	if axis_of(heading) == "ns":
-		return Vector2i(breadth, length)
-	return Vector2i(length, breadth)
+	return SimWorldgen.vehicle_extent({"w": int(v.get("w", 2)), "l": length, "lEw": int(v.get("lEw", length))}, axis_of(heading))
 
 
 # The tiles a car covers standing at `pos` -- every tile its rectangle overlaps by more than EPS,
