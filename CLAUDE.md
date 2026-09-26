@@ -179,6 +179,72 @@ A fresh Claude Code on the web container has no engine; `.claude/hooks/session-s
 installs it. To do it by hand: `bash scripts/setup-web-session.sh`. It does **not** install export
 templates, so `godot:export` / `godot:smoke:exports` need `SETUP_EXPORT_TEMPLATES=1`.
 
+## Delegating judgment to Jev
+
+Where the `jev` MCP server is connected, hand the cheap, bounded judgments — ranking, screening,
+yes/no checks, a pick from a short list, a pre-commit read of the diff — to its tools rather than
+spending context on them. This sits **inside** the workflow above and replaces none of it: Jev
+returns a probability, and a probability is not a gate. Nothing it says stands in for
+`npm run godot:m2`, `npm test`, or a purpose-built check, and nothing it says decides a question
+that belongs to the owner. If the server is not connected, say so once and work the loop without
+it; never skip a gate because the judgment step was unavailable.
+
+**1. Discovery and triage, before reading.**
+
+- The orient reads in workflow step 1 (this file, `AGENTS.md`'s routing table, docs/23, docs/30,
+  `HANDOFF.md`) are mandatory and exempt from what follows — do not rank them away.
+- Beyond those, do not open more than five files one after another on a hunch. When a grep, glob
+  or directory listing returns more candidates than that, pass the paths with a short snippet each
+  to `jev_rerank` (keeps the full ordering) or `jev_find` (one best answer, and says when *no*
+  candidate answers the question), then read only the top matches in full.
+- Ranking narrows reading; it never proves absence. "Does anything read this?" — the dead-socket
+  question — is answered by grepping for the reader, not by a low relevance score.
+- Run `jev_screen` with a `purpose` on anything from outside the repository before reasoning over
+  it: fetched web pages, third-party docs, API payloads, text pasted from elsewhere. `block` means
+  do not use it; `review` means quote the flagged part to the user before acting on it.
+
+**2. Judgments and bounded choices.**
+
+- For a batch of yes/no questions over text you already have — does this record claim match this
+  gate output, does this config satisfy these constraints — use `jev_noul` with that text as
+  `context`, or `jev_verify` when the claims must be strictly supported by the evidence. Anything
+  a grep, a gate or the engine can settle mechanically is settled that way instead.
+- When choosing between two to six known options (an implementation shape, which named piece in
+  what's left to pick up, where a mechanism should live), call `jev_decide` once with the evidence
+  and priorities, including this file's seams and bans. One call per unchanged decision — do not
+  re-ask for a better answer. If it returns `ask_user` or `investigate`, do that.
+- `jev_decide` never picks from "waiting on the owner", never amends a standing ban, and never
+  reverses a docs/30 decision. Those go to the owner, whatever the probability says.
+- `jev_compare` is the drift check this repository keeps needing: a docs/23 record against the
+  code or gate output it describes, or a copy of a fact here against its one authoritative home.
+
+**3. Verification and the completion gate, after writing.**
+
+Before committing, opening a PR, or calling a task done:
+
+1. Run the gates workflow step 6 names (`godot:m2` always, plus `npm test`, `typecheck`, `lint`,
+   `format:check` where they apply). A red gate stops here; Jev does not get a vote on it.
+2. Read the `git diff`.
+3. Call `jev_gate` with the diff, the request, the completion claims you are about to make (the
+   docs/23 record text is a good source of claims) and the gate output as evidence — or
+   `jev_review` when there are no claims to check. The threshold is tiered by what the diff
+   touches:
+   - **`auto_accept: 0.75`** for a doc-only diff — nothing outside `*.md` and `docs/`. Jev scores
+     changes to agent instructions cautiously (the first run of this rule, on the diff that added
+     it, came back 0.78 with no limiting rubric), and the real gates still ran before it.
+   - **`auto_accept: 0.85`** for anything touching code, content, scripts or CI. That margin is
+     where a green-gated but wrong change — a silent duplicate key, a dead socket — gets flagged.
+4. Act on the returned `action`:
+   - **`auto`** (at or above the tier's threshold): Jev does not block. Proceed — which still
+     means committing only when the user asked for a commit.
+   - **`review` or `escalate`** (below the threshold): stop. Quote the specific concern Jev
+     raised, and ask the user how to proceed before making anything permanent — no commit, no
+     push, no PR.
+   - **In either tier**, a non-empty `limiting_rubrics` or any claim returned contradicted stops
+     the commit and goes to the user, whatever the score.
+
+Report the Jev result alongside the gate results, not instead of them.
+
 ## Standing bans
 
 These are settled. Re-read the linked clause before proposing a change to either; do not quietly
