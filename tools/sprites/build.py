@@ -118,9 +118,11 @@ for _key in PAWN_KEYS:
 # side by `Appearance.TREE_KEYS` and `TREE_CANVAS` under the same two-copies arrangement.
 for _key in trees.TREE_KEYS:
     CANVAS[_key] = (trees.TREE_W, trees.TREE_H)
-# The vehicles: two shapes a class, one per axis, feet-anchored on the footprint's south edge --
-# the footprint plus a tile of roofline north, so a sedan's 2x5 is 64x192 nose-north and 160x96
-# nose-east, a van's 2x6 is 64x224 / 192x96 and a truck's 2x7 is 64x256 / 224x96.
+# The vehicles: one shape per class and axis, feet-anchored on the footprint's south edge --
+# the footprint plus a tile of roofline north, so a sedan's 2x5 is 64x192 nose-north, a van's
+# 2x6 is 64x224 and a truck's 2x7 is 64x256. The three cars' nose-east pictures are the outpost
+# pack's since 2026-09-26 and live in the authored tier (`parts/vehicles.py`'s PACK_EW says why),
+# so only the light classes render both axes here.
 # `parts/vehicles.py` derives every one of them from its own `FOOTPRINTS` table, mirrored on the
 # Godot side by `Appearance.VEHICLE_FOOTPRINTS` and `vehicle_canvas()` under the same two-copies
 # arrangement, so a fourth class is one entry there and one here rather than two more constants.

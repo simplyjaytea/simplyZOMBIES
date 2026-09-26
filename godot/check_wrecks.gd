@@ -22,7 +22,7 @@ extends SceneTree
 # names any class that never did, and SILHOUETTE holds the decoded pictures to the owner's
 # 2026-09-04 decision that the classes are told apart by height rather than by length.
 #
-# Ten lanes plus the budget, each with a true positive and a true negative, because a gate that
+# Eleven lanes plus the budget, each with a true positive and a true negative, because a gate that
 # cannot fail is worse than no gate:
 #
 #   DRESSING   the block is declared and every key in it resolves art at the canvas it is authored
@@ -59,12 +59,20 @@ extends SceneTree
 #              passing on a zero -- and every class content declares is weighted by some
 #              district, because a van nobody parks is the dead-socket shape.
 #   SILHOUETTE the owner's height decision made mechanical: three classes are told apart by
-#              height, not by length. Measured off the decoded east-west pictures -- the axis on
-#              which every class shares one 96-row ceiling -- the sedan stands low, the van and
-#              the truck stand tall by a margin over it, the truck's bed end sits well under its
-#              cab where the van's two ends are level, and every picture keeps the clearance the
-#              mirror needs. A class this lane has no expectation for is named, not skipped, and
-#              every predicate is refused on a fabricated picture first.
+#              height, not by length. Measured off the decoded east-west pictures, the sedan
+#              stands low, the van and the truck stand tall by a margin over it, and the truck is
+#              a step where the van is a slab. Since 2026-09-26 the three cars' east-west
+#              pictures are the outpost pack's and are measured at PACK_ALPHA against the pack's
+#              own rows (the step read as the cab's rise over both ends); the light classes are
+#              still the generator's, on its rows, and only a generated picture is held to the
+#              clearance the mirror needs. A class this lane has no expectation for is named, not
+#              skipped, and every predicate is refused on a fabricated picture first.
+#   PACK       the cars are the pack's, east-west (docs/23's slice of that name): the classes on
+#              `Appearance.VEHICLE_PACK_EW` name authored pack keys east-west and generated keys
+#              north-south, and no other class names an authored key; each pack key is an
+#              east-facing pack vehicle cropped to its own anchor row, never padded; and the
+#              footprint is the art's -- the painted span at PACK_ALPHA rounds up to the class's
+#              `lEw`, which is shorter than its north-south length.
 #   EXCLUSIVE  the mutual exclusion, over every Low tile of every parked district: covered by a
 #              record, or resolving a heap -- never both, never neither. And textually, because the
 #              exclusion is the branch's and not the resolver's: the Tile.Low arm of
@@ -121,7 +129,8 @@ const PARK_SIZE: int = 128
 # Four rather than one: a claim about what the generator parks is a claim about the band the pass
 # draws from, and one seed is an anecdote about a handful of dice rolls. Measured with the three
 # classes weighted, the four stand 26 to 38 vehicles each at PARK_SIZE (27 to 38 when the sedan
-# was the only class; a truck refuses a slot a sedan fit).
+# was the only class; a truck refuses a slot a sedan fit). Measured again 2026-09-26, with the
+# light classes weighted and the pack's shorter east-west cars: 32 to 42 a map, 149 over the four.
 const SEEDS: Array[int] = [20260805, 404, 31337, 90210]
 
 # The hand-built map the MANIFEST lane works on. Big enough to hold both axes of every class clear
@@ -159,6 +168,29 @@ const HEIGHT_MARGIN: int = 12
 const BED_DROP_MIN: int = 10
 const BOX_LEVEL_MAX: int = 4
 const CLEAR_MIN: int = 3
+# The three cars' east-west pictures are the outpost pack's since 2026-09-26 (docs/23, "The cars
+# are the pack's, east-west"; the owner adopted the pack overwriting the generated art it
+# replaces), and the pack draws them at its own scale: measured off the cropped pictures that day
+# at PACK_ALPHA, the hatchback stands 44 rows in both states, the van 52 / 51 with its roof level
+# end to end (peak over its ends 0), and the pickup 50 / 49 with its cab standing 6 rows over both
+# ends of the body. So the height decision holds on the pack's pictures at the pack's rows -- the
+# sedan low, the two tall classes taller by PACK_HEIGHT_MARGIN (measured 5), the van a slab and
+# the truck a step -- rather than at the generator's 96-row numbers above, which describe pictures
+# that no longer exist; and the step is read as the cab's rise over both ends, because the pack's
+# pickup is drawn from above and its bed end and its nose stand within two rows of each other
+# where the generator's flatbed dropped a bed BED_DROP_MIN under a cab at the nose. The clearance
+# rule stays the generator's: a pack picture is cropped to its anchor, not drawn inside margins,
+# and PACK holds its span to its footprint instead.
+#
+# Any pixel under PACK_ALPHA is not paint. The pack carries alpha <= 6 specks out to its canvas
+# edges (the pickup doc's finding for the survivor frames), and "opaque = alpha > 0" would make an
+# envelope that cannot fail; 128 refuses a real pixel and accepts a speck, and the fabricated
+# pictures below prove both.
+const PACK_ALPHA: int = 128
+const PACK_SEDAN_ROWS_MAX: int = 46
+const PACK_TALL_ROWS_MIN: int = 48
+const PACK_HEIGHT_MARGIN: int = 4
+const PACK_CAB_RISE_MIN: int = 4
 # The light classes, on their 64-row east-west canvases (a tile of footprint plus the roofline):
 # a bicycle, an e-bike and the two scooters stand a rider's-hip height, between these rows; a
 # skateboard is a deck on wheels and stands under BOARD_ROWS_MAX. The scooters have their stem at
@@ -234,6 +266,7 @@ func _run() -> void:
 		ok = _a_car_is_layout_and_not_dressing(stash) and ok
 		ok = _the_generator_parks_them_lawfully(stash) and ok
 		ok = _the_classes_read_apart_by_height(stash) and ok
+		ok = _the_cars_are_the_packs_east_west(stash) and ok
 		ok = _every_low_tile_is_a_car_or_a_heap(stash) and ok
 		ok = _a_hosted_site_stands_on_a_car_or_falls_back(stash) and ok
 		ok = _the_scatter_lands_where_the_ground_says(stash) and ok
@@ -243,12 +276,12 @@ func _run() -> void:
 	ok = _the_gate_stayed_inside_its_own_budget(seconds) and ok
 
 	if ok:
-		print("WRECKS_OK %d sprite keys resolve (%d of them vehicle pictures); the manifest answers for its footprint alone, every class on both axes; the colour is one hash per record; the manifest is identical with dressing off; suburb@%d parked %d vehicles over %d seeds (%d..%d a map; %s) and suburb@%d parked 0 because every street there is %d wide against a %d minimum; the sedan stands %d east-west rows against %d for the van and the truck, the truck's bed %d under its cab; %d Low tiles covered by a record and %d heaped, never both and never neither; %d hosted sites stood on a car tail and %d fell back to a driveway; scatter on %d rubble and %d litter tiles; sockets wired and the segment names gone; %.1f s of a %.0f s budget" % [
+		print("WRECKS_OK %d sprite keys resolve (%d of them vehicle pictures); the manifest answers for its footprint alone, every class on both axes; the colour is one hash per record; the manifest is identical with dressing off; suburb@%d parked %d vehicles over %d seeds (%d..%d a map; %s) and suburb@%d parked 0 because every street there is %d wide against a %d minimum; the sedan stands %d east-west rows against %d for the van and the truck, the truck's step %d rows; %d classes east-west are the pack's at the pack's footprint; %d Low tiles covered by a record and %d heaped, never both and never neither; %d hosted sites stood on a car tail and %d fell back to a driveway; scatter on %d rubble and %d litter tiles; sockets wired and the segment names gone; %.1f s of a %.0f s budget" % [
 			int(stash.get("keys", 0)), int(stash.get("vehicle_keys", 0)),
 			PARK_SIZE, int(stash.get("parked", 0)), SEEDS.size(),
 			int(stash.get("parked_min", 0)), int(stash.get("parked_max", 0)), String(stash.get("by_class", "")),
 			GATE_SIZE, int(stash.get("narrow_width", 0)), SimWorldgen.VEHICLE_MIN_WIDTH,
-			int(stash.get("sedan_rows", 0)), int(stash.get("tall_rows", 0)), int(stash.get("bed_drop", 0)),
+			int(stash.get("sedan_rows", 0)), int(stash.get("tall_rows", 0)), int(stash.get("bed_drop", 0)), int(stash.get("pack", 0)),
 			int(stash.get("covered", 0)), int(stash.get("heaped", 0)),
 			int(stash.get("hosted_on_car", 0)), int(stash.get("hosted_fallback", 0)),
 			int(stash.get("rubble", 0)), int(stash.get("litter", 0)),
@@ -315,7 +348,9 @@ func _key_problem(key: String, want: Vector2i) -> String:
 	return ""
 
 
-# The canvas a class's CONTENT footprint implies for an axis. There are three copies of the
+# The canvas a class's CONTENT footprint implies for an axis -- the generated pictures only: a
+# class on `Appearance.VEHICLE_PACK_EW` draws the pack's art east-west at the pack's own canvas,
+# and PACK holds that one to its footprint instead. There are three copies of the
 # footprint now -- content's `footprint` (what worldgen parks and writes Low under),
 # `Appearance.VEHICLE_FOOTPRINTS` (what sizes the picture) and `parts/vehicles.py`'s (what draws
 # it) -- and the picture is judged against the second while the cover comes from the first. Held
@@ -417,7 +452,7 @@ func _the_block_declares_working_art(stash: Dictionary) -> bool:
 
 	# Every picture every vehicle class names, at its own canvas. The nested walk is the point:
 	# `godot:validate` checks that `appearance` is an object and never once looks inside it, so this
-	# is where a typo in `vehicle_sedan_burnt_ew` stops being invisible -- and the canvas is derived
+	# is where a typo in `vehicle_sedan_burnt_ns` stops being invisible -- and the canvas is derived
 	# per class from its footprint, so a van whose picture was rendered at a sedan's size fails here
 	# rather than drawing stretched.
 	var classes: Array = SimWorldgen.vehicles_of(_tree())
@@ -432,12 +467,30 @@ func _the_block_declares_working_art(stash: Dictionary) -> bool:
 			if listed2.is_empty():
 				push_error("vehicle class %s declares no `%s` keys; half its variants would draw nothing" % [String(entry.get("id", "?")), String(axis)])
 				return false
+			# A class whose east-west picture is the outpost pack's names authored keys on that
+			# axis, placed by the authored tier at the pack's own canvas rather than derived from
+			# the footprint -- PACK below is where that canvas is held to the footprint instead --
+			# and its variants share them, because the pack draws one intact car and one wreck.
+			# Counted once a class, so the duplicate check still refuses two classes, or a heap
+			# and a car, naming one picture.
+			var pack_ew: bool = String(axis) == Appearance.AXIS_EW and Appearance.VEHICLE_PACK_EW.has(String(entry.get("id", "")).trim_prefix("vehicle."))
+			var counted: Dictionary = {}
 			for key in listed2:
-				var want: Vector2i = Appearance.vehicle_canvas(key)
+				if pack_ew and counted.has(key):
+					continue
+				counted[key] = true
+				var want: Vector2i = Appearance.canvas_of(key) if pack_ew else Appearance.vehicle_canvas(key)
 				var problem3: String = _key_problem(key, want)
 				if not problem3.is_empty():
 					push_error("vehicle key on %s: %s" % [String(entry.get("id", "?")), problem3])
 					return false
+				if pack_ew:
+					if Appearance.vehicle_canvas(key) != Vector2i.ZERO:
+						push_error("%s's east-west key '%s' is still placed by the generated vehicle rule; the pack's picture would be judged at a canvas it was not drawn on" % [String(entry.get("id", "?")), key])
+						return false
+					keys.append(key)
+					vehicle_keys += 1
+					continue
 				# Appearance's footprint for this class against content's, per class and per
 				# axis: the picture is sized by one and the cover under it by the other.
 				if want != _canvas_from_content(entry, String(axis)):
@@ -522,15 +575,24 @@ func _other_classes() -> Array[String]:
 	return out
 
 
-# A class's footprint as content declares it, `(w, l)` nose-to-tail, or ZERO for a class nobody
-# wrote. Read out of content so a record's extent can be judged against something the record did
-# not itself say.
-func _footprint_of(id: String) -> Vector2i:
+# A class's footprint turned to an axis as content declares it, `(x extent, y extent)`, or ZERO for
+# a class nobody wrote: `w` x `l` north-south, and `lEw` x `w` east-west where the class declares an
+# east-west length (the three cars, whose east-west picture is the pack's), `l` x `w` where it
+# does not. Read here from content directly rather than through SimWorldgen.vehicle_extent, so
+# the helper the generator and the entity share is judged against something it did not compute.
+func _extent_on(id: String, axis: String) -> Vector2i:
 	for raw in SimWorldgen.vehicles_of(_tree()):
 		var entry: Dictionary = raw as Dictionary
-		if String(entry.get("id", "")) == id:
-			var foot: Dictionary = entry.get("footprint", {}) as Dictionary
-			return Vector2i(int(foot.get("w", 0)), int(foot.get("l", 0)))
+		if String(entry.get("id", "")) != id:
+			continue
+		var foot: Dictionary = entry.get("footprint", {}) as Dictionary
+		var w: int = int(foot.get("w", 0))
+		var l: int = int(foot.get("l", 0))
+		if w < 1 or l < 1:
+			return Vector2i.ZERO
+		if axis == Appearance.AXIS_NS:
+			return Vector2i(w, l)
+		return Vector2i(int(foot["lEw"]) if foot.has("lEw") else l, w)
 	return Vector2i.ZERO
 
 
@@ -538,14 +600,10 @@ func _footprint_of(id: String) -> Vector2i:
 # edge as CONTENT's footprint for the record's class, turned to its axis, would put it -- so a
 # record whose own w and h disagree with its class is refused rather than agreed with.
 func _ground_point_problem(r: Dictionary) -> String:
-	var foot: Vector2i = _footprint_of(String(r.get("class", "")))
+	var foot: Vector2i = _extent_on(String(r.get("class", "")), String(r.get("axis", "")))
 	if foot == Vector2i.ZERO:
 		return "a record of class %s, which content does not declare, has no footprint to stand on" % String(r.get("class", "?"))
-	var want: Vector2
-	if String(r.get("axis", "")) == Appearance.AXIS_NS:
-		want = Vector2(float(int(r["x"])) + float(foot.x) / 2.0, float(int(r["y"])) + float(foot.y))
-	else:
-		want = Vector2(float(int(r["x"])) + float(foot.y) / 2.0, float(int(r["y"])) + float(foot.x))
+	var want := Vector2(float(int(r["x"])) + float(foot.x) / 2.0, float(int(r["y"])) + float(foot.y))
 	if Dressing.vehicle_ground_point(r) != want:
 		return "a %s on the '%s' axis parked %dx%d stands its picture at %s, where its content footprint %s puts it at %s" % [String(r["class"]), String(r.get("axis", "")), int(r.get("w", 0)), int(r.get("h", 0)), str(Dressing.vehicle_ground_point(r)), str(foot), str(want)]
 	return ""
@@ -557,7 +615,7 @@ func _hand_map_problem() -> String:
 	for id in _other_classes():
 		if not HAND_SLOTS.has(id):
 			return "content declares %s and the hand map has no slot for it, so it would go unjudged -- extend HAND_SLOTS" % id
-		if _footprint_of(id) == Vector2i.ZERO:
+		if _extent_on(id, Appearance.AXIS_NS) == Vector2i.ZERO:
 			return "%s declares no footprint, so the hand map cannot stand it" % id
 	return ""
 
@@ -572,16 +630,17 @@ func _hand_map() -> Variant:
 	var map: Variant = SimTileMap.blank_map(HAND_SIZE, HAND_SIZE)
 	var records: Array = [
 		{"x": 3, "y": 2, "w": 2, "h": 5, "axis": "ns", "class": SEDAN_ID, "facing": "n"},
-		{"x": 8, "y": 9, "w": 5, "h": 2, "axis": "ew", "class": SEDAN_ID, "facing": "w"},
+		{"x": 8, "y": 9, "w": 3, "h": 2, "axis": "ew", "class": SEDAN_ID, "facing": "w"},
 	]
 	for id in _other_classes():
 		if not HAND_SLOTS.has(id):
 			continue
-		var foot: Vector2i = _footprint_of(id)
+		var foot_ns: Vector2i = _extent_on(id, Appearance.AXIS_NS)
+		var foot_ew: Vector2i = _extent_on(id, Appearance.AXIS_EW)
 		var ns: Vector2i = (HAND_SLOTS[id] as Array)[0] as Vector2i
 		var ew: Vector2i = (HAND_SLOTS[id] as Array)[1] as Vector2i
-		records.append({"x": ns.x, "y": ns.y, "w": foot.x, "h": foot.y, "axis": "ns", "class": id, "facing": "s"})
-		records.append({"x": ew.x, "y": ew.y, "w": foot.y, "h": foot.x, "axis": "ew", "class": id, "facing": "e"})
+		records.append({"x": ns.x, "y": ns.y, "w": foot_ns.x, "h": foot_ns.y, "axis": "ns", "class": id, "facing": "s"})
+		records.append({"x": ew.x, "y": ew.y, "w": foot_ew.x, "h": foot_ew.y, "axis": "ew", "class": id, "facing": "e"})
 	map.vehicles = records
 	# Whole-array write: packed arrays are values, and an element write through the property would
 	# land on a copy (CLAUDE.md's first trap).
@@ -645,12 +704,13 @@ func _the_manifest_answers_for_its_footprint_alone(stash: Dictionary) -> bool:
 		return false
 
 	# Where the picture stands: the centre of the footprint's south edge, exactly, on both axes.
-	# A north-south sedan at (3,2) 2x5 stands at (4.0, 7.0); an east-west one at (8,9) 5x2 stands at
-	# (10.5, 11.0) -- the half tile is the point, because a 5-wide body has no centre column.
+	# A north-south sedan at (3,2) 2x5 stands at (4.0, 7.0); an east-west one at (8,9) 3x2 -- the
+	# pack's footprint, not the north-south one laid flat -- stands at (9.5, 11.0), and the half
+	# tile is the point, because a 3-wide body has no centre column.
 	var gp_ns: Vector2 = Dressing.vehicle_ground_point(records[0] as Dictionary)
 	var gp_ew: Vector2 = Dressing.vehicle_ground_point(records[1] as Dictionary)
-	if gp_ns != Vector2(4.0, 7.0) or gp_ew != Vector2(10.5, 11.0):
-		push_error("vehicle_ground_point answered %s and %s, wanted (4, 7) and (10.5, 11)" % [str(gp_ns), str(gp_ew)])
+	if gp_ns != Vector2(4.0, 7.0) or gp_ew != Vector2(9.5, 11.0):
+		push_error("vehicle_ground_point answered %s and %s, wanted (4, 7) and (9.5, 11)" % [str(gp_ns), str(gp_ew)])
 		return false
 	# And every other class's pair, derived from the CONTENT footprint turned to the record's axis
 	# rather than from the record's own w and h. The hand map builds its extents from that same
@@ -753,7 +813,7 @@ func _the_manifest_answers_for_its_footprint_alone(stash: Dictionary) -> bool:
 	# the screen with its cab still showing.
 	var longest: int = 0
 	for raw9 in declared:
-		longest = maxi(longest, _footprint_of(String((raw9 as Dictionary).get("id", ""))).y)
+		longest = maxi(longest, _extent_on(String((raw9 as Dictionary).get("id", "")), Appearance.AXIS_NS).y)
 	if Appearance.vehicle_reach_tiles() != longest + Appearance.VEHICLE_ROOFLINE_TILES:
 		push_error("Appearance.vehicle_reach_tiles answers %d tiles where content's longest footprint (%d) plus the roofline tile says %d; the renderer's search margin would miss the longest class" % [Appearance.vehicle_reach_tiles(), longest, longest + Appearance.VEHICLE_ROOFLINE_TILES])
 		return false
@@ -827,7 +887,7 @@ func _the_manifest_answers_for_its_footprint_alone(stash: Dictionary) -> bool:
 		push_error("vehicle_index(null) answered an index rather than nothing")
 		return false
 
-	print("MANIFEST OK %d records of %d classes mark %d tiles and nothing else on a hand-built %dx%d map; vehicle_at says none outside, off-map and past a short index; the sedan's ground points (4, 7) and (10.5, 11) exact and every other class's derived from its content footprint; one key per vehicle over its whole footprint (a per-tile hash would have given %d), from its own class's list; every class on both axes and %d classes resolving %d different pictures on one corner; the renderer's reach is %d tiles, content's longest footprint plus the roofline; only 'w' mirrors; draw is a subset of seen; an unknown class, an unknown axis, an off-edge record and a non-Array manifest all answer nothing" % [
+	print("MANIFEST OK %d records of %d classes mark %d tiles and nothing else on a hand-built %dx%d map; vehicle_at says none outside, off-map and past a short index; the sedan's ground points (4, 7) and (9.5, 11) exact and every other class's derived from its content footprint; one key per vehicle over its whole footprint (a per-tile hash would have given %d), from its own class's list; every class on both axes and %d classes resolving %d different pictures on one corner; the renderer's reach is %d tiles, content's longest footprint plus the roofline; only 'w' mirrors; draw is a subset of seen; an unknown class, an unknown axis, an off-edge record and a non-Array manifest all answer nothing" % [
 		records.size(), declared.size(), marked, HAND_SIZE, HAND_SIZE, as_tiles.size(), declared.size(), by_class.size(), Appearance.vehicle_reach_tiles(),
 	])
 	return true
@@ -1114,9 +1174,8 @@ func _the_generator_parks_them_lawfully(stash: Dictionary) -> bool:
 			# the wrong tiles and draw a picture two tiles longer than its cover.
 			var cls: String = String(r.get("class", ""))
 			counts[cls] = int(counts.get(cls, 0)) + 1
-			var foot: Vector2i = _footprint_of(cls)
-			var want_wh: Vector2i = foot if String(r["axis"]) == Appearance.AXIS_NS else Vector2i(foot.y, foot.x)
-			if foot == Vector2i.ZERO or Vector2i(int(r["w"]), int(r["h"])) != want_wh:
+			var want_wh: Vector2i = _extent_on(cls, String(r["axis"]))
+			if want_wh == Vector2i.ZERO or Vector2i(int(r["w"]), int(r["h"])) != want_wh:
 				push_error("seed %d: a %s at (%d,%d) is parked %dx%d on the '%s' axis, where its class's footprint turned that way is %s" % [
 					SEEDS[i], cls, int(r["x"]), int(r["y"]), int(r["w"]), int(r["h"]), String(r["axis"]), str(want_wh),
 				])
@@ -1276,7 +1335,7 @@ func _the_generator_parks_them_lawfully(stash: Dictionary) -> bool:
 # What the picture is, as numbers: how many of its rows carry paint, how far its paint sits from
 # the top and the two sides of the canvas, and the tallest column in the west third and the east
 # third of the painted span -- nose east, so "east" is the cab end of a truck.
-func _silhouette(img: Image) -> Dictionary:
+func _silhouette(img: Image, alpha_min: int = 1) -> Dictionary:
 	var w: int = img.get_width()
 	var h: int = img.get_height()
 	var top: int = h
@@ -1289,7 +1348,7 @@ func _silhouette(img: Image) -> Dictionary:
 	var fill: int = 0
 	for y in h:
 		for x in w:
-			if img.get_pixel(x, y).a <= 0.0:
+			if img.get_pixel(x, y).a8 < alpha_min:
 				continue
 			top = mini(top, y)
 			bottom = maxi(bottom, y)
@@ -1298,7 +1357,7 @@ func _silhouette(img: Image) -> Dictionary:
 			tops[x] = maxi(int(tops[x]), h - y)
 			fill += 1
 	if bottom < 0:
-		return {"rows": 0, "top_clear": h, "left_clear": w, "right_clear": w, "west": 0, "east": 0, "fill": 0}
+		return {"rows": 0, "top_clear": h, "left_clear": w, "right_clear": w, "west": 0, "east": 0, "peak": 0, "fill": 0}
 	var third: int = maxi(1, (right - left + 1) / 3)
 	var west: int = 0
 	var east: int = 0
@@ -1306,7 +1365,7 @@ func _silhouette(img: Image) -> Dictionary:
 		west = maxi(west, int(tops[x2]))
 	for x3 in range(right - third + 1, right + 1):
 		east = maxi(east, int(tops[x3]))
-	return {"rows": bottom - top + 1, "top_clear": top, "left_clear": left, "right_clear": w - 1 - right, "west": west, "east": east, "fill": fill}
+	return {"rows": bottom - top + 1, "top_clear": top, "left_clear": left, "right_clear": w - 1 - right, "west": west, "east": east, "peak": h - top, "fill": fill}
 
 
 # What is wrong with a picture's clearance, or "". Every picture keeps CLEAR_MIN rows under the
@@ -1325,21 +1384,31 @@ func _clearance_problem(m: Dictionary) -> String:
 # What is wrong with a picture for the class it claims to be, or "". A class this lane has no
 # expectation for is a problem, not a pass: the height decision placed three classes, and a
 # fourth would need its own row here before it could be said to read apart from them.
-func _class_problem(id: String, m: Dictionary) -> String:
+#
+# `pack` is true for a picture from the outpost pack, judged at the pack's own rows (PACK_*, above).
+func _class_problem(id: String, m: Dictionary, pack: bool = false) -> String:
 	var rows: int = int(m["rows"])
+	var low_max: int = PACK_SEDAN_ROWS_MAX if pack else SEDAN_ROWS_MAX
+	var tall_min: int = PACK_TALL_ROWS_MIN if pack else TALL_ROWS_MIN
+	var rise: int = int(m.get("peak", 0)) - maxi(int(m["west"]), int(m["east"]))
 	match id:
 		SEDAN_ID:
-			if rows > SEDAN_ROWS_MAX:
-				return "the sedan stands %d rows, over the %d a low car may; it is the tall box the decision lowered" % [rows, SEDAN_ROWS_MAX]
+			if rows > low_max:
+				return "the sedan stands %d rows, over the %d a low car may; it is the tall box the decision lowered" % [rows, low_max]
 		VAN_ID:
-			if rows < TALL_ROWS_MIN:
-				return "the van stands %d rows, under the %d a tall class must; it would differ from a sedan only in length" % [rows, TALL_ROWS_MIN]
+			if rows < tall_min:
+				return "the van stands %d rows, under the %d a tall class must; it would differ from a sedan only in length" % [rows, tall_min]
 			if absi(int(m["west"]) - int(m["east"])) > BOX_LEVEL_MAX:
 				return "the van's two ends stand %d and %d rows; a closed box is level end to end" % [int(m["west"]), int(m["east"])]
+			if pack and rise > BOX_LEVEL_MAX:
+				return "the van's roof rises %d rows over both its ends; a closed box is one slab, and a hump in the middle is a cab" % rise
 		TRUCK_ID:
-			if rows < TALL_ROWS_MIN:
-				return "the truck stands %d rows, under the %d a tall class must" % [rows, TALL_ROWS_MIN]
-			if int(m["east"]) - int(m["west"]) < BED_DROP_MIN:
+			if rows < tall_min:
+				return "the truck stands %d rows, under the %d a tall class must" % [rows, tall_min]
+			if pack:
+				if rise < PACK_CAB_RISE_MIN:
+					return "the truck's cab stands %d rows over its two ends, under the %d that makes it a step and not a slab; it would collide with the van" % [rise, PACK_CAB_RISE_MIN]
+			elif int(m["east"]) - int(m["west"]) < BED_DROP_MIN:
 				return "the truck's bed end stands %d rows against its cab's %d; an open bed sits at least %d under the cab, or it is a box truck and collides with the van" % [int(m["west"]), int(m["east"]), BED_DROP_MIN]
 		BICYCLE_ID, EBIKE_ID:
 			if rows < LIGHT_ROWS_MIN or rows > LIGHT_ROWS_MAX:
@@ -1438,12 +1507,59 @@ func _the_classes_read_apart_by_height(stash: Dictionary) -> bool:
 	if int(_fabricated(32, 64, [Rect2i(0, 0, 4, 4)])["fill"]) != 16:
 		push_error("SILHOUETTE: the fill count of a 4x4 block is not 16; the e-bike's battery margin would be judged on nothing")
 		return false
+	# The pack's rows, on fabricated pack-sized pictures. A 44-row slab is a sedan and not a van; a
+	# 52-row slab is a van and not a truck (no cab rises over its ends) and not a sedan; a 50-row
+	# body whose middle third stands 6 rows over both ends is a truck and not a van. Judged at the
+	# generator's rows, the pack's own van would be refused as too low -- which is why the bands
+	# are the pack's and not a loosening of the generator's.
+	var pack_low: Dictionary = _fabricated(96, 47, [Rect2i(5, 3, 86, 44)])
+	if not _class_problem(SEDAN_ID, pack_low, true).is_empty():
+		push_error("SILHOUETTE: a 44-row pack slab refused as a sedan: %s" % _class_problem(SEDAN_ID, pack_low, true))
+		return false
+	if _class_problem(VAN_ID, pack_low, true).is_empty():
+		push_error("SILHOUETTE: a 44-row pack slab passed as a van; the pack's tall rule cannot say no")
+		return false
+	var pack_slab: Dictionary = _fabricated(112, 55, [Rect2i(5, 3, 102, 52)])
+	if not _class_problem(VAN_ID, pack_slab, true).is_empty():
+		push_error("SILHOUETTE: a level 52-row pack slab refused as a van: %s" % _class_problem(VAN_ID, pack_slab, true))
+		return false
+	if _class_problem(TRUCK_ID, pack_slab, true).is_empty():
+		push_error("SILHOUETTE: a level pack slab passed as a truck; the cab-rise rule cannot say no")
+		return false
+	if _class_problem(SEDAN_ID, pack_slab, true).is_empty():
+		push_error("SILHOUETTE: a 52-row pack slab passed as a sedan; the pack's low rule cannot say no")
+		return false
+	if _class_problem(VAN_ID, pack_slab).is_empty():
+		push_error("SILHOUETTE: a 52-row slab passed as a van at the generator's rows; the two bands are not two bands")
+		return false
+	var pack_cab: Dictionary = _fabricated(112, 55, [Rect2i(3, 11, 105, 44), Rect2i(40, 5, 32, 6)])
+	if not _class_problem(TRUCK_ID, pack_cab, true).is_empty():
+		push_error("SILHOUETTE: a pack body with a cab rising 6 rows refused as a truck: %s" % _class_problem(TRUCK_ID, pack_cab, true))
+		return false
+	if _class_problem(VAN_ID, pack_cab, true).is_empty():
+		push_error("SILHOUETTE: a pack body with a cab rising 6 rows passed as a van; the slab rule cannot say no")
+		return false
+	# PACK_ALPHA: a speck is not paint and a real pixel is. The same 44-row slab with one alpha-6
+	# speck in the canvas's top-left corner is still 44 rows at PACK_ALPHA -- and 47 at the
+	# generator's alpha > 0, which is the envelope that could not fail.
+	var specked := Image.create_empty(96, 47, false, Image.FORMAT_RGBA8)
+	specked.fill_rect(Rect2i(5, 3, 86, 44), Color(1.0, 1.0, 1.0, 1.0))
+	specked.set_pixel(0, 0, Color8(255, 255, 255, 6))
+	if int(_silhouette(specked, PACK_ALPHA)["rows"]) != 44 or int(_silhouette(specked, 1)["rows"]) != 47:
+		push_error("SILHOUETTE: an alpha-6 speck read %d rows at PACK_ALPHA and %d at alpha > 0, wanted 44 and 47; the threshold is not separating a speck from paint" % [int(_silhouette(specked, PACK_ALPHA)["rows"]), int(_silhouette(specked, 1)["rows"])])
+		return false
+	specked.set_pixel(0, 0, Color8(255, 255, 255, 200))
+	if int(_silhouette(specked, PACK_ALPHA)["rows"]) != 47:
+		push_error("SILHOUETTE: an alpha-200 pixel was not read as paint at PACK_ALPHA; the threshold would refuse real art")
+		return false
 
 	# The real pictures, every variant of every class, on the east-west axis.
 	var rows_by_class: Dictionary = {}
 	var fill_by_class: Dictionary = {}
 	var drops: Array[int] = []
 	var judged: int = 0
+	var pack_judged: int = 0
+	var sedan_pack: bool = false
 	for raw in SimWorldgen.vehicles_of(_tree()):
 		var entry: Dictionary = raw as Dictionary
 		var id: String = String(entry.get("id", ""))
@@ -1456,12 +1572,20 @@ func _the_classes_read_apart_by_height(stash: Dictionary) -> bool:
 			if img.load("%s/%s.png" % [SPRITE_DIR, key]) != OK:
 				push_error("%s/%s.png does not load; the silhouette had nothing to measure" % [SPRITE_DIR, key])
 				return false
-			var m: Dictionary = _silhouette(img)
-			var problem: String = _clearance_problem(m)
+			# A pack picture (an authored key) is measured at PACK_ALPHA and judged at the pack's
+			# rows, and is cropped to its anchor rather than drawn inside margins, so the
+			# clearance is the generator's rule alone.
+			var pack: bool = Appearance.authored_canvases().has(key)
+			var m: Dictionary = _silhouette(img, PACK_ALPHA if pack else 1)
+			var problem: String = "" if pack else _clearance_problem(m)
 			if not problem.is_empty():
 				push_error("%s: %s" % [key, problem])
 				return false
-			problem = _class_problem(id, m)
+			if pack:
+				pack_judged += 1
+				if id == SEDAN_ID:
+					sedan_pack = true
+			problem = _class_problem(id, m, pack)
 			if not problem.is_empty():
 				push_error("%s: %s" % [key, problem])
 				return false
@@ -1472,7 +1596,7 @@ func _the_classes_read_apart_by_height(stash: Dictionary) -> bool:
 				fill_by_class[id] = []
 			(fill_by_class[id] as Array).append(int(m["fill"]))
 			if id == TRUCK_ID:
-				drops.append(int(m["east"]) - int(m["west"]))
+				drops.append((int(m["peak"]) - maxi(int(m["west"]), int(m["east"]))) if pack else (int(m["east"]) - int(m["west"])))
 			judged += 1
 	for want in [SEDAN_ID, VAN_ID, TRUCK_ID]:
 		if not rows_by_class.has(want):
@@ -1504,8 +1628,9 @@ func _the_classes_read_apart_by_height(stash: Dictionary) -> bool:
 	for id2 in [VAN_ID, TRUCK_ID]:
 		for r2 in rows_by_class[id2] as Array:
 			tall_min = mini(tall_min, int(r2))
-	if tall_min - sedan_max < HEIGHT_MARGIN:
-		push_error("the tallest sedan stands %d rows and the shortest van or truck %d; the classes are %d apart against the %d that tells them apart at a glance" % [sedan_max, tall_min, tall_min - sedan_max, HEIGHT_MARGIN])
+	var margin: int = PACK_HEIGHT_MARGIN if sedan_pack else HEIGHT_MARGIN
+	if tall_min - sedan_max < margin:
+		push_error("the tallest sedan stands %d rows and the shortest van or truck %d; the classes are %d apart against the %d that tells them apart at a glance" % [sedan_max, tall_min, tall_min - sedan_max, margin])
 		return false
 	var drop_min: int = 1 << 30
 	for d in drops:
@@ -1514,8 +1639,224 @@ func _the_classes_read_apart_by_height(stash: Dictionary) -> bool:
 	stash["sedan_rows"] = sedan_max
 	stash["tall_rows"] = tall_min
 	stash["bed_drop"] = drop_min
-	print("SILHOUETTE OK %d east-west pictures measured: the sedan stands at most %d rows, the van and the truck at least %d (%d apart against a %d margin), the truck's bed end at least %d under its cab, every picture %d+ clear of the top and both sides; the bicycles level in %d..%d rows, the scooters' stems %d+ over their decks, the skateboard under %d, the e-bike %d px fuller than the bicycle; a full-canvas block, an edge-flush block, a low block called a van, a level block called a truck or a sedan, a stepped block called a van, a level block called a scooter or a skateboard, a stemmed block called an e-bike, a deck called a bicycle and a class with no expectation are all refused" % [
-		judged, sedan_max, tall_min, tall_min - sedan_max, HEIGHT_MARGIN, drop_min, CLEAR_MIN, LIGHT_ROWS_MIN, LIGHT_ROWS_MAX, STEM_RISE_MIN, BOARD_ROWS_MAX, ebike_min - bicycle_max,
+	print("SILHOUETTE OK %d east-west pictures measured, %d of them the pack's at alpha >= %d and the pack's rows: the sedan stands at most %d rows, the van and the truck at least %d (%d apart against a %d margin), the truck's cab at least %d over %s, every generated picture %d+ clear of the top and both sides; the bicycles level in %d..%d rows, the scooters' stems %d+ over their decks, the skateboard under %d, the e-bike %d px fuller than the bicycle; a full-canvas block, an edge-flush block, a low block called a van, a level block called a truck or a sedan, a stepped block called a van, a level block called a scooter or a skateboard, a stemmed block called an e-bike, a deck called a bicycle, a pack slab called a van at the generator's rows or a truck, a pack cab called a van, and a class with no expectation are all refused, and an alpha-6 speck is not paint where an alpha-200 pixel is" % [
+		judged, pack_judged, PACK_ALPHA, sedan_max, tall_min, tall_min - sedan_max, margin, drop_min, "both its ends" if sedan_pack else "its bed end", CLEAR_MIN, LIGHT_ROWS_MIN, LIGHT_ROWS_MAX, STEM_RISE_MIN, BOARD_ROWS_MAX, ebike_min - bicycle_max,
+	])
+	return true
+
+
+# --- 6b. PACK: the cars are the pack's, east-west ------------------------------------------------
+#
+# docs/23's "The cars are the pack's, east-west": the owner adopted the outpost pack overwriting
+# the generated art it replaces, and the pack draws a car side-on only -- a hatchback three tiles
+# long, a van and a pickup four. So the three cars' east-west pictures are the pack's, cropped to
+# the pack's anchor row, and their east-west footprints are the pack's (content's `lEw`), while
+# north-south keeps the generated art and its longer footprint (decision 11 of the Dungeon
+# Settlers look: a car seen from behind is a picture the pack does not have). What that is, as
+# properties this lane can refuse:
+#
+#   * which classes are the pack's is one list, `Appearance.VEHICLE_PACK_EW`, and it agrees with
+#     the art both ways: a class on it names only authored keys east-west, each of kind `vehicle`
+#     read by that class, and generated keys north-south; a class off it names no authored key;
+#   * each such key is reproduced from a pack vehicle facing east, cropped from the canvas origin
+#     to the pack's own anchor -- the anchor is the bottom-centre pixel of the cropped canvas, which
+#     is exactly where `Appearance.body_rect` stands a feet-anchored picture, so the pack's pivot
+#     and the renderer's are one point and nothing was padded to make them so;
+#   * the footprint is the art's: the painted span at PACK_ALPHA, rounded up to whole tiles, is the
+#     class's `lEw`, the picture is no wider than that footprint, and `lEw` is shorter than the
+#     north-south length -- sabotage either number in content and this lane names the class.
+#
+# Every predicate is refused on a fabrication first: a span a tile too long, a speck at the canvas
+# edge that must not widen it, an anchor a pixel off the crop, a pad, a south-facing source, a
+# non-pack class naming an authored key, and a pack class naming a generated one.
+
+const PACK_MANIFEST: String = "res://art/simplyzombies/manifest.json"
+const PACK_ROOT: String = "art/simplyzombies/"
+const AUTHORED_JSON: String = "res://assets/sprites/authored.json"
+
+
+# The painted span of a picture at `alpha_min`, in whole tiles rounded up -- integer division, so
+# the boundary is never decided by float arithmetic. 0 for a picture with no paint.
+func _span_tiles(img: Image, alpha_min: int) -> int:
+	var left: int = img.get_width()
+	var right: int = -1
+	for y in img.get_height():
+		for x in img.get_width():
+			if img.get_pixel(x, y).a8 >= alpha_min:
+				left = mini(left, x)
+				right = maxi(right, x)
+	if right < 0:
+		return 0
+	var n: int = int(CameraUtil.ART_NATIVE)
+	return (right - left + 1 + n - 1) / n
+
+
+# The pack's own manifest record for a source path, or {}. Read as JSON: the pack's
+# `docs/godot/*.tres` are never loaded (they are null headless, the UI kit's trap).
+func _pack_asset(path: String) -> Dictionary:
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(PACK_MANIFEST))
+	if not (parsed is Dictionary):
+		return {}
+	var rel: String = path.trim_prefix(PACK_ROOT)
+	for asset in (parsed as Dictionary).get("assets", []) as Array:
+		if asset is Dictionary and String((asset as Dictionary).get("path", "")) == rel:
+			return asset as Dictionary
+	return {}
+
+
+# What is wrong with a pack car's source against its canvas, or "": a vehicle from the pack facing
+# east, cropped from the origin to exactly the declared canvas, whose anchor is that canvas's
+# bottom-centre pixel. No pad: a padded pack car would have moved its pivot.
+func _pack_source_problem(source: Dictionary, canvas: Vector2i, asset: Dictionary) -> String:
+	if not String(source.get("path", "")).begins_with(PACK_ROOT):
+		return "its source %s is not under %s" % [String(source.get("path", "")), PACK_ROOT]
+	if source.has("pad"):
+		return "its source is padded; a pack car is cropped to its anchor, never padded"
+	if asset.is_empty():
+		return "its source names no asset in the pack's manifest"
+	if String(asset.get("category", "")) != "vehicles" or String(asset.get("facing", "")) != "east":
+		return "its source is the pack's %s facing %s, not a vehicle facing east" % [String(asset.get("category", "?")), String(asset.get("facing", "?"))]
+	var crop: Array = source.get("crop", []) as Array
+	if crop.size() != 4 or int(crop[0]) != 0 or int(crop[1]) != 0 or Vector2i(int(crop[2]), int(crop[3])) != canvas:
+		return "its crop %s is not the canvas %s from the origin" % [str(crop), str(canvas)]
+	var anchor: Array = asset.get("anchor", []) as Array
+	if anchor.size() != 2 or Vector2i(int(anchor[0]), int(anchor[1])) != Vector2i(canvas.x / 2, canvas.y - 1):
+		return "the pack anchors it at %s, not the cropped canvas's bottom-centre %s where the renderer stands it" % [str(anchor), str(Vector2i(canvas.x / 2, canvas.y - 1))]
+	return ""
+
+
+# What is wrong with a class's east-west footprint against its pack picture, or "".
+func _pack_footprint_problem(id: String, span: int, width_px: int, ew: Vector2i, ns: Vector2i) -> String:
+	if span != ew.x:
+		return "%s's pack picture spans %d tiles at alpha >= %d and content parks it %d long east-west" % [id, span, PACK_ALPHA, ew.x]
+	if width_px > ew.x * int(CameraUtil.ART_NATIVE):
+		return "%s's pack picture is %d px wide, past its %d-tile east-west footprint" % [id, width_px, ew.x]
+	if ew.x >= ns.y:
+		return "%s is %d long east-west and %d north-south; the pack's footprint is the shorter one, and north-south keeps the generated length" % [id, ew.x, ns.y]
+	return ""
+
+
+# What is wrong with a class's keys against the pack list, or "": both directions of "a class is
+# on VEHICLE_PACK_EW exactly when it names authored keys east-west", and never one north-south.
+func _pack_membership_problem(id: String, on_list: bool, ew_keys: Array[String], ns_keys: Array[String], authored: Dictionary) -> String:
+	for key in ew_keys:
+		if on_list and not authored.has(key):
+			return "%s is on VEHICLE_PACK_EW and names '%s' east-west, which is not authored" % [id, key]
+		if not on_list and authored.has(key):
+			return "%s is not on VEHICLE_PACK_EW and names the authored '%s' east-west" % [id, key]
+	for key2 in ns_keys:
+		if authored.has(key2):
+			return "%s names the authored '%s' north-south; north-south keeps the generated art" % [id, key2]
+	return ""
+
+
+func _the_cars_are_the_packs_east_west(stash: Dictionary) -> bool:
+	var authored: Dictionary = Appearance.authored_canvases()
+	var entries_v: Variant = JSON.parse_string(FileAccess.get_file_as_string(AUTHORED_JSON))
+	var entries: Dictionary = ((entries_v as Dictionary).get("keys", {}) as Dictionary) if entries_v is Dictionary else {}
+
+	# --- the predicates, each refused on a fabrication first ---
+	var four := Image.create_empty(112, 55, false, Image.FORMAT_RGBA8)
+	four.fill_rect(Rect2i(5, 3, 102, 52), Color(1.0, 1.0, 1.0, 1.0))
+	if _pack_footprint_problem("fabricated", _span_tiles(four, PACK_ALPHA), 112, Vector2i(3, 2), Vector2i(2, 5)).is_empty():
+		push_error("PACK: a four-tile picture passed on a three-tile footprint; the span rule cannot say no")
+		return false
+	var sound: String = _pack_footprint_problem("fabricated", _span_tiles(four, PACK_ALPHA), 112, Vector2i(4, 2), Vector2i(2, 6))
+	if not sound.is_empty():
+		push_error("PACK: a four-tile picture refused on a four-tile footprint: %s" % sound)
+		return false
+	if _pack_footprint_problem("fabricated", 4, 112, Vector2i(4, 2), Vector2i(2, 4)).is_empty():
+		push_error("PACK: an east-west length equal to the north-south one passed; the shorter-footprint rule cannot say no")
+		return false
+	var three := Image.create_empty(96, 47, false, Image.FORMAT_RGBA8)
+	three.fill_rect(Rect2i(5, 3, 86, 44), Color(1.0, 1.0, 1.0, 1.0))
+	if _span_tiles(three, PACK_ALPHA) != 3:
+		push_error("PACK: an 86 px car spans %d tiles, wanted 3" % _span_tiles(three, PACK_ALPHA))
+		return false
+	var wide := Image.create_empty(112, 47, false, Image.FORMAT_RGBA8)
+	wide.fill_rect(Rect2i(8, 3, 90, 44), Color(1.0, 1.0, 1.0, 1.0))
+	wide.set_pixel(111, 20, Color8(255, 255, 255, 6))
+	if _span_tiles(wide, PACK_ALPHA) != 3 or _span_tiles(wide, 1) != 4:
+		push_error("PACK: a 90 px car with an alpha-6 speck at its canvas edge spans %d tiles at PACK_ALPHA and %d at alpha > 0, wanted 3 and 4; the threshold is what keeps a speck from lengthening a car" % [_span_tiles(wide, PACK_ALPHA), _span_tiles(wide, 1)])
+		return false
+	wide.set_pixel(111, 20, Color8(255, 255, 255, 200))
+	if _span_tiles(wide, PACK_ALPHA) != 4:
+		push_error("PACK: an alpha-200 pixel at the canvas edge did not lengthen the span at PACK_ALPHA; the threshold would refuse real paint")
+		return false
+	var fake_asset: Dictionary = {"category": "vehicles", "facing": "east", "anchor": [48, 46]}
+	var fake_source: Dictionary = {"path": PACK_ROOT + "groups/utility/native/x.png", "crop": [0, 0, 96, 47]}
+	var fine: String = _pack_source_problem(fake_source, Vector2i(96, 47), fake_asset)
+	if not fine.is_empty():
+		push_error("PACK: a sound fabricated pack source was refused: %s" % fine)
+		return false
+	if _pack_source_problem({"path": fake_source["path"], "crop": [0, 0, 96, 48]}, Vector2i(96, 48), fake_asset).is_empty():
+		push_error("PACK: an uncropped canvas passed against an anchor on its second-last row; the anchor rule cannot say no")
+		return false
+	if _pack_source_problem({"path": fake_source["path"], "crop": [0, 0, 96, 47], "pad": [96, 48, 0, 1]}, Vector2i(96, 47), fake_asset).is_empty():
+		push_error("PACK: a padded pack source passed; a pad moves the pivot")
+		return false
+	if _pack_source_problem(fake_source, Vector2i(96, 47), {"category": "vehicles", "facing": "south", "anchor": [48, 46]}).is_empty():
+		push_error("PACK: a south-facing pack vehicle passed as an east-west picture")
+		return false
+	var fake_authored: Dictionary = {"vehicle_bicycle_pack_ew": Vector2i(64, 64)}
+	if _pack_membership_problem("vehicle.bicycle", false, ["vehicle_bicycle_pack_ew"] as Array[String], [] as Array[String], fake_authored).is_empty():
+		push_error("PACK: a class off VEHICLE_PACK_EW naming an authored key passed; the list and the art could drift apart")
+		return false
+	if _pack_membership_problem("vehicle.sedan", true, ["vehicle_sedan_pale_ew"] as Array[String], [] as Array[String], fake_authored).is_empty():
+		push_error("PACK: a class on VEHICLE_PACK_EW naming a generated key passed")
+		return false
+	if _pack_membership_problem("vehicle.sedan", true, [] as Array[String], ["vehicle_bicycle_pack_ew"] as Array[String], fake_authored).is_empty():
+		push_error("PACK: a class naming an authored key north-south passed; north-south keeps the generated art")
+		return false
+
+	# --- the real classes ---
+	var judged: Array[String] = []
+	var on_list_seen: int = 0
+	for raw in SimWorldgen.vehicles_of(_tree()):
+		var entry: Dictionary = raw as Dictionary
+		var id: String = String(entry.get("id", ""))
+		var on_list: bool = Appearance.VEHICLE_PACK_EW.has(id.trim_prefix("vehicle."))
+		var ew_keys: Array[String] = _variant_keys(entry, Appearance.AXIS_EW)
+		var ns_keys: Array[String] = _variant_keys(entry, Appearance.AXIS_NS)
+		var problem: String = _pack_membership_problem(id, on_list, ew_keys, ns_keys, authored)
+		if not problem.is_empty():
+			push_error("PACK: %s" % problem)
+			return false
+		if not on_list:
+			continue
+		on_list_seen += 1
+		var ew: Vector2i = _extent_on(id, Appearance.AXIS_EW)
+		var ns: Vector2i = _extent_on(id, Appearance.AXIS_NS)
+		var described: Array[String] = []
+		for key in ew_keys:
+			if described.has(key):
+				continue
+			var decl: Dictionary = entries.get(key, {}) as Dictionary
+			if String(decl.get("kind", "")) != "vehicle" or String(decl.get("reads", "")) != id:
+				push_error("PACK: '%s' is declared kind '%s' read by '%s'; a pack car is kind 'vehicle' read by its class %s" % [key, String(decl.get("kind", "")), String(decl.get("reads", "")), id])
+				return false
+			var source: Dictionary = decl.get("source", {}) as Dictionary
+			var canvas: Vector2i = authored[key] as Vector2i
+			problem = _pack_source_problem(source, canvas, _pack_asset(String(source.get("path", ""))))
+			if not problem.is_empty():
+				push_error("PACK: '%s': %s" % [key, problem])
+				return false
+			var img := Image.new()
+			if img.load("%s/%s.png" % [SPRITE_DIR, key]) != OK:
+				push_error("PACK: %s/%s.png does not load; the footprint had no picture to be judged against" % [SPRITE_DIR, key])
+				return false
+			problem = _pack_footprint_problem(id, _span_tiles(img, PACK_ALPHA), img.get_width(), ew, ns)
+			if not problem.is_empty():
+				push_error("PACK: '%s': %s" % [key, problem])
+				return false
+			described.append(key)
+		judged.append("%s %dx%d east-west from %s, against %dx%d north-south" % [id.trim_prefix("vehicle."), ew.x, ew.y, " and ".join(described), ns.x, ns.y])
+	if on_list_seen != Appearance.VEHICLE_PACK_EW.size():
+		push_error("PACK: VEHICLE_PACK_EW names %d classes and content declares %d of them; a name nobody wrote is a list that judges nothing" % [Appearance.VEHICLE_PACK_EW.size(), on_list_seen])
+		return false
+	stash["pack"] = on_list_seen
+	print("PACK OK %s -- each key the pack's east-facing vehicle cropped from the origin to its anchor row, never padded, its painted span at alpha >= %d rounding up to exactly its class's lEw and no wider than it, lEw shorter than the north-south length; every other class names no authored key, and no class names one north-south; a four-tile picture on three tiles, a speck lengthening a car, an uncropped anchor, a pad, a south-facing source, a non-pack class with a pack key, a pack class with a generated key and a pack key north-south are all refused" % [
+		"; ".join(judged), PACK_ALPHA,
 	])
 	return true
 

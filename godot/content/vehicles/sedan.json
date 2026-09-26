@@ -16,24 +16,25 @@
   "dash": "cluster",
   "footprint": {
     "w": 2,
-    "l": 5
+    "l": 5,
+    "lEw": 3
   },
   "appearance": {
     "variants": [
       {
         "id": "pale",
         "ns": "vehicle_sedan_pale_ns",
-        "ew": "vehicle_sedan_pale_ew"
+        "ew": "vehicle_sedan_intact_ew"
       },
       {
         "id": "green",
         "ns": "vehicle_sedan_green_ns",
-        "ew": "vehicle_sedan_green_ew"
+        "ew": "vehicle_sedan_intact_ew"
       },
       {
         "id": "burnt",
         "ns": "vehicle_sedan_burnt_ns",
-        "ew": "vehicle_sedan_burnt_ew"
+        "ew": "vehicle_sedan_wreck_ew"
       }
     ]
   }
