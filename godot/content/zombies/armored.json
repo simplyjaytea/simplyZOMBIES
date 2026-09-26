@@ -4,7 +4,7 @@
   "name": "Armored",
   "introducedInWave": 2,
   "weight": 8,
-  "appearance": { "sprite": "zombie_shambler" },
+  "appearance": { "sprite": "body_shambler" },
   "sensory": { "noise": 0.5, "light": 0.15, "scent": 0.5 },
   "locomotion": { "speed": 0.8, "wander": 0.3, "mill": 0.25, "crawl": 0.25 },
   "body": { "head": 25, "torso": 60, "legs": 40 },

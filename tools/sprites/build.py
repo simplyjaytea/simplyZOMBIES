@@ -2,7 +2,7 @@
 """Generate the sprites that are generated, and check the committed ones still match.
 
     python3 tools/sprites/build.py                 # write every registry key
-    python3 tools/sprites/build.py --only player_body
+    python3 tools/sprites/build.py --only zombie_screamer
     python3 tools/sprites/build.py --check         # regenerate and compare, write nothing
 
 `--check` is what `npm run sprites:check` runs in CI. It re-renders every key and compares
@@ -81,8 +81,10 @@ GUIDE_DIR = ROOT / "tools" / "sprites" / "guides"
 # key under this map is generated, and `--check` is what keeps every one of them honest.
 MODULES = (characters, gear, props, wrecks, ground, buildings, trees, vehicles, paperdoll)
 
-# The keys drawn on the pawn canvas: the eight bodies and every equip overlay that composites
-# onto them. Mirrored on the Godot side by `Appearance.canvas_of`'s own PAWN_KEYS -- two copies
+# The keys drawn on the pawn canvas: the two generated bodies and every equip overlay that
+# composites onto them. Six more bodies were here until 2026-09-26: the player, Mara, Ellis, the
+# colonist, the raider and the shambler moved onto the outpost pack's four-direction rigs, which
+# `authored.json` declares with their own canvas, and their generator functions went with them. Mirrored on the Godot side by `Appearance.canvas_of`'s own PAWN_KEYS -- two copies
 # because Python cannot read GDScript, the same standing arrangement as `SIZE`, and
 # `check_appearance.gd` measures the committed PNGs against its copy every build. The overlays
 # are `gear.REGISTRY`'s keys in full: an overlay is composited into the body's own rect, so
@@ -90,14 +92,8 @@ MODULES = (characters, gear, props, wrecks, ground, buildings, trees, vehicles, 
 # forget to extend -- the failure this used to invite was a new overlay rendered 32x32, which
 # `write` refuses and `_blit_body` would have stretched.
 PAWN_KEYS = (
-    "player_body",
-    "survivor_mara",
-    "survivor_ellis",
-    "survivor_colonist",
-    "zombie_shambler",
     "zombie_screamer",
     "zombie_bloater",
-    "raider_body",
 ) + tuple(gear.REGISTRY)
 
 # Every key renders on the SIZE x SIZE canvas except the ones named here. `ground_atlas` is a sheet

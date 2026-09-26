@@ -1,12 +1,12 @@
 [
-  { "id": "colony.look.01", "appearance": { "sprite": "survivor_colonist", "tint": "#a89478" } },
-  { "id": "colony.look.02", "appearance": { "sprite": "survivor_colonist", "tint": "#c99a6f" } },
-  { "id": "colony.look.03", "appearance": { "sprite": "survivor_colonist", "tint": "#a2917b" } },
-  { "id": "colony.look.04", "appearance": { "sprite": "survivor_colonist", "tint": "#e0c49a" } },
-  { "id": "colony.look.05", "appearance": { "sprite": "survivor_colonist", "tint": "#b58a63" } },
-  { "id": "colony.look.06", "appearance": { "sprite": "survivor_colonist", "tint": "#d9c7ab" } },
-  { "id": "raider.look.01", "appearance": { "sprite": "raider_body" } },
-  { "id": "raider.look.02", "appearance": { "sprite": "raider_body" } },
-  { "id": "raider.look.03", "appearance": { "sprite": "raider_body" } },
-  { "id": "raider.look.04", "appearance": { "sprite": "raider_body" } }
+  { "id": "colony.look.01", "appearance": { "sprite": "body_survivor", "tint": "#a89478" } },
+  { "id": "colony.look.02", "appearance": { "sprite": "body_survivor", "tint": "#c99a6f" } },
+  { "id": "colony.look.03", "appearance": { "sprite": "body_survivor", "tint": "#a2917b" } },
+  { "id": "colony.look.04", "appearance": { "sprite": "body_survivor", "tint": "#e0c49a" } },
+  { "id": "colony.look.05", "appearance": { "sprite": "body_survivor", "tint": "#b58a63" } },
+  { "id": "colony.look.06", "appearance": { "sprite": "body_survivor", "tint": "#d9c7ab" } },
+  { "id": "raider.look.01", "appearance": { "sprite": "body_survivor", "tint": "#c4877a" } },
+  { "id": "raider.look.02", "appearance": { "sprite": "body_survivor", "tint": "#c4877a" } },
+  { "id": "raider.look.03", "appearance": { "sprite": "body_survivor", "tint": "#c4877a" } },
+  { "id": "raider.look.04", "appearance": { "sprite": "body_survivor", "tint": "#c4877a" } }
 ]

@@ -16,29 +16,42 @@ extends SceneTree
 # Six lanes, every assertion with a true positive and a true negative, because a gate that
 # cannot fail is worse than no gate:
 #
-#   ORDER    EQUIP_DRAW_ORDER is exactly the six slots, in order, no duplicates, only `back`
+#   ORDER    EQUIP_DRAW_ORDER is exactly the eight slots, in order, no duplicates, only `back`
 #            under -- then the real composition: a fully-kitted actor's layers come back in
-#            EQUIP_DRAW_ORDER's order, every under-layer before every over one, and a back
-#            slot's `equipSpriteFront` lands in the over group anyway. TN: a shuffled
-#            expectation is refused by the same comparison.
+#            EQUIP_DRAW_ORDER's order, the back slot's own picture the one layer under, and a
+#            back slot's `equipSpriteFront` over anyway. TN: a shuffled expectation is refused by
+#            the same comparison. (Eight since 2026-09-26: `vest` and `face` joined with the
+#            outpost pack's vest and gas mask, placed by the pack's own layering -- appearance.gd
+#            says where and why.)
 #   CANVAS   every key any item under content/items/ names via equipSprite/equipSpriteFront
 #            resolves a texture at Appearance.PAWN_CANVAS. TN: a fabricated 32x32 overlay is
 #            refused by the same predicate; an unknown key answers null rather than passing.
-#   FITS     on decoded pixels: every overlay's opaque box lies inside the union of the eight
-#            rigs' own opaque boxes, and a piece worn in the legs/torso/head slot sits on that
-#            slot's published skeleton line (draw.py's feet-origin rows, converted the way
+#   FITS     on decoded pixels: every face-on overlay's opaque box lies inside the union of the
+#            generated rigs' own opaque boxes, and a piece worn in the legs/torso/head slot sits
+#            on that slot's published skeleton line (draw.py's feet-origin rows, converted the way
 #            draw.py converts them, not guessed). TN, both halves: a corner pixel outside the
-#            rig envelope, and a fabricated line-piece 6 px off the line it claims.
+#            rig envelope, and a fabricated line-piece 6 px off the line it claims. A wearable
+#            that turns is not a face-on overlay and is not measured against face-on rigs: its
+#            fit is the pack's own, one per view, and `check_authored.gd`'s PACK lane holds every
+#            view's solid box to exactly the manifest's `fit` -- counted and named here, never
+#            silently skipped.
 #   REACHES  the dead-socket lane: an actor actually WEARING each base that declares equip art in
 #            a drawn slot resolves a layer that reaches the blit. TN, all four: no equipment
-#            component, a base with no equip art, an undrawn slot (vest/belt/feet/gloves/
-#            eyes/face), an empty slot.
+#            component, a base with no equip art, an undrawn slot (belt/feet/gloves/eyes), an
+#            empty slot.
 #   SHARED   the slice's actual bet -- one overlay serves every rig: all eight rigs stand on
 #            PAWN_CANVAS, and no equip key names a rig plus a suffix. TN: the same scan finds a
 #            fabricated per-rig key.
 #   PLAYED   the shipped colony reaches this path at all -- SimBoot.playable(20260805, 64), where
 #            all three survivors boot wearing something this table draws. Were that to stop being
 #            true, the lane SAYS SO AND SKIPS loudly rather than passing quietly on nothing.
+#   TURNS    "The bodies turn and walk" (2026-09-26): an actor wearing the pack's helmet, vest,
+#            gas mask and backpack and holding a face-on bat composes, for each of the four views,
+#            the wearables' own member for that view in EQUIP_DRAW_ORDER's order; the backpack is
+#            over the body seen from the front or back and under it seen from the side (the
+#            pack's z, both ways on real content); the face-on bat and every other face-on
+#            overlay draw on the rest view and on no other. TN: the same actor with nothing on
+#            composes nothing in any view, and a face-on key never answers a turned view.
 
 const SimBoot = preload("res://sim/boot.gd")
 const World = preload("res://sim/world.gd")
@@ -57,19 +70,21 @@ var _stash: Dictionary = {}
 # uses for its tier bounds: the gate names its own expectation rather than reading the value
 # under test back at itself.
 const EXPECT_ORDER: Array[Dictionary] = [
-	{"slot": "back", "over": false},
 	{"slot": "legs", "over": true},
 	{"slot": "torso", "over": true},
+	{"slot": "vest", "over": true},
+	{"slot": "back", "over": false},
 	{"slot": "primary", "over": true},
 	{"slot": "secondary", "over": true},
+	{"slot": "face", "over": true},
 	{"slot": "head", "over": true},
 ]
 
-# The six equip slots content declares (item.schema.json's equipSlot enum) that EQUIP_DRAW_ORDER
-# deliberately does not name -- appearance.gd's own comment calls these out as undrawn this
-# slice, and REACHES' third true negative is that an item sitting in one of these resolves no
-# layer no matter what art it carries.
-const UNDRAWN_SLOTS: Array[String] = ["vest", "belt", "feet", "gloves", "eyes", "face"]
+# The four equip slots content declares (item.schema.json's equipSlot enum) that EQUIP_DRAW_ORDER
+# deliberately does not name -- appearance.gd's own comment calls these out as undrawn, and
+# REACHES' third true negative is that an item sitting in one of these resolves no layer no
+# matter what art it carries. Six until 2026-09-26, when `vest` and `face` became drawn.
+const UNDRAWN_SLOTS: Array[String] = ["belt", "feet", "gloves", "eyes"]
 
 # The published pawn skeleton, `tools/sprites/parts/characters.py` -- pixels above the soles,
 # negative upward. Duplicated here for the same reason the engine pin and the tree tier bounds
@@ -87,8 +102,10 @@ const LINE_OFFSET_PX: int = 6
 
 # How many rigs `tools/sprites/` generates. Pinned rather than measured so PAWN_KEYS growing a key
 # family the classifier has no case for is still caught -- the commissioned bodies are counted
-# from their own declaration and added to this, never folded into it.
-const GENERATED_RIGS: int = 8
+# from their own declaration and added to this, never folded into it. Eight until 2026-09-26, when
+# the pack's four-direction survivor and shambler replaced six of them; the screamer and the
+# bloater are what the pack does not draw.
+const GENERATED_RIGS: int = 2
 
 
 func _init() -> void:
@@ -105,6 +122,7 @@ func _run() -> void:
 	ok = _the_shared_bet_holds() and ok
 	ok = _the_shipped_colony_reaches_it() and ok
 	ok = _a_fitted_part_reaches_the_composite() and ok
+	ok = _the_wearables_turn_with_the_body() and ok
 
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
 	if seconds > BUDGET_SECONDS:
@@ -114,7 +132,7 @@ func _run() -> void:
 	if ok:
 		print(
 			(
-				"WORN_LOOK_OK EQUIP_DRAW_ORDER holds 6 slots in order (only back under) and a fully-kitted actor composes them in that order, %d layers, a back-slot front piece over anyway; %d content/items/ equip keys resolve at PAWN_CANVAS %s; %d overlays sit inside the %d-rig envelope (%s); %d equippable base(s) reach a layer worn in their own slot (%s), refused for no-equipment/no-art/an-undrawn-slot/an-empty-slot; all %d rigs share PAWN_CANVAS with no per-rig overlay key; %s; a fitted part composes over its host and moves to the host's own anchor; %.1f s of a %.0f s budget"
+				"WORN_LOOK_OK EQUIP_DRAW_ORDER holds 8 slots in order (only back under) and a fully-kitted actor composes them in that order, %d layers, a back-slot front piece over anyway; %d content/items/ equip keys resolve at PAWN_CANVAS %s; %d face-on overlays sit inside the %d-rig envelope (%s); %d equippable base(s) reach a layer worn in their own slot (%s), refused for no-equipment/no-art/an-undrawn-slot/an-empty-slot; all %d rigs share PAWN_CANVAS with no per-rig overlay key; %s; a fitted part composes over its host and moves to the host's own anchor; the pack's wearables turn with the body and the face-on overlays draw facing south only; %.1f s of a %.0f s budget"
 				% [
 					int(_stash.get("order_layers", 0)),
 					int(_stash.get("canvas_judged", 0)),
@@ -310,12 +328,9 @@ func _the_order_holds_and_composes() -> bool:
 			push_error("EQUIP_DRAW_ORDER names slot '%s' twice" % slot)
 			return false
 		seen_slots.append(slot)
-	if String(order[0]["slot"]) != "back" or bool(order[0]["over"]) != false:
-		push_error("EQUIP_DRAW_ORDER's first entry is %s, want back drawn under" % str(order[0]))
-		return false
-	for j in range(1, order.size()):
-		if bool(order[j]["over"]) != true:
-			push_error("EQUIP_DRAW_ORDER's '%s' is drawn under; only 'back' may be" % String(order[j]["slot"]))
+	for j in order.size():
+		if bool(order[j]["over"]) != (String(order[j]["slot"]) != "back"):
+			push_error("EQUIP_DRAW_ORDER's '%s' is drawn %s; only 'back' goes under" % [String(order[j]["slot"]), "over" if bool(order[j]["over"]) else "under"])
 			return false
 
 	# TN: a shuffled expectation is refused by the same comparison.
@@ -327,18 +342,21 @@ func _the_order_holds_and_composes() -> bool:
 		push_error("a shuffled EQUIP_DRAW_ORDER expectation still compared equal; ORDER's comparison cannot say no")
 		return false
 
-	# 2. Real composition: fully kit an actor across all six drawable slots and check the layers
-	# come back in EQUIP_DRAW_ORDER's order. Legs/torso/head/secondary carry no equip art in
-	# shipped content yet (gear.py has not generated it), so four of the six slots here are
-	# fabricated bases that reuse one of the three real overlay files already on disk -- nothing
-	# new is drawn, only the six-slot *order* is exercised end to end.
+	# 2. Real composition: fully kit an actor across all eight drawable slots and check the layers
+	# come back in EQUIP_DRAW_ORDER's order, at the rest view (the one every face-on picture
+	# draws on). Six of the eight slots here are fabricated bases that reuse real face-on overlay
+	# files already on disk, so that one picture per slot tells the slots apart by key -- nothing
+	# new is drawn, only the eight-slot *order* is exercised end to end. The back slot is the
+	# duffel, the one shipped back item that still has a face-on picture and a front strap.
 	Appearance.forget()
 	var tree: Dictionary = ContentLoader.load_tree()
 	tree["items/_worn_gate_fixture.json"] = [
 		{"id": "item.gate.worn_legs", "appearance": {"equipSprite": "item_bat_aluminium_equip"}},
-		{"id": "item.gate.worn_torso", "appearance": {"equipSprite": "item_pack_hiking_equip"}},
+		{"id": "item.gate.worn_torso", "appearance": {"equipSprite": "item_duffel_canvas_equip"}},
+		{"id": "item.gate.worn_vest", "appearance": {"equipSprite": "item_cap_canvas_equip"}},
 		{"id": "item.gate.worn_secondary", "appearance": {"equipSprite": "item_bat_aluminium_equip"}},
-		{"id": "item.gate.worn_head", "appearance": {"equipSprite": "item_pack_hiking_equip_front"}},
+		{"id": "item.gate.worn_face", "appearance": {"equipSprite": "item_wrap_cloth_equip"}},
+		{"id": "item.gate.worn_head", "appearance": {"equipSprite": "item_duffel_canvas_equip_front"}},
 	]
 	var fixture: Dictionary = _fixture()
 	fixture["content_tree"] = tree
@@ -346,8 +364,9 @@ func _the_order_holds_and_composes() -> bool:
 	var actor: int = int(w.entities.spawn())
 	var items: Dictionary = {}
 	for pair in [
-		["back", "item.pack.hiking"], ["legs", "item.gate.worn_legs"], ["torso", "item.gate.worn_torso"],
-		["primary", "item.bat.aluminium"], ["secondary", "item.gate.worn_secondary"], ["head", "item.gate.worn_head"],
+		["back", "item.duffel.canvas"], ["legs", "item.gate.worn_legs"], ["torso", "item.gate.worn_torso"],
+		["vest", "item.gate.worn_vest"], ["primary", "item.bat.aluminium"],
+		["secondary", "item.gate.worn_secondary"], ["face", "item.gate.worn_face"], ["head", "item.gate.worn_head"],
 	]:
 		var e2: int = int(w.entities.spawn())
 		w.components.set_component(e2, "itemBase", {"baseId": String(pair[1])})
@@ -356,16 +375,18 @@ func _the_order_holds_and_composes() -> bool:
 	var layers: Array[Dictionary] = Appearance.equipment_layers_for(w, actor)
 
 	var expect_keys: Array = [
-		["item_pack_hiking_equip", false],       # back, under
-		["item_pack_hiking_equip_front", true],  # back's front piece, over anyway
-		["item_bat_aluminium_equip", true],      # legs
-		["item_pack_hiking_equip", true],        # torso
-		["item_bat_aluminium_equip", true],      # primary
-		["item_bat_aluminium_equip", true],      # secondary
-		["item_pack_hiking_equip_front", true],  # head
+		["item_bat_aluminium_equip", true],        # legs
+		["item_duffel_canvas_equip", true],        # torso
+		["item_cap_canvas_equip", true],           # vest
+		["item_duffel_canvas_equip", false],       # back, under
+		["item_duffel_canvas_equip_front", true],  # back's front piece, over anyway
+		["item_bat_aluminium_equip", true],        # primary
+		["item_bat_aluminium_equip", true],        # secondary
+		["item_wrap_cloth_equip", true],           # face
+		["item_duffel_canvas_equip_front", true],  # head
 	]
 	if layers.size() != expect_keys.size():
-		push_error("fully kitting all six slots returned %d layers, want %d in EQUIP_DRAW_ORDER's order: %s" % [layers.size(), expect_keys.size(), str(layers)])
+		push_error("fully kitting all eight slots returned %d layers, want %d in EQUIP_DRAW_ORDER's order: %s" % [layers.size(), expect_keys.size(), str(layers)])
 		return false
 	for i in layers.size():
 		var want_key: String = String(expect_keys[i][0])
@@ -375,24 +396,28 @@ func _the_order_holds_and_composes() -> bool:
 			push_error("layer %d is %s, want key '%s' over=%s" % [i, str(layers[i]), want_key, str(want_over)])
 			return false
 
-	# Every under-layer stands before every over-layer in the list -- not just an artifact of
-	# this fixture's slot choice, since `main.gd::_blit_body` filters the list into two passes.
-	var saw_over: bool = false
-	for layer in layers:
-		if bool(layer["over"]):
-			saw_over = true
-		elif saw_over:
-			push_error("an under-body layer followed an over-body one: %s" % str(layers))
-			return false
+	# Exactly one layer is under, and it is the back slot's own picture. `main.gd::_blit_body`
+	# draws the list in two passes -- under, then the body, then over -- so where an under-layer
+	# sits in the list does not matter to the picture; what matters is that nothing but the back
+	# slot's picture ever lands there. (Until 2026-09-26 this read "every under-layer before every
+	# over one", which was true only because `back` was first in the table; the pack's layering
+	# put `vest` ahead of it, and the two-pass draw is what the old wording was standing in for.)
+	var unders: Array[int] = []
+	for i in layers.size():
+		if not bool(layers[i]["over"]):
+			unders.append(i)
+	if unders != [3]:
+		push_error("the under-body layers are at %s; want only index 3, the back slot's own picture: %s" % [str(unders), str(layers)])
+		return false
 
-	# TN, folded into the positive: item_pack_hiking_equip_front is back's own front piece, and
+	# TN, folded into the positive: item_duffel_canvas_equip_front is back's own front piece, and
 	# it must land in the over group despite its slot being under.
-	if not bool(layers[1]["over"]):
-		push_error("item_pack_hiking_equip_front (back's front piece) drew under, not over, despite equipSpriteFront's always-over rule")
+	if not bool(layers[4]["over"]):
+		push_error("item_duffel_canvas_equip_front (back's front piece) drew under, not over, despite equipSpriteFront's always-over rule")
 		return false
 
 	_stash["order_layers"] = layers.size()
-	print("ORDER OK EQUIP_DRAW_ORDER == EXPECT_ORDER (6 slots, only back under); a shuffled expectation is refused; a fully-kitted actor composes %d layers in order, back's front piece over despite its own slot being under" % layers.size())
+	print("ORDER OK EQUIP_DRAW_ORDER == EXPECT_ORDER (8 slots, only back under); a shuffled expectation is refused; a fully-kitted actor composes %d layers in order, the back slot's picture the only one under and its front piece over" % layers.size())
 	return true
 
 
@@ -527,7 +552,16 @@ func _the_fits_lie_on_their_lines() -> bool:
 
 	var judged: int = 0
 	var missing: Array[String] = []
+	var turning: Array[String] = []
 	for d in decls:
+		# A wearable that turns has one picture per view, fitted to the pack's own body, and
+		# check_authored.gd's PACK lane holds each view to the manifest's fit exactly. Measuring it
+		# against the face-on generated rigs would be judging it against bodies it is never worn
+		# on; counted and named instead, never dropped without a word.
+		if Appearance.turns(String(d["key"])):
+			if not turning.has(String(d["key"])):
+				turning.append(String(d["key"]))
+			continue
 		var tex: Variant = Appearance.resolve(String(d["key"]))
 		if tex == null:
 			# gear.py may not have generated this overlay yet (this file's header) -- judge
@@ -547,6 +581,8 @@ func _the_fits_lie_on_their_lines() -> bool:
 		judged += 1
 	if not missing.is_empty():
 		print("FITS SKIP %d declared equip key(s) name no file yet: %s -- the envelope check judged only what is on disk" % [missing.size(), str(missing)])
+	if not turning.is_empty():
+		print("FITS HANDED %d wearable(s) that turn to check_authored.gd's PACK lane, which holds every view to the pack manifest's own fit: %s" % [turning.size(), str(turning)])
 	if judged == 0:
 		push_error("no equip overlay resolved a texture -- FITS's envelope check had nothing to judge")
 		return false
@@ -590,6 +626,8 @@ func _the_fits_lie_on_their_lines() -> bool:
 		var declared_no_file: Array[String] = []
 		for d2 in decls:
 			if String(d2["equipSlot"]) != String(slot2):
+				continue
+			if Appearance.turns(String(d2["key"])):
 				continue
 			var tex2: Variant = Appearance.resolve(String(d2["key"]))
 			if tex2 == null:
@@ -756,10 +794,10 @@ func _the_shared_bet_holds() -> bool:
 
 	# TN: the same scan finds one when handed a fabricated key list that names a rig explicitly.
 	var fabricated: Array[String] = keys.duplicate()
-	fabricated.append("survivor_mara_bat_equip")
+	fabricated.append("zombie_screamer_bat_equip")
 	var found: String = _find_per_rig_overlay(fabricated, rig_keys)
 	if found.is_empty():
-		push_error("a fabricated per-rig key 'survivor_mara_bat_equip' was not found; SHARED's scan cannot say no")
+		push_error("a fabricated per-rig key 'zombie_screamer_bat_equip' was not found; SHARED's scan cannot say no")
 		return false
 
 	print("SHARED OK all %d rigs stand on PAWN_CANVAS %s; %d equip key(s) under content/items/ name no rig; the same scan finds a fabricated one ('%s')" % [rig_keys.size(), str(Appearance.PAWN_CANVAS), keys.size(), found])
@@ -905,4 +943,103 @@ func _a_fitted_part_reaches_the_composite() -> bool:
 		return false
 
 	print("  PARTS OK %d part pictures at the pawn canvas; a fitted can adds one over-layer at its host's anchor, an unanchored host adds one at the origin" % judged)
+	return true
+
+
+# --- TURNS ------------------------------------------------------------------------------------
+#
+# The wearables turn with the body, and the face-on overlays do not pretend to. One actor, kitted
+# from shipped content -- the pack's helmet, vest, gas mask and backpack, and a face-on bat in the
+# hand -- composed once per view. Everything asserted here is a reading of real content through the
+# one function the draw loop calls; the only fabrication is the bare actor of the negative.
+const TURN_KIT: Array = [
+	["head", "item.helmet.bike", "item_gear_helmet"],
+	["vest", "item.vest.carrier", "item_gear_vest"],
+	["face", "item.mask.gas", "item_gear_gasmask"],
+	["back", "item.pack.hiking", "item_gear_backpack"],
+]
+
+
+func _the_wearables_turn_with_the_body() -> bool:
+	var lane: String = "TURNS"
+	Appearance.forget()
+	var fixture: Dictionary = _fixture()
+	fixture["content_tree"] = ContentLoader.load_tree()
+	var w: Variant = World.new(fixture)
+	var actor: int = int(w.entities.spawn())
+	var slots: Dictionary = {}
+	for row in TURN_KIT:
+		if not Appearance.turns(String(row[2])):
+			push_error("%s: %s's '%s' does not turn; the kit has nothing to judge" % [lane, String(row[1]), String(row[2])])
+			return false
+		var item: int = int(w.entities.spawn())
+		w.components.set_component(item, "itemBase", {"baseId": String(row[1])})
+		slots[String(row[0])] = item
+	var bat: int = int(w.entities.spawn())
+	w.components.set_component(bat, "itemBase", {"baseId": "item.bat.aluminium"})
+	slots["primary"] = bat
+	w.components.set_component(actor, "equipment", {"slots": slots})
+	var bat_tex: Texture2D = Appearance.resolve("item_bat_aluminium_equip")
+	if bat_tex == null:
+		push_error("%s: the face-on bat resolves no picture; the rest-view half has nothing to judge" % lane)
+		return false
+
+	var unders: Dictionary = {}
+	for view in Appearance.VIEWS:
+		var layers: Array[Dictionary] = Appearance.equipment_layers_for(w, actor, view)
+		# The wearables in EQUIP_DRAW_ORDER's order -- vest, back, face, head -- each its own
+		# member for this view, with the bat between back and face on the rest view only.
+		var want: Array[String] = ["item_gear_vest_%s" % view, "item_gear_backpack_%s" % view]
+		if view == Appearance.VIEW_REST:
+			want.append("item_bat_aluminium_equip")
+		want.append_array(["item_gear_gasmask_%s" % view, "item_gear_helmet_%s" % view])
+		if layers.size() != want.size():
+			push_error("%s: view '%s' composed %d layers, want %d (%s): %s" % [lane, view, layers.size(), want.size(), str(want), str(layers)])
+			return false
+		for i in want.size():
+			if layers[i].get("texture") != Appearance.resolve(want[i]):
+				push_error("%s: view '%s' layer %d is not '%s'" % [lane, view, i, want[i]])
+				return false
+			if Vector2i((layers[i]["texture"] as Texture2D).get_size()) != Appearance.PAWN_CANVAS:
+				push_error("%s: '%s' is not on the pawn canvas" % [lane, want[i]])
+				return false
+		# The face-on bat: present on the rest view, absent from every other.
+		var has_bat: bool = false
+		for layer in layers:
+			if layer.get("texture") == bat_tex:
+				has_bat = true
+		if has_bat != (view == Appearance.VIEW_REST):
+			push_error("%s: the face-on bat is %s on view '%s'; a picture drawn from the front draws facing south and nowhere else" % [lane, "drawn" if has_bat else "missing", view])
+			return false
+		unders[view] = []
+		for i in layers.size():
+			if not bool(layers[i]["over"]):
+				(unders[view] as Array).append(want[i])
+
+	# The backpack's side, both ways, from the pack's own z: over seen from the front and the back,
+	# under seen from either side -- and nothing else ever under.
+	for view in Appearance.VIEWS:
+		var side: bool = view == "e" or view == "w"
+		var want_under: Array = ["item_gear_backpack_%s" % view] if side else []
+		if unders[view] != want_under:
+			push_error("%s: view '%s' draws %s under the body; want %s" % [lane, view, str(unders[view]), str(want_under)])
+			return false
+
+	# TN: the same actor with nothing on composes nothing, in every view.
+	w.components.set_component(actor, "equipment", {"slots": {}})
+	for view in Appearance.VIEWS:
+		if not Appearance.equipment_layers_for(w, actor, view).is_empty():
+			push_error("%s: an actor with nothing on composed a layer on view '%s'" % [lane, view])
+			return false
+	# TN: a face-on key never answers a turned view, and a view-less call is the rest view.
+	w.components.set_component(actor, "equipment", {"slots": {"primary": bat}})
+	for view in ["e", "n", "w"]:
+		if not Appearance.equipment_layers_for(w, actor, view).is_empty():
+			push_error("%s: the face-on bat alone composed a layer on view '%s'" % [lane, view])
+			return false
+	if Appearance.equipment_layers_for(w, actor).size() != 1:
+		push_error("%s: equipment_layers_for with no view is not the rest view" % lane)
+		return false
+
+	print("  TURNS OK the pack's helmet, vest, gas mask and backpack compose their own member in each of %d views in EQUIP_DRAW_ORDER's order; the backpack is under seen from e and w and over from s and n; the face-on bat draws on '%s' only; a bare actor composes nothing" % [Appearance.VIEWS.size(), Appearance.VIEW_REST])
 	return true

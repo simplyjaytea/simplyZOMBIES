@@ -11,7 +11,7 @@ re-drawing it by hand.
 ```bash
 pip install pillow==12.3.0            # the one dependency, pinned
 python3 tools/sprites/build.py        # write every registry key
-python3 tools/sprites/build.py --only player_body
+python3 tools/sprites/build.py --only zombie_screamer
 python3 tools/sprites/build.py --check   # regenerate and compare; writes nothing
 npm run sprites:check                 # what CI runs; the line above with a name
 ```
@@ -179,6 +179,12 @@ exactly what it does on a person who turns round, which was not true when a rig 
   file reproduce it, so `--check` holds a pack key to decoded pixels exactly as it holds a
   generated one. A `source` may instead be a `members` **family**, several such keys sharing one
   canvas under a key that is not itself a file, for art that is one declaration but many
-  pictures (a walk cycle's frames, a garment's four sides).
+  pictures (a walk cycle's frames, a garment's four sides). The first real families landed with
+  "The bodies turn and walk" (2026-09-26): `body_survivor` and `body_shambler` (four idle views
+  and a four-frame walk each way, cropped 32×48 → 32×40 on the pack's own anchor row) and the
+  four `item_gear_*` wearables, one member per direction. Six rigs (`player_body`,
+  `survivor_mara`, `survivor_ellis`, `survivor_colonist`, `raider_body`, `zombie_shambler`) and
+  eight overlays (the three backpacks with their `_front` straps and the two helmets) were deleted
+  from `parts/characters.py` and `parts/gear.py` in that commit, by this rule.
 - **Every PNG lands in the same slice as its reader.** Nothing mechanical stops a stray generated
   file that no content entry names; the workflow is what stops it.

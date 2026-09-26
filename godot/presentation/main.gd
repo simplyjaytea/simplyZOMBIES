@@ -176,8 +176,8 @@ var _vehicle_index_gen: int = -1
 # what invalidates it -- see _dressing.
 var _dressing_cache: Dictionary = {}
 var _dressing_from: Variant = null
-# Entity id -> the look a Focal body drew this frame: `{look, equip, flip}`, from
-# `Appearance.for_entity`, `equipment_layers_for` and `Appearance.body_flip` at the moment the body
+# Entity id -> the look a Focal body drew this frame: `{look, texture, equip, flip}`, from
+# `Appearance.for_entity`, `body_texture`, `equipment_layers_for` and `flip_for` at the moment the body
 # was last actually blitted. Presentation-only and never read by the sim -- `_draw_afterimages`
 # blits the same picture, frozen, at the position `SimSightings.remembered` still holds once the
 # body itself is Unseen, so a wall's afterimage is what the observer's memory looked like, not a
@@ -2108,29 +2108,37 @@ func _draw_entities() -> void:
 		# yours to read. Nothing else about the pawn changes.
 		if eid == _selected:
 			draw_arc(Vector2(sx, sy + Appearance.FOOT_DROP_PX), r * 0.7, 0.0, TAU, 24, Palette.COLOURS["player"], 1.5)
-		var texture: Texture2D = look["texture"] as Texture2D
+		# Which picture: a body that turns (docs/23, "The bodies turn and walk") shows the view its
+		# heading faces -- or, with no facing component, the way it walks -- and while it moves, the
+		# walk frame `world.tick` picks, staggered by its id so a crowd does not step as one. A
+		# face-on rig answers its one picture and the rest view, exactly as before.
+		var sprite_key: String = String(look.get("sprite", ""))
+		var vel_v: Variant = world.components.get_component(eid, "velocity")
+		var view: String = Appearance.body_view(sprite_key, facing_v, vel_v)
+		var texture: Texture2D = Appearance.body_texture(look, view, Appearance.moving(vel_v), int(world.tick), eid)
 		if texture != null:
 			# Scaled by px_scale so a body covers the same fraction of a tile at every step on
 			# the zoom ladder. Where the picture hangs is Appearance.body_rect's answer: a pawn
 			# (taller than wide) stands with its soles on the shadow line, a tile-square picture
-			# centres on the ground point, and a body facing west is the same picture in a
-			# negative-width rect -- the renderer mirrors it, and no transform is set anywhere in
-			# this loop. Nobody rotates, the player included (docs/30, the Dungeon Settlers look);
-			# check_topdown.gd's flip lane counts the transforms here and requires zero.
+			# centres on the ground point, and a face-on rig facing west is the same picture in a
+			# negative-width rect -- the renderer mirrors it. A body that turns draws the pack's own
+			# west view instead and is never mirrored (Appearance.flip_for). No transform is set
+			# anywhere in this loop; check_topdown.gd's flip lane counts them and requires zero.
 			var size: Vector2 = texture.get_size() * px_scale
 			# Equipped gear composites at the identical rect the body draws at -- an
 			# equipSprite is authored on the same feet-anchored canvas, so there is no per-item
 			# offset to compute here, and a negative width mirrors the gear with its wearer.
 			# Drawn white, never the role/tint colour: a backpack is its own object, not a
 			# stand-in shape for the entity itself.
-			var equip: Array[Dictionary] = Appearance.equipment_layers_for(world, eid)
-			var flip: float = Appearance.body_flip(screen_ang)
+			var equip: Array[Dictionary] = Appearance.equipment_layers_for(world, eid, view)
+			var flip: float = Appearance.flip_for(sprite_key, screen_ang)
 			_blit_body(Appearance.body_rect(sx, sy, size, flip), texture, col, equip)
-			# The afterimage's own copy of this look, frozen at the moment a Focal body was drawn.
+			# The afterimage's own copy of this look, frozen at the moment a Focal body was drawn --
+			# the very frame and view, so a body that turned away is remembered turned away.
 			# A Peripheral glimpse never reaches this line (it bailed to the anonymous disc above),
 			# so a body only ever glimpsed never gets a remembered picture -- the anonymity clause
 			# holds in memory the same way it holds live.
-			_last_look[eid] = {"look": look, "equip": equip, "flip": flip}
+			_last_look[eid] = {"look": look, "texture": texture, "equip": equip, "flip": flip}
 		else:
 			draw_circle(Vector2(sx, sy), r, col)
 			draw_circle(Vector2(sx, sy), r, col.lightened(0.25), false, 2.4 if bool(it["player"]) else 1.6)
@@ -2254,7 +2262,7 @@ func _draw_afterimages() -> void:
 		if cache is Dictionary:
 			var c: Dictionary = cache as Dictionary
 			var look: Dictionary = c["look"] as Dictionary
-			var texture: Texture2D = look["texture"] as Texture2D
+			var texture: Texture2D = c.get("texture", look["texture"]) as Texture2D
 			if texture != null:
 				var size: Vector2 = texture.get_size() * px_scale
 				var col: Color = look["tint"] as Color

@@ -4,7 +4,7 @@
   "name": "Runner",
   "introducedInWave": 3,
   "weight": 6,
-  "appearance": { "sprite": "zombie_shambler" },
+  "appearance": { "sprite": "body_shambler" },
   "sensory": { "noise": 0.9, "light": 0.9, "scent": 0.4 },
   "locomotion": { "speed": 1.4, "wander": 0.3, "mill": 0.3, "crawl": 0.25 },
   "body": { "head": 20, "torso": 45, "legs": 35 },
