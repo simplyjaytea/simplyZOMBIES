@@ -67,10 +67,12 @@ section came from.
 ## Verifying a change
 
 Correctness for a Godot change is the Godot gates. `npm run godot:m2` is the one to run before
-every commit — it chains all of them and takes **about twenty-seven minutes** (26m45s, 69 gates
-green, measured 2026-09-12 on a project container). It said twelve here for eight days, measured
-2026-09-04 when the chain was 51 gates; the alpha-roster arc added four gates and took the roster
-from 152 bases to 362, and a catalogue gate's cost scales with the roster. Budget for the real
+every commit — it chains all of them and takes **about thirty minutes** (31m29s, 83 gates green,
+measured 2026-09-26 on a four-core Windows desktop, with two worker slices running their own
+gates beside it for the last third; 26m45s for 69 gates on a project container on 2026-09-12). It
+said twelve here for eight days, measured 2026-09-04 when the chain was 51 gates; the alpha-roster
+arc added four gates and took the roster from 152 bases to 362, and a catalogue gate's cost scales
+with the roster. Budget for the real
 number — an instruction to run a twelve-minute command that actually takes twenty-seven is how a
 pre-commit check quietly stops being run:
 
@@ -132,7 +134,7 @@ npm run check:routing    # AGENTS.md's routing table resolves; every check_*.gd 
 npm run check:timing     # the per-gate timing table names every mode the chain ran → TIMING_OK
 ```
 
-Those are the ones worth naming, not all of them: `godot:m2` chains **78**, and the authoritative
+Those are the ones worth naming, not all of them: `godot:m2` chains **83**, and the authoritative
 list is the `godot:m2:chain` script in `package.json` (`godot:m2` itself is
 `node scripts/m2-chain.mjs`, which reads that list and runs it) — read it there rather than
 trusting a copy here, because a copy here is one more thing that drifts. Run an individual gate
@@ -457,6 +459,13 @@ Each of these was found the expensive way. They are not style opinions.
   pinned to 12.3.0, but the interpreter is not, so this class of divergence is invisible locally
   until CI says so. Pinning Python was considered and not taken: a generator that renders the
   same bytes on any interpreter is worth more than one that is only ever run on one.
+- **A CRLF checkout turns textual gates red against correct code.** With `core.autocrlf true`
+  (the Windows default) every working file ends its lines in a carriage return, and a gate that
+  matches a whole source line exactly never finds it: on 2026-09-26 `godot:m2:dormant` failed on
+  a clean `main` with "the isolator found no Seek arm". The repository's `.gitattributes` now pins
+  `* text=auto eol=lf`, so a fresh clone is LF everywhere; an older checkout needs
+  `git config core.autocrlf false` and a fresh checkout (`git rm -rq --cached . && git reset
+  --hard`, with any work stashed first).
 - **Throughput, measured:** ~1,085 ticks/second headless on this container, so a game day (288,000
   ticks) is about three minutes and a ten-day campaign about forty-five. Anything phrased as "run
   a few campaigns" is an overnight job — check the arithmetic before promising a grid.

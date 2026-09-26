@@ -9,11 +9,10 @@ extends SceneTree
 # copy is the thing that drifts. So `manifest.json` and the `.tres` text stay the spec, read here
 # as text, and the code is held to both.
 #
-# The gate lands with the first slice (S1, "The chrome wears the kit") and grows a lane per
-# slice after it. Each lane is its own function so a later slice replaces one function and
-# touches nothing beside it; a lane whose slice has not landed says so by name and passes
-# nothing quietly. Every lane that judges carries a true positive and a true negative -- a gate
-# that cannot fail is worse than no gate:
+# The gate landed with the first slice (S1, "The chrome wears the kit") and grew a lane per
+# slice after it, each its own function; all nine slices have landed and no lane is a stub. Every
+# lane carries a true positive and a true negative -- a gate that cannot fail is worse than no
+# gate:
 #
 #   KIT       every margin in Kit.NINE equals manifest.json's `nine_slice_ltrb` and the style's
 #             .tres `texture_margin_*`, at native kit pixels; the .tres sets nothing the code does
@@ -61,7 +60,7 @@ extends SceneTree
 #             parts (FACE, FALLBACK, METRICS, SCAN, LADDER) are spelled out above `_font_lane`.
 #   GLYPHS, KEYCAPS, OUTLIERS, CURSORS, MOTION
 #             each spelled out above its own lane function.
-#   EVENTS    a stub, printing `SKIP EVENTS: not landed` until its slice replaces it.
+#   EVENTS    the save stamp, the pick-up ping and the busy loop; spelled out above its lane.
 
 const Kit = preload("res://ui/kit.gd")
 
@@ -2810,9 +2809,260 @@ func _motion_click(at: Vector2) -> InputEventMouseButton:
 # --- 11. EVENTS --------------------------------------------------------------------------------
 
 
-# A coroutine from the start: the lane that replaces this boots main.tscn and waits on frames,
-# and `_run` already awaits it, so that slice touches this function and nothing else.
+# The last UI piece, "Saved, picked up, busy": three things that happen, each with a reader.
+#
+#   SAVED   `presentation/session.gd`'s `saved` signal fires for a save that lands and not for
+#           one that does not (no world to write); the HUD's stamp is up just after a save, gone
+#           before any save and after SAVED_HOLD_S, and on the manifest's still frame under
+#           reduced motion. The readers, comments stripped: `main.gd`'s `_ready` connects the
+#           signal to a handler that calls the HUD's `mark_saved`, and the "outside" card's draw
+#           reaches `_draw_saved`. The player's real save slot is read first and put back after.
+#   PICKUP  `QuickStrip.pickups_by` keeps the player's `item.pickedUp` and refuses a colonist's
+#           and every other event -- on fabricated drains and on a real pick-up published by
+#           `SimInventory.pick_up_item` and drained by a step. `ping_slot_of` finds the slot that
+#           holds the item and -1 for an item not on the strip or no ping; the sheet's `ping`
+#           turns into a `{item, frame}` view, and both of its strip draws pass it. `main.gd`'s
+#           step loop calls the reader, and the reader reaches the sheet's `ping`.
+#   BUSY    `busy_channel` names each of CHANNELS when its component is on the player and ""
+#           with none; CHANNELS equals the set of components a sim module sets on an acting
+#           survivor with a `ticksLeft` (scanned, so a sixth channel cannot land unread); two
+#           times-left give the same channel and the same frame; and neither `busy_channel` nor
+#           `busy_frame` nor the refresh that feeds them names `ticksLeft`, by a scanner shown a
+#           fabricated body that does. The action bar reaches `_draw_busy`.
+const EventsWorld = preload("res://sim/world.gd")
+const EventsSession = preload("res://presentation/session.gd")
+const EventsStorage = preload("res://platform/storage.gd")
+const EventsHud = preload("res://ui/hud.gd")
+const EventsStrip = preload("res://ui/quick_strip.gd")
+const EVENTS_HUD_GD: String = "res://ui/hud.gd"
+const EVENTS_SIM_DIR: String = "res://sim/modules/"
+
+
 func _events_lane() -> bool:
 	await process_frame
-	print("SKIP EVENTS: not landed")
-	return true
+	var ok: bool = _events_saved()
+	ok = _events_pickup() and ok
+	ok = _events_busy() and ok
+	if ok:
+		print("EVENTS OK a landed save stamps and a refused one does not; the player's pick-up pings and a colonist's does not; %d channels are busy by presence and none reads ticksLeft" % EventsHud.CHANNELS.size())
+	return ok
+
+
+func _events_world() -> Variant:
+	var w: Variant = EventsWorld.new({
+		"seed": 4473,
+		"tick_hz": 20,
+		"map": {"width": 32, "height": 32, "walls": []},
+		"player": {"id": 0, "x": 8.5, "y": 16.5, "stance": 2},
+		"rng_probe": {"stream": "test", "samples": 0},
+	})
+	CursorsSimHealth.register_module(w)
+	CursorsSimNeeds.register_module(w)
+	CursorsSimItems.register_module(w)
+	CursorsSimInventory.register_module(w)
+	CursorsSimHealth.make_survivor_body(w, w.player)
+	CursorsSimHealth.make_stamina(w, w.player, 100)
+	CursorsSimNeeds.attach(w, w.player)
+	CursorsSimInventory.make_inventory(w, w.player)
+	return w
+
+
+func _events_saved() -> bool:
+	var ok: bool = true
+	# A reference type: a lambda assigning to a captured int writes its own copy (CLAUDE.md's traps).
+	var heard: Array = []
+	var session: RefCounted = EventsSession.new()
+	session.connect("saved", func() -> void: heard.append(true))
+	if bool(session.call("save")) or not heard.is_empty():
+		push_error("EVENTS: a save with no world standing said it saved, or the signal fired for it (%d)" % heard.size())
+		ok = false
+	var was: String = EventsStorage.read_save()
+	session.set("world", _events_world())
+	var landed: bool = bool(session.call("save"))
+	if was.is_empty():
+		EventsStorage.remove_save()
+	else:
+		EventsStorage.write_save(was)
+	if not landed or heard.size() != 1:
+		push_error("EVENTS: a save with a world standing returned %s and fired the signal %d times, not once" % [str(landed), heard.size()])
+		ok = false
+
+	var at: float = 100.0
+	if EventsHud.saved_frame(-1.0, at, false) != -1:
+		push_error("EVENTS: the saved stamp is up before any save")
+		ok = false
+	if EventsHud.saved_frame(at, at + 0.01, false) != 0:
+		push_error("EVENTS: the saved stamp is not on its first frame just after a save")
+		ok = false
+	if EventsHud.saved_frame(at, at + EventsHud.SAVED_HOLD_S + 0.01, false) != -1:
+		push_error("EVENTS: the saved stamp outlived SAVED_HOLD_S")
+		ok = false
+	var still: int = int((Motion.TABLE["saved_tick"] as Dictionary)["reduced"])
+	if EventsHud.saved_frame(at, at + 0.01, true) != still:
+		push_error("EVENTS: under reduced motion the stamp shows frame %d, not the manifest's %d" % [EventsHud.saved_frame(at, at + 0.01, true), still])
+		ok = false
+
+	var main: Dictionary = _bodies(_text_of(MAIN_GD))
+	var ready_body: String = String(main.get("_ready", ""))
+	var handler: String = ""
+	var needle: String = "session.saved.connect("
+	var from: int = ready_body.find(needle)
+	if from != -1:
+		var close: int = ready_body.find(")", from)
+		handler = ready_body.substr(from + needle.length(), close - from - needle.length()).strip_edges()
+	if handler.is_empty() or not main.has(handler):
+		push_error("EVENTS: main.gd's _ready does not connect session.saved to a handler it defines -- the stamp has no writer")
+		ok = false
+	elif not String(main[handler]).contains("\"mark_saved\""):
+		push_error("EVENTS: %s does not reach the HUD's mark_saved" % handler)
+		ok = false
+	var hud: Dictionary = _bodies(_text_of(EVENTS_HUD_GD))
+	if not String(hud.get("_draw_card", "")).contains("_draw_saved("):
+		push_error("EVENTS: the HUD's cards never draw the saved stamp")
+		ok = false
+	if not String(hud.get("_draw_saved", "")).contains("saved_frame("):
+		push_error("EVENTS: _draw_saved does not ask saved_frame which frame it wears")
+		ok = false
+	return ok
+
+
+func _events_pickup() -> bool:
+	var ok: bool = true
+	var player: int = 0
+	var drained: Array = [
+		{"type": "item.pickedUp", "entity": player, "item": 7},
+		{"type": "item.pickedUp", "entity": 42, "item": 8},
+		{"type": "item.dropped", "entity": player, "item": 9},
+	]
+	var got: Array[int] = EventsStrip.pickups_by(drained, player)
+	if got != [7]:
+		push_error("EVENTS: pickups_by on a player's, a colonist's and a drop gave %s, not [7]" % str(got))
+		ok = false
+	if not EventsStrip.pickups_by(drained.slice(1), player).is_empty():
+		push_error("EVENTS: a colonist's pick-up alone pinged the player's strip")
+		ok = false
+
+	# A real pick-up, published by the sim and drained by a step.
+	var w: Variant = _events_world()
+	var jerky: int = CursorsSimItems.spawn_item(w, "item.food.jerky", {"tier": "scavenged"})
+	w.components.set_component(jerky, "position", {"x": 8.5, "y": 16.5})
+	if not CursorsSimInventory.pick_up_item(w, w.player, jerky):
+		push_error("EVENTS: the player could not pick up a tin at their feet -- PICKUP has nothing to judge")
+		return false
+	w.step()
+	if not EventsStrip.pickups_by(w.events.drained, w.player).has(jerky):
+		push_error("EVENTS: a real pick-up by the player, drained by a step, was not read")
+		ok = false
+	if EventsStrip.pickups_by(w.events.drained, w.player + 1).has(jerky):
+		push_error("EVENTS: the player's pick-up read as somebody else's")
+		ok = false
+
+	var rows: Array = [{"item": 3}, {"item": 7}]
+	if EventsStrip.ping_slot_of(rows, {"item": 7, "frame": 0}) != 1:
+		push_error("EVENTS: the ping did not find the slot holding its item")
+		ok = false
+	if EventsStrip.ping_slot_of(rows, {"item": 99, "frame": 0}) != -1 or EventsStrip.ping_slot_of(rows, {}) != -1:
+		push_error("EVENTS: an item off the strip, or no ping at all, found a slot")
+		ok = false
+
+	var panel: Control = (load(INVENTORY_GD) as GDScript).new() as Control
+	root.add_child(panel)
+	var before: Dictionary = panel.call("_ping_view") as Dictionary
+	panel.call("ping", jerky)
+	var after: Dictionary = panel.call("_ping_view") as Dictionary
+	panel.free()
+	if not before.is_empty():
+		push_error("EVENTS: the sheet pings before anything was picked up")
+		ok = false
+	if int(after.get("item", -1)) != jerky or int(after.get("frame", -1)) < 0:
+		push_error("EVENTS: the sheet's ping view after a pick-up is %s" % str(after))
+		ok = false
+	var draws: int = _code_of(_text_of(INVENTORY_GD)).count("_ping_view())")
+	if draws < 2:
+		push_error("EVENTS: the sheet draws the strip with its ping in %d of its two draws" % draws)
+		ok = false
+
+	var main: Dictionary = _bodies(_text_of(MAIN_GD))
+	if not String(main.get("_process", "")).contains("_pings_from_events(world.events.drained)"):
+		push_error("EVENTS: main.gd's step loop never reads pick-ups off the drained events")
+		ok = false
+	var reader: String = String(main.get("_pings_from_events", ""))
+	if not reader.contains("QuickStrip.pickups_by(") or not reader.contains("\"ping\""):
+		push_error("EVENTS: _pings_from_events does not reach pickups_by and the sheet's ping")
+		ok = false
+	return ok
+
+
+func _events_busy() -> bool:
+	var ok: bool = true
+	var w: Variant = _events_world()
+	if EventsHud.busy_channel(w, w.player) != "":
+		push_error("EVENTS: a survivor doing nothing is busy with %s" % EventsHud.busy_channel(w, w.player))
+		ok = false
+	for c in EventsHud.CHANNELS:
+		w.components.set_component(w.player, c, {"ticksLeft": 5})
+		if EventsHud.busy_channel(w, w.player) != c:
+			push_error("EVENTS: a %s on the player did not read as busy" % c)
+			ok = false
+		w.components.remove(w.player, c)
+	if EventsHud.busy_channel(w, w.player) != "":
+		push_error("EVENTS: busy outlived the channel")
+		ok = false
+
+	# Two times-left, one answer: a treatment nearly done and one barely begun.
+	var at: float = 50.0
+	var short_left: Variant = _events_world()
+	var long_left: Variant = _events_world()
+	short_left.components.set_component(short_left.player, "treatment", {"ticksLeft": 3, "ticks": 200})
+	long_left.components.set_component(long_left.player, "treatment", {"ticksLeft": 197, "ticks": 200})
+	var a_since: float = at if EventsHud.busy_channel(short_left, short_left.player) != "" else -1.0
+	var b_since: float = at if EventsHud.busy_channel(long_left, long_left.player) != "" else -1.0
+	for dt in [0.0, 0.07, 0.2, 0.61, 2.3]:
+		var a: int = EventsHud.busy_frame(a_since, at + float(dt), false)
+		var b: int = EventsHud.busy_frame(b_since, at + float(dt), false)
+		if a != b or a < 0:
+			push_error("EVENTS: a channel nearly done and one barely begun show busy frames %d and %d at %.2f s" % [a, b, float(dt)])
+			ok = false
+	if EventsHud.busy_frame(-1.0, at, false) != -1:
+		push_error("EVENTS: busy draws with no channel running")
+		ok = false
+
+	# The scan: what the sim sets on an acting survivor with a ticksLeft is exactly CHANNELS.
+	var found: Dictionary = {}
+	var rx := RegEx.new()
+	rx.compile("set_component\\((actor|rescuer), \"(\\w+)\", \\{[^}]*\"ticksLeft\"")
+	var dir: DirAccess = DirAccess.open(EVENTS_SIM_DIR)
+	for f in dir.get_files():
+		if not f.ends_with(".gd"):
+			continue
+		for m in rx.search_all(_code_of(_text_of(EVENTS_SIM_DIR + f))):
+			found[m.get_string(2)] = f
+	for c in found.keys():
+		if not EventsHud.CHANNELS.has(String(c)):
+			push_error("EVENTS: %s sets a %s channel with a ticksLeft on an acting survivor and CHANNELS does not name it" % [String(found[c]), String(c)])
+			ok = false
+	for c in EventsHud.CHANNELS:
+		if not found.has(c):
+			push_error("EVENTS: CHANNELS names %s and no sim module sets it with a ticksLeft -- a busy nothing can start" % c)
+			ok = false
+
+	# Never the countdown.
+	if not _events_reads_countdown("\tvar n: int = int(c[\"ticksLeft\"])\n"):
+		push_error("EVENTS: the ticksLeft scanner passed a body that reads it, so its verdict means nothing")
+		ok = false
+	var hud: Dictionary = _bodies(_text_of(EVENTS_HUD_GD))
+	for fn in ["busy_channel", "busy_frame", "refresh", "_draw_busy"]:
+		if not hud.has(fn):
+			push_error("EVENTS: the HUD has no %s to judge" % fn)
+			ok = false
+		elif _events_reads_countdown(String(hud[fn])):
+			push_error("EVENTS: the HUD's %s reads ticksLeft -- busy would be a countdown" % fn)
+			ok = false
+	if not String(hud.get("refresh", "")).contains("busy_channel(") or not String(hud.get("_draw_action_bar", "")).contains("_draw_busy("):
+		push_error("EVENTS: the HUD never asks busy_channel on refresh, or the action bar never draws busy")
+		ok = false
+	return ok
+
+
+func _events_reads_countdown(body: String) -> bool:
+	return body.contains("ticksLeft")
