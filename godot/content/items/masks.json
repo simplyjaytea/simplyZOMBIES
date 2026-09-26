@@ -84,8 +84,8 @@
     "class": "armor",
     "size": { "w": 2, "h": 2 },
     "massKg": 0.9,
+    "appearance": { "sprite": "item_gas_mask", "equipSprite": "item_gear_gasmask" },
     "equipSlot": "face",
-    "appearance": { "equipSprite": "item_gear_gasmask" },
     "armor": { "head": 0.3 },
     "filter": 0.9
   }

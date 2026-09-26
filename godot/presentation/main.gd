@@ -2206,7 +2206,12 @@ func _draw_entities() -> void:
 		var item_rect := Rect2(float(sc["sx"]) - item_px * 0.5, float(sc["sy"]) - item_px * 0.5, item_px, item_px)
 		var art: Texture2D = look["texture"] as Texture2D
 		if art != null:
-			draw_texture_rect(art, item_rect, false, look["tint"] as Color if bool(look["declaredTint"]) else Color.WHITE)
+			# A picture is drawn at a whole fraction of the world's pixel, never squeezed into the
+			# glyph's third of a tile: 32 art pixels at half the world scale is half a tile at every
+			# step of the ladder, so nearest-neighbour drops rows evenly.
+			var pic_px: float = Appearance.item_icon_px(float(camera["zoom"]))
+			var pic_rect := Rect2((Vector2(float(sc["sx"]), float(sc["sy"])) - Vector2(pic_px, pic_px) * 0.5).round(), Vector2(pic_px, pic_px))
+			draw_texture_rect(art, pic_rect, false, look["tint"] as Color if bool(look["declaredTint"]) else Color.WHITE)
 		else:
 			ItemGlyph.draw_glyph(self, item_rect, int(look["glyph"]), look["tint"] as Color)
 	# Last-known marks fading. The positions are the *simulation's* memory, not a second copy kept

@@ -6,6 +6,7 @@
     "class": "tool",
     "size": { "w": 1, "h": 2 },
     "massKg": 0.35,
+    "appearance": { "sprite": "item_flashlight" },
     "equipSlot": "secondary",
     "light": { "magnitude": 25, "burnTicks": 60000, "feed": "cell" }
   },
@@ -27,6 +28,7 @@
     "class": "tool",
     "size": { "w": 1, "h": 3 },
     "massKg": 0.9,
+    "appearance": { "sprite": "item_flashlight" },
     "equipSlot": "secondary",
     "light": { "magnitude": 32, "burnTicks": 108000, "feed": "cell" }
   },
