@@ -87,7 +87,7 @@
       "type": "object",
       "required": ["w", "l"],
       "additionalProperties": false,
-      "description": "The ground the car covers, in tiles, given nose-to-tail: `w` across the body, `l` along it. The generator orients it per street -- a vehicle on a vertical street is w x l, one on a horizontal street is l x w -- which is why this is a breadth and a length rather than an x and a y. Both are written Tile.Low, so a parked car is cover you can shoot over and walk around, the same as a wreck.",
+      "description": "The ground the car covers, in tiles, given nose-to-tail: `w` across the body, `l` along it. The generator orients it per street -- a vehicle on a vertical street is w x l, one on a horizontal street is l x w (or lEw x w, where the class declares an east-west length of its own) -- which is why this is a breadth and a length rather than an x and a y. Both are written Tile.Low, so a parked car is cover you can shoot over and walk around, the same as a wreck.",
       "properties": {
         "w": {
           "type": "integer",
@@ -98,6 +98,11 @@
           "type": "integer",
           "minimum": 1,
           "description": "Length nose to tail. Five for a sedan, which is what sets SimWorldgen.VEHICLE_SLOT at eight -- a car and a gap you can walk through; two for a bicycle, one for a skateboard."
+        },
+        "lEw": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Length nose to tail on the east-west axis, where it differs from `l`; absent means the same length both ways. The three cars draw the outpost pack's art east-west (docs/30, 'The outpost pack, adopted', and docs/23's 'The cars are the pack's, east-west'), and the pack draws a hatchback three tiles long and a van and a pickup four, so a sedan is 2x5 north-south and 3x2 east-west, a van and a truck 2x6 / 2x7 north-south and 4x2 east-west. North-south keeps the generated art and its longer footprint. Read through SimWorldgen.vehicle_extent, the one place a footprint is turned to an axis; check_wrecks.gd's PACK lane holds it to the width of the pack picture that stands on it."
         }
       }
     },

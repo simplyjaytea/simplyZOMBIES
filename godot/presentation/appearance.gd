@@ -279,6 +279,14 @@ const VEHICLE_FOOTPRINTS: Dictionary = {
 const VEHICLE_VARIANTS: Array[String] = ["pale", "green", "burnt"]
 const AXIS_NS: String = "ns"
 const AXIS_EW: String = "ew"
+# The classes whose east-west picture is the outpost pack's rather than the generator's (docs/23,
+# "The cars are the pack's, east-west"): authored keys in `authored.json`, placed by
+# `canvas_of`'s authored tier at the pack's own canvas, standing on content's `lEw` footprint.
+# `vehicle_canvas` answers ZERO for their generated east-west keys, which no longer exist, so a
+# rule cannot quietly place a picture that retired -- mirrored by tools/sprites/parts/vehicles.py's
+# PACK_EW under the same two-copies arrangement as VEHICLE_FOOTPRINTS, whose three car rows are
+# now the north-south footprints alone.
+const VEHICLE_PACK_EW: Array[String] = ["sedan", "van", "truck"]
 
 
 # The canvas `key` is authored on when it names a shipped vehicle picture, ZERO otherwise.
@@ -294,7 +302,7 @@ static func vehicle_canvas(key: String) -> Vector2i:
 	var n: int = int(CameraUtil.ART_NATIVE)
 	if parts[2] == AXIS_NS:
 		return Vector2i(foot.x * n, (foot.y + VEHICLE_ROOFLINE_TILES) * n)
-	if parts[2] == AXIS_EW:
+	if parts[2] == AXIS_EW and not VEHICLE_PACK_EW.has(parts[0]):
 		return Vector2i(foot.y * n, (foot.x + VEHICLE_ROOFLINE_TILES) * n)
 	return Vector2i.ZERO
 
