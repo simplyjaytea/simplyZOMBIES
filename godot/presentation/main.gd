@@ -16,6 +16,7 @@ const SimContainers = preload("res://sim/modules/containers.gd")
 const ItemGlyph = preload("res://presentation/item_glyph.gd")
 const Chrome = preload("res://ui/chrome.gd")
 const UiCursors = preload("res://ui/cursors.gd")
+const QuickStrip = preload("res://ui/quick_strip.gd")
 # The tag beside the player's body: big enough to read at a glance mid-fight, small enough that it
 # is not competing with the HUD's own columns.
 const TAG_SIZE: int = 25
@@ -216,6 +217,9 @@ const RIDER_DEPTH_EPS: float = 0.01
 func _ready() -> void:
 	content = ContentLoader.load_tree()
 	session = SessionRes.new()
+	# Every save that lands, from any of its five callers, stamps the HUD. Connected once: the
+	# session outlives every world it boots.
+	session.saved.connect(_on_saved)
 	var parity: bool = false
 	var seed_arg: int = SimBoot.DISTRICT_SEED
 	var district_arg: String = SimBoot.DEFAULT_DISTRICT
@@ -353,6 +357,19 @@ func _notification(what: int) -> void:
 		if world == null or bool(world.runOver):
 			return
 		session.call("save")
+
+# The quick strip's item_ping, fed from the same drained-events read as the shake above -- never a
+# subscription to the sim bus. `item.pickedUp` was published by every pick-up and read by nothing
+# until this; only the player's own pick-ups ping, because the strip is the player's belt.
+func _pings_from_events(drained: Array) -> void:
+	if _inventory_panel == null or world == null:
+		return
+	for item in QuickStrip.pickups_by(drained, world.player):
+		_inventory_panel.call("ping", item)
+
+func _on_saved() -> void:
+	if _hud != null:
+		_hud.call("mark_saved")
 
 func _resize_camera() -> void:
 	var vp: Vector2 = get_viewport_rect().size
@@ -914,6 +931,7 @@ func _process(delta: float) -> void:
 		if _sfx != null:
 			_sfx.tick(world, camera, world.events.drained)
 		_camera_shake_from_events(world.events.drained)
+		_pings_from_events(world.events.drained)
 		if speed >= 10:
 			speed = SimFortify.speed_after_events(speed, world.events.drained)
 			if speed < 10:

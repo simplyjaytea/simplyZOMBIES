@@ -599,10 +599,11 @@ pieces below are in the order they land, each one session, each with its gate re
 its record; the health-bar ban, the digit ban, the prose HUD and the busy loop's refusal to read
 time left are untouched.
 
-- **Saved, picked up, busy.** `session.gd` gains a `saved` signal the HUD reads as a "saved" tick
-  in the card header; the player's long-dead-socket `item.pickedUp` event finally gets a reader,
-  `item_ping` on the slot; and a live channel (treatment, construct, rescue, refuel, siphon)
-  shows the `busy` loop, which never reads `ticksLeft`. Judged by the EVENTS lane.
+All nine pieces have landed (the last, "Saved, picked up, busy", 2026-09-26); their records are
+in the record, by system. Nothing is left in this group. What the arc left **known and not fixed**
+is in "One typeface"'s record: at 1280×720 the corner doll overlaps the action bar, the work panel
+is fixed at 1520 px, the inspect column overlaps the pockets and the quick strip's sixth slot is
+off screen, all older than the kit.
 
 **Art & renderer — overcast or torchlight, decided by the owner (2026-09-08), on the Dungeon
 Settlers spine.** The direction is docs/30's "Overcast or torchlight": a hybrid that keeps the
@@ -2261,6 +2262,44 @@ not a to-do list:
   settings rows are mouse-only, the toggle with them: the router's `settings` focus lets Escape
   through and nothing else, and keyboard rows there would be a change to that table. The redraw
   saving is read off the code, not measured: headless draws nothing to count.
+
+- **UI — saved, picked up, busy, 2026-09-26.** The ninth and last piece of the "UI Field Kit,
+  live" group ([docs/30](30-decisions.md#the-ui-field-kit-live-2026-09-25)), and the readers the
+  motion piece left its three one-shots and loops waiting on. **Saved:** `presentation/session.gd`
+  gains `signal saved`, emitted inside `save()` only after the slot is written, so all five
+  callers — F5, the pause row, the dawn autosave, quit-to-title and the window's close request —
+  stamp through one connection in `main.gd`'s `_ready`. To make "only after the slot is written"
+  true in a release build, where the asserts are stripped, `platform/storage.gd`'s two writers and
+  `write_save` now return whether they wrote. The HUD's `mark_saved` records the wall clock, and
+  the "outside" card's header draws `saved_tick` at native size with the dim word "saved" before
+  it for `SAVED_HOLD_S` (three seconds) — chrome, never a line in `_right`, so check_hud's QUIET
+  lane is untouched. **Picked up:** `item.pickedUp`, published by every pick-up since the
+  inventory landed and read by nothing, gets its first reader: `main.gd`'s step loop hands each
+  tick's drained events to `QuickStrip.pickups_by`, which keeps only the player's, and the sheet's
+  new `ping` plays `item_ping` on the strip slot holding the item — or on the strip's lead when it
+  went into a bag or merged into a stack under another id. **Busy:** `hud.gd`'s `CHANNELS` names
+  the five components a survivor stands still for (treatment, construct, rescue, refuel, siphon);
+  `busy_channel` asks only whether one is present, and `busy_frame` only how long it has run on
+  the wall clock, so the loop at the action bar's left end says *that* you are occupied and never
+  how long is left. The bar keeps `BUSY_ROOM` clear on both sides while it shows, so the words
+  stay centred and the loop cannot land on a keycap. **Gated** by `godot:check:ui_skin`'s EVENTS
+  lane, replacing its stub. A save with no world returns false and fires nothing; one with a world
+  fires exactly once, and the player's real slot is read first and put back after. The stamp is
+  absent before a save, on frame 0 just after, gone after the hold, and on the manifest's frame
+  under reduced motion. `pickups_by` keeps the player's pick-up and refuses a colonist's and a
+  drop, on fabricated drains and on a real `SimInventory.pick_up_item` drained by a step.
+  `ping_slot_of` finds the holding slot and -1 otherwise, and the sheet's ping view is empty
+  before `ping` and carries the item after. `busy_channel` names each channel and "" for none.
+  Two treatments, three ticks and 197 ticks from done, give the same frame at five times.
+  `CHANNELS` equals a scan of `sim/modules/` for components set on an acting survivor with a
+  `ticksLeft`, so a sixth channel cannot land unread. Comments stripped, `main.gd` connects the
+  signal to a handler reaching `mark_saved`, the step loop reaches `_pings_from_events` and it
+  reaches `pickups_by` and `ping`, both strip draws pass `_ping_view()`, the card reaches
+  `_draw_saved` and the bar `_draw_busy`, and none of `busy_channel`, `busy_frame`, `refresh` or
+  `_draw_busy` names `ticksLeft`, by a scanner shown a fabricated body that does. The sabotage
+  pass ran three sabotages and got four refusals: a signal emitted before the write (both SAVED
+  counts), the step loop's reader removed, and `busy_frame` reading a `ticksLeft`. The pixels are read off the code, not seen:
+  headless draws nothing, and the screenshots for the owner are the next step.
 
 - **Art delivery — the outpost asset pack, 2026-09-17.** The owner asked to put the
   approved standalone art delivery into the repository. It is preserved under

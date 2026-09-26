@@ -1,0 +1,4 @@
+# Every text file is LF in the index and in the working tree, on every platform. Several gates
+# read source as text and match whole lines exactly; a CRLF checkout (Windows, core.autocrlf
+# true) leaves a carriage return on each line and turns them red against correct code.
+* text=auto eol=lf
