@@ -748,9 +748,17 @@ func _the_driver_moves_the_car(stash: Dictionary) -> bool:
 	if String(v["heading"]) != "e":
 		push_error("DRIVE: a stopped car asked east is heading %s" % v["heading"])
 		return false
+	# The east-west extent is content's, turned by the one helper that turns footprints -- since
+	# the pack's cars that is 3x2 for a sedan, not the 5x2 of its north-south length laid flat, so
+	# the turn changed the car's length as well as its axis and the Low tiles below have to follow.
 	rec = _record_of(map, car)
-	if int(rec["w"]) != 5 or int(rec["h"]) != 2 or String(rec["axis"]) != "ew":
-		push_error("DRIVE: the turned record is %s, not a 5x2 ew one" % str(rec))
+	var sedan_foot: Dictionary = SimVehicles.class_of(w, "vehicle.sedan").get("footprint", {}) as Dictionary
+	var want_ew: Vector2i = SimWorldgen.vehicle_extent(sedan_foot, "ew")
+	if want_ew == Vector2i.ZERO or want_ew == Vector2i(SimWorldgen.vehicle_extent(sedan_foot, "ns").y, SimWorldgen.vehicle_extent(sedan_foot, "ns").x):
+		push_error("DRIVE: content's sedan is %s east-west, the north-south footprint laid flat; the turn would prove nothing about a per-axis length" % str(want_ew))
+		return false
+	if int(rec["w"]) != want_ew.x or int(rec["h"]) != want_ew.y or String(rec["axis"]) != "ew":
+		push_error("DRIVE: the turned record is %s, not the %dx%d ew one content declares" % [str(rec), want_ew.x, want_ew.y])
 		return false
 	problem = _low_matches(map, rec)
 	if not problem.is_empty():

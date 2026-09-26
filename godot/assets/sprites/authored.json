@@ -43,6 +43,10 @@
     "           MANIFEST accepts them today; no shape lane judges one yet, and each gains one",
     "           when the slice that reads it lands (docs/23's 'Art & renderer -- the outpost",
     "           pack' group).",
+    "  vehicle  a parked car's east-west picture, from the outpost pack (docs/23's 'The cars",
+    "           are the pack's, east-west'). Cropped to its anchor row, never padded, so the",
+    "           renderer's feet anchor is the pack's own. check_wrecks.gd's PACK lane is its",
+    "           shape lane: the painted span sets the class's `lEw`, and nothing else does.",
     "",
     "`reads` names what draws it -- a content id whose appearance block declares the key. Art",
     "nothing reads is the dead-socket shape this project has paid for twelve times, so the gate",
@@ -74,6 +78,108 @@
       "reads": "prop.container.searched",
       "source": {
         "path": "art/simplyzombies/groups/props/native/prop-wood-crate-empty.png"
+      }
+    },
+    "vehicle_sedan_intact_ew": {
+      "canvas": [
+        96,
+        47
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.sedan",
+      "source": {
+        "path": "art/simplyzombies/groups/utility/native/vehicle-hatchback-intact.png",
+        "crop": [
+          0,
+          0,
+          96,
+          47
+        ]
+      }
+    },
+    "vehicle_sedan_wreck_ew": {
+      "canvas": [
+        96,
+        47
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.sedan",
+      "source": {
+        "path": "art/simplyzombies/groups/utility/native/vehicle-hatchback-wreck.png",
+        "crop": [
+          0,
+          0,
+          96,
+          47
+        ]
+      }
+    },
+    "vehicle_truck_intact_ew": {
+      "canvas": [
+        112,
+        55
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.truck",
+      "source": {
+        "path": "art/simplyzombies/groups/utility/native/vehicle-pickup-intact.png",
+        "crop": [
+          0,
+          0,
+          112,
+          55
+        ]
+      }
+    },
+    "vehicle_truck_wreck_ew": {
+      "canvas": [
+        112,
+        55
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.truck",
+      "source": {
+        "path": "art/simplyzombies/groups/utility/native/vehicle-pickup-wreck.png",
+        "crop": [
+          0,
+          0,
+          112,
+          55
+        ]
+      }
+    },
+    "vehicle_van_intact_ew": {
+      "canvas": [
+        112,
+        55
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.van",
+      "source": {
+        "path": "art/simplyzombies/groups/utility/native/vehicle-van-intact.png",
+        "crop": [
+          0,
+          0,
+          112,
+          55
+        ]
+      }
+    },
+    "vehicle_van_wreck_ew": {
+      "canvas": [
+        112,
+        55
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.van",
+      "source": {
+        "path": "art/simplyzombies/groups/utility/native/vehicle-van-wreck.png",
+        "crop": [
+          0,
+          0,
+          112,
+          55
+        ]
       }
     }
   }

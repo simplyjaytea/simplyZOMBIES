@@ -16,24 +16,25 @@
   "dash": "cluster",
   "footprint": {
     "w": 2,
-    "l": 7
+    "l": 7,
+    "lEw": 4
   },
   "appearance": {
     "variants": [
       {
         "id": "pale",
         "ns": "vehicle_truck_pale_ns",
-        "ew": "vehicle_truck_pale_ew"
+        "ew": "vehicle_truck_intact_ew"
       },
       {
         "id": "green",
         "ns": "vehicle_truck_green_ns",
-        "ew": "vehicle_truck_green_ew"
+        "ew": "vehicle_truck_intact_ew"
       },
       {
         "id": "burnt",
         "ns": "vehicle_truck_burnt_ns",
-        "ew": "vehicle_truck_burnt_ew"
+        "ew": "vehicle_truck_wreck_ew"
       }
     ]
   }
