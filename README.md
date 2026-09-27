@@ -22,10 +22,15 @@ environment, equipment and animated-effects artwork, with native PNGs, source sh
 manifests and Godot SpriteFrames resources. View the
 [asset catalog](godot/art/simplyzombies/previews/asset-catalog.png), or download and open the
 [offline interactive preview](godot/art/simplyzombies/simplyzombies-production-preview.html).
-The pack is checked in at `res://art/simplyzombies/` and is being adopted into the live renderer
+The pack is checked in at `res://art/simplyzombies/` and is adopted into the live renderer
 slice by slice, per [the roadmap's "Art & renderer — the outpost pack"
-group](docs/23-roadmap.md#whats-left-in-milestone-2); what has landed is in
-[the record](docs/23-roadmap.md#the-record-by-system).
+group](docs/23-roadmap.md#whats-left-in-milestone-2). As of 2026-09-27 the game draws the pack's
+four-direction walking bodies, its worn gear and held weapons, its east-west cars, item icons
+(floor, bags, quick strip and inspect pane), the ground, trees and nature dressing, heaps, the
+bed, furnishings and containers, the barricade and work lamp, the muzzle flash, casing, blood and
+campfire flame, and the crosshair and interaction-hand cursors. The walls are next, after the
+owner picks between the pack's modules and today's generated faces; what has landed, and what was
+deliberately left out, is in [the record](docs/23-roadmap.md#the-record-by-system).
 
 ---
 
@@ -199,9 +204,9 @@ status. Milestones close on their exit criterion, never on a feature count.
   and grief, building, a director that varies its nights, save/load, the shallow skill web, loot
   tables and searchable containers, workbench modification, weapon attachments, the full injury
   table with pain, exhaustion and sepsis, basic melee combat, and the full
-  wound-treatment-recovery loop. A zombie can hurt you in ordinary play, and wounds, bleeding,
-  pressure, bandaging and recovery all run — what is switched off is the **bite**, and with it
-  infection, which waits behind `GRABS_ENABLED` on a design call about the colony's shape (see
+  wound-treatment-recovery loop. A zombie can grab, bite and infect in ordinary play, and wounds,
+  bleeding, pressure, bandaging, rescue, recovery and infection all run — `GRABS_ENABLED` has
+  shipped on since the owner's 2026-09-01 decision (see
   [where Milestone 2 stands](docs/23-roadmap.md#where-milestone-2-stands)). Still open — every
   piece named in [what's left](docs/23-roadmap.md#whats-left-in-milestone-2): the wider resource
   taxonomy, the fuller survivor generator, the remaining crafting consumables, the UI screens, and

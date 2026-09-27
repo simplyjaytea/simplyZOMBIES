@@ -14,12 +14,12 @@ container running** lives in `AGENTS.md`.
 
 ---
 
-## Start here: the outpost pack nearly done, 2026-09-27
+## Start here: the outpost pack nearly done, 2026-09-27 (pushed)
 
 The outpost pack's slices ran as supervised Orca workers, each in its own worktree, and merged
-locally to `main` (**not pushed**; no PR is open). On merged `main`, `npm run godot:m2` is
-green at **84 gates in about 30 minutes** (the chain grew by one, `godot:check:fx`; `CLAUDE.md`'s "83" is
-now one short), with `check:routing`, `check:timing`, `sprites:check` and `npm test` (594) also
+to `main` and were pushed to GitHub at the end of the session. On merged `main`, `npm run godot:m2` is
+green at **84 gates in about 30 minutes** (the chain grew by one, `godot:check:fx`; `CLAUDE.md`
+says so), with `check:routing`, `check:timing`, `sprites:check` and `npm test` (594) also
 green. docs/23's outpost group and records are the authority; this is only the pointer.
 
 **Landed, each with its record in docs/23:** pack gear on the body and held weapons in the hand
@@ -45,8 +45,6 @@ and props for things that exist (the barricade and the work lamp). Deferred and 
 four furnishings (the workbench, and three props taller than a tile), the pack's
 open-with-supplies container state (it would leak at a distance), and the stove's picture (the
 pack's is 32×40, and an item icon is 32×32).
-
-**Also owed:** `CLAUDE.md`'s chain count and measured time; a push and a PR for everything above.
 
 **How the session ran, for the next coordinator:** Jev's `jev_review` escalated on `test_gap`
 for every slice because its 50 KB cap truncates the gate bodies; the owner's rule for that is
