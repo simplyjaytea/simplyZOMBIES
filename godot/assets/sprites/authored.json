@@ -50,12 +50,19 @@
     "           renderer (`Appearance.held_layer`). `grip` is a COPY of the pack manifest's",
     "           own grip point, the pixel that lands on the body's hand; `godot:check:authored`'s",
     "           HELD lane holds the copy, the canvas and the facing to the manifest (since",
-    "           2026-09-26, 'Held weapons in the hand').",
-    "  module / sheet / prop",
-    "           placeholders for the outpost pack's later slices -- wall modules, animated",
-    "           effect sheets, and prop pictures generally. MANIFEST accepts them today; no shape",
-    "           lane judges one yet, and each gains one when the slice that reads it lands",
-    "           (docs/23's 'Art & renderer -- the outpost pack' group).",
+    "           2026-09-26, 'Held weapons in the hand'). `muzzle` is a COPY of the manifest's muzzle",
+    "           point, where a muzzle flash is drawn from ('The shot is seen'), held by the same lane.",
+    "  sheet    one of the outpost pack's four-frame effect sheets, a family whose members",
+    "           `<key>_0` .. `<key>_3` are the manifest's frames in order, cut whole. `fps`, `loop`",
+    "           and `anchor` are COPIES of the manifest's own, and `godot:check:fx`'s RATE lane holds",
+    "           them to it; presentation/fx_look.gd plays the sheet off sim events (since 2026-09-26,",
+    "           'The shot is seen'). A sheet is read by a content effect field -- `fireFx`,",
+    "           `casingFx`, `hitFx` or `flameFx` -- rather than a `sprite`.",
+    "  module / prop",
+    "           placeholders for the outpost pack's later slices -- wall modules and prop pictures",
+    "           generally. MANIFEST accepts them today; no shape lane judges one yet, and each gains",
+    "           one when the slice that reads it lands (docs/23's 'Art & renderer -- the outpost",
+    "           pack' group).",
     "  vehicle  a parked car's east-west picture, from the outpost pack (docs/23's 'The cars",
     "           are the pack's, east-west'). Cropped to its anchor row, never padded, so the",
     "           renderer's feet anchor is the pack's own. check_wrecks.gd's PACK lane is its",
@@ -68,7 +75,8 @@
     "one loaded -- two bases sharing one icon are both allowed to claim it.",
     "",
     "Optional `anchor: [x, y]` (pixels) and `palette: \"generator\"|\"pack\"` are accepted by",
-    "MANIFEST for later slices to read; nothing draws from either yet.",
+    "MANIFEST. A sheet's `anchor` is the one the renderer reads (the pixel of each frame that lands",
+    "on the muzzle, the chest or the fire); `palette` is read by nothing yet.",
     "",
     "A family that TURNS names its members by one convention, and the renderer finds them by it",
     "(presentation/appearance.gd's `frame_key`): `<family>_<view>` is the picture standing still",
@@ -546,6 +554,228 @@
               32,
               40
             ]
+          }
+        }
+      }
+    },
+    "fx_blood_hit": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "sheet",
+      "reads": "player.body",
+      "palette": "pack",
+      "fps": 12,
+      "loop": false,
+      "anchor": [
+        16,
+        16
+      ],
+      "members": {
+        "fx_blood_hit_0": {
+          "source": {
+            "path": "art/simplyzombies/groups/effects/frames/fx-blood-hit-00.png"
+          }
+        },
+        "fx_blood_hit_1": {
+          "source": {
+            "path": "art/simplyzombies/groups/effects/frames/fx-blood-hit-01.png"
+          }
+        },
+        "fx_blood_hit_2": {
+          "source": {
+            "path": "art/simplyzombies/groups/effects/frames/fx-blood-hit-02.png"
+          }
+        },
+        "fx_blood_hit_3": {
+          "source": {
+            "path": "art/simplyzombies/groups/effects/frames/fx-blood-hit-03.png"
+          }
+        }
+      }
+    },
+    "fx_ejected_casing": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "sheet",
+      "reads": "item.pistol.service",
+      "palette": "pack",
+      "fps": 12,
+      "loop": false,
+      "anchor": [
+        16,
+        28
+      ],
+      "members": {
+        "fx_ejected_casing_0": {
+          "source": {
+            "path": "art/simplyzombies/groups/effects/frames/fx-ejected-casing-00.png"
+          }
+        },
+        "fx_ejected_casing_1": {
+          "source": {
+            "path": "art/simplyzombies/groups/effects/frames/fx-ejected-casing-01.png"
+          }
+        },
+        "fx_ejected_casing_2": {
+          "source": {
+            "path": "art/simplyzombies/groups/effects/frames/fx-ejected-casing-02.png"
+          }
+        },
+        "fx_ejected_casing_3": {
+          "source": {
+            "path": "art/simplyzombies/groups/effects/frames/fx-ejected-casing-03.png"
+          }
+        }
+      }
+    },
+    "fx_flame_loop": {
+      "canvas": [
+        32,
+        48
+      ],
+      "kind": "sheet",
+      "reads": "prop.campfire.lit",
+      "palette": "pack",
+      "fps": 8,
+      "loop": true,
+      "anchor": [
+        16,
+        44
+      ],
+      "members": {
+        "fx_flame_loop_0": {
+          "source": {
+            "path": "art/simplyzombies/groups/effects/frames/fx-flame-loop-00.png"
+          }
+        },
+        "fx_flame_loop_1": {
+          "source": {
+            "path": "art/simplyzombies/groups/effects/frames/fx-flame-loop-01.png"
+          }
+        },
+        "fx_flame_loop_2": {
+          "source": {
+            "path": "art/simplyzombies/groups/effects/frames/fx-flame-loop-02.png"
+          }
+        },
+        "fx_flame_loop_3": {
+          "source": {
+            "path": "art/simplyzombies/groups/effects/frames/fx-flame-loop-03.png"
+          }
+        }
+      }
+    },
+    "fx_pistol_muzzle": {
+      "canvas": [
+        32,
+        16
+      ],
+      "kind": "sheet",
+      "reads": "item.pistol.service",
+      "palette": "pack",
+      "fps": 24,
+      "loop": false,
+      "anchor": [
+        3,
+        8
+      ],
+      "members": {
+        "fx_pistol_muzzle_0": {
+          "source": {
+            "path": "art/simplyzombies/groups/effects/frames/fx-pistol-muzzle-00.png"
+          }
+        },
+        "fx_pistol_muzzle_1": {
+          "source": {
+            "path": "art/simplyzombies/groups/effects/frames/fx-pistol-muzzle-01.png"
+          }
+        },
+        "fx_pistol_muzzle_2": {
+          "source": {
+            "path": "art/simplyzombies/groups/effects/frames/fx-pistol-muzzle-02.png"
+          }
+        },
+        "fx_pistol_muzzle_3": {
+          "source": {
+            "path": "art/simplyzombies/groups/effects/frames/fx-pistol-muzzle-03.png"
+          }
+        }
+      }
+    },
+    "fx_rifle_muzzle": {
+      "canvas": [
+        32,
+        16
+      ],
+      "kind": "sheet",
+      "reads": "item.rifle.hunting",
+      "palette": "pack",
+      "fps": 24,
+      "loop": false,
+      "anchor": [
+        3,
+        8
+      ],
+      "members": {
+        "fx_rifle_muzzle_0": {
+          "source": {
+            "path": "art/simplyzombies/groups/effects/frames/fx-rifle-muzzle-00.png"
+          }
+        },
+        "fx_rifle_muzzle_1": {
+          "source": {
+            "path": "art/simplyzombies/groups/effects/frames/fx-rifle-muzzle-01.png"
+          }
+        },
+        "fx_rifle_muzzle_2": {
+          "source": {
+            "path": "art/simplyzombies/groups/effects/frames/fx-rifle-muzzle-02.png"
+          }
+        },
+        "fx_rifle_muzzle_3": {
+          "source": {
+            "path": "art/simplyzombies/groups/effects/frames/fx-rifle-muzzle-03.png"
+          }
+        }
+      }
+    },
+    "fx_shotgun_muzzle": {
+      "canvas": [
+        32,
+        16
+      ],
+      "kind": "sheet",
+      "reads": "item.shotgun.pump",
+      "palette": "pack",
+      "fps": 20,
+      "loop": false,
+      "anchor": [
+        3,
+        8
+      ],
+      "members": {
+        "fx_shotgun_muzzle_0": {
+          "source": {
+            "path": "art/simplyzombies/groups/effects/frames/fx-shotgun-muzzle-00.png"
+          }
+        },
+        "fx_shotgun_muzzle_1": {
+          "source": {
+            "path": "art/simplyzombies/groups/effects/frames/fx-shotgun-muzzle-01.png"
+          }
+        },
+        "fx_shotgun_muzzle_2": {
+          "source": {
+            "path": "art/simplyzombies/groups/effects/frames/fx-shotgun-muzzle-02.png"
+          }
+        },
+        "fx_shotgun_muzzle_3": {
+          "source": {
+            "path": "art/simplyzombies/groups/effects/frames/fx-shotgun-muzzle-03.png"
           }
         }
       }
@@ -1048,6 +1278,10 @@
         19.32,
         8.44
       ],
+      "muzzle": [
+        36.42,
+        5.41
+      ],
       "source": {
         "path": "art/simplyzombies/groups/items/held/weapon-bolt-rifle.png"
       }
@@ -1063,6 +1297,10 @@
       "grip": [
         10.02,
         16.16
+      ],
+      "muzzle": [
+        18.26,
+        16.08
       ],
       "source": {
         "path": "art/simplyzombies/groups/items/held/weapon-bow.png"
@@ -1080,6 +1318,10 @@
         19.04,
         13.14
       ],
+      "muzzle": [
+        35.27,
+        11.89
+      ],
       "source": {
         "path": "art/simplyzombies/groups/items/held/weapon-crossbow.png"
       }
@@ -1095,6 +1337,10 @@
       "grip": [
         8.48,
         7.36
+      ],
+      "muzzle": [
+        26.28,
+        7.25
       ],
       "source": {
         "path": "art/simplyzombies/groups/items/held/weapon-crowbar.png"
@@ -1112,6 +1358,10 @@
         7.27,
         6.72
       ],
+      "muzzle": [
+        19.37,
+        7.61
+      ],
       "source": {
         "path": "art/simplyzombies/groups/items/held/weapon-hatchet.png"
       }
@@ -1127,6 +1377,10 @@
       "grip": [
         8.05,
         7.45
+      ],
+      "muzzle": [
+        18.69,
+        6.78
       ],
       "source": {
         "path": "art/simplyzombies/groups/items/held/weapon-kitchen-knife.png"
@@ -1144,6 +1398,10 @@
         8.18,
         8.85
       ],
+      "muzzle": [
+        17.37,
+        5.41
+      ],
       "source": {
         "path": "art/simplyzombies/groups/items/held/weapon-pistol.png"
       }
@@ -1159,6 +1417,10 @@
       "grip": [
         20.8,
         7.86
+      ],
+      "muzzle": [
+        35.55,
+        5.5
       ],
       "source": {
         "path": "art/simplyzombies/groups/items/held/weapon-pump-shotgun.png"
@@ -1176,6 +1438,10 @@
         5.9,
         9.25
       ],
+      "muzzle": [
+        18.48,
+        4.85
+      ],
       "source": {
         "path": "art/simplyzombies/groups/items/held/weapon-revolver.png"
       }
@@ -1191,6 +1457,10 @@
       "grip": [
         16.84,
         9.71
+      ],
+      "muzzle": [
+        24.45,
+        6.21
       ],
       "source": {
         "path": "art/simplyzombies/groups/items/held/weapon-smg.png"

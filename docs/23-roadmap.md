@@ -559,8 +559,9 @@ projection are untouched.
   the record (`npm run godot:check:appearance` → PICTURES; `npm run godot:check:authored` →
   ICON). The quick strip and the inspect pane are "Item pictures in the quick strip / inspect
   pane" (piece 6b), still open and still drawing the class glyph.
-- **The shot is seen.** Muzzle flash, blood hit, casing and campfire flame, drawn from sim events
-  off the pack's twelve four-frame effect sheets, in place of today's `draw_rect` stand-ins.
+- ~~**The shot is seen.**~~ — **landed** 2026-09-26 for the four effects with an impact point, see
+  the record (`npm run godot:check:fx` → `FX_OK`; `godot:check:authored` → HELD's muzzle and the
+  widened READS).
 - ~~**The cars are the pack's, east-west.**~~ — **landed** 2026-09-26, see the record
   (`npm run godot:check:wrecks` → the new PACK lane and SILHOUETTE at the pack's rows;
   `npm run godot:m2:vehicles` → DRIVE's per-axis turn).
@@ -2721,6 +2722,78 @@ not a to-do list:
   the slice's machine and is run after merge. **What did not ship**: the quick strip and the
   inspect pane still draw the class glyph (piece 6b); held weapons in the hand are their own
   piece; 290 bases have no pack picture and keep the glyph until more art exists.
+
+- **Art — the shot is seen, 2026-09-26.** The outpost group's slice of that name: a muzzle flash, an
+  ejected casing, blood where a blow lands and a campfire's flame, drawn off four of the pack's
+  four-frame effect families (six sheets: three flashes, the casing, the blood, the flame). **The
+  piece's premise was half wrong and the record says so**: it named "today's `draw_rect`
+  stand-ins", and there were none — nothing drew a flash, a casing or blood at all (a shot was a
+  sound, the sim's own `flashTicks` light and a camera kick), and a lit campfire was one still
+  picture. So nothing was replaced and no generator code or PNG retired; `prop_campfire_lit`
+  stays, and the flame loops over it. **Sheets:** six families of new kind `sheet` in
+  `godot/assets/sprites/authored.json`, keys sorted under `fx_`, each member `<key>_0`..`_3` sourced
+  whole from `art/simplyzombies/groups/effects/frames/` and reproduced by `tools/sprites/build.py`,
+  with `fps`, `loop` and `anchor` copied from the pack's `manifest.json` (never its `.tres`); the
+  ten held weapons gain a `muzzle` copy beside their `grip`. **Read by content**, four new
+  appearance fields (the schemas and `check_appearance.gd`'s allowlist widened, each field legal
+  on its own kind only): `fireFx` and `casingFx` on the ten firearms (pistols and the SMG take the
+  pistol flash, the two shotguns the shotgun's, the four rifles the rifle's; the revolver, the
+  sawn-off and the break-action deer rifle keep their brass), `hitFx` on every body — seven
+  zombie kinds, four raider archetypes, the player, both uniques and the ten colony and raider
+  looks, all the one `fx_blood_hit` — and `flameFx` on `prop.campfire.lit`. **Outside the piece's
+  own files, and named here for that reason:** those content edits (ten items, 24 body entries,
+  one prop), the six schemas that gained the fields (item, prop, zombie, raider, survivor,
+  player), and `check_appearance.gd`'s allowlist. READS has nothing to judge without a content
+  field naming each sheet, so the slice could not land without them.
+  **Drawn** by the new `presentation/fx_look.gd`, fed from `world.events.drained` in `main.gd`'s
+  tick loop beside the shake: `weapon.fired` starts a flash at the held weapon's muzzle
+  (`Appearance.held_point` maps the manifest's muzzle through `held_pose`, and the flash turns with
+  the view by the draw call's `transpose` and signed rect, never a transform) and a casing on the
+  ground under the hand; `attack.connected` and `bite.landed` start blood on the struck body's
+  chest, chosen by the struck body's look alone (`Appearance.body_look_id`, a copy of
+  `_draw_entities`' look reads kept separate because other gates hold that loop's needles, and
+  `body_block_for`, now shared with `for_entity`). The clock is presentation-side — the frame's
+  wall-clock delta, advanced only while the world runs — because at speed ten a whole flash falls
+  inside one frame's ticks and a `world.tick` clock would never draw it; the flame loops on it,
+  staggered by entity id. Things (casing, blood) draw after the bodies and under the night; lights
+  (flash, flame) after the night wash. **Nothing unseen**: a one-shot starts only if the player has
+  Focal detail on the point, and is re-judged every frame it draws; a flame takes a prop's rule
+  (its tile in the seen set). **Blood never varies**: the record carries the struck body's position
+  and nothing about the blow. **Stayed in the report**, per docs/30's "The whole outpost pack":
+  sparks, dust, splinters, splash and the explosion (no impact point the sim records), the smoke
+  loop (no source that the flame does not already show), and every decal. `godot/sim/` untouched.
+  **Gated.** New `npm run godot:check:fx` → `FX_OK`, in the `godot:m2` chain after
+  `godot:check:authored`, ten lanes each red both ways: RATE (frames, fps, loop, anchor and
+  canvas equal the manifest's and read the same by `Appearance.sheet_of`; frames chosen by that
+  fps; no `.tres` load in the renderer — half the fps, a shifted anchor, swapped frames and a
+  `.tres` load refused), ADMITS (exactly the six; the explosion added refused), READS (every sheet
+  named by a content effect field and every field naming a sheet), SHAPE (the nested-shape lane
+  `godot:validate` cannot be: all 42 effect fields are `fx_` strings on their own kind naming an
+  authored sheet — blood on an item, a number and an unprefixed key refused), SHOT (a real pistol fired
+  through the sim flashes at the held pistol's muzzle and drops a casing; a real bow shot starts
+  nothing), UNSEEN (a shot and a blow behind the player and in Peripheral view start nothing, in
+  Focal view all three draw; turned away they stay live and undrawn, looking back draws them),
+  SAME (a graze, a killing head shot and a bite draw identical blood, frame and pixel; the same
+  blood on another body compares different; `_hit` reads no field of the blow), KINDS (all 24 body
+  entries bleed the one sheet; the player, a zombie, a person, a raider and an archetype resolve
+  it; a body with no look bleeds nothing), FLAME (a seen lit fire loops one frame per eighth of a
+  second; an unlit one and a lit one behind a wall draw nothing) and DRAWN (the real scene boots
+  and one frame of `_draw` blits all six sheets; `_process` feeds the events and the delta).
+  `check_authored.gd`'s HELD lane holds the `muzzle` copy (a muzzle one pixel off refused) and its
+  READS lane accepts the four effect fields as readers. **Sabotage pass**, each red and restored:
+  the shot's sight test removed → `UNSEEN: a shot and a blow behind the player … started
+  ["fx_pistol_muzzle", "fx_ejected_casing"]`; `_draw_effects(true)` replaced by `pass` → `DRAWN:
+  _draw does not draw the effects on both sides of the night`; blood keyed to nothing about the
+  body → `KINDS: a body with no look bled`. **Verified**: the full `npm run godot:m2` chain, 84 gates
+  green in 28m59s on the four-core Windows desktop (`FX_OK`, `AUTHORED_OK`, `APPEARANCE_OK`,
+  `PLAY_OK`, `M2_BALANCE_OK` among them); `GODOT_CONTENT_OK`; `npm test` 45 files / 594 tests;
+  `SPRITES_OK … 139 authored keys reproduced from their source`; `ROUTING_OK`; `TIMING_OK`;
+  prettier clean on the touched JSON.
+  **Not measured**: frame cost — the live list is capped at 48 one-shots and the flame walks only
+  the `campfire` store, but `npm run bench:frame` was not run for this slice. **Known and not
+  fixed**: a flash drawn after the bodies stands over a body south of the shooter, and over the
+  shooter's own body seen from behind; the flash follows the shooter's position at the moment of
+  the shot rather than the body, for its sixth of a second.
 
 - **World & map** — ~~the three location loot tables~~ **landed** (`godot:check:loot`): what a
   place yields is content now, not two hardcoded kits in `boot.gd`. `content/loot/tables.json`

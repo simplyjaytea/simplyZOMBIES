@@ -4,7 +4,7 @@
   "name": "Bloater",
   "introducedInWave": 1,
   "weight": 8,
-  "appearance": { "sprite": "zombie_bloater" },
+  "appearance": { "sprite": "zombie_bloater", "hitFx": "fx_blood_hit" },
   "sensory": { "noise": 0.1, "light": 0.1, "scent": 0.9 },
   "locomotion": { "speed": 0.7, "wander": 0.3, "mill": 0.25, "crawl": 0.25 },
   "body": { "head": 30, "torso": 50, "legs": 40 },

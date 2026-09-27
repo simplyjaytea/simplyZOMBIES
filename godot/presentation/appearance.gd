@@ -149,6 +149,9 @@ static func forget() -> void:
 	_authored.clear()
 	_authored_rigs.clear()
 	_families.clear()
+	_held.clear()
+	_muzzles.clear()
+	_sheets.clear()
 	_authored_read = false
 
 
@@ -369,6 +372,16 @@ static var _families: Dictionary = {}
 # that lands on the hand: authored.json's copy of the pack manifest's `grip`, floored to the
 # pixel it falls in.
 static var _held: Dictionary = {}
+# `{held key: Vector2i}` -- the pixel of a held picture the round leaves from: authored.json's copy
+# of the pack manifest's `muzzle`, floored like the grip. What a muzzle flash is drawn from ("The
+# shot is seen", 2026-09-26); `check_authored.gd`'s HELD lane holds the copy to the manifest.
+static var _muzzles: Dictionary = {}
+# `{sheet key: {frames, fps, loop, anchor, canvas}}` -- every authored family of kind `sheet`: one
+# of the outpost pack's four-frame effect sheets, its frames the members `<key>_0`, `<key>_1`, ...
+# in order, and its `fps`, `loop` and `anchor` authored.json's copies of the pack manifest's own
+# (`godot:check:fx`'s RATE lane holds each copy to the manifest; the renderer never loads the
+# pack's manifest or its `.tres`).
+static var _sheets: Dictionary = {}
 static var _authored_read: bool = false
 
 
@@ -393,6 +406,8 @@ static func _read_authored() -> void:
 	_authored_rigs = []
 	_families = {}
 	_held = {}
+	_muzzles = {}
+	_sheets = {}
 	if not FileAccess.file_exists(AUTHORED_PATH):
 		return
 	var text: String = FileAccess.get_file_as_string(AUTHORED_PATH)
@@ -416,6 +431,9 @@ static func _read_authored() -> void:
 		var grip: Variant = (entry as Dictionary).get("grip")
 		if String((entry as Dictionary).get("kind", "")) == "pack_held" and grip is Array and (grip as Array).size() == 2:
 			_held[String(key)] = Vector2i(floori(float((grip as Array)[0])), floori(float((grip as Array)[1])))
+			var muzzle: Variant = (entry as Dictionary).get("muzzle")
+			if muzzle is Array and (muzzle as Array).size() == 2:
+				_muzzles[String(key)] = Vector2i(floori(float((muzzle as Array)[0])), floori(float((muzzle as Array)[1])))
 		# A family: `members` names several keys that each draw from their own file at the
 		# family's own canvas (docs/30, "The outpost pack, adopted"). The family key itself is
 		# never a file -- `canvas_of(family_key)` still answers, from the assignment above, but
@@ -434,6 +452,21 @@ static func _read_authored() -> void:
 				"fps": int((entry as Dictionary).get("fps", 0)),
 				"z": z if z is Dictionary else {},
 			}
+			if String((entry as Dictionary).get("kind", "")) == "sheet":
+				var frames: Array[String] = []
+				while names.has("%s_%d" % [String(key), frames.size()]):
+					frames.append("%s_%d" % [String(key), frames.size()])
+				var anchor: Variant = (entry as Dictionary).get("anchor", [])
+				var at := Vector2i(shape.x / 2, shape.y / 2)
+				if anchor is Array and (anchor as Array).size() == 2:
+					at = Vector2i(int((anchor as Array)[0]), int((anchor as Array)[1]))
+				_sheets[String(key)] = {
+					"frames": frames,
+					"fps": int((entry as Dictionary).get("fps", 0)),
+					"loop": bool((entry as Dictionary).get("loop", false)),
+					"anchor": at,
+					"canvas": shape,
+				}
 	_authored_rigs.sort()
 
 
@@ -705,14 +738,7 @@ static func for_entity(world: Variant, it: Dictionary) -> Dictionary:
 		content_id = PLAYER_LOOK_ID
 	var declared_tint: bool = false
 	if not content_id.is_empty():
-		var kind: String = "survivor"
-		if content_id.begins_with("zombie."):
-			kind = "zombie"
-		elif content_id.begins_with("raider."):
-			kind = "raider"
-		elif content_id.begins_with("player."):
-			kind = "player"
-		var block: Dictionary = of_content(world, kind, content_id)
+		var block: Dictionary = body_block_for(world, content_id)
 		if block.has("tint"):
 			tint = Color(String(block["tint"]))
 			declared_tint = true
@@ -740,6 +766,57 @@ static func for_entity(world: Variant, it: Dictionary) -> Dictionary:
 	# `sprite` is the key the texture came from, handed on so the draw loop can ask a family that
 	# turns for the picture of one view and one step (`body_texture`); `texture` is the rest view.
 	return {"texture": texture, "tint": modulate_for(texture != null, declared_tint, tint), "radius": radius, "sprite": sprite_key}
+
+
+# The appearance block of a body's content id, whatever kind of content carries it: a zombie type,
+# a raider archetype, the player's look, or -- the default -- a survivor or one of the colony's
+# looks. `for_entity` and the effects (`body_look_id` below) both ask it, so the two cannot
+# disagree about which entry a body's look lives in.
+static func body_block_for(world: Variant, content_id: String) -> Dictionary:
+	if content_id.is_empty():
+		return {}
+	var kind: String = "survivor"
+	if content_id.begins_with("zombie."):
+		kind = "zombie"
+	elif content_id.begins_with("raider."):
+		kind = "raider"
+	elif content_id.begins_with("player."):
+		kind = "player"
+	return of_content(world, kind, content_id)
+
+
+# The content id one live body's look is read from, off its components -- the id
+# `presentation/main.gd`'s `_draw_entities` hands `for_entity` as `ztype` or `cid`, in the same
+# precedence: a zombie's type, a person's rolled look before their identity, a raider's rolled look
+# before their archetype, and `PLAYER_LOOK_ID` for a player with none of those. A COPY of that
+# loop's reads rather than a call from it, because that loop's reads are needles other gates hold
+# (`check_m2_variance`'s READER, `check_m2_raiders`' person and look); `godot:check:fx`'s KINDS
+# lane builds every kind of body and proves this copy finds each one's block, so the two cannot drift
+# apart without a red build.
+static func body_look_id(world: Variant, entity: int) -> String:
+	if world == null or world.components == null:
+		return ""
+	var zt: Variant = world.components.get_component(entity, "zombieType")
+	if zt is Dictionary and not String((zt as Dictionary).get("id", "")).is_empty():
+		return String((zt as Dictionary)["id"])
+	var ident: Variant = world.components.get_component(entity, "identity")
+	if ident is Dictionary:
+		var look: String = String((ident as Dictionary).get("look", ""))
+		if look.is_empty():
+			look = String((ident as Dictionary).get("id", ""))
+		if not look.is_empty():
+			return look
+	var rd: Variant = world.components.get_component(entity, "raider")
+	if rd is Dictionary:
+		var person: Variant = (rd as Dictionary).get("person", {})
+		var rolled: String = String((person as Dictionary).get("look", "")) if person is Dictionary else ""
+		if rolled.is_empty():
+			rolled = String((rd as Dictionary).get("id", ""))
+		if not rolled.is_empty():
+			return rolled
+	if entity == int(world.player):
+		return PLAYER_LOOK_ID
+	return ""
 
 
 # How many screen pixels one art pixel covers at this zoom. The sprites are authored against
@@ -993,6 +1070,47 @@ static func grip_of(key: String) -> Vector2i:
 	return _held.get(key, Vector2i(-1, -1)) as Vector2i
 
 
+# The pixel of a held picture the round leaves from, or (-1, -1) for a key that is not held or
+# declares no muzzle.
+static func muzzle_of(key: String) -> Vector2i:
+	_read_authored()
+	return _muzzles.get(key, Vector2i(-1, -1)) as Vector2i
+
+
+# Where pixel `p` of a picture `size` px lands, in body-canvas pixels, once `held_pose` has placed
+# it for `view` -- the same four mappings that function's comment lists, applied to one point. The
+# muzzle flash asks it where a held weapon's muzzle is ("The shot is seen").
+static func held_point(pose: Dictionary, size: Vector2i, p: Vector2i, view: String) -> Vector2i:
+	var at: Vector2i = pose["at"] as Vector2i
+	match view:
+		"w":
+			return at + Vector2i(size.x - 1 - p.x, p.y)
+		"s":
+			return at + Vector2i(size.y - 1 - p.y, p.x)
+		"n":
+			return at + Vector2i(p.y, size.x - 1 - p.x)
+	return at + p
+
+
+# One of the pack's effect sheets as the renderer plays it -- {frames, fps, loop, anchor, canvas}
+# -- or {} for a key that is not an authored `sheet` family.
+static func sheet_of(key: String) -> Dictionary:
+	if key.is_empty():
+		return {}
+	_read_authored()
+	return _sheets.get(key, {}) as Dictionary
+
+
+# Every authored sheet key, sorted: what `godot:check:fx`'s READS lane walks.
+static func sheet_keys() -> Array[String]:
+	_read_authored()
+	var out: Array[String] = []
+	for key in _sheets.keys():
+		out.append(String(key))
+	out.sort()
+	return out
+
+
 # How a held picture `size` px, gripped at `grip`, is drawn so the grip pixel lands on `hand` in
 # `view`: `at` is the top-left of the painted area, `size` the rect draw_texture_rect is handed,
 # in the picture's own orientation (Godot swaps it when `transpose` is set) and signed -- a negative
@@ -1102,6 +1220,9 @@ static func prop_of(world: Variant, id: String) -> Dictionary:
 		"tint": modulate_for(texture != null, declared_tint, tint),
 		"shape": shape,
 		"size": size,
+		# The looping sheet drawn over the prop -- the lit campfire's flame ("The shot is seen");
+		# empty for every prop that declares none, which draws nothing more than it did.
+		"flameFx": String(block.get("flameFx", "")),
 	}
 
 
