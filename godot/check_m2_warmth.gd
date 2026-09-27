@@ -812,7 +812,7 @@ func _nothing_declares_art_that_would_never_draw() -> bool:
 			continue
 		judged += 1
 		var app: Variant = e.get("appearance")
-		if app is Dictionary and ((app as Dictionary).has("equipSprite") or (app as Dictionary).has("equipSpriteFront")):
+		if app is Dictionary and (app as Dictionary).has("equipSprite"):
 			push_error("ART: '%s' sits in the '%s' slot and declares an equipSprite, which EQUIP_DRAW_ORDER never reaches -- art that will never draw" % [String(e.get("id", "")), slot])
 			return false
 		undrawn += 1

@@ -7,7 +7,7 @@
     "size": { "w": 1, "h": 4 },
     "massKg": 0.77,
     "equipSlot": "primary",
-    "appearance": { "sprite": "item_bow", "equipSprite": "item_bow_hunting_equip" },
+    "appearance": { "sprite": "item_bow", "equipSprite": "item_held_bow" },
     "slots": ["sight", "limb", "string"],
     "requiredSlots": ["limb", "string"],
     "defaultParts": {
@@ -33,7 +33,7 @@
     "size": { "w": 1, "h": 2 },
     "massKg": 0.28,
     "equipSlot": "secondary",
-    "appearance": { "sprite": "item_pistol", "equipSprite": "item_pistol_service_equip", "partAnchors": { "muzzle": { "x": -3, "y": 0 }, "optic": { "x": 0, "y": -1 }, "magazine": { "x": 0, "y": 1 } } },
+    "appearance": { "sprite": "item_pistol", "equipSprite": "item_held_pistol" },
     "slots": ["optic", "barrel", "muzzle", "magazine", "furniture", "internal", "underbarrel"],
     "requiredSlots": ["barrel", "internal"],
     "defaultParts": {
@@ -84,7 +84,7 @@
     "size": {"w": 1, "h": 5},
     "massKg": 2.4,
     "equipSlot": "primary",
-    "appearance": { "sprite": "item_pump_shotgun", "equipSprite": "item_shotgun_pump_equip", "partAnchors": { "muzzle": { "x": 2, "y": -7 }, "optic": { "x": 1, "y": -3 } } },
+    "appearance": { "sprite": "item_pump_shotgun", "equipSprite": "item_held_pump_shotgun" },
     "slots": ["optic", "barrel", "muzzle", "furniture", "internal", "underbarrel"],
     "requiredSlots": ["barrel", "internal"],
     "defaultParts": {
@@ -102,7 +102,7 @@
     "size": {"w": 1, "h": 6},
     "massKg": 2.48,
     "equipSlot": "primary",
-    "appearance": { "sprite": "item_bolt_rifle", "equipSprite": "item_rifle_hunting_equip", "partAnchors": { "muzzle": { "x": 3, "y": -9 }, "optic": { "x": 1, "y": -3 }, "magazine": { "x": 0, "y": 2 } } },
+    "appearance": { "sprite": "item_bolt_rifle", "equipSprite": "item_held_bolt_rifle" },
     "slots": ["optic", "barrel", "muzzle", "magazine", "furniture", "internal", "underbarrel"],
     "requiredSlots": ["barrel", "internal"],
     "defaultParts": {
@@ -143,7 +143,7 @@
     "size": {"w": 2, "h": 4},
     "massKg": 2.27,
     "equipSlot": "primary",
-    "appearance": {"sprite": "item_crossbow", "equipSprite": "item_crossbow_hunting_equip"},
+    "appearance": {"sprite": "item_crossbow", "equipSprite": "item_held_crossbow"},
     "slots": ["sight", "limb", "string"],
     "requiredSlots": ["limb", "string"],
     "defaultParts": {
@@ -160,7 +160,7 @@
     "size": {"w": 1, "h": 2},
     "massKg": 0.3,
     "equipSlot": "secondary",
-    "appearance": { "sprite": "item_revolver", "equipSprite": "item_revolver_snub_equip", "partAnchors": { "muzzle": { "x": -3, "y": 0 }, "optic": { "x": 0, "y": -1 } } },
+    "appearance": { "sprite": "item_revolver", "equipSprite": "item_held_revolver" },
     "slots": ["optic", "barrel", "muzzle", "furniture", "internal", "underbarrel"],
     "requiredSlots": ["barrel", "internal"],
     "defaultParts": {
@@ -177,7 +177,6 @@
     "size": {"w": 1, "h": 4},
     "massKg": 1.28,
     "equipSlot": "primary",
-    "appearance": { "equipSprite": "item_rifle_rimfire_equip", "partAnchors": { "muzzle": { "x": 3, "y": -8 }, "optic": { "x": 1, "y": -3 }, "magazine": { "x": 0, "y": 2 } } },
     "slots": ["optic", "barrel", "muzzle", "magazine", "furniture", "internal", "underbarrel"],
     "requiredSlots": ["barrel", "internal"],
     "defaultParts": {
@@ -196,7 +195,7 @@
     "size": {"w": 1, "h": 3},
     "massKg": 1.43,
     "equipSlot": "primary",
-    "appearance": { "sprite": "item_smg", "equipSprite": "item_smg_compact_equip", "partAnchors": { "muzzle": { "x": 2, "y": -6 }, "optic": { "x": 1, "y": -3 }, "magazine": { "x": -3, "y": 1 } } },
+    "appearance": { "sprite": "item_smg", "equipSprite": "item_held_smg" },
     "slots": ["optic", "barrel", "muzzle", "magazine", "furniture", "internal", "underbarrel"],
     "requiredSlots": ["barrel", "internal"],
     "defaultParts": {
@@ -226,7 +225,6 @@
     "size": {"w": 1, "h": 4},
     "massKg": 2.2,
     "equipSlot": "primary",
-    "appearance": { "equipSprite": "item_carbine_lever_equip", "partAnchors": { "muzzle": { "x": 3, "y": -8 }, "optic": { "x": 1, "y": -3 } } },
     "slots": ["optic", "barrel", "muzzle", "furniture", "internal", "underbarrel"],
     "requiredSlots": ["barrel", "internal"],
     "defaultParts": {
@@ -244,7 +242,7 @@
     "size": {"w": 1, "h": 2},
     "massKg": 0.48,
     "equipSlot": "secondary",
-    "appearance": { "sprite": "item_pistol", "equipSprite": "item_pistol_target_equip", "partAnchors": { "muzzle": { "x": -4, "y": 0 }, "optic": { "x": 0, "y": -2 }, "magazine": { "x": 0, "y": 1 } } },
+    "appearance": { "sprite": "item_pistol", "equipSprite": "item_held_pistol" },
     "slots": ["optic", "barrel", "muzzle", "magazine", "furniture", "internal", "underbarrel"],
     "requiredSlots": ["barrel", "internal"],
     "defaultParts": {
@@ -262,7 +260,6 @@
     "size": {"w": 1, "h": 2},
     "massKg": 1.7,
     "equipSlot": "secondary",
-    "appearance": { "equipSprite": "item_shotgun_sawnoff_equip", "partAnchors": { "muzzle": { "x": -4, "y": -1 } } },
     "slots": ["barrel", "muzzle", "internal", "underbarrel"],
     "requiredSlots": ["barrel", "internal"],
     "defaultParts": {
@@ -279,7 +276,7 @@
     "size": {"w": 1, "h": 4},
     "massKg": 0.45,
     "equipSlot": "primary",
-    "appearance": {"sprite": "item_bow", "equipSprite": "item_bow_recurve_equip"},
+    "appearance": {"sprite": "item_bow", "equipSprite": "item_held_bow"},
     "slots": ["sight", "limb", "string"],
     "requiredSlots": ["limb", "string"],
     "defaultParts": {
@@ -296,7 +293,7 @@
     "size": {"w": 2, "h": 4},
     "massKg": 2.35,
     "equipSlot": "primary",
-    "appearance": {"sprite": "item_crossbow", "equipSprite": "item_crossbow_repeating_equip"},
+    "appearance": {"sprite": "item_crossbow", "equipSprite": "item_held_crossbow"},
     "slots": ["sight", "limb", "string"],
     "requiredSlots": ["limb", "string"],
     "defaultParts": {

@@ -528,8 +528,12 @@ func _bodies_face_by_flipping() -> bool:
 			return false
 		pawns += 1
 	Appearance.forget()
-	if pawns < 8:
-		push_error("only %d pawn keys resolved; the roster is eight rigs and three overlays" % pawns)
+	# Exactly the two generated rigs the pack does not draw, the screamer and the bloater. This
+	# floor was eight while the face-on equip overlays stood on the pawn canvas too; they were
+	# retired on 2026-09-26 ("Pack gear on the body"), and the pack's own bodies and wearables are
+	# judged at the same canvas by check_authored.gd's PACK lane and check_worn.gd's CANVAS lane.
+	if pawns != 2:
+		push_error("%d pawn keys resolved; the generated roster is the screamer and the bloater" % pawns)
 		return false
 
 	# The loop, read: what it reaches for and what it no longer holds.
@@ -650,12 +654,13 @@ func _bodies_turn_and_walk() -> bool:
 		return false
 
 	# Which keys turn: the two pack bodies and the four wearables do; a face-on rig, a member on its
-	# own, and nothing at all do not.
+	# own, nothing at all, and a held weapon -- one east-facing picture the renderer turns by the
+	# draw call's flags, never a family with a picture per view -- do not.
 	for key in TURNING_BODIES + ["item_gear_helmet", "item_gear_vest", "item_gear_gasmask", "item_gear_backpack"]:
 		if not Appearance.turns(String(key)):
 			push_error("TURN: '%s' does not turn" % key)
 			return false
-	for key in ["zombie_screamer", "zombie_bloater", "body_survivor_s", "", "item_bat_aluminium_equip"]:
+	for key in ["zombie_screamer", "zombie_bloater", "body_survivor_s", "", "item_held_pistol"]:
 		if Appearance.turns(String(key)):
 			push_error("TURN: '%s' claims to turn; turns() cannot say no" % key)
 			return false

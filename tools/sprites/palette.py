@@ -245,7 +245,7 @@ class Ramp(list):
     """A ramp's steps, carrying the base and family they were built from.
 
     A plain `list` everywhere it is indexed -- `RAMPS["skin"][2]` is unchanged and sixty-odd
-    call sites across `characters.py` and `gear.py` never learn this type exists. What it adds
+    call sites across `characters.py` and its neighbours never learn this type exists. What it adds
     is the two facts `tones_of` needs and the flat list cannot answer: a step is a colour, and
     from a colour alone you cannot tell which material it belongs to or what ceiling it was
     held under. The alternative was a second `{name: family}` table beside `RAMPS`, which is

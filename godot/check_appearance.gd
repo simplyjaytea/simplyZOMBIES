@@ -51,7 +51,7 @@ func _fixture() -> Dictionary:
 #
 # Array-topped files are walked as well as object-topped ones. They were not until this slice, and
 # the omission was not cosmetic: every item file and the new props file is a JSON array, so every
-# item's `appearance` -- equipSprite, equipSpriteFront and all -- was invisible to the shape and
+# item's `appearance` -- equipSprite and all -- was invisible to the shape and
 # key assertions below, which is a gate that could not fail for most of the content it names.
 # Keyed by path *and* id because one array file holds many entries and "which one" is the first
 # thing a failure needs to say.
@@ -81,14 +81,12 @@ func _all_blocks() -> Dictionary:
 # legal there and refused everywhere else. Its inner shape -- {id, ns, ew}, each key resolving at
 # its own canvas -- is check_wrecks.gd's DRESSING lane, not this one.
 func _appearance_key_ok(k: String, path: String) -> bool:
-	if ["sprite", "tint", "features", "portrait", "equipSprite", "equipSpriteFront", "shape", "size"].has(k):
+	if ["sprite", "tint", "features", "portrait", "equipSprite", "shape", "size"].has(k):
 		return true
-	# The gunsmithing pair, and the only overlay family that does not share the hand anchor: a
-	# part declares the picture drawn when it is fitted, and its *host* declares where each of its
-	# slots sits so one picture can serve a pistol and a rifle. Items only -- an anchor on a
-	# zombie would be a key nothing reads.
-	if ["attachmentSprite", "partAnchors"].has(k):
-		return path.begins_with("items/")
+	# `equipSpriteFront`, `attachmentSprite` and `partAnchors` were legal on an item until
+	# 2026-09-26: a face-on back item's front strap, a fitted part's picture and the host weapon's
+	# anchors for it. All three drew face-on pictures that "Pack gear on the body" retired (docs/30,
+	# "The whole outpost pack"), so all three are refused now, everywhere -- a key nothing reads.
 	return k == "variants" and path.begins_with("vehicles/")
 
 
@@ -109,16 +107,14 @@ func _declared_appearances_are_well_formed() -> bool:
 	if _appearance_key_ok("sprrite", "vehicles/sedan.json#vehicle.sedan"):
 		push_error("the appearance allowlist accepts a misspelled key on a vehicle; the exception widened the whole list")
 		return false
-	# The gunsmithing keys are items-only for the same reason `variants` is vehicles-only: an
-	# exception that widened the whole list would let a misspelling through everywhere.
-	if _appearance_key_ok("attachmentSprite", "zombies/walker.json#zombie.walker"):
-		push_error("the appearance allowlist accepts 'attachmentSprite' outside content/items/; the exception is a hole")
-		return false
-	if not _appearance_key_ok("partAnchors", "items/ranged.json#item.pistol.service"):
-		push_error("the appearance allowlist refuses 'partAnchors' on an item, which is where a weapon says where its slots are")
-		return false
-	if _appearance_key_ok("attachmentSprrite", "items/attachments.json#item.attach.suppressor"):
-		push_error("the appearance allowlist accepts a misspelled key on an item; the exception widened the whole list")
+	# The three retired keys are refused on the one kind that used to carry them, and the one that
+	# stayed is still accepted there -- so the refusal is the retirement, not a broken list.
+	for retired in ["equipSpriteFront", "attachmentSprite", "partAnchors"]:
+		if _appearance_key_ok(retired, "items/ranged.json#item.pistol.service"):
+			push_error("the appearance allowlist still accepts the retired '%s' on an item; it draws nothing since 2026-09-26" % retired)
+			return false
+	if not _appearance_key_ok("equipSprite", "items/ranged.json#item.pistol.service"):
+		push_error("the appearance allowlist refuses 'equipSprite' on an item, which is where a held weapon is named")
 		return false
 	var blocks: Dictionary = _all_blocks()
 	for path in blocks.keys():
@@ -137,7 +133,7 @@ func _declared_appearances_are_well_formed() -> bool:
 			if not (s is String) or key.search(String(s)) == null:
 				push_error("%s: appearance.sprite '%s' is not a registry key (a key, not a path)" % [path, str(s)])
 				return false
-		for prop in ["equipSprite", "equipSpriteFront"]:
+		for prop in ["equipSprite"]:
 			if block.has(prop):
 				var es: Variant = block[prop]
 				if not (es is String) or key.search(String(es)) == null:
@@ -166,7 +162,7 @@ func _sprite_keys_resolve() -> bool:
 	var blocks: Dictionary = _all_blocks()
 	for path in blocks.keys():
 		var block: Dictionary = blocks[path]
-		for prop in ["sprite", "equipSprite", "equipSpriteFront"]:
+		for prop in ["sprite", "equipSprite"]:
 			if not block.has(prop):
 				continue
 			var k: String = String(block[prop])
@@ -641,13 +637,15 @@ const NO_ART_BASE: String = "item.glasses.safety"
 
 
 # Equipped-gear layers: a rendered slot holding an item with equipSprite must actually resolve
-# a texture (the true positives item.bat.aluminium and item.duffel.canvas exist for, one over-body
-# and one under -- the duffel since the hiking pack took the outpost pack's four-view backpack,
-# whose per-view layering check_worn.gd's TURNS lane owns); an item with no equipSprite (NO_ART_BASE, whose art-lessness the lane
-# verifies first), an item in a slot the renderer does not draw, and
-# an entity with no equipment component at all (every zombie) must all fall out silently rather
-# than erroring -- each is its own assertion so a regression in any one path fails here instead
-# of drawing nothing, or the wrong thing, on screen.
+# a texture (the true positives item.knife.kitchen and item.pack.hiking exist for: a pack held
+# weapon, over the body seen from the front, and a pack backpack, over seen from the front and under
+# seen from the side -- per-view layering in full is check_worn.gd's TURNS and HELD lanes); an item
+# with no equipSprite (NO_ART_BASE, whose art-lessness the lane verifies first), an item in a slot
+# the renderer does not draw, and an entity with no equipment component at all (every zombie) must
+# all fall out silently rather than erroring -- each is its own assertion so a regression in any
+# one path fails here instead of drawing nothing, or the wrong thing, on screen. (The bat and the
+# duffel stood here until 2026-09-26; their face-on pictures were retired with "Pack gear on the
+# body", so they now draw nothing and are the wrong subjects for a true positive.)
 func _equipped_gear_layers_resolve() -> bool:
 	Appearance.forget()
 	var w: Variant = World.new(_fixture())
@@ -655,33 +653,32 @@ func _equipped_gear_layers_resolve() -> bool:
 	var bat: int = int(w.entities.spawn())
 	var pack: int = int(w.entities.spawn())
 	var bare: int = int(w.entities.spawn())
-	w.components.set_component(bat, "itemBase", {"baseId": "item.bat.aluminium"})
-	w.components.set_component(pack, "itemBase", {"baseId": "item.duffel.canvas"})
+	w.components.set_component(bat, "itemBase", {"baseId": "item.knife.kitchen"})
+	w.components.set_component(pack, "itemBase", {"baseId": "item.pack.hiking"})
 	w.components.set_component(bare, "itemBase", {"baseId": NO_ART_BASE})
 
 	w.components.set_component(actor, "equipment", {"slots": {"primary": bat}})
 	var layers: Array[Dictionary] = Appearance.equipment_layers_for(w, actor)
 	if layers.size() != 1 or layers[0].get("texture") == null or not bool(layers[0].get("over", false)):
-		push_error("primary slot holding item.bat.aluminium should yield one over-body layer with a texture, got %s" % str(layers))
+		push_error("primary slot holding item.knife.kitchen should yield one over-body layer with a texture, got %s" % str(layers))
 		return false
 
-	# item.duffel.canvas declares both equipSprite (the bag, under) and equipSpriteFront (the
-	# strap crossing the chest, always over regardless of the back slot's own default) -- one
-	# equipped item, two layers, split correctly.
+	# item.pack.hiking wears the pack's backpack: over the body seen from the front, under it seen
+	# from the side -- one equipped item, its side decided per view.
 	w.components.set_component(actor, "equipment", {"slots": {"back": pack}})
 	layers = Appearance.equipment_layers_for(w, actor)
-	if layers.size() != 2 or layers[0].get("texture") == null or bool(layers[0].get("over", true)) \
-			or layers[1].get("texture") == null or not bool(layers[1].get("over", false)):
-		push_error("back slot holding item.duffel.canvas should yield an under-body bag layer then an over-body strap layer, got %s" % str(layers))
+	var side: Array[Dictionary] = Appearance.equipment_layers_for(w, actor, "e")
+	if layers.size() != 1 or layers[0].get("texture") == null or not bool(layers[0].get("over", false)) \
+			or side.size() != 1 or side[0].get("texture") == null or bool(side[0].get("over", true)):
+		push_error("back slot holding item.pack.hiking should yield one layer over seen from the front and under seen from the east, got %s and %s" % [str(layers), str(side)])
 		return false
 
-	# Both a worn bag and a held weapon at once: three layers, correctly ordered under-then-over,
-	# not one clobbering another.
+	# Both a worn pack and a held weapon at once, seen from the east: two layers, the pack under
+	# and the knife over, not one clobbering another.
 	w.components.set_component(actor, "equipment", {"slots": {"back": pack, "primary": bat}})
-	layers = Appearance.equipment_layers_for(w, actor)
-	if layers.size() != 3 or bool(layers[0].get("over", true)) or not bool(layers[1].get("over", false)) \
-			or not bool(layers[2].get("over", false)):
-		push_error("back+primary together should yield three layers (bag under, strap over, bat over), got %s" % str(layers))
+	layers = Appearance.equipment_layers_for(w, actor, "e")
+	if layers.size() != 2 or bool(layers[0].get("over", true)) or not bool(layers[1].get("over", false)):
+		push_error("back+primary together seen from the east should yield two layers (pack under, knife over), got %s" % str(layers))
 		return false
 
 	# The no-art negative checks its own subject first. It used to name a real weapon, and the

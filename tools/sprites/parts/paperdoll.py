@@ -9,7 +9,7 @@ drawing. So this module owns the shape of a person and the sheet owns only where
 ## One picture per part, all on the same canvas
 
 Every key renders the **whole** 64 x 160 canvas with exactly one part opaque on it. That is the
-`parts/gear.py` arrangement and it is what makes the compositing trivial: the sheet blits all ten
+arrangement the (since retired) `parts/gear.py` overlays used, and it is what makes the compositing trivial: the sheet blits all ten
 at the identical rect in a fixed order, the way `_blit_body` stacks a pawn and its equipment, and
 no part needs an offset, an anchor or a size of its own on the Godot side.
 

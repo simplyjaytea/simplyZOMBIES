@@ -57,7 +57,7 @@ from PIL import Image  # noqa: E402
 from draw import SIZE  # noqa: E402
 import guide  # noqa: E402
 import palette  # noqa: E402
-from parts import buildings, characters, gear, ground, paperdoll, props, trees, vehicles, wrecks  # noqa: E402
+from parts import buildings, characters, ground, paperdoll, props, trees, vehicles, wrecks  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 SPRITE_DIR = ROOT / "godot" / "assets" / "sprites"
@@ -73,28 +73,26 @@ AUTHORED_PATH = SPRITE_DIR / "authored.json"
 # would need a canvas rule invented for them in `check_appearance.gd`'s canvas lane. See guide.py.
 GUIDE_DIR = ROOT / "tools" / "sprites" / "guides"
 
-# One entry per family module. Nothing in godot/assets/sprites/ is hand-authored any more:
-# `gear` took the last three files (`item_pack_hiking_equip`, its `_front` half and
-# `item_bat_aluminium_equip`) when the pawn slice landed, because a 32x32 overlay composited
-# into a taller rect stretches -- `_blit_body` draws every layer at the identical rect, so an
-# overlay has to be authored on the body's own canvas or it does not line up with it. Every
-# key under this map is generated, and `--check` is what keeps every one of them honest.
-MODULES = (characters, gear, props, wrecks, ground, buildings, trees, vehicles, paperdoll)
+# One entry per family module. Nothing in godot/assets/sprites/ is hand-authored: every key under
+# this map is generated, and `--check` is what keeps every one of them honest. `gear` was here
+# until 2026-09-26 -- the face-on equip overlays and the three fitted-part pictures -- and went
+# whole with "Pack gear on the body" and "Held weapons in the hand" (docs/30, "The whole outpost
+# pack"): a four-direction body wears only the pack's own four-direction wearables and holds only
+# the pack's held weapons, both sourced in `authored.json`, so a face-on picture had no body left
+# to fit.
+MODULES = (characters, props, wrecks, ground, buildings, trees, vehicles, paperdoll)
 
-# The keys drawn on the pawn canvas: the two generated bodies and every equip overlay that
-# composites onto them. Six more bodies were here until 2026-09-26: the player, Mara, Ellis, the
-# colonist, the raider and the shambler moved onto the outpost pack's four-direction rigs, which
-# `authored.json` declares with their own canvas, and their generator functions went with them. Mirrored on the Godot side by `Appearance.canvas_of`'s own PAWN_KEYS -- two copies
-# because Python cannot read GDScript, the same standing arrangement as `SIZE`, and
-# `check_appearance.gd` measures the committed PNGs against its copy every build. The overlays
-# are `gear.REGISTRY`'s keys in full: an overlay is composited into the body's own rect, so
-# every one of them is a pawn-canvas picture by construction and there is no second list to
-# forget to extend -- the failure this used to invite was a new overlay rendered 32x32, which
-# `write` refuses and `_blit_body` would have stretched.
+# The keys drawn on the pawn canvas: the two generated bodies the outpost pack does not supply, the
+# screamer and the bloater. Six more bodies were here until 2026-09-26 (the pack's four-direction
+# survivor and shambler replaced them, "The bodies turn and walk"), and every equip overlay until
+# later the same day, when the pack's wearables and held weapons replaced those too ("Pack gear on
+# the body", "Held weapons in the hand"). Mirrored on the Godot side by `Appearance.canvas_of`'s
+# own PAWN_KEYS -- two copies because Python cannot read GDScript, the same standing arrangement as
+# `SIZE`, and `check_appearance.gd` measures the committed PNGs against its copy every build.
 PAWN_KEYS = (
     "zombie_screamer",
     "zombie_bloater",
-) + tuple(gear.REGISTRY)
+)
 
 # Every key renders on the SIZE x SIZE canvas except the ones named here. `ground_atlas` is a sheet
 # of cells rather than one silhouette -- `parts/ground.py`'s own module docstring says why it
