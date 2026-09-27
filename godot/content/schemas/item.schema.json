@@ -49,6 +49,16 @@
           "type": "string",
           "pattern": "^[a-z0-9_.]+$",
           "description": "A different picture from `sprite`: what this looks like worn or held on a body, not lying on the ground. One of two shapes, both declared in godot/assets/sprites/authored.json: a family with one member per view (the outpost pack's `item_gear_*` wearables, kind `pack_overlay`), drawn at the body's own feet-anchored rect in the view the body shows; or a held weapon (the pack's `item_held_*`, kind `pack_held`), one east-facing picture at its own canvas that the renderer turns per view and lands grip-first on the body's hand. Nothing else draws: the face-on overlays were retired on 2026-09-26 (docs/30, 'The whole outpost pack'), so a key of any other shape here is refused by godot:check:worn. Read only when this base occupies a slot presentation/appearance.gd's EQUIP_DRAW_ORDER draws (legs, torso, vest, back, primary, secondary, face, head)."
+        },
+        "fireFx": {
+          "type": "string",
+          "pattern": "^fx_[a-z0-9_]+$",
+          "description": "The muzzle-flash sheet a round leaving this weapon plays at its muzzle (docs/23, 'The shot is seen'): an authored `sheet` family in godot/assets/sprites/authored.json, played by presentation/fx_look.gd on `weapon.fired` when the player sees the shooter. Omit it for a weapon that makes no flame -- a bow, a crossbow."
+        },
+        "casingFx": {
+          "type": "string",
+          "pattern": "^fx_[a-z0-9_]+$",
+          "description": "The ejected-casing sheet a round leaving this weapon plays beside the shooter (docs/23, 'The shot is seen'), on the same `weapon.fired` and under the same sight rule as `fireFx`. Omit it for a weapon that keeps its empties -- a revolver, a break-action."
         }
       }
     },

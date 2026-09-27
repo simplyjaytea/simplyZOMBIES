@@ -6,7 +6,7 @@
   "weight": 1,
   "speed": 1.4,
   "aptitudes": { "str": [4, 6], "dex": [5, 7], "con": [4, 6] },
-  "appearance": { "sprite": "body_survivor", "tint": "#c4877a" },
+  "appearance": { "sprite": "body_survivor", "tint": "#c4877a", "hitFx": "fx_blood_hit" },
   "skills": ["ranged.breath"],
   "kit": [
     "item.pistol.service",

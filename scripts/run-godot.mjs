@@ -517,6 +517,9 @@ switch (mode) {
   case "--authored":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_authored.gd"];
     break;
+  case "--fx":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_fx.gd"];
+    break;
   case "--m2-vehicles":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_vehicles.gd"];
     break;

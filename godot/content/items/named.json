@@ -34,6 +34,7 @@
     "name": "Grandfather's Deer Rifle",
     "description": "A single-shot break-action with a worn walnut stock and somebody's initials cut into the cheekpiece. It puts one round exactly where it is pointed and then asks for a long moment of your attention.",
     "class": "weapon.ranged",
+    "appearance": { "fireFx": "fx_rifle_muzzle" },
     "size": { "w": 1, "h": 6 },
     "massKg": 3.1,
     "equipSlot": "primary",

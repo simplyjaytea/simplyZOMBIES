@@ -1,12 +1,12 @@
 [
-  { "id": "colony.look.01", "appearance": { "sprite": "body_survivor", "tint": "#a89478" } },
-  { "id": "colony.look.02", "appearance": { "sprite": "body_survivor", "tint": "#c99a6f" } },
-  { "id": "colony.look.03", "appearance": { "sprite": "body_survivor", "tint": "#a2917b" } },
-  { "id": "colony.look.04", "appearance": { "sprite": "body_survivor", "tint": "#e0c49a" } },
-  { "id": "colony.look.05", "appearance": { "sprite": "body_survivor", "tint": "#b58a63" } },
-  { "id": "colony.look.06", "appearance": { "sprite": "body_survivor", "tint": "#d9c7ab" } },
-  { "id": "raider.look.01", "appearance": { "sprite": "body_survivor", "tint": "#c4877a" } },
-  { "id": "raider.look.02", "appearance": { "sprite": "body_survivor", "tint": "#c4877a" } },
-  { "id": "raider.look.03", "appearance": { "sprite": "body_survivor", "tint": "#c4877a" } },
-  { "id": "raider.look.04", "appearance": { "sprite": "body_survivor", "tint": "#c4877a" } }
+  { "id": "colony.look.01", "appearance": { "sprite": "body_survivor", "tint": "#a89478", "hitFx": "fx_blood_hit" } },
+  { "id": "colony.look.02", "appearance": { "sprite": "body_survivor", "tint": "#c99a6f", "hitFx": "fx_blood_hit" } },
+  { "id": "colony.look.03", "appearance": { "sprite": "body_survivor", "tint": "#a2917b", "hitFx": "fx_blood_hit" } },
+  { "id": "colony.look.04", "appearance": { "sprite": "body_survivor", "tint": "#e0c49a", "hitFx": "fx_blood_hit" } },
+  { "id": "colony.look.05", "appearance": { "sprite": "body_survivor", "tint": "#b58a63", "hitFx": "fx_blood_hit" } },
+  { "id": "colony.look.06", "appearance": { "sprite": "body_survivor", "tint": "#d9c7ab", "hitFx": "fx_blood_hit" } },
+  { "id": "raider.look.01", "appearance": { "sprite": "body_survivor", "tint": "#c4877a", "hitFx": "fx_blood_hit" } },
+  { "id": "raider.look.02", "appearance": { "sprite": "body_survivor", "tint": "#c4877a", "hitFx": "fx_blood_hit" } },
+  { "id": "raider.look.03", "appearance": { "sprite": "body_survivor", "tint": "#c4877a", "hitFx": "fx_blood_hit" } },
+  { "id": "raider.look.04", "appearance": { "sprite": "body_survivor", "tint": "#c4877a", "hitFx": "fx_blood_hit" } }
 ]
