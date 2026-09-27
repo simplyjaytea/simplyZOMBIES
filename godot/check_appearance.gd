@@ -88,7 +88,24 @@ func _appearance_key_ok(k: String, path: String) -> bool:
 	# 2026-09-26: a face-on back item's front strap, a fitted part's picture and the host weapon's
 	# anchors for it. All three drew face-on pictures that "Pack gear on the body" retired (docs/30,
 	# "The whole outpost pack"), so all three are refused now, everywhere -- a key nothing reads.
+	# The effect fields ("The shot is seen", 2026-09-26) are each legal on the one kind that fires,
+	# bleeds or burns them: a weapon's flash and casing on an item, a body's blood on a zombie, a
+	# raider, the player, a survivor or a colony look, a fire's flame on a prop. Anywhere else one
+	# would name a sheet nothing plays -- presentation/fx_look.gd reads each from its own kind only.
+	if EFFECT_KINDS.has(k):
+		for prefix in EFFECT_KINDS[k] as Array:
+			if path.begins_with(String(prefix)):
+				return true
+		return false
 	return k == "variants" and path.begins_with("vehicles/")
+
+
+const EFFECT_KINDS: Dictionary = {
+	"fireFx": ["items/"],
+	"casingFx": ["items/"],
+	"hitFx": ["zombies/", "raiders/", "players/", "survivors/", "colony/looks"],
+	"flameFx": ["props/"],
+}
 
 
 # The shape the schemas document but the validator cannot reach.
@@ -117,6 +134,13 @@ func _declared_appearances_are_well_formed() -> bool:
 	if not _appearance_key_ok("equipSprite", "items/ranged.json#item.pistol.service"):
 		push_error("the appearance allowlist refuses 'equipSprite' on an item, which is where a held weapon is named")
 		return false
+	# Each effect field on its own kind, and refused on another.
+	for pair in [["fireFx", "items/ranged.json#item.pistol.service", "zombies/shambler.json#zombie.shambler"],
+			["hitFx", "zombies/shambler.json#zombie.shambler", "items/ranged.json#item.pistol.service"],
+			["flameFx", "props/stations.json#prop.campfire.lit", "players/player.json#player.body"]]:
+		if not _appearance_key_ok(String(pair[0]), String(pair[1])) or _appearance_key_ok(String(pair[0]), String(pair[2])):
+			push_error("the appearance allowlist does not hold '%s' to %s alone (refused there, or accepted on %s)" % pair)
+			return false
 	var blocks: Dictionary = _all_blocks()
 	for path in blocks.keys():
 		var block: Dictionary = blocks[path]
@@ -134,7 +158,7 @@ func _declared_appearances_are_well_formed() -> bool:
 			if not (s is String) or key.search(String(s)) == null:
 				push_error("%s: appearance.sprite '%s' is not a registry key (a key, not a path)" % [path, str(s)])
 				return false
-		for prop in ["equipSprite"]:
+		for prop in ["equipSprite", "fireFx", "casingFx", "hitFx", "flameFx"]:
 			if block.has(prop):
 				var es: Variant = block[prop]
 				if not (es is String) or key.search(String(es)) == null:

@@ -24,6 +24,7 @@ const LightLook = preload("res://presentation/light_look.gd")
 const RoadPaint = preload("res://presentation/road_paint.gd")
 const RoofLook = preload("res://presentation/roof_look.gd")
 const RainLook = preload("res://presentation/rain_look.gd")
+const FxLook = preload("res://presentation/fx_look.gd")
 const SimWeather = preload("res://sim/modules/weather.gd")
 const Dressing = preload("res://presentation/dressing.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
@@ -224,6 +225,15 @@ var _input_map: Node = null
 # rather than raising partway down. Never read by the game.
 var _drew_tick: int = -1
 
+# The effects ("The shot is seen", 2026-09-26): the muzzle flash, the casing, the blood and the
+# campfire's flame, off the outpost pack's effect sheets. `presentation/fx_look.gd` holds the
+# live one-shots and the presentation clock; this file feeds it drained events, advances its clock
+# while the world runs and draws what it answers. `_fx_drawn` is every `{key, frame}` the last
+# frame drew, written by `_draw_effects` and read by `godot:check:fx`'s DRAWN lane -- the executing
+# proof that the draw loop reaches the sheets. Never read by the game.
+var _fx: RefCounted = FxLook.new()
+var _fx_drawn: Array[Dictionary] = []
+
 # A rider drawn on an open vehicle: how far above the machine's ground point the pawn's soles
 # stand (a saddle is about that high off the road), and how far in front of the picture it
 # sorts. Both are readouts of the interface, not lengths the sim knows.
@@ -344,6 +354,8 @@ func _on_world_replaced() -> void:
 	_content_error = ""
 	_last_look = {}
 	_focal_drawn = []
+	_fx.call("clear")
+	_fx_drawn = []
 	if _context_menu != null:
 		_context_menu.call("close")
 	tick_count = 0
@@ -931,6 +943,9 @@ func _process(delta: float) -> void:
 			queue_redraw()
 		return
 	if _input_map != null: _input_map.pump()
+	# The effects' clock runs on the frame's own wall-clock delta, and only here, behind the same
+	# early return the ticks are: a paused world holds a flash where it was.
+	_fx.call("advance", delta)
 	# speed scales tick debt: more ticks per frame, not smaller tick
 	var ticks_needed: int = int(floor(delta / TICK_SECONDS * float(speed) + accumulator / TICK_SECONDS))
 	accumulator += delta * float(speed)
@@ -949,6 +964,7 @@ func _process(delta: float) -> void:
 			_sfx.tick(world, camera, world.events.drained)
 		_camera_shake_from_events(world.events.drained)
 		_pings_from_events(world.events.drained)
+		_fx.call("from_events", world, world.events.drained)
 		if speed >= 10:
 			speed = SimFortify.speed_after_events(speed, world.events.drained)
 			if speed < 10:
@@ -1122,13 +1138,16 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Palette.COLOURS["background"])
 	_draw_district()
 	_draw_light_pools()
+	_fx_drawn = []
 	_draw_entities()
+	_draw_effects(false)
 	_draw_afterimages()
 	_draw_bubbles()
 	_draw_rain()
 	_draw_lightning()
 	_draw_fog()
 	_draw_night_wash()
+	_draw_effects(true)
 	# glimpse drawn by Control; nothing else needed here
 	# The last line of the frame, and the only thing in this file that exists for a gate:
 	# check_play.gd cannot tell "the engine called _draw" from "_draw reached the bottom"
@@ -2645,11 +2664,24 @@ func _shadow_ellipse(cx: float, cy: float, a: float, b: float) -> PackedVector2A
 		points.append(Vector2(cx + cos(t) * a, cy + sin(t) * b))
 	return points
 
-# The night, last, over everything. The alpha is derived from the *same number the survivor's
-# range is* -- light_look.gd's sight-derived fraction, not raw ambient -- so the screen and the
-# simulation cannot drift apart. Standing in a lit pool visibly lifts the wash, and it lifts it
-# because the range genuinely grew (docs/30). With nobody to ask, the fraction falls back to
-# ambient, which is what this always was.
+# The effects, twice a frame: the things -- a casing, blood -- after the bodies and under the night
+# like everything else standing in the district, and the lights -- a muzzle flash, a campfire's
+# flame -- after the night wash, because they are the light the wash is the absence of; a flash
+# drawn under an 80% wash would be a dim smudge at exactly the moment it is brightest. What each
+# one is, where it goes and whether the player sees it is FxLook's; this only blits, turning a
+# flash by the draw call's own `transpose` and signed rect the way a held weapon turns, never by a
+# transform.
+func _draw_effects(glow: bool) -> void:
+	if world == null: return
+	for fx in _fx.call("draws", world, camera, glow) as Array[Dictionary]:
+		draw_texture_rect(fx["texture"] as Texture2D, fx["rect"] as Rect2, false, Color.WHITE, bool(fx["transpose"]))
+		_fx_drawn.append({"key": String(fx["key"]), "frame": int(fx["frame"])})
+
+# The night, over everything but the lights (`_draw_effects(true)` above). The alpha is derived
+# from the *same number the survivor's range is* -- light_look.gd's sight-derived fraction, not raw
+# ambient -- so the screen and the simulation cannot drift apart. Standing in a lit pool visibly
+# lifts the wash, and it lifts it because the range genuinely grew (docs/30). With nobody to ask,
+# the fraction falls back to ambient, which is what this always was.
 func _draw_night_wash() -> void:
 	var a: float = LightLook.wash_alpha(world, int(world.player), NIGHT_WASH)
 	if a <= 0.0: return

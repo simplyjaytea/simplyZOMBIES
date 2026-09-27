@@ -81,12 +81,13 @@ extends SceneTree
 #   HELD      every authored key of kind `pack_held` -- a weapon in the hand, since "Held weapons
 #             in the hand" (2026-09-26) -- is the pack's own held-weapon picture, sourced whole (no
 #             crop, no pad) from `groups/items/held/`, at the canvas the pack's manifest gives it,
-#             drawn facing east, its `grip` exactly the manifest's, and a solid pixel (at
-#             ALPHA_SOLID) where that grip floors to; the renderer's `Appearance.holds` and
-#             `grip_of` agree with the file. That the weapon then draws in the hand on every view is
-#             `godot:check:worn`'s HELD lane. TN: a fabrication per claim -- a crop, a wrong canvas,
-#             a grip one pixel off, a west-facing asset, a grip on a transparent pixel -- each
-#             refused by the same predicate the real keys pass.
+#             drawn facing east, its `grip` and `muzzle` exactly the manifest's, and a solid pixel
+#             (at ALPHA_SOLID) where that grip floors to; the renderer's `Appearance.holds`,
+#             `grip_of` and `muzzle_of` agree with the file (the muzzle since "The shot is seen",
+#             2026-09-26, which draws a flash there). That the weapon then draws in the hand on
+#             every view is `godot:check:worn`'s HELD lane. TN: a fabrication per claim -- a crop,
+#             a wrong canvas, a grip one pixel off, a muzzle one pixel off, a west-facing asset, a
+#             grip on a transparent pixel -- each refused by the same predicate the real keys pass.
 #   ICON      every authored key of kind `icon` -- an inventory picture, one item base seen from
 #             above -- is a picture (opaque pixels at ICON_ALPHA or more, not only the alpha-6
 #             specks the pack leaves inside its canvas), centred on its canvas within
@@ -106,10 +107,12 @@ extends SceneTree
 #             fabrication per claim, each refused by its own code, and an alpha-6 corner speck
 #             accepted.
 #   READS     the dead-socket lane: every authored key is named by some content entry's
-#             appearance block **or by a dressing block's lists** (`heaps`, `litter`, `rubble`,
-#             `trees.tall`, `nature[].key` -- widened 2026-09-26, because the pack's trees, heaps
-#             and nature pictures are named there and nowhere in an `appearance`), and `reads`
-#             names one of the ids that actually does -- since
+#             appearance block (a `sprite`, an `equipSprite`, a vehicle's per-axis picture, or --
+#             since "The shot is seen" -- an effect field: `fireFx`, `casingFx`, `hitFx`, `flameFx`)
+#             **or by a dressing block's lists** (`heaps`, `litter`, `rubble`, `trees.tall`,
+#             `nature[].key` -- widened 2026-09-26, because the pack's trees, heaps and nature
+#             pictures are named there and nowhere in an `appearance`), and `reads` names one of
+#             the ids that actually does -- since
 #             2026-09-17 it need not be the *only* one, so two bases sharing an icon can each
 #             claim it (the old last-writer-wins comparison was a latent bug this never shipped a
 #             fixture for). Art nothing draws is the shape this milestone has paid for twelve
@@ -136,10 +139,12 @@ const AUTHORED_PATH: String = "res://assets/sprites/authored.json"
 
 # `pack_rig`/`pack_overlay`/`module`/`sheet`/`prop`/`tree` are the outpost pack's kinds (docs/30,
 # "The outpost pack, adopted"). `pack_rig` and `pack_overlay` gained their lane, PACK, with "The
-# bodies turn and walk" (2026-09-26); `module` and `sheet` are accepted here and judged by no
-# shape lane yet, each gaining one when the slice that reads it lands. `icon` is an inventory
-# picture, judged by ICON since "A picture per item base" (2026-09-26); `tree` and `prop` are
-# judged by PICTURE since "Trees, the bed and the heaps" (2026-09-26).
+# bodies turn and walk" (2026-09-26); `module` is accepted here and judged by no shape lane yet,
+# gaining one when the walls slice lands. `sheet` -- one of the pack's four-frame effect sheets --
+# is judged by `godot:check:fx`'s RATE lane since "The shot is seen" (2026-09-26), which holds its
+# frames, fps, loop and anchor to the pack's manifest. `icon` is an inventory picture, judged by
+# ICON since "A picture per item base" (2026-09-26); `tree` and `prop` are judged by PICTURE
+# since "Trees, the bed and the heaps" (2026-09-26).
 #
 # `vehicle` is a parked car's east-west picture from the pack (docs/23, "The cars are the pack's,
 # east-west"), and its shape lane lives beside the parking it judges: check_wrecks.gd's PACK lane
@@ -1561,6 +1566,11 @@ func _held_complaint(entry: Dictionary, asset: Dictionary, image: Image) -> Stri
 	var want: Array = asset.get("grip", []) as Array
 	if grip.size() != 2 or want.size() != 2 or not is_equal_approx(float(grip[0]), float(want[0])) or not is_equal_approx(float(grip[1]), float(want[1])):
 		return "declares grip %s where the manifest says %s" % [str(grip), str(want)]
+	# The muzzle a flash is drawn from ("The shot is seen", 2026-09-26), a copy like the grip.
+	var muzzle: Array = entry.get("muzzle", []) as Array
+	var want_muzzle: Array = asset.get("muzzle", []) as Array
+	if muzzle.size() != 2 or want_muzzle.size() != 2 or not is_equal_approx(float(muzzle[0]), float(want_muzzle[0])) or not is_equal_approx(float(muzzle[1]), float(want_muzzle[1])):
+		return "declares muzzle %s where the manifest says %s" % [str(muzzle), str(want_muzzle)]
 	if image == null or image.get_width() != int(size[0]) or image.get_height() != int(size[1]):
 		return "does not resolve at the manifest's size"
 	var at := Vector2i(floori(float(grip[0])), floori(float(grip[1])))
@@ -1591,6 +1601,10 @@ func _every_held_weapon_is_the_packs_own() -> bool:
 			push_error("HELD: '%s' %s" % [String(key), complaint])
 			return false
 		var grip: Array = entry["grip"] as Array
+		var muzzle: Array = entry["muzzle"] as Array
+		if Appearance.muzzle_of(String(key)) != Vector2i(floori(float(muzzle[0])), floori(float(muzzle[1]))):
+			push_error("HELD: the renderer reads '%s''s muzzle as %s, not the %s authored.json declares" % [String(key), str(Appearance.muzzle_of(String(key))), str(muzzle)])
+			return false
 		if not Appearance.holds(String(key)) or Appearance.grip_of(String(key)) != Vector2i(floori(float(grip[0])), floori(float(grip[1]))):
 			push_error("HELD: the renderer does not hold '%s' at the grip authored.json declares (holds %s, grip_of %s)" % [String(key), str(Appearance.holds(String(key))), str(Appearance.grip_of(String(key)))])
 			return false
@@ -1610,11 +1624,13 @@ func _every_held_weapon_is_the_packs_own() -> bool:
 	wrong_canvas["canvas"] = [int((real_entry["canvas"] as Array)[0]) + 8, int((real_entry["canvas"] as Array)[1])]
 	var slipped: Dictionary = real_entry.duplicate(true)
 	slipped["grip"] = [float((real_entry["grip"] as Array)[0]) + 1.0, float((real_entry["grip"] as Array)[1])]
+	var misaimed: Dictionary = real_entry.duplicate(true)
+	misaimed["muzzle"] = [float((real_entry["muzzle"] as Array)[0]), float((real_entry["muzzle"] as Array)[1]) + 1.0]
 	var west: Dictionary = real_asset.duplicate(true)
 	west["facing"] = "west"
 	var blank := Image.create(real_image.get_width(), real_image.get_height(), false, Image.FORMAT_RGBA8)
 	for case in [[cropped, real_asset, real_image, "a cropped source"], [wrong_canvas, real_asset, real_image, "a wrong canvas"],
-			[slipped, real_asset, real_image, "a grip one pixel off"], [real_entry, west, real_image, "a west-facing asset"],
+			[slipped, real_asset, real_image, "a grip one pixel off"], [misaimed, real_asset, real_image, "a muzzle one pixel off"], [real_entry, west, real_image, "a west-facing asset"],
 			[real_entry, real_asset, blank, "a grip on a transparent pixel"]]:
 		if _held_complaint(case[0], case[1], case[2]).is_empty():
 			push_error("HELD: %s passed; the lane cannot say no to it" % String(case[3]))
@@ -1623,7 +1639,7 @@ func _every_held_weapon_is_the_packs_own() -> bool:
 		push_error("HELD: the renderer holds a wearable or an icon as a weapon")
 		return false
 
-	print("HELD OK %d held weapon(s) are the pack's own pictures, whole, at the manifest's size, facing east, gripped at the manifest's grip on a solid pixel (alpha >= %d), and held by the renderer at that pixel; a crop, a wrong canvas, a slipped grip, a west-facing asset and a transparent grip refused" % [judged, ALPHA_SOLID])
+	print("HELD OK %d held weapon(s) are the pack's own pictures, whole, at the manifest's size, facing east, gripped at the manifest's grip on a solid pixel (alpha >= %d) with the manifest's muzzle, and held by the renderer at that pixel and read at that muzzle; a crop, a wrong canvas, a slipped grip, a misaimed muzzle, a west-facing asset and a transparent grip refused" % [judged, ALPHA_SOLID])
 	return true
 
 
@@ -1652,7 +1668,11 @@ func _keys_content_declares() -> Dictionary:
 			var block: Variant = entry.get("appearance")
 			if not (block is Dictionary):
 				continue
-			for prop in ["sprite", "equipSprite"]:
+			# The effect fields since "The shot is seen" (2026-09-26): a sheet is named by the weapon
+			# that fires it (`fireFx`, `casingFx`), the body it bleeds on (`hitFx`) or the prop it
+			# burns over (`flameFx`) rather than as a `sprite`, so without them every sheet would
+			# read as art nothing draws. That something then *draws* each one is `godot:check:fx`.
+			for prop in ["sprite", "equipSprite", "fireFx", "casingFx", "hitFx", "flameFx"]:
 				if (block as Dictionary).has(prop):
 					_declared_by(out, String((block as Dictionary)[prop]), String(entry.get("id", "?")))
 			# A vehicle names its pictures per variant and axis rather than as one `sprite`

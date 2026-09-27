@@ -19,6 +19,11 @@
       "additionalProperties": false,
       "description": "Same block as a zombie's or a survivor's, plus the two keys a prop needs because it draws as a footprint on the ground rather than as a pawn. A prop with a `sprite` draws the art and ignores `shape` and `size`. The `anyOf` is the whole rule: `tint` was flatly required here until props had art, because a prop with neither would be an invisible thing standing in the world -- but a prop that declares a tint *and* a sprite has that tint multiplied over every pixel of the art (appearance.gd's `modulate_for`), so demanding one of art would have stained all of it. Required-unless-sprite is the shape that keeps the original guarantee -- every prop draws as something -- without forcing the stain. NOTE that neither validator enforces this: the Godot one is shallow and never recurses into `appearance`, and the frozen TypeScript oracle loads schemas only for its own six content types, of which `prop` is not one. check_appearance.gd's prop lane is the enforcement, in both directions.",
       "properties": {
+        "flameFx": {
+          "type": "string",
+          "pattern": "^fx_[a-z0-9_]+$",
+          "description": "The looping effect sheet drawn over this prop while it stands where the player sees it (docs/23, 'The shot is seen'): an authored `sheet` family in godot/assets/sprites/authored.json, played on a presentation clock by presentation/fx_look.gd. A picture over the prop, never a light: the light is the sim's."
+        },
         "sprite": {
           "type": "string",
           "pattern": "^[a-z0-9_.]+$",
