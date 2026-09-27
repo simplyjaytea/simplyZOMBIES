@@ -13,7 +13,7 @@ extends RefCounted
 const Chrome = preload("res://ui/chrome.gd")
 const UiText = preload("res://ui/text.gd")
 const Appearance = preload("res://presentation/appearance.gd")
-const ItemGlyph = preload("res://presentation/item_glyph.gd")
+const ItemPicture = preload("res://ui/item_picture.gd")
 const Motion = preload("res://ui/motion.gd")
 
 const CELL: int = 56
@@ -80,21 +80,7 @@ static func draw_item(ci: CanvasItem, origin: Vector2, d: Dictionary, alpha: flo
 		var look: Dictionary = Appearance.item_look(world, String(d.get("baseId", "")))
 		var box: float = minf(plate.size.x, plate.size.y) * 0.78
 		var art_rect := Rect2(plate.get_center() - Vector2(box, box) * 0.5, Vector2(box, box))
-		var art: Texture2D = look["texture"] as Texture2D
-		if art != null:
-			var modulate: Color = (look["tint"] as Color) if bool(look["declaredTint"]) else Color.WHITE
-			modulate.a = alpha
-			# The largest whole multiple of the art that fits the plate's picture box, centred on a whole
-			# pixel: a 32 px icon in a 37 px box would otherwise be stretched by 1.17 and come out with
-			# every sixth row doubled.
-			var art_size: Vector2 = art.get_size()
-			var whole: float = maxf(1.0, floorf(minf(art_rect.size.x / art_size.x, art_rect.size.y / art_size.y)))
-			var pic_size: Vector2 = art_size * whole
-			ci.draw_texture_rect(art, Rect2((art_rect.get_center() - pic_size * 0.5).round(), pic_size), false, modulate)
-		else:
-			var tint: Color = look["tint"] as Color
-			tint.a = alpha
-			ItemGlyph.draw_glyph(ci, art_rect, int(look["glyph"]), tint)
+		ItemPicture.draw(ci, art_rect, look, alpha)
 	# A name only where enough of one fits to be read. On a single cell "Kitchen Knife" trims to
 	# "Kit…", which looks like a defect and says less than the footprint already does; the inspect
 	# pane is where the name lives, and the glyph is what a one-cell plate carries.

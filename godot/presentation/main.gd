@@ -95,6 +95,12 @@ var _shake: Dictionary = {"x": 0.0, "y": 0.0}
 # feel, not simulation, and a sim stream here would put the camera's wobble on the seeded
 # sequence and make a replay's *view* depend on how hard something got hit.
 var _shake_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+# The street's pointer (`_update_pointer`): what was last asked, for which pointer position and
+# stretch of ticks, and what the engine was last told.
+const POINTER_TICKS: int = 4
+var _pointer_key: Vector3i = Vector3i(-1, -1, -1)
+var _pointer_want: int = Input.CURSOR_ARROW
+var _pointer_shape: int = Input.CURSOR_ARROW
 var commands_by_tick: Dictionary = {}
 var accumulator: float = 0.0
 var paused: bool = false
@@ -453,8 +459,8 @@ func _camera_shake_from_events(drained: Array) -> void:
 		CameraUtil.shake_impulse(_shake, mag, _shake_rng.randf_range(0.0, TAU), CameraUtil.SHAKE_CAP_PX)
 
 func _ensure_ui() -> void:
-	# The kit's four pointers, before any screen exists to name a shape (ui/cursors.gd). Headless
-	# this reaches a display server with no pointer and does nothing.
+	# The kit's four pointers and the pack's two, before any screen exists to name a shape
+	# (ui/cursors.gd). Headless this reaches a display server with no pointer and does nothing.
 	UiCursors.install()
 	var layer := CanvasLayer.new()
 	layer.name = "R4UI"
@@ -904,6 +910,7 @@ func _process(delta: float) -> void:
 	# wall-clock delta, not on the sim's fixed tick, so they must not wait behind `paused`'s
 	# early return below or a shake in flight would freeze mid-decay instead of finishing.
 	_update_camera(delta)
+	_update_pointer()
 	# The clock runs in PLAYING and nowhere else. The title, the pause menu and the run-over
 	# screen all hold it still, and so does P -- the soft pause, which is the same early return it
 	# always was and is deliberately not a fifth state: P stops the world with the street still in
@@ -950,6 +957,28 @@ func _process(delta: float) -> void:
 		_update_condition_view()
 		_update_hud()
 	queue_redraw()
+
+# The pointer over the street (docs/30, "Cursors split by place"): the pack's crosshair while
+# playing, its interaction hand over something seen that has a verb, and the kit's arrow anywhere
+# the street is not the screen -- the title, the pause menu, the run-over card, P's soft pause, the
+# inventory sheet. Panels answer for themselves through their own Control's shape; this is only
+# what the engine draws where no Control claims the pointer. Asked when the pointer or the sim
+# has moved (a few times a second), not every frame: `world_shape` walks the entities under it.
+func _update_pointer() -> void:
+	var shape: int = Input.CURSOR_ARROW
+	if world != null and session != null and session.state == SessionRes.State.PLAYING and not paused and not inventory_open:
+		var at: Vector2 = get_viewport().get_mouse_position()
+		var key := Vector3i(int(at.x), int(at.y), floori(float(world.tick) / float(POINTER_TICKS)))
+		if key != _pointer_key:
+			_pointer_key = key
+			_pointer_want = UiCursors.world_shape(world, camera, at)
+		shape = _pointer_want
+	else:
+		_pointer_key = Vector3i(-1, -1, -1)
+	if shape != _pointer_shape:
+		_pointer_shape = shape
+		Input.set_default_cursor_shape(shape as Input.CursorShape)
+
 
 func _update_condition_view() -> void:
 	if world == null: return
