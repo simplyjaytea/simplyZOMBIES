@@ -1737,7 +1737,12 @@ func _the_furnishings_stand_where_they_should() -> bool:
 	if Appearance.prop_tiles(scratch).has(Vector2i(5, 2)) or Appearance.prop_tiles(World.new(_fixture())).size() != 0:
 		push_error("prop_tiles named a tile no prop stands on; it would hide furniture for nothing")
 		return false
-	scratch.despawn(bed)
+	# entities.despawn, not world.despawn: the world's clears the components too, which would pass
+	# without the alive check; the entity store's leaves them, the trap CLAUDE.md names.
+	scratch.entities.despawn(bed)
+	if not scratch.components.has_component(bed, "bed"):
+		push_error("the fixture despawn removed the bed component; the alive assertion below would judge nothing")
+		return false
 	if Appearance.prop_tiles(scratch).has(Vector2i(4, 2)):
 		push_error("prop_tiles named the tile of a despawned bed; components.query does not check alive and this must")
 		return false
@@ -1857,7 +1862,7 @@ func _the_furnishings_stand_where_they_should() -> bool:
 # picture a fact.
 func _picture_keys() -> Array[String]:
 	var out: Array[String] = []
-	for kind in ["tree", "prop"]:
+	for kind in ["tree", "prop", "standing"]:
 		for key in _authored_keys_of_kind(kind):
 			out.append(key)
 	return out

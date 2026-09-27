@@ -2058,6 +2058,27 @@
         ]
       }
     },
+    "prop_barricade": {
+      "canvas": [
+        48,
+        37
+      ],
+      "kind": "standing",
+      "reads": "prop.barricade",
+      "anchor": [
+        24,
+        37
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/utility/native/utility-barricade-intact.png",
+        "crop": [
+          0,
+          0,
+          48,
+          37
+        ]
+      }
+    },
     "prop_bed": {
       "canvas": [
         48,
@@ -2226,6 +2247,48 @@
           0,
           16,
           30
+        ]
+      }
+    },
+    "prop_lamp": {
+      "canvas": [
+        40,
+        44
+      ],
+      "kind": "standing",
+      "reads": "prop.lamp",
+      "anchor": [
+        20,
+        44
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/utility/native/utility-worklamp-on.png",
+        "crop": [
+          0,
+          0,
+          40,
+          44
+        ]
+      }
+    },
+    "prop_lamp_dark": {
+      "canvas": [
+        40,
+        44
+      ],
+      "kind": "standing",
+      "reads": "prop.lamp.dark",
+      "anchor": [
+        20,
+        44
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/utility/native/utility-worklamp-off.png",
+        "crop": [
+          0,
+          0,
+          40,
+          44
         ]
       }
     },
