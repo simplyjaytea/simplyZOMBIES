@@ -598,8 +598,8 @@ time left are untouched.
 All nine pieces have landed (the last, "Saved, picked up, busy", 2026-09-26); their records are
 in the record, by system. Nothing is left in this group. What the arc left **known and not fixed**
 is in "One typeface"'s record: at 1280×720 the corner doll overlaps the action bar, the work panel
-is fixed at 1520 px, the inspect column overlaps the pockets and the quick strip's sixth slot is
-off screen, all older than the kit.
+is fixed at 1520 px and the inspect column overlaps the pockets, all older than the kit. (The quick
+strip's sixth slot, off screen at 1280×720, is fixed: see "Art — the quick strip fits its rect".)
 
 **Art & renderer — overcast or torchlight, decided by the owner (2026-09-08), on the Dungeon
 Settlers spine.** The direction is docs/30's "Overcast or torchlight": a hybrid that keeps the
@@ -2716,13 +2716,13 @@ not a to-do list:
   look. `ItemPicture.base_of(world, item)` gives the base id from the item entity: the strip's rows
   and the inspect view carry an entity id and no base id, and a base id is a content id with
   digits in it (`item.ammo.308`) where neither read model may carry one — so no sim read model
-  gained a field and `godot/sim/` is untouched. **Layout:** a strip slot is 246 px wide (it was
-  210) so its name keeps the width it had beside a 32 px picture, one whole multiple of the icon,
+  gained a field and `godot/sim/` is untouched. **Layout:** a strip slot is up to 246 px wide (it
+  was 210) so its name keeps the width it had beside a 32 px picture, one whole multiple of the icon,
   between the key's numeral and the name; the inspect pane draws the picture at 64 px (two whole
   multiples) top right under the header, and only the name and the slot line beside it are fitted
   to what it leaves — the sentence below is full width. At 1920 the six slots and the lead still
-  end short of the panel's edge; at 1280 the sixth was already off screen ("One typeface"'s known
-  list) and is now further off. `QuickStrip.draw_strip` and `InspectPane.draw_pane` each take the
+  end short of the panel's edge; at 1280 a fixed 246 px pushed the fifth and sixth off the strip,
+  which the next entry fixes. `QuickStrip.draw_strip` and `InspectPane.draw_pane` each take the
   world as an optional last argument (with none they are words alone, as before) and
   `inventory_panel.gd` passes it at its three call sites. **Gated.** `check_appearance.gd`'s
   PICTURES lane gains `_the_strip_and_the_inspector_draw_the_picture`: the strip, the pane and the
@@ -2745,6 +2745,38 @@ not a to-do list:
   jerky, painkillers and a crowbar on the strip, the antibiotics selected in the pane — and the
   pack icons and the two class glyphs (jerky's disc, the crowbar's bar) read at native pixels.
   `HUD_OK` and `INVENTORY_OK` are unchanged: a picture adds no digit and no string.
+
+- **Art — the quick strip fits its rect, 2026-09-27.** The item-pictures slice's fixed 246 px slot
+  left the strip's fifth and sixth slots off it at 1280×720 (the sixth had been off since before
+  the kit — "One typeface"'s known list). `QuickStrip.slot_boxes(font, rect)` is now the one place
+  a slot's box comes from: the six start where the lead ends and stop one inset (`SIDE`, 24 px)
+  short of the rect's right edge, each `min(SLOT_W, floor(room / 6))` wide on whole pixels, so
+  `SLOT_W` became the widest a slot grows and not a width. The picture stays 32 px, one whole
+  multiple of the icon and never resampled; the name is what gives way, fitted by `UiText.fit` to
+  what the slot has left (at least one pixel, since `fit` returns the text whole for a width of
+  zero or less). `draw_strip` draws every slot, its tally and its ping from the box it is given
+  and no longer reads `SLOT_W`; the lead's ping box is unchanged. **Measured** through the gate on
+  the shipped font: 162 px a slot at 1280×720 (78 px left for a name beside the picture, so
+  a long name ends in an ellipsis), the full 246 at 1600 and at 1920, where the strip is drawn as
+  it was — the arithmetic reaches 246 above about 1560 px. Nothing else read the strip's slot
+  width: the number keys go through `strip_use` by index, the strip has no click hit-test, the
+  ping rects are the boxes the draw is handed, and `check_ui_skin`'s KIT surface list reads
+  `SLOT_W` as the widest slot, which the new lane backs with the narrowest one. **Gated.**
+  `check_ui_skin.gd` gains a STRIP lane (`_strip_lane`, in `godot:check:ui_skin`): the six boxes
+  `slot_boxes` gives at 1280×720, 1600×900 and 1920×1080, in the rect `inventory_panel.gd`'s
+  `PAD` and `STRIP_H` make, must each lie wholly inside it; no slot may be wider than 246 px, the
+  slot at 1920 must be the full 246 and the one at 1280 must be narrower (so the width is
+  consulted at all); the narrowest slot must still clear `slot_empty`'s and `slot_selected`'s kit
+  margins; and `draw_strip`, comments stripped, must ask `slot_boxes(` and must not name `SLOT_W`.
+  True negatives on fabricated boxes: the old fixed 246 px slot at 1280, a slot a pixel above the
+  rect, one a pixel left of it and a five-slot strip are each refused, and the shipped boxes pass.
+  **Sabotage pass, 2026-09-27**, red and restored: the width line replaced by a plain `SLOT_W` →
+  `STRIP: at (1280.0, 720.0), slot 5, … is not inside the strip` and the same for slot 6, plus
+  `a slot is still 246.0 px -- the strip's width was never consulted`. **What did not ship:** the
+  name at 1280 is short — a "belt and pockets" lead and a picture leave 78 px — and whether that
+  wants the lead dropped on a narrow screen is a layout call left for the next look at the real
+  window; the other 1280×720 collisions (corner doll over the action bar, the 1520 px work panel,
+  the inspect column over the pockets) are untouched.
 
 - **World & map** — ~~the three location loot tables~~ **landed** (`godot:check:loot`): what a
   place yields is content now, not two hardcoded kits in `boot.gd`. `content/loot/tables.json`

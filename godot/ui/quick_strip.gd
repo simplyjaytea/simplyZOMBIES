@@ -17,6 +17,9 @@ const Appearance = preload("res://presentation/appearance.gd")
 const ItemPicture = preload("res://ui/item_picture.gd")
 
 const SLOTS: int = 6
+const LEAD: String = "belt and pockets"
+# The widest a slot grows: the width that keeps a name beside a 32 px picture. A strip too narrow
+# for six of these shrinks them all evenly (`slot_boxes`) and the name gives up the difference.
 const SLOT_W: float = 246.0
 const SLOT_H: float = 62.0
 const GAP: float = 12.0
@@ -27,6 +30,8 @@ const NAME_SIZE: int = 25
 # much wider than it was as this and its gap take.
 const PICTURE: float = 32.0
 const PICTURE_GAP: float = 8.0
+# The strip's own inset from the rect's left and right, and around its lead.
+const SIDE: float = 24.0
 
 
 # `selected` is the inventory sheet's currently-picked item, so a belt or pocket slot that holds
@@ -44,16 +49,15 @@ const PICTURE_GAP: float = 8.0
 static func draw_strip(ci: CanvasItem, rect: Rect2, rows: Array, alpha: float, selected: int = -1, ping: Dictionary = {}, world: Variant = null) -> void:
 	Chrome.panel(ci, rect, alpha)
 	var font: Font = Chrome.font()
-	var lead: String = "belt and pockets"
-	ci.draw_string(font, rect.position + Vector2(24.0, rect.size.y / 2.0 + 6.0), lead, HORIZONTAL_ALIGNMENT_LEFT, -1, KEY_SIZE, Chrome.TEXT_DIM)
-	var lead_w: float = font.get_string_size(lead, HORIZONTAL_ALIGNMENT_LEFT, -1, KEY_SIZE).x
-	var x: float = rect.position.x + 24.0 + lead_w + 24.0
+	ci.draw_string(font, rect.position + Vector2(SIDE, rect.size.y / 2.0 + 6.0), LEAD, HORIZONTAL_ALIGNMENT_LEFT, -1, KEY_SIZE, Chrome.TEXT_DIM)
+	var lead_w: float = lead_width(font)
+	var boxes: Array[Rect2] = slot_boxes(font, rect)
 	var y: float = rect.position.y + (rect.size.y - SLOT_H) / 2.0
 	var ping_slot: int = ping_slot_of(rows, ping)
 	if ping_slot == -1 and not ping.is_empty():
-		_draw_ping(ci, Rect2(rect.position + Vector2(24.0, y - rect.position.y), Vector2(lead_w, SLOT_H)), int(ping.get("frame", -1)))
+		_draw_ping(ci, Rect2(rect.position + Vector2(SIDE, y - rect.position.y), Vector2(lead_w, SLOT_H)), int(ping.get("frame", -1)))
 	for i in SLOTS:
-		var box := Rect2(Vector2(x, y), Vector2(SLOT_W, SLOT_H))
+		var box: Rect2 = boxes[i]
 		var picked: bool = selected != -1 and i < rows.size() and int((rows[i] as Dictionary).get("item", -1)) == selected
 		if not Chrome.frame(ci, box, "slot_selected" if picked else "slot_empty", alpha):
 			var bg: Color = Chrome.SLOT_EMPTY
@@ -71,7 +75,7 @@ static func draw_strip(ci: CanvasItem, rect: Rect2, rows: Array, alpha: float, s
 			var count: int = int(d.get("count", 1))
 			var col: Color = Chrome.TEXT
 			col.a = alpha
-			var wide: float = SLOT_W - 44.0
+			var wide: float = box.size.x - 44.0
 			var name_x: float = 32.0
 			if world != null:
 				var look: Dictionary = Appearance.item_look(world, ItemPicture.base_of(world, int(d.get("item", -1))))
@@ -83,16 +87,36 @@ static func draw_strip(ci: CanvasItem, rect: Rect2, rows: Array, alpha: float, s
 				var tw: float = font.get_string_size(tally, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE).x
 				var tcol: Color = Chrome.ACCENT
 				tcol.a = alpha
-				ci.draw_string(font, box.position + Vector2(SLOT_W - tw - 10.0, SLOT_H / 2.0 + 6.0), tally, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, tcol)
+				ci.draw_string(font, box.position + Vector2(box.size.x - tw - 10.0, SLOT_H / 2.0 + 6.0), tally, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, tcol)
 				wide -= tw + 8.0
-			ci.draw_string(font, box.position + Vector2(name_x, SLOT_H / 2.0 + 6.0), UiText.fit(font, text, NAME_SIZE, wide), HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, col)
+			ci.draw_string(font, box.position + Vector2(name_x, SLOT_H / 2.0 + 6.0), UiText.fit(font, text, NAME_SIZE, maxf(wide, 1.0)), HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, col)
 		else:
 			var dim: Color = Chrome.TEXT_DIM
 			dim.a = alpha
 			ci.draw_string(font, box.position + Vector2(32.0, SLOT_H / 2.0 + 6.0), "empty", HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, dim)
 		if i == ping_slot:
 			_draw_ping(ci, box, int(ping.get("frame", -1)))
-		x += SLOT_W + GAP
+
+
+# The lead's width: the label the six slots sit to the right of.
+static func lead_width(font: Font) -> float:
+	return font.get_string_size(LEAD, HORIZONTAL_ALIGNMENT_LEFT, -1, KEY_SIZE).x
+
+
+# The six slots' boxes inside `rect`: from the end of the lead to one inset short of the rect's right
+# edge, `SLOT_W` wide where that fits and evenly narrower where it does not -- so at any width every
+# slot lies wholly inside the strip, and the picture (a fixed 32 px, never resampled) keeps its
+# place while the name is fitted to what is left. Whole pixels, so the boxes and the frames drawn
+# on them agree. Pure, so the gate can ask it at any width without a canvas.
+static func slot_boxes(font: Font, rect: Rect2) -> Array[Rect2]:
+	var x0: float = rect.position.x + SIDE + lead_width(font) + SIDE
+	var room: float = rect.end.x - SIDE - x0 - GAP * float(SLOTS - 1)
+	var w: float = minf(SLOT_W, floorf(room / float(SLOTS)))
+	var y: float = rect.position.y + (rect.size.y - SLOT_H) / 2.0
+	var out: Array[Rect2] = []
+	for i in SLOTS:
+		out.append(Rect2(Vector2(x0 + (w + GAP) * float(i), y), Vector2(w, SLOT_H)))
+	return out
 
 
 # Which of the strip's slots holds the pinged item: -1 for no ping, or for an item not on the
