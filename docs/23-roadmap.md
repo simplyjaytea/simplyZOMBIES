@@ -557,21 +557,17 @@ projection are untouched.
   hangs south," both above).
 - ~~**A picture per item base.**~~ — **landed** 2026-09-26 for the floor and the bag plate, see
   the record (`npm run godot:check:appearance` → PICTURES; `npm run godot:check:authored` →
-  ICON). The quick strip and the inspect pane are "Item pictures in the quick strip / inspect
-  pane" (piece 6b), still open and still drawing the class glyph.
+  ICON).
+- ~~**Item pictures in the quick strip / inspect pane.**~~ — **landed** 2026-09-26, the half "A
+  picture per item base" left, see the record (`npm run godot:check:appearance` → PICTURES).
 - ~~**The shot is seen.**~~ — **landed** 2026-09-26 for the four effects with an impact point, see
   the record (`npm run godot:check:fx` → `FX_OK`; `godot:check:authored` → HELD's muzzle and the
   widened READS).
 - ~~**The cars are the pack's, east-west.**~~ — **landed** 2026-09-26, see the record
   (`npm run godot:check:wrecks` → the new PACK lane and SILHOUETTE at the pack's rows;
   `npm run godot:m2:vehicles` → DRIVE's per-axis turn).
-- **The cursor.** The pack's crosshair and interaction-hand icons — the two UI icons decision 4
-  of the record entry calls non-status and sockets now. The UI Field Kit's four OS pointers
-  (arrow, hand, move, blocked) land in `ui/cursors.gd` under the UI-kit group, and this slice's
-  crosshair and interaction hand join that table rather than a second one; this slice stays open.
-  By the owner's 2026-09-25 answer (docs/30, "The whole outpost pack") the cursors split by
-  place: the pack's crosshair over the world while playing, the pack's hand over a *seen* thing
-  with a verb, the kit's pointers over every panel.
+- ~~**The cursor.**~~ — **landed** 2026-09-26, see the record (`npm run godot:check:ui_skin` →
+  CURSORS, the new WORLD lane).
 - ~~**Held weapons in the hand.**~~ — **landed** 2026-09-26 for ten of the twelve, see the record
   (`npm run godot:check:worn` → HELD; `godot:check:authored` → HELD).
 - **Furnishings and container kinds.** The pack's furnishing props as dressing that never touches
@@ -599,8 +595,8 @@ time left are untouched.
 All nine pieces have landed (the last, "Saved, picked up, busy", 2026-09-26); their records are
 in the record, by system. Nothing is left in this group. What the arc left **known and not fixed**
 is in "One typeface"'s record: at 1280×720 the corner doll overlaps the action bar, the work panel
-is fixed at 1520 px, the inspect column overlaps the pockets and the quick strip's sixth slot is
-off screen, all older than the kit.
+is fixed at 1520 px and the inspect column overlaps the pockets, all older than the kit. (The quick
+strip's sixth slot, off screen at 1280×720, is fixed: see "Art — the quick strip fits its rect".)
 
 **Art & renderer — overcast or torchlight, decided by the owner (2026-09-08), on the Dungeon
 Settlers spine.** The direction is docs/30's "Overcast or torchlight": a hybrid that keeps the
@@ -2220,8 +2216,8 @@ not a to-do list:
   a drop on an equipment slot always reads as the move, because `SimInventory.equip` has no pure
   predicate and an equip is still judged when its command arrives; and the refused frame is drawn
   filled, covering the cell's item under the ghost. The OS pointer itself is not judged — headless
-  has none — and the outpost pack's crosshair and interaction hand (its open "The cursor" slice)
-  will join this same table.
+  has none — and the outpost pack's crosshair and interaction hand joined this same table on
+  2026-09-26 (see "Art — the cursor" below).
 
 - **UI — UI motion, and a reduced-motion switch, 2026-09-25.** The eighth piece of the "UI Field
   Kit, live" group to land ([docs/30](30-decisions.md#the-ui-field-kit-live-2026-09-25)). A new
@@ -2719,8 +2715,8 @@ not a to-do list:
   keys`), `GODOT_CONTENT_OK`, `npm test` 45 files / 594 tests, `SPRITES_OK … 43 authored keys
   reproduced from their source`, `INVENTORY_OK`, `HUD_OK`, `PLAY_OK`,
   `GODOT_PROJECT_SMOKE_OK`, `ROUTING_OK`, `TIMING_OK`; the full `godot:m2` chain was not run on
-  the slice's machine and is run after merge. **What did not ship**: the quick strip and the
-  inspect pane still draw the class glyph (piece 6b); held weapons in the hand are their own
+  the slice's machine and is run after merge. **What did not ship** (the strip and the pane
+  landed the same day, below): held weapons in the hand are their own
   piece; 290 bases have no pack picture and keep the glyph until more art exists.
 
 - **Art — the shot is seen, 2026-09-26.** The outpost group's slice of that name: a muzzle flash, an
@@ -2794,6 +2790,135 @@ not a to-do list:
   fixed**: a flash drawn after the bodies stands over a body south of the shooter, and over the
   shooter's own body seen from behind; the flash follows the shooter's position at the moment of
   the shot rather than the body, for its sixth of a second.
+
+- **Art — the cursor, 2026-09-26.** The outpost pack's two UI icons that are not status
+  (docs/30, "The whole outpost pack": "Cursors split by place") join `ui/cursors.gd`'s one table
+  rather than a second cursor system. **Over any panel or menu the pointer is one of the kit's
+  four, exactly as before; over the street while playing it is the pack's crosshair, and it turns
+  to the pack's interaction hand over something the player can see and do something about.**
+  `TABLE` now names eight shapes and six pictures: `ui-crosshair` is `Input.CURSOR_CROSS` and
+  `ui-interaction-hand` is `Input.CURSOR_HELP` — a shape no screen names, because
+  `CURSOR_POINTING_HAND` is already the kit's hand over panels and one shape wears one picture.
+  Each pack record carries a `path`, is installed at the chrome's own 2× (32 px pictures, the
+  manifest's `anchor` 8,8 doubled for the hotspot) and is loaded through `Kit.texture`, which now
+  takes a `res://` path as it stands so the pack shares the kit's one two-path loader rather than
+  a second copy of it. **The street's answer is `UiCursors.world_shape`**, which asks the sim's
+  own questions and guesses nothing: `Pick.pick_at` for what is under the pointer,
+  `SimContext.verbs_at` for what the right-click menu would offer for it, and the player's own
+  `vision.detail` of the thing's spot. The hand is drawn only when a row is a verb on the thing
+  (`PASSIVE_COMMANDS` — a walk, a shout, the camp verbs and an attack — are not, and a row with no
+  command, "look at", is not; every other row is, so a verb added to `verbs_at` tomorrow gets its
+  hand with no line here) **and the thing is seen now**. That second half is the owner's clause: a
+  hand over something unseen would be information through a wall, and `pick_at` does find a
+  cupboard or a door that is only remembered (you may walk to one; clause 4 hides what is in it,
+  never where it stood). An attack is the crosshair's — a zombie under the pointer is what it is
+  for. `main.gd`'s `_update_pointer` (from `_process`, before the PLAYING early return, so it can
+  hand the arrow back) asks `world_shape` only while playing, unpaused and with the sheet closed,
+  and only when the pointer or the sim has moved (every four ticks, not every frame), and hands
+  the answer to `Input.set_default_cursor_shape` — what the engine draws wherever no Control
+  claims the pointer, so every panel's own `mouse_default_cursor_shape` still wins. The title, the
+  pause menu, the run-over card, P's soft pause and the open sheet all read the kit's arrow.
+  **Gated.** `check_ui_skin.gd`'s CURSORS lane is extended, not replaced. TABLE and SCALE now
+  judge a pack record against the pack's `manifest.json` (its `anchor` is the hotspot; its `path`
+  is the file) and a kit record against the kit's, and the coverage requirement grows the two
+  shapes. **WORLD** (new): `shape_for`'s eight (seen, verb, kind) rows are a truth table — the
+  hand only for a seen thing with a verb, never for bare ground, an attack, a walk or a look — and
+  then a real world runs the whole path: bare ground and a seen cupboard six metres off (found,
+  seen, verbless) give the crosshair, the cupboard a step ahead gives the hand, and **the same
+  cupboard with the player turned round — still in reach, still found by `pick_at`, still offering
+  the same "open" row — gives the crosshair, and turning back gives the hand**; an item in reach
+  ahead gives the hand. The fixture asserts each precondition of its own negative (that `pick_at`
+  found the cupboard behind, that the menu would offer "open", that `vision` calls it unseen) so
+  the negative cannot pass for another reason. REACH follows the call a link further each way:
+  `_process` reaches `_update_pointer`, which reaches `UiCursors.world_shape(` and
+  `Input.set_default_cursor_shape(`; `world_shape` reaches `pick_at`, `verbs_at`, `seen_now` and
+  `shape_for`; `seen_now` reaches `vision.detail(` and `Detail.Unseen` — and a `_process` with the
+  call in a comment is refused. Three new fabrications fail the table comparator that passed the
+  shipped file: the crosshair's hotspot one pixel off its anchor, the crosshair wearing the hand's
+  file, and a pack pointer judged against the kit's manifest. **Sabotage pass, 2026-09-26**, each
+  red and restored: `seen_now` returning `true` → `CURSORS: the street over a cupboard in reach
+  with its verb offered, behind the player, gave shape 16, not the crosshair`; `shape_for` with the
+  verb test removed → `CURSORS: a seen thing with only a walk gave shape 16, not 3`;
+  `_update_pointer()` deleted from `_process` → `CURSORS: … _process, comments stripped, does not
+  reach ["_update_pointer("]`. **What did not ship**: the pointer is never judged on a real display
+  (headless has none), so the gate judges which shape is asked for where and not what the OS draws,
+  and no screenshot of either pack pointer exists. A remembered thing gets the crosshair, not a
+  dimmed hand.
+
+- **Art — item pictures in the quick strip and the inspect pane, 2026-09-26.** The half "A picture
+  per item base" left: the strip along the bottom and the inspect pane draw the same picture the
+  floor and the bag plate draw — the pack's icon where the base has one (72 of 362 bases), its
+  class's glyph where it does not (290) — through the one resolver, `Appearance.item_look`. **The
+  brief said both "still draw the class glyph"; they drew nothing — words only — so this slice
+  adds the picture rather than swapping one.** A new `ui/item_picture.gd` holds the one draw:
+  `ItemPicture.draw` puts an `item_look` answer into a box at the largest whole multiple of the
+  art that fits, on a whole pixel, and falls back to `ItemGlyph.draw_glyph` when there is no
+  texture. The bag plate's inline copy of that arithmetic (`ui/bag_grid.gd`) now calls it too, so
+  three screens share one draw and the floor's own `main.gd` draw is the only other reader of the
+  look. `ItemPicture.base_of(world, item)` gives the base id from the item entity: the strip's rows
+  and the inspect view carry an entity id and no base id, and a base id is a content id with
+  digits in it (`item.ammo.308`) where neither read model may carry one — so no sim read model
+  gained a field and `godot/sim/` is untouched. **Layout:** a strip slot is up to 246 px wide (it
+  was 210) so its name keeps the width it had beside a 32 px picture, one whole multiple of the icon,
+  between the key's numeral and the name; the inspect pane draws the picture at 64 px (two whole
+  multiples) top right under the header, and only the name and the slot line beside it are fitted
+  to what it leaves — the sentence below is full width. At 1920 the six slots and the lead still
+  end short of the panel's edge; at 1280 a fixed 246 px pushed the fifth and sixth off the strip,
+  which the next entry fixes. `QuickStrip.draw_strip` and `InspectPane.draw_pane` each take the
+  world as an optional last argument (with none they are words alone, as before) and
+  `inventory_panel.gd` passes it at its three call sites. **Gated.** `check_appearance.gd`'s
+  PICTURES lane gains `_the_strip_and_the_inspector_draw_the_picture`: the strip, the pane and the
+  bag plate are each read as source, comments stripped, and must hand an `Appearance.item_look(`
+  to `ItemPicture.draw(` in that order; `ItemPicture.draw` must reach `look["texture"]`, then
+  `draw_texture_rect(`, then the glyph fallback; and every call into the strip and the pane in
+  `inventory_panel.gd` must end in the world (so a screen cannot silently lose its resolver).
+  Five fabrications prove the scanners can say no — a draw only in a comment, a look never drawn,
+  a draw before its look, a shared draw with its texture draw in a comment and one with no glyph
+  fallback — and a control shaped like the real body passes. On a real world `base_of` returns the
+  base an item carries and `""` for a non-item, `-1` and a null world; a pictured base
+  (`item.antibiotics.course`) resolves a texture and an unpictured one none. The bag-plate needle
+  the floor-and-bag function held (`look["texture"]` then `draw_texture_rect(`) moved to follow
+  the call one link further, as CLAUDE.md's dead-socket note asks; the picture is never dropped
+  from the assertion. **Sabotage pass, 2026-09-26**, each red and restored: the strip's draw
+  replaced by `pass` → `PICTURES: the quick strip does not hand an Appearance.item_look to
+  ItemPicture.draw`; the pane's likewise; the sheet's pane call losing its world → `PICTURES:
+  inventory_panel.gd calls InspectPane.draw_pane( without the world`. **Seen:** a 1600×900
+  throwaway driver (deleted) drew the sheet with six things in the pockets — antibiotics, a tin,
+  jerky, painkillers and a crowbar on the strip, the antibiotics selected in the pane — and the
+  pack icons and the two class glyphs (jerky's disc, the crowbar's bar) read at native pixels.
+  `HUD_OK` and `INVENTORY_OK` are unchanged: a picture adds no digit and no string.
+
+- **Art — the quick strip fits its rect, 2026-09-27.** The item-pictures slice's fixed 246 px slot
+  left the strip's fifth and sixth slots off it at 1280×720 (the sixth had been off since before
+  the kit — "One typeface"'s known list). `QuickStrip.slot_boxes(font, rect)` is now the one place
+  a slot's box comes from: the six start where the lead ends and stop one inset (`SIDE`, 24 px)
+  short of the rect's right edge, each `min(SLOT_W, floor(room / 6))` wide on whole pixels, so
+  `SLOT_W` became the widest a slot grows and not a width. The picture stays 32 px, one whole
+  multiple of the icon and never resampled; the name is what gives way, fitted by `UiText.fit` to
+  what the slot has left (at least one pixel, since `fit` returns the text whole for a width of
+  zero or less). `draw_strip` draws every slot, its tally and its ping from the box it is given
+  and no longer reads `SLOT_W`; the lead's ping box is unchanged. **Measured** through the gate on
+  the shipped font: 162 px a slot at 1280×720 (78 px left for a name beside the picture, so
+  a long name ends in an ellipsis), the full 246 at 1600 and at 1920, where the strip is drawn as
+  it was — the arithmetic reaches 246 above about 1560 px. Nothing else read the strip's slot
+  width: the number keys go through `strip_use` by index, the strip has no click hit-test, the
+  ping rects are the boxes the draw is handed, and `check_ui_skin`'s KIT surface list reads
+  `SLOT_W` as the widest slot, which the new lane backs with the narrowest one. **Gated.**
+  `check_ui_skin.gd` gains a STRIP lane (`_strip_lane`, in `godot:check:ui_skin`): the six boxes
+  `slot_boxes` gives at 1280×720, 1600×900 and 1920×1080, in the rect `inventory_panel.gd`'s
+  `PAD` and `STRIP_H` make, must each lie wholly inside it; no slot may be wider than 246 px, the
+  slot at 1920 must be the full 246 and the one at 1280 must be narrower (so the width is
+  consulted at all); the narrowest slot must still clear `slot_empty`'s and `slot_selected`'s kit
+  margins; and `draw_strip`, comments stripped, must ask `slot_boxes(` and must not name `SLOT_W`.
+  True negatives on fabricated boxes: the old fixed 246 px slot at 1280, a slot a pixel above the
+  rect, one a pixel left of it and a five-slot strip are each refused, and the shipped boxes pass.
+  **Sabotage pass, 2026-09-27**, red and restored: the width line replaced by a plain `SLOT_W` →
+  `STRIP: at (1280.0, 720.0), slot 5, … is not inside the strip` and the same for slot 6, plus
+  `a slot is still 246.0 px -- the strip's width was never consulted`. **What did not ship:** the
+  name at 1280 is short — a "belt and pockets" lead and a picture leave 78 px — and whether that
+  wants the lead dropped on a narrow screen is a layout call left for the next look at the real
+  window; the other 1280×720 collisions (corner doll over the action bar, the 1520 px work panel,
+  the inspect column over the pockets) are untouched.
 
 - **World & map** — ~~the three location loot tables~~ **landed** (`godot:check:loot`): what a
   place yields is content now, not two hardcoded kits in `boot.gd`. `content/loot/tables.json`

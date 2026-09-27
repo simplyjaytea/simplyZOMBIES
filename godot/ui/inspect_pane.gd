@@ -14,15 +14,25 @@ extends RefCounted
 
 const Chrome = preload("res://ui/chrome.gd")
 const UiText = preload("res://ui/text.gd")
+const Appearance = preload("res://presentation/appearance.gd")
+const ItemPicture = preload("res://ui/item_picture.gd")
 
 const PAD: float = 24.0
 const TITLE_SIZE: int = 30
 const BODY_SIZE: int = 25
 const LINE: float = 28.0
 const SMALL: int = 20
+# The picture's square, top right under the header: two whole multiples of the pack's 32 px icon,
+# so it is never resampled. The name, the condition and the slot line beside it are fitted to what
+# it leaves; the sentence below is wide again.
+const PICTURE: float = 64.0
+const PICTURE_GAP: float = 16.0
 
 
-static func draw_pane(ci: CanvasItem, rect: Rect2, view: Dictionary, alpha: float) -> void:
+# `world` is what the picture is resolved against: the same picture the bag plate, the quick strip
+# and the floor draw for that base, through `Appearance.item_look` -- the pack's icon, or its class's
+# glyph where the pack has none. With no world the pane is words alone, as it was before the pictures.
+static func draw_pane(ci: CanvasItem, rect: Rect2, view: Dictionary, alpha: float, world: Variant = null) -> void:
 	Chrome.panel(ci, rect, alpha)
 	Chrome.header(ci, rect, "inspect", alpha, "inspect")
 	var font: Font = Chrome.font()
@@ -34,7 +44,15 @@ static func draw_pane(ci: CanvasItem, rect: Rect2, view: Dictionary, alpha: floa
 		ci.draw_string(font, Vector2(x, y + LINE), UiText.fit(font, "click a thing to read it", BODY_SIZE, wide), HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_SIZE, Chrome.TEXT_DIM)
 		return
 
-	ci.draw_string(font, Vector2(x, y), UiText.fit(font, String(view.get("name", "")), TITLE_SIZE, wide), HORIZONTAL_ALIGNMENT_LEFT, -1, TITLE_SIZE, Chrome.TEXT)
+	# The picture, and the width the lines beside it may use.
+	var text_wide: float = wide
+	if world != null:
+		var look: Dictionary = Appearance.item_look(world, ItemPicture.base_of(world, int(view.get("item", -1))))
+		var box := Rect2(Vector2(rect.position.x + rect.size.x - PAD - PICTURE, rect.position.y + Chrome.HEADER_H + PAD), Vector2(PICTURE, PICTURE))
+		ItemPicture.draw(ci, box, look, alpha)
+		text_wide = wide - PICTURE - PICTURE_GAP
+
+	ci.draw_string(font, Vector2(x, y), UiText.fit(font, String(view.get("name", "")), TITLE_SIZE, text_wide), HORIZONTAL_ALIGNMENT_LEFT, -1, TITLE_SIZE, Chrome.TEXT)
 	y += LINE + 8.0
 
 	# The condition word, and the only place on this screen where a colour carries meaning about
@@ -48,7 +66,7 @@ static func draw_pane(ci: CanvasItem, rect: Rect2, view: Dictionary, alpha: floa
 	var slot: String = String(view.get("slot", ""))
 	if not slot.is_empty():
 		var where: String = ("worn on the " + slot) if bool(view.get("worn", false)) else ("goes on the " + slot)
-		ci.draw_string(font, Vector2(x, y), UiText.fit(font, where, BODY_SIZE, wide), HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_SIZE, Chrome.TEXT_DIM)
+		ci.draw_string(font, Vector2(x, y), UiText.fit(font, where, BODY_SIZE, text_wide), HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_SIZE, Chrome.TEXT_DIM)
 		y += LINE
 	y += 10.0
 
