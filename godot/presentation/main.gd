@@ -2125,11 +2125,10 @@ func _draw_entities() -> void:
 			# west view instead and is never mirrored (Appearance.flip_for). No transform is set
 			# anywhere in this loop; check_topdown.gd's flip lane counts them and requires zero.
 			var size: Vector2 = texture.get_size() * px_scale
-			# Equipped gear composites at the identical rect the body draws at -- an
-			# equipSprite is authored on the same feet-anchored canvas, so there is no per-item
-			# offset to compute here, and a negative width mirrors the gear with its wearer.
-			# Drawn white, never the role/tint colour: a backpack is its own object, not a
-			# stand-in shape for the entity itself.
+			# Equipped gear composites at the body's rect -- a wearable is cropped on the same
+			# feet-anchored canvas -- and a held weapon at its hand, turned by the draw call's own
+			# flags (`_layer_rect`). Drawn white, never the role/tint colour: a backpack is its own
+			# object, not a stand-in shape for the entity itself.
 			var equip: Array[Dictionary] = Appearance.equipment_layers_for(world, eid, view)
 			var flip: float = Appearance.flip_for(sprite_key, screen_ang)
 			_blit_body(Appearance.body_rect(sx, sy, size, flip), texture, col, equip)
@@ -2506,10 +2505,9 @@ func _blit_vehicle(it: Dictionary, px_scale: float) -> void:
 # then over-body layers.
 #
 # Factored out of _draw_entities so a body and its gear are literally the *same* composite at
-# one rect -- which, since the pawn slice, is also what mirrors them together: a negative-width
-# rect flips every layer identically, so a slung pack faces the way its wearer does. The gear is
-# generated on the pawn canvas beside the rigs (tools/sprites/parts/gear.py); what a survivor
-# wears beyond the pack and the bat is the worn-look slice's work (docs/23).
+# one rect. Since "Pack gear on the body" and "Held weapons in the hand" (2026-09-26) the gear is
+# the outpost pack's: four-direction wearables at the body's own rect, and held weapons at a hand
+# point, each turned by the draw call's own `transpose` flag and signed rect (`_layer_rect`).
 func _blit_body(rect: Rect2, texture: Texture2D, col: Color, equip: Array[Dictionary]) -> void:
 	# The gear draws white, never in the body's tint (a backpack is its own object) -- but it
 	# borrows the tint's *alpha*, so an afterimage fades as one picture. Before the afterimage
@@ -2518,29 +2516,29 @@ func _blit_body(rect: Rect2, texture: Texture2D, col: Color, equip: Array[Dictio
 	var gear := Color(1.0, 1.0, 1.0, col.a)
 	for layer in equip:
 		if not bool(layer["over"]):
-			draw_texture_rect(layer["texture"] as Texture2D, _layer_rect(rect, layer), false, gear)
+			draw_texture_rect(layer["texture"] as Texture2D, _layer_rect(rect, layer), false, gear, bool(layer.get("transpose", false)))
 	draw_texture_rect(texture, rect, false, col)
 	for layer in equip:
 		if bool(layer["over"]):
-			draw_texture_rect(layer["texture"] as Texture2D, _layer_rect(rect, layer), false, gear)
+			draw_texture_rect(layer["texture"] as Texture2D, _layer_rect(rect, layer), false, gear, bool(layer.get("transpose", false)))
 
 
-# Where one layer of a composite goes. Every gear overlay shares the body's rect exactly -- that
-# is the bet `check_worn`'s SHARED lane protects, and it is what lets one picture fit eight rigs.
-# A *fitted part* is the one exception and it carries its own offset: a suppressor goes on a
-# muzzle, and a pistol's muzzle and a rifle's are nowhere near each other on the pawn canvas, so
-# the host says where its slots are (`appearance.partAnchors`) and the part is moved there. The
-# offset is in canvas pixels, so it scales with the rect and mirrors with a negative width.
+# Where one layer of a composite goes. A wearable shares the body's rect exactly -- the pack's
+# vest, helmet, gas mask and backpack are cropped on the body's own canvas and anchor, so there is
+# no per-item offset to compute. A held weapon is the one exception (docs/23, "Held weapons in the
+# hand"): it is drawn at its own canvas with its grip on the hand, so its layer carries `at`, the
+# top-left of the painted area in body-canvas pixels, and `size`, the signed rect in the picture's
+# own orientation that `Appearance.held_pose` worked out -- both scaled here by the body rect's own
+# pixel, and the draw call is handed the layer's `transpose` flag, so the weapon turns without a
+# transform. The body under it never mirrors: `flip_for` answers +1 for every body that turns.
 func _layer_rect(rect: Rect2, layer: Dictionary) -> Rect2:
-	if not layer.has("offset"):
+	if not layer.has("at"):
 		return rect
-	var offset: Vector2 = layer["offset"] as Vector2
-	if offset == Vector2.ZERO:
-		return rect
-	var px: float = rect.size.x / float(Appearance.PAWN_CANVAS.x)
+	var px: float = absf(rect.size.x) / float(Appearance.PAWN_CANVAS.x)
 	var py: float = rect.size.y / float(Appearance.PAWN_CANVAS.y)
-	return Rect2(rect.position + Vector2(offset.x * px, offset.y * py), rect.size)
-
+	var at: Vector2i = layer["at"] as Vector2i
+	var size: Vector2i = layer["size"] as Vector2i
+	return Rect2(rect.position + Vector2(at.x * px, at.y * py), Vector2(size.x * px, size.y * py))
 
 
 # The contact shadow's outline: a twelve-point ellipse, half-axes `a` across and `b` down, so

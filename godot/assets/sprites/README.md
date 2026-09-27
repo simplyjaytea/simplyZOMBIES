@@ -17,10 +17,10 @@ of four views too (`item_gear_*`), layered over or under the body per view by th
 `z`. Raiders wear the one body under one shared tint.
 
 What the rest of this file describes — the face-on pawn, flipped, and the generated rigs — is
-now **the screamer and the bloater only**, the two bodies the pack does not draw, plus every
-face-on equip overlay, which draws on a turning body's south view and on no other until "Pack gear
-on the body" retires them (docs/23). The six generated human and shambler rigs and the eight
-overlays the pack's backpack and helmet replaced were deleted in that commit.
+now **the screamer and the bloater only**, the two bodies the pack does not draw. The six
+generated human and shambler rigs and the eight overlays the pack's backpack and helmet replaced
+were deleted in that commit, and every other face-on equip overlay later the same day with "Pack
+gear on the body" (see "Equipped-item overlays" below).
 
 ## The pawn convention, as of 2026-09-08 — read this before the sections below
 
@@ -244,7 +244,8 @@ renderer's side of the same families.
 - **Canvas: five shapes, one table.** `Appearance.canvas_of` is the one place a size is
   decided, mirrored by `tools/sprites/build.py`'s `CANVAS`: a **tile**, `ART_NATIVE` square
   (32×32) — props, tile art, heaps, debris; a **pawn**, `PAWN_CANVAS` (32×48) — every body and
-  every equip overlay, the twenty-four keys `PAWN_KEYS` names; a **tree**, `TREE_CANVAS`
+  since 2026-09-26 only the two generated rigs `PAWN_KEYS` names (the pack's bodies and wearables
+  stand on the same canvas, declared in `authored.json`); a **tree**, `TREE_CANVAS`
   (32×96); a **vehicle**, one shape per axis — for the sedan's 2×5 footprint, 64×192 nose-north
   and 160×96 nose-east, each the footprint plus a tile of roofline north; and the **ground
   atlas** (128×224) — the one file that is a table of cells rather than one picture. The two
@@ -380,7 +381,8 @@ rigs, drawn through one `_figure` assembler whose fixed order (shade before outl
 load-bearing, not style — and `npm run sprites:check` fails if a committed PNG and that code
 disagree. `survivor_mara.png` and `zombie_shambler.png` were the last hand-authored bodies;
 the three hand-drawn `item_*_equip*` overlays were the last hand art of any kind, and
-`tools/sprites/parts/gear.py` generates all thirty-one of them now. **Nothing in the sprite directory
+`tools/sprites/parts/gear.py` generated their successors until 2026-09-26, when the outpost
+pack's wearables and held weapons retired it. **Nothing in the sprite directory
 is hand-authored any more** — the next hand-polished replacement, whenever it lands, is a deletion
 here rather than an addition (`tools/sprites/README.md`'s standing rule). - **Filename:**
 `<key>.png`, lowercase, `[a-z0-9_.]` only. The filename minus `.png` **is** the registry key.
@@ -510,26 +512,32 @@ record; nothing is hashed at draw time beyond what that record already says.
 
 An item base can also carry `appearance.equipSprite` (item.schema.json), a **different** picture
 from its ground `sprite` — what it looks like worn or held on a body, not lying on the floor.
-Overlays are generated, not hand-drawn: `tools/sprites/parts/gear.py` authors each one on the
-same feet-anchored 32×40 pawn canvas the bodies stand on, against the published skeleton
-(`SHOULDER_Y`, `LEG_TOP_Y`, `HAND_X`, `HAND_Y` from `parts/characters.py`) rather than against a
-canvas row — the same reason the skeleton is published at all: one overlay fits all eight
-bodies instead of eight overlays fitting one each. `main.gd::_blit_body` composites every layer
-into the identical rect the body draws at, so there is no per-item offset to configure, and a
-west-facing negative-width rect mirrors the gear with its wearer, same as the body underneath
-it. Which slots draw, and in what order, is `Appearance.EQUIP_DRAW_ORDER` — one ordered table
-rather than an under list and an over list, because the order layers compose in *is* the
-picture and a pair of lists can only say it by their concatenation. Six slots today: `back`
-under the body, then `legs`, `torso`, `primary`, `secondary` and `head` over it. `vest`,
-`belt`, `face`, `eyes`, `gloves` and `feet` are equippable in content and draw nothing — a
-renderer decision, not a content one, named on docs/23's what's-left.
+Since "Pack gear on the body" and "Held weapons in the hand" (2026-09-26; docs/30, "The whole
+outpost pack") it names one of two shapes, both the outpost pack's and both declared in
+`authored.json`:
 
-An under-body item can also declare `appearance.equipSpriteFront` — a second, optional picture
-that always draws over the body, independent of the slot's own under/over default. A worn
-backpack's straps physically cross in front of the chest; no amount of repositioning the main
-`equipSprite` fixes that, because anything under the body is hidden wherever the body is opaque.
-`equipSpriteFront` is that strap-and-buckle piece alone, same canvas, same anchor. Most
-equipment won't need one — only something whose silhouette genuinely wraps around the body does.
+- **A wearable that turns** — the pack's vest, helmet, gas mask and backpack (`item_gear_*`,
+  kind `pack_overlay`), a family of four views cropped on the body's own 32×40 canvas and anchor.
+  `main.gd::_blit_body` composites the view the body shows at the identical rect, over or under
+  it by the pack's own per-view `z` (the backpack goes under seen from the side).
+- **A held weapon** — ten of the pack's twelve held-weapon pictures (`item_held_*`, kind
+  `pack_held`), each one east-facing picture at its own canvas with the manifest's `grip` copied
+  beside it. `Appearance.held_layer` lands the grip pixel on a hand point per view
+  (`HELD_HANDS`: the primary in the weapon hand, the secondary in the other) and turns the
+  picture with `draw_texture_rect`'s own `transpose` flag and a signed rect — a quarter turn
+  either way for south and north, the east picture mirrored for west so the weapon stays upright.
+  The body under it never mirrors; only the weapon does, and only facing west. The pack's
+  baseball bat and assault rifle are not declared: no shipped base is either.
+
+Anything else draws nothing on the body. The 43 face-on generated overlays (`tools/sprites/parts/
+gear.py`), their `equipSpriteFront` straps and the three fitted-part pictures
+(`attachmentSprite`, placed by a host's `partAnchors`) were retired in that commit, so a jacket,
+a cap, trousers, the duffel, a weapon the pack does not draw or a fitted part shows nothing on the
+body — the gap the owner accepted, with the inventory and the inspect pane still saying what is
+worn. Which slots draw, and in what order, is `Appearance.EQUIP_DRAW_ORDER` — one ordered table
+rather than an under list and an over list, because the order layers compose in *is* the picture.
+Eight slots: `legs`, `torso`, `vest`, `back`, `primary`, `secondary`, `face`, `head`; `belt`,
+`eyes`, `gloves` and `feet` are equippable in content and draw nothing.
 
 ## Wiring one up
 

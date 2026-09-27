@@ -40,7 +40,6 @@ lives in the repo, in the same commit as its first key, and `--check` keeps it h
 | `palette.py` | ramps, the desaturation/value clamps, the ground-luminance guard |
 | `draw.py` | pixel primitives; `Canvas(w, h, origin)` carries a centre or a feet origin |
 | `parts/characters.py` | the eight rigs, the published skeleton, the `REGISTRY` naming them |
-| `parts/gear.py` | the thirty-one equip overlays (sixteen from the worn slice, fifteen from the gear catalogue), generated against the published skeleton |
 | `parts/props.py` | the seven district props, each authored to its content entry's footprint |
 | `parts/wrecks.py` | the low heaps a bare Low tile draws, and the debris scatter |
 | `parts/edges.py` | the ground's edge cells, eight fringes a row, pasted into the atlas |
@@ -67,14 +66,14 @@ arithmetic is why the colonist's face is painted in a pure grey rather than in `
 is drawn *before* shading, so an `OUTLINE` eye would be multiplied too.
 
 Every rig is authored against a **published skeleton** — named rows in pixels above the soles,
-negative y upward, defined once at module scope (`FEET_Y`, `LEG_TOP_Y`, `TORSO_TOP_Y`,
-`SHOULDER_Y`, `HAND_Y`, `HAND_X`, `HEAD_CY`, `HEAD_R`, `SHOULDER_HALF`) — rather than against a
-canvas row, so the rows do not have to be re-derived if the canvas ever grows again. Publishing
-them is what lets `parts/gear.py` fit one generated overlay to all eight bodies instead of
-authoring eight overlays with eight chances to disagree. The bloater is the one rig that moves
-the numbers, and it moves exactly three: its own torso half-width and top, its own arm x, and
-its own head centre — `FEET_Y`, `LEG_TOP_Y` and `HAND_Y` stay untouched, which is what keeps the
-gear overlays fitting it too. `HEAD_R` is 6.0 since the squat pawn of 2026-09-08 (5.0 before it), and the
+negative y upward, defined once at module scope (`FEET_Y`, `LEG_TOP_Y`, `TORSO_TOP_Y`, `SHOULDER_Y`,
+`HAND_Y`, `HAND_X`, `HEAD_CY`, `HEAD_R`, `SHOULDER_HALF`) — rather than against a canvas row, so the
+rows do not have to be re-derived if the canvas ever grows again. Publishing them is what let
+`parts/gear.py` (retired 2026-09-26) fit one generated overlay to all eight bodies instead of
+authoring eight overlays with eight chances to disagree. The bloater is the one rig that moves the
+numbers, and it moves exactly three: its own torso half-width and top, its own arm x, and its own
+head centre — `FEET_Y`, `LEG_TOP_Y` and `HAND_Y` stay untouched, which is what keeps the gear
+overlays fitting it too. `HEAD_R` is 6.0 since the squat pawn of 2026-09-08 (5.0 before it), and the
 band it sits in is a measurement rather than taste: pixel centres on a 32-wide canvas sit at
 half-integer offsets from the middle, so a shape centred on x = 0 is always an *even* number of
 pixels wide — every radius in [5.5, 6.5) renders 12 px, and 6.0 is the middle of that band.
@@ -88,21 +87,20 @@ exactly what it does on a person who turns round, which was not true when a rig 
 
 ## The rules the art is held to
 
-- **Several canvases, one table.** `draw.SIZE` (32) is still the one tile-square number Python
-  holds — `presentation/camera.gd`'s `ART_NATIVE` is the engine's copy, and the two gates
-  cross-check. A tile-sized picture seen from above — a prop, a tile-art key, a heap, a scrap of
-  debris — renders on `Canvas(SIZE, SIZE, origin="centre")`; every body and every equip overlay
-  renders on `Canvas(characters.PAWN_W, characters.PAWN_H, origin="feet")` — 32×40, one tile
-  wide and one and a quarter tall (32×48 until the squat pawn of 2026-09-08); a tree on `trees.TREE_W/TREE_H` (32×96) and a vehicle on the
-  canvas `vehicles.canvas_ns()`/`canvas_ew()` derive from its class's footprint (a sedan 64×192
-  or 160×96, a van 64×224 or 192×96, a truck 64×256 or 224×96), all feet-anchored the same
-  way. `build.py`'s `CANVAS` table, `PAWN_KEYS`, `trees.TREE_KEYS` and `vehicles.CANVASES`
-  mirror `Appearance.canvas_of` and its own tables — two copies because Python cannot read
-  GDScript, the same standing arrangement as `SIZE` — and `check_appearance.gd` measures every
-  committed PNG against the engine's copy every build.
-  `godot/assets/sprites/README.md` is the authority on the shapes; `build.py` refuses a render
-  at the wrong size before it writes, and `check_appearance.gd` refuses it again from the engine
-  side.
+- **Several canvases, one table.** `draw.SIZE` (32) is still the one tile-square number Python holds
+  — `presentation/camera.gd`'s `ART_NATIVE` is the engine's copy, and the two gates cross-check. A
+  tile-sized picture seen from above — a prop, a tile-art key, a heap, a scrap of debris — renders
+  on `Canvas(SIZE, SIZE, origin="centre")`; every generated body renders on
+  `Canvas(characters.PAWN_W, characters.PAWN_H, origin="feet")` — 32×40, one tile wide and one and a
+  quarter tall (32×48 until the squat pawn of 2026-09-08); a tree on `trees.TREE_W/TREE_H` (32×96)
+  and a vehicle on the canvas `vehicles.canvas_ns()`/`canvas_ew()` derive from its class's footprint
+  (a sedan 64×192 or 160×96, a van 64×224 or 192×96, a truck 64×256 or 224×96), all feet-anchored
+  the same way. `build.py`'s `CANVAS` table, `PAWN_KEYS`, `trees.TREE_KEYS` and `vehicles.CANVASES`
+  mirror `Appearance.canvas_of` and its own tables — two copies because Python cannot read GDScript,
+  the same standing arrangement as `SIZE` — and `check_appearance.gd` measures every committed PNG
+  against the engine's copy every build. `godot/assets/sprites/README.md` is the authority on the
+  shapes; `build.py` refuses a render at the wrong size before it writes, and `check_appearance.gd`
+  refuses it again from the engine side.
 - **The origin is the pivot, and it means two different things.** `origin="centre"` puts (0, 0)
   in the middle of the picture — on the 32×32 canvas that is between pixels 15 and 16, not
   pixel 16 — and the renderer hangs a centred picture symmetrically on the entity's ground
@@ -185,6 +183,11 @@ exactly what it does on a person who turns round, which was not true when a rig 
   four `item_gear_*` wearables, one member per direction. Six rigs (`player_body`,
   `survivor_mara`, `survivor_ellis`, `survivor_colonist`, `raider_body`, `zombie_shambler`) and
   eight overlays (the three backpacks with their `_front` straps and the two helmets) were deleted
-  from `parts/characters.py` and `parts/gear.py` in that commit, by this rule.
+  from `parts/characters.py` and `parts/gear.py` in that commit, by this rule. The rest of
+  `parts/gear.py` went the same day with "Pack gear on the body" and "Held weapons in the hand":
+  its 43 face-on equip overlays and three fitted-part pictures, and the module itself, because a
+  four-direction body wears only the pack's four-direction wearables and holds only the pack's
+  ten `item_held_*` weapons (kind `pack_held`, each sourced whole from
+  `groups/items/held/` with the manifest's `grip` copied beside it).
 - **Every PNG lands in the same slice as its reader.** Nothing mechanical stops a stray generated
   file that no content entry names; the workflow is what stops it.

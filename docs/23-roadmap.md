@@ -543,11 +543,8 @@ projection are untouched.
   pack's own footprint).
 - ~~**The bodies turn and walk.**~~ — **landed** 2026-09-26, see the record
   (`npm run godot:check:authored` PACK, `godot:check:topdown` TURN, `godot:check:worn` TURNS).
-- **Pack gear on the body.** The half "The bodies turn and walk" left: retire the 43 face-on
-  generated equip overlays (51 before that slice) and their `parts/gear.py` code, per docs/30's
-  "The whole outpost pack". Until it lands a face-on overlay -- every held weapon, jacket, cap,
-  trousers, the duffel -- draws on a turning body's south view only and vanishes on the e, n and
-  w views. Lands with "Held weapons in the hand" below.
+- ~~**Pack gear on the body.**~~ — **landed** 2026-09-26 with "Held weapons in the hand", see the
+  record (`npm run godot:check:worn` → RETIRED; `godot:check:authored` → READS).
 - **The ground is the pack's.** An atlas composed from the pack's twelve terrain tiles and eight
   ground overlays, in `Appearance.GROUND_ATLAS_KEY`'s place; the palette rows the road and weather
   lanes hold to are regraded to the pack's own means rather than the generator's.
@@ -574,9 +571,8 @@ projection are untouched.
   By the owner's 2026-09-25 answer (docs/30, "The whole outpost pack") the cursors split by
   place: the pack's crosshair over the world while playing, the pack's hand over a *seen* thing
   with a verb, the kit's pointers over every panel.
-- **Held weapons in the hand.** The pack's twelve held-weapon sprites drawn at a hand point per
-  view on the four-direction body — reopened from the report by the owner on 2026-09-25 (docs/30,
-  "The whole outpost pack"). Lands with or after the pack-gear half of "The bodies turn and walk".
+- ~~**Held weapons in the hand.**~~ — **landed** 2026-09-26 for ten of the twelve, see the record
+  (`npm run godot:check:worn` → HELD; `godot:check:authored` → HELD).
 - **Furnishings and container kinds.** The pack's furnishing props as dressing that never touches
   balance and never becomes sim state, and its container kinds keyed by loot table — reopened the
   same day. A furnishing must not become cover, a pathing block or loot unless a later decision
@@ -2538,6 +2534,79 @@ not a to-do list:
   pack's untinted survivor already sits under the street's luma, so "The ground is the pack's"
   re-pins it; the player, Mara and Ellis are one picture (decision 2); the draw loop's added
   per-body lookups were not perf-measured (no Godot frame-budget gate exists).
+
+- **Art — pack gear on the body, and held weapons in the hand, 2026-09-26.** The outpost group's two
+  slices of those names, landed together as docs/30's "The whole outpost pack" asked: a
+  four-direction body wears only the pack's four-direction vest, helmet, gas mask and backpack, and
+  holds the pack's held weapons at a hand point per view. **Retired in the same commit:**
+  `tools/sprites/parts/gear.py` whole, its 43 face-on `_equip` overlays (the duffel's `_front` strap
+  among them) and the three fitted-part pictures, 46 PNGs; `build.py` and `Appearance.PAWN_KEYS` now
+  name only the screamer and the bloater. **The fitted parts went too, by the coordinator's answer
+  the same day**: their pictures hung off the face-on weapons' geometry, so `attachmentSprite`,
+  `partAnchors` and `equipSpriteFront` left content, `item.schema.json`, `Appearance`
+  (`_part_layers_for`, the front-piece read) and `check_appearance.gd`'s allowlist, which now
+  refuses all three. **Held:** ten `item_held_*` keys in `godot/assets/sprites/authored.json`, new
+  kind `pack_held`, each sourced whole from `art/simplyzombies/groups/items/held/` at the manifest's
+  own canvas with its `grip` copied beside it (keys sorted under `item_`); thirteen bases name one
+  through `equipSprite`, exactly the bases "A picture per item base" gave the matching pack icon
+  (the target pistol shares the pistol, the recurve the bow, the repeating crossbow the crossbow).
+  `presentation/appearance.gd` gains `holds`, `grip_of`, `held_pose`, `held_layer`, `HELD_HANDS`
+  (primary in the weapon hand, secondary in the other, measured off the pack survivor's idle views)
+  and `HELD_BEHIND` (both hands seen from behind, the far hand from either side, draw under);
+  `layer_over` falls back to the slot's own `over`. The picture turns with no transform: `main.gd`'s
+  `_blit_body` hands each layer's `transpose` flag to `draw_texture_rect` and `_layer_rect` places
+  its signed rect -- east as painted, south and north a quarter turn through the flag, west the east
+  picture mirrored so the weapon stays upright, as the pack's own preview holds it. **Only the
+  weapon mirrors; the body never does** (the coordinator's reading of "no mirroring", checked with
+  Jev). Probed with a real renderer before any of it was written: a transposed rect paints |h| wide
+  and |w| tall from its position, and each sign flips the painted axis in place. `godot/sim/`
+  untouched. **Gated.** `check_worn.gd` loses FITS and PARTS (no subject left) and gains **RETIRED**
+  -- `PAWN_KEYS` the two rigs; no committed PNG named `_equip`, `_equip_front` or `_part` (the scan
+  proved on a fabricated list); every content `equipSprite` a wearable that turns or a held weapon;
+  a base naming a retired key, a base naming a real face-on picture (the screamer) and a pistol with
+  a suppressor fitted each compose nothing extra in every view, against a held knife that composes
+  -- and **HELD**: every held weapon content declares, in both hands, on all four views, paints its
+  grip pixel on the hand, points its barrel the view's way, is a reflection on the west view only,
+  and shows at least one solid pixel past the body at the named `ALPHA_SOLID` 128 (measured minimum
+  1, the revolver in the weapon hand seen from behind); every hand point is a solid pixel of
+  `body_survivor_<view>`; `flip_for` never mirrors the pack body; the draw loop passes the flag in
+  both passes and `_layer_rect` reads `at` and `size` (comments stripped). ORDER, CANVAS, REACHES,
+  PLAYED and TURNS re-cut to the two shapes, REACHES now in all four views. `check_authored.gd`
+  gains **HELD** (whole source, manifest size, facing east, grip equal to the manifest's on a solid
+  pixel, the renderer's `grip_of` agreeing) and MANIFEST validates `grip`; `check_appearance.gd`'s
+  EQUIP lane moves to the knife and the hiking pack; `check_topdown.gd`'s pawn floor is exactly the
+  two rigs and TURN refuses a held key as a family; the warmth ART lane drops `equipSpriteFront`.
+  **Measured:** `WORN_LOOK_OK` (0.7 s; `HELD OK 10 held weapon(s) ... 80 poses judged`, `RETIRED OK
+  ... 11 wearable and 13 held declarations`, `PLAYED OK 2 of 3 equipped entities wear something
+  drawn`), `AUTHORED_OK` (`HELD OK 10`, `READS OK 65 authored keys`), `APPEARANCE_OK`, `TOPDOWN_OK`,
+  `M2_WARMTH_OK`, `MEMORY_LOOK_OK`, `INVENTORY_OK`, `M2_ATTACH_OK`, `M2_RAIDERS_OK`, `PLAY_OK`,
+  `GODOT_PROJECT_SMOKE_OK`, `GODOT_CONTENT_OK`, `SPRITES_OK 103 generated ... 115 authored keys
+  reproduced`, `ROUTING_OK`, `TIMING_OK`; `npm test` 45 files / 594 tests; `npm run godot:m2`
+  83 gates green in 33m05s on the four-core Windows desktop, other workers sharing it.
+  **Sabotage pass**, each red then restored: the primary east hand moved to (0, 0) (HELD: not a
+  solid pixel of the body); the under pass dropping the `transpose` argument (HELD: 1 draw call,
+  want 2); the west pose unmirrored and the north pose transposed only (HELD: grip painted off the
+  hand); `flip_for` mirroring the pack body (HELD); `item.pistol.service` pointed back at its
+  retired key (CANVAS, RETIRED); the pistol's grip one pixel off in `authored.json` (authored HELD);
+  a retired PNG put back (RETIRED); `HELD_BEHIND` losing the secondary's north (HELD -- green on the
+  first try, because the lane read `HELD_BEHIND` back at itself; it now holds its own
+  `EXPECT_BEHIND`). **Probed after review:** Jev's review of the diff came back `review`, limiting
+  on `test_gap`, and the owner chose to probe each new behaviour for a lane that fails it before
+  committing. Two had none, and HELD gained both: every `pack_held` key authored.json declares must
+  be declared by a content base in a slot a hand holds and be among the keys the lane judges
+  (READS accepted a held key named only by a back or a belt, and REACHES skips an undrawn slot) --
+  red with the kitchen knife's slot moved to `back`, and refusing a fabricated back-slot and an
+  undeclared key; and the body-never-mirrors loop now proves it can say no on the face-on screamer
+  facing west. **What did not ship, named:** a jacket, cap, trousers, jeans, apron, wrap or the
+  duffel worn shows nothing on the body (the owner's accepted gap; inventory and inspect text
+  unchanged); the 19 weapons and three lights that had a face-on picture and have no pack one show
+  nothing in the hand either -- the machete, the axes and the bat among them; a fitted part shows
+  nothing; the pack's baseball bat (a wooden bat, and the one bat is aluminium) and assault rifle
+  (no shipped base) are not declared, the icon slice's reasons; the hand points are the idle views',
+  so on walk frames the arm swings under a still weapon; the weapon points the way the body faces in
+  four quarters, not along the aim, which stays docs/30's open decision 7; a long gun seen from the
+  front reaches below the feet (the rifle 12 px past the canvas); no Godot frame-budget gate exists,
+  so the two added lookups per held layer were not perf-measured.
 
 - **Art — the cars are the pack's, east-west, 2026-09-26.** The outpost group's slice of that
   name, footprints as the owner named them on 2026-09-17 (docs/30, "The outpost pack, adopted":
