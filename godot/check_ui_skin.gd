@@ -167,6 +167,7 @@ func _run() -> void:
 	ok = _outliers_lane() and ok
 	ok = _cursors_lane() and ok
 	ok = _motion_lane() and ok
+	ok = _strip_lane() and ok
 	ok = await _events_lane() and ok
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
 	if seconds > BUDGET_SECONDS:
@@ -3265,3 +3266,98 @@ func _events_busy() -> bool:
 
 func _events_reads_countdown(body: String) -> bool:
 	return body.contains("ticksLeft")
+
+
+# --- the quick strip fits its rect ---------------------------------------------------------------
+#
+# The item-pictures slice widened a slot to 246 px to fit a 32 px picture, and six of those plus the
+# lead are wider than a 1280 px screen's strip, so the sixth (and then the fifth) ran off it.
+# `QuickStrip.slot_boxes` now takes the width from the rect. Three things are judged, each with a
+# true negative: every slot lies wholly inside the rect a screen hands it, at the two sizes the
+# game ships to and one between; the slot is never wider than it was, so the wide screen looks as it
+# did; and the narrowest slot still clears the kit's margins (a slot the kit cannot frame falls back
+# to a drawn fill). And the draw has to read the boxes -- a helper nothing draws from is a dead socket.
+
+const StripChrome = preload("res://ui/chrome.gd")
+const STRIP_VIEWS: Array[Vector2] = [Vector2(1280.0, 720.0), Vector2(1600.0, 900.0), Vector2(1920.0, 1080.0)]
+
+
+func _strip_lane() -> bool:
+	var ok: bool = true
+	var inv: Dictionary = (load(INVENTORY_GD) as GDScript).get_script_constant_map()
+	var font: Font = StripChrome.font()
+	var widest: float = float(EventsStrip.SLOT_W)
+	var narrowest: float = widest
+	for view in STRIP_VIEWS:
+		var rect: Rect2 = EventsStrip.rect_for(view, float(inv["PAD"]), float(inv["STRIP_H"]))
+		var boxes: Array[Rect2] = EventsStrip.slot_boxes(font, rect)
+		if boxes.size() != EventsStrip.SLOTS:
+			push_error("STRIP: %d slots at %s, not %d" % [boxes.size(), str(view), EventsStrip.SLOTS])
+			ok = false
+			continue
+		for f in _strip_faults(boxes, rect):
+			push_error("STRIP: at %s, %s" % [str(view), f])
+			ok = false
+		for b in boxes:
+			narrowest = minf(narrowest, b.size.x)
+			if b.size.x > widest or b.size.x <= 0.0:
+				push_error("STRIP: at %s a slot is %s px wide, outside 0 to the %s it was" % [str(view), str(b.size.x), str(widest)])
+				ok = false
+		if view.x >= 1920.0 and not is_equal_approx(boxes[0].size.x, widest):
+			push_error("STRIP: at %s a slot is %s px wide, not the %s px it has when it fits" % [str(view), str(boxes[0].size.x), str(widest)])
+			ok = false
+		if view.x <= 1280.0 and not boxes[0].size.x < widest:
+			push_error("STRIP: at %s a slot is still %s px -- the strip's width was never consulted" % [str(view), str(boxes[0].size.x)])
+			ok = false
+	for id in ["slot_empty", "slot_selected"]:
+		if Kit.style(id, Rect2(Vector2.ZERO, Vector2(narrowest, float(EventsStrip.SLOT_H))), 1.0) == null:
+			push_error("STRIP: the narrowest slot, %s px, is under %s's margins %s -- it would fall back to a drawn fill" % [str(narrowest), id, str(Kit.margins(id))])
+			ok = false
+
+	# True negatives: the checker refuses what shipped before this fix, and each way of leaving a rect.
+	var narrow: Vector2 = STRIP_VIEWS[0]
+	var tight: Rect2 = EventsStrip.rect_for(narrow, float(inv["PAD"]), float(inv["STRIP_H"]))
+	var first: Rect2 = EventsStrip.slot_boxes(font, tight)[0]
+	var old: Array[Rect2] = []
+	for i in EventsStrip.SLOTS:
+		old.append(Rect2(first.position + Vector2((246.0 + EventsStrip.GAP) * float(i), 0.0), Vector2(246.0, EventsStrip.SLOT_H)))
+	var high: Array[Rect2] = EventsStrip.slot_boxes(font, tight)
+	high[2] = Rect2(Vector2(high[2].position.x, tight.position.y - 1.0), high[2].size)
+	var left: Array[Rect2] = EventsStrip.slot_boxes(font, tight)
+	left[0] = Rect2(Vector2(tight.position.x - 1.0, left[0].position.y), left[0].size)
+	for r in [
+		["the fixed 246 px slot at 1280", _strip_faults(old, tight)],
+		["a slot above the rect", _strip_faults(high, tight)],
+		["a slot left of the rect", _strip_faults(left, tight)],
+		["a strip of five slots", _strip_faults(EventsStrip.slot_boxes(font, tight).slice(0, 5), tight)],
+	]:
+		if ((r as Array)[1] as Array).is_empty():
+			push_error("STRIP: %s passed -- the fit check cannot fail" % String((r as Array)[0]))
+			ok = false
+	if not _strip_faults(EventsStrip.slot_boxes(font, tight), tight).is_empty():
+		push_error("STRIP: the shipped slots at 1280 were refused -- the fit check cannot pass")
+		ok = false
+
+	# The draw reads the boxes, from the one function, and no longer walks a fixed width.
+	var body: String = String(_bodies(_text_of("res://ui/quick_strip.gd")).get("draw_strip", ""))
+	if not body.contains("slot_boxes("):
+		push_error("STRIP: draw_strip never asks slot_boxes for where a slot is")
+		ok = false
+	if body.contains("SLOT_W"):
+		push_error("STRIP: draw_strip still reads the fixed SLOT_W, so a slot can leave the strip")
+		ok = false
+	if ok:
+		print("STRIP OK all six slots inside the strip at %d viewports (a slot %d px at 1280, %d at 1920, never wider than %d); the narrowest still frames in the kit; the fixed 246 px slot at 1280, a slot above or left of the rect and a fifth-slot strip each refused; draw_strip reads slot_boxes and no longer SLOT_W" % [STRIP_VIEWS.size(), int(EventsStrip.slot_boxes(StripChrome.font(), EventsStrip.rect_for(STRIP_VIEWS[0], 24.0, 92.0))[0].size.x), int(widest), int(widest)])
+	return ok
+
+
+# What is wrong with `boxes` as the strip's slots inside `rect`, in words; empty for none.
+func _strip_faults(boxes: Array, rect: Rect2) -> Array[String]:
+	var faults: Array[String] = []
+	if boxes.size() != EventsStrip.SLOTS:
+		faults.append("%d slots, not %d" % [boxes.size(), EventsStrip.SLOTS])
+	for i in boxes.size():
+		var b: Rect2 = boxes[i] as Rect2
+		if not rect.encloses(b):
+			faults.append("slot %d, %s, is not inside the strip %s" % [i + 1, str(b), str(rect)])
+	return faults
