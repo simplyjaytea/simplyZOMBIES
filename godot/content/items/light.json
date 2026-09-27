@@ -8,7 +8,6 @@
     "massKg": 0.1,
     "stack": 4,
     "equipSlot": "secondary",
-    "appearance": { "equipSprite": "item_candle_wax_equip" },
     "light": { "magnitude": 3, "burnTicks": 36000 }
   },
   {
@@ -19,7 +18,6 @@
     "size": { "w": 1, "h": 2 },
     "massKg": 0.6,
     "equipSlot": "secondary",
-    "appearance": { "equipSprite": "item_lamp_electric_equip" },
     "light": { "magnitude": 35, "burnTicks": 108000, "feed": "cell" }
   },
   {
@@ -39,7 +37,6 @@
     "size": { "w": 1, "h": 2 },
     "massKg": 0.8,
     "equipSlot": "secondary",
-    "appearance": { "equipSprite": "item_lantern_oil_equip" },
     "light": { "magnitude": 20, "burnTicks": 144000, "feed": "oil" }
   }
 ]

@@ -78,6 +78,15 @@ extends SceneTree
 #             `z_by_direction`, and each view's solid box is exactly the manifest's `fit` for it.
 #             TN: a fabrication per claim, each refused by its own predicate, and a sub-visible
 #             speck and a one-row step accepted.
+#   HELD      every authored key of kind `pack_held` -- a weapon in the hand, since "Held weapons
+#             in the hand" (2026-09-26) -- is the pack's own held-weapon picture, sourced whole (no
+#             crop, no pad) from `groups/items/held/`, at the canvas the pack's manifest gives it,
+#             drawn facing east, its `grip` exactly the manifest's, and a solid pixel (at
+#             ALPHA_SOLID) where that grip floors to; the renderer's `Appearance.holds` and
+#             `grip_of` agree with the file. That the weapon then draws in the hand on every view is
+#             `godot:check:worn`'s HELD lane. TN: a fabrication per claim -- a crop, a wrong canvas,
+#             a grip one pixel off, a west-facing asset, a grip on a transparent pixel -- each
+#             refused by the same predicate the real keys pass.
 #   ICON      every authored key of kind `icon` -- an inventory picture, one item base seen from
 #             above -- is a picture (opaque pixels at ICON_ALPHA or more, not only the alpha-6
 #             specks the pack leaves inside its canvas), centred on its canvas within
@@ -121,7 +130,10 @@ const AUTHORED_PATH: String = "res://assets/sprites/authored.json"
 # `vehicle` is a parked car's east-west picture from the pack (docs/23, "The cars are the pack's,
 # east-west"), and its shape lane lives beside the parking it judges: check_wrecks.gd's PACK lane
 # holds its painted span to the class's `lEw` and its crop to the pack's anchor row.
-const KINDS: Array[String] = ["rig", "overlay", "tile", "icon", "pack_rig", "pack_overlay", "module", "sheet", "prop", "vehicle"]
+#
+# `pack_held` is a weapon in the hand (docs/23, "Held weapons in the hand", 2026-09-26): one of the
+# pack's held-weapon pictures, judged by HELD.
+const KINDS: Array[String] = ["rig", "overlay", "tile", "icon", "pack_rig", "pack_overlay", "pack_held", "module", "sheet", "prop", "vehicle"]
 
 # The pack's own spec for the art it ships, read as text and never loaded as a resource (the pack's
 # docs/godot/*.tres are null headless -- the UI kit's trap). PACK compares authored.json's copies of
@@ -221,9 +233,10 @@ func _run() -> void:
 	ok = _every_rig_is_four_tones_a_material() and ok
 	ok = _no_highlight_covers_more_than_its_share() and ok
 	ok = _the_pack_families_keep_the_packs_own_spec() and ok
+	ok = _every_held_weapon_is_the_packs_own() and ok
 	ok = _authored_art_is_read_by_something() and ok
 	if ok:
-		print("AUTHORED_OK the manifest is well formed, no key is in two tiers, every sourced key resolves at its declared canvas, every rig meets the published bounds, no rig draws ink inside its silhouette, every rig is four tones a material, no highlight covers more than its share, the pack families keep the pack's own spec, every icon is a centred picture, and authored art is read by something")
+		print("AUTHORED_OK the manifest is well formed, no key is in two tiers, every sourced key resolves at its declared canvas, every rig meets the published bounds, no rig draws ink inside its silhouette, every rig is four tones a material, no highlight covers more than its share, the pack families keep the pack's own spec, every held weapon is the pack's own, every icon is a centred picture, and authored art is read by something")
 		quit(0)
 	else:
 		push_error("AUTHORED_FAIL")
@@ -323,6 +336,17 @@ func _complaint(entry_v: Variant) -> String:
 		var fps_v: Variant = entry.get("fps")
 		if not (fps_v is float or fps_v is int) or int(fps_v) <= 0 or float(fps_v) != float(int(fps_v)):
 			return "declares fps %s; it is a positive whole number of frames a second" % str(fps_v)
+	if entry.has("grip"):
+		var grip_v: Variant = entry.get("grip")
+		if not (grip_v is Array and (grip_v as Array).size() == 2):
+			return "declares grip %s; it is [x, y] in pixels" % str(grip_v)
+		for v in (grip_v as Array):
+			if not (v is float or v is int) or float(v) < 0.0:
+				return "declares grip %s; both are non-negative pixel coordinates" % str(grip_v)
+		if kind != "pack_held":
+			return "declares a grip and is kind '%s'; only a held weapon has one" % kind
+	if kind == "pack_held" and not entry.has("grip"):
+		return "is a held weapon with no grip; nothing would say which pixel lands on the hand"
 	if entry.has("z"):
 		var z_v: Variant = entry.get("z")
 		if not (z_v is Dictionary) or (z_v as Dictionary).is_empty():
@@ -379,6 +403,9 @@ func _the_manifest_is_well_formed() -> bool:
 		["fractional_fps", {"canvas": [32, 40], "kind": "pack_rig", "reads": "x", "fps": 7.5}],
 		["z_bad_view", {"canvas": [32, 40], "kind": "pack_overlay", "reads": "x", "z": {"up": 1}}],
 		["z_not_whole", {"canvas": [32, 40], "kind": "pack_overlay", "reads": "x", "z": {"s": 0.5}}],
+		["held_no_grip", {"canvas": [24, 16], "kind": "pack_held", "reads": "x"}],
+		["held_short_grip", {"canvas": [24, 16], "kind": "pack_held", "reads": "x", "grip": [8]}],
+		["grip_on_icon", {"canvas": [32, 32], "kind": "icon", "reads": "x", "grip": [8, 8]}],
 	]
 	for pair in fabricated:
 		if _complaint((pair as Array)[1]).is_empty():
@@ -399,6 +426,9 @@ func _the_manifest_is_well_formed() -> bool:
 			"z": {"s": 3, "e": -1, "n": 3, "w": -1}}).is_empty():
 		push_error("the manifest predicate refused a sound fps and z; it would refuse the real wearables too")
 		return false
+	if not _complaint({"canvas": [24, 16], "kind": "pack_held", "reads": "x", "grip": [8.18, 8.85]}).is_empty():
+		push_error("the manifest predicate refused a sound held weapon; it would refuse the real ones too")
+		return false
 
 	# `Appearance.authored_rig_keys()` is the renderer-side reader three gates share, and it reads
 	# `kind` out of this same file. Two readers that must produce the same answer is the
@@ -413,7 +443,7 @@ func _the_manifest_is_well_formed() -> bool:
 		push_error("authored.json declares rigs %s and Appearance.authored_rig_keys() answers %s" % [str(rigs_here), str(Appearance.authored_rig_keys())])
 		return false
 
-	print("MANIFEST OK %d authored keys declared (%d of kind rig, agreed by both readers), %d malformed fabrications refused and four sound ones (a rig, a source, a family, an fps with a z) accepted" % [entries.size(), rigs_here.size(), fabricated.size()])
+	print("MANIFEST OK %d authored keys declared (%d of kind rig, agreed by both readers), %d malformed fabrications refused and five sound ones (a rig, a source, a family, an fps with a z, a held weapon) accepted" % [entries.size(), rigs_here.size(), fabricated.size()])
 	return true
 
 
@@ -1051,6 +1081,9 @@ func _asset_for_source(assets: Array, source_path: String) -> Dictionary:
 	for a in assets:
 		if not (a is Dictionary):
 			continue
+		# A single picture -- a held weapon -- is listed by its own `path`, with no frames.
+		if not (a as Dictionary).has("frames") and String((a as Dictionary).get("path", "")) == rel:
+			return a as Dictionary
 		var frames: Variant = (a as Dictionary).get("frames")
 		if not (frames is Dictionary):
 			continue
@@ -1339,6 +1372,93 @@ func _the_pack_families_keep_the_packs_own_spec() -> bool:
 	return true
 
 
+# --- held weapons ---------------------------------------------------------------------------
+
+# What is wrong with one held weapon's declaration against the manifest asset it was cut from and
+# the picture on disk, or "": the pack's own held-weapon picture, whole, at its size, facing east,
+# the grip the manifest's to the hundredth, and a solid pixel where the grip floors to.
+func _held_complaint(entry: Dictionary, asset: Dictionary, image: Image) -> String:
+	var source: Dictionary = entry.get("source", {}) as Dictionary
+	if source.has("crop") or source.has("pad"):
+		return "crops or pads its source; a held weapon is the pack's picture whole, grip and all"
+	if String(asset.get("category", "")) != "held-weapon":
+		return "is cut from a manifest asset of category '%s', not a held weapon" % String(asset.get("category", ""))
+	if String(asset.get("facing", "")) != "east":
+		return "is cut from an asset facing '%s'; the renderer turns an east-facing picture" % String(asset.get("facing", ""))
+	var canvas: Array = entry.get("canvas", []) as Array
+	var size: Array = asset.get("size", []) as Array
+	if canvas.size() != 2 or size.size() != 2 or int(canvas[0]) != int(size[0]) or int(canvas[1]) != int(size[1]):
+		return "declares canvas %s where the manifest's size is %s" % [str(canvas), str(size)]
+	var grip: Array = entry.get("grip", []) as Array
+	var want: Array = asset.get("grip", []) as Array
+	if grip.size() != 2 or want.size() != 2 or not is_equal_approx(float(grip[0]), float(want[0])) or not is_equal_approx(float(grip[1]), float(want[1])):
+		return "declares grip %s where the manifest says %s" % [str(grip), str(want)]
+	if image == null or image.get_width() != int(size[0]) or image.get_height() != int(size[1]):
+		return "does not resolve at the manifest's size"
+	var at := Vector2i(floori(float(grip[0])), floori(float(grip[1])))
+	if at.x >= image.get_width() or at.y >= image.get_height() or not _is_solid(image.get_pixelv(at)):
+		return "grips at pixel %s, which is not solid at alpha %d" % [str(at), ALPHA_SOLID]
+	return ""
+
+
+func _every_held_weapon_is_the_packs_own() -> bool:
+	var assets: Array = _pack_assets()
+	var entries: Dictionary = _entries()
+	var judged: int = 0
+	var real_entry: Dictionary = {}
+	var real_asset: Dictionary = {}
+	var real_image: Image = null
+	for key in entries.keys():
+		var entry: Dictionary = entries[key] as Dictionary
+		if String(entry.get("kind", "")) != "pack_held":
+			continue
+		var path: String = String((entry.get("source", {}) as Dictionary).get("path", ""))
+		var asset: Dictionary = _asset_for_source(assets, path)
+		if asset.is_empty():
+			push_error("HELD: '%s' is cut from '%s', which no manifest asset lists" % [String(key), path])
+			return false
+		var image: Image = _image_of(String(key))
+		var complaint: String = _held_complaint(entry, asset, image)
+		if not complaint.is_empty():
+			push_error("HELD: '%s' %s" % [String(key), complaint])
+			return false
+		var grip: Array = entry["grip"] as Array
+		if not Appearance.holds(String(key)) or Appearance.grip_of(String(key)) != Vector2i(floori(float(grip[0])), floori(float(grip[1]))):
+			push_error("HELD: the renderer does not hold '%s' at the grip authored.json declares (holds %s, grip_of %s)" % [String(key), str(Appearance.holds(String(key))), str(Appearance.grip_of(String(key)))])
+			return false
+		if real_entry.is_empty():
+			real_entry = entry
+			real_asset = asset
+			real_image = image
+		judged += 1
+	if judged == 0:
+		push_error("HELD: authored.json declares no held weapon; the lane had nothing to judge")
+		return false
+
+	# True negatives, one per claim, each a copy of a real key broken one way.
+	var cropped: Dictionary = real_entry.duplicate(true)
+	(cropped["source"] as Dictionary)["crop"] = [0, 0, 16, 16]
+	var wrong_canvas: Dictionary = real_entry.duplicate(true)
+	wrong_canvas["canvas"] = [int((real_entry["canvas"] as Array)[0]) + 8, int((real_entry["canvas"] as Array)[1])]
+	var slipped: Dictionary = real_entry.duplicate(true)
+	slipped["grip"] = [float((real_entry["grip"] as Array)[0]) + 1.0, float((real_entry["grip"] as Array)[1])]
+	var west: Dictionary = real_asset.duplicate(true)
+	west["facing"] = "west"
+	var blank := Image.create(real_image.get_width(), real_image.get_height(), false, Image.FORMAT_RGBA8)
+	for case in [[cropped, real_asset, real_image, "a cropped source"], [wrong_canvas, real_asset, real_image, "a wrong canvas"],
+			[slipped, real_asset, real_image, "a grip one pixel off"], [real_entry, west, real_image, "a west-facing asset"],
+			[real_entry, real_asset, blank, "a grip on a transparent pixel"]]:
+		if _held_complaint(case[0], case[1], case[2]).is_empty():
+			push_error("HELD: %s passed; the lane cannot say no to it" % String(case[3]))
+			return false
+	if Appearance.holds("item_gear_vest") or Appearance.holds("item_pistol"):
+		push_error("HELD: the renderer holds a wearable or an icon as a weapon")
+		return false
+
+	print("HELD OK %d held weapon(s) are the pack's own pictures, whole, at the manifest's size, facing east, gripped at the manifest's grip on a solid pixel (alpha >= %d), and held by the renderer at that pixel; a crop, a wrong canvas, a slipped grip, a west-facing asset and a transparent grip refused" % [judged, ALPHA_SOLID])
+	return true
+
+
 # --- the dead-socket lane -------------------------------------------------------------------
 
 # `{sprite key: Array[String]}`, every content id whose appearance block declares it -- not the
@@ -1360,7 +1480,7 @@ func _keys_content_declares() -> Dictionary:
 			var block: Variant = entry.get("appearance")
 			if not (block is Dictionary):
 				continue
-			for prop in ["sprite", "equipSprite", "equipSpriteFront"]:
+			for prop in ["sprite", "equipSprite"]:
 				if (block as Dictionary).has(prop):
 					_declared_by(out, String((block as Dictionary)[prop]), String(entry.get("id", "?")))
 			# A vehicle names its pictures per variant and axis rather than as one `sprite`

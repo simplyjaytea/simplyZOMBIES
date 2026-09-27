@@ -44,6 +44,13 @@
     "           a body that turns and walks, and a wearable that turns with it -- the outpost",
     "           pack's survivor and shambler, and its vest, helmet, gas mask and backpack.",
     "           `godot:check:authored`'s PACK lane judges both (since 2026-09-26).",
+    "  pack_held",
+    "           a weapon in the hand -- one of the outpost pack's held-weapon pictures, drawn",
+    "           facing east at its own canvas (no crop, no pad) and turned per view by the",
+    "           renderer (`Appearance.held_layer`). `grip` is a COPY of the pack manifest's",
+    "           own grip point, the pixel that lands on the body's hand; `godot:check:authored`'s",
+    "           HELD lane holds the copy, the canvas and the facing to the manifest (since",
+    "           2026-09-26, 'Held weapons in the hand').",
     "  module / sheet / prop",
     "           placeholders for the outpost pack's later slices -- wall modules, animated",
     "           effect sheets, and prop pictures generally. MANIFEST accepts them today; no shape",
@@ -1027,6 +1034,166 @@
       "reads": "item.hatchet.camp",
       "source": {
         "path": "art/simplyzombies/groups/items/icons/item-hatchet.png"
+      }
+    },
+    "item_held_bolt_rifle": {
+      "canvas": [
+        48,
+        16
+      ],
+      "kind": "pack_held",
+      "reads": "item.rifle.hunting",
+      "palette": "pack",
+      "grip": [
+        19.32,
+        8.44
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/items/held/weapon-bolt-rifle.png"
+      }
+    },
+    "item_held_bow": {
+      "canvas": [
+        24,
+        32
+      ],
+      "kind": "pack_held",
+      "reads": "item.bow.hunting",
+      "palette": "pack",
+      "grip": [
+        10.02,
+        16.16
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/items/held/weapon-bow.png"
+      }
+    },
+    "item_held_crossbow": {
+      "canvas": [
+        48,
+        24
+      ],
+      "kind": "pack_held",
+      "reads": "item.crossbow.hunting",
+      "palette": "pack",
+      "grip": [
+        19.04,
+        13.14
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/items/held/weapon-crossbow.png"
+      }
+    },
+    "item_held_crowbar": {
+      "canvas": [
+        32,
+        16
+      ],
+      "kind": "pack_held",
+      "reads": "item.crowbar.steel",
+      "palette": "pack",
+      "grip": [
+        8.48,
+        7.36
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/items/held/weapon-crowbar.png"
+      }
+    },
+    "item_held_hatchet": {
+      "canvas": [
+        24,
+        16
+      ],
+      "kind": "pack_held",
+      "reads": "item.hatchet.camp",
+      "palette": "pack",
+      "grip": [
+        7.27,
+        6.72
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/items/held/weapon-hatchet.png"
+      }
+    },
+    "item_held_kitchen_knife": {
+      "canvas": [
+        24,
+        16
+      ],
+      "kind": "pack_held",
+      "reads": "item.knife.kitchen",
+      "palette": "pack",
+      "grip": [
+        8.05,
+        7.45
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/items/held/weapon-kitchen-knife.png"
+      }
+    },
+    "item_held_pistol": {
+      "canvas": [
+        24,
+        16
+      ],
+      "kind": "pack_held",
+      "reads": "item.pistol.service",
+      "palette": "pack",
+      "grip": [
+        8.18,
+        8.85
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/items/held/weapon-pistol.png"
+      }
+    },
+    "item_held_pump_shotgun": {
+      "canvas": [
+        48,
+        16
+      ],
+      "kind": "pack_held",
+      "reads": "item.shotgun.pump",
+      "palette": "pack",
+      "grip": [
+        20.8,
+        7.86
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/items/held/weapon-pump-shotgun.png"
+      }
+    },
+    "item_held_revolver": {
+      "canvas": [
+        24,
+        16
+      ],
+      "kind": "pack_held",
+      "reads": "item.revolver.snub",
+      "palette": "pack",
+      "grip": [
+        5.9,
+        9.25
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/items/held/weapon-revolver.png"
+      }
+    },
+    "item_held_smg": {
+      "canvas": [
+        32,
+        16
+      ],
+      "kind": "pack_held",
+      "reads": "item.smg.compact",
+      "palette": "pack",
+      "grip": [
+        16.84,
+        9.71
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/items/held/weapon-smg.png"
       }
     },
     "item_kitchen_knife": {

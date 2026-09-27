@@ -44,39 +44,16 @@ const PLAYER_LOOK_ID: String = "player.body"
 # rows of headroom for a helmet or a spear tip. Its blit height is 1.25 x zoom, an integer on
 # every rung of the ladder (20/40/80/160). The 32x48 canvas of 2026-09-03 held a 1.3-tile figure;
 # it was superseded, not resized -- every rig was re-authored on a shorter published skeleton.
-# Every generated body and every equip overlay is authored on it (PAWN_KEYS); tools/sprites/build.py
-# carries the mirror list, because Python cannot read GDScript. The outpost pack's four-direction
-# bodies and wearables stand on it too, cropped from the pack's 32x48 on its own anchor row, but
-# they are declared in authored.json rather than named here -- one key, one tier. Since "The
-# bodies turn and walk" (2026-09-26) the generated rigs are the screamer and the bloater only;
-# the other six, and the eight overlays the pack's backpack and helmet replaced, were deleted.
+# The two generated bodies the outpost pack does not supply are authored on it (PAWN_KEYS);
+# tools/sprites/build.py carries the mirror list, because Python cannot read GDScript. The outpost
+# pack's four-direction bodies and wearables stand on it too, cropped from the pack's 32x48 on its
+# own anchor row, but they are declared in authored.json rather than named here -- one key, one
+# tier. Since "The bodies turn and walk" (2026-09-26) the generated rigs are the screamer and the
+# bloater only, and since "Pack gear on the body" the same day nothing else generated is drawn on a
+# body either: the 43 face-on equip overlays and the three fitted-part pictures were deleted with
+# their generator (docs/30, "The whole outpost pack").
 const PAWN_CANVAS: Vector2i = Vector2i(int(CameraUtil.ART_NATIVE), int(CameraUtil.ART_NATIVE) * 5 / 4)
-const PAWN_KEYS: Array[String] = [
-	"zombie_screamer", "zombie_bloater",
-	"item_bat_aluminium_equip",
-	"item_pants_canvas_equip", "item_wrap_cloth_equip", "item_cap_canvas_equip",
-	"item_knife_kitchen_equip", "item_machete_rusted_equip", "item_pipe_steel_equip",
-	"item_spear_improvised_equip", "item_axe_fire_equip", "item_sledge_demolition_equip",
-	"item_bow_hunting_equip", "item_candle_wax_equip", "item_lamp_electric_equip",
-	"item_pistol_service_equip",
-	"item_crowbar_steel_equip", "item_hatchet_camp_equip", "item_hammer_claw_equip",
-	"item_wrench_pipe_equip", "item_cleaver_butcher_equip", "item_shotgun_pump_equip",
-	"item_rifle_hunting_equip", "item_jacket_leather_equip",
-	"item_jeans_denim_equip", "item_lantern_oil_equip",
-	"item_baton_police_equip", "item_shovel_sharpened_equip", "item_axe_splitting_equip",
-	"item_crossbow_hunting_equip", "item_revolver_snub_equip", "item_rifle_rimfire_equip",
-	"item_apron_welding_equip",
-	"item_duffel_canvas_equip", "item_duffel_canvas_equip_front",
-	# The weapons catalogue (2026-09-10).
-	"item_smg_compact_equip",
-	"item_carbine_lever_equip", "item_pistol_target_equip", "item_shotgun_sawnoff_equip",
-	"item_bow_recurve_equip", "item_crossbow_repeating_equip", "item_pick_ice_equip",
-	"item_sabre_cavalry_equip", "item_pitchfork_barn_equip", "item_club_golf_equip",
-	# Fitted parts. Authored at the canvas origin and moved to the host's own `partAnchors`,
-	# which is why they are the one overlay family that does not share the hand.
-	"item_attach_suppressor_part", "item_attach_optic_red_dot_part",
-	"item_attach_magazine_extended_part",
-]
+const PAWN_KEYS: Array[String] = ["zombie_screamer", "zombie_bloater"]
 
 # Where a picture hangs on its entity's ground point. A square canvas is a tile-sized thing seen
 # from above and centres on the point; anything else is a standing picture and stands on it --
@@ -104,12 +81,16 @@ const FOOT_DROP_PX: float = 3.0
 # `face` joined on 2026-09-26 with the outpost pack's four-direction vest and gas mask ("The
 # bodies turn and walk"), and where they sit is the pack's own answer rather than a guess: its
 # manifest layers vest 2, backpack 3, gas mask 4 and helmet 5 over the body at 0, so `vest` comes
-# before `back` -- whose over-body piece, a front strap or the pack's own picture on a view that
-# shows it in front, draws at back's place in this list -- and `face` before `head`. An
-# under-body layer draws in the under pass wherever its slot sits here, so moving `back` down the
-# list moved only its over-body piece. `belt`, `feet`, `gloves` and `eyes` are equippable in
-# content and still deliberately not here; an `appearance.equipSprite` on one of those four is a
-# socket nothing reads, which is why content declares none.
+# before `back` and `face` before `head`. An under-body layer draws in the under pass wherever its
+# slot sits here. `belt`, `feet`, `gloves` and `eyes` are equippable in content and still
+# deliberately not here; an `appearance.equipSprite` on one of those four is a socket nothing
+# reads, which is why content declares none.
+#
+# Since "Pack gear on the body" (2026-09-26) every picture drawn here says which side of the body
+# it is on in each view, and `over` is the slot's side where the picture does not: a wearable
+# family's per-view `z` decides for it (`layer_over`, which falls back to `over` for a view its
+# `z` does not list), and a held weapon goes over only when both this slot and the hand holding
+# it in that view say so (`HELD_BEHIND`) -- the far hand, or a body seen from behind, hides it.
 const EQUIP_DRAW_ORDER: Array[Dictionary] = [
 	{"slot": "legs", "over": true},
 	{"slot": "torso", "over": true},
@@ -384,6 +365,10 @@ static var _authored_rigs: Array[String] = []
 # whole, because the draw loop asks a family for one member by name (`frame_key`) and an overlay
 # family which side of the body it goes on in one view (`layer_over`).
 static var _families: Dictionary = {}
+# `{held key: Vector2i}` -- every authored key of kind `pack_held`, and the pixel of its picture
+# that lands on the hand: authored.json's copy of the pack manifest's `grip`, floored to the
+# pixel it falls in.
+static var _held: Dictionary = {}
 static var _authored_read: bool = false
 
 
@@ -407,6 +392,7 @@ static func _read_authored() -> void:
 	_authored = {}
 	_authored_rigs = []
 	_families = {}
+	_held = {}
 	if not FileAccess.file_exists(AUTHORED_PATH):
 		return
 	var text: String = FileAccess.get_file_as_string(AUTHORED_PATH)
@@ -427,6 +413,9 @@ static func _read_authored() -> void:
 		_authored[String(key)] = shape
 		if String((entry as Dictionary).get("kind", "")) == "rig":
 			_authored_rigs.append(String(key))
+		var grip: Variant = (entry as Dictionary).get("grip")
+		if String((entry as Dictionary).get("kind", "")) == "pack_held" and grip is Array and (grip as Array).size() == 2:
+			_held[String(key)] = Vector2i(floori(float((grip as Array)[0])), floori(float((grip as Array)[1])))
 		# A family: `members` names several keys that each draw from their own file at the
 		# family's own canvas (docs/30, "The outpost pack, adopted"). The family key itself is
 		# never a file -- `canvas_of(family_key)` still answers, from the assignment above, but
@@ -898,8 +887,7 @@ static func walk_frame(tick: int, fps: int, frames: int, phase: int) -> int:
 
 
 # The one picture a body draws: the member of its family for this view, walking or standing, or
-# the key itself for anything that does not turn (the generated screamer and bloater, and every
-# face-on overlay).
+# the key itself for anything that does not turn (the generated screamer and bloater).
 static func frame_key(key: String, view: String, moving_now: bool, tick: int, phase: int) -> String:
 	if not turns(key):
 		return key
@@ -948,13 +936,102 @@ static func flip_for(key: String, facing: float) -> float:
 
 # Whether an overlay family's picture for `view` goes over the body: the pack manifest's own
 # `z_by_direction`, copied into authored.json as `z`, and below zero is behind -- the backpack seen
-# from the side. A key that is no family, or a view its `z` does not list, is over.
-static func layer_over(key: String, view: String) -> bool:
+# from the side. A key that is no family, or a view its `z` does not list, takes `fallback`: the
+# slot's own side from EQUIP_DRAW_ORDER.
+static func layer_over(key: String, view: String, fallback: bool = true) -> bool:
 	_read_authored()
 	if not _families.has(key):
-		return true
+		return fallback
 	var z: Dictionary = (_families[key] as Dictionary)["z"] as Dictionary
-	return int(z.get(view, 0)) >= 0
+	if not z.has(view):
+		return fallback
+	return int(z[view]) >= 0
+
+
+# --- the weapon in the hand -------------------------------------------------------------------
+#
+# "Held weapons in the hand" (docs/23, 2026-09-26; docs/30, "The whole outpost pack"): the pack's
+# held weapons are one picture each, drawn facing east at their own canvas with a grip point, and
+# a four-direction body holds one at a hand point per view. The picture is turned to the view by
+# the draw call's own flags rather than by a transform (the entity loop holds none; check_topdown's
+# flip lane counts them): east as painted, south and north a quarter turn either way through
+# `draw_texture_rect`'s `transpose`, and west the east picture mirrored, so the weapon stays upright
+# the way the pack's own preview holds it. The body never mirrors (`flip_for`); only the weapon
+# does, and only facing west. Everything here is in body-canvas pixels, top-left origin, on the
+# pack survivor's 32x40 crop.
+
+# Where each hand is, per view: the pixel of the body the grip lands on, measured off the pack
+# survivor's idle views (the lightest skin pixel at the end of each arm). The primary is the weapon
+# hand -- the figure's right hand seen from the front and the back, and the near, visible hand seen
+# from either side; the secondary is the other one. `check_worn.gd`'s HELD lane holds every point
+# to a solid pixel of the body it is drawn on, so a point that drifts off the arm goes red. The
+# walk frames swing the arms and the hand points stay the idle ones -- the same fit-to-idle the
+# pack's own wearables have, named in docs/23's record rather than hidden.
+const HELD_HANDS: Dictionary = {
+	"primary": {"e": Vector2i(18, 31), "s": Vector2i(9, 30), "w": Vector2i(14, 31), "n": Vector2i(23, 30)},
+	"secondary": {"e": Vector2i(11, 30), "s": Vector2i(22, 30), "w": Vector2i(21, 30), "n": Vector2i(9, 30)},
+}
+# The views in which a hand is behind the body, so what it holds draws under it: both hands seen
+# from behind, and the far hand seen from either side.
+const HELD_BEHIND: Dictionary = {
+	"primary": ["n"],
+	"secondary": ["e", "w", "n"],
+}
+
+
+# Whether `key` is a held weapon: an authored key of kind `pack_held` with a grip.
+static func holds(key: String) -> bool:
+	if key.is_empty():
+		return false
+	_read_authored()
+	return _held.has(key)
+
+
+# The pixel of a held picture that lands on the hand, or (-1, -1) for a key that is not held.
+static func grip_of(key: String) -> Vector2i:
+	_read_authored()
+	return _held.get(key, Vector2i(-1, -1)) as Vector2i
+
+
+# How a held picture `size` px, gripped at `grip`, is drawn so the grip pixel lands on `hand` in
+# `view`: `at` is the top-left of the painted area, `size` the rect draw_texture_rect is handed,
+# in the picture's own orientation (Godot swaps it when `transpose` is set) and signed -- a negative
+# width mirrors the painted x, a negative height its y -- and `transpose` the flag. Probed in 4.7.1
+# with a real renderer before it was written: a transposed rect paints |h| wide and |w| tall from
+# its position, pixel (u, v) at (v, u), and each sign flips the painted axis in place.
+#   e  as painted                (u, v) -> (u, v)
+#   w  mirrored                  (u, v) -> (w-1-u, v)
+#   s  a quarter turn clockwise  (u, v) -> (h-1-v, u)     barrel down, towards the camera
+#   n  a quarter turn back       (u, v) -> (v, w-1-u)     barrel up, away from it
+static func held_pose(size: Vector2i, grip: Vector2i, hand: Vector2i, view: String) -> Dictionary:
+	var w: int = size.x
+	var h: int = size.y
+	match view:
+		"w":
+			return {"at": Vector2i(hand.x - (w - 1 - grip.x), hand.y - grip.y), "size": Vector2i(-w, h), "transpose": false}
+		"s":
+			return {"at": Vector2i(hand.x - (h - 1 - grip.y), hand.y - grip.x), "size": Vector2i(-w, h), "transpose": true}
+		"n":
+			return {"at": Vector2i(hand.x - grip.y, hand.y - (w - 1 - grip.x)), "size": Vector2i(w, -h), "transpose": true}
+	return {"at": Vector2i(hand.x - grip.x, hand.y - grip.y), "size": Vector2i(w, h), "transpose": false}
+
+
+# The layer a held weapon draws in `slot` for `view`, or {} when the key is not held or the slot has
+# no hand. Its side is the hand's (`HELD_BEHIND`); EQUIP_DRAW_ORDER's own `over` is folded in by
+# the caller.
+static func held_layer(key: String, slot: String, view: String) -> Dictionary:
+	if not holds(key) or not HELD_HANDS.has(slot):
+		return {}
+	var hands: Dictionary = HELD_HANDS[slot] as Dictionary
+	if not hands.has(view):
+		return {}
+	var texture: Texture2D = resolve(key)
+	if texture == null:
+		return {}
+	var pose: Dictionary = held_pose(Vector2i(texture.get_size()), grip_of(key), hands[view] as Vector2i, view)
+	pose["texture"] = texture
+	pose["over"] = not (HELD_BEHIND.get(slot, []) as Array).has(view)
+	return pose
 
 
 # The props that stand in a district, as component -> content id.
@@ -1028,21 +1105,16 @@ static func prop_of(world: Variant, id: String) -> Dictionary:
 	}
 
 
-# Textures for whatever this entity has equipped in a slot the renderer draws, walked in
-# EQUIP_DRAW_ORDER, each tagged with which side of the body draw call it goes on. A slot with
-# nothing equipped, an item with no equipSprite, or an entity with no equipment component at all
-# (zombies) all fall out silently -- equipment is optional the same way a sprite is. An under-body
-# item may also carry a front piece (straps crossing the torso) -- that piece is always an
-# over-body layer, independent of its slot's own default, because "in front of the body" is a
-# property of the strap, not of the slot it hangs from.
-#
-# `view` is the view the body under it shows (`body_view`), the rest view when omitted. A wearable
-# that turns -- the pack's vest, helmet, gas mask and backpack -- draws its member for that view,
-# over or under by the pack's own per-view layering (`layer_over`). A face-on overlay, and every
-# front piece and fitted part with it, draws on the rest view only: a picture drawn from the front
-# cannot fit a body seen from the side or the back, so on those views it is not drawn at all. That
-# is the half of "The bodies turn and walk" left to "Pack gear on the body" (docs/23), which
-# retires the face-on overlays; until it lands a jacket or a held weapon shows only facing south.
+# Each worn piece, in EQUIP_DRAW_ORDER, for a body showing `view`. A wearable family that turns --
+# the pack's vest, helmet, gas mask and backpack -- draws its member for that view, at the body's
+# own rect, over or under by the pack's own per-view layering (`layer_over`). A held weapon -- the
+# pack's `item_held_*` -- draws at its hand for that view (`held_layer`), and its layer carries
+# `at`, `size` and `transpose` so the draw loop can place and turn it. Nothing else draws: since
+# "Pack gear on the body" (2026-09-26) there is no face-on overlay left to draw, and a key of any
+# other shape -- the retired `_equip` overlays among them -- composes nothing, in every view. That
+# is the gap the owner accepted (docs/30, "The whole outpost pack"): a jacket, a cap, trousers or
+# the duffel worn shows nothing on the body until four-sided art exists, and the inventory and the
+# inspect pane still say it is worn.
 static func equipment_layers_for(world: Variant, actor: int, view: String = VIEW_REST) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	if world == null or world.components == null:
@@ -1051,63 +1123,21 @@ static func equipment_layers_for(world: Variant, actor: int, view: String = VIEW
 	if not (eq is Dictionary):
 		return out
 	var slots: Dictionary = (eq as Dictionary).get("slots", {}) as Dictionary
-	var face_on: bool = view == VIEW_REST
 	for entry in EQUIP_DRAW_ORDER:
-		var block: Variant = _equip_block_for(world, slots.get(String(entry["slot"])))
+		var slot: String = String(entry["slot"])
+		var block: Variant = _equip_block_for(world, slots.get(slot))
 		if not (block is Dictionary):
 			continue
 		var key: String = String((block as Dictionary).get("equipSprite", ""))
 		if turns(key):
 			var turned: Texture2D = resolve("%s_%s" % [key, view])
 			if turned != null:
-				out.append({"texture": turned, "over": layer_over(key, view)})
-		elif face_on:
-			var texture: Texture2D = _resolve_equip_key(block as Dictionary, "equipSprite")
-			if texture != null:
-				out.append({"texture": texture, "over": bool(entry["over"])})
-		if not face_on:
-			continue
-		var front: Texture2D = _resolve_equip_key(block as Dictionary, "equipSpriteFront")
-		if front != null:
-			out.append({"texture": front, "over": true})
-		# What is bolted to it, after the weapon itself and always over: a can screws onto the end
-		# of a barrel that is already drawn. Slot-sorted, the same determinism rule the fold uses.
-		out.append_array(_part_layers_for(world, slots.get(String(entry["slot"])), block as Dictionary))
-	return out
-
-
-# Overlays for the parts fitted to a held weapon, offset to where that weapon actually keeps them.
-#
-# The offset is the whole reason this is not just another `equipSprite`. Every gear overlay in the
-# pipeline shares one anchor -- the hand -- which is what lets one picture fit all eight rigs. A
-# *part* does not hang off the hand: a suppressor goes on a muzzle, and the muzzle of a pistol and
-# the muzzle of a rifle are nowhere near each other on a 32x40 canvas. So the host declares where
-# each of its slots sits (`appearance.partAnchors`) and the part is drawn once and moved there.
-# One picture per part, still no per-rig variants, and adding a part is still a data edit.
-static func _part_layers_for(world: Variant, item: Variant, host_block: Dictionary) -> Array[Dictionary]:
-	var out: Array[Dictionary] = []
-	if item == null:
-		return out
-	var fitted: Variant = world.components.get_component(int(item), "attachments")
-	if not (fitted is Dictionary):
-		return out
-	var slots: Dictionary = (fitted as Dictionary).get("slots", {}) as Dictionary
-	var names: Array = slots.keys()
-	names.sort()
-	var anchors: Variant = host_block.get("partAnchors")
-	for name in names:
-		var block: Variant = _equip_block_for(world, slots[name])
-		if not (block is Dictionary):
-			continue
-		var texture: Texture2D = _resolve_equip_key(block as Dictionary, "attachmentSprite")
-		if texture == null:
-			continue
-		var offset: Vector2 = Vector2.ZERO
-		if anchors is Dictionary:
-			var at: Variant = (anchors as Dictionary).get(String(name))
-			if at is Dictionary:
-				offset = Vector2(float((at as Dictionary).get("x", 0.0)), float((at as Dictionary).get("y", 0.0)))
-		out.append({"texture": texture, "over": true, "offset": offset})
+				out.append({"texture": turned, "over": layer_over(key, view, bool(entry["over"]))})
+		elif holds(key):
+			var held: Dictionary = held_layer(key, slot, view)
+			if not held.is_empty():
+				held["over"] = bool(held["over"]) and bool(entry["over"])
+				out.append(held)
 	return out
 
 
@@ -1127,12 +1157,6 @@ static func _equip_block_for(world: Variant, item: Variant) -> Variant:
 		return null
 	var block: Variant = (entry as Dictionary).get("appearance")
 	return block if block is Dictionary else null
-
-
-static func _resolve_equip_key(block: Dictionary, key: String) -> Texture2D:
-	if not block.has(key):
-		return null
-	return resolve(String(block[key]))
 
 
 # The rule for what colour multiplies a drawn entity, named so it can be asserted without

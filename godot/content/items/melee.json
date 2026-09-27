@@ -7,7 +7,7 @@
     "size": { "w": 1, "h": 2 },
     "massKg": 0.2,
     "equipSlot": "primary",
-    "appearance": { "sprite": "item_kitchen_knife", "equipSprite": "item_knife_kitchen_equip" },
+    "appearance": { "sprite": "item_kitchen_knife", "equipSprite": "item_held_kitchen_knife" },
     "slots": ["edge", "wrap"],
     "melee": { "reachMetres": 0.9, "weight": 0.6, "damage": 9, "staggerTicks": 4 }
   },
@@ -19,7 +19,6 @@
     "size": { "w": 1, "h": 3 },
     "massKg": 0.7,
     "equipSlot": "primary",
-    "appearance": { "equipSprite": "item_machete_rusted_equip" },
     "slots": ["edge", "wrap"],
     "melee": { "reachMetres": 1.2, "weight": 0.8, "damage": 11, "staggerTicks": 5 }
   },
@@ -31,7 +30,6 @@
     "size": { "w": 1, "h": 3 },
     "massKg": 2.1,
     "equipSlot": "primary",
-    "appearance": { "equipSprite": "item_pipe_steel_equip" },
     "slots": ["wrap"],
     "melee": { "reachMetres": 1.2, "weight": 1.3, "damage": 10, "staggerTicks": 14 }
   },
@@ -43,7 +41,6 @@
     "size": { "w": 1, "h": 4 },
     "massKg": 1.0,
     "equipSlot": "primary",
-    "appearance": { "equipSprite": "item_bat_aluminium_equip" },
     "slots": ["haft", "wrap"],
     "melee": { "reachMetres": 1.4, "weight": 1.2, "damage": 11, "staggerTicks": 16 }
   },
@@ -55,7 +52,6 @@
     "size": { "w": 1, "h": 5 },
     "massKg": 0.25,
     "equipSlot": "primary",
-    "appearance": { "equipSprite": "item_spear_improvised_equip" },
     "slots": ["head", "haft"],
     "requiredSlots": ["head"],
     "defaultParts": {
@@ -72,7 +68,6 @@
     "size": { "w": 2, "h": 4 },
     "massKg": 2.05,
     "equipSlot": "primary",
-    "appearance": { "equipSprite": "item_axe_fire_equip" },
     "slots": ["head", "haft", "wrap"],
     "requiredSlots": ["head", "haft"],
     "defaultParts": {
@@ -89,7 +84,6 @@
     "size": { "w": 2, "h": 5 },
     "massKg": 5.25,
     "equipSlot": "primary",
-    "appearance": { "equipSprite": "item_sledge_demolition_equip" },
     "slots": ["head", "haft", "wrap"],
     "requiredSlots": ["head", "haft"],
     "defaultParts": {
@@ -106,7 +100,7 @@
     "size": {"w": 1, "h": 3},
     "massKg": 2.3,
     "equipSlot": "primary",
-    "appearance": {"sprite": "item_crowbar", "equipSprite": "item_crowbar_steel_equip"},
+    "appearance": {"sprite": "item_crowbar", "equipSprite": "item_held_crowbar"},
     "slots": ["wrap"],
     "melee": {"reachMetres": 1.1, "weight": 1.1, "damage": 10, "staggerTicks": 12}
   },
@@ -118,7 +112,7 @@
     "size": {"w": 1, "h": 2},
     "massKg": 0.9,
     "equipSlot": "primary",
-    "appearance": {"sprite": "item_hatchet", "equipSprite": "item_hatchet_camp_equip"},
+    "appearance": {"sprite": "item_hatchet", "equipSprite": "item_held_hatchet"},
     "slots": ["edge", "haft", "wrap"],
     "melee": {"reachMetres": 1.0, "weight": 0.8, "damage": 12, "staggerTicks": 6}
   },
@@ -130,7 +124,6 @@
     "size": {"w": 1, "h": 2},
     "massKg": 0.7,
     "equipSlot": "primary",
-    "appearance": {"equipSprite": "item_hammer_claw_equip"},
     "slots": ["haft", "wrap"],
     "melee": {"reachMetres": 0.9, "weight": 0.7, "damage": 8, "staggerTicks": 10}
   },
@@ -142,7 +135,6 @@
     "size": {"w": 1, "h": 3},
     "massKg": 1.8,
     "equipSlot": "primary",
-    "appearance": {"equipSprite": "item_wrench_pipe_equip"},
     "slots": ["wrap"],
     "melee": {"reachMetres": 1.1, "weight": 1.2, "damage": 10, "staggerTicks": 13}
   },
@@ -154,7 +146,6 @@
     "size": {"w": 1, "h": 2},
     "massKg": 0.6,
     "equipSlot": "primary",
-    "appearance": {"equipSprite": "item_cleaver_butcher_equip"},
     "slots": ["edge", "wrap"],
     "melee": {"reachMetres": 0.9, "weight": 0.7, "damage": 12, "staggerTicks": 3}
   },
@@ -166,7 +157,6 @@
     "size": {"w": 1, "h": 2},
     "massKg": 0.6,
     "equipSlot": "primary",
-    "appearance": {"equipSprite": "item_baton_police_equip"},
     "slots": ["wrap"],
     "melee": {"reachMetres": 1.1, "weight": 0.7, "damage": 7, "staggerTicks": 20}
   },
@@ -178,7 +168,6 @@
     "size": {"w": 1, "h": 4},
     "massKg": 1.9,
     "equipSlot": "primary",
-    "appearance": {"equipSprite": "item_shovel_sharpened_equip"},
     "slots": ["edge", "haft", "wrap"],
     "melee": {"reachMetres": 1.5, "weight": 1.2, "damage": 13, "staggerTicks": 11}
   },
@@ -190,7 +179,6 @@
     "size": {"w": 2, "h": 4},
     "massKg": 2.95,
     "equipSlot": "primary",
-    "appearance": {"equipSprite": "item_axe_splitting_equip"},
     "slots": ["head", "haft", "wrap"],
     "requiredSlots": ["head", "haft"],
     "defaultParts": {
@@ -207,7 +195,6 @@
     "size": {"w": 1, "h": 1},
     "massKg": 0.15,
     "equipSlot": "primary",
-    "appearance": {"equipSprite": "item_pick_ice_equip"},
     "slots": ["edge", "wrap"],
     "melee": {"reachMetres": 0.8, "weight": 0.5, "damage": 7, "staggerTicks": 2}
   },
@@ -219,7 +206,6 @@
     "size": {"w": 1, "h": 4},
     "massKg": 1.1,
     "equipSlot": "primary",
-    "appearance": {"equipSprite": "item_sabre_cavalry_equip"},
     "slots": ["edge", "wrap"],
     "melee": {"reachMetres": 1.5, "weight": 1.0, "damage": 15, "staggerTicks": 4}
   },
@@ -231,7 +217,6 @@
     "size": {"w": 1, "h": 5},
     "massKg": 1.55,
     "equipSlot": "primary",
-    "appearance": {"equipSprite": "item_pitchfork_barn_equip"},
     "slots": ["head", "haft", "wrap"],
     "requiredSlots": ["head", "haft"],
     "defaultParts": {
@@ -248,7 +233,6 @@
     "size": {"w": 1, "h": 4},
     "massKg": 0.35,
     "equipSlot": "primary",
-    "appearance": {"equipSprite": "item_club_golf_equip"},
     "slots": ["haft", "wrap"],
     "melee": {"reachMetres": 1.5, "weight": 0.8, "damage": 7, "staggerTicks": 14}
   }
