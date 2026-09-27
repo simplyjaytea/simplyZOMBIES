@@ -939,7 +939,7 @@ func _draw() -> void:
 	# Control ignores the mouse while closed, so nothing here can eat a click meant for the world.
 	if not _open:
 		if _world != null and not _view.is_empty():
-			QuickStrip.draw_strip(self, QuickStrip.rect_for(view, PAD, STRIP_H), SimInventory.quick_strip_view(_world, _actor), UiPrefs.opacity("inventory_opacity"), _selected, _ping_view())
+			QuickStrip.draw_strip(self, QuickStrip.rect_for(view, PAD, STRIP_H), SimInventory.quick_strip_view(_world, _actor), UiPrefs.opacity("inventory_opacity"), _selected, _ping_view(), _world)
 		return
 	var dim: Color = Chrome.FIELD
 	dim.a = 0.88
@@ -955,8 +955,8 @@ func _draw() -> void:
 		_column_layer.position = area.position
 		_column_layer.size = area.size
 		_column_layer.queue_redraw()
-	InspectPane.draw_pane(self, _inspect_rect(), _inspect_view(), alpha)
-	QuickStrip.draw_strip(self, QuickStrip.rect_for(view, PAD, STRIP_H), SimInventory.quick_strip_view(_world, _actor) if _world != null else [], alpha, _selected, _ping_view())
+	InspectPane.draw_pane(self, _inspect_rect(), _inspect_view(), alpha, _world)
+	QuickStrip.draw_strip(self, QuickStrip.rect_for(view, PAD, STRIP_H), SimInventory.quick_strip_view(_world, _actor) if _world != null else [], alpha, _selected, _ping_view(), _world)
 	ItemMenu.draw_menu(self, _menu_at, _menu_verbs, alpha)
 
 
