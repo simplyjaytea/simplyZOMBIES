@@ -14,21 +14,47 @@ container running** lives in `AGENTS.md`.
 
 ---
 
-## Start here: one arc open, 2026-09-26
+## Start here: the outpost pack nearly done, 2026-09-27
 
-PR #140 merged. The UI arc is closed and the outpost pack is next. **The pickup doc is still
-[`.hermes/plans/2026-09-25_ui-kit-and-outpost-pickup.md`](.hermes/plans/2026-09-25_ui-kit-and-outpost-pickup.md)**
-for the outpost pack's order, workers and measured findings. Its UI half is done.
+The outpost pack's slices ran as supervised Orca workers, each in its own worktree, and merged
+locally to `main` (**not pushed**; no PR is open). On merged `main`, `npm run godot:m2` is
+green at **84 gates in 1805 s** (the chain grew by one, `godot:check:fx`; `CLAUDE.md`'s "83" is
+now one short), with `check:routing`, `check:timing`, `sprites:check` and `npm test` (594) also
+green. docs/23's outpost group and records are the authority; this is only the pointer.
 
-- **The UI Field Kit, live** (docs/23 "UI — the UI Field Kit, live"; docs/30 "The UI Field Kit,
-  live"): all nine pieces landed, the last, **"Saved, picked up, busy"**, on 2026-09-26, gated by
-  `npm run godot:check:ui_skin` → `UI_SKIN_OK` (EVENTS lane). Still owed to the owner:
-  screenshots at 1920×1080 and 1280×720.
-- **The whole outpost pack** (docs/23 "Art & renderer — the outpost pack"; docs/30 "The whole
-  outpost pack, 2026-09-25", the owner's six answers): the pad fix and the needs-assets report
-  landed. Next are **"The bodies turn and walk"** and **"The cars are the pack's, east-west"**.
-  Both were started and stopped uncommitted, so start them fresh. After those: item pictures, the
-  ground, trees, gear, walls (picture round first), effects and the cursor.
+**Landed, each with its record in docs/23:** pack gear on the body and held weapons in the hand
+(10 of 12 weapons); the cursor, and item pictures in the quick strip and inspect pane (the strip
+now fits at 1280, STRIP lane); trees, the bed, the heaps and the nature extras; the ground is the
+pack's (option A: the art-vs-ground guards stay on `GENERATOR_GROUNDS`, shortfalls recorded); the
+shot is seen (`godot:check:fx`, ten lanes).
+
+**Waiting on the owner:**
+
+- **The walls.** The picture round is in
+  [`.hermes/plans/2026-09-27_walls-picture-round/`](.hermes/plans/2026-09-27_walls-picture-round/)
+  (open `compare-closed-a1-a2-b.png` first): A1 pack corners by name, A2 pack corners by shape, B
+  today's generated faces. The pack has no east-west window and a short corner (a cap step). The
+  walls slice lands after the pick.
+- **Ground screenshots** (before/after) are in `.hermes/plans/2026-09-27_ground-pack/`; the
+  worker flagged the undergrowth lattice as worth a look.
+- **UI screenshots** at 1920×1080 and 1280×720, still owed from the UI arc.
+
+**Open, on a branch, not merged:** `simplyjaytea/outpost-furnish-props` (worktree
+`C:/Users/jtf/orca/workspaces/simplyZOMBIES/outpost-furnish-props`). Commit `2f37f6a`
+"Furnishings and container kinds" is committed but its gates were not reported before the session
+ended; "Props for things that exist" is **uncommitted** in that worktree (barricade and work lamp
+pictures; the stove is deliberately not shipped — the pack's is 32×40 and an item icon is 32×32).
+Next session: read that worktree's status, finish or verify, run `godot:m2`, merge.
+
+**Also owed:** `CLAUDE.md`'s chain count and measured time; a push and a PR for everything above.
+
+**How the session ran, for the next coordinator:** Jev's `jev_review` escalated on `test_gap`
+for every slice because its 50 KB cap truncates the gate bodies; the owner's rule for that is
+**probe, then commit** — the worker lists each new behaviour and the lane that fails for it, adds
+any missing lane, and records the Jev result in the commit message. Merging slice branches
+conflicted mostly in `authored.json` (merge its `keys` three-way by key, then hand-join the
+`note`), `check_authored.gd`'s `KINDS`, and `tools/sprites/build.py`'s `MODULES` (each slice
+retired a different generator module). Scan content for duplicate keys after every merge.
 
 ## State, as of 2026-09-16 (the population arc, all thirteen slices)
 
