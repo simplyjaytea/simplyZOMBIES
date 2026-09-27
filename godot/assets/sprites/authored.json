@@ -44,11 +44,21 @@
     "           a body that turns and walks, and a wearable that turns with it -- the outpost",
     "           pack's survivor and shambler, and its vest, helmet, gas mask and backpack.",
     "           `godot:check:authored`'s PACK lane judges both (since 2026-09-26).",
-    "  module / sheet / prop",
-    "           placeholders for the outpost pack's later slices -- wall modules, animated",
-    "           effect sheets, and prop pictures generally. MANIFEST accepts them today; no shape",
-    "           lane judges one yet, and each gains one when the slice that reads it lands",
-    "           (docs/23's 'Art & renderer -- the outpost pack' group).",
+    "  module / sheet",
+    "           placeholders for the outpost pack's later slices -- wall modules and animated",
+    "           effect sheets. MANIFEST accepts them today; no shape lane judges one yet, and",
+    "           each gains one when the slice that reads it lands (docs/23's 'Art & renderer --",
+    "           the outpost pack' group).",
+    "  tree     a tall tree from the outpost pack, standing feet-anchored on its trunk tile in the",
+    "           entity sort (docs/23's 'Trees, the bed and the heaps'). Cropped to the pack's",
+    "           anchor row, never padded, so the picture's last row is the sole line and its",
+    "           width is the canopy's own -- wider than the trunk's tile, which is the amendment",
+    "           to 'one tile wide' docs/30's 'The outpost pack, adopted' makes.",
+    "  prop     a pack picture drawn flat on a tile, under the bodies -- the bed, a heap on a Low",
+    "           tile, a bush or a stump on open ground. Cropped to the anchor row like a tree and",
+    "           hung with its last row on the tile's south edge (`Appearance.hang_rect`); never",
+    "           more than a tile tall. `godot:check:authored`'s PICTURE lane is the shape lane",
+    "           for both `tree` and `prop`.",
     "  vehicle  a parked car's east-west picture, from the outpost pack (docs/23's 'The cars",
     "           are the pack's, east-west'). Cropped to its anchor row, never padded, so the",
     "           renderer's feet anchor is the pack's own. check_wrecks.gd's PACK lane is its",
@@ -61,7 +71,8 @@
     "one loaded -- two bases sharing one icon are both allowed to claim it.",
     "",
     "Optional `anchor: [x, y]` (pixels) and `palette: \"generator\"|\"pack\"` are accepted by",
-    "MANIFEST for later slices to read; nothing draws from either yet.",
+    "MANIFEST. `anchor` has its first reader in PICTURE (a `tree` or `prop` says where it stands and",
+    "the lane holds it to the pack's own); nothing draws from `palette` yet.",
     "",
     "A family that TURNS names its members by one convention, and the renderer finds them by it",
     "(presentation/appearance.gd's `frame_key`): `<family>_<view>` is the picture standing still",
@@ -541,6 +552,69 @@
             ]
           }
         }
+      }
+    },
+    "heap_bags": {
+      "canvas": [
+        32,
+        22
+      ],
+      "kind": "prop",
+      "reads": "dressing.street",
+      "anchor": [
+        16,
+        22
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/prop-trash-bags.png",
+        "crop": [
+          0,
+          0,
+          32,
+          22
+        ]
+      }
+    },
+    "heap_barrel": {
+      "canvas": [
+        24,
+        30
+      ],
+      "kind": "prop",
+      "reads": "dressing.street",
+      "anchor": [
+        12,
+        30
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/prop-barrel.png",
+        "crop": [
+          0,
+          0,
+          24,
+          30
+        ]
+      }
+    },
+    "heap_pallets": {
+      "canvas": [
+        32,
+        30
+      ],
+      "kind": "prop",
+      "reads": "dressing.street",
+      "anchor": [
+        16,
+        30
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/prop-pallet-stack.png",
+        "crop": [
+          0,
+          0,
+          32,
+          30
+        ]
       }
     },
     "item_antibiotics": {
@@ -1238,6 +1312,132 @@
         "path": "art/simplyzombies/groups/items/icons/item-wood-planks.png"
       }
     },
+    "nature_bush": {
+      "canvas": [
+        32,
+        30
+      ],
+      "kind": "prop",
+      "reads": "dressing.street",
+      "anchor": [
+        16,
+        30
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/nature-bush.png",
+        "crop": [
+          0,
+          0,
+          32,
+          30
+        ]
+      }
+    },
+    "nature_log": {
+      "canvas": [
+        48,
+        22
+      ],
+      "kind": "prop",
+      "reads": "dressing.street",
+      "anchor": [
+        24,
+        22
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/nature-fallen-log.png",
+        "crop": [
+          0,
+          0,
+          48,
+          22
+        ]
+      }
+    },
+    "nature_reeds": {
+      "canvas": [
+        24,
+        30
+      ],
+      "kind": "prop",
+      "reads": "dressing.street",
+      "anchor": [
+        12,
+        30
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/nature-reeds.png",
+        "crop": [
+          0,
+          0,
+          24,
+          30
+        ]
+      }
+    },
+    "nature_rock": {
+      "canvas": [
+        32,
+        22
+      ],
+      "kind": "prop",
+      "reads": "dressing.street",
+      "anchor": [
+        16,
+        22
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/nature-rock-cluster.png",
+        "crop": [
+          0,
+          0,
+          32,
+          22
+        ]
+      }
+    },
+    "nature_stump": {
+      "canvas": [
+        24,
+        22
+      ],
+      "kind": "prop",
+      "reads": "dressing.street",
+      "anchor": [
+        12,
+        22
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/nature-stump.png",
+        "crop": [
+          0,
+          0,
+          24,
+          22
+        ]
+      }
+    },
+    "prop_bed": {
+      "canvas": [
+        48,
+        30
+      ],
+      "kind": "prop",
+      "reads": "prop.bed",
+      "anchor": [
+        24,
+        30
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/prop-bed.png",
+        "crop": [
+          0,
+          0,
+          48,
+          30
+        ]
+      }
+    },
     "prop_container": {
       "canvas": [
         32,
@@ -1258,6 +1458,69 @@
       "reads": "prop.container.searched",
       "source": {
         "path": "art/simplyzombies/groups/props/native/prop-wood-crate-empty.png"
+      }
+    },
+    "tree_broadleaf": {
+      "canvas": [
+        80,
+        94
+      ],
+      "kind": "tree",
+      "reads": "dressing.street",
+      "anchor": [
+        40,
+        94
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/nature-broadleaf.png",
+        "crop": [
+          0,
+          0,
+          80,
+          94
+        ]
+      }
+    },
+    "tree_dead": {
+      "canvas": [
+        64,
+        94
+      ],
+      "kind": "tree",
+      "reads": "dressing.street",
+      "anchor": [
+        32,
+        94
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/nature-dead-tree.png",
+        "crop": [
+          0,
+          0,
+          64,
+          94
+        ]
+      }
+    },
+    "tree_pine": {
+      "canvas": [
+        64,
+        94
+      ],
+      "kind": "tree",
+      "reads": "dressing.street",
+      "anchor": [
+        32,
+        94
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/nature-pine.png",
+        "crop": [
+          0,
+          0,
+          64,
+          94
+        ]
       }
     },
     "vehicle_sedan_intact_ew": {

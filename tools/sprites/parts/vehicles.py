@@ -11,10 +11,10 @@ at the pack's own measured rows.
 
 docs/30's Dungeon Settlers decision 11 retires the per-tile segment set for cars. A vehicle is
 **one picture**, feet-anchored on its footprint's south edge and y-sorted with the bodies and
-the trees exactly as `parts/trees.py` hangs a conifer on its trunk tile -- so a survivor walking
+the trees exactly as `main.gd::_blit_tree` hangs a conifer on its trunk tile -- so a survivor walking
 past a sedan passes in front of it or behind it, rather than through the seam between two tiles
-of it. The segment convention and its join rules retired with the nine `wreck_car_*` keys;
-`parts/wrecks.py` keeps it only for the low heaps, which are one tile and never join anything.
+of it. The segment convention and its join rules retired with the nine `wreck_car_*` keys, and the low heaps that
+kept it after that are the outpost pack's now, so no module here joins anything.
 
 **Two pictures a variant, not one turned.** A car seen end-on and a car seen from the side are
 different pictures, not the same picture rotated, so every class ships `_ns` (nose **north**,

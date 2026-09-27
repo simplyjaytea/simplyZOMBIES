@@ -336,7 +336,18 @@ func _props_reach_the_draw_path() -> bool:
 		if not draw_prop.contains('"%s"' % shape):
 			push_error("_draw_prop draws no '%s'; content can ask for a shape nothing renders" % shape)
 			return false
-	print("PROPS OK %d props stood and resolved (%s), %d shapes drawn, states distinguishable" % [props, str(found), Appearance.PROP_SHAPES.size()])
+	# A picture that is not a tile square hangs by Appearance.hang_rect and one that is centres:
+	# the bed's 48x30 and the crate's 32x32 are the two cases, and both branches have to be there.
+	if not draw_prop.contains("Appearance.hang_rect(") or not draw_prop.contains("Appearance.anchor_of("):
+		push_error("_draw_prop does not hang a non-square picture by hang_rect after asking anchor_of; the bed would draw squashed into a tile")
+		return false
+	if not draw_prop.contains("tex_size / 2.0"):
+		push_error("_draw_prop lost the centred branch a tile-square picture takes")
+		return false
+	if draw_prop.contains("Vector2(zoom, zoom)"):
+		push_error("_draw_prop still draws art into a zoom x zoom square; a pack picture is drawn at its own size")
+		return false
+	print("PROPS OK %d props stood and resolved (%s), %d shapes drawn, states distinguishable, a non-square picture hung by hang_rect and a square one centred" % [props, str(found), Appearance.PROP_SHAPES.size()])
 	return true
 
 

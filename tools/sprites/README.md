@@ -41,10 +41,9 @@ lives in the repo, in the same commit as its first key, and `--check` keeps it h
 | `draw.py` | pixel primitives; `Canvas(w, h, origin)` carries a centre or a feet origin |
 | `parts/characters.py` | the eight rigs, the published skeleton, the `REGISTRY` naming them |
 | `parts/gear.py` | the thirty-one equip overlays (sixteen from the worn slice, fifteen from the gear catalogue), generated against the published skeleton |
-| `parts/props.py` | the seven district props, each authored to its content entry's footprint |
-| `parts/wrecks.py` | the low heaps a bare Low tile draws, and the debris scatter |
+| `parts/props.py` | the fire pit (cold and lit), the well and the latrine, each authored to its content entry's footprint |
+| `parts/wrecks.py` | the debris scatter (the low heaps are the outpost pack's since 2026-09-26) |
 | `parts/edges.py` | the ground's edge cells, eight fringes a row, pasted into the atlas |
-| `parts/trees.py` | the three tall conifers, feet-anchored on the tree canvas |
 | `parts/buildings.py` | wall caps and faces, roof sheets and the door, window and garage overlays |
 | `parts/vehicles.py` | the sedan, the van and the truck, three variants x two axes each; merges the light classes' tables |
 | `parts/light_vehicles.py` | the bicycle, the e-bike, the e-scooter, the kick scooter and the skateboard, under the cars' camera |
@@ -90,13 +89,13 @@ exactly what it does on a person who turns round, which was not true when a rig 
 
 - **Several canvases, one table.** `draw.SIZE` (32) is still the one tile-square number Python
   holds — `presentation/camera.gd`'s `ART_NATIVE` is the engine's copy, and the two gates
-  cross-check. A tile-sized picture seen from above — a prop, a tile-art key, a heap, a scrap of
+  cross-check. A tile-sized picture seen from above — a prop, a tile-art key, a scrap of
   debris — renders on `Canvas(SIZE, SIZE, origin="centre")`; every body and every equip overlay
   renders on `Canvas(characters.PAWN_W, characters.PAWN_H, origin="feet")` — 32×40, one tile
-  wide and one and a quarter tall (32×48 until the squat pawn of 2026-09-08); a tree on `trees.TREE_W/TREE_H` (32×96) and a vehicle on the
+  wide and one and a quarter tall (32×48 until the squat pawn of 2026-09-08); a vehicle on the
   canvas `vehicles.canvas_ns()`/`canvas_ew()` derive from its class's footprint (a sedan 64×192
   or 160×96, a van 64×224 or 192×96, a truck 64×256 or 224×96), all feet-anchored the same
-  way. `build.py`'s `CANVAS` table, `PAWN_KEYS`, `trees.TREE_KEYS` and `vehicles.CANVASES`
+  way. `build.py`'s `CANVAS` table, `PAWN_KEYS` and `vehicles.CANVASES`
   mirror `Appearance.canvas_of` and its own tables — two copies because Python cannot read
   GDScript, the same standing arrangement as `SIZE` — and `check_appearance.gd` measures every
   committed PNG against the engine's copy every build.

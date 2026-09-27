@@ -86,8 +86,21 @@ extends SceneTree
 #             `godot:check:appearance`'s ITEMS lane. TN: five fabrications -- speck-only, a
 #             corner-flush picture, a real pixel in a corner, a wrong size, a wrong anchor -- and
 #             one control, a centred picture with a speck in the corner, which must pass.
+#   PICTURE   every authored key of kind `tree` or `prop` -- the outpost pack's trees, the bed, the
+#             heaps and the nature dressing (docs/23, "Trees, the bed and the heaps" and "Nature
+#             extras") -- is cut from a pack asset to its anchor row: `crop` is exactly
+#             [0, 0, width, anchor row], no pixel at or above ALPHA_SOLID is dropped, the
+#             picture's last row is drawn (it stands on its ground line), it has at least
+#             PICTURE_MIN_SOLID drawn pixels, its declared `anchor` is the pack's own carried into
+#             the crop and sits at the bottom centre, a `prop` is at most a tile tall and 48 wide,
+#             a `tree` is taller than a tile. This is the first reader `anchor` has. TN: a
+#             fabrication per claim, each refused by its own code, and an alpha-6 corner speck
+#             accepted.
 #   READS     the dead-socket lane: every authored key is named by some content entry's
-#             appearance block, and `reads` names one of the ids that actually does -- since
+#             appearance block **or by a dressing block's lists** (`heaps`, `litter`, `rubble`,
+#             `trees.tall`, `nature[].key` -- widened 2026-09-26, because the pack's trees, heaps
+#             and nature pictures are named there and nowhere in an `appearance`), and `reads`
+#             names one of the ids that actually does -- since
 #             2026-09-17 it need not be the *only* one, so two bases sharing an icon can each
 #             claim it (the old last-writer-wins comparison was a latent bug this never shipped a
 #             fixture for). Art nothing draws is the shape this milestone has paid for twelve
@@ -112,16 +125,17 @@ const ContentLoader = preload("res://platform/content_loader.gd")
 
 const AUTHORED_PATH: String = "res://assets/sprites/authored.json"
 
-# `pack_rig`/`pack_overlay`/`module`/`sheet`/`prop` are the outpost pack's kinds (docs/30, "The
-# outpost pack, adopted"). `pack_rig` and `pack_overlay` gained their lane, PACK, with "The bodies
-# turn and walk" (2026-09-26); `module`, `sheet` and `prop` are accepted here and judged by no
+# `pack_rig`/`pack_overlay`/`module`/`sheet`/`prop`/`tree` are the outpost pack's kinds (docs/30,
+# "The outpost pack, adopted"). `pack_rig` and `pack_overlay` gained their lane, PACK, with "The
+# bodies turn and walk" (2026-09-26); `module` and `sheet` are accepted here and judged by no
 # shape lane yet, each gaining one when the slice that reads it lands. `icon` is an inventory
-# picture, judged by ICON since "A picture per item base" (2026-09-26).
+# picture, judged by ICON since "A picture per item base" (2026-09-26); `tree` and `prop` are
+# judged by PICTURE since "Trees, the bed and the heaps" (2026-09-26).
 #
 # `vehicle` is a parked car's east-west picture from the pack (docs/23, "The cars are the pack's,
 # east-west"), and its shape lane lives beside the parking it judges: check_wrecks.gd's PACK lane
 # holds its painted span to the class's `lEw` and its crop to the pack's anchor row.
-const KINDS: Array[String] = ["rig", "overlay", "tile", "icon", "pack_rig", "pack_overlay", "module", "sheet", "prop", "vehicle"]
+const KINDS: Array[String] = ["rig", "overlay", "tile", "icon", "pack_rig", "pack_overlay", "module", "sheet", "prop", "vehicle", "tree"]
 
 # The pack's own spec for the art it ships, read as text and never loaded as a resource (the pack's
 # docs/godot/*.tres are null headless -- the UI kit's trap). PACK compares authored.json's copies of
@@ -152,6 +166,13 @@ const ICON_ALPHA: int = 128
 const ICON_CENTRE_TOLERANCE: int = 2
 # Fewest opaque pixels a picture may have. The smallest of the 48 is the bow's 75.
 const ICON_MIN_OPAQUE: int = 40
+
+# PICTURE (trees and props): the fewest drawn pixels a picture may have -- measured, the smallest
+# is the reeds' 201 -- and the largest a flat `prop` may be: a tile tall, and no wider than the
+# log, the widest the pack draws. A `tree` is taller than a tile.
+const PICTURE_MIN_SOLID: int = 100
+const PICTURE_PROP_MAX_W: int = 48
+const PICTURE_PROP_MAX_H: int = 32
 
 # A member key inside a `members` family, and a sourced entry's own key -- both are a
 # `godot/assets/sprites/<key>.png` basename, so both share the pattern `check_appearance.gd`'s
@@ -216,6 +237,7 @@ func _run() -> void:
 	ok = _no_key_is_in_both_tiers() and ok
 	ok = _every_source_resolves_at_its_declared_canvas() and ok
 	ok = _every_icon_is_a_centred_picture() and ok
+	ok = _every_tree_and_prop_stands_on_its_anchor_row() and ok
 	ok = _every_rig_meets_the_published_bounds() and ok
 	ok = _no_rig_draws_ink_inside_its_silhouette() and ok
 	ok = _every_rig_is_four_tones_a_material() and ok
@@ -223,7 +245,7 @@ func _run() -> void:
 	ok = _the_pack_families_keep_the_packs_own_spec() and ok
 	ok = _authored_art_is_read_by_something() and ok
 	if ok:
-		print("AUTHORED_OK the manifest is well formed, no key is in two tiers, every sourced key resolves at its declared canvas, every rig meets the published bounds, no rig draws ink inside its silhouette, every rig is four tones a material, no highlight covers more than its share, the pack families keep the pack's own spec, every icon is a centred picture, and authored art is read by something")
+		print("AUTHORED_OK the manifest is well formed, no key is in two tiers, every sourced key resolves at its declared canvas, every rig meets the published bounds, no rig draws ink inside its silhouette, every rig is four tones a material, no highlight covers more than its share, the pack families keep the pack's own spec, every icon is a centred picture, every tree and prop is cut to its anchor row, and authored art is read by something, dressing lists included")
 		quit(0)
 	else:
 		push_error("AUTHORED_FAIL")
@@ -427,7 +449,7 @@ func _rule_places(key: String) -> bool:
 		return true
 	if key == Appearance.GROUND_ATLAS_KEY:
 		return true
-	if Appearance.PAWN_KEYS.has(key) or Appearance.TREE_KEYS.has(key):
+	if Appearance.PAWN_KEYS.has(key):
 		return true
 	return Appearance.vehicle_canvas(key) != Vector2i.ZERO
 
@@ -623,6 +645,152 @@ func _every_icon_is_a_centred_picture() -> bool:
 			push_error("the icon predicate accepted %s; it proves nothing" % String(r[0]))
 			return false
 	print("ICON OK %d icons are pictures above alpha %d, centred within %d px, clear of the edge, at the size and anchor the pack's manifest gives; a speck-only image, a corner-flush picture, a corner pixel, a wrong size and a wrong anchor are each refused, and a speck beside a centred picture is not" % [judged, ICON_ALPHA, ICON_CENTRE_TOLERANCE])
+	return true
+
+
+# --- the pictures: trees and props ------------------------------------------------------------
+
+# What is wrong with one tree or prop, as words, or empty when nothing is. `image` is the committed
+# picture, `source` the pack file it is cut from, `crop` and `anchor` are authored.json's, and
+# `manifest_anchor` is the pack manifest's own for that asset. One predicate, so the loop over the
+# shipped keys and the fabrications that prove it go through the same code.
+func _picture_faults(kind: String, image: Image, source: Image, crop: Variant, anchor: Variant, manifest_anchor: Vector2i) -> Array[String]:
+	var out: Array[String] = []
+	var w: int = image.get_width()
+	var h: int = image.get_height()
+	# Cut exactly to the anchor row: from the top-left, the source's width, ending on the pack's
+	# anchor row -- crop, never pad, so the last row is the ground line.
+	var want_crop: Array = [0, 0, source.get_width(), manifest_anchor.y]
+	if not (crop is Array) or (crop as Array).size() != 4 or not _numbers_equal(crop as Array, want_crop):
+		out.append("is cropped %s; a %s is cut %s, the pack's anchor row as its bottom" % [str(crop), kind, str(want_crop)])
+	elif _crop_drops_solid(source, crop as Array):
+		out.append("loses a pixel at or above alpha %d to its crop; only the pack's specks may go" % ALPHA_SOLID)
+	var solid: int = 0
+	var on_last_row: int = 0
+	for y in h:
+		for x in w:
+			if _is_solid(image.get_pixel(x, y)):
+				solid += 1
+				if y == h - 1:
+					on_last_row += 1
+	if solid < PICTURE_MIN_SOLID:
+		out.append("has %d pixels at alpha %d or more, under the %d a picture has" % [solid, ALPHA_SOLID, PICTURE_MIN_SOLID])
+		return out
+	if on_last_row == 0:
+		out.append("draws nothing on its last row; it does not stand on its ground line")
+	# The pack's anchor carried into the crop is [x, anchor row], and after a crop to the anchor row
+	# that is the bottom centre of the canvas.
+	if not (anchor is Array) or (anchor as Array).size() != 2 or not _numbers_equal(anchor as Array, [manifest_anchor.x, h]):
+		out.append("declares anchor %s; the pack's anchor %s cropped to its anchor row is %s" % [str(anchor), str(manifest_anchor), str([manifest_anchor.x, h])])
+	if manifest_anchor.x != w / 2:
+		out.append("the pack anchors it at x %d, not the canvas's middle %d; it would not stand centred on its tile" % [manifest_anchor.x, w / 2])
+	if kind == "prop" and (h > PICTURE_PROP_MAX_H or w > PICTURE_PROP_MAX_W):
+		out.append("is %dx%d; a flat prop is at most %dx%d, a tile tall and no wider than the log" % [w, h, PICTURE_PROP_MAX_W, PICTURE_PROP_MAX_H])
+	if kind == "tree" and h <= PICTURE_PROP_MAX_H:
+		out.append("is %d tall; a tree is taller than a tile" % h)
+	return out
+
+
+# Whether two number lists hold the same values, ints and floats alike -- JSON parses whole
+# numbers as floats.
+func _numbers_equal(a: Array, b: Array) -> bool:
+	if a.size() != b.size():
+		return false
+	for i in a.size():
+		if not (a[i] is float or a[i] is int) or float(a[i]) != float(b[i]):
+			return false
+	return true
+
+
+# A fabricated source: a `w` x `h` canvas with `box` filled opaque, optionally one more pixel.
+func _fab_source(w: int, h: int, box: Rect2i, extra_at: Vector2i = Vector2i(-1, -1), extra_alpha: float = 1.0) -> Image:
+	var image := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0, 0, 0, 0))
+	for y in range(box.position.y, box.end.y):
+		for x in range(box.position.x, box.end.x):
+			image.set_pixel(x, y, Color(0.4, 0.3, 0.2, 1.0))
+	if extra_at.x >= 0:
+		image.set_pixel(extra_at.x, extra_at.y, Color(0.4, 0.3, 0.2, extra_alpha))
+	return image
+
+
+func _every_tree_and_prop_stands_on_its_anchor_row() -> bool:
+	var judged: int = 0
+	var trees: int = 0
+	var props: int = 0
+	var entries: Dictionary = _entries()
+	for key in entries.keys():
+		var entry: Dictionary = entries[key] as Dictionary
+		var kind: String = String(entry.get("kind", ""))
+		if kind != "tree" and kind != "prop":
+			continue
+		var source: Variant = entry.get("source")
+		var image: Image = _image_of(String(key))
+		if image == null or not (source is Dictionary):
+			push_error("PICTURE: %s '%s' has no picture or no source to judge it against" % [kind, String(key)])
+			return false
+		var path: String = String((source as Dictionary).get("path", ""))
+		var asset: Dictionary = _pack_asset(path.get_file().get_basename())
+		var anc: Array = asset.get("anchor", []) as Array
+		if asset.is_empty() or anc.size() != 2:
+			push_error("PICTURE: %s '%s': the pack's manifest has no asset with an anchor for its source '%s'" % [kind, String(key), path])
+			return false
+		var original := Image.new()
+		if original.load("res://%s" % path) != OK:
+			push_error("PICTURE: '%s' does not load" % path)
+			return false
+		var faults: Array[String] = _picture_faults(kind, image, original, (source as Dictionary).get("crop"), entry.get("anchor"), Vector2i(int(anc[0]), int(anc[1])))
+		if not faults.is_empty():
+			push_error("PICTURE: %s '%s' %s" % [kind, String(key), "; ".join(faults)])
+			return false
+		judged += 1
+		if kind == "tree":
+			trees += 1
+		else:
+			props += 1
+	if judged == 0:
+		print("PICTURE SKIPPED no authored key is of kind `tree` or `prop` yet")
+		return true
+
+	# The fabrications. A 32x32 pack file whose picture fills x 2..29, y 6..29 with its anchor at
+	# (16, 30) is the control: cut [0, 0, 32, 30] it is a prop that stands on its last row.
+	var pack_anchor := Vector2i(16, 30)
+	var good_source: Image = _fab_source(32, 32, Rect2i(2, 6, 28, 24))
+	var good_crop: Array = [0, 0, 32, 30]
+	var good_image: Image = good_source.get_region(Rect2i(0, 0, 32, 30))
+	if not _picture_faults("prop", good_image, good_source, good_crop, [16, 30], pack_anchor).is_empty():
+		push_error("PICTURE: the predicate refused a well-cut prop; it would refuse the real ones")
+		return false
+	# A speck in the corner is not a pixel: still accepted, at the named threshold.
+	var specked_source: Image = _fab_source(32, 32, Rect2i(2, 6, 28, 24), Vector2i(0, 0), 6.0 / 255.0)
+	if not _picture_faults("prop", specked_source.get_region(Rect2i(0, 0, 32, 30)), specked_source, good_crop, [16, 30], pack_anchor).is_empty():
+		push_error("PICTURE: the predicate counted an alpha-6 corner speck as a pixel; the pack's pictures would be refused")
+		return false
+	var tall_source: Image = _fab_source(64, 96, Rect2i(9, 6, 46, 88))
+	var tall_image: Image = tall_source.get_region(Rect2i(0, 0, 64, 94))
+	if not _picture_faults("tree", tall_image, tall_source, [0, 0, 64, 94], [32, 94], Vector2i(32, 94)).is_empty():
+		push_error("PICTURE: the predicate refused a well-cut tree; it would refuse the real ones")
+		return false
+	var below: Image = _fab_source(32, 32, Rect2i(2, 6, 28, 26))
+	var refusals: Array = [
+		["an uncropped source", _picture_faults("prop", good_source, good_source, [], [16, 32], pack_anchor)],
+		["a crop that ends a row late", _picture_faults("prop", below.get_region(Rect2i(0, 0, 32, 31)), below, [0, 0, 32, 31], [16, 31], pack_anchor)],
+		["a crop that drops a real pixel", _picture_faults("prop", below.get_region(Rect2i(0, 0, 32, 30)), below, good_crop, [16, 30], pack_anchor)],
+		["a picture floating above its last row", _picture_faults("prop", _fab_source(32, 30, Rect2i(2, 6, 28, 12)), good_source, good_crop, [16, 30], pack_anchor)],
+		["a speck-only picture", _picture_faults("prop", _fab_source(32, 30, Rect2i(0, 0, 0, 0), Vector2i(4, 4), 6.0 / 255.0), good_source, good_crop, [16, 30], pack_anchor)],
+		["an anchor off the bottom centre", _picture_faults("prop", good_image, good_source, good_crop, [16, 20], pack_anchor)],
+		["a pack anchor off the canvas middle", _picture_faults("prop", good_image, good_source, good_crop, [10, 30], Vector2i(10, 30))],
+		["a prop taller than a tile", _picture_faults("prop", _fab_source(32, 40, Rect2i(2, 6, 28, 34)), _fab_source(32, 42, Rect2i(2, 6, 28, 34)), [0, 0, 32, 40], [16, 40], Vector2i(16, 40))],
+		["a prop wider than the log", _picture_faults("prop", _fab_source(64, 30, Rect2i(2, 6, 60, 24)), _fab_source(64, 32, Rect2i(2, 6, 60, 24)), [0, 0, 64, 30], [32, 30], Vector2i(32, 30))],
+		["a tree no taller than a tile", _picture_faults("tree", good_image, good_source, good_crop, [16, 30], pack_anchor)],
+	]
+	for row in refusals:
+		var r: Array = row as Array
+		if (r[1] as Array).is_empty():
+			push_error("PICTURE: the predicate accepted %s; it proves nothing" % String(r[0]))
+			return false
+
+	print("PICTURE OK %d trees and %d props are cut [0, 0, width, the pack's anchor row], drop no pixel at or above alpha %d, draw on their last row, carry the pack's anchor at the bottom centre, and a prop is at most %dx%d; an uncropped source, a late crop, a dropped pixel, a floating picture, a speck-only picture, a wrong anchor, an off-centre pack anchor, an oversized prop and a short tree are each refused, and a corner speck is not" % [trees, props, ALPHA_SOLID, PICTURE_PROP_MAX_W, PICTURE_PROP_MAX_H])
 	return true
 
 
@@ -1357,6 +1525,10 @@ func _keys_content_declares() -> Dictionary:
 			if not (entry_v is Dictionary):
 				continue
 			var entry: Dictionary = entry_v as Dictionary
+			# A dressing entry has no `appearance` block: it names its pictures in lists of its
+			# own, and the pack's trees, heaps and nature pictures are named nowhere else.
+			for dressed in _dressing_keys(entry):
+				_declared_by(out, dressed, String(entry.get("id", "?")))
 			var block: Variant = entry.get("appearance")
 			if not (block is Dictionary):
 				continue
@@ -1375,6 +1547,43 @@ func _keys_content_declares() -> Dictionary:
 					for axis in ["ns", "ew"]:
 						if (variant_v as Dictionary).has(axis):
 							_declared_by(out, String((variant_v as Dictionary)[axis]), String(entry.get("id", "?")))
+	return out
+
+
+# Every picture key a dressing entry names, or [] for an entry that is not one: the lists the
+# dressing schema declares -- `heaps`, `litter`, `rubble` -- plus `trees.tall` and `nature[].key`,
+# and the `walls`/`roofs`/`faces` maps' values. Pure over one entry, so READS can be shown a
+# fabricated dressing block and refuse a key nothing names.
+func _dressing_keys(entry: Dictionary) -> Array[String]:
+	var out: Array[String] = []
+	if not String(entry.get("id", "")).begins_with("dressing."):
+		return out
+	for field in ["heaps", "litter", "rubble"]:
+		var listed: Variant = entry.get(field)
+		if listed is Array:
+			for key in listed as Array:
+				out.append(String(key))
+	var trees: Variant = entry.get("trees")
+	if trees is Dictionary:
+		var tall: Variant = (trees as Dictionary).get("tall")
+		if tall is Array:
+			for key2 in tall as Array:
+				out.append(String(key2))
+	var nature: Variant = entry.get("nature")
+	if nature is Array:
+		for row in nature as Array:
+			if row is Dictionary and (row as Dictionary).has("key"):
+				out.append(String((row as Dictionary)["key"]))
+	for map_field in ["walls", "roofs", "faces"]:
+		var mapped: Variant = entry.get(map_field)
+		if not (mapped is Dictionary):
+			continue
+		for value in (mapped as Dictionary).values():
+			if value is Dictionary:
+				for inner in (value as Dictionary).values():
+					out.append(String(inner))
+			else:
+				out.append(String(value))
 	return out
 
 
@@ -1428,5 +1637,29 @@ func _authored_art_is_read_by_something() -> bool:
 		push_error("the reads predicate refused the first of two sound readers; two bases sharing one icon would fail")
 		return false
 
-	print("READS OK %d authored keys are each named by one of the content entries that declare them" % entries.size())
+	# TN, the dressing widening: a dressing block is read for every list it names a picture in, a
+	# block that is not a dressing entry names nothing (a crate's `heaps` is not a reader), and a
+	# key in none of the lists is not found.
+	var probe: Dictionary = {"id": "dressing.probe", "heaps": ["h_a"], "litter": ["l_a"], "rubble": ["r_a"], "trees": {"tall": ["t_a"]}, "nature": [{"key": "n_a", "surfaces": ["grass"], "rarity": 3}], "walls": {"brick": {"cap": "w_cap", "face": "w_face"}}, "roofs": {"tar": {"flat": "r_flat"}}, "faces": {"door": "f_door"}}
+	var found: Array[String] = _dressing_keys(probe)
+	for want in ["h_a", "l_a", "r_a", "t_a", "n_a", "w_cap", "w_face", "r_flat", "f_door"]:
+		if not found.has(want):
+			push_error("READS: the dressing reader did not find '%s' in a block that names it; a tree, a heap or a nature picture would read as art nothing draws" % want)
+			return false
+	if found.has("nature_bush") or found.has("grass"):
+		push_error("READS: the dressing reader found a key nothing in the probe block names")
+		return false
+	if not _dressing_keys({"id": "prop.crate", "heaps": ["h_a"], "nature": [{"key": "n_a"}]}).is_empty():
+		push_error("READS: an entry that is not a dressing block was read as one; any content entry with a `heaps` list would become a reader")
+		return false
+	# And the shipped block is what the widening is for: every tree, heap and nature picture the
+	# tier declares is read only through it.
+	for pack_key in ["tree_pine", "tree_broadleaf", "tree_dead", "heap_bags", "nature_bush", "nature_log"]:
+		if not entries.has(pack_key):
+			continue
+		if not (declared.get(pack_key, []) as Array).has("dressing.street"):
+			push_error("READS: '%s' is authored and the dressing block does not name it" % pack_key)
+			return false
+
+	print("READS OK %d authored keys are each named by one of the content entries that declare them, dressing lists included (a probe block's heaps, litter, rubble, trees, nature and building maps are all found, and a non-dressing entry's `heaps` is not)" % entries.size())
 	return true

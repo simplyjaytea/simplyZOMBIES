@@ -250,12 +250,12 @@ const EDGE_SHAPES: int = 8
 # tree): it takes no edge and gives none, so a floor beside a wall keeps its own colour to the
 # wall's foot, where the wall's own picture is the edge.
 const ROW_NONE: int = 255
-# The trees: one tall feet-anchored picture per tree tile, one tile wide and three tall, hung on
-# the trunk tile's south-edge centre and y-sorted with the bodies (docs/30, the Dungeon
-# Settlers look, decisions 4 and 9). Named here the way the pawn keys are, because canvas_of is
-# what check_appearance.gd's canvas lanes read; mirrored by tools/sprites/build.py's TREE_KEYS.
-const TREE_KEYS: Array[String] = ["tree_pine_a", "tree_pine_b", "tree_pine_c"]
-const TREE_CANVAS: Vector2i = Vector2i(int(CameraUtil.ART_NATIVE), int(CameraUtil.ART_NATIVE) * 3)
+# The trees are the outpost pack's since 2026-09-26 (docs/23, "Trees, the bed and the heaps"), so
+# they have no canvas rule here: each is an authored key of kind `tree`, cropped to the pack's
+# anchor row, and `canvas_of` answers its own declared size. A canopy is no longer one tile wide
+# (docs/30, "The outpost pack, adopted", amends "one tile wide"), which is why there is no single
+# tree canvas to name -- the pine and the dead tree are 64 across, the broadleaf 80. `Dressing`'s
+# `trees.tall` list is the one place a tree key is named.
 
 # The vehicles: one three-quarter picture per class x variant x axis (docs/30, the Dungeon
 # Settlers look, decision 11). A car seen from the side is a different picture, not a rotation,
@@ -477,8 +477,6 @@ static func canvas_of(key: String) -> Vector2i:
 		return Vector2i((GROUND_VARIANTS + EDGE_SHAPES) * n, GROUND_ROWS * n)
 	if PAWN_KEYS.has(key):
 		return PAWN_CANVAS
-	if TREE_KEYS.has(key):
-		return TREE_CANVAS
 	var vehicle: Vector2i = vehicle_canvas(key)
 	if vehicle != Vector2i.ZERO:
 		return vehicle
@@ -753,6 +751,21 @@ static func for_entity(world: Variant, it: Dictionary) -> Dictionary:
 	return {"texture": texture, "tint": modulate_for(texture != null, declared_tint, tint), "radius": radius, "sprite": sprite_key}
 
 
+# Where a picture lying flat on a tile goes: its last row on the tile's south edge, centred on the
+# tile's centre line, rounded so a 1:1 sprite never lands on a half pixel. `centre_x` is the tile
+# centre's screen x and `south_y` the tile's south edge's screen y; `size` is the texture's screen
+# size (`texture.get_size() * blit_scale`). The bed, a heap on a Low tile and the nature dressing
+# (a bush, a stump, a log) all hang this way, and every one is authored cropped to the pack's
+# anchor row so that the last row *is* the ground line (`godot:check:authored`'s PICTURE lane).
+#
+# Not `body_rect`, on purpose: a body stands on its point with FOOT_DROP_PX of contact shadow
+# below it, which for a thing that fills its own tile would poke three pixels into the tile to the
+# south -- and that tile is drawn after this one, so the overdraw would eat them. A flat picture
+# has no shadow line to stand on; it sits inside its tile.
+static func hang_rect(centre_x: float, south_y: float, size: Vector2) -> Rect2:
+	return Rect2(roundf(centre_x - size.x / 2.0), roundf(south_y - size.y), size.x, size.y)
+
+
 # How many screen pixels one art pixel covers at this zoom. The sprites are authored against
 # an ART_NATIVE px tile (32, CameraUtil); every other zoom step is a power-of-two multiple of
 # it, so the factor is exact and nearest-neighbour stays clean. The resolver above is
@@ -984,6 +997,9 @@ const PROP_KINDS: Array[Dictionary] = [
 const PROP_SHAPES: Array[String] = ["box", "slab", "disc", "ring"]
 const PROP_SHAPE_DEFAULT: String = "box"
 const PROP_SIZE: float = 0.6
+# The largest footprint a prop may declare, in tiles across. One until the outpost pack's bed, which
+# is a tile and a third wide (docs/23, "Trees, the bed and the heaps").
+const PROP_SIZE_MAX: float = 1.5
 
 
 # What one entity looks like standing on the ground, or {} when it is not a prop at all.
@@ -1018,7 +1034,7 @@ static func prop_of(world: Variant, id: String) -> Dictionary:
 	var shape: String = String(block.get("shape", PROP_SHAPE_DEFAULT))
 	if not PROP_SHAPES.has(shape):
 		shape = PROP_SHAPE_DEFAULT
-	var size: float = clampf(float(block.get("size", PROP_SIZE)), 0.1, 1.0)
+	var size: float = clampf(float(block.get("size", PROP_SIZE)), 0.1, PROP_SIZE_MAX)
 	return {
 		"id": id,
 		"texture": texture,
