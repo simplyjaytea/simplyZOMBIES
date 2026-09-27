@@ -2058,6 +2058,27 @@
         ]
       }
     },
+    "prop_barricade": {
+      "canvas": [
+        48,
+        37
+      ],
+      "kind": "standing",
+      "reads": "prop.barricade",
+      "anchor": [
+        24,
+        37
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/utility/native/utility-barricade-intact.png",
+        "crop": [
+          0,
+          0,
+          48,
+          37
+        ]
+      }
+    },
     "prop_bed": {
       "canvas": [
         48,
@@ -2079,6 +2100,48 @@
         ]
       }
     },
+    "prop_chair": {
+      "canvas": [
+        24,
+        30
+      ],
+      "kind": "prop",
+      "reads": "dressing.street",
+      "anchor": [
+        12,
+        30
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/prop-chair.png",
+        "crop": [
+          0,
+          0,
+          24,
+          30
+        ]
+      }
+    },
+    "prop_concrete_barrier": {
+      "canvas": [
+        48,
+        22
+      ],
+      "kind": "prop",
+      "reads": "dressing.street",
+      "anchor": [
+        24,
+        22
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/prop-concrete-barrier.png",
+        "crop": [
+          0,
+          0,
+          48,
+          22
+        ]
+      }
+    },
     "prop_container": {
       "canvas": [
         32,
@@ -2090,6 +2153,50 @@
         "path": "art/simplyzombies/groups/props/native/prop-wood-crate-closed.png"
       }
     },
+    "prop_container_medical": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "prop.container.medical",
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/prop-medical-box-closed.png"
+      }
+    },
+    "prop_container_medical_searched": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "prop.container.medical.searched",
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/prop-medical-box-empty.png"
+      }
+    },
+    "prop_container_metal": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "prop.container.metal",
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/prop-metal-footlocker-closed.png"
+      }
+    },
+    "prop_container_metal_searched": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "prop.container.metal.searched",
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/prop-metal-footlocker-empty.png"
+      }
+    },
     "prop_container_searched": {
       "canvas": [
         32,
@@ -2099,6 +2206,174 @@
       "reads": "prop.container.searched",
       "source": {
         "path": "art/simplyzombies/groups/props/native/prop-wood-crate-empty.png"
+      }
+    },
+    "prop_dumpster": {
+      "canvas": [
+        48,
+        30
+      ],
+      "kind": "prop",
+      "reads": "dressing.street",
+      "anchor": [
+        24,
+        30
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/prop-dumpster.png",
+        "crop": [
+          0,
+          0,
+          48,
+          30
+        ]
+      }
+    },
+    "prop_fence_post": {
+      "canvas": [
+        16,
+        30
+      ],
+      "kind": "prop",
+      "reads": "dressing.street",
+      "anchor": [
+        8,
+        30
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/prop-fence-post.png",
+        "crop": [
+          0,
+          0,
+          16,
+          30
+        ]
+      }
+    },
+    "prop_lamp": {
+      "canvas": [
+        40,
+        44
+      ],
+      "kind": "standing",
+      "reads": "prop.lamp",
+      "anchor": [
+        20,
+        44
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/utility/native/utility-worklamp-on.png",
+        "crop": [
+          0,
+          0,
+          40,
+          44
+        ]
+      }
+    },
+    "prop_lamp_dark": {
+      "canvas": [
+        40,
+        44
+      ],
+      "kind": "standing",
+      "reads": "prop.lamp.dark",
+      "anchor": [
+        20,
+        44
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/utility/native/utility-worklamp-off.png",
+        "crop": [
+          0,
+          0,
+          40,
+          44
+        ]
+      }
+    },
+    "prop_medical_cabinet": {
+      "canvas": [
+        24,
+        30
+      ],
+      "kind": "prop",
+      "reads": "dressing.street",
+      "anchor": [
+        12,
+        30
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/prop-medical-cabinet.png",
+        "crop": [
+          0,
+          0,
+          24,
+          30
+        ]
+      }
+    },
+    "prop_shelf": {
+      "canvas": [
+        40,
+        30
+      ],
+      "kind": "prop",
+      "reads": "dressing.street",
+      "anchor": [
+        20,
+        30
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/prop-shelf.png",
+        "crop": [
+          0,
+          0,
+          40,
+          30
+        ]
+      }
+    },
+    "prop_table": {
+      "canvas": [
+        40,
+        30
+      ],
+      "kind": "prop",
+      "reads": "dressing.street",
+      "anchor": [
+        20,
+        30
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/prop-table.png",
+        "crop": [
+          0,
+          0,
+          40,
+          30
+        ]
+      }
+    },
+    "prop_traffic_cone": {
+      "canvas": [
+        16,
+        22
+      ],
+      "kind": "prop",
+      "reads": "dressing.street",
+      "anchor": [
+        8,
+        22
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/prop-traffic-cone.png",
+        "crop": [
+          0,
+          0,
+          16,
+          22
+        ]
       }
     },
     "tree_broadleaf": {

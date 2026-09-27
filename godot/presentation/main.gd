@@ -193,6 +193,13 @@ var _nature_cache_map: Variant = null
 var _nature_cache_gen: int = -1
 var _nature_cache_seed: int = -1
 var _nature_cache_content: Variant = null
+# The furnishings' picks, kept the same way and emptied by the same four things -- see
+# _furnishing_cache_for.
+var _furnishing_cache: Dictionary = {}
+var _furnishing_cache_map: Variant = null
+var _furnishing_cache_gen: int = -1
+var _furnishing_cache_seed: int = -1
+var _furnishing_cache_content: Variant = null
 # Entity id -> the look a Focal body drew this frame: `{look, texture, equip, flip}`, from
 # `Appearance.for_entity`, `body_texture`, `equipment_layers_for` and `flip_for` at the moment the body
 # was last actually blitted. Presentation-only and never read by the sim -- `_draw_afterimages`
@@ -1252,7 +1259,10 @@ func _draw_district() -> void:
 					# wall no template stamped -- keeps the procedural cap and bands, the
 					# supported fallback and check_topdown.gd's WALL lane's subject.
 					if not _draw_wall_art(rect, dress, tx, ty, false):
-						_draw_solid_tile(rect, col, tx, ty)
+						if live and _scrap_stands_at(tx, ty):
+							_draw_barricade_floor(rect, ground, tx, ty)
+						else:
+							_draw_solid_tile(rect, col, tx, ty)
 				SimTileMap.Tile.Window:
 					# A window is a hole in masonry, so the tile is masonry and the glass is the
 					# pane: the tile colour that used to fill it edge to edge is handed to the
@@ -1370,6 +1380,9 @@ func _draw_district() -> void:
 	# because the log is wider than its tile and the floor drawn beside it would overdraw it;
 	# before the props and the bodies because nothing here is an object anyone can stand behind.
 	_draw_nature(dress, seen, bounds)
+	# The furnishings after the nature and before the props: still dressing, still under everything
+	# that stands, and skipped wherever a real prop stands (docs/23, "Furnishings and container kinds").
+	_draw_furnishings(dress, seen, bounds)
 	# Props last, over the ground and under the bodies _draw_entities sorts: a container, a bed,
 	# a campfire and the well all stood invisible in this district until this call existed.
 	_draw_props()
@@ -1525,6 +1538,45 @@ func _nature_cache_for() -> Dictionary:
 	_nature_cache_seed = int(world.seed)
 	_nature_cache_content = world.content
 	return _nature_cache
+
+
+# The furnishing cache, emptied by the same four things the nature cache is and for the same
+# reason: its picks include the ground test, which a driven car's Low tiles change.
+func _furnishing_cache_for() -> Dictionary:
+	var map: Variant = world.tilemap
+	var gen: int = 0 if map == null else int(map.vehicle_generation)
+	if is_same(map, _furnishing_cache_map) and gen == _furnishing_cache_gen and int(world.seed) == _furnishing_cache_seed and is_same(world.content, _furnishing_cache_content):
+		return _furnishing_cache
+	_furnishing_cache = {}
+	_furnishing_cache_map = map
+	_furnishing_cache_gen = gen
+	_furnishing_cache_seed = int(world.seed)
+	_furnishing_cache_content = world.content
+	return _furnishing_cache
+
+
+# The furnishings, one picture per tile `Dressing.furnishing_tiles_cached` answers: a table, a chair,
+# a shelf and a cabinet indoors, a dumpster, a barrier, a cone and a post outside (docs/23,
+# "Furnishings and container kinds"). Seen tiles only, and never a remembered one, so nothing here
+# is drawn through a wall or where the observer has no sightline. Hung by `Appearance.hang_rect` at
+# the picture's own size, drawn over the nature and under the props and the bodies. A tile a real
+# prop stands on is skipped, so a chair never peeks out from under a container or a bed. Dressing
+# is never sim state: this reads the map and the props' positions and writes nothing, and a body
+# walks across a table and is drawn over it.
+func _draw_furnishings(dress: Dictionary, seen: Variant, bounds: Dictionary) -> void:
+	if dress.is_empty() or seen == null or world.tilemap == null:
+		return
+	var zoom: float = float(camera["zoom"])
+	var px_scale: float = Appearance.blit_scale(zoom)
+	var occupied: Dictionary = Appearance.prop_tiles(world)
+	for pick in Dressing.furnishing_tiles_cached(dress, world.tilemap, seen, int(world.seed), bounds, _furnishing_cache_for()):
+		if occupied.has(Vector2i(int(pick["tx"]), int(pick["ty"]))):
+			continue
+		var texture: Texture2D = Appearance.resolve(String(pick["key"]))
+		if texture == null:
+			continue
+		var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(int(pick["tx"])) + 0.5, float(int(pick["ty"])) + 1.0)
+		draw_texture_rect(texture, Appearance.hang_rect(float(sc["sx"]), float(sc["sy"]), texture.get_size() * px_scale), false)
 
 
 # The nature dressing, one picture per tile `Dressing.nature_tiles_cached` answers: seen tiles only, and
@@ -1922,6 +1974,10 @@ func _draw_props() -> void:
 			if look.is_empty():
 				continue
 			drawn[e] = true
+			# A picture taller than a tile stands in the entity sort (_standing_props), where a body
+			# north of it draws behind it; drawn flat here it would draw under that body.
+			if bool(look.get("standing", false)):
+				continue
 			_draw_prop(look, x, y, zoom)
 
 
@@ -2174,8 +2230,14 @@ func _draw_entities() -> void:
 			var flip: float = Appearance.vehicle_flip(String(rec.get("facing", "")))
 			var v_remembered: bool = not Dressing.vehicle_is_seen(rec, seen)
 			items.append({"kind": "vehicle", "key": vkey, "flip": flip, "sx": float(vsc["sx"]), "sy": float(vsc["sy"]), "d": TopDownProjection.depth_of(gp.x, gp.y), "det": SimVisibility.Detail.Focal, "remembered": v_remembered})
+	# The props taller than a tile -- the scrap barricade, a planted work lamp -- join the same sort
+	# (docs/23, "Props for things that exist"), on seen tiles only.
+	items.append_array(_standing_props(seen))
 	items.sort_custom(func(a, b): return float(a["d"]) < float(b["d"]))
 	for it in items:
+		if String(it.get("kind", "")) == "standing":
+			_blit_standing(it, px_scale)
+			continue
 		if String(it.get("kind", "")) == "tree":
 			_blit_tree(it, px_scale, focal_points)
 			continue
@@ -2595,6 +2657,39 @@ func _blit_tree(it: Dictionary, px_scale: float, focal_points: Array[Vector2]) -
 	if bool(it.get("remembered", false)):
 		tint = Palette.remembered(tint)
 	draw_texture_rect(texture, rect, false, tint)
+
+
+# Whether the tile holds the scrap barricade and the pack's picture for it resolves (the rule is
+# Appearance's, so a gate can judge it headless): the tile branch then draws the floor under it and
+# leaves the barricade to the entity sort.
+func _scrap_stands_at(tx: int, ty: int) -> bool:
+	return Appearance.scrap_stands_at(world, tx, ty)
+
+
+# The floor a standing barricade was raised on -- the tile _draw_district's wall arm draws in
+# place of the procedural slab once _scrap_stands_at and `live` have already said yes.
+func _draw_barricade_floor(rect: Rect2, ground: Color, tx: int, ty: int) -> void:
+	_draw_floor_tile(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground), tx, ty, Appearance.ground_row_for(world.tilemap, tx, ty, false))
+
+
+# The props taller than a tile -- the scrap barricade, a planted work lamp -- as entity-sort items,
+# each on its tile's south-edge centre so a body north of it sorts behind it and one south in front.
+# Which props, on which tiles, is `Appearance.standing_props` (the live seen set and nothing else,
+# inside the visible bounds); this only puts each on the screen.
+func _standing_props(seen: Variant) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for row in Appearance.standing_props(world, seen, TopDownProjection.visible_bounds(camera, 2.0)):
+		var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(row["gx"]), float(row["gy"]))
+		out.append({"kind": "standing", "key": String(row["key"]), "sx": float(sc["sx"]), "sy": float(sc["sy"]), "d": TopDownProjection.depth_of(float(row["gx"]), float(row["gy"])), "det": SimVisibility.Detail.Focal})
+	return out
+
+# One standing prop: its picture on the feet line through the same body_rect a tree and a car use,
+# unflipped, unrotated and drawn white -- the pack painted it and it is not a stand-in for anything.
+func _blit_standing(it: Dictionary, px_scale: float) -> void:
+	var texture: Texture2D = Appearance.resolve(String(it["key"]))
+	if texture == null:
+		return
+	draw_texture_rect(texture, Appearance.body_rect(float(it["sx"]), float(it["sy"]), texture.get_size() * px_scale, 1.0), false)
 
 
 # One parked vehicle: a three-quarter picture standing feet-anchored on its footprint's south-edge

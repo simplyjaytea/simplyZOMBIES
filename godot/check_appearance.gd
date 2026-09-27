@@ -15,10 +15,22 @@ const Palette = preload("res://presentation/palette.gd")
 const ItemGlyph = preload("res://presentation/item_glyph.gd")
 const ItemPicture = preload("res://ui/item_picture.gd")
 const SimCondition = preload("res://sim/condition.gd")
+const SimContainers = preload("res://sim/modules/containers.gd")
+const SimLight = preload("res://sim/modules/light.gd")
+const SimTileMap = preload("res://sim/map/tilemap.gd")
 
 const SPRITE_DIR: String = "res://assets/sprites"
 const HEX := "^#[0-9a-f]{6}$"
 const KEY := "^[a-z0-9_.]+$"
+
+# The whole interface `Appearance.standing_props` asks an observer for: has_tile(tx, ty). A plain
+# dictionary of tiles standing in for SimVisibility, the FakeSeen convention check_trees.gd uses.
+class FakeSeen extends RefCounted:
+	var tiles: Dictionary = {}
+
+	func has_tile(tx: int, ty: int) -> bool:
+		return tiles.has(Vector2i(tx, ty))
+
 
 func _init() -> void:
 	call_deferred("_run")
@@ -35,11 +47,13 @@ func _run() -> void:
 	ok = _art_is_not_modulated_by_a_role_colour() and ok
 	ok = _equipped_gear_layers_resolve() and ok
 	ok = _props_look_like_something() and ok
+	ok = _container_kinds_follow_the_loot_table() and ok
+	ok = _standing_props_come_from_the_pack() and ok
 	ok = _items_look_like_something() and ok
 	ok = _item_pictures_are_real_and_drawn() and ok
 	ok = _the_body_chart_is_ten_parts_in_three_poses() and ok
 	if ok:
-		print("APPEARANCE_OK schema keys resolve, fallback intact, the player has a body, the roster resolves shared and distinct rigs, colonists wear the pack body with six tints, items resolve art or a class glyph, the pack's item pictures are declared, gated and drawn on the floor and the bag plate, the body chart is ten parts in three poses")
+		print("APPEARANCE_OK schema keys resolve, fallback intact, the player has a body, the roster resolves shared and distinct rigs, colonists wear the pack body with six tints, containers draw the kind their loot table names, the barricade and the work lamp are the pack's standing pictures, items resolve art or a class glyph, the pack's item pictures are declared, gated and drawn on the floor and the bag plate, the body chart is ten parts in three poses")
 		quit(0)
 	else:
 		push_error("APPEARANCE_FAIL")
@@ -807,6 +821,8 @@ func _props_look_like_something() -> bool:
 		ids.append(String(kind["id"]))
 		if not String(kind["flag_id"]).is_empty():
 			ids.append(String(kind["flag_id"]))
+		if kind.has("lit_id"):
+			ids.append(String(kind["lit_id"]))
 	if ids.is_empty():
 		push_error("PROP_KINDS is empty -- this lane had nothing to judge")
 		return false
@@ -860,7 +876,7 @@ func _props_look_like_something() -> bool:
 	# The state pairs, compared as pictures rather than as key names: two files called different
 	# things and holding identical pixels would pass every assertion above and still ship a
 	# searched cupboard that looks unsearched.
-	for pair in [["prop.container", "prop.container.searched"], ["prop.campfire", "prop.campfire.lit"]]:
+	for pair in [["prop.container", "prop.container.searched"], ["prop.campfire", "prop.campfire.lit"], ["prop.lamp", "prop.lamp.dark"]]:
 		var a: Dictionary = Appearance.prop_of(w, String((pair as Array)[0]))
 		var b: Dictionary = Appearance.prop_of(w, String((pair as Array)[1]))
 		if a["texture"] == null or b["texture"] == null:
@@ -928,6 +944,479 @@ func _props_look_like_something() -> bool:
 			return false
 
 	print("PROPS OK %d ids, %d with art drawn unstained at their declared footprint (up to %.1f tiles across, the bed's), distinct looks, both state pairs different pictures, the bed hangs on the tile's south edge at every zoom rung and the square props centre, unknown id degrades" % [ids.size(), textured, Appearance.PROP_SIZE_MAX])
+	return true
+
+
+# --- CONTAINERS ---------------------------------------------------------------------------
+
+# What each shipped loot table's containers draw as -- docs/23, "Furnishings and container kinds":
+# the pack's wood crate for a house or a shop, its metal footlocker for a workshop or a cache, its
+# medical box for a clinic. Written out here, not read back off content, so a `tables` map that lost
+# an entry or gained a wrong one is seen; and so a loot table nobody has chosen a picture for is a
+# red lane rather than a quiet wood crate. Two tables share the metal footlocker on purpose: the
+# picture names a *kind* of container, and only the medical box names a single table (docs/01
+# clause 4 -- a seen container looking like what it is is fair; a picture of a rare table alone is
+# not, and the industrial and military tables are not told apart by it).
+const CONTAINER_BASE_ID: String = "prop.container"
+const CONTAINER_EXPECTED: Dictionary = {
+	"residential": "prop.container",
+	"commercial": "prop.container",
+	"medical": "prop.container.medical",
+	"industrial": "prop.container.metal",
+	"military_cache": "prop.container.metal",
+}
+const LOOT_TABLES_PATH: String = "res://content/loot/tables.json"
+const STATIONS_PATH: String = "res://content/props/stations.json"
+const APPEARANCE_GD: String = "res://presentation/appearance.gd"
+const MAIN_GD: String = "res://presentation/main.gd"
+
+
+# One function's source out of a file: from its `func <name>(` line (static or not) to the next
+# top-level declaration, comments taken out so a needle cannot be satisfied by prose.
+func _function_source(path: String, name: String) -> String:
+	var out: String = ""
+	var inside: bool = false
+	for line in FileAccess.get_file_as_string(path).split("\n"):
+		var text: String = String(line)
+		if text.begins_with("func %s(" % name) or text.begins_with("static func %s(" % name):
+			inside = true
+			continue
+		if inside and (text.begins_with("func ") or text.begins_with("static func ") or text.begins_with("const ") or text.begins_with("var ")):
+			break
+		if inside:
+			var at: int = text.find("#")
+			out += (text if at < 0 else text.substr(0, at)) + "\n"
+	return out
+
+
+# The first thing a picture-choosing function may not read, or "": what a box holds, its `items`, its
+# `container` grid, the container module, or its kind word -- the sim's prose, never a picture's key.
+func _reads_contents(source: String) -> String:
+	for forbidden in ["contents_of(", "\"items\"", "get_component(entity, \"container\")", "get_component(entity, \"searchable\")", "SimContainers", "\"kind\""]:
+		if source.contains(String(forbidden)):
+			return String(forbidden)
+	return ""
+
+
+# The first needle a source lacks, or "".
+func _lacks(source: String, needles: Array) -> String:
+	for needle in needles:
+		if not source.contains(String(needle)):
+			return String(needle)
+	return ""
+
+
+# The `prop.container.*` ids in a list of content entries that no rule reaches: not the base, not a
+# table's mapped id and not the searched pair of either. A picture for a container nothing ever draws
+# is the dead-socket shape this milestone has paid for a dozen times.
+func _unreachable_container_ids(ids: Array, tables: Dictionary) -> Array[String]:
+	var reachable: Dictionary = {CONTAINER_BASE_ID: true, CONTAINER_BASE_ID + Appearance.PROP_SEARCHED_SUFFIX: true}
+	for mapped in tables.values():
+		reachable[String(mapped)] = true
+		reachable[String(mapped) + Appearance.PROP_SEARCHED_SUFFIX] = true
+	var out: Array[String] = []
+	for id in ids:
+		if String(id).begins_with(CONTAINER_BASE_ID) and not reachable.has(String(id)):
+			out.append(String(id))
+	return out
+
+
+func _container_kinds_follow_the_loot_table() -> bool:
+	Appearance.forget()
+	var w: Variant = World.new(_fixture())
+	var base: Dictionary = Appearance.entry_of(w, "prop", CONTAINER_BASE_ID)
+	var tables: Variant = base.get("tables")
+	if not (tables is Dictionary) or (tables as Dictionary).is_empty():
+		push_error("CONTAINERS: prop.container declares no `tables` map; container kinds are keyed by nothing")
+		return false
+
+	# --- the rule, table by table ------------------------------------------------------------
+	var shipped: Array[String] = []
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(LOOT_TABLES_PATH))
+	if not (parsed is Array):
+		push_error("CONTAINERS: %s does not parse as a list of loot tables" % LOOT_TABLES_PATH)
+		return false
+	for entry in parsed as Array:
+		var id: String = String((entry as Dictionary).get("id", ""))
+		if id.begins_with("loot."):
+			shipped.append(id.trim_prefix("loot."))
+	shipped.sort()
+	var expected_tables: Array = CONTAINER_EXPECTED.keys()
+	expected_tables.sort()
+	if shipped != expected_tables:
+		push_error("CONTAINERS: the loot tables are %s and the lane names a picture for %s; a table nobody chose a container for draws the wood crate by accident" % [str(shipped), str(expected_tables)])
+		return false
+	for table in CONTAINER_EXPECTED.keys():
+		var got_id: String = Appearance.table_prop_id(w, CONTAINER_BASE_ID, String(table))
+		if got_id != String(CONTAINER_EXPECTED[table]):
+			push_error("CONTAINERS: a '%s' container draws as %s, want %s" % [String(table), got_id, String(CONTAINER_EXPECTED[table])])
+			return false
+	# TN, each through the same function: an unknown table, an empty one, a differently cased one and
+	# a prop that declares no map all answer the id they were handed.
+	for stranger in ["nonsense", "", "Medical", "medical ", "loot.medical"]:
+		if Appearance.table_prop_id(w, CONTAINER_BASE_ID, String(stranger)) != CONTAINER_BASE_ID:
+			push_error("CONTAINERS: the table '%s' is not one and drew as %s, want the wood crate" % [String(stranger), Appearance.table_prop_id(w, CONTAINER_BASE_ID, String(stranger))])
+			return false
+	if Appearance.table_prop_id(w, "prop.well", "medical") != "prop.well":
+		push_error("CONTAINERS: a prop with no `tables` map was re-keyed by a table")
+		return false
+	if Appearance.table_prop_id(null, CONTAINER_BASE_ID, "medical") != CONTAINER_BASE_ID:
+		push_error("CONTAINERS: a world with no content answered a mapped id; it has nothing to map")
+		return false
+	# Every mapped id has both states, and the pictures are six different ones.
+	var seen_pixels: Dictionary = {}
+	for family in [CONTAINER_BASE_ID, "prop.container.metal", "prop.container.medical"]:
+		for state in ["", Appearance.PROP_SEARCHED_SUFFIX]:
+			var look_id: String = String(family) + String(state)
+			var look: Dictionary = Appearance.prop_of(w, look_id)
+			if look["texture"] == null:
+				push_error("CONTAINERS: %s resolves no picture; a container of that kind would be invisible or the wrong one" % look_id)
+				return false
+			# The same footprint and stain rules the PROPS lane holds every other prop to: art drawn as
+			# painted, at the size its content says it was authored to, on a tile-square canvas that
+			# centres (the crate's own rect, so a mapped container moves nothing).
+			if (look["tint"] as Color) != Color.WHITE:
+				push_error("CONTAINERS: %s has art and must draw it unstained; got tint %s" % [look_id, str(look["tint"])])
+				return false
+			var want_px: int = int(round(float(look["size"]) * CameraUtil.ART_NATIVE))
+			var got_px: int = _footprint_px(look["texture"])
+			if absi(got_px - want_px) > FOOTPRINT_SLACK_PX:
+				push_error("CONTAINERS: %s declares size %.2f (%d px of a tile) and its art measures %d px across" % [look_id, float(look["size"]), want_px, got_px])
+				return false
+			if Appearance.anchor_of(Vector2i((look["texture"] as Texture2D).get_size())) != Appearance.Anchor.Centre:
+				push_error("CONTAINERS: %s is not a tile-square picture; _draw_prop would hang it instead of centring it" % look_id)
+				return false
+			var bytes: PackedByteArray = (look["texture"] as Texture2D).get_image().get_data()
+			if seen_pixels.has(bytes):
+				push_error("CONTAINERS: %s draws the same pixels as %s; two kinds or two states you cannot tell apart" % [look_id, String(seen_pixels[bytes])])
+				return false
+			seen_pixels[bytes] = look_id
+	# The dead-socket half: nothing in the stations file is a container picture no rule reaches.
+	var stations: Variant = JSON.parse_string(FileAccess.get_file_as_string(STATIONS_PATH))
+	var listed: Array = []
+	for entry2 in stations as Array:
+		listed.append(String((entry2 as Dictionary).get("id", "")))
+	var stray: Array[String] = _unreachable_container_ids(listed, tables as Dictionary)
+	if not stray.is_empty():
+		push_error("CONTAINERS: %s declares a container picture no table reaches: %s" % [STATIONS_PATH, str(stray)])
+		return false
+	if _unreachable_container_ids(["prop.container.brass"], tables as Dictionary).size() != 1 or not _unreachable_container_ids(["prop.container.metal.searched", "prop.bed"], tables as Dictionary).is_empty():
+		push_error("CONTAINERS: the unreachable-id scanner passed a picture no table reaches, or refused a reachable one")
+		return false
+
+	# --- the real entity path ----------------------------------------------------------------
+	var seen_kinds: Dictionary = {}
+	for table2 in CONTAINER_EXPECTED.keys():
+		var box: int = SimContainers.make_container(w, 3.5, 3.5, "cupboard", String(table2))
+		var closed: Dictionary = Appearance.prop_look(w, box)
+		if String(closed["id"]) != String(CONTAINER_EXPECTED[table2]):
+			push_error("CONTAINERS: a '%s' container drew as %s off the entity path, want %s" % [String(table2), String(closed["id"]), String(CONTAINER_EXPECTED[table2])])
+			return false
+		(w.components.get_component(box, "searchable") as Dictionary)["searched"] = true
+		var opened: Dictionary = Appearance.prop_look(w, box)
+		if String(opened["id"]) != String(CONTAINER_EXPECTED[table2]) + Appearance.PROP_SEARCHED_SUFFIX:
+			push_error("CONTAINERS: a searched '%s' container drew as %s, want the searched picture of its own kind" % [String(table2), String(opened["id"])])
+			return false
+		seen_kinds[String(closed["id"])] = true
+	if seen_kinds.size() != 3:
+		push_error("CONTAINERS: the five tables drew as %s; want the crate, the footlocker and the medical box" % str(seen_kinds.keys()))
+		return false
+	# The kind word is the sim's prose and is never read: a cupboard, a wardrobe and a car boot
+	# stocked from one table are one picture. An unknown table draws the crate, off the entity path too.
+	var by_kind: Dictionary = {}
+	for kind_word in ["cupboard", "wardrobe", "car boot", "supply locker", "ammo crate"]:
+		var b2: int = SimContainers.make_container(w, 4.5, 4.5, String(kind_word), "medical")
+		by_kind[String(Appearance.prop_look(w, b2)["id"])] = true
+	if by_kind.keys() != ["prop.container.medical"]:
+		push_error("CONTAINERS: five kind words stocked from the medical table drew as %s; the picture is the table's and not the word's" % str(by_kind.keys()))
+		return false
+	var odd: int = SimContainers.make_container(w, 5.5, 5.5, "cupboard", "no_such_table")
+	if String(Appearance.prop_look(w, odd)["id"]) != CONTAINER_BASE_ID:
+		push_error("CONTAINERS: a container stocked from an unknown table drew as %s, want the wood crate" % String(Appearance.prop_look(w, odd)["id"]))
+		return false
+
+	# --- clause 4: what the picture may not say ------------------------------------------------
+	# The state is `searched`, the flag the sim writes once and the renderer already showed on every
+	# seen tile -- a colonist's search out of sight included, which is a box you can see standing open
+	# and no new fact. What is *in* a box is not read: a full unsearched box and an empty one are one
+	# picture, and there is no open-with-supplies picture -- a searched box with something still in it
+	# draws as a searched one, because that state would need `contents_of` at a distance.
+	var full: int = SimContainers.make_container(w, 6.5, 6.5, "cupboard", "military_cache")
+	var empty: int = SimContainers.make_container(w, 7.5, 6.5, "cupboard", "military_cache")
+	var stuff: int = int(w.entities.spawn())
+	w.components.set_component(stuff, "stored", {"container": full, "x": 0, "y": 0, "rotated": false})
+	(w.components.get_component(full, "container") as Dictionary)["items"] = [{"item": stuff, "x": 0, "y": 0, "rotated": false}]
+	if SimContainers.contents_of(w, full).is_empty():
+		push_error("CONTAINERS: the fixture put nothing in the box; the contents assertion below judges nothing")
+		return false
+	if String(Appearance.prop_look(w, full)["id"]) != String(Appearance.prop_look(w, empty)["id"]):
+		push_error("CONTAINERS: a box with something in it draws differently from an empty one before it is opened; the picture would tell what is inside")
+		return false
+	(w.components.get_component(full, "searchable") as Dictionary)["searched"] = true
+	(w.components.get_component(empty, "searchable") as Dictionary)["searched"] = true
+	if String(Appearance.prop_look(w, full)["id"]) != String(Appearance.prop_look(w, empty)["id"]):
+		push_error("CONTAINERS: a searched box with something still in it draws differently from an emptied one; that is the open-with-supplies state, which needs the contents at a distance")
+		return false
+	var look_source: String = _function_source(APPEARANCE_GD, "prop_look") + _function_source(APPEARANCE_GD, "table_prop_id")
+	if look_source.strip_edges().is_empty():
+		push_error("CONTAINERS: could not read prop_look and table_prop_id out of %s" % APPEARANCE_GD)
+		return false
+	var read: String = _reads_contents(look_source)
+	if not read.is_empty():
+		push_error("CONTAINERS: prop_look reads %s; a container's picture may say its table and whether it was searched, and nothing it holds" % read)
+		return false
+	for fabricated in ["var n = contents_of(world, entity)", "var held = (comp as Dictionary).get(\"items\", [])", "var box = world.components.get_component(entity, \"container\")", "var k = String((comp as Dictionary).get(\"kind\", \"\"))"]:
+		if _reads_contents(String(fabricated)).is_empty():
+			push_error("CONTAINERS: the contents scanner passed a body that reads what a box holds (%s); it cannot say no" % String(fabricated))
+			return false
+
+	# --- seen tiles only ---------------------------------------------------------------------------
+	# A container draws only where the prop pass already draws: through the observer's own seen set,
+	# never through a wall. The draw pass cannot run headless, so the guard is read as source, in its
+	# place -- before the look is resolved -- and the scanner is shown a body without it first.
+	var draw_props: String = _function_source(MAIN_GD, "_draw_props")
+	var guard: String = "seen != null and not (seen as Object).call(\"has_tile\", floori(x), floori(y))"
+	if draw_props.is_empty() or not draw_props.contains(guard):
+		push_error("CONTAINERS: _draw_props no longer skips a prop on a tile the observer cannot see; a container would draw through a wall")
+		return false
+	if draw_props.find(guard) > draw_props.find("Appearance.prop_look(world, e)"):
+		push_error("CONTAINERS: _draw_props resolves a prop's look before it asks whether the tile is seen")
+		return false
+	var unguarded: String = "var look = Appearance.prop_look(world, e)\nseen = null\n_draw_prop(look, x, y, zoom)"
+	if unguarded.contains(guard):
+		push_error("CONTAINERS: the seen-tile scanner accepted a body with no guard; it cannot say no")
+		return false
+	if not draw_props.contains("Appearance.PROP_KINDS") or not draw_props.contains("_draw_prop(look, x, y, zoom)"):
+		push_error("CONTAINERS: _draw_props does not walk PROP_KINDS into _draw_prop; a container's look is read by nothing")
+		return false
+
+	print("CONTAINERS OK %d loot tables each name a container kind (%s) and a table nobody named, an empty one and a prop with no map draw the id they were handed; six pictures, three kinds by two states, pairwise different pixels; the entity path draws the table's kind, its searched pair, the same picture for five kind words and the wood crate for an unknown table; a box with something in it draws as an empty one, unopened or searched (no open-with-supplies state, prop_look reads no contents); no container picture in the stations file is unreached; _draw_props still guards every prop on the observer's seen set" % [CONTAINER_EXPECTED.size(), str(CONTAINER_EXPECTED)])
+	return true
+
+
+# --- STANDING -----------------------------------------------------------------------------
+
+# "Props for things that exist" (docs/23): the pack's barricade and work lamp are the pictures of
+# things the sim already had -- the scrap barricade, and a floodlight planted in the yard -- and they
+# are taller than a tile, so they stand in the entity sort. A picture swap and nothing else: no new
+# mechanic, no sim file touched. The pack's stove is not here (docs/23 says why).
+
+# The one rule that keeps a swapped picture from being a second picture: the key a prop declares is
+# an authored `standing` key, so a generator key, a flat prop's key or a name nobody authored is
+# refused. One predicate for the shipped props and for the fabrications that prove it.
+func _standing_key_complaint(key: String, authored: Dictionary) -> String:
+	if not authored.has(key):
+		return "names '%s', which authored.json does not declare -- a generated or retired picture" % key
+	var kind: String = String((authored[key] as Dictionary).get("kind", ""))
+	if kind != "standing":
+		return "names '%s', an authored key of kind `%s`, not `standing`" % [key, kind]
+	return ""
+
+
+func _standing_props_come_from_the_pack() -> bool:
+	Appearance.forget()
+	var w: Variant = World.new(_fixture())
+	var authored: Dictionary = {}
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://assets/sprites/authored.json"))
+	if parsed is Dictionary and (parsed as Dictionary).get("keys") is Dictionary:
+		authored = (parsed as Dictionary)["keys"] as Dictionary
+	var ids: Array[String] = ["prop.barricade", "prop.lamp", "prop.lamp.dark"]
+
+	# --- the pictures are the pack's, and stand ---------------------------------------------------
+	for id in ids:
+		var block: Dictionary = Appearance.of_content(w, "prop", id)
+		var why: String = _standing_key_complaint(String(block.get("sprite", "")), authored)
+		if not why.is_empty():
+			push_error("STANDING: %s %s" % [id, why])
+			return false
+		var look: Dictionary = Appearance.prop_of(w, id)
+		if look["texture"] == null or not bool(look["standing"]) or String(look["sprite"]) != String(block["sprite"]):
+			push_error("STANDING: %s resolved no standing picture (%s)" % [id, str(look)])
+			return false
+	# TN, through the same predicate: a generated key that never existed, the wood crate's key, the
+	# bed's, and an empty key are each refused.
+	for retired in ["prop_barricade_scrap", "barricade_scrap", "prop_container", "prop_bed", ""]:
+		if _standing_key_complaint(String(retired), authored).is_empty():
+			push_error("STANDING: the key predicate accepted '%s'; a retired or flat picture could be swapped back in" % String(retired))
+			return false
+	# A flat picture is not a standing one, and a standing one is not flat: the bed and every
+	# container lie flat, and the entity sort is where the barricade and the lamp stand.
+	for flat in ["prop.bed", "prop.container", "prop.campfire", "prop.well", "prop.latrine"]:
+		if bool(Appearance.prop_of(w, flat)["standing"]):
+			push_error("STANDING: %s is drawn standing; a flat picture would leave the entity sort's depth order" % flat)
+			return false
+
+	# --- the entity path: the sim's own things ---------------------------------------------------
+	var wall: int = int(w.entities.spawn())
+	w.components.set_component(wall, "position", {"x": 4.5, "y": 3.5})
+	w.components.set_component(wall, "scrapBarricade", {})
+	if String(Appearance.prop_look(w, wall).get("id", "")) != "prop.barricade":
+		push_error("STANDING: the scrap barricade drew as %s" % str(Appearance.prop_look(w, wall).get("id", "")))
+		return false
+	# The lamp is the sim's own lit fact, read off the component the burn clock writes: lit while it
+	# lights the yard, dark once the fuel is out -- driven by the real burn tick, not a set flag.
+	var lamp: int = int(w.entities.spawn())
+	w.components.set_component(lamp, "position", {"x": 6.5, "y": 3.5})
+	w.components.set_component(lamp, "itemBase", {"baseId": "item.floodlight.rigged"})
+	w.components.set_component(lamp, "placedLight", {"baseId": "item.floodlight.rigged", "tx": 6, "ty": 3})
+	if String(Appearance.prop_look(w, lamp).get("id", "")) != "prop.lamp.dark":
+		push_error("STANDING: a planted floodlight that lights nothing drew as %s, want the dark lamp" % str(Appearance.prop_look(w, lamp).get("id", "")))
+		return false
+	SimLight.make_light_source(w, lamp, 90.0)
+	if String(Appearance.prop_look(w, lamp).get("id", "")) != "prop.lamp":
+		push_error("STANDING: a burning planted floodlight drew as %s, want the lit lamp" % str(Appearance.prop_look(w, lamp).get("id", "")))
+		return false
+	w.components.set_component(lamp, "lightFuel", {"ticksLeft": 1})
+	SimLight._tick_burn(w)
+	if w.components.has_component(lamp, "light_source") or String(Appearance.prop_look(w, lamp).get("id", "")) != "prop.lamp.dark":
+		push_error("STANDING: a floodlight whose fuel ran out on the sim's burn tick still draws lit (%s)" % str(Appearance.prop_look(w, lamp).get("id", "")))
+		return false
+	# What lights it is not the picture's business: the lamp's fuel is read for no number, and the
+	# picture is one of two.
+	var picture_source: String = _function_source(APPEARANCE_GD, "prop_look")
+	for forbidden in ["lightFuel", "ticksLeft", "fuel_left", "SimLight"]:
+		if picture_source.contains(forbidden):
+			push_error("STANDING: prop_look reads %s; a lamp's picture is lit or dark and never how long it will burn" % forbidden)
+			return false
+	if not picture_source.contains("lit_component"):
+		push_error("STANDING: prop_look never reads a kind's `lit_component`; the lamp's lit picture is unreachable")
+		return false
+	# Placed things are still the sim's entities: prop_tiles names both (a furnishing steps aside).
+	var taken: Dictionary = Appearance.prop_tiles(w)
+	if not taken.has(Vector2i(4, 3)) or not taken.has(Vector2i(6, 3)):
+		push_error("STANDING: prop_tiles missed the barricade or the lamp; a chair could stand under either")
+		return false
+
+	# --- which ones, on which tiles: the pure rule, judged headless ------------------------------------
+	var everything := FakeSeen.new()
+	for ty in 12:
+		for tx in 12:
+			everything.tiles[Vector2i(tx, ty)] = true
+	var whole: Dictionary = {"minX": 0.0, "minY": 0.0, "maxX": 12.0, "maxY": 12.0}
+	var rows: Array[Dictionary] = Appearance.standing_props(w, everything, whole)
+	var by_entity: Dictionary = {}
+	for row in rows:
+		by_entity[int(row["e"])] = row
+	if rows.size() != 2 or not by_entity.has(wall) or not by_entity.has(lamp):
+		push_error("STANDING: standing_props answered %s over a world with a barricade and a dark lamp, want exactly those two" % str(rows))
+		return false
+	# It stands on its tile's south-edge centre, the tree's rule, and names its own picture.
+	var wall_row: Dictionary = by_entity[wall] as Dictionary
+	if float(wall_row["gx"]) != 4.5 or float(wall_row["gy"]) != 4.0 or String(wall_row["key"]) != "prop_barricade":
+		push_error("STANDING: the barricade at (4.5, 3.5) stands at %s, want its tile's south-edge centre (4.5, 4.0) with prop_barricade" % str(wall_row))
+		return false
+	if String((by_entity[lamp] as Dictionary)["key"]) != "prop_lamp_dark":
+		push_error("STANDING: the dark lamp names %s, want prop_lamp_dark" % String((by_entity[lamp] as Dictionary)["key"]))
+		return false
+	SimLight.make_light_source(w, lamp, 90.0)
+	for row2 in Appearance.standing_props(w, everything, whole):
+		if int(row2["e"]) == lamp and String(row2["key"]) != "prop_lamp":
+			push_error("STANDING: the burning lamp names %s, want prop_lamp" % String(row2["key"]))
+			return false
+	# TN, each taking one thing away: nobody sees nothing; an unseen tile answers nothing (through a
+	# wall); a tile outside the bounds answers nothing; a despawned prop answers nothing; a flat prop
+	# is not a standing one; and an entity is answered once however many kinds it matches.
+	if not Appearance.standing_props(w, null, whole).is_empty():
+		push_error("STANDING: seen == null answered standing props; nobody sees no lamps")
+		return false
+	if not Appearance.standing_props(w, FakeSeen.new(), whole).is_empty():
+		push_error("STANDING: an empty seen set answered standing props; a lamp would draw through a wall")
+		return false
+	var only_wall := FakeSeen.new()
+	only_wall.tiles[Vector2i(4, 3)] = true
+	var one: Array[Dictionary] = Appearance.standing_props(w, only_wall, whole)
+	if one.size() != 1 or int(one[0]["e"]) != wall:
+		push_error("STANDING: seeing only the barricade's tile answered %s, want just the barricade" % str(one))
+		return false
+	if not Appearance.standing_props(w, everything, {"minX": 8.0, "minY": 8.0, "maxX": 12.0, "maxY": 12.0}).is_empty():
+		push_error("STANDING: bounds excluding both props still answered them")
+		return false
+	var bed_e: int = int(w.entities.spawn())
+	w.components.set_component(bed_e, "position", {"x": 2.5, "y": 2.5})
+	w.components.set_component(bed_e, "bed", {})
+	for row3 in Appearance.standing_props(w, everything, whole):
+		if int(row3["e"]) == bed_e:
+			push_error("STANDING: the bed, a flat picture, was answered as standing")
+			return false
+	var remembered := FakeSeen.new()
+	if not Appearance.standing_props(w, remembered, whole).is_empty():
+		push_error("STANDING: a set with no live tiles answered standing props; the remembered map must not feed them")
+		return false
+	# entities.despawn and not world.despawn: the world's clears the components as well, which would
+	# make the test pass without the alive check; the entity store's leaves them, the trap CLAUDE.md names.
+	w.entities.despawn(wall)
+	if not w.components.has_component(wall, "scrapBarricade"):
+		push_error("STANDING: the fixture despawn removed the component; the alive assertion below would judge nothing")
+		return false
+	for row4 in Appearance.standing_props(w, everything, whole):
+		if int(row4["e"]) == wall:
+			push_error("STANDING: a despawned barricade is still answered; components.query does not check alive and this must")
+			return false
+	# The tile branch's question, on a real tilemap: a scrap overlay is a barricade, a board or a
+	# bare wall or no overlay is not.
+	var map: Variant = SimTileMap.blank_map(12, 12)
+	w.tilemap = map
+	map.overlays[3 * 12 + 4] = {"kind": "scrap"}
+	map.overlays[3 * 12 + 5] = {"kind": "board", "stage": 0}
+	if not Appearance.scrap_stands_at(w, 4, 3):
+		push_error("STANDING: a scrap overlay is not a standing barricade")
+		return false
+	if Appearance.scrap_stands_at(w, 5, 3) or Appearance.scrap_stands_at(w, 6, 3) or Appearance.scrap_stands_at(w, -1, 3) or Appearance.scrap_stands_at(null, 4, 3):
+		push_error("STANDING: a board, a bare tile, an off-map tile or a null world answered as the barricade")
+		return false
+
+	# --- where they are drawn ----------------------------------------------------------------------
+	# The draw pass cannot run headless, so it is read as source, in its place, with the needle
+	# scanner shown a body without each guard first.
+	var standing: String = _function_source(MAIN_GD, "_standing_props")
+	var missing: String = _lacks(standing, ["Appearance.standing_props(world, seen, TopDownProjection.visible_bounds(camera, 2.0))", "TopDownProjection.world_to_screen(camera, float(row[\"gx\"]), float(row[\"gy\"]))", "TopDownProjection.depth_of(", "\"kind\": \"standing\""])
+	if not missing.is_empty():
+		push_error("STANDING: _standing_props does not contain %s" % missing)
+		return false
+	if standing.contains("explored") or standing.contains("SimSightings") or standing.contains("remembered") or standing.contains("world.components"):
+		push_error("STANDING: _standing_props reads the remembered map or the components itself; the rule is Appearance.standing_props' and it is the live seen set")
+		return false
+	if _lacks("var x = Appearance.standing_props(world, null, b)", ["Appearance.standing_props(world, seen, TopDownProjection.visible_bounds(camera, 2.0))"]).is_empty():
+		push_error("STANDING: the standing scanner passed a body that hands the pass no observer; it cannot say no")
+		return false
+	var entities: String = _function_source(MAIN_GD, "_draw_entities")
+	var at_gather: int = entities.find("items.append_array(_standing_props(seen))")
+	var at_sort: int = entities.find("items.sort_custom(")
+	var at_blit: int = entities.find("_blit_standing(it, px_scale)")
+	if at_gather < 0 or at_sort < 0 or at_blit < 0 or not (at_gather < at_sort and at_sort < at_blit):
+		push_error("STANDING: _draw_entities does not gather the standing props before the sort and blit them after it (gather %d, sort %d, blit %d)" % [at_gather, at_sort, at_blit])
+		return false
+	if _lacks(_function_source(MAIN_GD, "_blit_standing"), ["Appearance.body_rect(float(it[\"sx\"]), float(it[\"sy\"]), texture.get_size() * px_scale, 1.0)", "draw_texture_rect("]) != "":
+		push_error("STANDING: _blit_standing does not stand its picture on the feet line")
+		return false
+	if _function_source(MAIN_GD, "_blit_standing").contains("draw_set_transform("):
+		push_error("STANDING: _blit_standing sets a transform")
+		return false
+	var flat_pass: String = _function_source(MAIN_GD, "_draw_props")
+	var at_skip: int = flat_pass.find("bool(look.get(\"standing\", false))")
+	var at_flat: int = flat_pass.find("_draw_prop(look, x, y, zoom)")
+	if at_skip < 0 or at_flat < 0 or at_skip > at_flat:
+		push_error("STANDING: _draw_props does not skip a standing picture before it draws flat; a lamp would draw twice, once under the bodies")
+		return false
+	# The barricade's tile: the floor under it draws only for a tile seen now, and the slab stays for
+	# a remembered one and for a barricade with no art.
+	var district: String = _function_source(MAIN_GD, "_draw_district")
+	var missing_district: String = _lacks(district, ["if live and _scrap_stands_at(tx, ty):", "_draw_barricade_floor(rect, ground, tx, ty)", "_draw_solid_tile(rect, col, tx, ty)"])
+	if not missing_district.is_empty():
+		push_error("STANDING: _draw_district does not contain %s; the barricade's slab may not swap for the floor on a live tile only" % missing_district)
+		return false
+	# TN: the same needles over a fabrication that always draws the floor, never the slab.
+	if _lacks("if true:\n\t_draw_barricade_floor(\nelse:\n\t_draw_solid_tile(rect, col, tx, ty)", ["if live and _scrap_stands_at(tx, ty):"]).is_empty():
+		push_error("STANDING: the district needle scanner accepted a body with no live guard; it cannot say no")
+		return false
+	if not _function_source(MAIN_GD, "_draw_barricade_floor").contains("_draw_floor_tile("):
+		push_error("STANDING: _draw_barricade_floor does not draw a floor tile")
+		return false
+	if not _function_source(MAIN_GD, "_scrap_stands_at").contains("return Appearance.scrap_stands_at(world, tx, ty)"):
+		push_error("STANDING: _scrap_stands_at is not the rule the lane judged (Appearance.scrap_stands_at)")
+		return false
+
+	print("STANDING OK barricade, lit lamp and dark lamp each declare an authored `standing` key (a generated name, the crate's key, the bed's and an empty one are refused) that resolves a picture taller than a tile; the bed, the containers, the fire, the well and the latrine stay flat; the scrap barricade draws as itself, a planted floodlight draws dark until it burns, lit while it does, and dark again on the sim's own burn tick, with no fuel read; prop_tiles names both; standing_props answers each on its tile's south-edge centre and only for the live seen set, inside the bounds, alive and standing (nobody, an empty set, one tile, the bounds, a bed and a despawned barricade all refused), scrap_stands_at says yes to a scrap overlay and no to a board, a bare tile, the map's edge and no world; the entity pass gathers before the sort and blits after it, _draw_props skips a standing picture before it draws flat, and the tile branch swaps the slab for the floor on live tiles only")
 	return true
 
 

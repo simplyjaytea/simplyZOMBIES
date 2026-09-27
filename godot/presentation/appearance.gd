@@ -1178,12 +1178,28 @@ static func held_layer(key: String, slot: String, view: String) -> Dictionary:
 # `flag` is the one boolean whose value changes the picture; a prop without one leaves it empty.
 # Two content ids rather than one entry with two tints, so the resolver stays a lookup.
 const PROP_KINDS: Array[Dictionary] = [
-	{"component": "searchable", "id": "prop.container", "flag": "searched", "flag_id": "prop.container.searched"},
+	{"component": "searchable", "id": "prop.container", "flag": "searched", "flag_id": "prop.container.searched", "table_field": "table"},
 	{"component": "campfire", "id": "prop.campfire", "flag": "lit", "flag_id": "prop.campfire.lit"},
 	{"component": "bed", "id": "prop.bed", "flag": "", "flag_id": ""},
 	{"component": "water_source", "id": "prop.well", "flag": "", "flag_id": ""},
 	{"component": "latrine", "id": "prop.latrine", "flag": "", "flag_id": ""},
+	# The two things the sim already had and nothing drew as an object (docs/23, "Props for things
+	# that exist"): the scrap barricade, and a floodlight planted in the yard. Both are pictures the
+	# outpost pack's utility group supplies taller than a tile, so they stand in the entity sort
+	# (`standing` below) instead of lying flat with the rest.
+	{"component": "scrapBarricade", "id": "prop.barricade", "flag": "", "flag_id": ""},
+	# `lit_component`, on the one kind that has it, names a component whose *presence* is the lit
+	# state: the sim adds `light_source` to a lamp that is burning and removes it when the fuel is
+	# out (SimLight._tick_burn), so a lamp draws lit exactly while it lights the yard.
+	{"component": "placedLight", "id": "prop.lamp.dark", "flag": "", "flag_id": "", "lit_component": "light_source", "lit_id": "prop.lamp"},
 ]
+
+# `table_field`, on the one kind that has it, names the field of the prop's component that holds
+# the loot table it was stocked from, and the prop's own content entry then says which id each table
+# draws as (`tables`, prop.schema.json): the outpost pack's container kinds, keyed by loot table
+# (docs/23, "Furnishings and container kinds"). The state suffix is the flag's, appended to
+# whichever id the table chose, so a metal container's searched look is `prop.container.metal.searched`.
+const PROP_SEARCHED_SUFFIX: String = ".searched"
 
 # The ground-footprint primitives a prop may ask for. Geometry, not identity -- `box` is a crate
 # or a cupboard or anything else square. main.gd's _draw_prop is the one place that draws them and
@@ -1210,10 +1226,97 @@ static func prop_look(world: Variant, entity: int) -> Dictionary:
 			continue
 		var id: String = String(kind["id"])
 		var flag: String = String(kind["flag"])
-		if not flag.is_empty() and bool((comp as Dictionary).get(flag, false)):
+		var flagged: bool = not flag.is_empty() and bool((comp as Dictionary).get(flag, false))
+		if kind.has("table_field"):
+			# The picture is the table's; the state is still the flag's, and only the flag's -- what
+			# a container looks like before it is opened says nothing the table does not.
+			id = table_prop_id(world, id, String((comp as Dictionary).get(String(kind["table_field"]), "")))
+			if flagged:
+				id += PROP_SEARCHED_SUFFIX
+		elif flagged:
 			id = String(kind["flag_id"])
+		elif kind.has("lit_component") and world.components.has_component(entity, String(kind["lit_component"])):
+			id = String(kind["lit_id"])
 		return prop_of(world, id)
 	return {}
+
+
+# Every tile a standing prop occupies, as `{Vector2i: true}`: the tiles the furnishing dressing
+# steps aside from, so a chair never peeks out from under a container or a bed. Read off the same
+# component queries `main.gd`'s `_draw_props` walks, and never off `alive` alone -- components.query
+# does not check it (CLAUDE.md), so a despawned prop is skipped here as it is there.
+static func prop_tiles(world: Variant) -> Dictionary:
+	var out: Dictionary = {}
+	if world == null or world.components == null:
+		return out
+	for kind in PROP_KINDS:
+		for ent in world.components.query([String(kind["component"]), "position"]):
+			if world.entities != null and not world.entities.is_alive(int(ent)):
+				continue
+			var p: Variant = world.components.get_component(int(ent), "position")
+			if p is Dictionary:
+				out[Vector2i(floori(float((p as Dictionary)["x"])), floori(float((p as Dictionary)["y"])))] = true
+	return out
+
+
+# Whether the tile holds the scrap barricade *and* the pack's picture for it resolves: the tile branch
+# then draws the floor under it and leaves the barricade to the entity sort. False for any other
+# wall and for a barricade with no art, which keep the procedural slab -- the supported fallback.
+static func scrap_stands_at(world: Variant, tx: int, ty: int) -> bool:
+	if world == null or world.tilemap == null:
+		return false
+	var ov: Variant = SimTileMap.overlay_at(world.tilemap, tx, ty)
+	if not (ov is Dictionary) or String((ov as Dictionary).get("kind", "")) != "scrap":
+		return false
+	return prop_of(world, "prop.barricade")["texture"] != null
+
+
+# The props whose picture is taller than a tile, as `{e, gx, gy, key}`: the entity, the world point
+# each stands on -- the south-edge centre of its tile, so a body north of it sorts behind it and one
+# south sorts in front, a tree's rule -- and the registry key to draw. `seen` is the observer's tile
+# set (SimVisibility.tiles_for) or null for nobody, and nobody sees no lamps: the *live* set only,
+# never the remembered map, so a lamp's lit state and a barricade's standing are things seen now and
+# not a memory that updates behind the observer's back. `bounds` is the visible AABB in tiles.
+# components.query does not check alive (CLAUDE.md), so a despawned prop is skipped here; a prop
+# with a flat picture is `main.gd`'s `_draw_props`', and each entity is answered once.
+static func standing_props(world: Variant, seen: Variant, bounds: Dictionary) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if seen == null or world == null or world.components == null:
+		return out
+	var drawn: Dictionary = {}
+	for kind in PROP_KINDS:
+		for ent in world.components.query([String(kind["component"]), "position"]):
+			var e: int = int(ent)
+			if drawn.has(e) or (world.entities != null and not world.entities.is_alive(e)):
+				continue
+			var p: Variant = world.components.get_component(e, "position")
+			if not (p is Dictionary):
+				continue
+			var x: float = float((p as Dictionary)["x"])
+			var y: float = float((p as Dictionary)["y"])
+			if x < float(bounds["minX"]) or x > float(bounds["maxX"]) or y < float(bounds["minY"]) or y > float(bounds["maxY"]):
+				continue
+			if not (seen as Object).call("has_tile", floori(x), floori(y)):
+				continue
+			var look: Dictionary = prop_look(world, e)
+			if look.is_empty() or not bool(look.get("standing", false)):
+				continue
+			drawn[e] = true
+			out.append({"e": e, "gx": float(floori(x)) + 0.5, "gy": float(floori(y)) + 1.0, "key": String(look["sprite"])})
+	return out
+
+
+# The content id a container stocked from `table` draws as: the base prop's `tables` map names it,
+# and a table the map does not name -- an empty string, a table nobody has drawn, a fabricated one --
+# answers the base id itself, so an unknown table is the wood crate and never an invisible thing.
+static func table_prop_id(world: Variant, base_id: String, table: String) -> String:
+	if table.is_empty():
+		return base_id
+	var tables: Variant = entry_of(world, "prop", base_id).get("tables")
+	if not (tables is Dictionary):
+		return base_id
+	var mapped: String = String((tables as Dictionary).get(table, ""))
+	return mapped if not mapped.is_empty() else base_id
 
 
 # The look for one prop content id, resolved the same way an entity's is: content decides, the
@@ -1236,6 +1339,13 @@ static func prop_of(world: Variant, id: String) -> Dictionary:
 		"tint": modulate_for(texture != null, declared_tint, tint),
 		"shape": shape,
 		"size": size,
+		# The registry key the picture came from, so the entity sort can resolve it by name, and
+		# whether it *stands*: a picture taller than a tile would stand in front of what is north of
+		# it if it lay flat under the bodies, so it joins the sort at its south edge, the way a tree
+		# does. The bed (30 rows) and every container lie flat; the pack's barricade and work lamp
+		# stand.
+		"sprite": String(block.get("sprite", "")),
+		"standing": texture != null and texture.get_size().y > int(CameraUtil.ART_NATIVE),
 		# The looping sheet drawn over the prop -- the lit campfire's flame ("The shot is seen");
 		# empty for every prop that declares none, which draws nothing more than it did.
 		"flameFx": String(block.get("flameFx", "")),
