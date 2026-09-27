@@ -21,6 +21,12 @@ PNG — never file bytes, which would go red on an encoder change that altered n
 see. A key with no committed file fails too: the registry and the sprite directory are two halves
 of one statement, and a key nothing has drawn is a generator nothing reads.
 
+The other direction is refused too: `RETIRED_KEYS` in `build.py` names the generated keys the
+outpost pack replaced (the three pines and the two heaps), and both a generator registering one
+again and a stray PNG of that name in the sprite folder stop the build, with a self-test
+(`SELF_TEST_OK retired keys`) proving the predicate says yes and no. Retire a key by deleting its
+generator and PNG **and** adding it there.
+
 `sprites:check` runs in CI's `check` job and **not** in `npm run godot:m2` — that chain is
 engine-only and stays pip-free, and a contributor without Pillow can still run every gate that
 decides whether the game is correct.

@@ -11,7 +11,7 @@ extends SceneTree
 # rule -- and holds the nature dressing, bushes and reeds and rocks and stumps and logs over
 # open floor, to the standing rule that dressing is never sim state.
 #
-# Eleven lanes, every assertion with a true positive and a true negative, because a gate that
+# Twelve lanes, every assertion with a true positive and a true negative, because a gate that
 # cannot fail is worse than no gate:
 #
 #   KEYS         `trees.tall` names exactly the authored keys of kind `tree`, every one resolves
@@ -48,6 +48,14 @@ extends SceneTree
 #                serves what it holds and is emptied by everything its picks were made against;
 #                the draw pass is reached in the order the plan named, and the shipped suburb
 #                dresses at least two kinds.
+#   SHIPPED      the nature dressing on the maps the game ships, judged where the fabricated maps
+#                above cannot: reeds are placed on `district.forest_edge` (the one shipped district
+#                that declares water, and a cell of `region.main_area`), every one beside a water
+#                surface, and on the residential suburb never; the same forest with its water
+#                turned to grass takes no reeds; and no shipped entry lies on paved ground or in
+#                water -- each refused on a fabrication (a region that does not name the
+#                district, an entry on a road, a dried forest). It is the lane that goes red when
+#                content drops `beside` or dresses a road.
 #   INERT        dressing is never sim state: nothing under godot/sim/ reads the presentation
 #                layer or names a dressing key; a whole-district pick leaves the map's tiles,
 #                surfaces, indoors and overlays byte-for-byte as they were; no picked tile is
@@ -63,6 +71,7 @@ extends SceneTree
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimSurface = preload("res://sim/map/surface.gd")
 const SimBoot = preload("res://sim/boot.gd")
+const SimWorldgen = preload("res://sim/map/worldgen.gd")
 const World = preload("res://sim/world.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
 const Appearance = preload("res://presentation/appearance.gd")
@@ -114,6 +123,7 @@ func _run() -> void:
 	ok = _the_shipped_suburb_stands_its_trees() and ok
 	ok = _the_pictures_stand_inside_their_tier() and ok
 	ok = _the_nature_dressing_lies_where_it_should() and ok
+	ok = _the_shipped_maps_take_the_nature_they_should() and ok
 	ok = _dressing_is_never_sim_state() and ok
 
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
@@ -124,7 +134,7 @@ func _run() -> void:
 	if ok:
 		print(
 			(
-				"TREES_OK %d tree keys resolve at their authored canvases (widest canopy %d px, a tile is %d); the depth sort places body/tree/body; body_rect stands on the feet line at %d rungs; TREE_FADE_ALPHA %.2f fades only a point inside; TILES answered %d/%d seen trees on the hand map; the draw loop reaches every helper in order; Tile.Tree's opacity/solidity are unmoved and the pick stays a hash; suburb@%d stood %d of %d Tree tiles as drawable; the pictures stand inside their tier at alpha %d; NATURE dressed %d tiles of the suburb with %d kinds, all on open floor; INERT: the map is byte-for-byte unmoved by a whole-district pick and no sim file or component names a picture; %.1f s of a %.0f s budget"
+				"TREES_OK %d tree keys resolve at their authored canvases (widest canopy %d px, a tile is %d); the depth sort places body/tree/body; body_rect stands on the feet line at %d rungs; TREE_FADE_ALPHA %.2f fades only a point inside; TILES answered %d/%d seen trees on the hand map; the draw loop reaches every helper in order; Tile.Tree's opacity/solidity are unmoved and the pick stays a hash; suburb@%d stood %d of %d Tree tiles as drawable; the pictures stand inside their tier at alpha %d; NATURE dressed %d tiles of the suburb with %d kinds, all on open floor; SHIPPED placed %d reeds on forest_edge@%d, each beside water, none on the suburb or on the same map dried out; INERT: the map is byte-for-byte unmoved by a whole-district pick and no sim file or component names a picture; %.1f s of a %.0f s budget"
 				% [
 					int(_stash.get("tree_keys", 0)),
 					int(_stash.get("widest", 0)),
@@ -139,6 +149,8 @@ func _run() -> void:
 					ALPHA_SOLID,
 					int(_stash.get("nature_tiles", 0)),
 					int(_stash.get("nature_kinds", 0)),
+					int(_stash.get("reeds", 0)),
+					GATE_SIZE,
 					seconds,
 					BUDGET_SECONDS,
 				]
@@ -1216,6 +1228,133 @@ func _the_nature_dressing_lies_where_it_should() -> bool:
 	_stash["nature_tiles"] = picks.size()
 	_stash["nature_kinds"] = kinds.size()
 	print("NATURE OK %d entries (every key an authored prop that resolves at most %dx%d, every surface real, every rarity >= 2); the roll picks %d of 32 seeds on open grass and none on paved, walled, indoor, door-flanked, tree, heap, deep-water or edge tiles; reeds need water beside them and take a ford as water; an entry that misses its ground falls through; malformed blocks pick nothing; the roll is hash_at's own number on %d rolled tiles over four rarities and eight seeds; nature_tiles is a subset of seen and of bounds; the chunk cache answers the uncached picks over four windows and four observers (%d picks), serves a poisoned chunk and forgets it when emptied, and _nature_cache_for is emptied by the vehicle generation, the seed and the content; _draw_nature follows _draw_roofs and precedes _draw_props; suburb@%d takes %d pictures in %d kinds %s, cached and uncached alike" % [(entries as Array).size(), NATURE_MAX_W, NATURE_MAX_H, yes, rolls, cache_compared, GATE_SIZE, picks.size(), kinds.size(), str(kinds)])
+	return true
+
+
+# --- lane 12: SHIPPED ------------------------------------------------------------------------
+
+
+const WET_DISTRICT: String = "district.forest_edge"
+const DRY_DISTRICT: String = "district.residential_suburb"
+const REGION_PATH: String = "res://content/regions/main_area.json"
+const REEDS_KEY: String = "nature_reeds"
+# Grounds a shipped nature entry may never name: a bush does not grow through a road or out of a
+# channel. Open outdoor floor is everything else the schema lists.
+const NATURE_FORBIDDEN_SURFACES: Array[String] = ["paved", "water"]
+
+
+# Whether a region's text names a district. Text, not a parse, so a region that moves its cells
+# under another key still counts; the fabrication in the lane proves it can say no.
+func _region_names(text: String, district_id: String) -> bool:
+	return text.contains("\"%s\"" % district_id)
+
+
+# Every entry that lies on a ground it may not, as words.
+func _nature_entries_on_forbidden_ground(entries: Array) -> Array[String]:
+	var out: Array[String] = []
+	for raw in entries:
+		if not (raw is Dictionary):
+			continue
+		for surface in (raw as Dictionary).get("surfaces", []) as Array:
+			if NATURE_FORBIDDEN_SURFACES.has(String(surface)):
+				out.append("%s on %s" % [String((raw as Dictionary).get("key", "")), String(surface)])
+	return out
+
+
+func _reeds_in(picks: Array[Dictionary]) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for pick in picks:
+		if String(pick["key"]) == REEDS_KEY:
+			out.append(pick)
+	return out
+
+
+func _has_water_beside(map: Variant, tx: int, ty: int) -> bool:
+	for step in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var nx: int = tx + (step as Vector2i).x
+		var ny: int = ty + (step as Vector2i).y
+		if nx < 0 or ny < 0 or nx >= int(map.w) or ny >= int(map.h):
+			continue
+		if int(map.surfaces[ny * int(map.w) + nx]) == SimTileMap.SURFACE_WATER:
+			return true
+	return false
+
+
+func _picks_over(block: Dictionary, map: Variant) -> Array[Dictionary]:
+	var everyone := FakeSeen.new()
+	for ty in int(map.h):
+		for tx in int(map.w):
+			everyone.tiles[Vector2i(tx, ty)] = true
+	return Dressing.nature_tiles(block, map, everyone, CANON_SEED, {"minX": 0.0, "minY": 0.0, "maxX": float(map.w), "maxY": float(map.h)})
+
+
+func _the_shipped_maps_take_the_nature_they_should() -> bool:
+	Appearance.forget()
+	var block: Dictionary = Dressing.block_of(World.new(_fixture()))
+	var raw_entries: Variant = block.get("nature")
+	if not (raw_entries is Array) or (raw_entries as Array).is_empty():
+		push_error("SHIPPED: dressing.street declares no nature list; the lane has nothing to judge")
+		return false
+	var entries: Array = raw_entries as Array
+
+	# The wet district is a shipped one: the region the game boots names it. True negative on a
+	# text that does not.
+	var region_text: String = FileAccess.get_file_as_string(REGION_PATH)
+	if not _region_names(region_text, WET_DISTRICT):
+		push_error("SHIPPED: %s does not name %s; the map reeds are judged on is not one the game ships" % [REGION_PATH, WET_DISTRICT])
+		return false
+	if _region_names("{\"cells\": [{\"district\": \"district.town_center\"}]}", WET_DISTRICT):
+		push_error("SHIPPED: the region reader found a district in a text that does not name it")
+		return false
+
+	# Content: nothing is dressed onto a road or into a channel; the scanner refuses one that is.
+	var strays: Array[String] = _nature_entries_on_forbidden_ground(entries)
+	if not strays.is_empty():
+		push_error("SHIPPED: shipped nature entries lie on ground they may not: %s" % ", ".join(strays))
+		return false
+	var probe_strays: Array[String] = _nature_entries_on_forbidden_ground([{"key": "nature_bush", "surfaces": ["grass", "paved"], "rarity": 5}])
+	if probe_strays != ["nature_bush on paved"]:
+		push_error("SHIPPED: the forbidden-ground scanner answered %s for a bush on a road; it cannot say no" % str(probe_strays))
+		return false
+
+	var tree: Dictionary = ContentLoader.load_tree()
+
+	# Reeds on the forest: placed, each beside water, and not the only kind there.
+	var wet: Variant = SimWorldgen.generate(CANON_SEED, GATE_SIZE, tree, WET_DISTRICT)
+	var wet_picks: Array[Dictionary] = _picks_over(block, wet)
+	var reeds: Array[Dictionary] = _reeds_in(wet_picks)
+	if reeds.is_empty():
+		push_error("SHIPPED: %s at %d took no reeds; no shipped map places them and the reeds art is drawn by nothing" % [WET_DISTRICT, GATE_SIZE])
+		return false
+	if Appearance.resolve(REEDS_KEY) == null:
+		push_error("SHIPPED: %s resolves no texture" % REEDS_KEY)
+		return false
+	for pick in reeds:
+		if not _has_water_beside(wet, int(pick["tx"]), int(pick["ty"])):
+			push_error("SHIPPED: reeds at (%d,%d) on %s have no water beside them" % [int(pick["tx"]), int(pick["ty"]), WET_DISTRICT])
+			return false
+	if reeds.size() == wet_picks.size():
+		push_error("SHIPPED: every nature picture on %s is reeds; the other kinds are dead there" % WET_DISTRICT)
+		return false
+
+	# True negatives: the same forest with its water turned to grass takes no reeds and still
+	# dresses, and the dry suburb takes none.
+	var dried: Variant = SimWorldgen.generate(CANON_SEED, GATE_SIZE, tree, WET_DISTRICT)
+	for i in dried.surfaces.size():
+		if int(dried.surfaces[i]) == SimTileMap.SURFACE_WATER:
+			dried.surfaces[i] = SimSurface.Surface.Grass
+	var dried_picks: Array[Dictionary] = _picks_over(block, dried)
+	if dried_picks.is_empty() or not _reeds_in(dried_picks).is_empty():
+		push_error("SHIPPED: the forest with its water turned to grass took %d pictures of which %d were reeds; want some pictures and no reeds" % [dried_picks.size(), _reeds_in(dried_picks).size()])
+		return false
+	var dry: Variant = SimWorldgen.generate(CANON_SEED, GATE_SIZE, tree, DRY_DISTRICT)
+	var dry_reeds: int = _reeds_in(_picks_over(block, dry)).size()
+	if dry_reeds != 0:
+		push_error("SHIPPED: %s took %d reeds and declares no water" % [DRY_DISTRICT, dry_reeds])
+		return false
+
+	_stash["reeds"] = reeds.size()
+	print("SHIPPED OK %s@%d places %d reeds among %d nature pictures, each beside a water surface; the same map dried to grass places none of %d pictures, and %s none; the region names the district; no shipped entry lies on paved ground or in water (a bush on a road, a region without the district and a dried forest are all refused)" % [WET_DISTRICT, GATE_SIZE, reeds.size(), wet_picks.size(), dried_picks.size(), DRY_DISTRICT])
 	return true
 
 
