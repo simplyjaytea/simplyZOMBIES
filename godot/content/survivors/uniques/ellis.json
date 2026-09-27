@@ -5,7 +5,8 @@
   "age": 41,
   "appearance": {
     "sprite": "body_survivor",
-    "features": ["broad shoulders", "grey-flecked beard", "a watchman's slow scan", "knuckles that have met a door frame"]
+    "features": ["broad shoulders", "grey-flecked beard", "a watchman's slow scan", "knuckles that have met a door frame"],
+    "hitFx": "fx_blood_hit"
   },
   "traits": ["iron_stomach", "optimist"],
   "aptitudes": { "str": 6, "dex": 4, "con": 5 },

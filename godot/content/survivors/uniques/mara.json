@@ -6,7 +6,8 @@
   "appearance": {
     "sprite": "body_survivor",
     "features": ["chin-length black hair", "tired eyes", "rolled sleeves", "steady hands"],
-    "portrait": "res://presentation/portraits/mara.png"
+    "portrait": "res://presentation/portraits/mara.png",
+    "hitFx": "fx_blood_hit"
   },
   "traits": ["squeamish", "light_sleeper", "steady_hands"],
   "aptitudes": { "str": 3, "dex": 5, "con": 7 },

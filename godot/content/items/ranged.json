@@ -33,7 +33,7 @@
     "size": { "w": 1, "h": 2 },
     "massKg": 0.28,
     "equipSlot": "secondary",
-    "appearance": { "sprite": "item_pistol", "equipSprite": "item_held_pistol" },
+    "appearance": { "sprite": "item_pistol", "equipSprite": "item_held_pistol", "fireFx": "fx_pistol_muzzle", "casingFx": "fx_ejected_casing" },
     "slots": ["optic", "barrel", "muzzle", "magazine", "furniture", "internal", "underbarrel"],
     "requiredSlots": ["barrel", "internal"],
     "defaultParts": {
@@ -84,7 +84,7 @@
     "size": {"w": 1, "h": 5},
     "massKg": 2.4,
     "equipSlot": "primary",
-    "appearance": { "sprite": "item_pump_shotgun", "equipSprite": "item_held_pump_shotgun" },
+    "appearance": { "sprite": "item_pump_shotgun", "equipSprite": "item_held_pump_shotgun", "fireFx": "fx_shotgun_muzzle", "casingFx": "fx_ejected_casing" },
     "slots": ["optic", "barrel", "muzzle", "furniture", "internal", "underbarrel"],
     "requiredSlots": ["barrel", "internal"],
     "defaultParts": {
@@ -102,7 +102,7 @@
     "size": {"w": 1, "h": 6},
     "massKg": 2.48,
     "equipSlot": "primary",
-    "appearance": { "sprite": "item_bolt_rifle", "equipSprite": "item_held_bolt_rifle" },
+    "appearance": { "sprite": "item_bolt_rifle", "equipSprite": "item_held_bolt_rifle", "fireFx": "fx_rifle_muzzle", "casingFx": "fx_ejected_casing" },
     "slots": ["optic", "barrel", "muzzle", "magazine", "furniture", "internal", "underbarrel"],
     "requiredSlots": ["barrel", "internal"],
     "defaultParts": {
@@ -160,7 +160,7 @@
     "size": {"w": 1, "h": 2},
     "massKg": 0.3,
     "equipSlot": "secondary",
-    "appearance": { "sprite": "item_revolver", "equipSprite": "item_held_revolver" },
+    "appearance": { "sprite": "item_revolver", "equipSprite": "item_held_revolver", "fireFx": "fx_pistol_muzzle" },
     "slots": ["optic", "barrel", "muzzle", "furniture", "internal", "underbarrel"],
     "requiredSlots": ["barrel", "internal"],
     "defaultParts": {
@@ -174,6 +174,7 @@
     "name": "Rimfire Rifle",
     "description": "A small-bore rifle for vermin. It cracks rather than booms, and it kills slowly.",
     "class": "weapon.ranged",
+    "appearance": { "fireFx": "fx_rifle_muzzle", "casingFx": "fx_ejected_casing" },
     "size": {"w": 1, "h": 4},
     "massKg": 1.28,
     "equipSlot": "primary",
@@ -195,7 +196,7 @@
     "size": {"w": 1, "h": 3},
     "massKg": 1.43,
     "equipSlot": "primary",
-    "appearance": { "sprite": "item_smg", "equipSprite": "item_held_smg" },
+    "appearance": { "sprite": "item_smg", "equipSprite": "item_held_smg", "fireFx": "fx_pistol_muzzle", "casingFx": "fx_ejected_casing" },
     "slots": ["optic", "barrel", "muzzle", "magazine", "furniture", "internal", "underbarrel"],
     "requiredSlots": ["barrel", "internal"],
     "defaultParts": {
@@ -222,6 +223,7 @@
     "name": "Lever Carbine",
     "description": "A lever gun with a worn saddle ring. It works the action with a flick and it takes the same round as a hunting rifle.",
     "class": "weapon.ranged",
+    "appearance": { "fireFx": "fx_rifle_muzzle", "casingFx": "fx_ejected_casing" },
     "size": {"w": 1, "h": 4},
     "massKg": 2.2,
     "equipSlot": "primary",
@@ -242,7 +244,7 @@
     "size": {"w": 1, "h": 2},
     "massKg": 0.48,
     "equipSlot": "secondary",
-    "appearance": { "sprite": "item_pistol", "equipSprite": "item_held_pistol" },
+    "appearance": { "sprite": "item_pistol", "equipSprite": "item_held_pistol", "fireFx": "fx_pistol_muzzle", "casingFx": "fx_ejected_casing" },
     "slots": ["optic", "barrel", "muzzle", "magazine", "furniture", "internal", "underbarrel"],
     "requiredSlots": ["barrel", "internal"],
     "defaultParts": {
@@ -257,6 +259,7 @@
     "name": "Sawn-Off Shotgun",
     "description": "A double gun with most of its barrels and all of its stock cut away. Two shells, and then a very long moment.",
     "class": "weapon.ranged",
+    "appearance": { "fireFx": "fx_shotgun_muzzle" },
     "size": {"w": 1, "h": 2},
     "massKg": 1.7,
     "equipSlot": "secondary",

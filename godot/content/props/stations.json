@@ -22,7 +22,7 @@
   {
     "id": "prop.campfire.lit",
     "name": "Lit campfire",
-    "appearance": { "sprite": "prop_campfire_lit", "shape": "disc", "size": 0.56 }
+    "appearance": { "sprite": "prop_campfire_lit", "shape": "disc", "size": 0.56, "flameFx": "fx_flame_loop" }
   },
   {
     "id": "prop.well",
