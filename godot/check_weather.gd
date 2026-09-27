@@ -229,8 +229,15 @@ func _the_accents_are_muted_and_can_say_no() -> bool:
 		return false
 
 	# The readability floor: an item on the ground must clear the brightest street it can lie on.
+	#
+	# The owner's answer of 2026-09-27 (docs/23, "The ground is the pack's"; relayed by the
+	# coordinator) kept this guard on the warm-dark table the generated art was authored against,
+	# Palette.GENERATOR_GROUNDS, rather than the pack's ground the district now draws: regrading that
+	# art is the job of the slice that replaces it, and this guard retires with it.
+	# What it judges is `groundItem`, the flat fallback an item with no picture draws in; against
+	# the pack's brightest ground (dirt, V 0.537) it clears by 0.122, short of the 0.15.
 	var brightest_ground: float = 0.0
-	for tint in Palette.SURFACE_TINTS:
+	for tint in Palette.GENERATOR_SURFACES:
 		brightest_ground = maxf(brightest_ground, (tint as Color).v)
 	_stash["brightest_ground"] = brightest_ground
 	if ground_item.v < brightest_ground + 0.15:
@@ -938,12 +945,72 @@ func _the_snow_lies_on_the_ground() -> bool:
 	if under_col != clear_col:
 		push_error("a negative cover does not clamp to the same colour as 0.0")
 		return false
+	# Snow still reads over the pack's ground (docs/23, "The ground is the pack's", 2026-09-27): on
+	# every atlas row, a full cover lifts the modulate the textured blit draws with -- the
+	# `ground_modulate(flat, row tint)` the floor loop hands the pack's picture -- by at least
+	# SNOW_READS_MIN in luma, so the drift whitens the pack's own dirt and teal as it whitened the
+	# warm-dark table. TN: cover 0.0 lifts nothing on any row, through the same measurement.
+	var thinnest: float = INF
+	for row in Appearance.GROUND_ROWS:
+		var tint: Color = Appearance.ground_row_tint(row)
+		var lift: float = _modulate_lift(tint, Appearance.ground_with_snow(tint, 1.0))
+		thinnest = minf(thinnest, lift)
+		if lift < SNOW_READS_MIN:
+			push_error("full snow cover lifts atlas row %d's drawn mean by %.3f in luma, under %.2f: the drift vanishes into the pack's ground" % [row, lift, SNOW_READS_MIN])
+			return false
+		if absf(_modulate_lift(tint, Appearance.ground_with_snow(tint, 0.0))) > 0.000001:
+			push_error("cover 0.0 lifts atlas row %d's modulate; the measurement reads something that is not snow" % row)
+			return false
+	# The sky's washes -- rain, falling snow, fog -- still read over the pack's ground: each wash's
+	# colour sits at least WASH_READS_MIN in luma from every atlas row's tint, so a streak or a veil
+	# is never the colour of the ground it crosses (the pack's pale concrete is the nearest, 0.19
+	# from rain when this landed). TN: a wash painted the sidewalk's own colour is refused by the
+	# same measurement.
+	var wash_min: float = INF
+	for wash_key in ["rain", "snow", "fog"]:
+		var gap: float = _wash_gap(Palette.COLOURS[wash_key] as Color)
+		wash_min = minf(wash_min, gap)
+		if gap < WASH_READS_MIN:
+			push_error("the %s wash sits %.3f in luma from a pack ground row, under %.2f: it vanishes into the ground it falls on" % [wash_key, gap, WASH_READS_MIN])
+			return false
+	if _wash_gap(Palette.COLOURS["sidewalk"] as Color) >= WASH_READS_MIN:
+		push_error("a wash the sidewalk's own colour clears the pack's ground; the wash measurement reads nothing")
+		return false
 
 	print(
-		"COVER OK _draw_district reaches snow_cover with an is_indoors test between the ground read and the regrade (a hoisted fixture refused); Appearance.ground_with_snow is byte-identical at cover 0.0 (#%s), differs at 1.0 (#%s) and 0.5 lies strictly between, at SNOW_COVER_MAX %.2f"
-		% [clear_col.to_html(true), covered_col.to_html(true), Palette.SNOW_COVER_MAX]
+		"COVER OK _draw_district reaches snow_cover with an is_indoors test between the ground read and the regrade (a hoisted fixture refused); Appearance.ground_with_snow is byte-identical at cover 0.0 (#%s), differs at 1.0 (#%s) and 0.5 lies strictly between, at SNOW_COVER_MAX %.2f; over the pack's ground a full cover lifts every atlas row's drawn mean by >= %.2f luma (thinnest %.3f), cover 0.0 by nothing; rain, snow and fog sit >= %.2f luma from every pack ground (nearest %.3f), a sidewalk-coloured wash refused"
+		% [clear_col.to_html(true), covered_col.to_html(true), Palette.SNOW_COVER_MAX, SNOW_READS_MIN, thinnest, WASH_READS_MIN, wash_min]
 	)
 	return true
+
+
+# How far a full snow cover must lift a textured floor's drawn mean, in Rec. 709 luma, on every row
+# of the pack's atlas. The thinnest row is the pack's pale concrete sidewalk, which a drift can
+# only lift so far towards white; measured at 0.115 when this landed.
+const SNOW_READS_MIN: float = 0.10
+
+
+# How far each sky wash's colour must sit from every pack ground row's tint, in luma.
+const WASH_READS_MIN: float = 0.12
+
+
+# The smallest luma gap between `wash` (RGB only) and any atlas row's tint.
+func _wash_gap(wash: Color) -> float:
+	var lw: float = 0.2126 * wash.r + 0.7152 * wash.g + 0.0722 * wash.b
+	var gap: float = INF
+	for row in Appearance.GROUND_ROWS:
+		var t: Color = Appearance.ground_row_tint(row)
+		gap = minf(gap, absf(lw - (0.2126 * t.r + 0.7152 * t.g + 0.0722 * t.b)))
+	return gap
+
+
+# The luma lift of what the floor loop draws for a row -- its picture's mean (the row tint) times
+# the modulate `ground_modulate(snowed, tint)` hands the blit, clamp included -- over the clear
+# draw. RGB only, because the lift is about the colour the picture is pulled towards.
+func _modulate_lift(tint: Color, snowed: Color) -> float:
+	var m: Color = Appearance.ground_modulate(snowed, tint)
+	var drawn := Color(tint.r * m.r, tint.g * m.g, tint.b * m.b)
+	return (0.2126 * drawn.r + 0.7152 * drawn.g + 0.0722 * drawn.b) - (0.2126 * tint.r + 0.7152 * tint.g + 0.0722 * tint.b)
 
 
 # --- lane G: the lightning flash is one drained frame --------------------------------------------

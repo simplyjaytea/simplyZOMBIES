@@ -1427,10 +1427,11 @@ func _row_at(rows: PackedByteArray, tx: int, ty: int) -> int:
 
 
 # The darker neighbours' fringes over this tile's floor: Appearance.edge_shapes says which
-# (row, shape) cells the lighter tile takes, and each is one region blit of the same atlas
-# the floor came from, modulated white because the cell's own mean is the row tint (the ground
-# slice's rule, re-applied). Only at the zoom the texture itself draws at: below it the floor
-# is a flat fill and a fringe on a flat fill is a smudge.
+# (row, shape) cells the lighter tile takes -- since the pack's ground (2026-09-27) only ever a
+# green row's grass fringe, the one fringe the pack paints -- and each is one region blit of the
+# same atlas the floor came from, modulated white because it is the pack's picture drawn as the
+# pack painted it. Only at the zoom the texture itself draws at: below it the floor is a flat
+# fill and a fringe on a flat fill is a smudge.
 # The shoreline: a lit rim on each side of a deep tile whose neighbour is not also deep.
 #
 # The owner's call was that shallow and deep must be discernible, and a value difference alone does

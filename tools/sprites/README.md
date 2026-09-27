@@ -48,7 +48,6 @@ lives in the repo, in the same commit as its first key, and `--check` keeps it h
 | `parts/characters.py` | the eight rigs, the published skeleton, the `REGISTRY` naming them |
 | `parts/props.py` | the fire pit (cold and lit), the well and the latrine, each authored to its content entry's footprint |
 | `parts/wrecks.py` | the debris scatter (the low heaps are the outpost pack's since 2026-09-26) |
-| `parts/edges.py` | the ground's edge cells, eight fringes a row, pasted into the atlas |
 | `parts/buildings.py` | wall caps and faces, roof sheets and the door, window and garage overlays |
 | `parts/vehicles.py` | the sedan, the van and the truck, three variants x two axes each; merges the light classes' tables |
 | `parts/light_vehicles.py` | the bicycle, the e-bike, the e-scooter, the kick scooter and the skateboard, under the cars' camera |
@@ -127,11 +126,16 @@ exactly what it does on a person who turns round, which was not true when a rig 
   a call that names no family gets the strictest answer. docs/30's warm dark-fantasy mood (the
   Dungeon Settlers look, 2026-09-03) is not a thing to remember, it is a thing the module
   enforces; the overcast grade's single 0.35 ceiling is what this replaced.
-- **It has to read against the ground.** A body-forming ramp's mid tone must clear the brightest
-  surface tint the district can draw by `GROUND_CONTRAST` in luminance, or importing `palette`
-  raises. `SURFACE_TINTS` (and `PAINT_TINTS`, the two paint rows) here are hard copies of
-  `presentation/palette.gd`'s, because Python cannot read GDScript — regrading the ground means
-  editing both **in the same commit**, and a stale copy makes the guard lie. Tells drawn
+- **It has to read against the ground it was drawn for.** A body-forming ramp's mid tone must
+  clear the brightest surface tint by `GROUND_CONTRAST` in luminance, or importing `palette`
+  raises. `GENERATOR_SURFACES` (and `GENERATOR_PAINTS`, the two paint rows) here are hard copies
+  of `presentation/palette.gd`'s `GENERATOR_GROUNDS`, because Python cannot read GDScript —
+  editing one means editing both **in the same commit**. Since "The ground is the pack's"
+  (2026-09-27) that is the warm-dark table the generated art was authored against, not the
+  ground the district draws: the district draws the outpost pack's own terrain, the ground atlas
+  is an authored key composed from it (`authored.json`'s `cells` source; `parts/ground.py` and
+  `parts/edges.py` retired), and the owner's answer that day kept these guards on the generator's
+  table until each slice that replaces the art they judge retires them. Tells drawn
   *inside* a silhouette (a strap on cloth) are exempt and say so in `GROUND_FACING`. Standing
   things (`GROUND_READING`) are held either side of the ground instead, and the built surfaces
   (`BUILT_READING`: the wall and roof ramps `parts/buildings.py` paints with) either side of

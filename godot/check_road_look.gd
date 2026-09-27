@@ -1,7 +1,8 @@
 extends SceneTree
 # The ground and road dressing: the street manifest the generator now carves alongside its
 # streets (`map.streets`), the draw-time paint resolved from it (presentation/road_paint.gd),
-# the warm dark-fantasy palette regrade the docs/30 art decision asked for, and the rubble
+# the palette (the warm dark-fantasy regrade the docs/30 art decision asked for, with the ground
+# on the outpost pack's own measured table since 2026-09-27), the ground atlas, and the rubble
 # pass -- the tenth worldgen pass, closing the "rubble is never placed" debt entry. Seven
 # lanes, every assertion with a true positive and a true negative, because a gate that cannot
 # fail is worse than no gate:
@@ -13,8 +14,8 @@ extends SceneTree
 #   3. paint lands on streets and nowhere else, junctions read worn, narrow streets get kerbs
 #      only, and a map with no manifest draws nothing;
 #   4. the ground variation is deterministic and alive -- a hash, deliberately not a stream;
-#   5. the palette holds the warm dark-fantasy mood by property, and provably refuses the old
-#      table;
+#   5. the palette holds the warm dark-fantasy mood by property off the ground, pins the ground
+#      to the pack's measured table exactly, and provably refuses the warm-dark ground it replaced;
 #   6. the three dead sockets are wired: the draw loop reads the mask, the one mechanism that
 #      reads surfaces reads a placed rubble tile, and the rubble tint is resolved, not defined;
 #   7. rubble is placed, dressing-only, and only ever on outdoor open Floor (the `_footing`
@@ -105,7 +106,7 @@ func _run() -> void:
 	ok = _the_gate_stayed_inside_its_own_budget(seconds) and ok
 
 	if ok:
-		print("ROAD_LOOK_OK manifest true (exact on layout, worst dressed span %.2f over a %.2f floor), layout untouched, paint on streets only, centre line centred on %d fixture spans with %d lanes a side and the old placement refused, the shipped %d district carries %d centred dashes at width %d, variation hashed not drawn, palette propertied with the old table refused, the ground atlas %d cells each averaging its palette tint with a flat cell and a bright cell refused, floors blit their cell at zoom %.0f and up with no grid, %d edge cells authored with %d/%d shipped floor tiles edged/plain, mask/speed/tint sockets wired, %d rubble tiles lawful, street_surface_of paved-by-default with dirt named and %d suburb spans carrying it; %.1f s of a %.0f s budget" % [
+		print("ROAD_LOOK_OK manifest true (exact on layout, worst dressed span %.2f over a %.2f floor), layout untouched, paint on streets only, centre line centred on %d fixture spans with %d lanes a side and the old placement refused, the shipped %d district carries %d centred dashes at width %d, variation hashed not drawn, palette propertied and the ground pinned to the pack's measured table with the warm-dark table refused, the ground atlas %d pack cells each averaging its row and every row's integer mean the pinned hex, floors blit their cell at zoom %.0f and up with no grid, %d edge cells authored with %d/%d shipped floor tiles edged/plain, mask/speed/tint sockets wired, %d rubble tiles lawful, street_surface_of paved-by-default with dirt named and %d suburb spans carrying it; %.1f s of a %.0f s budget" % [
 			float(stash.get("worst_span", 0.0)), SPAN_PAVED_FLOOR, int(stash.get("centred_spans", 0)), LANE_MIN, PLAYED_SIZE, int(stash.get("played_dashes", 0)), int(stash.get("played_width", 0)), int(stash.get("atlas_cells", 0)), Palette.GROUND_TEXTURE_MIN_ZOOM, int(stash.get("edge_cells", 0)), int(stash.get("edge_with", 0)), int(stash.get("edge_without", 0)), int(stash.get("rubble", 0)), int(stash.get("surfaced_spans", 0)), seconds, BUDGET_SECONDS,
 		])
 		quit(0)
@@ -669,21 +670,51 @@ func _variation_is_deterministic_and_alive() -> bool:
 
 # --- 5. the palette -------------------------------------------------------------------------
 
-# Properties, not hexes, so the owner can tune by screenshot inside the bounds and a revert to
-# the pre-regrade table is caught mechanically. One deliberate divergence from the slice spec's
-# sketch: the sketch floored *pairwise V-distance* at 0.02, but the authored table separates
-# dirt, grass and undergrowth by hue at near-equal value -- warm and low-key, on purpose -- so
-# the distinctness floor is on RGB distance instead, which still reds two-identical tints and
-# does not outlaw the mood the regrade exists to hit. The mood itself is warmth held by
-# property too: a cool near-black dark around a warm-lit district, so WARM_MARGIN pins r - b (or
-# b - r for the dark) rather than a hue pin that would refuse every tune inside the mood along
-# with every one outside it.
+# Two halves since "The ground is the pack's" (docs/23, 2026-09-27).
+#
+# **The ground** is pinned, not propertied. docs/30's "The whole outpost pack" records the owner's
+# answer of 2026-09-25: the pack's tiles are brighter and more saturated than the warm-dark table
+# (grass, dirt, water and wood all past the 0.30 saturation cap this lane used to hold), and "the
+# ground lanes are re-pinned to a measured pack table, the old warm-dark table becomes the case
+# they refuse". So the eight ground entries are held to PACK_GROUND exactly -- each the integer mean
+# of its atlas row, measured off the pack's own pixels (TEXTURE below re-measures every one from
+# the decoded atlas, so the pin cannot drift from the art) -- and WARM_DARK_GROUND, the table they
+# replaced, is refused through the same predicate. The saturation cap and the ground's warm pin
+# went with the table they described: the pack's asphalt is a neutral grey (r - b = 0.004) and its
+# dirt and grass sit past S 0.50, which is the pack's grade and the owner's choice, not drift. What
+# the pack's ground still has to be is kept as properties beside the pin, because they are what the
+# rest of the district reads it by: paved in its value band, sidewalk over paved over background,
+# the road paint brightest of the road family, six surfaces pairwise distinct, and water cool.
+#
+# **Everything else** -- walls, props, paint, marks, the dark -- keeps the warm dark-fantasy mood
+# by property, so a tune stays legal inside the mood and a creep toward neutral shows in the
+# thinnest margin before it goes grey. One deliberate divergence from the regrade spec's sketch:
+# the distinctness floor is on RGB distance rather than on value, which still reds two identical
+# tints without outlawing grounds separated by hue.
 const PAIR_DISTANCE_MIN: float = 0.02
 const WARM_MARGIN: float = 0.02
 
-# The district's own surfaces, walls, props and screen marks -- everything the warm-lit street
-# is built from. Judged with _warm_ok (r - b >= WARM_MARGIN), together with all five ground
-# tints in Palette.SURFACE_TINTS below.
+# The pack's ground, measured: each row of `ground_atlas.png`, both cells, integer-rounded mean of
+# every pixel ((sum + count / 2) / count per channel -- never a float sum, CLAUDE.md's CPython
+# trap). Keyed by the Palette.COLOURS entry each row draws with.
+const PACK_GROUND: Dictionary = {
+	"floor": "474646", "dirt": "896840", "grass": "485127", "undergrowth": "404820",
+	"rubble": "595149", "water": "244e56", "sidewalk": "999793", "indoorFloor": "6d4f36",
+}
+# The warm-dark table the pack replaced -- the refused case. It is not dead data: it lives on as
+# Palette.GENERATOR_GROUNDS for the guards that judge generated art, and this lane asserts the
+# two agree, so the refused case is always the table the generator actually drew against.
+const WARM_DARK_GROUND: Dictionary = {
+	"floor": "474240", "dirt": "584e40", "grass": "4f5440", "undergrowth": "414a37",
+	"rubble": "4e4a46", "water": "424f5c", "sidewalk": "5e5852", "indoorFloor": "6a5540",
+}
+# The COLOURS key each GroundRow draws with, in GroundRow order.
+const ROW_KEYS: Array[String] = ["floor", "dirt", "grass", "undergrowth", "rubble", "water", "sidewalk", "indoorFloor"]
+
+# The district's own walls, props and screen marks -- everything the warm-lit street is built
+# from that is not the pack's ground. Judged with _warm_ok (r - b >= WARM_MARGIN). The sidewalk
+# and the indoor floor are pack ground now and pinned above; they stay here because they still
+# pass (r - b 0.024 and 0.216), and a later pack tile that cooled either would want saying.
 const WARM_FAMILY: Array[String] = [
 	"sidewalk", "kerb", "threshold", "indoorFloor", "wall", "roadPaint", "prop", "low",
 	"screen", "tree", "groundItem", "glimpse", "memory", "roof",
@@ -693,22 +724,14 @@ const WARM_FAMILY: Array[String] = [
 # WARM_MARGIN).
 const COOL_FAMILY: Array[String] = ["background", "night", "window", "windowRim", "water"]
 
-# The one *ground* allowed to be cool, by the owner's amendment to the 2026-09-03 Dungeon
-# Settlers look (docs/30): water reads as water or it reads as nothing. This is a named pin and
-# not a hole -- an exempted surface is still judged, only from the other side: it must be
-# measurably cool (`_cool_ok`, b - r >= WARM_MARGIN), so a water tint drifting to neutral grey
-# fails this lane exactly as a warm ground drifting to grey fails the warm one. The saturation
-# cap is *not* exempted and still applies to every surface including this one, which is what
-# keeps "genuinely blue" from becoming garish.
+# The one *ground* that must be cool, by the owner's amendment to the 2026-09-03 Dungeon Settlers
+# look (docs/30): water reads as water or it reads as nothing. The pack's teal keeps it (b - r =
+# 0.196), and it is judged here from that side, so a water drifting to neutral fails.
 const COOL_SURFACES: Array[int] = [SimSurface.Surface.Water]
 
-# The six ground tints, named to match Palette.SURFACE_TINTS' order, for the warm-family print
-# below -- SURFACE_TINTS itself carries no names, only an index.
+# The six ground tints, named to match Palette.SURFACE_TINTS' order, for the prints below --
+# SURFACE_TINTS itself carries no names, only an index.
 const SURFACE_NAMES: Array[String] = ["floor", "dirt", "grass", "undergrowth", "rubble", "water"]
-
-func _sat_ok(c: Color) -> bool:
-	return c.s <= 0.30
-
 
 func _paved_value_ok(c: Color) -> bool:
 	return c.v >= 0.20 and c.v <= 0.40
@@ -726,11 +749,58 @@ func _rgb_distance(a: Color, b: Color) -> float:
 	return sqrt(pow(a.r - b.r, 2.0) + pow(a.g - b.g, 2.0) + pow(a.b - b.b, 2.0))
 
 
+# The first ground key whose colour in `table` ({key: Color}) is not PACK_GROUND's hex, or "" when
+# every one of the eight is. One predicate for the shipped palette and the refused tables.
+func _ground_pin_problem(table: Dictionary) -> String:
+	for key in PACK_GROUND.keys():
+		if not table.has(key):
+			return "%s is missing" % key
+		var got: String = (table[key] as Color).to_html(false)
+		if got != String(PACK_GROUND[key]):
+			return "%s is #%s, not the pack's measured #%s" % [key, got, String(PACK_GROUND[key])]
+	return ""
+
+
+func _hex_table(hexes: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	for key in hexes.keys():
+		out[key] = Color("#" + String(hexes[key]))
+	return out
+
+
 func _the_palette_holds_the_mood_and_can_say_no() -> bool:
-	for s in Palette.SURFACE_TINTS.size():
-		if not _sat_ok(Palette.SURFACE_TINTS[s]):
-			push_error("surface tint %d has saturation %.3f, over the 0.30 warm-mood cap" % [s, (Palette.SURFACE_TINTS[s] as Color).s])
+	# The ground: the eight entries exactly the pack's measured table, and the surface array built
+	# from the same entries, so a tint cannot be pinned in one place and drawn from another.
+	var shipped: Dictionary = {}
+	for key in PACK_GROUND.keys():
+		shipped[key] = Palette.COLOURS[key]
+	var problem: String = _ground_pin_problem(shipped)
+	if not problem.is_empty():
+		push_error("PALETTE: the ground is not the pack's: %s (docs/30, 'The whole outpost pack': the ground takes the pack's own grade)" % problem)
+		return false
+	for si in Palette.SURFACE_TINTS.size():
+		if Palette.SURFACE_TINTS[si] != Palette.COLOURS[ROW_KEYS[si]]:
+			push_error("PALETTE: SURFACE_TINTS[%d] is %s, not COLOURS[%s]" % [si, str(Palette.SURFACE_TINTS[si]), ROW_KEYS[si]])
 			return false
+	# The refused case is the table the generated art is still judged against, so it has to be
+	# that table and not a copy that drifted.
+	for key2 in WARM_DARK_GROUND.keys():
+		if (Palette.GENERATOR_GROUNDS[key2] as Color).to_html(false) != String(WARM_DARK_GROUND[key2]):
+			push_error("PALETTE: GENERATOR_GROUNDS[%s] is #%s, not the warm-dark #%s this lane refuses" % [key2, (Palette.GENERATOR_GROUNDS[key2] as Color).to_html(false), String(WARM_DARK_GROUND[key2])])
+			return false
+	# TN: the warm-dark table is refused whole, and so is the pack table with any one entry nudged by
+	# one step of one channel -- a pin that tolerates a neighbour is a band, not a pin.
+	if _ground_pin_problem(_hex_table(WARM_DARK_GROUND)).is_empty():
+		push_error("PALETTE: the warm-dark ground table passes the pack pin; a revert to the generated ground would not be caught")
+		return false
+	for key3 in PACK_GROUND.keys():
+		var nudged: Dictionary = _hex_table(PACK_GROUND)
+		var c: Color = nudged[key3] as Color
+		nudged[key3] = Color8(mini(c.r8 + 1, 255), c.g8, c.b8)
+		if _ground_pin_problem(nudged).is_empty():
+			push_error("PALETTE: the pack table with %s nudged one step still passes; the pin reads nothing" % key3)
+			return false
+
 	var paved: Color = Palette.SURFACE_TINTS[SimSurface.Surface.Paved]
 	if not _paved_value_ok(paved):
 		push_error("paved sits at value %.3f, outside [0.20, 0.40] -- a cave floor or a bleached one" % paved.v)
@@ -753,25 +823,14 @@ func _the_palette_holds_the_mood_and_can_say_no() -> bool:
 			if d < PAIR_DISTANCE_MIN:
 				push_error("surface tints %d and %d sit %.4f apart in RGB; two grounds you cannot tell apart are one ground" % [a, b, d])
 				return false
+	for si2 in COOL_SURFACES:
+		var sc: Color = Palette.SURFACE_TINTS[si2]
+		if not _cool_ok(sc):
+			push_error("ground %s is a COOL_SURFACES entry with b - r = %.4f, under WARM_MARGIN %.2f; water has to be cool, not merely un-warm" % [SURFACE_NAMES[si2], sc.b - sc.r, WARM_MARGIN])
+			return false
 
-	# Warmth and coolness, held the same way as saturation and value above: a measured margin,
-	# not a hex pin, so a tune stays legal inside the mood and a creep toward neutral shows up in
-	# the thinnest margin before it goes grey.
 	var warm_min: float = INF
 	var warm_min_key: String = ""
-	for si in Palette.SURFACE_TINTS.size():
-		var sc: Color = Palette.SURFACE_TINTS[si]
-		var smargin: float = sc.r - sc.b
-		if smargin < warm_min:
-			warm_min = smargin
-			warm_min_key = SURFACE_NAMES[si]
-		if COOL_SURFACES.has(si):
-			if not _cool_ok(sc):
-				push_error("ground %s is a COOL_SURFACES entry with b - r = %.4f, under WARM_MARGIN %.2f; an exempted ground still has to be cool, not merely un-warm" % [SURFACE_NAMES[si], sc.b - sc.r, WARM_MARGIN])
-				return false
-		elif not _warm_ok(sc):
-			push_error("ground %s has r - b = %.4f, under WARM_MARGIN %.2f; it has cooled out of the district" % [SURFACE_NAMES[si], smargin, WARM_MARGIN])
-			return false
 	for key in WARM_FAMILY:
 		var wc: Color = Palette.COLOURS[key] as Color
 		var wmargin: float = wc.r - wc.b
@@ -793,16 +852,12 @@ func _the_palette_holds_the_mood_and_can_say_no() -> bool:
 			push_error("%s has b - r = %.4f, under WARM_MARGIN %.2f; the dark has warmed into the district" % [key2, cmargin, WARM_MARGIN])
 			return false
 
-	# The built-in true negative: the exact table this regrade replaced must fail these
-	# properties, or a quiet revert would pass the lane that exists to catch it. #1a1c1f is the
-	# old floor (value 0.12, under the paved floor); #1b2a1b the old grass (saturation 0.36, over
-	# the warm-mood cap); #3f4143 the old floor again, now judged for warmth; #2a1f18 a warm
-	# background; #4a4a4a a neutral grey that must fail both family pins at once, at exactly zero.
+	# The property half's own negatives: #1a1c1f (an old cave floor, value 0.12) fails the paved
+	# band; #3f4143 (the old overcast floor) the warm pin; #2a1f18 (a warm background) the cool pin;
+	# #5c4f42 (a warm silt river, the shape the water call was made against) the cool pin; and a
+	# neutral grey must fail both family pins at once, at exactly zero.
 	if _paved_value_ok(Color("#1a1c1f")):
 		push_error("the old floor #1a1c1f passes the paved value band; a revert to the cave grade would not be caught")
-		return false
-	if _sat_ok(Color("#1b2a1b")):
-		push_error("the old grass #1b2a1b passes the saturation cap; a revert to the saturated grade would not be caught")
 		return false
 	if _warm_ok(Color("#3f4143")):
 		push_error("the old overcast floor #3f4143 passes the warm pin; the whole overcast table would slip back in on this one line")
@@ -810,22 +865,15 @@ func _the_palette_holds_the_mood_and_can_say_no() -> bool:
 	if _cool_ok(Color("#2a1f18")):
 		push_error("a warm background #2a1f18 passes the cool pin; the dark would stop reading as dark")
 		return false
-	# The water exemption's own negatives, so the amended pin can say no in both directions. A
-	# murky warm river is the shape the exemption was chosen *against* (docs/30), and it must fail
-	# the cool pin rather than sliding through the ground loop the exemption skips; a garish blue
-	# must still fail the saturation cap, because that half was deliberately not exempted.
 	if _cool_ok(Color("#5c4f42")):
-		push_error("a warm silt #5c4f42 passes the cool pin; a murky river would satisfy the water exemption and the amendment would mean nothing")
-		return false
-	if _sat_ok(Color("#2f6ea8")):
-		push_error("a saturated blue #2f6ea8 passes the saturation cap; the water exemption covers warmth only and a garish river would slip in on it")
+		push_error("a warm silt #5c4f42 passes the cool pin; a murky river would satisfy the water call and it would mean nothing")
 		return false
 	var neutral := Color("#4a4a4a")
 	if _warm_ok(neutral) or _cool_ok(neutral):
 		push_error("neutral grey #4a4a4a passes a family pin; the margin is a strict floor, not a sign test")
 		return false
 
-	print("PALETTE OK 5 surface tints under S 0.30, paved V %.2f in [0.20, 0.40], sidewalk > paved > background, roadPaint brightest of the family, pairwise RGB >= %.2f (min %.4f); warm family r-b >= %.2f (thinnest %s +%.4f), cool family b-r >= %.2f (thinnest %s +%.4f); the pre-regrade table refused throughout" % [
+	print("PALETTE OK the 8 ground entries are the pack's measured table exactly (docs/30, the ground takes the pack's own grade), the warm-dark table and every one-step nudge of the pack's refused, GENERATOR_GROUNDS still the refused table; paved V %.2f in [0.20, 0.40], sidewalk > paved > background, roadPaint brightest of the family, 6 surfaces pairwise RGB >= %.2f (min %.4f), water cool; warm family r-b >= %.2f (thinnest %s +%.4f), cool family b-r >= %.2f (thinnest %s +%.4f)" % [
 		paved.v, PAIR_DISTANCE_MIN, min_pair, WARM_MARGIN, warm_min_key, warm_min, WARM_MARGIN, cool_min_key, cool_min,
 	])
 	return true
@@ -839,15 +887,19 @@ func _the_palette_holds_the_mood_and_can_say_no() -> bool:
 # defined in the table.
 # --- 6. the ground atlas ---------------------------------------------------------------------
 
-# The atlas is the shape of a ground and the palette is still its colour. Each cell is judged on
-# its decoded pixels against the tint its row was authored around: the mean within
-# CELL_MEAN_MAX of the tint (so the modulated blit averages to the flat colour), the brightest
-# pixel no more than CELL_BRIGHT_MAX luma over it (so palette.py's ground-contrast guards keep
-# their clearance against the brightest pixel a body can stand on), and a variance that is not
-# zero (a flat cell is a texture in name only). The predicate is one function so the fabricated
-# negatives below refuse through the same code the real cells pass through.
+# The atlas is the pack's pictures and the palette is their measured colour (docs/23, "The ground is
+# the pack's"). Each cell is judged on its decoded pixels: opaque, not flat, and its mean within
+# CELL_MEAN_MAX of its row's tint, so the modulated blit averages to the flat colour the palette
+# draws when zoomed out. Each row's integer mean over both of its cells must then *be* the pinned
+# hex PALETTE holds the palette to -- the measurement the pin was taken from, re-taken every run,
+# with the warm-dark tint refused by the same comparison. The generated atlas also held every
+# pixel to within 0.06 luma of its tint, for palette.py's ground guards' sake; those guards judge
+# generated art against GENERATOR_GROUNDS now, and the pack's own highlights are the pack's.
 const CELL_MEAN_MAX: float = 0.03
-const CELL_BRIGHT_MAX: float = 0.06
+# The rows the pack paints once, so both variant cells are the same picture: its one water and its
+# one wood floor. Named, not skipped -- the lane holds these two cells *identical*, so a second
+# picture arriving in either is a thing somebody has to come and say.
+const ONE_PICTURE_ROWS: Array[int] = [Appearance.GroundRow.Water, Appearance.GroundRow.Boards]
 
 
 func _luma(c: Color) -> float:
@@ -857,7 +909,6 @@ func _luma(c: Color) -> float:
 # "" when the n x n cell at (x0, y0) is a lawful picture of `tint`, else what is wrong with it.
 func _cell_problem(img: Image, x0: int, y0: int, n: int, tint: Color) -> String:
 	var sum: Vector3 = Vector3.ZERO
-	var brightest: float = 0.0
 	# Flatness is an exact question, not a variance under a float epsilon: a Vector3 running sum
 	# of squares over a thousand pixels carries enough rounding to read a flat cell as textured.
 	var first: Color = img.get_pixel(x0, y0)
@@ -870,7 +921,6 @@ func _cell_problem(img: Image, x0: int, y0: int, n: int, tint: Color) -> String:
 			sum += Vector3(c.r, c.g, c.b)
 			if c != first:
 				textured = true
-			brightest = maxf(brightest, _luma(c))
 	var count: float = float(n * n)
 	var mean: Vector3 = sum / count
 	if not textured:
@@ -878,9 +928,24 @@ func _cell_problem(img: Image, x0: int, y0: int, n: int, tint: Color) -> String:
 	var d: float = Vector3(tint.r, tint.g, tint.b).distance_to(mean)
 	if d > CELL_MEAN_MAX:
 		return "mean (%.3f, %.3f, %.3f) sits %.3f from its tint %s, over %.2f" % [mean.x, mean.y, mean.z, d, tint.to_html(false), CELL_MEAN_MAX]
-	if brightest > _luma(tint) + CELL_BRIGHT_MAX:
-		return "brightest pixel luma %.3f is %.3f over the tint's %.3f, past %.2f" % [brightest, brightest - _luma(tint), _luma(tint), CELL_BRIGHT_MAX]
 	return ""
+
+
+# The integer-rounded mean of a pixel rectangle as "rrggbb": whole-number channel sums and
+# (sum + count / 2) / count, so the answer is the same on every machine (CLAUDE.md's float trap).
+func _integer_mean_hex(img: Image, rect: Rect2i) -> String:
+	var sums: Array[int] = [0, 0, 0]
+	var count: int = 0
+	for y in range(rect.position.y, rect.position.y + rect.size.y):
+		for x in range(rect.position.x, rect.position.x + rect.size.x):
+			var c: Color = img.get_pixel(x, y)
+			sums[0] += c.r8
+			sums[1] += c.g8
+			sums[2] += c.b8
+			count += 1
+	if count == 0:
+		return ""
+	return "%02x%02x%02x" % [(sums[0] + count / 2) / count, (sums[1] + count / 2) / count, (sums[2] + count / 2) / count]
 
 
 func _the_ground_is_a_texture_whose_mean_is_the_palette(stash: Dictionary) -> bool:
@@ -891,8 +956,8 @@ func _the_ground_is_a_texture_whose_mean_is_the_palette(stash: Dictionary) -> bo
 		return false
 	var n: int = int(CameraUtil.ART_NATIVE)
 	var want: Vector2i = Appearance.canvas_of(Appearance.GROUND_ATLAS_KEY)
-	if Vector2i(atlas.get_size()) != want:
-		push_error("the atlas is %s, its canvas is %s (%d variants + %d edge shapes x %d rows of %d px)" % [str(atlas.get_size()), str(want), Appearance.GROUND_VARIANTS, Appearance.EDGE_SHAPES, Appearance.GROUND_ROWS, n])
+	if Vector2i(atlas.get_size()) != want or want != Vector2i((Appearance.GROUND_VARIANTS + Appearance.EDGE_SHAPES) * n, Appearance.GROUND_ROWS * n):
+		push_error("the atlas is %s and its canvas %s, not %d variants + %d edge shapes x %d rows of %d px" % [str(atlas.get_size()), str(want), Appearance.GROUND_VARIANTS, Appearance.EDGE_SHAPES, Appearance.GROUND_ROWS, n])
 		return false
 	var img: Image = atlas.get_image()
 	if img == null:
@@ -901,6 +966,9 @@ func _the_ground_is_a_texture_whose_mean_is_the_palette(stash: Dictionary) -> bo
 	var judged: int = 0
 	for row in Appearance.GROUND_ROWS:
 		var tint: Color = Appearance.ground_row_tint(row)
+		if tint != Palette.COLOURS[ROW_KEYS[row]]:
+			push_error("ground_row_tint(%d) is %s, not COLOURS[%s]" % [row, str(tint), ROW_KEYS[row]])
+			return false
 		var cells: Array[PackedByteArray] = []
 		for v in Appearance.GROUND_VARIANTS:
 			var region: Rect2 = Appearance.ground_cell(row, v)
@@ -913,11 +981,24 @@ func _the_ground_is_a_texture_whose_mean_is_the_palette(stash: Dictionary) -> bo
 				return false
 			cells.append(img.get_region(Rect2i(region)).get_data())
 			judged += 1
+		var one_picture: bool = ONE_PICTURE_ROWS.has(row)
 		for a in cells.size():
 			for b in range(a + 1, cells.size()):
-				if cells[a] == cells[b]:
-					push_error("atlas row %d: variants %d and %d are the same pixels; four names for one picture" % [row, a, b])
+				if one_picture and cells[a] != cells[b]:
+					push_error("atlas row %d is a ONE_PICTURE_ROWS row and its variants %d and %d differ; the pack painted a second picture and nobody said so" % [row, a, b])
 					return false
+				if not one_picture and cells[a] == cells[b]:
+					push_error("atlas row %d: variants %d and %d are the same pixels; two names for one picture" % [row, a, b])
+					return false
+		# The measurement the pin was taken from, re-taken: this row's integer mean is the hex
+		# PALETTE holds the palette to, and the warm-dark tint is refused by the same comparison.
+		var measured: String = _integer_mean_hex(img, Rect2i(0, row * n, Appearance.GROUND_VARIANTS * n, n))
+		if measured != String(PACK_GROUND[ROW_KEYS[row]]):
+			push_error("atlas row %d (%s) measures #%s, not the pinned #%s" % [row, ROW_KEYS[row], measured, String(PACK_GROUND[ROW_KEYS[row]])])
+			return false
+		if measured == String(WARM_DARK_GROUND[ROW_KEYS[row]]):
+			push_error("atlas row %d measures the warm-dark #%s; the pin and the refused table agree, so the comparison reads nothing" % [row, measured])
+			return false
 	# The pure helpers: a row past the end clamps and a variant wraps, so no caller can ask for
 	# pixels outside the picture; the modulate is the identity on a row's own tint and the exact
 	# ratio otherwise.
@@ -937,7 +1018,8 @@ func _the_ground_is_a_texture_whose_mean_is_the_palette(stash: Dictionary) -> bo
 		push_error("ground_row_for does not answer Sidewalk for painted and Paved for an absent map")
 		return false
 	# The built-in negatives, through the one predicate: a flat cell and a cell painted a tenth
-	# brighter than its tint must both be refused, or a dead atlas would pass the lane above.
+	# brighter than its tint must both be refused, or a dead atlas would pass the lane above; and
+	# the integer mean must tell a real row from a nudged one.
 	var flat: Image = Image.create(n, n, false, Image.FORMAT_RGBA8)
 	flat.fill(Appearance.ground_row_tint(0))
 	if _cell_problem(flat, 0, 0, n, Appearance.ground_row_tint(0)).is_empty():
@@ -951,9 +1033,12 @@ func _the_ground_is_a_texture_whose_mean_is_the_palette(stash: Dictionary) -> bo
 	if _cell_problem(bright, 0, 0, n, Appearance.ground_row_tint(0)).is_empty():
 		push_error("a cell a tenth brighter than its tint passed the texture predicate; the mean pin reads nothing")
 		return false
+	if _integer_mean_hex(bright, Rect2i(0, 0, n, n)) == _integer_mean_hex(img, Rect2i(0, 0, n, n)):
+		push_error("the integer mean of a brightened cell equals the real one's; the measurement reads nothing")
+		return false
 	stash["atlas_cells"] = judged
-	print("TEXTURE OK %s is %dx%d: %d cells, every one averaging within %.2f of its row tint with no pixel over %.2f luma above it and none flat, %d variants a row pixel-distinct; the flat cell and the brightened cell both refused" % [
-		Appearance.GROUND_ATLAS_KEY, want.x, want.y, judged, CELL_MEAN_MAX, CELL_BRIGHT_MAX, Appearance.GROUND_VARIANTS,
+	print("TEXTURE OK %s is %dx%d: %d pack cells, every one opaque, textured and averaging within %.2f of its row tint, every row's integer mean exactly its pinned pack hex (the warm-dark tint refused), variants pixel-distinct except the %d rows the pack paints once, held identical; the flat cell and the brightened cell both refused" % [
+		Appearance.GROUND_ATLAS_KEY, want.x, want.y, judged, CELL_MEAN_MAX, ONE_PICTURE_ROWS.size(),
 	])
 	return true
 
@@ -996,137 +1081,94 @@ func _the_floor_blits_its_cell_and_draws_no_grid() -> bool:
 
 # --- EDGES: the ground has edges --------------------------------------------------------------
 #
-# docs/23's edges slice: eight more atlas columns, one ragged fringe per side and outer corner
-# of a tile, so a grass tile beside asphalt reads as a boundary and not a hard seam. The rule
-# (Appearance.edge_shapes, row_luma, _edge_wins) is pure over a tile's row and its eight
-# neighbours' rows; this lane judges it five ways -- the authored pixels (CELLS), the pure rule
-# itself (MASK), the atlas region it addresses (REGION), whether the draw loop actually reaches
-# it (SOCKET) -- and then plays the rule out on the shipped district (EDGE PLAYED). Only CELLS
-# reads the atlas pixels; the other four are pure or textual and do not need the wide PNG.
+# docs/23's edges slice put a fringe column per side of a tile into the atlas, so a boundary
+# between two grounds reads as a boundary and not a hard seam. Since "The ground is the pack's"
+# (2026-09-27) the fringes are the pack's four grass fringes, on the two green rows only
+# (Appearance.FRINGE_ROWS), and the pack paints no corner. The rule (Appearance.edge_shapes,
+# row_luma, _edge_wins) is pure over a tile's row and its side neighbours' rows; this lane judges it
+# five ways -- the atlas pixels (CELLS), the pure rule itself (MASK), the atlas region it addresses
+# (REGION), whether the draw loop actually reaches it (SOCKET) -- and then plays the rule out on the
+# shipped district (EDGE PLAYED). Only CELLS reads the atlas pixels.
 
-# The band an edge cell's fringe must sit inside, and the coverage of it the fringe must fill --
-# tools/sprites/parts/edges.py's own contract, judged here from the decoded pixels.
-const EDGE_MEAN_MAX: float = 0.03
-const EDGE_BAND_PX: int = 8
-const EDGE_COVERAGE_MIN: float = 0.20
-const EDGE_COVERAGE_MAX: float = 0.60
+# Each pack fringe, measured: how many of its pixels are solid (alpha >= 128) and their integer
+# mean. Pinned exactly, because the cells are the pack's pictures and not a generator's
+# approximation of a contract -- `sprites:check` proves each is its source pixel for pixel, and
+# this is the half a Godot process can re-measure. Indexed by EdgeShape (N, E, S, W).
+const FRINGE_SOLID: Array[int] = [283, 266, 258, 257]
+const FRINGE_MEAN: Array[String] = ["3e471f", "3c441e", "3e461f", "3d451f"]
+const FRINGE_ALPHA_SOLID: int = 128
 
 # GroundRow's names, for the MASK lane's luma-order print -- GroundRow itself carries no names.
 const ROW_NAMES: Array[String] = [
 	"paved", "dirt", "grass", "undergrowth", "rubble", "water", "sidewalk", "boards",
 ]
 
-# The eight neighbour offsets in EdgeShape's own order, N first -- what a (row, shape) answer
-# from edge_shapes names as "the neighbour this cell's fringe belongs to".
+# The side neighbour offsets in EdgeShape's own order, N first -- what a (row, shape) answer from
+# edge_shapes names as "the neighbour this cell's fringe belongs to".
 const EDGE_OFFSETS: Array[Vector2i] = [
 	Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0),
-	Vector2i(1, -1), Vector2i(1, 1), Vector2i(-1, 1), Vector2i(-1, -1),
 ]
 
 
-# The band, the named-edge line(s) a fringe must reach, and the opposite line(s) it must leave
-# untouched, for one shape on an n x n cell -- one table so the predicate below and its
-# fabricated negatives read every shape the same way. Rects are pixel ranges, position + size.
-func _edge_geometry(shape: int, n: int) -> Dictionary:
-	var b: int = EDGE_BAND_PX
-	var band: Rect2i
-	var named: Array = []
-	var opposite: Array = []
+# The half of an n x n cell a fringe of `shape` lies in: the pack paints each fringe inside the
+# half of its tile on its named side.
+func _fringe_half(shape: int, n: int) -> Rect2i:
+	var h: int = n / 2
 	match shape:
 		Appearance.EdgeShape.N:
-			band = Rect2i(0, 0, n, b)
-			named = [Rect2i(0, 0, n, 1)]
-			opposite = [Rect2i(0, n - 1, n, 1)]
+			return Rect2i(0, 0, n, h)
 		Appearance.EdgeShape.E:
-			band = Rect2i(n - b, 0, b, n)
-			named = [Rect2i(n - 1, 0, 1, n)]
-			opposite = [Rect2i(0, 0, 1, n)]
+			return Rect2i(n - h, 0, h, n)
 		Appearance.EdgeShape.S:
-			band = Rect2i(0, n - b, n, b)
-			named = [Rect2i(0, n - 1, n, 1)]
-			opposite = [Rect2i(0, 0, n, 1)]
-		Appearance.EdgeShape.W:
-			band = Rect2i(0, 0, b, n)
-			named = [Rect2i(0, 0, 1, n)]
-			opposite = [Rect2i(n - 1, 0, 1, n)]
-		Appearance.EdgeShape.NE:
-			band = Rect2i(n - b, 0, b, b)
-			named = [Rect2i(n - b, 0, b, 1), Rect2i(n - 1, 0, 1, b)]
-			opposite = [Rect2i(0, n - 1, n, 1), Rect2i(0, 0, 1, n)]
-		Appearance.EdgeShape.SE:
-			band = Rect2i(n - b, n - b, b, b)
-			named = [Rect2i(n - b, n - 1, b, 1), Rect2i(n - 1, n - b, 1, b)]
-			opposite = [Rect2i(0, 0, n, 1), Rect2i(0, 0, 1, n)]
-		Appearance.EdgeShape.SW:
-			band = Rect2i(0, n - b, b, b)
-			named = [Rect2i(0, n - 1, b, 1), Rect2i(0, n - b, 1, b)]
-			opposite = [Rect2i(0, 0, n, 1), Rect2i(n - 1, 0, 1, n)]
-		Appearance.EdgeShape.NW:
-			band = Rect2i(0, 0, b, b)
-			named = [Rect2i(0, 0, b, 1), Rect2i(0, 0, 1, b)]
-			opposite = [Rect2i(0, n - 1, n, 1), Rect2i(n - 1, 0, 1, n)]
-	return {"band": band, "named": named, "opposite": opposite}
+			return Rect2i(0, n - h, n, h)
+	return Rect2i(0, 0, h, n)
 
 
 func _point_in_rect(x: int, y: int, r: Rect2i) -> bool:
 	return x >= r.position.x and x < r.position.x + r.size.x and y >= r.position.y and y < r.position.y + r.size.y
 
 
-# "" when the n x n edge cell at (x0, y0) is a lawful fringe of `shape` around `tint`, else what
-# is wrong -- every pixel with any alpha inside the shape's band and none on the opposite edge,
-# a fully-opaque pixel somewhere on the named edge itself, at least three distinct alpha values
-# (the fade), 20-60% coverage of the band at alpha > 0.5, and that coverage's mean RGB within
-# EDGE_MEAN_MAX of the row's tint. One function so the fabricated negatives below refuse through
-# the same code the real cells pass through.
-func _edge_cell_problem(img: Image, x0: int, y0: int, n: int, shape: int, tint: Color) -> String:
-	var geo: Dictionary = _edge_geometry(shape, n)
-	var band: Rect2i = geo["band"] as Rect2i
-	var band_size: int = band.size.x * band.size.y
-	var sum: Vector3 = Vector3.ZERO
-	var covered: int = 0
-	var alphas: Dictionary = {}
+# "" when the n x n cell at (x0, y0) is the pack's `shape` fringe, else what is wrong: every pixel
+# with any alpha inside the shape's half, exactly FRINGE_SOLID[shape] solid pixels, and their
+# integer mean exactly FRINGE_MEAN[shape]. One function so the fabricated negatives below refuse
+# through the same code the real cells pass through.
+func _edge_cell_problem(img: Image, x0: int, y0: int, n: int, shape: int) -> String:
+	var half: Rect2i = _fringe_half(shape, n)
+	var sums: Array[int] = [0, 0, 0]
+	var solid: int = 0
 	for y in n:
 		for x in n:
 			var c: Color = img.get_pixel(x0 + x, y0 + y)
-			if c.a > 0.0:
-				if not _point_in_rect(x, y, band):
-					return "a fringe pixel at (%d, %d), alpha %.3f, lies outside the %s band" % [x, y, c.a, str(band)]
-				alphas[int(round(c.a * 255.0))] = true
-			if c.a > 0.5:
-				covered += 1
-				sum += Vector3(c.r, c.g, c.b)
-	for line in geo["opposite"] as Array:
-		var r: Rect2i = line as Rect2i
-		for y2 in range(r.position.y, r.position.y + r.size.y):
-			for x2 in range(r.position.x, r.position.x + r.size.x):
-				if img.get_pixel(x0 + x2, y0 + y2).a > 0.0:
-					return "the opposite edge carries alpha at (%d, %d); the fringe crossed the tile" % [x2, y2]
-	var on_named_edge: bool = false
-	for line2 in geo["named"] as Array:
-		var r2: Rect2i = line2 as Rect2i
-		for y3 in range(r2.position.y, r2.position.y + r2.size.y):
-			for x3 in range(r2.position.x, r2.position.x + r2.size.x):
-				if img.get_pixel(x0 + x3, y0 + y3).a >= 0.999:
-					on_named_edge = true
-	if not on_named_edge:
-		return "no fully-opaque pixel on the named edge itself; the fringe never reaches the boundary"
-	if covered == 0:
-		return "no pixel over alpha 0.5; the fringe is invisible"
-	var coverage: float = float(covered) / float(band_size)
-	if coverage < EDGE_COVERAGE_MIN or coverage > EDGE_COVERAGE_MAX:
-		return "coverage %.3f is outside [%.2f, %.2f] of the %d px band" % [coverage, EDGE_COVERAGE_MIN, EDGE_COVERAGE_MAX, band_size]
-	var mean: Vector3 = sum / float(covered)
-	var d: float = Vector3(tint.r, tint.g, tint.b).distance_to(mean)
-	if d > EDGE_MEAN_MAX:
-		return "mean (%.3f, %.3f, %.3f) sits %.3f from its tint %s, over %.2f" % [mean.x, mean.y, mean.z, d, tint.to_html(false), EDGE_MEAN_MAX]
-	if alphas.size() < 3:
-		return "only %d distinct alpha value(s) among the fringe pixels; the fade is not a fade" % alphas.size()
+			if c.a8 == 0:
+				continue
+			if not _point_in_rect(x, y, half):
+				return "a fringe pixel at (%d, %d), alpha %d, lies outside the %s half" % [x, y, c.a8, str(half)]
+			if c.a8 >= FRINGE_ALPHA_SOLID:
+				solid += 1
+				sums[0] += c.r8
+				sums[1] += c.g8
+				sums[2] += c.b8
+	if solid != FRINGE_SOLID[shape]:
+		return "%d solid pixels, not the pack fringe's %d" % [solid, FRINGE_SOLID[shape]]
+	var mean: String = "%02x%02x%02x" % [(sums[0] + solid / 2) / solid, (sums[1] + solid / 2) / solid, (sums[2] + solid / 2) / solid]
+	if mean != FRINGE_MEAN[shape]:
+		return "solid mean #%s, not the pack fringe's #%s" % [mean, FRINGE_MEAN[shape]]
 	return ""
 
 
-# 2. CELLS: every (row, shape) cell of the atlas sits at the region edge_cell names and is a
-# lawful fringe of its row's tint; a fully opaque cell, a fringe on the wrong edge, and a
-# brightened fringe are all refused through the same predicate.
+# "" when the cell is transparent throughout -- an edge column on a row the pack gives no fringe.
+func _blank_cell_problem(img: Image, x0: int, y0: int, n: int) -> String:
+	for y in n:
+		for x in n:
+			if img.get_pixel(x0 + x, y0 + y).a8 != 0:
+				return "a pixel at (%d, %d) carries alpha; this row has no fringe to draw" % [x, y]
+	return ""
+
+
+# 2. CELLS: every (row, shape) cell of the atlas sits at the region edge_cell names; on the fringe
+# rows it is the pack's fringe for that side, and on every other row it is transparent. A fully
+# opaque cell, a fringe judged on the wrong side, a brightened fringe and a real fringe judged as
+# a blank are all refused through the same predicates.
 func _the_edge_cells_are_lawful(stash: Dictionary) -> bool:
 	Appearance.forget()
 	var atlas: Texture2D = Appearance.ground_atlas()
@@ -1142,32 +1184,39 @@ func _the_edge_cells_are_lawful(stash: Dictionary) -> bool:
 	if img == null:
 		push_error("CELLS: the atlas texture yields no image to judge")
 		return false
-	var judged: int = 0
+	var fringes: int = 0
+	var blanks: int = 0
 	for row in Appearance.GROUND_ROWS:
-		var tint: Color = Appearance.ground_row_tint(row)
 		for shape in Appearance.EDGE_SHAPES:
 			var region: Rect2 = Appearance.edge_cell(row, shape)
 			var expect: Rect2 = Rect2(float((Appearance.GROUND_VARIANTS + shape) * n), float(row * n), float(n), float(n))
 			if region != expect:
 				push_error("CELLS: edge_cell(%d, %d) answered %s, not %s" % [row, shape, str(region), str(expect)])
 				return false
-			var problem: String = _edge_cell_problem(img, int(region.position.x), int(region.position.y), n, shape, tint)
+			var problem: String
+			if Appearance.FRINGE_ROWS.has(row):
+				problem = _edge_cell_problem(img, int(region.position.x), int(region.position.y), n, shape)
+				fringes += 1
+			else:
+				problem = _blank_cell_problem(img, int(region.position.x), int(region.position.y), n)
+				blanks += 1
 			if not problem.is_empty():
 				push_error("CELLS: atlas row %d shape %d: %s" % [row, shape, problem])
 				return false
-			judged += 1
 
-	# The negatives, through the same predicate.
+	# The negatives, through the same predicates.
 	var opaque: Image = Image.create(n, n, false, Image.FORMAT_RGBA8)
 	opaque.fill(Appearance.ground_row_tint(0))
-	if _edge_cell_problem(opaque, 0, 0, n, Appearance.EdgeShape.N, Appearance.ground_row_tint(0)).is_empty():
-		push_error("CELLS: a fully opaque cell passed the edge predicate; the band and coverage pins read nothing")
+	if _edge_cell_problem(opaque, 0, 0, n, Appearance.EdgeShape.N).is_empty():
+		push_error("CELLS: a fully opaque cell passed the edge predicate; the half and count pins read nothing")
 		return false
 	var n_region: Rect2 = Appearance.edge_cell(Appearance.GroundRow.Grass, Appearance.EdgeShape.N)
-	var grass_tint: Color = Appearance.ground_row_tint(Appearance.GroundRow.Grass)
 	var wrong_edge: Image = img.get_region(Rect2i(n_region))
-	if _edge_cell_problem(wrong_edge, 0, 0, n, Appearance.EdgeShape.S, grass_tint).is_empty():
-		push_error("CELLS: the real N fringe, judged as an S cell, passed the edge predicate; the band pin reads nothing")
+	if _edge_cell_problem(wrong_edge, 0, 0, n, Appearance.EdgeShape.S).is_empty():
+		push_error("CELLS: the real N fringe, judged as an S cell, passed the edge predicate; the half pin reads nothing")
+		return false
+	if _blank_cell_problem(wrong_edge, 0, 0, n).is_empty():
+		push_error("CELLS: the real N fringe passed as a blank cell; the blank predicate reads nothing")
 		return false
 	var bright: Image = img.get_region(Rect2i(n_region))
 	for y in n:
@@ -1175,22 +1224,24 @@ func _the_edge_cells_are_lawful(stash: Dictionary) -> bool:
 			var c: Color = bright.get_pixel(x, y)
 			if c.a > 0.0:
 				bright.set_pixel(x, y, Color(minf(c.r + 0.1, 1.0), minf(c.g + 0.1, 1.0), minf(c.b + 0.1, 1.0), c.a))
-	if _edge_cell_problem(bright, 0, 0, n, Appearance.EdgeShape.N, grass_tint).is_empty():
-		push_error("CELLS: a fringe a tenth brighter than its tint passed the edge predicate; the mean pin reads nothing")
+	if _edge_cell_problem(bright, 0, 0, n, Appearance.EdgeShape.N).is_empty():
+		push_error("CELLS: a fringe a tenth brighter than the pack's passed the edge predicate; the mean pin reads nothing")
 		return false
 
-	stash["edge_cells"] = judged
-	print("CELLS OK %d edge cells (%d rows x %d shapes), each band-bound with a fully-opaque named edge, a transparent opposite edge, an alpha-graded fade and a mean within %.2f of its row tint; a flat cell, the wrong-edge fringe and a brightened fringe all refused" % [
-		judged, Appearance.GROUND_ROWS, Appearance.EDGE_SHAPES, EDGE_MEAN_MAX,
+	stash["edge_cells"] = fringes
+	print("CELLS OK %d edge cells (%d rows x %d shapes): the %d on the green rows each the pack's grass fringe for its side (inside its half, %s solid pixels, means #%s), the other %d transparent; a flat cell, a fringe on the wrong side, a brightened fringe and a fringe passed off as blank all refused" % [
+		fringes + blanks, Appearance.GROUND_ROWS, Appearance.EDGE_SHAPES, fringes, str(FRINGE_SOLID), "/#".join(FRINGE_MEAN), blanks,
 	])
 	return true
 
 
-# 3. MASK: Appearance.edge_shapes, pure -- the true negative first, then the darker-wins rule,
-# side order, the corner suppression, ROW_NONE and a malformed neighbours array, and the tie
-# rule (row_luma is a strict total order, so _edge_wins is never true both ways for a pair).
+# 3. MASK: Appearance.edge_shapes, pure -- the true negative first, then the darker-wins rule over
+# the green rows, the new refusal (a darker ground with no fringe draws nothing), side order, the
+# diagonals ignored, ROW_NONE and a malformed neighbours array, and the tie rule (row_luma is a
+# strict total order, so _edge_wins is never true both ways for a pair).
 func _the_edge_mask_never_draws_both_ways() -> bool:
 	var grass: int = Appearance.GroundRow.Grass
+	var under: int = Appearance.GroundRow.Undergrowth
 	var paved: int = Appearance.GroundRow.Paved
 	var dirt: int = Appearance.GroundRow.Dirt
 	var none: int = Appearance.ROW_NONE
@@ -1200,33 +1251,40 @@ func _the_edge_mask_never_draws_both_ways() -> bool:
 		push_error("MASK: edge_shapes(Grass, [Grass x 8]) answered %s, not []" % str(Appearance.edge_shapes(grass, same)))
 		return false
 
-	var one_dark := PackedInt32Array([paved, grass, grass, grass, grass, grass, grass, grass])
-	var got: Array[Vector2i] = Appearance.edge_shapes(grass, one_dark)
-	if got != [Vector2i(paved, Appearance.EdgeShape.N)]:
-		push_error("MASK: edge_shapes(Grass, N=Paved) answered %s, want [(Paved, N)]" % str(got))
+	# Grass (luma 0.298) is darker than the pack's dirt (0.424): its fringe draws onto dirt.
+	var grass_on_dirt := PackedInt32Array([grass, dirt, dirt, dirt, dirt, dirt, dirt, dirt])
+	var got: Array[Vector2i] = Appearance.edge_shapes(dirt, grass_on_dirt)
+	if got != [Vector2i(grass, Appearance.EdgeShape.N)]:
+		push_error("MASK: edge_shapes(Dirt, N=Grass) answered %s, want [(Grass, N)]" % str(got))
 		return false
 
-	var one_light := PackedInt32Array([grass, paved, paved, paved, paved, paved, paved, paved])
-	if not Appearance.edge_shapes(paved, one_light).is_empty():
-		push_error("MASK: edge_shapes(Paved, N=Grass) answered %s, not [] -- the lighter drew onto the darker" % str(Appearance.edge_shapes(paved, one_light)))
+	# ...and never the other way: grass is lighter than asphalt, so it draws nothing onto it.
+	var grass_on_paved := PackedInt32Array([grass, paved, paved, paved, paved, paved, paved, paved])
+	if not Appearance.edge_shapes(paved, grass_on_paved).is_empty():
+		push_error("MASK: edge_shapes(Paved, N=Grass) answered %s, not [] -- the lighter drew onto the darker" % str(Appearance.edge_shapes(paved, grass_on_paved)))
 		return false
 
-	var two_sides := PackedInt32Array([paved, dirt, grass, grass, grass, grass, grass, grass])
-	var got2: Array[Vector2i] = Appearance.edge_shapes(grass, two_sides)
-	if got2 != [Vector2i(paved, Appearance.EdgeShape.N), Vector2i(dirt, Appearance.EdgeShape.E)]:
-		push_error("MASK: edge_shapes(Grass, N=Paved, E=Dirt) answered %s, want [(Paved, N), (Dirt, E)]" % str(got2))
+	# The pack paints no fringe but grass: asphalt is darker than dirt and still draws nothing.
+	var paved_on_dirt := PackedInt32Array([paved, dirt, dirt, dirt, dirt, dirt, dirt, dirt])
+	if not Appearance.edge_shapes(dirt, paved_on_dirt).is_empty():
+		push_error("MASK: edge_shapes(Dirt, N=Paved) answered %s, not [] -- a ground with no fringe art drew one" % str(Appearance.edge_shapes(dirt, paved_on_dirt)))
 		return false
 
-	var corner_only := PackedInt32Array([grass, grass, grass, grass, paved, grass, grass, grass])
-	var got3: Array[Vector2i] = Appearance.edge_shapes(grass, corner_only)
-	if got3 != [Vector2i(paved, Appearance.EdgeShape.NE)]:
-		push_error("MASK: edge_shapes(Grass, NE=Paved) answered %s, want [(Paved, NE)]" % str(got3))
+	# Undergrowth (0.264) is darker than asphalt (0.275), so the thicket spills onto the road.
+	var two_sides := PackedInt32Array([grass, under, dirt, dirt, dirt, dirt, dirt, dirt])
+	var got2: Array[Vector2i] = Appearance.edge_shapes(dirt, two_sides)
+	if got2 != [Vector2i(grass, Appearance.EdgeShape.N), Vector2i(under, Appearance.EdgeShape.E)]:
+		push_error("MASK: edge_shapes(Dirt, N=Grass, E=Undergrowth) answered %s, want [(Grass, N), (Undergrowth, E)]" % str(got2))
+		return false
+	var under_on_paved := PackedInt32Array([paved, paved, paved, under, paved, paved, paved, paved])
+	if Appearance.edge_shapes(paved, under_on_paved) != [Vector2i(under, Appearance.EdgeShape.W)]:
+		push_error("MASK: edge_shapes(Paved, W=Undergrowth) answered %s, want [(Undergrowth, W)]" % str(Appearance.edge_shapes(paved, under_on_paved)))
 		return false
 
-	var corner_suppressed := PackedInt32Array([paved, grass, grass, grass, paved, grass, grass, grass])
-	var got4: Array[Vector2i] = Appearance.edge_shapes(grass, corner_suppressed)
-	if got4 != [Vector2i(paved, Appearance.EdgeShape.N)]:
-		push_error("MASK: edge_shapes(Grass, N=Paved, NE=Paved) answered %s, want [(Paved, N)] only" % str(got4))
+	# The pack paints no corner: a darker green diagonal alone draws nothing.
+	var corner_only := PackedInt32Array([dirt, dirt, dirt, dirt, grass, grass, grass, grass])
+	if not Appearance.edge_shapes(dirt, corner_only).is_empty():
+		push_error("MASK: edge_shapes(Dirt, diagonals=Grass) answered %s, not [] -- a corner drew with no corner art" % str(Appearance.edge_shapes(dirt, corner_only)))
 		return false
 
 	var absent := PackedInt32Array([none, grass, grass, grass, grass, grass, grass, grass])
@@ -1270,8 +1328,8 @@ func _the_edge_mask_never_draws_both_ways() -> bool:
 			push_error("MASK: row_luma(%d) = %.6f does not match Rec. 709 of ground_row_tint: %.6f" % [r3, Appearance.row_luma(r3), recomputed])
 			return false
 
-	print("MASK OK identical neighbours draw nothing, a darker N/E draws in side order, the lighter never draws on the darker, a corner draws only with both sides own and is suppressed when a side already carries it, ROW_NONE and a short array draw nothing; luma order %s, no pair of the 7 rows ever wins both ways, row_luma matches Rec. 709 of ground_row_tint" % [
-		", ".join(order_names),
+	print("MASK OK identical neighbours draw nothing; a darker green side draws its fringe in side order and the lighter never draws on the darker; a darker ground with no fringe art, and a diagonal (no corner art), draw nothing; ROW_NONE and a short array draw nothing; luma order %s, no pair of the %d rows ever wins both ways, row_luma matches Rec. 709 of ground_row_tint" % [
+		", ".join(order_names), Appearance.GROUND_ROWS,
 	])
 	return true
 
@@ -1285,7 +1343,7 @@ func _the_edge_region_is_clamped_and_disjoint() -> bool:
 	var clamped: Rect2 = Appearance.edge_cell(99, 99)
 	var want: Rect2 = Rect2(float((Appearance.GROUND_VARIANTS + last_shape) * n), float(last_row * n), float(n), float(n))
 	if clamped != want:
-		push_error("REGION: edge_cell(99, 99) answered %s, not the last row's NW cell %s" % [str(clamped), str(want)])
+		push_error("REGION: edge_cell(99, 99) answered %s, not the last row's W cell %s" % [str(clamped), str(want)])
 		return false
 	if clamped != Appearance.edge_cell(last_row, last_shape):
 		push_error("REGION: edge_cell(99, 99) does not equal edge_cell(%d, %d)" % [last_row, last_shape])
@@ -1304,7 +1362,7 @@ func _the_edge_region_is_clamped_and_disjoint() -> bool:
 					if gx0 < ex1 and ex0 < gx1:
 						push_error("REGION: ground_cell(%d, %d) x[%.0f, %.0f) overlaps edge_cell(%d, %d) x[%.0f, %.0f)" % [row, v, gx0, gx1, row2, shape, ex0, ex1])
 						return false
-	print("REGION OK edge_cell(99, 99) clamps to row %d shape %d (NW); every variant cell's x range sits disjoint from every edge cell's" % [last_row, last_shape])
+	print("REGION OK edge_cell(99, 99) clamps to row %d shape %d (W); every variant cell's x range sits disjoint from every edge cell's" % [last_row, last_shape])
 	return true
 
 
