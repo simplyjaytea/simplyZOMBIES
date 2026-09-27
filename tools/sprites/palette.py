@@ -18,8 +18,9 @@ The three families, and why each bound is where it is:
 
 * **muted** (S <= 0.30, V in [0.12, 0.72]) -- cloth, stone, glass, concrete, litter, the
   achromatic colonist rig: the manufactured and the worn-out, which is most of a district. The
-  saturation ceiling is the ground's own (check_road_look.gd's palette lane caps a surface at
-  0.30) so a crate cannot out-colour the street it stands on. The floor keeps a colour off pure
+  saturation ceiling was the ground's own (check_road_look.gd's palette lane capped a surface at
+  0.30 until the pack's ground replaced the generated one, 2026-09-27) so a crate cannot
+  out-colour the street it was drawn for. The floor keeps a colour off pure
   black, where the outline lives and where a shape stops reading as a shape; the ceiling keeps it
   off white, which under the night wash is the only thing that still glares -- and it sits lower
   than the old single ceiling on purpose, because in a warm grade the loud thing on screen has to
@@ -165,31 +166,35 @@ GROUND_CONTRAST = 0.10
 # clearance downwards would leave a burnt car shell almost no room to be a colour at all.
 GROUND_CONTRAST_EITHER = 0.08
 
-# A HARD COPY of `SURFACE_TINTS` in godot/presentation/palette.gd, which is the source of
-# record -- this file cannot read GDScript and the guard below needs the numbers. Regrading
-# the ground means editing both in the same commit; a stale copy here makes the guard lie
-# about a district nobody is drawing any more.
-SURFACE_TINTS = {
+# The grounds the generated art was authored against: a HARD COPY of the six surfaces of
+# `GENERATOR_GROUNDS` in godot/presentation/palette.gd (this file cannot read GDScript). Until
+# 2026-09-27 this was a copy of the live `SURFACE_TINTS`, the ground the district drew. Since "The
+# ground is the pack's" (docs/23) the district draws the outpost pack's own terrain, which is
+# brighter (dirt at luma 0.424, the sidewalk's concrete at 0.593) and more saturated than anything
+# this package paints, and the owner's answer that day (relayed by the coordinator) was that the
+# guards below keep judging generated art against the grounds it was drawn for: regrading a ramp to
+# the pack's ground is the job of the slice that replaces that art (the walls, the trees, the
+# cars), and each such slice retires its ramps from these guards when it deletes them. Against the
+# pack's table the guards would refuse fatigue_drab (+0.022 of the 0.10), raider_drab (+0.038)
+# and bloater_green (+0.082) looking up; pine_light (0.028 of the 0.08), car_green (0.044) and
+# wood (0.046) either side; and every wall ramp and the shingle and tin roofs against the floors
+# (wall_timber 0.024, the nearest) -- docs/23's record carries the table. Editing this table means
+# editing `GENERATOR_GROUNDS` in the same commit; nothing draws either any more.
+GENERATOR_SURFACES = {
     "paved": "#474240",
     "dirt": "#584e40",
     "grass": "#4f5440",
     "undergrowth": "#414a37",
     "rubble": "#4e4a46",
-    # The sixth ground, and the one entry here that is deliberately cool: water reads as water.
-    # `check_road_look.gd`'s COOL_SURFACES judges it with the cool pin instead of the warm one,
-    # and the saturation cap still applies (0.283, inside 0.30). docs/30 carries the amendment.
-    # Dark on purpose: `guard_against_ground` below refuses a water bright enough to be the
-    # brightest ground, because the drab pawn ramps stop clearing it by GROUND_CONTRAST.
+    # The sixth ground, and the one entry here that was deliberately cool: the slate water the
+    # generated art stood beside from 2026-09-09. Dark on purpose: `guard_against_ground` below
+    # refused a water bright enough to be the brightest ground.
     "water": "#424f5c",
 }
 
-# A HARD COPY of two entries from `COLOURS` in godot/presentation/palette.gd -- the paint layer's
-# sidewalk slab and the indoor board floor, the two ground rows that are not one of the five
-# `SURFACE_TINTS` surfaces. Same rule as the copy above: this file cannot read GDScript, and
-# regrading either colour means editing both in the same commit or this guard lies about a floor
-# nobody is drawing any more. `sidewalk` matches `COLOURS["sidewalk"]`; `boards` matches
-# `COLOURS["indoorFloor"]`.
-PAINT_TINTS = {
+# The two painted floors of the same table, the rows that are not surfaces: `sidewalk` is
+# `GENERATOR_GROUNDS["sidewalk"]` and `boards` is `GENERATOR_GROUNDS["indoorFloor"]`.
+GENERATOR_PAINTS = {
     "sidewalk": "#5e5852",
     "boards": "#6a5540",
 }
@@ -238,7 +243,7 @@ def luma(value):
 
 
 def brightest_ground():
-    return max(luma(hex_value) for hex_value in SURFACE_TINTS.values())
+    return max(luma(hex_value) for hex_value in GENERATOR_SURFACES.values())
 
 
 class Ramp(list):
@@ -354,7 +359,7 @@ def guard_either_side_of_ground(name, steps):
     than as an object, whichever side it fell on.
     """
     mid_luma = luma(steps[len(steps) // 2])
-    nearest = min(abs(mid_luma - luma(hex_value)) for hex_value in SURFACE_TINTS.values())
+    nearest = min(abs(mid_luma - luma(hex_value)) for hex_value in GENERATOR_SURFACES.values())
     if nearest < GROUND_CONTRAST_EITHER:
         raise ValueError(
             "ramp '%s' sits %.3f from its nearest ground tint, under GROUND_CONTRAST_EITHER %.2f: "
@@ -554,7 +559,7 @@ BUILT_READING = [
 def guard_either_side_of_floors(name, steps):
     """`guard_either_side_of_ground`, with the two paint rows counted among the floors."""
     mid_luma = luma(steps[len(steps) // 2])
-    floors = list(SURFACE_TINTS.values()) + list(PAINT_TINTS.values())
+    floors = list(GENERATOR_SURFACES.values()) + list(GENERATOR_PAINTS.values())
     nearest = min(abs(mid_luma - luma(hex_value)) for hex_value in floors)
     if nearest < GROUND_CONTRAST_EITHER:
         raise ValueError(

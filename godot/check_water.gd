@@ -35,6 +35,14 @@ extends SceneTree
 #           pushed them up, Surface.Water (5) collided with GroundRow.Sidewalk (5) and a river
 #           drew as pavement with every gate green. TN: a sidewalk-masked tile still answers
 #           Sidewalk, so the re-index did not simply shift the bug along.
+#   PACK    the water is the outpost pack's (docs/23, "The ground is the pack's", 2026-09-27; the
+#           owner's answer in docs/30's "The whole outpost pack" that the ground takes the pack's
+#           own grade, which folds in HANDOFF's water-saturation question): the ford's colour is the
+#           pack's measured teal #244e56, cool, its atlas cells the pack's one water tile twice, and
+#           the deep channel derived from it still sits between the ford and the background in
+#           value -- a channel you can tell from the ford and from the void. TN: the warm-dark
+#           slate #424f5c the pack replaced, refused by the same predicate; a channel shaded to the
+#           background's value, refused by the same bound.
 #   DRAW    the draw path reaches water. `main.gd` matches on the tile class **twice** -- once
 #           for a colour and once to draw -- and CLAUDE.md records a gate that read the wrong
 #           arm and blamed correct code, so this enumerates both and requires the water arm in
@@ -93,6 +101,7 @@ func _run() -> void:
 	ok = _a_channel_does_not_block_a_sightline_and_a_wall_does() and ok
 	ok = _the_ford_is_the_slowest_and_loudest_ground_and_something_reads_it() and ok
 	ok = _the_atlas_row_is_the_surface_and_not_the_sidewalk() and ok
+	ok = _the_water_is_the_packs() and ok
 	ok = _the_draw_path_reaches_water_in_both_of_its_two_matches() and ok
 	ok = _the_generator_carves_water_only_where_content_declares_it() and ok
 	ok = _a_generated_river_never_leaves_ground_stranded() and ok
@@ -105,7 +114,7 @@ func _run() -> void:
 		ok = false
 
 	if ok:
-		print("WATER_OK deep water is solid and clear (the Window pair) and refuses a foot while the ford on the same surface walks; a sightline crosses a channel and not a wall; the ford reads x%.2f speed and x%.2f noise through the world's own path -- the slowest and loudest ground there is; the atlas row is the water row and not the sidewalk's; both of main.gd's tile matches carry a water arm and the fringe pass stays out of the channel; the generator carves water only where content declares it and never leaves ground stranded on %d seeds x %d sizes, and the dressing can neither gravel a ford nor wear a track down one; a ford walks, soaks the body standing in it and reads one band colder for it; %.1f s of a %.0f s budget" % [
+		print("WATER_OK deep water is solid and clear (the Window pair) and refuses a foot while the ford on the same surface walks; a sightline crosses a channel and not a wall; the ford reads x%.2f speed and x%.2f noise through the world's own path -- the slowest and loudest ground there is; the atlas row is the water row and not the sidewalk's, and it is the pack's teal with the deep channel between it and the void; both of main.gd's tile matches carry a water arm and the fringe pass stays out of the channel; the generator carves water only where content declares it and never leaves ground stranded on %d seeds x %d sizes, and the dressing can neither gravel a ford nor wear a track down one; a ford walks, soaks the body standing in it and reads one band colder for it; %.1f s of a %.0f s budget" % [
 			SimSurface.SPEED[SimSurface.Surface.Water],
 			SimSurface.NOISE[SimSurface.Surface.Water],
 			SEEDS.size(), SIZES.size(),
@@ -314,6 +323,71 @@ func _the_atlas_row_is_the_surface_and_not_the_sidewalk() -> bool:
 	if not Appearance.ground_row_tint(Appearance.GroundRow.Sidewalk).is_equal_approx(Palette.COLOURS["sidewalk"]):
 		push_error("ROWS: the sidewalk row's tint is no longer the sidewalk paint")
 		return false
+	return true
+
+
+# 5b. PACK: the ford is the pack's water, and the channel still reads as a channel.
+const PACK_WATER: String = "244e56"
+
+
+# "" when `ford` is the pack's water and `channel` (the deep tile's colour) sits strictly between
+# the background and the ford in value, else what is wrong. One predicate for the shipped colours
+# and the refused ones.
+func _water_problem(ford: Color, channel: Color) -> String:
+	if ford.to_html(false) != PACK_WATER:
+		return "the ford is #%s, not the pack's measured #%s" % [ford.to_html(false), PACK_WATER]
+	if ford.b - ford.r < 0.02:
+		return "the ford's b - r is %.3f; water has to be cool" % (ford.b - ford.r)
+	var void_v: float = (Palette.COLOURS["background"] as Color).v
+	if not (channel.v > void_v and channel.v < ford.v):
+		return "the channel's value %.3f is not strictly between the background's %.3f and the ford's %.3f" % [channel.v, void_v, ford.v]
+	return ""
+
+
+func _the_water_is_the_packs() -> bool:
+	var ford: Color = Palette.COLOURS["water"]
+	var channel: Color = ford.darkened(Palette.WATER_DEEP_SHADE)
+	var problem: String = _water_problem(ford, channel)
+	if not problem.is_empty():
+		push_error("PACK: %s" % problem)
+		return false
+	# The atlas's water row is the pack's one water tile, twice: the two cells identical and their
+	# integer mean the pinned hex (check_road_look.gd's TEXTURE lane holds the same mean for all
+	# eight rows; this is the water half said where the water lives).
+	Appearance.forget()
+	var atlas: Texture2D = Appearance.ground_atlas()
+	if atlas == null or atlas.get_image() == null:
+		push_error("PACK: no ground atlas resolves; the ford has no picture")
+		return false
+	var img: Image = atlas.get_image()
+	var a: Rect2i = Rect2i(Appearance.ground_cell(Appearance.GroundRow.Water, 0))
+	var b: Rect2i = Rect2i(Appearance.ground_cell(Appearance.GroundRow.Water, 1))
+	if img.get_region(a).get_data() != img.get_region(b).get_data():
+		push_error("PACK: the water row's two cells differ; the pack paints one water")
+		return false
+	var sums: Array[int] = [0, 0, 0]
+	for y in range(a.position.y, a.position.y + a.size.y):
+		for x in range(a.position.x, a.position.x + a.size.x):
+			var c: Color = img.get_pixel(x, y)
+			sums[0] += c.r8
+			sums[1] += c.g8
+			sums[2] += c.b8
+	var count: int = a.size.x * a.size.y
+	var measured: String = "%02x%02x%02x" % [(sums[0] + count / 2) / count, (sums[1] + count / 2) / count, (sums[2] + count / 2) / count]
+	if measured != PACK_WATER:
+		push_error("PACK: the atlas's water cell measures #%s, not #%s" % [measured, PACK_WATER])
+		return false
+	# TN: the warm-dark slate the pack replaced, and a channel shaded down to the void.
+	var slate := Color("#424f5c")
+	if _water_problem(slate, slate.darkened(Palette.WATER_DEEP_SHADE)).is_empty():
+		push_error("PACK: the warm-dark slate #424f5c passes; a revert to the generated water would not be caught")
+		return false
+	if _water_problem(ford, Palette.COLOURS["background"]).is_empty():
+		push_error("PACK: a channel the background's own colour passes; the value bound reads nothing")
+		return false
+	print("PACK OK the ford is the pack's #%s (S %.3f, b - r %.3f), its atlas cell the pack's one water measured to the same hex, the channel at V %.3f between the void's %.3f and the ford's %.3f; the warm-dark slate and a void-dark channel refused" % [
+		PACK_WATER, ford.s, ford.b - ford.r, channel.v, (Palette.COLOURS["background"] as Color).v, ford.v,
+	])
 	return true
 
 

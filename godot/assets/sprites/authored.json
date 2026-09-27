@@ -82,6 +82,16 @@
     "2026-09-17 `reads` only has to be ONE of the content ids that declare the key, not the last",
     "one loaded -- two bases sharing one icon are both allowed to claim it.",
     "",
+    "A **cells** source is the other shape a `source` can take: `cells` in place of `path`, each",
+    "cell one whole pack picture pasted at `at: [x, y]` on the entry's canvas, with the files in",
+    "`over` alpha-composited onto it first -- the layering the renderer would do per frame, done",
+    "once. Never cropped, resized or recoloured; build.py refuses a cell that runs off the canvas or",
+    "overlaps another. Kind `ground` is the one cells source so far: `ground_atlas`, composed from the",
+    "pack's terrain tiles and grass fringes (docs/23, 'The ground is the pack's', 2026-09-27).",
+    "Its `reads` is not a content id -- no content entry names the ground -- but",
+    "`<file>:<function>`, the renderer function that blits it, and `godot:check:authored`'s READS",
+    "lane holds that function to calling `Appearance.ground_atlas(`.",
+    "",
     "Optional `anchor: [x, y]` (pixels) and `palette: \"generator\"|\"pack\"` are accepted by",
     "MANIFEST. `anchor` has two readers: PICTURE (a `tree` or `prop` says where it stands and the",
     "lane holds it to the pack's own), and the renderer for a sheet (the pixel of each frame that",
@@ -787,6 +797,202 @@
             "path": "art/simplyzombies/groups/effects/frames/fx-shotgun-muzzle-03.png"
           }
         }
+      }
+    },
+    "ground_atlas": {
+      "canvas": [
+        192,
+        256
+      ],
+      "kind": "ground",
+      "reads": "presentation/main.gd:_draw_floor_tile",
+      "palette": "pack",
+      "source": {
+        "cells": [
+          {
+            "at": [
+              0,
+              0
+            ],
+            "path": "art/simplyzombies/groups/environment/textures/tile-asphalt-a.png"
+          },
+          {
+            "at": [
+              32,
+              0
+            ],
+            "path": "art/simplyzombies/groups/environment/textures/tile-asphalt-b.png"
+          },
+          {
+            "at": [
+              0,
+              32
+            ],
+            "path": "art/simplyzombies/groups/environment/textures/tile-dirt-a.png"
+          },
+          {
+            "at": [
+              32,
+              32
+            ],
+            "path": "art/simplyzombies/groups/environment/textures/tile-dirt-b.png"
+          },
+          {
+            "at": [
+              0,
+              64
+            ],
+            "path": "art/simplyzombies/groups/environment/textures/tile-grass-a.png"
+          },
+          {
+            "at": [
+              32,
+              64
+            ],
+            "path": "art/simplyzombies/groups/environment/textures/tile-grass-b.png"
+          },
+          {
+            "at": [
+              64,
+              64
+            ],
+            "path": "art/simplyzombies/groups/environment/textures/overlay-grass-north.png"
+          },
+          {
+            "at": [
+              96,
+              64
+            ],
+            "path": "art/simplyzombies/groups/environment/textures/overlay-grass-east.png"
+          },
+          {
+            "at": [
+              128,
+              64
+            ],
+            "path": "art/simplyzombies/groups/environment/textures/overlay-grass-south.png"
+          },
+          {
+            "at": [
+              160,
+              64
+            ],
+            "path": "art/simplyzombies/groups/environment/textures/overlay-grass-west.png"
+          },
+          {
+            "at": [
+              0,
+              96
+            ],
+            "path": "art/simplyzombies/groups/environment/textures/tile-grass-a.png",
+            "over": [
+              "art/simplyzombies/groups/environment/textures/overlay-grass-north.png",
+              "art/simplyzombies/groups/environment/textures/overlay-grass-east.png",
+              "art/simplyzombies/groups/environment/textures/overlay-grass-south.png",
+              "art/simplyzombies/groups/environment/textures/overlay-grass-west.png"
+            ]
+          },
+          {
+            "at": [
+              32,
+              96
+            ],
+            "path": "art/simplyzombies/groups/environment/textures/tile-grass-b.png",
+            "over": [
+              "art/simplyzombies/groups/environment/textures/overlay-grass-north.png",
+              "art/simplyzombies/groups/environment/textures/overlay-grass-east.png",
+              "art/simplyzombies/groups/environment/textures/overlay-grass-south.png",
+              "art/simplyzombies/groups/environment/textures/overlay-grass-west.png"
+            ]
+          },
+          {
+            "at": [
+              64,
+              96
+            ],
+            "path": "art/simplyzombies/groups/environment/textures/overlay-grass-north.png"
+          },
+          {
+            "at": [
+              96,
+              96
+            ],
+            "path": "art/simplyzombies/groups/environment/textures/overlay-grass-east.png"
+          },
+          {
+            "at": [
+              128,
+              96
+            ],
+            "path": "art/simplyzombies/groups/environment/textures/overlay-grass-south.png"
+          },
+          {
+            "at": [
+              160,
+              96
+            ],
+            "path": "art/simplyzombies/groups/environment/textures/overlay-grass-west.png"
+          },
+          {
+            "at": [
+              0,
+              128
+            ],
+            "path": "art/simplyzombies/groups/environment/textures/tile-rubble.png"
+          },
+          {
+            "at": [
+              32,
+              128
+            ],
+            "path": "art/simplyzombies/groups/environment/textures/tile-rubble.png",
+            "over": [
+              "art/simplyzombies/groups/environment/textures/overlay-debris.png"
+            ]
+          },
+          {
+            "at": [
+              0,
+              160
+            ],
+            "path": "art/simplyzombies/groups/environment/textures/tile-water.png"
+          },
+          {
+            "at": [
+              32,
+              160
+            ],
+            "path": "art/simplyzombies/groups/environment/textures/tile-water.png"
+          },
+          {
+            "at": [
+              0,
+              192
+            ],
+            "path": "art/simplyzombies/groups/environment/textures/tile-concrete-a.png"
+          },
+          {
+            "at": [
+              32,
+              192
+            ],
+            "path": "art/simplyzombies/groups/environment/textures/tile-concrete-b.png"
+          },
+          {
+            "at": [
+              0,
+              224
+            ],
+            "path": "art/simplyzombies/groups/environment/textures/tile-wood-floor.png"
+          },
+          {
+            "at": [
+              32,
+              224
+            ],
+            "path": "art/simplyzombies/groups/environment/textures/tile-wood-floor.png"
+          }
+        ]
       }
     },
     "heap_bags": {
