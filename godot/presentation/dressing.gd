@@ -1,7 +1,8 @@
 extends RefCounted
 # What the map looks like where the sim only knows a tile class -- wrecked cars on runs of Low
-# tiles, debris over rubble, litter over street pavement, and bushes, reeds, rocks, stumps and
-# logs on open ground.
+# tiles, debris over rubble, litter over street pavement, bushes, reeds, rocks, stumps and logs on
+# open ground, and the furnishings -- a table, a chair, a dumpster, a traffic cone -- inside and
+# outside the buildings.
 #
 # The sim's vocabulary here is deliberately coarse: `Tile.Low` is "cover you can shoot over" to
 # everything that walks, sees or shoots, and `SURFACE_RUBBLE` is "slower and louder underfoot".
@@ -565,6 +566,212 @@ static func _nature_chunk_picks(entries: Array, map: Variant, seed_val: int, cx:
 	for ty in range(cy * NATURE_CHUNK, y1):
 		for tx in range(cx * NATURE_CHUNK, x1):
 			var key: String = _nature_pick(entries, map, seed_term, tx, ty)
+			if not key.is_empty():
+				out.append({"tx": tx, "ty": ty, "key": key})
+	return out
+
+
+# --- the furnishings -------------------------------------------------------------------------
+# A table, a chair, a shelf and a medical cabinet inside a shell; a dumpster, a concrete barrier, a
+# traffic cone and a fence post outside it -- the outpost pack's furnishing props (docs/23,
+# "Furnishings and container kinds"), out of the block's `furnishings` list. Each entry is
+# `{key, where, surfaces, rarity, beside?}`: the picture, `"indoors"` or `"outdoors"`, the ground
+# names (SimSurface's own, lower-case) it may stand on, one tile in `rarity` of them, and
+# optionally `"beside": "wall"` for a thing that stands against a wall.
+#
+# **Dressing, never sim state -- the nature list's rule, held by the same INERT lane.** A
+# furnishing is a picture over a Floor tile the sim still sees as open floor: it blocks no step,
+# no sightline and no shot, it is not cover, it is not looted, nobody paths round it, and it never
+# becomes a component. A body walks across a table and is drawn over it. Two of the pack's
+# furnishing props are missing on purpose: the workbench, because the game has a real bench
+# (`SimGunsmith`'s `bench` entity) and a picture of one that does nothing would be a lie the
+# player could act on, and the three taller than a tile (the fridge, the road sign, the
+# streetlamp), which would want the entity sort a tree stands in and are named for a later slice.
+#
+# The pick is the nature pick's, on its own salts (`SALT_FURNISH` + the entry's index, so
+# appending an entry never reshuffles the ones above it) and its own chunk cache. A tile takes a
+# furnishing only when it is a Floor tile of the entry's `where` and its east and west neighbours
+# are Floor tiles of the same `where`, which keeps a picture off every doorway (a threshold's
+# neighbours are a wall and the far side of it) and off a room's edge; `beside: "wall"` asks for a
+# wall a step north, south, east or west, and no entry is placed with a door directly north or
+# south of it.
+
+# Well clear of SALT_NATURE's block of entries.
+const SALT_FURNISH: int = 300
+
+# The one thing a `beside` may name here, and the tile class it means.
+const FURNISH_BESIDE_WALL: String = "wall"
+const FURNISH_INDOORS: String = "indoors"
+const FURNISH_OUTDOORS: String = "outdoors"
+
+
+# The block's `furnishings` list as plain arrays, one per usable entry, in list order: `[key,
+# rarity, salt_term, surface_mask, indoors, beside_wall]` -- `_nature_entries`' shape with the
+# ground's `where` and the wall clause in place of the water one. An entry with no key, a rarity
+# under two, no real surface or a `where` that is not one of the two is dropped rather than
+# carpeting the district; `[]` for a block that declares none. Pure.
+static func _furnishing_entries(block: Dictionary) -> Array:
+	var out: Array = []
+	var listed: Variant = block.get("furnishings")
+	if not (listed is Array):
+		return out
+	for i in (listed as Array).size():
+		var raw: Variant = (listed as Array)[i]
+		if not (raw is Dictionary):
+			continue
+		var entry: Dictionary = raw as Dictionary
+		var key: String = String(entry.get("key", ""))
+		var rarity: int = int(entry.get("rarity", 0))
+		if key.is_empty() or rarity < 2:
+			continue
+		var where: String = String(entry.get("where", ""))
+		if where != FURNISH_INDOORS and where != FURNISH_OUTDOORS:
+			continue
+		var mask: int = 0
+		var named: Variant = entry.get("surfaces")
+		if named is Array:
+			for surface_name in named as Array:
+				var number: int = surface_named(String(surface_name))
+				if number >= 0:
+					mask |= 1 << number
+		if mask == 0:
+			continue
+		var beside: String = String(entry.get("beside", ""))
+		if not beside.is_empty() and beside != FURNISH_BESIDE_WALL:
+			continue
+		out.append([key, rarity, (SALT_FURNISH + i) * _HASH_SALT, mask, where == FURNISH_INDOORS, beside == FURNISH_BESIDE_WALL])
+	return out
+
+
+# Whether a tile is a Floor tile whose indoor-ness is `indoors`: the ground a furnishing stands on
+# and every neighbour it may overhang.
+static func _floor_of(map: Variant, tx: int, ty: int, indoors: bool) -> bool:
+	if map == null:
+		return false
+	if tx < 0 or ty < 0 or tx >= int(map.w) or ty >= int(map.h):
+		return false
+	var idx: int = ty * int(map.w) + tx
+	if int(map.tiles[idx]) != SimTileMap.Tile.Floor:
+		return false
+	return (int(map.indoors[idx]) == 1) == indoors
+
+
+# Whether a tile is a wall: the solid mass a shelf or a dumpster stands against.
+static func _wall_at(map: Variant, tx: int, ty: int) -> bool:
+	if tx < 0 or ty < 0 or tx >= int(map.w) or ty >= int(map.h):
+		return false
+	return int(map.tiles[ty * int(map.w) + tx]) == SimTileMap.Tile.Wall
+
+
+static func _door_at(map: Variant, tx: int, ty: int) -> bool:
+	if tx < 0 or ty < 0 or tx >= int(map.w) or ty >= int(map.h):
+		return false
+	return int(map.tiles[ty * int(map.w) + tx]) == SimTileMap.Tile.Door
+
+
+# Whether one prepared entry's ground fits a tile already matched to its `where` and its surface.
+static func _furnishing_ground_fits(entry: Array, map: Variant, tx: int, ty: int) -> bool:
+	var indoors: bool = bool(entry[4])
+	if not (_floor_of(map, tx - 1, ty, indoors) and _floor_of(map, tx + 1, ty, indoors)):
+		return false
+	if _door_at(map, tx, ty - 1) or _door_at(map, tx, ty + 1):
+		return false
+	if not bool(entry[5]):
+		return true
+	return _wall_at(map, tx, ty - 1) or _wall_at(map, tx, ty + 1) or _wall_at(map, tx - 1, ty) or _wall_at(map, tx + 1, ty)
+
+
+# The picture one tile takes out of the prepared entries: the first whose `where` and surface
+# match, whose roll lands and whose ground fits, or "". The roll is `nature`'s -- `hash_at` shifted
+# before the modulo, written out with the salt already multiplied.
+static func _furnishing_pick(entries: Array, map: Variant, seed_term: int, tx: int, ty: int) -> String:
+	var idx: int = ty * int(map.w) + tx
+	if int(map.tiles[idx]) != SimTileMap.Tile.Floor:
+		return ""
+	var indoors: bool = int(map.indoors[idx]) == 1
+	var surface: int = int(map.surfaces[idx])
+	var base: int = (tx * _HASH_TX) ^ (ty * _HASH_TY) ^ seed_term
+	for entry in entries:
+		if bool(entry[4]) != indoors:
+			continue
+		if (int(entry[3]) >> surface) & 1 == 0:
+			continue
+		if (((base ^ int(entry[2])) & 0x7fffffff) >> 8) % int(entry[1]) != 0:
+			continue
+		if _furnishing_ground_fits(entry as Array, map, tx, ty):
+			return String(entry[0])
+	return ""
+
+
+# The picture standing on one tile, or "". Pure: a hash of the seed, the tile and the entry's
+# index, and the tile's own ground. Absent or malformed entries draw nothing, never a default.
+static func furnishing_key(block: Dictionary, map: Variant, seed_val: int, tx: int, ty: int) -> String:
+	var entries: Array = _furnishing_entries(block)
+	if entries.is_empty() or map == null:
+		return ""
+	if tx < 0 or ty < 0 or tx >= int(map.w) or ty >= int(map.h):
+		return ""
+	return _furnishing_pick(entries, map, seed_val * _HASH_SEED, tx, ty)
+
+
+# Every tile inside `bounds` the observer can see that carries a furnishing, as `{tx, ty, key}`.
+# `seen` is the observer's tile set or null for nobody, and nobody sees no furniture: the same shape
+# as `nature_tiles`, so draw is a subset of seen. A remembered tile draws none -- a memory of a
+# floor is not a memory of the chair on it.
+static func furnishing_tiles(block: Dictionary, map: Variant, seen: Variant, seed_val: int, bounds: Dictionary) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if map == null or seen == null:
+		return out
+	var entries: Array = _furnishing_entries(block)
+	if entries.is_empty():
+		return out
+	var seed_term: int = seed_val * _HASH_SEED
+	var box: Rect2i = _tile_box(map, bounds)
+	for ty in range(box.position.y, box.end.y):
+		for tx in range(box.position.x, box.end.x):
+			var key: String = _furnishing_pick(entries, map, seed_term, tx, ty)
+			if key.is_empty():
+				continue
+			if (seen as Object).call("has_tile", tx, ty):
+				out.append({"tx": tx, "ty": ty, "key": key})
+	return out
+
+
+# `furnishing_tiles` with the picks of each NATURE_CHUNK-square kept in `cache` (owned and reset by
+# the caller, exactly as the nature cache is: never a static, because one gate process boots two
+# worlds). Answers what `furnishing_tiles` answers for the same map, seed and block.
+static func furnishing_tiles_cached(block: Dictionary, map: Variant, seen: Variant, seed_val: int, bounds: Dictionary, cache: Dictionary) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if map == null or seen == null:
+		return out
+	var entries: Array = _furnishing_entries(block)
+	if entries.is_empty():
+		return out
+	var box: Rect2i = _tile_box(map, bounds)
+	if box.size.x <= 0 or box.size.y <= 0:
+		return out
+	var chunks_wide: int = ceili(float(int(map.w)) / float(NATURE_CHUNK))
+	for cy in range(_chunk_of(box.position.y), _chunk_of(box.end.y - 1) + 1):
+		for cx in range(_chunk_of(box.position.x), _chunk_of(box.end.x - 1) + 1):
+			var index: int = cy * chunks_wide + cx
+			if not cache.has(index):
+				cache[index] = _furnishing_chunk_picks(entries, map, seed_val, cx, cy)
+			for pick in cache[index] as Array:
+				var tx: int = int((pick as Dictionary)["tx"])
+				var ty: int = int((pick as Dictionary)["ty"])
+				if box.has_point(Vector2i(tx, ty)) and (seen as Object).call("has_tile", tx, ty):
+					out.append(pick as Dictionary)
+	return out
+
+
+static func _furnishing_chunk_picks(entries: Array, map: Variant, seed_val: int, cx: int, cy: int) -> Array:
+	var out: Array = []
+	var seed_term: int = seed_val * _HASH_SEED
+	var x1: int = mini((cx + 1) * NATURE_CHUNK, int(map.w))
+	var y1: int = mini((cy + 1) * NATURE_CHUNK, int(map.h))
+	for ty in range(cy * NATURE_CHUNK, y1):
+		for tx in range(cx * NATURE_CHUNK, x1):
+			var key: String = _furnishing_pick(entries, map, seed_term, tx, ty)
 			if not key.is_empty():
 				out.append({"tx": tx, "ty": ty, "key": key})
 	return out

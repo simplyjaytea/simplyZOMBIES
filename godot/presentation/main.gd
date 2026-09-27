@@ -193,6 +193,13 @@ var _nature_cache_map: Variant = null
 var _nature_cache_gen: int = -1
 var _nature_cache_seed: int = -1
 var _nature_cache_content: Variant = null
+# The furnishings' picks, kept the same way and emptied by the same four things -- see
+# _furnishing_cache_for.
+var _furnishing_cache: Dictionary = {}
+var _furnishing_cache_map: Variant = null
+var _furnishing_cache_gen: int = -1
+var _furnishing_cache_seed: int = -1
+var _furnishing_cache_content: Variant = null
 # Entity id -> the look a Focal body drew this frame: `{look, texture, equip, flip}`, from
 # `Appearance.for_entity`, `body_texture`, `equipment_layers_for` and `flip_for` at the moment the body
 # was last actually blitted. Presentation-only and never read by the sim -- `_draw_afterimages`
@@ -1370,6 +1377,9 @@ func _draw_district() -> void:
 	# because the log is wider than its tile and the floor drawn beside it would overdraw it;
 	# before the props and the bodies because nothing here is an object anyone can stand behind.
 	_draw_nature(dress, seen, bounds)
+	# The furnishings after the nature and before the props: still dressing, still under everything
+	# that stands, and skipped wherever a real prop stands (docs/23, "Furnishings and container kinds").
+	_draw_furnishings(dress, seen, bounds)
 	# Props last, over the ground and under the bodies _draw_entities sorts: a container, a bed,
 	# a campfire and the well all stood invisible in this district until this call existed.
 	_draw_props()
@@ -1525,6 +1535,45 @@ func _nature_cache_for() -> Dictionary:
 	_nature_cache_seed = int(world.seed)
 	_nature_cache_content = world.content
 	return _nature_cache
+
+
+# The furnishing cache, emptied by the same four things the nature cache is and for the same
+# reason: its picks include the ground test, which a driven car's Low tiles change.
+func _furnishing_cache_for() -> Dictionary:
+	var map: Variant = world.tilemap
+	var gen: int = 0 if map == null else int(map.vehicle_generation)
+	if is_same(map, _furnishing_cache_map) and gen == _furnishing_cache_gen and int(world.seed) == _furnishing_cache_seed and is_same(world.content, _furnishing_cache_content):
+		return _furnishing_cache
+	_furnishing_cache = {}
+	_furnishing_cache_map = map
+	_furnishing_cache_gen = gen
+	_furnishing_cache_seed = int(world.seed)
+	_furnishing_cache_content = world.content
+	return _furnishing_cache
+
+
+# The furnishings, one picture per tile `Dressing.furnishing_tiles_cached` answers: a table, a chair,
+# a shelf and a cabinet indoors, a dumpster, a barrier, a cone and a post outside (docs/23,
+# "Furnishings and container kinds"). Seen tiles only, and never a remembered one, so nothing here
+# is drawn through a wall or where the observer has no sightline. Hung by `Appearance.hang_rect` at
+# the picture's own size, drawn over the nature and under the props and the bodies. A tile a real
+# prop stands on is skipped, so a chair never peeks out from under a container or a bed. Dressing
+# is never sim state: this reads the map and the props' positions and writes nothing, and a body
+# walks across a table and is drawn over it.
+func _draw_furnishings(dress: Dictionary, seen: Variant, bounds: Dictionary) -> void:
+	if dress.is_empty() or seen == null or world.tilemap == null:
+		return
+	var zoom: float = float(camera["zoom"])
+	var px_scale: float = Appearance.blit_scale(zoom)
+	var occupied: Dictionary = Appearance.prop_tiles(world)
+	for pick in Dressing.furnishing_tiles_cached(dress, world.tilemap, seen, int(world.seed), bounds, _furnishing_cache_for()):
+		if occupied.has(Vector2i(int(pick["tx"]), int(pick["ty"]))):
+			continue
+		var texture: Texture2D = Appearance.resolve(String(pick["key"]))
+		if texture == null:
+			continue
+		var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(int(pick["tx"])) + 0.5, float(int(pick["ty"])) + 1.0)
+		draw_texture_rect(texture, Appearance.hang_rect(float(sc["sx"]), float(sc["sy"]), texture.get_size() * px_scale), false)
 
 
 # The nature dressing, one picture per tile `Dressing.nature_tiles_cached` answers: seen tiles only, and
