@@ -35,26 +35,6 @@
       "description": "What this looks like lying on the ground. Omit it and the renderer draws the generic ground-item diamond, which is the normal state until art exists.",
       "additionalProperties": false,
       "properties": {
-        "attachmentSprite": {
-          "type": "string",
-          "description": "The picture drawn on the pawn when this part is fitted to a held weapon. Unlike every other overlay in the pipeline it does not share the hand anchor -- a suppressor hangs off a muzzle, and a pistol's muzzle and a rifle's are rows apart on the 32x40 canvas -- so it is drawn once and moved to wherever the *host* says that slot is. See `partAnchors` on the weapon."
-        },
-        "partAnchors": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "x": {
-                "type": "number"
-              },
-              "y": {
-                "type": "number"
-              }
-            }
-          },
-          "description": "Where this weapon keeps each of its attachment slots, in pawn-canvas pixels off the body rect, keyed by slot name. Read by presentation/appearance.gd when a fitted part declares an `attachmentSprite`; a slot with no anchor draws its part at the body's own origin. Only the held weapon needs these, and only for slots something is drawn for."
-        },
         "sprite": {
           "type": "string",
           "pattern": "^[a-z0-9_.]+$",
@@ -68,12 +48,7 @@
         "equipSprite": {
           "type": "string",
           "pattern": "^[a-z0-9_.]+$",
-          "description": "A different picture from `sprite`: what this looks like worn or held on a body, not lying on the ground. Authored on the same feet-anchored pawn canvas as the body it will be drawn over (32x40; assets/sprites/README.md), so the renderer composites it at the identical rect with no per-item offset math. Either a face-on overlay (one file, drawn on a turning body's south view only and mirrored with a face-on one) or a family authored.json declares with one member per view (the outpost pack's `item_gear_*`), drawn in the view the body shows. Read only when this base occupies a slot presentation/appearance.gd's EQUIP_DRAW_ORDER draws (legs, torso, vest, back, primary, secondary, face, head)."
-        },
-        "equipSpriteFront": {
-          "type": "string",
-          "pattern": "^[a-z0-9_.]+$",
-          "description": "An optional second picture, always drawn over the body regardless of which slot `equipSprite` itself draws under. For a worn item whose straps cross in front of the torso -- a backpack, a chest rig -- `equipSprite` is the bulk of the item behind the body and this is just the strap/buckle piece in front of it. Same canvas convention as `equipSprite`. Omit it for anything that doesn't need a front piece; most equipment won't."
+          "description": "A different picture from `sprite`: what this looks like worn or held on a body, not lying on the ground. One of two shapes, both declared in godot/assets/sprites/authored.json: a family with one member per view (the outpost pack's `item_gear_*` wearables, kind `pack_overlay`), drawn at the body's own feet-anchored rect in the view the body shows; or a held weapon (the pack's `item_held_*`, kind `pack_held`), one east-facing picture at its own canvas that the renderer turns per view and lands grip-first on the body's hand. Nothing else draws: the face-on overlays were retired on 2026-09-26 (docs/30, 'The whole outpost pack'), so a key of any other shape here is refused by godot:check:worn. Read only when this base occupies a slot presentation/appearance.gd's EQUIP_DRAW_ORDER draws (legs, torso, vest, back, primary, secondary, face, head)."
         }
       }
     },

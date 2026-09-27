@@ -16,8 +16,9 @@ sourced from `godot/art/simplyzombies/` through `assets/sprites/authored.json`. 
 functions and PNGs went in the same commit, the standing rule for hand-made art
 (tools/sprites/README.md). The pack does not draw a screamer or a bloater, so those two stay
 generated, face-on and flipped, until a fixture round or a pack update grows more bodies (docs/30,
-"The outpost pack, adopted", decision 2). The skeleton below still publishes for them, for the
-face-on gear overlays in `parts/gear.py`, and for the inventory chart in `parts/paperdoll.py`.
+"The outpost pack, adopted", decision 2). The skeleton below still publishes for them and for the
+inventory chart in `parts/paperdoll.py`; the face-on gear overlays that also read it
+(`parts/gear.py`) were retired on 2026-09-26 with "Pack gear on the body".
 
 The proportion is the owner's 2026-09-08 call (docs/30, "Overcast or torchlight"): a body about
 **one tile tall**, squashed the way RimWorld's and Zero Sievert's are -- the head keeps its
@@ -25,16 +26,16 @@ The proportion is the owner's 2026-09-08 call (docs/30, "Overcast or torchlight"
 legs. The 48-tall canvas and its 38-42 px figure are superseded; what survives of that slice is
 everything but the rows: the flip, the feet anchor, the published skeleton, the one assembler,
 the outline-after-shade order. Width did not move at all -- SHOULDER_HALF, HAND_X, the leg and
-foot columns are the 2026-09-03 numbers -- so every horizontal number in `parts/gear.py` still
-lands where it did, and the thirty-one overlays refit by their rows alone.
+foot columns are the 2026-09-03 numbers -- so every horizontal number in the (since retired)
+`parts/gear.py` still landed where it did, and the thirty-one overlays refit by their rows alone.
 
 Because the picture is mirrored rather than turned, an asymmetric tell is not a hazard here the
 way it was overhead: a slung strap or a trailing arm swaps sides with the flip, which is what a
 strap does when a person turns round. Every rig therefore gets exactly one loud tell, and the
 tell is what names it at 32 px.
 
-**The skeleton below is published**, not private. One generated gear overlay (`parts/gear.py`)
-has to fit all eight bodies, and it fits them by reading these rows -- not by being redrawn per
+**The skeleton below is published**, not private. One generated gear overlay (`parts/gear.py`,
+retired 2026-09-26) had to fit all eight bodies, and it fit them by reading these rows -- not by being redrawn per
 rig, which is how eight overlays and eight chances to disagree get created. The bloater is the
 one rig that moves the numbers, and its docstring says which and why.
 
@@ -91,7 +92,7 @@ ARM_HALF = 1.8
 HAND_R = 1.9
 TORSO_RADIUS = 2.5
 
-# The bloater's own three numbers, published beside the family's so `parts/gear.py` and the
+# The bloater's own three numbers, published beside the family's so the
 # gates can say where its hand is without reading the rig: the trunk half-width, the arm x, and
 # how far its head sinks. It is the rig at the canvas bound -- 26 px across, exactly 3 px of
 # side clearance -- and nothing else on the roster may come near it.

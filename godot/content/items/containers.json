@@ -100,7 +100,6 @@
     "size": {"w": 4, "h": 3},
     "massKg": 0.9,
     "equipSlot": "back",
-    "appearance": {"equipSprite": "item_duffel_canvas_equip", "equipSpriteFront": "item_duffel_canvas_equip_front"},
     "container": {"w": 6, "h": 6}
   }
 ]
