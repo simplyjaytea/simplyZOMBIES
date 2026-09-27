@@ -555,7 +555,8 @@ projection are untouched.
 - **The walls are modules.** The pack's thirteen wall/fence/door/window states become per-tile
   half pieces, y-sorted on the run's south edge in place of the generated thick-mass wall and cap
   (decision 3 of the record entry; supersedes "walls gain thickness" and absorbs "the wall face
-  hangs south," both above).
+  hangs south," both above). Picture round delivered 2026-09-27, waiting on the owner
+  (`.hermes/plans/2026-09-27_walls-picture-round/`).
 - ~~**A picture per item base.**~~ — **landed** 2026-09-26 for the floor and the bag plate, see
   the record (`npm run godot:check:appearance` → PICTURES; `npm run godot:check:authored` →
   ICON).
