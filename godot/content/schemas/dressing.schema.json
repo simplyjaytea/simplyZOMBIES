@@ -18,7 +18,7 @@
     },
     "heaps": {
       "type": "array",
-      "description": "How a Low tile draws when no parked vehicle covers it: a heap of junk, one key per tile, picked by a pure hash of the map seed and the tile (never a sim RNG stream -- presentation may not spend a draw the layout would have to account for). A Low tile a `map.vehicles` record does cover draws nothing here at all: the car is one feet-anchored three-quarter picture standing in the entity sort, and presentation/main.gd's tile branch defers the whole footprint to it. The two cases are mutually exclusive by construction and check_wrecks.gd holds the draw loop to it. The front/mid/rear car segment sets this replaced retired with the per-tile vehicle convention (docs/30, the Dungeon Settlers look, decision 11). An empty list draws the renderer's procedural cover block, which is the supported fallback.",
+      "description": "How a Low tile draws when no parked vehicle covers it: a heap of junk, one key per tile, picked by a pure hash of the map seed and the tile (never a sim RNG stream -- presentation may not spend a draw the layout would have to account for). Each key is an authored `prop` (assets/sprites/authored.json), never more than a tile across or tall, that presentation/main.gd hangs with its last row on the tile's south edge (Appearance.hang_rect) -- the outpost pack's rubbish bags, oil barrel and pallet stack since 2026-09-26, not a picture stretched over the tile. A Low tile a `map.vehicles` record does cover draws nothing here at all: the car is one feet-anchored three-quarter picture standing in the entity sort, and presentation/main.gd's tile branch defers the whole footprint to it. The two cases are mutually exclusive by construction and check_wrecks.gd holds the draw loop to it. The front/mid/rear car segment sets this replaced retired with the per-tile vehicle convention (docs/30, the Dungeon Settlers look, decision 11). An empty list draws the renderer's procedural cover block, which is the supported fallback.",
       "items": { "type": "string", "pattern": "^[a-z0-9_.]+$" }
     },
     "litter": {
@@ -45,12 +45,31 @@
     },
     "trees": {
       "type": "object",
-      "description": "How a Tree tile draws: `tall` is a list of sprite keys, each a 32x96 feet-anchored picture (Appearance.TREE_CANVAS) that presentation/main.gd stands on the trunk tile's south-edge centre and y-sorts with the bodies, picked per tile by a pure hash of the seed and the tile (Dressing.SALT_TREE). Optional: a block with no trees draws the two procedural discs the tile branch always drew. The shallow validator never looks inside; check_trees.gd resolves every key at its canvas and refuses a fabricated one.",
+      "description": "How a Tree tile draws: `tall` is a list of sprite keys, each an authored `tree` (assets/sprites/authored.json) -- the outpost pack's pine, broadleaf and dead tree since 2026-09-26 -- cropped to the pack's anchor row, that presentation/main.gd stands on the trunk tile's south-edge centre and y-sorts with the bodies, picked per tile by a pure hash of the seed and the tile (Dressing.SALT_TREE). A canopy may be wider than the trunk's tile (docs/30, 'The outpost pack, adopted'): the tree fades, never the body. Optional: a block with no trees draws the two procedural discs the tile branch always drew. The shallow validator never looks inside; check_trees.gd resolves every key at its authored canvas and refuses a fabricated one.",
       "additionalProperties": false,
       "properties": {
         "tall": {
           "type": "array",
           "items": { "type": "string", "pattern": "^[a-z0-9_.]+$" }
+        }
+      }
+    },
+    "nature": {
+      "type": "array",
+      "description": "Pictures lying on open outdoor floor that the sim still sees as open floor: bushes, reeds, rocks, stumps and logs. DRESSING, NEVER SIM STATE -- a picture here blocks no step, sightline or shot, is not cover, is not loot and is not a path anyone avoids, and nothing under godot/sim/ reads this list (check_trees.gd's INERT lane holds that). Each entry is one roll per tile: `key` (an authored `prop`), `surfaces` (SimSurface names, lower-case, the ground it may lie on), `rarity` (one tile in this many, at least two) and, for reeds, `beside: \"water\"` (a neighbouring tile stands on the water surface). Picked by a pure hash of the seed, the tile and the entry's index (Dressing.SALT_NATURE); the first entry that lands and fits wins the tile. A tile carries one only when it and its east and west neighbours are open outdoor floor. Optional: a block with no `nature` draws none. The shallow validator never looks inside; check_trees.gd's NATURE lane resolves every key and refuses a fabricated one.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "surfaces", "rarity"],
+        "properties": {
+          "key": { "type": "string", "pattern": "^[a-z0-9_.]+$" },
+          "surfaces": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "enum": ["paved", "dirt", "grass", "undergrowth", "rubble", "water"] }
+          },
+          "rarity": { "type": "integer", "minimum": 2 },
+          "beside": { "type": "string", "enum": ["water"] }
         }
       }
     }

@@ -22,13 +22,14 @@ extends SceneTree
 # names any class that never did, and SILHOUETTE holds the decoded pictures to the owner's
 # 2026-09-04 decision that the classes are told apart by height rather than by length.
 #
-# Eleven lanes plus the budget, each with a true positive and a true negative, because a gate that
+# Twelve lanes plus the budget, each with a true positive and a true negative, because a gate that
 # cannot fail is worse than no gate:
 #
 #   DRESSING   the block is declared and every key in it resolves art at the canvas it is authored
-#              on -- heaps at one tile, and every key every `content/vehicles/*.json` variant names
-#              at its own `Appearance.canvas_of`. Refused for a fabricated key, a duplicated key
-#              and an empty block.
+#              on -- a heap at no more than the one tile it covers (the pack's rubbish bags, oil
+#              barrel and pallet stack, since 2026-09-26), and every key every
+#              `content/vehicles/*.json` variant names at its own `Appearance.canvas_of`. Refused
+#              for a fabricated key, a duplicated key and an empty block.
 #   MANIFEST   the whole record surface, on a HAND-BUILT map with a HAND-BUILT manifest, so not one
 #              assertion here depends on a dice roll: `vehicle_index` marks exactly the footprint,
 #              `vehicle_at` answers inside and VEHICLE_NONE outside/off-map/past the array end,
@@ -268,6 +269,7 @@ func _run() -> void:
 		ok = _the_classes_read_apart_by_height(stash) and ok
 		ok = _the_cars_are_the_packs_east_west(stash) and ok
 		ok = _every_low_tile_is_a_car_or_a_heap(stash) and ok
+		ok = _a_heap_lies_inside_its_tile(stash) and ok
 		ok = _a_hosted_site_stands_on_a_car_or_falls_back(stash) and ok
 		ok = _the_scatter_lands_where_the_ground_says(stash) and ok
 		ok = _the_sockets_are_wired() and ok
@@ -276,13 +278,13 @@ func _run() -> void:
 	ok = _the_gate_stayed_inside_its_own_budget(seconds) and ok
 
 	if ok:
-		print("WRECKS_OK %d sprite keys resolve (%d of them vehicle pictures); the manifest answers for its footprint alone, every class on both axes; the colour is one hash per record; the manifest is identical with dressing off; suburb@%d parked %d vehicles over %d seeds (%d..%d a map; %s) and suburb@%d parked 0 because every street there is %d wide against a %d minimum; the sedan stands %d east-west rows against %d for the van and the truck, the truck's step %d rows; %d classes east-west are the pack's at the pack's footprint; %d Low tiles covered by a record and %d heaped, never both and never neither; %d hosted sites stood on a car tail and %d fell back to a driveway; scatter on %d rubble and %d litter tiles; sockets wired and the segment names gone; %.1f s of a %.0f s budget" % [
+		print("WRECKS_OK %d sprite keys resolve (%d of them vehicle pictures); the manifest answers for its footprint alone, every class on both axes; the colour is one hash per record; the manifest is identical with dressing off; suburb@%d parked %d vehicles over %d seeds (%d..%d a map; %s) and suburb@%d parked 0 because every street there is %d wide against a %d minimum; the sedan stands %d east-west rows against %d for the van and the truck, the truck's step %d rows; %d classes east-west are the pack's at the pack's footprint; %d Low tiles covered by a record and %d heaped, never both and never neither; %d heap pictures hang inside their tile at every zoom rung; %d hosted sites stood on a car tail and %d fell back to a driveway; scatter on %d rubble and %d litter tiles; sockets wired and the segment names gone; %.1f s of a %.0f s budget" % [
 			int(stash.get("keys", 0)), int(stash.get("vehicle_keys", 0)),
 			PARK_SIZE, int(stash.get("parked", 0)), SEEDS.size(),
 			int(stash.get("parked_min", 0)), int(stash.get("parked_max", 0)), String(stash.get("by_class", "")),
 			GATE_SIZE, int(stash.get("narrow_width", 0)), SimWorldgen.VEHICLE_MIN_WIDTH,
 			int(stash.get("sedan_rows", 0)), int(stash.get("tall_rows", 0)), int(stash.get("bed_drop", 0)), int(stash.get("pack", 0)),
-			int(stash.get("covered", 0)), int(stash.get("heaped", 0)),
+			int(stash.get("covered", 0)), int(stash.get("heaped", 0)), int(stash.get("heap_hung", 0)),
 			int(stash.get("hosted_on_car", 0)), int(stash.get("hosted_fallback", 0)),
 			int(stash.get("rubble", 0)), int(stash.get("litter", 0)),
 			seconds, BUDGET_SECONDS,
@@ -428,8 +430,9 @@ func _the_block_declares_working_art(stash: Dictionary) -> bool:
 		if not problem.is_empty():
 			push_error("dressing heap key: %s" % problem)
 			return false
-		if Appearance.canvas_of(heap_key) != tile_canvas:
-			push_error("heap key '%s' is authored on %s, not the one %s tile a heap covers" % [heap_key, str(Appearance.canvas_of(heap_key)), str(tile_canvas)])
+		var heap_canvas: Vector2i = Appearance.canvas_of(heap_key)
+		if heap_canvas.x > tile_canvas.x or heap_canvas.y > tile_canvas.y or heap_canvas.x <= 0 or heap_canvas.y <= 0:
+			push_error("heap key '%s' is authored on %s, wider or taller than the one %s tile a heap covers" % [heap_key, str(heap_canvas), str(tile_canvas)])
 			return false
 		if Appearance.vehicle_canvas(heap_key) != Vector2i.ZERO:
 			push_error("heap key '%s' reads as a vehicle picture; a heap is one tile of junk, not a car" % heap_key)
@@ -518,7 +521,7 @@ func _the_block_declares_working_art(stash: Dictionary) -> bool:
 	# A key nobody authored. Both halves matter: a fabricated *heap* has no file, and a fabricated
 	# *vehicle* variant is refused a canvas before the filesystem is even asked -- which is what
 	# stops a hand-dropped PNG standing in for a class nobody declared.
-	if _key_problem("low_heap_zz", Appearance.canvas_of("low_heap_zz")).is_empty():
+	if _key_problem("heap_zz", Appearance.canvas_of("heap_zz")).is_empty():
 		push_error("a fabricated heap key passed the key check; it is not reading the sprite directory")
 		return false
 	if Appearance.vehicle_canvas("vehicle_sedan_zz_ns") != Vector2i.ZERO:
@@ -555,7 +558,7 @@ func _the_block_declares_working_art(stash: Dictionary) -> bool:
 
 	stash["keys"] = keys.size()
 	stash["vehicle_keys"] = vehicle_keys
-	print("DRESSING OK %d keys resolve: %d heaps at %s, %d scatter scraps, %d vehicle pictures at their own derived canvases, each class's Appearance footprint agreeing with its content footprint on both axes, no duplicates; a fabricated heap key, a fabricated variant, one class's picture against another's footprint, an empty block and an empty list are all refused" % [
+	print("DRESSING OK %d keys resolve: %d heaps inside %s, %d scatter scraps, %d vehicle pictures at their own derived canvases, each class's Appearance footprint agreeing with its content footprint on both axes, no duplicates; a fabricated heap key, a fabricated variant, one class's picture against another's footprint, an empty block and an empty list are all refused" % [
 		keys.size(), (heaps as Array).size(), str(tile_canvas), keys.size() - (heaps as Array).size() - vehicle_keys, vehicle_keys,
 	])
 	return true
@@ -2092,6 +2095,78 @@ func _boot_on_driveway_problem(map: Variant, index: PackedInt32Array, site: Dict
 	if int(map.indoors[ty * int(map.w) + tx]) != 0:
 		return "the boot at (%d,%d) fell back to a tile inside a building rather than to a driveway" % [tx, ty]
 	return ""
+
+
+# --- 7b. HEAP: a heap is hung inside its own tile, never stretched over it -----------------------
+#
+# The generated heap was a 32x32 canvas drawn into the tile's rect; the pack's are 32x22, 24x30 and
+# 32x30, so `_draw_heap` hangs each at its own size by `Appearance.hang_rect`, its last row on the
+# tile's south edge. Two things have to hold for that to be safe: every picture lies entirely inside
+# its tile at every zoom rung (the tile pass draws the floor south of it afterwards, and a picture
+# that overhung would be overdrawn), and the draw call actually reaches `hang_rect` and no longer
+# stretches to the rect. Both are refused on a fabrication.
+
+# The rect a heap picture of `canvas` native pixels takes in a tile at `zoom`, by the same two calls
+# `_draw_heap` makes.
+func _heap_rect(canvas: Vector2i, tile: Rect2, zoom: float) -> Rect2:
+	var size: Vector2 = Vector2(canvas) * Appearance.blit_scale(zoom)
+	return Appearance.hang_rect(tile.position.x + tile.size.x / 2.0, tile.end.y, size)
+
+
+# What is wrong with a `_draw_heap` body, or "": it has to hang by hang_rect at blit_scale and must
+# not stretch the picture over the tile's rect.
+func _heap_body_problem(body: String) -> String:
+	for needle in ["Appearance.hang_rect(", "Appearance.blit_scale("]:
+		if not body.contains(needle):
+			return "_draw_heap does not contain %s; a heap would draw at the wrong size or place" % needle
+	if body.contains("draw_texture_rect(texture, rect, false)"):
+		return "_draw_heap still stretches the picture over the tile's rect"
+	return ""
+
+
+func _a_heap_lies_inside_its_tile(stash: Dictionary) -> bool:
+	var block: Dictionary = stash["block"]
+	var heaps: Variant = block.get("heaps")
+	if not (heaps is Array) or (heaps as Array).is_empty():
+		push_error("HEAP: the dressing block declares no heaps; the lane had nothing to judge")
+		return false
+	var hung: int = 0
+	for zoom in CameraUtil.ZOOM_STEPS:
+		var tile := Rect2(96.0, 160.0, zoom, zoom)
+		for raw in heaps as Array:
+			var canvas: Vector2i = Appearance.canvas_of(String(raw))
+			var rect: Rect2 = _heap_rect(canvas, tile, zoom)
+			if rect.position.x < tile.position.x or rect.end.x > tile.end.x or rect.position.y < tile.position.y or rect.end.y != tile.end.y:
+				push_error("HEAP: '%s' at zoom %.0f hangs at %s, outside or off the south edge of its tile %s" % [String(raw), zoom, str(rect), str(tile)])
+				return false
+			hung += 1
+	# TN: a 48-wide picture (the log's canvas) hung in a tile overhangs it, and the same predicate
+	# refuses it -- the reason a heap may not be the dumpster.
+	var tile64 := Rect2(96.0, 160.0, 64.0, 64.0)
+	var wide: Rect2 = _heap_rect(Vector2i(48, 22), tile64, 64.0)
+	if wide.position.x >= tile64.position.x and wide.end.x <= tile64.end.x:
+		push_error("HEAP: a 48x22 picture fitted a 64 px tile; the inside-the-tile check cannot say no")
+		return false
+
+	var draw_heap: String = _function_body(MAIN_GD, "_draw_heap")
+	if draw_heap.is_empty():
+		push_error("HEAP: could not read _draw_heap out of %s" % MAIN_GD)
+		return false
+	var problem: String = _heap_body_problem(draw_heap)
+	if not problem.is_empty():
+		push_error("HEAP: %s" % problem)
+		return false
+	# The scanner is shown the old body, which it must refuse, and a hanging one, which it must not.
+	if _heap_body_problem("var texture = Appearance.resolve(key)\n\tdraw_texture_rect(texture, rect, false)\n").is_empty():
+		push_error("HEAP: the scanner passed the old stretched body; it cannot say no")
+		return false
+	if not _heap_body_problem("Appearance.hang_rect(x, y, texture.get_size() * Appearance.blit_scale(z))").is_empty():
+		push_error("HEAP: the scanner refused a body that hangs by hang_rect at blit_scale; it cannot say yes")
+		return false
+
+	stash["heap_hung"] = hung
+	print("HEAP OK %d heap pictures lie inside their tile with their last row on its south edge at all %d zoom rungs, _draw_heap hangs them by hang_rect at blit_scale and no longer stretches them, and a 48-wide picture is refused" % [hung, CameraUtil.ZOOM_STEPS.size()])
+	return true
 
 
 func _a_hosted_site_stands_on_a_car_or_falls_back(stash: Dictionary) -> bool:

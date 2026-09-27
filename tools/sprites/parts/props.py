@@ -1,6 +1,6 @@
-"""The things that stand in a district: containers, a bed, a fire pit, the well, the latrine.
+"""The things that stand in a district: a fire pit, the well, the latrine.
 
-Seven keys, one per `content/props/stations.json` entry -- the two state variants (a searched
+Four keys, one per `content/props/stations.json` entry -- the two state variants (a searched
 container, a lit fire) are separate files rather than a recolour, because the content type
 already carries them as separate ids and a state that draws differently is a different picture.
 The id flip is `appearance.gd`'s PROP_KINDS table (`searched` -> `prop.container.searched`,
@@ -16,7 +16,7 @@ Two rules bind every function below:
 * **Footprint = `appearance.size` x 32.** The content entry declares how much of a tile the prop
   covers, `_draw_prop` uses it for the procedural fallback, and `check_appearance.gd`'s prop lane
   measures the opaque bounding box of the art against it -- so the number in content is the
-  number on the canvas, and a bed authored the size of a crate is a red build.
+  number on the canvas, and a well authored the size of a crate is a red build.
 """
 
 import math
@@ -26,39 +26,12 @@ from palette import OUTLINE, RAMPS
 
 # Half-extents in pixels from the pivot, one per prop, kept beside the size the content entry
 # declares so the two can be read together. 32 px is one tile.
-#   container 0.62 -> 19.8 px      bed      0.82 -> 26.2 px    campfire 0.50 -> 16.0 px
-#   campfire.lit 0.56 -> 18.0 px   well     0.86 -> 27.5 px    latrine  0.55 -> 17.6 px
-BED_HALF_W, BED_HALF_H = 7.8, 13.1
+#   campfire 0.50 -> 16.0 px       campfire.lit 0.56 -> 18.0 px
+#   well     0.86 -> 27.5 px       latrine      0.55 -> 17.6 px
 FIRE_R = 8.0
 FIRE_LIT_R = 9.0
 WELL_R = 13.75
 LATRINE_HALF = 8.8
-
-
-def prop_bed():
-    """A mattress, a pillow at the head and a blanket over the rest.
-
-    North is the head. Nothing about the bed says who sleeps in it or how well they slept --
-    `SimNeeds.sleep_quality` reads the component, not the picture.
-    """
-    cloth = RAMPS["cloth"]
-    wood = RAMPS["wood"]
-    canvas = Canvas()
-    # The frame, a hand wider than the mattress on every side.
-    canvas.rounded_rect(0.0, 0.0, BED_HALF_W, BED_HALF_H, 1.0, wood[1])
-    canvas.rounded_rect(0.0, 0.0, BED_HALF_W - 0.9, BED_HALF_H - 0.9, 0.75, cloth[3])
-    # The pillow: the lightest band, at the head, so the bed has a direction from overhead.
-    canvas.rounded_rect(0.0, -9.2, BED_HALF_W - 1.7, 2.8, 1.0, cloth[4])
-    canvas.rect(0.0, -6.2, BED_HALF_W - 1.7, 0.3, wood[0], inside_only=True)
-    # The blanket over the lower two thirds, two steps down so the sheet under it still reads,
-    # with a turned-back fold at its head and a fall down each side.
-    canvas.rounded_rect(0.0, 3.3, BED_HALF_W - 0.9, 8.7, 1.0, cloth[0])
-    canvas.rect(0.0, -4.7, BED_HALF_W - 0.9, 0.8, cloth[3])
-    canvas.rect(0.0, 3.3, 0.3, 8.7, cloth[1], inside_only=True)
-    canvas.speckle("prop_bed", "weave", cloth[2], 0.04)
-    canvas.light_top_left(0.14, 13.0)
-    canvas.outline(OUTLINE)
-    return canvas.to_image()
 
 
 def _fire(lit):
@@ -152,7 +125,6 @@ def prop_latrine():
 
 
 REGISTRY = {
-    "prop_bed": prop_bed,
     "prop_campfire": prop_campfire,
     "prop_campfire_lit": prop_campfire_lit,
     "prop_well": prop_well,

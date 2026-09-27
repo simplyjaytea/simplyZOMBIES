@@ -22,7 +22,7 @@
         "sprite": {
           "type": "string",
           "pattern": "^[a-z0-9_.]+$",
-          "description": "Registry key for assets/sprites/<key>.png, centre-anchored on the ART_NATIVE square canvas (32x32; presentation/camera.gd). Every shipped prop declares one; the shapes below remain the supported floor for a prop authored without art, not a stopgap."
+          "description": "Registry key for assets/sprites/<key>.png: centre-anchored when the canvas is the ART_NATIVE square (32x32; presentation/camera.gd), and hung with its last row on the tile's south edge (Appearance.hang_rect) when it is any other shape, as the outpost pack's bed is. Every shipped prop declares one; the shapes below remain the supported floor for a prop authored without art, not a stopgap."
         },
         "tint": {
           "type": "string",
@@ -37,8 +37,8 @@
         "size": {
           "type": "number",
           "minimum": 0.1,
-          "maximum": 1,
-          "description": "Footprint as a fraction of a tile, longest side. Defaults to Appearance.PROP_SIZE when absent. _draw_prop reads it only on the procedural path -- art is blitted at one tile -- but it is not decoration once a prop has art: check_appearance.gd measures the sprite's opaque bounding box against size x 64, so this number is what the picture was authored to and a bed drawn the size of a crate fails the build."
+          "maximum": 1.5,
+          "description": "Footprint as a fraction of a tile, longest side. Defaults to Appearance.PROP_SIZE when absent. _draw_prop reads it only on the procedural path -- art is blitted at its own size -- but it is not decoration once a prop has art: check_appearance.gd measures the sprite's opaque bounding box against size x 32, so this number is what the picture was authored to and a bed drawn the size of a crate fails the build. Up to a tile and a half since the outpost pack's bed, which is a tile and a third across (Appearance.PROP_SIZE_MAX)."
         }
       }
     }
