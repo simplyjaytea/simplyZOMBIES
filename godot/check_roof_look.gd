@@ -58,8 +58,15 @@ const WALLS: Array[String] = ["timber", "brick", "render", "block"]
 # check_road_look.gd's WARM_MARGIN, copied: that file is a SceneTree entrypoint, not a class
 # another script can import, so the value travels by comment rather than by reference.
 const WARM_MARGIN: float = 0.02
-# How far a material's luma must sit from every ground tint (SURFACE_TINTS, sidewalk,
+# How far a material's luma must sit from every ground tint (the six surfaces, sidewalk,
 # indoorFloor) for a wall or a roof to read as its own thing rather than as more ground.
+#
+# The owner's answer of 2026-09-27 (docs/23, "The ground is the pack's"; relayed by the
+# coordinator) kept this guard on the warm-dark table the generated art was authored against,
+# Palette.GENERATOR_GROUNDS, rather than the pack's ground the district now draws: regrading that
+# art is the job of the slice that replaces it, and this guard retires with it.
+# Against the pack's own table the four generated wall caps and the lit roofs fall inside the
+# margin (wall_timber_cap sits 0.023 from the pack's dirt); docs/23's record carries the numbers.
 const GROUND_CLEAR_MARGIN: float = 0.08
 # How close a wall face's top 20 rows must sit to its cap's own mean, in RGB.
 const FACE_TOP_MEAN_MAX: float = 0.04
@@ -749,11 +756,13 @@ func _the_art_is_warm_and_reads_against_the_ground() -> bool:
 		push_error("dressing.street resolves no block; MOOD has nothing to judge")
 		return false
 
+	# The grounds this generated art was authored against (GROUND_CLEAR_MARGIN's comment says why
+	# they are not the pack's).
 	var grounds: Array[Color] = []
-	for c in Palette.SURFACE_TINTS:
+	for c in Palette.GENERATOR_SURFACES:
 		grounds.append(c as Color)
-	grounds.append(Palette.COLOURS["sidewalk"] as Color)
-	grounds.append(Palette.COLOURS["indoorFloor"] as Color)
+	grounds.append(Palette.GENERATOR_GROUNDS["sidewalk"] as Color)
+	grounds.append(Palette.GENERATOR_GROUNDS["indoorFloor"] as Color)
 
 	var judged: int = 0
 	var walls: Dictionary = dress.get("walls", {}) as Dictionary
@@ -834,7 +843,7 @@ func _the_art_is_warm_and_reads_against_the_ground() -> bool:
 		push_error("a flat grey fixture passes the warmth pin; MOOD cannot say no")
 		return false
 
-	var grass_colour: Color = Palette.SURFACE_TINTS[SimSurface.Surface.Grass] as Color
+	var grass_colour: Color = Palette.GENERATOR_SURFACES[SimSurface.Surface.Grass] as Color
 	var grass_img := Image.create(32, 32, false, Image.FORMAT_RGBA8)
 	grass_img.fill(grass_colour)
 	var grass_stats: Dictionary = _image_stats(grass_img, "fixture-grass")

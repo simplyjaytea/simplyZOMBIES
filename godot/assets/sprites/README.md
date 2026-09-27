@@ -247,8 +247,9 @@ renderer's side of the same families.
   since 2026-09-26 only the two generated rigs `PAWN_KEYS` names (the pack's bodies and wearables
   stand on the same canvas, declared in `authored.json`); a **tree**, `TREE_CANVAS`
   (32×96); a **vehicle**, one shape per axis — for the sedan's 2×5 footprint, 64×192 nose-north
-  and 160×96 nose-east, each the footprint plus a tile of roofline north; and the **ground
-  atlas** (128×224) — the one file that is a table of cells rather than one picture. The two
+  and 160×96 nose-east, each the footprint plus a tile of roofline north. The **ground
+  atlas** (192×256), the one file that is a table of cells rather than one picture, left this
+  list on 2026-09-27: it is authored from the outpost pack now, and `authored.json` declares it. The two
   vehicle shapes are derived from the class's footprint rather than listed per key, so the van
   and the truck are a row in the footprint table and not a fourth and fifth entry here.
   `npm run godot:check:appearance` fails
@@ -289,35 +290,40 @@ renderer's side of the same families.
 
 ## The ground atlas — the one table of tiles
 
-`ground_atlas.png` is the one file that is not a single tile: **4 variants across × 7 rows
-down** of `ART_NATIVE` cells, then **8 edge cells** beside them (384×224 at 32), rows `paved,
-dirt, grass, undergrowth, rubble, sidewalk, boards` — the five surfaces in `SimSurface.Surface`
-order, then the two substitutions the draw loop makes (the sidewalk paint, the indoor board
-mix). Its size is an entry in
-`Appearance.canvas_of`, mirrored by `tools/sprites/build.py`'s `canvas_of`, and both canvas
-lanes in `check_appearance.gd` read that table; a second table shape is a line in each, not a
-new exception. The rules a cell is held to (`check_road_look.gd`'s TEXTURE lane, on the decoded
-pixels): opaque; its **mean within 0.03 RGB of its row's palette tint**; no pixel more than
-0.06 luma brighter than the tint; not flat; and the four variants of a row pixel-distinct. The
-atlas is the *shape* of a ground and the palette stays its colour — the renderer modulates the
-blit by `flat colour / row tint`, so a cell averages to exactly what the flat fill would have
-drawn, and the indoor mix, the sidewalk substitution and the position-hash variation all ride
-on top as tints. Which variant a tile draws is `Dressing.SALT_GROUND` hashed on the seed and
-the tile; never an RNG. Below zoom 32 the flat tint draws instead (`GROUND_TEXTURE_MIN_ZOOM`).
+`ground_atlas.png` is the one file that is not a single tile: **2 variants across × 8 rows
+down** of `ART_NATIVE` cells, then **4 edge cells** beside them (192×256 at 32), rows `paved,
+dirt, grass, undergrowth, rubble, water, sidewalk, boards` — the six surfaces in
+`SimSurface.Surface` order, then the two substitutions the draw loop makes (the sidewalk paint,
+the indoor boards). Since "The ground is the pack's" (docs/23, 2026-09-27) it is not generated:
+it is an **authored key** laid out from the outpost pack's own pictures by `authored.json`'s
+`cells` source and reproduced by `sprites:check` — the pack's two asphalts, two dirts, two
+grasses, the grass under all four of its fringes (undergrowth, which the pack does not paint),
+the rubble with and without its debris overlay, its one water and its one wood floor (each
+twice), and its two concretes. Its canvas is its `authored.json` declaration. The pack's colours
+are the ground's colours — docs/30's "The whole outpost pack", the owner's answer that the ground
+takes the pack's own grade — so the palette's row tints are the pack's measured means and the
+renderer's `flat colour / row tint` modulate is the identity on a plain outdoor tile; the indoor
+mix, the sidewalk substitution and the position-hash variation ride on top as tints. What a cell
+is held to (`check_road_look.gd`'s TEXTURE lane, on the decoded pixels): opaque, not flat, its
+**mean within 0.03 RGB of its row's tint**, and the two variants of a row pixel-distinct except
+the rows the pack paints once (water and the boards, named). Which variant a tile draws is
+`Dressing.SALT_GROUND` hashed on the seed and the tile; never an RNG. Below zoom 32 the flat
+tint draws instead (`GROUND_TEXTURE_MIN_ZOOM`).
 
-**The edge cells** (columns 4–11, in `Appearance.EdgeShape` order N, E, S, W, NE, SE, SW, NW;
-`tools/sprites/parts/edges.py`) are the fifth authoring shape: a cell transparent except a
-ragged fringe on its named edge — 1–6 px deep, fading inward in four alpha steps, nothing past
-8 px from the edge, the row's tint under a ±0.02 value wobble; a corner cell a quarter-blob in
-its 8×8 corner. The rule that reads them (`Appearance.edge_shapes`, docs/30's edges clause):
-between two different grounds the **darker draws the edge, once, onto the lighter tile** —
-the lighter tile blits the darker neighbour's row in the shape of the side it lies on, and a
-corner only where neither of its sides already carries that boundary. No variants and no hash:
-raggedness comes from neighbours taking different shapes. They live in the atlas rather than on
-a sheet of their own because an edge blit follows the floor blit it lies on, and a second
-texture between two blits breaks the batch (measured, docs/23). `check_road_look.gd`'s EDGES
-lane holds every cell on the decoded pixels: mean within 0.03 of its tint over the pixels that
-count, coverage 20–60 % of its band, every pixel inside the band, the fade present.
+**The edge cells** (columns 2–5, in `Appearance.EdgeShape` order N, E, S, W) are the pack's four
+grass fringes, each an opaque half of its cell on its named side, on the two green rows
+(`Appearance.FRINGE_ROWS`); every other row's four are transparent. The rule that reads them
+(`Appearance.edge_shapes`, docs/30's edges clause): between two different grounds the **darker
+draws the edge, once, onto the lighter tile** — so a fringe draws only where the darker side is
+green, the pack paints no corner and none is drawn, and asphalt beside grass is a clean seam. They
+live in the atlas rather than on a sheet of their own because an edge blit follows the floor
+blit it lies on, and a second texture between two blits breaks the batch (measured, docs/23).
+`check_road_look.gd`'s CELLS lane holds every edge cell on the decoded pixels.
+
+What the pack ships for the ground and this atlas does **not** use, each for a named reason in
+docs/23's record: the teal-and-cream interior tile (which rooms are tiled is a question nobody
+has answered), the slate puddle (a puddle drawn where the sim has no water would read as a ford),
+and the two ochre road lines (drawn north-south only, and a road runs both ways).
 
 ## The pawn — upright, face-on, flipped
 

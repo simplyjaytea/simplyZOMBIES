@@ -558,8 +558,11 @@ func _the_roster_resolves_bodies() -> bool:
 # arithmetic has a subject any more. That is the colour half docs/30 ("The outpost pack,
 # adopted") says does not carry over to pack art -- the pack reads by its own outline, and its
 # untinted survivor already sits below this palette's street luma, so a luma guard here would be
-# red on the art itself. Contrast against the ground is re-pinned by "The ground is the pack's"
-# (docs/23), the slice that regrades the ground to the pack's own table. What survives here is
+# red on the art itself. "The ground is the pack's" (docs/23, 2026-09-27) was named here as the
+# slice that would re-pin that contrast, and it did not re-pin a luma bound: the ground is the
+# pack's own table now, the body is the pack's own survivor, and the pack reads a body off its
+# ground by its near-black outline rather than by a luma gap -- the "geometry gated, colour not"
+# rule docs/30's "The outpost pack, adopted" set for pack art, applied to the pair. What survives here is
 # the half that still has a subject: each colony look pairs the shared human body with a tint,
 # and the six tints are six different people.
 func _tints_differ(tints: Array[String]) -> bool:

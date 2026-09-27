@@ -201,17 +201,25 @@ static func indoor_floor(map: Variant, tx: int, ty: int, col: Color) -> Color:
 # --- the ground atlas ------------------------------------------------------------------------
 #
 # One atlas for every floor: GROUND_VARIANTS cells across and one row per ground the renderer
-# knows -- rows 0..4 mirror SimSurface.Surface, then the two substitutions the draw loop makes,
-# the sidewalk paint and the indoor board mix. The atlas is the *shape* of a ground and the
-# palette is still its colour: every cell is authored around its row tint (check_road_look.gd's
-# TEXTURE lane pins each cell's mean to it from the decoded pixels) and the blit is modulated by
-# `flat / row tint`, so the textured branch averages to exactly the colour the flat branch would
-# have drawn. The indoor mix, the sidewalk substitution and the position-hash variation all
-# survive as tints over the picture, which is what keeps every palette lane meaning what it says.
-# Which cell a tile draws is a hash the drawing node takes through Dressing (SALT_GROUND); this
-# file cannot preload dressing.gd, which preloads it.
+# knows -- rows 0..5 mirror SimSurface.Surface, then the two substitutions the draw loop makes,
+# the sidewalk paint and the indoor boards. Since "The ground is the pack's" (docs/23, 2026-09-27)
+# every cell is a whole picture from the outpost pack, laid out by `authored.json`'s `cells`
+# source and reproduced by `sprites:check`: asphalt, dirt, grass, rubble, water, concrete and
+# the wood floor, with undergrowth the grass tile under all four of the pack's grass fringes and
+# the second rubble cell the rubble tile under its debris overlay. The palette row tints are the
+# pack's own measured means (`Palette.SURFACE_TINTS`, docs/30 "The whole outpost pack": the ground
+# takes the pack's own grade), so the blit's modulate -- `flat / row tint` -- is the identity on
+# a plain outdoor tile and the pack draws as it was painted. The indoor mix, the sidewalk
+# substitution and the position-hash variation still survive as tints over the picture, which is
+# what keeps the flat fallback (zoomed out, or no atlas) the same colour as the picture it stands
+# in for. Which cell a tile draws is a hash the drawing node takes through Dressing
+# (SALT_GROUND); this file cannot preload dressing.gd, which preloads it.
 const GROUND_ATLAS_KEY: String = "ground_atlas"
-const GROUND_VARIANTS: int = 4
+# Two, because the pack paints two of each ground it has two of (asphalt, dirt, grass, concrete)
+# and one of the rest. Rubble's second cell is the tile under the pack's debris overlay; water and
+# the boards repeat their one picture, which `check_road_look.gd`'s TEXTURE lane names rather
+# than refuses (ONE_PICTURE_ROWS). The generated atlas carried four until 2026-09-27.
+const GROUND_VARIANTS: int = 2
 # The first six rows are `SimSurface.Surface` verbatim, because `ground_row_for` below returns a
 # surface int *as* a row and that identity is the whole reason this atlas is cheap. So the two
 # painted substitutions have to sit **after** the last surface, and adding a surface moves them:
@@ -220,13 +228,17 @@ const GROUND_VARIANTS: int = 4
 # silently, with every gate green. If a seventh surface is ever added, these two move again.
 enum GroundRow { Paved = 0, Dirt = 1, Grass = 2, Undergrowth = 3, Rubble = 4, Water = 5, Sidewalk = 6, Boards = 7 }
 const GROUND_ROWS: int = 8
-# The edge cells: eight more columns to the right of the variants, one ragged fringe per side
-# and outer corner of a tile, authored around the same row tint. In the atlas rather than on a
-# sheet of their own because the edge is blitted right after the floor it lies on, and a second
-# texture between two floor blits breaks the batch on every boundary tile (measured in the
-# edges slice; docs/23). EdgeShape's order is the column order, N first.
-enum EdgeShape { N = 0, E = 1, S = 2, W = 3, NE = 4, SE = 5, SW = 6, NW = 7 }
-const EDGE_SHAPES: int = 8
+# The edge cells: four more columns to the right of the variants, one fringe per side of a tile.
+# In the atlas rather than on a sheet of their own because the edge is blitted right after the
+# floor it lies on, and a second texture between two floor blits breaks the batch on every
+# boundary tile (measured in the edges slice; docs/23). EdgeShape's order is the column order, N
+# first. The pack paints a fringe for grass alone, one per side and none for a corner, so only
+# the FRINGE_ROWS carry edge cells -- the pack's four grass fringes, on both green rows -- and
+# every other row's four are transparent and never answered by `edge_shapes`. The generated atlas
+# carried a fringe per row and per outer corner, eight a row, until 2026-09-27.
+enum EdgeShape { N = 0, E = 1, S = 2, W = 3 }
+const EDGE_SHAPES: int = 4
+const FRINGE_ROWS: Array[int] = [GroundRow.Grass, GroundRow.Undergrowth]
 # What a tile with no ground reads as in the per-map row cache (a wall, a window, a screen, a
 # tree): it takes no edge and gives none, so a floor beside a wall keeps its own colour to the
 # wall's foot, where the wall's own picture is the edge.
@@ -462,8 +474,9 @@ static func canvas_of(key: String) -> Vector2i:
 	if key.begins_with("chart_"):
 		return CHART_CANVAS
 	var n: int = int(CameraUtil.ART_NATIVE)
-	if key == GROUND_ATLAS_KEY:
-		return Vector2i((GROUND_VARIANTS + EDGE_SHAPES) * n, GROUND_ROWS * n)
+	# The ground atlas was placed by a rule here until 2026-09-27; it is authored now, and the
+	# declaration above answers its canvas (192x256: two variants and four fringes across, eight
+	# rows down).
 	if PAWN_KEYS.has(key):
 		return PAWN_CANVAS
 	if TREE_KEYS.has(key):
@@ -525,13 +538,15 @@ static func ground_cell(row: int, variant: int) -> Rect2:
 # --- the ground edges ------------------------------------------------------------------------
 #
 # docs/30's edges clause: between two grounds the darker draws the edge, once, onto the lighter
-# tile. The rule is pure over a tile's row and its eight neighbours' rows, read off main.gd's
+# tile. The rule is pure over a tile's row and its four side neighbours' rows, read off main.gd's
 # per-map row cache, and answers which edge cells the *lighter* tile blits over its own floor:
-# for each darker 4-neighbour, that neighbour's row in the shape of the side it lies on; for
-# each darker diagonal whose two shared 4-neighbours are the centre's own ground, that row in
-# the shape of the outer corner. So every boundary is drawn exactly once, by the lighter side,
-# and a corner only where no side already carries it. Darker by Rec. 709 luma of the row tint,
-# so the order follows the palette rather than a second table.
+# for each darker side neighbour that has a fringe to draw (FRINGE_ROWS), that neighbour's row in
+# the shape of the side it lies on. So every boundary is drawn at most once, by the lighter side.
+# Darker by Rec. 709 luma of the row tint, so the order follows the palette rather than a second
+# table. Since the pack's ground (2026-09-27) only the two green rows have a fringe and the pack
+# paints no corner, so a boundary whose darker side is not green -- asphalt beside grass, say --
+# is a clean seam, and a diagonal neighbour draws nothing; the neighbour list is still eight long
+# so the caller's row cache stays one shape, and the diagonals are simply not read.
 
 # Rec. 709 luma of a row's tint, the one ordering the edge rule reads.
 static func row_luma(row: int) -> float:
@@ -553,30 +568,15 @@ static func _edge_wins(other: int, centre: int) -> bool:
 
 # The edge cells a tile of row `centre` draws, given its eight neighbours' rows in the fixed
 # order N E S W NE SE SW NW (ROW_NONE for a neighbour with no ground, or off the map). Each
-# answer is (row, EdgeShape). Sides first, then the corners that no side already covers.
+# answer is (row, EdgeShape), sides only.
 static func edge_shapes(centre: int, neighbours: PackedInt32Array) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 	if neighbours.size() != 8 or centre == ROW_NONE:
 		return out
-	for side in 4:
-		if _edge_wins(neighbours[side], centre):
-			out.append(Vector2i(neighbours[side], side))
-	# A corner needs both of its sides to be the centre's own ground: with a side already
-	# drawing the neighbour's fringe, the corner would draw the same boundary twice.
-	var sides_of: Array = [
-		[EdgeShape.N, EdgeShape.E],
-		[EdgeShape.S, EdgeShape.E],
-		[EdgeShape.S, EdgeShape.W],
-		[EdgeShape.N, EdgeShape.W],
-	]
-	for i in 4:
-		var corner: int = EdgeShape.NE + i
-		var a: int = neighbours[int(sides_of[i][0])]
-		var b: int = neighbours[int(sides_of[i][1])]
-		if a != centre or b != centre:
-			continue
-		if _edge_wins(neighbours[corner], centre):
-			out.append(Vector2i(neighbours[corner], corner))
+	for side in EDGE_SHAPES:
+		var other: int = neighbours[side]
+		if FRINGE_ROWS.has(other) and _edge_wins(other, centre):
+			out.append(Vector2i(other, side))
 	return out
 
 
