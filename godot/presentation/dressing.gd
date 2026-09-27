@@ -1,11 +1,21 @@
 extends RefCounted
 # What the map looks like where the sim only knows a tile class -- wrecked cars on runs of Low
-# tiles, debris over rubble and litter over street pavement.
+# tiles, debris over rubble, litter over street pavement, and bushes, reeds, rocks, stumps and
+# logs on open ground.
 #
 # The sim's vocabulary here is deliberately coarse: `Tile.Low` is "cover you can shoot over" to
 # everything that walks, sees or shoots, and `SURFACE_RUBBLE` is "slower and louder underfoot".
 # Neither says car, skip or broken concrete, and neither should -- so this file turns the class
 # into a picture, out of content (`content/dressing/street.json`), at draw time.
+#
+# **Dressing is never sim state.** Nothing here writes a component, a tile, a surface or an event,
+# and nothing under `godot/sim/` reads this file: a heap is a Low tile the sim already had, a
+# tree a Tree tile, and a bush, a stump or a rock is a *picture* drawn over open floor that the
+# sim still sees as open floor -- it does not block a step, a sightline or a shot, it is not
+# cover, it is not looted, it is not a path the colony avoids. Which floor tile carries which is a
+# pure function of the map seed, the tile and the tile's own surface, so the picture of a stump
+# is a property of the map the way the colour of a car is. `check_trees.gd`'s NATURE and INERT
+# lanes hold this both ways.
 #
 # Three properties are load-bearing, and check_wrecks.gd holds each of them:
 #
@@ -56,6 +66,11 @@ const SALT_VEHICLE: int = 7
 # never the body (docs/30 decision 10). Opaque otherwise.
 const TREE_FADE_ALPHA: float = 0.55
 
+
+# Independent hash salts for the nature entries: entry `i` of the block's `nature` list takes
+# `SALT_NATURE + i`, so appending an entry never reshuffles the ones above it. Well clear of the
+# seven salts above.
+const SALT_NATURE: int = 100
 
 # The dressing block for a world, or {} when content declares none -- a fixture tree, an old save,
 # a district generated before this file existed. Absence is graceful everywhere below: every
@@ -319,6 +334,240 @@ static func tree_alpha(tree_rect: Rect2, body_points: Array) -> float:
 		if tree_rect.has_point(point as Vector2):
 			return TREE_FADE_ALPHA
 	return 1.0
+
+
+# --- the nature dressing ---------------------------------------------------------------------
+# Bushes, reeds, rocks, stumps and logs on open outdoor floor, out of the block's `nature` list.
+# Each entry is `{key, surfaces, rarity, beside?}`: the picture, the ground names (SimSurface's
+# own, lower-cased) it may lie on, one tile in `rarity` of them, and optionally `"beside":
+# "water"` for reeds, which only grow where a neighbouring tile is water. The first entry whose
+# hash lands and whose ground fits wins the tile.
+#
+# A tile carries a picture only when it and both of its east and west neighbours are open outdoor
+# floor: the log is a tile and a half wide and is drawn after every tile, so this keeps a picture
+# from lying across a wall or a doorway it has no business over. The sim knows none of this --
+# see the header.
+#
+# **Cost.** The frame asks this of every visible tile, and a GDScript tile is not free. Measured
+# 2026-09-26, headless, over a 34 x 21 screen of seen tiles: 4.9 ms a frame when each tile read
+# the list and called `hash_at` once per entry; 1.1 ms once the list was read once per call
+# (`_nature_entries`: keys, salts, rarities and a surface mask as plain arrays), a tile's surface
+# refused the entries that could not lie on it before any roll was made, and the roll was written
+# as `hash_at`'s own arithmetic with the salt term pre-multiplied (`_nature_pick`; the copy is held
+# to `nature_key` and to `hash_at` by `check_trees.gd`'s NATURE lane on every tile it looks at).
+# That is still a millisecond a frame for a picture that is nearly never there, so
+# `nature_tiles_cached` keeps the picks of each 16 x 16 chunk in a dictionary the drawing node owns
+# and resets whenever the map, its vehicle generation (a driven car moves Low tiles under it), the
+# seed or the content changes -- never a static, because one gate process boots two worlds -- and a
+# frame is then a few list walks.
+
+# The one ground name a `beside` may name, and the surface it means.
+const NATURE_BESIDE_WATER: String = "water"
+
+# The side of the square of tiles whose picks `nature_tiles_cached` keeps together.
+const NATURE_CHUNK: int = 16
+
+# hash_at's own constants, named so the one place `nature_tiles` repeats its arithmetic can be
+# read against it.
+const _HASH_TX: int = 73856093
+const _HASH_TY: int = 19349663
+const _HASH_SEED: int = 83492791
+const _HASH_SALT: int = 2654435761
+
+
+# A SimSurface value by its lower-case name, or -1 for a name that is not a surface.
+static func surface_named(surface_name: String) -> int:
+	var found: Variant = SimSurface.Surface.get(surface_name.capitalize())
+	return int(found) if found != null else -1
+
+
+# The block's `nature` list as plain arrays, one per usable entry, in list order: `[key, rarity,
+# salt_term, surface_mask, beside_water]`, where `salt_term` is `hash_at`'s `salt * 2654435761` for
+# this entry's own salt and `surface_mask` has bit `n` set for each SimSurface number `n` it may lie
+# on. An entry with no key, a
+# rarity under two (which would land on every tile) or no real surface is dropped rather than
+# carpeting the district; `[]` for a block that declares none. Pure.
+static func _nature_entries(block: Dictionary) -> Array:
+	var out: Array = []
+	var listed: Variant = block.get("nature")
+	if not (listed is Array):
+		return out
+	for i in (listed as Array).size():
+		var raw: Variant = (listed as Array)[i]
+		if not (raw is Dictionary):
+			continue
+		var entry: Dictionary = raw as Dictionary
+		var key: String = String(entry.get("key", ""))
+		var rarity: int = int(entry.get("rarity", 0))
+		if key.is_empty() or rarity < 2:
+			continue
+		var mask: int = 0
+		var named: Variant = entry.get("surfaces")
+		if named is Array:
+			for surface_name in named as Array:
+				var number: int = surface_named(String(surface_name))
+				if number >= 0:
+					mask |= 1 << number
+		if mask == 0:
+			continue
+		var beside: String = String(entry.get("beside", ""))
+		if not beside.is_empty() and beside != NATURE_BESIDE_WATER:
+			continue
+		out.append([key, rarity, (SALT_NATURE + i) * _HASH_SALT, mask, beside == NATURE_BESIDE_WATER])
+	return out
+
+
+# Whether a tile is open outdoor floor: Tile.Floor, not indoors. The ground every nature picture
+# lies on and every neighbour it may overhang.
+static func _open_ground(map: Variant, tx: int, ty: int) -> bool:
+	if map == null:
+		return false
+	if tx < 0 or ty < 0 or tx >= int(map.w) or ty >= int(map.h):
+		return false
+	var idx: int = ty * int(map.w) + tx
+	if int(map.tiles[idx]) != SimTileMap.Tile.Floor:
+		return false
+	return int(map.indoors[idx]) != 1
+
+
+# Whether any of the four neighbours of a tile stands on the water surface: the deep channel and
+# the ford both do, and both are what a reed grows beside.
+static func _beside_water(map: Variant, tx: int, ty: int) -> bool:
+	for step in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var nx: int = tx + (step as Vector2i).x
+		var ny: int = ty + (step as Vector2i).y
+		if nx < 0 or ny < 0 or nx >= int(map.w) or ny >= int(map.h):
+			continue
+		if int(SimSurface.surface_at(map, nx, ny)) == SimSurface.Surface.Water:
+			return true
+	return false
+
+
+# Whether one prepared entry's ground fits a tile whose surface it has already been matched to:
+# open floor here and either side, then the water beside it if the entry wants one.
+static func _nature_ground_fits(entry: Array, map: Variant, tx: int, ty: int) -> bool:
+	if not _open_ground(map, tx, ty):
+		return false
+	if not (_open_ground(map, tx - 1, ty) and _open_ground(map, tx + 1, ty)):
+		return false
+	return not bool(entry[4]) or _beside_water(map, tx, ty)
+
+
+# The picture one tile takes out of the prepared entries: the first whose surface matches, whose
+# roll lands and whose ground fits, or "". The tile has to be inside the map. The surface goes
+# first because nearly every tile of a district is paving and no entry lies on it, so the roll --
+# the costly part -- is only made for the entries the tile's ground could carry. The roll is `hash_at(seed, tx, ty, SALT_NATURE + i)`, shifted before the
+# modulo -- hash_at's low bit is only (tx ^ ty ^ seed) & 1, so an even rarity taken straight off it
+# would land on one colour of a checkerboard and nowhere else -- written out as
+# `(tx * P1) ^ (ty * P2) ^ (seed * P3) ^ (salt * P4)` with the last factor already multiplied in
+# `_nature_entries`. It is the same number `hash_at` answers, which check_trees.gd asserts on
+# every tile of a hand map, so the copy cannot drift silently.
+static func _nature_pick(entries: Array, map: Variant, seed_term: int, tx: int, ty: int) -> String:
+	var surface: int = int(map.surfaces[ty * int(map.w) + tx])
+	var base: int = (tx * _HASH_TX) ^ (ty * _HASH_TY) ^ seed_term
+	for entry in entries:
+		if (int(entry[3]) >> surface) & 1 == 0:
+			continue
+		if (((base ^ int(entry[2])) & 0x7fffffff) >> 8) % int(entry[1]) != 0:
+			continue
+		if _nature_ground_fits(entry as Array, map, tx, ty):
+			return String(entry[0])
+	return ""
+
+
+# The picture lying on one tile, or "". Pure: a hash of the seed, the tile and the entry's index,
+# and the tile's own ground. Absent or malformed entries draw nothing, never a default.
+static func nature_key(block: Dictionary, map: Variant, seed_val: int, tx: int, ty: int) -> String:
+	var entries: Array = _nature_entries(block)
+	if entries.is_empty() or map == null:
+		return ""
+	if tx < 0 or ty < 0 or tx >= int(map.w) or ty >= int(map.h):
+		return ""
+	return _nature_pick(entries, map, seed_val * _HASH_SEED, tx, ty)
+
+
+# Every tile inside `bounds` (the visible AABB in tiles) the observer can see that carries a
+# nature picture, as `{tx, ty, key}`. `seen` is the observer's tile set or null for nobody, and
+# nobody sees no bushes: the same shape as `tree_tiles`, so draw is a subset of seen. A remembered
+# tile draws none -- a memory of a surface is not a memory of the stump on it, the rule litter
+# already follows. The observer is asked only about a tile that picked something, which is nearly
+# none of them.
+static func nature_tiles(block: Dictionary, map: Variant, seen: Variant, seed_val: int, bounds: Dictionary) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if map == null or seen == null:
+		return out
+	var entries: Array = _nature_entries(block)
+	if entries.is_empty():
+		return out
+	var seed_term: int = seed_val * _HASH_SEED
+	var box: Rect2i = _tile_box(map, bounds)
+	for ty in range(box.position.y, box.end.y):
+		for tx in range(box.position.x, box.end.x):
+			var key: String = _nature_pick(entries, map, seed_term, tx, ty)
+			if key.is_empty():
+				continue
+			if (seen as Object).call("has_tile", tx, ty):
+				out.append({"tx": tx, "ty": ty, "key": key})
+	return out
+
+
+# The tiles `bounds` (minX/maxX/minY/maxY in tiles) covers, clipped to the map, as a Rect2i whose
+# `end` is exclusive.
+static func _tile_box(map: Variant, bounds: Dictionary) -> Rect2i:
+	var min_x: int = maxi(0, floori(float(bounds.get("minX", 0.0))))
+	var max_x: int = mini(int(map.w) - 1, ceili(float(bounds.get("maxX", 0.0))))
+	var min_y: int = maxi(0, floori(float(bounds.get("minY", 0.0))))
+	var max_y: int = mini(int(map.h) - 1, ceili(float(bounds.get("maxY", 0.0))))
+	return Rect2i(min_x, min_y, maxi(0, max_x - min_x + 1), maxi(0, max_y - min_y + 1))
+
+
+# `nature_tiles` with the picks of each NATURE_CHUNK-square kept in `cache` (`{chunk index: Array
+# of {tx, ty, key}}`, owned and reset by the caller). Answers exactly what `nature_tiles` answers
+# for the same map, seed and block -- check_trees.gd asserts it on a hand map and on the suburb --
+# in the order chunks are walked rather than tile by tile, and only while the cache is valid: the
+# picks include the ground test, so a caller resets the cache whenever a tile can have changed
+# under it (see main.gd's `_nature_cache_for`).
+static func nature_tiles_cached(block: Dictionary, map: Variant, seen: Variant, seed_val: int, bounds: Dictionary, cache: Dictionary) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if map == null or seen == null:
+		return out
+	var entries: Array = _nature_entries(block)
+	if entries.is_empty():
+		return out
+	var box: Rect2i = _tile_box(map, bounds)
+	if box.size.x <= 0 or box.size.y <= 0:
+		return out
+	var chunks_wide: int = ceili(float(int(map.w)) / float(NATURE_CHUNK))
+	for cy in range(_chunk_of(box.position.y), _chunk_of(box.end.y - 1) + 1):
+		for cx in range(_chunk_of(box.position.x), _chunk_of(box.end.x - 1) + 1):
+			var index: int = cy * chunks_wide + cx
+			if not cache.has(index):
+				cache[index] = _nature_chunk_picks(entries, map, seed_val, cx, cy)
+			for pick in cache[index] as Array:
+				var tx: int = int((pick as Dictionary)["tx"])
+				var ty: int = int((pick as Dictionary)["ty"])
+				if box.has_point(Vector2i(tx, ty)) and (seen as Object).call("has_tile", tx, ty):
+					out.append(pick as Dictionary)
+	return out
+
+
+# The chunk a tile coordinate falls in.
+static func _chunk_of(tile: int) -> int:
+	return floori(float(tile) / float(NATURE_CHUNK))
+
+
+# Every pick inside one chunk, seen or not, in row-major order.
+static func _nature_chunk_picks(entries: Array, map: Variant, seed_val: int, cx: int, cy: int) -> Array:
+	var out: Array = []
+	var seed_term: int = seed_val * _HASH_SEED
+	var x1: int = mini((cx + 1) * NATURE_CHUNK, int(map.w))
+	var y1: int = mini((cy + 1) * NATURE_CHUNK, int(map.h))
+	for ty in range(cy * NATURE_CHUNK, y1):
+		for tx in range(cx * NATURE_CHUNK, x1):
+			var key: String = _nature_pick(entries, map, seed_term, tx, ty)
+			if not key.is_empty():
+				out.append({"tx": tx, "ty": ty, "key": key})
+	return out
 
 
 # --- the building materials ----------------------------------------------------------------
