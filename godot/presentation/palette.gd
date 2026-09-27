@@ -14,44 +14,50 @@ extends RefCounted
 # ceiling on the ground, because a bright green lawn is not this world; it is no longer the thing
 # doing the work.
 #
+# **The ground is the exception, since 2026-09-27.** docs/30's "The whole outpost pack" (the
+# owner's answer, 2026-09-25: "the ground takes the pack's own grade") moved the eight ground
+# entries -- floor, dirt, grass, undergrowth, rubble, water, sidewalk, indoorFloor -- off this
+# grade and onto the outpost pack's terrain tiles' own measured means, which are brighter and more
+# saturated than anything above allows (dirt and grass past S 0.50, paved a neutral asphalt).
+# Those eight are pinned as hex literals by the ground lanes (check_road_look.gd's PALETTE and
+# TEXTURE, check_topdown.gd's GROUND, check_water.gd's PACK) with the warm-dark table they replaced
+# as the case each refuses; the warm-dark table itself survives as GENERATOR_GROUNDS below, the
+# grounds the still-generated art was authored against, for the guards that judge that art.
+#
 # Enforced by properties, not by anybody's memory. Four lanes hold this table:
-#   * check_road_look.gd's PALETTE lane — the warm family (r - b >= 0.02 over every district
-#     surface, kerb, wall, paint, prop and memory tint) and the cool family (b - r >= 0.02 over
-#     background, night and the glass), the ground saturation ceiling S <= 0.30, paved's value
-#     band, the road family's ordering, and the pairwise distinctness of the five surfaces;
+#   * check_road_look.gd's PALETTE lane — the warm family (r - b >= 0.02 over every kerb, wall,
+#     paint, prop and memory tint) and the cool family (b - r >= 0.02 over background, night and
+#     the glass), the pack's measured ground table pinned exactly, paved's value band, the road
+#     family's ordering, and the pairwise distinctness of the six surfaces;
 #   * check_weather.gd's ACCENT lane — the glass and its rim, the ground items, the screen's own
 #     marks, and the lamp pools held both warm (r - b) and thin (alpha);
-#   * check_topdown.gd's WALL lane — every wall face measured in luminance against every ground
-#     the district can put beside it, interiors and doorway included;
-#   * check_appearance.gd's GREY lane — the colonist rig's median grey times each colony tint,
-#     against the brightest surface this table declares.
+#   * check_topdown.gd's WALL lane — every generated wall face measured in luminance against
+#     every ground in GENERATOR_GROUNDS it was authored beside, interiors and doorway included.
+# (check_appearance.gd's GREY lane was the fourth until the colonist rig retired, 2026-09-26.)
 # So tune by screenshot inside those bounds, and never by reverting to palette.ts, which stays
 # frozen with its oracle.
 
 const COLOURS: Dictionary = {
-	"floor": Color("#474240"),
-	"dirt": Color("#584e40"),
-	"grass": Color("#4f5440"),
-	"undergrowth": Color("#414a37"),
-	"rubble": Color("#4e4a46"),
-	# The sixth ground, and the second cool thing on a warm street after the glass. Water reads as
-	# water or it reads as nothing, so this is a real slate blue rather than a warm silt -- the
-	# owner's call, and the amendment it makes to the Dungeon Settlers warmth sign is recorded in
-	# docs/30. It is held to the same two bounds every other ground is, only from the other side:
-	# `check_road_look.gd`'s COOL_SURFACES judges it with `_cool_ok` (b - r = 0.102) and the
-	# saturation cap still applies (0.283, inside the 0.30 warm-mood cap), so water is allowed to
-	# be cool and is *not* allowed to be garish.
-	#
-	# It is also **dark** for a reason a gate found rather than a preference: a brighter slate
-	# (#55636b, value 0.42) made water the brightest ground in the game, and `palette.py`'s
-	# import-time `guard_against_ground` refused it -- the `fatigue_drab` pawn ramp cleared it by
-	# only 0.067 against a GROUND_CONTRAST of 0.10, so a colonist standing on the bank would have
-	# read as a hole in the river. Value 0.361 keeps every ramp's contrast.
+	# The ground: the outpost pack's own measured means since 2026-09-27 (docs/23, "The ground is
+	# the pack's"), each the integer-rounded mean of its atlas row's two cells -- the pack's two
+	# asphalts, two dirts, two grasses, the grass under all four of its fringes, the rubble with and
+	# without its debris, and its one water. Measured off `ground_atlas.png` with integer
+	# arithmetic, never a float sum; the warm-dark values these replaced are GENERATOR_GROUNDS.
+	"floor": Color("#474646"),
+	"dirt": Color("#896840"),
+	"grass": Color("#485127"),
+	"undergrowth": Color("#404820"),
+	"rubble": Color("#595149"),
+	# The sixth ground: the pack's "still teal water". Water reads as water -- the owner's call of
+	# 2026-09-09, which made it the one cool ground -- and since the pack's grade it is the pack's
+	# own teal rather than a slate held under the old 0.30 saturation cap (S 0.581 now; the cap
+	# went with the grade, which closes HANDOFF's water-saturation question). check_road_look.gd's
+	# COOL_SURFACES still judges it cool (b - r = 0.196) and check_water.gd's PACK lane pins it.
 	#
 	# This is the ford -- the wadeable ground `SimSurface.Surface.Water` names. Deep water is the
 	# `Tile.Water` tile and draws this darkened by `WATER_DEEP_SHADE`, the way a wall draws a face
 	# lifted out of its cap rather than carrying a second authored colour.
-	"water": Color("#424f5c"),
+	"water": Color("#244e56"),
 	"tree": Color("#3f4a33"),
 	# Timber and daub, not the concrete tower block the overcast table painted. Built mass is the
 	# warmest large area in the district, which is what makes a shell read as *somebody's* wall
@@ -90,7 +96,8 @@ const COLOURS: Dictionary = {
 	# warm board colour by INDOOR_MIX, which is what makes a shell read as a room from outside it.
 	# The threshold is the door tile the generator recorded in map.buildings[].doors -- a walkable
 	# Floor in a wall run, invisible until it was drawn as worn boards between two jambs.
-	"indoorFloor": Color("#6a5540"),
+	# The pack's wood plank floor's own mean since 2026-09-27, like the grounds above.
+	"indoorFloor": Color("#6d4f36"),
 	"threshold": Color("#6f5a44"),
 	# The floor under a prop whose content declares no tint. Every shipped prop declares one
 	# (prop.schema.json makes tint required), so this is the colour of a content mistake --
@@ -121,7 +128,8 @@ const COLOURS: Dictionary = {
 	# — paint brightest of the road family, sidewalk over asphalt over background.
 	"roadPaint": Color("#a99a7c8c"),
 	"kerb": Color("#6b645b"),
-	"sidewalk": Color("#5e5852"),
+	# The pack's two worn concretes' mean since 2026-09-27, like the grounds above.
+	"sidewalk": Color("#999793"),
 	# The screen's own marks, as opposed to the district's: the line a shape with no front uses
 	# to say where it is looking, the aim cone's sway readout, and the rain. All three were
 	# near-white literals inside the draw loop and read as the brightest things in the district;
@@ -171,9 +179,10 @@ const COLOURS: Dictionary = {
 # often (docs/24 puts undergrowth under every screening tile) but they are different layers,
 # and a green a shade denser than grass is what says "this is the slow way" on sight.
 #
-# tools/sprites/palette.py holds a HARD COPY of these six as `SURFACE_TINTS`, because that
-# package cannot read GDScript and its import-time ground guards need the numbers. The copy and
-# this table move in the same commit or the guard lies about a district nobody is drawing.
+# tools/sprites/palette.py held a HARD COPY of these six as `SURFACE_TINTS` for its import-time
+# ground guards until 2026-09-27. Those guards judge *generated* art, and since the pack's ground
+# they judge it against GENERATOR_GROUNDS below -- the table that art was authored against --
+# which is the copy palette.py now carries.
 const SURFACE_TINTS: Array[Color] = [
 	COLOURS["floor"], # Paved
 	COLOURS["dirt"],
@@ -183,16 +192,50 @@ const SURFACE_TINTS: Array[Color] = [
 	COLOURS["water"],
 ]
 
+# The warm-dark ground table the generated art was authored against: the eight ground entries
+# above as they stood from the Dungeon Settlers regrade (2026-09-03) and the water entry
+# (2026-09-09) until the pack's ground replaced them (2026-09-27). Nothing draws these colours any
+# more. They are the grounds the guards that judge still-generated art *against* the ground go on
+# reading, by the owner's answer of 2026-09-27 (relayed by the coordinator): regrading that art to
+# the pack's brighter ground is the job of the slice that replaces the art, not the ground's. Each
+# reader is named, and each retires with the art it judges:
+#   * check_topdown.gd's WALL lane -- the procedural wall's cap and faces (the walls slice);
+#   * check_weather.gd's ACCENT lane's groundItem floor -- the ground item's flat fallback colour;
+#   * check_roof_look.gd's MOOD lane -- the generated wall and roof pictures (the walls slice);
+#   * tools/sprites/palette.py's import-time guards, which hold a HARD COPY of this table as
+#     `GENERATOR_GROUNDS` (the pawn, tree, car and wall ramps; the slices that retire each).
+# docs/23's record for "The ground is the pack's" carries the measured shortfall of each against
+# the pack's table, which is the number a later slice needs.
+const GENERATOR_GROUNDS: Dictionary = {
+	"floor": Color("#474240"),
+	"dirt": Color("#584e40"),
+	"grass": Color("#4f5440"),
+	"undergrowth": Color("#414a37"),
+	"rubble": Color("#4e4a46"),
+	"water": Color("#424f5c"),
+	"sidewalk": Color("#5e5852"),
+	"indoorFloor": Color("#6a5540"),
+}
+# The six surfaces of GENERATOR_GROUNDS in `SimSurface.Surface` order, the shape SURFACE_TINTS has,
+# for the guards that iterate surfaces.
+const GENERATOR_SURFACES: Array[Color] = [
+	GENERATOR_GROUNDS["floor"],
+	GENERATOR_GROUNDS["dirt"],
+	GENERATOR_GROUNDS["grass"],
+	GENERATOR_GROUNDS["undergrowth"],
+	GENERATOR_GROUNDS["rubble"],
+	GENERATOR_GROUNDS["water"],
+]
+
 # How much darker deep water is than the ford beside it. Deep water is `Tile.Water`; the ford is
 # an ordinary Floor on the same surface, so the two must read apart at a glance or a river has no
 # visible channel and the player cannot see where it is crossable. Derived rather than authored
 # for the reason the wall's face is: one colour to regrade, not two that can drift apart.
 #
 # Bounded from both ends, which is why it is a named constant rather than a number in the draw
-# loop. The ford is already dark -- value 0.361, held there by the pawn-ramp contrast guard -- and
-# the background is #15141f at 0.122, so a channel much below 0.19 reads as a hole in the map
-# rather than as water. 0.42 puts it at **0.209** against the ford's 0.361: a gap of 0.152, which
-# is three times the separation between any two of the five original grounds.
+# loop. The background is #15141f at 0.122, so a channel much below 0.19 reads as a hole in the
+# map rather than as water. Against the pack's teal ford (value 0.337, 2026-09-27) 0.42 puts the
+# channel at **0.196**, a gap of 0.141 -- the old slate ford sat at 0.361 and its channel at 0.209.
 #
 # Raised from 0.30 (channel 0.253) on the owner's call that shallow and deep must be discernible.
 # The value alone is not what does it -- `WATER_SHORE_*` below is -- but the two together are.
@@ -236,7 +279,9 @@ const INDOOR_MIX: float = 0.62
 # threshold blend at luma 0.339, and the shaded face clears it by 0.067 against a FACE_DIM_MARGIN
 # of 0.04 (the lit face by 0.125 against 0.08). If a future regrade eats those margins the fix is
 # to bring `threshold`/`indoorFloor` down, under that lane's arbitration -- never to widen the
-# assertion.
+# assertion. Those margins are measured against GENERATOR_GROUNDS since the pack's ground
+# (2026-09-27): against the pack's own table the lit face clears dirt by only 0.039 and the
+# shaded face sits under it, which is the walls slice's to answer with the pack's wall modules.
 # The zoom at and above which a floor tile draws its atlas cell (Appearance.ground_cell) rather
 # than its flat tint. At 16 px a tile the texture is noise, so the flat tint stays the look
 # there; a member of CameraUtil.ZOOM_STEPS on purpose, and check_road_look.gd asserts it.

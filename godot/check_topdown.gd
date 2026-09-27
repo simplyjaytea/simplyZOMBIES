@@ -113,6 +113,16 @@ func _the_ground_reaches_the_draw_path() -> bool:
 		push_error("paved must stay the floor colour the district already drew, got %s" % str(Palette.SURFACE_TINTS[SimSurface.Surface.Paved]))
 		return false
 
+	# The pack's measured surface table, pinned (docs/30, "The whole outpost pack": the ground
+	# takes the pack's own grade; check_road_look.gd's TEXTURE lane re-measures each off the atlas),
+	# and the warm-dark table it replaced refused by the same comparison.
+	if _surface_hexes(Palette.SURFACE_TINTS) != PACK_SURFACES:
+		push_error("the surface tints are %s, not the pack's measured %s" % [str(_surface_hexes(Palette.SURFACE_TINTS)), str(PACK_SURFACES)])
+		return false
+	if _surface_hexes(Palette.GENERATOR_SURFACES) == PACK_SURFACES or _surface_hexes(Palette.GENERATOR_SURFACES) != WARM_DARK_SURFACES:
+		push_error("the warm-dark table %s is not the refused case %s, or the pin accepts it" % [str(_surface_hexes(Palette.GENERATOR_SURFACES)), str(WARM_DARK_SURFACES)])
+		return false
+
 	var seen: Array[Color] = []
 	for s in Palette.SURFACE_TINTS.size():
 		var tint: Color = Palette.SURFACE_TINTS[s]
@@ -159,8 +169,21 @@ func _the_ground_reaches_the_draw_path() -> bool:
 	if not body.contains("Appearance.ground_colour("):
 		push_error("_draw_district does not call Appearance.ground_colour: the surface array resolves a colour nothing draws")
 		return false
-	print("GROUND OK %d surfaces, distinct tints, paved still #%s, resolved off map.surfaces and read by _draw_district" % [Palette.SURFACE_TINTS.size(), (Palette.COLOURS["floor"] as Color).to_html(false)])
+	print("GROUND OK %d surfaces at the pack's measured table (the warm-dark table refused), distinct tints, paved still #%s, resolved off map.surfaces and read by _draw_district" % [Palette.SURFACE_TINTS.size(), (Palette.COLOURS["floor"] as Color).to_html(false)])
 	return true
+
+
+# The six surfaces as the pack measured them, and as the warm-dark table had them, in
+# SimSurface.Surface order.
+const PACK_SURFACES: Array[String] = ["474646", "896840", "485127", "404820", "595149", "244e56"]
+const WARM_DARK_SURFACES: Array[String] = ["474240", "584e40", "4f5440", "414a37", "4e4a46", "424f5c"]
+
+
+func _surface_hexes(tints: Array[Color]) -> Array[String]:
+	var out: Array[String] = []
+	for c in tints:
+		out.append(c.to_html(false))
+	return out
 
 
 # A building reads as a building: the floor inside it is not the floor outside it, and the tile you
@@ -376,18 +399,23 @@ func _built_mass_is_thin_and_still_solid() -> bool:
 		push_error("the cap is not darker than the wall colour; the tile is as bright as it was and nothing receded")
 		return false
 
-	# Every floor a wall can stand beside: the five surfaces, each of them again as an interior,
+	# Every floor a wall can stand beside: the six surfaces, each of them again as an interior,
 	# and the doorway. If the dimmest face does not clear the brightest of them, some wall
 	# somewhere in the district has an edge you cannot see.
-	var grounds: Array[Color] = []
-	for s in Palette.SURFACE_TINTS.size():
-		var g: Color = Palette.SURFACE_TINTS[s]
-		grounds.append(g)
-		grounds.append(g.lerp(Palette.COLOURS["indoorFloor"], Palette.INDOOR_MIX))
-	grounds.append((Palette.COLOURS["floor"] as Color).lerp(Palette.COLOURS["threshold"], 0.75))
+	#
+	# The owner's answer of 2026-09-27 (docs/23, "The ground is the pack's"; relayed by the
+	# coordinator) kept this guard on the warm-dark table the generated art was authored against,
+	# Palette.GENERATOR_GROUNDS, rather than the pack's ground the district now draws: regrading that
+	# art is the job of the slice that replaces it, and this guard retires with it.
+	var grounds: Array[Color] = _wall_grounds(Palette.GENERATOR_SURFACES, Palette.GENERATOR_GROUNDS["indoorFloor"], Palette.GENERATOR_GROUNDS["floor"])
 	var brightest: float = -1.0
 	for g2 in grounds:
 		brightest = maxf(brightest, _luma(g2))
+	# The same faces against the pack's ground the district draws today, measured and printed, not
+	# asserted: this is the shortfall the walls slice inherits (docs/23's record).
+	var pack_brightest: float = -1.0
+	for g3 in _wall_grounds(Palette.SURFACE_TINTS, Palette.COLOURS["indoorFloor"], Palette.COLOURS["floor"]):
+		pack_brightest = maxf(pack_brightest, _luma(g3))
 	if _luma(lit) - brightest < FACE_LIT_MARGIN:
 		push_error("the lit face is %.3f over the brightest ground (%.3f); a wall edge must read against every floor it touches" % [_luma(lit) - brightest, brightest])
 		return false
@@ -414,8 +442,19 @@ func _built_mass_is_thin_and_still_solid() -> bool:
 	if not district.contains("_draw_window_glass(rect, tx, ty, col)"):
 		push_error("_draw_window_glass is not handed the tile's colour, so a boarded window's stage stops showing in its pane")
 		return false
-	print("WALL OK cap -%.2f, faces +%.2f/+%.2f over a %.2f-tile band, lit margin +%.3f (>= %.2f), dim margin +%.3f (>= %.2f), brightest ground %.3f" % [Palette.WALL_CAP_DARKEN, Palette.WALL_FACE_LIT, Palette.WALL_FACE_DIM, Palette.WALL_FACE_SHARE, _luma(lit) - brightest, FACE_LIT_MARGIN, _luma(dim) - brightest, FACE_DIM_MARGIN, brightest])
+	print("WALL OK cap -%.2f, faces +%.2f/+%.2f over a %.2f-tile band, lit margin +%.3f (>= %.2f), dim margin +%.3f (>= %.2f), brightest generator ground %.3f; against the pack's ground (brightest %.3f) the lit face clears by %+.3f and the shaded by %+.3f, the walls slice's to answer" % [Palette.WALL_CAP_DARKEN, Palette.WALL_FACE_LIT, Palette.WALL_FACE_DIM, Palette.WALL_FACE_SHARE, _luma(lit) - brightest, FACE_LIT_MARGIN, _luma(dim) - brightest, FACE_DIM_MARGIN, brightest, pack_brightest, _luma(lit) - pack_brightest, _luma(dim) - pack_brightest])
 	return true
+
+
+# Every floor a wall can stand beside, for one ground table: each surface, each again as an
+# interior, and the doorway boards over paved.
+func _wall_grounds(surfaces: Array[Color], indoor: Color, paved: Color) -> Array[Color]:
+	var out: Array[Color] = []
+	for g in surfaces:
+		out.append(g)
+		out.append(g.lerp(indoor, Palette.INDOOR_MIX))
+	out.append(paved.lerp(Palette.COLOURS["threshold"], 0.75))
+	return out
 
 
 # Nobody rotates, and a face-on body flips.

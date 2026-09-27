@@ -57,7 +57,7 @@ from PIL import Image  # noqa: E402
 from draw import SIZE  # noqa: E402
 import guide  # noqa: E402
 import palette  # noqa: E402
-from parts import buildings, characters, ground, paperdoll, props, trees, vehicles, wrecks  # noqa: E402
+from parts import buildings, characters, paperdoll, props, trees, vehicles, wrecks  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 SPRITE_DIR = ROOT / "godot" / "assets" / "sprites"
@@ -79,8 +79,10 @@ GUIDE_DIR = ROOT / "tools" / "sprites" / "guides"
 # whole with "Pack gear on the body" and "Held weapons in the hand" (docs/30, "The whole outpost
 # pack"): a four-direction body wears only the pack's own four-direction wearables and holds only
 # the pack's held weapons, both sourced in `authored.json`, so a face-on picture had no body left
-# to fit.
-MODULES = (characters, props, wrecks, ground, buildings, trees, vehicles, paperdoll)
+# to fit. `ground` and `edges` went the same way with "The ground is the pack's" (2026-09-27): the
+# ground atlas is composed from the pack's own terrain tiles and ground overlays, a sourced key in
+# `authored.json` whose `cells` this file lays out (`render_source`).
+MODULES = (characters, props, wrecks, buildings, trees, vehicles, paperdoll)
 
 # The keys drawn on the pawn canvas: the two generated bodies the outpost pack does not supply, the
 # screamer and the bloater. Six more bodies were here until 2026-09-26 (the pack's four-direction
@@ -94,18 +96,14 @@ PAWN_KEYS = (
     "zombie_bloater",
 )
 
-# Every key renders on the SIZE x SIZE canvas except the ones named here. `ground_atlas` is a sheet
-# of cells rather than one silhouette -- `parts/ground.py`'s own module docstring says why it
-# cannot go through `draw.Canvas` at all -- four variant columns and, since the edges slice, the
-# eight edge cells of `parts/edges.py` beside them. The pawn keys are 32x40 (32x48 until the
-# squat pawn of 2026-09-08) and feet-anchored, the shape a standing body needs and the shape the
-# renderer hangs by its bottom row. Kept in build.py
-# rather than draw.py: draw.py is the pixel-primitive module every part renders through, and a per-
-# key shape table belongs beside the CLI that enforces it, not inside the primitives every canvas
-# uses unchanged.
-CANVAS = {
-    "ground_atlas": (ground.SHEET_W, ground.SHEET_H),
-}
+# Every key renders on the SIZE x SIZE canvas except the ones named here. The pawn keys are 32x40
+# (32x48 until the squat pawn of 2026-09-08) and feet-anchored, the shape a standing body needs and
+# the shape the renderer hangs by its bottom row. Kept in build.py rather than draw.py: draw.py is
+# the pixel-primitive module every part renders through, and a per-key shape table belongs beside
+# the CLI that enforces it, not inside the primitives every canvas uses unchanged. The ground atlas
+# was the first entry here until 2026-09-27; it is authored now, and `authored.json` carries its
+# canvas.
+CANVAS = {}
 for _key in PAWN_KEYS:
     CANVAS[_key] = (characters.PAWN_W, characters.PAWN_H)
 # The trees: one tile wide and three tall, feet-anchored like a pawn, mirrored on the Godot
@@ -304,6 +302,36 @@ def check_render_source_padding():
     return True
 
 
+def check_render_cells_refusals():
+    """Self-test: `render_cells` lays a sound sheet out exactly and refuses the two layouts nobody
+    chose -- a cell off the canvas and two cells on one spot. Run with `--check` beside the padding
+    self-test, because a layout rule that has never refused anything has not been shown to work.
+    Uses the ground atlas's own first source file, so it proves the rule on real pack art."""
+    tile = "art/simplyzombies/groups/environment/textures/tile-asphalt-a.png"
+    fringe = "art/simplyzombies/groups/environment/textures/overlay-grass-north.png"
+    sound = render_cells([{"at": [0, 0], "path": tile}, {"at": [32, 0], "path": tile, "over": [fringe]}], (64, 32))
+    plain = _open_source_path(tile, "self-test")
+    if sound.crop((0, 0, 32, 32)).tobytes() != plain.tobytes():
+        print("SELF_TEST_FAIL render_cells: a pasted cell is not its source byte for byte")
+        return False
+    layered = plain.copy()
+    layered.alpha_composite(_open_source_path(fringe, "self-test"))
+    if sound.crop((32, 0, 64, 32)).tobytes() != layered.tobytes() or layered.tobytes() == plain.tobytes():
+        print("SELF_TEST_FAIL render_cells: the `over` layer is not the overlay composited onto the tile")
+        return False
+    for name, cells in (("off the canvas", [{"at": [48, 0], "path": tile}]),
+                        ("overlapping", [{"at": [0, 0], "path": tile}, {"at": [16, 0], "path": tile}])):
+        try:
+            render_cells(cells, (64, 32))
+        except SystemExit:
+            continue
+        print("SELF_TEST_FAIL render_cells: a cell %s was accepted" % name)
+        return False
+    print("SELF_TEST_OK render_cells: a pasted cell and a layered cell reproduce their sources; a cell "
+          "off the canvas and two overlapping cells are refused")
+    return True
+
+
 def check(key, render):
     """Regenerate one key and compare it with what is committed. True when they agree."""
     target = path_for(key)
@@ -372,20 +400,63 @@ def authored_sources():
     return out
 
 
-def render_source(source):
-    """The picture a `source` block reproduces: crop, then pad, never repainted or resized --
-    `godot/art/simplyzombies/STYLE.md`'s own rule for this package's mechanical steps, applied to
-    ours. Raises rather than returning a sentinel, the same as `_canvas_of` does for a malformed
-    canvas: a malformed `source` is a broken declaration, not a per-key failure to collect
-    alongside a pixel mismatch, and `check_authored.gd`'s own SOURCE/MANIFEST lanes are what give
-    a malformed entry a clean per-key error instead of a crash."""
-    path_str = source.get("path")
+def _open_source_path(path_str, what):
     if not (isinstance(path_str, str) and path_str):
-        raise SystemExit("authored.json: source %r has no path" % (source,))
+        raise SystemExit("authored.json: %s has no path" % (what,))
     path = ROOT / "godot" / path_str
     if not path.exists():
         raise SystemExit("authored.json: source path %r does not exist" % path_str)
-    image = Image.open(path).convert("RGBA")
+    return Image.open(path).convert("RGBA")
+
+
+def render_cells(cells, canvas):
+    """A sheet laid out from whole pack pictures: each cell is one file pasted at `at`, with the
+    files named in `over` alpha-composited onto it in order first -- the same layering the
+    renderer would do if it drew the overlay over the tile, done once here instead of on every
+    frame. Never cropped, resized or recoloured; a cell must fit the canvas, and two cells may
+    not overlap, because a later paste silently covering an earlier one is a sheet whose layout
+    nobody chose. The ground atlas (docs/23, "The ground is the pack's") is the first reader."""
+    if not (isinstance(cells, list) and cells):
+        raise SystemExit("authored.json: source cells %r is not a non-empty list" % (cells,))
+    sheet = Image.new("RGBA", canvas, (0, 0, 0, 0))
+    taken = []
+    for cell in cells:
+        if not isinstance(cell, dict):
+            raise SystemExit("authored.json: source cell %r is not an object" % (cell,))
+        image = _open_source_path(cell.get("path"), "source cell %r" % (cell,))
+        for over in cell.get("over", []):
+            layer = _open_source_path(over, "source cell overlay %r" % (over,))
+            if layer.size != image.size:
+                raise SystemExit("authored.json: overlay %r is %dx%d over a %dx%d cell" % (over, *layer.size, *image.size))
+            image.alpha_composite(layer)
+        at = cell.get("at")
+        if not (isinstance(at, list) and len(at) == 2):
+            raise SystemExit("authored.json: source cell at %r is not [x, y]" % (at,))
+        x, y = (int(v) for v in at)
+        box = (x, y, x + image.size[0], y + image.size[1])
+        if x < 0 or y < 0 or box[2] > canvas[0] or box[3] > canvas[1]:
+            raise SystemExit("authored.json: source cell %r at %r runs off the %dx%d canvas" % (cell.get("path"), at, *canvas))
+        for other in taken:
+            if box[0] < other[2] and other[0] < box[2] and box[1] < other[3] and other[1] < box[3]:
+                raise SystemExit("authored.json: source cell %r at %r overlaps another cell" % (cell.get("path"), at))
+        taken.append(box)
+        sheet.paste(image, (x, y))
+    return sheet
+
+
+def render_source(source, canvas=None):
+    """The picture a `source` block reproduces: crop, then pad, never repainted or resized --
+    `godot/art/simplyzombies/STYLE.md`'s own rule for its mechanical steps, applied to ours. Or,
+    for a source that declares `cells` instead of a `path`, the sheet `render_cells` lays out at
+    the entry's canvas. Raises rather than returning a sentinel, the same as `_canvas_of` does for
+    a malformed canvas: a malformed `source` is a broken declaration, not a per-key failure to
+    collect alongside a pixel mismatch, and `check_authored.gd`'s own SOURCE/MANIFEST lanes are
+    what give a malformed entry a clean per-key error instead of a crash."""
+    if "cells" in source:
+        if canvas is None:
+            raise SystemExit("authored.json: a `cells` source needs its entry's canvas")
+        return render_cells(source.get("cells"), canvas)
+    image = _open_source_path(source.get("path"), "source %r" % (source,))
     crop = source.get("crop")
     if crop is not None:
         if not (isinstance(crop, list) and len(crop) == 4):
@@ -397,14 +468,14 @@ def render_source(source):
         if not (isinstance(pad, list) and len(pad) == 4):
             raise SystemExit("authored.json: source pad %r is not [w, h, ox, oy]" % (pad,))
         w, h, ox, oy = (int(v) for v in pad)
-        canvas = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-        canvas.paste(image, (ox, oy))
-        image = canvas
+        canvas_image = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        canvas_image.paste(image, (ox, oy))
+        image = canvas_image
     return image
 
 
 def write_authored_source(key, source, canvas):
-    image = render_source(source)
+    image = render_source(source, canvas)
     if image.size != canvas:
         raise SystemExit("%s: source reproduces %dx%d; authored.json declares %dx%d" % (key, image.size[0], image.size[1], *canvas))
     target = path_for(key)
@@ -421,7 +492,7 @@ def check_authored_source(key, source, canvas):
     if not target.exists():
         print("MISSING %s: authored.json declares %r with a source and no file is committed" % (target.relative_to(ROOT), key))
         return False
-    fresh = render_source(source)
+    fresh = render_source(source, canvas)
     if fresh.size != canvas:
         raise SystemExit("%s: source reproduces %dx%d; authored.json declares %dx%d" % (key, fresh.size[0], fresh.size[1], *canvas))
     committed = Image.open(target)
@@ -508,6 +579,8 @@ def main(argv=None):
 
     # Run self-test for padding function during check phase
     if not check_render_source_padding():
+        return 1
+    if not check_render_cells_refusals():
         return 1
 
     bad = [key for key in sorted(keys) if not check(key, keys[key])]

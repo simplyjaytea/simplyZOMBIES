@@ -545,9 +545,9 @@ projection are untouched.
   (`npm run godot:check:authored` PACK, `godot:check:topdown` TURN, `godot:check:worn` TURNS).
 - ~~**Pack gear on the body.**~~ — **landed** 2026-09-26 with "Held weapons in the hand", see the
   record (`npm run godot:check:worn` → RETIRED; `godot:check:authored` → READS).
-- **The ground is the pack's.** An atlas composed from the pack's twelve terrain tiles and eight
-  ground overlays, in `Appearance.GROUND_ATLAS_KEY`'s place; the palette rows the road and weather
-  lanes hold to are regraded to the pack's own means rather than the generator's.
+- ~~**The ground is the pack's.**~~ — **landed** 2026-09-27 for eleven of the twelve terrain tiles
+  and five of the eight overlays, see the record (`npm run godot:check:road` → PALETTE, TEXTURE,
+  CELLS, MASK; `godot:check:water` → PACK; `godot:check:authored` → READS; `sprites:check`).
 - **Trees, the bed and the heaps.** The pack's eight nature sprites and its bed and wreck-adjacent
   props replace their generated equivalents; the tree canopy is where the 2026-09-17 amendment to
   "one tile wide" (docs/30) is first exercised for real.
@@ -606,7 +606,11 @@ face hanging a tile into the entity sort. The pawn piece landed the same day (th
 gate red both ways and its record. The HUD's bars, icons and name plates stay refused; the
 projection stays flat top-down; 32 px a tile stays.
 
-- **The grade: overcast day, warm night.** The palette table and the generator's three families
+- **The grade: overcast day, warm night — the ground half folded into "The ground is the pack's"
+  (2026-09-27, owner's answer in docs/30's "The whole outpost pack"), the rest still open.** The
+  ground no longer moves with this piece: it is the pack's own measured table, pinned. What is
+  left is everything else the sentence below names — the generator's families, the walls, the
+  void and the two families keyed to the phase. The palette table and the generator's three families
   move to a cool, desaturated day with the pools, the fire and the torch kept as the one
   saturated thing after dark. `check_road_look.gd`'s PALETTE lane, `check_weather.gd`'s ACCENT
   lane, `check_topdown.gd`'s WALL lane, `check_appearance.gd`'s GREY lane and the ground atlas's
@@ -2846,6 +2850,98 @@ not a to-do list:
   wants the lead dropped on a narrow screen is a layout call left for the next look at the real
   window; the other 1280×720 collisions (corner doll over the action bar, the 1520 px work panel,
   the inspect column over the pockets) are untouched.
+
+- **Art — the ground is the pack's, 2026-09-27.** The outpost group's slice of that name, under
+  the owner's answer of 2026-09-25 (docs/30, "The whole outpost pack": *the ground takes the
+  pack's own grade* — the lanes re-pinned to a measured pack table, the old warm-dark table the
+  case they refuse, a before/after pair). **The atlas** is now an authored key, `ground_atlas`,
+  kind `ground` in `godot/assets/sprites/authored.json`, laid out by a new source shape — `cells`,
+  each a whole pack picture pasted at `at` with the files in `over` alpha-composited onto it first
+  — that `tools/sprites/build.py`'s `render_cells` reproduces byte for byte and refuses when a cell
+  runs off the canvas or overlaps another (a `--check` self-test proves both refusals on real pack
+  art). 192×256: two variants and four edge columns across, eight rows down. Rows: the pack's two
+  asphalts, two dirts, two grasses; **undergrowth**, which the pack does not paint, as each grass
+  under all four of the pack's grass fringes (a thicket that tiles as a visible lattice — the one
+  look in this slice worth the owner's eye, `after.png` has none on screen); rubble, and rubble
+  under the pack's debris overlay; the pack's one water and one wood floor, twice each; the two
+  concretes for the sidewalk. `GROUND_VARIANTS` went 4 → 2 and `EDGE_SHAPES` 8 → 4: the pack paints
+  one fringe per side for grass alone and no corner, so the edge columns carry the four grass
+  fringes on the two green rows (`Appearance.FRINGE_ROWS`) and are transparent elsewhere, and
+  `edge_shapes` keeps docs/30's rule — the darker draws the edge, once, onto the lighter — for the
+  sides of a green neighbour only. So grass fringes onto the pack's dirt, rubble, sidewalk and
+  boards, undergrowth onto everything but itself, and asphalt beside grass is a clean seam.
+  `tools/sprites/parts/ground.py` and `parts/edges.py` are deleted (102 generated keys, from 103).
+  **The palette:** the eight ground entries (`floor`, `dirt`, `grass`, `undergrowth`, `rubble`,
+  `water`, `sidewalk`, `indoorFloor`) are each the integer-rounded mean of their atlas row —
+  `#474646 #896840 #485127 #404820 #595149 #244e56 #999793 #6d4f36` — so the modulate the floor
+  blit takes is the identity on a plain outdoor tile and the pack draws as painted; the indoor
+  mix, the sidewalk swap and the hash variation still ride on top. The warm-dark table survives
+  as `Palette.GENERATOR_GROUNDS` for the guards named below. **The water-saturation question
+  HANDOFF carried is closed by the same answer:** the ford is the pack's teal at S 0.581, cool
+  (b − r 0.196), and the deep channel derived from it sits at V 0.196 between the void's 0.122
+  and the ford's 0.337. Deep water stays solid and clear and the ford slow and loud — the sim is
+  untouched and `WATER_OK`'s TILE, FOOT, SEE and GROUND lanes did not move.
+
+  **Gated, each lane red both ways.** `npm run godot:check:road` (→ `ROAD_LOOK_OK`): PALETTE pins
+  the eight entries to the hex table exactly and refuses the warm-dark table and every one-step
+  nudge of the pack's, and asserts `GENERATOR_GROUNDS` is still the refused table; the saturation
+  cap and the ground's warm pin went with the table they described (the pack's asphalt is a neutral
+  grey, r − b 0.004), while paved's value band, sidewalk > paved > background, road paint brightest,
+  the six surfaces pairwise distinct (min 0.0546) and water cool all still hold. TEXTURE re-measures
+  every row's integer mean off the decoded atlas and requires it to be the pinned hex (the warm-dark
+  tint refused by the same comparison), each of the 16 cells opaque, textured and within 0.03 of its
+  row, and the variants distinct except water and the boards (`ONE_PICTURE_ROWS`), held identical.
+  CELLS holds the eight fringe cells to the pack's own measurements — inside their half, 283 / 266
+  / 258 / 257 solid pixels at alpha ≥ 128, means `#3e471f #3c441e #3e461f #3d451f` — and the other
+  24 transparent; a flat cell, a fringe judged on the wrong side, a brightened fringe and a fringe
+  passed off as blank are refused. MASK adds the new refusals (a darker ground with no fringe art,
+  and a diagonal, draw nothing); EDGE PLAYED on the shipped 256 district: 4,346 edged tiles, 7,295
+  boundaries each drawn once. `godot:check:topdown` GROUND pins the six surfaces to the pack's and
+  refuses the warm-dark six. `godot:check:water` gains PACK (the ford's hex, its atlas cell measured
+  to it, the channel between void and ford; TN the warm-dark slate and a void-dark channel).
+  `godot:check:weather` COVER gains the snow-reads assertion: a full cover lifts every atlas row's
+  drawn mean by ≥ 0.10 luma (thinnest 0.115, the pale concrete), cover 0.0 by nothing; and the
+  rain, snow and fog washes each sit ≥ 0.12 luma from every pack ground (nearest 0.191, rain over
+  the concrete), a wash the sidewalk's own colour refused.
+  `godot:check:authored`: MANIFEST and SOURCE accept a `cells` source and refuse four malformed
+  ones; READS gains its first code reader — a `ground` sheet names `presentation/main.gd:
+  _draw_floor_tile`, whose body must call `Appearance.ground_atlas(` for the key that accessor
+  resolves (TN: `_draw_heap`, a function that does not exist, and another key). TIER no longer
+  places the atlas by rule. **Sabotage, red and restored:** the palette's floor and water back to
+  `#474240`/`#424f5c` (PALETTE, TEXTURE, GROUND and PACK all red); the old 384×256 generated atlas
+  back on disk (TEXTURE, CELLS, and `sprites:check` "SIZE … committed 384x256, source reproduces
+  192x256").
+
+  **The half not moved, by the owner's answer of 2026-09-27 (option A, relayed by the
+  coordinator):** the guards that judge *still-generated* art against the ground keep judging it
+  against `GENERATOR_GROUNDS`, the table it was drawn for, and each retires with the slice that
+  retires its art. Named, with the measured shortfall against the pack's table that a later slice
+  inherits: `check_topdown.gd` WALL — the procedural wall's lit face clears the pack's brightest
+  ground (dirt, luma 0.424) by +0.039 against 0.08 and its shaded face sits −0.018 under it, the
+  lane printing both every run; `check_roof_look.gd` MOOD — every generated wall cap and face and
+  the shingle and tin roofs fall inside 0.08 of a pack ground (nearest: `wall_timber_face` 0.012
+  and `wall_timber_cap` 0.023 from dirt; `roof_tin_n` 0.072); `check_weather.gd` ACCENT's
+  groundItem floor — the flat fallback clears the pack's dirt (V 0.537) by 0.122 against 0.15
+  (ACCENT's only ground reading, so that lane's "ground half" is this guard); and
+  `tools/sprites/palette.py`'s import guards, whose copy is now `GENERATOR_SURFACES` /
+  `GENERATOR_PAINTS` — against the pack they would refuse `fatigue_drab` (+0.022 of 0.10),
+  `raider_drab` (+0.038) and `bloater_green` (+0.082) looking up, `pine_light` (0.028 of 0.08),
+  `car_green` (0.044) and `wood` (0.046) either side, and every wall ramp and the shingle and tin
+  roofs against the floors (`wall_timber` 0.024 nearest). `check_appearance.gd`'s old GREY lane,
+  which the plan listed, had already retired with the colonist rig; its comment now says this
+  slice re-pinned no luma bound there, because a pack body reads off a pack ground by its outline.
+
+  **Seen:** `.hermes/plans/2026-09-27_ground-pack/before.png` and `after.png`, the same boot view
+  (seed `SimBoot.DISTRICT_SEED`, day 1, zoom 32, 1256×930 cropped off the window with Godot's
+  Image API by a throwaway `SceneTree` driver, deleted). **What did not ship, and why:** the
+  pack's teal-and-cream interior tile (which rooms would be tiled is a question nobody has
+  answered, and a hash-mixed checker among planks reads as noise), the slate puddle (a puddle
+  drawn where the sim has no water would read as a ford — information the player is not owed),
+  and the two ochre road lines (the pack draws them north-south only, and a road runs both ways;
+  road paint stays `_draw_road_dash`). Found and not fixed, older than this slice: a full snow
+  cover lerps the floor's *alpha* towards `snow`'s 0x21 as well as its colour, so a snowed floor
+  draws at alpha 0x85 over whatever is beneath it — `COVER OK` prints the colour, and nobody has
+  asked whether that was meant.
 
 - **World & map** — ~~the three location loot tables~~ **landed** (`godot:check:loot`): what a
   place yields is content now, not two hardcoded kits in `boot.gd`. `content/loot/tables.json`

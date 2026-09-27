@@ -100,7 +100,11 @@ extends SceneTree
 #             2026-09-17 it need not be the *only* one, so two bases sharing an icon can each
 #             claim it (the old last-writer-wins comparison was a latent bug this never shipped a
 #             fixture for). Art nothing draws is the shape this milestone has paid for twelve
-#             times. Says so and SKIPS when the tier is empty, which it is until the first
+#             times. One kind is read by code rather than content: a `ground` sheet (the ground
+#             atlas, since 2026-09-27) names `<file>:<function>`, and that function's body must
+#             call `Appearance.ground_atlas(` for the key the accessor resolves. TN: a function
+#             that draws no ground, one that does not exist, and a key the accessor does not
+#             resolve. Says so and SKIPS when the tier is empty, which it is until the first
 #             commissioned sprite lands.
 #
 # What this gate deliberately does NOT do, named so the next session does not think it was
@@ -133,7 +137,18 @@ const AUTHORED_PATH: String = "res://assets/sprites/authored.json"
 #
 # `pack_held` is a weapon in the hand (docs/23, "Held weapons in the hand", 2026-09-26): one of the
 # pack's held-weapon pictures, judged by HELD.
-const KINDS: Array[String] = ["rig", "overlay", "tile", "icon", "pack_rig", "pack_overlay", "pack_held", "module", "sheet", "prop", "vehicle"]
+#
+# `ground` is the ground atlas (docs/23, "The ground is the pack's", 2026-09-27): a sheet laid out
+# from whole pack pictures by a `cells` source. Its pixels are `check_road_look.gd`'s TEXTURE and
+# CELLS lanes' to judge and `sprites:check`'s to reproduce; its reader is code, not content, which
+# READS below holds it to (GROUND_READER).
+const KINDS: Array[String] = ["rig", "overlay", "tile", "icon", "pack_rig", "pack_overlay", "pack_held", "module", "sheet", "prop", "vehicle", "ground"]
+
+# The one authored kind whose reader is a renderer function rather than a content entry: no content
+# names the ground, `presentation/main.gd`'s floor loop draws it. A `ground` entry's `reads` is
+# `<file under res://>:<function>`, and READS holds that function's body to calling this.
+const GROUND_KIND: String = "ground"
+const GROUND_READER: String = "Appearance.ground_atlas("
 
 # The pack's own spec for the art it ships, read as text and never loaded as a resource (the pack's
 # docs/godot/*.tres are null headless -- the UI kit's trap). PACK compares authored.json's copies of
@@ -263,6 +278,8 @@ func _complaint_about_source(source_v: Variant) -> String:
 	if not (source_v is Dictionary):
 		return "declares a `source` that is not an object"
 	var source: Dictionary = source_v as Dictionary
+	if source.has("cells"):
+		return _complaint_about_cells(source.get("cells"))
 	var path: String = String(source.get("path", "")).strip_edges()
 	if path.is_empty():
 		return "declares a `source` with no `path`"
@@ -277,6 +294,32 @@ func _complaint_about_source(source_v: Variant) -> String:
 		for v in (arr as Array):
 			if not (v is float or v is int):
 				return "declares `%s` %s; it is four integers" % [field, str(arr)]
+	return ""
+
+
+# A sheet source (`authored.json`'s note, since 2026-09-27): `cells` is a non-empty list, each cell
+# a `path` that exists, an `at` of two numbers, and an optional `over` of paths that exist. Shape
+# only, like the predicate above -- that the cells fit the canvas without overlapping is build.py's
+# (`render_cells` refuses both), and the pixels are sprites:check's.
+func _complaint_about_cells(cells_v: Variant) -> String:
+	if not (cells_v is Array) or (cells_v as Array).is_empty():
+		return "declares `cells` that is not a non-empty list"
+	for cell_v in cells_v as Array:
+		if not (cell_v is Dictionary):
+			return "declares a cell %s that is not an object" % str(cell_v)
+		var cell: Dictionary = cell_v as Dictionary
+		var path: String = String(cell.get("path", "")).strip_edges()
+		if path.is_empty() or not FileAccess.file_exists("res://%s" % path):
+			return "declares a cell whose `path` '%s' does not exist" % path
+		var at: Variant = cell.get("at")
+		if not (at is Array and (at as Array).size() == 2) or not ((at as Array)[0] is float or (at as Array)[0] is int) or not ((at as Array)[1] is float or (at as Array)[1] is int):
+			return "declares a cell at %s; it is [x, y] in pixels" % str(at)
+		var over: Variant = cell.get("over", [])
+		if not (over is Array):
+			return "declares a cell `over` %s that is not a list" % str(over)
+		for layer in over as Array:
+			if not FileAccess.file_exists("res://%s" % String(layer)):
+				return "declares a cell overlay '%s' that does not exist" % String(layer)
 	return ""
 
 
@@ -406,6 +449,13 @@ func _the_manifest_is_well_formed() -> bool:
 		["held_no_grip", {"canvas": [24, 16], "kind": "pack_held", "reads": "x"}],
 		["held_short_grip", {"canvas": [24, 16], "kind": "pack_held", "reads": "x", "grip": [8]}],
 		["grip_on_icon", {"canvas": [32, 32], "kind": "icon", "reads": "x", "grip": [8, 8]}],
+		["empty_cells", {"canvas": [64, 32], "kind": "ground", "reads": "x", "source": {"cells": []}}],
+		["cell_missing_path", {"canvas": [64, 32], "kind": "ground", "reads": "x",
+			"source": {"cells": [{"at": [0, 0], "path": "art/simplyzombies/groups/environment/textures/does-not-exist.png"}]}}],
+		["cell_no_at", {"canvas": [64, 32], "kind": "ground", "reads": "x",
+			"source": {"cells": [{"path": real_source_path}]}}],
+		["cell_missing_over", {"canvas": [64, 32], "kind": "ground", "reads": "x",
+			"source": {"cells": [{"at": [0, 0], "path": real_source_path, "over": ["art/nope.png"]}]}}],
 	]
 	for pair in fabricated:
 		if _complaint((pair as Array)[1]).is_empty():
@@ -429,6 +479,10 @@ func _the_manifest_is_well_formed() -> bool:
 	if not _complaint({"canvas": [24, 16], "kind": "pack_held", "reads": "x", "grip": [8.18, 8.85]}).is_empty():
 		push_error("the manifest predicate refused a sound held weapon; it would refuse the real ones too")
 		return false
+	if not _complaint({"canvas": [64, 32], "kind": "ground", "reads": "x", "source": {"cells": [
+			{"at": [0, 0], "path": real_source_path}, {"at": [32, 0], "path": real_source_path, "over": [real_source_path]}]}}).is_empty():
+		push_error("the manifest predicate refused a sound sheet source; it would refuse the real ground atlas too")
+		return false
 
 	# `Appearance.authored_rig_keys()` is the renderer-side reader three gates share, and it reads
 	# `kind` out of this same file. Two readers that must produce the same answer is the
@@ -443,7 +497,7 @@ func _the_manifest_is_well_formed() -> bool:
 		push_error("authored.json declares rigs %s and Appearance.authored_rig_keys() answers %s" % [str(rigs_here), str(Appearance.authored_rig_keys())])
 		return false
 
-	print("MANIFEST OK %d authored keys declared (%d of kind rig, agreed by both readers), %d malformed fabrications refused and five sound ones (a rig, a source, a family, an fps with a z, a held weapon) accepted" % [entries.size(), rigs_here.size(), fabricated.size()])
+	print("MANIFEST OK %d authored keys declared (%d of kind rig, agreed by both readers), %d malformed fabrications refused and six sound ones (a rig, a source, a family, an fps with a z, a held weapon, a sheet of cells) accepted" % [entries.size(), rigs_here.size(), fabricated.size()])
 	return true
 
 
@@ -454,8 +508,6 @@ func _the_manifest_is_well_formed() -> bool:
 # build.py's, because only that side can see a registry.
 func _rule_places(key: String) -> bool:
 	if key.begins_with("chart_"):
-		return true
-	if key == Appearance.GROUND_ATLAS_KEY:
 		return true
 	if Appearance.PAWN_KEYS.has(key) or Appearance.TREE_KEYS.has(key):
 		return true
@@ -527,9 +579,12 @@ func _every_source_resolves_at_its_declared_canvas() -> bool:
 		judged += 1
 
 	# TN: a source whose path does not exist is refused by the same predicate the real entries
-	# went through.
+	# went through, and so is a sheet one of whose cells names a file that does not exist.
 	if _complaint_about_source({"path": "art/simplyzombies/groups/props/native/does-not-exist.png"}).is_empty():
 		push_error("the source predicate accepted a path that does not exist; it proves nothing")
+		return false
+	if _complaint_about_source({"cells": [{"at": [0, 0], "path": "art/simplyzombies/groups/environment/textures/does-not-exist.png"}]}).is_empty():
+		push_error("the source predicate accepted a sheet cell whose path does not exist; it proves nothing")
 		return false
 
 	print("SOURCE OK %d sourced keys resolve at their declared canvas (the pixel-for-pixel proof is sprites:check's, outside this chain)" % judged)
@@ -1505,6 +1560,43 @@ func _declared_by(out: Dictionary, sprite_key: String, id: String) -> void:
 	out[sprite_key] = readers
 
 
+# Whether a `ground` entry's `reads` names a renderer function that really draws it: `<file>:<func>`,
+# the function's body calls `Appearance.ground_atlas(`, and that accessor resolves this very key
+# (`Appearance.GROUND_ATLAS_KEY`). "" when sound. The dead-socket question asked of code the way
+# the content half asks it of an appearance block.
+func _ground_reader_complaint(key: String, reads: String) -> String:
+	if key != Appearance.GROUND_ATLAS_KEY:
+		return "is a ground sheet, and Appearance.ground_atlas() resolves '%s', not it" % Appearance.GROUND_ATLAS_KEY
+	var parts: PackedStringArray = reads.split(":")
+	if parts.size() != 2:
+		return "reads '%s'; a ground sheet names `<file>:<function>`" % reads
+	var path: String = "res://%s" % parts[0]
+	if not FileAccess.file_exists(path):
+		return "reads '%s', and %s does not exist" % [reads, path]
+	var body: String = _function_body_of(path, parts[1])
+	if body.is_empty():
+		return "reads '%s', and %s defines no %s" % [reads, path, parts[1]]
+	if not body.contains(GROUND_READER):
+		return "reads '%s', whose body never calls %s: a ground sheet nothing draws" % [reads, GROUND_READER]
+	return ""
+
+
+# One function's text out of a GDScript file: from `func <name>(` to the next top-level line.
+func _function_body_of(path: String, name: String) -> String:
+	var text: String = FileAccess.get_file_as_string(path)
+	var start: int = text.find("\nfunc %s(" % name)
+	if start < 0:
+		return ""
+	var lines: PackedStringArray = text.substr(start + 1).split("\n")
+	var out: PackedStringArray = [lines[0]]
+	for i in range(1, lines.size()):
+		var line: String = lines[i]
+		if not line.is_empty() and not line.begins_with("\t") and not line.begins_with(" ") and not line.begins_with("#"):
+			break
+		out.append(line)
+	return "\n".join(out)
+
+
 # Whether a claimed `reads` is one of the content ids that actually declare the key -- membership,
 # not equality, which is the fix for the last-writer-wins bug `_keys_content_declares` describes.
 func _reads_claim_is_sound(readers: Array, claim: String) -> bool:
@@ -1528,8 +1620,16 @@ func _authored_art_is_read_by_something() -> bool:
 	# `entries.keys()` are authored.json's top-level keys only -- a family's members never appear
 	# here, so a family is judged by its family key exactly as a flat entry is, and there is
 	# nothing extra to special-case for it.
+	var code_read: int = 0
 	for key in entries.keys():
 		var name: String = String(key)
+		if String((entries[key] as Dictionary).get("kind", "")) == GROUND_KIND:
+			var why: String = _ground_reader_complaint(name, String((entries[key] as Dictionary).get("reads", "")))
+			if not why.is_empty():
+				push_error("authored.json: '%s' %s" % [name, why])
+				return false
+			code_read += 1
+			continue
 		if not declared.has(name):
 			push_error("authored.json declares '%s' and no content entry's appearance block names it: art nothing draws" % name)
 			return false
@@ -1548,5 +1648,19 @@ func _authored_art_is_read_by_something() -> bool:
 		push_error("the reads predicate refused the first of two sound readers; two bases sharing one icon would fail")
 		return false
 
-	print("READS OK %d authored keys are each named by one of the content entries that declare them" % entries.size())
+	# TN for the code reader: the real claim pointed at a renderer function that exists and draws
+	# no ground, at a function that does not exist, and at a key the atlas accessor does not
+	# resolve -- each refused by the same predicate the real entry passed.
+	if code_read > 0:
+		if _ground_reader_complaint(Appearance.GROUND_ATLAS_KEY, "presentation/main.gd:_draw_heap").is_empty():
+			push_error("the ground-reader predicate accepted _draw_heap, which blits no ground; it proves nothing")
+			return false
+		if _ground_reader_complaint(Appearance.GROUND_ATLAS_KEY, "presentation/main.gd:_draw_no_such_thing").is_empty():
+			push_error("the ground-reader predicate accepted a function that does not exist")
+			return false
+		if _ground_reader_complaint("ground_atlas_elsewhere", "presentation/main.gd:_draw_floor_tile").is_empty():
+			push_error("the ground-reader predicate accepted a key Appearance.ground_atlas() does not resolve")
+			return false
+
+	print("READS OK %d authored keys are each named by one of the content entries that declare them, %d ground sheet read by the renderer function it names (a function that draws no ground, one that does not exist and a key the accessor does not resolve all refused)" % [entries.size() - code_read, code_read])
 	return true
