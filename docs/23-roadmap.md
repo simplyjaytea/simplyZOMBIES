@@ -2640,7 +2640,7 @@ not a to-do list:
   `anchor` has — and a prop is at most a tile tall and 48 wide; TN on a fabrication per claim and
   on an alpha-6 corner speck) and READS is widened to a dressing block's `heaps`, `litter`,
   `rubble`, `trees.tall`, `nature[].key` and its wall, roof and face maps (a fabricated block is
-  read, a crate carrying a `heaps` list is not). `godot:check:trees` (→ `TREES_OK`, eleven lanes):
+  read, a crate carrying a `heaps` list is not). `godot:check:trees` (→ `TREES_OK`, twelve lanes):
   KEYS (`trees.tall` is exactly the authored trees, each resolving at its declared canvas), TIERS
   re-pinned at `ALPHA_SOLID` to the pack's measured boxes (66×86, 46×82, 45×88), NATURE (every key
   an authored prop, the roll picks 15 of 32 seeds on open grass and none on paved, walled, indoor,
@@ -2648,7 +2648,8 @@ not a to-do list:
   blocks pick nothing, the chunk cache answers what the uncached roll does), and INERT — 76 sim
   files name no picture and read no presentation, a whole-district pick over 51 floor tiles left
   the map digest unmoved, no picked tile is solid, blocked or opaque (a Tree tile is), and the
-  serialised world names none of twelve picture keys; each with its fabrication.
+  serialised world names none of twelve picture keys; each with its fabrication; and SHIPPED,
+  added by the probe pass below.
   `godot:check:wrecks` (→ `WRECKS_OK`) gains HEAP: no heap hangs over its tile at any zoom rung.
   `godot:check:appearance` PROPS and `godot:check:topdown` PROPS judge the bed's hang at every zoom
   rung and that a square prop still centres.
@@ -2665,10 +2666,39 @@ not a to-do list:
   `typecheck`, `lint` and `format:check` clean. Balance did not need a before-and-after: no file
   under `godot/sim/` or worldgen changed, and `godot:m2` carries `M2_BALANCE_OK` as a chain gate.
   **Half shipped, named:** the suburb the gates boot (64 tiles) has no water beside open ground, so
-  it dresses four kinds of fifty-one and reeds appear only in the NATURE lane's fabricated map; a
-  bush sits on the tile's floor and hides nothing (dressing is not cover, by decision); the three
-  heaps replace the two generated ones one for one, so no heap is more or less cover than before
-  (a Low tile's cover is the sim's, not the picture's).
+  it dresses four kinds of fifty-one; reeds are placed on `district.forest_edge` (a cell of
+  `region.main_area`; 13 of 48 nature pictures at 64, 27 of 318 at 128, seed 20260805), which is
+  the map SHIPPED judges below; a bush sits on the tile's floor and hides nothing (dressing is not
+  cover, by decision); the three heaps replace the two generated ones one for one, so no heap is
+  more or less cover than before (a Low tile's cover is the sim's, not the picture's).
+
+  **The probe pass, 2026-09-27 — jev_review escalated this slice on `test_gap` and the owner's
+  rule for that is probe-then-commit.** Every behaviour the slice added was sabotaged in turn and
+  the lane that went red named; three had none, and got one. Red, each restored: a heap or the bed
+  left unnamed by content (`godot:check:authored` READS: "art nothing draws"; the bed also
+  `godot:check:appearance` PROPS); the pine cropped to 96 or its anchor moved, and every tree
+  cropped narrow (`godot:check:authored` PICTURE, `godot:check:trees` KEYS — the canopy wider than
+  a tile is judged on a true positive, 80 px, and a true negative, a canopy of exactly one tile);
+  a sim file naming a picture or preloading presentation, and the real picker writing a tile to
+  Low (`godot:check:trees` INERT); nature ignoring the observer, cached or not, and drawn indoors
+  (`godot:check:trees` NATURE); `_draw_nature` uncalled (NATURE's draw-order needle); a heap
+  stretched over its tile (`godot:check:wrecks` HEAP); the bed centred instead of hung
+  (`godot:check:topdown` PROPS; `godot:check:appearance` judges `hang_rect` itself and stayed
+  green). **Three had no lane and are now gated:** (1) reeds losing `beside`, and a bush on
+  paved ground, both stayed green — new lane SHIPPED in `godot:check:trees` (→ `TREES_OK`, twelve lanes) generates
+  `district.forest_edge` and the residential suburb and asserts reeds are placed on the first, each
+  beside a water surface, none on the second, none on the forest with its water turned to grass,
+  that `region.main_area` names the forest, and that no shipped entry names paved ground or water,
+  each with its fabrication; (2) reeds placed on a *shipped* map was recorded as a gap and is
+  closed by the same lane (13 reeds on `forest_edge@64`); (3) a retired generated key coming back
+  — a module registering `tree_pine_a` or a `low_heap_a.png` left in the sprite folder — went
+  unnoticed, and `tools/sprites/build.py` now refuses both (`RETIRED_KEYS`, and a self-test
+  `SELF_TEST_OK retired keys` that `npm run sprites:check` prints, with a fabrication either way).
+  `prop_bed` needs no entry: it is an authored key, so a generator claiming it is already refused
+  as declared in both tiers. Not gated, on purpose: what a bush looks like beside a wall (a
+  human's eye, not a lane). **Measured after:** `SHIPPED OK` (13 reeds among 48 pictures on
+  `forest_edge@64`), `TREES_OK`, `WRECKS_OK`, `AUTHORED_OK`, `APPEARANCE_OK`, `SPRITES_OK`
+  (143 generated, 117 authored), `ROUTING_OK`, `TIMING_OK`, and `godot:m2` green again in 28m53s.
 
 - **Art — a picture per item base, 2026-09-26.** The glyph piece gave `appearance.sprite` a
   reader and every base a shape chosen by its class; this slice gives the bases the outpost pack

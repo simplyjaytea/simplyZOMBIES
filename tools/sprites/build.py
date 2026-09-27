@@ -132,6 +132,35 @@ def canvas_of(key):
     return CANVAS.get(key, (SIZE, SIZE))
 
 
+# Generated keys retired when the outpost pack's pictures replaced them ("Trees, the bed and the
+# heaps", 2026-09-26): the three generated pines and the two generated heaps. Their generator code
+# and PNGs are deleted, and this is what refuses either coming back -- a module that registers one
+# again, or a stray PNG of that name left in the sprite folder, which the resolver would happily
+# serve to content that still names it. The bed needs no entry: `prop_bed` is an authored key, so
+# a generator claiming it is already refused as declared in both tiers.
+RETIRED_KEYS = ("tree_pine_a", "tree_pine_b", "tree_pine_c", "low_heap_a", "low_heap_b")
+
+
+def retired_back(registered, on_disk):
+    """The retired keys that are registered again or whose PNG is on disk, as words; [] if none."""
+    back = ["%s is registered by a generator again" % key for key in RETIRED_KEYS if key in registered]
+    back += ["%s.png is on disk again" % key for key in RETIRED_KEYS if key in on_disk]
+    return back
+
+
+def check_retired_keys():
+    """Self-test: the retired-key predicate says yes to each way back and no to a clean tree."""
+    if retired_back({"tree_pine": None, "heap_bags": None}, set()):
+        print("SELF_TEST_FAIL retired keys: a clean registry was refused")
+        return False
+    if not retired_back({"tree_pine_b": None}, set()) or not retired_back({}, {"low_heap_a"}):
+        print("SELF_TEST_FAIL retired keys: a retired key coming back was accepted")
+        return False
+    print("SELF_TEST_OK retired keys: %d retired keys are refused whether a generator registers them "
+          "or a PNG returns, and a clean registry passes" % len(RETIRED_KEYS))
+    return True
+
+
 def registry():
     out = {}
     for module in MODULES:
@@ -456,6 +485,12 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     keys = registry()
+    back = retired_back(keys, {key for key in RETIRED_KEYS if path_for(key).exists()})
+    if back:
+        raise SystemExit("retired art came back: %s. These keys were replaced by the outpost pack's "
+                         "authored pictures (docs/23, \"Trees, the bed and the heaps\") and their "
+                         "generators and PNGs were deleted on purpose; delete this one again"
+                         % "; ".join(back))
     hand = authored()
     sources = authored_sources()
     both = sorted(set(keys) & set(hand))
@@ -506,6 +541,8 @@ def main(argv=None):
 
     # Run self-test for padding function during check phase
     if not check_render_source_padding():
+        return 1
+    if not check_retired_keys():
         return 1
 
     bad = [key for key in sorted(keys) if not check(key, keys[key])]
