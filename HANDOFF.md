@@ -18,7 +18,7 @@ container running** lives in `AGENTS.md`.
 
 The outpost pack's slices ran as supervised Orca workers, each in its own worktree, and merged
 locally to `main` (**not pushed**; no PR is open). On merged `main`, `npm run godot:m2` is
-green at **84 gates in 1805 s** (the chain grew by one, `godot:check:fx`; `CLAUDE.md`'s "83" is
+green at **84 gates in about 30 minutes** (the chain grew by one, `godot:check:fx`; `CLAUDE.md`'s "83" is
 now one short), with `check:routing`, `check:timing`, `sprites:check` and `npm test` (594) also
 green. docs/23's outpost group and records are the authority; this is only the pointer.
 
@@ -39,12 +39,12 @@ shot is seen (`godot:check:fx`, ten lanes).
   worker flagged the undergrowth lattice as worth a look.
 - **UI screenshots** at 1920×1080 and 1280×720, still owed from the UI arc.
 
-**Open, on a branch, not merged:** `simplyjaytea/outpost-furnish-props` (worktree
-`C:/Users/jtf/orca/workspaces/simplyZOMBIES/outpost-furnish-props`). Commit `2f37f6a`
-"Furnishings and container kinds" is committed but its gates were not reported before the session
-ended; "Props for things that exist" is **uncommitted** in that worktree (barricade and work lamp
-pictures; the stove is deliberately not shipped — the pack's is 32×40 and an item icon is 32×32).
-Next session: read that worktree's status, finish or verify, run `godot:m2`, merge.
+**Also landed at the end of the session:** furnishings and container kinds (eight of the pack's
+twelve furnishings as inert dressing; container pictures by loot table, closed and searched only),
+and props for things that exist (the barricade and the work lamp). Deferred and recorded in docs/23:
+four furnishings (the workbench, and three props taller than a tile), the pack's
+open-with-supplies container state (it would leak at a distance), and the stove's picture (the
+pack's is 32×40, and an item icon is 32×32).
 
 **Also owed:** `CLAUDE.md`'s chain count and measured time; a push and a PR for everything above.
 
