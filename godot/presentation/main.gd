@@ -182,6 +182,16 @@ var _vehicle_index_gen: int = -1
 # what invalidates it -- see _dressing.
 var _dressing_cache: Dictionary = {}
 var _dressing_from: Variant = null
+# The nature dressing's picks, one list per 16 x 16 chunk (Dressing.nature_tiles_cached), and what
+# they were picked against: the map object, its vehicle generation (a driven car turns Low tiles
+# to Floor and back under the same map, which the ground test reads), the seed and the content
+# tree. Any of the four moving empties the cache -- see _nature_cache_for. Never a static: one
+# gate process boots two worlds.
+var _nature_cache: Dictionary = {}
+var _nature_cache_map: Variant = null
+var _nature_cache_gen: int = -1
+var _nature_cache_seed: int = -1
+var _nature_cache_content: Variant = null
 # Entity id -> the look a Focal body drew this frame: `{look, texture, equip, flip}`, from
 # `Appearance.for_entity`, `body_texture`, `equipment_layers_for` and `flip_for` at the moment the body
 # was last actually blitted. Presentation-only and never read by the sim -- `_draw_afterimages`
@@ -1336,6 +1346,11 @@ func _draw_district() -> void:
 	# skipped as unseen, so a roof draws where the screen was black and never where the sim
 	# can see (RoofLook.roof_tiles is the rule; check_roof_look.gd holds it both ways).
 	_draw_roofs(dress, seen, explored, bounds)
+	# The nature dressing, flat on the ground and under everything that stands: bushes, reeds,
+	# rocks, stumps and logs over open outdoor floor. After the tile loop and not inside it
+	# because the log is wider than its tile and the floor drawn beside it would overdraw it;
+	# before the props and the bodies because nothing here is an object anyone can stand behind.
+	_draw_nature(dress, seen, bounds)
 	# Props last, over the ground and under the bodies _draw_entities sorts: a container, a bed,
 	# a campfire and the well all stood invisible in this district until this call existed.
 	_draw_props()
@@ -1475,8 +1490,49 @@ func _dressing() -> Dictionary:
 	return _dressing_cache
 
 
+# The nature cache, emptied when anything its picks were made against has moved: the map object,
+# its vehicle generation, the seed or the content tree (`is_same`, so a content tree is compared
+# by identity and not walked). The picks include the ground test, which a parked car's Low tiles
+# change when it is driven off.
+func _nature_cache_for() -> Dictionary:
+	var map: Variant = world.tilemap
+	var gen: int = 0 if map == null else int(map.vehicle_generation)
+	if is_same(map, _nature_cache_map) and gen == _nature_cache_gen and int(world.seed) == _nature_cache_seed and is_same(world.content, _nature_cache_content):
+		return _nature_cache
+	_nature_cache = {}
+	_nature_cache_map = map
+	_nature_cache_gen = gen
+	_nature_cache_seed = int(world.seed)
+	_nature_cache_content = world.content
+	return _nature_cache
+
+
+# The nature dressing, one picture per tile `Dressing.nature_tiles_cached` answers: seen tiles only, and
+# never a remembered one, so nothing here is drawn where the observer has no sightline. Each hangs
+# with its last row on the tile's south edge (Appearance.hang_rect) at its own size. Dressing is
+# never sim state: this reads the map and writes nothing, and the tiles it draws on are open floor
+# the sim treats as open floor -- a body walks across a stump and is drawn over it.
+func _draw_nature(dress: Dictionary, seen: Variant, bounds: Dictionary) -> void:
+	if dress.is_empty() or seen == null or world.tilemap == null:
+		return
+	var zoom: float = float(camera["zoom"])
+	var px_scale: float = Appearance.blit_scale(zoom)
+	for pick in Dressing.nature_tiles_cached(dress, world.tilemap, seen, int(world.seed), bounds, _nature_cache_for()):
+		var texture: Texture2D = Appearance.resolve(String(pick["key"]))
+		if texture == null:
+			continue
+		var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(int(pick["tx"])) + 0.5, float(int(pick["ty"])) + 1.0)
+		draw_texture_rect(texture, Appearance.hang_rect(float(sc["sx"]), float(sc["sy"]), texture.get_size() * px_scale), false)
+
+
 # One heap of junk over a Low tile no parked vehicle covers. False when content declares no
 # dressing or no heaps, which is the caller's cue to draw the procedural cover block instead.
+#
+# The heap is a pack picture (docs/23, "Trees, the bed and the heaps") at its own size, hung with
+# its last row on the tile's south edge -- `Appearance.hang_rect`, never stretched over the tile
+# the way the generated heap's 32x32 canvas was, because the pack's rubbish bags are 32x22 and
+# its barrel 24x30. Every one is at most a tile across and a tile tall, so it lies inside its own
+# tile and the floor drawn after it cannot overdraw it.
 #
 # There is no transform here and no second one to reset. The quarter turn that used to draw an
 # east-west run of car segments retired with the segments themselves: a car is one three-quarter
@@ -1489,7 +1545,8 @@ func _draw_heap(rect: Rect2, dress: Dictionary, tx: int, ty: int) -> bool:
 	var texture: Texture2D = Appearance.resolve(key)
 	if texture == null:
 		return false
-	draw_texture_rect(texture, rect, false)
+	var size: Vector2 = texture.get_size() * Appearance.blit_scale(float(camera["zoom"]))
+	draw_texture_rect(texture, Appearance.hang_rect(rect.position.x + rect.size.x / 2.0, rect.end.y, size), false)
 	return true
 
 
@@ -1857,9 +1914,17 @@ func _draw_prop(look: Dictionary, x: float, y: float, zoom: float) -> void:
 	var tint: Color = look["tint"] as Color
 	var texture: Variant = look.get("texture")
 	if texture != null:
-		# Art, when a prop has any: one tile, centre-anchored, same canvas as a pawn.
-		var h: float = zoom / 2.0
-		draw_texture_rect(texture as Texture2D, Rect2(centre - Vector2(h, h), Vector2(zoom, zoom)), false, tint)
+		# Art, when a prop has any, at its own size. A tile-square picture (the crate, the fire,
+		# the well) is centre-anchored on the point, the rect it has always had; any other shape
+		# is a pack picture cropped to its anchor row (the bed) and hangs with its last row on
+		# the tile's south edge, Appearance.hang_rect, so it may be wider than the tile it
+		# stands on and never taller than one.
+		var tex: Texture2D = texture as Texture2D
+		var tex_size: Vector2 = tex.get_size() * Appearance.blit_scale(zoom)
+		if Appearance.anchor_of(Vector2i(tex.get_size())) == Appearance.Anchor.Feet:
+			draw_texture_rect(tex, Appearance.hang_rect(centre.x, centre.y + zoom / 2.0, tex_size), false, tint)
+		else:
+			draw_texture_rect(tex, Rect2(centre - tex_size / 2.0, tex_size), false, tint)
 		return
 	var span: float = float(look["size"]) * zoom
 	var edge: Color = tint.darkened(0.55)

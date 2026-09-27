@@ -57,7 +57,7 @@ from PIL import Image  # noqa: E402
 from draw import SIZE  # noqa: E402
 import guide  # noqa: E402
 import palette  # noqa: E402
-from parts import buildings, characters, ground, paperdoll, props, trees, vehicles, wrecks  # noqa: E402
+from parts import buildings, characters, ground, paperdoll, props, vehicles, wrecks  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 SPRITE_DIR = ROOT / "godot" / "assets" / "sprites"
@@ -79,8 +79,9 @@ GUIDE_DIR = ROOT / "tools" / "sprites" / "guides"
 # whole with "Pack gear on the body" and "Held weapons in the hand" (docs/30, "The whole outpost
 # pack"): a four-direction body wears only the pack's own four-direction wearables and holds only
 # the pack's held weapons, both sourced in `authored.json`, so a face-on picture had no body left
-# to fit.
-MODULES = (characters, props, wrecks, ground, buildings, trees, vehicles, paperdoll)
+# to fit. `trees` went the same day with "Trees, the bed and the heaps": the pack's trees are
+# sourced in `authored.json` too.
+MODULES = (characters, props, wrecks, ground, buildings, vehicles, paperdoll)
 
 # The keys drawn on the pawn canvas: the two generated bodies the outpost pack does not supply, the
 # screamer and the bloater. Six more bodies were here until 2026-09-26 (the pack's four-direction
@@ -108,10 +109,6 @@ CANVAS = {
 }
 for _key in PAWN_KEYS:
     CANVAS[_key] = (characters.PAWN_W, characters.PAWN_H)
-# The trees: one tile wide and three tall, feet-anchored like a pawn, mirrored on the Godot
-# side by `Appearance.TREE_KEYS` and `TREE_CANVAS` under the same two-copies arrangement.
-for _key in trees.TREE_KEYS:
-    CANVAS[_key] = (trees.TREE_W, trees.TREE_H)
 # The vehicles: one shape per class and axis, feet-anchored on the footprint's south edge --
 # the footprint plus a tile of roofline north, so a sedan's 2x5 is 64x192 nose-north, a van's
 # 2x6 is 64x224 and a truck's 2x7 is 64x256. The three cars' nose-east pictures are the outpost
@@ -132,6 +129,35 @@ for _key in paperdoll.REGISTRY:
 
 def canvas_of(key):
     return CANVAS.get(key, (SIZE, SIZE))
+
+
+# Generated keys retired when the outpost pack's pictures replaced them ("Trees, the bed and the
+# heaps", 2026-09-26): the three generated pines and the two generated heaps. Their generator code
+# and PNGs are deleted, and this is what refuses either coming back -- a module that registers one
+# again, or a stray PNG of that name left in the sprite folder, which the resolver would happily
+# serve to content that still names it. The bed needs no entry: `prop_bed` is an authored key, so
+# a generator claiming it is already refused as declared in both tiers.
+RETIRED_KEYS = ("tree_pine_a", "tree_pine_b", "tree_pine_c", "low_heap_a", "low_heap_b")
+
+
+def retired_back(registered, on_disk):
+    """The retired keys that are registered again or whose PNG is on disk, as words; [] if none."""
+    back = ["%s is registered by a generator again" % key for key in RETIRED_KEYS if key in registered]
+    back += ["%s.png is on disk again" % key for key in RETIRED_KEYS if key in on_disk]
+    return back
+
+
+def check_retired_keys():
+    """Self-test: the retired-key predicate says yes to each way back and no to a clean tree."""
+    if retired_back({"tree_pine": None, "heap_bags": None}, set()):
+        print("SELF_TEST_FAIL retired keys: a clean registry was refused")
+        return False
+    if not retired_back({"tree_pine_b": None}, set()) or not retired_back({}, {"low_heap_a"}):
+        print("SELF_TEST_FAIL retired keys: a retired key coming back was accepted")
+        return False
+    print("SELF_TEST_OK retired keys: %d retired keys are refused whether a generator registers them "
+          "or a PNG returns, and a clean registry passes" % len(RETIRED_KEYS))
+    return True
 
 
 def registry():
@@ -458,6 +484,12 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     keys = registry()
+    back = retired_back(keys, {key for key in RETIRED_KEYS if path_for(key).exists()})
+    if back:
+        raise SystemExit("retired art came back: %s. These keys were replaced by the outpost pack's "
+                         "authored pictures (docs/23, \"Trees, the bed and the heaps\") and their "
+                         "generators and PNGs were deleted on purpose; delete this one again"
+                         % "; ".join(back))
     hand = authored()
     sources = authored_sources()
     both = sorted(set(keys) & set(hand))
@@ -508,6 +540,8 @@ def main(argv=None):
 
     # Run self-test for padding function during check phase
     if not check_render_source_padding():
+        return 1
+    if not check_retired_keys():
         return 1
 
     bad = [key for key in sorted(keys) if not check(key, keys[key])]

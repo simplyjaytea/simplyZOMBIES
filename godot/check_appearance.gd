@@ -150,8 +150,8 @@ func _declared_appearances_are_well_formed() -> bool:
 				return false
 		if block.has("size"):
 			var sz: Variant = block["size"]
-			if not (sz is float or sz is int) or float(sz) < 0.1 or float(sz) > 1.0:
-				push_error("%s: appearance.size '%s' is not a tile fraction in [0.1, 1.0]" % [path, str(sz)])
+			if not (sz is float or sz is int) or float(sz) < 0.1 or float(sz) > Appearance.PROP_SIZE_MAX:
+				push_error("%s: appearance.size '%s' is not a tile fraction in [0.1, %.1f]" % [path, str(sz), Appearance.PROP_SIZE_MAX])
 				return false
 	print("SHAPE OK %d blocks" % blocks.size())
 	return true
@@ -816,8 +816,8 @@ func _props_look_like_something() -> bool:
 		if not Appearance.PROP_SHAPES.has(String(look["shape"])):
 			push_error("%s resolved shape '%s', which the renderer does not draw" % [id, look["shape"]])
 			return false
-		if float(look["size"]) < 0.1 or float(look["size"]) > 1.0:
-			push_error("%s resolved size %f, outside one tile" % [id, float(look["size"])])
+		if float(look["size"]) < 0.1 or float(look["size"]) > Appearance.PROP_SIZE_MAX:
+			push_error("%s resolved size %f, outside [0.1, %.1f] tiles" % [id, float(look["size"]), Appearance.PROP_SIZE_MAX])
 			return false
 		# Two states of one prop that look identical are one state: a searched cupboard and an
 		# unsearched one, a lit fire and a cold one, have to be distinguishable on sight.
@@ -866,7 +866,41 @@ func _props_look_like_something() -> bool:
 	if String(unknown["shape"]) != Appearance.PROP_SHAPE_DEFAULT or unknown["texture"] != null:
 		push_error("an unauthored prop id should still be drawable as the default shape with no texture")
 		return false
-	print("PROPS OK %d ids, %d with art drawn unstained at their declared footprint, distinct looks, both state pairs different pictures, unknown id degrades" % [ids.size(), textured])
+	# Where a prop's picture goes. A tile-square canvas (the crate, the fire, the well, the latrine)
+	# is centred on the point, the rect it has always had; the pack's bed is 48x30, cropped to its
+	# anchor row, so it hangs by `Appearance.hang_rect` with its last row on the tile's south edge
+	# and is wider than the tile it lies on. hang_rect is judged on the bed's own picture at every
+	# zoom rung, and refused for the rect a body would take, which drops FOOT_DROP_PX below it.
+	var bed_look: Dictionary = Appearance.prop_of(w, "prop.bed")
+	var bed_tex: Variant = bed_look["texture"]
+	if bed_tex == null:
+		push_error("prop.bed resolved no texture; the hang assertions had nothing to judge")
+		return false
+	var bed_px: Vector2i = Vector2i((bed_tex as Texture2D).get_size())
+	if Appearance.anchor_of(bed_px) != Appearance.Anchor.Feet or bed_px.x <= int(CameraUtil.ART_NATIVE):
+		push_error("the bed is %s; the pack's bed is wider than a tile and not square, so it hangs and does not centre" % str(bed_px))
+		return false
+	for zoom in CameraUtil.ZOOM_STEPS:
+		var scale: float = Appearance.blit_scale(zoom)
+		var size: Vector2 = Vector2(bed_px) * scale
+		var hung: Rect2 = Appearance.hang_rect(200.0, 300.0, size)
+		if hung.position.y + hung.size.y != 300.0:
+			push_error("zoom %.0f: a hung prop's last row is at %.2f, want the tile's south edge 300.0" % [zoom, hung.position.y + hung.size.y])
+			return false
+		if hung.size != size or absf(hung.position.x + hung.size.x / 2.0 - 200.0) > 0.5:
+			push_error("zoom %.0f: a hung prop is %s at x %.2f, want %s centred on 200.0" % [zoom, str(hung.size), hung.position.x, str(size)])
+			return false
+		var stood: Rect2 = Appearance.body_rect(200.0, 300.0, size, 1.0)
+		if stood.position.y + stood.size.y == 300.0:
+			push_error("zoom %.0f: body_rect and hang_rect agree on the bottom; the FOOT_DROP_PX negative is dead" % zoom)
+			return false
+	for square_id in ["prop.container", "prop.campfire", "prop.well", "prop.latrine"]:
+		var sq: Variant = Appearance.prop_of(w, square_id)["texture"]
+		if sq == null or Appearance.anchor_of(Vector2i((sq as Texture2D).get_size())) != Appearance.Anchor.Centre:
+			push_error("%s is not a tile-square picture; _draw_prop would hang it instead of centring it" % square_id)
+			return false
+
+	print("PROPS OK %d ids, %d with art drawn unstained at their declared footprint (up to %.1f tiles across, the bed's), distinct looks, both state pairs different pictures, the bed hangs on the tile's south edge at every zoom rung and the square props centre, unknown id degrades" % [ids.size(), textured, Appearance.PROP_SIZE_MAX])
 	return true
 
 
