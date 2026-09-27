@@ -2,12 +2,52 @@
   {
     "id": "prop.container",
     "name": "Container",
+    "tables": {
+      "industrial": "prop.container.metal",
+      "medical": "prop.container.medical",
+      "military_cache": "prop.container.metal"
+    },
     "appearance": { "sprite": "prop_container", "shape": "box", "size": 0.8 }
   },
   {
     "id": "prop.container.searched",
     "name": "Searched container",
     "appearance": { "sprite": "prop_container_searched", "shape": "box", "size": 0.85 }
+  },
+  {
+    "id": "prop.container.metal",
+    "name": "Metal container",
+    "appearance": { "sprite": "prop_container_metal", "shape": "box", "size": 0.8 }
+  },
+  {
+    "id": "prop.container.metal.searched",
+    "name": "Searched metal container",
+    "appearance": { "sprite": "prop_container_metal_searched", "shape": "box", "size": 0.8 }
+  },
+  {
+    "id": "prop.container.medical",
+    "name": "Medical container",
+    "appearance": { "sprite": "prop_container_medical", "shape": "box", "size": 0.8 }
+  },
+  {
+    "id": "prop.container.medical.searched",
+    "name": "Searched medical container",
+    "appearance": { "sprite": "prop_container_medical_searched", "shape": "box", "size": 0.8 }
+  },
+  {
+    "id": "prop.barricade",
+    "name": "Scrap barricade",
+    "appearance": { "sprite": "prop_barricade", "shape": "box", "size": 1.3 }
+  },
+  {
+    "id": "prop.lamp",
+    "name": "Lit work lamp",
+    "appearance": { "sprite": "prop_lamp", "shape": "box", "size": 1.1 }
+  },
+  {
+    "id": "prop.lamp.dark",
+    "name": "Dark work lamp",
+    "appearance": { "sprite": "prop_lamp_dark", "shape": "box", "size": 1.1 }
   },
   {
     "id": "prop.bed",

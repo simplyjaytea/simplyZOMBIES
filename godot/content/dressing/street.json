@@ -31,5 +31,15 @@
     { "key": "nature_rock", "surfaces": ["dirt", "grass"], "rarity": 50 },
     { "key": "nature_stump", "surfaces": ["grass", "dirt"], "rarity": 60 },
     { "key": "nature_log", "surfaces": ["grass", "undergrowth"], "rarity": 70 }
+  ],
+  "furnishings": [
+    { "key": "prop_shelf", "where": "indoors", "surfaces": ["paved"], "rarity": 12, "beside": "wall" },
+    { "key": "prop_medical_cabinet", "where": "indoors", "surfaces": ["paved"], "rarity": 30, "beside": "wall" },
+    { "key": "prop_table", "where": "indoors", "surfaces": ["paved"], "rarity": 20 },
+    { "key": "prop_chair", "where": "indoors", "surfaces": ["paved"], "rarity": 18 },
+    { "key": "prop_dumpster", "where": "outdoors", "surfaces": ["paved"], "rarity": 20, "beside": "wall" },
+    { "key": "prop_concrete_barrier", "where": "outdoors", "surfaces": ["paved"], "rarity": 110 },
+    { "key": "prop_traffic_cone", "where": "outdoors", "surfaces": ["paved"], "rarity": 90 },
+    { "key": "prop_fence_post", "where": "outdoors", "surfaces": ["grass", "dirt"], "rarity": 70 }
   ]
 }

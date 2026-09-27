@@ -572,15 +572,32 @@ projection are untouched.
   CURSORS, the new WORLD lane).
 - ~~**Held weapons in the hand.**~~ — **landed** 2026-09-26 for ten of the twelve, see the record
   (`npm run godot:check:worn` → HELD; `godot:check:authored` → HELD).
-- **Furnishings and container kinds.** The pack's furnishing props as dressing that never touches
-  balance and never becomes sim state, and its container kinds keyed by loot table — reopened the
-  same day. A furnishing must not become cover, a pathing block or loot unless a later decision
-  says so.
+- ~~**Furnishings and container kinds.**~~ — **landed** 2026-09-27 for eight of the pack's twelve
+  furnishings and for its container kinds by loot table, see the record (`npm run
+  godot:check:trees` → the new FURNISH lane and the widened INERT; `godot:check:appearance` → the
+  new CONTAINERS lane; `godot:check:authored` → READS widened to `furnishings[].key`). The other
+  four furnishings are "The workbench and the tall furnishings" below.
+- **The workbench and the tall furnishings.** What "Furnishings and container kinds" left: the
+  pack's workbench, which would be the picture of the real `bench` entity (`SimGunsmith.build`
+  spawns it, nothing gives it a content id or a picture, so it draws by fallback colour) and so is
+  a prop for a thing that exists rather than dressing; and the fridge, the road sign and the
+  streetlamp, each taller than a tile, which want the entity sort a tree stands in rather than the
+  flat dressing pass. Not built, and not decided: the workbench as dressing would be a picture of a
+  bench that does nothing.
 - ~~**Nature extras.**~~ — **landed** 2026-09-26, see the record (`npm run godot:check:trees` →
   the new NATURE and INERT lanes).
-- **Props for things that exist.** The pack's barricade, work lamp and stove pictures for the
-  game's existing barricade, lamp and stove — reopened the same day. A picture swap on things the
-  sim already has, never a new mechanic.
+- ~~**Props for things that exist.**~~ — **landed** 2026-09-27 for two of the three, the scrap
+  barricade and the planted work lamp, see the record (`npm run godot:check:appearance` → the new
+  STANDING lane; `godot:check:authored` → PICTURE's `standing` kind and READS; `sprites:check`).
+  The stove is "The stove's picture" below.
+- **The stove's picture.** The pack's iron stove for the game's stove. The game's only stove is the
+  carried Camp Stove item (`item.stove.camp`, a 2×2 material that boils water); nothing places one,
+  so its picture is an item picture, and item pictures are 32×32 icons drawn by `ui/` — the pack's
+  stove is 32×40 with 34 solid rows, which cannot be cut to 32×32 without losing rows of its
+  chimney or its feet, and this project draws the pack's art by crop and pad only, never resized
+  (docs/30, "The outpost pack, adopted"). Not built: the coordinator's answer of 2026-09-27 ruled
+  out cropping solid rows, so it waits for a placed stove, if one is ever wanted, or a different
+  icon.
 
 **UI — the UI Field Kit, live, decided by the owner (2026-09-25).** The direction is [docs/30's
 entry](30-decisions.md#the-ui-field-kit-live-2026-09-25): the whole kit — chrome textures,
@@ -2770,6 +2787,186 @@ not a to-do list:
   human's eye, not a lane). **Measured after:** `SHIPPED OK` (13 reeds among 48 pictures on
   `forest_edge@64`), `TREES_OK`, `WRECKS_OK`, `AUTHORED_OK`, `APPEARANCE_OK`, `SPRITES_OK`
   (143 generated, 117 authored), `ROUTING_OK`, `TIMING_OK`, and `godot:m2` green again in 28m53s.
+
+- **Art — furnishings and container kinds, 2026-09-27.** Two halves of one what's-left piece, on
+  docs/30's "The whole outpost pack" ("the furnishing props, as scenery that never touches balance
+  and never becomes sim state, and the container kinds keyed by loot table"). Twelve authored keys,
+  `build.py` reproducing each from `art/simplyzombies/groups/props/native/`: eight of kind `prop`
+  cut to the pack's anchor row (`prop_chair`, `prop_concrete_barrier`, `prop_dumpster`,
+  `prop_fence_post`, `prop_medical_cabinet`, `prop_shelf`, `prop_table`, `prop_traffic_cone`, none
+  more than a tile tall or 48 wide) and four of kind `tile` (the pack's metal footlocker and medical
+  box, closed and empty, at the crate's own 32×32).
+
+  **Furnishings are dressing, never sim state.** A new `furnishings` list in the dressing block
+  (`dressing.schema.json`): entries of `{key, where, surfaces, rarity, beside?}` — a table, a chair,
+  a shelf and a medical cabinet where `indoors`; a dumpster, a concrete barrier, a traffic cone and
+  a fence post `outdoors` — one roll per tile by `Dressing.furnishing_key`, a pure hash of the seed,
+  the tile and the entry's index (`Dressing.SALT_FURNISH`, its own salts and its own chunk cache,
+  never an RNG stream), the first entry that lands and fits winning. A tile takes one only when it
+  is a Floor tile of the entry's `where` with Floor of the same `where` east and west (which keeps
+  every doorway and room edge clear), never with a door directly north or south, and `beside: wall`
+  only against a wall. Drawn by `main.gd::_draw_furnishings` after `_draw_nature` and before
+  `_draw_props`, on seen tiles only, hung by `Appearance.hang_rect`, and skipped wherever a real
+  prop stands (`Appearance.prop_tiles`, so a chair never peeks out from under a crate or a bed).
+  Nothing under `godot/sim/` was touched: a furnishing blocks no step, sightline or shot, is not
+  cover, is not looted, is never a path anyone avoids and is never a component, and a body walks
+  across a table and is drawn over it. Rarities are content (shelf 12, medical cabinet 30, table 20,
+  chair 18, dumpster 20, barrier 110, cone 90, post 70): **measured** over the four shipped
+  districts at 64, 351 furnishings in eight kinds on 13,241 floor tiles, about one in thirty-eight,
+  every kind placed on at least one district and none in a doorway.
+
+  **Container kinds are the table's.** `prop.container` gains a top-level `tables` map
+  (`prop.schema.json`): residential and commercial containers keep the wood crate, `medical` draws
+  `prop.container.medical`, `industrial` and `military_cache` draw `prop.container.metal`, each with
+  its `.searched` pair. `Appearance.prop_look` reads the `searchable` component's `table` through
+  `table_prop_id` (an unknown, empty or differently cased table draws the crate, never an invisible
+  box) and appends the state suffix for the `searched` flag, and reads nothing else — not the kind
+  word, not what the box holds. **Clause 4, judged before it was built.** The metal footlocker is
+  shared by two tables on purpose, so no picture names the rare table; the medical box names one
+  table before it is opened, and the kind word beside it (`supply locker`) says so from within
+  reach already — settled with the coordinator on 2026-09-27: a seen container looking like
+  what it is is fair, provided it draws only on seen tiles and its state shows nothing the player
+  could not already know (both gated below). The state is `searched`, which only two things set: the
+  player's own open and a colonist's search job (`jobs.gd` → `SimContainers.search`; raiders never
+  do). The renderer already drew the searched crate on every seen tile, a colonist's search out of
+  sight included, so this adds no fact to it. **The pack's open-with-supplies state was not
+  used**: a searched box with something still in it would draw differently from an emptied one,
+  which needs `contents_of` at a distance where `hud_clause` needs the player adjacent.
+
+  **Gated.** `godot:check:trees` (→ `TREES_OK`, thirteen lanes) gains FURNISH: every entry is an
+  authored prop that resolves at its declared canvas and is at most 48×32 (a taller one is refused
+  by name), the eight keys are each named and the workbench, fridge, road sign and streetlamp are
+  not; the pick is refused on the wrong side of the wall (and on a gap tile between two of the
+  right side), on the wrong surface, in a doorway, beside a door north or south, on a wall, door,
+  tree, heap or water tile, on the map's edge and without a wall for `beside: wall`; the roll is
+  `hash_at`'s own number on its own salt over four rarities and eight seeds (and a reference on the
+  wrong salt is shown to disagree); `furnishing_tiles` is a subset of seen and of bounds; the chunk
+  cache answers the uncached picks over four windows and four observers, serves a poisoned chunk and
+  forgets it when emptied; `prop_tiles` names a bed's tile and not a despawned bed's; the draw pass
+  is read as source for its place, its needles and its cache key; and over the four shipped
+  districts each kind is placed on the right side of the wall, none in a doorway and none on a tile
+  the sim treats as anything but Floor, with a door dropped onto a picked tile's north refusing that
+  pick. INERT is widened to the furnishing picks (map digest unmoved, no picked tile solid, blocked
+  or opaque, no sim file or serialised component names a new key). `godot:check:appearance` (→
+  `APPEARANCE_OK`) gains CONTAINERS: the five loot tables are written out against the map (a sixth
+  table with no choice is red), an unknown table, an empty one, a differently cased one and a prop
+  with no map draw the id they were handed, the six pictures are pairwise different pixels at their
+  declared footprint, unstained and centred, the entity path draws the table's kind and its searched
+  pair (five kind words stocked from one table are one picture), a box with something in it draws as
+  an empty one unopened and searched, `prop_look` and `table_prop_id` are scanned for a read of
+  what a box holds (the scanner refused on four fabricated bodies), no container picture in the
+  stations file is unreached, and `_draw_props` still skips a prop on a tile the observer cannot
+  see, before it resolves the look. `godot:check:authored` READS is widened to `furnishings[].key`
+  (a fabricated block's is found, a crate carrying a `furnishings` list is not).
+
+  **Sabotage pass, every one red and restored:** `prop_table` dropped from the block
+  (`godot:check:trees` FURNISH; `godot:check:authored` READS: art nothing draws); `where` ignored
+  (FURNISH: the tile's own side); the door rule, the neighbour rule and the wall clause removed
+  (FURNISH, each by name); the occupied-tile skip removed and `_draw_furnishings` uncalled (FURNISH's
+  source needles); `furnishing_tiles` ignoring the observer (FURNISH); a furnishing pick that writes
+  the map (INERT); `military_cache` unmapped, the table unread, the searched pair always the crate,
+  the open-with-supplies state added and `_draw_props`' seen guard removed (all
+  `godot:check:appearance` CONTAINERS).
+
+  **Retired:** nothing. The generator never drew a furnishing, and the wood crate was already the
+  pack's. **Measured:** `TREES_OK`, `APPEARANCE_OK`, `AUTHORED_OK`, `WRECKS_OK`, `TOPDOWN_OK`,
+  `GODOT_CONTENT_OK`, `SPRITES_OK 96 generated keys ... 164 authored keys reproduced`, `npm test`
+  45 files / 594 tests and `format:check` clean; no file under `godot/sim/` or worldgen changed, so
+  balance needed no before-and-after. The full `godot:m2` chain is run once after both of the
+  day's slices ("Props for things that exist") and recorded there. **Half shipped, named:** eight
+  of twelve furnishings (the workbench, fridge, road sign and streetlamp are in what's left) and
+  two of three container states (the open state is refused above); a chair or a table indoors
+  stands in a room the sim never furnished, which is what dressing is.
+
+- **Art — props for things that exist, 2026-09-27.** The pack's barricade and work lamp are the
+  pictures of two things the sim already had, and this slice is a picture swap on both — no new
+  mechanic, nothing under `godot/sim/` or worldgen touched. **The piece's premise was half wrong
+  and the record says so**, as "The shot is seen" did: it named "the generated/glyph pictures" it
+  would replace, and only the barricade had one (the scrap barricade drew as a procedural rubble
+  slab); a planted floodlight is an item the sim stores in itself and no pass drew, so it stood
+  invisible in the yard. So one thing was replaced and one was drawn for the first time.
+  Three authored keys of a new kind `standing`, `build.py` reproducing each from
+  `art/simplyzombies/groups/utility/native/`: `prop_barricade` (48×37), `prop_lamp` and
+  `prop_lamp_dark` (40×44), each taller than a tile. `PICTURE` cuts a `standing` key to the pack's
+  anchor row, or one row past its last solid row when the drawing runs below it (the barricade
+  paints a solid foot to row 36 against an anchor of 36, and cropping there would drop a real
+  pixel), and holds it to a tile-plus tall and at most 48×48; a flat `prop` gets no such allowance.
+
+  **The barricade** is `Appearance.PROP_KINDS`' `scrapBarricade` entry, id `prop.barricade`. The tile
+  branch of `_draw_district` draws the floor under it on a tile seen now and leaves the picture to
+  the entity sort (`Appearance.scrap_stands_at`); a remembered tile keeps the dimmed slab, so a
+  memory shows the blocked tile it always did and nothing new. **The lamp** is `placedLight`, id
+  `prop.lamp.dark`, drawn as `prop.lamp` while the entity carries `light_source` — the component the
+  burn clock adds while a lamp burns and removes when its fuel is out (`SimLight._tick_burn`) — so
+  a planted floodlight is lit exactly while it lights the yard; the picture reads no fuel and says
+  nothing about how long it will burn (the fuel stays a word in the inspect pane). The state is
+  what the lamp's own light already shows, and it draws on seen tiles only. Both stand in the
+  entity sort (`Appearance.standing_props`, drawn by `main.gd`'s `_standing_props` and
+  `_blit_standing`) at their tile's south-edge centre, so a body north of one draws behind it, and
+  `_draw_props` skips any picture taller than a tile so nothing draws twice.
+
+  **Not shipped: the stove.** The game's only stove is the carried Camp Stove item; nothing places
+  one, so its picture is an item icon, and the item pictures (`ui/`) are 32×32. The pack's stove is
+  32×40 with 34 solid rows, so it cannot be cut to that canvas without losing rows of chimney or
+  foot, and the coordinator's answer of 2026-09-27 ruled cropping solid rows out. It stays in
+  what's left as "The stove's picture". The pack's *broken* barricade is not used either: the sim
+  has a barricade's `stage`, but nothing drew it before and drawing it would be a new thing the
+  screen says.
+
+  **Retired:** nothing. No generator code ever drew a barricade, a lamp or a stove object (the
+  slab was the wall path's procedural fallback, kept for remembered tiles and for a barricade with
+  no art, which is a supported path), and the item glyphs stay for the items. **Gated.**
+  `godot:check:appearance` (→ `APPEARANCE_OK`) gains STANDING: each of the three declares an
+  authored `standing` key — a generated name, the crate's key, the bed's and an empty key are each
+  refused by the same predicate — and resolves a picture taller than a tile, while the bed, the
+  containers, the fire, the well and the latrine stay flat; the barricade draws as itself, a planted
+  floodlight draws dark with no `light_source`, lit once one is made and dark again on the sim's
+  own burn tick with no fuel read; `standing_props` answers each on its tile's south-edge centre and
+  only for the live seen set inside the bounds (nobody, an empty set, a single tile, the bounds, a
+  bed and a despawned barricade each judged, the despawn through the entity store so the component
+  survives it, the CLAUDE.md trap); `scrap_stands_at` says yes to a scrap overlay and no to a board,
+  a bare tile, the map's edge and no world; and the entity pass is read as source, in its order
+  (gather, sort, blit), with the flat pass's skip and the tile branch's live-only swap. PROPS is
+  widened to the lit lamp's id and the lamp state pair. `godot:check:authored` PICTURE gains the
+  `standing` kind (short, too tall, too wide, cropped through the foot: refused; well cut and the
+  foot case: accepted) and READS finds each of the three. `godot:check:trees` INERT names the
+  `standing` keys among the pictures no sim file or serialised component may carry.
+
+  **Sabotage pass, every one red and restored:** the observer removed from `standing_props`, its
+  ground point moved to mid-tile, its bounds ignored, its alive check removed, flat props answered
+  as standing, the `standing` threshold and the picture key blanked; the barricade kind and the
+  lamp's `lit_component` dropped; `scrap_stands_at` counting a board; the floor swap on remembered
+  tiles; the flat pass drawing a standing picture; the gather removed; the blit flipped; the
+  barricade pointed at the crate's key and the dark lamp at a key nobody authored
+  (`godot:check:appearance`); the lamp declared a flat prop and the dark lamp's content entry
+  removed (`godot:check:authored` PICTURE and READS). Two probes found the despawn assertions
+  vacuous (`world.despawn` clears the components, so the alive check passed without being read):
+  both, this slice's and "Furnishings and container kinds"' `prop_tiles` lane, now despawn through
+  the entity store and refuse a fixture whose component did not survive. **Probed at runtime:** a
+  throwaway headless driver booted `main.tscn`, put a scrap barricade and a burning lamp beside the
+  player, and `_standing_props` returned both and `_draw` completed on the tick, no error; it was
+  deleted. No screenshot: headless rendering is a dummy.
+
+  **Measured:** `APPEARANCE_OK`, `AUTHORED_OK` (`PICTURE OK 3 trees, 17 props and 3 standing
+  props`), `TREES_OK`, `WRECKS_OK`, `TOPDOWN_OK`, `ROOF_LOOK_OK`, `PLAY_OK`, `SPRITES_OK 96 generated
+  keys ... 167 authored keys reproduced`, `GODOT_CONTENT_OK`, `npm test` 45 files / 594 tests,
+  `format:check` clean, `ROUTING_OK`, `TIMING_OK`. Balance needed no before-and-after: no file under
+  `godot/sim/` or worldgen changed. `godot:m2` green, the chain's own 84 gates (`GATE_TIME_TABLE`;
+  this slice adds no new gate to the chain, only lanes inside `check_appearance.gd`,
+  `check_authored.gd` and `check_trees.gd`, which already run in it), 29m04s on a four-core Windows
+  desktop shared with other workers. **Two regressions this diff caused in gates outside its own
+  ownership, found by that run and fixed without touching either gate:** `check_water.gd`'s DRAW
+  lane reads `_draw_district`'s second `match tile:` block as a fixed-length window
+  (`src.substr(second, 4000)`) and needs the Water arm's `draw_rect(rect, col)` inside it — the
+  first draft's barricade branch, with its explanatory comments, pushed that call past the
+  boundary and silently dropped the Water arm from the window; `check_roof_look.gd`'s SOCKETS lane
+  needs `_draw_solid_tile(rect, col, tx, ty)` literally inside `_draw_district`'s own body, which
+  a first fix (extracting the whole branch to a helper) broke by moving it out. The wall arm stays
+  inline and terse (`if live and _scrap_stands_at(tx, ty): _draw_barricade_floor(rect, ground, tx,
+  ty) else: _draw_solid_tile(rect, col, tx, ty)`, ~110 added characters against a ~190-character
+  margin measured by locating the Water arm's literal byte offset before and after each edit); only
+  the floor-draw itself moved to a new one-line helper. `godot:check:appearance`'s own STANDING
+  lane was updated to the same needles.
 
 - **Art — a picture per item base, 2026-09-26.** The glyph piece gave `appearance.sprite` a
   reader and every base a shape chosen by its class; this slice gives the bases the outpost pack

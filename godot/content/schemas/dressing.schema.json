@@ -72,6 +72,26 @@
           "beside": { "type": "string", "enum": ["water"] }
         }
       }
+    },
+    "furnishings": {
+      "type": "array",
+      "description": "The outpost pack's furnishing props as pictures over Floor tiles the sim still sees as open floor: a table, a chair, a shelf and a medical cabinet inside a building; a dumpster, a concrete barrier, a traffic cone and a fence post outside one. DRESSING, NEVER SIM STATE, on the same terms as `nature` -- a furnishing blocks no step, sightline or shot, is not cover, is not looted, is never a path anyone avoids and is never a component (check_trees.gd's INERT lane holds that). Each entry is one roll per tile: `key` (an authored `prop`, at most a tile tall and 48 wide), `where` (`indoors` or `outdoors`, the tile's own `indoors` flag), `surfaces` (SimSurface names, lower-case, the ground it may stand on), `rarity` (one tile in this many, at least two) and optionally `beside: \"wall\"` (a wall directly north, south, east or west). Picked by a pure hash of the seed, the tile and the entry's index (Dressing.SALT_FURNISH); the first entry that lands and fits wins the tile. A tile carries one only when its east and west neighbours are Floor tiles of the same `where`, and never with a door directly north or south. Optional: a block with no `furnishings` draws none. The shallow validator never looks inside; check_trees.gd's FURNISH lane resolves every key and refuses a fabricated one.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "where", "surfaces", "rarity"],
+        "properties": {
+          "key": { "type": "string", "pattern": "^[a-z0-9_.]+$" },
+          "where": { "type": "string", "enum": ["indoors", "outdoors"] },
+          "surfaces": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "enum": ["paved", "dirt", "grass", "undergrowth", "rubble", "water"] }
+          },
+          "rarity": { "type": "integer", "minimum": 2 },
+          "beside": { "type": "string", "enum": ["wall"] }
+        }
+      }
     }
   }
 }
