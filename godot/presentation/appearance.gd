@@ -1183,6 +1183,15 @@ const PROP_KINDS: Array[Dictionary] = [
 	{"component": "bed", "id": "prop.bed", "flag": "", "flag_id": ""},
 	{"component": "water_source", "id": "prop.well", "flag": "", "flag_id": ""},
 	{"component": "latrine", "id": "prop.latrine", "flag": "", "flag_id": ""},
+	# The two things the sim already had and nothing drew as an object (docs/23, "Props for things
+	# that exist"): the scrap barricade, and a floodlight planted in the yard. Both are pictures the
+	# outpost pack's utility group supplies taller than a tile, so they stand in the entity sort
+	# (`standing` below) instead of lying flat with the rest.
+	{"component": "scrapBarricade", "id": "prop.barricade", "flag": "", "flag_id": ""},
+	# `lit_component`, on the one kind that has it, names a component whose *presence* is the lit
+	# state: the sim adds `light_source` to a lamp that is burning and removes it when the fuel is
+	# out (SimLight._tick_burn), so a lamp draws lit exactly while it lights the yard.
+	{"component": "placedLight", "id": "prop.lamp.dark", "flag": "", "flag_id": "", "lit_component": "light_source", "lit_id": "prop.lamp"},
 ]
 
 # `table_field`, on the one kind that has it, names the field of the prop's component that holds
@@ -1226,6 +1235,8 @@ static func prop_look(world: Variant, entity: int) -> Dictionary:
 				id += PROP_SEARCHED_SUFFIX
 		elif flagged:
 			id = String(kind["flag_id"])
+		elif kind.has("lit_component") and world.components.has_component(entity, String(kind["lit_component"])):
+			id = String(kind["lit_id"])
 		return prop_of(world, id)
 	return {}
 
@@ -1245,6 +1256,53 @@ static func prop_tiles(world: Variant) -> Dictionary:
 			var p: Variant = world.components.get_component(int(ent), "position")
 			if p is Dictionary:
 				out[Vector2i(floori(float((p as Dictionary)["x"])), floori(float((p as Dictionary)["y"])))] = true
+	return out
+
+
+# Whether the tile holds the scrap barricade *and* the pack's picture for it resolves: the tile branch
+# then draws the floor under it and leaves the barricade to the entity sort. False for any other
+# wall and for a barricade with no art, which keep the procedural slab -- the supported fallback.
+static func scrap_stands_at(world: Variant, tx: int, ty: int) -> bool:
+	if world == null or world.tilemap == null:
+		return false
+	var ov: Variant = SimTileMap.overlay_at(world.tilemap, tx, ty)
+	if not (ov is Dictionary) or String((ov as Dictionary).get("kind", "")) != "scrap":
+		return false
+	return prop_of(world, "prop.barricade")["texture"] != null
+
+
+# The props whose picture is taller than a tile, as `{e, gx, gy, key}`: the entity, the world point
+# each stands on -- the south-edge centre of its tile, so a body north of it sorts behind it and one
+# south sorts in front, a tree's rule -- and the registry key to draw. `seen` is the observer's tile
+# set (SimVisibility.tiles_for) or null for nobody, and nobody sees no lamps: the *live* set only,
+# never the remembered map, so a lamp's lit state and a barricade's standing are things seen now and
+# not a memory that updates behind the observer's back. `bounds` is the visible AABB in tiles.
+# components.query does not check alive (CLAUDE.md), so a despawned prop is skipped here; a prop
+# with a flat picture is `main.gd`'s `_draw_props`', and each entity is answered once.
+static func standing_props(world: Variant, seen: Variant, bounds: Dictionary) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if seen == null or world == null or world.components == null:
+		return out
+	var drawn: Dictionary = {}
+	for kind in PROP_KINDS:
+		for ent in world.components.query([String(kind["component"]), "position"]):
+			var e: int = int(ent)
+			if drawn.has(e) or (world.entities != null and not world.entities.is_alive(e)):
+				continue
+			var p: Variant = world.components.get_component(e, "position")
+			if not (p is Dictionary):
+				continue
+			var x: float = float((p as Dictionary)["x"])
+			var y: float = float((p as Dictionary)["y"])
+			if x < float(bounds["minX"]) or x > float(bounds["maxX"]) or y < float(bounds["minY"]) or y > float(bounds["maxY"]):
+				continue
+			if not (seen as Object).call("has_tile", floori(x), floori(y)):
+				continue
+			var look: Dictionary = prop_look(world, e)
+			if look.is_empty() or not bool(look.get("standing", false)):
+				continue
+			drawn[e] = true
+			out.append({"e": e, "gx": float(floori(x)) + 0.5, "gy": float(floori(y)) + 1.0, "key": String(look["sprite"])})
 	return out
 
 
@@ -1281,6 +1339,13 @@ static func prop_of(world: Variant, id: String) -> Dictionary:
 		"tint": modulate_for(texture != null, declared_tint, tint),
 		"shape": shape,
 		"size": size,
+		# The registry key the picture came from, so the entity sort can resolve it by name, and
+		# whether it *stands*: a picture taller than a tile would stand in front of what is north of
+		# it if it lay flat under the bodies, so it joins the sort at its south edge, the way a tree
+		# does. The bed (30 rows) and every container lie flat; the pack's barricade and work lamp
+		# stand.
+		"sprite": String(block.get("sprite", "")),
+		"standing": texture != null and texture.get_size().y > int(CameraUtil.ART_NATIVE),
 		# The looping sheet drawn over the prop -- the lit campfire's flame ("The shot is seen");
 		# empty for every prop that declares none, which draws nothing more than it did.
 		"flameFx": String(block.get("flameFx", "")),

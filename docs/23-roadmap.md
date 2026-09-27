@@ -585,9 +585,18 @@ projection are untouched.
   bench that does nothing.
 - ~~**Nature extras.**~~ — **landed** 2026-09-26, see the record (`npm run godot:check:trees` →
   the new NATURE and INERT lanes).
-- **Props for things that exist.** The pack's barricade, work lamp and stove pictures for the
-  game's existing barricade, lamp and stove — reopened the same day. A picture swap on things the
-  sim already has, never a new mechanic.
+- ~~**Props for things that exist.**~~ — **landed** 2026-09-27 for two of the three, the scrap
+  barricade and the planted work lamp, see the record (`npm run godot:check:appearance` → the new
+  STANDING lane; `godot:check:authored` → PICTURE's `standing` kind and READS; `sprites:check`).
+  The stove is "The stove's picture" below.
+- **The stove's picture.** The pack's iron stove for the game's stove. The game's only stove is the
+  carried Camp Stove item (`item.stove.camp`, a 2×2 material that boils water); nothing places one,
+  so its picture is an item picture, and item pictures are 32×32 icons drawn by `ui/` — the pack's
+  stove is 32×40 with 34 solid rows, which cannot be cut to 32×32 without losing rows of its
+  chimney or its feet, and this project draws the pack's art by crop and pad only, never resized
+  (docs/30, "The outpost pack, adopted"). Not built: the coordinator's answer of 2026-09-27 ruled
+  out cropping solid rows, so it waits for a placed stove, if one is ever wanted, or a different
+  icon.
 
 **UI — the UI Field Kit, live, decided by the owner (2026-09-25).** The direction is [docs/30's
 entry](30-decisions.md#the-ui-field-kit-live-2026-09-25): the whole kit — chrome textures,
@@ -2814,8 +2823,9 @@ not a to-do list:
   word, not what the box holds. **Clause 4, judged before it was built.** The metal footlocker is
   shared by two tables on purpose, so no picture names the rare table; the medical box names one
   table before it is opened, and the kind word beside it (`supply locker`) says so from within
-  reach already — the owner's call on 2026-09-27 (via the coordinator) was that a seen container
-  looking like what it is is fair. The state is `searched`, which only two things set: the
+  reach already — settled with the coordinator on 2026-09-27: a seen container looking like
+  what it is is fair, provided it draws only on seen tiles and its state shows nothing the player
+  could not already know (both gated below). The state is `searched`, which only two things set: the
   player's own open and a colonist's search job (`jobs.gd` → `SimContainers.search`; raiders never
   do). The renderer already drew the searched crate on every seen tile, a colonist's search out of
   sight included, so this adds no fact to it. **The pack's open-with-supplies state was not
@@ -2866,6 +2876,96 @@ not a to-do list:
   of twelve furnishings (the workbench, fridge, road sign and streetlamp are in what's left) and
   two of three container states (the open state is refused above); a chair or a table indoors
   stands in a room the sim never furnished, which is what dressing is.
+
+- **Art — props for things that exist, 2026-09-27.** The pack's barricade and work lamp are the
+  pictures of two things the sim already had, and this slice is a picture swap on both — no new
+  mechanic, nothing under `godot/sim/` or worldgen touched. **The piece's premise was half wrong
+  and the record says so**, as "The shot is seen" did: it named "the generated/glyph pictures" it
+  would replace, and only the barricade had one (the scrap barricade drew as a procedural rubble
+  slab); a planted floodlight is an item the sim stores in itself and no pass drew, so it stood
+  invisible in the yard. So one thing was replaced and one was drawn for the first time.
+  Three authored keys of a new kind `standing`, `build.py` reproducing each from
+  `art/simplyzombies/groups/utility/native/`: `prop_barricade` (48×37), `prop_lamp` and
+  `prop_lamp_dark` (40×44), each taller than a tile. `PICTURE` cuts a `standing` key to the pack's
+  anchor row, or one row past its last solid row when the drawing runs below it (the barricade
+  paints a solid foot to row 36 against an anchor of 36, and cropping there would drop a real
+  pixel), and holds it to a tile-plus tall and at most 48×48; a flat `prop` gets no such allowance.
+
+  **The barricade** is `Appearance.PROP_KINDS`' `scrapBarricade` entry, id `prop.barricade`. The tile
+  branch of `_draw_district` draws the floor under it on a tile seen now and leaves the picture to
+  the entity sort (`Appearance.scrap_stands_at`); a remembered tile keeps the dimmed slab, so a
+  memory shows the blocked tile it always did and nothing new. **The lamp** is `placedLight`, id
+  `prop.lamp.dark`, drawn as `prop.lamp` while the entity carries `light_source` — the component the
+  burn clock adds while a lamp burns and removes when its fuel is out (`SimLight._tick_burn`) — so
+  a planted floodlight is lit exactly while it lights the yard; the picture reads no fuel and says
+  nothing about how long it will burn (the fuel stays a word in the inspect pane). The state is
+  what the lamp's own light already shows, and it draws on seen tiles only. Both stand in the
+  entity sort (`Appearance.standing_props`, drawn by `main.gd`'s `_standing_props` and
+  `_blit_standing`) at their tile's south-edge centre, so a body north of one draws behind it, and
+  `_draw_props` skips any picture taller than a tile so nothing draws twice.
+
+  **Not shipped: the stove.** The game's only stove is the carried Camp Stove item; nothing places
+  one, so its picture is an item icon, and the item pictures (`ui/`) are 32×32. The pack's stove is
+  32×40 with 34 solid rows, so it cannot be cut to that canvas without losing rows of chimney or
+  foot, and the coordinator's answer of 2026-09-27 ruled cropping solid rows out. It stays in
+  what's left as "The stove's picture". The pack's *broken* barricade is not used either: the sim
+  has a barricade's `stage`, but nothing drew it before and drawing it would be a new thing the
+  screen says.
+
+  **Retired:** nothing. No generator code ever drew a barricade, a lamp or a stove object (the
+  slab was the wall path's procedural fallback, kept for remembered tiles and for a barricade with
+  no art, which is a supported path), and the item glyphs stay for the items. **Gated.**
+  `godot:check:appearance` (→ `APPEARANCE_OK`) gains STANDING: each of the three declares an
+  authored `standing` key — a generated name, the crate's key, the bed's and an empty key are each
+  refused by the same predicate — and resolves a picture taller than a tile, while the bed, the
+  containers, the fire, the well and the latrine stay flat; the barricade draws as itself, a planted
+  floodlight draws dark with no `light_source`, lit once one is made and dark again on the sim's
+  own burn tick with no fuel read; `standing_props` answers each on its tile's south-edge centre and
+  only for the live seen set inside the bounds (nobody, an empty set, a single tile, the bounds, a
+  bed and a despawned barricade each judged, the despawn through the entity store so the component
+  survives it, the CLAUDE.md trap); `scrap_stands_at` says yes to a scrap overlay and no to a board,
+  a bare tile, the map's edge and no world; and the entity pass is read as source, in its order
+  (gather, sort, blit), with the flat pass's skip and the tile branch's live-only swap. PROPS is
+  widened to the lit lamp's id and the lamp state pair. `godot:check:authored` PICTURE gains the
+  `standing` kind (short, too tall, too wide, cropped through the foot: refused; well cut and the
+  foot case: accepted) and READS finds each of the three. `godot:check:trees` INERT names the
+  `standing` keys among the pictures no sim file or serialised component may carry.
+
+  **Sabotage pass, every one red and restored:** the observer removed from `standing_props`, its
+  ground point moved to mid-tile, its bounds ignored, its alive check removed, flat props answered
+  as standing, the `standing` threshold and the picture key blanked; the barricade kind and the
+  lamp's `lit_component` dropped; `scrap_stands_at` counting a board; the floor swap on remembered
+  tiles; the flat pass drawing a standing picture; the gather removed; the blit flipped; the
+  barricade pointed at the crate's key and the dark lamp at a key nobody authored
+  (`godot:check:appearance`); the lamp declared a flat prop and the dark lamp's content entry
+  removed (`godot:check:authored` PICTURE and READS). Two probes found the despawn assertions
+  vacuous (`world.despawn` clears the components, so the alive check passed without being read):
+  both, this slice's and "Furnishings and container kinds"' `prop_tiles` lane, now despawn through
+  the entity store and refuse a fixture whose component did not survive. **Probed at runtime:** a
+  throwaway headless driver booted `main.tscn`, put a scrap barricade and a burning lamp beside the
+  player, and `_standing_props` returned both and `_draw` completed on the tick, no error; it was
+  deleted. No screenshot: headless rendering is a dummy.
+
+  **Measured:** `APPEARANCE_OK`, `AUTHORED_OK` (`PICTURE OK 3 trees, 17 props and 3 standing
+  props`), `TREES_OK`, `WRECKS_OK`, `TOPDOWN_OK`, `ROOF_LOOK_OK`, `PLAY_OK`, `SPRITES_OK 96 generated
+  keys ... 167 authored keys reproduced`, `GODOT_CONTENT_OK`, `npm test` 45 files / 594 tests,
+  `format:check` clean, `ROUTING_OK`, `TIMING_OK`. Balance needed no before-and-after: no file under
+  `godot/sim/` or worldgen changed. `godot:m2` green, the chain's own 84 gates (`GATE_TIME_TABLE`;
+  this slice adds no new gate to the chain, only lanes inside `check_appearance.gd`,
+  `check_authored.gd` and `check_trees.gd`, which already run in it), 29m04s on a four-core Windows
+  desktop shared with other workers. **Two regressions this diff caused in gates outside its own
+  ownership, found by that run and fixed without touching either gate:** `check_water.gd`'s DRAW
+  lane reads `_draw_district`'s second `match tile:` block as a fixed-length window
+  (`src.substr(second, 4000)`) and needs the Water arm's `draw_rect(rect, col)` inside it — the
+  first draft's barricade branch, with its explanatory comments, pushed that call past the
+  boundary and silently dropped the Water arm from the window; `check_roof_look.gd`'s SOCKETS lane
+  needs `_draw_solid_tile(rect, col, tx, ty)` literally inside `_draw_district`'s own body, which
+  a first fix (extracting the whole branch to a helper) broke by moving it out. The wall arm stays
+  inline and terse (`if live and _scrap_stands_at(tx, ty): _draw_barricade_floor(rect, ground, tx,
+  ty) else: _draw_solid_tile(rect, col, tx, ty)`, ~110 added characters against a ~190-character
+  margin measured by locating the Water arm's literal byte offset before and after each edit); only
+  the floor-draw itself moved to a new one-line helper. `godot:check:appearance`'s own STANDING
+  lane was updated to the same needles.
 
 - **Art — a picture per item base, 2026-09-26.** The glyph piece gave `appearance.sprite` a
   reader and every base a shape chosen by its class; this slice gives the bases the outpost pack

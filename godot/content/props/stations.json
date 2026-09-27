@@ -35,6 +35,21 @@
     "appearance": { "sprite": "prop_container_medical_searched", "shape": "box", "size": 0.8 }
   },
   {
+    "id": "prop.barricade",
+    "name": "Scrap barricade",
+    "appearance": { "sprite": "prop_barricade", "shape": "box", "size": 1.3 }
+  },
+  {
+    "id": "prop.lamp",
+    "name": "Lit work lamp",
+    "appearance": { "sprite": "prop_lamp", "shape": "box", "size": 1.1 }
+  },
+  {
+    "id": "prop.lamp.dark",
+    "name": "Dark work lamp",
+    "appearance": { "sprite": "prop_lamp_dark", "shape": "box", "size": 1.1 }
+  },
+  {
     "id": "prop.bed",
     "name": "Bed",
     "appearance": { "sprite": "prop_bed", "shape": "slab", "size": 1.3 }

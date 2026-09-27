@@ -1259,7 +1259,10 @@ func _draw_district() -> void:
 					# wall no template stamped -- keeps the procedural cap and bands, the
 					# supported fallback and check_topdown.gd's WALL lane's subject.
 					if not _draw_wall_art(rect, dress, tx, ty, false):
-						_draw_solid_tile(rect, col, tx, ty)
+						if live and _scrap_stands_at(tx, ty):
+							_draw_barricade_floor(rect, ground, tx, ty)
+						else:
+							_draw_solid_tile(rect, col, tx, ty)
 				SimTileMap.Tile.Window:
 					# A window is a hole in masonry, so the tile is masonry and the glass is the
 					# pane: the tile colour that used to fill it edge to edge is handed to the
@@ -1971,6 +1974,10 @@ func _draw_props() -> void:
 			if look.is_empty():
 				continue
 			drawn[e] = true
+			# A picture taller than a tile stands in the entity sort (_standing_props), where a body
+			# north of it draws behind it; drawn flat here it would draw under that body.
+			if bool(look.get("standing", false)):
+				continue
 			_draw_prop(look, x, y, zoom)
 
 
@@ -2223,8 +2230,14 @@ func _draw_entities() -> void:
 			var flip: float = Appearance.vehicle_flip(String(rec.get("facing", "")))
 			var v_remembered: bool = not Dressing.vehicle_is_seen(rec, seen)
 			items.append({"kind": "vehicle", "key": vkey, "flip": flip, "sx": float(vsc["sx"]), "sy": float(vsc["sy"]), "d": TopDownProjection.depth_of(gp.x, gp.y), "det": SimVisibility.Detail.Focal, "remembered": v_remembered})
+	# The props taller than a tile -- the scrap barricade, a planted work lamp -- join the same sort
+	# (docs/23, "Props for things that exist"), on seen tiles only.
+	items.append_array(_standing_props(seen))
 	items.sort_custom(func(a, b): return float(a["d"]) < float(b["d"]))
 	for it in items:
+		if String(it.get("kind", "")) == "standing":
+			_blit_standing(it, px_scale)
+			continue
 		if String(it.get("kind", "")) == "tree":
 			_blit_tree(it, px_scale, focal_points)
 			continue
@@ -2644,6 +2657,39 @@ func _blit_tree(it: Dictionary, px_scale: float, focal_points: Array[Vector2]) -
 	if bool(it.get("remembered", false)):
 		tint = Palette.remembered(tint)
 	draw_texture_rect(texture, rect, false, tint)
+
+
+# Whether the tile holds the scrap barricade and the pack's picture for it resolves (the rule is
+# Appearance's, so a gate can judge it headless): the tile branch then draws the floor under it and
+# leaves the barricade to the entity sort.
+func _scrap_stands_at(tx: int, ty: int) -> bool:
+	return Appearance.scrap_stands_at(world, tx, ty)
+
+
+# The floor a standing barricade was raised on -- the tile _draw_district's wall arm draws in
+# place of the procedural slab once _scrap_stands_at and `live` have already said yes.
+func _draw_barricade_floor(rect: Rect2, ground: Color, tx: int, ty: int) -> void:
+	_draw_floor_tile(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground), tx, ty, Appearance.ground_row_for(world.tilemap, tx, ty, false))
+
+
+# The props taller than a tile -- the scrap barricade, a planted work lamp -- as entity-sort items,
+# each on its tile's south-edge centre so a body north of it sorts behind it and one south in front.
+# Which props, on which tiles, is `Appearance.standing_props` (the live seen set and nothing else,
+# inside the visible bounds); this only puts each on the screen.
+func _standing_props(seen: Variant) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for row in Appearance.standing_props(world, seen, TopDownProjection.visible_bounds(camera, 2.0)):
+		var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(row["gx"]), float(row["gy"]))
+		out.append({"kind": "standing", "key": String(row["key"]), "sx": float(sc["sx"]), "sy": float(sc["sy"]), "d": TopDownProjection.depth_of(float(row["gx"]), float(row["gy"])), "det": SimVisibility.Detail.Focal})
+	return out
+
+# One standing prop: its picture on the feet line through the same body_rect a tree and a car use,
+# unflipped, unrotated and drawn white -- the pack painted it and it is not a stand-in for anything.
+func _blit_standing(it: Dictionary, px_scale: float) -> void:
+	var texture: Texture2D = Appearance.resolve(String(it["key"]))
+	if texture == null:
+		return
+	draw_texture_rect(texture, Appearance.body_rect(float(it["sx"]), float(it["sy"]), texture.get_size() * px_scale, 1.0), false)
 
 
 # One parked vehicle: a three-quarter picture standing feet-anchored on its footprint's south-edge

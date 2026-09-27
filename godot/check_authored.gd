@@ -162,7 +162,7 @@ const AUTHORED_PATH: String = "res://assets/sprites/authored.json"
 # from whole pack pictures by a `cells` source. Its pixels are `check_road_look.gd`'s TEXTURE and
 # CELLS lanes' to judge and `sprites:check`'s to reproduce; its reader is code, not content, which
 # READS below holds it to (GROUND_READER).
-const KINDS: Array[String] = ["rig", "overlay", "tile", "icon", "pack_rig", "pack_overlay", "pack_held", "module", "sheet", "prop", "vehicle", "tree", "ground"]
+const KINDS: Array[String] = ["rig", "overlay", "tile", "icon", "pack_rig", "pack_overlay", "pack_held", "module", "sheet", "prop", "standing", "vehicle", "tree", "ground"]
 
 # The one authored kind whose reader is a renderer function rather than a content entry: no content
 # names the ground, `presentation/main.gd`'s floor loop draws it. A `ground` entry's `reads` is
@@ -206,6 +206,9 @@ const ICON_MIN_OPAQUE: int = 40
 const PICTURE_MIN_SOLID: int = 100
 const PICTURE_PROP_MAX_W: int = 48
 const PICTURE_PROP_MAX_H: int = 32
+# PICTURE, `standing`: the pack's barricade (48x36) and work lamp (40x44) stand in the entity sort
+# taller than a tile; nothing it draws is taller than the pack's own tallest prop of that group.
+const PICTURE_STANDING_MAX: int = 48
 
 # A member key inside a `members` family, and a sourced entry's own key -- both are a
 # `godot/assets/sprites/<key>.png` basename, so both share the pattern `check_appearance.gd`'s
@@ -751,7 +754,14 @@ func _picture_faults(kind: String, image: Image, source: Image, crop: Variant, a
 	var h: int = image.get_height()
 	# Cut exactly to the anchor row: from the top-left, the source's width, ending on the pack's
 	# anchor row -- crop, never pad, so the last row is the ground line.
-	var want_crop: Array = [0, 0, source.get_width(), manifest_anchor.y]
+	# A `standing` picture may run below the pack's anchor row when its drawing does: the pack's
+	# barricade paints one row of its foot under the ground line it anchors on (solid pixels to row 36,
+	# anchor 36), and cropping it there would drop a real pixel. It is cut one row past its last solid
+	# row instead -- never further, so the last row is still drawn -- and its anchor is that bottom edge.
+	var want_h: int = manifest_anchor.y
+	if kind == "standing":
+		want_h = maxi(want_h, _solid_bottom(source) + 1)
+	var want_crop: Array = [0, 0, source.get_width(), want_h]
 	if not (crop is Array) or (crop as Array).size() != 4 or not _numbers_equal(crop as Array, want_crop):
 		out.append("is cropped %s; a %s is cut %s, the pack's anchor row as its bottom" % [str(crop), kind, str(want_crop)])
 	elif _crop_drops_solid(source, crop as Array):
@@ -779,7 +789,18 @@ func _picture_faults(kind: String, image: Image, source: Image, crop: Variant, a
 		out.append("is %dx%d; a flat prop is at most %dx%d, a tile tall and no wider than the log" % [w, h, PICTURE_PROP_MAX_W, PICTURE_PROP_MAX_H])
 	if kind == "tree" and h <= PICTURE_PROP_MAX_H:
 		out.append("is %d tall; a tree is taller than a tile" % h)
+	if kind == "standing" and (h <= PICTURE_PROP_MAX_H or h > PICTURE_STANDING_MAX or w > PICTURE_STANDING_MAX):
+		out.append("is %dx%d; a standing prop is taller than a tile (else it is a `prop`) and at most %dx%d" % [w, h, PICTURE_STANDING_MAX, PICTURE_STANDING_MAX])
 	return out
+
+
+# The last row of an image that holds a pixel at or above ALPHA_SOLID, or -1 for none.
+func _solid_bottom(image: Image) -> int:
+	for y in range(image.get_height() - 1, -1, -1):
+		for x in image.get_width():
+			if _is_solid(image.get_pixel(x, y)):
+				return y
+	return -1
 
 
 # Whether two number lists hold the same values, ints and floats alike -- JSON parses whole
@@ -809,11 +830,12 @@ func _every_tree_and_prop_stands_on_its_anchor_row() -> bool:
 	var judged: int = 0
 	var trees: int = 0
 	var props: int = 0
+	var standing: int = 0
 	var entries: Dictionary = _entries()
 	for key in entries.keys():
 		var entry: Dictionary = entries[key] as Dictionary
 		var kind: String = String(entry.get("kind", ""))
-		if kind != "tree" and kind != "prop":
+		if kind != "tree" and kind != "prop" and kind != "standing":
 			continue
 		var source: Variant = entry.get("source")
 		var image: Image = _image_of(String(key))
@@ -837,6 +859,8 @@ func _every_tree_and_prop_stands_on_its_anchor_row() -> bool:
 		judged += 1
 		if kind == "tree":
 			trees += 1
+		elif kind == "standing":
+			standing += 1
 		else:
 			props += 1
 	if judged == 0:
@@ -874,14 +898,33 @@ func _every_tree_and_prop_stands_on_its_anchor_row() -> bool:
 		["a prop taller than a tile", _picture_faults("prop", _fab_source(32, 40, Rect2i(2, 6, 28, 34)), _fab_source(32, 42, Rect2i(2, 6, 28, 34)), [0, 0, 32, 40], [16, 40], Vector2i(16, 40))],
 		["a prop wider than the log", _picture_faults("prop", _fab_source(64, 30, Rect2i(2, 6, 60, 24)), _fab_source(64, 32, Rect2i(2, 6, 60, 24)), [0, 0, 64, 30], [32, 30], Vector2i(32, 30))],
 		["a tree no taller than a tile", _picture_faults("tree", good_image, good_source, good_crop, [16, 30], pack_anchor)],
+		["a standing prop no taller than a tile", _picture_faults("standing", good_image, good_source, good_crop, [16, 30], pack_anchor)],
+		["a standing prop taller than the pack draws one", _picture_faults("standing", _fab_source(32, 60, Rect2i(2, 6, 28, 54)), _fab_source(32, 62, Rect2i(2, 6, 28, 54)), [0, 0, 32, 60], [16, 60], Vector2i(16, 60))],
+		["a standing prop cropped at the anchor row through a foot painted below it", _picture_faults("standing", _fab_source(48, 40, Rect2i(3, 4, 42, 33)).get_region(Rect2i(0, 0, 48, 36)), _fab_source(48, 40, Rect2i(3, 4, 42, 33)), [0, 0, 48, 36], [24, 36], Vector2i(24, 36))],
+		["a standing prop wider than the pack draws one", _picture_faults("standing", _fab_source(64, 40, Rect2i(2, 6, 60, 34)), _fab_source(64, 42, Rect2i(2, 6, 60, 34)), [0, 0, 64, 40], [32, 40], Vector2i(32, 40))],
 	]
+	# And the control: a well-cut standing prop -- 40 wide, 44 tall, on the pack's anchor row -- passes.
+	var standing_source: Image = _fab_source(40, 48, Rect2i(4, 8, 32, 36))
+	if not _picture_faults("standing", standing_source.get_region(Rect2i(0, 0, 40, 44)), standing_source, [0, 0, 40, 44], [20, 44], Vector2i(20, 44)).is_empty():
+		push_error("PICTURE: the predicate refused a well-cut standing prop; it would refuse the real ones")
+		return false
+	# The barricade's case: solid rows 4..36 against an anchor row of 36. Cut one row past its last
+	# solid row (37) it passes, with its anchor at that bottom edge.
+	var foot_source: Image = _fab_source(48, 40, Rect2i(3, 4, 42, 33))
+	if not _picture_faults("standing", foot_source.get_region(Rect2i(0, 0, 48, 37)), foot_source, [0, 0, 48, 37], [24, 37], Vector2i(24, 36)).is_empty():
+		push_error("PICTURE: the predicate refused a standing prop cut past the anchor row to keep its foot; the barricade would be refused")
+		return false
+	# A `prop` gets no such allowance: the same foot on a flat prop is a pixel the crop drops.
+	if _picture_faults("prop", foot_source.get_region(Rect2i(0, 0, 48, 37)), foot_source, [0, 0, 48, 37], [24, 37], Vector2i(24, 36)).is_empty():
+		push_error("PICTURE: the predicate let a flat prop be cut past its anchor row; only a standing prop may keep a foot")
+		return false
 	for row in refusals:
 		var r: Array = row as Array
 		if (r[1] as Array).is_empty():
 			push_error("PICTURE: the predicate accepted %s; it proves nothing" % String(r[0]))
 			return false
 
-	print("PICTURE OK %d trees and %d props are cut [0, 0, width, the pack's anchor row], drop no pixel at or above alpha %d, draw on their last row, carry the pack's anchor at the bottom centre, and a prop is at most %dx%d; an uncropped source, a late crop, a dropped pixel, a floating picture, a speck-only picture, a wrong anchor, an off-centre pack anchor, an oversized prop and a short tree are each refused, and a corner speck is not" % [trees, props, ALPHA_SOLID, PICTURE_PROP_MAX_W, PICTURE_PROP_MAX_H])
+	print("PICTURE OK %d trees, %d props and %d standing props are cut [0, 0, width, the pack's anchor row], drop no pixel at or above alpha %d, draw on their last row, carry the pack's anchor at the bottom centre, a prop is at most %dx%d and a standing prop is taller than a tile and at most %dx%d; an uncropped source, a late crop, a dropped pixel, a floating picture, a speck-only picture, a wrong anchor, an off-centre pack anchor, an oversized prop, a short tree and a standing prop that is short, too tall or too wide are each refused, and a corner speck is not" % [trees, props, standing, ALPHA_SOLID, PICTURE_PROP_MAX_W, PICTURE_PROP_MAX_H, PICTURE_STANDING_MAX, PICTURE_STANDING_MAX])
 	return true
 
 
