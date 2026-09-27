@@ -67,9 +67,9 @@ section came from.
 ## Verifying a change
 
 Correctness for a Godot change is the Godot gates. `npm run godot:m2` is the one to run before
-every commit — it chains all of them and takes **about thirty minutes** (31m29s, 83 gates green,
-measured 2026-09-26 on a four-core Windows desktop, with two worker slices running their own
-gates beside it for the last third; 26m45s for 69 gates on a project container on 2026-09-12). It
+every commit — it chains all of them and takes **about thirty minutes** (30m06s, 84 gates green,
+measured 2026-09-27 on a four-core Windows desktop, with two worker slices running beside it;
+31m29s for 83 gates the day before; 26m45s for 69 gates on a project container on 2026-09-12). It
 said twelve here for eight days, measured 2026-09-04 when the chain was 51 gates; the alpha-roster
 arc added four gates and took the roster from 152 bases to 362, and a catalogue gate's cost scales
 with the roster. Budget for the real
@@ -127,6 +127,7 @@ npm run godot:check:trees    # tall trees in the entity sort, the fade → TREES
 npm run godot:check:worn     # gear layers, order and skeleton fit → WORN_LOOK_OK
 npm run godot:check:web_look # the skill web drawn as a web, words only → WEB_LOOK_OK
 npm run godot:check:ui_skin  # the UI Field Kit, worn → UI_SKIN_OK
+npm run godot:check:fx       # the shot is seen: flash, casing, blood, flame, only where seen → FX_OK
 npm run godot:r6         # parity, coverage, mutation, soak, bench, validate
 npm run godot:run        # play it (DISPLAY=:1 on a headless VM)
 npm run sprites:check    # generated art still matches tools/sprites/ → SPRITES_OK
@@ -134,7 +135,7 @@ npm run check:routing    # AGENTS.md's routing table resolves; every check_*.gd 
 npm run check:timing     # the per-gate timing table names every mode the chain ran → TIMING_OK
 ```
 
-Those are the ones worth naming, not all of them: `godot:m2` chains **83**, and the authoritative
+Those are the ones worth naming, not all of them: `godot:m2` chains **84**, and the authoritative
 list is the `godot:m2:chain` script in `package.json` (`godot:m2` itself is
 `node scripts/m2-chain.mjs`, which reads that list and runs it) — read it there rather than
 trusting a copy here, because a copy here is one more thing that drifts. Run an individual gate
