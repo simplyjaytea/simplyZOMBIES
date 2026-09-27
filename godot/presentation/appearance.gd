@@ -1178,12 +1178,19 @@ static func held_layer(key: String, slot: String, view: String) -> Dictionary:
 # `flag` is the one boolean whose value changes the picture; a prop without one leaves it empty.
 # Two content ids rather than one entry with two tints, so the resolver stays a lookup.
 const PROP_KINDS: Array[Dictionary] = [
-	{"component": "searchable", "id": "prop.container", "flag": "searched", "flag_id": "prop.container.searched"},
+	{"component": "searchable", "id": "prop.container", "flag": "searched", "flag_id": "prop.container.searched", "table_field": "table"},
 	{"component": "campfire", "id": "prop.campfire", "flag": "lit", "flag_id": "prop.campfire.lit"},
 	{"component": "bed", "id": "prop.bed", "flag": "", "flag_id": ""},
 	{"component": "water_source", "id": "prop.well", "flag": "", "flag_id": ""},
 	{"component": "latrine", "id": "prop.latrine", "flag": "", "flag_id": ""},
 ]
+
+# `table_field`, on the one kind that has it, names the field of the prop's component that holds
+# the loot table it was stocked from, and the prop's own content entry then says which id each table
+# draws as (`tables`, prop.schema.json): the outpost pack's container kinds, keyed by loot table
+# (docs/23, "Furnishings and container kinds"). The state suffix is the flag's, appended to
+# whichever id the table chose, so a metal container's searched look is `prop.container.metal.searched`.
+const PROP_SEARCHED_SUFFIX: String = ".searched"
 
 # The ground-footprint primitives a prop may ask for. Geometry, not identity -- `box` is a crate
 # or a cupboard or anything else square. main.gd's _draw_prop is the one place that draws them and
@@ -1210,10 +1217,48 @@ static func prop_look(world: Variant, entity: int) -> Dictionary:
 			continue
 		var id: String = String(kind["id"])
 		var flag: String = String(kind["flag"])
-		if not flag.is_empty() and bool((comp as Dictionary).get(flag, false)):
+		var flagged: bool = not flag.is_empty() and bool((comp as Dictionary).get(flag, false))
+		if kind.has("table_field"):
+			# The picture is the table's; the state is still the flag's, and only the flag's -- what
+			# a container looks like before it is opened says nothing the table does not.
+			id = table_prop_id(world, id, String((comp as Dictionary).get(String(kind["table_field"]), "")))
+			if flagged:
+				id += PROP_SEARCHED_SUFFIX
+		elif flagged:
 			id = String(kind["flag_id"])
 		return prop_of(world, id)
 	return {}
+
+
+# Every tile a standing prop occupies, as `{Vector2i: true}`: the tiles the furnishing dressing
+# steps aside from, so a chair never peeks out from under a container or a bed. Read off the same
+# component queries `main.gd`'s `_draw_props` walks, and never off `alive` alone -- components.query
+# does not check it (CLAUDE.md), so a despawned prop is skipped here as it is there.
+static func prop_tiles(world: Variant) -> Dictionary:
+	var out: Dictionary = {}
+	if world == null or world.components == null:
+		return out
+	for kind in PROP_KINDS:
+		for ent in world.components.query([String(kind["component"]), "position"]):
+			if world.entities != null and not world.entities.is_alive(int(ent)):
+				continue
+			var p: Variant = world.components.get_component(int(ent), "position")
+			if p is Dictionary:
+				out[Vector2i(floori(float((p as Dictionary)["x"])), floori(float((p as Dictionary)["y"])))] = true
+	return out
+
+
+# The content id a container stocked from `table` draws as: the base prop's `tables` map names it,
+# and a table the map does not name -- an empty string, a table nobody has drawn, a fabricated one --
+# answers the base id itself, so an unknown table is the wood crate and never an invisible thing.
+static func table_prop_id(world: Variant, base_id: String, table: String) -> String:
+	if table.is_empty():
+		return base_id
+	var tables: Variant = entry_of(world, "prop", base_id).get("tables")
+	if not (tables is Dictionary):
+		return base_id
+	var mapped: String = String((tables as Dictionary).get(table, ""))
+	return mapped if not mapped.is_empty() else base_id
 
 
 # The look for one prop content id, resolved the same way an entity's is: content decides, the

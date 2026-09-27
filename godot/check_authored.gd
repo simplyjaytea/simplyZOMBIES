@@ -111,7 +111,8 @@ extends SceneTree
 #             since "The shot is seen" -- an effect field: `fireFx`, `casingFx`, `hitFx`, `flameFx`)
 #             **or by a dressing block's lists** (`heaps`, `litter`, `rubble`, `trees.tall`,
 #             `nature[].key` -- widened 2026-09-26, because the pack's trees, heaps and nature
-#             pictures are named there and nowhere in an `appearance`), and `reads` names one of
+#             pictures are named there and nowhere in an `appearance`; and `furnishings[].key`,
+#             widened again for "Furnishings and container kinds"), and `reads` names one of
 #             the ids that actually does -- since
 #             2026-09-17 it need not be the *only* one, so two bases sharing an icon can each
 #             claim it (the old last-writer-wins comparison was a latent bug this never shipped a
@@ -1764,11 +1765,12 @@ func _dressing_keys(entry: Dictionary) -> Array[String]:
 		if tall is Array:
 			for key2 in tall as Array:
 				out.append(String(key2))
-	var nature: Variant = entry.get("nature")
-	if nature is Array:
-		for row in nature as Array:
-			if row is Dictionary and (row as Dictionary).has("key"):
-				out.append(String((row as Dictionary)["key"]))
+	for list_field in ["nature", "furnishings"]:
+		var listed_rows: Variant = entry.get(list_field)
+		if listed_rows is Array:
+			for row in listed_rows as Array:
+				if row is Dictionary and (row as Dictionary).has("key"):
+					out.append(String((row as Dictionary)["key"]))
 	for map_field in ["walls", "roofs", "faces"]:
 		var mapped: Variant = entry.get(map_field)
 		if not (mapped is Dictionary):
@@ -1880,21 +1882,21 @@ func _authored_art_is_read_by_something() -> bool:
 	# TN, the dressing widening: a dressing block is read for every list it names a picture in, a
 	# block that is not a dressing entry names nothing (a crate's `heaps` is not a reader), and a
 	# key in none of the lists is not found.
-	var probe: Dictionary = {"id": "dressing.probe", "heaps": ["h_a"], "litter": ["l_a"], "rubble": ["r_a"], "trees": {"tall": ["t_a"]}, "nature": [{"key": "n_a", "surfaces": ["grass"], "rarity": 3}], "walls": {"brick": {"cap": "w_cap", "face": "w_face"}}, "roofs": {"tar": {"flat": "r_flat"}}, "faces": {"door": "f_door"}}
+	var probe: Dictionary = {"id": "dressing.probe", "heaps": ["h_a"], "litter": ["l_a"], "rubble": ["r_a"], "trees": {"tall": ["t_a"]}, "nature": [{"key": "n_a", "surfaces": ["grass"], "rarity": 3}], "furnishings": [{"key": "f_a", "where": "indoors", "surfaces": ["paved"], "rarity": 3}], "walls": {"brick": {"cap": "w_cap", "face": "w_face"}}, "roofs": {"tar": {"flat": "r_flat"}}, "faces": {"door": "f_door"}}
 	var found: Array[String] = _dressing_keys(probe)
-	for want in ["h_a", "l_a", "r_a", "t_a", "n_a", "w_cap", "w_face", "r_flat", "f_door"]:
+	for want in ["h_a", "l_a", "r_a", "t_a", "n_a", "f_a", "w_cap", "w_face", "r_flat", "f_door"]:
 		if not found.has(want):
 			push_error("READS: the dressing reader did not find '%s' in a block that names it; a tree, a heap or a nature picture would read as art nothing draws" % want)
 			return false
 	if found.has("nature_bush") or found.has("grass"):
 		push_error("READS: the dressing reader found a key nothing in the probe block names")
 		return false
-	if not _dressing_keys({"id": "prop.crate", "heaps": ["h_a"], "nature": [{"key": "n_a"}]}).is_empty():
+	if not _dressing_keys({"id": "prop.crate", "heaps": ["h_a"], "nature": [{"key": "n_a"}], "furnishings": [{"key": "f_a"}]}).is_empty():
 		push_error("READS: an entry that is not a dressing block was read as one; any content entry with a `heaps` list would become a reader")
 		return false
-	# And the shipped block is what the widening is for: every tree, heap and nature picture the
-	# tier declares is read only through it.
-	for pack_key in ["tree_pine", "tree_broadleaf", "tree_dead", "heap_bags", "nature_bush", "nature_log"]:
+	# And the shipped block is what the widening is for: every tree, heap, nature and furnishing
+	# picture the tier declares is read only through it.
+	for pack_key in ["tree_pine", "tree_broadleaf", "tree_dead", "heap_bags", "nature_bush", "nature_log", "prop_table", "prop_chair", "prop_shelf", "prop_medical_cabinet", "prop_dumpster", "prop_concrete_barrier", "prop_traffic_cone", "prop_fence_post"]:
 		if not entries.has(pack_key):
 			continue
 		if not (declared.get(pack_key, []) as Array).has("dressing.street"):

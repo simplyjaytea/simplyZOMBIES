@@ -13,6 +13,11 @@
       "description": "Stable namespaced id, always prop.<thing>, with a state suffix where one boolean changes the look (prop.container.searched, prop.campfire.lit). Two ids rather than one entry with two tints, because a state that draws differently is a different picture and this keeps the resolver a lookup rather than a branch."
     },
     "name": { "type": "string", "description": "Human-readable name. Not shown to the player -- SimContainers.hud_clause and needs.hud_clause own the prose; this is for whoever is reading the content." },
+    "tables": {
+      "type": "object",
+      "description": "Only on a prop whose component carries a loot table (prop.container: the `searchable` component's `table`). Loot table name -> the prop id that container draws as, so the outpost pack's container kinds are chosen by the table a container was stocked from (docs/23, 'Furnishings and container kinds'): a medical box for `medical`, a metal footlocker for `industrial` and `military_cache`. A table this map does not name -- a residential cupboard, a commercial shelf, a table nobody has drawn yet -- draws the entry's own picture, the wood crate, so an unknown table is never an invisible container. The searched state of a mapped id is the id plus `.searched` (prop.container.metal.searched), an entry every id named here must have. PRESENTATION ONLY: the table is the sim's and already says what the container holds; this only says how it stands in the world, and nothing under sim/ reads this file. check_appearance.gd's PROPS lane holds the mapping (each id resolves, each has its searched pair, an unknown table falls back).",
+      "additionalProperties": { "type": "string", "pattern": "^prop\\.[a-z0-9_.]+$" }
+    },
     "appearance": {
       "type": "object",
       "anyOf": [{ "required": ["tint"] }, { "required": ["sprite"] }],

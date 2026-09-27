@@ -15,6 +15,7 @@ const Palette = preload("res://presentation/palette.gd")
 const ItemGlyph = preload("res://presentation/item_glyph.gd")
 const ItemPicture = preload("res://ui/item_picture.gd")
 const SimCondition = preload("res://sim/condition.gd")
+const SimContainers = preload("res://sim/modules/containers.gd")
 
 const SPRITE_DIR: String = "res://assets/sprites"
 const HEX := "^#[0-9a-f]{6}$"
@@ -35,11 +36,12 @@ func _run() -> void:
 	ok = _art_is_not_modulated_by_a_role_colour() and ok
 	ok = _equipped_gear_layers_resolve() and ok
 	ok = _props_look_like_something() and ok
+	ok = _container_kinds_follow_the_loot_table() and ok
 	ok = _items_look_like_something() and ok
 	ok = _item_pictures_are_real_and_drawn() and ok
 	ok = _the_body_chart_is_ten_parts_in_three_poses() and ok
 	if ok:
-		print("APPEARANCE_OK schema keys resolve, fallback intact, the player has a body, the roster resolves shared and distinct rigs, colonists wear the pack body with six tints, items resolve art or a class glyph, the pack's item pictures are declared, gated and drawn on the floor and the bag plate, the body chart is ten parts in three poses")
+		print("APPEARANCE_OK schema keys resolve, fallback intact, the player has a body, the roster resolves shared and distinct rigs, colonists wear the pack body with six tints, containers draw the kind their loot table names, items resolve art or a class glyph, the pack's item pictures are declared, gated and drawn on the floor and the bag plate, the body chart is ten parts in three poses")
 		quit(0)
 	else:
 		push_error("APPEARANCE_FAIL")
@@ -928,6 +930,253 @@ func _props_look_like_something() -> bool:
 			return false
 
 	print("PROPS OK %d ids, %d with art drawn unstained at their declared footprint (up to %.1f tiles across, the bed's), distinct looks, both state pairs different pictures, the bed hangs on the tile's south edge at every zoom rung and the square props centre, unknown id degrades" % [ids.size(), textured, Appearance.PROP_SIZE_MAX])
+	return true
+
+
+# --- CONTAINERS ---------------------------------------------------------------------------
+
+# What each shipped loot table's containers draw as -- docs/23, "Furnishings and container kinds":
+# the pack's wood crate for a house or a shop, its metal footlocker for a workshop or a cache, its
+# medical box for a clinic. Written out here, not read back off content, so a `tables` map that lost
+# an entry or gained a wrong one is seen; and so a loot table nobody has chosen a picture for is a
+# red lane rather than a quiet wood crate. Two tables share the metal footlocker on purpose: the
+# picture names a *kind* of container, and only the medical box names a single table (docs/01
+# clause 4 -- a seen container looking like what it is is fair; a picture of a rare table alone is
+# not, and the industrial and military tables are not told apart by it).
+const CONTAINER_BASE_ID: String = "prop.container"
+const CONTAINER_EXPECTED: Dictionary = {
+	"residential": "prop.container",
+	"commercial": "prop.container",
+	"medical": "prop.container.medical",
+	"industrial": "prop.container.metal",
+	"military_cache": "prop.container.metal",
+}
+const LOOT_TABLES_PATH: String = "res://content/loot/tables.json"
+const STATIONS_PATH: String = "res://content/props/stations.json"
+const APPEARANCE_GD: String = "res://presentation/appearance.gd"
+const MAIN_GD: String = "res://presentation/main.gd"
+
+
+# One function's source out of a file: from its `func <name>(` line (static or not) to the next
+# top-level declaration, comments taken out so a needle cannot be satisfied by prose.
+func _function_source(path: String, name: String) -> String:
+	var out: String = ""
+	var inside: bool = false
+	for line in FileAccess.get_file_as_string(path).split("\n"):
+		var text: String = String(line)
+		if text.begins_with("func %s(" % name) or text.begins_with("static func %s(" % name):
+			inside = true
+			continue
+		if inside and (text.begins_with("func ") or text.begins_with("static func ") or text.begins_with("const ") or text.begins_with("var ")):
+			break
+		if inside:
+			var at: int = text.find("#")
+			out += (text if at < 0 else text.substr(0, at)) + "\n"
+	return out
+
+
+# The first thing a picture-choosing function may not read, or "": what a box holds, its `items`, its
+# `container` grid, the container module, or its kind word -- the sim's prose, never a picture's key.
+func _reads_contents(source: String) -> String:
+	for forbidden in ["contents_of(", "\"items\"", "get_component(entity, \"container\")", "get_component(entity, \"searchable\")", "SimContainers", "\"kind\""]:
+		if source.contains(String(forbidden)):
+			return String(forbidden)
+	return ""
+
+
+# The first needle a source lacks, or "".
+func _lacks(source: String, needles: Array) -> String:
+	for needle in needles:
+		if not source.contains(String(needle)):
+			return String(needle)
+	return ""
+
+
+# The `prop.container.*` ids in a list of content entries that no rule reaches: not the base, not a
+# table's mapped id and not the searched pair of either. A picture for a container nothing ever draws
+# is the dead-socket shape this milestone has paid for a dozen times.
+func _unreachable_container_ids(ids: Array, tables: Dictionary) -> Array[String]:
+	var reachable: Dictionary = {CONTAINER_BASE_ID: true, CONTAINER_BASE_ID + Appearance.PROP_SEARCHED_SUFFIX: true}
+	for mapped in tables.values():
+		reachable[String(mapped)] = true
+		reachable[String(mapped) + Appearance.PROP_SEARCHED_SUFFIX] = true
+	var out: Array[String] = []
+	for id in ids:
+		if String(id).begins_with(CONTAINER_BASE_ID) and not reachable.has(String(id)):
+			out.append(String(id))
+	return out
+
+
+func _container_kinds_follow_the_loot_table() -> bool:
+	Appearance.forget()
+	var w: Variant = World.new(_fixture())
+	var base: Dictionary = Appearance.entry_of(w, "prop", CONTAINER_BASE_ID)
+	var tables: Variant = base.get("tables")
+	if not (tables is Dictionary) or (tables as Dictionary).is_empty():
+		push_error("CONTAINERS: prop.container declares no `tables` map; container kinds are keyed by nothing")
+		return false
+
+	# --- the rule, table by table ------------------------------------------------------------
+	var shipped: Array[String] = []
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(LOOT_TABLES_PATH))
+	if not (parsed is Array):
+		push_error("CONTAINERS: %s does not parse as a list of loot tables" % LOOT_TABLES_PATH)
+		return false
+	for entry in parsed as Array:
+		var id: String = String((entry as Dictionary).get("id", ""))
+		if id.begins_with("loot."):
+			shipped.append(id.trim_prefix("loot."))
+	shipped.sort()
+	var expected_tables: Array = CONTAINER_EXPECTED.keys()
+	expected_tables.sort()
+	if shipped != expected_tables:
+		push_error("CONTAINERS: the loot tables are %s and the lane names a picture for %s; a table nobody chose a container for draws the wood crate by accident" % [str(shipped), str(expected_tables)])
+		return false
+	for table in CONTAINER_EXPECTED.keys():
+		var got_id: String = Appearance.table_prop_id(w, CONTAINER_BASE_ID, String(table))
+		if got_id != String(CONTAINER_EXPECTED[table]):
+			push_error("CONTAINERS: a '%s' container draws as %s, want %s" % [String(table), got_id, String(CONTAINER_EXPECTED[table])])
+			return false
+	# TN, each through the same function: an unknown table, an empty one, a differently cased one and
+	# a prop that declares no map all answer the id they were handed.
+	for stranger in ["nonsense", "", "Medical", "medical ", "loot.medical"]:
+		if Appearance.table_prop_id(w, CONTAINER_BASE_ID, String(stranger)) != CONTAINER_BASE_ID:
+			push_error("CONTAINERS: the table '%s' is not one and drew as %s, want the wood crate" % [String(stranger), Appearance.table_prop_id(w, CONTAINER_BASE_ID, String(stranger))])
+			return false
+	if Appearance.table_prop_id(w, "prop.well", "medical") != "prop.well":
+		push_error("CONTAINERS: a prop with no `tables` map was re-keyed by a table")
+		return false
+	if Appearance.table_prop_id(null, CONTAINER_BASE_ID, "medical") != CONTAINER_BASE_ID:
+		push_error("CONTAINERS: a world with no content answered a mapped id; it has nothing to map")
+		return false
+	# Every mapped id has both states, and the pictures are six different ones.
+	var seen_pixels: Dictionary = {}
+	for family in [CONTAINER_BASE_ID, "prop.container.metal", "prop.container.medical"]:
+		for state in ["", Appearance.PROP_SEARCHED_SUFFIX]:
+			var look_id: String = String(family) + String(state)
+			var look: Dictionary = Appearance.prop_of(w, look_id)
+			if look["texture"] == null:
+				push_error("CONTAINERS: %s resolves no picture; a container of that kind would be invisible or the wrong one" % look_id)
+				return false
+			# The same footprint and stain rules the PROPS lane holds every other prop to: art drawn as
+			# painted, at the size its content says it was authored to, on a tile-square canvas that
+			# centres (the crate's own rect, so a mapped container moves nothing).
+			if (look["tint"] as Color) != Color.WHITE:
+				push_error("CONTAINERS: %s has art and must draw it unstained; got tint %s" % [look_id, str(look["tint"])])
+				return false
+			var want_px: int = int(round(float(look["size"]) * CameraUtil.ART_NATIVE))
+			var got_px: int = _footprint_px(look["texture"])
+			if absi(got_px - want_px) > FOOTPRINT_SLACK_PX:
+				push_error("CONTAINERS: %s declares size %.2f (%d px of a tile) and its art measures %d px across" % [look_id, float(look["size"]), want_px, got_px])
+				return false
+			if Appearance.anchor_of(Vector2i((look["texture"] as Texture2D).get_size())) != Appearance.Anchor.Centre:
+				push_error("CONTAINERS: %s is not a tile-square picture; _draw_prop would hang it instead of centring it" % look_id)
+				return false
+			var bytes: PackedByteArray = (look["texture"] as Texture2D).get_image().get_data()
+			if seen_pixels.has(bytes):
+				push_error("CONTAINERS: %s draws the same pixels as %s; two kinds or two states you cannot tell apart" % [look_id, String(seen_pixels[bytes])])
+				return false
+			seen_pixels[bytes] = look_id
+	# The dead-socket half: nothing in the stations file is a container picture no rule reaches.
+	var stations: Variant = JSON.parse_string(FileAccess.get_file_as_string(STATIONS_PATH))
+	var listed: Array = []
+	for entry2 in stations as Array:
+		listed.append(String((entry2 as Dictionary).get("id", "")))
+	var stray: Array[String] = _unreachable_container_ids(listed, tables as Dictionary)
+	if not stray.is_empty():
+		push_error("CONTAINERS: %s declares a container picture no table reaches: %s" % [STATIONS_PATH, str(stray)])
+		return false
+	if _unreachable_container_ids(["prop.container.brass"], tables as Dictionary).size() != 1 or not _unreachable_container_ids(["prop.container.metal.searched", "prop.bed"], tables as Dictionary).is_empty():
+		push_error("CONTAINERS: the unreachable-id scanner passed a picture no table reaches, or refused a reachable one")
+		return false
+
+	# --- the real entity path ----------------------------------------------------------------
+	var seen_kinds: Dictionary = {}
+	for table2 in CONTAINER_EXPECTED.keys():
+		var box: int = SimContainers.make_container(w, 3.5, 3.5, "cupboard", String(table2))
+		var closed: Dictionary = Appearance.prop_look(w, box)
+		if String(closed["id"]) != String(CONTAINER_EXPECTED[table2]):
+			push_error("CONTAINERS: a '%s' container drew as %s off the entity path, want %s" % [String(table2), String(closed["id"]), String(CONTAINER_EXPECTED[table2])])
+			return false
+		(w.components.get_component(box, "searchable") as Dictionary)["searched"] = true
+		var opened: Dictionary = Appearance.prop_look(w, box)
+		if String(opened["id"]) != String(CONTAINER_EXPECTED[table2]) + Appearance.PROP_SEARCHED_SUFFIX:
+			push_error("CONTAINERS: a searched '%s' container drew as %s, want the searched picture of its own kind" % [String(table2), String(opened["id"])])
+			return false
+		seen_kinds[String(closed["id"])] = true
+	if seen_kinds.size() != 3:
+		push_error("CONTAINERS: the five tables drew as %s; want the crate, the footlocker and the medical box" % str(seen_kinds.keys()))
+		return false
+	# The kind word is the sim's prose and is never read: a cupboard, a wardrobe and a car boot
+	# stocked from one table are one picture. An unknown table draws the crate, off the entity path too.
+	var by_kind: Dictionary = {}
+	for kind_word in ["cupboard", "wardrobe", "car boot", "supply locker", "ammo crate"]:
+		var b2: int = SimContainers.make_container(w, 4.5, 4.5, String(kind_word), "medical")
+		by_kind[String(Appearance.prop_look(w, b2)["id"])] = true
+	if by_kind.keys() != ["prop.container.medical"]:
+		push_error("CONTAINERS: five kind words stocked from the medical table drew as %s; the picture is the table's and not the word's" % str(by_kind.keys()))
+		return false
+	var odd: int = SimContainers.make_container(w, 5.5, 5.5, "cupboard", "no_such_table")
+	if String(Appearance.prop_look(w, odd)["id"]) != CONTAINER_BASE_ID:
+		push_error("CONTAINERS: a container stocked from an unknown table drew as %s, want the wood crate" % String(Appearance.prop_look(w, odd)["id"]))
+		return false
+
+	# --- clause 4: what the picture may not say ------------------------------------------------
+	# The state is `searched`, the flag the sim writes once and the renderer already showed on every
+	# seen tile -- a colonist's search out of sight included, which is a box you can see standing open
+	# and no new fact. What is *in* a box is not read: a full unsearched box and an empty one are one
+	# picture, and there is no open-with-supplies picture -- a searched box with something still in it
+	# draws as a searched one, because that state would need `contents_of` at a distance.
+	var full: int = SimContainers.make_container(w, 6.5, 6.5, "cupboard", "military_cache")
+	var empty: int = SimContainers.make_container(w, 7.5, 6.5, "cupboard", "military_cache")
+	var stuff: int = int(w.entities.spawn())
+	w.components.set_component(stuff, "stored", {"container": full, "x": 0, "y": 0, "rotated": false})
+	(w.components.get_component(full, "container") as Dictionary)["items"] = [{"item": stuff, "x": 0, "y": 0, "rotated": false}]
+	if SimContainers.contents_of(w, full).is_empty():
+		push_error("CONTAINERS: the fixture put nothing in the box; the contents assertion below judges nothing")
+		return false
+	if String(Appearance.prop_look(w, full)["id"]) != String(Appearance.prop_look(w, empty)["id"]):
+		push_error("CONTAINERS: a box with something in it draws differently from an empty one before it is opened; the picture would tell what is inside")
+		return false
+	(w.components.get_component(full, "searchable") as Dictionary)["searched"] = true
+	(w.components.get_component(empty, "searchable") as Dictionary)["searched"] = true
+	if String(Appearance.prop_look(w, full)["id"]) != String(Appearance.prop_look(w, empty)["id"]):
+		push_error("CONTAINERS: a searched box with something still in it draws differently from an emptied one; that is the open-with-supplies state, which needs the contents at a distance")
+		return false
+	var look_source: String = _function_source(APPEARANCE_GD, "prop_look") + _function_source(APPEARANCE_GD, "table_prop_id")
+	if look_source.strip_edges().is_empty():
+		push_error("CONTAINERS: could not read prop_look and table_prop_id out of %s" % APPEARANCE_GD)
+		return false
+	var read: String = _reads_contents(look_source)
+	if not read.is_empty():
+		push_error("CONTAINERS: prop_look reads %s; a container's picture may say its table and whether it was searched, and nothing it holds" % read)
+		return false
+	for fabricated in ["var n = contents_of(world, entity)", "var held = (comp as Dictionary).get(\"items\", [])", "var box = world.components.get_component(entity, \"container\")", "var k = String((comp as Dictionary).get(\"kind\", \"\"))"]:
+		if _reads_contents(String(fabricated)).is_empty():
+			push_error("CONTAINERS: the contents scanner passed a body that reads what a box holds (%s); it cannot say no" % String(fabricated))
+			return false
+
+	# --- seen tiles only ---------------------------------------------------------------------------
+	# A container draws only where the prop pass already draws: through the observer's own seen set,
+	# never through a wall. The draw pass cannot run headless, so the guard is read as source, in its
+	# place -- before the look is resolved -- and the scanner is shown a body without it first.
+	var draw_props: String = _function_source(MAIN_GD, "_draw_props")
+	var guard: String = "seen != null and not (seen as Object).call(\"has_tile\", floori(x), floori(y))"
+	if draw_props.is_empty() or not draw_props.contains(guard):
+		push_error("CONTAINERS: _draw_props no longer skips a prop on a tile the observer cannot see; a container would draw through a wall")
+		return false
+	if draw_props.find(guard) > draw_props.find("Appearance.prop_look(world, e)"):
+		push_error("CONTAINERS: _draw_props resolves a prop's look before it asks whether the tile is seen")
+		return false
+	var unguarded: String = "var look = Appearance.prop_look(world, e)\nseen = null\n_draw_prop(look, x, y, zoom)"
+	if unguarded.contains(guard):
+		push_error("CONTAINERS: the seen-tile scanner accepted a body with no guard; it cannot say no")
+		return false
+	if not draw_props.contains("Appearance.PROP_KINDS") or not draw_props.contains("_draw_prop(look, x, y, zoom)"):
+		push_error("CONTAINERS: _draw_props does not walk PROP_KINDS into _draw_prop; a container's look is read by nothing")
+		return false
+
+	print("CONTAINERS OK %d loot tables each name a container kind (%s) and a table nobody named, an empty one and a prop with no map draw the id they were handed; six pictures, three kinds by two states, pairwise different pixels; the entity path draws the table's kind, its searched pair, the same picture for five kind words and the wood crate for an unknown table; a box with something in it draws as an empty one, unopened or searched (no open-with-supplies state, prop_look reads no contents); no container picture in the stations file is unreached; _draw_props still guards every prop on the observer's seen set" % [CONTAINER_EXPECTED.size(), str(CONTAINER_EXPECTED)])
 	return true
 
 
