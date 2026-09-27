@@ -167,6 +167,7 @@ func _run() -> void:
 	ok = _outliers_lane() and ok
 	ok = _cursors_lane() and ok
 	ok = _motion_lane() and ok
+	ok = _strip_lane() and ok
 	ok = await _events_lane() and ok
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
 	if seconds > BUDGET_SECONDS:
@@ -2094,18 +2095,24 @@ func _outliers_lane() -> bool:
 # --- 9. CURSORS --------------------------------------------------------------------------------
 
 
-# The four cursors (docs/23's what's left, "The UI Field Kit, live"): `ui/cursors.gd` installs the
-# kit's arrow, hand, move and blocked at the manifest's own hotspots, the screens say which shape
-# they want where through a pure `cursor_at`, and a drag the sim would refuse wears blocked with
-# the kit's `slot_invalid` over the cells. The OS pointer itself is never judged -- the headless
+# The pointers (docs/23, "The UI Field Kit, live" and the outpost pack's "The cursor"): `ui/cursors.gd`
+# installs the kit's arrow, hand, move and blocked and the pack's crosshair and interaction hand at
+# their manifests' own hotspots, the panels say which shape they want where through a pure
+# `cursor_at`, a drag the sim would refuse wears blocked with the kit's `slot_invalid` over the
+# cells, and the street -- where no panel answers -- wears the crosshair and turns to the pack's hand
+# only over something seen that has a verb. The OS pointer itself is never judged -- the headless
 # display server has none -- so the lane judges the table, who reaches it, and what each screen
 # asks for.
 #
 #   TABLE     every UiCursors.TABLE record's id, native size and native hotspot equal manifest.json's
-#             record for that id; arrow, hand, move and blocked are all named; every `control_cursor_*`
-#             the kit ships is worn by some shape. A fabricated record with the arrow's hotspot one
-#             pixel off, and a manifest carrying a fifth pointer nobody wears, each fail the
-#             comparator that passed the shipped table.
+#             record for that id -- the kit's manifest for a kit pointer, the pack's (its `anchor` is
+#             the hotspot, its `path` the file) for the crosshair and the interaction hand; arrow,
+#             hand, move, blocked, crosshair and interaction hand are all named; every
+#             `control_cursor_*` the kit ships is worn by some shape. A fabricated record with the
+#             arrow's hotspot one pixel off, the crosshair's one pixel off its anchor, the crosshair
+#             wearing the hand's file, a pack pointer judged against the kit's manifest, and a
+#             manifest carrying a fifth pointer nobody wears, each fail the comparator that passed
+#             the shipped table.
 #   SCALE     UiCursors.SCALE is the chrome's Kit.SCALE; every pointer resolves through Kit.texture at
 #             the manifest's size times that scale, its installed hotspot is the manifest's times the
 #             same and inside the picture; a pointer the kit does not ship resolves to nothing.
@@ -2117,6 +2124,15 @@ func _outliers_lane() -> bool:
 #   SURFACES  the shell's rows, a context-menu verb, a settings slider and an inventory item each
 #             give the hand; the shell's empty panel space, the menu's padding, the settings sheet's
 #             corner and the inventory sheet's margin each give the arrow -- and not the hand.
+#   WORLD     the street's pointer, through the whole path (`Pick.pick_at`, `SimContext.verbs_at`, the
+#             player's own `vision`) on a real world. Bare ground, a seen cupboard out of reach with
+#             no verb, and an attack give the crosshair; a cupboard in reach ahead and an item in
+#             reach ahead give the hand; the same cupboard in reach *behind* the player, found by
+#             `pick_at` and offering the same "open" row, gives the crosshair, and turning back gives
+#             the hand -- an unseen verb target never wears the hand. `shape_for`'s (seen, verb)
+#             pairs are held to a truth table, `_process` reaches `_update_pointer` which reaches
+#             `world_shape` and `Input.set_default_cursor_shape(`, and a `_process` with the call in a
+#             comment is refused.
 #   DROP      in a small world, a held item over each pocket cell gives blocked exactly where
 #             `SimInventory.can_place` refuses and the move exactly where it accepts, both seen, the
 #             refusal with the cells it would cover; `_drop_verdict` asks `SimInventory.can_place(`
@@ -2134,12 +2150,25 @@ const CursorsSimNeeds = preload("res://sim/modules/needs.gd")
 const CursorsSimItems = preload("res://sim/modules/items.gd")
 const CursorsSimInventory = preload("res://sim/modules/inventory.gd")
 const CursorsBagGrid = preload("res://ui/bag_grid.gd")
-# The four pointers the kit ships, by the shape each must answer for.
+const CursorsBoot = preload("res://sim/boot.gd")
+const CursorsTileMap = preload("res://sim/map/tilemap.gd")
+const CursorsFortify = preload("res://sim/modules/fortify.gd")
+const CursorsContainers = preload("res://sim/modules/containers.gd")
+const CursorsClock = preload("res://sim/time/clock.gd")
+const CursorsCamera = preload("res://presentation/camera.gd")
+const CursorsProjection = preload("res://presentation/projection.gd")
+const CursorsPick = preload("res://presentation/pick.gd")
+const SimContext = preload("res://sim/context.gd")
+const SimVisibility = preload("res://sim/vision/visibility.gd")
+const CURSORS_PACK_MANIFEST: String = "res://art/simplyzombies/manifest.json"
+# The pointers by the shape each must answer for: the kit's four, and the pack's two for the street.
 const CURSORS_REQUIRED: Dictionary = {
 	Input.CURSOR_ARROW: "control_cursor_arrow",
 	Input.CURSOR_POINTING_HAND: "control_cursor_hand",
 	Input.CURSOR_MOVE: "control_cursor_move",
 	Input.CURSOR_FORBIDDEN: "control_cursor_blocked",
+	Input.CURSOR_CROSS: "ui-crosshair",
+	Input.CURSOR_HELP: "ui-interaction-hand",
 }
 
 
@@ -2147,11 +2176,14 @@ func _cursors_lane() -> bool:
 	var ok: bool = true
 	var manifest: Dictionary = _manifest()
 	var assets: Dictionary = _records(manifest, "assets")
+	var pack_manifest: Variant = JSON.parse_string(_text_of(CURSORS_PACK_MANIFEST))
+	var pack: Dictionary = _records(pack_manifest as Dictionary if pack_manifest is Dictionary else {}, "assets")
 	var answered: Dictionary = {}
 
-	# TABLE: the code's copy against the manifest, at native pixels.
+	# TABLE: the code's copy against the manifest, at native pixels -- the kit's pointers against the
+	# kit's manifest and the pack's two against the pack's.
 	for shape_v in UiCursors.TABLE.keys():
-		for f in _cursor_faults(UiCursors.TABLE[shape_v], assets):
+		for f in _cursor_faults(UiCursors.TABLE[shape_v], assets, pack):
 			push_error("CURSORS: shape %d: %s" % [int(shape_v), f])
 			ok = false
 	for shape_v in CURSORS_REQUIRED.keys():
@@ -2165,8 +2197,23 @@ func _cursors_lane() -> bool:
 	# True negatives: one pixel off, and a pointer nobody wears.
 	var bad: Dictionary = (UiCursors.TABLE[Input.CURSOR_ARROW] as Dictionary).duplicate(true)
 	bad["hotspot"] = Vector2i(7, 2)
-	if _cursor_faults(bad, assets).is_empty():
+	if _cursor_faults(bad, assets, pack).is_empty():
 		push_error("CURSORS: a table record with the arrow's hotspot at (7, 2) against the manifest's (6, 2) passed -- the comparator cannot fail")
+		ok = false
+	var bad_pack: Dictionary = (UiCursors.TABLE[Input.CURSOR_CROSS] as Dictionary).duplicate(true)
+	bad_pack["hotspot"] = Vector2i(8, 7)
+	if _cursor_faults(bad_pack, assets, pack).is_empty():
+		push_error("CURSORS: a table record with the crosshair's hotspot at (8, 7) against the pack's anchor (8, 8) passed -- the comparator cannot fail")
+		ok = false
+	var wrong_home: Dictionary = (UiCursors.TABLE[Input.CURSOR_CROSS] as Dictionary).duplicate(true)
+	wrong_home["path"] = "groups/utility/native/ui-interaction-hand.png"
+	if _cursor_faults(wrong_home, assets, pack).is_empty():
+		push_error("CURSORS: the crosshair wearing the interaction hand's file passed -- a pack record's path is not compared")
+		ok = false
+	var kit_id_as_pack: Dictionary = (UiCursors.TABLE[Input.CURSOR_CROSS] as Dictionary).duplicate(true)
+	kit_id_as_pack.erase("path")
+	if _cursor_faults(kit_id_as_pack, assets, pack).is_empty():
+		push_error("CURSORS: a pack pointer with no path was judged against the kit's manifest and passed")
 		ok = false
 	var ghost: Array = (manifest.get("assets", []) as Array).duplicate(true)
 	ghost.append({"id": "control_cursor_crosshair", "category": "controls", "size": [24, 24], "hotspot": [12, 12]})
@@ -2181,9 +2228,10 @@ func _cursors_lane() -> bool:
 	for shape_v in UiCursors.TABLE.keys():
 		var shape: int = int(shape_v)
 		var entry: Dictionary = UiCursors.TABLE[shape_v] as Dictionary
-		var rec: Dictionary = assets.get(String(entry.get("id", "")), {}) as Dictionary
+		var is_pack: bool = entry.has("path")
+		var rec: Dictionary = (pack if is_pack else assets).get(String(entry.get("id", "")), {}) as Dictionary
 		var want_size: Array[int] = _ints(rec.get("size", null))
-		var want_hot: Array[int] = _ints(rec.get("hotspot", null))
+		var want_hot: Array[int] = _ints(rec.get("anchor" if is_pack else "hotspot", null))
 		var tex: Texture2D = UiCursors.texture_of(shape)
 		if tex == null:
 			push_error("CURSORS: %s did not resolve through Kit.texture" % String(entry.get("id", "")))
@@ -2216,6 +2264,10 @@ func _cursors_lane() -> bool:
 	if dressed != UiCursors.TABLE.size():
 		push_error("CURSORS: install dressed %d of %d shapes" % [dressed, UiCursors.TABLE.size()])
 		ok = false
+	var pointer_commented: String = String(_bodies("func _process(delta: float) -> void:\n\t_update_camera(delta)\n\t# _update_pointer()\n").get("_process", ""))
+	if _cursor_reaches(pointer_commented, ["_update_pointer("]):
+		push_error("CURSORS: a fabricated _process with the street's pointer only in a comment passed")
+		ok = false
 	var commented: String = String(_bodies("func _ensure_ui() -> void:\n\t# UiCursors.install()\n\tvar layer := CanvasLayer.new()\n").get("_ensure_ui", ""))
 	if _cursor_reaches(commented, ["UiCursors.install("]):
 		push_error("CURSORS: a fabricated _ensure_ui with the install only in a comment passed")
@@ -2228,6 +2280,11 @@ func _cursors_lane() -> bool:
 		[INVENTORY_GD, "_loot_point", ["loot_cursor_at(", "mouse_default_cursor_shape"]],
 		[INVENTORY_GD, "_drop_verdict", ["SimInventory.can_place("]],
 		[INVENTORY_GD, "_draw_drop_hint_into", ["Chrome.frame(", "\"slot_invalid\"", "CURSOR_FORBIDDEN"]],
+		[MAIN_GD, "_process", ["_update_pointer("]],
+		[MAIN_GD, "_update_pointer", ["SessionRes.State.PLAYING", "UiCursors.world_shape(", "Input.set_default_cursor_shape(", "Input.CURSOR_ARROW"]],
+		[CURSORS_GD, "world_shape", ["Pick.pick_at(", "SimContext.verbs_at(", "seen_now(", "shape_for("]],
+		[CURSORS_GD, "seen_now", ["vision.detail(", "SimVisibility.Detail.Unseen"]],
+		[CURSORS_GD, "shape_for", ["seen", "has_verb(", "INTERACT", "CROSSHAIR"]],
 	]
 	for r_v in readers:
 		var r: Array = r_v as Array
@@ -2310,33 +2367,176 @@ func _cursors_lane() -> bool:
 	# DROP, and the inventory's hand: a small world, two things in the pockets.
 	ok = _cursor_drop_lane(answered) and ok
 	root.size = root_was
+	# WORLD, the street's own pointer: the crosshair, and the hand only over what is seen.
+	ok = _cursor_world_lane(answered) and ok
 
 	for shape_v in answered.keys():
 		if not UiCursors.TABLE.has(shape_v):
 			push_error("CURSORS: a screen answered with shape %d, which no kit pointer dresses" % int(shape_v))
 			ok = false
 	if ok:
-		print("CURSORS OK %d shapes wear the kit's four pointers at the manifest's sizes and hotspots, installed at the chrome's %dx; _ensure_ui reaches install and install reaches Input.set_custom_mouse_cursor; the shell's rows, a menu verb, a slider and an item give the hand and the space around each the arrow; a held item is blocked exactly where SimInventory.can_place refuses and the move where it accepts; a hotspot one pixel off, a pointer nobody wears, a commented install and a verdict of its own each refused" % [UiCursors.TABLE.size(), UiCursors.SCALE])
+		print("CURSORS OK %d shapes wear the kit's four pointers and the pack's two at the manifests' sizes and hotspots, installed at the chrome's %dx; _ensure_ui reaches install and install reaches Input.set_custom_mouse_cursor; the shell's rows, a menu verb, a slider and an item give the hand and the space around each the arrow; a held item is blocked exactly where SimInventory.can_place refuses and the move where it accepts; the street wears the pack's crosshair over bare ground, over something out of reach, over an attack and over anything unseen -- a cupboard in reach behind you included, which turns to the pack's hand the moment you face it and back when you turn away -- and the pack's hand only over a seen thing with a verb; a hotspot one pixel off, a pointer nobody wears, a commented install and a verdict of its own each refused" % [UiCursors.TABLE.size(), UiCursors.SCALE])
+	return ok
+
+
+# WORLD: the street's pointer (docs/30, "Cursors split by place"). `UiCursors.world_shape` is the
+# whole path -- `Pick.pick_at`, then `SimContext.verbs_at`, then the player's own `vision` -- run
+# here on a real world with two cupboards one step from the player, one in front and one behind, so
+# the thing that decides between the hand and the crosshair is *seen*, and the same two cupboards
+# swap answers when the player turns round. That is the true negative that matters: a hand over a
+# cupboard you cannot see is information through a wall, and the cupboard behind you offers the
+# identical "open" row the one in front does.
+#
+#   pure     `shape_for`'s (seen, verb) pairs: the hand only when both, and never for bare ground or
+#            for an attack (a zombie is the crosshair's). A row with no command ("look at") or a
+#            walk is not a verb; an open and a rescue are.
+#   street   bare ground gives the crosshair; the cupboard in front, in reach and seen, gives the
+#            hand; the cupboard behind, in reach with its "open" row offered and `pick_at` finding
+#            it, gives the crosshair; turned round, the two swap. A cupboard seen and out of reach
+#            offers no verb and gives the crosshair. An item in reach in front gives the hand.
+func _cursor_world_lane(answered: Dictionary) -> bool:
+	var ok: bool = true
+	var hand: int = UiCursors.INTERACT
+	var cross: int = UiCursors.CROSSHAIR
+
+	# Pure: every pair, with the row kinds that are and are not verbs.
+	var open_row: Array = [{"text": "open the cupboard", "command": {"type": "container.open", "container": 1}}]
+	var walk_row: Array = [{"text": "walk here", "command": {"type": "walk.to", "tx": 1, "ty": 1}}]
+	var attack_row: Array = [{"text": "attack", "command": {"type": "attack.context", "target": 1}}, {"text": "walk over", "command": {"type": "walk.to", "tx": 1, "ty": 1}}]
+	var look_row: Array = [{"text": "look at her", "command": {}}]
+	var thing: Dictionary = {"kind": "container", "entity": 1, "tile": Vector2i(1, 1)}
+	var table: Array = [
+		["a seen thing with a verb", thing, open_row, true, hand],
+		["an unseen thing with a verb", thing, open_row, false, cross],
+		["a seen thing with only a walk", thing, walk_row, true, cross],
+		["a seen thing with only a look", {"kind": "colonist", "entity": 1, "tile": Vector2i(1, 1)}, look_row, true, cross],
+		["a seen thing with an attack and a walk", {"kind": "zombie", "entity": 1, "tile": Vector2i(1, 1)}, attack_row, true, cross],
+		["an unseen thing with nothing", thing, [], false, cross],
+		["bare ground, whatever the rows", {"kind": "ground", "entity": -1, "tile": Vector2i(1, 1)}, open_row, true, cross],
+		["a seen rescue", {"kind": "colonist", "entity": 1, "tile": Vector2i(1, 1)}, [{"text": "pull her free", "command": {"type": "rescue"}}], true, hand],
+	]
+	for row_v in table:
+		var row: Array = row_v as Array
+		var got: int = UiCursors.shape_for(row[1] as Dictionary, row[2] as Array, bool(row[3]))
+		answered[got] = true
+		if got != int(row[4]):
+			push_error("CURSORS: %s gave shape %d, not %d" % [String(row[0]), got, int(row[4])])
+			ok = false
+
+	# The street: a real world, the whole path. One cupboard a step ahead of the player and one six
+	# metres off; the player then turns round, so the *same* cupboard is in reach, offers the same
+	# "open" row, is found by the same `pick_at` -- and is behind them.
+	var w: Variant = CursorsWorld.new({"seed": 9203, "tick_hz": 20, "map": {"width": 24, "height": 24, "walls": []}, "player": {"id": 0, "x": 10.5, "y": 10.5, "stance": 2}, "rng_probe": {"stream": "test", "samples": 0}})
+	w.tick = CursorsClock.tick_at_time_of_day(CursorsClock.DAY_BEGINS)
+	CursorsBoot.attach_kernel(w, CursorsTileMap.blank_map(24, 24))
+	CursorsSimInventory.register_module(w)
+	CursorsFortify.register_module(w)
+	CursorsSimInventory.make_inventory(w, w.player)
+	w.components.set_component(w.player, "observer", SimVisibility.daylight_eyes())
+	w.components.set_component(w.player, "facing", {"radians": 0.0})
+	var near: int = CursorsContainers.make_container(w, 11.5, 10.5, "cupboard", "residential")
+	var far: int = CursorsContainers.make_container(w, 16.5, 10.5, "cupboard", "residential")
+	w.step()
+	var camera: Dictionary = CursorsCamera.create_camera(64.0)
+	CursorsCamera.snap(camera, 10.5, 10.5, 24, 24)
+	var hit_of: Callable = func(x: float, y: float) -> Dictionary:
+		var sc: Dictionary = CursorsProjection.world_to_screen(camera, x, y)
+		return CursorsPick.pick_at(w, camera, Vector2(float(sc["sx"]), float(sc["sy"])))
+	var shape_of: Callable = func(x: float, y: float) -> int:
+		var sc2: Dictionary = CursorsProjection.world_to_screen(camera, x, y)
+		return UiCursors.world_shape(w, camera, Vector2(float(sc2["sx"]), float(sc2["sy"])))
+	var offers_open: Callable = func(hit: Dictionary) -> bool:
+		for r in SimContext.verbs_at(w, int(w.player), hit):
+			if String((r["command"] as Dictionary).get("type", "")) == "container.open":
+				return true
+		return false
+
+	# Ahead: bare ground is the crosshair, the near cupboard the hand, the far one -- seen, found,
+	# and offering nothing -- the crosshair.
+	var bare: int = int(shape_of.call(10.5, 8.0))
+	var ahead: int = int(shape_of.call(11.5, 10.5))
+	var at_far: int = int(shape_of.call(16.5, 10.5))
+	var near_hit: Dictionary = hit_of.call(11.5, 10.5) as Dictionary
+	var far_hit: Dictionary = hit_of.call(16.5, 10.5) as Dictionary
+	if bare != cross:
+		push_error("CURSORS: the street over bare ground gave shape %d, not the crosshair" % bare)
+		ok = false
+	if int(near_hit.get("entity", -1)) != near or not bool(offers_open.call(near_hit)) or not UiCursors.seen_now(w, near_hit):
+		push_error("CURSORS: the cupboard ahead is not a seen verb target (%s) -- the hand has nothing to judge" % str(near_hit))
+		ok = false
+	if ahead != hand:
+		push_error("CURSORS: the street over a cupboard in reach and ahead gave shape %d, not the interaction hand" % ahead)
+		ok = false
+	if int(far_hit.get("entity", -1)) != far or bool(offers_open.call(far_hit)) or not UiCursors.seen_now(w, far_hit):
+		push_error("CURSORS: the far cupboard is not seen, found and verbless (%s) -- the out-of-reach negative has nothing to judge" % str(far_hit))
+		ok = false
+	if at_far != cross:
+		push_error("CURSORS: the street over a seen cupboard out of reach gave shape %d, not the crosshair; it offers no verb" % at_far)
+		ok = false
+
+	# Turned round: same cupboard, same reach, same verb, and now behind the player. `pick_at` still
+	# finds it and the menu would still offer to open it; only the player's own sight refuses it.
+	w.components.set_component(w.player, "facing", {"radians": PI})
+	w.step()
+	var behind: int = int(shape_of.call(11.5, 10.5))
+	var behind_hit: Dictionary = hit_of.call(11.5, 10.5) as Dictionary
+	if int(behind_hit.get("entity", -1)) != near or not bool(offers_open.call(behind_hit)):
+		push_error("CURSORS: the cupboard behind the player is not a verb target (pick_at found %s) -- the unseen negative has nothing to judge" % str(behind_hit))
+		ok = false
+	if UiCursors.seen_now(w, behind_hit):
+		push_error("CURSORS: the player's own vision sees the cupboard directly behind them -- the unseen negative has nothing to judge")
+		ok = false
+	if behind != cross:
+		push_error("CURSORS: the street over a cupboard in reach with its verb offered, behind the player, gave shape %d, not the crosshair -- a hand over something unseen is a hand through the wall" % behind)
+		ok = false
+
+	# And back: the hand returns with the sight.
+	w.components.set_component(w.player, "facing", {"radians": 0.0})
+	w.step()
+	var again: int = int(shape_of.call(11.5, 10.5))
+	if again != hand:
+		push_error("CURSORS: turning back to face the cupboard gave shape %d, not the interaction hand" % again)
+		ok = false
+
+	# An item on the ground, in reach and ahead: the pick-up verb, seen.
+	var tin: int = CursorsSimItems.spawn_item(w, "item.food.canned", {"tier": "scavenged"})
+	w.components.set_component(tin, "position", {"x": 11.0, "y": 10.5})
+	w.step()
+	var at_tin: int = int(shape_of.call(11.0, 10.5))
+	if at_tin != hand:
+		push_error("CURSORS: the street over an item in reach and ahead gave shape %d, not the interaction hand" % at_tin)
+		ok = false
+	for got in [bare, ahead, at_far, behind, again, at_tin]:
+		answered[int(got)] = true
 	return ok
 
 
 # What is wrong with one TABLE record against the manifest, at native kit pixels. Empty when they
 # agree.
-func _cursor_faults(entry_v: Variant, assets: Dictionary) -> Array[String]:
+func _cursor_faults(entry_v: Variant, assets: Dictionary, pack: Dictionary) -> Array[String]:
 	var faults: Array[String] = []
 	if not (entry_v is Dictionary):
 		faults.append("the record is not a Dictionary")
 		return faults
 	var entry: Dictionary = entry_v as Dictionary
 	var id: String = String(entry.get("id", ""))
-	if not assets.has(id):
-		faults.append("%s is not a pointer manifest.json ships" % id)
+	# A record with a `path` wears a pack picture, judged against the pack's manifest, whose hotspot
+	# is its `anchor`; one without wears a kit control, judged against the kit's.
+	var is_pack: bool = entry.has("path")
+	var ships: Dictionary = pack if is_pack else assets
+	if not ships.has(id):
+		faults.append("%s is not a pointer the %s manifest.json ships" % [id, "pack's" if is_pack else "kit's"])
 		return faults
-	var rec: Dictionary = assets[id] as Dictionary
-	if String(rec.get("category", "")) != "controls":
+	var rec: Dictionary = ships[id] as Dictionary
+	if is_pack:
+		if String(rec.get("category", "")) != "ui":
+			faults.append("%s is a %s, not a ui icon" % [id, String(rec.get("category", ""))])
+		if String(rec.get("path", "")) != String(entry["path"]):
+			faults.append("%s wears %s, the pack's manifest puts it at %s" % [id, String(entry["path"]), String(rec.get("path", ""))])
+	elif String(rec.get("category", "")) != "controls":
 		faults.append("%s is a %s, not a control" % [id, String(rec.get("category", ""))])
 	var size: Array[int] = _ints(rec.get("size", null))
-	var hot: Array[int] = _ints(rec.get("hotspot", null))
+	var hot: Array[int] = _ints(rec.get("anchor" if is_pack else "hotspot", null))
 	if size.size() != 2 or entry.get("size", null) != Vector2i(size[0], size[1]):
 		faults.append("%s's size %s against the manifest's %s" % [id, str(entry.get("size", null)), str(size)])
 	if hot.size() != 2 or entry.get("hotspot", null) != Vector2i(hot[0], hot[1]):
@@ -2977,7 +3177,7 @@ func _events_pickup() -> bool:
 	if int(after.get("item", -1)) != jerky or int(after.get("frame", -1)) < 0:
 		push_error("EVENTS: the sheet's ping view after a pick-up is %s" % str(after))
 		ok = false
-	var draws: int = _code_of(_text_of(INVENTORY_GD)).count("_ping_view())")
+	var draws: int = _code_of(_text_of(INVENTORY_GD)).count("_ping_view(), _world)")
 	if draws < 2:
 		push_error("EVENTS: the sheet draws the strip with its ping in %d of its two draws" % draws)
 		ok = false
@@ -3066,3 +3266,98 @@ func _events_busy() -> bool:
 
 func _events_reads_countdown(body: String) -> bool:
 	return body.contains("ticksLeft")
+
+
+# --- the quick strip fits its rect ---------------------------------------------------------------
+#
+# The item-pictures slice widened a slot to 246 px to fit a 32 px picture, and six of those plus the
+# lead are wider than a 1280 px screen's strip, so the sixth (and then the fifth) ran off it.
+# `QuickStrip.slot_boxes` now takes the width from the rect. Three things are judged, each with a
+# true negative: every slot lies wholly inside the rect a screen hands it, at the two sizes the
+# game ships to and one between; the slot is never wider than it was, so the wide screen looks as it
+# did; and the narrowest slot still clears the kit's margins (a slot the kit cannot frame falls back
+# to a drawn fill). And the draw has to read the boxes -- a helper nothing draws from is a dead socket.
+
+const StripChrome = preload("res://ui/chrome.gd")
+const STRIP_VIEWS: Array[Vector2] = [Vector2(1280.0, 720.0), Vector2(1600.0, 900.0), Vector2(1920.0, 1080.0)]
+
+
+func _strip_lane() -> bool:
+	var ok: bool = true
+	var inv: Dictionary = (load(INVENTORY_GD) as GDScript).get_script_constant_map()
+	var font: Font = StripChrome.font()
+	var widest: float = float(EventsStrip.SLOT_W)
+	var narrowest: float = widest
+	for view in STRIP_VIEWS:
+		var rect: Rect2 = EventsStrip.rect_for(view, float(inv["PAD"]), float(inv["STRIP_H"]))
+		var boxes: Array[Rect2] = EventsStrip.slot_boxes(font, rect)
+		if boxes.size() != EventsStrip.SLOTS:
+			push_error("STRIP: %d slots at %s, not %d" % [boxes.size(), str(view), EventsStrip.SLOTS])
+			ok = false
+			continue
+		for f in _strip_faults(boxes, rect):
+			push_error("STRIP: at %s, %s" % [str(view), f])
+			ok = false
+		for b in boxes:
+			narrowest = minf(narrowest, b.size.x)
+			if b.size.x > widest or b.size.x <= 0.0:
+				push_error("STRIP: at %s a slot is %s px wide, outside 0 to the %s it was" % [str(view), str(b.size.x), str(widest)])
+				ok = false
+		if view.x >= 1920.0 and not is_equal_approx(boxes[0].size.x, widest):
+			push_error("STRIP: at %s a slot is %s px wide, not the %s px it has when it fits" % [str(view), str(boxes[0].size.x), str(widest)])
+			ok = false
+		if view.x <= 1280.0 and not boxes[0].size.x < widest:
+			push_error("STRIP: at %s a slot is still %s px -- the strip's width was never consulted" % [str(view), str(boxes[0].size.x)])
+			ok = false
+	for id in ["slot_empty", "slot_selected"]:
+		if Kit.style(id, Rect2(Vector2.ZERO, Vector2(narrowest, float(EventsStrip.SLOT_H))), 1.0) == null:
+			push_error("STRIP: the narrowest slot, %s px, is under %s's margins %s -- it would fall back to a drawn fill" % [str(narrowest), id, str(Kit.margins(id))])
+			ok = false
+
+	# True negatives: the checker refuses what shipped before this fix, and each way of leaving a rect.
+	var narrow: Vector2 = STRIP_VIEWS[0]
+	var tight: Rect2 = EventsStrip.rect_for(narrow, float(inv["PAD"]), float(inv["STRIP_H"]))
+	var first: Rect2 = EventsStrip.slot_boxes(font, tight)[0]
+	var old: Array[Rect2] = []
+	for i in EventsStrip.SLOTS:
+		old.append(Rect2(first.position + Vector2((246.0 + EventsStrip.GAP) * float(i), 0.0), Vector2(246.0, EventsStrip.SLOT_H)))
+	var high: Array[Rect2] = EventsStrip.slot_boxes(font, tight)
+	high[2] = Rect2(Vector2(high[2].position.x, tight.position.y - 1.0), high[2].size)
+	var left: Array[Rect2] = EventsStrip.slot_boxes(font, tight)
+	left[0] = Rect2(Vector2(tight.position.x - 1.0, left[0].position.y), left[0].size)
+	for r in [
+		["the fixed 246 px slot at 1280", _strip_faults(old, tight)],
+		["a slot above the rect", _strip_faults(high, tight)],
+		["a slot left of the rect", _strip_faults(left, tight)],
+		["a strip of five slots", _strip_faults(EventsStrip.slot_boxes(font, tight).slice(0, 5), tight)],
+	]:
+		if ((r as Array)[1] as Array).is_empty():
+			push_error("STRIP: %s passed -- the fit check cannot fail" % String((r as Array)[0]))
+			ok = false
+	if not _strip_faults(EventsStrip.slot_boxes(font, tight), tight).is_empty():
+		push_error("STRIP: the shipped slots at 1280 were refused -- the fit check cannot pass")
+		ok = false
+
+	# The draw reads the boxes, from the one function, and no longer walks a fixed width.
+	var body: String = String(_bodies(_text_of("res://ui/quick_strip.gd")).get("draw_strip", ""))
+	if not body.contains("slot_boxes("):
+		push_error("STRIP: draw_strip never asks slot_boxes for where a slot is")
+		ok = false
+	if body.contains("SLOT_W"):
+		push_error("STRIP: draw_strip still reads the fixed SLOT_W, so a slot can leave the strip")
+		ok = false
+	if ok:
+		print("STRIP OK all six slots inside the strip at %d viewports (a slot %d px at 1280, %d at 1920, never wider than %d); the narrowest still frames in the kit; the fixed 246 px slot at 1280, a slot above or left of the rect and a fifth-slot strip each refused; draw_strip reads slot_boxes and no longer SLOT_W" % [STRIP_VIEWS.size(), int(EventsStrip.slot_boxes(StripChrome.font(), EventsStrip.rect_for(STRIP_VIEWS[0], 24.0, 92.0))[0].size.x), int(widest), int(widest)])
+	return ok
+
+
+# What is wrong with `boxes` as the strip's slots inside `rect`, in words; empty for none.
+func _strip_faults(boxes: Array, rect: Rect2) -> Array[String]:
+	var faults: Array[String] = []
+	if boxes.size() != EventsStrip.SLOTS:
+		faults.append("%d slots, not %d" % [boxes.size(), EventsStrip.SLOTS])
+	for i in boxes.size():
+		var b: Rect2 = boxes[i] as Rect2
+		if not rect.encloses(b):
+			faults.append("slot %d, %s, is not inside the strip %s" % [i + 1, str(b), str(rect)])
+	return faults

@@ -156,14 +156,16 @@ class Style extends RefCounted:
 
 # One kit PNG, by its path under ROOT, scaled `scale` times with nearest filtering. ResourceLoader
 # first (an exported build), then the raw file (dev and headless CI, where nothing is imported).
-# Null when neither finds it.
+# Null when neither finds it. A `res://` path is taken as it stands rather than under ROOT: the
+# pointer table wears two of the outpost pack's icons beside the kit's own, through this one
+# two-path loader rather than a second copy of it.
 static func texture(rel_path: String, scale: int = SCALE) -> Texture2D:
 	if rel_path.is_empty():
 		return null
 	var key: String = "%s@%d" % [rel_path, scale]
 	if _textures.has(key):
 		return _textures[key] as Texture2D
-	var path: String = ROOT + rel_path
+	var path: String = rel_path if rel_path.begins_with("res://") else ROOT + rel_path
 	var img: Image = null
 	if ResourceLoader.exists(path):
 		var res: Resource = load(path)
