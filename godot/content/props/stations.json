@@ -62,7 +62,7 @@
   {
     "id": "prop.campfire.lit",
     "name": "Lit campfire",
-    "appearance": { "sprite": "prop_campfire_lit", "shape": "disc", "size": 0.56, "flameFx": "fx_flame_loop" }
+    "appearance": { "sprite": "prop_campfire_lit", "shape": "disc", "size": 0.56, "flameFx": "fx_flame_loop", "light": { "tint": "#ffd68c" } }
   },
   {
     "id": "prop.well",
@@ -73,5 +73,10 @@
     "id": "prop.latrine",
     "name": "Latrine",
     "appearance": { "sprite": "prop_latrine", "shape": "box", "size": 0.55 }
+  },
+  {
+    "id": "prop.workbench",
+    "name": "Built workbench",
+    "appearance": { "sprite": "prop_workbench", "shape": "box", "size": 1.3 }
   }
 ]

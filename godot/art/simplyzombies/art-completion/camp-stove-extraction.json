@@ -1,0 +1,37 @@
+{
+  "source": "sources/camp-stove.png",
+  "source_size": [
+    1274,
+    1235
+  ],
+  "crop_box_alpha_ge_16": [
+    349,
+    389,
+    956,
+    915
+  ],
+  "source_alpha_bbox_ge_128": [
+    350,
+    390,
+    955,
+    914
+  ],
+  "crop_size": [
+    607,
+    526
+  ],
+  "export_size": [
+    26,
+    23
+  ],
+  "resampling": "nearest-neighbor",
+  "placement_on_canvas": [
+    3,
+    4
+  ],
+  "canvas": [
+    32,
+    32
+  ],
+  "alpha": "RGBA preserved, including partial alpha; no background deletion"
+}

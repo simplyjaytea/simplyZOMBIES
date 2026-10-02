@@ -15,6 +15,17 @@ const Palette = preload("res://presentation/palette.gd")
 const ItemGlyph = preload("res://presentation/item_glyph.gd")
 const ItemPicture = preload("res://ui/item_picture.gd")
 const SimCondition = preload("res://sim/condition.gd")
+const SimHealth = preload("res://sim/modules/health.gd")
+const SimItems = preload("res://sim/modules/items.gd")
+const SimInventory = preload("res://sim/modules/inventory.gd")
+const SimAttachments = preload("res://sim/modules/attachments.gd")
+const SimFortify = preload("res://sim/modules/fortify.gd")
+const SimModification = preload("res://sim/modules/modification.gd")
+const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
+const SimSkills = preload("res://sim/modules/skills.gd")
+const SimBoot = preload("res://sim/boot.gd")
+const Clock = preload("res://sim/time/clock.gd")
+const Dressing = preload("res://presentation/dressing.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
 const SimLight = preload("res://sim/modules/light.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
@@ -47,10 +58,12 @@ func _run() -> void:
 	ok = _art_is_not_modulated_by_a_role_colour() and ok
 	ok = _equipped_gear_layers_resolve() and ok
 	ok = _props_look_like_something() and ok
+	ok = _built_workbench_and_standing_furnishings_are_read() and ok
 	ok = _container_kinds_follow_the_loot_table() and ok
 	ok = _standing_props_come_from_the_pack() and ok
 	ok = _items_look_like_something() and ok
 	ok = _item_pictures_are_real_and_drawn() and ok
+	ok = _camp_stove_icon_is_explicit_and_transparent() and ok
 	ok = _the_body_chart_is_ten_parts_in_three_poses() and ok
 	if ok:
 		print("APPEARANCE_OK schema keys resolve, fallback intact, the player has a body, the roster resolves shared and distinct rigs, colonists wear the pack body with six tints, containers draw the kind their loot table names, the barricade and the work lamp are the pack's standing pictures, items resolve art or a class glyph, the pack's item pictures are declared, gated and drawn on the floor and the bag plate, the body chart is ten parts in three poses")
@@ -98,6 +111,8 @@ func _all_blocks() -> Dictionary:
 func _appearance_key_ok(k: String, path: String) -> bool:
 	if ["sprite", "tint", "features", "portrait", "equipSprite", "shape", "size"].has(k):
 		return true
+	if k == "light":
+		return path == "props/stations.json#prop.campfire.lit"
 	# `equipSpriteFront`, `attachmentSprite` and `partAnchors` were legal on an item until
 	# 2026-09-26: a face-on back item's front strap, a fitted part's picture and the host weapon's
 	# anchors for it. All three drew face-on pictures that "Pack gear on the body" retired (docs/30,
@@ -167,6 +182,20 @@ func _declared_appearances_are_well_formed() -> bool:
 		if not _appearance_key_ok(String(pair[0]), String(pair[1])) or _appearance_key_ok(String(pair[0]), String(pair[2])):
 			push_error("the appearance allowlist does not hold '%s' to %s alone (refused there, or accepted on %s)" % pair)
 			return false
+	if not _appearance_key_ok("light", "props/stations.json#prop.campfire.lit"):
+		push_error("the appearance allowlist refuses the lit campfire's presentation light block")
+		return false
+	for denied_light in ["props/stations.json#prop.campfire", "items/light.json#item.lighter", "players/player.json#player.body"]:
+		if _appearance_key_ok("light", denied_light):
+			push_error("the appearance allowlist accepts light on %s; only the lit campfire uses this block" % denied_light)
+			return false
+	if not _light_appearance_complaint({"tint": "#ffd68c"}).is_empty():
+		push_error("the light appearance predicate refuses the lit campfire's strict lowercase tint")
+		return false
+	for bad_light in [null, "#ffd68c", {}, {"tint": 1}, {"tint": "FFD68C"}, {"tint": "#FFD68C"}, {"tint": "#12345g"}, {"tint": "#123456", "magnitude": 2.0}]:
+		if _light_appearance_complaint(bad_light).is_empty():
+			push_error("the light appearance predicate accepted malformed or extra light data: %s" % str(bad_light))
+			return false
 	var blocks: Dictionary = _all_blocks()
 	for path in blocks.keys():
 		var block: Dictionary = blocks[path]
@@ -178,6 +207,11 @@ func _declared_appearances_are_well_formed() -> bool:
 			var t: Variant = block["tint"]
 			if not (t is String) or hex.search(String(t)) == null:
 				push_error("%s: appearance.tint '%s' is not #rrggbb lowercase" % [path, str(t)])
+				return false
+		if block.has("light"):
+			var light_problem: String = _light_appearance_complaint(block["light"])
+			if not light_problem.is_empty():
+				push_error("%s: appearance.light %s" % [path, light_problem])
 				return false
 		if block.has("sprite"):
 			var s: Variant = block["sprite"]
@@ -213,8 +247,26 @@ func _declared_appearances_are_well_formed() -> bool:
 			if not (sz is float or sz is int) or float(sz) < 0.1 or float(sz) > Appearance.PROP_SIZE_MAX:
 				push_error("%s: appearance.size '%s' is not a tile fraction in [0.1, %.1f]" % [path, str(sz), Appearance.PROP_SIZE_MAX])
 				return false
+	var campfire_lit: Dictionary = Appearance.of_content(World.new(_fixture()), "prop", "prop.campfire.lit")
+	if String((campfire_lit.get("light", {}) as Dictionary).get("tint", "")) != "#ffd68c":
+		push_error("prop.campfire.lit does not declare the intended presentation light colour")
+		return false
 	print("SHAPE OK %d blocks" % blocks.size())
 	return true
+
+
+func _light_appearance_complaint(raw: Variant) -> String:
+	if not (raw is Dictionary):
+		return "must be an object"
+	var light: Dictionary = raw as Dictionary
+	if light.size() != 1 or not light.has("tint"):
+		return "must contain only tint"
+	var tint: Variant = light["tint"]
+	var hex := RegEx.new()
+	hex.compile(HEX)
+	if not (tint is String) or hex.search(String(tint)) == null:
+		return "tint must be lowercase #rrggbb"
+	return ""
 
 # These mirror the nested schemas, including bounds and duplicate corpse keys. They return a
 # complaint rather than logging so the exact same predicate can judge deliberately broken data.
@@ -1053,6 +1105,87 @@ func _props_look_like_something() -> bool:
 	return true
 
 
+# Phase 2's bench is a picture of the existing actionable entity. Build it through the real
+# channel, then require the normal prop reader and draw pass to find that exact entity.
+func _built_workbench_and_standing_furnishings_are_read() -> bool:
+	Appearance.forget()
+	var f: Dictionary = {"seed": 53, "tick_hz": 20, "map": {"width": 24, "height": 24, "walls": []}, "player": {"id": 0, "x": 8.5, "y": 12.5, "stance": 2}, "rng_probe": {"stream": "test", "samples": 0}}
+	var w: Variant = World.new(f)
+	w.tick = Clock.tick_at_time_of_day(Clock.DAY_BEGINS)
+	SimBoot.attach_kernel(w, SimTileMap.blank_map(24, 24))
+	SimHealth.register_module(w)
+	SimInventory.register_module(w)
+	SimItems.register_module(w)
+	SimAttachments.register_module(w)
+	SimFortify.register_module(w)
+	SimModification.register_module(w)
+	SimGunsmith.register_module(w)
+	w.components.set_component(w.player, "facing", {"radians": 0.0})
+	SimHealth.make_survivor_body(w, w.player)
+	SimHealth.make_stamina(w, w.player)
+	SimInventory.make_inventory(w, w.player)
+	SimSkills.attach(w, w.player)
+	var scrap: int = SimItems.spawn_item(w, "item.scrap.metal", {"tier": "scavenged", "count": SimGunsmith.BENCH_SCRAP})
+	if not SimInventory.stow(w, w.player, scrap):
+		push_error("WORKBENCH: could not stow the real bench recipe scrap")
+		return false
+	w.events.drain()
+	var tx: int = 9
+	var ty: int = 12
+	w.commands.push({"type": "bench.build", "tx": tx, "ty": ty})
+	for i in SimGunsmith.BENCH_TICKS + 4:
+		w.step()
+	var benches: Array = w.components.query(["workbench", "position"])
+	if benches.size() != 1:
+		push_error("WORKBENCH: bench.build made %d actual workbench entities" % benches.size())
+		return false
+	var entity: int = int(benches[0])
+	var look: Dictionary = Appearance.prop_look(w, entity)
+	if String(look.get("id", "")) != "prop.workbench" or look.get("texture") == null or String(look.get("sprite", "")) != "prop_workbench":
+		push_error("WORKBENCH: the entity created by bench.build resolves no authored workbench picture (%s)" % str(look))
+		return false
+	if SimGunsmith.bench_in_reach(w, w.player) < 0:
+		push_error("WORKBENCH: the pictured entity is not the same usable bench the existing interaction finds")
+		return false
+	var block: Dictionary = Appearance.of_content(w, "prop", "prop.workbench")
+	var footprint: int = _footprint_px(look["texture"] as Texture2D)
+	var declared_px: int = int(round(float(look.get("size", 0.0)) * CameraUtil.ART_NATIVE))
+	if block.get("sprite") != "prop_workbench" or footprint <= 0 or absi(footprint - declared_px) > FOOTPRINT_SLACK_PX:
+		push_error("WORKBENCH: declared footprint %d px does not fit its authored picture (%d px)" % [declared_px, footprint])
+		return false
+	if not Appearance.prop_tiles(w).has(Vector2i(tx, ty)):
+		push_error("WORKBENCH: the real workbench tile is absent from prop_tiles, so deterministic furniture would underpaint it")
+		return false
+	var unrelated: int = int(w.entities.spawn())
+	w.components.set_component(unrelated, "position", {"x": 10.5, "y": 12.5})
+	if not Appearance.prop_look(w, unrelated).is_empty():
+		push_error("WORKBENCH: an unrelated positioned entity resolved the workbench picture")
+		return false
+	var draw_props: String = _without_comments(_function_text(FileAccess.get_file_as_string(MAIN_GD), "func _draw_props("))
+	var live_path: Array = ["world.entities.is_alive(e)", "seen != null and not (seen as Object).call(\"has_tile\", floori(x), floori(y))", "Appearance.prop_look(world, e)", "_draw_prop(look, x, y, zoom)"]
+	if not _appears_in_order(draw_props, live_path):
+		push_error("WORKBENCH: _draw_props does not keep the alive and live-seen guards ahead of the shared prop reader/draw")
+		return false
+	for fabricated in ["var look = Appearance.prop_look(world, e)\n_draw_prop(look, x, y, zoom)", "if seen == null:\n\tcontinue\nvar look = Appearance.prop_look(world, e)\n_draw_prop(look, x, y, zoom)"]:
+		if _appears_in_order(fabricated, live_path):
+			push_error("WORKBENCH: the normal-pass source scanner accepted a missing alive/seen guard")
+			return false
+	var dressing: Dictionary = Dressing.block_of(w)
+	var tall: Array[String] = ["prop_fridge", "prop_road_sign", "prop_streetlamp"]
+	var expected_sizes: Dictionary = {"prop_fridge": Vector2i(24, 38), "prop_road_sign": Vector2i(24, 38), "prop_streetlamp": Vector2i(24, 62)}
+	for key in tall:
+		var texture: Texture2D = Appearance.resolve(key)
+		if not Dressing.furnishing_is_standing(dressing, key) or texture == null or Vector2i(texture.get_size()) != expected_sizes[key]:
+			push_error("WORKBENCH: %s is not a resolved, explicitly standing furnishing at its declared native crop" % key)
+			return false
+	for short_key in ["prop_table", "prop_chair", "prop_bed"]:
+		if Dressing.furnishing_is_standing(dressing, short_key):
+			push_error("WORKBENCH: legacy short furnishing %s was moved into the standing pass" % short_key)
+			return false
+	print("WORKBENCH OK bench.build produced the existing reachable workbench entity and its authored picture; unrelated entities resolve none; the shared draw keeps alive/seen guards; fridge, sign and unlit streetlamp resolve as standing picks while old short furnishings stay flat")
+	return true
+
+
 # --- CONTAINERS ---------------------------------------------------------------------------
 
 # What each shipped loot table's containers draw as -- docs/23, "Furnishings and container kinds":
@@ -1475,20 +1608,20 @@ func _standing_props_come_from_the_pack() -> bool:
 	# The draw pass cannot run headless, so it is read as source, in its place, with the needle
 	# scanner shown a body without each guard first.
 	var standing: String = _function_source(MAIN_GD, "_standing_props")
-	var missing: String = _lacks(standing, ["Appearance.standing_props(world, seen, TopDownProjection.visible_bounds(camera, 2.0))", "TopDownProjection.world_to_screen(camera, float(row[\"gx\"]), float(row[\"gy\"]))", "TopDownProjection.depth_of(", "\"kind\": \"standing\""])
+	var missing: String = _lacks(standing, ["Appearance.standing_props(world, seen, bounds)", "TopDownProjection.world_to_screen(camera, float(row[\"gx\"]), float(row[\"gy\"]))", "TopDownProjection.depth_of(", "\"kind\": \"standing\""])
 	if not missing.is_empty():
 		push_error("STANDING: _standing_props does not contain %s" % missing)
 		return false
 	if standing.contains("explored") or standing.contains("SimSightings") or standing.contains("remembered") or standing.contains("world.components"):
 		push_error("STANDING: _standing_props reads the remembered map or the components itself; the rule is Appearance.standing_props' and it is the live seen set")
 		return false
-	if _lacks("var x = Appearance.standing_props(world, null, b)", ["Appearance.standing_props(world, seen, TopDownProjection.visible_bounds(camera, 2.0))"]).is_empty():
+	if _lacks("var x = Appearance.standing_props(world, null, b)", ["Appearance.standing_props(world, seen, bounds)"]).is_empty():
 		push_error("STANDING: the standing scanner passed a body that hands the pass no observer; it cannot say no")
 		return false
 	var entities: String = _function_source(MAIN_GD, "_draw_entities")
 	var at_gather: int = entities.find("items.append_array(_standing_props(seen))")
 	var at_sort: int = entities.find("items.sort_custom(")
-	var at_blit: int = entities.find("_blit_standing(it, px_scale)")
+	var at_blit: int = entities.find("_blit_standing(it, px_scale, focal_points)")
 	if at_gather < 0 or at_sort < 0 or at_blit < 0 or not (at_gather < at_sort and at_sort < at_blit):
 		push_error("STANDING: _draw_entities does not gather the standing props before the sort and blit them after it (gather %d, sort %d, blit %d)" % [at_gather, at_sort, at_blit])
 		return false
@@ -1820,7 +1953,7 @@ func _the_strip_and_the_inspector_draw_the_picture() -> bool:
 	# digit), a pictured base draws its icon and one without draws its glyph, and a thing that is
 	# not an item resolves to nothing rather than to somebody else's picture.
 	var w: Variant = World.new({"seed": 4244, "tick_hz": 20, "map": {"width": 8, "height": 8, "walls": []}, "player": {"id": 0, "x": 1.5, "y": 1.5, "stance": 2}})
-	var pictured_id: String = "item.antibiotics.course"
+	var pictured_id: String = "item.stove.camp"
 	var plain_id: String = ""
 	for path in (w.content as Dictionary).keys():
 		if not String(path).begins_with("items/"):
@@ -1891,6 +2024,9 @@ func _item_pictures_are_real_and_drawn() -> bool:
 	if pictured == 0 or fallback == 0:
 		push_error("PICTURES: %d bases have a picture and %d fall back; the lane needs both to judge either" % [pictured, fallback])
 		return false
+	if String(by_id.get("item.stove.camp", "")) != "item_camp_stove":
+		push_error("PICTURES: item.stove.camp no longer names its authored Camp Stove icon; the glyph fallback would return silently")
+		return false
 
 	# A picture must not say what the name has not: the grades of one medicine, and clean and
 	# untreated water, draw one picture. One predicate over two ids; the fabrications prove it can
@@ -1941,6 +2077,55 @@ func _draw_one_picture(w: Variant, ids: Array) -> bool:
 	return true
 
 
+func _camp_stove_icon_is_explicit_and_transparent() -> bool:
+	var w: Variant = World.new(_fixture())
+	var item: Dictionary = Appearance.entry_of(w, "item", "item.stove.camp")
+	var block: Dictionary = item.get("appearance", {}) as Dictionary
+	if String(block.get("sprite", "")) != "item_camp_stove":
+		push_error("CAMP STOVE: content no longer declares item_camp_stove, so item_look would use a class glyph")
+		return false
+	var item_size: Variant = item.get("size", {})
+	var size_is_2x2: bool = item_size is Dictionary and is_equal_approx(float((item_size as Dictionary).get("w", 0.0)), 2.0) and is_equal_approx(float((item_size as Dictionary).get("h", 0.0)), 2.0)
+	if String(item.get("class", "")) != "material" or not size_is_2x2 or int(item.get("purifies", 0)) != 25 or not is_equal_approx(float(item.get("massKg", 0.0)), 1.8):
+		push_error("CAMP STOVE: class, 2x2 footprint, carried mass or purification behavior changed with the picture (%s)" % str(item))
+		return false
+	var look: Dictionary = Appearance.item_look(w, "item.stove.camp")
+	var texture: Variant = look.get("texture")
+	if not (texture is Texture2D) or bool(look.get("declaredTint", true)):
+		push_error("CAMP STOVE: the declared icon did not resolve as an unstained picture")
+		return false
+	var authored: Dictionary = Appearance.authored_canvases()
+	if not authored.has("item_camp_stove") or Vector2i((texture as Texture2D).get_size()) != Vector2i(32, 32):
+		push_error("CAMP STOVE: item_camp_stove is not an authored 32x32 icon")
+		return false
+	var image: Image = (texture as Texture2D).get_image()
+	var bounds: Rect2i = image.get_used_rect()
+	if bounds.size.x < 20 or bounds.size.y < 18 or bounds.size.x > 28 or bounds.size.y > 26 or image.get_pixel(0, 0).a != 0.0 or image.get_pixel(31, 31).a != 0.0:
+		push_error("CAMP STOVE: icon exterior is not transparent or its occupied pixels are outside the compact stove bounds (%s)" % str(bounds))
+		return false
+	var partial: int = 0
+	var opaque: int = 0
+	for y in range(32):
+		for x in range(32):
+			var alpha: float = image.get_pixel(x, y).a
+			if alpha > 0.0 and alpha < 1.0:
+				partial += 1
+			if alpha == 1.0:
+				opaque += 1
+	if partial == 0 or opaque == 0:
+		push_error("CAMP STOVE: the exported icon lost the original partial-alpha edge or has no fully covered pixels")
+		return false
+	var main_src: String = FileAccess.get_file_as_string("res://presentation/main.gd")
+	var bag_src: String = FileAccess.get_file_as_string("res://ui/bag_grid.gd")
+	for reader in [["ground", main_src, "func _draw_entities(", "Appearance.item_look("], ["bag", bag_src, "static func draw_item(", "Appearance.item_look("], ["strip", FileAccess.get_file_as_string("res://ui/quick_strip.gd"), "static func draw_strip(", "Appearance.item_look("], ["inspect", FileAccess.get_file_as_string("res://ui/inspect_pane.gd"), "static func draw_pane(", "Appearance.item_look("]]:
+		var source: String = _function_text(String((reader as Array)[1]), String((reader as Array)[2]))
+		if source.is_empty() or not source.contains(String((reader as Array)[3])):
+			push_error("CAMP STOVE: %s surface no longer uses the shared item_look resolver" % String((reader as Array)[0]))
+			return false
+	print("CAMP STOVE OK item_camp_stove stays a transparent 32x32 authored picture on the material 2x2 purifier; alpha has partial and full pixels and floor/bag/strip/inspect share item_look")
+	return true
+
+
 # --- CHART --------------------------------------------------------------------------------
 
 # The inventory sheet's body chart: ten parts by three poses, each its own picture, stacked at one
@@ -1955,12 +2140,246 @@ func _draw_one_picture(w: Variant, ids: Array) -> bool:
 const CHART_MASK_FLOOR: float = 0.80
 
 
+func _chart_masks_separated(a: PackedByteArray, b: PackedByteArray) -> bool:
+	var width: int = int(Appearance.CHART_CANVAS.x)
+	var height: int = int(Appearance.CHART_CANVAS.y)
+	if a.size() != width * height * 4 or b.size() != a.size():
+		return false
+	for y in range(height):
+		for x in range(width):
+			var ai: int = (y * width + x) * 4 + 3
+			if a[ai] <= 127:
+				continue
+			for ny in range(maxi(0, y - 1), mini(height, y + 2)):
+				for nx in range(maxi(0, x - 1), mini(width, x + 2)):
+					if b[(ny * width + nx) * 4 + 3] > 127:
+						return false
+	return true
+
+
+func _chart_touching_masks_are_refused() -> bool:
+	# A transparent moat is accepted, while touching and overlapping alpha are rejected.
+	var a := PackedByteArray()
+	var b := PackedByteArray()
+	a.resize(64 * 160 * 4)
+	b.resize(a.size())
+	a.fill(0)
+	b.fill(0)
+	a[3] = 255
+	b[11] = 255 # two pixels apart: one transparent pixel between them
+	if not _chart_masks_separated(a, b):
+		push_error("the CHART separation predicate refused masks with a transparent moat")
+		return false
+	b[11] = 0
+	b[7] = 255
+	if _chart_masks_separated(a, b):
+		push_error("the CHART separation predicate accepted two touching parts")
+		return false
+	b[7] = 0
+	b[3] = 255
+	if _chart_masks_separated(a, b):
+		push_error("the CHART separation predicate accepted overlapping parts")
+		return false
+	return true
+
+
+func _chart_minimum_gap(a: PackedByteArray, b: PackedByteArray, max_gap: int = 8) -> int:
+	var width: int = int(Appearance.CHART_CANVAS.x)
+	var height: int = int(Appearance.CHART_CANVAS.y)
+	if a.size() != width * height * 4 or b.size() != a.size():
+		return -1
+	for gap in range(max_gap + 1):
+		for y in range(height):
+			for x in range(width):
+				if a[(y * width + x) * 4 + 3] <= 127:
+					continue
+				for ny in range(maxi(0, y - gap), mini(height, y + gap + 1)):
+					for nx in range(maxi(0, x - gap), mini(width, x + gap + 1)):
+						if b[(ny * width + nx) * 4 + 3] > 127:
+							return gap
+	return max_gap + 1
+
+
+func _chart_armoured_seam_survives(a: PackedByteArray, b: PackedByteArray, scale: int, doll: Control) -> bool:
+	var source_w: int = int(Appearance.CHART_CANVAS.x)
+	var source_h: int = int(Appearance.CHART_CANVAS.y)
+	if scale < 1 or a.size() != source_w * source_h * 4 or b.size() != a.size():
+		return false
+	var width: int = source_w * scale
+	var height: int = source_h * scale
+	var aa := PackedByteArray()
+	var bb := PackedByteArray()
+	aa.resize(width * height)
+	bb.resize(width * height)
+	aa.fill(0)
+	bb.fill(0)
+	var offsets: Array = doll.call("_armor_offsets", float(scale))
+	for y in range(source_h):
+		for x in range(source_w):
+			var src: int = (y * source_w + x) * 4 + 3
+			if a[src] <= 127 and b[src] <= 127:
+				continue
+			var target: PackedByteArray = aa if a[src] > 127 else bb
+			for py in range(scale):
+				for px in range(scale):
+					var sx: int = x * scale + px
+					var sy: int = y * scale + py
+					target[sy * width + sx] = 255
+					for offset_v in offsets:
+						var offset: Vector2 = offset_v as Vector2
+						var ox: int = sx + roundi(offset.x)
+						var oy: int = sy + roundi(offset.y)
+						if ox >= 0 and oy >= 0 and ox < width and oy < height:
+							target[oy * width + ox] = 255
+	for y in range(height):
+		for x in range(width):
+			if aa[y * width + x] <= 127:
+				continue
+			for ny in range(maxi(0, y - 1), mini(height, y + 2)):
+				for nx in range(maxi(0, x - 1), mini(width, x + 2)):
+					if bb[ny * width + nx] > 127:
+						return false
+	return true
+
+
+func _chart_proportions_ok(head_fraction: float, leg_start_fraction: float, leg_fraction: float) -> bool:
+	return head_fraction >= 0.15 and head_fraction <= 0.23 and leg_start_fraction >= 0.46 and leg_start_fraction <= 0.56 and leg_fraction >= 0.37 and leg_fraction <= 0.49
+
+
+func _chart_proportion_bounds_hold() -> bool:
+	if not _chart_proportions_ok(30.0 / 153.0, 79.0 / 153.0, 66.0 / 153.0):
+		push_error("the approved D2 standing proportions were rejected")
+		return false
+	for rejected in [[0.25, 0.52, 0.45], [0.19, 0.62, 0.45], [0.19, 0.52, 0.34]]:
+		if _chart_proportions_ok(float(rejected[0]), float(rejected[1]), float(rejected[2])):
+			push_error("D2 proportion bounds accepted an invalid fixture: %s" % str(rejected))
+			return false
+	return true
+
+
+func _chart_mark_plan_fits(image: Image, plan: Dictionary) -> bool:
+	var center: Vector2 = plan.get("center", Vector2(-1, -1)) as Vector2
+	var radius: float = float(plan.get("radius", 0.0))
+	if center.x < 0.0 or radius <= 0.0:
+		return false
+	for y in range(floori(center.y - radius - 0.5), ceili(center.y + radius + 0.5) + 1):
+		for x in range(floori(center.x - radius - 0.5), ceili(center.x + radius + 0.5) + 1):
+			if Vector2(x, y).distance_to(center) > radius + 0.5:
+				continue
+			if x < 0 or y < 0 or x >= image.get_width() or y >= image.get_height() or image.get_pixel(x, y).a <= 0.5:
+				return false
+	return true
+
+
+func _chart_marks_fit_real_masks(textures: Dictionary) -> bool:
+	var doll := (load("res://ui/paperdoll.gd") as Script).new() as Control
+	for key in textures.keys():
+		var image: Image = (textures[key] as Texture2D).get_image()
+		var plan: Dictionary = doll.call("_chart_mark_plan", textures[key])
+		if not _chart_mark_plan_fits(image, plan):
+			push_error("combined wound/infection mark footprint falls off %s" % String(key))
+			doll.free()
+			return false
+		var moved: Dictionary = {"center": Vector2(0, 0), "radius": float(plan["radius"])}
+		if _chart_mark_plan_fits(image, moved):
+			push_error("mark predicate accepted an intentionally relocated mark on %s" % String(key))
+			doll.free()
+			return false
+	doll.free()
+	return true
+
+
+func _chart_reader_is_callable() -> bool:
+	var world := World.new(_fixture())
+	SimHealth.make_survivor_body(world, world.player)
+	var view: Dictionary = SimCondition.view(world, world.player)
+	var doll := (load("res://ui/paperdoll.gd") as Script).new() as Control
+	doll.call("set_view", view)
+	var actual: Dictionary = doll.get("_view") as Dictionary
+	if actual != view or actual.is_empty():
+		push_error("the paperdoll did not consume the live SimCondition.view through set_view")
+		doll.free()
+		return false
+	if doll.call("_tint_for", "head") != Color("#4d5546") or doll.call("_flag", "head", "armored") or doll.call("_infected", "head"):
+		push_error("paperdoll state readers did not return the actual unhurt view")
+		doll.free()
+		return false
+	if (doll.call("_armor_offsets", 2.0) as Array).size() != 4 or (doll.call("_armor_offsets", 3.0) as Array).size() != 4:
+		push_error("paperdoll armor helper did not expose its actual four stroke offsets")
+		doll.free()
+		return false
+	var head_texture: Texture2D = Appearance.resolve("chart_head_stand")
+	var white_mask: Texture2D = doll.call("_armor_mask", head_texture)
+	var source_image: Image = head_texture.get_image()
+	var mask_image: Image = white_mask.get_image()
+	var found_dark_edge: bool = false
+	for y in range(source_image.get_height()):
+		for x in range(source_image.get_width()):
+			var source_px: Color = source_image.get_pixel(x, y)
+			if source_px.a > 0.5 and maxf(source_px.r, maxf(source_px.g, source_px.b)) < 0.25:
+				var mask_px: Color = mask_image.get_pixel(x, y)
+				if not Color(mask_px.r, mask_px.g, mask_px.b).is_equal_approx(Color.WHITE) or not is_equal_approx(mask_px.a, source_px.a):
+					push_error("armor silhouette mask failed to recolor the chart's dark inwards outline")
+					doll.free()
+					return false
+				found_dark_edge = true
+				break
+		if found_dark_edge:
+			break
+	if not found_dark_edge:
+		push_error("chart head mask has no dark inwards outline to recolor")
+		doll.free()
+		return false
+	if doll.call("_armor_mask", head_texture) != white_mask:
+		push_error("paperdoll armor silhouette mask was not cached from its callable helper")
+		doll.free()
+		return false
+	doll.free()
+	var paperdoll_src: String = FileAccess.get_file_as_string("res://ui/paperdoll.gd")
+	var draw_body: String = _function_text(paperdoll_src, "func _draw(")
+	var set_view_body: String = _function_text(paperdoll_src, "func set_view(")
+	var inventory_ready: String = _function_text(FileAccess.get_file_as_string("res://ui/inventory_panel.gd"), "func _ready(")
+	var inventory_world: String = _function_text(FileAccess.get_file_as_string("res://ui/inventory_panel.gd"), "func set_world(")
+	var draw_needles: Array = [
+		"Appearance.chart_key(part, pose)",
+		"Appearance.resolve(key)",
+		"draw_texture_rect(armour_mask, Rect2(rect.position + step, rect.size), false, ARMOUR_COL)",
+		"draw_texture_rect(texture, rect, false, _tint_for(part))",
+		"_chart_mark_plan(texture)",
+		"marks.append({",
+		"for mark in marks:",
+		"draw_circle(at, mark_r, backing)",
+		"draw_circle(at, mark_r, Color(0.72, 0.24, 0.22), false, stroke)",
+		"draw_circle(at, maxf(1.0, mark_r * 0.35), Color(0.68, 0.82, 0.36))",
+	]
+	if draw_body.is_empty() or not _appears_in_order(draw_body, draw_needles):
+		push_error("CHART READ: the actual _draw body does not resolve/draw each plate, stroke armour below it, and draw stored marks above it")
+		return false
+	if not _appears_in_order(set_view_body, ["_view = view", "_by_part = {}", "_by_part[String(d.get(\"part\", \"\"))] = d", "queue_redraw()"]):
+		push_error("CHART READ: set_view no longer copies the condition view into its draw state and requests a redraw")
+		return false
+	if not inventory_ready.contains("_paperdoll = Paperdoll.new()") or not inventory_ready.contains("add_child(_paperdoll)") or not inventory_world.contains("_paperdoll.call(\"set_view\", cv)"):
+		push_error("CHART READ: the inventory sheet no longer owns and feeds the actual drawable paperdoll control")
+		return false
+	# Removing any one production draw socket must make this function-body predicate answer no.
+	for needle in ["Appearance.resolve(key)", "draw_texture_rect(armour_mask, Rect2(rect.position + step, rect.size), false, ARMOUR_COL)", "draw_texture_rect(texture, rect, false, _tint_for(part))", "_chart_mark_plan(texture)", "draw_circle(at, mark_r, backing)"]:
+		if _appears_in_order(draw_body.replace(String(needle), ""), draw_needles):
+			push_error("CHART READ: the bounded source predicate still passes after removing %s" % String(needle))
+			return false
+	return true
+
 func _the_body_chart_is_ten_parts_in_three_poses() -> bool:
+	if not _chart_touching_masks_are_refused():
+		return false
+	if not _chart_proportion_bounds_hold() or not _chart_reader_is_callable():
+		return false
 	var missing: Array[String] = []
 	var wrong_size: Array[String] = []
 	var too_dark: Array[String] = []
 	var rects: Dictionary = {}
 	var digests: Dictionary = {}
+	var textures: Dictionary = {}
+	var armour_doll := (load("res://ui/paperdoll.gd") as Script).new() as Control
 	for pose in Appearance.CHART_POSES:
 		for part in SimCondition.PART_ORDER:
 			var key: String = Appearance.chart_key(String(part), String(pose))
@@ -1977,6 +2396,14 @@ func _the_body_chart_is_ten_parts_in_three_poses() -> bool:
 				missing.append("%s (drawn nothing)" % key)
 				continue
 			rects[key] = used
+			textures[key] = texture
+			for edge_y in range(image.get_height()):
+				for edge_x in range(image.get_width()):
+					if edge_x >= 2 and edge_x < image.get_width() - 2 and edge_y >= 2 and edge_y < image.get_height() - 2:
+						continue
+					if image.get_pixel(edge_x, edge_y).a > 0.5:
+						push_error("%s has opaque pixels at a truncating canvas boundary" % key)
+						return false
 			# The mask rule. A part whose brightest pixel is dark cannot be tinted: the draw is a
 			# multiply, so its lightest possible result is already darker than the state colour.
 			var brightest: float = 0.0
@@ -1993,6 +2420,32 @@ func _the_body_chart_is_ten_parts_in_three_poses() -> bool:
 			# key digested to the empty string and the comparison below fired on nothing. A gate
 			# that cannot pass is as bad as one that cannot fail.
 			digests[key] = image.get_data()
+	# The condition chart needs visible transparent breaks at every joint. Judge decoded alpha
+	# masks in every pose, including a one-pixel moat; bounding rectangles are not enough because
+	# bent limbs can have empty corners inside their rectangles.
+	for pose in Appearance.CHART_POSES:
+		for i in range(SimCondition.PART_ORDER.size()):
+			var a_key: String = Appearance.chart_key(String(SimCondition.PART_ORDER[i]), String(pose))
+			var a_mask: PackedByteArray = digests.get(a_key, PackedByteArray()) as PackedByteArray
+			for j in range(i + 1, SimCondition.PART_ORDER.size()):
+				var b_key: String = Appearance.chart_key(String(SimCondition.PART_ORDER[j]), String(pose))
+				var b_mask: PackedByteArray = digests.get(b_key, PackedByteArray()) as PackedByteArray
+				if not _chart_masks_separated(a_mask, b_mask):
+					push_error("%s and %s overlap or touch in %s; each condition mark needs its own visible part" % [a_key, b_key, String(pose)])
+					return false
+		var joints: Array = [["head", "torso"], ["arm_left", "torso"], ["arm_right", "torso"], ["arm_left", "hand_left"], ["arm_right", "hand_right"], ["torso", "leg_left"], ["torso", "leg_right"], ["leg_left", "foot_left"], ["leg_right", "foot_right"]]
+		for joint in joints:
+			var first: String = String((joint as Array)[0])
+			var second: String = String((joint as Array)[1])
+			var gap: int = _chart_minimum_gap(digests[Appearance.chart_key(first, String(pose))], digests[Appearance.chart_key(second, String(pose))], 8)
+			if gap < 2 or gap > 6:
+				push_error("%s to %s seam is %d pixels in %s; expected a narrow, separated joint" % [first, second, gap, String(pose)])
+				return false
+			if not _chart_armoured_seam_survives(digests[Appearance.chart_key(first, String(pose))], digests[Appearance.chart_key(second, String(pose))], 2, armour_doll) or not _chart_armoured_seam_survives(digests[Appearance.chart_key(first, String(pose))], digests[Appearance.chart_key(second, String(pose))], 3, armour_doll):
+				push_error("armour strokes close the %s/%s seam in %s at 2x or 3x" % [first, second, String(pose)])
+				armour_doll.free()
+				return false
+	armour_doll.free()
 	if not missing.is_empty():
 		push_error("%d chart parts have no picture: %s" % [missing.size(), ", ".join(missing)])
 		return false
@@ -2002,6 +2455,31 @@ func _the_body_chart_is_ten_parts_in_three_poses() -> bool:
 	if not too_dark.is_empty():
 		push_error("chart parts too dark to tint (a multiply cannot brighten): %s" % ", ".join(too_dark))
 		return false
+	if not _chart_marks_fit_real_masks(textures):
+		return false
+	# The armour predicate itself gets positive and negative fixtures, independently of artwork.
+	var seam_a := PackedByteArray()
+	var seam_b := PackedByteArray()
+	seam_a.resize(64 * 160 * 4)
+	seam_b.resize(seam_a.size())
+	seam_a.fill(0)
+	seam_b.fill(0)
+	seam_a[3] = 255
+	seam_b[3 + 3 * 4] = 255
+	var seam_doll := (load("res://ui/paperdoll.gd") as Script).new() as Control
+	for scale in [2, 3]:
+		if not _chart_armoured_seam_survives(seam_a, seam_b, scale, seam_doll):
+			push_error("armour seam helper refused a three-pixel separation at %dx" % scale)
+			seam_doll.free()
+			return false
+	seam_b[3 + 3 * 4] = 0
+	seam_b[3 + 1 * 4] = 255
+	for scale in [2, 3]:
+		if _chart_armoured_seam_survives(seam_a, seam_b, scale, seam_doll):
+			push_error("armour seam helper accepted touching source masks at %dx" % scale)
+			seam_doll.free()
+			return false
+	seam_doll.free()
 
 	# The pose has to be worth having: two poses drawn the same are one pose stored twice. Judged
 	# per *pose pair* rather than per part, because some parts legitimately hold still -- your feet
@@ -2055,6 +2533,16 @@ func _the_body_chart_is_ten_parts_in_three_poses() -> bool:
 	if head.position.y >= foot.position.y:
 		push_error("the head is not above the feet on the chart canvas")
 		return false
+	var body_top: int = head.position.y
+	var body_bottom: int = maxi(foot.end.y, (rects[Appearance.chart_key("foot_right", "stand")] as Rect2i).end.y)
+	var body_height: float = float(body_bottom - body_top)
+	var leg_left: Rect2i = rects[Appearance.chart_key("leg_left", "stand")] as Rect2i
+	var leg_right: Rect2i = rects[Appearance.chart_key("leg_right", "stand")] as Rect2i
+	var leg_top: int = mini(leg_left.position.y, leg_right.position.y)
+	var leg_bottom: int = maxi(leg_left.end.y, leg_right.end.y)
+	if not _chart_proportions_ok(float(head.size.y) / body_height, float(leg_top - body_top) / body_height, float(leg_bottom - leg_top) / body_height):
+		push_error("decoded standing head and leg proportions fall outside D2 bounds")
+		return false
 
 	# `chart_rect` is what the wound marks hang on, and it must agree with the picture rather than
 	# with a table -- the whole reason it is read off the image.
@@ -2066,16 +2554,11 @@ func _the_body_chart_is_ten_parts_in_three_poses() -> bool:
 		push_error("chart_rect on an unknown key should fall back to the whole canvas")
 		return false
 
-	# The dead-socket half: something draws them, tints them by state, and the capsule figure this
-	# replaced is gone rather than left beside it.
+	# Actual callable reads above exercise the view; source comments cannot satisfy this lane.
 	var doll: String = FileAccess.get_file_as_string("res://ui/paperdoll.gd")
-	for needed in ["Appearance.chart_key", "Appearance.resolve", "draw_texture_rect", "CONDITION_TINTS", "chart_rect"]:
-		if doll.find(needed) < 0:
-			push_error("ui/paperdoll.gd never mentions %s, so the chart is drawn by nothing or tinted by nothing" % needed)
-			return false
 	for gone in ["_tapered", "draw_colored_polygon", "const P: Dictionary"]:
 		if doll.find(gone) >= 0:
 			push_error("ui/paperdoll.gd still carries the drawn figure's %s beside the chart" % gone)
 			return false
-	print("CHART OK %d parts x %d poses on the %dx%d canvas, every one a mask above %.2f, no two poses the same picture, sides distinct, and ui/paperdoll.gd draws and tints them" % [SimCondition.PART_ORDER.size(), Appearance.CHART_POSES.size(), Appearance.CHART_CANVAS.x, Appearance.CHART_CANVAS.y, CHART_MASK_FLOOR])
+	print("CHART OK %d parts x %d poses on the %dx%d canvas, masks have a transparent moat, near-white tinting and pose checks hold, touching masks are refused, and ui/paperdoll.gd draws and anchors marks on SimCondition parts" % [SimCondition.PART_ORDER.size(), Appearance.CHART_POSES.size(), Appearance.CHART_CANVAS.x, Appearance.CHART_CANVAS.y])
 	return true

@@ -24,13 +24,21 @@ manifests and Godot SpriteFrames resources. View the
 [offline interactive preview](godot/art/simplyzombies/simplyzombies-production-preview.html).
 The pack is checked in at `res://art/simplyzombies/` and is adopted into the live renderer
 slice by slice, per [the roadmap's "Art & renderer — the outpost pack"
-group](docs/23-roadmap.md#whats-left-in-milestone-2). As of 2026-09-27 the game draws the pack's
+group](docs/23-roadmap.md#whats-left-in-milestone-2). The game draws the pack's
 four-direction walking bodies, its worn gear and held weapons, its east-west cars, item icons
 (floor, bags, quick strip and inspect pane), the ground, trees and nature dressing, heaps, the
 bed, furnishings and containers, the barricade and work lamp, the muzzle flash, casing, blood and
-campfire flame, and the crosshair and interaction-hand cursors. The walls are next, after the
-owner picks between the pack's modules and today's generated faces; what has landed, and what was
-deliberately left out, is in [the record](docs/23-roadmap.md#the-record-by-system).
+campfire flame, and the crosshair and interaction-hand cursors. The approved A2 fitted wall
+modules now cover supported rectangular brick and plaster perimeters, with generated fallbacks
+for other shapes and orientations. The latest art pass also adds an exploded condition chart,
+the workbench and three tall furnishings, a carried stove icon, and source-specific light colours.
+See the [runtime captures](.hermes/plans/2026-10-02_art-completion/) and
+[implementation record](docs/23-roadmap.md#the-record-by-system) for evidence and remaining limits.
+
+Seven original zombie families now have directional idle and walking pictures and matching
+settled corpses; humans share four corpse poses. Their
+[sources and previews](godot/art/simplyzombies/zombie-poses/) preserve the generation and
+extraction history alongside the reproducible game assets.
 
 ---
 
@@ -43,7 +51,8 @@ animations, an atlas, and native Godot resources. See the
 [animation preview](godot/art/simplyzombies-ui/previews/simplyzombies-ui-motion.gif), or
 [offline preview](godot/art/simplyzombies-ui/simplyzombies-ui-preview.html).
 Run `godot/art/simplyzombies-ui/demo/demo.tscn` in Godot to try the native controls.
-Applying the kit to the live CanvasItem UI is a separate change.
+The live UI uses the kit's frames, font, glyphs, cursors and animations through the shared chrome
+helpers, checked by `godot:check:ui_skin`.
 
 ## The loop, in five lines
 
@@ -115,28 +124,12 @@ alone, but never simply following from them. It cannot send three sieges in a ro
 leave you alone for four nights running. And what arrives comes from wherever the district has been
 hearing you, not always down the same street.
 
-The full injury loop — grabs that pin, bites that make located bleeding wounds, pressure and
-bandaging, recovery over days you have to earn — is **built and gated but switched off** for one
-more turn. Five of the reasons it was off have been answered. A bite during a hold now aims where
-the hands already are, comes four seconds apart rather than two, and takes a share of the part it
-lands on, so a held survivor is no longer two rolls from a destroyed head; and the colony fights for
-itself now — anyone held struggles on instinct if nobody answers for them, everybody starts with
-something in their hands rather than in their pack, and a survivor with a weapon shoots whatever has
-hold of a neighbour before whatever is merely nearest. An escape is no longer something you can
-run out of money for: you get your breath back while you are held, and somebody standing next to you
-can haul you out of a grip with their bare hands (`H`). And you are no longer forbidden from doing
-anything about the blood — you can clamp your own hand over your own wound while somebody has hold
-of you (`T`), badly, and go on fighting to get free at the same time. Tearing loose takes that hand
-off the wound, so an escape is a real run rather than a pause, and the hand goes back on once you
-are clear.
-
-What is left is one question nobody should answer alone, and it is no longer a mechanical one. A
-shove-off now finds a heading with room to run instead of leaning on the wall you were pinned
-against, and a wound you had to let go of remembers the time already spent holding it, so
-interrupted first aid adds up instead of starting over. What still kills the hardest seed is that
-two people spread across a whole district can never reach each other in time to help — and how big
-the colony should be, or how close it should stand, is a design call, not a bug. It is recorded in
-full in [where Milestone 2 stands](docs/23-roadmap.md#where-milestone-2-stands).
+**The full injury loop is live.** Grabs, located bites, bleeding, pressure, bandaging, infection
+and recovery have run in ordinary play since the owner's 2026-09-01 decision. You start with
+Mara and Ellis; colonists struggle and defend one another, and `H` lets you pull someone free.
+`T` applies first aid, including bare-handed pressure on your own wound while held. The decision,
+measurements and gates are recorded in
+[where Milestone 2 stands](docs/23-roadmap.md#where-milestone-2-stands).
 
 **Godot 4.7.1 is the playable build.** The web export runs at `/` and the Windows artifact comes
 from the same green commit; a failed CI publishes nothing. The TypeScript/Canvas oracle is

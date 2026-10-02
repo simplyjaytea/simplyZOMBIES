@@ -543,11 +543,17 @@ projection are untouched.
   the three heaps, see the record (`npm run godot:check:trees` → the widened KEYS and TIERS lanes;
   `godot:check:wrecks` → HEAP; `godot:check:authored` → READS widened to dressing blocks). The
   five nature sprites are "Nature extras" below.
-- **The walls are modules.** The pack's thirteen wall/fence/door/window states become per-tile
-  half pieces, y-sorted on the run's south edge in place of the generated thick-mass wall and cap
-  (decision 3 of the record entry; supersedes "walls gain thickness" and absorbs "the wall face
-  hangs south," both above). Picture round delivered 2026-09-27, waiting on the owner
-  (`.hermes/plans/2026-09-27_walls-picture-round/`).
+- ~~**The walls are modules.**~~ — landed 2026-10-03 for the owner's A2 fitted mapping on
+  supported rectangular brick and plaster perimeters; see the record (`godot:check:roof`,
+  `godot:check:authored`, `sprites:check`). Unsupported geometry and orientations retain generated
+  pictures. The separate unseen-wall roof coverage decision remains open in HANDOFF.
+- **Floor beneath A2 side walls.** Transparent pixels in the native side bands expose outdoor
+  ground on perimeter cells, where the approved prototype extends the indoor boards. Add a
+  presentation-only underlay for accepted A2 wall/window owner cells, respecting sight and roof
+  clipping without changing simulation or building metadata; compare both capture sizes again.
+- **The remaining pack wall states.** Interior wall, broken window, both fence directions and
+  open/closed gates remain unadopted. Give each a truthful existing reader or a separately scoped
+  mechanic before declaring its picture; the current simulation has no broken-glass state to paint.
 - ~~**A picture per item base.**~~ — **landed** 2026-09-26 for the floor and the bag plate, see
   the record (`npm run godot:check:appearance` → PICTURES; `npm run godot:check:authored` →
   ICON).
@@ -567,28 +573,18 @@ projection are untouched.
   furnishings and for its container kinds by loot table, see the record (`npm run
   godot:check:trees` → the new FURNISH lane and the widened INERT; `godot:check:appearance` → the
   new CONTAINERS lane; `godot:check:authored` → READS widened to `furnishings[].key`). The other
-  four furnishings are "The workbench and the tall furnishings" below.
-- **The workbench and the tall furnishings.** What "Furnishings and container kinds" left: the
-  pack's workbench, which would be the picture of the real `bench` entity (`SimGunsmith.build`
-  spawns it, nothing gives it a content id or a picture, so it draws by fallback colour) and so is
-  a prop for a thing that exists rather than dressing; and the fridge, the road sign and the
-  streetlamp, each taller than a tile, which want the entity sort a tree stands in rather than the
-  flat dressing pass. Not built, and not decided: the workbench as dressing would be a picture of a
-  bench that does nothing.
+  four were named for a follow-up slice, now landed below.
+- ~~**The workbench and the tall furnishings.**~~ — landed 2026-10-03; see the record. The
+  workbench picture follows the real `workbench` component and the three tall furnishings use the
+  existing deterministic dressing picks in the entity depth sort.
 - ~~**Nature extras.**~~ — **landed** 2026-09-26, see the record (`npm run godot:check:trees` →
   the new NATURE and INERT lanes).
 - ~~**Props for things that exist.**~~ — **landed** 2026-09-27 for two of the three, the scrap
   barricade and the planted work lamp, see the record (`npm run godot:check:appearance` → the new
   STANDING lane; `godot:check:authored` → PICTURE's `standing` kind and READS; `sprites:check`).
   The stove is "The stove's picture" below.
-- **The stove's picture.** The pack's iron stove for the game's stove. The game's only stove is the
-  carried Camp Stove item (`item.stove.camp`, a 2×2 material that boils water); nothing places one,
-  so its picture is an item picture, and item pictures are 32×32 icons drawn by `ui/` — the pack's
-  stove is 32×40 with 34 solid rows, which cannot be cut to 32×32 without losing rows of its
-  chimney or its feet, and this project draws the pack's art by crop and pad only, never resized
-  (docs/30, "The outpost pack, adopted"). Not built: the coordinator's answer of 2026-09-27 ruled
-  out cropping solid rows, so it waits for a placed stove, if one is ever wanted, or a different
-  icon.
+- ~~**The stove's picture.**~~ — landed 2026-10-03 as a separately authored 32×32 Camp Stove
+  icon; the pack's 32×40 utility stove remains unchanged. See the record.
 
 **UI — the UI Field Kit, live, decided by the owner (2026-09-25).** The direction is [docs/30's
 entry](30-decisions.md#the-ui-field-kit-live-2026-09-25): the whole kit — chrome textures,
@@ -848,7 +844,7 @@ the true negative in the same script, so a body standing still draws exactly wha
 today — and it is **still** load-bearing, because the paperdoll arc's own additive step rests on
 the same equality. The flat projection, 32 px a tile, the health-bar ban and the prose HUD are
 untouched by this group. **Most of it was absorbed on 2026-09-11** (below); what remains here is
-the diagram, which shares no gate with the rest, and the owner's undecided breath.
+the owner's undecided breath. The separate diagram landed on 2026-10-03; see the record.
 
 **Four of this group's pieces were absorbed on 2026-09-11** by the decoupled-paperdoll group
 above, and are not restated here: "the rig read harder" (its quantise clause is the four-tone
@@ -862,14 +858,7 @@ are all carried into the pieces that replace them.
 
 - **The frames.** Moved into the decoupled-paperdoll group above, where the legs strip it needs
   exists. Named here only so the cross-reference resolves.
-- **The exploded body chart.** The condition diagram redrawn: ten parts pulled a pixel off
-  their neighbours, each a plate with its own border and uniform seams, on a body with a head
-  about a sixth of the figure and legs a shade under half of it. `ui/paperdoll.gd` is rewritten
-  and `check_appearance.gd`'s CHART lane with it — **deliberately**, because that lane reads the
-  file as text and requires literal needles (`Appearance.chart_key`, `Appearance.resolve`,
-  `draw_texture_rect`, `CONDITION_TINTS`, `chart_rect`), so the amendment follows the call a
-  link further rather than dropping a needle. `godot:ban:healthbar` is untouched by
-  construction: it judges `SimCondition.view` and has never looked at this file.
+- ~~**The exploded body chart.**~~ — landed 2026-10-03; see the record.
 - **The idle breath — not decided.** One pixel of pelvis at a quarter of the walk's rate. It
   was drawn in the fixture round and deliberately left out of the four answers; it is a small
   call and it is the owner's.
@@ -917,7 +906,8 @@ group above amend this arc's mood, wall and pawn clauses; the pieces below stand
   went unjudged, so the socket is named rather than hidden.
 - **What a glimpsed corpse may show.** Settled human and zombie pictures now draw at Focal
   only (the record's "Zombies turn, walk and fall", 2026-10-02). Widening their appearance at
-  Peripheral detail remains an information-scarcity decision for the owner.
+  Peripheral detail remains an information-scarcity decision for the owner. Walk-cycle foot and
+  clothing polish and the four-pose human corpse vest overlay remain unshipped.
 - **The torch.** The reference's night is a cone from the player's hand; every light here is an
   omnidirectional shadowcast and there is no torch item. The piece is sim, not paint: a light
   item whose `light` block carries a direction and a cone, `SimLight` masking that emitter's
@@ -972,12 +962,16 @@ group above amend this arc's mood, wall and pawn clauses; the pieces below stand
   saddle; a per-class seat height is one content key and one line, held back until the
   pictures have been looked at; and **charging** — a flat battery is flat for good, exactly as
   a dry tank is dry, and a charger is the same refuelling verb the cars are waiting on.
-- **Per-source light tint.** The lit pools landed with **one** warm colour for every emitter (see
-  the record): a candle, a campfire and a floodlight paint the same rgb(255, 214, 140) and differ
-  only in reach. What a source's light *looks* like is content, the same way a prop's tint is —
-  a `tint` beside the existing `light: {magnitude}` block, resolved through `appearance.gd` and
-  never an `if id ==` in the draw loop. Wants the nested-shape gate every content block wants,
-  because the validator does not recurse.
+- ~~**Per-source light tint.**~~ — landed 2026-10-03; each current emitter's content tint colours
+  the existing light pool without changing its cast or reach. See the record.
+
+**Art remaining after the 2026-10-03 completion slices.** The bounded A2 wall mapping is live;
+its floor-underlay seam and remaining pack wall states are named above. The unseen-wall roof
+coverage choice remains with the owner. Full day/dusk/night grading remains
+unassessed, and the adopted ground palette stays pinned. The directional torch/cone is still a
+simulation and attention mechanic, not part of source colouring. Placed utility mechanics also
+remain absent: no placed stove, activated streetlamp, generator, rain collector or spike trap was
+added. These are separate pieces; the completed pictures do not imply those mechanics exist.
 
 **The inventory sheet and the screens — decided by the owner (2026-09-08).** The inventory is
 mechanically complete and gated, and the screen reaches four of its commands: `item.move`,
@@ -2477,7 +2471,9 @@ not a to-do list:
     clause 4 forbids; the shipped rule is deliberately one look for every container regardless of
     tier. No slice names any of the seven.
 
-  **What is already covered, corrected rather than assumed.** The pack's eight nature sprites
+  **Audit-time finding, since superseded by the 2026-09-27 and 2026-10-03 furnishing slices.**
+  The following describes the gap when this audit was written, not the current workbench or
+  dressing renderer. The pack's eight nature sprites
   (`nature-pine`, `-broadleaf`, `-dead-tree`, `-bush`, `-reeds`, `-rock-cluster`, `-stump`,
   `-fallen-log`) are not a gap: slice 4 ("Trees, the bed and the heaps") already names "the
   pack's eight nature sprites," and the count matches exactly. The forty-eight inventory icons
@@ -2489,8 +2485,9 @@ not a to-do list:
   `content/props/stations.json` places only container, bed, campfire, well and latrine, each a
   functional entity the generator or a job spawns, and a purely decorative prop has no placement
   pass to put it down at all. `prop-workbench` is the partial exception: `SimGunsmith.build`
-  already spawns a `bench` entity on `bench.built`, so the gameplay fact exists; nothing gives
-  that entity a content id or an `appearance.sprite`, so it still draws by fallback role colour.
+  already spawns an entity with a `workbench` component on `bench.built`, so the gameplay fact
+  exists; nothing gives that entity a content id or an `appearance.sprite`, so it still draws by
+  fallback role colour.
   No slice names any of the fifteen. Touches no standing ban.
 
 - **Art & renderer — zombies turn, walk and fall, 2026-10-02.** Closes "A silhouette per
@@ -2542,8 +2539,109 @@ not a to-do list:
   falling, rising or crawler-specific animation. Screamer/bloater retain their current art.
   Human corpses share four silhouettes, and zombie history evicts its oldest record at the cap.
   Generated motion retains 1–3 native pixels of pose-height and incidental clothing-detail
-  variation; a later polish pass can refine foot contact and stabilize those details.
-  No new zombie kind, spawn mix, wearable asset or corpse interaction is introduced.
+  variation; a later polish pass can refine foot contact and stabilize those details. No new
+  zombie kind, spawn mix, wearable asset or corpse interaction is introduced.
+
+- **Art & renderer — the condition chart, furnishings, stove icon and source colours,
+  2026-10-03.** Four bounded slices close the exploded body chart, the remaining four furnishings,
+  the carried Camp Stove icon, and the single-colour light pool. This record supersedes the
+  current-status claims for those pieces above and in the 2026-09-27 furnishing record; it does
+  not claim the whole art arc is complete.
+
+  **The condition chart.** Production masks now use separated plates derived from one shared
+  plate model. The existing ten parts, three poses and 64×160 canvas remain; the head is about a
+  sixth of the figure and the legs start just below mid-height and occupy just under half. The
+  mark plan fits its full footprints inside each affected plate, and armour strokes preserve the
+  seam. `ui/paperdoll.gd` still reads `SimCondition.view`, with no health fraction or new state.
+  `godot:check:appearance` CHART holds all thirty masks, canvas and brightness, pose and left/right
+  distinction, pairwise mask separation, joint gaps, proportions and fabricated bound negatives,
+  mark placement and an actual drawable reader path; the armour seam is checked at 2× and 3×.
+  `godot:ban:healthbar` is unchanged. Runtime captures for healthy, arm-cut, infected/armoured
+  and unusable-arm cases cover stand, crouch and prone in the corner and inventory at 1280×720
+  and 1920×1080 under `.hermes/plans/2026-10-02_art-completion/chart/`.
+
+  **The workbench and tall furnishings.** `prop.workbench` is read from a real entity with the
+  `workbench` component, created through `bench.build`. Fridge, road sign and unlit streetlamp
+  are explicit standing dressing picks, sorted at the ground anchor and faded only over a Focal
+  body; the flat pass skips those picks. Existing eight short furnishings keep their 48×32 limit,
+  while tall entries use the separate standing bound. They add no mechanics or simulation state.
+  `godot:check:trees`
+  FURNISH/standing reader lanes cover selection, exclusions, cache, ordering and fade;
+  `godot:check:appearance` WORKBENCH covers the build path, alive/seen draw guards and standing
+  picks; `godot:check:authored` SOURCE/READS and `godot:check:topdown` hold provenance and draw
+  path; `godot:m2:bench` holds the existing interaction. Captures show the built bench and each
+  furnishing with a body north and south in `.hermes/plans/2026-10-02_art-completion/props/`.
+
+  **The Camp Stove icon.** A separately authored 32×32 transparent `item_camp_stove` replaces
+  the class glyph on the carried Camp Stove. The preserved imagegen source, prompt, extraction
+  metadata and previews are under `godot/art/simplyzombies/art-completion/`; the pack's 32×40
+  utility stove is unchanged. The item remains the same 2×2 purifier. `godot:check:appearance`
+  CAMP STOVE holds alpha and the shared resolver; `godot:check:authored` ICON holds declaration,
+  and `godot:check:inventory` holds the bag, strip and inspect readers. Bag/inspect/strip and
+  dropped-item captures are under `.hermes/plans/2026-10-02_art-completion/stove/`.
+
+  **Existing light sources get their own colour.** Optional lowercase `light.tint` content on
+  light items, and `appearance.light.tint` on the lit campfire prop, now colour each winning
+  existing cast source. The lit pool retains the prior max-reach winner,
+  tie order, seen and bounds checks, near/far membership and alpha; source metadata is resolved
+  once per source per draw. Carried and attached lights follow current equipment and fuel, while
+  an equal-or-stronger muzzle flash uses the former warm fallback until it ends. No light reach,
+  duration, simulation state or attraction changed. `godot:check:light` covers distinct tints,
+  unknown fallback, carried/attached priority, exhaustion, flash restoration, source removal,
+  campfire state, overlap/tie, wall and unseen tiles, bounds, unchanged membership and alpha, and
+  the live draw reader. `godot:m2:light_burn`, `godot:m2:sight`, `godot:check:memory`,
+  `godot:validate` and `npm test` passed. Night comparisons and a same-view noon capture are
+  under `.hermes/plans/2026-10-02_art-completion/lights/`.
+
+  **Verification boundary.** The slice reports include `godot:check:trees`, `godot:check:authored`,
+  `godot:check:topdown`, `godot:m2:bench`, `godot:check:inventory`, `godot:validate`, `npm test`
+  and `sprites:check`; the chart integration's `godot:check:appearance` and `npm run format:check`
+  also passed here. Final typecheck, lint, formatting, routing, imported-asset smoke and sprite
+  reproduction passed; sprites reproduce **96 generated and 323 source-backed keys**. Sol on
+  GPT-6.1 approved the scoped runtime, art and documentation reviews. The owner requested an
+  immediate merge/push before shutting down the machine: the combined `godot:m2` run was
+  incomplete at landing, with **50/85 completed gates passing** and no recorded failing gate.
+  The full-chain and export results remain GitHub CI's responsibility; this is not a green
+  full-chain claim. Jev was unavailable this session. The owner-directed early landing is
+  recorded in the commit and PR as well.
+
+- **Art & renderer — A2 fitted pack walls, 2026-10-03.** The owner's shape-matched wall pick
+  is live on supported rectangular plaster and brick perimeters. Thirteen runtime PNGs reproduce
+  seven native pack sources through crop-only declarations: east-west runs, open/closed doors,
+  intact horizontal windows, full south corners and narrow north-south bands. The pack's NW/NE
+  corners fit the south-west/south-east by shape. No pack pixels were scaled or repainted.
+
+  `Dressing.wall_modules` resolves the content-owned roles. The actual closed ring and its
+  material/ownership must qualify before `main.gd` reserves a cell; unsupported compound,
+  notched or touching shells, internal partitions, timber/block and missing orientations keep
+  generated pictures. The side window therefore keeps its generated pane. Current door overlays
+  select open/closed art; board and scrap retain their existing treatment. No broken-glass state,
+  collision, simulation, random stream or save change is introduced.
+
+  Wall fragments join the standing depth sort at their native foot, with bodies in front at an
+  equal foot. Each owner/support cell and each clipped destination must be currently seen;
+  remembered-only walls keep the generated remembered treatment. Roof ownership and pass order
+  are unchanged. Full corners reserve only their three supporting perimeter cells. The exact
+  7×5 reference produces **25 placement fragments across 19 logical owner cells**, with continuous
+  half-tile side bands and preserved native phase. The actual `main.tscn` regression lane records
+  **51 texture blits**, the player drawn, and the completed frame; it catches the earlier wall
+  record entering a body-only scan and aborting the draw.
+
+  **Gated:** `godot:check:roof` A2_MAP, A2_RUNTIME and A2_SCENE_DRAW cover native offsets,
+  support reservations, continuous legs, topology refusal, current opening/overlay fallback,
+  missing keys, owner/destination sight clipping, map bounds, rounded zoom edges and equal-foot
+  ordering, with real-reader negatives. `godot:check:authored` SOURCE/READS and `sprites:check`
+  hold the thirteen declarations to decoded native pixels and a live resolver. Topdown, memory,
+  sight and content checks retain their existing contracts. Twelve exact-size runtime captures
+  at 1280×720 and 1920×1080 are under `.hermes/plans/2026-10-02_art-completion/walls/`; captions
+  distinguish forced all-seen geometry/depth diagnostics from the normal sight/roof views.
+
+  **Deliberately left:** transparent side bands expose outdoor ground on perimeter cells where
+  the prototype extends boards. This presentation-only underlay seam is named in what's left;
+  it does not alter the traversable floor or sight/roof safety. Interior wall, broken window,
+  both fence directions and open/closed gates remain unadopted. The separate owner decision on
+  roofs covering unseen perimeter walls remains open. Sol on GPT-6.1 approved the frozen scope
+  and captures with that visual limitation recorded.
 
 - **Art & renderer — the bodies turn and walk, 2026-09-26.** Every human (the player, Mara,
   Ellis, the colony looks, every raider archetype and look) draws the outpost pack's survivor, and
