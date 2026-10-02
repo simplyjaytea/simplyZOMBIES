@@ -8,7 +8,7 @@
     "massKg": 0.35,
     "appearance": { "sprite": "item_flashlight" },
     "equipSlot": "secondary",
-    "light": { "magnitude": 25, "burnTicks": 60000, "feed": "cell" }
+    "light": { "tint": "#e5edf2", "magnitude": 25, "burnTicks": 60000, "feed": "cell" }
   },
   {
     "id": "item.torch.penlight",
@@ -19,7 +19,7 @@
     "massKg": 0.08,
     "stack": 2,
     "equipSlot": "secondary",
-    "light": { "magnitude": 8, "burnTicks": 120000, "feed": "cell" }
+    "light": { "tint": "#e5edf2", "magnitude": 8, "burnTicks": 120000, "feed": "cell" }
   },
   {
     "id": "item.torch.steel",
@@ -30,7 +30,7 @@
     "massKg": 0.9,
     "appearance": { "sprite": "item_flashlight" },
     "equipSlot": "secondary",
-    "light": { "magnitude": 32, "burnTicks": 108000, "feed": "cell" }
+    "light": { "tint": "#e5edf2", "magnitude": 32, "burnTicks": 108000, "feed": "cell" }
   },
   {
     "id": "item.headlamp.band",
@@ -40,7 +40,7 @@
     "size": { "w": 1, "h": 1 },
     "massKg": 0.15,
     "equipSlot": "head",
-    "light": { "magnitude": 18, "burnTicks": 96000, "feed": "cell" }
+    "light": { "tint": "#e5edf2", "magnitude": 18, "burnTicks": 96000, "feed": "cell" }
   },
   {
     "id": "item.headlamp.miners",
@@ -50,7 +50,7 @@
     "size": { "w": 2, "h": 1 },
     "massKg": 0.5,
     "equipSlot": "head",
-    "light": { "magnitude": 28, "burnTicks": 72000, "feed": "cell" }
+    "light": { "tint": "#e5edf2", "magnitude": 28, "burnTicks": 72000, "feed": "cell" }
   },
   {
     "id": "item.cliplight.glasses",
@@ -60,7 +60,7 @@
     "size": { "w": 1, "h": 1 },
     "massKg": 0.05,
     "equipSlot": "eyes",
-    "light": { "magnitude": 7, "burnTicks": 144000, "feed": "cell" }
+    "light": { "tint": "#e5edf2", "magnitude": 7, "burnTicks": 144000, "feed": "cell" }
   },
   {
     "id": "item.glowstick",
@@ -71,7 +71,7 @@
     "massKg": 0.04,
     "stack": 6,
     "equipSlot": "secondary",
-    "light": { "magnitude": 6, "burnTicks": 96000 }
+    "light": { "tint": "#a8d58b", "magnitude": 6, "burnTicks": 96000 }
   },
   {
     "id": "item.flare.road",
@@ -82,7 +82,7 @@
     "massKg": 0.2,
     "stack": 3,
     "equipSlot": "secondary",
-    "light": { "magnitude": 30, "burnTicks": 6000 }
+    "light": { "tint": "#ee856c", "magnitude": 30, "burnTicks": 6000 }
   },
   {
     "id": "item.lantern.camping",
@@ -92,7 +92,7 @@
     "size": { "w": 2, "h": 2 },
     "massKg": 1.4,
     "equipSlot": "secondary",
-    "light": { "magnitude": 30, "burnTicks": 144000, "feed": "gas" }
+    "light": { "tint": "#fff0ca", "magnitude": 30, "burnTicks": 144000, "feed": "gas" }
   },
   {
     "id": "item.lantern.storm",
@@ -102,7 +102,7 @@
     "size": { "w": 1, "h": 2 },
     "massKg": 0.7,
     "equipSlot": "secondary",
-    "light": { "magnitude": 16, "burnTicks": 192000, "feed": "oil" }
+    "light": { "tint": "#ffd68c", "magnitude": 16, "burnTicks": 192000, "feed": "oil" }
   },
   {
     "id": "item.candle.tallow",
@@ -113,7 +113,7 @@
     "massKg": 0.12,
     "stack": 6,
     "equipSlot": "secondary",
-    "light": { "magnitude": 4, "burnTicks": 72000 }
+    "light": { "tint": "#ffd68c", "magnitude": 4, "burnTicks": 72000 }
   },
   {
     "id": "item.lighter.disposable",
@@ -124,7 +124,7 @@
     "massKg": 0.02,
     "stack": 3,
     "equipSlot": "secondary",
-    "light": { "magnitude": 2, "burnTicks": 24000 }
+    "light": { "tint": "#ffd68c", "magnitude": 2, "burnTicks": 24000 }
   },
   {
     "id": "item.worklight.rigged",
@@ -133,7 +133,7 @@
     "class": "tool",
     "size": { "w": 3, "h": 2 },
     "massKg": 5.5,
-    "light": { "magnitude": 60, "burnTicks": 120000, "feed": "gas" }
+    "light": { "tint": "#e5edf2", "magnitude": 60, "burnTicks": 120000, "feed": "gas" }
   },
   {
     "id": "item.oil.lamp",

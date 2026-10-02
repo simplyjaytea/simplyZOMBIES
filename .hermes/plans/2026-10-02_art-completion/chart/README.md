@@ -1,0 +1,7 @@
+# Body chart screenshots
+
+These are captures of the actual `godot/presentation/main.tscn` scene rendered into exact-size Godot `SubViewport`s. Each case covers stand, crouch, and prone in both the corner glimpse and inventory sheet at 1280x720 and 1920x1080. Filenames state case, pose, context, and viewport dimensions; the four `contact_*.png` files arrange cases in rows and poses in columns.
+
+The throwaway SceneTree capture drivers were deleted after use. The current prone captures were refreshed after the final plate geometry change. Each case derives condition state from the simulation body and calls `SimCondition.view`: `healthy` has the fresh body; `arm_cut` has reduced left-arm health and a bleeding wound record; `bad_torso_infected_leg_armored_head` has torso health 19/40 and a transmitted onset exposure on the right leg; `unusable_arm_armored` has a zero-health left arm. The head-armour indication is a staged presentation fixture on the returned view; it demonstrates the existing outline renderer without adding content or equipping an item. Shipped head-armour content exists, but this capture does not equip it through inventory.
+
+All 48 full-size PNG dimensions were checked with Pillow. I inspected the refreshed 1920x1080 mixed-condition prone inventory capture and 1280x720 inventory contact sheet. The prone plates remain inside the canvas, their separated seams are visible, the foot plate retains a bright tintable center, the torso state and infection mark are visible, and the inventory screen renders at the requested viewport size.

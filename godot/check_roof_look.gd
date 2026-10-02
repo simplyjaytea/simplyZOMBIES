@@ -46,8 +46,13 @@ const Dressing = preload("res://presentation/dressing.gd")
 const RoofLook = preload("res://presentation/roof_look.gd")
 const Palette = preload("res://presentation/palette.gd")
 const CameraUtil = preload("res://presentation/camera.gd")
+const MainRenderer = preload("res://presentation/main.gd")
+const TopDownProjection = preload("res://presentation/projection.gd")
+const Session = preload("res://presentation/session.gd")
+const SimVisibility = preload("res://sim/vision/visibility.gd")
 
 const MAIN_GD: String = "res://presentation/main.gd"
+const ROOF_GD: String = "res://presentation/roof_look.gd"
 const CANON_SEED: int = 20260805
 const GATE_SIZE: int = 64
 const BUDGET_SECONDS: float = 60.0
@@ -84,6 +89,17 @@ class FakeSeen extends RefCounted:
 		return tiles.has(Vector2i(tx, ty))
 
 
+class AllFocalVision extends RefCounted:
+	func tiles_for(_observer: int) -> Variant:
+		return self
+
+	func has_tile(_tx: int, _ty: int) -> bool:
+		return true
+
+	func detail(_observer: int, _x: float, _y: float) -> int:
+		return SimVisibility.Detail.Focal
+
+
 func _init() -> void:
 	call_deferred("_run")
 
@@ -91,6 +107,10 @@ func _init() -> void:
 func _run() -> void:
 	var started: int = Time.get_ticks_msec()
 	var ok: bool = true
+	ok = _the_a2_native_map_is_exact() and ok
+	ok = _the_a2_runtime_placements_and_fallbacks() and ok
+	var scene_draw_ok: bool = await _the_a2_scene_draws_walls_and_body()
+	ok = scene_draw_ok and ok
 	ok = _the_look_resolves_and_can_say_no() and ok
 	ok = _the_facade_reads_the_street_and_can_say_no() and ok
 	ok = _the_wall_face_and_south_open_agree_with_the_map() and ok
@@ -237,6 +257,385 @@ func _material_resolves(dress: Dictionary, look: Dictionary) -> String:
 		if Vector2i((roof_tex as Texture2D).get_size()) != want:
 			return "roof key '%s' is %s, not %s" % [roof_key, str((roof_tex as Texture2D).get_size()), str(want)]
 	return ""
+
+
+func _a2_mapping_fault(block: Dictionary) -> String:
+	var expected: Dictionary = {
+		"render": {"west": "a2_plaster_west", "middle": "a2_plaster_middle", "east": "a2_plaster_east", "window": "a2_window_intact", "door_open": "a2_door_open", "door_closed": "a2_door_closed", "corner_west": "a2_corner_nw", "corner_east": "a2_corner_ne", "leg_west": "a2_leg_west", "leg_east": "a2_leg_east"},
+		"brick": {"west": "a2_brick_west", "middle": "a2_brick_middle", "east": "a2_brick_east"},
+	}
+	for material_v in expected.keys():
+		var material: String = String(material_v)
+		var actual: Dictionary = Dressing.wall_modules(block, material)
+		for slot_v in (expected[material] as Dictionary).keys():
+			var slot: String = String(slot_v)
+			if String(actual.get(slot, "")) != String((expected[material] as Dictionary)[slot_v]):
+				return "%s.%s does not name the selected native module" % [material, slot]
+	return ""
+
+
+func _the_a2_native_map_is_exact() -> bool:
+	var shipped: Dictionary = Dressing.block_of(World.new(_fixture()))
+	var render_modules: Dictionary = Dressing.wall_modules(shipped, "render")
+	var brick_modules: Dictionary = Dressing.wall_modules(shipped, "brick")
+	if String(render_modules.get("west", "")) != "a2_plaster_west" or String(render_modules.get("middle", "")) != "a2_plaster_middle" or String(render_modules.get("east", "")) != "a2_plaster_east" or String(brick_modules.get("west", "")) != "a2_brick_west":
+		push_error("A2 run roles do not read the exact selected west/middle/east authored keys")
+		return false
+	var wrong_material: Dictionary = Dressing.wall_modules({"wall_modules": {"timber": {"west": "a2_plaster_west"}}}, "timber")
+	var wrong_role: Dictionary = Dressing.wall_modules({"wall_modules": {"render": {"west": "a2_plaster_east"}}}, "render")
+	if not wrong_material.is_empty() or String(wrong_role.get("west", "")) != "a2_plaster_east" or _a2_mapping_fault({"wall_modules": {"render": wrong_role}}).is_empty():
+		push_error("A2 mapping accepted unsupported timber art or the opposite endpoint key")
+		return false
+	var rect := Rect2i(1, 1, 5, 4)
+	if RoofLook.a2_south_corner_x(rect, true) != 1 or RoofLook.a2_south_corner_x(rect, false) != 4:
+		push_error("A2 corner plates did not map to the selected south-west/south-east anchors")
+		return false
+	if RoofLook.a2_south_corner_x(rect, true) == rect.end.x - 2 or RoofLook.a2_south_corner_x(rect, false) == rect.position.x:
+		push_error("A2 accepted the opposite corner placement")
+		return false
+	var visibility_map: Variant = _facade_map()
+	var seen := FakeSeen.new()
+	seen.tiles[Vector2i(1, 4)] = true
+	var corner_footprint := Rect2i(1, 3, 2, 2)
+	if RoofLook.a2_span_visible(visibility_map, corner_footprint, seen):
+		push_error("A2 corner overhang became visible from its single seen anchor")
+		return false
+	for y in range(corner_footprint.position.y, corner_footprint.end.y):
+		for x in range(corner_footprint.position.x, corner_footprint.end.x):
+			seen.tiles[Vector2i(x, y)] = true
+	if not RoofLook.a2_span_visible(visibility_map, corner_footprint, seen) or RoofLook.a2_span_visible(visibility_map, Rect2i(-1, 3, 2, 2), seen):
+		push_error("A2 corner span accepted a partially seen or off-map footprint")
+		return false
+	var topology: Variant = _facade_map()
+	var topology_w: int = int(topology.w)
+	for y in range(1, 5):
+		for x in range(6, 10):
+			topology.tiles[y * topology_w + x] = SimTileMap.Tile.Floor
+			topology.indoors[y * topology_w + x] = 0
+	topology.buildings = [topology.buildings[0]]
+	topology.tiles[4 * topology_w + 2] = SimTileMap.Tile.Door
+	var prototype_rect := Rect2i(1, 1, 5, 4)
+	if not RoofLook.a2_rectangular_ring(topology, prototype_rect, 0):
+		push_error("A2 refused the approved rectangular prototype ring")
+		return false
+	topology.tiles[2 * topology_w + 1] = SimTileMap.Tile.Floor
+	if RoofLook.a2_rectangular_ring(topology, prototype_rect, 0):
+		push_error("A2 accepted a notched bounding rectangle as a wall ring")
+		return false
+	topology.tiles[2 * topology_w + 1] = SimTileMap.Tile.Wall
+	topology.tiles[2 * topology_w + 6] = SimTileMap.Tile.Wall
+	if RoofLook.a2_rectangular_ring(topology, prototype_rect, 0):
+		push_error("A2 accepted touching outside masonry as a guessed compound ring")
+		return false
+	for key in ["a2_plaster_west", "a2_plaster_middle", "a2_plaster_east", "a2_corner_nw", "a2_corner_ne", "a2_leg_west", "a2_leg_east", "a2_window_intact", "a2_door_open", "a2_door_closed"]:
+		if not render_modules.values().has(key) or Appearance.resolve(String(key)) == null:
+			push_error("A2 plaster module %s is unresolved" % String(key))
+			return false
+	for key in ["a2_brick_west", "a2_brick_middle", "a2_brick_east"]:
+		if not brick_modules.values().has(key) or Appearance.resolve(String(key)) == null:
+			push_error("A2 brick run %s is unresolved" % String(key))
+			return false
+	if not Dressing.wall_modules({}, "render").is_empty() or not Dressing.wall_modules(shipped, "timber").is_empty():
+		push_error("A2 missing material block did not retain the generated fallback")
+		return false
+	var unknown_role: Dictionary = shipped.duplicate(true)
+	((unknown_role["wall_modules"] as Dictionary)["render"] as Dictionary)["unused"] = "a2_plaster_middle"
+	if Dressing.wall_modules_fault(shipped) != "" or Dressing.wall_modules_fault(unknown_role) == "":
+		push_error("A2 wall module shape predicate did not reject a dead unknown role")
+		return false
+	var swapped_slot: Dictionary = shipped.duplicate(true)
+	((swapped_slot["wall_modules"] as Dictionary)["render"] as Dictionary)["corner_west"] = "a2_corner_ne"
+	if _a2_mapping_fault(shipped) != "" or _a2_mapping_fault(swapped_slot) == "":
+		push_error("A2 mapping predicate did not refuse the opposite native corner in the west role")
+		return false
+	print("A2_MAP OK rectangular shell, plaster/brick slices and shape-matched south corners resolve; opposite placement/end crop, unsupported timber, notched/touching shells, partial visibility and off-map overhangs refuse")
+	return true
+
+
+func _a2_runtime_map() -> Variant:
+	var map: Variant = SimTileMap.blank_map(12, 10)
+	var w: int = int(map.w)
+	var rect := Rect2i(2, 2, 7, 5)
+	for x in range(rect.position.x, rect.end.x):
+		map.tiles[rect.position.y * w + x] = SimTileMap.Tile.Wall
+		map.tiles[(rect.end.y - 1) * w + x] = SimTileMap.Tile.Wall
+	for y in range(rect.position.y + 1, rect.end.y - 1):
+		map.tiles[y * w + rect.position.x] = SimTileMap.Tile.Wall
+		map.tiles[y * w + rect.end.x - 1] = SimTileMap.Tile.Wall
+		for x in range(rect.position.x + 1, rect.end.x - 1):
+			map.indoors[y * w + x] = 1
+	map.tiles[6 * w + 4] = SimTileMap.Tile.Window
+	map.tiles[6 * w + 5] = SimTileMap.Tile.Door
+	map.tiles[4 * w + 8] = SimTileMap.Tile.Window
+	map.buildings = [{"id": "a2.fixture", "x": 2, "y": 2, "w": 7, "h": 5, "doors": [{"x": 5, "y": 6}]}]
+	return map
+
+
+func _a2_runtime_select(renderer: Variant, map: Variant, block: Dictionary, seen: Variant) -> Dictionary:
+	var bounds: Dictionary = {"minX": 0.0, "minY": 0.0, "maxX": float(map.w), "maxY": float(map.h)}
+	return renderer.call("_a2_wall_modules", block, seen, null, bounds) as Dictionary
+
+
+func _the_a2_scene_draws_walls_and_body() -> bool:
+	var main: Node = load("res://presentation/main.tscn").instantiate()
+	root.add_child(main)
+	await process_frame
+	main.call("_enter_state", Session.State.PLAYING)
+	main.set_physics_process(false)
+	main.set_process(false)
+	var world: Variant = main.get("world")
+	var map: Variant = _a2_runtime_map()
+	world.tilemap = map
+	world.map_width = int(map.w)
+	world.map_height = int(map.h)
+	world.mapGeneration += 1
+	world.map_cells.resize(int(map.w) * int(map.h))
+	for y in map.h:
+		for x in map.w:
+			world.map_cells[y * int(map.w) + x] = 1 if SimTileMap.is_solid(map, x, y) else 0
+	for entity in world.components.query(["position"]):
+		var pos: Variant = world.components.get_component(entity, "position")
+		if pos is Dictionary:
+			(pos as Dictionary)["x"] = 200.0
+			(pos as Dictionary)["y"] = 200.0
+	var player_pos: Dictionary = world.components.get_component(int(world.player), "position") as Dictionary
+	player_pos["x"] = 5.5
+	player_pos["y"] = 5.4
+	world.vision = AllFocalVision.new()
+	var camera: Dictionary = main.get("camera")
+	camera["zoom"] = 32.0
+	camera["width"] = float(main.get_viewport_rect().size.x)
+	camera["height"] = float(main.get_viewport_rect().size.y)
+	camera["x"] = 6.0
+	camera["y"] = 5.0
+	main.set("camera", camera)
+	main.call("_building_index")
+	main.set("_looks", {0: {"wall": "render", "roof": "tar"}})
+	main.queue_redraw()
+	await process_frame
+	await process_frame
+	var pieces: Array = main.get("_a2_wall_pieces")
+	var focal: Array = main.get("_focal_drawn")
+	var blits: Array = main.get("_a2_wall_drawn")
+	var player_was_drawn: bool = false
+	for body_v in focal:
+		player_was_drawn = player_was_drawn or int((body_v as Dictionary).get("id", -1)) == int(world.player)
+	var completed: bool = int(main.get("_drew_tick")) == int(world.tick)
+	if pieces.is_empty() or blits.is_empty() or not player_was_drawn or not completed:
+		push_error("A2 actual scene draw did not blit wall fragments and complete the Focal body path (pieces=%d blits=%d focal=%d tick=%d/%d)" % [pieces.size(), blits.size(), focal.size(), int(main.get("_drew_tick")), int(world.tick)])
+		main.queue_free()
+		return false
+	print("A2_SCENE_DRAW OK main.tscn completed a full frame with %d wall pieces, %d actual texture blits, and player in _focal_drawn" % [pieces.size(), blits.size()])
+	main.queue_free()
+	return true
+
+
+func _the_a2_runtime_placements_and_fallbacks() -> bool:
+	var map: Variant = _a2_runtime_map()
+	var w: int = int(map.w)
+	var seen := FakeSeen.new()
+	for y in map.h:
+		for x in map.w:
+			seen.tiles[Vector2i(x, y)] = true
+	var world: Variant = World.new(_fixture())
+	world.tilemap = map
+	world.vision = seen
+	var renderer: Variant = MainRenderer.new()
+	renderer.set("world", world)
+	renderer.set("camera", {"zoom": 32.0, "x": 6.0, "y": 5.0, "width": 384.0, "height": 320.0})
+	renderer.call("_building_index")
+	renderer.set("_looks", {0: {"wall": "render"}})
+	var block: Dictionary = Dressing.block_of(world)
+	var covered: Dictionary = _a2_runtime_select(renderer, map, block, seen)
+	var south: int = 6
+	for x in range(2, 9):
+		if not covered.has(south * w + x):
+			push_error("A2 runtime left supported south owner tile %d to the generated path" % x)
+			return false
+	if covered.has(4 * w + 8):
+		push_error("A2 runtime suppressed the east-side window and its generated pane fallback")
+		return false
+	var pieces: Array = renderer.get("_a2_wall_pieces")
+	var corner_w: bool = false
+	var corner_e: bool = false
+	var west_leg_count: int = 0
+	var west_intervals: Array[Vector2] = []
+	var west_sources: Array[Vector2i] = []
+	var corner_records: Dictionary = {}
+	var east_window_pane_visible: bool = int(SimTileMap.tile_at(map, 8, 4)) == SimTileMap.Tile.Window and not covered.has(4 * w + 8)
+	for piece_v in pieces:
+		var piece: Dictionary = piece_v as Dictionary
+		var key: String = String(piece.get("key", ""))
+		corner_w = corner_w or key == "a2_corner_nw"
+		corner_e = corner_e or key == "a2_corner_ne"
+		if key in ["a2_corner_nw", "a2_corner_ne"]:
+			corner_records[key] = piece
+		if key == "a2_leg_west":
+			west_leg_count += 1
+			var leg_crop: Rect2i = piece["crop"] as Rect2i
+			var leg_top: float = float(piece["top"])
+			var native_start: int = roundi(leg_top * 32.0 - 66.0)
+			west_intervals.append(Vector2(leg_top, leg_top + float(leg_crop.size.y) / 32.0))
+			west_sources.append(Vector2i(leg_crop.position.y, leg_crop.size.y))
+			if native_start < 0 or leg_crop.position.y != posmod(native_start, 16):
+				push_error("A2 leg fragment lost its repeated 16px global source phase")
+				return false
+			if not is_equal_approx(float(piece.get("d", -1.0)), float(floori(float(piece["top"])) + 1)):
+				push_error("A2 leg fragment is not sorted at its owner row's foot")
+				return false
+	west_intervals.sort_custom(func(a: Vector2, b: Vector2) -> bool: return a.x < b.x)
+	var covered_y: float = 66.0 / 32.0 # north row 2 plus the prototype's 2px inset
+	for interval in west_intervals:
+		if not is_equal_approx(interval.x, covered_y):
+			push_error("A2 west leg contains a gap/overlap or lost global phase at %s" % str(interval))
+			return false
+		covered_y = interval.y
+	if not is_equal_approx(covered_y, 160.0 / 32.0) or west_sources.is_empty():
+		push_error("A2 west leg union is not exactly y=[66,160) in repeated native 16px bands")
+		return false
+	for corner_key in ["a2_corner_nw", "a2_corner_ne"]:
+		if not corner_records.has(corner_key):
+			push_error("A2 placement omitted actual corner record %s" % corner_key)
+			return false
+		var corner: Dictionary = corner_records[corner_key] as Dictionary
+		var expected_x: float = 2.0 if corner_key == "a2_corner_nw" else 7.0
+		if not is_equal_approx(float(corner["left"]), expected_x) or not is_equal_approx(float(corner["top"]), 5.0) or not is_equal_approx(float(corner["d"]), 7.0) or not is_equal_approx(float(corner["order"]), 0.2) or (corner["crop"] as Rect2i) != Rect2i(0, 0, 64, 64):
+			push_error("A2 corner %s has wrong source crop, footprint, depth, or stable body tie" % corner_key)
+			return false
+	var actual_corner: Dictionary = corner_records["a2_corner_nw"] as Dictionary
+	var body_north := {"d": 6.9, "order": 1.0}
+	var body_on_foot := {"d": 7.0, "order": 1.0}
+	var body_south := {"d": 7.1, "order": 1.0}
+	if not RoofLook.a2_item_before(body_north, actual_corner) or not RoofLook.a2_item_before(actual_corner, body_on_foot) or not RoofLook.a2_item_before(actual_corner, body_south):
+		push_error("Actual A2 corner sort record is not behind bodies north/south of its foot")
+		return false
+	if covered.has(5 * w + 3) or covered.has(5 * w + 7):
+		push_error("A2 corner support reservation extended into an unrelated upper/interior cell")
+		return false
+	if not corner_w or not corner_e or west_leg_count < 5 or not east_window_pane_visible:
+		push_error("A2 runtime missed the 64x64 corners, continuous clipped side-leg phase or east window fallback")
+		return false
+	var body_tie := {"d": 7.0, "order": 1.0}
+	var wall_tie := {"d": 7.0, "order": 0.2}
+	if not RoofLook.a2_item_before(wall_tie, body_tie) or RoofLook.a2_item_before(body_tie, wall_tie) or not RoofLook.a2_item_before({"d": 6.9}, body_tie) or RoofLook.a2_item_before({"d": 7.1}, body_tie):
+		push_error("A2 equal-foot tie order did not put the wall behind a body at the same line")
+		return false
+	var horizontal_rect := Rect2(4.0, 5.625, 1.0, 1.5) # native y=[32*ty-12, 32*(ty+1)+4)
+	var anchor_only := FakeSeen.new()
+	anchor_only.tiles[Vector2i(4, 6)] = true
+	var clipped: Array[Dictionary] = RoofLook.a2_visible_fragments(map, horizontal_rect, anchor_only)
+	if clipped.size() != 1 or (clipped[0]["rect"] as Rect2) != Rect2(4.0, 6.0, 1.0, 1.0):
+		push_error("A2 owner-only visibility leaked its north 12 or south 4 overhang pixels")
+		return false
+	anchor_only.tiles[Vector2i(4, 5)] = true
+	clipped = RoofLook.a2_visible_fragments(map, horizontal_rect, anchor_only)
+	if clipped.size() != 2 or not (clipped[0]["rect"] as Rect2).has_area():
+		push_error("A2 seen northern destination did not reveal only its clipped source fragment")
+		return false
+	anchor_only.tiles[Vector2i(4, 7)] = true
+	clipped = RoofLook.a2_visible_fragments(map, horizontal_rect, anchor_only)
+	if clipped.size() != 3 or not RoofLook.a2_span_visible(map, Rect2i(4, 6, 1, 1), seen):
+		push_error("A2 seen southern destination did not reveal exactly the 4px clipped tail")
+		return false
+	var east_leg := Rect2(5.0 + 15.0 / 32.0, 6.0, 17.0 / 32.0, 1.0)
+	var east_seen := FakeSeen.new()
+	east_seen.tiles[Vector2i(5, 6)] = true
+	var east_fragments: Array[Dictionary] = RoofLook.a2_visible_fragments(map, east_leg, east_seen)
+	if east_fragments.size() != 1 or (east_fragments[0]["rect"] as Rect2).end.x != 6.0:
+		push_error("A2 east leg's visible fragment crosses into its unseen east neighbor")
+		return false
+	var fractional_camera := {"zoom": 16.0, "x": 5.0, "y": 6.0, "width": 320.0, "height": 200.0}
+	var fragment_screen_start: Dictionary = TopDownProjection.world_to_screen(fractional_camera, east_leg.position.x, east_leg.position.y)
+	var fragment_screen_end: Dictionary = TopDownProjection.world_to_screen(fractional_camera, east_leg.end.x, east_leg.end.y)
+	var snapped_fragment: Rect2 = RoofLook.a2_rounded_screen_rect(Vector2(fragment_screen_start["sx"], fragment_screen_start["sy"]), Vector2(fragment_screen_end["sx"], fragment_screen_end["sy"]))
+	var seen_edge: Dictionary = TopDownProjection.world_to_screen(fractional_camera, 6.0, 6.0)
+	if snapped_fragment.size.x != 8.0 or snapped_fragment.end.x != roundf(float(seen_edge["sx"])) or roundf(17.0 / 32.0 * 16.0) == snapped_fragment.size.x:
+		push_error("A2 zoom16 fractional rounding did not end at the rounded seen-tile boundary")
+		return false
+	# A corner reserves precisely its three L-shaped support cells, and refuses a window/door
+	# that would be hidden underneath the source plate.
+	map.tiles[6 * w + 3] = SimTileMap.Tile.Window
+	covered = _a2_runtime_select(renderer, map, block, seen)
+	pieces = renderer.get("_a2_wall_pieces")
+	for piece_v2 in pieces:
+		if String((piece_v2 as Dictionary).get("key", "")) == "a2_corner_nw":
+			push_error("A2 runtime stamped a full corner over its south-window support")
+			return false
+	if not covered.has(6 * w + 3):
+		push_error("A2 runtime did not preserve the adjacent south-window tile as its own module/fallback")
+		return false
+	map.tiles[6 * w + 3] = SimTileMap.Tile.Wall
+	# Board and scrap overlays are not evidence of broken glass; retain the generated window arm.
+	map.overlays[6 * w + 4] = {"kind": "board", "stage": 2}
+	covered = _a2_runtime_select(renderer, map, block, seen)
+	if covered.has(6 * w + 4):
+		push_error("A2 runtime replaced a boarded window")
+		return false
+	map.overlays[6 * w + 4] = {"kind": "scrap", "stage": 0}
+	covered = _a2_runtime_select(renderer, map, block, seen)
+	if covered.has(6 * w + 4):
+		push_error("A2 runtime misread scrap as broken glass")
+		return false
+	map.overlays.erase(6 * w + 4)
+	# Door open/closed source choice and no-overlay broken/open state.
+	map.overlays[6 * w + 5] = {"kind": "door", "open": false, "stage": 0}
+	_a2_runtime_select(renderer, map, block, seen)
+	var has_closed: bool = false
+	for piece_v3 in renderer.get("_a2_wall_pieces"):
+		has_closed = has_closed or String((piece_v3 as Dictionary).get("key", "")) == "a2_door_closed"
+	if not has_closed:
+		push_error("A2 runtime missed the closed doorway state")
+		return false
+	map.overlays[6 * w + 5] = {"kind": "door", "open": true, "stage": 0}
+	_a2_runtime_select(renderer, map, block, seen)
+	var has_open: bool = false
+	for piece_v4 in renderer.get("_a2_wall_pieces"):
+		has_open = has_open or String((piece_v4 as Dictionary).get("key", "")) == "a2_door_open"
+	if not has_open:
+		push_error("A2 runtime missed the open doorway state")
+		return false
+	map.overlays.erase(6 * w + 5)
+	_a2_runtime_select(renderer, map, block, seen)
+	has_open = false
+	for piece_v5 in renderer.get("_a2_wall_pieces"):
+		has_open = has_open or String((piece_v5 as Dictionary).get("key", "")) == "a2_door_open"
+	if not has_open:
+		push_error("A2 runtime missed the no-overlay open/broken doorway fallback")
+		return false
+	# Brick lacks openings/corners, so those source modules must not replace the generated faces.
+	renderer.set("_looks", {0: {"wall": "brick"}})
+	covered = _a2_runtime_select(renderer, map, block, seen)
+	if covered.has(6 * w + 4) or covered.has(6 * w + 5):
+		push_error("A2 brick runtime replaced an unsupported opening")
+		return false
+	if not covered.has(6 * w + 2) or not covered.has(6 * w + 8):
+		push_error("A2 brick runtime dropped its source-supported west/east run end tiles")
+		return false
+	# Removing one declared module cannot reserve a tile that will fall back to generated art.
+	var missing: Dictionary = block.duplicate(true)
+	var missing_render: Dictionary = (missing["wall_modules"] as Dictionary)["render"] as Dictionary
+	missing_render.erase("middle")
+	renderer.set("_looks", {0: {"wall": "render"}})
+	covered = _a2_runtime_select(renderer, map, missing, seen)
+	if covered.has(2 * w + 4):
+		push_error("A2 runtime covered a tile whose selected asset key is missing")
+		return false
+	# A notched footprint and an owner hidden from the current cone draw no A2 modules.
+	map.tiles[4 * w + 2] = SimTileMap.Tile.Floor
+	covered = _a2_runtime_select(renderer, map, block, seen)
+	if not covered.is_empty():
+		push_error("A2 runtime invented a rectangular ring over a notched footprint")
+		return false
+	map.tiles[4 * w + 2] = SimTileMap.Tile.Wall
+	var owner_only := FakeSeen.new()
+	owner_only.tiles[Vector2i(2, 2)] = true
+	covered = _a2_runtime_select(renderer, map, block, owner_only)
+	if not covered.has(2 * w + 2) or covered.has(2 * w + 3):
+		push_error("A2 runtime did not gate each piece by its seen logical owner")
+		return false
+	print("A2_RUNTIME OK 7x5 placements, L support reservations, continuous half-tile legs, state/opening fallback, missing keys, ring rejection, owner/destination clipping and equal-foot body order are exercised through main.gd")
+	renderer.free()
+	return true
 
 
 func _the_look_resolves_and_can_say_no() -> bool:
@@ -930,12 +1329,42 @@ func _the_draw_loop_reaches_every_helper() -> bool:
 	if not idx_fn.contains("RoofLook.building_index("):
 		push_error("_building_index does not call RoofLook.building_index")
 		return false
+	var a2_selector: String = _function_body(MAIN_GD, "_a2_wall_modules")
+	var a2_entities: String = _function_body(MAIN_GD, "_draw_entities")
+	var a2_piece: String = _function_body(MAIN_GD, "_draw_a2_wall_piece")
+	if _missing_needle(district, ["_a2_wall_modules(", "a2_wall_tiles.has("]).is_empty() == false:
+		push_error("_draw_district does not consume A2 coverage before the generated fallback")
+		return false
+	if _missing_needle(a2_selector, ["Dressing.wall_modules(", "_a2_supported_ring(", "_a2_corner_supported(", "_add_a2_leg_fragments("]).is_empty() == false:
+		push_error("A2 module selection is disconnected from content, topology, corner guards or continuous legs")
+		return false
+	if not _a2_entity_path_fault(a2_entities).is_empty():
+		push_error("A2 entity reader %s" % _a2_entity_path_fault(a2_entities))
+		return false
+	var early_append: String = a2_entities.replace("items.append_array(_a2_wall_pieces)\n", "")
+	var focal_loop: int = early_append.find("var focal_points: Array[Vector2] = []")
+	if focal_loop >= 0:
+		early_append = early_append.insert(focal_loop, "items.append_array(_a2_wall_pieces)\n")
+	if _a2_entity_path_fault(a2_entities.replace("RoofLook.a2_item_before", "body_before_wall")).is_empty() or _a2_entity_path_fault(a2_entities.replace("items.append_array(_a2_wall_pieces)", "")).is_empty() or _a2_entity_path_fault(a2_entities.replace("_draw_a2_wall_piece(", "_draw_unrelated_piece(")).is_empty() or _a2_entity_path_fault(early_append).is_empty():
+		push_error("A2 entity reader accepted a missing append, exact sorter, or draw dispatch")
+		return false
+	if not _a2_wall_drawer_fault(a2_piece).is_empty() or _a2_wall_drawer_fault(a2_piece.replace("draw_texture_rect_region(", "draw_texture_rect_region_removed(")).is_empty():
+		push_error("A2 wall blit reader %s" % _a2_wall_drawer_fault(a2_piece))
+		return false
+	var fragments_fn: String = _function_body(ROOF_GD, "a2_visible_fragments")
+	if _missing_needle(fragments_fn, ["seen as Object", "world_rect.intersection("]).is_empty() == false:
+		push_error("A2 fragment helper does not intersect geometry with each currently seen tile")
+		return false
+	var corner_fn: String = _function_body(MAIN_GD, "_a2_corner_supported")
+	if _missing_needle(corner_fn, ["SimTileMap.Tile.Wall", "overlay_at(", "index["]).is_empty() == false:
+		push_error("A2 full corners do not require plain, unoverlaid owned support walls")
+		return false
 
 	if not Palette.COLOURS.has("roof"):
 		push_error("Palette.COLOURS has no 'roof' fallback for a material with no art")
 		return false
 
-	print("SOCKETS OK _draw_district reaches wall art/door face/roofs with the solid-tile fallback intact and roofs drawn between scatter and props; each helper reaches its rule module; Palette.COLOURS[\"roof\"] stands")
+	print("SOCKETS OK _draw_district selects A2 pieces and preserves the solid fallback; supported rings/corners reach content keys; clipped A2 fragments draw through the body depth sort; roofs remain between scatter and props; Palette.COLOURS[\"roof\"] stands")
 	return true
 
 
@@ -952,11 +1381,37 @@ func _function_body(path: String, name: String) -> String:
 	var out: String = ""
 	var inside: bool = false
 	for line in lines:
-		if line.begins_with("func %s(" % name):
+		if line.begins_with("func %s(" % name) or line.begins_with("static func %s(" % name):
 			inside = true
 			continue
-		if inside and line.begins_with("func "):
+		if inside and (line.begins_with("func ") or line.begins_with("static func ")):
 			break
 		if inside:
 			out += line + "\n"
 	return out
+
+
+func _a2_entity_path_fault(source: String) -> String:
+	var code: String = ""
+	for line in source.split("\n"):
+		if not String(line).strip_edges().begins_with("#"):
+			code += String(line) + "\n"
+	for needle in ["items.append_array(_a2_wall_pieces)", "items.sort_custom(RoofLook.a2_item_before)", "_draw_a2_wall_piece("]:
+		if not code.contains(needle):
+			return "missing real reader %s" % needle
+	if code.find("items.append_array(_a2_wall_pieces)") < code.find("focal_points.append("):
+		return "wall modules enter the body-only Focal scan"
+	return ""
+
+
+func _a2_wall_drawer_fault(source: String) -> String:
+	var code: String = ""
+	for line in source.split("\n"):
+		if not String(line).strip_edges().begins_with("#"):
+			code += String(line) + "\n"
+	for needle in ["RoofLook.a2_visible_fragments(", "RoofLook.a2_rounded_screen_rect(", "draw_texture_rect_region(", "_a2_wall_drawn.append("]:
+		if not code.contains(needle):
+			return "missing actual wall blit reader %s" % needle
+	if code.find("_a2_wall_drawn.append(") < code.find("draw_texture_rect_region("):
+		return "wall blit witness is recorded before the draw call"
+	return ""

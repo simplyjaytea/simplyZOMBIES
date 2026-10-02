@@ -4,7 +4,13 @@
   "title": "Dressing",
   "description": "What the *map* looks like where the sim has only a tile class. A Low tile is 'cover you can shoot over' to every mechanism that walks, sees or shoots -- the sim knows nothing finer -- and this entry is what says the ones no parked vehicle covers are heaps of junk. Same rule as prop.schema.json and for the same reason (CLAUDE.md, 'how a thing looks is content, not code'): presentation/dressing.gd resolves keys out of this block and main.gd blits them, and neither contains a sprite key of its own. NOTE: the content validator is shallow -- it checks these top-level types and rejects unexpected top-level keys, and never once looks inside `wrecks` -- so the whole nested shape below is enforced by check_wrecks.gd, which resolves every key it declares and refuses a fabricated one.",
   "type": "object",
-  "required": ["id", "name", "heaps", "litter", "rubble"],
+  "required": [
+    "id",
+    "name",
+    "heaps",
+    "litter",
+    "rubble"
+  ],
   "additionalProperties": false,
   "properties": {
     "id": {
@@ -19,17 +25,26 @@
     "heaps": {
       "type": "array",
       "description": "How a Low tile draws when no parked vehicle covers it: a heap of junk, one key per tile, picked by a pure hash of the map seed and the tile (never a sim RNG stream -- presentation may not spend a draw the layout would have to account for). Each key is an authored `prop` (assets/sprites/authored.json), never more than a tile across or tall, that presentation/main.gd hangs with its last row on the tile's south edge (Appearance.hang_rect) -- the outpost pack's rubbish bags, oil barrel and pallet stack since 2026-09-26, not a picture stretched over the tile. A Low tile a `map.vehicles` record does cover draws nothing here at all: the car is one feet-anchored three-quarter picture standing in the entity sort, and presentation/main.gd's tile branch defers the whole footprint to it. The two cases are mutually exclusive by construction and check_wrecks.gd holds the draw loop to it. The front/mid/rear car segment sets this replaced retired with the per-tile vehicle convention (docs/30, the Dungeon Settlers look, decision 11). An empty list draws the renderer's procedural cover block, which is the supported fallback.",
-      "items": { "type": "string", "pattern": "^[a-z0-9_.]+$" }
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9_.]+$"
+      }
     },
     "litter": {
       "type": "array",
       "description": "Cosmetic scatter keys for street pavement, hash-picked per tile and sparse. Purely decorative: litter marks nothing, blocks nothing and is drawn on tiles the sim considers empty paving.",
-      "items": { "type": "string", "pattern": "^[a-z0-9_.]+$" }
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9_.]+$"
+      }
     },
     "rubble": {
       "type": "array",
       "description": "Scatter keys drawn over tiles whose surface layer is SURFACE_RUBBLE -- the ground the worldgen rubble pass places. Unlike litter this one lies over something the sim does read (rubble slows a body and loudens a step), but the art still says nothing the surface did not already say.",
-      "items": { "type": "string", "pattern": "^[a-z0-9_.]+$" }
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9_.]+$"
+      }
     },
     "walls": {
       "type": "object",
@@ -50,7 +65,10 @@
       "properties": {
         "tall": {
           "type": "array",
-          "items": { "type": "string", "pattern": "^[a-z0-9_.]+$" }
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9_.]+$"
+          }
         }
       }
     },
@@ -60,36 +78,130 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["key", "surfaces", "rarity"],
+        "required": [
+          "key",
+          "surfaces",
+          "rarity"
+        ],
         "properties": {
-          "key": { "type": "string", "pattern": "^[a-z0-9_.]+$" },
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z0-9_.]+$"
+          },
           "surfaces": {
             "type": "array",
             "minItems": 1,
-            "items": { "type": "string", "enum": ["paved", "dirt", "grass", "undergrowth", "rubble", "water"] }
+            "items": {
+              "type": "string",
+              "enum": [
+                "paved",
+                "dirt",
+                "grass",
+                "undergrowth",
+                "rubble",
+                "water"
+              ]
+            }
           },
-          "rarity": { "type": "integer", "minimum": 2 },
-          "beside": { "type": "string", "enum": ["water"] }
+          "rarity": {
+            "type": "integer",
+            "minimum": 2
+          },
+          "beside": {
+            "type": "string",
+            "enum": [
+              "water"
+            ]
+          }
         }
       }
     },
     "furnishings": {
       "type": "array",
-      "description": "The outpost pack's furnishing props as pictures over Floor tiles the sim still sees as open floor: a table, a chair, a shelf and a medical cabinet inside a building; a dumpster, a concrete barrier, a traffic cone and a fence post outside one. DRESSING, NEVER SIM STATE, on the same terms as `nature` -- a furnishing blocks no step, sightline or shot, is not cover, is not looted, is never a path anyone avoids and is never a component (check_trees.gd's INERT lane holds that). Each entry is one roll per tile: `key` (an authored `prop`, at most a tile tall and 48 wide), `where` (`indoors` or `outdoors`, the tile's own `indoors` flag), `surfaces` (SimSurface names, lower-case, the ground it may stand on), `rarity` (one tile in this many, at least two) and optionally `beside: \"wall\"` (a wall directly north, south, east or west). Picked by a pure hash of the seed, the tile and the entry's index (Dressing.SALT_FURNISH); the first entry that lands and fits wins the tile. A tile carries one only when its east and west neighbours are Floor tiles of the same `where`, and never with a door directly north or south. Optional: a block with no `furnishings` draws none. The shallow validator never looks inside; check_trees.gd's FURNISH lane resolves every key and refuses a fabricated one.",
+      "description": "The outpost pack's furnishing props as pictures over Floor tiles the sim still sees as open floor: a table, chair, shelf, medical cabinet and fridge inside a building; a dumpster, concrete barrier, traffic cone, fence post, road sign and streetlamp outside one. DRESSING, NEVER SIM STATE: nothing blocks a step, sightline or shot, becomes cover, is looted or becomes a component. Each entry is one hash roll per tile: key, where, surfaces, rarity, optional beside wall, and optional standing true. Absent or false standing keeps the short picture in the flat pass under bodies. True is reserved for the three named pictures taller than one tile; they use the entity depth sort and fade on overlap. All entries keep the same surface, indoor/outdoor, side-neighbour, doorway, wall, seen and occupied-real-prop checks. check_trees.gd's FURNISH lane holds both size classes and the reads.",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["key", "where", "surfaces", "rarity"],
+        "required": [
+          "key",
+          "where",
+          "surfaces",
+          "rarity"
+        ],
         "properties": {
-          "key": { "type": "string", "pattern": "^[a-z0-9_.]+$" },
-          "where": { "type": "string", "enum": ["indoors", "outdoors"] },
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z0-9_.]+$"
+          },
+          "where": {
+            "type": "string",
+            "enum": [
+              "indoors",
+              "outdoors"
+            ]
+          },
           "surfaces": {
             "type": "array",
             "minItems": 1,
-            "items": { "type": "string", "enum": ["paved", "dirt", "grass", "undergrowth", "rubble", "water"] }
+            "items": {
+              "type": "string",
+              "enum": [
+                "paved",
+                "dirt",
+                "grass",
+                "undergrowth",
+                "rubble",
+                "water"
+              ]
+            }
           },
-          "rarity": { "type": "integer", "minimum": 2 },
-          "beside": { "type": "string", "enum": ["wall"] }
+          "rarity": {
+            "type": "integer",
+            "minimum": 2
+          },
+          "beside": {
+            "type": "string",
+            "enum": [
+              "wall"
+            ]
+          },
+          "standing": {
+            "type": "boolean",
+            "description": "Optional true only for a tall inert furnishing drawn in the tree/entity depth sort; absent means the existing flat furnishing pass."
+          }
+        }
+      }
+    },
+    "wall_modules": {
+      "type": "object",
+      "description": "Approved A2 native module keys by wall material. Missing orientations use the generated wall art.",
+      "additionalProperties": false,
+      "required": ["render", "brick"],
+      "properties": {
+        "render": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "west": {"const": "a2_plaster_west"},
+            "middle": {"const": "a2_plaster_middle"},
+            "east": {"const": "a2_plaster_east"},
+            "window": {"const": "a2_window_intact"},
+            "door_open": {"const": "a2_door_open"},
+            "door_closed": {"const": "a2_door_closed"},
+            "corner_west": {"const": "a2_corner_nw"},
+            "corner_east": {"const": "a2_corner_ne"},
+            "leg_west": {"const": "a2_leg_west"},
+            "leg_east": {"const": "a2_leg_east"}
+          }
+        },
+        "brick": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "west": {"const": "a2_brick_west"},
+            "middle": {"const": "a2_brick_middle"},
+            "east": {"const": "a2_brick_east"}
+          }
         }
       }
     }

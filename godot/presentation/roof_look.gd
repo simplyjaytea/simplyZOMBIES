@@ -201,3 +201,103 @@ static func slope_of(rect: Rect2i, ty: int, pitched: bool) -> int:
 		return Slope.FLAT
 	var ridge: int = rect.position.y + rect.size.y / 2
 	return Slope.NORTH if ty < ridge else Slope.SOUTH
+
+
+static func a2_south_corner_x(rect: Rect2i, west: bool) -> int:
+	return rect.position.x if west else rect.end.x - 2
+
+
+# Full module visibility is stricter than visibility of its anchor. A module whose transparent
+# bounds extend into an unseen or off-map tile is deferred to per-tile fallback art.
+static func a2_span_visible(map: Variant, cells: Rect2i, seen: Variant) -> bool:
+	if map == null or cells.position.x < 0 or cells.position.y < 0 or cells.end.x > int(map.w) or cells.end.y > int(map.h):
+		return false
+	if seen == null:
+		return true
+	for y in range(cells.position.y, cells.end.y):
+		for x in range(cells.position.x, cells.end.x):
+			if not bool((seen as Object).call("has_tile", x, y)):
+				return false
+	return true
+
+
+# The A2 prototype is a closed, rectangular building ring. A footprint is not enough: map patches
+# can stamp arbitrary tiles inside their declared bounds, and joined/compound shells have no
+# source-native corner treatment. Unknown topologies retain the existing generated appearance.
+static func a2_rectangular_ring(map: Variant, rect: Rect2i, building: int) -> bool:
+	if map == null or rect.size.x < 5 or rect.size.y < 3:
+		return false
+	if rect.position.x < 1 or rect.position.y < 1 or rect.end.x >= int(map.w) or rect.end.y >= int(map.h):
+		return false
+	if building == INDEX_ANNEX:
+		if SimTileMap.annex_rect(map) != rect:
+			return false
+	else:
+		var records: Array = map.buildings as Array
+		if building < 0 or building >= records.size() or rect_of(map, building) != rect:
+			return false
+	for other in indices_of(map):
+		if other != building and rect.intersects(rect_of(map, other)):
+			return false
+	for y in range(rect.position.y, rect.end.y):
+		for x in range(rect.position.x, rect.end.x):
+			var edge: bool = x == rect.position.x or x == rect.end.x - 1 or y == rect.position.y or y == rect.end.y - 1
+			if not edge:
+				if not SimTileMap.is_indoors(map, x, y):
+					return false
+				continue
+			var tile: int = int(SimTileMap.tile_at(map, x, y))
+			if tile not in [SimTileMap.Tile.Wall, SimTileMap.Tile.Window, SimTileMap.Tile.Door]:
+				return false
+			var overlay: Variant = SimTileMap.overlay_at(map, x, y)
+			if overlay is Dictionary and tile == SimTileMap.Tile.Door and String((overlay as Dictionary).get("kind", "")) != "door":
+				return false
+	# A shell must meet open outdoor ground around the bounding ring, not another indoor body or
+	# touching masonry that the pack cannot join without inventing a corner.
+	for x in range(rect.position.x, rect.end.x):
+		if SimTileMap.is_indoors(map, x, rect.position.y - 1) or SimTileMap.is_indoors(map, x, rect.end.y):
+			return false
+		if SimTileMap.is_solid(map, x, rect.position.y - 1) or SimTileMap.is_solid(map, x, rect.end.y):
+			return false
+	for y in range(rect.position.y, rect.end.y):
+		if SimTileMap.is_indoors(map, rect.position.x - 1, y) or SimTileMap.is_indoors(map, rect.end.x, y):
+			return false
+		if SimTileMap.is_solid(map, rect.position.x - 1, y) or SimTileMap.is_solid(map, rect.end.x, y):
+			return false
+	return true
+
+
+# Native fragment list for one destination rectangle. Pixel fragments are derived per currently
+# seen map cell; the renderer uses these to crop both source and destination before each blit.
+static func a2_visible_fragments(map: Variant, world_rect: Rect2, seen: Variant) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if map == null or not world_rect.has_area():
+		return out
+	var min_x: int = maxi(0, floori(world_rect.position.x))
+	var min_y: int = maxi(0, floori(world_rect.position.y))
+	var max_x: int = mini(int(map.w) - 1, ceili(world_rect.end.x) - 1)
+	var max_y: int = mini(int(map.h) - 1, ceili(world_rect.end.y) - 1)
+	for ty in range(min_y, max_y + 1):
+		for tx in range(min_x, max_x + 1):
+			if seen != null and not bool((seen as Object).call("has_tile", tx, ty)):
+				continue
+			var fragment: Rect2 = world_rect.intersection(Rect2(float(tx), float(ty), 1.0, 1.0))
+			if fragment.has_area():
+				out.append({"tile": Vector2i(tx, ty), "rect": fragment})
+	return out
+
+
+static func a2_item_before(a: Dictionary, b: Dictionary) -> bool:
+	var ad: float = float(a.get("d", 0.0))
+	var bd: float = float(b.get("d", 0.0))
+	if not is_equal_approx(ad, bd):
+		return ad < bd
+	return float(a.get("order", 1.0)) < float(b.get("order", 1.0))
+
+
+static func a2_rounded_screen_rect(start: Vector2, end: Vector2) -> Rect2:
+	var left: float = roundf(start.x)
+	var top: float = roundf(start.y)
+	var right: float = roundf(end.x)
+	var bottom: float = roundf(end.y)
+	return Rect2(left, top, right - left, bottom - top)
