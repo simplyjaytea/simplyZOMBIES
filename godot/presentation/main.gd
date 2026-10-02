@@ -2081,6 +2081,46 @@ func _fill_pool_tiles(tiles: Array, col: Color) -> void:
 		draw_rect(Rect2(roundf(float(sc["sx"]) - half), roundf(float(sc["sy"]) - half), zoom, zoom), col)
 
 
+# Dead zombies have already left the simulation's actor set. The saved visual records add no
+# scent, collision, population or loot; they only supply the picture left at the death point.
+# The same Focal-only contract as a human corpse applies, including after restoring a save.
+func _visual_remains_items() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if world == null:
+		return out
+	for record in world.visualRemains:
+		var x: float = float(record["x"])
+		var y: float = float(record["y"])
+		if world.vision != null and int(world.vision.detail(int(world.player), x, y)) != SimVisibility.Detail.Focal:
+			continue
+		var sc: Dictionary = TopDownProjection.world_to_screen(camera, x, y)
+		out.append({"x": x, "y": y, "sx": float(sc["sx"]), "sy": float(sc["sy"]),
+			"d": TopDownProjection.depth_of(x, y), "det": SimVisibility.Detail.Focal,
+			"player": false, "unique": false, "zed": false, "bait": false, "raider": false,
+			"ztype": String(record["ztype"]), "tint": String(record["tint"]), "cid": "",
+			"id": int(record["entity"]), "corpse": true})
+	return out
+
+
+# This branch ends before upright equipment, contact shadows, facing lines and speech. A dead
+# human still owns its real gear for looting; drawing the old standing overlay on a prone torso
+# would turn that gear into a second upright person. Dead zombies have already dropped theirs.
+# Settled art never replaces the living afterimage cache: Sightings retains the actor's old
+# observed point, not a corpse observation. Pairing that point with new corpse art would move
+# the corpse to where the living body was last seen.
+func _draw_corpse(it: Dictionary, px_scale: float) -> void:
+	if int(it["det"]) != SimVisibility.Detail.Focal:
+		return
+	var look: Dictionary = Appearance.corpse_look(world, it)
+	var texture: Texture2D = look.get("texture") as Texture2D
+	if texture == null:
+		return
+	var sx: float = float(it["sx"])
+	var sy: float = float(it["sy"])
+	var size: Vector2 = texture.get_size() * px_scale
+	draw_texture_rect(texture, Appearance.corpse_rect(sx, sy, size), false, look["tint"] as Color)
+
+
 func _draw_entities() -> void:
 	if world == null: return
 	_focal_drawn = []
@@ -2099,9 +2139,10 @@ func _draw_entities() -> void:
 		var is_zed: bool = world.components.has_component(int(ent), "shambler")
 		var is_bait: bool = world.components.has_component(int(ent), "noisemaker")
 		var is_raider: bool = world.components.has_component(int(ent), "raider")
+		var is_corpse: bool = world.components.has_component(int(ent), "corpse")
 		if world.components.has_component(int(ent), "itemBase"):
 			continue
-		if not is_player and not is_unique and not is_zed and not is_bait and not is_raider:
+		if not is_player and not is_unique and not is_zed and not is_bait and not is_raider and not is_corpse:
 			continue
 		# A body at a wheel is inside the car, and the car's picture is what stands there: the
 		# sim pins its position to the car's centre, so drawing it too would stand a pawn on the
@@ -2127,6 +2168,8 @@ func _draw_entities() -> void:
 		if not is_player and world.vision != null:
 			det = int(world.vision.detail(int(world.player), x, y))
 			if det == SimVisibility.Detail.Unseen:
+				continue
+			if is_corpse and det != SimVisibility.Detail.Focal:
 				continue
 			if det == SimVisibility.Detail.Peripheral:
 				# A glimpse is motion or nothing. Appearance.moving owns what "moving" means --
@@ -2172,7 +2215,17 @@ func _draw_entities() -> void:
 					cid = String((person as Dictionary).get("look", ""))
 				if cid.is_empty():
 					cid = String((rd as Dictionary).get("id", ""))
-		items.append({"x": x, "y": y, "sx": float(sc["sx"]), "sy": float(sc["sy"]), "d": depth, "det": det, "player": is_player, "unique": is_unique, "zed": is_zed, "bait": is_bait, "raider": is_raider, "ztype": ztype, "tint": ztint, "cid": cid, "id": int(ent)})
+		items.append({"x": x, "y": y, "sx": float(sc["sx"]), "sy": float(sc["sy"]), "d": depth, "det": det, "player": is_player, "unique": is_unique, "zed": is_zed, "bait": is_bait, "raider": is_raider, "ztype": ztype, "tint": ztint, "cid": cid, "id": int(ent), "corpse": is_corpse})
+	items.append_array(_visual_remains_items())
+	# Flat remains lie below every standing body and prop, even when their centre is farther
+	# south. Sorting a wide ground picture by its centre would paint it over somebody's boots.
+	var standing: Array[Dictionary] = []
+	for it in items:
+		if bool(it.get("corpse", false)):
+			_draw_corpse(it, px_scale)
+			continue
+		standing.append(it)
+	items = standing
 	# The trees join the same sort: each is a picture standing on its trunk tile's south-edge
 	# centre, so a body north of the trunk sorts behind it and one south sorts in front
 	# (docs/30, the Dungeon Settlers look, decision 9). Draw is a subset of seen --
@@ -2181,7 +2234,7 @@ func _draw_entities() -> void:
 	# fades while a body stands inside its rect, and the body is never dimmed.
 	var focal_points: Array[Vector2] = []
 	for body in items:
-		if int(body["det"]) == SimVisibility.Detail.Focal:
+		if int(body["det"]) == SimVisibility.Detail.Focal and not bool(body.get("corpse", false)):
 			focal_points.append(Vector2(float(body["sx"]), float(body["sy"])))
 	var dress: Dictionary = _dressing()
 	var seen: Variant = null

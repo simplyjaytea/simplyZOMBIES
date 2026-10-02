@@ -1,0 +1,366 @@
+[
+  {
+    "id": "workwear",
+    "direction": "south",
+    "walk_distinct_rgba_frames": 4,
+    "walk_distinct_cropped_silhouettes": 4,
+    "heights_native": [
+      28,
+      29,
+      28,
+      28,
+      28
+    ]
+  },
+  {
+    "id": "workwear",
+    "direction": "east",
+    "walk_distinct_rgba_frames": 4,
+    "walk_distinct_cropped_silhouettes": 4,
+    "heights_native": [
+      28,
+      29,
+      28,
+      28,
+      28
+    ]
+  },
+  {
+    "id": "workwear",
+    "direction": "north",
+    "walk_distinct_rgba_frames": 4,
+    "walk_distinct_cropped_silhouettes": 4,
+    "heights_native": [
+      28,
+      28,
+      27,
+      28,
+      27
+    ]
+  },
+  {
+    "id": "workwear",
+    "direction": "west",
+    "walk_distinct_rgba_frames": 4,
+    "walk_distinct_cropped_silhouettes": 4,
+    "heights_native": [
+      29,
+      29,
+      29,
+      29,
+      29
+    ]
+  },
+  {
+    "id": "commuter",
+    "direction": "south",
+    "walk_distinct_rgba_frames": 4,
+    "walk_distinct_cropped_silhouettes": 4,
+    "heights_native": [
+      28,
+      28,
+      28,
+      28,
+      28
+    ]
+  },
+  {
+    "id": "commuter",
+    "direction": "east",
+    "walk_distinct_rgba_frames": 4,
+    "walk_distinct_cropped_silhouettes": 4,
+    "heights_native": [
+      29,
+      29,
+      29,
+      29,
+      29
+    ]
+  },
+  {
+    "id": "commuter",
+    "direction": "north",
+    "walk_distinct_rgba_frames": 4,
+    "walk_distinct_cropped_silhouettes": 4,
+    "heights_native": [
+      27,
+      28,
+      28,
+      28,
+      28
+    ]
+  },
+  {
+    "id": "commuter",
+    "direction": "west",
+    "walk_distinct_rgba_frames": 4,
+    "walk_distinct_cropped_silhouettes": 4,
+    "heights_native": [
+      29,
+      29,
+      29,
+      29,
+      29
+    ]
+  },
+  {
+    "id": "raincoat",
+    "direction": "south",
+    "walk_distinct_rgba_frames": 4,
+    "walk_distinct_cropped_silhouettes": 4,
+    "heights_native": [
+      28,
+      29,
+      28,
+      28,
+      28
+    ]
+  },
+  {
+    "id": "raincoat",
+    "direction": "east",
+    "walk_distinct_rgba_frames": 4,
+    "walk_distinct_cropped_silhouettes": 4,
+    "heights_native": [
+      29,
+      29,
+      29,
+      28,
+      28
+    ]
+  },
+  {
+    "id": "raincoat",
+    "direction": "north",
+    "walk_distinct_rgba_frames": 4,
+    "walk_distinct_cropped_silhouettes": 4,
+    "heights_native": [
+      28,
+      28,
+      28,
+      28,
+      28
+    ]
+  },
+  {
+    "id": "raincoat",
+    "direction": "west",
+    "walk_distinct_rgba_frames": 4,
+    "walk_distinct_cropped_silhouettes": 4,
+    "heights_native": [
+      28,
+      28,
+      28,
+      28,
+      28
+    ]
+  },
+  {
+    "id": "stalker",
+    "direction": "south",
+    "walk_distinct_rgba_frames": 4,
+    "walk_distinct_cropped_silhouettes": 4,
+    "heights_native": [
+      29,
+      29,
+      29,
+      28,
+      28
+    ]
+  },
+  {
+    "id": "stalker",
+    "direction": "east",
+    "walk_distinct_rgba_frames": 4,
+    "walk_distinct_cropped_silhouettes": 4,
+    "heights_native": [
+      28,
+      28,
+      28,
+      29,
+      28
+    ]
+  },
+  {
+    "id": "stalker",
+    "direction": "north",
+    "walk_distinct_rgba_frames": 4,
+    "walk_distinct_cropped_silhouettes": 4,
+    "heights_native": [
+      28,
+      29,
+      29,
+      28,
+      28
+    ]
+  },
+  {
+    "id": "stalker",
+    "direction": "west",
+    "walk_distinct_rgba_frames": 4,
+    "walk_distinct_cropped_silhouettes": 4,
+    "heights_native": [
+      28,
+      28,
+      28,
+      29,
+      28
+    ]
+  },
+  {
+    "id": "runner",
+    "direction": "south",
+    "walk_distinct_rgba_frames": 4,
+    "walk_distinct_cropped_silhouettes": 4,
+    "heights_native": [
+      28,
+      28,
+      28,
+      28,
+      29
+    ]
+  },
+  {
+    "id": "runner",
+    "direction": "east",
+    "walk_distinct_rgba_frames": 4,
+    "walk_distinct_cropped_silhouettes": 4,
+    "heights_native": [
+      29,
+      28,
+      27,
+      29,
+      30
+    ]
+  },
+  {
+    "id": "runner",
+    "direction": "north",
+    "walk_distinct_rgba_frames": 4,
+    "walk_distinct_cropped_silhouettes": 4,
+    "heights_native": [
+      29,
+      29,
+      29,
+      29,
+      29
+    ]
+  },
+  {
+    "id": "runner",
+    "direction": "west",
+    "walk_distinct_rgba_frames": 4,
+    "walk_distinct_cropped_silhouettes": 4,
+    "heights_native": [
+      27,
+      28,
+      28,
+      27,
+      29
+    ]
+  },
+  {
+    "id": "armored",
+    "direction": "south",
+    "walk_distinct_rgba_frames": 4,
+    "walk_distinct_cropped_silhouettes": 4,
+    "heights_native": [
+      28,
+      28,
+      28,
+      28,
+      28
+    ]
+  },
+  {
+    "id": "armored",
+    "direction": "east",
+    "walk_distinct_rgba_frames": 4,
+    "walk_distinct_cropped_silhouettes": 4,
+    "heights_native": [
+      30,
+      29,
+      29,
+      29,
+      29
+    ]
+  },
+  {
+    "id": "armored",
+    "direction": "north",
+    "walk_distinct_rgba_frames": 4,
+    "walk_distinct_cropped_silhouettes": 4,
+    "heights_native": [
+      28,
+      29,
+      28,
+      28,
+      28
+    ]
+  },
+  {
+    "id": "armored",
+    "direction": "west",
+    "walk_distinct_rgba_frames": 4,
+    "walk_distinct_cropped_silhouettes": 4,
+    "heights_native": [
+      29,
+      29,
+      29,
+      28,
+      29
+    ]
+  },
+  {
+    "id": "heavy",
+    "direction": "south",
+    "walk_distinct_rgba_frames": 4,
+    "walk_distinct_cropped_silhouettes": 4,
+    "heights_native": [
+      34,
+      34,
+      34,
+      34,
+      34
+    ]
+  },
+  {
+    "id": "heavy",
+    "direction": "east",
+    "walk_distinct_rgba_frames": 4,
+    "walk_distinct_cropped_silhouettes": 4,
+    "heights_native": [
+      35,
+      35,
+      35,
+      35,
+      35
+    ]
+  },
+  {
+    "id": "heavy",
+    "direction": "north",
+    "walk_distinct_rgba_frames": 4,
+    "walk_distinct_cropped_silhouettes": 4,
+    "heights_native": [
+      33,
+      34,
+      34,
+      34,
+      34
+    ]
+  },
+  {
+    "id": "heavy",
+    "direction": "west",
+    "walk_distinct_rgba_frames": 4,
+    "walk_distinct_cropped_silhouettes": 4,
+    "heights_native": [
+      36,
+      36,
+      36,
+      35,
+      36
+    ]
+  }
+]

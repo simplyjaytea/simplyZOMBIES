@@ -1,0 +1,3213 @@
+{
+  "schema_version": 1,
+  "title": "simplyZOMBIES - zombie animation and corpse study v1",
+  "date": "2026-10-02",
+  "status": "integrated; content-selected Godot sprites",
+  "tile_size": 32,
+  "sampling": "nearest",
+  "anchor_convention": "pixels from top-left; living anchor is bottom pixel boundary (sole row 39 or 47); corpse anchor is ground center",
+  "notes": [
+    "Idle is one pose in each direction, not a breathing loop.",
+    "Walk state is locomotion for all families, including the runner sprint.",
+    "No attack, hit, death-transition, or rise animations are included.",
+    "Armored base has no painted helmet or vest; live equipment uses the game gear renderer.",
+    "Heavy uses a 40x48 canvas; renderer and picking use its declared bounds.",
+    "Locomotion reads velocity and the simulation tick; per-family rates are checked by godot:check:zombie_art.",
+    "Sources preserve original partial alpha; no procedural background removal or color cleanup was applied."
+  ],
+  "atlases": [
+    {
+      "id": "zombie-workwear",
+      "path": "atlases/zombie-workwear.png",
+      "size": [
+        160,
+        160
+      ],
+      "cell_size": [
+        32,
+        40
+      ],
+      "rows": [
+        "south",
+        "east",
+        "north",
+        "west"
+      ],
+      "columns": [
+        "idle",
+        "walk-00",
+        "walk-01",
+        "walk-02",
+        "walk-03"
+      ]
+    },
+    {
+      "id": "zombie-commuter",
+      "path": "atlases/zombie-commuter.png",
+      "size": [
+        160,
+        160
+      ],
+      "cell_size": [
+        32,
+        40
+      ],
+      "rows": [
+        "south",
+        "east",
+        "north",
+        "west"
+      ],
+      "columns": [
+        "idle",
+        "walk-00",
+        "walk-01",
+        "walk-02",
+        "walk-03"
+      ]
+    },
+    {
+      "id": "zombie-raincoat",
+      "path": "atlases/zombie-raincoat.png",
+      "size": [
+        160,
+        160
+      ],
+      "cell_size": [
+        32,
+        40
+      ],
+      "rows": [
+        "south",
+        "east",
+        "north",
+        "west"
+      ],
+      "columns": [
+        "idle",
+        "walk-00",
+        "walk-01",
+        "walk-02",
+        "walk-03"
+      ]
+    },
+    {
+      "id": "zombie-stalker",
+      "path": "atlases/zombie-stalker.png",
+      "size": [
+        160,
+        160
+      ],
+      "cell_size": [
+        32,
+        40
+      ],
+      "rows": [
+        "south",
+        "east",
+        "north",
+        "west"
+      ],
+      "columns": [
+        "idle",
+        "walk-00",
+        "walk-01",
+        "walk-02",
+        "walk-03"
+      ]
+    },
+    {
+      "id": "zombie-runner",
+      "path": "atlases/zombie-runner.png",
+      "size": [
+        160,
+        160
+      ],
+      "cell_size": [
+        32,
+        40
+      ],
+      "rows": [
+        "south",
+        "east",
+        "north",
+        "west"
+      ],
+      "columns": [
+        "idle",
+        "walk-00",
+        "walk-01",
+        "walk-02",
+        "walk-03"
+      ]
+    },
+    {
+      "id": "zombie-armored",
+      "path": "atlases/zombie-armored.png",
+      "size": [
+        160,
+        160
+      ],
+      "cell_size": [
+        32,
+        40
+      ],
+      "rows": [
+        "south",
+        "east",
+        "north",
+        "west"
+      ],
+      "columns": [
+        "idle",
+        "walk-00",
+        "walk-01",
+        "walk-02",
+        "walk-03"
+      ]
+    },
+    {
+      "id": "zombie-heavy",
+      "path": "atlases/zombie-heavy.png",
+      "size": [
+        200,
+        192
+      ],
+      "cell_size": [
+        40,
+        48
+      ],
+      "rows": [
+        "south",
+        "east",
+        "north",
+        "west"
+      ],
+      "columns": [
+        "idle",
+        "walk-00",
+        "walk-01",
+        "walk-02",
+        "walk-03"
+      ]
+    }
+  ],
+  "assets": [
+    {
+      "id": "zombie-workwear-idle-south",
+      "label": "Workwear idle south",
+      "category": "zombie",
+      "path": "textures/zombie-workwear/idle-south-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "south",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-workwear/idle-south-00.png",
+            "atlas_rect": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": false,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-workwear-walk-south",
+      "label": "Workwear walk south",
+      "category": "zombie",
+      "path": "textures/zombie-workwear/walk-south-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "south",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-workwear/walk-south-00.png",
+            "atlas_rect": [
+              32,
+              0,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-workwear/walk-south-01.png",
+            "atlas_rect": [
+              64,
+              0,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-workwear/walk-south-02.png",
+            "atlas_rect": [
+              96,
+              0,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-workwear/walk-south-03.png",
+            "atlas_rect": [
+              128,
+              0,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 5,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-workwear-idle-east",
+      "label": "Workwear idle east",
+      "category": "zombie",
+      "path": "textures/zombie-workwear/idle-east-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "east",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-workwear/idle-east-00.png",
+            "atlas_rect": [
+              0,
+              40,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": false,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-workwear-walk-east",
+      "label": "Workwear walk east",
+      "category": "zombie",
+      "path": "textures/zombie-workwear/walk-east-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "east",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-workwear/walk-east-00.png",
+            "atlas_rect": [
+              32,
+              40,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-workwear/walk-east-01.png",
+            "atlas_rect": [
+              64,
+              40,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-workwear/walk-east-02.png",
+            "atlas_rect": [
+              96,
+              40,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-workwear/walk-east-03.png",
+            "atlas_rect": [
+              128,
+              40,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 5,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-workwear-idle-north",
+      "label": "Workwear idle north",
+      "category": "zombie",
+      "path": "textures/zombie-workwear/idle-north-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "north",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-workwear/idle-north-00.png",
+            "atlas_rect": [
+              0,
+              80,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": false,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-workwear-walk-north",
+      "label": "Workwear walk north",
+      "category": "zombie",
+      "path": "textures/zombie-workwear/walk-north-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "north",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-workwear/walk-north-00.png",
+            "atlas_rect": [
+              32,
+              80,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-workwear/walk-north-01.png",
+            "atlas_rect": [
+              64,
+              80,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-workwear/walk-north-02.png",
+            "atlas_rect": [
+              96,
+              80,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-workwear/walk-north-03.png",
+            "atlas_rect": [
+              128,
+              80,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 5,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-workwear-idle-west",
+      "label": "Workwear idle west",
+      "category": "zombie",
+      "path": "textures/zombie-workwear/idle-west-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "west",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-workwear/idle-west-00.png",
+            "atlas_rect": [
+              0,
+              120,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": false,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-workwear-walk-west",
+      "label": "Workwear walk west",
+      "category": "zombie",
+      "path": "textures/zombie-workwear/walk-west-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "west",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-workwear/walk-west-00.png",
+            "atlas_rect": [
+              32,
+              120,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-workwear/walk-west-01.png",
+            "atlas_rect": [
+              64,
+              120,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-workwear/walk-west-02.png",
+            "atlas_rect": [
+              96,
+              120,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-workwear/walk-west-03.png",
+            "atlas_rect": [
+              128,
+              120,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 5,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-workwear-corpse-supine",
+      "label": "Workwear corpse supine",
+      "category": "corpse",
+      "path": "textures/zombie-workwear/corpse-supine.png",
+      "size": [
+        48,
+        40
+      ],
+      "anchor": [
+        24,
+        20
+      ],
+      "state": "corpse",
+      "pose": "supine",
+      "frames": {
+        "corpse": [
+          {
+            "path": "textures/zombie-workwear/corpse-supine.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "status": "integrated-corpse"
+    },
+    {
+      "id": "zombie-workwear-corpse-prone",
+      "label": "Workwear corpse prone",
+      "category": "corpse",
+      "path": "textures/zombie-workwear/corpse-prone.png",
+      "size": [
+        48,
+        40
+      ],
+      "anchor": [
+        24,
+        20
+      ],
+      "state": "corpse",
+      "pose": "prone",
+      "frames": {
+        "corpse": [
+          {
+            "path": "textures/zombie-workwear/corpse-prone.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "status": "integrated-corpse"
+    },
+    {
+      "id": "zombie-commuter-idle-south",
+      "label": "Commuter idle south",
+      "category": "zombie",
+      "path": "textures/zombie-commuter/idle-south-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "south",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-commuter/idle-south-00.png",
+            "atlas_rect": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": false,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-commuter-walk-south",
+      "label": "Commuter walk south",
+      "category": "zombie",
+      "path": "textures/zombie-commuter/walk-south-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "south",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-commuter/walk-south-00.png",
+            "atlas_rect": [
+              32,
+              0,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-commuter/walk-south-01.png",
+            "atlas_rect": [
+              64,
+              0,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-commuter/walk-south-02.png",
+            "atlas_rect": [
+              96,
+              0,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-commuter/walk-south-03.png",
+            "atlas_rect": [
+              128,
+              0,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 5,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-commuter-idle-east",
+      "label": "Commuter idle east",
+      "category": "zombie",
+      "path": "textures/zombie-commuter/idle-east-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "east",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-commuter/idle-east-00.png",
+            "atlas_rect": [
+              0,
+              40,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": false,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-commuter-walk-east",
+      "label": "Commuter walk east",
+      "category": "zombie",
+      "path": "textures/zombie-commuter/walk-east-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "east",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-commuter/walk-east-00.png",
+            "atlas_rect": [
+              32,
+              40,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-commuter/walk-east-01.png",
+            "atlas_rect": [
+              64,
+              40,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-commuter/walk-east-02.png",
+            "atlas_rect": [
+              96,
+              40,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-commuter/walk-east-03.png",
+            "atlas_rect": [
+              128,
+              40,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 5,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-commuter-idle-north",
+      "label": "Commuter idle north",
+      "category": "zombie",
+      "path": "textures/zombie-commuter/idle-north-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "north",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-commuter/idle-north-00.png",
+            "atlas_rect": [
+              0,
+              80,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": false,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-commuter-walk-north",
+      "label": "Commuter walk north",
+      "category": "zombie",
+      "path": "textures/zombie-commuter/walk-north-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "north",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-commuter/walk-north-00.png",
+            "atlas_rect": [
+              32,
+              80,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-commuter/walk-north-01.png",
+            "atlas_rect": [
+              64,
+              80,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-commuter/walk-north-02.png",
+            "atlas_rect": [
+              96,
+              80,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-commuter/walk-north-03.png",
+            "atlas_rect": [
+              128,
+              80,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 5,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-commuter-idle-west",
+      "label": "Commuter idle west",
+      "category": "zombie",
+      "path": "textures/zombie-commuter/idle-west-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "west",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-commuter/idle-west-00.png",
+            "atlas_rect": [
+              0,
+              120,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": false,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-commuter-walk-west",
+      "label": "Commuter walk west",
+      "category": "zombie",
+      "path": "textures/zombie-commuter/walk-west-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "west",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-commuter/walk-west-00.png",
+            "atlas_rect": [
+              32,
+              120,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-commuter/walk-west-01.png",
+            "atlas_rect": [
+              64,
+              120,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-commuter/walk-west-02.png",
+            "atlas_rect": [
+              96,
+              120,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-commuter/walk-west-03.png",
+            "atlas_rect": [
+              128,
+              120,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 5,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-commuter-corpse-supine",
+      "label": "Commuter corpse supine",
+      "category": "corpse",
+      "path": "textures/zombie-commuter/corpse-supine.png",
+      "size": [
+        48,
+        40
+      ],
+      "anchor": [
+        24,
+        20
+      ],
+      "state": "corpse",
+      "pose": "supine",
+      "frames": {
+        "corpse": [
+          {
+            "path": "textures/zombie-commuter/corpse-supine.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "status": "integrated-corpse"
+    },
+    {
+      "id": "zombie-commuter-corpse-prone",
+      "label": "Commuter corpse prone",
+      "category": "corpse",
+      "path": "textures/zombie-commuter/corpse-prone.png",
+      "size": [
+        48,
+        40
+      ],
+      "anchor": [
+        24,
+        20
+      ],
+      "state": "corpse",
+      "pose": "prone",
+      "frames": {
+        "corpse": [
+          {
+            "path": "textures/zombie-commuter/corpse-prone.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "status": "integrated-corpse"
+    },
+    {
+      "id": "zombie-raincoat-idle-south",
+      "label": "Raincoat idle south",
+      "category": "zombie",
+      "path": "textures/zombie-raincoat/idle-south-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "south",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-raincoat/idle-south-00.png",
+            "atlas_rect": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": false,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-raincoat-walk-south",
+      "label": "Raincoat walk south",
+      "category": "zombie",
+      "path": "textures/zombie-raincoat/walk-south-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "south",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-raincoat/walk-south-00.png",
+            "atlas_rect": [
+              32,
+              0,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-raincoat/walk-south-01.png",
+            "atlas_rect": [
+              64,
+              0,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-raincoat/walk-south-02.png",
+            "atlas_rect": [
+              96,
+              0,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-raincoat/walk-south-03.png",
+            "atlas_rect": [
+              128,
+              0,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 5,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-raincoat-idle-east",
+      "label": "Raincoat idle east",
+      "category": "zombie",
+      "path": "textures/zombie-raincoat/idle-east-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "east",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-raincoat/idle-east-00.png",
+            "atlas_rect": [
+              0,
+              40,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": false,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-raincoat-walk-east",
+      "label": "Raincoat walk east",
+      "category": "zombie",
+      "path": "textures/zombie-raincoat/walk-east-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "east",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-raincoat/walk-east-00.png",
+            "atlas_rect": [
+              32,
+              40,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-raincoat/walk-east-01.png",
+            "atlas_rect": [
+              64,
+              40,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-raincoat/walk-east-02.png",
+            "atlas_rect": [
+              96,
+              40,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-raincoat/walk-east-03.png",
+            "atlas_rect": [
+              128,
+              40,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 5,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-raincoat-idle-north",
+      "label": "Raincoat idle north",
+      "category": "zombie",
+      "path": "textures/zombie-raincoat/idle-north-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "north",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-raincoat/idle-north-00.png",
+            "atlas_rect": [
+              0,
+              80,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": false,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-raincoat-walk-north",
+      "label": "Raincoat walk north",
+      "category": "zombie",
+      "path": "textures/zombie-raincoat/walk-north-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "north",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-raincoat/walk-north-00.png",
+            "atlas_rect": [
+              32,
+              80,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-raincoat/walk-north-01.png",
+            "atlas_rect": [
+              64,
+              80,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-raincoat/walk-north-02.png",
+            "atlas_rect": [
+              96,
+              80,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-raincoat/walk-north-03.png",
+            "atlas_rect": [
+              128,
+              80,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 5,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-raincoat-idle-west",
+      "label": "Raincoat idle west",
+      "category": "zombie",
+      "path": "textures/zombie-raincoat/idle-west-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "west",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-raincoat/idle-west-00.png",
+            "atlas_rect": [
+              0,
+              120,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": false,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-raincoat-walk-west",
+      "label": "Raincoat walk west",
+      "category": "zombie",
+      "path": "textures/zombie-raincoat/walk-west-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "west",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-raincoat/walk-west-00.png",
+            "atlas_rect": [
+              32,
+              120,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-raincoat/walk-west-01.png",
+            "atlas_rect": [
+              64,
+              120,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-raincoat/walk-west-02.png",
+            "atlas_rect": [
+              96,
+              120,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-raincoat/walk-west-03.png",
+            "atlas_rect": [
+              128,
+              120,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 5,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-raincoat-corpse-supine",
+      "label": "Raincoat corpse supine",
+      "category": "corpse",
+      "path": "textures/zombie-raincoat/corpse-supine.png",
+      "size": [
+        48,
+        40
+      ],
+      "anchor": [
+        24,
+        20
+      ],
+      "state": "corpse",
+      "pose": "supine",
+      "frames": {
+        "corpse": [
+          {
+            "path": "textures/zombie-raincoat/corpse-supine.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "status": "integrated-corpse"
+    },
+    {
+      "id": "zombie-raincoat-corpse-prone",
+      "label": "Raincoat corpse prone",
+      "category": "corpse",
+      "path": "textures/zombie-raincoat/corpse-prone.png",
+      "size": [
+        48,
+        40
+      ],
+      "anchor": [
+        24,
+        20
+      ],
+      "state": "corpse",
+      "pose": "prone",
+      "frames": {
+        "corpse": [
+          {
+            "path": "textures/zombie-raincoat/corpse-prone.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "status": "integrated-corpse"
+    },
+    {
+      "id": "zombie-stalker-idle-south",
+      "label": "Stalker idle south",
+      "category": "zombie",
+      "path": "textures/zombie-stalker/idle-south-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "south",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-stalker/idle-south-00.png",
+            "atlas_rect": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": false,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-stalker-walk-south",
+      "label": "Stalker walk south",
+      "category": "zombie",
+      "path": "textures/zombie-stalker/walk-south-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "south",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-stalker/walk-south-00.png",
+            "atlas_rect": [
+              32,
+              0,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-stalker/walk-south-01.png",
+            "atlas_rect": [
+              64,
+              0,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-stalker/walk-south-02.png",
+            "atlas_rect": [
+              96,
+              0,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-stalker/walk-south-03.png",
+            "atlas_rect": [
+              128,
+              0,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 6,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-stalker-idle-east",
+      "label": "Stalker idle east",
+      "category": "zombie",
+      "path": "textures/zombie-stalker/idle-east-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "east",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-stalker/idle-east-00.png",
+            "atlas_rect": [
+              0,
+              40,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": false,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-stalker-walk-east",
+      "label": "Stalker walk east",
+      "category": "zombie",
+      "path": "textures/zombie-stalker/walk-east-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "east",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-stalker/walk-east-00.png",
+            "atlas_rect": [
+              32,
+              40,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-stalker/walk-east-01.png",
+            "atlas_rect": [
+              64,
+              40,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-stalker/walk-east-02.png",
+            "atlas_rect": [
+              96,
+              40,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-stalker/walk-east-03.png",
+            "atlas_rect": [
+              128,
+              40,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 6,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-stalker-idle-north",
+      "label": "Stalker idle north",
+      "category": "zombie",
+      "path": "textures/zombie-stalker/idle-north-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "north",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-stalker/idle-north-00.png",
+            "atlas_rect": [
+              0,
+              80,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": false,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-stalker-walk-north",
+      "label": "Stalker walk north",
+      "category": "zombie",
+      "path": "textures/zombie-stalker/walk-north-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "north",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-stalker/walk-north-00.png",
+            "atlas_rect": [
+              32,
+              80,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-stalker/walk-north-01.png",
+            "atlas_rect": [
+              64,
+              80,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-stalker/walk-north-02.png",
+            "atlas_rect": [
+              96,
+              80,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-stalker/walk-north-03.png",
+            "atlas_rect": [
+              128,
+              80,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 6,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-stalker-idle-west",
+      "label": "Stalker idle west",
+      "category": "zombie",
+      "path": "textures/zombie-stalker/idle-west-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "west",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-stalker/idle-west-00.png",
+            "atlas_rect": [
+              0,
+              120,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": false,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-stalker-walk-west",
+      "label": "Stalker walk west",
+      "category": "zombie",
+      "path": "textures/zombie-stalker/walk-west-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "west",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-stalker/walk-west-00.png",
+            "atlas_rect": [
+              32,
+              120,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-stalker/walk-west-01.png",
+            "atlas_rect": [
+              64,
+              120,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-stalker/walk-west-02.png",
+            "atlas_rect": [
+              96,
+              120,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-stalker/walk-west-03.png",
+            "atlas_rect": [
+              128,
+              120,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 6,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-stalker-corpse-supine",
+      "label": "Stalker corpse supine",
+      "category": "corpse",
+      "path": "textures/zombie-stalker/corpse-supine.png",
+      "size": [
+        48,
+        40
+      ],
+      "anchor": [
+        24,
+        20
+      ],
+      "state": "corpse",
+      "pose": "supine",
+      "frames": {
+        "corpse": [
+          {
+            "path": "textures/zombie-stalker/corpse-supine.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "status": "integrated-corpse"
+    },
+    {
+      "id": "zombie-stalker-corpse-prone",
+      "label": "Stalker corpse prone",
+      "category": "corpse",
+      "path": "textures/zombie-stalker/corpse-prone.png",
+      "size": [
+        48,
+        40
+      ],
+      "anchor": [
+        24,
+        20
+      ],
+      "state": "corpse",
+      "pose": "prone",
+      "frames": {
+        "corpse": [
+          {
+            "path": "textures/zombie-stalker/corpse-prone.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "status": "integrated-corpse"
+    },
+    {
+      "id": "zombie-runner-idle-south",
+      "label": "Runner idle south",
+      "category": "zombie",
+      "path": "textures/zombie-runner/idle-south-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "south",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-runner/idle-south-00.png",
+            "atlas_rect": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": false,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-runner-walk-south",
+      "label": "Runner walk south",
+      "category": "zombie",
+      "path": "textures/zombie-runner/walk-south-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "south",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-runner/walk-south-00.png",
+            "atlas_rect": [
+              32,
+              0,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-runner/walk-south-01.png",
+            "atlas_rect": [
+              64,
+              0,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-runner/walk-south-02.png",
+            "atlas_rect": [
+              96,
+              0,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-runner/walk-south-03.png",
+            "atlas_rect": [
+              128,
+              0,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 9,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-runner-idle-east",
+      "label": "Runner idle east",
+      "category": "zombie",
+      "path": "textures/zombie-runner/idle-east-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "east",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-runner/idle-east-00.png",
+            "atlas_rect": [
+              0,
+              40,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": false,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-runner-walk-east",
+      "label": "Runner walk east",
+      "category": "zombie",
+      "path": "textures/zombie-runner/walk-east-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "east",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-runner/walk-east-00.png",
+            "atlas_rect": [
+              32,
+              40,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-runner/walk-east-01.png",
+            "atlas_rect": [
+              64,
+              40,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-runner/walk-east-02.png",
+            "atlas_rect": [
+              96,
+              40,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-runner/walk-east-03.png",
+            "atlas_rect": [
+              128,
+              40,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 9,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-runner-idle-north",
+      "label": "Runner idle north",
+      "category": "zombie",
+      "path": "textures/zombie-runner/idle-north-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "north",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-runner/idle-north-00.png",
+            "atlas_rect": [
+              0,
+              80,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": false,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-runner-walk-north",
+      "label": "Runner walk north",
+      "category": "zombie",
+      "path": "textures/zombie-runner/walk-north-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "north",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-runner/walk-north-00.png",
+            "atlas_rect": [
+              32,
+              80,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-runner/walk-north-01.png",
+            "atlas_rect": [
+              64,
+              80,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-runner/walk-north-02.png",
+            "atlas_rect": [
+              96,
+              80,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-runner/walk-north-03.png",
+            "atlas_rect": [
+              128,
+              80,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 9,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-runner-idle-west",
+      "label": "Runner idle west",
+      "category": "zombie",
+      "path": "textures/zombie-runner/idle-west-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "west",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-runner/idle-west-00.png",
+            "atlas_rect": [
+              0,
+              120,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": false,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-runner-walk-west",
+      "label": "Runner walk west",
+      "category": "zombie",
+      "path": "textures/zombie-runner/walk-west-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "west",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-runner/walk-west-00.png",
+            "atlas_rect": [
+              32,
+              120,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-runner/walk-west-01.png",
+            "atlas_rect": [
+              64,
+              120,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-runner/walk-west-02.png",
+            "atlas_rect": [
+              96,
+              120,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-runner/walk-west-03.png",
+            "atlas_rect": [
+              128,
+              120,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 9,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-runner-corpse-supine",
+      "label": "Runner corpse supine",
+      "category": "corpse",
+      "path": "textures/zombie-runner/corpse-supine.png",
+      "size": [
+        48,
+        40
+      ],
+      "anchor": [
+        24,
+        20
+      ],
+      "state": "corpse",
+      "pose": "supine",
+      "frames": {
+        "corpse": [
+          {
+            "path": "textures/zombie-runner/corpse-supine.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "status": "integrated-corpse"
+    },
+    {
+      "id": "zombie-runner-corpse-prone",
+      "label": "Runner corpse prone",
+      "category": "corpse",
+      "path": "textures/zombie-runner/corpse-prone.png",
+      "size": [
+        48,
+        40
+      ],
+      "anchor": [
+        24,
+        20
+      ],
+      "state": "corpse",
+      "pose": "prone",
+      "frames": {
+        "corpse": [
+          {
+            "path": "textures/zombie-runner/corpse-prone.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "status": "integrated-corpse"
+    },
+    {
+      "id": "zombie-armored-idle-south",
+      "label": "Armored idle south",
+      "category": "zombie",
+      "path": "textures/zombie-armored/idle-south-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "south",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-armored/idle-south-00.png",
+            "atlas_rect": [
+              0,
+              0,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": false,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-armored-walk-south",
+      "label": "Armored walk south",
+      "category": "zombie",
+      "path": "textures/zombie-armored/walk-south-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "south",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-armored/walk-south-00.png",
+            "atlas_rect": [
+              32,
+              0,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-armored/walk-south-01.png",
+            "atlas_rect": [
+              64,
+              0,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-armored/walk-south-02.png",
+            "atlas_rect": [
+              96,
+              0,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-armored/walk-south-03.png",
+            "atlas_rect": [
+              128,
+              0,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 4,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-armored-idle-east",
+      "label": "Armored idle east",
+      "category": "zombie",
+      "path": "textures/zombie-armored/idle-east-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "east",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-armored/idle-east-00.png",
+            "atlas_rect": [
+              0,
+              40,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": false,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-armored-walk-east",
+      "label": "Armored walk east",
+      "category": "zombie",
+      "path": "textures/zombie-armored/walk-east-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "east",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-armored/walk-east-00.png",
+            "atlas_rect": [
+              32,
+              40,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-armored/walk-east-01.png",
+            "atlas_rect": [
+              64,
+              40,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-armored/walk-east-02.png",
+            "atlas_rect": [
+              96,
+              40,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-armored/walk-east-03.png",
+            "atlas_rect": [
+              128,
+              40,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 4,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-armored-idle-north",
+      "label": "Armored idle north",
+      "category": "zombie",
+      "path": "textures/zombie-armored/idle-north-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "north",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-armored/idle-north-00.png",
+            "atlas_rect": [
+              0,
+              80,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": false,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-armored-walk-north",
+      "label": "Armored walk north",
+      "category": "zombie",
+      "path": "textures/zombie-armored/walk-north-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "north",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-armored/walk-north-00.png",
+            "atlas_rect": [
+              32,
+              80,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-armored/walk-north-01.png",
+            "atlas_rect": [
+              64,
+              80,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-armored/walk-north-02.png",
+            "atlas_rect": [
+              96,
+              80,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-armored/walk-north-03.png",
+            "atlas_rect": [
+              128,
+              80,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 4,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-armored-idle-west",
+      "label": "Armored idle west",
+      "category": "zombie",
+      "path": "textures/zombie-armored/idle-west-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "west",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-armored/idle-west-00.png",
+            "atlas_rect": [
+              0,
+              120,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": false,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-armored-walk-west",
+      "label": "Armored walk west",
+      "category": "zombie",
+      "path": "textures/zombie-armored/walk-west-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "west",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-armored/walk-west-00.png",
+            "atlas_rect": [
+              32,
+              120,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-armored/walk-west-01.png",
+            "atlas_rect": [
+              64,
+              120,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-armored/walk-west-02.png",
+            "atlas_rect": [
+              96,
+              120,
+              32,
+              40
+            ]
+          },
+          {
+            "path": "textures/zombie-armored/walk-west-03.png",
+            "atlas_rect": [
+              128,
+              120,
+              32,
+              40
+            ]
+          }
+        ]
+      },
+      "fps": 4,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-armored-corpse-supine",
+      "label": "Armored corpse supine",
+      "category": "corpse",
+      "path": "textures/zombie-armored/corpse-supine.png",
+      "size": [
+        48,
+        40
+      ],
+      "anchor": [
+        24,
+        20
+      ],
+      "state": "corpse",
+      "pose": "supine",
+      "frames": {
+        "corpse": [
+          {
+            "path": "textures/zombie-armored/corpse-supine.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "status": "integrated-corpse"
+    },
+    {
+      "id": "zombie-armored-corpse-prone",
+      "label": "Armored corpse prone",
+      "category": "corpse",
+      "path": "textures/zombie-armored/corpse-prone.png",
+      "size": [
+        48,
+        40
+      ],
+      "anchor": [
+        24,
+        20
+      ],
+      "state": "corpse",
+      "pose": "prone",
+      "frames": {
+        "corpse": [
+          {
+            "path": "textures/zombie-armored/corpse-prone.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "status": "integrated-corpse"
+    },
+    {
+      "id": "zombie-heavy-idle-south",
+      "label": "Heavy idle south",
+      "category": "zombie",
+      "path": "textures/zombie-heavy/idle-south-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        48
+      ],
+      "direction": "south",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-heavy/idle-south-00.png",
+            "atlas_rect": [
+              0,
+              0,
+              40,
+              48
+            ]
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": false,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-heavy-walk-south",
+      "label": "Heavy walk south",
+      "category": "zombie",
+      "path": "textures/zombie-heavy/walk-south-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        48
+      ],
+      "direction": "south",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-heavy/walk-south-00.png",
+            "atlas_rect": [
+              40,
+              0,
+              40,
+              48
+            ]
+          },
+          {
+            "path": "textures/zombie-heavy/walk-south-01.png",
+            "atlas_rect": [
+              80,
+              0,
+              40,
+              48
+            ]
+          },
+          {
+            "path": "textures/zombie-heavy/walk-south-02.png",
+            "atlas_rect": [
+              120,
+              0,
+              40,
+              48
+            ]
+          },
+          {
+            "path": "textures/zombie-heavy/walk-south-03.png",
+            "atlas_rect": [
+              160,
+              0,
+              40,
+              48
+            ]
+          }
+        ]
+      },
+      "fps": 4,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-heavy-idle-east",
+      "label": "Heavy idle east",
+      "category": "zombie",
+      "path": "textures/zombie-heavy/idle-east-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        48
+      ],
+      "direction": "east",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-heavy/idle-east-00.png",
+            "atlas_rect": [
+              0,
+              48,
+              40,
+              48
+            ]
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": false,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-heavy-walk-east",
+      "label": "Heavy walk east",
+      "category": "zombie",
+      "path": "textures/zombie-heavy/walk-east-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        48
+      ],
+      "direction": "east",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-heavy/walk-east-00.png",
+            "atlas_rect": [
+              40,
+              48,
+              40,
+              48
+            ]
+          },
+          {
+            "path": "textures/zombie-heavy/walk-east-01.png",
+            "atlas_rect": [
+              80,
+              48,
+              40,
+              48
+            ]
+          },
+          {
+            "path": "textures/zombie-heavy/walk-east-02.png",
+            "atlas_rect": [
+              120,
+              48,
+              40,
+              48
+            ]
+          },
+          {
+            "path": "textures/zombie-heavy/walk-east-03.png",
+            "atlas_rect": [
+              160,
+              48,
+              40,
+              48
+            ]
+          }
+        ]
+      },
+      "fps": 4,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-heavy-idle-north",
+      "label": "Heavy idle north",
+      "category": "zombie",
+      "path": "textures/zombie-heavy/idle-north-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        48
+      ],
+      "direction": "north",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-heavy/idle-north-00.png",
+            "atlas_rect": [
+              0,
+              96,
+              40,
+              48
+            ]
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": false,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-heavy-walk-north",
+      "label": "Heavy walk north",
+      "category": "zombie",
+      "path": "textures/zombie-heavy/walk-north-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        48
+      ],
+      "direction": "north",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-heavy/walk-north-00.png",
+            "atlas_rect": [
+              40,
+              96,
+              40,
+              48
+            ]
+          },
+          {
+            "path": "textures/zombie-heavy/walk-north-01.png",
+            "atlas_rect": [
+              80,
+              96,
+              40,
+              48
+            ]
+          },
+          {
+            "path": "textures/zombie-heavy/walk-north-02.png",
+            "atlas_rect": [
+              120,
+              96,
+              40,
+              48
+            ]
+          },
+          {
+            "path": "textures/zombie-heavy/walk-north-03.png",
+            "atlas_rect": [
+              160,
+              96,
+              40,
+              48
+            ]
+          }
+        ]
+      },
+      "fps": 4,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-heavy-idle-west",
+      "label": "Heavy idle west",
+      "category": "zombie",
+      "path": "textures/zombie-heavy/idle-west-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        48
+      ],
+      "direction": "west",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-heavy/idle-west-00.png",
+            "atlas_rect": [
+              0,
+              144,
+              40,
+              48
+            ]
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": false,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-heavy-walk-west",
+      "label": "Heavy walk west",
+      "category": "zombie",
+      "path": "textures/zombie-heavy/walk-west-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        48
+      ],
+      "direction": "west",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-heavy/walk-west-00.png",
+            "atlas_rect": [
+              40,
+              144,
+              40,
+              48
+            ]
+          },
+          {
+            "path": "textures/zombie-heavy/walk-west-01.png",
+            "atlas_rect": [
+              80,
+              144,
+              40,
+              48
+            ]
+          },
+          {
+            "path": "textures/zombie-heavy/walk-west-02.png",
+            "atlas_rect": [
+              120,
+              144,
+              40,
+              48
+            ]
+          },
+          {
+            "path": "textures/zombie-heavy/walk-west-03.png",
+            "atlas_rect": [
+              160,
+              144,
+              40,
+              48
+            ]
+          }
+        ]
+      },
+      "fps": 4,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-heavy-corpse-supine",
+      "label": "Heavy corpse supine",
+      "category": "corpse",
+      "path": "textures/zombie-heavy/corpse-supine.png",
+      "size": [
+        56,
+        40
+      ],
+      "anchor": [
+        28,
+        20
+      ],
+      "state": "corpse",
+      "pose": "supine",
+      "frames": {
+        "corpse": [
+          {
+            "path": "textures/zombie-heavy/corpse-supine.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "status": "integrated-corpse"
+    },
+    {
+      "id": "zombie-heavy-corpse-prone",
+      "label": "Heavy corpse prone",
+      "category": "corpse",
+      "path": "textures/zombie-heavy/corpse-prone.png",
+      "size": [
+        56,
+        40
+      ],
+      "anchor": [
+        28,
+        20
+      ],
+      "state": "corpse",
+      "pose": "prone",
+      "frames": {
+        "corpse": [
+          {
+            "path": "textures/zombie-heavy/corpse-prone.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "status": "integrated-corpse"
+    },
+    {
+      "id": "human-corpse-supine",
+      "label": "Human corpse supine",
+      "category": "corpse",
+      "path": "textures/human/corpse-supine.png",
+      "size": [
+        48,
+        40
+      ],
+      "anchor": [
+        24,
+        20
+      ],
+      "state": "corpse",
+      "pose": "supine",
+      "frames": {
+        "corpse": [
+          {
+            "path": "textures/human/corpse-supine.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "status": "integrated-corpse"
+    },
+    {
+      "id": "human-corpse-prone",
+      "label": "Human corpse prone",
+      "category": "corpse",
+      "path": "textures/human/corpse-prone.png",
+      "size": [
+        48,
+        40
+      ],
+      "anchor": [
+        24,
+        20
+      ],
+      "state": "corpse",
+      "pose": "prone",
+      "frames": {
+        "corpse": [
+          {
+            "path": "textures/human/corpse-prone.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "status": "integrated-corpse"
+    },
+    {
+      "id": "human-corpse-side",
+      "label": "Human corpse side",
+      "category": "corpse",
+      "path": "textures/human/corpse-side.png",
+      "size": [
+        48,
+        40
+      ],
+      "anchor": [
+        24,
+        20
+      ],
+      "state": "corpse",
+      "pose": "side",
+      "frames": {
+        "corpse": [
+          {
+            "path": "textures/human/corpse-side.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "status": "integrated-corpse"
+    },
+    {
+      "id": "human-corpse-supine-diagonal",
+      "label": "Human corpse supine-diagonal",
+      "category": "corpse",
+      "path": "textures/human/corpse-supine-diagonal.png",
+      "size": [
+        48,
+        40
+      ],
+      "anchor": [
+        24,
+        20
+      ],
+      "state": "corpse",
+      "pose": "supine-diagonal",
+      "frames": {
+        "corpse": [
+          {
+            "path": "textures/human/corpse-supine-diagonal.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "status": "integrated-corpse"
+    }
+  ]
+}

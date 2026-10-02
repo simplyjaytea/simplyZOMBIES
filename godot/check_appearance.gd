@@ -91,10 +91,10 @@ func _all_blocks() -> Dictionary:
 # and the negatives that prove it cannot drift apart.
 #
 # Every kind shares one vocabulary, and this list is what catches a nested typo the content
-# validator cannot see (it checks top-level types only). A vehicle is the single exception: its
-# picture set is one three-quarter view per axis rather than a single `sprite`, so `variants` is
-# legal there and refused everywhere else. Its inner shape -- {id, ns, ew}, each key resolving at
-# its own canvas -- is check_wrecks.gd's DRESSING lane, not this one.
+# validator cannot see (it checks top-level types only). `variants` is legal for vehicles and
+# zombies only. A vehicle's {id, ns, ew} shape is check_wrecks.gd's DRESSING lane; a zombie's
+# {sprite, corpseSprites} pair is checked here. `corpseSprites` lives on a zombie or the player
+# body (the shared human fallback), never on an item, prop or vehicle.
 func _appearance_key_ok(k: String, path: String) -> bool:
 	if ["sprite", "tint", "features", "portrait", "equipSprite", "shape", "size"].has(k):
 		return true
@@ -111,7 +111,9 @@ func _appearance_key_ok(k: String, path: String) -> bool:
 			if path.begins_with(String(prefix)):
 				return true
 		return false
-	return k == "variants" and path.begins_with("vehicles/")
+	if k == "corpseSprites":
+		return path.begins_with("zombies/") or path.begins_with("players/")
+	return k == "variants" and (path.begins_with("vehicles/") or path.begins_with("zombies/"))
 
 
 const EFFECT_KINDS: Dictionary = {
@@ -126,18 +128,28 @@ const EFFECT_KINDS: Dictionary = {
 func _declared_appearances_are_well_formed() -> bool:
 	var hex := RegEx.new(); hex.compile(HEX)
 	var key := RegEx.new(); key.compile(KEY)
-	# Prove the predicate before trusting it: it has to refuse `variants` on a kind that is not a
-	# vehicle, or the exception below is a hole rather than an exception. A shared allowlist that
-	# accepted `variants` everywhere would make it legal on a zombie, where it would resolve
-	# nothing and report nothing -- exactly the nested-key trap this lane exists to catch.
-	if _appearance_key_ok("variants", "zombies/walker.json#zombie.walker"):
-		push_error("the appearance allowlist accepts 'variants' outside content/vehicles/; the vehicle exception is a hole")
-		return false
-	if not _appearance_key_ok("variants", "vehicles/sedan.json#vehicle.sedan"):
-		push_error("the appearance allowlist refuses 'variants' on a vehicle, which is where the per-axis picture set lives")
-		return false
-	if _appearance_key_ok("sprrite", "vehicles/sedan.json#vehicle.sedan"):
-		push_error("the appearance allowlist accepts a misspelled key on a vehicle; the exception widened the whole list")
+	# The two variant shapes have real readers; no other kind accepts the exception.
+	for allowed in ["vehicles/sedan.json#vehicle.sedan", "zombies/shambler.json#zombie.shambler"]:
+		if not _appearance_key_ok("variants", allowed):
+			push_error("the appearance allowlist refuses 'variants' on %s" % allowed)
+			return false
+	for denied in ["players/player.json#player.body", "items/ranged.json#item.pistol.service", "props/stations.json#prop.campfire", "raiders/scav.json#raider.scav", "survivors/uniques/mara.json#survivor.unique.mara", "colony/looks.json#colony.look.01"]:
+		if _appearance_key_ok("variants", denied):
+			push_error("the appearance allowlist accepts 'variants' outside vehicles and zombies: %s" % denied)
+			return false
+	for allowed in ["players/player.json#player.body", "zombies/shambler.json#zombie.shambler"]:
+		if not _appearance_key_ok("corpseSprites", allowed):
+			push_error("the appearance allowlist refuses 'corpseSprites' on %s" % allowed)
+			return false
+	for denied in ["vehicles/sedan.json#vehicle.sedan", "items/clothing.json#item.jacket", "props/stations.json#prop.bed", "raiders/scav.json#raider.scav", "survivors/uniques/mara.json#survivor.unique.mara", "colony/looks.json#colony.look.01"]:
+		if _appearance_key_ok("corpseSprites", denied):
+			push_error("the appearance allowlist accepts 'corpseSprites' outside players and zombies: %s" % denied)
+			return false
+	for path in ["vehicles/sedan.json#vehicle.sedan", "zombies/shambler.json#zombie.shambler"]:
+		if _appearance_key_ok("sprrite", path):
+			push_error("the appearance allowlist accepts a misspelled key on %s; the exception widened the whole list" % path)
+			return false
+	if not _nested_body_shapes_reject_bad_data():
 		return false
 	# The three retired keys are refused on the one kind that used to carry them, and the one that
 	# stayed is still accepted there -- so the refusal is the retirement, not a broken list.
@@ -178,6 +190,16 @@ func _declared_appearances_are_well_formed() -> bool:
 				if not (es is String) or key.search(String(es)) == null:
 					push_error("%s: appearance.%s '%s' is not a registry key (a key, not a path)" % [path, prop, str(es)])
 					return false
+		if block.has("corpseSprites"):
+			var corpse_problem: String = _corpse_sprites_complaint(block["corpseSprites"])
+			if not corpse_problem.is_empty():
+				push_error("%s: appearance.corpseSprites %s" % [path, corpse_problem])
+				return false
+		if block.has("variants") and String(path).begins_with("zombies/"):
+			var variant_problem: String = _zombie_variants_complaint(block["variants"])
+			if not variant_problem.is_empty():
+				push_error("%s: appearance.variants %s" % [path, variant_problem])
+				return false
 		# A prop's footprint. `shape` must be a primitive the renderer owns -- content naming a
 		# shape nothing draws would fall back to a box and look like a decision somebody made --
 		# and `size` is a fraction of a tile, so a 6 there is a prop the size of a house.
@@ -194,6 +216,109 @@ func _declared_appearances_are_well_formed() -> bool:
 	print("SHAPE OK %d blocks" % blocks.size())
 	return true
 
+# These mirror the nested schemas, including bounds and duplicate corpse keys. They return a
+# complaint rather than logging so the exact same predicate can judge deliberately broken data.
+func _corpse_sprites_complaint(raw: Variant) -> String:
+	if not (raw is Array):
+		return "must be an array"
+	var poses: Array = raw as Array
+	if poses.is_empty() or poses.size() > 8:
+		return "must contain between 1 and 8 keys"
+	var pattern := RegEx.new(); pattern.compile("^corpse_[a-z0-9_]+$")
+	var seen: Dictionary = {}
+	for pose in poses:
+		if not (pose is String) or pattern.search(String(pose)) == null:
+			return "contains a non-corpse registry key"
+		if seen.has(pose):
+			return "contains a duplicate key"
+		seen[pose] = true
+	return ""
+
+
+func _zombie_variants_complaint(raw: Variant) -> String:
+	if not (raw is Array):
+		return "must be an array"
+	var variants: Array = raw as Array
+	if variants.is_empty() or variants.size() > 16:
+		return "must contain between 1 and 16 records"
+	var pattern := RegEx.new(); pattern.compile("^body_[a-z0-9_]+$")
+	for entry in variants:
+		if not (entry is Dictionary):
+			return "contains a non-object record"
+		var variant: Dictionary = entry as Dictionary
+		if not variant.has("sprite") or not variant.has("corpseSprites") or variant.size() != 2:
+			return "each record must contain only sprite and corpseSprites"
+		if not (variant["sprite"] is String) or pattern.search(String(variant["sprite"])) == null:
+			return "contains a non-body sprite key"
+		var corpse_problem: String = _corpse_sprites_complaint(variant["corpseSprites"])
+		if not corpse_problem.is_empty():
+			return "corpseSprites " + corpse_problem
+	return ""
+
+
+func _nested_body_shapes_reject_bad_data() -> bool:
+	var poses: Array = ["corpse_probe_supine", "corpse_probe_prone"]
+	var variant: Dictionary = {"sprite": "body_probe", "corpseSprites": poses}
+	if not _corpse_sprites_complaint(poses).is_empty() or not _zombie_variants_complaint([variant]).is_empty():
+		push_error("the body shape predicates refuse valid registry keys")
+		return false
+	var too_many_poses: Array = []
+	for i in 9:
+		too_many_poses.append("corpse_probe_%d" % i)
+	for bad in [null, {}, "corpse_probe", [], [1], ["body_probe"], ["corpse_bad/path"], ["corpse_probe", "corpse_probe"], too_many_poses]:
+		if _corpse_sprites_complaint(bad).is_empty():
+			push_error("the corpse shape predicate accepts malformed data: %s" % str(bad))
+			return false
+	var too_many_variants: Array = []
+	for i in 17:
+		too_many_variants.append(variant)
+	for bad in [null, {}, [], ["body_probe"], [{}], [{"sprite": "body_probe"}], [{"corpseSprites": poses}], [{"sprite": "body_probe", "corpseSprites": poses, "tint": "#ffffff"}], [{"sprite": 1, "corpseSprites": poses}], [{"sprite": "item_probe", "corpseSprites": poses}], [{"sprite": "body_probe", "corpseSprites": []}], too_many_variants]:
+		if _zombie_variants_complaint(bad).is_empty():
+			push_error("the zombie variant predicate accepts malformed data: %s" % str(bad))
+			return false
+	if _zombie_variants_complaint([{"id": "probe", "ns": "vehicle_probe_ns", "ew": "vehicle_probe_ew"}]).is_empty():
+		push_error("a vehicle variant passed the zombie shape predicate")
+		return false
+	# A nested declaration must reach KEYS as well as SHAPE: otherwise a correctly spelled key
+	# naming absent art would be invisible to the old top-level-only resolution loop.
+	var body: Dictionary = {"sprite": "body_probe", "corpseSprites": poses, "variants": [variant]}
+	var expected: Dictionary = {
+		"sprite": "body_probe", "corpseSprites[0]": poses[0], "corpseSprites[1]": poses[1],
+		"variants[0].sprite": "body_probe", "variants[0].corpseSprites[0]": poses[0],
+		"variants[0].corpseSprites[1]": poses[1],
+	}
+	if _declared_sprite_keys(body, true) != expected:
+		push_error("the sprite-key walk dropped a living or corpse variant declaration")
+		return false
+	if _declared_sprite_keys(body, false).has("variants[0].sprite") or not _declared_sprite_keys({}, true).is_empty():
+		push_error("the sprite-key walk invents nested zombie keys outside a zombie or on an empty block")
+		return false
+	return true
+
+
+# Flatten only sprite-bearing fields, retaining their full content path for useful failures.
+# Vehicle variants use another shape, resolved by check_wrecks rather than guessed at here.
+func _declared_sprite_keys(block: Dictionary, zombie: bool) -> Dictionary:
+	var keys: Dictionary = {}
+	for prop in ["sprite", "equipSprite"]:
+		if block.has(prop):
+			keys[prop] = block[prop]
+	var poses: Variant = block.get("corpseSprites", [])
+	if poses is Array:
+		for i in (poses as Array).size():
+			keys["corpseSprites[%d]" % i] = (poses as Array)[i]
+	var variants: Variant = block.get("variants", [])
+	if zombie and variants is Array:
+		for i in (variants as Array).size():
+			var variant: Variant = (variants as Array)[i]
+			if not (variant is Dictionary):
+				continue
+			var nested: Dictionary = _declared_sprite_keys(variant as Dictionary, false)
+			for prop in nested.keys():
+				keys["variants[%d].%s" % [i, prop]] = nested[prop]
+	return keys
+
+
 # A key naming a file that does not exist must fail the build, not draw nothing.
 func _sprite_keys_resolve() -> bool:
 	var native: int = int(CameraUtil.ART_NATIVE)
@@ -201,10 +326,9 @@ func _sprite_keys_resolve() -> bool:
 	var blocks: Dictionary = _all_blocks()
 	for path in blocks.keys():
 		var block: Dictionary = blocks[path]
-		for prop in ["sprite", "equipSprite"]:
-			if not block.has(prop):
-				continue
-			var k: String = String(block[prop])
+		var declared: Dictionary = _declared_sprite_keys(block, String(path).begins_with("zombies/"))
+		for prop in declared.keys():
+			var k: String = String(declared[prop])
 			var tex: Variant = Appearance.resolve(k)
 			if tex == null:
 				push_error("%s: appearance.%s '%s' has no file at %s/%s.png" % [path, prop, k, SPRITE_DIR, k])
@@ -398,21 +522,10 @@ const ROSTER: Array[Dictionary] = [
 	{"id": "zombie.shambler", "kind": "zombie", "probe": {"ztype": "zombie.shambler"}, "tinted": false},
 	{"id": "zombie.screamer", "kind": "zombie", "probe": {"ztype": "zombie.screamer"}, "tinted": false},
 	{"id": "zombie.bloater", "kind": "zombie", "probe": {"ztype": "zombie.bloater"}, "tinted": false},
-	# The two wave kinds the stalker-and-runner slice added. They declare the shambler's own
-	# sprite key and no block tint, so they resolve its texture and draw white here -- which is
-	# exactly the gap docs/23's "a silhouette per kind" follow-up piece names. What tells one
-	# from another on the ground today is the per-body colour rolled from each kind's own
-	# `variance.tints` palette, which arrives on the draw item rather than in the block
-	# (check_m2_variance.gd READER), and is therefore invisible to this lane by construction.
+	# Each special kind now has its own body. Per-body variance tints arrive on the draw item
+	# (check_m2_variance.gd READER), separate from the untinted authored pictures judged here.
 	{"id": "zombie.stalker", "kind": "zombie", "probe": {"ztype": "zombie.stalker"}, "tinted": false},
 	{"id": "zombie.runner", "kind": "zombie", "probe": {"ztype": "zombie.runner"}, "tinted": false},
-	# And the two the armoured-and-heavy slice added, on the same terms and for the same reason.
-	# The armoured one is the awkward entry to leave here and that is exactly why it is written
-	# down: it is *wearing a vest and a helmet* the sim resolves and the paperdoll draws
-	# (check_worn.gd's REACHES lane walks equipped bases wherever they are worn), but the body
-	# under the gear is still the shambler's rig at the shambler's white, so the silhouette a
-	# player reads across a street is the shambler's silhouette. The heavy is worse off still --
-	# docs/14 calls it enormous and it draws at exactly one tile like everything else.
 	{"id": "zombie.armored", "kind": "zombie", "probe": {"ztype": "zombie.armored"}, "tinted": false},
 	{"id": "zombie.heavy", "kind": "zombie", "probe": {"ztype": "zombie.heavy"}, "tinted": false},
 	{"id": "raider.scav", "kind": "raider", "probe": {"raider": true, "cid": "raider.scav"}, "tinted": true},
@@ -453,13 +566,6 @@ const ROSTER_DIRS: Array[String] = ["players/", "zombies/", "survivors/uniques/"
 # across a street may answer, and the raider tint is shared for that reason
 # (check_m2_raiders.gd asserts the same thing from the content side).
 #
-# The third group is the one that is a **gap rather than a decision**, and it is here so the gap
-# is written down where a reader will meet it: the stalker, the runner, the armoured and the
-# heavy all wear the shambler's rig because a new sprite key is `sprites:check` work (Pillow, a
-# byte comparison of generated art) that the slices adding them deliberately did not take.
-# docs/23's what's-left names the one follow-up piece, "a silhouette per kind", and all four are
-# on it. Until it lands, this line is the honest statement that four kinds with different senses,
-# different speeds and -- since the armoured one -- different armour are one picture.
 const ROSTER_SHARED: Array = [
 	[
 		"player.body", "survivor.unique.mara", "survivor.unique.ellis",
@@ -467,14 +573,14 @@ const ROSTER_SHARED: Array = [
 		"raider.scav", "raider.gunhand", "raider.looter", "raider.lookout",
 		"raider.look.01", "raider.look.02", "raider.look.03", "raider.look.04",
 	],
-	["zombie.shambler", "zombie.stalker", "zombie.runner", "zombie.armored", "zombie.heavy"],
 ]
 
-# One id per distinct picture; every pair must resolve different textures. Four since the pack
-# took the humans and the shambler: the pack survivor, the pack shambler, and the two generated
-# rigs the pack does not supply.
+# One id per distinct picture; every pair must resolve different textures. Each special zombie
+# has a separate family now; the ordinary shambler's three cosmetic variants are checked by
+# check_zombie_art, while the default member joins this cross-roster comparison.
 const ROSTER_DISTINCT: Array[String] = [
 	"player.body", "zombie.shambler", "zombie.screamer", "zombie.bloater",
+	"zombie.stalker", "zombie.runner", "zombie.armored", "zombie.heavy",
 ]
 
 

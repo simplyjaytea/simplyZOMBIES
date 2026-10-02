@@ -661,16 +661,20 @@ func _bodies_face_by_flipping() -> bool:
 # it on the real one -- a scanner that answers "" for everything is a gate that cannot fail.
 # The bodies turn and walk (docs/23, 2026-09-26; docs/30, "The outpost pack, adopted", decision 1).
 #
-# Every human draws on the outpost pack's survivor and the shambler on the pack's shambler: four
-# views, never mirrored, and a walk of four frames each way keyed to `world.tick`. The pure half is
+# Every human draws on the outpost pack's survivor; zombies have seven distinct authored bodies:
+# four views, never mirrored, and a walk of four frames each way keyed to `world.tick`. The pure half is
 # exact answers from the functions the draw loop calls, each with its true negative -- a heading on
 # every quarter and on the diagonals, the walk's rate counted over one second of ticks against the
 # frame rate authored.json copies from the pack, a face-on rig that must keep flipping and must
-# never turn -- and every member a turning body can ask for resolves on the pawn canvas. The
+# never turn -- and every member resolves at its exact canvas (40x48 for the heavy, 32x40 for
+# every other body). The
 # textual half is the dead-socket assertion: `_draw_entities` must actually reach the view, the
 # frame, the per-view gear and the no-flip rule, with the tick handed over, and the afterimage must
 # freeze the frame it drew rather than the rest picture.
-const TURNING_BODIES: Array[String] = ["body_survivor", "body_shambler"]
+const TURNING_BODIES: Array[String] = [
+	"body_survivor", "body_zombie_workwear", "body_zombie_commuter", "body_zombie_raincoat",
+	"body_zombie_stalker", "body_zombie_runner", "body_zombie_armored", "body_zombie_heavy",
+]
 
 
 func _changes_in_one_second(fps: int, frames: int) -> int:
@@ -703,21 +707,25 @@ func _bodies_turn_and_walk() -> bool:
 		push_error("TURN: the four quarter turns show %d views; a turn that shows one picture is not a turn" % distinct.size())
 		return false
 
-	# Which keys turn: the two pack bodies and the four wearables do; a face-on rig, a member on its
+	# Which keys turn: every authored body and the four wearables do; a face-on rig, a member on its
 	# own, nothing at all, and a held weapon -- one east-facing picture the renderer turns by the
 	# draw call's flags, never a family with a picture per view -- do not.
 	for key in TURNING_BODIES + ["item_gear_helmet", "item_gear_vest", "item_gear_gasmask", "item_gear_backpack"]:
 		if not Appearance.turns(String(key)):
 			push_error("TURN: '%s' does not turn" % key)
 			return false
-	for key in ["zombie_screamer", "zombie_bloater", "body_survivor_s", "", "item_held_pistol"]:
+	for key in ["zombie_screamer", "zombie_bloater", "body_survivor_s", "body_shambler", "", "item_held_pistol"]:
 		if Appearance.turns(String(key)):
 			push_error("TURN: '%s' claims to turn; turns() cannot say no" % key)
 			return false
 
 	# The walk: four frames each way at the pack's own rate, counted over one second of the sim's
-	# ticks -- eight frame changes a second for the survivor, five for the shambler.
-	var rates: Dictionary = {"body_survivor": 8, "body_shambler": 5}
+	# ticks, with the runner quicker and the armored/heavy slower than the common shambler.
+	var rates: Dictionary = {
+		"body_survivor": 8, "body_zombie_workwear": 5, "body_zombie_commuter": 5,
+		"body_zombie_raincoat": 5, "body_zombie_stalker": 6, "body_zombie_runner": 9,
+		"body_zombie_armored": 4, "body_zombie_heavy": 4,
+	}
 	var members: int = 0
 	for key in TURNING_BODIES:
 		var frames: int = Appearance.walk_frames(key)
@@ -729,7 +737,12 @@ func _bodies_turn_and_walk() -> bool:
 		if changes != fps:
 			push_error("TURN: '%s' changed frame %d times in one second of ticks at %d fps" % [key, changes, fps])
 			return false
-		# Every member it can ask for resolves, on the pawn canvas, and each view is its own picture.
+		# Explicit bounds: the larger heavy is the only exception to the shared pawn canvas.
+		var expected_canvas: Vector2i = Vector2i(40, 48) if key == "body_zombie_heavy" else Appearance.PAWN_CANVAS
+		if Appearance.canvas_of(key) != expected_canvas:
+			push_error("TURN: '%s' declares %s, expected %s" % [key, str(Appearance.canvas_of(key)), str(expected_canvas)])
+			return false
+		# Every member resolves at that same canvas, and each view is its own picture.
 		var rest_views: Dictionary = {}
 		for view in Appearance.VIEWS:
 			var still: String = Appearance.frame_key(key, view, false, 0, 0)
@@ -740,8 +753,8 @@ func _bodies_turn_and_walk() -> bool:
 				for moving in [false, true]:
 					var k: String = Appearance.frame_key(key, view, moving, tick, 0)
 					var tex: Texture2D = Appearance.resolve(k)
-					if tex == null or Vector2i(tex.get_size()) != Appearance.PAWN_CANVAS:
-						push_error("TURN: '%s' does not resolve on the pawn canvas" % k)
+					if tex == null or Vector2i(tex.get_size()) != expected_canvas:
+						push_error("TURN: '%s' does not resolve at its exact canvas %s" % [k, str(expected_canvas)])
 						return false
 			rest_views[Appearance.resolve(still)] = true
 			members += 1
@@ -781,10 +794,10 @@ func _bodies_turn_and_walk() -> bool:
 	if Appearance.body_view("body_survivor", {"radians": PI}, {"dx": 1.0, "dy": 0.0}) != "w":
 		push_error("TURN: a body facing west while moving east did not show its facing")
 		return false
-	if Appearance.body_view("body_shambler", null, {"dx": 0.0, "dy": -1.0}) != "n":
+	if Appearance.body_view("body_zombie_workwear", null, {"dx": 0.0, "dy": -1.0}) != "n":
 		push_error("TURN: a zombie walking north with no facing component did not show 'n'")
 		return false
-	if Appearance.body_view("body_shambler", null, {"x": -1.0}) != Appearance.VIEW_REST:
+	if Appearance.body_view("body_zombie_workwear", null, {"x": -1.0}) != Appearance.VIEW_REST:
 		push_error("TURN: a velocity written as {x} turned the body; nothing reads `x`")
 		return false
 	# body_texture: a look for a turning body answers the member; a face-on look answers its own.
@@ -823,7 +836,7 @@ func _bodies_turn_and_walk() -> bool:
 		push_error("TURN: _draw_afterimages does not draw the frozen frame; a body that turned away would be remembered facing south")
 		return false
 	Appearance.forget()
-	print("TURN OK view_of answers the nearest quarter (diagonals round away from zero); %d turning bodies walk 4 frames at the pack's 8 and 5 fps, counted on the tick, %d views each on their own picture, every member on %s; a face-on rig keeps its one picture and its flip; a velocity under {x} does not turn a body; _draw_entities reaches the view, the tick-keyed frame, the per-view gear and flip_for, and the afterimage freezes the frame" % [TURNING_BODIES.size(), members / TURNING_BODIES.size(), str(Appearance.PAWN_CANVAS)])
+	print("TURN OK view_of answers the nearest quarter (diagonals round away from zero); %d turning bodies walk 4 frames at their declared 4–9 fps, counted on the tick, %d views each on their own picture, every member on %s except the 40x48 heavy; a face-on rig keeps its one picture and its flip; a velocity under {x} does not turn a body; _draw_entities reaches the view, the tick-keyed frame, the per-view gear and flip_for, and the afterimage freezes the frame" % [TURNING_BODIES.size(), members / TURNING_BODIES.size(), str(Appearance.PAWN_CANVAS)])
 	return true
 
 
