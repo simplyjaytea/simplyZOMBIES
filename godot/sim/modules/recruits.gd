@@ -293,7 +293,7 @@ static func waiting_in_reach(world: Variant, actor: int) -> int:
 
 
 static func handle_death(world: Variant, entity: int) -> bool:
-	if entity < 0:
+	if entity < 0 or not bool(world.entities.is_alive(entity)):
 		return false
 	if int(entity) == int(world.player) or world.components.has_component(entity, "controlled"):
 		var next: int = _succession_pick(world, entity)
@@ -313,6 +313,7 @@ static func handle_death(world: Variant, entity: int) -> bool:
 		world.despawn(entity)
 		return true
 	if world.components.has_component(entity, "shambler"):
+		_remember_zombie_remains(world, entity)
 		_drop_kit(world, entity)
 		world.despawn(entity)
 		return true
@@ -353,6 +354,28 @@ static func handle_death(world: Variant, entity: int) -> bool:
 		return true
 	world.despawn(entity)
 	return true
+
+
+static func _remember_zombie_remains(world: Variant, entity: int) -> void:
+	var pos: Variant = world.components.get_component(entity, "position")
+	if not (pos is Dictionary):
+		return
+	var zt: Variant = world.components.get_component(entity, "zombieType")
+	var type_id: String = "zombie.shambler"
+	var tint: String = ""
+	if zt is Dictionary:
+		type_id = String((zt as Dictionary).get("id", type_id))
+		tint = String((zt as Dictionary).get("tint", ""))
+	# No corpse entity, emitter or new allocation: the existing drop/despawn below remains the
+	# whole simulation outcome. The renderer can omit a type whose content has no corpse art.
+	world.remember_visual_remains({
+		"entity": entity,
+		"x": float((pos as Dictionary).get("x", 0.0)),
+		"y": float((pos as Dictionary).get("y", 0.0)),
+		"ztype": type_id,
+		"tint": tint,
+		"sinceTick": int(world.tick),
+	})
 
 
 static func _succession_pick(world: Variant, dead: int) -> int:
@@ -482,6 +505,9 @@ static func _turn_with_kit(world: Variant, entity: int) -> void:
 	world.components.set_component(shambler, "position", {"x": px, "y": py})
 	world.components.set_component(shambler, "velocity", {"dx": 0.0, "dy": 0.0})
 	world.components.set_component(shambler, "body", SimCombat.ZOMBIE_BODY.duplicate())
+	# A turned survivor is the default shambler, including its content-selected pictures.
+	# Do not roll a fresh look here: turning already has a fixed simulation RNG budget.
+	world.components.set_component(shambler, "zombieType", {"id": "zombie.shambler", "tint": ""})
 	var rng: Variant = world.rng.stream("shambler")
 	SimShambler.make_shambler(world, shambler, rng)
 	SimInventory.make_inventory(world, shambler)

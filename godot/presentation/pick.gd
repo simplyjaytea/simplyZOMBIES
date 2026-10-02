@@ -126,7 +126,6 @@ static func pick_at(world: Variant, camera: Dictionary, screen_pos: Vector2) -> 
 static func _pick_body(world: Variant, camera: Dictionary, screen_pos: Vector2) -> Dictionary:
 	var none: Dictionary = {"entity": -1, "kind": ""}
 	var px_scale: float = Appearance.blit_scale(float(camera["zoom"]))
-	var size: Vector2 = Vector2(Appearance.PAWN_CANVAS) * px_scale
 	var best: int = -1
 	var best_depth: float = -1e12
 	var best_kind: String = ""
@@ -157,6 +156,7 @@ static func _pick_body(world: Variant, camera: Dictionary, screen_pos: Vector2) 
 			if int(world.vision.detail(int(world.player), x, y)) != SimVisibility.Detail.Focal:
 				continue
 		var sc: Dictionary = TopDownProjection.world_to_screen(camera, x, y)
+		var size: Vector2 = Vector2(Appearance.body_canvas_for(world, e)) * px_scale
 		var rect: Rect2 = Appearance.body_rect(float(sc["sx"]), float(sc["sy"]), size, 1.0)
 		if not rect.has_point(screen_pos):
 			continue

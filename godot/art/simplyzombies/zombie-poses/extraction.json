@@ -1,0 +1,3984 @@
+[
+  {
+    "path": "textures/zombie-workwear/idle-south-00.png",
+    "source": "sources/workwear-animation.png",
+    "source_rect": [
+      102,
+      12,
+      286,
+      274
+    ],
+    "source_body_rect": [
+      104,
+      14,
+      284,
+      272
+    ],
+    "scale": 0.10748560460652591,
+    "resized_size": [
+      20,
+      28
+    ],
+    "placement": [
+      6,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-workwear/walk-south-00.png",
+    "source": "sources/workwear-animation.png",
+    "source_rect": [
+      374,
+      5,
+      558,
+      277
+    ],
+    "source_body_rect": [
+      376,
+      7,
+      556,
+      275
+    ],
+    "scale": 0.10748560460652591,
+    "resized_size": [
+      20,
+      29
+    ],
+    "placement": [
+      6,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-workwear/walk-south-01.png",
+    "source": "sources/workwear-animation.png",
+    "source_rect": [
+      622,
+      12,
+      795,
+      274
+    ],
+    "source_body_rect": [
+      624,
+      14,
+      793,
+      272
+    ],
+    "scale": 0.10748560460652591,
+    "resized_size": [
+      19,
+      28
+    ],
+    "placement": [
+      7,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-workwear/walk-south-02.png",
+    "source": "sources/workwear-animation.png",
+    "source_rect": [
+      869,
+      13,
+      1052,
+      277
+    ],
+    "source_body_rect": [
+      871,
+      15,
+      1050,
+      275
+    ],
+    "scale": 0.10748560460652591,
+    "resized_size": [
+      20,
+      28
+    ],
+    "placement": [
+      6,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-workwear/walk-south-03.png",
+    "source": "sources/workwear-animation.png",
+    "source_rect": [
+      1126,
+      12,
+      1296,
+      275
+    ],
+    "source_body_rect": [
+      1128,
+      14,
+      1294,
+      273
+    ],
+    "scale": 0.10748560460652591,
+    "resized_size": [
+      18,
+      28
+    ],
+    "placement": [
+      8,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-workwear/idle-east-00.png",
+    "source": "sources/workwear-animation.png",
+    "source_rect": [
+      110,
+      286,
+      244,
+      551
+    ],
+    "source_body_rect": [
+      112,
+      288,
+      242,
+      549
+    ],
+    "scale": 0.10748560460652591,
+    "resized_size": [
+      14,
+      28
+    ],
+    "placement": [
+      9,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-workwear/walk-east-00.png",
+    "source": "sources/workwear-animation.png",
+    "source_rect": [
+      369,
+      284,
+      517,
+      551
+    ],
+    "source_body_rect": [
+      371,
+      286,
+      515,
+      549
+    ],
+    "scale": 0.10748560460652591,
+    "resized_size": [
+      16,
+      29
+    ],
+    "placement": [
+      7,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-workwear/walk-east-01.png",
+    "source": "sources/workwear-animation.png",
+    "source_rect": [
+      625,
+      284,
+      777,
+      548
+    ],
+    "source_body_rect": [
+      627,
+      286,
+      775,
+      546
+    ],
+    "scale": 0.10748560460652591,
+    "resized_size": [
+      16,
+      28
+    ],
+    "placement": [
+      7,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-workwear/walk-east-02.png",
+    "source": "sources/workwear-animation.png",
+    "source_rect": [
+      880,
+      286,
+      1031,
+      551
+    ],
+    "source_body_rect": [
+      882,
+      288,
+      1029,
+      549
+    ],
+    "scale": 0.10748560460652591,
+    "resized_size": [
+      16,
+      28
+    ],
+    "placement": [
+      7,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-workwear/walk-east-03.png",
+    "source": "sources/workwear-animation.png",
+    "source_rect": [
+      1148,
+      282,
+      1278,
+      547
+    ],
+    "source_body_rect": [
+      1150,
+      284,
+      1276,
+      545
+    ],
+    "scale": 0.10748560460652591,
+    "resized_size": [
+      14,
+      28
+    ],
+    "placement": [
+      9,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-workwear/idle-north-00.png",
+    "source": "sources/workwear-animation.png",
+    "source_rect": [
+      94,
+      558,
+      272,
+      817
+    ],
+    "source_body_rect": [
+      96,
+      560,
+      270,
+      815
+    ],
+    "scale": 0.10748560460652591,
+    "resized_size": [
+      19,
+      28
+    ],
+    "placement": [
+      7,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-workwear/walk-north-00.png",
+    "source": "sources/workwear-animation.png",
+    "source_rect": [
+      360,
+      561,
+      541,
+      820
+    ],
+    "source_body_rect": [
+      362,
+      563,
+      539,
+      818
+    ],
+    "scale": 0.10748560460652591,
+    "resized_size": [
+      19,
+      28
+    ],
+    "placement": [
+      6,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-workwear/walk-north-01.png",
+    "source": "sources/workwear-animation.png",
+    "source_rect": [
+      622,
+      564,
+      790,
+      814
+    ],
+    "source_body_rect": [
+      624,
+      566,
+      788,
+      812
+    ],
+    "scale": 0.10748560460652591,
+    "resized_size": [
+      18,
+      27
+    ],
+    "placement": [
+      7,
+      13
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-workwear/walk-north-02.png",
+    "source": "sources/workwear-animation.png",
+    "source_rect": [
+      869,
+      558,
+      1052,
+      820
+    ],
+    "source_body_rect": [
+      871,
+      560,
+      1050,
+      818
+    ],
+    "scale": 0.10748560460652591,
+    "resized_size": [
+      20,
+      28
+    ],
+    "placement": [
+      6,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-workwear/walk-north-03.png",
+    "source": "sources/workwear-animation.png",
+    "source_rect": [
+      1130,
+      564,
+      1304,
+      819
+    ],
+    "source_body_rect": [
+      1132,
+      566,
+      1302,
+      817
+    ],
+    "scale": 0.10748560460652591,
+    "resized_size": [
+      19,
+      27
+    ],
+    "placement": [
+      7,
+      13
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-workwear/idle-west-00.png",
+    "source": "sources/workwear-animation.png",
+    "source_rect": [
+      124,
+      826,
+      259,
+      1094
+    ],
+    "source_body_rect": [
+      126,
+      828,
+      257,
+      1092
+    ],
+    "scale": 0.10748560460652591,
+    "resized_size": [
+      15,
+      29
+    ],
+    "placement": [
+      9,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-workwear/walk-west-00.png",
+    "source": "sources/workwear-animation.png",
+    "source_rect": [
+      379,
+      826,
+      537,
+      1094
+    ],
+    "source_body_rect": [
+      381,
+      828,
+      535,
+      1092
+    ],
+    "scale": 0.10748560460652591,
+    "resized_size": [
+      17,
+      29
+    ],
+    "placement": [
+      8,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-workwear/walk-west-01.png",
+    "source": "sources/workwear-animation.png",
+    "source_rect": [
+      641,
+      822,
+      782,
+      1094
+    ],
+    "source_body_rect": [
+      643,
+      824,
+      780,
+      1092
+    ],
+    "scale": 0.10748560460652591,
+    "resized_size": [
+      15,
+      29
+    ],
+    "placement": [
+      8,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-workwear/walk-west-02.png",
+    "source": "sources/workwear-animation.png",
+    "source_rect": [
+      896,
+      824,
+      1055,
+      1094
+    ],
+    "source_body_rect": [
+      898,
+      826,
+      1053,
+      1092
+    ],
+    "scale": 0.10748560460652591,
+    "resized_size": [
+      17,
+      29
+    ],
+    "placement": [
+      9,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-workwear/walk-west-03.png",
+    "source": "sources/workwear-animation.png",
+    "source_rect": [
+      1159,
+      824,
+      1304,
+      1094
+    ],
+    "source_body_rect": [
+      1161,
+      826,
+      1302,
+      1092
+    ],
+    "scale": 0.10748560460652591,
+    "resized_size": [
+      16,
+      29
+    ],
+    "placement": [
+      9,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-workwear/corpse-supine.png",
+    "source": "sources/workwear-poses.png",
+    "source_rect": [
+      668,
+      320,
+      1361,
+      641
+    ],
+    "scale": 0.06047516198704104,
+    "resized_size": [
+      42,
+      19
+    ],
+    "placement": [
+      3,
+      10
+    ]
+  },
+  {
+    "path": "textures/zombie-workwear/corpse-prone.png",
+    "source": "sources/workwear-poses.png",
+    "source_rect": [
+      1544,
+      250,
+      2091,
+      640
+    ],
+    "scale": 0.06047516198704104,
+    "resized_size": [
+      33,
+      24
+    ],
+    "placement": [
+      7,
+      8
+    ]
+  },
+  {
+    "path": "textures/zombie-commuter/idle-south-00.png",
+    "source": "sources/commuter-animation.png",
+    "source_rect": [
+      79,
+      8,
+      219,
+      266
+    ],
+    "source_body_rect": [
+      81,
+      10,
+      217,
+      264
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      15,
+      28
+    ],
+    "placement": [
+      8,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-commuter/walk-south-00.png",
+    "source": "sources/commuter-animation.png",
+    "source_rect": [
+      358,
+      10,
+      497,
+      273
+    ],
+    "source_body_rect": [
+      360,
+      12,
+      495,
+      271
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      15,
+      28
+    ],
+    "placement": [
+      9,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-commuter/walk-south-01.png",
+    "source": "sources/commuter-animation.png",
+    "source_rect": [
+      632,
+      10,
+      772,
+      274
+    ],
+    "source_body_rect": [
+      634,
+      12,
+      770,
+      272
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      15,
+      28
+    ],
+    "placement": [
+      9,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-commuter/walk-south-02.png",
+    "source": "sources/commuter-animation.png",
+    "source_rect": [
+      903,
+      12,
+      1044,
+      274
+    ],
+    "source_body_rect": [
+      905,
+      14,
+      1042,
+      272
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      15,
+      28
+    ],
+    "placement": [
+      8,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-commuter/walk-south-03.png",
+    "source": "sources/commuter-animation.png",
+    "source_rect": [
+      1189,
+      12,
+      1320,
+      274
+    ],
+    "source_body_rect": [
+      1191,
+      14,
+      1318,
+      272
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      14,
+      28
+    ],
+    "placement": [
+      9,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-commuter/idle-east-00.png",
+    "source": "sources/commuter-animation.png",
+    "source_rect": [
+      85,
+      283,
+      205,
+      555
+    ],
+    "source_body_rect": [
+      87,
+      285,
+      203,
+      553
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      13,
+      29
+    ],
+    "placement": [
+      9,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-commuter/walk-east-00.png",
+    "source": "sources/commuter-animation.png",
+    "source_rect": [
+      358,
+      285,
+      501,
+      555
+    ],
+    "source_body_rect": [
+      360,
+      287,
+      499,
+      553
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      15,
+      29
+    ],
+    "placement": [
+      8,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-commuter/walk-east-01.png",
+    "source": "sources/commuter-animation.png",
+    "source_rect": [
+      641,
+      284,
+      761,
+      555
+    ],
+    "source_body_rect": [
+      643,
+      286,
+      759,
+      553
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      13,
+      29
+    ],
+    "placement": [
+      9,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-commuter/walk-east-02.png",
+    "source": "sources/commuter-animation.png",
+    "source_rect": [
+      902,
+      284,
+      1055,
+      555
+    ],
+    "source_body_rect": [
+      904,
+      286,
+      1053,
+      553
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      16,
+      29
+    ],
+    "placement": [
+      8,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-commuter/walk-east-03.png",
+    "source": "sources/commuter-animation.png",
+    "source_rect": [
+      1191,
+      287,
+      1320,
+      555
+    ],
+    "source_body_rect": [
+      1193,
+      289,
+      1318,
+      553
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      14,
+      29
+    ],
+    "placement": [
+      9,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-commuter/idle-north-00.png",
+    "source": "sources/commuter-animation.png",
+    "source_rect": [
+      77,
+      567,
+      216,
+      821
+    ],
+    "source_body_rect": [
+      79,
+      569,
+      214,
+      819
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      15,
+      27
+    ],
+    "placement": [
+      9,
+      13
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-commuter/walk-north-00.png",
+    "source": "sources/commuter-animation.png",
+    "source_rect": [
+      358,
+      566,
+      496,
+      827
+    ],
+    "source_body_rect": [
+      360,
+      568,
+      494,
+      825
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      15,
+      28
+    ],
+    "placement": [
+      8,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-commuter/walk-north-01.png",
+    "source": "sources/commuter-animation.png",
+    "source_rect": [
+      632,
+      566,
+      771,
+      827
+    ],
+    "source_body_rect": [
+      634,
+      568,
+      769,
+      825
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      15,
+      28
+    ],
+    "placement": [
+      8,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-commuter/walk-north-02.png",
+    "source": "sources/commuter-animation.png",
+    "source_rect": [
+      907,
+      566,
+      1044,
+      827
+    ],
+    "source_body_rect": [
+      909,
+      568,
+      1042,
+      825
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      15,
+      28
+    ],
+    "placement": [
+      8,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-commuter/walk-north-03.png",
+    "source": "sources/commuter-animation.png",
+    "source_rect": [
+      1188,
+      568,
+      1320,
+      828
+    ],
+    "source_body_rect": [
+      1190,
+      570,
+      1318,
+      826
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      14,
+      28
+    ],
+    "placement": [
+      9,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-commuter/idle-west-00.png",
+    "source": "sources/commuter-animation.png",
+    "source_rect": [
+      83,
+      836,
+      204,
+      1108
+    ],
+    "source_body_rect": [
+      85,
+      838,
+      202,
+      1106
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      13,
+      29
+    ],
+    "placement": [
+      10,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-commuter/walk-west-00.png",
+    "source": "sources/commuter-animation.png",
+    "source_rect": [
+      352,
+      840,
+      497,
+      1108
+    ],
+    "source_body_rect": [
+      354,
+      842,
+      495,
+      1106
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      16,
+      29
+    ],
+    "placement": [
+      8,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-commuter/walk-west-01.png",
+    "source": "sources/commuter-animation.png",
+    "source_rect": [
+      637,
+      840,
+      760,
+      1108
+    ],
+    "source_body_rect": [
+      639,
+      842,
+      758,
+      1106
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      13,
+      29
+    ],
+    "placement": [
+      9,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-commuter/walk-west-02.png",
+    "source": "sources/commuter-animation.png",
+    "source_rect": [
+      899,
+      839,
+      1046,
+      1108
+    ],
+    "source_body_rect": [
+      901,
+      841,
+      1044,
+      1106
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      16,
+      29
+    ],
+    "placement": [
+      8,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-commuter/walk-west-03.png",
+    "source": "sources/commuter-animation.png",
+    "source_rect": [
+      1194,
+      839,
+      1329,
+      1105
+    ],
+    "source_body_rect": [
+      1196,
+      841,
+      1327,
+      1103
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      14,
+      29
+    ],
+    "placement": [
+      10,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-commuter/corpse-supine.png",
+    "source": "sources/commuter-poses.png",
+    "source_rect": [
+      704,
+      319,
+      1356,
+      598
+    ],
+    "scale": 0.060085836909871244,
+    "resized_size": [
+      39,
+      17
+    ],
+    "placement": [
+      4,
+      11
+    ]
+  },
+  {
+    "path": "textures/zombie-commuter/corpse-prone.png",
+    "source": "sources/commuter-poses.png",
+    "source_rect": [
+      1531,
+      195,
+      2084,
+      598
+    ],
+    "scale": 0.060085836909871244,
+    "resized_size": [
+      33,
+      24
+    ],
+    "placement": [
+      7,
+      8
+    ]
+  },
+  {
+    "path": "textures/zombie-raincoat/idle-south-00.png",
+    "source": "sources/raincoat-animation.png",
+    "source_rect": [
+      76,
+      9,
+      242,
+      275
+    ],
+    "source_body_rect": [
+      78,
+      11,
+      240,
+      273
+    ],
+    "scale": 0.10546139359698682,
+    "resized_size": [
+      18,
+      28
+    ],
+    "placement": [
+      7,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-raincoat/walk-south-00.png",
+    "source": "sources/raincoat-animation.png",
+    "source_rect": [
+      359,
+      9,
+      513,
+      280
+    ],
+    "source_body_rect": [
+      361,
+      11,
+      511,
+      278
+    ],
+    "scale": 0.10546139359698682,
+    "resized_size": [
+      16,
+      29
+    ],
+    "placement": [
+      8,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-raincoat/walk-south-01.png",
+    "source": "sources/raincoat-animation.png",
+    "source_rect": [
+      619,
+      10,
+      785,
+      280
+    ],
+    "source_body_rect": [
+      621,
+      12,
+      783,
+      278
+    ],
+    "scale": 0.10546139359698682,
+    "resized_size": [
+      18,
+      28
+    ],
+    "placement": [
+      7,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-raincoat/walk-south-02.png",
+    "source": "sources/raincoat-animation.png",
+    "source_rect": [
+      892,
+      9,
+      1052,
+      279
+    ],
+    "source_body_rect": [
+      894,
+      11,
+      1050,
+      277
+    ],
+    "scale": 0.10546139359698682,
+    "resized_size": [
+      17,
+      28
+    ],
+    "placement": [
+      8,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-raincoat/walk-south-03.png",
+    "source": "sources/raincoat-animation.png",
+    "source_rect": [
+      1155,
+      9,
+      1319,
+      279
+    ],
+    "source_body_rect": [
+      1157,
+      11,
+      1317,
+      277
+    ],
+    "scale": 0.10546139359698682,
+    "resized_size": [
+      17,
+      28
+    ],
+    "placement": [
+      8,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-raincoat/idle-east-00.png",
+    "source": "sources/raincoat-animation.png",
+    "source_rect": [
+      79,
+      284,
+      218,
+      556
+    ],
+    "source_body_rect": [
+      81,
+      286,
+      216,
+      554
+    ],
+    "scale": 0.10546139359698682,
+    "resized_size": [
+      15,
+      29
+    ],
+    "placement": [
+      8,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-raincoat/walk-east-00.png",
+    "source": "sources/raincoat-animation.png",
+    "source_rect": [
+      347,
+      284,
+      511,
+      556
+    ],
+    "source_body_rect": [
+      349,
+      286,
+      509,
+      554
+    ],
+    "scale": 0.10546139359698682,
+    "resized_size": [
+      17,
+      29
+    ],
+    "placement": [
+      8,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-raincoat/walk-east-01.png",
+    "source": "sources/raincoat-animation.png",
+    "source_rect": [
+      624,
+      284,
+      770,
+      556
+    ],
+    "source_body_rect": [
+      626,
+      286,
+      768,
+      554
+    ],
+    "scale": 0.10546139359698682,
+    "resized_size": [
+      15,
+      29
+    ],
+    "placement": [
+      8,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-raincoat/walk-east-02.png",
+    "source": "sources/raincoat-animation.png",
+    "source_rect": [
+      892,
+      284,
+      1040,
+      552
+    ],
+    "source_body_rect": [
+      894,
+      286,
+      1038,
+      550
+    ],
+    "scale": 0.10546139359698682,
+    "resized_size": [
+      16,
+      28
+    ],
+    "placement": [
+      7,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-raincoat/walk-east-03.png",
+    "source": "sources/raincoat-animation.png",
+    "source_rect": [
+      1159,
+      284,
+      1304,
+      554
+    ],
+    "source_body_rect": [
+      1161,
+      286,
+      1302,
+      552
+    ],
+    "scale": 0.10546139359698682,
+    "resized_size": [
+      15,
+      28
+    ],
+    "placement": [
+      8,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-raincoat/idle-north-00.png",
+    "source": "sources/raincoat-animation.png",
+    "source_rect": [
+      79,
+      563,
+      244,
+      833
+    ],
+    "source_body_rect": [
+      81,
+      565,
+      242,
+      831
+    ],
+    "scale": 0.10546139359698682,
+    "resized_size": [
+      17,
+      28
+    ],
+    "placement": [
+      7,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-raincoat/walk-north-00.png",
+    "source": "sources/raincoat-animation.png",
+    "source_rect": [
+      348,
+      569,
+      517,
+      838
+    ],
+    "source_body_rect": [
+      350,
+      571,
+      515,
+      836
+    ],
+    "scale": 0.10546139359698682,
+    "resized_size": [
+      18,
+      28
+    ],
+    "placement": [
+      7,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-raincoat/walk-north-01.png",
+    "source": "sources/raincoat-animation.png",
+    "source_rect": [
+      618,
+      567,
+      786,
+      836
+    ],
+    "source_body_rect": [
+      620,
+      569,
+      784,
+      834
+    ],
+    "scale": 0.10546139359698682,
+    "resized_size": [
+      18,
+      28
+    ],
+    "placement": [
+      7,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-raincoat/walk-north-02.png",
+    "source": "sources/raincoat-animation.png",
+    "source_rect": [
+      886,
+      567,
+      1050,
+      836
+    ],
+    "source_body_rect": [
+      888,
+      569,
+      1048,
+      834
+    ],
+    "scale": 0.10546139359698682,
+    "resized_size": [
+      17,
+      28
+    ],
+    "placement": [
+      8,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-raincoat/walk-north-03.png",
+    "source": "sources/raincoat-animation.png",
+    "source_rect": [
+      1151,
+      566,
+      1318,
+      836
+    ],
+    "source_body_rect": [
+      1153,
+      568,
+      1316,
+      834
+    ],
+    "scale": 0.10546139359698682,
+    "resized_size": [
+      18,
+      28
+    ],
+    "placement": [
+      7,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-raincoat/idle-west-00.png",
+    "source": "sources/raincoat-animation.png",
+    "source_rect": [
+      90,
+      845,
+      229,
+      1110
+    ],
+    "source_body_rect": [
+      92,
+      847,
+      227,
+      1108
+    ],
+    "scale": 0.10546139359698682,
+    "resized_size": [
+      15,
+      28
+    ],
+    "placement": [
+      9,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-raincoat/walk-west-00.png",
+    "source": "sources/raincoat-animation.png",
+    "source_rect": [
+      353,
+      845,
+      520,
+      1110
+    ],
+    "source_body_rect": [
+      355,
+      847,
+      518,
+      1108
+    ],
+    "scale": 0.10546139359698682,
+    "resized_size": [
+      18,
+      28
+    ],
+    "placement": [
+      8,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-raincoat/walk-west-01.png",
+    "source": "sources/raincoat-animation.png",
+    "source_rect": [
+      630,
+      845,
+      786,
+      1110
+    ],
+    "source_body_rect": [
+      632,
+      847,
+      784,
+      1108
+    ],
+    "scale": 0.10546139359698682,
+    "resized_size": [
+      16,
+      28
+    ],
+    "placement": [
+      9,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-raincoat/walk-west-02.png",
+    "source": "sources/raincoat-animation.png",
+    "source_rect": [
+      893,
+      845,
+      1046,
+      1110
+    ],
+    "source_body_rect": [
+      895,
+      847,
+      1044,
+      1108
+    ],
+    "scale": 0.10546139359698682,
+    "resized_size": [
+      16,
+      28
+    ],
+    "placement": [
+      9,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-raincoat/walk-west-03.png",
+    "source": "sources/raincoat-animation.png",
+    "source_rect": [
+      1157,
+      845,
+      1318,
+      1110
+    ],
+    "source_body_rect": [
+      1159,
+      847,
+      1316,
+      1108
+    ],
+    "scale": 0.10546139359698682,
+    "resized_size": [
+      17,
+      28
+    ],
+    "placement": [
+      9,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-raincoat/corpse-supine.png",
+    "source": "sources/raincoat-poses.png",
+    "source_rect": [
+      598,
+      301,
+      1274,
+      601
+    ],
+    "scale": 0.0546875,
+    "resized_size": [
+      37,
+      16
+    ],
+    "placement": [
+      5,
+      12
+    ]
+  },
+  {
+    "path": "textures/zombie-raincoat/corpse-prone.png",
+    "source": "sources/raincoat-poses.png",
+    "source_rect": [
+      1422,
+      205,
+      1993,
+      661
+    ],
+    "scale": 0.0546875,
+    "resized_size": [
+      31,
+      25
+    ],
+    "placement": [
+      8,
+      7
+    ]
+  },
+  {
+    "path": "textures/zombie-stalker/idle-south-00.png",
+    "source": "sources/stalker-animation.png",
+    "source_rect": [
+      123,
+      20,
+      268,
+      277
+    ],
+    "source_body_rect": [
+      125,
+      22,
+      266,
+      275
+    ],
+    "scale": 0.1111111111111111,
+    "resized_size": [
+      16,
+      29
+    ],
+    "placement": [
+      8,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-stalker/walk-south-00.png",
+    "source": "sources/stalker-animation.png",
+    "source_rect": [
+      377,
+      20,
+      538,
+      277
+    ],
+    "source_body_rect": [
+      379,
+      22,
+      536,
+      275
+    ],
+    "scale": 0.1111111111111111,
+    "resized_size": [
+      18,
+      29
+    ],
+    "placement": [
+      8,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-stalker/walk-south-01.png",
+    "source": "sources/stalker-animation.png",
+    "source_rect": [
+      643,
+      20,
+      786,
+      277
+    ],
+    "source_body_rect": [
+      645,
+      22,
+      784,
+      275
+    ],
+    "scale": 0.1111111111111111,
+    "resized_size": [
+      16,
+      29
+    ],
+    "placement": [
+      8,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-stalker/walk-south-02.png",
+    "source": "sources/stalker-animation.png",
+    "source_rect": [
+      893,
+      22,
+      1060,
+      277
+    ],
+    "source_body_rect": [
+      895,
+      24,
+      1058,
+      275
+    ],
+    "scale": 0.1111111111111111,
+    "resized_size": [
+      19,
+      28
+    ],
+    "placement": [
+      7,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-stalker/walk-south-03.png",
+    "source": "sources/stalker-animation.png",
+    "source_rect": [
+      1161,
+      21,
+      1305,
+      277
+    ],
+    "source_body_rect": [
+      1163,
+      23,
+      1303,
+      275
+    ],
+    "scale": 0.1111111111111111,
+    "resized_size": [
+      16,
+      28
+    ],
+    "placement": [
+      8,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-stalker/idle-east-00.png",
+    "source": "sources/stalker-animation.png",
+    "source_rect": [
+      117,
+      299,
+      267,
+      549
+    ],
+    "source_body_rect": [
+      119,
+      301,
+      265,
+      547
+    ],
+    "scale": 0.1111111111111111,
+    "resized_size": [
+      17,
+      28
+    ],
+    "placement": [
+      7,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-stalker/walk-east-00.png",
+    "source": "sources/stalker-animation.png",
+    "source_rect": [
+      352,
+      295,
+      534,
+      551
+    ],
+    "source_body_rect": [
+      354,
+      297,
+      532,
+      549
+    ],
+    "scale": 0.1111111111111111,
+    "resized_size": [
+      20,
+      28
+    ],
+    "placement": [
+      4,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-stalker/walk-east-01.png",
+    "source": "sources/stalker-animation.png",
+    "source_rect": [
+      638,
+      296,
+      790,
+      549
+    ],
+    "source_body_rect": [
+      640,
+      298,
+      788,
+      547
+    ],
+    "scale": 0.1111111111111111,
+    "resized_size": [
+      17,
+      28
+    ],
+    "placement": [
+      8,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-stalker/walk-east-02.png",
+    "source": "sources/stalker-animation.png",
+    "source_rect": [
+      869,
+      293,
+      1047,
+      553
+    ],
+    "source_body_rect": [
+      871,
+      295,
+      1045,
+      551
+    ],
+    "scale": 0.1111111111111111,
+    "resized_size": [
+      20,
+      29
+    ],
+    "placement": [
+      5,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-stalker/walk-east-03.png",
+    "source": "sources/stalker-animation.png",
+    "source_rect": [
+      1162,
+      293,
+      1314,
+      549
+    ],
+    "source_body_rect": [
+      1164,
+      295,
+      1312,
+      547
+    ],
+    "scale": 0.1111111111111111,
+    "resized_size": [
+      17,
+      28
+    ],
+    "placement": [
+      7,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-stalker/idle-north-00.png",
+    "source": "sources/stalker-animation.png",
+    "source_rect": [
+      98,
+      572,
+      241,
+      823
+    ],
+    "source_body_rect": [
+      100,
+      574,
+      239,
+      821
+    ],
+    "scale": 0.1111111111111111,
+    "resized_size": [
+      16,
+      28
+    ],
+    "placement": [
+      8,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-stalker/walk-north-00.png",
+    "source": "sources/stalker-animation.png",
+    "source_rect": [
+      365,
+      565,
+      517,
+      824
+    ],
+    "source_body_rect": [
+      367,
+      567,
+      515,
+      822
+    ],
+    "scale": 0.1111111111111111,
+    "resized_size": [
+      17,
+      29
+    ],
+    "placement": [
+      8,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-stalker/walk-north-01.png",
+    "source": "sources/stalker-animation.png",
+    "source_rect": [
+      623,
+      565,
+      767,
+      824
+    ],
+    "source_body_rect": [
+      625,
+      567,
+      765,
+      822
+    ],
+    "scale": 0.1111111111111111,
+    "resized_size": [
+      16,
+      29
+    ],
+    "placement": [
+      8,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-stalker/walk-north-02.png",
+    "source": "sources/stalker-animation.png",
+    "source_rect": [
+      878,
+      565,
+      1047,
+      818
+    ],
+    "source_body_rect": [
+      880,
+      567,
+      1045,
+      816
+    ],
+    "scale": 0.1111111111111111,
+    "resized_size": [
+      19,
+      28
+    ],
+    "placement": [
+      7,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-stalker/walk-north-03.png",
+    "source": "sources/stalker-animation.png",
+    "source_rect": [
+      1154,
+      564,
+      1304,
+      818
+    ],
+    "source_body_rect": [
+      1156,
+      566,
+      1302,
+      816
+    ],
+    "scale": 0.1111111111111111,
+    "resized_size": [
+      17,
+      28
+    ],
+    "placement": [
+      8,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-stalker/idle-west-00.png",
+    "source": "sources/stalker-animation.png",
+    "source_rect": [
+      89,
+      839,
+      238,
+      1095
+    ],
+    "source_body_rect": [
+      91,
+      841,
+      236,
+      1093
+    ],
+    "scale": 0.1111111111111111,
+    "resized_size": [
+      17,
+      28
+    ],
+    "placement": [
+      8,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-stalker/walk-west-00.png",
+    "source": "sources/stalker-animation.png",
+    "source_rect": [
+      354,
+      837,
+      540,
+      1089
+    ],
+    "source_body_rect": [
+      356,
+      839,
+      538,
+      1087
+    ],
+    "scale": 0.1111111111111111,
+    "resized_size": [
+      21,
+      28
+    ],
+    "placement": [
+      8,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-stalker/walk-west-01.png",
+    "source": "sources/stalker-animation.png",
+    "source_rect": [
+      620,
+      839,
+      773,
+      1095
+    ],
+    "source_body_rect": [
+      622,
+      841,
+      771,
+      1093
+    ],
+    "scale": 0.1111111111111111,
+    "resized_size": [
+      17,
+      28
+    ],
+    "placement": [
+      8,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-stalker/walk-west-02.png",
+    "source": "sources/stalker-animation.png",
+    "source_rect": [
+      880,
+      836,
+      1068,
+      1094
+    ],
+    "source_body_rect": [
+      882,
+      838,
+      1066,
+      1092
+    ],
+    "scale": 0.1111111111111111,
+    "resized_size": [
+      21,
+      29
+    ],
+    "placement": [
+      7,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-stalker/walk-west-03.png",
+    "source": "sources/stalker-animation.png",
+    "source_rect": [
+      1148,
+      838,
+      1316,
+      1092
+    ],
+    "source_body_rect": [
+      1150,
+      840,
+      1314,
+      1090
+    ],
+    "scale": 0.1111111111111111,
+    "resized_size": [
+      19,
+      28
+    ],
+    "placement": [
+      7,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-stalker/corpse-supine.png",
+    "source": "sources/stalker-poses.png",
+    "source_rect": [
+      658,
+      301,
+      1259,
+      592
+    ],
+    "scale": 0.06862745098039216,
+    "resized_size": [
+      41,
+      20
+    ],
+    "placement": [
+      3,
+      10
+    ]
+  },
+  {
+    "path": "textures/zombie-stalker/corpse-prone.png",
+    "source": "sources/stalker-poses.png",
+    "source_rect": [
+      1396,
+      221,
+      1913,
+      610
+    ],
+    "scale": 0.06862745098039216,
+    "resized_size": [
+      35,
+      27
+    ],
+    "placement": [
+      6,
+      6
+    ]
+  },
+  {
+    "path": "textures/zombie-runner/idle-south-00.png",
+    "source": "sources/runner-animation.png",
+    "source_rect": [
+      48,
+      26,
+      249,
+      272
+    ],
+    "source_body_rect": [
+      50,
+      28,
+      247,
+      270
+    ],
+    "scale": 0.11222444889779559,
+    "resized_size": [
+      23,
+      28
+    ],
+    "placement": [
+      4,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-runner/walk-south-00.png",
+    "source": "sources/runner-animation.png",
+    "source_rect": [
+      336,
+      25,
+      528,
+      276
+    ],
+    "source_body_rect": [
+      338,
+      27,
+      526,
+      274
+    ],
+    "scale": 0.11222444889779559,
+    "resized_size": [
+      22,
+      28
+    ],
+    "placement": [
+      5,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-runner/walk-south-01.png",
+    "source": "sources/runner-animation.png",
+    "source_rect": [
+      622,
+      21,
+      784,
+      273
+    ],
+    "source_body_rect": [
+      624,
+      23,
+      782,
+      271
+    ],
+    "scale": 0.11222444889779559,
+    "resized_size": [
+      18,
+      28
+    ],
+    "placement": [
+      5,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-runner/walk-south-02.png",
+    "source": "sources/runner-animation.png",
+    "source_rect": [
+      889,
+      25,
+      1088,
+      273
+    ],
+    "source_body_rect": [
+      891,
+      27,
+      1086,
+      271
+    ],
+    "scale": 0.11222444889779559,
+    "resized_size": [
+      22,
+      28
+    ],
+    "placement": [
+      4,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-runner/walk-south-03.png",
+    "source": "sources/runner-animation.png",
+    "source_rect": [
+      1178,
+      22,
+      1337,
+      276
+    ],
+    "source_body_rect": [
+      1180,
+      24,
+      1335,
+      274
+    ],
+    "scale": 0.11222444889779559,
+    "resized_size": [
+      18,
+      29
+    ],
+    "placement": [
+      5,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-runner/idle-east-00.png",
+    "source": "sources/runner-animation.png",
+    "source_rect": [
+      51,
+      296,
+      239,
+      550
+    ],
+    "source_body_rect": [
+      53,
+      298,
+      237,
+      548
+    ],
+    "scale": 0.11222444889779559,
+    "resized_size": [
+      21,
+      29
+    ],
+    "placement": [
+      6,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-runner/walk-east-00.png",
+    "source": "sources/runner-animation.png",
+    "source_rect": [
+      324,
+      297,
+      525,
+      550
+    ],
+    "source_body_rect": [
+      326,
+      299,
+      523,
+      548
+    ],
+    "scale": 0.11222444889779559,
+    "resized_size": [
+      23,
+      28
+    ],
+    "placement": [
+      4,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-runner/walk-east-01.png",
+    "source": "sources/runner-animation.png",
+    "source_rect": [
+      612,
+      290,
+      799,
+      531
+    ],
+    "source_body_rect": [
+      614,
+      292,
+      797,
+      529
+    ],
+    "scale": 0.11222444889779559,
+    "resized_size": [
+      21,
+      27
+    ],
+    "placement": [
+      5,
+      13
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-runner/walk-east-02.png",
+    "source": "sources/runner-animation.png",
+    "source_rect": [
+      881,
+      296,
+      1070,
+      550
+    ],
+    "source_body_rect": [
+      883,
+      298,
+      1068,
+      548
+    ],
+    "scale": 0.11222444889779559,
+    "resized_size": [
+      21,
+      29
+    ],
+    "placement": [
+      6,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-runner/walk-east-03.png",
+    "source": "sources/runner-animation.png",
+    "source_rect": [
+      1171,
+      287,
+      1346,
+      550
+    ],
+    "source_body_rect": [
+      1173,
+      289,
+      1344,
+      548
+    ],
+    "scale": 0.11222444889779559,
+    "resized_size": [
+      20,
+      30
+    ],
+    "placement": [
+      7,
+      10
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-runner/idle-north-00.png",
+    "source": "sources/runner-animation.png",
+    "source_rect": [
+      61,
+      575,
+      240,
+      831
+    ],
+    "source_body_rect": [
+      63,
+      577,
+      238,
+      829
+    ],
+    "scale": 0.11222444889779559,
+    "resized_size": [
+      20,
+      29
+    ],
+    "placement": [
+      6,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-runner/walk-north-00.png",
+    "source": "sources/runner-animation.png",
+    "source_rect": [
+      349,
+      576,
+      520,
+      833
+    ],
+    "source_body_rect": [
+      351,
+      578,
+      518,
+      831
+    ],
+    "scale": 0.11222444889779559,
+    "resized_size": [
+      19,
+      29
+    ],
+    "placement": [
+      7,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-runner/walk-north-01.png",
+    "source": "sources/runner-animation.png",
+    "source_rect": [
+      628,
+      575,
+      792,
+      831
+    ],
+    "source_body_rect": [
+      630,
+      577,
+      790,
+      829
+    ],
+    "scale": 0.11222444889779559,
+    "resized_size": [
+      18,
+      29
+    ],
+    "placement": [
+      8,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-runner/walk-north-02.png",
+    "source": "sources/runner-animation.png",
+    "source_rect": [
+      909,
+      575,
+      1080,
+      832
+    ],
+    "source_body_rect": [
+      911,
+      577,
+      1078,
+      830
+    ],
+    "scale": 0.11222444889779559,
+    "resized_size": [
+      19,
+      29
+    ],
+    "placement": [
+      7,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-runner/walk-north-03.png",
+    "source": "sources/runner-animation.png",
+    "source_rect": [
+      1189,
+      574,
+      1343,
+      831
+    ],
+    "source_body_rect": [
+      1191,
+      576,
+      1341,
+      829
+    ],
+    "scale": 0.11222444889779559,
+    "resized_size": [
+      17,
+      29
+    ],
+    "placement": [
+      8,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-runner/idle-west-00.png",
+    "source": "sources/runner-animation.png",
+    "source_rect": [
+      51,
+      851,
+      240,
+      1095
+    ],
+    "source_body_rect": [
+      53,
+      853,
+      238,
+      1093
+    ],
+    "scale": 0.11222444889779559,
+    "resized_size": [
+      21,
+      27
+    ],
+    "placement": [
+      5,
+      13
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-runner/walk-west-00.png",
+    "source": "sources/runner-animation.png",
+    "source_rect": [
+      326,
+      852,
+      536,
+      1100
+    ],
+    "source_body_rect": [
+      328,
+      854,
+      534,
+      1098
+    ],
+    "scale": 0.11222444889779559,
+    "resized_size": [
+      24,
+      28
+    ],
+    "placement": [
+      6,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-runner/walk-west-01.png",
+    "source": "sources/runner-animation.png",
+    "source_rect": [
+      615,
+      848,
+      807,
+      1097
+    ],
+    "source_body_rect": [
+      617,
+      850,
+      805,
+      1095
+    ],
+    "scale": 0.11222444889779559,
+    "resized_size": [
+      22,
+      28
+    ],
+    "placement": [
+      6,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-runner/walk-west-02.png",
+    "source": "sources/runner-animation.png",
+    "source_rect": [
+      887,
+      857,
+      1077,
+      1102
+    ],
+    "source_body_rect": [
+      889,
+      859,
+      1075,
+      1100
+    ],
+    "scale": 0.11222444889779559,
+    "resized_size": [
+      21,
+      27
+    ],
+    "placement": [
+      5,
+      13
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-runner/walk-west-03.png",
+    "source": "sources/runner-animation.png",
+    "source_rect": [
+      1168,
+      847,
+      1367,
+      1102
+    ],
+    "source_body_rect": [
+      1170,
+      849,
+      1365,
+      1100
+    ],
+    "scale": 0.11222444889779559,
+    "resized_size": [
+      22,
+      29
+    ],
+    "placement": [
+      5,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-runner/corpse-supine.png",
+    "source": "sources/runner-poses.png",
+    "source_rect": [
+      708,
+      292,
+      1416,
+      584
+    ],
+    "scale": 0.05845511482254697,
+    "resized_size": [
+      41,
+      17
+    ],
+    "placement": [
+      3,
+      11
+    ]
+  },
+  {
+    "path": "textures/zombie-runner/corpse-prone.png",
+    "source": "sources/runner-poses.png",
+    "source_rect": [
+      1506,
+      198,
+      2120,
+      575
+    ],
+    "scale": 0.05845511482254697,
+    "resized_size": [
+      36,
+      22
+    ],
+    "placement": [
+      6,
+      9
+    ]
+  },
+  {
+    "path": "textures/zombie-armored/idle-south-00.png",
+    "source": "sources/armored-animation.png",
+    "source_rect": [
+      87,
+      12,
+      279,
+      276
+    ],
+    "source_body_rect": [
+      89,
+      14,
+      277,
+      274
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      21,
+      28
+    ],
+    "placement": [
+      6,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-armored/walk-south-00.png",
+    "source": "sources/armored-animation.png",
+    "source_rect": [
+      344,
+      15,
+      551,
+      276
+    ],
+    "source_body_rect": [
+      346,
+      17,
+      549,
+      274
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      22,
+      28
+    ],
+    "placement": [
+      4,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-armored/walk-south-01.png",
+    "source": "sources/armored-animation.png",
+    "source_rect": [
+      610,
+      17,
+      808,
+      277
+    ],
+    "source_body_rect": [
+      612,
+      19,
+      806,
+      275
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      21,
+      28
+    ],
+    "placement": [
+      5,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-armored/walk-south-02.png",
+    "source": "sources/armored-animation.png",
+    "source_rect": [
+      870,
+      17,
+      1082,
+      278
+    ],
+    "source_body_rect": [
+      872,
+      19,
+      1080,
+      276
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      23,
+      28
+    ],
+    "placement": [
+      4,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-armored/walk-south-03.png",
+    "source": "sources/armored-animation.png",
+    "source_rect": [
+      1146,
+      15,
+      1340,
+      278
+    ],
+    "source_body_rect": [
+      1148,
+      17,
+      1338,
+      276
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      21,
+      28
+    ],
+    "placement": [
+      5,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-armored/idle-east-00.png",
+    "source": "sources/armored-animation.png",
+    "source_rect": [
+      87,
+      279,
+      251,
+      555
+    ],
+    "source_body_rect": [
+      89,
+      281,
+      249,
+      553
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      18,
+      30
+    ],
+    "placement": [
+      7,
+      10
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-armored/walk-east-00.png",
+    "source": "sources/armored-animation.png",
+    "source_rect": [
+      361,
+      282,
+      535,
+      555
+    ],
+    "source_body_rect": [
+      363,
+      284,
+      533,
+      553
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      19,
+      29
+    ],
+    "placement": [
+      6,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-armored/walk-east-01.png",
+    "source": "sources/armored-animation.png",
+    "source_rect": [
+      627,
+      285,
+      784,
+      555
+    ],
+    "source_body_rect": [
+      629,
+      287,
+      782,
+      553
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      17,
+      29
+    ],
+    "placement": [
+      7,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-armored/walk-east-02.png",
+    "source": "sources/armored-animation.png",
+    "source_rect": [
+      869,
+      286,
+      1056,
+      555
+    ],
+    "source_body_rect": [
+      871,
+      288,
+      1054,
+      553
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      20,
+      29
+    ],
+    "placement": [
+      4,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-armored/walk-east-03.png",
+    "source": "sources/armored-animation.png",
+    "source_rect": [
+      1166,
+      286,
+      1329,
+      555
+    ],
+    "source_body_rect": [
+      1168,
+      288,
+      1327,
+      553
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      17,
+      29
+    ],
+    "placement": [
+      6,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-armored/idle-north-00.png",
+    "source": "sources/armored-animation.png",
+    "source_rect": [
+      74,
+      563,
+      271,
+      827
+    ],
+    "source_body_rect": [
+      76,
+      565,
+      269,
+      825
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      21,
+      28
+    ],
+    "placement": [
+      6,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-armored/walk-north-00.png",
+    "source": "sources/armored-animation.png",
+    "source_rect": [
+      343,
+      562,
+      549,
+      828
+    ],
+    "source_body_rect": [
+      345,
+      564,
+      547,
+      826
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      22,
+      29
+    ],
+    "placement": [
+      6,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-armored/walk-north-01.png",
+    "source": "sources/armored-animation.png",
+    "source_rect": [
+      604,
+      565,
+      809,
+      827
+    ],
+    "source_body_rect": [
+      606,
+      567,
+      807,
+      825
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      22,
+      28
+    ],
+    "placement": [
+      5,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-armored/walk-north-02.png",
+    "source": "sources/armored-animation.png",
+    "source_rect": [
+      869,
+      567,
+      1081,
+      828
+    ],
+    "source_body_rect": [
+      871,
+      569,
+      1079,
+      826
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      23,
+      28
+    ],
+    "placement": [
+      5,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-armored/walk-north-03.png",
+    "source": "sources/armored-animation.png",
+    "source_rect": [
+      1139,
+      567,
+      1341,
+      828
+    ],
+    "source_body_rect": [
+      1141,
+      569,
+      1339,
+      826
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      22,
+      28
+    ],
+    "placement": [
+      5,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-armored/idle-west-00.png",
+    "source": "sources/armored-animation.png",
+    "source_rect": [
+      109,
+      834,
+      265,
+      1102
+    ],
+    "source_body_rect": [
+      111,
+      836,
+      263,
+      1100
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      17,
+      29
+    ],
+    "placement": [
+      8,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-armored/walk-west-00.png",
+    "source": "sources/armored-animation.png",
+    "source_rect": [
+      367,
+      834,
+      534,
+      1101
+    ],
+    "source_body_rect": [
+      369,
+      836,
+      532,
+      1099
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      18,
+      29
+    ],
+    "placement": [
+      7,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-armored/walk-west-01.png",
+    "source": "sources/armored-animation.png",
+    "source_rect": [
+      627,
+      834,
+      790,
+      1108
+    ],
+    "source_body_rect": [
+      629,
+      836,
+      788,
+      1106
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      17,
+      29
+    ],
+    "placement": [
+      7,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-armored/walk-west-02.png",
+    "source": "sources/armored-animation.png",
+    "source_rect": [
+      883,
+      837,
+      1066,
+      1101
+    ],
+    "source_body_rect": [
+      885,
+      839,
+      1064,
+      1099
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      20,
+      28
+    ],
+    "placement": [
+      6,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-armored/walk-west-03.png",
+    "source": "sources/armored-animation.png",
+    "source_rect": [
+      1159,
+      837,
+      1324,
+      1103
+    ],
+    "source_body_rect": [
+      1161,
+      839,
+      1322,
+      1101
+    ],
+    "scale": 0.10727969348659004,
+    "resized_size": [
+      18,
+      29
+    ],
+    "placement": [
+      7,
+      11
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-armored/corpse-supine.png",
+    "source": "sources/armored-poses.png",
+    "source_rect": [
+      722,
+      284,
+      1364,
+      604
+    ],
+    "scale": 0.05533596837944664,
+    "resized_size": [
+      36,
+      18
+    ],
+    "placement": [
+      6,
+      11
+    ]
+  },
+  {
+    "path": "textures/zombie-armored/corpse-prone.png",
+    "source": "sources/armored-poses.png",
+    "source_rect": [
+      1541,
+      163,
+      2074,
+      611
+    ],
+    "scale": 0.05533596837944664,
+    "resized_size": [
+      29,
+      25
+    ],
+    "placement": [
+      9,
+      7
+    ]
+  },
+  {
+    "path": "textures/zombie-heavy/idle-south-00.png",
+    "source": "sources/heavy-animation.png",
+    "source_rect": [
+      45,
+      16,
+      259,
+      268
+    ],
+    "source_body_rect": [
+      47,
+      18,
+      257,
+      266
+    ],
+    "scale": 0.13359528487229863,
+    "resized_size": [
+      29,
+      34
+    ],
+    "placement": [
+      6,
+      14
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-heavy/walk-south-00.png",
+    "source": "sources/heavy-animation.png",
+    "source_rect": [
+      316,
+      16,
+      541,
+      274
+    ],
+    "source_body_rect": [
+      318,
+      18,
+      539,
+      272
+    ],
+    "scale": 0.13359528487229863,
+    "resized_size": [
+      30,
+      34
+    ],
+    "placement": [
+      5,
+      14
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-heavy/walk-south-01.png",
+    "source": "sources/heavy-animation.png",
+    "source_rect": [
+      597,
+      16,
+      820,
+      274
+    ],
+    "source_body_rect": [
+      599,
+      18,
+      818,
+      272
+    ],
+    "scale": 0.13359528487229863,
+    "resized_size": [
+      30,
+      34
+    ],
+    "placement": [
+      5,
+      14
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-heavy/walk-south-02.png",
+    "source": "sources/heavy-animation.png",
+    "source_rect": [
+      875,
+      17,
+      1101,
+      274
+    ],
+    "source_body_rect": [
+      877,
+      19,
+      1099,
+      272
+    ],
+    "scale": 0.13359528487229863,
+    "resized_size": [
+      30,
+      34
+    ],
+    "placement": [
+      5,
+      14
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-heavy/walk-south-03.png",
+    "source": "sources/heavy-animation.png",
+    "source_rect": [
+      1151,
+      16,
+      1363,
+      274
+    ],
+    "source_body_rect": [
+      1153,
+      18,
+      1361,
+      272
+    ],
+    "scale": 0.13359528487229863,
+    "resized_size": [
+      28,
+      34
+    ],
+    "placement": [
+      6,
+      14
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-heavy/idle-east-00.png",
+    "source": "sources/heavy-animation.png",
+    "source_rect": [
+      66,
+      282,
+      231,
+      543
+    ],
+    "source_body_rect": [
+      68,
+      284,
+      229,
+      541
+    ],
+    "scale": 0.13359528487229863,
+    "resized_size": [
+      22,
+      35
+    ],
+    "placement": [
+      9,
+      13
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-heavy/walk-east-00.png",
+    "source": "sources/heavy-animation.png",
+    "source_rect": [
+      340,
+      282,
+      512,
+      543
+    ],
+    "source_body_rect": [
+      342,
+      284,
+      510,
+      541
+    ],
+    "scale": 0.13359528487229863,
+    "resized_size": [
+      23,
+      35
+    ],
+    "placement": [
+      8,
+      13
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-heavy/walk-east-01.png",
+    "source": "sources/heavy-animation.png",
+    "source_rect": [
+      609,
+      282,
+      788,
+      543
+    ],
+    "source_body_rect": [
+      611,
+      284,
+      786,
+      541
+    ],
+    "scale": 0.13359528487229863,
+    "resized_size": [
+      24,
+      35
+    ],
+    "placement": [
+      7,
+      13
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-heavy/walk-east-02.png",
+    "source": "sources/heavy-animation.png",
+    "source_rect": [
+      889,
+      284,
+      1067,
+      543
+    ],
+    "source_body_rect": [
+      891,
+      286,
+      1065,
+      541
+    ],
+    "scale": 0.13359528487229863,
+    "resized_size": [
+      24,
+      35
+    ],
+    "placement": [
+      7,
+      13
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-heavy/walk-east-03.png",
+    "source": "sources/heavy-animation.png",
+    "source_rect": [
+      1164,
+      282,
+      1343,
+      543
+    ],
+    "source_body_rect": [
+      1166,
+      284,
+      1341,
+      541
+    ],
+    "scale": 0.13359528487229863,
+    "resized_size": [
+      24,
+      35
+    ],
+    "placement": [
+      8,
+      13
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-heavy/idle-north-00.png",
+    "source": "sources/heavy-animation.png",
+    "source_rect": [
+      38,
+      554,
+      256,
+      802
+    ],
+    "source_body_rect": [
+      40,
+      556,
+      254,
+      800
+    ],
+    "scale": 0.13359528487229863,
+    "resized_size": [
+      29,
+      33
+    ],
+    "placement": [
+      6,
+      15
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-heavy/walk-north-00.png",
+    "source": "sources/heavy-animation.png",
+    "source_rect": [
+      313,
+      554,
+      543,
+      805
+    ],
+    "source_body_rect": [
+      315,
+      556,
+      541,
+      803
+    ],
+    "scale": 0.13359528487229863,
+    "resized_size": [
+      31,
+      34
+    ],
+    "placement": [
+      5,
+      14
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-heavy/walk-north-01.png",
+    "source": "sources/heavy-animation.png",
+    "source_rect": [
+      586,
+      554,
+      816,
+      805
+    ],
+    "source_body_rect": [
+      588,
+      556,
+      814,
+      803
+    ],
+    "scale": 0.13359528487229863,
+    "resized_size": [
+      31,
+      34
+    ],
+    "placement": [
+      4,
+      14
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-heavy/walk-north-02.png",
+    "source": "sources/heavy-animation.png",
+    "source_rect": [
+      859,
+      554,
+      1094,
+      805
+    ],
+    "source_body_rect": [
+      861,
+      556,
+      1092,
+      803
+    ],
+    "scale": 0.13359528487229863,
+    "resized_size": [
+      31,
+      34
+    ],
+    "placement": [
+      5,
+      14
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-heavy/walk-north-03.png",
+    "source": "sources/heavy-animation.png",
+    "source_rect": [
+      1142,
+      554,
+      1364,
+      806
+    ],
+    "source_body_rect": [
+      1144,
+      556,
+      1362,
+      804
+    ],
+    "scale": 0.13359528487229863,
+    "resized_size": [
+      30,
+      34
+    ],
+    "placement": [
+      5,
+      14
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-heavy/idle-west-00.png",
+    "source": "sources/heavy-animation.png",
+    "source_rect": [
+      61,
+      815,
+      229,
+      1083
+    ],
+    "source_body_rect": [
+      63,
+      817,
+      227,
+      1081
+    ],
+    "scale": 0.13359528487229863,
+    "resized_size": [
+      22,
+      36
+    ],
+    "placement": [
+      9,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-heavy/walk-west-00.png",
+    "source": "sources/heavy-animation.png",
+    "source_rect": [
+      333,
+      815,
+      515,
+      1085
+    ],
+    "source_body_rect": [
+      335,
+      817,
+      513,
+      1083
+    ],
+    "scale": 0.13359528487229863,
+    "resized_size": [
+      24,
+      36
+    ],
+    "placement": [
+      9,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-heavy/walk-west-01.png",
+    "source": "sources/heavy-animation.png",
+    "source_rect": [
+      604,
+      815,
+      793,
+      1086
+    ],
+    "source_body_rect": [
+      606,
+      817,
+      791,
+      1084
+    ],
+    "scale": 0.13359528487229863,
+    "resized_size": [
+      25,
+      36
+    ],
+    "placement": [
+      8,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-heavy/walk-west-02.png",
+    "source": "sources/heavy-animation.png",
+    "source_rect": [
+      882,
+      815,
+      1056,
+      1080
+    ],
+    "source_body_rect": [
+      884,
+      817,
+      1054,
+      1078
+    ],
+    "scale": 0.13359528487229863,
+    "resized_size": [
+      23,
+      35
+    ],
+    "placement": [
+      8,
+      13
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-heavy/walk-west-03.png",
+    "source": "sources/heavy-animation.png",
+    "source_rect": [
+      1153,
+      815,
+      1337,
+      1086
+    ],
+    "source_body_rect": [
+      1155,
+      817,
+      1335,
+      1084
+    ],
+    "scale": 0.13359528487229863,
+    "resized_size": [
+      25,
+      36
+    ],
+    "placement": [
+      8,
+      12
+    ],
+    "alignment": "head x stabilized to idle; alpha>=128 body sole at foot boundary"
+  },
+  {
+    "path": "textures/zombie-heavy/corpse-supine.png",
+    "source": "sources/heavy-poses.png",
+    "source_rect": [
+      608,
+      340,
+      1282,
+      706
+    ],
+    "scale": 0.060714285714285714,
+    "resized_size": [
+      41,
+      22
+    ],
+    "placement": [
+      7,
+      9
+    ]
+  },
+  {
+    "path": "textures/zombie-heavy/corpse-prone.png",
+    "source": "sources/heavy-poses.png",
+    "source_rect": [
+      1372,
+      241,
+      1939,
+      726
+    ],
+    "scale": 0.060714285714285714,
+    "resized_size": [
+      34,
+      29
+    ],
+    "placement": [
+      11,
+      5
+    ]
+  },
+  {
+    "path": "textures/human/corpse-supine.png",
+    "source": "sources/human-corpses.png",
+    "source_rect": [
+      108,
+      127,
+      702,
+      451
+    ],
+    "scale": 0.06779661016949153,
+    "resized_size": [
+      40,
+      22
+    ],
+    "placement": [
+      4,
+      9
+    ]
+  },
+  {
+    "path": "textures/human/corpse-prone.png",
+    "source": "sources/human-corpses.png",
+    "source_rect": [
+      914,
+      58,
+      1450,
+      476
+    ],
+    "scale": 0.06779661016949153,
+    "resized_size": [
+      36,
+      28
+    ],
+    "placement": [
+      6,
+      6
+    ]
+  },
+  {
+    "path": "textures/human/corpse-side.png",
+    "source": "sources/human-corpses.png",
+    "source_rect": [
+      137,
+      683,
+      637,
+      933
+    ],
+    "scale": 0.06779661016949153,
+    "resized_size": [
+      34,
+      17
+    ],
+    "placement": [
+      7,
+      11
+    ]
+  },
+  {
+    "path": "textures/human/corpse-supine-diagonal.png",
+    "source": "sources/human-corpses.png",
+    "source_rect": [
+      905,
+      567,
+      1458,
+      958
+    ],
+    "scale": 0.06779661016949153,
+    "resized_size": [
+      37,
+      27
+    ],
+    "placement": [
+      5,
+      6
+    ]
+  }
+]

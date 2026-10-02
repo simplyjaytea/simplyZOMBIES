@@ -9,16 +9,20 @@
 // table missing a mode the chain ran -- or carrying one it never ran -- is refused rather than
 // rendered short. The engine is never spawned here; `buildTable`, `formatTable`, `chainScripts`,
 // `modeOf` and `expectedModesOf` are pure functions over package.json text, exactly so this gate
-// can feed them fabricated input instead of running the real 77-gate chain to prove itself.
+// can feed them fabricated input instead of running the real chain to prove itself. The actual
+// runner's finish() body also runs in short Node subprocesses with buffered piped stdout:
+// console.log followed by process.exit used to lose the timing line under the real chain.
 //
 // Usage: node scripts/check-timing.mjs
 
 import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   buildTable,
   chainScripts,
+  collectGateTimes,
   expectedModesOf,
   formatTable,
   modeOf,
@@ -213,16 +217,72 @@ function selfTest() {
   return failures;
 }
 
+/** Exercise the real finish() code rather than a duplicate of its intended behavior. Corking
+ *  stdout models a queued pipe write deterministically on every platform: an immediate exit
+ *  must not discard the final timing line. This starts Node, never the engine. */
+function pipedFinishTest() {
+  const failures = [];
+  const runner = readFileSync(resolve(ROOT, "scripts/run-godot.mjs"), "utf8");
+  const finish = /const finish = \(code\) => \{[\s\S]*?\n\};/.exec(runner)?.[0];
+  if (finish === undefined) return ["piped finish: could not isolate the real finish() body"];
+
+  const probe = (body, code) => {
+    const program = `
+      import { writeSync } from "node:fs";
+      const mode = "--timing-pipe-probe";
+      const modeStarted = process.hrtime.bigint();
+      ${body}
+      process.stdout.cork();
+      finish(${code});
+    `;
+    return spawnSync(process.execPath, ["--input-type=module", "--eval", program], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 10000,
+    });
+  };
+
+  for (const code of [0, 7]) {
+    const result = probe(finish, code);
+    const rows = collectGateTimes(result.stdout ?? "");
+    if (result.error !== undefined || result.status !== code) {
+      failures.push(
+        `piped finish: exit ${code} became ${result.status}: ${result.error?.message ?? result.stderr}`,
+      );
+    }
+    if (rows.length !== 1 || rows[0].mode !== "--timing-pipe-probe" || rows[0].exit !== code) {
+      failures.push(`piped finish: missing or invalid timing row for exit ${code}`);
+    }
+  }
+
+  // The regression's true negative is the old behavior: it preserves the engine exit code
+  // but drops the queued timing line. The same capture/parser must see that missing row.
+  const unsafe = `const finish = (code) => {
+    console.log(\`GATE_TIME mode=\${mode} seconds=0.00 exit=\${code}\`);
+    process.exit(code);
+  };`;
+  const negative = probe(unsafe, 7);
+  if (
+    negative.error !== undefined ||
+    negative.status !== 7 ||
+    collectGateTimes(negative.stdout ?? "").length !== 0
+  ) {
+    failures.push("piped finish: unsafe console.log/exit control did not reproduce the lost row");
+  }
+  return failures;
+}
+
 const failures = [];
 const tree = judgeTree();
 failures.push(...tree.failures);
 failures.push(...selfTest());
+failures.push(...pipedFinishTest());
 if (failures.length > 0) {
   for (const f of failures) console.error(`TIMING_FAIL ${f}`);
   process.exit(1);
 }
 console.log(
   `timing: ${tree.modeCount} chained modes checked against scripts/run-godot.mjs; ` +
-    `self-test: true negatives held`,
+    `self-test: true negatives held; piped finish preserves timing and exit codes`,
 );
 console.log("TIMING_OK");

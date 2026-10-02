@@ -2,25 +2,34 @@
 
 Drop a PNG here and a content entry can use it. No code change, no editor round-trip.
 
-## The bodies turn, as of 2026-09-26 — read this first
+## Living zombies and settled corpses, as of 2026-10-02
 
-"The bodies turn and walk" (docs/23's record; docs/30, "The outpost pack, adopted", decision 1)
-moved every human — the player, Mara, Ellis, the colonist looks, every raider — onto the outpost
-pack's one survivor, and the shambler (with the stalker, runner, armoured and heavy that wear it)
-onto the pack's shambler. Each is a **family** in `authored.json`: four idle views and a
-four-frame walk each way, `body_survivor_s` / `body_survivor_walk_e_2` and so on, every member
-cropped from the pack's 32×48 to **32×40 on its own anchor row**, so the soles stay on row 39
-and every rule about the feet below still holds. A body that turns is **never mirrored** — the
-pack draws its own west view — and its walk frame is chosen from `world.tick` at the pack's own
-frame rate (`Appearance.frame_key`). The pack's vest, helmet, gas mask and backpack are families
-of four views too (`item_gear_*`), layered over or under the body per view by the pack's own
-`z`. Raiders wear the one body under one shared tint.
+The player, colonists and raiders use the outpost `body_survivor` family. Zombies now use seven
+original families: `body_zombie_workwear`, `body_zombie_commuter`, `body_zombie_raincoat`,
+`body_zombie_stalker`, `body_zombie_runner`, `body_zombie_armored`, `body_zombie_heavy`.
+`authored.json` registers their source pixels under `kind: zombie_rig`. Shambler content selects
+one of its three `appearance.variants` by full entity id; each special kind selects its own
+family. This is cosmetic and spends no simulation random numbers.
 
-What the rest of this file describes — the face-on pawn, flipped, and the generated rigs — is
-now **the screamer and the bloater only**, the two bodies the pack does not draw. The six
-generated human and shambler rigs and the eight overlays the pack's backpack and helmet replaced
-were deleted in that commit, and every other face-on equip overlay later the same day with "Pack
-gear on the body" (see "Equipped-item overlays" below).
+Each living family has south/east/north/west idle views and four walk frames per direction.
+`Appearance.body_view` chooses the view; `body_texture` uses velocity and `world.tick`, so
+stopping returns to idle and pausing freezes the frame. Families never mirror their west view.
+Common zombies run at 5 fps, stalker 6, runner 9, armoured and heavy 4. Living canvases are
+32×40 with soles on row 39, except the heavy's 40×48 with soles on row 47. Rendering and mouse
+picking read the actual declared canvas. The armoured base contains no helmet or vest; its real
+inventory gear uses the existing four-direction equipment renderer.
+
+`appearance.corpseSprites` maps each family to two settled poses; the player's four poses are
+the fallback for human corpses. They are `kind: corpse`: 48×40 (heavy 56×40), ground-centered,
+Focal-only, rendered under standing bodies, with no upright equipment or facing indicator.
+Zombie remains preserve the original family and tint in a bounded cosmetic save record; human
+corpses retain their existing entities and inventories. Source sheets, prompts, crop/scale recipe
+and previews are in `godot/art/simplyzombies/zombie-poses/`. `godot:check:zombie_art` checks the
+real readers, while `godot:check:authored` and `sprites:check` judge geometry and source pixels.
+
+The face-on generated-rig rules below apply to the **screamer and bloater only**. The outpost
+survivor and equipment still use the separate PACK contract. The old `body_shambler` runtime
+family is retired; its original source art remains in the outpost pack.
 
 ## The pawn convention, as of 2026-09-08 — read this before the sections below
 

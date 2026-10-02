@@ -512,6 +512,8 @@ static func register_module(world: Variant) -> void:
 			w.components.set_component(shambler, "position", {"x": px, "y": py})
 			w.components.set_component(shambler, "velocity", {"dx": 0.0, "dy": 0.0})
 			w.components.set_component(shambler, "body", SimCombatRes.ZOMBIE_BODY.duplicate())
+			# Same default identity as recruits._turn_with_kit; no extra look/RNG roll.
+			w.components.set_component(shambler, "zombieType", {"id": "zombie.shambler", "tint": ""})
 			var rng2: Variant = w.rng.stream("shambler")
 			SimShamblerRes.make_shambler(w, shambler, rng2)
 			w.components.set_component(shambler, "turnedFrom", {"entity": int(ent)})
