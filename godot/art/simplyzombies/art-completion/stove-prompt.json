@@ -1,0 +1,10 @@
+{
+  "tool": "built-in image_gen",
+  "date": "2026-10-02",
+  "source": "sources/camp-stove.png",
+  "references": [
+    "../groups/utility/native/utility-stove.png",
+    "../groups/items/previews/inventory-contact.png"
+  ],
+  "prompt": "Use case: precise-object-edit. Create a new compact Camp Stove inventory icon for simplyZOMBIES using the supplied existing game art. Image 1 is the existing iron stove reference; Image 2 is the exact inventory style reference. Re-author the stove as a small portable single-burner camping stove, with a squat dark graphite and muted olive metal body, visible round top burner and short feet. No tall chimney, no flame, no fuel bottle, no separate props. Match the inventory sheet's broad readable pixel silhouettes, near-black stepped outline, 3-4 restrained flat shades per material, sparse wear, top-left light and elevated three-quarter camera. This will be reduced to a native 32x32 sprite. Draw one centered complete object as crisp enlarged pixel art with an effective 32x32 logical grid, occupying about 24x24 logical pixels with generous fully transparent margins. Strong silhouette, level base, no gradients, no soft photographic detail, no text, no labels, no UI, no contact sheet, no ground plane or cast shadow. Genuine RGBA transparent background. Preserve the reference pack's visual language but output only this one new compact icon. The original tall stove remains unchanged in the game source."
+}

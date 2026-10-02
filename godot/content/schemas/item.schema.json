@@ -235,7 +235,11 @@
             "oil",
             "gas"
           ],
-          "description": "What refills it, when anything does. Matched exactly against the top-level `lightFuel` of the thing in your pack -- a kind is not ranked and not converted, the way a caliber is not, so a battery either goes in or it does not. Absent means single-use: a candle burns down and is a stub, and that is the trade it makes against a lamp that is brighter and hungrier. The vocabulary is SimLightModule.FUEL_KINDS and check_m2_light_burn.gd's CONTENT lane asserts both directions, because neither this list nor that one can see the other."
+          "description": "What refills it, when anything does. Matched exactly against the top-level `lightFuel` of the thing in your pack -- a kind is not ranked and not converted, the way a caliber is not, so a battery either goes in or it does not. Absent means single-use: a candle burns down and is a stub, and that is the trade it makes against a lamp that is brighter and hungrier. The vocabulary is SimLightModule.FUEL_KINDS and check_m2_light_burn.gd's CONTENT lane asserts both directions, because neither this list nor that one can see the other."},
+        "tint": {
+          "type": "string",
+          "pattern": "^#[0-9a-f]{6}$",
+          "description": "Presentation-only light-pool colour in strict lowercase #rrggbb form. Absent or unknown content retains the legacy warm colour. Simulation ignores it."
         }
       }
     },

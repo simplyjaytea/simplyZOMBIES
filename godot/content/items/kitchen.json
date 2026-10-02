@@ -190,7 +190,8 @@
     "class": "material",
     "size": { "w": 2, "h": 2 },
     "massKg": 1.8,
-    "purifies": 25
+    "purifies": 25,
+    "appearance": { "sprite": "item_camp_stove" }
   },
   {
     "id": "item.pot.camp",

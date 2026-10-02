@@ -160,6 +160,7 @@ const COLOURS: Dictionary = {
 	# stacks over this rather than being folded into it.
 	"fog": Color("#c8cdd64d"),
 }
+
 # (Two deletion batches live in this file's history rather than its text. `COLOUR_HEX`,
 # fourteen string copies of the table above "for serialization, comparison": zero readers ever
 # existed — the tenth dead code socket of the milestone, closed by removal. Then the weather
@@ -298,17 +299,15 @@ const WALL_FACE_SHARE: float = 0.17
 # lamplight is now the thing that says where the district *is* rather than a nicety on top of it:
 # check_weather.gd's accent lane pins the pools warm at r - b >= 0.35 (these clear it at 0.52) and
 # still thin at alpha <= 0.25, so a pool stays a wash over the world and never a fill of it.
-# **One** warm tint for every source this slice: a candle, a campfire and a floodlight all paint
-# the same colour and differ only in how far the pool reaches. Per-source tint from content
-# (`light: {tint}` beside `light: {magnitude}`) is the named follow-up in docs/23 -- it is a
-# content axis, not a branch to grow in the draw loop, so it waits for the content shape rather
-# than for an `if id ==` here.
-const LIGHT_POOL_NEAR: Color = Color(1.0, 0.80, 0.48, 0.24)
-const LIGHT_POOL_FAR: Color = Color(1.0, 0.80, 0.48, 0.11)
+# This warm RGB remains the fallback for an absent or unrecognized content tint. Source-specific
+# RGB comes from the source's content; only near/far alpha remains a renderer look choice.
+const LIGHT_POOL_RGB: Color = Color(1.0, 0.80, 0.48)
+const LIGHT_POOL_NEAR: Color = Color(LIGHT_POOL_RGB.r, LIGHT_POOL_RGB.g, LIGHT_POOL_RGB.b, 0.24)
+const LIGHT_POOL_FAR: Color = Color(LIGHT_POOL_RGB.r, LIGHT_POOL_RGB.g, LIGHT_POOL_RGB.b, 0.11)
 # The same two tints for the O-key light channel, which is a developer overlay rather than the
 # look: it is being read as a diagram, so it is loud enough to see against a sunlit street.
-const LIGHT_POOL_NEAR_OVERLAY: Color = Color(1.0, 0.80, 0.48, 0.45)
-const LIGHT_POOL_FAR_OVERLAY: Color = Color(1.0, 0.80, 0.48, 0.22)
+const LIGHT_POOL_NEAR_OVERLAY: Color = Color(LIGHT_POOL_RGB.r, LIGHT_POOL_RGB.g, LIGHT_POOL_RGB.b, 0.45)
+const LIGHT_POOL_FAR_OVERLAY: Color = Color(LIGHT_POOL_RGB.r, LIGHT_POOL_RGB.g, LIGHT_POOL_RGB.b, 0.22)
 
 # The aim cone is drawn twice from one colour: the arc at the key's own alpha (it is the
 # readout) and the two edge rays a shade quieter (they only say where it stops). A second key

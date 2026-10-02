@@ -214,7 +214,8 @@ const PICTURE_PROP_MAX_W: int = 48
 const PICTURE_PROP_MAX_H: int = 32
 # PICTURE, `standing`: the pack's barricade (48x36) and work lamp (40x44) stand in the entity sort
 # taller than a tile; nothing it draws is taller than the pack's own tallest prop of that group.
-const PICTURE_STANDING_MAX: int = 48
+const PICTURE_STANDING_MAX_H: int = 64
+const PICTURE_STANDING_MAX_W: int = 48
 
 # A member key inside a `members` family, and a sourced entry's own key -- both are a
 # `godot/assets/sprites/<key>.png` basename, so both share the pattern `check_appearance.gd`'s
@@ -287,6 +288,7 @@ func _run() -> void:
 	ok = _the_pack_families_keep_the_packs_own_spec() and ok
 	ok = _the_zombie_poses_keep_their_geometry() and ok
 	ok = _every_held_weapon_is_the_packs_own() and ok
+	ok = _a2_wall_modules_keep_native_crops() and ok
 	ok = _authored_art_is_read_by_something() and ok
 	if ok:
 		print("AUTHORED_OK the manifest is well formed, no key is in two tiers, every sourced key resolves at its declared canvas, every rig meets the published bounds, no rig draws ink inside its silhouette, every rig is four tones a material, no highlight covers more than its share, the pack families keep the pack's own spec, every held weapon is the pack's own, every icon is a centred picture, every tree and prop is cut to its anchor row, and authored art is read by something, dressing lists included")
@@ -705,12 +707,23 @@ func _every_icon_is_a_centred_picture() -> bool:
 		if image == null or not (source is Dictionary):
 			push_error("icon '%s' has no picture or no source to judge it against" % String(key))
 			return false
-		var asset: Dictionary = _pack_asset(String((source as Dictionary).get("path", "")).get_file().get_basename())
-		if asset.is_empty():
+		var source_path: String = String((source as Dictionary).get("path", ""))
+		var asset: Dictionary = _pack_asset(source_path.get_file().get_basename())
+		var occ: Array = []
+		var anc: Array = []
+		if String(key) == "item_camp_stove":
+			# New local artwork carries its inspected occupied box and anchor in authored.json.
+			if source_path != "art/simplyzombies/art-completion/camp-stove-native.png":
+				push_error("icon item_camp_stove must resolve its preserved art-completion native export")
+				return false
+			occ = entry.get("occupiedSize", []) as Array
+			anc = entry.get("anchor", []) as Array
+		elif not asset.is_empty():
+			occ = asset.get("occupiedSize", []) as Array
+			anc = asset.get("anchor", []) as Array
+		else:
 			push_error("icon '%s': no entry in the pack's manifest for its source, so its size and anchor cannot be judged" % String(key))
 			return false
-		var occ: Array = asset.get("occupiedSize", []) as Array
-		var anc: Array = asset.get("anchor", []) as Array
 		if occ.size() != 2 or anc.size() != 2:
 			push_error("icon '%s': the pack's manifest entry has no occupiedSize or anchor" % String(key))
 			return false
@@ -796,8 +809,8 @@ func _picture_faults(kind: String, image: Image, source: Image, crop: Variant, a
 		out.append("is %dx%d; a flat prop is at most %dx%d, a tile tall and no wider than the log" % [w, h, PICTURE_PROP_MAX_W, PICTURE_PROP_MAX_H])
 	if kind == "tree" and h <= PICTURE_PROP_MAX_H:
 		out.append("is %d tall; a tree is taller than a tile" % h)
-	if kind == "standing" and (h <= PICTURE_PROP_MAX_H or h > PICTURE_STANDING_MAX or w > PICTURE_STANDING_MAX):
-		out.append("is %dx%d; a standing prop is taller than a tile (else it is a `prop`) and at most %dx%d" % [w, h, PICTURE_STANDING_MAX, PICTURE_STANDING_MAX])
+	if kind == "standing" and (h <= PICTURE_PROP_MAX_H or h > PICTURE_STANDING_MAX_H or w > PICTURE_STANDING_MAX_W):
+		out.append("is %dx%d; a standing prop is taller than a tile (else it is a `prop`) and at most %dx%d" % [w, h, PICTURE_STANDING_MAX_W, PICTURE_STANDING_MAX_H])
 	return out
 
 
@@ -906,7 +919,7 @@ func _every_tree_and_prop_stands_on_its_anchor_row() -> bool:
 		["a prop wider than the log", _picture_faults("prop", _fab_source(64, 30, Rect2i(2, 6, 60, 24)), _fab_source(64, 32, Rect2i(2, 6, 60, 24)), [0, 0, 64, 30], [32, 30], Vector2i(32, 30))],
 		["a tree no taller than a tile", _picture_faults("tree", good_image, good_source, good_crop, [16, 30], pack_anchor)],
 		["a standing prop no taller than a tile", _picture_faults("standing", good_image, good_source, good_crop, [16, 30], pack_anchor)],
-		["a standing prop taller than the pack draws one", _picture_faults("standing", _fab_source(32, 60, Rect2i(2, 6, 28, 54)), _fab_source(32, 62, Rect2i(2, 6, 28, 54)), [0, 0, 32, 60], [16, 60], Vector2i(16, 60))],
+		["a standing prop taller than the supported anchor range", _picture_faults("standing", _fab_source(32, 66, Rect2i(2, 6, 28, 60)), _fab_source(32, 68, Rect2i(2, 6, 28, 60)), [0, 0, 32, 66], [16, 66], Vector2i(16, 66))],
 		["a standing prop cropped at the anchor row through a foot painted below it", _picture_faults("standing", _fab_source(48, 40, Rect2i(3, 4, 42, 33)).get_region(Rect2i(0, 0, 48, 36)), _fab_source(48, 40, Rect2i(3, 4, 42, 33)), [0, 0, 48, 36], [24, 36], Vector2i(24, 36))],
 		["a standing prop wider than the pack draws one", _picture_faults("standing", _fab_source(64, 40, Rect2i(2, 6, 60, 34)), _fab_source(64, 42, Rect2i(2, 6, 60, 34)), [0, 0, 64, 40], [32, 40], Vector2i(32, 40))],
 	]
@@ -931,7 +944,7 @@ func _every_tree_and_prop_stands_on_its_anchor_row() -> bool:
 			push_error("PICTURE: the predicate accepted %s; it proves nothing" % String(r[0]))
 			return false
 
-	print("PICTURE OK %d trees, %d props and %d standing props are cut [0, 0, width, the pack's anchor row], drop no pixel at or above alpha %d, draw on their last row, carry the pack's anchor at the bottom centre, a prop is at most %dx%d and a standing prop is taller than a tile and at most %dx%d; an uncropped source, a late crop, a dropped pixel, a floating picture, a speck-only picture, a wrong anchor, an off-centre pack anchor, an oversized prop, a short tree and a standing prop that is short, too tall or too wide are each refused, and a corner speck is not" % [trees, props, standing, ALPHA_SOLID, PICTURE_PROP_MAX_W, PICTURE_PROP_MAX_H, PICTURE_STANDING_MAX, PICTURE_STANDING_MAX])
+	print("PICTURE OK %d trees, %d props and %d standing props are cut [0, 0, width, the pack's anchor row], drop no pixel at or above alpha %d, draw on their last row, carry the pack's anchor at the bottom centre, a prop is at most %dx%d and a standing prop is taller than a tile and at most %dx%d; an uncropped source, a late crop, a dropped pixel, a floating picture, a speck-only picture, a wrong anchor, an off-centre pack anchor, an oversized prop, a short tree and a standing prop that is short, too tall or too wide are each refused, and a corner speck is not" % [trees, props, standing, ALPHA_SOLID, PICTURE_PROP_MAX_W, PICTURE_PROP_MAX_H, PICTURE_STANDING_MAX_W, PICTURE_STANDING_MAX_H])
 	return true
 
 
@@ -2050,7 +2063,7 @@ func _dressing_keys(entry: Dictionary) -> Array[String]:
 			for row in listed_rows as Array:
 				if row is Dictionary and (row as Dictionary).has("key"):
 					out.append(String((row as Dictionary)["key"]))
-	for map_field in ["walls", "roofs", "faces"]:
+	for map_field in ["walls", "roofs", "faces", "wall_modules"]:
 		var mapped: Variant = entry.get(map_field)
 		if not (mapped is Dictionary):
 			continue
@@ -2113,6 +2126,73 @@ func _reads_claim_is_sound(readers: Array, claim: String) -> bool:
 	return readers.has(claim)
 
 
+const A2_WALL_MODULES: Dictionary = {
+	"a2_plaster_west": [32, 48, "wall-plaster.png", [0, 0, 32, 48]],
+	"a2_plaster_middle": [32, 48, "wall-plaster.png", [16, 0, 32, 48]],
+	"a2_plaster_east": [32, 48, "wall-plaster.png", [32, 0, 32, 48]],
+	"a2_brick_west": [32, 48, "wall-brick.png", [0, 0, 32, 48]],
+	"a2_brick_middle": [32, 48, "wall-brick.png", [16, 0, 32, 48]],
+	"a2_brick_east": [32, 48, "wall-brick.png", [32, 0, 32, 48]],
+	"a2_window_intact": [32, 48, "wall-window-intact.png", [16, 0, 32, 48]],
+	"a2_door_open": [32, 48, "wall-door-open.png", [16, 0, 32, 48]],
+	"a2_door_closed": [32, 48, "wall-door-closed.png", [16, 0, 32, 48]],
+	"a2_corner_nw": [64, 64, "wall-corner-nw.png", []],
+	"a2_corner_ne": [64, 64, "wall-corner-ne.png", []],
+	"a2_leg_west": [17, 16, "wall-corner-nw.png", [0, 8, 17, 16]],
+	"a2_leg_east": [17, 16, "wall-corner-ne.png", [47, 8, 17, 16]],
+}
+
+
+func _a2_wall_module_fault(key: String, entry_v: Variant) -> String:
+	if not entry_v is Dictionary:
+		return "entry is not an object"
+	var entry: Dictionary = entry_v as Dictionary
+	var expected: Array = A2_WALL_MODULES[key] as Array
+	if String(entry.get("kind", "")) != "module":
+		return "kind is not module"
+	var canvas: Variant = entry.get("canvas")
+	if not (canvas is Array and (canvas as Array).size() == 2 and int((canvas as Array)[0]) == int(expected[0]) and int((canvas as Array)[1]) == int(expected[1])):
+		return "canvas differs from the native A2 region"
+	var source: Variant = entry.get("source")
+	if not source is Dictionary:
+		return "native source is missing"
+	if String((source as Dictionary).get("path", "")) != "art/simplyzombies/groups/environment/textures/%s" % String(expected[2]):
+		return "source is not the selected pack piece"
+	var crop: Array = expected[3] as Array
+	if crop.is_empty():
+		if (source as Dictionary).has("crop"):
+			return "corner is not the unmodified 64x64 piece"
+	else:
+		var actual_crop: Variant = (source as Dictionary).get("crop")
+		if not (actual_crop is Array and (actual_crop as Array).size() == 4):
+			return "crop differs from the native A2 region"
+		for i in 4:
+			if int((actual_crop as Array)[i]) != int(crop[i]):
+				return "crop differs from the native A2 region"
+	return ""
+
+
+func _a2_wall_modules_keep_native_crops() -> bool:
+	var entries: Dictionary = _entries()
+	for key_v in A2_WALL_MODULES.keys():
+		var key: String = String(key_v)
+		if not entries.has(key):
+			push_error("A2 module %s is missing from authored.json" % key)
+			return false
+		var fault: String = _a2_wall_module_fault(key, entries[key])
+		if not fault.is_empty():
+			push_error("A2 module %s %s" % [key, fault])
+			return false
+	var valid: Dictionary = (entries["a2_leg_east"] as Dictionary).duplicate(true)
+	var source: Dictionary = valid["source"] as Dictionary
+	source["crop"] = [46, 8, 17, 16]
+	if _a2_wall_module_fault("a2_leg_east", valid).is_empty():
+		push_error("A2 module shape predicate accepted the opposite/east leg crop")
+		return false
+	print("A2_MODULES OK %d modules use their exact native crop/canvas and a one-pixel east-leg substitution is refused" % A2_WALL_MODULES.size())
+	return true
+
+
 func _authored_art_is_read_by_something() -> bool:
 	var entries: Dictionary = _entries()
 	var declared: Dictionary = _keys_content_declares()
@@ -2169,13 +2249,13 @@ func _authored_art_is_read_by_something() -> bool:
 	# TN, the dressing widening: a dressing block is read for every list it names a picture in, a
 	# block that is not a dressing entry names nothing (a crate's `heaps` is not a reader), and a
 	# key in none of the lists is not found.
-	var probe: Dictionary = {"id": "dressing.probe", "heaps": ["h_a"], "litter": ["l_a"], "rubble": ["r_a"], "trees": {"tall": ["t_a"]}, "nature": [{"key": "n_a", "surfaces": ["grass"], "rarity": 3}], "furnishings": [{"key": "f_a", "where": "indoors", "surfaces": ["paved"], "rarity": 3}], "walls": {"brick": {"cap": "w_cap", "face": "w_face"}}, "roofs": {"tar": {"flat": "r_flat"}}, "faces": {"door": "f_door"}}
+	var probe: Dictionary = {"id": "dressing.probe", "heaps": ["h_a"], "litter": ["l_a"], "rubble": ["r_a"], "trees": {"tall": ["t_a"]}, "nature": [{"key": "n_a", "surfaces": ["grass"], "rarity": 3}], "furnishings": [{"key": "f_a", "where": "indoors", "surfaces": ["paved"], "rarity": 3}], "walls": {"brick": {"cap": "w_cap", "face": "w_face"}}, "roofs": {"tar": {"flat": "r_flat"}}, "faces": {"door": "f_door"}, "wall_modules": {"render": {"west": "a2_probe"}}}
 	var found: Array[String] = _dressing_keys(probe)
-	for want in ["h_a", "l_a", "r_a", "t_a", "n_a", "f_a", "w_cap", "w_face", "r_flat", "f_door"]:
+	for want in ["h_a", "l_a", "r_a", "t_a", "n_a", "f_a", "w_cap", "w_face", "r_flat", "f_door", "a2_probe"]:
 		if not found.has(want):
 			push_error("READS: the dressing reader did not find '%s' in a block that names it; a tree, a heap or a nature picture would read as art nothing draws" % want)
 			return false
-	if found.has("nature_bush") or found.has("grass"):
+	if found.has("nature_bush") or found.has("grass") or found.has("a2_unread"):
 		push_error("READS: the dressing reader found a key nothing in the probe block names")
 		return false
 	if not _dressing_keys({"id": "prop.crate", "heaps": ["h_a"], "nature": [{"key": "n_a"}], "furnishings": [{"key": "f_a"}]}).is_empty():

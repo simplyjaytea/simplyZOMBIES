@@ -1,7 +1,11 @@
 {
   "id": "dressing.street",
   "name": "Street dressing",
-  "heaps": ["heap_bags", "heap_barrel", "heap_pallets"],
+  "heaps": [
+    "heap_bags",
+    "heap_barrel",
+    "heap_pallets"
+  ],
   "litter": [
     "debris_litter_a",
     "debris_litter_b",
@@ -12,34 +16,212 @@
     "debris_rubble_b"
   ],
   "walls": {
-    "timber": { "cap": "wall_timber_cap", "face": "wall_timber_face" },
-    "brick": { "cap": "wall_brick_cap", "face": "wall_brick_face" },
-    "render": { "cap": "wall_render_cap", "face": "wall_render_face" },
-    "block": { "cap": "wall_block_cap", "face": "wall_block_face" }
+    "timber": {
+      "cap": "wall_timber_cap",
+      "face": "wall_timber_face"
+    },
+    "brick": {
+      "cap": "wall_brick_cap",
+      "face": "wall_brick_face"
+    },
+    "render": {
+      "cap": "wall_render_cap",
+      "face": "wall_render_face"
+    },
+    "block": {
+      "cap": "wall_block_cap",
+      "face": "wall_block_face"
+    }
   },
   "roofs": {
-    "shingle": { "n": "roof_shingle_n", "s": "roof_shingle_s" },
-    "tin": { "n": "roof_tin_n", "s": "roof_tin_s" },
-    "tar": { "flat": "roof_tar_flat" }
+    "shingle": {
+      "n": "roof_shingle_n",
+      "s": "roof_shingle_s"
+    },
+    "tin": {
+      "n": "roof_tin_n",
+      "s": "roof_tin_s"
+    },
+    "tar": {
+      "flat": "roof_tar_flat"
+    }
   },
-  "faces": { "window": "face_window", "door": "face_door", "garage": "face_garage" },
-  "trees": { "tall": ["tree_pine", "tree_broadleaf", "tree_dead"] },
+  "faces": {
+    "window": "face_window",
+    "door": "face_door",
+    "garage": "face_garage"
+  },
+  "trees": {
+    "tall": [
+      "tree_pine",
+      "tree_broadleaf",
+      "tree_dead"
+    ]
+  },
   "nature": [
-    { "key": "nature_reeds", "surfaces": ["grass", "dirt", "undergrowth"], "rarity": 3, "beside": "water" },
-    { "key": "nature_bush", "surfaces": ["undergrowth"], "rarity": 6 },
-    { "key": "nature_bush", "surfaces": ["grass"], "rarity": 30 },
-    { "key": "nature_rock", "surfaces": ["dirt", "grass"], "rarity": 50 },
-    { "key": "nature_stump", "surfaces": ["grass", "dirt"], "rarity": 60 },
-    { "key": "nature_log", "surfaces": ["grass", "undergrowth"], "rarity": 70 }
+    {
+      "key": "nature_reeds",
+      "surfaces": [
+        "grass",
+        "dirt",
+        "undergrowth"
+      ],
+      "rarity": 3,
+      "beside": "water"
+    },
+    {
+      "key": "nature_bush",
+      "surfaces": [
+        "undergrowth"
+      ],
+      "rarity": 6
+    },
+    {
+      "key": "nature_bush",
+      "surfaces": [
+        "grass"
+      ],
+      "rarity": 30
+    },
+    {
+      "key": "nature_rock",
+      "surfaces": [
+        "dirt",
+        "grass"
+      ],
+      "rarity": 50
+    },
+    {
+      "key": "nature_stump",
+      "surfaces": [
+        "grass",
+        "dirt"
+      ],
+      "rarity": 60
+    },
+    {
+      "key": "nature_log",
+      "surfaces": [
+        "grass",
+        "undergrowth"
+      ],
+      "rarity": 70
+    }
   ],
   "furnishings": [
-    { "key": "prop_shelf", "where": "indoors", "surfaces": ["paved"], "rarity": 12, "beside": "wall" },
-    { "key": "prop_medical_cabinet", "where": "indoors", "surfaces": ["paved"], "rarity": 30, "beside": "wall" },
-    { "key": "prop_table", "where": "indoors", "surfaces": ["paved"], "rarity": 20 },
-    { "key": "prop_chair", "where": "indoors", "surfaces": ["paved"], "rarity": 18 },
-    { "key": "prop_dumpster", "where": "outdoors", "surfaces": ["paved"], "rarity": 20, "beside": "wall" },
-    { "key": "prop_concrete_barrier", "where": "outdoors", "surfaces": ["paved"], "rarity": 110 },
-    { "key": "prop_traffic_cone", "where": "outdoors", "surfaces": ["paved"], "rarity": 90 },
-    { "key": "prop_fence_post", "where": "outdoors", "surfaces": ["grass", "dirt"], "rarity": 70 }
-  ]
+    {
+      "key": "prop_shelf",
+      "where": "indoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 12,
+      "beside": "wall"
+    },
+    {
+      "key": "prop_medical_cabinet",
+      "where": "indoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 30,
+      "beside": "wall"
+    },
+    {
+      "key": "prop_table",
+      "where": "indoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 20
+    },
+    {
+      "key": "prop_chair",
+      "where": "indoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 18
+    },
+    {
+      "key": "prop_dumpster",
+      "where": "outdoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 20,
+      "beside": "wall"
+    },
+    {
+      "key": "prop_concrete_barrier",
+      "where": "outdoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 110
+    },
+    {
+      "key": "prop_traffic_cone",
+      "where": "outdoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 90
+    },
+    {
+      "key": "prop_fence_post",
+      "where": "outdoors",
+      "surfaces": [
+        "grass",
+        "dirt"
+      ],
+      "rarity": 70
+    },
+    {
+      "key": "prop_fridge",
+      "where": "indoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 45,
+      "standing": true
+    },
+    {
+      "key": "prop_road_sign",
+      "where": "outdoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 140,
+      "standing": true
+    },
+    {
+      "key": "prop_streetlamp",
+      "where": "outdoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 180,
+      "standing": true
+    }
+  ],
+  "wall_modules": {
+    "render": {
+      "west": "a2_plaster_west",
+      "middle": "a2_plaster_middle",
+      "east": "a2_plaster_east",
+      "window": "a2_window_intact",
+      "door_open": "a2_door_open",
+      "door_closed": "a2_door_closed",
+      "corner_west": "a2_corner_nw",
+      "corner_east": "a2_corner_ne",
+      "leg_west": "a2_leg_west",
+      "leg_east": "a2_leg_east"
+    },
+    "brick": {
+      "west": "a2_brick_west",
+      "middle": "a2_brick_middle",
+      "east": "a2_brick_east"
+    }
+  }
 }

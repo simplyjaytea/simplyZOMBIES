@@ -3417,6 +3417,370 @@
       "source": {
         "path": "art/simplyzombies/zombie-poses/textures/human/corpse-supine-diagonal.png"
       }
+    },
+    "item_camp_stove": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "icon",
+      "reads": "item.stove.camp",
+      "anchor": [
+        16,
+        16
+      ],
+      "occupiedSize": [
+        26,
+        23
+      ],
+      "source": {
+        "path": "art/simplyzombies/art-completion/camp-stove-native.png"
+      }
+    },
+    "prop_fridge": {
+      "canvas": [
+        24,
+        38
+      ],
+      "kind": "standing",
+      "reads": "dressing.street",
+      "anchor": [
+        12,
+        38
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/prop-fridge.png",
+        "crop": [
+          0,
+          0,
+          24,
+          38
+        ]
+      }
+    },
+    "prop_road_sign": {
+      "canvas": [
+        24,
+        38
+      ],
+      "kind": "standing",
+      "reads": "dressing.street",
+      "anchor": [
+        12,
+        38
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/prop-road-sign.png",
+        "crop": [
+          0,
+          0,
+          24,
+          38
+        ]
+      }
+    },
+    "prop_streetlamp": {
+      "canvas": [
+        24,
+        62
+      ],
+      "kind": "standing",
+      "reads": "dressing.street",
+      "anchor": [
+        12,
+        62
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/prop-streetlamp.png",
+        "crop": [
+          0,
+          0,
+          24,
+          62
+        ]
+      }
+    },
+    "prop_workbench": {
+      "canvas": [
+        48,
+        30
+      ],
+      "kind": "prop",
+      "reads": "prop.workbench",
+      "anchor": [
+        24,
+        30
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/prop-workbench.png",
+        "crop": [
+          0,
+          0,
+          48,
+          30
+        ]
+      }
+    },
+    "a2_plaster_west": {
+      "canvas": [
+        32,
+        48
+      ],
+      "kind": "module",
+      "reads": "dressing.street",
+      "anchor": [
+        16,
+        44
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/environment/textures/wall-plaster.png",
+        "crop": [
+          0,
+          0,
+          32,
+          48
+        ]
+      }
+    },
+    "a2_plaster_middle": {
+      "canvas": [
+        32,
+        48
+      ],
+      "kind": "module",
+      "reads": "dressing.street",
+      "anchor": [
+        16,
+        44
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/environment/textures/wall-plaster.png",
+        "crop": [
+          16,
+          0,
+          32,
+          48
+        ]
+      }
+    },
+    "a2_plaster_east": {
+      "canvas": [
+        32,
+        48
+      ],
+      "kind": "module",
+      "reads": "dressing.street",
+      "anchor": [
+        16,
+        44
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/environment/textures/wall-plaster.png",
+        "crop": [
+          32,
+          0,
+          32,
+          48
+        ]
+      }
+    },
+    "a2_brick_west": {
+      "canvas": [
+        32,
+        48
+      ],
+      "kind": "module",
+      "reads": "dressing.street",
+      "anchor": [
+        16,
+        44
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/environment/textures/wall-brick.png",
+        "crop": [
+          0,
+          0,
+          32,
+          48
+        ]
+      }
+    },
+    "a2_brick_middle": {
+      "canvas": [
+        32,
+        48
+      ],
+      "kind": "module",
+      "reads": "dressing.street",
+      "anchor": [
+        16,
+        44
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/environment/textures/wall-brick.png",
+        "crop": [
+          16,
+          0,
+          32,
+          48
+        ]
+      }
+    },
+    "a2_brick_east": {
+      "canvas": [
+        32,
+        48
+      ],
+      "kind": "module",
+      "reads": "dressing.street",
+      "anchor": [
+        16,
+        44
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/environment/textures/wall-brick.png",
+        "crop": [
+          32,
+          0,
+          32,
+          48
+        ]
+      }
+    },
+    "a2_window_intact": {
+      "canvas": [
+        32,
+        48
+      ],
+      "kind": "module",
+      "reads": "dressing.street",
+      "anchor": [
+        16,
+        44
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/environment/textures/wall-window-intact.png",
+        "crop": [
+          16,
+          0,
+          32,
+          48
+        ]
+      }
+    },
+    "a2_door_open": {
+      "canvas": [
+        32,
+        48
+      ],
+      "kind": "module",
+      "reads": "dressing.street",
+      "anchor": [
+        16,
+        44
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/environment/textures/wall-door-open.png",
+        "crop": [
+          16,
+          0,
+          32,
+          48
+        ]
+      }
+    },
+    "a2_door_closed": {
+      "canvas": [
+        32,
+        48
+      ],
+      "kind": "module",
+      "reads": "dressing.street",
+      "anchor": [
+        16,
+        44
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/environment/textures/wall-door-closed.png",
+        "crop": [
+          16,
+          0,
+          32,
+          48
+        ]
+      }
+    },
+    "a2_corner_nw": {
+      "canvas": [
+        64,
+        64
+      ],
+      "kind": "module",
+      "reads": "dressing.street",
+      "anchor": [
+        32,
+        64
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/environment/textures/wall-corner-nw.png"
+      }
+    },
+    "a2_corner_ne": {
+      "canvas": [
+        64,
+        64
+      ],
+      "kind": "module",
+      "reads": "dressing.street",
+      "anchor": [
+        32,
+        64
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/environment/textures/wall-corner-ne.png"
+      }
+    },
+    "a2_leg_west": {
+      "canvas": [
+        17,
+        16
+      ],
+      "kind": "module",
+      "reads": "dressing.street",
+      "anchor": [
+        8,
+        44
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/environment/textures/wall-corner-nw.png",
+        "crop": [
+          0,
+          8,
+          17,
+          16
+        ]
+      }
+    },
+    "a2_leg_east": {
+      "canvas": [
+        17,
+        16
+      ],
+      "kind": "module",
+      "reads": "dressing.street",
+      "anchor": [
+        8,
+        44
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/environment/textures/wall-corner-ne.png",
+        "crop": [
+          47,
+          8,
+          17,
+          16
+        ]
+      }
     }
   }
 }

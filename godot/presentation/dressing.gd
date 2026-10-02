@@ -572,10 +572,10 @@ static func _nature_chunk_picks(entries: Array, map: Variant, seed_val: int, cx:
 
 
 # --- the furnishings -------------------------------------------------------------------------
-# A table, a chair, a shelf and a medical cabinet inside a shell; a dumpster, a concrete barrier, a
-# traffic cone and a fence post outside it -- the outpost pack's furnishing props (docs/23,
+# A table, a chair, a shelf, a medical cabinet and a fridge inside a shell; a dumpster, a concrete barrier,
+# a traffic cone, a fence post, a road sign and a streetlamp outside it -- the outpost pack's furnishing props (docs/23,
 # "Furnishings and container kinds"), out of the block's `furnishings` list. Each entry is
-# `{key, where, surfaces, rarity, beside?}`: the picture, `"indoors"` or `"outdoors"`, the ground
+# `{key, where, surfaces, rarity, beside?, standing?}`: the picture, `"indoors"` or `"outdoors"`, the ground
 # names (SimSurface's own, lower-case) it may stand on, one tile in `rarity` of them, and
 # optionally `"beside": "wall"` for a thing that stands against a wall.
 #
@@ -764,6 +764,27 @@ static func furnishing_tiles_cached(block: Dictionary, map: Variant, seen: Varia
 	return out
 
 
+# Tall furnishings use the same hash picks and visibility/cache path as flat ones, but join the
+# entity depth sort so a body can pass in front of or behind them. An absent flag is the existing
+# flat draw path and remains the default for every older content entry.
+static func furnishing_is_standing(block: Dictionary, key: String) -> bool:
+	var listed: Variant = block.get("furnishings")
+	if not (listed is Array):
+		return false
+	for raw in listed as Array:
+		if raw is Dictionary and String((raw as Dictionary).get("key", "")) == key:
+			return bool((raw as Dictionary).get("standing", false))
+	return false
+
+
+static func standing_furnishing_tiles_cached(block: Dictionary, map: Variant, seen: Variant, seed_val: int, bounds: Dictionary, cache: Dictionary) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for pick in furnishing_tiles_cached(block, map, seen, seed_val, bounds, cache):
+		if furnishing_is_standing(block, String(pick.get("key", ""))):
+			out.append(pick)
+	return out
+
+
 static func _furnishing_chunk_picks(entries: Array, map: Variant, seed_val: int, cx: int, cy: int) -> Array:
 	var out: Array = []
 	var seed_term: int = seed_val * _HASH_SEED
@@ -791,6 +812,56 @@ static func wall_key(block: Dictionary, material: String, face: bool) -> String:
 	if not (entry is Dictionary):
 		return ""
 	return String((entry as Dictionary).get("face" if face else "cap", ""))
+
+
+# A2's fitted pack modules, keyed by the same material name as the generated fallback. A missing
+# table is intentionally an empty dictionary so old dressing blocks keep the prior drawing.
+static func wall_modules(block: Dictionary, material: String) -> Dictionary:
+	if material not in ["render", "brick"]:
+		return {}
+	var modules: Variant = block.get("wall_modules")
+	if not (modules is Dictionary):
+		return {}
+	var entry: Variant = (modules as Dictionary).get(material)
+	if not entry is Dictionary:
+		return {}
+	var allowed: Array[String] = ["west", "middle", "east"]
+	if material == "render":
+		allowed.append_array(["window", "door_open", "door_closed", "corner_west", "corner_east", "leg_west", "leg_east"])
+	var result: Dictionary = {}
+	for slot_v in allowed:
+		var slot: String = String(slot_v)
+		var value: Variant = (entry as Dictionary).get(slot, "")
+		if value is String and not String(value).is_empty():
+			result[slot] = String(value)
+	return result
+
+
+# This is deliberately a shape check, not an art-key table: source and image keys belong to
+# street.json/authored.json. It prevents dead material/role declarations the renderer never reads.
+static func wall_modules_fault(block: Dictionary) -> String:
+	var modules: Variant = block.get("wall_modules")
+	if not modules is Dictionary:
+		return "wall_modules is not an object"
+	var module_map: Dictionary = modules as Dictionary
+	for material_v in module_map.keys():
+		var material: String = String(material_v)
+		if material not in ["render", "brick"]:
+			return "unsupported wall module material %s" % material
+		var entry: Variant = module_map[material_v]
+		if not entry is Dictionary:
+			return "wall module material %s is not an object" % material
+		var roles: Array[String] = ["west", "middle", "east"]
+		if material == "render":
+			roles.append_array(["window", "door_open", "door_closed", "corner_west", "corner_east", "leg_west", "leg_east"])
+		for role_v in (entry as Dictionary).keys():
+			var role: String = String(role_v)
+			var value: Variant = (entry as Dictionary)[role_v]
+			if role not in roles:
+				return "unsupported wall module role %s.%s" % [material, role]
+			if not value is String or String(value).is_empty():
+				return "wall module role %s.%s has no key" % [material, role]
+	return ""
 
 
 static func _roof_entry(block: Dictionary, material: String) -> Dictionary:

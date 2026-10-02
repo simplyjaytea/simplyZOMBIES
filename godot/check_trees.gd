@@ -1382,6 +1382,7 @@ func _the_shipped_maps_take_the_nature_they_should() -> bool:
 # them (the game has a real bench and a picture of one that does nothing would be a lie) and neither
 # are the fridge, the road sign and the streetlamp, which are taller than a tile.
 const FURNISH_KEYS: Array[String] = ["prop_chair", "prop_concrete_barrier", "prop_dumpster", "prop_fence_post", "prop_medical_cabinet", "prop_shelf", "prop_table", "prop_traffic_cone"]
+const FURNISH_STANDING_KEYS: Array[String] = ["prop_fridge", "prop_road_sign", "prop_streetlamp"]
 # The districts the game ships, judged for the kinds each takes.
 const FURNISH_DISTRICTS: Array[String] = ["district.residential_suburb", "district.town_center", "district.industrial_park", "district.forest_edge"]
 
@@ -1400,6 +1401,12 @@ func _furnish_block(where: String, rarity: int = 2, surface: String = "paved", b
 	if not beside.is_empty():
 		entry["beside"] = beside
 	return {"furnishings": [entry]}
+
+
+func _furnishing_size_fits(key: String, size: Vector2i, standing: bool) -> bool:
+	if standing:
+		return FURNISH_STANDING_KEYS.has(key) and size.y > NATURE_MAX_H and size.y <= 64 and size.x <= NATURE_MAX_W
+	return size.x <= NATURE_MAX_W and size.y <= NATURE_MAX_H
 
 
 func _furnish_hits(block: Dictionary, map: Variant, tx: int, ty: int, count: int) -> int:
@@ -1428,7 +1435,6 @@ func _the_furnishings_stand_where_they_should() -> bool:
 		return false
 
 	# --- what the content says ---------------------------------------------------------------
-	var props: Array[String] = _authored_keys_of_kind("prop")
 	var named: Dictionary = {}
 	var where_of: Dictionary = {}
 	for raw in entries as Array:
@@ -1437,8 +1443,10 @@ func _the_furnishings_stand_where_they_should() -> bool:
 			return false
 		var entry: Dictionary = raw as Dictionary
 		var key: String = String(entry.get("key", ""))
-		if not props.has(key):
-			push_error("furnishing entry names '%s', which authored.json does not declare as a prop" % key)
+		var standing: bool = bool(entry.get("standing", false))
+		var expected_kind: String = "standing" if standing else "prop"
+		if not _authored_keys_of_kind(expected_kind).has(key):
+			push_error("furnishing entry names '%s' as kind '%s', but authored.json declares no such kind" % [key, expected_kind])
 			return false
 		var tex: Variant = Appearance.resolve(key)
 		if tex == null:
@@ -1448,8 +1456,8 @@ func _the_furnishings_stand_where_they_should() -> bool:
 		if size != Appearance.canvas_of(key):
 			push_error("canvas_of('%s') is %s, the picture is %s" % [key, str(Appearance.canvas_of(key)), str(size)])
 			return false
-		if size.x > NATURE_MAX_W or size.y > NATURE_MAX_H:
-			push_error("furnishing key '%s' is %s, over the %d x %d a flat picture may cover; a taller one wants the entity sort" % [key, str(size), NATURE_MAX_W, NATURE_MAX_H])
+		if not _furnishing_size_fits(key, size, standing):
+			push_error("furnishing key '%s' is %s and standing=%s; short props keep the %dx%d flat limit, and only the three named tall props may stand in the sort to 64 px high" % [key, str(size), str(standing), NATURE_MAX_W, NATURE_MAX_H])
 			return false
 		if int(entry.get("rarity", 0)) < 2:
 			push_error("furnishing entry '%s' has rarity %s; under two it would land on every tile" % [key, str(entry.get("rarity"))])
@@ -1478,12 +1486,26 @@ func _the_furnishings_stand_where_they_should() -> bool:
 		if not named.has(want):
 			push_error("dressing.street names no furnishing '%s'; the pack's picture is art nothing draws" % want)
 			return false
+	for want_standing in FURNISH_STANDING_KEYS:
+		if not named.has(want_standing) or not Dressing.furnishing_is_standing(block, want_standing):
+			push_error("dressing.street does not explicitly route tall furnishing '%s' into the entity sort" % want_standing)
+			return false
 	for got in named.keys():
-		if not FURNISH_KEYS.has(String(got)):
-			push_error("dressing.street furnishes '%s', which is not one of the eight the slice ships (the workbench is a real bench and the fridge, sign and streetlamp are taller than a tile)" % String(got))
+		if not FURNISH_KEYS.has(String(got)) and not FURNISH_STANDING_KEYS.has(String(got)):
+			push_error("dressing.street furnishes '%s', which is not one of the eight flat or three explicitly standing furnishings" % String(got))
 			return false
 	if FURNISH_KEYS.has("prop_workbench") or FURNISH_KEYS.has("prop_fridge") or FURNISH_KEYS.has("prop_streetlamp") or FURNISH_KEYS.has("prop_road_sign"):
-		push_error("FURNISH_KEYS carries a retired-by-name furnishing")
+		push_error("FURNISH_KEYS treats a standing prop or real bench as a flat furnishing")
+		return false
+	if not _furnishing_size_fits("prop_table", Vector2i(40, 32), false) or _furnishing_size_fits("prop_fridge", Vector2i(24, 38), false) or not _furnishing_size_fits("prop_fridge", Vector2i(24, 38), true) or _furnishing_size_fits("prop_table", Vector2i(40, 32), true) or _furnishing_size_fits("prop_streetlamp", Vector2i(24, 65), true):
+		push_error("FURNISH size predicate did not preserve the flat ceiling, require explicit tall routing, or cap standing art at 64 px")
+		return false
+	# The existing limit still refuses a tall entry unless it opts into the standing route, and
+	# the flag cannot be used to smuggle a short ordinary prop into the entity sort.
+	var tall_unflagged: Dictionary = {"furnishings": [{"key": "prop_fridge", "where": "indoors", "surfaces": ["paved"], "rarity": 2}]}
+	var tall_flagged: Dictionary = {"furnishings": [{"key": "prop_fridge", "where": "indoors", "surfaces": ["paved"], "rarity": 2, "standing": true}]}
+	if Dressing.furnishing_is_standing(tall_unflagged, "prop_fridge") or not Dressing.furnishing_is_standing(tall_flagged, "prop_fridge") or Dressing.furnishing_is_standing(tall_flagged, "prop_table"):
+		push_error("the optional standing flag does not default false or resolve only for the named key")
 		return false
 
 	# --- the pick, on hand maps, both ways -----------------------------------------------------
@@ -1646,6 +1668,16 @@ func _the_furnishings_stand_where_they_should() -> bool:
 	if not Dressing.furnishing_tiles(indoor_table, room, FakeSeen.new(), 3, whole).is_empty():
 		push_error("an empty seen set answered furnishings; a picture would draw where nobody can see -- through a wall")
 		return false
+	var standing_block: Dictionary = {"furnishings": [{"key": "prop_fridge", "where": "indoors", "surfaces": ["paved"], "rarity": 2, "standing": true}]}
+	var standing_plain: Array[Dictionary] = Dressing.furnishing_tiles(standing_block, room, seen_all, 3, whole)
+	var standing_cached: Array[Dictionary] = Dressing.standing_furnishing_tiles_cached(standing_block, room, seen_all, 3, whole, {})
+	if standing_plain.is_empty() or _pick_set(standing_plain) != _pick_set(standing_cached):
+		push_error("the standing furnishing draw does not reuse the identical hash, visibility, bounds and cache pick")
+		return false
+	for standing_pick in standing_cached:
+		if String(standing_pick["key"]) != "prop_fridge":
+			push_error("the standing furnishing view returned an unrelated key: %s" % str(standing_pick))
+			return false
 	for pick in Dressing.furnishing_tiles(indoor_table, room, seen_all, 3, {"minX": 0.0, "minY": 0.0, "maxX": 2.0, "maxY": 2.0}):
 		if int(pick["tx"]) > 2 or int(pick["ty"]) > 2:
 			push_error("bounds excluding a tile still answered it: %s" % str(pick))
@@ -1759,10 +1791,47 @@ func _the_furnishings_stand_where_they_should() -> bool:
 	if draw_furnishings.is_empty():
 		push_error("could not read _draw_furnishings out of %s" % MAIN_GD)
 		return false
-	var missing: String = _missing_needle(draw_furnishings, ["seen == null", "Dressing.furnishing_tiles_cached(", "_furnishing_cache_for()", "Appearance.prop_tiles(", "occupied.has(", "Appearance.hang_rect(", "Appearance.resolve("])
+	var missing: String = _missing_needle(draw_furnishings, ["seen == null", "Dressing.furnishing_tiles_cached(", "Dressing.furnishing_is_standing(", "_furnishing_cache_for()", "Appearance.prop_tiles(", "occupied.has(", "Appearance.hang_rect(", "Appearance.resolve("])
 	if not missing.is_empty():
 		push_error("_draw_furnishings does not contain %s" % missing)
 		return false
+	if not _comes_before(draw_furnishings, "Dressing.furnishing_is_standing(", "occupied.has("):
+		push_error("_draw_furnishings does not route standing picks away before flat drawing")
+		return false
+	if not _standing_pick_skips_flat(draw_furnishings):
+		push_error("_draw_furnishings finds tall picks but does not continue past them before occupied checks and flat drawing")
+		return false
+	var no_flat_skip: String = draw_furnishings.replace("\n\t\t\tcontinue\n\t\tif occupied.has(", "\n\t\t\tpass\n\t\tif occupied.has(")
+	if _standing_pick_skips_flat(no_flat_skip):
+		push_error("the flat-pass scanner accepts a standing furnishing after its continue is removed")
+		return false
+	var standing_body: String = _function_body(MAIN_GD, "_standing_props")
+	var draw_entities: String = _function_body(MAIN_GD, "_draw_entities")
+	missing = _missing_needle(draw_entities, ["_standing_props(seen)", "_blit_standing(it, px_scale, focal_points)"])
+	if not missing.is_empty() or not _comes_before(draw_entities, "_standing_props(seen)", "_blit_standing(it, px_scale, focal_points)"):
+		push_error("_draw_entities does not append standing props and draw them in the sorted body pass: missing %s" % (missing if not missing.is_empty() else "ordered sort draw"))
+		return false
+	missing = _missing_needle(standing_body, ["Dressing.standing_furnishing_tiles_cached(", "_furnishing_cache_for()", "Appearance.prop_tiles(", "occupied.has(", "TopDownProjection.depth_of(", "out.append(", "fade_on_overlap"])
+	if not missing.is_empty():
+		push_error("_standing_props does not sort seen, unoccupied tall furnishings: missing %s" % missing)
+		return false
+	var standing_blit: String = _function_body(MAIN_GD, "_blit_standing")
+	missing = _missing_needle(standing_blit, ["Appearance.body_rect(", "Dressing.tree_alpha(", "fade_on_overlap", "draw_texture_rect("])
+	if not missing.is_empty():
+		push_error("_blit_standing does not feet-anchor and fade a tall decoration on body overlap: missing %s" % missing)
+		return false
+	# Each accepted tall furnishing sorts between bodies on adjacent rows, and the shared fade rule
+	# dims the picture only for the northern body's ground point inside its actual opaque rect.
+	for key in FURNISH_STANDING_KEYS:
+		var texture: Texture2D = Appearance.resolve(key)
+		var gp_y: float = 6.0 * 32.0
+		var rect: Rect2 = Appearance.body_rect(0.0, gp_y, Vector2(texture.get_size()), 1.0)
+		var north: float = TopDownProjection.depth_of(0.5, 5.5)
+		var prop_depth: float = TopDownProjection.depth_of(0.5, 6.0)
+		var south: float = TopDownProjection.depth_of(0.5, 6.5)
+		if not (north < prop_depth and prop_depth < south) or Dressing.tree_alpha(rect, [Vector2(0.0, 5.0 * 32.0)]) != Dressing.TREE_FADE_ALPHA or Dressing.tree_alpha(rect, [Vector2(0.0, 7.0 * 32.0)]) != 1.0:
+			push_error("%s does not order body/prop/body and fade only while a body point is inside its picture" % key)
+			return false
 	if draw_furnishings.contains("draw_set_transform(") or draw_furnishings.contains("world.components") or draw_furnishings.contains("set_component(") or draw_furnishings.contains("explored"):
 		push_error("_draw_furnishings sets a transform, touches a component or reads the remembered map; furniture is a picture on a tile the player sees and nothing else")
 		return false
@@ -1802,7 +1871,7 @@ func _the_furnishings_stand_where_they_should() -> bool:
 				indoor_picks += 1
 			else:
 				outdoor_picks += 1
-	for want_key in FURNISH_KEYS:
+	for want_key in FURNISH_KEYS + FURNISH_STANDING_KEYS:
 		if not placed.has(want_key):
 			push_error("no shipped district takes a '%s' at %d over %s; the pack's picture is drawn by a rule no map ever meets" % [want_key, GATE_SIZE, str(FURNISH_DISTRICTS)])
 			return false
@@ -1850,8 +1919,19 @@ func _the_furnishings_stand_where_they_should() -> bool:
 
 	_stash["furnish_kinds"] = placed.size()
 	_stash["furnish_picks"] = indoor_picks + outdoor_picks
-	print("FURNISH OK %d entries (every key an authored prop that resolves at most %dx%d, every surface real, every rarity >= 2, `where` and `beside` known); the eight pictures the slice ships are all named and the workbench and the three tall props are not; the roll picks %d of 32 seeds on open indoor floor and %d outdoors, `where` is read both ways, and nothing is picked on the wrong surface, beside a wall or door, in a doorway, on a wall, door, tree, heap or water tile or on the map's edge; `beside: wall` needs a wall north or south; an entry that misses its ground falls through; malformed blocks pick nothing; the roll is hash_at's own number on %d rolled tiles on its own salt; furnishing_tiles is a subset of seen and of bounds; the chunk cache answers the uncached picks over four windows and four observers (%d picks) and serves a poisoned chunk and forgets it when emptied; a tile a bed stands on is skipped and a despawned bed's is not; _draw_furnishings follows _draw_nature and precedes _draw_props and reads only seen tiles; over %d districts at %d the eight kinds place %d indoors and %d outdoors, none in a doorway and each on its own side of the wall" % [(entries as Array).size(), NATURE_MAX_W, NATURE_MAX_H, yes, yard_yes, rolls, cache_compared, FURNISH_DISTRICTS.size(), GATE_SIZE, indoor_picks, outdoor_picks])
+	print("FURNISH OK %d entries; short props stay in the flat pass and the three explicitly standing furnishings exceed a tile without weakening the flat limit; the real workbench is excluded from dressing; all surfaces, hash picks, placement exclusions, cache, seen/bounds subset, inertness and shipped district placements hold (%d keys across %d districts)" % [(entries as Array).size(), placed.size(), FURNISH_DISTRICTS.size()])
 	return true
+
+
+func _standing_pick_skips_flat(body: String) -> bool:
+	var code: String = _strip_comments(body)
+	var standing_at: int = code.find("if Dressing.furnishing_is_standing(")
+	if standing_at < 0:
+		return false
+	var occupied_at: int = code.find("if occupied.has(", standing_at)
+	var draw_at: int = code.find("draw_texture_rect(", standing_at)
+	var continue_at: int = code.find("continue", standing_at)
+	return occupied_at > standing_at and draw_at > occupied_at and continue_at > standing_at and continue_at < occupied_at
 
 
 # --- lane 11: INERT --------------------------------------------------------------------------
