@@ -1,0 +1,33 @@
+{
+  "workwear": {
+    "poses": "sources/workwear-poses.png",
+    "animation": "sources/workwear-animation.png"
+  },
+  "commuter": {
+    "poses": "sources/commuter-poses.png",
+    "animation": "sources/commuter-animation.png"
+  },
+  "raincoat": {
+    "poses": "sources/raincoat-poses.png",
+    "animation": "sources/raincoat-animation.png"
+  },
+  "stalker": {
+    "poses": "sources/stalker-poses.png",
+    "animation": "sources/stalker-animation.png"
+  },
+  "runner": {
+    "poses": "sources/runner-poses.png",
+    "animation": "sources/runner-animation.png"
+  },
+  "armored": {
+    "poses": "sources/armored-poses.png",
+    "animation": "sources/armored-animation.png"
+  },
+  "heavy": {
+    "poses": "sources/heavy-poses.png",
+    "animation": "sources/heavy-animation.png"
+  },
+  "human_corpses": {
+    "poses": "sources/human-corpses.png"
+  }
+}

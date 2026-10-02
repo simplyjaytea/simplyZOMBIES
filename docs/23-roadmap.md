@@ -271,17 +271,6 @@ the people pieces reuse; raiders before settlers because the third side is a sea
 raider first touches. Each piece that adds a body or a kind inside ten days re-baselines the FAST
 balance record and says so in its record; `survivors_end >= 1` is never the lever.
 
-- **A silhouette per kind.** The stalker, the runner, the armoured and the heavy all ship on the
-  shambler's `zombie_shambler` rig, so four kinds with different senses, different speeds and —
-  since the armoured one — different armour are one picture, a per-body tint apart, which is
-  pallor and not a shape. One sprite key each in `tools/sprites/`, regenerated and byte-compared
-  by `npm run sprites:check` (Pillow, and the CPython float trap in CLAUDE.md), the content
-  `appearance.sprite` repointed, and `check_appearance.gd`'s third `ROSTER_SHARED` group retired
-  in favour of four more `ROSTER_DISTINCT` rows. Read as a silhouette first: a lean,
-  forward-leaning stalker, a low sprinting runner, a plated armoured body whose gear reads at a
-  glance rather than only in the damage arithmetic, and a heavy that is visibly bigger than one
-  tile — distinguishable at 32 px from the shambler and from each other, per the brief in
-  `godot/assets/sprites/README.md`.
 
 **Medicine — the back half of treatment:**
 
@@ -531,6 +520,8 @@ the screamer and the bloater — which the pack does not supply — keep their g
 become y-sorted modules standing on a run's south edge; and sockets land now for effects,
 east-west vehicles and the cursor, with held weapons, utilities, decals and the six status icons
 named for the report rather than built.
+The shared shambler picture was superseded by the seven-family zombie set on 2026-10-02
+("Zombies turn, walk and fall" in the record); the outpost survivor and equipment remain.
 The tier tooling — a `source` `build.py` can reproduce, a `members` family, and the READS lane
 accepting any declarer — landed the same day, proved on the two containers (see the record). The
 pieces below are in the order they land, each one session, each with its gate red both ways and
@@ -924,13 +915,9 @@ group above amend this arc's mood, wall and pawn clauses; the pieces below stand
   constant moves again. `presentation/dressing.gd` already classifies a lone tile as `solo` and
   resolves nothing for it; `check_wrecks.gd`'s SEGMENTS and DISTRICT lanes say out loud which half
   went unjudged, so the socket is named rather than hidden.
-- **A corpse reads as a corpse.** The art half of the corpse defect, left after the characters
-  slice landed the mechanical half (a still body is no longer glimpsed — the GLIMPSE lane in its
-  record): at Focal a dead body still draws the same upright pawn as a living one. Under the
-  Dungeon Settlers look a prone body is a second picture per rig, not a rotation, so the old
-  collision with the one-transform spine disappears with the pawn piece; what a glimpsed corpse
-  is allowed to show is still an information-scarcity call that belongs beside the owner's other
-  scarcity decisions.
+- **What a glimpsed corpse may show.** Settled human and zombie pictures now draw at Focal
+  only (the record's "Zombies turn, walk and fall", 2026-10-02). Widening their appearance at
+  Peripheral detail remains an information-scarcity decision for the owner.
 - **The torch.** The reference's night is a cone from the player's hand; every light here is an
   omnidirectional shadowcast and there is no torch item. The piece is sim, not paint: a light
   item whose `light` block carries a direction and a cone, `SimLight` masking that emitter's
@@ -1310,11 +1297,10 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   one with a scratch from a shambler does not. A cut is an open wound too. Found by the filter slice
   (2026-09-12) and deliberately not fixed there: widening it is a balance change and would have
   ridden along inside a slice that was adding a reader, which is how scope gets smuggled.
-- **A corpse looks exactly like a person at Focal.** Presentation has no notion of one: same
-  sprite, same tint, same facing pointer. The glimpse half is fixed — `Appearance.moving` reads a
-  missing `velocity` as motionless and `check_topdown.gd`'s GLIMPSE lane holds it, so the dead are
-  no longer drawn as bodies standing in the dark — and the art half is the what's-left entry
-  "a corpse reads as a corpse".
+- ~~**A corpse looks exactly like a person at Focal.**~~ **Fixed 2026-10-02.** Settled corpse
+  pictures lie on the ground beneath standing actors, without upright equipment or facing
+  pointers. `godot:check:zombie_art` judges the real renderer branch and Focal filtering;
+  see "Zombies turn, walk and fall" in the art record. The existing glimpse ban stays intact.
 - **A debug-spawned stackable item is always a bare stack of one.** `SimDebug`'s `item` arm
   (`sim/modules/debug.gd`) calls `SimItems.spawn_item(w, id, {})` with no `count`, so an
   ammunition round spawned from the F8 panel or a `debug.spawn` command pushed by hand always
@@ -2506,6 +2492,58 @@ not a to-do list:
   already spawns a `bench` entity on `bench.built`, so the gameplay fact exists; nothing gives
   that entity a content id or an `appearance.sprite`, so it still draws by fallback role colour.
   No slice names any of the fifteen. Touches no standing ban.
+
+- **Art & renderer — zombies turn, walk and fall, 2026-10-02.** Closes "A silhouette per
+  kind" and the Focal art half of "A corpse reads as a corpse", at the owner's request for
+  varied zombie/corpse poses, animation, actual game use and a GitHub merge. Seven original
+  families replace the shared outpost shambler: workwear, commuter and raincoat are cosmetic
+  common-zombie variants; stalker, runner, armoured and heavy have their own silhouettes.
+  Each has four idle views and four locomotion frames per view: **140 living PNGs, 28 walk
+  cycles**, at 5/5/5/6/9/4/4 fps. Velocity selects idle/walk; `world.tick` advances movement
+  frames and pause freezes them. Full entity ids choose variants and matching corpse poses
+  without consuming simulation RNG. The heavy's 40×48 canvas drives both blitting and picking;
+  all other living families use 32×40. The real turn-to-zombie paths also supply the default
+  shambler type, so a turned survivor reaches the same animated family.
+
+  **Settled bodies:** two poses per zombie family and four human poses, **18 corpse PNGs**,
+  center-anchored in a ground pass under standing actors and props. Focal-only for both human
+  corpses and zombie remains. Human corpse entities retain inventory, scent and succession
+  behavior; their standing gear overlays do not draw over the prone art. Zombie death records
+  a bounded **256-entry** cosmetic history (original entity id, position, type, tint and tick)
+  before the old kit-drop/despawn path; it adds no actor, collision, population, scent or RNG
+  draw. Save v33 accepts the optional array and treats an older save without it as empty.
+  Armoured source bodies were generated without painted helmet/vest so the real equipped
+  items compose once and still drop on death. The original composed studies remain provenance.
+  Settled art never overwrites the living afterimage cache: the remembered picture stays paired
+  with the simulation's last-seen living position, so a corpse cannot appear at that older point.
+
+  **Gated:** `godot:check:zombie_art` CONTENT, MOTION, CORPSES, REMAINS, SAVE-LOOK, GROUND and READERS
+  cover every selected family/member, four distinct silhouettes per cycle, view/stop/sim-tick,
+  matching and saved poses, native tint fallback, actual death/drop comparison, bounded history,
+  legacy saves, actual Focal collection, ground-pass reader order and the corpse-cache regression.
+  `godot:check:memory` keeps the existing living afterimage semantics. `godot:check:play`
+  TICKS/PAUSE judges the clock that freezes animation. The first full run passed all 85 Godot
+  checks but lost every final timing line under piped stdout; `run-godot.mjs` now writes that
+  line synchronously before exiting. The timing regression exercises the actual finish body
+  through a pipe, preserving both successful and failing exit codes and rejecting the old
+  buffered write. The final `npm run godot:m2` passed **85/85 gates**, all exits zero,
+  with all **85 timing rows** present and **2043.45 s** of summed gate time (34m03.45s).
+  `npm test` passed **594 tests in 45 files**; typecheck, lint, formatting, routing, timing,
+  sprite reproduction, smoke and the four R6 gates also passed. `godot:check:authored`
+  adds explicit `zombie_rig` and `corpse` geometry lanes, source/frame mapping and negative
+  fixtures; the outpost PACK bounds remain unchanged. Appearance validates nested content keys
+  and distinct pictures; topdown checks exact rates/canvases. `sprites:check` reproduces **96
+  generated and 305 sourced** runtime PNGs, with the old 20-member `body_shambler` retired.
+  Source sheets, prompts, extraction recipe, atlas and animated previews live under
+  `godot/art/simplyzombies/zombie-poses/`; actual renderer captures live under
+  `.hermes/plans/2026-10-02_zombie-animation-corpses/`.
+
+  **First cut:** locomotion and settled death poses only; idle is one frame, no attack, hit,
+  falling, rising or crawler-specific animation. Screamer/bloater retain their current art.
+  Human corpses share four silhouettes, and zombie history evicts its oldest record at the cap.
+  Generated motion retains 1–3 native pixels of pose-height and incidental clothing-detail
+  variation; a later polish pass can refine foot contact and stabilize those details.
+  No new zombie kind, spawn mix, wearable asset or corpse interaction is introduced.
 
 - **Art & renderer — the bodies turn and walk, 2026-09-26.** Every human (the player, Mara,
   Ellis, the colony looks, every raider archetype and look) draws the outpost pack's survivor, and

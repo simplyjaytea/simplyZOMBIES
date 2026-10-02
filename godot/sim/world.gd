@@ -27,6 +27,9 @@ const BODY_RADIUS: float = 0.35
 const WALK_SPEED: float = 2.1
 # Per-rung speed multiplier used to live here as a verbatim duplicate of SimStances.SPEED_FACTOR
 # -- one const, one caller (world.gd:_apply_commands), zero reason for two copies to drift.
+# Settled zombie pictures are bounded data, never entities: keeping one must not take a slot
+# from the next spawn, fill a director cap, emit scent or participate in combat.
+const VISUAL_REMAINS_MAX: int = 256
 
 var tick: int = 0
 var seed: int
@@ -76,6 +79,9 @@ var strangers: Dictionary = {"spawned": []}
 # world.gd carries it the way it carries `recruits`: a shape it saves and restores without
 # knowing what the kinds mean.
 var chronicle: Array = []
+# Original entity ids include their generation, so recycling a slot cannot change an older
+# body's appearance. Plain records survive JSON without the integer-key dictionary trap.
+var visualRemains: Array = []
 
 
 func _init(fixture: Dictionary) -> void:
@@ -229,6 +235,7 @@ func snapshot() -> Dictionary:
 		"runOver": runOver,
 		"player": int(player),
 		"chronicle": chronicle.duplicate(true),
+		"visualRemains": visualRemains.duplicate(true),
 	}
 
 
@@ -275,6 +282,13 @@ func restore(snap: Dictionary) -> void:
 					"name": String((rec as Dictionary).get("name", "")),
 					"e": int((rec as Dictionary).get("e", -1)),
 				})
+	# Optional cosmetic history: an older save had no settled zombie pictures, and restoring it
+	# invents none. Clear first because F9 restores into an existing world, not always a new one.
+	visualRemains = []
+	if snap.get("visualRemains") is Array:
+		for remains in snap["visualRemains"] as Array:
+			if remains is Dictionary:
+				remember_visual_remains(remains as Dictionary)
 	if snap.has("player"):
 		player = int(snap["player"])
 	elif components != null:
@@ -298,6 +312,32 @@ func restore(snap: Dictionary) -> void:
 
 func serialize() -> String:
 	return SimSerialize.canonicalize(snapshot())
+
+
+# Capture only the facts needed to draw a settled body. This makes no random draw and changes
+# no entity/component state; the same normalizer is used after JSON restores numbers as floats.
+func remember_visual_remains(record: Dictionary) -> void:
+	if not record.has("x") or not record.has("y"):
+		return
+	var entity: int = int(record.get("entity", -1))
+	var ztype: String = String(record.get("ztype", ""))
+	var x: float = float(record.get("x", 0.0))
+	var y: float = float(record.get("y", 0.0))
+	if entity < 0 or ztype.is_empty() or not is_finite(x) or not is_finite(y):
+		return
+	for previous in visualRemains:
+		if int((previous as Dictionary)["entity"]) == entity:
+			return
+	visualRemains.append({
+		"entity": entity,
+		"x": x,
+		"y": y,
+		"ztype": ztype,
+		"tint": String(record.get("tint", "")),
+		"sinceTick": int(record.get("sinceTick", 0)),
+	})
+	while visualRemains.size() > VISUAL_REMAINS_MAX:
+		visualRemains.pop_front()
 
 
 func despawn(entity: int) -> bool:

@@ -4,7 +4,9 @@
   "title": "Zombie type",
   "description": "A zombie type, per docs/14-zombies.md. Adding one is a JSON entry with zero code, provided every behavior tag it references already exists.",
   "type": "object",
-  "required": ["id"],
+  "required": [
+    "id"
+  ],
   "additionalProperties": false,
   "properties": {
     "id": {
@@ -16,8 +18,12 @@
       "type": "string",
       "description": "Id of another zombie type to inherit from."
     },
-    "name": { "type": "string" },
-    "appearance": { "$ref": "#/$defs/appearance" },
+    "name": {
+      "type": "string"
+    },
+    "appearance": {
+      "$ref": "#/$defs/appearance"
+    },
     "introducedInWave": {
       "type": "integer",
       "minimum": 0,
@@ -36,7 +42,10 @@
         "tints": {
           "type": "array",
           "description": "The palette one body's colour is picked from. A modulate over the type's sprite, exactly like `appearance.tint` -- so these are pallor and stain, near-white, not costume colours: a dark entry here darkens the whole body. Empty or absent picks nothing and every body of the kind draws its appearance block's colour.",
-          "items": { "type": "string", "pattern": "^#[0-9a-f]{6}$" }
+          "items": {
+            "type": "string",
+            "pattern": "^#[0-9a-f]{6}$"
+          }
         },
         "body": {
           "type": "number",
@@ -57,9 +66,21 @@
       "description": "Channel weights. docs/14-zombies.md#sensory-profiles: there is no single silence.",
       "additionalProperties": false,
       "properties": {
-        "noise": { "type": "number", "minimum": 0, "maximum": 1 },
-        "light": { "type": "number", "minimum": 0, "maximum": 1 },
-        "scent": { "type": "number", "minimum": 0, "maximum": 1 }
+        "noise": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "light": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "scent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
       }
     },
     "locomotion": {
@@ -95,7 +116,10 @@
     "body": {
       "type": "object",
       "description": "Health by body part. Meaningful damage is to the head or to locomotion.",
-      "additionalProperties": { "type": "number", "minimum": 0 }
+      "additionalProperties": {
+        "type": "number",
+        "minimum": 0
+      }
     },
     "worn": {
       "type": "array",
@@ -109,7 +133,10 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "strength": { "type": "number", "minimum": 0 }
+        "strength": {
+          "type": "number",
+          "minimum": 0
+        }
       }
     },
     "spread": {
@@ -117,16 +144,23 @@
       "description": "Persistent per-individual angular bias on gradient ascent, in radians. Without it they form conga lines rather than a horde -- docs/14-zombies.md#gradient-ascent-is-not-sufficient-on-its-own.",
       "additionalProperties": false,
       "properties": {
-        "radians": { "type": "number", "minimum": 0 }
+        "radians": {
+          "type": "number",
+          "minimum": 0
+        }
       }
     },
     "emits": {
       "type": "array",
-      "items": { "$ref": "#/$defs/emission" }
+      "items": {
+        "$ref": "#/$defs/emission"
+      }
     },
     "behaviors": {
       "type": "array",
-      "items": { "type": "string" },
+      "items": {
+        "type": "string"
+      },
       "description": "Behavior tags. Every one must be implemented, or load fails."
     },
     "alarm": {
@@ -134,9 +168,17 @@
       "description": "Screamer-style relay. docs/14: converts a small mistake into a regional event.",
       "additionalProperties": false,
       "properties": {
-        "magnitude": { "type": "number", "minimum": 0 },
-        "relay": { "type": "boolean" },
-        "cooldownTicks": { "type": "integer", "minimum": 0 }
+        "magnitude": {
+          "type": "number",
+          "minimum": 0
+        },
+        "relay": {
+          "type": "boolean"
+        },
+        "cooldownTicks": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     }
   },
@@ -160,15 +202,66 @@
           "type": "string",
           "pattern": "^#[0-9a-f]{6}$",
           "description": "Colour for the procedural fallback, and a modulate over the sprite when one exists."
+        },
+        "corpseSprites": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^corpse_[a-z0-9_]+$"
+          },
+          "description": "Settled corpse pictures. Presentation selects one stably per entity and draws it at its ground anchor only after death."
+        },
+        "variants": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "type": "object",
+            "required": [
+              "sprite",
+              "corpseSprites"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "sprite": {
+                "type": "string",
+                "pattern": "^body_[a-z0-9_]+$"
+              },
+              "corpseSprites": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 8,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^corpse_[a-z0-9_]+$"
+                },
+                "description": "Settled corpse pictures. Presentation selects one stably per entity and draws it at its ground anchor only after death."
+              }
+            }
+          },
+          "description": "Complete living/corpse art pairs. Presentation chooses stably by entity id without consuming a simulation RNG stream."
         }
       }
     },
     "emission": {
       "type": "object",
-      "required": ["channel", "magnitude"],
+      "required": [
+        "channel",
+        "magnitude"
+      ],
       "additionalProperties": false,
       "properties": {
-        "channel": { "enum": ["noise", "light", "scent"] },
+        "channel": {
+          "enum": [
+            "noise",
+            "light",
+            "scent"
+          ]
+        },
         "magnitude": {
           "type": "number",
           "minimum": 0,

@@ -1,0 +1,11 @@
+{
+  "individual_sprite_count": 158,
+  "manifest_assets": 74,
+  "manifest_paths_resolve": true,
+  "native_rgba": true,
+  "preview_frames": 64,
+  "preview_unique_composite_frames": 64,
+  "preview_duration_ms": 4000,
+  "game_integration_tested": true,
+  "integration_gates": ["godot:check:zombie_art", "godot:check:authored", "godot:check:appearance", "godot:check:topdown", "godot:smoke"]
+}

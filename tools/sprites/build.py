@@ -134,8 +134,14 @@ def canvas_of(key):
 # and PNGs are deleted, and this is what refuses either coming back -- a module that registers one
 # again, or a stray PNG of that name left in the sprite folder, which the resolver would happily
 # serve to content that still names it. The bed needs no entry: `prop_bed` is an authored key, so
-# a generator claiming it is already refused as declared in both tiers.
-RETIRED_KEYS = ("tree_pine_a", "tree_pine_b", "tree_pine_c", "low_heap_a", "low_heap_b")
+# a generator claiming it is already refused as declared in both tiers. The old body_shambler
+# family retired with the seven zombie designs (2026-10-02); all twenty member PNGs must stay
+# absent too, while the original source sheets remain in the art pack for provenance.
+RETIRED_KEYS = ("tree_pine_a", "tree_pine_b", "tree_pine_c", "low_heap_a", "low_heap_b") + tuple(
+    "body_shambler_" + suffix
+    for view in ("s", "e", "n", "w")
+    for suffix in (view, *("walk_%s_%d" % (view, frame) for frame in range(4)))
+)
 
 
 def retired_back(registered, on_disk):
@@ -150,9 +156,10 @@ def check_retired_keys():
     if retired_back({"tree_pine": None, "heap_bags": None}, set()):
         print("SELF_TEST_FAIL retired keys: a clean registry was refused")
         return False
-    if not retired_back({"tree_pine_b": None}, set()) or not retired_back({}, {"low_heap_a"}):
-        print("SELF_TEST_FAIL retired keys: a retired key coming back was accepted")
-        return False
+    for key in RETIRED_KEYS:
+        if not retired_back({key: None}, set()) or not retired_back({}, {key}):
+            print("SELF_TEST_FAIL retired keys: %s coming back was accepted" % key)
+            return False
     print("SELF_TEST_OK retired keys: %d retired keys are refused whether a generator registers them "
           "or a PNG returns, and a clean registry passes" % len(RETIRED_KEYS))
     return True

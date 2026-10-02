@@ -5485,3 +5485,33 @@ Timber and block keep their generated faces either way.
 interaction hand over something the player can see and act on — never over something unseen,
 which would be information through a wall. Over any panel or menu: the UI kit's four pointers.
 Both live in `ui/cursors.gd`'s one table, as "The UI Field Kit, live" already said.
+
+
+## Zombies turn, walk and fall, 2026-10-02
+
+The owner asked to work on zombie and corpse poses, make several zombie variations, ensure the
+zombies animate, use the work in the game, and merge it into GitHub. This completes the existing
+"A silhouette per kind" and Focal corpse-art pieces; it does not widen what a peripheral glimpse
+reveals.
+
+The first set supplies workwear, commuter and raincoat common zombies, plus stalker, runner,
+armoured and heavy silhouettes. Each has four directional idle poses and a four-frame walk cycle
+in each direction. Existing velocity and the simulation tick choose and advance the frames;
+full entity ids select cosmetic variants and matching corpses without a new random stream.
+The heavy gets a 40×48 picture and matching picking bounds. Human corpses share four ground
+poses; every zombie family gets two. Corpse pictures lie below standing actors and omit upright
+gear and facing marks. A dead human's actual inventory remains unchanged.
+Settled art does not replace the living afterimage cache or change the simulation's sight memory;
+otherwise a newly seen corpse could be painted at the zombie's older remembered living position.
+
+Zombie death still drops its kit and despawns the actor. A saved cosmetic history of the most
+recent 256 deaths retains the original id, position, type, tint and tick for rendering; it adds
+no scent, collision, loot or population. Save v33 accepts this optional history and loads old
+saves with it empty. The armoured art uses a bare head and unarmoured shirt, with the actual
+helmet and vest composed by the existing equipment renderer, so armour appears once and comes
+off when the items drop.
+
+This pass supplies locomotion and settled corpses, not attack, hit, falling, rising, animated
+idle or crawler-specific poses. Screamer and bloater art remains outside the set. Original
+sources and generation instructions are preserved beside the reproducible native exports;
+`godot:check:zombie_art`, authored geometry and sprite reproduction judge their game readers.

@@ -1,5 +1,14 @@
 {
   "id": "player.body",
   "name": "The player's body",
-  "appearance": { "sprite": "body_survivor", "hitFx": "fx_blood_hit" }
+  "appearance": {
+    "sprite": "body_survivor",
+    "hitFx": "fx_blood_hit",
+    "corpseSprites": [
+      "corpse_human_supine",
+      "corpse_human_prone",
+      "corpse_human_side",
+      "corpse_human_supine_diagonal"
+    ]
+  }
 }

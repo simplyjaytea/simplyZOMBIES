@@ -135,7 +135,7 @@ npm run check:routing    # AGENTS.md's routing table resolves; every check_*.gd 
 npm run check:timing     # the per-gate timing table names every mode the chain ran → TIMING_OK
 ```
 
-Those are the ones worth naming, not all of them: `godot:m2` chains **84**, and the authoritative
+Those are the ones worth naming, not all of them: `godot:m2` chains **85**, and the authoritative
 list is the `godot:m2:chain` script in `package.json` (`godot:m2` itself is
 `node scripts/m2-chain.mjs`, which reads that list and runs it) — read it there rather than
 trusting a copy here, because a copy here is one more thing that drifts. Run an individual gate
@@ -308,8 +308,9 @@ drifted. Three things about the current state matter enough to repeat anyway:
   2026-09-11** — docs/30's "The decoupled paperdoll" — so the bodies become a decoupled rig
   whose torso turns 360° to the aim while its legs follow the heading. That arc is slices, not a
   landed state: what has landed is in docs/23's record. Since 2026-09-26 ("The bodies turn and
-  walk", the outpost pack) every human and the shambler kinds draw the pack's four-direction
-  body; only the screamer and the bloater are still the face-on pawn described below. The 2026-09-03 entry itself
+  walk", the outpost pack) humans draw the pack's four-direction body; the 2026-10-02 zombie
+  pose set replaces its shared shambler with seven animated families and settled corpses.
+  Only the screamer and the bloater are still the face-on pawn described below. The 2026-09-03 entry itself
   superseded the 2026-09-01 style-B pick (the rotating player, the overcast mood) and records the
   twelve decisions and what each earlier clause becomes; the 2026-09-11 entry does the same for
   it, which is the third time the bodies have been re-decided — read docs/30 in date order rather
@@ -318,8 +319,8 @@ drifted. Three things about the current state matter enough to repeat anyway:
   deliberately does not list them: that list has now drifted three times, each time a slice landed
   without its copy here being updated, which is the same reason the milestone status lives in one
   place. What the style *is* **as shipped today** — the paperdoll arc changes this sentence's
-  first clause and nothing else in it: the table is warm; every human and the shambler is the
-  outpost pack's 32×40 body, four views that follow the heading and a walk keyed to
+  first clause and nothing else in it: the table is warm; humans use the outpost body and
+  zombies use their content-selected families (32×40, the heavy 40×48), four views and a walk keyed to
   `world.tick`, never mirrored, while the screamer and the bloater are squat face-on pawns that
   flip through a negative-width rect; walls draw their
   material's cap or south face and roofs cover what the sim cannot see; the darker ground draws a
