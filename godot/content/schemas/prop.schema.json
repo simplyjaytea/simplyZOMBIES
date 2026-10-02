@@ -49,6 +49,14 @@
           "minimum": 0.1,
           "maximum": 1.5,
           "description": "Footprint as a fraction of a tile, longest side. Defaults to Appearance.PROP_SIZE when absent. _draw_prop reads it only on the procedural path -- art is blitted at its own size -- but it is not decoration once a prop has art: check_appearance.gd measures the sprite's opaque bounding box against size x 32, so this number is what the picture was authored to and a bed drawn the size of a crate fails the build. Up to a tile and a half since the outpost pack's bed, which is a tile and a third across (Appearance.PROP_SIZE_MAX)."
+        },
+        "light": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "tint": { "type": "string", "pattern": "^#[0-9a-f]{6}$", "description": "Optional colour of this active light source. Strict lowercase RGB hex; presentation only." }
+          },
+          "description": "Presentation tint for the prop's existing light source. Does not change its cast or simulation."
         }
       }
     }

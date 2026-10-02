@@ -5515,3 +5515,12 @@ This pass supplies locomotion and settled corpses, not attack, hit, falling, ris
 idle or crawler-specific poses. Screamer and bloater art remains outside the set. Original
 sources and generation instructions are preserved beside the reproducible native exports;
 `godot:check:zombie_art`, authored geometry and sprite reproduction judge their game readers.
+
+## Wall picture mapping, 2026-10-03
+
+The owner chose **A2, shape-matched pack corners**, from the closed-building comparison in
+`.hermes/plans/2026-09-27_walls-picture-round/`. The existing generated timber and block faces
+and the current unseen-wall roof coverage stay as they are. The bounded implementation covers
+supported rectangular brick and plaster perimeters, with generated fallbacks; its gates and
+runtime captures are recorded in docs/23. The mapping is not a decision to extend roofs over
+unseen perimeter walls.

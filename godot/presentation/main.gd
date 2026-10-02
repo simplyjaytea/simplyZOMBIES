@@ -216,6 +216,8 @@ var _last_look: Dictionary = {}
 # which is what keeps the name-plate refusal's peripheral-anonymity clause holding for words the
 # same way it already holds for the afterimage's picture.
 var _focal_drawn: Array[Dictionary] = []
+var _a2_wall_pieces: Array[Dictionary] = []
+var _a2_wall_drawn: Array[Dictionary] = []
 var _content_poll_at: float = -1e9
 # The content tree as last seen by the reload poll; a reload happens only when this moves.
 var _content_fingerprint: int = 0
@@ -363,6 +365,7 @@ func _on_world_replaced() -> void:
 	_focal_drawn = []
 	_fx.call("clear")
 	_fx_drawn = []
+	_a2_wall_drawn = []
 	if _context_menu != null:
 		_context_menu.call("close")
 	tick_count = 0
@@ -1146,6 +1149,7 @@ func _draw() -> void:
 	_draw_district()
 	_draw_light_pools()
 	_fx_drawn = []
+	_a2_wall_drawn = []
 	_draw_entities()
 	_draw_effects(false)
 	_draw_afterimages()
@@ -1176,6 +1180,7 @@ func _draw_district() -> void:
 	# than black once the current cone has moved past it (docs/23, "The remembered map, dimmed").
 	var explored: Variant = SimSightings.explored_view(world, int(world.player))
 	var bounds: Dictionary = TopDownProjection.visible_bounds(camera, 2.0)
+	var a2_wall_tiles: Dictionary = _a2_wall_modules(dress, seen, explored, bounds)
 	var min_x: int = maxi(0, floori(float(bounds["minX"])))
 	var max_x: int = mini(int(world.map_width) - 1, ceili(float(bounds["maxX"])))
 	var min_y: int = maxi(0, floori(float(bounds["minY"])))
@@ -1258,7 +1263,9 @@ func _draw_district() -> void:
 					# Dressing names the picture). Everything else -- a screen, a barricade, a
 					# wall no template stamped -- keeps the procedural cap and bands, the
 					# supported fallback and check_topdown.gd's WALL lane's subject.
-					if not _draw_wall_art(rect, dress, tx, ty, false):
+					if a2_wall_tiles.has(ty * int(world.tilemap.w) + tx):
+						_draw_floor_tile(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground), tx, ty, Appearance.ground_row_for(world.tilemap, tx, ty, false))
+					elif not _draw_wall_art(rect, dress, tx, ty, false):
 						if live and _scrap_stands_at(tx, ty):
 							_draw_barricade_floor(rect, ground, tx, ty)
 						else:
@@ -1268,7 +1275,9 @@ func _draw_district() -> void:
 					# pane: the tile colour that used to fill it edge to edge is handed to the
 					# pane instead, which is where the state a boarded-up window reaches stage 3
 					# in still shows. In a face the pane is the face's own window picture.
-					if not _draw_wall_art(rect, dress, tx, ty, true):
+					if a2_wall_tiles.has(ty * int(world.tilemap.w) + tx):
+						_draw_floor_tile(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground), tx, ty, Appearance.ground_row_for(world.tilemap, tx, ty, false))
+					elif not _draw_wall_art(rect, dress, tx, ty, true):
 						_draw_solid_tile(rect, Palette.COLOURS["wall"], tx, ty)
 						_draw_window_glass(rect, tx, ty, col)
 				SimTileMap.Tile.Low:
@@ -1294,7 +1303,9 @@ func _draw_district() -> void:
 					# with no overlay (a map nobody booted) is open.
 					var door_ov: Variant = SimTileMap.overlay_at(world.tilemap, tx, ty)
 					var shut: bool = door_ov is Dictionary and String((door_ov as Dictionary).get("kind", "")) == "door" and not bool((door_ov as Dictionary).get("open", false))
-					if shut:
+					if a2_wall_tiles.has(ty * int(world.tilemap.w) + tx):
+						_draw_threshold(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground), tx, ty)
+					elif shut:
 						_draw_solid_tile(rect, Palette.COLOURS["door"], tx, ty)
 					else:
 						var door_floor: Color = Appearance.indoor_floor(world.tilemap, tx, ty, ground)
@@ -1570,6 +1581,8 @@ func _draw_furnishings(dress: Dictionary, seen: Variant, bounds: Dictionary) -> 
 	var px_scale: float = Appearance.blit_scale(zoom)
 	var occupied: Dictionary = Appearance.prop_tiles(world)
 	for pick in Dressing.furnishing_tiles_cached(dress, world.tilemap, seen, int(world.seed), bounds, _furnishing_cache_for()):
+		if Dressing.furnishing_is_standing(dress, String(pick["key"])):
+			continue
 		if occupied.has(Vector2i(int(pick["tx"]), int(pick["ty"]))):
 			continue
 		var texture: Texture2D = Appearance.resolve(String(pick["key"]))
@@ -1877,6 +1890,182 @@ func _draw_wall_art(rect: Rect2, dress: Dictionary, tx: int, ty: int, window: bo
 	return true
 
 
+# Build the A2 placements for this frame. The key set tells the flat tile pass which tiles are
+# supplied by a feet-anchored module; the pieces join the same depth list as bodies, trees and
+# vehicles below. Owners must be currently seen, and destination fragments are clipped per tile
+# in _draw_a2_wall_piece so an overhang cannot disclose adjacent unseen geometry.
+func _a2_wall_modules(dress: Dictionary, seen: Variant, explored: Variant, bounds: Dictionary) -> Dictionary:
+	_a2_wall_pieces.clear()
+	var covered: Dictionary = {}
+	if world == null or world.tilemap == null:
+		return covered
+	var map: Variant = world.tilemap
+	var vis := Rect2i(maxi(0, floori(float(bounds.get("minX", 0.0)))), maxi(0, floori(float(bounds.get("minY", 0.0)))), 0, 0)
+	var x1: int = mini(int(map.w), ceili(float(bounds.get("maxX", 0.0))))
+	var y1: int = mini(int(map.h), ceili(float(bounds.get("maxY", 0.0))))
+	vis.size = Vector2i(maxi(0, x1 - vis.position.x), maxi(0, y1 - vis.position.y))
+	for index in RoofLook.indices_of(map):
+		var footprint: Rect2i = RoofLook.rect_of(map, index)
+		if not footprint.intersects(vis) or not _a2_supported_ring(footprint, index):
+			continue
+		var look: Dictionary = _look_for(index)
+		var material: String = String(look.get("wall", ""))
+		var modules: Dictionary = Dressing.wall_modules(dress, material)
+		if modules.is_empty() or footprint.size.x < 5 or footprint.size.y < 3:
+			continue
+		var west: int = footprint.position.x
+		var east: int = footprint.end.x - 1
+		var north: int = footprint.position.y
+		var south: int = footprint.end.y - 1
+		# Upper run: the pack crop's native pivot is row 44, matching the picture round.
+		for tx in range(west, east + 1):
+			var key: String = String(modules.get("west" if tx == west else ("east" if tx == east else "middle"), ""))
+			var top_tile: int = int(SimTileMap.tile_at(map, tx, north))
+			if top_tile == SimTileMap.Tile.Window:
+				key = String(modules.get("window", "")) if material == "render" else ""
+			if top_tile in [SimTileMap.Tile.Wall, SimTileMap.Tile.Window] and SimTileMap.overlay_at(map, tx, north) == null:
+				_add_a2_run_piece(covered, key, Rect2i(0, 0, 32, 48), tx, north, 44, [Vector2i(tx, north)], seen)
+		# A2 puts the named NW/NE shapes at the south corners, where their west/east legs meet
+		# the facade. Each corner spans two tiles and is drawn after the run it caps.
+		var sw_accepted: bool = false
+		var se_accepted: bool = false
+		if material == "render":
+			var sw: Array[Vector2i] = [Vector2i(west, south), Vector2i(west + 1, south), Vector2i(west, south - 1)]
+			var se: Array[Vector2i] = [Vector2i(east - 1, south), Vector2i(east, south), Vector2i(east, south - 1)]
+			sw_accepted = _a2_corner_supported(sw, index) and _add_a2_run_piece(covered, String(modules.get("corner_west", "")), Rect2i(0, 0, 64, 64), RoofLook.a2_south_corner_x(footprint, true), south, 64, sw, seen)
+			se_accepted = _a2_corner_supported(se, index) and _add_a2_run_piece(covered, String(modules.get("corner_east", "")), Rect2i(0, 0, 64, 64), RoofLook.a2_south_corner_x(footprint, false), south, 64, se, seen)
+		# The south run stops where those two full-width corner plates sit. Doors and windows
+		# use their source-native opening modules only in this east-west orientation.
+		for tx in range(west, east + 1):
+			if covered.has(south * int(map.w) + tx):
+				continue
+			var tile: int = int(SimTileMap.tile_at(map, tx, south))
+			var key: String = String(modules.get("west" if tx == west else ("east" if tx == east else "middle"), ""))
+			var overlay: Variant = SimTileMap.overlay_at(map, tx, south)
+			if tile == SimTileMap.Tile.Window:
+				if material != "render" or overlay != null:
+					continue
+				key = String(modules.get("window", ""))
+			elif tile == SimTileMap.Tile.Door:
+				if material != "render":
+					continue
+				if overlay is Dictionary and String((overlay as Dictionary).get("kind", "")) != "door":
+					continue
+				var opened: bool = not (overlay is Dictionary) or bool((overlay as Dictionary).get("open", false))
+				key = String(modules.get("door_open" if opened else "door_closed", ""))
+			if tile in [SimTileMap.Tile.Wall, SimTileMap.Tile.Window, SimTileMap.Tile.Door]:
+				if tile == SimTileMap.Tile.Wall and overlay is Dictionary:
+					continue
+				_add_a2_run_piece(covered, key, Rect2i(0, 0, 32, 48), tx, south, 44, [Vector2i(tx, south)], seen)
+		# North-south walls are the corner piece's native leg, repeated in its source band.
+		for side_west in [true, false]:
+			var tx: int = west if side_west else east
+			var leg_key: String = String(modules.get("leg_west" if side_west else "leg_east", ""))
+			if leg_key.is_empty():
+				continue
+			var leg_top: float = float(north) + 2.0 / 32.0
+			var corner_ok: bool = sw_accepted if side_west else se_accepted
+			var leg_bottom: float = float(south - 1 if corner_ok else south - 2)
+			var leg_reserved: Dictionary = covered.duplicate()
+			# The north EW strip owns this same logical wall cell, while the native corner
+			# leg begins two pixels below it. Let just this shared endpoint continue vertically.
+			if int(SimTileMap.tile_at(map, tx, north)) == SimTileMap.Tile.Wall and SimTileMap.overlay_at(map, tx, north) == null:
+				leg_reserved.erase(north * int(map.w) + tx)
+			_add_a2_leg_fragments(covered, leg_reserved, leg_key, tx, side_west, leg_top, leg_bottom, seen)
+	return covered
+
+
+func _a2_supported_ring(rect: Rect2i, building: int) -> bool:
+	if not RoofLook.a2_rectangular_ring(world.tilemap, rect, building):
+		return false
+	var index: PackedInt32Array = _building_index()
+	var map: Variant = world.tilemap
+	for y in range(rect.position.y, rect.end.y):
+		for x in range(rect.position.x, rect.end.x):
+			if x != rect.position.x and x != rect.end.x - 1 and y != rect.position.y and y != rect.end.y - 1:
+				continue
+			if index[y * int(map.w) + x] != building:
+				return false
+	return true
+
+
+func _a2_corner_supported(owners: Array[Vector2i], building: int) -> bool:
+	var index: PackedInt32Array = _building_index()
+	for cell in owners:
+		if int(SimTileMap.tile_at(world.tilemap, cell.x, cell.y)) != SimTileMap.Tile.Wall:
+			return false
+		if SimTileMap.overlay_at(world.tilemap, cell.x, cell.y) is Dictionary:
+			return false
+		if index[cell.y * int(world.tilemap.w) + cell.x] != building:
+			return false
+	return true
+
+
+func _add_a2_leg_fragments(covered: Dictionary, reserved: Dictionary, key: String, tx: int, west_side: bool, top: float, bottom: float, seen: Variant) -> void:
+	if Appearance.resolve(key) == null:
+		return
+	var phase: float = top
+	var n: int = int(world.tilemap.w)
+	while phase < bottom:
+		var band_end: float = minf(phase + 16.0 / 32.0, bottom)
+		for ty in range(floori(phase), ceili(band_end)):
+			var segment_top: float = maxf(phase, float(ty))
+			var segment_bottom: float = minf(band_end, float(ty + 1))
+			if segment_bottom <= segment_top or int(SimTileMap.tile_at(world.tilemap, tx, ty)) != SimTileMap.Tile.Wall:
+				continue
+			if reserved.has(ty * n + tx) or SimTileMap.overlay_at(world.tilemap, tx, ty) is Dictionary or not RoofLook.a2_span_visible(world.tilemap, Rect2i(tx, ty, 1, 1), seen):
+				continue
+			var source_y: int = roundi((segment_top - phase) * 32.0)
+			var source_h: int = roundi((segment_bottom - segment_top) * 32.0)
+			if source_h <= 0:
+				continue
+			var crop := Rect2i(0, source_y, 17, source_h)
+			var left: float = float(tx) + (0.0 if west_side else 15.0 / 32.0)
+			var depth: float = float(ty + 1)
+			var piece := {"kind": "wall_module", "key": key, "left": left, "top": segment_top, "d": depth, "crop": crop, "order": 0.1}
+			_a2_wall_pieces.append(piece)
+			covered[ty * n + tx] = true
+		phase = band_end
+
+
+func _add_a2_run_piece(covered: Dictionary, key: String, crop: Rect2i, tx: int, ty: int, pivot: int, owners: Array[Vector2i], seen: Variant, depth_bias: float = 0.0) -> bool:
+	var texture: Texture2D = Appearance.resolve(key)
+	if texture == null:
+		return false
+	for owner in owners:
+		if owner.x < 0 or owner.y < 0 or owner.x >= int(world.tilemap.w) or owner.y >= int(world.tilemap.h):
+			return false
+		if not RoofLook.a2_span_visible(world.tilemap, Rect2i(owner.x, owner.y, 1, 1), seen):
+			return false
+	var left: float = float(tx)
+	var top: float = float(ty + 1) - float(pivot) / 32.0
+	var tie_order: float = 0.2 if crop.size.x >= 64 else 0.0
+	_a2_wall_pieces.append({"kind": "wall_module", "key": key, "left": left, "top": top, "d": float(ty + 1) + depth_bias, "crop": crop, "pivot": pivot, "order": tie_order})
+	for owner_cell in owners:
+		covered[owner_cell.y * int(world.tilemap.w) + owner_cell.x] = true
+	return true
+
+
+func _draw_a2_wall_piece(piece: Dictionary) -> void:
+	var texture: Texture2D = Appearance.resolve(String(piece.get("key", "")))
+	if texture == null:
+		return
+	var crop: Rect2i = piece.get("crop", Rect2i(0, 0, texture.get_width(), texture.get_height()))
+	var left: float = float(piece.get("left", 0.0))
+	var top: float = float(piece.get("top", 0.0))
+	var world_rect := Rect2(left, top, float(crop.size.x) / 32.0, float(crop.size.y) / 32.0)
+	var seen: Variant = world.vision.tiles_for(int(world.player)) if world.vision != null else null
+	var zoom: float = float(camera["zoom"])
+	for visible_fragment in RoofLook.a2_visible_fragments(world.tilemap, world_rect, seen):
+		var fragment: Rect2 = visible_fragment["rect"] as Rect2
+		var sc: Dictionary = TopDownProjection.world_to_screen(camera, fragment.position.x, fragment.position.y)
+		var sc_end: Dictionary = TopDownProjection.world_to_screen(camera, fragment.end.x, fragment.end.y)
+		var src := Rect2(Vector2(crop.position) + (fragment.position - world_rect.position) * 32.0, fragment.size * 32.0)
+		var dest := RoofLook.a2_rounded_screen_rect(Vector2(float(sc["sx"]), float(sc["sy"])), Vector2(float(sc_end["sx"]), float(sc_end["sy"])))
+		draw_texture_rect_region(texture, dest, src)
+		_a2_wall_drawn.append({"key": String(piece.get("key", "")), "source": src, "destination": dest})
+
+
 # The door in a front face: a doorway whose south neighbour is the street takes the door
 # picture, or the garage mouth when the doorway beside it is one too, over the boards
 # _draw_threshold already drew. In the doorway's own rect -- a body walking through draws over
@@ -2066,8 +2255,11 @@ func _draw_light_pools() -> void:
 	if not overlay and LightLook.ambient_of(world) >= 1.0: return
 	var bounds: Dictionary = TopDownProjection.visible_bounds(camera, 2.0)
 	var pools: Dictionary = LightLook.lit_pool_tiles(world, int(world.player), bounds)
-	_fill_pool_tiles(pools["near"] as Array, Palette.LIGHT_POOL_NEAR_OVERLAY if overlay else Palette.LIGHT_POOL_NEAR)
-	_fill_pool_tiles(pools["far"] as Array, Palette.LIGHT_POOL_FAR_OVERLAY if overlay else Palette.LIGHT_POOL_FAR)
+	for group_value in (pools["coloured"] as Dictionary).values():
+		var group: Dictionary = group_value as Dictionary
+		var tint: Color = group.get("tint", Palette.LIGHT_POOL_RGB) as Color
+		var near_pool: bool = bool(group.get("near", false))
+		_fill_pool_tiles(group["tiles"] as Array, LightLook.pool_colour(tint, near_pool, overlay))
 
 
 # Geometry only, and the same tile rect _draw_district lays down, so a pool covers its floor tile
@@ -2236,6 +2428,9 @@ func _draw_entities() -> void:
 	for body in items:
 		if int(body["det"]) == SimVisibility.Detail.Focal and not bool(body.get("corpse", false)):
 			focal_points.append(Vector2(float(body["sx"]), float(body["sy"])))
+	# A2 pieces share the final y-sort with bodies, but they are not bodies and must not enter the
+	# focal-body scan above (which reads det/screen position directly).
+	items.append_array(_a2_wall_pieces)
 	var dress: Dictionary = _dressing()
 	var seen: Variant = null
 	if world.vision != null:
@@ -2286,10 +2481,13 @@ func _draw_entities() -> void:
 	# The props taller than a tile -- the scrap barricade, a planted work lamp -- join the same sort
 	# (docs/23, "Props for things that exist"), on seen tiles only.
 	items.append_array(_standing_props(seen))
-	items.sort_custom(func(a, b): return float(a["d"]) < float(b["d"]))
+	items.sort_custom(RoofLook.a2_item_before)
 	for it in items:
+		if String(it.get("kind", "")) == "wall_module":
+			_draw_a2_wall_piece(it)
+			continue
 		if String(it.get("kind", "")) == "standing":
-			_blit_standing(it, px_scale)
+			_blit_standing(it, px_scale, focal_points)
 			continue
 		if String(it.get("kind", "")) == "tree":
 			_blit_tree(it, px_scale, focal_points)
@@ -2731,18 +2929,37 @@ func _draw_barricade_floor(rect: Rect2, ground: Color, tx: int, ty: int) -> void
 # inside the visible bounds); this only puts each on the screen.
 func _standing_props(seen: Variant) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
-	for row in Appearance.standing_props(world, seen, TopDownProjection.visible_bounds(camera, 2.0)):
+	var bounds: Dictionary = TopDownProjection.visible_bounds(camera, 2.0)
+	for row in Appearance.standing_props(world, seen, bounds):
 		var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(row["gx"]), float(row["gy"]))
 		out.append({"kind": "standing", "key": String(row["key"]), "sx": float(sc["sx"]), "sy": float(sc["sy"]), "d": TopDownProjection.depth_of(float(row["gx"]), float(row["gy"])), "det": SimVisibility.Detail.Focal})
+	# Tall inert furnishings use the exact same deterministic picks, observer set, cache, foot point
+	# and depth sort. Real props retain the existing occupied-tile exclusion from the flat pass.
+	if world != null and world.tilemap != null and seen != null:
+		var dress: Dictionary = Dressing.block_of(world)
+		var occupied: Dictionary = Appearance.prop_tiles(world)
+		for pick in Dressing.standing_furnishing_tiles_cached(dress, world.tilemap, seen, int(world.seed), bounds, _furnishing_cache_for()):
+			var tx: int = int(pick["tx"])
+			var ty: int = int(pick["ty"])
+			if occupied.has(Vector2i(tx, ty)):
+				continue
+			var gx: float = float(tx) + 0.5
+			var gy: float = float(ty) + 1.0
+			var sc: Dictionary = TopDownProjection.world_to_screen(camera, gx, gy)
+			out.append({"kind": "standing", "key": String(pick["key"]), "sx": float(sc["sx"]), "sy": float(sc["sy"]), "d": TopDownProjection.depth_of(gx, gy), "det": SimVisibility.Detail.Focal, "fade_on_overlap": true})
 	return out
 
 # One standing prop: its picture on the feet line through the same body_rect a tree and a car use,
 # unflipped, unrotated and drawn white -- the pack painted it and it is not a stand-in for anything.
-func _blit_standing(it: Dictionary, px_scale: float) -> void:
+func _blit_standing(it: Dictionary, px_scale: float, focal_points: Array[Vector2]) -> void:
 	var texture: Texture2D = Appearance.resolve(String(it["key"]))
 	if texture == null:
 		return
-	draw_texture_rect(texture, Appearance.body_rect(float(it["sx"]), float(it["sy"]), texture.get_size() * px_scale, 1.0), false)
+	var rect: Rect2 = Appearance.body_rect(float(it["sx"]), float(it["sy"]), texture.get_size() * px_scale, 1.0)
+	var tint: Color = Color.WHITE
+	if bool(it.get("fade_on_overlap", false)):
+		tint.a = Dressing.tree_alpha(rect, focal_points)
+	draw_texture_rect(texture, rect, false, tint)
 
 
 # One parked vehicle: a three-quarter picture standing feet-anchored on its footprint's south-edge

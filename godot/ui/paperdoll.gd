@@ -51,6 +51,8 @@ const LABEL_H: float = 26.0
 
 var _view: Dictionary = {}
 var _by_part: Dictionary = {}
+var _mark_plan_cache: Dictionary = {}
+var _armour_mask_cache: Dictionary = {}
 
 
 func set_view(view: Dictionary) -> void:
@@ -91,6 +93,67 @@ func _infected(part: String) -> bool:
 	return d is Dictionary and String((d as Dictionary).get("infected", "none")) != "none"
 
 
+# Select a point and complete mark radius that fit inside the actual plate. This keeps the
+# combined wound/infection mark usable on the narrow hand masks at both inventory scales.
+func _chart_mark_plan(texture: Texture2D) -> Dictionary:
+	var cache_key: int = texture.get_instance_id()
+	if _mark_plan_cache.has(cache_key):
+		return _mark_plan_cache[cache_key] as Dictionary
+	var image: Image = texture.get_image().duplicate()
+	var used: Rect2i = image.get_used_rect()
+	var centre := Vector2(used.position) + Vector2(used.size) * 0.5
+	for radius in [2.0, 1.5, 1.0]:
+		var best := Vector2(-1.0, -1.0)
+		var best_distance := INF
+		for y in range(used.position.y, used.end.y):
+			for x in range(used.position.x, used.end.x):
+				if image.get_pixel(x, y).a <= 0.5:
+					continue
+				var fits := true
+				for oy in range(-2, 3):
+					for ox in range(-2, 3):
+						if Vector2(ox, oy).length() > radius + 0.5:
+							continue
+						var px: Vector2i = Vector2i(x + ox, y + oy)
+						if px.x < 0 or px.y < 0 or px.x >= image.get_width() or px.y >= image.get_height() or image.get_pixelv(px).a <= 0.5:
+							fits = false
+							break
+					if not fits:
+						break
+				if fits and Vector2(x, y).distance_squared_to(centre) < best_distance:
+					best = Vector2(x, y)
+					best_distance = best.distance_squared_to(centre)
+		if best.x >= 0.0:
+			var plan := {"center": best, "radius": radius}
+			_mark_plan_cache[cache_key] = plan
+			return plan
+	var empty_plan := {"center": centre, "radius": 0.0}
+	_mark_plan_cache[cache_key] = empty_plan
+	return empty_plan
+
+
+func _armor_offsets(_scale: float) -> Array[Vector2]:
+	# One screen pixel keeps the stroke visible without consuming the chart's native-pixel moat.
+	return [Vector2(-1.0, 0.0), Vector2(1.0, 0.0), Vector2(0.0, -1.0), Vector2(0.0, 1.0)]
+
+
+func _armor_mask(texture: Texture2D) -> Texture2D:
+	# Armour is a steel silhouette stroke. Recolour every opaque source pixel before modulation so
+	# the chart's intentionally dark inner outline cannot turn the outer stroke nearly black.
+	var cache_key: int = texture.get_instance_id()
+	if _armour_mask_cache.has(cache_key):
+		return _armour_mask_cache[cache_key] as Texture2D
+	var image: Image = texture.get_image().duplicate()
+	for y in range(image.get_height()):
+		for x in range(image.get_width()):
+			var alpha: float = image.get_pixel(x, y).a
+			if alpha > 0.0:
+				image.set_pixel(x, y, Color(1.0, 1.0, 1.0, alpha))
+	var mask: Texture2D = ImageTexture.create_from_image(image)
+	_armour_mask_cache[cache_key] = mask
+	return mask
+
+
 # Where the chart is drawn inside this control, and at what whole-number scale. Integer only: the
 # art is pixels, and a chart at 1.7x is a chart with some rows twice as thick as others.
 func _chart_rect() -> Rect2:
@@ -106,6 +169,10 @@ func _draw() -> void:
 		return
 	var pose: String = POSE_NAMES[_pose_for_stance(int(_view.get("stance", 2)))]
 	var rect: Rect2 = _chart_rect()
+	# The compact 2x glimpse sits above the always-on bottom key strip; the sheet's 3x chart keeps
+	# its authored position. This is a drawing translation only, so both still use identical masks.
+	var corner_shift: float = -76.0 if size.y < 400.0 else 0.0
+	rect.position.y += corner_shift
 	var scale: float = rect.size.x / float(Appearance.CHART_CANVAS.x)
 
 	# A soft ground shadow under the figure, as before: it is what stops the chart floating.
@@ -122,39 +189,41 @@ func _draw() -> void:
 		# Armour first and underneath: the same picture nudged one pixel out in each direction, in
 		# steel, so what shows is a ring around the part's own silhouette. No second sprite.
 		if _flag(part, "armored"):
-			var out: float = maxf(1.0, roundf(scale))
-			for step in [Vector2(-out, 0.0), Vector2(out, 0.0), Vector2(0.0, -out), Vector2(0.0, out)]:
-				draw_texture_rect(texture, Rect2(rect.position + step, rect.size), false, ARMOUR_COL)
+			var armour_mask: Texture2D = _armor_mask(texture)
+			for step in _armor_offsets(scale):
+				draw_texture_rect(armour_mask, Rect2(rect.position + step, rect.size), false, ARMOUR_COL)
 		draw_texture_rect(texture, rect, false, _tint_for(part))
 		if _flag(part, "wounded") or _infected(part):
 			# Hung on the part's own opaque middle, read off the picture rather than off a table
 			# of anchors -- a table would be a third copy of the skeleton and would drift the first
 			# time a limb moved.
-			var used: Rect2 = Appearance.chart_rect(key)
+			var plan: Dictionary = _chart_mark_plan(texture)
 			marks.append({
-				"at": rect.position + (used.position + used.size / 2.0) * scale,
+				"at": rect.position + (plan["center"] as Vector2) * scale,
+				"radius": float(plan["radius"]) * scale,
 				"wounded": _flag(part, "wounded"),
 				"infected": _infected(part),
 			})
 
 	# The marks last, over every part, so a wound on a thigh is not painted over by the trunk.
-	var mark_r: float = maxf(3.0, rect.size.x * 0.045)
 	var backing: Color = Color(0.05, 0.055, 0.06)
 	for mark in marks:
 		var at: Vector2 = mark["at"] as Vector2
-		var slot: int = 0
+		var mark_r: float = float(mark["radius"])
+		var stroke: float = maxf(1.0, scale * 0.45)
 		if bool(mark["wounded"]):
 			draw_circle(at, mark_r, backing)
-			draw_circle(at, mark_r, Color(0.72, 0.24, 0.22), false, 2.0)
-			slot += 1
+			draw_circle(at, mark_r, Color(0.72, 0.24, 0.22), false, stroke)
 		if bool(mark["infected"]):
-			var second: Vector2 = at + Vector2(mark_r * 2.2 * float(slot), 0.0)
-			draw_circle(second, mark_r * 0.85, backing)
-			draw_circle(second, mark_r * 0.85, Color(0.68, 0.82, 0.36), false, 2.4)
+			if bool(mark["wounded"]):
+				draw_circle(at, maxf(1.0, mark_r * 0.35), Color(0.68, 0.82, 0.36))
+			else:
+				draw_circle(at, mark_r, backing)
+				draw_circle(at, mark_r, Color(0.68, 0.82, 0.36), false, stroke)
 
 	# Posture below the figure, in a word. No numbers cross the boundary (docs/05).
 	var stance: int = int(_view.get("stance", SimStances.Stance.Walk))
 	var label: String = SimStances.name_of(stance) if stance >= 0 and stance < SimStances.NAMES.size() else "walking"
 	var font: Font = Chrome.font()
 	var lw: float = font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, Chrome.FONT_SIZE).x
-	draw_string(font, Vector2(roundf(size.x / 2.0 - lw / 2.0), size.y - 6.0), label, HORIZONTAL_ALIGNMENT_LEFT, -1, Chrome.FONT_SIZE, Palette.COLOURS["outline"])
+	draw_string(font, Vector2(roundf(size.x / 2.0 - lw / 2.0), size.y - 6.0 + corner_shift), label, HORIZONTAL_ALIGNMENT_LEFT, -1, Chrome.FONT_SIZE, Palette.COLOURS["outline"])

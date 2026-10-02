@@ -1239,6 +1239,8 @@ const PROP_KINDS: Array[Dictionary] = [
 	{"component": "bed", "id": "prop.bed", "flag": "", "flag_id": ""},
 	{"component": "water_source", "id": "prop.well", "flag": "", "flag_id": ""},
 	{"component": "latrine", "id": "prop.latrine", "flag": "", "flag_id": ""},
+	# The picture belongs to the existing gunsmith bench entity created by SimGunsmith.build.
+	{"component": "workbench", "id": "prop.workbench", "flag": "", "flag_id": ""},
 	# The two things the sim already had and nothing drew as an object (docs/23, "Props for things
 	# that exist"): the scrap barricade, and a floodlight planted in the yard. Both are pictures the
 	# outpost pack's utility group supplies taller than a tile, so they stand in the entity sort

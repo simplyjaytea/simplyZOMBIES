@@ -14,7 +14,26 @@ container running** lives in `AGENTS.md`.
 
 ---
 
-## Start here: the outpost pack nearly done, 2026-09-27 (pushed)
+## Start here: the art pass closed, 2026-10-03
+
+Resume from [docs/23's remaining work](docs/23-roadmap.md#whats-left-in-milestone-2) and
+[the implementation record](docs/23-roadmap.md#the-record-by-system). The latest record covers
+the D2 condition chart, workbench and tall furnishings, carried stove icon, light-source colours
+and the owner's **A2 fitted pack walls**. Runtime captures and their scenario notes are under
+`.hermes/plans/2026-10-02_art-completion/`; the preceding zombie animation/corpse pass is recorded
+separately. Astra planned, Luna implemented, and Sol on GPT-6.1 reviewed this pass.
+
+The owner requested immediate GitHub landing before machine shutdown. Focused checks and
+reviews passed; the full local chain was incomplete. Check the latest GitHub CI result before
+starting the next slice; docs/23 records the exact verification boundary.
+
+The next small wall follow-up is the floor under transparent side-wall pixels: perimeter cells
+currently expose outdoor ground instead of extending the room's boards. docs/23 names it, along
+with the unsupported wall states and remaining art work. It is a presentation seam, not a reason
+to change building metadata or simulation. The owner chose A2; **whether roofs cover unseen
+perimeter walls remains undecided**, as do the other owner questions below.
+
+## Previous handoff: the outpost pack, 2026-09-27
 
 The outpost pack's slices ran as supervised Orca workers, each in its own worktree, and merged
 to `main` and were pushed to GitHub at the end of the session. On merged `main`, `npm run godot:m2` is
@@ -30,21 +49,17 @@ shot is seen (`godot:check:fx`, ten lanes).
 
 **Waiting on the owner:**
 
-- **The walls.** The picture round is in
-  [`.hermes/plans/2026-09-27_walls-picture-round/`](.hermes/plans/2026-09-27_walls-picture-round/)
-  (open `compare-closed-a1-a2-b.png` first): A1 pack corners by name, A2 pack corners by shape, B
-  today's generated faces. The pack has no east-west window and a short corner (a cap step). The
-  walls slice lands after the pick.
 - **Ground screenshots** (before/after) are in `.hermes/plans/2026-09-27_ground-pack/`; the
   worker flagged the undergrowth lattice as worth a look.
 - **UI screenshots** at 1920×1080 and 1280×720, still owed from the UI arc.
 
 **Also landed at the end of the session:** furnishings and container kinds (eight of the pack's
 twelve furnishings as inert dressing; container pictures by loot table, closed and searched only),
-and props for things that exist (the barricade and the work lamp). Deferred and recorded in docs/23:
-four furnishings (the workbench, and three props taller than a tile), the pack's
-open-with-supplies container state (it would leak at a distance), and the stove's picture (the
-pack's is 32×40, and an item icon is 32×32).
+and props for things that exist (the barricade and the work lamp). At that point docs/23 recorded
+the four remaining furnishings and Camp Stove picture as deferred; the workbench, three tall
+furnishings and separately authored stove icon have since landed (2026-10-03). The pack's
+open-with-supplies container state remains deferred because it would reveal contents at a
+distance.
 
 **How the session ran, for the next coordinator:** Jev's `jev_review` escalated on `test_gap`
 for every slice because its 50 KB cap truncates the gate bodies; the owner's rule for that is
@@ -1202,7 +1217,7 @@ in it cost someone a session, and three entries were added by the sweep above.
 
 ```bash
 bash scripts/setup-web-session.sh   # fresh container has no engine
-npm run godot:m2                    # ~12 min, the gate that matters
+npm run godot:m2                    # full chain; allow about thirty minutes
 npm run check:routing               # the routing table in AGENTS.md, and every gate reachable
 npm run godot:run                   # play it (DISPLAY=:1 on a headless VM)
 ```

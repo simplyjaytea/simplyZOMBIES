@@ -8,7 +8,7 @@
     "massKg": 0.1,
     "stack": 4,
     "equipSlot": "secondary",
-    "light": { "magnitude": 3, "burnTicks": 36000 }
+    "light": { "tint": "#ffd68c", "magnitude": 3, "burnTicks": 36000 }
   },
   {
     "id": "item.lamp.electric",
@@ -18,7 +18,7 @@
     "size": { "w": 1, "h": 2 },
     "massKg": 0.6,
     "equipSlot": "secondary",
-    "light": { "magnitude": 35, "burnTicks": 108000, "feed": "cell" }
+    "light": { "tint": "#e5edf2", "magnitude": 35, "burnTicks": 108000, "feed": "cell" }
   },
   {
     "id": "item.floodlight.rigged",
@@ -27,7 +27,7 @@
     "class": "tool",
     "size": { "w": 3, "h": 3 },
     "massKg": 8.4,
-    "light": { "magnitude": 90, "burnTicks": 108000, "feed": "gas" }
+    "light": { "tint": "#e5edf2", "magnitude": 90, "burnTicks": 108000, "feed": "gas" }
   },
   {
     "id": "item.lantern.oil",
@@ -37,6 +37,6 @@
     "size": { "w": 1, "h": 2 },
     "massKg": 0.8,
     "equipSlot": "secondary",
-    "light": { "magnitude": 20, "burnTicks": 144000, "feed": "oil" }
+    "light": { "tint": "#ffd68c", "magnitude": 20, "burnTicks": 144000, "feed": "oil" }
   }
 ]
