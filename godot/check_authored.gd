@@ -162,7 +162,13 @@ const AUTHORED_PATH: String = "res://assets/sprites/authored.json"
 # from whole pack pictures by a `cells` source. Its pixels are `check_road_look.gd`'s TEXTURE and
 # CELLS lanes' to judge and `sprites:check`'s to reproduce; its reader is code, not content, which
 # READS below holds it to (GROUND_READER).
-const KINDS: Array[String] = ["rig", "overlay", "tile", "icon", "pack_rig", "pack_overlay", "pack_held", "module", "sheet", "prop", "standing", "vehicle", "tree", "ground"]
+const KINDS: Array[String] = ["rig", "overlay", "tile", "icon", "pack_rig", "zombie_rig", "corpse", "pack_overlay", "pack_held", "module", "sheet", "prop", "standing", "vehicle", "tree", "ground"]
+
+# The zombie set has its own measured contract rather than widening PACK's 32x40 body rules.
+# Living art stands on the sole boundary; settled corpses use a ground-centre anchor. Every
+# runtime source is a whole native PNG named by this manifest, not an arbitrary crop or pad.
+const ZOMBIE_POSE_ROOT: String = "art/simplyzombies/zombie-poses/"
+const ZOMBIE_POSE_MANIFEST: String = "res://art/simplyzombies/zombie-poses/manifest.json"
 
 # The one authored kind whose reader is a renderer function rather than a content entry: no content
 # names the ground, `presentation/main.gd`'s floor loop draws it. A `ground` entry's `reads` is
@@ -279,6 +285,7 @@ func _run() -> void:
 	ok = _every_rig_is_four_tones_a_material() and ok
 	ok = _no_highlight_covers_more_than_its_share() and ok
 	ok = _the_pack_families_keep_the_packs_own_spec() and ok
+	ok = _the_zombie_poses_keep_their_geometry() and ok
 	ok = _every_held_weapon_is_the_packs_own() and ok
 	ok = _authored_art_is_read_by_something() and ok
 	if ok:
@@ -1742,6 +1749,213 @@ func _every_held_weapon_is_the_packs_own() -> bool:
 	return true
 
 
+# --- zombie locomotion and settled corpse geometry -----------------------------------------
+
+# Measured native occupancy: regular bodies 27-30 px tall and 13-24 wide, heavy 33-36 tall
+# and 22-31 wide; all soles are on their bottom row. Corpses occupy 29-42 by 16-29 px.
+# The heavy has separate explicit bounds; adding it never loosens the old PACK contract.
+func _pose_geometry_complaint(kind: String, image: Image, anchor: Array) -> String:
+	var size: Vector2i = image.get_size()
+	var living: bool = kind == "zombie_rig"
+	var broad: bool = size == Vector2i(40, 48) if living else size == Vector2i(56, 40)
+	if living and size != Vector2i(32, 40) and not broad:
+		return "living canvas must be 32x40 or 40x48"
+	if not living and size != Vector2i(48, 40) and not broad:
+		return "corpse canvas must be 48x40 or 56x40"
+	var want_anchor: Array = [size.x / 2, size.y if living else size.y / 2]
+	if not _numbers_equal(anchor, want_anchor):
+		return "anchor is not the sole boundary or corpse ground centre"
+	var box: Dictionary = _solid_box(image)
+	if box.is_empty():
+		return "no solid body"
+	var width: int = int(box["max_x"]) - int(box["min_x"]) + 1
+	var height: int = int(box["max_y"]) - int(box["min_y"]) + 1
+	var clearance: int = mini(int(box["min_x"]), size.x - 1 - int(box["max_x"]))
+	if clearance < 2:
+		return "body touches the side margin"
+	var solid: int = 0
+	for y in size.y:
+		for x in size.x:
+			if _is_solid(image.get_pixel(x, y)):
+				solid += 1
+	if solid < 100:
+		return "fewer than 100 solid body pixels"
+	if living:
+		var height_min: int = 31 if broad else HEIGHT_MIN
+		var height_max: int = 38 if broad else HEIGHT_MAX
+		if height < height_min or height > height_max:
+			return "living height outside its canvas-specific bounds"
+		if size.y - 1 - int(box["max_y"]) > SOLE_LIFT_MAX:
+			return "soles float above the ground anchor"
+		if width < 10 or width > (34 if broad else 26):
+			return "living width outside its canvas-specific bounds"
+	else:
+		if int(box["min_y"]) < 2 or int(box["max_y"]) > size.y - 3:
+			return "corpse touches the vertical margin"
+		if width < 28 or height < 14 or height > 32 or width <= height:
+			return "corpse is not a settled horizontal body"
+		if absi(int(box["min_x"]) + int(box["max_x"]) + 1 - size.x) > 4 or absi(int(box["min_y"]) + int(box["max_y"]) + 1 - size.y) > 4:
+			return "corpse is off its ground centre"
+	return ""
+
+
+# Cropping the alpha silhouette before comparison means a translated duplicate is still refused.
+func _pose_silhouette(image: Image) -> String:
+	var box: Dictionary = _solid_box(image)
+	if box.is_empty():
+		return ""
+	var bits: PackedByteArray = []
+	for y in range(int(box["min_y"]), int(box["max_y"]) + 1):
+		for x in range(int(box["min_x"]), int(box["max_x"]) + 1):
+			bits.append(1 if _is_solid(image.get_pixel(x, y)) else 0)
+	return "%d:%d:%s" % [int(box["max_x"]) - int(box["min_x"]), int(box["max_y"]) - int(box["min_y"]), bits.hex_encode()]
+
+
+func _pose_motion_complaint(frames: Array) -> String:
+	if frames.size() != 4:
+		return "locomotion needs four frames per direction"
+	var pixels: Dictionary = {}
+	var shapes: Dictionary = {}
+	for image in frames:
+		pixels[(image as Image).get_data().hex_encode()] = true
+		shapes[_pose_silhouette(image as Image)] = true
+	if pixels.size() != 4:
+		return "locomotion repeats a frame"
+	if shapes.size() < 2:
+		return "locomotion only translates one silhouette"
+	return ""
+
+
+func _pose_source_complaint(entry: Dictionary, source: Dictionary, asset: Dictionary) -> String:
+	if source.size() != 1 or not source.has("path"):
+		return "native pose sources must be whole PNGs"
+	if asset.is_empty():
+		return "native source is absent from the pose manifest"
+	if not _numbers_equal(entry.get("canvas", []), asset.get("size", [])):
+		return "canvas differs from the pose manifest"
+	if not _numbers_equal(entry.get("anchor", []), asset.get("anchor", [])):
+		return "anchor differs from the pose manifest"
+	if String(entry.get("kind", "")) == "zombie_rig" and String(asset.get("state", "")) == "walk":
+		if int(entry.get("fps", 0)) != int(asset.get("fps", -1)) or asset.get("loop") != true:
+			return "walk rate or looping differs from the pose manifest"
+	return ""
+
+
+func _pose_frame_complaint(family: String, member: String, source: Dictionary, asset: Dictionary) -> String:
+	var tail: PackedStringArray = member.trim_prefix(family + "_").split("_")
+	var state: String = "walk" if tail.size() == 3 else "idle"
+	var view: String = tail[1] if state == "walk" else tail[0]
+	var directions: Dictionary = {"s": "south", "e": "east", "n": "north", "w": "west"}
+	var asset_id: String = "%s-%s-%s" % [family.trim_prefix("body_").replace("_", "-"), state, directions.get(view, "")]
+	if String(asset.get("id", "")) != asset_id:
+		return "source belongs to a different family, state or direction"
+	var frames: Array = (asset.get("frames", {}) as Dictionary).get(state, [])
+	var index: int = int(tail[2]) if state == "walk" else 0
+	if index >= frames.size() or String(source.get("path", "")) != ZOMBIE_POSE_ROOT + String((frames[index] as Dictionary).get("path", "")):
+		return "source is not the corresponding manifest frame"
+	return ""
+
+
+func _the_zombie_poses_keep_their_geometry() -> bool:
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(ZOMBIE_POSE_MANIFEST))
+	if not (parsed is Dictionary) or not ((parsed as Dictionary).get("assets") is Array):
+		push_error("ZOMBIE_POSES: missing pose manifest")
+		return false
+	var source_assets: Dictionary = {}
+	for asset in (parsed as Dictionary)["assets"] as Array:
+		var states: Dictionary = (asset as Dictionary).get("frames", {})
+		for frames in states.values():
+			for frame in frames as Array:
+				source_assets[ZOMBIE_POSE_ROOT + String((frame as Dictionary).get("path", ""))] = asset
+	var count: int = 0
+	var rigs: int = 0
+	var corpses: int = 0
+	var entries: Dictionary = _entries()
+	for key in entries:
+		var entry: Dictionary = entries[key]
+		var kind: String = String(entry.get("kind", ""))
+		if not ["zombie_rig", "corpse"].has(kind):
+			continue
+		var members: Dictionary = entry.get("members", {})
+		if kind == "zombie_rig":
+			rigs += 1
+			var member_error: String = _rig_members_complaint(String(key), members.keys())
+			if not member_error.is_empty() or members.size() != 20 or not Appearance.turns(String(key)):
+				push_error("ZOMBIE_POSES: %s needs four idle views, sixteen walk frames and a turning renderer: %s" % [key, member_error])
+				return false
+			if Appearance.walk_frames(String(key)) != 4 or Appearance.walk_fps(String(key)) != int(entry.get("fps", 0)):
+				push_error("ZOMBIE_POSES: %s renderer frame count or rate disagrees" % key)
+				return false
+		else:
+			corpses += 1
+			members = {key: {"source": entry.get("source", {})}}
+		for member in members:
+			var source: Dictionary = (members[member] as Dictionary).get("source", {})
+			var asset: Dictionary = source_assets.get(String(source.get("path", "")), {})
+			var complaint: String = _pose_source_complaint(entry, source, asset)
+			var image: Image = _image_of(String(member))
+			if image == null:
+				push_error("ZOMBIE_POSES: missing %s" % member)
+				return false
+			if complaint.is_empty():
+				complaint = _pose_geometry_complaint(kind, image, entry.get("anchor", []))
+			if complaint.is_empty() and kind == "zombie_rig":
+				complaint = _pose_frame_complaint(String(key), String(member), source, asset)
+			if not complaint.is_empty():
+				push_error("ZOMBIE_POSES: %s %s" % [member, complaint])
+				return false
+			count += 1
+		if kind == "zombie_rig":
+			for view in Appearance.VIEWS:
+				var frames: Array = []
+				for n in 4:
+					frames.append(_image_of("%s_walk_%s_%d" % [key, view, n]))
+				var motion: String = _pose_motion_complaint(frames)
+				if not motion.is_empty():
+					push_error("ZOMBIE_POSES: %s/%s %s" % [key, view, motion])
+					return false
+	if rigs == 0 or corpses == 0:
+		push_error("ZOMBIE_POSES: no living or corpse art to judge")
+		return false
+	# Controls and separate failures: these predicates must reject each broken contract alone.
+	var body: Image = _fab_source(32, 40, Rect2i(8, 12, 16, 28))
+	var corpse: Image = _fab_source(48, 40, Rect2i(6, 10, 36, 20))
+	var large: Image = _fab_source(40, 48, Rect2i(6, 14, 28, 34))
+	for good in [["zombie_rig", body, [16, 40]], ["zombie_rig", large, [20, 48]], ["corpse", corpse, [24, 20]]]:
+		if not _pose_geometry_complaint(good[0], good[1], good[2]).is_empty():
+			push_error("ZOMBIE_POSES: a sound geometry control was refused")
+			return false
+	for bad in [["zombie_rig", body, [15, 40]], ["zombie_rig", _fab_source(32, 40, Rect2i(8, 12, 16, 25)), [16, 40]], ["zombie_rig", _fab_source(32, 40, Rect2i(0, 12, 16, 28)), [16, 40]], ["zombie_rig", _fab_source(32, 40, Rect2i(8, 5, 16, 35)), [16, 40]], ["corpse", _fab_source(48, 40, Rect2i(6, 0, 36, 20)), [24, 20]], ["corpse", _fab_source(48, 40, Rect2i(12, 5, 24, 30)), [24, 20]], ["corpse", _fab_source(48, 40, Rect2i(3, 10, 30, 20)), [24, 20]], ["corpse", _fab_source(48, 40, Rect2i()), [24, 20]]]:
+		if _pose_geometry_complaint(bad[0], bad[1], bad[2]).is_empty():
+			push_error("ZOMBIE_POSES: accepted broken anchor, sole, margin, height, posture, centre or empty art")
+			return false
+	var translated: Array = []
+	for x in range(4, 8):
+		translated.append(_fab_source(32, 40, Rect2i(x, 12, 16, 28)))
+	if _pose_motion_complaint([body, body, body, body]).is_empty() or _pose_motion_complaint(translated).is_empty() or _pose_motion_complaint([body]).is_empty():
+		push_error("ZOMBIE_POSES: accepted duplicate, translated-only or incomplete animation")
+		return false
+	var control_entry: Dictionary = {"kind": "zombie_rig", "canvas": [32, 40], "anchor": [16, 40], "fps": 5}
+	var control_asset: Dictionary = {"size": [32, 40], "anchor": [16, 40], "state": "walk", "fps": 5, "loop": true}
+	if not _pose_source_complaint(control_entry, {"path": "native.png"}, control_asset).is_empty():
+		push_error("ZOMBIE_POSES: refused matching source metadata")
+		return false
+	for bad_asset in [{}, {"size": [40, 48], "anchor": [16, 40]}, {"size": [32, 40], "anchor": [15, 40]}, {"size": [32, 40], "anchor": [16, 40], "state": "walk", "fps": 9, "loop": true}, {"size": [32, 40], "anchor": [16, 40], "state": "walk", "fps": 5, "loop": false}]:
+		if _pose_source_complaint(control_entry, {"path": "native.png"}, bad_asset).is_empty():
+			push_error("ZOMBIE_POSES: accepted absent or mismatching source metadata")
+			return false
+	if _pose_source_complaint(control_entry, {"path": "native.png", "crop": [0, 0, 32, 40]}, control_asset).is_empty():
+		push_error("ZOMBIE_POSES: accepted a cropped native source")
+		return false
+	var frame_asset: Dictionary = {"id": "zombie-probe-walk-south", "frames": {"walk": [{"path": "a.png"}, {"path": "b.png"}]}}
+	var frame_source: Dictionary = {"path": ZOMBIE_POSE_ROOT + "a.png"}
+	if not _pose_frame_complaint("body_zombie_probe", "body_zombie_probe_walk_s_0", frame_source, frame_asset).is_empty() or _pose_frame_complaint("body_zombie_probe", "body_zombie_probe_walk_e_0", frame_source, frame_asset).is_empty() or _pose_frame_complaint("body_zombie_probe", "body_zombie_probe_walk_s_1", frame_source, frame_asset).is_empty():
+		push_error("ZOMBIE_POSES: frame mapping refused the match or accepted wrong direction/index")
+		return false
+	print("ZOMBIE_POSES OK %d rigs, %d corpses, %d whole native PNGs: manifest sizes/anchors/rates match, grounded geometry and real silhouette motion; geometry, metadata, duplicate and translation-only negatives refused" % [rigs, corpses, count])
+	return true
+
+
 # --- the dead-socket lane -------------------------------------------------------------------
 
 # `{sprite key: Array[String]}`, every content id whose appearance block declares it -- not the
@@ -1767,6 +1981,8 @@ func _keys_content_declares() -> Dictionary:
 			var block: Variant = entry.get("appearance")
 			if not (block is Dictionary):
 				continue
+			for posed in _pose_content_keys(block as Dictionary):
+				_declared_by(out, posed, String(entry.get("id", "?")))
 			# The effect fields since "The shot is seen" (2026-09-26): a sheet is named by the weapon
 			# that fires it (`fireFx`, `casingFx`), the body it bleeds on (`hitFx`) or the prop it
 			# burns over (`flameFx`) rather than as a `sprite`, so without them every sheet would
@@ -1786,6 +2002,26 @@ func _keys_content_declares() -> Dictionary:
 					for axis in ["ns", "ew"]:
 						if (variant_v as Dictionary).has(axis):
 							_declared_by(out, String((variant_v as Dictionary)[axis]), String(entry.get("id", "?")))
+	return out
+
+
+# Only the fields the renderer reads count: unrelated nested strings cannot keep orphan art alive.
+func _pose_content_keys(block: Dictionary) -> Array[String]:
+	var out: Array[String] = []
+	var blocks: Array = [block]
+	var variants: Variant = block.get("variants")
+	if variants is Array:
+		for variant in variants as Array:
+			if variant is Dictionary:
+				blocks.append(variant)
+				if (variant as Dictionary).get("sprite") is String:
+					out.append(String((variant as Dictionary)["sprite"]))
+	for pose_block in blocks:
+		var corpses: Variant = (pose_block as Dictionary).get("corpseSprites")
+		if corpses is Array:
+			for corpse in corpses as Array:
+				if corpse is String:
+					out.append(String(corpse))
 	return out
 
 
@@ -1920,6 +2156,14 @@ func _authored_art_is_read_by_something() -> bool:
 		return false
 	if not _reads_claim_is_sound(["a.id", "b.id"], "a.id"):
 		push_error("the reads predicate refused the first of two sound readers; two bases sharing one icon would fail")
+		return false
+	var pose_keys: Array[String] = _pose_content_keys({"corpseSprites": ["corpse_base"], "variants": [{"sprite": "variant_body", "corpseSprites": ["corpse_variant"]}], "unread": ["orphan"]})
+	for pose_key in ["corpse_base", "variant_body", "corpse_variant"]:
+		if not pose_keys.has(pose_key):
+			push_error("READS: living/corpse reader missed %s" % pose_key)
+			return false
+	if pose_keys.has("orphan") or not _pose_content_keys({"corpseSprite": "misspelled", "variants": [{"image": "unread"}]}).is_empty():
+		push_error("READS: unrelated or misspelled pose fields kept orphan art alive")
 		return false
 
 	# TN, the dressing widening: a dressing block is read for every list it names a picture in, a

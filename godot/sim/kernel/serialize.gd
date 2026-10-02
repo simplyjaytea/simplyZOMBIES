@@ -143,6 +143,9 @@ extends RefCounted
 # recruited, and a camp that had already been wiped before the save would publish `settlement.fell`
 # a second time on the first tick after the load. A fourth stream is new with them, `settlersMill`,
 # spent per turn rather than at boot. Refused either way, the same rule as v27.
+# The zombie art integration adds optional `visualRemains` history without a version bump.
+# It contains settled-body pictures only: no entities, equipment, scent or RNG state. A v33
+# save without this key restores an empty history; all existing simulation state is unchanged.
 const SAVE_VERSION: int = 33
 
 

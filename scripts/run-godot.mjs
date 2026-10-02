@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, writeSync } from "node:fs";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -517,6 +517,15 @@ switch (mode) {
   case "--authored":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_authored.gd"];
     break;
+  case "--zombie-art":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_zombie_art.gd",
+    ];
+    break;
   case "--fx":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_fx.gd"];
     break;
@@ -552,7 +561,9 @@ const modeStarted = process.hrtime.bigint();
  *  exactly once per process, whichever path gets there first. */
 const finish = (code) => {
   const seconds = Number(process.hrtime.bigint() - modeStarted) / 1e9;
-  console.log(`GATE_TIME mode=${mode} seconds=${seconds.toFixed(2)} exit=${code}`);
+  // The chain captures stdout through a pipe. console.log may queue this last line, and
+  // process.exit would then discard it even though the engine check itself passed.
+  writeSync(1, `GATE_TIME mode=${mode} seconds=${seconds.toFixed(2)} exit=${code}\n`);
   process.exit(code);
 };
 

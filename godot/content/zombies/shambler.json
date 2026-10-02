@@ -4,8 +4,51 @@
   "name": "Shambler",
   "introducedInWave": 0,
   "weight": 80,
-  "appearance": { "sprite": "body_shambler", "hitFx": "fx_blood_hit" },
-  "body": { "head": 25, "torso": 60, "legs": 40 },
-  "sensory": { "noise": 0.2, "light": 0.1, "scent": 0.9 },
-  "locomotion": { "speed": 0.8, "wander": 0.35, "mill": 0.25, "crawl": 0.25 }
+  "appearance": {
+    "sprite": "body_zombie_workwear",
+    "hitFx": "fx_blood_hit",
+    "corpseSprites": [
+      "corpse_zombie_workwear_supine",
+      "corpse_zombie_workwear_prone"
+    ],
+    "variants": [
+      {
+        "sprite": "body_zombie_workwear",
+        "corpseSprites": [
+          "corpse_zombie_workwear_supine",
+          "corpse_zombie_workwear_prone"
+        ]
+      },
+      {
+        "sprite": "body_zombie_commuter",
+        "corpseSprites": [
+          "corpse_zombie_commuter_supine",
+          "corpse_zombie_commuter_prone"
+        ]
+      },
+      {
+        "sprite": "body_zombie_raincoat",
+        "corpseSprites": [
+          "corpse_zombie_raincoat_supine",
+          "corpse_zombie_raincoat_prone"
+        ]
+      }
+    ]
+  },
+  "body": {
+    "head": 25,
+    "torso": 60,
+    "legs": 40
+  },
+  "sensory": {
+    "noise": 0.2,
+    "light": 0.1,
+    "scent": 0.9
+  },
+  "locomotion": {
+    "speed": 0.8,
+    "wander": 0.35,
+    "mill": 0.25,
+    "crawl": 0.25
+  }
 }

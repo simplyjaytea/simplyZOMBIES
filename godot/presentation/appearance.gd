@@ -727,16 +727,10 @@ static func for_entity(world: Variant, it: Dictionary) -> Dictionary:
 
 	# Zombies carry their type id, unique survivors their identity id, raiders their archetype
 	# id. All three are content ids, and content is what decides how a thing looks.
-	var content_id: String = String(it.get("ztype", ""))
-	if content_id.is_empty():
-		content_id = String(it.get("cid", ""))
-	# The player is the fourth case and the one with no id of its own to hand over. Last, so a
-	# player who somehow *does* carry a content id keeps it -- this is a floor, not an override.
-	if content_id.is_empty() and is_player:
-		content_id = PLAYER_LOOK_ID
+	var content_id: String = _content_id_for_item(it)
 	var declared_tint: bool = false
 	if not content_id.is_empty():
-		var block: Dictionary = body_block_for(world, content_id)
+		var block: Dictionary = body_variant(body_block_for(world, content_id), int(it.get("id", 0)))
 		if block.has("tint"):
 			tint = Color(String(block["tint"]))
 			declared_tint = true
@@ -764,6 +758,68 @@ static func for_entity(world: Variant, it: Dictionary) -> Dictionary:
 	# `sprite` is the key the texture came from, handed on so the draw loop can ask a family that
 	# turns for the picture of one view and one step (`body_texture`); `texture` is the rest view.
 	return {"texture": texture, "tint": modulate_for(texture != null, declared_tint, tint), "radius": radius, "sprite": sprite_key}
+
+
+# A cosmetic variant belongs to its content type, not to the spawn mix. Stable entity ids
+# (including their generation) select a look without spending a simulation RNG draw. The same
+# original id travels with a visual remain, so dying and saving cannot change a body's clothes.
+static func body_variant(block: Dictionary, entity: int) -> Dictionary:
+	var variants: Variant = block.get("variants", [])
+	if not (variants is Array) or (variants as Array).is_empty():
+		return block
+	var chosen: Variant = (variants as Array)[posmod(entity, (variants as Array).size())]
+	if not (chosen is Dictionary):
+		return block
+	var out: Dictionary = block.duplicate(true)
+	out.merge(chosen as Dictionary, true)
+	return out
+
+
+static func _content_id_for_item(it: Dictionary) -> String:
+	var content_id: String = String(it.get("ztype", ""))
+	if content_id.is_empty():
+		content_id = String(it.get("cid", ""))
+	if content_id.is_empty() and bool(it.get("player", false)):
+		content_id = PLAYER_LOOK_ID
+	return content_id
+
+
+# Settled corpses are separate pictures, never an upright idle frame rotated onto the floor.
+# Humans share the player's four fallen poses until their content supplies its own; a zombie
+# with no corpse art supplies no picture rather than borrowing an unrelated human silhouette.
+static func corpse_look(world: Variant, it: Dictionary) -> Dictionary:
+	var entity: int = int(it.get("id", 0))
+	var block: Dictionary = body_variant(body_block_for(world, _content_id_for_item(it)), entity)
+	var poses: Variant = block.get("corpseSprites", [])
+	if (not (poses is Array) or (poses as Array).is_empty()) and String(it.get("ztype", "")).is_empty():
+		poses = body_block_for(world, PLAYER_LOOK_ID).get("corpseSprites", [])
+	var key: String = ""
+	if poses is Array and not (poses as Array).is_empty():
+		key = String((poses as Array)[posmod(entity / 3, (poses as Array).size())])
+	var look: Dictionary = for_entity(world, it)
+	look["sprite"] = key
+	var texture: Texture2D = resolve(key)
+	look["texture"] = texture
+	# A human fallback can have corpse art without a living content id (a former player after
+	# succession). Resolve modulation against the settled picture, not the missing upright one.
+	if texture != null and not block.has("tint") and String(it.get("tint", "")).is_empty():
+		look["tint"] = Color.WHITE
+	look["corpse"] = true
+	return look
+
+
+# A prone canvas is wider than it is tall and anchored at its ground centre. Shape-based
+# standing anchors would put a 48x40 corpse almost a tile north of the place the body fell.
+static func corpse_rect(sx: float, sy: float, size: Vector2) -> Rect2:
+	return Rect2(Vector2(roundf(sx - size.x / 2.0), roundf(sy - size.y / 2.0)), size)
+
+
+# Picking uses the same content-selected canvas as the live renderer; the heavy occupies a
+# 40x48 picture and must be clickable across that picture rather than the old 32x40 default.
+static func body_canvas_for(world: Variant, entity: int) -> Vector2i:
+	var block: Dictionary = body_variant(body_block_for(world, body_look_id(world, entity)), entity)
+	var key: String = String(block.get("sprite", ""))
+	return canvas_of(key) if not key.is_empty() else PAWN_CANVAS
 
 
 # Where a picture lying flat on a tile goes: its last row on the tile's south edge, centred on the

@@ -110,241 +110,18 @@
     "  z    per view, a pack_overlay's `z_by_direction`; below zero it draws under the body, which",
     "       is how the backpack hangs behind a body seen from the side.",
     "Every member is cropped 32x48 -> 32x40 on the pack's own anchor row (the soles stay on row",
-    "39); what the crop drops is only the pack's sub-visible specks, and PACK proves that too."
+    "39); what the crop drops is only the pack's sub-visible specks, and PACK proves that too.",
+    "",
+    "The zombie/corpse set (2026-10-02) uses zombie_rig and corpse kinds: sourced whole",
+    "from zombie-poses/textures/, with explicit geometry contracts in check_authored.gd.",
+    "zombie_rig is a four-direction, four-frame locomotion family at 32x40 or 40x48;",
+    "corpse is a settled ground-centred pose at 48x40 or 56x40. ZOMBIE_POSES holds",
+    "their canvases, anchors, source manifest, heights, clearance, animation shape change,",
+    "and true transparent margins. READS includes appearance.variants[].sprite and each",
+    "appearance.corpseSprites entry. The obsolete body_shambler runtime family is retired;",
+    "its source artwork remains under textures/characters/ for provenance."
   ],
   "keys": {
-    "body_shambler": {
-      "canvas": [
-        32,
-        40
-      ],
-      "kind": "pack_rig",
-      "reads": "zombie.shambler",
-      "palette": "pack",
-      "fps": 5,
-      "members": {
-        "body_shambler_s": {
-          "source": {
-            "path": "art/simplyzombies/textures/characters/shambler_s.png",
-            "crop": [
-              0,
-              0,
-              32,
-              40
-            ]
-          }
-        },
-        "body_shambler_e": {
-          "source": {
-            "path": "art/simplyzombies/textures/characters/shambler_e.png",
-            "crop": [
-              0,
-              0,
-              32,
-              40
-            ]
-          }
-        },
-        "body_shambler_n": {
-          "source": {
-            "path": "art/simplyzombies/textures/characters/shambler_n.png",
-            "crop": [
-              0,
-              0,
-              32,
-              40
-            ]
-          }
-        },
-        "body_shambler_w": {
-          "source": {
-            "path": "art/simplyzombies/textures/characters/shambler_w.png",
-            "crop": [
-              0,
-              0,
-              32,
-              40
-            ]
-          }
-        },
-        "body_shambler_walk_s_0": {
-          "source": {
-            "path": "art/simplyzombies/textures/characters/shambler_walk_s_00.png",
-            "crop": [
-              0,
-              0,
-              32,
-              40
-            ]
-          }
-        },
-        "body_shambler_walk_s_1": {
-          "source": {
-            "path": "art/simplyzombies/textures/characters/shambler_walk_s_01.png",
-            "crop": [
-              0,
-              0,
-              32,
-              40
-            ]
-          }
-        },
-        "body_shambler_walk_s_2": {
-          "source": {
-            "path": "art/simplyzombies/textures/characters/shambler_walk_s_02.png",
-            "crop": [
-              0,
-              0,
-              32,
-              40
-            ]
-          }
-        },
-        "body_shambler_walk_s_3": {
-          "source": {
-            "path": "art/simplyzombies/textures/characters/shambler_walk_s_03.png",
-            "crop": [
-              0,
-              0,
-              32,
-              40
-            ]
-          }
-        },
-        "body_shambler_walk_e_0": {
-          "source": {
-            "path": "art/simplyzombies/textures/characters/shambler_walk_e_00.png",
-            "crop": [
-              0,
-              0,
-              32,
-              40
-            ]
-          }
-        },
-        "body_shambler_walk_e_1": {
-          "source": {
-            "path": "art/simplyzombies/textures/characters/shambler_walk_e_01.png",
-            "crop": [
-              0,
-              0,
-              32,
-              40
-            ]
-          }
-        },
-        "body_shambler_walk_e_2": {
-          "source": {
-            "path": "art/simplyzombies/textures/characters/shambler_walk_e_02.png",
-            "crop": [
-              0,
-              0,
-              32,
-              40
-            ]
-          }
-        },
-        "body_shambler_walk_e_3": {
-          "source": {
-            "path": "art/simplyzombies/textures/characters/shambler_walk_e_03.png",
-            "crop": [
-              0,
-              0,
-              32,
-              40
-            ]
-          }
-        },
-        "body_shambler_walk_n_0": {
-          "source": {
-            "path": "art/simplyzombies/textures/characters/shambler_walk_n_00.png",
-            "crop": [
-              0,
-              0,
-              32,
-              40
-            ]
-          }
-        },
-        "body_shambler_walk_n_1": {
-          "source": {
-            "path": "art/simplyzombies/textures/characters/shambler_walk_n_01.png",
-            "crop": [
-              0,
-              0,
-              32,
-              40
-            ]
-          }
-        },
-        "body_shambler_walk_n_2": {
-          "source": {
-            "path": "art/simplyzombies/textures/characters/shambler_walk_n_02.png",
-            "crop": [
-              0,
-              0,
-              32,
-              40
-            ]
-          }
-        },
-        "body_shambler_walk_n_3": {
-          "source": {
-            "path": "art/simplyzombies/textures/characters/shambler_walk_n_03.png",
-            "crop": [
-              0,
-              0,
-              32,
-              40
-            ]
-          }
-        },
-        "body_shambler_walk_w_0": {
-          "source": {
-            "path": "art/simplyzombies/textures/characters/shambler_walk_w_00.png",
-            "crop": [
-              0,
-              0,
-              32,
-              40
-            ]
-          }
-        },
-        "body_shambler_walk_w_1": {
-          "source": {
-            "path": "art/simplyzombies/textures/characters/shambler_walk_w_01.png",
-            "crop": [
-              0,
-              0,
-              32,
-              40
-            ]
-          }
-        },
-        "body_shambler_walk_w_2": {
-          "source": {
-            "path": "art/simplyzombies/textures/characters/shambler_walk_w_02.png",
-            "crop": [
-              0,
-              0,
-              32,
-              40
-            ]
-          }
-        },
-        "body_shambler_walk_w_3": {
-          "source": {
-            "path": "art/simplyzombies/textures/characters/shambler_walk_w_03.png",
-            "crop": [
-              0,
-              0,
-              32,
-              40
-            ]
-          }
-        }
-      }
-    },
     "body_survivor": {
       "canvas": [
         32,
@@ -2539,6 +2316,1106 @@
           112,
           55
         ]
+      }
+    },
+    "body_zombie_workwear": {
+      "canvas": [
+        32,
+        40
+      ],
+      "kind": "zombie_rig",
+      "reads": "zombie.shambler",
+      "palette": "pack",
+      "anchor": [
+        16,
+        40
+      ],
+      "fps": 5,
+      "members": {
+        "body_zombie_workwear_s": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/idle-south-00.png"
+          }
+        },
+        "body_zombie_workwear_walk_s_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/walk-south-00.png"
+          }
+        },
+        "body_zombie_workwear_walk_s_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/walk-south-01.png"
+          }
+        },
+        "body_zombie_workwear_walk_s_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/walk-south-02.png"
+          }
+        },
+        "body_zombie_workwear_walk_s_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/walk-south-03.png"
+          }
+        },
+        "body_zombie_workwear_e": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/idle-east-00.png"
+          }
+        },
+        "body_zombie_workwear_walk_e_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/walk-east-00.png"
+          }
+        },
+        "body_zombie_workwear_walk_e_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/walk-east-01.png"
+          }
+        },
+        "body_zombie_workwear_walk_e_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/walk-east-02.png"
+          }
+        },
+        "body_zombie_workwear_walk_e_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/walk-east-03.png"
+          }
+        },
+        "body_zombie_workwear_n": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/idle-north-00.png"
+          }
+        },
+        "body_zombie_workwear_walk_n_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/walk-north-00.png"
+          }
+        },
+        "body_zombie_workwear_walk_n_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/walk-north-01.png"
+          }
+        },
+        "body_zombie_workwear_walk_n_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/walk-north-02.png"
+          }
+        },
+        "body_zombie_workwear_walk_n_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/walk-north-03.png"
+          }
+        },
+        "body_zombie_workwear_w": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/idle-west-00.png"
+          }
+        },
+        "body_zombie_workwear_walk_w_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/walk-west-00.png"
+          }
+        },
+        "body_zombie_workwear_walk_w_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/walk-west-01.png"
+          }
+        },
+        "body_zombie_workwear_walk_w_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/walk-west-02.png"
+          }
+        },
+        "body_zombie_workwear_walk_w_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/walk-west-03.png"
+          }
+        }
+      }
+    },
+    "corpse_zombie_workwear_supine": {
+      "canvas": [
+        48,
+        40
+      ],
+      "kind": "corpse",
+      "reads": "zombie.shambler",
+      "palette": "pack",
+      "anchor": [
+        24,
+        20
+      ],
+      "source": {
+        "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/corpse-supine.png"
+      }
+    },
+    "corpse_zombie_workwear_prone": {
+      "canvas": [
+        48,
+        40
+      ],
+      "kind": "corpse",
+      "reads": "zombie.shambler",
+      "palette": "pack",
+      "anchor": [
+        24,
+        20
+      ],
+      "source": {
+        "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/corpse-prone.png"
+      }
+    },
+    "body_zombie_commuter": {
+      "canvas": [
+        32,
+        40
+      ],
+      "kind": "zombie_rig",
+      "reads": "zombie.shambler",
+      "palette": "pack",
+      "anchor": [
+        16,
+        40
+      ],
+      "fps": 5,
+      "members": {
+        "body_zombie_commuter_s": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/idle-south-00.png"
+          }
+        },
+        "body_zombie_commuter_walk_s_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/walk-south-00.png"
+          }
+        },
+        "body_zombie_commuter_walk_s_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/walk-south-01.png"
+          }
+        },
+        "body_zombie_commuter_walk_s_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/walk-south-02.png"
+          }
+        },
+        "body_zombie_commuter_walk_s_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/walk-south-03.png"
+          }
+        },
+        "body_zombie_commuter_e": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/idle-east-00.png"
+          }
+        },
+        "body_zombie_commuter_walk_e_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/walk-east-00.png"
+          }
+        },
+        "body_zombie_commuter_walk_e_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/walk-east-01.png"
+          }
+        },
+        "body_zombie_commuter_walk_e_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/walk-east-02.png"
+          }
+        },
+        "body_zombie_commuter_walk_e_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/walk-east-03.png"
+          }
+        },
+        "body_zombie_commuter_n": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/idle-north-00.png"
+          }
+        },
+        "body_zombie_commuter_walk_n_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/walk-north-00.png"
+          }
+        },
+        "body_zombie_commuter_walk_n_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/walk-north-01.png"
+          }
+        },
+        "body_zombie_commuter_walk_n_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/walk-north-02.png"
+          }
+        },
+        "body_zombie_commuter_walk_n_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/walk-north-03.png"
+          }
+        },
+        "body_zombie_commuter_w": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/idle-west-00.png"
+          }
+        },
+        "body_zombie_commuter_walk_w_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/walk-west-00.png"
+          }
+        },
+        "body_zombie_commuter_walk_w_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/walk-west-01.png"
+          }
+        },
+        "body_zombie_commuter_walk_w_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/walk-west-02.png"
+          }
+        },
+        "body_zombie_commuter_walk_w_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/walk-west-03.png"
+          }
+        }
+      }
+    },
+    "corpse_zombie_commuter_supine": {
+      "canvas": [
+        48,
+        40
+      ],
+      "kind": "corpse",
+      "reads": "zombie.shambler",
+      "palette": "pack",
+      "anchor": [
+        24,
+        20
+      ],
+      "source": {
+        "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/corpse-supine.png"
+      }
+    },
+    "corpse_zombie_commuter_prone": {
+      "canvas": [
+        48,
+        40
+      ],
+      "kind": "corpse",
+      "reads": "zombie.shambler",
+      "palette": "pack",
+      "anchor": [
+        24,
+        20
+      ],
+      "source": {
+        "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/corpse-prone.png"
+      }
+    },
+    "body_zombie_raincoat": {
+      "canvas": [
+        32,
+        40
+      ],
+      "kind": "zombie_rig",
+      "reads": "zombie.shambler",
+      "palette": "pack",
+      "anchor": [
+        16,
+        40
+      ],
+      "fps": 5,
+      "members": {
+        "body_zombie_raincoat_s": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/idle-south-00.png"
+          }
+        },
+        "body_zombie_raincoat_walk_s_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/walk-south-00.png"
+          }
+        },
+        "body_zombie_raincoat_walk_s_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/walk-south-01.png"
+          }
+        },
+        "body_zombie_raincoat_walk_s_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/walk-south-02.png"
+          }
+        },
+        "body_zombie_raincoat_walk_s_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/walk-south-03.png"
+          }
+        },
+        "body_zombie_raincoat_e": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/idle-east-00.png"
+          }
+        },
+        "body_zombie_raincoat_walk_e_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/walk-east-00.png"
+          }
+        },
+        "body_zombie_raincoat_walk_e_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/walk-east-01.png"
+          }
+        },
+        "body_zombie_raincoat_walk_e_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/walk-east-02.png"
+          }
+        },
+        "body_zombie_raincoat_walk_e_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/walk-east-03.png"
+          }
+        },
+        "body_zombie_raincoat_n": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/idle-north-00.png"
+          }
+        },
+        "body_zombie_raincoat_walk_n_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/walk-north-00.png"
+          }
+        },
+        "body_zombie_raincoat_walk_n_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/walk-north-01.png"
+          }
+        },
+        "body_zombie_raincoat_walk_n_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/walk-north-02.png"
+          }
+        },
+        "body_zombie_raincoat_walk_n_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/walk-north-03.png"
+          }
+        },
+        "body_zombie_raincoat_w": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/idle-west-00.png"
+          }
+        },
+        "body_zombie_raincoat_walk_w_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/walk-west-00.png"
+          }
+        },
+        "body_zombie_raincoat_walk_w_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/walk-west-01.png"
+          }
+        },
+        "body_zombie_raincoat_walk_w_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/walk-west-02.png"
+          }
+        },
+        "body_zombie_raincoat_walk_w_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/walk-west-03.png"
+          }
+        }
+      }
+    },
+    "corpse_zombie_raincoat_supine": {
+      "canvas": [
+        48,
+        40
+      ],
+      "kind": "corpse",
+      "reads": "zombie.shambler",
+      "palette": "pack",
+      "anchor": [
+        24,
+        20
+      ],
+      "source": {
+        "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/corpse-supine.png"
+      }
+    },
+    "corpse_zombie_raincoat_prone": {
+      "canvas": [
+        48,
+        40
+      ],
+      "kind": "corpse",
+      "reads": "zombie.shambler",
+      "palette": "pack",
+      "anchor": [
+        24,
+        20
+      ],
+      "source": {
+        "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/corpse-prone.png"
+      }
+    },
+    "body_zombie_stalker": {
+      "canvas": [
+        32,
+        40
+      ],
+      "kind": "zombie_rig",
+      "reads": "zombie.stalker",
+      "palette": "pack",
+      "anchor": [
+        16,
+        40
+      ],
+      "fps": 6,
+      "members": {
+        "body_zombie_stalker_s": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/idle-south-00.png"
+          }
+        },
+        "body_zombie_stalker_walk_s_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/walk-south-00.png"
+          }
+        },
+        "body_zombie_stalker_walk_s_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/walk-south-01.png"
+          }
+        },
+        "body_zombie_stalker_walk_s_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/walk-south-02.png"
+          }
+        },
+        "body_zombie_stalker_walk_s_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/walk-south-03.png"
+          }
+        },
+        "body_zombie_stalker_e": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/idle-east-00.png"
+          }
+        },
+        "body_zombie_stalker_walk_e_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/walk-east-00.png"
+          }
+        },
+        "body_zombie_stalker_walk_e_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/walk-east-01.png"
+          }
+        },
+        "body_zombie_stalker_walk_e_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/walk-east-02.png"
+          }
+        },
+        "body_zombie_stalker_walk_e_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/walk-east-03.png"
+          }
+        },
+        "body_zombie_stalker_n": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/idle-north-00.png"
+          }
+        },
+        "body_zombie_stalker_walk_n_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/walk-north-00.png"
+          }
+        },
+        "body_zombie_stalker_walk_n_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/walk-north-01.png"
+          }
+        },
+        "body_zombie_stalker_walk_n_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/walk-north-02.png"
+          }
+        },
+        "body_zombie_stalker_walk_n_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/walk-north-03.png"
+          }
+        },
+        "body_zombie_stalker_w": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/idle-west-00.png"
+          }
+        },
+        "body_zombie_stalker_walk_w_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/walk-west-00.png"
+          }
+        },
+        "body_zombie_stalker_walk_w_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/walk-west-01.png"
+          }
+        },
+        "body_zombie_stalker_walk_w_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/walk-west-02.png"
+          }
+        },
+        "body_zombie_stalker_walk_w_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/walk-west-03.png"
+          }
+        }
+      }
+    },
+    "corpse_zombie_stalker_supine": {
+      "canvas": [
+        48,
+        40
+      ],
+      "kind": "corpse",
+      "reads": "zombie.stalker",
+      "palette": "pack",
+      "anchor": [
+        24,
+        20
+      ],
+      "source": {
+        "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/corpse-supine.png"
+      }
+    },
+    "corpse_zombie_stalker_prone": {
+      "canvas": [
+        48,
+        40
+      ],
+      "kind": "corpse",
+      "reads": "zombie.stalker",
+      "palette": "pack",
+      "anchor": [
+        24,
+        20
+      ],
+      "source": {
+        "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/corpse-prone.png"
+      }
+    },
+    "body_zombie_runner": {
+      "canvas": [
+        32,
+        40
+      ],
+      "kind": "zombie_rig",
+      "reads": "zombie.runner",
+      "palette": "pack",
+      "anchor": [
+        16,
+        40
+      ],
+      "fps": 9,
+      "members": {
+        "body_zombie_runner_s": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/idle-south-00.png"
+          }
+        },
+        "body_zombie_runner_walk_s_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/walk-south-00.png"
+          }
+        },
+        "body_zombie_runner_walk_s_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/walk-south-01.png"
+          }
+        },
+        "body_zombie_runner_walk_s_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/walk-south-02.png"
+          }
+        },
+        "body_zombie_runner_walk_s_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/walk-south-03.png"
+          }
+        },
+        "body_zombie_runner_e": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/idle-east-00.png"
+          }
+        },
+        "body_zombie_runner_walk_e_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/walk-east-00.png"
+          }
+        },
+        "body_zombie_runner_walk_e_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/walk-east-01.png"
+          }
+        },
+        "body_zombie_runner_walk_e_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/walk-east-02.png"
+          }
+        },
+        "body_zombie_runner_walk_e_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/walk-east-03.png"
+          }
+        },
+        "body_zombie_runner_n": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/idle-north-00.png"
+          }
+        },
+        "body_zombie_runner_walk_n_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/walk-north-00.png"
+          }
+        },
+        "body_zombie_runner_walk_n_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/walk-north-01.png"
+          }
+        },
+        "body_zombie_runner_walk_n_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/walk-north-02.png"
+          }
+        },
+        "body_zombie_runner_walk_n_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/walk-north-03.png"
+          }
+        },
+        "body_zombie_runner_w": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/idle-west-00.png"
+          }
+        },
+        "body_zombie_runner_walk_w_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/walk-west-00.png"
+          }
+        },
+        "body_zombie_runner_walk_w_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/walk-west-01.png"
+          }
+        },
+        "body_zombie_runner_walk_w_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/walk-west-02.png"
+          }
+        },
+        "body_zombie_runner_walk_w_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/walk-west-03.png"
+          }
+        }
+      }
+    },
+    "corpse_zombie_runner_supine": {
+      "canvas": [
+        48,
+        40
+      ],
+      "kind": "corpse",
+      "reads": "zombie.runner",
+      "palette": "pack",
+      "anchor": [
+        24,
+        20
+      ],
+      "source": {
+        "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/corpse-supine.png"
+      }
+    },
+    "corpse_zombie_runner_prone": {
+      "canvas": [
+        48,
+        40
+      ],
+      "kind": "corpse",
+      "reads": "zombie.runner",
+      "palette": "pack",
+      "anchor": [
+        24,
+        20
+      ],
+      "source": {
+        "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/corpse-prone.png"
+      }
+    },
+    "body_zombie_armored": {
+      "canvas": [
+        32,
+        40
+      ],
+      "kind": "zombie_rig",
+      "reads": "zombie.armored",
+      "palette": "pack",
+      "anchor": [
+        16,
+        40
+      ],
+      "fps": 4,
+      "members": {
+        "body_zombie_armored_s": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/idle-south-00.png"
+          }
+        },
+        "body_zombie_armored_walk_s_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/walk-south-00.png"
+          }
+        },
+        "body_zombie_armored_walk_s_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/walk-south-01.png"
+          }
+        },
+        "body_zombie_armored_walk_s_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/walk-south-02.png"
+          }
+        },
+        "body_zombie_armored_walk_s_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/walk-south-03.png"
+          }
+        },
+        "body_zombie_armored_e": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/idle-east-00.png"
+          }
+        },
+        "body_zombie_armored_walk_e_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/walk-east-00.png"
+          }
+        },
+        "body_zombie_armored_walk_e_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/walk-east-01.png"
+          }
+        },
+        "body_zombie_armored_walk_e_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/walk-east-02.png"
+          }
+        },
+        "body_zombie_armored_walk_e_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/walk-east-03.png"
+          }
+        },
+        "body_zombie_armored_n": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/idle-north-00.png"
+          }
+        },
+        "body_zombie_armored_walk_n_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/walk-north-00.png"
+          }
+        },
+        "body_zombie_armored_walk_n_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/walk-north-01.png"
+          }
+        },
+        "body_zombie_armored_walk_n_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/walk-north-02.png"
+          }
+        },
+        "body_zombie_armored_walk_n_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/walk-north-03.png"
+          }
+        },
+        "body_zombie_armored_w": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/idle-west-00.png"
+          }
+        },
+        "body_zombie_armored_walk_w_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/walk-west-00.png"
+          }
+        },
+        "body_zombie_armored_walk_w_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/walk-west-01.png"
+          }
+        },
+        "body_zombie_armored_walk_w_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/walk-west-02.png"
+          }
+        },
+        "body_zombie_armored_walk_w_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/walk-west-03.png"
+          }
+        }
+      }
+    },
+    "corpse_zombie_armored_supine": {
+      "canvas": [
+        48,
+        40
+      ],
+      "kind": "corpse",
+      "reads": "zombie.armored",
+      "palette": "pack",
+      "anchor": [
+        24,
+        20
+      ],
+      "source": {
+        "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/corpse-supine.png"
+      }
+    },
+    "corpse_zombie_armored_prone": {
+      "canvas": [
+        48,
+        40
+      ],
+      "kind": "corpse",
+      "reads": "zombie.armored",
+      "palette": "pack",
+      "anchor": [
+        24,
+        20
+      ],
+      "source": {
+        "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/corpse-prone.png"
+      }
+    },
+    "body_zombie_heavy": {
+      "canvas": [
+        40,
+        48
+      ],
+      "kind": "zombie_rig",
+      "reads": "zombie.heavy",
+      "palette": "pack",
+      "anchor": [
+        20,
+        48
+      ],
+      "fps": 4,
+      "members": {
+        "body_zombie_heavy_s": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/idle-south-00.png"
+          }
+        },
+        "body_zombie_heavy_walk_s_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/walk-south-00.png"
+          }
+        },
+        "body_zombie_heavy_walk_s_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/walk-south-01.png"
+          }
+        },
+        "body_zombie_heavy_walk_s_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/walk-south-02.png"
+          }
+        },
+        "body_zombie_heavy_walk_s_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/walk-south-03.png"
+          }
+        },
+        "body_zombie_heavy_e": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/idle-east-00.png"
+          }
+        },
+        "body_zombie_heavy_walk_e_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/walk-east-00.png"
+          }
+        },
+        "body_zombie_heavy_walk_e_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/walk-east-01.png"
+          }
+        },
+        "body_zombie_heavy_walk_e_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/walk-east-02.png"
+          }
+        },
+        "body_zombie_heavy_walk_e_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/walk-east-03.png"
+          }
+        },
+        "body_zombie_heavy_n": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/idle-north-00.png"
+          }
+        },
+        "body_zombie_heavy_walk_n_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/walk-north-00.png"
+          }
+        },
+        "body_zombie_heavy_walk_n_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/walk-north-01.png"
+          }
+        },
+        "body_zombie_heavy_walk_n_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/walk-north-02.png"
+          }
+        },
+        "body_zombie_heavy_walk_n_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/walk-north-03.png"
+          }
+        },
+        "body_zombie_heavy_w": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/idle-west-00.png"
+          }
+        },
+        "body_zombie_heavy_walk_w_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/walk-west-00.png"
+          }
+        },
+        "body_zombie_heavy_walk_w_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/walk-west-01.png"
+          }
+        },
+        "body_zombie_heavy_walk_w_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/walk-west-02.png"
+          }
+        },
+        "body_zombie_heavy_walk_w_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/walk-west-03.png"
+          }
+        }
+      }
+    },
+    "corpse_zombie_heavy_supine": {
+      "canvas": [
+        56,
+        40
+      ],
+      "kind": "corpse",
+      "reads": "zombie.heavy",
+      "palette": "pack",
+      "anchor": [
+        28,
+        20
+      ],
+      "source": {
+        "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/corpse-supine.png"
+      }
+    },
+    "corpse_zombie_heavy_prone": {
+      "canvas": [
+        56,
+        40
+      ],
+      "kind": "corpse",
+      "reads": "zombie.heavy",
+      "palette": "pack",
+      "anchor": [
+        28,
+        20
+      ],
+      "source": {
+        "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/corpse-prone.png"
+      }
+    },
+    "corpse_human_supine": {
+      "canvas": [
+        48,
+        40
+      ],
+      "kind": "corpse",
+      "reads": "player.body",
+      "palette": "pack",
+      "anchor": [
+        24,
+        20
+      ],
+      "source": {
+        "path": "art/simplyzombies/zombie-poses/textures/human/corpse-supine.png"
+      }
+    },
+    "corpse_human_prone": {
+      "canvas": [
+        48,
+        40
+      ],
+      "kind": "corpse",
+      "reads": "player.body",
+      "palette": "pack",
+      "anchor": [
+        24,
+        20
+      ],
+      "source": {
+        "path": "art/simplyzombies/zombie-poses/textures/human/corpse-prone.png"
+      }
+    },
+    "corpse_human_side": {
+      "canvas": [
+        48,
+        40
+      ],
+      "kind": "corpse",
+      "reads": "player.body",
+      "palette": "pack",
+      "anchor": [
+        24,
+        20
+      ],
+      "source": {
+        "path": "art/simplyzombies/zombie-poses/textures/human/corpse-side.png"
+      }
+    },
+    "corpse_human_supine_diagonal": {
+      "canvas": [
+        48,
+        40
+      ],
+      "kind": "corpse",
+      "reads": "player.body",
+      "palette": "pack",
+      "anchor": [
+        24,
+        20
+      ],
+      "source": {
+        "path": "art/simplyzombies/zombie-poses/textures/human/corpse-supine-diagonal.png"
       }
     }
   }
