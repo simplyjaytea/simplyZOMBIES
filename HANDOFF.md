@@ -14,7 +14,27 @@ container running** lives in `AGENTS.md`.
 
 ---
 
-## Start here: the art pass closed, 2026-10-03
+## Start here: CI repair and the October follow-ups, 2026-10-03
+
+The water failure after the art pass was a source-scanner boundary, not missing rendering.
+`check_water.gd` now follows the two Water branches and tests its scanner on positive and
+negative cases. The repaired checkout passed the full local Godot chain and routing; the exact
+timing and verification boundary are in [docs/23's implementation record](docs/23-roadmap.md#the-record-by-system).
+The isolated repair is [PR #145](https://github.com/simplyjaytea/simplyZOMBIES/pull/145);
+its GitHub checks are separate from the local evidence recorded there.
+
+The approved follow-ups now provide boards beneath accepted A2 walls, responsive inventory and
+Work layouts at both review sizes, and strict real Godot runtime measurements. Their captures,
+gates and limits are in the implementation record. Runtime timings exceed the existing budgets;
+optimization and actual timing enforcement remain open, along with the full balance grid and
+human ten-day playtest. The deterministic budget-runner check in CI is not proof of product speed.
+
+Resume from [the remaining work](docs/23-roadmap.md#whats-left-in-milestone-2), not the older
+pickup notes below. Use one worktree per worker and keep runtime saves/caches separate
+as described in [AGENTS.md](AGENTS.md#working-alongside-other-agents). The roadmap remains the
+single backlog; older pickup plans under `.hermes/plans/` are historical context.
+
+## Previous handoff: the art pass closed, 2026-10-03
 
 Resume from [docs/23's remaining work](docs/23-roadmap.md#whats-left-in-milestone-2) and
 [the implementation record](docs/23-roadmap.md#the-record-by-system). The latest record covers
@@ -27,10 +47,9 @@ The owner requested immediate GitHub landing before machine shutdown. Focused ch
 reviews passed; the full local chain was incomplete. Check the latest GitHub CI result before
 starting the next slice; docs/23 records the exact verification boundary.
 
-The next small wall follow-up is the floor under transparent side-wall pixels: perimeter cells
-currently expose outdoor ground instead of extending the room's boards. docs/23 names it, along
-with the unsupported wall states and remaining art work. It is a presentation seam, not a reason
-to change building metadata or simulation. The owner chose A2; **whether roofs cover unseen
+The floor under transparent side-wall pixels was subsequently fixed by the October follow-up
+above. Unsupported wall states and remaining art work stay in docs/23. The owner chose A2;
+**whether roofs cover unseen
 perimeter walls remains undecided**, as do the other owner questions below.
 
 ## Previous handoff: the outpost pack, 2026-09-27
@@ -51,7 +70,8 @@ shot is seen (`godot:check:fx`, ten lanes).
 
 - **Ground screenshots** (before/after) are in `.hermes/plans/2026-09-27_ground-pack/`; the
   worker flagged the undergrowth lattice as worth a look.
-- **UI screenshots** at 1920×1080 and 1280×720, still owed from the UI arc.
+- **UI screenshots** at 1920×1080 and 1280×720 are now recorded in
+  `.hermes/plans/2026-10-03_ui-layout/`; captions name the panels reviewed and their limits.
 
 **Also landed at the end of the session:** furnishings and container kinds (eight of the pack's
 twelve furnishings as inert dressing; container pictures by loot table, closed and searched only),
@@ -966,12 +986,12 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    reading of "camps are temporary" and not the only one.
 
 0e. **Whether a camp should be assignable, and whether an outpost should draw raiders**
-   (2026-09-10). Two questions the seam slice deliberately did not answer. A camp is home or it is
-   an outpost, and an outpost currently does nothing at all: nothing is assigned to it, and
+   (2026-09-10). Two questions the seam slice deliberately did not answer. The later outpost
+   slice extended where colonists will work, so an outpost is already useful. Assignment and
+   raid targeting remain separate: nothing is assigned to a particular outpost, and
    `raiders._objective` walks to *home*, so a colony with three outposts is raided exactly like a
-   colony with none. Both are design calls, both are named in docs/23's what's left, and neither is
-   a defect — but an outpost that does nothing is the shape of a dead socket, so it should not sit
-   unanswered for long.
+   colony with none. Both remaining design calls are named in docs/23's what's left; the owner
+   chose work reach before danger.
 
 0b. **Whether a region becomes the default boot** (2026-09-10). Everything is built and gated;
    `--region=region.main_area` reaches it and the default is still a single district. The reason it
@@ -983,14 +1003,11 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    of a region's population a region boots. **Worth playing before deciding**, which is the one
    thing a table cannot answer.
 
-0c. **The water numbers, and the two the owner has not been asked** (2026-09-09). Every water
-   constant was a first cut taken in an autonomous session, each one line: the ford's ×0.45 speed
-   and ×1.8 noise, the tint `#424f5c` (bounded from above by the pawn-ramp contrast guard, so it
-   cannot simply be brightened), and `WATER_DEEP_SHADE` 0.30. docs/30's water entry records them.
-   **Two are genuine questions rather than numbers.** First, the saturation cap: "genuinely blue"
-   and `_sat_ok`'s 0.30 pull against each other, and only the *warmth* pin was exempted — the
-   shipped tint sits at 0.283, just inside, so a brighter blue needs a second exemption the owner
-   has not made. Second, and larger: **the ground is still a player-only mechanic.** `SimJobs._walk`
+0c. **The remaining water mechanics** (first cuts 2026-09-09; colour decision superseded by
+   the adopted pack). The ford's ×0.45 speed and ×1.8 noise remain first cuts. The old
+   `#424f5c` tint/saturation question was settled by the owner's pack-grade decision: the ford
+   now uses the pack's measured `#244e56`, proved by `godot:check:water`'s PACK lane. Do not
+   reopen that colour question. **The ground is still a player-only mechanic.** `SimJobs._walk`
    resolves `move_speed` but NPC and zombie locomotion do not read `SimSurface`, so today a river
    slows the player and nobody else — half a mechanic in exactly the way noise-only ground was
    before the worldgen arc. Widening it moves NPC pathing balance and is its own measured slice
@@ -1165,17 +1182,14 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    (`SimSpeech.MUTTER_EVERY` 400 ticks, `MUTTER_P` 0.15): a colonist in a need band speaks about
    once every two minutes; a line's horizon is `SAY_TICKS` 60 (three seconds), a scream 40.
 
-9. **The needs-assets report is written, and it turned up five questions rather than zero**
+9. **The needs-assets report's remaining questions**
    (2026-09-25, docs/23's record, "Art — the outpost pack's needs-assets report"). The report the
    outpost-pack arc named for held weapons, utilities, decals and the extra UI icons is done; none
-   of what it found is decided, because every open item is a shape call rather than a number.
-   **Should a container's material say what tier it holds?** Giving the metal footlocker and the
-   medical box their own look — six of the pack's nine container states — announces a loot table
-   before anyone opens the container, which clause 4 (docs/01) exists to refuse; the shipped rule
-   is deliberately one look for every container today, and only the owner can spend that
-   certainty. (The seventh state, `prop-wood-crate-open`, needs no such call: the sim already
-   tells a searched-but-not-emptied container apart from an emptied one, and only
-   `appearance.gd`'s draw switch is missing it, so that one can simply land.)
+   of its remaining scope should be assumed approved. **Two questions were subsequently
+   settled:** container pictures by loot table and held weapons on the pack's bodies were
+   approved and shipped (docs/30's "The whole outpost pack", docs/23's corresponding records).
+   Containers show closed/searched states; the supplies-visible state remains deferred because
+   it would reveal contents at a distance.
    **Do the pack's utilities become new mechanics, or stay decoration?** A generator, a rain
    collector, a stove distinct from the campfire, and a spike trap a raider or a zombie can
    trigger are none of them systems the sim has today; building the art is the smaller half of
@@ -1185,10 +1199,6 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    only a wall, a window and a door do — so landing those five states in full means new sim
    content, not only a renderer change; whether that is worth doing now, or the slice ships its
    other eight and leaves fence and gate for a later piece, is the owner's to pick.
-   **Do held weapons get a hand socket before aim is decided?** docs/30's decisions 7 and 8 of
-   "The outpost pack, adopted" (aim as a second heading, a muzzle socket) are still open; a
-   held-weapon overlay could land unaimed now and be revisited, or wait for those two — either is
-   one line of scope, and it is the owner's to set rather than the next session's to guess.
    **Is a footprint decal a certainty the player should have?** A trail rendered where an actor
    walked, unseen by the player, is the kind of information clause 4 refuses; whether the whole
    decal group (`fx-blood-pool-*`, `fx-bullet-hole-*`, `fx-scorch-mark`, `fx-wood-chips`,
@@ -1216,8 +1226,8 @@ in it cost someone a session, and three entries were added by the sweep above.
 ## Picking up
 
 ```bash
-bash scripts/setup-web-session.sh   # fresh container has no engine
-npm run godot:m2                    # full chain; allow about thirty minutes
+bash scripts/setup-web-session.sh   # verify/install the pinned engine; follow its GODOT_BIN guidance
+npm run godot:m2                    # full chain; latest cloud baseline 47m16s, see its timing table
 npm run check:routing               # the routing table in AGENTS.md, and every gate reachable
 npm run godot:run                   # play it (DISPLAY=:1 on a headless VM)
 ```

@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, writeSync } from "node:fs";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
+import { judgeRuntime } from "./runtime-budget.mjs";
 
 let root = process.cwd();
 if (!existsSync(resolve(root, "godot/project.godot"))) {
@@ -81,6 +82,25 @@ switch (mode) {
     break;
   case "--bench":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://bench/bench.gd"];
+    break;
+  case "--runtime-tick":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://bench/runtime_tick.gd",
+    ];
+    break;
+  case "--runtime-frame":
+    args = [
+      "--path",
+      resolve(root, "godot"),
+      "--audio-driver",
+      "Dummy",
+      "--script",
+      "res://bench/runtime_frame.gd",
+    ];
     break;
   case "--r6-ticks":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_r6_ticks.gd"];
@@ -573,7 +593,31 @@ const run = (invocation) => {
   if (result.status !== 0) finish(result.status ?? 1);
 };
 
-if (mode === "--export") {
+if (mode === "--runtime-tick" || mode === "--runtime-frame") {
+  const result = spawnSync(executable, args, {
+    cwd: root,
+    encoding: "utf8",
+    timeout: 180000,
+    maxBuffer: 16 * 1024 * 1024,
+  });
+  const stdout = result.stdout ?? "";
+  // Raw samples are consumed by the judge, not flooded into every CI log.
+  for (const line of stdout.split(/\r?\n/)) {
+    if (line && !line.startsWith("RUNTIME_RESULT ")) console.log(line);
+  }
+  if (result.stderr) process.stderr.write(result.stderr);
+  if (result.error) console.error(result.error.message);
+  const judgment = judgeRuntime(
+    mode === "--runtime-tick" ? "tick" : "frame",
+    stdout + (result.stderr ?? ""),
+    result.status ?? 1,
+  );
+  for (const summary of judgment.summaries)
+    console.log(`RUNTIME_BUDGET ${JSON.stringify(summary)}`);
+  for (const error of judgment.errors) console.error(`RUNTIME_BUDGET_FAIL ${error}`);
+  console.log(judgment.exitCode === 0 ? "RUNTIME_BUDGET_OK" : "RUNTIME_BUDGET_OVER_OR_INVALID");
+  finish(judgment.exitCode);
+} else if (mode === "--export") {
   mkdirSync(resolve(root, "dist-godot/windows"), { recursive: true });
   mkdirSync(resolve(root, "dist-godot/web"), { recursive: true });
   run(["--headless", "--path", resolve(root, "godot"), "--export-release", "Windows Desktop"]);

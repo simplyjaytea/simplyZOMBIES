@@ -70,6 +70,7 @@ func _run() -> void:
 	ok = _the_strip_is_the_belt_and_the_pockets() and ok
 	ok = _the_strip_spends_what_you_pressed() and ok
 	ok = await _the_column_is_in_a_fixed_order() and ok
+	ok = await _the_sheet_fits_and_scrolls() and ok
 	ok = _the_windows_are_gone_and_the_keys_moved() and ok
 	ok = await _a_cupboard_is_a_column_and_a_window() and ok
 	ok = _a_stack_that_cannot_merge_is_not_reported_as_stored() and ok
@@ -1142,4 +1143,105 @@ func _a_stack_that_cannot_merge_is_not_reported_as_stored() -> bool:
 		push_error("STACK: the remainder was stored as %d or not stored at all" % int(extra_stack.get("count", 0)))
 		return false
 	print("STACK OK a refused stack is not stored and comes back to the ground; four and three make seven and the source is gone; three over a full %d stay three and find a cell" % limit)
+	return true
+
+
+# Window-sized geometry and the matching input boundaries, exercised on the real sheet.
+# A seven-cell pack is the widest carried container; shrinking its cells would change the
+# footprint picture, so all seven must fit beside the inspect pane at either supported size.
+func _the_sheet_fits_and_scrolls() -> bool:
+	var panel_script: GDScript = load(PANEL_GD) as GDScript
+	var bag: GDScript = load("res://ui/bag_grid.gd") as GDScript
+	var w: Variant = _world(3118)
+	var pack: int = _wear(w, "item.pack.frame", "back")
+	if pack < 0:
+		push_error("LAYOUT: no frame pack to measure")
+		return false
+	var body_state: Dictionary = w.components.get_component(w.player, "body") as Dictionary
+	for part in ["head", "torso", "arm_left", "arm_right", "hand_left", "hand_right", "leg_left", "leg_right", "foot_left", "foot_right"]:
+		body_state[part] = float(body_state[part]) * 0.5
+	var ok: bool = true
+	for dims in [Vector2i(1280, 720), Vector2i(1920, 1080)]:
+		var viewport := SubViewport.new()
+		viewport.size = dims
+		root.add_child(viewport)
+		var panel: Control = panel_script.new() as Control
+		viewport.add_child(panel)
+		panel.call("set_world", w, w.player)
+		panel.call("set_open", true)
+		await process_frame
+		var layer: Control = panel.get("_column_layer") as Control
+		if not layer.visible:
+			push_error("LAYOUT: open sheet does not show its bag layer")
+			ok = false
+		panel.call("set_open", false)
+		if layer.visible:
+			push_error("LAYOUT: closed sheet leaves bag grids over the street")
+			ok = false
+		panel.call("set_open", true)
+		var body: Rect2 = panel.call("_body_rect")
+		var column: Rect2 = panel.call("_column_rect")
+		var inspect: Rect2 = panel.call("_inspect_rect")
+		var screen := Rect2(Vector2.ZERO, Vector2(dims))
+		if not _separate_sheet_rects(screen, [body, column, inspect]):
+			push_error("LAYOUT: sheet columns overlap or leave %s" % str(dims))
+			ok = false
+		if _separate_sheet_rects(screen, [body, Rect2(body.position + Vector2(10, 0), column.size), inspect]):
+			push_error("LAYOUT: an overlapping bag column passed the same judge")
+			ok = false
+		if column.size.x < (bag.call("size_of", 7, 9) as Vector2).x:
+			push_error("LAYOUT: the frame pack loses a native-width cell at %s" % str(dims))
+			ok = false
+		var boxes: Array = panel.call("_slot_boxes")
+		for box in boxes:
+			if not body.encloses(box["rect"] as Rect2):
+				push_error("LAYOUT: an equipment slot leaves its panel")
+				ok = false
+		var condition: Rect2 = panel.call("_condition_rect")
+		for box in boxes:
+			if condition.intersects(box["rect"] as Rect2):
+				push_error("LAYOUT: condition prose overlaps an equipment slot")
+				ok = false
+		var rows: Array = panel.call("_condition_rows")
+		var capacity: int = int(panel.call("_condition_capacity"))
+		if rows.size() <= capacity:
+			push_error("LAYOUT: injured fixture did not need scrolling; nothing judged")
+			ok = false
+		var wheel := InputEventMouseButton.new()
+		wheel.pressed = true
+		wheel.position = condition.get_center()
+		wheel.button_index = MOUSE_BUTTON_WHEEL_DOWN
+		for i in rows.size():
+			panel.call("_gui_input", wheel)
+		if int(panel.get("_condition_scroll")) != maxi(0, rows.size() - capacity) or float(panel.get("_scroll")) != 0.0:
+			push_error("LAYOUT: wheel over condition did not reach the final row independently of bags")
+			ok = false
+		wheel.button_index = MOUSE_BUTTON_WHEEL_UP
+		for i in rows.size():
+			panel.call("_gui_input", wheel)
+		if int(panel.get("_condition_scroll")) != 0:
+			push_error("LAYOUT: condition did not scroll back to the first row")
+			ok = false
+		# A release below the clip must not put an item in an invisible bag cell.
+		panel.set("_placed", panel.call("_column_places"))
+		panel.set("_drag_item", pack)
+		w.commands.take(int(w.tick))
+		panel.call("_release_at", Vector2(column.position.x + 20.0, column.end.y + 20.0))
+		if not (w.commands._pending as Array).is_empty():
+			push_error("LAYOUT: releasing beneath the clipped bags proposed a move")
+			ok = false
+		viewport.queue_free()
+		await process_frame
+	if ok:
+		print("LAYOUT OK 1280/1920 columns and equipment fit, seven native bag cells stay visible, condition scroll reaches both ends, clipped cells cannot accept a drop")
+	return ok
+
+
+func _separate_sheet_rects(screen: Rect2, rects: Array) -> bool:
+	for i in rects.size():
+		if not screen.encloses(rects[i] as Rect2):
+			return false
+		for j in range(i + 1, rects.size()):
+			if (rects[i] as Rect2).intersects(rects[j] as Rect2):
+				return false
 	return true

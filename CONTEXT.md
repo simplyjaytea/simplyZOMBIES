@@ -37,7 +37,9 @@ An NPC interrupt to eat, drink, sleep, wash, or stand at a lit Campfire. Not a J
 _Avoid_: Job, chore, needs AI
 
 **Job**:
-An NPC work type in the slice: Haul, Construct, Cook, Doctor, or Rest. Guard exists only on Mara’s leftover row.
+An NPC work type chosen from a survivor's priority row, such as Haul, Construct, Cook, Doctor,
+Rest or Guard. Guard is a dusk-to-dawn job. A column in the row does not itself prove that its
+work consumer is implemented; the jobs record in docs/23 names the implemented work.
 _Avoid_: Task (wayfinder decision tickets), chore, Need seek
 
 **Stockpile**:
@@ -45,7 +47,8 @@ Colony items sitting on the exam-room indoor floor. Personal grids stay personal
 _Avoid_: Colony inventory, shared pool, warehouse, stash UI
 
 **Campfire**:
-The authored exam-room station that is heat, Cook, and light. Starts unlit. The player douses it.
+The authored exam-room station that is heat, Cook, and light. Starts unlit. The player can
+douse it, and a lit fire also burns down automatically.
 _Avoid_: Stove, heater, firepit, light source (when you mean this object)
 
 **Survivor generator**:
@@ -53,7 +56,9 @@ The content pool that rolls ordinary survivors (name, trait, backstory) for the 
 _Avoid_: RNG recruit, random NPC
 
 **Inspect**:
-A timed Doctor action that produces skill-scaled wound prose. It never leaks private transmission. The Injuries tab is not Inspect.
+A timed Doctor action that produces wound prose at the examiner's inspection tier. The current
+inspection tier is authored, not earned Medicine skill. It never leaks private transmission.
+The Injuries tab is not Inspect.
 _Avoid_: Diagnose, scan, examine (when you mean this Job), condition view
 
 **Corpse**:
@@ -65,5 +70,8 @@ Mood hard crisis for an NPC: they walk to the gate with their pockets and do not
 _Avoid_: Desert, raid, succession
 
 **Focus**:
-A preset that writes an NPC’s Job row: Auto, Fighter, Worker, Medic, Scout, or Manual. Auto is Autodetect. Manual is the 17-column grid. The player has no Focus.
+A preset that writes an NPC's Job row and selects how their skill points are spent: Auto,
+Fighter, Worker, Medic, Scout or Manual. Auto is Autodetect; Manual exposes the eighteen-column
+work grid and leaves skill spending to the player. The controlled character has no NPC work
+row and always uses Manual skill spending, including after succession.
 _Avoid_: Class, role, schedule, draft

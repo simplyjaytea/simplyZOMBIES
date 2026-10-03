@@ -229,14 +229,14 @@ owner's call and is recorded as one. The pieces, in the order they land — the 
   - **Assigning a survivor to a camp.** Needs an assignment record the sim does not have — a
     destination is recomputed from a `job` dict every tick, and `reserved` pins an entity to an
     entity, never to a place.
-- ~~The flip: the main area is what you boot~~ — **landed**, see the record.
+- ~~The region boot and its pressure band~~ — **landed**, see the record. The region remains
+  opt-in through `--region=<id>`; the default boot is one district.
 
-**Waiting on the owner in this group** (also in `HANDOFF.md`): the main area's tile extent and the
-gap between districts — docs/24's 300–500 m is a recorded argument, and a 2×2 of 256s at that gap is
-912 tiles a side, ~12.7× one district's attention field, which the measurement says is out of reach;
-**which district holds the colony**, since the owner named city, forest and factory and none of them
-is where the survivors live; and whether corridor mouths join the director's spawn band, which
-changes night pressure and therefore every measured band.
+The extent and colony siting were settled in [docs/30](30-decisions.md#the-main-area-2026-09-09--2026-09-10):
+the measured revision uses 192-tile cells with a 16-tile seam, 400 tiles overall, and ranks annex
+candidates across the region. The night band follows the camp's cell. Pressure arriving from
+other cells remains a separate design and balance question; the old 912-tile proposal is not
+an unanswered extent decision.
 
 **World generation — the rich district.** The sandbox arc, authorized by the owner (2026-08-25):
 docs/24's "authored templates, procedurally assembled" built for real, still in one district.
@@ -547,10 +547,9 @@ projection are untouched.
   supported rectangular brick and plaster perimeters; see the record (`godot:check:roof`,
   `godot:check:authored`, `sprites:check`). Unsupported geometry and orientations retain generated
   pictures. The separate unseen-wall roof coverage decision remains open in HANDOFF.
-- **Floor beneath A2 side walls.** Transparent pixels in the native side bands expose outdoor
-  ground on perimeter cells, where the approved prototype extends the indoor boards. Add a
-  presentation-only underlay for accepted A2 wall/window owner cells, respecting sight and roof
-  clipping without changing simulation or building metadata; compare both capture sizes again.
+- ~~**Floor beneath A2 side walls.**~~ — implemented 2026-10-03; see the record and the
+  before/after captures at both sizes. Accepted wall/window owners draw room boards beneath
+  transparent native pixels, with sight, roofs and simulation metadata unchanged.
 - **The remaining pack wall states.** Interior wall, broken window, both fence directions and
   open/closed gates remain unadopted. Give each a truthful existing reader or a separately scoped
   mechanic before declaring its picture; the current simulation has no broken-glass state to paint.
@@ -598,10 +597,11 @@ its record; the health-bar ban, the digit ban, the prose HUD and the busy loop's
 time left are untouched.
 
 All nine pieces have landed (the last, "Saved, picked up, busy", 2026-09-26); their records are
-in the record, by system. Nothing is left in this group. What the arc left **known and not fixed**
-is in "One typeface"'s record: at 1280×720 the corner doll overlaps the action bar, the work panel
-is fixed at 1520 px and the inspect column overlaps the pockets, all older than the kit. (The quick
-strip's sixth slot, off screen at 1280×720, is fixed: see "Art — the quick strip fits its rect".)
+in the record, by system. The October 3 layout review fixes the fixed-width Work panel and
+inventory overlap at 1280×720, plus clipped bag input and a bag child left visible on close.
+Work and the skill web now hide the corner chart. The earlier action-bar overlap was already
+fixed by the D2 chart's upward shift, and the quick strip's sixth slot by its own earlier slice.
+See the new layout record for actual-scene checks and before/after captures at both resolutions.
 
 **Art & renderer — overcast or torchlight, decided by the owner (2026-09-08), on the Dungeon
 Settlers spine.** The direction is docs/30's "Overcast or torchlight": a hybrid that keeps the
@@ -885,14 +885,11 @@ group above amend this arc's mood, wall and pawn clauses; the pieces below stand
   two thousand). The sixteen building keys move into one sheet addressed by region, the way
   the ground's cells are, and `_draw_wall_art`/`_draw_roofs` blit regions of it; the edges
   slice's perf driver re-run, the 539 restored or the record says why not. No look changes.
-- **The other six equipment slots draw.** `SimInventory.EQUIP_SLOTS` has twelve and
-  `Appearance.EQUIP_DRAW_ORDER` draws six of them; `vest`, `belt`, `face`, `eyes`, `gloves` and
-  `feet` stay equippable in content and reach no picture, which is the dead-socket shape even though
-  nothing is wrong with the code. The vest is the one that matters for play — a scrap vest is armour
-  a survivor equips for protection and the screen does not show it — so this piece is a slot's worth
-  of order-table entry and one overlay per base, on slice 8's skeleton, judged by `WORN_LOOK_OK`'s
-  existing lanes. Whether the remaining five are worth drawing at 32 px at all is a judgement to
-  make with the pictures in hand, not before.
+- **Wearables beyond the adopted pack families.** The September 26 pack pass replaced the
+  generated clothing rigs and now draws vest, helmet, mask and backpack families in four views,
+  plus ten held weapons. The old six-slot/absent-vest defect is superseded. Additional clothing
+  and belt, eyes, gloves or feet pictures still need an art policy and readable pictures at the
+  shipped scale; equippability alone does not authorize inventing a new overlay.
 - **The wreck dumpster — designed and drawn, cut at the balance line.** A `wreck_dumpster` sprite
   was authored for the lone `Tile.Low` tiles a district stands, and standing more than the annex's
   single one meant widening the wreck pass's run length from 2–3 to 1–3 in `_dress_occluders`.
@@ -914,10 +911,6 @@ group above amend this arc's mood, wall and pawn clauses; the pieces below stand
   shadowcast to the wedge, the cone drawn from the gun hand in the lit-pool geometry, and the
   attention cost a lit torch is — an emitter zombies read. Its own gated slice, after the look
   lands, and not before: the arc is presentation and this is the one sim change in it.
-- **Ground items draw as squares.** A dropped item is a fixed ten-pixel `draw_rect`
-  (`_draw_entities`), and `item.appearance.sprite` — declared in the schema, read by nothing —
-  is the twelfth dead socket of the milestone. Named here so the 32 px tile does not make the
-  square look like a decision; a ground sprite per item base is content and a resolver call.
 - **What driving left behind.** The first driving slice landed 2026-09-05 (the record below,
   `godot:m2:vehicles`) at the owner's direction, ahead of the Milestone 3B schedule it used to
   sit behind; these are the halves it named rather than built, each its own piece:
@@ -1019,8 +1012,12 @@ session, each with its gate red both ways and its record.
   distributions in the balance harness, not as single-seed anecdotes.
 - **The melee-vs-ranged parity measurement.** Risk 6's checkpoint: melee-only against ranged-only
   colony outcome distributions, before human tuning argues from anecdotes.
-- **The full balance grid.** `BALANCE_FULL=1`, ~9 h — an overnight job at measured throughput, not
-  a "quick run".
+- **The full balance grid.** `BALANCE_TILES=256 npm run godot:m2:balance:full` for the shipped
+  district (the full tier otherwise defaults to 64 tiles); schedule from current measured throughput,
+  not the obsolete nine-hour estimate. A no-wipe ten-day campaign reaches 2,772,000 ticks.
+  The October 3 early runtime window measured about 34 ticks/s: roughly 22.6 hours per full
+  campaign, or 272 hours for twelve, if that rate held. This is an extrapolation, not a completed
+  campaign or grid; late-game load and early wipes change it. See docs/22's runtime evidence.
 - **The human ten-day playtest.** The exit criterion itself, run by a person. It now carries one
   specific question the automated harness raised and cannot answer: **the alpha-roster arc made the
   campaign harder**, and the re-baseline shows exactly where. Two of four seeds lose colonists that
@@ -1064,13 +1061,19 @@ session, each with its gate red both ways and its record.
   slice, and `noise`, `scent` and `sight` still reach no draw call at all — the field and the
   visibility index are both there to read, and the frozen renderer draws all four. A dead control
   of exactly the named shape, one channel apiece when touched next.
-- **The Godot build has no enforced budget.** docs/00 pillar 6 says a feature that breaks budget
-  does not ship, and every budget CI actually enforces measures the **frozen oracle**: `npm run bench`
-  is vitest over `src/`, and `npm run bench:frame` spawns **vite** and drives the TypeScript/Canvas
-  build in a browser. `npm run godot:bench` benchmarks a synthetic `{components, field, spatial}`
-  dictionary rather than a `SimWorld`, and prints `BENCH_OVER_BUDGET` while exiting 0. So the only
-  thing that ships is the only thing nothing measures — which is how a 12.58 ms per-frame
-  serialisation lived in `_update_hud` (see the record's **Kernel & review sweep**).
+- **The Godot build still has no CI-enforced runtime timing budget.** The October 3 runtime
+  evidence slice adds strict real-world tick and real-scene world-draw commands, with an enforced
+  deterministic runner contract in CI. The actual measurements exceed the unchanged 8 ms mean /
+  16 ms maximum tick and 10 ms mean draw budgets, so the timing commands themselves are not yet
+  CI shipping gates. Optimization and real timing enforcement remain open; this is partial
+  observability progress. The older `godot:bench` remains synthetic and exits zero on overruns;
+  CI's `bench` and `bench:frame` still measure the frozen TypeScript oracle. See docs/22 and the
+  runtime evidence record for scope, results and next measurements.
+  Next bounded slices: attribute and reduce the jobs/map-change visibility spike; profile the
+  real world-draw body path; then remeasure identical fixtures before enabling actual timing
+  gates. Repeated content lookups, healthy self-aid scans and shadowcast clearing are candidate
+  optimizations to prove individually, with deterministic behavior and reader gates intact.
+  Draw-stage timing alone does not close delivered FPS, long-session, save or streaming budgets.
 
 **Weather — the rest of docs/16, opened by the owner 2026-09-06.** ADR 0016. The spine (kinds,
 the calendar, the wind, the shift, the slowed living and dead), the storm, the cold snap and
@@ -1239,10 +1242,6 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
 - **More gates that cannot fail.** Four were fixed in the sweep; these are what a read of all
   thirty-odd check scripts turned up and did **not** fix. Assume there are others and go at the
   rest with the same question — *what change would turn this red?*
-  - `check_appearance.gd`'s `_all_blocks()` skips every content file whose top level is an Array,
-    so **all item** appearance blocks are invisible to the gate. It also calls the uncached
-    `ContentLoader.load_tree()` once per content path *inside* its own loop and is itself re-called
-    per iteration by two callers, turning a 27-file walk into thousands of full directory scans.
   - `check_r6_mutation.gd`'s "validator not vacuous" lane asserts that a `RegEx` **the gate itself
     just compiled** does not match `"BAD_ID"` — the subject is the gate's own local object, not
     `ContentValidator`, so no change to the validator can turn it red. Its `_mutate_perf` lane
@@ -1310,11 +1309,10 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
 
 **Parked until Milestone 3A — blocked by missing systems, not by choices:**
 
-- **Warmth and hygiene slots** (undershirt, socks, underwear) — the needs they were waiting on
-  exist now (temperature and hygiene bands, ADR 0002); what is still missing is a reader on worn
-  gear — `needs.gd`'s temperature tick reads the sky, the roof and the fire and never the clothes
-  (`wearing_armor` reads torso coverage for the heat wave, which is the nearest thing) — so the
-  blocker is a warmth property on clothing, which docs/04 and docs/10 have not specified.
+- **Additional warmth and hygiene slots** (undershirt, socks, underwear). Worn warmth is already
+  implemented through `warmth_points`/`warmth_bands`, including wet clothing; a missing clothing
+  reader no longer blocks it. The additional slots and their content/hygiene behavior remain
+  unshipped and need their own scope.
 - **Trait-weighted modification outcomes** — wait for traits; `SimModification.TRAIT_FAILURE_SHIFT`
   is the named seam.
 
@@ -1930,6 +1928,27 @@ What landed and what proved it, system by system (condensed from the retired bac
 links in the slice-scope table above are the authority on each). The open tails that used to end
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
+
+- **UI — the sheet and Work grid fit the reviewed viewports, 2026-10-03.** At 1280×720,
+  inventory now separates its equipment, native 56-pixel bag cells and inspect pane, keeping
+  all seven frame-pack columns reachable. The compact sheet uses the condition chart at integer
+  2×; the wide sheet retains 3×. Condition prose wraps and scrolls independently of bags.
+  Closing inventory hides the clipped bag child, and bag pick/cursor/drop paths reject points
+  outside the visible clip. Work columns share measured widths for drawing and input; the
+  roster determines panel height, with scrolling for extra survivors. Work and the skill web
+  hide the corner chart even while soft-paused. No simulation, art, typeface or information-policy
+  change. The corner chart/action-bar overlap was already fixed by D2, not by this slice.
+
+  **Evidence:** INVENTORY's new LAYOUT lane checks geometry, condition scrolling, closed-child
+  visibility and clipped drop refusal. PLAY's WORK-LAYOUT lane resizes the real scene, clicks
+  the last priority column, checks overflow-roster scrolling and the entity selected after
+  scrolling, and checks paused corner-chart hiding/restoration. Inventory, play, UI skin, HUD
+  and response focused checks pass; independent source and screenshot review found no blocker.
+  [Forty native viewport captures](../.hermes/plans/2026-10-03_ui-layout/README.md) compare ten
+  scenarios before/after at 1280×720 and 1920×1080, including healthy/injured inventory, pack
+  scrolling, Work, HUD, title/pause/settings and an edge item menu. Below-minimum layouts,
+  every possible long description and a human campaign remain outside this evidence.
+  Combined verification is recorded with the October integration below.
 
 - **UI asset delivery — the approved UI Field Kit, 2026-09-20.** The owner-approved
   kit is versioned under `godot/art/simplyzombies-ui/`: 120 native RGBA PNGs across
@@ -2605,6 +2624,21 @@ not a to-do list:
   full-chain claim. Jev was unavailable this session. The owner-directed early landing is
   recorded in the commit and PR as well.
 
+- **Art & renderer — boards beneath A2 perimeter walls, 2026-10-03.** Accepted, currently
+  visible A2 Wall/Window owners now use the room's Boards row and unweathered indoor tint below
+  the native transparent bands. Doors retain their threshold; unsupported windows, materials,
+  overlays and remembered/unseen cells retain their previous fallback. No content, simulation,
+  sight, roof or building-metadata change.
+
+  **Evidence:** `godot:check:roof`'s new A2_FLOOR lane instruments the real scene and verifies
+  all eighteen accepted owners, snow, low zoom, missing atlas and the refused paths above.
+  Restoring the old calls makes that lane fail. Roof, water, memory, weather, topdown and road
+  focused checks pass; independent source review found no blocker. The
+  [twelve before/after captures](../.hermes/plans/2026-10-03_a2-floor-underlay/README.md) cover
+  both resolutions, normal indoor sight, a normal north roof approach and a clearly marked
+  all-seen diagnostic. Pixel differences stay within owner-cell bounds; unseen roof coverage
+  is unchanged. Combined verification is recorded with the October integration below.
+
 - **Art & renderer — A2 fitted pack walls, 2026-10-03.** The owner's shape-matched wall pick
   is live on supported rectangular plaster and brick perimeters. Thirteen runtime PNGs reproduce
   seven native pack sources through crop-only declarations: east-west runs, open/closed doors,
@@ -2636,12 +2670,11 @@ not a to-do list:
   at 1280×720 and 1920×1080 are under `.hermes/plans/2026-10-02_art-completion/walls/`; captions
   distinguish forced all-seen geometry/depth diagnostics from the normal sight/roof views.
 
-  **Deliberately left:** transparent side bands expose outdoor ground on perimeter cells where
-  the prototype extends boards. This presentation-only underlay seam is named in what's left;
-  it does not alter the traversable floor or sight/roof safety. Interior wall, broken window,
+  **Follow-up:** the transparent-band floor limitation was fixed by the October 3 A2 floor
+  underlay record above, without altering traversable floor or sight/roof safety. Interior wall, broken window,
   both fence directions and open/closed gates remain unadopted. The separate owner decision on
   roofs covering unseen perimeter walls remains open. Sol on GPT-6.1 approved the frozen scope
-  and captures with that visual limitation recorded.
+  and captures with that then-open visual limitation recorded.
 
 - **Art & renderer — the bodies turn and walk, 2026-09-26.** Every human (the player, Mara,
   Ellis, the colony looks, every raider archetype and look) draws the outpost pack's survivor, and
@@ -9699,6 +9732,61 @@ not a to-do list:
   not a substring search a comment could satisfy (CLAUDE.md's `begins_with("const READ_KEYS")`
   precedent) — reverting the fix reds all three. `recorded` is not part of the save format
   (`world.gd`'s `snapshot()`/`restore()` never touch it), so nothing needed to change there.
+- **Kernel & tooling — October parallel integration and continuity, 2026-10-03.** The floor,
+  UI and runtime-evidence workers used separate branches/worktrees with separate runtime state.
+  Their reviewed patches were combined before final verification. Independent source reviews
+  approved floor and UI; Astra approved the bounded runtime evidence slice after the per-frame
+  and runner-contract fixes. The coordinator reviewed before/after captures at both sizes.
+  Jev was unavailable; the independent reviews and actual gates provide this review evidence.
+
+  **Verified together:** all **85** `godot:m2` gates passed, no failing exits, in **47m16s**
+  (`GATE_TIME_TABLE` total **2835.79 seconds**). Balance took **15m29s**, storm **6m09s**.
+  All four primary FAST balance summaries exactly matched the earlier water-repair baseline.
+  The new A2_FLOOR, inventory LAYOUT and PLAY WORK-LAYOUT lanes passed inside that chain.
+  Typecheck, lint, format, routing, timing and all **27** runtime-budget contract cases passed;
+  `git diff --check` was clean. These are local integration results; GitHub runs independently.
+  The strict runtime timing failures remain the separately recorded pre-integration baseline, not
+  passing performance evidence.
+
+  README, HANDOFF, AGENTS, CLAUDE, CONTEXT and the steward guidance now point to current readers,
+  commands and evidence. Archived pickup plans are marked historical. The roadmap removes stale
+  ground-item, appearance-array and clothing-warmth defects and records settled region siting
+  separately from unresolved regional pressure. No second task ledger was introduced. The
+  remaining performance, full-grid and human-playtest work stays open with its measurement limits.
+
+- **Kernel & tooling — real runtime measurements and strict exits, 2026-10-03 (partial).**
+  `godot:bench:runtime` boots `SimBoot.playable(256)` with seed 20260805, warms for 100 ticks and
+  samples 600 complete `world.step()` calls. `godot:bench:frame` enters the real scene at
+  1280×720 and samples its inherited world `_draw` CPU work, first at boot and then with 1,000
+  visible, currently textured fixture bodies (30 warmup / 120 measured draws each). Simulation
+  and `main._process` are held; child UI, GPU completion and presentation are outside that CPU
+  measurement. Render-server time and harness-inclusive intervals are reported separately.
+
+  `scripts/runtime-budget.mjs` applies the unchanged 8 ms mean / 16 ms maximum tick and 10 ms
+  mean draw limits through the production runner. Missing/duplicate samples, invalid metadata,
+  incomplete draws, engine errors and timeouts fail. Per-frame completion and body/cache state
+  are reset before measurement; a fallback circle cannot count as a textured crowd member.
+  `check:runtime-budget` sends 27 deterministic exit cases through the actual runner, verifies
+  exact engine script arguments and production-reader connections, and is reached by CI.
+  A real displayed mutation that skipped the inherited drawer after five successful draws
+  failed before completing its samples; the final drawer was restored.
+
+  **Measured baseline:** Godot 4.7.1, X11/llvmpipe on this cloud Xeon workspace, gameplay code
+  `5b2706c` before the parallel floor/UI patches. Tick mean **29.408 ms**, p95 **39.345 ms**,
+  maximum **296.393 ms**; boot world-draw mean **41.191 ms**, crowded mean **299.397 ms**.
+  Both strict commands correctly exit 1 for budget breaches on valid fixtures. The extra
+  diagnostic profile attributes its worst tick to a map-generation change and 105 visibility
+  recasts: visibility **176.980 ms**, jobs **100.441 ms**. Full workload, machine, supplemental
+  measurements and profile limitations are in [docs/22](22-performance.md#shipped-godot-runtime-measurements).
+
+  **What remains:** these commands expose existing product overruns; CI enforces their
+  deterministic contract, not the actual timings yet. No budgets were widened and no simulation
+  optimization was bundled. Representative quiet/siege/FPS/save/streaming/soak coverage and
+  green real timing enforcement remain open. A shipped-size ten-day campaign is 2,772,000 ticks;
+  the early-window rate projects about 22.64 hours per no-wipe campaign / 271.73 hours for twelve,
+  before the extra Auto case. No full grid, distribution proof, combat parity result or human
+  ten-day playtest is claimed. Combined verification is recorded in the October integration entry.
+
 - **Kernel & tooling — water draw check follows its branches, 2026-10-03.** The A2 wall
   additions moved the water fill to character 4,473 after the drawing match, beyond
   `check_water.gd`'s 4,000-character window. Reproduced on the merged art pass:

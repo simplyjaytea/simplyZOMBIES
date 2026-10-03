@@ -5,9 +5,12 @@ extends SceneTree
 # (presentation/dressing.gd's material tables, presentation/appearance.gd's file resolve) and
 # the draw loop that reaches for all three.
 #
-# Nine lanes, every assertion with a true positive and a true negative, because a gate that
+# Named lanes, every assertion with a true positive and a true negative, because a gate that
 # cannot fail is worse than no gate:
 #
+#   A2_FLOOR actual main.tscn floor calls: accepted wall/window owners reuse room Boards and
+#            unweathered tint at normal/low zoom and without the atlas; snow outdoors remains;
+#            door thresholds, rejected states, remembered/unseen cells and sim metadata stand.
 #   LOOK     every building template and the annex name a roof/wall material the enum allows,
 #            and the dressing block resolves art for it -- refused for an unlisted material, an
 #            absent look, and a wall cap naming a file that does not exist.
@@ -90,14 +93,36 @@ class FakeSeen extends RefCounted:
 
 
 class AllFocalVision extends RefCounted:
+	var hidden: Dictionary = {}
+
 	func tiles_for(_observer: int) -> Variant:
 		return self
 
-	func has_tile(_tx: int, _ty: int) -> bool:
-		return true
+	func has_tile(tx: int, ty: int) -> bool:
+		return not hidden.has(Vector2i(tx, ty))
 
 	func detail(_observer: int, _x: float, _y: float) -> int:
 		return SimVisibility.Detail.Focal
+
+
+# Instrument only the gate's scene instance. These overrides forward to the actual renderer,
+# then remember its arguments, so the underlay proof must reach the same floor blit as a room.
+class FloorRecordingRenderer extends MainRenderer:
+	var floor_calls: Dictionary = {}
+	var underlay_tiles: Dictionary = {}
+	var threshold_tiles: Dictionary = {}
+
+	func _draw_floor_tile(rect: Rect2, col: Color, tx: int, ty: int, row: int) -> void:
+		super._draw_floor_tile(rect, col, tx, ty, row)
+		floor_calls[Vector2i(tx, ty)] = {"colour": col, "row": row, "rect": rect}
+
+	func _draw_a2_floor_underlay(rect: Rect2, tx: int, ty: int) -> void:
+		super._draw_a2_floor_underlay(rect, tx, ty)
+		underlay_tiles[Vector2i(tx, ty)] = true
+
+	func _draw_threshold(rect: Rect2, col: Color, tx: int, ty: int) -> void:
+		super._draw_threshold(rect, col, tx, ty)
+		threshold_tiles[Vector2i(tx, ty)] = true
 
 
 func _init() -> void:
@@ -378,6 +403,7 @@ func _a2_runtime_select(renderer: Variant, map: Variant, block: Dictionary, seen
 
 func _the_a2_scene_draws_walls_and_body() -> bool:
 	var main: Node = load("res://presentation/main.tscn").instantiate()
+	main.set_script(FloorRecordingRenderer)
 	root.add_child(main)
 	await process_frame
 	main.call("_enter_state", Session.State.PLAYING)
@@ -426,8 +452,106 @@ func _the_a2_scene_draws_walls_and_body() -> bool:
 		main.queue_free()
 		return false
 	print("A2_SCENE_DRAW OK main.tscn completed a full frame with %d wall pieces, %d actual texture blits, and player in _focal_drawn" % [pieces.size(), blits.size()])
+	var underlay_ok: bool = await _the_a2_scene_underlay_stays_inside_coverage(main)
 	main.queue_free()
-	return true
+	return underlay_ok
+
+
+func _redraw_floor_probe(main: Node) -> void:
+	(main.get("floor_calls") as Dictionary).clear()
+	(main.get("underlay_tiles") as Dictionary).clear()
+	(main.get("threshold_tiles") as Dictionary).clear()
+	main.queue_redraw()
+	await process_frame
+	await process_frame
+
+
+func _the_a2_scene_underlay_stays_inside_coverage(main: Node) -> bool:
+	var world: Variant = main.get("world")
+	var map: Variant = world.tilemap
+	var original_tiles: PackedByteArray = map.tiles.duplicate()
+	var original_indoors: PackedByteArray = map.indoors.duplicate()
+	var original_surface: PackedByteArray = map.surfaces.duplicate()
+	var original_buildings: Array = map.buildings.duplicate(true)
+	var atlas: Texture2D = Appearance.ground_atlas()
+	if atlas == null:
+		push_error("A2_FLOOR needs the shipped atlas before testing its missing-atlas fallback")
+		return false
+	var camera: Dictionary = main.get("camera")
+	# Headless can report a tiny root viewport; cover the complete fixture at every test zoom.
+	camera["width"] = 384.0
+	camera["height"] = 320.0
+	var expected: Color = Appearance.indoor_floor(map, 3, 3, Appearance.ground_colour(map, 3, 3))
+	var ok: bool = true
+	for scenario in ["clear", "snow", "low_zoom", "missing_atlas"]:
+		world.weather["snowCover"] = 0.0 if scenario == "clear" else 1.0
+		camera["zoom"] = Palette.GROUND_TEXTURE_MIN_ZOOM - 1.0 if scenario == "low_zoom" else 32.0
+		Appearance._cache[Appearance.GROUND_ATLAS_KEY] = null if scenario == "missing_atlas" else atlas
+		await _redraw_floor_probe(main)
+		var calls: Dictionary = main.get("floor_calls")
+		var underlays: Dictionary = main.get("underlay_tiles")
+		if underlays.size() != 18 or underlays.has(Vector2i(8, 4)) or underlays.has(Vector2i(5, 6)):
+			push_error("A2_FLOOR %s expected 18 wall/window owners only, got %s" % [scenario, str(underlays.keys())])
+			ok = false
+		for cell in underlays:
+			var floor_call: Dictionary = calls.get(cell, {})
+			if int(floor_call.get("row", -1)) != Appearance.GroundRow.Boards or not (floor_call.get("colour", Color.TRANSPARENT) as Color).is_equal_approx(expected):
+				push_error("A2_FLOOR %s owner %s did not reach room Boards and its unweathered tint" % [scenario, str(cell)])
+				ok = false
+		# The same scene must still snow-tint outdoor ground, and the accepted door must reach
+		# the separate threshold drawer. Checking both keeps a blanket no-snow/floor fix red.
+		var outdoor: Color = (calls.get(Vector2i(0, 0), {}) as Dictionary).get("colour", Color.TRANSPARENT)
+		if not (main.get("threshold_tiles") as Dictionary).has(Vector2i(5, 6)) or outdoor.is_equal_approx(expected):
+			push_error("A2_FLOOR %s changed the door threshold or painted room floor outdoors" % scenario)
+			ok = false
+		if scenario == "clear":
+			_stash["a2_clear_outdoor"] = outdoor
+		elif outdoor.is_equal_approx(_stash["a2_clear_outdoor"] as Color):
+			push_error("A2_FLOOR %s no longer applies snow to outdoor floor" % scenario)
+			ok = false
+	Appearance._cache[Appearance.GROUND_ATLAS_KEY] = atlas
+	camera["zoom"] = 32.0
+	world.weather["snowCover"] = 0.0
+	if map.tiles != original_tiles or map.indoors != original_indoors or map.surfaces != original_surface or map.buildings != original_buildings:
+		push_error("A2_FLOOR presentation changed map geometry, indoor flags, surface or building metadata")
+		ok = false
+	# Fallback states must reach no underlay on the rejected cell, even when it used A2 in
+	# the preceding frame. The current renderer instance and its caches stay alive throughout.
+	for overlay in [{"kind": "board", "stage": 2}, {"kind": "scrap", "stage": 0}]:
+		map.overlays[6 * int(map.w) + 4] = overlay
+		await _redraw_floor_probe(main)
+		if (main.get("underlay_tiles") as Dictionary).has(Vector2i(4, 6)):
+			push_error("A2_FLOOR leaked underlay into %s window fallback" % str(overlay))
+			ok = false
+	map.overlays.erase(6 * int(map.w) + 4)
+	main.set("_looks", {0: {"wall": "timber", "roof": "tar"}})
+	await _redraw_floor_probe(main)
+	if not (main.get("underlay_tiles") as Dictionary).is_empty():
+		push_error("A2_FLOOR unsupported timber received A2 boards")
+		ok = false
+	main.set("_looks", {0: {"wall": "render", "roof": "tar"}})
+	# All remembered, but no currently seen tiles: the generated remembered treatment must
+	# remain. Never-seen is tested on the same scene after removing that memory.
+	var vision: Variant = world.vision
+	for y in map.h:
+		for x in map.w:
+			vision.hidden[Vector2i(x, y)] = true
+	var bits := PackedByteArray()
+	bits.resize(ceili(float(int(map.w) * int(map.h)) / 8.0))
+	bits.fill(255)
+	world.components.set_component(int(world.player), "explored", {"w": int(map.w), "h": int(map.h), "bits": Marshalls.raw_to_base64(bits)})
+	await _redraw_floor_probe(main)
+	if not (main.get("underlay_tiles") as Dictionary).is_empty() or (main.get("floor_calls") as Dictionary).is_empty():
+		push_error("A2_FLOOR remembered-only frame did not keep generated fallback floor without A2 underlays")
+		ok = false
+	world.components.remove_component(int(world.player), "explored")
+	await _redraw_floor_probe(main)
+	if not (main.get("underlay_tiles") as Dictionary).is_empty() or not (main.get("floor_calls") as Dictionary).is_empty():
+		push_error("A2_FLOOR never-seen frame drew floor")
+		ok = false
+	if ok:
+		print("A2_FLOOR OK actual main.tscn draws 18 owner-cell Boards underlays matching room tint; snow, low zoom and missing atlas preserve that floor; doors, side-window/board/scrap/timber fallback, remembered and never-seen cells refuse it; map metadata unchanged")
+	return ok
 
 
 func _the_a2_runtime_placements_and_fallbacks() -> bool:
