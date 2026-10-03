@@ -12,9 +12,11 @@ is only about the pull request around it.
 
 `.github/workflows/ci.yml`, four jobs since the 2026-09-12 split. `check` (25 min) is the
 TypeScript oracle (`npm run typecheck`, `lint`, `format:check`, `npm test`),
-`npm run sprites:check` (needs Pillow), `npm run check:routing`, R1 parity, the smoke, the
-content validator, the headless bench and the four R6 gates. `godot-m2` (45 min) is the whole
-`npm run godot:m2` chain on its own -- about twenty-seven minutes locally, 19-23 on CI -- split
+`npm run sprites:check` (needs Pillow), `npm run check:routing`, `npm run check:timing`,
+`npm run check:runtime-budget`, R1 parity, the smoke, the
+content validator, the headless bench and the four R6 gates. `godot-m2` (45 min timeout) is the whole
+`npm run godot:m2` chain on its own -- 47m16s locally for 85 gates on the 2026-10-03 cloud
+workspace; earlier 69-gate CI runs took 19-23 minutes -- split
 out after `check` was cancelled at 30m15s on the second-to-last gate. `godot-exports` packages
 Windows and web on a Windows runner and only runs once both are green. `performance` runs the
 two TypeScript benchmarks; a budget breach there is a failure, not a warning (docs/00, pillar 6).
@@ -28,16 +30,19 @@ two TypeScript benchmarks; a budget breach there is a failure, not a warning (do
   `*.md`.
 - `npm run check:routing` for anything touching `package.json` scripts, `scripts/run-godot.mjs`,
   a `godot/check_*.gd`, or the routing table.
+- `npm run check:timing` for runner, timing-wrapper or `godot:m2:chain` changes.
 - `npm run sprites:check` after touching `tools/sprites/` or a PNG it generates.
 
 ## Reading a red check
 
 - `ObjectDB ... leaked at exit` and `resources still in use` after an `_OK` line are engine
   shutdown noise. Read the `_OK` line and the exit code.
-- `BENCH_OVER_BUDGET` from `godot:bench` exits 0 on purpose; `npm run bench` (TypeScript) does
-  gate.
-- The `godot-m2` job's timeout is 45 minutes, sized with headroom over the measured chain (`check`
-  is 25 and no longer runs the chain). A run that dies with every gate green and the balance
+- `BENCH_OVER_BUDGET` from legacy `godot:bench` exits 0; the real `godot:bench:runtime` and
+  `godot:bench:frame` commands fail on overruns. CI currently enforces their deterministic
+  contract, not their real timings; product performance debt remains in docs/23.
+- The `godot-m2` job's timeout is 45 minutes (`check` is 25 and no longer runs the chain).
+  The October 3 local baseline exceeded that; historical CI was faster, so do not claim current
+  headroom without a fresh CI result. A run that dies with every gate green and the balance
   harness still going is the chain having grown, not a flake: re-measure and move the number in
   the workflow comment, never bump the timeout blind.
 - A `godot:m2` gate that goes red on a branch that did not touch its system is still this PR's to
@@ -53,7 +58,7 @@ two TypeScript benchmarks; a budget breach there is a failure, not a warning (do
 - Never put a number back on the player HUD, a checkbox ledger in `HANDOFF.md`, or a status copy
   anywhere but docs/23.
 - Never change the engine pin in one place. `4.7.1` and its SHA-512 live in `ci.yml`, `pages.yml`
-  and `scripts/setup-web-session.sh` together.
+  and `scripts/setup-web-session.sh` together; `scripts/run-godot.mjs` enforces the same version.
 
 ## Landing
 

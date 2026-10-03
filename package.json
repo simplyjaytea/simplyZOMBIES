@@ -121,7 +121,10 @@
     "build": "npm run godot:export",
     "godot:m2:gear": "node scripts/run-godot.mjs --m2-gear",
     "godot:m2:swipe": "node scripts/run-godot.mjs --m2-swipe",
-    "godot:m2:hands": "node scripts/run-godot.mjs --m2-hands"
+    "godot:m2:hands": "node scripts/run-godot.mjs --m2-hands",
+    "godot:bench:runtime": "node scripts/run-godot.mjs --runtime-tick",
+    "godot:bench:frame": "node scripts/run-godot.mjs --runtime-frame",
+    "check:runtime-budget": "node scripts/check-runtime-budget.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",

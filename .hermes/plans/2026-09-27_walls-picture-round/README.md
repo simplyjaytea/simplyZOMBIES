@@ -1,5 +1,10 @@
 # The walls picture round, 2026-09-27
 
+**Historical comparison.** The owner subsequently chose A2, and the fitted mapping landed in
+the 2026-10-03 art pass. The images and prototype below preserve the original comparison;
+[docs/23](../../../docs/23-roadmap.md) records the shipped scope and remaining work. Roof coverage
+of unseen perimeter walls is still a separate owner decision.
+
 docs/30, "The whole outpost pack, 2026-09-25" -> "The walls get a picture round first": one closed
 building drawn two ways, for the owner to pick from before "The walls are modules" (docs/23's
 outpost group) lands. Nothing here is decided and nothing under `godot/` changed.

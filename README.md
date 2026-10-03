@@ -29,8 +29,9 @@ four-direction walking bodies, its worn gear and held weapons, its east-west car
 (floor, bags, quick strip and inspect pane), the ground, trees and nature dressing, heaps, the
 bed, furnishings and containers, the barricade and work lamp, the muzzle flash, casing, blood and
 campfire flame, and the crosshair and interaction-hand cursors. The approved A2 fitted wall
-modules now cover supported rectangular brick and plaster perimeters, with generated fallbacks
-for other shapes and orientations. The latest art pass also adds an exploded condition chart,
+modules now cover supported rectangular brick and plaster perimeters, with room boards beneath
+their transparent edges and generated fallbacks for other shapes and orientations. The latest
+art pass also adds an exploded condition chart,
 the workbench and three tall furnishings, a carried stove icon, and source-specific light colours.
 See the [runtime captures](.hermes/plans/2026-10-02_art-completion/) and
 [implementation record](docs/23-roadmap.md#the-record-by-system) for evidence and remaining limits.
@@ -52,7 +53,9 @@ animations, an atlas, and native Godot resources. See the
 [offline preview](godot/art/simplyzombies-ui/simplyzombies-ui-preview.html).
 Run `godot/art/simplyzombies-ui/demo/demo.tscn` in Godot to try the native controls.
 The live UI uses the kit's frames, font, glyphs, cursors and animations through the shared chrome
-helpers, checked by `godot:check:ui_skin`.
+helpers, checked by `godot:check:ui_skin`. The inventory and work grid fit 1280×720 and 1920×1080,
+with scrolling for long condition lists, tall bags and larger rosters. See the
+[layout comparisons](.hermes/plans/2026-10-03_ui-layout/) for the reviewed panels.
 
 ## The loop, in five lines
 
@@ -81,10 +84,10 @@ helpers, checked by `godot:check:ui_skin`.
   Ranged spends finite ammo and tonight's difficulty. Neither converts into the other.
 - **The world decays on a clock you don't control.** The grid fails, food expires, sites empty out,
   the virus mutates. Every equilibrium you build has an expiry date.
-- **A vehicle is the loudest thing you own.** An engine emits more noise than a rifle, continuously,
-  for as long as it runs — so driving is announcing yourself to a whole district. Vehicles are found
-  and customized like any other gear, and a fitted-out van is a
-  [home you can drive away from a siege](docs/26-mobile-bases.md).
+- **A running vehicle keeps announcing you.** Engines emit noise while idling and more while
+  driving; the continuing signal has a different cost from a single gunshot. Parked cars and bikes
+  can be entered and driven; engine vehicles can be refuelled. Vehicle customization and a
+  [home you can drive away from a siege](docs/26-mobile-bases.md) remain later work.
 
 ## Status
 
@@ -137,14 +140,20 @@ archived at tag `ts-oracle-final` for parity reference and rollback. See
 [Godot rebuild](docs/31-godot-rebuild-roadmap.md) for transition history.
 
 **[Play the latest main build](https://simplyjaytea.github.io/simplyZOMBIES/).** Every push to `main`
-that passes the correctness and performance checks automatically replaces this playable build;
-failed checks are never published.
+that passes CI automatically replaces this playable build; failed checks are never published.
+The enforced performance job still measures the frozen TypeScript oracle. The new strict Godot
+runtime measurements exceed their budgets; see [performance evidence](docs/22-performance.md)
+for the workload and the remaining CI enforcement work.
 
 ```bash
-npm install
+bash scripts/setup-web-session.sh  # pinned engine and npm dependencies on a fresh Linux checkout
 npm run godot:run    # Godot — the game (also: godot:editor)
 # npm run dev        # TypeScript oracle via Vite (archived, reference only)
 ```
+
+If setup reports that it cannot link the engine onto `PATH`, set `GODOT_BIN` to the executable
+it prints before running the Godot commands. A headless machine also needs a display for play
+or screenshots; see [environment setup](AGENTS.md#running-the-game-gui).
 
 ## Controls
 
@@ -167,8 +176,11 @@ this table is a third copy that no gate judges.
 A day is four hours at 1×, so press `=` twice and wait for dark.
 
 The view is flat top-down — RimWorld and Dungeon Settlers are the closest comparisons — and the
-wheel zooms between a close-in read on your survivor and a wide look at the colony. Bodies stand
-up and face you, flipping rather than rotating; walls carry a lit cap and a south face; a roof
+wheel zooms between a close-in read on your survivor and a wide look at the colony. In the
+inventory, wheel over the survivor to scroll condition prose, or over bags to scroll bags;
+in Work, the wheel reaches additional survivor rows. Humans and
+the seven animated zombie art families use four directional views; screamers and bloaters retain
+their face-on pictures. Walls carry a lit cap and a south face; a roof
 covers a building until you can see inside it; the ground's surfaces meet in ragged edges rather
 than on a grid; and trees and parked cars stand in the same depth sort as the people, so a
 survivor walks behind a conifer and in front of a car. The HUD reads
@@ -201,12 +213,14 @@ status. Milestones close on their exit criterion, never on a feature count.
   bleeding, pressure, bandaging, rescue, recovery and infection all run — `GRABS_ENABLED` has
   shipped on since the owner's 2026-09-01 decision (see
   [where Milestone 2 stands](docs/23-roadmap.md#where-milestone-2-stands)). Still open — every
-  piece named in [what's left](docs/23-roadmap.md#whats-left-in-milestone-2): the wider resource
-  taxonomy, the fuller survivor generator, the remaining crafting consumables, the UI screens, and
-  the balance grid plus a human ten-day playtest. **Exit criterion:** survive ten in-game days,
+  piece named in [what's left](docs/23-roadmap.md#whats-left-in-milestone-2): camp development,
+  the captive path, remaining skill and world systems, presentation refinements, runtime
+  performance proof, and the balance grid plus a human ten-day playtest. Procedural people,
+  the expanded item roster, the UI shell and weather already have implementation records.
+  **Exit criterion:** survive ten in-game days,
   lose a survivor you cared about, continue through succession, and still want another run.
-- ☐ **Milestone 3A — Survivor depth.** Relationships and grief, the full skill web, all six
-  attributes, weather and temperature, full world decay, and the remaining zombie types.
+- ☐ **Milestone 3A — Survivor depth.** Relationships beyond the shipped grief system, the full
+  skill web and six attributes, remaining weather effects, world decay, and further zombie depth.
 - ☐ **Milestone 3B — World range.** The continuous drivable region and streaming, vehicles, mobile
   bases, and viable nomad play.
 - ☐ **Milestone 3C — Multiplayer.** Authoritative host, filtered client views, voice as an emitter.

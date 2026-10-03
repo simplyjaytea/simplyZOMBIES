@@ -20,6 +20,16 @@ The mechanism is CI. Benchmark scenarios run as fixed seeds against asserted bud
 sometimes stopping feature work to fix a regression, which is exactly the intent. The alternative is
 discovering in month nine that the design is not achievable, having built all of it.
 
+**Enforcement status, 2026-10-03:** the paragraph above is the product requirement, not a claim
+that the shipped engine already satisfies it. CI's `bench` and `bench:frame` still measure the
+frozen TypeScript oracle. The older `godot:bench` times a synthetic attention/spatial dictionary
+and exits zero on overruns; it does not prove the playable Godot world's budget. The new
+`godot:bench:runtime` and `godot:bench:frame` commands measure shipped consumers and **exit one**
+on overruns or invalid measurements. The existing product exceeds the unchanged targets, so
+CI currently runs their deterministic exit/fixture contract (`check:runtime-budget`), not the
+real timing commands. Making the actual Godot runtime budgets a green CI shipping gate remains
+open. See [the shipped-runtime measurements](#shipped-godot-runtime-measurements).
+
 ## Targets
 
 | Metric | Target |
@@ -265,6 +275,110 @@ entities it measures from 216 to 11, so it is measuring 95% less drawing than it
 mitigation is wrong; the benchmark is simply a regression guard rather than proof that either earns
 its place, and it will only become the second thing when sprites replace rectangles. Anyone
 tightening this budget should raise the entity count first.
+
+### Shipped Godot runtime measurements
+
+`npm run godot:bench:runtime` boots `SimBoot.playable()` with its real default seed and
+256-tile district, warms up 100 complete `world.step()` calls, then measures 600 more, including
+every registered system and the event drain. It asserts the existing **8 ms mean / 16 ms worst
+tick** limits. This daytime boot is not the specification's separate *quiet night* fixture, so
+it is not mislabeled as satisfying the 0.5 ms quiet-night budget. No system is removed to make
+the measurement cheaper.
+
+`npm run godot:bench:frame` needs a display and a real Compatibility renderer; headless mode is
+refused. It instantiates `main.tscn`, attaches a subclass whose `_draw` times `super._draw()`,
+starts the ordinary run and holds simulation and `_process` still. At **1280×720**, it warms
+up 30 draws and samples 120, first with the booted world and then with **1,000 additional
+textured bodies** inside the player's actual Focal sight and viewport. Positions repeat in
+that dense stress fixture; it tests renderer work, not physical horde behavior. Every sample
+must finish the real consumer, and the crowd must reach both the Focal list and the texture
+path in that same frame. Stale completion markers and cached looks cannot satisfy it.
+
+The **10 ms mean** threshold applies to this world-draw CPU stage. It is a necessary subset
+of the draw target, not a complete rendered-frame measurement: child UI drawing, main
+`_process`, GPU completion and presentation are excluded. The result separately reports
+RenderServer pre/post wall time and intervals between frame-post signals; those intervals
+include benchmark validation work. Neither is labeled GPU time or player-facing fps. The
+driver requests disabled V-Sync and reports the mode the display API returns; llvmpipe may
+warn that changing it is unsupported. That cannot turn CPU timing into an fps result.
+
+The runner owns the targets in `scripts/runtime-budget.mjs`, computes statistics from the raw
+samples, and exits one for overruns, missing measurements, an engine/script failure, an
+incorrect fixture, or its 180-second timeout. `npm run check:runtime-budget`, reached by CI,
+uses deterministic engine transcripts through the **real runner process** to prove passing
+and failing exits, mean and single-tick overruns, required sample counts, canonical seed,
+complete ticks, display/viewport, real textured crowd, malformed output, and timeout handling.
+It checks the exact engine invocation and the fixture's shipped consumers too. This contract
+test passing does **not** mean the real timing commands pass.
+
+Measured **2026-10-03**, Godot 4.7.1, Linux, Intel Xeon Platinum 8573C, otherwise idle execution
+environment (other worktrees' gates and captures paused): the default world had **89 systems
+and 99 shamblers**, seed 20260805, and the sampled ticks were **36100→36700**.
+The game source was `5b2706c`, before the parallel wall-floor and UI changes were integrated;
+only the benchmark tooling was added for these measurements.
+
+| Actual consumer | Mean | p95 | Worst | Unchanged target | Outcome |
+|---|---:|---:|---:|---|---|
+| Shipped default world tick | 29.408 ms | 39.345 ms | 296.393 ms | 8 ms mean / 16 ms worst | exit 1 |
+| Boot world `_draw` CPU stage, 1280×720 | 41.191 ms | 90.684 ms | 214.854 ms | 10 ms mean | exit 1 |
+| 1,000 textured-body `_draw` CPU stage, 1280×720 | 299.397 ms | 334.333 ms | 506.019 ms | 10 ms mean | exit 1 |
+
+The two displayed runs used X11/Xvfb with **llvmpipe (LLVM 19.1.7, 256 bits)**. Their separate
+RenderServer means were **42.722 / 56.505 ms**, and the harness-inclusive intervals were
+**85.867 / 364.210 ms**, boot/crowd respectively. These software-renderer measurements are not
+hardware GPU results. The API reported V-Sync mode zero after the disable request, while the
+driver warned that changing it is unsupported; no present-rate claim follows from that. A first
+1920×1080 diagnostic was rejected by the fixture contract and is not the canonical result above.
+
+A separate diagnostic wrapped every registered system over the **same 100-warmup / 600-sample
+tick interval**. Mean contributions were jobs **5.251 ms**, shambler AI **4.340**, visibility
+**3.654**, sightings **2.951**, NPC combat **2.272**, encumbrance **2.039**, and self-aid
+**1.986**. Its worst tick, **36134**, took **302.871 ms**: map generation changed by one,
+**105** observers recast, visibility cost **176.980 ms** and jobs **100.441 ms**. This is
+instrumented attribution, not a second budget baseline; the temporary driver was deleted.
+It identifies a visibility/path invalidation spike alongside repeated ordinary per-tick work,
+not an isolated scent-grid problem.
+
+The displayed consumer was also sabotaged: after five successful draws, including warmup at
+the held simulation tick, the wrapper stopped calling `super._draw()` while still incrementing
+its own count. The real frame command refused the incomplete draw and exited one before
+producing a passing sample. The mutation was restored. This is independent of the transcript
+tests: a previous frame's successful marker cannot make a skipped consumer pass.
+
+These are baseline failures, not regressions introduced by measuring them. Do not raise the
+targets to make the commands green. The next bounded performance work should profile the
+same warm sample interval, preserve deterministic outcomes, and address repeated content
+lookups, unchanged component queries, pathfinding spikes and per-observer work as separate
+measured changes. After the runtime passes its budgets on the intended reference runner,
+wire the real commands into CI; quiet-night, siege, full frame/FPS, save, streaming and long-run
+memory scenarios still need their own representative fixtures.
+
+### Remaining milestone evidence
+
+At the measured **34.00 ticks/second**, the FULL harness's exact no-wipe span from the default
+09:00 boot to day ten's end of dusk is **2,772,000 ticks**, which projects to **22.64 hours per
+campaign** and **271.73 hours for four seeds × three arms**, before its additional six-survivor
+Auto case. This is an early-day throughput projection, not a measured campaign completion
+time: population and workload change, and a wipe can end a run early. The historical nine-hour
+figure came from the smaller 64-tile harness and must not be advertised for the shipped
+256-tile world. No full grid was launched for this measurement.
+The shipped-size invocation is `BALANCE_TILES=256 npm run godot:m2:balance:full`; the full-tier
+script sets `BALANCE_FULL=1` but otherwise retains the harness's 64-tile default.
+
+The proof order in [docs/23](23-roadmap.md#whats-left-in-milestone-2) remains:
+
+1. Add distribution assertions over per-seed quiet nights, sieges, deaths and run lengths.
+   The existing FAST tier has only four compressed dusk-window runs; it is not survival
+   distribution evidence. Keep zero-observation cases explicit, and sabotage a counter or
+   distribution to prove each new assertion can fail.
+2. Measure melee-only and ranged-only outcomes on matched seeds and the same uncompressed
+   map/day span, recording exposure, contact and depletion as well as survival. The FULL
+   tier has the three arms, but its aggregate totals alone do not establish parity.
+3. Schedule the full grid using measured throughput and a resumable per-seed/per-arm artifact
+   runner before committing to a multi-day job. Preserve seed, map size, code/content revision,
+   exact tick span and arm in each artifact; a shortened pilot is labeled a pilot.
+4. Have a person play ten days. Automation cannot close that criterion, including whether
+   colonists walking for found armor makes the campaign too punishing.
 
 ## Known risks
 

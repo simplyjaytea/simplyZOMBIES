@@ -1,5 +1,9 @@
 # Outpost pack: repo cleanup, then the nine integration slices
 
+**Historical plan.** The adoption and later art passes have since landed. The branch and pickup
+instructions below describe the September session, not today's work. Use [docs/23](../../docs/23-roadmap.md)
+for the current backlog and evidence, and [HANDOFF.md](../../HANDOFF.md) to resume.
+
 ## Context
 
 The hand-made outpost asset pack (`godot/art/simplyzombies/`, 187 asset entries, 279 native
@@ -14,8 +18,8 @@ The owner (2026-09-19, this session) approved: repo cleanup (26 merged branches,
 `.scratch/simplyzombies/`, `git gc`), merging PR #138 first, a local gate environment, and
 working through all nine integration pieces — pausing after each phase.
 
-This file is the pickup point. **Status lives in the Progress section at the bottom and
-nowhere else**; per-piece evidence lands in docs/23's record per the standing discipline (a
+For that historical session this file was the pickup point. Its Progress section is an archived
+session record; current status and per-piece evidence live in docs/23 under the standing discipline (a
 piece lands = deleted from what's-left + written into the record in the same commit). Branch
 claims follow `<agent>/<piece-slug>`; this arc uses `kimi/<piece-slug>`.
 

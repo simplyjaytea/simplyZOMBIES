@@ -43,6 +43,7 @@ const GAP: float = 20.0
 const STRIP_H: float = 92.0
 const BODY_W: float = 660.0
 const INSPECT_W: float = 380.0
+const FULL_WIDTH: float = 1540.0 # body, seven bag cells, inspect, gutters
 # The body panel is sized from what is in it -- six slot rows, the prose under them, the hint --
 # rather than stretched to the screen, which left a hand's width of nothing under the last line.
 # The column and the inspect pane still take the full height, because they have something to put
@@ -120,6 +121,7 @@ var _hit: Array[Dictionary] = []
 # is asked between frames and by a gate that never draws.
 var _placed: Array[Dictionary] = []
 var _scroll: float = 0.0
+var _condition_scroll: int = 0
 
 var _paperdoll: Control = null
 var _ghost: Control = null
@@ -222,6 +224,7 @@ func _ready() -> void:
 	var columns := Columns.new()
 	columns.panel = self
 	_column_layer = columns
+	_column_layer.visible = _open
 	add_child(_column_layer)
 	var g := Ghost.new()
 	g.panel = self
@@ -266,6 +269,8 @@ func set_open(open: bool) -> void:
 		_close_menu()
 	if _paperdoll != null:
 		_paperdoll.visible = open
+	if _column_layer != null:
+		_column_layer.visible = open
 	_sync_size()
 	queue_redraw()
 
@@ -490,13 +495,21 @@ func _tall() -> float:
 	return get_viewport_rect().size.y - PAD * 2.0 - STRIP_H - GAP
 
 
+# The compact sheet keeps seven native bag cells (the frame pack) between the body and
+# inspect pane. Only chrome/text spacing changes; a footprint never changes scale.
+func _compact() -> bool:
+	return get_viewport_rect().size.x < FULL_WIDTH or _tall() < BODY_H
+
+
 func _body_rect() -> Rect2:
-	return Rect2(Vector2(PAD, PAD), Vector2(BODY_W, minf(BODY_H, _tall())))
+	var wide: float = 460.0 if get_viewport_rect().size.x < FULL_WIDTH else BODY_W
+	return Rect2(Vector2(PAD, PAD), Vector2(wide, minf(BODY_H, _tall())))
 
 
 func _inspect_rect() -> Rect2:
 	var view: Vector2 = get_viewport_rect().size
-	return Rect2(Vector2(view.x - PAD - INSPECT_W, PAD), Vector2(INSPECT_W, _tall()))
+	var wide: float = 320.0 if view.x < FULL_WIDTH else INSPECT_W
+	return Rect2(Vector2(view.x - PAD - wide, PAD), Vector2(wide, _tall()))
 
 
 func _column_rect() -> Rect2:
@@ -507,8 +520,13 @@ func _column_rect() -> Rect2:
 
 
 static func slot_rect(body: Rect2, side: int, index: int) -> Rect2:
-	var x: float = body.position.x + SLOT_INSET if side == 0 else body.position.x + body.size.x - SLOT_INSET - SLOT_W
-	return Rect2(Vector2(x, body.position.y + SLOT_TOP + SLOT_STEP * float(index)), Vector2(SLOT_W, SLOT_H))
+	var narrow: bool = body.size.x < BODY_W
+	var short: bool = body.size.y < BODY_H
+	var wide: float = 142.0 if narrow else SLOT_W
+	var top: float = 62.0 if short else SLOT_TOP
+	var step: float = 64.0 if short else SLOT_STEP
+	var x: float = body.position.x + SLOT_INSET if side == 0 else body.end.x - SLOT_INSET - wide
+	return Rect2(Vector2(x, body.position.y + top + step * float(index)), Vector2(wide, SLOT_H))
 
 
 # Every slot's name and rect for this frame, so the drawing and the hit test share one list.
@@ -589,7 +607,12 @@ func _gui_input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseButton:
 		var mb: InputEventMouseButton = event as InputEventMouseButton
-		if mb.button_index == MOUSE_BUTTON_WHEEL_DOWN and mb.pressed:
+		if mb.pressed and mb.button_index in [MOUSE_BUTTON_WHEEL_DOWN, MOUSE_BUTTON_WHEEL_UP] and _body_rect().has_point(mb.position):
+			var step: int = 1 if mb.button_index == MOUSE_BUTTON_WHEEL_DOWN else -1
+			_condition_scroll = clampi(_condition_scroll + step, 0, maxi(0, _condition_rows().size() - _condition_capacity()))
+			queue_redraw()
+			accept_event()
+		elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN and mb.pressed:
 			_scroll = minf(_scroll + 56.0, maxf(0.0, _column_height() - _column_rect().size.y))
 			queue_redraw()
 			accept_event()
@@ -672,6 +695,9 @@ func _release_at(p: Vector2) -> void:
 			_world.commands.push({"type": "item.equip", "item": item, "slot": String(box["slot"])})
 			queue_redraw()
 			return
+	if not _column_rect().has_point(p):
+		queue_redraw()
+		return
 	for placed in _placed:
 		var at: Vector2 = placed["at"] as Vector2
 		var column: Dictionary = placed["column"] as Dictionary
@@ -783,6 +809,8 @@ func _slot_item(slot: String) -> Variant:
 
 # The item view under a point, across every drawn grid, or null.
 func _item_under(p: Vector2) -> Variant:
+	if not _column_rect().has_point(p):
+		return null
 	for placed in _placed:
 		var at: Vector2 = placed["at"] as Vector2
 		var column: Dictionary = placed["column"] as Dictionary
@@ -817,6 +845,8 @@ func cursor_at(p: Vector2) -> int:
 	for box in _slot_boxes():
 		if (box["rect"] as Rect2).has_point(p):
 			return Input.CURSOR_POINTING_HAND if _slot_item(String(box["slot"])) is Dictionary else Input.CURSOR_ARROW
+	if not _column_rect().has_point(p):
+		return Input.CURSOR_ARROW
 	for placed in _column_places():
 		var cell: Variant = BagGrid.cell_at(placed["at"] as Vector2, placed["column"] as Dictionary, p)
 		if cell != null and BagGrid.item_at(placed["column"] as Dictionary, cell as Vector2i) is Dictionary:
@@ -834,6 +864,8 @@ func drop_hint(p: Vector2) -> Dictionary:
 	for box in _slot_boxes():
 		if (box["rect"] as Rect2).has_point(p):
 			return {"shape": Input.CURSOR_MOVE, "rect": Rect2()}
+	if not _column_rect().has_point(p):
+		return {"shape": Input.CURSOR_MOVE, "rect": Rect2()}
 	return _drop_verdict(_column_places(), p)
 
 
@@ -972,7 +1004,11 @@ func _draw_body(font: Font, alpha: float) -> void:
 	Chrome.header(self, body, "survivor", alpha, "condition")
 	# One screen (the owner's call, 2026-08-19): the doll carries injuries and armour, the slots
 	# flank it, and anything wrong with the body reads as prose below the figure.
-	_paperdoll.position = Vector2(body.position.x + body.size.x / 2.0 - DOLL_W / 2.0, body.position.y + DOLL_TOP)
+	var doll_size: Vector2 = Vector2(128, 346) if _compact() else Vector2(DOLL_W, DOLL_H)
+	_paperdoll.custom_minimum_size = doll_size
+	_paperdoll.size = doll_size
+	_paperdoll.set("drawing_offset", 0.0)
+	_paperdoll.position = Vector2(body.get_center().x - doll_size.x / 2.0, body.position.y + (68.0 if _compact() else DOLL_TOP))
 	_paperdoll.visible = true
 	for box in _slot_boxes():
 		var rect: Rect2 = box["rect"] as Rect2
@@ -983,8 +1019,9 @@ func _draw_body(font: Font, alpha: float) -> void:
 			draw_rect(rect, Chrome.PANEL_EDGE, false, 2.0)
 		draw_string(font, rect.position + Vector2(10.0, 20.0), String(box["slot"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
 		if it is Dictionary:
-			var name: String = UiText.fit(font, String((it as Dictionary).get("name", "")), 25, SLOT_W - 20.0)
-			draw_string(font, rect.position + Vector2(10.0, 46.0), name, HORIZONTAL_ALIGNMENT_LEFT, -1, 25, Chrome.TEXT)
+			var text_size: int = 20 if rect.size.x < SLOT_W else 25
+			var name: String = UiText.fit(font, String((it as Dictionary).get("name", "")), text_size, rect.size.x - 20.0)
+			draw_string(font, rect.position + Vector2(10.0, 46.0), name, HORIZONTAL_ALIGNMENT_LEFT, -1, text_size, Chrome.TEXT)
 		else:
 			draw_string(font, rect.position + Vector2(10.0, 46.0), "nothing", HORIZONTAL_ALIGNMENT_LEFT, -1, 25, Chrome.TEXT_FAINT)
 			# An empty slot draws what goes there: the equipment glyph names the slot the same way
@@ -992,28 +1029,51 @@ func _draw_body(font: Font, alpha: float) -> void:
 			# is dimmed to sit behind it rather than compete with it (docs/30, "The UI Field Kit,
 			# live": no status icons, no readout the word does not already say).
 			Chrome.glyph(self, String(box["slot"]), rect.position + Vector2(rect.size.x - 24.0 - 8.0, 8.0), false, alpha * 0.55)
-	# The condition readout: only the parts with something to say, as prose under the doll. Same
-	# read model as the doll's tints and the HUD -- states and words, never a number (docs/01
-	# clause 4; check_ban_health_bar.gd).
-	var lines: Array = _condition_lines()
-	# Below the last slot row rather than beside the figure: the two columns leave 248 px in the
-	# middle and "left arm - badly hurt - bleeding" is twice that, so a line centred on the panel
-	# ran under both columns of boxes.
-	var ly: float = body.position.y + SLOT_TOP + SLOT_STEP * float(LEFT_SLOTS.size()) + 44.0
-	var cx: float = body.position.x + body.size.x / 2.0
-	if lines.is_empty():
-		var none: String = "no injuries"
-		draw_string(font, Vector2(roundf(cx - font.get_string_size(none, HORIZONTAL_ALIGNMENT_LEFT, -1, 25).x / 2.0), ly), none, HORIZONTAL_ALIGNMENT_LEFT, -1, 25, Chrome.TEXT_DIM)
-	else:
-		for line in lines:
-			var d2: Dictionary = line as Dictionary
-			var text: String = String(d2["text"])
-			var tw: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 25).x
-			draw_string(font, Vector2(roundf(cx - tw / 2.0), ly), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 25, d2["colour"] as Color)
-			ly += 28.0
-	_draw_responses(font, body, ly + 10.0)
+	# Condition prose gets its own measured rows below the equipment. The wheel over the
+	# survivor panel reaches every row when wounds need more room than this window has.
+	var rows: Array[Dictionary] = _condition_rows()
+	var area: Rect2 = _condition_rect()
+	var capacity: int = _condition_capacity()
+	_condition_scroll = clampi(_condition_scroll, 0, maxi(0, rows.size() - capacity))
+	var text_size: int = 20 if _compact() else 25
+	var line_h: float = 22.0 if _compact() else 28.0
+	for i in mini(capacity, rows.size()):
+		var row: Dictionary = rows[_condition_scroll + i]
+		var text: String = String(row["text"])
+		var tw: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, text_size).x
+		draw_string(font, Vector2(roundf(body.get_center().x - tw / 2.0), area.position.y + Chrome.ascent(text_size) + float(i) * line_h), text, HORIZONTAL_ALIGNMENT_LEFT, -1, text_size, row["colour"] as Color)
+	_draw_responses(font, body, body.end.y - 44.0)
 	var hint: String = "drag between bags · right-click for what you can do · R turns it"
-	draw_string(font, Vector2(body.position.x + SLOT_INSET, body.position.y + body.size.y - 22.0), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
+	if _compact():
+		hint = "drag · right-click actions · R turns"
+	if rows.size() > capacity:
+		hint = "wheel over survivor for condition · R turns" if _compact() else "wheel over survivor for condition · right-click actions · R turns"
+	draw_string(font, Vector2(body.position.x + SLOT_INSET, body.end.y - 18.0), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
+
+
+func _condition_rect() -> Rect2:
+	var body: Rect2 = _body_rect()
+	var last: Rect2 = slot_rect(body, 0, LEFT_SLOTS.size() - 1)
+	var top: float = last.end.y + 10.0
+	if not _compact():
+		top = maxf(top, body.position.y + DOLL_TOP + DOLL_H + 12.0)
+	var reserved: float = 64.0 if _world != null and not SimTreatment.response_view(_world, _actor).is_empty() else 36.0
+	return Rect2(Vector2(body.position.x + SLOT_INSET, top), Vector2(body.size.x - SLOT_INSET * 2.0, maxf(0.0, body.end.y - reserved - top)))
+
+
+func _condition_capacity() -> int:
+	return maxi(1, floori(_condition_rect().size.y / (22.0 if _compact() else 28.0)))
+
+
+func _condition_rows() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var text_size: int = 20 if _compact() else 25
+	for row in _condition_lines():
+		for line in InspectPane._wrap(Chrome.font(), String(row["text"]), text_size, _condition_rect().size.x):
+			out.append({"text": line, "colour": row["colour"]})
+	if out.is_empty():
+		out.append({"text": "no injuries", "colour": Chrome.TEXT_DIM})
+	return out
 
 
 # Called by the clipped child, and drawing into it: `at` is built in sheet coordinates so the
@@ -1092,6 +1152,7 @@ func _selected_in(column: Dictionary) -> Variant:
 func _draw_responses(font: Font, body: Rect2, y: float) -> void:
 	if _world == null:
 		return
+	var text_size: int = 20 if _compact() else 25
 	var rows: Array = SimTreatment.response_view(_world, _actor)
 	if rows.is_empty():
 		return
@@ -1099,23 +1160,23 @@ func _draw_responses(font: Font, body: Rect2, y: float) -> void:
 	var sep: String = " · "
 	# Centred by measurement, the way the condition lines above are, rather than nudged by a
 	# constant: a second response one day must not push the first off centre.
-	var total: float = font.get_string_size(lead, HORIZONTAL_ALIGNMENT_LEFT, -1, 25).x
+	var total: float = font.get_string_size(lead, HORIZONTAL_ALIGNMENT_LEFT, -1, text_size).x
 	for i in rows.size():
-		total += font.get_string_size(String((rows[i] as Dictionary).get("text", "")), HORIZONTAL_ALIGNMENT_LEFT, -1, 25).x
+		total += font.get_string_size(String((rows[i] as Dictionary).get("text", "")), HORIZONTAL_ALIGNMENT_LEFT, -1, text_size).x
 		if i < rows.size() - 1:
-			total += font.get_string_size(sep, HORIZONTAL_ALIGNMENT_LEFT, -1, 25).x
+			total += font.get_string_size(sep, HORIZONTAL_ALIGNMENT_LEFT, -1, text_size).x
 	var at: float = roundf(body.position.x + body.size.x / 2.0 - total / 2.0)
-	draw_string(font, Vector2(at, y), lead, HORIZONTAL_ALIGNMENT_LEFT, -1, 25, Chrome.TEXT_DIM)
-	at += font.get_string_size(lead, HORIZONTAL_ALIGNMENT_LEFT, -1, 25).x
+	draw_string(font, Vector2(at, y), lead, HORIZONTAL_ALIGNMENT_LEFT, -1, text_size, Chrome.TEXT_DIM)
+	at += font.get_string_size(lead, HORIZONTAL_ALIGNMENT_LEFT, -1, text_size).x
 	for i in rows.size():
 		var row: Dictionary = rows[i] as Dictionary
 		var word: String = String(row.get("text", ""))
-		draw_string(font, Vector2(at, y), word, HORIZONTAL_ALIGNMENT_LEFT, -1, 25, Chrome.ACCENT)
-		_hit.append({"rect": _word_rect(font, Vector2(at, y), word, 25), "verb": String(row.get("verb", ""))})
-		at += font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, 25).x
+		draw_string(font, Vector2(at, y), word, HORIZONTAL_ALIGNMENT_LEFT, -1, text_size, Chrome.ACCENT)
+		_hit.append({"rect": _word_rect(font, Vector2(at, y), word, text_size), "verb": String(row.get("verb", ""))})
+		at += font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, text_size).x
 		if i < rows.size() - 1:
-			draw_string(font, Vector2(at, y), sep, HORIZONTAL_ALIGNMENT_LEFT, -1, 25, Chrome.TEXT_DIM)
-			at += font.get_string_size(sep, HORIZONTAL_ALIGNMENT_LEFT, -1, 25).x
+			draw_string(font, Vector2(at, y), sep, HORIZONTAL_ALIGNMENT_LEFT, -1, text_size, Chrome.TEXT_DIM)
+			at += font.get_string_size(sep, HORIZONTAL_ALIGNMENT_LEFT, -1, text_size).x
 
 
 # The one place a word's extent is measured, so the rectangle that is drawn and the rectangle that

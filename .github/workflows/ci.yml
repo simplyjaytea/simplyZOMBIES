@@ -106,6 +106,12 @@ jobs:
       - name: Per-gate timing table
         run: npm run check:timing
 
+      # The strict shipped-runtime commands currently expose existing product overruns.
+      # Keep their exit/fixture contract enforced while optimization remains open; do not
+      # confuse this deterministic contract with a passing real runtime timing budget.
+      - name: Godot runtime budget exit contract
+        run: npm run check:runtime-budget
+
       - name: Godot R1 parity
         run: npm run godot:test
 
