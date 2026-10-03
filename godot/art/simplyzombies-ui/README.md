@@ -5,7 +5,10 @@ mockups. Includes transparent sprites, scalable frames, live-text examples, UI
 animations, an offline browser preview and a standalone Godot demo.
 
 **Repository delivery:** resources live at `res://art/simplyzombies-ui/`.
-The live game UI has not been reskinned; the preview and demo do not alter game state.
+The live game uses the kit through `ui/kit.gd` and `ui/chrome.gd`; the standalone preview
+and demo do not alter game state. The owner's subsequent
+[whole-interface redesign](../../../docs/32-ui-overhaul.md) may replace this treatment.
+This pack remains the current runtime baseline and historical asset source.
 
 ## Start here
 

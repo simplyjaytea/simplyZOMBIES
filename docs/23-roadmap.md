@@ -157,6 +157,69 @@ write its record — named, gated, measured — into [the record, by system](#th
 the same commit. That is the whole discipline: one list of what remains, one record of what landed,
 and nothing that has to be ticked.
 
+##### UI overhaul
+
+**The whole interface, opened by the owner 2026-10-03.** Project Zomboid's practical
+management is the primary reference, with Tarkov/Zero Sievert tactical detail and cohesion
+with the Dungeon Settlers world. The paperdoll is a stylized anatomical diagram with
+equipment arranged around it. [The design brief](32-ui-overhaul.md) specifies the proposed
+navigation, every surface, integration seams and acceptance; [docs/30](30-decisions.md#the-whole-interface-2026-10-03)
+records the owner's choices. This is new work, not a claim that the redesign has shipped.
+The old Field Kit implementation remains the current baseline until replaced slice by slice.
+
+The grid-plus-fast-list recommendation and the illustrative concept's treatment are still
+open for feedback. Preserve existing grid capacity and pause behavior by default. The
+following order completes all existing UI, with a useful playable flow first:
+
+- **Shared frame and the scavenging flow.** Establish the common theme, explicit viewed
+  survivor versus acting survivor, screen navigation and input/focus rules. In the same
+  first playable delivery, prove cupboard → transfer → equip → inspect → condition/care
+  → return to play. Build responsive storage and an inspector drawer; include the compact
+  HUD/context changes needed to reach them. Use the agreed anatomy/gear layout and real
+  carried/opened containers, not an illustration-only mockup. The work can be split into
+  reviewed theme, inventory and diagram patches on disjoint paths once their contracts
+  are fixed. **Files:** `godot/ui/`, coordinator-owned `godot/presentation/main.gd` and
+  input/session integration; new authored anatomy assets in an explicitly registered home.
+  Add only the small simulation action/reason read models needed to expose existing legal
+  care and transfer preconditions; do not duplicate those rules in presentation code.
+  **Proof:** inventory, HUD, play, response, appearance and skin gates; actual near-full
+  packing, refused transfer, legal treatment, text-focus and Escape journeys at both sizes.
+- **Colony work and learning in one survivor context.** Add a roster entry point, readable
+  job groups, explicit priority/Focus selection and connected Skills detail. Distinguish
+  available work from the six unimplemented job consumers; surface only truthful current
+  activity. Reflow the web and long learning text. **Files:** work/web panels and layout,
+  shared survivor selection integrated by the coordinator. **Proof:** work/learning lanes
+  in the play and web gates, plus larger-roster, long-content and actor/target fixtures.
+- **Weapon assembly and contextual actions.** Rework the bench around actual installed
+  slots, eligible carried parts and categorical comparisons. Bring item/world menus,
+  building feedback and other E actions into the shared hierarchy. **Files:** bench,
+  inspect and context/item menu controls. **Proof:** bench, inventory, context, play and
+  skin gates; compare/fit/strip and cancel flows with correct ownership/reach at both sizes.
+- **Field HUD and every vehicle instrument layout.** Finish compact prose, six quick slots,
+  colony access, interaction hints, speech and event/feedback treatment. Reserve space for
+  car, handlebar and board instruments; retain their existing information semantics.
+  **Files:** HUD, dashboard, quick strip, motion/cursors and coordinator-owned world UI
+  composition. **Proof:** HUD, vehicles, speech, play and skin gates; long prose and all
+  three mounting/driving/exit layouts without covering active controls.
+- **Title, pause, settings, help and end of run.** Carry the visual identity through every
+  shell state and save/load feedback; retain opacity, volume and reduced motion and a
+  scannable key reference. Keep developer tools distinct. **Files:** shell, settings,
+  legend, prefs and coordinator-owned Session integration. **Proof:** actual-scene
+  keyboard/mouse, focus/cancel, save/load and run-state journeys; headless/export resources.
+- **Complete visual and interaction verification.** Compare all surfaces at native
+  1280×720 and 1920×1080, including crowded, injured, long-text and nested-container states.
+  Retire superseded visual paths and deliberately replace old kit/font/chart-shape pins
+  while preserving behavioral and information constraints. Measure UI refresh and child
+  draw costs, which the current world-draw benchmark excludes. **Proof:** integrated
+  `godot:m2`, applicable routing/sprite/export checks, readable before/after captures and
+  measured UI timings. The existing world/simulation performance debt remains separate.
+
+One coordinator owns main/input and documentation; each parallel worker gets disjoint files
+and its own worktree/runtime state. Every implementation slice updates this list and its
+record together. No new camp, treatment, loadout or hidden-information mechanics are implied.
+
+##### Other remaining work
+
 **Waiting on the owner — decisions, not code.** Each is measured and written up; none may be
 decided unilaterally. **The full list lives in `HANDOFF.md`** (eleven items as of 2026-09-09; the
 newest two are the water numbers and the main area's extent, and the six of 2026-09-06 were the
@@ -595,6 +658,10 @@ manifest and PNGs in code, the way `presentation/appearance.gd`'s `resolve()` al
 pieces below are in the order they land, each one session, each with its gate red both ways and
 its record; the health-bar ban, the digit ban, the prose HUD and the busy loop's refusal to read
 time left are untouched.
+
+This describes the shipped baseline. The owner's October 3 [whole-interface overhaul](#ui-overhaul)
+supersedes its visual mandate for new work; the old kit/font/geometry are not constraints on
+the redesign. Behavior and information guarantees remain in force.
 
 All nine pieces have landed (the last, "Saved, picked up, busy", 2026-09-26); their records are
 in the record, by system. The October 3 layout review fixes the fixed-width Work panel and
@@ -9747,6 +9814,13 @@ not a to-do list:
   `git diff --check` was clean. These are local integration results; GitHub runs independently.
   The strict runtime timing failures remain the separately recorded pre-integration baseline, not
   passing performance evidence.
+
+  **GitHub landing:** the owner requested both branches merged to main. PRs
+  [#145](https://github.com/simplyjaytea/simplyZOMBIES/pull/145) and
+  [#146](https://github.com/simplyjaytea/simplyZOMBIES/pull/146) each passed all four GitHub
+  CI jobs before merging. Main `bf6b41a7a17c8c793ea65993d1df9b24b35e30b7` has exactly the
+  verified integration tree of `4578b909e75acd587f1145eb63a406fb2c0c5910`; the coordinator's
+  local main was fast-forwarded to it. Subsequent main/deployment runs are separate evidence.
 
   README, HANDOFF, AGENTS, CLAUDE, CONTEXT and the steward guidance now point to current readers,
   commands and evidence. Archived pickup plans are marked historical. The roadmap removes stale

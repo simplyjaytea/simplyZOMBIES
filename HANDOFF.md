@@ -14,7 +14,26 @@ container running** lives in `AGENTS.md`.
 
 ---
 
-## Start here: CI repair and the October follow-ups, 2026-10-03
+## Start here: the whole-interface redesign, 2026-10-03
+
+CI repair [#145](https://github.com/simplyjaytea/simplyZOMBIES/pull/145) and follow-ups
+[#146](https://github.com/simplyjaytea/simplyZOMBIES/pull/146) are merged into main `bf6b41a`.
+Both passed GitHub CI before merging; main's tree matches the locally verified 85-gate
+integration. The exact evidence remains in [docs/23](docs/23-roadmap.md#the-record-by-system).
+
+The owner now wants **all UI overhauled**: Project Zomboid practicality, Tarkov/Zero Sievert
+tactical detail and cohesion with Dungeon Settlers art. The chosen paperdoll is **a stylized
+anatomical diagram with equipment arranged around it**. Read [the design brief](docs/32-ui-overhaul.md),
+[the owner decision](docs/30-decisions.md#the-whole-interface-2026-10-03) and
+[the ordered work](docs/23-roadmap.md#ui-overhaul). The concept and grid-plus-fast-list proposal
+remain open for feedback; the old kit/font/chart proportions may be replaced. The proposal
+is not a shipped redesign. Existing pause, capacity and simulation authority still apply.
+
+Use separate worktrees and disjoint files after the shared interface contracts are fixed.
+One coordinator owns main/input and roadmap/README/handoff changes. The roadmap remains the
+single backlog; do not resume an older visual mandate or create another task ledger.
+
+## Previous handoff: CI repair and the October follow-ups, 2026-10-03
 
 The water failure after the art pass was a source-scanner boundary, not missing rendering.
 `check_water.gd` now follows the two Water branches and tests its scanner on positive and

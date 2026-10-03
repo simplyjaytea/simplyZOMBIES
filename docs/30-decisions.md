@@ -5524,3 +5524,33 @@ and the current unseen-wall roof coverage stay as they are. The bounded implemen
 supported rectangular brick and plaster perimeters, with generated fallbacks; its gates and
 runtime captures are recorded in docs/23. The mapping is not a decision to extend roofs over
 unseen perimeter walls.
+
+## The whole interface, 2026-10-03
+
+After asking for the CI repair and parallel follow-ups to be merged to main, the owner asked
+for an overhaul of **all UI**, including the paperdoll: modern, bespoke, good-looking and
+comfortable to manage, while retaining hardcore play. They requested a plan and an opportunity
+to shape it before proceeding through the overhaul.
+
+Their reference choice was **"Tarkov detail + Project Zomboid practicality, with cleaner
+management"**. They then clarified that Project Zomboid is the main practical reference,
+Tarkov and Zero Sievert supply hardcore/tactical character, and the result must mesh with
+the existing **Dungeon Settlers** art direction.
+
+For the paperdoll they explicitly chose **"A stylized anatomical diagram with equipment
+arranged around it"**. A dressed portrait or live 3D avatar is not the selected direction.
+The diagram can be reauthored while preserving the ten existing semantic body regions and
+the truthful condition read model. Equipment around the figure must represent the actual
+twelve slots, not only those shown by an illustrative mockup.
+
+This opens replacement of the old UI Field Kit's visual treatment, compulsory VT323 type,
+fixed panel composition and D2 chart proportions. Earlier visual decisions remain history
+and the current implementation baseline; they are not a requirement to preserve the look
+the owner has now asked to replace. The Dungeon Settlers world direction, scarce-information
+contract, health-bar ban, simulation authority and existing legal actions remain in force.
+
+The precise palette, typography, responsive composition and grid-plus-fast-list proposal
+are **recommendations**, not additional owner decisions. The generated anatomical concept
+is illustrative and has not been accepted as a final layout. No pause-policy or inventory
+capacity change was requested. [The design brief](32-ui-overhaul.md) develops the proposal;
+[the roadmap](23-roadmap.md#ui-overhaul) alone carries implementation order and status.
