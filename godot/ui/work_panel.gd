@@ -1,5 +1,5 @@
 extends Control
-# 17-column Work grid (docs/07 order). Player is not a row. Stub columns store a number.
+# Work grid (docs/07 order). Player is not a row. Stub columns store a number.
 #
 # The panel is also where a survivor's **Focus** is chosen, which is the same act as choosing who
 # manages their skill web. docs/07: "Setting Focus to Manual gives full control of that one
@@ -18,8 +18,7 @@ const Chrome = preload("res://ui/chrome.gd")
 # ROW_H carries three lines now -- the name and focus word, `person_clause`'s dimmer second
 # line, and the learning line beneath that -- and it is the same for every row on purpose: a
 # variable row height would turn the click math from one divide into a running sum.
-# 70, not 72: eighteen columns since Scavenge (2026-09-06), and 240 + 18 x 72 overran the
-# panel's 1520 by sixteen pixels -- the last column, Bury, drew off its edge.
+# A 70 px ceiling; the viewport determines the actual width, shared by draw and input.
 const COL_W: float = 70.0
 const ROW_H: float = 70.0
 const GRID_X: float = 240.0
@@ -49,12 +48,34 @@ var _rows: Array[Dictionary] = []
 # Click targets built by _draw and read by _gui_input: {rect, entity, node}, where an empty `node`
 # is the focus word and anything else is a learnable node. Derived every draw, never stored.
 var _hit: Array[Dictionary] = []
+var _row_scroll: int = 0
+
+
+func _ready() -> void:
+	get_viewport().size_changed.connect(_sync_layout)
+	_sync_layout()
+
+
+func _sync_layout() -> void:
+	var view: Vector2 = get_viewport_rect().size
+	var tall: float = minf(540.0, minf(view.y - 420.0, GRID_Y + ROW_H * float(_rows.size()) + 30.0))
+	size = Vector2(minf(1520.0, view.x - 32.0), maxf(GRID_Y + ROW_H + 30.0, tall))
+	position = Vector2(roundf((view.x - size.x) / 2.0), 200.0)
+	queue_redraw()
+
+
+func _column_width() -> float:
+	return minf(COL_W, (size.x - GRID_X - GUTTER) / float(SimJobs.COLUMNS.size()))
+
+
+func _visible_rows() -> int:
+	return maxi(1, floori((size.y - GRID_Y - 30.0) / ROW_H))
 
 
 func set_world(world: Variant) -> void:
 	_world = world
 	_rows = SimJobs.work_view(world) if world != null else []
-	queue_redraw()
+	_sync_layout()
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -62,6 +83,11 @@ func _gui_input(event: InputEvent) -> void:
 		return
 	var mb: InputEventMouseButton = event as InputEventMouseButton
 	if not mb.pressed:
+		return
+	if mb.button_index in [MOUSE_BUTTON_WHEEL_DOWN, MOUSE_BUTTON_WHEEL_UP]:
+		var step: int = 1 if mb.button_index == MOUSE_BUTTON_WHEEL_DOWN else -1
+		_row_scroll = clampi(_row_scroll + step, 0, maxi(0, _rows.size() - _visible_rows()))
+		queue_redraw()
 		return
 	var right: bool = mb.button_index == MOUSE_BUTTON_RIGHT
 	if mb.button_index != MOUSE_BUTTON_LEFT and not right:
@@ -74,8 +100,11 @@ func _gui_input(event: InputEvent) -> void:
 			return
 	if right:
 		return
-	var c: int = floori((mb.position.x - GRID_X) / COL_W)
-	var r: int = floori((mb.position.y - GRID_Y) / ROW_H)
+	var c: int = floori((mb.position.x - GRID_X) / _column_width())
+	var visible_row: int = floori((mb.position.y - GRID_Y) / ROW_H)
+	if visible_row < 0 or visible_row >= _visible_rows():
+		return
+	var r: int = visible_row + _row_scroll
 	if r < 0 or r >= _rows.size() or c < 0 or c >= SimJobs.COLUMNS.size():
 		return
 	var col: String = SimJobs.COLUMNS[c]
@@ -126,24 +155,26 @@ func _draw() -> void:
 	var font: Font = Chrome.font()
 	_hit.clear()
 	Chrome.panel(self, Rect2(Vector2.ZERO, size), 0.95)
-	Chrome.header(self, Rect2(Vector2.ZERO, size), "work — click a cell to change priority · click their word to change focus — manual puts their learning in your hands", 0.95, "work")
+	Chrome.header(self, Rect2(Vector2.ZERO, size), "work — click priority · click focus to change it · manual lets you choose learning", 0.95, "work")
 	# The priority scale, which the grid previously assumed you already knew. 1 is most
 	# urgent; docs/07's row is an ordering the player sets, not a hidden stat, so the
 	# numbers are the honest presentation here.
 	draw_string(font, Vector2(GUTTER, 64), "1 first · 4 last · – never", HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE, Chrome.TEXT_DIM)
 	var ox: float = GRID_X
 	var oy: float = GRID_Y
-	var col_w: float = COL_W
+	var col_w: float = _column_width()
 	for i in SimJobs.COLUMNS.size():
 		# Fit the real column name to its width rather than cutting every one to 3 letters,
 		# which made Construct and Cook read identically.
 		var name: String = UiText.fit(font, String(SimJobs.COLUMNS[i]), SMALL_SIZE, col_w - 6.0)
 		var consumer: bool = SimJobs.CONSUMERS.has(SimJobs.COLUMNS[i])
 		draw_string(font, Vector2(ox + float(i) * col_w, oy - 4), name, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE, Chrome.TEXT if consumer else Chrome.TEXT_FAINT)
-	for r in _rows.size():
+	_row_scroll = clampi(_row_scroll, 0, maxi(0, _rows.size() - _visible_rows()))
+	for visible_row in mini(_rows.size(), _visible_rows()):
+		var r: int = visible_row + _row_scroll
 		var row: Dictionary = _rows[r]
 		var ent: int = int(row.get("entity", -1))
-		var row_y: float = oy + 28.0 + float(r) * ROW_H
+		var row_y: float = oy + 28.0 + float(visible_row) * ROW_H
 		var who: String = UiText.fit(font, String(row.get("name", "?")), NAME_SIZE, ox - GUTTER - 16.0 - FOCUS_W)
 		draw_string(font, Vector2(GUTTER, row_y), who, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, Chrome.TEXT)
 		# Who manages this survivor, in one lowercase word at the end of their name. `work_view`
@@ -176,6 +207,9 @@ func _draw() -> void:
 			# Urgent work reads brighter, so a row's shape is visible without reading digits.
 			var tint: Color = Chrome.TEXT_FAINT if v <= 0 else Chrome.TEXT.lerp(Chrome.TEXT_DIM, float(v - 1) / 3.0)
 			draw_string(font, Vector2(ox + float(i) * col_w, row_y), label, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, tint)
+
+	if _rows.size() > _visible_rows():
+		draw_string(font, Vector2(GUTTER, size.y - 12.0), "wheel to scroll survivors", HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE, Chrome.TEXT_DIM)
 
 
 # What this survivor has learned, and -- when the learning is the player's job -- what they could

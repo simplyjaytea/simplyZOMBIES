@@ -1,5 +1,9 @@
 # Pickup: the UI Field Kit arc and the whole outpost pack (paused 2026-09-25)
 
+**Historical pickup note.** The UI Field Kit and subsequent outpost art passes landed after
+this pause. The PR/branch status below belongs to that session. Resume from
+[HANDOFF.md](../../HANDOFF.md) and [docs/23](../../docs/23-roadmap.md), not this old task list.
+
 Start here if you are the next session on branch `claude/serene-ride-r1p6y0` / PR #140. Read
 `CLAUDE.md` first as always, then this, then docs/23's two what's-left groups named below.
 

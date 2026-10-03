@@ -49,6 +49,10 @@ const BASE_FILL: Color = Color("#4d5546")
 const ARMOUR_COL: Color = Color(0.55, 0.66, 0.78)
 const LABEL_H: float = 26.0
 
+# The corner glimpse clears the action bar; the compact sheet explicitly keeps its own
+# chart inside its equipment columns even though it also draws at 2x.
+var drawing_offset: float = -76.0
+
 var _view: Dictionary = {}
 var _by_part: Dictionary = {}
 var _mark_plan_cache: Dictionary = {}
@@ -171,7 +175,7 @@ func _draw() -> void:
 	var rect: Rect2 = _chart_rect()
 	# The compact 2x glimpse sits above the always-on bottom key strip; the sheet's 3x chart keeps
 	# its authored position. This is a drawing translation only, so both still use identical masks.
-	var corner_shift: float = -76.0 if size.y < 400.0 else 0.0
+	var corner_shift: float = drawing_offset if size.y < 400.0 else 0.0
 	rect.position.y += corner_shift
 	var scale: float = rect.size.x / float(Appearance.CHART_CANVAS.x)
 

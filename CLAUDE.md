@@ -67,9 +67,11 @@ section came from.
 ## Verifying a change
 
 Correctness for a Godot change is the Godot gates. `npm run godot:m2` is the one to run before
-every commit — it chains all of them and takes **about thirty minutes** (30m06s, 84 gates green,
+every commit — the latest full cloud run took **47m16s for 85 gates** (2026-10-03,
+`GATE_TIME_TABLE` total 2835.79 seconds), including **15m29s** for the fast balance tier.
+Timings depend on the machine: 30m06s for 84 gates was
 measured 2026-09-27 on a four-core Windows desktop, with two worker slices running beside it;
-31m29s for 83 gates the day before; 26m45s for 69 gates on a project container on 2026-09-12). It
+31m29s for 83 gates the day before; 26m45s for 69 gates on a project container on 2026-09-12. It
 said twelve here for eight days, measured 2026-09-04 when the chain was 51 gates; the alpha-roster
 arc added four gates and took the roster from 152 bases to 362, and a catalogue gate's cost scales
 with the roster. Budget for the real
@@ -81,7 +83,7 @@ npm run godot:smoke      # project boots            → GODOT_PROJECT_SMOKE_OK
 npm run godot:validate   # content registry
 npm run godot:test       # R1 parity vs the frozen fixture
 npm run godot:m2         # all Milestone 2 gates    → M2_LETHALITY_OK et al
-npm run godot:m2:balance # the balance harness, fast tier → M2_BALANCE_OK (~4.5 min, in godot:m2)
+npm run godot:m2:balance # the balance harness, fast tier → M2_BALANCE_OK (~15 min here, in godot:m2)
 npm run godot:m2:sight   # sightlines and memory     → M2_SIGHT_OK
 npm run godot:m2:attach  # attachment slots          → M2_ATTACH_OK
 npm run godot:m2:ammo    # calibers, and what a round changes → M2_AMMO_OK
@@ -169,12 +171,15 @@ success. That is engine shutdown noise, not a failure — check the `_OK` line a
 
 CI runs `godot:m2` in its own `godot-m2` job (45 min) since 2026-09-12; the `check` job (25 min)
 runs the TypeScript side (`npm test`, `typecheck`, `lint`, `format:check`), `sprites:check`,
-`check:routing`, the smoke, the validator and the R6 gates, and the `performance` job runs
-`npm run bench` and `npm run bench:frame`.
-Touching a `.ts` file or any prettier-covered path means running those too. Note
-`npm run godot:bench` prints `BENCH_OVER_BUDGET` on these containers and still exits 0 — those
-budgets are calibrated against compiled TypeScript and headless GDScript is an interpreter; see
-docs/22. (`npm run bench` is the separate TypeScript benchmark, and it does gate.)
+`check:routing`, `check:timing`, `check:runtime-budget`, the smoke, the validator and the R6 gates.
+The `performance` job runs `npm run bench` and `npm run bench:frame`.
+Touching a `.ts` file or any prettier-covered path means running those too. Legacy
+`npm run godot:bench` prints `BENCH_OVER_BUDGET` and still exits 0 on a synthetic workload.
+`npm run godot:bench:runtime` measures the real playable world's tick and
+`npm run godot:bench:frame` measures the real scene's world-draw CPU work (a display is required).
+These commands fail on overruns or invalid evidence. CI enforces their deterministic runner
+contract; actual Godot timing enforcement remains open because the product exceeds its targets.
+See docs/22. `npm run bench` is the separate, enforced TypeScript benchmark.
 
 A fresh Claude Code on the web container has no engine; `.claude/hooks/session-start.sh`
 installs it. To do it by hand: `bash scripts/setup-web-session.sh`. It does **not** install export
@@ -266,9 +271,10 @@ The boot colony is **three by the owner's 2026-09-01 decision** — the player, 
 (`survivor.unique.ellis`), and further roster growth *at boot* stays there. The pause that
 decision put on new NPCs and roster growth was **lifted by the owner on 2026-09-14**
 ([docs/30](docs/30-decisions.md), "The pause lifted"): generated people, raiders and zombies are
-an arc of thirteen named pieces in docs/23's what's left, landing slice by slice, and until a
-slice's record says otherwise the shipped population is three colonists, two raider archetypes
-and three zombie kinds. The **captives arc** (docs/30's "One web, and the captives", the same
+the thirteen-piece population arc landed on 2026-09-15/16. Generated people, individual raiders,
+dormant zombies and settler camps are recorded with their gates in docs/23. The three-person
+boot colony remains fixed; later recruitment grows it. The **captives arc** (docs/30's "One web,
+and the captives", the same
 day; docs/23's what's-left names its slices) is named work under that lift rather than the lone
 exception to a pause its own entry was written against — a held raider who can be recruited or
 put to work, with a recruited captive mid-game growth either way. The design record is
@@ -305,9 +311,8 @@ drifted. Three things about the current state matter enough to repeat anyway:
   read, decided by the owner 2026-09-03**: a warm dark-fantasy palette, walls drawn with a lit cap
   and a south face, roofs cut out where the sim sees, three-quarter props and vehicles, 32 px a
   tile at 2×. **Its face-on pawn and its "nobody rotates" clause were reversed by the owner on
-  2026-09-11** — docs/30's "The decoupled paperdoll" — so the bodies become a decoupled rig
-  whose torso turns 360° to the aim while its legs follow the heading. That arc is slices, not a
-  landed state: what has landed is in docs/23's record. Since 2026-09-26 ("The bodies turn and
+  2026-09-11** — docs/30's "The decoupled paperdoll" — and that proposed rotating rig was
+  subsequently superseded by the adopted outpost pack. Since 2026-09-26 ("The bodies turn and
   walk", the outpost pack) humans draw the pack's four-direction body; the 2026-10-02 zombie
   pose set replaces its shared shambler with seven animated families and settled corpses.
   Only the screamer and the bloater are still the face-on pawn described below. The 2026-09-03 entry itself
@@ -318,8 +323,7 @@ drifted. Three things about the current state matter enough to repeat anyway:
   record](docs/23-roadmap.md#the-record-by-system) is the one copy of which ones have.** This file
   deliberately does not list them: that list has now drifted three times, each time a slice landed
   without its copy here being updated, which is the same reason the milestone status lives in one
-  place. What the style *is* **as shipped today** — the paperdoll arc changes this sentence's
-  first clause and nothing else in it: the table is warm; humans use the outpost body and
+  place. What the style *is* **as shipped today**: the table is warm; humans use the outpost body and
   zombies use their content-selected families (32×40, the heavy 40×48), four views and a walk keyed to
   `world.tick`, never mirrored, while the screamer and the bloater are squat face-on pawns that
   flip through a negative-width rect; walls draw their
@@ -327,7 +331,8 @@ drifted. Three things about the current state matter enough to repeat anyway:
   boundary once onto the lighter tile; a tree is a 32×96 picture standing in the entity sort; a
   parked car is a manifest record the layout wrote, drawn as one three-quarter picture per class,
   variant and axis in that same sort; and equipment draws on the body in one order -- the
-  pack's four wearables per view, every face-on overlay on the south view only. Where a piece has not landed yet, its code comments say so on purpose. The reference's
+  pack's four wearables per view and supported held weapons; the old face-on clothing overlays
+  are retired. Where a piece has not landed yet, its code comments say so on purpose. The reference's
   HUD — portraits, bars, numbers, name plates — is explicitly not adopted.
 - **The dead-socket pattern.** This milestone has turned up **eleven** pieces of code that were
   complete, correct, often gated, and read by nothing: `crawlFactor`, the `Staggered` state,
@@ -484,6 +489,11 @@ Each of these was found the expensive way. They are not style opinions.
   Enumerate every arm and pick the one calling the draw helper; `check_wrecks.gd`'s `_low_arms` is
   the precedent. Same family as proving a scanner on a fabricated body before trusting it: a
   textual assertion needs to be shown it is reading what it thinks it is.
+  The 2026-10-03 water repair is the stronger boundary precedent: `check_water.gd` isolates
+  `_draw_district`, its two tile matches and each Water arm by indentation, ignoring comments.
+  A fixed 4,000-character window broke when valid wall code grew before the water fill; merely
+  scanning farther would let another branch's fill hide a missing one. Its positive and negative
+  scanner fixtures exercise both failure modes.
 - **`sum()` of floats is not the same number on every CPython.** 3.12 sums floats with
   compensated (Neumaier) summation and 3.11 does not, so `sum((0.10, 0.45, 0.30))` is exactly
   `0.85` on one and `0.8500000000000001` on the other. Multiply either by an integer count and a
