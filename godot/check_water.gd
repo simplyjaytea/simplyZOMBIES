@@ -391,13 +391,106 @@ func _the_water_is_the_packs() -> bool:
 	return true
 
 
-# 6. DRAW: both of main.gd's tile matches, enumerated rather than sliced.
-#
-# `_draw_district` matches on the tile class twice -- once picking a colour, once drawing -- and
-# CLAUDE.md records a gate that sliced from the first label, read four lines of colour
-# arithmetic, and turned red blaming code that was correct. So this counts the arms instead of
-# trusting the first one it finds.
+# 6. DRAW: each water arm, bounded by indentation rather than a character window. The A2 wall
+# branches pushed the valid fill beyond the old 4,000-character slice. Scanning the rest of the
+# file instead would let a different tile or _draw_floor_tile's fill hide a missing water fill.
+func _water_draw_problem(src: String) -> String:
+	var in_district: bool = false
+	var match_indent: int = -1
+	var water_indent: int = -1
+	var arms: Array[String] = []
+	var counts: Array[int] = []
+	for raw in src.split("\n"):
+		# This scanner reads the project's tab-indented source, not comments containing example
+		# labels or calls. Normalise spaces too so equivalent indentation stays equivalent.
+		var line: String = String(raw).get_slice("#", 0).replace("\t", "    ")
+		var code: String = line.strip_edges()
+		if code.is_empty():
+			continue
+		var indent: int = line.length() - line.strip_edges(true, false).length()
+		if indent == 0:
+			if in_district:
+				break
+			in_district = code.begins_with("func _draw_district(")
+			continue
+		if not in_district:
+			continue
+		if match_indent >= 0 and indent <= match_indent:
+			match_indent = -1
+			water_indent = -1
+		if code == "match tile:":
+			match_indent = indent
+			water_indent = -1
+			arms.append("")
+			counts.append(0)
+			continue
+		if match_indent < 0:
+			continue
+		if water_indent >= 0:
+			if indent > water_indent:
+				arms[arms.size() - 1] += code + "\n"
+				continue
+			water_indent = -1
+		if indent == match_indent + 4 and code == "SimTileMap.Tile.Water:":
+			water_indent = indent
+			counts[counts.size() - 1] += 1
+	if arms.size() != 2:
+		return "_draw_district has %d `match tile:` blocks, not the 2 this lane knows how to read" % arms.size()
+	var names: Array[String] = ["the colour match", "the draw match"]
+	for i in arms.size():
+		if counts[i] != 1:
+			return "%s carries %d Water arms, not exactly one" % [names[i], counts[i]]
+	if not arms[0].contains("col = Palette.COLOURS[\"water\"].darkened(Palette.WATER_DEEP_SHADE)"):
+		return "the colour match's water arm does not derive the channel from WATER_DEEP_SHADE"
+	if not arms[1].split("\n").has("draw_rect(rect, col)"):
+		return "the draw match's water arm does not fill the tile"
+	return ""
+
+
+func _the_water_draw_scanner_follows_only_the_water_arms() -> bool:
+	var shade: String = "col = Palette.COLOURS[\"water\"].darkened(Palette.WATER_DEEP_SHADE)"
+	var colour: String = "\tmatch tile:\n\t\tSimTileMap.Tile.Water:\n\t\t\t" + shade + "\n\t\t_:\n\t\t\tpass\n"
+	var fill: String = "\t\t\tdraw_rect(rect, col)\n"
+	var drawing: String = "\tmatch tile:\n\t\tSimTileMap.Tile.Water:\n" + fill + "\t\t_:\n\t\t\tpass\n"
+	var header: String = "func _draw_district() -> void:\n"
+	var valid: String = header + colour + drawing
+	# Both another arm and comments in Water grow beyond the former window. Neither should
+	# impose a size limit, and a comment at column zero must not end the containing function.
+	var long_drawing: String = drawing.replace("\t\tSimTileMap.Tile.Water:", "\t\tSimTileMap.Tile.Wall:\n" + "\t\t\tpass\n".repeat(600) + "\t\tSimTileMap.Tile.Water:")
+	long_drawing = long_drawing.replace(fill, "# draw_rect(rect, col)\n".repeat(200) + fill)
+	for positive in [valid, header + colour + long_drawing, valid.replace("\t", "    "), valid.replace("\n", "\r\n")]:
+		var problem: String = _water_draw_problem(positive)
+		if not problem.is_empty():
+			push_error("DRAW-SCANNER: refused valid water branches: %s" % problem)
+			return false
+	var no_fill: String = drawing.replace(fill, "\t\t\tpass\n")
+	var negatives: Dictionary = {
+		"empty source": "",
+		"missing colour arm": header + colour.replace("SimTileMap.Tile.Water:", "SimTileMap.Tile.Tree:") + drawing,
+		"missing draw arm": header + colour + drawing.replace("SimTileMap.Tile.Water:", "SimTileMap.Tile.Tree:"),
+		"commented label": header + colour + drawing.replace("SimTileMap.Tile.Water:", "# SimTileMap.Tile.Water:"),
+		"commented shade": header + colour.replace(shade, "# " + shade) + drawing,
+		"shade in another arm": header + colour.replace(shade, "pass").replace("\t\t_:\n", "\t\t_:\n\t\t\t" + shade + "\n") + drawing,
+		"fill in another arm": header + colour + no_fill.replace("\t\t_:\n", "\t\t_:\n" + fill),
+		"commented fill": header + colour + drawing.replace("draw_rect(rect, col)", "# draw_rect(rect, col)"),
+		"fill after match": header + colour + no_fill + "\tdraw_rect(rect, col)\n",
+		"fill in next function": header + colour + no_fill + "func _draw_floor_tile() -> void:\n\tdraw_rect(rect, col)\n",
+		"both operations in colour arm": header + colour.replace(shade, shade + "\n" + fill.strip_edges(false, true)) + no_fill,
+		"duplicate water arm": header + colour + drawing.replace("\t\t_:\n", "\t\tSimTileMap.Tile.Water:\n"),
+		"extra tile match": valid + drawing,
+		"water label outside match": header + colour + "\tif tile == SimTileMap.Tile.Water:\n\t\tdraw_rect(rect, col)\n",
+	}
+	for label in negatives:
+		if _water_draw_problem(String(negatives[label])).is_empty():
+			push_error("DRAW-SCANNER: accepted %s" % label)
+			return false
+	print("DRAW-SCANNER OK water branches survive source growth; comments, other arms and code outside the matches cannot stand in for either water operation")
+	return true
+
+
 func _the_draw_path_reaches_water_in_both_of_its_two_matches() -> bool:
+	if not _the_water_draw_scanner_follows_only_the_water_arms():
+		return false
 	var f: FileAccess = FileAccess.open(MAIN_PATH, FileAccess.READ)
 	if f == null:
 		push_error("DRAW: cannot open %s" % MAIN_PATH)
@@ -405,29 +498,9 @@ func _the_draw_path_reaches_water_in_both_of_its_two_matches() -> bool:
 	var src: String = f.get_as_text()
 	f.close()
 
-	var matches: int = src.count("match tile:")
-	if matches != 2:
-		push_error("DRAW: main.gd has %d `match tile:` blocks, not the 2 this lane knows how to read; re-read _draw_district before trusting this assertion" % matches)
-		return false
-	# Each block on its own, sliced between the labels, so neither arm can stand in for the other
-	# and neither can be satisfied by a mention somewhere else in the file. `if tile ==
-	# SimTileMap.Tile.Water:` in the ground-rows cache is exactly such a mention -- it ends in a
-	# colon too, which is why counting the bare needle over the whole file answered 3 and not 2.
-	var first: int = src.find("match tile:")
-	var second: int = src.find("match tile:", first + 1)
-	var blocks: Array[String] = [src.substr(first, second - first), src.substr(second, 4000)]
-	var names: Array[String] = ["the colour match", "the draw match"]
-	for i in blocks.size():
-		if not (blocks[i] as String).contains("SimTileMap.Tile.Water:"):
-			push_error("DRAW: %s carries no `SimTileMap.Tile.Water:` arm, so deep water falls through it" % names[i])
-			return false
-	# And the arm has to *do* something in each: resolve the channel colour in the first, draw it
-	# in the second. An empty arm is a socket too.
-	if not (blocks[0] as String).contains("WATER_DEEP_SHADE"):
-		push_error("DRAW: the colour match's water arm does not derive the channel from WATER_DEEP_SHADE; deep water and the ford would draw the same")
-		return false
-	if not (blocks[1] as String).contains("draw_rect(rect, col)"):
-		push_error("DRAW: the draw match's water arm does not fill the tile; the channel would resolve a colour nothing paints")
+	var problem: String = _water_draw_problem(src)
+	if not problem.is_empty():
+		push_error("DRAW: %s" % problem)
 		return false
 	# The channel must not take the floor's furniture. The fringe pass reads the ground-rows
 	# cache, and a water tile left in it would have the ground edges drawing grass into the
