@@ -513,11 +513,6 @@ func _ensure_ui() -> void:
 	if work_script != null:
 		_work_panel = work_script.new() as Control
 		_work_panel.visible = false
-		_work_panel.position = Vector2(16, 240)
-		# Taller than before: work_panel.gd's rows grew a second line (person_clause) and then a
-		# third (what they know, and what a Manual survivor could learn), so ROW_H grew with
-		# them -- the same six rows now need more height to stay on screen at once.
-		_work_panel.size = Vector2(1520, 540)
 		layer.add_child(_work_panel)
 	# The skill web drawn as a web (K), over the work grid because it is the grid's own prose
 	# line opened out, and under everything that follows in this list -- sibling order is
@@ -1034,6 +1029,11 @@ func _update_condition_view() -> void:
 
 func _update_hud() -> void:
 	if _hud == null or world == null: return
+	# The corner chart is a street glimpse; its later sibling order would paint it over
+	# the Work grid. This refresh also runs while P holds the simulation still.
+	if _paperdoll != null:
+		var in_run: bool = session != null and session.state in [SessionRes.State.PLAYING, SessionRes.State.PAUSED]
+		_paperdoll.visible = in_run and not inventory_open and not work_open and not web_open
 	var pos: Variant = world.components.get_component(world.player, "position")
 	var x: float = 0.0; var y: float = 0.0
 	if pos is Dictionary: x = float((pos as Dictionary)["x"]); y = float((pos as Dictionary)["y"])
@@ -1264,7 +1264,7 @@ func _draw_district() -> void:
 					# wall no template stamped -- keeps the procedural cap and bands, the
 					# supported fallback and check_topdown.gd's WALL lane's subject.
 					if a2_wall_tiles.has(ty * int(world.tilemap.w) + tx):
-						_draw_floor_tile(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground), tx, ty, Appearance.ground_row_for(world.tilemap, tx, ty, false))
+						_draw_a2_floor_underlay(rect, tx, ty)
 					elif not _draw_wall_art(rect, dress, tx, ty, false):
 						if live and _scrap_stands_at(tx, ty):
 							_draw_barricade_floor(rect, ground, tx, ty)
@@ -1276,7 +1276,7 @@ func _draw_district() -> void:
 					# pane instead, which is where the state a boarded-up window reaches stage 3
 					# in still shows. In a face the pane is the face's own window picture.
 					if a2_wall_tiles.has(ty * int(world.tilemap.w) + tx):
-						_draw_floor_tile(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground), tx, ty, Appearance.ground_row_for(world.tilemap, tx, ty, false))
+						_draw_a2_floor_underlay(rect, tx, ty)
 					elif not _draw_wall_art(rect, dress, tx, ty, true):
 						_draw_solid_tile(rect, Palette.COLOURS["wall"], tx, ty)
 						_draw_window_glass(rect, tx, ty, col)
@@ -1411,6 +1411,16 @@ func _draw_floor_tile(rect: Rect2, col: Color, tx: int, ty: int, row: int) -> vo
 		draw_texture_rect_region(atlas, rect, Appearance.ground_cell(row, variant), Appearance.ground_modulate(col, Appearance.ground_row_tint(row)))
 	else:
 		draw_rect(rect, col)
+
+
+# The accepted A2 wall/window owner cells are perimeter, not traversable indoor floor. Their
+# native transparent bands still sit over room boards. Reuse the room's unweathered tint and
+# atlas row without marking these cells indoors; selection above already enforces current sight
+# and supported geometry. Doors keep their threshold, and low zoom/no atlas keep the flat tint.
+func _draw_a2_floor_underlay(rect: Rect2, tx: int, ty: int) -> void:
+	var ground: Color = Appearance.ground_colour(world.tilemap, tx, ty)
+	var floor_col: Color = ground.lerp(Palette.COLOURS["indoorFloor"], Palette.INDOOR_MIX)
+	_draw_floor_tile(rect, floor_col, tx, ty, Appearance.GroundRow.Boards)
 
 # The ground row of every tile, one byte each, cached against the map object like the road mask
 # it is built from: a wall, a window, a screen, a tree or deep water is ROW_NONE, everything else is what

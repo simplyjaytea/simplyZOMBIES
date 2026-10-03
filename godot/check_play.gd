@@ -99,6 +99,7 @@ const PRESSED_KEYS: Array = [
 	["F1", "F1 raises the legend"],
 	["C", "C makes camp"],
 	["K", "K opens the skill web, which Escape peels before it pauses anything"],
+	["J", "J opens Work, whose priority cells fit the window"],
 	["Ctrl+C", "Ctrl+C crouches"],
 	["Ctrl+S", "Ctrl+S stands"],
 	["F", "F swings, and does not while the sheet is open"],
@@ -165,6 +166,7 @@ func _run() -> void:
 		return
 	ok = _the_loop_advances_the_world(main) and ok
 	ok = _a_held_key_walks_the_body(main) and ok
+	ok = await _the_work_grid_fits_and_keeps_its_clicks(main) and ok
 	var sheet_ok: bool = await _tab_opens_the_sheet(main)
 	ok = sheet_ok and ok
 	var peel_ok: bool = await _escape_peels_in_order(main)
@@ -1793,3 +1795,113 @@ func _the_gate_fits_its_budget(elapsed_ms: int) -> bool:
 		return false
 	print("BUDGET OK %d ms of the %d ms budget" % [elapsed_ms, BUDGET_MS])
 	return true
+
+
+# The Work grid's visible cells and actual mouse dispatch share the responsive width.
+# The corner glimpse must clear the panel even while P has stopped the simulation.
+func _the_work_grid_fits_and_keeps_its_clicks(main: Node) -> bool:
+	var panel: Control = main.get("_work_panel") as Control
+	var doll: Control = main.get("_paperdoll") as Control
+	var old_size: Vector2i = root.size
+	var was_paused: bool = bool(main.get("paused"))
+	main.set("paused", true)
+	var ok: bool = true
+	for dims in [Vector2i(1280, 720), Vector2i(1920, 1080)]:
+		root.size = dims
+		await process_frame
+		_tap(KEY_J)
+		main.call("_process", 0.0)
+		await process_frame
+		if not panel.visible or doll.visible or not Rect2(Vector2.ZERO, Vector2(dims)).encloses(panel.get_rect()):
+			push_error("WORK-LAYOUT: Work is outside the viewport or covered by the corner chart at %s" % str(dims))
+			ok = false
+		var grid_x: float = float(panel.get_script().get("GRID_X"))
+		var grid_y: float = float(panel.get_script().get("GRID_Y"))
+		var cell_w: float = float(panel.call("_column_width"))
+		var jobs: GDScript = load("res://sim/modules/jobs.gd") as GDScript
+		var columns: Array = jobs.get("COLUMNS") as Array
+		var last: int = columns.size() - 1
+		var at: Vector2 = panel.position + Vector2(grid_x + (float(last) + 0.5) * cell_w, grid_y + 28.0)
+		if not panel.get_rect().has_point(at):
+			push_error("WORK-LAYOUT: the last priority cell is outside the frame")
+			ok = false
+		_drain(main)
+		for down in [true, false]:
+			var press := InputEventMouseButton.new()
+			press.button_index = MOUSE_BUTTON_LEFT
+			press.pressed = down
+			press.position = at
+			root.push_input(press)
+		var edits: Array = _pending(main).filter(func(command: Variant) -> bool: return String((command as Dictionary).get("type", "")) == "job.priority")
+		if edits.size() != 1 or String((edits[0] as Dictionary).get("column", "")) != String(columns[last]):
+			push_error("WORK-LAYOUT: clicking the visible last cell did not queue exactly its priority")
+			ok = false
+		_drain(main)
+		if dims.x == 1280:
+			# The boot's two survivors cannot overflow. Repeat real rows for a taller view,
+			# with the other real entity last so an unscrolled click cannot accidentally pass.
+			var real_rows: Array = panel.get("_rows") as Array
+			var crowded: Array[Dictionary] = []
+			for i in 8:
+				crowded.append((real_rows[0] as Dictionary).duplicate(true))
+			crowded[crowded.size() - 1] = (real_rows[1] as Dictionary).duplicate(true)
+			panel.set("_rows", crowded)
+			panel.call("_sync_layout")
+			await process_frame
+			var visible_rows: int = int(panel.call("_visible_rows"))
+			if visible_rows >= crowded.size():
+				push_error("WORK-LAYOUT: crowd fixture did not overflow; no scrolling judged")
+				ok = false
+			var wheel := InputEventMouseButton.new()
+			wheel.pressed = true
+			wheel.position = panel.position + Vector2(grid_x + 4.0, grid_y + 4.0)
+			wheel.button_index = MOUSE_BUTTON_WHEEL_DOWN
+			for i in crowded.size() + 2:
+				root.push_input(wheel)
+			await process_frame
+			if int(panel.get("_row_scroll")) != crowded.size() - visible_rows:
+				push_error("WORK-LAYOUT: wheel did not clamp at the last survivor")
+				ok = false
+			var row_h: float = float(panel.get_script().get("ROW_H"))
+			var last_at: Vector2 = panel.position + Vector2(grid_x + (float(last) + 0.5) * cell_w, grid_y + float(visible_rows - 1) * row_h + 28.0)
+			for down in [true, false]:
+				var press := InputEventMouseButton.new()
+				press.button_index = MOUSE_BUTTON_LEFT
+				press.pressed = down
+				press.position = last_at
+				root.push_input(press)
+			var after_scroll: Array = _pending(main).filter(func(command: Variant) -> bool: return String((command as Dictionary).get("type", "")) == "job.priority")
+			var last_entity: int = int(crowded[crowded.size() - 1]["entity"])
+			if after_scroll.size() != 1 or int((after_scroll[0] as Dictionary).get("entity", -1)) != last_entity or String((after_scroll[0] as Dictionary).get("column", "")) != String(columns[last]):
+				push_error("WORK-LAYOUT: scrolled priority click did not target the displayed last survivor")
+				ok = false
+			_drain(main)
+			wheel.button_index = MOUSE_BUTTON_WHEEL_UP
+			for i in crowded.size() + 2:
+				root.push_input(wheel)
+			if int(panel.get("_row_scroll")) != 0:
+				push_error("WORK-LAYOUT: wheel did not clamp back at the first survivor")
+				ok = false
+			panel.call("set_world", main.get("world"))
+		_tap(KEY_J)
+		main.call("_process", 0.0)
+		await process_frame
+		if panel.visible or not doll.visible:
+			push_error("WORK-LAYOUT: closing Work did not restore the street's chart")
+			ok = false
+		_tap(KEY_K)
+		main.call("_process", 0.0)
+		if doll.visible:
+			push_error("WORK-LAYOUT: the chart paints over the skill web")
+			ok = false
+		_tap(KEY_K)
+		main.call("_process", 0.0)
+		if not doll.visible:
+			push_error("WORK-LAYOUT: closing the skill web did not restore the chart")
+			ok = false
+	root.size = old_size
+	main.set("paused", was_paused)
+	await process_frame
+	if ok:
+		print("WORK-LAYOUT OK Work fits 1280/1920, the last visible cell receives the click, scrolling reaches both ends and clicks the displayed survivor, Work/web peel the corner chart and restore it while paused")
+	return ok

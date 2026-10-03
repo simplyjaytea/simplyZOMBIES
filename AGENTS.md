@@ -59,11 +59,20 @@ own wrapper exists it is named as a wrapper around the plain command, never as t
   [what's left](docs/23-roadmap.md#whats-left-in-milestone-2). The [routing table](#routing-table)
   below is the map of which files belong to which system and which gate judges them; `npm run
   check:routing` keeps it true.
-- **Claim a piece by branch name.** `<agent>/<piece-slug>` — `astra/dev-menu-raiders`,
+- **Claim a piece by branch name and separate checkout.** `<agent>/<piece-slug>` — `astra/dev-menu-raiders`,
   `sol/per-gate-timing`, `claude/<anything>` — pushed early, so `git branch -r` is the live list
   of who is on what. There is deliberately **no claim ledger in any file**: a list of who holds
   what is status, this file carries none, and the checkbox ledger this project retired drifted
-  four times for exactly that reason. A pushed branch cannot drift.
+  four times for exactly that reason. A pushed branch cannot drift. Use `git worktree add -b
+  <agent>/<piece-slug> <path> <base>` for each simultaneous worker and inspect `git worktree list`
+  as well as remote branches. A local worktree does not imply its branch has been pushed.
+- **Share tools, isolate runtime state.** `GODOT_BIN` may point to the same pinned executable
+  across worktrees; dependencies may share an unchanged `node_modules`. Each checkout keeps its
+  own `godot/.godot` imports. Give workers separate `XDG_DATA_HOME` and `XDG_CACHE_HOME` directories
+  and separate displays so captures and save/load checks cannot overwrite another worker's
+  state. Reserve quiet machine time for performance measurements. One coordinator owns shared
+  roadmap/README/handoff edits and integrates disjoint code patches before final verification;
+  worker evidence is a handoff to that coordinator, not a second status ledger.
 - **Stay on disjoint files.** Pick a piece whose *files* line (each entry in the alpha-shell
   group names its files; other groups name their system, and the routing table names the system's
   files) does not overlap a branch already pushed. Some tracks are serial by construction — the
@@ -111,6 +120,7 @@ row when a system gains a home; the gate goes red when a route stops being true.
 | A gate, new or fixed | [a gate that cannot fail](CLAUDE.md#conventions), the dead-socket rule in [CLAUDE.md](CLAUDE.md#where-the-work-is) | `godot/check_*.gd`, a mode in `scripts/run-godot.mjs`, a script in `package.json`, a link in the `godot:m2` chain | `npm run check:routing` proves it is reachable | the record |
 | The frozen TypeScript oracle | the top of this file | `src/`, `test/`, `bench/` | `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm test`, `npm run bench` | nothing: it gains no features |
 | CI, scripts, hooks, this table | [CLAUDE.md's verifying section](CLAUDE.md#verifying-a-change) | `.github/workflows/` (`.github/workflows/ci.yml` the gates, `.github/workflows/pages.yml` the web build, `.github/workflows/release.yml` the downloadable build, run by hand with a version or by a pushed `v` tag), `scripts/`, `.claude/` | `npm run check:routing`, `npm run check:timing`, `npm run format:check`; the engine pin in `scripts/run-godot.mjs` | the record's Kernel & tooling entry |
+| Shipped runtime performance | [docs/22](docs/22-performance.md#shipped-godot-runtime-measurements) | `godot/bench/runtime_tick.gd`, `godot/bench/runtime_frame.gd`, `godot/bench/measured_main.gd`, `scripts/runtime-budget.mjs`, `scripts/run-godot.mjs` | `npm run check:runtime-budget` judges the production runner contract; `npm run godot:bench:runtime` and `npm run godot:bench:frame` measure actual timing on a quiet machine (frame needs a display). Existing overruns remain product debt; the real timing commands are not yet CI shipping gates. | docs/22's dated measurements and the record |
 | Driving a pull request | `.claude/skills/steward/SKILL.md` | -- | whatever CI reports; `npm run godot:m2` before every push | the PR itself |
 | Playing it, or a screenshot | [Running the game](#running-the-game-gui) below | `godot/presentation/main.tscn` | `npm run godot:run` | -- |
 
@@ -160,6 +170,13 @@ gates, the first is the one to iterate on:
 
 Which one you are in changes the first thing you have to do.
 
+For another managed cloud environment, inspect what is actually installed first. The 2026-10-03
+Codex workspace had Godot 4.6.3 on `PATH`, so it still needed the pinned 4.7.1 install. Run
+`bash scripts/setup-web-session.sh`; if it cannot write `/usr/local/bin`, set `GODOT_BIN` to the
+absolute `.ci-tools/godot/Godot_v4.7.1-stable_linux.x86_64` path it prints. The runner does not
+discover that checkout-local path automatically. Headless gates need no X server; play and
+runtime captures need a working display. Check for Xvfb instead of assuming it is installed.
+
 | | Cursor Cloud VM | Claude Code on the web |
 |---|---|---|
 | Godot 4.7.1 | preinstalled at `/usr/local/bin/godot` | **absent** until `.claude/hooks/session-start.sh` installs it (or `bash scripts/setup-web-session.sh` by hand) |
@@ -192,7 +209,8 @@ or CI touches it. Never paste the literal token into `.mcp.json`; a committed ke
 
 ## Headless verification (no display needed)
 
-Every correctness and performance gate runs headless through `scripts/run-godot.mjs`. The one to
+Correctness gates run headless through `scripts/run-godot.mjs`; the runtime frame benchmark
+needs a real display and renderer. The one to
 run before a commit is **`npm run godot:m2`**, which chains every Milestone 2 gate (count them off
 the script in `package.json`; every number written here has drifted); `npm run godot:r6` adds
 parity, coverage, mutation and soak on top. `CLAUDE.md` names the gates worth knowing by name; the
@@ -203,12 +221,18 @@ Expected output that is **not** a failure:
 
 - `ObjectDB ... leaked at exit` and `resources still in use` printed *after* a gate reports its
   `_OK` line. Engine shutdown noise. Check the `_OK` line and the exit code.
-- `BENCH_OVER_BUDGET` from `npm run godot:bench`, which still exits 0. The budgets are calibrated
-  against compiled TypeScript; headless GDScript is an interpreter. See docs/22.
+- `BENCH_OVER_BUDGET` from legacy `npm run godot:bench`, which still exits 0 and measures a
+  synthetic dictionary. This exception does not apply to `godot:bench:runtime` or
+  `godot:bench:frame`: they exit 1 on overruns or invalid evidence. See docs/22.
 
-Long-running gates, so you can plan: `godot:m2:balance` is ~4.5 min and is part of `godot:m2`.
-`BALANCE_FULL=1 npm run godot:m2:balance:full` is a **~9 hour** grid and is opt-in for that
-reason — `BALANCE_DAYS` and `BALANCE_SEEDS` scale it down to exercise the code path.
+Long-running gates, so you can plan: `godot:m2:balance` took **15m29s** within the **47m16s**,
+85-gate cloud run on 2026-10-03. Read the current run's `GATE_TIME_TABLE`; older measurements
+describe different machines and workloads. `BALANCE_TILES=256 npm run godot:m2:balance:full` is
+the opt-in shipped-size grid; the full-tier command otherwise still defaults to 64 tiles.
+Measure throughput at its actual district size before estimating the grid; the old
+nine-hour figure is not a safe estimate for the current 256-tile campaign. `BALANCE_DAYS` and
+`BALANCE_SEEDS` can exercise the full-tier code path at smaller scope, but that is not the full
+milestone proof.
 
 ## Running the game (GUI)
 
@@ -223,7 +247,7 @@ DISPLAY=:1 npm run godot:run          # or npm run godot:editor
 - **It starts on day 1 in daylight** — `SimBoot` boots the clock at `Clock.DAY_BEGINS`, which is
   the first tick of the Day phase. (This file used to say it starts at night and that you should
   wait for dawn. That was wrong, whenever it stopped being true.) A day is four hours at 1×, so
-  press `3` for 10× and wait if you want to see dark.
+  press `=` twice for 10× and wait if you want to see dark.
 - The HUD is **prose only** — no numbers except the day counter, enforced by
   `npm run godot:check:hud`. Do not go looking for a `light` value on it; the numeric developer
   sheet lives behind the `M` toggle. `F1` shows the key list, which is up by default on a fresh
@@ -255,9 +279,8 @@ drift, and `format:check` flagging `.scratch/*.html`) that have all since been *
 `npm run godot:smoke` and the full `npm run godot:m2` chain all pass. A red one is a real
 regression, most likely yours.
 
-One thing that is *not* environment breakage and is not yours either: `npm run godot:m2` takes
-about **twenty-seven minutes** here (26m45s at 69 gates, measured 2026-09-12; the chain has grown
-since, and `CLAUDE.md` carries the figure). `godot:m2:balance` (~4.5 min) and `godot:m2:lethality`
-are most of it; the per-gate timing table the alpha-shell group adds is where the real number
-lives once it lands.
+Long runs are not by themselves environment breakage: `npm run godot:m2` took **47m16s** for
+85 gates in the 2026-10-03 cloud run. `godot:m2:balance` took 15m29s and `godot:m2:storm` 6m09s.
+The emitted `GATE_TIME_TABLE` is the current timing evidence; the 26m45s/69-gate figure from
+2026-09-12 is historical.
 Run the single `godot:m2:<name>` gate you are iterating on and save the chain for the commit.
