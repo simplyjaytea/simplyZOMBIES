@@ -9699,6 +9699,24 @@ not a to-do list:
   not a substring search a comment could satisfy (CLAUDE.md's `begins_with("const READ_KEYS")`
   precedent) — reverting the fix reds all three. `recorded` is not part of the save format
   (`world.gd`'s `snapshot()`/`restore()` never touch it), so nothing needed to change there.
+- **Kernel & tooling — water draw check follows its branches, 2026-10-03.** The A2 wall
+  additions moved the water fill to character 4,473 after the drawing match, beyond
+  `check_water.gd`'s 4,000-character window. Reproduced on the merged art pass:
+  `godot:check:water` reported DRAW/WATER_FAIL even though the water arm still painted its
+  channel. DRAW now reads `_draw_district` alone, bounds both tile matches and their Water arms
+  by indentation, ignores line comments, and requires the shade and fill in their respective
+  arms. It cannot borrow a fill from another tile, after the match or from the next helper.
+  No renderer, art, content or simulation change.
+
+  **Gated:** `godot:check:water` → `DRAW-SCANNER OK`, `WATER_OK`; `check:routing` →
+  `ROUTING_OK`. Four positive scanner fixtures include source growth beyond the former window,
+  spaces and CRLF; fourteen negatives refuse missing/commented/duplicate arms, operations moved
+  to the wrong arm or outside the match, and extra matches. The existing fringe-exclusion
+  assertion remains in force. The full `godot:m2` chain passed all **85 gates** in **45m42s**
+  on this cloud workspace (`GATE_TIME_TABLE` total 2741.50 seconds); the repaired water gate
+  also passed inside that chain. Independent diff review found no blocking issue; the optional
+  Jev review service was unavailable. These are local results, not a new GitHub CI run.
+
 - **Kernel & tooling: the routing table** (`npm run check:routing`, `ROUTING_OK`, 2026-09-06).
   `AGENTS.md` carries a routing table — by kind of work and by system: what to read first, where
   the code lives, which gate judges it, where the record goes — and a Node gate judges the table
