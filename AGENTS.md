@@ -123,6 +123,7 @@ row when a system gains a home; the gate goes red when a route stops being true.
 | Shipped runtime performance | [docs/22](docs/22-performance.md#shipped-godot-runtime-measurements) | `godot/bench/runtime_tick.gd`, `godot/bench/runtime_frame.gd`, `godot/bench/measured_main.gd`, `scripts/runtime-budget.mjs`, `scripts/run-godot.mjs` | `npm run check:runtime-budget` judges the production runner contract; `npm run godot:bench:runtime` and `npm run godot:bench:frame` measure actual timing on a quiet machine (frame needs a display). Existing overruns remain product debt; the real timing commands are not yet CI shipping gates. | docs/22's dated measurements and the record |
 | Driving a pull request | `.claude/skills/steward/SKILL.md` | -- | whatever CI reports; `npm run godot:m2` before every push | the PR itself |
 | Playing it, or a screenshot | [Running the game](#running-the-game-gui) below | `godot/presentation/main.tscn` | `npm run godot:run` | -- |
+| Art review: before and after screenshots of fixed scenes at both windows | the header of `godot/review/shots.gd`, then `godot/review/scenes.gd` | `godot/review/scenes.gd` (each scene and its verify), `godot/review/shots.gd` (the capture driver, run with `DISPLAY=:1 npm run godot:shots`) | `npm run godot:check:shots` (`godot/check_shots.gd`); its PIXELS lane skips without a display | the record |
 
 **By system** -- the spec, the code, and the gate that proves it. Where a row names several
 gates, the first is the one to iterate on:

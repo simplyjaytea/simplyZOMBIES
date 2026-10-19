@@ -561,6 +561,21 @@ switch (mode) {
       "res://check_ban_health_bar.gd",
     ];
     break;
+  case "--shots":
+    // The art review's capture driver. Needs a display: the pixels come from the root viewport.
+    // Anything after the mode is handed to the driver as user args (`--out=DIR`).
+    args = [
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://review/shots.gd",
+      "--",
+      ...process.argv.slice(3),
+    ];
+    break;
+  case "--shots-check":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_shots.gd"];
+    break;
   case "--export":
     args = [];
     break;
