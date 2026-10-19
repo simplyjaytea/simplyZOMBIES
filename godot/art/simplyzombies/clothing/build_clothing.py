@@ -11,8 +11,9 @@ of the parts it covers, in the frame's own light -- light skin becomes the cloth
 shaded skin its shade, the darkest skin its deep tone, and a pixel lit from above (ink or nothing
 directly over it) its highlight. The pack's ink, the head and anything a garment does not cover
 are never touched, so a garment cannot move the silhouette, and the overlay fits its frame by
-construction (`godot:check:authored`'s WEAR lane holds that: every painted pixel sits on a solid
-body pixel that is not ink and not head).
+construction (`godot:check:authored`'s WEAR lane holds that every painted pixel sits on a solid
+body pixel that is not ink; that the head is left alone is this painter's rule, which no gate
+judges, because the head has no colour of its own the gate could tell from skin).
 
 Ramps are four flat tones in the pack's own families (STYLE.md: olive and pine, dusty ochre, slate,
 warm desaturated wood; restrained 3-4 shades a material). Every number is an integer, so the bytes

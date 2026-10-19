@@ -611,8 +611,9 @@ declared in `authored.json`:
   either way for south and north, the east picture mirrored for west so the weapon stays upright.
   The body under it never mirrors; only the weapon does, and only facing west. The pack's
   baseball bat and assault rifle are not declared: no shipped base is either.
-- **A garment** — a `torso`, `legs` or `feet` item names a `wear_*` family (kind `wear`, with
-  `fits` naming the rig it was painted for), one member per rig frame, 20 for `body_survivor`.
+- **A garment** — a `torso`, `legs` or `feet` item names a `wear_*` family (kind `wear`, with its
+  own `slot`, and `fits` naming the rig it was painted for), one member per rig frame, 20 for
+  `body_survivor`.
   A garment is not a layer: it repaints only body pixels, so `Appearance.body_texture` composes
   the body frame and its three garments into one cached texture (`dressed_texture`) and the
   clothes walk on the body's own clock. A body with no garment in a slot wears the default

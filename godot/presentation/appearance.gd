@@ -120,15 +120,20 @@ const WORN_SLOTS: Array[String] = ["legs", "feet", "torso"]
 # trousers would otherwise pair the same way every twelve ids, and every first body alike).
 const OUTFIT_STRIDE: Dictionary = {"legs": 2, "feet": 5, "torso": 1}
 
-# Garment family -> the rig it was painted on (`fits`), read off authored.json kind `wear`.
+# Garment family -> {"fits": the rig it was painted on, "slot": the one slot it dresses}, read off
+# authored.json kind `wear`.
 static var _wear: Dictionary = {}
+# Rig key -> true for every rig at least one garment fits: `outfit_of` answers nothing at once for
+# any other body (every zombie), rather than resolving three slots per body per frame.
+static var _clothed_rigs: Dictionary = {}
 # key -> Image, the decoded pixels of one picture, for composing. Separate from `_cache` because a
 # texture's pixels are not readable headless (the dummy renderer answers an empty image), and the
 # composite is built from pixels.
 static var _images: Dictionary = {}
-# "<frame>|<garment>,<garment>,..." -> the composed ImageTexture, and its Image for gates to read.
+# "<frame>|<garment>,<garment>,..." -> the composed ImageTexture. Bounded by what is drawn: one
+# entry per rig frame per outfit actually on screen (20 frames x the few dozen outfits a colony
+# wears), each 32x40 RGBA8. The composed Image is not kept; the gates rebuild it per call.
 static var _dressed: Dictionary = {}
-static var _dressed_images: Dictionary = {}
 
 
 # Both lookups matter, and neither is sufficient alone.
@@ -169,8 +174,8 @@ static func forget() -> void:
 	_cache.clear()
 	_images.clear()
 	_dressed.clear()
-	_dressed_images.clear()
 	_wear.clear()
+	_clothed_rigs.clear()
 	# The authored declaration goes with the textures: a gate that swaps the file on disk and
 	# then asks `canvas_of` again would otherwise get the answer from before the swap, which is
 	# the whole failure mode a cache invalidation exists to prevent.
@@ -449,6 +454,7 @@ static func _read_authored() -> void:
 	_muzzles = {}
 	_sheets = {}
 	_wear = {}
+	_clothed_rigs = {}
 	if not FileAccess.file_exists(AUTHORED_PATH):
 		return
 	var text: String = FileAccess.get_file_as_string(AUTHORED_PATH)
@@ -470,7 +476,9 @@ static func _read_authored() -> void:
 		if String((entry as Dictionary).get("kind", "")) == "rig":
 			_authored_rigs.append(String(key))
 		if String((entry as Dictionary).get("kind", "")) == "wear":
-			_wear[String(key)] = String((entry as Dictionary).get("fits", ""))
+			var fits: String = String((entry as Dictionary).get("fits", ""))
+			_wear[String(key)] = {"fits": fits, "slot": String((entry as Dictionary).get("slot", ""))}
+			_clothed_rigs[fits] = true
 		var grip: Variant = (entry as Dictionary).get("grip")
 		if String((entry as Dictionary).get("kind", "")) == "pack_held" and grip is Array and (grip as Array).size() == 2:
 			_held[String(key)] = Vector2i(floori(float((grip as Array)[0])), floori(float((grip as Array)[1])))
@@ -1131,12 +1139,17 @@ static func body_texture(look: Dictionary, view: String, moving_now: bool, tick:
 # (godot/art/simplyzombies/clothing/), and it is part of the body picture rather than a layer over
 # it -- the pack's vest stands still on a walking body, which a shirt cannot.
 
-# Whether `key` is a garment painted for `rig`: an authored `wear` family whose `fits` is that rig.
-static func wears(key: String, rig: String) -> bool:
+# Whether `key` is a garment painted for `rig`: an authored `wear` family whose `fits` is that rig,
+# and, when `slot` is given, whose own `slot` is that one -- a torso item naming a pair of trousers
+# does not paint trousers on the torso's turn.
+static func wears(key: String, rig: String, slot: String = "") -> bool:
 	if key.is_empty() or rig.is_empty():
 		return false
 	_read_authored()
-	return _wear.has(key) and String(_wear[key]) == rig and turns(key)
+	if not _wear.has(key) or not turns(key):
+		return false
+	var entry: Dictionary = _wear[key] as Dictionary
+	return String(entry.get("fits", "")) == rig and (slot.is_empty() or String(entry.get("slot", "")) == slot)
 
 
 # Whether `key` is a garment at all, for any rig -- the layers path refuses one (`equipment_layers_for`).
@@ -1152,7 +1165,8 @@ static func is_garment(key: String) -> bool:
 # same body always wears the same thing. A body on a rig no garment fits wears nothing.
 static func outfit_of(world: Variant, entity: int, rig: String, block: Dictionary) -> Array[String]:
 	var out: Array[String] = []
-	if rig.is_empty():
+	_read_authored()
+	if rig.is_empty() or not _clothed_rigs.has(rig):
 		return out
 	var defaults: Variant = block.get("outfit")
 	if not (defaults is Dictionary) and world != null:
@@ -1167,9 +1181,9 @@ static func outfit_of(world: Variant, entity: int, rig: String, block: Dictionar
 		var item_block: Variant = _equip_block_for(world, slots.get(slot)) if not slots.is_empty() else null
 		if item_block is Dictionary:
 			key = String((item_block as Dictionary).get("equipSprite", ""))
-		if not wears(key, rig):
+		if not wears(key, rig, slot):
 			key = default_garment(defaults, slot, entity)
-		if wears(key, rig):
+		if wears(key, rig, slot):
 			out.append(key)
 	return out
 
@@ -1198,23 +1212,25 @@ static func dressed_texture(rig: String, frame: String, outfit: Array) -> Textur
 	return texture
 
 
-# The composed pixels `dressed_texture` uploads, readable headless: the gates judge these.
+# The composed pixels `dressed_texture` uploads, readable headless: the gates judge these. A garment
+# member that is missing or the wrong size is an error, not a quiet bare patch: the body still
+# draws, with that one garment left off.
 static func dressed_image(rig: String, frame: String, outfit: Array) -> Image:
 	if rig.is_empty() or not frame.begins_with(rig):
 		return null
-	var cache_key: String = "%s|%s" % [frame, ",".join(PackedStringArray(outfit))]
-	if _dressed_images.has(cache_key):
-		return _dressed_images[cache_key] as Image
 	var base: Image = image_of(frame)
-	var out: Image = null
-	if base != null:
-		out = base.duplicate() as Image
-		var suffix: String = frame.substr(rig.length())
-		for garment in outfit:
-			var layer: Image = image_of("%s%s" % [String(garment), suffix])
-			if layer != null and layer.get_size() == out.get_size():
-				out.blend_rect(layer, Rect2i(Vector2i.ZERO, layer.get_size()), Vector2i.ZERO)
-	_dressed_images[cache_key] = out
+	if base == null:
+		return null
+	var out: Image = base.duplicate() as Image
+	var suffix: String = frame.substr(rig.length())
+	for garment in outfit:
+		var member: String = "%s%s" % [String(garment), suffix]
+		var layer: Image = image_of(member)
+		if layer == null or layer.get_size() != out.get_size():
+			var found: String = "missing" if layer == null else "%s, not %s" % [str(layer.get_size()), str(out.get_size())]
+			push_error("Appearance: garment frame '%s' is %s; '%s' draws without it" % [member, found, frame])
+			continue
+		out.blend_rect(layer, Rect2i(Vector2i.ZERO, layer.get_size()), Vector2i.ZERO)
 	return out
 
 

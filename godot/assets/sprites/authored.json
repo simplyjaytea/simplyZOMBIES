@@ -128,7 +128,9 @@
     "view, the idle picture then the four walk frames). Torso, legs and feet garments are composed",
     "INTO the body picture (`Appearance.body_texture`), on the very frame the body shows, so they",
     "walk with it rather than standing still on it the way the pack's vest does. `fits` names the",
-    "pack_rig the garment was painted on; a body on any other rig draws none of it.",
+    "pack_rig the garment was painted on; a body on any other rig draws none of it. `slot` names",
+    "the one equipment slot it dresses (torso, legs or feet); an item in another slot naming it",
+    "draws its slot's default instead.",
     "`godot:check:authored`'s WEAR lane holds the members to the rig's and every painted pixel to a",
     "solid, non-ink pixel of the frame it sits on; `godot:check:worn`'s COVERAGE lane holds every",
     "torso, legs and feet item to a garment."
@@ -3803,6 +3805,7 @@
       "reads": "player.body",
       "palette": "pack",
       "fits": "body_survivor",
+      "slot": "torso",
       "members": {
         "wear_tee_sand_s": {
           "source": {
@@ -4035,6 +4038,7 @@
       "reads": "player.body",
       "palette": "pack",
       "fits": "body_survivor",
+      "slot": "torso",
       "members": {
         "wear_tee_olive_s": {
           "source": {
@@ -4267,6 +4271,7 @@
       "reads": "player.body",
       "palette": "pack",
       "fits": "body_survivor",
+      "slot": "torso",
       "members": {
         "wear_tee_slate_s": {
           "source": {
@@ -4499,6 +4504,7 @@
       "reads": "player.body",
       "palette": "pack",
       "fits": "body_survivor",
+      "slot": "torso",
       "members": {
         "wear_tee_rust_s": {
           "source": {
@@ -4731,6 +4737,7 @@
       "reads": "item.shirt.linen",
       "palette": "pack",
       "fits": "body_survivor",
+      "slot": "torso",
       "members": {
         "wear_shirt_linen_s": {
           "source": {
@@ -4963,6 +4970,7 @@
       "reads": "item.thermals.top",
       "palette": "pack",
       "fits": "body_survivor",
+      "slot": "torso",
       "members": {
         "wear_shirt_thermal_s": {
           "source": {
@@ -5195,6 +5203,7 @@
       "reads": "item.jacket.leather",
       "palette": "pack",
       "fits": "body_survivor",
+      "slot": "torso",
       "members": {
         "wear_jacket_leather_s": {
           "source": {
@@ -5427,6 +5436,7 @@
       "reads": "item.coat.winter",
       "palette": "pack",
       "fits": "body_survivor",
+      "slot": "torso",
       "members": {
         "wear_coat_winter_s": {
           "source": {
@@ -5659,6 +5669,7 @@
       "reads": "item.coat.parka",
       "palette": "pack",
       "fits": "body_survivor",
+      "slot": "torso",
       "members": {
         "wear_coat_parka_s": {
           "source": {
@@ -5891,6 +5902,7 @@
       "reads": "item.raincoat.hooded",
       "palette": "pack",
       "fits": "body_survivor",
+      "slot": "torso",
       "members": {
         "wear_raincoat_s": {
           "source": {
@@ -6123,6 +6135,7 @@
       "reads": "item.poncho.rain",
       "palette": "pack",
       "fits": "body_survivor",
+      "slot": "torso",
       "members": {
         "wear_poncho_rain_s": {
           "source": {
@@ -6355,6 +6368,7 @@
       "reads": "item.poncho.tarp",
       "palette": "pack",
       "fits": "body_survivor",
+      "slot": "torso",
       "members": {
         "wear_poncho_tarp_s": {
           "source": {
@@ -6587,6 +6601,7 @@
       "reads": "item.blanket.wool",
       "palette": "pack",
       "fits": "body_survivor",
+      "slot": "torso",
       "members": {
         "wear_blanket_s": {
           "source": {
@@ -6819,6 +6834,7 @@
       "reads": "item.coverall.paper",
       "palette": "pack",
       "fits": "body_survivor",
+      "slot": "torso",
       "members": {
         "wear_coverall_paper_s": {
           "source": {
@@ -7051,6 +7067,7 @@
       "reads": "item.suit.hazmat",
       "palette": "pack",
       "fits": "body_survivor",
+      "slot": "torso",
       "members": {
         "wear_suit_hazmat_s": {
           "source": {
@@ -7283,6 +7300,7 @@
       "reads": "item.named.butchers_apron",
       "palette": "pack",
       "fits": "body_survivor",
+      "slot": "torso",
       "members": {
         "wear_apron_butcher_s": {
           "source": {
@@ -7515,6 +7533,7 @@
       "reads": "item.apron.welding",
       "palette": "pack",
       "fits": "body_survivor",
+      "slot": "torso",
       "members": {
         "wear_apron_welding_s": {
           "source": {
@@ -7747,6 +7766,7 @@
       "reads": "item.wrap.cloth",
       "palette": "pack",
       "fits": "body_survivor",
+      "slot": "torso",
       "members": {
         "wear_wrap_cloth_s": {
           "source": {
@@ -7979,6 +7999,7 @@
       "reads": "player.body",
       "palette": "pack",
       "fits": "body_survivor",
+      "slot": "legs",
       "members": {
         "wear_pants_charcoal_s": {
           "source": {
@@ -8211,6 +8232,7 @@
       "reads": "item.jeans.denim",
       "palette": "pack",
       "fits": "body_survivor",
+      "slot": "legs",
       "members": {
         "wear_pants_denim_s": {
           "source": {
@@ -8443,6 +8465,7 @@
       "reads": "item.pants.canvas",
       "palette": "pack",
       "fits": "body_survivor",
+      "slot": "legs",
       "members": {
         "wear_pants_canvas_s": {
           "source": {
@@ -8675,6 +8698,7 @@
       "reads": "item.trousers.insulated",
       "palette": "pack",
       "fits": "body_survivor",
+      "slot": "legs",
       "members": {
         "wear_pants_insulated_s": {
           "source": {
@@ -8907,6 +8931,7 @@
       "reads": "item.thermals.leggings",
       "palette": "pack",
       "fits": "body_survivor",
+      "slot": "legs",
       "members": {
         "wear_leggings_thermal_s": {
           "source": {
@@ -9139,6 +9164,7 @@
       "reads": "item.shorts.cotton",
       "palette": "pack",
       "fits": "body_survivor",
+      "slot": "legs",
       "members": {
         "wear_shorts_cotton_s": {
           "source": {
@@ -9371,6 +9397,7 @@
       "reads": "player.body",
       "palette": "pack",
       "fits": "body_survivor",
+      "slot": "feet",
       "members": {
         "wear_shoes_worn_s": {
           "source": {
@@ -9603,6 +9630,7 @@
       "reads": "item.boots.leather",
       "palette": "pack",
       "fits": "body_survivor",
+      "slot": "feet",
       "members": {
         "wear_boots_leather_s": {
           "source": {
@@ -9835,6 +9863,7 @@
       "reads": "item.boots.steel",
       "palette": "pack",
       "fits": "body_survivor",
+      "slot": "feet",
       "members": {
         "wear_boots_steel_s": {
           "source": {
@@ -10067,6 +10096,7 @@
       "reads": "item.boots.insulated",
       "palette": "pack",
       "fits": "body_survivor",
+      "slot": "feet",
       "members": {
         "wear_boots_insulated_s": {
           "source": {
@@ -10299,6 +10329,7 @@
       "reads": "item.sandals.canvas",
       "palette": "pack",
       "fits": "body_survivor",
+      "slot": "feet",
       "members": {
         "wear_sandals_canvas_s": {
           "source": {
