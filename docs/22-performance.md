@@ -416,6 +416,12 @@ shader cannot trip a CI budget, and no gate measures its cost. A software-render
 would judge llvmpipe rather than the product, so none was added. Measuring on hardware is the open
 item.
 
+**Open: the night's `_draw` stage is over target.** At night, with a carried torch and a lit
+campfire, the `_draw` CPU stage measured **17.0–18.3 ms** mean at 1280×720 after A10 (20.7–21.7 ms
+before it). The 10 ms target is not met. The day boot scene sits at 12.9–14.1 ms on the same
+container. This is not the light map's cost, since A10 lowered the number; what the rest of the
+night frame spends it on has not been profiled.
+
 ### Remaining milestone evidence
 
 At the measured **34.00 ticks/second**, the FULL harness's exact no-wipe span from the default
