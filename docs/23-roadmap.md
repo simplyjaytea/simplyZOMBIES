@@ -968,6 +968,20 @@ simulation and attention mechanic, not part of source colouring. Placed utility 
 remain absent: no placed stove, activated streetlamp, generator, rain collector or spike trap was
 added. These are separate pieces; the completed pictures do not imply those mechanics exist.
 
+**Art remaining after the action animations (A8, 2026-10-19).** Each is a generation budget, not
+code: the frames slot into `build_motion.py` and every gate already judges them.
+
+- **The zombies' walk in-betweens, drawn.** Frames 1, 3, 5 and 7 of every zombie walk are still
+  the pose before carried a pixel (A7's half that a commissioned pass replaces). Drawing them
+  is two to four generations a family, seven families.
+- **A swing per weapon class.** One swing serves bare hands, a knife, a crowbar and a hatchet
+  alike; a heavy two-handed chop and a quick stab want their own strips.
+- **The back view's generated swing.** Its job turned the body side-on for six of eight frames,
+  so the north swing is derived (shoulders only). One more generation, one view.
+- **Drawn frames for the derived actions.** Recoil, reload, flinch, crouch, the crawl, the
+  falls, the lunge and the stagger are moved from the pack's own pixels (the record says how);
+  the reload in particular barely moves the hands.
+
 **The inventory sheet and the screens — decided by the owner (2026-09-08).** The inventory is
 mechanically complete and gated, and the screen reaches four of its commands: `item.move`,
 `item.equip`, `item.unequip` and `item.use`. The owner opened an overhaul from four mockups and
@@ -2036,6 +2050,70 @@ not a to-do list:
   mapping both ways. `sprites:check` reproduces every new member from its source.
   Before/after strips and GIFs for all eight bodies, and the survivor in helmet, vest and pistol,
   are under `.hermes/plans/2026-10-19_a7-animation/`.
+
+- **Feel — actions on the render clock, 2026-10-19.** Item A8 of the 2026-10-19 alpha plan, on
+  A7's clock above. A body used to do nothing but walk and breathe: a shot, a blow landing, a
+  stagger and a death changed no picture (a dead body cut straight to its corpse), and the
+  stance was never drawn at all. Now each of those plays from what the sim already publishes or
+  already holds -- `presentation/anim_clock.gd` reads `world.events.drained` (never a bus
+  subscription) and the bodies' components, and `Appearance.action_key` answers the member:
+
+  | sim source | action | who |
+  | --- | --- | --- |
+  | `weapon.fired` | recoil (2 frames) | the firer |
+  | `attack.connected` | lunge (3) / flinch (3) | a zombie attacker / a living target |
+  | `grab.started` | lunge | the grabbing zombie |
+  | `entity.staggered` | stagger (3) / flinch | a zombie / a living body |
+  | `entity.killed` | fall (2), then the settled corpse | the dead, once (de-duplicated) |
+  | `swing.state` WindUp, then Recover | swing (5): the guard held, the strike thrown | survivors |
+  | `rangedWeapon.state` Reload, Clearing | reload (3, looping) | survivors |
+  | `posture.current` Crouch, Crawl | crouch (1) and crouched walk (8); the crawl (8) | survivors |
+
+  A one-shot wins over a stance, a body lying down plays nothing upright, and the crawl lies
+  across the screen (east or west, the side it last faced) carrying no worn or held layer.
+  Times are presentation seconds, so pause holds an action and fast-forward quickens it.
+  The survivor family is every pack human (player, colonists, raiders); every zombie pose family
+  carries lunge, stagger and fall. The screamer and the bloater are face-on and carry none.
+  `main.gd` changes in `_process` (one line: the drained events to the clock), `_draw_entities`
+  (one line: the clock's action merged into the motion) and `_draw_corpse` (the fall, and the
+  `_falls_drawn` list the gate reads). Presentation only: nothing under `godot/sim/` changed.
+
+  **The art, and which half is which.** **336** new members. **Generated: the swing's east,
+  west and south views** -- three PixelLab `animate_image` strips, each from the pack's own rest
+  view, five frames kept a view (`motion/sources/actions/generation.json` has the jobs, inputs,
+  prompts, and the two rejected jobs). **Derived: everything else** -- the back view's swing (its
+  job turned the body side-on), recoil, reload, flinch, crouch, the crouched walk, the crawl, both
+  falls, the lunge and the stagger -- by whole-pixel moves of the pack's own pictures in
+  `motion/actions.py`: a lean, a dip or rise, a fold of the shins below the shorts or belt, a
+  step, and for the crawl the back view's walk turned a quarter flat. No pixel is resampled or
+  recoloured. Per-frame `head`, `torso` and `hands` ride every new member, so A6's clothing and
+  A9's weapon turn compose on them by the A7 contract. Five generations were spent (the three
+  kept strips, the back view, and a four-views-in-one trial). **Not built:** drawn zombie walk
+  in-betweens (the brief's added scope; still A7's one-pixel shifts), and a swing per weapon
+  class -- both are in what's left as generation budgets.
+
+  **Evidence:** `npm run godot:check:action` → `ACTION_OK`, chained after `godot:check:motion`.
+  CATALOGUE: 8 families, 336 frames, every view present and equal (the crawl only east and
+  west); an undeclared action, a crawl seen from the south and a face-on key carry none.
+  TIMING and PRIORITY hold `action_index` and `action_key` (ends, wraps, holds, a one-shot over a
+  stance, nothing upright while lying, nothing for nothing). GEOMETRY: **268** derived frames
+  carry only their rest view's colours, a crouch stands lower than the rest and a fall lower
+  than the crouch, the crawl is wider than tall; a painted pixel is caught. STATES: the clock's
+  named states are the sim's enum values. CLOCK: each event starts its one-shot on its own body,
+  a repeated death does not restart a fall, a body never drawn does not fall, a wind-up strikes
+  only into Recover. PUBLISHERS: all five event arms are published under `godot/sim/`. READERS:
+  the three `main.gd` hooks, each shown missed when removed. SCENE, the dead-socket half, on the
+  booted scene with real steps and the real draw: weapon.fired drew `body_survivor_recoil_e_0`;
+  the swing command `..._swing_e_0` through the wind-up and `..._swing_e_1` on the strike; the
+  Reload state `..._reload_e_0`; the crouch and crawl stances `..._crouch_e_0` and
+  `..._prone_e_0` with no worn layer; one attack.connected drew the zombie's lunge and the
+  player's flinch; entity.staggered the zombie's stagger; a killing head blow its fall in the
+  corpse pass and then the settled body -- each against the same body without it. With the
+  `_process` and `_draw_entities` hooks cut, every SCENE lane goes red. `godot:check:authored`
+  and `godot:check:worn` hold the new members to the pack's geometry (action frames are allowed
+  to stand lower and to move a layer point up to 10 px); `sprites:check` reproduces every one.
+  Before/after strips and GIFs per action, all eight bodies, are under
+  `.hermes/plans/2026-10-19_a8-actions/`.
 
 - **UI — the sheet and Work grid fit the reviewed viewports, 2026-10-03.** At 1280×720,
   inventory now separates its equipment, native 56-pixel bag cells and inspect pane, keeping

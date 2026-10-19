@@ -36,3 +36,31 @@ torso moved from the rest view (`head`, `torso`, pixels) and, on the survivor, w
 is (`hands.primary`, `hands.secondary`). The renderer reads them through
 `Appearance.frame_offset` and `Appearance.frame_hand`; `godot:check:worn`'s FRAMES lane holds
 them to the pictures.
+
+## Actions (alpha plan A8)
+
+docs/23, "Actions on the render clock". `actions.py` builds every action frame; `build_motion.py`
+calls it and writes the members, the `actions` block (rate and loop per action) in
+`authored.json`, and the pack manifests' frame lists.
+
+**Generated: the survivor's swing, east, west and south.** `sources/actions/` holds the three
+PixelLab strips, nine 64x64 frames each, frame 0 the pack's rest view pasted at (16, 12);
+`generation.json` names the jobs, prompts and the two rejected jobs (four views in one input
+drifted between quarters; the back view turned side-on). `SWING_KEEP` picks five frames a view:
+guard, top, chop, follow-through, way back. The generator's white smear trails are dropped
+(`_is_trail`, then the largest island), alpha binarised at 128, soles on the anchor row.
+
+**Derived: everything else**, by whole-pixel moves of the pack's own pictures (`plan` lists the
+moves per action and view):
+
+- a **lean** slides the rows above the hip, `dx` at the head and nothing at the waist;
+- a **dip** or **rise** moves them down or up (a rise repeats the hip row into the gap);
+- a **fold** takes rows out of the shins from `KNEE_PCT` below the hip, so the shorts or the belt
+  survive and the feet are never cut;
+- a **step** moves the whole picture, kept `SIDE_CLEARANCE` from either canvas edge;
+- the **crawl** is the back view's walk turned a quarter flat (`turn_flat`), drawn only east and
+  west, and declares no hands: a body lying down carries no layer.
+
+Each frame declares `head`, `torso` and (on the survivor) `hands`, where the move took them, so
+worn and held layers follow by the same contract as the walk. `godot:check:action` holds the
+catalogue, the timing and the colours (a derived frame carries only its source's colours).

@@ -495,6 +495,9 @@ switch (mode) {
   case "--motion":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_motion.gd"];
     break;
+  case "--action":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_action.gd"];
+    break;
   case "--light":
     args = [
       "--headless",

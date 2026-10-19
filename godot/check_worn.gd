@@ -100,6 +100,9 @@ var _stash: Dictionary = {}
 
 # How far a frame may move a head or a torso from its view's rest picture before the number is
 # more likely a measuring fault than a pose: a step bobs a row or two and sways a pixel or two.
+# An action frame moves further: a crouch sinks the head onto bent knees, a stagger throws it back
+# (docs/23, "Actions on the render clock"). Still bounded, so a head flung off the body is refused.
+const ACTION_DRIFT_MAX: int = 10
 const FRAME_DRIFT_MAX: int = 3
 # The bodies that turn, and so have frames for gear to follow.
 const TURNING_BODIES: Array[String] = [
@@ -1064,6 +1067,11 @@ func _declared_point(member: Dictionary, field: String) -> Variant:
 	return null
 
 
+# A walk or breath frame (`walk_<view>_<n>`, `idle_<view>_<n>`), as against an action frame.
+func _is_walk_or_breath(suffix: String) -> bool:
+	return suffix.begins_with("walk_") or suffix.begins_with("idle_")
+
+
 func _the_gear_follows_the_frame() -> bool:
 	var lane: String = "FRAMES"
 	Appearance.forget()
@@ -1085,8 +1093,9 @@ func _the_gear_follows_the_frame() -> bool:
 				if p == null:
 					push_error("%s: %s declares no %s offset; gear riding it would not move with the frame" % [lane, member, region])
 					return false
-				if absi((p as Vector2i).x) > FRAME_DRIFT_MAX or absi((p as Vector2i).y) > FRAME_DRIFT_MAX:
-					push_error("%s: %s moves its %s by %s, past %d px" % [lane, member, region, str(p), FRAME_DRIFT_MAX])
+				var drift: int = FRAME_DRIFT_MAX if _is_walk_or_breath(suffix) else ACTION_DRIFT_MAX
+				if absi((p as Vector2i).x) > drift or absi((p as Vector2i).y) > drift:
+					push_error("%s: %s moves its %s by %s, past %d px" % [lane, member, region, str(p), drift])
 					return false
 				if Appearance.frame_offset(member, region) != p:
 					push_error("%s: Appearance.frame_offset('%s', '%s') answers %s where authored.json declares %s" % [lane, member, region, str(Appearance.frame_offset(member, region)), str(p)])
@@ -1108,6 +1117,13 @@ func _the_gear_follows_the_frame() -> bool:
 		if suffix in Appearance.VIEWS:
 			continue
 		var view: String = suffix.split("_")[1]
+		# A body lying flat or falling carries nothing in its hands (Appearance.equipment_layers_for
+		# draws no layer on a lying frame; a fall is drawn in the corpse pass, which draws none).
+		if Appearance.is_lying_frame("body_survivor", member) or suffix.begins_with("fall_"):
+			if (survivor[member] as Dictionary).has("hands"):
+				push_error("%s: %s declares hands on a frame that holds nothing" % [lane, member])
+				return false
+			continue
 		var image: Image = Appearance.resolve(member).get_image()
 		var hands: Variant = (survivor[member] as Dictionary).get("hands")
 		for slot in Appearance.HELD_HANDS.keys():
