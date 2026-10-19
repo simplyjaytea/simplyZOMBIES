@@ -372,6 +372,7 @@ deleted afterwards.
 | 3. The shadowcast inlined | 2026-10-19 | 21.70 ms | 47.59 ms | four calls and a Dictionary per tile and per frame |
 | 4. The whole-district scans | 2026-10-19 | 19.40 ms | 37.11 ms | every AI asked about every body on the map, then kept the near ones |
 | 5. The component query memo | 2026-10-19 | 17.02 ms | 35.77 ms | a hundred `components.query` calls a tick rebuilt the same sorted intersection |
+| 6. What each body paid every tick | 2026-10-19 | 13.68 ms | 36.89 ms | each observer re-read every position, every colonist walked every zombie, every zombie re-read the sky |
 
 **Slice 1, content entries by id.** `SimItems._content_get` found an entry by walking every value
 in the flat content tree until one carried the id. `item_base_of` runs about a hundred times a
@@ -437,6 +438,18 @@ was built against still holds; `restore` drops the memo, and every caller gets i
 bench is noisy at this size, so from here each row is the median of three runs interleaved with
 three of the slice before on the same machine: slice 4 measured 18.85 / 38.49 ms that way, slice
 5 17.02 / 35.77. The 3,000-tick hash with `DEAD_KEEP_VIEW` off still matches `main`.
+
+**Slice 6, what each body paid every tick.** Sightings read every body's and cupboard's position
+once per observer; `observe` now reads them once and hands each observer only what lies inside its
+square (`_square_bounds` and `_in_bounds`, the same test as `_in_square`), with a searched
+cupboard handed to everybody because it is forgotten on sight of the flag. Self-aid walked every
+zombie for every colonist to ask whether a claw was in reach before asking whether the colonist
+needed care at all; it now asks care first, in one pass over the wound list instead of three
+selectors over ten parts, and the claw check asks distance before health. The shambler pass reads
+the sky's speed and sight multipliers once a tick instead of once a body. Measured as the median
+of three runs interleaved with slice 5 on a busier machine: slice 5 17.77 / 50.39 ms, slice 6
+13.68 / 36.89; the worst tick is the noisiest number here. The 3,000-tick hash with
+`DEAD_KEEP_VIEW` off still matches `main`.
 
 ### Remaining milestone evidence
 

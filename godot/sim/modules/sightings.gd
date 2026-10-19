@@ -140,16 +140,78 @@ static func observe(world: Variant) -> void:
 		return
 	# Every body, not only the dead: a colonist glimpsed behind a wall is a memory too, and
 	# `_kind_of` is what tells the prose and the recall-fire job apart from a threat.
+	#
+	# Each body's and cupboard's position is read once here rather than once per observer, and each
+	# observer is handed only what falls inside its shadowcast square (`_square_bounds`, the same
+	# test as `_in_square`): nothing in this pass moves a body or searches a cupboard, so the
+	# positions read before the first observer are the ones every observer would have read. A
+	# searched cupboard goes to every observer wherever it is, because each forgets it on sight of
+	# the flag, not of the cupboard; so does anything whose components are not the expected shape,
+	# so the helpers' own refusals stay theirs. A3's sixth slice.
 	var candidates: Array = []
+	var cx: PackedFloat64Array = PackedFloat64Array()
+	var cy: PackedFloat64Array = PackedFloat64Array()
 	for other in world.components.query(["body", "position"]):
+		var at: Variant = world.components.get_component(int(other), "position")
+		if not at is Dictionary:
+			continue
 		candidates.append(int(other))
+		cx.append(float((at as Dictionary)["x"]))
+		cy.append(float((at as Dictionary)["y"]))
 	var boxes: Array = []
+	var bx: PackedFloat64Array = PackedFloat64Array()
+	var by: PackedFloat64Array = PackedFloat64Array()
+	var b_always: Array[bool] = []
 	for box in world.components.query(["searchable", "position"]):
+		var s: Variant = world.components.get_component(int(box), "searchable")
+		var there: Variant = world.components.get_component(int(box), "position")
 		boxes.append(int(box))
+		if not s is Dictionary or bool((s as Dictionary).get("searched", false)) or not there is Dictionary:
+			b_always.append(true)
+			bx.append(0.0)
+			by.append(0.0)
+			continue
+		b_always.append(false)
+		bx.append(float((there as Dictionary)["x"]))
+		by.append(float((there as Dictionary)["y"]))
 	for ent in world.components.query(["sightings", "observer", "position"]):
-		_observe_one(world, int(ent), candidates)
-		_observe_containers(world, int(ent), boxes)
+		var b: Array = _square_bounds(world.vision.tiles_for(int(ent)))
+		_observe_one(world, int(ent), _in_bounds(candidates, cx, cy, b, []))
+		_observe_containers(world, int(ent), _in_bounds(boxes, bx, by, b, b_always))
 		_merge_explored(world, int(ent))
+
+
+# The ids whose (xs[i], ys[i]) fall inside `bounds` (`_square_bounds`), in their order, plus any
+# whose `always[i]` is set; an empty `always` sets none, and empty bounds hold nothing.
+static func _in_bounds(ids: Array, xs: PackedFloat64Array, ys: PackedFloat64Array, bounds: Array, always: Array[bool]) -> Array:
+	var out: Array = []
+	var flagged: bool = not always.is_empty()
+	if bounds.is_empty():
+		if flagged:
+			for i in ids.size():
+				if always[i]:
+					out.append(ids[i])
+		return out
+	var x0: float = bounds[0]
+	var y0: float = bounds[1]
+	var x1: float = bounds[2]
+	var y1: float = bounds[3]
+	for i in ids.size():
+		if (flagged and always[i]) or (xs[i] >= x0 and xs[i] < x1 and ys[i] >= y0 and ys[i] < y1):
+			out.append(ids[i])
+	return out
+
+
+# `_in_square`'s square in metres, half-open: [x0, y0, x1, y1] holds (x, y) exactly when
+# `_in_square` does (a tile is [t, t + 1) metres times TILE_METRES, and whole tiles times a whole
+# number of metres are exact in a float). Empty for no view. `check_m2_tick.gd` SQUARE holds the
+# two equal.
+static func _square_bounds(tiles: Variant) -> Array:
+	if tiles == null:
+		return []
+	var r: int = int(tiles.range_tiles)
+	var m: float = float(SimTileMapRes.TILE_METRES)
+	return [float(int(tiles.origin_x) - r) * m, float(int(tiles.origin_y) - r) * m, float(int(tiles.origin_x) + r + 1) * m, float(int(tiles.origin_y) + r + 1) * m]
 
 
 # Whether (x, y) falls inside this observer's shadowcast square at all. `detail` answers Unseen for

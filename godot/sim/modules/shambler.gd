@@ -444,11 +444,17 @@ static func _grab_of(world: Variant, type_id: String) -> Dictionary:
 
 # The one place a shambler's speed is read. Every movement site goes through this so the cripple
 # penalty cannot be applied to three of the four and quietly missed on the fourth.
-static func _speed_of(world: Variant, entity: int, shambler_data: Dictionary, key: String) -> float:
+#
+# `sky` is that multiplier when the caller already has it: the think pass reads it once a tick
+# rather than once a body (A3's sixth slice), since the sky only turns in `weather.tick`, an input
+# system long before this one. Negative -- the default -- means read it here.
+static func _speed_of(world: Variant, entity: int, shambler_data: Dictionary, key: String, sky: float = -1.0) -> float:
 	# The sky's multiplier first (docs/adr/0016: a cold snap is the one state that weakens the
 	# dead directly), exactly 1.0 under clear, then the torso, then the cripple -- each derived
 	# from the body every tick, never latched.
-	var base: float = float(shambler_data.get(key, 0.0)) * SimWeatherRes.zombie_move_mul(world) * _torso_factor(world, entity)
+	if sky < 0.0:
+		sky = SimWeatherRes.zombie_move_mul(world)
+	var base: float = float(shambler_data.get(key, 0.0)) * sky * _torso_factor(world, entity)
 	if not _is_crawling(world, entity):
 		return base
 	return base * float(shambler_data.get("crawlFactor", DEFAULT_LOCOMOTION["crawl"]))
@@ -607,12 +613,17 @@ static func _chase(world: Variant, target: int, pos: Dictionary, vel: Dictionary
 # with the same `sight_mul`. Neither is allowed to shrink alone -- docs/16's symmetry is that
 # the fog blinds the living and the dead by the same amount, and a reach that stayed open while
 # the cast closed (or the reverse) would be a fog that quietly favours one side.
-static func sight_reach(world: Variant, entity: int, shambler_data: Dictionary) -> float:
+#
+# `fog` is `SimWeather.sight_mul` when the caller already read it this tick, as `_speed_of`'s
+# `sky`; negative reads it here.
+static func sight_reach(world: Variant, entity: int, shambler_data: Dictionary, fog: float = -1.0) -> float:
 	var obs: Variant = world.components.get_component(entity, "observer")
 	if not obs is Dictionary:
 		return 0.0
+	if fog < 0.0:
+		fog = SimWeatherRes.sight_mul(world)
 	var light_sense: float = float(shambler_data.get("lightSense", LIGHT_SENSITIVITY))
-	return float((obs as Dictionary).get("range_metres", 0.0)) * sqrt(maxf(light_sense, 0.0)) * SimWeatherRes.sight_mul(world)
+	return float((obs as Dictionary).get("range_metres", 0.0)) * sqrt(maxf(light_sense, 0.0)) * fog
 
 
 # Sight as a stimulus, the way grabs were landed (GRABS_ENABLED above: built, gated, shipped
@@ -630,7 +641,7 @@ static func sight_reach(world: Variant, entity: int, shambler_data: Dictionary) 
 static var SIGHT_ENABLED: bool = true
 
 
-static func _seen_target(world: Variant, entity: int, survivors: Array, shambler_data: Dictionary) -> Variant:
+static func _seen_target(world: Variant, entity: int, survivors: Array, shambler_data: Dictionary, fog: float = -1.0) -> Variant:
 	if not SIGHT_ENABLED:
 		return null
 	if world.vision == null or not world.components.has_component(entity, "observer"):
@@ -638,7 +649,7 @@ static func _seen_target(world: Variant, entity: int, survivors: Array, shambler
 	var pos: Variant = world.components.get_component(entity, "position")
 	if pos == null:
 		return null
-	var reach: float = sight_reach(world, entity, shambler_data)
+	var reach: float = sight_reach(world, entity, shambler_data, fog)
 	if reach <= 0.0:
 		return null
 	var best: Variant = null
@@ -997,6 +1008,9 @@ static func register_module(world: Variant, _map: Variant) -> void:
 		var rng: Variant = w.rng.stream("shambler")
 		var field: Variant = w.field
 		var survivors: Array = _gather_survivors(w)
+		# The sky, read once for every body: nothing between `weather.tick` and here turns it.
+		var sky: float = SimWeatherRes.zombie_move_mul(w)
+		var fog: float = SimWeatherRes.sight_mul(w)
 		var noise_floor: float = float(field.calibration["floor"])
 		var scent_floor: float = float(field.calibration["scentFloor"])
 		for entity in w.components.query(["position", "velocity", "shambler"]):
@@ -1026,7 +1040,7 @@ static func register_module(world: Variant, _map: Variant) -> void:
 			# Resolved once per shambler per tick and handed to every steer below it, rather than
 			# each of them reaching for sd["seekSpeed"] -- which is what let the cripple penalty
 			# sit on the component unread for the whole of Milestone 2.
-			var seek: float = _speed_of(w, int(entity), sd, "seekSpeed")
+			var seek: float = _speed_of(w, int(entity), sd, "seekSpeed", sky)
 			if int(sd["ticksToGrab"]) > 0:
 				sd["ticksToGrab"] = int(sd["ticksToGrab"]) - 1
 			if w.components.has_component(int(entity), "grabState"):
@@ -1093,7 +1107,7 @@ static func register_module(world: Variant, _map: Variant) -> void:
 						_chase(w, int(target), pd, vd, sd, seek)
 				ShamblerState["Seek"]:
 					var caught: Variant = _contact_target(survivors, pd, CONTACT_METRES)
-					var seen: Variant = _seen_target(w, int(entity), survivors, sd)
+					var seen: Variant = _seen_target(w, int(entity), survivors, sd, fog)
 					if caught != null:
 						sd["state"] = ShamblerState["Pursue"]
 						sd["ticksCommitted"] = 0
@@ -1121,14 +1135,15 @@ static func register_module(world: Variant, _map: Variant) -> void:
 						sd["ticksToTurn"] = 0
 					elif int(sd["ticksToTurn"]) <= 0:
 						var angle: float = rng.call("float_range", 0.0, PI * 2.0)
-						vd["dx"] = cos(angle) * _speed_of(w, int(entity), sd, "millSpeed")
-						vd["dy"] = sin(angle) * _speed_of(w, int(entity), sd, "millSpeed")
+						var mill: float = _speed_of(w, int(entity), sd, "millSpeed", sky)
+						vd["dx"] = cos(angle) * mill
+						vd["dy"] = sin(angle) * mill
 						sd["ticksToTurn"] = int(rng.call("int_range", 10, 25))
 					else:
 						sd["ticksToTurn"] = int(sd["ticksToTurn"]) - 1
 				_:
 					var caught2: Variant = _contact_target(survivors, pd, CONTACT_METRES)
-					var seen2: Variant = _seen_target(w, int(entity), survivors, sd)
+					var seen2: Variant = _seen_target(w, int(entity), survivors, sd, fog)
 					if caught2 != null:
 						sd["state"] = ShamblerState["Pursue"]
 						_notice(w, int(entity), sd)
@@ -1145,8 +1160,9 @@ static func register_module(world: Variant, _map: Variant) -> void:
 						_steer_uphill(field, pd, vd, sd, seek)
 					elif int(sd["ticksToTurn"]) <= 0:
 						var angle2: float = rng.call("float_range", 0.0, PI * 2.0)
-						vd["dx"] = cos(angle2) * _speed_of(w, int(entity), sd, "wanderSpeed")
-						vd["dy"] = sin(angle2) * _speed_of(w, int(entity), sd, "wanderSpeed")
+						var wander: float = _speed_of(w, int(entity), sd, "wanderSpeed", sky)
+						vd["dx"] = cos(angle2) * wander
+						vd["dy"] = sin(angle2) * wander
 						sd["ticksToTurn"] = int(rng.call("int_range", 20, 120))
 					else:
 						sd["ticksToTurn"] = int(sd["ticksToTurn"]) - 1

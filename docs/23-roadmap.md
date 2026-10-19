@@ -9862,6 +9862,22 @@ not a to-do list:
   bump, the restore clear and the copy were removed in turn and the lane went red.
   [docs/22](22-performance.md#bringing-the-tick-to-budget).
 
+- **Kernel & tooling — the tick to budget, slice 6: what each body paid every tick, 2026-10-19
+  (partial).** `SimSightings.observe` reads positions once and hands each observer only its square
+  (`_square_bounds`, `_in_bounds`); self-aid asks `_needs_care`, now one pass over the wounds,
+  before `_claw_in_reach`, which asks distance before health; the shambler pass reads
+  `zombie_move_mul` and `sight_mul` once and hands them to `_speed_of` and `_seen_target`.
+  `godot:bench:runtime`, median of three interleaved runs: **17.77 / 50.39 ms** to **13.68 /
+  36.89**. Gated in `godot:m2:tick`: CARE holds the one pass equal to the three selectors over six
+  hundred seeded wound lists; CLAW holds the claw check equal to the health-first scan, with a
+  live, a dead and an out-of-reach zombie; SKY holds every zombie's speeds and reach with the sky
+  handed in equal to those read per body under every weather kind, and reads the think pass for
+  the hand-off; OBSERVE runs two identical districts the shipped way and the old way to the same
+  memories, holds the prefilter equal to `_in_square` per observer, and pins the bounds' edges.
+  Each was turned red by sabotage, except that removing the cleaning test from `_needs_care`
+  changes nothing on today's kinds (each bleeding kind has a suture), which its comment says.
+  [docs/22](22-performance.md#bringing-the-tick-to-budget).
+
 - **Kernel & tooling — water draw check follows its branches, 2026-10-03.** The A2 wall
   additions moved the water fill to character 4,473 after the drawing match, beyond
   `check_water.gd`'s 4,000-character window. Reproduced on the merged art pass:
