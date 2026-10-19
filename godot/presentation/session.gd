@@ -23,6 +23,7 @@ const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimSave = preload("res://sim/save.gd")
 const PlatformStorage = preload("res://platform/storage.gd")
 const Clock = preload("res://sim/time/clock.gd")
+const Onboarding = preload("res://presentation/onboarding.gd")
 
 # TITLE is drawn *over* a booted world, never instead of one: the smoke and the HUD gates assert
 # `main.get("world") != null` one frame after instantiation, so a deferred boot would have been a
@@ -51,6 +52,9 @@ var region_id: String = ""
 var seed: int = SimBoot.DISTRICT_SEED
 # Why the last `load()` said no, as a sentence the title can print, or "" when it said yes.
 var notice: String = ""
+# The first-day hints this save has already given. Presentation's, not the sim's: it is written beside
+# the snapshot by `save()` and read back by `load()`, and nothing under `sim/` ever sees it.
+var onboarding: RefCounted = Onboarding.new()
 
 
 # Boots (or reboots) the playable world on a given seed and district. This is the one boot path:
@@ -68,6 +72,7 @@ func boot(seed_val: int, district: String, region: String = "") -> void:
 	district_id = district
 	seed = seed_val
 	notice = ""
+	onboarding.reset()
 
 
 # The fixed default town, from the title, the pause menu and the run-over screen alike -- the
@@ -89,7 +94,9 @@ signal saved
 func save() -> bool:
 	if world == null:
 		return false
-	if not PlatformStorage.write_save(SimSave.encode_save(SimSave.create_save(world))):
+	var save_data: Dictionary = SimSave.create_save(world)
+	save_data["onboarding"] = onboarding.to_save()
+	if not PlatformStorage.write_save(SimSave.encode_save(save_data)):
 		return false
 	saved.emit()
 	return true
@@ -116,6 +123,7 @@ func load() -> bool:
 	if bool(world.runOver):
 		return false
 	SimSave.apply_save(world, parsed)
+	onboarding.from_save(parsed.get("onboarding", []))
 	return true
 
 
