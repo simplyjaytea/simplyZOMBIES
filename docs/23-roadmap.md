@@ -1292,11 +1292,13 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   the filter slice (2026-09-12): one cloud books one exposure, and a second cloud over the same
   survivor books a second. Struck rather than deleted because a defect list that quietly loses
   entries is a defect list nobody trusts.
-- **A plume only reaches a bite.** `SimBloater._has_open_wound` matches `kind == "bite"` alone, so a
-  survivor carrying a deep laceration or a burn walks through a contamination cloud untouched while
-  one with a scratch from a shambler does not. A cut is an open wound too. Found by the filter slice
-  (2026-09-12) and deliberately not fixed there: widening it is a balance change and would have
-  ridden along inside a slice that was adding a reader, which is how scope gets smuggled.
+- ~~**A plume only reaches a bite.**~~ **Fixed 2026-10-19** (`godot:m2:filter`, the OPEN lane). An open
+  wound is one whose kind bleeds (`SimWounds.kind_spec`), so a bite, a cut and a burn let a plume in
+  and a fracture, sprain, concussion or frostbite do not. Over 40 seeds a bite, a cut and a burn each
+  booked 14 contaminations and the four closed kinds booked none. **The balance half is not
+  measured**: clouds now reach more survivors, and `godot:m2:balance` has not been rerun for it. Found
+  by the filter slice (2026-09-12) and deliberately not fixed there, because widening it is a balance
+  change and would have ridden along inside a slice that was adding a reader.
 - ~~**A corpse looks exactly like a person at Focal.**~~ **Fixed 2026-10-02.** Settled corpse
   pictures lie on the ground beneath standing actors, without upright equipment or facing
   pointers. `godot:check:zombie_art` judges the real renderer branch and Focal filtering;
