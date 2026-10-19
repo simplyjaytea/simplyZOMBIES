@@ -4,7 +4,8 @@ Drop a PNG here and a content entry can use it. No code change, no editor round-
 
 ## Living zombies and settled corpses, as of 2026-10-02
 
-The player, colonists and raiders use the outpost `body_survivor` family. Zombies now use seven
+The player, colonists and raiders use the outpost `body_survivor` family, clothed since
+2026-10-19 (see "Equipped-item overlays" below). Zombies now use seven
 original families: `body_zombie_workwear`, `body_zombie_commuter`, `body_zombie_raincoat`,
 `body_zombie_stalker`, `body_zombie_runner`, `body_zombie_armored`, `body_zombie_heavy`.
 `authored.json` registers their source pixels under `kind: zombie_rig`. Shambler content selects
@@ -595,8 +596,8 @@ record; nothing is hashed at draw time beyond what that record already says.
 An item base can also carry `appearance.equipSprite` (item.schema.json), a **different** picture
 from its ground `sprite` — what it looks like worn or held on a body, not lying on the floor.
 Since "Pack gear on the body" and "Held weapons in the hand" (2026-09-26; docs/30, "The whole
-outpost pack") it names one of two shapes, both the outpost pack's and both declared in
-`authored.json`:
+outpost pack") and "clothe everyone" (2026-10-19, docs/23) it names one of three shapes, all
+declared in `authored.json`:
 
 - **A wearable that turns** — the pack's vest, helmet, gas mask and backpack (`item_gear_*`,
   kind `pack_overlay`), a family of four views cropped on the body's own 32×40 canvas and anchor.
@@ -610,16 +611,24 @@ outpost pack") it names one of two shapes, both the outpost pack's and both decl
   either way for south and north, the east picture mirrored for west so the weapon stays upright.
   The body under it never mirrors; only the weapon does, and only facing west. The pack's
   baseball bat and assault rifle are not declared: no shipped base is either.
+- **A garment** — a `torso`, `legs` or `feet` item names a `wear_*` family (kind `wear`, with
+  `fits` naming the rig it was painted for), one member per rig frame, 20 for `body_survivor`.
+  A garment is not a layer: it repaints only body pixels, so `Appearance.body_texture` composes
+  the body frame and its three garments into one cached texture (`dressed_texture`) and the
+  clothes walk on the body's own clock. A body with no garment in a slot wears the default
+  outfit from its content block's `appearance.outfit`, or the player block's, picked by entity
+  id. The art, its labeller and its painter are in `godot/art/simplyzombies/clothing/`.
 
 Anything else draws nothing on the body. The 43 face-on generated overlays (`tools/sprites/parts/
 gear.py`), their `equipSpriteFront` straps and the three fitted-part pictures
-(`attachmentSprite`, placed by a host's `partAnchors`) were retired in that commit, so a jacket,
-a cap, trousers, the duffel, a weapon the pack does not draw or a fitted part shows nothing on the
-body — the gap the owner accepted, with the inventory and the inspect pane still saying what is
-worn. Which slots draw, and in what order, is `Appearance.EQUIP_DRAW_ORDER` — one ordered table
-rather than an under list and an over list, because the order layers compose in *is* the picture.
-Eight slots: `legs`, `torso`, `vest`, `back`, `primary`, `secondary`, `face`, `head`; `belt`,
-`eyes`, `gloves` and `feet` are equippable in content and draw nothing.
+(`attachmentSprite`, placed by a host's `partAnchors`) were retired in that commit, so a cap, the
+duffel, a weapon the pack does not draw or a fitted part shows nothing on the body — the gap the
+owner accepted, with the inventory and the inspect pane still saying what is worn. Which layer
+slots draw, and in what order, is `Appearance.EQUIP_DRAW_ORDER` — one ordered table rather than
+an under list and an over list, because the order layers compose in *is* the picture. Six slots:
+`vest`, `back`, `primary`, `secondary`, `face`, `head`; `legs`, `feet` and `torso` are
+`Appearance.WORN_SLOTS`, painted into the body; `belt`, `eyes` and `gloves` are equippable in
+content and draw nothing.
 
 ## Wiring one up
 
