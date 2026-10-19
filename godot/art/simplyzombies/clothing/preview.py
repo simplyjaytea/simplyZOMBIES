@@ -39,4 +39,11 @@ if __name__ == "__main__":
     feet = [g for g in bc.GARMENTS if bc.slot_of(g) == "feet"]
     rows = [[legs[i % len(legs)], feet[i % len(feet)], t] for i, t in enumerate(torsos)]
     sheet(rows, images, 3, idle * 1).save(dest / "clothing-idle.png")
-    sheet([[], ["wear_pants_charcoal", "wear_shoes_worn", "wear_tee_sand"], ["wear_pants_denim", "wear_boots_leather", "wear_jacket_leather"]], images, 4).save(dest / "clothing-walk.png")
+    walkers = [
+        [],
+        ["wear_pants_charcoal", "wear_shoes_worn", "wear_tee_slate"],
+        ["wear_pants_denim", "wear_boots_leather", "wear_jacket_leather"],
+        ["wear_pants_insulated", "wear_boots_insulated", "wear_coat_parka"],
+        ["wear_pants_charcoal", "wear_boots_steel", "wear_suit_hazmat"],
+    ]
+    sheet(walkers, images, 4).save(dest / "clothing-walk.png")

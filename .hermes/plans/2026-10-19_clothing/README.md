@@ -9,8 +9,10 @@ Shots for the owner to judge. Nothing here is read by the game.
   `main` (underwear), the first flat-tone pass, and the shaded pass that shipped (from
   `npm run godot:shots`, PR #148's harness, run against each tree).
 - `before_*_1920x1080.png`, `after_*_1920x1080.png` — the uncropped frames, main and shipped.
-- `walk-cycle.gif` — the walk at the body's own 8 fps: bare, the default tee, leather jacket and
-  jeans, the parka.
+- `walk-cycle.gif` (4x) and `walk-cycle-1x.gif` (native) — the walk at the body's own 8 fps,
+  all four views: bare, the default slate tee, leather jacket and jeans, the parka, the hazmat
+  suit. A GIF holds 256 colours and a frame here has about 1,200, so each frame is quantised;
+  `walk-cycle-4x.apng.png` and `walk-cycle-1x.apng.png` are the same frames lossless.
 - `clothing-idle.png`, `clothing-walk.png` — every torso garment on the idle views, and the walk
   frames, from `godot/art/simplyzombies/clothing/preview.py`.
 

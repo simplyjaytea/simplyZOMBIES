@@ -15,27 +15,37 @@ of time with the legs, because they are chosen by the body's own frame key.
 - `parts.py` labels every opaque pixel of each of the twenty source frames
   (`../textures/characters/survivor_*.png`, cut 32x48 to 32x40 exactly as `authored.json` crops
   the body): ink, head, torso, arm, hand, pelvis, leg, foot. The landmarks come from the frame's
-  own underwear band, so the walk's bob moves them with the body.
+  own underwear band, so the walk's bob moves them with the body. Seen from the side, the near
+  arm past the underwear's span on the side the body faces is labelled arm, not chest, so a
+  short sleeve ends on it and a long one is creased apart from the body.
 - `build_clothing.py` repaints only the skin and underwear pixels of the parts a garment covers.
   A pixel is shaded on a light scale, not picked from four tones: it starts from the body's own
-  tone under it (lit skin, shaded skin, the darkest skin), softened with its covered neighbours;
-  cloth facing the sky lifts and cloth turning under or away at an edge drops; the pack's key
-  light from the upper left keeps the body's left side lit and turns the far side into shade.
+  tone under it (lit skin, shaded skin, the darkest skin; the underwear's flat grey counts as
+  lit, since its value is its colour and not its light), softened with its covered neighbours;
+  cloth darkens as it falls down its part and starts again at the waist, where a belt, a
+  drawstring or a seam cinches it; cloth facing the sky lifts and cloth turning under or away at
+  an edge drops; the pack's key light from the upper left keeps the body's left side lit and
+  turns the far side into shade.
   Folds crease it, one pixel each: the drape from each armpit, the bunching above the belt, the
-  inside of a long sleeve's elbow, the crotch, the knee, a trouser leg's outer seam, a pocket's
-  mouth. Details (collar, placket and buttons, zip, patch pockets, cuffs, hems with their rolled
-  lip, belt and buckle, sole, boot cuff, apron bib and straps, wrap bands, blanket stripes) are
+  inside of a long sleeve's elbow, the sleeve seam at the shoulder, a lit plane over the chest
+  with two creases running down from it, the crease parting a side view's near arm from the body,
+  the crotch, the knee, a trouser leg's outer seam, a pocket's mouth. Details (collar, placket and buttons, zip, patch pockets, cuffs, hems with their rolled
+  lip, belt and buckle, a coat's drawstring in its trim, a hazmat suit's taped seams and its hood
+  and steel respirator, sole, boot cuff, apron bib and straps, wrap bands, blanket stripes) are
   placed on the frame's landmarks. Where cloth meets bare skin it ends on its deep tone, as the
   pack's vest does, and a short sleeve or short hem casts a pixel of shadow on the skin below.
-  The pack's ink and the head are never touched, so a garment cannot move the silhouette.
+  The pack's ink is never touched, so a garment cannot move the silhouette; the head is touched
+  only by a hood (the hair, and the mask over the lower face), never its ink or its eyes.
 - `Canvas.render` turns each level into its ramp's colour through the material: plain cloth
   gains contrast and a faint grain, denim a twill, wool and fur a coarse nap, paper a crinkle;
-  leather and rubber take a hard light, deeper shadows and a shine where they face up. A
-  garment frame comes out at roughly the pack vest's tonal density (the tee 50 colours over 76
-  pixels, the leather jacket 69 over 100; the vest 94 over 117).
+  leather and rubber take a hard light, deeper shadows and a shine where they face up (rubber
+  with no weave at all, so a hazmat suit is smooth rather than speckled). A garment frame comes
+  out at about the pack vest's tonal density, counted as distinct colours over painted pixels on
+  the south view: the tee 61 over 84, the leather jacket 76 over 100, the parka 73 over 122, the
+  hazmat suit 81 over 159; the pack's vest 85 over 117.
 - Ramps are four tones in the pack's families (`../STYLE.md`), blended between and paled or
   cooled past either end; every number is an integer, so the output is the same bytes on every
-  interpreter (checked on Python 3.11 and 3.12).
+  interpreter (checked on Python 3.12 and 3.13).
 
 The output is one 160x160 sheet per garment under `native/`: a row per view (s, e, n, w), the
 idle picture in column 0 and the walk's frames in columns 1-4. `authored.json` declares each
@@ -76,7 +86,7 @@ random number). It is a picture, not an item: it weighs nothing and warms nothin
   the bloater are face-on generated rigs.
 - A garment never changes the silhouette: a coat, a poncho or a blanket is drawn inside the body's
   outline rather than flaring past it.
-- From the side, a short sleeve reads as a long one: the side views fold the near arm into the
-  torso, so only the hand stays bare.
+- The pack's side-view arm is a stub of four or five pixels, so from the side a sleeve is a
+  sleeve and a cuff, not a modelled forearm; at this scale that is the arm there is.
 - Settled human corpses still use the pack's four bare corpse poses.
 - Caps, hats, gloves, belts and eyewear still draw nothing on the body.

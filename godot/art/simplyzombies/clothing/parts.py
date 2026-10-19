@@ -101,6 +101,14 @@ def label(img: Image.Image, suffix: str) -> dict:
                 lab[y][x] = "K" if (outside and c != "u") else "P"
             else:
                 lab[y][x] = "L"
+    # Seen from the side the near arm hangs in front of the torso, beyond the underwear's span on
+    # the side the body faces: below the shoulder it is arm, not chest, so a short sleeve ends on
+    # it and a long one can be told from the body.
+    if side:
+        for y in range(torso_top + 3, waist_top):
+            for x in range(W):
+                if lab[y][x] == "T" and ((view == "e" and x > uw_max) or (view == "w" and x < uw_min)):
+                    lab[y][x] = "A"
     # Feet: the lowest two body rows of every leg column.
     for x in range(W):
         legs = [y for y in range(waist_bot + 1, H) if lab[y][x] == "L"]
