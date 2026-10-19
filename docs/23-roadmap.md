@@ -1251,7 +1251,7 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
     what all three are waiting on, and it is one piece of work for the three of them.
 - **More gates that cannot fail.** Four were fixed in the sweep; these are what a read of all
   thirty-odd check scripts turned up. Assume there are others and go at the rest with the same
-  question -- *what change would turn this red?* Six of the seven below are fixed on 2026-10-19;
+  question -- *what change would turn this red?* Six of the seven below are fixed on 2026-10-19 and the seventh is part fixed;
   each was proved red by a sabotage run, then restored.
   - ~~`check_r6_mutation.gd`'s "validator not vacuous" lane~~ **Fixed 2026-10-19** (`godot:r6:mutation`,
     MUTATION content). It judges the real item schema on a real armour entry: the entry must pass,
@@ -1279,9 +1279,16 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
     of the world it was written from, and a world of another seed would not match it. The assert itself
     still is not exercised in-process, because a failing restore aborts the process. Sabotaged by
     offsetting the saved seed: red.
-  - `check_hud.gd`'s fixture world still lacks the components five of `hud.gd`'s clause builders read,
-    so those clauses return `""` and their assertions pass with no data to judge. Open: the fix is to
-    give the fixture those components, which means reading each builder, and it is not a one-line change.
+  - `check_hud.gd`'s fixture world lacked the components five of `hud.gd`'s clause builders read, so
+    those clauses returned `""` and the digit and prose lanes passed on nothing. **Partly fixed
+    2026-10-19** (`godot:check:hud`, HUD CLAUSES): a `_wounded_world` gives the survivor a torso cut and
+    a broken leg and an identity, so `SimWounds.hud_clause` (bleeding) and `pain_clause` now produce
+    prose, and an unhurt survivor is silent about a wound. Sabotaged by removing the wounds: red.
+    **Still open:** on the same survivor `sepsis_clause`, `SimContainers.hud_clause`, `SimCamp.hud_clause`,
+    `SimVehicles.hud_clause`, `SimSightings.clause`, `SimNoise.hud_clause`, `SimAttachments.refusal_clause`
+    and `SimWeather.hud_clause` still return `""`, and the digit lanes pass over them vacuously. Each
+    needs its own state set up (infection, a container in reach, a camp, a parked vehicle, a sighting, a
+    placed device, a jammed weapon, a weather kind), so it is not one fixture line.
 - **Three more dead sockets, on top of the ten now listed in CLAUDE.md.** `sim/spatial/hash.gd`
   in its entirety — nothing in `sim/` or `presentation/` calls it, only `bench/bench.gd` and two
   check scripts, so the headless bench measures a structure the running simulation never touches
