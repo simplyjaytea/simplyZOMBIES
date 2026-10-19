@@ -1,8 +1,11 @@
 extends Control
 # The inventory sheet. One fixed layout, since the owner's 2026-09-08 call (docs/30, "The
-# inventory sheet"): the body and its twelve slots on the left, a column of bag grids in a fixed
-# order in the middle, a pane of words about one item on the right, and the belt and pockets as a
-# quick strip along the bottom.
+# inventory sheet"), re-dressed and re-laid since their 2026-10-19 call to keep the Tarkov-style
+# grid and redo its look (docs/23, "The inventory, redone"): a title bar across the top; the body,
+# its twelve slots and its condition on the left; the bag grids in the middle, in one lane -- or in
+# two, what you carry beside the box you are standing at, so source and destination are on screen
+# together; a fast list of everything in reach and the inspect pane down the right; and the belt
+# and pockets as a quick strip along the bottom. The look is `ui/locker.gd`'s Salvage Locker.
 #
 # What this replaced was a desktop: every carried container was its own draggable, pinnable
 # window, remembered by label in `user://ui_prefs.json`. That bought pouches usable during play
@@ -28,45 +31,57 @@ const UiText = preload("res://ui/text.gd")
 const Palette = preload("res://presentation/palette.gd")
 const Paperdoll = preload("res://ui/paperdoll.gd")
 const Chrome = preload("res://ui/chrome.gd")
+const Locker = preload("res://ui/locker.gd")
+const Hud = preload("res://ui/hud.gd")
 const UiPrefs = preload("res://ui/prefs.gd")
 const BagGrid = preload("res://ui/bag_grid.gd")
 const InspectPane = preload("res://ui/inspect_pane.gd")
 const ItemMenu = preload("res://ui/item_menu.gd")
 const QuickStrip = preload("res://ui/quick_strip.gd")
 const Motion = preload("res://ui/motion.gd")
+const ItemPicture = preload("res://ui/item_picture.gd")
+const Appearance = preload("res://presentation/appearance.gd")
 
 # PartState 0..3 as words. Same four grades the paperdoll tints, never a number.
 const PART_STATE_WORDS: Array[String] = ["unhurt", "hurt", "badly hurt", "unusable"]
 
-const PAD: float = 24.0
-const GAP: float = 20.0
-const STRIP_H: float = 92.0
-const BODY_W: float = 660.0
-const INSPECT_W: float = 380.0
-const FULL_WIDTH: float = 1540.0 # body, seven bag cells, inspect, gutters
-# The body panel is sized from what is in it -- six slot rows, the prose under them, the hint --
-# rather than stretched to the screen, which left a hand's width of nothing under the last line.
-# The column and the inspect pane still take the full height, because they have something to put
-# in it.
-const BODY_H: float = 724.0
+const PAD: float = 16.0
+const GAP: float = 16.0
+const STRIP_H: float = 84.0
+# The title bar: the sheet's name, whose body it is, the keys, and the line a refused move speaks
+# on. Shorter on a small window, where its title steps down a rung of the type ladder.
+const TOP_H: float = 56.0
+const TOP_H_COMPACT: float = 48.0
+const TITLE_SIZE: int = 50
+const TITLE_SIZE_COMPACT: int = 30
+const HINT_SIZE: int = 20
+const BODY_W: float = 464.0
+const BODY_W_COMPACT: float = 344.0
+const RIGHT_W: float = 440.0
+const RIGHT_W_COMPACT: float = 360.0
+# Below either of these the sheet takes its compact arrangement: the 2x chart, no words under the
+# slots, fewer condition rows, and the right column giving way to a second bag lane while a box is
+# open. Not a smaller copy of the big one -- every cell and picture stays the size it is.
+const FULL_WIDTH: float = 1600.0
+const FULL_HEIGHT: float = 900.0
 
 # Equipment slot geometry, in one place -- the boxes you can click and the boxes you can see must
-# be the same set of rects.
-const SLOT_W: float = 190.0
-const SLOT_H: float = 58.0
-const SLOT_TOP: float = 78.0
-const SLOT_STEP: float = 74.0
-const SLOT_INSET: float = 24.0
-# The figure sits in the gap the two columns leave, and is sized from it rather than by eye: at
-# 660 wide with 190-wide slots inset 16, that gap is 248 px. A doll wider than the gap draws its
-# own stance word over the belt slot, which is how this number was found.
-# The chart is 64 x 160 and drawn at a whole-number scale, so the box is a multiple of it: 3x is
-# 192 x 480, which fits the 248 px gap between the two slot columns with room for the stance word.
+# be the same set of rects. A slot is one bag cell square, so a thing worn and the same thing in a
+# pack are the same picture in the same well.
+const SLOT_W: float = 60.0
+const SLOT_H: float = 60.0
+const SLOT_STEP: float = 84.0
+const SLOT_STEP_COMPACT: float = 62.0
+const SLOT_INSET: float = 16.0
+const SLOT_WORD_SIZE: int = 20
+# The chart is 64 x 160 art pixels and drawn at a whole-number scale: 3x on a full window, the
+# world's own 2x on a compact one, plus a row under it for the stance word.
 const DOLL_W: float = 192.0
 const DOLL_H: float = 506.0
-# Raised so the chart's own stance word clears the condition prose below it: the figure is 480 px
-# at 3x plus a row for the word, and the prose sits under the last slot row at 566.
-const DOLL_TOP: float = 40.0
+const DOLL_W_COMPACT: float = 128.0
+const DOLL_H_COMPACT: float = 346.0
+const CONDITION_ROWS: int = 5
+const CONDITION_ROWS_COMPACT: int = 3
 # Twelve slots, six a side, in body order top to bottom: what covers your head down the left,
 # what covers your trunk and legs down the right, weapons at the bottom of each.
 const LEFT_SLOTS: Array[String] = ["head", "eyes", "face", "gloves", "belt", "primary"]
@@ -76,7 +91,30 @@ const RIGHT_SLOTS: Array[String] = ["vest", "torso", "legs", "feet", "back", "se
 # is worn, outermost-reachable first. Anything else -- a toolbox inside the pack -- appears only
 # once the player has opened it, which is what the `open` verb is for.
 const COLUMN_SLOTS: Array[String] = ["belt", "vest", "back"]
+# Between two bags in a lane, across and down.
+const BAG_GAP: float = 8.0
 
+# The list: one row per thing in reach, and the chips that narrow it. A chip names kinds by the
+# content class every item already has -- the plate tints are the same split -- so filtering is a
+# question the screen can answer without knowing anything the player does not.
+# How much of the right column the list takes; the inspect pane below gets the rest, and needs the
+# larger part -- a weapon's fitted slots run six lines under its sentence.
+const LIST_SHARE: float = 0.42
+const LIST_ROW: float = 40.0
+const LIST_NAME_SIZE: int = 25
+const LIST_NOTE_SIZE: int = 20
+const LIST_ICON: float = 36.0
+const FILTERS: Array = [
+	["all", []],
+	["use", ["consumable"]],
+	["arms", ["weapon.melee", "weapon.ranged"]],
+	["wear", ["armor", "container"]],
+	["tools", ["tool"]],
+	["parts", ["attachment", "material"]],
+]
+
+# How long a notice -- "no room in the cupboard" -- stays on the title bar, on the wall clock.
+const NOTICE_MS: int = 3200
 
 var _world: Variant = null
 var _actor: int = -1
@@ -122,6 +160,13 @@ var _hit: Array[Dictionary] = []
 var _placed: Array[Dictionary] = []
 var _scroll: float = 0.0
 var _condition_scroll: int = 0
+# The list: which chip is in force (an index into FILTERS) and how many rows it is scrolled.
+var _filter: int = 0
+var _list_scroll: int = 0
+# What the title bar is saying, whether it is a refusal, and since when on the wall clock.
+var _notice: String = ""
+var _notice_bad: bool = false
+var _notice_ms: int = 0
 
 var _paperdoll: Control = null
 var _ghost: Control = null
@@ -185,10 +230,8 @@ class Columns:
 
 class Ghost:
 	extends Control
-	# Inner classes do not see the outer script's constants, so the chrome is preloaded again here
-	# rather than reached for implicitly.
-	const GhostChrome = preload("res://ui/chrome.gd")
-	const GHOST_CELL: int = 56
+	# The held item, under the pointer: its own plate and picture at the size it has in a bag, and
+	# over the cells it would land on, whether the sim would take it there.
 
 	var panel: Control = null
 
@@ -198,14 +241,9 @@ class Ghost:
 	func _draw() -> void:
 		if panel == null or int(panel.get("_drag_item")) == -1:
 			return
-		var dims: Vector2i = panel.get("_drag_dims") as Vector2i
-		if bool(panel.get("_drag_rotated")):
-			dims = Vector2i(dims.y, dims.x)
-		var px: Vector2 = Vector2(float(dims.x * GHOST_CELL), float(dims.y * GHOST_CELL))
-		var at: Vector2 = get_local_mouse_position() - px / 2.0
-		GhostChrome.item_plate(self, Rect2(at, px), 0.85)
-		# Over the plate, so the refusal is the last thing drawn where the item would land.
+		# Under the plate, so the verdict on the cells is behind the thing you are holding.
 		panel.call("_draw_drop_hint_into", self)
+		panel.call("_draw_ghost_into", self, get_local_mouse_position())
 
 
 func _ready() -> void:
@@ -242,6 +280,10 @@ func _process(_delta: float) -> void:
 		var still: bool = Motion.reduced()
 		if Motion.frame_of(Motion.PULSE_ID, elapsed, still) != _pulse_frame and (Motion.is_live(Motion.PULSE_ID, elapsed, still) or still):
 			_column_layer.queue_redraw()
+	# A notice clears itself off the title bar.
+	if _open and not _notice.is_empty() and Time.get_ticks_msec() - _notice_ms > NOTICE_MS:
+		_notice = ""
+		queue_redraw()
 
 
 # Wall-clock seconds the selected plate has worn its pulse. Never the sim's tick: the sheet is open
@@ -267,6 +309,7 @@ func set_open(open: bool) -> void:
 	if not open:
 		_cancel_drag()
 		_close_menu()
+		_notice = ""
 	if _paperdoll != null:
 		_paperdoll.visible = open
 	if _column_layer != null:
@@ -312,6 +355,8 @@ func set_world(world: Variant, actor: int) -> void:
 			_paperdoll.call("set_view", cv)
 	_prune()
 	queue_redraw()
+	if _column_layer != null and _open:
+		_column_layer.queue_redraw()
 
 
 func rotate() -> void:
@@ -321,11 +366,24 @@ func rotate() -> void:
 			_ghost.queue_redraw()
 
 
+# Say something on the title bar for a few seconds: a quick move that went through, or why one
+# did not.
+func _say(text: String, bad: bool) -> void:
+	_notice = text
+	_notice_bad = bad
+	_notice_ms = Time.get_ticks_msec()
+	queue_redraw()
+
+
 # The container the survivor is standing at, or {} for none. Fed every refresh by main.gd, not
 # only while the sheet is open: the whole point of the window is that it works during play.
-const LOOT_PAD: float = 14.0
-const LOOT_GAP: float = 16.0
-const LOOT_FOOT: float = 34.0
+const LOOT_PAD: float = 12.0
+const LOOT_GAP: float = 12.0
+const LOOT_FOOT: float = 48.0
+# Where the window may not start above, as a share of the screen's height (the HUD's prose columns
+# end about there), and the foot it falls back to when it cannot also clear the action bar.
+const LOOT_CLEAR_TOP: float = 0.3
+const LOOT_LOW: float = 150.0
 # The window's one clickable word; the draw and the pointer measure the same string.
 const LOOT_WORD: String = "take all that fits"
 func set_loot(view: Dictionary) -> void:
@@ -345,8 +403,16 @@ func set_loot(view: Dictionary) -> void:
 	var tall: float = LOOT_PAD * 2.0 + maxf(box.y, pockets.y) + LOOT_FOOT
 	var view_size: Vector2 = get_viewport_rect().size
 	_loot_layer.size = Vector2(wide, tall)
-	# Centred horizontally and set low, clear of the HUD's two prose columns at the top.
-	_loot_layer.position = Vector2(roundf((view_size.x - wide) / 2.0), roundf(view_size.y - tall - 150.0))
+	# Centred horizontally and set low, clear of the HUD's two prose columns at the top -- and, since
+	# the Salvage Locker, clear of the action bar too where the screen has the height for both: its
+	# foot is the HUD's own margin, strip clearance and bar height above the bottom, plus one gap.
+	# A short screen (720) cannot clear both, and the prose columns are what the window must not
+	# cover, so there it sits where it always sat, its foot over the top of the bar.
+	var foot: float = Hud.MARGIN + Hud.STRIP_CLEARANCE + Hud.BAR_H + LOOT_GAP
+	var top: float = view_size.y - tall - foot
+	if top < view_size.y * LOOT_CLEAR_TOP:
+		top = view_size.y - tall - LOOT_LOW
+	_loot_layer.position = (Vector2(roundf((view_size.x - wide) / 2.0), roundf(top)) / Locker.PX).round() * Locker.PX
 	_loot_layer.queue_redraw()
 
 
@@ -368,20 +434,19 @@ func _draw_loot_into(ci: CanvasItem) -> void:
 		return
 	var alpha: float = UiPrefs.opacity("inventory_opacity")
 	var rect := Rect2(Vector2.ZERO, (_loot_layer as Control).size)
-	Chrome.panel(ci, rect, alpha)
+	Locker.panel(ci, rect, alpha)
 	_loot_placed = _loot_places()
 	BagGrid.draw_bag(ci, _loot_placed[0]["at"] as Vector2, _loot, alpha, _drag_item, "here", _world)
 	BagGrid.draw_bag(ci, _loot_placed[1]["at"] as Vector2, _loot_placed[1]["column"] as Dictionary, alpha, _drag_item, "on you", _world)
 	# One clickable word, in work_panel.gd's idiom, and the sentence that says what it will and
 	# will not do -- *that fits* is half the verb, because the grid has already told you the axe
-	# will not go in.
-	var font: Font = Chrome.font()
-	var at := Vector2(LOOT_PAD, rect.size.y - 12.0)
-	ci.draw_string(font, at, LOOT_WORD, HORIZONTAL_ALIGNMENT_LEFT, -1, 25, Chrome.ACCENT)
+	# will not go in. Since the Salvage Locker it is a stamped button rather than amber prose.
+	Locker.button(ci, _loot_word_rect(), LOOT_WORD, true, alpha)
 	_loot_hit.append({"rect": _loot_word_rect(), "verb": "takeAll"})
-	var hint: String = "drag between them · Esc closes"
-	var hw: float = font.get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
-	ci.draw_string(font, Vector2(rect.size.x - hw - LOOT_PAD, rect.size.y - 12.0), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
+	var font: Font = Chrome.font()
+	var hint: String = "drag between them · ctrl-click sends · Esc closes"
+	var hw: float = font.get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, HINT_SIZE).x
+	ci.draw_string(font, Vector2(rect.size.x - hw - LOOT_PAD - Locker.PX * 2.0, rect.size.y - LOOT_PAD - 10.0), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, HINT_SIZE, Locker.TEXT_DIM)
 
 
 func _loot_input(event: InputEvent) -> void:
@@ -397,6 +462,11 @@ func _loot_input(event: InputEvent) -> void:
 		var found: Variant = _loot_item_under(mb.position)
 		if found is Dictionary:
 			var d: Dictionary = found as Dictionary
+			if mb.ctrl_pressed:
+				_quick_move(int(d.get("item", -1)))
+				(_loot_layer as Control).queue_redraw()
+				(_loot_layer as Control).accept_event()
+				return
 			var dims := Vector2i(int(d.get("w", 1)), int(d.get("h", 1)))
 			if bool(d.get("rotated", false)):
 				dims = Vector2i(dims.y, dims.x)
@@ -432,7 +502,8 @@ func _loot_places() -> Array[Dictionary]:
 
 func _loot_word_rect() -> Rect2:
 	var tall: float = (_loot_layer as Control).size.y if _loot_layer != null else 0.0
-	return _word_rect(Chrome.font(), Vector2(LOOT_PAD, tall - 12.0), LOOT_WORD, 25)
+	var w: float = Locker.label_width(LOOT_WORD, Locker.LABEL_SIZE)
+	return Rect2(Vector2(LOOT_PAD, tall - LOOT_PAD - 32.0), Vector2(w, 32.0))
 
 
 # Which pointer the kit dresses the mouse in over the transfer window, at `p` in the window's own
@@ -489,44 +560,163 @@ func column_labels() -> Array[String]:
 	return out
 
 
+# --- quick transfer -----------------------------------------------------------------------------
+#
+# Ctrl-click, or the inspect pane's button: send an item across without dragging it. From what you
+# carry to the box you are standing at, or from the box to the first of your bags with room, in the
+# column's own order. The place is found by asking `SimInventory.can_place` cell by cell -- the
+# sim's verdict, never a second copy of the fit rules -- and the move goes through the queue like a
+# drag would. Nothing is repacked; an item that fits nowhere stays put and the title bar says so.
+
+# Where a quick move of `item` would go: the containers to try, in order.
+func _quick_targets(item: int) -> Array:
+	var here: Dictionary = _open_here()
+	var in_here: bool = false
+	for entry in here.get("items", []) as Array:
+		if int((entry as Dictionary).get("item", -1)) == item:
+			in_here = true
+	if not in_here:
+		return [here] if not here.is_empty() else []
+	var out: Array = []
+	for column in _columns():
+		var d: Dictionary = column as Dictionary
+		if int(d.get("container", -1)) != int(here.get("container", -2)) and int(d.get("container", -1)) != item:
+			out.append(d)
+	return out
+
+
+func _quick_move(item: int) -> bool:
+	if _world == null or item < 0:
+		return false
+	var targets: Array = _quick_targets(item)
+	var name: String = _name_of(item)
+	if targets.is_empty():
+		_say("nothing open to send %s to" % name, true)
+		return false
+	for target in targets:
+		var d: Dictionary = target as Dictionary
+		var box: int = int(d.get("container", -1))
+		for rotated in [false, true]:
+			for y in int(d.get("h", 0)):
+				for x in int(d.get("w", 0)):
+					if bool(SimInventory.can_place(_world, item, box, x, y, rotated).get("ok", false)):
+						_world.commands.push({"type": "item.move", "item": item, "container": box, "x": x, "y": y, "rotated": rotated})
+						_say("%s into the %s" % [name, String(d.get("label", ""))], false)
+						return true
+	_say("no room for %s in the %s" % [name, String((targets[0] as Dictionary).get("label", ""))], true)
+	return false
+
+
+func _name_of(item: int) -> String:
+	for column in _columns():
+		for entry in (column as Dictionary).get("items", []) as Array:
+			if int((entry as Dictionary).get("item", -1)) == item:
+				return String((entry as Dictionary).get("name", "it"))
+	return "it"
+
+
 # --- layout -----------------------------------------------------------------------------
 
-func _tall() -> float:
-	return get_viewport_rect().size.y - PAD * 2.0 - STRIP_H - GAP
-
-
-# The compact sheet keeps seven native bag cells (the frame pack) between the body and
-# inspect pane. Only chrome/text spacing changes; a footprint never changes scale.
 func _compact() -> bool:
-	return get_viewport_rect().size.x < FULL_WIDTH or _tall() < BODY_H
+	var view: Vector2 = get_viewport_rect().size
+	return view.x < FULL_WIDTH or view.y < FULL_HEIGHT
+
+
+func _top_h() -> float:
+	return TOP_H_COMPACT if _compact() else TOP_H
+
+
+func _top_rect() -> Rect2:
+	return Rect2(Vector2(PAD, PAD), Vector2(get_viewport_rect().size.x - PAD * 2.0, _top_h()))
+
+
+func _content_top() -> float:
+	return PAD + _top_h() + GAP
+
+
+# The height the three working columns share: from under the title bar to over the quick strip.
+func _tall() -> float:
+	return get_viewport_rect().size.y - _content_top() - GAP - STRIP_H - PAD
 
 
 func _body_rect() -> Rect2:
-	var wide: float = 460.0 if get_viewport_rect().size.x < FULL_WIDTH else BODY_W
-	return Rect2(Vector2(PAD, PAD), Vector2(wide, minf(BODY_H, _tall())))
+	return Rect2(Vector2(PAD, _content_top()), Vector2(BODY_W_COMPACT if _compact() else BODY_W, _tall()))
+
+
+# The narrowest a bag lane can be: the widest carried bag, the frame pack's seven cells.
+func _lane_min() -> float:
+	return BagGrid.size_of(7, 1).x
+
+
+# Whether the right column gives way to a second bag lane: only on a window too narrow to have the
+# list, the inspect pane and two lanes at once, and only while a box is open -- source and
+# destination on screen together matters more than the words about one item while you pack.
+func _right_hidden() -> bool:
+	if _open_here().is_empty() or _world == null:
+		return false
+	var view: Vector2 = get_viewport_rect().size
+	var body: Rect2 = _body_rect()
+	var right_w: float = RIGHT_W_COMPACT if _compact() else RIGHT_W
+	var room: float = view.x - PAD - right_w - GAP - (body.end.x + GAP)
+	return room < _lane_min() * 2.0 + GAP
+
+
+func _right_rect() -> Rect2:
+	if _right_hidden():
+		return Rect2()
+	var view: Vector2 = get_viewport_rect().size
+	var wide: float = RIGHT_W_COMPACT if _compact() else RIGHT_W
+	return Rect2(Vector2(view.x - PAD - wide, _content_top()), Vector2(wide, _tall()))
+
+
+# The list takes the top half of the right column and the inspect pane the rest.
+func _list_rect() -> Rect2:
+	var right: Rect2 = _right_rect()
+	if not right.has_area():
+		return Rect2()
+	var tall: float = roundf(right.size.y * LIST_SHARE / Locker.PX) * Locker.PX
+	return Rect2(right.position, Vector2(right.size.x, tall))
 
 
 func _inspect_rect() -> Rect2:
-	var view: Vector2 = get_viewport_rect().size
-	var wide: float = 320.0 if view.x < FULL_WIDTH else INSPECT_W
-	return Rect2(Vector2(view.x - PAD - wide, PAD), Vector2(wide, _tall()))
+	var right: Rect2 = _right_rect()
+	if not right.has_area():
+		return Rect2()
+	var list: Rect2 = _list_rect()
+	var top: float = list.end.y + GAP
+	return Rect2(Vector2(right.position.x, top), Vector2(right.size.x, right.end.y - top))
 
 
 func _column_rect() -> Rect2:
+	var view: Vector2 = get_viewport_rect().size
 	var body: Rect2 = _body_rect()
-	var inspect: Rect2 = _inspect_rect()
-	var x: float = body.position.x + body.size.x + GAP
-	return Rect2(Vector2(x, PAD), Vector2(maxf(200.0, inspect.position.x - GAP - x), _tall()))
+	var right: Rect2 = _right_rect()
+	var x: float = body.end.x + GAP
+	var end: float = (right.position.x - GAP) if right.has_area() else (view.x - PAD)
+	return Rect2(Vector2(x, _content_top()), Vector2(maxf(200.0, end - x), _tall()))
+
+
+# The lanes the bags are laid in: [{rect, columns}]. Two when a box is open and there is room --
+# what you carry on the left, the box on the right -- otherwise one, in the column's own order.
+func _lanes() -> Array[Dictionary]:
+	var area: Rect2 = _column_rect()
+	var all: Array = _columns()
+	var here: Dictionary = _open_here() if _world != null else {}
+	if not here.is_empty() and area.size.x >= _lane_min() * 2.0 + GAP and not all.is_empty():
+		var half: float = floorf((area.size.x - GAP) / 2.0 / Locker.PX) * Locker.PX
+		var mine: Array = all.slice(1)
+		return [
+			{"rect": Rect2(area.position, Vector2(half, area.size.y)), "columns": mine},
+			{"rect": Rect2(Vector2(area.end.x - half, area.position.y), Vector2(half, area.size.y)), "columns": [all[0]]},
+		]
+	return [{"rect": area, "columns": all}]
 
 
 static func slot_rect(body: Rect2, side: int, index: int) -> Rect2:
-	var narrow: bool = body.size.x < BODY_W
-	var short: bool = body.size.y < BODY_H
-	var wide: float = 142.0 if narrow else SLOT_W
-	var top: float = 62.0 if short else SLOT_TOP
-	var step: float = 64.0 if short else SLOT_STEP
-	var x: float = body.position.x + SLOT_INSET if side == 0 else body.end.x - SLOT_INSET - wide
-	return Rect2(Vector2(x, body.position.y + top + step * float(index)), Vector2(wide, SLOT_H))
+	var compact: bool = body.size.x < BODY_W
+	var step: float = SLOT_STEP_COMPACT if compact else SLOT_STEP
+	var x: float = body.position.x + SLOT_INSET if side == 0 else body.end.x - SLOT_INSET - SLOT_W
+	return Rect2(Vector2(x, body.position.y + Locker.HEAD_H + 8.0 + step * float(index)), Vector2(SLOT_W, SLOT_H))
 
 
 # Every slot's name and rect for this frame, so the drawing and the hit test share one list.
@@ -574,9 +764,6 @@ func _columns() -> Array:
 	return out
 
 
-# A bag that is no longer reachable -- dropped, given away, eaten by a fire -- leaves no column
-# behind. Pruned against the view rather than against an event, because the view is the one
-# statement of what is carried and an event would be a second one to keep in step.
 # The container the survivor is standing at, as a column. Pulled fresh rather than cached, because
 # the whole thing changes every time something moves in or out of it.
 func _open_here() -> Dictionary:
@@ -585,6 +772,9 @@ func _open_here() -> Dictionary:
 	return SimContainers.open_view(_world, _actor)
 
 
+# A bag that is no longer reachable -- dropped, given away, eaten by a fire -- leaves no column
+# behind. Pruned against the view rather than against an event, because the view is the one
+# statement of what is carried and an event would be a second one to keep in step.
 func _prune() -> void:
 	var live: Dictionary = {}
 	for entry in _view.get("containers", []) as Array:
@@ -594,10 +784,97 @@ func _prune() -> void:
 		if live.has(int(id)):
 			kept.append(int(id))
 	_opened = kept
-	if _selected != -1 and _world != null and not SimInventory.owns(_world, _actor, _selected):
+	if _selected != -1 and _world != null and not SimInventory.owns(_world, _actor, _selected) and not _in_here(_selected):
 		_selected = -1
 	if _menu_item != -1 and _world != null and not SimInventory.owns(_world, _actor, _menu_item):
 		_close_menu()
+
+
+# Whether `item` is in the box the survivor is standing at: selectable and inspectable, and sent
+# back with a quick move, though none of the carried verbs apply to it.
+func _in_here(item: int) -> bool:
+	for entry in _open_here().get("items", []) as Array:
+		if int((entry as Dictionary).get("item", -1)) == item:
+			return true
+	return false
+
+
+# --- the list ---------------------------------------------------------------------------
+
+# Every item in every column on the sheet, as the list shows it: {item, name, baseId, count, where,
+# class, view}, in the chip's kind, sorted by name and then by where it is. The same item views
+# the grids draw, so a row and a plate are the same thing.
+func _list_rows() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var kinds: Array = (FILTERS[clampi(_filter, 0, FILTERS.size() - 1)] as Array)[1] as Array
+	for column in _columns():
+		var c: Dictionary = column as Dictionary
+		var where: String = String(c.get("label", ""))
+		for entry in c.get("items", []) as Array:
+			var d: Dictionary = entry as Dictionary
+			var cls: String = BagGrid.class_of(_world, String(d.get("baseId", "")))
+			if not kinds.is_empty() and not kinds.has(cls):
+				continue
+			out.append({"item": int(d.get("item", -1)), "name": String(d.get("name", "")), "baseId": String(d.get("baseId", "")), "count": int(d.get("count", 1)), "where": where, "class": cls, "view": d})
+	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		if String(a["name"]) != String(b["name"]):
+			return String(a["name"]).naturalnocasecmp_to(String(b["name"])) < 0
+		return String(a["where"]) < String(b["where"]))
+	return out
+
+
+# Whether an item view is in the chip's kind: what the grids fade by. `all` fades nothing.
+func _matches(d: Dictionary) -> bool:
+	var kinds: Array = (FILTERS[clampi(_filter, 0, FILTERS.size() - 1)] as Array)[1] as Array
+	return kinds.is_empty() or kinds.has(BagGrid.class_of(_world, String(d.get("baseId", ""))))
+
+
+# The chips, laid left to right under the list's header and wrapped when the column is narrow:
+# [{rect, index}].
+func _chip_rects() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var list: Rect2 = _list_rect()
+	if not list.has_area():
+		return out
+	var x: float = list.position.x + Locker.PX * 4.0
+	var y: float = list.position.y + Locker.HEAD_H + Locker.PX * 2.0
+	var h: float = 24.0
+	for i in FILTERS.size():
+		var w: float = Locker.label_width(String((FILTERS[i] as Array)[0]), Locker.SMALL_SIZE)
+		if x + w > list.end.x - Locker.PX * 4.0:
+			x = list.position.x + Locker.PX * 4.0
+			y += h + Locker.PX * 2.0
+		out.append({"rect": Rect2(Vector2(x, y), Vector2(w, h)), "index": i})
+		x += w + Locker.PX * 3.0
+	return out
+
+
+func _list_rows_top() -> float:
+	var chips: Array[Dictionary] = _chip_rects()
+	if chips.is_empty():
+		return _list_rect().position.y + Locker.HEAD_H
+	return (chips[chips.size() - 1]["rect"] as Rect2).end.y + Locker.PX * 4.0
+
+
+func _list_capacity() -> int:
+	var list: Rect2 = _list_rect()
+	return maxi(0, floori((list.end.y - Locker.PX * 4.0 - _list_rows_top()) / LIST_ROW))
+
+
+# The rows on screen, {rect, row}, from the scroll: the one arithmetic the draw and the press share.
+func _list_hits() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var list: Rect2 = _list_rect()
+	if not list.has_area():
+		return out
+	var rows: Array[Dictionary] = _list_rows()
+	var cap: int = _list_capacity()
+	_list_scroll = clampi(_list_scroll, 0, maxi(0, rows.size() - cap))
+	var y: float = _list_rows_top()
+	for i in mini(cap, rows.size() - _list_scroll):
+		var r := Rect2(Vector2(list.position.x + Locker.PX * 3.0, y + float(i) * LIST_ROW), Vector2(list.size.x - Locker.PX * 6.0, LIST_ROW - Locker.PX))
+		out.append({"rect": r, "row": rows[_list_scroll + i]})
+	return out
 
 
 # --- input ------------------------------------------------------------------------------
@@ -612,16 +889,21 @@ func _gui_input(event: InputEvent) -> void:
 			_condition_scroll = clampi(_condition_scroll + step, 0, maxi(0, _condition_rows().size() - _condition_capacity()))
 			queue_redraw()
 			accept_event()
-		elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN and mb.pressed:
-			_scroll = minf(_scroll + 56.0, maxf(0.0, _column_height() - _column_rect().size.y))
+		elif mb.pressed and mb.button_index in [MOUSE_BUTTON_WHEEL_DOWN, MOUSE_BUTTON_WHEEL_UP] and _list_rect().has_point(mb.position):
+			var step2: int = 1 if mb.button_index == MOUSE_BUTTON_WHEEL_DOWN else -1
+			_list_scroll = clampi(_list_scroll + step2, 0, maxi(0, _list_rows().size() - _list_capacity()))
 			queue_redraw()
+			accept_event()
+		elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN and mb.pressed:
+			_scroll = minf(_scroll + float(BagGrid.CELL), maxf(0.0, _column_height() - _column_rect().size.y))
+			_redraw_columns()
 			accept_event()
 		elif mb.button_index == MOUSE_BUTTON_WHEEL_UP and mb.pressed:
-			_scroll = maxf(0.0, _scroll - 56.0)
-			queue_redraw()
+			_scroll = maxf(0.0, _scroll - float(BagGrid.CELL))
+			_redraw_columns()
 			accept_event()
 		elif mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
-			_press_at(mb.position)
+			_press_at(mb.position, mb.ctrl_pressed)
 			accept_event()
 		elif mb.button_index == MOUSE_BUTTON_LEFT and not mb.pressed:
 			_release_at(mb.position)
@@ -635,7 +917,13 @@ func _gui_input(event: InputEvent) -> void:
 		mouse_default_cursor_shape = cursor_at((event as InputEventMouse).position) as Control.CursorShape
 
 
-func _press_at(p: Vector2) -> void:
+func _redraw_columns() -> void:
+	queue_redraw()
+	if _column_layer != null:
+		_column_layer.queue_redraw()
+
+
+func _press_at(p: Vector2, ctrl: bool = false) -> void:
 	if _world == null or _view.is_empty():
 		return
 	# The menu first: it is drawn over everything, so it has to be tested before everything.
@@ -656,6 +944,34 @@ func _press_at(p: Vector2) -> void:
 			# "one key, one obvious target" rule the T key already follows.
 			_world.commands.push({"type": "infection.respond", "verb": String(h.get("verb", ""))})
 			return
+	# The inspect pane's buttons: the same verbs the word menu offers, said where you are reading.
+	if _selected != -1:
+		for b in InspectPane.button_rects(_inspect_rect(), _pane_verbs()):
+			if (b["rect"] as Rect2).has_point(p):
+				_act(String(b["verb"]), _selected)
+				return
+	# A chip on the list.
+	for chip in _chip_rects():
+		if (chip["rect"] as Rect2).has_point(p):
+			_filter = int(chip["index"])
+			_list_scroll = 0
+			_redraw_columns()
+			return
+	# A row on the list: select it, and lift it -- a row can be dragged into a bag like a plate.
+	for row in _list_hits():
+		if (row["rect"] as Rect2).has_point(p):
+			var r: Dictionary = row["row"] as Dictionary
+			var d0: Dictionary = r["view"] as Dictionary
+			_selected = int(r["item"])
+			if ctrl:
+				_quick_move(_selected)
+				_redraw_columns()
+				return
+			var dims0 := Vector2i(int(d0.get("w", 1)), int(d0.get("h", 1)))
+			if bool(d0.get("rotated", false)):
+				dims0 = Vector2i(dims0.y, dims0.x)
+			_begin_drag(_selected, bool(d0.get("rotated", false)), dims0)
+			return
 	# An equipment slot: lift the item out of it.
 	for box in _slot_boxes():
 		if not (box["rect"] as Rect2).has_point(p):
@@ -673,15 +989,20 @@ func _press_at(p: Vector2) -> void:
 	var found: Variant = _item_under(p)
 	if found is Dictionary:
 		var d: Dictionary = found as Dictionary
+		_selected = int(d.get("item", -1))
+		if ctrl:
+			_quick_move(_selected)
+			_redraw_columns()
+			return
 		var dims := Vector2i(int(d.get("w", 1)), int(d.get("h", 1)))
 		var rotated: bool = bool(d.get("rotated", false))
 		if rotated:
 			dims = Vector2i(dims.y, dims.x)
-		_selected = int(d.get("item", -1))
 		_begin_drag(int(d.get("item", -1)), rotated, dims)
 		return
-	_selected = -1
-	queue_redraw()
+	if _column_rect().has_point(p) or _body_rect().has_point(p):
+		_selected = -1
+	_redraw_columns()
 
 
 func _release_at(p: Vector2) -> void:
@@ -689,14 +1010,15 @@ func _release_at(p: Vector2) -> void:
 		return
 	var item: int = _drag_item
 	var rotated: bool = _drag_rotated
+	var verdict: Dictionary = drop_hint(p)
 	_cancel_drag()
 	for box in _slot_boxes():
 		if (box["rect"] as Rect2).has_point(p):
 			_world.commands.push({"type": "item.equip", "item": item, "slot": String(box["slot"])})
-			queue_redraw()
+			_redraw_columns()
 			return
 	if not _column_rect().has_point(p):
-		queue_redraw()
+		_redraw_columns()
 		return
 	for placed in _placed:
 		var at: Vector2 = placed["at"] as Vector2
@@ -704,13 +1026,30 @@ func _release_at(p: Vector2) -> void:
 		var cell: Variant = BagGrid.cell_at(at, column, p)
 		if cell == null:
 			continue
-		# Propose the move; the sim decides depth, fit and cycle.
+		# Propose the move; the sim decides depth, fit and cycle. A move the sim's own predicate
+		# already refuses is still proposed -- the sim is the one that decides -- and the title bar
+		# says why it will not land.
 		_world.commands.push({"type": "item.move", "item": item, "container": int(column.get("container", -1)), "x": (cell as Vector2i).x, "y": (cell as Vector2i).y, "rotated": rotated})
-		queue_redraw()
+		if int(verdict.get("shape", Input.CURSOR_MOVE)) == Input.CURSOR_FORBIDDEN:
+			_say(_refusal_words(String(verdict.get("reason", ""))), true)
+		_redraw_columns()
 		return
 	# Dropped on nothing: no op. The item stays where it is until a command lands, which is what
 	# makes a mis-drag cost nothing.
-	queue_redraw()
+	_redraw_columns()
+
+
+# What `SimInventory.can_place`'s reason means, in words.
+static func _refusal_words(reason: String) -> String:
+	match reason:
+		"does-not-fit":
+			return "it will not fit there"
+		"too-deep":
+			return "bags inside bags go no deeper than that"
+		"would-nest-inside-itself":
+			return "a bag cannot go inside itself"
+		_:
+			return "it will not go there"
 
 
 func _right_at(p: Vector2) -> void:
@@ -719,6 +1058,10 @@ func _right_at(p: Vector2) -> void:
 		return
 	var found: Variant = _item_under(p)
 	if not (found is Dictionary):
+		for row in _list_hits():
+			if (row["rect"] as Rect2).has_point(p):
+				_open_menu(p, int((row["row"] as Dictionary)["item"]))
+				return
 		# A slot's contents can be reasoned about too -- that is where "unequip" lives.
 		for box in _slot_boxes():
 			if (box["rect"] as Rect2).has_point(p):
@@ -755,6 +1098,25 @@ func _close_menu() -> void:
 	queue_redraw()
 
 
+# The verbs the inspect pane offers as buttons for the selected item: the word menu's, less
+# `inspect` (you are reading it), plus a quick move when there is somewhere to send it -- "take"
+# out of the box you are at, or "stash" into it.
+func _pane_verbs() -> Array[String]:
+	var out: Array[String] = []
+	if _world == null or _selected < 0:
+		return out
+	if _in_here(_selected):
+		out.append("take")
+		return out
+	for v in SimInventory.verbs_for(_world, _actor, _selected):
+		if v != "inspect":
+			out.append(v)
+	# Something worn is not stashed in one click: taking it off is its own decision.
+	if not _open_here().is_empty() and _slot_of(_selected).is_empty():
+		out.append("stash")
+	return out
+
+
 # What a menu word does. Every one of these is a command through the queue, except the two that
 # are questions about the screen rather than about the world: `inspect` picks what the pane talks
 # about, and `open` decides whether a nested bag gets a column.
@@ -779,7 +1141,9 @@ func _act(verb: String, item: int) -> void:
 				_opened.append(item)
 		"inspect":
 			_selected = item
-	queue_redraw()
+		"take", "stash":
+			_quick_move(item)
+	_redraw_columns()
 
 
 func _slot_of(item: int) -> String:
@@ -827,8 +1191,8 @@ func _item_under(p: Vector2) -> Variant:
 # coordinates. The slots and grids come from the layout's own arithmetic, not the last frame, so it
 # can be asked between frames; the response words are the ones the last frame drew, exactly as a
 # press reads them. While an item is held it is `drop_hint`'s verdict; otherwise the hand over
-# anything a press acts on -- a menu word, a response word, a slot with something in it, an item
-# in a grid -- and the arrow elsewhere.
+# anything a press acts on -- a menu word, a response word, a button, a chip, a list row, a slot
+# with something in it, an item in a grid -- and the arrow elsewhere.
 func cursor_at(p: Vector2) -> int:
 	if _drag_item != -1:
 		return int(drop_hint(p).get("shape", Input.CURSOR_MOVE))
@@ -841,6 +1205,16 @@ func cursor_at(p: Vector2) -> int:
 		return Input.CURSOR_ARROW
 	for h in _hit:
 		if (h["rect"] as Rect2).has_point(p):
+			return Input.CURSOR_POINTING_HAND
+	if _selected != -1:
+		for b in InspectPane.button_rects(_inspect_rect(), _pane_verbs()):
+			if (b["rect"] as Rect2).has_point(p):
+				return Input.CURSOR_POINTING_HAND
+	for chip in _chip_rects():
+		if (chip["rect"] as Rect2).has_point(p):
+			return Input.CURSOR_POINTING_HAND
+	for row in _list_hits():
+		if (row["rect"] as Rect2).has_point(p):
 			return Input.CURSOR_POINTING_HAND
 	for box in _slot_boxes():
 		if (box["rect"] as Rect2).has_point(p):
@@ -872,8 +1246,8 @@ func drop_hint(p: Vector2) -> Dictionary:
 # The verdict on dropping the held item at `p` over one of `places` ({at, column}, in p's frame),
 # and it is the sim's: `SimInventory.can_place`, asked about exactly the cell and turn a release
 # there would propose -- never a second copy of the fit rules here. Refused, the pointer is blocked
-# and the kit's `slot_invalid` frame goes over the cells; accepted, it is the move. Over no grid at
-# all a release does nothing, which is the move too: the item is still in your hand.
+# and hazard stripes go over the cells; accepted, it is the move and the cells are outlined. Over
+# no grid at all a release does nothing, which is the move too: the item is still in your hand.
 #
 # What this does not see: `can_place` is the grid, the nesting and the depth, and not the reach
 # guard `inventory.intake` adds for a world container (`_move_is_reachable`). So a drag into a
@@ -909,9 +1283,10 @@ func _footprint_rect(at: Vector2, column: Dictionary, cell: Vector2i) -> Rect2:
 	return want.intersection(grid)
 
 
-# Drawn by the ghost, over everything on the sheet: the kit's `slot_invalid` frame over the cells a
-# refused drop would cover. The ghost sits at the sheet's origin, so a sheet rect is a ghost rect;
-# the transfer window's rects are shifted by where the window stands.
+# Drawn by the ghost, under the held plate: hazard stripes over the cells a refused drop would
+# cover, a green outline over the cells an accepted one would. The ghost sits at the sheet's
+# origin, so a sheet rect is a ghost rect; the transfer window's rects are shifted by where the
+# window stands.
 func _draw_drop_hint_into(ci: CanvasItem) -> void:
 	if _drag_item == -1:
 		return
@@ -923,14 +1298,27 @@ func _draw_drop_hint_into(ci: CanvasItem) -> void:
 		var window: Control = _loot_layer as Control
 		hint = _drop_verdict(_loot_places(), window.get_local_mouse_position())
 		shift = window.position
-	if int(hint.get("shape", Input.CURSOR_MOVE)) != Input.CURSOR_FORBIDDEN:
-		return
 	var r: Rect2 = hint.get("rect", Rect2()) as Rect2
 	if not r.has_area():
 		return
 	r.position += shift
-	if not Chrome.frame(ci, r, "slot_invalid", 1.0):
-		ci.draw_rect(r, Chrome.DANGER, false, 2.0)
+	if int(hint.get("shape", Input.CURSOR_MOVE)) == Input.CURSOR_FORBIDDEN:
+		Locker.refuse(ci, r)
+	else:
+		Locker.accept(ci, r)
+
+
+# The held item itself, centred on the pointer: its plate, tinted by its kind, and its picture at
+# the size it has in a bag, turned the way the drag is turned.
+func _draw_ghost_into(ci: CanvasItem, at: Vector2) -> void:
+	if _world == null or _drag_item == -1:
+		return
+	var d: Dictionary = SimInventory.view_of(_world, _drag_item, {"rotated": _drag_rotated})
+	var px := Vector2(float(int(d.get("w", 1)) * BagGrid.CELL), float(int(d.get("h", 1)) * BagGrid.CELL))
+	var plate := Rect2((at - px / 2.0) + Vector2(Locker.PX, Locker.PX), px - Vector2(Locker.PX, Locker.PX) * 2.0)
+	var base: String = ItemPicture.base_of(_world, _drag_item)
+	Locker.plate(ci, plate, BagGrid.class_of(_world, base), 0.85)
+	ItemPicture.draw(ci, plate.grow(-Locker.PX), Appearance.item_look(_world, base), 0.95)
 
 
 func _begin_drag(item: int, rotated: bool, dims: Vector2i) -> void:
@@ -938,7 +1326,7 @@ func _begin_drag(item: int, rotated: bool, dims: Vector2i) -> void:
 	_drag_rotated = rotated
 	_drag_dims = dims
 	_close_menu()
-	queue_redraw()
+	_redraw_columns()
 
 
 func _cancel_drag() -> void:
@@ -948,12 +1336,15 @@ func _cancel_drag() -> void:
 		_ghost.queue_redraw()
 
 
+# How tall the bags stand in the tallest lane, so the wheel knows how far there is to scroll.
 func _column_height() -> float:
 	var total: float = 0.0
-	for column in _columns():
-		var d: Dictionary = column as Dictionary
-		total += BagGrid.size_of(int(d.get("w", 0)), int(d.get("h", 0))).y + GAP
-	return maxf(0.0, total - GAP)
+	var top: float = _column_rect().position.y - _scroll
+	for placed in _column_places():
+		var d: Dictionary = placed["column"] as Dictionary
+		var bottom: float = (placed["at"] as Vector2).y + BagGrid.size_of(int(d.get("w", 0)), int(d.get("h", 0))).y
+		total = maxf(total, bottom - top)
+	return total
 
 
 # --- drawing ----------------------------------------------------------------------------
@@ -973,21 +1364,22 @@ func _draw() -> void:
 		if _world != null and not _view.is_empty():
 			QuickStrip.draw_strip(self, QuickStrip.rect_for(view, PAD, STRIP_H), SimInventory.quick_strip_view(_world, _actor), UiPrefs.opacity("inventory_opacity"), _selected, _ping_view(), _world)
 		return
-	var dim: Color = Chrome.FIELD
-	dim.a = 0.88
-	draw_rect(Rect2(Vector2.ZERO, view), dim)
+	draw_rect(Rect2(Vector2.ZERO, view), Locker.WASH)
 	var alpha: float = UiPrefs.opacity("inventory_opacity")
 	var font: Font = Chrome.font()
 	if _view.is_empty():
-		draw_string(font, Vector2(PAD, PAD + 32.0), "no inventory", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, Chrome.TEXT_DIM)
+		draw_string(font, Vector2(PAD, PAD + 32.0), "no inventory", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, Locker.TEXT_DIM)
 		return
+	_draw_top(font, alpha)
 	_draw_body(font, alpha)
 	if _column_layer != null:
 		var area: Rect2 = _column_rect()
 		_column_layer.position = area.position
 		_column_layer.size = area.size
 		_column_layer.queue_redraw()
-	InspectPane.draw_pane(self, _inspect_rect(), _inspect_view(), alpha, _world)
+	_draw_list(font, alpha)
+	if _inspect_rect().has_area():
+		InspectPane.draw_pane(self, _inspect_rect(), _inspect_view(), alpha, _pane_verbs(), _world)
 	QuickStrip.draw_strip(self, QuickStrip.rect_for(view, PAD, STRIP_H), SimInventory.quick_strip_view(_world, _actor) if _world != null else [], alpha, _selected, _ping_view(), _world)
 	ItemMenu.draw_menu(self, _menu_at, _menu_verbs, alpha)
 
@@ -998,67 +1390,139 @@ func _inspect_view() -> Dictionary:
 	return SimInventory.inspect_view(_world, _actor, _selected)
 
 
+# Whose sheet this is, by name: "You" for the survivor you are, as the HUD says it.
+func _whose() -> String:
+	if _world == null or _actor < 0:
+		return ""
+	var ident: Variant = _world.components.get_component(_actor, "identity")
+	var name: String = String((ident as Dictionary).get("name", "")) if ident is Dictionary else ""
+	if _actor == int(_world.player):
+		return "you" if name.is_empty() else "%s · you" % name
+	return name
+
+
+# The title bar: the sheet's name stamped large, whose it is, then -- from the right -- the close
+# key, the hint line, and whatever notice is up.
+func _draw_top(font: Font, alpha: float) -> void:
+	var top: Rect2 = _top_rect()
+	Locker.panel(self, top, alpha)
+	var title_size: int = TITLE_SIZE_COMPACT if _compact() else TITLE_SIZE
+	var base: float = floorf(top.position.y + (top.size.y - Chrome.line_height(title_size)) / 2.0 + Chrome.ascent(title_size))
+	var x: float = top.position.x + Locker.PX * 8.0
+	draw_string(font, Vector2(x, base), "INVENTORY", HORIZONTAL_ALIGNMENT_LEFT, -1, title_size, Locker.TEXT)
+	x += font.get_string_size("INVENTORY", HORIZONTAL_ALIGNMENT_LEFT, -1, title_size).x + Locker.PX * 8.0
+	var mid: float = top.position.y + top.size.y / 2.0
+	var small_base: float = floorf(mid - Chrome.line_height(Locker.LABEL_SIZE) / 2.0 + Chrome.ascent(Locker.LABEL_SIZE))
+	draw_string(font, Vector2(x, small_base), _whose(), HORIZONTAL_ALIGNMENT_LEFT, -1, Locker.LABEL_SIZE, Locker.TEXT_DIM)
+	x += font.get_string_size(_whose(), HORIZONTAL_ALIGNMENT_LEFT, -1, Locker.LABEL_SIZE).x + Locker.PX * 10.0
+	# From the right: Tab, the close glyph and its word.
+	var right: float = top.end.x - Locker.PX * 8.0
+	var word: String = "close"
+	var ww: float = font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, Locker.LABEL_SIZE).x
+	right -= ww
+	draw_string(font, Vector2(right, small_base), word, HORIZONTAL_ALIGNMENT_LEFT, -1, Locker.LABEL_SIZE, Locker.TEXT_DIM)
+	right -= Chrome.GLYPH_SMALL + Locker.PX * 3.0
+	Chrome.glyph(self, "close", Vector2(right, roundf(mid - Chrome.GLYPH_SMALL / 2.0)), true, alpha * 0.8)
+	var cap_h: float = maxf(Chrome.KEYCAP_MIN, float(HINT_SIZE) + 8.0)
+	var cap_w: float = maxf(cap_h, font.get_string_size("Tab", HORIZONTAL_ALIGNMENT_LEFT, -1, HINT_SIZE).x + 26.0)
+	right -= cap_w + Locker.PX * 3.0
+	Chrome.keycap(self, Vector2(right, roundf(mid - cap_h / 2.0)), "Tab", HINT_SIZE, alpha)
+	right -= Locker.PX * 10.0
+	# A notice, when one is up, takes the hint line's place: it is the thing to read right now.
+	var line: String = _notice
+	var col: Color = Locker.DANGER if _notice_bad else Locker.GOOD
+	if line.is_empty():
+		line = "drag to move · right-click for what you can do · ctrl-click sends · R turns it"
+		if _compact():
+			line = "drag · right-click · ctrl-click sends · R turns"
+		col = Locker.TEXT_FAINT
+	var hint_base: float = floorf(mid - Chrome.line_height(HINT_SIZE) / 2.0 + Chrome.ascent(HINT_SIZE))
+	var fitted: String = UiText.fit(font, line, HINT_SIZE, maxf(0.0, right - x))
+	var lw: float = font.get_string_size(fitted, HORIZONTAL_ALIGNMENT_LEFT, -1, HINT_SIZE).x
+	draw_string(font, Vector2(right - lw, hint_base), fitted, HORIZONTAL_ALIGNMENT_LEFT, -1, HINT_SIZE, col)
+
+
 func _draw_body(font: Font, alpha: float) -> void:
 	var body: Rect2 = _body_rect()
-	Chrome.panel(self, body, alpha)
-	Chrome.header(self, body, "survivor", alpha, "condition")
+	Locker.panel(self, body, alpha)
+	Locker.header(self, body, "survivor", alpha, "", Chrome.GLYPH_SMALL + Locker.PX * 3.0)
+	Chrome.glyph(self, "condition", Vector2(body.end.x - Chrome.GLYPH_SMALL - Locker.PX * 5.0, body.position.y + Locker.PX * 2.0 + floorf((Locker.TAPE_H - Chrome.GLYPH_SMALL) / 2.0)), true, alpha * 0.7)
 	# One screen (the owner's call, 2026-08-19): the doll carries injuries and armour, the slots
 	# flank it, and anything wrong with the body reads as prose below the figure.
-	var doll_size: Vector2 = Vector2(128, 346) if _compact() else Vector2(DOLL_W, DOLL_H)
+	var doll_size: Vector2 = Vector2(DOLL_W_COMPACT, DOLL_H_COMPACT) if _compact() else Vector2(DOLL_W, DOLL_H)
 	_paperdoll.custom_minimum_size = doll_size
 	_paperdoll.size = doll_size
 	_paperdoll.set("drawing_offset", 0.0)
-	_paperdoll.position = Vector2(body.get_center().x - doll_size.x / 2.0, body.position.y + (68.0 if _compact() else DOLL_TOP))
+	_paperdoll.position = Vector2(roundf(body.get_center().x - doll_size.x / 2.0), body.position.y + Locker.HEAD_H + 8.0)
 	_paperdoll.visible = true
 	for box in _slot_boxes():
 		var rect: Rect2 = box["rect"] as Rect2
-		var it: Variant = _slot_item(String(box["slot"]))
-		var picked: bool = it is Dictionary and int((it as Dictionary).get("item", -1)) == _selected
-		if not Chrome.frame(self, rect, "slot_selected" if picked else "slot_empty", alpha):
-			draw_rect(rect, Chrome.SLOT_EMPTY)
-			draw_rect(rect, Chrome.PANEL_EDGE, false, 2.0)
-		draw_string(font, rect.position + Vector2(10.0, 20.0), String(box["slot"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
+		var slot: String = String(box["slot"])
+		var it: Variant = _slot_item(slot)
+		Locker.well(self, rect, alpha)
 		if it is Dictionary:
-			var text_size: int = 20 if rect.size.x < SLOT_W else 25
-			var name: String = UiText.fit(font, String((it as Dictionary).get("name", "")), text_size, rect.size.x - 20.0)
-			draw_string(font, rect.position + Vector2(10.0, 46.0), name, HORIZONTAL_ALIGNMENT_LEFT, -1, text_size, Chrome.TEXT)
+			var d: Dictionary = it as Dictionary
+			var plate: Rect2 = rect.grow(-Locker.PX)
+			var base: String = String(d.get("baseId", ""))
+			if base.is_empty():
+				base = ItemPicture.base_of(_world, int(d.get("item", -1)))
+			Locker.plate(self, plate, BagGrid.class_of(_world, base), alpha)
+			if _world != null:
+				ItemPicture.draw(self, plate.grow(-Locker.PX), Appearance.item_look(_world, base), alpha)
+			if int(d.get("item", -1)) == _selected:
+				Locker.selected(self, plate, alpha)
 		else:
-			draw_string(font, rect.position + Vector2(10.0, 46.0), "nothing", HORIZONTAL_ALIGNMENT_LEFT, -1, 25, Chrome.TEXT_FAINT)
 			# An empty slot draws what goes there: the equipment glyph names the slot the same way
-			# the word above it does. Ornament, not a replacement -- the word stays, and the glyph
-			# is dimmed to sit behind it rather than compete with it (docs/30, "The UI Field Kit,
-			# live": no status icons, no readout the word does not already say).
-			Chrome.glyph(self, String(box["slot"]), rect.position + Vector2(rect.size.x - 24.0 - 8.0, 8.0), false, alpha * 0.55)
+			# the word under it does. Ornament, not a replacement -- the word stays, and the glyph is
+			# dimmed to sit back in the well (docs/30, "The UI Field Kit, live": no status icons, no
+			# readout the word does not already say).
+			Chrome.glyph(self, slot, (rect.get_center() - Vector2(12.0, 12.0)).round(), false, alpha * 0.35)
+		# The word under the slot on a full window: the item's name when something is in it, the
+		# slot's when not. A compact sheet has no room between slot and figure, and the picture and
+		# the glyph carry it there.
+		if not _compact():
+			var left: bool = LEFT_SLOTS.has(slot)
+			var label: String = slot
+			var col: Color = Locker.TEXT_FAINT
+			if it is Dictionary:
+				label = String((it as Dictionary).get("name", slot))
+				col = Locker.TEXT_DIM
+			var room: float = (body.get_center().x - DOLL_W / 2.0) - rect.position.x if left else rect.end.x - (body.get_center().x + DOLL_W / 2.0)
+			label = UiText.fit(font, label, SLOT_WORD_SIZE, room - 4.0)
+			var lw: float = font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, SLOT_WORD_SIZE).x
+			var lx: float = rect.position.x if left else rect.end.x - lw
+			draw_string(font, Vector2(lx, rect.end.y + Chrome.ascent(SLOT_WORD_SIZE) + 2.0), label, HORIZONTAL_ALIGNMENT_LEFT, -1, SLOT_WORD_SIZE, col)
 	# Condition prose gets its own measured rows below the equipment. The wheel over the
-	# survivor panel reaches every row when wounds need more room than this window has.
+	# survivor panel reaches every row when wounds need more room than the readout has.
 	var rows: Array[Dictionary] = _condition_rows()
 	var area: Rect2 = _condition_rect()
+	Locker.groove(self, Vector2(body.position.x + Locker.PX * 4.0, area.position.y - 12.0), body.size.x - Locker.PX * 8.0, alpha)
 	var capacity: int = _condition_capacity()
 	_condition_scroll = clampi(_condition_scroll, 0, maxi(0, rows.size() - capacity))
 	var text_size: int = 20 if _compact() else 25
 	var line_h: float = 22.0 if _compact() else 28.0
-	for i in mini(capacity, rows.size()):
+	for i in mini(capacity, rows.size() - _condition_scroll):
 		var row: Dictionary = rows[_condition_scroll + i]
 		var text: String = String(row["text"])
-		var tw: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, text_size).x
-		draw_string(font, Vector2(roundf(body.get_center().x - tw / 2.0), area.position.y + Chrome.ascent(text_size) + float(i) * line_h), text, HORIZONTAL_ALIGNMENT_LEFT, -1, text_size, row["colour"] as Color)
-	_draw_responses(font, body, body.end.y - 44.0)
-	var hint: String = "drag between bags · right-click for what you can do · R turns it"
-	if _compact():
-		hint = "drag · right-click actions · R turns"
+		draw_string(font, Vector2(area.position.x, area.position.y + Chrome.ascent(text_size) + float(i) * line_h), text, HORIZONTAL_ALIGNMENT_LEFT, -1, text_size, row["colour"] as Color)
 	if rows.size() > capacity:
-		hint = "wheel over survivor for condition · R turns" if _compact() else "wheel over survivor for condition · right-click actions · R turns"
-	draw_string(font, Vector2(body.position.x + SLOT_INSET, body.end.y - 18.0), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
+		var more: String = "wheel for more" if _condition_scroll < rows.size() - capacity else "wheel back up"
+		var mw: float = font.get_string_size(more, HORIZONTAL_ALIGNMENT_LEFT, -1, HINT_SIZE).x
+		draw_string(font, Vector2(area.end.x - mw, area.position.y - 18.0), more, HORIZONTAL_ALIGNMENT_LEFT, -1, HINT_SIZE, Locker.TEXT_FAINT)
+	_draw_responses(font, body, area.end.y + (24.0 if _compact() else 30.0))
 
 
 func _condition_rect() -> Rect2:
 	var body: Rect2 = _body_rect()
 	var last: Rect2 = slot_rect(body, 0, LEFT_SLOTS.size() - 1)
-	var top: float = last.end.y + 10.0
+	var top: float = last.end.y + (22.0 if _compact() else 30.0) + 12.0
 	if not _compact():
-		top = maxf(top, body.position.y + DOLL_TOP + DOLL_H + 12.0)
-	var reserved: float = 64.0 if _world != null and not SimTreatment.response_view(_world, _actor).is_empty() else 36.0
-	return Rect2(Vector2(body.position.x + SLOT_INSET, top), Vector2(body.size.x - SLOT_INSET * 2.0, maxf(0.0, body.end.y - reserved - top)))
+		top = maxf(top, body.position.y + Locker.HEAD_H + 8.0 + DOLL_H + 24.0)
+	var rows: int = CONDITION_ROWS_COMPACT if _compact() else CONDITION_ROWS
+	var line_h: float = 22.0 if _compact() else 28.0
+	var reserved: float = 40.0 if _world != null and not SimTreatment.response_view(_world, _actor).is_empty() else 12.0
+	var tall: float = minf(float(rows) * line_h, maxf(0.0, body.end.y - reserved - top))
+	return Rect2(Vector2(body.position.x + SLOT_INSET, top), Vector2(body.size.x - SLOT_INSET * 2.0, tall))
 
 
 func _condition_capacity() -> int:
@@ -1072,8 +1536,51 @@ func _condition_rows() -> Array[Dictionary]:
 		for line in InspectPane._wrap(Chrome.font(), String(row["text"]), text_size, _condition_rect().size.x):
 			out.append({"text": line, "colour": row["colour"]})
 	if out.is_empty():
-		out.append({"text": "no injuries", "colour": Chrome.TEXT_DIM})
+		out.append({"text": "no injuries", "colour": Locker.TEXT_DIM})
 	return out
+
+
+# The list down the right: everything on the sheet, a row a thing, under chips that narrow it by
+# kind. A row is a handle on the same item a plate is -- click selects it for the inspect pane and
+# rings its plate, drag lifts it, right-click asks for its verbs, ctrl-click sends it.
+func _draw_list(font: Font, alpha: float) -> void:
+	var list: Rect2 = _list_rect()
+	if not list.has_area():
+		return
+	Locker.panel(self, list, alpha)
+	var rows: Array[Dictionary] = _list_rows()
+	# The header's note says there is more below when there is, rather than a line under the last
+	# row that the row itself would have to make room for.
+	Locker.header(self, list, "contents", alpha, "wheel for more" if rows.size() > _list_capacity() else "in reach")
+	for chip in _chip_rects():
+		var i: int = int(chip["index"])
+		Locker.chip(self, chip["rect"] as Rect2, String((FILTERS[i] as Array)[0]), i == _filter, alpha)
+	var hits: Array[Dictionary] = _list_hits()
+	if hits.is_empty():
+		draw_string(font, Vector2(list.position.x + Locker.PX * 6.0, _list_rows_top() + 28.0), "nothing of that kind in reach" if _filter != 0 else "nothing in reach", HORIZONTAL_ALIGNMENT_LEFT, -1, LIST_NOTE_SIZE, Locker.TEXT_FAINT)
+	for n in hits.size():
+		var r: Rect2 = hits[n]["rect"] as Rect2
+		var row: Dictionary = hits[n]["row"] as Dictionary
+		var picked: bool = int(row["item"]) == _selected
+		if picked:
+			draw_rect(r, Color(Locker.ACCENT.r, Locker.ACCENT.g, Locker.ACCENT.b, 0.18 * alpha))
+			draw_rect(r, Color(Locker.ACCENT.r, Locker.ACCENT.g, Locker.ACCENT.b, minf(1.0, alpha)), false, Locker.PX)
+		elif (_list_scroll + n) % 2 == 1:
+			draw_rect(r, Color(1.0, 1.0, 1.0, 0.03 * alpha))
+		# A chip of the plate's tint, so a row and its plate read as the same kind of thing.
+		draw_rect(Rect2(r.position + Vector2(Locker.PX, Locker.PX * 2.0), Vector2(Locker.PX * 2.0, r.size.y - Locker.PX * 4.0)), Locker.tint_of(String(row["class"])).lightened(0.25))
+		var icon := Rect2(r.position + Vector2(Locker.PX * 5.0, (r.size.y - LIST_ICON) / 2.0), Vector2(LIST_ICON, LIST_ICON))
+		if _world != null:
+			ItemPicture.draw(self, icon, Appearance.item_look(_world, String(row["baseId"])), alpha, 1, false)
+		var note: String = String(row["where"])
+		if int(row["count"]) > 1:
+			note += "  x%d" % int(row["count"])
+		var nw: float = font.get_string_size(note, HORIZONTAL_ALIGNMENT_LEFT, -1, LIST_NOTE_SIZE).x
+		var mid: float = r.position.y + r.size.y / 2.0
+		var name_x: float = icon.end.x + Locker.PX * 4.0
+		var name: String = UiText.fit(font, String(row["name"]), LIST_NAME_SIZE, r.end.x - Locker.PX * 6.0 - nw - name_x)
+		draw_string(font, Vector2(name_x, floorf(mid - Chrome.line_height(LIST_NAME_SIZE) / 2.0 + Chrome.ascent(LIST_NAME_SIZE))), name, HORIZONTAL_ALIGNMENT_LEFT, -1, LIST_NAME_SIZE, Locker.TEXT)
+		draw_string(font, Vector2(r.end.x - nw - Locker.PX * 3.0, floorf(mid - Chrome.line_height(LIST_NOTE_SIZE) / 2.0 + Chrome.ascent(LIST_NOTE_SIZE))), note, HORIZONTAL_ALIGNMENT_LEFT, -1, LIST_NOTE_SIZE, Locker.TEXT_DIM)
 
 
 # Called by the clipped child, and drawing into it: `at` is built in sheet coordinates so the
@@ -1091,23 +1598,29 @@ func _draw_columns_into(ci: CanvasItem) -> void:
 		# Only what is on screen, so a deep loadout scrolls rather than painting under the strip.
 		if at.y + box.y > area.position.y and at.y < area.position.y + area.size.y:
 			var note: String = ""
-			if int(d.get("container", -1)) == _actor:
+			var id: int = int(d.get("container", -1))
+			if id == _actor:
 				note = "on you"
-			elif _opened.has(int(d.get("container", -1))):
+			elif _opened.has(id):
 				note = "opened"
-			BagGrid.draw_bag(ci, at - area.position, d, alpha, _drag_item, note, _world)
+			elif not _open_here().is_empty() and id == int(_open_here().get("container", -2)):
+				note = "here"
+			else:
+				note = _slot_of(id)
+			BagGrid.draw_bag(ci, at - area.position, d, alpha, _drag_item, note, _world, Callable(self, "_matches") if _filter != 0 else Callable())
 			var sel: Variant = _selected_in(d)
 			if sel is Dictionary:
 				origin_for_selected = {"origin": BagGrid.origin_of(at - area.position), "item": sel}
 	# There is no scrollbar on this screen and there is not going to be one, so the one thing the
 	# wheel does has to be said out loud when it matters.
 	if _column_height() > area.size.y:
-		var font: Font = Chrome.font()
-		var note: String = "wheel to scroll"
-		var nw: float = font.get_string_size(note, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
-		ci.draw_string(font, Vector2(area.size.x - nw, area.size.y - 6.0), note, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
+		var font2: Font = Chrome.font()
+		var more: String = "wheel to scroll"
+		var nw: float = font2.get_string_size(more, HORIZONTAL_ALIGNMENT_LEFT, -1, HINT_SIZE).x
+		ci.draw_rect(Rect2(Vector2(area.size.x - nw - 16.0, area.size.y - 28.0), Vector2(nw + 16.0, 28.0)), Color(0.0, 0.0, 0.0, 0.6))
+		ci.draw_string(font2, Vector2(area.size.x - nw - 8.0, area.size.y - 8.0), more, HORIZONTAL_ALIGNMENT_LEFT, -1, HINT_SIZE, Locker.TEXT_DIM)
 	# The selection ring last, so it is never painted over by the next bag's panel.
-	if origin_for_selected is Dictionary:
+	if origin_for_selected is Dictionary and _drag_item != _selected:
 		var o: Dictionary = origin_for_selected as Dictionary
 		if _pulse_item != _selected:
 			_pulse_item = _selected
@@ -1118,17 +1631,27 @@ func _draw_columns_into(ci: CanvasItem) -> void:
 		_pulse_item = -1
 
 
-# Every column's panel origin, {at, column}, in sheet coordinates: stacked down the column rect
-# from the scroll, a GAP apart. The one arithmetic -- the draw keeps what it returns as `_placed`
-# for the hit test, and the pointer asks it directly.
+# Every column's panel origin, {at, column}, in sheet coordinates: each lane's bags laid left to
+# right and wrapped, a BAG_GAP apart, from the scroll. The one arithmetic -- the draw keeps what it
+# returns as `_placed` for the hit test, and the pointer asks it directly. In the column's own
+# order, lane by lane, so a press finds the same bag the eye does.
 func _column_places() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
-	var area: Rect2 = _column_rect()
-	var y: float = area.position.y - _scroll
-	for column in _columns():
-		var d: Dictionary = column as Dictionary
-		out.append({"at": Vector2(area.position.x, y), "column": d})
-		y += BagGrid.size_of(int(d.get("w", 0)), int(d.get("h", 0))).y + GAP
+	for lane in _lanes():
+		var r: Rect2 = lane["rect"] as Rect2
+		var x: float = r.position.x
+		var y: float = r.position.y - _scroll
+		var row_h: float = 0.0
+		for column in lane["columns"] as Array:
+			var d: Dictionary = column as Dictionary
+			var box: Vector2 = BagGrid.size_of(int(d.get("w", 0)), int(d.get("h", 0)))
+			if x > r.position.x and x + box.x > r.end.x:
+				x = r.position.x
+				y += row_h + BAG_GAP
+				row_h = 0.0
+			out.append({"at": Vector2(x, y), "column": d})
+			x += box.x + BAG_GAP
+			row_h = maxf(row_h, box.y)
 	return out
 
 
