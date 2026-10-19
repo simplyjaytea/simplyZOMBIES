@@ -31,6 +31,7 @@ extends SceneTree
 #   TICKS      the loop advances the world, and P stops it
 #   WALK       a held key moves the body, release stops it, two keys sum to a diagonal
 #   SHEET      Tab opens the sheet and peels the four things that sit under it
+#   STUBS      the work grid draws the columns that have a consumer, and no others (A15)
 #   SETTINGS   Escape peels in order -- the legend first, the pause menu only once it is gone,
 #              and settings is a row on that menu rather than a key of its own
 #   ROUNDTRIP  F5 writes a save F9 restores; a corrupt slot leaves the world untouched
@@ -167,6 +168,7 @@ func _run() -> void:
 	ok = _the_loop_advances_the_world(main) and ok
 	ok = _a_held_key_walks_the_body(main) and ok
 	ok = await _the_work_grid_fits_and_keeps_its_clicks(main) and ok
+	ok = await _the_work_grid_draws_only_what_something_does(main) and ok
 	var sheet_ok: bool = await _tab_opens_the_sheet(main)
 	ok = sheet_ok and ok
 	var peel_ok: bool = await _escape_peels_in_order(main)
@@ -1799,6 +1801,73 @@ func _the_gate_fits_its_budget(elapsed_ms: int) -> bool:
 
 # The Work grid's visible cells and actual mouse dispatch share the responsive width.
 # The corner glimpse must clear the panel even while P has stopped the simulation.
+# The six job columns nothing does (alpha plan A15). The sim still stores their numbers, so this
+# lane judges what the grid draws and what its first cell does, not the sim's own dictionary.
+const STUB_COLUMNS: Array[String] = ["Firefight", "Hunt", "Farm", "Craft", "Modify", "Butcher"]
+
+
+func _the_work_grid_draws_only_what_something_does(main: Node) -> bool:
+	var panel: Control = main.get("_work_panel") as Control
+	var was_paused: bool = bool(main.get("paused"))
+	var old_size: Vector2i = root.size
+	main.set("paused", true)
+	# The grid lays itself out on a viewport change only, and the lane before this one leaves the
+	# window at whatever it was restored to, so this lane lays out at the window it means to judge.
+	root.size = Vector2i(1920, 1080)
+	await process_frame
+	var jobs: GDScript = load("res://sim/modules/jobs.gd") as GDScript
+	var all: Array = jobs.get("COLUMNS") as Array
+	var consumers: Array = jobs.get("CONSUMERS") as Array
+	var shown: Array = (panel.get_script() as GDScript).call("shown_columns") as Array
+	var expected: Array = all.filter(func(c: Variant) -> bool: return consumers.has(c))
+	var ok: bool = true
+	if shown != expected:
+		push_error("STUBS: the grid draws %s, not the columns with a consumer, %s" % [str(shown), str(expected)])
+		ok = false
+	for stub in STUB_COLUMNS:
+		if shown.has(stub):
+			push_error("STUBS: the grid still draws %s, which nothing does" % stub)
+			ok = false
+		if consumers.has(stub):
+			push_error("STUBS: %s is listed as a consumer, so it cannot be a stub" % stub)
+			ok = false
+	_tap(KEY_J)
+	main.call("_process", 0.0)
+	await process_frame
+	if not panel.visible:
+		push_error("STUBS: Work did not open")
+		ok = false
+	else:
+		var grid_x: float = float(panel.get_script().get("GRID_X"))
+		var grid_y: float = float(panel.get_script().get("GRID_Y"))
+		var cell_w: float = float(panel.call("_column_width"))
+		var at: Vector2 = panel.position + Vector2(grid_x + 0.5 * cell_w, grid_y + 28.0)
+		_drain(main)
+		for down in [true, false]:
+			var press := InputEventMouseButton.new()
+			press.button_index = MOUSE_BUTTON_LEFT
+			press.pressed = down
+			press.position = at
+			root.push_input(press)
+		var edits: Array = _pending(main).filter(func(command: Variant) -> bool: return String((command as Dictionary).get("type", "")) == "job.priority")
+		if edits.size() != 1 or String((edits[0] as Dictionary).get("column", "")) != String(shown[0]):
+			push_error("STUBS: the first cell did not queue the first column the grid draws")
+			ok = false
+		_drain(main)
+	_tap(KEY_J)
+	main.call("_process", 0.0)
+	await process_frame
+	if panel.visible:
+		push_error("STUBS: closing Work left it open")
+		ok = false
+	root.size = old_size
+	main.set("paused", was_paused)
+	await process_frame
+	if ok:
+		print("STUBS OK the grid draws the %d columns with a consumer and none of the six that do nothing, and its first cell queues the first of them" % shown.size())
+	return ok
+
+
 func _the_work_grid_fits_and_keeps_its_clicks(main: Node) -> bool:
 	var panel: Control = main.get("_work_panel") as Control
 	var doll: Control = main.get("_paperdoll") as Control
@@ -1818,8 +1887,7 @@ func _the_work_grid_fits_and_keeps_its_clicks(main: Node) -> bool:
 		var grid_x: float = float(panel.get_script().get("GRID_X"))
 		var grid_y: float = float(panel.get_script().get("GRID_Y"))
 		var cell_w: float = float(panel.call("_column_width"))
-		var jobs: GDScript = load("res://sim/modules/jobs.gd") as GDScript
-		var columns: Array = jobs.get("COLUMNS") as Array
+		var columns: Array = (panel.get_script() as GDScript).call("shown_columns") as Array
 		var last: int = columns.size() - 1
 		var at: Vector2 = panel.position + Vector2(grid_x + (float(last) + 0.5) * cell_w, grid_y + 28.0)
 		if not panel.get_rect().has_point(at):
