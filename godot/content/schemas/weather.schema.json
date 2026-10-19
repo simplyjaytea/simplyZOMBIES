@@ -21,7 +21,7 @@
         "min": { "type": "integer", "minimum": 1 },
         "max": { "type": "integer", "minimum": 1 }
       },
-      "description": "Ticks one span of this kind lasts, drawn uniformly in [min, max] on the `weather` stream. 12000 ticks to the in-game hour. For weather.clear this is the gap between spells."
+      "description": "Ticks one span of this kind lasts, drawn uniformly in [min, max] on the `weather` stream. 12000 ticks is ten real minutes. For weather.clear this is the gap between spells."
     },
     "weights": {
       "type": "object",

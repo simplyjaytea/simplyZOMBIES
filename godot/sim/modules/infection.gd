@@ -10,8 +10,8 @@ const BITE_TRANSMISSION_CHANCE: float = 0.85
 
 enum Stage { Latent = 0, Onset = 1, Progression = 2, Critical = 3, Turned = 4 }
 
-# Docs/06 timeline: 2–4 days at 20 Hz (288,000 ticks/day).
-# Latent ~12h, Onset 12–24h, Progression ~24h, Critical ~12h.
+# Docs/06 timeline in real hours at 20 Hz: latent ~12h, onset 12–24h, progression ~24h, critical
+# ~12h. These are literal tick clocks, so they keep their real-time pace across the one-hour day.
 const LATENT_TICKS: int = 12 * 3600 * 20
 const ONSET_TICKS_MIN: int = 12 * 3600 * 20
 const ONSET_TICKS_MAX: int = 24 * 3600 * 20

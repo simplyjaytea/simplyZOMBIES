@@ -61,7 +61,7 @@ const CLIMATE_DEFAULTS: Dictionary = {
 	"wetAfterTicks": 200,
 	"dryAfterTicks": 12000,
 	"dryByFireTicks": 2400,
-	"windDriftDays": 1,
+	"windDriftDays": 4,
 	"windStrength": 0.6,
 	"windDriftDeg": 45,
 	"meltPerTick": 0.0000011574,
@@ -284,7 +284,7 @@ static func _next_wind(world: Variant, st: Dictionary) -> void:
 	var strength: float = clampf(float(c.get("windStrength", 0.0)), 0.0, 1.0)
 	st["windX"] = cos(angle) * strength
 	st["windY"] = sin(angle) * strength
-	var drift: int = int(round(float(c.get("windDriftDays", 1.0)) * float(SimClock.DAY_TICKS)))
+	var drift: int = int(round(float(c.get("windDriftDays", 4.0)) * float(SimClock.DAY_TICKS)))
 	st["windUntilTick"] = int(world.tick) + maxi(1, drift)
 
 

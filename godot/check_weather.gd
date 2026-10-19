@@ -30,6 +30,7 @@ extends SceneTree
 const SimBoot = preload("res://sim/boot.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimWeather = preload("res://sim/modules/weather.gd")
+const SimClock = preload("res://sim/time/clock.gd")
 const RainLook = preload("res://presentation/rain_look.gd")
 const Palette = preload("res://presentation/palette.gd")
 const Appearance = preload("res://presentation/appearance.gd")
@@ -41,7 +42,7 @@ const RAIN_GD: String = "res://presentation/rain_look.gd"
 const KINDS: Array[String] = ["rain", "storm", "snow"]
 const CANON_SEED: int = 20260805
 const GATE_SIZE: int = 64
-const DAY_TICKS: float = 288000.0
+const DAY_TICKS: float = float(SimClock.DAY_TICKS)
 const EPS: float = 0.000001
 
 # The gate's own wall clock, docs/00 pillar 6: one 64-tile boot and a few thousand pure
