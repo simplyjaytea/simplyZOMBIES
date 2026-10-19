@@ -9824,6 +9824,16 @@ not a to-do list:
   **What remains:** the spike that is left is ordinary recasting and per-tick AI work, the next
   slices.
 
+- **Kernel & tooling — the tick to budget, slice 3: the shadowcast inlined, 2026-10-19
+  (partial).** `SimShadowcast.shadowcast` reads the tile class and overlay off the map's arrays
+  instead of four calls per tile, keeps its wedge frames as ints on one flat array, and clears its
+  buffer with `fill`; the same cells, tile for tile. `godot:bench:runtime` went from **24.78 /
+  68.13 ms** to **21.70 / 47.59**; visibility's own worst fell from 140 to 19 ms. Gated in
+  `godot:m2:tick` CAST: from 70 origins on the shipped district (every overlay, a scatter, the
+  corners) at 3, 12 and 48 tiles and both eyes, the cast equals a reference that asks
+  `blocks_sight` per tile, and the lane refuses to pass unless crouching and opening a door each
+  change what some origin sees. Flipping the Low rule reds it. [docs/22](22-performance.md#bringing-the-tick-to-budget).
+
 - **Kernel & tooling — water draw check follows its branches, 2026-10-03.** The A2 wall
   additions moved the water fill to character 4,473 after the drawing match, beyond
   `check_water.gd`'s 4,000-character window. Reproduced on the merged art pass:

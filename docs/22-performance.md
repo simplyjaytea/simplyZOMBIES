@@ -369,6 +369,7 @@ deleted afterwards.
 | Baseline, `main` at `bf6b41a` | 2026-10-19 | 32.42 ms | 300.98 ms | -- |
 | 1. Content entries by id | 2026-10-19 | 24.41 ms | 319.35 ms | `SimItems._content_get` walked every file in the tree per lookup |
 | 2. The map-change spike | 2026-10-19 | 24.78 ms | 68.13 ms | a door swing rebuilt every solidity cell, recast every observer and re-planned with a linear A* |
+| 3. The shadowcast inlined | 2026-10-19 | 21.70 ms | 47.59 ms | four calls and a Dictionary per tile and per frame |
 
 **Slice 1, content entries by id.** `SimItems._content_get` found an entry by walking every value
 in the flat content tree until one carried the id. `item_base_of` runs about a hundred times a
@@ -403,6 +404,17 @@ which is the approximation they already live with between bumps; nothing draws a
 sha256 matches `main` at every 500-tick checkpoint across 3,000 ticks, so the rest of the slice
 changes no outcome. With it on, the run diverges from `main` at tick 36,968, when one shambler
 notices a colonist on a different tick.
+
+**Slice 3, the shadowcast inlined.** Every tile a cast visited cost four calls
+(`blocks_sight` → `opacity_at` → `overlay_at` and `tile_at`) and every wedge a Dictionary frame,
+and the reset zeroed its buffer one byte at a time. A 48-tile cast visits about seven thousand
+tiles. The cast now reads the tile class and overlay straight off the map's arrays, with the same
+answer per tile (out of bounds is a wall, an overlay outranks the class, Low blocks only a
+crouched eye), keeps its frames as five ints on one flat array popped in the same order, and
+clears with `fill`. Visibility fell from 3.7 to 2.2 ms mean and its worst from 140 to 19 ms. With
+`DEAD_KEEP_VIEW` off the 3,000-tick hash still matches `main`. This run and the slices after it
+were measured with gates running on the other cores, so treat each mean as within a millisecond
+or so.
 
 ### Remaining milestone evidence
 
