@@ -360,8 +360,54 @@ func despawn(entity: int) -> bool:
 		(modifiers as RefCounted).call("remove_scope", entity)
 	return true
 
+# Every generation bump records which tiles it changed, so a cache keyed on `mapGeneration` can ask
+# "did anything change *near me*" instead of "did anything change". `invalidateMap()` records the
+# whole map; `invalidate_tiles(rect)` records one rectangle. A bump that records nothing -- a direct
+# `mapGeneration += 1`, which check_roof_look does -- has no entry, and `map_unchanged_within` reads
+# a missing generation as the whole map, so a caller that does not know the region still gets the
+# old behaviour. Derived and bounded, never saved: a restore bumps through `invalidateMap()`.
+const MAP_CHANGES_KEPT: int = 64
+var map_changes: Array = []
+
+
 func invalidateMap() -> void:
 	mapGeneration += 1
+	_log_map_change(Rect2i(0, 0, -1, -1))
+
+
+func invalidate_tiles(rect: Rect2i) -> void:
+	mapGeneration += 1
+	_log_map_change(rect)
+
+
+func _log_map_change(rect: Rect2i) -> void:
+	map_changes.append({"gen": mapGeneration, "rect": rect})
+	if map_changes.size() > MAP_CHANGES_KEPT:
+		map_changes.pop_front()
+
+
+# True when every generation after `since_gen`, up to the current one, is a logged rectangle that
+# misses `area`. False for a whole-map entry, an unlogged generation, a generation that went
+# backwards, or a span longer than the log keeps -- every doubt answers "changed".
+func map_unchanged_within(since_gen: int, area: Rect2i) -> bool:
+	if since_gen == mapGeneration:
+		return true
+	if since_gen > mapGeneration:
+		return false
+	var want: int = mapGeneration
+	var i: int = map_changes.size() - 1
+	while want > since_gen:
+		if i < 0:
+			return false
+		var entry: Dictionary = map_changes[i] as Dictionary
+		if int(entry["gen"]) != want:
+			return false
+		var rect: Rect2i = entry["rect"] as Rect2i
+		if rect.size.x < 0 or rect.intersects(area):
+			return false
+		want -= 1
+		i -= 1
+	return true
 
 
 func adopt_map(map: Variant) -> void:

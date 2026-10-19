@@ -32,6 +32,9 @@ func refresh(world: Variant, map: Variant) -> void:
 	var seen: Dictionary = {}
 	_ordered_sources.clear()
 	var gen := _map_generation(world)
+	# The visibility cache's rule (visibility.gd's `refresh`): a cast made at an older generation
+	# stands when the world logged that nothing changed inside the cast's own square.
+	var logs_changes: bool = world is Object and (world as Object).has_method("map_unchanged_within")
 	for entity in world.components.query(["position", "light_source"]):
 		var pos: Variant = world.components.get_component(entity, "position")
 		var src: Variant = world.components.get_component(entity, "light_source")
@@ -43,14 +46,26 @@ func refresh(world: Variant, map: Variant) -> void:
 		var tile_x: int = floori(float((pos as Dictionary)["x"]) / float(SimTileMapRes.TILE_METRES))
 		var tile_y: int = floori(float((pos as Dictionary)["y"]) / float(SimTileMapRes.TILE_METRES))
 		var range_tiles: int = SimTileMapRes.tile_range(mag)
-		var key: String = "%d,%d,%d,%d,%d" % [tile_x, tile_y, range_tiles, SimTileMapRes.Eye.Standing, gen]
 		var c: Variant = _casts.get(entity)
 		if c == null:
-			c = {"key": "", "tiles": Shadowcast.VisibleTiles.new(), "x": 0.0, "y": 0.0, "magnitude": 0.0}
+			# The cache key as four ints (the eye is always Standing here), not a formatted String:
+			# the same reason visibility.gd's views stopped formatting one per observer per tick.
+			c = {"tile_x": -1, "tile_y": -1, "range_tiles": -1, "gen": -1, "tiles": Shadowcast.VisibleTiles.new(), "x": 0.0, "y": 0.0, "magnitude": 0.0}
 			_casts[entity] = c
-		if String((c as Dictionary)["key"]) != key:
-			Shadowcast.shadowcast(map, tile_x, tile_y, range_tiles, (c as Dictionary)["tiles"] as Shadowcast.VisibleTiles, SimTileMapRes.Eye.Standing)
-			(c as Dictionary)["key"] = key
+		var cd: Dictionary = c as Dictionary
+		var same: bool = int(cd["tile_x"]) == tile_x and int(cd["tile_y"]) == tile_y and int(cd["range_tiles"]) == range_tiles
+		if same and int(cd["gen"]) != gen:
+			var square := Rect2i(tile_x - range_tiles, tile_y - range_tiles, range_tiles * 2 + 1, range_tiles * 2 + 1)
+			if logs_changes and world.map_unchanged_within(int(cd["gen"]), square):
+				cd["gen"] = gen
+			else:
+				same = false
+		if not same:
+			Shadowcast.shadowcast(map, tile_x, tile_y, range_tiles, cd["tiles"] as Shadowcast.VisibleTiles, SimTileMapRes.Eye.Standing)
+			cd["tile_x"] = tile_x
+			cd["tile_y"] = tile_y
+			cd["range_tiles"] = range_tiles
+			cd["gen"] = gen
 			recomputes += 1
 		(c as Dictionary)["x"] = float((pos as Dictionary)["x"])
 		(c as Dictionary)["y"] = float((pos as Dictionary)["y"])

@@ -19,6 +19,11 @@ var recomputes: int = 0
 ## again, in tiles (Chebyshev). See `refresh`.
 const ZOMBIE_RECAST_TILES: int = 2
 
+## Whether a dead observer a tile off its cast origin keeps its view across a map change its
+## square never saw (see `refresh`). A gate-drivable static, like SimShambler's flags: a lane that
+## pins it must restore it, one gate process sharing it across every world it boots.
+static var DEAD_KEEP_VIEW: bool = true
+
 ## Daylight eyes — 48 m, 60° focal, 190° total FoV. Port of DAYLIGHT_EYES.
 static func daylight_eyes() -> Dictionary:
 	return {"range_metres": 48.0, "focal_half_angle": PI / 6.0, "peripheral_half_angle": 95.0 * PI / 180.0, "eye": 0}
@@ -64,6 +69,11 @@ func _light_index(world: Variant) -> Variant:
 func refresh(world: Variant, map: Variant, sight_mul: float = 1.0) -> void:
 	var seen: Dictionary = {}
 	var gen := _map_generation(world)
+	# A world that logs where its map changed (world.gd's `map_unchanged_within`) lets a view cast
+	# at an older generation stand when nothing changed inside its own square: the shadowcast reads
+	# only tiles within `range_tiles` of its origin, so a door shutting across town cannot change
+	# it. Before this one door swinging recast all 105 observers, a 200 ms tick (A3's second slice).
+	var logs_changes: bool = world is Object and (world as Object).has_method("map_unchanged_within")
 	for entity in world.components.query(["position", "observer"]):
 		var pos: Variant = world.components.get_component(entity, "position")
 		var obs: Variant = world.components.get_component(entity, "observer")
@@ -127,7 +137,24 @@ func refresh(world: Variant, map: Variant, sight_mul: float = 1.0) -> void:
 		# slice's driver). Walls a tile or two off their true offset are an approximation the
 		# dead can afford; a person's cast moves with their tile as it always has.
 		var moved: int = maxi(absi(tile_x - int(vd["tile_x"])), absi(tile_y - int(vd["tile_y"])))
-		var stale: bool = int(vd["range_tiles"]) != range_tiles or int(vd["eye"]) != eye or int(vd["gen"]) != gen
+		var stale: bool = int(vd["range_tiles"]) != range_tiles or int(vd["eye"]) != eye
+		var cast_tiles: int = int(vd["range_tiles"])
+		# A person moves their cast with their tile, so a person who keeps a view here is one still
+		# on the tile they cast from, and the kept cells are exactly what a recast would give. The
+		# dead may be up to a tile off their origin (ZOMBIE_RECAST_TILES above) and keep that view
+		# across a bump too -- the same tile-or-so approximation they already live with between
+		# bumps. Before this, every bump recast every dead body a tile off its origin, which is
+		# half the district on a door swing and every tile a car crosses: a 140 ms tick. It is the
+		# one place A3 changes behaviour rather than cost (docs/22's "Bringing the tick to
+		# budget"), and DEAD_KEEP_VIEW is the gate-drivable switch back to the old rule.
+		if not stale and int(vd["gen"]) != gen and moved > 0 and not (lit_target and DEAD_KEEP_VIEW):
+			stale = true
+		if not stale and int(vd["gen"]) != gen:
+			var square := Rect2i(int(vd["tile_x"]) - cast_tiles, int(vd["tile_y"]) - cast_tiles, cast_tiles * 2 + 1, cast_tiles * 2 + 1)
+			if logs_changes and world.map_unchanged_within(int(vd["gen"]), square):
+				vd["gen"] = gen
+			else:
+				stale = true
 		if stale or (moved >= ZOMBIE_RECAST_TILES if lit_target else moved > 0):
 			Shadowcast.shadowcast(map, tile_x, tile_y, range_tiles, vd["tiles"] as Shadowcast.VisibleTiles, eye)
 			vd["tile_x"] = tile_x

@@ -217,7 +217,7 @@ static func open_door(world: Variant, tx: int, ty: int, latched: bool = false) -
 	dd["open"] = true
 	dd["latched"] = latched
 	dd["emptySinceTick"] = int(world.tick)
-	sync_map(world)
+	sync_map(world, false)
 	return true
 
 
@@ -234,7 +234,7 @@ static func close_door(world: Variant, tx: int, ty: int, latched: bool = false) 
 		return false
 	dd["open"] = false
 	dd["latched"] = latched
-	sync_map(world)
+	sync_map(world, false)
 	return true
 
 
@@ -277,7 +277,7 @@ static func _tick_doors(world: Variant) -> void:
 			dd["open"] = false
 			dirty = true
 	if dirty:
-		sync_map(world)
+		sync_map(world, false)
 
 
 # The door in front of the actor, or the one under them: the tile E acts on.
@@ -289,10 +289,20 @@ static func _door_in_reach(world: Variant, actor: int) -> Vector2i:
 	return Vector2i(-1, -1)
 
 
-static func sync_map(world: Variant) -> void:
+# `full` rebuilds every cell of `world.map_cells` from the map and logs the whole map as changed:
+# what a restore, a boot and a gate that edits `map.tiles` by hand need, because the tiles under
+# the overlays may have moved too. `full = false` is the in-play path, for a caller that changed a
+# door, a board or a barricade and nothing else: the only cells whose solidity can differ are the
+# ones whose overlay differs, so only those are rewritten, and only their bounding rectangle is
+# logged (world.gd's `invalidate_tiles`) for the vision caches to test against. It used to rebuild
+# all 65,536 cells of a 256-tile district every time a door swung -- 90 to 170 ms in one tick.
+# Mid-run, nothing but this module writes a solid tile class (vehicles only trade Floor for Low,
+# both open ground), so the two paths leave `map_cells` identical.
+static func sync_map(world: Variant, full: bool = true) -> void:
 	var map: Variant = world.tilemap
 	if map == null:
 		return
+	var before: Variant = map.overlays
 	var table: Dictionary = {}
 	for entity0 in world.components.query(["door"]):
 		var door: Variant = world.components.get_component(int(entity0), "door")
@@ -323,6 +333,24 @@ static func sync_map(world: Variant) -> void:
 		var sy: int = floori(float((pos as Dictionary)["y"]))
 		table[sy * int(map.w) + sx] = {"kind": "scrap"}
 	map.overlays = table
+	var w: int = int(map.w)
+	if not full and before is Dictionary and world.map_cells.size() == w * int(map.h) and int(world.map_width) == w and world.has_method("invalidate_tiles"):
+		var changed: Array[int] = []
+		for key in (before as Dictionary).keys():
+			if not table.has(key) or table[key] != (before as Dictionary)[key]:
+				changed.append(int(key))
+		for key in table.keys():
+			if not (before as Dictionary).has(key):
+				changed.append(int(key))
+		var area := Rect2i(0, 0, 0, 0)
+		for i in changed.size():
+			var at: int = changed[i]
+			var x: int = at % w
+			var y: int = at / w
+			world.map_cells[at] = 1 if SimTileMap.is_solid(map, x, y) else 0
+			area = Rect2i(x, y, 1, 1) if i == 0 else area.merge(Rect2i(x, y, 1, 1))
+		world.invalidate_tiles(area)
+		return
 	if world.map_cells.size() != int(map.w) * int(map.h):
 		world.map_cells.resize(int(map.w) * int(map.h))
 	for y in int(map.h):
@@ -794,12 +822,12 @@ static func _board_window(world: Variant, tx: int, ty: int) -> void:
 		if board is Dictionary:
 			(board as Dictionary)["stage"] = 0
 			(board as Dictionary)["contactTicks"] = 0
-		sync_map(world)
+		sync_map(world, false)
 		return
 	var ent: int = int(world.entities.spawn())
 	world.components.set_component(ent, "position", {"x": float(tx) + 0.5, "y": float(ty) + 0.5})
 	world.components.set_component(ent, "windowBoard", {"tx": tx, "ty": ty, "stage": 0, "contactTicks": 0})
-	sync_map(world)
+	sync_map(world, false)
 
 
 static func _place_scrap(world: Variant, actor: int, tx: int, ty: int) -> void:
@@ -812,7 +840,7 @@ static func _place_scrap(world: Variant, actor: int, tx: int, ty: int) -> void:
 	var ent: int = int(world.entities.spawn())
 	world.components.set_component(ent, "position", {"x": float(tx) + 0.5, "y": float(ty) + 0.5})
 	world.components.set_component(ent, "scrapBarricade", {})
-	sync_map(world)
+	sync_map(world, false)
 
 
 # Furniture, not a barricade: it blocks nothing and the map never hears about it. The scrap goes
@@ -1079,7 +1107,7 @@ static func _tick_contact(world: Variant) -> void:
 				dd["latched"] = false
 				world.events.publish({"type": "fortify.breached", "tx": dx, "ty": dy, "kind": "door"})
 	if dirty:
-		sync_map(world)
+		sync_map(world, false)
 
 
 # One barrier's tick of pressure: the crowd at its tile, the kind's cost a stage, and however

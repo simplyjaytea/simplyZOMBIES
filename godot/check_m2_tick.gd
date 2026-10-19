@@ -15,6 +15,13 @@ extends SceneTree
 
 const World = preload("res://sim/world.gd")
 const SimItems = preload("res://sim/modules/items.gd")
+const SimBoot = preload("res://sim/boot.gd")
+const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimFortify = preload("res://sim/modules/fortify.gd")
+const SimVisibility = preload("res://sim/vision/visibility.gd")
+const SimShadowcast = preload("res://sim/vision/shadowcast.gd")
+const SimPath = preload("res://sim/path.gd")
+const Clock = preload("res://sim/time/clock.gd")
 
 const FIXTURE: Dictionary = {"seed": 71, "tick_hz": 20, "map": {"width": 16, "height": 16, "walls": []}, "player": {"id": 0, "x": 8.5, "y": 8.5, "stance": 2}, "rng_probe": {"stream": "test", "samples": 0}}
 
@@ -28,8 +35,13 @@ func _run() -> void:
 	ok = _content_index_agrees_with_the_scan() and ok
 	ok = _content_index_follows_the_tree() and ok
 	ok = _content_index_is_what_item_reads_reach() and ok
+	ok = _the_map_log_answers_changed_whenever_in_doubt() and ok
+	ok = _a_door_rewrites_its_own_cell_and_logs_its_own_tile() and ok
+	ok = _a_view_stands_through_a_change_it_cannot_see() and ok
+	ok = _the_dead_keep_a_view_a_tile_off_through_a_change_they_cannot_see() and ok
+	ok = _the_heap_plans_the_paths_the_scan_planned() and ok
 	if ok:
-		print("M2_TICK_OK content-agree content-follows content-reader")
+		print("M2_TICK_OK content-agree content-follows content-reader map-log door-cells view-stands dead-keep path")
 		quit(0)
 	else:
 		push_error("M2_TICK_FAIL")
@@ -152,4 +164,305 @@ func _content_index_is_what_item_reads_reach() -> bool:
 	var quiet: Variant = _world()
 	if not (quiet.content_index as Dictionary).is_empty():
 		return _fail("CONTENT-READER", "a world nothing read from built a memo anyway")
+	return true
+
+
+# --- slice 2: the map-change spike ---------------------------------------------------------------
+#
+# One door swinging shut used to rebuild all 65,536 solidity cells (90-170 ms), recast every one of
+# the district's 105 observers (200 ms) and re-plan every walk with a linear-scan A* (100 ms) -- a
+# 300 ms tick against a 16 ms worst. The world now logs *where* each generation changed the map,
+# and the three consumers ask that log instead of assuming everything moved.
+
+# A world on a blank district with one door near the player and one far beyond the player's eyes.
+const NEAR_DOOR := Vector2i(14, 10)
+const FAR_DOOR := Vector2i(88, 88)
+
+
+func _door_world() -> Variant:
+	var f: Dictionary = {"seed": 72, "tick_hz": 20, "map": {"width": 96, "height": 96, "walls": []}, "player": {"id": 0, "x": 10.5, "y": 10.5, "stance": 2}, "rng_probe": {"stream": "test", "samples": 0}}
+	var w: Variant = World.new(f)
+	w.tick = Clock.tick_at_time_of_day(Clock.DAY_BEGINS)
+	var map: Variant = SimTileMap.blank_map(96, 96)
+	for d in [NEAR_DOOR, FAR_DOOR]:
+		var door: Vector2i = d as Vector2i
+		map.tiles[door.y * 96 + door.x] = SimTileMap.Tile.Door
+		# Walls either side, so a door is the only gap and its state is visible to a shadowcast.
+		map.tiles[(door.y - 1) * 96 + door.x] = SimTileMap.Tile.Wall
+		map.tiles[(door.y + 1) * 96 + door.x] = SimTileMap.Tile.Wall
+	SimBoot.attach_kernel(w, map)
+	SimFortify.register_module(w)
+	SimFortify.spawn_doors(w, map)
+	w.components.set_component(w.player, "facing", {"radians": 0.0})
+	w.components.set_component(w.player, "observer", SimVisibility.daylight_eyes())
+	return w
+
+
+# MAP-LOG. `map_unchanged_within` is the one question every cache asks, so it must answer
+# "unchanged" only when every generation since is a logged rectangle that misses the area -- and
+# "changed" for a hit, a whole-map bump, an unlogged bump, a generation that went backwards and a
+# span the bounded log no longer covers.
+func _the_map_log_answers_changed_whenever_in_doubt() -> bool:
+	var w: Variant = _world()
+	var area := Rect2i(10, 10, 5, 5)
+	var g0: int = int(w.mapGeneration)
+	if not w.map_unchanged_within(g0, area):
+		return _fail("MAP-LOG", "no change at all read as changed")
+	w.invalidate_tiles(Rect2i(40, 40, 1, 1))
+	if not w.map_unchanged_within(g0, area):
+		return _fail("MAP-LOG", "a change far outside the area read as changed")
+	w.invalidate_tiles(Rect2i(14, 14, 1, 1))
+	if w.map_unchanged_within(g0, area):
+		return _fail("MAP-LOG", "a change on the area's corner tile read as unchanged")
+	var g1: int = int(w.mapGeneration)
+	w.invalidateMap()
+	if w.map_unchanged_within(g1, area):
+		return _fail("MAP-LOG", "a whole-map bump read as unchanged")
+	var g2: int = int(w.mapGeneration)
+	w.mapGeneration += 1
+	if w.map_unchanged_within(g2, area):
+		return _fail("MAP-LOG", "an unlogged bump read as unchanged")
+	var g3: int = int(w.mapGeneration)
+	if w.map_unchanged_within(g3 + 5, area):
+		return _fail("MAP-LOG", "a generation from the future read as unchanged")
+	for i in World.MAP_CHANGES_KEPT + 1:
+		w.invalidate_tiles(Rect2i(80, 80, 1, 1))
+	if w.map_unchanged_within(g3, area):
+		return _fail("MAP-LOG", "a span longer than the log keeps read as unchanged")
+	var g4: int = int(w.mapGeneration)
+	w.invalidate_tiles(Rect2i(80, 80, 1, 1))
+	if not w.map_unchanged_within(g4, area):
+		return _fail("MAP-LOG", "the log stopped answering after it wrapped")
+	return true
+
+
+# DOOR-CELLS. A door opened and shut through the shipped calls takes the in-play path: the
+# solidity cells it leaves are the full rebuild's cells exactly, and the generation it logs is the
+# door's own tile rather than the whole map. Then a full `sync_map` -- the restore and gate path --
+# still logs the whole map, which is the negative.
+func _a_door_rewrites_its_own_cell_and_logs_its_own_tile() -> bool:
+	var w: Variant = _door_world()
+	if not w.is_blocked_tile(NEAR_DOOR.x, NEAR_DOOR.y):
+		return _fail("DOOR-CELLS", "the fixture's door does not start shut")
+	for step in ["open", "close"]:
+		var g: int = int(w.mapGeneration)
+		var moved: bool = SimFortify.open_door(w, NEAR_DOOR.x, NEAR_DOOR.y) if step == "open" else SimFortify.close_door(w, NEAR_DOOR.x, NEAR_DOOR.y)
+		if not moved or int(w.mapGeneration) != g + 1:
+			return _fail("DOOR-CELLS", "%s did not move the door by exactly one generation" % step)
+		var last: Dictionary = (w.map_changes as Array).back() as Dictionary
+		if (last["rect"] as Rect2i) != Rect2i(NEAR_DOOR.x, NEAR_DOOR.y, 1, 1):
+			return _fail("DOOR-CELLS", "%s logged %s, not the door's own tile" % [step, str(last["rect"])])
+		var cells: Variant = w.map_cells.duplicate()
+		SimFortify.sync_map(w)
+		if cells != w.map_cells:
+			return _fail("DOOR-CELLS", "%s left solidity cells the full rebuild disagrees with" % step)
+		if (((w.map_changes as Array).back() as Dictionary)["rect"] as Rect2i).size.x >= 0:
+			return _fail("DOOR-CELLS", "a full sync did not log the whole map")
+	return true
+
+
+# The shipped shadowcast, run fresh into its own buffer.
+func _fresh_cast(w: Variant, ent: int) -> PackedByteArray:
+	var p: Dictionary = w.components.get_component(ent, "position") as Dictionary
+	var tiles: Variant = w.vision.tiles_for(ent)
+	var out := SimShadowcast.VisibleTiles.new()
+	SimShadowcast.shadowcast(w.tilemap, floori(float(p["x"])), floori(float(p["y"])), int(tiles.range_tiles), out, int((w.components.get_component(ent, "observer") as Dictionary)["eye"]))
+	return out.cells
+
+
+# VIEW-STANDS. A door beyond an observer's reach changes nothing it can see, so its view stands --
+# no recast, and its cells are still exactly what a fresh shadowcast of the changed map gives. The
+# same door inside its reach must recast, and the new cells must be the fresh cast's too: the near
+# door is the negative that proves the far one stood because it was far, not because nothing ever
+# recasts. Light casts are held to the same rule by the same log.
+func _a_view_stands_through_a_change_it_cannot_see() -> bool:
+	var w: Variant = _door_world()
+	w.vision.refresh(w, w.tilemap)
+	var before: int = int(w.vision.recomputes)
+	if before < 1:
+		return _fail("VIEW-STANDS", "the player has no view to keep")
+	SimFortify.open_door(w, FAR_DOOR.x, FAR_DOOR.y)
+	w.vision.refresh(w, w.tilemap)
+	if int(w.vision.recomputes) != before:
+		return _fail("VIEW-STANDS", "a door 78 tiles away recast a 48-tile view")
+	if _fresh_cast(w, w.player) != (w.vision.tiles_for(w.player).cells as PackedByteArray):
+		return _fail("VIEW-STANDS", "the view that stood is not what a fresh cast of the changed map sees")
+	var shut_cells: PackedByteArray = (w.vision.tiles_for(w.player).cells as PackedByteArray).duplicate()
+	SimFortify.open_door(w, NEAR_DOOR.x, NEAR_DOOR.y)
+	w.vision.refresh(w, w.tilemap)
+	if int(w.vision.recomputes) != before + 1:
+		return _fail("VIEW-STANDS", "a door four tiles away did not recast the view")
+	if _fresh_cast(w, w.player) != (w.vision.tiles_for(w.player).cells as PackedByteArray):
+		return _fail("VIEW-STANDS", "the recast view is not what a fresh cast sees")
+	if shut_cells == (w.vision.tiles_for(w.player).cells as PackedByteArray):
+		return _fail("VIEW-STANDS", "opening the near door changed nothing the player sees, so this lane judges nothing")
+	var lamp: int = int(w.entities.spawn())
+	w.components.set_component(lamp, "position", {"x": 20.5, "y": 10.5})
+	w.components.set_component(lamp, "light_source", {"magnitude": 20.0})
+	w.light.refresh(w, w.tilemap)
+	var lit: int = int(w.light.recomputes)
+	SimFortify.close_door(w, FAR_DOOR.x, FAR_DOOR.y)
+	w.light.refresh(w, w.tilemap)
+	if int(w.light.recomputes) != lit:
+		return _fail("VIEW-STANDS", "a door beyond a lamp's reach recast the lamp")
+	SimFortify.close_door(w, NEAR_DOOR.x, NEAR_DOOR.y)
+	w.light.refresh(w, w.tilemap)
+	if int(w.light.recomputes) != lit + 1:
+		return _fail("VIEW-STANDS", "a door inside a lamp's reach did not recast it")
+	return true
+
+
+# DEAD-KEEP. The one behaviour this slice changes, held both ways. A dead observer that has walked
+# a tile from where it last cast keeps that cast between map changes (ZOMBIE_RECAST_TILES), and now
+# keeps it across a change outside its square too: `DEAD_KEEP_VIEW` on, the far door's swing costs
+# it no recast. Off -- the old rule -- the same swing recasts it, which is the negative proving the
+# keep is the switch's doing. A change *inside* its square recasts it either way. The flag is
+# restored before the lane returns, one gate process sharing it across every world it boots.
+func _the_dead_keep_a_view_a_tile_off_through_a_change_they_cannot_see() -> bool:
+	var was: bool = SimVisibility.DEAD_KEEP_VIEW
+	var ok: bool = _dead_keep_lane()
+	SimVisibility.DEAD_KEEP_VIEW = was
+	return ok
+
+
+func _dead_keep_lane() -> bool:
+	var w: Variant = _door_world()
+	var dead: int = int(w.entities.spawn())
+	w.components.set_component(dead, "position", {"x": 80.5, "y": 88.5})
+	w.components.set_component(dead, "facing", {"radians": 0.0})
+	w.components.set_component(dead, "observer", SimVisibility.shambler_eyes())
+	w.vision.refresh(w, w.tilemap)
+	var cast: int = int(w.vision.cast_generation(dead))
+	(w.components.get_component(dead, "position") as Dictionary)["x"] = 79.5
+	w.vision.refresh(w, w.tilemap)
+	if int(w.vision.cast_generation(dead)) != cast:
+		return _fail("DEAD-KEEP", "a dead body recast a tile off its origin with no map change at all")
+	SimVisibility.DEAD_KEEP_VIEW = true
+	SimFortify.open_door(w, NEAR_DOOR.x, NEAR_DOOR.y)
+	w.vision.refresh(w, w.tilemap)
+	if int(w.vision.cast_generation(dead)) != cast:
+		return _fail("DEAD-KEEP", "a door 65 tiles off its 12-tile square recast a dead body with DEAD_KEEP_VIEW on")
+	SimVisibility.DEAD_KEEP_VIEW = false
+	SimFortify.close_door(w, NEAR_DOOR.x, NEAR_DOOR.y)
+	w.vision.refresh(w, w.tilemap)
+	if int(w.vision.cast_generation(dead)) != cast + 1:
+		return _fail("DEAD-KEEP", "with DEAD_KEEP_VIEW off, a map change did not recast a dead body a tile off its origin")
+	SimVisibility.DEAD_KEEP_VIEW = true
+	(w.components.get_component(dead, "position") as Dictionary)["x"] = 80.5
+	w.vision.refresh(w, w.tilemap)
+	cast = int(w.vision.cast_generation(dead))
+	SimFortify.open_door(w, FAR_DOOR.x, FAR_DOOR.y)
+	w.vision.refresh(w, w.tilemap)
+	if int(w.vision.cast_generation(dead)) != cast + 1:
+		return _fail("DEAD-KEEP", "a door inside a dead body's square did not recast it")
+	return true
+
+
+# The A* `SimPath.find` used before the heap, verbatim but for `prefer_last`: false is the old
+# planner exactly; true breaks f-ties towards the *latest* open entry instead, which is the
+# negative -- if no pair below plans differently under it, the pairs never met a tie and the
+# agreement proves nothing about tie order.
+func _linear_find(world: Variant, from: Vector2i, to: Vector2i, prefer_last: bool) -> Array[Vector2i]:
+	var empty: Array[Vector2i] = []
+	if from == to:
+		return empty
+	if not SimPath.walkable(world, to.x, to.y):
+		var ok_near: bool = false
+		for d in SimPath.DIRS:
+			if SimPath.walkable(world, to.x + d.x, to.y + d.y):
+				ok_near = true
+				break
+		if not ok_near:
+			return empty
+	var open: Array[Vector2i] = [from]
+	var came: Dictionary = {}
+	var g: Dictionary = {from: 0}
+	var seen: Dictionary = {from: true}
+	var guard: int = 0
+	while not open.is_empty() and guard < 4096:
+		guard += 1
+		var best_i: int = 0
+		var best_f: int = 1 << 30
+		for i in open.size():
+			var n: Vector2i = open[i]
+			var f: int = int(g.get(n, 1 << 20)) + absi(n.x - to.x) + absi(n.y - to.y)
+			if f < best_f or (prefer_last and f == best_f):
+				best_f = f
+				best_i = i
+		var cur: Vector2i = open[best_i]
+		open.remove_at(best_i)
+		if cur == to:
+			var out: Array[Vector2i] = []
+			var n2: Vector2i = cur
+			while came.has(n2):
+				out.push_front(n2)
+				n2 = came[n2] as Vector2i
+			return out
+		for d in SimPath.DIRS:
+			var nxt: Vector2i = cur + d
+			if not (SimPath.walkable(world, nxt.x, nxt.y) or nxt == to):
+				continue
+			var ng: int = int(g.get(cur, 0)) + 1
+			if seen.has(nxt) and ng >= int(g.get(nxt, 1 << 20)):
+				continue
+			came[nxt] = cur
+			g[nxt] = ng
+			if not seen.has(nxt):
+				open.append(nxt)
+				seen[nxt] = true
+	return empty
+
+
+# PATH. On the shipped district, from the colony's own door out into the streets: the heap plans
+# every pair tile for tile as the linear scan did -- including a target walled in on every side
+# and a start that is its own destination -- and the tie-flipped scan plans at least one pair
+# differently, so the pairs do meet ties.
+func _the_heap_plans_the_paths_the_scan_planned() -> bool:
+	var w: Variant = SimBoot.playable()["world"]
+	var start: Vector2i = SimBoot.colony_start(w.tilemap)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7303
+	var pairs: Array = [[start, start]]
+	var tries: int = 0
+	while pairs.size() < 24 and tries < 4000:
+		tries += 1
+		var a := Vector2i(start.x + rng.randi_range(-30, 30), start.y + rng.randi_range(-30, 30))
+		var b := Vector2i(start.x + rng.randi_range(-30, 30), start.y + rng.randi_range(-30, 30))
+		if SimPath.walkable(w, a.x, a.y) and SimPath.walkable(w, b.x, b.y):
+			pairs.append([a, b])
+	var sealed := Vector2i(-1, -1)
+	for y in range(1, int(w.tilemap.h) - 1):
+		for x in range(1, int(w.tilemap.w) - 1):
+			if SimPath.walkable(w, x, y):
+				continue
+			var boxed: bool = true
+			for d in SimPath.DIRS:
+				if SimPath.walkable(w, x + (d as Vector2i).x, y + (d as Vector2i).y):
+					boxed = false
+			if boxed:
+				sealed = Vector2i(x, y)
+				break
+		if sealed.x >= 0:
+			break
+	if sealed.x >= 0:
+		pairs.append([start, sealed])
+	if pairs.size() < 20:
+		return _fail("PATH", "found only %d walkable pairs near the colony; the lane has too little to judge" % pairs.size())
+	var flipped: int = 0
+	var found: int = 0
+	for pair in pairs:
+		var a: Vector2i = pair[0]
+		var b: Vector2i = pair[1]
+		var heap: Array[Vector2i] = SimPath.find(w, a, b)
+		var scan: Array[Vector2i] = _linear_find(w, a, b, false)
+		if heap != scan:
+			return _fail("PATH", "%s to %s: the heap planned %d steps where the scan planned %d, or the same length by other tiles" % [a, b, heap.size(), scan.size()])
+		if not heap.is_empty():
+			found += 1
+		if _linear_find(w, a, b, true) != scan:
+			flipped += 1
+	if found < 10:
+		return _fail("PATH", "only %d pairs had a route; the lane has too little to judge" % found)
+	if flipped == 0:
+		return _fail("PATH", "no pair planned differently with ties broken the other way, so tie order was never judged")
 	return true

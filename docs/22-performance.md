@@ -368,6 +368,7 @@ deleted afterwards.
 |---|---|---:|---:|---|
 | Baseline, `main` at `bf6b41a` | 2026-10-19 | 32.42 ms | 300.98 ms | -- |
 | 1. Content entries by id | 2026-10-19 | 24.41 ms | 319.35 ms | `SimItems._content_get` walked every file in the tree per lookup |
+| 2. The map-change spike | 2026-10-19 | 24.78 ms | 68.13 ms | a door swing rebuilt every solidity cell, recast every observer and re-planned with a linear A* |
 
 **Slice 1, content entries by id.** `SimItems._content_get` found an entry by walking every value
 in the flat content tree until one carried the id. `item_base_of` runs about a hundred times a
@@ -378,6 +379,30 @@ the tree still holds that same object at the same key with the same id, so an en
 edited copy, an erased key, an added one or a replaced tree all fall back to the scan and rebuild.
 Jobs fell from 5.9 to 2.0 ms and encumbrance from 2.4 to 0.45 ms. The worst tick is unchanged
 within noise: it is the map-change spike, the next slice.
+
+**Slice 2, the map-change spike.** One door swinging shut cost about 300 ms: `SimFortify.sync_map`
+rebuilt all 65,536 solidity cells (90-170 ms), the generation bump recast every one of the 105
+observers (200 ms), and every walk re-planned on an A* whose open set was a linear scan (100 ms).
+The world now logs *where* each generation changed the map (`world.map_changes`, written by
+`invalidate_tiles(rect)`; `invalidateMap()` and a bare `mapGeneration += 1` still mean "all of
+it"), and `map_unchanged_within(gen, area)` answers "changed" whenever in doubt. In play, a door,
+board or barricade rewrites only the cells whose overlay changed and logs only their rectangle;
+a restore, a boot and a gate editing `map.tiles` keep the full rebuild. A car logs the footprints
+it moved. A view or a light cast made at an older generation stands when nothing changed inside
+its own square, since a shadowcast reads nothing outside it. A* keeps a binary heap ordered by
+(f, first-entry order), which is the order the linear scan chose in, so it plans the same path
+tie for tie.
+
+**One behaviour change, the dead's views.** A person's cast moves with their tile, so a person
+who keeps a view across a bump is still on the tile they cast from and keeps exactly what a recast
+would give. The dead recast only after walking two tiles (`ZOMBIE_RECAST_TILES`), and every bump
+used to recast every dead body a tile off its origin: half the district on a door swing and every
+tile a car crosses, 140 ms. They now keep that tile-off view across a bump outside their square too,
+which is the approximation they already live with between bumps; nothing draws a zombie's view.
+`SimVisibility.DEAD_KEEP_VIEW` switches the old rule back on. With it off, a serialized-world
+sha256 matches `main` at every 500-tick checkpoint across 3,000 ticks, so the rest of the slice
+changes no outcome. With it on, the run diverges from `main` at tick 36,968, when one shambler
+notices a colonist on a different tick.
 
 ### Remaining milestone evidence
 
