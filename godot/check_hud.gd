@@ -66,7 +66,7 @@ func _run() -> void:
 	var reload_ok: bool = await _an_untouched_tree_is_not_reloaded()
 	ok = reload_ok and ok
 	if ok:
-		print("HUD_OK prose only, day counter excepted, raw sheet gated, the body speaks for itself, the action bar names the top rung, an untouched tree is not reloaded, the first-day hints are one line each and due once, and the hint card clears on a click without blocking one")
+		print("HUD_OK prose only, day counter excepted, raw sheet gated, the body speaks for itself, the action bar names the top rung, an untouched tree is not reloaded, the first-day hints are one line each and due once, and the hint card clears on a click and stops only that press")
 		quit(0)
 	else:
 		push_error("HUD_FAIL")
@@ -961,8 +961,8 @@ func _the_first_day_hints_are_prose_and_due_once() -> bool:
 	return true
 
 
-# The card is drawn, a click on it clears it, a click off it leaves it, and no line of `_input` consumes
-# the event: the hint never takes input from the street it sits over.
+# The card is drawn, a click on it clears it and stops there, and a click off it leaves it and passes
+# through: the hint takes the press on its own card and nothing else.
 func _the_hint_card_clears_on_a_click_and_never_blocks() -> bool:
 	var hud: Control = Hud.new()
 	root.add_child(hud)
@@ -991,6 +991,10 @@ func _the_hint_card_clears_on_a_click_and_never_blocks() -> bool:
 		push_error("HINT-CARD: a click off the card cleared the hint")
 		hud.queue_free()
 		return false
+	if hud.get_viewport().is_input_handled():
+		push_error("HINT-CARD: a click off the card was stopped and should have passed through")
+		hud.queue_free()
+		return false
 	var on := InputEventMouseButton.new()
 	on.button_index = MOUSE_BUTTON_LEFT
 	on.pressed = true
@@ -1000,15 +1004,19 @@ func _the_hint_card_clears_on_a_click_and_never_blocks() -> bool:
 		push_error("HINT-CARD: a click on the card did not clear the hint")
 		hud.queue_free()
 		return false
+	if not hud.get_viewport().is_input_handled():
+		push_error("HINT-CARD: a click on the card was not stopped, so it would also reach the street")
+		hud.queue_free()
+		return false
 	if not ob.seen.has("wound"):
 		push_error("HINT-CARD: a dismissed hint lost its seen mark")
 		hud.queue_free()
 		return false
-	if not _function_body(HUD_GD, "_input").contains("onboarding.dismiss()") or _function_body(HUD_GD, "_input").contains("accept_event"):
-		push_error("HINT-CARD: _input must clear the hint and must not consume the event")
+	if not _function_body(HUD_GD, "_input").contains("onboarding.dismiss()") or not _function_body(HUD_GD, "_input").contains("set_input_as_handled"):
+		push_error("HINT-CARD: _input must clear the hint and stop the press on the card")
 		hud.queue_free()
 		return false
 	hud.queue_free()
 	await process_frame
-	print("HINT-CARD OK the card draws, a click off it leaves it, a click on it clears it and keeps the seen mark, the HUD takes no mouse, and _input never consumes the press")
+	print("HINT-CARD OK the card draws, a click off it leaves it, a click on it clears it and keeps the seen mark, the HUD takes no mouse, a click on the card is stopped and one off it is not")
 	return true
