@@ -502,6 +502,8 @@ func _ensure_ui() -> void:
 	if hud_script != null:
 		_hud = hud_script.new() as Control
 		_hud.name = "Hud"
+		# The session's first-day hints: the HUD clears the one on screen through it, and `_update_hud` offers the next.
+		_hud.set("onboarding", session.onboarding)
 		layer.add_child(_hud)
 	# inventory layer (always present: draws the full screen on Tab, and any pinned bag
 	# windows while playing; input passes through it when closed)
@@ -1114,6 +1116,12 @@ func _update_hud() -> void:
 		# fortify's look-at, the cupboard, the car, the aid ladder, the hands on a neighbour --
 		# and the line only names the key. check_hud's ACTION lane asserts both halves.
 		_hud.call("set_action", HudRead.action_line(world, world.player, look, context))
+		# The first-day hint: the next thing this save has not yet been told, offered only while the street
+		# is up and running. A menu, the sheet, the title or P's pause would cover it, so it waits for them.
+		var offered: String = ""
+		if _hud.visible and not paused and session.state == SessionRes.State.PLAYING:
+			offered = String(session.onboarding.offer(world, world.player, Time.get_ticks_msec()))
+		_hud.call("set_onboarding", offered)
 		_hud.call("refresh", world, who, base)
 	# The dashboard reads the seat every refresh: {} off the wheel hides it -- and so does leaving
 	# the run, because a speedometer still lit over the title is the last frame of a run that is
