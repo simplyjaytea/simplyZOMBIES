@@ -3,10 +3,15 @@ extends SceneTree
 # Each lane must still be independently meaningful. Resource/Node in state fails.
 
 const World = preload("res://sim/world.gd")
+const SimBoot = preload("res://sim/boot.gd")
 const SimSave = preload("res://sim/save.gd")
 const SimSerialize = preload("res://sim/kernel/serialize.gd")
 const ContentValidator = preload("res://platform/content_validator.gd")
 const PlatformStorage = preload("res://platform/storage.gd")
+
+const ISOLATION_SEED: int = 20260805
+const ISOLATION_TILES: int = 64
+
 
 func _init() -> void:
 	call_deferred("_run")
@@ -26,18 +31,28 @@ func _run() -> void:
 		quit(1)
 
 func _isolation() -> bool:
-	# boot with each non-kernel module disabled: should not crash, entity ids stable
-	var fixture: Dictionary = {"seed": 11, "tick_hz": 20, "map": {"width": 12, "height": 10, "walls": []}, "player": {"id": 0, "x": 5.0, "y": 5.0, "stance": 2}, "rng_probe": {"stream": "test", "samples": 0}}
-	var w: Variant = World.new(fixture)
-	if w == null:
-		push_error("isolation: world null")
+	# Boot the playable district once for each system, with that one system unregistered. Every
+	# system must be findable and removable (a lane that disables nothing proves nothing), and the
+	# world must still step ten ticks without a crash. The old lane said it did this and disabled
+	# nothing: its only guard was `w == null` on a world built with no systems at all.
+	var names: Array[String] = (SimBoot.playable(ISOLATION_SEED, ISOLATION_TILES)["world"] as Object).get("systems").ids
+	if names.is_empty():
+		push_error("isolation: the playable world registers no systems, so there is nothing to isolate")
 		return false
-	# toggle a module flag if present — currently stub gate (world builds)
-	world_step_n(w, 10)
-	if w.tick != 10:
-		push_error("isolation tick")
+	for name in names:
+		var w: Variant = SimBoot.playable(ISOLATION_SEED, ISOLATION_TILES)["world"]
+		if not w.systems.unregister(name):
+			push_error("isolation: '%s' is listed but cannot be unregistered" % name)
+			return false
+		var before: int = int(w.tick)
+		world_step_n(w, 10)
+		if int(w.tick) != before + 10:
+			push_error("isolation: with '%s' disabled the world stopped at tick %d" % [name, int(w.tick)])
+			return false
+	if (SimBoot.playable(ISOLATION_SEED, ISOLATION_TILES)["world"] as Object).get("systems").unregister("no.such.system"):
+		push_error("isolation: unregistering a system that does not exist reported success")
 		return false
-	print("ISOLATION OK")
+	print("ISOLATION OK each of %d systems disables cleanly and the world steps with it gone" % names.size())
 	return true
 
 func _save_load() -> bool:

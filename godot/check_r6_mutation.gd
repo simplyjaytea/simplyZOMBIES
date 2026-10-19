@@ -48,24 +48,38 @@ func _mutate_determinism() -> bool:
 	return true
 
 func _mutate_content() -> bool:
-	# Mutant: validator must reject duplicate id. Synthesize a dup by checking
-	# that validator counts schemas correctly — inject a fake duplicate via seen check.
-	# We prove validator is not vacuous: it must reject schemas/ as not entries (fixed in R6)
-	# and must still catch a real duplicate if we create one in-memory.
-	# Easiest: validate good tree passes, then validate that an invalid pattern fails.
+	# The tree itself must be clean; that is the good-tree half, and it says nothing about whether
+	# the validator would notice a bad entry.
 	var issues: Array = ContentValidator.validate_tree("res://content") as Array
 	if not issues.is_empty():
 		push_error("mutation content: good tree should pass %s" % str(issues))
 		return false
-	# pattern check: validator must reject an entry with wrong id pattern
-	# Simulate by calling _validate_shape with bad id — indirect via file not present,
-	# so just prove validator would catch a bad id if file existed: check type pattern
-	var re := RegEx.new()
-	re.compile("^item\\.[a-z0-9_]+(\\.[a-z0-9_]+)*$")
-	if re.search("BAD_ID") != null:
-		push_error("mutation content: pattern not enforced")
+	# The validator is not vacuous if the real item schema tells a real entry from a broken one.
+	# The untouched entry must pass; the same entry with an undeclared key, or with a name that is
+	# not a string, must not. (The old lane compiled a RegEx of its own and matched a string against
+	# it -- nothing a change to the validator could turn red.)
+	var loader: GDScript = load("res://platform/content_loader.gd") as GDScript
+	var tree: Dictionary = loader.call("load_tree", "res://content") as Dictionary
+	var schema: Dictionary = (ContentValidator._load_schemas("res://content") as Dictionary).get("item", {}) as Dictionary
+	var armor: Array = tree.get("items/armor.json", []) as Array
+	if schema.is_empty() or armor.is_empty():
+		push_error("mutation content: the item schema or a real armour entry did not load, so there is nothing to judge")
 		return false
-	print("MUTATION content OK (validator not vacuous)")
+	var good: Dictionary = (armor[0] as Dictionary).duplicate(true)
+	if not ContentValidator._validate_shape(good, schema, "items/armor.json").is_empty():
+		push_error("mutation content: the real entry '%s' fails its own schema" % String(good.get("id", "")))
+		return false
+	var undeclared: Dictionary = good.duplicate(true)
+	undeclared["notAKey"] = 1
+	if ContentValidator._validate_shape(undeclared, schema, "items/armor.json").is_empty():
+		push_error("mutation content: an undeclared key passed the item schema")
+		return false
+	var mistyped: Dictionary = good.duplicate(true)
+	mistyped["name"] = 5
+	if ContentValidator._validate_shape(mistyped, schema, "items/armor.json").is_empty():
+		push_error("mutation content: a number for a name passed the item schema")
+		return false
+	print("MUTATION content OK (validator refuses an undeclared key and a mistyped name on a real entry)")
 	return true
 
 func _mutate_deploy() -> bool:
