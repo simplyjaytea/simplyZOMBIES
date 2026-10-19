@@ -9834,6 +9834,22 @@ not a to-do list:
   `blocks_sight` per tile, and the lane refuses to pass unless crouching and opening a door each
   change what some origin sees. Flipping the Low rule reds it. [docs/22](22-performance.md#bringing-the-tick-to-budget).
 
+- **Kernel & tooling — the tick to budget, slice 4: the whole-district scans, 2026-10-19
+  (partial).** `SimAllegiance.enemies_within` asks the distance before `hostile` for NPC combat's
+  `_nearest_threat` and the raiders' halt; the shambler pass gathers people from the three marker
+  tables (`_people_with_position`, `SimAllegiance.PERSON_MARKERS`) instead of testing every
+  positioned thing; sightings skip any target outside the observer's shadowcast square before
+  asking `detail`. `godot:bench:runtime` went from **21.70 / 47.59 ms** to **19.40 / 37.11**.
+  Gated in `godot:m2:tick`: ENEMIES holds `enemies_within` equal to `enemies_of` filtered by
+  distance for every person and zombie at 3, 12 and 40 m, with a body exactly on the boundary,
+  and reads both callers' bodies for the call; PEOPLE holds the marker walk equal to the
+  `is_person` scan while each marker is handed to a body that had none, and `PERSON_MARKERS` equal
+  to what `is_person` reads; SQUARE holds that nothing outside a square is seen on the stepped
+  district, pins the square's edges on a fixture, and reads both observe loops for the call. Each
+  lane was turned red by sabotage (a strict boundary, a widened reach, the old call restored, a
+  marker dropped or added, the sort removed, a narrowed square, the prefilter removed).
+  [docs/22](22-performance.md#bringing-the-tick-to-budget).
+
 - **Kernel & tooling — water draw check follows its branches, 2026-10-03.** The A2 wall
   additions moved the water fill to character 4,473 after the drawing match, beyond
   `check_water.gd`'s 4,000-character window. Reproduced on the merged art pass:

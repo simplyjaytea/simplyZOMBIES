@@ -109,6 +109,12 @@ static func is_person(world: Variant, entity: int) -> bool:
 		or world.components.has_component(entity, "raider")
 
 
+# The markers `is_person` asks for, for a caller that wants every person rather than to test one
+# (`SimShambler._people_with_position`). A fourth marker goes in both places, and
+# `check_m2_tick.gd` PEOPLE fails if they disagree.
+const PERSON_MARKERS: Array[String] = ["controlled", "identity", "raider"]
+
+
 # Every body this entity would fight, unfiltered by distance, sightline or health -- callers own
 # those, and both of them already had to. Sorted, because `components.query` sorts and a target
 # preference that depended on table iteration order would not survive a save/load.
@@ -121,6 +127,35 @@ static func enemies_of(world: Variant, entity: int) -> Array[int]:
 	for other in world.components.query(["body", "position"]):
 		var o: int = int(other)
 		if o == entity:
+			continue
+		if world.components.has_component(o, "corpse"):
+			continue
+		if not hostile(world, entity, o):
+			continue
+		out.append(o)
+	return out
+
+
+# `enemies_of`, cut to the bodies within `metres` of `entity` -- the same ids in the same order,
+# with the distance asked first. Both callers wanted only the near ones and filtered after, so
+# every NPC paid `hostile` on the whole district's hundred bodies each tick: 2.2 ms of a tick (A3's
+# fourth slice). An entity with no position has nothing near it.
+static func enemies_within(world: Variant, entity: int, metres: float) -> Array[int]:
+	var out: Array[int] = []
+	var here: Variant = world.components.get_component(entity, "position")
+	if not here is Dictionary:
+		return out
+	var hx: float = float((here as Dictionary)["x"])
+	var hy: float = float((here as Dictionary)["y"])
+	var limit_sq: float = metres * metres
+	for other in world.components.query(["body", "position"]):
+		var o: int = int(other)
+		if o == entity:
+			continue
+		var there: Dictionary = world.components.get_component(o, "position") as Dictionary
+		var dx: float = float(there["x"]) - hx
+		var dy: float = float(there["y"]) - hy
+		if dx * dx + dy * dy > limit_sq:
 			continue
 		if world.components.has_component(o, "corpse"):
 			continue

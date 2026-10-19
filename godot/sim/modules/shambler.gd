@@ -534,9 +534,7 @@ static func _contact_target(survivors: Array, pos: Dictionary, radius_metres: fl
 # has no side and asks no allegiance question: a raider is meat on legs like everybody else.
 static func _gather_survivors(world: Variant) -> Array:
 	var out: Array = []
-	for entity in world.components.query(["position"]):
-		if not SimAllegianceRes.is_person(world, int(entity)):
-			continue
+	for entity in _people_with_position(world):
 		if world.components.has_component(int(entity), "corpse"):
 			continue
 		# A body at a wheel is inside a car, and a shambler has no way through the door: not
@@ -552,6 +550,22 @@ static func _gather_survivors(world: Variant) -> Array:
 		if at == null:
 			continue
 		out.append({"entity": int(entity), "x": float((at as Dictionary)["x"]), "y": float((at as Dictionary)["y"])})
+	return out
+
+
+# Every positioned entity `SimAllegiance.is_person` would accept, ascending by id -- the order
+# `query(["position"])` gave. Asked of the three markers' own tables rather than by testing all
+# 340-odd positioned things (every item on the ground among them) against the three markers, which
+# was most of what gathering cost (A3's fourth slice). `check_m2_tick.gd` PEOPLE holds the two equal.
+static func _people_with_position(world: Variant) -> Array[int]:
+	var seen: Dictionary = {}
+	var out: Array[int] = []
+	for marker in SimAllegianceRes.PERSON_MARKERS:
+		for entity in world.components.query([marker, "position"]):
+			if not seen.has(entity):
+				seen[entity] = true
+				out.append(int(entity))
+	out.sort()
 	return out
 
 
