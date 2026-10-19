@@ -2618,7 +2618,10 @@ func _draw_entities() -> void:
 		# Which frame: the animation clock's, from where this body is drawn (the item's x, y, already
 		# slid by the interpolation) and whether the sim moves it -- the walk advances by ground
 		# covered and the breath by presentation time, never by the tick (presentation/anim_clock.gd).
-		var motion: Dictionary = _anim.motion(eid, Vector2(float(it["x"]), float(it["y"])), Appearance.moving(vel_v), Appearance.stride_of(sprite_key), Appearance.pace_of(sprite_key))
+		# The view's own direction goes with it, so a body walking away from the way it shows -- you,
+		# aiming over your shoulder at a walk -- runs its walk backwards rather than moonwalking.
+		var front: Vector2 = Vector2.from_angle(float(Appearance.VIEW_RADIANS[view])) if Appearance.turns(sprite_key) and Appearance.VIEW_RADIANS.has(view) else Vector2.ZERO
+		var motion: Dictionary = _anim.motion(eid, Vector2(float(it["x"]), float(it["y"])), Appearance.moving(vel_v), Appearance.stride_of(sprite_key), Appearance.pace_of(sprite_key), front)
 		var frame: String = Appearance.frame_key(sprite_key, view, motion)
 		var texture: Texture2D = Appearance.body_texture(look, view, motion)
 		if texture != null:

@@ -1192,6 +1192,12 @@ const HELD_BEHIND: Dictionary = {
 	"primary": ["n"],
 	"secondary": ["e", "w", "n"],
 }
+# The views in which a weapon the body is *wielding* -- the item its live ranged or melee profile
+# was built from (`wielded_items`) -- comes round in front of it whichever hand holds it: seen from
+# either side it is raised across the chest toward the aim, so the far hand's sidearm you are firing
+# is no longer the half-hidden one. Seen from behind it is still beyond the body. A weapon carried
+# but not wielded keeps its hand's side (`HELD_BEHIND`).
+const WIELDED_OVER: Array[String] = ["e", "w"]
 
 
 # --- per-frame placement: the layer contract ------------------------------------------------
@@ -1607,6 +1613,7 @@ static func equipment_layers_for(world: Variant, actor: int, view: String = VIEW
 	if not (eq is Dictionary):
 		return out
 	var slots: Dictionary = (eq as Dictionary).get("slots", {}) as Dictionary
+	var wielded: Array[int] = wielded_items(world, actor)
 	for entry in EQUIP_DRAW_ORDER:
 		var slot: String = String(entry["slot"])
 		var block: Variant = _equip_block_for(world, slots.get(slot))
@@ -1633,8 +1640,22 @@ static func equipment_layers_for(world: Variant, actor: int, view: String = VIEW
 		elif holds(key):
 			var held: Dictionary = held_layer(key, slot, view, frame)
 			if not held.is_empty():
-				held["over"] = bool(held["over"]) and bool(entry["over"])
+				var raised: bool = WIELDED_OVER.has(view) and slots.get(slot) != null and wielded.has(int(slots[slot]))
+				held["over"] = (bool(held["over"]) or raised) and bool(entry["over"])
 				out.append(held)
+	return out
+
+
+# The items `actor` is wielding: the `source` its live `rangedWeapon` and `meleeWeapon` profiles were
+# built from (sim/modules/items.gd stamps it). Bare hands carry none, so they add nothing.
+static func wielded_items(world: Variant, actor: int) -> Array[int]:
+	var out: Array[int] = []
+	for component in ["rangedWeapon", "meleeWeapon"]:
+		var profile: Variant = world.components.get_component(actor, component)
+		if profile is Dictionary and (profile as Dictionary).get("source") != null:
+			var item: int = int((profile as Dictionary)["source"])
+			if item >= 0 and not out.has(item):
+				out.append(item)
 	return out
 
 
