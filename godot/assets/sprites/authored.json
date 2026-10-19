@@ -1877,6 +1877,40 @@
         ]
       }
     },
+    "prop_campfire": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "prop.campfire",
+      "source": {
+        "path": "art/simplyzombies/stations/textures/campfire.png",
+        "pad": [
+          32,
+          32,
+          1,
+          6
+        ]
+      }
+    },
+    "prop_campfire_lit": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "prop.campfire.lit",
+      "source": {
+        "path": "art/simplyzombies/stations/textures/campfire-lit.png",
+        "pad": [
+          32,
+          32,
+          1,
+          6
+        ]
+      }
+    },
     "prop_chair": {
       "canvas": [
         24,
@@ -2069,6 +2103,23 @@
         ]
       }
     },
+    "prop_latrine": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "prop.latrine",
+      "source": {
+        "path": "art/simplyzombies/stations/textures/latrine.png",
+        "pad": [
+          32,
+          32,
+          0,
+          2
+        ]
+      }
+    },
     "prop_medical_cabinet": {
       "canvas": [
         24,
@@ -2150,6 +2201,23 @@
           0,
           16,
           22
+        ]
+      }
+    },
+    "prop_well": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "prop.well",
+      "source": {
+        "path": "art/simplyzombies/stations/textures/well.png",
+        "pad": [
+          32,
+          32,
+          0,
+          1
         ]
       }
     },

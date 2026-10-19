@@ -57,7 +57,7 @@ from PIL import Image  # noqa: E402
 from draw import SIZE  # noqa: E402
 import guide  # noqa: E402
 import palette  # noqa: E402
-from parts import buildings, paperdoll, props, wrecks  # noqa: E402
+from parts import buildings, paperdoll, wrecks  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 SPRITE_DIR = ROOT / "godot" / "assets" / "sprites"
@@ -84,8 +84,10 @@ GUIDE_DIR = ROOT / "tools" / "sprites" / "guides"
 # ground atlas is composed from the pack's own terrain tiles and ground overlays, a sourced key in
 # `authored.json` whose `cells` this file lays out (`render_source`). `vehicles` went on 2026-10-19
 # with "The cars north-south, and the light vehicles": every vehicle picture is drawn under
-# `godot/art/simplyzombies/vehicles/` and sourced in `authored.json`.
-MODULES = (props, wrecks, buildings, paperdoll)
+# `godot/art/simplyzombies/vehicles/` and sourced in `authored.json`. `props` went the same day
+# with "The well, the latrine and the campfire": the four station pictures are drawn under
+# `godot/art/simplyzombies/stations/` and sourced in `authored.json`, padded onto the tile square.
+MODULES = (wrecks, buildings, paperdoll)
 
 # No key is generated on the pawn canvas any more. The last two -- the screamer and the bloater,
 # face-on rigs the outpost pack did not draw -- joined the zombie pose families on 2026-10-19
