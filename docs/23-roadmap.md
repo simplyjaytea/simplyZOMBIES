@@ -9805,6 +9805,17 @@ not a to-do list:
   also passed inside that chain. Independent diff review found no blocking issue; the optional
   Jev review service was unavailable. These are local results, not a new GitHub CI run.
 
+- **Kernel & tooling: the art review's screenshots** (`npm run godot:check:shots`, `SHOTS_OK`,
+  2026-10-19; alpha A14). `godot/review/scenes.gd` sets five fixed scenes up through real key
+  presses and the sim's own commands and clock (the day street, an interior, the street at night
+  with the lamps lit, a zombie three metres off, the inventory sheet open), and `verify` refuses a
+  setup the world does not match. `godot/review/shots.gd` photographs them at 1280x720 and
+  1920x1080 into a `review-shots` folder at the repository root (`DISPLAY=:1 npm run godot:shots`,
+  or `-- --out=DIR`). The gate runs the same setups headless: every scene verifies, a day street is
+  refused as a night, as a combat and as an open sheet, and an unknown name is refused. With a
+  display it also proves the day street and the combat scene are two pictures and neither is blank
+  (`PIXELS OK`); headless it says `PIXELS SKIP`, so a run with no display passes the setups and
+  never the pixels. "Interior" is the nearest floor tile with a wall beside it, not a verified room.
 - **Kernel & tooling: the routing table** (`npm run check:routing`, `ROUTING_OK`, 2026-09-06).
   `AGENTS.md` carries a routing table — by kind of work and by system: what to read first, where
   the code lives, which gate judges it, where the record goes — and a Node gate judges the table
