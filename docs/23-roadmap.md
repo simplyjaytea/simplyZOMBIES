@@ -1251,16 +1251,16 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
     what all three are waiting on, and it is one piece of work for the three of them.
 - **More gates that cannot fail.** Four were fixed in the sweep; these are what a read of all
   thirty-odd check scripts turned up. Assume there are others and go at the rest with the same
-  question -- *what change would turn this red?* Five of the seven below are fixed on 2026-10-19;
+  question -- *what change would turn this red?* Six of the seven below are fixed on 2026-10-19;
   each was proved red by a sabotage run, then restored.
   - ~~`check_r6_mutation.gd`'s "validator not vacuous" lane~~ **Fixed 2026-10-19** (`godot:r6:mutation`,
     MUTATION content). It judges the real item schema on a real armour entry: the entry must pass,
     and the same entry with an undeclared key or a numeric `name` must not. Sabotaged by removing the
     `additionalProperties` refusal from the validator: red, naming the undeclared key.
-  - `check_r6_mutation.gd`'s `_mutate_perf` lane still open: it claims to prove the bench gate is not
-    always PASS and never invokes the bench with a small budget; it times 100 iterations of
-    `field.decay()` and asserts only that they take longer than 0.0001 ms/tick. It needs a real bench
-    entry point taking a budget, which the retired `check_r6_bench.gd` was the last to have.
+  - ~~`check_r6_mutation.gd`'s `_mutate_perf` lane~~ **Fixed 2026-10-19** (`godot:r6:mutation`, perf).
+    It never asked the bench for a verdict, so a bench that always said PASS passed. The verdict is
+    now `bench.gd`'s static `verdict(avg, budget)`, which `_init` also uses, and the lane demands OVER
+    for a 0.0001 ms budget and PASS for a 1e9 ms one. Sabotaged by making `verdict` always PASS: red.
   - ~~`check_r6_coverage.gd`'s `_isolation`~~ **Fixed 2026-10-19** (`godot:r6:coverage`, ISOLATION).
     It boots the playable district once per system with that system unregistered, requires each
     `unregister` to find its system, and steps ten ticks; `unregister` of a name that does not exist
