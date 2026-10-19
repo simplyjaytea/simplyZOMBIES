@@ -112,6 +112,7 @@ const PRESSED_KEYS: Array = [
 const UNLISTED: Dictionary = {
 	"dismiss": "Enter closes the legend and opens nothing; the panel's own header names F1",
 	"debug": "F8 is the dev spawn menu, bound only under OS.is_debug_build()",
+	"sheets": "M is the raw developer sheet, bound only under OS.is_debug_build() (A22)",
 }
 
 # Legend rows that are keys but not `BINDINGS` rows. WASD and E are bound -- by `MOVE_KEYS` and
@@ -1719,6 +1720,11 @@ func _the_keys_live_in_the_router() -> bool:
 		return false
 	if router_src.find("OS.is_debug_build()", f8) < 0:
 		push_error("SOCKET: F8 is bound without an OS.is_debug_build() guard; a player can open the dev menu")
+		return false
+	# And M, the raw sheet, is guarded the same way (A22): a release build has no key for it.
+	var m_key: int = router_src.find("KEY_M:")
+	if m_key < 0 or router_src.find("OS.is_debug_build()", m_key) < 0 or router_src.find("OS.is_debug_build()", m_key) > router_src.find("main.show_sheets", m_key):
+		push_error("SOCKET: M toggles the raw sheet without an OS.is_debug_build() guard in front of it")
 		return false
 
 	# The second half of the split: the run's lifecycle lives in the session, the shell is built,
