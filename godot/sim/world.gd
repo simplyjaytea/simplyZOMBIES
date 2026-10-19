@@ -53,6 +53,11 @@ var content: Variant = null
 # a static memo is shared between the two worlds a gate boots (CLAUDE.md's trap), and two worlds
 # may carry two trees. `SimShambler.resolved_entry` is the one writer.
 var content_resolved: Dictionary = {}
+# Content entries by `id`, built from `content` by `SimItems._content_get` and kept here for the
+# same two-worlds reason as `content_resolved`. `content_index_of` is the tree it was built from, so
+# a world whose `content` is swapped (content_reload.gd, a gate pinning its own tree) rebuilds.
+var content_index: Dictionary = {}
+var content_index_of: Variant = null
 var entities: Variant = null
 var components: Variant = null
 var commands: Variant = null

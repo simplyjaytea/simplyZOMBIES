@@ -1071,8 +1071,10 @@ session, each with its gate red both ways and its record.
   runtime evidence record for scope, results and next measurements.
   Next bounded slices: attribute and reduce the jobs/map-change visibility spike; profile the
   real world-draw body path; then remeasure identical fixtures before enabling actual timing
-  gates. Repeated content lookups, healthy self-aid scans and shadowcast clearing are candidate
-  optimizations to prove individually, with deterministic behavior and reader gates intact.
+  gates. Healthy self-aid scans and shadowcast clearing are candidate optimizations to prove
+  individually, with deterministic behavior and reader gates intact. Repeated content lookups
+  were the first cut (2026-10-19, the record's "tick to budget" entries; [docs/22](22-performance.md#bringing-the-tick-to-budget)
+  carries the running table).
   Draw-stage timing alone does not close delivered FPS, long-session, save or streaming budgets.
 
 **Weather — the rest of docs/16, opened by the owner 2026-09-06.** ADR 0016. The spine (kinds,
@@ -9786,6 +9788,21 @@ not a to-do list:
   the early-window rate projects about 22.64 hours per no-wipe campaign / 271.73 hours for twelve,
   before the extra Auto case. No full grid, distribution proof, combat parity result or human
   ten-day playtest is claimed. Combined verification is recorded in the October integration entry.
+
+- **Kernel & tooling — the tick to budget, slice 1: content entries by id, 2026-10-19
+  (partial).** Alpha plan A3's first cut. `SimItems._content_get` walked the whole content tree
+  per lookup and sat under `item_base_of`, about a hundred calls a tick: 12.7 ms of the shipped
+  tick's 32. It is now memoised on the world (`content_index`, rebuilt when a hit's object is no
+  longer at its key, on a miss, or when `world.content` is replaced). `npm run godot:bench:runtime`
+  went from **32.42 ms mean / 300.98 ms worst** to **24.41 / 319.35**; the worst is the
+  map-change spike, untouched here. Gated by the new `npm run godot:m2:tick`
+  (`godot/check_m2_tick.gd`, `M2_TICK_OK`): CONTENT-AGREE holds the memo to the scan for every
+  shipped id, cold and warm; CONTENT-FOLLOWS swaps, erases, adds and replaces under a warm memo
+  and forges a memo row; CONTENT-READER proves `item_base_of` reaches it. Skipping the liveness
+  check reds CONTENT-FOLLOWS and routing the read back to the scan reds CONTENT-READER, both
+  tried. Numbers and attribution in [docs/22](22-performance.md#bringing-the-tick-to-budget).
+  **What remains:** the tick is still about three times over budget; the slices that follow take
+  the map-change spike, visibility, shambler AI, sightings, NPC combat and self-aid in turn.
 
 - **Kernel & tooling — water draw check follows its branches, 2026-10-03.** The A2 wall
   additions moved the water fill to character 4,473 after the drawing match, beyond
