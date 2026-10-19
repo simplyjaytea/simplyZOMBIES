@@ -859,9 +859,11 @@ are all carried into the pieces that replace them.
 - **The frames.** Moved into the decoupled-paperdoll group above, where the legs strip it needs
   exists. Named here only so the cross-reference resolves.
 - ~~**The exploded body chart.**~~ — landed 2026-10-03; see the record.
-- **The idle breath — not decided.** One pixel of pelvis at a quarter of the walk's rate. It
-  was drawn in the fixture round and deliberately left out of the four answers; it is a small
-  call and it is the owner's.
+- **The idle breath — not decided, shipped as the default.** One pixel of pelvis at a quarter of
+  the walk's rate. It was drawn in the fixture round and deliberately left out of the four
+  answers; it is a small call and it is the owner's. A7 (2026-10-19, the record) built it on the
+  alpha plan's default, one pixel of chest once a second, with a decision card to the owner;
+  `breath_fps: 0` in `authored.json` takes it out without code if the answer is no.
 
 **Art & renderer — the Dungeon Settlers arc, decided by the owner (2026-09-03), on the floor
 the reference-look arc's first two slices laid (32 px a tile at 2×, the ground atlas).** The
@@ -1945,7 +1947,7 @@ not a to-do list:
   reads the same sub-tick fraction (`_sub_tick`). Presentation only: nothing under `godot/sim/`
   changed, and sight, picking and every position a gate reads are still the component.
   **Half shipped, and which half:** the four-view pick and the walk frame still change on the
-  tick, ground items and corpses do not move so they are not interpolated, and FX are placed at
+  tick (the walk frame moved to the render clock with A7, below), ground items and corpses do not move so they are not interpolated, and FX are placed at
   the sim point of the event, so a muzzle flash on a body walking at speed can sit up to one tick
   of travel ahead of it. The frame rate itself is A3/A4's work; this makes whatever rate there is
   read as motion.
@@ -1967,6 +1969,73 @@ not a to-do list:
   the 0.075 bound). READERS holds the textual half for the branches the boot does not drive: the
   snapshot before `world.step()`, the clamp before the loop, the camera after it, riders,
   vehicles and facing.
+
+- **Feel — frames on the render clock, eight-frame walks and a breath, 2026-10-19.** Item A7 of
+  the 2026-10-19 alpha plan, on A2's glide above. A walk frame used to be
+  `tick * fps / 20 + id`: it moved only when a tick did, at one cadence whatever the speed, so a
+  limping survivor's feet moonwalked and a sprinter's skated, and four poses a cycle read as a
+  stutter. `presentation/anim_clock.gd` (`AnimClock`) now advances each drawn body's place in
+  its cycle by the ground its *drawn* point covered since the last draw, so a body steps as fast
+  as it is seen to move, stops stepping when it stops, and ends a path on the same frame at 30
+  or at 144 frames a second. One cycle covers the family's own stride (`pace × frames / fps`, so
+  a body at its family's pace steps at exactly the manifest's rate); away from that pace the
+  stride lengthens with the square root of the speed, clamped to half and double, so a sprint at
+  three times the pace steps about 1.7 times as often rather than three. Bodies are seated by id
+  on the golden ratio so a crowd does not step as one, and a jump past `SNAP_METRES` re-seats
+  rather than spinning the legs. A standing body breathes on presentation time (`delta ×
+  speed`, so pause holds it and fast-forward quickens it) at the family's `breath_fps`.
+  The motion a draw asks about is one Dictionary, `{walking, cycle, idle}`, read by
+  `Appearance.frame_key`; it is the hook A8's action animations add a key to, and nothing here
+  builds them. `main.gd` changes in `_on_world_replaced`, `_process`, `_draw`, `_draw_entities`
+  and `_layer_rect` only. Presentation only: nothing under `godot/sim/` changed.
+
+  **The art.** Every body walks on **eight frames** a view, at twice the old rate (survivor 16,
+  workwear/commuter/raincoat 10, stalker 12, runner 18, armoured and heavy 8), so the cadence on
+  screen is unchanged and the motion between steps is twice as fine. The survivor's walk is
+  **new generated art** -- four PixelLab strips, each animated from the pack's own rest view,
+  so frame 0 is the standing picture and the old walk's skin-tone and outline pop on setting
+  off is gone (the plan's "shambler palette pop" had moved to the survivor when the shambler
+  was retired; it is fixed where it now lived). The **zombies' in-betweens and every breath
+  are mechanical**: each family keeps its four pack poses as frames 0, 2, 4, 6, and frames 1,
+  3, 5, 7 are the pose before with the rows above the hip carried one pixel toward the next
+  pose's height; the breath is the rest view with the rows above the chest a pixel up (the
+  survivor) or down (the dead sag, which also keeps rest views already at their canvas's
+  tallest inside it). That is a row shift of the pack's pixels, not drawing, and the pack's
+  `STYLE.md` asks for authored frames: **this is the half a commissioned pass should replace.**
+  Built by one script, `godot/art/simplyzombies/motion/build_motion.py` (`--check` reports
+  `MOTION_OK`), which also writes the pack manifests' frame lists, `authored.json`'s new
+  `pace`, `breath_fps` and per-member points, and `SHA256SUMS`; sources, prompts and job ids are
+  in `motion/sources/generation.json` and the method in `motion/README.md`. Five generations
+  were spent: the four strips and one zombie trial that was not used.
+
+  **Per-frame points, and the layer contract A6 builds on.** Every walk and breath member
+  declares where its `head` and `torso` moved from the rest view, and the survivor's declare
+  each hand. A worn layer resolves in three rules, in order: (1) the layer's own member for that
+  frame, `<layer>_<frame suffix>` (`item_gear_vest_walk_e_3`), when it exists -- what A6's
+  clothing will author; (2) otherwise its view picture shifted by the frame's offset for the
+  region its family `rides` (`authored.json`: helmet and gas mask the head, vest and backpack the
+  torso); (3) a held weapon on the frame's own hand (`Appearance.frame_hand`, falling back to
+  `HELD_HANDS` at rest). A muzzle flash is still placed from the rest hand in `fx_look.gd`; A9's
+  aim rework owns that.
+
+  **The breath is the owner's call** ("The idle breath" in what's left): it ships on as the
+  plan's default, a decision card is with the owner, and `breath_fps: 0` in `authored.json`
+  turns it off per family without code.
+
+  **Evidence:** `godot:check:worn` new FRAMES lane: **288** walk and breath frames over 8 bodies
+  declare head and torso offsets the renderer reads (448 of them move one), **72** survivor hands
+  sit on their own frame's arm (57 off the rest point), and a pistol, helmet and vest on a
+  walking frame follow its hand, head and torso; a corner hand, a frame-less pistol, a shifting
+  rest view, a riderless wearable and a dropped frame are each refused. `godot:check:zombie_art`
+  MOTION: eight distinct poses and a breath a view, stride equal to pace × frames / fps, and a
+  real clock walking one stride at pace at 60 Hz reaching every frame with under 0.02 cycle
+  drift. `godot:check:topdown` TURN: on the real clock, each family changes frame its manifest
+  rate (±1) in a second at its pace, more but less than threefold at three times the pace, fewer
+  but some at half; ids 1 and 2 seat apart; a standing second never walks. `godot:check:authored`
+  holds 40 members per zombie family, eight walk and two breath frames, and the frame-name
+  mapping both ways. `sprites:check` reproduces every new member from its source.
+  Before/after strips and GIFs for all eight bodies, and the survivor in helmet, vest and pistol,
+  are under `.hermes/plans/2026-10-19_a7-animation/`.
 
 - **UI — the sheet and Work grid fit the reviewed viewports, 2026-10-03.** At 1280×720,
   inventory now separates its equipment, native 56-pixel bag cells and inspect pane, keeping

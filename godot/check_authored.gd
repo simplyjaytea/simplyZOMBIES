@@ -1425,7 +1425,8 @@ func _crop_drops_solid(source: Image, crop: Array) -> bool:
 
 
 # A turning body's members under authored.json's convention: `<key>_<view>` for each of the four
-# views, and `<key>_walk_<view>_<n>` for the same n = 0..frames-1 every way, and nothing else.
+# views, `<key>_walk_<view>_<n>` for the same n = 0..frames-1 every way, and the breath
+# `<key>_idle_<view>_<n>` for the same n = 1..breaths-1 every way, and nothing else.
 func _rig_members_complaint(key: String, members: Array) -> String:
 	var want: Array[String] = []
 	var frames: int = 0
@@ -1433,10 +1434,15 @@ func _rig_members_complaint(key: String, members: Array) -> String:
 		frames += 1
 	if frames == 0:
 		return "has no walk frames under '%s_walk_%s_0'" % [key, Appearance.VIEW_REST]
+	var breaths: int = 1
+	while members.has("%s_idle_%s_%d" % [key, Appearance.VIEW_REST, breaths]):
+		breaths += 1
 	for view in Appearance.VIEWS:
 		want.append("%s_%s" % [key, view])
 		for n in frames:
 			want.append("%s_walk_%s_%d" % [key, view, n])
+		for n in range(1, breaths):
+			want.append("%s_idle_%s_%d" % [key, view, n])
 	for w in want:
 		if not members.has(w):
 			return "is missing member '%s'" % w
@@ -1635,8 +1641,10 @@ func _the_pack_families_keep_the_packs_own_spec() -> bool:
 	short.erase("body_survivor_walk_n_3")
 	var extra: Array = real.duplicate()
 	extra.append("body_survivor_run_s_0")
-	if _rig_members_complaint("body_survivor", short).is_empty() or _rig_members_complaint("body_survivor", extra).is_empty():
-		push_error("PACK: a body missing a walk frame, or carrying one the convention does not name, passed")
+	var breathless: Array = real.duplicate()
+	breathless.erase("body_survivor_idle_w_1")
+	if _rig_members_complaint("body_survivor", short).is_empty() or _rig_members_complaint("body_survivor", extra).is_empty() or _rig_members_complaint("body_survivor", breathless).is_empty():
+		push_error("PACK: a body missing a walk frame or one view's breath, or carrying one the convention does not name, passed")
 		return false
 	if _overlay_members_complaint("item_gear_x", ["item_gear_x_s", "item_gear_x_e", "item_gear_x_n"]).is_empty():
 		push_error("PACK: a wearable missing its west view passed")
@@ -1824,15 +1832,17 @@ func _pose_silhouette(image: Image) -> String:
 	return "%d:%d:%s" % [int(box["max_x"]) - int(box["min_x"]), int(box["max_y"]) - int(box["min_y"]), bits.hex_encode()]
 
 
-func _pose_motion_complaint(frames: Array) -> String:
-	if frames.size() != 4:
-		return "locomotion needs four frames per direction"
+func _pose_motion_complaint(frames: Array, want: int = 8) -> String:
+	if frames.size() != want:
+		return "locomotion needs %d frames per direction" % want
 	var pixels: Dictionary = {}
 	var shapes: Dictionary = {}
 	for image in frames:
+		if image == null:
+			return "locomotion is missing a frame"
 		pixels[(image as Image).get_data().hex_encode()] = true
 		shapes[_pose_silhouette(image as Image)] = true
-	if pixels.size() != 4:
+	if pixels.size() != want:
 		return "locomotion repeats a frame"
 	if shapes.size() < 2:
 		return "locomotion only translates one silhouette"
@@ -1856,14 +1866,15 @@ func _pose_source_complaint(entry: Dictionary, source: Dictionary, asset: Dictio
 
 func _pose_frame_complaint(family: String, member: String, source: Dictionary, asset: Dictionary) -> String:
 	var tail: PackedStringArray = member.trim_prefix(family + "_").split("_")
-	var state: String = "walk" if tail.size() == 3 else "idle"
-	var view: String = tail[1] if state == "walk" else tail[0]
+	# `<view>` is the rest picture (idle frame 0); `walk_<view>_<n>` and `idle_<view>_<n>` the rest.
+	var state: String = tail[0] if tail.size() == 3 else "idle"
+	var view: String = tail[1] if tail.size() == 3 else tail[0]
 	var directions: Dictionary = {"s": "south", "e": "east", "n": "north", "w": "west"}
 	var asset_id: String = "%s-%s-%s" % [family.trim_prefix("body_").replace("_", "-"), state, directions.get(view, "")]
 	if String(asset.get("id", "")) != asset_id:
 		return "source belongs to a different family, state or direction"
 	var frames: Array = (asset.get("frames", {}) as Dictionary).get(state, [])
-	var index: int = int(tail[2]) if state == "walk" else 0
+	var index: int = int(tail[2]) if tail.size() == 3 else 0
 	if index >= frames.size() or String(source.get("path", "")) != ZOMBIE_POSE_ROOT + String((frames[index] as Dictionary).get("path", "")):
 		return "source is not the corresponding manifest frame"
 	return ""
@@ -1893,10 +1904,10 @@ func _the_zombie_poses_keep_their_geometry() -> bool:
 		if kind == "zombie_rig":
 			rigs += 1
 			var member_error: String = _rig_members_complaint(String(key), members.keys())
-			if not member_error.is_empty() or members.size() != 20 or not Appearance.turns(String(key)):
-				push_error("ZOMBIE_POSES: %s needs four idle views, sixteen walk frames and a turning renderer: %s" % [key, member_error])
+			if not member_error.is_empty() or members.size() != 40 or not Appearance.turns(String(key)):
+				push_error("ZOMBIE_POSES: %s needs four idle views, thirty-two walk frames, four breaths and a turning renderer: %s" % [key, member_error])
 				return false
-			if Appearance.walk_frames(String(key)) != 4 or Appearance.walk_fps(String(key)) != int(entry.get("fps", 0)):
+			if Appearance.walk_frames(String(key)) != 8 or Appearance.walk_fps(String(key)) != int(entry.get("fps", 0)) or Appearance.breath_frames(String(key)) != 2:
 				push_error("ZOMBIE_POSES: %s renderer frame count or rate disagrees" % key)
 				return false
 		else:
@@ -1921,7 +1932,7 @@ func _the_zombie_poses_keep_their_geometry() -> bool:
 		if kind == "zombie_rig":
 			for view in Appearance.VIEWS:
 				var frames: Array = []
-				for n in 4:
+				for n in Appearance.walk_frames(String(key)):
 					frames.append(_image_of("%s_walk_%s_%d" % [key, view, n]))
 				var motion: String = _pose_motion_complaint(frames)
 				if not motion.is_empty():
@@ -1945,7 +1956,7 @@ func _the_zombie_poses_keep_their_geometry() -> bool:
 	var translated: Array = []
 	for x in range(4, 8):
 		translated.append(_fab_source(32, 40, Rect2i(x, 12, 16, 28)))
-	if _pose_motion_complaint([body, body, body, body]).is_empty() or _pose_motion_complaint(translated).is_empty() or _pose_motion_complaint([body]).is_empty():
+	if _pose_motion_complaint([body, body, body, body], 4).is_empty() or _pose_motion_complaint(translated, 4).is_empty() or _pose_motion_complaint([body]).is_empty() or _pose_motion_complaint([body, body, body, null], 4).is_empty():
 		push_error("ZOMBIE_POSES: accepted duplicate, translated-only or incomplete animation")
 		return false
 	var control_entry: Dictionary = {"kind": "zombie_rig", "canvas": [32, 40], "anchor": [16, 40], "fps": 5}
@@ -1962,6 +1973,11 @@ func _the_zombie_poses_keep_their_geometry() -> bool:
 		return false
 	var frame_asset: Dictionary = {"id": "zombie-probe-walk-south", "frames": {"walk": [{"path": "a.png"}, {"path": "b.png"}]}}
 	var frame_source: Dictionary = {"path": ZOMBIE_POSE_ROOT + "a.png"}
+	var breath_asset: Dictionary = {"id": "zombie-probe-idle-south", "frames": {"idle": [{"path": "a.png"}, {"path": "b.png"}]}}
+	var breath_source: Dictionary = {"path": ZOMBIE_POSE_ROOT + "b.png"}
+	if not _pose_frame_complaint("body_zombie_probe", "body_zombie_probe_idle_s_1", breath_source, breath_asset).is_empty() or _pose_frame_complaint("body_zombie_probe", "body_zombie_probe_idle_s_1", frame_source, breath_asset).is_empty() or _pose_frame_complaint("body_zombie_probe", "body_zombie_probe_idle_s_1", breath_source, frame_asset).is_empty():
+		push_error("ZOMBIE_POSES: breath mapping refused the match or accepted the rest frame or a walk asset")
+		return false
 	if not _pose_frame_complaint("body_zombie_probe", "body_zombie_probe_walk_s_0", frame_source, frame_asset).is_empty() or _pose_frame_complaint("body_zombie_probe", "body_zombie_probe_walk_e_0", frame_source, frame_asset).is_empty() or _pose_frame_complaint("body_zombie_probe", "body_zombie_probe_walk_s_1", frame_source, frame_asset).is_empty():
 		push_error("ZOMBIE_POSES: frame mapping refused the match or accepted wrong direction/index")
 		return false
