@@ -905,8 +905,9 @@ group above amend this arc's mood, wall and pawn clauses; the pieces below stand
   only (the record's "Zombies turn, walk and fall", 2026-10-02). Widening their appearance at
   Peripheral detail remains an information-scarcity decision for the owner. Walk-cycle foot and
   clothing polish and the four-pose human corpse vest overlay remain unshipped.
-- **The torch.** The reference's night is a cone from the player's hand; every light here is an
-  omnidirectional shadowcast and there is no torch item. The piece is sim, not paint: a light
+- **The torch.** The reference's night is a cone from the player's hand. Since the light map
+  (2026-10-19, the record) a torch *draws* as a beam (content `light.beam`), but every light in
+  the sim is still an omnidirectional shadowcast. The piece left is sim, not paint: a light
   item whose `light` block carries a direction and a cone, `SimLight` masking that emitter's
   shadowcast to the wedge, the cone drawn from the gun hand in the lit-pool geometry, and the
   attention cost a lit torch is — an emitter zombies read. Its own gated slice, after the look
@@ -958,13 +959,14 @@ group above amend this arc's mood, wall and pawn clauses; the pieces below stand
 - ~~**Per-source light tint.**~~ — landed 2026-10-03; each current emitter's content tint colours
   the existing light pool without changing its cast or reach. See the record.
 
-**Art remaining after the 2026-10-03 completion slices.** The bounded A2 wall mapping is live;
-its floor-underlay seam and remaining pack wall states are named above. The unseen-wall roof
-coverage choice remains with the owner. Full day/dusk/night grading remains
-unassessed, and the adopted ground palette stays pinned. The directional torch/cone is still a
-simulation and attention mechanic, not part of source colouring. Placed utility mechanics also
-remain absent: no placed stove, activated streetlamp, generator, rain collector or spike trap was
-added. These are separate pieces; the completed pictures do not imply those mechanics exist.
+**Art remaining after the 2026-10-03 completion slices.** The bounded A2 wall mapping is live; its
+floor-underlay seam and remaining pack wall states are named above. The unseen-wall roof coverage
+choice remains with the owner. The night itself is per pixel since the light map (2026-10-19, the
+record); a full day and dusk colour grade remains unassessed, and the adopted ground palette stays
+pinned. The torch draws as a beam, but the directional cone is still a simulation and attention
+mechanic, not part of source colouring. Placed utility mechanics also remain absent: no placed
+stove, activated streetlamp, generator, rain collector or spike trap was added. These are separate
+pieces; the completed pictures do not imply those mechanics exist.
 
 **The inventory sheet and the screens — decided by the owner (2026-09-08).** The inventory is
 mechanically complete and gated, and the screen reaches four of its commands: `item.move`,
@@ -1928,6 +1930,55 @@ What landed and what proved it, system by system (condensed from the retired bac
 links in the slice-scope table above are the authority on each). The open tails that used to end
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
+
+- **Art — the night, per pixel, 2026-10-19.** Item A10 of the 2026-10-19 alpha plan, built on
+  the baked world (A4). The night was one flat navy fill whose alpha came from the survivor's own
+  sight, warm pools were per-tile rects under the bodies, and the edge of sight was the
+  shadowcast's tiles stepping straight into a navy void. Now `presentation/light_map.gd` draws
+  one screen rect multiplied over everything main draws (`night_light.gdshader`,
+  `blend_mul`, so it can only darken) and a glow item over it for the flash and the flame. Each
+  pixel shows the sim's own rule (`SimLight.sight_metres`) asked where the pixel is, with the
+  per-source "does this cast reach this tile and does the survivor see it" answer handed over as
+  bits (`LightLook.light_texels`), so a wall stops light on screen exactly where it stops it in
+  the sim. Pools fall off radially, measured to the pixel; the bright core is drawn to 0.3 of a
+  source's reach and the rest of its cast as a dim halo, because a campfire's 20 m is wider than
+  the boot screen and a pool drawn at the sim's reach is no pool. Answers are feathered over the
+  inner half of the last tile they hold, inward only, so shadows and the edge of sight are soft
+  without light ever landing on a tile the survivor does not see. Unlit night is darker
+  (`NIGHT_WASH` 0.8 to 0.94, the sky shown linearly), the survivor's own small disc holds an
+  `EYE_FLOOR` of 0.3, and the remembered map and the void sit back behind the edge of sight.
+  Everything is evaluated on the 32 px art-pixel grid and cut into 14 dithered steps, so the
+  night reads as pixel art. Flames (a campfire, oil, a candle) flicker by at most 3% of reach,
+  only ever down; cells and gas are steady. A torch, headlamp or weapon light draws as a beam
+  along its carrier's facing: content's new `light.beam` half-angle, presentation only. The
+  tile pools under the bodies are now the O channel's alone. Looks chosen without the owner,
+  each the default nearest Zero Sievert: full night near black, flames flicker, a torch is a
+  wedge. **Half shipped, and which half:** the sim still lights a torch's whole round cast.
+  Outside the beam that cast draws as the halo, so the screen shows less than the sim and never
+  more, but a zombie still reads the light behind you. The sim cone and its attention cost are
+  the torch piece in what's left.
+
+  **Evidence:** `npm run godot:check:light` → `LIGHT_LOOK_OK`, five new lanes. NO LIGHT ON
+  UNSEEN (the plan's lane): a campfire behind a wall lights 288 tiles in the sim that the
+  survivor does not see, and every one is four zero bytes in the light map. Every source bit
+  sits on a seen tile, and the open twin's same tile is seen and carries its bit. A builder that
+  writes bits before the seen test was run as sabotage and went red. FRACTION: at the survivor's
+  feet the per-point fraction is `local_light_fraction` exactly, a seen tile nearer the fire is
+  brighter, and the dark twin is the sky. CURVE: `shown` keeps 0 and 1, never falls below the
+  sim's fraction, and the shader carries the same formula. BEAM: a carried hand torch is its
+  content's 22° along the facing; no facing and a lantern are round; every content beam can be
+  carried. FLICKER: a campfire flickers, a cell torch does not. DEAD SOCKET is re-pointed: the
+  night is built from `light_texels` before `_draw_effects(true)`, which blits into the glow item,
+  and the shader multiplies, feathers inward and reads the beams. `godot:check:memory`,
+  `check:fx`, `check:weather` and `check:world_bake` are unchanged and green. Budget, on this
+  container (llvmpipe, 1280×720, real scene): `godot:bench:frame`'s shipped-draw `_draw` mean was
+  13.5 ms before and 13.0 to 14.1 ms after, which is noise; that machine was already over the
+  10 ms target before this slice. A throwaway night driver (torch plus lit campfire) measured
+  `_draw` at 21.7/20.7 ms before and 17.0/18.3 ms after, because the per-tile pool rects are gone.
+  The server stage, which is the software rasteriser on this container and not a GPU, rose from
+  38 to 52 ms at night and from 30 to 44 ms by day for the full-screen shader; the bench's
+  target is the `_draw` stage, and a GPU's cost for this shader was not measured here. Before and
+  after shots are in the project's `planning/lighting/`.
 
 - **Feel — bodies glide between ticks, and a slow frame drops time, 2026-10-19.** Item A2 of
   the 2026-10-19 alpha plan. The sim steps at 20 Hz and every body used to be drawn on the

@@ -240,6 +240,12 @@
           "type": "string",
           "pattern": "^#[0-9a-f]{6}$",
           "description": "Presentation-only light-pool colour in strict lowercase #rrggbb form. Absent or unknown content retains the legacy warm colour. Simulation ignores it."
+        },
+        "beam": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 90,
+          "description": "Presentation-only: the half-angle, in degrees, of the bright beam this light's pool is drawn as, pointed where its carrier faces (presentation/light_look.gd, plan item A10). Absent is a round pool. The simulation ignores it and still lights the whole omnidirectional cast -- outside the beam the cast is drawn as the dim halo, so the screen shows less light than the sim, never more. The directional torch in the sim is its own slice (docs/23, \"The torch\")."
         }
       }
     },

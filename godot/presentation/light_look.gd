@@ -25,6 +25,23 @@ const Palette = preload("res://presentation/palette.gd")
 const POOL_SPLIT_METRES: float = 3.0
 const DEFAULT_SOURCE_TINT: Color = Palette.LIGHT_POOL_RGB
 
+# The light map (plan item A10, presentation/light_map.gd and night_light.gdshader). How many
+# sources one frame can carry: the shader holds one bit per source per tile in three bytes. More
+# than this in view is not an error; the dimmest are left out, which can only make the screen
+# darker than the sim, never lighter.
+const MAX_LIGHTS: int = 24
+# The curve a fraction of daylight sight is shown through: 1 - (1 - f)^LIGHT_CURVE. 0 stays 0 and 1
+# stays 1; the dim end is lifted, so a campfire, which lends at most 20 of a survivor's 48 metres,
+# reads as a pool of light and not as a slightly less dark patch. Monotonic, so the brighter of
+# two pixels is always the one where the sim sees further.
+const LIGHT_CURVE: float = 3.0
+# How far a flame's reach dips when it flickers, as a fraction of its reach. Only ever down: a
+# flicker that reached past the sim's own cast would draw light where the sim has none.
+const FLAME_FLICKER: float = 0.03
+# How lit the survivor's own disc of night is at least (night_light.gdshader's `eye_floor`): their
+# body and the ground at their feet, which the sim already says they see, stay readable.
+const EYE_FLOOR: float = 0.3
+
 
 # The raw ambient fraction for this world's tick -- daylight 1.0, deep night NIGHT_AMBIENT.
 #
@@ -61,11 +78,141 @@ static func local_light_fraction(world: Variant, eyes: int) -> float:
 # The night wash's alpha, and the daylight early-out that goes with it. `night_wash` is passed in
 # rather than owned here because it is a look constant of the screen that draws it (main.gd's
 # NIGHT_WASH), while the fraction it scales is a fact about the survivor.
+#
+# Since the light map (A10) the night is no longer one flat fill: this is the darkness the shader
+# lays on the survivor's own tile, before its dither, and `shown` is the curve both share.
 static func wash_alpha(world: Variant, eyes: int, night_wash: float) -> float:
 	var light: float = local_light_fraction(world, eyes)
 	if light >= 1.0:
 		return 0.0
-	return (1.0 - light) * night_wash
+	return (1.0 - shown_at_eye(ambient_of(world), light)) * night_wash
+
+
+# How lit the survivor's own tile is shown, before the pool's core: the sky as it is, never less
+# than EYE_FLOOR around the survivor's own feet, and a source's light through the curve where it
+# out-reaches the sky. night_light.gdshader's `sky_here` and `lift` at distance zero.
+static func shown_at_eye(ambient: float, fraction: float) -> float:
+	var sky: float = maxf(ambient, EYE_FLOOR)
+	if fraction > ambient:
+		return maxf(sky, shown(fraction))
+	return sky
+
+
+# The fraction of daylight sight as the screen shows it: night_light.gdshader's `shown`, the same
+# formula, so the gate can hold the two to one curve.
+static func shown(fraction: float) -> float:
+	return 1.0 - pow(1.0 - clampf(fraction, 0.0, 1.0), LIGHT_CURVE)
+
+
+# The fraction of daylight sight at a point, for the survivor `eyes`: their own sight rule
+# (SimLight.sight_metres) asked at (x, y) instead of at their feet, over their daylight range --
+# what the light map shows there before the shader measures distance to the pixel rather than to
+# the point. Where the survivor does not see the tile, no source counts and only the sky is left,
+# which is the light map's no-leak rule as a number. At the survivor's own position this is
+# `local_light_fraction` exactly.
+static func light_fraction_at(world: Variant, eyes: int, x: float, y: float) -> float:
+	var ambient: float = ambient_of(world)
+	if world == null or eyes < 0 or world.components == null:
+		return ambient
+	var obs: Variant = world.components.get_component(eyes, "observer")
+	if not (obs is Dictionary):
+		return ambient
+	var full: float = float((obs as Dictionary).get("range_metres", 0.0))
+	if not (full > 0.0):
+		return ambient
+	var seen: Variant = world.vision.tiles_for(eyes) if world.vision != null else null
+	if seen == null or not bool((seen as Object).call("has_tile", floori(x), floori(y))):
+		return ambient
+	return clampf(SimLight.sight_metres(world, obs as Dictionary, x, y) / full, 0.0, 1.0)
+
+
+# The light map's texels for the tiles in `view` (tile coordinates, clamped to the map by the
+# caller): four bytes a tile. R is 255 where the survivor sees the tile. G, B and A are one bit per
+# source, bits 0-23 in `sources` order, set where that source's own shadowcast reaches the tile
+# **and** the survivor sees it -- lit ∩ seen, the rule `lit_pool_tiles` holds, as bits a shader can
+# read. A tile the survivor does not see is four zero bytes whatever lights it, so nothing a wall
+# hides can come out the far side of the shader.
+#
+# `sources` is the light index's sources that reach a seen tile in view, brightest first and at
+# most MAX_LIGHTS; `lights` is each one's origin, reach, tint and flicker, in the same order.
+# With no observer at all every tile reads seen and no source is listed -- the wash's ambient
+# fallback, unchanged.
+static func light_texels(world: Variant, eyes: int, view: Rect2i) -> Dictionary:
+	var w: int = maxi(0, view.size.x)
+	var h: int = maxi(0, view.size.y)
+	var bytes := PackedByteArray()
+	bytes.resize(w * h * 4)
+	var sources: Array[int] = []
+	var lights: Array[Dictionary] = []
+	var out: Dictionary = {"bytes": bytes, "sources": sources, "lights": lights, "seen": 0, "lit": 0}
+	if w == 0 or h == 0 or world == null:
+		return out
+	var seen: Variant = null
+	if eyes >= 0 and world.vision != null:
+		seen = world.vision.tiles_for(eyes)
+	if seen == null:
+		for i in range(w * h):
+			bytes[i * 4] = 255
+		out["seen"] = w * h
+		return out
+	# The candidates: every source whose reach could touch the view, brightest first (ties by id,
+	# so the order never depends on a Dictionary's), and each one's cast resolved once.
+	var candidates: Array = []
+	if world.light != null:
+		for source in world.light.sources_list():
+			var id: int = int(source)
+			var origin: Variant = world.light.source_at(id)
+			var cast: Variant = world.light.tiles_for(id)
+			if not origin is Dictionary or cast == null:
+				continue
+			var reach: float = float((origin as Dictionary)["magnitude"])
+			var ox: float = float((origin as Dictionary)["x"])
+			var oy: float = float((origin as Dictionary)["y"])
+			if ox + reach < float(view.position.x) or ox - reach > float(view.end.x) or oy + reach < float(view.position.y) or oy - reach > float(view.end.y):
+				continue
+			candidates.append({"id": id, "x": ox, "y": oy, "magnitude": reach, "cast": cast, "bit": -1})
+	candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		if float(a["magnitude"]) != float(b["magnitude"]):
+			return float(a["magnitude"]) > float(b["magnitude"])
+		return int(a["id"]) < int(b["id"]))
+	if candidates.size() > MAX_LIGHTS:
+		candidates.resize(MAX_LIGHTS)
+	for i in candidates.size():
+		(candidates[i] as Dictionary)["bit"] = i
+	var seen_count: int = 0
+	var lit_count: int = 0
+	var used: int = 0
+	for ty in range(view.position.y, view.end.y):
+		for tx in range(view.position.x, view.end.x):
+			if not bool((seen as Object).call("has_tile", tx, ty)):
+				continue
+			var at: int = ((ty - view.position.y) * w + (tx - view.position.x)) * 4
+			bytes[at] = 255
+			seen_count += 1
+			var mask: int = 0
+			for c in candidates:
+				var cd: Dictionary = c as Dictionary
+				if absf(float(tx) + 0.5 - float(cd["x"])) > float(cd["magnitude"]) + 1.0 or absf(float(ty) + 0.5 - float(cd["y"])) > float(cd["magnitude"]) + 1.0:
+					continue
+				if bool((cd["cast"] as Object).call("has_tile", tx, ty)):
+					mask |= 1 << int(cd["bit"])
+			if mask != 0:
+				lit_count += 1
+				used |= mask
+				bytes[at + 1] = mask & 0xff
+				bytes[at + 2] = (mask >> 8) & 0xff
+				bytes[at + 3] = (mask >> 16) & 0xff
+	# Only the sources that reached a seen tile are handed on; the bits keep their slots, so a
+	# source that lit nothing leaves a hole the shader skips rather than a renumbering.
+	for c in candidates:
+		var cd: Dictionary = c as Dictionary
+		var id: int = int(cd["id"])
+		sources.append(id)
+		var lit_any: bool = (used >> int(cd["bit"])) & 1 == 1
+		lights.append({"entity": id, "x": float(cd["x"]), "y": float(cd["y"]), "magnitude": float(cd["magnitude"]) if lit_any else 0.0, "tint": source_tint(world, id), "flicker": source_flicker(world, id), "beam": source_beam(world, id), "facing": _facing_of(world, id)})
+	out["seen"] = seen_count
+	out["lit"] = lit_count
+	return out
 
 
 # The tiles a warm pool is painted on: **lit ∩ seen**, split into near and far by remaining reach.
@@ -231,3 +378,69 @@ static func _tick_of(world: Variant) -> int:
 	if world is Dictionary:
 		return int((world as Dictionary).get("tick", 0))
 	return int(world.tick)
+
+
+# How much a source flickers: a flame does, a bulb does not. A campfire is a flame; a lamp or a
+# torch is one when its content burns oil or burns nothing it can be fed (a candle, a flare), and
+# steady when it runs on a cell or gas. A shot's flash is a moment, not a flame. Read off the same
+# content `source_tint` reads, never off an id.
+static func source_flicker(world: Variant, source: int) -> float:
+	if world == null or world.components == null or source < 0:
+		return 0.0
+	if world.components.has_component(source, "campfire"):
+		return FLAME_FLICKER
+	var light: Variant = _source_light_block(world, source)
+	if not light is Dictionary:
+		return 0.0
+	var feed: String = String((light as Dictionary).get("feed", ""))
+	return FLAME_FLICKER if feed.is_empty() or feed == "oil" else 0.0
+
+
+# The half-angle, in radians, of the beam a source's pool is drawn as, or 0 for a round pool: the
+# content `beam` of the light a body carries, pointed where that body faces. Only a carried light
+# has a facing to point along, so a lamp planted in the yard is round whatever its content says.
+# Presentation only -- the sim lights the whole cast either way, and outside the beam the light map
+# draws it as the halo, which is less light than the sim's, never more.
+static func source_beam(world: Variant, source: int) -> float:
+	if world == null or world.components == null or source < 0:
+		return 0.0
+	if not world.components.has_component(source, "equipment") or not world.components.has_component(source, "facing"):
+		return 0.0
+	var light: Variant = _source_light_block(world, source)
+	if not light is Dictionary:
+		return 0.0
+	var beam: Variant = (light as Dictionary).get("beam")
+	if not (beam is float or beam is int) or not (float(beam) > 0.0):
+		return 0.0
+	return deg_to_rad(minf(90.0, float(beam)))
+
+
+# The content `light` block behind a source: a planted lamp's base, a loose item's own base, or the
+# brightest light a body carries -- null for a campfire (a prop, with no item behind it) and for a
+# shot's flash, which out-shines whatever the shooter carries for its few ticks and is neither a
+# flame nor a beam.
+static func _source_light_block(world: Variant, source: int) -> Variant:
+	if world.components.has_component(source, "placedLight"):
+		var planted: Variant = world.components.get_component(source, "placedLight")
+		var planted_id: String = String((planted as Dictionary).get("baseId", "")) if planted is Dictionary else ""
+		var planted_base: Dictionary = Items.content_entry(world, "item", planted_id) if not planted_id.is_empty() else {}
+		return planted_base.get("light")
+	if world.components.has_component(source, "itemBase"):
+		var item: Variant = Items.item_base_of(world, source)
+		return (item as Dictionary).get("light") if item is Dictionary else null
+	if world.components.has_component(source, "equipment"):
+		var carried: Dictionary = LightModule.brightest_carried(world, source)
+		var ranged: Variant = world.components.get_component(source, "rangedWeapon")
+		if ranged is Dictionary and int((ranged as Dictionary).get("flashTicks", 0)) > 0 and float((ranged as Dictionary).get("flash", 0.0)) >= float(carried.get("magnitude", 0.0)):
+			return null
+		var carried_item: int = int(carried.get("item", -1))
+		if carried_item >= 0:
+			var base: Variant = Items.item_base_of(world, carried_item)
+			if base is Dictionary:
+				return (base as Dictionary).get("light")
+	return null
+
+
+static func _facing_of(world: Variant, entity: int) -> float:
+	var facing: Variant = world.components.get_component(entity, "facing")
+	return float((facing as Dictionary).get("radians", 0.0)) if facing is Dictionary else 0.0

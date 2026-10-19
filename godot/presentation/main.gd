@@ -52,10 +52,20 @@ const SessionRes = preload("res://presentation/session.gd")
 const UiPrefs = preload("res://ui/prefs.gd")
 const RenderInterp = preload("res://presentation/interp.gd")
 const WorldLayersRes = preload("res://presentation/world_layers.gd")
+const LightMapRes = preload("res://presentation/light_map.gd")
 
 const TICK_HZ: int = 20
 const TICK_SECONDS: float = 1.0 / 20.0
-const NIGHT_WASH: float = 0.8
+# How far toward the night's colour a pixel with nothing but the sky to see by goes, before the
+# curve (LightLook.shown) lifts it back by whatever sight it has. Raised from 0.8 with the light
+# map (A10): the night is darker, and the pools are what carry it.
+const NIGHT_WASH: float = 0.94
+# How much darker the edge of sight is than the dark inside it, by day and by night: the remembered
+# map and the void sit back behind what the survivor sees now, and the light map feathers into it
+# over the last half tile rather than stepping at the tile edge. By night almost all the way, so
+# the edge of sight is the edge of the picture.
+const SIGHT_EDGE_DARK_DAY: float = 0.25
+const SIGHT_EDGE_DARK_NIGHT: float = 0.95
 # The small memory dot at the end of `_draw_entities` used to fade over its own three-second
 # clock; it now fades over `SimSightings.RECENT_TICKS`, the sim's own "worth mentioning, not worth
 # trusting" band, so the mark on screen and a colonist's decision to still be wary are the same
@@ -252,6 +262,8 @@ var _fx_drawn: Array[Dictionary] = []
 # item. Every draw call in _draw_district's helpers goes through `_pen`, which is the whole of how
 # one body of drawing code serves both.
 var _layers: RefCounted = WorldLayersRes.new()
+# The night, per pixel, and the glow over it (presentation/light_map.gd).
+var _light_map: RefCounted = LightMapRes.new()
 var _pen: Object = null
 # Which of a tile's looks a _draw_district pass bakes; the values are world_layers.gd's Layer ids.
 enum BakePass { LIVE = 0, A2 = 1, REMEMBERED = 2 }
@@ -398,6 +410,7 @@ func _on_world_replaced() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_PREDELETE:
 		_layers.call("detach")
+		_light_map.call("detach")
 	elif what == 413: # NOTIFICATION_RESIZED
 		_resize_camera()
 		queue_redraw()
@@ -2402,17 +2415,16 @@ func _is_solid_at(tx: int, ty: int) -> bool:
 # The set of tiles is light_look.gd's, so the no-leak rule is one function with a gate on it
 # rather than a condition repeated in a draw loop.
 #
-# Over the floor and under the bodies: the pool is light landing on the ground, so a body standing
-# in one is drawn on top of it rather than tinted by it -- the entity pass owns what a body looks
-# like, and this may not reach into that.
+# Since the light map (A10) this is the O key's developer channel only. What a player sees of a
+# pool is the light map's per-pixel night (`_draw_night_wash`), soft-edged and measured to the
+# pixel; these are the same lit-and-seen tiles as flat rects, near and far, which is what a
+# developer checking the light index wants and what the street should never look like.
+#
+# Over the floor and under the bodies, so the channel reads as light on the ground.
 func _draw_light_pools() -> void:
 	if world == null: return
 	var overlay: bool = attention_channel == "light"
-	# At noon a lamp changes nothing about what anyone can see -- sight_metres caps at the
-	# observer's own range -- so an ordinary frame paints no pools at all in full daylight, and
-	# the warm look belongs to dusk, night and dawn. The O channel is a developer overlay reading
-	# the light index directly and draws them regardless, which is the whole point of it.
-	if not overlay and LightLook.ambient_of(world) >= 1.0: return
+	if not overlay: return
 	var bounds: Dictionary = TopDownProjection.visible_bounds(camera, 2.0)
 	var pools: Dictionary = LightLook.lit_pool_tiles(world, int(world.player), bounds)
 	for group_value in (pools["coloured"] as Dictionary).values():
@@ -3212,19 +3224,71 @@ func _shadow_ellipse(cx: float, cy: float, a: float, b: float) -> PackedVector2A
 # one is, where it goes and whether the player sees it is FxLook's; this only blits, turning a
 # flash by the draw call's own `transpose` and signed rect the way a held weapon turns, never by a
 # transform.
+#
+# The lights land in the light map's glow item rather than in this item's own commands: the night
+# is a child item multiplied over everything this one draws, so a flash drawn here would be dimmed
+# by it however late in `_draw` it came.
 func _draw_effects(glow: bool) -> void:
 	if world == null: return
 	for fx in _fx.call("draws", world, camera, glow) as Array[Dictionary]:
-		draw_texture_rect(fx["texture"] as Texture2D, fx["rect"] as Rect2, false, Color.WHITE, bool(fx["transpose"]))
+		if glow:
+			_light_map.call("glow_rect", fx["texture"] as Texture2D, fx["rect"] as Rect2, bool(fx["transpose"]))
+		else:
+			draw_texture_rect(fx["texture"] as Texture2D, fx["rect"] as Rect2, false, Color.WHITE, bool(fx["transpose"]))
 		_fx_drawn.append({"key": String(fx["key"]), "frame": int(fx["frame"])})
 
-# The night, over everything but the lights (`_draw_effects(true)` above). The alpha is derived
-# from the *same number the survivor's range is* -- light_look.gd's sight-derived fraction, not raw
-# ambient -- so the screen and the simulation cannot drift apart. Standing in a lit pool visibly
-# lifts the wash, and it lifts it because the range genuinely grew (docs/30). With nobody to ask,
-# the fraction falls back to ambient, which is what this always was.
+# The night, over everything but the lights (`_draw_effects(true)` below). Since the light map
+# (plan item A10) it is per pixel rather than one flat fill: every pixel shows the *same rule the
+# survivor's range is* -- SimLight.sight_metres, asked where the pixel is instead of at the
+# survivor's feet, through LightLook.shown -- so a pool is bright where the sim sees far and fades
+# exactly as the remaining reach does, and the survivor's own tile is LightLook.wash_alpha. Light
+# lands only on tiles lit *and* seen (LightLook.light_texels, the bits the shader reads), feathered
+# over the last half tile so a wall's shadow and the edge of sight are soft without ever crossing
+# onto a tile the survivor does not see. With nobody to ask, the sky alone, as before.
+#
+# In full daylight the only thing left to draw is the edge of sight, so the rect still draws; the
+# multiply leaves every seen pixel exactly as it was.
 func _draw_night_wash() -> void:
-	var a: float = LightLook.wash_alpha(world, int(world.player), NIGHT_WASH)
-	if a <= 0.0: return
+	_light_map.call("attach", get_canvas_item())
+	_light_map.call("begin_frame")
+	var eyes: int = int(world.player)
+	var bounds: Dictionary = TopDownProjection.visible_bounds(camera, 2.0)
+	var map_w: int = int(world.map_width)
+	var map_h: int = int(world.map_height)
+	var min_x: int = maxi(0, floori(float(bounds["minX"])))
+	var max_x: int = mini(map_w - 1, ceili(float(bounds["maxX"])))
+	var min_y: int = maxi(0, floori(float(bounds["minY"])))
+	var max_y: int = mini(map_h - 1, ceili(float(bounds["maxY"])))
+	var view := Rect2i(min_x, min_y, maxi(0, max_x - min_x + 1), maxi(0, max_y - min_y + 1))
+	var texels: Dictionary = LightLook.light_texels(world, eyes, view)
+	# A carried light rides the body, and the body is drawn between ticks (presentation/interp.gd);
+	# its pool slides with the picture so it never trails it by a tick.
+	var lights: Array = []
+	var sub_tick: float = _sub_tick()
+	for l in texels["lights"] as Array:
+		var light: Dictionary = (l as Dictionary).duplicate()
+		var slide: Vector2 = _interp.offset(world, int(light["entity"]), sub_tick)
+		light["x"] = float(light["x"]) + slide.x
+		light["y"] = float(light["y"]) + slide.y
+		if float(light.get("beam", 0.0)) > 0.0:
+			light["facing"] = _interp.facing(int(light["entity"]), float(light["facing"]), sub_tick)
+		lights.append(light)
+	var range_m: float = 0.0
+	var obs: Variant = world.components.get_component(eyes, "observer") if eyes >= 0 else null
+	if obs is Dictionary:
+		range_m = float((obs as Dictionary).get("range_metres", 0.0))
+	var origin: Dictionary = TopDownProjection.world_to_screen(camera, 0.0, 0.0)
 	var night: Color = Palette.COLOURS["night"] as Color
-	draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Color(night.r, night.g, night.b, a))
+	var ctx: Dictionary = {
+		"viewport": get_viewport_rect().size, "zoom": float(camera["zoom"]),
+		"origin": Vector2(float(origin["sx"]), float(origin["sy"])), "view": view,
+		"texels": texels, "lights": lights, "ambient": LightLook.ambient_of(world),
+		"range_m": range_m if range_m > 0.0 else 1.0, "night": night,
+		"night_wash": NIGHT_WASH,
+		"edge_dark_day": SIGHT_EDGE_DARK_DAY, "edge_dark_night": SIGHT_EDGE_DARK_NIGHT,
+	}
+	var eye_pos: Variant = world.components.get_component(eyes, "position") if range_m > 0.0 else null
+	if eye_pos is Dictionary:
+		var eye_slide: Vector2 = _interp.offset(world, eyes, sub_tick)
+		ctx["eye"] = Vector2(float((eye_pos as Dictionary)["x"]) + eye_slide.x, float((eye_pos as Dictionary)["y"]) + eye_slide.y)
+	_light_map.call("frame", ctx, true)
