@@ -160,7 +160,7 @@ npm run godot:run    # Godot — the game (also: godot:editor)
 
 If setup reports that it cannot link the engine onto `PATH`, set `GODOT_BIN` to the executable
 it prints before running the Godot commands. A headless machine also needs a display for play
-or screenshots; see [environment setup](CLAUDE.md#running-the-game-gui).
+or screenshots; see [environment setup](docs/34-agents-and-environment.md#running-the-game-gui).
 
 ## Controls
 
@@ -237,7 +237,7 @@ status. Milestones close on their exit criterion, never on a feature count.
 ## Working on it?
 
 **`CLAUDE.md` is the one entry point** — what the project is, how to start, the standing bans, how
-to verify a change, the traps, the environment, the owner's open decisions ([Waiting on the owner](CLAUDE.md#waiting-on-the-owner)),
+to verify a change, the traps, the environment, the owner's open decisions ([Waiting on the owner](docs/33-owner-decisions.md#waiting-on-the-owner)),
 and the [routing table](CLAUDE.md#routing-table): by kind of work and by system, what to read first, where the code
 lives, and which gate judges it, checked by `npm run check:routing` so it cannot drift.
 [docs/23-roadmap.md](docs/23-roadmap.md) owns product scope, milestone order, risks, playtest

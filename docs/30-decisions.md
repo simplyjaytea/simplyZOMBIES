@@ -5575,19 +5575,14 @@ measured with `godot:m2:balance` before and after.
 character turns to follow, as in Project Zomboid. This is the owner's answer to the aiming question, and it
 replaces the plan's four-view-body default. It is not built.
 
-**Blood and bullet decals persist, for everything.** The owner asked for blood and decals on everything, not
-only on what the player saw. That runs against the scarce-information rule in CLAUDE.md's standing bans if a
-decal can show an event through a wall. So the working reading is: a decal persists, and it is drawn only on
-a tile the player can see now. The owner has been asked to confirm that reading.
+**Blood and bullet decals persist, for everything, and follow the normal visibility rules.** Every bleed, hit and shot leaves a decal, whether or not the player saw it happen. Decals are drawn under the same visibility and fog rules as any other world detail, so none shows through a wall. This is the owner's "everything" read with the scarce-information rule (CLAUDE.md, standing bans) kept intact. The orchestrator set this reading on 2026-10-19, and the decision card was closed on it.
 
 **The inventory keeps the grid and gets a full bespoke redesign.** The owner likes the grid, finds it plain
 and close to a Tarkov-style layout, and asked for a redesign that looks unique and bespoke. The work belongs
 to the UI overhaul group (docs/32, which lands with the UI overhaul PR). Whether a list view sits beside the grid is not
 decided.
 
-**HANDOFF.md and AGENTS.md are retired into CLAUDE.md.** The owner asked for one file. The owner-decision
-list is now under Waiting on the owner, and the routing table is under Routing table. Both old files are
-gone, and `scripts/check-routing.mjs` reads CLAUDE.md. Old "HANDOFF item N" citations keep their numbers.
+**HANDOFF.md and AGENTS.md are retired.** The owner asked for one file. The owner-decision list moved to [docs/33-owner-decisions.md](33-owner-decisions.md), so CLAUDE.md stays short. The routing table stays in CLAUDE.md, and `scripts/check-routing.mjs` reads it there. Old "HANDOFF item N" citations keep their numbers.
 
 **Gates per commit: the touched gates locally, the full chain in CI.** The owner left this to the
 orchestrator ("whatever you think is best"), and the orchestrator chose it. CI's `godot-m2` job already runs

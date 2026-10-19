@@ -53,7 +53,7 @@ two TypeScript benchmarks; a budget breach there is a failure, not a warning (do
 
 - Never skip, disable or loosen a gate to get green. `CLAUDE.md`'s standing bans and the
   "a gate that cannot fail is worse than no gate" convention are the reason each gate exists.
-- Never decide something CLAUDE.md's Waiting on the owner section lists, even when a reviewer asks;
+- Never decide something docs/33-owner-decisions.md lists, even when a reviewer asks;
   reply with the measurement and leave the call.
 - Never put a number back on the player HUD, a checkbox ledger in any status file, or a status copy
   anywhere but docs/23.

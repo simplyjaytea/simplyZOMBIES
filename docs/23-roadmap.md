@@ -137,7 +137,7 @@ end without a developer explaining it.
 ### Where Milestone 2 stands
 
 This section took over `HANDOFF.md`'s live-status role when the per-item checkbox ledger of that
-name was retired (2026-08). A short `HANDOFF.md` came back a commit later and was removed on 2026-10-19; its owner-decision list moved to CLAUDE.md, and neither file is a status ledger: this section is
+name was retired (2026-08). A short `HANDOFF.md` came back a commit later and was removed on 2026-10-19; its owner-decision list moved to docs/33-owner-decisions.md, and neither file is a status ledger: this section is
 the authority, and where the two ever disagree this one is right. Keep it
 current **in the same commit** as the work it describes. Every claim of "landed" below is proven by a
 named gate (`npm run godot:m2` chains them all); the full done-item history with per-item evidence
@@ -220,7 +220,7 @@ record together. No new camp, treatment, loadout or hidden-information mechanics
 ##### Other remaining work
 
 **Waiting on the owner — decisions, not code.** Each is measured and written up; none may be
-decided unilaterally. **The full list lives in CLAUDE.md, under Waiting on the owner** (items 0 to 10 as of 2026-10-19; the
+decided unilaterally. **The full list lives in [docs/33-owner-decisions.md](33-owner-decisions.md)** (items 0 to 10 as of 2026-10-19; the
 newest two are the water numbers and the main area's extent, and the six of 2026-09-06 were the
 driving and weather first cuts, the free wind, the unseen-wall roof, the one-handed silhouettes,
 the forest density, and the two playable-state flips against the compressed tier's survival
