@@ -22,6 +22,9 @@ const SimVisibility = preload("res://sim/vision/visibility.gd")
 const SimShadowcast = preload("res://sim/vision/shadowcast.gd")
 const SimPath = preload("res://sim/path.gd")
 const Clock = preload("res://sim/time/clock.gd")
+const SimAllegiance = preload("res://sim/modules/allegiance.gd")
+const SimShambler = preload("res://sim/modules/shambler.gd")
+const SimSightings = preload("res://sim/modules/sightings.gd")
 
 const FIXTURE: Dictionary = {"seed": 71, "tick_hz": 20, "map": {"width": 16, "height": 16, "walls": []}, "player": {"id": 0, "x": 8.5, "y": 8.5, "stance": 2}, "rng_probe": {"stream": "test", "samples": 0}}
 
@@ -41,8 +44,11 @@ func _run() -> void:
 	ok = _the_dead_keep_a_view_a_tile_off_through_a_change_they_cannot_see() and ok
 	ok = _the_heap_plans_the_paths_the_scan_planned() and ok
 	ok = _the_inlined_cast_sees_what_blocks_sight_says() and ok
+	ok = _near_enemies_are_the_enemies_that_are_near() and ok
+	ok = _the_people_tables_are_the_people() and ok
+	ok = _outside_the_square_nothing_is_seen() and ok
 	if ok:
-		print("M2_TICK_OK content-agree content-follows content-reader map-log door-cells view-stands dead-keep path cast")
+		print("M2_TICK_OK content-agree content-follows content-reader map-log door-cells view-stands dead-keep path cast enemies people square")
 		quit(0)
 	else:
 		push_error("M2_TICK_FAIL")
@@ -572,4 +578,186 @@ func _the_inlined_cast_sees_what_blocks_sight_says() -> bool:
 		return _fail("CAST", "beside the opened door the cast disagrees with blocks_sight")
 	if opened.cells == shut_cells:
 		return _fail("CAST", "opening a door changed nothing seen from beside it, so overlays were never judged")
+	return true
+
+
+# --- slice 4: the scans every AI made of the whole district ----------------------------------------
+
+# The district two hundred ticks in, so the dead have moved off their spawn points and the
+# colonists off theirs: the shapes the fast paths are judged on are the ones a running game has.
+func _stepped_world() -> Variant:
+	var w: Variant = SimBoot.playable()["world"]
+	for i in 200:
+		w.step()
+	return w
+
+
+# The body of `static func <name>(` in `path`, comment lines dropped, so a needle a comment can
+# satisfy cannot pass the reader check (CLAUDE.md's dead-socket pattern: a textual assertion has to
+# be able to fail). Empty when the function is gone, which every caller reads as red.
+func _body_of(path: String, fn_name: String) -> String:
+	var text: String = FileAccess.get_file_as_string(path)
+	var at: int = text.find("static func %s(" % fn_name)
+	if at < 0:
+		return ""
+	var out: PackedStringArray = PackedStringArray()
+	var first: bool = true
+	for line in text.substr(at).split("\n"):
+		if not first and (line.begins_with("static func ") or line.begins_with("func ")):
+			break
+		first = false
+		if line.strip_edges().begins_with("#"):
+			continue
+		out.append(line)
+	return "\n".join(out)
+
+
+func _positioned(w: Variant, e: int) -> Vector2:
+	var p: Dictionary = w.components.get_component(e, "position") as Dictionary
+	return Vector2(float(p["x"]), float(p["y"]))
+
+
+# `enemies_within` is `enemies_of` filtered by the same `<=` the two callers apply after it: the
+# same ids in the same order, for every person and every zombie on the district at three reaches.
+# The negatives: the filter has to drop someone (or the lane judged a district where everyone is
+# near everyone), keep someone, and agree on a body standing exactly on the boundary.
+func _near_enemies_are_the_enemies_that_are_near() -> bool:
+	var w: Variant = _stepped_world()
+	var askers: Array[int] = []
+	for e in w.components.query(["body", "position"]):
+		if SimAllegiance.is_person(w, int(e)) or w.components.has_component(int(e), "shambler"):
+			askers.append(int(e))
+	if askers.size() < 20:
+		return _fail("ENEMIES", "only %d people and zombies on the district; the lane has too little to judge" % askers.size())
+	var dropped: int = 0
+	var kept: int = 0
+	for e in askers:
+		var here: Vector2 = _positioned(w, e)
+		for metres in [3.0, 12.0, 40.0]:
+			var all: Array[int] = SimAllegiance.enemies_of(w, e)
+			var want: Array[int] = []
+			for o in all:
+				if here.distance_squared_to(_positioned(w, o)) <= float(metres) * float(metres):
+					want.append(o)
+			var got: Array[int] = SimAllegiance.enemies_within(w, e, float(metres))
+			if got != want:
+				return _fail("ENEMIES", "entity %d at %.0f m: enemies_within gave %s where enemies_of filtered gives %s" % [e, metres, str(got), str(want)])
+			dropped += all.size() - want.size()
+			kept += want.size()
+	if dropped == 0:
+		return _fail("ENEMIES", "no enemy was ever out of reach, so the distance filter was never judged")
+	if kept == 0:
+		return _fail("ENEMIES", "no enemy was ever in reach, so the lane judged only empty lists")
+	# The boundary: a colonist and a zombie put exactly five metres apart (a 3-4-5 on whole metres,
+	# so the square is exact). Inside at 5, outside at a hair under.
+	var person: int = -1
+	var dead: int = -1
+	for e in askers:
+		if person < 0 and w.components.has_component(e, "controlled"):
+			person = e
+	for e in askers:
+		if person >= 0 and dead < 0 and w.components.has_component(e, "shambler") and SimAllegiance.hostile(w, person, e):
+			dead = e
+	if person < 0 or dead < 0:
+		return _fail("ENEMIES", "no player and hostile zombie to stand on the boundary")
+	var pp: Dictionary = w.components.get_component(person, "position") as Dictionary
+	var dp: Dictionary = w.components.get_component(dead, "position") as Dictionary
+	pp["x"] = 40.0
+	pp["y"] = 40.0
+	dp["x"] = 43.0
+	dp["y"] = 44.0
+	if not SimAllegiance.enemies_within(w, person, 5.0).has(dead):
+		return _fail("ENEMIES", "a zombie exactly five metres off is not within five metres")
+	if SimAllegiance.enemies_within(w, person, 4.999).has(dead):
+		return _fail("ENEMIES", "a zombie five metres off is within 4.999")
+	for spot in [["npc_combat.gd", "_nearest_threat"], ["raiders.gd", "_enemy_within"]]:
+		var body: String = _body_of("res://sim/modules/%s" % spot[0], spot[1])
+		if body.find("enemies_within(") < 0 or body.find("enemies_of(") >= 0:
+			return _fail("ENEMIES", "%s.%s does not ask enemies_within (or still asks enemies_of)" % [spot[0], spot[1]])
+	return true
+
+
+# `_people_with_position` is every positioned entity `is_person` accepts, in id order: on the
+# district as it stands, and after a body that was not a person is given each marker in turn (the
+# true negative for a marker the table walk forgot). And `PERSON_MARKERS` is exactly the markers
+# `is_person` reads, so a fourth one added to the test alone is red here.
+func _the_people_tables_are_the_people() -> bool:
+	var w: Variant = _stepped_world()
+	var spare: Array[int] = []
+	for e in w.components.query(["position"]):
+		if not SimAllegiance.is_person(w, int(e)) and not w.components.has_component(int(e), "body"):
+			spare.append(int(e))
+	if spare.size() < SimAllegiance.PERSON_MARKERS.size():
+		return _fail("PEOPLE", "only %d positioned things that are not people; the lane cannot hand each marker to one" % spare.size())
+	for step_i in SimAllegiance.PERSON_MARKERS.size() + 1:
+		if step_i > 0:
+			w.components.set_component(spare[step_i - 1], SimAllegiance.PERSON_MARKERS[step_i - 1], {})
+		var want: Array[int] = []
+		var others: int = 0
+		for e in w.components.query(["position"]):
+			if SimAllegiance.is_person(w, int(e)):
+				want.append(int(e))
+			else:
+				others += 1
+		var got: Array[int] = SimShambler._people_with_position(w)
+		if got != want:
+			return _fail("PEOPLE", "round %d: the marker tables gave %s where the is_person scan gives %s" % [step_i, str(got), str(want)])
+		if step_i == 0 and (want.size() < 3 or others == 0):
+			return _fail("PEOPLE", "%d people among %d other positioned things; the scan had nothing to skip or nobody to find" % [want.size(), others])
+		if step_i > 0 and not got.has(spare[step_i - 1]):
+			return _fail("PEOPLE", "a body given %s did not become a person" % SimAllegiance.PERSON_MARKERS[step_i - 1])
+	var markers: Array[String] = []
+	var rx := RegEx.new()
+	rx.compile("has_component\\(entity, \"(\\w+)\"\\)")
+	for m in rx.search_all(_body_of("res://sim/modules/allegiance.gd", "is_person")):
+		markers.append(m.get_string(1))
+	var listed: Array[String] = SimAllegiance.PERSON_MARKERS.duplicate()
+	markers.sort()
+	listed.sort()
+	if markers.is_empty() or markers != listed:
+		return _fail("PEOPLE", "is_person reads %s but PERSON_MARKERS lists %s" % [str(markers), str(listed)])
+	if _body_of("res://sim/modules/shambler.gd", "_gather_survivors").find("_people_with_position(") < 0:
+		return _fail("PEOPLE", "_gather_survivors does not walk _people_with_position")
+	return true
+
+
+# The sightings prefilter skips only what `detail` would have answered Unseen: for every observer
+# and every positioned thing, outside the square means unseen. The negatives: some targets are
+# outside a square (or the prefilter skipped nothing), some inside are seen (or the implication was
+# judged on a blind district), and the square's own edge falls on the tile `has_tile` stops at.
+func _outside_the_square_nothing_is_seen() -> bool:
+	var probe := SimShadowcast.VisibleTiles.new()
+	probe.reset(10, 10, 5)
+	for edge in [[15.5, 10.5, true], [16.5, 10.5, false], [5.5, 10.5, true], [4.99, 10.5, false], [10.5, 15.99, true], [10.5, 16.0, false]]:
+		if SimSightings._in_square(probe, float(edge[0]), float(edge[1])) != bool(edge[2]):
+			return _fail("SQUARE", "(%.2f, %.2f) against a 5-tile square on (10, 10) read %s" % [edge[0], edge[1], str(not bool(edge[2]))])
+	if SimSightings._in_square(null, 10.5, 10.5):
+		return _fail("SQUARE", "an observer with no view has a square")
+	var w: Variant = _stepped_world()
+	var outside: int = 0
+	var seen: int = 0
+	var observers: int = 0
+	for ob in w.components.query(["sightings", "observer", "position"]):
+		var tiles: Variant = w.vision.tiles_for(int(ob))
+		if tiles == null:
+			continue
+		observers += 1
+		for e in w.components.query(["position"]):
+			var at: Vector2 = _positioned(w, int(e))
+			var unseen: bool = int(w.vision.detail(int(ob), at.x, at.y)) == 0
+			if not SimSightings._in_square(tiles, at.x, at.y):
+				outside += 1
+				if not unseen:
+					return _fail("SQUARE", "observer %d sees entity %d at (%.1f, %.1f), outside its square" % [ob, e, at.x, at.y])
+			elif not unseen:
+				seen += 1
+	if observers < 3:
+		return _fail("SQUARE", "only %d observers with a view; the lane has too little to judge" % observers)
+	if outside == 0:
+		return _fail("SQUARE", "nothing was ever outside a square, so the prefilter skipped nothing")
+	if seen == 0:
+		return _fail("SQUARE", "nothing inside a square was ever seen, so the lane judged a blind district")
+	for fn_name in ["_observe_one", "_observe_containers"]:
+		if _body_of("res://sim/modules/sightings.gd", fn_name).find("_in_square(") < 0:
+			return _fail("SQUARE", "%s does not ask _in_square" % fn_name)
 	return true

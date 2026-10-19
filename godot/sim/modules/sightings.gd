@@ -40,6 +40,7 @@ extends RefCounted
 # everything else in this file.
 
 const SimHealth = preload("res://sim/modules/health.gd")
+const SimTileMapRes = preload("res://sim/map/tilemap.gd")
 
 # Two minutes at 20 Hz. Past this a sighting is not stale, it is gone -- the prose says nothing
 # and `recall` refuses, so nothing downstream can act on a memory the survivor no longer has.
@@ -151,6 +152,20 @@ static func observe(world: Variant) -> void:
 		_merge_explored(world, int(ent))
 
 
+# Whether (x, y) falls inside this observer's shadowcast square at all. `detail` answers Unseen for
+# every tile outside it, so a target out here needs no `detail` call -- and a district holds about a
+# hundred bodies and fifty cupboards against six observers whose squares cover a fraction of it
+# (A3's fourth slice). No view at all is no square: `detail` is Unseen everywhere then too.
+static func _in_square(tiles: Variant, x: float, y: float) -> bool:
+	if tiles == null:
+		return false
+	var r: int = int(tiles.range_tiles)
+	# The tile `detail` itself asks `has_tile` about.
+	var tx: int = floori(x / float(SimTileMapRes.TILE_METRES))
+	var ty: int = floori(y / float(SimTileMapRes.TILE_METRES))
+	return absi(tx - int(tiles.origin_x)) <= r and absi(ty - int(tiles.origin_y)) <= r
+
+
 static func _kind_of(world: Variant, entity: int) -> String:
 	if world.components.has_component(entity, "shambler"):
 		return "zombie"
@@ -169,6 +184,7 @@ static func _observe_containers(world: Variant, observer: int, boxes: Array) -> 
 	if not (comp as Dictionary).has("containers"):
 		(comp as Dictionary)["containers"] = []
 	var known: Array = (comp as Dictionary)["containers"] as Array
+	var square: Variant = world.vision.tiles_for(observer)
 	for box in boxes:
 		var s: Variant = world.components.get_component(int(box), "searchable")
 		if not s is Dictionary:
@@ -181,6 +197,8 @@ static func _observe_containers(world: Variant, observer: int, boxes: Array) -> 
 			continue
 		var x: float = float((there as Dictionary)["x"])
 		var y: float = float((there as Dictionary)["y"])
+		if not _in_square(square, x, y):
+			continue
 		# 0 is `SimVisibility.Detail.Unseen`; the literal because this module cannot name that
 		# class at parse time (the shambler reads it the same way, `== 0`).
 		if int(world.vision.call("detail", observer, x, y)) == 0:
@@ -209,6 +227,7 @@ static func _observe_one(world: Variant, observer: int, candidates: Array) -> vo
 		return
 	var seen: Array = (comp as Dictionary)["seen"] as Array
 	var tick: int = int(world.tick)
+	var square: Variant = world.vision.tiles_for(observer)
 	for other in candidates:
 		if int(other) == observer:
 			continue
@@ -217,6 +236,8 @@ static func _observe_one(world: Variant, observer: int, candidates: Array) -> vo
 			continue
 		var x: float = float((there as Dictionary)["x"])
 		var y: float = float((there as Dictionary)["y"])
+		if not _in_square(square, x, y):
+			continue
 		# `detail`, not `line_of_sight` -- the same fix `_observe_containers` above already made,
 		# and docs/23's defect list named this call as the one spot that hadn't (2026-09-16). A
 		# survivor's field of view is a focal/peripheral cone, not the raw 360-degree shadowcast:

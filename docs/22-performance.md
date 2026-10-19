@@ -370,6 +370,7 @@ deleted afterwards.
 | 1. Content entries by id | 2026-10-19 | 24.41 ms | 319.35 ms | `SimItems._content_get` walked every file in the tree per lookup |
 | 2. The map-change spike | 2026-10-19 | 24.78 ms | 68.13 ms | a door swing rebuilt every solidity cell, recast every observer and re-planned with a linear A* |
 | 3. The shadowcast inlined | 2026-10-19 | 21.70 ms | 47.59 ms | four calls and a Dictionary per tile and per frame |
+| 4. The whole-district scans | 2026-10-19 | 19.40 ms | 37.11 ms | every AI asked about every body on the map, then kept the near ones |
 
 **Slice 1, content entries by id.** `SimItems._content_get` found an entry by walking every value
 in the flat content tree until one carried the id. `item_base_of` runs about a hundred times a
@@ -415,6 +416,17 @@ clears with `fill`. Visibility fell from 3.7 to 2.2 ms mean and its worst from 1
 `DEAD_KEEP_VIEW` off the 3,000-tick hash still matches `main`. This run and the slices after it
 were measured with gates running on the other cores, so treat each mean as within a millisecond
 or so.
+
+**Slice 4, the whole-district scans.** Three systems asked a question of every body on the
+district and then threw most of the answers away. Every armed NPC and raider asked
+`SimAllegiance.enemies_of` (a `hostile` test on each of the hundred bodies) and only then kept the
+ones in reach; `enemies_within` asks the distance first and returns the same ids in the same
+order. The shambler pass tested all 340-odd positioned things, every item on the ground among
+them, against the three person markers; `_people_with_position` walks the three markers' own
+tables. Sightings asked `detail` of every body and cupboard for every observer, though a target
+outside the observer's shadowcast square is Unseen by construction; `_in_square` skips those
+first. NPC combat fell from 2.7 to 1.1 ms, the shambler pass from 5.3 to 4.4 and sightings from
+3.4 to 2.6. No outcome moves: the 3,000-tick hash with `DEAD_KEEP_VIEW` off still matches `main`.
 
 ### Remaining milestone evidence
 
