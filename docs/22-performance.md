@@ -373,6 +373,7 @@ deleted afterwards.
 | 4. The whole-district scans | 2026-10-19 | 19.40 ms | 37.11 ms | every AI asked about every body on the map, then kept the near ones |
 | 5. The component query memo | 2026-10-19 | 17.02 ms | 35.77 ms | a hundred `components.query` calls a tick rebuilt the same sorted intersection |
 | 6. What each body paid every tick | 2026-10-19 | 13.68 ms | 36.89 ms | each observer re-read every position, every colonist walked every zombie, every zombie re-read the sky |
+| 7. The cast's rows and the hour | 2026-10-19 | 13.49 ms | 32.67 ms | the shadowcast resolved its quadrant per tile, every observer re-read the hour, a dormant zombie resolved a speed it never used |
 
 **Slice 1, content entries by id.** `SimItems._content_get` found an entry by walking every value
 in the flat content tree until one carried the id. `item_base_of` runs about a hundred times a
@@ -450,6 +451,16 @@ the sky's speed and sight multipliers once a tick instead of once a body. Measur
 of three runs interleaved with slice 5 on a busier machine: slice 5 17.77 / 50.39 ms, slice 6
 13.68 / 36.89; the worst tick is the noisiest number here. The 3,000-tick hash with
 `DEAD_KEEP_VIEW` off still matches `main`.
+
+**Slice 7, the cast's rows and the hour.** The shadowcast now resolves each row's fixed axis,
+bounds test and index steps once per row instead of choosing a quadrant per tile, and its two
+row-limit divisions are inlined; inside the range circle a tile is inside the square, so the cell
+write needs no bounds test. `SimVisibility.refresh` reads the hour's ambient factor once for every
+observer. The shambler pass resolves a body's seek speed only in the three arms that move it, so
+the fifth of the district lying dormant no longer pays for it. A smaller step than the slices
+before it: slice 6 13.77 / 34.60 ms against slice 7 13.49 / 32.67, median of three interleaved,
+within the bench's noise on its own. The 3,000-tick hash with `DEAD_KEEP_VIEW` off still matches
+`main`.
 
 ### Remaining milestone evidence
 

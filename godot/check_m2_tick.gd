@@ -58,8 +58,10 @@ func _run() -> void:
 	ok = _the_claw_check_asks_distance_first_and_answers_the_same() and ok
 	ok = _the_sky_read_once_is_the_sky_read_per_body() and ok
 	ok = _each_observer_handed_its_square_sees_what_it_saw() and ok
+	ok = _the_hour_read_once_is_the_hour_read_per_observer() and ok
+	ok = _every_arm_that_moves_a_body_reads_its_speed() and ok
 	if ok:
-		print("M2_TICK_OK content-agree content-follows content-reader map-log door-cells view-stands dead-keep path cast enemies people square query care claw sky observe")
+		print("M2_TICK_OK content-agree content-follows content-reader map-log door-cells view-stands dead-keep path cast enemies people square query care claw sky observe ambient seek")
 		quit(0)
 	else:
 		push_error("M2_TICK_FAIL")
@@ -1079,4 +1081,94 @@ func _each_observer_handed_its_square_sees_what_it_saw() -> bool:
 		return _fail("OBSERVE", "observe does not hand each observer _in_bounds")
 	if not seen_any or not found_any or not outside:
 		return _fail("OBSERVE", "seen %s, found %s, anybody outside a square %s; the lane judged an empty case" % [str(seen_any), str(found_any), str(outside)])
+	return true
+
+
+# --- slice 7: the cast's rows, the hour, and the speed nobody asked for --------------------------
+
+# The sight reaches `refresh` builds, with the hour's ambient factor handed in or read per observer,
+# equal the clock-and-lamps formula they were before, for every observer at every half hour of the day; at least two hours have to
+# differ (or a constant would pass), and `refresh` has to read the hour and hand it on.
+func _the_hour_read_once_is_the_hour_read_per_observer() -> bool:
+	var w: Variant = SimBoot.playable()["world"]
+	w.step()
+	var vis: Variant = w.vision
+	var distinct: Dictionary = {}
+	var checked: int = 0
+	for hour in 48:
+		w.tick = int(Clock.DAY_TICKS) * 2 + hour * int(Clock.DAY_TICKS) / 48
+		var k: float = Clock.ambient_light_at(int(w.tick))
+		distinct[k] = true
+		vis.refresh(w, w.tilemap, 1.0)
+		for ob in w.components.query(["position", "observer"]):
+			var obs: Dictionary = w.components.get_component(ob, "observer") as Dictionary
+			var at: Vector2 = _positioned(w, ob)
+			# The two reaches as they were written before slice 7, from the clock and the lamps.
+			var range_m: float = float(obs["range_metres"])
+			var ambient_ref: float = range_m * Clock.ambient_light_at(int(w.tick))
+			var lit: float = float(w.light.lit_metres(at.x, at.y)) if w.light != null else 0.0
+			var sight_ref: float = min(range_m, max(ambient_ref, lit))
+			for got in [vis._sight_metres(w, obs, at.x, at.y), vis._sight_metres(w, obs, at.x, at.y, k)]:
+				if got != sight_ref:
+					return _fail("AMBIENT", "hour %d, observer %d: a sight reach of %.4f where the clock and the lamps give %.4f" % [hour, ob, got, sight_ref])
+			for got in [vis._ambient_metres(w, obs), vis._ambient_metres(w, obs, k)]:
+				if got != ambient_ref:
+					return _fail("AMBIENT", "hour %d, observer %d: an ambient reach of %.4f where the clock gives %.4f" % [hour, ob, got, ambient_ref])
+			# And what `refresh` itself built from the hour it read once.
+			var metres: float = ambient_ref if bool(obs.get("lit_target", false)) else sight_ref
+			if float((vis._views[ob] as Dictionary)["range_squared"]) != metres * metres:
+				return _fail("AMBIENT", "hour %d, observer %d: refresh built a reach of %.4f where the hour gives %.4f" % [hour, ob, sqrt(float((vis._views[ob] as Dictionary)["range_squared"])), metres])
+			checked += 1
+	if distinct.size() < 4 or checked == 0:
+		return _fail("AMBIENT", "%d distinct ambient factors over %d checks; the lane judged a constant" % [distinct.size(), checked])
+	var text: String = FileAccess.get_file_as_string("res://sim/vision/visibility.gd")
+	var at_fn: int = text.find("func refresh(")
+	var end_fn: int = text.find("\nfunc ", at_fn + 1)
+	var body: String = text.substr(at_fn, end_fn - at_fn)
+	if body.find("Clock.ambient_light_at(") < 0 or body.find("_sight_metres(world, obs as Dictionary, float((pos as Dictionary)[\"x\"]), float((pos as Dictionary)[\"y\"]), ambient_k)") < 0 or body.find("_ambient_metres(world, obs as Dictionary, ambient_k)") < 0:
+		return _fail("AMBIENT", "refresh does not read the hour once and hand it to both reaches")
+	return true
+
+
+# The think pass reads a body's seek speed only in the arms that move it, so every such arm has to
+# set it: a zombie put in each of Pursue, Seek and Wander with a person at arm's length is chased
+# at exactly `_speed_of`'s seek speed by one run of the think pass alone, and a dormant one does
+# not move.
+func _every_arm_that_moves_a_body_reads_its_speed() -> bool:
+	var w: Variant = _stepped_world()
+	var think: Callable
+	for sys in w.systems.ordered():
+		if String((sys as Dictionary)["id"]) == "shambler.think":
+			think = (sys as Dictionary)["runner"] as Callable
+	if not think.is_valid():
+		return _fail("SEEK", "no shambler.think system to run")
+	var people: Array[int] = SimShambler._people_with_position(w)
+	var z: int = -1
+	for e in w.components.query(["shambler", "position", "velocity"]):
+		if not w.components.has_component(e, "grabState"):
+			z = e
+			break
+	if people.is_empty() or z < 0:
+		return _fail("SEEK", "no person or free zombie on the stepped district")
+	var sd: Dictionary = w.components.get_component(z, "shambler") as Dictionary
+	var zp: Dictionary = w.components.get_component(z, "position") as Dictionary
+	var pp: Dictionary = w.components.get_component(people[0], "position") as Dictionary
+	var vd: Dictionary = w.components.get_component(z, "velocity") as Dictionary
+	var states: Dictionary = SimShambler.ShamblerState
+	for name in ["Pursue", "Seek", "Wander", "Dormant"]:
+		zp["x"] = 60.5
+		zp["y"] = 60.5
+		pp["x"] = 61.1
+		pp["y"] = 60.5
+		sd["state"] = int(states[name])
+		sd["ticksToGrab"] = 1000
+		vd["dx"] = 0.0
+		vd["dy"] = 0.0
+		var want: float = 0.0 if name == "Dormant" else SimShambler._speed_of(w, z, sd, "seekSpeed")
+		think.call(w)
+		var got: float = sqrt(float(vd["dx"]) * float(vd["dx"]) + float(vd["dy"]) * float(vd["dy"]))
+		if absf(got - want) > 1e-9:
+			return _fail("SEEK", "a %s zombie beside a person moved at %.4f m/s where its seek speed is %.4f" % [name, got, want])
+		if name != "Dormant" and want <= 0.0:
+			return _fail("SEEK", "a %s zombie has no seek speed to judge" % name)
 	return true
