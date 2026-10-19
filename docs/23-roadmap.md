@@ -1929,6 +1929,16 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **UI — the small fixes of alpha A22, 2026-10-19.** O cycles off and light. The noise, scent and
+  sight channels were never drawn (`godot:check:light`'s O-key rider), so they are dropped rather
+  than drawn; drawing them is a later slice if the owner wants it. M, the raw developer sheets, and
+  F8, the spawn menu, act only in a debug build: the router guards M the way it guards F8, the HUD
+  names M only in a debug build, and the legend lists neither. `godot:check:play`'s SOCKET lane
+  checks both guards in source, and its KEYS lane excuses M by name in UNLISTED. The guards are read
+  from source, so the gate proves the check is in front of the key, not how a release binary
+  behaves. A waiting recruit in reach offers "turn them away", which sends them through the sim's own
+  `recruit.ignore`; `godot:check:context`'s DECLINE lane proves the row is offered in reach, absent
+  out of reach and for a body that is not waiting, and that dispatching it removes the recruit.
 - **UI — the work grid draws only the columns something does, 2026-10-19 (alpha A15).**
   `ui/work_panel.gd`'s `shown_columns` draws the twelve job columns that have a consumer
   (`SimJobs.CONSUMERS`), in the sim's order, and no others: the six stubs (Firefight, Hunt, Farm,
