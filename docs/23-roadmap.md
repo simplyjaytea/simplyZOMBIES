@@ -2571,6 +2571,52 @@ not a to-do list:
   variation; a later polish pass can refine foot contact and stabilize those details. No new
   zombie kind, spawn mix, wearable asset or corpse interaction is introduced.
 
+- **Art & renderer — window glass as art, 2026-10-19.** Alpha plan item A11's fourth and last
+  family. A window on a wall's cap was two `draw_rect` calls in `main.gd::_draw_window_glass`, a
+  pane and a two-pixel rim; it is now two pictures per shape, drawn by `glass.py` under
+  `godot/art/simplyzombies/glass/` at exactly the rects' geometry (a 24×8 pane east-west, 8×24
+  north-south, 12×12 square, centred on the tile): the pane with a shadow under the lintel, a
+  duller sill and a lit streak either side of a mullion; the frame lit along its top, shaded
+  along its bottom, with the pack's near-black outline outside it. Both are greys, sourced in
+  `authored.json` as kind `tile`, and the renderer tints them by the two colours the rects were
+  (`col.lightened(0.28)` for the pane, `Palette.COLOURS["windowRim"]` for the frame), so night,
+  weather and a boarded window's stage reach them unchanged. The pane's body grey is 246, so the
+  glass sits within a few percent of the flat rect's brightness.
+
+  The keys are content: the street dressing's `faces` block gains `glass`, a map of
+  `pane_<shape>` and `frame_<shape>` for `ew`, `ns` and `square`, read through the new
+  `Dressing.glass_keys(block, shape)` (an empty answer for no glass, an unknown shape or half a
+  pair). `_draw_window_glass` picks the shape as it always did, draws the pair when both resolve,
+  and keeps the rects as the fallback. `dressing.schema.json`'s `faces` description names the
+  new map; the shallow validator and Ajv both accept it as an object.
+
+  **Gated:** `godot:check:topdown` (→ `TOPDOWN_OK`) gains GLASS: the shipped dressing names a pane
+  and frame for each shape; every pane's drawn pixels bound exactly the rect it replaced and every
+  frame's that rect grown by two; every pixel is a grey (channels within `GLASS_GREY_SPREAD`, the
+  outline's 4), so the tint stays the renderer's. Its true negatives: a pane a pixel low, a blue
+  pane, `glass_keys` over no glass, an unknown shape and half a pair. Reach is textual, as the
+  WALL lane's is, over the body with comments stripped whole-line **and** trailing: the
+  `glass_keys` call, both tinted `draw_texture_rect` calls, and the rect fallback after them; a
+  body naming the calls only in comments is refused, and a `#` inside a string is not taken for
+  one. `godot:check:weather` still finds `windowRim` in `_draw_window_glass`, and
+  `godot:check:topdown`'s WALL lane still finds `_draw_window_glass(rect, tx, ty, col)` in
+  `_draw_district`. `godot:check:authored` READS finds the six keys through the `faces` map;
+  `godot:check:roof` (`ROOF_LOOK_OK`) is unchanged, its LOOK and MOOD lanes reading only the three
+  opening keys. `sprites:check`: 51 generated keys, 413 sourced.
+
+  **Sabotage, red and restored:** the pane draw left behind a trailing comment
+  (`pass  # draw_texture_rect(pane_art, ...)`), which the first cut of the stripper let through
+  and the second refuses ("does not reach draw_texture_rect(pane_art, rect, false, glass)"); the
+  east-west frame pointed at the pane picture ("covers [P: (4, 12), S: (24, 8)], not
+  [P: (2, 10), S: (28, 12)]").
+
+  **Seen:** the camp hall's north wall at noon before and after, one window at 3×, and the six
+  grey pictures at 6×, in `.hermes/plans/2026-10-19_glass/`.
+
+  **What it leaves:** a window in a south face still draws the face's own window picture
+  (`faces.window`), not this glass; a broken or boarded window is still only the tint, with no
+  picture of its own.
+
 - **Art & renderer — the well, the latrine and the campfire, 2026-10-19.** Alpha plan item
   A11's third family. The four station pictures `tools/sprites/parts/props.py` generated (a
   stone ring for the fire, cold and lit, a ring for the well, a grey box for the latrine) become

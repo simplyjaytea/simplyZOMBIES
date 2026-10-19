@@ -528,6 +528,11 @@ and would eat them).
   under `godot/art/simplyzombies/stations/` since 2026-10-19 and padded onto the 32×32 tile
   (`source.pad`, kind `tile`), so `_draw_prop` centres them like the crates. Their content `size`
   is the art's width over 32, which `check_appearance.gd`'s PROPS lane holds.
+- `glass_{pane,frame}_{ew,ns,square}` are a window's glass on a wall's cap since 2026-10-19:
+  greys drawn by `godot/art/simplyzombies/glass/glass.py` at the rects' old geometry, named by the
+  street dressing's `faces.glass` and tinted by `main.gd::_draw_window_glass` (the pane by the
+  window tile's colour lightened 0.28, the frame by `windowRim`). `check_topdown.gd`'s GLASS lane
+  holds the geometry, the greys and the draw.
 - `heap_bags` (32×22), `heap_barrel` (24×30) and `heap_pallets` (32×30) are what a Low tile no
   parked car covers draws, out of the dressing block's `heaps` list (`Dressing.heap_key`, a hash
   per tile). `_draw_heap` hangs them at their own size inside the tile; `check_wrecks.gd`'s HEAP

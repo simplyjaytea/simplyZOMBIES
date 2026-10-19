@@ -17,11 +17,20 @@ const Appearance = preload("res://presentation/appearance.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimSurface = preload("res://sim/map/surface.gd")
 const SimBoot = preload("res://sim/boot.gd")
+const Dressing = preload("res://presentation/dressing.gd")
 
 const ZOOMS: Array[float] = [16.0, 32.0, 64.0, 128.0]
 const EPS: float = 0.000001
 const MAIN_GD: String = "res://presentation/main.gd"
 const APPEARANCE_GD: String = "res://presentation/appearance.gd"
+const STREET_DRESSING: String = "res://content/dressing/street.json"
+# GLASS: the pane the two rects drew, in 32-px art pixels -- a long side three quarters of the
+# tile and a short side a quarter, or a square one and a half short sides, centred. The pictures
+# are held to it, so the art replaced the rects without moving a window.
+const GLASS_PANES: Dictionary = {"ew": Rect2i(4, 12, 24, 8), "ns": Rect2i(12, 4, 8, 24), "square": Rect2i(10, 10, 12, 12)}
+# How far a glass picture's channels may spread and still be a grey the renderer tints: the pack's
+# near-black outline, (16, 14, 12), is the widest.
+const GLASS_GREY_SPREAD: int = 4
 
 func _init() -> void:
 	call_deferred("_run")
@@ -36,12 +45,13 @@ func _run() -> void:
 	ok = _buildings_read_as_buildings() and ok
 	ok = _props_reach_the_draw_path() and ok
 	ok = _built_mass_is_thin_and_still_solid() and ok
+	ok = _windows_are_glass_art() and ok
 	ok = _bodies_face_by_flipping() and ok
 	ok = _bodies_turn_and_walk() and ok
 	ok = _bodies_scale_with_the_zoom() and ok
 	ok = _a_still_body_is_not_glimpsed() and ok
 	if ok:
-		print("TOPDOWN_OK axes aligned, round-trip exact, depth is y, bounds are the AABB, ground tinted from the map, interiors and doorways drawn, props resolved from content, built mass capped and faced, nobody rotates and a face-on body flips, the pack's bodies turn four ways and walk on the tick, bodies scale with the zoom, a still body is not glimpsed")
+		print("TOPDOWN_OK axes aligned, round-trip exact, depth is y, bounds are the AABB, ground tinted from the map, interiors and doorways drawn, props resolved from content, built mass capped and faced, windows drawn as tinted glass pictures, nobody rotates and a face-on body flips, the pack's bodies turn four ways and walk on the tick, bodies scale with the zoom, a still body is not glimpsed")
 		quit(0)
 	else:
 		push_error("TOPDOWN_FAIL")
@@ -455,6 +465,127 @@ func _built_mass_is_thin_and_still_solid() -> bool:
 		return false
 	print("WALL OK cap -%.2f, faces +%.2f/+%.2f over a %.2f-tile band, lit margin +%.3f (>= %.2f), dim margin +%.3f (>= %.2f), brightest generator ground %.3f; against the pack's ground (brightest %.3f) the lit face clears by %+.3f and the shaded by %+.3f, the walls slice's to answer" % [Palette.WALL_CAP_DARKEN, Palette.WALL_FACE_LIT, Palette.WALL_FACE_DIM, Palette.WALL_FACE_SHARE, _luma(lit) - brightest, FACE_LIT_MARGIN, _luma(dim) - brightest, FACE_DIM_MARGIN, brightest, pack_brightest, _luma(lit) - pack_brightest, _luma(dim) - pack_brightest])
 	return true
+
+
+# GLASS: a window's pane and rim are pictures since 2026-10-19 (docs/23, "Window glass as art"),
+# named by the street dressing's `faces.glass` and drawn by `_draw_window_glass` tinted with the two
+# colours the rects were. The pictures sit exactly on the rects' geometry and stay grey, so the
+# tint still carries the night, the weather and a boarded window's stage; the draw reaches them
+# through Dressing.glass_keys and keeps the rects as the fallback. Textual for the draw, as the
+# wall lane above is, because a draw pass cannot be run headless.
+func _windows_are_glass_art() -> bool:
+	var block: Variant = JSON.parse_string(_file_text(STREET_DRESSING))
+	if not (block is Dictionary):
+		push_error("GLASS: %s did not parse; the lane had nothing to judge" % STREET_DRESSING)
+		return false
+	for shape in Dressing.GLASS_SHAPES:
+		var keys: Array[String] = Dressing.glass_keys(block as Dictionary, shape)
+		if keys.size() != 2:
+			push_error("GLASS: the street dressing names no pane and frame for a %s window" % shape)
+			return false
+		var want: Rect2i = GLASS_PANES[shape] as Rect2i
+		var pane_tex: Texture2D = Appearance.resolve(keys[0])
+		var frame_tex: Texture2D = Appearance.resolve(keys[1])
+		if pane_tex == null or frame_tex == null:
+			push_error("GLASS: %s or %s resolves no picture" % [keys[0], keys[1]])
+			return false
+		var pane_fault: String = _glass_faults(pane_tex.get_image(), want)
+		var frame_fault: String = _glass_faults(frame_tex.get_image(), want.grow(2))
+		if not pane_fault.is_empty() or not frame_fault.is_empty():
+			push_error("GLASS: %s %s; %s %s" % [keys[0], pane_fault, keys[1], frame_fault])
+			return false
+
+	# The predicate, both ways: a grey pane on the ew rect passes, the same pane one pixel low and
+	# the same pane tinted blue are each refused.
+	var good: Image = _glass_fixture(GLASS_PANES["ew"] as Rect2i, Color(0.9, 0.9, 0.9))
+	if not _glass_faults(good, GLASS_PANES["ew"] as Rect2i).is_empty():
+		push_error("GLASS: the predicate refused a grey pane on the rect; it would refuse the real ones")
+		return false
+	var low: Image = _glass_fixture((GLASS_PANES["ew"] as Rect2i).grow_individual(0, -1, 0, 1), Color(0.9, 0.9, 0.9))
+	var blue: Image = _glass_fixture(GLASS_PANES["ew"] as Rect2i, Color(0.6, 0.8, 0.95))
+	if _glass_faults(low, GLASS_PANES["ew"] as Rect2i).is_empty() or _glass_faults(blue, GLASS_PANES["ew"] as Rect2i).is_empty():
+		push_error("GLASS: the predicate accepted a pane off the rect or a coloured one; it proves nothing")
+		return false
+	# The helper, both ways: no glass, an unknown shape and half a pair each give nothing.
+	var half: Dictionary = {"faces": {"glass": {"pane_ew": "glass_pane_ew"}}}
+	if not Dressing.glass_keys({}, "ew").is_empty() or not Dressing.glass_keys(block as Dictionary, "diagonal").is_empty() or not Dressing.glass_keys(half, "ew").is_empty():
+		push_error("GLASS: glass_keys answered a block with no glass, an unknown shape or half a pair")
+		return false
+
+	# Reach: comments stripped, so a sentence about the call cannot stand in for it.
+	var body: String = _code_only(_function_body(MAIN_GD, "_draw_window_glass"))
+	var needles: Array[String] = [
+		"Dressing.glass_keys(_dressing(), shape)",
+		"draw_texture_rect(pane_art, rect, false, glass)",
+		"draw_texture_rect(frame_art, rect, false, Palette.COLOURS[\"windowRim\"])",
+		"draw_rect(pane, glass)",
+	]
+	var missing: String = _needles_missing(body, needles)
+	if not missing.is_empty():
+		push_error("GLASS: _draw_window_glass does not reach %s" % missing)
+		return false
+	if body.find("draw_texture_rect(pane_art") > body.find("draw_rect(pane, glass)"):
+		push_error("GLASS: _draw_window_glass draws the rects before the pictures; the art would never be the first choice")
+		return false
+	var commented: String = _code_only("\t# Dressing.glass_keys(_dressing(), shape)\n\tpass  # draw_texture_rect(pane_art, rect, false, glass)\n\tdraw_texture_rect(frame_art, rect, false, Palette.COLOURS[\"windowRim\"])\n\tdraw_rect(pane, glass)\n")
+	if _needles_missing(commented, needles).is_empty():
+		push_error("GLASS: a body naming the calls only in a comment, whole-line or trailing, passed the reach check")
+		return false
+	if not _code_only("\tvar c: Color = Color(\"#ff0000\")  # red\n").contains("Color(\"#ff0000\")"):
+		push_error("GLASS: the comment stripper cut a `#` inside a string")
+		return false
+	print("GLASS OK the street dressing names a pane and a frame for each of %d window shapes, each a grey picture on the rect the renderer drew (the frame two pixels outside it); a pane off the rect, a coloured pane, no glass, an unknown shape and half a pair are refused; _draw_window_glass tints them with the pane colour and windowRim through glass_keys, before the rects it keeps as the fallback, and a comment, whole-line or trailing, cannot stand in for the call" % Dressing.GLASS_SHAPES.size())
+	return true
+
+
+# What is wrong with one glass picture against the box it must fill, or empty: its pixels above
+# alpha 0 bound exactly `want`, and every one is a grey (channels within GLASS_GREY_SPREAD).
+func _glass_faults(image: Image, want: Rect2i) -> String:
+	var lo := Vector2i(image.get_width(), image.get_height())
+	var hi := Vector2i(-1, -1)
+	for y in image.get_height():
+		for x in image.get_width():
+			var c: Color = image.get_pixel(x, y)
+			if c.a8 == 0:
+				continue
+			if maxi(c.r8, maxi(c.g8, c.b8)) - mini(c.r8, mini(c.g8, c.b8)) > GLASS_GREY_SPREAD:
+				return "has a coloured pixel at (%d, %d); the tint is the renderer's" % [x, y]
+			lo = Vector2i(mini(lo.x, x), mini(lo.y, y))
+			hi = Vector2i(maxi(hi.x, x), maxi(hi.y, y))
+	var got := Rect2i(lo, hi - lo + Vector2i.ONE)
+	if hi.x < 0 or got != want:
+		return "covers %s, not %s" % [str(got), str(want)]
+	return ""
+
+
+func _glass_fixture(box: Rect2i, col: Color) -> Image:
+	var image := Image.create(32, 32, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0, 0, 0, 0))
+	image.fill_rect(box, col)
+	return image
+
+
+# A function body with its comments removed, whole-line and trailing alike: everything from a `#`
+# outside a string literal to the end of its line.
+func _code_only(body: String) -> String:
+	var out: String = ""
+	for line in body.split("\n"):
+		var quote: String = ""
+		var cut: int = line.length()
+		for i in line.length():
+			var ch: String = line[i]
+			if not quote.is_empty():
+				if ch == quote and (i == 0 or line[i - 1] != "\\"):
+					quote = ""
+			elif ch == "\"" or ch == "'":
+				quote = ch
+			elif ch == "#":
+				cut = i
+				break
+		var code: String = line.substr(0, cut)
+		if not code.strip_edges().is_empty():
+			out += code + "\n"
+	return out
 
 
 # Every floor a wall can stand beside, for one ground table: each surface, each again as an
