@@ -35,7 +35,7 @@ extends RefCounted
 #     entity.killed         the fall the dead body plays before its settled picture (`fall_of`)
 #   held states, from components the sim keeps (`act`):
 #     swing.state           WindUp holds the guard; the change to Recover throws the strike
-#     rangedWeapon.state    Reload and Clearing loop the reload
+#     rangedWeapon.state    Reload and Clearing play the reload (the pistol's or the long gun's)
 #     posture.current       Crouch and Crawl are the crouch and prone stances
 #
 # Times are presentation seconds (`begin_draw`'s `now`), so an action stops on pause and quickens
@@ -63,6 +63,8 @@ const FIRE_RELOAD: int = 4
 const FIRE_CLEARING: int = 5
 const STANCE_CRAWL: int = 0
 const STANCE_CROUCH: int = 1
+# A hold past any reload's last frame: Appearance.action_index clamps it to the last one.
+const RELOAD_HOLD: int = 999
 
 # id -> {"x", "y", "cycle", "idle", "seen"}: one record per body drawn last frame.
 var _bodies: Dictionary = {}
@@ -241,6 +243,12 @@ func from_events(world: Variant, drained: Array, now: float) -> void:
 					_acts.erase(dead)
 
 
+# appearance.gd preloads this file, so it is loaded here when first needed rather than preloaded:
+# a preload cycle is a parse error in GDScript (sim/modules/items.gd's attachments is the precedent).
+static func _appearance() -> GDScript:
+	return load("res://presentation/appearance.gd") as GDScript
+
+
 static func _is_zombie(world: Variant, id: int) -> bool:
 	return id >= 0 and world.components.has_component(id, "shambler")
 
@@ -267,7 +275,9 @@ func act(id: int, world: Variant, key: String, view: String) -> Dictionary:
 		out.merge({"action": "swing", "t": 0.0, "start": 0, "hold": 0})
 		return out
 	if int(held["fire"]) == FIRE_RELOAD or int(held["fire"]) == FIRE_CLEARING:
-		out.merge({"action": "reload", "t": _time - float(held["at_fire"]), "start": 0, "hold": -1})
+		# Played once from the state's start and held on its last beat, the stance, for as long as
+		# the sim's reload lasts; the pistol's or the long gun's by what the body holds.
+		out.merge({"action": _appearance().reload_action(world, id), "t": _time - float(held["at_fire"]), "start": 0, "hold": RELOAD_HOLD})
 		return out
 	var one: Variant = _acts.get(id)
 	if one is Dictionary:

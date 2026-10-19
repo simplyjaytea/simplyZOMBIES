@@ -61,6 +61,14 @@ moves per action and view):
 - the **crawl** is the back view's walk turned a quarter flat (`turn_flat`), drawn only east and
   west, and declares no hands: a body lying down carries no layer.
 
+**The reloads are drawn arm by arm** (`reload_frames`, `RELOAD_BEATS`): eight beats, a forearm
+cut out of the rest view and set down sheared from the shoulder (`ARMS` names each view's arms),
+so the hand point and the weapon on it travel with real pixels. The magazine is a 2x3 block in
+the body's own outline and dark-cloth colours. Side on, the far hand is behind the body until it
+comes round under the weapon, drawn then as the near hand's own pixels (`HAND_STAMP`). The
+pistol's is worked at the grip; the long gun's (`reload_long`) at the well `LONG_WELL` pixels
+along.
+
 Each frame declares `head`, `torso` and (on the survivor) `hands`, where the move took them, so
 worn and held layers follow by the same contract as the walk. `godot:check:action` holds the
 catalogue, the timing and the colours (a derived frame carries only its source's colours).
