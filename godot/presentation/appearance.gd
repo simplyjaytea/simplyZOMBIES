@@ -44,16 +44,13 @@ const PLAYER_LOOK_ID: String = "player.body"
 # rows of headroom for a helmet or a spear tip. Its blit height is 1.25 x zoom, an integer on
 # every rung of the ladder (20/40/80/160). The 32x48 canvas of 2026-09-03 held a 1.3-tile figure;
 # it was superseded, not resized -- every rig was re-authored on a shorter published skeleton.
-# The two generated bodies the outpost pack does not supply are authored on it (PAWN_KEYS);
-# tools/sprites/build.py carries the mirror list, because Python cannot read GDScript. The outpost
-# pack's four-direction bodies and wearables stand on it too, cropped from the pack's 32x48 on its
-# own anchor row, but they are declared in authored.json rather than named here -- one key, one
-# tier. Since "The bodies turn and walk" (2026-09-26) the generated rigs are the screamer and the
-# bloater only, and since "Pack gear on the body" the same day nothing else generated is drawn on a
-# body either: the 43 face-on equip overlays and the three fitted-part pictures were deleted with
-# their generator (docs/30, "The whole outpost pack").
+# No generated body is drawn on it any more: the outpost pack's four-direction bodies and
+# wearables, and the zombie pose families, stand on it, cropped or cut on their own anchor row and
+# declared in authored.json -- one key, one tier. The last generated rigs, the face-on screamer
+# and bloater, joined the pose families on 2026-10-19 (zombie study 02); the list that named them
+# here, PAWN_KEYS, went with them, as the 43 face-on equip overlays had on 2026-09-26 (docs/30,
+# "The whole outpost pack").
 const PAWN_CANVAS: Vector2i = Vector2i(int(CameraUtil.ART_NATIVE), int(CameraUtil.ART_NATIVE) * 5 / 4)
-const PAWN_KEYS: Array[String] = ["zombie_screamer", "zombie_bloater"]
 
 # Where a picture hangs on its entity's ground point. A square canvas is a tile-sized thing seen
 # from above and centres on the point; anything else is a standing picture and stands on it --
@@ -488,7 +485,7 @@ static func authored_canvases() -> Dictionary:
 
 
 # Every declared authored key of kind `rig` -- a commissioned body, on the pawn skeleton, that
-# `PAWN_KEYS` deliberately does not name because one key belongs to one tier. Sorted, so a caller
+# no rule in `canvas_of` places, because one key belongs to one tier. Sorted, so a caller
 # iterating it gets the same order every run and a gate's message does not depend on dictionary
 # order. Empty until the first commissioned body, which is what makes the three gates that read it
 # say so and skip rather than pass quietly on nothing.
@@ -510,8 +507,6 @@ static func canvas_of(key: String) -> Vector2i:
 	# The ground atlas was placed by a rule here until 2026-09-27; it is authored now, and the
 	# declaration above answers its canvas (192x256: two variants and four fringes across, eight
 	# rows down).
-	if PAWN_KEYS.has(key):
-		return PAWN_CANVAS
 	var vehicle: Vector2i = vehicle_canvas(key)
 	if vehicle != Vector2i.ZERO:
 		return vehicle
@@ -953,9 +948,10 @@ static func body_rect(sx: float, sy: float, size: Vector2, flip: float) -> Rect2
 # of straight up or down, as painted (+1.0) otherwise -- north, south and east all draw the one
 # picture. A flip is a two-state readout of a continuous heading, which is why the indicator
 # line draws for every body: the picture can never say more than "east or west", and the line
-# carries the exact facing. Since "The bodies turn and walk" (2026-09-26) only the face-on
-# generated rigs -- the screamer and the bloater -- are asked this; a body that turns draws its own
-# west view and never flips (`flip_for`, below). The peripheral-anonymity
+# carries the exact facing. Since the screamer and the bloater joined the pose families
+# (2026-10-19) no shipped body is face-on, so this is the fallback for a body whose key names no
+# family -- gates reach it on a probe name; a body that turns draws its own west view and never
+# flips (`flip_for`, below). The peripheral-anonymity
 # clause is unharmed because a glimpsed body never reaches the blit -- it draws as the anonymous
 # disc and the loop moves on before facing is read.
 static func body_flip(facing: float) -> float:
@@ -970,8 +966,8 @@ static func body_flip(facing: float) -> float:
 # 1): every human draws on the outpost pack's survivor and the shambler on the pack's shambler,
 # four views and a four-frame walk each way, and the pack's vest, helmet, gas mask and backpack
 # are four views each. A body that turns is never mirrored -- the pack draws its own west view --
-# so `body_flip` above is left to the two generated rigs that still face the camera, the screamer
-# and the bloater. Which pictures a family has is authored.json's to say, by the member names its
+# so `body_flip` above is left to a body that names no family -- none ships since the screamer and
+# the bloater joined the pose families on 2026-10-19. Which pictures a family has is authored.json's to say, by the member names its
 # note fixes; nothing here knows the word "survivor".
 
 # The four views in the order a quarter turn walks them on a y-down screen: east at 0, south at a
@@ -1033,7 +1029,7 @@ static func walk_frame(tick: int, fps: int, frames: int, phase: int) -> int:
 
 
 # The one picture a body draws: the member of its family for this view, walking or standing, or
-# the key itself for anything that does not turn (the generated screamer and bloater).
+# the key itself for anything that does not turn (no shipped body since 2026-10-19).
 static func frame_key(key: String, view: String, moving_now: bool, tick: int, phase: int) -> String:
 	if not turns(key):
 		return key

@@ -377,6 +377,13 @@ and the two ochre road lines (drawn north-south only, and a road runs both ways)
 
 ## The pawn — upright, face-on, flipped
 
+**Historical since 2026-10-19: no shipped body uses this convention.** Humans wear the outpost
+pack's four-direction body and every zombie, the screamer and the bloater included since zombie
+study 02, is a four-direction pose family under `godot/art/simplyzombies/zombie-poses/`. The
+face-on path survives in `presentation/appearance.gd` only as the fallback for a single-picture
+key, and `check_authored.gd` still holds a commissioned `rig` to the bounds below. Read the code,
+not this section, for what ships.
+
 Every rig on the roster — player, colonists, zombies, raiders — is one family: a standing
 figure seen face-on, drawn once and mirrored rather than turned.
 `tools/sprites/parts/characters.py` holds the eight rigs and the one `_figure` assembler every
@@ -626,7 +633,7 @@ Eight slots: `legs`, `torso`, `vest`, `back`, `primary`, `secondary`, `face`, `h
 Add the key to the content entry, not to any script:
 
 ```json
-{ "id": "zombie.screamer", "appearance": { "sprite": "zombie_screamer" } }
+{ "id": "zombie.screamer", "appearance": { "sprite": "body_zombie_screamer" } }
 ```
 
 `presentation/appearance.gd` resolves the key; `npm run godot:check:appearance` fails the build if

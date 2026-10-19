@@ -521,7 +521,9 @@ become y-sorted modules standing on a run's south edge; and sockets land now for
 east-west vehicles and the cursor, with held weapons, utilities, decals and the six status icons
 named for the report rather than built.
 The shared shambler picture was superseded by the seven-family zombie set on 2026-10-02
-("Zombies turn, walk and fall" in the record); the outpost survivor and equipment remain.
+("Zombies turn, walk and fall" in the record); the outpost survivor and equipment remain. The
+screamer and the bloater stopped being generated rigs on 2026-10-19 ("Zombie study 02" in the
+record), so no shipped body is generated or face-on any more.
 The tier tooling — a `source` `build.py` can reproduce, a `members` family, and the READS lane
 accepting any declarer — landed the same day, proved on the two containers (see the record). The
 pieces below are in the order they land, each one session, each with its gate red both ways and
@@ -1271,6 +1273,14 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   `map` and **named it there in a comment** rather than dropping it inside a slice about menus:
   the drawing reaches the same map through `world.tilemap`, so either deleting it or giving it the
   reader it was presumably meant to have is a decision of its own.
+- **A fifth, left by zombie study 02 (2026-10-19): the face-on body path.** With the screamer and
+  the bloater moved onto pose families, every shipped body `turns()`, so `Appearance`'s face-on
+  branch -- one picture a body, `body_flip`'s negative width facing west -- is reached by no
+  content. It is kept on purpose as the fallback for a single-picture body key (a commissioned
+  `rig`, which `check_authored.gd`'s SPEC lane still holds to the published bounds), and
+  `check_topdown.gd`, `check_worn.gd` and `check_appearance.gd` judge it on the probe key
+  `probe_face_on_body` rather than on shipped art. Deleting it, or the first commissioned rig
+  giving it a reader, is its own decision.
 - ~~**`repair_cost` is a stat nothing resolves.**~~ **Fixed 2026-09-13** (`godot:m2:upkeep`,
   REPAIR-COST; the record's "repair cost is read" entry under Survivors). The honest reader was
   never the scrap — repair still spends one whole unit, as the 2026-09-06 reasoning said it must —
@@ -2560,6 +2570,44 @@ not a to-do list:
   Generated motion retains 1–3 native pixels of pose-height and incidental clothing-detail
   variation; a later polish pass can refine foot contact and stabilize those details. No new
   zombie kind, spawn mix, wearable asset or corpse interaction is introduced.
+
+- **Art & renderer — zombie study 02: the screamer and the bloater, 2026-10-19.** Alpha plan
+  item A11's first family. The last two generated, face-on, flipped rigs become pose families
+  beside study 01's seven, at its geometry: the screamer at 32×40 and 5 fps, the bloater broad at
+  40×48 and 4 fps, each with four idle views, a four-frame walk each way and a supine and a prone
+  corpse (48×40 and 56×40) — **40 living and 4 corpse PNGs**. Painted over study 01 families that
+  already walk (the commuter, the heavy), then one img2img pass over each whole 5×4 atlas so the
+  twenty frames are one character, then cut mechanically (`study-02/extract.py`). The corpses are
+  the paint-over guides as drawn; every generated corpse pass blurred the outline and lost the
+  head and is kept under `sources/rejected-*` with its prompt in `study-02/prompts.json`. Content
+  names `body_zombie_screamer` / `body_zombie_bloater` and their `corpseSprites`; the bloater keeps
+  its variance tints.
+
+  **Retired, by the standing rule:** `zombie_screamer.png`, `zombie_bloater.png`, every rig
+  function, `_figure` and `REGISTRY` in `tools/sprites/parts/characters.py` (which keeps only the
+  published skeleton `guide.py` draws), `PAWN_KEYS` in both `build.py` and `appearance.gd`; both
+  keys are on `RETIRED_KEYS`. The face-on path itself stays as a fallback with no shipped reader,
+  named in what's left's dead-socket list.
+
+  **Gated:** `godot:check:authored` ZOMBIE_POSES now judges **9 rigs and 22 corpses** (sizes,
+  anchors, rates, grounded soles, real silhouette motion) and READS finds both families named by
+  content; SPEC, INTERIOR, TONES and HIGHLIGHT have no generated rig left to judge and say SKIP,
+  while their negatives now fabricate from the screamer's last generated picture kept as
+  `godot/test/fixtures/generated_rig_screamer.png`, so they can still say no. TIER's true negative
+  moved to a north-south car, the one family `canvas_of` still places by rule.
+  `godot:check:zombie_art` CONTENT/MOTION/CORPSES take **nine** families (180 pictures, 36 loops,
+  18 settled poses); `godot:check:topdown` TURN turns **10** bodies; `godot:check:worn` SHARED
+  counts **10** body families and RETIRED proves the old pair resolves nothing.
+  `sprites:check`: 94 generated keys, 367 sourced. `npm test` 594/594. `npm run godot:m2`: 84 of 85
+  gates green (the chain stopped at worldgen; the 16 after it were then run one by one, all
+  green). `godot:check:worldgen` failed only its own time budget, 103.9 s against 90 s, and failed
+  it the same way on the unchanged base (102.7 s) on this container; the art touches nothing it
+  boots, so that is the machine, and CI's `godot-m2` job is the judge.
+  Before/after captures of the real scene, and both families beside the study 01 family they
+  were painted over, are in `.hermes/plans/2026-10-19_zombie-study-02/`.
+
+  **First cut,** like study 01: no attack, hit, death-transition or rising states; the scream and
+  the burst have no animation of their own.
 
 - **Art & renderer — the condition chart, furnishings, stove icon and source colours,
   2026-10-03.** Four bounded slices close the exploded body chart, the remaining four furnishings,

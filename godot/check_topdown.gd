@@ -470,9 +470,9 @@ func _wall_grounds(surfaces: Array[Color], indoor: Color, paved: Color) -> Array
 
 # Nobody rotates, and a face-on body flips.
 #
-# Since "The bodies turn and walk" (2026-09-26) the face-on bodies are the two generated rigs the
-# outpost pack does not draw, the screamer and the bloater; every human and the shambler draw the
-# pack's own four views and never flip, which TURN below owns. What this lane still says of the
+# Since the screamer and the bloater joined the pose families (2026-10-19) no shipped body is
+# face-on: every human and every zombie draws its own four views and never flips, which TURN below
+# owns, and the flip maths here is the fallback for a body whose key names no family. What this lane still says of the
 # loop -- no transform anywhere in it, the disc bails before the blit -- holds for every body.
 #
 # docs/30's Dungeon Settlers decision (2026-09-03) reverses "only the player rotates": every rig
@@ -554,21 +554,15 @@ func _bodies_face_by_flipping() -> bool:
 		push_error("body_rect(100, 100, (64, 80), +1) is %s, not Rect2(68, 23, 64, 80)" % str(at64))
 		return false
 
-	# Every pawn key resolves a picture on the pawn canvas: a rig left at the old tile size would
-	# stand on the shadow line half a tile short and check_appearance's canvas lanes would say
-	# so, but this is the assertion that the roster is pawns, not merely that files are sized.
+	# Every commissioned rig resolves a picture on the pawn canvas: a rig left at the old tile size
+	# would stand on the shadow line half a tile short. The generated tier that used to be judged
+	# here -- PAWN_KEYS, the face-on screamer and bloater -- retired on 2026-10-19 when both joined
+	# the pose families (TURN below judges every family at its canvas), so the roster is the
+	# manifest's `rig` keys alone, and the retired pair must resolve nothing: a stray PNG left
+	# behind would be a face-on picture the resolver still serves.
 	Appearance.forget()
-	# PAWN_KEYS plus every commissioned body. An authored rig is deliberately NOT in PAWN_KEYS --
-	# `check_authored.gd`'s TIER lane refuses a key that is in two tiers -- so iterating the array
-	# alone would leave the one body a player actually looks at unjudged by the lane that says a
-	# body stands on the pawn canvas. The union is the roster; the array is one tier of it.
-	var pawn_keys: Array[String] = []
-	for key in Appearance.PAWN_KEYS:
-		pawn_keys.append(String(key))
-	for key in Appearance.authored_rig_keys():
-		pawn_keys.append(String(key))
 	var pawns: int = 0
-	for key in pawn_keys:
+	for key in Appearance.authored_rig_keys():
 		var tex: Variant = Appearance.resolve(String(key))
 		if tex == null:
 			push_error("pawn key %s resolves no picture" % key)
@@ -577,14 +571,19 @@ func _bodies_face_by_flipping() -> bool:
 			push_error("pawn key %s is %s, not the pawn canvas %s -- a rig left on the tile" % [key, str((tex as Texture2D).get_size()), str(Appearance.PAWN_CANVAS)])
 			return false
 		pawns += 1
-	Appearance.forget()
-	# Exactly the two generated rigs the pack does not draw, the screamer and the bloater. This
-	# floor was eight while the face-on equip overlays stood on the pawn canvas too; they were
-	# retired on 2026-09-26 ("Pack gear on the body"), and the pack's own bodies and wearables are
-	# judged at the same canvas by check_authored.gd's PACK lane and check_worn.gd's CANVAS lane.
-	if pawns != 2:
-		push_error("%d pawn keys resolved; the generated roster is the screamer and the bloater" % pawns)
+	for retired in ["zombie_screamer", "zombie_bloater"]:
+		if Appearance.resolve(retired) != null:
+			push_error("the retired face-on '%s' still resolves a picture" % retired)
+			return false
+	# TN: the same resolve answers a real picture on the pawn canvas, so the null above is the
+	# retirement and not a resolver that answers nothing.
+	var control: Variant = Appearance.resolve("body_zombie_screamer_s")
+	if control == null or Vector2i((control as Texture2D).get_size()) != Appearance.PAWN_CANVAS:
+		push_error("body_zombie_screamer_s does not resolve on the pawn canvas; the retired-key check proves nothing")
 		return false
+	Appearance.forget()
+	if pawns == 0:
+		print("FLIP SKIP no commissioned rig is declared; the pawn-canvas roster check had nothing to judge (the retired face-on pair resolves nothing, and a real family member does)")
 
 	# The loop, read: what it reaches for and what it no longer holds.
 	var body: String = _function_body(MAIN_GD, "_draw_entities")
@@ -674,7 +673,15 @@ func _bodies_face_by_flipping() -> bool:
 const TURNING_BODIES: Array[String] = [
 	"body_survivor", "body_zombie_workwear", "body_zombie_commuter", "body_zombie_raincoat",
 	"body_zombie_stalker", "body_zombie_runner", "body_zombie_armored", "body_zombie_heavy",
+	"body_zombie_screamer", "body_zombie_bloater",
 ]
+# The bodies drawn on the broad 40x48 canvas rather than the shared pawn canvas.
+const BROAD_BODIES: Array[String] = ["body_zombie_heavy", "body_zombie_bloater"]
+# A key no family declares: what a face-on picture looks like to the resolver. No shipped body is
+# face-on since the screamer and the bloater joined the pose families (2026-10-19), so the face-on
+# half of `frame_key`, `body_view`, `flip_for` and `body_texture` is judged on this name and a
+# fabricated texture rather than on art -- the branch is a fallback with no shipped reader.
+const FACE_ON_PROBE: String = "probe_face_on_body"
 
 
 func _changes_in_one_second(fps: int, frames: int) -> int:
@@ -714,7 +721,7 @@ func _bodies_turn_and_walk() -> bool:
 		if not Appearance.turns(String(key)):
 			push_error("TURN: '%s' does not turn" % key)
 			return false
-	for key in ["zombie_screamer", "zombie_bloater", "body_survivor_s", "body_shambler", "", "item_held_pistol"]:
+	for key in [FACE_ON_PROBE, "corpse_zombie_heavy_supine", "body_survivor_s", "body_shambler", "", "item_held_pistol"]:
 		if Appearance.turns(String(key)):
 			push_error("TURN: '%s' claims to turn; turns() cannot say no" % key)
 			return false
@@ -725,6 +732,7 @@ func _bodies_turn_and_walk() -> bool:
 		"body_survivor": 8, "body_zombie_workwear": 5, "body_zombie_commuter": 5,
 		"body_zombie_raincoat": 5, "body_zombie_stalker": 6, "body_zombie_runner": 9,
 		"body_zombie_armored": 4, "body_zombie_heavy": 4,
+		"body_zombie_screamer": 5, "body_zombie_bloater": 4,
 	}
 	var members: int = 0
 	for key in TURNING_BODIES:
@@ -738,7 +746,7 @@ func _bodies_turn_and_walk() -> bool:
 			push_error("TURN: '%s' changed frame %d times in one second of ticks at %d fps" % [key, changes, fps])
 			return false
 		# Explicit bounds: the larger heavy is the only exception to the shared pawn canvas.
-		var expected_canvas: Vector2i = Vector2i(40, 48) if key == "body_zombie_heavy" else Appearance.PAWN_CANVAS
+		var expected_canvas: Vector2i = Vector2i(40, 48) if BROAD_BODIES.has(key) else Appearance.PAWN_CANVAS
 		if Appearance.canvas_of(key) != expected_canvas:
 			push_error("TURN: '%s' declares %s, expected %s" % [key, str(Appearance.canvas_of(key)), str(expected_canvas)])
 			return false
@@ -778,15 +786,16 @@ func _bodies_turn_and_walk() -> bool:
 	if _changes_in_one_second(0, 4) != 0:
 		push_error("TURN: the one-second counter saw a zero-rate walk move; it counts nothing it should not")
 		return false
-	# TN, a face-on rig: it answers its own key walking or not, shows the rest view whatever its
-	# heading, and still flips -- the half of the roster the pack does not draw is untouched.
-	if Appearance.frame_key("zombie_screamer", "w", true, 5, 0) != "zombie_screamer":
+	# TN, a face-on picture: it answers its own key walking or not, shows the rest view whatever its
+	# heading, and still flips. No shipped body is face-on any more, so the probe is a name no family
+	# declares -- the fallback a body without views would take.
+	if Appearance.frame_key(FACE_ON_PROBE, "w", true, 5, 0) != FACE_ON_PROBE:
 		push_error("TURN: a face-on rig asked for a walk frame")
 		return false
-	if Appearance.body_view("zombie_screamer", {"radians": PI}, {"dx": -1.0, "dy": 0.0}) != Appearance.VIEW_REST:
+	if Appearance.body_view(FACE_ON_PROBE, {"radians": PI}, {"dx": -1.0, "dy": 0.0}) != Appearance.VIEW_REST:
 		push_error("TURN: a face-on rig shows a view other than the rest view")
 		return false
-	if Appearance.flip_for("zombie_screamer", PI) != -1.0 or Appearance.flip_for("body_survivor", PI) != 1.0:
+	if Appearance.flip_for(FACE_ON_PROBE, PI) != -1.0 or Appearance.flip_for("body_survivor", PI) != 1.0:
 		push_error("TURN: flip_for mirrors a turning body or stops mirroring a face-on one")
 		return false
 	# body_view: a facing component wins; with none the velocity decides; a velocity under the wrong
@@ -809,7 +818,7 @@ func _bodies_turn_and_walk() -> bool:
 	if Appearance.body_texture(look, "w", false, 0, 0) == look["texture"]:
 		push_error("TURN: body_texture facing west answered the rest picture")
 		return false
-	var face_on: Dictionary = {"sprite": "zombie_screamer", "texture": Appearance.resolve("zombie_screamer")}
+	var face_on: Dictionary = {"sprite": FACE_ON_PROBE, "texture": ImageTexture.create_from_image(Image.create(32, 40, false, Image.FORMAT_RGBA8))}
 	if Appearance.body_texture(face_on, "w", true, 9, 0) != face_on["texture"]:
 		push_error("TURN: body_texture answered a face-on rig something other than its own picture")
 		return false

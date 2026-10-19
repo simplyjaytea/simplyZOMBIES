@@ -11,7 +11,7 @@ re-drawing it by hand.
 ```bash
 pip install pillow==12.3.0            # the one dependency, pinned
 python3 tools/sprites/build.py        # write every registry key
-python3 tools/sprites/build.py --only zombie_screamer
+python3 tools/sprites/build.py --only prop_well
 python3 tools/sprites/build.py --check   # regenerate and compare; writes nothing
 npm run sprites:check                 # what CI runs; the line above with a name
 ```
@@ -45,16 +45,22 @@ lives in the repo, in the same commit as its first key, and `--check` keeps it h
 | --- | --- |
 | `palette.py` | ramps, the desaturation/value clamps, the ground-luminance guard |
 | `draw.py` | pixel primitives; `Canvas(w, h, origin)` carries a centre or a feet origin |
-| `parts/characters.py` | the eight rigs, the published skeleton, the `REGISTRY` naming them |
+| `parts/characters.py` | the published skeleton only; every rig it drew is retired (the last two 2026-10-19) |
 | `parts/props.py` | the fire pit (cold and lit), the well and the latrine, each authored to its content entry's footprint |
 | `parts/wrecks.py` | the debris scatter (the low heaps are the outpost pack's since 2026-09-26) |
 | `parts/buildings.py` | wall caps and faces, roof sheets and the door, window and garage overlays |
 | `parts/vehicles.py` | the sedan, the van and the truck, three variants x two axes each; merges the light classes' tables |
 | `parts/light_vehicles.py` | the bicycle, the e-bike, the e-scooter, the kick scooter and the skateboard, under the cars' camera |
 | `parts/paperdoll.py` | the inventory sheet's body chart: ten parts x three poses, drawn as masks |
-| `build.py` | the CLI, the registry merge, `--check`, `CANVAS`/`PAWN_KEYS` (mirrors `canvas_of`) |
+| `build.py` | the CLI, the registry merge, `--check`, `RETIRED_KEYS` (`CANVAS` is empty since the pawns retired) |
 
 ## The rigs, the skeleton, and the draw order
+
+**Historical since 2026-10-19.** No rig is generated any more: the screamer and the bloater, the
+last two, were redrawn as zombie pose families (zombie study 02,
+`godot/art/simplyzombies/zombie-poses/study-02/`), and `parts/characters.py` keeps only the
+published skeleton below, which `guide.py` still draws. What follows describes the assembler as
+it was, kept because the skeleton's reasoning lives in it.
 
 `parts/characters.py` holds one function per rig — player, Mara, Ellis, the colonist, the
 shambler, the screamer, the bloater, the raider — and every one of them draws through a single
@@ -198,5 +204,8 @@ exactly what it does on a person who turns round, which was not true when a rig 
   four-direction body wears only the pack's four-direction wearables and holds only the pack's
   ten `item_held_*` weapons (kind `pack_held`, each sourced whole from
   `groups/items/held/` with the manifest's `grip` copied beside it).
+- On 2026-10-19 zombie study 02 retired the last two generated rigs, `zombie_screamer` and
+  `zombie_bloater`, with every rig function, `_figure`, `REGISTRY` and `PAWN_KEYS` in both
+  languages; both keys are on `build.py`'s `RETIRED_KEYS`.
 - **Every PNG lands in the same slice as its reader.** Nothing mechanical stops a stray generated
   file that no content entry names; the workflow is what stops it.
