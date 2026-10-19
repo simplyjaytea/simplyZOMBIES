@@ -63,24 +63,32 @@ static func find(world: Variant, from: Vector2i, to: Vector2i) -> Array[Vector2i
 					break
 			if not ok_near:
 				return empty
-	var open: Array[Vector2i] = [from]
+	# The open set is a binary heap of [f, seq, x, y] ordered by (f, seq), where `seq` is the order a
+	# tile first entered the open set. That is exactly the order the old linear scan chose in: it
+	# took the lowest f, and among equal f the earliest entry still in its insertion-ordered list.
+	# A tile whose g improves while open is pushed again under its original `seq`; the stale entry
+	# is skipped when it surfaces. Same pops in the same order, so the same path, tie for tie --
+	# at O(log n) a pop instead of O(n), which was most of a 100 ms re-plan on a 256-tile district
+	# (A3's second slice; `check_m2_tick.gd` PATH holds it to the scan).
+	var heap: Array = []
+	var seq_of: Dictionary = {from: 0}
+	var next_seq: int = 1
+	var closed: Dictionary = {}
+	var open_count: int = 1
+	_heap_push(heap, [absi(from.x - to.x) + absi(from.y - to.y), 0, from.x, from.y])
 	var came: Dictionary = {}
 	var g: Dictionary = {from: 0}
 	var seen: Dictionary = {from: true}
 	var guard: int = 0
 	var cap: int = 4096
-	while not open.is_empty() and guard < cap:
+	while open_count > 0 and guard < cap:
+		var top: Array = _heap_pop(heap)
+		var cur := Vector2i(int(top[2]), int(top[3]))
+		if closed.has(cur) or int(top[0]) != int(g[cur]) + absi(cur.x - to.x) + absi(cur.y - to.y):
+			continue
 		guard += 1
-		var best_i: int = 0
-		var best_f: int = 1 << 30
-		for i in open.size():
-			var n: Vector2i = open[i]
-			var f: int = int(g.get(n, 1 << 20)) + absi(n.x - to.x) + absi(n.y - to.y)
-			if f < best_f:
-				best_f = f
-				best_i = i
-		var cur: Vector2i = open[best_i]
-		open.remove_at(best_i)
+		closed[cur] = true
+		open_count -= 1
 		if cur == to:
 			return _rebuild(came, cur)
 		for d in DIRS:
@@ -94,9 +102,56 @@ static func find(world: Variant, from: Vector2i, to: Vector2i) -> Array[Vector2i
 			came[nxt] = cur
 			g[nxt] = ng
 			if not seen.has(nxt):
-				open.append(nxt)
 				seen[nxt] = true
+				seq_of[nxt] = next_seq
+				next_seq += 1
+				open_count += 1
+				_heap_push(heap, [ng + absi(nxt.x - to.x) + absi(nxt.y - to.y), int(seq_of[nxt]), nxt.x, nxt.y])
+			elif not closed.has(nxt):
+				_heap_push(heap, [ng + absi(nxt.x - to.x) + absi(nxt.y - to.y), int(seq_of[nxt]), nxt.x, nxt.y])
 	return empty
+
+
+static func _before(a: Array, b: Array) -> bool:
+	return int(a[0]) < int(b[0]) or (int(a[0]) == int(b[0]) and int(a[1]) < int(b[1]))
+
+
+static func _heap_push(heap: Array, item: Array) -> void:
+	heap.append(item)
+	var i: int = heap.size() - 1
+	while i > 0:
+		var parent: int = (i - 1) >> 1
+		if not _before(heap[i], heap[parent]):
+			break
+		var t: Variant = heap[i]
+		heap[i] = heap[parent]
+		heap[parent] = t
+		i = parent
+
+
+static func _heap_pop(heap: Array) -> Array:
+	var top: Array = heap[0]
+	var last: Variant = heap.pop_back()
+	if heap.is_empty():
+		return top
+	heap[0] = last
+	var i: int = 0
+	var n: int = heap.size()
+	while true:
+		var l: int = i * 2 + 1
+		if l >= n:
+			break
+		var best: int = l
+		var r: int = l + 1
+		if r < n and _before(heap[r], heap[l]):
+			best = r
+		if not _before(heap[best], heap[i]):
+			break
+		var t: Variant = heap[i]
+		heap[i] = heap[best]
+		heap[best] = t
+		i = best
+	return top
 
 
 static func _rebuild(came: Dictionary, cur: Vector2i) -> Array[Vector2i]:

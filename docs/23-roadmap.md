@@ -9804,6 +9804,26 @@ not a to-do list:
   **What remains:** the tick is still about three times over budget; the slices that follow take
   the map-change spike, visibility, shambler AI, sightings, NPC combat and self-aid in turn.
 
+- **Kernel & tooling — the tick to budget, slice 2: the map-change spike, 2026-10-19 (partial).**
+  One door swing cost about 300 ms: a full 65,536-cell solidity rebuild, a recast of all 105
+  observers and linear-scan A* re-plans. The world now logs the rectangle each generation changed
+  (`invalidate_tiles`, `map_unchanged_within`; a whole-map or unlogged bump still means
+  everything). Fortify's in-play calls rewrite only the cells whose overlay changed, cars log the
+  footprints they moved, view and light casts stand when their own square is untouched, and A*
+  uses a heap ordered by (f, first-entry order), which plans the same paths. `godot:bench:runtime`
+  went from **24.41 / 319.35 ms** to **24.78 / 68.13** (mean within noise). **Behaviour change:**
+  a dead observer a tile off its cast origin now keeps that view across a bump outside its square,
+  where it used to recast (`SimVisibility.DEAD_KEEP_VIEW`, on). With it off, a 3,000-tick
+  serialized-world hash matches `main` at every checkpoint. Gated in `godot:m2:tick`: MAP-LOG
+  (hits, whole-map, unlogged, backwards and overflowed spans all read "changed"), DOOR-CELLS
+  (partial cells equal the full rebuild; a door logs its own tile, a full sync the whole map),
+  VIEW-STANDS (a far door keeps the view and a near one recasts, both equal to a fresh cast; the
+  same for a lamp), DEAD-KEEP (the switch, both ways) and PATH (24 district pairs equal a copy of
+  the old linear planner; flipping its tie order changes at least one). Each was proved red by a
+  sabotage of the code it judges. [docs/22](22-performance.md#bringing-the-tick-to-budget).
+  **What remains:** the spike that is left is ordinary recasting and per-tick AI work, the next
+  slices.
+
 - **Kernel & tooling — water draw check follows its branches, 2026-10-03.** The A2 wall
   additions moved the water fill to character 4,473 after the drawing match, beyond
   `check_water.gd`'s 4,000-character window. Reproduced on the merged art pass:
