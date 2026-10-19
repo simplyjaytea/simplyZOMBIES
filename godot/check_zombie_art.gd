@@ -5,19 +5,20 @@ extends SceneTree
 # check_authored owns pixel bounds and source reproduction; this gate owns those real readers.
 
 const World = preload("res://sim/world.gd")
+const AnimClock = preload("res://presentation/anim_clock.gd")
 const Appearance = preload("res://presentation/appearance.gd")
 const SimSave = preload("res://sim/save.gd")
 const VisualRemainsChecks = preload("res://test/visual_remains_checks.gd")
 const SimVisibility = preload("res://sim/vision/visibility.gd")
 
 const EXPECT: Dictionary = {
-	"body_zombie_workwear": {"type": "zombie.shambler", "fps": 5, "canvas": Vector2i(32, 40)},
-	"body_zombie_commuter": {"type": "zombie.shambler", "fps": 5, "canvas": Vector2i(32, 40)},
-	"body_zombie_raincoat": {"type": "zombie.shambler", "fps": 5, "canvas": Vector2i(32, 40)},
-	"body_zombie_stalker": {"type": "zombie.stalker", "fps": 6, "canvas": Vector2i(32, 40)},
-	"body_zombie_runner": {"type": "zombie.runner", "fps": 9, "canvas": Vector2i(32, 40)},
-	"body_zombie_armored": {"type": "zombie.armored", "fps": 4, "canvas": Vector2i(32, 40)},
-	"body_zombie_heavy": {"type": "zombie.heavy", "fps": 4, "canvas": Vector2i(40, 48)},
+	"body_zombie_workwear": {"type": "zombie.shambler", "fps": 10, "frames": 8, "canvas": Vector2i(32, 40)},
+	"body_zombie_commuter": {"type": "zombie.shambler", "fps": 10, "frames": 8, "canvas": Vector2i(32, 40)},
+	"body_zombie_raincoat": {"type": "zombie.shambler", "fps": 10, "frames": 8, "canvas": Vector2i(32, 40)},
+	"body_zombie_stalker": {"type": "zombie.stalker", "fps": 12, "frames": 8, "canvas": Vector2i(32, 40)},
+	"body_zombie_runner": {"type": "zombie.runner", "fps": 18, "frames": 8, "canvas": Vector2i(32, 40)},
+	"body_zombie_armored": {"type": "zombie.armored", "fps": 8, "frames": 8, "canvas": Vector2i(32, 40)},
+	"body_zombie_heavy": {"type": "zombie.heavy", "fps": 8, "frames": 8, "canvas": Vector2i(40, 48)},
 }
 const DIRECTIONS: Dictionary = {
 	"e": Vector2(1, 0), "s": Vector2(0, 1), "w": Vector2(-1, 0), "n": Vector2(0, -1),
@@ -41,7 +42,7 @@ func _run() -> void:
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
 	ok = _require(seconds <= BUDGET_SECONDS, "BUDGET: %.2f s exceeds %.0f s" % [seconds, BUDGET_SECONDS]) and ok
 	if ok:
-		print("ZOMBIE_ART_OK CONTENT seven selected families; MOTION four views with four distinct poses and static idle, sim-tick timing; CORPSES matching art centered on ground; DEATH one drop/despawn and no active corpse zombie; SAVE optional bounded cosmetic history without RNG/allocation; READERS Focal-only settled draw before standing gear/facing/speech; %.2f s" % seconds)
+		print("ZOMBIE_ART_OK CONTENT seven selected families; MOTION four views with eight distinct poses and a breath, render-clock stride timing; CORPSES matching art centered on ground; DEATH one drop/despawn and no active corpse zombie; SAVE optional bounded cosmetic history without RNG/allocation; READERS Focal-only settled draw before standing gear/facing/speech; %.2f s" % seconds)
 		quit(0)
 	else:
 		push_error("ZOMBIE_ART_FAIL")
@@ -161,7 +162,14 @@ func _every_body_walks_and_stands() -> bool:
 		var key: String = String(key_v)
 		var spec: Dictionary = EXPECT[key]
 		var fps: int = int(spec["fps"])
-		if not _require(Appearance.turns(key) and Appearance.walk_frames(key) == 4 and Appearance.walk_fps(key) == fps, "MOTION: %s lacks four views/four walk frames at %d fps" % [key, fps]):
+		var count: int = int(spec["frames"])
+		if not _require(Appearance.turns(key) and Appearance.walk_frames(key) == count and Appearance.walk_fps(key) == fps, "MOTION: %s lacks four views/%d walk frames at %d fps" % [key, count, fps]):
+			return false
+		if not _require(Appearance.breath_frames(key) == 2 and Appearance.breath_fps(key) > 0.0, "MOTION: %s does not breathe: %d breath frames at %.2f fps" % [key, Appearance.breath_frames(key), Appearance.breath_fps(key)]):
+			return false
+		var stride: float = Appearance.stride_of(key)
+		var pace: float = Appearance.pace_of(key)
+		if not _require(stride > 0.0 and pace > 0.0 and is_equal_approx(stride, pace * float(count) / float(fps)), "MOTION: %s's stride %.3f m is not its pace %.2f m/s over %d frames at %d fps" % [key, stride, pace, count, fps]):
 			return false
 		for view_v in DIRECTIONS:
 			var view: String = String(view_v)
@@ -175,7 +183,7 @@ func _every_body_walks_and_stands() -> bool:
 				return false
 			var bytes: Array = []
 			var shapes: Array = []
-			for index in 4:
+			for index in count:
 				var frame: String = "%s_walk_%s_%d" % [key, view, index]
 				var tex: Texture2D = Appearance.resolve(frame)
 				if not _require(tex != null and Vector2i(tex.get_size()) == spec["canvas"], "MOTION: frame missing or wrong canvas: %s" % frame):
@@ -186,19 +194,43 @@ func _every_body_walks_and_stands() -> bool:
 					return false
 				bytes.append(img.get_data())
 				shapes.append(shape)
-			if not _require(_all_distinct(bytes, 4) and _all_distinct(shapes, 4), "MOTION: %s %s repeats or merely translates a pose" % [key, view]):
+			if not _require(_all_distinct(bytes, count) and _all_distinct(shapes, count), "MOTION: %s %s repeats or merely translates a pose" % [key, view]):
 				return false
+			# The breath is its own picture, a real change of shape from the rest view.
+			var inhale: Texture2D = Appearance.resolve("%s_idle_%s_1" % [key, view])
+			if not _require(inhale != null and _silhouette(inhale.get_image()) != _silhouette(rest.get_image()), "MOTION: %s %s breathes with no change of shape" % [key, view]):
+				return false
+			# Selection: each stride position picks its frame; standing breathes and never walks.
+			var look: Dictionary = {"sprite": key, "texture": rest}
+			for index in count:
+				var motion: Dictionary = {"walking": true, "cycle": (float(index) + 0.5) / float(count), "idle": 0.0}
+				var expected: String = "%s_walk_%s_%d" % [key, view, index]
+				if not _require(Appearance.frame_key(key, view, motion) == expected and Appearance.body_texture(look, view, motion) == Appearance.resolve(expected), "MOTION: %s's stride position %d does not reach %s" % [key, index, expected]):
+					return false
+			var still: Dictionary = {"walking": false, "cycle": 0.6, "idle": 0.1}
+			var breathing: Dictionary = {"walking": false, "cycle": 0.6, "idle": 1.0 / Appearance.breath_fps(key) + 0.1}
+			if not _require(Appearance.frame_key(key, view, still) == idle and Appearance.frame_key(key, view, breathing) == "%s_idle_%s_1" % [key, view] and Appearance.frame_key(key, view, Appearance.STILL) == idle, "MOTION: %s standing does not hold its rest view, then breathe" % key):
+				return false
+			# The real clock, walking a straight line at the family's pace for one stride from a
+			# seated start, at 60 draws a second: every frame is reached, in order, and the stride
+			# brings it back to where it started -- the cadence is the art's own at its pace.
+			var clock: AnimClock = AnimClock.new()
 			var seen_frames: Dictionary = {}
-			for tick in 80:
-				var expected: String = "%s_walk_%s_%d" % [key, view, (tick * fps / 20 + 2) % 4]
-				var selected: String = Appearance.frame_key(key, view, true, tick, 2)
-				var look: Dictionary = {"sprite": key, "texture": rest}
-				if not _require(selected == expected and Appearance.body_texture(look, view, true, tick, 2) == Appearance.resolve(expected), "MOTION: texture reader ignores declared frame rate/view/phase for %s" % key):
-					return false
-				if not _require(Appearance.frame_key(key, view, false, tick, 2) == idle, "MOTION: idle advances for %s" % key):
-					return false
-				seen_frames[selected] = true
-			if not _require(seen_frames.size() == 4, "MOTION: sim clock never reaches the complete cycle"):
+			var t: float = 0.0
+			clock.begin_draw(t)
+			var first: Dictionary = clock.motion(99, Vector2.ZERO, true, stride, pace)
+			var steps: int = int(round(stride / pace * 60.0))
+			var last: Dictionary = first
+			for step in range(1, steps + 1):
+				t = float(step) / 60.0
+				clock.begin_draw(t)
+				last = clock.motion(99, direction * pace * t, true, stride, pace)
+				seen_frames[Appearance.frame_key(key, view, last)] = true
+				clock.end_draw()
+			if not _require(seen_frames.size() == count, "MOTION: %s walking one stride at its pace showed %d of %d frames" % [key, seen_frames.size(), count]):
+				return false
+			var drift: float = absf(fposmod(float(last["cycle"]) - float(first["cycle"]) + 0.5, 1.0) - 0.5)
+			if not _require(drift < 0.02, "MOTION: %s's stride at its pace ends %.3f of a cycle from where it began" % [key, drift]):
 				return false
 		var east: Image = Appearance.resolve("%s_e" % key).get_image()
 		east.flip_x()
@@ -206,7 +238,7 @@ func _every_body_walks_and_stands() -> bool:
 			return false
 	if not _require(not Appearance.turns("no_such_body") and Appearance.resolve("no_such_body") == null, "MOTION: unknown body resolves to unrelated art"):
 		return false
-	print("MOTION OK 140 pictures; 28 four-frame loops have distinct pixels and silhouettes; idle/view/fps/phase and unmirrored west reach body_texture")
+	print("MOTION OK 7 families, 28 eight-frame loops with distinct pixels and silhouettes, a breath each way; stride positions, the real clock over one stride at pace, rest-then-breath and unmirrored west reach body_texture")
 	return true
 
 
@@ -360,7 +392,7 @@ func _living_memory_contract(settled: String, living: String, remembered: String
 
 func _corpses_preserve_living_memory(settled: String, living: String, remembered: String) -> bool:
 	var corpse: String = 'Appearance.corpse_look(world, it)\ndraw_texture_rect(texture, rect, false)\n'
-	var body: String = 'Appearance.body_texture(look, view, moving, tick, eid)\n_blit_body(rect, texture, col, equip)\n_last_look[eid] = {"look": look, "texture": texture, "equip": equip, "flip": flip}\n'
+	var body: String = 'Appearance.body_texture(look, view, motion)\n_blit_body(rect, texture, col, equip)\n_last_look[eid] = {"look": look, "texture": texture, "equip": equip, "flip": flip}\n'
 	var memory: String = 'SimSightings.remembered(world, player)\nvar mx: float = float(m["x"])\nvar my: float = float(m["y"])\nTopDownProjection.world_to_screen(camera, mx, my)\n_last_look.get(int(m["entity"]))\nc.get("texture", look["texture"])\n_blit_body(Appearance.body_rect(sx, sy, size, float(c["flip"])), texture, faded, c["equip"])\n'
 	if not _require(_living_memory_contract(corpse, body, memory) and _living_memory_contract(corpse + '# _last_look[eid] = corpse\n', body, memory), "MEMORY: reader predicate refuses valid frozen living memory or counts a comment as a cache write"):
 		return false
@@ -402,7 +434,7 @@ func _the_game_reads_the_art() -> bool:
 		return false
 	if not _require(_ordered(draw, ['world.components.has_component(int(ent), "corpse")', 'if is_corpse and det != SimVisibility.Detail.Focal:', 'continue', '"corpse": is_corpse', 'items.append_array(_visual_remains_items())']), "READERS: human corpses or saved zombie remains do not join the Focal entity pass"):
 		return false
-	if not _require(_ordered(draw, ["Appearance.body_view(", "Appearance.body_texture(look, view, Appearance.moving(vel_v), int(world.tick), eid)", "_blit_body("]), "READERS: real body draw does not consume motion and sim-tick animation"):
+	if not _require(_ordered(draw, ["Appearance.body_view(", "_anim.motion(eid, Vector2(float(it[\"x\"]), float(it[\"y\"])), Appearance.moving(vel_v)", "Appearance.body_texture(look, view, motion)", "_blit_body("]), "READERS: real body draw does not consume the animation clock's motion"):
 		return false
 	var settled: String = _function(main, "func _draw_corpse(")
 	if not _require(_ordered(settled, ['if int(it["det"]) != SimVisibility.Detail.Focal:', "return", "Appearance.corpse_look(", "draw_texture_rect(texture, Appearance.corpse_rect("]) and not settled.contains("equipment_layers_for(") and not settled.contains("body_texture("), "READERS: settled draw omits Focal/ground-center checks or draws standing gear/animation"):
