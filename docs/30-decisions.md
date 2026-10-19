@@ -5572,3 +5572,19 @@ computed rather than the literal 576), `check_m2_weather.gd` (its walks are size
 day's ticks, since spells are real time), `check_weather.gd` (its `DAY_TICKS` probe reads
 `SimClock`), `check_m2_balance.gd` (comments). Parity (`godot:test`) is untouched because the
 walking skeleton does not read the clock.
+
+## Livable time, 2026-10-19
+
+Alpha plan A5, on the one-hour day. The clock's state is in words on the HUD: "paused", "normal
+speed", "fast", "asleep, fast-forwarding", "asleep, zombie near, normal speed". Digits stay off the
+player HUD (`check_hud`), so the step is named, not counted. The speed ladder is 1x and 3x. 10x is
+out until the sim tick is under budget (plan A3); `SimFortify.speed_after_events` still drops a 10x
+run on an alarm for when it returns. While the player sleeps with no living zombie within ten
+metres, the loop runs at 3x. A grab, a hit or an alarm wakes the sleeper through the sim, and the
+step returns to the user's own. The stop is the living zombie within ten metres (`THREAT_METRES`,
+docs/02's contact distance), which is checked before the sim's own wake. The plan's "every colonist
+asleep" clause is not built: only the player's sleep counts.
+
+Gate: `godot:check:play`, lane CLOCK (`_the_clock_says_its_speed_and_sleep_skips`). It counts ticks
+per frame at each step, asleep and near a zombie, and a dead zombie does not stop the sleep.
+
