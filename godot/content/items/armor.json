@@ -7,6 +7,7 @@
     "size": { "w": 2, "h": 2 },
     "massKg": 0.2,
     "equipSlot": "torso",
+    "appearance": {"equipSprite": "wear_wrap_cloth"},
     "armor": { "torso": 0.3, "arm_left": 0.2, "arm_right": 0.2 },
     "warmth": { "torso": 0.7, "arm_left": 0.5, "arm_right": 0.5 }
   },
@@ -73,6 +74,7 @@
     "size": { "w": 2, "h": 2 },
     "massKg": 0.6,
     "equipSlot": "legs",
+    "appearance": {"equipSprite": "wear_pants_canvas"},
     "armor": { "leg_left": 0.3, "leg_right": 0.3 }
   },
   {
@@ -83,6 +85,7 @@
     "size": { "w": 2, "h": 1 },
     "massKg": 1.2,
     "equipSlot": "feet",
+    "appearance": {"equipSprite": "wear_boots_leather"},
     "armor": { "foot_left": 0.5, "foot_right": 0.5 }
   },
   {
@@ -93,6 +96,7 @@
     "size": {"w": 2, "h": 3},
     "massKg": 1.6,
     "equipSlot": "torso",
+    "appearance": {"equipSprite": "wear_jacket_leather"},
     "armor": {"torso": 0.5, "arm_left": 0.5, "arm_right": 0.5},
     "slots": ["lining", "pocket"]
   },
@@ -116,6 +120,7 @@
     "size": {"w": 2, "h": 2},
     "massKg": 0.7,
     "equipSlot": "legs",
+    "appearance": {"equipSprite": "wear_pants_denim"},
     "armor": {"leg_left": 0.35, "leg_right": 0.35}
   },
   {
@@ -137,6 +142,7 @@
     "size": {"w": 2, "h": 1},
     "massKg": 1.6,
     "equipSlot": "feet",
+    "appearance": {"equipSprite": "wear_boots_steel"},
     "armor": {"foot_left": 0.65, "foot_right": 0.65}
   },
   {
@@ -147,6 +153,7 @@
     "size": {"w": 2, "h": 3},
     "massKg": 2.8,
     "equipSlot": "torso",
+    "appearance": {"equipSprite": "wear_apron_welding"},
     "armor": {"torso": 0.65, "arm_left": 0.45, "arm_right": 0.45},
     "slots": ["pocket"]
   },
