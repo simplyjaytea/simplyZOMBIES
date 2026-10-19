@@ -50,6 +50,7 @@ const PresentationSfx = preload("res://presentation/sfx.gd")
 const InputMapRes = preload("res://presentation/input_map.gd")
 const SessionRes = preload("res://presentation/session.gd")
 const UiPrefs = preload("res://ui/prefs.gd")
+const RenderInterp = preload("res://presentation/interp.gd")
 
 const TICK_HZ: int = 20
 const TICK_SECONDS: float = 1.0 / 20.0
@@ -104,6 +105,9 @@ var _pointer_want: int = Input.CURSOR_ARROW
 var _pointer_shape: int = Input.CURSOR_ARROW
 var commands_by_tick: Dictionary = {}
 var accumulator: float = 0.0
+# Where bodies are drawn between two ticks (presentation/interp.gd): snapshotted before every
+# step, read by the draw and the camera follow. Never read by the sim.
+var _interp: RenderInterp = RenderInterp.new()
 var paused: bool = false
 var speed: int = 1
 var attention_channel: String = "off" # off/noise/scent/sight/light
@@ -366,6 +370,7 @@ func _on_world_replaced() -> void:
 	_fx.call("clear")
 	_fx_drawn = []
 	_a2_wall_drawn = []
+	_interp.clear()
 	if _context_menu != null:
 		_context_menu.call("close")
 	tick_count = 0
@@ -441,7 +446,10 @@ func _update_camera(delta: float) -> void:
 	if world != null:
 		var pos: Variant = world.components.get_component(world.player, "position")
 		if pos is Dictionary:
-			var target: Dictionary = CameraUtil.follow_target(float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]), int(world.map_width), int(world.map_height))
+			# The body where this frame draws it, not where the last tick left it: a camera chasing
+			# the 20 Hz point would step under a body that glides, and the body would shiver.
+			var slide: Vector2 = _interp.offset(world, int(world.player), _sub_tick())
+			var target: Dictionary = CameraUtil.follow_target(float((pos as Dictionary)["x"]) + slide.x, float((pos as Dictionary)["y"]) + slide.y, int(world.map_width), int(world.map_height))
 			CameraUtil.follow_smoothed(_camera_centre, float(target["x"]), float(target["y"]), CameraUtil.FOLLOW_RATE, delta)
 	CameraUtil.shake_decay(_shake, CameraUtil.SHAKE_DECAY_RATE, delta)
 	var zoom: float = maxf(1.0, float(camera["zoom"]))
@@ -930,19 +938,26 @@ func _poll_content_reload() -> void:
 		var issues: Array = res.get("issues", []) as Array
 		_content_error = String(issues[0]) if not issues.is_empty() else "content error"
 
+# How far this frame is into the next tick, 0 to 1 -- the one fraction the bodies, the camera
+# and the rain all draw by.
+func _sub_tick() -> float:
+	return RenderInterp.fraction(accumulator, TICK_SECONDS)
+
 func _process(delta: float) -> void:
 	if world == null: return
 	_poll_content_reload()
-	# Every rendered frame, paused or not: the follow lerp and shake decay both run on
-	# wall-clock delta, not on the sim's fixed tick, so they must not wait behind `paused`'s
-	# early return below or a shake in flight would freeze mid-decay instead of finishing.
-	_update_camera(delta)
 	_update_pointer()
 	# The clock runs in PLAYING and nowhere else. The title, the pause menu and the run-over
 	# screen all hold it still, and so does P -- the soft pause, which is the same early return it
 	# always was and is deliberately not a fifth state: P stops the world with the street still in
 	# front of you, and Escape puts a menu there.
 	if session == null or session.state != SessionRes.State.PLAYING or paused:
+		# Every rendered frame, paused or not: the follow lerp and shake decay both run on
+		# wall-clock delta, not on the sim's fixed tick, so they must not wait behind `paused`'s
+		# early return or a shake in flight would freeze mid-decay instead of finishing. The
+		# running branch calls it after its ticks instead, so the camera follows the body where
+		# this frame draws it (presentation/interp.gd).
+		_update_camera(delta)
 		_update_hud()
 		if CameraUtil.shake_magnitude(_shake) > CameraUtil.SHAKE_EPSILON:
 			queue_redraw()
@@ -952,16 +967,20 @@ func _process(delta: float) -> void:
 	# early return the ticks are: a paused world holds a flash where it was.
 	_fx.call("advance", delta)
 	# speed scales tick debt: more ticks per frame, not smaller tick
-	var ticks_needed: int = int(floor(delta / TICK_SECONDS * float(speed) + accumulator / TICK_SECONDS))
 	accumulator += delta * float(speed)
 	var ticks_done: int = 0
 	var prev_tick: int = int(world.tick)
 	var cap: int = maxi(1, 5 * speed)
+	# Clamped to what one frame may run: a slow frame drops the time past the cap instead of
+	# carrying it into every frame after, which is how a slow tick became a slower game.
+	accumulator = RenderInterp.clamp_debt(accumulator, TICK_SECONDS, cap)
 	while accumulator >= TICK_SECONDS and ticks_done < cap:
 		accumulator -= TICK_SECONDS
 		var next_tick: int = int(world.tick) + 1
 		for cmd_v in commands_by_tick.get(next_tick, []):
 			world.commands.push(cmd_v as Dictionary)
+		# The positions this step moves bodies away from, which the draw glides them out of.
+		_interp.before_step(world)
 		world.step()
 		tick_count += 1
 		ticks_done += 1
@@ -987,6 +1006,7 @@ func _process(delta: float) -> void:
 			_enter_state(SessionRes.State.RUN_OVER)
 		_update_condition_view()
 		_update_hud()
+	_update_camera(delta)
 	queue_redraw()
 
 # The pointer over the street (docs/30, "Cursors split by place"): the pack's crosshair while
@@ -2326,6 +2346,8 @@ func _draw_corpse(it: Dictionary, px_scale: float) -> void:
 func _draw_entities() -> void:
 	if world == null: return
 	_focal_drawn = []
+	_interp.begin_draw()
+	var sub_tick: float = _sub_tick()
 	# One art pixel in screen pixels, asked once: the camera cannot change inside a draw
 	# pass, and every body, shadow and glimpse disc below is sized off the same answer --
 	# a rig that ignored the zoom would draw a 64 px body over a 16 px tile.
@@ -2354,10 +2376,13 @@ func _draw_entities() -> void:
 		# sorts a hair in front of the picture so the frame does not paint over the legs.
 		var mounted: Variant = world.components.get_component(int(ent), "mounted")
 		var rider_depth: float = -1.0
+		# Whose motion this body is drawn with: its own, or the vehicle's it rides.
+		var carrier: int = int(ent)
 		if mounted is Dictionary:
 			if bool((mounted as Dictionary).get("cab", false)):
 				continue
 			var ridden: int = int((mounted as Dictionary).get("vehicle", -1))
+			carrier = ridden
 			var rv: Variant = world.components.get_component(ridden, "vehicle")
 			var rpos: Variant = world.components.get_component(ridden, "position")
 			if rv is Dictionary and rpos is Dictionary:
@@ -2380,6 +2405,13 @@ func _draw_entities() -> void:
 				var vel: Variant = world.components.get_component(int(ent), "velocity")
 				if not Appearance.moving(vel):
 					continue
+		# Drawn between the last two ticks (presentation/interp.gd). Sight above was judged on the
+		# sim's own point; only the picture, its sort depth and what hangs off it slide.
+		var slide: Vector2 = _interp.offset(world, carrier, sub_tick)
+		x += slide.x
+		y += slide.y
+		if rider_depth >= 0.0:
+			rider_depth += slide.y
 		var sc: Dictionary = TopDownProjection.world_to_screen(camera, x, y)
 		var depth: float = TopDownProjection.depth_of(x, y) if rider_depth < 0.0 else rider_depth
 		var ztype: String = ""
@@ -2484,6 +2516,9 @@ func _draw_entities() -> void:
 			if vkey.is_empty() or Appearance.resolve(vkey) == null:
 				continue
 			var gp: Vector2 = Dressing.vehicle_ground_point(rec)
+			# A live vehicle slides with its entity, the same way a body does; a wreck has none.
+			if rec.has("entity"):
+				gp += _interp.offset(world, int(rec["entity"]), sub_tick)
 			var vsc: Dictionary = TopDownProjection.world_to_screen(camera, gp.x, gp.y)
 			var flip: float = Appearance.vehicle_flip(String(rec.get("facing", "")))
 			var v_remembered: bool = not Dressing.vehicle_is_seen(rec, seen)
@@ -2529,7 +2564,7 @@ func _draw_entities() -> void:
 		var facing_v: Variant = world.components.get_component(eid, "facing")
 		var face: float = 0.0
 		if facing_v is Dictionary:
-			face = float((facing_v as Dictionary).get("radians", 0.0))
+			face = _interp.facing(eid, float((facing_v as Dictionary).get("radians", 0.0)), sub_tick)
 		# Screen axes are world axes under the top-down projection: no rotation.
 		var screen_ang: float = face
 		# contact shadow — under both branches, on the ground point: an ellipse the body's width
@@ -2831,7 +2866,7 @@ func _draw_rain() -> void:
 	# The sub-tick fraction, so streaks fall smoothly between the 20 Hz steps instead of
 	# stepping with them. Frozen while paused -- _process returns before either term moves --
 	# and 10x under fast-forward, which is accepted and recorded: this is ambience, not a clock.
-	var t: float = float(world.tick) + clampf(accumulator / TICK_SECONDS, 0.0, 1.0)
+	var t: float = float(world.tick) + _sub_tick()
 	var pts: PackedVector2Array = RainLook.segments(t, size.x, size.y, look)
 	var map: Variant = world.tilemap
 	var open := PackedVector2Array()
