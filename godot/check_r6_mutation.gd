@@ -131,6 +131,15 @@ func _mutate_perf() -> bool:
 	if elapsed_ms <= 0.0001:
 		push_error("mutation perf: bench not measuring (elapsed %.6f)" % elapsed_ms)
 		return false
-	# If we had used budget 0.0001, this would be OVER — gate is sensitive
-	print("MUTATION perf OK (tiny budget would be OVER; elapsed %.4f ms/tick)" % elapsed_ms)
+	# The verdict the bench prints for a row is what has to be sensitive, not the stopwatch. Judge the
+	# measured number against a budget the lane chooses: a tiny one must be OVER and a huge one PASS.
+	# (The old lane never asked the verdict anything, so a bench that always said PASS passed.)
+	var bench: GDScript = load("res://bench/bench.gd") as GDScript
+	if String(bench.call("verdict", elapsed_ms, 0.0001)) != "OVER":
+		push_error("mutation perf: a 0.0001 ms budget was judged PASS against %.4f ms -- the bench cannot fail" % elapsed_ms)
+		return false
+	if String(bench.call("verdict", elapsed_ms, 1.0e9)) != "PASS":
+		push_error("mutation perf: a 1e9 ms budget was judged OVER against %.4f ms -- the verdict is not a comparison" % elapsed_ms)
+		return false
+	print("MUTATION perf OK (tiny budget judged OVER, huge budget PASS; elapsed %.4f ms/tick)" % elapsed_ms)
 	return true
