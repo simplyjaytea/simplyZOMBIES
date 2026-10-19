@@ -391,6 +391,31 @@ harness-inclusive interval was worse than before (49.1 against 43.5 ms); hiding 
 nothing to show brought it to 18.5 ms and the interval to 27.8. On a GPU the mask is two texel
 fetches a fragment. llvmpipe numbers are not hardware GPU results, as above.
 
+The night, per pixel: plan item A10, 2026-10-19 (`presentation/light_map.gd`,
+`night_light.gdshader`; docs/23's record, "Art — the night, per pixel"). The flat night wash and
+the per-tile pool rects are replaced by one screen rect with a multiply shader. Each frame the CPU
+side builds one RGBA8 texel per tile in view (`LightLook.light_texels`, at most 24 sources); the
+shader then makes five texel fetches per fragment and loops over the sources. Measured the same
+way as above, on another container (llvmpipe, Intel Xeon @ 2.80 GHz, 1280×720). Night means a
+throwaway driver with a carried torch and a lit campfire on the boot scene:
+
+| Stage | Before | After |
+|---|---:|---:|
+| shipped-draw (day) `_draw` CPU, mean | 13.5 ms | 12.9–14.1 ms |
+| shipped-draw (day) RenderServer wall time, mean | 30.2 ms | 44.4–45.0 ms |
+| night `_draw` CPU, mean | 20.7–21.7 ms | 17.0–18.3 ms |
+| night RenderServer wall time, mean | 37.8–38.8 ms | 52.3–53.5 ms |
+
+The `_draw` stage, which is what the 10 ms target judges, did not grow: by day it is noise, and at
+night it fell because the pool rects are gone. On this machine that stage was already over the
+target before the slice. The renderer grew by about 14 ms because llvmpipe runs the full-screen
+fragment shader on the CPU. **The GPU cost of this shader is unmeasured.** No container here has
+a hardware GPU, and CI renders no real frame: `godot:bench:frame` is not in CI, and
+`check:runtime-budget` checks the runner's exit contract against fabricated evidence. So this
+shader cannot trip a CI budget, and no gate measures its cost. A software-renderer timing gate
+would judge llvmpipe rather than the product, so none was added. Measuring on hardware is the open
+item.
+
 ### Remaining milestone evidence
 
 At the measured **34.00 ticks/second**, the FULL harness's exact no-wipe span from the default
