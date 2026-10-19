@@ -2,6 +2,7 @@ class_name SimMelee
 extends RefCounted
 
 const SimCombat = preload("res://sim/combat.gd")
+const SimAimRes = preload("res://sim/aim.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimItemsRes = preload("res://sim/modules/items.gd")
 
@@ -252,7 +253,9 @@ static func _resolve_strike(world: Variant, attacker: int, weapon: Dictionary, r
 		return
 	var fx: float = float((from as Dictionary)["x"])
 	var fy: float = float((from as Dictionary)["y"])
-	var facing: float = float((facing_v as Dictionary).get("radians", 0.0))
+	# The swing goes where the body aims, which is its heading unless the player has turned the
+	# aim apart from it at a walk (sim/aim.gd).
+	var facing: float = SimAimRes.radians_of(world.components, attacker)
 	var facing_x: float = cos(facing)
 	var facing_y: float = sin(facing)
 	var reach: float = float(weapon.get("reachMetres", 1.4)) + MELEE_REACH_FUDGE

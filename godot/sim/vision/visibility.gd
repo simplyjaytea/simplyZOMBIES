@@ -6,6 +6,7 @@ extends RefCounted
 ## Geometry (shadowcast) + arcs (focal/peripheral dot product) + range check.
 
 const SimTileMapRes = preload("res://sim/map/tilemap.gd")
+const SimAimRes = preload("res://sim/aim.gd")
 const Shadowcast = preload("res://sim/vision/shadowcast.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const SimStancesRes = preload("res://sim/stances.gd")
@@ -69,10 +70,9 @@ func refresh(world: Variant, map: Variant, sight_mul: float = 1.0) -> void:
 		var obs: Variant = world.components.get_component(entity, "observer")
 		if pos == null or obs == null:
 			continue
-		var facing_rad: float = 0.0
-		var facing_c: Variant = world.components.get_component(entity, "facing")
-		if facing_c != null:
-			facing_rad = float((facing_c as Dictionary)["radians"])
+		# The eyes follow the head, and the head follows the aim (sim/aim.gd): a body walking one
+		# way and looking another sees where it looks. An absent `aim` reads as `facing`.
+		var facing_rad: float = SimAimRes.radians_of(world.components, entity)
 
 		var tile_x: int = floori(float((pos as Dictionary)["x"]) / float(SimTileMapRes.TILE_METRES))
 		var tile_y: int = floori(float((pos as Dictionary)["y"]) / float(SimTileMapRes.TILE_METRES))

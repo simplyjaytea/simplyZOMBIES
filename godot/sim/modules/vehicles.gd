@@ -73,6 +73,7 @@ extends RefCounted
 # the same car to the same tile with the same litres left.
 
 const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimAimRes = preload("res://sim/aim.gd")
 const SimAttention = preload("res://sim/modules/attention_emitter.gd")
 const SimPath = preload("res://sim/path.gd")
 const SimWorldgen = preload("res://sim/map/worldgen.gd")
@@ -1302,6 +1303,7 @@ static func _pin_driver(world: Variant, actor: int, vpos: Dictionary, v: Diction
 		if facing is Dictionary and HEADINGS.has(String(v.get("heading", ""))):
 			var dir: Vector2 = HEADINGS[String(v.get("heading", ""))] as Vector2
 			(facing as Dictionary)["radians"] = atan2(dir.y, dir.x)
+			SimAimRes.follow_facing(world.components, actor)
 
 
 # Off the machine where it stands: the rider is released in place (the tile under an open

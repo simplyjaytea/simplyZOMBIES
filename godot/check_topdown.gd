@@ -605,11 +605,17 @@ func _bodies_face_by_flipping() -> bool:
 		"Appearance.flip_for(",
 		"Appearance.body_rect(",
 		"_blit_body(",
-		"Palette.COLOURS[\"facing\"]",
+		"SimAim.radians_of(",
 		"Appearance.FOOT_DROP_PX",
 	])
 	if not missing.is_empty():
-		push_error("_draw_entities does not contain %s: the flip, the rect, the composite, the line or the shadow drop is resolved by nothing" % missing)
+		push_error("_draw_entities does not contain %s: the flip, the rect, the composite, the aim or the shadow drop is resolved by nothing" % missing)
+		return false
+	# The facing line over every body retired with alpha plan A9: the weapon turned to the aim
+	# carries the heading now, and the sway is read at the cursor (`_draw_reticle`). The colour is
+	# still the reticle's, so its absence from this loop is the line's absence.
+	if body.contains("Palette.COLOURS[\"facing\"]"):
+		push_error("_draw_entities still draws in the facing colour; the facing line over the body is retired")
 		return false
 	if body.contains("wants_facing_line"):
 		push_error("_draw_entities still asks wants_facing_line; the line draws for every body since the pawn slice")

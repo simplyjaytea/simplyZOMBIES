@@ -19,6 +19,7 @@ const SimCampRes = preload("res://sim/modules/camp.gd")
 const SimFortifyRes = preload("res://sim/modules/fortify.gd")
 const SimVehiclesRes = preload("res://sim/modules/vehicles.gd")
 const SimStancesRes = preload("res://sim/stances.gd")
+const SimAimRes = preload("res://sim/aim.gd")
 const SimWalkRes = preload("res://sim/walk.gd")
 
 const TICK_HZ: int = 20
@@ -478,16 +479,16 @@ func _apply_commands(_world: Variant) -> void:
 						"pathGen": -1,
 					})
 				"aim":
-					# Presentation proposes a facing; the sim decides whether it takes. Only a
-					# stationary body turns to aim -- movement.integrate derives facing from
-					# velocity, so a moving one faces where it goes and the proposal is simply
-					# ignored. That is the hardcore rule, not a compromise: you do not track a
-					# target over your shoulder at a jog. Checked against the velocity this same
-					# command list may just have written, so a move and an aim on one tick agree.
-					if float(velocity["dx"]) == 0.0 and float(velocity["dy"]) == 0.0:
-						var aim_facing: Variant = components.get_component(int(entity), "facing")
-						if aim_facing is Dictionary:
-							(aim_facing as Dictionary)["radians"] = float((command as Dictionary).get("radians", 0.0))
+					# Presentation proposes an aim; the sim decides whether it takes (sim/aim.gd,
+					# docs/30's decoupled paperdoll, decision 7). A stationary body turns to it,
+					# feet and all, as it always has. A moving one keeps the heading its velocity
+					# gives it and turns only its aim -- and only at Walk pace or slower: you do not
+					# track a target over your shoulder at a jog, and `_integrate_movement` snaps
+					# the aim back to the heading on any faster rung. Checked against the velocity
+					# this same command list may just have written, so a move and an aim on one
+					# tick agree.
+					var aim_moving: bool = float(velocity["dx"]) != 0.0 or float(velocity["dy"]) != 0.0
+					SimAimRes.propose(components, int(entity), float((command as Dictionary).get("radians", 0.0)), aim_moving)
 				"shout":
 					var pos: Dictionary = components.get_component(int(entity), "position") as Dictionary
 					events.publish({
@@ -593,6 +594,10 @@ func _integrate_movement(_world: Variant) -> void:
 		if components.has_component(int(entity), "facing"):
 			var facing: Dictionary = components.get_component(int(entity), "facing") as Dictionary
 			facing["radians"] = atan2(dy, dx)
+			# Faster than a walk, the aim is the heading (sim/aim.gd): a body with no `aim` never
+			# grows one here, so every body the player never aimed is untouched.
+			if not SimAimRes.holds(components, int(entity)):
+				SimAimRes.follow_facing(components, int(entity))
 
 		# The press: the tile that stopped a wanted move this tick, or -1 when the move was
 		# free. A kernel fact with one reader -- `SimFortify._tick_pressure` counts the dead
