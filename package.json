@@ -15,6 +15,7 @@
     "sprites:check": "python3 tools/sprites/build.py --check",
     "check:routing": "node scripts/check-routing.mjs",
     "check:timing": "node scripts/check-timing.mjs",
+    "check:shards": "node scripts/check-shards.mjs",
     "godot:test": "node scripts/run-godot.mjs --test",
     "godot:smoke": "node scripts/run-godot.mjs --smoke",
     "godot:export": "node scripts/run-godot.mjs --export",

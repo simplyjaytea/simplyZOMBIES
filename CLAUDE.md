@@ -169,9 +169,16 @@ prints the line the table is built from. Run it after touching `scripts/run-godo
 `godot:m2` prints `ObjectDB ... leaked at exit` and `resources still in use` *after* it reports
 success. That is engine shutdown noise, not a failure — check the `_OK` line and the exit code.
 
-CI runs `godot:m2` in its own `godot-m2` job (45 min) since 2026-09-12; the `check` job (25 min)
-runs the TypeScript side (`npm test`, `typecheck`, `lint`, `format:check`), `sprites:check`,
-`check:routing`, `check:timing`, `check:runtime-budget`, the smoke, the validator and the R6 gates.
+CI runs `godot:m2` as four parallel `godot-m2-shard` jobs, one per shard, and the `godot-m2`
+job gathers them as the required check (it passes only when every shard did). The shard layout is
+`scripts/m2-shards.mjs`: every chained gate is in exactly one shard, shard 4 is `godot:m2:balance`
+alone (791 s, the floor on wall time), and the gates that write the per-machine `user://` store
+share shard 3. `npm run godot:m2 -- --shard=<i>/4` runs one shard; a gate added to the chain must
+also be added to a shard in the same commit, or `check:shards` (in the `check` job) goes red. The
+unsharded `npm run godot:m2` is unchanged. Measured 2026-10-19 on one runner: 40m45s for 85 gates.
+The `check` job (25 min) runs the TypeScript side (`npm test`, `typecheck`, `lint`,
+`format:check`), `sprites:check`, `check:routing`, `check:timing`, `check:shards`,
+`check:runtime-budget`, the smoke, the validator and the R6 gates.
 The `performance` job runs `npm run bench` and `npm run bench:frame`.
 Touching a `.ts` file or any prettier-covered path means running those too. Legacy
 `npm run godot:bench` prints `BENCH_OVER_BUDGET` and still exits 0 on a synthetic workload.
