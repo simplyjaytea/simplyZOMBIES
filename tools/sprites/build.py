@@ -2,7 +2,7 @@
 """Generate the sprites that are generated, and check the committed ones still match.
 
     python3 tools/sprites/build.py                 # write every registry key
-    python3 tools/sprites/build.py --only zombie_screamer
+    python3 tools/sprites/build.py --only prop_well
     python3 tools/sprites/build.py --check         # regenerate and compare, write nothing
 
 `--check` is what `npm run sprites:check` runs in CI. It re-renders every key and compares
@@ -57,7 +57,7 @@ from PIL import Image  # noqa: E402
 from draw import SIZE  # noqa: E402
 import guide  # noqa: E402
 import palette  # noqa: E402
-from parts import buildings, characters, paperdoll, props, vehicles, wrecks  # noqa: E402
+from parts import buildings, paperdoll, props, vehicles, wrecks  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 SPRITE_DIR = ROOT / "godot" / "assets" / "sprites"
@@ -83,30 +83,21 @@ GUIDE_DIR = ROOT / "tools" / "sprites" / "guides"
 # sourced in `authored.json` too. `ground` and `edges` went the same way with "The ground is the pack's" (2026-09-27): the
 # ground atlas is composed from the pack's own terrain tiles and ground overlays, a sourced key in
 # `authored.json` whose `cells` this file lays out (`render_source`).
-MODULES = (characters, props, wrecks, buildings, vehicles, paperdoll)
+MODULES = (props, wrecks, buildings, vehicles, paperdoll)
 
-# The keys drawn on the pawn canvas: the two generated bodies the outpost pack does not supply, the
-# screamer and the bloater. Six more bodies were here until 2026-09-26 (the pack's four-direction
-# survivor and shambler replaced them, "The bodies turn and walk"), and every equip overlay until
-# later the same day, when the pack's wearables and held weapons replaced those too ("Pack gear on
-# the body", "Held weapons in the hand"). Mirrored on the Godot side by `Appearance.canvas_of`'s
-# own PAWN_KEYS -- two copies because Python cannot read GDScript, the same standing arrangement as
-# `SIZE`, and `check_appearance.gd` measures the committed PNGs against its copy every build.
-PAWN_KEYS = (
-    "zombie_screamer",
-    "zombie_bloater",
-)
+# No key is generated on the pawn canvas any more. The last two -- the screamer and the bloater,
+# face-on rigs the outpost pack did not draw -- joined the zombie pose families on 2026-10-19
+# (zombie study 02) and are on RETIRED_KEYS below; every body before them had already moved to the
+# pack ("The bodies turn and walk", 2026-09-26), and every equip overlay with it ("Pack gear on
+# the body", "Held weapons in the hand"). `parts/characters.py` keeps only the published skeleton
+# the pawn guide draws.
 
-# Every key renders on the SIZE x SIZE canvas except the ones named here. The pawn keys are 32x40
-# (32x48 until the squat pawn of 2026-09-08) and feet-anchored, the shape a standing body needs and
-# the shape the renderer hangs by its bottom row. Kept in build.py rather than draw.py: draw.py is
-# the pixel-primitive module every part renders through, and a per-key shape table belongs beside
-# the CLI that enforces it, not inside the primitives every canvas uses unchanged. The ground atlas
-# was the first entry here until 2026-09-27; it is authored now, and `authored.json` carries its
-# canvas.
+# Every key renders on the SIZE x SIZE canvas except the ones named here. Kept in build.py rather
+# than draw.py: draw.py is the pixel-primitive module every part renders through, and a per-key
+# shape table belongs beside the CLI that enforces it, not inside the primitives every canvas uses
+# unchanged. The ground atlas was the first entry here until 2026-09-27, and the two pawn keys
+# until 2026-10-19; both are authored now, and `authored.json` carries their canvases.
 CANVAS = {}
-for _key in PAWN_KEYS:
-    CANVAS[_key] = (characters.PAWN_W, characters.PAWN_H)
 # The vehicles: one shape per class and axis, feet-anchored on the footprint's south edge --
 # the footprint plus a tile of roofline north, so a sedan's 2x5 is 64x192 nose-north, a van's
 # 2x6 is 64x224 and a truck's 2x7 is 64x256. The three cars' nose-east pictures are the outpost
@@ -136,8 +127,11 @@ def canvas_of(key):
 # serve to content that still names it. The bed needs no entry: `prop_bed` is an authored key, so
 # a generator claiming it is already refused as declared in both tiers. The old body_shambler
 # family retired with the seven zombie designs (2026-10-02); all twenty member PNGs must stay
-# absent too, while the original source sheets remain in the art pack for provenance.
-RETIRED_KEYS = ("tree_pine_a", "tree_pine_b", "tree_pine_c", "low_heap_a", "low_heap_b") + tuple(
+# absent too, while the original source sheets remain in the art pack for provenance. The face-on
+# screamer and bloater retired when they joined the pose families as zombie study 02 (2026-10-19);
+# a stray `zombie_screamer.png` would be served to nothing, since content names the families now.
+RETIRED_KEYS = ("tree_pine_a", "tree_pine_b", "tree_pine_c", "low_heap_a", "low_heap_b",
+                "zombie_screamer", "zombie_bloater") + tuple(
     "body_shambler_" + suffix
     for view in ("s", "e", "n", "w")
     for suffix in (view, *("walk_%s_%d" % (view, frame) for frame in range(4)))

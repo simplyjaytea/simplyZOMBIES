@@ -16,7 +16,7 @@ extends SceneTree
 # SPEC/INTERIOR/TONES/HIGHLIGHT only when `kind` is `"rig"`. What changed below is a new lane,
 # SOURCE, and what `reads` is allowed to name -- see both in the five lanes just below.
 #
-# **The bounds below are held against the eight generated rigs too, and that is the point.** A
+# **The bounds below were held against the eight generated rigs too, and that was the point.** A
 # spec measured only against art that does not exist yet is a spec nobody can be held to; a spec
 # the shipped roster already satisfies is one an artist can be handed. If a bound here ever goes
 # red on a generated rig, the rig and the spec have drifted apart and one of them is wrong --
@@ -32,12 +32,17 @@ extends SceneTree
 #   survivor_colonist          20     12       28           6   every edge pixel   (retired)
 #   raider_body                20     12       28           6   every edge pixel   (retired)
 #   zombie_shambler            20     12       27           5   every edge pixel   (retired)
-#   zombie_screamer            16     12       29           8   every edge pixel
-#   zombie_bloater             26     10       25           3   every edge pixel
+#   zombie_screamer            16     12       29           8   every edge pixel   (retired)
+#   zombie_bloater             26     10       25           3   every edge pixel   (retired)
 #
 # The six marked retired were deleted by "The bodies turn and walk" (2026-09-26), when every human
-# and the shambler moved onto the outpost pack's four-direction rigs. Their rows stay because the
-# bounds were set by them, and a bound whose evidence is erased is a bound nobody can re-derive.
+# and the shambler moved onto the outpost pack's four-direction rigs; the screamer and the bloater
+# followed on 2026-10-19 as zombie pose families (study 02), judged by ZOMBIE_POSES. Their rows
+# stay because the bounds were set by them, and a bound whose evidence is erased is a bound nobody
+# can re-derive. The screamer's last committed picture is kept as the fixture every negative below
+# is fabricated from (`BASE_FIXTURE`), so the spec keeps a body that once met it. With no generated
+# rig left, SPEC and the colour lanes judge commissioned `rig` keys only, and say SKIP while there
+# are none.
 # The pack rigs are kind `pack_rig`, never judged by SPEC's outline rule or the colour lanes --
 # the "geometry gated, colour not" rule docs/30 set -- but PACK below holds their geometry, at a
 # named alpha threshold, to the same published height and the same sole row.
@@ -125,13 +130,14 @@ extends SceneTree
 #             commissioned sprite lands.
 #
 # What this gate deliberately does NOT do, named so the next session does not think it was
-# missed: it does not put an authored rig into `Appearance.PAWN_KEYS`. One key belongs to one
-# tier -- the TIER lane below is what refuses a key that is in both -- so the roster the other
-# gates judge is the UNION of that array and the manifest's `rig` keys, never the array alone.
-# That widening landed with the first commissioned body on 2026-09-11:
-# `Appearance.authored_rig_keys()` is the one reader, `check_topdown.gd`'s FLIP lane iterates the
-# union, and `check_worn.gd` splits its count into a pinned eight generated plus one per declared
-# rig. Its FITS envelope -- the union of the rigs' opaque boxes, which every equipment overlay is
+# missed: it does not put an authored rig into a rule-placed tier. One key belongs to one tier --
+# the TIER lane below is what refuses a key that is in both. `Appearance.PAWN_KEYS`, the generated
+# half of the old union, retired with the last generated rig on 2026-10-19, so the roster the other
+# gates judge is the manifest's `rig` keys alone.
+# The union had landed with the first commissioned body on 2026-09-11:
+# `Appearance.authored_rig_keys()` is still the one reader, `check_topdown.gd`'s FLIP lane iterates
+# it, and `check_worn.gd` counts body families (the pack survivor and nine zombie families since
+# 2026-10-19) rather than generated rigs. Its FITS envelope -- the union of the rigs' opaque boxes, which every equipment overlay is
 # measured inside -- was the one that could have gone weaker silently, since every body added to
 # a union only makes "is this overlay inside it" easier to answer yes; it now asserts that the
 # commissioned rigs do not widen it at all, so layering staying a requirement of any art we take
@@ -257,17 +263,22 @@ const HEAD_MAX: int = 13
 const CLEARANCE_MIN: int = 3
 const OUTLINE: Color = Color("#161614")
 
-# The one rig allowed the family's outer bound, and the reason nothing else may come near it:
-# it sits exactly on 26 with exactly 3 px of clearance, so it is the rig at the wall.
-const BROAD_RIGS: Array[String] = ["zombie_bloater"]
+# The rigs allowed the family's outer bound. The generated bloater was the one, sitting exactly on
+# 26 with exactly 3 px of clearance; it is a zombie pose family since 2026-10-19 (zombie study 02,
+# judged by ZOMBIE_POSES at its own broad canvas), so no rig on the roster is broad today and a
+# commissioned broad rig would be named here.
+const BROAD_RIGS: Array[String] = []
 
-const GENERATED_RIGS: Array[String] = ["zombie_screamer", "zombie_bloater"]
+# What every fabricated negative below starts from: a real body that passed every bound, so each
+# negative is one broken bound away from art that shipped. It was the player's rig until
+# 2026-09-26 and the generated screamer after that; when the screamer became a pose family on
+# 2026-10-19 the last generated rig left the roster, so its final committed picture is kept as a
+# fixture here rather than resolved -- the negatives must not depend on a rig still shipping, or
+# the lanes would lose their ability to say no exactly when the roster is empty.
+const BASE_FIXTURE: String = "res://test/fixtures/generated_rig_screamer.png"
 
-# The generated rig every fabricated negative below starts from: a real body that passes, so each
-# negative is one broken bound away from shipped art. The player's rig until 2026-09-26; the
-# screamer since the player moved onto the pack survivor, because it is narrow (not in
-# BROAD_RIGS) and sits inside every bound with room to break each one on its own.
-const BASE_RIG: String = "zombie_screamer"
+# A key `canvas_of` places by rule rather than by manifest, for TIER's true negative.
+const RULE_PLACED_CONTROL: String = "vehicle_sedan_pale_ns"
 
 
 func _init() -> void:
@@ -549,8 +560,6 @@ func _the_manifest_is_well_formed() -> bool:
 func _rule_places(key: String) -> bool:
 	if key.begins_with("chart_"):
 		return true
-	if Appearance.PAWN_KEYS.has(key):
-		return true
 	return Appearance.vehicle_canvas(key) != Vector2i.ZERO
 
 
@@ -561,8 +570,10 @@ func _no_key_is_in_both_tiers() -> bool:
 			return false
 	# TN, both ways: a generated key must be seen as rule-placed, and a plausible authored one
 	# must not -- otherwise the predicate answers the same thing for everything.
-	if not _rule_places(BASE_RIG):
-		push_error("the tier predicate does not see %s as rule-placed; a zero above would prove nothing" % BASE_RIG)
+	# The generated control is a north-south car, the one family `canvas_of` still places by rule
+	# since the last generated rig retired on 2026-10-19.
+	if not _rule_places(RULE_PLACED_CONTROL):
+		push_error("the tier predicate does not see %s as rule-placed; a zero above would prove nothing" % RULE_PLACED_CONTROL)
 		return false
 	if _rule_places("survivor_commissioned"):
 		push_error("the tier predicate sees an undeclared key as rule-placed; it would refuse every authored key")
@@ -1038,19 +1049,16 @@ func _image_of(key: String) -> Image:
 	return null if texture == null else texture.get_image()
 
 
+# The fabrication base, loaded from its fixture the way `Appearance.resolve` loads a raw PNG.
+func _base_rig() -> Image:
+	if not FileAccess.file_exists(BASE_FIXTURE):
+		return null
+	var img: Image = Image.new()
+	return img if img.load(BASE_FIXTURE) == OK else null
+
+
 func _every_rig_meets_the_published_bounds() -> bool:
 	var judged: int = 0
-	for key in GENERATED_RIGS:
-		var image: Image = _image_of(key)
-		if image == null:
-			push_error("%s does not resolve; the bounds had nothing to judge" % key)
-			return false
-		var broken: Array[String] = _bounds_broken(image, not BROAD_RIGS.has(key))
-		if not broken.is_empty():
-			push_error("%s breaks the published bounds: %s (assets/sprites/README.md)" % [key, ", ".join(broken)])
-			return false
-		judged += 1
-
 	var declared: Dictionary = _entries()
 	for key in declared.keys():
 		var entry: Dictionary = declared[key] as Dictionary
@@ -1070,9 +1078,9 @@ func _every_rig_meets_the_published_bounds() -> bool:
 	# own code. Proved on the shipped art rather than on a drawn blank, so the fabrication starts
 	# from something that passes -- a negative built from nothing proves the emptiness, not the
 	# bound.
-	var base: Image = _image_of(BASE_RIG)
+	var base: Image = _base_rig()
 	if base == null:
-		push_error("%s does not resolve; the negatives cannot be fabricated" % BASE_RIG)
+		push_error("%s does not resolve; the negatives cannot be fabricated" % BASE_FIXTURE)
 		return false
 	var w: int = base.get_width()
 	var h: int = base.get_height()
@@ -1105,19 +1113,24 @@ func _every_rig_meets_the_published_bounds() -> bool:
 			push_error("a rig fabricated to break '%s' passed that bound; the assertion proves nothing" % code)
 			return false
 	if not _bounds_broken(base, true).is_empty():
-		push_error("the unmodified %s broke a bound; the fabrications above start from something that already fails" % BASE_RIG)
+		push_error("the unmodified %s broke a bound; the fabrications above start from something that already fails" % BASE_FIXTURE)
 		return false
 
-	print("SPEC OK %d rigs inside height %d-%d, shoulders <= %d (%d narrow), head <= %d, clearance >= %d, soles on the bottom row, every edge pixel OUTLINE; six fabrications each refused by their own bound" % [judged, HEIGHT_MIN, HEIGHT_MAX, SHOULDER_MAX, SHOULDER_MAX_NARROW, HEAD_MAX, CLEARANCE_MIN])
+	if judged == 0:
+		print("SPEC SKIP no rig on the roster to judge: every body is a pack or pose family, judged by PACK and ZOMBIE_POSES; its negatives still ran on the fixture")
+	else:
+		print("SPEC OK %d rigs inside height %d-%d, shoulders <= %d (%d narrow), head <= %d, clearance >= %d, soles on the bottom row, every edge pixel OUTLINE; six fabrications each refused by their own bound" % [judged, HEIGHT_MIN, HEIGHT_MAX, SHOULDER_MAX, SHOULDER_MAX_NARROW, HEAD_MAX, CLEARANCE_MIN])
 	return true
 
 
 # --- the four-tone lanes ---------------------------------------------------------------------
 
-# Every rig this gate judges: the generated eight plus every commissioned body. One helper so the
+# Every rig this gate judges: every commissioned body. The generated rigs it once also listed are
+# all retired (the last two on 2026-10-19), so the roster is the manifest's `rig` keys alone and
+# is empty until the first commissioned body lands; each lane says so rather than passing quietly. One helper so the
 # three lanes below cannot drift from each other about what the roster is.
 func _rigs_to_judge() -> Array[String]:
-	var out: Array[String] = GENERATED_RIGS.duplicate()
+	var out: Array[String] = []
 	var declared: Dictionary = _entries()
 	for key in declared.keys():
 		if String((declared[key] as Dictionary).get("kind", "")) == "rig":
@@ -1174,9 +1187,9 @@ func _no_rig_draws_ink_inside_its_silhouette() -> bool:
 	# TN: the same scanner, on a real rig with one interior pixel forced to OUTLINE, must find
 	# it. Proved on shipped art rather than on a drawn blank, so the fabrication starts from
 	# something that passes -- and proved *before* the zero above is trusted.
-	var base: Image = _image_of(BASE_RIG)
+	var base: Image = _base_rig()
 	if base == null:
-		push_error("%s does not resolve; the interior negative cannot be fabricated" % BASE_RIG)
+		push_error("%s does not resolve; the interior negative cannot be fabricated" % BASE_FIXTURE)
 		return false
 	var spoiled: Image = base.duplicate() as Image
 	var placed: bool = false
@@ -1186,13 +1199,16 @@ func _no_rig_draws_ink_inside_its_silhouette() -> bool:
 				spoiled.set_pixel(x, y, OUTLINE)
 				placed = true
 	if not placed:
-		push_error("no interior pixel exists on %s to fabricate with; the lane proves nothing" % BASE_RIG)
+		push_error("no interior pixel exists on %s to fabricate with; the lane proves nothing" % BASE_FIXTURE)
 		return false
 	if _interior_ink(spoiled) == 0:
 		push_error("a fabricated interior OUTLINE pixel was not found; the interior scanner cannot say no")
 		return false
 
-	print("INTERIOR OK %d rigs draw no OUTLINE strictly inside their silhouette; a fabricated interior pixel is refused" % judged)
+	if judged == 0:
+		print("INTERIOR SKIP no rig on the roster to judge: every body is a pack or pose family, judged by PACK and ZOMBIE_POSES; its negatives still ran on the fixture")
+	else:
+		print("INTERIOR OK %d rigs draw no OUTLINE strictly inside their silhouette; a fabricated interior pixel is refused" % judged)
 	return true
 
 
@@ -1239,9 +1255,9 @@ func _every_rig_is_four_tones_a_material() -> bool:
 
 	# TN: one more colour than the cap must be refused. Fabricated by recolouring interior pixels
 	# of a real rig to values nothing else uses, so the negative is a rig that is otherwise sound.
-	var base: Image = _image_of(BASE_RIG)
+	var base: Image = _base_rig()
 	if base == null:
-		push_error("%s does not resolve; the tone negative cannot be fabricated" % BASE_RIG)
+		push_error("%s does not resolve; the tone negative cannot be fabricated" % BASE_FIXTURE)
 		return false
 	var over: Image = base.duplicate() as Image
 	var added: int = 0
@@ -1260,7 +1276,10 @@ func _every_rig_is_four_tones_a_material() -> bool:
 		push_error("a rig fabricated over the tone cap counted %d, at or under %d; the counter cannot say no" % [_distinct_opaque(over).size(), TONE_CAP])
 		return false
 
-	print("TONES OK %d rigs at or under %d distinct colours (worst %s at %d, was 27-88 before the pass); a rig one colour over is refused" % [judged, TONE_CAP, worst_key, worst])
+	if judged == 0:
+		print("TONES SKIP no rig on the roster to judge: every body is a pack or pose family, judged by PACK and ZOMBIE_POSES; its negatives still ran on the fixture")
+	else:
+		print("TONES OK %d rigs at or under %d distinct colours (worst %s at %d, was 27-88 before the pass); a rig one colour over is refused" % [judged, TONE_CAP, worst_key, worst])
 	return true
 
 
@@ -1321,9 +1340,9 @@ func _no_highlight_covers_more_than_its_share() -> bool:
 
 	# TN, both bounds, on real art: a rig repainted entirely in one material's highlight must be
 	# refused by the ceiling, and the same rig with no highlight at all by the floor.
-	var base: Image = _image_of(BASE_RIG)
+	var base: Image = _base_rig()
 	if base == null:
-		push_error("%s does not resolve; the highlight negatives cannot be fabricated" % BASE_RIG)
+		push_error("%s does not resolve; the highlight negatives cannot be fabricated" % BASE_FIXTURE)
 		return false
 	var lit_key: String = String(highlights.keys()[0])
 	var flooded: Image = base.duplicate() as Image
@@ -1342,7 +1361,10 @@ func _no_highlight_covers_more_than_its_share() -> bool:
 		push_error("a rig with every highlight pixel overpainted still measures a highlight; the floor cannot say no")
 		return false
 
-	print("HIGHLIGHT OK %d rigs wear a highlight over 0%% and at most %.0f%% of the body (worst %s at %.1f%%); a flooded rig and a highlight-free one are both refused" % [judged, HIGHLIGHT_MAX * 100.0, worst_key, worst * 100.0])
+	if judged == 0:
+		print("HIGHLIGHT SKIP no rig on the roster to judge: every body is a pack or pose family, judged by PACK and ZOMBIE_POSES; its negatives still ran on the fixture")
+	else:
+		print("HIGHLIGHT OK %d rigs wear a highlight over 0%% and at most %.0f%% of the body (worst %s at %.1f%%); a flooded rig and a highlight-free one are both refused" % [judged, HIGHLIGHT_MAX * 100.0, worst_key, worst * 100.0])
 	return true
 
 
