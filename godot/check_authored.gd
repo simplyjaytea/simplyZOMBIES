@@ -157,9 +157,12 @@ const AUTHORED_PATH: String = "res://assets/sprites/authored.json"
 # ICON since "A picture per item base" (2026-09-26); `tree` and `prop` are judged by PICTURE
 # since "Trees, the bed and the heaps" (2026-09-26).
 #
-# `vehicle` is a parked car's east-west picture from the pack (docs/23, "The cars are the pack's,
-# east-west"), and its shape lane lives beside the parking it judges: check_wrecks.gd's PACK lane
-# holds its painted span to the class's `lEw` and its crop to the pack's anchor row.
+# `vehicle` is a parked vehicle's picture: the three cars east-west from the pack (docs/23, "The
+# cars are the pack's, east-west"), and since 2026-10-19 every other vehicle picture, drawn under
+# `art/simplyzombies/vehicles/` (docs/23, "The cars north-south, and the light vehicles"). Its
+# shape lanes live beside the parking they judge: check_wrecks.gd's DRESSING lane holds a drawn
+# picture's canvas to its class's footprint, and PACK a pack car's painted span to that footprint
+# and its crop to the pack's anchor row.
 #
 # `pack_held` is a weapon in the hand (docs/23, "Held weapons in the hand", 2026-09-26): one of the
 # pack's held-weapon pictures, judged by HELD.
@@ -277,8 +280,10 @@ const BROAD_RIGS: Array[String] = []
 # the lanes would lose their ability to say no exactly when the roster is empty.
 const BASE_FIXTURE: String = "res://test/fixtures/generated_rig_screamer.png"
 
-# A key `canvas_of` places by rule rather than by manifest, for TIER's true negative.
-const RULE_PLACED_CONTROL: String = "vehicle_sedan_pale_ns"
+# A key `canvas_of` places by rule rather than by manifest, for TIER's true negative. The
+# inventory chart's figures are the one family a rule still places since the vehicles became
+# authored on 2026-10-19.
+const RULE_PLACED_CONTROL: String = "chart_arm_left_stand"
 
 
 func _init() -> void:
@@ -558,9 +563,7 @@ func _the_manifest_is_well_formed() -> bool:
 # one tier"; the other half -- that a declared key is not also in the Python registry -- is
 # build.py's, because only that side can see a registry.
 func _rule_places(key: String) -> bool:
-	if key.begins_with("chart_"):
-		return true
-	return Appearance.vehicle_canvas(key) != Vector2i.ZERO
+	return key.begins_with("chart_")
 
 
 func _no_key_is_in_both_tiers() -> bool:
@@ -570,8 +573,7 @@ func _no_key_is_in_both_tiers() -> bool:
 			return false
 	# TN, both ways: a generated key must be seen as rule-placed, and a plausible authored one
 	# must not -- otherwise the predicate answers the same thing for everything.
-	# The generated control is a north-south car, the one family `canvas_of` still places by rule
-	# since the last generated rig retired on 2026-10-19.
+	# The generated control is a chart figure, the one family `canvas_of` still places by rule.
 	if not _rule_places(RULE_PLACED_CONTROL):
 		push_error("the tier predicate does not see %s as rule-placed; a zero above would prove nothing" % RULE_PLACED_CONTROL)
 		return false

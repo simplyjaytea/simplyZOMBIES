@@ -2571,6 +2571,65 @@ not a to-do list:
   variation; a later polish pass can refine foot contact and stabilize those details. No new
   zombie kind, spawn mix, wearable asset or corpse interaction is introduced.
 
+- **Art & renderer — the cars north-south, and the light vehicles, 2026-10-19.** Alpha plan
+  item A11's second family. The last generated vehicle pictures become art in the pack's manner:
+  the sedan, van and truck nose-north (intact and wreck, six keys) and the five light classes on
+  both axes in three paint jobs (thirty keys), all authored under
+  `godot/art/simplyzombies/vehicles/` and sourced in `authored.json` as kind `vehicle`. The cars
+  were painted over a guide (`guides/cars_ns.py`) in one img2img pass so the three share a hand,
+  then cut by `cars.py`; the wrecks are not generated but damaged deterministically from the kept
+  pass (`guides/wreck.py`: dulled paint, rust, crazed glass, a creased hood). The light vehicles
+  are drawn by `light.py` (a near-black outline, four tones a material lit from the north),
+  because thin frames and spokes are what an image model smears. Every prompt, kept and rejected,
+  is in `vehicles/prompts.json`.
+
+  **The owner's footprint, landed.** docs/30's "The outpost pack, adopted" named it on
+  2026-09-17: the cars shrink to **sedan 2×3, van and truck 2×4** once the pack's art draws
+  them. East-west did on 2026-09-26 through `lEw`; north-south does now, so content's `l` is 3,
+  4 and 4 and `lEw` is gone from all three — a car is one length whichever way it is parked or
+  turned. Pale and green share the intact picture north-south and burnt takes the wreck, as
+  east-west already did. `lEw` stays in the schema and in `SimWorldgen.vehicle_extent`, unused
+  by shipped content; DRIVE proves the helper still honours it on a fabricated footprint.
+
+  **Retired, by the standing rule:** `tools/sprites/parts/vehicles.py` and
+  `parts/light_vehicles.py` whole, `build.py`'s vehicle canvas table, and the nine generated
+  north-south car PNGs (`vehicle_<car>_{pale,green,burnt}_ns`, now on `RETIRED_KEYS`). On the
+  Godot side `Appearance.vehicle_canvas`, `VEHICLE_FOOTPRINTS`, `VEHICLE_VARIANTS` and
+  `VEHICLE_PACK_EW` went with the rule they fed: every vehicle picture is authored, so
+  `canvas_of`'s authored tier answers them all, and `vehicle_reach_tiles` is now the longest side
+  of any authored vehicle picture rather than a footprint table. The palette's `car_*` ramps
+  stay in `tools/sprites/palette.py` and `tones.json`, read by nothing generated now.
+
+  **Gated:** `godot:check:wrecks` (→ `WRECKS_OK`): DRESSING requires every vehicle key to be
+  declared in `authored.json` and holds every drawn picture's declared canvas to its class's
+  content footprint plus the roofline tile (refusing a fabricated key and one class's picture
+  against another's footprint); PACK keeps its own list, `PACK_EW_IDS`, holds it to the art both
+  ways by the pack manifest (a pack car east-west only, never north-south) and now asserts the
+  east-west length **equals** the north-south one, refusing a fabricated car four tiles one way
+  and six the other; SILHOUETTE judges the light classes on the footprint rows and the mirror
+  clearance, which made the e-scooter, kick scooter and skateboard move three pixels off their
+  canvas edges and the e-scooter's stem come down to 34 rows; MANIFEST's hand sedan is 2×3.
+  `godot:m2:vehicles` (→ `M2_VEHICLES_OK`): the hand sedan's length is one constant, `SEDAN_L`,
+  that CONTENT holds to content, and every wall, jam, heap and doorway expectation is derived
+  from it; DRIVE asserts the turned sedan is the north-south footprint laid flat. TIER's true
+  negative moved to a chart figure, the one family `canvas_of` still places by rule.
+  `sprites:check`: 55 generated keys, 403 sourced. `npm test` 594/594.
+
+  **Sabotage, red and restored:** the sedan at `l` 4 (DRESSING: "authored on (64, 128) where its
+  content footprint implies (64, 160)"; PACK: "spans 3 tiles ... parks it 4 long"; CONTENT:
+  "content's sedan is 4.0 long and this gate's copy says SEDAN_L 3"); the van given `lEw` 3
+  (PACK: "spans 4 tiles ... parks it 3 long east-west").
+
+  **Measured:** the suburb at 128 parks **152** vehicles over PLACED's four seeds against 149 on
+  the base (sedans 63 → 66; every other class unchanged), the shorter sedan fitting slots the
+  longer one was refused. The balance harness boots the 64-tile suburb, which parks nothing. The
+  before/after captures (every class staged on open street at noon, the before at the base) and
+  sheets of the cars beside the pack's and the light vehicles old against new are in
+  `.hermes/plans/2026-10-19_vehicles/`.
+
+  **What it leaves:** a car seen from behind is still the one picture for both north-south
+  facings (decision 11's limit, in what's left); no state between intact and wreck; no lamp glow.
+
 - **Art & renderer — zombie study 02: the screamer and the bloater, 2026-10-19.** Alpha plan
   item A11's first family. The last two generated, face-on, flipped rigs become pose families
   beside study 01's seven, at its geometry: the screamer at 32×40 and 5 fps, the bloater broad at

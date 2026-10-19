@@ -2318,6 +2318,402 @@
         ]
       }
     },
+    "vehicle_sedan_intact_ns": {
+      "canvas": [
+        64,
+        128
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.sedan",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/sedan-intact-ns.png"
+      }
+    },
+    "vehicle_sedan_wreck_ns": {
+      "canvas": [
+        64,
+        128
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.sedan",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/sedan-wreck-ns.png"
+      }
+    },
+    "vehicle_van_intact_ns": {
+      "canvas": [
+        64,
+        160
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.van",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/van-intact-ns.png"
+      }
+    },
+    "vehicle_van_wreck_ns": {
+      "canvas": [
+        64,
+        160
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.van",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/van-wreck-ns.png"
+      }
+    },
+    "vehicle_truck_intact_ns": {
+      "canvas": [
+        64,
+        160
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.truck",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/truck-intact-ns.png"
+      }
+    },
+    "vehicle_truck_wreck_ns": {
+      "canvas": [
+        64,
+        160
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.truck",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/truck-wreck-ns.png"
+      }
+    },
+    "vehicle_bicycle_pale_ns": {
+      "canvas": [
+        32,
+        96
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.bicycle",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/bicycle-pale-ns.png"
+      }
+    },
+    "vehicle_bicycle_pale_ew": {
+      "canvas": [
+        64,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.bicycle",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/bicycle-pale-ew.png"
+      }
+    },
+    "vehicle_bicycle_green_ns": {
+      "canvas": [
+        32,
+        96
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.bicycle",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/bicycle-green-ns.png"
+      }
+    },
+    "vehicle_bicycle_green_ew": {
+      "canvas": [
+        64,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.bicycle",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/bicycle-green-ew.png"
+      }
+    },
+    "vehicle_bicycle_burnt_ns": {
+      "canvas": [
+        32,
+        96
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.bicycle",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/bicycle-burnt-ns.png"
+      }
+    },
+    "vehicle_bicycle_burnt_ew": {
+      "canvas": [
+        64,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.bicycle",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/bicycle-burnt-ew.png"
+      }
+    },
+    "vehicle_ebike_pale_ns": {
+      "canvas": [
+        32,
+        96
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.ebike",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/ebike-pale-ns.png"
+      }
+    },
+    "vehicle_ebike_pale_ew": {
+      "canvas": [
+        64,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.ebike",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/ebike-pale-ew.png"
+      }
+    },
+    "vehicle_ebike_green_ns": {
+      "canvas": [
+        32,
+        96
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.ebike",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/ebike-green-ns.png"
+      }
+    },
+    "vehicle_ebike_green_ew": {
+      "canvas": [
+        64,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.ebike",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/ebike-green-ew.png"
+      }
+    },
+    "vehicle_ebike_burnt_ns": {
+      "canvas": [
+        32,
+        96
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.ebike",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/ebike-burnt-ns.png"
+      }
+    },
+    "vehicle_ebike_burnt_ew": {
+      "canvas": [
+        64,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.ebike",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/ebike-burnt-ew.png"
+      }
+    },
+    "vehicle_escooter_pale_ns": {
+      "canvas": [
+        32,
+        96
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.escooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/escooter-pale-ns.png"
+      }
+    },
+    "vehicle_escooter_pale_ew": {
+      "canvas": [
+        64,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.escooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/escooter-pale-ew.png"
+      }
+    },
+    "vehicle_escooter_green_ns": {
+      "canvas": [
+        32,
+        96
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.escooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/escooter-green-ns.png"
+      }
+    },
+    "vehicle_escooter_green_ew": {
+      "canvas": [
+        64,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.escooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/escooter-green-ew.png"
+      }
+    },
+    "vehicle_escooter_burnt_ns": {
+      "canvas": [
+        32,
+        96
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.escooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/escooter-burnt-ns.png"
+      }
+    },
+    "vehicle_escooter_burnt_ew": {
+      "canvas": [
+        64,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.escooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/escooter-burnt-ew.png"
+      }
+    },
+    "vehicle_kickscooter_pale_ns": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.kickscooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/kickscooter-pale-ns.png"
+      }
+    },
+    "vehicle_kickscooter_pale_ew": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.kickscooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/kickscooter-pale-ew.png"
+      }
+    },
+    "vehicle_kickscooter_green_ns": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.kickscooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/kickscooter-green-ns.png"
+      }
+    },
+    "vehicle_kickscooter_green_ew": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.kickscooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/kickscooter-green-ew.png"
+      }
+    },
+    "vehicle_kickscooter_burnt_ns": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.kickscooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/kickscooter-burnt-ns.png"
+      }
+    },
+    "vehicle_kickscooter_burnt_ew": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.kickscooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/kickscooter-burnt-ew.png"
+      }
+    },
+    "vehicle_skateboard_pale_ns": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.skateboard",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/skateboard-pale-ns.png"
+      }
+    },
+    "vehicle_skateboard_pale_ew": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.skateboard",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/skateboard-pale-ew.png"
+      }
+    },
+    "vehicle_skateboard_green_ns": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.skateboard",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/skateboard-green-ns.png"
+      }
+    },
+    "vehicle_skateboard_green_ew": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.skateboard",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/skateboard-green-ew.png"
+      }
+    },
+    "vehicle_skateboard_burnt_ns": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.skateboard",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/skateboard-burnt-ns.png"
+      }
+    },
+    "vehicle_skateboard_burnt_ew": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.skateboard",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/skateboard-burnt-ew.png"
+      }
+    },
     "body_zombie_workwear": {
       "canvas": [
         32,
