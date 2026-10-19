@@ -537,6 +537,14 @@ and would eat them).
 
 ## The vehicle — one three-quarter picture per class, variant and axis
 
+**Historical since 2026-10-19: no vehicle picture is generated.** The three cars east-west are the
+outpost pack's (2026-09-26); the cars north-south (`vehicle_<car>_{intact,wreck}_ns`) and all
+thirty light-vehicle keys are drawn under `godot/art/simplyzombies/vehicles/` (its README says
+how) and sourced in `authored.json`, and the sedan is 2×3, the van and the truck 2×4, both ways.
+The canvas rule below (footprint plus a tile of roofline) still sizes every picture but the pack's
+east-west cars, held by `check_wrecks.gd`'s DRESSING lane against content's footprint; the
+generator's camera, its numbers and its two-copies table describe pictures that no longer exist.
+
 `vehicle_{sedan,van,truck}_{pale,green,burnt}_{ns,ew}` (`tools/sprites/parts/vehicles.py`) are
 the three car classes, eighteen keys — the five light classes below make forty-eight in all:
 **feet-anchored on the footprint's south edge**, hung and

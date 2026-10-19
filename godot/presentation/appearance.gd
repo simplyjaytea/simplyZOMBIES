@@ -253,51 +253,20 @@ const ROW_NONE: int = 255
 # The vehicles: one three-quarter picture per class x variant x axis (docs/30, the Dungeon
 # Settlers look, decision 11). A car seen from the side is a different picture, not a rotation,
 # so a variant has two keys and no per-tile segments; the picture stands feet-anchored on its
-# footprint's south-edge centre and y-sorts with the bodies, exactly as a tree does.
+# footprint's south edge centre and y-sorts with the bodies, exactly as a tree does.
 #
-# The canvas is derived rather than tabled, because a class has a length and slice 11's van and
-# truck have different ones: it is the footprint plus one tile of roofline north, which is the
-# room a three-quarter picture needs to lean up-canvas from the base it stands on. An unknown
-# class, variant or axis answers ZERO, which falls through to the tile canvas below and is what
-# refuses a fabricated file at check_appearance.gd's canvas lane.
-const VEHICLE_PREFIX: String = "vehicle_"
+# Every vehicle picture is authored since 2026-10-19 (docs/23, "The cars north-south, and the
+# light vehicles"): the three cars east-west are the outpost pack's, cropped to its anchor row,
+# and everything else is drawn under `godot/art/simplyzombies/vehicles/` on the canvas its
+# class's footprint implies -- the footprint plus one tile of roofline north, the room a
+# three-quarter picture needs to lean up-canvas from the base it stands on. So there is no
+# vehicle rule here any more: `canvas_of`'s authored tier answers every key, and
+# check_wrecks.gd's DRESSING lane holds each drawn canvas to content's footprint, which is the
+# one copy of it. A fabricated key is declared nowhere and falls through to the tile canvas.
 const VEHICLE_ROOFLINE_TILES: int = 1
-# The light classes stand one tile across: a bicycle, an e-bike and an e-scooter are 1x2, a
-# kick scooter and a skateboard 1x1, so their pictures are 32x96 / 64x64 and 32x64 / 32x64.
-const VEHICLE_FOOTPRINTS: Dictionary = {
-	"sedan": Vector2i(2, 5), "van": Vector2i(2, 6), "truck": Vector2i(2, 7),
-	"bicycle": Vector2i(1, 2), "ebike": Vector2i(1, 2), "escooter": Vector2i(1, 2),
-	"kickscooter": Vector2i(1, 1), "skateboard": Vector2i(1, 1),
-}
-const VEHICLE_VARIANTS: Array[String] = ["pale", "green", "burnt"]
 const AXIS_NS: String = "ns"
 const AXIS_EW: String = "ew"
-# The classes whose east-west picture is the outpost pack's rather than the generator's (docs/23,
-# "The cars are the pack's, east-west"): authored keys in `authored.json`, placed by
-# `canvas_of`'s authored tier at the pack's own canvas, standing on content's `lEw` footprint.
-# `vehicle_canvas` answers ZERO for their generated east-west keys, which no longer exist, so a
-# rule cannot quietly place a picture that retired -- mirrored by tools/sprites/parts/vehicles.py's
-# PACK_EW under the same two-copies arrangement as VEHICLE_FOOTPRINTS, whose three car rows are
-# now the north-south footprints alone.
-const VEHICLE_PACK_EW: Array[String] = ["sedan", "van", "truck"]
-
-
-# The canvas `key` is authored on when it names a shipped vehicle picture, ZERO otherwise.
-static func vehicle_canvas(key: String) -> Vector2i:
-	if not key.begins_with(VEHICLE_PREFIX):
-		return Vector2i.ZERO
-	var parts: PackedStringArray = key.substr(VEHICLE_PREFIX.length()).split("_")
-	if parts.size() != 3:
-		return Vector2i.ZERO
-	if not VEHICLE_FOOTPRINTS.has(parts[0]) or not VEHICLE_VARIANTS.has(parts[1]):
-		return Vector2i.ZERO
-	var foot: Vector2i = VEHICLE_FOOTPRINTS[parts[0]] as Vector2i
-	var n: int = int(CameraUtil.ART_NATIVE)
-	if parts[2] == AXIS_NS:
-		return Vector2i(foot.x * n, (foot.y + VEHICLE_ROOFLINE_TILES) * n)
-	if parts[2] == AXIS_EW and not VEHICLE_PACK_EW.has(parts[0]):
-		return Vector2i(foot.y * n, (foot.x + VEHICLE_ROOFLINE_TILES) * n)
-	return Vector2i.ZERO
+const VEHICLE_KIND: String = "vehicle"
 
 
 # Which way a vehicle picture is shown for a parked facing. The east-west picture is authored
@@ -312,16 +281,15 @@ static func vehicle_flip(facing: String) -> float:
 	return 1.0
 
 
-# The tallest picture any class stands, in tiles: the longest footprint plus the roofline tile,
-# which is how far below the visible box a record's south edge can be while its picture is still
-# on screen. main.gd's entity pass widens its search box by this, so the margin follows the
-# footprint table instead of remembering one class -- a margin sized for a five-tile sedan would
-# have popped an eight-tile truck out at the bottom of the screen with its cab still showing.
+# The tallest picture any class stands, in tiles: the longest side of any authored picture of
+# kind `vehicle`, rounded up to whole tiles, which is how far below the visible box a record's
+# south edge can be while its picture is still on screen. main.gd's entity pass widens its search
+# box by this, so the margin follows the art instead of remembering one class -- a margin sized
+# for a three-tile sedan would pop a four-tile truck out at the bottom of the screen with its cab
+# still showing. check_wrecks.gd holds it to content's longest footprint plus the roofline tile.
 static func vehicle_reach_tiles() -> int:
-	var longest: int = 0
-	for foot in VEHICLE_FOOTPRINTS.values():
-		longest = maxi(longest, maxi((foot as Vector2i).x, (foot as Vector2i).y))
-	return longest + VEHICLE_ROOFLINE_TILES
+	_read_authored()
+	return _vehicle_reach
 
 
 # The canvas a registry key is authored on. Everything is one ART_NATIVE tile except the atlases,
@@ -391,6 +359,9 @@ static var _muzzles: Dictionary = {}
 # (`godot:check:fx`'s RATE lane holds each copy to the manifest; the renderer never loads the
 # pack's manifest or its `.tres`).
 static var _sheets: Dictionary = {}
+# The longest side of any authored picture of kind `vehicle`, in whole tiles: what
+# `vehicle_reach_tiles` answers.
+static var _vehicle_reach: int = 0
 static var _authored_read: bool = false
 
 
@@ -417,6 +388,7 @@ static func _read_authored() -> void:
 	_held = {}
 	_muzzles = {}
 	_sheets = {}
+	_vehicle_reach = 0
 	if not FileAccess.file_exists(AUTHORED_PATH):
 		return
 	var text: String = FileAccess.get_file_as_string(AUTHORED_PATH)
@@ -437,6 +409,9 @@ static func _read_authored() -> void:
 		_authored[String(key)] = shape
 		if String((entry as Dictionary).get("kind", "")) == "rig":
 			_authored_rigs.append(String(key))
+		if String((entry as Dictionary).get("kind", "")) == VEHICLE_KIND:
+			var n: int = int(CameraUtil.ART_NATIVE)
+			_vehicle_reach = maxi(_vehicle_reach, (maxi(shape.x, shape.y) + n - 1) / n)
 		var grip: Variant = (entry as Dictionary).get("grip")
 		if String((entry as Dictionary).get("kind", "")) == "pack_held" and grip is Array and (grip as Array).size() == 2:
 			_held[String(key)] = Vector2i(floori(float((grip as Array)[0])), floori(float((grip as Array)[1])))
@@ -504,12 +479,8 @@ static func canvas_of(key: String) -> Vector2i:
 	if key.begins_with("chart_"):
 		return CHART_CANVAS
 	var n: int = int(CameraUtil.ART_NATIVE)
-	# The ground atlas was placed by a rule here until 2026-09-27; it is authored now, and the
-	# declaration above answers its canvas (192x256: two variants and four fringes across, eight
-	# rows down).
-	var vehicle: Vector2i = vehicle_canvas(key)
-	if vehicle != Vector2i.ZERO:
-		return vehicle
+	# The ground atlas was placed by a rule here until 2026-09-27, and the vehicles until
+	# 2026-10-19; both are authored now, and the declaration above answers their canvases.
 	return Vector2i(n, n)
 
 
