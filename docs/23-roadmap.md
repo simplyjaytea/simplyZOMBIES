@@ -1929,6 +1929,44 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **UI — the inventory, redone (the Salvage Locker), 2026-10-19.** The owner's answer to the
+  alpha plan's Q5: keep the grid, which reads like Tarkov's, but it "looks very plain" and has to
+  look bespoke; and a fast list beside it with the grid still the authority on capacity. Three
+  directions were drawn at 1920×1080 with the repo's own icons (canvas webbing, a salvage locker,
+  a hard case); the locker was built, and the owner holds a card to redirect it. What changed, all
+  under `godot/ui/`: a new `locker.gd` skin (brushed steel, rivets, masking-tape labels,
+  recessed cells, plates tinted by item class with a dog-ear, amber selection brackets, rust
+  hazard stripes for a refused drop) replaces the kit frames on the inventory's surfaces; a bag
+  cell is 60 px — thirty art pixels at the world's 2× — so an item's 32 px picture sits in one
+  cell at the size the same thing has on the floor, and `ItemPicture.draw` crops to the painted
+  part and lays a long gun along its footprint; the sheet gains a title bar (with the kit's close
+  glyph, now read), a list of everything in reach with six kind chips that fade the grids rather
+  than hide cells, a ctrl-click that sends an item to the box you stand at or back into the
+  first bag with room (cell by cell through `SimInventory.can_place`, then `item.move` through the
+  queue), and verb buttons along the inspect pane's foot drawn from the same rects the press is
+  tested against. The quick strip and the item menu (and so the street's right-click menu, which
+  draws through it) wear the same skin. The transfer window now clears the action bar where the
+  screen is tall enough for both. `Chrome.item_plate` lost its last caller and was removed.
+  **Not changed:** the sim, the read models, the digit and health-bar bans, the one typeface,
+  the column order, the 1280 two-lane rule. **Conflict with docs/32**, which recommends flatter
+  surfaces and a sans body face: the owner's "super awesome, bespoke" ask wins on the surfaces,
+  and VT323 stays because the one-typeface decision is the owner's too.
+
+  **Evidence:** `godot:check:inventory`'s new QUICK lane drives real presses in a 1920×1080
+  SubViewport: the list carries every item the grids do and only weapons under the arms chip
+  (pressed, not set), a row press selects; a ctrl-press moves the bottle into the open cupboard
+  after a step and pushes nothing with the box closed; the pane's drop button drops the knife
+  and a miss pushes nothing. Sabotaging the ctrl-press and the button's `_act` turns SEND and
+  BUTTONS red. Gate edits, each deliberate: `check_appearance`'s shared-draw needle reads
+  `draw_texture_rect_region(` (the crop), `check_ui_skin`'s CURSORS needle reads `Locker.refuse(`
+  for the refusal, PANEL drops `item_plate`, and GLYPHS moves `glyph_close` from unused to a
+  reader. `godot:check:inventory`, `:ui_skin`, `:appearance`, `:respond`, `:context`, `:hud`,
+  `:play`, `godot:ban:healthbar` and `godot:smoke` pass; the full chain was not run.
+  [Before/after captures](../.hermes/plans/2026-10-19_inventory-redesign/README.md) at 1280×720
+  and 1920×1080 from one throwaway driver (deleted). Not shown or proven: a drag in flight, the
+  ghost and the stripes on screen, a human using the list in a real run; and at 1280 with a box
+  open the inspect pane gives way to the two lanes, so its buttons are not on screen there.
+
 - **UI — the sheet and Work grid fit the reviewed viewports, 2026-10-03.** At 1280×720,
   inventory now separates its equipment, native 56-pixel bag cells and inspect pane, keeping
   all seven frame-pack columns reachable. The compact sheet uses the condition chart at integer
