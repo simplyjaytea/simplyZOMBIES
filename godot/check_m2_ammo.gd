@@ -58,8 +58,9 @@ func _run() -> void:
 	ok = _a_weapon_with_no_caliber_still_fires_its_own_round() and ok
 	ok = _a_conversion_moves_the_round_and_the_set_together() and ok
 	ok = _what_is_recovered_is_what_was_fired() and ok
+	ok = _the_debug_spawned_round_holds_the_count_asked_for() and ok
 	if ok:
-		print("M2_AMMO_OK content reach scaled default pick refuse fold drops legacy convert recover")
+		print("M2_AMMO_OK content reach scaled default pick refuse fold drops legacy convert recover debug-stack")
 		quit(0)
 	else:
 		push_error("M2_AMMO_FAIL")
@@ -781,3 +782,57 @@ func _what_is_recovered_is_what_was_fired() -> bool:
 
 	print("  RECOVER OK a bow shooting broadheads recovers broadheads and never grows a plain arrow")
 	return true
+
+
+# --- DEBUG-STACK ------------------------------------------------------------------------------
+#
+# The F8 panel and a hand-pushed `debug.spawn` hand a round over as a stack. Before the item arm
+# read a count, every dev round arrived as a stack of one, and a stack of one is despawned on the
+# shot that spends it: a tester with one round on hand fired once and had nothing left to reload
+# with. The lane asks what the spawned stack actually holds. Asking for five must give five, and
+# asking for nothing must still give one, so the default is pinned rather than assumed.
+
+const DEBUG_SEED: int = 20260805
+const DEBUG_TILES: int = 64
+
+
+func _the_debug_spawned_round_holds_the_count_asked_for() -> bool:
+	var round_id: String = "item.ammo.9mm"
+	var asked: int = _debug_spawned_stack(round_id, {"count": 5})
+	var default_stack: int = _debug_spawned_stack(round_id, {})
+	if asked < 0 or default_stack < 0:
+		push_error("DEBUG-STACK: the dev spawn of '%s' made no item at all" % round_id)
+		return false
+	if asked != 5:
+		push_error("DEBUG-STACK: a dev spawn asking for 5 rounds arrived with %d -- the count on the command is not reaching spawn_item" % asked)
+		return false
+	if default_stack != 1:
+		push_error("DEBUG-STACK: a dev spawn with no count arrived with %d, not the default of 1" % default_stack)
+		return false
+	print("DEBUG-STACK OK a dev spawn of 5 rounds holds %d, and with no count holds %d" % [asked, default_stack])
+	return true
+
+
+## Pushes one `debug.spawn` item command carrying `extra` and returns the stack the new item holds,
+## or -1 when the command made no item of `round_id`.
+func _debug_spawned_stack(round_id: String, extra: Dictionary) -> int:
+	var w: Variant = SimBoot.playable(DEBUG_SEED, DEBUG_TILES)["world"]
+	var before: Array[int] = []
+	for e in w.components.query(["itemBase"]):
+		before.append(int(e))
+	var pos: Variant = w.components.get_component(int(w.player), "position")
+	var cmd: Dictionary = {"type": "debug.spawn", "kind": "item", "id": round_id, "x": float((pos as Dictionary)["x"]), "y": float((pos as Dictionary)["y"])}
+	cmd.merge(extra)
+	w.commands.push(cmd)
+	w.step()
+	for e in w.components.query(["itemBase"]):
+		if before.has(int(e)):
+			continue
+		var base: Variant = w.components.get_component(int(e), "itemBase")
+		if not base is Dictionary or String((base as Dictionary).get("baseId", "")) != round_id:
+			continue
+		var stack: Variant = w.components.get_component(int(e), "stack")
+		if stack is Dictionary:
+			return int((stack as Dictionary).get("count", 1))
+		return 1
+	return -1
