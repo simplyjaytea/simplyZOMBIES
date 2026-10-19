@@ -64,6 +64,7 @@ RAMPS: dict[str, Ramp] = {
     "fur": ((214, 204, 182), (186, 176, 154), (150, 140, 120), (112, 104, 88)),
     "metal": ((196, 196, 188), (150, 150, 146), (110, 110, 108), (78, 78, 78)),
     "steel": ((150, 156, 162), (118, 124, 132), (90, 96, 104), (64, 68, 76)),
+    "navy": ((124, 136, 176), (92, 104, 144), (68, 78, 112), (46, 52, 80)),
 }
 
 # Which body parts each garment covers. `sleeve` is how far down the arm a torso garment reaches,
@@ -99,7 +100,7 @@ GARMENTS: dict[str, dict] = {
     "wear_poncho_tarp": {"shape": "poncho", "ramp": "tarp"},
     "wear_blanket": {"shape": "poncho", "ramp": "wool", "stripe": "sand"},
     "wear_coverall_paper": {"shape": "suit", "ramp": "paper", "trim": "ash"},
-    "wear_suit_hazmat": {"shape": "suit", "ramp": "hazmat", "trim": "black"},
+    "wear_suit_hazmat": {"shape": "suit", "ramp": "hazmat", "trim": "black", "hood": True},
     "wear_apron_butcher": {"shape": "apron", "ramp": "bloodied", "under": "slate"},
     "wear_apron_welding": {"shape": "apron", "ramp": "hide", "under": "charcoal"},
     "wear_wrap_cloth": {"shape": "wrap", "ramp": "ash", "under": "sand"},
@@ -107,7 +108,7 @@ GARMENTS: dict[str, dict] = {
     "wear_pants_charcoal": {"shape": "pants", "ramp": "charcoal", "trim": "leather"},
     "wear_pants_denim": {"shape": "pants", "ramp": "denim", "trim": "leather"},
     "wear_pants_canvas": {"shape": "pants", "ramp": "khaki", "trim": "leather"},
-    "wear_pants_insulated": {"shape": "pants", "ramp": "olive", "trim": "black"},
+    "wear_pants_insulated": {"shape": "pants", "ramp": "navy", "trim": "black"},
     "wear_leggings_thermal": {"shape": "pants", "ramp": "ash", "trim": "ash"},
     "wear_shorts_cotton": {"shape": "shorts", "ramp": "sand", "trim": "leather"},
     # feet
@@ -142,13 +143,10 @@ def tone_of(cls: str, p: tuple[int, int, int, int]) -> int:
         return SHADE
     if cls == "h":
         return DEEP
-    # The grey family (underwear): its own value decides.
-    v = max(p[0], p[1], p[2])
-    if v >= 90:
-        return BASE
-    if v >= 60:
-        return SHADE
-    return DEEP
+    # The grey family (underwear): one flat dark grey all over the hips in every frame, so its
+    # value is the cloth's colour rather than the light on it. The hips face the viewer as the
+    # chest does; reading the grey as shadow sank every skirt and every pair of hips to black.
+    return BASE
 
 
 class Frame:
@@ -250,8 +248,9 @@ class Canvas:
     def put(self, x: int, y: int, ramp: Ramp, step: int) -> None:
         self.put_level(x, y, ramp, LEVEL[step])
 
-    def put_level(self, x: int, y: int, ramp: Ramp, level: int) -> None:
-        if not self.f.paintable(x, y):
+    def put_level(self, x: int, y: int, ramp: Ramp, level: int, head: bool = False) -> None:
+        """`head` lets a hood paint the head; the ink and the transparent never take paint."""
+        if not self.f.paintable(x, y) and not (head and self.f.at(x, y) == "H"):
             return
         self.cell[(x, y)] = [ramp, level]
         self.fixed.pop((x, y), None)
@@ -270,6 +269,15 @@ class Canvas:
                     continue
                 raw[(x, y)] = LEVEL[tone_of(f.cls[y][x], f.px[x, y])]
         for (x, y), level in raw.items():
+            # How far down its own column of cloth this pixel sits: cloth darkens as it falls
+            # away from the light at the top of a part. The waist starts a new part -- a belt, a
+            # drawstring or a seam cinches it, and the skirt or the leg below catches the light
+            # again rather than running the chest's falloff on into black.
+            top = f.waist_top if y >= f.waist_top else 0
+            depth = 0
+            while y - depth - 1 >= top and (x, y - depth - 1) in raw:
+                depth += 1
+            level -= min(24, depth * 3)
             total, n = level * 4, 4
             for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
                 q = raw.get((x + dx, y + dy))
@@ -322,9 +330,10 @@ class Canvas:
                 if (x, y - 1) not in self.cell and level >= LEVEL[SHADE]:
                     level += 26
             elif material == "rubber":
-                level = LEVEL[BASE] + (level - LEVEL[BASE]) * 3 // 2 + grain(gx, gy, seed, 2)
-                if level >= LEVEL[BASE] + 20:
-                    level += 22
+                # Smooth coated cloth: hard contrast, no weave, a shine only where it faces up.
+                level = LEVEL[BASE] + (level - LEVEL[BASE]) * 3 // 2 + grain(gx, gy, seed, 1)
+                if (x, y - 1) not in self.cell:
+                    level += 24
             elif material == "denim":
                 level += grain(gx, gy, seed, 6) + (7 if (gx - gy) % 3 == 0 else -2)
             elif material == "wool":
@@ -422,7 +431,7 @@ def paint(family: str, f: Frame) -> Image.Image:
     c = Canvas(f, sum(ord(ch) for ch in family))
     if shape in ("tee", "wrap", "apron"):
         under = RAMPS[spec.get("under", spec["ramp"])] if shape != "tee" else ramp
-        c.cover(under, arm_reach(f, 3))
+        c.cover(under, arm_reach(f, 5 if f.side else 4))
         neckline(c, under, SHADE)
         hem(c, under, f.waist_top - 1, SHADE)
         if shape == "wrap":
@@ -453,8 +462,13 @@ def paint(family: str, f: Frame) -> Image.Image:
         collar(c, ramp, None if spec["trim"] == spec["ramp"] else trim)
         placket(c, ramp, None, True)
         cuffs(c, ramp)
-        # A belt of shade where the coat is cinched, and the deep tone along its skirt hem.
-        hem(c, ramp, f.waist_top - 1, SHADE)
+        # A drawstring where the coat is cinched, in its trim so the skirt below reads apart from the
+        # chest, and the deep tone along its skirt hem.
+        hem(c, ramp, f.waist_top - 1, DEEP)
+        if trim is not None and spec["trim"] != spec["ramp"]:
+            for x in range(parts.W):
+                if (x, f.waist_top - 1) in c.cell and x % 3 != 1:
+                    c.tone(x, f.waist_top - 1, trim, SHADE)
         hem(c, ramp, reach, DEEP)
     elif shape == "poncho":
         stripe = RAMPS[spec["stripe"]] if "stripe" in spec else None
@@ -474,9 +488,13 @@ def paint(family: str, f: Frame) -> Image.Image:
     elif shape == "suit":
         c.cover(ramp, lambda x, y, lab: lab in ("T", "A", "P", "L"))
         neckline(c, ramp, SHADE)
-        cuffs(c, ramp)
         placket(c, ramp, trim, False)
-        hem(c, ramp, f.waist_top, SHADE)
+        # Taped seams: the wrists, the waist and the ankles, in the trim.
+        for (x, y) in list(c.cell):
+            if f.at(x, y + 1) in ("K", "F") or y == f.waist_top:
+                c.tone(x, y, trim, BASE)
+        if spec.get("hood"):
+            hood(c, ramp, trim)
     elif shape in ("pants", "shorts"):
         last = f.waist_bot + 1 if shape == "shorts" else parts.H
         c.cover(ramp, lambda x, y, lab: lab == "P" or (lab == "L" and y <= last))
@@ -514,6 +532,49 @@ def _runs(c: Canvas, y: int, labels: str) -> list[tuple[int, int]]:
             out.append((start, x - 1))
             start = -1
     return out
+
+
+def hood(c: Canvas, ramp: Ramp, trim: Ramp) -> None:
+    """A suit's hood over the hair, and a respirator over the mouth: the face stays the pack's,
+    framed by the hood, so a hazmat suit reads as one at a glance. Only the hair and the lower
+    face are painted; the ink and the eyes are never touched."""
+    f = c.f
+    head = [(x, y) for y in range(parts.H) for x in range(parts.W) if f.at(x, y) == "H"]
+    for (x, y) in head:
+        if f.cls[y][x] in ("u", "h"):
+            c.put_level(x, y, ramp, LEVEL[BASE] - 6, head=True)
+            if f.at(x, y - 1) == "O":
+                c.shift(x, y, 28)
+    face = [(x, y) for (x, y) in head if f.cls[y][x] in ("S", "s")]
+    if not face:
+        return
+    bottom = max(y for _, y in face)
+    rows = (bottom - 1, bottom)
+    xs = sorted({x for (x, y) in face if y in rows})
+    if f.view == "s":
+        mid = (xs[0] + xs[-1]) // 2
+        span = range(mid - 1, mid + 3)
+    else:
+        # From the side the mask sits on the front of the face.
+        span = xs[-3:] if f.view == "e" else xs[:3]
+    steel = RAMPS["steel"]
+    span = list(span)
+    # The mask is grey steel and rubber, not the suit's black: a lit top row over the mouth, the
+    # intake dark in the middle of the lower row, and a pale filter canister at each end of it
+    # (the near one only, from the side) -- a shape no beard or shadow makes.
+    ends = (span[0], span[-1]) if f.view == "s" else ((span[-1],) if f.view == "e" else (span[0],))
+    for y in rows:
+        for x in span:
+            if (x, y) not in face:
+                continue
+            if y == rows[0]:
+                level = LEVEL[BASE]
+            elif x in ends:
+                level = LEVEL[HI]
+            else:
+                c.put_level(x, y, trim, LEVEL[DEEP], head=True)
+                continue
+            c.put_level(x, y, steel, level, head=True)
 
 
 def pocket(c: Canvas, x0: int, y0: int, w: int) -> None:
@@ -584,6 +645,25 @@ def folds(c: Canvas, shape: str) -> None:
                 inner = hi if hi < f.centre else lo
                 c.shift(inner, elbow, -30)
                 c.shift(inner, elbow - 1, 12)
+        if f.side:
+            # The near arm, seen from the side, is parted from the chest by a crease down its
+            # back edge, so a sleeve reads as an arm rather than more chest.
+            back = -1 if f.view == "e" else 1
+            for (x, y) in list(c.cell):
+                if f.at(x, y) == "A" and f.at(x + back, y) == "T" and (x + back, y) in c.cell:
+                    c.shift(x, y, -30)
+        elif shape in ("tee", "tee_long", "shirt", "wrap", "apron", "suit", "jacket", "coat"):
+            # The sleeve seam where the arm meets the body, and the chest: a lit plane over the
+            # breast, then two creases running down toward the waist.
+            for (x, y) in list(c.cell):
+                if f.at(x, y) == "A" and (f.at(x + 1, y) == "T" or f.at(x - 1, y) == "T"):
+                    c.shift(x, y, -18)
+            for k in (2, 3):
+                c.shift(f.uw_min + k, f.torso_top + 3, 14)
+                c.shift(f.uw_max - k, f.torso_top + 3, 14)
+            for k in range(3):
+                c.shift(f.uw_min + 2 + k // 2, f.torso_top + 5 + k, -18)
+                c.shift(f.uw_max - 2 - k // 2, f.torso_top + 5 + k, -18)
         if shape in ("tee", "wrap", "apron"):
             # A short sleeve throws its shadow on the upper arm.
             for (x, y) in list(c.cell):
