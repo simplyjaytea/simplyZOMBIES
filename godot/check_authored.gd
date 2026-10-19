@@ -448,6 +448,10 @@ func _complaint(entry_v: Variant) -> String:
 		return "declares `fits` and is kind '%s'; only a garment is painted onto a rig" % kind
 	if kind == "wear" and String(entry.get("fits", "")).strip_edges().is_empty():
 		return "is a garment with no `fits`; nothing would say which rig's frames it was painted on"
+	if entry.has("slot") and kind != "wear":
+		return "declares `slot` and is kind '%s'; only a garment dresses one slot" % kind
+	if kind == "wear" and not Appearance.WORN_SLOTS.has(String(entry.get("slot", ""))):
+		return "is a garment whose `slot` is '%s', not one of %s; nothing would stop a torso item painting trousers" % [String(entry.get("slot", "")), str(Appearance.WORN_SLOTS)]
 	if entry.has("z"):
 		var z_v: Variant = entry.get("z")
 		if not (z_v is Dictionary) or (z_v as Dictionary).is_empty():
@@ -1719,6 +1723,8 @@ func _wear_fit_complaint(layer: Image, body: Image, count: Array) -> String:
 				return "paints (%d, %d), where its body frame is transparent: a garment may not move the silhouette" % [x, y]
 			if maxi(under.r8, maxi(under.g8, under.b8)) < WEAR_INK_MAX:
 				return "paints (%d, %d), over the pack's ink: the outline is the body's" % [x, y]
+			if layer.get_pixel(x, y).a8 != 255:
+				return "paints (%d, %d) translucent (alpha %d): a garment pixel is cloth or nothing, and godot:check:worn's STEP reference composes it opaque" % [x, y, layer.get_pixel(x, y).a8]
 	count[0] = painted
 	if painted < WEAR_MIN_PAINTED:
 		return "paints %d pixel(s); it is missing from this frame" % painted
@@ -1752,10 +1758,17 @@ func _every_garment_fits_its_rig_frame_by_frame() -> bool:
 		if not Appearance.wears(name, rig) or Appearance.wears(name, "body_zombie_workwear"):
 			push_error("WEAR: Appearance.wears('%s') does not answer true for its own rig '%s' and false for another" % [name, rig])
 			return false
+		var own_slot: String = String(entry.get("slot", ""))
+		for slot in Appearance.WORN_SLOTS:
+			if Appearance.wears(name, rig, slot) != (slot == own_slot):
+				push_error("WEAR: Appearance.wears('%s', '%s', '%s') answers wrong for a garment of slot '%s'" % [name, rig, slot, own_slot])
+				return false
 		for rm in rig_members:
 			var member: String = name + String(rm).substr(rig.length())
 			var count: Array = [0]
-			var fit: String = _wear_fit_complaint(_image_of(member), _image_of(String(rm)), count)
+			# The renderer's own reader (`Appearance.image_of`, decoded RGBA8), so the gate judges the
+			# pixels the composite is built from rather than a second decoding of them.
+			var fit: String = _wear_fit_complaint(Appearance.image_of(member), Appearance.image_of(String(rm)), count)
 			if not fit.is_empty():
 				push_error("WEAR: '%s' %s" % [member, fit])
 				return false
@@ -1788,6 +1801,11 @@ func _every_garment_fits_its_rig_frame_by_frame() -> bool:
 	if _wear_fit_complaint(inked, body, [0]).is_empty():
 		push_error("WEAR: a garment painting over the body's ink passed")
 		return false
+	var sheer := good.duplicate() as Image
+	sheer.set_pixel(1, 1, Color8(100, 100, 60, 128))
+	if _wear_fit_complaint(sheer, body, [0]).is_empty():
+		push_error("WEAR: a garment painting a translucent pixel on skin passed")
+		return false
 	if _wear_fit_complaint(Image.create(4, 4, false, Image.FORMAT_RGBA8), body, [0]).is_empty():
 		push_error("WEAR: a garment painting nothing in a frame passed")
 		return false
@@ -1799,12 +1817,21 @@ func _every_garment_fits_its_rig_frame_by_frame() -> bool:
 			or _wear_members_complaint("wear_x", "body_survivor", ["wear_x_s", "wear_x_walk_s_0", "wear_x_walk_s_9"], rig_list).is_empty():
 		push_error("WEAR: a garment missing a walk frame, or carrying one its rig does not draw, passed")
 		return false
-	if _complaint({"canvas": [32, 40], "kind": "wear", "reads": "x"}).is_empty() \
+	var minimal_garment: String = _complaint({"canvas": [32, 40], "kind": "wear", "reads": "x", "fits": "body_survivor", "slot": "torso"})
+	if not minimal_garment.is_empty():
+		push_error("WEAR: MANIFEST refused a minimal well-formed garment (%s), so its refusals below prove nothing" % minimal_garment)
+		return false
+	if _complaint({"canvas": [32, 40], "kind": "wear", "reads": "x", "slot": "torso"}).is_empty() \
 			or _complaint({"canvas": [32, 40], "kind": "pack_overlay", "reads": "x", "fits": "body_survivor"}).is_empty():
 		push_error("WEAR: MANIFEST accepted a garment with no `fits`, or a `fits` on a kind that is no garment")
 		return false
+	if _complaint({"canvas": [32, 40], "kind": "wear", "reads": "x", "fits": "body_survivor"}).is_empty() \
+			or _complaint({"canvas": [32, 40], "kind": "wear", "reads": "x", "fits": "body_survivor", "slot": "head"}).is_empty() \
+			or _complaint({"canvas": [32, 40], "kind": "pack_overlay", "reads": "x", "slot": "torso"}).is_empty():
+		push_error("WEAR: MANIFEST accepted a garment with no `slot`, a garment of slot 'head', or a `slot` on a kind that is no garment")
+		return false
 
-	print("WEAR OK %d garment(s), %d painted frame(s): every member is its rig's own frame, every painted pixel on a solid non-ink body pixel (fewest painted %d); a faint pixel off the body, a pixel over the ink, an empty frame, a missing and an extra frame and a garment with no rig each refused" % [garments, frames, fewest])
+	print("WEAR OK %d garment(s), %d painted frame(s): every member is its rig's own frame, every painted pixel opaque and on a solid non-ink body pixel (fewest painted %d), each answering for its own slot only; a faint pixel off the body, a pixel over the ink, a translucent pixel, an empty frame, a missing and an extra frame, a garment with no rig and one with no or a foreign slot each refused" % [garments, frames, fewest])
 	return true
 
 

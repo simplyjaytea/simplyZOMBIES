@@ -32,7 +32,7 @@ garment as kind `wear` with `fits: "body_survivor"` and crops its twenty members
 
 ```bash
 python3 build_clothing.py           # repaint native/
-python3 build_clothing.py --check   # repaint in memory, compare byte for byte -> CLOTHING_OK
+python3 build_clothing.py --check   # repaint in memory, compare byte for byte -> CLOTHING_OK (in npm run sprites:check)
 python3 tools/sprites/build.py      # (from the repo root) re-cut the runtime PNGs
 python3 preview.py DIR              # contact sheets for eyes, never read by the game
 ```

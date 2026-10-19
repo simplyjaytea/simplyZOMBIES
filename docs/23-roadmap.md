@@ -2521,43 +2521,56 @@ not a to-do list:
   feet) and repaints each garment's parts in a four-tone integer ramp, keeping the pack's ink
   outline and the body's own shading (`build_clothing.py`, 29 garments, one 160x160 atlas each).
   A garment never adds a pixel outside the body, so nothing can misalign on a walk frame. In
-  `authored.json` each is a new kind `wear` with `fits: "body_survivor"` and one member per rig
-  frame (580 keys). `presentation/appearance.gd` composes the body frame and its three garments
+  `authored.json` each is a new kind `wear` with `fits: "body_survivor"`, a `slot` (torso, legs
+  or feet) and one member per rig frame (580 keys). `presentation/appearance.gd` composes the body frame and its three garments
   into one cached texture (`dressed_texture`, keyed by rig frame and outfit), so the clothes
   follow `frame_key`'s clock exactly and the raider and colony tints modulate the whole dressed
   body. **What a body wears:** the equipped `torso`/`legs`/`feet` item's `appearance.equipSprite`
-  when it names a garment for this rig (23 bases mapped in `armor.json`, `clothing.json`,
+  when it names a garment for this rig and this slot (23 bases mapped in `armor.json`, `clothing.json`,
   `masks.json`, `named.json`), else a **default outfit**: `player.json`'s new
   `appearance.outfit` lists (four tees, three trousers, worn shoes), picked by entity id, which
   every survivor-rig block without its own list falls back to. The default outfit is
   presentation only; nobody gains an item. `torso` and `legs` left `EQUIP_DRAW_ORDER` (six slots
   now). **Gated:** `godot:check:authored` new WEAR lane (members exactly the rig's frames; every
-  painted pixel on a solid non-ink body pixel; true negatives a pixel off the body, a pixel over
-  ink, an empty frame, a missing and an extra member, a garment with no `fits`; READS covers the
-  outfit lists); `godot:check:worn` new COVERAGE lane (every torso, legs and feet base draws its
-  own garment on all 20 frames, the draw loop's `for_entity`/`body_texture` needles; true
-  negatives an unmapped item, a standing pack wearable, another rig's garment, a commented
-  reader, and an unmapped torso item falling back to the default shirt), DRESSED lane (every
-  survivor-rig block and every booted human wears three garments; a zombie, a body with no
+  painted pixel opaque and on a solid non-ink body pixel; `wears` answers for the garment's own
+  slot only; true negatives a pixel off the body, a pixel over ink, a translucent pixel, an empty
+  frame, a missing and an extra member, a garment with no `fits`, no `slot` or a foreign one;
+  READS covers the outfit lists); `godot:check:worn` new COVERAGE lane (every torso, legs and feet
+  base draws, on all 20 frames, exactly the body with its three garments laid over it, checked
+  against a reference composite the gate builds itself; the draw loop's
+  `for_entity`/`body_texture` needles; true negatives an unmapped item, a standing pack wearable,
+  trousers named by a torso item and forced into the torso slot, another rig's garment, a frame
+  with its trousers left off, a commented reader, and an unmapped torso item falling back to the
+  default shirt), DRESSED lane (every survivor-rig block and every booted human wears three
+  garments, and a booted human on any other picture is refused; a zombie, a body with no
   fallback and an outfit naming no garment wear nothing), STEP lane (480 draws, each the
-  composite for exactly the frame the body shows; walk members differ from idle; another rig's
-  frame composes nothing); ORDER re-pinned to six. `player.schema.json` gains `outfit`.
+  composite for exactly the frame the body shows, all three garments that frame's own members; a
+  walk dressed in the garments' standing pictures is refused in every view; another rig's frame
+  composes nothing); ORDER re-pinned to six; `godot:m2:warmth`'s ART lane reads `WORN_SLOTS`
+  beside `EQUIP_DRAW_ORDER` (nine drawn slots, the gloves, belt and eyes still undrawn and
+  declaring no picture). `player.schema.json` gains `outfit`, and `godot:check:appearance`'s
+  allowlist accepts it on the player block only (refused on a zombie, an item, Mara, a raider).
+  `npm run sprites:check` now also runs `build_clothing.py --check`, so the garment sheets cannot
+  drift from their painter (`CLOTHING_OK` on Python 3.11 and 3.12 alike).
   **Measured:** `WEAR OK 29 garment(s), 580 painted frame(s) ... (fewest painted 6)`;
   `COVERAGE OK 14 torso, 5 legs and 4 feet item(s) ... (fewest 6 garment pixels showing)`;
   `DRESSED OK 17 survivor-rig content block(s) and 3 booted human(s) ... (fewest 120 of the bare
   body's pixels repainted) ... (4 shirts, 12 pairings in twelve bodies)`; `STEP OK ... 480 frame
   draws`; `CLOTHING_OK 29 garments, 580 frames`; `SPRITES_OK ... 903 authored keys reproduced`;
   `AUTHORED_OK`, `WORN_LOOK_OK` (0.9 s), `GODOT_CONTENT_OK`; `npm test` 45 files / 594 tests.
-  **Sabotage pass**, each red then reverted: the leather jacket's `equipSprite` removed
-  (COVERAGE, STEP); `body_texture` returning the bare frame (STEP); the composite cache ignoring
-  the rig (STEP's other-rig negative). Before/after shots, a side-by-side against the pack's own
+  **Frame cost:** `npm run godot:bench:frame` on this container (llvmpipe), main against this
+  branch, shipped-draw mean 26.5 → 22.8 ms and crowded-draw 296.9 → 283.6 ms: no regression
+  measurable, both already over the 10 ms target on main (docs/22). **Sabotage pass**, each red
+  then reverted: the leather jacket's `equipSprite` removed (COVERAGE, STEP); `body_texture`
+  returning the bare frame (STEP); the composite cache ignoring the rig (STEP's other-rig
+  negative); `outfit_of` ignoring the slot (COVERAGE: jeans painted as a torso); the composite
+  leaving the trousers off east walk frames (COVERAGE, STEP). Before/after shots, a side-by-side against the pack's own
   sprites and the garment sheets are under `.hermes/plans/2026-10-19_clothing/`. **Half
   shipped, named:** garments repaint the body and never change its outline, so a parka or a
   hazmat suit reads by colour and trim, not by shape; seen from the side a short sleeve reads as
   long (the side views have no arm/torso boundary to cut at); no belt, glove, eyewear or soft
   cap picture; only `body_survivor` is clothed; corpses are not clothed; the dressed composite
-  is built once per rig frame and outfit and cached, but the draw cost was not measured (no
-  Godot frame gate enforces timing yet).
+  is cached per rig frame and outfit with no eviction, bounded by the outfits actually drawn.
 
 - **Art & renderer — zombies turn, walk and fall, 2026-10-02.** Closes "A silhouette per
   kind" and the Focal art half of "A corpse reads as a corpse", at the owner's request for

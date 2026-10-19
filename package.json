@@ -12,7 +12,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "parity:r1:oracle": "node scripts/write-r1-oracle.mjs",
-    "sprites:check": "python3 tools/sprites/build.py --check",
+    "sprites:check": "python3 tools/sprites/build.py --check && python3 godot/art/simplyzombies/clothing/build_clothing.py --check",
     "check:routing": "node scripts/check-routing.mjs",
     "check:timing": "node scripts/check-timing.mjs",
     "godot:test": "node scripts/run-godot.mjs --test",
