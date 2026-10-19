@@ -9878,6 +9878,18 @@ not a to-do list:
   changes nothing on today's kinds (each bleeding kind has a suture), which its comment says.
   [docs/22](22-performance.md#bringing-the-tick-to-budget).
 
+- **Kernel & tooling — the tick to budget, slice 7: the cast's rows and the hour, 2026-10-19
+  (partial).** `SimShadowcast.shadowcast` resolves each row once (fixed axis, bounds, index steps)
+  with its row limits inlined; `SimVisibility.refresh` reads `Clock.ambient_light_at` once and
+  hands it to `_ambient_metres` and `_sight_metres`; the shambler pass resolves `seekSpeed` only
+  in Pursue, Seek and Wander. `godot:bench:runtime`, median of three interleaved runs: **13.77 /
+  34.60 ms** to **13.49 / 32.67**, within the bench's noise. Gated in `godot:m2:tick`: CAST (from
+  slice 3) holds the row rewrite to `blocks_sight` tile for tile; AMBIENT holds both reaches and
+  what `refresh` builds equal to the clock-and-lamps formula at every half hour of a day; SEEK
+  runs the think pass once on a zombie in each of Pursue, Seek, Wander and Dormant beside a person
+  and requires its exact seek speed, or none when dormant. Each was turned red by sabotage.
+  [docs/22](22-performance.md#bringing-the-tick-to-budget).
+
 - **Kernel & tooling — water draw check follows its branches, 2026-10-03.** The A2 wall
   additions moved the water fill to character 4,473 after the drawing match, beyond
   `check_water.gd`'s 4,000-character window. Reproduced on the merged art pass:

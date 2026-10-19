@@ -104,33 +104,49 @@ static func shadowcast(map: Variant, origin_x: int, origin_y: int, range_tiles: 
 			var depth: int = stack.pop_back()
 			if depth > range_tiles:
 				continue
-			var min_col := floor_div(2 * depth * start_n + start_d, 2 * start_d)
-			var max_col := ceil_div(2 * depth * end_n - end_d, 2 * end_d)
+			# floor_div / ceil_div, inlined: the same truncate-then-correct on the same ints.
+			var fa: int = 2 * depth * start_n + start_d
+			var fb: int = 2 * start_d
+			var min_col: int = int(float(fa) / float(fb))
+			if min_col * fb > fa:
+				min_col -= 1
+			var ca: int = 2 * depth * end_n - end_d
+			var cb: int = 2 * end_d
+			var max_col: int = int(float(ca) / float(cb))
+			if max_col * cb < ca:
+				max_col += 1
 			# 0 = no tile yet, 1 = the last tile was open, 2 = it was blocking.
 			var prev: int = 0
 			var cur_start_n := start_n
 			var cur_start_d := start_d
 			var depth_sq: int = depth * depth
+			# The row, resolved once rather than per tile: North and South walk x along a fixed
+			# y, East and West walk y along a fixed x. `fixed` is the row's coordinate on the
+			# axis that does not move, `along` the moving one's at column 0.
+			var ns: bool = q == Quadrant.North or q == Quadrant.South
+			var fixed: int
+			if q == Quadrant.North:
+				fixed = origin_y - depth
+			elif q == Quadrant.South:
+				fixed = origin_y + depth
+			elif q == Quadrant.East:
+				fixed = origin_x + depth
+			else:
+				fixed = origin_x - depth
+			var along: int = origin_x if ns else origin_y
+			var fixed_in: bool = fixed >= 0 and fixed < (mh if ns else mw)
+			var along_lim: int = mw if ns else mh
+			var idx_base: int = fixed * mw + along if ns else along * mw + fixed
+			var idx_step: int = 1 if ns else mw
+			var cell_base: int = (fixed + base_y) * size + (along + base_x) if ns else (along + base_y) * size + (fixed + base_x)
+			var cell_step: int = 1 if ns else size
 			for column in range(min_col, max_col + 1):
-				var tx: int
-				var ty: int
-				if q == Quadrant.North:
-					tx = origin_x + column
-					ty = origin_y - depth
-				elif q == Quadrant.South:
-					tx = origin_x + column
-					ty = origin_y + depth
-				elif q == Quadrant.East:
-					tx = origin_x + depth
-					ty = origin_y + column
-				else:
-					tx = origin_x - depth
-					ty = origin_y + column
+				var a: int = along + column
 				var blocking: bool
-				if tx < 0 or ty < 0 or tx >= mw or ty >= mh:
+				if not fixed_in or a < 0 or a >= along_lim:
 					blocking = true
 				else:
-					var idx: int = ty * mw + tx
+					var idx: int = idx_base + column * idx_step
 					var op: int = -1
 					if has_overlays:
 						var ov: Variant = overlays.get(idx)
@@ -140,14 +156,13 @@ static func shadowcast(map: Variant, origin_x: int, origin_y: int, range_tiles: 
 						op = opacity[tiles[idx]]
 					blocking = op == SimTileMapRes.Opacity.Opaque or (op == SimTileMapRes.Opacity.Low and crouched)
 				if blocking or (column * cur_start_d >= depth * cur_start_n and column * end_d <= depth * end_n):
+					# Inside the range circle a tile is inside the square (depth and |column| are
+					# both at most range_tiles), so the cell index needs no bounds test.
 					if depth_sq + column * column <= range_sq:
-						var dx := tx + base_x
-						var dy := ty + base_y
-						if dx >= 0 and dy >= 0 and dx < size and dy < size:
-							var ci := dy * size + dx
-							if cells[ci] != 1:
-								cells[ci] = 1
-								out.count += 1
+						var ci: int = cell_base + column * cell_step
+						if cells[ci] != 1:
+							cells[ci] = 1
+							out.count += 1
 				if prev == 2 and not blocking:
 					cur_start_n = 2 * column - 1
 					cur_start_d = 2 * depth

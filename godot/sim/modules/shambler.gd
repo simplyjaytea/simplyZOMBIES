@@ -1040,7 +1040,10 @@ static func register_module(world: Variant, _map: Variant) -> void:
 			# Resolved once per shambler per tick and handed to every steer below it, rather than
 			# each of them reaching for sd["seekSpeed"] -- which is what let the cripple penalty
 			# sit on the component unread for the whole of Milestone 2.
-			var seek: float = _speed_of(w, int(entity), sd, "seekSpeed", sky)
+			# Read only by the arms that move a body towards something (Pursue, Seek, Wander): a
+			# dormant, staggered, milling or holding body never asks it, and a fifth of the
+			# district lies dormant (A3's seventh slice). Every arm that needs it sets it first.
+			var seek: float = 0.0
 			if int(sd["ticksToGrab"]) > 0:
 				sd["ticksToGrab"] = int(sd["ticksToGrab"]) - 1
 			if w.components.has_component(int(entity), "grabState"):
@@ -1104,8 +1107,10 @@ static func register_module(world: Variant, _map: Variant) -> void:
 						sd["state"] = ShamblerState["Wander"]
 						sd["ticksToTurn"] = int(rng.call("int_range", 20, 120))
 					else:
+						seek = _speed_of(w, int(entity), sd, "seekSpeed", sky)
 						_chase(w, int(target), pd, vd, sd, seek)
 				ShamblerState["Seek"]:
+					seek = _speed_of(w, int(entity), sd, "seekSpeed", sky)
 					var caught: Variant = _contact_target(survivors, pd, CONTACT_METRES)
 					var seen: Variant = _seen_target(w, int(entity), survivors, sd, fog)
 					if caught != null:
@@ -1142,6 +1147,7 @@ static func register_module(world: Variant, _map: Variant) -> void:
 					else:
 						sd["ticksToTurn"] = int(sd["ticksToTurn"]) - 1
 				_:
+					seek = _speed_of(w, int(entity), sd, "seekSpeed", sky)
 					var caught2: Variant = _contact_target(survivors, pd, CONTACT_METRES)
 					var seen2: Variant = _seen_target(w, int(entity), survivors, sd, fog)
 					if caught2 != null:

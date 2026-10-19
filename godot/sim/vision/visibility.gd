@@ -74,6 +74,9 @@ func refresh(world: Variant, map: Variant, sight_mul: float = 1.0) -> void:
 	# only tiles within `range_tiles` of its origin, so a door shutting across town cannot change
 	# it. Before this one door swinging recast all 105 observers, a 200 ms tick (A3's second slice).
 	var logs_changes: bool = world is Object and (world as Object).has_method("map_unchanged_within")
+	# The hour's ambient factor, once for every observer rather than once each: it is a function
+	# of the tick alone (A3's seventh slice).
+	var ambient_k: float = Clock.ambient_light_at(_tick_of(world))
 	for entity in world.components.query(["position", "observer"]):
 		var pos: Variant = world.components.get_component(entity, "position")
 		var obs: Variant = world.components.get_component(entity, "observer")
@@ -100,7 +103,7 @@ func refresh(world: Variant, map: Variant, sight_mul: float = 1.0) -> void:
 		# let the dead see further into the dark (the light at the *target* is what `detail`
 		# asks), and `lit_metres` walks every source in the district -- eighty observers asking
 		# it every tick was the cost the eyes slice's driver found.
-		var metres: float = (_ambient_metres(world, obs as Dictionary) if lit_target else _sight_metres(world, obs as Dictionary, float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]))) * sight_mul
+		var metres: float = (_ambient_metres(world, obs as Dictionary, ambient_k) if lit_target else _sight_metres(world, obs as Dictionary, float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]), ambient_k)) * sight_mul
 		# A lit-target observer casts at its eyes' full reach: the geometry is walls, and whether
 		# a tile inside it is *seen* is decided per target in `detail`, by distance or by light.
 		# The sky's multiplier lands on that reach once and once only -- the non-lit arm is
@@ -190,17 +193,23 @@ func _tick_of(world: Variant) -> int:
 	return 0
 
 
-func _ambient_metres(world: Variant, observer: Dictionary) -> float:
-	return float(observer["range_metres"]) * Clock.ambient_light_at(_tick_of(world))
+# `ambient_k`, when not negative, is `Clock.ambient_light_at` of this tick, already read by the
+# caller (`refresh` reads it once for every observer).
+func _ambient_metres(world: Variant, observer: Dictionary, ambient_k: float = -1.0) -> float:
+	if ambient_k < 0.0:
+		ambient_k = Clock.ambient_light_at(_tick_of(world))
+	return float(observer["range_metres"]) * ambient_k
 
 
-func _sight_metres(world: Variant, observer: Dictionary, x: float, y: float) -> float:
-	var tick: int = 0
-	if world is Dictionary:
-		tick = int(world.get("tick", 0))
-	elif world != null and "tick" in world:
-		tick = int(world.tick)
-	var ambient: float = float(observer["range_metres"]) * Clock.ambient_light_at(tick)
+func _sight_metres(world: Variant, observer: Dictionary, x: float, y: float, ambient_k: float = -1.0) -> float:
+	if ambient_k < 0.0:
+		var tick: int = 0
+		if world is Dictionary:
+			tick = int(world.get("tick", 0))
+		elif world != null and "tick" in world:
+			tick = int(world.tick)
+		ambient_k = Clock.ambient_light_at(tick)
+	var ambient: float = float(observer["range_metres"]) * ambient_k
 	var lit: float = 0.0
 	var light_idx: Variant = _light_index(world)
 	if light_idx != null:
