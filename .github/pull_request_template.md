@@ -16,7 +16,7 @@ theorise.
 ## Recorded
 
 The docs/23 record entry (and the docs/30 entry, if a call was taken) in this same diff.
-CLAUDE.md's Waiting on the owner section only if what waits on the owner changed.
+docs/33-owner-decisions.md only if what waits on the owner changed.
 
 ## Verified
 
