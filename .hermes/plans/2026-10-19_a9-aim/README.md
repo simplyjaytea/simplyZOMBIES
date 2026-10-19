@@ -14,4 +14,11 @@ is the same driver on PR #154's head; each `after` is this branch. Frames are ha
   pistol kicks back in the hand, the flash leaves the turned muzzle, and a struck body flashes
   white and jolts away from the shot.
 
+- `backpedal_before_after.gif` -- walking west with the cursor held east, side by side: before,
+  the east view's walk runs forwards while the body slides backwards (a moonwalk); after, the same
+  frames run in reverse and the body steps backwards, still facing the cursor.
+- `sidearm_before_after.gif` -- the service pistol (a secondary-hand item) fired at a shambler to
+  the east: before, the far hand hides it behind the body; after, the wielded weapon comes round in
+  front of the body seen from the side.
+
 The record is docs/23's "Feel -- the weapon turned to the cursor, and the blow felt".

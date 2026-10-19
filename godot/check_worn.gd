@@ -25,7 +25,9 @@ extends SceneTree
 #            under -- then the real composition: an actor kitted in all eight slots, seen from the
 #            east, composes one layer per slot in EQUIP_DRAW_ORDER's order, and the ones under the
 #            body are exactly the backpack (the pack's z) and the weapon in the far hand
-#            (HELD_BEHIND). TN: a shuffled expectation is refused by the same comparison.
+#            (HELD_BEHIND) -- until it is the weapon wielded, which comes over the body from either
+#            side (WIELDED_OVER). TN: a shuffled expectation is refused by the same comparison, and
+#            wielding the other weapon leaves the far hand's behind.
 #   CANVAS   every key content/items/ names via equipSprite is one of the two shapes, at its canvas:
 #            a wearable's four members at PAWN_CANVAS, a held weapon at the canvas authored.json
 #            declares for it. TN: a fabricated 32x32 wearable is refused by the same predicate, and
@@ -380,8 +382,39 @@ func _the_order_holds_and_composes() -> bool:
 			push_error("layer %d is %s, want key '%s' over=%s" % [i, str(layers[i]), want_key, str(want_over)])
 			return false
 
+	# 3. The wielded weapon comes round in front: the same actor firing the far hand's pistol (its
+	# live rangedWeapon built from that item, as items.gd stamps `source`) draws the pistol over the
+	# body seen from either side, and still under it seen from behind. TN: wielding the shotgun
+	# instead leaves the pistol behind, and an actor wielding nothing is the composition above.
+	var slots: Dictionary = (w.components.get_component(actor, "equipment") as Dictionary)["slots"] as Dictionary
+	var pistol: int = int(slots["secondary"])
+	var shotgun: int = int(slots["primary"])
+	var pistol_tex: Texture2D = Appearance.resolve("item_held_pistol")
+	var pistol_over := func(view: String) -> Variant:
+		for layer in Appearance.equipment_layers_for(w, actor, view):
+			if layer.get("texture") == pistol_tex:
+				return bool(layer["over"])
+		return null
+	w.components.set_component(actor, "rangedWeapon", {"source": pistol})
+	var wielded: Array[int] = Appearance.wielded_items(w, actor)
+	if wielded.size() != 1 or wielded[0] != pistol:
+		push_error("wielded_items read %s from a rangedWeapon built from item %d" % [str(Appearance.wielded_items(w, actor)), pistol])
+		return false
+	for view in ["e", "w"]:
+		if pistol_over.call(view) != true:
+			push_error("the far hand's pistol, wielded, is drawn under the body seen from '%s'; the gun you fire hides behind you" % view)
+			return false
+	if pistol_over.call("n") != false:
+		push_error("the wielded pistol is drawn over the body seen from behind")
+		return false
+	w.components.set_component(actor, "rangedWeapon", {"source": shotgun})
+	if pistol_over.call("e") != false:
+		push_error("the far hand's pistol came round in front while the shotgun is the one wielded")
+		return false
+	w.components.remove_component(actor, "rangedWeapon")
+
 	_stash["order_layers"] = layers.size()
-	print("ORDER OK EQUIP_DRAW_ORDER == EXPECT_ORDER (8 slots, only back under); a shuffled expectation is refused; an actor kitted in all eight composes %d layers in order seen from the east, the backpack and the far hand's pistol the only ones under" % layers.size())
+	print("ORDER OK EQUIP_DRAW_ORDER == EXPECT_ORDER (8 slots, only back under); a shuffled expectation is refused; an actor kitted in all eight composes %d layers in order seen from the east, the backpack and the far hand's pistol the only ones under; wielded, that pistol comes over the body from e and w and stays under from n, and wielding the shotgun leaves it behind" % layers.size())
 	return true
 
 

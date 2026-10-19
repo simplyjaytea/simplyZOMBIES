@@ -2080,11 +2080,23 @@ not a to-do list:
   changes: `_draw`, `_draw_entities`, `_blit_body`, `_layer_rect`, `_draw_effects`, and the new
   `_draw_layer`, `_blit_flash`, `_white_of`, `_draw_reticle`.
 
-  **Half shipped, and which half:** the body still has four views, so a walker aiming backwards
-  shows its back walking forwards (the paperdoll's legs-on-the-movement-vector is still the
-  decoupled paperdoll arc's); the boot kit carries the pistol in the secondary hand, which is
-  behind the body seen from the side, so the gun you fire is often the half-hidden one; and the
-  jolt is the picture only, by design, so a heavy blow does not stagger a body in the sim.
+  **The body faces the cursor whichever way it walks.** The view is the aim's, never the walk's,
+  so a walker aiming over their shoulder would otherwise run the facing view's walk forwards while
+  carried backwards -- a moonwalk. The animation clock now steps such a body's cycle the other way
+  (`AnimClock.backpedals`, handed the view's own direction by `_draw_entities`): ground covered on
+  the far side of the view runs the same stride in reverse, a strafe square to the view steps
+  forwards, and a body with no view to compare (every face-on rig) never backpedals. **The weapon
+  you are wielding comes round in front.** A service pistol equips to the secondary hand, which
+  `HELD_BEHIND` hides behind the body seen from either side, so the gun you fired was the hidden
+  one. `Appearance.wielded_items` reads the item each live `rangedWeapon` and `meleeWeapon`
+  profile was built from (items.gd's `source`), and a wielded weapon draws over the body seen from
+  east or west (`WIELDED_OVER`) whichever hand holds it; seen from behind it stays beyond the body,
+  and a weapon carried but not wielded keeps its hand's side.
+
+  **Half shipped, and which half:** the legs still have the body's four views, so a backpedal is
+  the view's walk reversed rather than a stride of its own (legs on the movement vector is still
+  the decoupled paperdoll arc's); and the jolt is the picture only, by design, so a heavy blow does
+  not stagger a body in the sim.
 
   **Evidence:** `godot:m2:aim` HEADING: a body never aimed reads its facing and grows no aim;
   standing still turns feet and aim; walking east aimed north keeps the feet east, sees north
@@ -2103,8 +2115,14 @@ not a to-do list:
   anchor on the turned muzzle and an axis shot keeps the plain rect; a walking frame's hand is
   used. DRAWN now also blits the flashes as polygons and proves the hit flash reaches the draw.
   `godot:check:topdown` and `godot:check:weather` follow the retired line and cone to the aim and
-  the reticle. Before/after GIFs (aiming in a circle, aiming while walking, a hit) are under
-  `.hermes/plans/2026-10-19_a9-aim/`.
+  the reticle; `godot:check:zombie_art`'s READERS order follows the facing line to `SimAim.radians_of`.
+  `godot:check:topdown` TURN: a fifth of a second at pace through the real clock, walking away from
+  an east view runs exactly the forward stride in reverse, and a strafe south and a body handed no
+  front step forwards; `_draw_entities` hands the clock the view's front. `godot:check:worn` ORDER:
+  the kitted actor wielding its far hand's pistol draws it over the body from e and w and under from
+  n, and wielding the shotgun leaves the pistol behind (each fix sabotaged once and its lane went
+  red). Before/after GIFs (aiming in a circle, aiming while walking, a hit, a backpedal, the
+  sidearm seen from the side) are under `.hermes/plans/2026-10-19_a9-aim/`.
 
 - **UI — the sheet and Work grid fit the reviewed viewports, 2026-10-03.** At 1280×720,
   inventory now separates its equipment, native 56-pixel bag cells and inspect pane, keeping

@@ -811,6 +811,36 @@ func _bodies_turn_and_walk() -> bool:
 		if bool(m["walking"]) or float(m["cycle"]) != AnimClock.seat(1) or Appearance.frame_key("body_survivor", "e", m).contains("_walk_"):
 			push_error("TURN: a body standing for a second walked (%s); the clock counts nothing it should not" % str(m))
 			return false
+	# A backpedal runs the walk backwards (alpha plan A9: you aim over your shoulder at a walk and the
+	# body shows the aim's view, so its feet carry it away from that view). A fifth of a second at pace
+	# through the real clock, the view facing east: walking east steps forwards, walking west steps
+	# the same stride the other way -- the cycle mirrored about the seat -- and a strafe south,
+	# square to the view, steps forwards. TN: with no front handed over, walking west is forwards.
+	var pace_s: float = Appearance.pace_of("body_survivor")
+	var walk_for := func(dir: Vector2, front: Vector2) -> Dictionary:
+		var c: AnimClock = AnimClock.new()
+		var m: Dictionary = {}
+		for step in range(0, 13):
+			var t: float = float(step) / 60.0
+			c.begin_draw(t)
+			m = c.motion(1, dir * pace_s * t, step > 0, Appearance.stride_of("body_survivor"), pace_s, front)
+			c.end_draw()
+		return m
+	var fwd: Dictionary = walk_for.call(Vector2.RIGHT, Vector2.RIGHT)
+	var back: Dictionary = walk_for.call(Vector2.LEFT, Vector2.RIGHT)
+	var strafe: Dictionary = walk_for.call(Vector2.DOWN, Vector2.RIGHT)
+	var blind: Dictionary = walk_for.call(Vector2.LEFT, Vector2.ZERO)
+	var gone_fwd: float = fposmod(float(fwd["cycle"]) - AnimClock.seat(1), 1.0)
+	var gone_back: float = fposmod(AnimClock.seat(1) - float(back["cycle"]), 1.0)
+	if bool(fwd["backward"]) or not bool(back["backward"]) or gone_fwd < 0.05 or gone_fwd > 0.95 or absf(gone_fwd - gone_back) > 0.0001:
+		push_error("TURN: walking away from the view did not run the same stride backwards (forward %s, backpedal %s)" % [str(fwd), str(back)])
+		return false
+	if bool(strafe["backward"]) or bool(blind["backward"]) or absf(fposmod(float(blind["cycle"]) - AnimClock.seat(1), 1.0) - gone_fwd) > 0.0001:
+		push_error("TURN: a strafe or a body with no front stepped backwards (strafe %s, no front %s)" % [str(strafe), str(blind)])
+		return false
+	if not AnimClock.backpedals(Vector2(-1.0, 0.2), Vector2.RIGHT) or AnimClock.backpedals(Vector2(0.0, 1.0), Vector2.RIGHT) or AnimClock.backpedals(Vector2.LEFT, Vector2.ZERO):
+		push_error("TURN: backpedals answers the wrong side of the view")
+		return false
 	# TN, a face-on rig: it answers its own key walking or not, shows the rest view whatever its
 	# heading, and still flips -- the half of the roster the pack does not draw is untouched.
 	if Appearance.frame_key("zombie_screamer", "w", {"walking": true, "cycle": 0.5, "idle": 0.0}) != "zombie_screamer":
@@ -852,6 +882,8 @@ func _bodies_turn_and_walk() -> bool:
 	var needles: Array[String] = [
 		"Appearance.body_view(",
 		"_anim.motion(eid, Vector2(float(it[\"x\"]), float(it[\"y\"])), Appearance.moving(vel_v)",
+		"Appearance.pace_of(sprite_key), front)",
+		"Vector2.from_angle(float(Appearance.VIEW_RADIANS[view]))",
 		"Appearance.body_texture(look, view, motion)",
 		"Appearance.equipment_layers_for(world, eid, view, frame, sprite_key)",
 		"Appearance.flip_for(sprite_key, screen_ang)",
@@ -870,7 +902,7 @@ func _bodies_turn_and_walk() -> bool:
 		push_error("TURN: _draw_afterimages does not draw the frozen frame; a body that turned away would be remembered facing south")
 		return false
 	Appearance.forget()
-	print("TURN OK view_of answers the nearest quarter (diagonals round away from zero); %d turning bodies walk 8 frames at their declared 8–18 fps, counted over a second at pace through the real clock, faster but by less at a sprint and slower at a crawl, %d views each on their own picture, every member on %s except the 40x48 heavy; a face-on rig keeps its one picture and its flip; a velocity under {x} does not turn a body; _draw_entities reaches the view, the clock's frame, the per-view gear and flip_for, and the afterimage freezes the frame" % [TURNING_BODIES.size(), members / TURNING_BODIES.size(), str(Appearance.PAWN_CANVAS)])
+	print("TURN OK view_of answers the nearest quarter (diagonals round away from zero); %d turning bodies walk 8 frames at their declared 8–18 fps, counted over a second at pace through the real clock, faster but by less at a sprint and slower at a crawl, %d views each on their own picture, every member on %s except the 40x48 heavy; walking away from the view runs the same stride backwards while a strafe and a body with no front step forwards; a face-on rig keeps its one picture and its flip; a velocity under {x} does not turn a body; _draw_entities reaches the view, the clock's frame with the view's front, the per-view gear and flip_for, and the afterimage freezes the frame" % [TURNING_BODIES.size(), members / TURNING_BODIES.size(), str(Appearance.PAWN_CANVAS)])
 	return true
 
 
