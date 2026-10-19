@@ -1488,6 +1488,12 @@ static func _content_entry(world: Variant, kind: String, id: String) -> Variant:
 		return (c as Object).call("get", kind, id)
 	if not (c is Dictionary):
 		return null
+	var index: Dictionary = _content_index(c as Dictionary)
+	var hit: Variant = index.get(id)
+	# An index answer is trusted only while the entry still carries the id it was filed under; an
+	# entry renamed in place falls through to the scan, which is the answer the index stands for.
+	if hit is Dictionary and String((hit as Dictionary).get("id", "")) == id:
+		return hit
 	for v in (c as Dictionary).values():
 		if v is Array:
 			for entry in v as Array:
@@ -1496,3 +1502,51 @@ static func _content_entry(world: Variant, kind: String, id: String) -> Variant:
 		elif v is Dictionary and String((v as Dictionary).get("id", "")) == id:
 			return v
 	return null
+
+
+# id -> the first entry the scan in _content_entry would reach, for one content tree. Every look
+# the draw loop asks for -- a prop, an item on the floor, a body -- is one of these lookups, and the
+# scan walks the whole tree (thousands of entries) to answer it: 0.23 ms a prop, measured, which was
+# most of the frame's prop cost. Keyed by the tree's identity (`is_same`), never its contents, so two
+# worlds a gate boots with two trees get two indexes and neither answers for the other (the static
+# trap in CLAUDE.md is a static holding one world's answer for another; this holds each tree's own).
+# The entry count is the staleness check: an entry appended to the tree in place rebuilds the index,
+# and a miss is still answered by the scan, so the index can only make a lookup faster, never
+# different. The last few trees are kept; a hot reload's new tree simply takes the oldest slot.
+static var _index_trees: Array = []
+static var _index_maps: Array[Dictionary] = []
+static var _index_counts: PackedInt32Array = PackedInt32Array()
+const _INDEX_KEEP: int = 4
+
+static func _content_index(tree: Dictionary) -> Dictionary:
+	var count: int = 0
+	for v in tree.values():
+		count += (v as Array).size() if v is Array else 1
+	for i in _index_trees.size():
+		if is_same(_index_trees[i], tree):
+			if _index_counts[i] == count:
+				return _index_maps[i]
+			_index_trees.remove_at(i)
+			_index_maps.remove_at(i)
+			_index_counts.remove_at(i)
+			break
+	var map: Dictionary = {}
+	for v in tree.values():
+		if v is Array:
+			for entry in v as Array:
+				if entry is Dictionary:
+					var key: String = String((entry as Dictionary).get("id", ""))
+					if not map.has(key):
+						map[key] = entry
+		elif v is Dictionary:
+			var key: String = String((v as Dictionary).get("id", ""))
+			if not map.has(key):
+				map[key] = v
+	_index_trees.append(tree)
+	_index_maps.append(map)
+	_index_counts.append(count)
+	while _index_trees.size() > _INDEX_KEEP:
+		_index_trees.remove_at(0)
+		_index_maps.remove_at(0)
+		_index_counts.remove_at(0)
+	return map

@@ -341,9 +341,9 @@ func _props_reach_the_draw_path() -> bool:
 		return false
 
 	# Reach, textual for the same reason as above.
-	var district: String = _function_body(MAIN_GD, "_draw_district")
+	var district: String = _function_body(MAIN_GD, "_draw_world")
 	if not district.contains("_draw_props("):
-		push_error("_draw_district does not call _draw_props: every prop in the district resolves a look nothing draws")
+		push_error("_draw_world does not call _draw_props: every prop in the district resolves a look nothing draws")
 		return false
 	var draw_props: String = _function_body(MAIN_GD, "_draw_props")
 	if not draw_props.contains("Appearance.prop_look(") or not draw_props.contains("_draw_prop("):
