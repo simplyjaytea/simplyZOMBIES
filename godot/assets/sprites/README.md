@@ -524,6 +524,10 @@ and would eat them).
   `main.gd::_draw_prop` hangs any non-square prop picture and centres a square one, so the
   crate, the fire and the well are unchanged. The bed is a tile and a third wide, so `prop.bed`
   declares `size` 1.3 and `prop.schema.json` allows up to `Appearance.PROP_SIZE_MAX` (1.5).
+- `prop_campfire`, `prop_campfire_lit`, `prop_well` and `prop_latrine` are the square ones: drawn
+  under `godot/art/simplyzombies/stations/` since 2026-10-19 and padded onto the 32×32 tile
+  (`source.pad`, kind `tile`), so `_draw_prop` centres them like the crates. Their content `size`
+  is the art's width over 32, which `check_appearance.gd`'s PROPS lane holds.
 - `heap_bags` (32×22), `heap_barrel` (24×30) and `heap_pallets` (32×30) are what a Low tile no
   parked car covers draws, out of the dressing block's `heaps` list (`Dressing.heap_key`, a hash
   per tile). `_draw_heap` hangs them at their own size inside the tile; `check_wrecks.gd`'s HEAP

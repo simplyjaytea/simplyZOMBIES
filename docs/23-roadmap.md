@@ -2571,6 +2571,45 @@ not a to-do list:
   variation; a later polish pass can refine foot contact and stabilize those details. No new
   zombie kind, spawn mix, wearable asset or corpse interaction is introduced.
 
+- **Art & renderer — the well, the latrine and the campfire, 2026-10-19.** Alpha plan item
+  A11's third family. The four station pictures `tools/sprites/parts/props.py` generated (a
+  stone ring for the fire, cold and lit, a ring for the well, a grey box for the latrine) become
+  art in the pack's manner under `godot/art/simplyzombies/stations/`: a brick well with its
+  windlass, rope and bucket, a plank latrine with the lid up and an ash bucket beside it, and a
+  ring of stones round crossed logs, charred and cold or burning down to embers. `stations.py`
+  draws all four with the vehicles' painter (a near-black outline, four tones a material, lit
+  from the north) onto a guide sheet; one img2img pass ran over it (`prompts.json`) and only its
+  well was kept, because it turned the cold fire's ash to embers and flattened the latrine's
+  boards. The lit fire's flames are still `fx_flame_loop`, whose anchor (`FxLook`'s
+  `FLAME_DROP_ART_PX`, four art pixels below centre) lands on the new logs unchanged.
+
+  Each picture is sourced in `authored.json` as kind `tile`, padded onto the 32×32 tile square
+  (`source.pad`) the way the pack's crates are drawn, so `main.gd::_draw_prop` still centres
+  them on their point and nothing in the renderer moved. Content's `appearance.size` follows the
+  art, because the PROPS lane measures one against the other: the two fires 0.5 and 0.56 →
+  **0.94**, the well 0.86 → **0.94**, the latrine 0.55 → **1.0** (30, 30, 30 and 32 pixels
+  across). `size` is presentation only; nothing in `godot/sim/` reads it.
+
+  **Retired, by the standing rule:** `tools/sprites/parts/props.py` whole and its `MODULES`
+  entry. The four keys kept their names and are re-sourced, not retired.
+
+  **Gated:** `godot:check:appearance` (→ `APPEARANCE_OK`): PROPS holds each picture's opaque
+  width to its content size within `FOOTPRINT_SLACK_PX`, the cold and lit fire to different
+  pixels, and the four to tile-square pictures `_draw_prop` centres; STANDING keeps the fire,
+  the well and the latrine flat. `godot:check:authored` (→ `AUTHORED_OK`): SOURCE resolves the
+  four at their declared canvas and READS finds each one's content entry. `godot:check:fx`
+  (→ `FX_OK`): FLAME draws the lit fire's flame over the new picture. `sprites:check`: 51
+  generated keys, 407 sourced.
+
+  **Sabotage, red and restored:** the latrine back at `size` 0.55 (PROPS: "prop.latrine
+  declares size 0.55 (18 px of a tile) and its art measures 32 px across").
+
+  **Seen:** the camp at noon with the fire lit, and the well, before (the base) and after, with
+  the four pictures old over new at 6×, are in `.hermes/plans/2026-10-19_stations/`.
+
+  **What it leaves:** the latrine and the well are drawn three-quarter from the south and do not
+  turn; the cold fire has no smoke and the lit one no ember glow beyond its light.
+
 - **Art & renderer — the cars north-south, and the light vehicles, 2026-10-19.** Alpha plan
   item A11's second family. The last generated vehicle pictures become art in the pack's manner:
   the sedan, van and truck nose-north (intact and wreck, six keys) and the five light classes on
