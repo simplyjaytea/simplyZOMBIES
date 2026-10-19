@@ -4541,6 +4541,72 @@
           16
         ]
       }
+    },
+    "glass_pane_ew": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/glass/textures/pane-ew.png"
+      }
+    },
+    "glass_pane_ns": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/glass/textures/pane-ns.png"
+      }
+    },
+    "glass_pane_square": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/glass/textures/pane-square.png"
+      }
+    },
+    "glass_frame_ew": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/glass/textures/frame-ew.png"
+      }
+    },
+    "glass_frame_ns": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/glass/textures/frame-ns.png"
+      }
+    },
+    "glass_frame_square": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/glass/textures/frame-square.png"
+      }
     }
   }
 }
