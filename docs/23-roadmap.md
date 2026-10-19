@@ -9850,6 +9850,18 @@ not a to-do list:
   marker dropped or added, the sort removed, a narrowed square, the prefilter removed).
   [docs/22](22-performance.md#bringing-the-tick-to-budget).
 
+- **Kernel & tooling — the tick to budget, slice 5: the component query memo, 2026-10-19
+  (partial).** `SimComponentStore.query` answers from a memo row while no table it names has
+  gained or lost a member; `_members` counts those changes in `set_component`, `remove` and
+  `removeAll`, `restore` drops the memo, and every caller gets a copy. `godot:bench:runtime`,
+  median of three interleaved runs: **18.85 / 38.49 ms** to **17.02 / 35.77**. Gated in
+  `godot:m2:tick` QUERY: over four hundred seeded set, replace, remove, `removeAll`, save and
+  `restore` operations the memo equals `query_fresh` for eight asks (a missing table among them),
+  a caller's edit to its copy never reaches the next answer, a replaced value keeps the row, at
+  least fifty answers changed between asks, and a shipped tick is answered from the memo. Each
+  bump, the restore clear and the copy were removed in turn and the lane went red.
+  [docs/22](22-performance.md#bringing-the-tick-to-budget).
+
 - **Kernel & tooling — water draw check follows its branches, 2026-10-03.** The A2 wall
   additions moved the water fill to character 4,473 after the drawing match, beyond
   `check_water.gd`'s 4,000-character window. Reproduced on the merged art pass:

@@ -3,11 +3,27 @@ extends RefCounted
 
 var _tables: Dictionary = {}
 
+# `query` answers from a memo while no table it names has gained or lost a member (A3's fifth
+# slice: a hundred queries a tick, 2.3 ms, nearly all asking what they asked last tick). `_members`
+# counts each table's membership changes -- an entity added or removed, never a value replaced --
+# and a memo row stands only while every count it was built against still holds. A `restore`
+# drops every row. `check_m2_tick.gd` QUERY holds the memo to a fresh intersection through every
+# way the store changes, and `query_fresh` is that intersection.
+var _members: Dictionary = {}
+var _memo: Dictionary = {}
+var memo_hits: int = 0
+
+
+func _member_changed(component: String) -> void:
+	_members[component] = int(_members.get(component, 0)) + 1
+
 
 func set_component(entity: int, component: String, value: Variant) -> void:
 	if not _tables.has(component):
 		_tables[component] = {}
 	var table: Dictionary = _tables[component] as Dictionary
+	if not table.has(entity):
+		_member_changed(component)
 	table[entity] = value
 
 
@@ -50,7 +66,10 @@ func remove(entity: int, component: String) -> bool:
 	var tv: Variant = _tables.get(component)
 	if tv == null:
 		return false
-	return (tv as Dictionary).erase(entity)
+	if not (tv as Dictionary).erase(entity):
+		return false
+	_member_changed(component)
+	return true
 
 
 func remove_component(entity: int, component: String) -> bool:
@@ -60,7 +79,8 @@ func remove_component(entity: int, component: String) -> bool:
 func removeAll(entity: int) -> void:
 	for key in _tables.keys():
 		var t: Dictionary = _tables[key] as Dictionary
-		t.erase(entity)
+		if t.erase(entity):
+			_member_changed(String(key))
 
 
 func remove_all(entity: int) -> void:
@@ -83,7 +103,30 @@ func for_each_with(component: String, visitor: Callable) -> void:
 		visitor.call(int(entity), table[entity])
 
 
+# Sorted ids carrying every component in `required`. A copy every time: a caller that sorts or
+# appends to what it was handed must not reach the memo.
 func query(required: Array) -> Array[int]:
+	var key: String = ",".join(PackedStringArray(required))
+	var row: Variant = _memo.get(key)
+	if row != null:
+		var counts: Array = (row as Array)[1] as Array
+		var stands: bool = true
+		for i in required.size():
+			if int(_members.get(String(required[i]), 0)) != int(counts[i]):
+				stands = false
+				break
+		if stands:
+			memo_hits += 1
+			return ((row as Array)[0] as Array[int]).duplicate()
+	var now: Array = []
+	for k in required:
+		now.append(int(_members.get(String(k), 0)))
+	var ids: Array[int] = query_fresh(required)
+	_memo[key] = [ids.duplicate(), now]
+	return ids
+
+
+func query_fresh(required: Array) -> Array[int]:
 	var ids: Array[int] = []
 	if required.is_empty():
 		return ids
@@ -135,6 +178,7 @@ func save() -> Dictionary:
 
 func restore(saved: Dictionary) -> void:
 	_tables.clear()
+	_memo.clear()
 	for type_id in saved.keys():
 		var k: String = String(type_id)
 		var entries: Array = saved[k] as Array
