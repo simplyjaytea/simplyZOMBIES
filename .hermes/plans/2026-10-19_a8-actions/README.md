@@ -10,6 +10,10 @@ Rendered from the committed runtime PNGs (`godot/assets/sprites/`), 4x, one row 
 - `<body>_<action>_after.gif`: rest, the action at its own rate, rest again (a loop just loops;
   the crouch, one still pose, is shown at 4 fps).
 
-Survivor: swing, recoil, reload, flinch, crouch, crouchwalk, prone, fall. Every zombie family:
+- `survivor_reload_{pistol,rifle,shotgun}_after.png` / `.gif`: rendered by the engine through the
+  real `held_layer` and the draw call `main.gd` makes, the weapon in hand: rest, the eight beats
+  at their own rate, rest.
+
+Survivor: swing, recoil, reload (pistol and long gun), flinch, crouch, crouchwalk, prone, fall. Every zombie family:
 lunge, stagger, fall. The swing's east, west and south views are generated; every other frame,
 the swing's north view included, is moved from the pack's own pixels (docs/23's A8 record).

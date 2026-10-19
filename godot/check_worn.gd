@@ -1116,7 +1116,10 @@ func _the_gear_follows_the_frame() -> bool:
 		var suffix: String = Appearance.frame_suffix("body_survivor", member)
 		if suffix in Appearance.VIEWS:
 			continue
-		var view: String = suffix.split("_")[1]
+		# The view is the part before the frame number: `walk_e_3`, and an action whose own name
+		# has an underscore, `reload_long_e_3`, alike.
+		var parts: PackedStringArray = suffix.split("_")
+		var view: String = parts[parts.size() - 2]
 		# A body lying flat or falling carries nothing in its hands (Appearance.equipment_layers_for
 		# draws no layer on a lying frame; a fall is drawn in the corpse pass, which draws none).
 		if Appearance.is_lying_frame("body_survivor", member) or suffix.begins_with("fall_"):

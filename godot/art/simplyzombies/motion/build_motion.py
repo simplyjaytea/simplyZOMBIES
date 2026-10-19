@@ -92,7 +92,10 @@ ACTION_TIMING = {
     "body_survivor": {
         "swing": {"fps": 14, "loop": False},
         "recoil": {"fps": 16, "loop": False},
-        "reload": {"fps": 5, "loop": True},
+        # One-shots the clock holds on their last beat (back at the stance) for as long as the
+        # sim's Reload or Clearing state lasts: a pistol's reloadTicks is 24 (1.2 s), a long gun's more.
+        "reload": {"fps": 8, "loop": False},
+        "reload_long": {"fps": 6, "loop": False},
         "flinch": {"fps": 12, "loop": False},
         "crouch": {"fps": 1, "loop": True},
         "crouchwalk": {"fps": 16, "loop": True},
@@ -358,6 +361,8 @@ def survivor_actions(build, fam, members, frames_by_view, rests, walks, walk_han
             rest_hands = {slot: tuple(by_view[view]) for slot, by_view in REST_HANDS.items()}
             if action == "swing" and view in act.SWING_GENERATED:
                 frames = [(im, act.swing_hands(im, view, rest_hands)) for im in swing[view]]
+            elif action in ("reload", "reload_long"):
+                frames = act.reload_frames(rest, view, "long" if action == "reload_long" else "pistol")
             elif action == "prone":
                 frames = [(im, None) for im in act.prone_frames(walks["n"], view)]
             else:

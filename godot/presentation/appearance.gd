@@ -1160,8 +1160,9 @@ static func lying_view(view: String, lie: String) -> String:
 
 
 # The frame of a one-shot or looping action `elapsed` seconds in: `start` frames in, at the
-# family's rate, never past `hold` (a wind-up waiting on the sim) when hold is not negative. -1 once
-# a one-shot has played through, so the caller falls back to the walk; a loop wraps.
+# family's rate, never past `hold` (a wind-up waiting on the sim) when hold is not negative -- a hold
+# past the last frame holds the last frame (a reload back at its stance while the sim still
+# reloads). -1 once a one-shot has played through, so the caller falls back to the walk; a loop wraps.
 static func action_index(key: String, action: String, view: String, elapsed: float, start: int = 0, hold: int = -1) -> int:
 	var frames: int = action_frames(key, action, view)
 	var fps: float = action_fps(key, action)
@@ -1169,10 +1170,31 @@ static func action_index(key: String, action: String, view: String, elapsed: flo
 		return -1
 	var idx: int = start + int(floor(maxf(0.0, elapsed) * fps))
 	if hold >= 0:
-		idx = mini(idx, hold)
+		idx = mini(idx, mini(hold, frames - 1))
 	if action_loops(key, action):
 		return posmod(idx, frames)
 	return idx if idx < frames else -1
+
+
+# The reload a body plays: the long gun's (`reload_long`, the magazine in the well forward of the
+# grip and the off hand on the fore-end) when the weapon in its primary hand is drawn at least
+# LONG_HELD_PX wide -- the rifle, the shotgun and the crossbow -- and the pistol's otherwise (the
+# pistols, the revolver, the compact SMG, the bow, and empty hands). Read off the held picture,
+# since how long the weapon looks is the whole of what the choice is about.
+const LONG_HELD_PX: int = 48
+
+
+static func reload_action(world: Variant, actor: int) -> String:
+	if world == null or world.components == null:
+		return "reload"
+	var eq: Variant = world.components.get_component(actor, "equipment")
+	if not (eq is Dictionary):
+		return "reload"
+	var block: Variant = _equip_block_for(world, ((eq as Dictionary).get("slots", {}) as Dictionary).get("primary"))
+	if not (block is Dictionary):
+		return "reload"
+	var key: String = String((block as Dictionary).get("equipSprite", ""))
+	return "reload_long" if holds(key) and canvas_of(key).x >= LONG_HELD_PX else "reload"
 
 
 # Whether body frame `member` is a lying one (contract: it carries no worn or held layer).
