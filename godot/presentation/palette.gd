@@ -141,6 +141,10 @@ const COLOURS: Dictionary = {
 	# fills of it.
 	"facing": Color("#cfccc08c"),
 	"aimCone": Color("#c9c2b04d"),
+	# The flash over a body the moment a blow lands on it (alpha plan A9): a warm white, the street's
+	# own light rather than a cold cutout, at three-quarters so the picture under it still reads
+	# through on the first frame. Drawn as a silhouette of the struck body and faded to nothing.
+	"hitFlash": Color("#fff1dcbf"),
 	"rain": Color("#c2c9cf21"),
 	# The weather-look slice's two keys (docs/16, docs/30 "The sky has kinds"). `snow` is rain's
 	# cool cast a shade paler and thinner-saturated -- a flake reads as a dot, not a streak, so it
