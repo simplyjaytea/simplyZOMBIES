@@ -40,8 +40,9 @@ func _run() -> void:
 	ok = _a_view_stands_through_a_change_it_cannot_see() and ok
 	ok = _the_dead_keep_a_view_a_tile_off_through_a_change_they_cannot_see() and ok
 	ok = _the_heap_plans_the_paths_the_scan_planned() and ok
+	ok = _the_inlined_cast_sees_what_blocks_sight_says() and ok
 	if ok:
-		print("M2_TICK_OK content-agree content-follows content-reader map-log door-cells view-stands dead-keep path")
+		print("M2_TICK_OK content-agree content-follows content-reader map-log door-cells view-stands dead-keep path cast")
 		quit(0)
 	else:
 		push_error("M2_TICK_FAIL")
@@ -465,4 +466,110 @@ func _the_heap_plans_the_paths_the_scan_planned() -> bool:
 		return _fail("PATH", "only %d pairs had a route; the lane has too little to judge" % found)
 	if flipped == 0:
 		return _fail("PATH", "no pair planned differently with ties broken the other way, so tie order was never judged")
+	return true
+
+
+# --- slice 3: the shadowcast itself --------------------------------------------------------------
+
+# The shadowcast as it stood before slice 3, verbatim but for the frame Dictionaries, asking
+# `SimTileMap.blocks_sight` per tile -- the definition of what blocks a sightline that the shipped
+# cast now reads straight off the map's arrays.
+func _reference_cast(map: Variant, ox: int, oy: int, r: int, eye: int) -> PackedByteArray:
+	var out := SimShadowcast.VisibleTiles.new()
+	out.reset(ox, oy, r)
+	out.mark(ox, oy)
+	var range_sq := r * r
+	for q in range(4):
+		var stack: Array = [[1, -1, 1, 1, 1]]
+		while stack.size() > 0:
+			var frame: Array = stack.pop_back()
+			var depth: int = frame[0]
+			if depth > r:
+				continue
+			var start_n: int = frame[1]
+			var start_d: int = frame[2]
+			var end_n: int = frame[3]
+			var end_d: int = frame[4]
+			var min_col := SimShadowcast.floor_div(2 * depth * start_n + start_d, 2 * start_d)
+			var max_col := SimShadowcast.ceil_div(2 * depth * end_n - end_d, 2 * end_d)
+			var prev: Variant = null
+			var cur_n := start_n
+			var cur_d := start_d
+			for column in range(min_col, max_col + 1):
+				var tx: int = ox + column if q == 0 or q == 2 else (ox + depth if q == 1 else ox - depth)
+				var ty: int = oy + column if q == 1 or q == 3 else (oy + depth if q == 2 else oy - depth)
+				var blocking: bool = SimTileMap.blocks_sight(map, tx, ty, eye)
+				if blocking or (column * cur_d >= depth * cur_n and column * end_d <= depth * end_n):
+					if depth * depth + column * column <= range_sq:
+						out.mark(tx, ty)
+				if prev == true and not blocking:
+					cur_n = 2 * column - 1
+					cur_d = 2 * depth
+				if prev == false and blocking:
+					stack.push_back([depth + 1, cur_n, cur_d, 2 * column - 1, 2 * depth])
+				prev = blocking
+			if prev == false:
+				stack.push_back([depth + 1, cur_n, cur_d, end_n, end_d])
+	return out.cells
+
+
+# CAST. On the shipped district, with its doors, boards and parked cars: from every door, every
+# board, a scatter of open tiles and the map's own corner (so the edge is crossed), at short and long
+# ranges and both eyes, the shipped cast marks exactly the reference's cells. Then the negatives
+# that make the agreement mean something: some origin sees differently crouched than standing, so
+# the Low class was exercised; and opening a shut door changes what some origin sees, so the
+# overlays were read rather than skipped.
+func _the_inlined_cast_sees_what_blocks_sight_says() -> bool:
+	var w: Variant = SimBoot.playable()["world"]
+	var map: Variant = w.tilemap
+	var origins: Array[Vector2i] = [Vector2i(0, 0), Vector2i(int(map.w) - 1, 3)]
+	for key in (map.overlays as Dictionary).keys():
+		origins.append(Vector2i(int(key) % int(map.w), int(key) / int(map.w)))
+		if origins.size() > 40:
+			break
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 9113
+	while origins.size() < 70:
+		origins.append(Vector2i(rng.randi_range(0, int(map.w) - 1), rng.randi_range(0, int(map.h) - 1)))
+	var crouch_differs: bool = false
+	var compared: int = 0
+	for o in origins:
+		for r in [3, 12, 48]:
+			var by_eye: Array = []
+			for eye in [SimTileMap.Eye.Standing, SimTileMap.Eye.Crouched]:
+				var shipped := SimShadowcast.VisibleTiles.new()
+				SimShadowcast.shadowcast(map, o.x, o.y, int(r), shipped, int(eye))
+				var ref: PackedByteArray = _reference_cast(map, o.x, o.y, int(r), int(eye))
+				if shipped.cells != ref:
+					return _fail("CAST", "from %s at %d tiles, eye %d, the cast marks other cells than blocks_sight allows" % [o, r, eye])
+				var count: int = 0
+				for c in ref:
+					count += int(c)
+				if shipped.count != count:
+					return _fail("CAST", "from %s at %d tiles the cast counts %d cells and marks %d" % [o, r, shipped.count, count])
+				by_eye.append(ref)
+				compared += 1
+			if by_eye[0] != by_eye[1]:
+				crouch_differs = true
+	if not crouch_differs:
+		return _fail("CAST", "no origin saw differently crouched, so the Low class was never judged")
+	var door: Vector2i = Vector2i(-1, -1)
+	for key in (map.overlays as Dictionary).keys():
+		var ov: Dictionary = (map.overlays as Dictionary)[key] as Dictionary
+		if String(ov.get("kind", "")) == "door" and not bool(ov.get("open", false)):
+			door = Vector2i(int(key) % int(map.w), int(key) / int(map.w))
+			break
+	if door.x < 0:
+		return _fail("CAST", "no shut door on the district; the overlay half has nothing to judge")
+	var shut := SimShadowcast.VisibleTiles.new()
+	var beside: Vector2i = door + Vector2i(0, 1) if not SimTileMap.blocks_sight(map, door.x, door.y + 1) else door + Vector2i(1, 0)
+	SimShadowcast.shadowcast(map, beside.x, beside.y, 12, shut)
+	var shut_cells: PackedByteArray = shut.cells.duplicate()
+	SimFortify.open_door(w, door.x, door.y)
+	var opened := SimShadowcast.VisibleTiles.new()
+	SimShadowcast.shadowcast(map, beside.x, beside.y, 12, opened)
+	if opened.cells != _reference_cast(map, beside.x, beside.y, 12, SimTileMap.Eye.Standing):
+		return _fail("CAST", "beside the opened door the cast disagrees with blocks_sight")
+	if opened.cells == shut_cells:
+		return _fail("CAST", "opening a door changed nothing seen from beside it, so overlays were never judged")
 	return true
