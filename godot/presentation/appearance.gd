@@ -470,6 +470,9 @@ static func _read_authored() -> void:
 				"pace": float((entry as Dictionary).get("pace", 0.0)),
 				"breath_fps": float((entry as Dictionary).get("breath_fps", 0.0)),
 				"rides": String((entry as Dictionary).get("rides", "")),
+				"actions": (entry as Dictionary).get("actions", {}) if (entry as Dictionary).get("actions", {}) is Dictionary else {},
+				# action_frames' memo, "action|view" -> count: the members never change after this read.
+				"counts": {},
 			}
 			# Per-frame placement (docs/23, "Frames on the render clock"): where each member's head
 			# and torso sit against its view's rest picture, and where its hands are. Read off each
@@ -1096,14 +1099,134 @@ static func breath_fps(key: String) -> float:
 const STILL: Dictionary = {"walking": false, "cycle": 0.0, "idle": 0.0}
 
 
+# --- actions: what a body does besides walk and breathe ----------------------------------------
+#
+# docs/23, "Actions on the render clock" (alpha plan A8). A family's action frames are members
+# named `<key>_<action>_<view>_<n>`, written by godot/art/simplyzombies/motion/build_motion.py, and
+# its `actions` block in authored.json says how fast each plays and whether it loops. The animation
+# clock (presentation/anim_clock.gd) says which action a body is in and for how long -- from the
+# sim's own published events and components, never a guess -- and `frame_key` answers the member.
+
+# The actions a body lies down for: drawn only from the two side views (a body flat on the ground
+# lies across the screen), and carrying no worn or held layer, whose pictures are all upright.
+const LYING_ACTIONS: Array[String] = ["prone"]
+# The stance poses, which step on the walk's stride while the body moves and hold frame 0 while it
+# stands: the crouch has its own still picture and its own walk, the crawl one cycle for both.
+const STANCE_WALK: Dictionary = {"crouch": "crouchwalk", "prone": "prone"}
+
+
+# How many frames `action` has in `view` for `key`: the run `<key>_<action>_<view>_0`, `_1`, ...
+# counted until one is missing. Zero for a family that does not carry it.
+static func action_frames(key: String, action: String, view: String) -> int:
+	if not turns(key) or action.is_empty():
+		return 0
+	var family: Dictionary = _families[key] as Dictionary
+	var memo: Dictionary = family["counts"] as Dictionary
+	var slot: String = action + "|" + view
+	if memo.has(slot):
+		return int(memo[slot])
+	var members: Array = family["members"] as Array
+	var n: int = 0
+	while members.has("%s_%s_%s_%d" % [key, action, view, n]):
+		n += 1
+	memo[slot] = n
+	return n
+
+
+# The action's rate (frames a second of presentation time) and whether it loops, from the family's
+# `actions` block. 0.0 / false for an action the family does not declare.
+static func action_fps(key: String, action: String) -> float:
+	_read_authored()
+	if not _families.has(key):
+		return 0.0
+	var spec: Variant = ((_families[key] as Dictionary)["actions"] as Dictionary).get(action)
+	return float((spec as Dictionary).get("fps", 0.0)) if spec is Dictionary else 0.0
+
+
+static func action_loops(key: String, action: String) -> bool:
+	_read_authored()
+	if not _families.has(key):
+		return false
+	var spec: Variant = ((_families[key] as Dictionary)["actions"] as Dictionary).get(action)
+	return bool((spec as Dictionary).get("loop", false)) if spec is Dictionary else false
+
+
+# The view a lying action is drawn from: the body's own side view, or for a body facing the camera
+# or away from it, the side it last lay toward (`lie`, the clock's memory; east when it has none).
+static func lying_view(view: String, lie: String) -> String:
+	if view == "e" or view == "w":
+		return view
+	return lie if lie == "e" or lie == "w" else "e"
+
+
+# The frame of a one-shot or looping action `elapsed` seconds in: `start` frames in, at the
+# family's rate, never past `hold` (a wind-up waiting on the sim) when hold is not negative. -1 once
+# a one-shot has played through, so the caller falls back to the walk; a loop wraps.
+static func action_index(key: String, action: String, view: String, elapsed: float, start: int = 0, hold: int = -1) -> int:
+	var frames: int = action_frames(key, action, view)
+	var fps: float = action_fps(key, action)
+	if frames <= 0 or fps <= 0.0:
+		return -1
+	var idx: int = start + int(floor(maxf(0.0, elapsed) * fps))
+	if hold >= 0:
+		idx = mini(idx, hold)
+	if action_loops(key, action):
+		return posmod(idx, frames)
+	return idx if idx < frames else -1
+
+
+# Whether body frame `member` is a lying one (contract: it carries no worn or held layer).
+static func is_lying_frame(family: String, member: String) -> bool:
+	var suffix: String = frame_suffix(family, member)
+	for action in LYING_ACTIONS:
+		if suffix.begins_with(action + "_"):
+			return true
+	return false
+
+
+# The member a body in an action shows, or "" when the motion names none, the family does not
+# carry it, or a one-shot has played through. `motion` is the clock's: `action` (a one-shot or a
+# loop, with `t` seconds in, optional `start` and `hold`) and `stance` ("crouch", "prone" or "")
+# beside the walk's own `walking` and `cycle`. A one-shot wins over a stance, except that a body
+# lying down plays nothing upright; a stance steps on the walk's stride.
+static func action_key(key: String, view: String, motion: Dictionary) -> String:
+	var stance: String = String(motion.get("stance", ""))
+	var action: String = String(motion.get("action", ""))
+	if not action.is_empty() and not LYING_ACTIONS.has(stance):
+		var idx: int = action_index(key, action, view, float(motion.get("t", 0.0)), int(motion.get("start", 0)), int(motion.get("hold", -1)))
+		if idx >= 0:
+			return "%s_%s_%s_%d" % [key, action, view, idx]
+	if STANCE_WALK.has(stance):
+		var v: String = lying_view(view, String(motion.get("lie", ""))) if LYING_ACTIONS.has(stance) else view
+		if bool(motion.get("walking", false)):
+			var walk: String = String(STANCE_WALK[stance])
+			var frames: int = action_frames(key, walk, v)
+			if frames > 0:
+				return "%s_%s_%s_%d" % [key, walk, v, AnimClock.frame_at(float(motion.get("cycle", 0.0)), frames)]
+		if action_frames(key, stance, v) > 0:
+			return "%s_%s_%s_0" % [key, stance, v]
+	return ""
+
+
+# The fall a dying body plays before its settled picture: the member `elapsed` seconds in, or ""
+# once it has played through (or for a family with no fall), when the corpse picture takes over.
+static func fall_key(key: String, view: String, elapsed: float) -> String:
+	var idx: int = action_index(key, "fall", view, elapsed)
+	return "" if idx < 0 else "%s_fall_%s_%d" % [key, view, idx]
+
+
 # The one picture a body draws: the member of its family for this view and this motion, or the key
 # itself for anything that does not turn (the generated screamer and bloater). `motion` is the
 # animation clock's answer for the body (presentation/anim_clock.gd): walking, where it is in its
-# stride (0 to 1), and how long it has stood. A walking body shows the frame its stride has reached;
-# a standing one breathes, frame 0 of the breath being the rest view itself.
+# stride (0 to 1), and how long it has stood, and -- since the action frames -- the action or stance
+# it is in, which `action_key` answers first. A walking body shows the frame its stride has
+# reached; a standing one breathes, frame 0 of the breath being the rest view itself.
 static func frame_key(key: String, view: String, motion: Dictionary) -> String:
 	if not turns(key):
 		return key
+	var acting: String = action_key(key, view, motion)
+	if not acting.is_empty():
+		return acting
 	if bool(motion.get("walking", false)):
 		var frames: int = walk_frames(key)
 		if frames > 0:
@@ -1545,6 +1668,9 @@ static func prop_of(world: Variant, id: String) -> Dictionary:
 static func equipment_layers_for(world: Variant, actor: int, view: String = VIEW_REST, frame: String = "", family: String = "") -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	if world == null or world.components == null:
+		return out
+	# A body lying flat carries nothing drawn: every worn and held picture is upright.
+	if not frame.is_empty() and is_lying_frame(family, frame):
 		return out
 	var eq: Variant = world.components.get_component(actor, "equipment")
 	if not (eq is Dictionary):

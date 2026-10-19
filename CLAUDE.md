@@ -326,7 +326,8 @@ drifted. Three things about the current state matter enough to repeat anyway:
   without its copy here being updated, which is the same reason the milestone status lives in one
   place. What the style *is* **as shipped today**: the table is warm; humans use the outpost body and
   zombies use their content-selected families (32×40, the heavy 40×48), four views and an
-  eight-frame walk stepped on the render clock by ground covered (docs/23's A7 record), never
+  eight-frame walk stepped on the render clock by ground covered (docs/23's A7 record), the
+  actions and stances the sim publishes played on that clock (the A8 record), never
   mirrored, while the screamer and the bloater are squat face-on pawns that
   flip through a negative-width rect; walls draw their
   material's cap or south face and roofs cover what the sim cannot see; the darker ground draws a
