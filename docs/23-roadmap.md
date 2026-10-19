@@ -2518,16 +2518,22 @@ not a to-do list:
   shoes. Now each body wears three garments, **painted per frame onto the body's own pixels**
   rather than laid over it: `godot/art/simplyzombies/clothing/` labels every one of the rig's 20
   frames by body part from its own pixels (`parts.py`: underwear band, torso, arms, hands, legs,
-  feet) and repaints each garment's parts in a four-tone integer ramp, keeping the pack's ink
-  outline and the body's own shading (`build_clothing.py`, 29 garments, one 160x160 atlas each).
-  A garment never adds a pixel outside the body, so nothing can misalign on a walk frame. In
-  `authored.json` each is a new kind `wear` with `fits: "body_survivor"`, a `slot` (torso, legs
-  or feet) and one member per rig frame (580 keys). `presentation/appearance.gd` composes the body frame and its three garments
-  into one cached texture (`dressed_texture`, keyed by rig frame and outfit), so the clothes
-  follow `frame_key`'s clock exactly and the raider and colony tints modulate the whole dressed
-  body. **What a body wears:** the equipped `torso`/`legs`/`feet` item's `appearance.equipSprite`
-  when it names a garment for this rig and this slot (23 bases mapped in `armor.json`, `clothing.json`,
-  `masks.json`, `named.json`), else a **default outfit**: `player.json`'s new
+  feet) and shades each garment's parts on a light scale (`build_clothing.py`, 29 garments, one
+  160x160 atlas each): the body's own tone softened across the cloth, the pack's upper-left key
+  light, one-pixel folds at armpit, belt, elbow, crotch, knee and outer seam, patch pockets,
+  hems, a deep edge where cloth meets skin, a sleeve's shadow on the arm, and a grain and shine
+  per material (denim twill, leather and rubber shine, wool nap), at about the pack vest's
+  tonal density (tee 50 colours over 76 pixels, leather jacket 69 over 100, vest 94 over 117).
+  A first flat four-tone pass was redone the same day at the coordinator's review, which held
+  it below the pack's bar. A garment never adds a pixel outside the body, so nothing can
+  misalign on a walk frame. In `authored.json` each is a new kind `wear` with
+  `fits: "body_survivor"`, a `slot` (torso, legs or feet) and one member per rig frame (580
+  keys). `presentation/appearance.gd` composes the body frame and its three garments into one
+  cached texture (`dressed_texture`, keyed by rig frame and outfit), so the clothes follow
+  `frame_key`'s clock exactly and the raider and colony tints modulate the whole dressed body.
+  **What a body wears:** the equipped `torso`/`legs`/`feet` item's `appearance.equipSprite` when
+  it names a garment for this rig and this slot (23 bases mapped in `armor.json`,
+  `clothing.json`, `masks.json`, `named.json`), else a **default outfit**: `player.json`'s new
   `appearance.outfit` lists (four tees, three trousers, worn shoes), picked by entity id, which
   every survivor-rig block without its own list falls back to. The default outfit is
   presentation only; nobody gains an item. `torso` and `legs` left `EQUIP_DRAW_ORDER` (six slots
@@ -2554,7 +2560,7 @@ not a to-do list:
   drift from their painter (`CLOTHING_OK` on Python 3.11 and 3.12 alike).
   **Measured:** `WEAR OK 29 garment(s), 580 painted frame(s) ... (fewest painted 6)`;
   `COVERAGE OK 14 torso, 5 legs and 4 feet item(s) ... (fewest 6 garment pixels showing)`;
-  `DRESSED OK 17 survivor-rig content block(s) and 3 booted human(s) ... (fewest 120 of the bare
+  `DRESSED OK 17 survivor-rig content block(s) and 3 booted human(s) ... (fewest 128 of the bare
   body's pixels repainted) ... (4 shirts, 12 pairings in twelve bodies)`; `STEP OK ... 480 frame
   draws`; `CLOTHING_OK 29 garments, 580 frames`; `SPRITES_OK ... 903 authored keys reproduced`;
   `AUTHORED_OK`, `WORN_LOOK_OK` (0.9 s), `GODOT_CONTENT_OK`; `npm test` 45 files / 594 tests.
@@ -2564,10 +2570,14 @@ not a to-do list:
   then reverted: the leather jacket's `equipSprite` removed (COVERAGE, STEP); `body_texture`
   returning the bare frame (STEP); the composite cache ignoring the rig (STEP's other-rig
   negative); `outfit_of` ignoring the slot (COVERAGE: jeans painted as a torso); the composite
-  leaving the trousers off east walk frames (COVERAGE, STEP). Before/after shots, a side-by-side against the pack's own
-  sprites and the garment sheets are under `.hermes/plans/2026-10-19_clothing/`. **Half
-  shipped, named:** garments repaint the body and never change its outline, so a parka or a
-  hazmat suit reads by colour and trim, not by shape; seen from the side a short sleeve reads as
+  leaving the trousers off east walk frames (COVERAGE, STEP). In-game crops of main, the first
+  pass and the shaded pass, a 4x sheet beside the pack's survivor, vest and three zombie
+  families, a walk GIF and the garment sheets are under `.hermes/plans/2026-10-19_clothing/`.
+  **Half shipped, named:** the clothes are held to the pack survivor's own rendering (a chunky
+  two-tone body with a thick black outline) and its vest, not to the zombie families, whose
+  bodies are finer and dirtier by their own design; garments repaint the body and never change
+  its outline, so a parka or a hazmat suit reads by colour and trim, not by shape; seen from
+  the side a short sleeve reads as
   long (the side views have no arm/torso boundary to cut at); no belt, glove, eyewear or soft
   cap picture; only `body_survivor` is clothed; corpses are not clothed; the dressed composite
   is cached per rig frame and outfit with no eviction, bounded by the outfits actually drawn.

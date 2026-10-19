@@ -16,14 +16,26 @@ of time with the legs, because they are chosen by the body's own frame key.
   (`../textures/characters/survivor_*.png`, cut 32x48 to 32x40 exactly as `authored.json` crops
   the body): ink, head, torso, arm, hand, pelvis, leg, foot. The landmarks come from the frame's
   own underwear band, so the walk's bob moves them with the body.
-- `build_clothing.py` repaints only the skin and underwear pixels of the parts a garment covers,
-  in the frame's own light: lit skin becomes the cloth's base tone, shaded skin its shade, the
-  darkest skin its deep tone, and a pixel with ink or nothing over it its highlight. Details
-  (collar, placket and buttons, zip, cuffs, hem, belt and buckle, sole, boot cuff, apron bib and
-  straps, wrap bands, blanket stripes) are placed on the frame's landmarks. The pack's ink and the
-  head are never touched, so a garment cannot move the silhouette.
-- Ramps are four flat tones in the pack's families (`../STYLE.md`); every number is an integer, so
-  the output is the same bytes on every interpreter.
+- `build_clothing.py` repaints only the skin and underwear pixels of the parts a garment covers.
+  A pixel is shaded on a light scale, not picked from four tones: it starts from the body's own
+  tone under it (lit skin, shaded skin, the darkest skin), softened with its covered neighbours;
+  cloth facing the sky lifts and cloth turning under or away at an edge drops; the pack's key
+  light from the upper left keeps the body's left side lit and turns the far side into shade.
+  Folds crease it, one pixel each: the drape from each armpit, the bunching above the belt, the
+  inside of a long sleeve's elbow, the crotch, the knee, a trouser leg's outer seam, a pocket's
+  mouth. Details (collar, placket and buttons, zip, patch pockets, cuffs, hems with their rolled
+  lip, belt and buckle, sole, boot cuff, apron bib and straps, wrap bands, blanket stripes) are
+  placed on the frame's landmarks. Where cloth meets bare skin it ends on its deep tone, as the
+  pack's vest does, and a short sleeve or short hem casts a pixel of shadow on the skin below.
+  The pack's ink and the head are never touched, so a garment cannot move the silhouette.
+- `Canvas.render` turns each level into its ramp's colour through the material: plain cloth
+  gains contrast and a faint grain, denim a twill, wool and fur a coarse nap, paper a crinkle;
+  leather and rubber take a hard light, deeper shadows and a shine where they face up. A
+  garment frame comes out at roughly the pack vest's tonal density (the tee 50 colours over 76
+  pixels, the leather jacket 69 over 100; the vest 94 over 117).
+- Ramps are four tones in the pack's families (`../STYLE.md`), blended between and paled or
+  cooled past either end; every number is an integer, so the output is the same bytes on every
+  interpreter (checked on Python 3.11 and 3.12).
 
 The output is one 160x160 sheet per garment under `native/`: a row per view (s, e, n, w), the
 idle picture in column 0 and the walk's frames in columns 1-4. `authored.json` declares each
