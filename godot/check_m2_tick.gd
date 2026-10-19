@@ -25,6 +25,7 @@ const Clock = preload("res://sim/time/clock.gd")
 const SimAllegiance = preload("res://sim/modules/allegiance.gd")
 const SimShambler = preload("res://sim/modules/shambler.gd")
 const SimSightings = preload("res://sim/modules/sightings.gd")
+const ComponentStore = preload("res://sim/component_store.gd")
 
 const FIXTURE: Dictionary = {"seed": 71, "tick_hz": 20, "map": {"width": 16, "height": 16, "walls": []}, "player": {"id": 0, "x": 8.5, "y": 8.5, "stance": 2}, "rng_probe": {"stream": "test", "samples": 0}}
 
@@ -47,8 +48,9 @@ func _run() -> void:
 	ok = _near_enemies_are_the_enemies_that_are_near() and ok
 	ok = _the_people_tables_are_the_people() and ok
 	ok = _outside_the_square_nothing_is_seen() and ok
+	ok = _the_query_memo_is_the_intersection() and ok
 	if ok:
-		print("M2_TICK_OK content-agree content-follows content-reader map-log door-cells view-stands dead-keep path cast enemies people square")
+		print("M2_TICK_OK content-agree content-follows content-reader map-log door-cells view-stands dead-keep path cast enemies people square query")
 		quit(0)
 	else:
 		push_error("M2_TICK_FAIL")
@@ -760,4 +762,76 @@ func _outside_the_square_nothing_is_seen() -> bool:
 	for fn_name in ["_observe_one", "_observe_containers"]:
 		if _body_of("res://sim/modules/sightings.gd", fn_name).find("_in_square(") < 0:
 			return _fail("SQUARE", "%s does not ask _in_square" % fn_name)
+	return true
+
+
+# --- slice 5: the component query memo -------------------------------------------------------------
+
+const QUERY_ASKS: Array = [["a"], ["a", "b"], ["b", "a"], ["a", "b", "c"], ["c", "d"], ["d"], ["a", "missing"], ["missing"]]
+
+
+# `query` is `query_fresh` after every way the store changes membership -- a new member, a value
+# replaced, a removal, a removal of nothing, `removeAll`, a brand-new table, and a `restore` of an
+# older save -- over four hundred seeded operations. The negatives: the memo has to have answered
+# (or the lane judged the slow path twice), a warm row has to have gone stale and been caught (or
+# no change ever mattered), and a caller scribbling on its copy must not reach the next answer.
+func _the_query_memo_is_the_intersection() -> bool:
+	var store: Variant = ComponentStore.new()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 5150
+	var kinds: Array[String] = ["a", "b", "c", "d"]
+	var snapshot: Dictionary = {}
+	var last: Dictionary = {}
+	var caught: int = 0
+	for op in 400:
+		var e: int = rng.randi_range(0, 29)
+		var k: String = kinds[rng.randi_range(0, 3) if op > 20 else rng.randi_range(0, 2)]
+		var roll: int = rng.randi_range(0, 99)
+		var what: String = ""
+		if roll < 45:
+			what = "set"
+			store.set_component(e, k, {"v": op})
+		elif roll < 75:
+			what = "remove"
+			store.remove(e, k)
+		elif roll < 85:
+			what = "removeAll"
+			store.removeAll(e)
+		elif roll < 92:
+			what = "snapshot"
+			snapshot = store.save()
+		elif not snapshot.is_empty():
+			what = "restore"
+			store.restore(snapshot.duplicate(true))
+		for ask in QUERY_ASKS:
+			var got: Array[int] = store.query(ask)
+			var want: Array[int] = store.query_fresh(ask)
+			if got != want:
+				return _fail("QUERY", "op %d (%s %s on %d): query %s gave %s where the intersection is %s" % [op, what, k, e, str(ask), str(got), str(want)])
+			var key: String = str(ask)
+			if last.has(key) and last[key] != want:
+				caught += 1
+			last[key] = want
+			got.append(-1)
+			got.reverse()
+		for ask in QUERY_ASKS:
+			if store.query(ask) != store.query_fresh(ask):
+				return _fail("QUERY", "op %d: a caller's edit to its copy reached the memo for %s" % [op, str(ask)])
+	if int(store.memo_hits) == 0:
+		return _fail("QUERY", "the memo never answered, so the lane judged the intersection against itself")
+	if caught < 50:
+		return _fail("QUERY", "only %d answers changed between asks; the lane barely judged staleness" % caught)
+	store.set_component(0, "a", {"v": -1})
+	store.query(["a"])
+	var before: int = int(store.memo_hits)
+	store.set_component(0, "a", {"v": -2})
+	store.query(["a"])
+	if int(store.memo_hits) != before + 1:
+		return _fail("QUERY", "replacing a value dropped the memo; only membership should")
+	var w: Variant = SimBoot.playable()["world"]
+	w.step()
+	var hits: int = int(w.components.memo_hits)
+	w.step()
+	if int(w.components.memo_hits) <= hits:
+		return _fail("QUERY", "a shipped tick asked nothing the memo answered")
 	return true

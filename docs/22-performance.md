@@ -371,6 +371,7 @@ deleted afterwards.
 | 2. The map-change spike | 2026-10-19 | 24.78 ms | 68.13 ms | a door swing rebuilt every solidity cell, recast every observer and re-planned with a linear A* |
 | 3. The shadowcast inlined | 2026-10-19 | 21.70 ms | 47.59 ms | four calls and a Dictionary per tile and per frame |
 | 4. The whole-district scans | 2026-10-19 | 19.40 ms | 37.11 ms | every AI asked about every body on the map, then kept the near ones |
+| 5. The component query memo | 2026-10-19 | 17.02 ms | 35.77 ms | a hundred `components.query` calls a tick rebuilt the same sorted intersection |
 
 **Slice 1, content entries by id.** `SimItems._content_get` found an entry by walking every value
 in the flat content tree until one carried the id. `item_base_of` runs about a hundred times a
@@ -427,6 +428,15 @@ tables. Sightings asked `detail` of every body and cupboard for every observer, 
 outside the observer's shadowcast square is Unseen by construction; `_in_square` skips those
 first. NPC combat fell from 2.7 to 1.1 ms, the shambler pass from 5.3 to 4.4 and sightings from
 3.4 to 2.6. No outcome moves: the 3,000-tick hash with `DEAD_KEEP_VIEW` off still matches `main`.
+
+**Slice 5, the component query memo.** `components.query` built and sorted a fresh intersection
+on every call, about a hundred calls a tick and 2.3 ms in all, nearly every one asking what it
+asked the tick before. The store now counts each table's membership changes (an entity gaining or
+losing the component, never a value replaced) and answers from a memo row while every count it
+was built against still holds; `restore` drops the memo, and every caller gets its own copy. The
+bench is noisy at this size, so from here each row is the median of three runs interleaved with
+three of the slice before on the same machine: slice 4 measured 18.85 / 38.49 ms that way, slice
+5 17.02 / 35.77. The 3,000-tick hash with `DEAD_KEEP_VIEW` off still matches `main`.
 
 ### Remaining milestone evidence
 
