@@ -137,8 +137,7 @@ end without a developer explaining it.
 ### Where Milestone 2 stands
 
 This section took over `HANDOFF.md`'s live-status role when the per-item checkbox ledger of that
-name was retired (2026-08). A short `HANDOFF.md` came back a commit later and is still in the tree,
-but it is a cold-start pointer and an owner-decision list, **not** a status ledger: this section is
+name was retired (2026-08). A short `HANDOFF.md` came back a commit later and was removed on 2026-10-19; its owner-decision list moved to CLAUDE.md, and neither file is a status ledger: this section is
 the authority, and where the two ever disagree this one is right. Keep it
 current **in the same commit** as the work it describes. Every claim of "landed" below is proven by a
 named gate (`npm run godot:m2` chains them all); the full done-item history with per-item evidence
@@ -221,7 +220,7 @@ record together. No new camp, treatment, loadout or hidden-information mechanics
 ##### Other remaining work
 
 **Waiting on the owner — decisions, not code.** Each is measured and written up; none may be
-decided unilaterally. **The full list lives in `HANDOFF.md`** (eleven items as of 2026-09-09; the
+decided unilaterally. **The full list lives in CLAUDE.md, under Waiting on the owner** (items 0 to 10 as of 2026-10-19; the
 newest two are the water numbers and the main area's extent, and the six of 2026-09-06 were the
 driving and weather first cuts, the free wind, the unseen-wall roof, the one-handed silhouettes,
 the forest density, and the two playable-state flips against the compressed tier's survival
@@ -1065,6 +1064,45 @@ session, each with its gate red both ways and its record.
   not claimed" — and it moves what colonists scavenge, so it is a **measured** piece rather than
   a one-line filter change.
 
+**Colony management — the RimWorld half** (alpha scope, decided 2026-10-19 in docs/30: colonist orders and
+the NPCs that already exist, nothing more):
+
+- **Hide the stub job columns.** Firefight, Hunt, Farm, Craft, Modify and Butcher leave the work
+  grid until each has a consumer, so the grid stops promising work nothing does. Gate:
+  `godot:check:play`'s work lane.
+- **Draft and move orders.** Select a colonist, then right-click to move, attack or hold there; a
+  draft toggle stops a drafted colonist taking jobs. Sim-owned: a `colonist.order` command through
+  `godot/sim/context.gd`. Gate: `godot:check:context` and a new `godot:m2:orders`.
+**Parked until after the alpha** (decided 2026-10-19, docs/30): blueprints for wall, door, barricade,
+window board and bed, with Construct consuming materials; stockpile zones that replace the annex-floor
+test in `SimNeeds.is_stockpile_tile`; crafting at a bench, with the Craft job as its consumer. Each keeps
+its gate when it is picked up: `godot:m2:fortify` with a placement lane, `godot:m2:jobs`, and a new
+`godot:m2:craft` with `npm test` for the content.
+
+**Feel and speed — smooth motion, and time a player can live with:**
+
+- **Render interpolation between sim ticks.** Each body is drawn between its previous and current
+  sim position, and the tick accumulator is clamped so a slow tick drops time instead of
+  snowballing. Presentation only. Gate: a new motion lane, a true positive mid-tick and a true
+  negative at fraction zero.
+- **Sim tick to its budget.** The measured costs, one slice each: the visibility recast on a map
+  change, jobs re-pathing, shambler AI, sightings, encumbrance and self-aid. Gate:
+  `npm run godot:bench:runtime` under 8 ms mean and 16 ms worst, promoted to CI, with `godot:test`
+  parity and `godot:m2` unchanged.
+- **World draw to its budget.** Static ground, walls and roofs baked per chunk and invalidated on a
+  map, sight or weather change, so each frame draws only bodies, FX and overlays. Gate:
+  `npm run godot:bench:frame` under 10 ms mean at 1280 × 720, with the look gates re-pointed at the
+  new path.
+- **Sleep fast-forward, real 3x and 10x, and speed on the HUD.** Sleep runs at the fastest speed
+  until woken; paused and speed show in words on the HUD. Gate:   `godot:check:play` lanes for pause, speed and sleep. The 10x half waits on the sim-tick piece.
+- **Day length: one in-game day is one real hour at 1x**, as in Project Zomboid, with every per-day rate
+  rescaled. Decided 2026-10-19 (docs/30); not built. Gate: a balance re-baseline with `godot:m2:balance`
+  before and after, recorded in the record, and `godot:check:play` for the clock on the HUD.
+- **Aim follows the cursor.** The cursor is the aimer: the weapon is held toward it and the character turns
+  to follow, as in Project Zomboid. Decided 2026-10-19 (docs/30); not built. Gate: `godot:m2:aim` and
+  `godot:check:worn`.
+
+
 **UI:**
 
 - **Condition and stamina readouts in the world, not a corner** — **half landed** 2026-09-08
@@ -1314,10 +1352,13 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   `_observe_one`'s own body — not the file as a whole, since `_observe_containers` calls `detail`
   too — and asserts it calls `detail` and not `line_of_sight`. Narrows what a colonist remembers;
   no campaign outcome is claimed, and `godot:m2:balance` stays green.
-- **Four of the five infection verbs, and six other commands, have no way in.** `item.modify`,
-  `item.attach`, `item.detach`, `item.split`, `item.pickUp` and `container.search` are live command
-  handlers that nothing — no key, no button, no NPC decision — ever pushes, and the
-  attachment-fitting screen above is part of the same hole. `infection.respond` **now has a
+- **Four of the five infection verbs, and four other commands, have no way in.** `item.modify`,
+  `item.pickUp`, `container.search` and `recruit.ignore` are live command handlers that nothing —
+  no key, no button, no NPC decision — ever pushes. `item.pickUp` is the camelCase twin of
+  `item.pickup`, the command the right-click menu pushes (`godot/sim/context.gd:140`); only the
+  camelCase handler is dead. `item.attach`, `item.detach` and `item.split` **have producers** now:
+  the gunsmith bench (`godot/ui/bench_panel.gd:153-162`) and the inventory's split
+  (`godot/ui/inventory_panel.gd:774`). `infection.respond` **now has a
   producer** for exactly one of its verbs: the antibiotics word on the body screen
   (`godot:check:respond`, see the record). What is still unreachable, and why each is left that
   way rather than tidied up beside it:
@@ -10368,8 +10409,9 @@ not a to-do list:
   magazine, a sight, a can on a thread, a haft wrap, a bowstring) and every barrel, action, stock
   and axe head does not. `SimModification.apply` gains the same precondition in its own
   `{ok, reason}` shape, which is docs/11 finally being true about the thing it has always called a
-  bench, and it closes `item.modify` on docs/23's "no way in" list alongside `item.attach` and
-  `item.detach`. Every lane carries its negative: one scrap short builds nothing, an
+  bench, and it closes `item.attach` and `item.detach` on docs/23's "no way in" list. `item.modify`
+  still has a handler (`godot/sim/modules/modification.gd`) and no producer.
+  Every lane carries its negative: one scrap short builds nothing, an
   uninterrupted channel completes (or the stagger proves nothing), a colony with no bench must not
   serialise one, and REFUSE asserts **both** halves — a barrel refused in the field *and* the same
   barrel coming off at a bench, or "refused" would just mean the command never worked.

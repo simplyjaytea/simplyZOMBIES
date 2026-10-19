@@ -17,7 +17,7 @@ const RECOVER_TICKS: int = 8
 # weapon profile carries; it is what `SimMelee.is_unarmed` reads, and the whole reason it exists
 # is that "no meleeWeapon component" stopped being the same question as "fighting with nothing".
 #
-# First-cut numbers, waiting on the owner (HANDOFF.md): weight 0.6 and speed 1.3 keep the swing
+# First-cut numbers, waiting on the owner (CLAUDE.md, Waiting on the owner): weight 0.6 and speed 1.3 keep the swing
 # quick -- lighter and faster than the 1.2/1.0 bat default `make_melee_armed` falls back to --
 # and damage 4 against a shambler's head (25, x3 for HEAD_DAMAGE_MULTIPLIER = 12) takes three
 # punches, a torso (60) fifteen.

@@ -77,7 +77,7 @@ static func wanderers_for(tiles: int) -> int:
 #
 # Ashgrove reads **320** here against the side reading's 165. That is four times what any measured
 # band has seen and the sizing measurement had no headroom, so it is a balance number as much as an
-# arithmetic one; it is listed for the owner in HANDOFF.md rather than assumed correct.
+# arithmetic one; it is listed for the owner in CLAUDE.md (Waiting on the owner) rather than assumed correct.
 static func wanderers_for_map(map: Variant) -> int:
 	if map == null:
 		return wanderers_for(64)

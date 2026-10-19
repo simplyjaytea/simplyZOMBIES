@@ -21,7 +21,7 @@ import type { World } from "../kernel/world";
  * A day, in seconds of real time at 1x speed.
  *
  * docs/02-core-loop.md#time-scale: "Full day -- ~4 hours at 1x". That number is a **guess**
- * and has been flagged as one in HANDOFF.md's open questions since the roadmap was written;
+ * and has been flagged as one in the retired HANDOFF.md's open questions (git history) since the roadmap was written;
  * it is here rather than spread across the phase table so that answering the question is
  * editing one line.
  *
