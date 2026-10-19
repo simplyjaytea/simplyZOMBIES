@@ -1138,13 +1138,18 @@ static func _do_bury(world: Variant, ent: int, job: Dictionary) -> void:
 		_stop(world, ent)
 		return
 	if not bool(job.get("carrying", false)):
-		if world.components.has_component(corpse, "position"):
-			var cp: Variant = world.components.get_component(corpse, "position")
-			var ct := Vector2i(floori(float((cp as Dictionary)["x"])), floori(float((cp as Dictionary)["y"])))
-			if not _at(world, ent, ct, REACH):
-				_walk(world, ent, job, ct)
-				return
-			world.components.remove(corpse, "position")
+		# Only the position this job removes means "carrying". The finder offers corpses that have
+		# one, so a corpse without one was taken by another body's Bury; burying it here would
+		# bury it twice.
+		if not world.components.has_component(corpse, "position"):
+			_stop(world, ent)
+			return
+		var cp: Variant = world.components.get_component(corpse, "position")
+		var ct := Vector2i(floori(float((cp as Dictionary)["x"])), floori(float((cp as Dictionary)["y"])))
+		if not _at(world, ent, ct, REACH):
+			_walk(world, ent, job, ct)
+			return
+		world.components.remove(corpse, "position")
 		job["carrying"] = true
 		SimNeeds.dirt(world, ent, 1)
 		return
