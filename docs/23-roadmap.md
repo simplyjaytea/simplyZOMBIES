@@ -1149,7 +1149,12 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   stepped out — which is information the player arguably should not have for free, so it is a
   design call and not a cleanup — or the publish goes.
 
-- **Every survivor shoots as though one arm were ruined.** `ranged.gd`'s `_refresh_cone` widens
+- ~~**Every survivor shoots as though one arm were ruined.**~~ **Fixed 2026-10-19** (`godot:m2:aim`,
+  the ARM lane). `_refresh_cone` now adds the 0.15 only when either arm
+  reads `BadlyHurt` or worse through `SimHealth.part_state_of`, so a healthy arm is no longer
+  charged and a ruined one widens the cone. **The balance half is not measured**: every survivor's
+  cone is tighter in every firefight from today, and `godot:m2:balance` has not been rerun for it.
+  The original entry follows. `ranged.gd`'s `_refresh_cone` widens
   the aim cone by 0.15 when the worse arm is under 25, and `SimCombat.SURVIVOR_BODY` gives a
   *healthy* arm 20 — so the penalty is on for everybody, permanently, and a genuinely ruined arm
   costs nothing more than an intact one. The threshold was written against the pre-split single
@@ -1159,7 +1164,9 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   per-weapon, and deliberately not fixed there: correcting it tightens every survivor's cone in
   every firefight, which is a balance change wanting its own slice and its own measurement rather
   than a quiet ride beside a change about rate of fire. `check_m2_aim`'s CONE lane neutralises it
-  by hand and says why, and caught it by refusing to compare two saturated values.
+  by hand and says why, and caught it by refusing to compare two saturated values. The ARM lane
+  now judges the penalty itself: an intact arm must read the same cone as no arm at all, and a
+  ruined one must widen it.
 - ~~**Crouching never lowers your eye.**~~ **Fixed 2026-09-16** (`godot:m2:sight`, the EYE and
   EYE-READER lanes). `SimVisibility.refresh` now reads a queried entity's `posture`, if it has
   one, and writes `observer["eye"]` from `SimStances.eye_of` every tick, before the shadowcast
