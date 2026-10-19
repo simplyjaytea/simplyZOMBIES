@@ -1303,7 +1303,10 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   pictures lie on the ground beneath standing actors, without upright equipment or facing
   pointers. `godot:check:zombie_art` judges the real renderer branch and Focal filtering;
   see "Zombies turn, walk and fall" in the art record. The existing glimpse ban stays intact.
-- **A debug-spawned stackable item is always a bare stack of one.** `SimDebug`'s `item` arm
+- ~~**A debug-spawned stackable item is always a bare stack of one.**~~ **Fixed 2026-10-19**
+  (`godot:m2:ammo`, the DEBUG-STACK lane): the `item` arm now passes a `count` on the `debug.spawn`
+  command through to `spawn_item`, so five asked for hold five and no count holds one. The original
+  entry follows. `SimDebug`'s `item` arm
   (`sim/modules/debug.gd`) calls `SimItems.spawn_item(w, id, {})` with no `count`, so an
   ammunition round spawned from the F8 panel or a `debug.spawn` command pushed by hand always
   arrives as a single unit; `_fire_shot`'s `_consume_ammo` (`sim/modules/ranged.gd`) despawns a
