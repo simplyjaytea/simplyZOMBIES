@@ -1,7 +1,27 @@
 # CLAUDE.md
 
-Read this before touching anything. `AGENTS.md` covers environment setup; this file covers what
-the project is, how a unit of work runs, and what must not be broken.
+Read this before touching anything. It is the one entry point: what the project is, how a unit of work
+runs, the routing table, the environment, the owner's open decisions, and what must not be broken.
+
+## Start here
+
+- **Where the work is:** [what's left in Milestone 2](docs/23-roadmap.md#whats-left-in-milestone-2)
+  names every open piece. [Where Milestone 2 stands](docs/23-roadmap.md#where-milestone-2-stands) is
+  the status, each claim naming its gate. [The record, by system](docs/23-roadmap.md#the-record-by-system)
+  holds what landed.
+- **Why it is shaped this way:** [docs/30](docs/30-decisions.md). `CONTEXT.md` holds the slice vocabulary.
+- **Owner decisions:** [Waiting on the owner](#waiting-on-the-owner) lists what only the owner decides.
+- **Commands:** standard commands live in `package.json`, `README.md` and `.github/workflows/ci.yml`;
+  those are the source of truth. The frozen TypeScript oracle serves on `127.0.0.1:5174` via `npm run dev`.
+
+Cold start:
+
+```bash
+bash scripts/setup-web-session.sh   # verify or install the pinned engine
+npm run godot:smoke                 # the project boots
+npm run check:routing               # the routing table, and every gate reachable
+npm run godot:run                   # play it (DISPLAY=:1 on a headless VM)
+```
 
 ## Godot is the only implementation that ships
 
@@ -13,7 +33,7 @@ deny.** `src/`, `test/`, `bench/` and the Vite/vitest configs are all present on
 `check` job runs `npm test`, `npm run typecheck`, `npm run lint`, `npm run format:check` and
 `npm run bench` against them alongside the Godot gates. As of this writing all of it is green:
 **45 files / 594 tests** (one file, `handoff.test.ts`, retired with the checkbox ledger it
-counted — see the note on `HANDOFF.md` under Conventions). It is a
+counted — see the note under Conventions). It is a
 *frozen reference*, not a second product — do not add features
 to it, do not port Godot changes into it — but do not delete it or let it go red either, because
 CI will stop you. Its frozen parity fixtures under `godot/parity/` are what `npm run godot:test`
@@ -32,11 +52,11 @@ that followed this loop landed six slices in a run; the sessions that did not ar
 section came from.
 
 1. **Orient before touching anything.** This file top to bottom, then the
-   [routing table](AGENTS.md#routing-table) for where each kind of work lives and which gate
+   [routing table](#routing-table) for where each kind of work lives and which gate
    judges it, then
    [what's left](docs/23-roadmap.md#whats-left-in-milestone-2) for what is open and
    [the record, by system](docs/23-roadmap.md#the-record-by-system) for how the neighbouring
-   systems landed. `HANDOFF.md` names what is waiting on the owner. Read
+   systems landed. The owner list under [Waiting on the owner](#waiting-on-the-owner) names what is waiting on the owner. Read
    [docs/30](docs/30-decisions.md) before changing anything that looks arbitrary — it usually
    is not.
 2. **Pick one named piece from what's left.** They are sized to land in a session. The "waiting
@@ -52,22 +72,26 @@ section came from.
    so and skips; it never passes quietly.
 5. **Measure balance claims; never theorise them.** A claim about campaign outcomes comes from a
    throwaway driver, run before and after on the same driver — two consecutive guesses at the
-   harness each cost a full run to disprove. Check the throughput arithmetic first (~1,085
-   ticks/s headless: a game day is ~3 minutes, a ten-day campaign ~45). Drivers are deleted
+   harness each cost a full run to disprove. Check the throughput arithmetic first (the shipped
+   world runs at ~34 ticks/s: a game day is ~2 h 21 min, a ten-day campaign ~23 h; see
+   Throughput below). Drivers are deleted
    afterwards; anything that stays behind gets a gate keeping it honest.
-6. **Verify before committing.** `npm run godot:m2`, always. A content edit is not verified until
-   `npm test` has also run — the frozen oracle's Ajv recurses where `godot:validate` does not.
+6. **Verify before committing.** Run the gates for what the change touched; the policy is under
+   [Verifying a change](#verifying-a-change). A content edit is not verified until `npm test` has also run — the frozen oracle's Ajv recurses where `godot:validate` does not.
    Touching a `.ts` file or any prettier-covered path adds `typecheck`, `lint`, `format:check`.
 7. **Record in the same commit.** Delete the piece from what's left; write its record — named,
-   gated, measured — into the record, by system. Update `HANDOFF.md` only when what is waiting on
-   the owner changed. Prose is hand-wrapped.
+   gated, measured — into the record, by system. Update the owner list under [Waiting on the owner](#waiting-on-the-owner) only when what is waiting on the owner changed. Prose is hand-wrapped.
 8. **Leave it honest.** No checkbox ledgers anywhere; every claim names the gate that proves it;
    where only half a thing shipped, the record says which half.
 
 ## Verifying a change
 
-Correctness for a Godot change is the Godot gates. `npm run godot:m2` is the one to run before
-every commit — the latest full cloud run took **47m16s for 85 gates** (2026-10-03,
+Correctness for a Godot change is the Godot gates. **Policy (decided 2026-10-19, docs/30):** before a commit, run the gates for what the change touched:
+its `godot:m2:<name>` lanes, `godot:smoke` and `godot:validate` for a boot or content change, `godot:check:play`
+for a scene or input change, `npm test` for anything under `godot/content/`. The full `npm run godot:m2`
+chain runs in CI's `godot-m2` job on every pull request and every push to main, and nothing merges red.
+A change to a shared sim module or the save format still runs the full chain locally before its commit. The
+latest full cloud run took **47m16s for 85 gates** (2026-10-03,
 `GATE_TIME_TABLE` total 2835.79 seconds), including **15m29s** for the fast balance tier.
 Timings depend on the machine: 30m06s for 84 gates was
 measured 2026-09-27 on a four-core Windows desktop, with two worker slices running beside it;
@@ -134,7 +158,7 @@ npm run godot:check:fx       # the shot is seen: flash, casing, blood, flame, on
 npm run godot:r6         # parity, coverage, mutation, soak, bench, validate
 npm run godot:run        # play it (DISPLAY=:1 on a headless VM)
 npm run sprites:check    # generated art still matches tools/sprites/ → SPRITES_OK
-npm run check:routing    # AGENTS.md's routing table resolves; every check_*.gd is reachable → ROUTING_OK
+npm run check:routing    # the routing table resolves; every check_*.gd is reachable → ROUTING_OK
 npm run check:timing     # the per-gate timing table names every mode the chain ran → TIMING_OK
 ```
 
@@ -154,7 +178,7 @@ that package generates — it re-renders every registry key and compares decoded
 the committed file, so a palette edited without regenerating is a red build.
 
 `check:routing` is the other gate outside `godot:m2`, and the one that judges the desk rather
-than the game: it reads the routing table in `AGENTS.md` and fails on any path, npm script or
+than the game: it reads the routing table in CLAUDE.md and fails on any path, npm script or
 doc anchor that no longer resolves, then asks the dead-socket question of the gates themselves
 (every `godot/check_*.gd` reachable from `scripts/run-godot.mjs`, every runner mode reachable
 from `package.json`, every `godot:m2:*` / `godot:check:*` / `godot:ban:*` script inside the
@@ -275,6 +299,10 @@ Milestone 2, the vertical slice — one district, a handful of survivors, enough
 find out whether the loop is fun. Its exit criterion is ten in-game days, permanent loss,
 succession, and still wanting another run.
 
+The whole-interface redesign is a proposal, not a shipped change. Read [docs/32](docs/32-ui-overhaul.md)
+and [the owner's 2026-10-03 decision](docs/30-decisions.md#the-whole-interface-2026-10-03) before
+applying older kit, font or chart requirements. Its work list is [docs/23's UI overhaul group](docs/23-roadmap.md#ui-overhaul).
+
 The boot colony is **three by the owner's 2026-09-01 decision** — the player, Mara, and Ellis
 (`survivor.unique.ellis`), and further roster growth *at boot* stays there. The pause that
 decision put on new NPCs and roster growth was **lifted by the owner on 2026-09-14**
@@ -292,8 +320,8 @@ check prove it.
 
 [docs/23](docs/23-roadmap.md) is the authority on what is intended **and**, in its milestone status
 sections, on what is built and what remains (the old per-item checkbox `HANDOFF.md` was retired
-into it and its itemised history lives in git; the `HANDOFF.md` in the tree today is the short
-pointer described under Conventions, and it is not a status ledger). Its
+into it and its itemised history lives in git; there is no `HANDOFF.md` any more (retired 2026-10-19), and the owner list lives under
+[Waiting on the owner](#waiting-on-the-owner), which is not a status ledger). Its
 [what's left](docs/23-roadmap.md#whats-left-in-milestone-2) section names every
 remaining Milestone 2 piece — small, modular, named so the name alone says the work — and its
 [record, by system](docs/23-roadmap.md#the-record-by-system) holds the evidence for what landed;
@@ -400,8 +428,7 @@ still required Milestone 2 proof, deferred rather than cancelled.
   seed loop that ran four seeds and proved one. If an assertion has no data to judge (a shortened
   campaign the director never pressured), make it **say so and skip**, never pass quietly.
 - Update [docs/23's milestone status section](docs/23-roadmap.md#where-milestone-2-stands) in the
-  same commit as the work it describes (workflow step 7). `HANDOFF.md` is a short session handoff
-  that points at docs/23 and names what is waiting on the owner — **never** per-item checkboxes.
+  same commit as the work it describes (workflow step 7). There is no `HANDOFF.md` any more; its owner list is under [Waiting on the owner](#waiting-on-the-owner). **Never** put per-item checkboxes in any status file.
   Its checkbox predecessor drifted four times, most recently by ~34 shipped-but-unticked items,
   which is why status is condensed prose with each claim naming the gate that proves it. No gate
   enforces this any more (`godot:check:handoff` retired with the old file), so the discipline is
@@ -532,14 +559,526 @@ Each of these was found the expensive way. They are not style opinions.
   only `godot:check:authored`'s READS lane noticed, because the art it declared was now read by
   nothing. After merging branches that both touched `godot/content/`, scan for duplicate keys
   (Python's `json.load(..., object_pairs_hook=...)` sees them) before trusting a green validator.
-- **Throughput, measured:** ~1,085 ticks/second headless on this container, so a game day (288,000
-  ticks) is about three minutes and a ten-day campaign about forty-five. Anything phrased as "run
-  a few campaigns" is an overnight job — check the arithmetic before promising a grid.
+- **Throughput, measured:** the shipped world measured **34 ticks/second** headless (docs/22,
+  "Remaining milestone evidence", 2026-10-03), so a game day (288,000 ticks) is about 2 h 21 min
+  and a no-wipe ten-day campaign (2,772,000 ticks) about 22.6 hours. The ~1,085 ticks/second figure
+  is the 64-tile district harness, not the world; do not use it for world estimates. Anything
+  phrased as "run a few campaigns" is an overnight job — check the arithmetic before promising a
+  grid.
 
-## Seeing it actually run
+## Working alongside other agents
 
-`npm run godot:run` needs a display and boots on **day 1 in daylight**, not at night. The
-environment detail lives in `AGENTS.md` — starting Xvfb, the two container types, screenshots
-through a throwaway Godot `SceneTree` script (there is no `scrot`/`imagemagick`/`ffmpeg` here;
-the script is a driver, so it is deleted afterwards), and the audio/V-Sync boot noise that is
-expected and harmless.
+More than one assistant works on this repository — Claude, ChatGPT, Astra, Sol, or a person —
+sometimes at the same time. Nothing in this section is specific to any of them; where a tool's
+own wrapper exists it is named as a wrapper around the plain command, never as the command.
+
+- **Orient the same way regardless of who you are.** `CLAUDE.md` top to bottom (it is the
+  project's rules, not a Claude-only file), then docs/23's
+  [what's left](docs/23-roadmap.md#whats-left-in-milestone-2). The [routing table](#routing-table)
+  below is the map of which files belong to which system and which gate judges them; `npm run
+  check:routing` keeps it true.
+- **Claim a piece by branch name and separate checkout.** `<agent>/<piece-slug>` — `astra/dev-menu-raiders`,
+  `sol/per-gate-timing`, `claude/<anything>` — pushed early, so `git branch -r` is the live list
+  of who is on what. There is deliberately **no claim ledger in any file**: a list of who holds
+  what is status, this file carries none, and the checkbox ledger this project retired drifted
+  four times for exactly that reason. A pushed branch cannot drift. Use `git worktree add -b
+  <agent>/<piece-slug> <path> <base>` for each simultaneous worker and inspect `git worktree list`
+  as well as remote branches. A local worktree does not imply its branch has been pushed.
+- **Share tools, isolate runtime state.** `GODOT_BIN` may point to the same pinned executable
+  across worktrees; dependencies may share an unchanged `node_modules`. Each checkout keeps its
+  own `godot/.godot` imports. Give workers separate `XDG_DATA_HOME` and `XDG_CACHE_HOME` directories
+  and separate displays so captures and save/load checks cannot overwrite another worker's
+  state. Reserve quiet machine time for performance measurements. One coordinator owns shared
+  roadmap/README/handoff edits and integrates disjoint code patches before final verification;
+  worker evidence is a handoff to that coordinator, not a second status ledger.
+- **Stay on disjoint files.** Pick a piece whose *files* line (each entry in the alpha-shell
+  group names its files; other groups name their system, and the routing table names the system's
+  files) does not overlap a branch already pushed. Some tracks are serial by construction — the
+  alpha shell's pieces two to five all edit `godot/presentation/main.gd` and land one after
+  another on one branch — and a second agent takes a piece beside them rather than one of them.
+- **The gates are the same for everyone.** Before any commit: the gates for what you touched, as [Verifying a change](#verifying-a-change) lists them; the full `npm run godot:m2` chain runs in CI on every pull request; `npm test` as
+  well for anything under `godot/content/`; `npm run check:routing` for anything touching
+  `package.json` scripts, `scripts/run-godot.mjs`, a `godot/check_*.gd` or this table;
+  `npm run sprites:check` after touching `tools/sprites/` or a PNG it generates. The engine
+  install is `bash scripts/setup-web-session.sh` — `.claude/hooks/session-start.sh` is only the
+  wrapper Claude Code on the web runs around it. Expected-noise notes are in
+  [Headless verification](#headless-verification-no-display-needed).
+- **The record discipline is the same for everyone.** A piece lands with its record: deleted from
+  what's left and written into [the record, by
+  system](docs/23-roadmap.md#the-record-by-system) in the same commit, named, gated, measured.
+  Nothing under [Waiting on the owner](#waiting-on-the-owner) is decided by any agent; a piece that needs one of those
+  decisions stops and asks.
+- **Handing a piece over mid-flight.** Push the branch. Say in the last commit message whether
+  the gate is red or green and which lane. Put the next step in the pull request body, not in a
+  status file. The next agent starts from the branch and that body, and from nothing else.
+
+## Routing table
+
+Where a unit of work goes: what to read before touching it, where the code lives, the gate that
+can fail it, and where its record is written. `npm run check:routing` judges this table -- every
+path, script and link in this section must resolve, and every `godot/check_*.gd` must be reachable
+from an npm script -- so a route here is a claim the build checks, not a note that drifts. Add a
+row when a system gains a home; the gate goes red when a route stops being true.
+
+**By the kind of work:**
+
+| If the work is... | Read first | It lives in | The gate | Record it in |
+|---|---|---|---|---|
+| Starting a session cold | [CLAUDE.md](CLAUDE.md), then [what's left](docs/23-roadmap.md#whats-left-in-milestone-2) | -- | `npm run godot:smoke` proves the engine | -- |
+| A decision named under [Waiting on the owner](#waiting-on-the-owner) as the owner's | that entry, and [docs/30](docs/30-decisions.md) | nowhere: stop and ask | -- | -- |
+| A sim mechanic (a need, a wound, a job, the weather) | the system's spec in the table below, [docs/30](docs/30-decisions.md), and the traps in [CLAUDE.md](CLAUDE.md#traps-that-have-already-cost-someone-a-session) | `godot/sim/modules/`, `godot/sim/` | its `godot:m2:<name>` gate while iterating; `npm run godot:m2` before the commit | [the record, by system](docs/23-roadmap.md#the-record-by-system); a call taken goes in [docs/30](docs/30-decisions.md) |
+| Content (an item, a zombie, a loot table, a weather kind) | [docs/20 Part 2](docs/20-ecs-and-content.md#part-2-content) and the schema under `godot/content/schemas/` | `godot/content/` | `npm run godot:validate` **and** `npm test` (only the oracle's Ajv recurses), plus the nested-shape gate for that block | the record |
+| How a thing looks | [the Dungeon Settlers look](docs/30-decisions.md#the-dungeon-settlers-look-2026-09-03), `godot/assets/sprites/README.md` | `godot/presentation/`, `godot/assets/sprites/`, `tools/sprites/` | the `godot:check:<look>` gate for that layer; `npm run sprites:check` after touching `tools/sprites/` | the record, with a screenshot under `.hermes/plans/` for the owner to judge |
+| Art somebody drew for us | [the brief](godot/assets/sprites/README.md), [art we did not generate](docs/30-decisions.md#art-we-did-not-generate-2026-09-09) | `godot/assets/sprites/authored.json` declares it; the PNG sits beside it | `npm run godot:check:authored` holds it to the published bounds and refuses art nothing reads; `npm run sprites:check` proves it is present at the canvas it declares | the record |
+| Art from the outpost pack | [the pack's own README](godot/art/simplyzombies/README.md), [the outpost pack, adopted](docs/30-decisions.md#the-outpost-pack-adopted-2026-09-17) | `godot/assets/sprites/authored.json` declares it, with a `source` (a path, optional `crop`/`pad`) under `godot/art/simplyzombies/`, or as a member of a `source`-carrying `members` family | `npm run sprites:check` reproduces the committed PNG from its source and compares decoded pixels; `npm run godot:check:authored`'s MANIFEST, TIER and SOURCE lanes hold the declaration to shape and the READS lane to a real reader; the look gate of whichever family it lands in (`godot:check:<look>`) once that piece exists | the record |
+| The screens' frames, glyphs, cursors and motion: the UI Field Kit | [the kit's own README](godot/art/simplyzombies-ui/README.md), [the UI Field Kit, live](docs/30-decisions.md#the-ui-field-kit-live-2026-09-25) | the approved kit under `godot/art/simplyzombies-ui/` (`godot/art/simplyzombies-ui/manifest.json` and `godot/art/simplyzombies-ui/styles/*.tres` are the spec, read as text; the game never loads a kit `.tres`), resolved by `godot/ui/kit.gd` and worn through `godot/ui/chrome.gd`'s helpers | `npm run godot:check:ui_skin` (`godot/check_ui_skin.gd`): KIT holds `Kit.NINE` to the manifest and the `.tres`, RESOLVE proves every consumed PNG loads headless, PANEL follows `Chrome.panel` to the kit, HELPERS refuses a chrome helper nothing calls, FONT holds every screen to `Chrome.font()` (the kit's VT323, `godot/art/simplyzombies-ui/fonts/VT323-Pixel.res`) and every text size to `Chrome.LADDER` | the record |
+| What the screen says | [hardcore contract clause 4](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable), the vocabulary in [CONTEXT.md](CONTEXT.md) | `godot/ui/`, the read models `godot/sim/condition.gd`, `godot/sim/attention_read.gd`, `godot/sim/modules/chronicle.gd` and `SimSkills.web_map` in `godot/sim/modules/skills.gd`; the click that picks a colonist, `godot/presentation/pick.gd`, whose `Pick.pick_at` is also what is under a right-click; what you may do about it, `godot/sim/context.gd`'s `SimContext.verbs_at`, drawn by `godot/ui/context_menu.gd`; the keys that reach any of it, `godot/presentation/input_map.gd`; the run's four states and the three screens that are not the game, `godot/presentation/session.gd` and `godot/ui/shell.gd`; the afterimage and the dimmed remembered map, `godot/presentation/main.gd`'s `_draw_afterimages`/`_draw_district` and `godot/presentation/palette.gd`'s `remembered`; speech bubbles, `godot/sim/modules/speech.gd`'s `saying` component and `godot/presentation/main.gd`'s `_draw_bubbles`, drawn over a Focal body only (`_focal_drawn`) and never a name | `npm run godot:check:hud`, `npm run godot:check:inventory`, `npm run godot:ban:healthbar`, `npm run godot:check:respond`, `npm run godot:check:web_look`; and `npm run godot:check:play`, which boots `godot/presentation/main.tscn` and presses the keys; `npm run godot:check:memory` (`godot/check_memory_look.gd`) for the afterimage and the remembered map; `npm run godot:check:context` (`godot/check_context.gd`) for the menu's rows, their dispatch, walk-here's speed and the scene that opens and closes it; `npm run godot:check:speech` (`godot/check_speech.gd`) for a bubble's content, its triggers and the draw path that reads it | the record |
+| A claim about balance | [the workflow's step 5](CLAUDE.md#the-workflow), [docs/22 on measuring](docs/22-performance.md#measuring) | a throwaway driver, deleted afterwards | `npm run godot:m2:balance` and `npm run godot:m2:harness`; the before/after numbers | the record, numbers included |
+| The save format | [docs/19's save model](docs/19-architecture.md#save-model) | `godot/sim/kernel/serialize.gd` (`SAVE_VERSION`), `godot/sim/save.gd` | `npm run godot:m2:save` | the record |
+| A gate, new or fixed | [a gate that cannot fail](CLAUDE.md#conventions), the dead-socket rule in [CLAUDE.md](CLAUDE.md#where-the-work-is) | `godot/check_*.gd`, a mode in `scripts/run-godot.mjs`, a script in `package.json`, a link in the `godot:m2` chain | `npm run check:routing` proves it is reachable | the record |
+| The frozen TypeScript oracle | the top of this file | `src/`, `test/`, `bench/` | `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm test`, `npm run bench` | nothing: it gains no features |
+| CI, scripts, hooks, this table | [CLAUDE.md's verifying section](CLAUDE.md#verifying-a-change) | `.github/workflows/` (`.github/workflows/ci.yml` the gates, `.github/workflows/pages.yml` the web build, `.github/workflows/release.yml` the downloadable build, run by hand with a version or by a pushed `v` tag), `scripts/`, `.claude/` | `npm run check:routing`, `npm run check:timing`, `npm run format:check`; the engine pin in `scripts/run-godot.mjs` | the record's Kernel & tooling entry |
+| Shipped runtime performance | [docs/22](docs/22-performance.md#shipped-godot-runtime-measurements) | `godot/bench/runtime_tick.gd`, `godot/bench/runtime_frame.gd`, `godot/bench/measured_main.gd`, `scripts/runtime-budget.mjs`, `scripts/run-godot.mjs` | `npm run check:runtime-budget` judges the production runner contract; `npm run godot:m2:tick` (`godot/check_m2_tick.gd`) holds each tick speed-up to the slow answer it replaced; `npm run godot:bench:runtime` and `npm run godot:bench:frame` measure actual timing on a quiet machine (frame needs a display). Existing overruns remain product debt; the real timing commands are not yet CI shipping gates. | docs/22's dated measurements and the record |
+| Driving a pull request | `.claude/skills/steward/SKILL.md` | -- | whatever CI reports; `npm run godot:m2` before every push | the PR itself |
+| Playing it, or a screenshot | [Running the game](#running-the-game-gui) below | `godot/presentation/main.tscn` | `npm run godot:run` | -- |
+
+**By system** -- the spec, the code, and the gate that proves it. Where a row names several
+gates, the first is the one to iterate on:
+
+| System | Spec | Sim | Gate |
+|---|---|---|---|
+| Attention: noise, scent, light | [docs/03](docs/03-attention.md) | `godot/sim/field/attention.gd`, `godot/sim/modules/attention_emitter.gd`, `godot/sim/attention_read.gd` | `godot:m2:district` |
+| Carried light, what burns it down and what feeds it | [docs/03](docs/03-attention.md), [docs/12](docs/12-resources.md) | `godot/sim/modules/light.gd`, `godot/sim/vision/light.gd`, `godot/content/items/lights.json` | `godot:m2:light_burn`, `godot:check:light` |
+| Bait: noise you place, wind up and take back up | [docs/03](docs/03-attention.md#playing-the-field) | `godot/sim/modules/noise_device.gd`, `godot/sim/modules/fortify.gd`, `godot/content/items/noise.json` | `godot:m2:noise`, `godot:m2:fortify` |
+| Needs | [docs/04](docs/04-survival-needs.md) | `godot/sim/modules/needs.gd` | `godot:m2:needs` |
+| Clothing: warmth, wet and cooling | [docs/04](docs/04-survival-needs.md) | `godot/sim/modules/needs.gd`, `godot/content/items/clothing.json` | `godot:m2:warmth` |
+| Comfort: something for your morale that is not a meal | [docs/04](docs/04-survival-needs.md) | `godot/sim/modules/needs.gd`, `godot/content/items/comfort.json` | `godot:m2:comfort` |
+| Camping and utility gear: what you sleep on, what you wash with | [docs/04](docs/04-survival-needs.md), [docs/10](docs/10-items.md) | `godot/sim/modules/needs.gd` (`furnish_bed`, `_spend_soap`), `godot/content/items/camping.json` | `godot:m2:needs`, `godot:m2:gear` |
+| Health, wounds, recovery | [docs/05](docs/05-health-injury.md) | `godot/sim/modules/health.gd`, `godot/sim/modules/wounds.gd`, `godot/sim/condition.gd` | `godot:m2:wounds`, `godot:m2:armor`, `godot:m2:recovery`, `godot:m2:splint`, `godot:ban:healthbar` |
+| Infection and treatment | [docs/06](docs/06-infection.md) | `godot/sim/modules/infection.gd`, `godot/sim/modules/treatment.gd` | `godot:m2:treatment`, `godot:m2:medicine`, `godot:m2:lethality`, `godot:check:respond` |
+| Survivors, recruits, the roster | [docs/07](docs/07-survivors.md) | `godot/sim/modules/survivors.gd`, `godot/sim/modules/recruits.gd`, `godot/sim/modules/roster.gd`, `godot/sim/modules/aptitudes.gd` | `godot:m2:roster`, `godot:m2:recruits`, `godot:m2:stats` |
+| The skill web, Focus, jobs | [docs/08](docs/08-skill-web.md) | `godot/sim/modules/skills.gd`, `godot/sim/modules/jobs.gd` | `godot:m2:web`, `godot:m2:autonomy`, `godot:m2:jobs`, `godot:m2:upkeep` |
+| Books that teach: an item that pays into the web | [docs/08](docs/08-skill-web.md) | `godot/sim/modules/skills.gd` (`teach`, `PRACTICE_POINTS`), `godot/sim/modules/needs.gd` (`read_book`), `godot/content/items/books.json` | `godot:m2:teach` |
+| Combat, stances, aim | [docs/09](docs/09-combat.md), [docs/29](docs/29-movement-and-stances.md) | `godot/sim/modules/melee.gd`, `godot/sim/modules/ranged.gd`, `godot/sim/modules/npc_combat.gd`, `godot/sim/stances.gd`, `godot/sim/combat.gd` | `godot:m2:swipe`, `godot:m2:hands`, `godot:m2:ranged`, `godot:m2:ammo`, `godot:m2:aim`, `godot:m2:stance`, `godot:m2:npc`, `godot:m2:contact` |
+| Items, inventory, attachments, gunsmithing, modification | [docs/10](docs/10-items.md), [docs/11](docs/11-crafting.md) | `godot/sim/modules/items.gd`, `godot/sim/modules/inventory.gd`, `godot/sim/inventory/grid.gd`, `godot/sim/modules/attachments.gd`, `godot/sim/modules/gunsmith.gd`, `godot/sim/modules/modification.gd`, `godot/sim/modules/containers.gd` | `godot:m2:attach`, `godot:m2:armor`, `godot:m2:ammo`, `godot:m2:bench`, `godot:m2:gear`, `godot:m2:filter`, `godot:check:mods`, `godot:check:inventory` |
+| Loot and resources | [docs/12](docs/12-resources.md) | `godot/sim/loot.gd`, `godot/content/loot/` | `godot:check:loot` |
+| Cooking and water: what one thing turns into | [docs/04](docs/04-survival-needs.md), [docs/12](docs/12-resources.md) | `godot/sim/modules/jobs.gd` (the cook job), `godot/sim/modules/needs.gd` (boil, purify), `godot/content/items/kitchen.json` | `godot:m2:transform` |
+| Zombies | [docs/14](docs/14-zombies.md) | `godot/sim/modules/shambler.gd`, `godot/sim/modules/bloater.gd`, `godot/sim/modules/screamer.gd` | `godot:m2:contact`, `godot:m2:swipe`, `godot:m2:filter`, `godot:m2:lethality` |
+| Zombie variants, their walk cycles and settled corpses | [the sprite brief](godot/assets/sprites/README.md), [docs/14](docs/14-zombies.md) | `godot/presentation/appearance.gd`, `godot/presentation/main.gd`, `godot/sim/world.gd`, `godot/sim/modules/recruits.gd`, `godot/content/zombies/` | `godot:check:zombie_art` (`godot/check_zombie_art.gd`), `godot:check:authored`, `sprites:check` |
+| Survivor clothing: torso, legs and feet painted on every frame, and the default outfit | [the clothing README](godot/art/simplyzombies/clothing/README.md), [the sprite brief](godot/assets/sprites/README.md) | `godot/art/simplyzombies/clothing/` (the painter and its sheets), `godot/assets/sprites/authored.json` (kind `wear`), `godot/presentation/appearance.gd` (`outfit_of`, `body_texture`), `godot/content/players/player.json` (`appearance.outfit`) | `godot:check:worn` (COVERAGE, DRESSED, STEP), `godot:check:authored` (WEAR), `sprites:check`, and `python3 godot/art/simplyzombies/clothing/build_clothing.py --check` after touching the painter |
+| Fortification, and the benches built the same way | [docs/15](docs/15-base-building.md) | `godot/sim/modules/fortify.gd`, `godot/sim/modules/gunsmith.gd` | `godot:m2:fortify`, `godot:m2:bench` |
+| Build materials: what a recipe is made of | [docs/12](docs/12-resources.md) | `godot/sim/modules/fortify.gd` (the kind vocabulary and the recipe table), `godot/content/items/materials.json` | `godot:m2:materials` |
+| Weather | [docs/16](docs/16-weather.md) | `godot/sim/modules/weather.gd`, `godot/content/weather/`, `godot/content/climate/` | `godot:m2:weather`, `godot:m2:storm`, `godot:m2:cold`, `godot:m2:heat`, `godot:m2:warmth`, `godot:m2:fog`, `godot:check:weather` |
+| The director and the raiders | [docs/17](docs/17-director.md), [docs/18](docs/18-factions.md) | `godot/sim/modules/director.gd`, `godot/sim/modules/raiders.gd`, `godot/sim/modules/allegiance.gd` | `godot:m2:director`, `godot:m2:raiders` |
+| The district and world generation | [docs/24](docs/24-world-and-scale.md) | `godot/sim/map/`, `godot/content/districts/`, `godot/content/buildings/` | `godot:check:worldgen`, `godot:check:buildings`, `godot:m2:district` |
+| The region: several districts in one space | [docs/24](docs/24-world-and-scale.md#the-region) | `godot/sim/map/region.gd`, `godot/content/regions/` | `godot:m2:region` |
+| Where home is, and the camp that moves it | [docs/15](docs/15-base-building.md#base-siting) | `godot/sim/home.gd`, `godot/sim/modules/camp.gd` | `godot:m2:camp` |
+| The ground, and water | [docs/24](docs/24-world-and-scale.md#the-ground) | `godot/sim/map/surface.gd`, `godot/sim/map/tilemap.gd` | `godot:check:water`, `godot:check:road` |
+| Vehicles | [docs/25](docs/25-vehicles.md) | `godot/sim/modules/vehicles.gd`, `godot/content/vehicles/` | `godot:m2:vehicles`, `godot:check:wrecks`, `godot:m2:light_burn` (the siphon) |
+| Sightlines and memory | [docs/28](docs/28-visibility-and-sightlines.md) | `godot/sim/vision/`, `godot/sim/modules/sightings.gd` (every body remembered with a `kind`; the per-observer `explored` bitset) | `godot:m2:sight`, `godot:check:memory` (`godot/check_memory_look.gd`) for the afterimage and the remembered map it feeds on the presentation side |
+| Speech: what a body says out loud | [docs/30](docs/30-decisions.md) | `godot/sim/modules/speech.gd`, `godot/content/speech/` | `godot:check:speech` |
+| Save and load | [docs/19](docs/19-architecture.md#save-model) | `godot/sim/kernel/serialize.gd`, `godot/sim/save.gd` | `godot:m2:save` |
+| The look | [docs/30](docs/30-decisions.md#the-dungeon-settlers-look-2026-09-03) | `godot/presentation/`, `tools/sprites/` | `godot:check:topdown`, `godot:check:appearance`, `godot:check:camera`, `godot:check:light`, `godot:check:road`, `godot:check:water`, `godot:check:wrecks`, `godot:check:roof`, `godot:check:trees`, `godot:check:worn`, `godot:check:authored`, `godot:check:fx`, `sprites:check` |
+| The screen | [docs/01](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable) | `godot/ui/` (its frames from the UI Field Kit, `godot/art/simplyzombies-ui/`, through `godot/ui/kit.gd`), `godot/presentation/main.gd`, `godot/presentation/input_map.gd` | `godot:check:ui_skin`, `godot:check:hud`, `godot:check:inventory`, `godot:check:respond`, `godot:check:web_look`, `godot:ban:healthbar`, `godot:check:play` (the one gate that executes the scene: `godot/check_play.gd`) |
+| Balance and the campaign harness | [docs/22](docs/22-performance.md#measuring) | `godot/check_m2_balance.gd`, `godot/check_m2_harness.gd` | `godot:m2:balance`, `godot:m2:harness` |
+| Performance | [docs/22](docs/22-performance.md) | `godot/bench/bench.gd`, `bench/` | `godot:bench`, `bench`, `bench:frame` |
+| Content loading and validation | [docs/20](docs/20-ecs-and-content.md) | `godot/platform/`, `godot/content/schemas/` | `godot:validate`, `test` |
+| The engine, CI and the desk | this file | `scripts/run-godot.mjs`, `.github/workflows/ci.yml`, `.claude/hooks/session-start.sh` | `check:routing`, `check:timing`, `godot:smoke`, `godot:r6:coverage` |
+
+## Two different containers, two different starting states
+
+Which one you are in changes the first thing you have to do.
+
+For another managed cloud environment, inspect what is actually installed first. The 2026-10-03
+Codex workspace had Godot 4.6.3 on `PATH`, so it still needed the pinned 4.7.1 install. Run
+`bash scripts/setup-web-session.sh`; if it cannot write `/usr/local/bin`, set `GODOT_BIN` to the
+absolute `.ci-tools/godot/Godot_v4.7.1-stable_linux.x86_64` path it prints. The runner does not
+discover that checkout-local path automatically. Headless gates need no X server; play and
+runtime captures need a working display. Check for Xvfb instead of assuming it is installed.
+
+| | Cursor Cloud VM | Claude Code on the web |
+|---|---|---|
+| Godot 4.7.1 | preinstalled at `/usr/local/bin/godot` | **absent** until `.claude/hooks/session-start.sh` installs it (or `bash scripts/setup-web-session.sh` by hand) |
+| Export templates | preinstalled at `~/.local/share/godot/export_templates/4.7.1.stable/` | **not installed** — set `SETUP_EXPORT_TEMPLATES=1` if you need `godot:export` or `godot:smoke:exports` |
+| Display | VNC desktop already on `DISPLAY=:1` | none — start one: `Xvfb :1 -screen 0 1920x1080x24 &` |
+| Playwright Chromium | preinstalled | at `/opt/pw-browsers`; never run `playwright install` |
+
+`scripts/run-godot.mjs` auto-discovers the engine (and honours `GODOT_BIN`) and hard-rejects any
+build whose `--version` does not start with `4.7.1`. Keep that pin exact — the same version and
+SHA-512 appear in `.github/workflows/ci.yml`, `pages.yml`, and `scripts/setup-web-session.sh`, so
+changing one means changing all of them.
+
+## MCP servers
+
+`.mcp.json` declares the project-scoped MCP servers. Today that is **pixellab**
+(`https://api.pixellab.ai/mcp`, reached through `npx mcp-remote@latest`), the pixel-art generation
+service — a companion to `tools/sprites/`, not a replacement for it: generated art still has to be
+committed and still has to pass `npm run sprites:check`.
+
+Its token is **not** in the repo. The config interpolates `${PIXELLAB_API_KEY}`, so export it
+before starting a session:
+
+```bash
+export PIXELLAB_API_KEY=<your-pixellab-token>
+```
+
+On Claude Code on the web, set it as an environment variable on the environment instead. If it is
+unset the server fails to start and every other gate is unaffected — nothing in `npm run godot:m2`
+or CI touches it. Never paste the literal token into `.mcp.json`; a committed key is a leaked key.
+
+## Headless verification (no display needed)
+
+Correctness gates run headless through `scripts/run-godot.mjs`; the runtime frame benchmark
+needs a real display and renderer. The full chain is **`npm run godot:m2`**, which CI runs on every pull request and which chains every Milestone 2 gate (count them off
+the script in `package.json`; every number written here has drifted); `npm run godot:r6` adds
+parity, coverage, mutation and soak on top. `CLAUDE.md` names the gates worth knowing by name; the
+authoritative list is the `godot:m2` script in `package.json`, and every gate has a
+`godot:m2:<name>` script of its own for iterating.
+
+Expected output that is **not** a failure:
+
+- `ObjectDB ... leaked at exit` and `resources still in use` printed *after* a gate reports its
+  `_OK` line. Engine shutdown noise. Check the `_OK` line and the exit code.
+- `BENCH_OVER_BUDGET` from legacy `npm run godot:bench`, which still exits 0 and measures a
+  synthetic dictionary. This exception does not apply to `godot:bench:runtime` or
+  `godot:bench:frame`: they exit 1 on overruns or invalid evidence. See docs/22.
+
+Long-running gates, so you can plan: `godot:m2:balance` took **15m29s** within the **47m16s**,
+85-gate cloud run on 2026-10-03. Read the current run's `GATE_TIME_TABLE`; older measurements
+describe different machines and workloads. `BALANCE_TILES=256 npm run godot:m2:balance:full` is
+the opt-in shipped-size grid; the full-tier command otherwise still defaults to 64 tiles.
+Measure throughput at its actual district size before estimating the grid; the old
+nine-hour figure is not a safe estimate for the current 256-tile campaign. `BALANCE_DAYS` and
+`BALANCE_SEEDS` can exercise the full-tier code path at smaller scope, but that is not the full
+milestone proof.
+
+## Running the game (GUI)
+
+```bash
+Xvfb :1 -screen 0 1920x1080x24 &     # skip on the Cursor VM, which already has :1
+DISPLAY=:1 npm run godot:run          # or npm run godot:editor
+```
+
+- Rendering is the Mesa `llvmpipe` software renderer. `Could not set V-Sync mode`, the ALSA
+  errors, `libpulse.so.0: cannot open shared object file` and `All audio drivers failed, falling
+  back to the dummy driver` are all expected here and harmless.
+- **It starts on day 1 in daylight** — `SimBoot` boots the clock at `Clock.DAY_BEGINS`, which is
+  the first tick of the Day phase. (AGENTS.md used to say it starts at night and that you should
+  wait for dawn. That was wrong, whenever it stopped being true.) A day is four hours at 1× (one hour is decided and not yet built: see docs/30), so
+  press `=` twice for 10× and wait if you want to see dark.
+- The HUD is **prose only** — no numbers except the day counter, enforced by
+  `npm run godot:check:hud`. Do not go looking for a `light` value on it; the numeric developer
+  sheet lives behind the `M` toggle. `F1` shows the key list, which is up by default on a fresh
+  run and will sit over the middle of the screen until dismissed.
+
+### Screenshots
+
+A warning on checking whether a display already exists: `pgrep -f Xvfb` matches **your own shell
+command** (the pattern is in its argv), so it reports a running server when there is none. Test the
+display, not the process list — run the capture and read the error, or pick a fresh number
+(`Xvfb :2 …`) and pass it explicitly.
+
+There is no `scrot`, `imagemagick`, `xwd` or `ffmpeg` in these containers. Capture through Godot
+instead: write a throwaway `SceneTree` script that instantiates `res://presentation/main.tscn`
+into `root` — `godot/test/project_smoke.gd` is the pattern — drives it, and calls
+`root.get_texture().get_image().save_png(path)`. Run it with
+`DISPLAY=:1 godot --path godot --script res://<name>.gd`. This is also how you set a scenario up
+before capturing it (spawn a shambler next to a survivor, then watch). Delete the script when you
+are done — it is a driver, not a fixture, and it has no gate keeping it honest once it is
+committed.
+
+## When something looks broken
+
+Check it against `main` before treating it as environment breakage — but note that AGENTS.md previously listed three "known pre-existing" failures (`npm test` content-id and handoff-count
+drift, and `format:check` flagging `.scratch/*.html`) that have all since been **fixed**. Verified
+2026-08-25 on this container: `npm test` (45 files / 594 tests), `npm run typecheck`,
+`npm run lint`, `npm run format:check`, `npm run godot:validate`, `npm run godot:test`,
+`npm run godot:smoke` and the full `npm run godot:m2` chain all pass. A red one is a real
+regression, most likely yours.
+
+Long runs are not by themselves environment breakage: `npm run godot:m2` took **47m16s** for
+85 gates in the 2026-10-03 cloud run. `godot:m2:balance` took 15m29s and `godot:m2:storm` 6m09s.
+The emitted `GATE_TIME_TABLE` is the current timing evidence; the 26m45s/69-gate figure from
+2026-09-12 is historical.
+Run the single `godot:m2:<name>` gate you are iterating on and save the chain for the commit.
+
+## Waiting on the owner
+
+This is what only the owner decides. Never pick one of these up unilaterally. Items keep the
+numbers they had in the retired `HANDOFF.md` (removed 2026-10-19, see docs/30), so a record that
+says "HANDOFF item N" means item N here.
+
+**Does hot reload swap content under a live world, or re-run the seed?** docs/30's "What hot reload
+made structural" decides the second — four things capture content at spawn, equip and boot, so a
+live swap leaves a world disagreeing with its own content — and `ContentReload.try_reload_world`
+has done the first since R5. The 2026-09-13 reload fix kept the swap and added change detection,
+by your call for that session; whether the swap stays, or the poll becomes validate-and-report
+with a fresh boot to take an edit, is the decision. Nothing measured: it is a question of what
+"reload" means, not of a number.
+
+**Should a wash require soap?** docs/04 says washing needs water *and* soap; only the water half is
+enforced. The camping slice shipped `hygiene` as banked charges a dirtying spends, and deliberately
+did not make soap mandatory: that is a rebalance of a need every colonist has rather than an
+addition, and a district that rolled no soap would have no way back from `filthy`, which
+`sepsis_mul` reads. Deciding it means deciding what a soapless colony is supposed to do.
+
+**Is the arc's difficulty increase the difficulty you want?** The re-baseline measured it precisely
+(see docs/23): the content is innocent, the armour-acquisition rule costs two of four seeds their
+colonists. The ten-day playtest is the right judge, and the lever is one static.
+
+These are design calls. They have been measured, written up, and deliberately **not** decided.
+(Sepsis came off this list on 2026-09-06 — **lethal untreated**, one of the owner's twelve
+playable-state decisions in docs/30's "The playable state" entry; it lands as the lethality piece
+in docs/23's playable-state group. Three long-standing items came off on 2026-09-01, decided by
+the owner: colony shape
+— a bigger colony, three at boot — and the `GRABS_ENABLED` flip, both landed together and closed
+in docs/23's flag record; and the top-down art style, picked 2026-09-01 as **B, the rotating
+player** and **superseded 2026-09-03 by the Dungeon Settlers look** — upright face-on pawns
+that flip, nobody rotates, a warm dark-fantasy palette, walls with a lit cap and a south face,
+roofs cut out where seen. docs/30's "The Dungeon Settlers look" entry records the twelve
+decisions and what each earlier clause becomes; the work it forces is docs/23's Dungeon
+Settlers arc, whose plan is `.hermes/plans/2026-09-03_dungeon-settlers-arc.md`. **Which of its
+slices have landed is docs/23's record, not this section** -- a list here went stale twice in two
+days, which is the same drift that took the equivalent list out of `CLAUDE.md` in `e2b94e7`.)
+
+0f. **The camp's four first cuts** (2026-09-10). The seam slice landed home as relocatable
+   (`godot:m2:camp`, nine lanes) and took four calls without asking, each one line if re-decided.
+   **The key** — **decided 2026-09-16**: camp keeps **C**, shift+C to strike, and the stance
+   ladder that had shared the letter (the audit found both arms firing on every press) moves onto
+   Ctrl — docs/30's "The alpha shell" and docs/23's group of that name; the fix **landed** with
+   the play gate on 2026-09-16 (`npm run godot:check:play`, the CAMP-KEY lane; docs/23's record).
+   E-with-a-confirm was offered again and not taken. **The clock**: establishing costs fortify's
+   ordinary 40-tick channel, because the labour cost is the deferred slice; it is currently
+   cheaper than boarding a window and louder than one, which is half of the commitment Task 8
+   asks for. **The footprint**: a camp's rect is
+   radius 1 — the tile and everything touching it — which is what the director's quiet floor reads
+   as "how loud is it at home"; the 32 m keep-off is `GATE_EXCLUSION`'s and is unchanged.
+   **Abandonment reverts home to the annex** rather than to the previous camp, which is the simplest
+   reading of "camps are temporary" and not the only one.
+
+0e. **Whether a camp should be assignable, and whether an outpost should draw raiders**
+   (2026-09-10). Two questions the seam slice deliberately did not answer. The later outpost
+   slice extended where colonists will work, so an outpost is already useful. Assignment and
+   raid targeting remain separate: nothing is assigned to a particular outpost, and
+   `raiders._objective` walks to *home*, so a colony with three outposts is raided exactly like a
+   colony with none. Both remaining design calls are named in docs/23's what's left; the owner
+   chose work reach before danger.
+
+0b. **Whether a region becomes the default boot** (2026-09-10). Everything is built and gated;
+   `--region=region.main_area` reaches it and the default is still a single district. The reason it
+   is not flipped is measured: the region runs at **1.48× real time** against a district's **4.15×**,
+   which is above the 20 Hz clock but with far less room, and this container has measured the same
+   district at 55 and 83 ticks/s on different days — so the margin is real and not comfortable, and
+   rendering sits on top of it. Two dials if it needs one: `cellTiles` in
+   `content/regions/main_area.json` (already 256 → 192 once, for exactly this reason), and how much
+   of a region's population a region boots. **Worth playing before deciding**, which is the one
+   thing a table cannot answer.
+
+0c. **The remaining water mechanics** (first cuts 2026-09-09; colour decision superseded by
+   the adopted pack). The ford's ×0.45 speed and ×1.8 noise remain first cuts. The old
+   `#424f5c` tint/saturation question was settled by the owner's pack-grade decision: the ford
+   now uses the pack's measured `#244e56`, proved by `godot:check:water`'s PACK lane. Do not
+   reopen that colour question. **The ground is still a player-only mechanic.** `SimJobs._walk`
+   resolves `move_speed` but NPC and zombie locomotion do not read `SimSurface`, so today a river
+   slows the player and nobody else — half a mechanic in exactly the way noise-only ground was
+   before the worldgen arc. Widening it moves NPC pathing balance and is its own measured slice
+   (it is in the debt list); until then a ford is a decision only the player makes.
+
+0b. **The idle breath** (2026-09-09). One pixel of pelvis at a quarter of the walk's rate,
+   drawn in the fixture round and deliberately left out of the four answers the owner gave that
+   day. Small, independent of every other piece, and named in docs/23's character-overhaul group
+   rather than decided there.
+
+0a. **The picture on select** (2026-09-08). The owner's answer on the pawn — *"when selecting
+   the character, sprite art will appear. However, weapons, clothing, gear will be shown"* —
+   names a picture the colony panel does not have. A portrait was refused with the Dungeon
+   Settlers HUD on 2026-09-03; a larger picture of the selected pawn, kitted, in the panel is
+   not a portrait. Which was meant is the call; docs/30's "Overcast or torchlight" and docs/23's
+   what's left name it and do not decide it.
+
+0. **The driving slice's first-cut calls**, each recorded in docs/30's "Driving" entry and each
+   a small change if re-decided (the key is decided: the owner chose **E** on 2026-09-05 and it
+   landed as a rung of fortify's ladder): four headings with the opposite
+   key turning the car round; a moving car passing through bodies (nothing run over); a body at
+   the wheel unreachable by shamblers; and the engine's numbers (sedan 24 under way, 4 idling,
+   against a sprint's 6) — never measured against the director, because the 64-tile harness
+   parks no car. **Added by the second goal of the same day:** the fuel numbers (a sedan's
+   40 L, 12 000 m of range, 90 minutes of idle), the crash curve (55 at full speed on the
+   square of the speed, a wreck after four runs at a wall), one in ten cars spawning wrecked,
+   and the reading of "define the interact key" as *name E once* rather than *add a key for
+   the hood* — docs/30's "Fuel and hitpoints" and "One interact key" clauses. **And by the
+   third:** a gauge may show a machine's state and never a body's, which is how a dashboard
+   with two needles sits beside a HUD that forbids gauges — docs/30's "The dashboard". **And by
+   the fourth, the light vehicles:** the five classes and their numbers (bicycle 6.5 / e-bike
+   7.5 / e-scooter 6.0 / skateboard 4.5 / kick scooter 4.0, noise 3..5 against a sprint's 6);
+   the trade being exposure rather than a speed nerf (a rider is on the shambler's menu, a grab
+   or a crash unseats them, the body takes no injury from it); a flat battery riding on at
+   `unpowered`; legs costing no stamina; the dash layouts (handlebar, board) and their words;
+   parking in the cars' pass on 4-wide spans only, weighted sedan 10 / van 3 / truck 1 /
+   bicycle 4 / e-bike 2 / e-scooter 2 / kick scooter 1 / skateboard 1; the car shells as the
+   bike paint; and `SAVE_VERSION` 19 — docs/30's "Light vehicles" clause, each a content edit
+   or a line. **And by the gear catalogue (2026-09-06):** the pump shotgun (30 damage, 15 m, noise
+   220) and the hunting rifle (34, 60 m, 200) against a pistol's 18 / 25 m / 180; the energy
+   drink's loan (thirst 15, rest 20 now, 25 back three in-game hours later, chaining
+   compounding rather than resetting); a jerry can as ten litres poured whole with the rest
+   spilt; and the fuel bottle on a residential shelf until an industrial table exists — docs/30's
+   "The gear catalogue", each a content number. **And by the survival session (2026-09-06):**
+   the limp at ten percent a leg (owner-picked from three offers), well water's 0.15 illness
+   chance a bottle and an instant boil at a lit fire, and NPCs drinking it raw only below soft
+   thirst — docs/30's splint and well-water entries; and the rain's numbers (dry 12–36 h, wet
+   2–6 h, the scent half-life halved, 200 / 12000 / 2400 ticks to wet, to dry, to dry by a fire) —
+   docs/30's "Rain as sim state" and `content/weather/rain.json`, every one a content number.
+   **And by the weather spine (2026-09-06):** every duration range and seasonal weight in the
+   six kind entries (storm 1–3 h, cold snap and heat wave 1–3 days, snow 4–10 h; rain spring 5
+   / summer 2 / autumn 3 / winter 1, and so on), the multipliers (storm scent ×0.35 and noise
+   ×0.4, cold shamblers ×0.7 and snow ×0.9, settled snow ×0.8 on the living at half cover,
+   heat thirst ×1.5 and spoilage and corpse scent ×2), the wind's daily drift at 0.6 (a
+   storm's ×2 and a 240 lightning were the first cuts, and the integration re-measured both:
+   docs/23's Weather record), five days a season from spring, and the hot seek walking to a
+   roof — docs/30's
+   "The sky has kinds", `content/weather/*.json` and `content/climate/temperate.json`. **And by
+   its four slices:** body armour for the heat as torso coverage ≥ 0.4 (the jacket and the
+   scrap vest, not the wrap) and heatstroke at two exposures in it; snow cover melting under a
+   cold snap too (only `snow.json` lays any); lightning's sixteen tries at an open tile; the
+   look's `SNOW_COVER_MAX` 0.55, the snow and lightning palette keys, and the flake's fall,
+   lean and length — docs/30's per-slice bullets, and two screenshots to judge. **And by fog
+   (2026-09-08):** `sightMul` 0.25, two to eight hours, weights spring 2 / summer 1 / autumn 4 /
+   winter 1, scent half-life ×0.8, and the veil's alpha (`#c8cdd64d`) — `content/weather/fog.json`
+   and one palette key, every one a content number; the season and the veil were the owner's
+   calls this session, the numbers were offered and accepted as first cuts.
+1. **Whether the wind should be free.** The weather spine's first cut drew each day's wind
+   direction anywhere, and the balance harness's four-seed survival floor read that as a coin
+   toss: every re-measurement wiped a different seed (docs/23's Weather record has the table).
+   Shipped: a prevailing wind — the attention field's calibrated lean, which every district
+   siting was measured under — that wanders within `windDriftDeg` (45°) of it, content in
+   `climate/temperate.json`; 180° is the free wind back. docs/16's "a base that was safe
+   becomes a base that's upwind of the whole district" and a per-seed survival floor pull
+   against each other, and which gives is a design call, not a number.
+2. **Whether a roof covers a known building's unseen walls too.** The wall-and-roof slice roofs
+   the unseen *indoor* tiles of a building the survivor can see part of, as approved, so the
+   unseen perimeter walls stay black and the roof reads as a mass inside a black ring
+   (`slice5-front-64.png` in the plan's shots). Roofing every unseen tile of the footprint is
+   one condition in `RoofLook.roof_tiles` and leaks nothing the footprint does not already;
+   the look is arbitrated by screenshot, so it is the owner's.
+3. **Whether the one-handed weapons need their own silhouettes at 32 px.** The worn slice found
+   that the bat, machete, pipe and kitchen knife share a fist, an angle and a value range: they
+   are distinguishable side by side and would not be at a glance mid-fight. The cheapest fix
+   gives each primary weapon its own lean rather than sharing the bat's, which re-authors the
+   shipped bat -- so it is recorded rather than taken in passing. The service pistol is the
+   weakest single key for the same reason of size. Sharper since the second gear catalogue
+   (2026-09-09): the weapon hand now holds fifteen melee bases and seven ranged, each new one
+   given its own lean and length so none of them added to the pile, but the shipped four are
+   still the shipped four and the two rifles are now a pair as well.
+4. **Whether a forest stand should ever be as dense as the generator can make it.** In the
+   densest one measured -- 44 Tree tiles in a 9x9 -- the player is very nearly invisible: trees
+   are Opaque, so sight collapses to a few tiles, and the fade rule cannot help much because
+   several trunks overlap the body at once (`slice9-stand-64.png`). That is the forest's
+   character rather than a defect in the fade, but the density is content: the knobs are the
+   terrain block's `standsMax`, `treesMax` and `treeSpread`.
+5. **The two playable-state flips against the compressed tier's survival floor.** Two of the
+   owner's own 2026-09-06 decisions are built, gated at both values and shipped at the old
+   one: sight as a stimulus (`SimShambler.SIGHT_ENABLED`, decision 3 — since flipped, see the
+   end of this item) and the strain table from night 3 (`SimDirector.GRACE_NIGHTS`, decision
+   4, ships 7 rather than 2).
+   Measured on the FAST tier with each on, a seed or two in four **wiped**, and
+   `survivors_end >= 1` is the assertion CLAUDE.md records as considered and rejected for
+   relaxing. The eyes and director records in docs/23 carry the diagnostics: a shambler that
+   can see re-takes the colonist it just released, and three early packets finish a colony
+   that cannot kill a shambler with a knife. The trade is between the owner's pacing and a
+   floor measured on a 64-tile district sixteen times the shipped density with the player's
+   body unattended. The options, each one line: (a) flip both after the torso slice lands and
+   re-measure — the plan's order, and the record's recommendation; (b) let the compressed
+   floor be "three seeds of four" and flip now; (c) run the FULL tier at 256 overnight
+   (`BALANCE_FULL=1 BALANCE_TILES=256`) before deciding, ~8 hours at the measured rate.
+   **Re-measured after the torso slice landed** (docs/23's Lethality record): with both flips
+   on, three seeds hold at 3 of 3 and seed 20260805 still wipes (186 grabs, the crowd that saw
+   the annex on night one never left), and the harness's over-cap invariant trips on two seeds
+   (live 35 / 34 against a cap of 32 for a few hundred ticks — something places past the
+   clamp once the table opens on night 3, to be found before the flip). **Sight alone,
+   re-measured after the torso slice, holds the floor**: survivors 1 / 2 / 3 / 3 of 3, every
+   band green — so sight ships on (decision 3 executed under the standing assertion, the
+   commit after the torso slice's) and this item is now the table alone: flip `GRACE_NIGHTS`
+   to 2 once the over-cap placement is found and seed 20260805 is re-read with sight already
+   on. **The population arc found what it is, 2026-09-15, and did not act on it**, because the
+   flip is yours: *nothing places past the clamp*. `SimDirector` refuses a spawn past
+   `live_cap_for(world)` with reason `cap` and always has — but `infection.gd` and
+   `SimRecruits._turn_with_kit` create a shambler from a body that dies infected with **no cap
+   check at all**, so a colony that loses people to bites grows the horde past a budget the
+   director is still honouring. Three separate slices hit it independently (the dormant, the
+   camp and the settlers' day, each diagnosing it from the same signature: no identity, no
+   allegiance, no corpse). It is in docs/23's defect list. Whether the turn should be clamped,
+   or the cap should exclude turned bodies, is a balance call and therefore this item's.
+6. **The playable-state slices' first-cut calls**, 2026-09-07, each inside one of the owner's
+   twelve decisions, each recorded in docs/30's entry for its slice, and each a one-constant
+   change if re-decided. The eyes: a zombie's sight reach is `range × sqrt(lightSense)` scaled
+   by the light *at the target* (a lit survivor is seen from the dark), the shadowcast recast
+   only after two tiles of movement, and a screamer's own groan raises its own noise threshold
+   so it does not chase itself. The field: every zombie's base scent is **1**, chosen off
+   docs/03's migration drift (6–7 m of centre-of-mass drift in an hour against 19 m at the
+   plan's 8, which dominated the field). The doors: a door swings shut sixty ticks after its
+   tile empties, breaks at stage four, and zombies never open one; the press: pressure
+   `n × (1 + 0.5 × (n − 1))` against stage costs of 40 (board), 160 (door) and 90 (scrap).
+   The band: raiders withdraw after 6,000 ticks at the objective with nobody in reach, or at
+   once when below half their size. The lethality doses: frostbite at two exposures and death
+   at three in the cold, heatstroke at three and death at four in the heat and only in armour,
+   sepsis lethal at the third untreated dusk. The screen: a chronicle line stays two game
+   hours, three at most; a click selects and never orders; a thin ring marks the selection.
+   None of these was asked about, because the session was autonomous; each is the kind of
+   number the ten-day playtest is for.
+
+7. **Does a raid that can actually connect get to wipe the colony?** The melee-reach fix
+   (docs/23's defect list, "A melee raider band cannot reach a body that does not move", built
+   2026-09-16 on branch `claude/raider-reach-halt` and deliberately not landed) is a correctness
+   fix, not a difficulty dial — a raider closes to its own weapon's reach instead of standing a
+   metre short of everything — but `npm run godot:m2:balance`'s FAST tier measured what it
+   costs: seed 404's `mixed` arm was already down to its last colonist before the fix, and after
+   it that colonist dies too (`survivors_end` 1→0, `run_over` true). That fails `_assert_bands`'s
+   standing `survivors_end >= 1`, the assertion CLAUDE.md says was considered and rejected to
+   relax after the `GRABS_ENABLED` flip, so the fix cannot land green as the tree stands. Three
+   ways out, none taken unilaterally: the shipped default is meant to absorb a raid this lethal
+   (permanent loss is Milestone 2's own exit criterion) and the assertion changes; the assertion
+   was unknowingly grading the reach bug rather than the difficulty and the FAST seed set or its
+   floor changes; or a raider first-cut number (band size, `HALT_METRES` itself, the withdraw
+   rule) moves and is re-measured. The branch carries its gate, its record and both measurement
+   tables, and merges the moment one of the three is picked.
+
+8. **The four asks' first-cut numbers** (2026-09-17, docs/30's "What the owner asked for after
+   the shell"). The owner picked the shape of each piece; the numbers inside were taken in the
+   session and are each one line if re-decided. **Bare hands** (`SimCombat.BARE_HANDS`): reach
+   1.0 m, weight 0.6, damage 4 (three to a shambler's head, fifteen to its torso), stagger 6,
+   speed 1.3, recovery 0.8, stamina 0.7, the ordinary connect noise. **The afterimage** fades
+   over the sim's `FRESH_TICKS` (ten seconds) and the mark over `RECENT_TICKS` (a minute) — those
+   are the prose's own bands, deliberately not new constants; if the picture should linger
+   longer, the band moves and the HUD's "a moment ago" moves with it. **The mutters**
+   (`SimSpeech.MUTTER_EVERY` 400 ticks, `MUTTER_P` 0.15): a colonist in a need band speaks about
+   once every two minutes; a line's horizon is `SAY_TICKS` 60 (three seconds), a scream 40.
+
+9. **The needs-assets report's remaining questions**
+   (2026-09-25, docs/23's record, "Art — the outpost pack's needs-assets report"). The report the
+   outpost-pack arc named for held weapons, utilities, decals and the extra UI icons is done; none
+   of its remaining scope should be assumed approved. **Two questions were subsequently
+   settled:** container pictures by loot table and held weapons on the pack's bodies were
+   approved and shipped (docs/30's "The whole outpost pack", docs/23's corresponding records).
+   Containers show closed/searched states; the supplies-visible state remains deferred because
+   it would reveal contents at a distance.
+   **Do the pack's utilities become new mechanics, or stay decoration?** A generator, a rain
+   collector, a stove distinct from the campfire, and a spike trap a raider or a zombie can
+   trigger are none of them systems the sim has today; building the art is the smaller half of
+   giving any of them a socket, and whether that arc is worth opening at all is the owner's call.
+   **Do fences and gates become their own tile kind?** Slice 5's own prose counts all thirteen of
+   the pack's wall states, but a fence and a gate have no counterpart in `SimTileMap.Tile` today —
+   only a wall, a window and a door do — so landing those five states in full means new sim
+   content, not only a renderer change; whether that is worth doing now, or the slice ships its
+   other eight and leaves fence and gate for a later piece, is the owner's to pick.
+   **Is a footprint decal a certainty the player should have?** A trail rendered where an actor
+   walked, unseen by the player, is the kind of information clause 4 refuses; whether the whole
+   decal group (`fx-blood-pool-*`, `fx-bullet-hole-*`, `fx-scorch-mark`, `fx-wood-chips`,
+   `fx-shell-pile`, `fx-footprint`) is worth a persisted-mark sim fact at all, and whether
+   `fx-footprint` specifically would be scoped to ground the player's own sightline has already
+   swept, are both open.
+
+10. **The UI's type sizes** (2026-09-25, docs/23's record, "UI — one typeface"). The ladder is
+   20 / 25 / 30 / 50 in VT323; the HUD cards, action bar, shell rows and panel titles took 30,
+   which keeps their old capital height but is not pixel-exact (strokes land 1 and 2 px wide) —
+   crisp 25 reads smaller, 50 reads loud. One line per file if re-decided; the FONT lane holds
+   whatever is picked to the ladder.

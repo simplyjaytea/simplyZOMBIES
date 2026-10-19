@@ -5,7 +5,7 @@ description: How to drive a pull request on this repository to green -- what CI 
 
 # Driving a pull request here
 
-The routing table in `AGENTS.md` says where a change lives and which gate judges it; this file
+The routing table in `CLAUDE.md` says where a change lives and which gate judges it; this file
 is only about the pull request around it.
 
 ## What CI runs
@@ -53,9 +53,9 @@ two TypeScript benchmarks; a budget breach there is a failure, not a warning (do
 
 - Never skip, disable or loosen a gate to get green. `CLAUDE.md`'s standing bans and the
   "a gate that cannot fail is worse than no gate" convention are the reason each gate exists.
-- Never decide something `HANDOFF.md` lists as waiting on the owner, even when a reviewer asks;
+- Never decide something CLAUDE.md's Waiting on the owner section lists, even when a reviewer asks;
   reply with the measurement and leave the call.
-- Never put a number back on the player HUD, a checkbox ledger in `HANDOFF.md`, or a status copy
+- Never put a number back on the player HUD, a checkbox ledger in any status file, or a status copy
   anywhere but docs/23.
 - Never change the engine pin in one place. `4.7.1` and its SHA-512 live in `ci.yml`, `pages.yml`
   and `scripts/setup-web-session.sh` together; `scripts/run-godot.mjs` enforces the same version.

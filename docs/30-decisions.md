@@ -5554,3 +5554,43 @@ are **recommendations**, not additional owner decisions. The generated anatomica
 is illustrative and has not been accepted as a final layout. No pause-policy or inventory
 capacity change was requested. [The design brief](32-ui-overhaul.md) develops the proposal;
 [the roadmap](23-roadmap.md#ui-overhaul) alone carries implementation order and status.
+
+## The alpha calls, 2026-10-19
+
+The owner answered the alpha plan's design questions on 2026-10-19. Each answer is recorded here, and the
+work it sets is in [what's left](23-roadmap.md#whats-left-in-milestone-2).
+
+**Colony scope for the alpha: colonist orders and the NPCs that already exist, nothing more.** Asked how
+much RimWorld the alpha carries, the owner said: "For now maybe colonist orders and just the fact that there
+are NPCs. very basic." Blueprints, stockpile zones and bench crafting are parked until after the alpha, and
+farming stays out. **How to apply:** a colony feature that is neither an order nor a colonist already in the
+sim waits.
+
+**The in-game day is one real hour at 1x.** The owner answered "mimic Project Zomboid for this." It is a
+balance change: every per-day rate is rescaled with it. It is not built. Until it is, a day is four hours at
+1x (`godot/sim/time/clock.gd`). **How to apply:** the first piece of work on the clock is a re-baseline,
+measured with `godot:m2:balance` before and after.
+
+**Aim is cursor-driven, and the body follows.** The cursor is the aimer. The weapon is held toward it and the
+character turns to follow, as in Project Zomboid. This is the owner's answer to the aiming question, and it
+replaces the plan's four-view-body default. It is not built.
+
+**Blood and bullet decals persist, for everything.** The owner asked for blood and decals on everything, not
+only on what the player saw. That runs against the scarce-information rule in CLAUDE.md's standing bans if a
+decal can show an event through a wall. So the working reading is: a decal persists, and it is drawn only on
+a tile the player can see now. The owner has been asked to confirm that reading.
+
+**The inventory keeps the grid and gets a full bespoke redesign.** The owner likes the grid, finds it plain
+and close to a Tarkov-style layout, and asked for a redesign that looks unique and bespoke. The work belongs
+to the UI overhaul group (docs/32, which lands with the UI overhaul PR). Whether a list view sits beside the grid is not
+decided.
+
+**HANDOFF.md and AGENTS.md are retired into CLAUDE.md.** The owner asked for one file. The owner-decision
+list is now under Waiting on the owner, and the routing table is under Routing table. Both old files are
+gone, and `scripts/check-routing.mjs` reads CLAUDE.md. Old "HANDOFF item N" citations keep their numbers.
+
+**Gates per commit: the touched gates locally, the full chain in CI.** The owner left this to the
+orchestrator ("whatever you think is best"), and the orchestrator chose it. CI's `godot-m2` job already runs
+the full chain on every pull request and every push to main, so no workflow was added. CLAUDE.md's Verifying
+section states the policy. A change to a shared sim module or the save format still runs the full chain
+locally before its commit.

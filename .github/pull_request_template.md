@@ -16,11 +16,11 @@ theorise.
 ## Recorded
 
 The docs/23 record entry (and the docs/30 entry, if a call was taken) in this same diff.
-`HANDOFF.md` only if what waits on the owner changed.
+CLAUDE.md's Waiting on the owner section only if what waits on the owner changed.
 
 ## Verified
 
-- [ ] `npm run godot:m2`
+- [ ] The gates for what the change touched, run locally (CLAUDE.md, Verifying a change); `npm run godot:m2` runs in CI on every PR
 - [ ] `npm test` (any content edit; the oracle's Ajv recurses)
 - [ ] `npm run typecheck && npm run lint && npm run format:check` (any `.ts`, `.mjs`, `.json`, `.yml`)
 - [ ] `npm run check:routing` (any script, runner mode, `check_*.gd`, or the routing table)
