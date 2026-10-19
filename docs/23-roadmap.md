@@ -1934,7 +1934,7 @@ not a to-do list:
   HUD speaks one digit-free sentence in a "tip" card above the action bar. `presentation/onboarding.gd`
   picks the due hint from the sim's read models (`SimContainers.hud_clause`, the injuries component,
   `SimSightings.remembered`, the clock) and marks it seen when offered; the seen set rides the save
-  beside the snapshot and comes back on load. A click on the card clears it and is not consumed; the
+  beside the snapshot and comes back on load. A click on the card clears it and stops there; the
   hint is offered only while the street is playing. **Gated** by `godot:check:hud`'s ONBOARD and
   HINT-CARD lanes and `godot:check:play`'s HINT lane (a real click through the engine's dispatch, and
   the seen mark round-tripped through F5 and F9).

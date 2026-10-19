@@ -119,8 +119,9 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
-# A click on the hint's card clears it. The press is never consumed: the street under the card hears it
-# exactly as it would with no hint up, so the card takes nothing from the world it sits over.
+# A click on the hint's card clears it, and the press stops there: a click on the card is not also a
+# move or a shot on the street beneath it, which would be a bad surprise on a zombie hint. Presses
+# outside the card, and every key, pass through untouched.
 func _input(event: InputEvent) -> void:
 	if onboarding == null or _hint_rect.size == Vector2.ZERO or not is_visible_in_tree():
 		return
@@ -129,6 +130,7 @@ func _input(event: InputEvent) -> void:
 		return
 	onboarding.dismiss()
 	set_onboarding("")
+	get_viewport().set_input_as_handled()
 
 
 # `raw` is the old developer string, passed through unchanged and shown only on M.
