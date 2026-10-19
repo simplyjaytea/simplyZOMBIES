@@ -1180,7 +1180,10 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   (`sim/spatial/hash.gd`, `SimThreat.threat_within`, `SimDirector.snapshot_of`). The campaign
   effect of low cover finally blocking a crouched body is unmeasured: `godot:m2:balance`,
   `godot:m2:director` and `godot:m2:npc` stay green, but nothing here claims a balance outcome.
-- **`Bury` reads "the corpse has no position" as "I am carrying it".** `_do_bury`'s hole; the
+- ~~**`Bury` reads "the corpse has no position" as "I am carrying it".**~~ **Fixed 2026-10-19**
+  (`godot:m2:jobs`, the BURY-CLAIM lane). A corpse with no position that this job did not take is now
+  left alone (`_stop`), so a second Bury no longer walks off with a body another one holds. The original
+  entry follows. `_do_bury`'s hole; the
   Cook half of this entry (no claim on the raw, a meal out of nothing) landed 2026-09-06 — the
   record's Jobs bullet, `godot:m2:jobs` COOK CLAIM. `_water_work` and `_repair_work` hand out an
   unclaimed target in the same shape and have not been measured to double up; the `reserved`
