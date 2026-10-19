@@ -1250,24 +1250,38 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
     `treat.context` deliberately picks the wound for you. A patient-and-part selection surface is
     what all three are waiting on, and it is one piece of work for the three of them.
 - **More gates that cannot fail.** Four were fixed in the sweep; these are what a read of all
-  thirty-odd check scripts turned up and did **not** fix. Assume there are others and go at the
-  rest with the same question — *what change would turn this red?*
-  - `check_r6_mutation.gd`'s "validator not vacuous" lane asserts that a `RegEx` **the gate itself
-    just compiled** does not match `"BAD_ID"` — the subject is the gate's own local object, not
-    `ContentValidator`, so no change to the validator can turn it red. Its `_mutate_perf` lane
-    claims to prove the bench gate is not always PASS and never invokes the bench with a small
-    budget; it asserts that 100 iterations of `field.decay()` take more than 0.0001 ms/tick.
-  - `check_r6_coverage.gd`'s `_isolation` says it boots "with each non-kernel module disabled" and
-    disables nothing; its only guard is `if w == null` on the result of `World.new(...)`.
-  - `check_m2_gear.gd`'s `_coverage_composes_by_max_not_sum` discards both `SimInventory.equip`
-    return values, so the max-vs-sum claim is satisfied by a world where only the mask was equipped.
-  - `check_m2_save.gd`'s `_streams()` and `check_r3_full.gd`'s "seed mismatch: restore should
-    assert" block have the same shape as `check_m2_recruits.gd`'s old "transmitted → shambler
-    **with kit**" lane (fixed in the survivor-generation slice, see the record) — a condition
-    computed and thrown away, and a block that never calls `restore`.
-  - `check_hud.gd`'s fixture world lacks the components five of `hud.gd`'s clause builders read, so
-    those clauses return `""` and their assertions pass with no data to judge — which CLAUDE.md
-    says must skip loudly instead.
+  thirty-odd check scripts turned up. Assume there are others and go at the rest with the same
+  question -- *what change would turn this red?* Five of the seven below are fixed on 2026-10-19;
+  each was proved red by a sabotage run, then restored.
+  - ~~`check_r6_mutation.gd`'s "validator not vacuous" lane~~ **Fixed 2026-10-19** (`godot:r6:mutation`,
+    MUTATION content). It judges the real item schema on a real armour entry: the entry must pass,
+    and the same entry with an undeclared key or a numeric `name` must not. Sabotaged by removing the
+    `additionalProperties` refusal from the validator: red, naming the undeclared key.
+  - `check_r6_mutation.gd`'s `_mutate_perf` lane still open: it claims to prove the bench gate is not
+    always PASS and never invokes the bench with a small budget; it times 100 iterations of
+    `field.decay()` and asserts only that they take longer than 0.0001 ms/tick. It needs a real bench
+    entry point taking a budget, which the retired `check_r6_bench.gd` was the last to have.
+  - ~~`check_r6_coverage.gd`'s `_isolation`~~ **Fixed 2026-10-19** (`godot:r6:coverage`, ISOLATION).
+    It boots the playable district once per system with that system unregistered, requires each
+    `unregister` to find its system, and steps ten ticks; `unregister` of a name that does not exist
+    must refuse. Sabotaged by making `unregister` report false: red.
+  - ~~`check_m2_gear.gd`'s `_coverage_composes_by_max_not_sum`~~ **Fixed 2026-10-19** (`godot:m2:gear`,
+    MAX). It discarded both `equip` results, so a refused glasses equip left the mask alone and read as
+    the max. Both equips must now land. Sabotaged by swapping the glasses for ammunition: the original
+    lane passes and the fixed one goes red.
+  - ~~`check_m2_save.gd`'s `_streams()`~~ **Fixed 2026-10-19** (`godot:m2:save`, STREAMS). Its `if ...: pass`
+    was the condition computed and thrown away. It is now an assertion that stepping the director
+    across the packet tick leaves the infection stream's next draw unchanged. Sabotaged by drawing one
+    extra infection sample: red.
+  - ~~`check_r3_full.gd`'s "seed mismatch: restore should assert" block~~ **Fixed 2026-10-19**
+    (`check_r3_full.gd`, run directly with the engine: no npm script reaches it). The block never called restore and its `seed_ok` was
+    unused. It now judges the two numbers `SimWorld.restore`'s assert compares: the save names the seed
+    of the world it was written from, and a world of another seed would not match it. The assert itself
+    still is not exercised in-process, because a failing restore aborts the process. Sabotaged by
+    offsetting the saved seed: red.
+  - `check_hud.gd`'s fixture world still lacks the components five of `hud.gd`'s clause builders read,
+    so those clauses return `""` and their assertions pass with no data to judge. Open: the fix is to
+    give the fixture those components, which means reading each builder, and it is not a one-line change.
 - **Three more dead sockets, on top of the ten now listed in CLAUDE.md.** `sim/spatial/hash.gd`
   in its entirety — nothing in `sim/` or `presentation/` calls it, only `bench/bench.gd` and two
   check scripts, so the headless bench measures a structure the running simulation never touches
