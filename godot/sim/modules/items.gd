@@ -162,19 +162,82 @@ static func _content_get(world: Variant, type_id: String, id: String) -> Variant
 				var hit: Variant = (by_id as Dictionary).get(id)
 				if hit != null:
 					return hit
-		for v in (c as Dictionary).values():
-			if v is Array:
-				for entry in v as Array:
-					if entry is Dictionary and String((entry as Dictionary).get("id", "")) == id:
-						return entry
-			elif v is Dictionary:
-				var d: Dictionary = v as Dictionary
-				if String(d.get("id", "")) == id:
-					return d
-		return null
+		if not (world is Dictionary) and "content_index" in world:
+			return _indexed(world, c as Dictionary, id)
+		return _scan_for_id(c as Dictionary, id)
 	if c is Object and (c as Object).has_method("get"):
 		return (c as Object).call("get", type_id, id)
 	return null
+
+
+# The first entry in tree order whose `id` matches, or null. The one definition of which entry an id
+# names; `_indexed` below is a memo of exactly this answer and must never disagree with it.
+static func _scan_for_id(c: Dictionary, id: String) -> Variant:
+	for v in c.values():
+		if v is Array:
+			for entry in v as Array:
+				if entry is Dictionary and String((entry as Dictionary).get("id", "")) == id:
+					return entry
+		elif v is Dictionary:
+			var d: Dictionary = v as Dictionary
+			if String(d.get("id", "")) == id:
+				return d
+	return null
+
+
+# `_scan_for_id`, memoised on the world. The scan walks every file in the tree and sat under nearly
+# every item read -- `item_base_of` alone ran about a hundred times a tick in the shipped world at
+# roughly 0.12 ms apiece, which was 12.7 of the tick's 32 ms (A3's first slice, docs/22).
+#
+# Each row remembers where its entry lives (`p` the tree key, `i` the array index or -1), and a hit
+# is only trusted while the tree still holds that same object there with that same id. A gate that
+# swaps an entry for an edited copy (check_m2_weather's pinned storm) or a reload that replaces the
+# tree therefore misses the memo and rebuilds, rather than reading a stale entry. A miss also
+# rebuilds once, because an entry added after the build is not in the memo yet. Insertion order is
+# the scan's order, and the build keeps the first row per id, so the two agree on duplicates too.
+static func _indexed(world: Variant, c: Dictionary, id: String) -> Variant:
+	if not is_same(world.content_index_of, c):
+		_build_index(world, c)
+	var row: Variant = (world.content_index as Dictionary).get(id)
+	if row != null and _row_live(c, row as Dictionary, id):
+		return (row as Dictionary)["e"]
+	_build_index(world, c)
+	row = (world.content_index as Dictionary).get(id)
+	if row != null:
+		return (row as Dictionary)["e"]
+	return null
+
+
+static func _row_live(c: Dictionary, row: Dictionary, id: String) -> bool:
+	var at: Variant = c.get(row["p"])
+	var entry: Variant = row["e"]
+	var i: int = int(row["i"])
+	if i < 0:
+		if not is_same(at, entry):
+			return false
+	elif not (at is Array) or (at as Array).size() <= i or not is_same((at as Array)[i], entry):
+		return false
+	return String((entry as Dictionary).get("id", "")) == id
+
+
+static func _build_index(world: Variant, c: Dictionary) -> void:
+	var index: Dictionary = {}
+	for path in c.keys():
+		var v: Variant = c[path]
+		if v is Array:
+			var arr: Array = v as Array
+			for i in arr.size():
+				var entry: Variant = arr[i]
+				if entry is Dictionary:
+					var eid: String = String((entry as Dictionary).get("id", ""))
+					if not index.has(eid):
+						index[eid] = {"p": path, "i": i, "e": entry}
+		elif v is Dictionary:
+			var did: String = String((v as Dictionary).get("id", ""))
+			if not index.has(did):
+				index[did] = {"p": path, "i": -1, "e": v}
+	world.content_index = index
+	world.content_index_of = c
 
 static func _content_has(world: Variant, type_id: String, id: String) -> bool:
 	return _content_get(world, type_id, id) != null

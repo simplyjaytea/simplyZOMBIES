@@ -353,6 +353,32 @@ measured changes. After the runtime passes its budgets on the intended reference
 wire the real commands into CI; quiet-night, siege, full frame/FPS, save, streaming and long-run
 memory scenarios still need their own representative fixtures.
 
+### Bringing the tick to budget
+
+Alpha plan item A3 takes the shipped tick to its unchanged 8 ms mean / 16 ms worst budget one
+system at a time, biggest measured win first. Each slice is a memo, an index or a cheaper route to
+the answer the sim already gave, never a change to what it decides; `npm run godot:m2:tick`
+(`godot/check_m2_tick.gd`) holds each fast path to the slow one it replaced and changes the data
+under it to prove it cannot go stale. Every number below is `npm run godot:bench:runtime` on the
+same cloud Xeon (2.10 GHz, four cores), same seed 20260805, same 100-warmup / 600-sample window;
+the attribution beside it is a throwaway driver timing each registered system over that window,
+deleted afterwards.
+
+| Slice | Date | Mean | Worst | What it cut |
+|---|---|---:|---:|---|
+| Baseline, `main` at `bf6b41a` | 2026-10-19 | 32.42 ms | 300.98 ms | -- |
+| 1. Content entries by id | 2026-10-19 | 24.41 ms | 319.35 ms | `SimItems._content_get` walked every file in the tree per lookup |
+
+**Slice 1, content entries by id.** `SimItems._content_get` found an entry by walking every value
+in the flat content tree until one carried the id. `item_base_of` runs about a hundred times a
+tick in the shipped world (dressing checks every loose garment, encumbrance weighs every pack) at
+about 0.12 ms a walk, which was **12.7 ms** of the 32 ms tick. The answer is now memoised on the
+world (`content_index`, never a static, for the two-worlds trap) and a hit is trusted only while
+the tree still holds that same object at the same key with the same id, so an entry swapped for an
+edited copy, an erased key, an added one or a replaced tree all fall back to the scan and rebuild.
+Jobs fell from 5.9 to 2.0 ms and encumbrance from 2.4 to 0.45 ms. The worst tick is unchanged
+within noise: it is the map-change spike, the next slice.
+
 ### Remaining milestone evidence
 
 At the measured **34.00 ticks/second**, the FULL harness's exact no-wipe span from the default
