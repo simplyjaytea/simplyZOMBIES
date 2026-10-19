@@ -14,27 +14,28 @@ const SimAttention = preload("res://sim/modules/attention_emitter.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimWeather = preload("res://sim/modules/weather.gd")
 
-const HUNGER_EMPTY_DAYS: float = 2.0
-const THIRST_EMPTY_DAYS: float = 1.0
+const HUNGER_EMPTY_DAYS: float = 8.0
+const THIRST_EMPTY_DAYS: float = 4.0
 const SEEK_START: float = 40.0
 const SEEK_STOP: float = 80.0
 const SEEK_NEVER_ABOVE: float = 50.0
 const SOFT: float = 30.0
 const HARD: float = 0.0
-const STARVE_DAYS: float = 1.0
-const DEHYDRATE_DAYS: float = 0.25
+const STARVE_DAYS: float = 4.0
+const DEHYDRATE_DAYS: float = 1.0
 const CAMPFIRE_HEAT_M: float = 4.0
 # What counts as body armour when the sun is out: armour points at or above this, on the same
 # hundred-point body `WARMTH_WEIGHTS` divides. See `wearing_armor`, which used to ask the torso
 # key alone and so could not tell a full suit from a chest plate.
 const ARMOR_POINTS_HEAT: int = 25
 const CAMPFIRE_LIGHT_M: float = 20.0
-# A lit fire burns down. Half a night (36,000 ticks) from the last lighting, then it is doused
+# A lit fire burns down. Half a night (9,000 ticks on the one-hour day) from the last lighting, then
+# it is doused
 # unless somebody is cooking on it; a cook's completion, a warm-seek and the E toggle each
 # light it again and the clock starts over. First cut, 2026-09-06 (the playable state): before
 # this a fire lit by a cook stayed lit for the rest of the run, a permanent 20 m light source
 # at scent 5 that no fuel had paid for.
-const CAMPFIRE_BURN_TICKS: int = 36000
+const CAMPFIRE_BURN_TICKS: int = 9000
 # A body in a hunger or thirst crisis cannot work (`work_mul` is 0) but can still walk -- to the
 # pantry, to the well -- at half pace. Without this a starving survivor could not reach the food
 # that would save them, which is the dead end the crisis early-return in `SimJobs._tick_one`
@@ -42,8 +43,8 @@ const CAMPFIRE_BURN_TICKS: int = 36000
 const CRISIS_WALK_MUL: float = 0.5
 const CAMPFIRE_SCENT: float = 5.0
 const CAMPFIRE_COOK_SCENT: float = 15.0
-const RAW_SPOIL_DAYS: float = 2.0
-const COOKED_SPOIL_DAYS: float = 1.0
+const RAW_SPOIL_DAYS: float = 8.0
+const COOKED_SPOIL_DAYS: float = 4.0
 const NEED_SOURCES: Array[String] = ["need.hunger", "need.thirst", "need.rest", "need.temperature", "need.hygiene", "need.relief"]
 
 # --- the bathroom need (docs/04) ---------------------------------------------------------------
@@ -60,7 +61,7 @@ const NEED_SOURCES: Array[String] = ["need.hunger", "need.thirst", "need.rest", 
 # rest, faster if you have just eaten and drunk, and answered in one visit to a latrine you already
 # own. What it costs is time and position -- it walks people out of the annex, on a clock that
 # eating and drinking speed up, which is exactly the pressure docs/04 asks a need to create.
-const RELIEF_EMPTY_DAYS: float = 0.5
+const RELIEF_EMPTY_DAYS: float = 2.0
 # A sleeping body is quieter. Half rate rather than none, so a survivor who went to bed on a nearly
 # empty pool gets up in the night -- and one who went before bed does not.
 const RELIEF_SLEEP_MUL: float = 0.5
@@ -141,7 +142,7 @@ const ARGUMENT_TICKS: int = 600
 const ARGUMENT_PER: float = 6.0
 const ARGUMENT_CAP: float = 24.0
 # Recovered per mood tick (every 20 ticks) once nobody is arguing at you. At 0.05 a survivor at the
-# cap is clear in about two in-game hours of peace.
+# cap is clear in about 9,600 ticks of peace.
 const ARGUMENT_DECAY: float = 0.05
 const ARGUMENT_SOURCE: String = "mood.argument"
 
@@ -167,8 +168,8 @@ const GRIEF_PUT_DOWN_MUL: float = 1.6
 # docs/07's Optimist: "slower mood decay, less grief transmission".
 const GRIEF_OPTIMIST_MUL: float = 0.5
 const GRIEF_CAP: float = 40.0
-# Per mood tick (every 20 ticks). At 0.005 a survivor at the cap is clear after about thirteen
-# in-game hours -- grief lasts most of a day and then it does not.
+# Per mood tick (every 20 ticks). At 0.005 a survivor at the cap is clear after about 160,000
+# ticks, two and a fifth real hours: two in-game days on the one-hour day, where it was most of one.
 const GRIEF_DECAY: float = 0.005
 const GRIEF_SOURCE: String = "mood.grief"
 
@@ -396,8 +397,8 @@ const SPOILED_ILLNESS_MUL: float = 2.5
 # and one that lived on spoiled tins was permanently miserable, for reasons no clock could undo.
 #
 # So it is bounded twice, in the shape `_fall_ill` already uses: one modifier from one source,
-# replaced rather than stacked, and expiring on a clock of its own. A good meal is worth three
-# in-game hours of goodwill (36000 ticks at 12000 to the in-game hour) and after that it is a
+# replaced rather than stacked, and expiring on a clock of its own. A good meal is worth thirty
+# real minutes of goodwill (36000 ticks) and after that it is a
 # memory -- comfortably shorter than the gap between meals, so two meals can never be carried at
 # once even before the replacement above rules it out.
 const MEAL_MOOD_SOURCE: String = "need.food"
@@ -672,8 +673,8 @@ static func drain_thirst() -> float:
 
 
 static func drain_rest() -> float:
-	# Wake = dawn+day+dusk = 0.75 of a day.
-	return 100.0 / (0.75 * float(Clock.DAY_TICKS))
+	# Wake = dawn+day+dusk = 0.75 of a four-hour day, which is three one-hour days in real time.
+	return 100.0 / (3.0 * float(Clock.DAY_TICKS))
 
 
 static func drain_relief() -> float:
@@ -1573,8 +1574,9 @@ static func _tick_slept_mood(world: Variant) -> void:
 # sustained night outdoors rather than a moment of one, and the cloth wrap (which shifts one band
 # toward comfortable) is worth a real hour and a half out there.
 #
-# 18000 ticks is an hour and a half in game, a quarter of the six-hour night.
-const EXPOSURE_TICKS: int = 18000
+# 4500 ticks is a quarter of the one-hour day's night, which is the same quarter the four-hour day's
+# 18000 was of its night. Night-relative, so it scales with the night rather than the real clock.
+const EXPOSURE_TICKS: int = 4500
 # The cold and the heat can kill (the owner's decision 9). Out in the cold at night with no fire
 # and no roof: at FROSTBITE_DOSE a frostbite wound on a random extremity, at COLD_DEATH_DOSE
 # death (`entity.killed{need: "cold"}`, the starvation shape). Baking in armour under a heat
