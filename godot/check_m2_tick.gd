@@ -26,6 +26,11 @@ const SimAllegiance = preload("res://sim/modules/allegiance.gd")
 const SimShambler = preload("res://sim/modules/shambler.gd")
 const SimSightings = preload("res://sim/modules/sightings.gd")
 const ComponentStore = preload("res://sim/component_store.gd")
+const SimTreatment = preload("res://sim/modules/treatment.gd")
+const SimWounds = preload("res://sim/modules/wounds.gd")
+const SimWeather = preload("res://sim/modules/weather.gd")
+const SimHealth = preload("res://sim/modules/health.gd")
+const SimCombat = preload("res://sim/combat.gd")
 
 const FIXTURE: Dictionary = {"seed": 71, "tick_hz": 20, "map": {"width": 16, "height": 16, "walls": []}, "player": {"id": 0, "x": 8.5, "y": 8.5, "stance": 2}, "rng_probe": {"stream": "test", "samples": 0}}
 
@@ -49,8 +54,12 @@ func _run() -> void:
 	ok = _the_people_tables_are_the_people() and ok
 	ok = _outside_the_square_nothing_is_seen() and ok
 	ok = _the_query_memo_is_the_intersection() and ok
+	ok = _one_pass_care_is_the_three_selectors() and ok
+	ok = _the_claw_check_asks_distance_first_and_answers_the_same() and ok
+	ok = _the_sky_read_once_is_the_sky_read_per_body() and ok
+	ok = _each_observer_handed_its_square_sees_what_it_saw() and ok
 	if ok:
-		print("M2_TICK_OK content-agree content-follows content-reader map-log door-cells view-stands dead-keep path cast enemies people square query")
+		print("M2_TICK_OK content-agree content-follows content-reader map-log door-cells view-stands dead-keep path cast enemies people square query care claw sky observe")
 		quit(0)
 	else:
 		push_error("M2_TICK_FAIL")
@@ -834,4 +843,240 @@ func _the_query_memo_is_the_intersection() -> bool:
 	w.step()
 	if int(w.components.memo_hits) <= hits:
 		return _fail("QUERY", "a shipped tick asked nothing the memo answered")
+	return true
+
+
+# --- slice 6: what each body paid for every tick -----------------------------------------------------
+
+# `_needs_care` in one pass is the composition it replaced -- any bleeding part, or any part
+# `_worst_part_for` finds something to clean or close -- over six hundred seeded wound lists drawn
+# across every wound kind (an unknown one too), parts a survivor has and parts it does not, every
+# severity including one below the selectors' floor, and every flag. Both answers have to occur
+# often, and the self-aid system has to ask it.
+func _one_pass_care_is_the_three_selectors() -> bool:
+	var w: Variant = _world()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 6106
+	var parts: Array = SimCombat.SURVIVOR_BODY_PARTS.duplicate()
+	parts.append_array(["legs", "tail"])
+	var kinds: Array = SimWounds.WOUND_KINDS.keys()
+	kinds.append("unheard-of")
+	var yes: int = 0
+	var no: int = 0
+	for trial in 600:
+		var wounds: Array = []
+		for k in rng.randi_range(0, 3):
+			wounds.append({
+				"bodyPart": parts[rng.randi_range(0, parts.size() - 1)],
+				"kind": kinds[rng.randi_range(0, kinds.size() - 1)],
+				"severity": rng.randi_range(-1, 2),
+				"bleeding": rng.randf() < 0.3,
+				"cleaned": rng.randf() < 0.4,
+				"closed": rng.randf() < 0.4,
+				"bandage": "none" if rng.randf() < 0.5 else "cloth",
+			})
+		w.components.set_component(5, "injuries", {"wounds": wounds})
+		var want: bool = SimTreatment._worst_bleeding_part(w, 5) != "" or SimTreatment._worst_part_for(w, 5, "clean") != "" or SimTreatment._worst_part_for(w, 5, "close") != ""
+		if SimTreatment._needs_care(w, 5) != want:
+			return _fail("CARE", "trial %d: one pass says %s where the selectors say %s for %s" % [trial, str(not want), str(want), JSON.stringify(wounds)])
+		if want:
+			yes += 1
+		else:
+			no += 1
+	w.components.remove(5, "injuries")
+	if SimTreatment._needs_care(w, 5):
+		return _fail("CARE", "a body with no injuries component needs care")
+	if yes < 100 or no < 100:
+		return _fail("CARE", "%d needed care and %d did not; the lane barely judged one side" % [yes, no])
+	if _body_of("res://sim/modules/treatment.gd", "register_module").find("_needs_care(") < 0:
+		return _fail("CARE", "the self-aid system does not ask _needs_care")
+	return true
+
+
+# The claw check as it stood before slice 6: health first, then distance.
+func _reference_claw(world: Variant, entity: int) -> bool:
+	var at: Variant = world.components.get_component(entity, "position")
+	if not (at is Dictionary):
+		return false
+	var reach_sq: float = SimShambler.SWIPE_METRES * SimShambler.SWIPE_METRES
+	for z in world.components.query(["shambler", "position"]):
+		var zbody: Variant = world.components.get_component(int(z), "body")
+		if zbody is Dictionary and not SimHealth.is_alive(zbody as Dictionary):
+			continue
+		var zp: Dictionary = world.components.get_component(int(z), "position") as Dictionary
+		var dx: float = float(zp["x"]) - float((at as Dictionary)["x"])
+		var dy: float = float(zp["y"]) - float((at as Dictionary)["y"])
+		if dx * dx + dy * dy <= reach_sq:
+			return true
+	return false
+
+
+# `_claw_in_reach` answers what the health-first scan answered for every person on the stepped
+# district, and for one put a hand's width from a live zombie, then a dead one, then a live one
+# just out of reach: both answers have to occur.
+func _the_claw_check_asks_distance_first_and_answers_the_same() -> bool:
+	var w: Variant = _stepped_world()
+	var people: Array[int] = SimShambler._people_with_position(w)
+	var zombies: Array[int] = w.components.query(["shambler", "position", "body"])
+	if people.is_empty() or zombies.is_empty():
+		return _fail("CLAW", "no people or no zombies on the stepped district")
+	var p: int = people[0]
+	var z: int = zombies[0]
+	var pp: Dictionary = w.components.get_component(p, "position") as Dictionary
+	var zp: Dictionary = w.components.get_component(z, "position") as Dictionary
+	var zb: Dictionary = w.components.get_component(z, "body") as Dictionary
+	var head: Variant = zb.get("head", 0)
+	var cases: Array = []
+	for step_i in 4:
+		match step_i:
+			1:
+				pp["x"] = 40.0
+				pp["y"] = 40.0
+				zp["x"] = 40.5
+				zp["y"] = 40.5
+			2:
+				zb["head"] = 0
+			3:
+				zb["head"] = head
+				zp["x"] = 41.2
+		for e in people:
+			var got: bool = SimTreatment._claw_in_reach(w, e)
+			if got != _reference_claw(w, e):
+				return _fail("CLAW", "case %d, person %d: the claw check says %s where the health-first scan disagrees" % [step_i, e, str(got)])
+		cases.append(SimTreatment._claw_in_reach(w, p))
+	if cases.slice(1) != [true, false, false]:
+		return _fail("CLAW", "a live zombie in reach, a dead one, then one out of reach read %s" % str(cases.slice(1)))
+	return true
+
+
+# Every zombie's speeds and reach with the sky handed in equal the ones read per body, under every
+# weather kind the tree declares; a kind has to slow the dead and one has to shorten their sight
+# (or handing in 1.0 would pass too); and the think pass reads the sky and hands it to every call.
+func _the_sky_read_once_is_the_sky_read_per_body() -> bool:
+	var w: Variant = _stepped_world()
+	var was: String = SimWeather.kind(w)
+	var slowed: bool = false
+	var fogged: bool = false
+	var zombies: Array[int] = w.components.query(["shambler", "position"])
+	for k in SimWeather.kinds(w):
+		(w.weather as Dictionary)["kind"] = k
+		var sky: float = SimWeather.zombie_move_mul(w)
+		var fog: float = SimWeather.sight_mul(w)
+		for z in zombies:
+			var sd: Dictionary = w.components.get_component(z, "shambler") as Dictionary
+			for key in ["seekSpeed", "millSpeed", "wanderSpeed"]:
+				var per: float = SimShambler._speed_of(w, z, sd, key)
+				if SimShambler._speed_of(w, z, sd, key, sky) != per:
+					return _fail("SKY", "%s, zombie %d: %s with the sky handed in is not the one read per body" % [k, z, key])
+				if SimShambler._speed_of(w, z, sd, key, 1.0) != per:
+					slowed = true
+			var reach: float = SimShambler.sight_reach(w, z, sd)
+			if SimShambler.sight_reach(w, z, sd, fog) != reach:
+				return _fail("SKY", "%s, zombie %d: the reach with the fog handed in is not the one read per body" % [k, z])
+			if reach > 0.0 and SimShambler.sight_reach(w, z, sd, 1.0) != reach:
+				fogged = true
+	(w.weather as Dictionary)["kind"] = was
+	if not slowed or not fogged:
+		return _fail("SKY", "no weather kind slowed the dead (%s) or shortened their sight (%s); the lane judged only 1.0" % [str(slowed), str(fogged)])
+	var think: String = _body_of("res://sim/modules/shambler.gd", "register_module")
+	if think.find("zombie_move_mul(") < 0 or think.find("sight_mul(") < 0:
+		return _fail("SKY", "the think pass does not read the sky")
+	for line in think.split("\n"):
+		if line.find("_speed_of(") >= 0 and line.find(", sky)") < 0:
+			return _fail("SKY", "a think-pass speed reads the sky per body: %s" % line.strip_edges())
+		if line.find("_seen_target(") >= 0 and line.find(", fog)") < 0:
+			return _fail("SKY", "a think-pass sight check reads the fog per body: %s" % line.strip_edges())
+	return true
+
+
+# The observe loop as it stood before slice 6: every body and every cupboard to every observer.
+func _reference_observe(w: Variant) -> void:
+	var candidates: Array = []
+	for other in w.components.query(["body", "position"]):
+		candidates.append(int(other))
+	var boxes: Array = []
+	for box in w.components.query(["searchable", "position"]):
+		boxes.append(int(box))
+	for ent in w.components.query(["sightings", "observer", "position"]):
+		SimSightings._observe_one(w, int(ent), candidates)
+		SimSightings._observe_containers(w, int(ent), boxes)
+		SimSightings._merge_explored(w, int(ent))
+
+
+# Two identical districts, every observer's memory wiped and handed one far cupboard that has since
+# been searched; one observes the shipped way, one the old way, and every observer's record must
+# come out the same. The negatives: something was seen, a cupboard was found, the searched one was
+# forgotten, and somebody was outside some observer's square (or the prefilter dropped nothing).
+# `_square_bounds` is pinned to `_in_square` on the square's edges.
+func _each_observer_handed_its_square_sees_what_it_saw() -> bool:
+	var probe := SimShadowcast.VisibleTiles.new()
+	probe.reset(10, 10, 5)
+	var b: Array = SimSightings._square_bounds(probe)
+	for xy in [[4.99, 10.5], [5.0, 10.5], [15.99, 10.5], [16.0, 10.5], [10.5, 4.99], [10.5, 5.0], [10.5, 15.99], [10.5, 16.0]]:
+		var x: float = float(xy[0])
+		var y: float = float(xy[1])
+		var inside: bool = x >= float(b[0]) and x < float(b[2]) and y >= float(b[1]) and y < float(b[3])
+		if inside != SimSightings._in_square(probe, x, y):
+			return _fail("OBSERVE", "(%.2f, %.2f): the bounds say %s and _in_square disagrees" % [x, y, str(inside)])
+	if not SimSightings._square_bounds(null).is_empty():
+		return _fail("OBSERVE", "an observer with no view has bounds")
+	var worlds: Array = [_stepped_world(), _stepped_world()]
+	var observers: Array[int] = worlds[0].components.query(["sightings", "observer", "position"])
+	var boxes: Array[int] = worlds[0].components.query(["searchable", "position"])
+	if observers.size() < 3 or boxes.is_empty():
+		return _fail("OBSERVE", "%d observers and %d cupboards; the lane has too little to judge" % [observers.size(), boxes.size()])
+	var far: int = boxes[boxes.size() - 1]
+	for w in worlds:
+		(w.components.get_component(far, "searchable") as Dictionary)["searched"] = true
+		for ob in observers:
+			var sc: Dictionary = w.components.get_component(ob, "sightings") as Dictionary
+			sc["seen"] = []
+			sc["containers"] = [{"e": far, "x": 0.0, "y": 0.0}]
+	SimSightings.observe(worlds[0])
+	_reference_observe(worlds[1])
+	var seen_any: bool = false
+	var found_any: bool = false
+	var outside: bool = false
+	for ob in observers:
+		var a: Dictionary = worlds[0].components.get_component(ob, "sightings") as Dictionary
+		var r: Dictionary = worlds[1].components.get_component(ob, "sightings") as Dictionary
+		if JSON.stringify(a) != JSON.stringify(r):
+			return _fail("OBSERVE", "observer %d remembers %s where the old loop gives %s" % [ob, JSON.stringify(a), JSON.stringify(r)])
+		seen_any = seen_any or not (a["seen"] as Array).is_empty()
+		found_any = found_any or not (a["containers"] as Array).is_empty()
+		for row in a["containers"] as Array:
+			if int((row as Dictionary)["e"]) == far:
+				return _fail("OBSERVE", "observer %d still remembers a searched cupboard" % ob)
+		var bounds: Array = SimSightings._square_bounds(worlds[0].vision.tiles_for(ob))
+		for e in worlds[0].components.query(["body", "position"]):
+			var at: Vector2 = _positioned(worlds[0], e)
+			if bounds.is_empty() or at.x < float(bounds[0]) or at.x >= float(bounds[2]) or at.y < float(bounds[1]) or at.y >= float(bounds[3]):
+				outside = true
+	# The prefilter itself against `_in_square`, observer by observer, so a square narrowed where
+	# nothing visible happens to stand is still red.
+	for ob in observers:
+		var tiles: Variant = worlds[0].vision.tiles_for(ob)
+		var ids: Array = []
+		var xs := PackedFloat64Array()
+		var ys := PackedFloat64Array()
+		var want: Array = []
+		for e in worlds[0].components.query(["position"]):
+			var at: Vector2 = _positioned(worlds[0], e)
+			ids.append(e)
+			xs.append(at.x)
+			ys.append(at.y)
+			if SimSightings._in_square(tiles, at.x, at.y):
+				want.append(e)
+		var got: Array = SimSightings._in_bounds(ids, xs, ys, SimSightings._square_bounds(tiles), [])
+		if got != want:
+			return _fail("OBSERVE", "observer %d: the prefilter keeps %d things where _in_square keeps %d" % [ob, got.size(), want.size()])
+		var flags: Array[bool] = []
+		for i in ids.size():
+			flags.append(i == 0)
+		if not SimSightings._in_bounds(ids, xs, ys, [], flags) == [ids[0]]:
+			return _fail("OBSERVE", "with no view, a flagged cupboard was not handed over alone")
+	if _body_of("res://sim/modules/sightings.gd", "observe").find("_in_bounds(") < 0:
+		return _fail("OBSERVE", "observe does not hand each observer _in_bounds")
+	if not seen_any or not found_any or not outside:
+		return _fail("OBSERVE", "seen %s, found %s, anybody outside a square %s; the lane judged an empty case" % [str(seen_any), str(found_any), str(outside)])
 	return true
