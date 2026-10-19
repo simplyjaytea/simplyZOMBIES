@@ -158,7 +158,7 @@ softer than the design wants it.
 | Full day | ~1 hour at 1× | Chosen 2026-10-19, after four hours; see [docs/30](30-decisions.md#the-one-hour-day-2026-10-19) |
 | Dawn / Dusk | ~7.5 min each | Deliberately short — they're decision phases |
 | Night | ~15 min | Longer in winter (see [weather](16-weather.md)) |
-| Speed controls | Pause, 1×, 3×, 10× | 10× auto-drops to 1× on any threat contact |
+| Speed controls | Pause, 1×, 3× | Sleeping runs at 3× until a living zombie is within ten metres, then back to your own step. 10× waits for the sim tick to get under budget (alpha plan A3) |
 
 The day is one constant — `DAY_SECONDS` in `godot/sim/time/clock.gd` — and the rates that wear on
 the body and the world were rescaled with it so their real-time pace did not change. The speed
