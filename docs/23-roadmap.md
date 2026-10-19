@@ -1929,6 +1929,14 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **UI — the work grid draws only the columns something does, 2026-10-19 (alpha A15).**
+  `ui/work_panel.gd`'s `shown_columns` draws the twelve job columns that have a consumer
+  (`SimJobs.CONSUMERS`), in the sim's order, and no others: the six stubs (Firefight, Hunt, Farm,
+  Craft, Modify, Butcher) are gone from the grid. The sim still stores their numbers and nothing
+  reads them. Dropping them from `SimJobs.COLUMNS` would change the job row, presets and saves, so
+  that is a sim change and is not taken here. `godot:check:play`'s STUBS lane proves the grid's list
+  equals the consumers, names no stub, and that its first cell queues the first column it draws;
+  with the filter set to draw everything, that lane goes red.
 - **UI — the sheet and Work grid fit the reviewed viewports, 2026-10-03.** At 1280×720,
   inventory now separates its equipment, native 56-pixel bag cells and inspect pane, keeping
   all seven frame-pack columns reachable. The compact sheet uses the condition chart at integer
