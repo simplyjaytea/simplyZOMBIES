@@ -679,6 +679,12 @@ alone, drawn on whole art pixels like everything else, weighted toward walls, ke
 blocks (docs/23's sixth-pass record has the numbers). About one in six of the visible floor on the
 review shots; the 64-tile suburb, mostly edge, counts 387 of 2,282 (OCCUPANCY lane). Each picture's extent is content: the block's `sizes`, checked against its authored canvas.
 
+The seventh pass's cost, same machine (a 2.80 GHz Xeon, llvmpipe), alternated with main 9d9bc23:
+the world `_draw` mean 9.74 ms before and 9.24 ms after over three runs each (`godot:bench:frame`,
+1280x720), the crowded scene 182.6 and 181.7; the tick 11.09 and 10.77 ms over two
+(`godot:bench:runtime`). The per-block litter quota and the table's own-chair test are memoised in
+the occupancy (`litter_blocks`, `memo`), so they are paid once per map, not per frame.
+
 The sixth pass's cost, same machine, alternated with the fifth: the world `_draw` mean 6.03 ms
 before and 6.06 ms after over four runs each (`godot:bench:frame`, 1280x720), the crowded scene 88.6
 and 87.7; the tick 7.49 and 7.03 ms over two (`godot:bench:runtime`). The per-room keep and the
