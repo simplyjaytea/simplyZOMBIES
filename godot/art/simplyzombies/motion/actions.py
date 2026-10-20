@@ -479,19 +479,21 @@ LONG_WELL = 5
 # the hands start a body's width apart). `o` is where the off hand is (`_off_target`; "mid:a:b" is
 # half way between two). `dip` lowers the whole upper body that many pixels at the knee; it is
 # never negative, so the body comes back to standing height and no higher.
-# `mag` is the dropped magazine ("out" under the grip or the well, "fall" half way down, "ground" by
-# the feet, where it stays to the end); `fresh` puts a new one in the off hand. Eight beats: lower and bring
+# `mag` is the dropped magazine ("out" under the grip or the well, "fall" the long gun's on its way
+# down, "ground" by the feet, where it stays to the end); `fresh` puts a new one in the off hand. Eight beats: lower and bring
 # the weapon in, the off hand on its way; the off hand under it, the magazine out; the off hand
-# down to the hip as the magazine falls; half way back up with a fresh one as it lands; seated;
+# down to the hip as the magazine falls (the pistol's lands); back up with a fresh one; seated;
 # the rack, the body back up to standing and the weapon jolting a pixel; half way home; and the
 # stance, which the clock holds while the sim still reloads. The tube-fed shotgun's (`tube`) has
-# no magazine: three shells, each from the belt to the loading port, then one rack.
+# no magazine and eleven beats: three shells, each brought to the loading port, pushed in (`shell`
+# "in", only its rim still showing) and the next one brought up from the belt -- the hand never
+# empty, so no shell blinks -- then one rack, and the stance.
 RELOAD_BEATS = {
     "pistol": [
-        {"p": (1, 0), "o": "mid:home:meet", "dip": 1},
+        {"p": (1, -1), "o": "mid:home:meet", "dip": 1},
         {"p": (2, -1), "o": "meet", "dip": 1, "mag": "out"},
-        {"p": (2, -1), "o": "hip", "dip": 1, "mag": "fall"},
-        {"p": (2, -1), "o": "mid:hip:lift", "dip": 1, "mag": "ground", "fresh": True},
+        {"p": (2, -1), "o": "hip", "dip": 1, "mag": "ground"},
+        {"p": (2, -1), "o": "lift", "dip": 1, "mag": "ground", "fresh": True},
         {"p": (2, -2), "o": "meet", "dip": 1, "mag": "ground", "fresh": True},
         {"p": (2, -2), "o": "rack", "jolt": True, "mag": "ground"},
         {"p": (1, -1), "o": "mid:rack:home", "mag": "ground"},
@@ -507,15 +509,18 @@ RELOAD_BEATS = {
         {"p": (1, -2), "o": "mid:rack:home", "mag": "ground"},
         {"p": (0, 0), "o": "home", "mag": "ground", "stance": True},
     ],
-    # The tube-fed shotgun: no magazine, shells thumbed into the loading port under the receiver
-    # one a beat from the belt, then one rack of the pump.
+    # The tube-fed shotgun: no magazine, shells thumbed into the loading port under the receiver,
+    # the second from the belt and the third from the hip, then one rack of the pump.
     "tube": [
-        {"p": (1, -1), "o": "mid:home:belt", "dip": 1},
-        {"p": (1, -2), "o": "port", "dip": 1, "shell": True},
-        {"p": (1, -2), "o": "belt", "dip": 1},
-        {"p": (1, -2), "o": "port", "dip": 1, "shell": True},
-        {"p": (1, -2), "o": "belt", "dip": 1},
-        {"p": (1, -1), "o": "port", "dip": 1, "shell": True},
+        {"p": (1, -1), "o": "mid:home:port", "dip": 1, "shell": "full"},
+        {"p": (1, -2), "o": "port", "dip": 1, "shell": "full"},
+        {"p": (1, -2), "o": "push", "dip": 1, "shell": "in"},
+        {"p": (1, -2), "o": "mid:port:belt", "dip": 1, "shell": "full"},
+        {"p": (1, -2), "o": "port", "dip": 1, "shell": "full"},
+        {"p": (1, -2), "o": "push", "dip": 1, "shell": "in"},
+        {"p": (1, -2), "o": "mid:port:hip", "dip": 1, "shell": "full"},
+        {"p": (1, -2), "o": "port", "dip": 1, "shell": "full"},
+        {"p": (1, -1), "o": "push", "dip": 1, "shell": "in"},
         {"p": (1, -1), "o": "rack", "jolt": True},
         {"p": (0, 0), "o": "home", "stance": True},
     ],
@@ -528,16 +533,19 @@ JOLT = 1
 # Where the dropped magazine is, per view and variant, as its top-left in body pixels: the pistol's
 # "out" an offset from the weapon hand, under the grip and clear of the weapon's picture (the long
 # gun's is stripped from the well by the off hand and held at hand height, `_held_mag_at`), and
-# "ground" a fixed spot beside the feet, off the legs and above the sole row
-# (the anchor is the lowest solid row, which a magazine must never become); "fall" is half way
-# between the two. The pistol's lands on the weapon's side, the long gun's on the off hand's, so the
+# "ground" a fixed spot beside the feet, off the legs and never below the sole row
+# (the anchor is the lowest solid row, which a magazine must never become). The pistol's drops
+# out of the grip, still in the air above the boots, and lands the next beat; from the side it lands
+# ahead of the toes on the sole row itself, a pixel clear of the boot, because the grip is over the
+# legs there and a magazine landed under it would cover both feet. The long gun's falls two thirds
+# of the way from the hand first. The pistol's lands on the weapon's side, the long gun's on the off hand's, so the
 # back view mirrors the front either way.
 MAG_SPOTS = {
     "pistol": {
         "s": {"out": (-5, 1), "ground": (2, 34)},
         "n": {"out": (-2, 1), "ground": (25, 34)},
-        "e": {"out": (-4, 2), "ground": (22, 34)},
-        "w": {"out": (1, 2), "ground": (6, 34)},
+        "e": {"out": (-2, 2), "ground": (22, 36)},
+        "w": {"out": (-1, 2), "ground": (7, 36)},
     },
     "long": {
         "s": {"ground": (25, 35)},
@@ -598,18 +606,19 @@ def _shell_ramp():
     return tuple(c + (255,) for c in (dark, hull, brass))
 
 
-def _shell(o, size, hand, ramp):
+def _shell(o, size, hand, ramp, tall=5):
     """A shell standing out of the top of the fist at `hand`, outlined (4x5): two rows of red hull
-    over a row of brass, the fist closing over its foot."""
+    over a row of brass, the fist closing over its foot. `tall` 3 is one pushed into the loading
+    port: only its brass rim still shows."""
     dark, hull, brass = ramp
     w, h = size
-    x0, y0 = hand[0] - 1, hand[1] - 4
-    for dy in range(5):
+    x0, y0 = hand[0] - 1, hand[1] - (tall - 1)
+    for dy in range(tall):
         for dx in range(4):
             x, y = x0 + dx, y0 + dy
             if 0 <= x < w and 0 <= y < h:
-                edge = dx in (0, 3) or dy in (0, 4)
-                o[x, y] = dark if edge else (brass if dy == 3 else hull)
+                edge = dx in (0, 3) or dy in (0, tall - 1)
+                o[x, y] = dark if edge else (brass if dy == tall - 2 else hull)
 
 
 def _armless(rest, view, colours):
@@ -771,6 +780,10 @@ def _primary_move(view, beat, jolt=False, kind="pistol"):
     inward = 1 if rest["primary"][0] < rest["secondary"][0] else -1
     if view == "n":
         return (2 * a * inward, -d + (JOLT if jolt else 0))
+    if kind == "tube":
+        # The shotgun is loaded where it is held: from the front it is not brought in, so the
+        # fist under its grip stays where the stance drew it.
+        return (0, d - (JOLT if jolt else 0))
     return (2 * a * inward, d - (JOLT if jolt else 0))
 
 
@@ -780,8 +793,8 @@ def _off_target(view, kind, named, p_at):
     magazine; `strip` the long gun's magazine pulled out of the well; `hip` the belt -- its own side from the front or the back, the small of the back from
     the side; `rack` the slide behind the grip, or the fore-end pulled back toward the body; and
     `lift` on the way back up with a fresh one; for the tube-fed shotgun `belt` the shell loops at
-    the front of the belt and `port` the loading port under the receiver; and `mid:a:b` half way
-    between two of those."""
+    the front of the belt, `port` the loading port under the receiver and `push` a shell thumbed
+    up into it; and `mid:a:b` half way between two of those."""
     if named.startswith("mid:"):
         _m, a, b = named.split(":")
         ax, ay = _off_target(view, kind, a, p_at)
@@ -796,6 +809,10 @@ def _off_target(view, kind, named, p_at):
     long = kind != "pistol"
     if named == "home":
         return (sx, sy)
+    if named == "push":
+        # The shell thumbed up into the port: two pixels up from it, the shell mostly gone in.
+        x, y = _off_target(view, kind, "port", p_at)
+        return (x, y - 2)
     if named == "port":
         # Under the receiver a little ahead of the grip, low enough that the shell standing out of
         # the fist shows below the weapon; from the front or the back beside the barrel.
@@ -824,7 +841,7 @@ def _off_target(view, kind, named, p_at):
         # The long gun's fresh magazine, just out of the pouch at the back of the belt and hanging
         # from the fist below the stock, where the weapon does not cover it; from the front or the
         # back half way back up, standing out of the fist as before.
-        return (sx, 32) if fx else _off_target(view, kind, "mid:hip:meet", p_at)
+        return (sx, 30) if fx else _off_target(view, kind, "mid:hip:meet", p_at)
     if named == "belt":
         return (sx + 3 * fx, 31) if fx else (sx - out, 30)
     if named == "rack":
@@ -901,38 +918,72 @@ def _held_cover(kind, view, hand):
 
 
 def _trim(drawn, base, colours, cover=frozenset()):
-    """Pares the outline the arms added back to the pack's two pixels: an added outline pixel on
-    open ground with no arm (or what a hand holds) showing within two steps of it is a wedge (an
-    arm's ring against the body's own outline) and goes; colour under the held weapon (`cover`) does not count, so an outline round
-    an arm the weapon hides goes with it. Outline the body already had (`base`) stays as it was drawn.
-    `drawn` is what `_draw_arms` returns: the picture, and where an arm shows on it."""
+    """Pares the outline the arms added back to the pack's two pixels. `drawn` is what
+    `_draw_arms` returns: the picture, and where an arm (or what a hand holds) shows on it; `cover`
+    the pixels the reload's own held weapon covers, whose colour does not count as showing.
+
+    - An added outline pixel on open ground with no arm showing within two steps of it is a wedge
+      (an arm's ring against the body's own outline) and goes.
+    - An added outline pixel next to arm skin that is all under the weapon rings nothing that
+      shows: beside the weapon's own outline it would only thicken it, so it goes (and the ring
+      outside it with it, by the rule above).
+    - An outline the arms laid over the body round nothing that still shows gives the body its own
+      pixel back.
+    - Any outline at the silhouette's edge, the body's own included, with nothing but the weapon
+      within two steps of it goes too.
+    Outline the body already had (`base`) otherwise stays as it was drawn."""
     im, arm = drawn
     w, h = im.size
     o = im.load()
     b = base.load()
     dark = colours["#"]
+    sides = ((1, 0), (-1, 0), (0, 1), (0, -1))
+    near = [(i, j) for i in range(-2, 3) for j in range(-2, 3) if abs(i) + abs(j) <= 2]
+
+    def inside(x, y):
+        return 0 <= x < w and 0 <= y < h
 
     def coloured(x, y):
-        return 0 <= x < w and 0 <= y < h and solid(o[x, y]) and o[x, y] != dark and (x, y) not in cover
+        return inside(x, y) and solid(o[x, y]) and o[x, y] != dark and (x, y) not in cover
 
     def shown(x, y):
         return coloured(x, y) and ((x, y) in arm or o[x, y] != b[x, y])
 
-    near = [(i, j) for i in range(-2, 3) for j in range(-2, 3) if abs(i) + abs(j) <= 2]
-    for _ in range(3):
-        gone = []
-        for y in range(h):
-            for x in range(w):
-                if o[x, y] != dark or solid(b[x, y]):
-                    continue
-                if not any(0 <= x + i < w and 0 <= y + j < h and not solid(o[x + i, y + j]) for i, j in ((1, 0), (-1, 0), (0, 1), (0, -1))):
-                    continue
-                if not any(shown(x + i, y + j) for i, j in near):
-                    gone.append((x, y))
-        for x, y in gone:
+    def lit(x, y):
+        return inside(x, y) and solid(o[x, y]) and sum(o[x, y][:3]) >= 40 and (x, y) not in cover
+
+    def open_side(x, y):
+        return any(inside(x + i, y + j) and not solid(o[x + i, y + j]) for i, j in sides)
+
+    def clear(points):
+        for x, y in points:
             o[x, y] = (0, 0, 0, 0)
-    # An outline the arms laid over the body round nothing that still shows -- the forearm and fist
-    # under the weapon -- gives the body its own pixel back.
+
+    def wedges():
+        for _ in range(3):
+            clear([
+                (x, y)
+                for y in range(h)
+                for x in range(w)
+                if o[x, y] == dark and not solid(b[x, y]) and open_side(x, y) and not any(shown(x + i, y + j) for i, j in near)
+            ])
+
+    wedges()
+    if cover:
+        hidden = [
+            (x, y)
+            for y in range(h)
+            for x in range(w)
+            if o[x, y] == dark
+            and not solid(b[x, y])
+            and (x, y) not in cover
+            and any((x + i, y + j) in arm for i, j in sides)
+            and all((x + i, y + j) in cover for i, j in sides if (x + i, y + j) in arm)
+            and not any(shown(x + i, y + j) for i, j in sides)
+        ]
+        clear(hidden)
+        if hidden:
+            wedges()
     back = [
         (x, y)
         for y in range(h)
@@ -941,6 +992,16 @@ def _trim(drawn, base, colours, cover=frozenset()):
     ]
     for x, y in back:
         o[x, y] = b[x, y]
+    clear([
+        (x, y)
+        for y in range(h)
+        for x in range(w)
+        if solid(o[x, y])
+        and sum(o[x, y][:3]) < 40
+        and any((x + i, y + j) in cover for i, j in sides)
+        and any(inside(x + i, y + j) and not solid(o[x + i, y + j]) and (x + i, y + j) not in cover for i, j in sides)
+        and not any(lit(x + i, y + j) for i, j in near)
+    ])
     return im
 
 
@@ -975,7 +1036,7 @@ def _knee(im, n):
 
 
 def reload_frames(rest, view, kind):
-    """[(frame, hands)]: the eight-beat reload of `kind` ("pistol", "long" or "tube") seen from
+    """[(frame, hands)]: the reload of `kind` ("pistol", "long" or "tube"), a frame a beat, seen from
     `view`. Seen from behind, the long gun is taller than the body: it moves only on the rack's jolt,
     a pixel up, and never in, out or down -- not even with the body's dip -- so its stock stays by
     the sole row and its muzzle behind the head instead of either showing a frame at a time."""
@@ -998,18 +1059,21 @@ def reload_frames(rest, view, kind):
         if beat.get("stance"):
             im = rest.copy()
         else:
-            dip = beat.get("dip", 0)
+            # From behind a long gun stays put, so the first beat's dip would move the body and
+            # nothing else: there the dip waits for the second beat, when the arms are moving.
+            dip = 0 if held_still and beat is RELOAD_BEATS[kind][0] else beat.get("dip", 0)
             armless = _armless(rest, view, colours)
             body = _knee(armless, dip)
             p_at = ((rx, ry - JOLT) if beat.get("jolt") else (rx, ry)) if held_still else (p_at[0], p_at[1] + dip)
             o_at = (o_at[0], o_at[1] + dip)
             arms = {"primary": (p_at, True)}
             # The far arm from the side has nothing to take off and nothing to draw at home.
-            if not (ARM_RIG[view]["secondary"][1] == "far" and o_at == (sx, sy + dip)):
+            if not (ARM_RIG[view]["secondary"][1] == "far" and beat["o"] == "home"):
                 arms["secondary"] = (o_at, beat["o"] != "hip")
             fresh = None
             if beat.get("shell"):
-                fresh = lambda o, hand: _shell(o, (w, h), hand, shells)  # noqa: E731
+                tall = 5 if beat["shell"] == "full" else 3
+                fresh = lambda o, hand: _shell(o, (w, h), hand, shells, tall)  # noqa: E731
             elif beat.get("fresh") or beat.get("mag") == "held":
                 hang = beat.get("mag") == "held" or (beat.get("fresh") == "hang" and fx != 0)
                 fresh = lambda o, hand: _fresh_mag(o, (w, h), hand, ramp, colours, hang)  # noqa: E731
@@ -1023,9 +1087,9 @@ def reload_frames(rest, view, kind):
         if beat.get("mag") == "out":
             _mag(o, (w, h), out_at, ramp)
         elif beat.get("mag") == "fall":
-            # The pistol's half way down; the long gun's, stripped from a hand already at the well,
-            # two thirds, so it is plainly off the hand and in the air.
-            k = 2 if kind == "pistol" else 3
+            # The long gun's, stripped from a hand already at the well, two thirds of the way down,
+            # so it is plainly off the hand and in the air.
+            k = 3
             _mag(o, (w, h), (rdiv(out_at[0] + (k - 1) * ground[0], k), rdiv(out_at[1] + (k - 1) * ground[1], k)), ramp)
         elif beat.get("mag") == "ground":
             _mag(o, (w, h), ground, ramp, lying=True)

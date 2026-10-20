@@ -742,6 +742,15 @@
           },
           {
             "path": "textures/characters/motion/survivor_reload_tube_s_07.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_s_08.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_s_09.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_s_10.png"
           }
         ],
         "reload_tube_e": [
@@ -768,6 +777,15 @@
           },
           {
             "path": "textures/characters/motion/survivor_reload_tube_e_07.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_e_08.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_e_09.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_e_10.png"
           }
         ],
         "reload_tube_n": [
@@ -794,6 +812,15 @@
           },
           {
             "path": "textures/characters/motion/survivor_reload_tube_n_07.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_n_08.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_n_09.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_n_10.png"
           }
         ],
         "reload_tube_w": [
@@ -820,6 +847,15 @@
           },
           {
             "path": "textures/characters/motion/survivor_reload_tube_w_07.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_w_08.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_w_09.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_w_10.png"
           }
         ]
       },
@@ -830,7 +866,7 @@
         "recoil": 16,
         "reload": 8,
         "reload_long": 6,
-        "reload_tube": 6,
+        "reload_tube": 8,
         "flinch": 12,
         "crouch": 1,
         "crouchwalk": 16,

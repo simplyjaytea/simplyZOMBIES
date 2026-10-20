@@ -2053,11 +2053,11 @@
           "hands": {
             "primary": [
               11,
-              31
+              30
             ],
             "secondary": [
               18,
-              32
+              31
             ]
           }
         },
@@ -2143,7 +2143,7 @@
               30
             ],
             "secondary": [
-              20,
+              18,
               31
             ]
           }
@@ -2285,11 +2285,11 @@
           "hands": {
             "primary": [
               17,
-              32
+              31
             ],
             "secondary": [
               15,
-              33
+              32
             ]
           }
         },
@@ -2375,8 +2375,8 @@
               31
             ],
             "secondary": [
-              11,
-              30
+              12,
+              29
             ]
           }
         },
@@ -2517,7 +2517,7 @@
           "hands": {
             "primary": [
               21,
-              31
+              32
             ],
             "secondary": [
               14,
@@ -2607,7 +2607,7 @@
               32
             ],
             "secondary": [
-              12,
+              14,
               32
             ]
           }
@@ -2749,11 +2749,11 @@
           "hands": {
             "primary": [
               15,
-              32
+              31
             ],
             "secondary": [
               18,
-              33
+              32
             ]
           }
         },
@@ -2839,8 +2839,8 @@
               31
             ],
             "secondary": [
-              21,
-              30
+              20,
+              29
             ]
           }
         },
@@ -3304,7 +3304,7 @@
             ],
             "secondary": [
               11,
-              33
+              31
             ]
           }
         },
@@ -3436,11 +3436,11 @@
           },
           "head": [
             0,
-            1
+            0
           ],
           "torso": [
             0,
-            1
+            0
           ],
           "hands": {
             "primary": [
@@ -3449,7 +3449,7 @@
             ],
             "secondary": [
               14,
-              32
+              31
             ]
           }
         },
@@ -3768,7 +3768,7 @@
             ],
             "secondary": [
               21,
-              33
+              31
             ]
           }
         },
@@ -3787,7 +3787,7 @@
             1
           ],
           "torso": [
-            0,
+            -1,
             1
           ],
           "hands": {
@@ -3908,12 +3908,12 @@
           ],
           "hands": {
             "primary": [
-              11,
+              9,
               30
             ],
             "secondary": [
-              22,
-              31
+              18,
+              32
             ]
           }
         },
@@ -3937,11 +3937,11 @@
           ],
           "hands": {
             "primary": [
-              11,
+              9,
               29
             ],
             "secondary": [
-              15,
+              13,
               32
             ]
           }
@@ -3966,12 +3966,12 @@
           ],
           "hands": {
             "primary": [
-              11,
+              9,
               29
             ],
             "secondary": [
-              21,
-              31
+              13,
+              30
             ]
           }
         },
@@ -3995,11 +3995,11 @@
           ],
           "hands": {
             "primary": [
-              11,
+              9,
               29
             ],
             "secondary": [
-              15,
+              17,
               32
             ]
           }
@@ -4024,12 +4024,12 @@
           ],
           "hands": {
             "primary": [
-              11,
+              9,
               29
             ],
             "secondary": [
-              21,
-              31
+              13,
+              32
             ]
           }
         },
@@ -4053,18 +4053,105 @@
           ],
           "hands": {
             "primary": [
-              11,
-              30
+              9,
+              29
             ],
             "secondary": [
-              15,
-              33
+              13,
+              30
             ]
           }
         },
         "body_survivor_reload_tube_s_6": {
           "source": {
             "path": "art/simplyzombies/textures/characters/motion/survivor_reload_tube_s_06.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ],
+          "hands": {
+            "primary": [
+              9,
+              29
+            ],
+            "secondary": [
+              17,
+              32
+            ]
+          }
+        },
+        "body_survivor_reload_tube_s_7": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/motion/survivor_reload_tube_s_07.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ],
+          "hands": {
+            "primary": [
+              9,
+              29
+            ],
+            "secondary": [
+              13,
+              32
+            ]
+          }
+        },
+        "body_survivor_reload_tube_s_8": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/motion/survivor_reload_tube_s_08.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ],
+          "hands": {
+            "primary": [
+              9,
+              30
+            ],
+            "secondary": [
+              13,
+              31
+            ]
+          }
+        },
+        "body_survivor_reload_tube_s_9": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/motion/survivor_reload_tube_s_09.png",
             "crop": [
               0,
               0,
@@ -4082,18 +4169,18 @@
           ],
           "hands": {
             "primary": [
-              11,
+              9,
               28
             ],
             "secondary": [
-              13,
+              11,
               30
             ]
           }
         },
-        "body_survivor_reload_tube_s_7": {
+        "body_survivor_reload_tube_s_10": {
           "source": {
-            "path": "art/simplyzombies/textures/characters/motion/survivor_reload_tube_s_07.png",
+            "path": "art/simplyzombies/textures/characters/motion/survivor_reload_tube_s_10.png",
             "crop": [
               0,
               0,
@@ -4144,8 +4231,8 @@
               31
             ],
             "secondary": [
-              13,
-              32
+              16,
+              34
             ]
           }
         },
@@ -4202,8 +4289,8 @@
               30
             ],
             "secondary": [
-              14,
-              32
+              20,
+              33
             ]
           }
         },
@@ -4231,8 +4318,8 @@
               30
             ],
             "secondary": [
-              20,
-              35
+              17,
+              34
             ]
           }
         },
@@ -4260,8 +4347,8 @@
               30
             ],
             "secondary": [
-              14,
-              32
+              20,
+              35
             ]
           }
         },
@@ -4286,17 +4373,104 @@
           "hands": {
             "primary": [
               17,
-              31
+              30
             ],
             "secondary": [
               20,
-              36
+              33
             ]
           }
         },
         "body_survivor_reload_tube_e_6": {
           "source": {
             "path": "art/simplyzombies/textures/characters/motion/survivor_reload_tube_e_06.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ],
+          "hands": {
+            "primary": [
+              17,
+              30
+            ],
+            "secondary": [
+              15,
+              33
+            ]
+          }
+        },
+        "body_survivor_reload_tube_e_7": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/motion/survivor_reload_tube_e_07.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ],
+          "hands": {
+            "primary": [
+              17,
+              30
+            ],
+            "secondary": [
+              20,
+              35
+            ]
+          }
+        },
+        "body_survivor_reload_tube_e_8": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/motion/survivor_reload_tube_e_08.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ],
+          "hands": {
+            "primary": [
+              17,
+              31
+            ],
+            "secondary": [
+              20,
+              34
+            ]
+          }
+        },
+        "body_survivor_reload_tube_e_9": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/motion/survivor_reload_tube_e_09.png",
             "crop": [
               0,
               0,
@@ -4323,9 +4497,9 @@
             ]
           }
         },
-        "body_survivor_reload_tube_e_7": {
+        "body_survivor_reload_tube_e_10": {
           "source": {
-            "path": "art/simplyzombies/textures/characters/motion/survivor_reload_tube_e_07.png",
+            "path": "art/simplyzombies/textures/characters/motion/survivor_reload_tube_e_10.png",
             "crop": [
               0,
               0,
@@ -4364,11 +4538,11 @@
           },
           "head": [
             0,
-            1
+            0
           ],
           "torso": [
             0,
-            1
+            0
           ],
           "hands": {
             "primary": [
@@ -4376,7 +4550,7 @@
               30
             ],
             "secondary": [
-              10,
+              13,
               31
             ]
           }
@@ -4434,8 +4608,8 @@
               30
             ],
             "secondary": [
-              10,
-              31
+              17,
+              32
             ]
           }
         },
@@ -4463,8 +4637,8 @@
               30
             ],
             "secondary": [
-              17,
-              34
+              14,
+              33
             ]
           }
         },
@@ -4492,8 +4666,8 @@
               30
             ],
             "secondary": [
-              10,
-              31
+              17,
+              34
             ]
           }
         },
@@ -4522,13 +4696,100 @@
             ],
             "secondary": [
               17,
-              33
+              32
             ]
           }
         },
         "body_survivor_reload_tube_n_6": {
           "source": {
             "path": "art/simplyzombies/textures/characters/motion/survivor_reload_tube_n_06.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ],
+          "hands": {
+            "primary": [
+              23,
+              30
+            ],
+            "secondary": [
+              14,
+              33
+            ]
+          }
+        },
+        "body_survivor_reload_tube_n_7": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/motion/survivor_reload_tube_n_07.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ],
+          "hands": {
+            "primary": [
+              23,
+              30
+            ],
+            "secondary": [
+              17,
+              34
+            ]
+          }
+        },
+        "body_survivor_reload_tube_n_8": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/motion/survivor_reload_tube_n_08.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ],
+          "hands": {
+            "primary": [
+              23,
+              30
+            ],
+            "secondary": [
+              17,
+              31
+            ]
+          }
+        },
+        "body_survivor_reload_tube_n_9": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/motion/survivor_reload_tube_n_09.png",
             "crop": [
               0,
               0,
@@ -4555,9 +4816,9 @@
             ]
           }
         },
-        "body_survivor_reload_tube_n_7": {
+        "body_survivor_reload_tube_n_10": {
           "source": {
-            "path": "art/simplyzombies/textures/characters/motion/survivor_reload_tube_n_07.png",
+            "path": "art/simplyzombies/textures/characters/motion/survivor_reload_tube_n_10.png",
             "crop": [
               0,
               0,
@@ -4608,8 +4869,8 @@
               31
             ],
             "secondary": [
-              20,
-              32
+              17,
+              34
             ]
           }
         },
@@ -4666,8 +4927,8 @@
               30
             ],
             "secondary": [
-              18,
-              32
+              12,
+              33
             ]
           }
         },
@@ -4695,8 +4956,8 @@
               30
             ],
             "secondary": [
-              12,
-              35
+              15,
+              34
             ]
           }
         },
@@ -4724,8 +4985,8 @@
               30
             ],
             "secondary": [
-              18,
-              32
+              12,
+              35
             ]
           }
         },
@@ -4750,11 +5011,11 @@
           "hands": {
             "primary": [
               15,
-              31
+              30
             ],
             "secondary": [
               12,
-              36
+              33
             ]
           }
         },
@@ -4770,10 +5031,97 @@
           },
           "head": [
             0,
-            0
+            1
           ],
           "torso": [
             0,
+            1
+          ],
+          "hands": {
+            "primary": [
+              15,
+              30
+            ],
+            "secondary": [
+              17,
+              33
+            ]
+          }
+        },
+        "body_survivor_reload_tube_w_7": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/motion/survivor_reload_tube_w_07.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ],
+          "hands": {
+            "primary": [
+              15,
+              30
+            ],
+            "secondary": [
+              12,
+              35
+            ]
+          }
+        },
+        "body_survivor_reload_tube_w_8": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/motion/survivor_reload_tube_w_08.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ],
+          "hands": {
+            "primary": [
+              15,
+              31
+            ],
+            "secondary": [
+              12,
+              34
+            ]
+          }
+        },
+        "body_survivor_reload_tube_w_9": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/motion/survivor_reload_tube_w_09.png",
+            "crop": [
+              0,
+              0,
+              32,
+              40
+            ]
+          },
+          "head": [
+            0,
+            0
+          ],
+          "torso": [
+            -1,
             0
           ],
           "hands": {
@@ -4787,9 +5135,9 @@
             ]
           }
         },
-        "body_survivor_reload_tube_w_7": {
+        "body_survivor_reload_tube_w_10": {
           "source": {
-            "path": "art/simplyzombies/textures/characters/motion/survivor_reload_tube_w_07.png",
+            "path": "art/simplyzombies/textures/characters/motion/survivor_reload_tube_w_10.png",
             "crop": [
               0,
               0,
@@ -6685,7 +7033,7 @@
           "loop": false
         },
         "reload_tube": {
-          "fps": 6,
+          "fps": 8,
           "loop": false
         },
         "flinch": {
