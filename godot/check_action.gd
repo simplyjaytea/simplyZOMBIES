@@ -23,6 +23,11 @@ extends SceneTree
 #              icon's red and brass, shown in every reload view); a crouch and
 #              a fall stand lower than the rest, a prone body is wider than tall; each measure is
 #              shown failing on a fabricated picture.
+#   LANDING    every fall, rest to lying flat as its own last frame, inside art review's bounds a
+#              step (mass 15%, centre 4 columns, any edge 6 px, the sole row held); the pack's
+#              corpse in the last frame's place and the fall at every third frame both break them.
+#   LUNGE_MASS every lunge, rest to the five beats and home, inside the same 15% mass step; a beat
+#              with its lower half cut off is refused.
 #   REACH      all three reloads (pistol, long gun, tube-fed shotgun), every view: the weapon hand
 #              travels (a pixel at least for a long gun seen from behind, held still but for the
 #              rack's jolt, two everywhere else), the off hand comes to it and leaves, and the last
@@ -84,6 +89,7 @@ func _run() -> void:
 	ok = _priority() and ok
 	ok = _geometry() and ok
 	ok = _landing() and ok
+	ok = _lunge_mass() and ok
 	ok = _states() and ok
 	ok = _reach() and ok
 	ok = _publishers() and ok
@@ -466,6 +472,66 @@ func _landing() -> bool:
 	if ok:
 		print("LANDING OK %d falls, %d steps from the rest view down to lying flat: at most %.1f%% mass, %.1f columns of centre and %d px of edge a step (bounds %.0f%%, %.0f, %d), the sole row held, each lying to its fall side as its own last frame; the pack's corpse in its place breaks the bounds %d times and the falls at every third frame %d times" % [judged, steps, float(worst["mass"]) * 100.0, float(worst["centre"]), int(worst["edge"]), LAND_MASS_STEP * 100.0, LAND_CENTRE_STEP, LAND_EDGE_STEP, corpse_breaks, coarse_breaks])
 		_report.append("LANDING %d falls" % judged)
+	return ok
+
+
+# LUNGE_MASS: a lunge, rest to the five beats and home to rest, with the same mass bound a fall keeps
+# (art review round 2: the north lunge lost a fifth of its body in one beat). The negative is a
+# beat with its lower half cut off, which the bound must refuse.
+func _lunge_mass() -> bool:
+	var ok: bool = true
+	var sx: float = 100.0
+	var sy: float = 100.0
+	var judged: int = 0
+	var worst: float = 0.0
+	var worst_at: String = ""
+	var cut_refused: int = 0
+	for fam_v in _families_with_actions().keys():
+		var fam: String = String(fam_v)
+		if Appearance.action_frames(fam, "lunge", "e") == 0:
+			continue
+		for view in Appearance.VIEWS:
+			var frames: int = Appearance.action_frames(fam, "lunge", view)
+			var keys: Array[String] = ["%s_%s" % [fam, view]]
+			for i in frames:
+				keys.append("%s_lunge_%s_%d" % [fam, view, i])
+			keys.append("%s_%s" % [fam, view])
+			var seq: Array = []
+			for k in keys:
+				seq.append(_drawn_at(k, sx, sy))
+			if seq.has({}):
+				push_error("LUNGE_MASS: %s's %s lunge has a frame that does not load" % [fam, view])
+				ok = false
+				continue
+			for i in range(1, seq.size()):
+				var a: Dictionary = seq[i - 1]
+				var b: Dictionary = seq[i]
+				var mass: float = absf(float(b["n"]) - float(a["n"])) / float(maxi(int(a["n"]), 1))
+				if mass > worst:
+					worst = mass
+					worst_at = "%s %s step %d" % [fam, view, i]
+				if mass > LAND_MASS_STEP:
+					push_error("LUNGE_MASS: %s from %s, step %d of %d: its mass changes %.1f%%, past %.0f%%" % [fam, view, i, seq.size() - 1, mass * 100.0, LAND_MASS_STEP * 100.0])
+					ok = false
+			var full: Image = _image(keys[3])
+			var cut: Image = full.duplicate() as Image
+			for y in range(cut.get_height() / 2, cut.get_height()):
+				for x in cut.get_width():
+					cut.set_pixel(x, y, Color(0, 0, 0, 0))
+			var at: Rect2 = Appearance.body_rect(sx, sy, Vector2(cut.get_size()), 1.0)
+			var cut_seen: Dictionary = _placed(cut, at)
+			if absf(float(cut_seen["n"]) - float((seq[2] as Dictionary)["n"])) / float(maxi(int((seq[2] as Dictionary)["n"]), 1)) > LAND_MASS_STEP:
+				cut_refused += 1
+			judged += 1
+	if judged == 0:
+		push_error("LUNGE_MASS: no family lunges; nothing was judged")
+		return false
+	if cut_refused != judged:
+		push_error("LUNGE_MASS: a lunge beat with its lower half cut off kept the mass bound in %d of %d views; the lane cannot fail" % [judged - cut_refused, judged])
+		ok = false
+	if ok:
+		print("LUNGE_MASS OK %d lunges, rest to the five beats and home: at most %.1f%% mass a step (%s, bound %.0f%%); a beat with its lower half cut off is refused in all %d" % [judged, worst * 100.0, worst_at, LAND_MASS_STEP * 100.0, cut_refused])
+		_report.append("LUNGE_MASS %d lunges" % judged)
 	return ok
 
 

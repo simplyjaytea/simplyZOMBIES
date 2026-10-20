@@ -77,13 +77,14 @@ moves per action and view):
 - a **step** moves the whole picture, kept `SIDE_CLEARANCE` from either canvas edge;
 - the **crawl** is the back view's walk turned a quarter flat (`turn_flat`), drawn only east and
   west, and declares no hands: a body lying down carries no layer;
-- a **fall** folds the knees over feet that are kept (`keep_feet`), then turns the body 20, 40
-  and 60 degrees about the outer edge of its leading sole toward `FALL_SIDE` (`turn_about_feet`:
-  Scale2x three times, sampled in whole-number sines and cosines from `TURN_TABLE`, back down,
-  and outlined again in the picture's own darkest colour, so no colour is invented). Fall frames
-  are on `fall_canvas`, 96 wide and the family's height, and each member says so in its own
-  `canvas`. The renderer lands the corpse from the same feet, mirrored to the same side
-  (`presentation/appearance.gd` `corpse_rect`, `corpse_flip`).
+- a **fall** folds the knees over feet that are kept (`keep_feet`), then turns the body 10
+  degrees a beat, 10 to 90, about the outer edge of its leading sole toward `FALL_SIDE`
+  (`turn_about_feet`: Scale2x three times, sampled in whole-number sines and cosines from
+  `TURN_TABLE`, back down, and the edge the turn opened ringed in the bare body's own darkest
+  colour, so no colour is invented). Fall frames are on `fall_canvas`, 96 wide and the family's
+  height, and each member says so in its own `canvas`. The last frame lies flat, and it is the
+  settled body: the renderer draws it where the fall stood (`presentation/appearance.gd`
+  `lying_key`), so there is no cut to another picture.
 
 **The reloads are drawn** (`reload_frames`, `RELOAD_BEATS`): eight beats for a magazine, eleven
 for the tube. Each arm the reload moves is taken off the rest view (`ARMLESS` closes the torso's
