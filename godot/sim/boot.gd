@@ -47,6 +47,7 @@ const SimDebugMod = preload("res://sim/modules/debug.gd")
 const SimRaiders = preload("res://sim/modules/raiders.gd")
 const SimVehicles = preload("res://sim/modules/vehicles.gd")
 const SimChronicle = preload("res://sim/modules/chronicle.gd")
+const SimDecals = preload("res://sim/modules/decals.gd")
 const SimSpeech = preload("res://sim/modules/speech.gd")
 
 const DISTRICT_SEED: int = 20260805
@@ -180,6 +181,7 @@ static func register_playable_modules(world: Variant, map: Variant) -> void:
 	SimDebugMod.register_module(world)
 	SimVehicles.register_module(world)
 	SimChronicle.register_module(world)
+	SimDecals.register_module(world)
 	SimSpeech.register_module(world)
 
 
