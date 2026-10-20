@@ -29,18 +29,25 @@ static func make_emitter(world: Variant, entity: int, emitter: Variant = null) -
 
 static func register_module(world: Variant, map: Variant) -> void:
 	world.systems.register("attention.emit-movement", "attention-emit", 0, func(w: Variant) -> void:
+		# Read-only over four tables (`SimComponentStore.table`, A3's tenth slice), and the
+		# modifier test asked once a pass rather than once a moving body.
+		var emitters: Dictionary = w.components.table("attention_emitter")
+		var velocities: Dictionary = w.components.table("velocity")
+		var postures: Dictionary = w.components.table("posture")
+		var positions: Dictionary = w.components.table("position")
+		var noise_arr: Array = SimStancesNoise.NOISE as Array
+		var resolves: bool = w.modifiers != null and (w.modifiers as Object).has_method("resolve")
 		for entity in w.components.query(["position", "velocity", "attention_emitter"]):
-			var emitter: Variant = w.components.get_component(int(entity), "attention_emitter")
-			var vel: Variant = w.components.get_component(int(entity), "velocity")
+			var emitter: Variant = emitters.get(int(entity))
+			var vel: Variant = velocities.get(int(entity))
 			if emitter == null or vel == null:
 				continue
 			var speed: float = sqrt(float((vel as Dictionary)["dx"]) * float((vel as Dictionary)["dx"]) + float((vel as Dictionary)["dy"]) * float((vel as Dictionary)["dy"]))
-			var posture: Variant = w.components.get_component(int(entity), "posture")
+			var posture: Variant = postures.get(int(entity))
 			var base: float
 			if posture != null:
 				var cur: int = int((posture as Dictionary)["current"])
 				# stance noise lookup: stances.gd NOISE array
-				var noise_arr: Array = SimStancesNoise.NOISE as Array
 				base = float(noise_arr[cur]) if speed > 0.0 else float((emitter as Dictionary)["ambient"])
 			else:
 				if speed >= SPRINT_THRESHOLD:
@@ -51,12 +58,12 @@ static func register_module(world: Variant, map: Variant) -> void:
 					base = float((emitter as Dictionary)["ambient"])
 			if base <= 0.0:
 				continue
-			var pos: Variant = w.components.get_component(int(entity), "position")
+			var pos: Variant = positions.get(int(entity))
 			if pos == null:
 				continue
 			var magnitude: float = base
 			# DEX speeds the body; scale per-tick noise by move_speed so noise-per-metre stays put (docs/23 DEX guardrail).
-			if speed > 0.0 and w.modifiers != null and (w.modifiers as Object).has_method("resolve"):
+			if speed > 0.0 and resolves:
 				magnitude *= float(w.modifiers.call("resolve", "move_speed", int(entity)))
 			# Only footsteps scaled by surface; ambient not
 			if not (float((emitter as Dictionary)["ambient"]) > 0.0 and speed == 0.0):

@@ -258,11 +258,28 @@ static func _tile_occupied(world: Variant, tx: int, ty: int) -> bool:
 	return false
 
 
+# Every tile `_tile_occupied` would call occupied, as a set of Vector2i.
+static func _occupied_tiles(world: Variant) -> Dictionary:
+	var out: Dictionary = {}
+	var positions: Dictionary = world.components.table("position")
+	for entity in world.components.query(["position", "velocity"]):
+		var pos: Variant = positions.get(int(entity))
+		if not pos is Dictionary:
+			continue
+		out[Vector2i(floori(float((pos as Dictionary)["x"])), floori(float((pos as Dictionary)["y"])))] = true
+	return out
+
+
 # The swing: an open, unlatched door shuts DOOR_SWING_TICKS after the last body left its tile.
 static func _tick_doors(world: Variant) -> void:
 	var dirty: bool = false
+	var doors: Dictionary = world.components.table("door")
+	# Which tiles a moving body stands on, read once for every swinging door rather than walking
+	# every body for each one (A3's tenth slice): nothing in this loop moves a body, so the set is
+	# what `_tile_occupied` would have answered door by door. Built on the first door that asks.
+	var occupied: Variant = null
 	for entity in world.components.query(["door"]):
-		var d: Variant = world.components.get_component(int(entity), "door")
+		var d: Variant = doors.get(int(entity))
 		if not d is Dictionary:
 			continue
 		var dd: Dictionary = d as Dictionary
@@ -270,7 +287,9 @@ static func _tick_doors(world: Variant) -> void:
 			continue
 		var tx: int = int(dd.get("tx", 0))
 		var ty: int = int(dd.get("ty", 0))
-		if _tile_occupied(world, tx, ty):
+		if occupied == null:
+			occupied = _occupied_tiles(world)
+		if (occupied as Dictionary).has(Vector2i(tx, ty)):
 			dd["emptySinceTick"] = int(world.tick)
 			continue
 		if int(world.tick) - int(dd.get("emptySinceTick", 0)) >= DOOR_SWING_TICKS:
@@ -1049,8 +1068,9 @@ static func pressure_of(bodies: int) -> float:
 # walking into a shut door opens it, and a raider does the same; neither is a crowd at a wall.
 static func _presses(world: Variant) -> Dictionary:
 	var out: Dictionary = {}
+	var velocities: Dictionary = world.components.table("velocity")
 	for zed in world.components.query(["shambler", "velocity"]):
-		var vel: Variant = world.components.get_component(int(zed), "velocity")
+		var vel: Variant = velocities.get(int(zed))
 		if not vel is Dictionary:
 			continue
 		var px: int = int((vel as Dictionary).get("pressX", -1))
@@ -1091,8 +1111,9 @@ static func _tick_contact(world: Variant) -> void:
 			if int((scrap as Dictionary)["stage"]) >= 4:
 				world.events.publish({"type": "fortify.breached", "tx": sx, "ty": sy, "kind": "scrap"})
 				world.despawn(int(entity2))
+	var doors: Dictionary = world.components.table("door")
 	for entity3 in world.components.query(["door"]):
-		var door: Variant = world.components.get_component(int(entity3), "door")
+		var door: Variant = doors.get(int(entity3))
 		if not door is Dictionary:
 			continue
 		var dd: Dictionary = door as Dictionary

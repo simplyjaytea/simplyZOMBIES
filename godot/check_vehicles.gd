@@ -2458,7 +2458,7 @@ func _the_sockets_are_wired() -> bool:
 		push_error("SOCKETS: the needle scanner called a present needle missing; it cannot say yes")
 		return false
 	var checks: Array = [
-		[WORLD_GD, "_integrate_movement", ["has_component(int(entity), \"vehicle\")"], "world's integrate would move a car by its two body corners as well as the module moving it"],
+		[WORLD_GD, "_integrate_movement", ["components.table(\"vehicle\")", "vehicles.has(int(entity))"], "world's integrate would move a car by its two body corners as well as the module moving it"],
 		[WORLD_GD, "restore", ["SimVehiclesRes.sync_map(self)"], "a restored car would stand on the kerb's Low tiles with its picture where it was driven"],
 		[BOOT_GD, "register_playable_modules", ["SimVehicles.register_module(world)"], "the toggle and the drive would run in no world"],
 		[BOOT_GD, "playable", ["SimVehicles.spawn_from_manifest(world, map)"], "no record would ever become an entity"],

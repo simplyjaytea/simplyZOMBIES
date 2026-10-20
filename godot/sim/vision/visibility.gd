@@ -104,16 +104,23 @@ func refresh(world: Variant, map: Variant, sight_mul: float = 1.0) -> void:
 	var light_index: Variant = _light_index(world)
 	var rest: Dictionary = resting
 	resting = {}
+	# Five tables read straight (`SimComponentStore.table`, A3's tenth slice); a refresh writes
+	# none of them.
+	var positions: Dictionary = world.components.table("position")
+	var observers: Dictionary = world.components.table("observer")
+	var facings: Dictionary = world.components.table("facing")
+	var postures: Dictionary = world.components.table("posture")
+	var controlled: Dictionary = world.components.table("controlled")
 	for entity in world.components.query(["position", "observer"]):
 		if rest.has(entity) and _views.has(entity):
 			seen[entity] = true
 			continue
-		var pos: Variant = world.components.get_component(entity, "position")
-		var obs: Variant = world.components.get_component(entity, "observer")
+		var pos: Variant = positions.get(entity)
+		var obs: Variant = observers.get(entity)
 		if pos == null or obs == null:
 			continue
 		var facing_rad: float = 0.0
-		var facing_c: Variant = world.components.get_component(entity, "facing")
+		var facing_c: Variant = facings.get(entity)
 		if facing_c != null:
 			facing_rad = float((facing_c as Dictionary)["radians"])
 
@@ -125,7 +132,7 @@ func refresh(world: Variant, map: Variant, sight_mul: float = 1.0) -> void:
 		# Low occluder class finally has something to be low *relative to*. An entity with no
 		# posture (a zombie; a fixture that never gave one) keeps whatever its `observer` record
 		# was built with, which is `Eye.Standing` for every spawner in the tree today.
-		var posture_c: Variant = world.components.get_component(entity, "posture")
+		var posture_c: Variant = postures.get(entity)
 		if posture_c != null:
 			(obs as Dictionary)["eye"] = SimStancesRes.eye_of(int((posture_c as Dictionary)["current"]))
 		var lit_target: bool = bool((obs as Dictionary).get("lit_target", false))
@@ -190,7 +197,7 @@ func refresh(world: Variant, map: Variant, sight_mul: float = 1.0) -> void:
 				stale = true
 		# A person who is not the player, and who has a view already: a view never cast is not a
 		# tile behind but blind, so it is cast whole like the player's.
-		var spread: bool = STAGGER_PERSON_CASTS and not lit_target and cast_tiles >= 0 and not world.components.has_component(entity, "controlled")
+		var spread: bool = STAGGER_PERSON_CASTS and not lit_target and cast_tiles >= 0 and not controlled.has(entity)
 		if spread:
 			if vd.get("pending") == null and (stale or moved >= PERSON_RECAST_TILES):
 				if vd.get("back") == null:

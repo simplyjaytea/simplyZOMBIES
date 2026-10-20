@@ -67,8 +67,11 @@ func _run() -> void:
 	ok = _the_dress_test_reads_the_base_once_and_answers_the_same() and ok
 	ok = _swapped_scent_buffers_are_the_copied_field() and ok
 	ok = _an_arc_cosine_follows_its_angle() and ok
+	ok = _a_table_is_the_store_it_reads() and ok
+	ok = _remembering_by_map_is_remembering_by_walk() and ok
+	ok = _the_door_swing_asks_the_set_the_walk_answered() and ok
 	if ok:
-		print("M2_TICK_OK content-agree content-follows content-reader map-log door-cells view-stands dead-keep path cast enemies people square query care claw sky observe ambient seek far-think spread impair dress scent arcs")
+		print("M2_TICK_OK content-agree content-follows content-reader map-log door-cells view-stands dead-keep path cast enemies people square query care claw sky observe ambient seek far-think spread impair dress scent arcs table recall swing")
 		quit(0)
 	else:
 		push_error("M2_TICK_FAIL")
@@ -1643,4 +1646,298 @@ func _an_arc_cosine_follows_its_angle() -> bool:
 		return _fail("ARCS", "a view kept its old arc cosines after its eyes changed")
 	if float(view["cos_focal"]) == old_focal:
 		return _fail("ARCS", "the new focal arc has the old one's cosine, so the lane judged nothing")
+	return true
+
+
+# --- slice 10: the tables read straight ----------------------------------------------------------
+
+# `_body_of` for a method as well as a static function: the body of `func <name>(` in `path`,
+# comment lines dropped. Empty when the function is gone.
+func _fn_body(path: String, fn_name: String) -> String:
+	var text: String = FileAccess.get_file_as_string(path)
+	var at: int = text.find("func %s(" % fn_name)
+	if at < 0:
+		return ""
+	var out: PackedStringArray = PackedStringArray()
+	var first: bool = true
+	for line in text.substr(at).split("\n"):
+		if not first and (line.begins_with("static func ") or line.begins_with("func ")):
+			break
+		first = false
+		if line.strip_edges().begins_with("#"):
+			continue
+		out.append(line)
+	return "\n".join(out)
+
+
+# TABLE. `table(c)` is the very table `get_component` and `has_component` read: the same value,
+# by identity, for every member of every table on a stepped district, and the same "no" for a body
+# that lacks the component. A table held before a member is added sees it and one held before a
+# removal loses it, which is what lets a pass hold one. A component with no table answers empty
+# and stores nothing, so a save is unchanged by the asking. Every pass this slice moved onto
+# tables names `.table(` in its own body.
+func _a_table_is_the_store_it_reads() -> bool:
+	var w: Variant = _stepped_world()
+	var members: int = 0
+	var absent: int = 0
+	var everybody: Array[int] = w.components.query(["position"])
+	for c in ["position", "velocity", "shambler", "observer", "body", "corpse", "door", "facing", "posture", "attention_emitter", "grabState", "searchable", "controlled", "raider", "vehicle"]:
+		var t: Dictionary = w.components.table(String(c))
+		for e in t.keys():
+			members += 1
+			if not is_same(t.get(e), w.components.get_component(int(e), String(c))):
+				return _fail("TABLE", "%s of %d read through the table is not what get_component reads" % [c, int(e)])
+			if not w.components.has_component(int(e), String(c)):
+				return _fail("TABLE", "the %s table holds %d and has_component says it does not" % [c, int(e)])
+		for e in everybody:
+			if t.has(int(e)) != w.components.has_component(int(e), String(c)):
+				return _fail("TABLE", "%s of %d: the table says %s and has_component disagrees" % [c, int(e), str(t.has(int(e)))])
+			if not t.has(int(e)):
+				absent += 1
+	if members < 100 or absent < 100:
+		return _fail("TABLE", "%d members and %d absences judged; the lane has too little to judge" % [members, absent])
+	var held: Dictionary = w.components.table("position")
+	var fresh: int = 999999
+	w.components.set_component(fresh, "position", {"x": 1.0, "y": 1.0})
+	if not held.has(fresh) or not is_same(held.get(fresh), w.components.get_component(fresh, "position")):
+		return _fail("TABLE", "a table held before a member was added did not see it")
+	w.components.remove(fresh, "position")
+	if held.has(fresh):
+		return _fail("TABLE", "a table held before a removal still holds the removed member")
+	var before: String = JSON.stringify(w.components.save())
+	var none: Dictionary = w.components.table("no.such.component")
+	if not none.is_empty() or w.components.get_component(0, "no.such.component") != null:
+		return _fail("TABLE", "a component with no table answered a member")
+	if JSON.stringify(w.components.save()) != before:
+		return _fail("TABLE", "asking for a missing table changed what a save writes")
+	# Each pass names the tables it now reads, so a table swapped for an empty stand-in is red.
+	var readers: Array = [
+		["res://sim/world.gd", "_integrate_movement", ["vehicle", "position", "velocity", "facing"]],
+		["res://sim/modules/sightings.gd", "observe", ["position", "searchable"]],
+		["res://sim/modules/sightings.gd", "_observe_one", ["position", "body", "shambler", "raider"]],
+		["res://sim/modules/sightings.gd", "_observe_containers", ["searchable", "position"]],
+		["res://sim/modules/settlers.gd", "_threats", ["corpse", "shambler", "body", "position"]],
+		["res://sim/modules/allegiance.gd", "enemies_within", ["position", "corpse"]],
+		["res://sim/modules/attention_emitter.gd", "register_module", ["attention_emitter", "velocity", "posture", "position"]],
+		["res://sim/modules/shambler.gd", "register_module", ["shambler", "position", "velocity", "grabState", "attention_emitter"]],
+		["res://sim/vision/visibility.gd", "refresh", ["position", "observer", "facing", "posture", "controlled"]],
+		["res://sim/modules/fortify.gd", "_presses", ["velocity"]],
+		["res://sim/modules/fortify.gd", "_tick_doors", ["door"]],
+		["res://sim/modules/fortify.gd", "_occupied_tiles", ["position"]],
+		["res://sim/modules/fortify.gd", "_tick_contact", ["door"]],
+	]
+	for r in readers:
+		var body: String = _fn_body(String(r[0]), String(r[1]))
+		if body.is_empty():
+			return _fail("TABLE", "%s has no %s; the reader check is reading the wrong file" % [r[0], r[1]])
+		for c in r[2] as Array:
+			if body.find('.table("%s")' % String(c)) < 0:
+				return _fail("TABLE", "%s in %s does not read the %s table" % [r[1], r[0], c])
+	return true
+
+
+# The observe pass's per-observer half as it stood before the tenth slice: every read through
+# `get_component`, each record found by walking the list, each cupboard by walking its list.
+func _reference_observe_one(w: Variant, observer: int, candidates: Array) -> void:
+	var comp: Variant = w.components.get_component(observer, "sightings")
+	if not comp is Dictionary:
+		return
+	var seen: Array = (comp as Dictionary)["seen"] as Array
+	var tick: int = int(w.tick)
+	var square: Variant = w.vision.tiles_for(observer)
+	for other in candidates:
+		if int(other) == observer:
+			continue
+		var there: Variant = w.components.get_component(int(other), "position")
+		if not there is Dictionary:
+			continue
+		var x: float = float((there as Dictionary)["x"])
+		var y: float = float((there as Dictionary)["y"])
+		if not SimSightings._in_square(square, x, y):
+			continue
+		if int(w.vision.call("detail", observer, x, y)) == 0:
+			continue
+		var body: Variant = w.components.get_component(int(other), "body")
+		if not body is Dictionary or not SimHealth.is_alive(body as Dictionary):
+			SimSightings._erase(seen, int(other))
+			continue
+		var kind: String = "person"
+		if w.components.has_component(int(other), "shambler"):
+			kind = "zombie"
+		elif w.components.has_component(int(other), "raider"):
+			kind = "raider"
+		var found: bool = false
+		for row in seen:
+			if int((row as Dictionary)["e"]) == int(other):
+				(row as Dictionary)["x"] = x
+				(row as Dictionary)["y"] = y
+				(row as Dictionary)["tick"] = tick
+				(row as Dictionary)["kind"] = kind
+				found = true
+				break
+		if not found:
+			seen.append({"e": int(other), "x": x, "y": y, "tick": tick, "kind": kind})
+	SimSightings._prune(seen, tick)
+
+
+func _reference_observe_containers(w: Variant, observer: int, boxes: Array) -> void:
+	var comp: Variant = w.components.get_component(observer, "sightings")
+	if not comp is Dictionary:
+		return
+	if not (comp as Dictionary).has("containers"):
+		(comp as Dictionary)["containers"] = []
+	var known: Array = (comp as Dictionary)["containers"] as Array
+	var square: Variant = w.vision.tiles_for(observer)
+	for box in boxes:
+		var s: Variant = w.components.get_component(int(box), "searchable")
+		if not s is Dictionary:
+			continue
+		if bool((s as Dictionary).get("searched", false)):
+			SimSightings._erase(known, int(box))
+			continue
+		var there: Variant = w.components.get_component(int(box), "position")
+		if not there is Dictionary:
+			continue
+		var x: float = float((there as Dictionary)["x"])
+		var y: float = float((there as Dictionary)["y"])
+		if not SimSightings._in_square(square, x, y):
+			continue
+		if int(w.vision.call("detail", observer, x, y)) == 0:
+			continue
+		var found: bool = false
+		for row in known:
+			if int((row as Dictionary)["e"]) == int(box):
+				found = true
+				break
+		if not found:
+			known.append({"e": int(box), "x": x, "y": y})
+
+
+# RECALL. Two identical districts, every observer's memory primed with a stale copy of one body it
+# can see, a second record of that body behind it (the walk updated the first and left the second),
+# a record of a body that has since died where the observer can see it, a cupboard remembered
+# twice and a searched cupboard remembered once; one observes the shipped way and one the old way,
+# for every observer, all cupboards to all, over twenty ticks. Every memory must come out the
+# same, order included. The negatives: some record was updated in place, some appended, the dead
+# body's records erased, and a cupboard newly remembered.
+func _remembering_by_map_is_remembering_by_walk() -> bool:
+	var worlds: Array = [_stepped_world(), _stepped_world()]
+	var observers: Array[int] = worlds[0].components.query(["sightings", "observer", "position"])
+	var boxes: Array[int] = worlds[0].components.query(["searchable", "position"])
+	var bodies: Array[int] = worlds[0].components.query(["body", "position"])
+	if observers.size() < 3 or boxes.size() < 2:
+		return _fail("RECALL", "%d observers and %d cupboards; the lane has too little to judge" % [observers.size(), boxes.size()])
+	var searched: int = boxes[boxes.size() - 1]
+	var updated: int = 0
+	var appended: int = 0
+	var erased: int = 0
+	var newly_known: int = 0
+	var primed_dead: bool = false
+	for w in worlds:
+		(w.components.get_component(searched, "searchable") as Dictionary)["searched"] = true
+	# Prime: per observer, the first body it can see gets a stale record and a duplicate; the
+	# second one it can see is killed in both worlds and remembered.
+	for ob in observers:
+		var visible: Array[int] = []
+		for e in bodies:
+			if int(e) == ob:
+				continue
+			var at: Vector2 = _positioned(worlds[0], int(e))
+			if SimSightings._in_square(worlds[0].vision.tiles_for(ob), at.x, at.y) and int(worlds[0].vision.call("detail", ob, at.x, at.y)) != 0:
+				visible.append(int(e))
+		for w in worlds:
+			var sc: Dictionary = w.components.get_component(ob, "sightings") as Dictionary
+			var rows: Array = []
+			if visible.size() >= 1:
+				rows.append({"e": visible[0], "x": -1.0, "y": -1.0, "tick": int(w.tick) - 5, "kind": "stale"})
+				rows.append({"e": visible[0], "x": -2.0, "y": -2.0, "tick": int(w.tick) - 6, "kind": "second"})
+			if visible.size() >= 2 and not primed_dead:
+				rows.append({"e": visible[1], "x": 0.0, "y": 0.0, "tick": int(w.tick) - 1, "kind": "zombie"})
+			sc["seen"] = rows
+			sc["containers"] = [{"e": boxes[0], "x": 0.0, "y": 0.0}, {"e": boxes[0], "x": 0.0, "y": 0.0}, {"e": searched, "x": 0.0, "y": 0.0}]
+		if visible.size() >= 2 and not primed_dead:
+			for w in worlds:
+				(w.components.get_component(visible[1], "body") as Dictionary)["head"] = 0
+			primed_dead = true
+	if not primed_dead:
+		return _fail("RECALL", "no observer could see two bodies, so the erase was never judged")
+	# The kind a record carries, on all three answers: the district may have no raider in view.
+	for k in [[1, "zombie"], [2, "raider"], [3, "person"]]:
+		if SimSightings._kind_of({1: {}}, {2: {}}, int(k[0])) != String(k[1]):
+			return _fail("RECALL", "entity %d is remembered as %s, not %s" % [int(k[0]), SimSightings._kind_of({1: {}}, {2: {}}, int(k[0])), k[1]])
+	for i in 20:
+		var before: Dictionary = {}
+		for ob in observers:
+			before[ob] = JSON.stringify((worlds[0].components.get_component(ob, "sightings") as Dictionary)["seen"])
+		var before_boxes: Dictionary = {}
+		for ob in observers:
+			var ids: Dictionary = {}
+			for row in (worlds[0].components.get_component(ob, "sightings") as Dictionary)["containers"] as Array:
+				ids[int((row as Dictionary)["e"])] = true
+			before_boxes[ob] = ids
+		SimSightings.observe(worlds[0])
+		var candidates: Array = []
+		for e in worlds[1].components.query(["body", "position"]):
+			candidates.append(int(e))
+		for ob in observers:
+			_reference_observe_one(worlds[1], ob, candidates)
+			_reference_observe_containers(worlds[1], ob, boxes)
+		for ob in observers:
+			var a: Dictionary = worlds[0].components.get_component(ob, "sightings") as Dictionary
+			var r: Dictionary = worlds[1].components.get_component(ob, "sightings") as Dictionary
+			if JSON.stringify(a["seen"]) != JSON.stringify(r["seen"]) or JSON.stringify(a["containers"]) != JSON.stringify(r["containers"]):
+				return _fail("RECALL", "tick %d, observer %d remembers %s where the walk gives %s" % [i, ob, JSON.stringify(a), JSON.stringify(r)])
+			var was: Array = JSON.parse_string(String(before[ob])) as Array
+			var now: Array = a["seen"] as Array
+			for row in now:
+				var hit: bool = false
+				for old in was:
+					if int((old as Dictionary)["e"]) == int((row as Dictionary)["e"]):
+						hit = true
+						if int((old as Dictionary)["tick"]) != int((row as Dictionary)["tick"]):
+							updated += 1
+						break
+				if not hit:
+					appended += 1
+			var now_ids: Dictionary = {}
+			for row in now:
+				now_ids[int((row as Dictionary)["e"])] = true
+			for old in was:
+				if not now_ids.has(int((old as Dictionary)["e"])):
+					erased += 1
+			for row in a["containers"] as Array:
+				if not (before_boxes[ob] as Dictionary).has(int((row as Dictionary)["e"])):
+					newly_known += 1
+		for w in worlds:
+			w.tick += 1
+	if updated == 0 or appended == 0 or erased == 0 or newly_known == 0:
+		return _fail("RECALL", "updated %d, appended %d, erased %d, newly known %d; the lane judged an empty case" % [updated, appended, erased, newly_known])
+	return true
+
+
+# SWING. `_occupied_tiles` holds exactly the tiles `_tile_occupied` calls occupied: every tile any
+# body stands on and every tile beside one, on a stepped district. The negatives: some tile is
+# occupied and some is not.
+func _the_door_swing_asks_the_set_the_walk_answered() -> bool:
+	var w: Variant = _stepped_world()
+	var occupied: Dictionary = SimFortify._occupied_tiles(w)
+	var yes: int = 0
+	var no: int = 0
+	for e in w.components.query(["position", "velocity"]):
+		var at: Vector2 = _positioned(w, int(e))
+		for dy in range(-1, 2):
+			for dx in range(-1, 2):
+				var tx: int = floori(at.x) + dx
+				var ty: int = floori(at.y) + dy
+				var walk: bool = SimFortify._tile_occupied(w, tx, ty)
+				if occupied.has(Vector2i(tx, ty)) != walk:
+					return _fail("SWING", "tile %d,%d: the set says %s and the walk says %s" % [tx, ty, str(occupied.has(Vector2i(tx, ty))), str(walk)])
+				if walk:
+					yes += 1
+				else:
+					no += 1
+	if yes == 0 or no == 0:
+		return _fail("SWING", "%d occupied and %d empty tiles judged; the lane judged an empty case" % [yes, no])
+	if _body_of("res://sim/modules/fortify.gd", "_tick_doors").find("_occupied_tiles(") < 0:
+		return _fail("SWING", "the door swing does not ask _occupied_tiles")
 	return true

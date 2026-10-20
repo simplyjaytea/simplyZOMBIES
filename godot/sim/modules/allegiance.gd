@@ -165,16 +165,20 @@ static func enemies_within(world: Variant, entity: int, metres: float) -> Array[
 	var hx: float = float((here as Dictionary)["x"])
 	var hy: float = float((here as Dictionary)["y"])
 	var limit_sq: float = metres * metres
+	# Read-only over two tables (`SimComponentStore.table`, A3's tenth slice): a hundred bodies a
+	# caller, several callers a tick.
+	var positions: Dictionary = world.components.table("position")
+	var corpses: Dictionary = world.components.table("corpse")
 	for other in world.components.query(["body", "position"]):
 		var o: int = int(other)
 		if o == entity:
 			continue
-		var there: Dictionary = world.components.get_component(o, "position") as Dictionary
+		var there: Dictionary = positions.get(o) as Dictionary
 		var dx: float = float(there["x"]) - hx
 		var dy: float = float(there["y"]) - hy
 		if dx * dx + dy * dy > limit_sq:
 			continue
-		if world.components.has_component(o, "corpse"):
+		if corpses.has(o):
 			continue
 		if not hostile(world, entity, o):
 			continue

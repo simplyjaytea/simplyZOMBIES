@@ -1041,10 +1041,18 @@ static func register_module(world: Variant, _map: Variant) -> void:
 		var noise_floor: float = float(field.calibration["floor"])
 		var scent_floor: float = float(field.calibration["scentFloor"])
 		var rest_eyes: Variant = w.vision.resting if THINK_LOD and w.vision != null and "resting" in w.vision else null
+		# Five tables read straight (`SimComponentStore.table`, A3's tenth slice): this loop
+		# writes into the values it reads and adds no member to any of them -- a hold begins in
+		# step 4 below it, after the loop has finished.
+		var shamblers: Dictionary = w.components.table("shambler")
+		var positions: Dictionary = w.components.table("position")
+		var velocities: Dictionary = w.components.table("velocity")
+		var holds: Dictionary = w.components.table("grabState")
+		var emitters: Dictionary = w.components.table("attention_emitter")
 		for entity in w.components.query(["position", "velocity", "shambler"]):
-			var shambler_comp: Variant = w.components.get_component(int(entity), "shambler")
-			var pos: Variant = w.components.get_component(int(entity), "position")
-			var vel: Variant = w.components.get_component(int(entity), "velocity")
+			var shambler_comp: Variant = shamblers.get(int(entity))
+			var pos: Variant = positions.get(int(entity))
+			var vel: Variant = velocities.get(int(entity))
 			if shambler_comp == null or pos == null or vel == null:
 				continue
 			var sd: Dictionary = shambler_comp as Dictionary
@@ -1054,7 +1062,7 @@ static func register_module(world: Variant, _map: Variant) -> void:
 			# runs its countdowns and keeps its velocity, and does nothing else this tick.
 			var steps: int = 1
 			var st: int = int(sd["state"])
-			if THINK_LOD and (st == ShamblerState["Wander"] or st == ShamblerState["Dormant"]) and _nobody_within(survivors, pd, FAR_THINK_METRES) and not w.components.has_component(int(entity), "grabState"):
+			if THINK_LOD and (st == ShamblerState["Wander"] or st == ShamblerState["Dormant"]) and _nobody_within(survivors, pd, FAR_THINK_METRES) and not holds.has(int(entity)):
 				# Its eyes rest too when it will not think on the coming tick either: the view
 				# `kernel.visibility` builds this tick is the one that think would read.
 				if rest_eyes != null and (int(w.tick) + 1 + int(entity)) % FAR_THINK_EVERY != 0:
@@ -1079,7 +1087,7 @@ static func register_module(world: Variant, _map: Variant) -> void:
 			# seek its own sound for ever. Its threshold is raised by what it gives off: only
 			# something louder than itself is a sound.
 			var own_noise: float = 0.0
-			var em: Variant = w.components.get_component(int(entity), "attention_emitter")
+			var em: Variant = emitters.get(int(entity))
 			if em is Dictionary:
 				own_noise = maxf(float((em as Dictionary).get("ambient", 0.0)), float((em as Dictionary).get("walking", 0.0)))
 			var heard: bool = noise_sense > 0.0 and field.noise_at(float(pd["x"]), float(pd["y"])) >= own_noise + noise_floor / noise_sense
@@ -1093,7 +1101,7 @@ static func register_module(world: Variant, _map: Variant) -> void:
 			var seek: float = 0.0
 			if int(sd["ticksToGrab"]) > 0:
 				sd["ticksToGrab"] = int(sd["ticksToGrab"]) - 1
-			if w.components.has_component(int(entity), "grabState"):
+			if holds.has(int(entity)):
 				# Holding is neither pathfinding nor pursuit. Both bodies stay exactly where
 				# the mistake happened until the survivor escapes or something knocks the
 				# grabber away -- see the hold-lifecycle loops below this state machine for

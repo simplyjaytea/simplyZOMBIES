@@ -1069,12 +1069,17 @@ session, each with its gate red both ways and its record.
   observability progress. The older `godot:bench` remains synthetic and exits zero on overruns;
   CI's `bench` and `bench:frame` still measure the frozen TypeScript oracle. See docs/22 and the
   runtime evidence record for scope, results and next measurements.
-  Next bounded slices: attribute and reduce the jobs/map-change visibility spike; profile the
-  real world-draw body path; then remeasure identical fixtures before enabling actual timing
-  gates. Healthy self-aid scans and shadowcast clearing are candidate optimizations to prove
-  individually, with deterministic behavior and reader gates intact. Repeated content lookups
-  were the first cut (2026-10-19, the record's "tick to budget" entries; [docs/22](22-performance.md#bringing-the-tick-to-budget)
-  carries the running table).
+  The tick's ten slices (2026-10-19/20, the record's "tick to budget" entries;
+  [docs/22](22-performance.md#bringing-the-tick-to-budget) carries the running table) took the
+  mean from 32.4 ms to about 9.5 on the baseline's machine (10.6 on the slower container that
+  measured slices 8 to 10) and stopped there for the alpha. **The gap, post-alpha:** the mean is
+  still above 8 ms, and the worst tick is not under 16 -- p95 about 16 ms, single ticks of 20 to
+  34 ms. Measured spikes: a whole 48 m cast for the player (the one cast not spread) and for a
+  zombie after a nearby map change, about 7 ms; a long job plan, up to 12 ms; and runs of
+  consecutive ticks where every system slows together, which reads as the shared container
+  rather than the sim. Next bounded slices: spread or cheapen the player's own cast, bound a
+  job plan's expansions per tick, and measure on a quiet machine before any timing gate is
+  enabled.
   Draw-stage timing alone does not close delivered FPS, long-session, save or streaming budgets.
 
 **Weather — the rest of docs/16, opened by the owner 2026-09-06.** ADR 0016. The spine (kinds,
@@ -9922,6 +9927,24 @@ not a to-do list:
   landing first, each landed view equal to one whole cast from where its person stood, and the
   four quadrants equal to the whole cast from any origin. Each was turned red by sabotage. With
   both switches off the 3,000-tick hash matches `main`; with them on it repeats exactly.
+  [docs/22](22-performance.md#bringing-the-tick-to-budget).
+- **Kernel & tooling — the tick to budget, slice 10: the tables read straight, 2026-10-20
+  (partial).** `SimComponentStore.table` hands a pass the live table behind `get_component` and
+  `has_component`, and the passes that made most of the tick's four thousand component calls
+  hold their tables once: movement, the shambler think, sightings, the visibility refresh, the
+  noise emitter, `enemies_within`, the settlers' threat scan and the fortify doors and presses.
+  Sightings finds each remembered body through a map of its first record instead of walking the
+  list per body in view, and a cupboard through a set; the door swing asks one set of occupied
+  tiles instead of walking every body per door. `godot:bench:runtime` on the slower container,
+  median of three interleaved runs: slice 9 **12.27 / 28.78 ms** to **10.63 / 31.86**; the worst
+  tick is the container's noise at this size. Gated in `godot:m2:tick`: TABLE holds `table` to
+  `get_component` and `has_component` by identity for fifteen components on a stepped district,
+  live across an add and a removal, empty and unsaved for a missing component, and names every
+  table each converted pass reads; RECALL holds the shipped observe to the walk it replaced over
+  twenty ticks with a stale record, a duplicate, a dead body and a searched cupboard primed, and
+  pins the three kinds; SWING holds the occupied set to `_tile_occupied` round every moving body.
+  Each was turned red by sabotage; with the two slice 9 switches off the 3,000-tick hash matches
+  `main`, and with them on it matches slice 9.
   [docs/22](22-performance.md#bringing-the-tick-to-budget).
 
 - **Kernel & tooling — water draw check follows its branches, 2026-10-03.** The A2 wall
