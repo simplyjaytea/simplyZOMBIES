@@ -60,9 +60,9 @@ const GROUPS: Array = [
 		["Space", "shout — heard across the district"],
 	]],
 	["Look", [
-		["Tab", "gear and injuries — drag between bags, right-click a thing for what you can do"],
-		["J", "work priorities"],
-		["K", "the skill web — what they know, what they could learn, and the shape of it, for whoever you have selected"],
+		["Tab", "survivor — gear and injuries; drag between bags, right-click a thing for what you can do, click the body for care"],
+		["J", "colony — who does what work"],
+		["K", "skills — the web: what they know, what they could learn, and the shape of it, for whoever you have selected"],
 		["O", "light overlay: the lit ground, where lamps and fires reach"],
 		["Wheel", "zoom"],
 	]],
@@ -70,7 +70,7 @@ const GROUPS: Array = [
 		["- / =", "slower, faster"],
 		["P", "pause"],
 		["F5 / F9", "save and load"],
-		["Esc", "menu — resume, save, load, settings, or back to the title"],
+		["Esc", "puts away what is in front; on the street, the menu — resume, save, load, settings, or back to the title"],
 		["F1", "these keys"],
 	]],
 ]

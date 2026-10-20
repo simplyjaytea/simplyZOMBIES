@@ -19,8 +19,12 @@ const Chrome = preload("res://ui/chrome.gd")
 # ROW_H carries three lines now -- the name and focus word, `person_clause`'s dimmer second
 # line, and the learning line beneath that -- and it is the same for every row on purpose: a
 # variable row height would turn the click math from one divide into a running sum.
-# A 70 px ceiling; the viewport determines the actual width, shared by draw and input.
-const COL_W: float = 70.0
+# Each column is as wide as its own head plus COL_GAP (never under COL_MIN), and the grid sits
+# against the panel's right edge, so the room the columns do not need goes to the names and the
+# taglines on the left instead of standing empty past the last column. GRID_X is the floor for
+# that name area; below it the columns share what is left equally, as they did before.
+const COL_MIN: float = 56.0
+const COL_GAP: float = 20.0
 const ROW_H: float = 70.0
 const GRID_X: float = 240.0
 const GRID_Y: float = 88.0
@@ -77,8 +81,38 @@ func _sync_layout() -> void:
 	queue_redraw()
 
 
-func _column_width() -> float:
-	return minf(COL_W, (size.x - GRID_X - GUTTER) / float(shown_columns().size()))
+# The left edge of every shown column, plus one more entry for the grid's right edge, in whole
+# even pixels. Shared by _draw and _gui_input so the head that is drawn and the cell that is
+# clicked cannot drift apart.
+func _column_edges() -> Array[float]:
+	var font: Font = Chrome.font()
+	var columns: Array[String] = shown_columns()
+	var widths: Array[float] = []
+	var total: float = 0.0
+	for c in columns:
+		var w: float = maxf(COL_MIN, font.get_string_size(c, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE).x + COL_GAP)
+		w = ceilf(w / 2.0) * 2.0
+		widths.append(w)
+		total += w
+	var room: float = size.x - GUTTER - GRID_X
+	if total > room and not columns.is_empty():
+		var each: float = floorf(room / float(columns.size()) / 2.0) * 2.0
+		for i in widths.size():
+			widths[i] = each
+		total = each * float(columns.size())
+	var x: float = floorf((size.x - GUTTER - total) / 2.0) * 2.0
+	var edges: Array[float] = [x]
+	for w in widths:
+		x += w
+		edges.append(x)
+	return edges
+
+
+func _column_at(x: float, edges: Array[float]) -> int:
+	for i in edges.size() - 1:
+		if x >= edges[i] and x < edges[i + 1]:
+			return i
+	return -1
 
 
 func _visible_rows() -> int:
@@ -113,7 +147,7 @@ func _gui_input(event: InputEvent) -> void:
 			return
 	if right:
 		return
-	var c: int = floori((mb.position.x - GRID_X) / _column_width())
+	var c: int = _column_at(mb.position.x, _column_edges())
 	var visible_row: int = floori((mb.position.y - GRID_Y) / ROW_H)
 	if visible_row < 0 or visible_row >= _visible_rows():
 		return
@@ -174,15 +208,16 @@ func _draw() -> void:
 	# urgent; docs/07's row is an ordering the player sets, not a hidden stat, so the
 	# numbers are the honest presentation here.
 	draw_string(font, Vector2(GUTTER, 64), "1 first · 4 last · – never", HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE, Chrome.TEXT_DIM)
-	var ox: float = GRID_X
+	var edges: Array[float] = _column_edges()
+	var ox: float = edges[0]
 	var oy: float = GRID_Y
-	var col_w: float = _column_width()
 	var columns: Array[String] = shown_columns()
 	for i in columns.size():
 		# Fit the real column name to its width rather than cutting every one to 3 letters,
-		# which made Construct and Cook read identically.
-		var name: String = UiText.fit(font, columns[i], SMALL_SIZE, col_w - 6.0)
-		draw_string(font, Vector2(ox + float(i) * col_w, oy - 4), name, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE, Chrome.TEXT)
+		# which made Construct and Cook read identically. Each column is sized to its own head,
+		# so the fit only bites when the panel is too narrow for the sized grid.
+		var name: String = UiText.fit(font, columns[i], SMALL_SIZE, edges[i + 1] - edges[i] - 6.0)
+		draw_string(font, Vector2(edges[i], oy - 4), name, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE, Chrome.TEXT)
 	_row_scroll = clampi(_row_scroll, 0, maxi(0, _rows.size() - _visible_rows()))
 	for visible_row in mini(_rows.size(), _visible_rows()):
 		var r: int = visible_row + _row_scroll
@@ -220,7 +255,7 @@ func _draw() -> void:
 			var label: String = "–" if v <= 0 else str(v)
 			# Urgent work reads brighter, so a row's shape is visible without reading digits.
 			var tint: Color = Chrome.TEXT_FAINT if v <= 0 else Chrome.TEXT.lerp(Chrome.TEXT_DIM, float(v - 1) / 3.0)
-			draw_string(font, Vector2(ox + float(i) * col_w, row_y), label, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, tint)
+			draw_string(font, Vector2(edges[i], row_y), label, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, tint)
 
 	if _rows.size() > _visible_rows():
 		draw_string(font, Vector2(GUTTER, size.y - 12.0), "wheel to scroll survivors", HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE, Chrome.TEXT_DIM)

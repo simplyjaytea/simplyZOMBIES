@@ -169,10 +169,18 @@ The old Field Kit implementation remains the current baseline until replaced sli
 The grid-plus-fast-list recommendation is now the owner's decision, and the inventory's own
 look is settled as the Salvage Locker (docs/30, "The inventory's look"; the record's "UI — the
 inventory, redone"), which lands the storage half of the first bullet below: the grids, the
-list, the transfer and the inspect pane's actions. The anatomical diagram, the viewed versus
-acting survivor and the rest of that bullet remain. The illustrative concept's wider treatment
-is still open for feedback. Preserve existing grid capacity and pause behavior by default. The
-following order completes all existing UI, with a useful playable flow first:
+list, the transfer and the inspect pane's actions. Slice 1 (alpha A20, 2026-10-20; the
+record's "UI overhaul, slice 1") lands the bullet's navigation half: one bar over Survivor,
+Colony and Skills on Tab, J and K, the viewed survivor's name with a you or viewing stamp,
+Escape that puts away the one thing in front, the field HUD put away under all three, and a
+picked body region on the existing figure showing its condition and only the care the sim
+would accept. Still open in that bullet: the re-illustrated anatomy, the 1280×720
+section-and-drawer layout, and a viewed-versus-acting split inside the sheet beyond the bar's
+stamp. The Colony and Skills screens' contents are the second bullet's; slice 1 only fits the
+skill web to a 1280×720 window as a stopgap and puts it in the locker's steel. The illustrative
+concept's wider treatment is still open for feedback. Preserve existing grid capacity and pause
+behavior by default. The following order completes all existing UI, with a useful playable flow
+first:
 
 - **Shared frame and the scavenging flow.** Establish the common theme, explicit viewed
   survivor versus acting survivor, screen navigation and input/focus rules. In the same
@@ -2144,6 +2152,104 @@ What landed and what proved it, system by system (condensed from the retired bac
 links in the slice-scope table above are the authority on each). The open tails that used to end
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
+
+- **UI overhaul, slice 1: one bar, care on the figure, the field HUD in the locker, 2026-10-20
+  (alpha A20).** Taken from docs/32's own order: the first bullet of [the UI overhaul
+  group](#ui-overhaul), less the storage half #153 already landed. What changed, all under
+  `godot/ui/` and the two coordinator files:
+  - **One navigation bar** (`ui/nav_bar.gd`). Survivor, Colony and Skills are tabs with their keys
+    on them. Tab, J and K switch in one press and put the screen in front away. The bar names who
+    is being looked at, stamped "you", "viewing" or (on Colony) "everyone", and ends in the kit's
+    close glyph. The sheet draws the same bar in its own title strip. Over Colony and Skills the
+    bar stands alone above the locker's wash, and `main.gd`'s `_show_screen` keeps exactly one
+    screen up.
+  - **Escape and the HUD.** Escape puts away the one thing in front. On the sheet that is a drag,
+    then the item menu, then a picked part, then the sheet. Before, Escape on the sheet or the
+    work grid also raised the settings sheet over it. The field HUD is put away under all three
+    screens, and the street's belt strip under Colony and Skills (the sheet keeps its own belt
+    row); the work grid and the web used to draw over a lit HUD.
+  - **Care on the figure** (`ui/care_pane.gd`). A click on a region of the existing figure picks
+    it: an amber ring on the figure, and the inspect slot shows the part's state words, wound
+    notes and a care row. The figure's hit test reads the same painted chart the figure draws.
+    The care row comes from `SimTreatment.options_for`, the dry run behind command validation:
+    an offered verb is a button that pushes `treat.begin`, a refused one says why in words (no
+    dressing on you, stop the bleeding first), and a running treatment offers only "stop"
+    (`treat.cancel`). No new treatment rule lives in the interface. The list above gives up rows
+    to the pane until every refusal fits, and a refusal too wide for the pane wraps rather than
+    losing its reason. The figure's panel is taped "worn", so it no longer repeats the tab.
+  - **The field HUD's cards, tip and action bar wear the Salvage Locker** (near-opaque steel,
+    tape label, rivets), so the street and the sheet are one kit, and the street's figure sits on
+    a locker card. The action bar names the three screens in one token, "Tab J K screens", so
+    every key still fits at 1280×720 beside an E clause; the F1 legend names each.
+  - **The skill web wears the locker too**, with a tape label that no longer repeats whose web it
+    is (the bar says that), and follows the bar when a colonist is picked while it is up. As a
+    stopgap it is centred under the bar and, on a window shorter than its natural size, the web
+    between its words shrinks to fit: at 1280×720 every node, region word and the footer are on
+    screen. Labels that already crowded each other still do; the reflow is the second bullet's.
+
+  **Not changed:** the sim, the read models, the figure's art, the Colony and Skills screens' own
+  contents, the bans. **Evidence:** `godot:check:play`'s new NAV lane, in the real scene at
+  1280×720: a key walk round all three screens with one screen up, the HUD dark and the belt
+  strip put away under each. A click on the bar's free room does nothing, a tab click switches,
+  close goes to the street and the sheet's own Skills tab reaches Skills. Escape on Colony opens
+  no settings, and on the sheet with a part picked it puts the part down and stops there. The
+  street's swing stays refused under the two new focuses. `godot:check:inventory`'s new CARE
+  lane picks a cut arm at the figure's own point and offers exactly what `options_for` says
+  works, every refusal in words. A press on hold pressure queues the one `treat.begin`, a
+  dressing in the bag makes "dress it" offered, and Escape puts the part down. Its negative is a
+  part with no wound, which offers nothing. `check_ui_skin`'s GLYPHS lane now finds the close
+  glyph's reader in `nav_bar.gd`. `check_shots` gains the care and skills scenes (seven now),
+  set up at 1280×720. `godot:check:play`, `:inventory`, `:hud`, `:respond`, `:appearance`,
+  `:context`, `:web_look`, `:speech`, `:memory`, `:ui_skin`, `:shots`, `godot:ban:healthbar`,
+  `godot:smoke`, `godot:validate`, `check:routing` and `npm test` pass locally. The NAV lane also
+  holds the bar and the web to the same person (you, then a colonist "viewing") and the web
+  inside the 1280×720 window; `godot:check:hud`'s new BAR lane holds the hint to every key at
+  1280×720 beside the trip-alarm clause, its negative a hint one token too long; the CARE lane's
+  FIT holds a refusal whole in a narrow pane. `check_shots` gains colony and viewing (nine
+  scenes). Before and after shots at both windows are in the project's planning files under
+  ui-slice-1, reviewed once by the art QA pass. **Not shown or proven:** a treatment run to its
+  end from the pane, a colonist treated from the pane, the Colony grid's own look (still the old
+  kit), and the speech bubble's style (both the second bullet's).
+
+  **Second review round, on the 2 px art grid.** The art QA pass measured the shots and the
+  fixes landed on this entry. Every locker outline is now inset 2 px fills
+  (`Locker.rim`) instead of a centred stroke, so the care pane's buttons, the active tab and
+  the chips start and end on even pixels; the care button's row is snapped to the grid. Text
+  sits on whole multiples of VT323's pixel: the tab words at 4x on a tall window and 2x on a
+  short one, the care pane's part heading at 2x. The figure on the sheet scales by an even
+  whole number and sits on an even pixel, so at 1920×1080 it is 2x where it was 3x and the
+  picked part's ring no longer has odd edges. The skill web keeps its full width at 1280×720
+  and only its height gives way, its discs sit on even centres and radii, and a label plan tries
+  each name (with a keystone's price) on its home side, then the other, a row or two up or down,
+  keeping 8 px of ink from every other word and off every other disc, so at 1280×720 no name
+  sits on another or under a node; `godot:check:web_look`'s new CROWD lane holds that at both
+  sizes, and its negative is the short web with every name on its home row, which crowds. Its locked ink is raised to (142,136,126), above 4.5:1 on
+  the steel, and its footer legend wraps to two lines instead of ending in "…". The Colony
+  grid sizes each column to its own head plus a 20 px gap and stands against the panel's right
+  edge, so the heads ("Construct") and the taglines get the width the grid used to leave empty,
+  and Scavenge no longer runs into Water; `godot:check:play`'s WORK-LAYOUT lane holds both, at
+  1280×720 and 1920×1080, against the edges the click math reads. The street's figure card
+  lines up with the belt at x 16 and carries a "body" tape like every other HUD card.
+  **Third round.** The web's discs, keystone rings and hub dot are drawn in whole 2×2 art
+  pixels (`web_panel.gd`'s `_blocks`) instead of smooth circles whose 2 px rings landed on odd
+  edges, and its lines are 2 px moved half their width onto even columns;
+  `godot:check:web_look`'s CROWD lane now also holds every disc's box and art pixels to the
+  even grid, refusing the odd box the review measured. Locked ink is (146,140,130), 4.5:1 even
+  on the steel's lighter streak. A "you" card tall enough to reach the street's body card
+  starts right of it and runs down beside the figure, not over it; one that ends above the body
+  card stays at the margin, so at 1920×1080 it does not hang beside an empty strip. The body
+  card ends 4 px short of the action bar. `godot:check:play`'s HUD-CARDS lane holds all of it at
+  1280×720 and 1920×1080 with a one-line and a five-line "you" card, its negative the five-line
+  card with no body card to make room for, which overlaps at 1280×720.
+  **Left for slice 2**, from this slice: the web's dashed lines can start on an odd row, its
+  diagonal lines step a pixel per row rather than in 2×2 blocks, and the region circle's rim is
+  1 px. Each also on main before this slice: VT323's 1 px glyph bearing, which
+  starts the bar's words and the care pane's text a pixel off the grid; the figure's wound dot
+  (a 1 px red rim) and its smooth ground shadow; the keycaps' 1 px outlines and
+  corner steps; text that is not on a whole VT323 multiple (the HUD's "You" and OUTSIDE lines,
+  the tip card, the interior action bar's shrunk labels, the bar's hint and stamps, the web's
+  labels); the inventory's filter chips and the equipped-knife slot off the grid; the interior
+  camera's odd offset; and the bark bubble's old green style and clipped first glyph.
 
 - **UI — the inventory, redone (the Salvage Locker), 2026-10-19.** The owner's answer to the
   alpha plan's Q5: keep the grid, which reads like Tarkov's, but it "looks very plain" and has to
