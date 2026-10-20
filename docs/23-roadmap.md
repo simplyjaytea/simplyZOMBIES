@@ -3113,6 +3113,25 @@ not a to-do list:
   camera's odd x is left as it was (it predates A12). Three pack props join as scenery: the oil barrel, the pallet stack and the
   rubbish bags. The crates, footlockers and medical boxes stay container kinds and stay out.
 
+  **A12's fourth pass** (the coordinator's round-4 send-back, 2026-10-20 08:36): the overlap rule
+  replaces the one-picture-to-a-tile rules. A tile's raw picture is its furnishing, else its nature
+  picture; two pictures whose art rects meet cannot both be drawn, and the lower rank gives way
+  (standing over flat over nature over a scrap), a tie going to the higher hash (`_kept_top`). The
+  large-piece gap rule and the standing-column rule are gone, with the `large` flag they read, which
+  is what had culled the tables and chairs. Picture extents are content (`sizes` in street.json,
+  checked against each authored canvas by OCCUPANCY_OK). Scrap_c is now the pack's paper piece (5x6),
+  and every scrap and picture draws on whole art pixels, so no picture in the shots sits off the art
+  grid. The rubbish bags stand within one tile of a wall or a kerb (`beside: wall` now reads both),
+  and the harness's survivor spots need a free 3x3 ring, so no shot has a picture over the survivor's
+  legs. The rates: the street rolls one paved tile in five and a room one in two, which keeps about
+  one in six of the visible floor. Gates: `godot:check:trees` (OCCUPANCY_OK: 48 raw meetings, none
+  kept, 395 scraps of 2,282 paved tiles, 164 bags; the roll lanes now compare the raw roll and accept
+  the kept pick only as that roll or nothing), `godot:check:wrecks` (SCATTER reads `litter_placed_in`),
+  `godot:check:world_bake`, `godot:check:authored`, `npm test` (the oracle reads the new `sizes` and
+  the removed `large`). Not done: the fridge rolls rarely (1 in 45 indoors and standing), so few shots
+  show one; a room in the 1280 interior is still one in nine, since its furniture holds the litter;
+  the pack has no grass tuft or rug.
+
   **Container kinds are the table's.** `prop.container` gains a top-level `tables` map
   (`prop.schema.json`): residential and commercial containers keep the wood crate, `medical` draws
   `prop.container.medical`, `industrial` and `military_cache` draw `prop.container.metal`, each with
@@ -4730,7 +4749,7 @@ not a to-do list:
   boots and saves by construction. **A12's second pass** replaced the litter scraps: the generated
   `debris_litter_a/b/c` drew specks too small to read at game scale, so they are retired; the pack's
   `overlay-debris` rubble pile is retired too (`debris_litter_pack`), and litter is three scraps cut
-  from it (`debris_scrap_a/b/c`), on 1 in 5 paved floor tiles, room floors included, mirrored and
+  from it (`debris_scrap_a/b/c`), on 1 in 5 paved street tiles and 1 in 2 room tiles (the overlap rule keeps about 1 in 6 of the visible floor), mirrored and
   jittered by a hash. `godot:check:wrecks`'s SCATTER lane holds
   the surface rule and the density ceiling.
   **Gate lanes, red both ways.** `WRECKS_OK`: DRESSING (fabricated key, duplicated key, empty

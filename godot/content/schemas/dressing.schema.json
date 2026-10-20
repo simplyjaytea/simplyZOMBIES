@@ -58,6 +58,16 @@
       "type": "object",
       "description": "Fixed sprite keys for the wall openings a building shell cuts, independent of wall material: `{window, door, garage}`. Optional, and the shallow validator never looks inside it -- it checks only that `faces` itself is an object -- so check_roof_look.gd is what resolves every key it declares and refuses a fabricated one."
     },
+    "sizes": {
+      "type": "object",
+      "description": "Each picture's extent in art pixels, by key: `[w, h]`, one per key a furnishing, nature entry or litter scrap names. The overlap rule (dressing.gd's `_kept_top`) reads them to decide which picture keeps a tile when two would meet, so a picture with no size draws nothing. The shallow validator never looks inside; check_trees.gd checks every size against the key's authored canvas and every named key has one.",
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "items": {"type": "integer", "minimum": 1, "maximum": 64}
+      }
+    },
     "trees": {
       "type": "object",
       "description": "How a Tree tile draws: `tall` is a list of sprite keys, each an authored `tree` (assets/sprites/authored.json) -- the outpost pack's pine, broadleaf and dead tree since 2026-09-26 -- cropped to the pack's anchor row, that presentation/main.gd stands on the trunk tile's south-edge centre and y-sorts with the bodies, picked per tile by a pure hash of the seed and the tile (Dressing.SALT_TREE). A canopy may be wider than the trunk's tile (docs/30, 'The outpost pack, adopted'): the tree fades, never the body. Optional: a block with no trees draws the two procedural discs the tile branch always drew. The shallow validator never looks inside; check_trees.gd resolves every key at its authored canvas and refuses a fabricated one.",
@@ -168,10 +178,6 @@
           "standing": {
             "type": "boolean",
             "description": "Optional true only for a tall inert furnishing drawn in the tree/entity depth sort; absent means the existing flat furnishing pass."
-          },
-          "large": {
-            "type": "boolean",
-            "description": "Optional true for a furnishing wider than a tile in the picture; no other large furnishing may stand on a neighbouring tile (Dressing._gap_free), so large pieces keep a tile of floor between them."
           }
         }
       }
