@@ -15,6 +15,7 @@ const Clock = preload("res://sim/time/clock.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimSurface = preload("res://sim/map/surface.gd")
 const Dressing = preload("res://presentation/dressing.gd")
+const SimBootRes = preload("res://sim/boot.gd")
 
 const SCENE_PATH: String = "res://presentation/main.tscn"
 # The two windows the game supports: check_play's WORK-LAYOUT lane lays out at both.
@@ -36,10 +37,19 @@ const SEARCH_TILES: int = 80
 # clear seven-tile square round the survivor is not on every block.
 const INTERIOR_SEARCH_TILES: int = 256
 # How far, in tiles (Chebyshev), a shot's survivor stands from any dressing picture. A room shot
-# takes the clearest spot its rooms offer, which may be less (`_interior_spot`).
+# takes the clearest spot its rooms offer, down to one tile, so that it can show a counter
+# (`_interior_spot`).
 const SPOT_CLEAR: int = 3
-# The share of a room shot's window, in percent, that has to be indoor floor to count as a room.
-const ROOM_SHARE: int = 30
+# The share of a room shot's window, in percent, that has to be indoor floor to count as a room: a
+# sixth or so, since the district's houses are small and the rooms that keep a counter (a table
+# against a plain north wall) are their kitchens, which fill about that much of the window.
+const ROOM_SHARE: int = 15
+# A room shot's score for showing a table against a north wall, the counter the pack has none of.
+const INTERIOR_COUNTER_BONUS: int = 6
+const COUNTER_KEY: String = "prop_table"
+# How far from the survivor a counter earns its bonus: the middle of the smaller window, clear of the
+# HUD's corner panels, so the counter the score chose is one the 1280 shot shows.
+const COUNTER_HALF: Vector2i = Vector2i(7, 3)
 
 # The street a day shot wants: a window the size of the 1280x720 view (20 x 11 tiles at 64 px a
 # tile, centred on the body), and the share of it that has to be paved outdoor street for the spot
@@ -71,6 +81,14 @@ static func boot(tree: SceneTree) -> Node:
 	if legend != null and bool((legend as CanvasItem).visible):
 		press(tree, KEY_ESCAPE)
 		await tree.process_frame
+	# The first-day hints are a player's, not a picture's: a hint card over the middle of a shot hides
+	# what the review came to judge. Every hint is marked told, so none comes due.
+	var session: Variant = main.get("session")
+	if session != null and session.get("onboarding") != null:
+		var hints: Variant = session.get("onboarding")
+		for id in hints.ORDER:
+			hints.seen[id] = true
+		hints.dismiss()
 	main.set("accumulator", 0.0)
 	return main
 
@@ -195,15 +213,20 @@ static func _outdoor_paved(map: Variant, at: Vector2i) -> bool:
 		and int(map.surfaces[idx]) == SimSurface.Surface.Paved
 
 
-## The open paved street tile nearest the body whose surroundings are mostly street: the first
-## candidate, out to SEARCH_TILES, that has at least STREET_SHARE of its STREET_WINDOW paved outdoor
-## tiles; failing that, the candidate with the most. Open means outdoor paved on all four sides, so
-## the shot sees street and not a kerb. Its centre, or (-1, -1) when the search finds none.
+## The open paved street tile a day shot stands on: open (outdoor paved on all four sides, so the shot
+## sees street and not a kerb), no furniture or sim object within SPOT_CLEAR tiles, and at least
+## STREET_SHARE of its STREET_WINDOW paved outdoor tiles. Of those, out to SEARCH_TILES, the one with
+## the fewest scraps within SPOT_CLEAR, the nearest ring first on a tie: the street deals a scrap to
+## about one paved tile in five and a half, evenly block by block, so a seven-tile square with none
+## is all but absent and the scraps are weighed rather than refused, as a room shot weighs them.
+## Failing a candidate that much street, the one with the most. Its centre, or (-1, -1) for none.
 static func _street_spot(world: Variant) -> Vector2:
 	var from: Vector2i = _tile_under_player(world)
 	var occ: Dictionary = _spot_occupancy(world)
 	var best := Vector2(-1.0, -1.0)
 	var best_count: int = -1
+	var street := Vector2(-1.0, -1.0)
+	var fewest: int = 1 << 30
 	for ring in range(1, SEARCH_TILES + 1):
 		for dy in range(-ring, ring + 1):
 			for dx in range(-ring, ring + 1):
@@ -219,15 +242,21 @@ static func _street_spot(world: Variant) -> Vector2:
 						break
 				if not open:
 					continue
-				if not _ring_free(occ, t) or not _held_free(occ, t):
+				if not Dressing.clear_around(occ, t.x, t.y, SPOT_CLEAR, false) or not _held_free(occ, t):
 					continue
+				var centre := Vector2(float(t.x) + 0.5, float(t.y) + 0.5)
 				var count: int = _street_count(world.tilemap, t)
 				if count * 100 >= STREET_SHARE * STREET_WINDOW_AREA:
-					return Vector2(float(t.x) + 0.5, float(t.y) + 0.5)
+					var scraps: int = _scraps_near(occ, t)
+					if scraps < fewest:
+						fewest = scraps
+						street = centre
+						if scraps == 0:
+							return street
 				if count > best_count:
 					best_count = count
-					best = Vector2(float(t.x) + 0.5, float(t.y) + 0.5)
-	return best
+					best = centre
+	return street if street.x >= 0.0 else best
 
 
 ## How many outdoor paved tiles lie in the STREET_WINDOW box centred on `at`: the share of the
@@ -248,13 +277,14 @@ static func _ring_free(occ: Dictionary, at: Vector2i, radius: int = SPOT_CLEAR) 
 	return Dressing.clear_around(occ, at.x, at.y, radius)
 
 
-## Whether no tile within SPOT_CLEAR tiles of `at` holds a sim object -- a parked car, a heap, a tree,
+## Whether no tile within `radius` tiles of `at` holds a sim object -- a parked car, a heap, a tree,
 ## a prop: a street shot with a wreck beside the survivor shows the wreck, not the street. Room shots
-## do not ask, because the colony's own beds and fire stand in the clearing a room shot finds.
-static func _held_free(occ: Dictionary, at: Vector2i) -> bool:
+## ask only at radius 1, so the survivor never stands on a chest while the room's own props still
+## show around them.
+static func _held_free(occ: Dictionary, at: Vector2i, radius: int = SPOT_CLEAR) -> bool:
 	var map: Variant = occ["map"]
-	for dy in range(-SPOT_CLEAR - 1, SPOT_CLEAR + 2):
-		for dx in range(-SPOT_CLEAR, SPOT_CLEAR + 1):
+	for dy in range(-radius - 1, radius + 2):
+		for dx in range(-radius, radius + 1):
 			var x: int = at.x + dx
 			var y: int = at.y + dy
 			if x < 0 or y < 0 or x >= int(map.w) or y >= int(map.h):
@@ -270,18 +300,120 @@ static func _spot_occupancy(world: Variant) -> Dictionary:
 
 
 ## The indoor floor tile a room shot stands on: walkable, in a room of at least ROOM_SHARE percent of
-## the STREET_WINDOW, and SPOT_CLEAR tiles from any dressing picture. A furnished room has no clear
-## seven-tile square of its own (litter alone, one tile in six, leaves one about once in ten thousand
-## squares, and the density rule asks for no empty floor block over six), so the square a room shot
-## finds is the colony's clearing -- the hall the body wakes in, with the clearing round it and the
-## hall furnished beyond. The search starts on the body's own tile and walks as far as
-## INTERIOR_SEARCH_TILES; failing a clear square it takes the clearest spot the rooms have, one tile
-## fewer at a time. Nearest by Chebyshev ring within each radius, so the answer is the same on every
-## run from the same seed; failing a room that large, the candidate in the biggest room. Its centre,
-## or (-1, -1) for none.
+## the STREET_WINDOW and not the colony's hall (the combat shot already stands there, in the start's
+## clearing), with no furniture within SPOT_CLEAR tiles, else within one or two tiles fewer: the
+## district's houses are small, and once their walls take their pieces a seven-tile square of bare
+## floor outside the hall is all but absent. No sim object stands on the tile or the tiles north and
+## south of it (`_held_free` at radius 0), and no scrap reaches the tile itself, so the survivor never
+## stands on a chest or a scrap. Of those, one with a counter within COUNTER_HALF in its own room
+## first (`_counter_near`: the review asks the room shot to show one), then the clearest, then the
+## one whose shot shows the most: the furnished pictures on its own room's floor in the STREET_WINDOW
+## round it, one more for each kind, and INTERIOR_COUNTER_BONUS for a counter, less the scraps within
+## SPOT_CLEAR (a furnished room seldom has a seven-tile square with no scrap either, so the scraps
+## are weighed rather than refused). Ties go to the nearest by Chebyshev ring from the body, then the
+## first in row order, so the answer is the same on every run from the same seed. Failing any, the
+## clearest candidate the old way (`_clearest_room_spot`). Its centre, or (-1, -1) for none.
 static func _interior_spot(world: Variant) -> Vector2:
 	var from: Vector2i = _tile_under_player(world)
 	var occ: Dictionary = _spot_occupancy(world)
+	var map: Variant = world.tilemap
+	var start: Vector2i = SimBootRes.colony_start(map)
+	var hall: int = Dressing._room_of(occ, map, start.x, start.y)
+	var best := Vector2(-1.0, -1.0)
+	var best_key: Array = []
+	for ty in range(maxi(0, from.y - INTERIOR_SEARCH_TILES), mini(int(map.h), from.y + INTERIOR_SEARCH_TILES + 1)):
+		for tx in range(maxi(0, from.x - INTERIOR_SEARCH_TILES), mini(int(map.w), from.x + INTERIOR_SEARCH_TILES + 1)):
+			var t := Vector2i(tx, ty)
+			if SimTileMap.tile_at(map, t.x, t.y) != SimTileMap.Tile.Floor:
+				continue
+			if world.is_blocked_tile(t.x, t.y) or not SimTileMap.is_indoors(map, t.x, t.y):
+				continue
+			if Dressing._room_of(occ, map, t.x, t.y) == hall or not _held_free(occ, t, 0):
+				continue
+			var radius: int = 0
+			for r in [SPOT_CLEAR, SPOT_CLEAR - 1, SPOT_CLEAR - 2]:
+				if Dressing.clear_around(occ, t.x, t.y, r, false):
+					radius = r
+					break
+			if radius == 0 or not Dressing.clear_around(occ, t.x, t.y, 0):
+				continue
+			if _room_count(map, t) * 100 < ROOM_SHARE * STREET_WINDOW_AREA:
+				continue
+			var counter: bool = _counter_near(occ, map, t)
+			var score: int = _shot_score(occ, map, t)
+			var ring: int = maxi(absi(t.x - from.x), absi(t.y - from.y))
+			var key: Array = [1 if counter else 0, radius, score, -ring]
+			if best_key.is_empty() or key > best_key:
+				best_key = key
+				best = Vector2(float(t.x) + 0.5, float(t.y) + 0.5)
+	if best.x >= 0.0:
+		return best
+	return _clearest_room_spot(world, occ, from)
+
+
+## What a room shot centred on `at` shows: one for each furnished picture on the floor of its own room
+## in the STREET_WINDOW (the walls hide the rooms behind them), one for each kind of them,
+## INTERIOR_COUNTER_BONUS when one is a table against a north wall (a counter), less one for each
+## scrap within SPOT_CLEAR tiles.
+static func _shot_score(occ: Dictionary, map: Variant, at: Vector2i) -> int:
+	var pieces: int = 0
+	var kinds: Dictionary = {}
+	var counter: bool = false
+	var room: int = Dressing._room_of(occ, map, at.x, at.y)
+	for dy in range(-STREET_WINDOW_HALF.y, STREET_WINDOW_HALF.y + 1):
+		for dx in range(-STREET_WINDOW_HALF.x, STREET_WINDOW_HALF.x + 1):
+			var x: int = at.x + dx
+			var y: int = at.y + dy
+			if Dressing._room_of(occ, map, x, y) != room:
+				continue
+			var top: Dictionary = Dressing._kept_top(occ, map, x, y)
+			if top.is_empty() or int(top["rank"]) == Dressing.RANK_HELD:
+				continue
+			pieces += 1
+			kinds[String(top["key"])] = true
+			if absi(dx) <= COUNTER_HALF.x and absi(dy) <= COUNTER_HALF.y and _is_counter(occ, map, x, y):
+				counter = true
+	return pieces + kinds.size() + (INTERIOR_COUNTER_BONUS if counter else 0) - _scraps_near(occ, at)
+
+
+## Whether a room shot centred on `at` shows a counter within COUNTER_HALF of the survivor, in the
+## survivor's own room (a counter behind a wall is on a tile the survivor does not see).
+static func _counter_near(occ: Dictionary, map: Variant, at: Vector2i) -> bool:
+	var room: int = Dressing._room_of(occ, map, at.x, at.y)
+	for dy in range(-COUNTER_HALF.y, COUNTER_HALF.y + 1):
+		for dx in range(-COUNTER_HALF.x, COUNTER_HALF.x + 1):
+			if Dressing._room_of(occ, map, at.x + dx, at.y + dy) == room and _is_counter(occ, map, at.x + dx, at.y + dy):
+				return true
+	return false
+
+
+## Whether (x, y) keeps a table standing in for a counter: a plain wall north of it, and no window
+## on the wall either side, so the counter is never read as a table pushed under a pane.
+static func _is_counter(occ: Dictionary, map: Variant, x: int, y: int) -> bool:
+	if not Dressing._wall_at(map, x, y - 1):
+		return false
+	for side in [-1, 1]:
+		if SimTileMap.tile_at(map, x + side, y - 1) == SimTileMap.Tile.Window:
+			return false
+	var top: Dictionary = Dressing._kept_top(occ, map, x, y)
+	return not top.is_empty() and String(top["key"]) == COUNTER_KEY
+
+
+## How many tiles within SPOT_CLEAR of `at` keep a scrap of litter.
+static func _scraps_near(occ: Dictionary, at: Vector2i) -> int:
+	var map: Variant = occ["map"]
+	var scraps: int = 0
+	for dy in range(-SPOT_CLEAR, SPOT_CLEAR + 1):
+		for dx in range(-SPOT_CLEAR, SPOT_CLEAR + 1):
+			if not Dressing._kept_litter(occ, map, at.x + dx, at.y + dy).is_empty():
+				scraps += 1
+	return scraps
+
+
+## The fallback room spot: the nearest candidate in a room of ROOM_SHARE that is clear of every
+## picture within SPOT_CLEAR tiles, else within one fewer, down to a tile; failing a room that large,
+## the candidate in the biggest room.
+static func _clearest_room_spot(world: Variant, occ: Dictionary, from: Vector2i) -> Vector2:
 	var best := Vector2(-1.0, -1.0)
 	var best_count: int = -1
 	var by_radius: Dictionary = {}

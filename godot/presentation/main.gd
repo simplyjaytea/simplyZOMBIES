@@ -1862,7 +1862,11 @@ func _draw_litter(placed: Dictionary) -> void:
 	if texture == null:
 		return
 	var at: Rect2 = _placed_rect(placed, texture.get_size(), Appearance.blit_scale(float(camera["zoom"])))
-	_pen.draw_texture_rect(texture, _mirrored(at, bool(placed["flip"])), false)
+	var drawn: Rect2 = _mirrored(at, bool(placed["flip"]))
+	# A half turn on top of the mirror: a negative height flips in place, as a negative width does.
+	if bool(placed.get("flip_v", false)):
+		drawn = Rect2(drawn.position.x, drawn.position.y, drawn.size.x, -drawn.size.y)
+	_pen.draw_texture_rect(texture, drawn, false, placed.get("tint", Color.WHITE) as Color)
 
 
 func _mask_at(mask: PackedByteArray, tx: int, ty: int) -> int:

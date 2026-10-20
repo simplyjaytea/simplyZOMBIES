@@ -49,15 +49,17 @@ const RoadPaint = preload("res://presentation/road_paint.gd")
 # same rule PROP_KINDS and PLAYER_LOOK_ID follow.
 const BLOCK_ID: String = "dressing.street"
 
-# A scrap's roll is out of LITTER_SPAN on the street and LITTER_SPAN_INDOORS in a room, and lands
-# under the tile's litter weight (`_litter_weight`: in a room one to six, by its block's clutter and
-# its walls; on the street nought in a clean block and two to four in the rest), so scraps gather a
-# little along walls and kerbs and in the cluttered blocks -- a gradient, not the clumps the
-# furnishings' weight (nought to twelve) laid down when the scrap shared it. It was 1 in 17, evenly, until the
-# A12 density slice, whose before shots read as bare street. Set so the kept rate lands near 1 in 6
-# of the visible floor as A12's measure counts it. Measured, not a reference.
-const LITTER_SPAN: int = 11
-const LITTER_SPAN_INDOORS: int = 17
+# Scraps are dealt by block (`_block_litter`): the floor is cut into LITTER_BLOCK-square blocks, and
+# each block takes one scrap per LITTER_TENTHS / 10 of its paved floor, the street's and a room's
+# counted apart. The tile's litter weight (`_litter_weight`: its block's clutter and its walls and
+# kerbs) only says which of a block's tiles take them, so the floor keeps its gradient toward kerbs
+# and walls without the clumps and the bare stretches a per-tile roll laid down (A12's round-2 review
+# counted 1 in 4.4 on one side of a street and 1 in 12 on the other, and a small room, all edge, ran
+# at 1 in 3.6). It was 1 in 17, evenly, until the A12 density slice, whose before shots read as bare
+# street. Set so the kept rate lands near 1 in 6 of the visible floor as A12's measure counts it.
+# Measured, not a reference.
+const LITTER_BLOCK: int = 6
+const LITTER_TENTHS: int = 55
 
 # Hash salts, one per independent decision, so two choices about the same tile cannot correlate.
 # Which heap picture an uncovered Low tile takes out of the block's `heaps` list.
@@ -74,6 +76,11 @@ const SALT_VEHICLE: int = 7
 # Which way a scrap of litter faces, and which way a flat picture is mirrored: its own salts, so
 # a flip cannot correlate with the roll that placed the picture.
 const SALT_LITTER_FLIP: int = 11
+# Whether a scrap is also turned top to bottom (a half turn, with the mirror), and which of the
+# block's `litter_tints` it takes: the pack draws one crumpled paper, so a street of it is a street
+# of one stamp unless its turns and its grime vary.
+const SALT_LITTER_FLIP_V: int = 14
+const SALT_LITTER_TINT: int = 15
 const SALT_FLIP: int = 402
 
 # Which tile keeps a picture where two would meet (the overlap rule, `_kept_top`): one rank per kind
@@ -707,8 +714,8 @@ const GROUP_SEAT: int = 2
 # A wall run's segment, in tiles: shelves stand together along this much of a wall.
 const RUN_TILES: int = 4
 # How many tiles of a cell are tried for its table, and one cell in CELL_SKIP stands none.
-const CELL_CANDIDATES: int = 4
-const CELL_SKIP: int = 7
+const CELL_CANDIDATES: int = 6
+const CELL_SKIP: int = 12
 # The outdoor weighting: a block of the street is CLUTTER_BLOCK tiles square, and its clutter is one of
 # CLUTTER_WEIGHTS by a hash of the block; an edge tile weighs EDGE_WEIGHT times an open one, and the
 # roll is out of `rarity * WEIGHT_DEN`, so the average tile of a street lands near one in `rarity`.
@@ -720,8 +727,9 @@ const WEIGHT_DEN: int = 4
 # hash of the row), and only one hashed tile of each may take a cluster pick, so the junk along a
 # sidewalk gathers in knots with gaps rather than standing in a picket line.
 const SPACING_TILES: int = 3
-# One table in PAIR_ODDS stands with a second pushed against its east end, a long table of two.
-const PAIR_ODDS: int = 2
+# One table in PAIR_ODDS stands alone; the rest stand with a second pushed against their east end, a
+# long table of two, wherever the tile east of them has room.
+const PAIR_ODDS: int = 4
 # A paired table's two halves sit this many art pixels west and east of their tiles' centre lines,
 # so two 40-pixel tables in neighbouring tiles meet edge to edge and never overlap.
 const PAIR_SHIFT: int = 4
@@ -742,6 +750,9 @@ const SALT_PAIR: int = 600
 const SALT_SPACE: int = 620
 const SALT_SPACE_OFFSET: int = 621
 const SALT_ROOM: int = 700
+const SALT_LITTER_BLOCK: int = 640
+const SALT_LITTER_BLOCK_OFFSET: int = 641
+const SALT_LITTER_ROOM: int = 642
 
 # The four sides of a table, in the order a seat mask's bits name them: north, east, south, west.
 const SIDES: Array[Vector2i] = [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]
@@ -961,9 +972,10 @@ static func _litter_weight(map: Variant, seed_term: int, tx: int, ty: int, road:
 	return 1 + mini(clutter, 2) + edge
 
 
-# An outdoor tile's weight for the street rolls: EDGE_WEIGHT at an edge, times its block's clutter.
+# An outdoor tile's weight for the street rolls: EDGE_WEIGHT at an edge, times its block's clutter,
+# never under one -- a clean block thins the street's junk, it does not empty a whole row of it.
 static func _weight(map: Variant, seed_term: int, tx: int, ty: int, road: PackedByteArray = PackedByteArray()) -> int:
-	return (EDGE_WEIGHT if _edge_at(map, tx, ty, road) else 1) * _clutter(seed_term, tx, ty)
+	return (EDGE_WEIGHT if _edge_at(map, tx, ty, road) else 1) * maxi(1, _clutter(seed_term, tx, ty))
 
 
 # Whether a weighted roll lands: `roll` out of `rarity * WEIGHT_DEN`, under the weight. A weight that
@@ -1235,7 +1247,14 @@ static func _anchor_fits(occ: Dictionary, map: Variant, entry: Array, tx: int, t
 				return false
 	if (int(entry[FE_MASK]) >> int(SimSurface.surface_at(map, tx, ty))) & 1 == 0:
 		return false
-	var off: Vector2i = _table_offsets(int(occ["seed_term"]), tx, ty)
+	# A wall piece or any plain pick beside it would outrank or crowd the table and leave its chairs
+	# round nothing, so a table stands where its eight neighbours roll no plain picture.
+	var seed_term: int = int(occ["seed_term"])
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			if (dx != 0 or dy != 0) and not _furnishing_raw(occ["furnish"], map, seed_term, tx + dx, ty + dy, occ["clear"], occ["road"], occ).is_empty():
+				return false
+	var off: Vector2i = _table_offsets(seed_term, tx, ty)
 	var rect: Rect2i = _art_rect(entry[FE_EXTENT], off.x, off.y)
 	# A pair's halves sit PAIR_SHIFT either way of these offsets, so the clearing is judged on both.
 	if _reaches_clear(occ["clear"] as Rect2i, rect.grow_individual(PAIR_SHIFT, 0, PAIR_SHIFT, 0), tx, ty):
@@ -1285,23 +1304,25 @@ const PAIR_SEATS: Array = [[Vector2i(0, -1), 0, 0], [Vector2i(1, -1), 0, 1], [Ve
 const SEATS_MAX: int = 3
 
 
-# Which of a table's `count` seats take a chair, as a mask: each one in `rarity`, then held to between
-# one and SEATS_MAX by one more hash each way.
+# Which of a table's `count` seats take a chair, as a mask: one to SEATS_MAX of them, as many by one
+# hash and starting from a seat named by another, every other seat round the table after it -- so
+# the sets differ in how many sit and on which side. `rarity` is the seat entry's, and one set in
+# `rarity` seats exactly one.
 static func _seat_slots(seed_term: int, ax: int, ay: int, rarity: int, count: int) -> int:
+	var most: int = mini(SEATS_MAX, count)
+	var taken: int = 1
+	if _mix(_hash_t(seed_term, ax, ay, SALT_SEAT)) % rarity != 0:
+		taken = 2 + _mix(_hash_t(seed_term, ax, ay, SALT_SEAT + 1)) % maxi(1, most - 1)
+	taken = mini(taken, most)
+	var start: int = _mix(_hash_t(seed_term, ax, ay, SALT_SEAT + 2)) % count
+	var step: int = 1 if count % 2 == 0 or _mix(_hash_t(seed_term, ax, ay, SALT_SEAT + 3)) % 2 == 0 else 2
 	var slots: int = 0
-	var taken: int = 0
-	for i in count:
-		if _mix(_hash_t(seed_term, ax, ay, SALT_SEAT + i)) % rarity == 0:
-			slots |= 1 << i
-			taken += 1
-	var extra: int = _mix(_hash_t(seed_term, ax, ay, SALT_SEAT + PAIR_SEATS.size())) % count
-	if taken == 0:
-		slots = 1 << extra
-	while taken > SEATS_MAX:
-		if (slots >> extra) & 1 == 1:
-			slots &= ~(1 << extra)
+	var at: int = start
+	while taken > 0:
+		if (slots >> at) & 1 == 0:
+			slots |= 1 << at
 			taken -= 1
-		extra = (extra + 1) % count
+		at = (at + step) % count
 	return slots
 
 
@@ -1310,7 +1331,7 @@ static func _seat_slots(seed_term: int, ax: int, ay: int, rarity: int, count: in
 # table stands beside that east half, so both halves have room round them and the long table never
 # touches a second one.
 static func _is_pair(occ: Dictionary, map: Variant, table: Array, ax: int, ay: int) -> bool:
-	if _mix(_hash_t(int(occ["seed_term"]), ax, ay, SALT_PAIR + int(table[FE_INDEX]))) % PAIR_ODDS != 0:
+	if _mix(_hash_t(int(occ["seed_term"]), ax, ay, SALT_PAIR + int(table[FE_INDEX]))) % PAIR_ODDS == 0:
 		return false
 	if not _anchor_fits(occ, map, table, ax + 1, ay):
 		return false
@@ -1343,25 +1364,31 @@ static func _seat_offsets(seed_term: int, tx: int, ty: int, side: int, seat: Vec
 	var along: int = _mix(_hash_t(seed_term, tx, ty, SALT_SEAT_OFFSET + 1))
 	var ox: int = 0
 	var oy: int = 0
+	# The flush offset first, then `away` further off the table only as far as the chair's own range
+	# allows: a chair beside the long end of a pair has no room to spare, and sits flush.
 	match side:
 		0, 2:
 			ox = clampi(t_off.x + along % 5 - 2, rx.x, rx.y)
 			if side == 0:
 				# The chair's base on or above the table's top: oy <= t_rect top, in the table's frame.
-				oy = mini(t_rect.position.y, ry.y) - away
+				oy = mini(t_rect.position.y, ry.y)
+				oy = maxi(oy - away, mini(oy, ry.x))
 			else:
 				# The chair's top on or below the table's base: 32 + (32 + oy - h) >= t_rect end.
-				oy = maxi(t_rect.end.y - 2 * ART_PER_TILE + seat.y, ry.x) + away
+				oy = maxi(t_rect.end.y - 2 * ART_PER_TILE + seat.y, ry.x)
+				oy = mini(oy + away, maxi(oy, ry.y))
 			if oy < ry.x or oy > ry.y:
 				return Vector2i(-99, -99)
 		1, 3:
 			oy = _pick_in(ry, along)
 			if side == 1:
 				# The chair's left on or past the table's right: 32 + 16 + ox - w/2 >= t_rect end.
-				ox = maxi(t_rect.end.x - ART_PER_TILE - (ART_PER_TILE >> 1) + (seat.x >> 1), rx.x) + away
+				ox = maxi(t_rect.end.x - ART_PER_TILE - (ART_PER_TILE >> 1) + (seat.x >> 1), rx.x)
+				ox = mini(ox + away, maxi(ox, rx.y))
 			else:
 				# The chair's right on or before the table's left: -32 + 16 + ox - w/2 + w <= t_rect left.
-				ox = mini(t_rect.position.x + ART_PER_TILE - (ART_PER_TILE >> 1) + (seat.x >> 1) - seat.x, rx.y) - away
+				ox = mini(t_rect.position.x + ART_PER_TILE - (ART_PER_TILE >> 1) + (seat.x >> 1) - seat.x, rx.y)
+				ox = maxi(ox - away, mini(ox, rx.x))
 			if ox < rx.x or ox > rx.y:
 				return Vector2i(-99, -99)
 	return Vector2i(ox, oy)
@@ -1428,7 +1455,8 @@ static func _group_top(occ: Dictionary, map: Variant, tx: int, ty: int) -> Dicti
 					# A chair between two tables a tile apart would sit with its back to the north one.
 					if _table_on(occ, map, table as Array, tx, ty - 1):
 						continue
-					return {"key": String(seat[FE_KEY]), "rank": RANK_FLAT, "prio": 1, "ox": off.x, "oy": off.y, "flip": flip_at(seed_val, tx, ty, SALT_FLIP)}
+					var faces := Vector2i(ax + int((seats[slot] as Array)[2]), ay)
+					return {"key": String(seat[FE_KEY]), "rank": RANK_FLAT, "prio": 1, "ox": off.x, "oy": off.y, "flip": flip_at(seed_val, tx, ty, SALT_FLIP), "table": faces}
 	return {}
 
 
@@ -1469,6 +1497,21 @@ static func _sizes(block: Dictionary) -> Dictionary:
 
 # The block's `litter` keys that have a size, in list order: the only scraps a tile can draw. A key
 # listed twice is twice as likely.
+# The block's `litter_tints` as colours, or one plain white when it names none. A tint is a modulate
+# over the scrap's picture; listing white more than once makes the others rarer.
+static func _litter_tints(block: Dictionary) -> Array:
+	var out: Array = []
+	var listed: Variant = block.get("litter_tints")
+	if listed is Array:
+		for raw in listed as Array:
+			var text: String = String(raw)
+			if text.length() == 7 and text.begins_with("#") and text.substr(1).is_valid_hex_number():
+				out.append(Color(text))
+	if out.is_empty():
+		out.append(Color.WHITE)
+	return out
+
+
 static func _litter_keys(block: Dictionary) -> Array:
 	var out: Array = []
 	var sizes: Dictionary = _sizes(block)
@@ -1494,7 +1537,7 @@ static func occupancy(block: Dictionary, map: Variant, seed_val: int, props: Dic
 	for entry in furnish:
 		if int(entry[FE_GROUP]) == GROUP_TABLE:
 			tables.append(entry)
-	return {"map": map, "furnish": furnish, "tables": tables, "nature": _nature_entries(block), "litter": _litter_keys(block), "sizes": _sizes(block), "seed": seed_val, "seed_term": seed_val * _HASH_SEED, "clear": _clear_of(map), "road": RoadPaint.mask_for(map), "props": props, "memo": {}, "cells": {}, "rooms": {}, "room_tiles": [], "room_picks": {}}
+	return {"map": map, "furnish": furnish, "tables": tables, "nature": _nature_entries(block), "litter": _litter_keys(block), "litter_tints": _litter_tints(block), "sizes": _sizes(block), "seed": seed_val, "seed_term": seed_val * _HASH_SEED, "clear": _clear_of(map), "road": RoadPaint.mask_for(map), "props": props, "memo": {}, "cells": {}, "rooms": {}, "room_tiles": [], "room_picks": {}, "litter_blocks": {}}
 
 
 # The rect a sim object holds on its tile, in that tile's art frame, or null: a prop `occupancy` was
@@ -1674,6 +1717,19 @@ static func _beats(occ: Dictionary, other: Dictionary, nx: int, ny: int, mine: D
 # unless an overlapping neighbour's raw top beats it. A held tile keeps its hold, which has no key and
 # draws nothing here.
 static func _kept_top(occ: Dictionary, map: Variant, tx: int, ty: int) -> Dictionary:
+	var top: Dictionary = _kept_alone(occ, map, tx, ty)
+	# A chair is kept only beside its own table: where the overlap rule dropped the table (or the
+	# half of a pair it faces), the chair would stand alone or catty-corner to the other half.
+	if top.has("table"):
+		var at: Vector2i = top["table"]
+		var table: Dictionary = _kept_alone(occ, map, at.x, at.y)
+		if table.is_empty() or int(table.get("prio", 0)) != 2:
+			return {}
+	return top
+
+
+# A tile's raw top as the overlap rule alone keeps it, before a chair asks after its table.
+static func _kept_alone(occ: Dictionary, map: Variant, tx: int, ty: int) -> Dictionary:
 	var top: Dictionary = _raw_top(occ, map, tx, ty)
 	if top.is_empty() or int(top["rank"]) == RANK_HELD:
 		return top
@@ -1700,10 +1756,8 @@ static func _kept_key(occ: Dictionary, map: Variant, tx: int, ty: int, lowest: i
 	return String(top["key"])
 
 
-# The roll for a scrap of litter on one tile, or "": paved floor outside the clearing, then a roll
-# out of LITTER_SPAN (LITTER_SPAN_INDOORS in a room) under the tile's litter weight
-# (`_litter_weight`) -- scraps gather a little along walls and kerbs and in the cluttered blocks --
-# and then a scrap of the list by its own hash.
+# The roll for a scrap of litter on one tile, or "": paved floor outside the clearing that its block
+# deals a scrap to (`_block_litter`), and then a scrap of the list by its own hash.
 static func _litter_raw(occ: Dictionary, map: Variant, tx: int, ty: int) -> String:
 	if not _paved_floor(map, tx, ty) or (occ["clear"] as Rect2i).has_point(Vector2i(tx, ty)):
 		return ""
@@ -1711,12 +1765,47 @@ static func _litter_raw(occ: Dictionary, map: Variant, tx: int, ty: int) -> Stri
 	if keys.is_empty():
 		return ""
 	var seed_val: int = int(occ["seed"])
-	var seed_term: int = int(occ["seed_term"])
-	var indoors: bool = int(map.indoors[ty * int(map.w) + tx]) == 1
-	var span: int = LITTER_SPAN_INDOORS if indoors else LITTER_SPAN
-	if not _hit_in(_mix(hash_at(seed_val, tx, ty, SALT_LITTER_PICK)), span, _litter_weight(map, seed_term, tx, ty, occ["road"])):
+	if not _block_litter(occ, map, tx, ty, int(map.indoors[ty * int(map.w) + tx]) == 1):
 		return ""
 	return String(keys[variant_index(seed_val, tx, ty, SALT_LITTER_KEY, keys.size())])
+
+
+# Whether a paved tile is one its block deals a scrap to. The floor is cut into LITTER_BLOCK-square
+# blocks on a grid moved by the seed; a block's paved floor on the tile's side of the walls, outside
+# the clearing, takes `(floor * 10 + jitter) / LITTER_TENTHS` scraps (the jitter, a hash of the block
+# under LITTER_TENTHS, rounds the share up or down evenly), and they go to the tiles whose pick hash,
+# divided by one plus the tile's litter weight, is lowest -- the kerbs, the walls and the cluttered
+# blocks first. A block's street and its rooms are dealt apart, so a room beside a busy street takes
+# its own share. Memoised per block and side in `occ`.
+static func _block_litter(occ: Dictionary, map: Variant, tx: int, ty: int, indoors: bool) -> bool:
+	var seed_val: int = int(occ["seed"])
+	var seed_term: int = int(occ["seed_term"])
+	var shift: int = _mix(_hash_t(seed_term, 0, 0, SALT_LITTER_BLOCK_OFFSET))
+	var ox: int = shift % LITTER_BLOCK
+	var oy: int = (shift >> 8) % LITTER_BLOCK
+	var side: int = 1 if indoors else 0
+	var block := Vector3i(floori(float(tx + ox) / float(LITTER_BLOCK)), floori(float(ty + oy) / float(LITTER_BLOCK)), side)
+	var memo: Dictionary = occ["litter_blocks"]
+	if not memo.has(block):
+		var clear: Rect2i = occ["clear"]
+		var road: PackedByteArray = occ["road"]
+		var ranked: Array = []
+		for dy in LITTER_BLOCK:
+			for dx in LITTER_BLOCK:
+				var cx: int = block.x * LITTER_BLOCK - ox + dx
+				var cy: int = block.y * LITTER_BLOCK - oy + dy
+				if not _paved_floor(map, cx, cy) or int(map.indoors[cy * int(map.w) + cx]) != side or clear.has_point(Vector2i(cx, cy)):
+					continue
+				var score: int = floori(float(_mix(hash_at(seed_val, cx, cy, SALT_LITTER_PICK))) / float(1 + _litter_weight(map, seed_term, cx, cy, road)))
+				ranked.append([score, cy * int(map.w) + cx])
+		ranked.sort_custom(func(p: Array, q: Array) -> bool: return int(p[0]) < int(q[0]) or (int(p[0]) == int(q[0]) and int(p[1]) < int(q[1])))
+		var jitter: int = _mix(_hash_t(seed_term, block.x, block.y, SALT_LITTER_ROOM if indoors else SALT_LITTER_BLOCK)) % LITTER_TENTHS
+		var quota: int = floori(float(ranked.size() * 10 + jitter) / float(LITTER_TENTHS))
+		var dealt: Dictionary = {}
+		for i in mini(quota, ranked.size()):
+			dealt[int((ranked[i] as Array)[1])] = true
+		memo[block] = dealt
+	return (memo[block] as Dictionary).has(ty * int(map.w) + tx)
 
 
 # The scrap a tile keeps, or "". A scrap yields to any picture or hold on its own tile and to any
@@ -1741,8 +1830,9 @@ static func _kept_litter(occ: Dictionary, map: Variant, tx: int, ty: int) -> Str
 # Whether no picture this file draws reaches within `radius` tiles (Chebyshev) of tile (tx, ty): no
 # kept furnishing, nature picture or scrap whose art rect meets that square. The test the review
 # harness's survivor spots take, so no shot has dressing within three tiles of the survivor. Pictures
-# are scanned two tiles further out than the square, since a standing one rises two tiles.
-static func clear_around(occ: Dictionary, tx: int, ty: int, radius: int) -> bool:
+# are scanned two tiles further out than the square, since a standing one rises two tiles. With
+# `with_litter` false the scraps are not asked about: the furniture alone.
+static func clear_around(occ: Dictionary, tx: int, ty: int, radius: int, with_litter: bool = true) -> bool:
 	var map: Variant = occ["map"]
 	var span: int = (2 * radius + 1) * ART_PER_TILE
 	var square := Rect2i(-radius * ART_PER_TILE, -radius * ART_PER_TILE, span, span)
@@ -1755,6 +1845,8 @@ static func clear_around(occ: Dictionary, tx: int, ty: int, radius: int) -> bool
 			var top: Dictionary = _kept_top(occ, map, nx, ny)
 			if not top.is_empty() and int(top["rank"]) != RANK_HELD and _meet(square, _top_rect(occ, top, nx, ny), Vector2i(dx, dy)):
 				return false
+			if not with_litter:
+				continue
 			var scrap: String = _kept_litter(occ, map, nx, ny)
 			if not scrap.is_empty() and _meet(square, _litter_rect(occ, scrap, nx, ny), Vector2i(dx, dy)):
 				return false
@@ -2066,7 +2158,14 @@ static func litter_placed_in(occ: Dictionary, tx: int, ty: int) -> Dictionary:
 	if key.is_empty():
 		return {}
 	var off: Vector2i = _litter_offsets(int(occ["seed_term"]), (occ["sizes"] as Dictionary)[key], tx, ty)
-	return {"tx": tx, "ty": ty, "key": key, "ox": off.x, "oy": off.y, "flip": flip_at(int(occ["seed"]), tx, ty, SALT_LITTER_FLIP)}
+	var seed_val: int = int(occ["seed"])
+	var tints: Array = occ.get("litter_tints", [Color.WHITE])
+	return {
+		"tx": tx, "ty": ty, "key": key, "ox": off.x, "oy": off.y,
+		"flip": flip_at(seed_val, tx, ty, SALT_LITTER_FLIP),
+		"flip_v": flip_at(seed_val, tx, ty, SALT_LITTER_FLIP_V),
+		"tint": tints[variant_index(seed_val, tx, ty, SALT_LITTER_TINT, tints.size())],
+	}
 
 
 # A floor tile on paved ground, indoors or out: the one surface test the litter takes. Rubble stays
