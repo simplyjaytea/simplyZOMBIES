@@ -5,9 +5,9 @@
 
 The outpost pack's survivor is a paperdoll base in underwear, and its four wearables (vest, helmet,
 gas mask, backpack) stand still while the body walks. A garment here is painted per frame onto
-that very frame: `parts.py` labels every opaque pixel of each of the twenty frames (four idle
-views and a four-frame walk each way), and a garment repaints only the skin and underwear pixels
-of the parts it covers, in the frame's own light -- light skin becomes the cloth's base tone,
+that very frame: `parts.py` labels every opaque pixel of each of the forty frames (four rest
+views, and an eight-frame walk and a breath each way), and a garment repaints only the skin and
+underwear pixels of the parts it covers, in the frame's own light -- light skin becomes the cloth's base tone,
 shaded skin its shade, the darkest skin its deep tone, and a pixel lit from above (ink or nothing
 directly over it) its highlight. The pack's ink, the head and anything a garment does not cover
 are never touched, so a garment cannot move the silhouette, and the overlay fits its frame by
@@ -28,6 +28,9 @@ from pathlib import Path
 from PIL import Image
 
 import parts
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "motion"))
+import build_motion  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 NATIVE = HERE / "native"
@@ -275,7 +278,15 @@ class Canvas:
                 lab = f.lab[y][x]
                 if lab in (".", "O", "H") or not test(x, y, lab):
                     continue
-                raw[(x, y)] = LEVEL[tone_of(f.cls[y][x], f.px[x, y])]
+                step = tone_of(f.cls[y][x], f.px[x, y])
+                # The skin's darkest tone under the torso is the shadow the head casts on the
+                # neck, two rows deep on the pack's views. A generated frame that draws it a row
+                # deeper would carry a dark bar across the cloth below the collar (leather's hard
+                # light took even a shade to near black), so past those two rows the cloth is
+                # read as lit like the rest of the back.
+                if step == DEEP and f.lab[y][x] == "T" and y >= f.torso_top + 2:
+                    step = BASE
+                raw[(x, y)] = LEVEL[step]
         for (x, y), level in raw.items():
             # How far down its own column of cloth this pixel sits: cloth darkens as it falls
             # away from the light at the top of a part. The waist starts a new part -- a belt, a
@@ -413,7 +424,9 @@ def placket(c: Canvas, ramp: Ramp, trim: Ramp | None, buttons: bool) -> None:
         if (x, y) not in c.painted:
             continue
         if trim is not None:
-            c.tone(x, y, trim, HI if (y % 2 == 0) else BASE)
+            # The zip's teeth count from the collar, so they ride the walk's bob with the chest
+            # instead of flipping pattern every time the body rises a row.
+            c.tone(x, y, trim, HI if ((y - f.torso_top) % 2 == 1) else BASE)
         elif buttons and (y - f.torso_top) % 2 == 0:
             c.tone(x, y, ramp, HI)
         else:
@@ -794,27 +807,43 @@ def _footwear(c: Canvas, f: Frame, shape: str, ramp: Ramp, trim: Ramp) -> None:
 
 def cell_of(suffix: str) -> tuple[int, int]:
     """Where a frame sits in a garment's atlas: a row per view (s, e, n, w), the idle picture in
-    column 0 and the walk's frames in columns 1-4. authored.json crops each member from here."""
+    column 0, the walk's frames in columns 1-8 and the breath after them, column 9. authored.json
+    crops each member from here."""
     view = parts.view_of(suffix)
-    col = 1 + int(suffix[-1]) if suffix.startswith("walk_") else 0
+    if suffix.startswith("walk_"):
+        col = 1 + int(suffix.rsplit("_", 1)[1])
+    elif suffix.startswith("idle_"):
+        col = parts.WALK + int(suffix.rsplit("_", 1)[1])
+    else:
+        col = 0
     return col * parts.W, parts.VIEWS.index(view) * parts.H
 
 
 def build_all() -> dict[str, Image.Image]:
-    """Every garment's every frame, keyed `<family>/<family>_<suffix>`."""
-    frames = [Frame(suffix, source) for suffix, source in parts.frame_names()]
+    """Every garment's every frame, keyed `<family>/<family>_<suffix>`.
+
+    The breath is not painted: it is the rest picture's garment put through the body's own breath
+    (`build_motion.survivor_breath`: the chest a row up, the hands planted), so the clothes on a
+    breathing body are its standing clothes, pixel for pixel. Painting it afresh shifted the colour of
+    dozens of pixels between the two and the cloth shimmered as the body breathed."""
+    frames = [Frame(suffix, source) for suffix, source in parts.frame_names() if not suffix.startswith("idle_")]
     out: dict[str, Image.Image] = {}
     for family in GARMENTS:
         for f in frames:
             out[f"{family}/{family}_{f.suffix}"] = paint(family, f)
+        for suffix, _ in parts.frame_names():
+            if suffix.startswith("idle_"):
+                view = parts.view_of(suffix)
+                rest = out[f"{family}/{family}_{view}"]
+                out[f"{family}/{family}_{suffix}"] = build_motion.survivor_breath(rest, view)
     return out
 
 
 def atlases(images: dict[str, Image.Image]) -> dict[str, Image.Image]:
-    """One 160x160 sheet per garment, laid out by `cell_of`."""
+    """One 320x160 sheet per garment (ten columns, four rows), laid out by `cell_of`."""
     out: dict[str, Image.Image] = {}
     for family in GARMENTS:
-        sheet = Image.new("RGBA", ((1 + parts.WALK) * parts.W, len(parts.VIEWS) * parts.H), (0, 0, 0, 0))
+        sheet = Image.new("RGBA", ((1 + parts.WALK + parts.BREATH) * parts.W, len(parts.VIEWS) * parts.H), (0, 0, 0, 0))
         for suffix, _ in parts.frame_names():
             sheet.paste(images[f"{family}/{family}_{suffix}"], cell_of(suffix))
         out[family] = sheet

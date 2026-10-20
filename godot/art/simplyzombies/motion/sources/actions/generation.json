@@ -1,0 +1,39 @@
+{
+  "note": "The survivor's melee swing, as generated (alpha plan A8). Each strip is nine 64x64 frames side by side; frame 0 is the input (the pack's rest view, textures/characters/survivor_<view>.png, pasted at (16, 12)) and frames 1-8 the strike. actions.py's SWING_KEEP names the five frames build_motion.py keeps per view. The east strip's white smear trails are stripped by actions.py (_is_trail, _largest_island); the later prompts ask for none.",
+  "tool": "PixelLab animate_image",
+  "frame_count": 8,
+  "no_background": true,
+  "seed": 2101,
+  "strips": {
+    "survivor-swing-e.png": {
+      "job": "734103c0-103c-4b28-b606-147062c42de5",
+      "input": "textures/characters/survivor_e.png",
+      "action": "one hard melee strike to the right: the arm nearest the camera draws back and up above the shoulder, chops down and forward to the right at chest height, follows through, then returns to his side. Torso twists into the blow and leans slightly forward, then settles. Stays facing right the whole time. Feet stay planted on the same ground line, body does not slide. Hands empty."
+    },
+    "survivor-swing-w.png": {
+      "job": "0e0f7a54-8d35-44ad-a06f-ea5af3367755",
+      "input": "textures/characters/survivor_w.png",
+      "action": "a quick hard melee strike: steps into a low guard, punches the arm straight forward to the left at chest height, holds the reach, then pulls back to standing. Keeps facing left the whole time. Feet stay on the same ground line, body does not slide. No motion trails, no swoosh, no smear lines, no effects: only the man."
+    },
+    "survivor-swing-s.png": {
+      "job": "c96c56ac-0efa-4107-ad81-1d9681301004",
+      "input": "textures/characters/survivor_s.png",
+      "action": "a quick hard melee strike toward the camera: steps into a low guard, punches one arm straight forward toward the viewer at chest height, holds the reach, then pulls back to standing. Keeps facing the camera the whole time, never turns sideways. Feet stay on the same ground line, body does not slide. No motion trails, no swoosh, no smear lines, no effects: only the man."
+    }
+  },
+  "rejected": {
+    "four views in one 128x128 input": {
+      "job": "551c7177-afaf-40c6-a030-eccb20d27d56",
+      "seed": 1908,
+      "frame_count": 4,
+      "action": "Four separate views of the same man (front, facing right, back, facing left), each in his own quarter. Every figure throws one hard overhand strike with his right arm toward the way he faces: the arm draws back and up above the shoulder, then chops down and forward, then returns to his side. Torso twists slightly with the blow. Feet stay planted on the same ground line, body does not slide. Empty hands, nothing held.",
+      "why": "the figures drifted between quarters and turned into the wrong views; one view a job from then on"
+    },
+    "back view": {
+      "job": "8ccd9f56-11a0-4918-80b5-4e00ec776b7f",
+      "input": "textures/characters/survivor_n.png",
+      "action": "seen from behind, a quick hard melee strike away from the camera: steps into a low guard, punches one arm straight forward away from the viewer at chest height, holds the reach, then pulls back to standing. Keeps his back to the camera the whole time, never turns around or sideways. Feet stay on the same ground line, body does not slide. No motion trails, no swoosh, no smear lines, no effects: only the man.",
+      "why": "frames 2-7 turned the body into an east-facing side view despite the prompt; not committed, the back view's swing is derived instead (actions.py SWING_GENERATED)"
+    }
+  }
+}
