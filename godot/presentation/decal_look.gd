@@ -463,11 +463,11 @@ func ground_draws(world: Variant, camera: Dictionary, seen: Variant, standing: D
 
 # The same walk, drawn straight onto `canvas`. `drawn` gets, for the scene gate, each wall mark's
 # key and each baked tile's Array of keys -- one append a tile, not one a picture.
-func draw_ground(canvas: CanvasItem, world: Variant, camera: Dictionary, seen: Variant, standing: Dictionary, bounds: Dictionary, drawn: Array) -> void:
+func draw_ground(canvas: Object, world: Variant, camera: Dictionary, seen: Variant, standing: Dictionary, bounds: Dictionary, drawn: Array) -> void:
 	_ground(world, camera, seen, standing, bounds, canvas, [], drawn)
 
 
-func _ground(world: Variant, camera: Dictionary, seen: Variant, standing: Dictionary, bounds: Dictionary, canvas: CanvasItem, out: Array[Dictionary], drawn: Array) -> void:
+func _ground(world: Variant, camera: Dictionary, seen: Variant, standing: Dictionary, bounds: Dictionary, canvas: Object, out: Array[Dictionary], drawn: Array) -> void:
 	if world == null or not ("decals" in world) or (world.decals as Dictionary).is_empty():
 		return
 	var px: float = Appearance.blit_scale(float(camera.get("zoom", 0.0)))

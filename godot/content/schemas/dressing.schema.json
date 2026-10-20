@@ -38,6 +38,14 @@
         "pattern": "^[a-z0-9_.]+$"
       }
     },
+    "litter_tints": {
+      "type": "array",
+      "description": "Colours a scrap of litter is drawn under, one hash-picked per scrap, as a modulate over its picture: the pack draws one crumpled paper, so a grimed one in a few keeps a street of it from reading as one stamp. List white more than once to make the others rarer. Absent or empty means plain white.",
+      "items": {
+        "type": "string",
+        "pattern": "^#[0-9a-f]{6}$"
+      }
+    },
     "rubble": {
       "type": "array",
       "description": "Scatter keys drawn over tiles whose surface layer is SURFACE_RUBBLE -- the ground the worldgen rubble pass places. Unlike litter this one lies over something the sim does read (rubble slows a body and loudens a step), but the art still says nothing the surface did not already say.",
@@ -57,6 +65,16 @@
     "faces": {
       "type": "object",
       "description": "Fixed sprite keys for the wall openings a building shell cuts, independent of wall material: `{window, door, garage}`, and `glass`, the window pane and frame drawn on a window tile's cap: `{pane_<shape>, frame_<shape>}` for each shape `ew`, `ns` and `square` (presentation/main.gd's `_draw_window_glass`, through Dressing.glass_keys). Optional, and the shallow validator never looks inside it -- it checks only that `faces` itself is an object -- so check_roof_look.gd is what resolves the three opening keys and refuses a fabricated one, and check_topdown.gd's GLASS lane the six glass keys."
+    },
+    "sizes": {
+      "type": "object",
+      "description": "Each picture's extent in art pixels, by key: `[w, h]`, one per key a furnishing, nature entry or litter scrap names. The overlap rule (dressing.gd's `_kept_top`) reads them to decide which picture keeps a tile when two would meet, so a picture with no size draws nothing. The shallow validator never looks inside; check_trees.gd checks every size against the key's authored canvas and every named key has one.",
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "items": {"type": "integer", "minimum": 1, "maximum": 64}
+      }
     },
     "trees": {
       "type": "object",
@@ -116,9 +134,16 @@
         }
       }
     },
+    "storage": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "The building template ids whose rooms are storage rooms: a furnishing entry with rooms storage stands only there, and one with rooms living only elsewhere."
+    },
     "furnishings": {
       "type": "array",
-      "description": "The outpost pack's furnishing props as pictures over Floor tiles the sim still sees as open floor: a table, chair, shelf, medical cabinet and fridge inside a building; a dumpster, concrete barrier, traffic cone, fence post, road sign and streetlamp outside one. DRESSING, NEVER SIM STATE: nothing blocks a step, sightline or shot, becomes cover, is looted or becomes a component. Each entry is one hash roll per tile: key, where, surfaces, rarity, optional beside wall, and optional standing true. Absent or false standing keeps the short picture in the flat pass under bodies. True is reserved for the three named pictures taller than one tile; they use the entity depth sort and fade on overlap. All entries keep the same surface, indoor/outdoor, side-neighbour, doorway, wall, seen and occupied-real-prop checks. check_trees.gd's FURNISH lane holds both size classes and the reads.",
+      "description": "The outpost pack's furnishing props as pictures over Floor tiles the sim still sees as open floor: a table, chair, shelf, medical cabinet and fridge inside a building; a dumpster, concrete barrier, traffic cone, fence post, road sign and streetlamp outside one. DRESSING, NEVER SIM STATE: nothing blocks a step, sightline or shot, becomes cover, is looted or becomes a component. Each entry is one hash roll per tile: key, where, surfaces, rarity, optional beside (wall: within a tile of a wall or, on paving, the kerb; wall_north: against the wall north of it, in runs; edge: at the street's edge, a wall or parked car within a tile, the kerb or the sidewalk), optional group (table or seat), optional salt (pins the entry's roll), optional cluster (the street's junk: spaced along a row and weighted by the street), optional per_room (at most that many in one room), optional roll kept and shadow (the street furniture as it stood before A12), and optional standing true. Absent or false standing keeps the short picture in the flat pass under bodies. True is reserved for the three named pictures taller than one tile; they use the entity depth sort and fade on overlap. All entries keep the same surface, indoor/outdoor, side-neighbour, doorway, wall, seen and occupied-real-prop checks. check_trees.gd's FURNISH lane holds both size classes and the reads.",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -162,8 +187,51 @@
           "beside": {
             "type": "string",
             "enum": [
-              "wall"
+              "wall",
+              "wall_north",
+              "edge"
             ]
+          },
+          "group": {
+            "type": "string",
+            "enum": [
+              "table",
+              "seat"
+            ],
+            "description": "Optional: a table entry stands one table per `rarity` floor tiles, spread over the room in cells, one in three pushed against a second as a long table; a seat entry puts one to three chairs flush at each table on its north, east and west, each seat one in its `rarity`. dressing.gd's `_group_top`; check_trees.gd's SETS lane."
+          },
+          "salt": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Optional: the salt the entry's roll hashes on, in place of its index in the list, so reordering the list never moves what it already placed. Unique within the list; dressing.gd drops a second entry naming a salt already taken, and check_trees.gd's SETS lane holds every entry usable."
+          },
+          "cluster": {
+            "type": "boolean",
+            "description": "Optional true for outdoor junk: rolled only on one spaced tile of each short run of a row, weighted by the street's clutter and edges, and giving way to any other furnishing it meets. Absent: the entry rolls one tile in `rarity`, evenly."
+          },
+          "per_room": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Optional, indoors only: at most this many of the entry in one room, on the tiles of the room its roll and ground allow."
+          },
+          "roll": {
+            "type": "string",
+            "enum": [
+              "kept"
+            ],
+            "description": "Optional: kept rolls the entry the way the district rolled its street furniture before A12 (salt order, the shifted hash, the old ground rule), so every piece main drew stands where it stood and nothing but a prop on its tile takes its place."
+          },
+          "rooms": {
+            "type": "string",
+            "enum": [
+              "storage",
+              "living"
+            ],
+            "description": "Optional, indoors only: storage places the entry only in a room of a building the block lists under storage, living only in any other room."
+          },
+          "shadow": {
+            "type": "boolean",
+            "description": "Optional, with roll kept only: the entry draws nothing, but a tile it rolls on rolls no later kept entry, as the old list's wall dumpster did."
           },
           "standing": {
             "type": "boolean",
