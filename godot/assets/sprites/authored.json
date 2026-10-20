@@ -31846,6 +31846,102 @@
           }
         }
       }
+    },
+    "fx_blood_pool_fresh": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "decal",
+      "reads": "presentation/decal_look.gd:art_for",
+      "palette": "pack",
+      "anchor": [
+        16,
+        16
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/effects/frames/fx-blood-pool-fresh.png"
+      }
+    },
+    "fx_blood_pool_dry": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "decal",
+      "reads": "presentation/decal_look.gd:art_for",
+      "palette": "pack",
+      "anchor": [
+        16,
+        16
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/effects/frames/fx-blood-pool-dry.png"
+      }
+    },
+    "fx_bullet_hole_concrete": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "decal",
+      "reads": "presentation/decal_look.gd:art_for",
+      "palette": "pack",
+      "anchor": [
+        16,
+        16
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/effects/frames/fx-bullet-hole-concrete.png"
+      }
+    },
+    "fx_bullet_hole_metal": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "decal",
+      "reads": "presentation/decal_look.gd:art_for",
+      "palette": "pack",
+      "anchor": [
+        16,
+        16
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/effects/frames/fx-bullet-hole-metal.png"
+      }
+    },
+    "fx_scorch_mark": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "decal",
+      "reads": "presentation/decal_look.gd:art_for",
+      "palette": "pack",
+      "anchor": [
+        16,
+        16
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/effects/frames/fx-scorch-mark.png"
+      }
+    },
+    "fx_wood_chips": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "decal",
+      "reads": "presentation/decal_look.gd:art_for",
+      "palette": "pack",
+      "anchor": [
+        16,
+        16
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/effects/frames/fx-wood-chips.png"
+      }
     }
   }
 }

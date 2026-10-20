@@ -629,6 +629,15 @@ projection are untouched.
 - ~~**The shot is seen.**~~ — **landed** 2026-09-26 for the four effects with an impact point, see
   the record (`npm run godot:check:fx` → `FX_OK`; `godot:check:authored` → HELD's muzzle and the
   widened READS).
+- ~~**The marks a fight leaves (alpha plan A13).**~~ — **landed** 2026-10-19 for six of the
+  pack's eight decals, see the record ("Art — the marks a fight leaves"; `npm run
+  godot:check:decals` → `DECALS_OK`). The shell pile and the footprint stay in the report.
+- **Remembered marks** (after alpha). A remembered tile shows the decals it held when the player
+  last saw it, dimmed with the ground, from a per-tile memory; today marks show only in sight.
+- **The glimpse disc on the art grid** (after alpha). A body seen only at the edge of the eye, or
+  remembered with no picture, draws an anonymous disc centred on its unsnapped screen point
+  (`main.gd`'s Peripheral branch and `_draw_afterimages`), so it sits up to one screen pixel off
+  the 2 × 2 art grid that every picture and mark keeps; snap its centre and radius to the grid.
 - ~~**The cars are the pack's, east-west.**~~ — **landed** 2026-09-26, see the record
   (`npm run godot:check:wrecks` → the new PACK lane and SILHOUETTE at the pack's rows;
   `npm run godot:m2:vehicles` → DRIVE's per-axis turn).
@@ -3141,7 +3150,8 @@ not a to-do list:
     `fx-bullet-hole-metal/concrete`, `fx-scorch-mark`, `fx-wood-chips`, `fx-shell-pile`,
     `fx-footprint`). These are marks that outlast the moment, a different fact than slice 7's
     transient effects: a location, a surface or actor, and a tick, published once and read until
-    it fades, which nothing in `sim/` emits today. No slice names it. `fx-footprint` is the one
+    it fades. **Six landed 2026-10-19** with `sim/modules/decals.gd` (the record's "Art — the
+    marks a fight leaves"); the shell pile and the footprint remain here. `fx-footprint` is the one
     to watch before a reader is built for it: a trail rendered where an actor walked, unseen, is
     exactly the certainty clause 4 of the hardcore contract refuses the player (docs/01,
     "information is scarce and unreliable") unless it is scoped to ground the player's own
@@ -4372,6 +4382,97 @@ not a to-do list:
   fixed**: a flash drawn after the bodies stands over a body south of the shooter, and over the
   shooter's own body seen from behind; the flash follows the shooter's position at the moment of
   the shot rather than the body, for its sixth of a second.
+
+- **Art — the marks a fight leaves, 2026-10-19 (alpha plan A13).** The owner's call (docs/30's
+  "Blood and bullet decals persist, for everything", carried by PR #147): every hit, death, bleed
+  and stray round leaves a mark whether or not the player saw it, kept for the run, and drawn
+  under the normal sight rules. **The sim half** is the new `sim/modules/decals.gd`, one
+  subscription per event kind and one system: `attack.connected` throws a `splat` 0.15–0.55 m past
+  the struck body away from the attacker (under the body when that point is solid); `bite.landed`
+  leaves one under the bitten body; `entity.killed` leaves one `pool` per body however often the
+  event fires for it (de-duplicated by entity id); `weapon.fired` — which now carries the shot's
+  origin, facing, reach and whether it hit anyone (`sim/modules/ranged.gd`) — walks a round that
+  hit nobody to the first wall (`hole`), tree, shut door or boarded window (`chips`) or parked car
+  (`dent`), letting glass and open doors pass; `weather.lightning` leaves a `scorch`; and
+  `decals.drip` reads `injuries.bloodLoss` every five ticks and drops a `drip` per 0.5 of it, drips
+  pooling into one another and a crawling bleeder leaving a `smear`. Randomness is its own `decals`
+  stream. Records live in `world.decals`, String-keyed chunks of 8 × 8 tiles holding an Array of
+  integer records (art pixels, so a save round-trips exactly), saved and restored by `world.gd`
+  with no `SAVE_VERSION` bump (an older save restores none). Bounded: 32 a chunk, 6,000 a run, the
+  oldest mark that is not a pool evicted first. **The draw half** is `presentation/decal_look.gd`:
+  the pack's own frames at one art pixel to one (`fx-blood-pool-fresh/dry`,
+  `fx-bullet-hole-concrete/metal`, `fx-scorch-mark`, `fx-wood-chips`, sourced through
+  `authored.json` as the new kind `decal`, plus the existing `fx_blood_hit` frames for splats and
+  drips), turned and flipped by the record's variant (0..63: the low three bits the turn, the
+  rest the picture), three hit frames for a splat; the first cut drew variants 0..7, whose high
+  bits never reached a second picture, so one spray repeated in one turn across a fight. Each mark is
+  cut hard (alpha 0 or 255: the pack's frames carry a faint fringe of alpha 1 to 94 that darkened
+  the ground round every mark and mixed new shades where marks overlapped), drawn in its frame's own
+  colours, and old blood with no dry picture of its own takes the dry pool's browns shade for shade,
+  never a tint. A smear is the pool's own picture laid along the run every 12 art pixels, turned and
+  nudged across it, so its edge is the pool's ragged edge; the first cut of it, a band sliced
+  from the pool, read as a stamped ribbon with a straight edge (art QA, 2026-10-20). The ground marks of a chunk are baked into
+  one picture with those of its neighbours that spill across its border, and the frame blits runs
+  of that picture's seen tiles; a chunk is re-baked only when its own revision moves, a neighbour
+  that spills into it changes, or a mark in it changes stage. A wall tile's cell is cleared from the
+  bake so blood never paints over a cap. Wall marks are single draws: on the ground pass for a cap
+  with no picture, by `_draw_a2_wall_piece` on a standing wall's face, and by `_blit_vehicle` over a
+  car. The ground pass runs in `_draw_world` straight after the world's baked layers are framed
+  (A4's `_layers.frame`, whose canvas items draw behind `main.gd`'s own), so the marks lie over the
+  baked ground and walls and under the nature, the furnishings, the props and every body drawn
+  after them; a roof covers only tiles the player does not see, where no mark draws. A hole sits on its wall's face strip and is cut to it: rows 23 to 30 of a tile's face
+  picture, under the ledge, where the windows are, or rows 17 to 42 of an A2 picture; the first
+  cut put it fourteen rows down a tile, on the courses above the ledge (art QA, 2026-10-20). **Shown only on a tile in the live sight set**, never the remembered map: the remembered
+  street is already drawn as a memory of a surface and not of the litter on it (`main.gd`'s
+  remembered floor arm draws no road paint, scrap, props or dressing), and a mark drawn there
+  would also be news the player never earned. Drawing what the player last saw on a remembered
+  tile would need a per-tile memory of the marks; it is not built. **Defaults
+  chosen** where the brief forked, closest to Zomboid: a pool spreads from a splash over five
+  seconds and browns after a quarter of a day; rain does not wash blood (there is no cleaning
+  yet); zombie and human blood are the one picture. **Gated.** New `npm run godot:check:decals` →
+  `DECALS_OK`, in the `godot:m2` chain after `godot:check:fx`, twelve lanes each red both ways:
+  HIT, UNSEEN, POOL, BLEED, ROUND, SCORCH, BOUND, BAKE, SAVE, WALL, MATTE and DRAWN (the gate's
+  header names what each holds; HIT also holds that 240 splats reach all 24 picture-and-turn
+  pairs and refuses variants 0..7; MATTE also holds every cut hard-edged in the pack's own colours,
+  fresh and dried, and refuses the raw frame's fringe, and the cuts of the hole, chips, dent and
+  scorch hard-edged in theirs; WALL also holds nine holes in one tile all inside its face strip and
+  refuses a hole on the courses or run onto the street). `check_fx.gd`'s ADMITS accepts an `fx_` key declared as a decal,
+  and `check_authored.gd`'s READS lane accepts a decal read by a function of the code that names
+  its key. **Sabotage pass**, each red and restored: the sight test removed → UNSEEN and DRAWN;
+  pool de-duplication removed → POOL ("3 pools"); the drip system off → BLEED; the hit check removed
+  → ROUND; the wall-cell clear removed → BAKE ("the wall tile must be clear"); the bake cache off →
+  BAKE ("a frame with nothing new re-baked 9 chunks"); neighbour spill ignored → BAKE ("re-baked 1
+  chunks, not 2"); the hard cut skipped → MATTE ("alpha 244"); the dry remap skipped → MATTE ("a
+  colour 46010a … that is not the pack's"); the hole put back fourteen rows down → WALL ("rows 358
+  to 422, off the face strip 406 to 422"). A with-and-without render of one frame of the restaged
+  fight differs only under the marks; of the pixels that change by more than six levels, 94% are
+  exact pack blood colours, and the rest sit under the translucent edges of bodies and props.
+  The pack's body art is not fully opaque (most of its pixels are alpha 252 to 254), so a mark
+  under a body shifts the body's own pixels by one or two levels; that is the body art's, not
+  the mark's. Split against two more renders with every body moved off the map, 2,698 mark pixels
+  have something drawn over them and 2,400 of those move two levels or less; the 298 that move
+  more sit under covers that are see-through by design: the 35% contact shadow, a glimpse disc,
+  facing lines, the aim cone, the soft rim of the pack's corpse art (about one pixel in eight of a
+  `corpse_*` picture is below alpha 230) and a partly clear outline pixel in the barrier prop. The
+  nearly clear covers move the most, up to 90 levels: art QA measured 53 on a corpse's rim and 48
+  on the barrier's outline pixel at about 26% alpha. Every pixel the marks change is one a cover
+  lets through; none is a mark drawn over a body or a prop.
+  **Measured**, with a throwaway driver built on the frame bench's harness and
+  deleted afterwards, on this container's llvmpipe at 1280 × 720 with every visible chunk full (850
+  marks placed, 365 kept, 337 tile runs drawn): the per-mark draw this slice first had cost 1.67 ms
+  of `_draw`, the bake 0.60–0.64 ms; re-baking one full chunk costs about 0.5 ms. Main's own
+  `_draw` on that machine was 27.6 ms median before A4, so this slice proves its own cost, not the
+  10 ms budget. Those numbers predate the art QA fixes, which add no per-frame work (the cuts are
+  cached) and were not re-measured. **Verified**: `DECALS_OK`, `FX_OK`, `AUTHORED_OK`, `APPEARANCE_OK`, `PLAY_OK`,
+  `M2_SAVE_OK`, `M2_RANGED_OK`, `M2_WOUNDS_OK`, `M2_UPKEEP_OK`, `R1_PARITY_OK`,
+  `GODOT_CONTENT_OK`, `SPRITES_OK`, `ROUTING_OK`, `TIMING_OK`; the full chain is CI's. **Not
+  built**: casings that persist (the shell pile), footprints, scorch from a campfire (the pit's own
+  picture is its char), blood washed by rain or cleaned, and a round's mark on a body it missed
+  but passed through. Splat size and count do not follow the blow's damage, on purpose: the blood a
+  blow draws must not tell the player what the blow did (`check_fx.gd`'s SAME lane, and docs/01's
+  clause 4); a bleed's trail does follow its wound, because that is what the body is doing. Before
+  and after shots of a fight, and one with the marks out of sight, are in the project's
+  `planning/decals/`.
 
 - **Art — the cursor, 2026-09-26.** The outpost pack's two UI icons that are not status
   (docs/30, "The whole outpost pack": "Cursors split by place") join `ui/cursors.gd`'s one table

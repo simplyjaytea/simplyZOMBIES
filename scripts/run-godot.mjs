@@ -570,6 +570,9 @@ switch (mode) {
   case "--fx":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_fx.gd"];
     break;
+  case "--decals":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_decals.gd"];
+    break;
   case "--m2-vehicles":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_vehicles.gd"];
     break;

@@ -45,6 +45,7 @@ export const M2_SHARDS = [
     "godot:m2:hands",
     "godot:m2:allegiance",
     "godot:check:fx",
+    "godot:check:decals",
     "godot:m2:contact",
     "godot:m2:comfort",
     "godot:m2:transform",
