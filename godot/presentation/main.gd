@@ -244,6 +244,10 @@ var _last_look: Dictionary = {}
 # which is what keeps the name-plate refusal's peripheral-anonymity clause holding for words the
 # same way it already holds for the afterimage's picture.
 var _focal_drawn: Array[Dictionary] = []
+# Every falling body the last draw put up, `{id, key}`: written by `_draw_corpse` beside the
+# draw call itself, so check_action.gd's FALL lane can prove a published death reaches the
+# picture (the dead-socket rule) without trusting anything but what was drawn.
+var _falls_drawn: Array[Dictionary] = []
 var _a2_wall_pieces: Array[Dictionary] = []
 var _a2_wall_drawn: Array[Dictionary] = []
 var _content_poll_at: float = -1e9
@@ -1184,6 +1188,9 @@ func _process(delta: float) -> void:
 		_camera_shake_from_events(world.events.drained)
 		_pings_from_events(world.events.drained)
 		_fx.call("from_events", world, world.events.drained)
+		# The action one-shots (presentation/anim_clock.gd): a shot's recoil, a hit's flinch or
+		# lunge, a stagger, a death's fall, each from the event the step published.
+		_anim.from_events(world, world.events.drained, _anim_time)
 		if speed >= 10:
 			speed = SimFortify.speed_after_events(speed, world.events.drained)
 			if speed < 10:
@@ -2710,6 +2717,17 @@ func _draw_corpse(it: Dictionary, px_scale: float) -> void:
 		return
 	var sx: float = float(it["sx"])
 	var sy: float = float(it["sy"])
+	# A body that has just died falls before it settles (presentation/anim_clock.gd's `fall_of`):
+	# its own family's fall frames, from the view it was last drawn facing, standing on the point
+	# it died on, until they play through and the settled picture below takes over.
+	var fall: Dictionary = _anim.fall_of(int(it["id"]))
+	if not fall.is_empty():
+		var fall_key: String = Appearance.fall_key(String(fall["key"]), String(fall["view"]), float(fall["t"]))
+		var falling: Texture2D = Appearance.resolve(fall_key) if not fall_key.is_empty() else null
+		if falling != null:
+			draw_texture_rect(falling, Appearance.body_rect(sx, sy, falling.get_size() * px_scale, 1.0), false, look["tint"] as Color)
+			_falls_drawn.append({"id": int(it["id"]), "key": fall_key})
+			return
 	var size: Vector2 = texture.get_size() * px_scale
 	draw_texture_rect(texture, Appearance.corpse_rect(sx, sy, size), false, look["tint"] as Color)
 
@@ -2717,6 +2735,7 @@ func _draw_corpse(it: Dictionary, px_scale: float) -> void:
 func _draw_entities() -> void:
 	if world == null: return
 	_focal_drawn = []
+	_falls_drawn = []
 	_interp.begin_draw()
 	_anim.begin_draw(_anim_time)
 	var sub_tick: float = _sub_tick()
@@ -2978,6 +2997,9 @@ func _draw_entities() -> void:
 		# aiming over your shoulder at a walk -- runs its walk backwards rather than moonwalking.
 		var front: Vector2 = Vector2.from_angle(float(Appearance.VIEW_RADIANS[view])) if Appearance.turns(sprite_key) and Appearance.VIEW_RADIANS.has(view) else Vector2.ZERO
 		var motion: Dictionary = _anim.motion(eid, Vector2(float(it["x"]), float(it["y"])), Appearance.moving(vel_v), Appearance.stride_of(sprite_key), Appearance.pace_of(sprite_key), front)
+		# And what it is doing (docs/23, "Actions on the render clock"): the one-shot or held action
+		# and the stance, read off the sim's events and components; frame_key answers them first.
+		motion.merge(_anim.act(eid, world, sprite_key, view))
 		var frame: String = Appearance.frame_key(sprite_key, view, motion)
 		var texture: Texture2D = Appearance.body_texture(look, view, motion)
 		if texture != null:
