@@ -39,6 +39,8 @@ extends SceneTree
 #   FOCUS      an open sheet swallows the street's keys, and the body stops at the panel
 #   PAUSE      Escape on the street pauses to the menu and gives the street back
 #   NOTICE     a save this build cannot read leaves the run alone and says one fixed sentence
+#   HINT       a first-day hint is offered on the street, a click on its card clears it, and the
+#              seen mark rides the slot F5 writes and F9 reads back
 #   VOLUME     the settings row reaches the audio bus, and nought is mute
 #   AUTOSAVE   the first tick of a day writes the slot; an ordinary tick and a finished run do not
 #   LEGEND     a dismissed legend stays dismissed across a boot, and F1 brings it back
@@ -73,6 +75,8 @@ const Legend = preload("res://ui/legend.gd")
 const UiPrefs = preload("res://ui/prefs.gd")
 const InputMapRes = preload("res://presentation/input_map.gd")
 const Session = preload("res://presentation/session.gd")
+const Onboarding = preload("res://presentation/onboarding.gd")
+const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimChronicle = preload("res://sim/modules/chronicle.gd")
 const SimRecruits = preload("res://sim/modules/recruits.gd")
 const SimAllegiance = preload("res://sim/modules/allegiance.gd")
@@ -175,6 +179,8 @@ func _run() -> void:
 	var peel_ok: bool = await _escape_peels_in_order(main)
 	ok = peel_ok and ok
 	ok = _f5_and_f9_round_trip(main) and ok
+	var hint_ok: bool = await _a_first_day_hint_shows_clears_and_saves(main)
+	ok = hint_ok and ok
 	ok = _c_is_the_camp_key_and_ctrl_c_is_the_stance(main) and ok
 	var focus_ok: bool = await _the_open_sheet_swallows_the_street(main)
 	ok = focus_ok and ok
@@ -204,7 +210,7 @@ func _run() -> void:
 
 	if ok:
 		var skipped: String = "no lane skipped" if _skips.is_empty() else "skipped: %s" % ", ".join(PackedStringArray(_skips))
-		print("PLAY_OK the scene boots to a title over a still world, ticks, walks, opens its screens, saves and loads, camps on C and crouches on Ctrl+C, refuses the street's keys under an open sheet, pauses to a menu on Escape, moves the audio bus, writes the slot at dawn and on the window's close, ends on a screen that speaks the chronicle and starts again, keeps a dismissed legend dismissed, and draws by day and by night in %d ms (%s)" % [elapsed, skipped])
+		print("PLAY_OK the scene boots to a title over a still world, ticks, walks, opens its screens, saves and loads, camps on C and crouches on Ctrl+C, refuses the street's keys under an open sheet, pauses to a menu on Escape, moves the audio bus, writes the slot at dawn and on the window's close, ends on a screen that speaks the chronicle and starts again, keeps a dismissed legend dismissed, offers a first-day hint that a click clears and a save keeps seen, and draws by day and by night in %d ms (%s)" % [elapsed, skipped])
 		quit(0)
 	else:
 		push_error("PLAY_FAIL")
@@ -697,6 +703,68 @@ func _f5_and_f9_round_trip(main: Node) -> bool:
 		push_error("ROUNDTRIP: a corrupt slot moved the live world (tick %d -> %d)" % [before_tick, int(world.tick)])
 		return false
 	print("ROUNDTRIP OK F5 wrote a save, F9 put the world back on tick %d, and a corrupt slot changed nothing" % saved_tick)
+	return true
+
+
+# --- HINT -------------------------------------------------------------------------------------
+
+# The first-day hint, played through the real path: a wounded survivor on the street is offered the wound
+# hint on a frame the HUD draws, a real left click on its card clears it through the engine's input
+# dispatch, and the seen set is written into the slot F5 writes and comes back out of F9. The injuries
+# are put back afterwards, so no later lane inherits a bleed it did not ask for.
+func _a_first_day_hint_shows_clears_and_saves(main: Node) -> bool:
+	var world: Variant = main.get("world")
+	var hud: Variant = main.get("_hud")
+	var session_now: Variant = main.get("session")
+	if _state(main) != Session.State.PLAYING or hud == null or bool(main.get("paused")) or not bool(hud.visible):
+		return _skip("HINT", "the street is not up, so no frame can offer a hint")
+	var before: Variant = world.components.get_component(world.player, "injuries")
+	var pristine: Variant = (before as Dictionary).duplicate(true) if before is Dictionary else null
+	session_now.onboarding.reset()
+	SimWounds.append_wound(world, world.player, "laceration", "torso", -1, 30.0)
+	_frames(main, 2)
+	await process_frame
+	var shown: String = String(hud.get("_onboarding_line"))
+	if shown != Onboarding.prose_of("wound"):
+		push_error("HINT: a wounded survivor on the street was offered '%s', not the wound hint" % shown)
+		return false
+	var rect: Rect2 = hud.get("_hint_rect")
+	if rect.size == Vector2.ZERO:
+		push_error("HINT: the wound hint was on screen but drew no card to click")
+		return false
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	click.position = rect.get_center()
+	root.push_input(click)
+	await process_frame
+	_frames(main, 2)
+	await process_frame
+	# Not the wound any more. Another hint may come due in its place (a zombie seen on the way here, say),
+	# and that is the next hint speaking, not this one left up.
+	if String(hud.get("_onboarding_line")) == Onboarding.prose_of("wound"):
+		push_error("HINT: a click on the hint's card left the wound hint up")
+		return false
+	_tap(KEY_F5)
+	var decoded: Dictionary = SimSave.decode_save(FileAccess.get_file_as_string(SAVE_PATH))
+	if decoded.has("__error") or not (decoded.get("onboarding", []) as Array).has("wound"):
+		push_error("HINT: the slot F5 wrote does not carry the wound hint as seen")
+		return false
+	session_now.onboarding.reset()
+	_tap(KEY_F9)
+	_frames(main, 2)
+	await process_frame
+	if not (session_now.onboarding.to_save() as Array).has("wound"):
+		push_error("HINT: F9 did not bring the seen wound hint back")
+		return false
+	if String(hud.get("_onboarding_line")) == Onboarding.prose_of("wound"):
+		push_error("HINT: a save that had told its player the wound hint offered it again")
+		return false
+	if pristine != null:
+		world.components.set_component(world.player, "injuries", pristine)
+	else:
+		world.components.set_component(world.player, "injuries", {"wounds": [], "bloodLoss": 0.0, "bledOut": false})
+	print("HINT OK the wound hint is offered on the street, a click on its card clears it, and the seen mark goes into the slot and comes back out of F9 without offering it again")
 	return true
 
 
