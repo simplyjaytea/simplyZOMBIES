@@ -84,7 +84,7 @@ const SALT_WINNER: int = 403
 
 # The largest side a picture may have in art pixels: a canvas in the block's `sizes` is checked
 # against it, so a fabricated size cannot make a picture that covers the district.
-const SIZE_LIMIT: int = 64
+const MAX_EXTENT: int = 64
 # Where a flat picture sits inside its tile: one salt per axis, never the placement roll's.
 const SALT_JITTER_X: int = 400
 const SALT_JITTER_Y: int = 401
@@ -800,7 +800,7 @@ static func _sizes(block: Dictionary) -> Dictionary:
 			continue
 		var w: int = int((value as Array)[0])
 		var h: int = int((value as Array)[1])
-		if w > 0 and h > 0 and w <= SIZE_LIMIT and h <= SIZE_LIMIT:
+		if w > 0 and h > 0 and w <= MAX_EXTENT and h <= MAX_EXTENT:
 			out[String(key_v)] = Vector2i(w, h)
 	return out
 
