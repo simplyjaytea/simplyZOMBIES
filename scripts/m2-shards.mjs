@@ -30,6 +30,7 @@ export const M2_SHARD_COUNT = 4;
 export const M2_SHARDS = [
   [
     "godot:m2:raiders",
+    "godot:m2:tick",
     "godot:m2:lethality",
     "godot:m2:weather",
     "godot:m2:strangers",
