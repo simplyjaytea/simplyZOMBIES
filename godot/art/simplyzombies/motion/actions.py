@@ -330,7 +330,14 @@ TURN_TABLE = {
 }
 
 
-def turn_about_feet(im, degrees):
+def darkest(im):
+    """The pack's outline colour on a picture: its darkest solid colour, copied."""
+    px = im.load()
+    w, h = im.size
+    return min((px[x, y] for y in range(h) for x in range(w) if solid(px[x, y])), key=lambda p: p[0] + p[1] + p[2])
+
+
+def turn_about_feet(im, degrees, ink=None):
     """RotSprite's way of turning pixel art: up 8x by Scale2x three times, turned by sampling, and
     back down by taking the 8x picture's pixel under each output pixel's centre. Every output pixel
     is a copy of an input pixel, so no colour is invented. Turned `degrees` (positive clockwise:
@@ -373,7 +380,7 @@ def turn_about_feet(im, degrees):
     top = low + 1 - h
     out = out.crop((0, top, w, low + 1))
     origin = {(x, y - top): q for (x, y), q in origin.items() if top <= y <= low}
-    return ground(_reoutline(out, im, origin))
+    return ground(_reoutline(out, im, origin, darkest(im) if ink is None else ink))
 
 
 def _on_edge(o, x, y, w, h):
@@ -383,15 +390,15 @@ def _on_edge(o, x, y, w, h):
     return False
 
 
-def _reoutline(out, im, origin):
+def _reoutline(out, im, origin, ink):
     """Rings with the pack's outline colour (the darkest colour of the source picture, copied,
     never a new one) only what the turn opened: a solid pixel on the silhouette's edge that was
     sampled from inside the source picture, not from its edge. The pack's own edge keeps its own
     colours (much of it is not the darkest), so a turned body's outline reads as the standing
-    one's rather than heavier (art review round 2)."""
+    one's rather than heavier (art review round 2). `ink` is the bare body's darkest colour, passed
+    in so a dressed frame is ringed in the same colour as the bare one under it."""
     px = im.load()
     w, h = im.size
-    ink = min((px[x, y] for y in range(h) for x in range(w) if solid(px[x, y])), key=lambda p: p[0] + p[1] + p[2])
     o = out.load()
     opened = []
     for y in range(h):
@@ -420,10 +427,12 @@ def ground(im):
     return out
 
 
-def derive(rest, action, view, walk=(), hands=None, walk_hands=()):
+def derive(rest, action, view, walk=(), hands=None, walk_hands=(), ink=None):
     """[(frame, hands)] for a derived action. `walk` is the view's walk frames (the crouched walk
     folds each of them) and `walk_hands` their own hand points; `hands` the rest view's
-    {slot: (x, y)}, or None for a body that holds nothing."""
+    {slot: (x, y)}, or None for a body that holds nothing. `ink` is the colour a fall's turn rings
+    what it opens in: the rest view's darkest, unless the caller (the clothing painter, dressing a
+    body) passes the bare body's."""
     out = []
     if action == "crouchwalk":
         args = plan("crouch", view)[0]
@@ -443,7 +452,7 @@ def derive(rest, action, view, walk=(), hands=None, walk_hands=()):
             # frame turned toward the ground has room to lie out to either side.
             im = widen(im, fall_canvas(rest.size))
             if turn:
-                im = turn_about_feet(im, turn)
+                im = turn_about_feet(im, turn, darkest(rest) if ink is None else ink)
         if lift:
             # Off the floor by `lift` rows (a knock back, seen from the front), at most the pack's
             # one-row sole allowance.

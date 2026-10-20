@@ -1,4 +1,4 @@
-"""Clothes on the action frames (A8): every garment carried onto the survivor's 216 action pictures.
+"""Clothes on the action frames (A8): every garment carried onto the survivor's 240 action pictures.
 
 `build_clothing.py` paints a garment on the forty frames a body stands, walks and breathes in. The
 action frames (`../motion/actions.py`: swing, recoil, three reloads, flinch, crouch, crouched walk,
@@ -139,13 +139,16 @@ def _neutral_ink(px, x: int, y: int, size: tuple[int, int]) -> bool:
 
 def _shown(bare: Image.Image, dressed: Image.Image) -> Image.Image:
     """The garment a dressed picture shows: every pixel where it differs from the bare one, except
-    on the bare picture's ink."""
+    on the bare picture's ink. A garment pixel is cloth or nothing, so it is opaque: a fall's turn
+    rings what it opens in the pack's outline colour at the pack's own soft alpha, and where it
+    rings the cloth's edge that pixel is the garment's (godot:check:authored's WEAR lane)."""
     out = Image.new("RGBA", bare.size, (0, 0, 0, 0))
     b, d, o = bare.load(), dressed.load(), out.load()
     for y in range(bare.size[1]):
         for x in range(bare.size[0]):
             if d[x, y] != b[x, y] and not _ink(b, x, y, bare.size):
-                o[x, y] = d[x, y]
+                r, g, bl, a = d[x, y]
+                o[x, y] = (r, g, bl, 255) if a else (0, 0, 0, 0)
     return out
 
 
@@ -200,10 +203,10 @@ def _held(committed: Image.Image, rebuilt: Image.Image, what: str) -> None:
 # --- moved ------------------------------------------------------------------------------------
 
 
-def _moved(action: str, view: str, rest: Image.Image, walks: list[Image.Image], walk_n: list[Image.Image]) -> list[Image.Image]:
+def _moved(action: str, view: str, rest: Image.Image, walks: list[Image.Image], walk_n: list[Image.Image], ink=None) -> list[Image.Image]:
     if action == "prone":
         return act.prone_frames(walk_n, view)
-    return [im for im, _hands in act.derive(rest, action, view, walk=walks)]
+    return [im for im, _hands in act.derive(rest, action, view, walk=walks, ink=ink)]
 
 
 # --- drawn: the reloads ----------------------------------------------------------------------
@@ -505,7 +508,7 @@ def build(bc, images: dict[str, Image.Image]) -> dict[str, Image.Image]:
                 rest_d = _dressed(rests[view], g(view))
                 walks_d = [_dressed(walks[view][i], g(f"walk_{view}_{i}")) for i in range(parts.WALK)]
                 walk_n_d = [_dressed(walks["n"][i], g(f"walk_n_{i}")) for i in range(parts.WALK)]
-                for suffix, dressed in zip(suffixes, _moved(action, view, rest_d, walks_d, walk_n_d)):
+                for suffix, dressed in zip(suffixes, _moved(action, view, rest_d, walks_d, walk_n_d, act.darkest(rests[view]))):
                     out[f"{family}/{family}_{suffix}"] = _shown(committed[suffix], dressed)
     # A hand the fold left one row tall, under a sleeve: see `_whole_hands`. Legs and feet are
     # what any trouser or shoe covers on that frame, so a shin under a coat's hem is never a hand.

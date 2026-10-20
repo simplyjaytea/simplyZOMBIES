@@ -115,10 +115,10 @@ var _stash: Dictionary = {}
 # An action frame moves further: a crouch sinks the head onto bent knees, a stagger throws it back
 # (docs/23, "Actions on the render clock"). Still bounded, so a head flung off the body is refused.
 const ACTION_DRIFT_MAX: int = 10
-# A fall turns the body as far as 60 degrees about its feet (motion/actions.py `turn_about_feet`),
-# so its head travels most of a body's height; it is drawn bare in the corpse pass, but its
-# offsets are still bounded by that turn.
-const FALL_DRIFT_MAX: int = 20
+# A fall turns the body as far as 90 degrees about its feet (motion/actions.py `turn_about_feet`),
+# so its head travels as much as a body's height, the rig's 40 rows; it is drawn dressed in the
+# corpse pass, and its offsets are bounded by that turn.
+const FALL_DRIFT_MAX: int = 40
 const FRAME_DRIFT_MAX: int = 3
 # The bodies that turn, and so have frames for gear to follow.
 const TURNING_BODIES: Array[String] = [
