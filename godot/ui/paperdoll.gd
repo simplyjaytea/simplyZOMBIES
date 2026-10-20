@@ -29,6 +29,7 @@ extends Control
 const Palette = preload("res://presentation/palette.gd")
 const Appearance = preload("res://presentation/appearance.gd")
 const Chrome = preload("res://ui/chrome.gd")
+const Locker = preload("res://ui/locker.gd")
 const SimStances = preload("res://sim/stances.gd")
 
 enum OutlinePose { Stand = 0, Crouch = 1, Prone = 2 }
@@ -46,6 +47,8 @@ const DRAW_ORDER: Array[String] = [
 ]
 
 const BASE_FILL: Color = Color("#4d5546")
+# The picked part's ring: the Salvage Locker's amber, the one colour for "this is the thing".
+const SELECT_COL: Color = Color("#e2a33a")
 const ARMOUR_COL: Color = Color(0.55, 0.66, 0.78)
 const LABEL_H: float = 26.0
 
@@ -53,8 +56,19 @@ const LABEL_H: float = 26.0
 # chart inside its equipment columns even though it also draws at 2x.
 var drawing_offset: float = -76.0
 
+# The part picked on the survivor screen (inventory_panel.gd's `_part`), drawn ringed in amber and
+# lifted over its neighbours; "" for none. The corner glimpse never sets it.
+var selected_part: String = ""
+# Set by main.gd on the street's corner glimpse: the figure and its stance word sit on a Salvage
+# Locker card, like the HUD cards beside it, instead of loose over the road.
+var framed: bool = false
+# The framed card's tape: what the card shows, in the HUD's one-word idiom.
+const CARD_TAPE: String = "body"
+
 var _view: Dictionary = {}
 var _by_part: Dictionary = {}
+# Each chart texture's pixels, read once, for `part_at`.
+var _image_cache: Dictionary = {}
 var _mark_plan_cache: Dictionary = {}
 var _armour_mask_cache: Dictionary = {}
 
@@ -136,6 +150,57 @@ func _chart_mark_plan(texture: Texture2D) -> Dictionary:
 	return empty_plan
 
 
+# The part under `local` (this control's coordinates), front to back in the order the figure is
+# stacked, so a hand over a hip answers "hand". Read off the same chart pictures the figure is drawn
+# from, on their opaque pixels: the shape you click is the shape you see, and there is no second
+# table of hit boxes to drift from the art (docs/32: region shapes and hit regions share the same
+# authored coordinates). "" over the gaps between limbs and anywhere off the figure.
+func part_at(local: Vector2) -> String:
+	if _view.is_empty():
+		return ""
+	var rect: Rect2 = _chart_rect()
+	rect.position.y += drawing_offset if size.y < 400.0 else 0.0
+	if not rect.has_point(local):
+		return ""
+	var scale: float = rect.size.x / float(Appearance.CHART_CANVAS.x)
+	var px: Vector2i = Vector2i(floori((local.x - rect.position.x) / scale), floori((local.y - rect.position.y) / scale))
+	var pose: String = POSE_NAMES[_pose_for_stance(int(_view.get("stance", 2)))]
+	for i in range(DRAW_ORDER.size() - 1, -1, -1):
+		var part: String = DRAW_ORDER[i]
+		var texture: Texture2D = Appearance.resolve(Appearance.chart_key(part, pose))
+		if texture == null:
+			continue
+		var image: Image = _image_of(texture)
+		if image == null or px.x < 0 or px.y < 0 or px.x >= image.get_width() or px.y >= image.get_height():
+			continue
+		if image.get_pixelv(px).a > 0.5:
+			return part
+	return ""
+
+
+# Where a part sits on the figure, in this control's coordinates: the middle of its opaque pixels.
+# What a gate clicks to pick a part the way a player would, and nothing else reads it.
+func point_of(part: String) -> Vector2:
+	if _view.is_empty():
+		return Vector2(-1.0, -1.0)
+	var pose: String = POSE_NAMES[_pose_for_stance(int(_view.get("stance", 2)))]
+	var texture: Texture2D = Appearance.resolve(Appearance.chart_key(part, pose))
+	if texture == null:
+		return Vector2(-1.0, -1.0)
+	var rect: Rect2 = _chart_rect()
+	rect.position.y += drawing_offset if size.y < 400.0 else 0.0
+	var scale: float = rect.size.x / float(Appearance.CHART_CANVAS.x)
+	var plan: Dictionary = _chart_mark_plan(texture)
+	return rect.position + ((plan["center"] as Vector2) + Vector2(0.5, 0.5)) * scale
+
+
+func _image_of(texture: Texture2D) -> Image:
+	var key: int = texture.get_instance_id()
+	if not _image_cache.has(key):
+		_image_cache[key] = texture.get_image()
+	return _image_cache[key] as Image
+
+
 func _armor_offsets(_scale: float) -> Array[Vector2]:
 	# One screen pixel keeps the stroke visible without consuming the chart's native-pixel moat.
 	return [Vector2(-1.0, 0.0), Vector2(1.0, 0.0), Vector2(0.0, -1.0), Vector2(0.0, 1.0)]
@@ -159,13 +224,27 @@ func _armor_mask(texture: Texture2D) -> Texture2D:
 
 
 # Where the chart is drawn inside this control, and at what whole-number scale. Integer only: the
-# art is pixels, and a chart at 1.7x is a chart with some rows twice as thick as others.
+# art is pixels, and a chart at 1.7x is a chart with some rows twice as thick as others. Even too,
+# and placed on even pixels: the screen's art grid is two pixels, and a 3x chart put its outline
+# and the picked part's ring on odd pixels at 1920 (UI review, round 2).
 func _chart_rect() -> Rect2:
 	var canvas: Vector2 = Vector2(Appearance.CHART_CANVAS)
 	var room: Vector2 = Vector2(size.x, maxf(1.0, size.y - LABEL_H))
 	var scale: float = maxf(1.0, floorf(minf(room.x / canvas.x, room.y / canvas.y)))
+	if scale >= 2.0:
+		scale = floorf(scale / 2.0) * 2.0
 	var box: Vector2 = canvas * scale
-	return Rect2(Vector2(roundf((size.x - box.x) / 2.0), roundf((room.y - box.y) / 2.0)), box)
+	return Rect2(Vector2(floorf((size.x - box.x) / 4.0) * 2.0, floorf((room.y - box.y) / 4.0) * 2.0), box)
+
+
+# The street card the framed figure sits on, in this control's coordinates: room above the figure
+# for the card's own taped head, like every other card on the HUD, and the stance word inside it.
+func card_rect() -> Rect2:
+	var rect: Rect2 = _chart_rect()
+	var corner_shift: float = drawing_offset if size.y < 400.0 else 0.0
+	var card_top: float = floorf((rect.position.y + corner_shift - Locker.HEAD_H - 4.0) / 2.0) * 2.0
+	var card_end: float = ceilf((size.y + corner_shift + 4.0) / 2.0) * 2.0
+	return Rect2(Vector2(-8.0, card_top), Vector2(size.x + 16.0, card_end - card_top))
 
 
 func _draw() -> void:
@@ -179,6 +258,10 @@ func _draw() -> void:
 	rect.position.y += corner_shift
 	var scale: float = rect.size.x / float(Appearance.CHART_CANVAS.x)
 
+	if framed:
+		var card: Rect2 = card_rect()
+		Locker.panel(self, card, 0.96, false)
+		Locker.header(self, card, CARD_TAPE, 0.96)
 	# A soft ground shadow under the figure, as before: it is what stops the chart floating.
 	draw_set_transform(Vector2(rect.get_center().x, rect.position.y + rect.size.y - 4.0 * scale), 0.0, Vector2(1.0, 0.28))
 	draw_circle(Vector2.ZERO, rect.size.x * 0.30, Color(0.0, 0.0, 0.0, 0.30))
@@ -209,6 +292,17 @@ func _draw() -> void:
 				"infected": _infected(part),
 			})
 
+	# The picked part last but for the marks: lifted over its neighbours and ringed in amber, one of
+	# the figure's own pixels out on its silhouette -- the armour stroke's trick in the selection
+	# colour, stepped by the chart's scale so the ring sits on the figure's grid at 2x and at 3x.
+	if not selected_part.is_empty() and DRAW_ORDER.has(selected_part):
+		var sel_tex: Texture2D = Appearance.resolve(Appearance.chart_key(selected_part, pose))
+		if sel_tex != null:
+			var ring: Texture2D = _armor_mask(sel_tex)
+			for step in [Vector2(-scale, 0.0), Vector2(scale, 0.0), Vector2(0.0, -scale), Vector2(0.0, scale)]:
+				draw_texture_rect(ring, Rect2(rect.position + (step as Vector2), rect.size), false, SELECT_COL)
+			draw_texture_rect(sel_tex, rect, false, _tint_for(selected_part))
+
 	# The marks last, over every part, so a wound on a thigh is not painted over by the trunk.
 	var backing: Color = Color(0.05, 0.055, 0.06)
 	for mark in marks:
@@ -230,4 +324,4 @@ func _draw() -> void:
 	var label: String = SimStances.name_of(stance) if stance >= 0 and stance < SimStances.NAMES.size() else "walking"
 	var font: Font = Chrome.font()
 	var lw: float = font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, Chrome.FONT_SIZE).x
-	draw_string(font, Vector2(roundf(size.x / 2.0 - lw / 2.0), size.y - 6.0 + corner_shift), label, HORIZONTAL_ALIGNMENT_LEFT, -1, Chrome.FONT_SIZE, Palette.COLOURS["outline"])
+	draw_string(font, Vector2(roundf(size.x / 2.0 - lw / 2.0), size.y - 6.0 + corner_shift), label, HORIZONTAL_ALIGNMENT_LEFT, -1, Chrome.FONT_SIZE, Locker.TEXT_DIM if framed else Palette.COLOURS["outline"])

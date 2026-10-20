@@ -25,6 +25,11 @@ extends SceneTree
 #     dirty rag and the sterile bandage in the same pocket must survive. That is one lane with its
 #     true positive and true negative in the same world.
 #
+#  4. **A picked body part offers only the care the sim would take** (CARE, the UI overhaul's first
+#     slice). The figure is clicked where a player clicks it; the pane's buttons are exactly the
+#     verbs `SimTreatment.options_for` allows, a refusal is said in words only when the survivor can
+#     act on it, and the button pushes the `treat.begin` that starts the channel on that part.
+#
 # Every lane carries its true negative. A gate that cannot fail is worse than no gate.
 
 const World = preload("res://sim/world.gd")
@@ -39,6 +44,7 @@ const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
 const InspectPane = preload("res://ui/inspect_pane.gd")
+const CarePane = preload("res://ui/care_pane.gd")
 
 # The pane's whole vocabulary. Adding a key here is a decision about what the player is told, so
 # it is made in this file as well as in the read model -- the `check_ban_health_bar` arrangement,
@@ -76,8 +82,9 @@ func _run() -> void:
 	ok = await _a_cupboard_is_a_column_and_a_window() and ok
 	ok = _a_stack_that_cannot_merge_is_not_reported_as_stored() and ok
 	ok = await _the_list_and_the_buttons_reach_the_world() and ok
+	ok = await _a_picked_part_offers_only_legal_care() and ok
 	if ok:
-		print("INVENTORY_OK descriptions are prose, the pane carries only words, a verb is offered iff it works and reaches its command, the strip is belt and pockets and spends what you pressed, the column is fixed, the windows are gone, a cupboard is a column and a window, a stack that cannot merge is not reported as stored, and the list, a ctrl-click and the pane's buttons each move the world")
+		print("INVENTORY_OK a picked body part offers the care the sim would take and nothing else, descriptions are prose, the pane carries only words, a verb is offered iff it works and reaches its command, the strip is belt and pockets and spends what you pressed, the column is fixed, the windows are gone, a cupboard is a column and a window, a stack that cannot merge is not reported as stored, and the list, a ctrl-click and the pane's buttons each move the world")
 		quit(0)
 	else:
 		push_error("INVENTORY_FAIL")
@@ -1400,3 +1407,184 @@ func _plate_point(panel: Control, item: int) -> Variant:
 				var origin: Vector2 = bag.call("origin_of", (placed as Dictionary)["at"] as Vector2)
 				return (bag.call("plate_rect", origin, entry) as Rect2).get_center()
 	return null
+
+
+# --- CARE -------------------------------------------------------------------------------------
+#
+# The first playable journey's "select an injured region, then available care" (docs/32,
+# "Acceptance"), on the real sheet: a bleeding cut on the left arm, the figure clicked where the arm
+# is drawn, and the pane read and pressed.
+#
+#   PICK      a press on the arm picks "arm_left" and hands the inspect slot to the part; a press on
+#             the body panel off the figure puts it down again (the negative).
+#   OFFER     the buttons are exactly the verbs `options_for` allows, for the cut arm (pressure, no
+#             dressing carried) and for an unhurt head (none at all); "dress it" is refused in words
+#             because there is no dressing, and "not-bleeding" on the head is absent, not greyed.
+#   PRESS     the button pushes treat.begin for that patient, part and verb, and a step starts the
+#             channel on the arm; with the channel running the pane offers "stop" and nothing else,
+#             and "stop" pushes treat.cancel. A press on the pane's header pushes nothing.
+#   SUPPLY    with a cloth bandage in the pockets, "dress it" becomes a button.
+#   WORDS     every word the pane draws for the part is digit-free.
+#   FIT       a refusal wraps to fit a narrow pane and keeps its whole reason; a wide pane keeps it on one line.
+#   ESCAPE    Escape's first press puts the part down and leaves the sheet open.
+func _a_picked_part_offers_only_legal_care() -> bool:
+	var w: Variant = _world(4242)
+	var actor: int = w.player
+	SimWounds.append_wound(w, actor, "cut", "arm_left", -1, 0.0, "", SimWounds.Severity.Laceration)
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(1920, 1080)
+	root.add_child(viewport)
+	var panel: Control = (load(PANEL_GD) as GDScript).new() as Control
+	viewport.add_child(panel)
+	await process_frame
+	panel.call("set_world", w, actor)
+	panel.call("set_open", true)
+	await process_frame
+	var ok: bool = true
+	var doll: Control = panel.get("_paperdoll") as Control
+	panel.call("_place_doll")
+	var arm_at: Vector2 = doll.position + (doll.call("point_of", "arm_left") as Vector2)
+	var head_at: Vector2 = doll.position + (doll.call("point_of", "head") as Vector2)
+
+	# PICK
+	panel.call("_press_at", arm_at)
+	if String(panel.get("_part")) != "arm_left" or not bool(panel.call("_showing_part")):
+		push_error("CARE: PICK a press on the drawn left arm picked %s" % String(panel.get("_part")))
+		ok = false
+	var body: Rect2 = panel.call("_body_rect")
+	panel.call("_press_at", Vector2(body.get_center().x, body.end.y - 12.0))
+	if not String(panel.get("_part")).is_empty():
+		push_error("CARE: PICK a press on the body panel off the figure kept %s picked" % String(panel.get("_part")))
+		ok = false
+
+	# OFFER, on the arm and on the head.
+	for case in [["arm_left", arm_at], ["head", head_at]]:
+		panel.call("_press_at", case[1] as Vector2)
+		var part: String = String(case[0])
+		if String(panel.get("_part")) != part:
+			push_error("CARE: OFFER a press on the drawn %s picked %s" % [part, String(panel.get("_part"))])
+			ok = false
+			continue
+		var want: Array[String] = []
+		for o in SimTreatment.options_for(w, actor, actor, part):
+			if bool((o as Dictionary).get("ok", false)):
+				want.append(String((o as Dictionary)["verb"]))
+		var view: Dictionary = panel.call("_care_view")
+		var got: Array[String] = CarePane.verbs_of(view)
+		if got != want:
+			push_error("CARE: OFFER the %s's buttons are %s; options_for allows %s" % [part, str(got), str(want)])
+			ok = false
+		if part == "arm_left":
+			if not want.has("pressure") or want.has("bandage"):
+				push_error("CARE: OFFER the fixture is wrong: a bleeding arm with no dressing should allow pressure and not bandage, got %s" % str(want))
+				ok = false
+			var said: bool = false
+			for r in view.get("refused", []) as Array:
+				said = said or (String((r as Dictionary)["verb"]) == "bandage" and String((r as Dictionary)["reason"]) == "no-bandage")
+			if not said:
+				push_error("CARE: OFFER the arm does not say why it cannot be dressed: %s" % str(view.get("refused", [])))
+				ok = false
+		else:
+			if not got.is_empty():
+				push_error("CARE: OFFER an unhurt head offers %s" % str(got))
+				ok = false
+			for r in view.get("refused", []) as Array:
+				if String((r as Dictionary)["reason"]) in ["not-bleeding", "nothing-to-do"]:
+					push_error("CARE: OFFER the head greys %s out for having nothing to do instead of leaving it off" % String((r as Dictionary)["verb"]))
+					ok = false
+
+	# WORDS: everything the pane writes about the part.
+	panel.call("_press_at", arm_at)
+	var words: Dictionary = panel.call("_care_view")
+	var lines: Array[String] = [String(words.get("label", "")), CarePane.STATE_WORDS[clampi(int(words.get("state", 0)), 0, 3)]]
+	for n in words.get("notes", []) as Array:
+		lines.append(String(n))
+	for v in CarePane.verbs_of(words):
+		lines.append(CarePane.word_of(v))
+	for r in words.get("refused", []) as Array:
+		lines.append(String(CarePane.REASON_WORDS.get(String((r as Dictionary)["reason"]), "")))
+	var digit := RegEx.create_from_string("[0-9]")
+	for line in lines:
+		if digit.search(line) != null:
+			push_error("CARE: WORDS the pane writes a digit: %s" % line)
+			ok = false
+	# FIT: a refusal is never cut. In the compact pane's width each line fits whole and the reason is
+	# all there; in a pane wide enough it stays one line (the negative: the wrap is not unconditional).
+	var font_c: Font = load("res://ui/chrome.gd").call("font") as Font
+	for r in words.get("refused", []) as Array:
+		var narrow: Array[String] = CarePane.refusal_lines(r as Dictionary, 300.0)
+		var why: String = String(CarePane.REASON_WORDS.get(String((r as Dictionary)["reason"]), ""))
+		for line in narrow:
+			if font_c.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, CarePane.BODY_TEXT).x > 300.0:
+				push_error("CARE: FIT the refusal line '%s' is wider than a 300 px pane" % line)
+				ok = false
+		if not "".join(narrow).contains(why):
+			push_error("CARE: FIT the narrow refusal %s lost its reason '%s'" % [str(narrow), why])
+			ok = false
+		if CarePane.refusal_lines(r as Dictionary, 2000.0).size() != 1:
+			push_error("CARE: FIT a refusal wraps even in a 2000 px pane")
+			ok = false
+	if digit.search("hold pressure 3") == null:
+		push_error("CARE: WORDS the digit scanner cannot fail")
+		ok = false
+
+	# PRESS: a miss on the header first, then the button.
+	var pane: Rect2 = panel.call("_inspect_rect")
+	panel.call("_press_at", pane.position + Vector2(8.0, 8.0))
+	if not (w.commands._pending as Array).is_empty():
+		push_error("CARE: PRESS a press on the pane's header pushed %s" % str(w.commands._pending))
+		ok = false
+	panel.call("_press_at", arm_at)
+	var buttons: Array = CarePane.button_rects(pane, panel.call("_care_view"))
+	if buttons.is_empty():
+		push_error("CARE: PRESS the cut arm's pane has no button to press")
+		ok = false
+	else:
+		panel.call("_press_at", ((buttons[0] as Dictionary)["rect"] as Rect2).get_center())
+		var pushed: Array = (w.commands._pending as Array).duplicate()
+		var want_cmd := {"type": "treat.begin", "patient": actor, "part": "arm_left", "verb": "pressure"}
+		if pushed.size() != 1 or (pushed[0] as Dictionary) != want_cmd:
+			push_error("CARE: PRESS the button pushed %s, not %s" % [str(pushed), str(want_cmd)])
+			ok = false
+		w.step()
+		var t: Variant = w.components.get_component(actor, "treatment")
+		if not (t is Dictionary) or String((t as Dictionary).get("part", "")) != "arm_left":
+			push_error("CARE: PRESS the step did not start a channel on the arm: %s" % str(t))
+			ok = false
+		var running: Dictionary = panel.call("_care_view")
+		if CarePane.verbs_of(running) != [CarePane.STOP_VERB]:
+			push_error("CARE: PRESS with the channel running the pane offers %s, not only stop" % str(CarePane.verbs_of(running)))
+			ok = false
+		var stop: Array = CarePane.button_rects(pane, running)
+		if not stop.is_empty():
+			panel.call("_press_at", ((stop[0] as Dictionary)["rect"] as Rect2).get_center())
+			var cancel: Array = (w.commands._pending as Array).duplicate()
+			if cancel.size() != 1 or String((cancel[0] as Dictionary).get("type", "")) != "treat.cancel":
+				push_error("CARE: PRESS stop pushed %s, not treat.cancel" % str(cancel))
+				ok = false
+			w.step()
+			if w.components.has_component(actor, "treatment"):
+				push_error("CARE: PRESS stop left the channel running")
+				ok = false
+
+	# SUPPLY: a dressing in the pocket makes "dress it" a button.
+	if _give(w, "item.bandage.cloth") < 0:
+		push_error("CARE: SUPPLY the fixture could not pocket a cloth bandage")
+		ok = false
+	panel.call("set_world", w, actor)
+	panel.call("_press_at", arm_at)
+	if not CarePane.verbs_of(panel.call("_care_view")).has("bandage"):
+		push_error("CARE: SUPPLY a cloth bandage in the pocket did not make the arm dressable: %s" % str(CarePane.verbs_of(panel.call("_care_view"))))
+		ok = false
+
+	# ESCAPE
+	if not bool(panel.call("escape")) or not String(panel.get("_part")).is_empty() or not bool(panel.call("is_open")):
+		push_error("CARE: ESCAPE the first press did not put the part down and leave the sheet open")
+		ok = false
+	if bool(panel.call("escape")):
+		push_error("CARE: ESCAPE with nothing picked, held or open the sheet still claimed the press")
+		ok = false
+	if ok:
+		print("CARE OK a press on the drawn arm picks it and one off the figure puts it down; the arm's buttons are options_for's (%s) and the head's are none, dressing is refused in words and nothing-to-do is absent; the button pushes treat.begin and starts the channel, stop cancels it, a header press pushes nothing; a bandage makes it dressable; every word is digit-free; Escape puts the part down first" % ", ".join(CarePane.verbs_of(words)))
+	viewport.queue_free()
+	return ok
