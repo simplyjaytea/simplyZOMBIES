@@ -99,18 +99,18 @@ const CLOT_TICKS: Dictionary = {
 const WOUND_KINDS: Dictionary = {
 	"cut": {"bleeds": true, "recoveryDays": -1, "impairFloor": -1, "septicMul": 1.0, "global": {}, "closeKind": "suture"},
 	"bite": {"bleeds": true, "recoveryDays": -1, "impairFloor": -1, "septicMul": 1.0, "global": {}, "closeKind": "suture"},
-	"fracture": {"bleeds": false, "recoveryDays": 42, "impairFloor": 2, "septicMul": 0.0, "global": {}, "closeKind": "splint"},
+	"fracture": {"bleeds": false, "recoveryDays": 168, "impairFloor": 2, "septicMul": 0.0, "global": {}, "closeKind": "splint"},
 		# docs/05 treats a sprain with "Rest, wrap", and this row said `""` -- nothing in the game
 	# could close one, so the only treatment a sprain had was time. `wrap` is the third closer, and
 	# it is matched exactly like the other two: a suture does not compress a sprain and a wrap does
 	# not hold a cut shut.
-	"sprain": {"bleeds": false, "recoveryDays": 5, "impairFloor": 0, "septicMul": 0.0, "global": {}, "closeKind": "wrap"},
-	"burn": {"bleeds": true, "recoveryDays": 14, "impairFloor": 1, "septicMul": 2.0, "global": {}, "closeKind": "suture"},
+	"sprain": {"bleeds": false, "recoveryDays": 20, "impairFloor": 0, "septicMul": 0.0, "global": {}, "closeKind": "wrap"},
+	"burn": {"bleeds": true, "recoveryDays": 56, "impairFloor": 1, "septicMul": 2.0, "global": {}, "closeKind": "suture"},
 	# The exposure wounds (needs.gd's lethal ladders): no bleed, nothing to close, impairing
 	# the part they sit on; frostbite on an extremity for a fortnight, heatstroke on the torso
 	# for a week. Neither can go septic -- there is no opening.
-	"frostbite": {"bleeds": false, "recoveryDays": 14, "impairFloor": 1, "septicMul": 0.0, "global": {}, "closeKind": ""},
-	"heatstroke": {"bleeds": false, "recoveryDays": 7, "impairFloor": 1, "septicMul": 0.0, "global": {}, "closeKind": ""},
+	"frostbite": {"bleeds": false, "recoveryDays": 56, "impairFloor": 1, "septicMul": 0.0, "global": {}, "closeKind": ""},
+	"heatstroke": {"bleeds": false, "recoveryDays": 28, "impairFloor": 1, "septicMul": 0.0, "global": {}, "closeKind": ""},
 	# A concussion impairs the person, not the part: docs/05 wants "reaction and perception loss".
 	# swing_speed and ranged_accuracy are the two stats this model already has that mean
 	# "reactions", and they are what it gets. **Perception has no stat to attach to** -- vision is
@@ -120,7 +120,7 @@ const WOUND_KINDS: Dictionary = {
 	# would be a modifier that looks wired and is not, which is the exact failure this slice keeps
 	# finding elsewhere.
 	"concussion": {
-		"bleeds": false, "recoveryDays": 6, "impairFloor": -1, "septicMul": 0.0,
+		"bleeds": false, "recoveryDays": 24, "impairFloor": -1, "septicMul": 0.0,
 		"global": {"swing_speed": 0.85, "ranged_accuracy": 0.75}, "closeKind": "",
 	},
 }
@@ -461,9 +461,9 @@ const SEPSIS_MOOD: float = -12.0
 const SEPSIS_WORK_MUL: float = 0.7
 
 const RECOVERY_DAYS: Dictionary = {
-	Severity.Scratch: 2,
-	Severity.Laceration: 6,
-	Severity.DeepWound: 16,
+	Severity.Scratch: 8,
+	Severity.Laceration: 24,
+	Severity.DeepWound: 64,
 }
 
 # Recovery is *earned time*, not elapsed time. A wound's healedTicks only advances on ticks

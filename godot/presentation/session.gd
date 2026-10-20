@@ -23,6 +23,7 @@ const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimSave = preload("res://sim/save.gd")
 const PlatformStorage = preload("res://platform/storage.gd")
 const Clock = preload("res://sim/time/clock.gd")
+const Onboarding = preload("res://presentation/onboarding.gd")
 
 # TITLE is drawn *over* a booted world, never instead of one: the smoke and the HUD gates assert
 # `main.get("world") != null` one frame after instantiation, so a deferred boot would have been a
@@ -51,6 +52,9 @@ var region_id: String = ""
 var seed: int = SimBoot.DISTRICT_SEED
 # Why the last `load()` said no, as a sentence the title can print, or "" when it said yes.
 var notice: String = ""
+# The first-day hints this save has already given. Presentation's, not the sim's: it is written beside
+# the snapshot by `save()` and read back by `load()`, and nothing under `sim/` ever sees it.
+var onboarding: RefCounted = Onboarding.new()
 
 
 # Boots (or reboots) the playable world on a given seed and district. This is the one boot path:
@@ -68,6 +72,7 @@ func boot(seed_val: int, district: String, region: String = "") -> void:
 	district_id = district
 	seed = seed_val
 	notice = ""
+	onboarding.reset()
 
 
 # The fixed default town, from the title, the pause menu and the run-over screen alike -- the
@@ -89,7 +94,9 @@ signal saved
 func save() -> bool:
 	if world == null:
 		return false
-	if not PlatformStorage.write_save(SimSave.encode_save(SimSave.create_save(world))):
+	var save_data: Dictionary = SimSave.create_save(world)
+	save_data["onboarding"] = onboarding.to_save()
+	if not PlatformStorage.write_save(SimSave.encode_save(save_data)):
 		return false
 	saved.emit()
 	return true
@@ -116,6 +123,7 @@ func load() -> bool:
 	if bool(world.runOver):
 		return false
 	SimSave.apply_save(world, parsed)
+	onboarding.from_save(parsed.get("onboarding", []))
 	return true
 
 
@@ -169,3 +177,48 @@ func enter(next: int) -> void:
 # request both ask before they autosave.
 func is_live() -> bool:
 	return state == State.PLAYING or state == State.PAUSED
+
+
+# Livable time (plan A5). The sleep fast-forward runs at the fastest step the sim keeps up with,
+# which is 3x; 10x waits for the sim tick to get under budget (plan A3), so no key reaches it.
+const SLEEP_SPEED: int = 3
+# Contact is ten metres (docs/02). A living zombie that close stops the fast-forward, so the
+# survivor is back at the user's own speed before anything can reach them.
+const THREAT_METRES: float = 10.0
+
+
+static func player_asleep(world: Variant) -> bool:
+	return world != null and world.components.has_component(world.player, "sleeping")
+
+
+static func threat_near(world: Variant) -> bool:
+	var pos: Variant = world.components.get_component(world.player, "position")
+	if not pos is Dictionary:
+		return false
+	var here := Vector2(float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]))
+	for e in world.components.query(["position", "shambler"]):
+		# A despawned body keeps its components, so a dead zombie counts only while it is alive.
+		if not world.entities.is_alive(int(e)):
+			continue
+		var at: Variant = world.components.get_component(int(e), "position")
+		if at is Dictionary and here.distance_to(Vector2(float((at as Dictionary)["x"]), float((at as Dictionary)["y"]))) <= THREAT_METRES:
+			return true
+	return false
+
+
+# The step the world advances at this frame: the user's own, or the sleep rate while they sleep
+# with nothing near them.
+static func run_rate(speed: int, world: Variant) -> int:
+	if player_asleep(world) and not threat_near(world):
+		return maxi(speed, SLEEP_SPEED)
+	return speed
+
+
+# The clock's state in words, for the HUD. Digits are banned on the player HUD (check_hud), so the
+# step is named, not counted.
+static func speed_words(speed: int, paused: bool, world: Variant) -> String:
+	if paused:
+		return "paused"
+	if player_asleep(world):
+		return "asleep, zombie near, normal speed" if threat_near(world) else "asleep, fast-forwarding"
+	return "fast" if speed >= SLEEP_SPEED else "normal speed"

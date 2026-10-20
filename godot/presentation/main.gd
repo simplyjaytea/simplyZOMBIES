@@ -37,6 +37,7 @@ const SimVehicles = preload("res://sim/modules/vehicles.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const SimSurvivors = preload("res://sim/modules/survivors.gd")
+const SimOrders = preload("res://sim/modules/orders.gd")
 const SimAptitudes = preload("res://sim/modules/aptitudes.gd")
 const ContentReload = preload("res://platform/content_reload.gd")
 const SimChronicle = preload("res://sim/modules/chronicle.gd")
@@ -52,10 +53,19 @@ const SessionRes = preload("res://presentation/session.gd")
 const UiPrefs = preload("res://ui/prefs.gd")
 const RenderInterp = preload("res://presentation/interp.gd")
 const WorldLayersRes = preload("res://presentation/world_layers.gd")
+const LightMapRes = preload("res://presentation/light_map.gd")
 
 const TICK_HZ: int = 20
 const TICK_SECONDS: float = 1.0 / 20.0
-const NIGHT_WASH: float = 0.8
+# How far toward the night's colour a pixel with nothing but the sky to see by goes. Raised from
+# 0.8 with the light map (A10): the night is near black, and the pools are what carry it.
+const NIGHT_WASH: float = 0.94
+# How much darker the edge of sight is than the dark inside it, by day and by night: by night the
+# remembered map and the void sit back behind what the survivor sees now, almost all the way, so
+# the edge of sight is the edge of the picture. By day nothing -- the remembered map draws its own
+# dimming, and the day frame is the one it was before the light map.
+const SIGHT_EDGE_DARK_DAY: float = 0.0
+const SIGHT_EDGE_DARK_NIGHT: float = 0.95
 # The small memory dot at the end of `_draw_entities` used to fade over its own three-second
 # clock; it now fades over `SimSightings.RECENT_TICKS`, the sim's own "worth mentioning, not worth
 # trusting" band, so the mark on screen and a colonist's decision to still be wary are the same
@@ -111,7 +121,7 @@ var accumulator: float = 0.0
 var _interp: RenderInterp = RenderInterp.new()
 var paused: bool = false
 var speed: int = 1
-var attention_channel: String = "off" # off/noise/scent/sight/light
+var attention_channel: String = "off" # off/light: the O key; noise, scent and sight were never drawn (A22)
 var inventory_open: bool = false
 var work_open: bool = false
 # The skill web screen (K), for the colonist selected on the street or for you.
@@ -248,6 +258,8 @@ var _fx_drawn: Array[Dictionary] = []
 # item. Every draw call in _draw_district's helpers goes through `_pen`, which is the whole of how
 # one body of drawing code serves both.
 var _layers: RefCounted = WorldLayersRes.new()
+# The night, per pixel, and the glow over it (presentation/light_map.gd).
+var _light_map: RefCounted = LightMapRes.new()
 var _pen: Object = null
 # Which of a tile's looks a _draw_district pass bakes; the values are world_layers.gd's Layer ids.
 enum BakePass { LIVE = 0, A2 = 1, REMEMBERED = 2 }
@@ -394,6 +406,7 @@ func _on_world_replaced() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_PREDELETE:
 		_layers.call("detach")
+		_light_map.call("detach")
 	elif what == 413: # NOTIFICATION_RESIZED
 		_resize_camera()
 		queue_redraw()
@@ -520,6 +533,8 @@ func _ensure_ui() -> void:
 	if hud_script != null:
 		_hud = hud_script.new() as Control
 		_hud.name = "Hud"
+		# The session's first-day hints: the HUD clears the one on screen through it, and `_update_hud` offers the next.
+		_hud.set("onboarding", session.onboarding)
 		layer.add_child(_hud)
 	# inventory layer (always present: draws the full screen on Tab, and any pinned bag
 	# windows while playing; input passes through it when closed)
@@ -729,8 +744,9 @@ func _strip_use(index: int) -> void:
 		_inventory_panel.call("strip_use", index)
 
 
-# Speed, as a ladder rather than three keys. The same three values the number row used to set.
-const SPEED_LADDER: Array[int] = [1, 3, 10]
+# Speed, as a ladder rather than three keys. 10x is left out until the sim tick is under budget
+# (plan A3); `SimFortify.speed_after_events` still drops a 10x run on an alarm for when it is back.
+const SPEED_LADDER: Array[int] = [1, 3]
 func _step_speed(step: int) -> void:
 	var at: int = SPEED_LADDER.find(speed)
 	if at < 0:
@@ -760,7 +776,9 @@ func _dismiss_legend() -> void:
 
 
 func _cycle_overlay() -> void:
-	var order: Array[String] = ["off", "noise", "scent", "sight", "light"]
+	# Only the light channel draws anything. The other three were dead controls (check_light_look's
+	# O-key rider), so O cycles the one thing it shows rather than four presses of nothing.
+	var order: Array[String] = ["off", "light"]
 	var idx: int = order.find(attention_channel)
 	attention_channel = order[(idx + 1) % order.size()]
 
@@ -976,11 +994,13 @@ func _process(delta: float) -> void:
 	# The effects' clock runs on the frame's own wall-clock delta, and only here, behind the same
 	# early return the ticks are: a paused world holds a flash where it was.
 	_fx.call("advance", delta)
-	# speed scales tick debt: more ticks per frame, not smaller tick
-	accumulator += delta * float(speed)
+	# speed scales tick debt: more ticks per frame, not smaller tick. A sleeping survivor with
+	# nothing near runs at the sleep rate, which is `speed` unless it is faster.
+	var rate: int = SessionRes.run_rate(speed, world)
+	accumulator += delta * float(rate)
 	var ticks_done: int = 0
 	var prev_tick: int = int(world.tick)
-	var cap: int = maxi(1, 5 * speed)
+	var cap: int = maxi(1, 5 * rate)
 	# Clamped to what one frame may run: a slow frame drops the time past the cap instead of
 	# carrying it into every frame after, which is how a slow tick became a slower game.
 	accumulator = RenderInterp.clamp_debt(accumulator, TICK_SECONDS, cap)
@@ -1140,10 +1160,17 @@ func _update_hud() -> void:
 		if not _content_error.is_empty():
 			context = "content: %s" % _content_error
 		_hud.set("hint", context)
+		_hud.set("time_words", SessionRes.speed_words(speed, paused, world))
 		# What the contextual keys would do, right here: the sim's read models decide the verb --
 		# fortify's look-at, the cupboard, the car, the aid ladder, the hands on a neighbour --
 		# and the line only names the key. check_hud's ACTION lane asserts both halves.
 		_hud.call("set_action", HudRead.action_line(world, world.player, look, context))
+		# The first-day hint: the next thing this save has not yet been told, offered only while the street
+		# is up and running. A menu, the sheet, the title or P's pause would cover it, so it waits for them.
+		var offered: String = ""
+		if _hud.visible and not paused and session.state == SessionRes.State.PLAYING:
+			offered = String(session.onboarding.offer(world, world.player, Time.get_ticks_msec()))
+		_hud.call("set_onboarding", offered)
 		_hud.call("refresh", world, who, base)
 	# The dashboard reads the seat every refresh: {} off the wheel hides it -- and so does leaving
 	# the run, because a speedometer still lit over the title is the last frame of a run that is
@@ -1180,6 +1207,7 @@ func _draw() -> void:
 	_draw_light_pools()
 	_fx_drawn = []
 	_a2_wall_drawn = []
+	_draw_orders()
 	_draw_entities()
 	_draw_effects(false)
 	_draw_afterimages()
@@ -1914,10 +1942,26 @@ func _draw_solid_tile(rect: Rect2, col: Color, tx: int, ty: int) -> void:
 
 # Windows: a bright glass pane + rim so they read against masonry. Orientation
 # follows the neighbouring walls; a corner window falls back to a square pane.
+# Since 2026-10-19 the pane and the rim are pictures (the dressing block's `faces.glass`, drawn under
+# art/simplyzombies/glass/): greys tinted here by the same two colours the rects were, so night,
+# weather and a boarded window's stage reach them unchanged. Without them, the rects below.
 func _draw_window_glass(rect: Rect2, tx: int, ty: int, col: Color = Palette.COLOURS["window"]) -> void:
 	var glass: Color = col.lightened(0.28)
 	var horizontal_walls: bool = _is_solid_at(tx - 1, ty) and _is_solid_at(tx + 1, ty)
 	var vertical_walls: bool = _is_solid_at(tx, ty - 1) and _is_solid_at(tx, ty + 1)
+	var shape: String = "square"
+	if horizontal_walls and not vertical_walls:
+		shape = "ew"
+	elif vertical_walls and not horizontal_walls:
+		shape = "ns"
+	var keys: Array[String] = Dressing.glass_keys(_dressing(), shape)
+	if keys.size() == 2:
+		var pane_art: Texture2D = Appearance.resolve(keys[0])
+		var frame_art: Texture2D = Appearance.resolve(keys[1])
+		if pane_art != null and frame_art != null:
+			_pen.draw_texture_rect(pane_art, rect, false, glass)
+			_pen.draw_texture_rect(frame_art, rect, false, Palette.COLOURS["windowRim"])
+			return
 	var c: Vector2 = rect.get_center()
 	var pane_long: float = rect.size.x * 0.75
 	var pane_short: float = rect.size.x * 0.25
@@ -2421,17 +2465,16 @@ func _is_solid_at(tx: int, ty: int) -> bool:
 # The set of tiles is light_look.gd's, so the no-leak rule is one function with a gate on it
 # rather than a condition repeated in a draw loop.
 #
-# Over the floor and under the bodies: the pool is light landing on the ground, so a body standing
-# in one is drawn on top of it rather than tinted by it -- the entity pass owns what a body looks
-# like, and this may not reach into that.
+# Since the light map (A10) this is the O key's developer channel only. What a player sees of a
+# pool is the light map's per-pixel night (`_draw_night_wash`), soft-edged and measured to the
+# pixel; these are the same lit-and-seen tiles as flat rects, near and far, which is what a
+# developer checking the light index wants and what the street should never look like.
+#
+# Over the floor and under the bodies, so the channel reads as light on the ground.
 func _draw_light_pools() -> void:
 	if world == null: return
 	var overlay: bool = attention_channel == "light"
-	# At noon a lamp changes nothing about what anyone can see -- sight_metres caps at the
-	# observer's own range -- so an ordinary frame paints no pools at all in full daylight, and
-	# the warm look belongs to dusk, night and dawn. The O channel is a developer overlay reading
-	# the light index directly and draws them regardless, which is the whole point of it.
-	if not overlay and LightLook.ambient_of(world) >= 1.0: return
+	if not overlay: return
 	var bounds: Dictionary = TopDownProjection.visible_bounds(camera, 2.0)
 	var pools: Dictionary = LightLook.lit_pool_tiles(world, int(world.player), bounds)
 	for group_value in (pools["coloured"] as Dictionary).values():
@@ -2450,6 +2493,20 @@ func _fill_pool_tiles(tiles: Array, col: Color) -> void:
 		var tile: Vector2i = t as Vector2i
 		var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(tile.x) + 0.5, float(tile.y) + 0.5)
 		draw_rect(Rect2(roundf(float(sc["sx"]) - half), roundf(float(sc["sy"]) - half), zoom, zoom), col)
+
+
+# Where the selected colonist is going: a ring on the ground at their spot, or on the item they
+# are hauling. Under the bodies, and in the same player colour as the selection ring that marks
+# whose order this is, so the two always say the same thing about whose the HUD is speaking.
+func _draw_orders() -> void:
+	if world == null or _selected < 0 or _selected == int(world.player):
+		return
+	var tile: Vector2i = SimOrders.destination(world, _selected)
+	if tile.x < 0:
+		return
+	var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(tile.x) + 0.5, float(tile.y) + 0.5)
+	var zoom: float = float(camera["zoom"])
+	draw_arc(Vector2(float(sc["sx"]), float(sc["sy"])), zoom * 0.4, 0.0, TAU, 20, Palette.COLOURS["player"], 1.5)
 
 
 # Dead zombies have already left the simulation's actor set. The saved visual records add no
@@ -3244,19 +3301,75 @@ func _shadow_ellipse(cx: float, cy: float, a: float, b: float) -> PackedVector2A
 # one is, where it goes and whether the player sees it is FxLook's; this only blits, turning a
 # flash by the draw call's own `transpose` and signed rect the way a held weapon turns, never by a
 # transform.
+#
+# The lights land in the light map's glow item rather than in this item's own commands: the night
+# is a child item multiplied over everything this one draws, so a flash drawn here would be dimmed
+# by it however late in `_draw` it came.
 func _draw_effects(glow: bool) -> void:
 	if world == null: return
 	for fx in _fx.call("draws", world, camera, glow) as Array[Dictionary]:
-		draw_texture_rect(fx["texture"] as Texture2D, fx["rect"] as Rect2, false, Color.WHITE, bool(fx["transpose"]))
+		if glow:
+			_light_map.call("glow_rect", fx["texture"] as Texture2D, fx["rect"] as Rect2, bool(fx["transpose"]))
+		else:
+			draw_texture_rect(fx["texture"] as Texture2D, fx["rect"] as Rect2, false, Color.WHITE, bool(fx["transpose"]))
 		_fx_drawn.append({"key": String(fx["key"]), "frame": int(fx["frame"])})
 
-# The night, over everything but the lights (`_draw_effects(true)` above). The alpha is derived
-# from the *same number the survivor's range is* -- light_look.gd's sight-derived fraction, not raw
-# ambient -- so the screen and the simulation cannot drift apart. Standing in a lit pool visibly
-# lifts the wash, and it lifts it because the range genuinely grew (docs/30). With nobody to ask,
-# the fraction falls back to ambient, which is what this always was.
+# The night, over everything but the lights (`_draw_effects(true)` below). Since the light map
+# (plan item A10) it is per pixel rather than one flat fill: near black by night, the survivor's
+# own small disc of ground (LightLook.eye_disc_metres), and each source's pool out to its own
+# radius in flat dithered rings, nothing past it. Light lands only on tiles lit *and* seen
+# (LightLook.light_texels, the bits the shader reads), feathered inward over the last half tile so
+# a wall's shadow is soft without light ever crossing onto a tile the survivor does not see; the
+# edge of sight itself is softened across the tile boundary. With nobody to ask, the sky alone.
+#
+# In full daylight there is no night to draw, and the frame is exactly the one it was before the
+# light map: the rect is cleared rather than drawn white.
 func _draw_night_wash() -> void:
-	var a: float = LightLook.wash_alpha(world, int(world.player), NIGHT_WASH)
-	if a <= 0.0: return
+	_light_map.call("attach", get_canvas_item())
+	_light_map.call("begin_frame")
+	var ambient: float = LightLook.ambient_of(world)
+	if ambient >= 1.0:
+		_light_map.call("frame", {}, false)
+		return
+	var eyes: int = int(world.player)
+	var bounds: Dictionary = TopDownProjection.visible_bounds(camera, 2.0)
+	var map_w: int = int(world.map_width)
+	var map_h: int = int(world.map_height)
+	var min_x: int = maxi(0, floori(float(bounds["minX"])))
+	var max_x: int = mini(map_w - 1, ceili(float(bounds["maxX"])))
+	var min_y: int = maxi(0, floori(float(bounds["minY"])))
+	var max_y: int = mini(map_h - 1, ceili(float(bounds["maxY"])))
+	var view := Rect2i(min_x, min_y, maxi(0, max_x - min_x + 1), maxi(0, max_y - min_y + 1))
+	var texels: Dictionary = LightLook.light_texels(world, eyes, view)
+	# A carried light rides the body, and the body is drawn between ticks (presentation/interp.gd);
+	# its pool slides with the picture so it never trails it by a tick.
+	var lights: Array = []
+	var sub_tick: float = _sub_tick()
+	for l in texels["lights"] as Array:
+		var light: Dictionary = (l as Dictionary).duplicate()
+		var slide: Vector2 = _interp.offset(world, int(light["entity"]), sub_tick)
+		light["x"] = float(light["x"]) + slide.x
+		light["y"] = float(light["y"]) + slide.y
+		if float(light.get("beam", 0.0)) > 0.0:
+			light["facing"] = _interp.facing(int(light["entity"]), float(light["facing"]), sub_tick)
+		lights.append(light)
+	var range_m: float = 0.0
+	var obs: Variant = world.components.get_component(eyes, "observer") if eyes >= 0 else null
+	if obs is Dictionary:
+		range_m = float((obs as Dictionary).get("range_metres", 0.0))
+	var origin: Dictionary = TopDownProjection.world_to_screen(camera, 0.0, 0.0)
 	var night: Color = Palette.COLOURS["night"] as Color
-	draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Color(night.r, night.g, night.b, a))
+	var ctx: Dictionary = {
+		"viewport": get_viewport_rect().size, "zoom": float(camera["zoom"]),
+		"origin": Vector2(float(origin["sx"]), float(origin["sy"])), "view": view,
+		"texels": texels, "lights": lights, "ambient": ambient,
+		"range_m": range_m if range_m > 0.0 else 1.0, "night": night,
+		"night_wash": NIGHT_WASH,
+		"edge_dark_day": SIGHT_EDGE_DARK_DAY, "edge_dark_night": SIGHT_EDGE_DARK_NIGHT,
+	}
+	var eye_pos: Variant = world.components.get_component(eyes, "position") if range_m > 0.0 else null
+	if eye_pos is Dictionary:
+		var eye_slide: Vector2 = _interp.offset(world, eyes, sub_tick)
+		ctx["eye"] = Vector2(float((eye_pos as Dictionary)["x"]) + eye_slide.x, float((eye_pos as Dictionary)["y"]) + eye_slide.y)
+		ctx["eye_reach"] = LightLook.eye_disc_metres(world, eyes)
+	_light_map.call("frame", ctx, true)

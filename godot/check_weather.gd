@@ -10,7 +10,7 @@ extends SceneTree
 # then fog's veil, then the night wash).
 #
 # check_light_look.gd owns the other half of the draw order (district -> pools -> entities) and
-# _draw_night_wash's wash_alpha assertion; lane D names it as the standing co-assertion rather
+# _draw_night_wash's light-map assertions; lane D names it as the standing co-assertion rather
 # than duplicating it here.
 #
 # Eight lanes, every assertion with a true positive and a true negative, because a gate that
@@ -30,6 +30,7 @@ extends SceneTree
 const SimBoot = preload("res://sim/boot.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimWeather = preload("res://sim/modules/weather.gd")
+const SimClock = preload("res://sim/time/clock.gd")
 const RainLook = preload("res://presentation/rain_look.gd")
 const Palette = preload("res://presentation/palette.gd")
 const Appearance = preload("res://presentation/appearance.gd")
@@ -41,7 +42,7 @@ const RAIN_GD: String = "res://presentation/rain_look.gd"
 const KINDS: Array[String] = ["rain", "storm", "snow"]
 const CANON_SEED: int = 20260805
 const GATE_SIZE: int = 64
-const DAY_TICKS: float = 288000.0
+const DAY_TICKS: float = float(SimClock.DAY_TICKS)
 const EPS: float = 0.000001
 
 # The gate's own wall clock, docs/00 pillar 6: one 64-tile boot and a few thousand pure
@@ -478,7 +479,7 @@ func _the_dead_keys_are_wired_and_the_dead_constants_are_gone() -> bool:
 		return false
 
 	print(
-		"DEAD SOCKET OK windowRim/glimpse/memory/facing/aimCone/night reach the draw loop, the old literals are gone, and the five dead palette constants are deleted with CONDITION_TINTS standing (check_light_look.gd holds _draw_night_wash's wash_alpha assertion)"
+		"DEAD SOCKET OK windowRim/glimpse/memory/facing/aimCone/night reach the draw loop, the old literals are gone, and the five dead palette constants are deleted with CONDITION_TINTS standing (check_light_look.gd holds _draw_night_wash's light-map assertions)"
 	)
 	return true
 

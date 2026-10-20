@@ -2010,6 +2010,31 @@ static func face_key(block: Dictionary, kind: String) -> String:
 	return String((faces as Dictionary).get(kind, ""))
 
 
+# The window shapes `_draw_window_glass` chooses between by the walls either side of the tile: a
+# long pane in a run east-west, one in a run north-south, a small square one where neither is clear.
+const GLASS_SHAPES: Array[String] = ["ew", "ns", "square"]
+
+
+# `[pane, frame]`, the two picture keys the faces block's `glass` map names for one window shape,
+# or an empty array when the block names no glass, an unknown shape, or only one of the pair -- the
+# caller then draws the procedural pane, the supported fallback. Pure over one block.
+static func glass_keys(block: Dictionary, shape: String) -> Array[String]:
+	var out: Array[String] = []
+	var faces: Variant = block.get("faces")
+	if not GLASS_SHAPES.has(shape) or not (faces is Dictionary):
+		return out
+	var glass: Variant = (faces as Dictionary).get("glass")
+	if not (glass is Dictionary):
+		return out
+	var pane: String = String((glass as Dictionary).get("pane_" + shape, ""))
+	var frame: String = String((glass as Dictionary).get("frame_" + shape, ""))
+	if pane.is_empty() or frame.is_empty():
+		return out
+	out.append(pane)
+	out.append(frame)
+	return out
+
+
 # Whether a tile is outdoor open floor carrying `surface` -- the eligibility both scatters share.
 static func _ground_is(map: Variant, tx: int, ty: int, surface: int) -> bool:
 	if map == null:

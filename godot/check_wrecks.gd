@@ -65,15 +65,16 @@ extends SceneTree
 #              a step where the van is a slab. Since 2026-09-26 the three cars' east-west
 #              pictures are the outpost pack's and are measured at PACK_ALPHA against the pack's
 #              own rows (the step read as the cab's rise over both ends); the light classes are
-#              still the generator's, on its rows, and only a generated picture is held to the
-#              clearance the mirror needs. A class this lane has no expectation for is named, not
+#              drawn on footprint canvases (since 2026-10-19, under art/simplyzombies/vehicles/)
+#              and judged on the generator's rows, and only a picture drawn on a footprint canvas
+#              is held to the clearance the mirror needs. A class this lane has no expectation for is named, not
 #              skipped, and every predicate is refused on a fabricated picture first.
 #   PACK       the cars are the pack's, east-west (docs/23's slice of that name): the classes on
-#              `Appearance.VEHICLE_PACK_EW` name authored pack keys east-west and generated keys
-#              north-south, and no other class names an authored key; each pack key is an
-#              east-facing pack vehicle cropped to its own anchor row, never padded; and the
-#              footprint is the art's -- the painted span at PACK_ALPHA rounds up to the class's
-#              `lEw`, which is shorter than its north-south length.
+#              PACK_EW_IDS name the pack's cars east-west and drawn pictures north-south, and no
+#              other class names a pack car; each pack key is an east-facing pack vehicle cropped
+#              to its own anchor row, never padded; and the footprint is the art's -- the painted
+#              span at PACK_ALPHA rounds up to the class's east-west length, which is its
+#              north-south length too (one car, one length, since 2026-10-19).
 #   EXCLUSIVE  the mutual exclusion, over every Low tile of every parked district: covered by a
 #              record, or resolving a heap -- never both, never neither. And textually, because the
 #              exclusion is the branch's and not the resolver's: the Tile.Low arm of
@@ -158,6 +159,12 @@ const LIGHT_IDS: Array[String] = ["vehicle.bicycle", "vehicle.ebike", "vehicle.e
 const BICYCLE_ID: String = "vehicle.bicycle"
 const EBIKE_ID: String = "vehicle.ebike"
 const SKATEBOARD_ID: String = "vehicle.skateboard"
+# The classes whose east-west picture is the outpost pack's, cropped to the pack's anchor row
+# rather than drawn on a footprint canvas (docs/23, "The cars are the pack's, east-west"). The
+# renderer needs no such list since every vehicle picture became authored (2026-10-19); this gate
+# keeps it because PACK and SILHOUETTE judge those pictures by the pack's rules, and PACK holds
+# the list to the art both ways.
+const PACK_EW_IDS: Array[String] = ["vehicle.sedan", "vehicle.van", "vehicle.truck"]
 
 # The height decision (docs/30, the vehicle-class clause of 2026-09-04) as the numbers SILHOUETTE
 # holds the decoded east-west pictures to. Rows are opaque rows of the 96 that axis has; the
@@ -350,14 +357,13 @@ func _key_problem(key: String, want: Vector2i) -> String:
 	return ""
 
 
-# The canvas a class's CONTENT footprint implies for an axis -- the generated pictures only: a
-# class on `Appearance.VEHICLE_PACK_EW` draws the pack's art east-west at the pack's own canvas,
-# and PACK holds that one to its footprint instead. There are three copies of the
-# footprint now -- content's `footprint` (what worldgen parks and writes Low under),
-# `Appearance.VEHICLE_FOOTPRINTS` (what sizes the picture) and `parts/vehicles.py`'s (what draws
-# it) -- and the picture is judged against the second while the cover comes from the first. Held
-# to agree per class, because agreeing only at the longest class would let a van's picture stand
-# eight tiles tall on six tiles of Low.
+# The canvas a class's CONTENT footprint implies for an axis -- the footprint plus a tile of
+# roofline north -- for every picture drawn to it: all of them but the three cars east-west, whose
+# pack pictures PACK holds to their footprint instead. Content's `footprint` is what worldgen parks
+# and writes Low under, and authored.json's canvas is what sizes the picture; held to agree per
+# class, because agreeing only at the longest class would let a van's picture stand five tiles
+# tall on three tiles of Low. (Until 2026-10-19 there was a third copy, the generator's footprint
+# table mirrored by `Appearance.VEHICLE_FOOTPRINTS`; both went with the generated art.)
 func _canvas_from_content(entry: Dictionary, axis: String) -> Vector2i:
 	var foot: Dictionary = entry.get("footprint", {}) as Dictionary
 	var w: int = int(foot.get("w", 0))
@@ -434,9 +440,6 @@ func _the_block_declares_working_art(stash: Dictionary) -> bool:
 		if heap_canvas.x > tile_canvas.x or heap_canvas.y > tile_canvas.y or heap_canvas.x <= 0 or heap_canvas.y <= 0:
 			push_error("heap key '%s' is authored on %s, wider or taller than the one %s tile a heap covers" % [heap_key, str(heap_canvas), str(tile_canvas)])
 			return false
-		if Appearance.vehicle_canvas(heap_key) != Vector2i.ZERO:
-			push_error("heap key '%s' reads as a vehicle picture; a heap is one tile of junk, not a car" % heap_key)
-			return false
 		keys.append(heap_key)
 
 	# The scatter, which this slice did not touch but which shares the block and the predicate.
@@ -463,46 +466,39 @@ func _the_block_declares_working_art(stash: Dictionary) -> bool:
 		push_error("content declares no vehicle classes at all; the whole slice would be a manifest nobody can fill")
 		return false
 	var vehicle_keys: int = 0
+	var authored: Dictionary = Appearance.authored_canvases()
 	for raw3 in classes:
 		var entry: Dictionary = raw3 as Dictionary
+		var id: String = String(entry.get("id", ""))
+		# Variants may share a picture -- the pack draws one intact car and one wreck, and the
+		# north-south cars follow it -- so a key is counted once a class, and the duplicate check
+		# below still refuses two classes, or a heap and a car, naming one picture.
+		var counted: Dictionary = {}
 		for axis in [Appearance.AXIS_NS, Appearance.AXIS_EW]:
 			var listed2: Array[String] = _variant_keys(entry, String(axis))
 			if listed2.is_empty():
-				push_error("vehicle class %s declares no `%s` keys; half its variants would draw nothing" % [String(entry.get("id", "?")), String(axis)])
+				push_error("vehicle class %s declares no `%s` keys; half its variants would draw nothing" % [id, String(axis)])
 				return false
-			# A class whose east-west picture is the outpost pack's names authored keys on that
-			# axis, placed by the authored tier at the pack's own canvas rather than derived from
-			# the footprint -- PACK below is where that canvas is held to the footprint instead --
-			# and its variants share them, because the pack draws one intact car and one wreck.
-			# Counted once a class, so the duplicate check still refuses two classes, or a heap
-			# and a car, naming one picture.
-			var pack_ew: bool = String(axis) == Appearance.AXIS_EW and Appearance.VEHICLE_PACK_EW.has(String(entry.get("id", "")).trim_prefix("vehicle."))
-			var counted: Dictionary = {}
+			# A class whose east-west picture is the outpost pack's is placed at the pack's own
+			# canvas, cropped to its anchor row -- PACK below holds that one to the footprint
+			# instead. Every other vehicle picture is drawn on the canvas its footprint implies.
+			var pack_ew: bool = String(axis) == Appearance.AXIS_EW and PACK_EW_IDS.has(id)
 			for key in listed2:
-				if pack_ew and counted.has(key):
+				if counted.has(key):
 					continue
 				counted[key] = true
-				var want: Vector2i = Appearance.canvas_of(key) if pack_ew else Appearance.vehicle_canvas(key)
+				if not authored.has(key):
+					push_error("vehicle key on %s: '%s' is declared nowhere in authored.json; since every vehicle picture is authored, an undeclared one is art nobody placed" % [id, key])
+					return false
+				var want: Vector2i = Appearance.canvas_of(key)
 				var problem3: String = _key_problem(key, want)
 				if not problem3.is_empty():
-					push_error("vehicle key on %s: %s" % [String(entry.get("id", "?")), problem3])
+					push_error("vehicle key on %s: %s" % [id, problem3])
 					return false
-				if pack_ew:
-					if Appearance.vehicle_canvas(key) != Vector2i.ZERO:
-						push_error("%s's east-west key '%s' is still placed by the generated vehicle rule; the pack's picture would be judged at a canvas it was not drawn on" % [String(entry.get("id", "?")), key])
-						return false
-					keys.append(key)
-					vehicle_keys += 1
-					continue
-				# Appearance's footprint for this class against content's, per class and per
-				# axis: the picture is sized by one and the cover under it by the other.
-				if want != _canvas_from_content(entry, String(axis)):
-					push_error("%s's '%s' picture is sized %s by Appearance.VEHICLE_FOOTPRINTS where its content footprint implies %s; the picture would stand on cover of another length" % [String(entry.get("id", "?")), key, str(want), str(_canvas_from_content(entry, String(axis)))])
-					return false
-				# The table and the deriver have to agree, or a picture that measures correctly
-				# here would be blitted at another size by the draw loop.
-				if Appearance.canvas_of(key) != want:
-					push_error("canvas_of('%s') answers %s where vehicle_canvas answers %s" % [key, str(Appearance.canvas_of(key)), str(want)])
+				# The declared canvas against content's footprint, per class and per axis: the
+				# picture is sized by one and the cover under it by the other.
+				if not pack_ew and want != _canvas_from_content(entry, String(axis)):
+					push_error("%s's '%s' picture is authored on %s where its content footprint implies %s; the picture would stand on cover of another length" % [id, key, str(want), str(_canvas_from_content(entry, String(axis)))])
 					return false
 				keys.append(key)
 				vehicle_keys += 1
@@ -519,15 +515,15 @@ func _the_block_declares_working_art(stash: Dictionary) -> bool:
 		push_error("the duplicate detector found no duplicate in a list built to contain one; it cannot say yes")
 		return false
 	# A key nobody authored. Both halves matter: a fabricated *heap* has no file, and a fabricated
-	# *vehicle* variant is refused a canvas before the filesystem is even asked -- which is what
-	# stops a hand-dropped PNG standing in for a class nobody declared.
+	# *vehicle* variant is declared nowhere, so it gets no canvas of its own -- which is what stops
+	# a hand-dropped PNG standing in for a class nobody declared.
 	if _key_problem("heap_zz", Appearance.canvas_of("heap_zz")).is_empty():
 		push_error("a fabricated heap key passed the key check; it is not reading the sprite directory")
 		return false
-	if Appearance.vehicle_canvas("vehicle_sedan_zz_ns") != Vector2i.ZERO:
-		push_error("a fabricated variant resolved a vehicle canvas; an unknown variant must fall through")
+	if authored.has("vehicle_sedan_zz_ns"):
+		push_error("a fabricated variant is declared in authored.json; an unknown variant must fall through")
 		return false
-	if _key_problem("vehicle_sedan_zz_ns", Appearance.vehicle_canvas("vehicle_sedan_zz_ns")).is_empty():
+	if _key_problem("vehicle_sedan_zz_ns", Appearance.canvas_of("vehicle_sedan_zz_ns")).is_empty():
 		push_error("a fabricated vehicle key passed the key check")
 		return false
 	# The per-class footprint cross-check can say no: one class's content footprint held against
@@ -540,7 +536,7 @@ func _the_block_declares_working_art(stash: Dictionary) -> bool:
 			var a_ns: Array[String] = _variant_keys(a, Appearance.AXIS_NS)
 			if a_ns.is_empty() or _canvas_from_content(a, Appearance.AXIS_NS) == _canvas_from_content(b, Appearance.AXIS_NS):
 				continue
-			if Appearance.vehicle_canvas(a_ns[0]) == _canvas_from_content(b, Appearance.AXIS_NS):
+			if Appearance.canvas_of(a_ns[0]) == _canvas_from_content(b, Appearance.AXIS_NS):
 				push_error("%s's picture passed against %s's footprint; the per-class footprint cross-check cannot say no" % [String(a.get("id", "?")), String(b.get("id", "?"))])
 				return false
 			crossed = true
@@ -558,7 +554,7 @@ func _the_block_declares_working_art(stash: Dictionary) -> bool:
 
 	stash["keys"] = keys.size()
 	stash["vehicle_keys"] = vehicle_keys
-	print("DRESSING OK %d keys resolve: %d heaps inside %s, %d scatter scraps, %d vehicle pictures at their own derived canvases, each class's Appearance footprint agreeing with its content footprint on both axes, no duplicates; a fabricated heap key, a fabricated variant, one class's picture against another's footprint, an empty block and an empty list are all refused" % [
+	print("DRESSING OK %d keys resolve: %d heaps inside %s, %d scatter scraps, %d vehicle pictures, every one declared in authored.json and every one drawn on a footprint canvas authored at exactly the canvas its class's content footprint implies on its axis, no duplicates; a fabricated heap key, a fabricated variant, one class's picture against another's footprint, an empty block and an empty list are all refused" % [
 		keys.size(), (heaps as Array).size(), str(tile_canvas), keys.size() - (heaps as Array).size() - vehicle_keys, vehicle_keys,
 	])
 	return true
@@ -580,8 +576,8 @@ func _other_classes() -> Array[String]:
 
 # A class's footprint turned to an axis as content declares it, `(x extent, y extent)`, or ZERO for
 # a class nobody wrote: `w` x `l` north-south, and `lEw` x `w` east-west where the class declares an
-# east-west length (the three cars, whose east-west picture is the pack's), `l` x `w` where it
-# does not. Read here from content directly rather than through SimWorldgen.vehicle_extent, so
+# east-west length of its own, `l` x `w` where it does not (no shipped class does since
+# 2026-10-19, when the cars became one length both ways; the schema still allows it). Read here from content directly rather than through SimWorldgen.vehicle_extent, so
 # the helper the generator and the entity share is judged against something it did not compute.
 func _extent_on(id: String, axis: String) -> Vector2i:
 	for raw in SimWorldgen.vehicles_of(_tree()):
@@ -632,7 +628,7 @@ func _hand_map_problem() -> String:
 func _hand_map() -> Variant:
 	var map: Variant = SimTileMap.blank_map(HAND_SIZE, HAND_SIZE)
 	var records: Array = [
-		{"x": 3, "y": 2, "w": 2, "h": 5, "axis": "ns", "class": SEDAN_ID, "facing": "n"},
+		{"x": 3, "y": 2, "w": 2, "h": 3, "axis": "ns", "class": SEDAN_ID, "facing": "n"},
 		{"x": 8, "y": 9, "w": 3, "h": 2, "axis": "ew", "class": SEDAN_ID, "facing": "w"},
 	]
 	for id in _other_classes():
@@ -691,7 +687,7 @@ func _the_manifest_answers_for_its_footprint_alone(stash: Dictionary) -> bool:
 
 	# Outside: the ring around a car, off the map on all four sides, and past the end of a short
 	# index array -- which is what a stale cache handed to a bigger map looks like.
-	for probe in [Vector2i(2, 2), Vector2i(5, 4), Vector2i(3, 1), Vector2i(3, 7), Vector2i(8, 8), Vector2i(13, 9)]:
+	for probe in [Vector2i(2, 2), Vector2i(5, 4), Vector2i(3, 1), Vector2i(3, 5), Vector2i(8, 8), Vector2i(13, 9)]:
 		var p: Vector2i = probe as Vector2i
 		if Dressing.vehicle_at(index, map, p.x, p.y) != Dressing.VEHICLE_NONE:
 			push_error("tile %s is outside every footprint and vehicle_at answered %d" % [str(p), Dressing.vehicle_at(index, map, p.x, p.y)])
@@ -707,13 +703,13 @@ func _the_manifest_answers_for_its_footprint_alone(stash: Dictionary) -> bool:
 		return false
 
 	# Where the picture stands: the centre of the footprint's south edge, exactly, on both axes.
-	# A north-south sedan at (3,2) 2x5 stands at (4.0, 7.0); an east-west one at (8,9) 3x2 -- the
-	# pack's footprint, not the north-south one laid flat -- stands at (9.5, 11.0), and the half
-	# tile is the point, because a 3-wide body has no centre column.
+	# A north-south sedan at (3,2) 2x3 stands at (4.0, 5.0); an east-west one at (8,9) 3x2 -- the
+	# same three tiles turned -- stands at (9.5, 11.0), and the half tile is the point, because a
+	# 3-wide body has no centre column.
 	var gp_ns: Vector2 = Dressing.vehicle_ground_point(records[0] as Dictionary)
 	var gp_ew: Vector2 = Dressing.vehicle_ground_point(records[1] as Dictionary)
-	if gp_ns != Vector2(4.0, 7.0) or gp_ew != Vector2(9.5, 11.0):
-		push_error("vehicle_ground_point answered %s and %s, wanted (4, 7) and (9.5, 11)" % [str(gp_ns), str(gp_ew)])
+	if gp_ns != Vector2(4.0, 5.0) or gp_ew != Vector2(9.5, 11.0):
+		push_error("vehicle_ground_point answered %s and %s, wanted (4, 5) and (9.5, 11)" % [str(gp_ns), str(gp_ew)])
 		return false
 	# And every other class's pair, derived from the CONTENT footprint turned to the record's axis
 	# rather than from the record's own w and h. The hand map builds its extents from that same
@@ -728,7 +724,7 @@ func _the_manifest_answers_for_its_footprint_alone(stash: Dictionary) -> bool:
 	if others6.is_empty():
 		push_error("content declares no class beyond the sedan, so the ground-point rule had no second class to judge")
 		return false
-	if _ground_point_problem({"x": 6, "y": 1, "w": 2, "h": 5, "axis": "ns", "class": others6[0], "facing": "s"}).is_empty():
+	if _ground_point_problem({"x": 6, "y": 1, "w": 2, "h": 3, "axis": "ns", "class": others6[0], "facing": "s"}).is_empty():
 		push_error("a %s parked at the sedan's extent stood its picture where its own footprint would; the ground-point rule cannot say no" % others6[0])
 		return false
 
@@ -801,7 +797,7 @@ func _the_manifest_answers_for_its_footprint_alone(stash: Dictionary) -> bool:
 	var by_class: Dictionary = {}
 	for raw8 in declared:
 		var id8: String = String((raw8 as Dictionary).get("id", ""))
-		var k8: String = Dressing.vehicle_key(world, {"x": 3, "y": 2, "w": 2, "h": 5, "axis": "ns", "class": id8, "facing": "n"}, CANON_SEED)
+		var k8: String = Dressing.vehicle_key(world, {"x": 3, "y": 2, "w": 2, "h": 3, "axis": "ns", "class": id8, "facing": "n"}, CANON_SEED)
 		if k8.is_empty():
 			push_error("%s resolved no picture on the sedan's own corner" % id8)
 			return false
@@ -843,7 +839,7 @@ func _the_manifest_answers_for_its_footprint_alone(stash: Dictionary) -> bool:
 		push_error("a see-everything observer drew %d of %d records" % [Dressing.vehicle_records(map, sees_all, box).size(), records.size()])
 		return false
 	var sees_corner := FakeSeen.new()
-	sees_corner.tiles[Vector2i(4, 6)] = true  # one tile of the first car's tail, and nothing else
+	sees_corner.tiles[Vector2i(4, 4)] = true  # one tile of the first car's tail, and nothing else
 	var corner: Array[int] = Dressing.vehicle_records(map, sees_corner, box)
 	if corner != ([0] as Array[int]):
 		push_error("an observer seeing one tile of the first car drew %s; a bonnet past a wall is a car you can see, and nothing else is" % str(corner))
@@ -890,7 +886,7 @@ func _the_manifest_answers_for_its_footprint_alone(stash: Dictionary) -> bool:
 		push_error("vehicle_index(null) answered an index rather than nothing")
 		return false
 
-	print("MANIFEST OK %d records of %d classes mark %d tiles and nothing else on a hand-built %dx%d map; vehicle_at says none outside, off-map and past a short index; the sedan's ground points (4, 7) and (9.5, 11) exact and every other class's derived from its content footprint; one key per vehicle over its whole footprint (a per-tile hash would have given %d), from its own class's list; every class on both axes and %d classes resolving %d different pictures on one corner; the renderer's reach is %d tiles, content's longest footprint plus the roofline; only 'w' mirrors; draw is a subset of seen; an unknown class, an unknown axis, an off-edge record and a non-Array manifest all answer nothing" % [
+	print("MANIFEST OK %d records of %d classes mark %d tiles and nothing else on a hand-built %dx%d map; vehicle_at says none outside, off-map and past a short index; the sedan's ground points (4, 5) and (9.5, 11) exact and every other class's derived from its content footprint; one key per vehicle over its whole footprint (a per-tile hash would have given %d), from its own class's list; every class on both axes and %d classes resolving %d different pictures on one corner; the renderer's reach is %d tiles, content's longest footprint plus the roofline; only 'w' mirrors; draw is a subset of seen; an unknown class, an unknown axis, an off-edge record and a non-Array manifest all answer nothing" % [
 		records.size(), declared.size(), marked, HAND_SIZE, HAND_SIZE, as_tiles.size(), declared.size(), by_class.size(), Appearance.vehicle_reach_tiles(),
 	])
 	return true
@@ -1575,10 +1571,10 @@ func _the_classes_read_apart_by_height(stash: Dictionary) -> bool:
 			if img.load("%s/%s.png" % [SPRITE_DIR, key]) != OK:
 				push_error("%s/%s.png does not load; the silhouette had nothing to measure" % [SPRITE_DIR, key])
 				return false
-			# A pack picture (an authored key) is measured at PACK_ALPHA and judged at the pack's
-			# rows, and is cropped to its anchor rather than drawn inside margins, so the
-			# clearance is the generator's rule alone.
-			var pack: bool = Appearance.authored_canvases().has(key)
+			# A pack picture is measured at PACK_ALPHA and judged at the pack's rows, and is
+			# cropped to its anchor rather than drawn inside margins, so the clearance is a rule
+			# for the pictures drawn on a footprint canvas alone.
+			var pack: bool = PACK_EW_IDS.has(id)
 			var m: Dictionary = _silhouette(img, PACK_ALPHA if pack else 1)
 			var problem: String = "" if pack else _clearance_problem(m)
 			if not problem.is_empty():
@@ -1653,25 +1649,27 @@ func _the_classes_read_apart_by_height(stash: Dictionary) -> bool:
 # docs/23's "The cars are the pack's, east-west": the owner adopted the outpost pack overwriting
 # the generated art it replaces, and the pack draws a car side-on only -- a hatchback three tiles
 # long, a van and a pickup four. So the three cars' east-west pictures are the pack's, cropped to
-# the pack's anchor row, and their east-west footprints are the pack's (content's `lEw`), while
-# north-south keeps the generated art and its longer footprint (decision 11 of the Dungeon
-# Settlers look: a car seen from behind is a picture the pack does not have). What that is, as
-# properties this lane can refuse:
+# the pack's anchor row, and the footprint is the pack's. Until 2026-10-19 north-south kept the
+# generated art at a longer footprint (content's `lEw` carried the shorter east-west one); since
+# "The cars north-south, and the light vehicles" a car is drawn nose-north at the pack's scale
+# under art/simplyzombies/vehicles/, and is the same length both ways, as the owner's 2026-09-17
+# decision named. What that is, as properties this lane can refuse:
 #
-#   * which classes are the pack's is one list, `Appearance.VEHICLE_PACK_EW`, and it agrees with
-#     the art both ways: a class on it names only authored keys east-west, each of kind `vehicle`
-#     read by that class, and generated keys north-south; a class off it names no authored key;
+#   * which classes are the pack's is one list, PACK_EW_IDS, and it agrees with the art both
+#     ways: a class on it names only the pack's cars east-west, each of kind `vehicle` read by
+#     that class; a class off it names none; and no class names one north-south;
 #   * each such key is reproduced from a pack vehicle facing east, cropped from the canvas origin
 #     to the pack's own anchor -- the anchor is the bottom-centre pixel of the cropped canvas, which
 #     is exactly where `Appearance.body_rect` stands a feet-anchored picture, so the pack's pivot
 #     and the renderer's are one point and nothing was padded to make them so;
 #   * the footprint is the art's: the painted span at PACK_ALPHA, rounded up to whole tiles, is the
-#     class's `lEw`, the picture is no wider than that footprint, and `lEw` is shorter than the
-#     north-south length -- sabotage either number in content and this lane names the class.
+#     class's east-west length, the picture is no wider than that footprint, and the north-south
+#     length is the same -- sabotage either number in content and this lane names the class.
 #
-# Every predicate is refused on a fabrication first: a span a tile too long, a speck at the canvas
-# edge that must not widen it, an anchor a pixel off the crop, a pad, a south-facing source, a
-# non-pack class naming an authored key, and a pack class naming a generated one.
+# Every predicate is refused on a fabrication first: a span a tile too long, a car longer one way
+# than the other, a speck at the canvas edge that must not widen it, an anchor a pixel off the
+# crop, a pad, a south-facing source, a non-pack class naming a pack car, and a pack class naming a
+# picture that is not the pack's.
 
 const PACK_MANIFEST: String = "res://art/simplyzombies/manifest.json"
 const PACK_ROOT: String = "art/simplyzombies/"
@@ -1734,22 +1732,24 @@ func _pack_footprint_problem(id: String, span: int, width_px: int, ew: Vector2i,
 		return "%s's pack picture spans %d tiles at alpha >= %d and content parks it %d long east-west" % [id, span, PACK_ALPHA, ew.x]
 	if width_px > ew.x * int(CameraUtil.ART_NATIVE):
 		return "%s's pack picture is %d px wide, past its %d-tile east-west footprint" % [id, width_px, ew.x]
-	if ew.x >= ns.y:
-		return "%s is %d long east-west and %d north-south; the pack's footprint is the shorter one, and north-south keeps the generated length" % [id, ew.x, ns.y]
+	if ew.x != ns.y:
+		return "%s is %d long east-west and %d north-south; a car is one length whichever way it is parked (docs/30, 2026-09-17)" % [id, ew.x, ns.y]
 	return ""
 
 
 # What is wrong with a class's keys against the pack list, or "": both directions of "a class is
-# on VEHICLE_PACK_EW exactly when it names authored keys east-west", and never one north-south.
-func _pack_membership_problem(id: String, on_list: bool, ew_keys: Array[String], ns_keys: Array[String], authored: Dictionary) -> String:
+# on PACK_EW_IDS exactly when its east-west keys are the pack's cars", and never a pack car
+# north-south -- the pack draws its cars side-on only. `pack_cars` is every authored key whose
+# source is a vehicle in the pack's own manifest.
+func _pack_membership_problem(id: String, on_list: bool, ew_keys: Array[String], ns_keys: Array[String], pack_cars: Dictionary) -> String:
 	for key in ew_keys:
-		if on_list and not authored.has(key):
-			return "%s is on VEHICLE_PACK_EW and names '%s' east-west, which is not authored" % [id, key]
-		if not on_list and authored.has(key):
-			return "%s is not on VEHICLE_PACK_EW and names the authored '%s' east-west" % [id, key]
+		if on_list and not pack_cars.has(key):
+			return "%s is on PACK_EW_IDS and names '%s' east-west, which is not one of the pack's cars" % [id, key]
+		if not on_list and pack_cars.has(key):
+			return "%s is not on PACK_EW_IDS and names the pack's car '%s' east-west" % [id, key]
 	for key2 in ns_keys:
-		if authored.has(key2):
-			return "%s names the authored '%s' north-south; north-south keeps the generated art" % [id, key2]
+		if pack_cars.has(key2):
+			return "%s names the pack's car '%s' north-south; the pack draws its cars side-on only" % [id, key2]
 	return ""
 
 
@@ -1764,12 +1764,12 @@ func _the_cars_are_the_packs_east_west(stash: Dictionary) -> bool:
 	if _pack_footprint_problem("fabricated", _span_tiles(four, PACK_ALPHA), 112, Vector2i(3, 2), Vector2i(2, 5)).is_empty():
 		push_error("PACK: a four-tile picture passed on a three-tile footprint; the span rule cannot say no")
 		return false
-	var sound: String = _pack_footprint_problem("fabricated", _span_tiles(four, PACK_ALPHA), 112, Vector2i(4, 2), Vector2i(2, 6))
+	var sound: String = _pack_footprint_problem("fabricated", _span_tiles(four, PACK_ALPHA), 112, Vector2i(4, 2), Vector2i(2, 4))
 	if not sound.is_empty():
 		push_error("PACK: a four-tile picture refused on a four-tile footprint: %s" % sound)
 		return false
-	if _pack_footprint_problem("fabricated", 4, 112, Vector2i(4, 2), Vector2i(2, 4)).is_empty():
-		push_error("PACK: an east-west length equal to the north-south one passed; the shorter-footprint rule cannot say no")
+	if _pack_footprint_problem("fabricated", 4, 112, Vector2i(4, 2), Vector2i(2, 6)).is_empty():
+		push_error("PACK: a car four tiles east-west and six north-south passed; the one-length rule cannot say no")
 		return false
 	var three := Image.create_empty(96, 47, false, Image.FORMAT_RGBA8)
 	three.fill_rect(Rect2i(5, 3, 86, 44), Color(1.0, 1.0, 1.0, 1.0))
@@ -1801,27 +1801,36 @@ func _the_cars_are_the_packs_east_west(stash: Dictionary) -> bool:
 	if _pack_source_problem(fake_source, Vector2i(96, 47), {"category": "vehicles", "facing": "south", "anchor": [48, 46]}).is_empty():
 		push_error("PACK: a south-facing pack vehicle passed as an east-west picture")
 		return false
-	var fake_authored: Dictionary = {"vehicle_bicycle_pack_ew": Vector2i(64, 64)}
-	if _pack_membership_problem("vehicle.bicycle", false, ["vehicle_bicycle_pack_ew"] as Array[String], [] as Array[String], fake_authored).is_empty():
-		push_error("PACK: a class off VEHICLE_PACK_EW naming an authored key passed; the list and the art could drift apart")
+	var fake_pack: Dictionary = {"vehicle_bicycle_pack_ew": true}
+	if _pack_membership_problem("vehicle.bicycle", false, ["vehicle_bicycle_pack_ew"] as Array[String], [] as Array[String], fake_pack).is_empty():
+		push_error("PACK: a class off PACK_EW_IDS naming a pack car passed; the list and the art could drift apart")
 		return false
-	if _pack_membership_problem("vehicle.sedan", true, ["vehicle_sedan_pale_ew"] as Array[String], [] as Array[String], fake_authored).is_empty():
-		push_error("PACK: a class on VEHICLE_PACK_EW naming a generated key passed")
+	if _pack_membership_problem("vehicle.sedan", true, ["vehicle_sedan_drawn_ew"] as Array[String], [] as Array[String], fake_pack).is_empty():
+		push_error("PACK: a class on PACK_EW_IDS naming a picture that is not the pack's passed")
 		return false
-	if _pack_membership_problem("vehicle.sedan", true, [] as Array[String], ["vehicle_bicycle_pack_ew"] as Array[String], fake_authored).is_empty():
-		push_error("PACK: a class naming an authored key north-south passed; north-south keeps the generated art")
+	if _pack_membership_problem("vehicle.sedan", true, [] as Array[String], ["vehicle_bicycle_pack_ew"] as Array[String], fake_pack).is_empty():
+		push_error("PACK: a class naming a pack car north-south passed; the pack draws its cars side-on only")
+		return false
+	if not _pack_membership_problem("vehicle.sedan", true, ["vehicle_bicycle_pack_ew"] as Array[String], ["vehicle_sedan_drawn_ns"] as Array[String], fake_pack).is_empty():
+		push_error("PACK: a pack class with a pack car east-west and a drawn picture north-south was refused; the membership rule would refuse the shipped cars")
 		return false
 
 	# --- the real classes ---
+	# The pack's cars: every authored key whose source the pack's own manifest lists as a vehicle.
+	var pack_cars: Dictionary = {}
+	for key0 in entries.keys():
+		var src0: Dictionary = (entries[key0] as Dictionary).get("source", {}) as Dictionary
+		if String(_pack_asset(String(src0.get("path", ""))).get("category", "")) == "vehicles":
+			pack_cars[String(key0)] = true
 	var judged: Array[String] = []
 	var on_list_seen: int = 0
 	for raw in SimWorldgen.vehicles_of(_tree()):
 		var entry: Dictionary = raw as Dictionary
 		var id: String = String(entry.get("id", ""))
-		var on_list: bool = Appearance.VEHICLE_PACK_EW.has(id.trim_prefix("vehicle."))
+		var on_list: bool = PACK_EW_IDS.has(id)
 		var ew_keys: Array[String] = _variant_keys(entry, Appearance.AXIS_EW)
 		var ns_keys: Array[String] = _variant_keys(entry, Appearance.AXIS_NS)
-		var problem: String = _pack_membership_problem(id, on_list, ew_keys, ns_keys, authored)
+		var problem: String = _pack_membership_problem(id, on_list, ew_keys, ns_keys, pack_cars)
 		if not problem.is_empty():
 			push_error("PACK: %s" % problem)
 			return false
@@ -1854,11 +1863,11 @@ func _the_cars_are_the_packs_east_west(stash: Dictionary) -> bool:
 				return false
 			described.append(key)
 		judged.append("%s %dx%d east-west from %s, against %dx%d north-south" % [id.trim_prefix("vehicle."), ew.x, ew.y, " and ".join(described), ns.x, ns.y])
-	if on_list_seen != Appearance.VEHICLE_PACK_EW.size():
-		push_error("PACK: VEHICLE_PACK_EW names %d classes and content declares %d of them; a name nobody wrote is a list that judges nothing" % [Appearance.VEHICLE_PACK_EW.size(), on_list_seen])
+	if on_list_seen != PACK_EW_IDS.size():
+		push_error("PACK: PACK_EW_IDS names %d classes and content declares %d of them; a name nobody wrote is a list that judges nothing" % [PACK_EW_IDS.size(), on_list_seen])
 		return false
 	stash["pack"] = on_list_seen
-	print("PACK OK %s -- each key the pack's east-facing vehicle cropped from the origin to its anchor row, never padded, its painted span at alpha >= %d rounding up to exactly its class's lEw and no wider than it, lEw shorter than the north-south length; every other class names no authored key, and no class names one north-south; a four-tile picture on three tiles, a speck lengthening a car, an uncropped anchor, a pad, a south-facing source, a non-pack class with a pack key, a pack class with a generated key and a pack key north-south are all refused" % [
+	print("PACK OK %s -- each key the pack's east-facing vehicle cropped from the origin to its anchor row, never padded, its painted span at alpha >= %d rounding up to exactly its class's east-west length and no wider than it, the same length north-south; every other class names no pack car, and no class names one north-south; a four-tile picture on three tiles, a car longer one way than the other, a speck lengthening a car, an uncropped anchor, a pad, a south-facing source, a non-pack class with a pack car, a pack class with a drawn picture east-west and a pack car north-south are all refused" % [
 		"; ".join(judged), PACK_ALPHA,
 	])
 	return true

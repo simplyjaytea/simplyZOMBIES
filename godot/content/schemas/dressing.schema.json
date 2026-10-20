@@ -56,7 +56,7 @@
     },
     "faces": {
       "type": "object",
-      "description": "Fixed sprite keys for the wall openings a building shell cuts, independent of wall material: `{window, door, garage}`. Optional, and the shallow validator never looks inside it -- it checks only that `faces` itself is an object -- so check_roof_look.gd is what resolves every key it declares and refuses a fabricated one."
+      "description": "Fixed sprite keys for the wall openings a building shell cuts, independent of wall material: `{window, door, garage}`, and `glass`, the window pane and frame drawn on a window tile's cap: `{pane_<shape>, frame_<shape>}` for each shape `ew`, `ns` and `square` (presentation/main.gd's `_draw_window_glass`, through Dressing.glass_keys). Optional, and the shallow validator never looks inside it -- it checks only that `faces` itself is an object -- so check_roof_look.gd is what resolves the three opening keys and refuses a fabricated one, and check_topdown.gd's GLASS lane the six glass keys."
     },
     "sizes": {
       "type": "object",

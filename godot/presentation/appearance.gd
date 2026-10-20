@@ -44,16 +44,13 @@ const PLAYER_LOOK_ID: String = "player.body"
 # rows of headroom for a helmet or a spear tip. Its blit height is 1.25 x zoom, an integer on
 # every rung of the ladder (20/40/80/160). The 32x48 canvas of 2026-09-03 held a 1.3-tile figure;
 # it was superseded, not resized -- every rig was re-authored on a shorter published skeleton.
-# The two generated bodies the outpost pack does not supply are authored on it (PAWN_KEYS);
-# tools/sprites/build.py carries the mirror list, because Python cannot read GDScript. The outpost
-# pack's four-direction bodies and wearables stand on it too, cropped from the pack's 32x48 on its
-# own anchor row, but they are declared in authored.json rather than named here -- one key, one
-# tier. Since "The bodies turn and walk" (2026-09-26) the generated rigs are the screamer and the
-# bloater only, and since "Pack gear on the body" the same day nothing else generated is drawn on a
-# body either: the 43 face-on equip overlays and the three fitted-part pictures were deleted with
-# their generator (docs/30, "The whole outpost pack").
+# No generated body is drawn on it any more: the outpost pack's four-direction bodies and
+# wearables, and the zombie pose families, stand on it, cropped or cut on their own anchor row and
+# declared in authored.json -- one key, one tier. The last generated rigs, the face-on screamer
+# and bloater, joined the pose families on 2026-10-19 (zombie study 02); the list that named them
+# here, PAWN_KEYS, went with them, as the 43 face-on equip overlays had on 2026-09-26 (docs/30,
+# "The whole outpost pack").
 const PAWN_CANVAS: Vector2i = Vector2i(int(CameraUtil.ART_NATIVE), int(CameraUtil.ART_NATIVE) * 5 / 4)
-const PAWN_KEYS: Array[String] = ["zombie_screamer", "zombie_bloater"]
 
 # Where a picture hangs on its entity's ground point. A square canvas is a tile-sized thing seen
 # from above and centres on the point; anything else is a standing picture and stands on it --
@@ -289,51 +286,20 @@ const ROW_NONE: int = 255
 # The vehicles: one three-quarter picture per class x variant x axis (docs/30, the Dungeon
 # Settlers look, decision 11). A car seen from the side is a different picture, not a rotation,
 # so a variant has two keys and no per-tile segments; the picture stands feet-anchored on its
-# footprint's south-edge centre and y-sorts with the bodies, exactly as a tree does.
+# footprint's south edge centre and y-sorts with the bodies, exactly as a tree does.
 #
-# The canvas is derived rather than tabled, because a class has a length and slice 11's van and
-# truck have different ones: it is the footprint plus one tile of roofline north, which is the
-# room a three-quarter picture needs to lean up-canvas from the base it stands on. An unknown
-# class, variant or axis answers ZERO, which falls through to the tile canvas below and is what
-# refuses a fabricated file at check_appearance.gd's canvas lane.
-const VEHICLE_PREFIX: String = "vehicle_"
+# Every vehicle picture is authored since 2026-10-19 (docs/23, "The cars north-south, and the
+# light vehicles"): the three cars east-west are the outpost pack's, cropped to its anchor row,
+# and everything else is drawn under `godot/art/simplyzombies/vehicles/` on the canvas its
+# class's footprint implies -- the footprint plus one tile of roofline north, the room a
+# three-quarter picture needs to lean up-canvas from the base it stands on. So there is no
+# vehicle rule here any more: `canvas_of`'s authored tier answers every key, and
+# check_wrecks.gd's DRESSING lane holds each drawn canvas to content's footprint, which is the
+# one copy of it. A fabricated key is declared nowhere and falls through to the tile canvas.
 const VEHICLE_ROOFLINE_TILES: int = 1
-# The light classes stand one tile across: a bicycle, an e-bike and an e-scooter are 1x2, a
-# kick scooter and a skateboard 1x1, so their pictures are 32x96 / 64x64 and 32x64 / 32x64.
-const VEHICLE_FOOTPRINTS: Dictionary = {
-	"sedan": Vector2i(2, 5), "van": Vector2i(2, 6), "truck": Vector2i(2, 7),
-	"bicycle": Vector2i(1, 2), "ebike": Vector2i(1, 2), "escooter": Vector2i(1, 2),
-	"kickscooter": Vector2i(1, 1), "skateboard": Vector2i(1, 1),
-}
-const VEHICLE_VARIANTS: Array[String] = ["pale", "green", "burnt"]
 const AXIS_NS: String = "ns"
 const AXIS_EW: String = "ew"
-# The classes whose east-west picture is the outpost pack's rather than the generator's (docs/23,
-# "The cars are the pack's, east-west"): authored keys in `authored.json`, placed by
-# `canvas_of`'s authored tier at the pack's own canvas, standing on content's `lEw` footprint.
-# `vehicle_canvas` answers ZERO for their generated east-west keys, which no longer exist, so a
-# rule cannot quietly place a picture that retired -- mirrored by tools/sprites/parts/vehicles.py's
-# PACK_EW under the same two-copies arrangement as VEHICLE_FOOTPRINTS, whose three car rows are
-# now the north-south footprints alone.
-const VEHICLE_PACK_EW: Array[String] = ["sedan", "van", "truck"]
-
-
-# The canvas `key` is authored on when it names a shipped vehicle picture, ZERO otherwise.
-static func vehicle_canvas(key: String) -> Vector2i:
-	if not key.begins_with(VEHICLE_PREFIX):
-		return Vector2i.ZERO
-	var parts: PackedStringArray = key.substr(VEHICLE_PREFIX.length()).split("_")
-	if parts.size() != 3:
-		return Vector2i.ZERO
-	if not VEHICLE_FOOTPRINTS.has(parts[0]) or not VEHICLE_VARIANTS.has(parts[1]):
-		return Vector2i.ZERO
-	var foot: Vector2i = VEHICLE_FOOTPRINTS[parts[0]] as Vector2i
-	var n: int = int(CameraUtil.ART_NATIVE)
-	if parts[2] == AXIS_NS:
-		return Vector2i(foot.x * n, (foot.y + VEHICLE_ROOFLINE_TILES) * n)
-	if parts[2] == AXIS_EW and not VEHICLE_PACK_EW.has(parts[0]):
-		return Vector2i(foot.y * n, (foot.x + VEHICLE_ROOFLINE_TILES) * n)
-	return Vector2i.ZERO
+const VEHICLE_KIND: String = "vehicle"
 
 
 # Which way a vehicle picture is shown for a parked facing. The east-west picture is authored
@@ -348,16 +314,15 @@ static func vehicle_flip(facing: String) -> float:
 	return 1.0
 
 
-# The tallest picture any class stands, in tiles: the longest footprint plus the roofline tile,
-# which is how far below the visible box a record's south edge can be while its picture is still
-# on screen. main.gd's entity pass widens its search box by this, so the margin follows the
-# footprint table instead of remembering one class -- a margin sized for a five-tile sedan would
-# have popped an eight-tile truck out at the bottom of the screen with its cab still showing.
+# The tallest picture any class stands, in tiles: the longest side of any authored picture of
+# kind `vehicle`, rounded up to whole tiles, which is how far below the visible box a record's
+# south edge can be while its picture is still on screen. main.gd's entity pass widens its search
+# box by this, so the margin follows the art instead of remembering one class -- a margin sized
+# for a three-tile sedan would pop a four-tile truck out at the bottom of the screen with its cab
+# still showing. check_wrecks.gd holds it to content's longest footprint plus the roofline tile.
 static func vehicle_reach_tiles() -> int:
-	var longest: int = 0
-	for foot in VEHICLE_FOOTPRINTS.values():
-		longest = maxi(longest, maxi((foot as Vector2i).x, (foot as Vector2i).y))
-	return longest + VEHICLE_ROOFLINE_TILES
+	_read_authored()
+	return _vehicle_reach
 
 
 # The canvas a registry key is authored on. Everything is one ART_NATIVE tile except the atlases,
@@ -427,6 +392,9 @@ static var _muzzles: Dictionary = {}
 # (`godot:check:fx`'s RATE lane holds each copy to the manifest; the renderer never loads the
 # pack's manifest or its `.tres`).
 static var _sheets: Dictionary = {}
+# The longest side of any authored picture of kind `vehicle`, in whole tiles: what
+# `vehicle_reach_tiles` answers.
+static var _vehicle_reach: int = 0
 static var _authored_read: bool = false
 
 
@@ -455,6 +423,7 @@ static func _read_authored() -> void:
 	_sheets = {}
 	_wear = {}
 	_clothed_rigs = {}
+	_vehicle_reach = 0
 	if not FileAccess.file_exists(AUTHORED_PATH):
 		return
 	var text: String = FileAccess.get_file_as_string(AUTHORED_PATH)
@@ -479,6 +448,9 @@ static func _read_authored() -> void:
 			var fits: String = String((entry as Dictionary).get("fits", ""))
 			_wear[String(key)] = {"fits": fits, "slot": String((entry as Dictionary).get("slot", ""))}
 			_clothed_rigs[fits] = true
+		if String((entry as Dictionary).get("kind", "")) == VEHICLE_KIND:
+			var n: int = int(CameraUtil.ART_NATIVE)
+			_vehicle_reach = maxi(_vehicle_reach, (maxi(shape.x, shape.y) + n - 1) / n)
 		var grip: Variant = (entry as Dictionary).get("grip")
 		if String((entry as Dictionary).get("kind", "")) == "pack_held" and grip is Array and (grip as Array).size() == 2:
 			_held[String(key)] = Vector2i(floori(float((grip as Array)[0])), floori(float((grip as Array)[1])))
@@ -527,7 +499,7 @@ static func authored_canvases() -> Dictionary:
 
 
 # Every declared authored key of kind `rig` -- a commissioned body, on the pawn skeleton, that
-# `PAWN_KEYS` deliberately does not name because one key belongs to one tier. Sorted, so a caller
+# no rule in `canvas_of` places, because one key belongs to one tier. Sorted, so a caller
 # iterating it gets the same order every run and a gate's message does not depend on dictionary
 # order. Empty until the first commissioned body, which is what makes the three gates that read it
 # say so and skip rather than pass quietly on nothing.
@@ -546,14 +518,8 @@ static func canvas_of(key: String) -> Vector2i:
 	if key.begins_with("chart_"):
 		return CHART_CANVAS
 	var n: int = int(CameraUtil.ART_NATIVE)
-	# The ground atlas was placed by a rule here until 2026-09-27; it is authored now, and the
-	# declaration above answers its canvas (192x256: two variants and four fringes across, eight
-	# rows down).
-	if PAWN_KEYS.has(key):
-		return PAWN_CANVAS
-	var vehicle: Vector2i = vehicle_canvas(key)
-	if vehicle != Vector2i.ZERO:
-		return vehicle
+	# The ground atlas was placed by a rule here until 2026-09-27, and the vehicles until
+	# 2026-10-19; both are authored now, and the declaration above answers their canvases.
 	return Vector2i(n, n)
 
 
@@ -1002,9 +968,10 @@ static func body_rect(sx: float, sy: float, size: Vector2, flip: float) -> Rect2
 # of straight up or down, as painted (+1.0) otherwise -- north, south and east all draw the one
 # picture. A flip is a two-state readout of a continuous heading, which is why the indicator
 # line draws for every body: the picture can never say more than "east or west", and the line
-# carries the exact facing. Since "The bodies turn and walk" (2026-09-26) only the face-on
-# generated rigs -- the screamer and the bloater -- are asked this; a body that turns draws its own
-# west view and never flips (`flip_for`, below). The peripheral-anonymity
+# carries the exact facing. Since the screamer and the bloater joined the pose families
+# (2026-10-19) no shipped body is face-on, so this is the fallback for a body whose key names no
+# family -- gates reach it on a probe name; a body that turns draws its own west view and never
+# flips (`flip_for`, below). The peripheral-anonymity
 # clause is unharmed because a glimpsed body never reaches the blit -- it draws as the anonymous
 # disc and the loop moves on before facing is read.
 static func body_flip(facing: float) -> float:
@@ -1019,8 +986,8 @@ static func body_flip(facing: float) -> float:
 # 1): every human draws on the outpost pack's survivor and the shambler on the pack's shambler,
 # four views and a four-frame walk each way, and the pack's vest, helmet, gas mask and backpack
 # are four views each. A body that turns is never mirrored -- the pack draws its own west view --
-# so `body_flip` above is left to the two generated rigs that still face the camera, the screamer
-# and the bloater. Which pictures a family has is authored.json's to say, by the member names its
+# so `body_flip` above is left to a body that names no family -- none ships since the screamer and
+# the bloater joined the pose families on 2026-10-19. Which pictures a family has is authored.json's to say, by the member names its
 # note fixes; nothing here knows the word "survivor".
 
 # The four views in the order a quarter turn walks them on a y-down screen: east at 0, south at a
@@ -1082,7 +1049,7 @@ static func walk_frame(tick: int, fps: int, frames: int, phase: int) -> int:
 
 
 # The one picture a body draws: the member of its family for this view, walking or standing, or
-# the key itself for anything that does not turn (the generated screamer and bloater).
+# the key itself for anything that does not turn (no shipped body since 2026-10-19).
 static func frame_key(key: String, view: String, moving_now: bool, tick: int, phase: int) -> String:
 	if not turns(key):
 		return key

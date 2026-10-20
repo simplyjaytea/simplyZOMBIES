@@ -1,4 +1,4 @@
-// The routing gate: proves that the agent routing table in AGENTS.md points at things that
+// The routing gate: proves that the agent routing table in CLAUDE.md points at things that
 // exist, and that every gate in the tree is reachable from an npm script.
 //
 // Why a gate and not a convention: every copy of "where things are" in this repo has drifted --
@@ -23,7 +23,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const TABLE_FILE = "AGENTS.md";
+const TABLE_FILE = "CLAUDE.md";
 const TABLE_HEADING = "## Routing table";
 
 // Check scripts that exist, are read by nothing, and stay by name. Each needs a reason; an
@@ -41,8 +41,6 @@ const OUTSIDE_M2 = {
     "the full campaign grid, opt-in by BALANCE_FULL=1; measure throughput first",
   "godot:m2:harness:full": "the full harness, opt-in by HARNESS_FULL=1",
   "godot:m2:chain": "the chain's own && list, read by scripts/m2-chain.mjs, not a gate itself",
-  "godot:check:shots":
-    "the screenshot harness's own headless check, run beside godot:shots by hand",
 };
 
 // --- pure functions, so the self-test can feed them fabricated input --------------------------
@@ -275,7 +273,7 @@ function selfTest() {
       ["godot:m2:a:full", "FULL=1 node scripts/run-godot.mjs --m2-a"],
       ["test", "vitest run"],
     ]),
-    exists: (p) => ["docs/x.md", "godot/sim", "godot/sim/a.gd", "AGENTS.md"].includes(p),
+    exists: (p) => ["docs/x.md", "godot/sim", "godot/sim/a.gd", "CLAUDE.md"].includes(p),
     list: (dir) => (dir === "godot" ? ["check_a.gd", "check_b.gd"] : null),
     slugs: (file) =>
       file.endsWith(".md")
