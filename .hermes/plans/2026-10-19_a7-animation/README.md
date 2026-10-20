@@ -14,3 +14,11 @@ previous commit's. Each sheet is one row per view (south, east, north, west), dr
 
 The survivor rows are generated art; the zombie odd frames and every breath are one-pixel row
 shifts of the pack's own poses (docs/23's A7 record says which half is which).
+
+Added 2026-10-20, after the clothing (A6) merged over this:
+
+- `outfits_walk.gif` (half speed) and `outfits_walk_fullspeed.gif` (16 fps): the eight-frame walk
+  dressed in four outfits, one row each -- tee and charcoal trousers, leather jacket and jeans,
+  parka and insulated trousers, hazmat suit -- with the four views side by side.
+- `outfit_<name>_frames.png`: every frame of one outfit, a row per view: the eight walk frames,
+  then the rest picture and the breath.

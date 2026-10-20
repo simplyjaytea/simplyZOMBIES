@@ -109,6 +109,29 @@ static func is_person(world: Variant, entity: int) -> bool:
 		or world.components.has_component(entity, "raider")
 
 
+# The markers `is_person` asks for, for a caller that wants every person rather than to test one
+# (`SimShambler._people_with_position`). A fourth marker goes in both places, and
+# `check_m2_tick.gd` PEOPLE fails if they disagree.
+const PERSON_MARKERS: Array[String] = ["controlled", "identity", "raider"]
+
+
+# Every positioned entity `is_person` would accept, ascending by id -- the order
+# `query(["position"])` gave. Asked of the three markers' own tables rather than by testing all
+# 340-odd positioned things (every item on the ground among them) against the three markers, which
+# was most of what gathering cost (A3's fourth slice; the screamer's alarm asks it too since the
+# eighth). `check_m2_tick.gd` PEOPLE holds the two equal and names both readers.
+static func people_with_position(world: Variant) -> Array[int]:
+	var seen: Dictionary = {}
+	var out: Array[int] = []
+	for marker in PERSON_MARKERS:
+		for entity in world.components.query([marker, "position"]):
+			if not seen.has(entity):
+				seen[entity] = true
+				out.append(int(entity))
+	out.sort()
+	return out
+
+
 # Every body this entity would fight, unfiltered by distance, sightline or health -- callers own
 # those, and both of them already had to. Sorted, because `components.query` sorts and a target
 # preference that depended on table iteration order would not survive a save/load.
@@ -123,6 +146,39 @@ static func enemies_of(world: Variant, entity: int) -> Array[int]:
 		if o == entity:
 			continue
 		if world.components.has_component(o, "corpse"):
+			continue
+		if not hostile(world, entity, o):
+			continue
+		out.append(o)
+	return out
+
+
+# `enemies_of`, cut to the bodies within `metres` of `entity` -- the same ids in the same order,
+# with the distance asked first. Both callers wanted only the near ones and filtered after, so
+# every NPC paid `hostile` on the whole district's hundred bodies each tick: 2.2 ms of a tick (A3's
+# fourth slice). An entity with no position has nothing near it.
+static func enemies_within(world: Variant, entity: int, metres: float) -> Array[int]:
+	var out: Array[int] = []
+	var here: Variant = world.components.get_component(entity, "position")
+	if not here is Dictionary:
+		return out
+	var hx: float = float((here as Dictionary)["x"])
+	var hy: float = float((here as Dictionary)["y"])
+	var limit_sq: float = metres * metres
+	# Read-only over two tables (`SimComponentStore.table`, A3's tenth slice): a hundred bodies a
+	# caller, several callers a tick.
+	var positions: Dictionary = world.components.table("position")
+	var corpses: Dictionary = world.components.table("corpse")
+	for other in world.components.query(["body", "position"]):
+		var o: int = int(other)
+		if o == entity:
+			continue
+		var there: Dictionary = positions.get(o) as Dictionary
+		var dx: float = float(there["x"]) - hx
+		var dy: float = float(there["y"]) - hy
+		if dx * dx + dy * dy > limit_sq:
+			continue
+		if corpses.has(o):
 			continue
 		if not hostile(world, entity, o):
 			continue

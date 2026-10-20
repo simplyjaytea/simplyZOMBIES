@@ -741,9 +741,16 @@ func _drawn(main: Node, id: int) -> String:
 	if not (rec is Dictionary):
 		return ""
 	var texture: Texture2D = (rec as Dictionary).get("texture") as Texture2D
-	var family: String = String(((rec as Dictionary).get("look", {}) as Dictionary).get("sprite", ""))
+	var look: Dictionary = (rec as Dictionary).get("look", {}) as Dictionary
+	var family: String = String(look.get("sprite", ""))
+	var outfit: Variant = look.get("outfit", [])
 	for m in _members(family):
 		if Appearance.resolve(String(m)) == texture:
+			return String(m)
+		# A clothed body's rest, walk and breath pictures are drawn dressed (`Appearance.body_texture`);
+		# its action pictures are not, and are matched above.
+		if outfit is Array and not (outfit as Array).is_empty() and not Appearance.is_action_frame(family, String(m)) \
+				and Appearance.dressed_texture(family, String(m), outfit as Array) == texture:
 			return String(m)
 	return "?"
 

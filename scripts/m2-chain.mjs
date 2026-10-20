@@ -22,6 +22,7 @@ import { readFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { shardNames } from "./m2-shards.mjs";
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const CHAIN_KEY = "godot:m2:chain";
@@ -160,12 +161,12 @@ function runOne(pkg, name) {
   });
 }
 
-/** Run the whole chain in order, stopping at the first non-zero exit exactly as `&&` did. Always
- *  returns the table for whatever ran (a short table on an early failure, the full 77 on a clean
- *  run) rather than throwing it away -- the table for a failed chain is exactly the thing that
- *  says which gates the failure cost, in time, before it stopped everything after it. */
-export async function runChain(pkg) {
-  const names = chainScripts(pkg);
+/** Run the chain in order, stopping at the first non-zero exit exactly as `&&` did. `names` is the
+ *  whole chain by default, or one CI shard's subset of it (already in chain order). Always
+ *  returns the table for whatever ran (a short table on an early failure, the full chain on a
+ *  clean run) rather than throwing it away -- the table for a failed chain is exactly the thing
+ *  that says which gates the failure cost, in time, before it stopped everything after it. */
+export async function runChain(pkg, names = chainScripts(pkg)) {
   const rows = [];
   const ranModes = [];
   let failedExit = 0;
@@ -185,9 +186,24 @@ export async function runChain(pkg) {
   return { table, exit: failedExit, ranCount: ranModes.length, chainLength: names.length };
 }
 
+/** `--shard=<i>/<n>` from the command line, or null for the whole chain. A malformed value throws
+ *  rather than falling back to the whole chain: a CI shard that silently ran everything would hide
+ *  a broken matrix. */
+export function shardArg(args) {
+  const arg = args.find((a) => a.startsWith("--shard="));
+  if (arg === undefined) return null;
+  const m = /^--shard=(\d+)\/(\d+)$/.exec(arg);
+  if (!m) throw new Error(`bad ${arg}: expected --shard=<i>/<n>, e.g. --shard=2/4`);
+  return { index: Number(m[1]), count: Number(m[2]) };
+}
+
 async function main() {
   const pkg = JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf8"));
-  const { table, exit, ranCount, chainLength } = await runChain(pkg);
+  const shard = shardArg(process.argv.slice(2));
+  const names =
+    shard === null ? chainScripts(pkg) : shardNames(chainScripts(pkg), shard.index, shard.count);
+  if (shard !== null) console.log(`M2_SHARD ${shard.index}/${shard.count}: ${names.length} gates`);
+  const { table, exit, ranCount, chainLength } = await runChain(pkg, names);
   console.log(formatTable(table));
   if (!table.ok) {
     console.error(`GATE_TIME_TABLE mismatch after ${ranCount}/${chainLength} chained scripts`);
