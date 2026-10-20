@@ -5589,3 +5589,20 @@ orchestrator ("whatever you think is best"), and the orchestrator chose it. CI's
 the full chain on every pull request and every push to main, so no workflow was added. CLAUDE.md's Verifying
 section states the policy. A change to a shared sim module or the save format still runs the full chain
 locally before its commit.
+## The inventory's look, 2026-10-20
+
+Asked on 2026-10-19 (the alpha plan's Q5) about the inventory, the owner kept the grid -- "I
+like how it's very much like Tarkov" -- and said it "looks very plain" and has to look "super
+awesome and like unique, bespoke even". The grid-plus-fast-list proposal above was accepted
+in the same answer: a list beside the grid, with the grid still the authority on capacity.
+
+Three directions were drawn at 1920×1080 with the repository's own item icons (canvas
+webbing, a salvage locker, a hard case). On 2026-10-20 the owner picked **B, the Salvage
+Locker**, on a decision card: brushed steel, rivets, masking-tape labels, recessed cells and
+plates tinted by item class, at the world's 2× pixel density. The mockups are under
+`.hermes/plans/2026-10-19_inventory-redesign/`.
+
+This settles the inventory's surfaces only. Typography, the anatomical diagram and the rest of
+the interface remain the recommendations "The whole interface" describes; VT323 is still the
+baseline face, not a renewed decision. The health-bar ban, the digit ban and the scarce-
+information contract are unchanged.
