@@ -2118,9 +2118,9 @@ not a to-do list:
   from the belt to the loading port three times in eleven beats, a shell in the shells icon's own
   red and brass standing out of the fist at the port and pushed up into it (only its rim still
   showing) before the hand goes back for the next, so the hand is never empty and no shell
-  blinks; then one rack and home, at 8 frames a second against the sim's three-second Reload. The
-  pump itself is part of A9's held picture and does not slide; the rack reads as the weapon
-  jolting back in the hands. An outline an arm adds round skin the held weapon covers is taken
+  blinks; then one rack and home, at 6 frames a second, the long guns' rate, against the sim's
+  three-second Reload. The pump itself is part of A9's held picture and does not slide; the rack
+  reads as the weapon jolting back in the hands. An outline an arm adds round skin the held weapon covers is taken
   back too (`_trim` knows the weapon each reload is drawn for, from the pack manifest), so no
   dark wedge is left where a forearm went behind the pistol or the barrel. The first drawing, a
   forearm sheared from the shoulder, was sent back by art review (2026-10-20): the off hand never
@@ -2129,9 +2129,11 @@ not a to-do list:
   magazine's drop, the seat's rise, outline wedges, the back view's stock and a soft rifle edge
   blending over the magazine; then the tube reload, the still back view, dips that never rise
   above the stance, the fresh magazine shown side on, and the weapon's drop home split over
-  beats; then the pistol's magazine dropping out of the grip and landing ahead of the toes on
-  the next beat instead of sliding along the floor, a push for every shell, and a pixel or two
-  off a wedge, a trigger guard, a muzzle and a hanging magazine). The review strips are 48x56 cells with the body on the same
+  beats; then the pistol's magazine dropping out of the grip ahead of the shin and landing
+  straight below on the next beat instead of sliding along the floor, a push for every shell,
+  the west view's magazines and shells mirroring the east's pixel for pixel, a back edge kept to
+  two pixels where the far arm passes under it, and a pixel or two off a wedge, a trigger guard, a
+  muzzle and the floor magazines). The review strips are 48x56 cells with the body on the same
   baseline as every other strip; in game every reload frame is the 32x40 canvas on sole row 39. Per-frame `head`, `torso` and `hands` ride every new member, so A6's clothing and
   A9's weapon turn compose on them by the A7 contract. Five generations were spent (the three
   kept strips, the back view, and a four-views-in-one trial). **Not built:** drawn zombie walk

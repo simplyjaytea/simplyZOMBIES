@@ -866,7 +866,7 @@
         "recoil": 16,
         "reload": 8,
         "reload_long": 6,
-        "reload_tube": 8,
+        "reload_tube": 6,
         "flinch": 12,
         "crouch": 1,
         "crouchwalk": 16,
