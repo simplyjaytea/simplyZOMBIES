@@ -17,11 +17,21 @@ const Appearance = preload("res://presentation/appearance.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimSurface = preload("res://sim/map/surface.gd")
 const SimBoot = preload("res://sim/boot.gd")
+const Dressing = preload("res://presentation/dressing.gd")
 
 const ZOOMS: Array[float] = [16.0, 32.0, 64.0, 128.0]
 const EPS: float = 0.000001
 const MAIN_GD: String = "res://presentation/main.gd"
 const APPEARANCE_GD: String = "res://presentation/appearance.gd"
+const STREET_DRESSING: String = "res://content/dressing/street.json"
+# GLASS: the pane the two rects drew, in 32-px art pixels -- a long side three quarters of the
+# tile and a short side a quarter, or a square one and a half short sides, centred. The pictures
+# are held to it, so the art replaced the rects without moving a window.
+const GLASS_PANES: Dictionary = {"ew": Rect2i(4, 12, 24, 8), "ns": Rect2i(12, 4, 8, 24), "square": Rect2i(10, 10, 12, 12)}
+# How far a glass picture's channels may spread and still be a grey the renderer tints. The
+# shipped art is pure grey (spread 0); four is the pack's near-black (16, 14, 12), the widest
+# near-grey an outline might borrow.
+const GLASS_GREY_SPREAD: int = 4
 
 func _init() -> void:
 	call_deferred("_run")
@@ -36,12 +46,13 @@ func _run() -> void:
 	ok = _buildings_read_as_buildings() and ok
 	ok = _props_reach_the_draw_path() and ok
 	ok = _built_mass_is_thin_and_still_solid() and ok
+	ok = _windows_are_glass_art() and ok
 	ok = _bodies_face_by_flipping() and ok
 	ok = _bodies_turn_and_walk() and ok
 	ok = _bodies_scale_with_the_zoom() and ok
 	ok = _a_still_body_is_not_glimpsed() and ok
 	if ok:
-		print("TOPDOWN_OK axes aligned, round-trip exact, depth is y, bounds are the AABB, ground tinted from the map, interiors and doorways drawn, props resolved from content, built mass capped and faced, nobody rotates and a face-on body flips, the pack's bodies turn four ways and walk on the tick, bodies scale with the zoom, a still body is not glimpsed")
+		print("TOPDOWN_OK axes aligned, round-trip exact, depth is y, bounds are the AABB, ground tinted from the map, interiors and doorways drawn, props resolved from content, built mass capped and faced, windows drawn as tinted glass pictures, nobody rotates and a face-on body flips, the pack's bodies turn four ways and walk on the tick, bodies scale with the zoom, a still body is not glimpsed")
 		quit(0)
 	else:
 		push_error("TOPDOWN_FAIL")
@@ -457,6 +468,127 @@ func _built_mass_is_thin_and_still_solid() -> bool:
 	return true
 
 
+# GLASS: a window's pane and rim are pictures since 2026-10-19 (docs/23, "Window glass as art"),
+# named by the street dressing's `faces.glass` and drawn by `_draw_window_glass` tinted with the two
+# colours the rects were. The pictures sit exactly on the rects' geometry and stay grey, so the
+# tint still carries the night, the weather and a boarded window's stage; the draw reaches them
+# through Dressing.glass_keys and keeps the rects as the fallback. Textual for the draw, as the
+# wall lane above is, because a draw pass cannot be run headless.
+func _windows_are_glass_art() -> bool:
+	var block: Variant = JSON.parse_string(_file_text(STREET_DRESSING))
+	if not (block is Dictionary):
+		push_error("GLASS: %s did not parse; the lane had nothing to judge" % STREET_DRESSING)
+		return false
+	for shape in Dressing.GLASS_SHAPES:
+		var keys: Array[String] = Dressing.glass_keys(block as Dictionary, shape)
+		if keys.size() != 2:
+			push_error("GLASS: the street dressing names no pane and frame for a %s window" % shape)
+			return false
+		var want: Rect2i = GLASS_PANES[shape] as Rect2i
+		var pane_tex: Texture2D = Appearance.resolve(keys[0])
+		var frame_tex: Texture2D = Appearance.resolve(keys[1])
+		if pane_tex == null or frame_tex == null:
+			push_error("GLASS: %s or %s resolves no picture" % [keys[0], keys[1]])
+			return false
+		var pane_fault: String = _glass_faults(pane_tex.get_image(), want)
+		var frame_fault: String = _glass_faults(frame_tex.get_image(), want.grow(2))
+		if not pane_fault.is_empty() or not frame_fault.is_empty():
+			push_error("GLASS: %s %s; %s %s" % [keys[0], pane_fault, keys[1], frame_fault])
+			return false
+
+	# The predicate, both ways: a grey pane on the ew rect passes, the same pane one pixel low and
+	# the same pane tinted blue are each refused.
+	var good: Image = _glass_fixture(GLASS_PANES["ew"] as Rect2i, Color(0.9, 0.9, 0.9))
+	if not _glass_faults(good, GLASS_PANES["ew"] as Rect2i).is_empty():
+		push_error("GLASS: the predicate refused a grey pane on the rect; it would refuse the real ones")
+		return false
+	var low: Image = _glass_fixture((GLASS_PANES["ew"] as Rect2i).grow_individual(0, -1, 0, 1), Color(0.9, 0.9, 0.9))
+	var blue: Image = _glass_fixture(GLASS_PANES["ew"] as Rect2i, Color(0.6, 0.8, 0.95))
+	if _glass_faults(low, GLASS_PANES["ew"] as Rect2i).is_empty() or _glass_faults(blue, GLASS_PANES["ew"] as Rect2i).is_empty():
+		push_error("GLASS: the predicate accepted a pane off the rect or a coloured one; it proves nothing")
+		return false
+	# The helper, both ways: no glass, an unknown shape and half a pair each give nothing.
+	var half: Dictionary = {"faces": {"glass": {"pane_ew": "glass_pane_ew"}}}
+	if not Dressing.glass_keys({}, "ew").is_empty() or not Dressing.glass_keys(block as Dictionary, "diagonal").is_empty() or not Dressing.glass_keys(half, "ew").is_empty():
+		push_error("GLASS: glass_keys answered a block with no glass, an unknown shape or half a pair")
+		return false
+
+	# Reach: comments stripped, so a sentence about the call cannot stand in for it.
+	var body: String = _code_only(_function_body(MAIN_GD, "_draw_window_glass"))
+	var needles: Array[String] = [
+		"Dressing.glass_keys(_dressing(), shape)",
+		"draw_texture_rect(pane_art, rect, false, glass)",
+		"draw_texture_rect(frame_art, rect, false, Palette.COLOURS[\"windowRim\"])",
+		"draw_rect(pane, glass)",
+	]
+	var missing: String = _needles_missing(body, needles)
+	if not missing.is_empty():
+		push_error("GLASS: _draw_window_glass does not reach %s" % missing)
+		return false
+	if body.find("draw_texture_rect(pane_art") > body.find("draw_rect(pane, glass)"):
+		push_error("GLASS: _draw_window_glass draws the rects before the pictures; the art would never be the first choice")
+		return false
+	var commented: String = _code_only("\t# Dressing.glass_keys(_dressing(), shape)\n\tpass  # draw_texture_rect(pane_art, rect, false, glass)\n\tdraw_texture_rect(frame_art, rect, false, Palette.COLOURS[\"windowRim\"])\n\tdraw_rect(pane, glass)\n")
+	if _needles_missing(commented, needles).is_empty():
+		push_error("GLASS: a body naming the calls only in a comment, whole-line or trailing, passed the reach check")
+		return false
+	if not _code_only("\tvar c: Color = Color(\"#ff0000\")  # red\n").contains("Color(\"#ff0000\")"):
+		push_error("GLASS: the comment stripper cut a `#` inside a string")
+		return false
+	print("GLASS OK the street dressing names a pane and a frame for each of %d window shapes, each a grey picture on the rect the renderer drew (the frame two pixels outside it); a pane off the rect, a coloured pane, no glass, an unknown shape and half a pair are refused; _draw_window_glass tints them with the pane colour and windowRim through glass_keys, before the rects it keeps as the fallback, and a comment, whole-line or trailing, cannot stand in for the call" % Dressing.GLASS_SHAPES.size())
+	return true
+
+
+# What is wrong with one glass picture against the box it must fill, or empty: its pixels above
+# alpha 0 bound exactly `want`, and every one is a grey (channels within GLASS_GREY_SPREAD).
+func _glass_faults(image: Image, want: Rect2i) -> String:
+	var lo := Vector2i(image.get_width(), image.get_height())
+	var hi := Vector2i(-1, -1)
+	for y in image.get_height():
+		for x in image.get_width():
+			var c: Color = image.get_pixel(x, y)
+			if c.a8 == 0:
+				continue
+			if maxi(c.r8, maxi(c.g8, c.b8)) - mini(c.r8, mini(c.g8, c.b8)) > GLASS_GREY_SPREAD:
+				return "has a coloured pixel at (%d, %d); the tint is the renderer's" % [x, y]
+			lo = Vector2i(mini(lo.x, x), mini(lo.y, y))
+			hi = Vector2i(maxi(hi.x, x), maxi(hi.y, y))
+	var got := Rect2i(lo, hi - lo + Vector2i.ONE)
+	if hi.x < 0 or got != want:
+		return "covers %s, not %s" % [str(got), str(want)]
+	return ""
+
+
+func _glass_fixture(box: Rect2i, col: Color) -> Image:
+	var image := Image.create(32, 32, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0, 0, 0, 0))
+	image.fill_rect(box, col)
+	return image
+
+
+# A function body with its comments removed, whole-line and trailing alike: everything from a `#`
+# outside a string literal to the end of its line.
+func _code_only(body: String) -> String:
+	var out: String = ""
+	for line in body.split("\n"):
+		var quote: String = ""
+		var cut: int = line.length()
+		for i in line.length():
+			var ch: String = line[i]
+			if not quote.is_empty():
+				if ch == quote and (i == 0 or line[i - 1] != "\\"):
+					quote = ""
+			elif ch == "\"" or ch == "'":
+				quote = ch
+			elif ch == "#":
+				cut = i
+				break
+		var code: String = line.substr(0, cut)
+		if not code.strip_edges().is_empty():
+			out += code + "\n"
+	return out
+
+
 # Every floor a wall can stand beside, for one ground table: each surface, each again as an
 # interior, and the doorway boards over paved.
 func _wall_grounds(surfaces: Array[Color], indoor: Color, paved: Color) -> Array[Color]:
@@ -470,9 +602,9 @@ func _wall_grounds(surfaces: Array[Color], indoor: Color, paved: Color) -> Array
 
 # Nobody rotates, and a face-on body flips.
 #
-# Since "The bodies turn and walk" (2026-09-26) the face-on bodies are the two generated rigs the
-# outpost pack does not draw, the screamer and the bloater; every human and the shambler draw the
-# pack's own four views and never flip, which TURN below owns. What this lane still says of the
+# Since the screamer and the bloater joined the pose families (2026-10-19) no shipped body is
+# face-on: every human and every zombie draws its own four views and never flips, which TURN below
+# owns, and the flip maths here is the fallback for a body whose key names no family. What this lane still says of the
 # loop -- no transform anywhere in it, the disc bails before the blit -- holds for every body.
 #
 # docs/30's Dungeon Settlers decision (2026-09-03) reverses "only the player rotates": every rig
@@ -554,21 +686,15 @@ func _bodies_face_by_flipping() -> bool:
 		push_error("body_rect(100, 100, (64, 80), +1) is %s, not Rect2(68, 23, 64, 80)" % str(at64))
 		return false
 
-	# Every pawn key resolves a picture on the pawn canvas: a rig left at the old tile size would
-	# stand on the shadow line half a tile short and check_appearance's canvas lanes would say
-	# so, but this is the assertion that the roster is pawns, not merely that files are sized.
+	# Every commissioned rig resolves a picture on the pawn canvas: a rig left at the old tile size
+	# would stand on the shadow line half a tile short. The generated tier that used to be judged
+	# here -- PAWN_KEYS, the face-on screamer and bloater -- retired on 2026-10-19 when both joined
+	# the pose families (TURN below judges every family at its canvas), so the roster is the
+	# manifest's `rig` keys alone, and the retired pair must resolve nothing: a stray PNG left
+	# behind would be a face-on picture the resolver still serves.
 	Appearance.forget()
-	# PAWN_KEYS plus every commissioned body. An authored rig is deliberately NOT in PAWN_KEYS --
-	# `check_authored.gd`'s TIER lane refuses a key that is in two tiers -- so iterating the array
-	# alone would leave the one body a player actually looks at unjudged by the lane that says a
-	# body stands on the pawn canvas. The union is the roster; the array is one tier of it.
-	var pawn_keys: Array[String] = []
-	for key in Appearance.PAWN_KEYS:
-		pawn_keys.append(String(key))
-	for key in Appearance.authored_rig_keys():
-		pawn_keys.append(String(key))
 	var pawns: int = 0
-	for key in pawn_keys:
+	for key in Appearance.authored_rig_keys():
 		var tex: Variant = Appearance.resolve(String(key))
 		if tex == null:
 			push_error("pawn key %s resolves no picture" % key)
@@ -577,14 +703,19 @@ func _bodies_face_by_flipping() -> bool:
 			push_error("pawn key %s is %s, not the pawn canvas %s -- a rig left on the tile" % [key, str((tex as Texture2D).get_size()), str(Appearance.PAWN_CANVAS)])
 			return false
 		pawns += 1
-	Appearance.forget()
-	# Exactly the two generated rigs the pack does not draw, the screamer and the bloater. This
-	# floor was eight while the face-on equip overlays stood on the pawn canvas too; they were
-	# retired on 2026-09-26 ("Pack gear on the body"), and the pack's own bodies and wearables are
-	# judged at the same canvas by check_authored.gd's PACK lane and check_worn.gd's CANVAS lane.
-	if pawns != 2:
-		push_error("%d pawn keys resolved; the generated roster is the screamer and the bloater" % pawns)
+	for retired in ["zombie_screamer", "zombie_bloater"]:
+		if Appearance.resolve(retired) != null:
+			push_error("the retired face-on '%s' still resolves a picture" % retired)
+			return false
+	# TN: the same resolve answers a real picture on the pawn canvas, so the null above is the
+	# retirement and not a resolver that answers nothing.
+	var control: Variant = Appearance.resolve("body_zombie_screamer_s")
+	if control == null or Vector2i((control as Texture2D).get_size()) != Appearance.PAWN_CANVAS:
+		push_error("body_zombie_screamer_s does not resolve on the pawn canvas; the retired-key check proves nothing")
 		return false
+	Appearance.forget()
+	if pawns == 0:
+		print("FLIP SKIP no commissioned rig is declared; the pawn-canvas roster check had nothing to judge (the retired face-on pair resolves nothing, and a real family member does)")
 
 	# The loop, read: what it reaches for and what it no longer holds.
 	var body: String = _function_body(MAIN_GD, "_draw_entities")
@@ -674,7 +805,15 @@ func _bodies_face_by_flipping() -> bool:
 const TURNING_BODIES: Array[String] = [
 	"body_survivor", "body_zombie_workwear", "body_zombie_commuter", "body_zombie_raincoat",
 	"body_zombie_stalker", "body_zombie_runner", "body_zombie_armored", "body_zombie_heavy",
+	"body_zombie_screamer", "body_zombie_bloater",
 ]
+# The bodies drawn on the broad 40x48 canvas rather than the shared pawn canvas.
+const BROAD_BODIES: Array[String] = ["body_zombie_heavy", "body_zombie_bloater"]
+# A key no family declares: what a face-on picture looks like to the resolver. No shipped body is
+# face-on since the screamer and the bloater joined the pose families (2026-10-19), so the face-on
+# half of `frame_key`, `body_view`, `flip_for` and `body_texture` is judged on this name and a
+# fabricated texture rather than on art -- the branch is a fallback with no shipped reader.
+const FACE_ON_PROBE: String = "probe_face_on_body"
 
 
 func _changes_in_one_second(fps: int, frames: int) -> int:
@@ -714,7 +853,7 @@ func _bodies_turn_and_walk() -> bool:
 		if not Appearance.turns(String(key)):
 			push_error("TURN: '%s' does not turn" % key)
 			return false
-	for key in ["zombie_screamer", "zombie_bloater", "body_survivor_s", "body_shambler", "", "item_held_pistol"]:
+	for key in [FACE_ON_PROBE, "corpse_zombie_heavy_supine", "body_survivor_s", "body_shambler", "", "item_held_pistol"]:
 		if Appearance.turns(String(key)):
 			push_error("TURN: '%s' claims to turn; turns() cannot say no" % key)
 			return false
@@ -725,6 +864,7 @@ func _bodies_turn_and_walk() -> bool:
 		"body_survivor": 8, "body_zombie_workwear": 5, "body_zombie_commuter": 5,
 		"body_zombie_raincoat": 5, "body_zombie_stalker": 6, "body_zombie_runner": 9,
 		"body_zombie_armored": 4, "body_zombie_heavy": 4,
+		"body_zombie_screamer": 5, "body_zombie_bloater": 4,
 	}
 	var members: int = 0
 	for key in TURNING_BODIES:
@@ -738,7 +878,7 @@ func _bodies_turn_and_walk() -> bool:
 			push_error("TURN: '%s' changed frame %d times in one second of ticks at %d fps" % [key, changes, fps])
 			return false
 		# Explicit bounds: the larger heavy is the only exception to the shared pawn canvas.
-		var expected_canvas: Vector2i = Vector2i(40, 48) if key == "body_zombie_heavy" else Appearance.PAWN_CANVAS
+		var expected_canvas: Vector2i = Vector2i(40, 48) if BROAD_BODIES.has(key) else Appearance.PAWN_CANVAS
 		if Appearance.canvas_of(key) != expected_canvas:
 			push_error("TURN: '%s' declares %s, expected %s" % [key, str(Appearance.canvas_of(key)), str(expected_canvas)])
 			return false
@@ -778,15 +918,16 @@ func _bodies_turn_and_walk() -> bool:
 	if _changes_in_one_second(0, 4) != 0:
 		push_error("TURN: the one-second counter saw a zero-rate walk move; it counts nothing it should not")
 		return false
-	# TN, a face-on rig: it answers its own key walking or not, shows the rest view whatever its
-	# heading, and still flips -- the half of the roster the pack does not draw is untouched.
-	if Appearance.frame_key("zombie_screamer", "w", true, 5, 0) != "zombie_screamer":
+	# TN, a face-on picture: it answers its own key walking or not, shows the rest view whatever its
+	# heading, and still flips. No shipped body is face-on any more, so the probe is a name no family
+	# declares -- the fallback a body without views would take.
+	if Appearance.frame_key(FACE_ON_PROBE, "w", true, 5, 0) != FACE_ON_PROBE:
 		push_error("TURN: a face-on rig asked for a walk frame")
 		return false
-	if Appearance.body_view("zombie_screamer", {"radians": PI}, {"dx": -1.0, "dy": 0.0}) != Appearance.VIEW_REST:
+	if Appearance.body_view(FACE_ON_PROBE, {"radians": PI}, {"dx": -1.0, "dy": 0.0}) != Appearance.VIEW_REST:
 		push_error("TURN: a face-on rig shows a view other than the rest view")
 		return false
-	if Appearance.flip_for("zombie_screamer", PI) != -1.0 or Appearance.flip_for("body_survivor", PI) != 1.0:
+	if Appearance.flip_for(FACE_ON_PROBE, PI) != -1.0 or Appearance.flip_for("body_survivor", PI) != 1.0:
 		push_error("TURN: flip_for mirrors a turning body or stops mirroring a face-on one")
 		return false
 	# body_view: a facing component wins; with none the velocity decides; a velocity under the wrong
@@ -809,7 +950,7 @@ func _bodies_turn_and_walk() -> bool:
 	if Appearance.body_texture(look, "w", false, 0, 0) == look["texture"]:
 		push_error("TURN: body_texture facing west answered the rest picture")
 		return false
-	var face_on: Dictionary = {"sprite": "zombie_screamer", "texture": Appearance.resolve("zombie_screamer")}
+	var face_on: Dictionary = {"sprite": FACE_ON_PROBE, "texture": ImageTexture.create_from_image(Image.create(32, 40, false, Image.FORMAT_RGBA8))}
 	if Appearance.body_texture(face_on, "w", true, 9, 0) != face_on["texture"]:
 		push_error("TURN: body_texture answered a face-on rig something other than its own picture")
 		return false

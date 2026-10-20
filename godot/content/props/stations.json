@@ -57,22 +57,22 @@
   {
     "id": "prop.campfire",
     "name": "Cold campfire",
-    "appearance": { "sprite": "prop_campfire", "shape": "disc", "size": 0.5 }
+    "appearance": { "sprite": "prop_campfire", "shape": "disc", "size": 0.94 }
   },
   {
     "id": "prop.campfire.lit",
     "name": "Lit campfire",
-    "appearance": { "sprite": "prop_campfire_lit", "shape": "disc", "size": 0.56, "flameFx": "fx_flame_loop", "light": { "tint": "#ff9452" } }
+    "appearance": { "sprite": "prop_campfire_lit", "shape": "disc", "size": 0.94, "flameFx": "fx_flame_loop", "light": { "tint": "#ff9452" } }
   },
   {
     "id": "prop.well",
     "name": "Well",
-    "appearance": { "sprite": "prop_well", "shape": "ring", "size": 0.86 }
+    "appearance": { "sprite": "prop_well", "shape": "ring", "size": 0.94 }
   },
   {
     "id": "prop.latrine",
     "name": "Latrine",
-    "appearance": { "sprite": "prop_latrine", "shape": "box", "size": 0.55 }
+    "appearance": { "sprite": "prop_latrine", "shape": "box", "size": 1.0 }
   },
   {
     "id": "prop.workbench",
