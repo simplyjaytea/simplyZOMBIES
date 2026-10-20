@@ -25,7 +25,9 @@ extends SceneTree
 #            under -- then the real composition: an actor kitted in all eight slots, seen from the
 #            east, composes one layer per slot in EQUIP_DRAW_ORDER's order, and the ones under the
 #            body are exactly the backpack (the pack's z) and the weapon in the far hand
-#            (HELD_BEHIND). TN: a shuffled expectation is refused by the same comparison.
+#            (HELD_BEHIND) -- until it is the weapon wielded, which comes over the body from either
+#            side (WIELDED_OVER). TN: a shuffled expectation is refused by the same comparison, and
+#            wielding the other weapon leaves the far hand's behind.
 #   CANVAS   every key content/items/ names via equipSprite is one of the two shapes, at its canvas:
 #            a wearable's four members at PAWN_CANVAS, a held weapon at the canvas authored.json
 #            declares for it. TN: a fabricated 32x32 wearable is refused by the same predicate, and
@@ -71,11 +73,21 @@ extends SceneTree
 #            the frame over and `_layer_rect` reads the shift. TN: a hand off the arm, a frame-less
 #            call that leaves the pistol on the rest hand, a rest view that shifts nothing, a
 #            wearable that rides nothing, and a draw loop that drops the frame are each refused.
+#   AIM      "Weapon aim" (alpha plan A9; the owner's answer to Q3, the cursor is the aimer): for
+#            every held weapon in either hand and 72 aims round the circle, the body shows the view
+#            the aim falls in, what is left over is never more than an eighth of a turn, and the
+#            polygon `Appearance.held_quad` turns keeps the grip pixel's centre on the hand and
+#            points the barrel along the aim itself; at no turn it is exactly the rect HELD judges,
+#            and a kick slides the grip back along the barrel. The draw loop reads the sim's aim
+#            and hands the turn to every held layer. TN: an untransformed quad off the axis, a quad
+#            turned about the wrong pixel, a turn the wrong way, and a draw loop that ignores the
+#            aim or the turn are each refused.
 
 const SimBoot = preload("res://sim/boot.gd")
 const World = preload("res://sim/world.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
 const Appearance = preload("res://presentation/appearance.gd")
+const FxLook = preload("res://presentation/fx_look.gd")
 
 const CANON_SEED: int = 20260805
 const GATE_SIZE: int = 64
@@ -159,6 +171,7 @@ func _run() -> void:
 	ok = _the_wearables_turn_with_the_body() and ok
 	ok = _the_weapon_is_in_the_hand() and ok
 	ok = _the_gear_follows_the_frame() and ok
+	ok = _the_weapon_turns_to_the_aim() and ok
 	ok = _every_worn_item_has_a_garment() and ok
 	ok = _nobody_is_drawn_in_underwear() and ok
 	ok = _the_clothes_walk_with_the_body() and ok
@@ -181,7 +194,7 @@ func _run() -> void:
 					String(_stash.get("reaches_ids", "[]")),
 					BODY_FAMILIES,
 					String(_stash.get("played_note", "")),
-					String(_stash.get("held_note", "")),
+					String(_stash.get("held_note", "")) + "; " + String(_stash.get("aim_note", "")),
 					String(_stash.get("coverage_note", "")),
 					String(_stash.get("dressed_note", "")),
 					String(_stash.get("step_note", "")),
@@ -382,8 +395,39 @@ func _the_order_holds_and_composes() -> bool:
 			push_error("layer %d is %s, want key '%s' over=%s" % [i, str(layers[i]), want_key, str(want_over)])
 			return false
 
+	# 3. The wielded weapon comes round in front: the same actor firing the far hand's pistol (its
+	# live rangedWeapon built from that item, as items.gd stamps `source`) draws the pistol over the
+	# body seen from either side, and still under it seen from behind. TN: wielding the shotgun
+	# instead leaves the pistol behind, and an actor wielding nothing is the composition above.
+	var slots: Dictionary = (w.components.get_component(actor, "equipment") as Dictionary)["slots"] as Dictionary
+	var pistol: int = int(slots["secondary"])
+	var shotgun: int = int(slots["primary"])
+	var pistol_tex: Texture2D = Appearance.resolve("item_held_pistol")
+	var pistol_over := func(view: String) -> Variant:
+		for layer in Appearance.equipment_layers_for(w, actor, view):
+			if layer.get("texture") == pistol_tex:
+				return bool(layer["over"])
+		return null
+	w.components.set_component(actor, "rangedWeapon", {"source": pistol})
+	var wielded: Array[int] = Appearance.wielded_items(w, actor)
+	if wielded.size() != 1 or wielded[0] != pistol:
+		push_error("wielded_items read %s from a rangedWeapon built from item %d" % [str(Appearance.wielded_items(w, actor)), pistol])
+		return false
+	for view in ["e", "w"]:
+		if pistol_over.call(view) != true:
+			push_error("the far hand's pistol, wielded, is drawn under the body seen from '%s'; the gun you fire hides behind you" % view)
+			return false
+	if pistol_over.call("n") != false:
+		push_error("the wielded pistol is drawn over the body seen from behind")
+		return false
+	w.components.set_component(actor, "rangedWeapon", {"source": shotgun})
+	if pistol_over.call("e") != false:
+		push_error("the far hand's pistol came round in front while the shotgun is the one wielded")
+		return false
+	w.components.remove_component(actor, "rangedWeapon")
+
 	_stash["order_layers"] = layers.size()
-	print("ORDER OK EQUIP_DRAW_ORDER == EXPECT_ORDER (6 slots, only back under); a shuffled expectation is refused; an actor kitted in all six (and legs and torso, which compose no layer) composes %d layers in order seen from the east, the backpack and the far hand's pistol the only ones under" % layers.size())
+	print("ORDER OK EQUIP_DRAW_ORDER == EXPECT_ORDER (6 slots, only back under); a shuffled expectation is refused; an actor kitted in all six (and legs and torso, which compose no layer) composes %d layers in order seen from the east, the backpack and the far hand's pistol the only ones under; wielded, that pistol comes over the body from e and w and stays under from n, and wielding the shotgun leaves it behind" % layers.size())
 	return true
 
 
@@ -862,7 +906,12 @@ func _function_code(source: String, name: String) -> String:
 	var start: int = source.find("func %s(" % name)
 	if start < 0:
 		return ""
+	# The next top-level function, `static func` included -- appearance.gd is statics all the way
+	# down, and a reader that only knew `func ` would read on to the end of that file.
 	var stop: int = source.find("\nfunc ", start + 1)
+	var stop_static: int = source.find("\nstatic func ", start + 1)
+	if stop_static > 0 and (stop < 0 or stop_static < stop):
+		stop = stop_static
 	var body: String = source.substr(start, (stop - start) if stop > 0 else -1)
 	var out: PackedStringArray = []
 	for line in body.split("\n"):
@@ -872,18 +921,29 @@ func _function_code(source: String, name: String) -> String:
 	return "\n".join(out)
 
 
-const DRAW_NEEDLE: String = "draw_texture_rect(layer[\"texture\"] as Texture2D, _layer_rect(rect, layer), false, gear, bool(layer.get(\"transpose\", false)))"
+const BLIT_NEEDLE: String = "_draw_layer(rect, layer, gear)"
+const DRAW_NEEDLE: String = "draw_texture_rect(texture, _layer_rect(rect, layer), false, gear, bool(layer.get(\"transpose\", false)))"
+const HELD_NEEDLE: String = "Appearance.held_quad(layer, Vector2i(texture.get_size()), float(layer.get(\"turn\", 0.0)), float(layer.get(\"slide\", 0.0)))"
+const APPEARANCE_PATH: String = "res://presentation/appearance.gd"
 
 
-# Whether the draw loop places and turns a held layer: `_blit_body` hands every layer's `transpose`
-# flag to the draw call in both passes, and `_layer_rect` reads the layer's `at` and `size`.
-func _draw_loop_complaint(source: String) -> String:
+# Whether the draw loop places and turns a held layer: `_blit_body` hands every layer to
+# `_draw_layer` in both passes; `_draw_layer` draws a wearable at its rect with its `transpose` flag
+# and a held weapon as the polygon `Appearance.held_quad` turns by the layer's `turn` and slides by
+# its `slide`; and `held_quad` itself reads the layer's `at`, `view` and `hand`.
+func _draw_loop_complaint(source: String, appearance: String) -> String:
 	var blit: String = _function_code(source, "_blit_body")
-	if blit.count(DRAW_NEEDLE) != 2:
-		return "_blit_body passes a layer's transpose flag to %d draw call(s), want 2 (under and over)" % blit.count(DRAW_NEEDLE)
-	var place: String = _function_code(source, "_layer_rect")
-	if not place.contains("layer[\"at\"]") or not place.contains("layer[\"size\"]"):
-		return "_layer_rect does not read the layer's at and size"
+	if blit.count(BLIT_NEEDLE) != 2:
+		return "_blit_body hands %d layer pass(es) to _draw_layer, want 2 (under and over)" % blit.count(BLIT_NEEDLE)
+	var layer: String = _function_code(source, "_draw_layer")
+	if not layer.contains(DRAW_NEEDLE):
+		return "_draw_layer does not draw a wearable at its rect with its transpose flag"
+	if not layer.contains(HELD_NEEDLE) or not layer.contains("draw_polygon("):
+		return "_draw_layer does not draw a held weapon as the polygon held_quad turns"
+	var quad: String = _function_code(appearance, "held_quad")
+	for needle in ["layer[\"at\"]", "layer.get(\"view\"", "layer.get(\"hand\""]:
+		if not quad.contains(needle):
+			return "Appearance.held_quad does not read %s" % needle
 	return ""
 
 
@@ -1049,14 +1109,18 @@ func _the_weapon_is_in_the_hand() -> bool:
 
 	# The draw loop hands the flag and the placement over -- and the needle can fail.
 	var source: String = FileAccess.get_file_as_string(MAIN_PATH)
-	var loop: String = _draw_loop_complaint(source)
+	var appearance_src: String = FileAccess.get_file_as_string(APPEARANCE_PATH)
+	var loop: String = _draw_loop_complaint(source, appearance_src)
 	if not loop.is_empty():
 		push_error("%s: %s" % [lane, loop])
 		return false
-	var dropped: String = source.replace(DRAW_NEEDLE, "draw_texture_rect(layer[\"texture\"] as Texture2D, _layer_rect(rect, layer), false, gear)")
-	var commented: String = source.replace("\t\t\t" + DRAW_NEEDLE, "\t\t\t# " + DRAW_NEEDLE)
-	if _draw_loop_complaint(dropped).is_empty() or _draw_loop_complaint(commented).is_empty():
-		push_error("%s: a draw loop that drops the transpose flag, or comments the draw out, passed" % lane)
+	var dropped: String = source.replace(DRAW_NEEDLE, "draw_texture_rect(texture, _layer_rect(rect, layer), false, gear)")
+	var commented: String = source.replace("\t\t\t" + BLIT_NEEDLE, "\t\t\t# " + BLIT_NEEDLE)
+	var unturned: String = source.replace(HELD_NEEDLE, "Appearance.held_quad(layer, Vector2i(texture.get_size()), 0.0)")
+	var unplaced: String = appearance_src.replace("var at := Vector2(layer[\"at\"] as Vector2i)", "var at := Vector2.ZERO")
+	if _draw_loop_complaint(dropped, appearance_src).is_empty() or _draw_loop_complaint(commented, appearance_src).is_empty() \
+			or _draw_loop_complaint(unturned, appearance_src).is_empty() or _draw_loop_complaint(source, unplaced).is_empty():
+		push_error("%s: a draw loop that drops the transpose flag, comments a pass out, ignores the turn, or a quad that ignores the placement, passed" % lane)
 		return false
 
 	var note: String = "%d held weapon(s) draw in both hands on all %d views grip-on-hand, barrel the view's way, mirrored facing west only, at least %d solid pixel(s) visible (alpha >= %d); the body never mirrors" % [keys.size(), Appearance.VIEWS.size(), fewest, ALPHA_SOLID]
@@ -1239,6 +1303,146 @@ func _frame_loop_complaint(source: String) -> String:
 	if not place.contains("layer[\"shift\"]"):
 		return "_layer_rect does not read a wearable's shift"
 	return ""
+
+
+# --- lane 10: AIM ----------------------------------------------------------------------------
+
+
+# Where a picture point (u, v), in the picture's own pixels, lands inside a quad whose corners are
+# the picture's corners in `held_quad`'s order (0,0), (1,0), (1,1), (0,1). The quad is a turned
+# rectangle, so this is exact.
+func _in_quad(points: PackedVector2Array, size: Vector2i, u: float, v: float) -> Vector2:
+	return points[0] + (points[1] - points[0]) * (u / float(size.x)) + (points[3] - points[0]) * (v / float(size.y))
+
+
+# What is wrong with one turned held layer, or "": the grip pixel's centre sits on the hand pixel's
+# centre, the picture's own +x (the barrel, as the pack draws every weapon) points along `aim`, and
+# the kick slid it `slide` pixels along that barrel.
+func _aim_complaint(points: PackedVector2Array, size: Vector2i, grip: Vector2i, hand: Vector2i, aim: float, slide: float) -> String:
+	var barrel: Vector2 = (points[1] - points[0]).normalized()
+	var want: Vector2 = Vector2.RIGHT.rotated(aim)
+	if barrel.distance_to(want) > 1e-3:
+		return "points its barrel %s where the aim is %s" % [str(barrel), str(want)]
+	var at: Vector2 = _in_quad(points, size, float(grip.x) + 0.5, float(grip.y) + 0.5)
+	var hand_at: Vector2 = Vector2(hand) + Vector2(0.5, 0.5) + want * slide
+	if at.distance_to(hand_at) > 1e-3:
+		return "holds its grip at %s where the hand is %s" % [str(at), str(hand_at)]
+	return ""
+
+
+func _the_weapon_turns_to_the_aim() -> bool:
+	var lane: String = "AIM"
+	Appearance.forget()
+	var tree: Dictionary = ContentLoader.load_tree()
+	var w: Variant = _world(tree)
+	var bases: Dictionary = {}
+	for d in _equip_declarations(tree):
+		if Appearance.holds(String(d["key"])) and not bases.has(String(d["key"])):
+			bases[String(d["key"])] = String(d["id"])
+	if bases.is_empty():
+		push_error("%s: content declares no held weapon; the lane has nothing to judge" % lane)
+		return false
+	var judged: int = 0
+	var widest: float = 0.0
+	for key in bases.keys():
+		var tex: Texture2D = Appearance.resolve(String(key))
+		var size := Vector2i(tex.get_size())
+		var grip: Vector2i = Appearance.grip_of(String(key))
+		for slot in Appearance.HELD_HANDS.keys():
+			var actor: int = _kit(w, {String(slot): String(bases[key])})
+			for i in 72:
+				var aim: float = wrapf(TAU * float(i) / 72.0 + 0.013, -PI, PI)
+				var view: String = Appearance.view_of(aim)
+				var turn: float = Appearance.held_turn(view, aim)
+				if absf(turn) > PI / 4.0 + 1e-6:
+					push_error("%s: aim %.3f shows view '%s' and leaves %.3f to turn, more than an eighth" % [lane, aim, view, turn])
+					return false
+				widest = maxf(widest, absf(turn))
+				var layers: Array[Dictionary] = Appearance.equipment_layers_for(w, actor, view)
+				if layers.size() != 1 or not layers[0].has("at"):
+					push_error("%s: %s in the %s hand composed %s on view '%s'" % [lane, key, String(slot), str(layers), view])
+					return false
+				var hand: Vector2i = layers[0]["hand"] as Vector2i
+				for slide in [0.0, -FxLook.KICK_ART_PX]:
+					var quad: Dictionary = Appearance.held_quad(layers[0], size, turn, float(slide))
+					var complaint: String = _aim_complaint(quad["points"] as PackedVector2Array, size, grip, hand, aim, float(slide))
+					if not complaint.is_empty():
+						push_error("%s: %s in the %s hand at aim %.3f (view '%s') %s" % [lane, key, String(slot), aim, view, complaint])
+						return false
+				judged += 1
+			# At no turn the quad is exactly the rect HELD judges: its corners span the painted
+			# pixels of the picture placed for each view.
+			for view in Appearance.VIEWS:
+				var layer: Dictionary = Appearance.equipment_layers_for(w, actor, view)[0]
+				var points: PackedVector2Array = Appearance.held_quad(layer, size, 0.0)["points"] as PackedVector2Array
+				var lo := Vector2(INF, INF)
+				var hi := Vector2(-INF, -INF)
+				for p in points:
+					lo = Vector2(minf(lo.x, p.x), minf(lo.y, p.y))
+					hi = Vector2(maxf(hi.x, p.x), maxf(hi.y, p.y))
+				var a: Vector2i = _painted_at(layer, size, 0, 0)
+				var b: Vector2i = _painted_at(layer, size, size.x - 1, size.y - 1)
+				var want_lo := Vector2(mini(a.x, b.x), mini(a.y, b.y))
+				var want_hi := Vector2(maxi(a.x, b.x) + 1, maxi(a.y, b.y) + 1)
+				if lo != want_lo or hi != want_hi:
+					push_error("%s: %s unturned on view '%s' spans %s..%s, not the painted %s..%s" % [lane, key, view, str(lo), str(hi), str(want_lo), str(want_hi)])
+					return false
+
+	# TN, each through the same predicate, on the pistol in the primary hand.
+	var p_key: String = "item_held_pistol"
+	var p_size := Vector2i(Appearance.resolve(p_key).get_size())
+	var p_grip: Vector2i = Appearance.grip_of(p_key)
+	var p_actor: int = _kit(w, {"primary": String(bases.get(p_key, ""))})
+	var off_axis: float = 0.6
+	var p_view: String = Appearance.view_of(off_axis)
+	var p_layer: Dictionary = Appearance.equipment_layers_for(w, p_actor, p_view)[0]
+	var p_hand: Vector2i = p_layer["hand"] as Vector2i
+	var flat: PackedVector2Array = Appearance.held_quad(p_layer, p_size, 0.0)["points"] as PackedVector2Array
+	var backwards: PackedVector2Array = Appearance.held_quad(p_layer, p_size, -Appearance.held_turn(p_view, off_axis))["points"] as PackedVector2Array
+	var slipped: Dictionary = p_layer.duplicate()
+	slipped["hand"] = p_hand + Vector2i(2, 0)
+	var wrong_pivot: PackedVector2Array = Appearance.held_quad(slipped, p_size, Appearance.held_turn(p_view, off_axis))["points"] as PackedVector2Array
+	if _aim_complaint(flat, p_size, p_grip, p_hand, off_axis, 0.0).is_empty() \
+			or _aim_complaint(backwards, p_size, p_grip, p_hand, off_axis, 0.0).is_empty() \
+			or _aim_complaint(wrong_pivot, p_size, p_grip, p_hand, off_axis, 0.0).is_empty():
+		push_error("%s: an unturned quad off the axis, a turn the wrong way, or a quad turned about the wrong pixel passed" % lane)
+		return false
+
+	# The draw loop reads the sim's aim, shows the view it falls in and hands the turn to every held
+	# layer -- and each needle can fail.
+	var source: String = FileAccess.get_file_as_string(MAIN_PATH)
+	var complaint: String = _aim_loop_complaint(source)
+	if not complaint.is_empty():
+		push_error("%s: %s" % [lane, complaint])
+		return false
+	for broken in [
+		source.replace("SimAim.radians_of(world.components, eid)", "0.0"),
+		source.replace("layer[\"turn\"] = Appearance.held_turn(view, screen_ang)", "layer[\"turn\"] = 0.0"),
+		source.replace("Appearance.body_view(sprite_key, {\"radians\": screen_ang}", "Appearance.body_view(sprite_key, {\"radians\": face}"),
+	]:
+		if _aim_loop_complaint(String(broken)).is_empty():
+			push_error("%s: a draw loop that ignores the aim, the turn or the aim's view passed" % lane)
+			return false
+
+	var note: String = "the weapon turns to the aim: %d aims over %d held weapon(s) in both hands keep grip on hand and barrel on the aim within 0.001 px, unkicked and kicked, at most %.3f rad left after the view" % [judged, bases.size(), widest]
+	_stash["aim_note"] = note
+	print("  AIM OK %s; unturned it is exactly HELD's rect on all four views; an unturned quad off the axis, a backwards turn, a wrong pivot and a draw loop ignoring the aim, the turn or the aim's view each refused" % note)
+	return true
+
+
+func _aim_loop_complaint(source: String) -> String:
+	var draw: String = _function_code(source, "_draw_entities")
+	for needle in [
+		"SimAim.radians_of(world.components, eid)",
+		"Appearance.body_view(sprite_key, {\"radians\": screen_ang}",
+		"layer[\"turn\"] = Appearance.held_turn(view, screen_ang)",
+		"layer[\"slide\"] = -kick",
+	]:
+		if not draw.contains(String(needle)):
+			return "_draw_entities does not contain %s" % String(needle)
+	return ""
+
+
 # --- clothing: shared helpers ---------------------------------------------------------------
 #
 # "Clothe everyone" (docs/23, 2026-10-19). Torso, legs and feet garments are `wear` families
