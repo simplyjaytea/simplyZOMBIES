@@ -9889,6 +9889,21 @@ not a to-do list:
   runs the think pass once on a zombie in each of Pursue, Seek, Wander and Dormant beside a person
   and requires its exact seek speed, or none when dormant. Each was turned red by sabotage.
   [docs/22](22-performance.md#bringing-the-tick-to-budget).
+- **Kernel & tooling — the tick to budget, slice 8: the per-body cuts, 2026-10-20 (partial).**
+  `SimPath.find` searches on flat arrays with one-int heap entries and an inlined `walkable`;
+  `wounds.impair` skips a body with nothing to strip (`SimModifiers.holds_any`) and
+  `remove_by_source` no longer rebuilds an unchanged list; the screamer asks
+  `SimAllegiance.people_with_position`; the Dress test reads the base once; scent swaps buffers;
+  views keep their arc cosines; movement reads the cells directly. `godot:bench:runtime` on a
+  slower container, median of three interleaved runs: slice 7 **15.15 / 41.62 ms** to **13.63 /
+  30.01**. Gated in `godot:m2:tick`: PATH now also plans ten long pairs against the scan; PEOPLE
+  names the screamer and the delegation as readers; IMPAIR holds `holds_any`, the no-op strip,
+  a stale `wound.*` modifier on an unhurt body stripped anyway, an unrelated one kept, and a wound
+  still impairing; DRESS holds the one-read test to the slot-then-points test for every person and
+  item, worn garments and a twin of one included; SCENT holds two swapped steps to two copied ones;
+  ARCS holds the cosines to their angles after the eyes change. Each was turned red by sabotage;
+  the 3,000-tick hash with `DEAD_KEEP_VIEW` off matches `main`.
+  [docs/22](22-performance.md#bringing-the-tick-to-budget).
 
 - **Kernel & tooling — water draw check follows its branches, 2026-10-03.** The A2 wall
   additions moved the water fill to character 4,473 after the drawing match, beyond

@@ -77,6 +77,7 @@ func refresh(world: Variant, map: Variant, sight_mul: float = 1.0) -> void:
 	# The hour's ambient factor, once for every observer rather than once each: it is a function
 	# of the tick alone (A3's seventh slice).
 	var ambient_k: float = Clock.ambient_light_at(_tick_of(world))
+	var light_index: Variant = _light_index(world)
 	for entity in world.components.query(["position", "observer"]):
 		var pos: Variant = world.components.get_component(entity, "position")
 		var obs: Variant = world.components.get_component(entity, "observer")
@@ -172,12 +173,20 @@ func refresh(world: Variant, map: Variant, sight_mul: float = 1.0) -> void:
 		(view as Dictionary)["y"] = float((pos as Dictionary)["y"])
 		(view as Dictionary)["facing_x"] = cos(facing_rad)
 		(view as Dictionary)["facing_y"] = sin(facing_rad)
-		(view as Dictionary)["cos_focal"] = cos(float((obs as Dictionary)["focal_half_angle"]))
-		(view as Dictionary)["cos_peripheral"] = cos(float((obs as Dictionary)["peripheral_half_angle"]))
+		# The arcs' cosines change only when the eyes do, which is never for most bodies: kept
+		# beside the angle they came from rather than taken twice a body a tick (A3's eighth slice).
+		var fh: float = float((obs as Dictionary)["focal_half_angle"])
+		if float(vd.get("focal_half", NAN)) != fh:
+			vd["focal_half"] = fh
+			vd["cos_focal"] = cos(fh)
+		var ph: float = float((obs as Dictionary)["peripheral_half_angle"])
+		if float(vd.get("peripheral_half", NAN)) != ph:
+			vd["peripheral_half"] = ph
+			vd["cos_peripheral"] = cos(ph)
 		(view as Dictionary)["range_squared"] = metres * metres
 		(view as Dictionary)["full_squared"] = cast_metres * cast_metres
 		(view as Dictionary)["lit_target"] = lit_target
-		(view as Dictionary)["light"] = _light_index(world) if lit_target else null
+		(view as Dictionary)["light"] = light_index if lit_target else null
 		seen[entity] = true
 
 	for entity in _views.keys():

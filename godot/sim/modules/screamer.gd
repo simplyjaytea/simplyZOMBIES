@@ -15,9 +15,10 @@ static func register_module(world: Variant) -> void:
 		if w.vision == null:
 			return
 		var survivors: Array = []
-		for entity in w.components.query(["position"]):
-			if not SimAllegiance.is_person(w, int(entity)):
-				continue
+		# Every person, from the markers' own tables rather than every positioned thing tested
+		# against them -- the items on the ground were most of what this walk cost (A3's eighth
+		# slice). Same people, same order.
+		for entity in SimAllegiance.people_with_position(w):
 			# A corpse keeps identity (gear stays on the body per ADR 0013), so is_person alone
 			# would leave a dead colonist ringing the alarm forever. enemies_of already excludes
 			# corpses for the same reason (allegiance.gd:72-74); mirrored here rather than

@@ -559,20 +559,10 @@ static func _gather_survivors(world: Variant) -> Array:
 	return out
 
 
-# Every positioned entity `SimAllegiance.is_person` would accept, ascending by id -- the order
-# `query(["position"])` gave. Asked of the three markers' own tables rather than by testing all
-# 340-odd positioned things (every item on the ground among them) against the three markers, which
-# was most of what gathering cost (A3's fourth slice). `check_m2_tick.gd` PEOPLE holds the two equal.
+# Every person with a position, ascending by id: `SimAllegiance.people_with_position`, which is
+# where the walk over the three markers' tables lives (A3's fourth slice).
 static func _people_with_position(world: Variant) -> Array[int]:
-	var seen: Dictionary = {}
-	var out: Array[int] = []
-	for marker in SimAllegianceRes.PERSON_MARKERS:
-		for entity in world.components.query([marker, "position"]):
-			if not seen.has(entity):
-				seen[entity] = true
-				out.append(int(entity))
-	out.sort()
-	return out
+	return SimAllegianceRes.people_with_position(world)
 
 
 static func _chase(world: Variant, target: int, pos: Dictionary, vel: Dictionary, shambler_data: Dictionary, seek: float) -> void:

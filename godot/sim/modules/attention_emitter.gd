@@ -7,6 +7,8 @@ const SimWeather = preload("res://sim/modules/weather.gd")
 # Preloaded rather than lazily loaded because items.gd preloads nothing at all, so it cannot be
 # the far end of a cycle. Read by the scent system below, for what a body's gear smells of.
 const SimItemsRes = preload("res://sim/modules/items.gd")
+# The stance ladder's noise per rung, once rather than through a `load` per body per tick.
+const SimStancesNoise = preload("res://sim/stances.gd")
 
 const SPRINT_THRESHOLD: float = 4.2
 const SHOUT_MAGNITUDE: float = 120.0
@@ -38,8 +40,7 @@ static func register_module(world: Variant, map: Variant) -> void:
 			if posture != null:
 				var cur: int = int((posture as Dictionary)["current"])
 				# stance noise lookup: stances.gd NOISE array
-				var stances_scr: GDScript = load("res://sim/stances.gd") as GDScript
-				var noise_arr: Array = stances_scr.NOISE as Array
+				var noise_arr: Array = SimStancesNoise.NOISE as Array
 				base = float(noise_arr[cur]) if speed > 0.0 else float((emitter as Dictionary)["ambient"])
 			else:
 				if speed >= SPRINT_THRESHOLD:

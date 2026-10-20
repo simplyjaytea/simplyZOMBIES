@@ -628,6 +628,9 @@ func _walk_to(_world: Variant) -> void:
 
 
 func _integrate_movement(_world: Variant) -> void:
+	var cells: Array[int] = map_cells
+	var mw: int = map_width
+	var mh: int = map_height
 	for entity in (components as RefCounted).call("query", ["position", "velocity"]) as Array:
 		# A car is not a body: it is two tiles wide and five long, and the two-corner test below
 		# would let it clip through a wall it should stop flush against. SimVehicles integrates
@@ -654,27 +657,41 @@ func _integrate_movement(_world: Variant) -> void:
 		velocity["pressY"] = -1
 		var nx: float = float(position["x"]) + dx * TICK_SECONDS
 		var lead_x: float = nx + _sign(dx) * BODY_RADIUS
-		if not _blocked_at(lead_x, float(position["y"]) - BODY_RADIUS) \
-				and not _blocked_at(lead_x, float(position["y"]) + BODY_RADIUS):
+		# `_blocked_at`, read straight off the cells: the four corner tests are most of what a
+		# moving body costs here, and a hundred bodies move every tick (A3's eighth slice). Each
+		# corner is asked once and its answer reused where the old code asked it again.
+		var x_lo: bool = _cell_blocked(cells, mw, mh, lead_x, float(position["y"]) - BODY_RADIUS)
+		var x_hi: bool = false if x_lo else _cell_blocked(cells, mw, mh, lead_x, float(position["y"]) + BODY_RADIUS)
+		if not x_lo and not x_hi:
 			position["x"] = nx
 		else:
 			if dx != 0.0:
-				var py: float = float(position["y"]) - BODY_RADIUS if _blocked_at(lead_x, float(position["y"]) - BODY_RADIUS) else float(position["y"]) + BODY_RADIUS
+				var py: float = float(position["y"]) - BODY_RADIUS if x_lo else float(position["y"]) + BODY_RADIUS
 				velocity["pressX"] = floori(lead_x)
 				velocity["pressY"] = floori(py)
 			velocity["dx"] = 0.0
 
 		var ny: float = float(position["y"]) + dy * TICK_SECONDS
 		var lead_y: float = ny + _sign(dy) * BODY_RADIUS
-		if not _blocked_at(float(position["x"]) - BODY_RADIUS, lead_y) \
-				and not _blocked_at(float(position["x"]) + BODY_RADIUS, lead_y):
+		var y_lo: bool = _cell_blocked(cells, mw, mh, float(position["x"]) - BODY_RADIUS, lead_y)
+		var y_hi: bool = false if y_lo else _cell_blocked(cells, mw, mh, float(position["x"]) + BODY_RADIUS, lead_y)
+		if not y_lo and not y_hi:
 			position["y"] = ny
 		else:
 			if dy != 0.0:
-				var px: float = float(position["x"]) - BODY_RADIUS if _blocked_at(float(position["x"]) - BODY_RADIUS, lead_y) else float(position["x"]) + BODY_RADIUS
+				var px: float = float(position["x"]) - BODY_RADIUS if y_lo else float(position["x"]) + BODY_RADIUS
 				velocity["pressX"] = floori(px)
 				velocity["pressY"] = floori(lead_y)
 			velocity["dy"] = 0.0
+
+
+# `is_blocked_tile(floori(x), floori(y))` with the world's cells handed in, for the integrate loop.
+static func _cell_blocked(cells: Array[int], mw: int, mh: int, x: float, y: float) -> bool:
+	var tx: int = floori(x)
+	var ty: int = floori(y)
+	if tx < 0 or ty < 0 or tx >= mw or ty >= mh:
+		return true
+	return cells[ty * mw + tx] == 1
 
 
 func _blocked_at(x: float, y: float) -> bool:
