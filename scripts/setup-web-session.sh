@@ -2,7 +2,7 @@
 #
 # Make a fresh session able to run the Godot gates.
 #
-# The Cursor Cloud VM snapshot ships Godot 4.7.1 on PATH (see AGENTS.md). Claude Code on
+# The Cursor Cloud VM snapshot ships Godot 4.7.1 on PATH (see CLAUDE.md). Claude Code on
 # the web does not: its container starts from a bare clone with no engine, no export
 # templates, and no node_modules. Without this script the only suite that runs in such a
 # session is whatever npm can execute -- which is how a session ends up "verifying" the
@@ -60,7 +60,7 @@ else
   # run-godot.mjs probes GODOT_BIN, then a Windows path, then `godot4`/`godot` on PATH. A
   # hook cannot export an env var into later tool calls, so the symlink is what actually
   # makes the gates work for the rest of the session -- and it puts the engine exactly
-  # where AGENTS.md says it lives on the snapshot.
+  # where CLAUDE.md says it lives on the snapshot.
   if [ -w /usr/local/bin ]; then
     ln -sf "$BINARY" /usr/local/bin/godot
     log "Linked /usr/local/bin/godot"
