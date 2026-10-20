@@ -37,6 +37,7 @@ const SimVehicles = preload("res://sim/modules/vehicles.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const SimSurvivors = preload("res://sim/modules/survivors.gd")
+const SimOrders = preload("res://sim/modules/orders.gd")
 const SimAptitudes = preload("res://sim/modules/aptitudes.gd")
 const ContentReload = preload("res://platform/content_reload.gd")
 const SimChronicle = preload("res://sim/modules/chronicle.gd")
@@ -1150,6 +1151,7 @@ func _draw() -> void:
 	_draw_light_pools()
 	_fx_drawn = []
 	_a2_wall_drawn = []
+	_draw_orders()
 	_draw_entities()
 	_draw_effects(false)
 	_draw_afterimages()
@@ -2281,6 +2283,20 @@ func _fill_pool_tiles(tiles: Array, col: Color) -> void:
 		var tile: Vector2i = t as Vector2i
 		var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(tile.x) + 0.5, float(tile.y) + 0.5)
 		draw_rect(Rect2(roundf(float(sc["sx"]) - half), roundf(float(sc["sy"]) - half), zoom, zoom), col)
+
+
+# Where the selected colonist is going: a ring on the ground at their spot, or on the item they
+# are hauling. Under the bodies, and in the same player colour as the selection ring that marks
+# whose order this is, so the two always say the same thing about whose the HUD is speaking.
+func _draw_orders() -> void:
+	if world == null or _selected < 0 or _selected == int(world.player):
+		return
+	var tile: Vector2i = SimOrders.destination(world, _selected)
+	if tile.x < 0:
+		return
+	var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(tile.x) + 0.5, float(tile.y) + 0.5)
+	var zoom: float = float(camera["zoom"])
+	draw_arc(Vector2(float(sc["sx"]), float(sc["sy"])), zoom * 0.4, 0.0, TAU, 20, Palette.COLOURS["player"], 1.5)
 
 
 # Dead zombies have already left the simulation's actor set. The saved visual records add no

@@ -21,6 +21,7 @@ const Clock = preload("res://sim/time/clock.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
 const SimSightings = preload("res://sim/modules/sightings.gd")
 const SimMelee = preload("res://sim/modules/melee.gd")
+const SimWalk = preload("res://sim/walk.gd")
 
 const COLUMNS: Array[String] = [
 	"Firefight", "Patient", "Doctor", "Rest", "Cook", "Hunt", "Construct", "Repair",
@@ -253,6 +254,14 @@ static func _tick_one(world: Variant, ent: int) -> void:
 	# after the seek branch above, so a sulking survivor still eats, drinks and sleeps: this is a
 	# refusal to *work*, not a refusal to live.
 	if _sulking(world, ent):
+		return
+	# A colonist's order is the player's word on what they do next, and it sits above the job rows:
+	# it replaces `_pick` for as long as the record exists, and a colonist who has dropped their
+	# empty hands is not following orders until they have re-armed (the Rearm block below).
+	# Needs and sulking came first, above this, so an order never starves anybody or overrides a
+	# refusal. `SimOrders.issue` is what drops the job a colonist was doing when the order arrived.
+	if world.components.has_component(ent, ORDER_COMPONENT) and not _unarmed(world, ent):
+		_follow_order(world, ent, world.components.get_component(ent, ORDER_COMPONENT) as Dictionary)
 		return
 	# Dusk calls a survivor with Guard on their row to the post. Only a job that has not begun
 	# a channel (ticksLeft 0: a walk, a Rest, a Patient) is dropped for it -- the soft-seek rule
@@ -658,6 +667,8 @@ static func _haul_work(world: Variant, x: float, y: float) -> Dictionary:
 		var tx: int = floori(float((p as Dictionary)["x"]))
 		var ty: int = floori(float((p as Dictionary)["y"]))
 		if SimNeeds.is_stockpile_tile(world, tx, ty):
+			continue
+		if _under_order(world, int(item)):
 			continue
 		if not _near_home(world, float((p as Dictionary)["x"]), float((p as Dictionary)["y"])):
 			continue
@@ -2044,19 +2055,144 @@ static func _walk(world: Variant, ent: int, job: Dictionary, dest: Vector2i) -> 
 	if SimTileMap.tile_at(world.tilemap, nx, ny) == SimTileMap.Tile.Door and world.is_blocked_tile(nx, ny):
 		SimFortify.open_door(world, nx, ny)
 	var len: float = sqrt(dx * dx + dy * dy)
-	var speed: float = 2.1 * SimNeeds.walk_mul(world, ent)
-	# The modifier store's move_speed, the same read the player's `move` command makes
-	# (world.gd's movement phase). It was never read here: the limp, encumbrance and blood loss
-	# slowed the player and never Mara or Ellis, and a weather that slows the living would have
-	# slowed one body of three (docs/23's defect list, closed by the weather spine).
-	if world.modifiers != null and (world.modifiers as Object).has_method("resolve"):
-		speed *= float(world.modifiers.call("resolve", "move_speed", ent))
-	if speed <= 0.0:
-		speed = 1.0
+	var speed: float = _walk_speed(world, ent)
 	var vel: Variant = world.components.get_component(ent, "velocity")
 	if vel is Dictionary:
 		(vel as Dictionary)["dx"] = dx / len * speed
 		(vel as Dictionary)["dy"] = dy / len * speed
+
+
+# A colonist's walking pace: the survivor's base, the walk multiplier the needs read, and the
+# modifier store's move_speed. The last was never read by colonists: the limp, encumbrance and
+# blood loss slowed the player and never Mara or Ellis, and a weather that slows the living would
+# have slowed one body of three (docs/23's defect list, closed by the weather spine). Shared by the
+# job walk above and the order walk below, so the two cannot pace a colonist differently.
+static func _walk_speed(world: Variant, ent: int) -> float:
+	var speed: float = 2.1 * SimNeeds.walk_mul(world, ent)
+	if world.modifiers != null and (world.modifiers as Object).has_method("resolve"):
+		speed *= float(world.modifiers.call("resolve", "move_speed", ent))
+	if speed <= 0.0:
+		speed = 1.0
+	return speed
+
+
+# --- Colonist orders (plan item A16) ----------------------------------------------------------
+# An order is the player's standing word on what this colonist does next. It lives on its own
+# `colonistOrder` component, beside `job` and never inside it, so an order outlives every job it
+# starts and a job a colonist was doing when the order arrived is dropped by `SimOrders.issue`.
+# Three kinds: `go` walks to a tile and ends there; `hold` walks to a tile and stands on it, taking
+# no work, until a new order or a stand-down (the draft, in effect); `haul` carries one loose item
+# to the stockpile by the ordinary Haul job, so a hauled item is the same work as one the colonist
+# found for themselves. The record is `{kind, tx, ty}` or `{kind, target}`, plus the walk's own
+# `path` and `pathGen`: plain values, so it round-trips a save.
+const ORDER_COMPONENT: String = "colonistOrder"
+
+
+# Stop the job a colonist is doing, if any. The one public door to `_stop`, for `SimOrders`.
+static func drop_job(world: Variant, ent: int) -> void:
+	_stop(world, ent)
+
+
+# Remove the order and any Haul job it started. The one door every ending goes through: arrival,
+# an item that is no longer there to carry, a destination with no route, and a stand-down.
+static func end_order(world: Variant, ent: int) -> void:
+	var order: Variant = world.components.get_component(ent, ORDER_COMPONENT)
+	if order is Dictionary and String((order as Dictionary).get("kind", "")) == "haul":
+		_release_item(world, ent, int((order as Dictionary).get("target", -1)))
+	world.components.remove(ent, ORDER_COMPONENT)
+	var job: Variant = world.components.get_component(ent, "job")
+	if job is Dictionary and String((job as Dictionary).get("kind", "")) == "Haul":
+		_stop(world, ent)
+
+
+# An ordered haul reserves its item for the colonist it was given to, from the moment it is
+# issued -- before that colonist's job exists, because the nearest colonist's ordinary Haul can
+# take the same item on the very tick the order lands. `_haul_work` skips an item for as long as
+# its holder's order still names it. The reservation is the `reserved` record `_release_claim`
+# already clears when a Haul job ends.
+static func reserve_item(world: Variant, ent: int, item: int) -> void:
+	world.components.set_component(item, "reserved", {"by": ent, "job": "Haul"})
+
+
+static func _release_item(world: Variant, ent: int, item: int) -> void:
+	var claim: Variant = world.components.get_component(item, "reserved")
+	if claim is Dictionary and int((claim as Dictionary).get("by", -1)) == ent:
+		world.components.remove(item, "reserved")
+
+
+static func _under_order(world: Variant, item: int) -> bool:
+	var claim: Variant = world.components.get_component(item, "reserved")
+	if not (claim is Dictionary) or String((claim as Dictionary).get("job", "")) != "Haul":
+		return false
+	var by: int = int((claim as Dictionary).get("by", -1))
+	if by < 0 or not world.entities.is_alive(by) or world.components.has_component(by, "corpse"):
+		return false
+	var order: Variant = world.components.get_component(by, ORDER_COMPONENT)
+	return order is Dictionary and String((order as Dictionary).get("kind", "")) == "haul" and int((order as Dictionary).get("target", -1)) == item
+
+
+static func _follow_order(world: Variant, ent: int, order: Dictionary) -> void:
+	var kind: String = String(order.get("kind", ""))
+	if kind == "haul":
+		_follow_haul(world, ent, order)
+		return
+	# A walk or a stand never carries a job. Whatever a need or a sulk left in `job` goes now, so
+	# the order owns the colonist's feet.
+	if world.components.has_component(ent, "job"):
+		_stop(world, ent)
+	var goal := Vector2i(int(order.get("tx", 0)), int(order.get("ty", 0)))
+	if _at(world, ent, goal, REACH):
+		_still(world, ent)
+		if kind == "go":
+			end_order(world, ent)
+		return
+	SimWalk.step(world, ent, order, goal, _walk_speed(world, ent))
+	# SimWalk leaves the path empty both at its goal and when there is no route. The goal is caught
+	# by `_at` above, so an empty path here is a destination nobody can reach, and the order is
+	# dropped rather than re-planned against the same wall every tick.
+	if (order.get("path", []) as Array).is_empty():
+		end_order(world, ent)
+
+
+# The Haul job for the order's item, run by the ordinary job machinery. The order ends when the
+# item is no longer loose and not yet stocked, which is the job having finished -- or the item
+# having been taken by somebody else, which is the same ending from the colonist's side.
+static func _follow_haul(world: Variant, ent: int, order: Dictionary) -> void:
+	var item: int = int(order.get("target", -1))
+	var job: Variant = world.components.get_component(ent, "job")
+	var ours: bool = job is Dictionary and int((job as Dictionary).get("target", -1)) == item and String((job as Dictionary).get("kind", "")) == "Haul"
+	var carrying: bool = ours and bool((job as Dictionary).get("carrying", false))
+	if not _haul_still_wanted(world, item, carrying):
+		end_order(world, ent)
+		return
+	if not ours:
+		if job is Dictionary:
+			_stop(world, ent)
+		# A route that failed once for this item is not retried under an order (the same mark the
+		# rows' own haul search honours); the order ends rather than planning it again.
+		if _is_unreachable(world, item):
+			end_order(world, ent)
+			return
+		job = {"kind": "Haul", "target": item, "ticksLeft": 0, "path": [], "pathGen": -1}
+		world.components.set_component(ent, "job", job)
+		reserve_item(world, ent, item)
+	# Storm sends everybody in, and an order to haul outdoors is still work outdoors: the job is
+	# dropped and the colonist stands where they are until the sky allows it, with the order kept.
+	if _refused_outdoors(world, ent, job as Dictionary):
+		_stop(world, ent)
+		_still(world, ent)
+		return
+	_advance_job(world, ent, job as Dictionary)
+
+
+static func _haul_still_wanted(world: Variant, item: int, carrying: bool) -> bool:
+	if item < 0 or not world.entities.is_alive(item):
+		return false
+	if world.components.has_component(item, "position"):
+		var p: Dictionary = world.components.get_component(item, "position") as Dictionary
+		return not SimNeeds.is_stockpile_tile(world, floori(float(p["x"])), floori(float(p["y"])))
+	# No position means somebody's pack. It is still wanted only if it is in this colonist's own.
+	return carrying
 
 
 static func _at(world: Variant, ent: int, tile: Vector2i, reach: float) -> bool:

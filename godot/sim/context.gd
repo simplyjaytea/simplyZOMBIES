@@ -33,6 +33,7 @@ const SimRecruitsRes = preload("res://sim/modules/recruits.gd")
 const SimCampRes = preload("res://sim/modules/camp.gd")
 const SimPathRes = preload("res://sim/path.gd")
 const SimItemsRes = preload("res://sim/modules/items.gd")
+const SimOrdersRes = preload("res://sim/modules/orders.gd")
 
 # A tile more than this from the actor reads as a walk *over* rather than a walk *here* -- the same
 # distinction the word already carries in speech, an errand across the street versus a step to the
@@ -123,10 +124,41 @@ static func _vehicle_row_text(world: Variant, actor: int, car: int) -> String:
 	return "get on the %s" % name
 
 
+# The orders the selected colonist may take from here. Each row carries the `colonist.order`
+# command `SimOrders.issue` takes, and is offered only when `SimOrders.accepts` takes that same
+# command -- the same rule the rows above keep, so nothing here is a promise the sim then refuses.
+static func _order_rows(world: Variant, colonist: int, kind: String, entity: int, tile: Vector2i) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var who: String = _name_of(world, colonist, "them")
+	if SimOrdersRes.holds(world, colonist):
+		out.append({"text": "stand %s down" % who, "command": {"type": SimOrdersRes.COMMAND, "entity": colonist, "kind": "clear"}, "target": colonist})
+	if kind == "item" and entity >= 0:
+		var haul: Dictionary = {"entity": colonist, "kind": "haul", "target": entity}
+		if SimOrdersRes.accepts(world, colonist, haul):
+			var item_text: String = SimItemsRes.item_name(world, entity).to_lower()
+			out.append({"text": "have %s haul the %s" % [who, item_text], "command": _as_command(haul), "target": colonist})
+	if tile.x >= 0:
+		var go: Dictionary = {"entity": colonist, "kind": "go", "tx": tile.x, "ty": tile.y}
+		if SimOrdersRes.accepts(world, colonist, go):
+			out.append({"text": "have %s go here" % who, "command": _as_command(go), "target": colonist})
+		var hold: Dictionary = {"entity": colonist, "kind": "hold", "tx": tile.x, "ty": tile.y}
+		if SimOrdersRes.accepts(world, colonist, hold):
+			out.append({"text": "have %s hold here" % who, "command": _as_command(hold), "target": colonist})
+	return out
+
+
+static func _as_command(order: Dictionary) -> Dictionary:
+	var command: Dictionary = order.duplicate()
+	command["type"] = SimOrdersRes.COMMAND
+	return command
+
+
 ## The rows the menu should draw for whatever `hit` names, in the sim's own order: what is in
 ## reach first, then what is true anywhere (attack, look, walk, the standing-still verbs). `actor`
-## is always the controlled body -- the menu is the player's own, never an NPC's.
-static func verbs_at(world: Variant, actor: int, hit: Dictionary) -> Array[Dictionary]:
+## is always the controlled body -- the menu is the player's own, never an NPC's. `selected` is the
+## colonist the player has picked on the street (-1 for none, or for yourself): their orders are
+## offered beside your own verbs, and the menu still speaks for you.
+static func verbs_at(world: Variant, actor: int, hit: Dictionary, selected: int = -1) -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	if world == null or actor < 0 or hit.is_empty():
 		return rows
@@ -170,6 +202,9 @@ static func verbs_at(world: Variant, actor: int, hit: Dictionary) -> Array[Dicti
 			rows.append({"text": "pull %s free" % _name_of(world, entity, "them"), "command": {"type": "rescue"}, "target": entity})
 		if int(SimRecruitsRes.waiting_in_reach(world, actor)) == entity:
 			rows.append({"text": "talk to them", "command": {"type": "use.context"}, "target": -1})
+
+	if selected >= 0 and selected != actor:
+		rows.append_array(_order_rows(world, selected, kind, entity, tile))
 
 	# --- anywhere -----------------------------------------------------------------------------
 	if (kind == "zombie" or kind == "raider") and entity >= 0:
