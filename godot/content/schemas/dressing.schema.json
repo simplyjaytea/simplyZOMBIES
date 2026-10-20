@@ -128,7 +128,7 @@
     },
     "furnishings": {
       "type": "array",
-      "description": "The outpost pack's furnishing props as pictures over Floor tiles the sim still sees as open floor: a table, chair, shelf, medical cabinet and fridge inside a building; a dumpster, concrete barrier, traffic cone, fence post, road sign and streetlamp outside one. DRESSING, NEVER SIM STATE: nothing blocks a step, sightline or shot, becomes cover, is looted or becomes a component. Each entry is one hash roll per tile: key, where, surfaces, rarity, optional beside wall, and optional standing true. Absent or false standing keeps the short picture in the flat pass under bodies. True is reserved for the three named pictures taller than one tile; they use the entity depth sort and fade on overlap. All entries keep the same surface, indoor/outdoor, side-neighbour, doorway, wall, seen and occupied-real-prop checks. check_trees.gd's FURNISH lane holds both size classes and the reads.",
+      "description": "The outpost pack's furnishing props as pictures over Floor tiles the sim still sees as open floor: a table, chair, shelf, medical cabinet and fridge inside a building; a dumpster, concrete barrier, traffic cone, fence post, road sign and streetlamp outside one. DRESSING, NEVER SIM STATE: nothing blocks a step, sightline or shot, becomes cover, is looted or becomes a component. Each entry is one hash roll per tile: key, where, surfaces, rarity, optional beside (wall: within a tile of a wall or, on paving, the kerb; wall_north: against the wall north of it, in runs; edge: at the street's edge, a wall or parked car within a tile, the kerb or the sidewalk), optional group (table or seat), and optional standing true. Absent or false standing keeps the short picture in the flat pass under bodies. True is reserved for the three named pictures taller than one tile; they use the entity depth sort and fade on overlap. All entries keep the same surface, indoor/outdoor, side-neighbour, doorway, wall, seen and occupied-real-prop checks. check_trees.gd's FURNISH lane holds both size classes and the reads.",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -172,8 +172,18 @@
           "beside": {
             "type": "string",
             "enum": [
-              "wall"
+              "wall",
+              "wall_north",
+              "edge"
             ]
+          },
+          "group": {
+            "type": "string",
+            "enum": [
+              "table",
+              "seat"
+            ],
+            "description": "Optional: a table entry stands one table per `rarity` floor tiles, spread over the room in cells; a seat entry puts one to three chairs flush at each table, each side one in its `rarity`. dressing.gd's `_group_top`; check_trees.gd's GROUPS lane."
           },
           "standing": {
             "type": "boolean",

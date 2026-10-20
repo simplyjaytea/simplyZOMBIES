@@ -3782,44 +3782,27 @@
         ]
       }
     },
-    "debris_scrap_a": {
+    "debris_paper": {
       "canvas": [
-        5,
-        4
+        11,
+        12
       ],
       "kind": "tile",
       "reads": "dressing.street",
       "source": {
         "path": "art/simplyzombies/groups/environment/textures/overlay-debris.png",
         "crop": [
-          17,
-          8,
-          5,
-          4
-        ]
-      }
-    },
-    "debris_scrap_b": {
-      "canvas": [
-        7,
-        10
-      ],
-      "kind": "tile",
-      "reads": "dressing.street",
-      "source": {
-        "path": "art/simplyzombies/groups/environment/textures/overlay-debris.png",
-        "crop": [
-          23,
+          12,
+          15,
           11,
-          7,
-          10
+          12
         ]
       }
     },
-    "debris_scrap_c": {
+    "debris_card": {
       "canvas": [
-        5,
-        6
+        6,
+        8
       ],
       "kind": "tile",
       "reads": "dressing.street",
@@ -3827,9 +3810,9 @@
         "path": "art/simplyzombies/groups/environment/textures/overlay-debris.png",
         "crop": [
           24,
-          23,
-          5,
-          6
+          22,
+          6,
+          8
         ]
       }
     },
