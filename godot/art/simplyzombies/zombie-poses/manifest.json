@@ -190,6 +190,56 @@
         "walk-02",
         "walk-03"
       ]
+    },
+    {
+      "id": "zombie-screamer",
+      "path": "atlases/zombie-screamer.png",
+      "size": [
+        160,
+        160
+      ],
+      "cell_size": [
+        32,
+        40
+      ],
+      "rows": [
+        "south",
+        "east",
+        "north",
+        "west"
+      ],
+      "columns": [
+        "idle",
+        "walk-00",
+        "walk-01",
+        "walk-02",
+        "walk-03"
+      ]
+    },
+    {
+      "id": "zombie-bloater",
+      "path": "atlases/zombie-bloater.png",
+      "size": [
+        200,
+        192
+      ],
+      "cell_size": [
+        40,
+        48
+      ],
+      "rows": [
+        "south",
+        "east",
+        "north",
+        "west"
+      ],
+      "columns": [
+        "idle",
+        "walk-00",
+        "walk-01",
+        "walk-02",
+        "walk-03"
+      ]
     }
   ],
   "assets": [
@@ -2782,6 +2832,718 @@
         "corpse": [
           {
             "path": "textures/human/corpse-supine-diagonal.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "status": "integrated-corpse"
+    },
+    {
+      "id": "zombie-screamer-idle-south",
+      "label": "Screamer idle south",
+      "category": "zombie",
+      "path": "textures/zombie-screamer/idle-south-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "south",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-screamer/idle-south-00.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/idle-south-01.png"
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-screamer-walk-south",
+      "label": "Screamer walk south",
+      "category": "zombie",
+      "path": "textures/zombie-screamer/walk-south-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "south",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-screamer/walk-south-00.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/walk-south-00b.png"
+          },
+          {
+            "path": "textures/zombie-screamer/walk-south-01.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/walk-south-01b.png"
+          },
+          {
+            "path": "textures/zombie-screamer/walk-south-02.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/walk-south-02b.png"
+          },
+          {
+            "path": "textures/zombie-screamer/walk-south-03.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/walk-south-03b.png"
+          }
+        ]
+      },
+      "fps": 10,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-screamer-idle-east",
+      "label": "Screamer idle east",
+      "category": "zombie",
+      "path": "textures/zombie-screamer/idle-east-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "east",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-screamer/idle-east-00.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/idle-east-01.png"
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-screamer-walk-east",
+      "label": "Screamer walk east",
+      "category": "zombie",
+      "path": "textures/zombie-screamer/walk-east-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "east",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-screamer/walk-east-00.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/walk-east-00b.png"
+          },
+          {
+            "path": "textures/zombie-screamer/walk-east-01.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/walk-east-01b.png"
+          },
+          {
+            "path": "textures/zombie-screamer/walk-east-02.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/walk-east-02b.png"
+          },
+          {
+            "path": "textures/zombie-screamer/walk-east-03.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/walk-east-03b.png"
+          }
+        ]
+      },
+      "fps": 10,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-screamer-idle-north",
+      "label": "Screamer idle north",
+      "category": "zombie",
+      "path": "textures/zombie-screamer/idle-north-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "north",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-screamer/idle-north-00.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/idle-north-01.png"
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-screamer-walk-north",
+      "label": "Screamer walk north",
+      "category": "zombie",
+      "path": "textures/zombie-screamer/walk-north-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "north",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-screamer/walk-north-00.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/walk-north-00b.png"
+          },
+          {
+            "path": "textures/zombie-screamer/walk-north-01.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/walk-north-01b.png"
+          },
+          {
+            "path": "textures/zombie-screamer/walk-north-02.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/walk-north-02b.png"
+          },
+          {
+            "path": "textures/zombie-screamer/walk-north-03.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/walk-north-03b.png"
+          }
+        ]
+      },
+      "fps": 10,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-screamer-idle-west",
+      "label": "Screamer idle west",
+      "category": "zombie",
+      "path": "textures/zombie-screamer/idle-west-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "west",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-screamer/idle-west-00.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/idle-west-01.png"
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-screamer-walk-west",
+      "label": "Screamer walk west",
+      "category": "zombie",
+      "path": "textures/zombie-screamer/walk-west-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "west",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-screamer/walk-west-00.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/walk-west-00b.png"
+          },
+          {
+            "path": "textures/zombie-screamer/walk-west-01.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/walk-west-01b.png"
+          },
+          {
+            "path": "textures/zombie-screamer/walk-west-02.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/walk-west-02b.png"
+          },
+          {
+            "path": "textures/zombie-screamer/walk-west-03.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/walk-west-03b.png"
+          }
+        ]
+      },
+      "fps": 10,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-screamer-corpse-supine",
+      "label": "Screamer corpse supine",
+      "category": "corpse",
+      "path": "textures/zombie-screamer/corpse-supine.png",
+      "size": [
+        48,
+        40
+      ],
+      "anchor": [
+        24,
+        20
+      ],
+      "state": "corpse",
+      "pose": "supine",
+      "frames": {
+        "corpse": [
+          {
+            "path": "textures/zombie-screamer/corpse-supine.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "status": "integrated-corpse"
+    },
+    {
+      "id": "zombie-screamer-corpse-prone",
+      "label": "Screamer corpse prone",
+      "category": "corpse",
+      "path": "textures/zombie-screamer/corpse-prone.png",
+      "size": [
+        48,
+        40
+      ],
+      "anchor": [
+        24,
+        20
+      ],
+      "state": "corpse",
+      "pose": "prone",
+      "frames": {
+        "corpse": [
+          {
+            "path": "textures/zombie-screamer/corpse-prone.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "status": "integrated-corpse"
+    },
+    {
+      "id": "zombie-bloater-idle-south",
+      "label": "Bloater idle south",
+      "category": "zombie",
+      "path": "textures/zombie-bloater/idle-south-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        48
+      ],
+      "direction": "south",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-bloater/idle-south-00.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/idle-south-01.png"
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-bloater-walk-south",
+      "label": "Bloater walk south",
+      "category": "zombie",
+      "path": "textures/zombie-bloater/walk-south-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        48
+      ],
+      "direction": "south",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-bloater/walk-south-00.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/walk-south-00b.png"
+          },
+          {
+            "path": "textures/zombie-bloater/walk-south-01.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/walk-south-01b.png"
+          },
+          {
+            "path": "textures/zombie-bloater/walk-south-02.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/walk-south-02b.png"
+          },
+          {
+            "path": "textures/zombie-bloater/walk-south-03.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/walk-south-03b.png"
+          }
+        ]
+      },
+      "fps": 8,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-bloater-idle-east",
+      "label": "Bloater idle east",
+      "category": "zombie",
+      "path": "textures/zombie-bloater/idle-east-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        48
+      ],
+      "direction": "east",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-bloater/idle-east-00.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/idle-east-01.png"
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-bloater-walk-east",
+      "label": "Bloater walk east",
+      "category": "zombie",
+      "path": "textures/zombie-bloater/walk-east-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        48
+      ],
+      "direction": "east",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-bloater/walk-east-00.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/walk-east-00b.png"
+          },
+          {
+            "path": "textures/zombie-bloater/walk-east-01.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/walk-east-01b.png"
+          },
+          {
+            "path": "textures/zombie-bloater/walk-east-02.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/walk-east-02b.png"
+          },
+          {
+            "path": "textures/zombie-bloater/walk-east-03.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/walk-east-03b.png"
+          }
+        ]
+      },
+      "fps": 8,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-bloater-idle-north",
+      "label": "Bloater idle north",
+      "category": "zombie",
+      "path": "textures/zombie-bloater/idle-north-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        48
+      ],
+      "direction": "north",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-bloater/idle-north-00.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/idle-north-01.png"
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-bloater-walk-north",
+      "label": "Bloater walk north",
+      "category": "zombie",
+      "path": "textures/zombie-bloater/walk-north-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        48
+      ],
+      "direction": "north",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-bloater/walk-north-00.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/walk-north-00b.png"
+          },
+          {
+            "path": "textures/zombie-bloater/walk-north-01.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/walk-north-01b.png"
+          },
+          {
+            "path": "textures/zombie-bloater/walk-north-02.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/walk-north-02b.png"
+          },
+          {
+            "path": "textures/zombie-bloater/walk-north-03.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/walk-north-03b.png"
+          }
+        ]
+      },
+      "fps": 8,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-bloater-idle-west",
+      "label": "Bloater idle west",
+      "category": "zombie",
+      "path": "textures/zombie-bloater/idle-west-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        48
+      ],
+      "direction": "west",
+      "state": "idle",
+      "frames": {
+        "idle": [
+          {
+            "path": "textures/zombie-bloater/idle-west-00.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/idle-west-01.png"
+          }
+        ]
+      },
+      "fps": 1,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-bloater-walk-west",
+      "label": "Bloater walk west",
+      "category": "zombie",
+      "path": "textures/zombie-bloater/walk-west-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        48
+      ],
+      "direction": "west",
+      "state": "walk",
+      "frames": {
+        "walk": [
+          {
+            "path": "textures/zombie-bloater/walk-west-00.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/walk-west-00b.png"
+          },
+          {
+            "path": "textures/zombie-bloater/walk-west-01.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/walk-west-01b.png"
+          },
+          {
+            "path": "textures/zombie-bloater/walk-west-02.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/walk-west-02b.png"
+          },
+          {
+            "path": "textures/zombie-bloater/walk-west-03.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/walk-west-03b.png"
+          }
+        ]
+      },
+      "fps": 8,
+      "loop": true,
+      "status": "integrated-locomotion"
+    },
+    {
+      "id": "zombie-bloater-corpse-supine",
+      "label": "Bloater corpse supine",
+      "category": "corpse",
+      "path": "textures/zombie-bloater/corpse-supine.png",
+      "size": [
+        56,
+        40
+      ],
+      "anchor": [
+        28,
+        20
+      ],
+      "state": "corpse",
+      "pose": "supine",
+      "frames": {
+        "corpse": [
+          {
+            "path": "textures/zombie-bloater/corpse-supine.png"
+          }
+        ]
+      },
+      "fps": 0,
+      "loop": false,
+      "status": "integrated-corpse"
+    },
+    {
+      "id": "zombie-bloater-corpse-prone",
+      "label": "Bloater corpse prone",
+      "category": "corpse",
+      "path": "textures/zombie-bloater/corpse-prone.png",
+      "size": [
+        56,
+        40
+      ],
+      "anchor": [
+        28,
+        20
+      ],
+      "state": "corpse",
+      "pose": "prone",
+      "frames": {
+        "corpse": [
+          {
+            "path": "textures/zombie-bloater/corpse-prone.png"
           }
         ]
       },
@@ -5390,6 +6152,750 @@
         ]
       },
       "fps": 6,
+      "loop": false,
+      "status": "derived-action"
+    },
+    {
+      "id": "zombie-screamer-lunge-south",
+      "label": "Screamer lunge south",
+      "category": "zombie",
+      "path": "textures/zombie-screamer/motion/lunge-south-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "south",
+      "state": "lunge",
+      "frames": {
+        "lunge": [
+          {
+            "path": "textures/zombie-screamer/motion/lunge-south-00.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/lunge-south-01.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/lunge-south-02.png"
+          }
+        ]
+      },
+      "fps": 10,
+      "loop": false,
+      "status": "derived-action"
+    },
+    {
+      "id": "zombie-screamer-lunge-east",
+      "label": "Screamer lunge east",
+      "category": "zombie",
+      "path": "textures/zombie-screamer/motion/lunge-east-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "east",
+      "state": "lunge",
+      "frames": {
+        "lunge": [
+          {
+            "path": "textures/zombie-screamer/motion/lunge-east-00.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/lunge-east-01.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/lunge-east-02.png"
+          }
+        ]
+      },
+      "fps": 10,
+      "loop": false,
+      "status": "derived-action"
+    },
+    {
+      "id": "zombie-screamer-lunge-north",
+      "label": "Screamer lunge north",
+      "category": "zombie",
+      "path": "textures/zombie-screamer/motion/lunge-north-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "north",
+      "state": "lunge",
+      "frames": {
+        "lunge": [
+          {
+            "path": "textures/zombie-screamer/motion/lunge-north-00.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/lunge-north-01.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/lunge-north-02.png"
+          }
+        ]
+      },
+      "fps": 10,
+      "loop": false,
+      "status": "derived-action"
+    },
+    {
+      "id": "zombie-screamer-lunge-west",
+      "label": "Screamer lunge west",
+      "category": "zombie",
+      "path": "textures/zombie-screamer/motion/lunge-west-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "west",
+      "state": "lunge",
+      "frames": {
+        "lunge": [
+          {
+            "path": "textures/zombie-screamer/motion/lunge-west-00.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/lunge-west-01.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/lunge-west-02.png"
+          }
+        ]
+      },
+      "fps": 10,
+      "loop": false,
+      "status": "derived-action"
+    },
+    {
+      "id": "zombie-screamer-stagger-south",
+      "label": "Screamer stagger south",
+      "category": "zombie",
+      "path": "textures/zombie-screamer/motion/stagger-south-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "south",
+      "state": "stagger",
+      "frames": {
+        "stagger": [
+          {
+            "path": "textures/zombie-screamer/motion/stagger-south-00.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/stagger-south-01.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/stagger-south-02.png"
+          }
+        ]
+      },
+      "fps": 8,
+      "loop": false,
+      "status": "derived-action"
+    },
+    {
+      "id": "zombie-screamer-stagger-east",
+      "label": "Screamer stagger east",
+      "category": "zombie",
+      "path": "textures/zombie-screamer/motion/stagger-east-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "east",
+      "state": "stagger",
+      "frames": {
+        "stagger": [
+          {
+            "path": "textures/zombie-screamer/motion/stagger-east-00.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/stagger-east-01.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/stagger-east-02.png"
+          }
+        ]
+      },
+      "fps": 8,
+      "loop": false,
+      "status": "derived-action"
+    },
+    {
+      "id": "zombie-screamer-stagger-north",
+      "label": "Screamer stagger north",
+      "category": "zombie",
+      "path": "textures/zombie-screamer/motion/stagger-north-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "north",
+      "state": "stagger",
+      "frames": {
+        "stagger": [
+          {
+            "path": "textures/zombie-screamer/motion/stagger-north-00.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/stagger-north-01.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/stagger-north-02.png"
+          }
+        ]
+      },
+      "fps": 8,
+      "loop": false,
+      "status": "derived-action"
+    },
+    {
+      "id": "zombie-screamer-stagger-west",
+      "label": "Screamer stagger west",
+      "category": "zombie",
+      "path": "textures/zombie-screamer/motion/stagger-west-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "west",
+      "state": "stagger",
+      "frames": {
+        "stagger": [
+          {
+            "path": "textures/zombie-screamer/motion/stagger-west-00.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/stagger-west-01.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/stagger-west-02.png"
+          }
+        ]
+      },
+      "fps": 8,
+      "loop": false,
+      "status": "derived-action"
+    },
+    {
+      "id": "zombie-screamer-fall-south",
+      "label": "Screamer fall south",
+      "category": "zombie",
+      "path": "textures/zombie-screamer/motion/fall-south-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "south",
+      "state": "fall",
+      "frames": {
+        "fall": [
+          {
+            "path": "textures/zombie-screamer/motion/fall-south-00.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-south-01.png"
+          }
+        ]
+      },
+      "fps": 8,
+      "loop": false,
+      "status": "derived-action"
+    },
+    {
+      "id": "zombie-screamer-fall-east",
+      "label": "Screamer fall east",
+      "category": "zombie",
+      "path": "textures/zombie-screamer/motion/fall-east-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "east",
+      "state": "fall",
+      "frames": {
+        "fall": [
+          {
+            "path": "textures/zombie-screamer/motion/fall-east-00.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-east-01.png"
+          }
+        ]
+      },
+      "fps": 8,
+      "loop": false,
+      "status": "derived-action"
+    },
+    {
+      "id": "zombie-screamer-fall-north",
+      "label": "Screamer fall north",
+      "category": "zombie",
+      "path": "textures/zombie-screamer/motion/fall-north-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "north",
+      "state": "fall",
+      "frames": {
+        "fall": [
+          {
+            "path": "textures/zombie-screamer/motion/fall-north-00.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-north-01.png"
+          }
+        ]
+      },
+      "fps": 8,
+      "loop": false,
+      "status": "derived-action"
+    },
+    {
+      "id": "zombie-screamer-fall-west",
+      "label": "Screamer fall west",
+      "category": "zombie",
+      "path": "textures/zombie-screamer/motion/fall-west-00.png",
+      "size": [
+        32,
+        40
+      ],
+      "anchor": [
+        16,
+        40
+      ],
+      "direction": "west",
+      "state": "fall",
+      "frames": {
+        "fall": [
+          {
+            "path": "textures/zombie-screamer/motion/fall-west-00.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-west-01.png"
+          }
+        ]
+      },
+      "fps": 8,
+      "loop": false,
+      "status": "derived-action"
+    },
+    {
+      "id": "zombie-bloater-lunge-south",
+      "label": "Bloater lunge south",
+      "category": "zombie",
+      "path": "textures/zombie-bloater/motion/lunge-south-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        48
+      ],
+      "direction": "south",
+      "state": "lunge",
+      "frames": {
+        "lunge": [
+          {
+            "path": "textures/zombie-bloater/motion/lunge-south-00.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/lunge-south-01.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/lunge-south-02.png"
+          }
+        ]
+      },
+      "fps": 10,
+      "loop": false,
+      "status": "derived-action"
+    },
+    {
+      "id": "zombie-bloater-lunge-east",
+      "label": "Bloater lunge east",
+      "category": "zombie",
+      "path": "textures/zombie-bloater/motion/lunge-east-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        48
+      ],
+      "direction": "east",
+      "state": "lunge",
+      "frames": {
+        "lunge": [
+          {
+            "path": "textures/zombie-bloater/motion/lunge-east-00.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/lunge-east-01.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/lunge-east-02.png"
+          }
+        ]
+      },
+      "fps": 10,
+      "loop": false,
+      "status": "derived-action"
+    },
+    {
+      "id": "zombie-bloater-lunge-north",
+      "label": "Bloater lunge north",
+      "category": "zombie",
+      "path": "textures/zombie-bloater/motion/lunge-north-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        48
+      ],
+      "direction": "north",
+      "state": "lunge",
+      "frames": {
+        "lunge": [
+          {
+            "path": "textures/zombie-bloater/motion/lunge-north-00.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/lunge-north-01.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/lunge-north-02.png"
+          }
+        ]
+      },
+      "fps": 10,
+      "loop": false,
+      "status": "derived-action"
+    },
+    {
+      "id": "zombie-bloater-lunge-west",
+      "label": "Bloater lunge west",
+      "category": "zombie",
+      "path": "textures/zombie-bloater/motion/lunge-west-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        48
+      ],
+      "direction": "west",
+      "state": "lunge",
+      "frames": {
+        "lunge": [
+          {
+            "path": "textures/zombie-bloater/motion/lunge-west-00.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/lunge-west-01.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/lunge-west-02.png"
+          }
+        ]
+      },
+      "fps": 10,
+      "loop": false,
+      "status": "derived-action"
+    },
+    {
+      "id": "zombie-bloater-stagger-south",
+      "label": "Bloater stagger south",
+      "category": "zombie",
+      "path": "textures/zombie-bloater/motion/stagger-south-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        48
+      ],
+      "direction": "south",
+      "state": "stagger",
+      "frames": {
+        "stagger": [
+          {
+            "path": "textures/zombie-bloater/motion/stagger-south-00.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/stagger-south-01.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/stagger-south-02.png"
+          }
+        ]
+      },
+      "fps": 8,
+      "loop": false,
+      "status": "derived-action"
+    },
+    {
+      "id": "zombie-bloater-stagger-east",
+      "label": "Bloater stagger east",
+      "category": "zombie",
+      "path": "textures/zombie-bloater/motion/stagger-east-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        48
+      ],
+      "direction": "east",
+      "state": "stagger",
+      "frames": {
+        "stagger": [
+          {
+            "path": "textures/zombie-bloater/motion/stagger-east-00.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/stagger-east-01.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/stagger-east-02.png"
+          }
+        ]
+      },
+      "fps": 8,
+      "loop": false,
+      "status": "derived-action"
+    },
+    {
+      "id": "zombie-bloater-stagger-north",
+      "label": "Bloater stagger north",
+      "category": "zombie",
+      "path": "textures/zombie-bloater/motion/stagger-north-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        48
+      ],
+      "direction": "north",
+      "state": "stagger",
+      "frames": {
+        "stagger": [
+          {
+            "path": "textures/zombie-bloater/motion/stagger-north-00.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/stagger-north-01.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/stagger-north-02.png"
+          }
+        ]
+      },
+      "fps": 8,
+      "loop": false,
+      "status": "derived-action"
+    },
+    {
+      "id": "zombie-bloater-stagger-west",
+      "label": "Bloater stagger west",
+      "category": "zombie",
+      "path": "textures/zombie-bloater/motion/stagger-west-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        48
+      ],
+      "direction": "west",
+      "state": "stagger",
+      "frames": {
+        "stagger": [
+          {
+            "path": "textures/zombie-bloater/motion/stagger-west-00.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/stagger-west-01.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/stagger-west-02.png"
+          }
+        ]
+      },
+      "fps": 8,
+      "loop": false,
+      "status": "derived-action"
+    },
+    {
+      "id": "zombie-bloater-fall-south",
+      "label": "Bloater fall south",
+      "category": "zombie",
+      "path": "textures/zombie-bloater/motion/fall-south-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        48
+      ],
+      "direction": "south",
+      "state": "fall",
+      "frames": {
+        "fall": [
+          {
+            "path": "textures/zombie-bloater/motion/fall-south-00.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-south-01.png"
+          }
+        ]
+      },
+      "fps": 8,
+      "loop": false,
+      "status": "derived-action"
+    },
+    {
+      "id": "zombie-bloater-fall-east",
+      "label": "Bloater fall east",
+      "category": "zombie",
+      "path": "textures/zombie-bloater/motion/fall-east-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        48
+      ],
+      "direction": "east",
+      "state": "fall",
+      "frames": {
+        "fall": [
+          {
+            "path": "textures/zombie-bloater/motion/fall-east-00.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-east-01.png"
+          }
+        ]
+      },
+      "fps": 8,
+      "loop": false,
+      "status": "derived-action"
+    },
+    {
+      "id": "zombie-bloater-fall-north",
+      "label": "Bloater fall north",
+      "category": "zombie",
+      "path": "textures/zombie-bloater/motion/fall-north-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        48
+      ],
+      "direction": "north",
+      "state": "fall",
+      "frames": {
+        "fall": [
+          {
+            "path": "textures/zombie-bloater/motion/fall-north-00.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-north-01.png"
+          }
+        ]
+      },
+      "fps": 8,
+      "loop": false,
+      "status": "derived-action"
+    },
+    {
+      "id": "zombie-bloater-fall-west",
+      "label": "Bloater fall west",
+      "category": "zombie",
+      "path": "textures/zombie-bloater/motion/fall-west-00.png",
+      "size": [
+        40,
+        48
+      ],
+      "anchor": [
+        20,
+        48
+      ],
+      "direction": "west",
+      "state": "fall",
+      "frames": {
+        "fall": [
+          {
+            "path": "textures/zombie-bloater/motion/fall-west-00.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-west-01.png"
+          }
+        ]
+      },
+      "fps": 8,
       "loop": false,
       "status": "derived-action"
     }

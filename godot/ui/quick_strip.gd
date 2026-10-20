@@ -11,6 +11,7 @@ extends RefCounted
 # belt and in your pockets are on screen always, and a number key spends one.
 
 const Chrome = preload("res://ui/chrome.gd")
+const Locker = preload("res://ui/locker.gd")
 const UiText = preload("res://ui/text.gd")
 const Motion = preload("res://ui/motion.gd")
 const Appearance = preload("res://presentation/appearance.gd")
@@ -25,11 +26,15 @@ const SLOT_H: float = 62.0
 const GAP: float = 12.0
 const KEY_SIZE: int = 20
 const NAME_SIZE: int = 25
-# The picture's square in a slot: the pack's icon is 32 px, so this is one whole multiple of it and
-# the icon is never resampled. It sits between the key's numeral and the name, and the slot is as
-# much wider than it was as this and its gap take.
-const PICTURE: float = 32.0
-const PICTURE_GAP: float = 8.0
+# The picture's box in a slot: wide enough for the pack's 32 px icon at the world's 2x, lying flat
+# when it is a long thing, so the strip and the bag draw one object at one size. It sits between the
+# key's numeral and the name; on a slot too narrow to keep the name beside it, the picture goes.
+const PICTURE: float = 72.0
+const PICTURE_GAP: float = 6.0
+# Where a slot's contents start: past the key's numeral in the well's corner.
+const KEY_W: float = 22.0
+# The least room a name keeps beside a picture at 2x; under it the picture drops to the art's size.
+const NAME_ROOM: float = 120.0
 # The strip's own inset from the rect's left and right, and around its lead.
 const SIDE: float = 24.0
 
@@ -47,53 +52,51 @@ const SIDE: float = 24.0
 # and the floor draw for that base -- the pack's icon, or its class's glyph where the pack has none --
 # through `Appearance.item_look`. With no world a slot is words alone, as it was before the pictures.
 static func draw_strip(ci: CanvasItem, rect: Rect2, rows: Array, alpha: float, selected: int = -1, ping: Dictionary = {}, world: Variant = null) -> void:
-	Chrome.panel(ci, rect, alpha)
+	Locker.panel(ci, rect, alpha)
 	var font: Font = Chrome.font()
-	ci.draw_string(font, rect.position + Vector2(SIDE, rect.size.y / 2.0 + 6.0), LEAD, HORIZONTAL_ALIGNMENT_LEFT, -1, KEY_SIZE, Chrome.TEXT_DIM)
+	var lead_y: float = floorf(rect.position.y + (rect.size.y - Chrome.line_height(KEY_SIZE)) / 2.0 + Chrome.ascent(KEY_SIZE))
+	ci.draw_string(font, Vector2(rect.position.x + SIDE, lead_y), LEAD, HORIZONTAL_ALIGNMENT_LEFT, -1, KEY_SIZE, Locker._a(Locker.TEXT_DIM, alpha))
 	var lead_w: float = lead_width(font)
 	var boxes: Array[Rect2] = slot_boxes(font, rect)
 	var y: float = rect.position.y + (rect.size.y - SLOT_H) / 2.0
 	var ping_slot: int = ping_slot_of(rows, ping)
 	if ping_slot == -1 and not ping.is_empty():
 		_draw_ping(ci, Rect2(rect.position + Vector2(SIDE, y - rect.position.y), Vector2(lead_w, SLOT_H)), int(ping.get("frame", -1)))
+	var mid: float = SLOT_H / 2.0 - Chrome.line_height(NAME_SIZE) / 2.0 + Chrome.ascent(NAME_SIZE)
 	for i in SLOTS:
 		var box: Rect2 = boxes[i]
 		var picked: bool = selected != -1 and i < rows.size() and int((rows[i] as Dictionary).get("item", -1)) == selected
-		if not Chrome.frame(ci, box, "slot_selected" if picked else "slot_empty", alpha):
-			var bg: Color = Chrome.SLOT_EMPTY
-			bg.a = alpha
-			ci.draw_rect(box, bg)
-			var edge: Color = Chrome.PANEL_EDGE
-			edge.a = alpha
-			ci.draw_rect(box, edge, false, 2.0)
-		var key: Color = Chrome.ACCENT
-		key.a = alpha
-		ci.draw_string(font, box.position + Vector2(10.0, SLOT_H / 2.0 + 6.0), str(i + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, KEY_SIZE, key)
+		Locker.well(ci, box, alpha)
+		# The key's numeral, small and amber in the well's corner: a key name, not a measurement.
+		ci.draw_string(font, box.position + Vector2(Locker.PX * 3.0, Locker.PX * 2.0 + Chrome.ascent(KEY_SIZE)), str(i + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, KEY_SIZE, Locker._a(Locker.ACCENT, alpha))
+		var name_x: float = KEY_W
+		var wide: float = box.size.x - KEY_W - Locker.PX * 4.0
 		if i < rows.size():
 			var d: Dictionary = rows[i] as Dictionary
 			var text: String = String(d.get("name", ""))
 			var count: int = int(d.get("count", 1))
-			var col: Color = Chrome.TEXT
-			col.a = alpha
-			var wide: float = box.size.x - 44.0
-			var name_x: float = 32.0
 			if world != null:
+				# The same picture the bag plate draws, at the same 2x, wherever the slot is wide
+				# enough to keep a few letters of the name beside it.
+				# At the world's 2x where the name keeps room for a word beside it, the art's own size
+				# where it does not: a narrow strip (1280) keeps "Kitchen Knife" readable rather than
+				# trading it for a bigger knife. Never turned -- a strip slot is not a footprint.
 				var look: Dictionary = Appearance.item_look(world, ItemPicture.base_of(world, int(d.get("item", -1))))
-				ItemPicture.draw(ci, Rect2(box.position + Vector2(name_x, (SLOT_H - PICTURE) / 2.0), Vector2(PICTURE, PICTURE)), look, alpha)
-				name_x += PICTURE + PICTURE_GAP
-				wide -= PICTURE + PICTURE_GAP
+				var big: bool = wide - PICTURE - PICTURE_GAP >= NAME_ROOM
+				var pw: float = PICTURE if big else PICTURE / 2.0
+				ItemPicture.draw(ci, Rect2(box.position + Vector2(name_x, Locker.PX * 2.0), Vector2(pw, SLOT_H - Locker.PX * 4.0)), look, alpha, 2 if big else 1, false)
+				name_x += pw + PICTURE_GAP
+				wide -= pw + PICTURE_GAP
 			if count > 1:
 				var tally: String = "x%d" % count
-				var tw: float = font.get_string_size(tally, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE).x
-				var tcol: Color = Chrome.ACCENT
-				tcol.a = alpha
-				ci.draw_string(font, box.position + Vector2(box.size.x - tw - 10.0, SLOT_H / 2.0 + 6.0), tally, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, tcol)
-				wide -= tw + 8.0
-			ci.draw_string(font, box.position + Vector2(name_x, SLOT_H / 2.0 + 6.0), UiText.fit(font, text, NAME_SIZE, maxf(wide, 1.0)), HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, col)
+				var tw: float = font.get_string_size(tally, HORIZONTAL_ALIGNMENT_LEFT, -1, KEY_SIZE).x
+				Locker.text_shadowed(ci, box.end - Vector2(tw + Locker.PX * 3.0, Locker.PX * 3.0), tally, KEY_SIZE, Locker.ACCENT, alpha)
+				wide -= tw + Locker.PX * 2.0
+			ci.draw_string(font, box.position + Vector2(name_x, mid), UiText.fit(font, text, NAME_SIZE, maxf(wide, 1.0)), HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, Locker._a(Locker.TEXT, alpha))
 		else:
-			var dim: Color = Chrome.TEXT_DIM
-			dim.a = alpha
-			ci.draw_string(font, box.position + Vector2(32.0, SLOT_H / 2.0 + 6.0), "empty", HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, dim)
+			ci.draw_string(font, box.position + Vector2(name_x, mid), UiText.fit(font, "empty", NAME_SIZE, maxf(wide, 1.0)), HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, Locker._a(Locker.TEXT_FAINT, alpha))
+		if picked:
+			Locker.selected(ci, box, alpha)
 		if i == ping_slot:
 			_draw_ping(ci, box, int(ping.get("frame", -1)))
 

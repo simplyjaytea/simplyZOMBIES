@@ -8,6 +8,7 @@ extends RefCounted
 # explaining.
 
 const Chrome = preload("res://ui/chrome.gd")
+const Locker = preload("res://ui/locker.gd")
 
 const ROW_H: float = 32.0
 const PAD_X: float = 22.0
@@ -83,12 +84,13 @@ static func draw_menu(ci: CanvasItem, at: Vector2, verbs: Array, alpha: float) -
 	if verbs.is_empty():
 		return
 	var rect := Rect2(at, size_of(verbs))
-	Chrome.panel(ci, rect, minf(1.0, alpha + 0.05))
+	# A small steel plate without rivets: a menu is a tag hung off the sheet, not another locker.
+	Locker.panel(ci, rect, minf(1.0, alpha + 0.05), false)
 	var font: Font = Chrome.font()
 	var gutter: float = gutter_of(verbs)
 	for i in verbs.size():
 		var verb: String = String(verbs[i])
-		var col: Color = Chrome.ACCENT if _is_lead(verb) else Chrome.TEXT
+		var col: Color = Locker.ACCENT if _is_lead(verb) else Locker.TEXT
 		var mark: String = glyph_of(verb)
 		if not mark.is_empty():
 			Chrome.glyph(ci, mark, at + Vector2(PAD_X, PAD_Y + ROW_H * float(i) + floorf((ROW_H - Chrome.GLYPH_SMALL) / 2.0)), true, minf(1.0, alpha))

@@ -16,7 +16,7 @@ extends SceneTree
 # SPEC/INTERIOR/TONES/HIGHLIGHT only when `kind` is `"rig"`. What changed below is a new lane,
 # SOURCE, and what `reads` is allowed to name -- see both in the five lanes just below.
 #
-# **The bounds below are held against the eight generated rigs too, and that is the point.** A
+# **The bounds below were held against the eight generated rigs too, and that was the point.** A
 # spec measured only against art that does not exist yet is a spec nobody can be held to; a spec
 # the shipped roster already satisfies is one an artist can be handed. If a bound here ever goes
 # red on a generated rig, the rig and the spec have drifted apart and one of them is wrong --
@@ -32,12 +32,17 @@ extends SceneTree
 #   survivor_colonist          20     12       28           6   every edge pixel   (retired)
 #   raider_body                20     12       28           6   every edge pixel   (retired)
 #   zombie_shambler            20     12       27           5   every edge pixel   (retired)
-#   zombie_screamer            16     12       29           8   every edge pixel
-#   zombie_bloater             26     10       25           3   every edge pixel
+#   zombie_screamer            16     12       29           8   every edge pixel   (retired)
+#   zombie_bloater             26     10       25           3   every edge pixel   (retired)
 #
 # The six marked retired were deleted by "The bodies turn and walk" (2026-09-26), when every human
-# and the shambler moved onto the outpost pack's four-direction rigs. Their rows stay because the
-# bounds were set by them, and a bound whose evidence is erased is a bound nobody can re-derive.
+# and the shambler moved onto the outpost pack's four-direction rigs; the screamer and the bloater
+# followed on 2026-10-19 as zombie pose families (study 02), judged by ZOMBIE_POSES. Their rows
+# stay because the bounds were set by them, and a bound whose evidence is erased is a bound nobody
+# can re-derive. The screamer's last committed picture is kept as the fixture every negative below
+# is fabricated from (`BASE_FIXTURE`), so the spec keeps a body that once met it. With no generated
+# rig left, SPEC and the colour lanes judge commissioned `rig` keys only, and say SKIP while there
+# are none.
 # The pack rigs are kind `pack_rig`, never judged by SPEC's outline rule or the colour lanes --
 # the "geometry gated, colour not" rule docs/30 set -- but PACK below holds their geometry, at a
 # named alpha threshold, to the same published height and the same sole row.
@@ -125,13 +130,14 @@ extends SceneTree
 #             commissioned sprite lands.
 #
 # What this gate deliberately does NOT do, named so the next session does not think it was
-# missed: it does not put an authored rig into `Appearance.PAWN_KEYS`. One key belongs to one
-# tier -- the TIER lane below is what refuses a key that is in both -- so the roster the other
-# gates judge is the UNION of that array and the manifest's `rig` keys, never the array alone.
-# That widening landed with the first commissioned body on 2026-09-11:
-# `Appearance.authored_rig_keys()` is the one reader, `check_topdown.gd`'s FLIP lane iterates the
-# union, and `check_worn.gd` splits its count into a pinned eight generated plus one per declared
-# rig. Its FITS envelope -- the union of the rigs' opaque boxes, which every equipment overlay is
+# missed: it does not put an authored rig into a rule-placed tier. One key belongs to one tier --
+# the TIER lane below is what refuses a key that is in both. `Appearance.PAWN_KEYS`, the generated
+# half of the old union, retired with the last generated rig on 2026-10-19, so the roster the other
+# gates judge is the manifest's `rig` keys alone.
+# The union had landed with the first commissioned body on 2026-09-11:
+# `Appearance.authored_rig_keys()` is still the one reader, `check_topdown.gd`'s FLIP lane iterates
+# it, and `check_worn.gd` counts body families (the pack survivor and nine zombie families since
+# 2026-10-19) rather than generated rigs. Its FITS envelope -- the union of the rigs' opaque boxes, which every equipment overlay is
 # measured inside -- was the one that could have gone weaker silently, since every body added to
 # a union only makes "is this overlay inside it" easier to answer yes; it now asserts that the
 # commissioned rigs do not widen it at all, so layering staying a requirement of any art we take
@@ -151,9 +157,12 @@ const AUTHORED_PATH: String = "res://assets/sprites/authored.json"
 # ICON since "A picture per item base" (2026-09-26); `tree` and `prop` are judged by PICTURE
 # since "Trees, the bed and the heaps" (2026-09-26).
 #
-# `vehicle` is a parked car's east-west picture from the pack (docs/23, "The cars are the pack's,
-# east-west"), and its shape lane lives beside the parking it judges: check_wrecks.gd's PACK lane
-# holds its painted span to the class's `lEw` and its crop to the pack's anchor row.
+# `vehicle` is a parked vehicle's picture: the three cars east-west from the pack (docs/23, "The
+# cars are the pack's, east-west"), and since 2026-10-19 every other vehicle picture, drawn under
+# `art/simplyzombies/vehicles/` (docs/23, "The cars north-south, and the light vehicles"). Its
+# shape lanes live beside the parking they judge: check_wrecks.gd's DRESSING lane holds a drawn
+# picture's canvas to its class's footprint, and PACK a pack car's painted span to that footprint
+# and its crop to the pack's anchor row.
 #
 # `pack_held` is a weapon in the hand (docs/23, "Held weapons in the hand", 2026-09-26): one of the
 # pack's held-weapon pictures, judged by HELD.
@@ -163,15 +172,27 @@ const AUTHORED_PATH: String = "res://assets/sprites/authored.json"
 # CELLS lanes' to judge and `sprites:check`'s to reproduce; its reader is code, not content, which
 # READS below holds it to (GROUND_READER).
 #
+# `decal` is one of the outpost pack's ground marks -- a blood pool, a bullet hole, a scorch, wood
+# chips (plan item A13, docs/30's "Blood and bullet decals persist, for everything"): a single 32x32
+# frame cut whole. Like `ground` its reader is code, not content -- a mark is a sim record, not a
+# content entry -- so READS holds its `reads`, `<file>:<function>`, to a function whose body names
+# the key as a quoted string (DECAL_KIND).
+#
 # `wear` is a garment painted per frame onto a pack rig (docs/23, "Clothe everyone", 2026-10-19),
 # judged by WEAR: its members are the rig's own, frame for frame, and every pixel it paints sits on
 # a solid, non-ink pixel of the frame it was painted for.
-const KINDS: Array[String] = ["rig", "overlay", "tile", "icon", "pack_rig", "zombie_rig", "corpse", "pack_overlay", "pack_held", "module", "sheet", "prop", "standing", "vehicle", "tree", "ground", "wear"]
+const KINDS: Array[String] = ["rig", "overlay", "tile", "icon", "pack_rig", "zombie_rig", "corpse", "pack_overlay", "pack_held", "module", "sheet", "prop", "standing", "vehicle", "tree", "ground", "wear", "decal"]
+const DECAL_KIND: String = "decal"
 
 # WEAR: the brightest channel below which a body pixel is the pack's ink. Measured on the pack
 # survivor's twenty frames: its outline is (0..8, 0..6, 0..4) and its darkest skin and hair are
 # above 50, so 45 sits in the gap; `clothing/parts.py` uses the same number to keep a garment off it.
 const WEAR_INK_MAX: int = 45
+# WEAR: how much warmer than blue a pixel below WEAR_INK_MAX may run and still be ink. The pack's
+# outline is neutral; the walk's generated frames shade some hair a brown under 45 (#2b1a0c), and
+# a hood covers it (`build_clothing.hood`, the same number). On the outline ring -- a pixel beside
+# the transparent -- a dark pixel is ink whatever its warmth: the silhouette is the body's.
+const WEAR_INK_WARM: int = 12
 # WEAR: the fewest pixels a garment member may paint. The smallest measured (2026-10-19) is 6, a
 # sandal on a foot mid-stride (a sole row and a strap pixel); a garment that paints fewer than 3 is
 # a garment missing from that frame.
@@ -180,9 +201,9 @@ const WEAR_MIN_PAINTED: int = 3
 # falling body's shins down to the sole row, so its footwear is gone, and side on both fists cover
 # the hips and thighs on a long gun's or a shotgun's first beat -- so it is held to the minimum per
 # run (one action seen one way, every frame of it) rather than per frame: a garment painted on no
-# frame of a run is still missing from it. Measured 2026-10-20: 82 action frames paint fewer than
-# three pixels of a garment, every one of them a garment the pose hides (docs/23's record lists
-# them), and no run paints fewer than 5.
+# frame of a run is still missing from it. Measured 2026-10-20, after the art review's first
+# round: 68 action frames paint fewer than three pixels of a garment, every one of them a garment
+# the pose hides (docs/23's record lists them), and no run paints fewer than 5.
 
 # The zombie set has its own measured contract rather than widening PACK's 32x40 body rules.
 # Living art stands on the sole boundary; settled corpses use a ground-centre anchor. Every
@@ -277,17 +298,24 @@ const HEAD_MAX: int = 13
 const CLEARANCE_MIN: int = 3
 const OUTLINE: Color = Color("#161614")
 
-# The one rig allowed the family's outer bound, and the reason nothing else may come near it:
-# it sits exactly on 26 with exactly 3 px of clearance, so it is the rig at the wall.
-const BROAD_RIGS: Array[String] = ["zombie_bloater"]
+# The rigs allowed the family's outer bound. The generated bloater was the one, sitting exactly on
+# 26 with exactly 3 px of clearance; it is a zombie pose family since 2026-10-19 (zombie study 02,
+# judged by ZOMBIE_POSES at its own broad canvas), so no rig on the roster is broad today and a
+# commissioned broad rig would be named here.
+const BROAD_RIGS: Array[String] = []
 
-const GENERATED_RIGS: Array[String] = ["zombie_screamer", "zombie_bloater"]
+# What every fabricated negative below starts from: a real body that passed every bound, so each
+# negative is one broken bound away from art that shipped. It was the player's rig until
+# 2026-09-26 and the generated screamer after that; when the screamer became a pose family on
+# 2026-10-19 the last generated rig left the roster, so its final committed picture is kept as a
+# fixture here rather than resolved -- the negatives must not depend on a rig still shipping, or
+# the lanes would lose their ability to say no exactly when the roster is empty.
+const BASE_FIXTURE: String = "res://test/fixtures/generated_rig_screamer.png"
 
-# The generated rig every fabricated negative below starts from: a real body that passes, so each
-# negative is one broken bound away from shipped art. The player's rig until 2026-09-26; the
-# screamer since the player moved onto the pack survivor, because it is narrow (not in
-# BROAD_RIGS) and sits inside every bound with room to break each one on its own.
-const BASE_RIG: String = "zombie_screamer"
+# A key `canvas_of` places by rule rather than by manifest, for TIER's true negative. The
+# inventory chart's figures are the one family a rule still places since the vehicles became
+# authored on 2026-10-19.
+const RULE_PLACED_CONTROL: String = "chart_arm_left_stand"
 
 
 func _init() -> void:
@@ -576,11 +604,7 @@ func _the_manifest_is_well_formed() -> bool:
 # one tier"; the other half -- that a declared key is not also in the Python registry -- is
 # build.py's, because only that side can see a registry.
 func _rule_places(key: String) -> bool:
-	if key.begins_with("chart_"):
-		return true
-	if Appearance.PAWN_KEYS.has(key):
-		return true
-	return Appearance.vehicle_canvas(key) != Vector2i.ZERO
+	return key.begins_with("chart_")
 
 
 func _no_key_is_in_both_tiers() -> bool:
@@ -590,8 +614,9 @@ func _no_key_is_in_both_tiers() -> bool:
 			return false
 	# TN, both ways: a generated key must be seen as rule-placed, and a plausible authored one
 	# must not -- otherwise the predicate answers the same thing for everything.
-	if not _rule_places(BASE_RIG):
-		push_error("the tier predicate does not see %s as rule-placed; a zero above would prove nothing" % BASE_RIG)
+	# The generated control is a chart figure, the one family `canvas_of` still places by rule.
+	if not _rule_places(RULE_PLACED_CONTROL):
+		push_error("the tier predicate does not see %s as rule-placed; a zero above would prove nothing" % RULE_PLACED_CONTROL)
 		return false
 	if _rule_places("survivor_commissioned"):
 		push_error("the tier predicate sees an undeclared key as rule-placed; it would refuse every authored key")
@@ -1067,19 +1092,16 @@ func _image_of(key: String) -> Image:
 	return null if texture == null else texture.get_image()
 
 
+# The fabrication base, loaded from its fixture the way `Appearance.resolve` loads a raw PNG.
+func _base_rig() -> Image:
+	if not FileAccess.file_exists(BASE_FIXTURE):
+		return null
+	var img: Image = Image.new()
+	return img if img.load(BASE_FIXTURE) == OK else null
+
+
 func _every_rig_meets_the_published_bounds() -> bool:
 	var judged: int = 0
-	for key in GENERATED_RIGS:
-		var image: Image = _image_of(key)
-		if image == null:
-			push_error("%s does not resolve; the bounds had nothing to judge" % key)
-			return false
-		var broken: Array[String] = _bounds_broken(image, not BROAD_RIGS.has(key))
-		if not broken.is_empty():
-			push_error("%s breaks the published bounds: %s (assets/sprites/README.md)" % [key, ", ".join(broken)])
-			return false
-		judged += 1
-
 	var declared: Dictionary = _entries()
 	for key in declared.keys():
 		var entry: Dictionary = declared[key] as Dictionary
@@ -1099,9 +1121,9 @@ func _every_rig_meets_the_published_bounds() -> bool:
 	# own code. Proved on the shipped art rather than on a drawn blank, so the fabrication starts
 	# from something that passes -- a negative built from nothing proves the emptiness, not the
 	# bound.
-	var base: Image = _image_of(BASE_RIG)
+	var base: Image = _base_rig()
 	if base == null:
-		push_error("%s does not resolve; the negatives cannot be fabricated" % BASE_RIG)
+		push_error("%s does not resolve; the negatives cannot be fabricated" % BASE_FIXTURE)
 		return false
 	var w: int = base.get_width()
 	var h: int = base.get_height()
@@ -1134,19 +1156,24 @@ func _every_rig_meets_the_published_bounds() -> bool:
 			push_error("a rig fabricated to break '%s' passed that bound; the assertion proves nothing" % code)
 			return false
 	if not _bounds_broken(base, true).is_empty():
-		push_error("the unmodified %s broke a bound; the fabrications above start from something that already fails" % BASE_RIG)
+		push_error("the unmodified %s broke a bound; the fabrications above start from something that already fails" % BASE_FIXTURE)
 		return false
 
-	print("SPEC OK %d rigs inside height %d-%d, shoulders <= %d (%d narrow), head <= %d, clearance >= %d, soles on the bottom row, every edge pixel OUTLINE; six fabrications each refused by their own bound" % [judged, HEIGHT_MIN, HEIGHT_MAX, SHOULDER_MAX, SHOULDER_MAX_NARROW, HEAD_MAX, CLEARANCE_MIN])
+	if judged == 0:
+		print("SPEC SKIP no rig on the roster to judge: every body is a pack or pose family, judged by PACK and ZOMBIE_POSES; its negatives still ran on the fixture")
+	else:
+		print("SPEC OK %d rigs inside height %d-%d, shoulders <= %d (%d narrow), head <= %d, clearance >= %d, soles on the bottom row, every edge pixel OUTLINE; six fabrications each refused by their own bound" % [judged, HEIGHT_MIN, HEIGHT_MAX, SHOULDER_MAX, SHOULDER_MAX_NARROW, HEAD_MAX, CLEARANCE_MIN])
 	return true
 
 
 # --- the four-tone lanes ---------------------------------------------------------------------
 
-# Every rig this gate judges: the generated eight plus every commissioned body. One helper so the
+# Every rig this gate judges: every commissioned body. The generated rigs it once also listed are
+# all retired (the last two on 2026-10-19), so the roster is the manifest's `rig` keys alone and
+# is empty until the first commissioned body lands; each lane says so rather than passing quietly. One helper so the
 # three lanes below cannot drift from each other about what the roster is.
 func _rigs_to_judge() -> Array[String]:
-	var out: Array[String] = GENERATED_RIGS.duplicate()
+	var out: Array[String] = []
 	var declared: Dictionary = _entries()
 	for key in declared.keys():
 		if String((declared[key] as Dictionary).get("kind", "")) == "rig":
@@ -1203,9 +1230,9 @@ func _no_rig_draws_ink_inside_its_silhouette() -> bool:
 	# TN: the same scanner, on a real rig with one interior pixel forced to OUTLINE, must find
 	# it. Proved on shipped art rather than on a drawn blank, so the fabrication starts from
 	# something that passes -- and proved *before* the zero above is trusted.
-	var base: Image = _image_of(BASE_RIG)
+	var base: Image = _base_rig()
 	if base == null:
-		push_error("%s does not resolve; the interior negative cannot be fabricated" % BASE_RIG)
+		push_error("%s does not resolve; the interior negative cannot be fabricated" % BASE_FIXTURE)
 		return false
 	var spoiled: Image = base.duplicate() as Image
 	var placed: bool = false
@@ -1215,13 +1242,16 @@ func _no_rig_draws_ink_inside_its_silhouette() -> bool:
 				spoiled.set_pixel(x, y, OUTLINE)
 				placed = true
 	if not placed:
-		push_error("no interior pixel exists on %s to fabricate with; the lane proves nothing" % BASE_RIG)
+		push_error("no interior pixel exists on %s to fabricate with; the lane proves nothing" % BASE_FIXTURE)
 		return false
 	if _interior_ink(spoiled) == 0:
 		push_error("a fabricated interior OUTLINE pixel was not found; the interior scanner cannot say no")
 		return false
 
-	print("INTERIOR OK %d rigs draw no OUTLINE strictly inside their silhouette; a fabricated interior pixel is refused" % judged)
+	if judged == 0:
+		print("INTERIOR SKIP no rig on the roster to judge: every body is a pack or pose family, judged by PACK and ZOMBIE_POSES; its negatives still ran on the fixture")
+	else:
+		print("INTERIOR OK %d rigs draw no OUTLINE strictly inside their silhouette; a fabricated interior pixel is refused" % judged)
 	return true
 
 
@@ -1268,9 +1298,9 @@ func _every_rig_is_four_tones_a_material() -> bool:
 
 	# TN: one more colour than the cap must be refused. Fabricated by recolouring interior pixels
 	# of a real rig to values nothing else uses, so the negative is a rig that is otherwise sound.
-	var base: Image = _image_of(BASE_RIG)
+	var base: Image = _base_rig()
 	if base == null:
-		push_error("%s does not resolve; the tone negative cannot be fabricated" % BASE_RIG)
+		push_error("%s does not resolve; the tone negative cannot be fabricated" % BASE_FIXTURE)
 		return false
 	var over: Image = base.duplicate() as Image
 	var added: int = 0
@@ -1289,7 +1319,10 @@ func _every_rig_is_four_tones_a_material() -> bool:
 		push_error("a rig fabricated over the tone cap counted %d, at or under %d; the counter cannot say no" % [_distinct_opaque(over).size(), TONE_CAP])
 		return false
 
-	print("TONES OK %d rigs at or under %d distinct colours (worst %s at %d, was 27-88 before the pass); a rig one colour over is refused" % [judged, TONE_CAP, worst_key, worst])
+	if judged == 0:
+		print("TONES SKIP no rig on the roster to judge: every body is a pack or pose family, judged by PACK and ZOMBIE_POSES; its negatives still ran on the fixture")
+	else:
+		print("TONES OK %d rigs at or under %d distinct colours (worst %s at %d, was 27-88 before the pass); a rig one colour over is refused" % [judged, TONE_CAP, worst_key, worst])
 	return true
 
 
@@ -1350,9 +1383,9 @@ func _no_highlight_covers_more_than_its_share() -> bool:
 
 	# TN, both bounds, on real art: a rig repainted entirely in one material's highlight must be
 	# refused by the ceiling, and the same rig with no highlight at all by the floor.
-	var base: Image = _image_of(BASE_RIG)
+	var base: Image = _base_rig()
 	if base == null:
-		push_error("%s does not resolve; the highlight negatives cannot be fabricated" % BASE_RIG)
+		push_error("%s does not resolve; the highlight negatives cannot be fabricated" % BASE_FIXTURE)
 		return false
 	var lit_key: String = String(highlights.keys()[0])
 	var flooded: Image = base.duplicate() as Image
@@ -1371,7 +1404,10 @@ func _no_highlight_covers_more_than_its_share() -> bool:
 		push_error("a rig with every highlight pixel overpainted still measures a highlight; the floor cannot say no")
 		return false
 
-	print("HIGHLIGHT OK %d rigs wear a highlight over 0%% and at most %.0f%% of the body (worst %s at %.1f%%); a flooded rig and a highlight-free one are both refused" % [judged, HIGHLIGHT_MAX * 100.0, worst_key, worst * 100.0])
+	if judged == 0:
+		print("HIGHLIGHT SKIP no rig on the roster to judge: every body is a pack or pose family, judged by PACK and ZOMBIE_POSES; its negatives still ran on the fixture")
+	else:
+		print("HIGHLIGHT OK %d rigs wear a highlight over 0%% and at most %.0f%% of the body (worst %s at %.1f%%); a flooded rig and a highlight-free one are both refused" % [judged, HIGHLIGHT_MAX * 100.0, worst_key, worst * 100.0])
 	return true
 
 
@@ -1779,6 +1815,22 @@ func _wear_members_complaint(garment: String, rig: String, members: Array, rig_m
 	return ""
 
 
+# Is the body pixel at (x, y) the pack's ink: dark and neutral, or dark on the outline ring.
+func _wear_is_ink(body: Image, x: int, y: int) -> bool:
+	var c: Color = body.get_pixel(x, y)
+	if maxi(c.r8, maxi(c.g8, c.b8)) >= WEAR_INK_MAX:
+		return false
+	if c.r8 - c.b8 < WEAR_INK_WARM:
+		return true
+	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var q: Vector2i = Vector2i(x, y) + d
+		if q.x < 0 or q.y < 0 or q.x >= body.get_width() or q.y >= body.get_height():
+			return true
+		if body.get_pixel(q.x, q.y).a8 < ALPHA_SOLID:
+			return true
+	return false
+
+
 # What is wrong with one painted frame against the body frame it was painted for, or "": every
 # pixel it paints (any alpha) lands on a solid pixel of the body that is not the pack's ink, and it
 # paints at least WEAR_MIN_PAINTED of them. Returns the painted count through `count[0]`.
@@ -1796,7 +1848,7 @@ func _wear_fit_complaint(layer: Image, body: Image, count: Array, least: int = W
 			var under: Color = body.get_pixel(x, y)
 			if under.a8 < ALPHA_SOLID:
 				return "paints (%d, %d), where its body frame is transparent: a garment may not move the silhouette" % [x, y]
-			if maxi(under.r8, maxi(under.g8, under.b8)) < WEAR_INK_MAX:
+			if _wear_is_ink(body, x, y):
 				return "paints (%d, %d), over the pack's ink: the outline is the body's" % [x, y]
 			if layer.get_pixel(x, y).a8 != 255:
 				return "paints (%d, %d) translucent (alpha %d): a garment pixel is cloth or nothing, and godot:check:worn's STEP reference composes it opaque" % [x, y, layer.get_pixel(x, y).a8]
@@ -1906,6 +1958,29 @@ func _every_garment_fits_its_rig_frame_by_frame() -> bool:
 	if _wear_fit_complaint(inked, body, [0]).is_empty():
 		push_error("WEAR: a garment painting over the body's ink passed")
 		return false
+	# Warm dark hair inside the outline ring is not ink, and a hood may cover it; the same colour on
+	# the ring is, and a neutral dark pixel is wherever it sits.
+	var hair := Image.create(5, 5, false, Image.FORMAT_RGBA8)
+	for y in 5:
+		for x in 5:
+			hair.set_pixel(x, y, Color8(0, 0, 0, 255))
+	hair.set_pixel(2, 2, Color8(0x2b, 0x1a, 0x0c, 255))
+	hair.set_pixel(0, 2, Color8(0x2b, 0x1a, 0x0c, 255))
+	var hood := Image.create(5, 5, false, Image.FORMAT_RGBA8)
+	hood.set_pixel(2, 2, Color8(100, 100, 60, 255))
+	if not _wear_fit_complaint(hood, hair, [0], 0).is_empty():
+		push_error("WEAR: a hood over warm dark hair inside the outline ring was refused")
+		return false
+	var ring := Image.create(5, 5, false, Image.FORMAT_RGBA8)
+	ring.set_pixel(0, 2, Color8(100, 100, 60, 255))
+	if _wear_fit_complaint(ring, hair, [0], 0).is_empty():
+		push_error("WEAR: a garment painting warm dark ink on the outline ring passed")
+		return false
+	var neutral := Image.create(5, 5, false, Image.FORMAT_RGBA8)
+	neutral.set_pixel(1, 1, Color8(100, 100, 60, 255))
+	if _wear_fit_complaint(neutral, hair, [0], 0).is_empty():
+		push_error("WEAR: a garment painting neutral ink inside the outline passed")
+		return false
 	var sheer := good.duplicate() as Image
 	sheer.set_pixel(1, 1, Color8(100, 100, 60, 128))
 	if _wear_fit_complaint(sheer, body, [0]).is_empty():
@@ -1950,7 +2025,7 @@ func _every_garment_fits_its_rig_frame_by_frame() -> bool:
 		push_error("WEAR: MANIFEST accepted a garment with no `slot`, a garment of slot 'head', or a `slot` on a kind that is no garment")
 		return false
 
-	print("WEAR OK %d garment(s), %d painted frame(s) (%d of them action frames, %d hiding the garment's part and every action run painting at least %d): every member is its rig's own frame, every painted pixel opaque and on a solid non-ink body pixel (fewest painted %d), each answering for its own slot only; a faint pixel off the body, a pixel over the ink, a translucent pixel, an empty frame, a missing and an extra frame, a garment with no rig and one with no or a foreign slot, and one missing a reload frame, and an action run painted too little, each refused" % [garments, frames, action_frames, hidden, fewest_run, fewest])
+	print("WEAR OK %d garment(s), %d painted frame(s) (%d of them action frames, %d hiding the garment's part and every action run painting at least %d): every member is its rig's own frame, every painted pixel opaque and on a solid non-ink body pixel (fewest painted %d), each answering for its own slot only; a faint pixel off the body, a pixel over the ink (neutral inside the outline, warm on its ring; warm hair inside it allowed), a translucent pixel, an empty frame, a missing and an extra frame, a garment with no rig and one with no or a foreign slot, and one missing a reload frame, and an action run painted too little, each refused" % [garments, frames, action_frames, hidden, fewest_run, fewest])
 	return true
 
 
@@ -2055,7 +2130,9 @@ func _every_held_weapon_is_the_packs_own() -> bool:
 # --- zombie locomotion and settled corpse geometry -----------------------------------------
 
 # Measured native occupancy: regular bodies 27-30 px tall and 13-24 wide, heavy 33-36 tall
-# and 22-31 wide; all soles are on their bottom row. Corpses occupy 29-42 by 16-29 px.
+# and 22-31 wide, the bloater (on the heavy's canvas, its arms out beside its gut) up to 35
+# wide -- so a broad body may fill its canvas to the two-pixel side margin, 36; all soles are on
+# their bottom row. Corpses occupy 29-42 by 16-29 px.
 # The heavy has separate explicit bounds; adding it never loosens the old PACK contract.
 # `acting` is an action frame (a lunge, a stagger, a fall): it keeps every bound but the living
 # height and width, which are the action's own (check:action's GEOMETRY lane judges those).
@@ -2092,7 +2169,7 @@ func _pose_geometry_complaint(kind: String, image: Image, anchor: Array, acting:
 			return "living height outside its canvas-specific bounds"
 		if size.y - 1 - int(box["max_y"]) > SOLE_LIFT_MAX:
 			return "soles float above the ground anchor"
-		if not acting and (width < 10 or width > (34 if broad else 26)):
+		if not acting and (width < 10 or width > (36 if broad else 26)):
 			return "living width outside its canvas-specific bounds"
 	else:
 		if int(box["min_y"]) < 2 or int(box["max_y"]) > size.y - 3:
@@ -2418,10 +2495,30 @@ func _ground_reader_complaint(key: String, reads: String) -> String:
 	return ""
 
 
+# Whether a `decal` entry's `reads` names a renderer function that really picks it: `<file>:<func>`,
+# and the function's body names the key as a quoted string. "" when sound.
+func _decal_reader_complaint(key: String, reads: String) -> String:
+	var parts: PackedStringArray = reads.split(":")
+	if parts.size() != 2:
+		return "reads '%s'; a decal names `<file>:<function>`" % reads
+	var path: String = "res://%s" % parts[0]
+	if not FileAccess.file_exists(path):
+		return "reads '%s', and %s does not exist" % [reads, path]
+	var body: String = _function_body_of(path, parts[1])
+	if body.is_empty():
+		return "reads '%s', and %s defines no %s" % [reads, path, parts[1]]
+	if not body.contains("\"%s\"" % key):
+		return "reads '%s', whose body never names \"%s\": a decal nothing picks" % [reads, key]
+	return ""
+
+
 # One function's text out of a GDScript file: from `func <name>(` to the next top-level line.
 func _function_body_of(path: String, name: String) -> String:
 	var text: String = FileAccess.get_file_as_string(path)
 	var start: int = text.find("\nfunc %s(" % name)
+	if start < 0:
+		# A static function is a function too: the decal picker is one.
+		start = text.find("\nstatic func %s(" % name)
 	if start < 0:
 		return ""
 	var lines: PackedStringArray = text.substr(start + 1).split("\n")
@@ -2534,6 +2631,13 @@ func _authored_art_is_read_by_something() -> bool:
 				return false
 			code_read += 1
 			continue
+		if String((entries[key] as Dictionary).get("kind", "")) == DECAL_KIND:
+			var why_d: String = _decal_reader_complaint(name, String((entries[key] as Dictionary).get("reads", "")))
+			if not why_d.is_empty():
+				push_error("authored.json: '%s' %s" % [name, why_d])
+				return false
+			code_read += 1
+			continue
 		if not declared.has(name):
 			push_error("authored.json declares '%s' and no content entry's appearance block names it: art nothing draws" % name)
 			return false
@@ -2602,7 +2706,18 @@ func _authored_art_is_read_by_something() -> bool:
 		if _ground_reader_complaint("ground_atlas_elsewhere", "presentation/main.gd:_draw_floor_tile").is_empty():
 			push_error("the ground-reader predicate accepted a key Appearance.ground_atlas() does not resolve")
 			return false
+		# The same three for a decal: a function that names no such key, one that does not exist,
+		# and a claim with no function at all.
+		if _decal_reader_complaint("fx_blood_pool_fresh", "presentation/decal_look.gd:visible").is_empty():
+			push_error("the decal-reader predicate accepted a function that never names the key; it proves nothing")
+			return false
+		if _decal_reader_complaint("fx_blood_pool_fresh", "presentation/decal_look.gd:no_such_thing").is_empty():
+			push_error("the decal-reader predicate accepted a function that does not exist")
+			return false
+		if _decal_reader_complaint("fx_blood_pool_fresh", "presentation/decal_look.gd").is_empty():
+			push_error("the decal-reader predicate accepted a claim that names no function")
+			return false
 
 
-	print("READS OK %d authored keys are each named by one of the content entries that declare them, dressing lists included (a probe block's heaps, litter, rubble, trees, nature and building maps are all found, and a non-dressing entry's `heaps` is not), %d ground sheet read by the renderer function it names (a function that draws no ground, one that does not exist and a key the accessor does not resolve all refused)" % [entries.size() - code_read, code_read])
+	print("READS OK %d authored keys are each named by one of the content entries that declare them, dressing lists included (a probe block's heaps, litter, rubble, trees, nature and building maps are all found, and a non-dressing entry's `heaps` is not), %d keys (the ground sheet and the decals) read by the renderer function each names (a function that draws no ground, one that does not exist and a key the accessor does not resolve all refused)" % [entries.size() - code_read, code_read])
 	return true

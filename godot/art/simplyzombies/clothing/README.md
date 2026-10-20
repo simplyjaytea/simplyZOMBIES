@@ -18,13 +18,14 @@ of time with the legs, because they are chosen by the body's own frame key.
 - `parts.py` labels every opaque pixel of each of the forty standing source frames (the rest views
   `../textures/characters/survivor_*.png`, cut 32x48 to 32x40 exactly as `authored.json` crops
   the body, and the walk and breath under `../textures/characters/motion/`): ink, head, torso,
-  arm, hand, pelvis, leg, foot. A breath frame's chest starts a row higher, by however far the
-  breath lifted the head. The landmarks come from the frame's
-  own underwear band, so the walk's bob moves them with the body -- except the side views'
-  chest, whose top row is the idle frame's: the pack's side walk bobs the hips but never the
-  shoulders, and a hip-derived chest left the top row bare once a cycle. Seen from the side, the near
-  arm past the underwear's span on the side the body faces is labelled arm, not chest, so a
-  short sleeve ends on it and a long one is creased apart from the body.
+  arm, hand, pelvis, leg, foot. A hand is the two-by-two at the far end of each arm, measured
+  from its shoulder, so a sleeve runs down a swinging arm to the wrist. The breath is not
+  labelled or painted: its garment is the rest picture's, put through the body's own breath.
+  The waist comes from the frame's own underwear band and the chest top from its head (the rest
+  view's chest top, moved as far as the head moved), so the walk's bob moves both with the body
+  and a collar sits under the chin on every frame. Seen from the side, the near arm past the
+  underwear's span on the side the body faces is labelled arm, not chest, so a short sleeve ends
+  on it and a long one is creased apart from the body.
 - `build_clothing.py` repaints only the skin and underwear pixels of the parts a garment covers.
   A pixel is shaded on a light scale, not picked from four tones: it starts from the body's own
   tone under it (lit skin, shaded skin, the darkest skin; the underwear's flat grey counts as
@@ -42,7 +43,10 @@ of time with the legs, because they are chosen by the body's own frame key.
   placed on the frame's landmarks. Where cloth meets bare skin it ends on its deep tone, as the
   pack's vest does, and a short sleeve or short hem casts a pixel of shadow on the skin below.
   The pack's ink is never touched, so a garment cannot move the silhouette; the head is touched
-  only by a hood (the hair, and the mask over the lower face), never its ink or its eyes.
+  only by a hood (the hair, and the mask over the lower face), never its ink or its eyes. The
+  walk's generated frames shade some hair a brown dark enough to read as ink; a hood takes a dark
+  pixel warm by a dozen levels or more, inside the head's outline ring and touching hair, as
+  hair, so no seam of it shows between the hood and the face.
 - `Canvas.render` turns each level into its ramp's colour through the material: plain cloth
   gains contrast and a faint grain, denim a twill, wool and fur a coarse nap, paper a crinkle;
   leather and rubber take a hard light, deeper shadows and a shine where they face up. Rubber has
@@ -50,8 +54,9 @@ of time with the legs, because they are chosen by the body's own frame key.
   suit is smooth rather than dirty. The `boot` ramp (steel-toe boots, the suit's taped seams and
   respirator) never falls below its deep tone, so dark rubber beside the pack's near-black ink
   still reads at 1x. A garment frame comes out near the pack vest's tonal density, counted as
-  distinct colours over painted pixels on the south view: the tee 61 over 84, the leather jacket
-  55 over 100, the parka 82 over 116, the hazmat suit 86 over 159; the pack's vest 85 over 117.
+  distinct colours over painted pixels on the south view: the slate tee 61 over 84, the leather
+  jacket 55 over 100, the parka 87 over 116, the hazmat suit 86 over 159; the pack's vest 85
+  over 117.
 - Ramps are four tones in the pack's families (`../STYLE.md`), blended between and paled or
   cooled past either end; every number is an integer, so the output is the same bytes on every
   interpreter (checked on Python 3.12 and 3.13).
@@ -86,8 +91,11 @@ everything below works on the frames the game actually draws.
   covers the whole arm and ends in a cuff beside the hand. The stance beat is the rest picture,
   so it takes the rest garment.
 - **The generated swing**: the arms are the skin left and right of the underwear's span between
-  the chest and the waist, each island's last pixels toward the hand kept bare, and the frame is
-  painted like a rest view with those arms.
+  the chest and the waist (the column just past it included, at no reach, so no sliver of skin
+  runs down a sleeve's inner edge), each island's last pixels toward the hand kept bare, and the
+  frame is painted like a rest view with those arms. The swing kicks its trailing leg back up
+  into the underwear's rows, where the rest-view rules hang a hand; skin there that touches the
+  pelvis or a leg is leg, so the trousers run down it to the shoe.
 
 The sheets hold every garment on every frame; `godot:check:worn`'s COVERAGE lane composes them
 and asks, per action and view, that the garment shows somewhere in the run.
