@@ -44,6 +44,7 @@ const ContentReload = preload("res://platform/content_reload.gd")
 const SimChronicle = preload("res://sim/modules/chronicle.gd")
 const SimVisibility = preload("res://sim/vision/visibility.gd")
 const SimSightings = preload("res://sim/modules/sightings.gd")
+const SimAim = preload("res://sim/aim.gd")
 const Pick = preload("res://presentation/pick.gd")
 const SimLight = preload("res://sim/vision/light.gd")
 const SimFortify = preload("res://sim/modules/fortify.gd")
@@ -273,6 +274,9 @@ var _fx: RefCounted = FxLook.new()
 var _decals: RefCounted = DecalLook.new()
 var _decals_drawn: Array = []
 var _fx_drawn: Array[Dictionary] = []
+# White silhouettes of body pictures, for the hit flash: {texture instance id: ImageTexture}, made
+# once per picture the first time a body drawn with it is struck.
+var _white: Dictionary = {}
 # The baked ground, walls and roofs (presentation/world_layers.gd), and the pen the ground helpers
 # draw with: main itself, except while a chunk is being baked, when it is that chunk's own canvas
 # item. Every draw call in _draw_district's helpers goes through `_pen`, which is the whole of how
@@ -1383,6 +1387,7 @@ func _draw() -> void:
 	_draw_fog()
 	_draw_night_wash()
 	_draw_effects(true)
+	_draw_reticle()
 	# glimpse drawn by Control; nothing else needed here
 	# The last line of the frame, and the only thing in this file that exists for a gate:
 	# check_play.gd cannot tell "the engine called _draw" from "_draw reached the bottom"
@@ -2933,8 +2938,19 @@ func _draw_entities() -> void:
 		var face: float = 0.0
 		if facing_v is Dictionary:
 			face = _interp.facing(eid, float((facing_v as Dictionary).get("radians", 0.0)), sub_tick)
-		# Screen axes are world axes under the top-down projection: no rotation.
+		# Screen axes are world axes under the top-down projection: no rotation. What the body shows
+		# and where its weapon points is its *aim* (sim/aim.gd) -- the heading, unless the player has
+		# turned it apart at a walk -- slid between ticks like the heading is. Your own body draws the
+		# cursor's bearing the frame the cursor moves rather than a tick later, and only while the
+		# sim's own rule (`SimAim.holds`) says the next tick will take it, so the weapon in your hand
+		# never points somewhere the shot will not go.
 		var screen_ang: float = face
+		if facing_v is Dictionary:
+			screen_ang = _interp.aim(eid, SimAim.radians_of(world.components, eid), sub_tick)
+			if eid == int(world.player) and _input_map != null and SimAim.holds(world.components, eid):
+				var bearing: Variant = _input_map.call("aim_bearing")
+				if bearing != null:
+					screen_ang = float(bearing)
 		# contact shadow — under both branches, on the ground point: an ellipse the body's width
 		# and a fifth as tall, because a pawn's feet are not the overhead rig's silhouette and the
 		# reference's shadow is a small dark pool under the soles, not a disc the figure stands in.
@@ -2954,11 +2970,14 @@ func _draw_entities() -> void:
 		# face-on rig answers its one picture and the rest view, exactly as before.
 		var sprite_key: String = String(look.get("sprite", ""))
 		var vel_v: Variant = world.components.get_component(eid, "velocity")
-		var view: String = Appearance.body_view(sprite_key, facing_v, vel_v)
+		var view: String = Appearance.body_view(sprite_key, {"radians": screen_ang} if facing_v is Dictionary else null, vel_v)
 		# Which frame: the animation clock's, from where this body is drawn (the item's x, y, already
 		# slid by the interpolation) and whether the sim moves it -- the walk advances by ground
 		# covered and the breath by presentation time, never by the tick (presentation/anim_clock.gd).
-		var motion: Dictionary = _anim.motion(eid, Vector2(float(it["x"]), float(it["y"])), Appearance.moving(vel_v), Appearance.stride_of(sprite_key), Appearance.pace_of(sprite_key))
+		# The view's own direction goes with it, so a body walking away from the way it shows -- you,
+		# aiming over your shoulder at a walk -- runs its walk backwards rather than moonwalking.
+		var front: Vector2 = Vector2.from_angle(float(Appearance.VIEW_RADIANS[view])) if Appearance.turns(sprite_key) and Appearance.VIEW_RADIANS.has(view) else Vector2.ZERO
+		var motion: Dictionary = _anim.motion(eid, Vector2(float(it["x"]), float(it["y"])), Appearance.moving(vel_v), Appearance.stride_of(sprite_key), Appearance.pace_of(sprite_key), front)
 		var frame: String = Appearance.frame_key(sprite_key, view, motion)
 		var texture: Texture2D = Appearance.body_texture(look, view, motion)
 		if texture != null:
@@ -2971,12 +2990,26 @@ func _draw_entities() -> void:
 			# anywhere in this loop; check_topdown.gd's flip lane counts them and requires zero.
 			var size: Vector2 = texture.get_size() * px_scale
 			# Equipped gear composites at the body's rect -- a wearable is cropped on the same
-			# feet-anchored canvas -- and a held weapon at its hand, turned by the draw call's own
-			# flags (`_layer_rect`). Drawn white, never the role/tint colour: a backpack is its own
+			# feet-anchored canvas -- and a held weapon at its hand, placed for the view and turned
+			# the rest of the way to the aim (`_draw_layer`), kicked back along its barrel for a
+			# moment after it fires. Drawn white, never the role/tint colour: a backpack is its own
 			# object, not a stand-in shape for the entity itself.
 			var equip: Array[Dictionary] = Appearance.equipment_layers_for(world, eid, view, frame, sprite_key)
+			_fx.call("note_frame", eid, frame)
+			var kick: float = float(_fx.call("kick", eid)) * FxLook.KICK_ART_PX
+			for layer in equip:
+				if layer.has("at"):
+					layer["turn"] = Appearance.held_turn(view, screen_ang)
+					layer["slide"] = -kick
 			var flip: float = Appearance.flip_for(sprite_key, screen_ang)
-			_blit_body(Appearance.body_rect(sx, sy, size, flip), texture, col, equip)
+			# A struck body jolts away from the blow and flashes white (FxLook's FELT one-shots): the
+			# picture alone, never the body -- the sim's position, and the shadow under it, stay.
+			var knock: Vector2 = (_fx.call("knock", eid) as Vector2) * px_scale
+			var body_at: Rect2 = Appearance.body_rect(sx + knock.x, sy + knock.y, size, flip)
+			_blit_body(body_at, texture, col, equip)
+			var flash: float = float(_fx.call("hit_flash", eid))
+			if flash > 0.0:
+				_blit_flash(body_at, texture, equip, flash * col.a)
 			# The afterimage's own copy of this look, frozen at the moment a Focal body was drawn --
 			# the very frame and view, so a body that turned away is remembered turned away.
 			# A Peripheral glimpse never reaches this line (it bailed to the anonymous disc above),
@@ -2990,22 +3023,14 @@ func _draw_entities() -> void:
 		# is pinned Focal above and never bails), so a speech bubble can stand over it. A body only
 		# ever glimpsed Peripherally bailed out before reaching this line.
 		_focal_drawn.append({"id": eid, "sx": sx, "sy": sy, "r": r})
-		# Facing + aim sway (cone half-angle). No hit % — wobble is the readout.
-		# The line draws for every body, the player's included: a flip is a two-state readout of
-		# a continuous heading, so the picture can never say more than "east or west" and the
-		# line carries the exact facing for everybody. (The 2026-09-01 rule that took it off the
-		# player's rotating rig retired with the rotation -- docs/30, the Dungeon Settlers look.)
-		draw_line(
-			Vector2(sx, sy),
-			Vector2(sx + cos(screen_ang) * (r + 12.0), sy + sin(screen_ang) * (r + 12.0)),
-			Palette.COLOURS["facing"],
-			2.4 if bool(it["player"]) else 1.6,
-		)
+		# No facing line and no aim cone over the body any more (alpha plan A9): the four views say
+		# which way a body faces, the weapon in the hand turns all the way to the aim, and the
+		# player's sway is read at the cursor instead (`_draw_reticle`).
 		# The tag beside your own body, and nowhere else. docs/23's "condition and stamina readouts
 		# in the world, not a corner", and the reason it is the player's alone: a line over every
 		# pawn is a name plate, refused three times in docs/30 because a floating word over a
 		# figure in the street is a certainty the peripheral-anonymity clause denies. Drawn after
-		# the body and before the aim cone so nothing paints over it, and skipped entirely when
+		# the body so nothing paints over it, and skipped entirely when
 		# there is nothing to say.
 		if bool(it["player"]):
 			var tag: String = HudRead.pawn_tag(world, eid)
@@ -3016,20 +3041,6 @@ func _draw_entities() -> void:
 				# round it would read as chrome rather than as something you noticed.
 				draw_string(tag_font, tag_at + Vector2(1.0, 1.0), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, Color(0.0, 0.0, 0.0, 0.85))
 				draw_string(tag_font, tag_at, tag, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, Palette.COLOURS["survivor"])
-		if bool(it["player"]) and world.components.has_component(eid, "rangedWeapon"):
-			var rw: Variant = world.components.get_component(eid, "rangedWeapon")
-			if rw is Dictionary and int((rw as Dictionary).get("state", 0)) in [1, 2]:
-				var half: float = float((rw as Dictionary).get("coneHalf", 0.55))
-				var reach_px: float = r + 36.0 + half * 44.0
-				var a0: float = screen_ang - half
-				var a1: float = screen_ang + half
-				# One colour, drawn twice: the arc at the key's own alpha, the edge rays dimmed
-				# by the palette's factor -- never a second literal to keep in step.
-				var cone: Color = Palette.COLOURS["aimCone"] as Color
-				var edge: Color = Color(cone.r, cone.g, cone.b, cone.a * Palette.AIM_EDGE_DIM)
-				draw_arc(Vector2(sx, sy), reach_px, a0, a1, 12, cone, 2.8)
-				draw_line(Vector2(sx, sy), Vector2(sx + cos(a0) * reach_px, sy + sin(a0) * reach_px), edge, 2.0)
-				draw_line(Vector2(sx, sy), Vector2(sx + cos(a1) * reach_px, sy + sin(a1) * reach_px), edge, 2.0)
 	# Ground items — focal only, because searching a room is an action rather than a glance.
 	# What one looks like is `Appearance.item_look`: its own picture when content declares one, and
 	# its class's glyph when it does not. This used to be one ten-pixel square for everything, so
@@ -3408,7 +3419,7 @@ func _blit_vehicle(it: Dictionary, px_scale: float) -> void:
 # Factored out of _draw_entities so a body and its gear are literally the *same* composite at
 # one rect. Since "Pack gear on the body" and "Held weapons in the hand" (2026-09-26) the gear is
 # the outpost pack's: four-direction wearables at the body's own rect, and held weapons at a hand
-# point, each turned by the draw call's own `transpose` flag and signed rect (`_layer_rect`).
+# point, placed for the view and turned the rest of the way to the aim (`_draw_layer`).
 func _blit_body(rect: Rect2, texture: Texture2D, col: Color, equip: Array[Dictionary]) -> void:
 	# The gear draws white, never in the body's tint (a backpack is its own object) -- but it
 	# borrows the tint's *alpha*, so an afterimage fades as one picture. Before the afterimage
@@ -3417,34 +3428,110 @@ func _blit_body(rect: Rect2, texture: Texture2D, col: Color, equip: Array[Dictio
 	var gear := Color(1.0, 1.0, 1.0, col.a)
 	for layer in equip:
 		if not bool(layer["over"]):
-			draw_texture_rect(layer["texture"] as Texture2D, _layer_rect(rect, layer), false, gear, bool(layer.get("transpose", false)))
+			_draw_layer(rect, layer, gear)
 	draw_texture_rect(texture, rect, false, col)
 	for layer in equip:
 		if bool(layer["over"]):
-			draw_texture_rect(layer["texture"] as Texture2D, _layer_rect(rect, layer), false, gear, bool(layer.get("transpose", false)))
+			_draw_layer(rect, layer, gear)
 
 
-# Where one layer of a composite goes. A wearable shares the body's rect exactly -- the pack's
-# vest, helmet, gas mask and backpack are cropped on the body's own canvas and anchor, so there is
-# no per-item offset to compute. A held weapon is the one exception (docs/23, "Held weapons in the
-# hand"): it is drawn at its own canvas with its grip on the hand, so its layer carries `at`, the
-# top-left of the painted area in body-canvas pixels, and `size`, the signed rect in the picture's
-# own orientation that `Appearance.held_pose` worked out -- both scaled here by the body rect's own
-# pixel, and the draw call is handed the layer's `transpose` flag, so the weapon turns without a
-# transform. The body under it never mirrors: `flip_for` answers +1 for every body that turns.
+# One layer of a composite. A wearable is a rect (`_layer_rect`). A held weapon is the one polygon
+# `Appearance.held_quad` turns about the hand: placed for the view as `held_pose` places it, turned
+# by the layer's `turn` -- what is left of the aim once the view has turned it -- and slid back
+# along the barrel by its `slide` while it kicks. A polygon rather than a transform: the entity
+# loop and this whole file hold none (check_topdown.gd's flip lane counts them).
+func _draw_layer(rect: Rect2, layer: Dictionary, gear: Color) -> void:
+	var texture: Texture2D = layer["texture"] as Texture2D
+	if not layer.has("at"):
+		draw_texture_rect(texture, _layer_rect(rect, layer), false, gear, bool(layer.get("transpose", false)))
+		return
+	var quad: Dictionary = Appearance.held_quad(layer, Vector2i(texture.get_size()), float(layer.get("turn", 0.0)), float(layer.get("slide", 0.0)))
+	var px := Vector2(absf(rect.size.x) / float(Appearance.PAWN_CANVAS.x), rect.size.y / float(Appearance.PAWN_CANVAS.y))
+	var points := PackedVector2Array()
+	for p in quad["points"] as PackedVector2Array:
+		points.append(rect.position + p * px)
+	draw_polygon(points, PackedColorArray([gear]), quad["uvs"] as PackedVector2Array, texture)
+
+
+# The white flash over a body just struck (FxLook's FELT one-shots): the body's own picture and
+# everything it wears, as a silhouette in the palette's hit colour at `alpha`, over the composite
+# `_blit_body` just drew. The weapon is left out -- it is the thing that struck or was carried, not
+# the flesh that was hit.
+func _blit_flash(rect: Rect2, texture: Texture2D, equip: Array[Dictionary], alpha: float) -> void:
+	var hit: Color = Palette.COLOURS["hitFlash"] as Color
+	var tint := Color(hit.r, hit.g, hit.b, hit.a * alpha)
+	draw_texture_rect(_white_of(texture), rect, false, tint)
+	for layer in equip:
+		if not layer.has("at") and bool(layer["over"]):
+			draw_texture_rect(_white_of(layer["texture"] as Texture2D), _layer_rect(rect, layer), false, tint, bool(layer.get("transpose", false)))
+
+
+# A picture's silhouette: every pixel the picture paints, white at the picture's own alpha. Made
+# once per picture and kept; modulating the original can only darken it, never whiten it.
+func _white_of(texture: Texture2D) -> Texture2D:
+	var id: int = texture.get_instance_id()
+	if _white.has(id):
+		return _white[id] as Texture2D
+	var image: Image = texture.get_image()
+	if image == null:
+		return texture
+	image = image.duplicate() as Image
+	if image.is_compressed():
+		image.decompress()
+	image.convert(Image.FORMAT_RGBA8)
+	for y in image.get_height():
+		for x in image.get_width():
+			var a: float = image.get_pixel(x, y).a
+			image.set_pixel(x, y, Color(1.0, 1.0, 1.0, a))
+	var white: Texture2D = ImageTexture.create_from_image(image)
+	_white[id] = white
+	return white
+
+
+# The player's reticle, at the cursor: the sway the aim cone used to draw over the body, read where
+# the eye already is (alpha plan A9). Four ticks stand off the cursor by the cone's half-angle at
+# the cursor's distance -- wide on the move, closing as the weapon steadies -- inside a faint ring at
+# the same radius; the ring dims while the weapon is not raised. Drawn only with a firearm in hand
+# and the street in front of you; never a number, never a hit chance -- the wobble is the readout.
+func _draw_reticle() -> void:
+	if world == null or session == null or session.state != SessionRes.State.PLAYING or inventory_open:
+		return
+	var eid: int = int(world.player)
+	var rw: Variant = world.components.get_component(eid, "rangedWeapon")
+	var pos: Variant = world.components.get_component(eid, "position")
+	if not (rw is Dictionary) or not (pos is Dictionary):
+		return
+	var at: Vector2 = get_viewport().get_mouse_position()
+	var sc: Dictionary = TopDownProjection.world_to_screen(camera, float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]))
+	var reach: float = at.distance_to(Vector2(float(sc["sx"]), float(sc["sy"])))
+	var half: float = float((rw as Dictionary).get("coneHalf", 0.55))
+	var gap: float = clampf(tan(clampf(half, 0.0, 1.2)) * reach, 4.0, 72.0)
+	var raised: bool = int((rw as Dictionary).get("state", 0)) in [1, 2]
+	var cone: Color = Palette.COLOURS["aimCone"] as Color
+	var ring := Color(cone.r, cone.g, cone.b, cone.a * (1.0 if raised else Palette.AIM_EDGE_DIM))
+	var tick: Color = Palette.COLOURS["facing"] as Color
+	draw_arc(at, gap, 0.0, TAU, 32, ring, 1.5)
+	for d in [Vector2.RIGHT, Vector2.DOWN, Vector2.LEFT, Vector2.UP]:
+		var from: Vector2 = at + (d as Vector2) * gap
+		draw_line(from.round(), (from + (d as Vector2) * 6.0).round(), tick, 2.0)
+	draw_rect(Rect2(at.round() - Vector2(1.0, 1.0), Vector2(2.0, 2.0)), tick)
+
+
+# Where one wearable layer of a composite goes. A wearable shares the body's rect exactly -- the
+# pack's vest, helmet, gas mask and backpack are cropped on the body's own canvas and anchor, so
+# there is no per-item offset to compute -- or that rect shifted by whole body pixels when it rides a
+# head or a torso the body frame has moved (Appearance's layer contract, rule 2). A held weapon is
+# not placed here: it is drawn at its own canvas with its grip on the hand and turned to the aim, as
+# the one polygon `_draw_layer` asks `Appearance.held_quad` for (docs/23, "Held weapons in the
+# hand"; alpha plan A9). The body under it never mirrors: `flip_for` answers +1 for every body that
+# turns.
 func _layer_rect(rect: Rect2, layer: Dictionary) -> Rect2:
 	var px: float = absf(rect.size.x) / float(Appearance.PAWN_CANVAS.x)
 	var py: float = rect.size.y / float(Appearance.PAWN_CANVAS.y)
-	if not layer.has("at"):
-		# A wearable riding a head or a torso the body frame has moved (Appearance's layer contract,
-		# rule 2): the same rect, shifted by whole body pixels.
-		if layer.has("shift"):
-			var shift: Vector2i = layer["shift"] as Vector2i
-			return Rect2(rect.position + Vector2(shift.x * px, shift.y * py), rect.size)
-		return rect
-	var at: Vector2i = layer["at"] as Vector2i
-	var size: Vector2i = layer["size"] as Vector2i
-	return Rect2(rect.position + Vector2(at.x * px, at.y * py), Vector2(size.x * px, size.y * py))
+	if layer.has("shift"):
+		var shift: Vector2i = layer["shift"] as Vector2i
+		return Rect2(rect.position + Vector2(shift.x * px, shift.y * py), rect.size)
+	return rect
 
 
 # The contact shadow's outline: a twelve-point ellipse, half-axes `a` across and `b` down, so
@@ -3473,6 +3560,10 @@ func _draw_effects(glow: bool) -> void:
 	for fx in _fx.call("draws", world, camera, glow) as Array[Dictionary]:
 		if glow:
 			_light_map.call("glow_rect", fx["texture"] as Texture2D, fx["rect"] as Rect2, bool(fx["transpose"]))
+		# A muzzle flash from a weapon turned to its aim arrives as the polygon the weapon itself
+		# is drawn as (FxLook.draws, `points`), so the two turn about one hand together.
+		elif fx.has("points"):
+			draw_polygon(fx["points"] as PackedVector2Array, PackedColorArray([Color.WHITE]), fx["uvs"] as PackedVector2Array, fx["texture"] as Texture2D)
 		else:
 			draw_texture_rect(fx["texture"] as Texture2D, fx["rect"] as Rect2, false, Color.WHITE, bool(fx["transpose"]))
 		_fx_drawn.append({"key": String(fx["key"]), "frame": int(fx["frame"])})

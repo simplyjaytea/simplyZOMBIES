@@ -83,6 +83,7 @@ const Session = preload("res://presentation/session.gd")
 const Onboarding = preload("res://presentation/onboarding.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
+const SimShambler = preload("res://sim/modules/shambler.gd")
 const SimChronicle = preload("res://sim/modules/chronicle.gd")
 const SimRecruits = preload("res://sim/modules/recruits.gd")
 const SimAllegiance = preload("res://sim/modules/allegiance.gd")
@@ -551,7 +552,8 @@ func _the_clock_says_its_speed_and_sleep_skips(main: Node) -> bool:
 	var at: Variant = world.components.get_component(player, "position")
 	var zombie: int = world.entities.spawn()
 	world.components.set_component(zombie, "position", {"x": float(at["x"]) + 5.0, "y": float(at["y"])})
-	world.components.set_component(zombie, "shambler", {})
+	# Built the way the sim builds one, so the body carries the state the sim reads every tick.
+	SimShambler.make_shambler(world, zombie, world.rng.stream("shambler"))
 	_frames(main, 1)
 	if str(hud.get("time_words")) != "asleep, zombie near, normal speed":
 		push_error("CLOCK: a zombie five metres off, the HUD says '%s'" % str(hud.get("time_words")))
