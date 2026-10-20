@@ -2096,13 +2096,23 @@ not a to-do list:
   drawn again as a jointed limb in the rest view's own outline and skin, so a hand goes where the
   beat sends it with a closed outline over the body: from the front over the torso, from behind
   only to the edge of the back (the hand point goes on behind it), side on the far arm under the
-  body with its forearm over the belly once it reaches round. The magazine is a 2x3 block,
-  outlined, in the held pistol's gunmetal, and lies by the feet to the end. The pistol's is worked
+  body with its forearm over the belly once it reaches round; outline an arm adds is pared back
+  to the pack's two pixels where it would wedge against the body's own (`_trim`). The dip and
+  the rise happen at the knee (`_knee`), so the legs bend and straighten under the hips rather
+  than the shorts sliding over the thighs or the waist stretching. The magazine is a 2x3 block,
+  outlined, in the held pistol's gunmetal: the long gun's hangs from the off hand at hand height
+  as it comes out, falls clear of the legs on the off hand's side (so the back view mirrors the
+  front), and lies by the feet to the end. From behind the long gun is only lowered a pixel,
+  never brought in: it is taller than the body there, and any travel put its muzzle over the
+  head or its stock in and out of sight at the hip. The pistol's is worked
   at the grip, the long gun's (rifle, shotgun, crossbow: a held picture 48 px wide,
   `Appearance.reload_action`) at the well and fore-end five pixels along. The first drawing, a
   forearm sheared from the shoulder, was sent back by art review (2026-10-20): the off hand never
   showed side on, arms vanished and popped, the magazine was a few dark pixels in the foot; this
-  replaced it. Per-frame `head`, `torso` and `hands` ride every new member, so A6's clothing and
+  replaced it, and two further review passes the same day tightened it (the jointed limbs, then
+  the magazine's drop, the seat's rise, outline wedges, the back view's stock and a soft rifle
+  edge blending over the magazine). The review strips are 48x56 cells with the body on the same
+  baseline as every other strip; in game every reload frame is the 32x40 canvas on sole row 39. Per-frame `head`, `torso` and `hands` ride every new member, so A6's clothing and
   A9's weapon turn compose on them by the A7 contract. Five generations were spent (the three
   kept strips, the back view, and a four-views-in-one trial). **Not built:** drawn zombie walk
   in-betweens (the brief's added scope; still A7's one-pixel shifts), and a swing per weapon

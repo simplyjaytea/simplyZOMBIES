@@ -69,9 +69,12 @@ where it meets open ground. From the front both arms are over the torso; from be
 only to the edge of the back (`BACK_EDGE`), the hand point going on behind it; side on the far
 arm is under the body, its forearm over the belly once it reaches round. The magazine is a 2x3
 block, outlined, in the held pistol's gunmetal (`_weapon_ramp`): the pistol's drops at the grip,
-the long gun's is stripped from the well (`reload_long`, `LONG_WELL` pixels along), and it lies
-by the feet (`MAG_SPOTS`) to the end. The body dips a pixel as the weapon comes down and rises
-as the fresh one is seated.
+the long gun's is stripped from the well (`reload_long`, `LONG_WELL` pixels along) and hangs from
+the off hand (`_held_mag_at`) before it falls, and it lies by the feet (`MAG_SPOTS`) to the end,
+the long gun's on the off hand's side. The body dips a pixel as the weapon comes down and rises
+as the fresh one is seated, both at the knee (`_knee`). Outline an arm adds that would wedge
+against the body's own is pared back to two pixels (`_trim`). From behind the long gun is only
+lowered a pixel (`_primary_move`): any other travel shows its muzzle or stock a frame at a time.
 
 Each frame declares `head`, `torso` and (on the survivor) `hands`, where the move took them, so
 worn and held layers follow by the same contract as the walk. `godot:check:action` holds the
