@@ -35,7 +35,7 @@ const SimTreatment = preload("res://sim/modules/treatment.gd")
 const PAD: float = 16.0
 const TITLE_TEXT: int = 30
 const BODY_TEXT: int = 25
-const LINE: float = 28.0
+const LINE: float = 26.0
 const BUTTON_H: float = 36.0
 const BUTTON_GAP: float = 8.0
 
@@ -173,6 +173,38 @@ static func button_rects(rect: Rect2, view: Dictionary) -> Array[Dictionary]:
 	return out
 
 
+# How tall the pane has to be to say everything about the part: the sheet gives it this much of the
+# right column, taking it from the list above, so a refusal is never cut off at 1280x720.
+static func height_for(view: Dictionary, wide: float) -> float:
+	if view.is_empty():
+		return 0.0
+	var rect := Rect2(Vector2.ZERO, Vector2(1.0, 1.0))
+	var y: float = _care_top(rect, view) + LINE * 0.5
+	y += float(verbs_of(view).size()) * (BUTTON_H + BUTTON_GAP)
+	var lines: int = 1
+	if String(view.get("running", "")).is_empty() and not (view.get("refused", []) as Array).is_empty():
+		lines = 0
+		for r in view.get("refused", []) as Array:
+			lines += refusal_lines(r as Dictionary, wide).size()
+	return y + float(lines) * LINE + PAD
+
+
+# A refusal as the pane writes it: "verb — why" on one line where it fits the pane's `wide`, else
+# the verb on its line and the reason under it, indented -- never cut off with an ellipsis, which
+# hid the reason itself at 1280x720.
+static func refusal_lines(d: Dictionary, wide: float) -> Array[String]:
+	var font: Font = Chrome.font()
+	var verb: String = word_of(String(d.get("verb", "")))
+	var why: String = String(REASON_WORDS.get(String(d.get("reason", "")), ""))
+	var one: String = "%s — %s" % [verb, why]
+	if font.get_string_size(one, HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_TEXT).x <= wide:
+		return [one]
+	return [verb + " —", REFUSAL_INDENT + why]
+
+
+const REFUSAL_INDENT: String = "  "
+
+
 # Where the care section starts: under the header, the part's name, its state and its notes.
 static func _care_top(rect: Rect2, view: Dictionary) -> float:
 	var notes: int = maxi(1, (view.get("notes", []) as Array).size())
@@ -201,8 +233,10 @@ static func draw_pane(ci: CanvasItem, rect: Rect2, view: Dictionary, alpha: floa
 	if notes.is_empty():
 		ci.draw_string(font, Vector2(x, y), UiText.fit(font, "nothing you can see", BODY_TEXT, wide), HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_TEXT, Locker._a(Locker.TEXT_FAINT, alpha))
 		y += LINE
+	# The notes wear the part's tint too, the way the sheet's summary line under the figure does, so
+	# "hurt" and "bleeding" read as one finding rather than two of different weight.
 	for n in notes:
-		ci.draw_string(font, Vector2(x, y), UiText.fit(font, String(n), BODY_TEXT, wide), HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_TEXT, Locker._a(Locker.TEXT, alpha))
+		ci.draw_string(font, Vector2(x, y), UiText.fit(font, String(n), BODY_TEXT, wide), HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_TEXT, Locker._a(tint if st > 0 else Locker.TEXT, alpha))
 		y += LINE
 	var care_y: float = _care_top(rect, view)
 	Locker.groove(ci, Vector2(x, care_y - LINE - PAD / 2.0), wide, alpha)
@@ -223,10 +257,14 @@ static func draw_pane(ci: CanvasItem, rect: Rect2, view: Dictionary, alpha: floa
 	if buttons.is_empty() and refused.is_empty():
 		ci.draw_string(font, Vector2(x, line_y), UiText.fit(font, "nothing to do for it", BODY_TEXT, wide), HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_TEXT, Locker._a(Locker.TEXT_FAINT, alpha))
 		return
+	var lines: Array[String] = []
 	for r2 in refused:
-		if line_y > rect.end.y - PAD:
+		lines.append_array(refusal_lines(r2 as Dictionary, wide))
+	for i in lines.size():
+		# The sheet sizes the pane from `height_for`, so this only bites on a window too short for
+		# even that; the last line that fits then says there is more rather than stopping mid-list.
+		if line_y + LINE > rect.end.y - PAD / 2.0 and i < lines.size() - 1:
+			ci.draw_string(font, Vector2(x, line_y), "and more besides", HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_TEXT, Locker._a(Locker.TEXT_FAINT, alpha))
 			break
-		var d: Dictionary = r2 as Dictionary
-		var text: String = "%s — %s" % [word_of(String(d["verb"])), String(REASON_WORDS.get(String(d["reason"]), ""))]
-		ci.draw_string(font, Vector2(x, line_y), UiText.fit(font, text, BODY_TEXT, wide), HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_TEXT, Locker._a(Locker.TEXT_DIM, alpha))
+		ci.draw_string(font, Vector2(x, line_y), UiText.fit(font, lines[i], BODY_TEXT, wide), HORIZONTAL_ALIGNMENT_LEFT, -1, BODY_TEXT, Locker._a(Locker.TEXT_DIM, alpha))
 		line_y += LINE

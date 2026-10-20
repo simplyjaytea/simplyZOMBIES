@@ -19,7 +19,7 @@ const SimHealthModule = preload("res://sim/modules/health.gd")
 const SCENE_PATH: String = "res://presentation/main.tscn"
 # The two windows the game supports: check_play's WORK-LAYOUT lane lays out at both.
 const SIZES: Array[Vector2i] = [Vector2i(1280, 720), Vector2i(1920, 1080)]
-const NAMES: Array[String] = ["day_street", "interior", "night_lights", "combat", "inventory", "care", "skills"]
+const NAMES: Array[String] = ["day_street", "interior", "night_lights", "combat", "inventory", "care", "skills", "colony", "viewing"]
 # The part the care scene cuts and then picks on the figure: an arm, so the pane has a bleeding
 # wound to offer pressure for and a dressing it can say is missing.
 const CARE_PART: String = "arm_left"
@@ -137,6 +137,18 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 		"skills":
 			world.tick = Clock.tick_on_day(DAY, NOON)
 			press(tree, KEY_K)
+		"colony":
+			world.tick = Clock.tick_on_day(DAY, NOON)
+			press(tree, KEY_J)
+		"viewing":
+			# Skills on somebody else: a colonist picked on the street, then K -- the bar names them
+			# and stamps the page "viewing".
+			world.tick = Clock.tick_on_day(DAY, NOON)
+			var other: int = _a_colonist(world)
+			if other < 0:
+				return "the colony has nobody but you to view"
+			main.set("_selected", other)
+			press(tree, KEY_K)
 		_:
 			return "unknown scene %s" % scene
 	# Two ticks: the first runs the spawn intake and the second lets its components settle. The
@@ -187,8 +199,28 @@ static func verify(main: Node, scene: String) -> String:
 				return "the skills screen is not open"
 			var nav: Variant = main.get("_nav_bar")
 			return "" if nav != null and bool((nav as CanvasItem).visible) else "the navigation bar is not over the skills screen"
+		"colony":
+			if not bool(main.get("work_open")):
+				return "the colony screen is not open"
+			var nav_c: Variant = main.get("_nav_bar")
+			return "" if nav_c != null and bool((nav_c as CanvasItem).visible) and String(nav_c.get("screen")) == "colony" else "the navigation bar is not over the colony screen"
+		"viewing":
+			if not bool(main.get("web_open")):
+				return "the skills screen is not open"
+			var nav_v: Variant = main.get("_nav_bar")
+			if nav_v == null or bool(nav_v.get("subject_is_you")) or String(nav_v.get("subject_name")).is_empty():
+				return "the bar is not viewing a colonist"
+			return ""
 		_:
 			return "unknown scene %s" % scene
+
+
+## The first colonist who is not you and not dead, or -1.
+static func _a_colonist(world: Variant) -> int:
+	for e in world.components.query(["identity", "position"]):
+		if int(e) != int(world.player) and not world.components.has_component(int(e), "corpse"):
+			return int(e)
+	return -1
 
 
 ## The tile the body stands on, from the sim's own position.

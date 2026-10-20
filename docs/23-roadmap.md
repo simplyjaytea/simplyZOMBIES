@@ -176,10 +176,11 @@ Escape that puts away the one thing in front, the field HUD put away under all t
 picked body region on the existing figure showing its condition and only the care the sim
 would accept. Still open in that bullet: the re-illustrated anatomy, the 1280×720
 section-and-drawer layout, and a viewed-versus-acting split inside the sheet beyond the bar's
-stamp. The Colony and Skills screens themselves are untouched until the second bullet, and at
-1280×720 the skill web still runs past the window's right and bottom edges. The illustrative concept's wider treatment
-is still open for feedback. Preserve existing grid capacity and pause behavior by default. The
-following order completes all existing UI, with a useful playable flow first:
+stamp. The Colony and Skills screens' contents are the second bullet's; slice 1 only fits the
+skill web to a 1280×720 window as a stopgap and puts it in the locker's steel. The illustrative
+concept's wider treatment is still open for feedback. Preserve existing grid capacity and pause
+behavior by default. The following order completes all existing UI, with a useful playable flow
+first:
 
 - **Shared frame and the scavenging flow.** Establish the common theme, explicit viewed
   survivor versus acting survivor, screen navigation and input/focus rules. In the same
@@ -2154,18 +2155,27 @@ not a to-do list:
     screen up.
   - **Escape and the HUD.** Escape puts away the one thing in front. On the sheet that is a drag,
     then the item menu, then a picked part, then the sheet. Before, Escape on the sheet or the
-    work grid also raised the settings sheet over it. The field HUD and the belt strip are put
-    away under all three screens; the work grid and the web used to draw over a lit HUD.
+    work grid also raised the settings sheet over it. The field HUD is put away under all three
+    screens, and the street's belt strip under Colony and Skills (the sheet keeps its own belt
+    row); the work grid and the web used to draw over a lit HUD.
   - **Care on the figure** (`ui/care_pane.gd`). A click on a region of the existing figure picks
     it: an amber ring on the figure, and the inspect slot shows the part's state words, wound
     notes and a care row. The figure's hit test reads the same painted chart the figure draws.
     The care row comes from `SimTreatment.options_for`, the dry run behind command validation:
     an offered verb is a button that pushes `treat.begin`, a refused one says why in words (no
     dressing on you, stop the bleeding first), and a running treatment offers only "stop"
-    (`treat.cancel`). No new treatment rule lives in the interface.
-  - **The field HUD's cards, tip and action bar wear the Salvage Locker** (steel, tape label,
-    rivets), so the street and the sheet are one kit. The action bar and the F1 legend name the
-    three screens as the bar does.
+    (`treat.cancel`). No new treatment rule lives in the interface. The list above gives up rows
+    to the pane until every refusal fits, and a refusal too wide for the pane wraps rather than
+    losing its reason. The figure's panel is taped "worn", so it no longer repeats the tab.
+  - **The field HUD's cards, tip and action bar wear the Salvage Locker** (near-opaque steel,
+    tape label, rivets), so the street and the sheet are one kit, and the street's figure sits on
+    a locker card. The action bar names the three screens in one token, "Tab J K screens", so
+    every key still fits at 1280×720 beside an E clause; the F1 legend names each.
+  - **The skill web wears the locker too**, with a tape label that no longer repeats whose web it
+    is (the bar says that), and follows the bar when a colonist is picked while it is up. As a
+    stopgap it is centred under the bar and, on a window shorter than its natural size, the web
+    between its words shrinks to fit: at 1280×720 every node, region word and the footer are on
+    screen. Labels that already crowded each other still do; the reflow is the second bullet's.
 
   **Not changed:** the sim, the read models, the figure's art, the Colony and Skills screens' own
   contents, the bans. **Evidence:** `godot:check:play`'s new NAV lane, in the real scene at
@@ -2181,10 +2191,15 @@ not a to-do list:
   glyph's reader in `nav_bar.gd`. `check_shots` gains the care and skills scenes (seven now),
   set up at 1280×720. `godot:check:play`, `:inventory`, `:hud`, `:respond`, `:appearance`,
   `:context`, `:web_look`, `:speech`, `:memory`, `:ui_skin`, `:shots`, `godot:ban:healthbar`,
-  `godot:smoke`, `godot:validate`, `check:routing` and `npm test` pass locally. Before and after
-  shots of all seven scenes at both windows are in the project's planning files under
-  ui-slice-1. **Not shown or proven:** a treatment run to its end from the pane, a colonist
-  treated from the pane, and the skill web's overflow at 1280×720, which is the second bullet's.
+  `godot:smoke`, `godot:validate`, `check:routing` and `npm test` pass locally. The NAV lane also
+  holds the bar and the web to the same person (you, then a colonist "viewing") and the web
+  inside the 1280×720 window; `godot:check:hud`'s new BAR lane holds the hint to every key at
+  1280×720 beside the trip-alarm clause, its negative a hint one token too long; the CARE lane's
+  FIT holds a refusal whole in a narrow pane. `check_shots` gains colony and viewing (nine
+  scenes). Before and after shots at both windows are in the project's planning files under
+  ui-slice-1, reviewed once by the art QA pass. **Not shown or proven:** a treatment run to its
+  end from the pane, a colonist treated from the pane, the Colony grid's own look (still the old
+  kit), and the speech bubble's style (both the second bullet's).
 
 - **UI — the inventory, redone (the Salvage Locker), 2026-10-19.** The owner's answer to the
   alpha plan's Q5: keep the grid, which reads like Tarkov's, but it "looks very plain" and has to

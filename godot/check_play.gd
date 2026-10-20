@@ -1006,6 +1006,36 @@ func _one_bar_reaches_all_three_screens(main: Node) -> bool:
 	# Clicks on the bar over Skills: the Colony tab, then the free room (nothing), then close.
 	_tap(KEY_K)
 	await process_frame
+	# Whose page: the bar and the web name the same person -- you, then a colonist picked on the
+	# street while Skills is up -- and the web sits wholly inside the 1280x720 window.
+	var web: Control = main.get("_web_panel") as Control
+	var world: Variant = main.get("world")
+	if not bool(nav.get("subject_is_you")) or not String(web.call("header_label")).ends_with("you"):
+		push_error("NAV: Skills on yourself shows the bar's stamp for you %s and the web's %s" % [str(nav.get("subject_is_you")), String(web.call("header_label"))])
+		ok = false
+	if not Rect2(Vector2.ZERO, root.get_visible_rect().size).encloses(web.get_global_rect()):
+		push_error("NAV: the skill web %s runs past the %s window" % [str(web.get_global_rect()), str(root.get_visible_rect().size)])
+		ok = false
+	var other: int = -1
+	for e in world.components.query(["identity", "position"]):
+		if int(e) != int(world.player) and not world.components.has_component(int(e), "corpse"):
+			other = int(e)
+			break
+	if other < 0:
+		print("NAV SKIP viewing: the boot colony has nobody but you to pick")
+	else:
+		main.set("_selected", other)
+		main.call("_sync_nav")
+		var their: String = String(main.call("_name_for", other))
+		var laid_v: Dictionary = NavBar.call("layout", Rect2(Vector2.ZERO, nav.size), "skills", String(nav.get("subject_name")), bool(nav.get("subject_is_you")), true) as Dictionary
+		if bool(nav.get("subject_is_you")) or String(nav.get("subject_name")) != their or String(laid_v["stamp"]) != "viewing" or not String(web.call("header_label")).ends_with(their):
+			push_error("NAV: a colonist picked over Skills shows the bar naming %s (%s) and the web %s, not %s viewing" % [String(nav.get("subject_name")), String(laid_v["stamp"]), String(web.call("header_label")), their])
+			ok = false
+		main.set("_selected", -1)
+		main.call("_sync_nav")
+		if not bool(nav.get("subject_is_you")) or not String(web.call("header_label")).ends_with("you"):
+			push_error("NAV: putting the colonist down left the bar and the web on %s" % String(web.call("header_label")))
+			ok = false
 	var compact: bool = bool(NavBar.call("compact_for", root.get_visible_rect().size))
 	var laid: Dictionary = NavBar.call("layout", Rect2(Vector2.ZERO, nav.size), "skills", String(nav.get("subject_name")), bool(nav.get("subject_is_you")), compact) as Dictionary
 	var colony_at: Vector2 = Vector2(-1.0, -1.0)
@@ -1071,7 +1101,7 @@ func _one_bar_reaches_all_three_screens(main: Node) -> bool:
 	root.size = old_size
 	await process_frame
 	if ok:
-		print("NAV OK Tab, J and K switch between Survivor, Colony and Skills in one press and put the one in front away, with one screen up, the HUD dark under each and the belt strip put away under Colony and Skills; a tab click switches, the free room does nothing and close goes to the street; the sheet's own bar reaches Skills; Escape closes Colony without settings and on the sheet puts a picked part down first; the street's swing stays refused under both new screens")
+		print("NAV OK Tab, J and K switch between Survivor, Colony and Skills in one press and put the one in front away, with one screen up, the HUD dark under each and the belt strip put away under Colony and Skills; the bar and the web name the same person, you or a colonist viewing, and the web fits the window; a tab click switches, the free room does nothing and close goes to the street; the sheet's own bar reaches Skills; Escape closes Colony without settings and on the sheet puts a picked part down first; the street's swing stays refused under both new screens")
 	return ok
 
 

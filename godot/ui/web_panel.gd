@@ -19,10 +19,10 @@ const SimSkills = preload("res://sim/modules/skills.gd")
 const WebLayout = preload("res://ui/web_layout.gd")
 const UiText = preload("res://ui/text.gd")
 const Chrome = preload("res://ui/chrome.gd")
+const Locker = preload("res://ui/locker.gd")
 
 # The web's square inside the panel: where the unit square lands, in pixels. The panel is wider
 # than the square so a name beside a rim node has room to the left or the right of it.
-const WEB_X: float = 220.0
 const WEB_Y: float = 64.0
 const WEB_SIDE: float = 600.0
 const NODE_R: float = 9.0
@@ -69,7 +69,10 @@ func map() -> Dictionary:
 	return _map
 
 
-# The survivor the header names: the one selected on the street, or "you".
+# The survivor this web belongs to: the one selected on the street, or "you". The navigation bar
+# over the screen carries it now (with its "you" or "viewing" stamp), so the panel's own tape says
+# only what the panel is (`TAPE_WORD`) and this is the bar's subject as the web sees it -- the gate
+# holds the two to the same person.
 func header_label() -> String:
 	var who: String = String(_map.get("who", ""))
 	if _world != null and _who == int(_world.player):
@@ -77,6 +80,12 @@ func header_label() -> String:
 	if who.is_empty():
 		who = "nobody"
 	return "skill web — " + who
+
+
+const TAPE_WORD: String = "skill web"
+# The size the web is laid out at; main.gd makes the panel shorter to fit a smaller window, and the
+# web inside it shrinks with it (`_side`).
+const NATURAL: Vector2 = Vector2(1040.0, 760.0)
 
 
 func footer() -> String:
@@ -167,7 +176,16 @@ func _act(node: String) -> void:
 
 # The one mapping from the content's unit square to the panel's pixels.
 func _at(unit: Vector2) -> Vector2:
-	return Vector2(WEB_X + unit.x * WEB_SIDE, WEB_Y + unit.y * WEB_SIDE)
+	var side: float = _side()
+	return Vector2(roundf(size.x / 2.0 - side / 2.0) + unit.x * side, WEB_Y + unit.y * side)
+
+
+# The web's side on this panel: WEB_SIDE at the natural size, and smaller on a panel main.gd had to
+# make shorter to fit a 1280x720 window -- the words stay at their size and only the web between
+# them shrinks, because a pixel face scaled by a fraction breaks its letters. The room under the
+# web is what the natural layout leaves for the bottom labels and the footer.
+func _side() -> float:
+	return clampf(size.y - (NATURAL.y - WEB_SIDE), WEB_SIDE * 0.6, WEB_SIDE)
 
 
 # The one place a word's extent is measured, so the rectangle drawn and the rectangle clicked
@@ -211,8 +229,12 @@ func _beside(font: Font, unit: Vector2, text: String, radius: float, font_size: 
 func _draw() -> void:
 	var font: Font = Chrome.font()
 	_hit = layout_hits()
-	Chrome.panel(self, Rect2(Vector2.ZERO, size), 0.96)
-	Chrome.header(self, Rect2(Vector2.ZERO, size), header_label(), 0.96, "skills")
+	# The Salvage Locker's steel and a tape label, like the sheet and the bar above it; whose web this
+	# is lives on the bar, so the tape does not say it twice.
+	var rect := Rect2(Vector2.ZERO, size)
+	Locker.panel(self, rect, 0.96)
+	Locker.header(self, rect, TAPE_WORD, 0.96, "", Chrome.GLYPH_SMALL + Locker.PX * 3.0)
+	Chrome.glyph(self, "skills", Vector2(rect.end.x - Chrome.GLYPH_SMALL - Locker.PX * 5.0, Locker.PX * 2.0 + floorf((Locker.TAPE_H - Chrome.GLYPH_SMALL) / 2.0)), true, 0.7)
 	var footer_at := Vector2(24.0, size.y - 20.0)
 	draw_string(font, footer_at, UiText.fit(font, footer(), FOOTER_SIZE, size.x - 48.0), HORIZONTAL_ALIGNMENT_LEFT, -1, FOOTER_SIZE, Chrome.TEXT_FAINT)
 	if _map.is_empty() or _def.is_empty():
@@ -243,7 +265,7 @@ func _draw() -> void:
 		var fan: PackedVector2Array = PackedVector2Array([hub])
 		for i in 13:
 			var a: float = mid - FAN_HALF + FAN_HALF * 2.0 * float(i) / 12.0
-			fan.append(hub + Vector2(cos(a), sin(a)) * FAN_RADIUS * WEB_SIDE)
+			fan.append(hub + Vector2(cos(a), sin(a)) * FAN_RADIUS * _side())
 		# Warm where they have lived, and only there; every fan gets the same hairline so the six
 		# sectors read as sectors whether or not anybody has earned anything yet.
 		if lived:

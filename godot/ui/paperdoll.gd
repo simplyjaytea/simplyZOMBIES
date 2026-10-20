@@ -29,6 +29,7 @@ extends Control
 const Palette = preload("res://presentation/palette.gd")
 const Appearance = preload("res://presentation/appearance.gd")
 const Chrome = preload("res://ui/chrome.gd")
+const Locker = preload("res://ui/locker.gd")
 const SimStances = preload("res://sim/stances.gd")
 
 enum OutlinePose { Stand = 0, Crouch = 1, Prone = 2 }
@@ -58,6 +59,9 @@ var drawing_offset: float = -76.0
 # The part picked on the survivor screen (inventory_panel.gd's `_part`), drawn ringed in amber and
 # lifted over its neighbours; "" for none. The corner glimpse never sets it.
 var selected_part: String = ""
+# Set by main.gd on the street's corner glimpse: the figure and its stance word sit on a Salvage
+# Locker card, like the HUD cards beside it, instead of loose over the road.
+var framed: bool = false
 
 var _view: Dictionary = {}
 var _by_part: Dictionary = {}
@@ -238,6 +242,10 @@ func _draw() -> void:
 	rect.position.y += corner_shift
 	var scale: float = rect.size.x / float(Appearance.CHART_CANVAS.x)
 
+	if framed:
+		var card_top: float = floorf((rect.position.y - 12.0) / 2.0) * 2.0
+		var card_end: float = ceilf((size.y + corner_shift + 4.0) / 2.0) * 2.0
+		Locker.panel(self, Rect2(Vector2(-8.0, card_top), Vector2(size.x + 16.0, card_end - card_top)), 0.96, false)
 	# A soft ground shadow under the figure, as before: it is what stops the chart floating.
 	draw_set_transform(Vector2(rect.get_center().x, rect.position.y + rect.size.y - 4.0 * scale), 0.0, Vector2(1.0, 0.28))
 	draw_circle(Vector2.ZERO, rect.size.x * 0.30, Color(0.0, 0.0, 0.0, 0.30))
@@ -268,13 +276,14 @@ func _draw() -> void:
 				"infected": _infected(part),
 			})
 
-	# The picked part last but for the marks: lifted over its neighbours and ringed in amber, two
-	# screen pixels out on its own silhouette -- the armour stroke's trick in the selection colour.
+	# The picked part last but for the marks: lifted over its neighbours and ringed in amber, one of
+	# the figure's own pixels out on its silhouette -- the armour stroke's trick in the selection
+	# colour, stepped by the chart's scale so the ring sits on the figure's grid at 2x and at 3x.
 	if not selected_part.is_empty() and DRAW_ORDER.has(selected_part):
 		var sel_tex: Texture2D = Appearance.resolve(Appearance.chart_key(selected_part, pose))
 		if sel_tex != null:
 			var ring: Texture2D = _armor_mask(sel_tex)
-			for step in [Vector2(-2.0, 0.0), Vector2(2.0, 0.0), Vector2(0.0, -2.0), Vector2(0.0, 2.0)]:
+			for step in [Vector2(-scale, 0.0), Vector2(scale, 0.0), Vector2(0.0, -scale), Vector2(0.0, scale)]:
 				draw_texture_rect(ring, Rect2(rect.position + (step as Vector2), rect.size), false, SELECT_COL)
 			draw_texture_rect(sel_tex, rect, false, _tint_for(selected_part))
 
@@ -299,4 +308,4 @@ func _draw() -> void:
 	var label: String = SimStances.name_of(stance) if stance >= 0 and stance < SimStances.NAMES.size() else "walking"
 	var font: Font = Chrome.font()
 	var lw: float = font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, Chrome.FONT_SIZE).x
-	draw_string(font, Vector2(roundf(size.x / 2.0 - lw / 2.0), size.y - 6.0 + corner_shift), label, HORIZONTAL_ALIGNMENT_LEFT, -1, Chrome.FONT_SIZE, Palette.COLOURS["outline"])
+	draw_string(font, Vector2(roundf(size.x / 2.0 - lw / 2.0), size.y - 6.0 + corner_shift), label, HORIZONTAL_ALIGNMENT_LEFT, -1, Chrome.FONT_SIZE, Locker.TEXT_DIM if framed else Palette.COLOURS["outline"])

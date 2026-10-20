@@ -1425,6 +1425,7 @@ func _plate_point(panel: Control, item: int) -> Variant:
 #             and "stop" pushes treat.cancel. A press on the pane's header pushes nothing.
 #   SUPPLY    with a cloth bandage in the pockets, "dress it" becomes a button.
 #   WORDS     every word the pane draws for the part is digit-free.
+#   FIT       a refusal wraps to fit a narrow pane and keeps its whole reason; a wide pane keeps it on one line.
 #   ESCAPE    Escape's first press puts the part down and leaves the sheet open.
 func _a_picked_part_offers_only_legal_care() -> bool:
 	var w: Variant = _world(4242)
@@ -1506,6 +1507,22 @@ func _a_picked_part_offers_only_legal_care() -> bool:
 	for line in lines:
 		if digit.search(line) != null:
 			push_error("CARE: WORDS the pane writes a digit: %s" % line)
+			ok = false
+	# FIT: a refusal is never cut. In the compact pane's width each line fits whole and the reason is
+	# all there; in a pane wide enough it stays one line (the negative: the wrap is not unconditional).
+	var font_c: Font = load("res://ui/chrome.gd").call("font") as Font
+	for r in words.get("refused", []) as Array:
+		var narrow: Array[String] = CarePane.refusal_lines(r as Dictionary, 300.0)
+		var why: String = String(CarePane.REASON_WORDS.get(String((r as Dictionary)["reason"]), ""))
+		for line in narrow:
+			if font_c.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, CarePane.BODY_TEXT).x > 300.0:
+				push_error("CARE: FIT the refusal line '%s' is wider than a 300 px pane" % line)
+				ok = false
+		if not "".join(narrow).contains(why):
+			push_error("CARE: FIT the narrow refusal %s lost its reason '%s'" % [str(narrow), why])
+			ok = false
+		if CarePane.refusal_lines(r as Dictionary, 2000.0).size() != 1:
+			push_error("CARE: FIT a refusal wraps even in a 2000 px pane")
 			ok = false
 	if digit.search("hold pressure 3") == null:
 		push_error("CARE: WORDS the digit scanner cannot fail")

@@ -586,8 +586,7 @@ func _ensure_ui() -> void:
 		_web_panel = web_script.new() as Control
 		_web_panel.name = "WebPanel"
 		_web_panel.visible = false
-		_web_panel.position = Vector2(300, 120)
-		_web_panel.size = Vector2(1040, 760)
+		_web_panel.size = Vector2(_web_panel.get_script().get("NATURAL"))
 		layer.add_child(_web_panel)
 	# The navigation bar, after the two screens it heads so it draws over both, and sized to the
 	# bar alone so it never takes a click meant for the screen under it.
@@ -613,6 +612,7 @@ func _ensure_ui() -> void:
 		# Above the quick strip, which owns the bottom of the screen now. The doll is 128 x 346 and
 		# the strip is 92 tall inside a 24 margin, so the glimpse stops at 124 from the bottom.
 		_paperdoll.offset_left = 16; _paperdoll.offset_top = -470; _paperdoll.offset_right = 144; _paperdoll.offset_bottom = -124
+		_paperdoll.set("framed", true)
 		layer.add_child(_paperdoll)
 	# The driver's dashboard, bottom centre: visible only while the player is at a wheel, fed by
 	# SimVehicles.dash_view in _update_hud. The one gauge on screen, and the car's, not the
@@ -715,6 +715,8 @@ func _set_web_open(open: bool) -> void:
 	if _web_panel == null:
 		return
 	_web_panel.visible = open
+	if open:
+		_place_web()
 	if open and _web_panel.has_method("set_world") and world != null:
 		_web_panel.call("set_world", world, _who())
 	if open and _legend != null:
@@ -786,6 +788,8 @@ func _sync_nav() -> void:
 	if _nav_bar == null:
 		return
 	_nav_bar.visible = up == "colony" or up == "skills"
+	if up == "skills":
+		_place_web()
 	if _nav_wash != null:
 		_nav_wash.visible = _nav_bar.visible
 		_nav_wash.queue_redraw()
@@ -793,6 +797,33 @@ func _sync_nav() -> void:
 		return
 	var who: int = _who() if up == "skills" else -1
 	_nav_bar.call("show_for", up, _name_for(who), who == int(world.player))
+	# A colonist picked on the street while Skills is up: the web follows the bar to them, so the
+	# name on the bar and the map under it are always the same person.
+	if up == "skills" and _web_panel != null and int(_web_panel.get("_who")) != who:
+		_web_panel.call("set_world", world, who)
+
+
+# The web under the bar, centred in the room left below it, and made shorter where the window is
+# smaller than the web's natural size -- at 1280x720 its far nodes, a region word and its footer
+# were past the window's edge and could not be clicked. The web inside shrinks with the panel
+# (`web_panel.gd`'s `_side`); the words do not. A stopgap: the second UI overhaul bullet reflows the
+# web itself. Positioned on the art-pixel grid.
+func _place_web() -> void:
+	if _web_panel == null:
+		return
+	var view: Vector2 = get_viewport().get_visible_rect().size
+	var natural: Vector2 = Vector2(_web_panel.get_script().get("NATURAL"))
+	var top: float = 16.0 + 48.0 + 16.0
+	if _nav_bar != null:
+		var bar: Rect2 = _nav_bar.get_script().call("rect_for", view) as Rect2
+		top = bar.end.y + 16.0
+	var room := Vector2(view.x - 32.0, view.y - top - 16.0)
+	var fit := Vector2(floorf(minf(natural.x, room.x) / 2.0) * 2.0, floorf(minf(natural.y, room.y) / 2.0) * 2.0)
+	if _web_panel.size != fit:
+		_web_panel.size = fit
+		_web_panel.queue_redraw()
+	var at: Vector2 = Vector2(16.0, top) + (room - fit) / 2.0
+	_web_panel.position = Vector2(maxf(16.0, floorf(at.x / 2.0) * 2.0), maxf(top, floorf(at.y / 2.0) * 2.0))
 
 
 # A person's name for the bar: "" for nobody, and for a survivor the roster never named -- the bar's
