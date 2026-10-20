@@ -482,6 +482,9 @@ static func _read_authored() -> void:
 				"pace": float((entry as Dictionary).get("pace", 0.0)),
 				"breath_fps": float((entry as Dictionary).get("breath_fps", 0.0)),
 				"rides": String((entry as Dictionary).get("rides", "")),
+				"actions": (entry as Dictionary).get("actions", {}) if (entry as Dictionary).get("actions", {}) is Dictionary else {},
+				# action_frames' memo, "action|view" -> count: the members never change after this read.
+				"counts": {},
 			}
 			# Per-frame placement (docs/23, "Frames on the render clock"): where each member's head
 			# and torso sit against its view's rest picture, and where its hands are. Read off each
@@ -1113,14 +1116,176 @@ static func breath_fps(key: String) -> float:
 const STILL: Dictionary = {"walking": false, "cycle": 0.0, "idle": 0.0}
 
 
+# --- actions: what a body does besides walk and breathe ----------------------------------------
+#
+# docs/23, "Actions on the render clock" (alpha plan A8). A family's action frames are members
+# named `<key>_<action>_<view>_<n>`, written by godot/art/simplyzombies/motion/build_motion.py, and
+# its `actions` block in authored.json says how fast each plays and whether it loops. The animation
+# clock (presentation/anim_clock.gd) says which action a body is in and for how long -- from the
+# sim's own published events and components, never a guess -- and `frame_key` answers the member.
+
+# The actions a body lies down for: drawn only from the two side views (a body flat on the ground
+# lies across the screen), and carrying no worn or held layer, whose pictures are all upright.
+const LYING_ACTIONS: Array[String] = ["prone"]
+# The stance poses, which step on the walk's stride while the body moves and hold frame 0 while it
+# stands: the crouch has its own still picture and its own walk, the crawl one cycle for both.
+const STANCE_WALK: Dictionary = {"crouch": "crouchwalk", "prone": "prone"}
+
+
+# How many frames `action` has in `view` for `key`: the run `<key>_<action>_<view>_0`, `_1`, ...
+# counted until one is missing. Zero for a family that does not carry it.
+static func action_frames(key: String, action: String, view: String) -> int:
+	if not turns(key) or action.is_empty():
+		return 0
+	var family: Dictionary = _families[key] as Dictionary
+	var memo: Dictionary = family["counts"] as Dictionary
+	var slot: String = action + "|" + view
+	if memo.has(slot):
+		return int(memo[slot])
+	var members: Array = family["members"] as Array
+	var n: int = 0
+	while members.has("%s_%s_%s_%d" % [key, action, view, n]):
+		n += 1
+	memo[slot] = n
+	return n
+
+
+# Whether `frame` is one of `key`'s action pictures (`<key>_<action>_<view>_<i>` for an action its
+# `actions` block declares), as against its rest, walk and breath pictures.
+static func is_action_frame(key: String, frame: String) -> bool:
+	_read_authored()
+	if not _families.has(key):
+		return false
+	for action in ((_families[key] as Dictionary)["actions"] as Dictionary).keys():
+		if frame.begins_with("%s_%s_" % [key, String(action)]):
+			return true
+	return false
+
+
+# The action's rate (frames a second of presentation time) and whether it loops, from the family's
+# `actions` block. 0.0 / false for an action the family does not declare.
+static func action_fps(key: String, action: String) -> float:
+	_read_authored()
+	if not _families.has(key):
+		return 0.0
+	var spec: Variant = ((_families[key] as Dictionary)["actions"] as Dictionary).get(action)
+	return float((spec as Dictionary).get("fps", 0.0)) if spec is Dictionary else 0.0
+
+
+static func action_loops(key: String, action: String) -> bool:
+	_read_authored()
+	if not _families.has(key):
+		return false
+	var spec: Variant = ((_families[key] as Dictionary)["actions"] as Dictionary).get(action)
+	return bool((spec as Dictionary).get("loop", false)) if spec is Dictionary else false
+
+
+# The view a lying action is drawn from: the body's own side view, or for a body facing the camera
+# or away from it, the side it last lay toward (`lie`, the clock's memory; east when it has none).
+static func lying_view(view: String, lie: String) -> String:
+	if view == "e" or view == "w":
+		return view
+	return lie if lie == "e" or lie == "w" else "e"
+
+
+# The frame of a one-shot or looping action `elapsed` seconds in: `start` frames in, at the
+# family's rate, never past `hold` (a wind-up waiting on the sim) when hold is not negative -- a hold
+# past the last frame holds the last frame (a reload back at its stance while the sim still
+# reloads). -1 once a one-shot has played through, so the caller falls back to the walk; a loop wraps.
+static func action_index(key: String, action: String, view: String, elapsed: float, start: int = 0, hold: int = -1) -> int:
+	var frames: int = action_frames(key, action, view)
+	var fps: float = action_fps(key, action)
+	if frames <= 0 or fps <= 0.0:
+		return -1
+	var idx: int = start + int(floor(maxf(0.0, elapsed) * fps))
+	if hold >= 0:
+		idx = mini(idx, mini(hold, frames - 1))
+	if action_loops(key, action):
+		return posmod(idx, frames)
+	return idx if idx < frames else -1
+
+
+# The reload a body plays: the long gun's (`reload_long`, the magazine in the well forward of the
+# grip and the off hand on the fore-end) when the weapon in its primary hand is drawn at least
+# LONG_HELD_PX wide -- the rifle and the crossbow -- and the pistol's otherwise (the pistols, the
+# revolver, the compact SMG, the bow, and empty hands). Read off the held picture, since how long
+# the weapon looks is most of what the choice is about. A long gun that takes shells (TUBE_CALIBERS,
+# the pump shotgun) is tube-fed and has no magazine to drop: it plays `reload_tube`, shells thumbed
+# into the loading port and one rack.
+const LONG_HELD_PX: int = 48
+const TUBE_CALIBERS: Array[String] = ["12g"]
+
+
+static func reload_action(world: Variant, actor: int) -> String:
+	if world == null or world.components == null:
+		return "reload"
+	var eq: Variant = world.components.get_component(actor, "equipment")
+	if not (eq is Dictionary):
+		return "reload"
+	var entry: Variant = _equip_entry_for(world, ((eq as Dictionary).get("slots", {}) as Dictionary).get("primary"))
+	if not (entry is Dictionary) or not ((entry as Dictionary).get("appearance") is Dictionary):
+		return "reload"
+	var key: String = String(((entry as Dictionary)["appearance"] as Dictionary).get("equipSprite", ""))
+	if not (holds(key) and canvas_of(key).x >= LONG_HELD_PX):
+		return "reload"
+	var ranged: Variant = (entry as Dictionary).get("ranged")
+	if ranged is Dictionary and TUBE_CALIBERS.has(String((ranged as Dictionary).get("caliber", ""))):
+		return "reload_tube"
+	return "reload_long"
+
+
+# Whether body frame `member` is a lying one (contract: it carries no worn or held layer).
+static func is_lying_frame(family: String, member: String) -> bool:
+	var suffix: String = frame_suffix(family, member)
+	for action in LYING_ACTIONS:
+		if suffix.begins_with(action + "_"):
+			return true
+	return false
+
+
+# The member a body in an action shows, or "" when the motion names none, the family does not
+# carry it, or a one-shot has played through. `motion` is the clock's: `action` (a one-shot or a
+# loop, with `t` seconds in, optional `start` and `hold`) and `stance` ("crouch", "prone" or "")
+# beside the walk's own `walking` and `cycle`. A one-shot wins over a stance, except that a body
+# lying down plays nothing upright; a stance steps on the walk's stride.
+static func action_key(key: String, view: String, motion: Dictionary) -> String:
+	var stance: String = String(motion.get("stance", ""))
+	var action: String = String(motion.get("action", ""))
+	if not action.is_empty() and not LYING_ACTIONS.has(stance):
+		var idx: int = action_index(key, action, view, float(motion.get("t", 0.0)), int(motion.get("start", 0)), int(motion.get("hold", -1)))
+		if idx >= 0:
+			return "%s_%s_%s_%d" % [key, action, view, idx]
+	if STANCE_WALK.has(stance):
+		var v: String = lying_view(view, String(motion.get("lie", ""))) if LYING_ACTIONS.has(stance) else view
+		if bool(motion.get("walking", false)):
+			var walk: String = String(STANCE_WALK[stance])
+			var frames: int = action_frames(key, walk, v)
+			if frames > 0:
+				return "%s_%s_%s_%d" % [key, walk, v, AnimClock.frame_at(float(motion.get("cycle", 0.0)), frames)]
+		if action_frames(key, stance, v) > 0:
+			return "%s_%s_%s_0" % [key, stance, v]
+	return ""
+
+
+# The fall a dying body plays before its settled picture: the member `elapsed` seconds in, or ""
+# once it has played through (or for a family with no fall), when the corpse picture takes over.
+static func fall_key(key: String, view: String, elapsed: float) -> String:
+	var idx: int = action_index(key, "fall", view, elapsed)
+	return "" if idx < 0 else "%s_fall_%s_%d" % [key, view, idx]
+
+
 # The one picture a body draws: the member of its family for this view and this motion, or the key
 # itself for anything that does not turn (no shipped body since 2026-10-19). `motion` is the
 # animation clock's answer for the body (presentation/anim_clock.gd): walking, where it is in its
-# stride (0 to 1), and how long it has stood. A walking body shows the frame its stride has reached;
-# a standing one breathes, frame 0 of the breath being the rest view itself.
+# stride (0 to 1), and how long it has stood, and -- since the action frames -- the action or stance
+# it is in, which `action_key` answers first. A walking body shows the frame its stride has
+# reached; a standing one breathes, frame 0 of the breath being the rest view itself.
 static func frame_key(key: String, view: String, motion: Dictionary) -> String:
 	if not turns(key):
 		return key
+	var acting: String = action_key(key, view, motion)
+	if not acting.is_empty():
+		return acting
 	if bool(motion.get("walking", false)):
 		var frames: int = walk_frames(key)
 		if frames > 0:
@@ -1158,7 +1323,10 @@ static func body_texture(look: Dictionary, view: String, motion: Dictionary) -> 
 	var frame: String = frame_key(key, view, motion)
 	if frame != key:
 		var outfit: Variant = look.get("outfit", [])
-		if outfit is Array and not (outfit as Array).is_empty():
+		# No garment is painted on an action picture yet (A8's swing, recoil, reloads, flinch, crouch,
+		# crawl and fall), so a body acts in the rig's own underwear rather than asking for garment
+		# members that do not exist: docs/23 what's left, "Clothes on the action frames".
+		if outfit is Array and not (outfit as Array).is_empty() and not is_action_frame(key, frame):
 			var dressed: Texture2D = dressed_texture(key, frame, outfit as Array)
 			if dressed != null:
 				return dressed
@@ -1349,6 +1517,12 @@ const HELD_BEHIND: Dictionary = {
 	"primary": ["n"],
 	"secondary": ["e", "w", "n"],
 }
+# The views in which a weapon the body is *wielding* -- the item its live ranged or melee profile
+# was built from (`wielded_items`) -- comes round in front of it whichever hand holds it: seen from
+# either side it is raised across the chest toward the aim, so the far hand's sidearm you are firing
+# is no longer the half-hidden one. Seen from behind it is still beyond the body. A weapon carried
+# but not wielded keeps its hand's side (`HELD_BEHIND`).
+const WIELDED_OVER: Array[String] = ["e", "w"]
 
 
 # --- per-frame placement: the layer contract ------------------------------------------------
@@ -1492,10 +1666,67 @@ static func held_layer(key: String, slot: String, view: String, frame: String = 
 	var texture: Texture2D = resolve(key)
 	if texture == null:
 		return {}
-	var pose: Dictionary = held_pose(Vector2i(texture.get_size()), grip_of(key), frame_hand(frame, slot, view), view)
+	var hand: Vector2i = frame_hand(frame, slot, view)
+	var pose: Dictionary = held_pose(Vector2i(texture.get_size()), grip_of(key), hand, view)
 	pose["texture"] = texture
 	pose["over"] = not (HELD_BEHIND.get(slot, []) as Array).has(view)
+	# What `held_quad` turns the picture about, and which of the four placements it starts from.
+	pose["hand"] = hand
+	pose["view"] = view
 	return pose
+
+
+# --- the weapon turned to the aim -------------------------------------------------------------
+#
+# "Weapon aim" (alpha plan A9; the owner's 2026-10-19 answer to Q3: the cursor is the aimer, the
+# weapon points at it and the body follows, Project Zomboid's way). The body keeps its four views
+# and shows the one its aim falls in (`view_of`); the held weapon is placed for that view exactly as
+# `held_pose` places it -- grip on the hand, barrel the view's way, mirrored only facing west -- and
+# then turned about the hand by what is left over (`held_turn`, never more than an eighth of a turn
+# either way), so the barrel points along the aim itself rather than along the nearest axis. The
+# turn is the four corners of the painted picture rotated about the hand pixel's centre and drawn as
+# one textured polygon (`held_quad`): no transform, the entity loop still holds none.
+
+# The heading each view's placement points the barrel along, screen radians (y down).
+const VIEW_RADIANS: Dictionary = {"e": 0.0, "s": PI / 2.0, "w": PI, "n": -PI / 2.0}
+
+
+# What is left of an aim once its view has turned the weapon: the signed angle from the view's own
+# heading to `radians`. Within an eighth of a turn either way whenever `view` is `view_of(radians)`.
+static func held_turn(view: String, radians: float) -> float:
+	return angle_difference(float(VIEW_RADIANS.get(view, 0.0)), radians)
+
+
+# A held layer's picture as one polygon: `points` the four corners of its painted area in
+# body-canvas pixels, turned `turn` radians about the centre of the hand pixel and slid `slide`
+# body pixels along the turned barrel (the shot's kick, negative to push it back), and `uvs` the
+# picture's own corners in the same order. At no turn and no slide the corners are exactly the rect
+# `held_pose` paints, so the four placements check_worn's HELD lane holds every weapon to are
+# unchanged.
+static func held_quad(layer: Dictionary, tex_size: Vector2i, turn: float, slide: float = 0.0) -> Dictionary:
+	var w: float = float(tex_size.x)
+	var h: float = float(tex_size.y)
+	var at := Vector2(layer["at"] as Vector2i)
+	var view: String = String(layer.get("view", "e"))
+	var uvs := PackedVector2Array([Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)])
+	var pivot: Vector2 = Vector2(layer.get("hand", Vector2i.ZERO) as Vector2i) + Vector2(0.5, 0.5)
+	var barrel: Vector2 = Vector2.RIGHT.rotated(float(VIEW_RADIANS.get(view, 0.0)) + turn)
+	var points := PackedVector2Array()
+	for uv in uvs:
+		var u: float = uv.x * w
+		var v: float = uv.y * h
+		var painted: Vector2
+		match view:
+			"w":
+				painted = at + Vector2(w - u, v)
+			"s":
+				painted = at + Vector2(h - v, u)
+			"n":
+				painted = at + Vector2(v, w - u)
+			_:
+				painted = at + Vector2(u, v)
+		points.append(pivot + (painted - pivot).rotated(turn) + barrel * slide)
+	return {"points": points, "uvs": uvs}
 
 
 # The props that stand in a district, as component -> content id.
@@ -1705,10 +1936,14 @@ static func equipment_layers_for(world: Variant, actor: int, view: String = VIEW
 	var out: Array[Dictionary] = []
 	if world == null or world.components == null:
 		return out
+	# A body lying flat carries nothing drawn: every worn and held picture is upright.
+	if not frame.is_empty() and is_lying_frame(family, frame):
+		return out
 	var eq: Variant = world.components.get_component(actor, "equipment")
 	if not (eq is Dictionary):
 		return out
 	var slots: Dictionary = (eq as Dictionary).get("slots", {}) as Dictionary
+	var wielded: Array[int] = wielded_items(world, actor)
 	for entry in EQUIP_DRAW_ORDER:
 		var slot: String = String(entry["slot"])
 		var block: Variant = _equip_block_for(world, slots.get(slot))
@@ -1738,14 +1973,37 @@ static func equipment_layers_for(world: Variant, actor: int, view: String = VIEW
 		elif holds(key):
 			var held: Dictionary = held_layer(key, slot, view, frame)
 			if not held.is_empty():
-				held["over"] = bool(held["over"]) and bool(entry["over"])
+				var raised: bool = WIELDED_OVER.has(view) and slots.get(slot) != null and wielded.has(int(slots[slot]))
+				held["over"] = (bool(held["over"]) or raised) and bool(entry["over"])
 				out.append(held)
+	return out
+
+
+# The items `actor` is wielding: the `source` its live `rangedWeapon` and `meleeWeapon` profiles were
+# built from (sim/modules/items.gd stamps it). Bare hands carry none, so they add nothing.
+static func wielded_items(world: Variant, actor: int) -> Array[int]:
+	var out: Array[int] = []
+	for component in ["rangedWeapon", "meleeWeapon"]:
+		var profile: Variant = world.components.get_component(actor, component)
+		if profile is Dictionary and (profile as Dictionary).get("source") != null:
+			var item: int = int((profile as Dictionary)["source"])
+			if item >= 0 and not out.has(item):
+				out.append(item)
 	return out
 
 
 # The appearance block for whatever item base occupies a slot, or null through every exit: no
 # item, no itemBase component, no matching content entry, no declared appearance at all.
 static func _equip_block_for(world: Variant, item: Variant) -> Variant:
+	var entry: Variant = _equip_entry_for(world, item)
+	if not (entry is Dictionary):
+		return null
+	var block: Variant = (entry as Dictionary).get("appearance")
+	return block if block is Dictionary else null
+
+
+# The content entry of an item entity's base, or null.
+static func _equip_entry_for(world: Variant, item: Variant) -> Variant:
 	if item == null:
 		return null
 	var item_base: Variant = world.components.get_component(int(item), "itemBase")
@@ -1755,10 +2013,7 @@ static func _equip_block_for(world: Variant, item: Variant) -> Variant:
 	if base_id.is_empty():
 		return null
 	var entry: Variant = _content_entry(world, "item", base_id)
-	if not (entry is Dictionary):
-		return null
-	var block: Variant = (entry as Dictionary).get("appearance")
-	return block if block is Dictionary else null
+	return entry if entry is Dictionary else null
 
 
 # The rule for what colour multiplies a drawn entity, named so it can be asserted without

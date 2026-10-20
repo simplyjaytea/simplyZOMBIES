@@ -41,8 +41,22 @@ extends SceneTree
 #   FLAME    a lit campfire the player sees draws its flame, looping on the presentation clock; an
 #            unlit one, and a lit one the player does not see, draw none.
 #   DRAWN    the dead-socket lane, executing: the real scene boots, and one frame of `main.gd`'s
-#            `_draw` blits every sheet this slice declares; a frame with nothing live blits no
-#            one-shot. And `_process` feeds the drained events and the clock, read out of its body.
+#            `_draw` blits every sheet this slice declares -- the pistol flash turned to an aim off
+#            the axis, through the polygon path -- and a struck player draws the white flash; a frame
+#            with nothing live blits no one-shot and whitens nothing. And `_process` feeds the
+#            drained events and the clock, read out of its body.
+#   FELT     the blow is felt (alpha plan A9): a blow on a seen body flashes it white and jolts its
+#            picture straight away from whoever struck it, both fading to nothing on their own
+#            clocks; a real shot kicks the shooter's weapon back and lets it settle; a graze and a
+#            killing blow flash and jolt identically, and `_felt` reads nothing about the blow. The
+#            draw loop reads the flash, the jolt and the kick. TN: an unseen blow and an unseen shot
+#            start none of the three, a blow with nobody behind it flashes without a jolt, the
+#            identical-jolt comparison says no to a blow from the other side, and a draw loop that
+#            drops any of the three readers is refused.
+#   TURNED   a shot from a weapon turned to an aim off the axis starts its flash at the muzzle as
+#            placed for the aim's view, turned about the hand by what is left of the aim, and draws
+#            it as a polygon whose anchor pixel lands on the turned muzzle; a shot on the axis keeps
+#            the plain rect. TN: the anchor judged against the unturned muzzle is refused.
 
 const World = preload("res://sim/world.gd")
 const SimBoot = preload("res://sim/boot.gd")
@@ -111,10 +125,12 @@ func _run() -> void:
 	ok = _blood_never_varies_with_the_blow() and ok
 	ok = _every_body_kind_bleeds_the_same_sheet() and ok
 	ok = _a_seen_lit_fire_burns() and ok
+	ok = _the_blow_is_felt() and ok
+	ok = _a_turned_shot_flashes_at_the_turned_muzzle() and ok
 	var drawn: bool = await _the_draw_loop_blits_every_sheet()
 	ok = drawn and ok
 	if ok:
-		print("FX_OK every sheet is the pack's own at the manifest's rate and no pack .tres is loaded, only the effects with an impact point are admitted, every sheet is read by content, every effect field is well formed on its own kind, a real shot starts a flash at the muzzle and a casing while a bow starts neither, nothing the player does not see is drawn, blood never varies with the blow, every body kind bleeds the one sheet, a seen lit fire burns and nothing else does, and main.gd's draw loop blits every sheet")
+		print("FX_OK every sheet is the pack's own at the manifest's rate and no pack .tres is loaded, only the effects with an impact point are admitted, every sheet is read by content, every effect field is well formed on its own kind, a real shot starts a flash at the muzzle and a casing while a bow starts neither, nothing the player does not see is drawn, blood never varies with the blow, every body kind bleeds the one sheet, a seen lit fire burns and nothing else does, a seen blow flashes and jolts the struck body and a shot kicks the weapon alike for every blow, a turned shot flashes at the turned muzzle, and main.gd's draw loop blits every sheet and the hit flash")
 		quit(0)
 	else:
 		push_error("FX_FAIL")
@@ -849,16 +865,235 @@ func _the_draw_loop_blits_every_sheet() -> bool:
 	var p: Dictionary = world.components.get_component(world.player, "position") as Dictionary
 	for key in ["fx_pistol_muzzle", "fx_rifle_muzzle", "fx_shotgun_muzzle", "fx_ejected_casing", "fx_blood_hit"]:
 		var glow: bool = key.ends_with("_muzzle")
-		fx.call("_start", {"key": key, "x": float(p["x"]), "y": float(p["y"]), "view": "e", "point": FxLook.HIT_AT, "turn": glow, "glow": glow})
+		# The flashes turned off the axis, so the polygon path is the one that blits them.
+		fx.call("_start", {"key": key, "x": float(p["x"]), "y": float(p["y"]), "view": "e", "point": FxLook.HIT_AT, "turn": glow, "glow": glow,
+				"pivot": FxLook.HIT_AT, "spin": 0.4 if glow else 0.0})
 	SimNeeds.make_campfire(world, float(p["x"]), float(p["y"]), true)
+	var whitened_before: int = (main.get("_white") as Dictionary).size()
+	(fx.get("struck") as Array).append({"e": int(world.player), "born": float(fx.get("clock")), "dir": Vector2.RIGHT})
 	world.step()
 	var drawn: Array = await _redraw(main)
+	var whitened: int = (main.get("_white") as Dictionary).size()
 	main.queue_free()
 	await process_frame
+	if whitened_before != 0 or whitened == 0:
+		push_error("DRAWN: the struck player whitened %d picture(s) (%d before the blow); the hit flash never reached the draw" % [whitened, whitened_before])
+		return false
 	var want: Array = ADMITTED.keys()
 	want.sort()
 	if drawn != want:
 		push_error("DRAWN: one frame of main.gd's _draw blitted %s, not every sheet %s" % [str(drawn), str(want)])
 		return false
-	print("DRAWN OK _process feeds FxLook the drained events and the frame's delta, _draw draws the effects both sides of the night, one frame of the real scene blitted all %d sheets %s, and a frame with nothing live blitted no one-shot" % [drawn.size(), str(drawn)])
+	print("DRAWN OK _process feeds FxLook the drained events and the frame's delta, _draw draws the effects both sides of the night, one frame of the real scene blitted all %d sheets %s (the flashes turned, as polygons), a struck player drew the white flash, and a frame with nothing live blitted no one-shot and whitened nothing" % [drawn.size(), str(drawn)])
 	return true
+
+
+# --- FELT ---------------------------------------------------------------------------------
+
+func _felt_of(w: Variant, events: Array, after: float) -> Array:
+	var fx: RefCounted = FxLook.new()
+	fx.call("advance", 0.1)
+	fx.call("from_events", w, events)
+	fx.call("advance", after)
+	return [fx, (fx.get("struck") as Array).duplicate()]
+
+
+func _felt_readers_complaint(draw: String) -> String:
+	for needle in ["_fx.call(\"knock\", eid)", "_fx.call(\"hit_flash\", eid)", "_fx.call(\"kick\", eid)", "_blit_flash(body_at, texture, equip, flash * col.a)"]:
+		if not draw.contains(String(needle)):
+			return "_draw_entities does not contain %s" % String(needle)
+	return ""
+
+
+func _the_blow_is_felt() -> bool:
+	var w: Variant = _world()
+	var focal: Vector2 = _spot(w, SimVisibility.Detail.Focal, 4.0)
+	var behind: Vector2 = _spot(w, SimVisibility.Detail.Unseen, 4.0)
+	if focal == Vector2.INF or behind == Vector2.INF:
+		push_error("FELT: the fixture has no Focal or Unseen spot; nothing to judge")
+		return false
+	var z: int = _shambler_at(w, focal)
+	var p: Dictionary = w.components.get_component(w.player, "position") as Dictionary
+	var away: Vector2 = (focal - Vector2(float(p["x"]), float(p["y"]))).normalized()
+	var graze: Array = [{"type": "attack.connected", "attacker": w.player, "target": z, "bodyPart": "leftArm", "damage": 0.5}]
+	var kill: Array = [{"type": "attack.connected", "attacker": w.player, "target": z, "bodyPart": "head", "damage": 400.0, "item": 7}]
+
+	# The flash at full and the jolt at full the instant the blow lands, straight away from the striker.
+	var fx: RefCounted = FxLook.new()
+	fx.call("from_events", w, graze)
+	var flash0: float = float(fx.call("hit_flash", z))
+	var knock0: Vector2 = fx.call("knock", z) as Vector2
+	if not is_equal_approx(flash0, 1.0) or knock0.distance_to(away * FxLook.KNOCK_ART_PX) > 1e-4:
+		push_error("FELT: a seen blow flashed %.3f and jolted %s; want 1.0 and %s, away from the striker" % [flash0, str(knock0), str(away * FxLook.KNOCK_ART_PX)])
+		return false
+	fx.call("advance", FxLook.HIT_FLASH_SECONDS * 0.5)
+	var flash_half: float = float(fx.call("hit_flash", z))
+	var knock_half: Vector2 = fx.call("knock", z) as Vector2
+	if not (flash_half > 0.0 and flash_half < 1.0) or not (knock_half.length() > 0.0 and knock_half.length() < FxLook.KNOCK_ART_PX) or knock_half.dot(away) <= 0.0:
+		push_error("FELT: halfway through, the flash was %.3f and the jolt %s; both should be fading, still away from the striker" % [flash_half, str(knock_half)])
+		return false
+	fx.call("advance", maxf(FxLook.HIT_FLASH_SECONDS, FxLook.KNOCK_SECONDS))
+	if float(fx.call("hit_flash", z)) != 0.0 or (fx.call("knock", z) as Vector2) != Vector2.ZERO or not (fx.get("struck") as Array).is_empty():
+		push_error("FELT: the flash and the jolt did not settle to nothing, or their record was not let go")
+		return false
+
+	# Alike for every blow: a graze and a killing blow, sampled at the same moment, are identical.
+	for at in [0.0, 0.05]:
+		var a: RefCounted = _felt_of(w, graze, at)[0] as RefCounted
+		var b: RefCounted = _felt_of(w, kill, at)[0] as RefCounted
+		if float(a.call("hit_flash", z)) != float(b.call("hit_flash", z)) or (a.call("knock", z) as Vector2) != (b.call("knock", z) as Vector2):
+			push_error("FELT: a graze and a killing blow were felt differently %.2f s in" % at)
+			return false
+	# TN for that comparison: a blow from the other side jolts the other way.
+	var other: int = int(w.entities.spawn())
+	w.components.set_component(other, "position", {"x": focal.x + away.x * 2.0, "y": focal.y + away.y * 2.0})
+	var from_far: RefCounted = _felt_of(w, [{"type": "attack.connected", "attacker": other, "target": z, "bodyPart": "leftArm", "damage": 0.5}], 0.0)[0] as RefCounted
+	if (from_far.call("knock", z) as Vector2) == (_felt_of(w, graze, 0.0)[0] as RefCounted).call("knock", z):
+		push_error("FELT: a blow from the far side jolted the same way; the comparison cannot say no")
+		return false
+	# A blow with nobody behind it -- a bite whose source is gone -- flashes without a jolt.
+	var sourceless: RefCounted = _felt_of(w, [{"type": "bite.landed", "victim": z, "source": -1, "bodyPart": "torso", "damage": 25.0}], 0.0)[0] as RefCounted
+	if float(sourceless.call("hit_flash", z)) <= 0.0 or (sourceless.call("knock", z) as Vector2) != Vector2.ZERO:
+		push_error("FELT: a bite with no source flashed %.2f and jolted %s; want a flash and no jolt" % [float(sourceless.call("hit_flash", z)), str(sourceless.call("knock", z))])
+		return false
+	# `_felt` reads nothing about the blow -- the same scan SAME holds `_hit` to, minus the striker,
+	# whose place is the direction and nothing more.
+	var felt_body: String = _function_body(FX_GD, "_felt")
+	if felt_body.is_empty() or felt_body.contains("\"damage\"") or felt_body.contains("\"bodyPart\"") or felt_body.contains("\"item\""):
+		push_error("FELT: fx_look.gd's _felt is missing or reads the blow's damage, part or weapon")
+		return false
+
+	# Unseen: a blow and a shot behind the player start nothing at all.
+	_move(w, z, behind)
+	var pistol: int = SimItems.spawn_item(w, "item.pistol.service", {"tier": "scavenged"})
+	var unseen: RefCounted = FxLook.new()
+	unseen.call("from_events", w, graze + [{"type": "weapon.fired", "entity": z, "item": pistol}])
+	if not (unseen.get("struck") as Array).is_empty() or not (unseen.get("kicks") as Array).is_empty():
+		push_error("FELT: a blow and a shot behind the player started a flash, a jolt or a kick")
+		return false
+
+	# The kick: a real pistol shot through the real sim kicks the player's weapon back, and it settles.
+	var sw: Variant = _world()
+	var gun: int = SimItems.spawn_item(sw, "item.pistol.service", {"tier": "scavenged"})
+	SimInventory.equip(sw, sw.player, gun)
+	SimInventory.stow(sw, sw.player, SimItems.spawn_item(sw, "item.ammo.9mm", {"tier": "scavenged", "count": 20}))
+	sw.events.drain()
+	var kfx: RefCounted = FxLook.new()
+	if float(kfx.call("kick", sw.player)) != 0.0:
+		push_error("FELT: a weapon kicked before anything fired")
+		return false
+	_fire(sw, kfx)
+	if not is_equal_approx(float(kfx.call("kick", sw.player)), 1.0):
+		push_error("FELT: a real shot kicked the weapon %.3f, want 1.0" % float(kfx.call("kick", sw.player)))
+		return false
+	kfx.call("advance", FxLook.KICK_SECONDS)
+	if float(kfx.call("kick", sw.player)) != 0.0 or not (kfx.get("kicks") as Array).is_empty():
+		push_error("FELT: the kick did not settle")
+		return false
+
+	# The draw loop reads all three -- and each needle can fail.
+	var draw: String = _function_body(MAIN_GD, "_draw_entities")
+	var complaint: String = _felt_readers_complaint(draw)
+	if not complaint.is_empty():
+		push_error("FELT: %s" % complaint)
+		return false
+	for needle in ["_fx.call(\"knock\", eid)", "_fx.call(\"hit_flash\", eid)", "_fx.call(\"kick\", eid)"]:
+		if _felt_readers_complaint(draw.replace(String(needle), "0")).is_empty():
+			push_error("FELT: a draw loop without %s passed" % String(needle))
+			return false
+	print("FELT OK a seen blow flashed the struck body white and jolted it %.0f art px straight away from the striker, both fading to nothing; a graze and a killing blow were felt identically while a blow from the far side jolted the other way; a sourceless bite flashed without a jolt; nothing unseen started anything; a real shot kicked the weapon and it settled; the draw loop reads the flash, the jolt and the kick" % FxLook.KNOCK_ART_PX)
+	return true
+
+
+# --- TURNED -------------------------------------------------------------------------------
+
+func _a_turned_shot_flashes_at_the_turned_muzzle() -> bool:
+	var held: String = "item_held_pistol"
+	var size := Vector2i(Appearance.resolve(held).get_size())
+	var sheet: Dictionary = Appearance.sheet_of("fx_pistol_muzzle")
+	var cases: Array = []
+	for aim in [0.0, 0.5, -0.6, 2.0]:
+		var w: Variant = _world()
+		var pistol: int = SimItems.spawn_item(w, "item.pistol.service", {"tier": "scavenged"})
+		SimInventory.equip(w, w.player, pistol)
+		SimInventory.stow(w, w.player, SimItems.spawn_item(w, "item.ammo.9mm", {"tier": "scavenged", "count": 20}))
+		w.commands.push({"type": "aim", "radians": aim})
+		w.step()
+		w.events.drain()
+		var fx: RefCounted = FxLook.new()
+		_fire(w, fx)
+		var lights: Array = fx.call("draws", w, CAMERA, true)
+		if _keys(lights) != ["fx_pistol_muzzle"]:
+			push_error("TURNED: a shot aimed %.2f drew %s, not the pistol flash" % [aim, str(_keys(lights))])
+			return false
+		var d: Dictionary = lights[0] as Dictionary
+		var view: String = Appearance.view_of(aim)
+		var turn: float = Appearance.held_turn(view, aim)
+		var slot: String = ""
+		for r in fx.get("live") as Array:
+			if String((r as Dictionary)["key"]) == "fx_pistol_muzzle":
+				slot = "primary" if (r as Dictionary)["pivot"] == (Appearance.HELD_HANDS["primary"] as Dictionary)[view] else "secondary"
+		var hand: Vector2i = (Appearance.HELD_HANDS[slot if not slot.is_empty() else "secondary"] as Dictionary)[view] as Vector2i
+		var pose: Dictionary = Appearance.held_pose(size, Appearance.grip_of(held), hand, view)
+		var muzzle: Vector2i = Appearance.held_point(pose, size, Appearance.muzzle_of(held), view)
+		var turned: Vector2 = Vector2(hand) + Vector2(0.5, 0.5) + (Vector2(muzzle) + Vector2(0.5, 0.5) - Vector2(hand) - Vector2(0.5, 0.5)).rotated(turn)
+		if turn == 0.0:
+			if d.has("points"):
+				push_error("TURNED: a shot on the axis drew its flash as a polygon; the plain rect is the path for no turn")
+				return false
+			cases.append("%.1f plain" % aim)
+			continue
+		if not d.has("points"):
+			push_error("TURNED: a shot aimed %.2f (%.2f off view '%s') drew its flash unturned" % [aim, turn, view])
+			return false
+		# Where the sheet's anchor pixel centre lands in the drawn polygon, in body-canvas pixels.
+		var px: float = Appearance.blit_scale(float(CAMERA["zoom"]))
+		var p: Dictionary = w.components.get_component(w.player, "position") as Dictionary
+		var origin: Rect2 = Appearance.body_rect(float(_screen(p)["sx"]), float(_screen(p)["sy"]), Vector2(Appearance.PAWN_CANVAS) * px, 1.0)
+		var pts: PackedVector2Array = d["points"] as PackedVector2Array
+		var canvas: Vector2i = sheet["canvas"] as Vector2i
+		var anchor: Vector2i = sheet["anchor"] as Vector2i
+		var anchor_at: Vector2 = pts[0] + (pts[1] - pts[0]) * ((float(anchor.x) + 0.5) / float(canvas.x)) + (pts[3] - pts[0]) * ((float(anchor.y) + 0.5) / float(canvas.y))
+		var in_body: Vector2 = (anchor_at - origin.position) / px
+		if in_body.distance_to(turned) > 0.01:
+			push_error("TURNED: a shot aimed %.2f put the flash's anchor at %s; the turned muzzle is %s" % [aim, str(in_body), str(turned)])
+			return false
+		# TN: the same anchor judged against the unturned muzzle is refused.
+		if in_body.distance_to(Vector2(muzzle) + Vector2(0.5, 0.5)) <= 0.01:
+			push_error("TURNED: the anchor also sat on the unturned muzzle; the comparison cannot say no")
+			return false
+		cases.append("%.1f turned %.2f on '%s'" % [aim, turn, view])
+	# The hand the walk carried: a shooter last drawn on a walking frame of the view it fires along
+	# flashes from that frame's hand, and one drawn on another view's frame from the rest hand.
+	var member: String = ""
+	for i in 8:
+		var m: String = "body_survivor_walk_e_%d" % i
+		if Appearance.frame_hand(m, "secondary", "e") != (Appearance.HELD_HANDS["secondary"] as Dictionary)["e"]:
+			member = m
+			break
+	if member.is_empty():
+		push_error("TURNED: no east walking frame moves the secondary hand; the frame check has nothing to judge")
+		return false
+	var hands: Array = []
+	for noted in [member, "body_survivor_walk_s_1"]:
+		var fw: Variant = _world()
+		var gun: int = SimItems.spawn_item(fw, "item.pistol.service", {"tier": "scavenged"})
+		SimInventory.equip(fw, fw.player, gun)
+		SimInventory.stow(fw, fw.player, SimItems.spawn_item(fw, "item.ammo.9mm", {"tier": "scavenged", "count": 20}))
+		fw.events.drain()
+		var ffx: RefCounted = FxLook.new()
+		ffx.call("note_frame", int(fw.player), String(noted))
+		_fire(fw, ffx)
+		for r in ffx.get("live") as Array:
+			if String((r as Dictionary)["key"]) == "fx_pistol_muzzle":
+				hands.append((r as Dictionary)["pivot"])
+	if hands.size() != 2 or hands[0] != Appearance.frame_hand(member, "secondary", "e") or hands[1] != (Appearance.HELD_HANDS["secondary"] as Dictionary)["e"]:
+		push_error("TURNED: flashes pivoted on %s; want %s's own hand %s, then the rest hand for a frame of another view" % [str(hands), member, str(Appearance.frame_hand(member, "secondary", "e"))])
+		return false
+	print("TURNED OK a pistol flash's anchor landed on the muzzle turned about the hand for every aim off the axis, and the axis shot kept the plain rect (%s); the unturned muzzle was refused each time; a shooter drawn on %s flashed from that frame's hand, one drawn on a south frame from the rest hand" % [", ".join(cases), member])
+	return true
+
+
+func _screen(p: Dictionary) -> Dictionary:
+	var TopDown = load("res://presentation/projection.gd")
+	return TopDown.world_to_screen(CAMERA, float(p["x"]), float(p["y"]))
