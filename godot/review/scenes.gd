@@ -32,6 +32,13 @@ const ZOMBIE_NEAR: float = 4.5
 # How far the interior search walks from the body, in tiles.
 const SEARCH_TILES: int = 40
 
+# The street a day shot wants: a window the size of the 1280x720 view (20 x 11 tiles at 64 px a
+# tile, centred on the body), and the share of it that has to be paved outdoor street for the spot
+# to count as mostly street. The shots were 50 percent building at 1280 before this.
+const STREET_WINDOW_HALF: Vector2i = Vector2i(10, 5)
+const STREET_WINDOW_AREA: int = 21 * 11
+const STREET_SHARE: int = 75
+
 
 ## Boot a fresh main scene the way a player reaches the street: the title takes Enter, the
 ## legend takes Escape. Returns null when the scene does not come up with a world.
@@ -107,6 +114,10 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 			press(tree, KEY_TAB)
 		_:
 			return "unknown scene %s" % scene
+	# The camera jumps to where the body now stands. Without this the follow lerp was still walking
+	# from the body's old tile when the shot was taken, so the body sat off centre (or at the top
+	# edge) and a shot of the old spot's neighbourhood was the one photographed.
+	main.call("_snap_camera")
 	# Two ticks: the first runs the spawn intake and the second lets its components settle. The
 	# frame after draws the result.
 	for i in 2:
@@ -175,10 +186,14 @@ static func _outdoor_paved(map: Variant, at: Vector2i) -> bool:
 		and int(map.surfaces[idx]) == SimSurface.Surface.Paved
 
 
-## The nearest walkable outdoor paved tile with outdoor paved tiles on all four sides, so the shot
-## sees street and not a kerb. Its centre, or (-1, -1) when the search finds none.
+## The open paved street tile nearest the body whose surroundings are mostly street: the first
+## candidate, out to SEARCH_TILES, that has at least STREET_SHARE of its STREET_WINDOW paved outdoor
+## tiles; failing that, the candidate with the most. Open means outdoor paved on all four sides, so
+## the shot sees street and not a kerb. Its centre, or (-1, -1) when the search finds none.
 static func _street_spot(world: Variant) -> Vector2:
 	var from: Vector2i = _tile_under_player(world)
+	var best := Vector2(-1.0, -1.0)
+	var best_count: int = -1
 	for ring in range(1, SEARCH_TILES + 1):
 		for dy in range(-ring, ring + 1):
 			for dx in range(-ring, ring + 1):
@@ -192,9 +207,26 @@ static func _street_spot(world: Variant) -> Vector2:
 					if not _outdoor_paved(world.tilemap, t + d):
 						open = false
 						break
-				if open:
+				if not open:
+					continue
+				var count: int = _street_count(world.tilemap, t)
+				if count * 100 >= STREET_SHARE * STREET_WINDOW_AREA:
 					return Vector2(float(t.x) + 0.5, float(t.y) + 0.5)
-	return Vector2(-1.0, -1.0)
+				if count > best_count:
+					best_count = count
+					best = Vector2(float(t.x) + 0.5, float(t.y) + 0.5)
+	return best
+
+
+## How many outdoor paved tiles lie in the STREET_WINDOW box centred on `at`: the share of the
+## picture a day shot at that spot would show as street.
+static func _street_count(map: Variant, at: Vector2i) -> int:
+	var n: int = 0
+	for dy in range(-STREET_WINDOW_HALF.y, STREET_WINDOW_HALF.y + 1):
+		for dx in range(-STREET_WINDOW_HALF.x, STREET_WINDOW_HALF.x + 1):
+			if _outdoor_paved(map, Vector2i(at.x + dx, at.y + dy)):
+				n += 1
+	return n
 
 
 ## The nearest floor tile, walkable and with a wall beside it, that a body can stand on. Its

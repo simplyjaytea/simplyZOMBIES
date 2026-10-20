@@ -7,7 +7,9 @@
     "heap_pallets"
   ],
   "litter": [
-    "debris_litter_pack"
+    "debris_scrap_a",
+    "debris_scrap_b",
+    "debris_scrap_c"
   ],
   "rubble": [
     "debris_rubble_a",
@@ -114,7 +116,8 @@
         "paved"
       ],
       "rarity": 6,
-      "beside": "wall"
+      "beside": "wall",
+      "large": true
     },
     {
       "key": "prop_medical_cabinet",
@@ -123,7 +126,8 @@
         "paved"
       ],
       "rarity": 15,
-      "beside": "wall"
+      "beside": "wall",
+      "large": true
     },
     {
       "key": "prop_table",
@@ -131,7 +135,8 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 10
+      "rarity": 10,
+      "large": true
     },
     {
       "key": "prop_chair",
@@ -148,7 +153,8 @@
         "paved"
       ],
       "rarity": 14,
-      "beside": "wall"
+      "beside": "wall",
+      "large": true
     },
     {
       "key": "prop_concrete_barrier",
@@ -156,7 +162,8 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 70
+      "rarity": 70,
+      "large": true
     },
     {
       "key": "prop_traffic_cone",
@@ -182,7 +189,8 @@
         "paved"
       ],
       "rarity": 45,
-      "standing": true
+      "standing": true,
+      "large": true
     },
     {
       "key": "prop_road_sign",
@@ -208,7 +216,8 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 40
+      "rarity": 40,
+      "large": true
     },
     {
       "key": "prop_pallet_stack",
@@ -216,7 +225,8 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 55
+      "rarity": 55,
+      "large": true
     },
     {
       "key": "prop_trash_bags",
@@ -225,8 +235,9 @@
         "paved",
         "grass"
       ],
-      "rarity": 35,
-      "beside": "wall"
+      "rarity": 12,
+      "beside": "wall",
+      "large": true
     }
   ],
   "wall_modules": {

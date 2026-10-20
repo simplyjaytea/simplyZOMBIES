@@ -2443,7 +2443,7 @@ func _the_sockets_are_wired() -> bool:
 	if scatter.is_empty():
 		push_error("could not read _draw_scatter out of %s" % MAIN_GD)
 		return false
-	var missing4: String = _missing_needle(scatter, ["Dressing.rubble_key(", "Dressing.litter_key(", "draw_texture_rect("])
+	var missing4: String = _missing_needle(scatter, ["Dressing.rubble_key(", "Dressing.litter_placed(", "_draw_litter(", "draw_texture_rect("])
 	if not missing4.is_empty():
 		push_error("_draw_scatter does not contain %s" % missing4)
 		return false

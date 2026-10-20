@@ -1724,13 +1724,22 @@ func _draw_decor(region: Rect2i) -> void:
 			var texture: Texture2D = Appearance.resolve(String(placed["key"]))
 			if texture == null:
 				continue
-			var tx: int = int(placed["tx"])
-			var ty: int = int(placed["ty"])
-			# Off the tile's centre by the pick's own jitter, so a row of the same picture does not
-			# stand on a lattice; mirrored where the pick says so.
-			var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(tx) + 0.5 + float(placed["ox"]), float(ty) + 1.0 + float(placed["oy"]))
-			var rect: Rect2 = Appearance.hang_rect(float(sc["sx"]), float(sc["sy"]), texture.get_size() * px_scale)
+			var rect: Rect2 = _placed_rect(placed, texture.get_size() * px_scale, px_scale)
 			_pen.draw_texture_rect(texture, _mirrored(rect, bool(placed["flip"])), false)
+
+
+# Where a flat picture's rect stands on screen: its base on the south edge of its tile, its
+# centre on the tile's centre line, each moved by the pick's whole-art-pixel offset. The tile's
+# corner is read off the same projection the ground is drawn from (the rounding `_draw_district`
+# applies), so the offset is a whole number of art pixels from the ground's own grid at any zoom.
+func _placed_rect(placed: Dictionary, size: Vector2, px_scale: float) -> Rect2:
+	var corner: Dictionary = TopDownProjection.world_to_screen(camera, float(placed["tx"]), float(placed["ty"]))
+	var x0: float = roundf(float(corner["sx"]))
+	var y0: float = roundf(float(corner["sy"]))
+	var art: float = Dressing.ART_PER_TILE
+	var centre_x: float = x0 + (art / 2.0 + float(placed["ox"])) * px_scale
+	var south_y: float = y0 + (art + float(placed["oy"])) * px_scale
+	return Appearance.hang_rect(centre_x, south_y, size)
 
 
 # The same rect with its width turned about its centre line: a negative width draws the texture
@@ -1776,15 +1785,31 @@ func _draw_scatter(rect: Rect2, dress: Dictionary, tx: int, ty: int) -> void:
 		return
 	var seed_val: int = int(world.seed)
 	var key: String = Dressing.rubble_key(dress, world.tilemap, seed_val, tx, ty)
-	if key.is_empty():
-		key = Dressing.litter_key(dress, world.tilemap, seed_val, tx, ty)
-	if key.is_empty():
+	if not key.is_empty():
+		var rubble: Texture2D = Appearance.resolve(key)
+		if rubble != null:
+			var flipped: bool = Dressing.flip_at(seed_val, tx, ty, Dressing.SALT_LITTER_FLIP)
+			_pen.draw_texture_rect(rubble, _mirrored(rect, flipped), false)
 		return
-	var texture: Texture2D = Appearance.resolve(key)
+	_draw_litter(rect, Dressing.litter_placed(dress, world.tilemap, seed_val, tx, ty))
+
+
+# One scrap of litter: a few art pixels, drawn at its own size and never stretched over the tile.
+# Its centre is the tile's centre line and its base the tile's south edge, each moved by the scrap's
+# own whole-art-pixel offset, and it is mirrored where its record says so.
+func _draw_litter(rect: Rect2, placed: Dictionary) -> void:
+	if placed.is_empty():
+		return
+	var texture: Texture2D = Appearance.resolve(String(placed["key"]))
 	if texture == null:
 		return
-	var flipped: bool = Dressing.flip_at(seed_val, tx, ty, Dressing.SALT_LITTER_FLIP)
-	_pen.draw_texture_rect(texture, _mirrored(rect, flipped), false)
+	var px_scale: float = Appearance.blit_scale(float(camera["zoom"]))
+	var art: float = Dressing.ART_PER_TILE
+	var origin: Vector2 = rect.position
+	var centre_x: float = origin.x + (art / 2.0 + float(placed["ox"])) * px_scale
+	var south_y: float = origin.y + (art + float(placed["oy"])) * px_scale
+	var at: Rect2 = Appearance.hang_rect(centre_x, south_y, texture.get_size() * px_scale)
+	_pen.draw_texture_rect(texture, _mirrored(at, bool(placed["flip"])), false)
 
 
 func _mask_at(mask: PackedByteArray, tx: int, ty: int) -> int:

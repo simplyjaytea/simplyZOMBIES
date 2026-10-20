@@ -575,44 +575,58 @@ The density came from three places. Furnishing rarities in `content/dressing/str
 (shelf 6, cabinet 15, table 10, chair 9, dumpster 14, barrier 70, cone 45; post unchanged), and three
 pack props joined as scenery: the oil barrel (40), the pallet stack (55) and the rubbish bags (35,
 beside a wall or on grass). The crates, footlockers and medical boxes are container kinds and stay
-out. Litter is the pack's own `overlay-debris` on one paved floor tile in six, room floors as well
-as street. The generated scraps it replaced drew specks too small to read at game scale, so they
-are retired. The rate is a judgement from the shots, not a measured reference.
+out. Litter is three scraps cut from the pack's `overlay-debris` sheet (`debris_scrap_a/b/c`, 5x4, 7x10
+and 5x6 art pixels), on one paved floor tile in five, room floors as well as street. Counted over
+the whole suburb that is 388 of 2,282 paved floor tiles, one in 5.9 (OCCUPANCY lane). The generated
+specks it replaced drew too small to read, and the pack's rubble pile, the first scrap, read as
+rubble rather than litter, so both are retired. The first rate was a judgement from the shots; it
+is now a measured band.
 
-Three rules keep the picks from reading as a showroom. The placement roll runs through
+
+Four rules keep the picks from reading as a showroom or a pile. The placement roll runs through
 `Dressing._mix`, a multiply-xorshift finaliser over the hash: the plain hash's low bits fell on a
 lattice, and `godot:check:trees`'s LATTICE lane holds the mixed roll to a near-even pair count on a
-32-square window (250 and 241 against 248 expected; the shifted roll gave 320 and 192). Each flat
-picture sits up to a fifth of a tile off its centre, and about half are mirrored (PLACED lane).
-Nothing stands within three tiles of the colony's start, the square the survivor is put on and
-the other boot colonists are offset from (CLEAR lane, which says so and skips when the raw roll
-puts nothing there).
+32-square window (250 and 241 against 248 expected; the shifted roll gave 320 and 192). Every flat
+picture is placed in whole art pixels: its centre up to six art pixels off the tile's centre line,
+its base up to six above the tile's south edge, so it lands on the ground's own art grid at any
+zoom and never spills onto the next tile (PLACED lane). About half are mirrored. One picture to a
+tile: a bush, a reed or a scrap yields to a furnishing, and a scrap keeps off the clearing
+(OCCUPANCY lane, which judges each rule on the raw roll first so a rule with nothing to do fails
+loudly). Two large furnishings never sit on neighbouring tiles, and nothing flat stands within two
+tiles of a standing piece in its column. The clearing round the colony's start is four tiles out,
+so nothing stands within three of it (CLEAR lane, which says so and skips when the raw roll puts
+nothing there).
+
 
 Measured 2026-10-20 on one container, with `npm run godot:bench:runtime` and
-`npm run godot:bench:frame` at 1280×720, Godot 4.7.1, X11/Xvfb, llvmpipe (LLVM 20.1.2, 256 bits),
-Intel Xeon @ 2.10 GHz. The base is the parent commit 75ce22a, which already carries the A4 bake; the
-change is the current head. Two runs each, base and change alternated.
+`xvfb-run -a npm run godot:bench:frame` at 1280x720, Godot 4.7.1, X11/Xvfb, llvmpipe (LLVM 20.1.2,
+256 bits), Intel Xeon @ 2.10 GHz. The base is the parent commit 75ce22a, which already carries the A4
+bake; the change is the current head. Two runs each, base and change alternated.
 
 | Measure | Base, runs | Base mean | Change, runs | Change mean |
 |---|---|---:|---|---:|
-| shipped-tick, mean ms | 9.30, 9.34 | 9.32 | 8.54, 8.62 | 8.58 |
-| shipped-tick, worst ms | 20.2, 19.3 | — | 18.6, 25.9 | — |
-| shipped-draw `_draw` CPU, mean ms | 8.58, 8.58 | 8.58 | 7.91, 7.15 | 7.53 |
-| crowded-draw `_draw` CPU, mean ms | 115.7, 123.2 | 119.4 | 119.9, 119.9 | 119.9 |
+| shipped-tick, mean ms | 9.85, 9.63 | 9.74 | 10.03, 8.89 | 9.46 |
+| shipped-tick, worst (max) ms | 23.7, 25.0 | — | 24.6, 24.5 | — |
+| shipped-draw `_draw` CPU, mean ms | 9.43, 9.61 | 9.52 | 8.49, 7.37 | 7.93 |
+| crowded-draw `_draw` CPU, mean ms | 126.8, 130.5 | 128.7 | 122.7, 122.3 | 122.5 |
 
-Neither budget moved for the worse, and the change's runs sit inside or below the base's. The
-container's run-to-run spread is wider than the differences (same-code tick runs have differed by
-1.5 ms or more), so no speed-up is claimed. The tick misses its 8 ms mean and 16 ms worst before
-and after, and crowded-draw misses 10 ms before and after. Nothing under `godot/sim/` changed, and
-dressing is presentation-only.
+Shipped-draw is the budget that applies to the frame (10 ms mean at 1280x720), and it is under it
+on both runs of the change. Crowded-draw is a stress scene and misses 10 ms before and after. The
+tick misses its 8 ms mean and 16 ms worst before and after, and its two runs move both ways with
+no `godot/sim/` change: the difference is the container's spread, not a speed-up. The shipped-draw
+gap (about 1.6 ms) is larger than the spread of either side, and it is the one this change claims.
 
 Trade-offs: the prop-occupancy skip left the bake, so a furnishing can show around a crate or a
 bed where a prop stands, and a prop placed after its chunk is baked shows the picture at its edges
 until the chunk rebakes. The street and the room sit in the same bake. The harness's `day_street`
-now moves the survivor to an open paved street tile first; before, it photographed the room the
-survivor starts in. `godot:check:trees` (`TREES_OK`) holds the layer order, the picks, the roll,
-the clearing and the placement fields, and `godot:check:world_bake` (`WORLD_BAKE_OK`) holds the
-DECOR rebake and mask rule.
+moves the survivor to the nearest open paved street tile whose 21 x 11 surroundings are at least 75
+percent paved outdoor street, then snaps the camera to the survivor (`_snap_camera`); before, the
+shot photographed the room the survivor starts in, and the follow lerp left the survivor off centre.
+The interior camera sits on an odd x in both the before and after shots. That predates this work and
+is left as it is. `godot:check:trees` (`TREES_OK`, with its OCCUPANCY lane) holds the layer order,
+the picks, the roll, the clearing, the occupancy and the placement fields, and
+`godot:check:world_bake` (`WORLD_BAKE_OK`) holds the DECOR rebake and mask rule.
+
 
 ### Remaining milestone evidence
 
