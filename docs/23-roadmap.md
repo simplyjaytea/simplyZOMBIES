@@ -2087,15 +2087,22 @@ not a to-do list:
   falls, the lunge and the stagger -- by whole-pixel moves of the pack's own pictures in
   `motion/actions.py`: a lean, a dip or rise, a fold of the shins below the shorts or belt, a
   step, and for the crawl the back view's walk turned a quarter flat. No pixel is resampled or
-  recoloured. **The reloads are drawn arm by arm** from the same pixels, eight beats each: the
-  weapon lowered and brought in, the off hand under it, the magazine (a 2x3 block in the body's
-  own outline and dark-cloth tones) dropped and landed by the feet while the off hand goes to
-  the hip, a fresh one brought up and seated, the rack with the weapon jolting, and the stance,
-  held while the sim's Reload lasts. Each forearm is cut and set down sheared from the shoulder
-  so the hand point, and the weapon on it, travels with real pixels; side on, the far hand
-  appears as the near hand's own pixels once it comes round. The pistol's is worked at the grip,
-  the long gun's (rifle, shotgun, crossbow: a held picture 48 px wide, `Appearance.reload_action`)
-  at the well and fore-end five pixels along. Per-frame `head`, `torso` and `hands` ride every new member, so A6's clothing and
+  recoloured. **The reloads are drawn**, eight beats each: the weapon brought in with the body
+  dipping a pixel, the off hand coming under it, the magazine out (the pistol's dropped at the
+  grip, the long gun's stripped from the well), the off hand to the hip as it falls, back up with
+  a fresh one, seated with the body rising, the rack jolting the weapon back a pixel and forward
+  again, half way home, and the stance, held while the sim's Reload lasts. Each arm the reload
+  moves is taken off the rest view (`ARMLESS` closes the torso's outline where it hung) and
+  drawn again as a jointed limb in the rest view's own outline and skin, so a hand goes where the
+  beat sends it with a closed outline over the body: from the front over the torso, from behind
+  only to the edge of the back (the hand point goes on behind it), side on the far arm under the
+  body with its forearm over the belly once it reaches round. The magazine is a 2x3 block,
+  outlined, in the held pistol's gunmetal, and lies by the feet to the end. The pistol's is worked
+  at the grip, the long gun's (rifle, shotgun, crossbow: a held picture 48 px wide,
+  `Appearance.reload_action`) at the well and fore-end five pixels along. The first drawing, a
+  forearm sheared from the shoulder, was sent back by art review (2026-10-20): the off hand never
+  showed side on, arms vanished and popped, the magazine was a few dark pixels in the foot; this
+  replaced it. Per-frame `head`, `torso` and `hands` ride every new member, so A6's clothing and
   A9's weapon turn compose on them by the A7 contract. Five generations were spent (the three
   kept strips, the back view, and a four-views-in-one trial). **Not built:** drawn zombie walk
   in-betweens (the brief's added scope; still A7's one-pixel shifts), and a swing per weapon
@@ -2109,7 +2116,8 @@ not a to-do list:
   held on the stance). REACH: both reloads in every view move the weapon hand, bring the off
   hand to the weapon and away and end on the stance; the three-beat head-bob reload they
   replaced is refused. GEOMETRY: **320** derived frames
-  carry only their rest view's colours, a crouch stands lower than the rest and a fall lower
+  carry only their rest view's colours (a reload's magazine the held pistol's gunmetal, and
+  every one of the eight reload views shows it; the rest view shows none), a crouch stands lower than the rest and a fall lower
   than the crouch, the crawl is wider than tall; a painted pixel is caught. STATES: the clock's
   named states are the sim's enum values. CLOCK: each event starts its one-shot on its own body,
   a repeated death does not restart a fall, a body never drawn does not fall, a wind-up strikes

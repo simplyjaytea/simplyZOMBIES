@@ -18,7 +18,8 @@ extends SceneTree
 #   PRIORITY   action_key: a one-shot beats a stance, a stance stands or steps on the stride, a body
 #              lying down plays nothing upright, a lying body seen end-on lies toward its last side;
 #              no action and no stance answers "", and a played-out one-shot falls back to the rest.
-#   GEOMETRY   a derived frame invents no colour (every colour is its source picture's); a crouch and
+#   GEOMETRY   a derived frame invents no colour (every colour is its source picture's, and a reload's
+#              magazine the held pistol's gunmetal, shown in every reload view); a crouch and
 #              a fall stand lower than the rest, a prone body is wider than tall; each measure is
 #              shown failing on a fabricated picture.
 #   REACH      both reloads (pistol, long gun), every view: the weapon hand travels, the off hand
@@ -143,6 +144,14 @@ func _foreign(img: Image, palette: Dictionary) -> int:
 		if not palette.has(c):
 			return int(c)
 	return -1
+
+
+# Whether `img` carries a colour of `wanted` that `besides` does not have.
+func _carries_any(img: Image, wanted: Dictionary, besides: Dictionary) -> bool:
+	for c in _colours(img).keys():
+		if wanted.has(c) and not besides.has(c):
+			return true
+	return false
 
 
 func _bounds(img: Image) -> Rect2i:
@@ -309,6 +318,17 @@ func _geometry() -> bool:
 	# Every derived frame against the picture it was moved from. The swing is generated, the
 	# crouched walk and the crawl are moved from the walk frames, so those draw from a wider palette.
 	var derived: Dictionary = {SURVIVOR: ["recoil", "reload", "reload_long", "flinch", "crouch", "fall"]}
+	# The magazine's gunmetal: the held pistol's own colours, opaque (actions.py's _weapon_ramp).
+	var gunmetal: Dictionary = {}
+	var pistol: Image = _image("item_held_pistol")
+	if pistol == null:
+		push_error("GEOMETRY: no held pistol picture to read the gunmetal from")
+		return false
+	for c in _colours(pistol).keys():
+		var col: Color = Color.hex(int(c))
+		col.a = 1.0
+		gunmetal[col.to_rgba32()] = true
+	var magazines: int = 0
 	for fam in _families_with_actions().keys():
 		if String(fam).begins_with("body_zombie_"):
 			derived[fam] = ["lunge", "stagger", "fall"]
@@ -321,6 +341,13 @@ func _geometry() -> bool:
 				continue
 			var palette: Dictionary = _colours(rest)
 			for action in derived[fam]:
+				# A reload also draws its magazine, in the held pistol's gunmetal and nothing else.
+				var reload: bool = String(action).begins_with("reload")
+				var allowed: Dictionary = palette
+				if reload:
+					allowed = palette.duplicate()
+					allowed.merge(gunmetal)
+				var shows_magazine: bool = false
 				for i in Appearance.action_frames(String(fam), String(action), view):
 					var key: String = "%s_%s_%s_%d" % [fam, action, view, i]
 					var img: Image = _image(key)
@@ -329,10 +356,17 @@ func _geometry() -> bool:
 						ok = false
 						continue
 					judged += 1
-					var foreign: int = _foreign(img, palette)
+					var foreign: int = _foreign(img, allowed)
 					if foreign >= 0:
 						push_error("GEOMETRY: %s carries colour %08x its rest view does not" % [key, foreign])
 						ok = false
+					if reload and _carries_any(img, gunmetal, palette):
+						shows_magazine = true
+				if reload and not shows_magazine:
+					push_error("GEOMETRY: %s %s %s never shows its magazine" % [fam, action, view])
+					ok = false
+				elif reload:
+					magazines += 1
 	var rest_e: Image = _image("%s_e" % SURVIVOR)
 	var crouch_e: Image = _image("%s_crouch_e_0" % SURVIVOR)
 	var fall_n: int = Appearance.action_frames(SURVIVOR, "fall", "e")
@@ -357,11 +391,14 @@ func _geometry() -> bool:
 	if _foreign(painted, _colours(rest_e)) < 0:
 		push_error("GEOMETRY: a painted green pixel was not found foreign")
 		ok = false
+	if _carries_any(rest_e, gunmetal, _colours(rest_e)):
+		push_error("GEOMETRY: the rest view already shows gunmetal, so the magazine measure cannot fail")
+		ok = false
 	if _bounds(rest_e).size.x > _bounds(rest_e).size.y:
 		push_error("GEOMETRY: the standing rest view measures wider than tall, so the prone measure cannot fail")
 		ok = false
 	if ok:
-		print("GEOMETRY OK %d derived frames carry only their rest view's colours; crouch < rest, fall < crouch, prone lies flat" % judged)
+		print("GEOMETRY OK %d derived frames carry only their rest view's colours (a reload's magazine its gunmetal, shown in %d reload views); crouch < rest, fall < crouch, prone lies flat" % [judged, magazines])
 		_report.append("GEOMETRY %d derived frames" % judged)
 	return ok
 
