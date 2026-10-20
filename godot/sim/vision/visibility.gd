@@ -14,6 +14,12 @@ enum Detail { Unseen = 0, Peripheral = 1, Focal = 2 }
 
 var _views: Dictionary = {}
 var recomputes: int = 0
+## Observers whose eyes rest through the next `refresh`: their view is kept exactly as it stands,
+## neither recast nor moved. `SimShambler`'s think marks a far body that will not think on the
+## coming tick (FAR_THINK_EVERY), since nothing reads a zombie's view but its own think and the
+## screamer's alarm, and neither can see a person 40 m away; `refresh` clears the marks it read.
+## Derived inside the tick and never saved, so a restore rests the same bodies.
+var resting: Dictionary = {}
 
 ## How far a `lit_target` observer (a zombie) walks from where it last cast before it casts
 ## again, in tiles (Chebyshev). See `refresh`.
@@ -23,6 +29,22 @@ const ZOMBIE_RECAST_TILES: int = 2
 ## square never saw (see `refresh`). A gate-drivable static, like SimShambler's flags: a lane that
 ## pins it must restore it, one gate process sharing it across every world it boots.
 static var DEAD_KEEP_VIEW: bool = true
+
+## A person other than the player -- a colonist, a settler, a raider -- recasts once they have
+## walked PERSON_RECAST_TILES from where they last cast, and that cast is spread over the next few
+## ticks a quadrant at a time, PERSON_QUADRANTS_PER_TICK quadrants a tick for all of them together,
+## the longest-waiting first. Their cast is the district's widest (48 m by day, ~7,000 cells, up to
+## 6.5 ms of GDScript), and two of them crossing a tile on one tick was a 15 ms visibility step
+## (A3's eighth slice). Until it lands they keep the view they had, a tile or two behind them --
+## the approximation the dead already live with. The player and the dead cast whole and at once,
+## as they always have. STAGGER_PERSON_CASTS is the gate-drivable switch back to the old rule; a
+## lane that pins it must restore it.
+const PERSON_RECAST_TILES: int = 2
+const PERSON_QUADRANTS_PER_TICK: int = 2
+static var STAGGER_PERSON_CASTS: bool = true
+## Quadrants cast through that queue, and the most ticks any one person's cast took to land.
+var quadrants_spread: int = 0
+var longest_wait: int = 0
 
 ## Daylight eyes — 48 m, 60° focal, 190° total FoV. Port of DAYLIGHT_EYES.
 static func daylight_eyes() -> Dictionary:
@@ -76,9 +98,16 @@ func refresh(world: Variant, map: Variant, sight_mul: float = 1.0) -> void:
 	var logs_changes: bool = world is Object and (world as Object).has_method("map_unchanged_within")
 	# The hour's ambient factor, once for every observer rather than once each: it is a function
 	# of the tick alone (A3's seventh slice).
-	var ambient_k: float = Clock.ambient_light_at(_tick_of(world))
+	var now: int = _tick_of(world)
+	var ambient_k: float = Clock.ambient_light_at(now)
+	var queue: Array = []
 	var light_index: Variant = _light_index(world)
+	var rest: Dictionary = resting
+	resting = {}
 	for entity in world.components.query(["position", "observer"]):
+		if rest.has(entity) and _views.has(entity):
+			seen[entity] = true
+			continue
 		var pos: Variant = world.components.get_component(entity, "position")
 		var obs: Variant = world.components.get_component(entity, "observer")
 		if pos == null or obs == null:
@@ -159,15 +188,20 @@ func refresh(world: Variant, map: Variant, sight_mul: float = 1.0) -> void:
 				vd["gen"] = gen
 			else:
 				stale = true
-		if stale or (moved >= ZOMBIE_RECAST_TILES if lit_target else moved > 0):
+		# A person who is not the player, and who has a view already: a view never cast is not a
+		# tile behind but blind, so it is cast whole like the player's.
+		var spread: bool = STAGGER_PERSON_CASTS and not lit_target and cast_tiles >= 0 and not world.components.has_component(entity, "controlled")
+		if spread:
+			if vd.get("pending") == null and (stale or moved >= PERSON_RECAST_TILES):
+				if vd.get("back") == null:
+					vd["back"] = Shadowcast.VisibleTiles.new()
+				vd["pending"] = [now, int(entity), tile_x, tile_y, range_tiles, eye, gen, Shadowcast.Quadrant.North]
+			if vd.get("pending") != null:
+				queue.append(vd["pending"])
+		elif stale or (moved >= ZOMBIE_RECAST_TILES if lit_target else moved > 0):
 			Shadowcast.shadowcast(map, tile_x, tile_y, range_tiles, vd["tiles"] as Shadowcast.VisibleTiles, eye)
-			vd["tile_x"] = tile_x
-			vd["tile_y"] = tile_y
-			vd["range_tiles"] = range_tiles
-			vd["eye"] = eye
-			vd["gen"] = gen
-			vd["cast_gen"] = int(vd["cast_gen"]) + 1
-			recomputes += 1
+			vd["pending"] = null
+			_landed(vd, tile_x, tile_y, range_tiles, eye, gen)
 
 		(view as Dictionary)["x"] = float((pos as Dictionary)["x"])
 		(view as Dictionary)["y"] = float((pos as Dictionary)["y"])
@@ -189,9 +223,45 @@ func refresh(world: Variant, map: Variant, sight_mul: float = 1.0) -> void:
 		(view as Dictionary)["light"] = light_index if lit_target else null
 		seen[entity] = true
 
+	# The people's queue: longest-waiting first, ties by id, so it is deterministic and nobody
+	# waits behind somebody who started walking later. A pending cast is [since, entity, tile_x,
+	# tile_y, range_tiles, eye, gen, next quadrant], cast into the view's back buffer and swapped
+	# in whole once its fourth quadrant lands -- `tiles_for` never hands out half a circle.
+	queue.sort_custom(func(a: Array, b: Array) -> bool: return int(a[0]) < int(b[0]) or (int(a[0]) == int(b[0]) and int(a[1]) < int(b[1])))
+	var budget: int = PERSON_QUADRANTS_PER_TICK
+	for pend in queue:
+		if budget <= 0:
+			break
+		var pd: Dictionary = _views[int(pend[1])] as Dictionary
+		var q: int = int(pend[7])
+		var last: int = mini(int(Shadowcast.Quadrant.West), q + budget - 1)
+		Shadowcast.shadowcast(map, int(pend[2]), int(pend[3]), int(pend[4]), pd["back"] as Shadowcast.VisibleTiles, int(pend[5]), q, last)
+		budget -= last - q + 1
+		quadrants_spread += last - q + 1
+		if last < int(Shadowcast.Quadrant.West):
+			pend[7] = last + 1
+			continue
+		var done: Variant = pd["back"]
+		pd["back"] = pd["tiles"]
+		pd["tiles"] = done
+		pd["pending"] = null
+		longest_wait = maxi(longest_wait, now - int(pend[0]) + 1)
+		_landed(pd, int(pend[2]), int(pend[3]), int(pend[4]), int(pend[5]), int(pend[6]))
+
 	for entity in _views.keys():
 		if not seen.has(entity):
 			_views.erase(entity)
+
+
+# A cast has landed in `tiles`: the view's key now names where and how it was cast.
+func _landed(vd: Dictionary, tile_x: int, tile_y: int, range_tiles: int, eye: int, gen: int) -> void:
+	vd["tile_x"] = tile_x
+	vd["tile_y"] = tile_y
+	vd["range_tiles"] = range_tiles
+	vd["eye"] = eye
+	vd["gen"] = gen
+	vd["cast_gen"] = int(vd["cast_gen"]) + 1
+	recomputes += 1
 
 
 func _tick_of(world: Variant) -> int:

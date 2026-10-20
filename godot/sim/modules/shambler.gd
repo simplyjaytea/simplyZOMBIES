@@ -494,7 +494,7 @@ static func _steer_uphill(field: Variant, pos: Dictionary, vel: Dictionary, sham
 	return true
 
 
-static func _drift_upscent(field: Variant, pos: Dictionary, vel: Dictionary, shambler_data: Dictionary, seek: float) -> void:
+static func _drift_upscent(field: Variant, pos: Dictionary, vel: Dictionary, shambler_data: Dictionary, seek: float, steps: int = 1) -> void:
 	var uphill: Variant = field.uphill_scent(float(pos["x"]), float(pos["y"]))
 	if uphill == null:
 		return
@@ -508,7 +508,7 @@ static func _drift_upscent(field: Variant, pos: Dictionary, vel: Dictionary, sha
 		delta -= PI * 2.0
 	while delta < -PI:
 		delta += PI * 2.0
-	var angle: float = current + delta * SCENT_BIAS
+	var angle: float = current + delta * _steps_bias(SCENT_BIAS, steps)
 	vel["dx"] = cos(angle) * speed
 	vel["dy"] = sin(angle) * speed
 
@@ -630,6 +630,43 @@ static func sight_reach(world: Variant, entity: int, shambler_data: Dictionary, 
 # it across every world it boots.
 static var SIGHT_ENABLED: bool = true
 
+# A wandering or dormant body with no person within FAR_THINK_METRES thinks on one tick in
+# FAR_THINK_EVERY, its phase set by its id so a quarter of them think on any tick (A3's ninth
+# slice, approved under the owner's standing brief of 2026-10-19). Between thinks it keeps its
+# velocity and its countdowns run, so it walks the same straight line it would have walked; what
+# it loses is the tick on which it turns, hears or smells, which can come up to three ticks
+# (0.15 s) late. Scent and light steer a fraction of the way per think, so a far think steers by
+# what FAR_THINK_EVERY ticks would have (`_steps_bias`). Nothing a zombie does near a person is
+# touched: 40 m is more than three times its sight and the stateless phase means a save and a
+# restore think on the same ticks. THINK_LOD is the gate-drivable switch back to thinking every
+# tick; a lane that pins it must restore it, one gate process sharing it across every world.
+const FAR_THINK_EVERY: int = 4
+const FAR_THINK_METRES: float = 40.0
+static var THINK_LOD: bool = true
+
+
+# True when no survivor stands within `metres`: the far half of the think-rate rule above.
+static func _nobody_within(survivors: Array, pos: Dictionary, metres: float) -> bool:
+	var limit: float = metres * metres
+	var x: float = float(pos["x"])
+	var y: float = float(pos["y"])
+	for survivor in survivors:
+		var s: Dictionary = survivor as Dictionary
+		var dx: float = float(s["x"]) - x
+		var dy: float = float(s["y"]) - y
+		if dx * dx + dy * dy <= limit:
+			return false
+	return true
+
+
+# A steer that closes `bias` of the angle each tick closes this much over `steps` ticks, so a body
+# that thinks every fourth tick turns towards a smell or a light at the rate it always did. One
+# step is the bias itself, untouched.
+static func _steps_bias(bias: float, steps: int) -> float:
+	if steps <= 1:
+		return bias
+	return 1.0 - pow(1.0 - bias, float(steps))
+
 
 static func _seen_target(world: Variant, entity: int, survivors: Array, shambler_data: Dictionary, fog: float = -1.0) -> Variant:
 	if not SIGHT_ENABLED:
@@ -659,7 +696,7 @@ static func _seen_target(world: Variant, entity: int, survivors: Array, shambler
 	return best
 
 
-static func _lean_to_light(world: Variant, entity: int, pos: Dictionary, vel: Dictionary, light_sense: float = LIGHT_SENSITIVITY) -> void:
+static func _lean_to_light(world: Variant, entity: int, pos: Dictionary, vel: Dictionary, light_sense: float = LIGHT_SENSITIVITY, steps: int = 1) -> void:
 	if not world.components.has_component(entity, "observer"):
 		return
 	var speed: float = sqrt(float(vel["dx"]) * float(vel["dx"]) + float(vel["dy"]) * float(vel["dy"]))
@@ -691,7 +728,7 @@ static func _lean_to_light(world: Variant, entity: int, pos: Dictionary, vel: Di
 		delta -= PI * 2.0
 	while delta < -PI:
 		delta += PI * 2.0
-	var angle: float = current + delta * LIGHT_BIAS * light_sense
+	var angle: float = current + delta * _steps_bias(LIGHT_BIAS * light_sense, steps)
 	vel["dx"] = cos(angle) * speed
 	vel["dy"] = sin(angle) * speed
 
@@ -1003,6 +1040,7 @@ static func register_module(world: Variant, _map: Variant) -> void:
 		var fog: float = SimWeatherRes.sight_mul(w)
 		var noise_floor: float = float(field.calibration["floor"])
 		var scent_floor: float = float(field.calibration["scentFloor"])
+		var rest_eyes: Variant = w.vision.resting if THINK_LOD and w.vision != null and "resting" in w.vision else null
 		for entity in w.components.query(["position", "velocity", "shambler"]):
 			var shambler_comp: Variant = w.components.get_component(int(entity), "shambler")
 			var pos: Variant = w.components.get_component(int(entity), "position")
@@ -1012,6 +1050,25 @@ static func register_module(world: Variant, _map: Variant) -> void:
 			var sd: Dictionary = shambler_comp as Dictionary
 			var vd: Dictionary = vel as Dictionary
 			var pd: Dictionary = pos as Dictionary
+			# The think-rate rule (FAR_THINK_EVERY): a far wandering or dormant body off its phase
+			# runs its countdowns and keeps its velocity, and does nothing else this tick.
+			var steps: int = 1
+			var st: int = int(sd["state"])
+			if THINK_LOD and (st == ShamblerState["Wander"] or st == ShamblerState["Dormant"]) and _nobody_within(survivors, pd, FAR_THINK_METRES) and not w.components.has_component(int(entity), "grabState"):
+				# Its eyes rest too when it will not think on the coming tick either: the view
+				# `kernel.visibility` builds this tick is the one that think would read.
+				if rest_eyes != null and (int(w.tick) + 1 + int(entity)) % FAR_THINK_EVERY != 0:
+					(rest_eyes as Dictionary)[int(entity)] = true
+				if (int(w.tick) + int(entity)) % FAR_THINK_EVERY != 0:
+					if int(sd["ticksToGrab"]) > 0:
+						sd["ticksToGrab"] = int(sd["ticksToGrab"]) - 1
+					if st == ShamblerState["Dormant"]:
+						vd["dx"] = 0.0
+						vd["dy"] = 0.0
+					elif int(sd["ticksToTurn"]) > 0:
+						sd["ticksToTurn"] = int(sd["ticksToTurn"]) - 1
+					continue
+				steps = FAR_THINK_EVERY
 			# Thresholds per body from the type's `sensory` block: a sense of 0 hears or smells
 			# nothing at all, which is docs/14's "no single silence" made literal.
 			var noise_sense: float = float(sd.get("noiseSense", NOISE_SENSITIVITY))
@@ -1163,8 +1220,8 @@ static func register_module(world: Variant, _map: Variant) -> void:
 					else:
 						sd["ticksToTurn"] = int(sd["ticksToTurn"]) - 1
 					if smelled:
-						_drift_upscent(field, pd, vd, sd, seek)
-					_lean_to_light(w, int(entity), pd, vd, float(sd.get("lightSense", LIGHT_SENSITIVITY)))
+						_drift_upscent(field, pd, vd, sd, seek, steps)
+					_lean_to_light(w, int(entity), pd, vd, float(sd.get("lightSense", LIGHT_SENSITIVITY)), steps)
 
 		# --- Hold lifecycle, alongside the state machine above rather than in a separate
 		# combat-phase system (plan deviates from the oracle here on purpose). Order is

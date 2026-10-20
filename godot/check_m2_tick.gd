@@ -61,12 +61,14 @@ func _run() -> void:
 	ok = _each_observer_handed_its_square_sees_what_it_saw() and ok
 	ok = _the_hour_read_once_is_the_hour_read_per_observer() and ok
 	ok = _every_arm_that_moves_a_body_reads_its_speed() and ok
+	ok = _a_far_body_thinks_on_its_quarter() and ok
+	ok = _a_persons_cast_lands_whole_and_in_turn() and ok
 	ok = _an_unhurt_body_has_nothing_to_strip() and ok
 	ok = _the_dress_test_reads_the_base_once_and_answers_the_same() and ok
 	ok = _swapped_scent_buffers_are_the_copied_field() and ok
 	ok = _an_arc_cosine_follows_its_angle() and ok
 	if ok:
-		print("M2_TICK_OK content-agree content-follows content-reader map-log door-cells view-stands dead-keep path cast enemies people square query care claw sky observe ambient seek impair dress scent arcs")
+		print("M2_TICK_OK content-agree content-follows content-reader map-log door-cells view-stands dead-keep path cast enemies people square query care claw sky observe ambient seek far-think spread impair dress scent arcs")
 		quit(0)
 	else:
 		push_error("M2_TICK_FAIL")
@@ -1193,7 +1195,242 @@ func _every_arm_that_moves_a_body_reads_its_speed() -> bool:
 	return true
 
 
-# --- slice 8: the per-body cuts ------------------------------------------------------------------
+# --- slices 8 and 9: the per-body cuts, the far quarter, the spread cast ----------------------------
+
+func _think_runner(w: Variant) -> Callable:
+	for sys in w.systems.ordered():
+		if String((sys as Dictionary)["id"]) == "shambler.think":
+			return (sys as Dictionary)["runner"] as Callable
+	return Callable()
+
+
+# Puts the world on the tick where `(tick + entity) % FAR_THINK_EVERY == k`.
+func _on_phase(w: Variant, entity: int, k: int) -> void:
+	var n: int = SimShambler.FAR_THINK_EVERY
+	w.tick = int(w.tick) - ((int(w.tick) + entity) % n) + k + n
+
+
+# FAR-THINK. The one behaviour this slice changes for the dead, held both ways. A wandering body
+# with nobody within FAR_THINK_METRES, off its phase, keeps its velocity and its countdowns run:
+# due to turn, it does not turn. On its phase it turns. The negatives make the rest mean something:
+# with THINK_LOD off the same off-phase body turns, and with a person ten metres away it turns, so
+# what held it was the far rule and nothing else. A dormant body off its phase is still pinned. Its
+# eyes rest exactly when its next tick is off-phase too, and `refresh` honours the mark: a resting
+# view does not move with its body, and one that is not resting does. Last, the reader: the steers
+# a far think compounds are handed `steps`. The flag is restored, one gate process sharing it.
+func _a_far_body_thinks_on_its_quarter() -> bool:
+	var was: bool = SimShambler.THINK_LOD
+	var ok: bool = _far_think_lane()
+	SimShambler.THINK_LOD = was
+	return ok
+
+
+func _far_think_lane() -> bool:
+	var w: Variant = _stepped_world()
+	var think: Callable = _think_runner(w)
+	if not think.is_valid():
+		return _fail("FAR-THINK", "no shambler.think system to run")
+	var survivors: Array = SimShambler._gather_survivors(w)
+	var people: Array[int] = SimShambler._people_with_position(w)
+	var z: int = -1
+	for e in w.components.query(["shambler", "position", "velocity", "observer"]):
+		if w.components.has_component(e, "grabState"):
+			continue
+		if SimShambler._nobody_within(survivors, w.components.get_component(e, "position") as Dictionary, SimShambler.FAR_THINK_METRES + 10.0):
+			z = e
+			break
+	if z < 0 or people.is_empty():
+		return _fail("FAR-THINK", "no far zombie with eyes, or nobody to bring near, on the stepped district")
+	var sd: Dictionary = w.components.get_component(z, "shambler") as Dictionary
+	var vd: Dictionary = w.components.get_component(z, "velocity") as Dictionary
+	var wander: int = int(SimShambler.ShamblerState["Wander"])
+	var cases: Array = [
+		# [lod, phase, bring a person near, state, expect it to think]
+		[true, 1, false, "Wander", false],
+		[true, 3, false, "Wander", false],
+		[true, 0, false, "Wander", true],
+		[false, 1, false, "Wander", true],
+		[true, 1, true, "Wander", true],
+		[true, 1, false, "Dormant", false],
+	]
+	var pp: Dictionary = w.components.get_component(people[0], "position") as Dictionary
+	var home := Vector2(float(pp["x"]), float(pp["y"]))
+	for c in cases:
+		var lod: bool = c[0]
+		SimShambler.THINK_LOD = lod
+		_on_phase(w, z, int(c[1]))
+		var zp: Dictionary = w.components.get_component(z, "position") as Dictionary
+		if bool(c[2]):
+			pp["x"] = float(zp["x"]) + 10.0
+			pp["y"] = float(zp["y"])
+		else:
+			pp["x"] = home.x
+			pp["y"] = home.y
+		sd["state"] = int(SimShambler.ShamblerState[String(c[3])])
+		sd["ticksToTurn"] = 0
+		sd["ticksToGrab"] = 5
+		vd["dx"] = 0.3
+		vd["dy"] = 0.0
+		w.vision.resting = {}
+		think.call(w)
+		var label: String = "%s, phase %d, lod %s, person %s" % [String(c[3]), int(c[1]), str(lod), "near" if bool(c[2]) else "far"]
+		var thought: bool = int(sd["ticksToTurn"]) > 0 or int(sd["state"]) != int(SimShambler.ShamblerState[String(c[3])]) or float(vd["dx"]) != 0.3 or float(vd["dy"]) != 0.0
+		if String(c[3]) == "Dormant":
+			if float(vd["dx"]) != 0.0 or float(vd["dy"]) != 0.0:
+				return _fail("FAR-THINK", "%s: a dormant body off its phase was not pinned" % label)
+			if int(sd["ticksToGrab"]) != 4:
+				return _fail("FAR-THINK", "%s: the grab countdown did not run" % label)
+			continue
+		if thought != bool(c[4]):
+			return _fail("FAR-THINK", "%s: thought %s where the rule says %s" % [label, str(thought), str(c[4])])
+		if not thought and int(sd["ticksToGrab"]) != 4:
+			return _fail("FAR-THINK", "%s: the grab countdown did not run while it rested" % label)
+		var rests: bool = w.vision.resting.has(z)
+		var should_rest: bool = lod and not bool(c[2]) and (int(c[1]) + 1) % SimShambler.FAR_THINK_EVERY != 0
+		if rests != should_rest:
+			return _fail("FAR-THINK", "%s: its eyes rest %s where its next tick says %s" % [label, str(rests), str(should_rest)])
+	sd["state"] = wander
+	pp["x"] = home.x
+	pp["y"] = home.y
+	var zp2: Dictionary = w.components.get_component(z, "position") as Dictionary
+	w.vision.refresh(w, w.tilemap)
+	var held_x: float = float((w.vision._views[z] as Dictionary)["x"])
+	zp2["x"] = float(zp2["x"]) + 0.5
+	w.vision.resting = {z: true}
+	w.vision.refresh(w, w.tilemap)
+	if float((w.vision._views[z] as Dictionary)["x"]) != held_x:
+		return _fail("FAR-THINK", "a view marked resting moved with its body")
+	if not w.vision.resting.is_empty():
+		return _fail("FAR-THINK", "refresh left the resting marks for the next tick")
+	w.vision.refresh(w, w.tilemap)
+	if float((w.vision._views[z] as Dictionary)["x"]) != float(zp2["x"]):
+		return _fail("FAR-THINK", "a view not marked resting did not follow its body")
+	if SimShambler._steps_bias(0.35, 1) != 0.35 or absf(SimShambler._steps_bias(0.35, 4) - (1.0 - pow(0.65, 4.0))) > 1e-12:
+		return _fail("FAR-THINK", "a steer compounded over four ticks is not four ticks' steer")
+	var body: String = _body_of("res://sim/modules/shambler.gd", "register_module")
+	if body.find("_drift_upscent(field, pd, vd, sd, seek, steps)") < 0 or body.find("LIGHT_SENSITIVITY)), steps)") < 0:
+		return _fail("FAR-THINK", "the think does not hand `steps` to the scent and light steers")
+	if body.find("(rest_eyes as Dictionary)[int(entity)] = true") < 0:
+		return _fail("FAR-THINK", "the think never marks a far body's eyes as resting")
+	return true
+
+
+# SPREAD. A person who is not the player recasts after PERSON_RECAST_TILES, a quadrant at a time,
+# PERSON_QUADRANTS_PER_TICK quadrants a tick for everyone, longest-waiting first, and the view lands
+# whole: until it does `tiles_for` is the old cast, and after it is exactly a fresh cast from where
+# the person stood when it was queued. The negatives: a tile's walk queues nothing; with the switch
+# off a tile's walk recasts at once; the player casts whole and at once with the switch on; a view
+# never cast is cast at once; and the cut itself -- four one-quadrant casts mark what one whole
+# cast marks -- is held on doors shut and open, both eyes.
+func _a_persons_cast_lands_whole_and_in_turn() -> bool:
+	var was: bool = SimVisibility.STAGGER_PERSON_CASTS
+	SimVisibility.STAGGER_PERSON_CASTS = true
+	var ok: bool = _spread_lane()
+	SimVisibility.STAGGER_PERSON_CASTS = was
+	return ok
+
+
+func _spread_lane() -> bool:
+	var w: Variant = _door_world()
+	# Midday, where the hour does not move anyone's reach between one tick and the next.
+	w.tick = Clock.tick_at_time_of_day(0.375)
+	if not w.components.has_component(w.player, "controlled"):
+		return _fail("SPREAD", "the fixture's player is not the controlled body")
+	var folk: Array[int] = []
+	for i in 2:
+		var e: int = int(w.entities.spawn())
+		w.components.set_component(e, "position", {"x": 30.5 + float(i) * 20.0, "y": 40.5})
+		w.components.set_component(e, "facing", {"radians": 0.0})
+		w.components.set_component(e, "observer", SimVisibility.daylight_eyes())
+		folk.append(e)
+	var a: int = folk[0]
+	var b: int = folk[1]
+	w.vision.refresh(w, w.tilemap)
+	for e in [a, b, w.player]:
+		if int(w.vision.cast_generation(int(e))) != 1:
+			return _fail("SPREAD", "a view never cast was not cast whole on its first refresh")
+	var step := func(dx: float, who: Array) -> void:
+		for e in who:
+			var p: Dictionary = w.components.get_component(int(e), "position") as Dictionary
+			p["x"] = float(p["x"]) + dx
+	step.call(1.0, [a])
+	w.tick = int(w.tick) + 1
+	w.vision.refresh(w, w.tilemap)
+	if int(w.vision.cast_generation(a)) != 1 or (w.vision._views[a] as Dictionary).get("pending") != null:
+		return _fail("SPREAD", "a person a tile off their cast queued or cast")
+	step.call(1.0, [w.player])
+	w.tick = int(w.tick) + 1
+	w.vision.refresh(w, w.tilemap)
+	if int(w.vision.cast_generation(w.player)) != 2:
+		return _fail("SPREAD", "the player a tile off their cast did not recast at once")
+	# B walks first and waits longest; A follows a tick later with the lower id.
+	step.call(1.0, [b])
+	step.call(1.0, [b])
+	var spread0: int = int(w.vision.quadrants_spread)
+	w.tick = int(w.tick) + 1
+	w.vision.refresh(w, w.tilemap)
+	var b_at := Vector2i(floori(float((w.components.get_component(b, "position") as Dictionary)["x"])), 40)
+	step.call(1.0, [a])
+	var a_at := Vector2i(floori(float((w.components.get_component(a, "position") as Dictionary)["x"])), 40)
+	var landed: Array = []
+	for t in 6:
+		var before_spread: int = int(w.vision.quadrants_spread)
+		var queued: bool = (w.vision._views[a] as Dictionary).get("pending") != null or (w.vision._views[b] as Dictionary).get("pending") != null
+		var a_gen: int = int(w.vision.cast_generation(a))
+		var b_gen: int = int(w.vision.cast_generation(b))
+		w.tick = int(w.tick) + 1
+		w.vision.refresh(w, w.tilemap)
+		if queued and int(w.vision.quadrants_spread) - before_spread != SimVisibility.PERSON_QUADRANTS_PER_TICK:
+			return _fail("SPREAD", "a tick with casts queued spent %d quadrants, not %d" % [int(w.vision.quadrants_spread) - before_spread, SimVisibility.PERSON_QUADRANTS_PER_TICK])
+		if int(w.vision.cast_generation(b)) != b_gen:
+			landed.append("b")
+		if int(w.vision.cast_generation(a)) != a_gen:
+			landed.append("a")
+	if int(w.vision.quadrants_spread) - spread0 != 8:
+		return _fail("SPREAD", "two whole casts took %d quadrants, not eight" % (int(w.vision.quadrants_spread) - spread0))
+	if landed != ["b", "a"]:
+		return _fail("SPREAD", "the casts landed %s where the longest-waiting goes first" % str(landed))
+	for pair in [[a, a_at], [b, b_at]]:
+		var e: int = int(pair[0])
+		var at: Vector2i = pair[1]
+		var tiles: Variant = w.vision.tiles_for(e)
+		if int(tiles.origin_x) != at.x or int(tiles.origin_y) != at.y:
+			return _fail("SPREAD", "a landed view was cast from %d,%d where its person stood at %d,%d" % [int(tiles.origin_x), int(tiles.origin_y), at.x, at.y])
+		var fresh := SimShadowcast.VisibleTiles.new()
+		SimShadowcast.shadowcast(w.tilemap, at.x, at.y, int(tiles.range_tiles), fresh, int((w.components.get_component(e, "observer") as Dictionary)["eye"]))
+		if fresh.cells != (tiles.cells as PackedByteArray):
+			return _fail("SPREAD", "a view landed a quadrant at a time is not what one whole cast sees")
+	SimVisibility.STAGGER_PERSON_CASTS = false
+	var a_gen2: int = int(w.vision.cast_generation(a))
+	step.call(1.0, [a])
+	w.tick = int(w.tick) + 1
+	w.vision.refresh(w, w.tilemap)
+	if int(w.vision.cast_generation(a)) != a_gen2 + 1:
+		return _fail("SPREAD", "with the spread off a person a tile off their cast did not recast at once")
+	SimVisibility.STAGGER_PERSON_CASTS = true
+	# The quadrant split itself, on the district with its doors, against one whole cast.
+	var map: Variant = _stepped_world().tilemap
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 8117
+	var opened: bool = false
+	for i in 24:
+		var o := Vector2i(rng.randi_range(0, int(map.w) - 1), rng.randi_range(0, int(map.h) - 1))
+		for eye in [SimTileMap.Eye.Standing, SimTileMap.Eye.Crouched]:
+			var whole := SimShadowcast.VisibleTiles.new()
+			SimShadowcast.shadowcast(map, o.x, o.y, 48, whole, int(eye))
+			var parts := SimShadowcast.VisibleTiles.new()
+			for q in 4:
+				SimShadowcast.shadowcast(map, o.x, o.y, 48, parts, int(eye), q, q)
+			if parts.cells != whole.cells or parts.count != whole.count:
+				return _fail("SPREAD", "four one-quadrant casts from %s marked other cells than one whole cast" % str(o))
+			var north := SimShadowcast.VisibleTiles.new()
+			SimShadowcast.shadowcast(map, o.x, o.y, 48, north, int(eye), 0, 0)
+			if north.count < whole.count:
+				opened = true
+	if not opened:
+		return _fail("SPREAD", "one quadrant always saw the whole circle, so the split was never judged")
+	return true
+
 
 func _runner(w: Variant, id: String) -> Callable:
 	for sys in w.systems.ordered():

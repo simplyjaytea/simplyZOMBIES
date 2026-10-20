@@ -375,6 +375,7 @@ deleted afterwards.
 | 6. What each body paid every tick | 2026-10-19 | 13.68 ms | 36.89 ms | each observer re-read every position, every colonist walked every zombie, every zombie re-read the sky |
 | 7. The cast's rows and the hour | 2026-10-19 | 13.49 ms | 32.67 ms | the shadowcast resolved its quadrant per tile, every observer re-read the hour, a dormant zombie resolved a speed it never used |
 | 8. The per-body cuts | 2026-10-20 | 13.63 ms | 30.01 ms | a 21 ms A* on Dictionaries, thirteen modifier strips per unhurt body, a scan of every positioned thing for the screamer, the Dress test reading each item twice |
+| 9. The far quarter and the spread cast | 2026-10-20 | 12.07 ms | 27.29 ms | every far idle zombie thinking and recasting every tick, a colonist's 48 m cast landing whole on the tick they crossed a tile |
 
 **Slice 1, content entries by id.** `SimItems._content_get` found an entry by walking every value
 in the flat content tree until one carried the id. `item_base_of` runs about a hundred times a
@@ -480,6 +481,25 @@ the angle they came from, `refresh` reads the light index once, the movement pas
 world's cells directly and asks each corner once, and the noise emitter preloads the stance table
 instead of loading it per body. The 3,000-tick hash with `DEAD_KEEP_VIEW` off still matches
 `main`.
+
+**Slice 9, the far quarter and the spread cast.** The first slice that changes what the sim
+decides, approved as an engineering call under the owner's standing brief of 2026-10-19 and held
+behind its own two switches. A wandering or dormant zombie with no person within 40 m
+(`SimShambler.FAR_THINK_METRES`) and no hold thinks on one tick in four (`FAR_THINK_EVERY`), its
+phase set by its id; between thinks its countdowns run, a dormant body stays pinned and anything
+else keeps the velocity it had, so it walks the line it would have walked and turns, hears or
+smells up to three ticks late. Scent and light steer by four ticks' worth on the tick it does
+think (`_steps_bias`). Its view rests on the ticks before it does not think: the shambler marks
+it in `SimVisibility.resting` and the next refresh keeps the view it has. A colonist other than
+the player recasts after two tiles (`PERSON_RECAST_TILES`) rather than one, and the recast is
+spread a quadrant at a time, two quadrants a tick for everyone together, longest-waiting first,
+with the old view standing until the new one lands whole; the player and the dead cast as
+before. `npm run godot:bench:runtime`, median of three interleaved runs on the slower container:
+slice 8 **14.00 / 31.35 ms** to **12.07 / 27.29**. With `THINK_LOD` and `STAGGER_PERSON_CASTS`
+off the 3,000-tick hash still matches `main`; with them on it repeats exactly run to run, and a
+save between thinks restores onto the same phase because the phase is the id and the tick.
+`godot:m2:tick` FAR-THINK and SPREAD hold both rules, and every lane in the chain the full tree
+was run against (63 gates over four lanes, balance included) stayed green.
 
 ### Remaining milestone evidence
 

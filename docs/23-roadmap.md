@@ -9904,6 +9904,25 @@ not a to-do list:
   ARCS holds the cosines to their angles after the eyes change. Each was turned red by sabotage;
   the 3,000-tick hash with `DEAD_KEEP_VIEW` off matches `main`.
   [docs/22](22-performance.md#bringing-the-tick-to-budget).
+- **Kernel & tooling — the tick to budget, slice 9: the far quarter and the spread cast,
+  2026-10-20 (partial).** Two behaviour changes, each behind a gate-drivable switch. A wandering
+  or dormant zombie with nobody within 40 m and no hold thinks on one tick in four, phase by id,
+  with its countdowns running between and its scent and light steers compounded over the four
+  ticks (`SimShambler.THINK_LOD`); its view rests on the ticks before it does not think
+  (`SimVisibility.resting`). A colonist other than the player recasts after two tiles and spreads
+  the recast two quadrants a tick across everyone, longest-waiting first, the old view standing
+  until the new one lands (`SimVisibility.STAGGER_PERSON_CASTS`; `SimShadowcast.shadowcast` takes a
+  quadrant range). `godot:bench:runtime` on the slower container, median of three interleaved
+  runs: slice 8 **14.00 / 31.35 ms** to **12.07 / 27.29**. Gated in `godot:m2:tick`: FAR-THINK
+  runs the think on far and near bodies on and off phase, Wander and Dormant, and requires the
+  rule's think, pin, countdowns and resting marks, the marks cleared by the next refresh, a
+  resting view left where it was and a marked-off one following its body, and the compounded
+  steer equal to four single steers; SPREAD holds a first cast whole, a tile's walk ignored by a
+  colonist and recast at once by the player, two quadrants spent a tick, the longest-waiting
+  landing first, each landed view equal to one whole cast from where its person stood, and the
+  four quadrants equal to the whole cast from any origin. Each was turned red by sabotage. With
+  both switches off the 3,000-tick hash matches `main`; with them on it repeats exactly.
+  [docs/22](22-performance.md#bringing-the-tick-to-budget).
 
 - **Kernel & tooling — water draw check follows its branches, 2026-10-03.** The A2 wall
   additions moved the water fill to character 4,473 after the drawing match, beyond
