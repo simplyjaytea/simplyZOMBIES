@@ -2262,6 +2262,23 @@ not a to-do list:
   through `state_at`; the socket lane follows `_bake_layer`) and `check_memory_look` (the remembered
   rule read through `WorldLayers.shows`). docs/22 has the timings.
 
+- **Colonist orders: go there, hold there, haul that — plan A16, 2026-10-20.** A colonist picked on
+  the street takes three orders from the right-click menu. `go` walks to a tile and ends there.
+  `hold` walks there and stands, taking no work, until it is stood down: the draft in effect.
+  `haul` carries one loose item to the stockpile by the ordinary Haul job, and the item is reserved
+  to that colonist from the moment the order lands. Needs and sulking still come first, and an
+  unarmed colonist re-arms before taking an order. The HUD names what the colonist is doing, and a
+  ring marks the destination on the map. Gate: `godot:m2:orders`, which checks that a walk arrives
+  and ends; that a held colonist takes no work while a free colonist goes for the same item; that a
+  haul stocks the item and refuses a stocked or packed one; that a stand-down is refused with no
+  order; that an order drops the job in hand at once; that the words and the menu follow the sim;
+  and that the record is plain values. Also `godot:check:context` and `godot:check:hud`. Not in this
+  slice: a draft toggle apart from `hold`, a message when a destination has no route (the order ends
+  quietly), and a colonist who is already hauling an item on their own when the order lands (the
+  order ends when that colonist carries it off). Sim tick, `godot:bench:runtime`: mean 7.1 ms on the base
+  commit and 7.2 ms with the slice (medians of three to six runs each, the same container; the
+  spread between runs is about 1 ms), p95 about 10 ms both ways, inside the alpha target of a mean
+  at or under 10 ms. Before and after shots: `/mnt/project-files/planning/orders/`.
 - **UI — the sheet and Work grid fit the reviewed viewports, 2026-10-03.** At 1280×720,
   inventory now separates its equipment, native 56-pixel bag cells and inspect pane, keeping
   all seven frame-pack columns reachable. The compact sheet uses the condition chart at integer
