@@ -288,6 +288,13 @@ static func _tick_one(world: Variant, ent: int) -> void:
 		if _refused_outdoors(world, ent, job as Dictionary):
 			_stop(world, ent)
 			return
+		# A zombie at arm's length of somebody out hauling or scavenging sends them home, the way
+		# the storm sends everybody in: the job is dropped (its claim released) and the walk home
+		# replaces it. See `_endangered`.
+		if BREAK_OFF_FROM_DANGER and _endangered(world, ent, job as Dictionary):
+			_stop(world, ent)
+			_retreat(world, ent)
+			return
 		# The watch ends at dawn wherever the guard stands -- on the post or still walking to
 		# it -- and completes (`job.completed`, the Endurance point). Here rather than in the
 		# Guard arm alone, because `_advance_job` walks a job to its tile before its arm runs,
@@ -632,6 +639,8 @@ static func _scavenge_work(world: Variant, ent: int, x: float, y: float) -> Dict
 			continue
 		if _claim_live(world, box):
 			continue
+		if BREAK_OFF_FROM_DANGER and _danger_at(world, bx, by, DANGER_TARGET_METRES):
+			continue
 		var dx: float = bx - x
 		var dy: float = by - y
 		var d: float = dx * dx + dy * dy
@@ -675,6 +684,8 @@ static func _haul_work(world: Variant, x: float, y: float) -> Dictionary:
 		if _is_unreachable(world, int(item)):
 			continue
 		if world.components.has_component(item, "corpse"):
+			continue
+		if BREAK_OFF_FROM_DANGER and _danger_at(world, float((p as Dictionary)["x"]), float((p as Dictionary)["y"]), DANGER_TARGET_METRES):
 			continue
 		var dx: float = float((p as Dictionary)["x"]) - x
 		var dy: float = float((p as Dictionary)["y"]) - y
@@ -1008,6 +1019,14 @@ static func _advance_job(world: Variant, ent: int, job: Dictionary) -> void:
 		return
 	_still(world, ent)
 	match kind:
+		"Retreat":
+			# Home, and a while there before the next errand: without the wait a colonist walks
+			# straight back out at the same zombie and turns at the door again, every tick.
+			if not job.has("until"):
+				job["until"] = int(world.tick) + RETREAT_HOLD_TICKS
+				world.components.set_component(ent, "job", job)
+			elif int(world.tick) >= int(job["until"]):
+				_stop(world, ent)
 		"Haul":
 			_do_haul(world, ent, job)
 		"Rearm":
@@ -1335,6 +1354,76 @@ static func _do_rearm(world: Variant, ent: int, job: Dictionary) -> void:
 ## must put back the value it found**; `check_m2_balance.gd`'s FLAG lane is what says so when one
 ## does not.
 static var WEAR_FOUND_ARMOR: bool = true
+
+
+# --- danger: the work that takes a colonist out among the wanderers ---------------------------
+#
+# A colonist on Haul or Scavenge walked to the nearest loose item or box near home and kept walking
+# with a shambler in the way: npc_combat fights from where they stand and never moves them, a held
+# colonist struggles free and the job walks them straight back in. The A24 playtest measured it on
+# the shipped district: on every seed both colonists were dead by the end of day two, the first of
+# them bled out hauling on the first morning after 99 grabs. So the work-finders refuse a target
+# with a live zombie standing near it, and a colonist out working who finds one at arm's length
+# drops the job and walks home. Guard, Rest, Doctor and the rest are untouched: this is about the
+# errands that go out, not about where a colonist stands to fight.
+#
+# A static the balance harness and the gates can pin, the WEAR_FOUND_ARMOR precedent: false is the
+# colony as it was before the A24 pass.
+static var BREAK_OFF_FROM_DANGER: bool = true
+const DANGER_KINDS: Array[String] = ["Haul", "Scavenge", "Water", "Bury", "Dress", "Rearm"]
+# How close a zombie comes before an errand is dropped: a shambler's contact range (1.6 m) with
+# room for a colonist to turn and walk off before the hands close.
+const DANGER_METRES: float = 6.0
+# How far from a target a zombie has to be before the target is worth walking to.
+const DANGER_TARGET_METRES: float = 10.0
+# How long a colonist who walked home from a zombie stays there before taking work again: half a
+# minute of real time, a few in-game minutes.
+const RETREAT_HOLD_TICKS: int = 600
+
+
+static func _danger_at(world: Variant, x: float, y: float, metres: float) -> bool:
+	var r2: float = metres * metres
+	for z in world.components.query(["shambler", "position"]):
+		if world.components.has_component(int(z), "corpse"):
+			continue
+		var p: Variant = world.components.get_component(int(z), "position")
+		if not p is Dictionary:
+			continue
+		var dx: float = float((p as Dictionary)["x"]) - x
+		var dy: float = float((p as Dictionary)["y"]) - y
+		if dx * dx + dy * dy <= r2:
+			return true
+	return false
+
+
+# Out on an errand, away from home's walls, with a zombie within DANGER_METRES.
+static func _endangered(world: Variant, ent: int, job: Dictionary) -> bool:
+	if not DANGER_KINDS.has(String(job.get("kind", ""))):
+		return false
+	# An order is the player's word, and a colonist re-arming on the way to one is still under it.
+	if world.components.has_component(ent, ORDER_COMPONENT):
+		return false
+	var pos: Variant = world.components.get_component(ent, "position")
+	if not pos is Dictionary:
+		return false
+	var x: float = float((pos as Dictionary)["x"])
+	var y: float = float((pos as Dictionary)["y"])
+	if world.tilemap != null:
+		var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
+		if annex.has_point(Vector2i(floori(x), floori(y))):
+			return false
+	return _danger_at(world, x, y, DANGER_METRES)
+
+
+# The walk home: a job with a tile and nothing to do there, which `_advance_job` ends on arrival.
+static func _retreat(world: Variant, ent: int) -> void:
+	var home: Vector2 = _home_centre(world)
+	var tile := Vector2i(floori(home.x), floori(home.y))
+	if world.tilemap != null and SimTileMap.is_solid(world.tilemap, tile.x, tile.y):
+		var open: Dictionary = SimTileMap.find_open_tile(world.tilemap, tile.x, tile.y)
+		if bool(open.get("ok", open.has("x"))) and open.has("x"):
+			tile = Vector2i(int(open["x"]), int(open["y"]))
+	world.components.set_component(ent, "job", {"kind": "Retreat", "tx": tile.x, "ty": tile.y, "ticksLeft": 0, "path": [], "pathGen": -1})
 
 # The hands are the re-arm rule's business and nothing here may reach into them: a machete has no
 # `armor` block, so this would never fire on one anyway, and saying it out loud is cheaper than
