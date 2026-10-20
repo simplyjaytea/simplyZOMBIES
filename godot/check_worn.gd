@@ -62,6 +62,15 @@ extends SceneTree
 #            reflection on a turned view, a painted grip one pixel off, a draw loop that drops the
 #            flag, a held key only a back slot names or nothing names, and a face-on rig that
 #            flip_for does not mirror facing west are each refused.
+#   FRAMES   "Frames on the render clock" (docs/23), the layer contract in appearance.gd: every walk
+#            and breath frame of every turning body declares where its head and torso sit against
+#            its view's rest picture (within FRAME_DRIFT_MAX px), and the renderer reads exactly
+#            those numbers; every survivor frame declares both hands, each on a solid pixel of that
+#            frame's own picture; a pistol held on a walking frame lands its grip on that frame's
+#            hand, and a helmet and a vest move by that frame's head and torso; the draw loop hands
+#            the frame over and `_layer_rect` reads the shift. TN: a hand off the arm, a frame-less
+#            call that leaves the pistol on the rest hand, a rest view that shifts nothing, a
+#            wearable that rides nothing, and a draw loop that drops the frame are each refused.
 
 const SimBoot = preload("res://sim/boot.gd")
 const World = preload("res://sim/world.gd")
@@ -88,6 +97,15 @@ const BARREL: Dictionary = {"e": Vector2i(1, 0), "s": Vector2i(0, 1), "w": Vecto
 const EXPECT_BEHIND: Dictionary = {"primary": ["n"], "secondary": ["e", "w", "n"]}
 
 var _stash: Dictionary = {}
+
+# How far a frame may move a head or a torso from its view's rest picture before the number is
+# more likely a measuring fault than a pose: a step bobs a row or two and sways a pixel or two.
+const FRAME_DRIFT_MAX: int = 3
+# The bodies that turn, and so have frames for gear to follow.
+const TURNING_BODIES: Array[String] = [
+	"body_survivor", "body_zombie_workwear", "body_zombie_commuter", "body_zombie_raincoat",
+	"body_zombie_stalker", "body_zombie_runner", "body_zombie_armored", "body_zombie_heavy",
+]
 
 
 # The table this whole gate holds EQUIP_DRAW_ORDER against -- a hand-written duplicate of
@@ -140,6 +158,7 @@ func _run() -> void:
 	ok = _the_shipped_colony_reaches_it() and ok
 	ok = _the_wearables_turn_with_the_body() and ok
 	ok = _the_weapon_is_in_the_hand() and ok
+	ok = _the_gear_follows_the_frame() and ok
 	ok = _every_worn_item_has_a_garment() and ok
 	ok = _nobody_is_drawn_in_underwear() and ok
 	ok = _the_clothes_walk_with_the_body() and ok
@@ -1046,6 +1065,180 @@ func _the_weapon_is_in_the_hand() -> bool:
 	return true
 
 
+# --- lane 9: FRAMES --------------------------------------------------------------------------
+
+
+# The members of `family` in authored.json, read from the file rather than through Appearance, so a
+# number the renderer failed to load is still judged against what was declared.
+func _declared_members(family: String) -> Dictionary:
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://assets/sprites/authored.json"))
+	if not (parsed is Dictionary):
+		return {}
+	var entry: Variant = ((parsed as Dictionary).get("keys", {}) as Dictionary).get(family)
+	if not (entry is Dictionary):
+		return {}
+	return (entry as Dictionary).get("members", {}) as Dictionary
+
+
+func _declared_point(member: Dictionary, field: String) -> Variant:
+	var v: Variant = member.get(field)
+	if v is Array and (v as Array).size() == 2:
+		return Vector2i(int((v as Array)[0]), int((v as Array)[1]))
+	return null
+
+
+func _the_gear_follows_the_frame() -> bool:
+	var lane: String = "FRAMES"
+	Appearance.forget()
+	var frames_judged: int = 0
+	var moving_frames: int = 0
+	for family in TURNING_BODIES:
+		var members: Dictionary = _declared_members(family)
+		if members.is_empty():
+			push_error("%s: authored.json declares no members for %s" % [lane, family])
+			return false
+		for member_v in members.keys():
+			var member: String = String(member_v)
+			var suffix: String = Appearance.frame_suffix(family, member)
+			if suffix in Appearance.VIEWS:
+				continue
+			var decl: Dictionary = members[member] as Dictionary
+			for region in ["head", "torso"]:
+				var p: Variant = _declared_point(decl, region)
+				if p == null:
+					push_error("%s: %s declares no %s offset; gear riding it would not move with the frame" % [lane, member, region])
+					return false
+				if absi((p as Vector2i).x) > FRAME_DRIFT_MAX or absi((p as Vector2i).y) > FRAME_DRIFT_MAX:
+					push_error("%s: %s moves its %s by %s, past %d px" % [lane, member, region, str(p), FRAME_DRIFT_MAX])
+					return false
+				if Appearance.frame_offset(member, region) != p:
+					push_error("%s: Appearance.frame_offset('%s', '%s') answers %s where authored.json declares %s" % [lane, member, region, str(Appearance.frame_offset(member, region)), str(p)])
+					return false
+				if p != Vector2i.ZERO:
+					moving_frames += 1
+			frames_judged += 1
+	if moving_frames == 0:
+		push_error("%s: no frame moves a head or a torso; the offsets have nothing to judge" % lane)
+		return false
+
+	# The survivor's hands, every frame, on its own picture.
+	var survivor: Dictionary = _declared_members("body_survivor")
+	var hands_judged: int = 0
+	var off_rest: int = 0
+	for member_v in survivor.keys():
+		var member: String = String(member_v)
+		var suffix: String = Appearance.frame_suffix("body_survivor", member)
+		if suffix in Appearance.VIEWS:
+			continue
+		var view: String = suffix.split("_")[1]
+		var image: Image = Appearance.resolve(member).get_image()
+		var hands: Variant = (survivor[member] as Dictionary).get("hands")
+		for slot in Appearance.HELD_HANDS.keys():
+			var p: Variant = _declared_point(hands as Dictionary, String(slot)) if hands is Dictionary else null
+			if p == null:
+				push_error("%s: %s declares no %s hand" % [lane, member, String(slot)])
+				return false
+			var complaint: String = _hand_complaint(image, p as Vector2i)
+			if not complaint.is_empty():
+				push_error("%s: the %s hand on %s, %s, %s" % [lane, String(slot), member, str(p), complaint])
+				return false
+			if Appearance.frame_hand(member, String(slot), view) != p:
+				push_error("%s: Appearance.frame_hand('%s', '%s') does not answer the declared %s" % [lane, member, String(slot), str(p)])
+				return false
+			if p != (Appearance.HELD_HANDS[slot] as Dictionary)[view]:
+				off_rest += 1
+			hands_judged += 1
+	if off_rest == 0:
+		push_error("%s: every frame's hand is the rest view's; per-frame hands judge nothing" % lane)
+		return false
+	# TN: the same predicate refuses a point moved off the arm into the empty canvas.
+	var probe: Image = Appearance.resolve("body_survivor_walk_e_0").get_image()
+	if _hand_complaint(probe, Vector2i(1, 1)).is_empty():
+		push_error("%s: a hand in the empty corner of a walk frame passed" % lane)
+		return false
+
+	# The gear on a real walking frame: a pistol on that frame's hand, a helmet and a vest moved by
+	# its head and torso. Found rather than named, so a rebuild that moves which frame bobs cannot
+	# empty the lane.
+	var w: Variant = _world(ContentLoader.load_tree())
+	var actor: int = _kit(w, {"primary": "item.pistol.service", "head": "item.helmet.bike", "vest": "item.vest.carrier"})
+	var pistol: Texture2D = Appearance.resolve("item_held_pistol")
+	var judged_layers: int = 0
+	for member_v in survivor.keys():
+		var member: String = String(member_v)
+		var suffix: String = Appearance.frame_suffix("body_survivor", member)
+		if not suffix.begins_with("walk_"):
+			continue
+		var view: String = suffix.split("_")[1]
+		var hand: Vector2i = Appearance.frame_hand(member, "primary", view)
+		var rest_hand: Vector2i = (Appearance.HELD_HANDS["primary"] as Dictionary)[view] as Vector2i
+		var head: Vector2i = Appearance.frame_offset(member, "head")
+		var torso: Vector2i = Appearance.frame_offset(member, "torso")
+		if hand == rest_hand or head == Vector2i.ZERO or torso == Vector2i.ZERO:
+			continue
+		var layers: Array[Dictionary] = Appearance.equipment_layers_for(w, actor, view, member, "body_survivor")
+		var bare: Array[Dictionary] = Appearance.equipment_layers_for(w, actor, view)
+		for i in layers.size():
+			var layer: Dictionary = layers[i]
+			if layer.get("texture") == pistol:
+				var size := Vector2i(pistol.get_size())
+				var want: Dictionary = Appearance.held_pose(size, Appearance.grip_of("item_held_pistol"), hand, view)
+				if layer.get("at") != want["at"]:
+					push_error("%s: the pistol on %s is at %s, not on that frame's hand %s" % [lane, member, str(layer.get("at")), str(hand)])
+					return false
+				if bare[i].get("at") == layer.get("at"):
+					push_error("%s: the pistol on %s sits where a frame-less call puts it; the frame reached nothing" % [lane, member])
+					return false
+				judged_layers += 1
+			elif layer.get("texture") == Appearance.resolve("item_gear_helmet_%s" % view):
+				if layer.get("shift", Vector2i.ZERO) != head or bare[i].has("shift"):
+					push_error("%s: the helmet on %s shifts %s, its head %s (frame-less %s)" % [lane, member, str(layer.get("shift")), str(head), str(bare[i].get("shift"))])
+					return false
+				judged_layers += 1
+			elif layer.get("texture") == Appearance.resolve("item_gear_vest_%s" % view):
+				if layer.get("shift", Vector2i.ZERO) != torso:
+					push_error("%s: the vest on %s shifts %s, its torso %s" % [lane, member, str(layer.get("shift")), str(torso)])
+					return false
+				judged_layers += 1
+		if judged_layers >= 3:
+			break
+	if judged_layers < 3:
+		push_error("%s: found no walking frame that moves the hand, head and torso at once to judge the gear on (%d layers)" % [lane, judged_layers])
+		return false
+	# TN: a rest view shifts nothing, and every pack wearable rides a part.
+	for layer in Appearance.equipment_layers_for(w, actor, "e", "body_survivor_e", "body_survivor"):
+		if layer.has("shift"):
+			push_error("%s: the rest view shifted a layer by %s" % [lane, str(layer["shift"])])
+			return false
+	for key in ["item_gear_helmet", "item_gear_gasmask", "item_gear_vest", "item_gear_backpack"]:
+		if not (Appearance.rides(key) in ["head", "torso"]):
+			push_error("%s: %s rides '%s'; a wearable must ride the head or the torso" % [lane, key, Appearance.rides(key)])
+			return false
+	if Appearance.rides("item_held_pistol") != "" or Appearance.frame_suffix("body_survivor", "body_survivor_walk_e_3") != "walk_e_3" or Appearance.frame_suffix("body_survivor", "body_zombie_runner_e") != "":
+		push_error("%s: rides or frame_suffix answers something for a key it should not" % lane)
+		return false
+
+	# The draw loop hands the frame over, and `_layer_rect` reads the shift -- and the needles can fail.
+	var source: String = FileAccess.get_file_as_string(MAIN_PATH)
+	var complaint: String = _frame_loop_complaint(source)
+	if not complaint.is_empty():
+		push_error("%s: %s" % [lane, complaint])
+		return false
+	if _frame_loop_complaint(source.replace("Appearance.equipment_layers_for(world, eid, view, frame, sprite_key)", "Appearance.equipment_layers_for(world, eid, view)")).is_empty() or _frame_loop_complaint(source.replace("layer[\"shift\"]", "layer[\"at\"]")).is_empty():
+		push_error("%s: a draw loop that drops the frame or ignores the shift passed" % lane)
+		return false
+	print("  FRAMES OK %d walk and breath frames over %d bodies declare head and torso offsets the renderer reads (%d move one); %d survivor hands on their own frame's arm (%d off the rest point); a pistol, helmet and vest on a walking frame follow its hand, head and torso; corner hand, frame-less pistol, shifting rest view, riderless wearable and dropped frame refused" % [frames_judged, TURNING_BODIES.size(), moving_frames, hands_judged, off_rest])
+	return true
+
+
+func _frame_loop_complaint(source: String) -> String:
+	var draw: String = _function_code(source, "_draw_entities")
+	if not draw.contains("Appearance.equipment_layers_for(world, eid, view, frame, sprite_key)"):
+		return "_draw_entities does not hand the body's frame to equipment_layers_for"
+	var place: String = _function_code(source, "_layer_rect")
+	if not place.contains("layer[\"shift\"]"):
+		return "_layer_rect does not read a wearable's shift"
+	return ""
 # --- clothing: shared helpers ---------------------------------------------------------------
 #
 # "Clothe everyone" (docs/23, 2026-10-19). Torso, legs and feet garments are `wear` families
@@ -1063,7 +1256,7 @@ func _the_weapon_is_in_the_hand() -> bool:
 #            human the shipped colony boots, resolves a garment in all three slots, and the dressed
 #            rest view repaints most of the body's skin. TN: a zombie, a body with no outfit to fall
 #            back on, and an outfit naming a garment painted for another rig resolve nothing.
-#   STEP     the clothes walk with the legs: for every view and a run of ticks, moving and standing,
+#   STEP     the clothes walk with the legs: for every view and a run of motions, moving and standing,
 #            `body_texture` answers the composite for exactly the frame `frame_key` picks, and that
 #            composite is the frame dressed in all three garments' members for that same frame.
 #            TN: the walk frame dressed in the garments' idle members (clothes that stood still), and
@@ -1076,6 +1269,10 @@ func _rig_members() -> Array[String]:
 		out.append("%s_%s" % [CLOTHED_RIG, view])
 		for n in Appearance.walk_frames(CLOTHED_RIG):
 			out.append("%s_walk_%s_%d" % [CLOTHED_RIG, view, n])
+		# The breath pictures after the rest view (docs/30, "The idle breath, kept"): a standing
+		# body shows them, so they are dressed like every other frame.
+		for n in range(1, Appearance.breath_frames(CLOTHED_RIG)):
+			out.append("%s_idle_%s_%d" % [CLOTHED_RIG, view, n])
 	return out
 
 
@@ -1148,8 +1345,8 @@ func _every_worn_item_has_a_garment() -> bool:
 	var tree: Dictionary = ContentLoader.load_tree()
 	var w: Variant = _world(tree)
 	var frames: Array[String] = _rig_members()
-	if frames.size() != Appearance.VIEWS.size() * 5:
-		push_error("%s: the %s rig draws %d frames, want four views of an idle picture and a four-frame walk" % [lane, CLOTHED_RIG, frames.size()])
+	if frames.size() != Appearance.VIEWS.size() * (Appearance.breath_frames(CLOTHED_RIG) + Appearance.walk_frames(CLOTHED_RIG)) or Appearance.walk_frames(CLOTHED_RIG) != 8 or Appearance.breath_frames(CLOTHED_RIG) != 2:
+		push_error("%s: the %s rig draws %d frames, want four views of a rest picture, a breath and an eight-frame walk" % [lane, CLOTHED_RIG, frames.size()])
 		return false
 	var per_slot: Dictionary = {"legs": 0, "feet": 0, "torso": 0}
 	var fewest: int = 1 << 30
@@ -1398,12 +1595,16 @@ func _the_clothes_walk_with_the_body() -> bool:
 	var composite_of: Dictionary = {}
 	for view in Appearance.VIEWS:
 		var seen: Dictionary = {}
-		for tick in range(0, 60, 1):
+		# Sixty steps through the walk cycle and sixty quarter-seconds of standing: every walk frame,
+		# the rest picture and the breath, each asked for the way the draw asks (a motion from
+		# presentation/anim_clock.gd).
+		for step in range(0, 60, 1):
 			for moving_now in [true, false]:
-				var frame: String = Appearance.frame_key(CLOTHED_RIG, view, moving_now, tick, actor)
-				var got: Texture2D = Appearance.body_texture(look, view, moving_now, tick, actor)
+				var motion: Dictionary = {"walking": moving_now, "cycle": float(step) / 60.0, "idle": float(step) * 0.25}
+				var frame: String = Appearance.frame_key(CLOTHED_RIG, view, motion)
+				var got: Texture2D = Appearance.body_texture(look, view, motion)
 				if got == null or got != Appearance.dressed_texture(CLOTHED_RIG, frame, outfit):
-					push_error("%s: body_texture on view '%s', tick %d, moving %s is not the composite for %s" % [lane, view, tick, str(moving_now), frame])
+					push_error("%s: body_texture on view '%s', step %d, moving %s is not the composite for %s" % [lane, view, step, str(moving_now), frame])
 					return false
 				if not composite_of.has(frame):
 					var dressed: Image = Appearance.dressed_image(CLOTHED_RIG, frame, outfit)
@@ -1414,8 +1615,8 @@ func _the_clothes_walk_with_the_body() -> bool:
 					composite_of[frame] = true
 				seen[frame] = true
 				judged += 1
-		if seen.size() != 1 + Appearance.walk_frames(CLOTHED_RIG):
-			push_error("%s: view '%s' drew %d distinct frames over sixty ticks; want the idle picture and every walk frame" % [lane, view, seen.size()])
+		if seen.size() != Appearance.breath_frames(CLOTHED_RIG) + Appearance.walk_frames(CLOTHED_RIG):
+			push_error("%s: view '%s' drew %d distinct frames over sixty steps; want the rest picture, the breath and every walk frame" % [lane, view, seen.size()])
 			return false
 
 	# TN: clothes that stood still are caught. For every view, some walk frame dressed in the
@@ -1436,7 +1637,7 @@ func _the_clothes_walk_with_the_body() -> bool:
 		push_error("%s: a survivor frame was dressed as a member of another rig" % lane)
 		return false
 
-	var note: String = "the clothes walk with the legs: %d frame draws across four views, moving and standing, each the composite for exactly the frame the body shows, all three garments that frame's own members" % judged
+	var note: String = "the clothes walk and breathe with the body: %d frame draws across four views, moving and standing, each the composite for exactly the frame the body shows, all three garments that frame's own members" % judged
 	_stash["step_note"] = note
 	print("STEP OK %s; a walk dressed in standing garments is refused in every view, and a frame of another rig composes nothing" % note)
 	return true

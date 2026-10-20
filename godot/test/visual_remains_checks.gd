@@ -120,8 +120,8 @@ static func _turned_art_complaint(world: Variant, entity: int) -> String:
 	var key: String = String(look.get("sprite", ""))
 	if look.get("texture") == null or not Appearance.turns(key):
 		return "the turned body resolves no directional sprite family"
-	var idle: Texture2D = Appearance.body_texture(look, "e", false, 0, entity)
-	var walking: Texture2D = Appearance.body_texture(look, "e", true, 0, entity)
+	var idle: Texture2D = Appearance.body_texture(look, "e", Appearance.STILL)
+	var walking: Texture2D = Appearance.body_texture(look, "e", {"walking": true, "cycle": 0.0, "idle": 0.0})
 	if idle == null or walking == null or idle == walking:
 		return "the turned body has no distinct walk frame"
 	return ""
