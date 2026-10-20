@@ -51,7 +51,7 @@ const COLOURS: Dictionary = {
 	# The sixth ground: the pack's "still teal water". Water reads as water -- the owner's call of
 	# 2026-09-09, which made it the one cool ground -- and since the pack's grade it is the pack's
 	# own teal rather than a slate held under the old 0.30 saturation cap (S 0.581 now; the cap
-	# went with the grade, which closes HANDOFF's water-saturation question). check_road_look.gd's
+	# went with the grade, which closes the owner list's water-saturation question). check_road_look.gd's
 	# COOL_SURFACES still judges it cool (b - r = 0.196) and check_water.gd's PACK lane pins it.
 	#
 	# This is the ford -- the wadeable ground `SimSurface.Surface.Water` names. Deep water is the

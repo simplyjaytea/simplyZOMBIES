@@ -47,7 +47,15 @@
   "faces": {
     "window": "face_window",
     "door": "face_door",
-    "garage": "face_garage"
+    "garage": "face_garage",
+    "glass": {
+      "pane_ew": "glass_pane_ew",
+      "pane_ns": "glass_pane_ns",
+      "pane_square": "glass_pane_square",
+      "frame_ew": "glass_frame_ew",
+      "frame_ns": "glass_frame_ns",
+      "frame_square": "glass_frame_square"
+    }
   },
   "trees": {
     "tall": [

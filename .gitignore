@@ -12,3 +12,5 @@ roadmap-*.html
 # Python bytecode from tools/sprites/ — build.py sets sys.dont_write_bytecode, so this
 # only catches an ad-hoc `python3 -c` import; a stale cache renders the previous palette.
 __pycache__/
+# The art review's capture driver writes here by default (godot:shots).
+review-shots/

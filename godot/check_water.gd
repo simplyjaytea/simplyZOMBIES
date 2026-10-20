@@ -37,7 +37,7 @@ extends SceneTree
 #           Sidewalk, so the re-index did not simply shift the bug along.
 #   PACK    the water is the outpost pack's (docs/23, "The ground is the pack's", 2026-09-27; the
 #           owner's answer in docs/30's "The whole outpost pack" that the ground takes the pack's
-#           own grade, which folds in HANDOFF's water-saturation question): the ford's colour is the
+#           own grade, which folds in the owner list's water-saturation question): the ford's colour is the
 #           pack's measured teal #244e56, cool, its atlas cells the pack's one water tile twice, and
 #           the deep channel derived from it still sits between the ford and the background in
 #           value -- a channel you can tell from the ford and from the void. TN: the warm-dark
