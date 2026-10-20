@@ -188,16 +188,6 @@ var _vehicle_index_gen: int = -1
 # what invalidates it -- see _dressing.
 var _dressing_cache: Dictionary = {}
 var _dressing_from: Variant = null
-# The nature dressing's picks, one list per 16 x 16 chunk (Dressing.nature_tiles_cached), and what
-# they were picked against: the map object, its vehicle generation (a driven car turns Low tiles
-# to Floor and back under the same map, which the ground test reads), the seed and the content
-# tree. Any of the four moving empties the cache -- see _nature_cache_for. Never a static: one
-# gate process boots two worlds.
-var _nature_cache: Dictionary = {}
-var _nature_cache_map: Variant = null
-var _nature_cache_gen: int = -1
-var _nature_cache_seed: int = -1
-var _nature_cache_content: Variant = null
 # The furnishings' picks, kept the same way and emptied by the same four things -- see
 # _furnishing_cache_for.
 var _furnishing_cache: Dictionary = {}
@@ -1457,16 +1447,11 @@ func _draw_world() -> void:
 		"generation": int(world.map_generation), "map_w": map_w, "map_h": map_h, "view": view,
 		"snow": SimWeather.snow_cover(world), "signature": _bake_signature, "bake": _bake_layer,
 	})
-	# The nature dressing, flat on the ground and under everything that stands: bushes, reeds,
-	# rocks, stumps and logs over open outdoor floor. After the baked tiles and not inside them
-	# because the log is wider than its tile and the floor drawn beside it would overdraw it;
-	# before the props and the bodies because nothing here is an object anyone can stand behind.
-	_draw_nature(dress, seen, bounds)
-	# The furnishings after the nature and before the props: still dressing, still under everything
-	# that stands, and skipped wherever a real prop stands (docs/23, "Furnishings and container kinds").
-	_draw_furnishings(dress, seen, bounds)
-	# Props last, over the ground and under the bodies _draw_entities sorts: a container, a bed,
-	# a campfire and the well all stood invisible in this district until this call existed.
+	# The nature dressing and the flat furnishings are baked too (the DECOR layer, _draw_decor): both
+	# are pictures on seen tiles that never move, so drawing them each frame was the cost of a tile
+	# nobody was looking at. Props stay per frame, last, over the ground and under the bodies
+	# _draw_entities sorts: a container, a bed, a campfire and the well all stood invisible in this
+	# district until this call existed.
 	_draw_props()
 
 
@@ -1491,6 +1476,8 @@ func _bake_layer(region: Rect2i, layer: int, pen: Object) -> void:
 			_draw_district(region, BakePass.LIVE)
 		WorldLayersRes.Layer.A2:
 			_draw_district(region, BakePass.A2)
+		WorldLayersRes.Layer.DECOR:
+			_draw_decor(region)
 		WorldLayersRes.Layer.REMEMBERED:
 			_draw_district(region, BakePass.REMEMBERED)
 		WorldLayersRes.Layer.ROOF:
@@ -1697,23 +1684,6 @@ func _dressing() -> Dictionary:
 	return _dressing_cache
 
 
-# The nature cache, emptied when anything its picks were made against has moved: the map object,
-# its vehicle generation, the seed or the content tree (`is_same`, so a content tree is compared
-# by identity and not walked). The picks include the ground test, which a parked car's Low tiles
-# change when it is driven off.
-func _nature_cache_for() -> Dictionary:
-	var map: Variant = world.tilemap
-	var gen: int = 0 if map == null else int(map.vehicle_generation)
-	if is_same(map, _nature_cache_map) and gen == _nature_cache_gen and int(world.seed) == _nature_cache_seed and is_same(world.content, _nature_cache_content):
-		return _nature_cache
-	_nature_cache = {}
-	_nature_cache_map = map
-	_nature_cache_gen = gen
-	_nature_cache_seed = int(world.seed)
-	_nature_cache_content = world.content
-	return _nature_cache
-
-
 # The furnishing cache, emptied by the same four things the nature cache is and for the same
 # reason: its picks include the ground test, which a driven car's Low tiles change.
 func _furnishing_cache_for() -> Dictionary:
@@ -1729,48 +1699,34 @@ func _furnishing_cache_for() -> Dictionary:
 	return _furnishing_cache
 
 
-# The furnishings, one picture per tile `Dressing.furnishing_tiles_cached` answers: a table, a chair,
-# a shelf and a cabinet indoors, a dumpster, a barrier, a cone and a post outside (docs/23,
-# "Furnishings and container kinds"). Seen tiles only, and never a remembered one, so nothing here
-# is drawn through a wall or where the observer has no sightline. Hung by `Appearance.hang_rect` at
-# the picture's own size, drawn over the nature and under the props and the bodies. A tile a real
-# prop stands on is skipped, so a chair never peeks out from under a container or a bed. Dressing
-# is never sim state: this reads the map and the props' positions and writes nothing, and a body
-# walks across a table and is drawn over it.
-func _draw_furnishings(dress: Dictionary, seen: Variant, bounds: Dictionary) -> void:
-	if dress.is_empty() or seen == null or world.tilemap == null:
+# The flat dressing of one chunk, baked into the DECOR layer (world_layers.gd): the nature pictures
+# (bushes, reeds, rocks, stumps, logs over open outdoor floor) and the flat furnishings (a table, a
+# chair, a dumpster, a traffic cone). Dressing.decor_picks answers which tile takes which picture;
+# this only blits them, one hung on each tile's south edge at its own size (Appearance.hang_rect),
+# in the bake camera's world pixels. Nature first, then furniture, as the per-frame draw did, and
+# the layer's LIVE mask decides what shows, so a picture on a tile nobody sees is baked and never
+# drawn. A standing furnishing is not here: it joins the entity sort (_standing_props).
+#
+# Dressing is never sim state: this reads the map and writes nothing, and a picture never sits on
+# anything the sim treats as solid. A prop standing on a tile is drawn over the picture beneath it
+# (_draw_props runs after the layers), which is the cost of baking: the old per-frame draw skipped
+# the picture under a prop, the baked one cannot notice a prop placed after its chunk was baked.
+func _draw_decor(region: Rect2i) -> void:
+	var dress: Dictionary = _dressing()
+	if dress.is_empty() or world.tilemap == null:
 		return
+	var picks: Dictionary = Dressing.decor_picks(dress, world.tilemap, int(world.seed), region)
 	var zoom: float = float(camera["zoom"])
 	var px_scale: float = Appearance.blit_scale(zoom)
-	var occupied: Dictionary = Appearance.prop_tiles(world)
-	for pick in Dressing.furnishing_tiles_cached(dress, world.tilemap, seen, int(world.seed), bounds, _furnishing_cache_for()):
-		if Dressing.furnishing_is_standing(dress, String(pick["key"])):
-			continue
-		if occupied.has(Vector2i(int(pick["tx"]), int(pick["ty"]))):
-			continue
-		var texture: Texture2D = Appearance.resolve(String(pick["key"]))
-		if texture == null:
-			continue
-		var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(int(pick["tx"])) + 0.5, float(int(pick["ty"])) + 1.0)
-		draw_texture_rect(texture, Appearance.hang_rect(float(sc["sx"]), float(sc["sy"]), texture.get_size() * px_scale), false)
-
-
-# The nature dressing, one picture per tile `Dressing.nature_tiles_cached` answers: seen tiles only, and
-# never a remembered one, so nothing here is drawn where the observer has no sightline. Each hangs
-# with its last row on the tile's south edge (Appearance.hang_rect) at its own size. Dressing is
-# never sim state: this reads the map and writes nothing, and the tiles it draws on are open floor
-# the sim treats as open floor -- a body walks across a stump and is drawn over it.
-func _draw_nature(dress: Dictionary, seen: Variant, bounds: Dictionary) -> void:
-	if dress.is_empty() or seen == null or world.tilemap == null:
-		return
-	var zoom: float = float(camera["zoom"])
-	var px_scale: float = Appearance.blit_scale(zoom)
-	for pick in Dressing.nature_tiles_cached(dress, world.tilemap, seen, int(world.seed), bounds, _nature_cache_for()):
-		var texture: Texture2D = Appearance.resolve(String(pick["key"]))
-		if texture == null:
-			continue
-		var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(int(pick["tx"])) + 0.5, float(int(pick["ty"])) + 1.0)
-		draw_texture_rect(texture, Appearance.hang_rect(float(sc["sx"]), float(sc["sy"]), texture.get_size() * px_scale), false)
+	for kind in ["nature", "furnishings"]:
+		for pick in picks[kind] as Array:
+			var texture: Texture2D = Appearance.resolve(String((pick as Dictionary)["key"]))
+			if texture == null:
+				continue
+			var tx: int = int((pick as Dictionary)["tx"])
+			var ty: int = int((pick as Dictionary)["ty"])
+			var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(tx) + 0.5, float(ty) + 1.0)
+			_pen.draw_texture_rect(texture, Appearance.hang_rect(float(sc["sx"]), float(sc["sy"]), texture.get_size() * px_scale), false)
 
 
 # One heap of junk over a Low tile no parked vehicle covers. False when content declares no

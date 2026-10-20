@@ -876,6 +876,14 @@ func _pick_set(picks: Array[Dictionary]) -> Array:
 	return out
 
 
+# A picks list out of a Dictionary value (an untyped Array) as the typed list _pick_set takes.
+func _as_picks(list: Array) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for pick in list:
+		out.append(pick as Dictionary)
+	return out
+
+
 func _bush_block(rarity: int = 2) -> Dictionary:
 	return {"nature": [{"key": "nature_bush", "surfaces": ["grass"], "rarity": rarity}]}
 
@@ -1161,41 +1169,36 @@ func _the_nature_dressing_lies_where_it_should() -> bool:
 		return false
 
 	# --- the draw pass is reached, in its place ----------------------------------------------
-	if not _comes_before("_draw_nature(\n_draw_props()", "_draw_nature(", "_draw_props()"):
-		push_error("the order scanner refused a fabricated body that draws the dressing first; it cannot say yes")
-		return false
-	if _comes_before("_draw_props()\n_draw_nature(", "_draw_nature(", "_draw_props()"):
-		push_error("the order scanner passed a fabricated body that draws the props first; it cannot say no")
-		return false
-	# The roofs are a baked layer since the world was baked (presentation/world_layers.gd), drawn
-	# behind main's own commands; _draw_world brings the layers up to date (`_layers.call("frame"`)
-	# and then draws the dressing and the props fresh over them, in this order.
+	# The flat dressing is baked into the DECOR layer, so the frame draws none of it: _draw_world
+	# brings the layers up to date and then draws the props fresh over them, and the bake's layer
+	# match reaches _draw_decor, which draws the nature pictures before the flat furnishings.
 	var district: String = _function_body(MAIN_GD, "_draw_world")
-	if not _comes_before(district, "_layers.call(\"frame\"", "_draw_nature(") or not _comes_before(district, "_draw_nature(", "_draw_props()"):
-		push_error("_draw_world does not call _draw_nature( after the baked layers and before _draw_props(); the dressing would draw over the props or not at all")
+	if district.contains("_draw_nature(") or district.contains("_draw_furnishings("):
+		push_error("_draw_world still draws the nature or the furnishings per frame; they are baked into DECOR")
 		return false
-	var draw_nature: String = _function_body(MAIN_GD, "_draw_nature")
-	if draw_nature.is_empty():
-		push_error("could not read _draw_nature out of %s" % MAIN_GD)
+	if not _comes_before(district, "_layers.call(\"frame\"", "_draw_props()"):
+		push_error("_draw_world does not bring the baked layers up to date before _draw_props(); the props would draw under the bake")
 		return false
-	var m: String = _missing_needle(draw_nature, ["Dressing.nature_tiles_cached(", "_nature_cache_for()", "Appearance.hang_rect(", "Appearance.resolve("])
+	if _comes_before("_draw_props()\n_layers.call(\"frame\"", "_layers.call(\"frame\"", "_draw_props()"):
+		push_error("the order scanner passed a fabricated body that draws the props before the layers; it cannot say no")
+		return false
+	var bake_layer: String = _function_body(MAIN_GD, "_bake_layer")
+	if _missing_needle(bake_layer, ["WorldLayersRes.Layer.DECOR:", "_draw_decor(region)"]) != "":
+		push_error("_bake_layer does not bake the DECOR layer through _draw_decor(region)")
+		return false
+	var draw_decor: String = _function_body(MAIN_GD, "_draw_decor")
+	if draw_decor.is_empty():
+		push_error("could not read _draw_decor out of %s" % MAIN_GD)
+		return false
+	var m: String = _missing_needle(draw_decor, ["Dressing.decor_picks(", "\"nature\"", "\"furnishings\"", "Appearance.hang_rect(", "Appearance.resolve(", "_pen.draw_texture_rect("])
 	if not m.is_empty():
-		push_error("_draw_nature does not contain %s" % m)
+		push_error("_draw_decor does not contain %s" % m)
 		return false
-	# The cache is emptied by everything its picks were made against. The scanner is shown a body
-	# that forgets the vehicle generation before it is trusted on the real one.
-	var cache_body: String = _function_body(MAIN_GD, "_nature_cache_for")
-	var cache_needles: Array = ["int(map.vehicle_generation)", "is_same(map, _nature_cache_map)", "gen == _nature_cache_gen", "int(world.seed) == _nature_cache_seed", "is_same(world.content, _nature_cache_content)", "_nature_cache = {}"]
-	var forgetful: String = "int(map.vehicle_generation)\nis_same(map, _nature_cache_map) and int(world.seed) == _nature_cache_seed and is_same(world.content, _nature_cache_content)\n_nature_cache = {}"
-	if _missing_needle(forgetful, cache_needles) != "gen == _nature_cache_gen":
-		push_error("the cache scanner did not name the missing generation comparison in a body that forgets it; it cannot say no")
+	if not _comes_before(draw_decor, "\"nature\"", "\"furnishings\""):
+		push_error("_draw_decor draws the furnishings before the nature pictures")
 		return false
-	var missing_cache: String = _missing_needle(cache_body, cache_needles)
-	if not missing_cache.is_empty():
-		push_error("_nature_cache_for does not contain %s; a picture could outlive what it was picked against" % missing_cache)
-		return false
-	if draw_nature.contains("draw_set_transform(") or draw_nature.contains("world.components") or draw_nature.contains("set_component("):
-		push_error("_draw_nature sets a transform or touches a component; dressing is a picture and nothing else")
+	if draw_decor.contains("draw_set_transform(") or draw_decor.contains("world.components") or draw_decor.contains("set_component("):
+		push_error("_draw_decor sets a transform or touches a component; dressing is a picture and nothing else")
 		return false
 
 	# --- the shipped suburb ------------------------------------------------------------------
@@ -1243,9 +1246,24 @@ func _the_nature_dressing_lies_where_it_should() -> bool:
 		push_error("the cached picks over the shipped suburb differ from the uncached ones")
 		return false
 
+	# The baked picks are the per-tile picks the lanes above checked. The whole suburb as one bake
+	# region answers the same nature pictures tile for tile, and the same flat furnishings with the
+	# standing ones left to the entity sort (the DECOR layer, world_layers.gd).
+	var baked: Dictionary = Dressing.decor_picks(sblock, smap, int(sworld.seed), Rect2i(0, 0, sw, sh))
+	if _pick_set(_as_picks(baked["nature"])) != _pick_set(picks):
+		push_error("decor_picks answers different nature pictures over the shipped suburb than nature_tiles does; the bake would draw what the frame never did")
+		return false
+	var flat_furnishings: Array[Dictionary] = []
+	for pick5 in Dressing.furnishing_tiles(sblock, smap, everyone, int(sworld.seed), whole_suburb):
+		if not Dressing.furnishing_is_standing(sblock, String(pick5["key"])):
+			flat_furnishings.append(pick5)
+	if _pick_set(_as_picks(baked["furnishings"])) != _pick_set(flat_furnishings):
+		push_error("decor_picks answers different flat furnishings over the shipped suburb than furnishing_tiles does; the bake would draw what the frame never did")
+		return false
+
 	_stash["nature_tiles"] = picks.size()
 	_stash["nature_kinds"] = kinds.size()
-	print("NATURE OK %d entries (every key an authored prop that resolves at most %dx%d, every surface real, every rarity >= 2); the roll picks %d of 32 seeds on open grass and none on paved, walled, indoor, door-flanked, tree, heap, deep-water or edge tiles; reeds need water beside them and take a ford as water; an entry that misses its ground falls through; malformed blocks pick nothing; the roll is hash_at's own number on %d rolled tiles over four rarities and eight seeds; nature_tiles is a subset of seen and of bounds; the chunk cache answers the uncached picks over four windows and four observers (%d picks), serves a poisoned chunk and forgets it when emptied, and _nature_cache_for is emptied by the vehicle generation, the seed and the content; _draw_nature follows the baked layers and precedes _draw_props; suburb@%d takes %d pictures in %d kinds %s, cached and uncached alike" % [(entries as Array).size(), NATURE_MAX_W, NATURE_MAX_H, yes, rolls, cache_compared, GATE_SIZE, picks.size(), kinds.size(), str(kinds)])
+	print("NATURE OK %d entries (every key an authored prop that resolves at most %dx%d, every surface real, every rarity >= 2); the roll picks %d of 32 seeds on open grass and none on paved, walled, indoor, door-flanked, tree, heap, deep-water or edge tiles; reeds need water beside them and take a ford as water; an entry that misses its ground falls through; malformed blocks pick nothing; the roll is hash_at's own number on %d rolled tiles over four rarities and eight seeds; nature_tiles is a subset of seen and of bounds; the chunk cache answers the uncached picks over four windows and four observers (%d picks), serves a poisoned chunk and forgets it when emptied, and decor_picks answers the suburb tile for tile as nature_tiles and furnishing_tiles do; _draw_decor is the DECOR layer and draws nature before furnishings; suburb@%d takes %d pictures in %d kinds %s, cached and uncached alike" % [(entries as Array).size(), NATURE_MAX_W, NATURE_MAX_H, yes, rolls, cache_compared, GATE_SIZE, picks.size(), kinds.size(), str(kinds)])
 	return true
 
 
@@ -1783,30 +1801,28 @@ func _the_furnishings_stand_where_they_should() -> bool:
 		return false
 
 	# --- the draw pass is reached, in its place ------------------------------------------------
+	# The flat furnishings are baked into the DECOR layer with the nature (the nature lane above
+	# checks the order and the bake); the frame draws none of them, and a standing one is left to
+	# the entity sort, which _standing_props answers below.
 	var district: String = _function_body(MAIN_GD, "_draw_world")
-	if not _comes_before(district, "_draw_nature(", "_draw_furnishings(") or not _comes_before(district, "_draw_furnishings(", "_draw_props()"):
-		push_error("_draw_world does not call _draw_furnishings( after _draw_nature( and before _draw_props(); the furniture would draw over the props or not at all")
+	if district.contains("_draw_furnishings("):
+		push_error("_draw_world still draws the furnishings per frame; they are baked into DECOR")
 		return false
-	if _comes_before("_draw_props()\n_draw_furnishings(", "_draw_furnishings(", "_draw_props()"):
-		push_error("the order scanner passed a fabricated body that draws the props first; it cannot say no")
-		return false
-	var draw_furnishings: String = _function_body(MAIN_GD, "_draw_furnishings")
-	if draw_furnishings.is_empty():
-		push_error("could not read _draw_furnishings out of %s" % MAIN_GD)
-		return false
-	var missing: String = _missing_needle(draw_furnishings, ["seen == null", "Dressing.furnishing_tiles_cached(", "Dressing.furnishing_is_standing(", "_furnishing_cache_for()", "Appearance.prop_tiles(", "occupied.has(", "Appearance.hang_rect(", "Appearance.resolve("])
+	var draw_decor: String = _function_body(MAIN_GD, "_draw_decor")
+	var missing: String = _missing_needle(draw_decor, ["Dressing.decor_picks(", "\"furnishings\"", "Appearance.hang_rect(", "Appearance.resolve("])
 	if not missing.is_empty():
-		push_error("_draw_furnishings does not contain %s" % missing)
+		push_error("_draw_decor does not contain %s" % missing)
 		return false
-	if not _comes_before(draw_furnishings, "Dressing.furnishing_is_standing(", "occupied.has("):
-		push_error("_draw_furnishings does not route standing picks away before flat drawing")
+	if draw_decor.contains("draw_set_transform(") or draw_decor.contains("explored"):
+		push_error("_draw_decor sets a transform or reads the remembered map; furniture is a picture on a tile the player sees and nothing else")
 		return false
-	if not _standing_pick_skips_flat(draw_furnishings):
-		push_error("_draw_furnishings finds tall picks but does not continue past them before occupied checks and flat drawing")
-		return false
-	var no_flat_skip: String = draw_furnishings.replace("\n\t\t\tcontinue\n\t\tif occupied.has(", "\n\t\t\tpass\n\t\tif occupied.has(")
-	if _standing_pick_skips_flat(no_flat_skip):
-		push_error("the flat-pass scanner accepts a standing furnishing after its continue is removed")
+	# The standing rule moved with the picks: decor_picks leaves a standing furnishing out, and the
+	# shipped suburb checks that the baked flat list is exactly the flat picks (the NATURE lane).
+	var dressing_code: String = _code_of(DRESSING_GD)
+	var decor_at: int = dressing_code.find("static func decor_picks(")
+	var decor_body: String = dressing_code.substr(decor_at, dressing_code.find("\nstatic func", decor_at + 1) - decor_at) if decor_at >= 0 else ""
+	if decor_body.is_empty() or not _comes_before(decor_body, "furnish_key", "furnishing_is_standing(") or not _comes_before(decor_body, "furnishing_is_standing(", "[\"furnishings\"] as Array).append("):
+		push_error("decor_picks does not leave the standing furnishings out before it appends a flat one")
 		return false
 	var standing_body: String = _function_body(MAIN_GD, "_standing_props")
 	var draw_entities: String = _function_body(MAIN_GD, "_draw_entities")
@@ -1835,9 +1851,6 @@ func _the_furnishings_stand_where_they_should() -> bool:
 		if not (north < prop_depth and prop_depth < south) or Dressing.tree_alpha(rect, [Vector2(0.0, 5.0 * 32.0)]) != Dressing.TREE_FADE_ALPHA or Dressing.tree_alpha(rect, [Vector2(0.0, 7.0 * 32.0)]) != 1.0:
 			push_error("%s does not order body/prop/body and fade only while a body point is inside its picture" % key)
 			return false
-	if draw_furnishings.contains("draw_set_transform(") or draw_furnishings.contains("world.components") or draw_furnishings.contains("set_component(") or draw_furnishings.contains("explored"):
-		push_error("_draw_furnishings sets a transform, touches a component or reads the remembered map; furniture is a picture on a tile the player sees and nothing else")
-		return false
 	if _missing_needle("occupied.has(x)\nseen == null", ["seen == null", "Dressing.furnishing_tiles_cached("]) != "Dressing.furnishing_tiles_cached(":
 		push_error("the furnishing needle scanner did not name a missing call in a body that lacks it; it cannot say no")
 		return false
@@ -1924,17 +1937,6 @@ func _the_furnishings_stand_where_they_should() -> bool:
 	_stash["furnish_picks"] = indoor_picks + outdoor_picks
 	print("FURNISH OK %d entries; short props stay in the flat pass and the three explicitly standing furnishings exceed a tile without weakening the flat limit; the real workbench is excluded from dressing; all surfaces, hash picks, placement exclusions, cache, seen/bounds subset, inertness and shipped district placements hold (%d keys across %d districts)" % [(entries as Array).size(), placed.size(), FURNISH_DISTRICTS.size()])
 	return true
-
-
-func _standing_pick_skips_flat(body: String) -> bool:
-	var code: String = _strip_comments(body)
-	var standing_at: int = code.find("if Dressing.furnishing_is_standing(")
-	if standing_at < 0:
-		return false
-	var occupied_at: int = code.find("if occupied.has(", standing_at)
-	var draw_at: int = code.find("draw_texture_rect(", standing_at)
-	var continue_at: int = code.find("continue", standing_at)
-	return occupied_at > standing_at and draw_at > occupied_at and continue_at > standing_at and continue_at < occupied_at
 
 
 # --- lane 11: INERT --------------------------------------------------------------------------
