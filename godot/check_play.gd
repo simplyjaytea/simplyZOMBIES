@@ -37,6 +37,11 @@ extends SceneTree
 #   ROUNDTRIP  F5 writes a save F9 restores; a corrupt slot leaves the world untouched
 #   CAMP-KEY   C is the camp key and only the camp key; Ctrl+C is the stance and only the stance
 #   FOCUS      an open sheet swallows the street's keys, and the body stops at the panel
+#   NAV        one navigation bar over Survivor, Colony and Skills: Tab, J and K switch between them
+#              in one press and put the one in front away; a click on a tab does the same and a
+#              click on the bar's free room does nothing; Escape closes a screen about people
+#              rather than opening settings over it, and on the sheet it puts a picked part down
+#              before it closes anything; the street's HUD is never lit under any of the three
 #   PAUSE      Escape on the street pauses to the menu and gives the street back
 #   NOTICE     a save this build cannot read leaves the run alone and says one fixed sentence
 #   HINT       a first-day hint is offered on the street, a click on its card clears it, and the
@@ -72,6 +77,7 @@ const PREFS_PATH: String = "user://ui_prefs.json"
 
 const Clock = preload("res://sim/time/clock.gd")
 const Legend = preload("res://ui/legend.gd")
+const Chrome = preload("res://ui/chrome.gd")
 const UiPrefs = preload("res://ui/prefs.gd")
 const InputMapRes = preload("res://presentation/input_map.gd")
 const Session = preload("res://presentation/session.gd")
@@ -174,6 +180,7 @@ func _run() -> void:
 		return
 	ok = _the_loop_advances_the_world(main) and ok
 	ok = _a_held_key_walks_the_body(main) and ok
+	ok = await _the_body_card_clears_the_you_card(main) and ok
 	ok = await _the_work_grid_fits_and_keeps_its_clicks(main) and ok
 	ok = await _the_work_grid_draws_only_what_something_does(main) and ok
 	var sheet_ok: bool = await _tab_opens_the_sheet(main)
@@ -186,6 +193,8 @@ func _run() -> void:
 	ok = _c_is_the_camp_key_and_ctrl_c_is_the_stance(main) and ok
 	var focus_ok: bool = await _the_open_sheet_swallows_the_street(main)
 	ok = focus_ok and ok
+	var nav_ok: bool = await _one_bar_reaches_all_three_screens(main)
+	ok = nav_ok and ok
 	var pause_ok: bool = await _escape_pauses_to_the_menu(main)
 	ok = pause_ok and ok
 	var notice_ok: bool = await _a_refused_save_says_one_sentence(main)
@@ -944,6 +953,172 @@ func _c_is_the_camp_key_and_ctrl_c_is_the_stance(main: Node) -> bool:
 #
 # The table is proved on fabricated arguments first. An `ALLOWED` that answered true to
 # everything would pass every press below, which is a gate that cannot fail.
+# --- NAV ----------------------------------------------------------------------------------------
+
+# The shared navigation frame of the UI overhaul's first slice (docs/32, "Navigation and layout").
+# Driven the way a player drives it: real key presses and real clicks through the viewport, and the
+# answer read off main.gd's own flags and the bar's own visibility.
+func _one_bar_reaches_all_three_screens(main: Node) -> bool:
+	var nav: Control = main.get("_nav_bar") as Control
+	var hud: Control = main.get("_hud") as Control
+	var sheet: Control = main.get("_inventory_panel") as Control
+	if nav == null or hud == null or sheet == null or main.get("_work_panel") == null or main.get("_web_panel") == null:
+		return _skip("NAV", "the scene built no navigation bar, HUD or one of the three screens")
+	var NavBar: GDScript = load("res://ui/nav_bar.gd") as GDScript
+	# The headless window is tiny; the clicks below want the smallest window the game ships at, where
+	# the bar is in its compact form and every tab still has to fit.
+	var old_size: Vector2i = root.size
+	root.size = Vector2i(1280, 720)
+	main.call("_show_screen", "")
+	await process_frame
+	var ok: bool = true
+	# Keys: a walk round all three and back to the street.
+	var walk: Array = [
+		[KEY_TAB, "survivor"], [KEY_J, "colony"], [KEY_K, "skills"], [KEY_TAB, "survivor"],
+		[KEY_K, "skills"], [KEY_J, "colony"], [KEY_J, ""],
+	]
+	for step in walk:
+		_tap(step[0] as Key)
+		await process_frame
+		var want: String = String(step[1])
+		var up: String = String(main.call("_screen"))
+		var open: int = int(bool(main.get("inventory_open"))) + int(bool(main.get("work_open"))) + int(bool(main.get("web_open")))
+		if up != want or open != (0 if want.is_empty() else 1):
+			push_error("NAV: %s left %s up (%d screens open), not %s" % [OS.get_keycode_string(step[0] as Key), up, open, want if not want.is_empty() else "the street"])
+			ok = false
+		if hud.visible != want.is_empty():
+			push_error("NAV: the HUD is %s with %s up" % ["lit" if hud.visible else "dark", want if not want.is_empty() else "the street"])
+			ok = false
+		var bar_up: bool = want == "colony" or want == "skills"
+		if nav.visible != bar_up or (bar_up and String(nav.get("screen")) != want):
+			push_error("NAV: the bar over %s is %s and names %s" % [want, "up" if nav.visible else "down", String(nav.get("screen"))])
+			ok = false
+		if bool(sheet.get("strip_hidden")) != bar_up:
+			push_error("NAV: the belt strip is %s with %s up" % ["put away" if bool(sheet.get("strip_hidden")) else "lit", want if not want.is_empty() else "the street"])
+			ok = false
+	# Escape on Colony goes to the street, and opens no settings sheet and no menu over it.
+	_tap(KEY_J)
+	await process_frame
+	_tap(KEY_ESCAPE)
+	await process_frame
+	var settings: Variant = main.get("_settings")
+	if not String(main.call("_screen")).is_empty() or (settings != null and bool((settings as CanvasItem).visible)) or bool((_shell_of(main) as CanvasItem).visible if _shell_of(main) != null else false):
+		push_error("NAV: Escape on Colony left %s up, settings %s" % [String(main.call("_screen")), str(settings != null and bool((settings as CanvasItem).visible))])
+		ok = false
+		if settings != null:
+			(settings as CanvasItem).visible = false
+	# Clicks on the bar over Skills: the Colony tab, then the free room (nothing), then close.
+	_tap(KEY_K)
+	await process_frame
+	# Whose page: the bar and the web name the same person -- you, then a colonist picked on the
+	# street while Skills is up -- and the web sits wholly inside the 1280x720 window.
+	var web: Control = main.get("_web_panel") as Control
+	var world: Variant = main.get("world")
+	if not bool(nav.get("subject_is_you")) or not String(web.call("header_label")).ends_with("you"):
+		push_error("NAV: Skills on yourself shows the bar's stamp for you %s and the web's %s" % [str(nav.get("subject_is_you")), String(web.call("header_label"))])
+		ok = false
+	if not Rect2(Vector2.ZERO, root.get_visible_rect().size).encloses(web.get_global_rect()):
+		push_error("NAV: the skill web %s runs past the %s window" % [str(web.get_global_rect()), str(root.get_visible_rect().size)])
+		ok = false
+	var other: int = -1
+	for e in world.components.query(["identity", "position"]):
+		if int(e) != int(world.player) and not world.components.has_component(int(e), "corpse"):
+			other = int(e)
+			break
+	if other < 0:
+		print("NAV SKIP viewing: the boot colony has nobody but you to pick")
+	else:
+		main.set("_selected", other)
+		main.call("_sync_nav")
+		var their: String = String(main.call("_name_for", other))
+		var laid_v: Dictionary = NavBar.call("layout", Rect2(Vector2.ZERO, nav.size), "skills", String(nav.get("subject_name")), bool(nav.get("subject_is_you")), true) as Dictionary
+		if bool(nav.get("subject_is_you")) or String(nav.get("subject_name")) != their or String(laid_v["stamp"]) != "viewing" or not String(web.call("header_label")).ends_with(their):
+			push_error("NAV: a colonist picked over Skills shows the bar naming %s (%s) and the web %s, not %s viewing" % [String(nav.get("subject_name")), String(laid_v["stamp"]), String(web.call("header_label")), their])
+			ok = false
+		main.set("_selected", -1)
+		main.call("_sync_nav")
+		if not bool(nav.get("subject_is_you")) or not String(web.call("header_label")).ends_with("you"):
+			push_error("NAV: putting the colonist down left the bar and the web on %s" % String(web.call("header_label")))
+			ok = false
+	var compact: bool = bool(NavBar.call("compact_for", root.get_visible_rect().size))
+	var laid: Dictionary = NavBar.call("layout", Rect2(Vector2.ZERO, nav.size), "skills", String(nav.get("subject_name")), bool(nav.get("subject_is_you")), compact) as Dictionary
+	var colony_at: Vector2 = Vector2(-1.0, -1.0)
+	for t in laid["tabs"] as Array:
+		if String((t as Dictionary)["screen"]) == "colony":
+			colony_at = nav.global_position + ((t as Dictionary)["rect"] as Rect2).get_center()
+	var free_at: Vector2 = nav.global_position + Vector2((float(laid["left"]) + float(laid["right"])) / 2.0, nav.size.y / 2.0)
+	_click_at(free_at)
+	await process_frame
+	if String(main.call("_screen")) != "skills":
+		push_error("NAV: a click on the bar's free room moved Skills to %s" % String(main.call("_screen")))
+		ok = false
+	_click_at(colony_at)
+	await process_frame
+	if String(main.call("_screen")) != "colony":
+		push_error("NAV: a click on the Colony tab over Skills left %s up" % String(main.call("_screen")))
+		ok = false
+	var laid2: Dictionary = NavBar.call("layout", Rect2(Vector2.ZERO, nav.size), "colony", "", false, compact) as Dictionary
+	_click_at(nav.global_position + (laid2["close"] as Rect2).get_center())
+	await process_frame
+	if not String(main.call("_screen")).is_empty():
+		push_error("NAV: a click on close over Colony left %s up" % String(main.call("_screen")))
+		ok = false
+	# The sheet draws the same bar in its own title strip: its Skills tab, then Escape's order.
+	_tap(KEY_TAB)
+	await process_frame
+	var on_sheet: Dictionary = sheet.call("_nav_layout") as Dictionary
+	for t in on_sheet["tabs"] as Array:
+		if String((t as Dictionary)["screen"]) == "skills":
+			_click_at(sheet.global_position + ((t as Dictionary)["rect"] as Rect2).get_center())
+	await process_frame
+	if String(main.call("_screen")) != "skills":
+		push_error("NAV: a click on the sheet's Skills tab left %s up" % String(main.call("_screen")))
+		ok = false
+	_tap(KEY_TAB)
+	await process_frame
+	sheet.set("_part", "head")
+	_tap(KEY_ESCAPE)
+	await process_frame
+	if not bool(main.get("inventory_open")) or not String(sheet.get("_part")).is_empty():
+		push_error("NAV: Escape on the sheet with a part picked did not put the part down and stop there")
+		ok = false
+	_tap(KEY_ESCAPE)
+	await process_frame
+	if bool(main.get("inventory_open")):
+		push_error("NAV: a second Escape did not close the sheet")
+		ok = false
+	if settings != null and bool((settings as CanvasItem).visible):
+		push_error("NAV: Escape on the sheet opened the settings sheet over it")
+		ok = false
+		(settings as CanvasItem).visible = false
+	# The street's keys stay refused under the two new screens, the focus table's own negative.
+	var router: Node = _router(main)
+	for focus in ["work", "web"]:
+		if bool(router.call("_allows", focus, "swing")):
+			push_error("NAV: the %s focus lets a swing through" % focus)
+			ok = false
+		for k in ["inventory", "work", "web"]:
+			if not bool(router.call("_allows", focus, k)):
+				push_error("NAV: the %s focus refuses %s, so the bar's key cannot switch from it" % [focus, k])
+				ok = false
+	main.call("_show_screen", "")
+	root.size = old_size
+	await process_frame
+	if ok:
+		print("NAV OK Tab, J and K switch between Survivor, Colony and Skills in one press and put the one in front away, with one screen up, the HUD dark under each and the belt strip put away under Colony and Skills; the bar and the web name the same person, you or a colonist viewing, and the web fits the window; a tab click switches, the free room does nothing and close goes to the street; the sheet's own bar reaches Skills; Escape closes Colony without settings and on the sheet puts a picked part down first; the street's swing stays refused under both new screens")
+	return ok
+
+
+func _click_at(at: Vector2) -> void:
+	for pressed in [true, false]:
+		var mb := InputEventMouseButton.new()
+		mb.button_index = MOUSE_BUTTON_LEFT
+		mb.pressed = pressed
+		mb.position = at
+		mb.global_position = at
+		root.push_input(mb)
+
+
 func _the_open_sheet_swallows_the_street(main: Node) -> bool:
 	var router: Node = _router(main)
 	if router == null:
@@ -1996,10 +2171,9 @@ func _the_work_grid_draws_only_what_something_does(main: Node) -> bool:
 		push_error("STUBS: Work did not open")
 		ok = false
 	else:
-		var grid_x: float = float(panel.get_script().get("GRID_X"))
+		var edges: Array = panel.call("_column_edges") as Array
 		var grid_y: float = float(panel.get_script().get("GRID_Y"))
-		var cell_w: float = float(panel.call("_column_width"))
-		var at: Vector2 = panel.position + Vector2(grid_x + 0.5 * cell_w, grid_y + 28.0)
+		var at: Vector2 = panel.position + Vector2((float(edges[0]) + float(edges[1])) / 2.0, grid_y + 28.0)
 		_drain(main)
 		for down in [true, false]:
 			var press := InputEventMouseButton.new()
@@ -2026,6 +2200,65 @@ func _the_work_grid_draws_only_what_something_does(main: Node) -> bool:
 	return ok
 
 
+# The street's body card and the "you" card never overlap, however many lines the "you" card
+# grows, and the body card stops short of the action bar and lines up with the belt at x 16 (UI
+# review round 3: a two-line "you" card ran over the card's top at 1280x720, and the card's foot
+# touched the bar). A "you" card that reaches the body card starts right of it; one that ends
+# above it stays at the margin (round 4: at 1920x1080 an indented card hung beside an empty
+# strip). Judged on the rects the two draws use, at both windows, with one line and with five.
+# The negative: with no body card to make room for, the five-line card overlaps it at 1280x720.
+func _the_body_card_clears_the_you_card(main: Node) -> bool:
+	var hud: Control = main.get("_hud") as Control
+	var doll: Control = main.get("_paperdoll") as Control
+	if hud == null or doll == null or hud.get("body_card") != doll:
+		push_error("HUD-CARDS: the scene has no HUD, no street figure, or a HUD that does not know the figure")
+		return false
+	var old_size: Vector2i = root.size
+	var old_left: Array = (hud.get("_left") as Array).duplicate()
+	var margin: float = float(hud.get_script().get("MARGIN"))
+	var short: Array[String] = ["You"]
+	var crowded: Array[String] = ["You", "You're uncomfortable - cold.", "hungry", "tired", "your left arm is bleeding"]
+	var ok: bool = true
+	var indented: Dictionary = {}
+	for dims in [Vector2i(1280, 720), Vector2i(1920, 1080)]:
+		root.size = dims
+		await process_frame
+		var card: Rect2 = doll.call("card_rect") as Rect2
+		card.position += doll.get_global_rect().position
+		if card.end.y > float(hud.call("bar_top")) - 2.0 or int(card.position.x) != 16:
+			push_error("HUD-CARDS: the body card %s touches the action bar at %.0f or is not at x 16 (%s)" % [str(card), float(hud.call("bar_top")), str(dims)])
+			ok = false
+		for lines in [short, crowded]:
+			hud.set("_left", lines)
+			var you: Rect2 = hud.call("you_card_rect") as Rect2
+			if card.intersects(you):
+				push_error("HUD-CARDS: the body card %s and a %d-line you card %s overlap at %s" % [str(card), lines.size(), str(you), str(dims)])
+				ok = false
+			# Indented exactly when the card at the margin would reach the body card.
+			var reaches: bool = margin + you.size.y + 16.0 > card.position.y
+			if (you.position.x > margin) != reaches:
+				push_error("HUD-CARDS: a %d-line you card is at x %.0f where the body card's top is %.0f (%s)" % [lines.size(), you.position.x, card.position.y, str(dims)])
+				ok = false
+			indented["%dx%d/%d" % [dims.x, dims.y, lines.size()]] = you.position.x > margin
+		if dims.y == 720:
+			hud.set("_left", crowded)
+			hud.set("body_card", null)
+			var old_way: Rect2 = hud.call("you_card_rect") as Rect2
+			hud.set("body_card", doll)
+			if not card.intersects(old_way):
+				push_error("HUD-CARDS: a five-line you card from the margin clears the body card, so the check cannot fail")
+				ok = false
+	hud.set("_left", old_left)
+	root.size = old_size
+	await process_frame
+	if not (bool(indented.get("1280x720/5", false)) and not bool(indented.get("1920x1080/5", true)) and not bool(indented.get("1280x720/1", true))):
+		push_error("HUD-CARDS: expected the five-line card indented at 1280 only and the one-line card at the margin: %s" % str(indented))
+		ok = false
+	if ok:
+		print("HUD-CARDS OK the you card makes room for the body card only when it would reach it (five lines at 1280x720, never at 1920x1080), the body card lines up at x 16 and stops short of the action bar; with no body card to make room for, the five-line card overlaps it")
+	return ok
+
+
 func _the_work_grid_fits_and_keeps_its_clicks(main: Node) -> bool:
 	var panel: Control = main.get("_work_panel") as Control
 	var doll: Control = main.get("_paperdoll") as Control
@@ -2042,12 +2275,26 @@ func _the_work_grid_fits_and_keeps_its_clicks(main: Node) -> bool:
 		if not panel.visible or doll.visible or not Rect2(Vector2.ZERO, Vector2(dims)).encloses(panel.get_rect()):
 			push_error("WORK-LAYOUT: Work is outside the viewport or covered by the corner chart at %s" % str(dims))
 			ok = false
-		var grid_x: float = float(panel.get_script().get("GRID_X"))
+		var edges: Array = panel.call("_column_edges") as Array
 		var grid_y: float = float(panel.get_script().get("GRID_Y"))
-		var cell_w: float = float(panel.call("_column_width"))
 		var columns: Array = (panel.get_script() as GDScript).call("shown_columns") as Array
 		var last: int = columns.size() - 1
-		var at: Vector2 = panel.position + Vector2(grid_x + (float(last) + 0.5) * cell_w, grid_y + 28.0)
+		var at: Vector2 = panel.position + Vector2((float(edges[last]) + float(edges[last + 1])) / 2.0, grid_y + 28.0)
+		# The grid uses the panel's width (UI review round 2: it stopped 200 px short at 1280 and
+		# 460 at 1920 while the heads and taglines were cut): it ends at the right gutter, and
+		# every column is at least its own head plus the gap, so no head is cut and no two read
+		# as one. Both are checked against the drawn edges, which the click math also reads.
+		var gutter: float = float(panel.get_script().get("GUTTER"))
+		var gap: float = float(panel.get_script().get("COL_GAP"))
+		if absf(float(edges[edges.size() - 1]) - (panel.size.x - gutter)) > 2.0:
+			push_error("WORK-LAYOUT: the grid stops at %.0f, short of the panel's right gutter at %.0f (%s)" % [float(edges[edges.size() - 1]), panel.size.x - gutter, str(dims)])
+			ok = false
+		var font: Font = Chrome.font()
+		for i in columns.size():
+			var head_w: float = font.get_string_size(String(columns[i]), HORIZONTAL_ALIGNMENT_LEFT, -1, int(panel.get_script().get("SMALL_SIZE"))).x
+			if float(edges[i + 1]) - float(edges[i]) < head_w + gap or int(edges[i]) % 2 != 0:
+				push_error("WORK-LAYOUT: column %s is %.0f px from x %.0f, under its head plus the gap (%.0f) or off the even grid (%s)" % [columns[i], float(edges[i + 1]) - float(edges[i]), float(edges[i]), head_w + gap, str(dims)])
+				ok = false
 		if not panel.get_rect().has_point(at):
 			push_error("WORK-LAYOUT: the last priority cell is outside the frame")
 			ok = false
@@ -2080,7 +2327,7 @@ func _the_work_grid_fits_and_keeps_its_clicks(main: Node) -> bool:
 				ok = false
 			var wheel := InputEventMouseButton.new()
 			wheel.pressed = true
-			wheel.position = panel.position + Vector2(grid_x + 4.0, grid_y + 4.0)
+			wheel.position = panel.position + Vector2(float(edges[0]) + 4.0, grid_y + 4.0)
 			wheel.button_index = MOUSE_BUTTON_WHEEL_DOWN
 			for i in crowded.size() + 2:
 				root.push_input(wheel)
@@ -2089,7 +2336,7 @@ func _the_work_grid_fits_and_keeps_its_clicks(main: Node) -> bool:
 				push_error("WORK-LAYOUT: wheel did not clamp at the last survivor")
 				ok = false
 			var row_h: float = float(panel.get_script().get("ROW_H"))
-			var last_at: Vector2 = panel.position + Vector2(grid_x + (float(last) + 0.5) * cell_w, grid_y + float(visible_rows - 1) * row_h + 28.0)
+			var last_at: Vector2 = panel.position + Vector2((float(edges[last]) + float(edges[last + 1])) / 2.0, grid_y + float(visible_rows - 1) * row_h + 28.0)
 			for down in [true, false]:
 				var press := InputEventMouseButton.new()
 				press.button_index = MOUSE_BUTTON_LEFT
@@ -2129,5 +2376,5 @@ func _the_work_grid_fits_and_keeps_its_clicks(main: Node) -> bool:
 	main.set("paused", was_paused)
 	await process_frame
 	if ok:
-		print("WORK-LAYOUT OK Work fits 1280/1920, the last visible cell receives the click, scrolling reaches both ends and clicks the displayed survivor, Work/web peel the corner chart and restore it while paused")
+		print("WORK-LAYOUT OK Work fits 1280/1920 with every column at least its head plus the gap and the grid at the right gutter, the last visible cell receives the click, scrolling reaches both ends and clicks the displayed survivor, Work/web peel the corner chart and restore it while paused")
 	return ok

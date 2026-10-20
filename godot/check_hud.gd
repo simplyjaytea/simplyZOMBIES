@@ -56,6 +56,7 @@ func _run() -> void:
 	ok = _the_chronicle_speaks_of_the_colony() and ok
 	ok = _the_action_line_names_keys_only() and ok
 	ok = _the_action_line_names_the_top_rung() and ok
+	ok = _the_bar_keeps_every_key_at_1280() and ok
 	ok = _the_first_day_hints_are_prose_and_due_once() and ok
 	var hint_ok: bool = await _the_hint_card_clears_on_a_click_and_never_blocks()
 	ok = hint_ok and ok
@@ -67,11 +68,35 @@ func _run() -> void:
 	var reload_ok: bool = await _an_untouched_tree_is_not_reloaded()
 	ok = reload_ok and ok
 	if ok:
-		print("HUD_OK prose only, day counter excepted, raw sheet gated, the body speaks for itself, the action bar names the top rung, an untouched tree is not reloaded, the first-day hints are one line each and due once, and the hint card clears on a click and stops only that press")
+		print("HUD_OK prose only, day counter excepted, raw sheet gated, the body speaks for itself, the action bar names the top rung and keeps every key at 1280 beside an E clause, an untouched tree is not reloaded, the first-day hints are one line each and due once, and the hint card clears on a click and stops only that press")
 		quit(0)
 	else:
 		push_error("HUD_FAIL")
 		quit(1)
+
+# BAR: the action bar's standing hint fits whole on the smallest window the game ships at, beside
+# the street's one-key E clause, with the debug build's "M raw" on the end -- the UI review found a
+# hint that pushed M off the end there. The negative is the same hint with a fourth screen spelt out
+# token by token, which must not fit, so the lane can tell a fit from a room too wide to judge.
+func _the_bar_keeps_every_key_at_1280() -> bool:
+	var font: Font = Chrome.font()
+	var room: float = 1280.0 - Hud.MARGIN * 2.0 - Hud.CARD_PAD * 2.0
+	var clause: String = "E — lay a trip alarm"
+	var ok: bool = true
+	for case in [[Hud.HINT + " · M raw", true], [Hud.HINT + " · M raw · Tab survivor · J colony · K skills", false]]:
+		var all: Array[Dictionary] = Hud.keycaps(clause, String(case[0]))
+		var want: int = 0
+		for e in all:
+			want += (e["keys"] as Array).size()
+		var got: int = 0
+		for r in Hud.fit_bar(font, all, room)["runs"] as Array:
+			if String((r as Array)[0]) == "cap":
+				got += 1
+		if (got == want) != bool(case[1]):
+			push_error("BAR: at 1280 the bar draws %d of %d keys for '%s'" % [got, want, String(case[0])])
+			ok = false
+	return ok
+
 
 func _fixture() -> Dictionary:
 	return {"seed": 31, "tick_hz": 20, "map": {"width": 16, "height": 16, "walls": []}, "player": {"id": 0, "x": 8.0, "y": 8.0, "stance": 2}, "rng_probe": {"stream": "test", "samples": 0}}
