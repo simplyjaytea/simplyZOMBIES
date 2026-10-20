@@ -71,12 +71,17 @@ arm is under the body, its forearm over the belly once it reaches round. The mag
 block, outlined, in the held pistol's gunmetal (`_weapon_ramp`): the pistol's drops at the grip,
 the long gun's is stripped from the well (`reload_long`, `LONG_WELL` pixels along) and hangs from
 the off hand (`_held_mag_at`) before it falls, and it lies by the feet (`MAG_SPOTS`) to the end,
-the long gun's on the off hand's side. The body dips a pixel as the weapon comes down and rises
-as the fresh one is seated, both at the knee (`_knee`). Outline an arm adds that would wedge
-against the body's own is pared back to two pixels (`_trim`). From behind the long gun is only
-lowered a pixel (`_primary_move`): any other travel shows its muzzle or stock a frame at a time.
+the long gun's on the off hand's side; side on, the fresh one hangs from the fist at the back of
+the belt (`pouch`) for a beat, then seats with its foot showing under the well. The shotgun is
+tube-fed (`reload_tube`): no magazine, a shell in the shells icon's colours (`_shell`,
+`_shell_ramp`) thumbed into the loading port three times, then one rack. The body dips a pixel
+as the weapon comes down and comes back up to the stance, never above it, both at the knee
+(`_knee`). Outline an arm adds that would wedge against the body's own, or that rings skin the
+reload's own held weapon covers (`_held_cover`, read from the pack manifest), is taken back
+(`_trim`). From behind a long gun is held still but for the rack's jolt, a pixel up: any other
+travel shows its muzzle or stock a frame at a time.
 
 Each frame declares `head`, `torso` and (on the survivor) `hands`, where the move took them, so
 worn and held layers follow by the same contract as the walk. `godot:check:action` holds the
 catalogue, the timing and the colours (a derived frame carries only its source's colours, a
-reload's magazine only the held pistol's).
+reload's magazine only the held pistol's, the tube reload's shells only the shells icon's).

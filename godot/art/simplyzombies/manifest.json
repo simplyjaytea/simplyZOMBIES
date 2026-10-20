@@ -717,6 +717,110 @@
           {
             "path": "textures/characters/motion/survivor_reload_long_w_07.png"
           }
+        ],
+        "reload_tube_s": [
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_s_00.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_s_01.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_s_02.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_s_03.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_s_04.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_s_05.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_s_06.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_s_07.png"
+          }
+        ],
+        "reload_tube_e": [
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_e_00.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_e_01.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_e_02.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_e_03.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_e_04.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_e_05.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_e_06.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_e_07.png"
+          }
+        ],
+        "reload_tube_n": [
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_n_00.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_n_01.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_n_02.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_n_03.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_n_04.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_n_05.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_n_06.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_n_07.png"
+          }
+        ],
+        "reload_tube_w": [
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_w_00.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_w_01.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_w_02.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_w_03.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_w_04.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_w_05.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_w_06.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_reload_tube_w_07.png"
+          }
         ]
       },
       "fps": {
@@ -726,6 +830,7 @@
         "recoil": 16,
         "reload": 8,
         "reload_long": 6,
+        "reload_tube": 6,
         "flinch": 12,
         "crouch": 1,
         "crouchwalk": 16,

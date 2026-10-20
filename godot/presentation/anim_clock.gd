@@ -35,7 +35,7 @@ extends RefCounted
 #     entity.killed         the fall the dead body plays before its settled picture (`fall_of`)
 #   held states, from components the sim keeps (`act`):
 #     swing.state           WindUp holds the guard; the change to Recover throws the strike
-#     rangedWeapon.state    Reload and Clearing play the reload (the pistol's or the long gun's)
+#     rangedWeapon.state    Reload and Clearing play the reload (the pistol's, the long gun's or the shotgun's)
 #     posture.current       Crouch and Crawl are the crouch and prone stances
 #
 # Times are presentation seconds (`begin_draw`'s `now`), so an action stops on pause and quickens
@@ -276,7 +276,7 @@ func act(id: int, world: Variant, key: String, view: String) -> Dictionary:
 		return out
 	if int(held["fire"]) == FIRE_RELOAD or int(held["fire"]) == FIRE_CLEARING:
 		# Played once from the state's start and held on its last beat, the stance, for as long as
-		# the sim's reload lasts; the pistol's or the long gun's by what the body holds.
+		# the sim's reload lasts; the pistol's, the long gun's or the shotgun's by what the body holds.
 		out.merge({"action": _appearance().reload_action(world, id), "t": _time - float(held["at_fire"]), "start": 0, "hold": RELOAD_HOLD})
 		return out
 	var one: Variant = _acts.get(id)
