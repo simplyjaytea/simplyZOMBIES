@@ -10,7 +10,7 @@ extends SceneTree
 # then fog's veil, then the night wash).
 #
 # check_light_look.gd owns the other half of the draw order (district -> pools -> entities) and
-# _draw_night_wash's wash_alpha assertion; lane D names it as the standing co-assertion rather
+# _draw_night_wash's light-map assertions; lane D names it as the standing co-assertion rather
 # than duplicating it here.
 #
 # Eight lanes, every assertion with a true positive and a true negative, because a gate that
@@ -478,7 +478,7 @@ func _the_dead_keys_are_wired_and_the_dead_constants_are_gone() -> bool:
 		return false
 
 	print(
-		"DEAD SOCKET OK windowRim/glimpse/memory/facing/aimCone/night reach the draw loop, the old literals are gone, and the five dead palette constants are deleted with CONDITION_TINTS standing (check_light_look.gd holds _draw_night_wash's wash_alpha assertion)"
+		"DEAD SOCKET OK windowRim/glimpse/memory/facing/aimCone/night reach the draw loop, the old literals are gone, and the five dead palette constants are deleted with CONDITION_TINTS standing (check_light_look.gd holds _draw_night_wash's light-map assertions)"
 	)
 	return true
 

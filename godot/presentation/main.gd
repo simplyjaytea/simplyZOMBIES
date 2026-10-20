@@ -56,15 +56,14 @@ const LightMapRes = preload("res://presentation/light_map.gd")
 
 const TICK_HZ: int = 20
 const TICK_SECONDS: float = 1.0 / 20.0
-# How far toward the night's colour a pixel with nothing but the sky to see by goes, before the
-# curve (LightLook.shown) lifts it back by whatever sight it has. Raised from 0.8 with the light
-# map (A10): the night is darker, and the pools are what carry it.
+# How far toward the night's colour a pixel with nothing but the sky to see by goes. Raised from
+# 0.8 with the light map (A10): the night is near black, and the pools are what carry it.
 const NIGHT_WASH: float = 0.94
-# How much darker the edge of sight is than the dark inside it, by day and by night: the remembered
-# map and the void sit back behind what the survivor sees now, and the light map feathers into it
-# over the last half tile rather than stepping at the tile edge. By night almost all the way, so
-# the edge of sight is the edge of the picture.
-const SIGHT_EDGE_DARK_DAY: float = 0.25
+# How much darker the edge of sight is than the dark inside it, by day and by night: by night the
+# remembered map and the void sit back behind what the survivor sees now, almost all the way, so
+# the edge of sight is the edge of the picture. By day nothing -- the remembered map draws its own
+# dimming, and the day frame is the one it was before the light map.
+const SIGHT_EDGE_DARK_DAY: float = 0.0
 const SIGHT_EDGE_DARK_NIGHT: float = 0.95
 # The small memory dot at the end of `_draw_entities` used to fade over its own three-second
 # clock; it now fades over `SimSightings.RECENT_TICKS`, the sim's own "worth mentioning, not worth
@@ -3238,19 +3237,22 @@ func _draw_effects(glow: bool) -> void:
 		_fx_drawn.append({"key": String(fx["key"]), "frame": int(fx["frame"])})
 
 # The night, over everything but the lights (`_draw_effects(true)` below). Since the light map
-# (plan item A10) it is per pixel rather than one flat fill: every pixel shows the *same rule the
-# survivor's range is* -- SimLight.sight_metres, asked where the pixel is instead of at the
-# survivor's feet, through LightLook.shown -- so a pool is bright where the sim sees far and fades
-# exactly as the remaining reach does, and the survivor's own tile is LightLook.wash_alpha. Light
-# lands only on tiles lit *and* seen (LightLook.light_texels, the bits the shader reads), feathered
-# over the last half tile so a wall's shadow and the edge of sight are soft without ever crossing
-# onto a tile the survivor does not see. With nobody to ask, the sky alone, as before.
+# (plan item A10) it is per pixel rather than one flat fill: near black by night, the survivor's
+# own small disc of ground (LightLook.eye_disc_metres), and each source's pool out to its own
+# radius in flat dithered rings, nothing past it. Light lands only on tiles lit *and* seen
+# (LightLook.light_texels, the bits the shader reads), feathered inward over the last half tile so
+# a wall's shadow is soft without light ever crossing onto a tile the survivor does not see; the
+# edge of sight itself is softened across the tile boundary. With nobody to ask, the sky alone.
 #
-# In full daylight the only thing left to draw is the edge of sight, so the rect still draws; the
-# multiply leaves every seen pixel exactly as it was.
+# In full daylight there is no night to draw, and the frame is exactly the one it was before the
+# light map: the rect is cleared rather than drawn white.
 func _draw_night_wash() -> void:
 	_light_map.call("attach", get_canvas_item())
 	_light_map.call("begin_frame")
+	var ambient: float = LightLook.ambient_of(world)
+	if ambient >= 1.0:
+		_light_map.call("frame", {}, false)
+		return
 	var eyes: int = int(world.player)
 	var bounds: Dictionary = TopDownProjection.visible_bounds(camera, 2.0)
 	var map_w: int = int(world.map_width)
@@ -3282,7 +3284,7 @@ func _draw_night_wash() -> void:
 	var ctx: Dictionary = {
 		"viewport": get_viewport_rect().size, "zoom": float(camera["zoom"]),
 		"origin": Vector2(float(origin["sx"]), float(origin["sy"])), "view": view,
-		"texels": texels, "lights": lights, "ambient": LightLook.ambient_of(world),
+		"texels": texels, "lights": lights, "ambient": ambient,
 		"range_m": range_m if range_m > 0.0 else 1.0, "night": night,
 		"night_wash": NIGHT_WASH,
 		"edge_dark_day": SIGHT_EDGE_DARK_DAY, "edge_dark_night": SIGHT_EDGE_DARK_NIGHT,
@@ -3291,4 +3293,5 @@ func _draw_night_wash() -> void:
 	if eye_pos is Dictionary:
 		var eye_slide: Vector2 = _interp.offset(world, eyes, sub_tick)
 		ctx["eye"] = Vector2(float((eye_pos as Dictionary)["x"]) + eye_slide.x, float((eye_pos as Dictionary)["y"]) + eye_slide.y)
+		ctx["eye_reach"] = LightLook.eye_disc_metres(world, eyes)
 	_light_map.call("frame", ctx, true)

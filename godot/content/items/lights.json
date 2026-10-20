@@ -102,7 +102,7 @@
     "size": { "w": 1, "h": 2 },
     "massKg": 0.7,
     "equipSlot": "secondary",
-    "light": { "tint": "#ffd68c", "magnitude": 16, "burnTicks": 192000, "feed": "oil" }
+    "light": { "tint": "#ffdf80", "magnitude": 16, "burnTicks": 192000, "feed": "oil" }
   },
   {
     "id": "item.candle.tallow",
