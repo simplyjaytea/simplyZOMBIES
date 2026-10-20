@@ -1136,10 +1136,20 @@ session, each with its gate red both ways and its record.
   observability progress. The older `godot:bench` remains synthetic and exits zero on overruns;
   CI's `bench` and `bench:frame` still measure the frozen TypeScript oracle. See docs/22 and the
   runtime evidence record for scope, results and next measurements.
-  Next bounded slices: attribute and reduce the jobs/map-change visibility spike; profile the
-  real world-draw body path; then remeasure identical fixtures before enabling actual timing
-  gates. Repeated content lookups, healthy self-aid scans and shadowcast clearing are candidate
-  optimizations to prove individually, with deterministic behavior and reader gates intact.
+  The tick's eleven slices (2026-10-19/20, the record's "tick to budget" entries;
+  [docs/22](22-performance.md#bringing-the-tick-to-budget) carries the running table) took the
+  mean from 32.4 ms to about 9.5 on the baseline's machine (10.6 on the slower container that
+  measured slices 8 to 10) and stopped there for the alpha. **The gap, post-alpha:** the mean is
+  still above 8 ms, and the worst tick is not under 16 -- p95 about 16 ms, single ticks of 20 to
+  34 ms. Measured spikes: a whole 48 m cast for the player (the one cast not spread) and for a
+  zombie after a nearby map change, about 7 ms; a long job plan, up to 12 ms; and runs of
+  consecutive ticks where every system slows together, which reads as the shared container
+  rather than the sim. Slice 11 spread the player's own cast over two ticks, halved the
+  colonist cast budget and cut a plan's expansions. On a quiet container the worst tick then read
+  under 16 ms in three runs; on a noisy one it stays 25 to 38 ms for either build, because the
+  host slows whatever system it lands on. Still post-alpha: a long job plan runs whole on one tick
+  (8 to 14 ms on the noisy container), so it wants splitting across ticks. The worst tick also
+  needs measuring on a quiet, dedicated machine before any timing gate is enabled.
   Draw-stage timing alone does not close delivered FPS, long-session, save or streaming budgets.
 
 **Weather — the rest of docs/16, opened by the owner 2026-09-06.** ADR 0016. The spine (kinds,
@@ -9868,6 +9878,186 @@ not a to-do list:
   the early-window rate projects about 22.64 hours per no-wipe campaign / 271.73 hours for twelve,
   before the extra Auto case. No full grid, distribution proof, combat parity result or human
   ten-day playtest is claimed. Combined verification is recorded in the October integration entry.
+
+- **Kernel & tooling — the tick to budget, slice 1: content entries by id, 2026-10-19
+  (partial).** Alpha plan A3's first cut. `SimItems._content_get` walked the whole content tree
+  per lookup and sat under `item_base_of`, about a hundred calls a tick: 12.7 ms of the shipped
+  tick's 32. It is now memoised on the world (`content_index`, rebuilt when a hit's object is no
+  longer at its key, on a miss, or when `world.content` is replaced). `npm run godot:bench:runtime`
+  went from **32.42 ms mean / 300.98 ms worst** to **24.41 / 319.35**; the worst is the
+  map-change spike, untouched here. Gated by the new `npm run godot:m2:tick`
+  (`godot/check_m2_tick.gd`, `M2_TICK_OK`): CONTENT-AGREE holds the memo to the scan for every
+  shipped id, cold and warm; CONTENT-FOLLOWS swaps, erases, adds and replaces under a warm memo
+  and forges a memo row; CONTENT-READER proves `item_base_of` reaches it. Skipping the liveness
+  check reds CONTENT-FOLLOWS and routing the read back to the scan reds CONTENT-READER, both
+  tried. Numbers and attribution in [docs/22](22-performance.md#bringing-the-tick-to-budget).
+  **What remains:** the tick is still about three times over budget; the slices that follow take
+  the map-change spike, visibility, shambler AI, sightings, NPC combat and self-aid in turn.
+
+- **Kernel & tooling — the tick to budget, slice 2: the map-change spike, 2026-10-19 (partial).**
+  One door swing cost about 300 ms: a full 65,536-cell solidity rebuild, a recast of all 105
+  observers and linear-scan A* re-plans. The world now logs the rectangle each generation changed
+  (`invalidate_tiles`, `map_unchanged_within`; a whole-map or unlogged bump still means
+  everything). Fortify's in-play calls rewrite only the cells whose overlay changed, cars log the
+  footprints they moved, view and light casts stand when their own square is untouched, and A*
+  uses a heap ordered by (f, first-entry order), which plans the same paths. `godot:bench:runtime`
+  went from **24.41 / 319.35 ms** to **24.78 / 68.13** (mean within noise). **Behaviour change:**
+  a dead observer a tile off its cast origin now keeps that view across a bump outside its square,
+  where it used to recast (`SimVisibility.DEAD_KEEP_VIEW`, on). With it off, a 3,000-tick
+  serialized-world hash matches `main` at every checkpoint. Gated in `godot:m2:tick`: MAP-LOG
+  (hits, whole-map, unlogged, backwards and overflowed spans all read "changed"), DOOR-CELLS
+  (partial cells equal the full rebuild; a door logs its own tile, a full sync the whole map),
+  VIEW-STANDS (a far door keeps the view and a near one recasts, both equal to a fresh cast; the
+  same for a lamp), DEAD-KEEP (the switch, both ways) and PATH (24 district pairs equal a copy of
+  the old linear planner; flipping its tie order changes at least one). Each was proved red by a
+  sabotage of the code it judges. [docs/22](22-performance.md#bringing-the-tick-to-budget).
+  **What remains:** the spike that is left is ordinary recasting and per-tick AI work, the next
+  slices.
+
+- **Kernel & tooling — the tick to budget, slice 3: the shadowcast inlined, 2026-10-19
+  (partial).** `SimShadowcast.shadowcast` reads the tile class and overlay off the map's arrays
+  instead of four calls per tile, keeps its wedge frames as ints on one flat array, and clears its
+  buffer with `fill`; the same cells, tile for tile. `godot:bench:runtime` went from **24.78 /
+  68.13 ms** to **21.70 / 47.59**; visibility's own worst fell from 140 to 19 ms. Gated in
+  `godot:m2:tick` CAST: from 70 origins on the shipped district (every overlay, a scatter, the
+  corners) at 3, 12 and 48 tiles and both eyes, the cast equals a reference that asks
+  `blocks_sight` per tile, and the lane refuses to pass unless crouching and opening a door each
+  change what some origin sees. Flipping the Low rule reds it. [docs/22](22-performance.md#bringing-the-tick-to-budget).
+
+- **Kernel & tooling — the tick to budget, slice 4: the whole-district scans, 2026-10-19
+  (partial).** `SimAllegiance.enemies_within` asks the distance before `hostile` for NPC combat's
+  `_nearest_threat` and the raiders' halt; the shambler pass gathers people from the three marker
+  tables (`_people_with_position`, `SimAllegiance.PERSON_MARKERS`) instead of testing every
+  positioned thing; sightings skip any target outside the observer's shadowcast square before
+  asking `detail`. `godot:bench:runtime` went from **21.70 / 47.59 ms** to **19.40 / 37.11**.
+  Gated in `godot:m2:tick`: ENEMIES holds `enemies_within` equal to `enemies_of` filtered by
+  distance for every person and zombie at 3, 12 and 40 m, with a body exactly on the boundary,
+  and reads both callers' bodies for the call; PEOPLE holds the marker walk equal to the
+  `is_person` scan while each marker is handed to a body that had none, and `PERSON_MARKERS` equal
+  to what `is_person` reads; SQUARE holds that nothing outside a square is seen on the stepped
+  district, pins the square's edges on a fixture, and reads both observe loops for the call. Each
+  lane was turned red by sabotage (a strict boundary, a widened reach, the old call restored, a
+  marker dropped or added, the sort removed, a narrowed square, the prefilter removed).
+  [docs/22](22-performance.md#bringing-the-tick-to-budget).
+
+- **Kernel & tooling — the tick to budget, slice 5: the component query memo, 2026-10-19
+  (partial).** `SimComponentStore.query` answers from a memo row while no table it names has
+  gained or lost a member; `_members` counts those changes in `set_component`, `remove` and
+  `removeAll`, `restore` drops the memo, and every caller gets a copy. `godot:bench:runtime`,
+  median of three interleaved runs: **18.85 / 38.49 ms** to **17.02 / 35.77**. Gated in
+  `godot:m2:tick` QUERY: over four hundred seeded set, replace, remove, `removeAll`, save and
+  `restore` operations the memo equals `query_fresh` for eight asks (a missing table among them),
+  a caller's edit to its copy never reaches the next answer, a replaced value keeps the row, at
+  least fifty answers changed between asks, and a shipped tick is answered from the memo. Each
+  bump, the restore clear and the copy were removed in turn and the lane went red.
+  [docs/22](22-performance.md#bringing-the-tick-to-budget).
+
+- **Kernel & tooling — the tick to budget, slice 6: what each body paid every tick, 2026-10-19
+  (partial).** `SimSightings.observe` reads positions once and hands each observer only its square
+  (`_square_bounds`, `_in_bounds`); self-aid asks `_needs_care`, now one pass over the wounds,
+  before `_claw_in_reach`, which asks distance before health; the shambler pass reads
+  `zombie_move_mul` and `sight_mul` once and hands them to `_speed_of` and `_seen_target`.
+  `godot:bench:runtime`, median of three interleaved runs: **17.77 / 50.39 ms** to **13.68 /
+  36.89**. Gated in `godot:m2:tick`: CARE holds the one pass equal to the three selectors over six
+  hundred seeded wound lists; CLAW holds the claw check equal to the health-first scan, with a
+  live, a dead and an out-of-reach zombie; SKY holds every zombie's speeds and reach with the sky
+  handed in equal to those read per body under every weather kind, and reads the think pass for
+  the hand-off; OBSERVE runs two identical districts the shipped way and the old way to the same
+  memories, holds the prefilter equal to `_in_square` per observer, and pins the bounds' edges.
+  Each was turned red by sabotage, except that removing the cleaning test from `_needs_care`
+  changes nothing on today's kinds (each bleeding kind has a suture), which its comment says.
+  [docs/22](22-performance.md#bringing-the-tick-to-budget).
+
+- **Kernel & tooling — the tick to budget, slice 7: the cast's rows and the hour, 2026-10-19
+  (partial).** `SimShadowcast.shadowcast` resolves each row once (fixed axis, bounds, index steps)
+  with its row limits inlined; `SimVisibility.refresh` reads `Clock.ambient_light_at` once and
+  hands it to `_ambient_metres` and `_sight_metres`; the shambler pass resolves `seekSpeed` only
+  in Pursue, Seek and Wander. `godot:bench:runtime`, median of three interleaved runs: **13.77 /
+  34.60 ms** to **13.49 / 32.67**, within the bench's noise. Gated in `godot:m2:tick`: CAST (from
+  slice 3) holds the row rewrite to `blocks_sight` tile for tile; AMBIENT holds both reaches and
+  what `refresh` builds equal to the clock-and-lamps formula at every half hour of a day; SEEK
+  runs the think pass once on a zombie in each of Pursue, Seek, Wander and Dormant beside a person
+  and requires its exact seek speed, or none when dormant. Each was turned red by sabotage.
+  [docs/22](22-performance.md#bringing-the-tick-to-budget).
+- **Kernel & tooling — the tick to budget, slice 8: the per-body cuts, 2026-10-20 (partial).**
+  `SimPath.find` searches on flat arrays with one-int heap entries and an inlined `walkable`;
+  `wounds.impair` skips a body with nothing to strip (`SimModifiers.holds_any`) and
+  `remove_by_source` no longer rebuilds an unchanged list; the screamer asks
+  `SimAllegiance.people_with_position`; the Dress test reads the base once; scent swaps buffers;
+  views keep their arc cosines; movement reads the cells directly. `godot:bench:runtime` on a
+  slower container, median of three interleaved runs: slice 7 **15.15 / 41.62 ms** to **13.63 /
+  30.01**. Gated in `godot:m2:tick`: PATH now also plans ten long pairs against the scan; PEOPLE
+  names the screamer and the delegation as readers; IMPAIR holds `holds_any`, the no-op strip,
+  a stale `wound.*` modifier on an unhurt body stripped anyway, an unrelated one kept, and a wound
+  still impairing; DRESS holds the one-read test to the slot-then-points test for every person and
+  item, worn garments and a twin of one included; SCENT holds two swapped steps to two copied ones;
+  ARCS holds the cosines to their angles after the eyes change. Each was turned red by sabotage;
+  the 3,000-tick hash with `DEAD_KEEP_VIEW` off matches `main`.
+  [docs/22](22-performance.md#bringing-the-tick-to-budget).
+- **Kernel & tooling — the tick to budget, slice 9: the far quarter and the spread cast,
+  2026-10-20 (partial).** Two behaviour changes, each behind a gate-drivable switch. A wandering
+  or dormant zombie with nobody within 40 m and no hold thinks on one tick in four, phase by id,
+  with its countdowns running between and its scent and light steers compounded over the four
+  ticks (`SimShambler.THINK_LOD`); its view rests on the ticks before it does not think
+  (`SimVisibility.resting`). A colonist other than the player recasts after two tiles and spreads
+  the recast two quadrants a tick across everyone, longest-waiting first, the old view standing
+  until the new one lands (`SimVisibility.STAGGER_PERSON_CASTS`; `SimShadowcast.shadowcast` takes a
+  quadrant range). `godot:bench:runtime` on the slower container, median of three interleaved
+  runs: slice 8 **14.00 / 31.35 ms** to **12.07 / 27.29**. Gated in `godot:m2:tick`: FAR-THINK
+  runs the think on far and near bodies on and off phase, Wander and Dormant, and requires the
+  rule's think, pin, countdowns and resting marks, the marks cleared by the next refresh, a
+  resting view left where it was and a marked-off one following its body, and the compounded
+  steer equal to four single steers; SPREAD holds a first cast whole, a tile's walk ignored by a
+  colonist and recast at once by the player, two quadrants spent a tick, the longest-waiting
+  landing first, each landed view equal to one whole cast from where its person stood, and the
+  four quadrants equal to the whole cast from any origin. Each was turned red by sabotage. With
+  both switches off the 3,000-tick hash matches `main`; with them on it repeats exactly.
+  [docs/22](22-performance.md#bringing-the-tick-to-budget).
+- **Kernel & tooling — the tick to budget, slice 10: the tables read straight, 2026-10-20
+  (partial).** `SimComponentStore.table` hands a pass the live table behind `get_component` and
+  `has_component`, and the passes that made most of the tick's four thousand component calls
+  hold their tables once: movement, the shambler think, sightings, the visibility refresh, the
+  noise emitter, `enemies_within`, the settlers' threat scan and the fortify doors and presses.
+  Sightings finds each remembered body through a map of its first record instead of walking the
+  list per body in view, and a cupboard through a set; the door swing asks one set of occupied
+  tiles instead of walking every body per door. `godot:bench:runtime` on the slower container,
+  median of three interleaved runs: slice 9 **12.27 / 28.78 ms** to **10.63 / 31.86**; the worst
+  tick is the container's noise at this size. Gated in `godot:m2:tick`: TABLE holds `table` to
+  `get_component` and `has_component` by identity for fifteen components on a stepped district,
+  live across an add and a removal, empty and unsaved for a missing component, and names every
+  table each converted pass reads; RECALL holds the shipped observe to the walk it replaced over
+  twenty ticks with a stale record, a duplicate, a dead body and a searched cupboard primed, and
+  pins the three kinds; SWING holds the occupied set to `_tile_occupied` round every moving body.
+  Each was turned red by sabotage; with the two slice 9 switches off the 3,000-tick hash matches
+  `main`, and with them on it matches slice 9.
+  [docs/22](22-performance.md#bringing-the-tick-to-budget).
+
+- **Kernel & tooling — the tick to budget, slice 11: the worst tick's spikes, 2026-10-20
+  (partial).** Profiled on a quiet container, the three spike sources were these. The player's
+  whole 48 m cast cost about 3.5 ms on the tick they crossed a tile. Two quadrants of a colonist's
+  spread cast landing together cost up to 2.8 ms. A long job plan cost 5 ms for 59 steps. Each cut
+  has its own gate-drivable switch, which a lane that pins it restores.
+  `SimVisibility.STAGGER_PLAYER_CAST` spreads the player's recast over two ticks, two quadrants
+  each, on a queue of its own, so the view lands whole one tick (50 ms) after the step. The
+  colonist budget `PERSON_QUADRANTS_PER_TICK` goes from two to one. `SimPath.NEAR_TIES` breaks a
+  tie on cost toward the tile nearer the goal, in the flat and the Dictionary search alike. Plans
+  keep their length and expand fewer tiles. A plan still runs whole on one tick, so that spike is
+  smaller but not capped.
+  `godot:bench:runtime` on a third container, roughly twice as slow and noisy, median of three
+  interleaved runs: slice 10 **13.70 / 37.70 ms** to **14.29 / 32.09**, the mean inside the
+  noise. Timed per system with the two switches off and then on, the refresh's worst tick went from
+  8.6 to 17.1 ms down to 6.4 to 8.7. On the quiet container before the move, this build's worst
+  tick read 13.3 to 15.6 ms across three runs, a reading rather than a measurement because those
+  runs were not interleaved.
+  **Gated** in `godot:m2:tick`. NEAR-TIES holds every pair to the scan's length with a valid walk,
+  and the general search to the fast one tile for tile. It allows a reach where the scan gave up
+  only past the old 4,096-tile cap, and requires fewer expansions on the long pairs. PLAYER-CAST
+  holds a step's tick to the old view and the budget, and the next tick to a fresh whole cast from
+  the step's tile with a colonist queued beside it. It also holds the switch off to an immediate
+  recast. `godot:check:memory`'s walked-away control steps twice now, because the view lands a
+  tick late. Ten sabotages each turned the gate red, one of them only after the general-search
+  check was added. With every A3 switch off, the 3,000-tick hash matches `main`; with them on, it
+  repeats. [docs/22](22-performance.md#bringing-the-tick-to-budget).
 
 - **Kernel & tooling — water draw check follows its branches, 2026-10-03.** The A2 wall
   additions moved the water fill to character 4,473 after the drawing match, beyond

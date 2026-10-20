@@ -329,6 +329,14 @@ static func _has_injuries(world: Variant, entity: int) -> bool:
 
 # Family (c): pain, entity-scoped, one source, recomputed from the wound list every pass -- the
 # same shape blood loss uses, for the same reason.
+# Every source `wounds.impair`'s three passes strip, as a set, built once a tick.
+static func _impair_sources() -> Dictionary:
+	var out: Dictionary = {BLOODLOSS_SOURCE: true, CONCUSSION_SOURCE: true, PAIN_SOURCE: true}
+	for part in SimCombat.SURVIVOR_BODY_PARTS:
+		out["wound." + String(part)] = true
+	return out
+
+
 static func _apply_pain(world: Variant, entity: int) -> void:
 	if world.modifiers == null:
 		return
@@ -1124,6 +1132,7 @@ static func register_module(world: Variant) -> void:
 	world.systems.register("wounds.impair", "input", -1, func(w: Variant) -> void:
 		if w.modifiers == null or not (w.modifiers as Object).has_method("add"):
 			return
+		var impair_src: Dictionary = _impair_sources()
 		for entity in w.components.query(["injuries"]):
 			var inj: Variant = w.components.get_component(int(entity), "injuries")
 			if inj == null:
@@ -1135,6 +1144,12 @@ static func register_module(world: Variant) -> void:
 			if w.components.has_component(int(entity), "corpse"):
 				continue
 			var d: Dictionary = inj as Dictionary
+			# A body with no wound, too little blood lost to impair it, and none of these sources
+			# on it has nothing to strip and nothing to add: the three passes below would remove
+			# thirteen sources it does not hold and add none, since pain needs a wound. Most of the
+			# district is such a body (A3's eighth slice).
+			if (d.get("wounds", []) as Array).is_empty() and float(d.get("bloodLoss", 0.0)) / BLOOD_LOSS_FATAL < 0.25 and not w.modifiers.holds_any(int(entity), impair_src):
+				continue
 			_apply_bloodloss_impairment(w, int(entity), float(d.get("bloodLoss", 0.0)))
 			_apply_part_impairment(w, int(entity), d.get("wounds", []) as Array)
 			_apply_pain(w, int(entity))
