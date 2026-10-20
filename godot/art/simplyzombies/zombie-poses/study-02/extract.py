@@ -6,8 +6,12 @@
 Mechanical steps only, the pack's own rule (STYLE.md): each cell is cut whole, moved so its
 lowest solid row (alpha >= 128) sits on the canvas's bottom row -- the same sole alignment
 extraction.json records for the seven families of study 01 -- and a corpse is moved so its
-solid box is centred on its ground anchor. Nothing is repainted or resized. The generated
-sheets themselves are under sources/ and their prompts in prompts.json.
+solid box is centred on its ground anchor. Nothing is resized. The one repaint is the screamer's
+value touch-up (`touch_up`, below): its near-white highlights are pulled down into the pack's
+skin range and its shirt is taken one value under its face, both by fixed arithmetic on the
+generated pixels. The bloater's sheets are painted by code over the heavy
+(guides/bloater_paint.py); the screamer's generated sheets are under sources/ and their prompts
+in prompts.json.
 
 Writes textures/zombie-<family>/{idle,walk,corpse}-*.png, atlases/zombie-<family>.png, and
 the study-02 entries of ../manifest.json (replacing any it already holds).
@@ -25,11 +29,59 @@ FAMILIES = {
     # family: living cell, corpse canvas, walk fps, living sheet, corpse sheet
     "screamer": {"cell": (32, 40), "corpse": (48, 40), "fps": 5,
                  "sheet": "sources/screamer-walk-generated.png",
-                 "corpses": "sources/screamer-corpses.png"},
+                 "corpses": "sources/screamer-corpses.png", "touch_up": True},
     "bloater": {"cell": (40, 48), "corpse": (56, 40), "fps": 4,
-                "sheet": "sources/bloater-walk-generated.png",
-                "corpses": "sources/bloater-corpses.png"},
+                "sheet": "sources/bloater-walk-painted.png",
+                "corpses": "sources/bloater-corpses-painted.png"},
 }
+
+
+# The pack's brightest skin, as luminance: the commuter's 99.9th percentile pixel, (199, 188, 170).
+# Above KNEE a highlight is compressed toward it, so the generated near-whites (240) land at the cap
+# with their order kept, rather than being clipped flat.
+SKIN_CAP = 188.0
+KNEE = 168.0
+# Rows below the top of the figure where the head ends: the screamer's chin sits eleven rows down.
+CHIN = 11
+# One value: the shirt's pale greys scaled by this, so the face reads a step above them.
+SHIRT_STEP = 0.80
+
+
+def _luma(r, g, b):
+    return 0.299 * r + 0.587 * g + 0.114 * b
+
+
+def _scale(px, x, y, k):
+    r, g, b, a = px[x, y]
+    px[x, y] = (min(255, round(r * k)), min(255, round(g * k)), min(255, round(b * k)), a)
+
+
+def compress_highlights(image):
+    """Every pixel brighter than KNEE pulled toward SKIN_CAP, hue kept."""
+    px = image.load()
+    for y in range(image.height):
+        for x in range(image.width):
+            r, g, b, a = px[x, y]
+            luma = _luma(r, g, b)
+            if a and luma > KNEE:
+                _scale(px, x, y, (KNEE + (luma - KNEE) * (SKIN_CAP - KNEE) / (255.0 - KNEE)) / luma)
+    return image
+
+
+def touch_up(cell):
+    """The screamer's hands no brighter than pack skin; its shirt one value under its face."""
+    box = solid_box(cell)
+    if box is None:
+        return cell
+    px = cell.load()
+    for y in range(box[1] + CHIN, cell.height):
+        for x in range(cell.width):
+            r, g, b, a = px[x, y]
+            luma = _luma(r, g, b)
+            spread = max(r, g, b) - min(r, g, b)
+            if a and 110.0 <= luma <= KNEE and spread <= 24:
+                _scale(px, x, y, SHIRT_STEP)
+    return compress_highlights(cell)
 
 
 def solid_box(image):
@@ -64,6 +116,8 @@ def extract(family, spec):
     rel = "textures/zombie-%s/" % family
     for row, view in enumerate(VIEWS):
         idle = grounded(sheet.crop((0, row * h, w, row * h + h)))
+        if spec.get("touch_up"):
+            idle = touch_up(idle)
         idle.save(folder / ("idle-%s-00.png" % view))
         atlas.alpha_composite(idle, (0, row * h))
         assets.append({
@@ -75,6 +129,8 @@ def extract(family, spec):
         frames = []
         for n in range(4):
             cell = grounded(sheet.crop(((n + 1) * w, row * h, (n + 2) * w, row * h + h)))
+            if spec.get("touch_up"):
+                cell = touch_up(cell)
             name = "walk-%s-%02d.png" % (view, n)
             cell.save(folder / name)
             atlas.alpha_composite(cell, ((n + 1) * w, row * h))
@@ -90,6 +146,8 @@ def extract(family, spec):
     half = corpses.width // 2
     for index, pose in enumerate(("supine", "prone")):
         body = centred(corpses.crop((index * half, 0, index * half + half, corpses.height)), (cw, ch))
+        if spec.get("touch_up"):
+            body = compress_highlights(body)
         body.save(folder / ("corpse-%s.png" % pose))
         assets.append({
             "id": "zombie-%s-corpse-%s" % (family, pose), "label": "%s corpse %s" % (family.title(), pose),

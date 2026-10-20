@@ -10,7 +10,7 @@ content entries in `godot/content/props/stations.json` declare `size` as the pic
 | prop          | canvas | how it was made                                        |
 | ------------- | ------ | ------------------------------------------------------ |
 | well          | 32x29  | guide, one img2img pass, cell 0 cut                    |
-| latrine       | 32x28  | drawn by `stations.py`: a plank bench, lid, ash bucket |
+| latrine       | 32x28  | drawn by `stations.py`: an outhouse, door gap, moon, vent, ash bucket |
 | campfire      | 30x20  | drawn by `stations.py`: stones, ash, two charred logs  |
 | campfire, lit | 30x20  | the same ring burning down to embers                   |
 
