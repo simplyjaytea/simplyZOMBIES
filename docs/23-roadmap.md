@@ -1226,7 +1226,12 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   stepped out — which is information the player arguably should not have for free, so it is a
   design call and not a cleanup — or the publish goes.
 
-- **Every survivor shoots as though one arm were ruined.** `ranged.gd`'s `_refresh_cone` widens
+- ~~**Every survivor shoots as though one arm were ruined.**~~ **Fixed 2026-10-19** (`godot:m2:aim`,
+  the ARM lane). `_refresh_cone` now adds the 0.15 only when either arm
+  reads `BadlyHurt` or worse through `SimHealth.part_state_of`, so a healthy arm is no longer
+  charged and a ruined one widens the cone. **The balance half is not measured**: every survivor's
+  cone is tighter in every firefight from today, and `godot:m2:balance` has not been rerun for it.
+  The original entry follows. `ranged.gd`'s `_refresh_cone` widens
   the aim cone by 0.15 when the worse arm is under 25, and `SimCombat.SURVIVOR_BODY` gives a
   *healthy* arm 20 — so the penalty is on for everybody, permanently, and a genuinely ruined arm
   costs nothing more than an intact one. The threshold was written against the pre-split single
@@ -1236,7 +1241,9 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   per-weapon, and deliberately not fixed there: correcting it tightens every survivor's cone in
   every firefight, which is a balance change wanting its own slice and its own measurement rather
   than a quiet ride beside a change about rate of fire. `check_m2_aim`'s CONE lane neutralises it
-  by hand and says why, and caught it by refusing to compare two saturated values.
+  by hand and says why, and caught it by refusing to compare two saturated values. The ARM lane
+  now judges the penalty itself: an intact arm must read the same cone as no arm at all, and a
+  ruined one must widen it.
 - ~~**Crouching never lowers your eye.**~~ **Fixed 2026-09-16** (`godot:m2:sight`, the EYE and
   EYE-READER lanes). `SimVisibility.refresh` now reads a queried entity's `posture`, if it has
   one, and writes `observer["eye"]` from `SimStances.eye_of` every tick, before the shadowcast
@@ -1250,7 +1257,10 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   (`sim/spatial/hash.gd`, `SimThreat.threat_within`, `SimDirector.snapshot_of`). The campaign
   effect of low cover finally blocking a crouched body is unmeasured: `godot:m2:balance`,
   `godot:m2:director` and `godot:m2:npc` stay green, but nothing here claims a balance outcome.
-- **`Bury` reads "the corpse has no position" as "I am carrying it".** `_do_bury`'s hole; the
+- ~~**`Bury` reads "the corpse has no position" as "I am carrying it".**~~ **Fixed 2026-10-19**
+  (`godot:m2:jobs`, the BURY-CLAIM lane). A corpse with no position that this job did not take is now
+  left alone (`_stop`), so a second Bury no longer walks off with a body another one holds. The original
+  entry follows. `_do_bury`'s hole; the
   Cook half of this entry (no claim on the raw, a meal out of nothing) landed 2026-09-06 — the
   record's Jobs bullet, `godot:m2:jobs` COOK CLAIM. `_water_work` and `_repair_work` hand out an
   unclaimed target in the same shape and have not been measured to double up; the `reserved`
@@ -1317,24 +1327,45 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
     `treat.context` deliberately picks the wound for you. A patient-and-part selection surface is
     what all three are waiting on, and it is one piece of work for the three of them.
 - **More gates that cannot fail.** Four were fixed in the sweep; these are what a read of all
-  thirty-odd check scripts turned up and did **not** fix. Assume there are others and go at the
-  rest with the same question — *what change would turn this red?*
-  - `check_r6_mutation.gd`'s "validator not vacuous" lane asserts that a `RegEx` **the gate itself
-    just compiled** does not match `"BAD_ID"` — the subject is the gate's own local object, not
-    `ContentValidator`, so no change to the validator can turn it red. Its `_mutate_perf` lane
-    claims to prove the bench gate is not always PASS and never invokes the bench with a small
-    budget; it asserts that 100 iterations of `field.decay()` take more than 0.0001 ms/tick.
-  - `check_r6_coverage.gd`'s `_isolation` says it boots "with each non-kernel module disabled" and
-    disables nothing; its only guard is `if w == null` on the result of `World.new(...)`.
-  - `check_m2_gear.gd`'s `_coverage_composes_by_max_not_sum` discards both `SimInventory.equip`
-    return values, so the max-vs-sum claim is satisfied by a world where only the mask was equipped.
-  - `check_m2_save.gd`'s `_streams()` and `check_r3_full.gd`'s "seed mismatch: restore should
-    assert" block have the same shape as `check_m2_recruits.gd`'s old "transmitted → shambler
-    **with kit**" lane (fixed in the survivor-generation slice, see the record) — a condition
-    computed and thrown away, and a block that never calls `restore`.
-  - `check_hud.gd`'s fixture world lacks the components five of `hud.gd`'s clause builders read, so
-    those clauses return `""` and their assertions pass with no data to judge — which CLAUDE.md
-    says must skip loudly instead.
+  thirty-odd check scripts turned up. Assume there are others and go at the rest with the same
+  question -- *what change would turn this red?* Six of the seven below are fixed on 2026-10-19 and the seventh is part fixed;
+  each was proved red by a sabotage run, then restored.
+  - ~~`check_r6_mutation.gd`'s "validator not vacuous" lane~~ **Fixed 2026-10-19** (`godot:r6:mutation`,
+    MUTATION content). It judges the real item schema on a real armour entry: the entry must pass,
+    and the same entry with an undeclared key or a numeric `name` must not. Sabotaged by removing the
+    `additionalProperties` refusal from the validator: red, naming the undeclared key.
+  - ~~`check_r6_mutation.gd`'s `_mutate_perf` lane~~ **Fixed 2026-10-19** (`godot:r6:mutation`, perf).
+    It never asked the bench for a verdict, so a bench that always said PASS passed. The verdict is
+    now `bench.gd`'s static `verdict(avg, budget)`, which `_init` also uses, and the lane demands OVER
+    for a 0.0001 ms budget and PASS for a 1e9 ms one. Sabotaged by making `verdict` always PASS: red.
+  - ~~`check_r6_coverage.gd`'s `_isolation`~~ **Fixed 2026-10-19** (`godot:r6:coverage`, ISOLATION).
+    It boots the playable district once per system with that system unregistered, requires each
+    `unregister` to find its system, and steps ten ticks; `unregister` of a name that does not exist
+    must refuse. Sabotaged by making `unregister` report false: red.
+  - ~~`check_m2_gear.gd`'s `_coverage_composes_by_max_not_sum`~~ **Fixed 2026-10-19** (`godot:m2:gear`,
+    MAX). It discarded both `equip` results, so a refused glasses equip left the mask alone and read as
+    the max. Both equips must now land. Sabotaged by swapping the glasses for ammunition: the original
+    lane passes and the fixed one goes red.
+  - ~~`check_m2_save.gd`'s `_streams()`~~ **Fixed 2026-10-19** (`godot:m2:save`, STREAMS). Its `if ...: pass`
+    was the condition computed and thrown away. It is now an assertion that stepping the director
+    across the packet tick leaves the infection stream's next draw unchanged. Sabotaged by drawing one
+    extra infection sample: red.
+  - ~~`check_r3_full.gd`'s "seed mismatch: restore should assert" block~~ **Fixed 2026-10-19**
+    (`check_r3_full.gd`, run directly with the engine: no npm script reaches it). The block never called restore and its `seed_ok` was
+    unused. It now judges the two numbers `SimWorld.restore`'s assert compares: the save names the seed
+    of the world it was written from, and a world of another seed would not match it. The assert itself
+    still is not exercised in-process, because a failing restore aborts the process. Sabotaged by
+    offsetting the saved seed: red.
+  - `check_hud.gd`'s fixture world lacked the components five of `hud.gd`'s clause builders read, so
+    those clauses returned `""` and the digit and prose lanes passed on nothing. **Partly fixed
+    2026-10-19** (`godot:check:hud`, HUD CLAUSES): a `_wounded_world` gives the survivor a torso cut and
+    a broken leg and an identity, so `SimWounds.hud_clause` (bleeding) and `pain_clause` now produce
+    prose, and an unhurt survivor is silent about a wound. Sabotaged by removing the wounds: red.
+    **Still open:** on the same survivor `sepsis_clause`, `SimContainers.hud_clause`, `SimCamp.hud_clause`,
+    `SimVehicles.hud_clause`, `SimSightings.clause`, `SimNoise.hud_clause`, `SimAttachments.refusal_clause`
+    and `SimWeather.hud_clause` still return `""`, and the digit lanes pass over them vacuously. Each
+    needs its own state set up (infection, a container in reach, a camp, a parked vehicle, a sighting, a
+    placed device, a jammed weapon, a weather kind), so it is not one fixture line.
 - **Three more dead sockets, on top of the ten now listed in CLAUDE.md.** `sim/spatial/hash.gd`
   in its entirety — nothing in `sim/` or `presentation/` calls it, only `bench/bench.gd` and two
   check scripts, so the headless bench measures a structure the running simulation never touches
@@ -1362,16 +1393,21 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   the filter slice (2026-09-12): one cloud books one exposure, and a second cloud over the same
   survivor books a second. Struck rather than deleted because a defect list that quietly loses
   entries is a defect list nobody trusts.
-- **A plume only reaches a bite.** `SimBloater._has_open_wound` matches `kind == "bite"` alone, so a
-  survivor carrying a deep laceration or a burn walks through a contamination cloud untouched while
-  one with a scratch from a shambler does not. A cut is an open wound too. Found by the filter slice
-  (2026-09-12) and deliberately not fixed there: widening it is a balance change and would have
-  ridden along inside a slice that was adding a reader, which is how scope gets smuggled.
+- ~~**A plume only reaches a bite.**~~ **Fixed 2026-10-19** (`godot:m2:filter`, the OPEN lane). An open
+  wound is one whose kind bleeds (`SimWounds.kind_spec`), so a bite, a cut and a burn let a plume in
+  and a fracture, sprain, concussion or frostbite do not. Over 40 seeds a bite, a cut and a burn each
+  booked 14 contaminations and the four closed kinds booked none. **The balance half is not
+  measured**: clouds now reach more survivors, and `godot:m2:balance` has not been rerun for it. Found
+  by the filter slice (2026-09-12) and deliberately not fixed there, because widening it is a balance
+  change and would have ridden along inside a slice that was adding a reader.
 - ~~**A corpse looks exactly like a person at Focal.**~~ **Fixed 2026-10-02.** Settled corpse
   pictures lie on the ground beneath standing actors, without upright equipment or facing
   pointers. `godot:check:zombie_art` judges the real renderer branch and Focal filtering;
   see "Zombies turn, walk and fall" in the art record. The existing glimpse ban stays intact.
-- **A debug-spawned stackable item is always a bare stack of one.** `SimDebug`'s `item` arm
+- ~~**A debug-spawned stackable item is always a bare stack of one.**~~ **Fixed 2026-10-19**
+  (`godot:m2:ammo`, the DEBUG-STACK lane): the `item` arm now passes a `count` on the `debug.spawn`
+  command through to `spawn_item`, so five asked for hold five and no count holds one. The original
+  entry follows. `SimDebug`'s `item` arm
   (`sim/modules/debug.gd`) calls `SimItems.spawn_item(w, id, {})` with no `count`, so an
   ammunition round spawned from the F8 panel or a `debug.spawn` command pushed by hand always
   arrives as a single unit; `_fire_shot`'s `_consume_ammo` (`sim/modules/ranged.gd`) despawns a
