@@ -18,7 +18,11 @@ own rest view*, so frame 0 of every cycle is the same body, the same palette and
 outline as the standing picture -- the old four-frame walk was drawn separately from the idle
 and popped its skin tone and its outline when a body set off. The script crops each frame at
 the input's offset, binarises alpha at 128 (the pack's rule), drops specks under three pixels,
-and seats every frame's soles on the rest view's ground row.
+and seats every frame's soles on the rest view's ground row. Four of the east strip's eight
+frames came back with the hips bare (skin and a black line where the pack's grey shorts are);
+`restore_shorts` puts the band back where the cycle's neighbouring frames have it, in the rest
+view's own grey, so the shorts never vanish mid-stride and the clothing painter
+(`../clothing/parts.py`), which finds every frame's waist by that band, can dress all of them.
 
 **The zombies' in-betweens and every breath are mechanical.** Each zombie family keeps its four
 pack poses as frames 0, 2, 4 and 6; frames 1, 3, 5 and 7 are the pose before them with the rows

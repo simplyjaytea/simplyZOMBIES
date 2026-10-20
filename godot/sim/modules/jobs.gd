@@ -1138,13 +1138,18 @@ static func _do_bury(world: Variant, ent: int, job: Dictionary) -> void:
 		_stop(world, ent)
 		return
 	if not bool(job.get("carrying", false)):
-		if world.components.has_component(corpse, "position"):
-			var cp: Variant = world.components.get_component(corpse, "position")
-			var ct := Vector2i(floori(float((cp as Dictionary)["x"])), floori(float((cp as Dictionary)["y"])))
-			if not _at(world, ent, ct, REACH):
-				_walk(world, ent, job, ct)
-				return
-			world.components.remove(corpse, "position")
+		# Only the position this job removes means "carrying". The finder offers corpses that have
+		# one, so a corpse without one was taken by another body's Bury; burying it here would
+		# bury it twice.
+		if not world.components.has_component(corpse, "position"):
+			_stop(world, ent)
+			return
+		var cp: Variant = world.components.get_component(corpse, "position")
+		var ct := Vector2i(floori(float((cp as Dictionary)["x"])), floori(float((cp as Dictionary)["y"])))
+		if not _at(world, ent, ct, REACH):
+			_walk(world, ent, job, ct)
+			return
+		world.components.remove(corpse, "position")
 		job["carrying"] = true
 		SimNeeds.dirt(world, ent, 1)
 		return
@@ -1352,10 +1357,17 @@ static func _dress_slot(world: Variant, item: int) -> String:
 # run out is refused for `_is_working_weapon`'s reason and with its arithmetic: a destroyed plate
 # stops nothing, and walking across the district for one is worse than staying where you are.
 static func _is_better_armor(world: Variant, ent: int, item: int) -> bool:
-	var slot: String = _dress_slot(world, item)
-	if slot == "":
+	# The item's base read once and its `armor` block asked first: most of what lies on the ground
+	# has none, and the Dress scan asks this of every ground item (A3's eighth slice). The same
+	# answers `_dress_slot` and `_armor_points` give, which `check_m2_tick.gd` DRESS holds.
+	var base: Variant = SimItems.item_base_of(world, item)
+	if not base is Dictionary or not (base as Dictionary).get("armor") is Dictionary:
 		return false
-	var points: int = _armor_points(world, item)
+	var slot_v: Variant = SimItems.base_equip_slot(base as Dictionary)
+	if slot_v == null or DRESS_SKIP_SLOTS.has(String(slot_v)):
+		return false
+	var slot: String = String(slot_v)
+	var points: int = SimNeeds.armor_points_of_base(base as Dictionary)
 	if points <= 0:
 		return false
 	var c: Variant = world.components.get_component(item, "condition")

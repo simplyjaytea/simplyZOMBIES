@@ -72,7 +72,13 @@ static func register_module(world: Variant) -> void:
 				continue
 			match kind:
 				"item":
-					var item: int = SimItems.spawn_item(w, id, {})
+					# A dev spawn may ask for a stack. Without this read every round arrived as a
+					# count of one, which the shot that spends it despawns, so nothing was left to
+					# reload with. spawn_item still clamps the count to the base's stack limit.
+					var options: Dictionary = {}
+					if c.has("count"):
+						options["count"] = int(c["count"])
+					var item: int = SimItems.spawn_item(w, id, options)
 					w.components.set_component(item, "position", {"x": x, "y": y})
 					w.events.publish({"type": "debug.spawned", "kind": "item", "id": id, "entity": item})
 				"zombie":

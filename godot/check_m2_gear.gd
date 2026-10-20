@@ -189,8 +189,14 @@ func _wearing_it_covers_the_part_and_the_view_says_so() -> bool:
 
 func _coverage_composes_by_max_not_sum() -> bool:
 	var w: Variant = _world()
-	SimInventory.equip(w, w.player, _spawn(w, "item.mask.cloth"))
-	SimInventory.equip(w, w.player, _spawn(w, "item.glasses.safety"))
+	# Both equips must land. A refused second equip leaves the mask alone on the head, which is
+	# exactly the answer "max" gives for it -- so the coverage number cannot tell the two apart.
+	if not SimInventory.equip(w, w.player, _spawn(w, "item.mask.cloth")):
+		push_error("MAX: the cloth mask would not go on, so there is nothing to compose")
+		return false
+	if not SimInventory.equip(w, w.player, _spawn(w, "item.glasses.safety")):
+		push_error("MAX: the safety glasses would not go on, so the lane would only ever measure the mask")
+		return false
 	var cov: float = SimInfection.armor_coverage_of(w, w.player, "head")
 	# mask 0.2 and glasses 0.1: max is 0.2; a sum would be 0.3 and would be the exploit.
 	if absf(cov - 0.2) > 0.001:

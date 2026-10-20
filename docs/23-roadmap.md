@@ -157,6 +157,69 @@ write its record — named, gated, measured — into [the record, by system](#th
 the same commit. That is the whole discipline: one list of what remains, one record of what landed,
 and nothing that has to be ticked.
 
+##### UI overhaul
+
+**The whole interface, opened by the owner 2026-10-03.** Project Zomboid's practical
+management is the primary reference, with Tarkov/Zero Sievert tactical detail and cohesion
+with the Dungeon Settlers world. The paperdoll is a stylized anatomical diagram with
+equipment arranged around it. [The design brief](32-ui-overhaul.md) specifies the proposed
+navigation, every surface, integration seams and acceptance; [docs/30](30-decisions.md#the-whole-interface-2026-10-03)
+records the owner's choices. This is new work, not a claim that the redesign has shipped.
+The old Field Kit implementation remains the current baseline until replaced slice by slice.
+
+The grid-plus-fast-list recommendation and the illustrative concept's treatment are still
+open for feedback. Preserve existing grid capacity and pause behavior by default. The
+following order completes all existing UI, with a useful playable flow first:
+
+- **Shared frame and the scavenging flow.** Establish the common theme, explicit viewed
+  survivor versus acting survivor, screen navigation and input/focus rules. In the same
+  first playable delivery, prove cupboard → transfer → equip → inspect → condition/care
+  → return to play. Build responsive storage and an inspector drawer; include the compact
+  HUD/context changes needed to reach them. Use the agreed anatomy/gear layout and real
+  carried/opened containers, not an illustration-only mockup. The work can be split into
+  reviewed theme, inventory and diagram patches on disjoint paths once their contracts
+  are fixed. **Files:** `godot/ui/`, coordinator-owned `godot/presentation/main.gd` and
+  input/session integration; new authored anatomy assets in an explicitly registered home.
+  Add only the small simulation action/reason read models needed to expose existing legal
+  care and transfer preconditions; do not duplicate those rules in presentation code.
+  **Proof:** inventory, HUD, play, response, appearance and skin gates; actual near-full
+  packing, refused transfer, legal treatment, text-focus and Escape journeys at both sizes.
+- **Colony work and learning in one survivor context.** Add a roster entry point, readable
+  job groups, explicit priority/Focus selection and connected Skills detail. Distinguish
+  available work from the six unimplemented job consumers; surface only truthful current
+  activity. Reflow the web and long learning text. **Files:** work/web panels and layout,
+  shared survivor selection integrated by the coordinator. **Proof:** work/learning lanes
+  in the play and web gates, plus larger-roster, long-content and actor/target fixtures.
+- **Weapon assembly and contextual actions.** Rework the bench around actual installed
+  slots, eligible carried parts and categorical comparisons. Bring item/world menus,
+  building feedback and other E actions into the shared hierarchy. **Files:** bench,
+  inspect and context/item menu controls. **Proof:** bench, inventory, context, play and
+  skin gates; compare/fit/strip and cancel flows with correct ownership/reach at both sizes.
+- **Field HUD and every vehicle instrument layout.** Finish compact prose, six quick slots,
+  colony access, interaction hints, speech and event/feedback treatment. Reserve space for
+  car, handlebar and board instruments; retain their existing information semantics.
+  **Files:** HUD, dashboard, quick strip, motion/cursors and coordinator-owned world UI
+  composition. **Proof:** HUD, vehicles, speech, play and skin gates; long prose and all
+  three mounting/driving/exit layouts without covering active controls.
+- **Title, pause, settings, help and end of run.** Carry the visual identity through every
+  shell state and save/load feedback; retain opacity, volume and reduced motion and a
+  scannable key reference. Keep developer tools distinct. **Files:** shell, settings,
+  legend, prefs and coordinator-owned Session integration. **Proof:** actual-scene
+  keyboard/mouse, focus/cancel, save/load and run-state journeys; headless/export resources.
+- **Complete visual and interaction verification.** Compare all surfaces at native
+  1280×720 and 1920×1080, including crowded, injured, long-text and nested-container states.
+  Retire superseded visual paths and deliberately replace old kit/font/chart-shape pins
+  while preserving behavioral and information constraints. Measure UI refresh and child
+  draw costs, which the current world-draw benchmark excludes. **Proof:** integrated
+  `godot:m2`, applicable routing/sprite/export checks, readable before/after captures and
+  measured UI timings. The existing world/simulation performance debt remains separate.
+
+One coordinator owns main/input and documentation; each parallel worker gets disjoint files
+and its own worktree/runtime state. Every implementation slice updates this list and its
+record together. No new camp, treatment, loadout or hidden-information mechanics are implied.
+
+##### Other remaining work
+
 **Waiting on the owner — decisions, not code.** Each is measured and written up; none may be
 decided unilaterally. **The full list lives in `HANDOFF.md`** (eleven items as of 2026-09-09; the
 newest two are the water numbers and the main area's extent, and the six of 2026-09-06 were the
@@ -596,6 +659,10 @@ pieces below are in the order they land, each one session, each with its gate re
 its record; the health-bar ban, the digit ban, the prose HUD and the busy loop's refusal to read
 time left are untouched.
 
+This describes the shipped baseline. The owner's October 3 [whole-interface overhaul](#ui-overhaul)
+supersedes its visual mandate for new work; the old kit/font/geometry are not constraints on
+the redesign. Behavior and information guarantees remain in force.
+
 All nine pieces have landed (the last, "Saved, picked up, busy", 2026-09-26); their records are
 in the record, by system. The October 3 layout review fixes the fixed-width Work panel and
 inventory overlap at 1280×720, plus clipped bag input and a bag child left visible on close.
@@ -859,11 +926,8 @@ are all carried into the pieces that replace them.
 - **The frames.** Moved into the decoupled-paperdoll group above, where the legs strip it needs
   exists. Named here only so the cross-reference resolves.
 - ~~**The exploded body chart.**~~ — landed 2026-10-03; see the record.
-- **The idle breath — not decided, shipped as the default.** One pixel of pelvis at a quarter of
-  the walk's rate. It was drawn in the fixture round and deliberately left out of the four
-  answers; it is a small call and it is the owner's. A7 (2026-10-19, the record) built it on the
-  alpha plan's default, one pixel of chest once a second, with a decision card to the owner;
-  `breath_fps: 0` in `authored.json` takes it out without code if the answer is no.
+- ~~**The idle breath.**~~ — decided by the owner 2026-10-20 (keep it, docs/30's "The idle
+  breath, kept"); it shipped with A7, see the record.
 
 **Art & renderer — the Dungeon Settlers arc, decided by the owner (2026-09-03), on the floor
 the reference-look arc's first two slices laid (32 px a tile at 2×, the ground atlas).** The
@@ -889,8 +953,11 @@ group above amend this arc's mood, wall and pawn clauses; the pieces below stand
   slice's perf driver re-run, the 539 restored or the record says why not. No look changes.
 - **Wearables beyond the adopted pack families.** The September 26 pack pass replaced the
   generated clothing rigs and now draws vest, helmet, mask and backpack families in four views,
-  plus ten held weapons. The old six-slot/absent-vest defect is superseded. Additional clothing
-  and belt, eyes, gloves or feet pictures still need an art policy and readable pictures at the
+  plus ten held weapons. The old six-slot/absent-vest defect is superseded. Torso, legs and feet
+  landed 2026-10-19 as garments painted on every survivor frame (see the record, "clothe
+  everyone"). What remains: belt, eyes, gloves and soft caps have no picture; a coat, poncho or
+  suit cannot change the body's outline; only the survivor rig is clothed (the zombie families
+  carry their own clothes); and corpses lie bare. Each still needs readable pictures at the
   shipped scale; equippability alone does not authorize inventing a new overlay.
 - **The wreck dumpster — designed and drawn, cut at the balance line.** A `wreck_dumpster` sprite
   was authored for the lone `Tile.Low` tiles a district stands, and standing more than the annex's
@@ -986,6 +1053,14 @@ code: the frames slot into `build_motion.py` and every gate already judges them.
   own frames, so it lies by the feet only while the reload plays and goes with the stance.
   Accepted for alpha (art review, 2026-10-20); once the decal layer (A13) lands it becomes a
   mark left on the ground where the body stood, like the casings.
+- **Clothes on the action frames.** Not a generation budget: painter work. A6's garments are
+  painted on the survivor's rest, walk and breath frames only, so a clothed body swings, fires,
+  reloads, flinches, crouches, crawls and falls in the rig's own underwear (208 action frames
+  against 29 garments). `Appearance.body_texture` leaves an action picture undressed by name
+  (`is_action_frame`) and `godot:check:authored`'s WEAR lane leaves the same frames out, so
+  both say where the gap is. The derived actions are whole-pixel moves of a rest or walk frame
+  and could carry that frame's garment through the same move; the drawn reloads and the
+  generated swing need `clothing/parts.py` to label their redrawn arms.
 
 **The inventory sheet and the screens — decided by the owner (2026-09-08).** The inventory is
 mechanically complete and gated, and the screen reaches four of its commands: `item.move`,
@@ -1090,10 +1165,20 @@ session, each with its gate red both ways and its record.
   observability progress. The older `godot:bench` remains synthetic and exits zero on overruns;
   CI's `bench` and `bench:frame` still measure the frozen TypeScript oracle. See docs/22 and the
   runtime evidence record for scope, results and next measurements.
-  Next bounded slices: attribute and reduce the jobs/map-change visibility spike; profile the
-  real world-draw body path; then remeasure identical fixtures before enabling actual timing
-  gates. Repeated content lookups, healthy self-aid scans and shadowcast clearing are candidate
-  optimizations to prove individually, with deterministic behavior and reader gates intact.
+  The tick's eleven slices (2026-10-19/20, the record's "tick to budget" entries;
+  [docs/22](22-performance.md#bringing-the-tick-to-budget) carries the running table) took the
+  mean from 32.4 ms to about 9.5 on the baseline's machine (10.6 on the slower container that
+  measured slices 8 to 10) and stopped there for the alpha. **The gap, post-alpha:** the mean is
+  still above 8 ms, and the worst tick is not under 16 -- p95 about 16 ms, single ticks of 20 to
+  34 ms. Measured spikes: a whole 48 m cast for the player (the one cast not spread) and for a
+  zombie after a nearby map change, about 7 ms; a long job plan, up to 12 ms; and runs of
+  consecutive ticks where every system slows together, which reads as the shared container
+  rather than the sim. Slice 11 spread the player's own cast over two ticks, halved the
+  colonist cast budget and cut a plan's expansions. On a quiet container the worst tick then read
+  under 16 ms in three runs; on a noisy one it stays 25 to 38 ms for either build, because the
+  host slows whatever system it lands on. Still post-alpha: a long job plan runs whole on one tick
+  (8 to 14 ms on the noisy container), so it wants splitting across ticks. The worst tick also
+  needs measuring on a quiet, dedicated machine before any timing gate is enabled.
   Draw-stage timing alone does not close delivered FPS, long-session, save or streaming budgets.
 
 **Weather — the rest of docs/16, opened by the owner 2026-09-06.** ADR 0016. The spine (kinds,
@@ -1170,7 +1255,12 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   stepped out — which is information the player arguably should not have for free, so it is a
   design call and not a cleanup — or the publish goes.
 
-- **Every survivor shoots as though one arm were ruined.** `ranged.gd`'s `_refresh_cone` widens
+- ~~**Every survivor shoots as though one arm were ruined.**~~ **Fixed 2026-10-19** (`godot:m2:aim`,
+  the ARM lane). `_refresh_cone` now adds the 0.15 only when either arm
+  reads `BadlyHurt` or worse through `SimHealth.part_state_of`, so a healthy arm is no longer
+  charged and a ruined one widens the cone. **The balance half is not measured**: every survivor's
+  cone is tighter in every firefight from today, and `godot:m2:balance` has not been rerun for it.
+  The original entry follows. `ranged.gd`'s `_refresh_cone` widens
   the aim cone by 0.15 when the worse arm is under 25, and `SimCombat.SURVIVOR_BODY` gives a
   *healthy* arm 20 — so the penalty is on for everybody, permanently, and a genuinely ruined arm
   costs nothing more than an intact one. The threshold was written against the pre-split single
@@ -1180,7 +1270,9 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   per-weapon, and deliberately not fixed there: correcting it tightens every survivor's cone in
   every firefight, which is a balance change wanting its own slice and its own measurement rather
   than a quiet ride beside a change about rate of fire. `check_m2_aim`'s CONE lane neutralises it
-  by hand and says why, and caught it by refusing to compare two saturated values.
+  by hand and says why, and caught it by refusing to compare two saturated values. The ARM lane
+  now judges the penalty itself: an intact arm must read the same cone as no arm at all, and a
+  ruined one must widen it.
 - ~~**Crouching never lowers your eye.**~~ **Fixed 2026-09-16** (`godot:m2:sight`, the EYE and
   EYE-READER lanes). `SimVisibility.refresh` now reads a queried entity's `posture`, if it has
   one, and writes `observer["eye"]` from `SimStances.eye_of` every tick, before the shadowcast
@@ -1194,7 +1286,10 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   (`sim/spatial/hash.gd`, `SimThreat.threat_within`, `SimDirector.snapshot_of`). The campaign
   effect of low cover finally blocking a crouched body is unmeasured: `godot:m2:balance`,
   `godot:m2:director` and `godot:m2:npc` stay green, but nothing here claims a balance outcome.
-- **`Bury` reads "the corpse has no position" as "I am carrying it".** `_do_bury`'s hole; the
+- ~~**`Bury` reads "the corpse has no position" as "I am carrying it".**~~ **Fixed 2026-10-19**
+  (`godot:m2:jobs`, the BURY-CLAIM lane). A corpse with no position that this job did not take is now
+  left alone (`_stop`), so a second Bury no longer walks off with a body another one holds. The original
+  entry follows. `_do_bury`'s hole; the
   Cook half of this entry (no claim on the raw, a meal out of nothing) landed 2026-09-06 — the
   record's Jobs bullet, `godot:m2:jobs` COOK CLAIM. `_water_work` and `_repair_work` hand out an
   unclaimed target in the same shape and have not been measured to double up; the `reserved`
@@ -1261,24 +1356,45 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
     `treat.context` deliberately picks the wound for you. A patient-and-part selection surface is
     what all three are waiting on, and it is one piece of work for the three of them.
 - **More gates that cannot fail.** Four were fixed in the sweep; these are what a read of all
-  thirty-odd check scripts turned up and did **not** fix. Assume there are others and go at the
-  rest with the same question — *what change would turn this red?*
-  - `check_r6_mutation.gd`'s "validator not vacuous" lane asserts that a `RegEx` **the gate itself
-    just compiled** does not match `"BAD_ID"` — the subject is the gate's own local object, not
-    `ContentValidator`, so no change to the validator can turn it red. Its `_mutate_perf` lane
-    claims to prove the bench gate is not always PASS and never invokes the bench with a small
-    budget; it asserts that 100 iterations of `field.decay()` take more than 0.0001 ms/tick.
-  - `check_r6_coverage.gd`'s `_isolation` says it boots "with each non-kernel module disabled" and
-    disables nothing; its only guard is `if w == null` on the result of `World.new(...)`.
-  - `check_m2_gear.gd`'s `_coverage_composes_by_max_not_sum` discards both `SimInventory.equip`
-    return values, so the max-vs-sum claim is satisfied by a world where only the mask was equipped.
-  - `check_m2_save.gd`'s `_streams()` and `check_r3_full.gd`'s "seed mismatch: restore should
-    assert" block have the same shape as `check_m2_recruits.gd`'s old "transmitted → shambler
-    **with kit**" lane (fixed in the survivor-generation slice, see the record) — a condition
-    computed and thrown away, and a block that never calls `restore`.
-  - `check_hud.gd`'s fixture world lacks the components five of `hud.gd`'s clause builders read, so
-    those clauses return `""` and their assertions pass with no data to judge — which CLAUDE.md
-    says must skip loudly instead.
+  thirty-odd check scripts turned up. Assume there are others and go at the rest with the same
+  question -- *what change would turn this red?* Six of the seven below are fixed on 2026-10-19 and the seventh is part fixed;
+  each was proved red by a sabotage run, then restored.
+  - ~~`check_r6_mutation.gd`'s "validator not vacuous" lane~~ **Fixed 2026-10-19** (`godot:r6:mutation`,
+    MUTATION content). It judges the real item schema on a real armour entry: the entry must pass,
+    and the same entry with an undeclared key or a numeric `name` must not. Sabotaged by removing the
+    `additionalProperties` refusal from the validator: red, naming the undeclared key.
+  - ~~`check_r6_mutation.gd`'s `_mutate_perf` lane~~ **Fixed 2026-10-19** (`godot:r6:mutation`, perf).
+    It never asked the bench for a verdict, so a bench that always said PASS passed. The verdict is
+    now `bench.gd`'s static `verdict(avg, budget)`, which `_init` also uses, and the lane demands OVER
+    for a 0.0001 ms budget and PASS for a 1e9 ms one. Sabotaged by making `verdict` always PASS: red.
+  - ~~`check_r6_coverage.gd`'s `_isolation`~~ **Fixed 2026-10-19** (`godot:r6:coverage`, ISOLATION).
+    It boots the playable district once per system with that system unregistered, requires each
+    `unregister` to find its system, and steps ten ticks; `unregister` of a name that does not exist
+    must refuse. Sabotaged by making `unregister` report false: red.
+  - ~~`check_m2_gear.gd`'s `_coverage_composes_by_max_not_sum`~~ **Fixed 2026-10-19** (`godot:m2:gear`,
+    MAX). It discarded both `equip` results, so a refused glasses equip left the mask alone and read as
+    the max. Both equips must now land. Sabotaged by swapping the glasses for ammunition: the original
+    lane passes and the fixed one goes red.
+  - ~~`check_m2_save.gd`'s `_streams()`~~ **Fixed 2026-10-19** (`godot:m2:save`, STREAMS). Its `if ...: pass`
+    was the condition computed and thrown away. It is now an assertion that stepping the director
+    across the packet tick leaves the infection stream's next draw unchanged. Sabotaged by drawing one
+    extra infection sample: red.
+  - ~~`check_r3_full.gd`'s "seed mismatch: restore should assert" block~~ **Fixed 2026-10-19**
+    (`check_r3_full.gd`, run directly with the engine: no npm script reaches it). The block never called restore and its `seed_ok` was
+    unused. It now judges the two numbers `SimWorld.restore`'s assert compares: the save names the seed
+    of the world it was written from, and a world of another seed would not match it. The assert itself
+    still is not exercised in-process, because a failing restore aborts the process. Sabotaged by
+    offsetting the saved seed: red.
+  - `check_hud.gd`'s fixture world lacked the components five of `hud.gd`'s clause builders read, so
+    those clauses returned `""` and the digit and prose lanes passed on nothing. **Partly fixed
+    2026-10-19** (`godot:check:hud`, HUD CLAUSES): a `_wounded_world` gives the survivor a torso cut and
+    a broken leg and an identity, so `SimWounds.hud_clause` (bleeding) and `pain_clause` now produce
+    prose, and an unhurt survivor is silent about a wound. Sabotaged by removing the wounds: red.
+    **Still open:** on the same survivor `sepsis_clause`, `SimContainers.hud_clause`, `SimCamp.hud_clause`,
+    `SimVehicles.hud_clause`, `SimSightings.clause`, `SimNoise.hud_clause`, `SimAttachments.refusal_clause`
+    and `SimWeather.hud_clause` still return `""`, and the digit lanes pass over them vacuously. Each
+    needs its own state set up (infection, a container in reach, a camp, a parked vehicle, a sighting, a
+    placed device, a jammed weapon, a weather kind), so it is not one fixture line.
 - **Three more dead sockets, on top of the ten now listed in CLAUDE.md.** `sim/spatial/hash.gd`
   in its entirety — nothing in `sim/` or `presentation/` calls it, only `bench/bench.gd` and two
   check scripts, so the headless bench measures a structure the running simulation never touches
@@ -1306,16 +1422,21 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   the filter slice (2026-09-12): one cloud books one exposure, and a second cloud over the same
   survivor books a second. Struck rather than deleted because a defect list that quietly loses
   entries is a defect list nobody trusts.
-- **A plume only reaches a bite.** `SimBloater._has_open_wound` matches `kind == "bite"` alone, so a
-  survivor carrying a deep laceration or a burn walks through a contamination cloud untouched while
-  one with a scratch from a shambler does not. A cut is an open wound too. Found by the filter slice
-  (2026-09-12) and deliberately not fixed there: widening it is a balance change and would have
-  ridden along inside a slice that was adding a reader, which is how scope gets smuggled.
+- ~~**A plume only reaches a bite.**~~ **Fixed 2026-10-19** (`godot:m2:filter`, the OPEN lane). An open
+  wound is one whose kind bleeds (`SimWounds.kind_spec`), so a bite, a cut and a burn let a plume in
+  and a fracture, sprain, concussion or frostbite do not. Over 40 seeds a bite, a cut and a burn each
+  booked 14 contaminations and the four closed kinds booked none. **The balance half is not
+  measured**: clouds now reach more survivors, and `godot:m2:balance` has not been rerun for it. Found
+  by the filter slice (2026-09-12) and deliberately not fixed there, because widening it is a balance
+  change and would have ridden along inside a slice that was adding a reader.
 - ~~**A corpse looks exactly like a person at Focal.**~~ **Fixed 2026-10-02.** Settled corpse
   pictures lie on the ground beneath standing actors, without upright equipment or facing
   pointers. `godot:check:zombie_art` judges the real renderer branch and Focal filtering;
   see "Zombies turn, walk and fall" in the art record. The existing glimpse ban stays intact.
-- **A debug-spawned stackable item is always a bare stack of one.** `SimDebug`'s `item` arm
+- ~~**A debug-spawned stackable item is always a bare stack of one.**~~ **Fixed 2026-10-19**
+  (`godot:m2:ammo`, the DEBUG-STACK lane): the `item` arm now passes a `count` on the `debug.spawn`
+  command through to `spawn_item`, so five asked for hold five and no count holds one. The original
+  entry follows. `SimDebug`'s `item` arm
   (`sim/modules/debug.gd`) calls `SimItems.spawn_item(w, id, {})` with no `count`, so an
   ammunition round spawned from the F8 panel or a `debug.spawn` command pushed by hand always
   arrives as a single unit; `_fire_shot`'s `_consume_ammo` (`sim/modules/ranged.gd`) despawns a
@@ -2037,9 +2158,8 @@ not a to-do list:
   `HELD_HANDS` at rest). A muzzle flash is still placed from the rest hand in `fx_look.gd`; A9's
   aim rework owns that.
 
-  **The breath is the owner's call** ("The idle breath" in what's left): it ships on as the
-  plan's default, a decision card is with the owner, and `breath_fps: 0` in `authored.json`
-  turns it off per family without code.
+  **The breath was the owner's call, and it is kept** (owner, 2026-10-20; docs/30's "The idle
+  breath, kept"). `breath_fps: 0` in `authored.json` would turn it off per family without code.
 
   **Evidence:** `godot:check:worn` new FRAMES lane: **288** walk and breath frames over 8 bodies
   declare head and torso offsets the renderer reads (448 of them move one), **72** survivor hands
@@ -2169,6 +2289,14 @@ not a to-do list:
   Before/after strips and GIFs per action, all eight bodies, are under
   `.hermes/plans/2026-10-19_a8-actions/`.
 
+- **Gate infrastructure — the `godot:m2` chain runs as four CI shards, 2026-10-19.** The
+  85-gate chain took 40m45s on one runner (job 118220307956, measured on 2b48fef), against the
+  45-minute `godot-m2` limit. `scripts/m2-shards.mjs` splits it into four `godot-m2-shard` jobs,
+  balanced by those per-gate times; `godot:m2:balance` alone (791 s) is the floor on wall time.
+  `godot-m2` is now the aggregate required check and fails unless every shard passed. The gates
+  that write the per-machine `user://` store share shard 3. `npm run check:shards` (`SHARDS_OK`;
+  its self-test refuses five broken layouts) proves each chained gate is in exactly one shard.
+  Unsharded `npm run godot:m2` is unchanged. Wall time of the sharded run: see the PR.
 - **UI — the sheet and Work grid fit the reviewed viewports, 2026-10-03.** At 1280×720,
   inventory now separates its equipment, native 56-pixel bag cells and inspect pane, keeping
   all seven frame-pack columns reachable. The compact sheet uses the condition chart at integer
@@ -2748,6 +2876,110 @@ not a to-do list:
   exists; nothing gives that entity a content id or an `appearance.sprite`, so it still draws by
   fallback role colour.
   No slice names any of the fifteen. Touches no standing ban.
+
+- **Art & renderer — clothe everyone, 2026-10-19.** Alpha plan item A6: every human drawn on
+  the pack's survivor body had stood in grey underwear since the 2026-09-26 pack pass retired
+  the face-on clothing overlays, because the pack ships no four-direction shirt, trousers or
+  shoes. Now each body wears three garments, **painted per frame onto the body's own pixels**
+  rather than laid over it: `godot/art/simplyzombies/clothing/` labels every one of the rig's 20
+  frames by body part from its own pixels (`parts.py`: underwear band, torso, arms, hands, legs,
+  feet) and shades each garment's parts on a light scale (`build_clothing.py`, 29 garments, one
+  160x160 atlas each): the body's own tone softened across the cloth, the pack's upper-left key
+  light, one-pixel folds at armpit, belt, elbow, crotch, knee and outer seam, patch pockets,
+  hems, a deep edge where cloth meets skin, a sleeve's shadow on the arm, and a grain and shine
+  per material (denim twill, leather and rubber shine, wool nap), at about the pack vest's
+  tonal density (distinct colours over painted pixels, south view: tee 61 over 84, leather
+  jacket 55 over 100, parka 82 over 116, hazmat 86 over 159; the vest 85 over 117). Three review
+  rounds the same day held it to the pack's bar: a first flat four-tone pass was redone as the
+  light scale, and the second round added the chest plane and creases and two-row sleeves on the
+  tee, the side views' near arm labelled and creased apart from the chest, a fall-off that
+  restarts at the waist, the underwear's flat grey read as lit rather than as shadow (it had sunk
+  every skirt and pair of hips to black, which merged the parka with its trousers), the parka's
+  fur drawstring and navy insulated trousers, and the hazmat suit's smooth rubber, taped seams,
+  hood and steel respirator -- the one garment that paints the head, its hair and lower face
+  only. The third round ended the parka's skirt at the hips so its trousers show on idle frames
+  too, put the collar on the first row the cloth crosses the chest (it had popped in when the
+  walk began), took the side views' chest top from the idle frame (the pack's side walk bobs the
+  hips, not the shoulders, and the neck row flickered bare once a cycle), desaturated the hazmat
+  yellow toward the workwear zombie's mustard, held rubber to three tones, and gave the boots
+  and the suit's tape a `boot` ramp floored at the belt's darkest tone so they part from the
+  ink at 1x. A fourth check on the street, day and night, lifted the parka's ramp one step (at
+  night its torso sat at the asphalt's own lightness, L* 8.4 against 8.2; now 10.8). A garment never adds a pixel outside the body, so nothing can
+  misalign on a walk frame. In `authored.json` each is a new kind `wear` with
+  `fits: "body_survivor"`, a `slot` (torso, legs or feet) and one member per rig frame (580
+  keys). `presentation/appearance.gd` composes the body frame and its three garments into one
+  cached texture (`dressed_texture`, keyed by rig frame and outfit), so the clothes follow
+  `frame_key`'s clock exactly and the raider and colony tints modulate the whole dressed body.
+  **What a body wears:** the equipped `torso`/`legs`/`feet` item's `appearance.equipSprite` when
+  it names a garment for this rig and this slot (23 bases mapped in `armor.json`,
+  `clothing.json`, `masks.json`, `named.json`), else a **default outfit**: `player.json`'s new
+  `appearance.outfit` lists (four tees, three trousers, worn shoes), picked by entity id, which
+  every survivor-rig block without its own list falls back to. The default outfit is
+  presentation only; nobody gains an item. `torso` and `legs` left `EQUIP_DRAW_ORDER` (six slots
+  now). **Gated:** `godot:check:authored` new WEAR lane (members exactly the rig's frames; every
+  painted pixel opaque and on a solid non-ink body pixel; `wears` answers for the garment's own
+  slot only; true negatives a pixel off the body, a pixel over ink, a translucent pixel, an empty
+  frame, a missing and an extra member, a garment with no `fits`, no `slot` or a foreign one;
+  READS covers the outfit lists); `godot:check:worn` new COVERAGE lane (every torso, legs and feet
+  base draws, on all 20 frames, exactly the body with its three garments laid over it, checked
+  against a reference composite the gate builds itself; the draw loop's
+  `for_entity`/`body_texture` needles; true negatives an unmapped item, a standing pack wearable,
+  trousers named by a torso item and forced into the torso slot, another rig's garment, a frame
+  with its trousers left off, a commented reader, and an unmapped torso item falling back to the
+  default shirt), DRESSED lane (every survivor-rig block and every booted human wears three
+  garments, and a booted human on any other picture is refused; a zombie, a body with no
+  fallback and an outfit naming no garment wear nothing), STEP lane (480 draws, each the
+  composite for exactly the frame the body shows, all three garments that frame's own members; a
+  walk dressed in the garments' standing pictures is refused in every view; another rig's frame
+  composes nothing); ORDER re-pinned to six; `godot:m2:warmth`'s ART lane reads `WORN_SLOTS`
+  beside `EQUIP_DRAW_ORDER` (nine drawn slots, the gloves, belt and eyes still undrawn and
+  declaring no picture). `player.schema.json` gains `outfit`, and `godot:check:appearance`'s
+  allowlist accepts it on the player block only (refused on a zombie, an item, Mara, a raider).
+  `npm run sprites:check` now also runs `build_clothing.py --check`, so the garment sheets cannot
+  drift from their painter (`CLOTHING_OK` on Python 3.12 and 3.13 alike).
+  **Measured:** `WEAR OK 29 garment(s), 580 painted frame(s) ... (fewest painted 6)`;
+  `COVERAGE OK 14 torso, 5 legs and 4 feet item(s) ... (fewest 6 garment pixels showing)`;
+  `DRESSED OK 17 survivor-rig content block(s) and 3 booted human(s) ... (fewest 136 of the bare
+  body's pixels repainted) ... (4 shirts, 12 pairings in twelve bodies)`; `STEP OK ... 480 frame
+  draws`; `CLOTHING_OK 29 garments, 580 frames`; `SPRITES_OK ... 903 authored keys reproduced`;
+  `AUTHORED_OK`, `WORN_LOOK_OK` (0.9 s), `GODOT_CONTENT_OK`; `npm test` 45 files / 594 tests.
+  **Frame cost:** `npm run godot:bench:frame` on this container (llvmpipe), main against this
+  branch, shipped-draw mean 26.5 → 22.8 ms and crowded-draw 296.9 → 283.6 ms: no regression
+  measurable, both already over the 10 ms target on main (docs/22). **Sabotage pass**, each red
+  then reverted: the leather jacket's `equipSprite` removed (COVERAGE, STEP); `body_texture`
+  returning the bare frame (STEP); the composite cache ignoring the rig (STEP's other-rig
+  negative); `outfit_of` ignoring the slot (COVERAGE: jeans painted as a torso); the composite
+  leaving the trousers off east walk frames (COVERAGE, STEP). In-game crops of main, the first
+  pass and the shaded pass, a 4x sheet beside the pack's survivor, vest and three zombie
+  families, a walk GIF and the garment sheets are under `.hermes/plans/2026-10-19_clothing/`.
+  **Half shipped, named:** the clothes are held to the pack survivor's own rendering (a chunky
+  two-tone body with a thick black outline) and its vest, not to the zombie families, whose
+  bodies are finer and dirtier by their own design; garments repaint the body and never change
+  its outline, so a parka or a hazmat suit reads by colour and trim, not by shape; the pack's
+  side-view arm is a stub of four or five pixels, so a sleeve there is a sleeve and a cuff, not a
+  modelled forearm; a body whose content block declares a tint (the six colony looks, a
+  raider's) wears that tint over its clothes as well as its skin, since the draw modulates the
+  whole dressed picture -- the owner's call for raiders, a side effect for colonists and
+  strangers that a skin-only tint would need `main.gd` to fix; no belt, glove, eyewear or soft
+  cap picture; only `body_survivor` is clothed; corpses are not clothed; the dressed composite
+  is cached per rig frame and outfit with no eviction, bounded by the outfits actually drawn.
+
+  **On the eight-frame walk, 2026-10-20.** When A7 ("Feel — frames on the render
+  clock", above) merged over this, the painter moved onto the rig's new frames rather
+  than the pack's four-frame walk it had been built on: `parts.py` reads A7's eight walk frames
+  and the breath picture per view (`textures/characters/motion/`), so the rig has **40 frames**
+  and each garment **40 members** (**1160 keys**, from 580), on a 320x160 atlas (rest, walk 1-8,
+  breath). A breath frame's chest starts a row higher, by however far the breath lifted the
+  head. Four of the generated east walk frames had drawn the hips bare, which left the painter
+  no waist to find; A7's `build_motion.py` now restores the shorts on those frames
+  (`restore_shorts`) rather than the painter guessing. The COVERAGE lane's frame count reads
+  `walk_frames + breath_frames` and pins eight and two; STEP drives `body_texture` with the
+  animation clock's motions and wants the rest picture, the breath and all eight walk frames
+  per view. **Measured:** `WEAR OK 29 garment(s), 1160 painted frame(s) ... (fewest painted
+  5)`; `COVERAGE OK ... on all 40 rig frames (fewest 5 garment pixels showing)`; `STEP OK ...
+  480 frame draws`; `CLOTHING_OK 29 garments, 1160 frames`; `SPRITES_OK ... 1643 authored keys
+  reproduced`. A walk GIF of the tee, leather, parka and hazmat outfits is under
+  `.hermes/plans/2026-10-19_a7-animation/`.
 
 - **Art & renderer — zombies turn, walk and fall, 2026-10-02.** Closes "A silhouette per
   kind" and the Focal art half of "A corpse reads as a corpse", at the owner's request for
@@ -9988,6 +10220,13 @@ not a to-do list:
   The strict runtime timing failures remain the separately recorded pre-integration baseline, not
   passing performance evidence.
 
+  **GitHub landing:** the owner requested both branches merged to main. PRs
+  [#145](https://github.com/simplyjaytea/simplyZOMBIES/pull/145) and
+  [#146](https://github.com/simplyjaytea/simplyZOMBIES/pull/146) each passed all four GitHub
+  CI jobs before merging. Main `bf6b41a7a17c8c793ea65993d1df9b24b35e30b7` has exactly the
+  verified integration tree of `4578b909e75acd587f1145eb63a406fb2c0c5910`; the coordinator's
+  local main was fast-forwarded to it. Subsequent main/deployment runs are separate evidence.
+
   README, HANDOFF, AGENTS, CLAUDE, CONTEXT and the steward guidance now point to current readers,
   commands and evidence. Archived pickup plans are marked historical. The roadmap removes stale
   ground-item, appearance-array and clothing-warmth defects and records settled region siting
@@ -10026,6 +10265,186 @@ not a to-do list:
   the early-window rate projects about 22.64 hours per no-wipe campaign / 271.73 hours for twelve,
   before the extra Auto case. No full grid, distribution proof, combat parity result or human
   ten-day playtest is claimed. Combined verification is recorded in the October integration entry.
+
+- **Kernel & tooling — the tick to budget, slice 1: content entries by id, 2026-10-19
+  (partial).** Alpha plan A3's first cut. `SimItems._content_get` walked the whole content tree
+  per lookup and sat under `item_base_of`, about a hundred calls a tick: 12.7 ms of the shipped
+  tick's 32. It is now memoised on the world (`content_index`, rebuilt when a hit's object is no
+  longer at its key, on a miss, or when `world.content` is replaced). `npm run godot:bench:runtime`
+  went from **32.42 ms mean / 300.98 ms worst** to **24.41 / 319.35**; the worst is the
+  map-change spike, untouched here. Gated by the new `npm run godot:m2:tick`
+  (`godot/check_m2_tick.gd`, `M2_TICK_OK`): CONTENT-AGREE holds the memo to the scan for every
+  shipped id, cold and warm; CONTENT-FOLLOWS swaps, erases, adds and replaces under a warm memo
+  and forges a memo row; CONTENT-READER proves `item_base_of` reaches it. Skipping the liveness
+  check reds CONTENT-FOLLOWS and routing the read back to the scan reds CONTENT-READER, both
+  tried. Numbers and attribution in [docs/22](22-performance.md#bringing-the-tick-to-budget).
+  **What remains:** the tick is still about three times over budget; the slices that follow take
+  the map-change spike, visibility, shambler AI, sightings, NPC combat and self-aid in turn.
+
+- **Kernel & tooling — the tick to budget, slice 2: the map-change spike, 2026-10-19 (partial).**
+  One door swing cost about 300 ms: a full 65,536-cell solidity rebuild, a recast of all 105
+  observers and linear-scan A* re-plans. The world now logs the rectangle each generation changed
+  (`invalidate_tiles`, `map_unchanged_within`; a whole-map or unlogged bump still means
+  everything). Fortify's in-play calls rewrite only the cells whose overlay changed, cars log the
+  footprints they moved, view and light casts stand when their own square is untouched, and A*
+  uses a heap ordered by (f, first-entry order), which plans the same paths. `godot:bench:runtime`
+  went from **24.41 / 319.35 ms** to **24.78 / 68.13** (mean within noise). **Behaviour change:**
+  a dead observer a tile off its cast origin now keeps that view across a bump outside its square,
+  where it used to recast (`SimVisibility.DEAD_KEEP_VIEW`, on). With it off, a 3,000-tick
+  serialized-world hash matches `main` at every checkpoint. Gated in `godot:m2:tick`: MAP-LOG
+  (hits, whole-map, unlogged, backwards and overflowed spans all read "changed"), DOOR-CELLS
+  (partial cells equal the full rebuild; a door logs its own tile, a full sync the whole map),
+  VIEW-STANDS (a far door keeps the view and a near one recasts, both equal to a fresh cast; the
+  same for a lamp), DEAD-KEEP (the switch, both ways) and PATH (24 district pairs equal a copy of
+  the old linear planner; flipping its tie order changes at least one). Each was proved red by a
+  sabotage of the code it judges. [docs/22](22-performance.md#bringing-the-tick-to-budget).
+  **What remains:** the spike that is left is ordinary recasting and per-tick AI work, the next
+  slices.
+
+- **Kernel & tooling — the tick to budget, slice 3: the shadowcast inlined, 2026-10-19
+  (partial).** `SimShadowcast.shadowcast` reads the tile class and overlay off the map's arrays
+  instead of four calls per tile, keeps its wedge frames as ints on one flat array, and clears its
+  buffer with `fill`; the same cells, tile for tile. `godot:bench:runtime` went from **24.78 /
+  68.13 ms** to **21.70 / 47.59**; visibility's own worst fell from 140 to 19 ms. Gated in
+  `godot:m2:tick` CAST: from 70 origins on the shipped district (every overlay, a scatter, the
+  corners) at 3, 12 and 48 tiles and both eyes, the cast equals a reference that asks
+  `blocks_sight` per tile, and the lane refuses to pass unless crouching and opening a door each
+  change what some origin sees. Flipping the Low rule reds it. [docs/22](22-performance.md#bringing-the-tick-to-budget).
+
+- **Kernel & tooling — the tick to budget, slice 4: the whole-district scans, 2026-10-19
+  (partial).** `SimAllegiance.enemies_within` asks the distance before `hostile` for NPC combat's
+  `_nearest_threat` and the raiders' halt; the shambler pass gathers people from the three marker
+  tables (`_people_with_position`, `SimAllegiance.PERSON_MARKERS`) instead of testing every
+  positioned thing; sightings skip any target outside the observer's shadowcast square before
+  asking `detail`. `godot:bench:runtime` went from **21.70 / 47.59 ms** to **19.40 / 37.11**.
+  Gated in `godot:m2:tick`: ENEMIES holds `enemies_within` equal to `enemies_of` filtered by
+  distance for every person and zombie at 3, 12 and 40 m, with a body exactly on the boundary,
+  and reads both callers' bodies for the call; PEOPLE holds the marker walk equal to the
+  `is_person` scan while each marker is handed to a body that had none, and `PERSON_MARKERS` equal
+  to what `is_person` reads; SQUARE holds that nothing outside a square is seen on the stepped
+  district, pins the square's edges on a fixture, and reads both observe loops for the call. Each
+  lane was turned red by sabotage (a strict boundary, a widened reach, the old call restored, a
+  marker dropped or added, the sort removed, a narrowed square, the prefilter removed).
+  [docs/22](22-performance.md#bringing-the-tick-to-budget).
+
+- **Kernel & tooling — the tick to budget, slice 5: the component query memo, 2026-10-19
+  (partial).** `SimComponentStore.query` answers from a memo row while no table it names has
+  gained or lost a member; `_members` counts those changes in `set_component`, `remove` and
+  `removeAll`, `restore` drops the memo, and every caller gets a copy. `godot:bench:runtime`,
+  median of three interleaved runs: **18.85 / 38.49 ms** to **17.02 / 35.77**. Gated in
+  `godot:m2:tick` QUERY: over four hundred seeded set, replace, remove, `removeAll`, save and
+  `restore` operations the memo equals `query_fresh` for eight asks (a missing table among them),
+  a caller's edit to its copy never reaches the next answer, a replaced value keeps the row, at
+  least fifty answers changed between asks, and a shipped tick is answered from the memo. Each
+  bump, the restore clear and the copy were removed in turn and the lane went red.
+  [docs/22](22-performance.md#bringing-the-tick-to-budget).
+
+- **Kernel & tooling — the tick to budget, slice 6: what each body paid every tick, 2026-10-19
+  (partial).** `SimSightings.observe` reads positions once and hands each observer only its square
+  (`_square_bounds`, `_in_bounds`); self-aid asks `_needs_care`, now one pass over the wounds,
+  before `_claw_in_reach`, which asks distance before health; the shambler pass reads
+  `zombie_move_mul` and `sight_mul` once and hands them to `_speed_of` and `_seen_target`.
+  `godot:bench:runtime`, median of three interleaved runs: **17.77 / 50.39 ms** to **13.68 /
+  36.89**. Gated in `godot:m2:tick`: CARE holds the one pass equal to the three selectors over six
+  hundred seeded wound lists; CLAW holds the claw check equal to the health-first scan, with a
+  live, a dead and an out-of-reach zombie; SKY holds every zombie's speeds and reach with the sky
+  handed in equal to those read per body under every weather kind, and reads the think pass for
+  the hand-off; OBSERVE runs two identical districts the shipped way and the old way to the same
+  memories, holds the prefilter equal to `_in_square` per observer, and pins the bounds' edges.
+  Each was turned red by sabotage, except that removing the cleaning test from `_needs_care`
+  changes nothing on today's kinds (each bleeding kind has a suture), which its comment says.
+  [docs/22](22-performance.md#bringing-the-tick-to-budget).
+
+- **Kernel & tooling — the tick to budget, slice 7: the cast's rows and the hour, 2026-10-19
+  (partial).** `SimShadowcast.shadowcast` resolves each row once (fixed axis, bounds, index steps)
+  with its row limits inlined; `SimVisibility.refresh` reads `Clock.ambient_light_at` once and
+  hands it to `_ambient_metres` and `_sight_metres`; the shambler pass resolves `seekSpeed` only
+  in Pursue, Seek and Wander. `godot:bench:runtime`, median of three interleaved runs: **13.77 /
+  34.60 ms** to **13.49 / 32.67**, within the bench's noise. Gated in `godot:m2:tick`: CAST (from
+  slice 3) holds the row rewrite to `blocks_sight` tile for tile; AMBIENT holds both reaches and
+  what `refresh` builds equal to the clock-and-lamps formula at every half hour of a day; SEEK
+  runs the think pass once on a zombie in each of Pursue, Seek, Wander and Dormant beside a person
+  and requires its exact seek speed, or none when dormant. Each was turned red by sabotage.
+  [docs/22](22-performance.md#bringing-the-tick-to-budget).
+- **Kernel & tooling — the tick to budget, slice 8: the per-body cuts, 2026-10-20 (partial).**
+  `SimPath.find` searches on flat arrays with one-int heap entries and an inlined `walkable`;
+  `wounds.impair` skips a body with nothing to strip (`SimModifiers.holds_any`) and
+  `remove_by_source` no longer rebuilds an unchanged list; the screamer asks
+  `SimAllegiance.people_with_position`; the Dress test reads the base once; scent swaps buffers;
+  views keep their arc cosines; movement reads the cells directly. `godot:bench:runtime` on a
+  slower container, median of three interleaved runs: slice 7 **15.15 / 41.62 ms** to **13.63 /
+  30.01**. Gated in `godot:m2:tick`: PATH now also plans ten long pairs against the scan; PEOPLE
+  names the screamer and the delegation as readers; IMPAIR holds `holds_any`, the no-op strip,
+  a stale `wound.*` modifier on an unhurt body stripped anyway, an unrelated one kept, and a wound
+  still impairing; DRESS holds the one-read test to the slot-then-points test for every person and
+  item, worn garments and a twin of one included; SCENT holds two swapped steps to two copied ones;
+  ARCS holds the cosines to their angles after the eyes change. Each was turned red by sabotage;
+  the 3,000-tick hash with `DEAD_KEEP_VIEW` off matches `main`.
+  [docs/22](22-performance.md#bringing-the-tick-to-budget).
+- **Kernel & tooling — the tick to budget, slice 9: the far quarter and the spread cast,
+  2026-10-20 (partial).** Two behaviour changes, each behind a gate-drivable switch. A wandering
+  or dormant zombie with nobody within 40 m and no hold thinks on one tick in four, phase by id,
+  with its countdowns running between and its scent and light steers compounded over the four
+  ticks (`SimShambler.THINK_LOD`); its view rests on the ticks before it does not think
+  (`SimVisibility.resting`). A colonist other than the player recasts after two tiles and spreads
+  the recast two quadrants a tick across everyone, longest-waiting first, the old view standing
+  until the new one lands (`SimVisibility.STAGGER_PERSON_CASTS`; `SimShadowcast.shadowcast` takes a
+  quadrant range). `godot:bench:runtime` on the slower container, median of three interleaved
+  runs: slice 8 **14.00 / 31.35 ms** to **12.07 / 27.29**. Gated in `godot:m2:tick`: FAR-THINK
+  runs the think on far and near bodies on and off phase, Wander and Dormant, and requires the
+  rule's think, pin, countdowns and resting marks, the marks cleared by the next refresh, a
+  resting view left where it was and a marked-off one following its body, and the compounded
+  steer equal to four single steers; SPREAD holds a first cast whole, a tile's walk ignored by a
+  colonist and recast at once by the player, two quadrants spent a tick, the longest-waiting
+  landing first, each landed view equal to one whole cast from where its person stood, and the
+  four quadrants equal to the whole cast from any origin. Each was turned red by sabotage. With
+  both switches off the 3,000-tick hash matches `main`; with them on it repeats exactly.
+  [docs/22](22-performance.md#bringing-the-tick-to-budget).
+- **Kernel & tooling — the tick to budget, slice 10: the tables read straight, 2026-10-20
+  (partial).** `SimComponentStore.table` hands a pass the live table behind `get_component` and
+  `has_component`, and the passes that made most of the tick's four thousand component calls
+  hold their tables once: movement, the shambler think, sightings, the visibility refresh, the
+  noise emitter, `enemies_within`, the settlers' threat scan and the fortify doors and presses.
+  Sightings finds each remembered body through a map of its first record instead of walking the
+  list per body in view, and a cupboard through a set; the door swing asks one set of occupied
+  tiles instead of walking every body per door. `godot:bench:runtime` on the slower container,
+  median of three interleaved runs: slice 9 **12.27 / 28.78 ms** to **10.63 / 31.86**; the worst
+  tick is the container's noise at this size. Gated in `godot:m2:tick`: TABLE holds `table` to
+  `get_component` and `has_component` by identity for fifteen components on a stepped district,
+  live across an add and a removal, empty and unsaved for a missing component, and names every
+  table each converted pass reads; RECALL holds the shipped observe to the walk it replaced over
+  twenty ticks with a stale record, a duplicate, a dead body and a searched cupboard primed, and
+  pins the three kinds; SWING holds the occupied set to `_tile_occupied` round every moving body.
+  Each was turned red by sabotage; with the two slice 9 switches off the 3,000-tick hash matches
+  `main`, and with them on it matches slice 9.
+  [docs/22](22-performance.md#bringing-the-tick-to-budget).
+
+- **Kernel & tooling — the tick to budget, slice 11: the worst tick's spikes, 2026-10-20
+  (partial).** Profiled on a quiet container, the three spike sources were these. The player's
+  whole 48 m cast cost about 3.5 ms on the tick they crossed a tile. Two quadrants of a colonist's
+  spread cast landing together cost up to 2.8 ms. A long job plan cost 5 ms for 59 steps. Each cut
+  has its own gate-drivable switch, which a lane that pins it restores.
+  `SimVisibility.STAGGER_PLAYER_CAST` spreads the player's recast over two ticks, two quadrants
+  each, on a queue of its own, so the view lands whole one tick (50 ms) after the step. The
+  colonist budget `PERSON_QUADRANTS_PER_TICK` goes from two to one. `SimPath.NEAR_TIES` breaks a
+  tie on cost toward the tile nearer the goal, in the flat and the Dictionary search alike. Plans
+  keep their length and expand fewer tiles. A plan still runs whole on one tick, so that spike is
+  smaller but not capped.
+  `godot:bench:runtime` on a third container, roughly twice as slow and noisy, median of three
+  interleaved runs: slice 10 **13.70 / 37.70 ms** to **14.29 / 32.09**, the mean inside the
+  noise. Timed per system with the two switches off and then on, the refresh's worst tick went from
+  8.6 to 17.1 ms down to 6.4 to 8.7. On the quiet container before the move, this build's worst
+  tick read 13.3 to 15.6 ms across three runs, a reading rather than a measurement because those
+  runs were not interleaved.
+  **Gated** in `godot:m2:tick`. NEAR-TIES holds every pair to the scan's length with a valid walk,
+  and the general search to the fast one tile for tile. It allows a reach where the scan gave up
+  only past the old 4,096-tile cap, and requires fewer expansions on the long pairs. PLAYER-CAST
+  holds a step's tick to the old view and the budget, and the next tick to a fresh whole cast from
+  the step's tile with a colonist queued beside it. It also holds the switch off to an immediate
+  recast. `godot:check:memory`'s walked-away control steps twice now, because the view lands a
+  tick late. Ten sabotages each turned the gate red, one of them only after the general-search
+  check was added. With every A3 switch off, the 3,000-tick hash matches `main`; with them on, it
+  repeats. [docs/22](22-performance.md#bringing-the-tick-to-budget).
 
 - **Kernel & tooling — water draw check follows its branches, 2026-10-03.** The A2 wall
   additions moved the water fill to character 4,473 after the drawing match, beyond

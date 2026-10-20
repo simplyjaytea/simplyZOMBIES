@@ -177,6 +177,9 @@ switch (mode) {
   case "--m2-hands":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_hands.gd"];
     break;
+  case "--m2-tick":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_tick.gd"];
+    break;
   case "--m2-bench":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_bench.gd"];
     break;

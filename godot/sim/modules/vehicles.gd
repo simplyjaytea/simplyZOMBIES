@@ -988,23 +988,44 @@ static func sync_map(world: Variant) -> void:
 	if not (records is Array):
 		return
 	var kept: Array = []
+	# Which footprints this call actually moves, so the vision caches are told about those tiles
+	# and no others (world.gd's `invalidate_tiles`). A footprint that is the same rectangle before
+	# and after changes no tile; one that moved changes the union of where it was and where it is.
+	var was: Dictionary = {}
 	for rec in records as Array:
 		if not (rec is Dictionary):
 			continue
 		var r: Dictionary = rec as Dictionary
 		if r.has("entity"):
 			_clear_tiles(map, _rect_of_record(r))
+			was[int(r["entity"])] = _rect_of_record(r)
 		else:
 			kept.append(r)
+	var area := Rect2i(0, 0, 0, 0)
+	var moved: int = 0
 	for entity in world.components.query(["vehicle", "position"]):
 		var v: Dictionary = world.components.get_component(int(entity), "vehicle") as Dictionary
 		var pos: Dictionary = world.components.get_component(int(entity), "position") as Dictionary
 		var rect: Rect2i = footprint(v, pos)
 		_write_tiles(map, rect)
 		kept.append(_record_for(int(entity), v, pos, rect))
+		var old_rect: Variant = was.get(int(entity))
+		was.erase(int(entity))
+		if old_rect is Rect2i and (old_rect as Rect2i) == rect:
+			continue
+		var touched: Rect2i = rect if not (old_rect is Rect2i) else rect.merge(old_rect as Rect2i)
+		area = touched if moved == 0 else area.merge(touched)
+		moved += 1
+	# A record whose entity is gone left its tiles cleared and nothing written back.
+	for gone in was.values():
+		area = gone as Rect2i if moved == 0 else area.merge(gone as Rect2i)
+		moved += 1
 	map.vehicles = kept
 	map.vehicle_generation = int(map.vehicle_generation) + 1
-	world.invalidateMap()
+	if world.has_method("invalidate_tiles"):
+		world.invalidate_tiles(area)
+	else:
+		world.invalidateMap()
 
 
 static func _record_for(entity: int, v: Dictionary, pos: Dictionary, rect: Rect2i) -> Dictionary:
@@ -1572,7 +1593,10 @@ static func _sync_one(w: Variant, map: Variant, entity: int, v: Dictionary, pos:
 		_write_tiles(map, rect)
 		(records as Array)[i] = fresh
 		map.vehicle_generation = int(map.vehicle_generation) + 1
-		w.invalidateMap()
+		if w.has_method("invalidate_tiles"):
+			w.invalidate_tiles(old.merge(rect))
+		else:
+			w.invalidateMap()
 		return
 	# No record for this entity yet -- a car spawned by hand -- so build the whole shadow.
 	sync_map(w)
