@@ -2538,7 +2538,8 @@ not a to-do list:
   hips, not the shoulders, and the neck row flickered bare once a cycle), desaturated the hazmat
   yellow toward the workwear zombie's mustard, held rubber to three tones, and gave the boots
   and the suit's tape a `boot` ramp floored at the belt's darkest tone so they part from the
-  ink at 1x. A garment never adds a pixel outside the body, so nothing can
+  ink at 1x. A fourth check on the street, day and night, lifted the parka's ramp one step (at
+  night its torso sat at the asphalt's own lightness, L* 8.4 against 8.2; now 10.8). A garment never adds a pixel outside the body, so nothing can
   misalign on a walk frame. In `authored.json` each is a new kind `wear` with
   `fits: "body_survivor"`, a `slot` (torso, legs or feet) and one member per rig frame (580
   keys). `presentation/appearance.gd` composes the body frame and its three garments into one
@@ -2591,7 +2592,10 @@ not a to-do list:
   bodies are finer and dirtier by their own design; garments repaint the body and never change
   its outline, so a parka or a hazmat suit reads by colour and trim, not by shape; the pack's
   side-view arm is a stub of four or five pixels, so a sleeve there is a sleeve and a cuff, not a
-  modelled forearm; no belt, glove, eyewear or soft
+  modelled forearm; a body whose content block declares a tint (the six colony looks, a
+  raider's) wears that tint over its clothes as well as its skin, since the draw modulates the
+  whole dressed picture -- the owner's call for raiders, a side effect for colonists and
+  strangers that a skin-only tint would need `main.gd` to fix; no belt, glove, eyewear or soft
   cap picture; only `body_survivor` is clothed; corpses are not clothed; the dressed composite
   is cached per rig frame and outfit with no eviction, bounded by the outfits actually drawn.
 

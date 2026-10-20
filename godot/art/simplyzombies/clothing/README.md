@@ -92,5 +92,8 @@ random number). It is a picture, not an item: it weighs nothing and warms nothin
   outline rather than flaring past it.
 - The pack's side-view arm is a stub of four or five pixels, so from the side a sleeve is a
   sleeve and a cuff, not a modelled forearm; at this scale that is the arm there is.
+- A body whose content block declares a tint (the six colony looks, a raider's) wears it
+  over its clothes too: the draw modulates the whole dressed picture. Wanted for raiders; for
+  colonists and strangers it browns or greys their clothes, and a skin-only tint needs `main.gd`.
 - Settled human corpses still use the pack's four bare corpse poses.
 - Caps, hats, gloves, belts and eyewear still draw nothing on the body.
