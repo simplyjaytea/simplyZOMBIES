@@ -52,7 +52,7 @@ const UNTREATED: String = "item.water.bottle.untreated"
 const CLEAN: String = "item.water.bottle"
 # What the shipped cooked meal threw before the key existed, straight out of git. A change to any
 # of these is a rebalance and this gate is where it is caught.
-const COOKED_FOOD: Dictionary = {"hunger": 60.0, "mood": 8.0, "spoilDays": 1.0}
+const COOKED_FOOD: Dictionary = {"hunger": 60.0, "mood": 8.0, "spoilDays": 4.0}
 const CLEAN_THIRST: float = 50.0
 
 # New bases the lanes below put on a pile or in a pack.

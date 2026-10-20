@@ -177,3 +177,48 @@ func enter(next: int) -> void:
 # request both ask before they autosave.
 func is_live() -> bool:
 	return state == State.PLAYING or state == State.PAUSED
+
+
+# Livable time (plan A5). The sleep fast-forward runs at the fastest step the sim keeps up with,
+# which is 3x; 10x waits for the sim tick to get under budget (plan A3), so no key reaches it.
+const SLEEP_SPEED: int = 3
+# Contact is ten metres (docs/02). A living zombie that close stops the fast-forward, so the
+# survivor is back at the user's own speed before anything can reach them.
+const THREAT_METRES: float = 10.0
+
+
+static func player_asleep(world: Variant) -> bool:
+	return world != null and world.components.has_component(world.player, "sleeping")
+
+
+static func threat_near(world: Variant) -> bool:
+	var pos: Variant = world.components.get_component(world.player, "position")
+	if not pos is Dictionary:
+		return false
+	var here := Vector2(float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]))
+	for e in world.components.query(["position", "shambler"]):
+		# A despawned body keeps its components, so a dead zombie counts only while it is alive.
+		if not world.entities.is_alive(int(e)):
+			continue
+		var at: Variant = world.components.get_component(int(e), "position")
+		if at is Dictionary and here.distance_to(Vector2(float((at as Dictionary)["x"]), float((at as Dictionary)["y"]))) <= THREAT_METRES:
+			return true
+	return false
+
+
+# The step the world advances at this frame: the user's own, or the sleep rate while they sleep
+# with nothing near them.
+static func run_rate(speed: int, world: Variant) -> int:
+	if player_asleep(world) and not threat_near(world):
+		return maxi(speed, SLEEP_SPEED)
+	return speed
+
+
+# The clock's state in words, for the HUD. Digits are banned on the player HUD (check_hud), so the
+# step is named, not counted.
+static func speed_words(speed: int, paused: bool, world: Variant) -> String:
+	if paused:
+		return "paused"
+	if player_asleep(world):
+		return "asleep, zombie near, normal speed" if threat_near(world) else "asleep, fast-forwarding"
+	return "fast" if speed >= SLEEP_SPEED else "normal speed"

@@ -3,8 +3,8 @@ extends SceneTree
 # first, then the human ten-day playtest".
 #
 # docs/19's testing table asks for "thousands of headless runs". That is not reachable here and
-# saying so is cheaper than pretending: `Clock.DAY_TICKS` is 4 h x 3600 x 20 Hz = 288,000, so one
-# ten-day campaign is 2.88 M ticks and takes tens of minutes of headless GDScript. So there are
+# saying so is cheaper than pretending: `Clock.DAY_TICKS` is 1 h x 3600 x 20 Hz = 72,000, so one
+# ten-day campaign is 720,000 ticks and takes minutes of headless GDScript. So there are
 # two tiers, and they are honest about being different things.
 #
 #   FAST (default, inside `godot:m2`) -- FAST_SEEDS x a *compressed* campaign: jump the clock to
@@ -140,8 +140,8 @@ const LIVE_SAMPLE_TICKS: int = 20
 
 var _fast: bool = OS.get_environment("BALANCE_FULL") != "1"
 
-# What the full tier costs, so nobody starts it by accident. A ten-day campaign is 2.88 M ticks
-# (`Clock.DAY_TICKS` is 288,000), and the default FULL_SEEDS x ARMS grid is twelve of them.
+# What the full tier costs, so nobody starts it by accident. A ten-day campaign is 720,000 ticks
+# (`Clock.DAY_TICKS` is 72,000, one real hour), and the default FULL_SEEDS x ARMS grid is twelve of them.
 #
 # Measured, not estimated: one real single-day campaign is 180,000 ticks and took **166 s**, so
 # headless GDScript runs this district at about **1,085 ticks/second** -- and the compressed tier

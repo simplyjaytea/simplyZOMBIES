@@ -501,8 +501,8 @@ func _arguments_spread_misery_and_stop_short_of_a_spiral() -> bool:
 # content edit ever changes the diet, this fails and makes that deliberate rather than incidental.
 const RETIRED_FOOD_TABLE: Dictionary = {
 	"item.food.canned": {"hunger": 40.0, "mood": 0.0, "spoilDays": 0.0},
-	"item.food.raw": {"hunger": 25.0, "mood": -8.0, "spoilDays": 2.0},
-	"item.food.cooked": {"hunger": 60.0, "mood": 8.0, "spoilDays": 1.0},
+	"item.food.raw": {"hunger": 25.0, "mood": -8.0, "spoilDays": 8.0},
+	"item.food.cooked": {"hunger": 60.0, "mood": 8.0, "spoilDays": 4.0},
 }
 
 func _food_is_content_and_says_the_same_thing_the_table_did() -> bool:
@@ -540,11 +540,11 @@ func _food_is_content_and_says_the_same_thing_the_table_did() -> bool:
 		return false
 	var sp: Variant = w.components.get_component(raw, "spoilage")
 	if not (sp is Dictionary):
-		push_error("raw food, which declares spoilDays 2, was given no spoil clock")
+		push_error("raw food, which declares spoilDays 8, was given no spoil clock")
 		return false
-	var want_ticks: int = int(2.0 * float(Clock.DAY_TICKS))
+	var want_ticks: int = int(8.0 * float(Clock.DAY_TICKS))
 	if int((sp as Dictionary).get("spoilTicks", -1)) != want_ticks:
-		push_error("raw food's clock is %d ticks, expected %d from spoilDays 2" % [int((sp as Dictionary).get("spoilTicks", -1)), want_ticks])
+		push_error("raw food's clock is %d ticks, expected %d from spoilDays 8" % [int((sp as Dictionary).get("spoilTicks", -1)), want_ticks])
 		return false
 
 	# And the clock is read off the block for *any* base, not off a remembered pair of ids:
@@ -2215,8 +2215,9 @@ func _a_stimulant_lifts_rest_now_and_crashes_later() -> bool:
 # `spoilage_rate` has a reader. It was declared in stats.gd, sold by the `surv.cook` web node and
 # resolved by nothing, so "a careful pantry" was a node a survivor could own and nobody could feel.
 # The owner's rule: a perishable ages at the best living colonist's rate. Measured on a fixture
-# food that spoils in 576 ticks: with nobody owning the node it spoils at 576 and not at 575; with
-# Mara owning it, not at 606 and by 607 (576 / 0.95, rounded up); with Mara dead, at 576 again.
+# food that spoils in 0.002 of a day (144 ticks on the one-hour day, 576 on the old four-hour one):
+# with nobody owning the node it spoils on its last tick and not the one before; with Mara owning it,
+# later by the node's multiplier (144 / 0.95, rounded up); with Mara dead, on schedule again.
 func _a_careful_pantry_slows_spoilage() -> bool:
 	var w: Variant = _world()
 	_inject_fixture(w)
@@ -2235,19 +2236,20 @@ func _a_careful_pantry_slows_spoilage() -> bool:
 	var mul: float = float((node as Dictionary).get("value", 1.0))
 
 	# Nobody owns the node: on schedule, to the tick.
+	var spoil_ticks: int = int(0.002 * float(Clock.DAY_TICKS))
 	var quick: int = SimItems.spawn_item(w, "item.gate.quick", {"tier": "scavenged"})
 	var sp: Variant = w.components.get_component(quick, "spoilage")
-	if not (sp is Dictionary) or int((sp as Dictionary).get("spoilTicks", 0)) != 576:
-		push_error("PANTRY: the fixture food did not get a 576-tick spoilage clock: %s" % str(sp))
+	if not (sp is Dictionary) or int((sp as Dictionary).get("spoilTicks", 0)) != spoil_ticks:
+		push_error("PANTRY: the fixture food did not get a %d-tick spoilage clock: %s" % [spoil_ticks, str(sp)])
 		return false
-	for _i in 575:
+	for _i in spoil_ticks - 1:
 		w.step()
 	if bool((sp as Dictionary).get("spoiled", false)):
 		push_error("PANTRY: spoiled a tick early with nobody keeping the pantry")
 		return false
 	w.step()
 	if not bool((sp as Dictionary).get("spoiled", false)):
-		push_error("PANTRY: not spoiled on its 576th tick with nobody keeping the pantry")
+		push_error("PANTRY: not spoiled on its %d-th tick with nobody keeping the pantry" % spoil_ticks)
 		return false
 	if absf(SimNeeds.pantry_rate(w) - 1.0) > 0.0001:
 		push_error("PANTRY: the rate with nobody owning the node is %.4f, not 1.0" % SimNeeds.pantry_rate(w))
@@ -2270,7 +2272,7 @@ func _a_careful_pantry_slows_spoilage() -> bool:
 		return false
 	var slow: int = SimItems.spawn_item(w, "item.gate.quick", {"tier": "scavenged"})
 	var ssp: Dictionary = w.components.get_component(slow, "spoilage") as Dictionary
-	var later: int = int(ceil(576.0 / mul))
+	var later: int = int(ceil(float(spoil_ticks) / mul))
 	for _i in later - 1:
 		w.step()
 	if bool(ssp.get("spoiled", false)):
@@ -2289,16 +2291,16 @@ func _a_careful_pantry_slows_spoilage() -> bool:
 		return false
 	var after: int = SimItems.spawn_item(w, "item.gate.quick", {"tier": "scavenged"})
 	var asp: Dictionary = w.components.get_component(after, "spoilage") as Dictionary
-	for _i in 575:
+	for _i in spoil_ticks - 1:
 		w.step()
 	if bool(asp.get("spoiled", false)):
 		push_error("PANTRY: spoiled early after the pantry-keeper died")
 		return false
 	w.step()
 	if not bool(asp.get("spoiled", false)):
-		push_error("PANTRY: not spoiled on its 576th tick after the pantry-keeper died")
+		push_error("PANTRY: not spoiled on its %d-th tick after the pantry-keeper died" % spoil_ticks)
 		return false
-	print("PANTRY OK 576 ticks with nobody, %d with Mara's careful pantry (x%.2f), 576 again once she is dead" % [later, mul])
+	print("PANTRY OK %d ticks with nobody, %d with Mara's careful pantry (x%.2f), %d again once she is dead" % [spoil_ticks, later, mul, spoil_ticks])
 	return true
 
 

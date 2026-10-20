@@ -735,8 +735,9 @@ func _strip_use(index: int) -> void:
 		_inventory_panel.call("strip_use", index)
 
 
-# Speed, as a ladder rather than three keys. The same three values the number row used to set.
-const SPEED_LADDER: Array[int] = [1, 3, 10]
+# Speed, as a ladder rather than three keys. 10x is left out until the sim tick is under budget
+# (plan A3); `SimFortify.speed_after_events` still drops a 10x run on an alarm for when it is back.
+const SPEED_LADDER: Array[int] = [1, 3]
 func _step_speed(step: int) -> void:
 	var at: int = SPEED_LADDER.find(speed)
 	if at < 0:
@@ -984,11 +985,13 @@ func _process(delta: float) -> void:
 	# The effects' clock runs on the frame's own wall-clock delta, and only here, behind the same
 	# early return the ticks are: a paused world holds a flash where it was.
 	_fx.call("advance", delta)
-	# speed scales tick debt: more ticks per frame, not smaller tick
-	accumulator += delta * float(speed)
+	# speed scales tick debt: more ticks per frame, not smaller tick. A sleeping survivor with
+	# nothing near runs at the sleep rate, which is `speed` unless it is faster.
+	var rate: int = SessionRes.run_rate(speed, world)
+	accumulator += delta * float(rate)
 	var ticks_done: int = 0
 	var prev_tick: int = int(world.tick)
-	var cap: int = maxi(1, 5 * speed)
+	var cap: int = maxi(1, 5 * rate)
 	# Clamped to what one frame may run: a slow frame drops the time past the cap instead of
 	# carrying it into every frame after, which is how a slow tick became a slower game.
 	accumulator = RenderInterp.clamp_debt(accumulator, TICK_SECONDS, cap)
@@ -1148,6 +1151,7 @@ func _update_hud() -> void:
 		if not _content_error.is_empty():
 			context = "content: %s" % _content_error
 		_hud.set("hint", context)
+		_hud.set("time_words", SessionRes.speed_words(speed, paused, world))
 		# What the contextual keys would do, right here: the sim's read models decide the verb --
 		# fortify's look-at, the cupboard, the car, the aid ladder, the hands on a neighbour --
 		# and the line only names the key. check_hud's ACTION lane asserts both halves.

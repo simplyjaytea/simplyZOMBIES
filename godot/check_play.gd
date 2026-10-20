@@ -77,6 +77,7 @@ const InputMapRes = preload("res://presentation/input_map.gd")
 const Session = preload("res://presentation/session.gd")
 const Onboarding = preload("res://presentation/onboarding.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
+const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimChronicle = preload("res://sim/modules/chronicle.gd")
 const SimRecruits = preload("res://sim/modules/recruits.gd")
 const SimAllegiance = preload("res://sim/modules/allegiance.gd")
@@ -189,6 +190,7 @@ func _run() -> void:
 	var notice_ok: bool = await _a_refused_save_says_one_sentence(main)
 	ok = notice_ok and ok
 	ok = _the_volume_row_reaches_the_bus(main) and ok
+	ok = _the_clock_says_its_speed_and_sleep_skips(main) and ok
 	# Last on this scene: it puts the world's clock on the eve of day two and leaves it there.
 	ok = _a_dawn_writes_the_slot(main) and ok
 	main.queue_free()
@@ -210,7 +212,7 @@ func _run() -> void:
 
 	if ok:
 		var skipped: String = "no lane skipped" if _skips.is_empty() else "skipped: %s" % ", ".join(PackedStringArray(_skips))
-		print("PLAY_OK the scene boots to a title over a still world, ticks, walks, opens its screens, saves and loads, camps on C and crouches on Ctrl+C, refuses the street's keys under an open sheet, pauses to a menu on Escape, moves the audio bus, writes the slot at dawn and on the window's close, ends on a screen that speaks the chronicle and starts again, keeps a dismissed legend dismissed, offers a first-day hint that a click clears and a save keeps seen, and draws by day and by night in %d ms (%s)" % [elapsed, skipped])
+		print("PLAY_OK the scene boots to a title over a still world, ticks, walks, opens its screens, saves and loads, camps on C and crouches on Ctrl+C, refuses the street's keys under an open sheet, pauses to a menu on Escape, moves the audio bus, names its speed and sleeps through the night unless something is near, writes the slot at dawn and on the window's close, ends on a screen that speaks the chronicle and starts again, keeps a dismissed legend dismissed, offers a first-day hint that a click clears and a save keeps seen, and draws by day and by night in %d ms (%s)" % [elapsed, skipped])
 		quit(0)
 	else:
 		push_error("PLAY_FAIL")
@@ -484,6 +486,86 @@ func _the_loop_advances_the_world(main: Node) -> bool:
 		push_error("TICKS: P did not release the pause (tick %d, expected %d)" % [int(world.tick), paused_at + 5])
 		return false
 	print("TICKS OK 20 frames, 20 ticks; P holds the world still and gives it back")
+	return true
+
+
+# --- LIVABLE TIME -----------------------------------------------------------------------------
+
+# The clock's speed is words on the HUD and a step in the loop. The lane asks the loop how far a
+# frame carries the world at each speed (the frames are deterministic: each one is a fixed tick),
+# the HUD what it says, and the sim whether anything living is within ten metres of a sleeper. A
+# words-only lane would pass with the loop ignoring sleep; a loop-only lane would pass with the HUD
+# silent. Both halves are asserted.
+func _the_clock_says_its_speed_and_sleep_skips(main: Node) -> bool:
+	var world: Variant = main.get("world")
+	var hud: Variant = main.get("_hud")
+	main.set("paused", false)
+	main.set("speed", 1)
+	_frames(main, 2)
+	if str(hud.get("time_words")) != "normal speed":
+		push_error("CLOCK: at 1x the HUD says '%s', not 'normal speed'" % str(hud.get("time_words")))
+		return false
+	_tap(KEY_EQUAL)
+	_frames(main, 1)
+	if int(main.get("speed")) != 3 or str(hud.get("time_words")) != "fast":
+		push_error("CLOCK: '=' left the speed at %d and the HUD saying '%s', not 3 and 'fast'" % [int(main.get("speed")), str(hud.get("time_words"))])
+		return false
+	var before: int = int(world.tick)
+	_frames(main, 20)
+	if int(world.tick) - before != 60:
+		push_error("CLOCK: 20 frames at fast advanced the world %d ticks, not 60" % (int(world.tick) - before))
+		return false
+	_tap(KEY_P)
+	_frames(main, 1)
+	if str(hud.get("time_words")) != "paused":
+		push_error("CLOCK: a paused clock says '%s', not 'paused'" % str(hud.get("time_words")))
+		return false
+	_tap(KEY_P)
+	_tap(KEY_MINUS)
+	# Asleep with nothing near: the loop runs at the sleep step whatever the user chose. The boot
+	# street has zombies in it, so the lane clears the living ones within ten metres first.
+	var player: int = int(world.player)
+	var here: Variant = world.components.get_component(player, "position")
+	for e in world.components.query(["position", "shambler"]):
+		var there: Variant = world.components.get_component(int(e), "position")
+		if world.entities.is_alive(int(e)) and there is Dictionary and Vector2(float(there["x"]) - float(here["x"]), float(there["y"]) - float(here["y"])).length() <= Session.THREAT_METRES:
+			world.despawn(int(e))
+	SimNeeds._start_sleep(world, player, -1)
+	_frames(main, 1)
+	if str(hud.get("time_words")) != "asleep, fast-forwarding":
+		push_error("CLOCK: asleep with nothing near the HUD says '%s'" % str(hud.get("time_words")))
+		return false
+	before = int(world.tick)
+	_frames(main, 20)
+	if int(world.tick) - before != 60:
+		push_error("CLOCK: 20 frames asleep at 1x advanced the world %d ticks, not 60" % (int(world.tick) - before))
+		return false
+	# A living zombie five metres off stops it, and the loop drops back to the user's own step.
+	var at: Variant = world.components.get_component(player, "position")
+	var zombie: int = world.entities.spawn()
+	world.components.set_component(zombie, "position", {"x": float(at["x"]) + 5.0, "y": float(at["y"])})
+	world.components.set_component(zombie, "shambler", {})
+	_frames(main, 1)
+	if str(hud.get("time_words")) != "asleep, zombie near, normal speed":
+		push_error("CLOCK: a zombie five metres off, the HUD says '%s'" % str(hud.get("time_words")))
+		return false
+	before = int(world.tick)
+	_frames(main, 20)
+	if int(world.tick) - before != 20:
+		push_error("CLOCK: a zombie near advanced the world %d ticks in 20 frames, not 20" % (int(world.tick) - before))
+		return false
+	# A despawned body keeps its components. It must not hold the fast-forward back.
+	world.despawn(zombie)
+	_frames(main, 1)
+	if str(hud.get("time_words")) != "asleep, fast-forwarding":
+		push_error("CLOCK: a dead zombie still stops the sleep, the HUD says '%s'" % str(hud.get("time_words")))
+		return false
+	world.components.remove_component(player, "sleeping")
+	_frames(main, 1)
+	if str(hud.get("time_words")) != "normal speed":
+		push_error("CLOCK: awake again at 1x the HUD says '%s'" % str(hud.get("time_words")))
+		return false
+	print("CLOCK OK 1x, 3x and paused read in words; asleep runs 60 ticks a 20-frame stretch, a living zombie within ten metres drops it to 20, a dead one does not")
 	return true
 
 
