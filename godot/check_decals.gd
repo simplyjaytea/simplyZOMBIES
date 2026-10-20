@@ -816,6 +816,29 @@ func _the_scene_draws_what_is_seen() -> bool:
 	if not _function_body(MAIN_GD, "_draw_a2_wall_piece").contains("\"wall_draws\""):
 		push_error("DRAWN: _draw_a2_wall_piece never draws the holes in its wall")
 		return false
+	# UNDER: the marks go into the layers' own decal item, drawn after the A2 boards and before the
+	# baked DECOR pictures, so a mark lies under a table or a bush rather than over it.
+	if not _function_body(MAIN_GD, "_draw_decals").contains("_layers.call(\"decal_pen\")"):
+		push_error("UNDER: _draw_decals no longer draws into the layers' decal item; a mark would land on a baked table")
+		return false
+	var layers_src: String = FileAccess.get_file_as_string("res://presentation/world_layers.gd")
+	if not layers_src.contains("canvas_item_set_draw_index(root, (layer + 1) * 2)") or not layers_src.contains("canvas_item_set_draw_index(_decals, (Layer.DECOR + 1) * 2 - 1)"):
+		push_error("UNDER: the decal item is no longer ordered between the A2 and DECOR layers")
+		return false
+	var WorldLayersRes: GDScript = load("res://presentation/world_layers.gd")
+	var layers: RefCounted = WorldLayersRes.new()
+	if layers.call("decal_pen") != null:
+		push_error("UNDER: an unattached layer stack handed out a decal pen; main would draw nowhere")
+		return false
+	var holder: RID = RenderingServer.canvas_item_create()
+	layers.call("attach", holder)
+	var pen: Variant = layers.call("decal_pen")
+	var ok_pen: bool = pen != null and (pen as Object).get("item") == layers.get("_decals")
+	layers.call("detach")
+	RenderingServer.free_rid(holder)
+	if not ok_pen:
+		push_error("UNDER: the attached layer stack's decal pen does not write into its decal item")
+		return false
 	# TN for the scanner: a function that does not call it is refused.
 	if _function_body(MAIN_GD, "_draw_props").contains("_draw_decals("):
 		push_error("DRAWN: the scanner found the ground pass in _draw_props; it proves nothing")
