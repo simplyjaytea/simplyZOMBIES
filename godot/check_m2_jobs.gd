@@ -25,10 +25,15 @@ func _run() -> void:
 	# The haul sort's promise is "the nearest", judged on a 64-tile district where every loose item
 	# near home has a zombie within ten metres of it; the danger rule would refuse them all, so it
 	# is pinned off here and judged on its own by the DANGER lane below.
+	# The errand radius is pinned back to the working radius with it, for the same reason: the
+	# nearest loose item on that map lies beyond twenty tiles. The ERRAND lane judges that rule.
 	var danger_was: bool = SimJobs.BREAK_OFF_FROM_DANGER
+	var errand_was: float = SimJobs.ERRAND_RADIUS_TILES
 	SimJobs.BREAK_OFF_FROM_DANGER = false
+	SimJobs.ERRAND_RADIUS_TILES = SimJobs.HOME_RADIUS_TILES
 	ok = _jobs() and ok
 	SimJobs.BREAK_OFF_FROM_DANGER = danger_was
+	SimJobs.ERRAND_RADIUS_TILES = errand_was
 	ok = _corpse_haul() and ok
 	ok = _seek_wakes_rest() and ok
 	ok = _water_clean_bury() and ok
@@ -43,8 +48,9 @@ func _run() -> void:
 	ok = _an_unreachable_target_is_planned_for_once_and_then_dropped() and ok
 	ok = _bury_carries_only_the_corpse_its_own_job_took() and ok
 	ok = _an_errand_breaks_off_from_a_zombie() and ok
+	ok = _an_errand_reaches_only_the_errand_radius() and ok
 	if ok:
-		print("M2_JOBS_OK astar focus cook haul construct doctor rest corpse seek water clean bury succession, the well is reachable from a bottle the sim emptied, a cook claims its raw, Guard is the night post, a focus change keeps the authored row, a starving colonist still eats, colonists scavenge near home, a target nobody can route to is planned for once and then left alone, a corpse another body took is left alone by Bury, and an errand breaks off from a zombie at arm's length")
+		print("M2_JOBS_OK astar focus cook haul construct doctor rest corpse seek water clean bury succession, the well is reachable from a bottle the sim emptied, a cook claims its raw, Guard is the night post, a focus change keeps the authored row, a starving colonist still eats, colonists scavenge near home, a target nobody can route to is planned for once and then left alone, a corpse another body took is left alone by Bury, an errand breaks off from a zombie at arm's length, and Haul and Scavenge reach only the errand radius")
 		quit(0)
 	else:
 		push_error("M2_JOBS_FAIL")
@@ -677,6 +683,19 @@ func _stand_at_fire(w: Variant, ent: int) -> void:
 # the watch completes -- the first `job.completed{Guard}` there has ever been -- and the skill web
 # reads it. The lane follows one booted Ellis through a day, a dusk, a night and a dawn.
 func _guard_is_the_night_post_and_the_day_belongs_to_the_row() -> bool:
+	# Pinned to the pre-A24 errand radius. At twenty tiles Ellis spends the day inside the annex
+	# and walks to the gate from within, where Mara stands in the one-tile gateway and the two
+	# bodies hold each other there for the whole watch -- a doorway deadlock between two walkers
+	# that this lane did not set out to judge (docs/23's defect list carries it). The lane is
+	# about the post and the row, so it keeps the day it was written against.
+	var errand_was: float = SimJobs.ERRAND_RADIUS_TILES
+	SimJobs.ERRAND_RADIUS_TILES = SimJobs.HOME_RADIUS_TILES
+	var ok: bool = _guard_lane()
+	SimJobs.ERRAND_RADIUS_TILES = errand_was
+	return ok
+
+
+func _guard_lane() -> bool:
 	var w: Variant = _world()
 	var ellis: int = _ellis(w)
 	if ellis < 0:
@@ -1398,3 +1417,50 @@ func _danger_lane(on: bool, metres: float, at_home: bool, ordered: bool = false)
 	SimJobs._tick_one(w, ellis)
 	var job: Variant = w.components.get_component(ellis, "job")
 	return String((job as Dictionary).get("kind", "")) if job is Dictionary else "none"
+
+
+# --- ERRAND: Haul and Scavenge reach only ERRAND_RADIUS_TILES (A24) --------------------------------
+#
+# The same loose item a few tiles past the errand radius and inside the working radius: refused as
+# Haul work at the errand radius, offered once the radius is pinned back to the working one. A
+# box the same distance out is refused as Scavenge work the same way. The true negative is the
+# item inside the errand radius, offered either way.
+func _an_errand_reaches_only_the_errand_radius() -> bool:
+	var was_r: float = SimJobs.ERRAND_RADIUS_TILES
+	var was_d: bool = SimJobs.BREAK_OFF_FROM_DANGER
+	SimJobs.BREAK_OFF_FROM_DANGER = false
+	var w: Variant = _world()
+	for it in SimInventory.ground_items(w):
+		w.despawn(int(it))
+	var home: Vector2 = SimJobs._home_centre(w)
+	var out_d: float = SimJobs.ERRAND_RADIUS_TILES + 4.0
+	var in_d: float = SimJobs.ERRAND_RADIUS_TILES - 6.0
+	# Out toward the middle of the map, so the item lies on it.
+	if home.x + out_d >= float(w.tilemap.w) - 1.0:
+		out_d = -out_d
+		in_d = -in_d
+	var ok: bool = absf(out_d) < SimJobs.HOME_RADIUS_TILES and home.x + out_d >= 1.0
+	if not ok:
+		push_error("ERRAND: the errand radius %.0f is not inside the working radius %.0f, so the lane judges nothing" % [SimJobs.ERRAND_RADIUS_TILES, SimJobs.HOME_RADIUS_TILES])
+	var far: int = SimItems.spawn_item(w, "item.scrap.metal", {"tier": "scavenged"})
+	w.components.set_component(far, "position", {"x": home.x + out_d, "y": home.y})
+	var offered: Dictionary = SimJobs._haul_work(w, home.x, home.y)
+	if int(offered.get("target", -1)) == far:
+		push_error("ERRAND: an item %.0f tiles out was offered as Haul work past the %.0f-tile errand radius" % [out_d, SimJobs.ERRAND_RADIUS_TILES])
+		ok = false
+	SimJobs.ERRAND_RADIUS_TILES = SimJobs.HOME_RADIUS_TILES
+	var wide: Dictionary = SimJobs._haul_work(w, home.x, home.y)
+	if int(wide.get("target", -1)) != far:
+		push_error("ERRAND: with the radius pinned to %.0f the item %.0f tiles out was still not offered (%s), so the radius is not what refused it" % [SimJobs.HOME_RADIUS_TILES, out_d, str(wide)])
+		ok = false
+	SimJobs.ERRAND_RADIUS_TILES = was_r
+	w.despawn(far)
+	var near: int = SimItems.spawn_item(w, "item.scrap.metal", {"tier": "scavenged"})
+	w.components.set_component(near, "position", {"x": home.x + in_d, "y": home.y})
+	if int(SimJobs._haul_work(w, home.x, home.y).get("target", -1)) != near:
+		push_error("ERRAND: an item %.0f tiles out, inside the errand radius, was not offered" % in_d)
+		ok = false
+	SimJobs.BREAK_OFF_FROM_DANGER = was_d
+	if ok:
+		print("ERRAND OK Haul refuses an item %.0f tiles out at the %.0f-tile errand radius and takes it at %.0f; one %.0f tiles out is taken" % [absf(out_d), SimJobs.ERRAND_RADIUS_TILES, SimJobs.HOME_RADIUS_TILES, absf(in_d)])
+	return ok
