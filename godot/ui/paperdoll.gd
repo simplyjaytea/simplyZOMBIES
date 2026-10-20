@@ -237,6 +237,16 @@ func _chart_rect() -> Rect2:
 	return Rect2(Vector2(floorf((size.x - box.x) / 4.0) * 2.0, floorf((room.y - box.y) / 4.0) * 2.0), box)
 
 
+# The street card the framed figure sits on, in this control's coordinates: room above the figure
+# for the card's own taped head, like every other card on the HUD, and the stance word inside it.
+func card_rect() -> Rect2:
+	var rect: Rect2 = _chart_rect()
+	var corner_shift: float = drawing_offset if size.y < 400.0 else 0.0
+	var card_top: float = floorf((rect.position.y + corner_shift - Locker.HEAD_H - 4.0) / 2.0) * 2.0
+	var card_end: float = ceilf((size.y + corner_shift + 4.0) / 2.0) * 2.0
+	return Rect2(Vector2(-8.0, card_top), Vector2(size.x + 16.0, card_end - card_top))
+
+
 func _draw() -> void:
 	if _view.is_empty():
 		return
@@ -249,10 +259,7 @@ func _draw() -> void:
 	var scale: float = rect.size.x / float(Appearance.CHART_CANVAS.x)
 
 	if framed:
-		# Room above the figure for the card's own taped head, like every other card on the HUD.
-		var card_top: float = floorf((rect.position.y - Locker.HEAD_H - 4.0) / 2.0) * 2.0
-		var card_end: float = ceilf((size.y + corner_shift + 4.0) / 2.0) * 2.0
-		var card := Rect2(Vector2(-8.0, card_top), Vector2(size.x + 16.0, card_end - card_top))
+		var card: Rect2 = card_rect()
 		Locker.panel(self, card, 0.96, false)
 		Locker.header(self, card, CARD_TAPE, 0.96)
 	# A soft ground shadow under the figure, as before: it is what stops the chart floating.

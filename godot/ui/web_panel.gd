@@ -28,12 +28,17 @@ const WEB_SIDE: float = 600.0
 # Even radii, with centres snapped to even pixels (`_at`), so every disc starts on the screen's
 # two-pixel art grid.
 const NODE_R: float = 8.0
+# The hub's dot, and the lines: two pixels wide, moved half their width so a line centred on an
+# even pixel covers an even pair of columns rather than straddling one.
+const HUB_R: float = 4.0
+const LINE_W: float = 2.0
+const LINE_SHIFT: Vector2 = Vector2(1.0, 1.0)
 # A keystone's disc, and the ring outside it: the one thing on the web that costs something.
 const KEY_R: float = 12.0
 const RING_GAP: float = 4.0
 # What is not yours yet -- a locked node's name, a region not lived in, the footer -- in an ink that
 # still reads on the locker's steel: about 4.6:1 against it, where the kit's faint ink was 1.9:1.
-const LOCKED_INK: Color = Color8(142, 136, 126)
+const LOCKED_INK: Color = Color8(146, 140, 130)
 # The least room between two labels, or a label and a disc that is not its own.
 const LABEL_CLEAR: float = 8.0
 # The rows a crowded name may move, in order: its own row first, then a little down or up.
@@ -219,6 +224,56 @@ func _span() -> Vector2:
 # web is what the natural layout leaves for the bottom labels and the footer.
 func _side() -> float:
 	return clampf(size.y - (NATURAL.y - WEB_SIDE), WEB_SIDE * 0.6, WEB_SIDE)
+
+
+# A disc or ring in whole 2x2 art pixels: every cell whose centre lies within `r_out` of `at` and
+# beyond `r_in`. `at` and both radii are even, so the shape's box starts and ends on even pixels
+# and its edge steps by a whole art pixel, where `draw_circle` drew a smooth outline with 1 px
+# stairs on odd edges (UI review, round 3). Rows are drawn as runs, a rect each.
+func _blocks(at: Vector2, r_out: float, r_in: float, col: Color) -> void:
+	for run in block_runs(r_out, r_in):
+		draw_rect(Rect2(at + (run as Rect2).position, (run as Rect2).size), col)
+
+
+# The rows of `_blocks`' shape, relative to its centre: one rect per run of art pixels. Static so
+# the gate can hold what is drawn to the grid without a screen.
+static func block_runs(r_out: float, r_in: float) -> Array[Rect2]:
+	var out: Array[Rect2] = []
+	var p: float = Locker.PX
+	var cy: float = -r_out
+	while cy < r_out:
+		var run_from: float = INF
+		var cx: float = -r_out
+		while cx <= r_out:
+			var inside: bool = false
+			if cx < r_out:
+				var d: float = Vector2(cx + p / 2.0, cy + p / 2.0).length()
+				inside = d <= r_out and d > r_in
+			if inside and run_from == INF:
+				run_from = cx
+			elif not inside and run_from != INF:
+				out.append(Rect2(Vector2(run_from, cy), Vector2(cx - run_from, p)))
+				run_from = INF
+			cx += p
+		cy += p
+	return out
+
+
+# The outer box of every disc and ring the web draws -- the hub's dot, each node, each keystone's
+# ring -- for the gate that holds them to the even grid.
+func disc_boxes() -> Array[Rect2]:
+	var out: Array[Rect2] = [Rect2(_at(WebLayout.HUB) - Vector2(HUB_R, HUB_R), Vector2(HUB_R, HUB_R) * 2.0)]
+	if _def.is_empty():
+		return out
+	var pos: Dictionary = WebLayout.positions(_def)
+	for n in _map.get("nodes", []) as Array:
+		var nd: Dictionary = n as Dictionary
+		var nid: String = String(nd.get("node", ""))
+		if not pos.has(nid):
+			continue
+		var r: float = KEY_R + RING_GAP if bool(nd.get("keystone", false)) else NODE_R
+		out.append(Rect2(_at(pos[nid] as Vector2) - Vector2(r, r), Vector2(r, r) * 2.0))
+	return out
 
 
 # The one place a word's extent is measured, so the rectangle drawn and the rectangle clicked
@@ -476,19 +531,19 @@ func _draw() -> void:
 		if not (pos.has(a) and pos.has(b)):
 			continue
 		var walked: bool = state.get(a, "") == "known" and state.get(b, "") == "known"
-		draw_line(_at(pos[a] as Vector2), _at(pos[b] as Vector2), Chrome.TEXT_DIM if walked else Chrome.CELL_EDGE, 2.0 if walked else 1.5)
+		draw_line(_at(pos[a] as Vector2) + LINE_SHIFT, _at(pos[b] as Vector2) + LINE_SHIFT, Chrome.TEXT_DIM if walked else Chrome.CELL_EDGE, LINE_W)
 	for s in WebLayout.spokes(_def):
 		if not pos.has(s):
 			continue
 		var walked_s: bool = state.get(s, "") == "known"
-		draw_line(hub, _at(pos[s] as Vector2), Chrome.TEXT_DIM if walked_s else Chrome.CELL_EDGE, 2.0 if walked_s else 1.5)
+		draw_line(hub + LINE_SHIFT, _at(pos[s] as Vector2) + LINE_SHIFT, Chrome.TEXT_DIM if walked_s else Chrome.CELL_EDGE, LINE_W)
 	for d in WebLayout.drift_only(_def):
 		if not pos.has(d):
 			continue
 		var walked_d: bool = state.get(d, "") == "known"
-		draw_dashed_line(hub, _at(pos[d] as Vector2), Chrome.TEXT_DIM if walked_d else Chrome.CELL_EDGE, 1.5, 6.0)
+		draw_dashed_line(hub + LINE_SHIFT, _at(pos[d] as Vector2) + LINE_SHIFT, Chrome.TEXT_DIM if walked_d else Chrome.CELL_EDGE, LINE_W, 6.0)
 	# The hub.
-	draw_circle(hub, NODE_R * 0.6, Chrome.TEXT_DIM)
+	_blocks(hub, HUB_R, 0.0, Chrome.TEXT_DIM)
 	draw_string(font, _start_at(font), "start", HORIZONTAL_ALIGNMENT_LEFT, -1, FOOTER_SIZE, LOCKED_INK)
 	# The nodes: known bright, learnable amber, the rest an outline -- and the name beside each
 	# in the same colour, so the disc and the word agree.
@@ -503,17 +558,17 @@ func _draw() -> void:
 		match st:
 			"known":
 				col = Chrome.TEXT
-				draw_circle(at, r, col)
+				_blocks(at, r, 0.0, col)
 			"learnable":
 				col = Chrome.ACCENT
-				draw_circle(at, r, col)
+				_blocks(at, r, 0.0, col)
 			_:
-				draw_circle(at, r, Chrome.PANEL)
-				draw_circle(at, r, col, false, 1.5)
+				_blocks(at, r, 0.0, Locker.STEEL)
+				_blocks(at, r, r - Locker.PX, col)
 		var reach: float = r
 		if key:
 			reach = KEY_R + RING_GAP
-			draw_circle(at, reach, col, false, 1.5)
+			_blocks(at, reach, reach - Locker.PX, col)
 		var placed: Dictionary = _name_placement(font, pos[nid] as Vector2, String(names.get(nid, "")), reach)
 		draw_string(font, placed["at"] as Vector2, String(placed["text"]), HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, col)
 		var price: String = String(prices.get(nid, ""))

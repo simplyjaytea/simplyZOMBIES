@@ -180,6 +180,7 @@ func _run() -> void:
 		return
 	ok = _the_loop_advances_the_world(main) and ok
 	ok = _a_held_key_walks_the_body(main) and ok
+	ok = await _the_body_card_clears_the_you_card(main) and ok
 	ok = await _the_work_grid_fits_and_keeps_its_clicks(main) and ok
 	ok = await _the_work_grid_draws_only_what_something_does(main) and ok
 	var sheet_ok: bool = await _tab_opens_the_sheet(main)
@@ -2196,6 +2197,50 @@ func _the_work_grid_draws_only_what_something_does(main: Node) -> bool:
 	await process_frame
 	if ok:
 		print("STUBS OK the grid draws the %d columns with a consumer and none of the six that do nothing, and its first cell queues the first of them" % shown.size())
+	return ok
+
+
+# The street's body card and the "you" card never overlap, however many lines the "you" card
+# grows, and the body card stops short of the action bar and lines up with the belt at x 16 (UI
+# review round 3: a two-line "you" card ran over the card's top at 1280x720, and the card's foot
+# touched the bar). Judged on the rects the two draws use, at both windows, with five lines in the
+# "you" card. The negative: the same card drawn from the old left margin overlaps the body card.
+func _the_body_card_clears_the_you_card(main: Node) -> bool:
+	var hud: Control = main.get("_hud") as Control
+	var doll: Control = main.get("_paperdoll") as Control
+	if hud == null or doll == null:
+		push_error("HUD-CARDS: the scene has no HUD or no street figure")
+		return false
+	var old_size: Vector2i = root.size
+	var old_left: Array = (hud.get("_left") as Array).duplicate()
+	var crowded: Array[String] = ["You", "You're uncomfortable - cold.", "hungry", "tired", "your left arm is bleeding"]
+	var ok: bool = true
+	for dims in [Vector2i(1280, 720), Vector2i(1920, 1080)]:
+		root.size = dims
+		await process_frame
+		hud.set("_left", crowded)
+		var card: Rect2 = doll.call("card_rect") as Rect2
+		card.position += doll.get_global_rect().position
+		var you: Rect2 = hud.call("you_card_rect") as Rect2
+		if card.intersects(you):
+			push_error("HUD-CARDS: the body card %s and the you card %s overlap at %s" % [str(card), str(you), str(dims)])
+			ok = false
+		if card.end.y > float(hud.call("bar_top")) - 2.0 or int(card.position.x) != 16:
+			push_error("HUD-CARDS: the body card %s touches the action bar at %.0f or is not at x 16 (%s)" % [str(card), float(hud.call("bar_top")), str(dims)])
+			ok = false
+		var was: float = float(hud.get("you_left"))
+		hud.set("you_left", float(hud.get_script().get("MARGIN")))
+		var old_way: Rect2 = hud.call("you_card_rect") as Rect2
+		hud.set("you_left", was)
+		# 1920 has room above the card for five lines either way; the negative is 1280's.
+		if dims.y == 720 and not card.intersects(old_way):
+			push_error("HUD-CARDS: a five-line you card from the left margin clears the body card, so the check cannot fail (%s)" % str(dims))
+			ok = false
+	hud.set("_left", old_left)
+	root.size = old_size
+	await process_frame
+	if ok:
+		print("HUD-CARDS OK a five-line you card stands beside the body card, which lines up at x 16 and stops short of the action bar, at 1280x720 and 1920x1080; from the old left margin the same card overlaps it at 1280x720")
 	return ok
 
 

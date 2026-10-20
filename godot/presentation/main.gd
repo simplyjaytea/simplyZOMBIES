@@ -619,8 +619,14 @@ func _ensure_ui() -> void:
 		_paperdoll.anchor_left = 0.0; _paperdoll.anchor_top = 1.0; _paperdoll.anchor_right = 0.0; _paperdoll.anchor_bottom = 1.0
 		# Above the quick strip, which owns the bottom of the screen now. The doll is 128 x 346 and
 		# the strip is 92 tall inside a 24 margin, so the glimpse stops at 124 from the bottom.
-		_paperdoll.offset_left = 24; _paperdoll.offset_top = -470; _paperdoll.offset_right = 152; _paperdoll.offset_bottom = -124
+		# Four pixels higher than the strip's clearance alone would put it, so the card it is framed on
+		# stops short of the action bar instead of touching it (UI review, round 3).
+		_paperdoll.offset_left = 24; _paperdoll.offset_top = -474; _paperdoll.offset_right = 152; _paperdoll.offset_bottom = -128
 		_paperdoll.set("framed", true)
+		# The "you" card starts right of the body card (its right edge is the doll's plus the card's
+		# 8 px, then the HUD's 16 px gap), so a card that grows a line per need never runs over it.
+		if _hud != null:
+			_hud.set("you_left", 152.0 + 8.0 + 16.0)
 		layer.add_child(_paperdoll)
 	# The driver's dashboard, bottom centre: visible only while the player is at a wheel, fed by
 	# SimVehicles.dash_view in _update_hud. The one gauge on screen, and the car's, not the
