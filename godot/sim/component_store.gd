@@ -39,6 +39,22 @@ func get_component(entity: int, component: String) -> Variant:
 	return table.get(entity)
 
 
+## The live table behind `get_component` and `has_component` for one component, for a loop that
+## reads it per body: `table(c).get(e)` is `get_component(e, c)` and `table(c).has(e)` is
+## `has_component(e, c)`, without the two calls through an untyped world each read costs (about four
+## thousand a tick, A3's tenth slice). Read-only by convention -- every write still goes through
+## `set_component` and `remove`, which keep the query memo honest. A component with no table yet
+## answers an empty Dictionary that is not stored, so a caller holding one across a pass that
+## *creates* that table would miss the new rows: hold it only where the pass does not add the
+## component's first member. `restore` replaces every table, so never hold one across a load.
+## `check_m2_tick.gd` TABLE holds both readings equal.
+func table(component: String) -> Dictionary:
+	var tv: Variant = _tables.get(component)
+	if tv == null:
+		return {}
+	return tv as Dictionary
+
+
 func get_val(entity: int, component: String) -> Variant:
 	return get_component(entity, component)
 

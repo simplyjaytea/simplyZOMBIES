@@ -631,21 +631,27 @@ func _integrate_movement(_world: Variant) -> void:
 	var cells: Array[int] = map_cells
 	var mw: int = map_width
 	var mh: int = map_height
+	# The tables read straight (`SimComponentStore.table`, A3's tenth slice): this pass writes into
+	# the values it reads and never adds a member to any of the four.
+	var vehicles: Dictionary = components.table("vehicle")
+	var positions: Dictionary = components.table("position")
+	var velocities: Dictionary = components.table("velocity")
+	var facings: Dictionary = components.table("facing")
 	for entity in (components as RefCounted).call("query", ["position", "velocity"]) as Array:
 		# A car is not a body: it is two tiles wide and five long, and the two-corner test below
 		# would let it clip through a wall it should stop flush against. SimVehicles integrates
 		# it at movement order 1 with its own leading-edge probe -- a component check here, the
 		# same shape as the `grabbed` check in _advance_posture, not a module dependency.
-		if components.has_component(int(entity), "vehicle"):
+		if vehicles.has(int(entity)):
 			continue
-		var position: Dictionary = components.get_component(int(entity), "position") as Dictionary
-		var velocity: Dictionary = components.get_component(int(entity), "velocity") as Dictionary
+		var position: Dictionary = positions.get(int(entity)) as Dictionary
+		var velocity: Dictionary = velocities.get(int(entity)) as Dictionary
 		var dx: float = float(velocity["dx"])
 		var dy: float = float(velocity["dy"])
 		if dx == 0.0 and dy == 0.0:
 			continue
-		if components.has_component(int(entity), "facing"):
-			var facing: Dictionary = components.get_component(int(entity), "facing") as Dictionary
+		if facings.has(int(entity)):
+			var facing: Dictionary = facings.get(int(entity)) as Dictionary
 			facing["radians"] = atan2(dy, dx)
 
 		# The press: the tile that stopped a wanted move this tick, or -1 when the move was

@@ -148,11 +148,16 @@ static func observe(world: Variant) -> void:
 	# searched cupboard goes to every observer wherever it is, because each forgets it on sight of
 	# the flag, not of the cupboard; so does anything whose components are not the expected shape,
 	# so the helpers' own refusals stay theirs. A3's sixth slice.
+	#
+	# The tables are read straight (`SimComponentStore.table`, A3's tenth slice): nothing in this
+	# pass adds a member to any table it reads.
+	var positions: Dictionary = world.components.table("position")
+	var searchables: Dictionary = world.components.table("searchable")
 	var candidates: Array = []
 	var cx: PackedFloat64Array = PackedFloat64Array()
 	var cy: PackedFloat64Array = PackedFloat64Array()
 	for other in world.components.query(["body", "position"]):
-		var at: Variant = world.components.get_component(int(other), "position")
+		var at: Variant = positions.get(int(other))
 		if not at is Dictionary:
 			continue
 		candidates.append(int(other))
@@ -163,8 +168,8 @@ static func observe(world: Variant) -> void:
 	var by: PackedFloat64Array = PackedFloat64Array()
 	var b_always: Array[bool] = []
 	for box in world.components.query(["searchable", "position"]):
-		var s: Variant = world.components.get_component(int(box), "searchable")
-		var there: Variant = world.components.get_component(int(box), "position")
+		var s: Variant = searchables.get(int(box))
+		var there: Variant = positions.get(int(box))
 		boxes.append(int(box))
 		if not s is Dictionary or bool((s as Dictionary).get("searched", false)) or not there is Dictionary:
 			b_always.append(true)
@@ -228,10 +233,11 @@ static func _in_square(tiles: Variant, x: float, y: float) -> bool:
 	return absi(tx - int(tiles.origin_x)) <= r and absi(ty - int(tiles.origin_y)) <= r
 
 
-static func _kind_of(world: Variant, entity: int) -> String:
-	if world.components.has_component(entity, "shambler"):
+# A remembered body's kind, from the shambler and raider tables the observe loop already holds.
+static func _kind_of(shamblers: Dictionary, raiders: Dictionary, entity: int) -> String:
+	if shamblers.has(entity):
 		return "zombie"
-	if world.components.has_component(entity, "raider"):
+	if raiders.has(entity):
 		return "raider"
 	return "person"
 
@@ -247,14 +253,21 @@ static func _observe_containers(world: Variant, observer: int, boxes: Array) -> 
 		(comp as Dictionary)["containers"] = []
 	var known: Array = (comp as Dictionary)["containers"] as Array
 	var square: Variant = world.vision.tiles_for(observer)
+	var searchables: Dictionary = world.components.table("searchable")
+	var positions: Dictionary = world.components.table("position")
+	# Which cupboards this survivor already remembers, asked of a set rather than by walking the
+	# whole list once a cupboard in view (A3's tenth slice).
+	var remembered_ids: Dictionary = {}
+	for row in known:
+		remembered_ids[int((row as Dictionary)["e"])] = true
 	for box in boxes:
-		var s: Variant = world.components.get_component(int(box), "searchable")
+		var s: Variant = searchables.get(int(box))
 		if not s is Dictionary:
 			continue
 		if bool((s as Dictionary).get("searched", false)):
 			_erase(known, int(box))
 			continue
-		var there: Variant = world.components.get_component(int(box), "position")
+		var there: Variant = positions.get(int(box))
 		if not there is Dictionary:
 			continue
 		var x: float = float((there as Dictionary)["x"])
@@ -265,12 +278,7 @@ static func _observe_containers(world: Variant, observer: int, boxes: Array) -> 
 		# class at parse time (the shambler reads it the same way, `== 0`).
 		if int(world.vision.call("detail", observer, x, y)) == 0:
 			continue
-		var found: bool = false
-		for row in known:
-			if int((row as Dictionary)["e"]) == int(box):
-				found = true
-				break
-		if not found:
+		if not remembered_ids.has(int(box)):
 			known.append({"e": int(box), "x": x, "y": y})
 
 
@@ -290,10 +298,23 @@ static func _observe_one(world: Variant, observer: int, candidates: Array) -> vo
 	var seen: Array = (comp as Dictionary)["seen"] as Array
 	var tick: int = int(world.tick)
 	var square: Variant = world.vision.tiles_for(observer)
+	# Four tables read straight, and each remembered body's record found through a map of the
+	# first row carrying its id -- the row a walk of the list would have found -- rather than
+	# by walking fifty records for every body in view (A3's tenth slice). A body comes through
+	# this loop once, so a record erased below is never looked up again.
+	var positions: Dictionary = world.components.table("position")
+	var bodies: Dictionary = world.components.table("body")
+	var shamblers: Dictionary = world.components.table("shambler")
+	var raiders: Dictionary = world.components.table("raider")
+	var rows: Dictionary = {}
+	for row in seen:
+		var re: int = int((row as Dictionary)["e"])
+		if not rows.has(re):
+			rows[re] = row
 	for other in candidates:
 		if int(other) == observer:
 			continue
-		var there: Variant = world.components.get_component(int(other), "position")
+		var there: Variant = positions.get(int(other))
 		if not there is Dictionary:
 			continue
 		var x: float = float((there as Dictionary)["x"])
@@ -313,22 +334,25 @@ static func _observe_one(world: Variant, observer: int, candidates: Array) -> vo
 		# Watched it fall. A body you saw go down is not a body you are still wary of, so the
 		# record goes rather than ageing out -- and a kill out of sight leaves its record
 		# standing, which is the same asymmetry as everything else here.
-		var body: Variant = world.components.get_component(int(other), "body")
+		var body: Variant = bodies.get(int(other))
 		if not body is Dictionary or not SimHealth.is_alive(body as Dictionary):
 			_erase(seen, int(other))
 			continue
-		_record(seen, int(other), x, y, tick, _kind_of(world, int(other)))
+		_record_in(seen, rows, int(other), x, y, tick, _kind_of(shamblers, raiders, int(other)))
 	_prune(seen, tick)
 
 
-static func _record(seen: Array, entity: int, x: float, y: float, tick: int, kind: String) -> void:
-	for row in seen:
-		if int((row as Dictionary)["e"]) == entity:
-			(row as Dictionary)["x"] = x
-			(row as Dictionary)["y"] = y
-			(row as Dictionary)["tick"] = tick
-			(row as Dictionary)["kind"] = kind
-			return
+# Remember `entity` at (x, y) now: the first record carrying its id is updated in place, or a new
+# one appended. `rows` is that first record for each id in `seen` (see `_observe_one`), which is
+# what replaced walking the list for it (A3's tenth slice; `check_m2_tick.gd` TABLE holds the two).
+static func _record_in(seen: Array, rows: Dictionary, entity: int, x: float, y: float, tick: int, kind: String) -> void:
+	var row: Variant = rows.get(entity)
+	if row != null:
+		(row as Dictionary)["x"] = x
+		(row as Dictionary)["y"] = y
+		(row as Dictionary)["tick"] = tick
+		(row as Dictionary)["kind"] = kind
+		return
 	seen.append({"e": entity, "x": x, "y": y, "tick": tick, "kind": kind})
 
 

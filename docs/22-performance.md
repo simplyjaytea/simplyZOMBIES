@@ -376,6 +376,7 @@ deleted afterwards.
 | 7. The cast's rows and the hour | 2026-10-19 | 13.49 ms | 32.67 ms | the shadowcast resolved its quadrant per tile, every observer re-read the hour, a dormant zombie resolved a speed it never used |
 | 8. The per-body cuts | 2026-10-20 | 13.63 ms | 30.01 ms | a 21 ms A* on Dictionaries, thirteen modifier strips per unhurt body, a scan of every positioned thing for the screamer, the Dress test reading each item twice |
 | 9. The far quarter and the spread cast | 2026-10-20 | 12.07 ms | 27.29 ms | every far idle zombie thinking and recasting every tick, a colonist's 48 m cast landing whole on the tick they crossed a tile |
+| 10. The tables read straight | 2026-10-20 | 10.63 ms | 31.86 ms | four thousand component calls a tick through an untyped world, a sighting list walked per body in view, every body walked per swinging door |
 
 **Slice 1, content entries by id.** `SimItems._content_get` found an entry by walking every value
 in the flat content tree until one carried the id. `item_base_of` runs about a hundred times a
@@ -499,7 +500,30 @@ slice 8 **14.00 / 31.35 ms** to **12.07 / 27.29**. With `THINK_LOD` and `STAGGER
 off the 3,000-tick hash still matches `main`; with them on it repeats exactly run to run, and a
 save between thinks restores onto the same phase because the phase is the id and the tick.
 `godot:m2:tick` FAR-THINK and SPREAD hold both rules, and every lane in the chain the full tree
-was run against (63 gates over four lanes, balance included) stayed green.
+was run against (51 gates over four lanes, balance included) stayed green.
+
+**Slice 10, the tables read straight.** A counting driver found about 3,300 `get_component` and
+800 `has_component` calls a tick, each two calls through an untyped world at about 0.7 µs against
+0.14 µs for the dictionary read underneath. `SimComponentStore.table` hands a pass the live table,
+read-only by convention, and the passes that made most of the calls hold their tables once:
+movement, the shambler think, sightings, the visibility refresh, the noise emitter,
+`enemies_within`, the settlers' threat scan, and the fortify doors and presses. Sightings finds a
+remembered body's record through a map of the first record per id, and a cupboard through a set;
+the door swing builds one set of occupied tiles. Median of three interleaved runs on the slower
+container: slice 9 **12.27 / 28.78 ms** to **10.63 / 31.86**. The 3,000-tick hash with both slice 9
+switches off still matches `main`, and with them on matches slice 9.
+
+**Where the tick stops for the alpha.** Against the baseline's 32.42 ms on the faster container,
+slice 10 reads about 9.5 ms by the ratio both containers measured for slice 7 (13.49 there, 15.15
+here), and 10.6 ms where it was measured. The mean meets the alpha's stop point of 10 ms; the 8 ms
+budget and the 16 ms worst do not hold, and they are post-alpha work. The p95 is about 16 ms and
+single ticks run 20 to 34 ms. A per-system driver over the same window attributes the spikes: a
+whole 48 m cast (the player's, which slice 9 deliberately left whole because roofs and the light
+wash read it, and a zombie's after a map change near it) costs about 7 ms; a long job plan up to
+12 ms even on flat arrays; and some runs of consecutive ticks slow every system at once, which is
+the shared container rather than any one cost. The remaining mean is spread thin: the shambler
+think about 2.1 ms, sightings 1.3, the refresh 1.3, jobs 1.0, and nothing else above 0.6. The next
+cuts are named in docs/23's runtime budget entry under what's left.
 
 ### Remaining milestone evidence
 
