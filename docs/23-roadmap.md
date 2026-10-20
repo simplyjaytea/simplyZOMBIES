@@ -4076,6 +4076,39 @@ not a to-do list:
   panes, the verge rows, a scrap anywhere in its tile against the furniture's range, nothing
   reaching into the clearing; SETS_OK now holds pairs, the north/east/west seats and no chair south
   of a table, with a fabricated true negative), `godot:check:wrecks`.
+  **A12's seventh pass** (the coordinator's art QA round 2 on #167, 2026-10-20). **The walls**: a
+  fridge is one a room (`per_room` 1, as the medical cabinet already was), and the free wall tiles
+  away from the windows take the pack's oil barrel and pallet stack (indoors only, `beside: wall`),
+  so the hall's walls no longer line up four fridges; a single tile of wall between two panes takes
+  a barrel or a pallet, since the shelf is too wide for it. **The tables**: one in `PAIR_ODDS` 4 stands
+  alone, offset in its tile, and the rest are long pairs wherever the tile east has room; a table's eight neighbours roll no plain piece, so a group
+  stands in the open floor rather than against a cabinet; its chairs vary in count and side
+  (`_seat_slots`, north, east and west only, never diagonal-only), and a chair is kept only while
+  its own table is kept (`_kept_top` asks `_kept_alone` of the table it faces). **The litter** is
+  dealt per 6×6 block of floor, each side of the walls on its own, the block's quota one in
+  `LITTER_TENTHS`/10 = 5.5 of its floor with a hashed remainder, the picks ranked by the round-one
+  weight (`_block_litter`), so no stretch of street is bare and none crowded; one scrap in three is
+  greyed (`litter_tints`, schema'd) and about half are turned upside down, so the one paper reads as
+  several without new art. **The shots**: the room shot stands outside the hall, on no chest and
+  under no scrap, and prefers a spot whose own room shows a counter, a table against a plain north
+  wall with no pane beside it (`_counter_near`); the district keeps four, all in kitchens, so the
+  room may fill a sixth of the frame (`ROOM_SHARE` 15) and the survivor is clear of furniture within
+  one tile. The street shot weighs the scraps near the survivor rather than refusing them. Every
+  shot marks the onboarding hints seen, so no tip card covers it. **Measured** with the throwaway
+  probe at 1280×720 / 1920×1080 on main 9d9bc23 (export 17:20 UTC): overlaps, off-grid, straddles and
+  uncovered pixels 0 on all six shots; street litter 1 in 5.8 / 6.0 of the seen paved tiles; hall
+  floor outside the reserved squares 1 in 8.0 / 7.2; 10 / 15 tables in the hall with 10 / 14 chairs,
+  every chair at a table but one whose table is below the 1280 frame; one fridge and one cabinet a
+  room at most; no wall piece in front of a window; no chair south of a table; no empty 7×7 of seen
+  room floor. Draw (`godot:bench:frame`, three runs each on one machine, alternated with main
+  9d9bc23): 9.74 ms mean before, 9.24 after (9.56 to 9.93 and 8.97 to 9.43), the crowded scene 182.6
+  and 181.7, so the per-frame furnishing and nature draws the merge retired are not missed; the tick
+  (`godot:bench:runtime`, two runs each) 11.09 and 10.77 ms, nothing under `godot/sim/` changed (the
+  tick sits over its 8 ms target on main as well; docs/22). Gates: `godot:check:trees` (REVIEW2_OK, a new lane: 78 blocks dealt their quota on
+  both sides of the walls against a per-tile roll that misses 49; one fridge a room; 158 chairs each
+  beside its own kept table, an orphan dropped, and a fabricated drop; 54 tables clear of the plain
+  picks round them against 102 the rule refused; grey, plain and upside-down scraps present and none
+  tinted without tints; and the readers in `main.gd` and `review/scenes.gd`), `godot:check:wrecks`.
 
   **Container kinds are the table's.** `prop.container` gains a top-level `tables` map
   (`prop.schema.json`): residential and commercial containers keep the wood crate, `medical` draws
