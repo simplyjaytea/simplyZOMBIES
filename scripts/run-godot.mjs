@@ -363,6 +363,15 @@ switch (mode) {
       "res://check_m2_balance.gd",
     ];
     break;
+  case "--playtest":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://playtest/ten_day.gd",
+    ];
+    break;
   case "--m2-npc":
     args = [
       "--headless",
