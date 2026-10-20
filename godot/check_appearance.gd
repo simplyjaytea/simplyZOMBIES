@@ -816,7 +816,7 @@ func _colonists_wear_the_pack_body_tinted() -> bool:
 	if _tints_differ(twice):
 		push_error("a tint list with one colour twice passed; the distinctness predicate reads nothing")
 		return false
-	if Appearance.turns("zombie_screamer") or not Appearance.turns(body):
+	if Appearance.turns("probe_face_on_body") or not Appearance.turns(body):
 		push_error("turns() cannot tell the pack body from a face-on rig; the pairing above proves nothing")
 		return false
 	Appearance.forget()

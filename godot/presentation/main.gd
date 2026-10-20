@@ -1923,10 +1923,26 @@ func _draw_solid_tile(rect: Rect2, col: Color, tx: int, ty: int) -> void:
 
 # Windows: a bright glass pane + rim so they read against masonry. Orientation
 # follows the neighbouring walls; a corner window falls back to a square pane.
+# Since 2026-10-19 the pane and the rim are pictures (the dressing block's `faces.glass`, drawn under
+# art/simplyzombies/glass/): greys tinted here by the same two colours the rects were, so night,
+# weather and a boarded window's stage reach them unchanged. Without them, the rects below.
 func _draw_window_glass(rect: Rect2, tx: int, ty: int, col: Color = Palette.COLOURS["window"]) -> void:
 	var glass: Color = col.lightened(0.28)
 	var horizontal_walls: bool = _is_solid_at(tx - 1, ty) and _is_solid_at(tx + 1, ty)
 	var vertical_walls: bool = _is_solid_at(tx, ty - 1) and _is_solid_at(tx, ty + 1)
+	var shape: String = "square"
+	if horizontal_walls and not vertical_walls:
+		shape = "ew"
+	elif vertical_walls and not horizontal_walls:
+		shape = "ns"
+	var keys: Array[String] = Dressing.glass_keys(_dressing(), shape)
+	if keys.size() == 2:
+		var pane_art: Texture2D = Appearance.resolve(keys[0])
+		var frame_art: Texture2D = Appearance.resolve(keys[1])
+		if pane_art != null and frame_art != null:
+			draw_texture_rect(pane_art, rect, false, glass)
+			draw_texture_rect(frame_art, rect, false, Palette.COLOURS["windowRim"])
+			return
 	var c: Vector2 = rect.get_center()
 	var pane_long: float = rect.size.x * 0.75
 	var pane_short: float = rect.size.x * 0.25

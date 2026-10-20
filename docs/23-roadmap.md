@@ -587,7 +587,9 @@ become y-sorted modules standing on a run's south edge; and sockets land now for
 east-west vehicles and the cursor, with held weapons, utilities, decals and the six status icons
 named for the report rather than built.
 The shared shambler picture was superseded by the seven-family zombie set on 2026-10-02
-("Zombies turn, walk and fall" in the record); the outpost survivor and equipment remain.
+("Zombies turn, walk and fall" in the record); the outpost survivor and equipment remain. The
+screamer and the bloater stopped being generated rigs on 2026-10-19 ("Zombie study 02" in the
+record), so no shipped body is generated or face-on any more.
 The tier tooling — a `source` `build.py` can reproduce, a `members` family, and the READS lane
 accepting any declarer — landed the same day, proved on the two containers (see the record). The
 pieces below are in the order they land, each one session, each with its gate red both ways and
@@ -1049,6 +1051,23 @@ mechanic, not part of source colouring. Placed utility mechanics also remain abs
 stove, activated streetlamp, generator, rain collector or spike trap was added. These are separate
 pieces; the completed pictures do not imply those mechanics exist.
 
+- **Vehicle pictures off the art grid.** Found by the A11 art review (2026-10-20), not caused by
+  it. `_blit_vehicle` stands every vehicle through `Appearance.body_rect`, which drops a
+  feet-anchored picture `FOOT_DROP_PX` (3.0 screen pixels, a body's contact-shadow line) below
+  its ground point, so a car's rear sits 1.5 art pixels past its footprint's south edge at the
+  2× rung rather than on the tile line; trees take the same drop on purpose (`check_trees.gd`
+  asserts it), so the fix is a placement rule for vehicles only, with its own lane, not a
+  change to `body_rect`. The same review saw the pack's east-west cars at an uneven scale; that
+  did not reproduce (they blit at `Appearance.blit_scale`, zoom / 32, a whole 2.0 at the default
+  rung, and their PNGs carry no doubled rows or columns), so it is noted here, not named as a
+  defect.
+
+- **The bloater's side walk, hand-drawn.** Left by the A11 art review's stop rule (2026-10-20).
+  The side views are built by `study-02/guides/bloater_paint.py` from shapes over the heavy's
+  walk, and their outline still shares 18–30% of the heavy's, mostly the legs and soles, which
+  are the heavy's own stride. A redraw of the eight side walk frames with the bloater's own
+  gait waits on PixelLab budget; `godot:check:authored`'s ZOMBIE_POSES lane judges the result.
+
 **The inventory sheet and the screens — decided by the owner (2026-09-08).** The inventory is
 mechanically complete and gated, and the screen reaches four of its commands: `item.move`,
 `item.equip`, `item.unequip` and `item.use`. The owner opened an overhaul from four mockups and
@@ -1437,6 +1456,14 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   `map` and **named it there in a comment** rather than dropping it inside a slice about menus:
   the drawing reaches the same map through `world.tilemap`, so either deleting it or giving it the
   reader it was presumably meant to have is a decision of its own.
+- **A fifth, left by zombie study 02 (2026-10-19): the face-on body path.** With the screamer and
+  the bloater moved onto pose families, every shipped body `turns()`, so `Appearance`'s face-on
+  branch -- one picture a body, `body_flip`'s negative width facing west -- is reached by no
+  content. It is kept on purpose as the fallback for a single-picture body key (a commissioned
+  `rig`, which `check_authored.gd`'s SPEC lane still holds to the published bounds), and
+  `check_topdown.gd`, `check_worn.gd` and `check_appearance.gd` judge it on the probe key
+  `probe_face_on_body` rather than on shipped art. Deleting it, or the first commissioned rig
+  giving it a reader, is its own decision.
 - ~~**`repair_cost` is a stat nothing resolves.**~~ **Fixed 2026-09-13** (`godot:m2:upkeep`,
   REPAIR-COST; the record's "repair cost is read" entry under Survivors). The honest reader was
   never the scrap — repair still spends one whole unit, as the 2026-09-06 reasoning said it must —
@@ -3082,6 +3109,298 @@ not a to-do list:
   Generated motion retains 1–3 native pixels of pose-height and incidental clothing-detail
   variation; a later polish pass can refine foot contact and stabilize those details. No new
   zombie kind, spawn mix, wearable asset or corpse interaction is introduced.
+
+- **Art & renderer — window glass as art, 2026-10-19.** Alpha plan item A11's fourth and last
+  family. A window on a wall's cap was two `draw_rect` calls in `main.gd::_draw_window_glass`, a
+  pane and a two-pixel rim; it is now two pictures per shape, drawn by `glass.py` under
+  `godot/art/simplyzombies/glass/` at exactly the rects' geometry (a 24×8 pane east-west, 8×24
+  north-south, 12×12 square, centred on the tile): the pane in four greys (a shadow under the
+  lintel, a darker upper half, a lighter lower half, and diagonal reflection streaks either side
+  of a mullion, as the pack's car windows carry them); the frame lit along its top, shaded along
+  its bottom, with a white edge outside it that the rim tint takes a step above the brick
+  mortar's value (luminance 111 against 101), and a sill just above the mortar (104), at the wall's
+  line weight rather than a body's near-black outline;
+  each pane's reflection sits at its own offset, so no two are one stamp. Both are greys, sourced in
+  `authored.json` as kind `tile`, and the renderer tints them by the two colours the rects were
+  (`col.lightened(0.28)` for the pane, `Palette.COLOURS["windowRim"]` for the frame), so night,
+  weather and a boarded window's stage reach them unchanged. The pane's greys are 168, 206, 232
+  and 255, so the glass sits a little under the flat rect's brightness and the streak at it.
+
+  The keys are content: the street dressing's `faces` block gains `glass`, a map of
+  `pane_<shape>` and `frame_<shape>` for `ew`, `ns` and `square`, read through the new
+  `Dressing.glass_keys(block, shape)` (an empty answer for no glass, an unknown shape or half a
+  pair). `_draw_window_glass` picks the shape as it always did, draws the pair when both resolve,
+  and keeps the rects as the fallback. `dressing.schema.json`'s `faces` description names the
+  new map; the shallow validator and Ajv both accept it as an object.
+
+  **Gated:** `godot:check:topdown` (→ `TOPDOWN_OK`) gains GLASS: the shipped dressing names a pane
+  and frame for each shape; every pane's drawn pixels bound exactly the rect it replaced and every
+  frame's that rect grown by two; every pixel is a grey (channels within `GLASS_GREY_SPREAD`), so the tint stays the renderer's. Its true negatives: a pane a pixel low, a blue
+  pane, `glass_keys` over no glass, an unknown shape and half a pair. Reach is textual, as the
+  WALL lane's is, over the body with comments stripped whole-line **and** trailing: the
+  `glass_keys` call, both tinted `draw_texture_rect` calls, and the rect fallback after them; a
+  body naming the calls only in comments is refused, and a `#` inside a string is not taken for
+  one. `godot:check:weather` still finds `windowRim` in `_draw_window_glass`, and
+  `godot:check:topdown`'s WALL lane still finds `_draw_window_glass(rect, tx, ty, col)` in
+  `_draw_district`. `godot:check:authored` READS finds the six keys through the `faces` map;
+  `godot:check:roof` (`ROOF_LOOK_OK`) is unchanged, its LOOK and MOOD lanes reading only the three
+  opening keys. `sprites:check`: 51 generated keys, 413 sourced.
+
+  **Sabotage, red and restored:** the pane draw left behind a trailing comment
+  (`pass  # draw_texture_rect(pane_art, ...)`), which the first cut of the stripper let through
+  and the second refuses ("does not reach draw_texture_rect(pane_art, rect, false, glass)"); the
+  east-west frame pointed at the pane picture ("covers [P: (4, 12), S: (24, 8)], not
+  [P: (2, 10), S: (28, 12)]").
+
+  **Seen:** the camp hall's north wall at noon before and after, one window at 3×, and the six
+  grey pictures at 6×, in `.hermes/plans/2026-10-19_glass/`.
+
+  **What it leaves:** a window in a south face still draws the face's own window picture
+  (`faces.window`), not this glass; a broken or boarded window is still only the tint, with no
+  picture of its own.
+
+- **Art & renderer — the well, the latrine and the campfire, 2026-10-19.** Alpha plan item
+  A11's third family. The four station pictures `tools/sprites/parts/props.py` generated (a
+  stone ring for the fire, cold and lit, a ring for the well, a grey box for the latrine) become
+  art in the pack's manner under `godot/art/simplyzombies/stations/`: a brick well with its
+  windlass, rope and bucket, a plank outhouse with an ash bucket beside it, and a
+  ring of stones round crossed logs, charred and cold or burning down to embers. `stations.py`
+  draws all four with the vehicles' painter (a near-black outline, four tones a material, lit
+  from the north) onto a guide sheet; one img2img pass ran over it (`prompts.json`) and only its
+  well was kept, because it turned the cold fire's ash to embers and flattened the latrine's
+  boards. The lit fire's flames are still `fx_flame_loop`, whose anchor (`FxLook`'s
+  `FLAME_DROP_ART_PX`, four art pixels below centre) lands on the new logs unchanged.
+
+  Each picture is sourced in `authored.json` as kind `tile`, padded onto the 32×32 tile square
+  (`source.pad`) the way the pack's crates are drawn, so `main.gd::_draw_prop` still centres
+  them on their point and nothing in the renderer moved. Content's `appearance.size` follows the
+  art, because the PROPS lane measures one against the other: the two fires 0.5 and 0.56 →
+  **0.94**, the well 0.86 → **0.94**, the latrine 0.55 → **1.0** (30, 30, 30 and 32 pixels
+  across). `size` is presentation only; nothing in `godot/sim/` reads it.
+
+  **Retired, by the standing rule:** `tools/sprites/parts/props.py` whole and its `MODULES`
+  entry. The four keys kept their names and are re-sourced, not retired.
+
+  **Gated:** `godot:check:appearance` (→ `APPEARANCE_OK`): PROPS holds each picture's opaque
+  width to its content size within `FOOTPRINT_SLACK_PX`, the cold and lit fire to different
+  pixels, and the four to tile-square pictures `_draw_prop` centres; STANDING keeps the fire,
+  the well and the latrine flat. `godot:check:authored` (→ `AUTHORED_OK`): SOURCE resolves the
+  four at their declared canvas and READS finds each one's content entry. `godot:check:fx`
+  (→ `FX_OK`): FLAME draws the lit fire's flame over the new picture. `sprites:check`: 51
+  generated keys, 407 sourced.
+
+  **Sabotage, red and restored:** the latrine back at `size` 0.55 (PROPS: "prop.latrine
+  declares size 0.55 (18 px of a tile) and its art measures 32 px across").
+
+  **Seen:** the camp at noon with the fire lit, and the well, before (the base) and after, with
+  the four pictures old over new at 6×, are in `.hermes/plans/2026-10-19_stations/`.
+
+  **Second pass, after the art review (2026-10-20).** The first latrine, a bench with its lid up
+  over a front of boards, read as a crate. It is now an outhouse: a plank roof seen from above
+  and overhanging, upright wall planks with dark seams, a slatted vent under the eave, and a
+  door standing in a one-pixel dark gap with a crescent moon cut through its top board and a
+  latch. Same 32×28 picture, same pad and `size`, so PROPS and STANDING judge it unchanged.
+
+  **Third pass, after the second review (2026-10-20).** The roof's top edge carries the
+  one-pixel outline the rest of the picture has, and the moon is a three-pixel curved crescent
+  set off-centre in the upper door rather than a notch.
+
+  **Fourth pass, after the third review (2026-10-20).** The crescent stands free: three rows
+  tall, with a pixel of door between it and the frame above and the rail below.
+
+  **Fifth pass, after the fourth review (2026-10-20).** The crescent is two rows, lying on its
+  back with its horns up, with a clear row of door above it and two below it before the rail.
+
+  **What it leaves:** the latrine and the well are drawn three-quarter from the south and do not
+  turn; the cold fire has no smoke and the lit one no ember glow beyond its light.
+
+- **Art & renderer — the cars north-south, and the light vehicles, 2026-10-19.** Alpha plan
+  item A11's second family. The last generated vehicle pictures become art in the pack's manner:
+  the sedan, van and truck nose-north (intact and wreck, six keys) and the five light classes on
+  both axes in three paint jobs (thirty keys), all authored under
+  `godot/art/simplyzombies/vehicles/` and sourced in `authored.json` as kind `vehicle`. The cars
+  were painted over a guide (`guides/cars_ns.py`) in one img2img pass so the three share a hand,
+  then cut by `cars.py`; the wrecks are not generated but damaged deterministically from the kept
+  pass (`guides/wreck.py`: dulled paint, rust, crazed glass, a creased hood). The light vehicles
+  are drawn by `light.py` (a near-black outline, four tones a material lit from the north),
+  because thin frames and spokes are what an image model smears. Every prompt, kept and rejected,
+  is in `vehicles/prompts.json`.
+
+  **The owner's footprint, landed.** docs/30's "The outpost pack, adopted" named it on
+  2026-09-17: the cars shrink to **sedan 2×3, van and truck 2×4** once the pack's art draws
+  them. East-west did on 2026-09-26 through `lEw`; north-south does now, so content's `l` is 3,
+  4 and 4 and `lEw` is gone from all three — a car is one length whichever way it is parked or
+  turned. Pale and green share the intact picture north-south and burnt takes the wreck, as
+  east-west already did. `lEw` stays in the schema and in `SimWorldgen.vehicle_extent`, unused
+  by shipped content; DRIVE proves the helper still honours it on a fabricated footprint.
+
+  **Retired, by the standing rule:** `tools/sprites/parts/vehicles.py` and
+  `parts/light_vehicles.py` whole, `build.py`'s vehicle canvas table, and the nine generated
+  north-south car PNGs (`vehicle_<car>_{pale,green,burnt}_ns`, now on `RETIRED_KEYS`). On the
+  Godot side `Appearance.vehicle_canvas`, `VEHICLE_FOOTPRINTS`, `VEHICLE_VARIANTS` and
+  `VEHICLE_PACK_EW` went with the rule they fed: every vehicle picture is authored, so
+  `canvas_of`'s authored tier answers them all, and `vehicle_reach_tiles` is now the longest side
+  of any authored vehicle picture rather than a footprint table. The palette's `car_*` ramps
+  stay in `tools/sprites/palette.py` and `tones.json`, read by nothing generated now.
+
+  **Gated:** `godot:check:wrecks` (→ `WRECKS_OK`): DRESSING requires every vehicle key to be
+  declared in `authored.json` and holds every drawn picture's declared canvas to its class's
+  content footprint plus the roofline tile (refusing a fabricated key and one class's picture
+  against another's footprint); PACK keeps its own list, `PACK_EW_IDS`, holds it to the art both
+  ways by the pack manifest (a pack car east-west only, never north-south) and now asserts the
+  east-west length **equals** the north-south one, refusing a fabricated car four tiles one way
+  and six the other; SILHOUETTE judges the light classes on the footprint rows and the mirror
+  clearance, which made the e-scooter, kick scooter and skateboard move three pixels off their
+  canvas edges and the e-scooter's stem come down to 34 rows; MANIFEST's hand sedan is 2×3.
+  `godot:m2:vehicles` (→ `M2_VEHICLES_OK`): the hand sedan's length is one constant, `SEDAN_L`,
+  that CONTENT holds to content, and every wall, jam, heap and doorway expectation is derived
+  from it; DRIVE asserts the turned sedan is the north-south footprint laid flat. TIER's true
+  negative moved to a chart figure, the one family `canvas_of` still places by rule.
+  `sprites:check`: 55 generated keys, 403 sourced. `npm test` 594/594.
+
+  **Sabotage, red and restored:** the sedan at `l` 4 (DRESSING: "authored on (64, 128) where its
+  content footprint implies (64, 160)"; PACK: "spans 3 tiles ... parks it 4 long"; CONTENT:
+  "content's sedan is 4.0 long and this gate's copy says SEDAN_L 3"); the van given `lEw` 3
+  (PACK: "spans 4 tiles ... parks it 3 long east-west").
+
+  **Measured:** the suburb at 128 parks **152** vehicles over PLACED's four seeds against 149 on
+  the base (sedans 63 → 66; every other class unchanged), the shorter sedan fitting slots the
+  longer one was refused. The balance harness boots the 64-tile suburb, which parks nothing. The
+  before/after captures (every class staged on open street at noon, the before at the base) and
+  sheets of the cars beside the pack's and the light vehicles old against new are in
+  `.hermes/plans/2026-10-19_vehicles/`.
+
+  **Second pass, after the art review (2026-10-20).** The img2img cars drew 19–28% longer than
+  the pack's own east-west pictures (102, 131 and 133 rows against 86, 102 and 106), with a roof
+  in one tone, no side panel, tabs for wheels and red lamps on the nose. They are now painted by
+  code, `guides/cars_ns_paint.py`, with no generation: the painted span is the east-west span
+  plus a few rows of rear face (**91, 107 and 109** rows with the outline), the pack's paint in
+  four tones (flank, face and hood, roof, highlight) with its grain and a few dirt smudges, a
+  side panel down each edge with the side glass and door seams in it, a wheel arch cut into it at
+  each axle with the tyre a pixel proud of the body, amber indicators and pale headlamps on the
+  nose, red lamps and a plate on the rear face, and glass in four tones with the diagonal streak.
+  `cars.py` runs the painter and `wreck.py` damages its sheet as before; the generated sheet is
+  kept as `sources/rejected-cars-ns-pass2.png` and its guide script retired. Canvases, keys and
+  content are unchanged, so DRESSING, PACK and DRIVE judge the new pictures as they judged the
+  old. The north-south bicycle and e-bike, which read as a sword at 1×, are redrawn in
+  `light.py` from behind: each wheel a narrow upright ellipse (tyre, rim, hollow, hub), the
+  fork's legs outside the front one and the seat stays either side of the back one, a saddle wide
+  at the back with its nose running north, a swept bar with dark grips, and pedals out either
+  side.
+
+  **Third pass, after the second review (2026-10-20).** The cars' rear is closed by the outline
+  on the canvas's bottom row (it ran off the canvas), the tyres sit flush inside their arches
+  instead of a pixel proud, and the view is a stronger three-quarter: a shorter roof over a rear
+  face 27–35 rows deep, carrying rear glass (hatchback), two door windows and a seam (van) or a
+  lit tailgate (pickup), with the lamps and plate. Lengths are now **91, 108 and 110** rows; the
+  hatchback's paint is one step brighter. The north-south bicycle and e-bike are 56 rows long,
+  the pack's east-west span, with two identical oval wheels (a superellipse, no pointed crown).
+
+  **Fourth pass, after the third review (2026-10-20).** The north-south cars are now exactly as
+  long as the pack's east-west ones, outline included: **86, 102 and 106** rows (shorter hoods,
+  roof and bed; the deep rear face kept). The north-south e-bike is 58 rows, its east-west span,
+  on fat tyres: wider wheels with a three-pixel tyre ring, against the bicycle's two.
+
+  **Fifth pass, after the fourth review (2026-10-20).** The wrecks' rust is solid ragged patches,
+  lit at the top left and dark only along the bottom right, never a dark ring round a lighter
+  middle (one on the van's rear read as a letter), and no two within six pixels, so they cannot
+  join; `guides/wreck.py` keeps its fixed seed per car.
+
+  **What it leaves:** a car seen from behind is still the one picture for both north-south
+  facings (decision 11's limit, in what's left); no state between intact and wreck; no lamp glow.
+
+- **Art & renderer — zombie study 02: the screamer and the bloater, 2026-10-19.** Alpha plan
+  item A11's first family. The last two generated, face-on, flipped rigs become pose families
+  beside study 01's seven, at its geometry: the screamer at 32×40 and 5 fps, the bloater broad at
+  40×48 and 4 fps, each with four idle views, a four-frame walk each way and a supine and a prone
+  corpse (48×40 and 56×40) — **40 living and 4 corpse PNGs**. Painted over study 01 families that
+  already walk (the commuter, the heavy), then one img2img pass over each whole 5×4 atlas so the
+  twenty frames are one character, then cut mechanically (`study-02/extract.py`). The corpses are
+  the paint-over guides as drawn; every generated corpse pass blurred the outline and lost the
+  head and is kept under `sources/rejected-*` with its prompt in `study-02/prompts.json`. Content
+  names `body_zombie_screamer` / `body_zombie_bloater` and their `corpseSprites`; the bloater keeps
+  its variance tints.
+
+  **Retired, by the standing rule:** `zombie_screamer.png`, `zombie_bloater.png`, every rig
+  function, `_figure` and `REGISTRY` in `tools/sprites/parts/characters.py` (which keeps only the
+  published skeleton `guide.py` draws), `PAWN_KEYS` in both `build.py` and `appearance.gd`; both
+  keys are on `RETIRED_KEYS`. The face-on path itself stays as a fallback with no shipped reader,
+  named in what's left's dead-socket list.
+
+  **Gated:** `godot:check:authored` ZOMBIE_POSES now judges **9 rigs and 22 corpses** (sizes,
+  anchors, rates, grounded soles, real silhouette motion) and READS finds both families named by
+  content; SPEC, INTERIOR, TONES and HIGHLIGHT have no generated rig left to judge and say SKIP,
+  while their negatives now fabricate from the screamer's last generated picture kept as
+  `godot/test/fixtures/generated_rig_screamer.png`, so they can still say no. TIER's true negative
+  moved to a north-south car, the one family `canvas_of` still places by rule.
+  `godot:check:zombie_art` CONTENT/MOTION/CORPSES take **nine** families (180 pictures, 36 loops,
+  18 settled poses); `godot:check:topdown` TURN turns **10** bodies; `godot:check:worn` SHARED
+  counts **10** body families and RETIRED proves the old pair resolves nothing.
+  `sprites:check`: 94 generated keys, 367 sourced. `npm test` 594/594. `npm run godot:m2`: 84 of 85
+  gates green (the chain stopped at worldgen; the 16 after it were then run one by one, all
+  green). `godot:check:worldgen` failed only its own time budget, 103.9 s against 90 s, and failed
+  it the same way on the unchanged base (102.7 s) on this container; the art touches nothing it
+  boots, so that is the machine, and CI's `godot-m2` job is the judge.
+  Before/after captures of the real scene, and both families beside the study 01 family they
+  were painted over, are in `.hermes/plans/2026-10-19_zombie-study-02/`.
+
+  **Second pass, after the art review (2026-10-20).** The bloater's generated sheet lost its
+  head on the front row, pasted its belly over the near arm in the side views, shaded it in
+  single-pixel speckle and ran an acid green past the pack's saturation. It is now painted by
+  code, `study-02/guides/bloater_paint.py`, straight from the heavy with no generation: the
+  heavy's head, face, neck, vest, arms and walk kept pixel for pixel, the skin carried onto a
+  four-tone olive at HLS saturation 0.16–0.20 (the heavy's own sits near 0.2), and the belly an
+  ellipsoid lit from the top left in four contiguous bands, riding out from under the vest's hem
+  with a one-pixel shadow, sagging over the belt, bulging forward in the side views and kept
+  behind any arm that reaches outside it. Both corpses take the same skin; the supine mound is
+  shaded the same way, rimmed where it meets the body and outlined where it meets the ground.
+  The screamer keeps its sheet; `extract.py` now pulls every highlight above the commuter's
+  brightest skin (luminance 188) down toward it with its order kept, and takes the shirt's pale
+  greys one value under the face. Sizes, anchors, rates and keys are unchanged.
+
+  **Third pass, after the second review (2026-10-20).** The belly sits 3–4 px past the arms and
+  hips at the front and its front edge holds still through the walk (one centre a row, from the
+  idle); from behind it spills past the flanks over the belt; on the prone corpse it bulges out
+  from under the torso. In every side frame the leading forearm is painted over the belly, a
+  step darker than the gut with a one-pixel cast shadow, its hand where the heavy's own hand is in
+  that frame, so it swings with the walk. Every outline is the pack's near-black (3,3,3), not
+  (26,24,20). The screamer's hands take two tones, 166 lit and 142 shaded, in the commuter's
+  133–169 range.
+
+  **Fourth pass, after the third review (2026-10-20).** The bloater has its own silhouette in
+  every view rather than a belly inside the heavy's. Front and back, `widen` pushes each half of
+  the heavy out from the centre pixel for pixel (nothing at the head, two pixels from the chest
+  down, so the arms hang beside the gut, and at the legs, each leg moved whole), and
+  `thicken_legs` grows every leg a pixel each way; the gut is then wider than the heavy's whole
+  outline. In the side views the heavy's near arm is cut at the elbow and a forearm in that arm's
+  own skin bends forward from it to a hand with a knuckle resting on the belly's flank. The belly
+  and the forearm bob a pixel on the two contact frames, the belly carries a two-scale grain
+  hashed on its own coordinates (so it rides with the bob), and the vest and trousers are soured
+  a step warmer and darker, so at most 1.5% of a frame's pixels are the heavy's exact colours and
+  each frame adds 97–147 pixels outside the heavy's outline. ZOMBIE_POSES's broad living width
+  bound moves from 34 to 36, the 40-pixel canvas less its two-pixel side margin (which the lane
+  still holds), because the widest bloater frame is 35. The screamer's hands are the face's own
+  grey-green, (158,167,148) and (132,141,122).
+
+  **Fifth pass, after the fourth review (2026-10-20).** The side views are built from shapes in
+  `side_body` rather than the heavy's outline: a rounded back and seat in the vest's tones, the
+  heavy's head slumped two rows into the shoulders and jutting a pixel, and the heavy's walking
+  legs a pixel longer in the stride and two thicker at the thigh. The belly keeps its own curve
+  past the vest (`round_top`), and the near arm is one limb (`side_arm`) from the shoulder,
+  bent at the elbow to a hand on the belly's flank, in a fixed ramp a step darker than the lit
+  gut, so it reads as an arm over the belly and its tones never change between frames. The bob
+  carries the whole upper body, head and shoulders included (`drop` builds on a fresh canvas;
+  over a copy it left the rest-position head in place). Front and back the arms end in
+  hands, and a `tidy` pass sweeps any pixel held on by one side or none and outlines every leg
+  edge. Measured on the atlas: the side views' back, shoulder and belly contour (rows 22–36)
+  shares 0–9 of the heavy's 31–41 outline pixels there; the whole side outline still shares
+  **18–30%** of the heavy's, the legs and soles being the heavy's own walk. That is above the
+  review's 20% line, so under its stop rule the bloater ships as is and a hand-drawn side walk
+  waits in what's left. The screamer's hands are a step lighter, (164,172,154) and
+  (146,155,136), clear of the sleeve's (129,134,123).
+
+  **First cut,** like study 01: no attack, hit, death-transition or rising states; the scream and
+  the burst have no animation of their own.
 
 - **Art & renderer — the condition chart, furnishings, stove icon and source colours,
   2026-10-03.** Four bounded slices close the exploded body chart, the remaining four furnishings,

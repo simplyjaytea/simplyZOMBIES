@@ -1891,6 +1891,40 @@
         ]
       }
     },
+    "prop_campfire": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "prop.campfire",
+      "source": {
+        "path": "art/simplyzombies/stations/textures/campfire.png",
+        "pad": [
+          32,
+          32,
+          1,
+          6
+        ]
+      }
+    },
+    "prop_campfire_lit": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "prop.campfire.lit",
+      "source": {
+        "path": "art/simplyzombies/stations/textures/campfire-lit.png",
+        "pad": [
+          32,
+          32,
+          1,
+          6
+        ]
+      }
+    },
     "prop_chair": {
       "canvas": [
         24,
@@ -2083,6 +2117,23 @@
         ]
       }
     },
+    "prop_latrine": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "prop.latrine",
+      "source": {
+        "path": "art/simplyzombies/stations/textures/latrine.png",
+        "pad": [
+          32,
+          32,
+          0,
+          2
+        ]
+      }
+    },
     "prop_medical_cabinet": {
       "canvas": [
         24,
@@ -2164,6 +2215,23 @@
           0,
           16,
           22
+        ]
+      }
+    },
+    "prop_well": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "prop.well",
+      "source": {
+        "path": "art/simplyzombies/stations/textures/well.png",
+        "pad": [
+          32,
+          32,
+          0,
+          1
         ]
       }
     },
@@ -2330,6 +2398,402 @@
           112,
           55
         ]
+      }
+    },
+    "vehicle_sedan_intact_ns": {
+      "canvas": [
+        64,
+        128
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.sedan",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/sedan-intact-ns.png"
+      }
+    },
+    "vehicle_sedan_wreck_ns": {
+      "canvas": [
+        64,
+        128
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.sedan",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/sedan-wreck-ns.png"
+      }
+    },
+    "vehicle_van_intact_ns": {
+      "canvas": [
+        64,
+        160
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.van",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/van-intact-ns.png"
+      }
+    },
+    "vehicle_van_wreck_ns": {
+      "canvas": [
+        64,
+        160
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.van",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/van-wreck-ns.png"
+      }
+    },
+    "vehicle_truck_intact_ns": {
+      "canvas": [
+        64,
+        160
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.truck",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/truck-intact-ns.png"
+      }
+    },
+    "vehicle_truck_wreck_ns": {
+      "canvas": [
+        64,
+        160
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.truck",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/truck-wreck-ns.png"
+      }
+    },
+    "vehicle_bicycle_pale_ns": {
+      "canvas": [
+        32,
+        96
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.bicycle",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/bicycle-pale-ns.png"
+      }
+    },
+    "vehicle_bicycle_pale_ew": {
+      "canvas": [
+        64,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.bicycle",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/bicycle-pale-ew.png"
+      }
+    },
+    "vehicle_bicycle_green_ns": {
+      "canvas": [
+        32,
+        96
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.bicycle",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/bicycle-green-ns.png"
+      }
+    },
+    "vehicle_bicycle_green_ew": {
+      "canvas": [
+        64,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.bicycle",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/bicycle-green-ew.png"
+      }
+    },
+    "vehicle_bicycle_burnt_ns": {
+      "canvas": [
+        32,
+        96
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.bicycle",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/bicycle-burnt-ns.png"
+      }
+    },
+    "vehicle_bicycle_burnt_ew": {
+      "canvas": [
+        64,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.bicycle",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/bicycle-burnt-ew.png"
+      }
+    },
+    "vehicle_ebike_pale_ns": {
+      "canvas": [
+        32,
+        96
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.ebike",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/ebike-pale-ns.png"
+      }
+    },
+    "vehicle_ebike_pale_ew": {
+      "canvas": [
+        64,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.ebike",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/ebike-pale-ew.png"
+      }
+    },
+    "vehicle_ebike_green_ns": {
+      "canvas": [
+        32,
+        96
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.ebike",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/ebike-green-ns.png"
+      }
+    },
+    "vehicle_ebike_green_ew": {
+      "canvas": [
+        64,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.ebike",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/ebike-green-ew.png"
+      }
+    },
+    "vehicle_ebike_burnt_ns": {
+      "canvas": [
+        32,
+        96
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.ebike",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/ebike-burnt-ns.png"
+      }
+    },
+    "vehicle_ebike_burnt_ew": {
+      "canvas": [
+        64,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.ebike",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/ebike-burnt-ew.png"
+      }
+    },
+    "vehicle_escooter_pale_ns": {
+      "canvas": [
+        32,
+        96
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.escooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/escooter-pale-ns.png"
+      }
+    },
+    "vehicle_escooter_pale_ew": {
+      "canvas": [
+        64,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.escooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/escooter-pale-ew.png"
+      }
+    },
+    "vehicle_escooter_green_ns": {
+      "canvas": [
+        32,
+        96
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.escooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/escooter-green-ns.png"
+      }
+    },
+    "vehicle_escooter_green_ew": {
+      "canvas": [
+        64,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.escooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/escooter-green-ew.png"
+      }
+    },
+    "vehicle_escooter_burnt_ns": {
+      "canvas": [
+        32,
+        96
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.escooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/escooter-burnt-ns.png"
+      }
+    },
+    "vehicle_escooter_burnt_ew": {
+      "canvas": [
+        64,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.escooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/escooter-burnt-ew.png"
+      }
+    },
+    "vehicle_kickscooter_pale_ns": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.kickscooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/kickscooter-pale-ns.png"
+      }
+    },
+    "vehicle_kickscooter_pale_ew": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.kickscooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/kickscooter-pale-ew.png"
+      }
+    },
+    "vehicle_kickscooter_green_ns": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.kickscooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/kickscooter-green-ns.png"
+      }
+    },
+    "vehicle_kickscooter_green_ew": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.kickscooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/kickscooter-green-ew.png"
+      }
+    },
+    "vehicle_kickscooter_burnt_ns": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.kickscooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/kickscooter-burnt-ns.png"
+      }
+    },
+    "vehicle_kickscooter_burnt_ew": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.kickscooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/kickscooter-burnt-ew.png"
+      }
+    },
+    "vehicle_skateboard_pale_ns": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.skateboard",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/skateboard-pale-ns.png"
+      }
+    },
+    "vehicle_skateboard_pale_ew": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.skateboard",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/skateboard-pale-ew.png"
+      }
+    },
+    "vehicle_skateboard_green_ns": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.skateboard",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/skateboard-green-ns.png"
+      }
+    },
+    "vehicle_skateboard_green_ew": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.skateboard",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/skateboard-green-ew.png"
+      }
+    },
+    "vehicle_skateboard_burnt_ns": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.skateboard",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/skateboard-burnt-ns.png"
+      }
+    },
+    "vehicle_skateboard_burnt_ew": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.skateboard",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/skateboard-burnt-ew.png"
       }
     },
     "body_zombie_workwear": {
@@ -3368,6 +3832,302 @@
         "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/corpse-prone.png"
       }
     },
+    "body_zombie_screamer": {
+      "canvas": [
+        32,
+        40
+      ],
+      "kind": "zombie_rig",
+      "reads": "zombie.screamer",
+      "palette": "pack",
+      "anchor": [
+        16,
+        40
+      ],
+      "fps": 5,
+      "members": {
+        "body_zombie_screamer_s": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/idle-south-00.png"
+          }
+        },
+        "body_zombie_screamer_walk_s_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-south-00.png"
+          }
+        },
+        "body_zombie_screamer_walk_s_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-south-01.png"
+          }
+        },
+        "body_zombie_screamer_walk_s_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-south-02.png"
+          }
+        },
+        "body_zombie_screamer_walk_s_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-south-03.png"
+          }
+        },
+        "body_zombie_screamer_e": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/idle-east-00.png"
+          }
+        },
+        "body_zombie_screamer_walk_e_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-east-00.png"
+          }
+        },
+        "body_zombie_screamer_walk_e_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-east-01.png"
+          }
+        },
+        "body_zombie_screamer_walk_e_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-east-02.png"
+          }
+        },
+        "body_zombie_screamer_walk_e_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-east-03.png"
+          }
+        },
+        "body_zombie_screamer_n": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/idle-north-00.png"
+          }
+        },
+        "body_zombie_screamer_walk_n_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-north-00.png"
+          }
+        },
+        "body_zombie_screamer_walk_n_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-north-01.png"
+          }
+        },
+        "body_zombie_screamer_walk_n_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-north-02.png"
+          }
+        },
+        "body_zombie_screamer_walk_n_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-north-03.png"
+          }
+        },
+        "body_zombie_screamer_w": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/idle-west-00.png"
+          }
+        },
+        "body_zombie_screamer_walk_w_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-west-00.png"
+          }
+        },
+        "body_zombie_screamer_walk_w_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-west-01.png"
+          }
+        },
+        "body_zombie_screamer_walk_w_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-west-02.png"
+          }
+        },
+        "body_zombie_screamer_walk_w_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-west-03.png"
+          }
+        }
+      }
+    },
+    "corpse_zombie_screamer_supine": {
+      "canvas": [
+        48,
+        40
+      ],
+      "kind": "corpse",
+      "reads": "zombie.screamer",
+      "palette": "pack",
+      "anchor": [
+        24,
+        20
+      ],
+      "source": {
+        "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/corpse-supine.png"
+      }
+    },
+    "corpse_zombie_screamer_prone": {
+      "canvas": [
+        48,
+        40
+      ],
+      "kind": "corpse",
+      "reads": "zombie.screamer",
+      "palette": "pack",
+      "anchor": [
+        24,
+        20
+      ],
+      "source": {
+        "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/corpse-prone.png"
+      }
+    },
+    "body_zombie_bloater": {
+      "canvas": [
+        40,
+        48
+      ],
+      "kind": "zombie_rig",
+      "reads": "zombie.bloater",
+      "palette": "pack",
+      "anchor": [
+        20,
+        48
+      ],
+      "fps": 4,
+      "members": {
+        "body_zombie_bloater_s": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/idle-south-00.png"
+          }
+        },
+        "body_zombie_bloater_walk_s_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-south-00.png"
+          }
+        },
+        "body_zombie_bloater_walk_s_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-south-01.png"
+          }
+        },
+        "body_zombie_bloater_walk_s_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-south-02.png"
+          }
+        },
+        "body_zombie_bloater_walk_s_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-south-03.png"
+          }
+        },
+        "body_zombie_bloater_e": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/idle-east-00.png"
+          }
+        },
+        "body_zombie_bloater_walk_e_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-east-00.png"
+          }
+        },
+        "body_zombie_bloater_walk_e_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-east-01.png"
+          }
+        },
+        "body_zombie_bloater_walk_e_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-east-02.png"
+          }
+        },
+        "body_zombie_bloater_walk_e_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-east-03.png"
+          }
+        },
+        "body_zombie_bloater_n": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/idle-north-00.png"
+          }
+        },
+        "body_zombie_bloater_walk_n_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-north-00.png"
+          }
+        },
+        "body_zombie_bloater_walk_n_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-north-01.png"
+          }
+        },
+        "body_zombie_bloater_walk_n_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-north-02.png"
+          }
+        },
+        "body_zombie_bloater_walk_n_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-north-03.png"
+          }
+        },
+        "body_zombie_bloater_w": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/idle-west-00.png"
+          }
+        },
+        "body_zombie_bloater_walk_w_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-west-00.png"
+          }
+        },
+        "body_zombie_bloater_walk_w_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-west-01.png"
+          }
+        },
+        "body_zombie_bloater_walk_w_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-west-02.png"
+          }
+        },
+        "body_zombie_bloater_walk_w_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-west-03.png"
+          }
+        }
+      }
+    },
+    "corpse_zombie_bloater_supine": {
+      "canvas": [
+        56,
+        40
+      ],
+      "kind": "corpse",
+      "reads": "zombie.bloater",
+      "palette": "pack",
+      "anchor": [
+        28,
+        20
+      ],
+      "source": {
+        "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/corpse-supine.png"
+      }
+    },
+    "corpse_zombie_bloater_prone": {
+      "canvas": [
+        56,
+        40
+      ],
+      "kind": "corpse",
+      "reads": "zombie.bloater",
+      "palette": "pack",
+      "anchor": [
+        28,
+        20
+      ],
+      "source": {
+        "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/corpse-prone.png"
+      }
+    },
     "corpse_human_supine": {
       "canvas": [
         48,
@@ -3794,6 +4554,72 @@
           17,
           16
         ]
+      }
+    },
+    "glass_pane_ew": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/glass/textures/pane-ew.png"
+      }
+    },
+    "glass_pane_ns": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/glass/textures/pane-ns.png"
+      }
+    },
+    "glass_pane_square": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/glass/textures/pane-square.png"
+      }
+    },
+    "glass_frame_ew": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/glass/textures/frame-ew.png"
+      }
+    },
+    "glass_frame_ns": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/glass/textures/frame-ns.png"
+      }
+    },
+    "glass_frame_square": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/glass/textures/frame-square.png"
       }
     },
     "wear_tee_sand": {
