@@ -37,7 +37,9 @@ extends SceneTree
 #   WALL     a hole in a wall standing as a picture is drawn by that picture's own call, on its
 #            face, and not by the ground pass; seen or not decides it there too.
 #   MATTE    every blood picture is the pack's dark blood: no solid pixel brighter than
-#            MATTE_VALUE_MAX. TN: a fabricated bright red picture is refused by the same predicate.
+#            MATTE_VALUE_MAX; and the cut each mark is drawn from is hard-edged (alpha 0 or 255,
+#            so no fringe darkens the ground) in the frame's own colours, or the dry pool's when
+#            old. TN: a bright red, and the raw frame with its fringe, are refused.
 #   DRAWN    the real scene: _draw_district calls the ground pass and _draw_a2_wall_piece the
 #            wall pass, one frame of main.gd blits a seen mark, and a mark behind the wall is not
 #            blitted. Every picture art_for names resolves at the pack's 32x32.
@@ -629,26 +631,71 @@ func _blood_is_matte() -> bool:
 	for kind in ["splat", "drip", "smear", "pool"]:
 		for size in [1, 2, 3, 4]:
 			for age in [0, DecalLook.POOL_SPREAD_TICKS, DecalLook.DRY_TICKS]:
-				for v in [0, 1]:
+				for v in 32:
 					var k: String = DecalLook.art_for(kind, size, age, v)
 					if not keys.has(k):
 						keys.append(k)
+	var look: RefCounted = DecalLook.new()
+	var dry_set: Dictionary = {}
+	for c in look.call("_dry_shades") as Array:
+		dry_set[(c as Color).to_html(false)] = true
+	if dry_set.is_empty():
+		push_error("MATTE: the dry pool gave no colours; old blood has nothing to be drawn in")
+		return false
 	for k in keys:
 		var tex: Texture2D = Appearance.resolve(String(k))
 		if tex == null:
 			push_error("MATTE: '%s' resolves to nothing" % String(k))
 			return false
-		var v2: float = too_bright(tex.get_image())
+		var src: Image = DecalLook._source(String(k), tex)
+		var v2: float = too_bright(src)
 		if v2 > MATTE_VALUE_MAX:
 			push_error("MATTE: '%s' has a pixel at value %.2f; blood here is the pack's dark blood, at most %.2f" % [String(k), v2, MATTE_VALUE_MAX])
 			return false
+		# The cut a mark is drawn from: hard-edged, and in the pack's own colours -- the frame's own
+		# when fresh, the dry pool's when old. No fringe darkens the ground and no blend adds shades.
+		var own: Dictionary = {}
+		for y in src.get_height():
+			for x in src.get_width():
+				var c: Color = src.get_pixel(x, y)
+				if c.a >= DecalLook.ALPHA_CUT:
+					own[Color(c.r, c.g, c.b, 1.0).to_html(false)] = true
+		for dry in [false, true]:
+			var d: Dictionary = {"key": k, "texture": tex, "region": Rect2(Vector2.ZERO, Vector2(32, 32)), "transpose": true, "flip": Vector2i(-1, 1), "dry": dry}
+			var why: String = cut_complaint(look.call("_cut_of", d) as Image, dry_set if dry else own)
+			if not why.is_empty():
+				push_error("MATTE: '%s'%s %s" % [String(k), " dried" if dry else "", why])
+				return false
+	# TN: the predicates refuse what they exist to refuse -- a bright red, and the pack's raw frame
+	# with its faint fringe.
 	var bright := Image.create(4, 4, false, Image.FORMAT_RGBA8)
 	bright.fill(Color(0.9, 0.05, 0.05, 1.0))
 	if too_bright(bright) <= MATTE_VALUE_MAX:
 		push_error("MATTE: the predicate passed a bright red; it proves nothing")
 		return false
-	print("MATTE OK all %d blood pictures %s stay at or under value %.2f, and a bright red is refused" % [keys.size(), str(keys), MATTE_VALUE_MAX])
+	var raw: Image = DecalLook._source("fx_blood_hit_1", Appearance.resolve("fx_blood_hit_1"))
+	if cut_complaint(raw, {}).is_empty():
+		push_error("MATTE: the raw pack frame passed as a hard cut; the cut test proves nothing")
+		return false
+	print("MATTE OK all %d blood pictures %s stay at or under value %.2f and are cut hard in their own colours fresh and the dry pool's old, a bright red is refused, and the raw frame's fringe is refused" % [keys.size(), str(keys), MATTE_VALUE_MAX])
 	return true
+
+
+# Why a cut is not hard-edged in `palette`'s colours, or "".
+static func cut_complaint(img: Image, palette: Dictionary) -> String:
+	if img == null:
+		return "cut to nothing"
+	var solid: int = 0
+	for y in img.get_height():
+		for x in img.get_width():
+			var c: Color = img.get_pixel(x, y)
+			if c.a8 != 0 and c.a8 != 255:
+				return "has a pixel at alpha %d at (%d, %d); a mark is there or it is not" % [c.a8, x, y]
+			if c.a8 == 255:
+				solid += 1
+				if not palette.is_empty() and not palette.has(Color(c.r, c.g, c.b, 1.0).to_html(false)):
+					return "has a colour %s at (%d, %d) that is not the pack's" % [Color(c.r, c.g, c.b).to_html(false), x, y]
+	return "" if solid > 0 else "has no solid pixel"
 
 
 # --- DRAWN -------------------------------------------------------------------------------------

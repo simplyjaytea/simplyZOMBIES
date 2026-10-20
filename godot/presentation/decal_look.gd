@@ -45,15 +45,19 @@ const POOL_SPREAD_TICKS: int = 100
 # Blood browns after a quarter of a day. Rain does not wash it: Zomboid's blood stays until it is
 # cleaned, and there is no cleaning yet.
 const DRY_TICKS: int = Clock.DAY_TICKS / 4
-# Old blood that has no dry picture of its own (a spray, a drop) is darkened to sit with the dry
-# pools around it.
-const DRY_SHADE: Color = Color(0.62, 0.55, 0.52, 1.0)
-# A smear is a band cut from the pool's own picture -- its core rows, with the pool's rounded ends --
-# laid along the run every SMEAR_STEP_PX art pixels, so the streak is the pack's blood at the pack's
-# density and its two ends are the pool's own edge. A run steeper than it is long lays the band
-# turned a quarter.
-const SMEAR_BAND: Rect2 = Rect2(3, 12, 26, 7)
-const SMEAR_STEP_PX: int = 8
+# Old blood that has no dry picture of its own (a spray, a drop) takes the dry pool's own colours,
+# shade for shade by brightness, so it browns in the pack's palette rather than a tint of it.
+const DRY_SOURCE: String = "fx_blood_pool_dry"
+# The pack's frames carry a faint fringe (alpha 1 to 94) that would darken the ground round every
+# mark and mix new shades where marks overlap. A mark is cut hard: a pixel is there or it is not.
+const ALPHA_CUT: float = 0.5
+# A smear is the pool's own picture laid along the run every SMEAR_STEP_PX art pixels, each copy
+# turned and nudged across the run by the record's variant, so the streak's edge is the pool's
+# ragged edge and never a straight cut. A run steeper than it is long lays them turned a quarter.
+const SMEAR_STEP_PX: int = 12
+const SMEAR_SWAY_PX: int = 2
+# The spray a blow throws: three of the pack's four hit frames (the fourth is a single drop).
+const SPLAT_FRAMES: Array[String] = ["fx_blood_hit_1", "fx_blood_hit_2", "fx_blood_hit_0"]
 # A round's hole in a wall drawn flat from above sits this many art pixels down the tile from its
 # north edge -- on the face, not on the line the round crossed into the tile.
 const HOLE_ROW_PX: int = 14
@@ -88,7 +92,8 @@ func clear() -> void:
 static func art_for(kind: String, size: int, age: int, variant: int) -> String:
 	match kind:
 		"splat":
-			return "fx_blood_hit_1" if (variant & 1) == 0 else "fx_blood_hit_2"
+			# By the variant's high bits, so the frame and the turn (its low three) vary apart.
+			return SPLAT_FRAMES[(variant >> 3) % SPLAT_FRAMES.size()]
 		"drip":
 			if size <= 1:
 				return "fx_blood_hit_3"
@@ -142,7 +147,8 @@ static func items_for(world: Variant, rec: Dictionary, tick: int) -> Array[Dicti
 	if texture == null:
 		return out
 	var full := Rect2(Vector2.ZERO, Vector2(texture.get_size()))
-	var mod: Color = DRY_SHADE if _is_blood(kind) and age >= DRY_TICKS and not key.begins_with("fx_blood_pool") else Color.WHITE
+	var dry: bool = _is_blood(kind) and age >= DRY_TICKS and not key.begins_with("fx_blood_pool")
+	var mod: Color = Color.WHITE
 	var x: int = int(rec["x"])
 	var y: int = int(rec["y"])
 	var tile := Vector2i(floori(float(x) / ART_PX), floori(float(y) / ART_PX))
@@ -150,16 +156,18 @@ static func items_for(world: Variant, rec: Dictionary, tick: int) -> Array[Dicti
 	if kind == "smear":
 		var run := Vector2(float(rec.get("a", 0)), float(rec.get("b", 0)))
 		var steep: bool = absf(run.y) > absf(run.x)
-		var band: Vector2 = SMEAR_BAND.size
-		var size: Vector2 = Vector2(band.y, band.x) if steep else band
+		var size: Vector2 = full.size
+		var across: Vector2 = Vector2(1, 0) if steep else Vector2(0, 1)
 		var steps: int = maxi(1, int(run.length()) / SMEAR_STEP_PX)
 		for i in range(steps + 1):
 			var f: float = float(i) / float(steps)
-			var p := Vector2i(roundi(float(x) - run.x * (1.0 - f)), roundi(float(y) - run.y * (1.0 - f)))
-			var mirrored: bool = ((v + i) & 1) == 1
-			out.append({"key": key, "texture": texture, "region": SMEAR_BAND, "at": Vector2(p) - size * 0.5, "size": size,
-				"mirror": Vector2(-size.x if mirrored else size.x, size.y),
-				"transpose": steep, "flip": Vector2i(-1 if mirrored else 1, 1), "modulate": mod,
+			var turn_i: int = (v * 5 + i * 3) & 7
+			var sway: int = (v * 7 + i * 5) % (SMEAR_SWAY_PX * 2 + 1) - SMEAR_SWAY_PX
+			var p := Vector2i(roundi(float(x) - run.x * (1.0 - f) + across.x * sway), roundi(float(y) - run.y * (1.0 - f) + across.y * sway))
+			var fl := Vector2i(-1 if (turn_i & 2) != 0 else 1, -1 if (turn_i & 4) != 0 else 1)
+			out.append({"key": key, "texture": texture, "region": full, "at": Vector2(p) - size * 0.5, "size": size,
+				"mirror": Vector2(size.x * fl.x, size.y * fl.y),
+				"transpose": steep, "flip": fl, "modulate": mod, "dry": false,
 				"tile": Vector2i(floori(float(p.x) / ART_PX), floori(float(p.y) / ART_PX)), "wall": false, "x": p.x, "y": p.y, "t": int(rec["t"])})
 		return out
 	if kind == "hole" or kind == "dent":
@@ -170,7 +178,7 @@ static func items_for(world: Variant, rec: Dictionary, tick: int) -> Array[Dicti
 	var mirror := Vector2(-full.size.x if (turn & 2) != 0 else full.size.x, -full.size.y if (turn & 4) != 0 else full.size.y)
 	out.append({"key": key, "texture": texture, "region": full, "at": Vector2(x, y) - full.size * 0.5, "size": full.size, "mirror": mirror,
 		"transpose": (turn & 1) == 1, "flip": Vector2i(-1 if (turn & 2) != 0 else 1, -1 if (turn & 4) != 0 else 1),
-		"modulate": mod, "tile": tile, "wall": wall, "x": x, "y": y, "t": int(rec["t"])})
+		"modulate": mod, "dry": dry, "tile": tile, "wall": wall, "x": x, "y": y, "t": int(rec["t"])})
 	return out
 
 
@@ -331,30 +339,21 @@ func _bake(world: Variant, cx: int, cy: int) -> Dictionary:
 
 
 # One mark's picture as the bake lays it: the region cut from the pack's frame, turned a quarter
-# and mirrored when the record's variant says, and shaded dry when it is old. Cached, because a
-# handful of pictures and their eight turns are all the marks there are.
+# and mirrored when the record's variant says, cut hard at ALPHA_CUT, and given the dry pool's
+# colours when it is old. Cached, because a handful of pictures and their eight turns are all the
+# marks there are.
 func _cut_of(d: Dictionary) -> Image:
 	var region: Rect2 = d["region"] as Rect2
 	var flip: Vector2i = d["flip"] as Vector2i
-	var mod: Color = d["modulate"] as Color
-	var key: String = "%s|%s|%d|%d|%d|%s" % [d["key"], str(region), int(bool(d["transpose"])), flip.x, flip.y, mod.to_html()]
+	var dry: bool = bool(d.get("dry", false))
+	var key: String = "%s|%s|%d|%d|%d|%d" % [d["key"], str(region), int(bool(d["transpose"])), flip.x, flip.y, int(dry)]
 	var hit: Variant = _cut.get(key)
 	if hit is Image:
 		return hit as Image
-	var tex: Texture2D = d["texture"] as Texture2D
-	var src: Image = tex.get_image() if tex != null else null
-	if src == null:
-		# A renderer with no texture memory (the headless gates) hands back nothing; the source
-		# picture on disk is the same pixels.
-		var path: String = "%s/%s.png" % [Appearance.SPRITE_DIR, String(d["key"])]
-		if FileAccess.file_exists(path):
-			src = Image.load_from_file(path)
+	var src: Image = _source(String(d["key"]), d["texture"] as Texture2D)
 	if src == null:
 		return null
-	if src.is_compressed():
-		src.decompress()
 	src = src.get_region(Rect2i(region))
-	src.convert(Image.FORMAT_RGBA8)
 	if bool(d["transpose"]):
 		src.rotate_90(CLOCKWISE)
 		src.flip_x()
@@ -362,12 +361,78 @@ func _cut_of(d: Dictionary) -> Image:
 		src.flip_x()
 	if flip.y < 0:
 		src.flip_y()
-	if mod != Color.WHITE:
+	var dry_shades: Array = _dry_shades() if dry else []
+	var top: float = 0.0
+	if dry:
 		for y in src.get_height():
 			for x in src.get_width():
-				src.set_pixel(x, y, src.get_pixel(x, y) * mod)
+				var c0: Color = src.get_pixel(x, y)
+				if c0.a >= ALPHA_CUT:
+					top = maxf(top, c0.get_luminance())
+	for y in src.get_height():
+		for x in src.get_width():
+			var c: Color = src.get_pixel(x, y)
+			if c.a < ALPHA_CUT:
+				src.set_pixel(x, y, Color(0, 0, 0, 0))
+				continue
+			c.a = 1.0
+			if dry and not dry_shades.is_empty() and top > 0.0:
+				# The same place in the dry pool's range of shades as this pixel holds in its own.
+				var q: float = clampf(c.get_luminance() / top, 0.0, 1.0)
+				c = dry_shades[roundi(q * float(dry_shades.size() - 1))] as Color
+			src.set_pixel(x, y, c)
 	_cut[key] = src
 	return src
+
+
+# A pack frame's pixels, as RGBA8.
+static func _source(key: String, tex: Texture2D) -> Image:
+	var src: Image = tex.get_image() if tex != null else null
+	if src == null:
+		# A renderer with no texture memory (the headless gates) hands back nothing; the source
+		# picture on disk is the same pixels.
+		var path: String = "%s/%s.png" % [Appearance.SPRITE_DIR, key]
+		if FileAccess.file_exists(path):
+			src = Image.load_from_file(path)
+	if src == null:
+		return null
+	if src.is_compressed():
+		src.decompress()
+	src.convert(Image.FORMAT_RGBA8)
+	return src
+
+
+# The dry pool's solid colours, darkest first: the browns old blood is drawn in.
+var _dry: Array = []
+func _dry_shades() -> Array:
+	if not _dry.is_empty():
+		return _dry
+	var img: Image = _source(DRY_SOURCE, Appearance.resolve(DRY_SOURCE))
+	if img == null:
+		return _dry
+	var seen_c: Dictionary = {}
+	for y in img.get_height():
+		for x in img.get_width():
+			var c: Color = img.get_pixel(x, y)
+			if c.a >= ALPHA_CUT:
+				seen_c[Color(c.r, c.g, c.b, 1.0)] = true
+	_dry = seen_c.keys()
+	_dry.sort_custom(func(a: Color, b: Color) -> bool: return a.get_luminance() < b.get_luminance())
+	return _dry
+
+
+# A cut as a texture, for the marks drawn one by one on walls and cars.
+var _cut_tex: Dictionary = {}
+func _texture_of(d: Dictionary) -> Texture2D:
+	var img: Image = _cut_of(d)
+	if img == null:
+		return null
+	var hit: Variant = _cut_tex.get(img.get_instance_id())
+	if hit is Texture2D:
+		return hit as Texture2D
+	var t := ImageTexture.create_from_image(img)
+	_cut_tex[img.get_instance_id()] = t
+	return t
 
 
 # Every draw for the marks lying on the ground this frame, in screen pixels: for each chunk the view
@@ -491,12 +556,13 @@ func _ground(world: Variant, camera: Dictionary, seen: Variant, standing: Dictio
 						continue
 				elif not visible(seen, tile):
 					continue
+				var sd: Dictionary = _screen(origin, px, d, d["at"])
 				if canvas != null:
-					var at2: Vector2 = (origin + (d["at"] as Vector2) * px).round()
-					canvas.draw_texture_rect_region(d["texture"], Rect2(at2, (d["mirror"] as Vector2) * px), d["region"], d["modulate"], d["transpose"])
-					drawn.append(d["key"])
+					if sd["texture"] != null:
+						canvas.draw_texture_rect(sd["texture"], sd["rect"], false)
+						drawn.append(d["key"])
 				else:
-					out.append(_screen(origin, px, d, d["at"]))
+					out.append(sd)
 	_let_go()
 
 
@@ -589,15 +655,14 @@ static func visible(seen: Variant, tile: Vector2i) -> bool:
 	return seen == null or bool((seen as Object).call("has_tile", tile.x, tile.y))
 
 
-static func _screen(origin: Vector2, px: float, d: Dictionary, at: Vector2) -> Dictionary:
+# One mark drawn on its own (a wall's or a car's), from its hard-cut, already-turned picture.
+func _screen(origin: Vector2, px: float, d: Dictionary, at: Vector2) -> Dictionary:
 	var size: Vector2 = (d["size"] as Vector2) * px
 	var pos: Vector2 = (origin + at * px).round()
-	var flip: Vector2i = d["flip"] as Vector2i
-	# `rect` is where the picture lands on screen, always a positive size; `canvas` is the rect the
-	# draw call takes, with a mirrored axis negative -- the canvas keeps the rect's position and
-	# mirrors the picture inside it.
-	return {"key": d["key"], "texture": d["texture"], "region": d["region"], "rect": Rect2(pos, size),
-		"canvas": Rect2(pos, Vector2(size.x * flip.x, size.y * flip.y)), "transpose": d["transpose"], "modulate": d["modulate"]}
+	var tex: Texture2D = _texture_of(d)
+	var rect := Rect2(pos, size)
+	return {"key": d["key"], "texture": tex, "region": Rect2(Vector2.ZERO, d["size"] as Vector2), "rect": rect,
+		"canvas": rect, "transpose": false, "modulate": Color.WHITE}
 
 
 # Screen position of world art pixel (0, 0): the projection is a scale and an offset, so one call a
