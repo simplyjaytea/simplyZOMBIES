@@ -1929,6 +1929,14 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **Gate infrastructure — the `godot:m2` chain runs as four CI shards, 2026-10-19.** The
+  85-gate chain took 40m45s on one runner (job 118220307956, measured on 2b48fef), against the
+  45-minute `godot-m2` limit. `scripts/m2-shards.mjs` splits it into four `godot-m2-shard` jobs,
+  balanced by those per-gate times; `godot:m2:balance` alone (791 s) is the floor on wall time.
+  `godot-m2` is now the aggregate required check and fails unless every shard passed. The gates
+  that write the per-machine `user://` store share shard 3. `npm run check:shards` (`SHARDS_OK`;
+  its self-test refuses five broken layouts) proves each chained gate is in exactly one shard.
+  Unsharded `npm run godot:m2` is unchanged. Wall time of the sharded run: see the PR.
 - **UI — the sheet and Work grid fit the reviewed viewports, 2026-10-03.** At 1280×720,
   inventory now separates its equipment, native 56-pixel bag cells and inspect pane, keeping
   all seven frame-pack columns reachable. The compact sheet uses the condition chart at integer
