@@ -39,6 +39,8 @@ sys.dont_write_bytecode = True
 
 from PIL import Image  # noqa: E402
 
+import actions as act  # noqa: E402
+
 HERE = Path(__file__).resolve().parent
 PACK = HERE.parent
 GODOT = PACK.parent.parent
@@ -83,6 +85,33 @@ RIDES = {
 }
 # Two breath pictures a cycle (the rest view, then the inhale), one a second: a slow, readable rise.
 BREATH_FPS = 1
+
+# Each action's rate, frames a second of presentation time, and whether it loops (alpha plan A8;
+# docs/23, "Actions on the render clock"). Written into each family's authored.json entry as
+# `actions`, which is what Appearance and the animation clock read -- timing is content, beside
+# the walk's own `fps`. The heavy is slower at everything, as it is at walking.
+ACTION_TIMING = {
+    "body_survivor": {
+        "swing": {"fps": 14, "loop": False},
+        "recoil": {"fps": 16, "loop": False},
+        # One-shots the clock holds on their last beat (back at the stance) for as long as the
+        # sim's Reload or Clearing state lasts: a pistol's reloadTicks is 24 (1.2 s), a long gun's more.
+        "reload": {"fps": 8, "loop": False},
+        "reload_long": {"fps": 6, "loop": False},
+        "reload_tube": {"fps": 6, "loop": False},
+        "flinch": {"fps": 12, "loop": False},
+        "crouch": {"fps": 1, "loop": True},
+        "crouchwalk": {"fps": 16, "loop": True},
+        "prone": {"fps": 16, "loop": True},
+        "fall": {"fps": 10, "loop": False},
+    },
+    "zombie": {"lunge": {"fps": 10, "loop": False}, "stagger": {"fps": 8, "loop": False}, "fall": {"fps": 8, "loop": False}},
+    "body_zombie_heavy": {"lunge": {"fps": 8, "loop": False}, "stagger": {"fps": 6, "loop": False}, "fall": {"fps": 6, "loop": False}},
+}
+
+
+def action_timing(fam):
+    return ACTION_TIMING.get(fam, ACTION_TIMING["zombie"])
 
 # Where the in-betweens cut a body, as a fraction of its rest view's height from the top: the hip
 # for the walk's bob, the chest for the breath. Rows above the cut move; the cut row is the one that
@@ -504,9 +533,13 @@ def survivor(build):
     fam = "body_survivor"
     members = {}
     frames_by_view = {}
+    rests, walks, walk_hands = {}, {}, {}
     for view in VIEWS:
         rest_path = PACK / "textures" / "characters" / f"survivor_{view}.png"
         rest = load(rest_path)
+        rests[view] = rest.crop((0, 0) + SURVIVOR_CANVAS)
+        walks[view] = []
+        walk_hands[view] = []
         members[f"{fam}_{view}"] = {"source": {"path": f"art/simplyzombies/textures/characters/survivor_{view}.png", "crop": [0, 0, 32, 40]}}
         strip = load(HERE / "sources" / f"survivor-{WORDS[view]}.png")
         walk = []
@@ -540,6 +573,8 @@ def survivor(build):
             entry["hands"] = dict(sorted(hands.items()))
             members[f"{fam}_walk_{view}_{n}"] = entry
             walk.append(rel)
+            walks[view].append(cell)
+            walk_hands[view].append({slot: tuple(pt) for slot, pt in hands.items()})
         breath = survivor_breath(rest, view)
         rel = f"textures/characters/motion/survivor_idle_{view}_01.png"
         build.put(PACK / rel, breath)
@@ -552,8 +587,50 @@ def survivor(build):
         entry["hands"] = dict(sorted(hands.items()))
         members[f"{fam}_idle_{view}_1"] = entry
         frames_by_view[view] = {"walk": walk, "idle": [f"textures/characters/survivor_{view}.png", rel]}
+    survivor_actions(build, fam, members, frames_by_view, rests, walks, walk_hands)
     build.members[fam] = members
     build.manifest_frames[("pack", "survivor")] = frames_by_view
+
+
+def _member(build, members, fam, action, view, n, rel_dir, rel_name, im, rest, hands=None, root="art/simplyzombies/", base=PACK, crop=None):
+    """Writes one action frame and declares it: the member, its head/torso offsets against the
+    view's rest picture and, for a body that holds things, its hands."""
+    rel = f"{rel_dir}/{rel_name}"
+    build.put(base / rel, im)
+    head, torso = offsets(im, rest) if action not in act.LYING else ([0, 0], [0, 0])
+    source = {"path": f"{root}{rel}"}
+    if crop is not None:
+        source["crop"] = crop
+    entry = {"source": source, "head": head, "torso": torso}
+    if hands is not None:
+        entry["hands"] = {slot: list(pt) for slot, pt in sorted(hands.items())}
+    members[f"{fam}_{action}_{view}_{n}"] = entry
+    return rel
+
+
+def survivor_actions(build, fam, members, frames_by_view, rests, walks, walk_hands):
+    """The survivor's action frames: the generated swing and every derived action."""
+    swing = {view: act.swing_frames(act.strip_path(view), SURVIVOR_CANVAS, view) for view in act.SWING_GENERATED if act.strip_path(view).exists()}
+    for action in act.SURVIVOR_ACTIONS:
+        if action == "swing" and any(view not in swing for view in act.SWING_GENERATED):
+            continue  # every generated view or none: a swing seen from one side only is not shipped
+        views = act.LYING_VIEWS if action in act.LYING else VIEWS
+        for view in views:
+            rest = rests[view]
+            rest_hands = {slot: tuple(by_view[view]) for slot, by_view in REST_HANDS.items()}
+            if action == "swing" and view in act.SWING_GENERATED:
+                frames = [(im, act.swing_hands(im, view, rest_hands)) for im in swing[view]]
+            elif action in ("reload", "reload_long", "reload_tube"):
+                frames = act.reload_frames(rest, view, {"reload": "pistol", "reload_long": "long", "reload_tube": "tube"}[action])
+            elif action == "prone":
+                frames = [(im, None) for im in act.prone_frames(walks["n"], view)]
+            else:
+                # A falling body holds nothing (the corpse pass draws no layer), so declares no hands.
+                frames = act.derive(rest, action, view, walk=walks[view], hands=None if action == "fall" else rest_hands, walk_hands=walk_hands[view])
+            rels = []
+            for n, (im, hands) in enumerate(frames):
+                rels.append(_member(build, members, fam, action, view, n, "textures/characters/motion", f"survivor_{action}_{view}_{n:02d}.png", im, rest, hands, crop=[0, 0, 32, 40]))
+            frames_by_view[view][action] = rels
 
 
 def zombie(build, fam, spec):
@@ -594,6 +671,11 @@ def zombie(build, fam, spec):
         head, torso = offsets(breath, rest)
         members[f"{fam}_idle_{view}_1"] = {"source": {"path": f"art/simplyzombies/zombie-poses/{rel}"}, "head": head, "torso": torso}
         frames_by_view[view] = {"walk": walk, "idle": [f"textures/{spec['dir']}/idle-{word}-00.png", rel]}
+        for action in act.ZOMBIE_ACTIONS:
+            rels = []
+            for n, (im, _hands) in enumerate(act.derive(rest, action, view)):
+                rels.append(_member(build, members, fam, action, view, n, f"textures/{spec['dir']}/motion", f"{action}-{word}-{n:02d}.png", im, rest, root="art/simplyzombies/zombie-poses/", base=POSES))
+            frames_by_view[view][action] = rels
     build.members[fam] = members
     build.manifest_frames[("poses", spec["dir"])] = frames_by_view
 
@@ -613,6 +695,12 @@ def ordered_members(fam, members):
         while f"{fam}_idle_{view}_{n}" in members:
             out[f"{fam}_idle_{view}_{n}"] = members[f"{fam}_idle_{view}_{n}"]
             n += 1
+    for action in act.SURVIVOR_ACTIONS + act.ZOMBIE_ACTIONS:
+        for view in VIEWS:
+            n = 0
+            while f"{fam}_{action}_{view}_{n}" in members and f"{fam}_{action}_{view}_{n}" not in out:
+                out[f"{fam}_{action}_{view}_{n}"] = members[f"{fam}_{action}_{view}_{n}"]
+                n += 1
     return out
 
 
@@ -623,6 +711,9 @@ def updated_authored(build):
         entry["fps"] = FAMILIES[fam]["fps"]
         entry["pace"] = FAMILIES[fam]["pace"]
         entry["breath_fps"] = BREATH_FPS
+        timing = action_timing(fam)
+        carried = [a for a in act.SURVIVOR_ACTIONS + act.ZOMBIE_ACTIONS if any(m.startswith(f"{fam}_{a}_") for m in members)]
+        entry["actions"] = {a: timing[a] for a in carried}
         entry["members"] = ordered_members(fam, members)
     for key, region in RIDES.items():
         doc["keys"][key]["rides"] = region
@@ -638,7 +729,13 @@ def updated_pack_manifest(build):
         for view in VIEWS:
             asset["frames"][f"walk_{view}"] = [{"path": p} for p in frames_by_view[view]["walk"]]
             asset["frames"][f"idle_{view}"] = [{"path": p} for p in frames_by_view[view]["idle"]]
-        asset["fps"] = {"idle": BREATH_FPS, "walk": FAMILIES["body_survivor"]["fps"]}
+        fps = {"idle": BREATH_FPS, "walk": FAMILIES["body_survivor"]["fps"]}
+        for action in act.SURVIVOR_ACTIONS:
+            for view in VIEWS:
+                if action in frames_by_view[view]:
+                    asset["frames"][f"{action}_{view}"] = [{"path": p} for p in frames_by_view[view][action]]
+                    fps[action] = action_timing("body_survivor")[action]["fps"]
+        asset["fps"] = fps
     return json.dumps(doc, indent=2) + "\n"
 
 
@@ -657,6 +754,30 @@ def updated_pose_manifest(build):
                     asset["frames"]["idle"] = [{"path": p} for p in frames["idle"]]
                     asset["fps"] = BREATH_FPS
                     asset["loop"] = True
+    # The action clips: one asset per family, action and direction, beside the walk's, so a member
+    # names the clip it came from exactly as a walk frame does (`<dir>-<action>-<direction>`).
+    kept = [a for a in doc["assets"] if not any(a.get("id", "") == f"{d}-{action}-{WORDS[view]}" for d in by_dir for action in act.ZOMBIE_ACTIONS for view in VIEWS)]
+    for d, (fam, spec) in by_dir.items():
+        w, h = spec["canvas"]
+        for action in act.ZOMBIE_ACTIONS:
+            timing = action_timing(fam)[action]
+            for view in VIEWS:
+                rels = build.manifest_frames[("poses", d)][view][action]
+                kept.append({
+                    "id": f"{d}-{action}-{WORDS[view]}",
+                    "label": f"{d.split('-', 1)[1].capitalize()} {action} {WORDS[view]}",
+                    "category": "zombie",
+                    "path": rels[0],
+                    "size": [w, h],
+                    "anchor": [w // 2, h],
+                    "direction": WORDS[view],
+                    "state": action,
+                    "frames": {action: [{"path": p} for p in rels]},
+                    "fps": timing["fps"],
+                    "loop": timing["loop"],
+                    "status": "derived-action",
+                })
+    doc["assets"] = kept
     return json.dumps(doc, indent=2) + "\n"
 
 

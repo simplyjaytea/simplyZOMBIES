@@ -16,12 +16,25 @@ extends SceneTree
 # extrapolated past WIDE_HALF and was saved only by the clampf at the bottom while a light one
 # started already half-tightened. Bounded, silent, wrong, and invisible to any assertion that only
 # looks at tick counts.
+#
+# HEADING is aim as a second heading, priced at a walk (sim/aim.gd; docs/30's decoupled paperdoll,
+# decision 7; alpha plan A9 with the owner's 2026-10-19 answer to Q3, the cursor is the aimer). A
+# stationary body turns feet and aim to a proposal; a walking one keeps its heading and turns only
+# its aim; a jogging one refuses the proposal and has a held aim snapped back to the heading; the
+# shot, the swing and the eyes read the aim; a moving shooter aiming away from where it walks has
+# its cone widened *past* WIDE_HALF, in proportion to the turn; anything else that turns a body
+# turns its aim. True negatives throughout: a body never aimed has no `aim` and reads its facing, a
+# walking shooter aiming where it walks pays nothing extra, and a standing one pays nothing at all.
 
 const SimBoot = preload("res://sim/boot.gd")
 const SimCombat = preload("res://sim/combat.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
+const SimAim = preload("res://sim/aim.gd")
+const SimStances = preload("res://sim/stances.gd")
+const SimNpcCombat = preload("res://sim/modules/npc_combat.gd")
+const SimVisibility = preload("res://sim/vision/visibility.gd")
 
 # Weapon, its ammunition, and the `ranged.weight` its base declares. The weight is written out
 # here rather than read off the content on purpose: a gate that reads the value under test and
@@ -45,11 +58,12 @@ func _run() -> void:
 	ok = _the_cone_is_normalised_to_each_weapons_rung() and ok
 	ok = _a_ruined_arm_widens_the_cone_and_an_intact_one_does_not() and ok
 	ok = _recovery_after_a_shot_is_per_weapon() and ok
+	ok = _aim_is_a_second_heading_priced_at_a_walk() and ok
 	if not ok:
 		push_error("M2_AIM_FAIL")
 		quit(1)
 		return
-	print("M2_AIM_OK sway heft cone arm recover")
+	print("M2_AIM_OK sway heft cone arm recover heading")
 	quit(0)
 
 
@@ -319,3 +333,135 @@ func _recovery_after_a_shot_is_per_weapon() -> bool:
 		return false
 	print("RECOVER OK pistol %d, shotgun %d ticks between shots" % [int(got["item.pistol.service"]), int(got["item.shotgun.pump"])])
 	return true
+
+
+# --- heading ------------------------------------------------------------------------------------
+
+func _stand(w: Variant) -> void:
+	w.commands.push({"type": "move", "dx": 0.0, "dy": 0.0})
+	w.step()
+
+
+func _walk_east(w: Variant, stance: int) -> void:
+	var posture: Dictionary = w.components.get_component(w.player, "posture") as Dictionary
+	posture["current"] = stance
+	posture["target"] = stance
+	posture["ticks_left"] = 0
+	w.commands.push({"type": "move", "dx": 1.0, "dy": 0.0})
+	w.step()
+
+
+func _facing_of(w: Variant) -> float:
+	return float((w.components.get_component(w.player, "facing") as Dictionary)["radians"])
+
+
+func _aim_is_a_second_heading_priced_at_a_walk() -> bool:
+	var lane: String = "HEADING"
+	var w: Variant = _world()
+	# A body never aimed has no `aim`, and reads its facing.
+	if w.components.has_component(w.player, "aim"):
+		push_error("%s: the player carries an aim nobody proposed" % lane)
+		return false
+	_stand(w)
+	if SimAim.radians_of(w.components, w.player) != _facing_of(w):
+		push_error("%s: a body with no aim does not read its facing" % lane)
+		return false
+	SimAim.follow_facing(w.components, w.player)
+	if w.components.has_component(w.player, "aim"):
+		push_error("%s: follow_facing grew an aim on a body that had none" % lane)
+		return false
+
+	# Standing still: feet and aim both turn to the proposal.
+	w.commands.push({"type": "aim", "radians": 1.0})
+	w.step()
+	if absf(_facing_of(w) - 1.0) > 1e-6 or absf(SimAim.radians_of(w.components, w.player) - 1.0) > 1e-6:
+		push_error("%s: a standing body aimed at 1.0 faces %.3f and aims %.3f" % [lane, _facing_of(w), SimAim.radians_of(w.components, w.player)])
+		return false
+
+	# Walking east and aiming north: the feet keep east, the aim holds north, the cone is priced.
+	var rw: Variant = _armed(w, "item.pistol.service")
+	if not rw is Dictionary:
+		return false
+	_steady_hands(w)
+	_walk_east(w, SimStances.Stance.Walk)
+	# Aimed where it walks first: the standing aim of 1.0 is still held, and walking east under it
+	# is already a twist.
+	w.commands.push({"type": "move", "dx": 1.0, "dy": 0.0})
+	w.commands.push({"type": "aim", "radians": 0.0})
+	w.step()
+	var straight_half: float = 0.0
+	SimRanged._refresh_cone(w, w.player, rw as Dictionary)
+	straight_half = float((rw as Dictionary)["coneHalf"])
+	w.commands.push({"type": "move", "dx": 1.0, "dy": 0.0})
+	w.commands.push({"type": "aim", "radians": -PI / 2.0})
+	w.step()
+	if absf(_facing_of(w)) > 1e-6 or absf(SimAim.radians_of(w.components, w.player) + PI / 2.0) > 1e-6:
+		push_error("%s: walking east aimed north faces %.3f and aims %.3f; want 0 and -PI/2" % [lane, _facing_of(w), SimAim.radians_of(w.components, w.player)])
+		return false
+	SimRanged._refresh_cone(w, w.player, rw as Dictionary)
+	var twisted_half: float = float((rw as Dictionary)["coneHalf"])
+	var want_twisted: float = SimRanged.WIDE_HALF + SimRanged.TWIST_WIDEN * 0.5
+	if absf(straight_half - SimRanged.WIDE_HALF) > 1e-6 or absf(twisted_half - want_twisted) > 1e-4:
+		push_error("%s: walking straight the cone is %.4f (want WIDE_HALF %.4f) and aimed a quarter turn away %.4f (want %.4f, past WIDE_HALF)" % [lane, straight_half, SimRanged.WIDE_HALF, twisted_half, want_twisted])
+		return false
+	# The eyes follow the aim: a point four metres north is seen better than one four metres south.
+	var p: Dictionary = w.components.get_component(w.player, "position") as Dictionary
+	var north: int = int(w.vision.detail(int(w.player), float(p["x"]), float(p["y"]) - 4.0))
+	var south: int = int(w.vision.detail(int(w.player), float(p["x"]), float(p["y"]) + 4.0))
+	if north <= south:
+		push_error("%s: walking east aimed north, the eyes see north at detail %d and south at %d" % [lane, north, south])
+		return false
+
+	# Standing still twisted is free: the feet turn with the aim, so there is no twist to price.
+	_stand(w)
+	w.commands.push({"type": "aim", "radians": PI / 2.0})
+	w.step()
+	SimRanged._refresh_cone(w, w.player, rw as Dictionary)
+	if SimAim.twist(w.components, w.player) > 1e-6 or float((rw as Dictionary)["coneHalf"]) > SimRanged.WIDE_HALF + 1e-6:
+		push_error("%s: a standing body that turned to its aim still pays %.4f (twist %.3f)" % [lane, float((rw as Dictionary)["coneHalf"]), SimAim.twist(w.components, w.player)])
+		return false
+
+	# Jogging: a proposal is refused, and a held aim snaps back to the heading.
+	_walk_east(w, SimStances.Stance.Walk)
+	w.commands.push({"type": "move", "dx": 1.0, "dy": 0.0})
+	w.commands.push({"type": "aim", "radians": -PI / 2.0})
+	w.step()
+	_walk_east(w, SimStances.Stance.Jog)
+	if absf(SimAim.radians_of(w.components, w.player) - _facing_of(w)) > 1e-6:
+		push_error("%s: jogging east the aim stayed at %.3f; it should snap to the heading %.3f" % [lane, SimAim.radians_of(w.components, w.player), _facing_of(w)])
+		return false
+	w.commands.push({"type": "move", "dx": 1.0, "dy": 0.0})
+	w.commands.push({"type": "aim", "radians": PI / 2.0})
+	w.step()
+	if absf(SimAim.radians_of(w.components, w.player) - _facing_of(w)) > 1e-6:
+		push_error("%s: a jogging body took an aim proposal of PI/2 (aims %.3f)" % [lane, SimAim.radians_of(w.components, w.player)])
+		return false
+
+	# An NPC turn turns the aim: a stale proposal never points the swing a turn is for.
+	_stand(w)
+	(w.components.get_component(w.player, "posture") as Dictionary)["current"] = SimStances.Stance.Walk
+	w.commands.push({"type": "aim", "radians": PI})
+	w.step()
+	SimNpcCombat._face_at(w, w.player, float(p["x"]), float(p["y"]) - 3.0)
+	if absf(SimAim.radians_of(w.components, w.player) - _facing_of(w)) > 1e-6:
+		push_error("%s: an NPC turn left the aim at %.3f behind a body facing %.3f" % [lane, SimAim.radians_of(w.components, w.player), _facing_of(w)])
+		return false
+
+	# The shot, the swing and the eyes read the aim, not the facing -- and the needle can fail.
+	for path in ["res://sim/modules/ranged.gd", "res://sim/modules/melee.gd", "res://sim/vision/visibility.gd"]:
+		if not _reads_aim(FileAccess.get_file_as_string(path)):
+			push_error("%s: %s does not read the aim" % [lane, path])
+			return false
+	if _reads_aim("\t# SimAimRes.radians_of(world.components, x)\n") or not _reads_aim("\tvar a: float = SimAimRes.radians_of(world.components, x)\n"):
+		push_error("%s: the aim-reader scan passed a commented read or refused a real one" % lane)
+		return false
+	print("HEADING OK a body never aimed reads its facing and grows no aim; standing still turns feet and aim; walking east aimed north keeps the feet east, sees north better than south, and widens the cone from %.3f to %.3f (past WIDE_HALF); standing twisted is free; jogging refuses a proposal and snaps a held aim back; an NPC turn turns the aim; the shot, the swing and the eyes read it" % [straight_half, twisted_half])
+	return true
+
+
+# Whether a source reads the aim in code, not in a comment.
+func _reads_aim(src: String) -> bool:
+	for line in src.split("\n"):
+		if not line.strip_edges().begins_with("#") and line.contains("SimAimRes.radians_of(world.components, "):
+			return true
+	return false

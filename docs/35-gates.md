@@ -62,6 +62,7 @@ npm run godot:check:speech   # speech bubbles: a line said, and who says it → 
 npm run godot:check:respond  # the antibiotics word  → RESPOND_OK
 npm run godot:check:camera   # smoothed follow, shake → CAMERA_OK
 npm run godot:check:motion   # bodies drawn between ticks, the accumulator clamped → MOTION_OK
+npm run godot:check:action   # actions and stances played on the render clock → ACTION_OK
 npm run godot:check:world_bake # ground, walls, roofs baked per chunk; the mask leaks nothing → WORLD_BAKE_OK
 npm run godot:check:light    # sight-derived wash, lit ∩ seen pools → LIGHT_LOOK_OK
 npm run godot:check:memory   # the afterimage, and the remembered map dimmed → MEMORY_LOOK_OK
