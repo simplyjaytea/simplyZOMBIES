@@ -1796,8 +1796,8 @@ static func _raw_top_uncached(occ: Dictionary, map: Variant, tx: int, ty: int) -
 # it to the rest of the rules, so a tile that rolled a dumpster then rolls no sign. So every barrier,
 # cone, post, sign and lamp main drew stands where it stood, ignoring the clearing, and nothing but a
 # prop on its own tile (RANK_HELD) takes its place: a kept piece beats every neighbour it meets
-# (`_beats`) and gives way to none (`_kept_alone`). Its jitter is the plain rule's, held to the
-# middle of its tile where the jitter would leave its ground.
+# (`_beats`) and gives way to none (`_kept_alone`). It takes no jitter and no mirror: main hung it
+# centred on its tile, on the tile's south edge, and so does this.
 static func _kept_raw(occ: Dictionary, map: Variant, tx: int, ty: int) -> Dictionary:
 	var idx: int = ty * int(map.w) + tx
 	if int(map.tiles[idx]) != SimTileMap.Tile.Floor:
@@ -1822,10 +1822,9 @@ static func _kept_raw(occ: Dictionary, map: Variant, tx: int, ty: int) -> Dictio
 		if not (occ["sizes"] as Dictionary).has(key):
 			return {}
 		var standing: bool = bool(entry[FE_STANDING])
-		var off: Vector2i = _offsets_for(entry as Array, seed_term, tx, ty)
-		if not _footprint_fits(map, _art_rect(entry[FE_EXTENT], off.x, off.y), tx, ty, indoors, int(entry[FE_MASK])):
-			off = Vector2i(0, off.y)
-		return {"key": key, "rank": RANK_STANDING if standing else RANK_FLAT, "prio": 3, "ox": off.x, "oy": off.y, "flip": false, "kept": true}
+		# Main hung it centred on its tile with its last row on the tile's south edge, unmirrored:
+		# offsets (0, 0), so it stands on the very pixels it stood on.
+		return {"key": key, "rank": RANK_STANDING if standing else RANK_FLAT, "prio": 3, "ox": 0, "oy": 0, "flip": false, "kept": true}
 	return {}
 
 
