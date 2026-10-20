@@ -41,17 +41,18 @@ extends RefCounted
 
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimSurface = preload("res://sim/map/surface.gd")
+const SimBootRes = preload("res://sim/boot.gd")
 const Appearance = preload("res://presentation/appearance.gd")
 
 # The one dressing entry presentation asks for. Named here so main.gd carries no content id, the
 # same rule PROP_KINDS and PLAYER_LOOK_ID follow.
 const BLOCK_ID: String = "dressing.street"
 
-# One street tile in LITTER_RARITY carries a scrap. Still sparse: litter is texture, and texture that
-# lands on a third of the street stops being texture and becomes a surface. It was 1 in 17 until
-# the A12 density slice, whose before shots read as bare street; 1 in 6 is a judgement from those
-# shots, not a measured reference. The scatter is baked with the ground (the tile pass), so its
-# cost is the bake's, not the frame's.
+# One paved floor tile in LITTER_RARITY carries a scrap, street or room alike. Still sparse: litter
+# is texture, and texture that lands on a third of the floor stops being texture and becomes a
+# surface. It was 1 in 17 on the street until the A12 density slice, whose before shots read as bare
+# street; 1 in 6 is a judgement from those shots, not a measured reference. The scatter is baked
+# with the ground (the tile pass), so its cost is the bake's, not the frame's.
 const LITTER_RARITY: int = 6
 
 # Hash salts, one per independent decision, so two choices about the same tile cannot correlate.
@@ -66,6 +67,13 @@ const SALT_GROUND: int = 5
 const SALT_TREE: int = 6
 # Which colour a parked vehicle takes, hashed on its record's corner and so once for the whole car.
 const SALT_VEHICLE: int = 7
+# Which way a scrap of litter faces, and which way a flat picture is mirrored: its own salts, so
+# a flip cannot correlate with the roll that placed the picture.
+const SALT_LITTER_FLIP: int = 11
+const SALT_FLIP: int = 402
+# Where a flat picture sits inside its tile: one salt per axis, never the placement roll's.
+const SALT_JITTER_X: int = 400
+const SALT_JITTER_Y: int = 401
 # A tree's alpha while a Focal body's ground point lies inside its screen rect: the tree fades,
 # never the body (docs/30 decision 10). Opaque otherwise.
 const TREE_FADE_ALPHA: float = 0.55
@@ -602,6 +610,11 @@ static func _nature_chunk_picks(entries: Array, map: Variant, seed_val: int, cx:
 # Well clear of SALT_NATURE's block of entries.
 const SALT_FURNISH: int = 300
 
+# How far a furnishing keeps off the colony's start, in tiles (Chebyshev). A flat picture's
+# offset from its tile's centre is a whole number of JITTER_STEPS fifths of a tile, either way.
+const FURNISH_CLEAR: int = 3
+const JITTER_STEPS: int = 4
+
 # The one thing a `beside` may name here, and the tile class it means.
 const FURNISH_BESIDE_WALL: String = "wall"
 const FURNISH_INDOORS: String = "indoors"
@@ -687,9 +700,11 @@ static func _furnishing_ground_fits(entry: Array, map: Variant, tx: int, ty: int
 # The picture one tile takes out of the prepared entries: the first whose `where` and surface
 # match, whose roll lands and whose ground fits, or "". The roll is `nature`'s -- `hash_at` shifted
 # before the modulo, written out with the salt already multiplied.
-static func _furnishing_pick(entries: Array, map: Variant, seed_term: int, tx: int, ty: int) -> String:
+static func _furnishing_pick(entries: Array, map: Variant, seed_term: int, tx: int, ty: int, clear: Rect2i) -> String:
 	var idx: int = ty * int(map.w) + tx
 	if int(map.tiles[idx]) != SimTileMap.Tile.Floor:
+		return ""
+	if clear.has_point(Vector2i(tx, ty)):
 		return ""
 	var indoors: bool = int(map.indoors[idx]) == 1
 	var surface: int = int(map.surfaces[idx])
@@ -699,7 +714,7 @@ static func _furnishing_pick(entries: Array, map: Variant, seed_term: int, tx: i
 			continue
 		if (int(entry[3]) >> surface) & 1 == 0:
 			continue
-		if (((base ^ int(entry[2])) & 0x7fffffff) >> 8) % int(entry[1]) != 0:
+		if _mix((base ^ int(entry[2])) & 0x7fffffff) % int(entry[1]) != 0:
 			continue
 		if _furnishing_ground_fits(entry as Array, map, tx, ty):
 			return String(entry[0])
@@ -714,7 +729,7 @@ static func furnishing_key(block: Dictionary, map: Variant, seed_val: int, tx: i
 		return ""
 	if tx < 0 or ty < 0 or tx >= int(map.w) or ty >= int(map.h):
 		return ""
-	return _furnishing_pick(entries, map, seed_val * _HASH_SEED, tx, ty)
+	return _furnishing_pick(entries, map, seed_val * _HASH_SEED, tx, ty, _clear_of(map))
 
 
 # Every tile inside `bounds` the observer can see that carries a furnishing, as `{tx, ty, key}`.
@@ -729,10 +744,11 @@ static func furnishing_tiles(block: Dictionary, map: Variant, seen: Variant, see
 	if entries.is_empty():
 		return out
 	var seed_term: int = seed_val * _HASH_SEED
+	var clear: Rect2i = _clear_of(map)
 	var box: Rect2i = _tile_box(map, bounds)
 	for ty in range(box.position.y, box.end.y):
 		for tx in range(box.position.x, box.end.x):
-			var key: String = _furnishing_pick(entries, map, seed_term, tx, ty)
+			var key: String = _furnishing_pick(entries, map, seed_term, tx, ty, clear)
 			if key.is_empty():
 				continue
 			if (seen as Object).call("has_tile", tx, ty):
@@ -758,7 +774,7 @@ static func furnishing_tiles_cached(block: Dictionary, map: Variant, seen: Varia
 		for cx in range(_chunk_of(box.position.x), _chunk_of(box.end.x - 1) + 1):
 			var index: int = cy * chunks_wide + cx
 			if not cache.has(index):
-				cache[index] = _furnishing_chunk_picks(entries, map, seed_val, cx, cy)
+				cache[index] = _furnishing_chunk_picks(entries, map, seed_val, cx, cy, _clear_of(map))
 			for pick in cache[index] as Array:
 				var tx: int = int((pick as Dictionary)["tx"])
 				var ty: int = int((pick as Dictionary)["ty"])
@@ -788,14 +804,14 @@ static func standing_furnishing_tiles_cached(block: Dictionary, map: Variant, se
 	return out
 
 
-static func _furnishing_chunk_picks(entries: Array, map: Variant, seed_val: int, cx: int, cy: int) -> Array:
+static func _furnishing_chunk_picks(entries: Array, map: Variant, seed_val: int, cx: int, cy: int, clear: Rect2i) -> Array:
 	var out: Array = []
 	var seed_term: int = seed_val * _HASH_SEED
 	var x1: int = mini((cx + 1) * NATURE_CHUNK, int(map.w))
 	var y1: int = mini((cy + 1) * NATURE_CHUNK, int(map.h))
 	for ty in range(cy * NATURE_CHUNK, y1):
 		for tx in range(cx * NATURE_CHUNK, x1):
-			var key: String = _furnishing_pick(entries, map, seed_term, tx, ty)
+			var key: String = _furnishing_pick(entries, map, seed_term, tx, ty, clear)
 			if not key.is_empty():
 				out.append({"tx": tx, "ty": ty, "key": key})
 	return out
@@ -815,6 +831,7 @@ static func decor_picks(block: Dictionary, map: Variant, seed_val: int, region: 
 	var nature: Array = _nature_entries(block)
 	var furnish: Array = _furnishing_entries(block)
 	var seed_term: int = seed_val * _HASH_SEED
+	var clear: Rect2i = _clear_of(map)
 	var x0: int = maxi(0, region.position.x)
 	var y0: int = maxi(0, region.position.y)
 	var x1: int = mini(int(map.w), region.end.x)
@@ -824,14 +841,62 @@ static func decor_picks(block: Dictionary, map: Variant, seed_val: int, region: 
 			for tx in range(x0, x1):
 				var nature_key: String = _nature_pick(nature, map, seed_term, tx, ty)
 				if not nature_key.is_empty():
-					(out["nature"] as Array).append({"tx": tx, "ty": ty, "key": nature_key})
+					(out["nature"] as Array).append(_placed(nature_key, seed_val, tx, ty))
 	if not furnish.is_empty():
 		for ty in range(y0, y1):
 			for tx in range(x0, x1):
-				var furnish_key: String = _furnishing_pick(furnish, map, seed_term, tx, ty)
+				var furnish_key: String = _furnishing_pick(furnish, map, seed_term, tx, ty, clear)
 				if not furnish_key.is_empty() and not furnishing_is_standing(block, furnish_key):
-					(out["furnishings"] as Array).append({"tx": tx, "ty": ty, "key": furnish_key})
+					(out["furnishings"] as Array).append(_placed(furnish_key, seed_val, tx, ty))
 	return out
+
+
+# One flat picture's record: its tile, its key, where in the tile it sits (`ox`, `oy`, in tiles,
+# within JITTER_STEPS fifths of the tile's centre either way) and whether it is mirrored. A pure
+# hash of the seed and the tile, so the grid the placement rolls make is broken the same way on
+# every boot.
+static func _placed(key: String, seed_val: int, tx: int, ty: int) -> Dictionary:
+	return {
+		"tx": tx,
+		"ty": ty,
+		"key": key,
+		"ox": _jitter(seed_val, tx, ty, SALT_JITTER_X),
+		"oy": _jitter(seed_val, tx, ty, SALT_JITTER_Y),
+		"flip": flip_at(seed_val, tx, ty, SALT_FLIP),
+	}
+
+
+static func _jitter(seed_val: int, tx: int, ty: int, salt: int) -> float:
+	var roll: int = _mix(hash_at(seed_val, tx, ty, salt)) % (2 * JITTER_STEPS + 1)
+	return float(roll - JITTER_STEPS) / float(JITTER_STEPS * 5)
+
+
+# Whether a tile's picture is mirrored, on the salt the caller names.
+static func flip_at(seed_val: int, tx: int, ty: int, salt: int) -> bool:
+	return _mix(hash_at(seed_val, tx, ty, salt)) & 1 == 1
+
+
+# The tiles a furnishing may not stand on: a square of FURNISH_CLEAR around the colony's start,
+# where the survivor is put on the first frame and where the other boot colonists are offset from
+# (within two tiles). Derived from the map alone, so the same map keeps the same clearing on every
+# boot.
+static func _clear_of(map: Variant) -> Rect2i:
+	if map == null:
+		return Rect2i()
+	var start: Vector2i = SimBootRes.colony_start(map)
+	var side: int = FURNISH_CLEAR * 2 + 1
+	return Rect2i(start - Vector2i(FURNISH_CLEAR, FURNISH_CLEAR), Vector2i(side, side))
+
+
+# A second mixing step over the hash. `hash_at` is a plain XOR of products, and taking its low bits
+# modulo a small rarity lays the hits on a lattice: the grid the first draft of the furnishings
+# showed. The multiply-xorshift finaliser breaks that, and keeps the value non-negative.
+static func _mix(value: int) -> int:
+	var x: int = value & 0xffffffff
+	x = ((x ^ (x >> 16)) * 0x45d9f3b) & 0xffffffff
+	x = ((x ^ (x >> 16)) * 0x45d9f3b) & 0xffffffff
+	x = x ^ (x >> 16)
+	return x & 0x7fffffff
 
 
 # --- the building materials ----------------------------------------------------------------
@@ -947,19 +1012,31 @@ static func _ground_is(map: Variant, tx: int, ty: int, surface: int) -> bool:
 	return int(SimSurface.surface_at(map, tx, ty)) == surface
 
 
-# A scrap of litter on street pavement, or "". Two independent hashes: one decides whether this
-# tile carries anything at all (1 in LITTER_RARITY), the other which scrap it is -- so making the
-# scatter denser cannot silently reshuffle which key lands where.
+# A scrap of litter on paved floor, outdoors or in a room, or "". Two independent hashes: one
+# decides whether this tile carries anything at all (1 in LITTER_RARITY), the other which scrap it
+# is -- so making the scatter denser cannot silently reshuffle which key lands where.
 static func litter_key(block: Dictionary, map: Variant, seed_val: int, tx: int, ty: int) -> String:
-	if not _ground_is(map, tx, ty, SimSurface.Surface.Paved):
+	if not _paved_floor(map, tx, ty):
 		return ""
 	var keys: Variant = block.get("litter")
 	if not (keys is Array) or (keys as Array).is_empty():
 		return ""
-	if hash_at(seed_val, tx, ty, SALT_LITTER_PICK) % LITTER_RARITY != 0:
+	if _mix(hash_at(seed_val, tx, ty, SALT_LITTER_PICK)) % LITTER_RARITY != 0:
 		return ""
 	var index: int = variant_index(seed_val, tx, ty, SALT_LITTER_KEY, (keys as Array).size())
 	return String((keys as Array)[index])
+
+
+# A floor tile on paved ground, indoors or out: the one surface test the litter takes. Rubble stays
+# the outdoor surface it always was; a room's floor is paved in the sim, so litter lies on it too.
+static func _paved_floor(map: Variant, tx: int, ty: int) -> bool:
+	if map == null:
+		return false
+	if tx < 0 or ty < 0 or tx >= int(map.w) or ty >= int(map.h):
+		return false
+	if int(map.tiles[ty * int(map.w) + tx]) != SimTileMap.Tile.Floor:
+		return false
+	return int(SimSurface.surface_at(map, tx, ty)) == SimSurface.Surface.Paved
 
 
 # Broken concrete over a rubble tile, or "". Every rubble tile takes one: the surface is already

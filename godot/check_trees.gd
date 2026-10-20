@@ -137,6 +137,9 @@ func _run() -> void:
 	ok = _the_nature_dressing_lies_where_it_should() and ok
 	ok = _the_shipped_maps_take_the_nature_they_should() and ok
 	ok = _the_furnishings_stand_where_they_should() and ok
+	ok = _the_roll_does_not_lattice() and ok
+	ok = _the_clearing_holds() and ok
+	ok = _the_placement_is_read() and ok
 	ok = _dressing_is_never_sim_state() and ok
 
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
@@ -1402,7 +1405,10 @@ func _the_shipped_maps_take_the_nature_they_should() -> bool:
 # block, because a block that lost one would then agree with itself. The workbench is not among
 # them (the game has a real bench and a picture of one that does nothing would be a lie) and neither
 # are the fridge, the road sign and the streetlamp, which are taller than a tile.
-const FURNISH_KEYS: Array[String] = ["prop_chair", "prop_concrete_barrier", "prop_dumpster", "prop_fence_post", "prop_medical_cabinet", "prop_shelf", "prop_table", "prop_traffic_cone"]
+# The barrel, the pallet stack and the rubbish bags are scenery: none is a container, so none is
+# searchable and none is a sim object, and none is drawn as one (the crates, footlockers and medical
+# boxes are the container kinds, and stay out of the dressing).
+const FURNISH_KEYS: Array[String] = ["prop_barrel", "prop_chair", "prop_concrete_barrier", "prop_dumpster", "prop_fence_post", "prop_medical_cabinet", "prop_pallet_stack", "prop_shelf", "prop_table", "prop_trash_bags", "prop_traffic_cone"]
 const FURNISH_STANDING_KEYS: Array[String] = ["prop_fridge", "prop_road_sign", "prop_streetlamp"]
 # The districts the game ships, judged for the kinds each takes.
 const FURNISH_DISTRICTS: Array[String] = ["district.residential_suburb", "district.town_center", "district.industrial_park", "district.forest_edge"]
@@ -1513,7 +1519,7 @@ func _the_furnishings_stand_where_they_should() -> bool:
 			return false
 	for got in named.keys():
 		if not FURNISH_KEYS.has(String(got)) and not FURNISH_STANDING_KEYS.has(String(got)):
-			push_error("dressing.street furnishes '%s', which is not one of the eight flat or three explicitly standing furnishings" % String(got))
+			push_error("dressing.street furnishes '%s', which is not one of the eleven flat or three explicitly standing furnishings" % String(got))
 			return false
 	if FURNISH_KEYS.has("prop_workbench") or FURNISH_KEYS.has("prop_fridge") or FURNISH_KEYS.has("prop_streetlamp") or FURNISH_KEYS.has("prop_road_sign"):
 		push_error("FURNISH_KEYS treats a standing prop or real bench as a flat furnishing")
@@ -1704,7 +1710,10 @@ func _the_furnishings_stand_where_they_should() -> bool:
 			push_error("bounds excluding a tile still answered it: %s" % str(pick))
 			return false
 
-	# --- the roll is hash_at's number, on its own salt ---------------------------------------------
+	# --- the roll is hash_at's number, mixed, on its own salt ----------------------------------------
+	# The fast path folds the salt into its XOR and then runs `_mix`, so the reference is hash_at
+	# passed through the same finaliser. Without `_mix` the low bits of hash_at fall on a lattice
+	# (the first draft's grid); `_mix`'s own lane below holds that the mixed roll is not one.
 	var rolls: int = 0
 	for rarity in [2, 3, 7, 30]:
 		var block_r: Dictionary = _furnish_block("indoors", int(rarity))
@@ -1712,7 +1721,7 @@ func _the_furnishings_stand_where_they_should() -> bool:
 			for ty in h:
 				for tx in w:
 					var want_pick: String = ""
-					if tx > 0 and tx < w - 1 and (Dressing.hash_at(seed_val, tx, ty, Dressing.SALT_FURNISH) >> 8) % int(rarity) == 0:
+					if tx > 0 and tx < w - 1 and Dressing._mix(Dressing.hash_at(seed_val, tx, ty, Dressing.SALT_FURNISH)) % int(rarity) == 0:
 						want_pick = "prop_table"
 					if Dressing.furnishing_key(block_r, room, seed_val, tx, ty) != want_pick:
 						push_error("rarity %d seed %d tile (%d,%d): furnishing_key answered '%s', the hash_at reference '%s'; the fast path's copy of the roll has drifted" % [int(rarity), seed_val, tx, ty, Dressing.furnishing_key(block_r, room, seed_val, tx, ty), want_pick])
@@ -2157,3 +2166,138 @@ func _code_of(path: String) -> String:
 		var at: int = String(line).find("#")
 		out += (String(line) if at < 0 else String(line).substr(0, at)) + "\n"
 	return out
+
+
+# --- the placement: the clearing, the jitter, the mirror, and the roll that breaks the grid --------
+# The flat pictures stop lying on a lattice (A12, the second pass). Four lanes: the roll is
+# not a grid, nothing stands on the survivor's start, every picture is placed off its tile's
+# centre and some mirrored, and the bake and the frame read those fields.
+const CLEAR_RADIUS: int = 3
+const LATTICE_WINDOW: int = 32
+
+
+func _the_roll_does_not_lattice() -> bool:
+	# Horizontal and vertical neighbour pairs of the rarity-2 roll over one window: about a quarter
+	# of the pairs each way. The shifted hash the first draft used puts them far off in one
+	# direction, and the raw hash_at puts none at all; the mixed roll must stay in the band.
+	var n: int = LATTICE_WINDOW
+	var expected: float = float((n - 1) * n) / 4.0
+	var lo: float = expected * 0.8
+	var hi: float = expected * 1.2
+	var mixed_h: int = 0
+	var mixed_v: int = 0
+	var shifted_h: int = 0
+	var shifted_v: int = 0
+	for ty in n:
+		for tx in n:
+			var raw: int = Dressing.hash_at(3, tx, ty, Dressing.SALT_FURNISH)
+			var mixed_hit: bool = Dressing._mix(raw) % 2 == 0
+			var shifted_hit: bool = (raw >> 8) % 2 == 0
+			if tx < n - 1:
+				if mixed_hit and Dressing._mix(Dressing.hash_at(3, tx + 1, ty, Dressing.SALT_FURNISH)) % 2 == 0:
+					mixed_h += 1
+				if shifted_hit and ((Dressing.hash_at(3, tx + 1, ty, Dressing.SALT_FURNISH) >> 8) % 2 == 0):
+					shifted_h += 1
+			if ty < n - 1:
+				if mixed_hit and Dressing._mix(Dressing.hash_at(3, tx, ty + 1, Dressing.SALT_FURNISH)) % 2 == 0:
+					mixed_v += 1
+				if shifted_hit and ((Dressing.hash_at(3, tx, ty + 1, Dressing.SALT_FURNISH) >> 8) % 2 == 0):
+					shifted_v += 1
+	if float(mixed_h) < lo or float(mixed_h) > hi or float(mixed_v) < lo or float(mixed_v) > hi:
+		push_error("the mixed furnishing roll pairs %d horizontal and %d vertical neighbours, want each near %.0f: the picks lie on a lattice" % [mixed_h, mixed_v, expected])
+		return false
+	var shifted_in_band: bool = float(shifted_h) >= lo and float(shifted_h) <= hi and float(shifted_v) >= lo and float(shifted_v) <= hi
+	if shifted_in_band:
+		push_error("the window cannot tell the shifted roll from the mixed one (%d and %d pairs); the lattice lane has no true negative" % [shifted_h, shifted_v])
+		return false
+	print("LATTICE mixed roll %d horizontal and %d vertical pairs in a %dx%d window, the shifted roll %d and %d" % [mixed_h, mixed_v, n, n, shifted_h, shifted_v])
+	return true
+
+
+func _the_clearing_holds() -> bool:
+	var boot: Dictionary = SimBoot.playable(CANON_SEED, GATE_SIZE)
+	var sworld: Variant = boot["world"]
+	var smap: Variant = boot["map"]
+	var sblock: Dictionary = Dressing.block_of(sworld)
+	var seed_val: int = int(sworld.seed)
+	var w: int = int(smap.w)
+	var h: int = int(smap.h)
+	var start: Vector2i = SimBoot.colony_start(smap)
+	var seed_term: int = seed_val * Dressing._HASH_SEED
+	var entries: Array = Dressing._furnishing_entries(sblock)
+	# True positive: the raw roll, with no clearing, does put furnishings inside the square. If it
+	# does not, the lane has nothing to judge on this map and says so.
+	var raw_inside: int = 0
+	for ty in range(start.y - CLEAR_RADIUS, start.y + CLEAR_RADIUS + 1):
+		for tx in range(start.x - CLEAR_RADIUS, start.x + CLEAR_RADIUS + 1):
+			if tx < 0 or ty < 0 or tx >= w or ty >= h:
+				continue
+			if not Dressing._furnishing_pick(entries, smap, seed_term, tx, ty, Rect2i()).is_empty():
+				raw_inside += 1
+	if raw_inside == 0:
+		print("CLEAR SKIP: the raw roll puts no furnishing within %d tiles of the start %s on this map; nothing to judge" % [CLEAR_RADIUS, str(start)])
+		return true
+	for pick in Dressing.decor_picks(sblock, smap, seed_val, Rect2i(0, 0, w, h))["furnishings"] as Array:
+		var tx: int = int((pick as Dictionary)["tx"])
+		var ty: int = int((pick as Dictionary)["ty"])
+		if absi(tx - start.x) <= CLEAR_RADIUS and absi(ty - start.y) <= CLEAR_RADIUS:
+			push_error("decor_picks stands a furnishing at (%d,%d), inside the %d-tile clearing round the start %s" % [tx, ty, CLEAR_RADIUS, str(start)])
+			return false
+	for ty in range(start.y - CLEAR_RADIUS, start.y + CLEAR_RADIUS + 1):
+		for tx in range(start.x - CLEAR_RADIUS, start.x + CLEAR_RADIUS + 1):
+			if tx < 0 or ty < 0 or tx >= w or ty >= h:
+				continue
+			if not Dressing.furnishing_key(sblock, smap, seed_val, tx, ty).is_empty():
+				push_error("furnishing_key stands a furnishing at (%d,%d), inside the clearing round the start" % [tx, ty])
+				return false
+	print("CLEAR %d raw furnishing picks inside the %d-tile square round the start %s, none drawn; %d drawn outside it" % [raw_inside, CLEAR_RADIUS, str(start), (Dressing.decor_picks(sblock, smap, seed_val, Rect2i(0, 0, w, h))["furnishings"] as Array).size()])
+	return true
+
+
+func _the_placement_is_read() -> bool:
+	var boot: Dictionary = SimBoot.playable(CANON_SEED, GATE_SIZE)
+	var sworld: Variant = boot["world"]
+	var smap: Variant = boot["map"]
+	var sblock: Dictionary = Dressing.block_of(sworld)
+	var seed_val: int = int(sworld.seed)
+	var w: int = int(smap.w)
+	var h: int = int(smap.h)
+	var picks: Dictionary = Dressing.decor_picks(sblock, smap, seed_val, Rect2i(0, 0, w, h))
+	var flipped: int = 0
+	var straight: int = 0
+	var offsets: Dictionary = {}
+	var total: int = 0
+	for kind in ["nature", "furnishings"]:
+		for raw in picks[kind] as Array:
+			var pick: Dictionary = raw as Dictionary
+			total += 1
+			var ox: float = float(pick["ox"])
+			var oy: float = float(pick["oy"])
+			if absf(ox) > 0.2 + 0.0001 or absf(oy) > 0.2 + 0.0001:
+				push_error("a picture sits %.3f, %.3f tiles off its centre; the jitter is ±0.2" % [ox, oy])
+				return false
+			if bool(pick["flip"]):
+				flipped += 1
+			else:
+				straight += 1
+			offsets[snappedf(ox, 0.01)] = true
+	if total == 0:
+		push_error("the shipped suburb placed no flat pictures; the placement lane has nothing to judge")
+		return false
+	if flipped == 0 or straight == 0:
+		push_error("every picture takes the same mirror (%d flipped, %d straight); the flip is dead" % [flipped, straight])
+		return false
+	if offsets.size() < 5:
+		push_error("only %d distinct horizontal offsets across %d pictures; the placement is still a grid" % [offsets.size(), total])
+		return false
+	var main_src: String = _function_body(MAIN_GD, "_draw_decor")
+	for needle in ["placed[\"ox\"]", "placed[\"oy\"]", "placed[\"flip\"]", "_mirrored("]:
+		if not main_src.contains(needle):
+			push_error("_draw_decor does not read %s; the placement is a field nothing reads" % needle)
+			return false
+	var scatter_src: String = _function_body(MAIN_GD, "_draw_scatter")
+	if not scatter_src.contains("Dressing.flip_at(") or not scatter_src.contains("_mirrored("):
+		push_error("_draw_scatter does not mirror litter through Dressing.flip_at; the flip is a field nothing reads")
+		return false
+	print("PLACED %d flat pictures on the shipped suburb: %d mirrored, %d straight, %d distinct horizontal offsets, every offset within ±0.2 tile" % [total, flipped, straight, offsets.size()])
+	return true

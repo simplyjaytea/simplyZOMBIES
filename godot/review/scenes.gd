@@ -13,6 +13,7 @@ extends RefCounted
 
 const Clock = preload("res://sim/time/clock.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimSurface = preload("res://sim/map/surface.gd")
 
 const SCENE_PATH: String = "res://presentation/main.tscn"
 # The two windows the game supports: check_play's WORK-LAYOUT lane lays out at both.
@@ -79,7 +80,13 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 		return "no world"
 	match scene:
 		"day_street":
+			# The body starts indoors, so a day shot taken where it stands is a room, not a street.
+			# Move it to the nearest open paved street tile first.
 			world.tick = Clock.tick_on_day(DAY, NOON)
+			var street: Vector2 = _street_spot(world)
+			if street.x < 0.0:
+				return "no open paved street within %d tiles" % SEARCH_TILES
+			world.components.set_component(world.player, "position", {"x": street.x, "y": street.y})
 		"night_lights":
 			world.tick = Clock.tick_on_day(DAY, NIGHT)
 		"interior":
@@ -115,7 +122,9 @@ static func verify(main: Node, scene: String) -> String:
 		return "no world"
 	match scene:
 		"day_street":
-			return "" if Clock.phase_of(int(world.tick)) == Clock.Phase.Day else "it is not day"
+			if Clock.phase_of(int(world.tick)) != Clock.Phase.Day:
+				return "it is not day"
+			return "" if _outdoor_paved(world.tilemap, _tile_under_player(world)) else "the body is not on an open paved street tile"
 		"night_lights":
 			return "" if Clock.phase_of(int(world.tick)) == Clock.Phase.Night else "it is not night"
 		"interior":
@@ -154,6 +163,38 @@ static func _walls_beside(world: Variant, at: Vector2i) -> int:
 		if SimTileMap.tile_at(world.tilemap, t.x, t.y) == SimTileMap.Tile.Wall:
 			n += 1
 	return n
+
+
+## Whether a tile is open, paved ground outside a building: the street a day shot needs.
+static func _outdoor_paved(map: Variant, at: Vector2i) -> bool:
+	if at.x < 0 or at.y < 0 or at.x >= int(map.w) or at.y >= int(map.h):
+		return false
+	var idx: int = at.y * int(map.w) + at.x
+	return int(map.tiles[idx]) == SimTileMap.Tile.Floor \
+		and int(map.indoors[idx]) == 0 \
+		and int(map.surfaces[idx]) == SimSurface.Surface.Paved
+
+
+## The nearest walkable outdoor paved tile with outdoor paved tiles on all four sides, so the shot
+## sees street and not a kerb. Its centre, or (-1, -1) when the search finds none.
+static func _street_spot(world: Variant) -> Vector2:
+	var from: Vector2i = _tile_under_player(world)
+	for ring in range(1, SEARCH_TILES + 1):
+		for dy in range(-ring, ring + 1):
+			for dx in range(-ring, ring + 1):
+				if maxi(absi(dx), absi(dy)) != ring:
+					continue
+				var t := Vector2i(from.x + dx, from.y + dy)
+				if world.is_blocked_tile(t.x, t.y) or not _outdoor_paved(world.tilemap, t):
+					continue
+				var open: bool = true
+				for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+					if not _outdoor_paved(world.tilemap, t + d):
+						open = false
+						break
+				if open:
+					return Vector2(float(t.x) + 0.5, float(t.y) + 0.5)
+	return Vector2(-1.0, -1.0)
 
 
 ## The nearest floor tile, walkable and with a wall beside it, that a body can stand on. Its
