@@ -859,11 +859,8 @@ are all carried into the pieces that replace them.
 - **The frames.** Moved into the decoupled-paperdoll group above, where the legs strip it needs
   exists. Named here only so the cross-reference resolves.
 - ~~**The exploded body chart.**~~ — landed 2026-10-03; see the record.
-- **The idle breath — not decided, shipped as the default.** One pixel of pelvis at a quarter of
-  the walk's rate. It was drawn in the fixture round and deliberately left out of the four
-  answers; it is a small call and it is the owner's. A7 (2026-10-19, the record) built it on the
-  alpha plan's default, one pixel of chest once a second, with a decision card to the owner;
-  `breath_fps: 0` in `authored.json` takes it out without code if the answer is no.
+- ~~**The idle breath.**~~ — decided by the owner 2026-10-20 (keep it, docs/30's "The idle
+  breath, kept"); it shipped with A7, see the record.
 
 **Art & renderer — the Dungeon Settlers arc, decided by the owner (2026-09-03), on the floor
 the reference-look arc's first two slices laid (32 px a tile at 2×, the ground atlas).** The
@@ -2018,9 +2015,8 @@ not a to-do list:
   `HELD_HANDS` at rest). A muzzle flash is still placed from the rest hand in `fx_look.gd`; A9's
   aim rework owns that.
 
-  **The breath is the owner's call** ("The idle breath" in what's left): it ships on as the
-  plan's default, a decision card is with the owner, and `breath_fps: 0` in `authored.json`
-  turns it off per family without code.
+  **The breath was the owner's call, and it is kept** (owner, 2026-10-20; docs/30's "The idle
+  breath, kept"). `breath_fps: 0` in `authored.json` would turn it off per family without code.
 
   **Evidence:** `godot:check:worn` new FRAMES lane: **288** walk and breath frames over 8 bodies
   declare head and torso offsets the renderer reads (448 of them move one), **72** survivor hands

@@ -1013,11 +1013,6 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    before the worldgen arc. Widening it moves NPC pathing balance and is its own measured slice
    (it is in the debt list); until then a ford is a decision only the player makes.
 
-0b. **The idle breath** (2026-09-09). One pixel of pelvis at a quarter of the walk's rate,
-   drawn in the fixture round and deliberately left out of the four answers the owner gave that
-   day. Small, independent of every other piece, and named in docs/23's character-overhaul group
-   rather than decided there.
-
 0a. **The picture on select** (2026-09-08). The owner's answer on the pawn — *"when selecting
    the character, sprite art will appear. However, weapons, clothing, gear will be shown"* —
    names a picture the colony panel does not have. A portrait was refused with the Dungeon

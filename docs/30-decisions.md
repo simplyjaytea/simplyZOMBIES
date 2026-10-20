@@ -5524,3 +5524,18 @@ and the current unseen-wall roof coverage stay as they are. The bounded implemen
 supported rectangular brick and plaster perimeters, with generated fallbacks; its gates and
 runtime captures are recorded in docs/23. The mapping is not a decision to extend roofs over
 unseen perimeter walls.
+
+## The idle breath, kept, 2026-10-20
+
+**Decided by the owner**, on a decision card from the A7 thread: standing bodies breathe. The
+question had been on the owner's list since the 2026-09-09 fixture round, where one pixel of
+pelvis at a quarter of the walk's rate was drawn and deliberately left out of that day's answers.
+A7 built it as the alpha plan's default before the answer came, so the call is the one that
+shipped: a second idle picture per view, one pixel of chest raised for the survivor and lowered
+for the dead (a sag, which also keeps the rest views already at their canvas's tallest inside
+it), at one picture a second on presentation time, staggered by id so a crowd does not breathe
+as one. It is data, not code: `breath_fps` per family in `godot/assets/sprites/authored.json`,
+where `0` holds the rest view. The zombie breath is a mechanical row shift of the pack's pixels,
+like the zombie walk in-betweens, and goes with them when the action-animations work redraws
+those frames. Recorded in docs/23's A7 record; gated by `godot:check:zombie_art` MOTION and
+`godot:check:authored`.
