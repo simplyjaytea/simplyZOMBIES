@@ -102,6 +102,11 @@ var _home_tile: Vector2i = Vector2i(-1, -1)
 var _day: Dictionary = {}
 var _run_total: Dictionary = {}
 var _tick_us: PackedInt64Array = PackedInt64Array()
+# The roster as last seen, id -> {job, x, y}: a colonist can leave the colony without an
+# `entity.killed` (a turn, a body taken off the books), so a departure is read off the roster.
+var _roster: Dictionary = {}
+var _accounted: Dictionary = {}
+const ROSTER_EVERY: int = 20
 
 
 func _init() -> void:
@@ -691,7 +696,9 @@ func _observe() -> void:
 						_day["player_kills"] = int(_day["player_kills"]) + 1
 				elif not w.components.has_component(victim, "raider") and (w.components.has_component(victim, "needs") or w.components.has_component(victim, "identity") or victim == me):
 					_day["deaths"] = int(_day["deaths"]) + 1
-					_emit({"kind": "death", "tick": int(w.tick), "day": Clock.day_number(int(w.tick)), "entity": victim, "player": victim == me, "cause": String(ev.get("cause", ev.get("need", "wounds" if ev.has("killer") else "other")))})
+					_accounted[victim] = true
+					var last: Dictionary = _roster.get(victim, {}) as Dictionary
+					_emit({"kind": "death", "tick": int(w.tick), "day": Clock.day_number(int(w.tick)), "entity": victim, "player": victim == me, "cause": String(ev.get("cause", ev.get("need", "wounds" if ev.has("killer") else "other"))), "job": last.get("job", ""), "x": last.get("x", -1.0), "y": last.get("y", -1.0)})
 			"survivor.turned":
 				_day["turned"] = int(_day["turned"]) + 1
 			"bite.landed":
@@ -714,12 +721,43 @@ func _observe() -> void:
 				_day["recruits"] = int(_day["recruits"]) + 1
 			"recruit.left":
 				_day["left"] = int(_day["left"]) + 1
+				_accounted[int(ev.get("entity", -1))] = true
 				_emit({"kind": "left", "tick": int(w.tick), "day": Clock.day_number(int(w.tick)), "entity": int(ev.get("entity", -1)), "reason": String(ev.get("reason", ""))})
 			"container.searched":
 				if int(ev.get("actor", -1)) != me:
 					_day["npc_searches"] = int(_day["npc_searches"]) + 1
 			"player.succeeded", "succession", "player.changed":
 				_day["successions"] = int(_day["successions"]) + 1
+	if int(w.tick) % ROSTER_EVERY == 0:
+		_roster_diff()
+
+
+# Who was in the colony last look and is not now, with no event that said why: a death the event
+# stream did not carry (the old counter missed every colonist who bled out), logged with the job
+# they were on and where they stood.
+func _roster_diff() -> void:
+	var now: Dictionary = {}
+	for ent in _colony():
+		var job: Variant = w.components.get_component(ent, "job")
+		var p: Vector2 = _pos(ent)
+		now[ent] = {"job": String((job as Dictionary).get("kind", "")) if job is Dictionary else "", "x": snappedf(p.x, 0.1), "y": snappedf(p.y, 0.1)}
+	for ent in _roster:
+		if now.has(ent) or _accounted.has(ent):
+			continue
+		_accounted[ent] = true
+		var last: Dictionary = _roster[ent] as Dictionary
+		var body: Variant = w.components.get_component(int(ent), "body")
+		var dead: bool = w.components.has_component(int(ent), "corpse") or not (body is Dictionary and SimHealth.is_alive(body as Dictionary))
+		var inj: Variant = w.components.get_component(int(ent), "injuries")
+		var lost: float = float((inj as Dictionary).get("bloodLoss", 0.0)) if inj is Dictionary else 0.0
+		var cause: String = ("dead, blood loss %.2f" % lost) if dead else "gone"
+		if dead:
+			_day["deaths"] = int(_day["deaths"]) + 1
+		else:
+			_day["left"] = int(_day["left"]) + 1
+		_emit({"kind": "death" if dead else "gone", "tick": int(w.tick), "day": Clock.day_number(int(w.tick)), "entity": int(ent), "player": int(ent) == int(w.player), "cause": cause, "job": last["job"], "x": last["x"], "y": last["y"]})
+		print("LOST %d tick=%d day=%d %s job=%s at (%.1f, %.1f)" % [int(ent), int(w.tick), Clock.day_number(int(w.tick)), cause, String(last["job"]), float(last["x"]), float(last["y"])])
+	_roster = now
 
 
 func _close_day(day: int) -> void:
