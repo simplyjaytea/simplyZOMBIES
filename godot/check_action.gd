@@ -319,31 +319,154 @@ func _priority() -> bool:
 
 # --- GEOMETRY ---------------------------------------------------------------------------------
 
-# LANDING: a fall ends where its corpse lies (art review round 1, 2026-10-20: the corpse used to
-# jump up and sideways on the cut, and every view landed east). For every family, view and corpse
-# picture it can land as, placed exactly as main.gd `_draw_corpse` places them at scale 1: the
-# settled corpse's lowest row is the last fall frame's lowest row; both lie to the view's fall
-# side of the feet (Appearance.FALL_SIDE); and the corpse's mass is within LAND_MASS_GAP columns
-# of the last frame's. The landing beat is the corpse LAND_RAISE rows up, on exactly the beat
-# after the last fall frame. Negatives: the old centred placement misses the sole row, an
-# unmirrored corpse lands on the wrong side in some view, and a pose CORPSE_HEAD does not know
-# has no head, no feet and no mirror.
-const LAND_MASS_GAP: float = 12.0
+# LANDING: a fall goes down and lies there without a jump (art review rounds 1 and 2,
+# 2026-10-20: the corpse used to jump up and sideways on the cut, then to swell or shrink by up to
+# 95% when the pack's corpse picture replaced the last turned frame). For every family and view,
+# the sequence the game draws -- the rest view, each fall frame, then the settled body, all placed
+# exactly as main.gd places them at scale 1 -- holds the review's bounds on every consecutive pair:
+# the solid mass changes by at most LAND_MASS_STEP, the centre of mass moves at most
+# LAND_CENTRE_STEP columns, no edge of the silhouette moves more than LAND_EDGE_STEP pixels, and the
+# lowest row is the rest's sole row throughout. The settled body is the fall's own last frame
+# (`Appearance.lying_key`), lying to the view's fall side. Negatives: the pack's corpse picture as
+# the settled body breaks the bounds, and so does the same fall played at every third frame.
+const LAND_MASS_STEP: float = 0.15
+const LAND_CENTRE_STEP: float = 4.0
+const LAND_EDGE_STEP: int = 6
 
 
 func _placed(img: Image, rect: Rect2) -> Dictionary:
-	var flip: bool = rect.size.x < 0.0
 	var low: int = -1
+	var top: int = 1 << 20
+	var left: int = 1 << 20
+	var right: int = -1
 	var sum_x: float = 0.0
 	var n: int = 0
 	for y in img.get_height():
 		for x in img.get_width():
-			if img.get_pixel(x, y).a8 >= Appearance.ALPHA_SOLID_8:
-				var screen_x: float = rect.position.x + float(img.get_width() - 1 - x if flip else x)
-				sum_x += screen_x
+			if img.get_pixel(x, y).a8 >= 128:
+				var screen_x: int = int(rect.position.x) + x
+				var screen_y: int = int(rect.position.y) + y
+				sum_x += float(screen_x)
 				n += 1
-				low = maxi(low, int(rect.position.y) + y)
-	return {"low": low, "cx": sum_x / float(maxi(n, 1)), "n": n}
+				low = maxi(low, screen_y)
+				top = mini(top, screen_y)
+				left = mini(left, screen_x)
+				right = maxi(right, screen_x)
+	return {"low": low, "top": top, "left": left, "right": right, "cx": sum_x / float(maxi(n, 1)), "n": n}
+
+
+func _step_complaint(a: Dictionary, b: Dictionary, sole: int) -> String:
+	var mass: float = absf(float(b["n"]) - float(a["n"])) / float(maxi(int(a["n"]), 1))
+	var centre: float = absf(float(b["cx"]) - float(a["cx"]))
+	var edge: int = 0
+	for side in ["low", "top", "left", "right"]:
+		edge = maxi(edge, absi(int(b[side]) - int(a[side])))
+	if mass > LAND_MASS_STEP:
+		return "its mass changes %.1f%%" % (mass * 100.0)
+	if centre > LAND_CENTRE_STEP:
+		return "its centre of mass moves %.1f columns" % centre
+	if edge > LAND_EDGE_STEP:
+		return "an edge moves %d px" % edge
+	if int(b["low"]) != sole:
+		return "its lowest row is %d, not the sole row %d" % [int(b["low"]), sole]
+	return ""
+
+
+func _seq_worst(seq: Array) -> Dictionary:
+	var out: Dictionary = {"mass": 0.0, "centre": 0.0, "edge": 0}
+	for i in range(1, seq.size()):
+		var a: Dictionary = seq[i - 1]
+		var b: Dictionary = seq[i]
+		out["mass"] = maxf(float(out["mass"]), absf(float(b["n"]) - float(a["n"])) / float(maxi(int(a["n"]), 1)))
+		out["centre"] = maxf(float(out["centre"]), absf(float(b["cx"]) - float(a["cx"])))
+		for side in ["low", "top", "left", "right"]:
+			out["edge"] = maxi(int(out["edge"]), absi(int(b[side]) - int(a[side])))
+	return out
+
+
+func _drawn_at(key: String, sx: float, sy: float) -> Dictionary:
+	var img: Image = _image(key)
+	if img == null:
+		return {}
+	return _placed(img, Appearance.body_rect(sx, sy, Vector2(img.get_size()), 1.0))
+
+
+func _landing() -> bool:
+	var ok: bool = true
+	var sx: float = 100.0
+	var sy: float = 100.0
+	var judged: int = 0
+	var steps: int = 0
+	var corpse_breaks: int = 0
+	var coarse_breaks: int = 0
+	var worst: Dictionary = {"mass": 0.0, "centre": 0.0, "edge": 0}
+	for fam_v in _families_with_actions().keys():
+		var fam: String = String(fam_v)
+		if Appearance.action_frames(fam, "fall", "e") == 0:
+			continue
+		for view in Appearance.VIEWS:
+			var frames: int = Appearance.action_frames(fam, "fall", view)
+			var seq: Array = [_drawn_at("%s_%s" % [fam, view], sx, sy)]
+			for i in frames:
+				seq.append(_drawn_at("%s_fall_%s_%d" % [fam, view, i], sx, sy))
+			var lying: String = Appearance.lying_key(fam, view)
+			if lying != "%s_fall_%s_%d" % [fam, view, frames - 1]:
+				push_error("LANDING: %s from %s settles as '%s', not its fall's last frame" % [fam, view, lying])
+				ok = false
+				continue
+			seq.append(_drawn_at(lying, sx, sy))
+			if seq.has({}):
+				push_error("LANDING: %s's %s fall has a frame that does not load" % [fam, view])
+				ok = false
+				continue
+			var sole: int = int((seq[0] as Dictionary)["low"])
+			for i in range(1, seq.size()):
+				var complaint: String = _step_complaint(seq[i - 1], seq[i], sole)
+				if not complaint.is_empty():
+					push_error("LANDING: %s from %s, step %d of %d: %s" % [fam, view, i, seq.size() - 1, complaint])
+					ok = false
+				steps += 1
+			var w: Dictionary = _seq_worst(seq)
+			worst["mass"] = maxf(float(worst["mass"]), float(w["mass"]))
+			worst["centre"] = maxf(float(worst["centre"]), float(w["centre"]))
+			worst["edge"] = maxi(int(worst["edge"]), int(w["edge"]))
+			var side: int = int(Appearance.FALL_SIDE[view])
+			if signf(float((seq.back() as Dictionary)["cx"]) - sx) != float(side):
+				push_error("LANDING: %s from %s lies to %+d of its feet, not its fall side %+d" % [fam, view, int(signf(float((seq.back() as Dictionary)["cx"]) - sx)), side])
+				ok = false
+			# Negatives: the pack's corpse picture laid down on its ground centre after the last
+			# frame (the old cut), and the fall played at every third frame.
+			for corpse in _corpses_for(fam):
+				var img: Image = _image(corpse)
+				var laid: Dictionary = _placed(img, Appearance.corpse_rect(sx, sy, Vector2(img.get_size())))
+				if not _step_complaint(seq[seq.size() - 2], laid, sole).is_empty():
+					corpse_breaks += 1
+			var coarse: Array = []
+			for i in range(0, seq.size(), 3):
+				coarse.append(seq[i])
+			var coarse_ok: bool = true
+			for i in range(1, coarse.size()):
+				if not _step_complaint(coarse[i - 1], coarse[i], sole).is_empty():
+					coarse_ok = false
+			if not coarse_ok:
+				coarse_breaks += 1
+			judged += 1
+	if judged == 0:
+		push_error("LANDING: no family falls; nothing was judged")
+		return false
+	if corpse_breaks == 0:
+		push_error("LANDING: the pack's corpse picture after the last fall frame keeps the bounds everywhere; the lane cannot fail")
+		ok = false
+	if coarse_breaks == 0:
+		push_error("LANDING: the falls played at every third frame keep the bounds everywhere; the lane cannot fail")
+		ok = false
+	if Appearance.lying_key(SURVIVOR, "moonwalk") != "" or Appearance.lying_key("corpse_human_prone", "e") != "":
+		push_error("LANDING: a view or a key with no fall answered a lying frame")
+		ok = false
+	if ok:
+		print("LANDING OK %d falls, %d steps from the rest view down to lying flat: at most %.1f%% mass, %.1f columns of centre and %d px of edge a step (bounds %.0f%%, %.0f, %d), the sole row held, each lying to its fall side as its own last frame; the pack's corpse in its place breaks the bounds %d times and the falls at every third frame %d times" % [judged, steps, float(worst["mass"]) * 100.0, float(worst["centre"]), int(worst["edge"]), LAND_MASS_STEP * 100.0, LAND_CENTRE_STEP, LAND_EDGE_STEP, corpse_breaks, coarse_breaks])
+		_report.append("LANDING %d falls" % judged)
+	return ok
 
 
 func _corpses_for(fam: String) -> Array[String]:
@@ -357,88 +480,6 @@ func _corpses_for(fam: String) -> Array[String]:
 			out.append(f.trim_suffix(".png"))
 	out.sort()
 	return out
-
-
-func _landing() -> bool:
-	var ok: bool = true
-	var sx: float = 100.0
-	var sy: float = 100.0
-	var judged: int = 0
-	var centred_misses: int = 0
-	var unmirrored_wrong: int = 0
-	var widest: float = 0.0
-	for fam_v in _families_with_actions().keys():
-		var fam: String = String(fam_v)
-		if Appearance.action_frames(fam, "fall", "e") == 0:
-			continue
-		var corpses: Array[String] = _corpses_for(fam)
-		if corpses.is_empty():
-			push_error("LANDING: %s falls and has no corpse picture to land as" % fam)
-			ok = false
-			continue
-		for view in Appearance.VIEWS:
-			var frames: int = Appearance.action_frames(fam, "fall", view)
-			var last: Image = _image("%s_fall_%s_%d" % [fam, view, frames - 1])
-			if last == null:
-				push_error("LANDING: %s's last %s fall frame does not load" % [fam, view])
-				ok = false
-				continue
-			var fell: Dictionary = _placed(last, Appearance.body_rect(sx, sy, Vector2(last.get_size()), 1.0))
-			var side: int = int(Appearance.FALL_SIDE[view])
-			if signf(float(fell["cx"]) - sx) != float(side):
-				push_error("LANDING: %s's last %s fall frame leans to %+d, not its fall side %+d" % [fam, view, int(signf(float(fell["cx"]) - sx)), side])
-				ok = false
-			var fps: float = Appearance.action_fps(fam, "fall")
-			var key: String = "%s_fall_%s_0" % [fam, view]
-			if not Appearance.fall_landing(fam, view, (float(frames) + 0.5) / fps) or Appearance.fall_landing(fam, view, (float(frames) - 0.5) / fps) or Appearance.fall_landing(fam, view, (float(frames) + 1.5) / fps):
-				push_error("LANDING: %s's %s landing beat is not exactly the beat after its %d fall frames (%s)" % [fam, view, frames, key])
-				ok = false
-			for corpse in corpses:
-				var img: Image = _image(corpse)
-				var size: Vector2 = Vector2(img.get_size())
-				var feet: Vector2 = Appearance.corpse_feet(corpse)
-				var flip: bool = Appearance.corpse_flip(corpse, view)
-				var lay: Dictionary = _placed(img, Appearance.corpse_rect(sx, sy, size, feet, flip, 1.0))
-				var land: Dictionary = _placed(img, Appearance.corpse_rect(sx, sy - float(Appearance.LAND_RAISE), size, feet, flip, 1.0))
-				if int(lay["low"]) != int(fell["low"]) or int(land["low"]) != int(fell["low"]) - Appearance.LAND_RAISE:
-					push_error("LANDING: %s from %s lies on row %d (landing %d) where its last fall frame stood on %d" % [corpse, view, int(lay["low"]), int(land["low"]), int(fell["low"])])
-					ok = false
-				if signf(float(lay["cx"]) - sx) != float(side):
-					push_error("LANDING: %s from %s lies to %+d of its feet, not the fall side %+d" % [corpse, view, int(signf(float(lay["cx"]) - sx)), side])
-					ok = false
-				var gap: float = absf(float(lay["cx"]) - float(fell["cx"]))
-				widest = maxf(widest, gap)
-				if gap > LAND_MASS_GAP:
-					push_error("LANDING: %s from %s puts its mass %.1f columns from the last fall frame's, past %.0f" % [corpse, view, gap, LAND_MASS_GAP])
-					ok = false
-				if int(_placed(img, Appearance.corpse_rect(sx, sy, size)).get("low")) != int(fell["low"]):
-					centred_misses += 1
-				if signf(float(_placed(img, Appearance.corpse_rect(sx, sy, size, feet, false, 1.0))["cx"]) - sx) != float(side):
-					unmirrored_wrong += 1
-				judged += 1
-	if judged == 0:
-		push_error("LANDING: no fall had a corpse to land as; nothing was judged")
-		return false
-	if centred_misses == 0:
-		push_error("LANDING: the old centred placement lands every corpse on the sole row too; the row check cannot fail")
-		ok = false
-	if unmirrored_wrong == 0:
-		push_error("LANDING: an unmirrored corpse lies on the fall side in every view; the side check cannot fail")
-		ok = false
-	# Every corpse picture in the sprites is a pose CORPSE_HEAD knows; an invented one is not.
-	var dir: DirAccess = DirAccess.open(SPRITES)
-	for f in dir.get_files() if dir != null else PackedStringArray():
-		if f.begins_with("corpse_") and f.ends_with(".png") and Appearance.corpse_head(f.trim_suffix(".png")) == 0:
-			push_error("LANDING: %s is a corpse pose CORPSE_HEAD does not know, so it would never lie the fall's way" % f)
-			ok = false
-	var invented: String = "corpse_zombie_commuter_floating"
-	if Appearance.corpse_head(invented) != 0 or Appearance.corpse_flip(invented, "w") or Appearance.corpse_feet(invented) != Vector2(-1, -1):
-		push_error("LANDING: an invented corpse pose answered a head, a mirror or feet")
-		ok = false
-	if ok:
-		print("LANDING OK %d fall-to-corpse landings: each corpse lies on its last fall frame's row (landing beat %d rows up, on the beat after the fall), to the view's fall side, its mass within %.1f columns (bound %.0f); the old centred placement misses the row %d times, an unmirrored corpse lands on the wrong side %d times, and an invented pose has no head" % [judged, Appearance.LAND_RAISE, widest, LAND_MASS_GAP, centred_misses, unmirrored_wrong])
-		_report.append("LANDING %d" % judged)
-	return ok
 
 
 func _geometry() -> bool:
@@ -722,11 +763,11 @@ func _readers_complaint(text: String) -> String:
 	var corpse: String = _function_body(text, "_draw_corpse")
 	if not corpse.contains("_anim.fall_of(") or not corpse.contains("Appearance.fall_key(") or not corpse.contains("_falls_drawn.append("):
 		return "_draw_corpse does not draw the fall"
-	# And lands it: the landing beat, then the corpse lying from the feet the fall stood on, the
-	# fall's way (LANDING judges the placement these calls produce).
-	for call in ["Appearance.fall_landing(", "Appearance.corpse_feet(", "Appearance.corpse_flip(", "Appearance.LAND_RAISE", "Appearance.dressed_texture("]:
+	# And lays it down: the settled body is the fall's own last frame, dressed (LANDING judges the
+	# sequence these calls draw).
+	for call in ["Appearance.lying_key(", "Appearance.dressed_texture(", "_lying_drawn.append("]:
 		if not corpse.contains(call):
-			return "_draw_corpse does not land the fall (no %s)" % call
+			return "_draw_corpse does not lay the fallen body down (no %s)" % call
 	return ""
 
 
@@ -742,9 +783,7 @@ func _readers() -> bool:
 		"_anim.from_events(world, world.events.drained",
 		"motion.merge(_anim.act(",
 		"_anim.fall_of(",
-		"Appearance.fall_landing(",
-		"Appearance.corpse_feet(",
-		"Appearance.corpse_flip(",
+		"Appearance.lying_key(",
 		"Appearance.dressed_texture(",
 	]
 	for needle in sabotage:
@@ -752,7 +791,7 @@ func _readers() -> bool:
 			push_error("READERS: removing '%s' went unnoticed" % needle)
 			ok = false
 	if ok:
-		print("READERS OK the frame loop feeds the clock, the draw merges its action before the picture, the corpse pass draws the fall and lands it from the feet, the fall's way")
+		print("READERS OK the frame loop feeds the clock, the draw merges its action before the picture, the corpse pass draws the fall and lays the body down as its last frame, dressed")
 	return ok
 
 
@@ -1139,23 +1178,34 @@ func _zombie(main: Node, w: Variant, pid: int) -> bool:
 		fall = _fell(main, z)
 		if not fall.is_empty():
 			break
-	for i in 20:
+	# Ten beats at 12 fps: 0.83 s; 1.2 s on it has played and the body lies as its last frame.
+	for i in 24:
 		await _tick(main)
 	var gone: String = _fell(main, z)
+	var lying: String = _lay(main, z)
 	if not fall.contains("_fall_"):
 		ok = _fail("FALL", "the killing blow drew no fall in the corpse pass (zombie alive: %s)" % str(w.entities.is_alive(z) if w.entities.has_method("is_alive") else "?"))
 	if not gone.is_empty():
-		ok = _fail("FALL", "a second on, the fall still drew %s instead of the settled body" % gone)
+		ok = _fail("FALL", "1.2 s on, the fall still drew %s instead of the settled body" % gone)
+	if fall.contains("_fall_") and lying != Appearance.lying_key(fall.substr(0, fall.find("_fall_")), fall.substr(fall.find("_fall_") + 6, 1)):
+		ok = _fail("FALL", "the settled body drew '%s', not the fall's own last frame after %s" % [lying, fall])
 	if ok:
 		print("LUNGE OK attack.connected drew the zombie %s, %s before and %s after" % [lunge, before, settled])
 		print("FLINCH OK the same hit drew the player %s, %s before and %s after" % [flinch, player_before, player_settled])
 		print("STAGGER OK entity.staggered drew the zombie %s" % stagger)
-		print("FALL OK the killing blow drew %s in the corpse pass, and the settled body after it played" % fall)
+		print("FALL OK the killing blow drew %s in the corpse pass, and the settled body lay as %s after it played" % [fall, lying])
 		_report.append("LUNGE %s" % lunge)
 		_report.append("FLINCH %s" % flinch)
 		_report.append("STAGGER %s" % stagger)
 		_report.append("FALL %s" % fall)
 	return ok
+
+
+func _lay(main: Node, id: int) -> String:
+	for f in main.get("_lying_drawn") as Array:
+		if int((f as Dictionary).get("id", -1)) == id:
+			return String((f as Dictionary)["key"])
+	return ""
 
 
 func _fell(main: Node, id: int) -> String:
