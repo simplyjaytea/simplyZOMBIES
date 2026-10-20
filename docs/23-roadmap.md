@@ -564,6 +564,8 @@ projection are untouched.
 - ~~**The marks a fight leaves (alpha plan A13).**~~ — **landed** 2026-10-19 for six of the
   pack's eight decals, see the record ("Art — the marks a fight leaves"; `npm run
   godot:check:decals` → `DECALS_OK`). The shell pile and the footprint stay in the report.
+- **Remembered marks** (after alpha). A remembered tile shows the decals it held when the player
+  last saw it, dimmed with the ground, from a per-tile memory; today marks show only in sight.
 - ~~**The cars are the pack's, east-west.**~~ — **landed** 2026-09-26, see the record
   (`npm run godot:check:wrecks` → the new PACK lane and SILHOUETTE at the pack's rows;
   `npm run godot:m2:vehicles` → DRIVE's per-axis turn).
