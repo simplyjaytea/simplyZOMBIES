@@ -5524,3 +5524,51 @@ and the current unseen-wall roof coverage stay as they are. The bounded implemen
 supported rectangular brick and plaster perimeters, with generated fallbacks; its gates and
 runtime captures are recorded in docs/23. The mapping is not a decision to extend roofs over
 unseen perimeter walls.
+
+## The whole interface, 2026-10-03
+
+After asking for the CI repair and parallel follow-ups to be merged to main, the owner asked
+for an overhaul of **all UI**, including the paperdoll: modern, bespoke, good-looking and
+comfortable to manage, while retaining hardcore play. They requested a plan and an opportunity
+to shape it before proceeding through the overhaul.
+
+Their reference choice was **"Tarkov detail + Project Zomboid practicality, with cleaner
+management"**. They then clarified that Project Zomboid is the main practical reference,
+Tarkov and Zero Sievert supply hardcore/tactical character, and the result must mesh with
+the existing **Dungeon Settlers** art direction.
+
+For the paperdoll they explicitly chose **"A stylized anatomical diagram with equipment
+arranged around it"**. A dressed portrait or live 3D avatar is not the selected direction.
+The diagram can be reauthored while preserving the ten existing semantic body regions and
+the truthful condition read model. Equipment around the figure must represent the actual
+twelve slots, not only those shown by an illustrative mockup.
+
+This opens replacement of the old UI Field Kit's visual treatment, compulsory VT323 type,
+fixed panel composition and D2 chart proportions. Earlier visual decisions remain history
+and the current implementation baseline; they are not a requirement to preserve the look
+the owner has now asked to replace. The Dungeon Settlers world direction, scarce-information
+contract, health-bar ban, simulation authority and existing legal actions remain in force.
+
+The precise palette, typography, responsive composition and grid-plus-fast-list proposal
+are **recommendations**, not additional owner decisions. The generated anatomical concept
+is illustrative and has not been accepted as a final layout. No pause-policy or inventory
+capacity change was requested. [The design brief](32-ui-overhaul.md) develops the proposal;
+[the roadmap](23-roadmap.md#ui-overhaul) alone carries implementation order and status.
+
+## The inventory's look, 2026-10-20
+
+Asked on 2026-10-19 (the alpha plan's Q5) about the inventory, the owner kept the grid -- "I
+like how it's very much like Tarkov" -- and said it "looks very plain" and has to look "super
+awesome and like unique, bespoke even". The grid-plus-fast-list proposal above was accepted
+in the same answer: a list beside the grid, with the grid still the authority on capacity.
+
+Three directions were drawn at 1920×1080 with the repository's own item icons (canvas
+webbing, a salvage locker, a hard case). On 2026-10-20 the owner picked **B, the Salvage
+Locker**, on a decision card: brushed steel, rivets, masking-tape labels, recessed cells and
+plates tinted by item class, at the world's 2× pixel density. The mockups are under
+`.hermes/plans/2026-10-19_inventory-redesign/`.
+
+This settles the inventory's surfaces only. Typography, the anatomical diagram and the rest of
+the interface remain the recommendations "The whole interface" describes; VT323 is still the
+baseline face, not a renewed decision. The health-bar ban, the digit ban and the scarce-
+information contract are unchanged.
