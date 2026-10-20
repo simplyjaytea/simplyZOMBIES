@@ -31,6 +31,7 @@ const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimWeather = preload("res://sim/modules/weather.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimCombat = preload("res://sim/combat.gd")
+const SimJobs = preload("res://sim/modules/jobs.gd")
 
 const FIXTURE: Dictionary = {"seed": 71, "tick_hz": 20, "map": {"width": 16, "height": 16, "walls": []}, "player": {"id": 0, "x": 8.5, "y": 8.5, "stance": 2}, "rng_probe": {"stream": "test", "samples": 0}}
 
@@ -60,8 +61,12 @@ func _run() -> void:
 	ok = _each_observer_handed_its_square_sees_what_it_saw() and ok
 	ok = _the_hour_read_once_is_the_hour_read_per_observer() and ok
 	ok = _every_arm_that_moves_a_body_reads_its_speed() and ok
+	ok = _an_unhurt_body_has_nothing_to_strip() and ok
+	ok = _the_dress_test_reads_the_base_once_and_answers_the_same() and ok
+	ok = _swapped_scent_buffers_are_the_copied_field() and ok
+	ok = _an_arc_cosine_follows_its_angle() and ok
 	if ok:
-		print("M2_TICK_OK content-agree content-follows content-reader map-log door-cells view-stands dead-keep path cast enemies people square query care claw sky observe ambient seek")
+		print("M2_TICK_OK content-agree content-follows content-reader map-log door-cells view-stands dead-keep path cast enemies people square query care claw sky observe ambient seek impair dress scent arcs")
 		quit(0)
 	else:
 		push_error("M2_TICK_FAIL")
@@ -450,6 +455,16 @@ func _the_heap_plans_the_paths_the_scan_planned() -> bool:
 		var b := Vector2i(start.x + rng.randi_range(-30, 30), start.y + rng.randi_range(-30, 30))
 		if SimPath.walkable(w, a.x, a.y) and SimPath.walkable(w, b.x, b.y):
 			pairs.append([a, b])
+	# And long ones, round blocks and across the district, where a plan meets the expansion cap and
+	# the flat search's arrays are widest (A3's eighth slice).
+	var long_pairs: int = 0
+	while long_pairs < 10 and tries < 8000:
+		tries += 1
+		var a2 := Vector2i(start.x + rng.randi_range(-90, 90), start.y + rng.randi_range(-90, 90))
+		var b2 := Vector2i(start.x + rng.randi_range(-90, 90), start.y + rng.randi_range(-90, 90))
+		if absi(a2.x - b2.x) + absi(a2.y - b2.y) >= 60 and SimPath.walkable(w, a2.x, a2.y) and SimPath.walkable(w, b2.x, b2.y):
+			pairs.append([a2, b2])
+			long_pairs += 1
 	var sealed := Vector2i(-1, -1)
 	for y in range(1, int(w.tilemap.h) - 1):
 		for x in range(1, int(w.tilemap.w) - 1):
@@ -466,7 +481,7 @@ func _the_heap_plans_the_paths_the_scan_planned() -> bool:
 			break
 	if sealed.x >= 0:
 		pairs.append([start, sealed])
-	if pairs.size() < 20:
+	if pairs.size() < 30:
 		return _fail("PATH", "found only %d walkable pairs near the colony; the lane has too little to judge" % pairs.size())
 	var flipped: int = 0
 	var found: int = 0
@@ -731,6 +746,10 @@ func _the_people_tables_are_the_people() -> bool:
 		return _fail("PEOPLE", "is_person reads %s but PERSON_MARKERS lists %s" % [str(markers), str(listed)])
 	if _body_of("res://sim/modules/shambler.gd", "_gather_survivors").find("_people_with_position(") < 0:
 		return _fail("PEOPLE", "_gather_survivors does not walk _people_with_position")
+	if _body_of("res://sim/modules/shambler.gd", "_people_with_position").find("SimAllegianceRes.people_with_position(") < 0:
+		return _fail("PEOPLE", "_people_with_position no longer hands down to SimAllegiance.people_with_position")
+	if _body_of("res://sim/modules/screamer.gd", "register_module").find("in SimAllegiance.people_with_position(w)") < 0:
+		return _fail("PEOPLE", "the screamer's alarm does not walk SimAllegiance.people_with_position")
 	return true
 
 
@@ -1171,4 +1190,220 @@ func _every_arm_that_moves_a_body_reads_its_speed() -> bool:
 			return _fail("SEEK", "a %s zombie beside a person moved at %.4f m/s where its seek speed is %.4f" % [name, got, want])
 		if name != "Dormant" and want <= 0.0:
 			return _fail("SEEK", "a %s zombie has no seek speed to judge" % name)
+	return true
+
+
+# --- slice 8: the per-body cuts ------------------------------------------------------------------
+
+func _runner(w: Variant, id: String) -> Callable:
+	for sys in w.systems.ordered():
+		if String((sys as Dictionary)["id"]) == id:
+			return (sys as Dictionary)["runner"] as Callable
+	return Callable()
+
+
+# IMPAIR. `holds_any` answers whether a scope holds any of the named sources, and `remove_by_source`
+# looking before it rebuilds changes nothing it does not remove. Then the reader: `wounds.impair`
+# skips a body with no wound, no impairing blood loss and none of its sources -- so a stale
+# `wound.*` modifier on an unhurt body must still be stripped (a skip that kept it would be the
+# stale-memo defect), an unrelated source on the same body survives, and a wounded body is still
+# impaired.
+func _an_unhurt_body_has_nothing_to_strip() -> bool:
+	var w: Variant = _stepped_world()
+	var impair: Callable = _runner(w, "wounds.impair")
+	if not impair.is_valid():
+		return _fail("IMPAIR", "no wounds.impair system to run")
+	var z: int = -1
+	for e in w.components.query(["injuries"]):
+		if w.components.has_component(e, "corpse"):
+			continue
+		if (((w.components.get_component(e, "injuries") as Dictionary).get("wounds", [])) as Array).is_empty():
+			z = e
+			break
+	if z < 0:
+		return _fail("IMPAIR", "no unwounded body on the stepped district")
+	var m: Variant = w.modifiers
+	var sources: Dictionary = SimWounds._impair_sources()
+	if sources.size() != 3 + SimCombat.SURVIVOR_BODY_PARTS.size():
+		return _fail("IMPAIR", "the impair sources are %d, not the three families and a source a part" % sources.size())
+	m.add({"stat": "move_speed", "op": "mul", "value": 0.9, "source": "lane.keep"}, z)
+	if m.holds_any(z, sources):
+		return _fail("IMPAIR", "an unrelated source counted as an impair source")
+	var size_before: int = int(m.size())
+	if int(m.remove_by_source("wound.leg_left", z)) != 0 or int(m.size()) != size_before:
+		return _fail("IMPAIR", "removing a source nobody holds removed something")
+	m.add({"stat": "move_speed", "op": "mul", "value": 0.5, "source": "wound.leg_left"}, z)
+	if not m.holds_any(z, sources):
+		return _fail("IMPAIR", "a wound source on the body was not found")
+	impair.call(w)
+	if m.holds_any(z, {"wound.leg_left": true}):
+		return _fail("IMPAIR", "a stale wound modifier on an unhurt body survived wounds.impair")
+	if not m.holds_any(z, {"lane.keep": true}):
+		return _fail("IMPAIR", "wounds.impair stripped a source that is not its own")
+	var inj: Dictionary = w.components.get_component(z, "injuries") as Dictionary
+	inj["wounds"] = [{"bodyPart": "leg_left", "kind": "cut", "severity": 2, "bleeding": false}]
+	impair.call(w)
+	if not m.holds_any(z, {"wound.leg_left": true}):
+		return _fail("IMPAIR", "a wounded leg was not impaired")
+	inj["wounds"] = []
+	impair.call(w)
+	if m.holds_any(z, {"wound.leg_left": true}):
+		return _fail("IMPAIR", "a healed leg kept its impairment")
+	return true
+
+
+# The Dress test as it stood before slice 8: the slot, then the points, each reading the base.
+func _reference_better_armor(world: Variant, ent: int, item: int) -> bool:
+	var slot: String = SimJobs._dress_slot(world, item)
+	if slot == "":
+		return false
+	var points: int = SimJobs._armor_points(world, item)
+	if points <= 0:
+		return false
+	var c: Variant = world.components.get_component(item, "condition")
+	if c is Dictionary and float((c as Dictionary).get("current", 1.0)) <= 0.0:
+		return false
+	var eq: Variant = world.components.get_component(ent, "equipment")
+	if not eq is Dictionary:
+		return true
+	var slots: Dictionary = ((eq as Dictionary).get("slots", {})) as Dictionary
+	if not slots.has(slot):
+		return true
+	var worn: int = int(slots[slot])
+	if worn == item:
+		return false
+	return points > SimJobs._armor_points(world, worn)
+
+
+# DRESS. For every person and every item on the district, carried or lying, the one-read test
+# answers what the slot-then-points test did. The negatives: some item passes, some item with an
+# armour block fails (a skipped slot, a worn piece, or no better), and some item has no armour.
+func _the_dress_test_reads_the_base_once_and_answers_the_same() -> bool:
+	var w: Variant = _stepped_world()
+	var passed: int = 0
+	var twins: int = 0
+	var armoured_refused: int = 0
+	var bare: int = 0
+	for ent in SimShambler._people_with_position(w):
+		for item in w.components.query(["itemBase"]):
+			var got: bool = SimJobs._is_better_armor(w, int(ent), int(item))
+			if got != _reference_better_armor(w, int(ent), int(item)):
+				return _fail("DRESS", "person %d, item %d: the one-read test said %s" % [int(ent), int(item), str(got)])
+			var base: Variant = SimItems.item_base_of(w, int(item))
+			var has_armor: bool = base is Dictionary and (base as Dictionary).get("armor") is Dictionary
+			if got:
+				passed += 1
+			elif has_armor:
+				armoured_refused += 1
+			else:
+				bare += 1
+	# A garment each person would put on, put on: the same garment is then refused, as is anything
+	# no better in its slot -- the armoured refusals the district may not hold on its own.
+	for ent in SimShambler._people_with_position(w):
+		var eq: Variant = w.components.get_component(int(ent), "equipment")
+		if not eq is Dictionary:
+			continue
+		for item in w.components.query(["itemBase"]):
+			if not SimJobs._is_better_armor(w, int(ent), int(item)):
+				continue
+			var slots: Dictionary = (eq as Dictionary).get("slots", {}) as Dictionary
+			var slot: String = SimJobs._dress_slot(w, int(item))
+			var had: Variant = slots.get(slot)
+			slots[slot] = int(item)
+			# A twin of what is now worn: equal, so not better -- the strictness the rule keeps.
+			var twin: int = SimItems.spawn_item(w, String((w.components.get_component(int(item), "itemBase") as Dictionary)["baseId"]))
+			if SimJobs._is_better_armor(w, int(ent), twin):
+				return _fail("DRESS", "a twin of the garment person %d wears counted as better" % int(ent))
+			twins += 1
+			for other in w.components.query(["itemBase"]):
+				var got2: bool = SimJobs._is_better_armor(w, int(ent), int(other))
+				if got2 != _reference_better_armor(w, int(ent), int(other)):
+					return _fail("DRESS", "person %d wearing %d, item %d: the one-read test said %s" % [int(ent), int(item), int(other), str(got2)])
+				var b2: Variant = SimItems.item_base_of(w, int(other))
+				if not got2 and b2 is Dictionary and (b2 as Dictionary).get("armor") is Dictionary:
+					armoured_refused += 1
+			if had == null:
+				slots.erase(slot)
+			else:
+				slots[slot] = had
+			break
+	if passed == 0 or armoured_refused == 0 or bare == 0 or twins == 0:
+		return _fail("DRESS", "passed %d, armour refused %d, bare %d, twins %d: some answer was never judged" % [passed, armoured_refused, bare, twins])
+	return true
+
+
+# SCENT. Two diffusion steps on the stepped district's field, with the buffers swapped, give the
+# field a cell-by-cell copy gives -- the second step is the one that writes into the swapped-out
+# buffer. The negative: the field has scent and the steps change it.
+func _swapped_scent_buffers_are_the_copied_field() -> bool:
+	var w: Variant = _stepped_world()
+	var f: Variant = w.field
+	var want: PackedFloat32Array = (f.scent as PackedFloat32Array).duplicate()
+	var start: PackedFloat32Array = want.duplicate()
+	var any: bool = false
+	for v in start:
+		if v != 0.0:
+			any = true
+			break
+	if not any:
+		return _fail("SCENT", "the stepped district has no scent to diffuse")
+	for step_i in 2:
+		want = _reference_diffuse(f, want)
+		f.diffuse_scent(1.0)
+	if (f.scent as PackedFloat32Array) != want:
+		return _fail("SCENT", "two swapped steps are not two copied steps")
+	if want == start:
+		return _fail("SCENT", "two steps changed nothing, so the lane judged nothing")
+	return true
+
+
+# `diffuse_scent` at a half-life factor of one, with its copy loop, on a copy of the field.
+func _reference_diffuse(f: Variant, scent: PackedFloat32Array) -> PackedFloat32Array:
+	var next := PackedFloat32Array()
+	next.resize(scent.size())
+	var keep: float = 1.0 - float(f.calibration["scentDiffusionRate"])
+	var rate: float = float(f.calibration["scentDiffusionRate"])
+	var floor_v: float = float(f.calibration["scentFloor"])
+	var ww: PackedFloat32Array = f._wind_weights
+	var cols: int = int(f.cols)
+	var rows: int = int(f.rows)
+	for cy in rows:
+		for cx in cols:
+			var here: int = cy * cols + cx
+			var value: float = scent[here] * keep
+			if cx + 1 < cols:
+				value += scent[here + 1] * rate * float(ww[1])
+			if cx - 1 >= 0:
+				value += scent[here - 1] * rate * float(ww[0])
+			if cy + 1 < rows:
+				value += scent[here + cols] * rate * float(ww[3])
+			if cy - 1 >= 0:
+				value += scent[here - cols] * rate * float(ww[2])
+			var decayed: float = value * float(f._scent_decay_per_step)
+			next[here] = 0.0 if decayed < floor_v else decayed
+	var out := PackedFloat32Array()
+	out.resize(scent.size())
+	for i in next.size():
+		out[i] = next[i]
+	return out
+
+
+# ARCS. A view's arc cosines are kept beside the angle they came from, so they must follow the
+# angle: after refresh they are the cosines of the eyes' angles, and after the eyes change they are
+# the new angles' cosines, not the old -- the stale-memo negative.
+func _an_arc_cosine_follows_its_angle() -> bool:
+	var w: Variant = _door_world()
+	w.vision.refresh(w, w.tilemap)
+	var obs: Dictionary = w.components.get_component(w.player, "observer") as Dictionary
+	var view: Dictionary = w.vision._views[w.player] as Dictionary
+	if float(view["cos_focal"]) != cos(float(obs["focal_half_angle"])) or float(view["cos_peripheral"]) != cos(float(obs["peripheral_half_angle"])):
+		return _fail("ARCS", "a view's arc cosines are not its eyes' angles' cosines")
+	var old_focal: float = float(view["cos_focal"])
+	obs["focal_half_angle"] = 0.25
+	obs["peripheral_half_angle"] = 1.25
+	w.vision.refresh(w, w.tilemap)
+	if float(view["cos_focal"]) != cos(0.25) or float(view["cos_peripheral"]) != cos(1.25):
+		return _fail("ARCS", "a view kept its old arc cosines after its eyes changed")
+	if float(view["cos_focal"]) == old_focal:
+		return _fail("ARCS", "the new focal arc has the old one's cosine, so the lane judged nothing")
 	return true

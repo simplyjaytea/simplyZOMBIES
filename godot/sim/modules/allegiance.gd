@@ -115,6 +115,23 @@ static func is_person(world: Variant, entity: int) -> bool:
 const PERSON_MARKERS: Array[String] = ["controlled", "identity", "raider"]
 
 
+# Every positioned entity `is_person` would accept, ascending by id -- the order
+# `query(["position"])` gave. Asked of the three markers' own tables rather than by testing all
+# 340-odd positioned things (every item on the ground among them) against the three markers, which
+# was most of what gathering cost (A3's fourth slice; the screamer's alarm asks it too since the
+# eighth). `check_m2_tick.gd` PEOPLE holds the two equal and names both readers.
+static func people_with_position(world: Variant) -> Array[int]:
+	var seen: Dictionary = {}
+	var out: Array[int] = []
+	for marker in PERSON_MARKERS:
+		for entity in world.components.query([marker, "position"]):
+			if not seen.has(entity):
+				seen[entity] = true
+				out.append(int(entity))
+	out.sort()
+	return out
+
+
 # Every body this entity would fight, unfiltered by distance, sightline or health -- callers own
 # those, and both of them already had to. Sorted, because `components.query` sorts and a target
 # preference that depended on table iteration order would not survive a save/load.

@@ -374,6 +374,7 @@ deleted afterwards.
 | 5. The component query memo | 2026-10-19 | 17.02 ms | 35.77 ms | a hundred `components.query` calls a tick rebuilt the same sorted intersection |
 | 6. What each body paid every tick | 2026-10-19 | 13.68 ms | 36.89 ms | each observer re-read every position, every colonist walked every zombie, every zombie re-read the sky |
 | 7. The cast's rows and the hour | 2026-10-19 | 13.49 ms | 32.67 ms | the shadowcast resolved its quadrant per tile, every observer re-read the hour, a dormant zombie resolved a speed it never used |
+| 8. The per-body cuts | 2026-10-20 | 13.63 ms | 30.01 ms | a 21 ms A* on Dictionaries, thirteen modifier strips per unhurt body, a scan of every positioned thing for the screamer, the Dress test reading each item twice |
 
 **Slice 1, content entries by id.** `SimItems._content_get` found an entry by walking every value
 in the flat content tree until one carried the id. `item_base_of` runs about a hundred times a
@@ -460,6 +461,24 @@ observer. The shambler pass resolves a body's seek speed only in the three arms 
 the fifth of the district lying dormant no longer pays for it. A smaller step than the slices
 before it: slice 6 13.77 / 34.60 ms against slice 7 13.49 / 32.67, median of three interleaved,
 within the bench's noise on its own. The 3,000-tick hash with `DEAD_KEEP_VIEW` off still matches
+`main`.
+
+**Slice 8, the per-body cuts.** A fresh container ran the bench slower, so this row is read
+against slice 7 measured the same way on it: **15.15 / 41.62 ms** to **13.63 / 30.01**, median of
+three interleaved runs, about a tenth off the mean. `SimPath.find` keeps its heap order but packs
+each entry as one int (f, then first-entry order, then the tile) and holds g, order and the way
+back in flat arrays, with `walkable` read straight off the world's cells and the map's tiles: the
+59-step plan round a block that was a 21 ms tick is now about 7 ms, by the same expansions.
+`wounds.impair` stripped thirteen modifier sources from every body every tick before adding back
+the few that apply; a body with no wound, no impairing blood loss and none of those sources
+(`SimModifiers.holds_any`) is now skipped, and `remove_by_source` looks before it rebuilds a list
+it would leave unchanged, 0.42 to 0.06 ms. The screamer's alarm walked every positioned thing for
+its people; it asks `SimAllegiance.people_with_position`, the shambler's own walk moved there. The
+Dress test reads an item's base once and asks for an `armor` block first. Smaller: scent diffusion
+swaps its two buffers instead of copying one into the other, each view keeps its arc cosines beside
+the angle they came from, `refresh` reads the light index once, the movement pass reads the
+world's cells directly and asks each corner once, and the noise emitter preloads the stance table
+instead of loading it per body. The 3,000-tick hash with `DEAD_KEEP_VIEW` off still matches
 `main`.
 
 ### Remaining milestone evidence
