@@ -78,9 +78,9 @@ func glow_rect(texture: Texture2D, rect: Rect2, transpose: bool) -> void:
 # The night for this frame. `ctx`: viewport (Vector2), zoom (screen px a tile), origin (screen
 # position of world 0,0), view (Rect2i of tiles, clamped to the map), texels (LightLook.light_texels
 # for that view), lights (its `lights`, positions already slid to where the bodies are drawn),
-# ambient, range_m, eye (Vector2 tiles, absent with nobody to
-# ask), night (Color), night_wash, edge_dark_day, edge_dark_night. `show` false clears the rect -- full
-# daylight with nothing at the edge of sight to soften is a frame with no night in it.
+# ambient, range_m, eye (Vector2 tiles, absent with nobody to ask) and eye_reach (metres,
+# LightLook.eye_disc_metres), night (Color), night_wash, edge_dark_day, edge_dark_night. `show`
+# false clears the rect: full daylight is a frame with no night in it.
 func frame(ctx: Dictionary, show: bool) -> void:
 	if not _attached:
 		return
@@ -115,7 +115,7 @@ func frame(ctx: Dictionary, show: bool) -> void:
 		var l: Dictionary = lights[i] as Dictionary
 		pos[i] = Vector4(float(l["x"]), float(l["y"]), float(l["magnitude"]), float(l.get("flicker", 0.0)))
 		var c: Color = l["tint"] as Color
-		tint[i] = Vector4(c.r, c.g, c.b, 1.0)
+		tint[i] = Vector4(c.r, c.g, c.b, LightLook.source_cap(float(l["magnitude"])))
 		var beam: float = float(l.get("beam", 0.0))
 		var facing: float = float(l.get("facing", 0.0))
 		dir[i] = Vector4(cos(facing), sin(facing), cos(beam) if beam > 0.0 else 0.0, 0.0)
@@ -130,14 +130,15 @@ func frame(ctx: Dictionary, show: bool) -> void:
 	_material.set_shader_parameter("ambient", float(ctx["ambient"]))
 	_material.set_shader_parameter("eye", ctx.get("eye", Vector2.ZERO) as Vector2)
 	_material.set_shader_parameter("eye_fade", 1.0 if ctx.has("eye") else 0.0)
+	_material.set_shader_parameter("eye_reach", float(ctx.get("eye_reach", 0.0)))
 	_material.set_shader_parameter("light_count", count)
 	_material.set_shader_parameter("light_pos", pos)
 	_material.set_shader_parameter("light_tint", tint)
 	_material.set_shader_parameter("light_dir", dir)
 	_material.set_shader_parameter("night_colour", night)
 	_material.set_shader_parameter("night_wash", float(ctx["night_wash"]))
-	_material.set_shader_parameter("curve", LightLook.LIGHT_CURVE)
 	_material.set_shader_parameter("eye_floor", LightLook.EYE_FLOOR)
+	_material.set_shader_parameter("pool_levels", float(LightLook.POOL_LEVELS))
 	_material.set_shader_parameter("edge_dark_day", float(ctx["edge_dark_day"]))
 	_material.set_shader_parameter("edge_dark_night", float(ctx["edge_dark_night"]))
 	RenderingServer.canvas_item_add_rect(_dark, Rect2(Vector2.ZERO, ctx["viewport"] as Vector2), Color.WHITE)

@@ -30,24 +30,33 @@ const DEFAULT_SOURCE_TINT: Color = Palette.LIGHT_POOL_RGB
 # than this in view is not an error; the dimmest are left out, which can only make the screen
 # darker than the sim, never lighter.
 const MAX_LIGHTS: int = 24
-# The curve a fraction of daylight sight is shown through: 1 - (1 - f)^LIGHT_CURVE. 0 stays 0 and 1
-# stays 1; the dim end is lifted, so a campfire, which lends at most 20 of a survivor's 48 metres,
-# reads as a pool of light and not as a slightly less dark patch. Monotonic, so the brighter of
-# two pixels is always the one where the sim sees further.
-const LIGHT_CURVE: float = 3.0
 # How far a flame's reach dips when it flickers, as a fraction of its reach. Only ever down: a
 # flicker that reached past the sim's own cast would draw light where the sim has none.
 const FLAME_FLICKER: float = 0.03
 # How lit the survivor's own disc of night is at least (night_light.gdshader's `eye_floor`): their
 # body and the ground at their feet, which the sim already says they see, stay readable.
-const EYE_FLOOR: float = 0.3
+const EYE_FLOOR: float = 0.55
+# The widest that disc is drawn, in metres, however far the survivor sees: in a lit room they see
+# the whole room, and the room is the pools' to light; the disc is only the ground at their feet.
+const EYE_DISC_MAX_M: float = 3.5
+# How many flat rings a pool is drawn in (night_light.gdshader's `pool_levels`), each one's edge an
+# ordered dither into the next: pixel-art light, not an airbrushed gradient.
+const POOL_LEVELS: int = 5
+# The brightest a source's pool gets, as a fraction of daylight, by how far the sim says it reaches:
+# CAP_AT_ZERO + metres / CAP_METRES, held between CAP_MIN and CAP_MAX. A campfire (20 m) out-shines
+# a storm lantern (16 m), so where two pools overlap the brighter one shows as its own level rather
+# than both clipping to one; a candle is a dim glow and a worklight nearly daylight.
+const CAP_AT_ZERO: float = 0.35
+const CAP_METRES: float = 40.0
+const CAP_MIN: float = 0.45
+const CAP_MAX: float = 0.95
 
 
 # The raw ambient fraction for this world's tick -- daylight 1.0, deep night NIGHT_AMBIENT.
 #
-# Exposed rather than inlined because two callers need exactly this number and no other: the
-# fallback below, and the draw loop's refusal to paint pools at noon. It is emphatically *not*
-# what the wash is computed from any more; `local_light_fraction` is.
+# Exposed rather than inlined because the callers need exactly this number and no other: the
+# fallback below, the light map's sky (and its refusal to draw any night at all at noon), and the
+# O channel's refusal to paint pools then.
 static func ambient_of(world: Variant) -> float:
 	return Clock.ambient_light_at(_tick_of(world))
 
@@ -59,7 +68,8 @@ static func ambient_of(world: Variant) -> float:
 #
 # Falls back to raw ambient when there is nobody to ask: a world booted without a player, or the
 # parity/headless boot where the body carries no `observer`. That is the frozen renderer's
-# `eyes === null` branch, and it is what the wash always was before light existed.
+# `eyes === null` branch, and it is what the wash always was before light existed. Since the light
+# map it is what sizes the survivor's own disc of night (`eye_disc_metres`).
 static func local_light_fraction(world: Variant, eyes: int) -> float:
 	var ambient: float = ambient_of(world)
 	if world == null or eyes < 0 or world.components == null:
@@ -75,55 +85,28 @@ static func local_light_fraction(world: Variant, eyes: int) -> float:
 	return clampf(metres / full, 0.0, 1.0)
 
 
-# The night wash's alpha, and the daylight early-out that goes with it. `night_wash` is passed in
-# rather than owned here because it is a look constant of the screen that draws it (main.gd's
-# NIGHT_WASH), while the fraction it scales is a fact about the survivor.
-#
-# Since the light map (A10) the night is no longer one flat fill: this is the darkness the shader
-# lays on the survivor's own tile, before its dither, and `shown` is the curve both share.
-static func wash_alpha(world: Variant, eyes: int, night_wash: float) -> float:
-	var light: float = local_light_fraction(world, eyes)
-	if light >= 1.0:
-		return 0.0
-	return (1.0 - shown_at_eye(ambient_of(world), light)) * night_wash
-
-
-# How lit the survivor's own tile is shown, before the pool's core: the sky as it is, never less
-# than EYE_FLOOR around the survivor's own feet, and a source's light through the curve where it
-# out-reaches the sky. night_light.gdshader's `sky_here` and `lift` at distance zero.
-static func shown_at_eye(ambient: float, fraction: float) -> float:
-	var sky: float = maxf(ambient, EYE_FLOOR)
-	if fraction > ambient:
-		return maxf(sky, shown(fraction))
-	return sky
-
-
-# The fraction of daylight sight as the screen shows it: night_light.gdshader's `shown`, the same
-# formula, so the gate can hold the two to one curve.
-static func shown(fraction: float) -> float:
-	return 1.0 - pow(1.0 - clampf(fraction, 0.0, 1.0), LIGHT_CURVE)
-
-
-# The fraction of daylight sight at a point, for the survivor `eyes`: their own sight rule
-# (SimLight.sight_metres) asked at (x, y) instead of at their feet, over their daylight range --
-# what the light map shows there before the shader measures distance to the pixel rather than to
-# the point. Where the survivor does not see the tile, no source counts and only the sky is left,
-# which is the light map's no-leak rule as a number. At the survivor's own position this is
-# `local_light_fraction` exactly.
-static func light_fraction_at(world: Variant, eyes: int, x: float, y: float) -> float:
-	var ambient: float = ambient_of(world)
+# How far from the survivor's feet the light map draws the disc of ground they make out by
+# themselves (night_light.gdshader's `eye_reach`): their own sight at their feet, in metres, held
+# under EYE_DISC_MAX_M. By night with no light it is the sky's share of their range -- the sim's
+# own radius of seen tiles, so the disc is round inside it rather than cut by it. 0 with nobody to
+# ask, and then no disc is drawn.
+static func eye_disc_metres(world: Variant, eyes: int) -> float:
 	if world == null or eyes < 0 or world.components == null:
-		return ambient
+		return 0.0
 	var obs: Variant = world.components.get_component(eyes, "observer")
 	if not (obs is Dictionary):
-		return ambient
+		return 0.0
 	var full: float = float((obs as Dictionary).get("range_metres", 0.0))
 	if not (full > 0.0):
-		return ambient
-	var seen: Variant = world.vision.tiles_for(eyes) if world.vision != null else null
-	if seen == null or not bool((seen as Object).call("has_tile", floori(x), floori(y))):
-		return ambient
-	return clampf(SimLight.sight_metres(world, obs as Dictionary, x, y) / full, 0.0, 1.0)
+		return 0.0
+	return clampf(local_light_fraction(world, eyes) * full, 0.0, EYE_DISC_MAX_M)
+
+
+# The brightest a source's pool is drawn (night_light.gdshader's light_tint.w): CAP_AT_ZERO plus
+# a share for every metre the sim says it reaches, between CAP_MIN and CAP_MAX. Monotonic, so a
+# stronger light is never drawn dimmer than a weaker one.
+static func source_cap(magnitude: float) -> float:
+	return clampf(CAP_AT_ZERO + maxf(0.0, magnitude) / CAP_METRES, CAP_MIN, CAP_MAX)
 
 
 # The light map's texels for the tiles in `view` (tile coordinates, clamped to the map by the
@@ -400,7 +383,7 @@ static func source_flicker(world: Variant, source: int) -> float:
 # content `beam` of the light a body carries, pointed where that body faces. Only a carried light
 # has a facing to point along, so a lamp planted in the yard is round whatever its content says.
 # Presentation only -- the sim lights the whole cast either way, and outside the beam the light map
-# draws it as the halo, which is less light than the sim's, never more.
+# draws only a disc at the hand, which is less light than the sim's, never more.
 static func source_beam(world: Variant, source: int) -> float:
 	if world == null or world.components == null or source < 0:
 		return 0.0

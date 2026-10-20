@@ -416,11 +416,27 @@ shader cannot trip a CI budget, and no gate measures its cost. A software-render
 would judge llvmpipe rather than the product, so none was added. Measuring on hardware is the open
 item.
 
+The art review's revision (2026-10-20: pools bounded by their radius and cut into rings, the
+night held at its floor outside them, the light map cleared rather than drawn by day) was measured
+against the first cut on a third container (llvmpipe, Intel Xeon @ 2.10 GHz, 1280×720), two runs
+each, the same driver and bench:
+
+| Stage | First cut | Revised |
+|---|---:|---:|
+| shipped-draw (day) `_draw` CPU, mean | 7.45–7.99 ms | 7.42–7.69 ms |
+| shipped-draw (day) RenderServer wall time, mean | 25.97–28.18 ms | 16.21–16.86 ms |
+| night `_draw` CPU, mean | 10.35–11.58 ms | 10.35–10.91 ms |
+| night RenderServer wall time, mean | 31.66–35.06 ms | 32.08–32.76 ms |
+
+By day the shader no longer runs at all, so the renderer is back to its pre-A10 cost; at night the
+revision costs the same. The GPU cost remains unmeasured, as above.
+
 **Open: the night's `_draw` stage is over target.** At night, with a carried torch and a lit
 campfire, the `_draw` CPU stage measured **17.0–18.3 ms** mean at 1280×720 after A10 (20.7–21.7 ms
 before it). The 10 ms target is not met. The day boot scene sits at 12.9–14.1 ms on the same
-container. This is not the light map's cost, since A10 lowered the number; what the rest of the
-night frame spends it on has not been profiled.
+container. On the faster container of the revision table the same night stage is 10.35–10.91 ms,
+still just over. This is not the light map's cost, since A10 lowered the number; what the rest of
+the night frame spends it on has not been profiled.
 
 ### Remaining milestone evidence
 

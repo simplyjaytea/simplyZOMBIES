@@ -248,7 +248,7 @@ func _declared_appearances_are_well_formed() -> bool:
 				push_error("%s: appearance.size '%s' is not a tile fraction in [0.1, %.1f]" % [path, str(sz), Appearance.PROP_SIZE_MAX])
 				return false
 	var campfire_lit: Dictionary = Appearance.of_content(World.new(_fixture()), "prop", "prop.campfire.lit")
-	if String((campfire_lit.get("light", {}) as Dictionary).get("tint", "")) != "#ffd68c":
+	if String((campfire_lit.get("light", {}) as Dictionary).get("tint", "")) != "#ff9452":
 		push_error("prop.campfire.lit does not declare the intended presentation light colour")
 		return false
 	print("SHAPE OK %d blocks" % blocks.size())
