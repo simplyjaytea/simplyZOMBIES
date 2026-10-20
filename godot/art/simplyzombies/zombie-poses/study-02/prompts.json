@@ -1,0 +1,129 @@
+{
+  "_comment": [
+    "Every generation zombie study 02 ran, kept or not, in the order it ran. `init` is the",
+    "paint-over guide uploaded as the init image; init_image_strength is how much of it the model",
+    "keeps (higher is closer). Sizes are the 1x atlas: transparency failed above about 65536 px of",
+    "area, so the sheets were never run at 2x."
+  ],
+  "generations": [
+    {
+      "tool": "PixelLab create_image_pixflux (img2img)",
+      "no_background": true,
+      "outline": "single color black outline",
+      "output": "sources/rejected-screamer-free-reinterpretation.png",
+      "kept": false,
+      "init": "the commuter atlas, unpainted",
+      "init_image_strength": 220,
+      "view": "low top-down",
+      "seed": 11,
+      "why": "a free reinterpretation: the identity drifted and the shading flattened against the pack",
+      "description": "sprite sheet grid of the same screamer zombie woman, top-down 3/4 pixel art game sprites: gaunt emaciated pale grey-white skin, bald head with a few wispy strands of hair, huge black gaping screaming mouth open wide, torn faded pink hospital gown, bare bony legs, dark near-black stepped outline, muted desaturated colors, rusty red blood stains"
+    },
+    {
+      "tool": "PixelLab create_image_pixflux (img2img)",
+      "no_background": true,
+      "outline": "single color black outline",
+      "output": "sources/rejected-bloater-no-guide.png",
+      "kept": false,
+      "init": "the heavy atlas, unpainted",
+      "init_image_strength": 180,
+      "view": "low top-down",
+      "seed": 12,
+      "why": "a recolour of the heavy, no bloat, and a face on the north row",
+      "description": "sprite sheet grid of the same bloater zombie, top-down 3/4 pixel art game sprites: hugely bloated swollen obese body, enormous distended round gas-filled belly, sickly yellow-green mottled blistered skin with dark purple veins and pustules, shirtless, tattered dark trousers, small head sunk into fat shoulders, dark near-black stepped outline, muted desaturated colors"
+    },
+    {
+      "tool": "PixelLab create_image_pixflux (img2img)",
+      "no_background": true,
+      "outline": "single color black outline",
+      "output": null,
+      "kept": false,
+      "init": "an early screamer guide",
+      "init_image_strength": 260,
+      "view": "low top-down",
+      "shading": "medium shading",
+      "seed": 21,
+      "why": "not kept; superseded by the strength-300 pass over the final guide",
+      "description": "sprite sheet of one screamer zombie in twenty poses, same layout, same chunky dark-outlined top-down game style: emaciated woman zombie, sickly pale grey-blue skin, thin stringy dark hair, mouth stretched wide open in a scream showing a black hole, torn stained off-white hospital gown to the knees, bare grey shins, dried rusty blood down the chin and gown"
+    },
+    {
+      "tool": "PixelLab create_image_pixflux (img2img)",
+      "no_background": true,
+      "outline": "single color black outline",
+      "output": "sources/bloater-walk-pass1.png",
+      "kept": true,
+      "init": "sources/bloater-walk-guide.png (guides/bloater_walk.py)",
+      "init_image_strength": 300,
+      "view": "low top-down",
+      "seed": 31,
+      "why": "rows south, east and west kept; its north row drew a face and was replaced by the pass below",
+      "description": "sprite sheet of one bloater zombie in twenty walking poses, same layout: grotesquely bloated obese zombie with a huge swollen round gas-filled belly, sickly yellow-green mottled skin with purple veins and blisters, shirtless, torn dark grey trousers, brown boots, small head, chunky near-black stepped outline, muted colors, top-down 3/4 game sprite"
+    },
+    {
+      "tool": "PixelLab create_image_pixflux (img2img)",
+      "no_background": true,
+      "outline": "single color black outline",
+      "output": "sources/bloater-north-pass2.png",
+      "kept": true,
+      "init": "sources/bloater-north-guide.png (guides/bloater_north.py)",
+      "init_image_strength": 300,
+      "view": "low top-down",
+      "direction": "north",
+      "seed": 31,
+      "why": "the north row of sources/bloater-walk-generated.png",
+      "description": "row of five sprites of one bloater zombie seen from BEHIND walking away, back view, no face visible: back of a small bald head, torn dark brown vest over the upper back, hugely swollen yellow-green mottled flanks and lower back bulging out at both sides, purple veins, torn dark grey trousers, brown boots, chunky near-black stepped outline, top-down 3/4 game sprite"
+    },
+    {
+      "tool": "PixelLab create_image_pixflux (img2img)",
+      "no_background": true,
+      "outline": "single color black outline",
+      "output": "sources/screamer-walk-generated.png",
+      "kept": true,
+      "init": "sources/screamer-walk-guide.png (guides/screamer_walk.py)",
+      "init_image_strength": 300,
+      "view": "low top-down",
+      "seed": 41,
+      "why": "the screamer's twenty living frames",
+      "description": "sprite sheet of one screamer zombie in twenty walking poses, same layout: emaciated woman zombie in a torn stained white hospital gown to the knees, bloodless grey-blue skin, bare grey shins, long stringy black hair, mouth stretched wide open screaming, rusty blood down the chin and gown, chunky near-black stepped outline, muted colors, top-down 3/4 game sprite"
+    },
+    {
+      "tool": "PixelLab create_image_pixflux (img2img)",
+      "no_background": true,
+      "outline": "single color black outline",
+      "output": "sources/rejected-screamer-corpses-img2img.png",
+      "kept": false,
+      "init": "sources/screamer-corpses.png (guides/screamer_corpses.py)",
+      "init_image_strength": 300,
+      "view": "high top-down",
+      "seed": 51,
+      "why": "blurred the outline and lost the head; the guide is used as drawn",
+      "description": "two dead zombie corpses lying flat on the ground side by side, same zombie: emaciated woman zombie in a torn stained pale grey hospital gown, long stringy black hair, bloodless grey skin, dark leggings, rusty blood stains; left lying on her back, right lying face down; chunky near-black stepped outline, muted colors, top-down 3/4 game sprites"
+    },
+    {
+      "tool": "PixelLab create_image_pixflux (img2img)",
+      "no_background": true,
+      "outline": "single color black outline",
+      "output": "sources/rejected-bloater-corpses-img2img-1.png",
+      "kept": false,
+      "init": "sources/bloater-corpses.png (guides/bloater_corpses.py)",
+      "init_image_strength": 300,
+      "view": "high top-down",
+      "seed": 52,
+      "why": "blurred, and the supine head dissolved into the mound",
+      "description": "two dead bloater zombie corpses lying flat on the ground side by side, same zombie: grotesquely bloated obese zombie with a huge swollen round belly, sickly yellow-green mottled skin with purple veins, torn dark brown vest, dark grey trousers, brown boots; left lying on his back with the belly up, right lying face down with swollen flanks; chunky near-black stepped outline, muted colors, top-down 3/4 game sprites"
+    },
+    {
+      "tool": "PixelLab create_image_pixflux (img2img)",
+      "no_background": true,
+      "outline": "single color black outline",
+      "output": "sources/rejected-bloater-corpses-img2img-2.png",
+      "kept": false,
+      "init": "sources/bloater-corpses.png (guides/bloater_corpses.py)",
+      "init_image_strength": 340,
+      "view": "high top-down",
+      "seed": 53,
+      "why": "closer, still lost the head; the guide is used as drawn",
+      "description": "two dead bloater zombie corpses lying flat on the ground, same zombie: obese zombie with a swollen round belly, sickly yellow-green mottled skin, torn dark brown vest, dark grey trousers, brown boots; left lying on his back with the bloated belly up and head to the left, right lying face down with swollen flanks; chunky near-black stepped outline, muted colors, top-down game sprites"
+    }
+  ]
+}

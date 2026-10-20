@@ -202,20 +202,20 @@
           },
           "head": [
             0,
-            0
+            -1
           ],
           "torso": [
             0,
-            0
+            -1
           ],
           "hands": {
             "primary": [
               9,
-              30
+              29
             ],
             "secondary": [
               22,
-              30
+              29
             ]
           }
         },
@@ -231,20 +231,20 @@
           },
           "head": [
             0,
-            -1
+            0
           ],
           "torso": [
             0,
-            -1
+            0
           ],
           "hands": {
             "primary": [
               9,
-              29
+              30
             ],
             "secondary": [
               22,
-              29
+              30
             ]
           }
         },
@@ -260,20 +260,20 @@
           },
           "head": [
             0,
-            -2
+            -1
           ],
           "torso": [
             0,
-            -2
+            -1
           ],
           "hands": {
             "primary": [
               9,
-              28
+              29
             ],
             "secondary": [
               22,
-              28
+              29
             ]
           }
         },
@@ -318,20 +318,20 @@
           },
           "head": [
             0,
-            -2
+            -1
           ],
           "torso": [
             0,
-            -2
+            -1
           ],
           "hands": {
             "primary": [
               9,
-              26
+              27
             ],
             "secondary": [
               22,
-              27
+              28
             ]
           }
         },
@@ -355,12 +355,12 @@
           ],
           "hands": {
             "primary": [
-              7,
-              30
+              9,
+              29
             ],
             "secondary": [
-              24,
-              30
+              22,
+              29
             ]
           }
         },
@@ -491,20 +491,20 @@
             ]
           },
           "head": [
-            1,
+            0,
             0
           ],
           "torso": [
-            1,
+            0,
             0
           ],
           "hands": {
             "primary": [
-              19,
+              18,
               31
             ],
             "secondary": [
-              12,
+              11,
               30
             ]
           }
@@ -520,21 +520,21 @@
             ]
           },
           "head": [
-            1,
+            0,
             0
           ],
           "torso": [
-            1,
+            0,
             0
           ],
           "hands": {
             "primary": [
-              19,
+              18,
               30
             ],
             "secondary": [
-              12,
-              30
+              11,
+              29
             ]
           }
         },
@@ -549,20 +549,20 @@
             ]
           },
           "head": [
-            1,
+            0,
             -1
           ],
           "torso": [
-            1,
+            0,
             -1
           ],
           "hands": {
             "primary": [
-              18,
+              17,
               31
             ],
             "secondary": [
-              12,
+              11,
               29
             ]
           }
@@ -578,21 +578,21 @@
             ]
           },
           "head": [
-            1,
-            0
+            0,
+            -1
           ],
           "torso": [
-            1,
-            0
+            0,
+            -1
           ],
           "hands": {
             "primary": [
-              20,
-              30
+              19,
+              29
             ],
             "secondary": [
-              12,
-              30
+              11,
+              29
             ]
           }
         },
@@ -607,21 +607,21 @@
             ]
           },
           "head": [
-            1,
-            -1
+            0,
+            0
           ],
           "torso": [
-            1,
-            -1
+            0,
+            0
           ],
           "hands": {
             "primary": [
-              18,
-              30
+              17,
+              31
             ],
             "secondary": [
-              13,
-              29
+              12,
+              30
             ]
           }
         },
@@ -636,20 +636,20 @@
             ]
           },
           "head": [
-            2,
+            0,
             0
           ],
           "torso": [
-            2,
+            0,
             0
           ],
           "hands": {
             "primary": [
-              18,
+              16,
               31
             ],
             "secondary": [
-              13,
+              11,
               30
             ]
           }
@@ -724,20 +724,20 @@
           },
           "head": [
             0,
-            -1
+            -2
           ],
           "torso": [
             0,
-            -1
+            -2
           ],
           "hands": {
             "primary": [
               23,
-              27
+              26
             ],
             "secondary": [
               9,
-              27
+              26
             ]
           }
         },
@@ -753,20 +753,20 @@
           },
           "head": [
             0,
-            -2
+            -1
           ],
           "torso": [
             0,
-            -2
+            -1
           ],
           "hands": {
             "primary": [
               23,
-              26
+              27
             ],
             "secondary": [
               9,
-              26
+              27
             ]
           }
         },
@@ -782,20 +782,20 @@
           },
           "head": [
             0,
-            -1
+            0
           ],
           "torso": [
             0,
-            -1
+            0
           ],
           "hands": {
             "primary": [
               23,
-              29
+              30
             ],
             "secondary": [
               9,
-              29
+              30
             ]
           }
         },
@@ -840,20 +840,20 @@
           },
           "head": [
             0,
-            -1
+            -2
           ],
           "torso": [
             0,
-            -1
+            -2
           ],
           "hands": {
             "primary": [
               23,
-              27
+              26
             ],
             "secondary": [
               9,
-              28
+              27
             ]
           }
         },
@@ -869,20 +869,20 @@
           },
           "head": [
             0,
-            0
+            -1
           ],
           "torso": [
             0,
-            0
+            -1
           ],
           "hands": {
             "primary": [
               23,
-              29
+              28
             ],
             "secondary": [
               9,
-              28
+              27
             ]
           }
         },
@@ -927,20 +927,20 @@
           },
           "head": [
             0,
-            1
+            0
           ],
           "torso": [
             -1,
-            1
+            0
           ],
           "hands": {
             "primary": [
               14,
-              33
+              32
             ],
             "secondary": [
               20,
-              30
+              29
             ]
           }
         },
@@ -959,16 +959,16 @@
             1
           ],
           "torso": [
-            -1,
+            -2,
             1
           ],
           "hands": {
             "primary": [
-              13,
+              12,
               30
             ],
             "secondary": [
-              20,
+              19,
               31
             ]
           }
@@ -988,7 +988,7 @@
             1
           ],
           "torso": [
-            0,
+            -1,
             1
           ],
           "hands": {
@@ -1071,7 +1071,7 @@
             ]
           },
           "head": [
-            -1,
+            0,
             1
           ],
           "torso": [
@@ -1100,20 +1100,20 @@
             ]
           },
           "head": [
-            -1,
+            0,
             1
           ],
           "torso": [
-            -2,
+            -1,
             1
           ],
           "hands": {
             "primary": [
-              12,
+              13,
               29
             ],
             "secondary": [
-              19,
+              20,
               31
             ]
           }
@@ -5654,20 +5654,20 @@
           },
           "head": [
             0,
-            4
+            3
           ],
           "torso": [
             0,
-            4
+            3
           ],
           "hands": {
             "primary": [
               9,
-              34
+              33
             ],
             "secondary": [
               22,
-              34
+              33
             ]
           }
         },
@@ -5683,20 +5683,20 @@
           },
           "head": [
             0,
-            3
+            4
           ],
           "torso": [
             0,
-            3
+            4
           ],
           "hands": {
             "primary": [
               9,
-              33
+              34
             ],
             "secondary": [
               22,
-              33
+              34
             ]
           }
         },
@@ -5712,20 +5712,20 @@
           },
           "head": [
             0,
-            2
+            3
           ],
           "torso": [
             0,
-            2
+            3
           ],
           "hands": {
             "primary": [
               9,
-              32
+              33
             ],
             "secondary": [
               22,
-              32
+              33
             ]
           }
         },
@@ -5741,20 +5741,20 @@
           },
           "head": [
             0,
-            3
+            2
           ],
           "torso": [
             0,
-            3
+            2
           ],
           "hands": {
             "primary": [
               9,
-              33
+              32
             ],
             "secondary": [
               22,
-              33
+              32
             ]
           }
         },
@@ -5770,20 +5770,20 @@
           },
           "head": [
             0,
-            2
+            3
           ],
           "torso": [
             0,
-            2
+            3
           ],
           "hands": {
             "primary": [
               9,
-              30
+              31
             ],
             "secondary": [
               22,
-              31
+              32
             ]
           }
         },
@@ -5807,12 +5807,12 @@
           ],
           "hands": {
             "primary": [
-              7,
-              34
+              9,
+              33
             ],
             "secondary": [
-              24,
-              34
+              22,
+              33
             ]
           }
         },
@@ -5943,21 +5943,21 @@
             ]
           },
           "head": [
-            3,
-            4
+            2,
+            3
           ],
           "torso": [
-            2,
-            4
+            1,
+            3
           ],
           "hands": {
             "primary": [
-              19,
-              35
+              18,
+              34
             ],
             "secondary": [
-              12,
-              34
+              11,
+              33
             ]
           }
         },
@@ -5972,21 +5972,21 @@
             ]
           },
           "head": [
-            3,
-            4
+            2,
+            3
           ],
           "torso": [
-            2,
-            4
+            1,
+            3
           ],
           "hands": {
             "primary": [
-              19,
-              34
+              18,
+              33
             ],
             "secondary": [
-              12,
-              34
+              11,
+              32
             ]
           }
         },
@@ -6001,21 +6001,21 @@
             ]
           },
           "head": [
-            3,
-            3
+            2,
+            2
           ],
           "torso": [
-            2,
-            3
+            1,
+            2
           ],
           "hands": {
             "primary": [
-              18,
-              35
+              17,
+              34
             ],
             "secondary": [
-              12,
-              33
+              11,
+              32
             ]
           }
         },
@@ -6030,21 +6030,21 @@
             ]
           },
           "head": [
-            3,
-            3
+            2,
+            2
           ],
           "torso": [
-            2,
-            3
+            1,
+            2
           ],
           "hands": {
             "primary": [
-              20,
-              33
+              19,
+              32
             ],
             "secondary": [
-              12,
-              33
+              11,
+              32
             ]
           }
         },
@@ -6059,21 +6059,21 @@
             ]
           },
           "head": [
-            3,
-            2
+            2,
+            3
           ],
           "torso": [
-            2,
-            2
+            1,
+            3
           ],
           "hands": {
             "primary": [
-              18,
-              33
+              17,
+              34
             ],
             "secondary": [
-              13,
-              32
+              12,
+              33
             ]
           }
         },
@@ -6088,20 +6088,20 @@
             ]
           },
           "head": [
-            4,
+            2,
             3
           ],
           "torso": [
-            3,
+            1,
             3
           ],
           "hands": {
             "primary": [
-              18,
+              16,
               34
             ],
             "secondary": [
-              13,
+              11,
               33
             ]
           }
@@ -6176,20 +6176,20 @@
           },
           "head": [
             0,
-            3
+            1
           ],
           "torso": [
             0,
-            3
+            1
           ],
           "hands": {
             "primary": [
               23,
-              31
+              29
             ],
             "secondary": [
               9,
-              31
+              29
             ]
           }
         },
@@ -6263,20 +6263,20 @@
           },
           "head": [
             0,
-            3
+            2
           ],
           "torso": [
             0,
-            3
+            2
           ],
           "hands": {
             "primary": [
               22,
-              33
+              32
             ],
             "secondary": [
               10,
-              33
+              32
             ]
           }
         },
@@ -6292,20 +6292,20 @@
           },
           "head": [
             0,
-            3
+            1
           ],
           "torso": [
             0,
-            3
+            1
           ],
           "hands": {
             "primary": [
               23,
-              31
+              29
             ],
             "secondary": [
               9,
-              32
+              30
             ]
           }
         },
@@ -6321,20 +6321,20 @@
           },
           "head": [
             0,
-            4
+            2
           ],
           "torso": [
             0,
-            4
+            2
           ],
           "hands": {
             "primary": [
               23,
-              33
+              31
             ],
             "secondary": [
               9,
-              32
+              30
             ]
           }
         },
@@ -6379,20 +6379,20 @@
           },
           "head": [
             -2,
-            4
+            3
           ],
           "torso": [
             -2,
-            4
+            3
           ],
           "hands": {
             "primary": [
               14,
-              36
+              35
             ],
             "secondary": [
               20,
-              33
+              32
             ]
           }
         },
@@ -6416,11 +6416,11 @@
           ],
           "hands": {
             "primary": [
-              13,
+              12,
               33
             ],
             "secondary": [
-              20,
+              19,
               34
             ]
           }
@@ -6440,7 +6440,7 @@
             4
           ],
           "torso": [
-            -1,
+            -2,
             4
           ],
           "hands": {
@@ -6523,11 +6523,11 @@
             ]
           },
           "head": [
-            -3,
+            -2,
             4
           ],
           "torso": [
-            -2,
+            -1,
             4
           ],
           "hands": {
@@ -6552,20 +6552,20 @@
             ]
           },
           "head": [
-            -3,
+            -2,
             4
           ],
           "torso": [
-            -3,
+            -2,
             4
           ],
           "hands": {
             "primary": [
-              12,
+              13,
               32
             ],
             "secondary": [
-              19,
+              20,
               34
             ]
           }
@@ -8599,6 +8599,40 @@
         ]
       }
     },
+    "prop_campfire": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "prop.campfire",
+      "source": {
+        "path": "art/simplyzombies/stations/textures/campfire.png",
+        "pad": [
+          32,
+          32,
+          1,
+          6
+        ]
+      }
+    },
+    "prop_campfire_lit": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "prop.campfire.lit",
+      "source": {
+        "path": "art/simplyzombies/stations/textures/campfire-lit.png",
+        "pad": [
+          32,
+          32,
+          1,
+          6
+        ]
+      }
+    },
     "prop_chair": {
       "canvas": [
         24,
@@ -8791,6 +8825,23 @@
         ]
       }
     },
+    "prop_latrine": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "prop.latrine",
+      "source": {
+        "path": "art/simplyzombies/stations/textures/latrine.png",
+        "pad": [
+          32,
+          32,
+          0,
+          2
+        ]
+      }
+    },
     "prop_medical_cabinet": {
       "canvas": [
         24,
@@ -8872,6 +8923,23 @@
           0,
           16,
           22
+        ]
+      }
+    },
+    "prop_well": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "prop.well",
+      "source": {
+        "path": "art/simplyzombies/stations/textures/well.png",
+        "pad": [
+          32,
+          32,
+          0,
+          1
         ]
       }
     },
@@ -9038,6 +9106,402 @@
           112,
           55
         ]
+      }
+    },
+    "vehicle_sedan_intact_ns": {
+      "canvas": [
+        64,
+        128
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.sedan",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/sedan-intact-ns.png"
+      }
+    },
+    "vehicle_sedan_wreck_ns": {
+      "canvas": [
+        64,
+        128
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.sedan",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/sedan-wreck-ns.png"
+      }
+    },
+    "vehicle_van_intact_ns": {
+      "canvas": [
+        64,
+        160
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.van",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/van-intact-ns.png"
+      }
+    },
+    "vehicle_van_wreck_ns": {
+      "canvas": [
+        64,
+        160
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.van",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/van-wreck-ns.png"
+      }
+    },
+    "vehicle_truck_intact_ns": {
+      "canvas": [
+        64,
+        160
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.truck",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/truck-intact-ns.png"
+      }
+    },
+    "vehicle_truck_wreck_ns": {
+      "canvas": [
+        64,
+        160
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.truck",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/truck-wreck-ns.png"
+      }
+    },
+    "vehicle_bicycle_pale_ns": {
+      "canvas": [
+        32,
+        96
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.bicycle",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/bicycle-pale-ns.png"
+      }
+    },
+    "vehicle_bicycle_pale_ew": {
+      "canvas": [
+        64,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.bicycle",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/bicycle-pale-ew.png"
+      }
+    },
+    "vehicle_bicycle_green_ns": {
+      "canvas": [
+        32,
+        96
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.bicycle",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/bicycle-green-ns.png"
+      }
+    },
+    "vehicle_bicycle_green_ew": {
+      "canvas": [
+        64,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.bicycle",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/bicycle-green-ew.png"
+      }
+    },
+    "vehicle_bicycle_burnt_ns": {
+      "canvas": [
+        32,
+        96
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.bicycle",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/bicycle-burnt-ns.png"
+      }
+    },
+    "vehicle_bicycle_burnt_ew": {
+      "canvas": [
+        64,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.bicycle",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/bicycle-burnt-ew.png"
+      }
+    },
+    "vehicle_ebike_pale_ns": {
+      "canvas": [
+        32,
+        96
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.ebike",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/ebike-pale-ns.png"
+      }
+    },
+    "vehicle_ebike_pale_ew": {
+      "canvas": [
+        64,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.ebike",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/ebike-pale-ew.png"
+      }
+    },
+    "vehicle_ebike_green_ns": {
+      "canvas": [
+        32,
+        96
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.ebike",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/ebike-green-ns.png"
+      }
+    },
+    "vehicle_ebike_green_ew": {
+      "canvas": [
+        64,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.ebike",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/ebike-green-ew.png"
+      }
+    },
+    "vehicle_ebike_burnt_ns": {
+      "canvas": [
+        32,
+        96
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.ebike",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/ebike-burnt-ns.png"
+      }
+    },
+    "vehicle_ebike_burnt_ew": {
+      "canvas": [
+        64,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.ebike",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/ebike-burnt-ew.png"
+      }
+    },
+    "vehicle_escooter_pale_ns": {
+      "canvas": [
+        32,
+        96
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.escooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/escooter-pale-ns.png"
+      }
+    },
+    "vehicle_escooter_pale_ew": {
+      "canvas": [
+        64,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.escooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/escooter-pale-ew.png"
+      }
+    },
+    "vehicle_escooter_green_ns": {
+      "canvas": [
+        32,
+        96
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.escooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/escooter-green-ns.png"
+      }
+    },
+    "vehicle_escooter_green_ew": {
+      "canvas": [
+        64,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.escooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/escooter-green-ew.png"
+      }
+    },
+    "vehicle_escooter_burnt_ns": {
+      "canvas": [
+        32,
+        96
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.escooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/escooter-burnt-ns.png"
+      }
+    },
+    "vehicle_escooter_burnt_ew": {
+      "canvas": [
+        64,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.escooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/escooter-burnt-ew.png"
+      }
+    },
+    "vehicle_kickscooter_pale_ns": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.kickscooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/kickscooter-pale-ns.png"
+      }
+    },
+    "vehicle_kickscooter_pale_ew": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.kickscooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/kickscooter-pale-ew.png"
+      }
+    },
+    "vehicle_kickscooter_green_ns": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.kickscooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/kickscooter-green-ns.png"
+      }
+    },
+    "vehicle_kickscooter_green_ew": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.kickscooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/kickscooter-green-ew.png"
+      }
+    },
+    "vehicle_kickscooter_burnt_ns": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.kickscooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/kickscooter-burnt-ns.png"
+      }
+    },
+    "vehicle_kickscooter_burnt_ew": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.kickscooter",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/kickscooter-burnt-ew.png"
+      }
+    },
+    "vehicle_skateboard_pale_ns": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.skateboard",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/skateboard-pale-ns.png"
+      }
+    },
+    "vehicle_skateboard_pale_ew": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.skateboard",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/skateboard-pale-ew.png"
+      }
+    },
+    "vehicle_skateboard_green_ns": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.skateboard",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/skateboard-green-ns.png"
+      }
+    },
+    "vehicle_skateboard_green_ew": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.skateboard",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/skateboard-green-ew.png"
+      }
+    },
+    "vehicle_skateboard_burnt_ns": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.skateboard",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/skateboard-burnt-ns.png"
+      }
+    },
+    "vehicle_skateboard_burnt_ew": {
+      "canvas": [
+        32,
+        64
+      ],
+      "kind": "vehicle",
+      "reads": "vehicle.skateboard",
+      "source": {
+        "path": "art/simplyzombies/vehicles/textures/skateboard-burnt-ew.png"
       }
     },
     "body_zombie_workwear": {
@@ -15816,6 +16280,1942 @@
         "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/corpse-prone.png"
       }
     },
+    "body_zombie_screamer": {
+      "canvas": [
+        32,
+        40
+      ],
+      "kind": "zombie_rig",
+      "reads": "zombie.screamer",
+      "palette": "pack",
+      "anchor": [
+        16,
+        40
+      ],
+      "fps": 10,
+      "members": {
+        "body_zombie_screamer_s": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/idle-south-00.png"
+          }
+        },
+        "body_zombie_screamer_e": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/idle-east-00.png"
+          }
+        },
+        "body_zombie_screamer_n": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/idle-north-00.png"
+          }
+        },
+        "body_zombie_screamer_w": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/idle-west-00.png"
+          }
+        },
+        "body_zombie_screamer_walk_s_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-south-00.png"
+          },
+          "head": [
+            1,
+            0
+          ],
+          "torso": [
+            1,
+            0
+          ]
+        },
+        "body_zombie_screamer_walk_s_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/walk-south-00b.png"
+          },
+          "head": [
+            1,
+            1
+          ],
+          "torso": [
+            1,
+            1
+          ]
+        },
+        "body_zombie_screamer_walk_s_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-south-01.png"
+          },
+          "head": [
+            1,
+            0
+          ],
+          "torso": [
+            1,
+            0
+          ]
+        },
+        "body_zombie_screamer_walk_s_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/walk-south-01b.png"
+          },
+          "head": [
+            1,
+            -1
+          ],
+          "torso": [
+            1,
+            -1
+          ]
+        },
+        "body_zombie_screamer_walk_s_4": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-south-02.png"
+          },
+          "head": [
+            0,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        },
+        "body_zombie_screamer_walk_s_5": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/walk-south-02b.png"
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ]
+        },
+        "body_zombie_screamer_walk_s_6": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-south-03.png"
+          },
+          "head": [
+            0,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        },
+        "body_zombie_screamer_walk_s_7": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/walk-south-03b.png"
+          },
+          "head": [
+            0,
+            -1
+          ],
+          "torso": [
+            0,
+            -1
+          ]
+        },
+        "body_zombie_screamer_walk_e_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-east-00.png"
+          },
+          "head": [
+            0,
+            0
+          ],
+          "torso": [
+            1,
+            0
+          ]
+        },
+        "body_zombie_screamer_walk_e_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/walk-east-00b.png"
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            1,
+            1
+          ]
+        },
+        "body_zombie_screamer_walk_e_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-east-01.png"
+          },
+          "head": [
+            0,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        },
+        "body_zombie_screamer_walk_e_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/walk-east-01b.png"
+          },
+          "head": [
+            0,
+            -1
+          ],
+          "torso": [
+            0,
+            -1
+          ]
+        },
+        "body_zombie_screamer_walk_e_4": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-east-02.png"
+          },
+          "head": [
+            1,
+            0
+          ],
+          "torso": [
+            1,
+            0
+          ]
+        },
+        "body_zombie_screamer_walk_e_5": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/walk-east-02b.png"
+          },
+          "head": [
+            1,
+            1
+          ],
+          "torso": [
+            1,
+            1
+          ]
+        },
+        "body_zombie_screamer_walk_e_6": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-east-03.png"
+          },
+          "head": [
+            1,
+            0
+          ],
+          "torso": [
+            1,
+            0
+          ]
+        },
+        "body_zombie_screamer_walk_e_7": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/walk-east-03b.png"
+          },
+          "head": [
+            1,
+            -1
+          ],
+          "torso": [
+            1,
+            -1
+          ]
+        },
+        "body_zombie_screamer_walk_n_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-north-00.png"
+          },
+          "head": [
+            -1,
+            -1
+          ],
+          "torso": [
+            -1,
+            -1
+          ]
+        },
+        "body_zombie_screamer_walk_n_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/walk-north-00b.png"
+          },
+          "head": [
+            -1,
+            0
+          ],
+          "torso": [
+            -1,
+            0
+          ]
+        },
+        "body_zombie_screamer_walk_n_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-north-01.png"
+          },
+          "head": [
+            -1,
+            -1
+          ],
+          "torso": [
+            -1,
+            -1
+          ]
+        },
+        "body_zombie_screamer_walk_n_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/walk-north-01b.png"
+          },
+          "head": [
+            -1,
+            -2
+          ],
+          "torso": [
+            -1,
+            -2
+          ]
+        },
+        "body_zombie_screamer_walk_n_4": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-north-02.png"
+          },
+          "head": [
+            -1,
+            -1
+          ],
+          "torso": [
+            -1,
+            -1
+          ]
+        },
+        "body_zombie_screamer_walk_n_5": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/walk-north-02b.png"
+          },
+          "head": [
+            -1,
+            0
+          ],
+          "torso": [
+            -1,
+            0
+          ]
+        },
+        "body_zombie_screamer_walk_n_6": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-north-03.png"
+          },
+          "head": [
+            -1,
+            -1
+          ],
+          "torso": [
+            -1,
+            -1
+          ]
+        },
+        "body_zombie_screamer_walk_n_7": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/walk-north-03b.png"
+          },
+          "head": [
+            -1,
+            -2
+          ],
+          "torso": [
+            -1,
+            -2
+          ]
+        },
+        "body_zombie_screamer_walk_w_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-west-00.png"
+          },
+          "head": [
+            -1,
+            0
+          ],
+          "torso": [
+            -1,
+            0
+          ]
+        },
+        "body_zombie_screamer_walk_w_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/walk-west-00b.png"
+          },
+          "head": [
+            -1,
+            1
+          ],
+          "torso": [
+            -1,
+            1
+          ]
+        },
+        "body_zombie_screamer_walk_w_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-west-01.png"
+          },
+          "head": [
+            -1,
+            0
+          ],
+          "torso": [
+            -1,
+            0
+          ]
+        },
+        "body_zombie_screamer_walk_w_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/walk-west-01b.png"
+          },
+          "head": [
+            -1,
+            -1
+          ],
+          "torso": [
+            -1,
+            -1
+          ]
+        },
+        "body_zombie_screamer_walk_w_4": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-west-02.png"
+          },
+          "head": [
+            -1,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        },
+        "body_zombie_screamer_walk_w_5": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/walk-west-02b.png"
+          },
+          "head": [
+            -1,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ]
+        },
+        "body_zombie_screamer_walk_w_6": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/walk-west-03.png"
+          },
+          "head": [
+            0,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        },
+        "body_zombie_screamer_walk_w_7": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/walk-west-03b.png"
+          },
+          "head": [
+            0,
+            -1
+          ],
+          "torso": [
+            0,
+            -1
+          ]
+        },
+        "body_zombie_screamer_idle_s_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/idle-south-01.png"
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ]
+        },
+        "body_zombie_screamer_idle_e_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/idle-east-01.png"
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ]
+        },
+        "body_zombie_screamer_idle_n_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/idle-north-01.png"
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ]
+        },
+        "body_zombie_screamer_idle_w_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/idle-west-01.png"
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ]
+        },
+        "body_zombie_screamer_fall_s_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/fall-south-00.png"
+          },
+          "head": [
+            1,
+            3
+          ],
+          "torso": [
+            0,
+            3
+          ]
+        },
+        "body_zombie_screamer_fall_s_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/fall-south-01.png"
+          },
+          "head": [
+            2,
+            5
+          ],
+          "torso": [
+            1,
+            5
+          ]
+        },
+        "body_zombie_screamer_fall_e_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/fall-east-00.png"
+          },
+          "head": [
+            -2,
+            3
+          ],
+          "torso": [
+            -1,
+            3
+          ]
+        },
+        "body_zombie_screamer_fall_e_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/fall-east-01.png"
+          },
+          "head": [
+            2,
+            5
+          ],
+          "torso": [
+            1,
+            5
+          ]
+        },
+        "body_zombie_screamer_fall_n_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/fall-north-00.png"
+          },
+          "head": [
+            1,
+            3
+          ],
+          "torso": [
+            0,
+            3
+          ]
+        },
+        "body_zombie_screamer_fall_n_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/fall-north-01.png"
+          },
+          "head": [
+            2,
+            5
+          ],
+          "torso": [
+            1,
+            5
+          ]
+        },
+        "body_zombie_screamer_fall_w_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/fall-west-00.png"
+          },
+          "head": [
+            2,
+            3
+          ],
+          "torso": [
+            1,
+            3
+          ]
+        },
+        "body_zombie_screamer_fall_w_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/fall-west-01.png"
+          },
+          "head": [
+            -2,
+            5
+          ],
+          "torso": [
+            -1,
+            5
+          ]
+        },
+        "body_zombie_screamer_lunge_s_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/lunge-south-00.png"
+          },
+          "head": [
+            0,
+            -1
+          ],
+          "torso": [
+            0,
+            -1
+          ]
+        },
+        "body_zombie_screamer_lunge_s_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/lunge-south-01.png"
+          },
+          "head": [
+            0,
+            2
+          ],
+          "torso": [
+            0,
+            2
+          ]
+        },
+        "body_zombie_screamer_lunge_s_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/lunge-south-02.png"
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ]
+        },
+        "body_zombie_screamer_lunge_e_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/lunge-east-00.png"
+          },
+          "head": [
+            -1,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        },
+        "body_zombie_screamer_lunge_e_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/lunge-east-01.png"
+          },
+          "head": [
+            4,
+            0
+          ],
+          "torso": [
+            3,
+            0
+          ]
+        },
+        "body_zombie_screamer_lunge_e_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/lunge-east-02.png"
+          },
+          "head": [
+            3,
+            0
+          ],
+          "torso": [
+            2,
+            0
+          ]
+        },
+        "body_zombie_screamer_lunge_n_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/lunge-north-00.png"
+          },
+          "head": [
+            0,
+            -1
+          ],
+          "torso": [
+            0,
+            -1
+          ]
+        },
+        "body_zombie_screamer_lunge_n_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/lunge-north-01.png"
+          },
+          "head": [
+            0,
+            -2
+          ],
+          "torso": [
+            0,
+            -2
+          ]
+        },
+        "body_zombie_screamer_lunge_n_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/lunge-north-02.png"
+          },
+          "head": [
+            0,
+            -1
+          ],
+          "torso": [
+            0,
+            -1
+          ]
+        },
+        "body_zombie_screamer_lunge_w_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/lunge-west-00.png"
+          },
+          "head": [
+            1,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        },
+        "body_zombie_screamer_lunge_w_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/lunge-west-01.png"
+          },
+          "head": [
+            -4,
+            0
+          ],
+          "torso": [
+            -3,
+            0
+          ]
+        },
+        "body_zombie_screamer_lunge_w_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/lunge-west-02.png"
+          },
+          "head": [
+            -3,
+            0
+          ],
+          "torso": [
+            -2,
+            0
+          ]
+        },
+        "body_zombie_screamer_stagger_s_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/stagger-south-00.png"
+          },
+          "head": [
+            2,
+            -1
+          ],
+          "torso": [
+            1,
+            -1
+          ]
+        },
+        "body_zombie_screamer_stagger_s_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/stagger-south-01.png"
+          },
+          "head": [
+            -2,
+            -1
+          ],
+          "torso": [
+            -1,
+            -1
+          ]
+        },
+        "body_zombie_screamer_stagger_s_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/stagger-south-02.png"
+          },
+          "head": [
+            1,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        },
+        "body_zombie_screamer_stagger_e_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/stagger-east-00.png"
+          },
+          "head": [
+            -3,
+            0
+          ],
+          "torso": [
+            -2,
+            0
+          ]
+        },
+        "body_zombie_screamer_stagger_e_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/stagger-east-01.png"
+          },
+          "head": [
+            -3,
+            1
+          ],
+          "torso": [
+            -2,
+            1
+          ]
+        },
+        "body_zombie_screamer_stagger_e_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/stagger-east-02.png"
+          },
+          "head": [
+            -1,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        },
+        "body_zombie_screamer_stagger_n_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/stagger-north-00.png"
+          },
+          "head": [
+            2,
+            -1
+          ],
+          "torso": [
+            0,
+            -1
+          ]
+        },
+        "body_zombie_screamer_stagger_n_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/stagger-north-01.png"
+          },
+          "head": [
+            -2,
+            -1
+          ],
+          "torso": [
+            0,
+            -1
+          ]
+        },
+        "body_zombie_screamer_stagger_n_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/stagger-north-02.png"
+          },
+          "head": [
+            1,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        },
+        "body_zombie_screamer_stagger_w_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/stagger-west-00.png"
+          },
+          "head": [
+            3,
+            0
+          ],
+          "torso": [
+            2,
+            0
+          ]
+        },
+        "body_zombie_screamer_stagger_w_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/stagger-west-01.png"
+          },
+          "head": [
+            3,
+            1
+          ],
+          "torso": [
+            2,
+            1
+          ]
+        },
+        "body_zombie_screamer_stagger_w_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/stagger-west-02.png"
+          },
+          "head": [
+            1,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        }
+      },
+      "pace": 2.31,
+      "breath_fps": 1,
+      "actions": {
+        "fall": {
+          "fps": 8,
+          "loop": false
+        },
+        "lunge": {
+          "fps": 10,
+          "loop": false
+        },
+        "stagger": {
+          "fps": 8,
+          "loop": false
+        }
+      }
+    },
+    "corpse_zombie_screamer_supine": {
+      "canvas": [
+        48,
+        40
+      ],
+      "kind": "corpse",
+      "reads": "zombie.screamer",
+      "palette": "pack",
+      "anchor": [
+        24,
+        20
+      ],
+      "source": {
+        "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/corpse-supine.png"
+      }
+    },
+    "corpse_zombie_screamer_prone": {
+      "canvas": [
+        48,
+        40
+      ],
+      "kind": "corpse",
+      "reads": "zombie.screamer",
+      "palette": "pack",
+      "anchor": [
+        24,
+        20
+      ],
+      "source": {
+        "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/corpse-prone.png"
+      }
+    },
+    "body_zombie_bloater": {
+      "canvas": [
+        40,
+        48
+      ],
+      "kind": "zombie_rig",
+      "reads": "zombie.bloater",
+      "palette": "pack",
+      "anchor": [
+        20,
+        48
+      ],
+      "fps": 8,
+      "members": {
+        "body_zombie_bloater_s": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/idle-south-00.png"
+          }
+        },
+        "body_zombie_bloater_e": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/idle-east-00.png"
+          }
+        },
+        "body_zombie_bloater_n": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/idle-north-00.png"
+          }
+        },
+        "body_zombie_bloater_w": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/idle-west-00.png"
+          }
+        },
+        "body_zombie_bloater_walk_s_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-south-00.png"
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            -1,
+            1
+          ]
+        },
+        "body_zombie_bloater_walk_s_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/walk-south-00b.png"
+          },
+          "head": [
+            0,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        },
+        "body_zombie_bloater_walk_s_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-south-01.png"
+          },
+          "head": [
+            0,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        },
+        "body_zombie_bloater_walk_s_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/walk-south-01b.png"
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ]
+        },
+        "body_zombie_bloater_walk_s_4": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-south-02.png"
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ]
+        },
+        "body_zombie_bloater_walk_s_5": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/walk-south-02b.png"
+          },
+          "head": [
+            0,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        },
+        "body_zombie_bloater_walk_s_6": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-south-03.png"
+          },
+          "head": [
+            -1,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        },
+        "body_zombie_bloater_walk_s_7": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/walk-south-03b.png"
+          },
+          "head": [
+            -1,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ]
+        },
+        "body_zombie_bloater_walk_e_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-east-00.png"
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ]
+        },
+        "body_zombie_bloater_walk_e_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/walk-east-00b.png"
+          },
+          "head": [
+            0,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        },
+        "body_zombie_bloater_walk_e_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-east-01.png"
+          },
+          "head": [
+            0,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        },
+        "body_zombie_bloater_walk_e_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/walk-east-01b.png"
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ]
+        },
+        "body_zombie_bloater_walk_e_4": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-east-02.png"
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ]
+        },
+        "body_zombie_bloater_walk_e_5": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/walk-east-02b.png"
+          },
+          "head": [
+            0,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        },
+        "body_zombie_bloater_walk_e_6": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-east-03.png"
+          },
+          "head": [
+            0,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        },
+        "body_zombie_bloater_walk_e_7": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/walk-east-03b.png"
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ]
+        },
+        "body_zombie_bloater_walk_n_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-north-00.png"
+          },
+          "head": [
+            -1,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        },
+        "body_zombie_bloater_walk_n_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/walk-north-00b.png"
+          },
+          "head": [
+            -1,
+            -1
+          ],
+          "torso": [
+            0,
+            -1
+          ]
+        },
+        "body_zombie_bloater_walk_n_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-north-01.png"
+          },
+          "head": [
+            -1,
+            -1
+          ],
+          "torso": [
+            -1,
+            -1
+          ]
+        },
+        "body_zombie_bloater_walk_n_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/walk-north-01b.png"
+          },
+          "head": [
+            -1,
+            0
+          ],
+          "torso": [
+            -1,
+            0
+          ]
+        },
+        "body_zombie_bloater_walk_n_4": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-north-02.png"
+          },
+          "head": [
+            0,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        },
+        "body_zombie_bloater_walk_n_5": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/walk-north-02b.png"
+          },
+          "head": [
+            0,
+            -1
+          ],
+          "torso": [
+            0,
+            -1
+          ]
+        },
+        "body_zombie_bloater_walk_n_6": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-north-03.png"
+          },
+          "head": [
+            -1,
+            -1
+          ],
+          "torso": [
+            -1,
+            -1
+          ]
+        },
+        "body_zombie_bloater_walk_n_7": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/walk-north-03b.png"
+          },
+          "head": [
+            -1,
+            0
+          ],
+          "torso": [
+            -1,
+            0
+          ]
+        },
+        "body_zombie_bloater_walk_w_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-west-00.png"
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ]
+        },
+        "body_zombie_bloater_walk_w_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/walk-west-00b.png"
+          },
+          "head": [
+            0,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        },
+        "body_zombie_bloater_walk_w_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-west-01.png"
+          },
+          "head": [
+            0,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        },
+        "body_zombie_bloater_walk_w_3": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/walk-west-01b.png"
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ]
+        },
+        "body_zombie_bloater_walk_w_4": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-west-02.png"
+          },
+          "head": [
+            0,
+            2
+          ],
+          "torso": [
+            0,
+            2
+          ]
+        },
+        "body_zombie_bloater_walk_w_5": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/walk-west-02b.png"
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ]
+        },
+        "body_zombie_bloater_walk_w_6": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/walk-west-03.png"
+          },
+          "head": [
+            -1,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        },
+        "body_zombie_bloater_walk_w_7": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/walk-west-03b.png"
+          },
+          "head": [
+            -1,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ]
+        },
+        "body_zombie_bloater_idle_s_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/idle-south-01.png"
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ]
+        },
+        "body_zombie_bloater_idle_e_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/idle-east-01.png"
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ]
+        },
+        "body_zombie_bloater_idle_n_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/idle-north-01.png"
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ]
+        },
+        "body_zombie_bloater_idle_w_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/idle-west-01.png"
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ]
+        },
+        "body_zombie_bloater_fall_s_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/fall-south-00.png"
+          },
+          "head": [
+            1,
+            3
+          ],
+          "torso": [
+            0,
+            3
+          ]
+        },
+        "body_zombie_bloater_fall_s_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/fall-south-01.png"
+          },
+          "head": [
+            2,
+            6
+          ],
+          "torso": [
+            1,
+            6
+          ]
+        },
+        "body_zombie_bloater_fall_e_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/fall-east-00.png"
+          },
+          "head": [
+            -1,
+            3
+          ],
+          "torso": [
+            -1,
+            3
+          ]
+        },
+        "body_zombie_bloater_fall_e_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/fall-east-01.png"
+          },
+          "head": [
+            3,
+            6
+          ],
+          "torso": [
+            0,
+            6
+          ]
+        },
+        "body_zombie_bloater_fall_n_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/fall-north-00.png"
+          },
+          "head": [
+            1,
+            3
+          ],
+          "torso": [
+            0,
+            3
+          ]
+        },
+        "body_zombie_bloater_fall_n_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/fall-north-01.png"
+          },
+          "head": [
+            2,
+            6
+          ],
+          "torso": [
+            1,
+            6
+          ]
+        },
+        "body_zombie_bloater_fall_w_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/fall-west-00.png"
+          },
+          "head": [
+            1,
+            3
+          ],
+          "torso": [
+            1,
+            3
+          ]
+        },
+        "body_zombie_bloater_fall_w_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/fall-west-01.png"
+          },
+          "head": [
+            -2,
+            6
+          ],
+          "torso": [
+            -1,
+            6
+          ]
+        },
+        "body_zombie_bloater_lunge_s_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/lunge-south-00.png"
+          },
+          "head": [
+            0,
+            -1
+          ],
+          "torso": [
+            0,
+            -1
+          ]
+        },
+        "body_zombie_bloater_lunge_s_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/lunge-south-01.png"
+          },
+          "head": [
+            0,
+            2
+          ],
+          "torso": [
+            0,
+            2
+          ]
+        },
+        "body_zombie_bloater_lunge_s_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/lunge-south-02.png"
+          },
+          "head": [
+            0,
+            1
+          ],
+          "torso": [
+            0,
+            1
+          ]
+        },
+        "body_zombie_bloater_lunge_e_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/lunge-east-00.png"
+          },
+          "head": [
+            -1,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        },
+        "body_zombie_bloater_lunge_e_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/lunge-east-01.png"
+          },
+          "head": [
+            3,
+            0
+          ],
+          "torso": [
+            2,
+            0
+          ]
+        },
+        "body_zombie_bloater_lunge_e_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/lunge-east-02.png"
+          },
+          "head": [
+            3,
+            0
+          ],
+          "torso": [
+            2,
+            0
+          ]
+        },
+        "body_zombie_bloater_lunge_n_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/lunge-north-00.png"
+          },
+          "head": [
+            0,
+            -1
+          ],
+          "torso": [
+            0,
+            -1
+          ]
+        },
+        "body_zombie_bloater_lunge_n_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/lunge-north-01.png"
+          },
+          "head": [
+            0,
+            -2
+          ],
+          "torso": [
+            0,
+            -2
+          ]
+        },
+        "body_zombie_bloater_lunge_n_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/lunge-north-02.png"
+          },
+          "head": [
+            0,
+            -1
+          ],
+          "torso": [
+            0,
+            -1
+          ]
+        },
+        "body_zombie_bloater_lunge_w_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/lunge-west-00.png"
+          },
+          "head": [
+            1,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        },
+        "body_zombie_bloater_lunge_w_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/lunge-west-01.png"
+          },
+          "head": [
+            -4,
+            0
+          ],
+          "torso": [
+            -3,
+            0
+          ]
+        },
+        "body_zombie_bloater_lunge_w_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/lunge-west-02.png"
+          },
+          "head": [
+            -3,
+            0
+          ],
+          "torso": [
+            -2,
+            0
+          ]
+        },
+        "body_zombie_bloater_stagger_s_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/stagger-south-00.png"
+          },
+          "head": [
+            2,
+            -1
+          ],
+          "torso": [
+            1,
+            -1
+          ]
+        },
+        "body_zombie_bloater_stagger_s_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/stagger-south-01.png"
+          },
+          "head": [
+            -2,
+            -1
+          ],
+          "torso": [
+            -1,
+            -1
+          ]
+        },
+        "body_zombie_bloater_stagger_s_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/stagger-south-02.png"
+          },
+          "head": [
+            1,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        },
+        "body_zombie_bloater_stagger_e_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/stagger-east-00.png"
+          },
+          "head": [
+            -3,
+            0
+          ],
+          "torso": [
+            -2,
+            0
+          ]
+        },
+        "body_zombie_bloater_stagger_e_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/stagger-east-01.png"
+          },
+          "head": [
+            -3,
+            1
+          ],
+          "torso": [
+            -2,
+            1
+          ]
+        },
+        "body_zombie_bloater_stagger_e_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/stagger-east-02.png"
+          },
+          "head": [
+            -1,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        },
+        "body_zombie_bloater_stagger_n_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/stagger-north-00.png"
+          },
+          "head": [
+            2,
+            -1
+          ],
+          "torso": [
+            1,
+            -1
+          ]
+        },
+        "body_zombie_bloater_stagger_n_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/stagger-north-01.png"
+          },
+          "head": [
+            -2,
+            -1
+          ],
+          "torso": [
+            0,
+            -1
+          ]
+        },
+        "body_zombie_bloater_stagger_n_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/stagger-north-02.png"
+          },
+          "head": [
+            1,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        },
+        "body_zombie_bloater_stagger_w_0": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/stagger-west-00.png"
+          },
+          "head": [
+            3,
+            0
+          ],
+          "torso": [
+            2,
+            0
+          ]
+        },
+        "body_zombie_bloater_stagger_w_1": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/stagger-west-01.png"
+          },
+          "head": [
+            3,
+            1
+          ],
+          "torso": [
+            2,
+            1
+          ]
+        },
+        "body_zombie_bloater_stagger_w_2": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/stagger-west-02.png"
+          },
+          "head": [
+            1,
+            0
+          ],
+          "torso": [
+            0,
+            0
+          ]
+        }
+      },
+      "pace": 1.47,
+      "breath_fps": 1,
+      "actions": {
+        "fall": {
+          "fps": 8,
+          "loop": false
+        },
+        "lunge": {
+          "fps": 10,
+          "loop": false
+        },
+        "stagger": {
+          "fps": 8,
+          "loop": false
+        }
+      }
+    },
+    "corpse_zombie_bloater_supine": {
+      "canvas": [
+        56,
+        40
+      ],
+      "kind": "corpse",
+      "reads": "zombie.bloater",
+      "palette": "pack",
+      "anchor": [
+        28,
+        20
+      ],
+      "source": {
+        "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/corpse-supine.png"
+      }
+    },
+    "corpse_zombie_bloater_prone": {
+      "canvas": [
+        56,
+        40
+      ],
+      "kind": "corpse",
+      "reads": "zombie.bloater",
+      "palette": "pack",
+      "anchor": [
+        28,
+        20
+      ],
+      "source": {
+        "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/corpse-prone.png"
+      }
+    },
     "corpse_human_supine": {
       "canvas": [
         48,
@@ -16242,6 +18642,72 @@
           17,
           16
         ]
+      }
+    },
+    "glass_pane_ew": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/glass/textures/pane-ew.png"
+      }
+    },
+    "glass_pane_ns": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/glass/textures/pane-ns.png"
+      }
+    },
+    "glass_pane_square": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/glass/textures/pane-square.png"
+      }
+    },
+    "glass_frame_ew": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/glass/textures/frame-ew.png"
+      }
+    },
+    "glass_frame_ns": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/glass/textures/frame-ns.png"
+      }
+    },
+    "glass_frame_square": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/glass/textures/frame-square.png"
       }
     },
     "wear_tee_sand": {
