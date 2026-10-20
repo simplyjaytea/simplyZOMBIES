@@ -49,8 +49,9 @@ const BAR_H_COMPACT: float = 48.0
 # A window narrower or shorter than this is the compact one (the inventory sheet's own rule).
 const FULL_WIDTH: float = 1600.0
 const FULL_HEIGHT: float = 900.0
-# Text, from the ladder (`Chrome.LADDER`): the tab words a rung down on the compact window.
-const WORD_SIZE: int = 30
+# Text, from the ladder (`Chrome.LADDER`), at whole multiples of the face's pixel only: 25 draws it
+# at 2x and 50 at 4x, and 30 drew the tab words at a fraction, with rows of uneven height.
+const WORD_SIZE: int = 50
 const WORD_SIZE_COMPACT: int = 25
 const NAME_TEXT: int = 25
 const CAP_TEXT: int = 20
@@ -165,7 +166,7 @@ static func _draw_tab(ci: CanvasItem, r: Rect2, word: String, key: String, on: b
 	if on:
 		ci.draw_rect(r, Locker._a(Locker._shade(Locker.ACCENT, 0.3), alpha))
 		ci.draw_rect(Rect2(r.position + Vector2(p, p), Vector2(r.size.x - p * 2.0, p)), Locker._a(Locker._shade(Locker.ACCENT, 0.55), alpha))
-		_rim(ci, r, Locker._a(Locker.ACCENT, minf(1.0, alpha + 0.1)))
+		Locker.rim(ci, r, Locker._a(Locker.ACCENT, minf(1.0, alpha + 0.1)))
 	else:
 		Locker.well(ci, r, alpha)
 	var text: String = word.to_upper()
@@ -176,16 +177,6 @@ static func _draw_tab(ci: CanvasItem, r: Rect2, word: String, key: String, on: b
 	x += font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, word_size).x + p * 3.0
 	var cap: Vector2 = cap_extent(key)
 	Chrome.keycap(ci, Vector2(x, roundf(mid - cap.y / 2.0)), key, CAP_TEXT, alpha if on else alpha * 0.7)
-
-
-# A one-art-pixel rim drawn inside `r`, never straddling its edge: an outlined draw_rect centres its
-# stroke on the edge, which put half of a two-pixel rim on an odd screen pixel.
-static func _rim(ci: CanvasItem, r: Rect2, col: Color) -> void:
-	var p: float = Locker.PX
-	ci.draw_rect(Rect2(r.position, Vector2(r.size.x, p)), col)
-	ci.draw_rect(Rect2(Vector2(r.position.x, r.end.y - p), Vector2(r.size.x, p)), col)
-	ci.draw_rect(Rect2(r.position + Vector2(0.0, p), Vector2(p, r.size.y - p * 2.0)), col)
-	ci.draw_rect(Rect2(Vector2(r.end.x - p, r.position.y + p), Vector2(p, r.size.y - p * 2.0)), col)
 
 
 # Whose page it is, as a label stuck on the bar: masking tape in its marker ink for "you" and
