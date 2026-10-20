@@ -978,10 +978,14 @@ code: the frames slot into `build_motion.py` and every gate already judges them.
   alike; a heavy two-handed chop and a quick stab want their own strips.
 - **The back view's generated swing.** Its job turned the body side-on for six of eight frames,
   so the north swing is derived (shoulders only). One more generation, one view.
-- **Drawn frames for the derived actions.** Recoil, reload, flinch, crouch, the crawl, the
-  falls, the lunge and the stagger are moved from the pack's own pixels (the record says how).
-  The reloads move the weapon only by its hand point: tilting it down and in waits on A9's
-  per-frame weapon rotation.
+- **Drawn frames for the derived actions.** Recoil, flinch, crouch, the crawl, the falls, the
+  lunge and the stagger are moved from the pack's own pixels (the record says how). The reloads
+  are drawn arm by arm but move the weapon only by its hand point: tilting it down and in, and
+  the shotgun's pump sliding on the rack, wait on per-frame pictures of the held weapon.
+- **The dropped magazine, a ground mark.** A reload's spent magazine is drawn into the body's
+  own frames, so it lies by the feet only while the reload plays and goes with the stance.
+  Accepted for alpha (art review, 2026-10-20); once the decal layer (A13) lands it becomes a
+  mark left on the ground where the body stood, like the casings.
 
 **The inventory sheet and the screens — decided by the owner (2026-09-08).** The inventory is
 mechanically complete and gated, and the screen reaches four of its commands: `item.move`,
@@ -2067,7 +2071,7 @@ not a to-do list:
   | `entity.staggered` | stagger (3) / flinch | a zombie / a living body |
   | `entity.killed` | fall (2), then the settled corpse | the dead, once (de-duplicated) |
   | `swing.state` WindUp, then Recover | swing (5): the guard held, the strike thrown | survivors |
-  | `rangedWeapon.state` Reload, Clearing | reload (8) or the long gun's (8), held on the stance | survivors |
+  | `rangedWeapon.state` Reload, Clearing | reload (8), the long gun's (8) or the shotgun's (8), held on the stance | survivors |
   | `posture.current` Crouch, Crawl | crouch (1) and crouched walk (8); the crawl (8) | survivors |
 
   A one-shot wins over a stance, a body lying down plays nothing upright, and the crawl lies
@@ -2079,7 +2083,7 @@ not a to-do list:
   (one line: the clock's action merged into the motion) and `_draw_corpse` (the fall, and the
   `_falls_drawn` list the gate reads). Presentation only: nothing under `godot/sim/` changed.
 
-  **The art, and which half is which.** **388** new members. **Generated: the swing's east,
+  **The art, and which half is which.** **420** new members. **Generated: the swing's east,
   west and south views** -- three PixelLab `animate_image` strips, each from the pack's own rest
   view, five frames kept a view (`motion/sources/actions/generation.json` has the jobs, inputs,
   prompts, and the two rejected jobs). **Derived: everything else** -- the back view's swing (its
@@ -2102,16 +2106,28 @@ not a to-do list:
   than the shorts sliding over the thighs or the waist stretching. The magazine is a 2x3 block,
   outlined, in the held pistol's gunmetal: the long gun's hangs from the off hand at hand height
   as it comes out, falls clear of the legs on the off hand's side (so the back view mirrors the
-  front), and lies by the feet to the end. From behind the long gun is only lowered a pixel,
-  never brought in: it is taller than the body there, and any travel put its muzzle over the
-  head or its stock in and out of sight at the hip. The pistol's is worked
-  at the grip, the long gun's (rifle, shotgun, crossbow: a held picture 48 px wide,
-  `Appearance.reload_action`) at the well and fore-end five pixels along. The first drawing, a
+  front), and lies by the feet to the end; side on, the fresh one hangs from the fist at the
+  back of the belt for a beat, below the stock, and seats with its foot showing under the well.
+  From behind the long gun is held still -- not lowered with the dip, not brought in -- but for
+  the rack's jolt, a pixel up: it is taller than the body there, and any travel put its muzzle
+  over the head or its stock in and out of sight. A dip never rises above the stance: the body
+  goes down a pixel and comes back to it. The pistol's is worked at the grip, the long gun's
+  (rifle and crossbow: a held picture 48 px wide, `Appearance.reload_action`) at the well and
+  fore-end five pixels along. **The shotgun is tube-fed** (`reload_tube`, for a long held
+  picture whose caliber is in `TUBE_CALIBERS`, today 12-gauge): no magazine, the off hand goes
+  from the belt to the loading port and back three times, a shell in the shells icon's own red
+  and brass standing out of the fist each time it reaches the port, then one rack and home. The
+  pump itself is part of A9's held picture and does not slide; the rack reads as the weapon
+  jolting back in the hands. An outline an arm adds round skin the held weapon covers is taken
+  back too (`_trim` knows the weapon each reload is drawn for, from the pack manifest), so no
+  dark wedge is left where a forearm went behind the pistol or the barrel. The first drawing, a
   forearm sheared from the shoulder, was sent back by art review (2026-10-20): the off hand never
   showed side on, arms vanished and popped, the magazine was a few dark pixels in the foot; this
-  replaced it, and two further review passes the same day tightened it (the jointed limbs, then
-  the magazine's drop, the seat's rise, outline wedges, the back view's stock and a soft rifle
-  edge blending over the magazine). The review strips are 48x56 cells with the body on the same
+  replaced it, and three further review passes the same day tightened it (the jointed limbs; the
+  magazine's drop, the seat's rise, outline wedges, the back view's stock and a soft rifle edge
+  blending over the magazine; then the tube reload, the still back view, dips that never rise
+  above the stance, the fresh magazine shown side on, and the weapon's drop home split over
+  beats). The review strips are 48x56 cells with the body on the same
   baseline as every other strip; in game every reload frame is the 32x40 canvas on sole row 39. Per-frame `head`, `torso` and `hands` ride every new member, so A6's clothing and
   A9's weapon turn compose on them by the A7 contract. Five generations were spent (the three
   kept strips, the back view, and a four-views-in-one trial). **Not built:** drawn zombie walk
@@ -2119,15 +2135,16 @@ not a to-do list:
   class -- both are in what's left as generation budgets.
 
   **Evidence:** `npm run godot:check:action` → `ACTION_OK`, chained after `godot:check:motion`.
-  CATALOGUE: 8 families, 388 frames, every view present and equal (the crawl only east and
+  CATALOGUE: 8 families, 420 frames, every view present and equal (the crawl only east and
   west); an undeclared action, a crawl seen from the south and a face-on key carry none.
   TIMING and PRIORITY hold `action_index` and `action_key` (ends, wraps, holds, a one-shot over a
-  stance, nothing upright while lying, nothing for nothing, both reloads six to eight beats and
-  held on the stance). REACH: both reloads in every view move the weapon hand, bring the off
-  hand to the weapon and away and end on the stance; the three-beat head-bob reload they
-  replaced is refused. GEOMETRY: **320** derived frames
-  carry only their rest view's colours (a reload's magazine the held pistol's gunmetal, and
-  every one of the eight reload views shows it; the rest view shows none), a crouch stands lower than the rest and a fall lower
+  stance, nothing upright while lying, nothing for nothing, all three reloads six to eight beats
+  and held on the stance). REACH: all three reloads in every view move the weapon hand (two
+  pixels, or one for a long gun from behind), bring the off hand to the weapon and away and end
+  on the stance; the three-beat head-bob reload they replaced is refused. GEOMETRY: **352**
+  derived frames carry only their rest view's colours (a reload's magazine the held pistol's
+  gunmetal, the tube reload's shells the shells icon's colours, and every one of the twelve
+  reload views shows its own load and not the other's; the rest view shows neither), a crouch stands lower than the rest and a fall lower
   than the crouch, the crawl is wider than tall; a painted pixel is caught. STATES: the clock's
   named states are the sim's enum values. CLOCK: each event starts its one-shot on its own body,
   a repeated death does not restart a fall, a body never drawn does not fall, a wind-up strikes
@@ -2135,8 +2152,8 @@ not a to-do list:
   the three `main.gd` hooks, each shown missed when removed. SCENE, the dead-socket half, on the
   booted scene with real steps and the real draw: weapon.fired drew `body_survivor_recoil_e_0`;
   the swing command `..._swing_e_0` through the wind-up and `..._swing_e_1` on the strike; the
-  Reload state `..._reload_e_0` with the player's own weapon and `..._reload_long_e_0` with a
-  rifle put in hand; the crouch and crawl stances `..._crouch_e_0` and
+  Reload state `..._reload_e_0` with the player's own weapon, `..._reload_long_e_0` with a
+  rifle put in hand and `..._reload_tube_e_0` with a pump shotgun; the crouch and crawl stances `..._crouch_e_0` and
   `..._prone_e_0` with no worn layer; one attack.connected drew the zombie's lunge and the
   player's flinch; entity.staggered the zombie's stagger; a killing head blow its fall in the
   corpse pass and then the settled body -- each against the same body without it. With the

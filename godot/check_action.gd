@@ -18,13 +18,15 @@ extends SceneTree
 #   PRIORITY   action_key: a one-shot beats a stance, a stance stands or steps on the stride, a body
 #              lying down plays nothing upright, a lying body seen end-on lies toward its last side;
 #              no action and no stance answers "", and a played-out one-shot falls back to the rest.
-#   GEOMETRY   a derived frame invents no colour (every colour is its source picture's, and a reload's
-#              magazine the held pistol's gunmetal, shown in every reload view); a crouch and
+#   GEOMETRY   a derived frame invents no colour (every colour is its source picture's, a magazine
+#              reload's magazine the held pistol's gunmetal and the tube reload's shells the shells
+#              icon's red and brass, shown in every reload view); a crouch and
 #              a fall stand lower than the rest, a prone body is wider than tall; each measure is
 #              shown failing on a fabricated picture.
-#   REACH      both reloads (pistol, long gun), every view: the weapon hand travels, the off hand
-#              comes to it and leaves, and the last beat is the stance; the head-bob reload this
-#              replaced, hands never moving, is refused.
+#   REACH      all three reloads (pistol, long gun, tube-fed shotgun), every view: the weapon hand
+#              travels (a pixel at least for a long gun seen from behind, held still but for the
+#              rack's jolt, two everywhere else), the off hand comes to it and leaves, and the last
+#              beat is the stance; the head-bob reload this replaced, hands never moving, is refused.
 #   STATES     the clock's named states are the sim's own enum values (melee SwingState, ranged
 #              FireState, the stances), so a renumbered enum turns this red rather than the picture
 #              quietly wrong; and an invented value is not one of them.
@@ -41,7 +43,8 @@ extends SceneTree
 #              each body was drawn with: RECOIL (weapon.fired), FLINCH and LUNGE (attack.connected),
 #              STAGGER (entity.staggered), FALL (entity.killed, through the corpse pass), SWING (the
 #              swing command and the sim's own wind-up and strike), RELOAD (the firearm's Reload
-#              state, with the player's own weapon and with a rifle in hand), CROUCH and PRONE (the stance command; prone draws no worn layer). Each is
+#              state, with the player's own weapon, a rifle and a pump shotgun in hand), CROUCH and
+#              PRONE (the stance command; prone draws no worn layer). Each is
 #              judged against the same body drawn without it.
 
 const SCENE_PATH: String = "res://presentation/main.tscn"
@@ -209,7 +212,7 @@ func _catalogue() -> bool:
 					if Appearance.action_frames(String(fam), String(action), view) != 0:
 						push_error("CATALOGUE: %s's lying %s is drawn from %s" % [fam, action, view])
 						ok = false
-	for action in ["swing", "recoil", "reload", "reload_long", "flinch", "crouch", "crouchwalk", "prone", "fall"]:
+	for action in ["swing", "recoil", "reload", "reload_long", "reload_tube", "flinch", "crouch", "crouchwalk", "prone", "fall"]:
 		if not (fams[SURVIVOR] as Dictionary).has(action):
 			push_error("CATALOGUE: the survivor does not carry %s" % action)
 			ok = false
@@ -257,7 +260,7 @@ func _timing() -> bool:
 		["swing struck from frame 1", Appearance.action_index(SURVIVOR, "swing", "e", 0.0, 1), 1],
 		["undeclared action", Appearance.action_index(SURVIVOR, "moonwalk", "e", 0.0), -1],
 	]
-	for reload in ["reload", "reload_long"]:
+	for reload in ["reload", "reload_long", "reload_tube"]:
 		var rn: int = Appearance.action_frames(SURVIVOR, reload, "e")
 		checks.append(["%s has six to eight beats" % reload, rn >= 6 and rn <= 8, true])
 		checks.append(["%s held at its stance" % reload, Appearance.action_index(SURVIVOR, reload, "e", 60.0, 0, AnimClock.RELOAD_HOLD), rn - 1])
@@ -317,7 +320,7 @@ func _geometry() -> bool:
 	var judged: int = 0
 	# Every derived frame against the picture it was moved from. The swing is generated, the
 	# crouched walk and the crawl are moved from the walk frames, so those draw from a wider palette.
-	var derived: Dictionary = {SURVIVOR: ["recoil", "reload", "reload_long", "flinch", "crouch", "fall"]}
+	var derived: Dictionary = {SURVIVOR: ["recoil", "reload", "reload_long", "reload_tube", "flinch", "crouch", "fall"]}
 	# The magazine's gunmetal: the held pistol's own colours, opaque (actions.py's _weapon_ramp).
 	var gunmetal: Dictionary = {}
 	var pistol: Image = _image("item_held_pistol")
@@ -328,6 +331,26 @@ func _geometry() -> bool:
 		var col: Color = Color.hex(int(c))
 		col.a = 1.0
 		gunmetal[col.to_rgba32()] = true
+	# The tube reload's shells: the shells icon's own colours, opaque (actions.py's _shell_ramp).
+	var shells: Dictionary = {}
+	var shell_icon: Image = _image("item_shells")
+	if shell_icon == null:
+		push_error("GEOMETRY: no shells icon to read the shells' colours from")
+		return false
+	for c in _colours(shell_icon).keys():
+		var col: Color = Color.hex(int(c))
+		col.a = 1.0
+		shells[col.to_rgba32()] = true
+	# What tells the two loads apart: the colours each has and the other does not (both are
+	# outlined in the same black).
+	var gunmetal_own: Dictionary = {}
+	for c in gunmetal.keys():
+		if not shells.has(c):
+			gunmetal_own[c] = true
+	var shells_own: Dictionary = {}
+	for c in shells.keys():
+		if not gunmetal.has(c):
+			shells_own[c] = true
 	var magazines: int = 0
 	for fam in _families_with_actions().keys():
 		if String(fam).begins_with("body_zombie_"):
@@ -341,12 +364,14 @@ func _geometry() -> bool:
 				continue
 			var palette: Dictionary = _colours(rest)
 			for action in derived[fam]:
-				# A reload also draws its magazine, in the held pistol's gunmetal and nothing else.
+				# A reload also draws its magazine, in the held pistol's gunmetal and nothing else -- or,
+				# tube-fed, its shells, in the shells icon's colours and nothing else.
 				var reload: bool = String(action).begins_with("reload")
+				var loads: Dictionary = shells if action == "reload_tube" else gunmetal
 				var allowed: Dictionary = palette
 				if reload:
 					allowed = palette.duplicate()
-					allowed.merge(gunmetal)
+					allowed.merge(loads)
 				var shows_magazine: bool = false
 				for i in Appearance.action_frames(String(fam), String(action), view):
 					var key: String = "%s_%s_%s_%d" % [fam, action, view, i]
@@ -360,7 +385,7 @@ func _geometry() -> bool:
 					if foreign >= 0:
 						push_error("GEOMETRY: %s carries colour %08x its rest view does not" % [key, foreign])
 						ok = false
-					if reload and _carries_any(img, gunmetal, palette):
+					if reload and _carries_any(img, shells_own if action == "reload_tube" else gunmetal_own, palette):
 						shows_magazine = true
 				if reload and not shows_magazine:
 					push_error("GEOMETRY: %s %s %s never shows its magazine" % [fam, action, view])
@@ -391,14 +416,17 @@ func _geometry() -> bool:
 	if _foreign(painted, _colours(rest_e)) < 0:
 		push_error("GEOMETRY: a painted green pixel was not found foreign")
 		ok = false
-	if _carries_any(rest_e, gunmetal, _colours(rest_e)):
-		push_error("GEOMETRY: the rest view already shows gunmetal, so the magazine measure cannot fail")
+	if _carries_any(rest_e, gunmetal, _colours(rest_e)) or _carries_any(rest_e, shells, _colours(rest_e)):
+		push_error("GEOMETRY: the rest view already shows gunmetal or shells, so the magazine measure cannot fail")
+		ok = false
+	if _carries_any(_image("%s_reload_e_1" % SURVIVOR), shells_own, _colours(rest_e)) or _carries_any(_image("%s_reload_tube_e_1" % SURVIVOR), gunmetal_own, _colours(rest_e)):
+		push_error("GEOMETRY: a magazine reload shows shells, or the tube reload gunmetal, so neither is judged by its own load")
 		ok = false
 	if _bounds(rest_e).size.x > _bounds(rest_e).size.y:
 		push_error("GEOMETRY: the standing rest view measures wider than tall, so the prone measure cannot fail")
 		ok = false
 	if ok:
-		print("GEOMETRY OK %d derived frames carry only their rest view's colours (a reload's magazine its gunmetal, shown in %d reload views); crouch < rest, fall < crouch, prone lies flat" % [judged, magazines])
+		print("GEOMETRY OK %d derived frames carry only their rest view's colours (a reload's magazine its gunmetal or its shells their own red and brass, shown in %d reload views); crouch < rest, fall < crouch, prone lies flat" % [judged, magazines])
 		_report.append("GEOMETRY %d derived frames" % judged)
 	return ok
 
@@ -426,7 +454,7 @@ func _reload_hands(action: String, view: String) -> Array:
 # the weapon and goes away again, and the stance it ends on is the rest's.
 # `reach` is how near the weapon hand the off hand must come: the pistol is worked at the grip, a
 # long gun at its well and fore-end, a few pixels along (actions.py's LONG_WELL).
-func _reach_complaint(hands: Array, rest: Array, reach: int) -> String:
+func _reach_complaint(hands: Array, rest: Array, reach: int, min_travel: int = 2) -> String:
 	if hands.size() < 6:
 		return "only %d beats" % hands.size()
 	var travel: int = 0
@@ -438,7 +466,7 @@ func _reach_complaint(hands: Array, rest: Array, reach: int) -> String:
 		travel = maxi(travel, absi(p.x - (rest[0] as Vector2i).x) + absi(p.y - (rest[0] as Vector2i).y))
 		off_travel = maxi(off_travel, absi(o.x - (rest[1] as Vector2i).x) + absi(o.y - (rest[1] as Vector2i).y))
 		closest = mini(closest, absi(p.x - o.x) + absi(p.y - o.y))
-	if travel < 2:
+	if travel < min_travel:
 		return "the weapon hand travels %d px" % travel
 	if closest > reach or off_travel < 4:
 		return "the off hand comes within %d px of the weapon hand (wanted %d) and travels %d px" % [closest, reach, off_travel]
@@ -449,10 +477,13 @@ func _reach_complaint(hands: Array, rest: Array, reach: int) -> String:
 
 func _reach() -> bool:
 	var ok: bool = true
-	for action in ["reload", "reload_long"]:
+	for action in ["reload", "reload_long", "reload_tube"]:
 		for view in VIEWS:
 			var rest: Array = [Appearance.HELD_HANDS["primary"][view], Appearance.HELD_HANDS["secondary"][view]]
-			var complaint: String = _reach_complaint(_reload_hands(action, view), rest, 3 if action == "reload" else LONG_REACH)
+			# A long gun seen from behind stands taller than the body: it is held still but for the
+			# rack's jolt, a pixel up, so its stock and muzzle never show a frame at a time.
+			var travel: int = 1 if action != "reload" and view == "n" else 2
+			var complaint: String = _reach_complaint(_reload_hands(action, view), rest, 3 if action == "reload" else LONG_REACH, travel)
 			if not complaint.is_empty():
 				push_error("REACH: %s %s: %s" % [action, view, complaint])
 				ok = false
@@ -462,11 +493,11 @@ func _reach() -> bool:
 	var still: Array = []
 	for i in 8:
 		still.append(rest_e.duplicate())
-	if _reach_complaint(still.slice(0, 3), rest_e, LONG_REACH).is_empty() or _reach_complaint(still, rest_e, LONG_REACH).is_empty():
+	if _reach_complaint(still.slice(0, 3), rest_e, LONG_REACH).is_empty() or _reach_complaint(still, rest_e, LONG_REACH).is_empty() or _reach_complaint(still, rest_e, LONG_REACH, 1).is_empty():
 		push_error("REACH: a reload whose hands never move was not refused")
 		ok = false
 	if ok:
-		print("REACH OK both reloads, every view: the weapon hand travels, the off hand comes to it and leaves, and it ends on the stance")
+		print("REACH OK all three reloads, every view: the weapon hand travels, the off hand comes to it and leaves, and it ends on the stance")
 	return ok
 
 
@@ -829,32 +860,36 @@ func _reload(main: Node, w: Variant, pid: int) -> bool:
 		w.components.set_component(pid, "rangedWeapon", saved)
 	else:
 		w.components.remove_component(pid, "rangedWeapon")
-	var short: bool = Appearance.reload_action(w, pid) == "reload"
+	var own: String = Appearance.reload_action(w, pid)
 	if before.contains("_reload") or not during.contains("_reload_") or after.contains("_reload"):
 		return _fail("RELOAD", "drawn '%s' before, '%s' in Reload, '%s' after" % [before, during, after])
-	if short == during.contains("_reload_long_"):
-		return _fail("RELOAD", "the player's weapon calls for %s and drew %s" % ["the pistol's" if short else "the long gun's", during])
-	# The other variant: a hunting rifle put in the player's primary hand while the world is still.
-	var eq: Dictionary = w.components.get_component(pid, "equipment") as Dictionary
-	var slots_saved: Dictionary = (eq.get("slots", {}) as Dictionary).duplicate(true)
-	var rifle: int = SimItems.spawn_item(w, "item.rifle.hunting", {})
-	(eq["slots"] as Dictionary)["primary"] = rifle
-	w.components.set_component(pid, "rangedWeapon", fire)
-	fire["state"] = int(SimRanged.FireState.Reload)
-	await _still(main)
-	var long_during: String = _drawn(main, pid)
-	eq["slots"] = slots_saved
-	if saved is Dictionary:
-		w.components.set_component(pid, "rangedWeapon", saved)
-	else:
-		w.components.remove_component(pid, "rangedWeapon")
-	w.despawn(rifle)
-	await _still(main)
-	var restored: String = _drawn(main, pid)
-	if not long_during.contains("_reload_long_") or restored.contains("_reload"):
-		return _fail("RELOAD", "a rifle in hand drew '%s' in Reload, and '%s' put back" % [long_during, restored])
-	print("RELOAD OK the Reload state drew %s with the player's own weapon and %s with a rifle, and %s either side" % [during, long_during, after])
-	_report.append("RELOAD %s / %s" % [during, long_during])
+	if not during.contains("_%s_" % own):
+		return _fail("RELOAD", "the player's weapon calls for %s and drew %s" % [own, during])
+	# The other variants: a hunting rifle, then a pump shotgun, put in the player's primary hand
+	# while the world is still -- the rifle drops a magazine, the shotgun takes shells.
+	var drew: Array = []
+	for pair in [["item.rifle.hunting", "_reload_long_"], ["item.shotgun.pump", "_reload_tube_"]]:
+		var eq: Dictionary = w.components.get_component(pid, "equipment") as Dictionary
+		var slots_saved: Dictionary = (eq.get("slots", {}) as Dictionary).duplicate(true)
+		var gun: int = SimItems.spawn_item(w, String(pair[0]), {})
+		(eq["slots"] as Dictionary)["primary"] = gun
+		w.components.set_component(pid, "rangedWeapon", fire)
+		fire["state"] = int(SimRanged.FireState.Reload)
+		await _still(main)
+		var gun_during: String = _drawn(main, pid)
+		eq["slots"] = slots_saved
+		if saved is Dictionary:
+			w.components.set_component(pid, "rangedWeapon", saved)
+		else:
+			w.components.remove_component(pid, "rangedWeapon")
+		w.despawn(gun)
+		await _still(main)
+		var restored: String = _drawn(main, pid)
+		if not gun_during.contains(String(pair[1])) or restored.contains("_reload"):
+			return _fail("RELOAD", "%s in hand drew '%s' in Reload, and '%s' put back" % [pair[0], gun_during, restored])
+		drew.append(gun_during)
+	print("RELOAD OK the Reload state drew %s with the player's own weapon, %s with a rifle and %s with a pump shotgun, and %s either side" % [during, drew[0], drew[1], after])
+	_report.append("RELOAD %s / %s / %s" % [during, drew[0], drew[1]])
 	return true
 
 

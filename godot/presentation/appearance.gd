@@ -1178,10 +1178,13 @@ static func action_index(key: String, action: String, view: String, elapsed: flo
 
 # The reload a body plays: the long gun's (`reload_long`, the magazine in the well forward of the
 # grip and the off hand on the fore-end) when the weapon in its primary hand is drawn at least
-# LONG_HELD_PX wide -- the rifle, the shotgun and the crossbow -- and the pistol's otherwise (the
-# pistols, the revolver, the compact SMG, the bow, and empty hands). Read off the held picture,
-# since how long the weapon looks is the whole of what the choice is about.
+# LONG_HELD_PX wide -- the rifle and the crossbow -- and the pistol's otherwise (the pistols, the
+# revolver, the compact SMG, the bow, and empty hands). Read off the held picture, since how long
+# the weapon looks is most of what the choice is about. A long gun that takes shells (TUBE_CALIBERS,
+# the pump shotgun) is tube-fed and has no magazine to drop: it plays `reload_tube`, shells thumbed
+# into the loading port and one rack.
 const LONG_HELD_PX: int = 48
+const TUBE_CALIBERS: Array[String] = ["12g"]
 
 
 static func reload_action(world: Variant, actor: int) -> String:
@@ -1190,11 +1193,16 @@ static func reload_action(world: Variant, actor: int) -> String:
 	var eq: Variant = world.components.get_component(actor, "equipment")
 	if not (eq is Dictionary):
 		return "reload"
-	var block: Variant = _equip_block_for(world, ((eq as Dictionary).get("slots", {}) as Dictionary).get("primary"))
-	if not (block is Dictionary):
+	var entry: Variant = _equip_entry_for(world, ((eq as Dictionary).get("slots", {}) as Dictionary).get("primary"))
+	if not (entry is Dictionary) or not ((entry as Dictionary).get("appearance") is Dictionary):
 		return "reload"
-	var key: String = String((block as Dictionary).get("equipSprite", ""))
-	return "reload_long" if holds(key) and canvas_of(key).x >= LONG_HELD_PX else "reload"
+	var key: String = String(((entry as Dictionary)["appearance"] as Dictionary).get("equipSprite", ""))
+	if not (holds(key) and canvas_of(key).x >= LONG_HELD_PX):
+		return "reload"
+	var ranged: Variant = (entry as Dictionary).get("ranged")
+	if ranged is Dictionary and TUBE_CALIBERS.has(String((ranged as Dictionary).get("caliber", ""))):
+		return "reload_tube"
+	return "reload_long"
 
 
 # Whether body frame `member` is a lying one (contract: it carries no worn or held layer).
@@ -1732,6 +1740,15 @@ static func equipment_layers_for(world: Variant, actor: int, view: String = VIEW
 # The appearance block for whatever item base occupies a slot, or null through every exit: no
 # item, no itemBase component, no matching content entry, no declared appearance at all.
 static func _equip_block_for(world: Variant, item: Variant) -> Variant:
+	var entry: Variant = _equip_entry_for(world, item)
+	if not (entry is Dictionary):
+		return null
+	var block: Variant = (entry as Dictionary).get("appearance")
+	return block if block is Dictionary else null
+
+
+# The content entry of an item entity's base, or null.
+static func _equip_entry_for(world: Variant, item: Variant) -> Variant:
 	if item == null:
 		return null
 	var item_base: Variant = world.components.get_component(int(item), "itemBase")
@@ -1741,10 +1758,7 @@ static func _equip_block_for(world: Variant, item: Variant) -> Variant:
 	if base_id.is_empty():
 		return null
 	var entry: Variant = _content_entry(world, "item", base_id)
-	if not (entry is Dictionary):
-		return null
-	var block: Variant = (entry as Dictionary).get("appearance")
-	return block if block is Dictionary else null
+	return entry if entry is Dictionary else null
 
 
 # The rule for what colour multiplies a drawn entity, named so it can be asserted without

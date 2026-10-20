@@ -16,6 +16,6 @@ Rendered from the committed runtime PNGs (`godot/assets/sprites/`), 4x, one row 
   the soles from the front): rest,
   the eight beats at their own rate, rest.
 
-Survivor: swing, recoil, reload (pistol and long gun), flinch, crouch, crouchwalk, prone, fall. Every zombie family:
+Survivor: swing, recoil, reload (pistol, long gun, and the tube-fed shotgun), flinch, crouch, crouchwalk, prone, fall. Every zombie family:
 lunge, stagger, fall. The swing's east, west and south views are generated; every other frame,
 the swing's north view included, is moved from the pack's own pixels (docs/23's A8 record).
