@@ -2524,7 +2524,7 @@ not a to-do list:
   hems, a deep edge where cloth meets skin, a sleeve's shadow on the arm, and a grain and shine
   per material (denim twill, leather and rubber shine, wool nap), at about the pack vest's
   tonal density (distinct colours over painted pixels, south view: tee 61 over 84, leather
-  jacket 76 over 100, parka 73 over 122, hazmat 81 over 159; the vest 85 over 117). Two review
+  jacket 55 over 100, parka 82 over 116, hazmat 86 over 159; the vest 85 over 117). Three review
   rounds the same day held it to the pack's bar: a first flat four-tone pass was redone as the
   light scale, and the second round added the chest plane and creases and two-row sleeves on the
   tee, the side views' near arm labelled and creased apart from the chest, a fall-off that
@@ -2532,7 +2532,13 @@ not a to-do list:
   every skirt and pair of hips to black, which merged the parka with its trousers), the parka's
   fur drawstring and navy insulated trousers, and the hazmat suit's smooth rubber, taped seams,
   hood and steel respirator -- the one garment that paints the head, its hair and lower face
-  only. A garment never adds a pixel outside the body, so nothing can
+  only. The third round ended the parka's skirt at the hips so its trousers show on idle frames
+  too, put the collar on the first row the cloth crosses the chest (it had popped in when the
+  walk began), took the side views' chest top from the idle frame (the pack's side walk bobs the
+  hips, not the shoulders, and the neck row flickered bare once a cycle), desaturated the hazmat
+  yellow toward the workwear zombie's mustard, held rubber to three tones, and gave the boots
+  and the suit's tape a `boot` ramp floored at the belt's darkest tone so they part from the
+  ink at 1x. A garment never adds a pixel outside the body, so nothing can
   misalign on a walk frame. In `authored.json` each is a new kind `wear` with
   `fits: "body_survivor"`, a `slot` (torso, legs or feet) and one member per rig frame (580
   keys). `presentation/appearance.gd` composes the body frame and its three garments into one

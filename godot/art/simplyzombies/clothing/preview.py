@@ -37,7 +37,14 @@ if __name__ == "__main__":
     torsos = [g for g in bc.GARMENTS if bc.slot_of(g) == "torso"]
     legs = [g for g in bc.GARMENTS if bc.slot_of(g) == "legs"]
     feet = [g for g in bc.GARMENTS if bc.slot_of(g) == "feet"]
-    rows = [[legs[i % len(legs)], feet[i % len(feet)], t] for i, t in enumerate(torsos)]
+    # A garment that is half of a kit is shown in the rest of it (the suit in its boots, the parka
+    # over insulated trousers); the others cycle through every pair of trousers and shoes.
+    kits = {
+        "wear_suit_hazmat": ["wear_pants_charcoal", "wear_boots_steel"],
+        "wear_coat_parka": ["wear_pants_insulated", "wear_boots_insulated"],
+        "wear_coat_winter": ["wear_pants_insulated", "wear_boots_insulated"],
+    }
+    rows = [kits.get(t, [legs[i % len(legs)], feet[i % len(feet)]]) + [t] for i, t in enumerate(torsos)]
     sheet(rows, images, 3, idle * 1).save(dest / "clothing-idle.png")
     walkers = [
         [],
