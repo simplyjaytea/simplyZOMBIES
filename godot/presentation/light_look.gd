@@ -145,6 +145,7 @@ static func light_texels(world: Variant, eyes: int, view: Rect2i) -> Dictionary:
 		out["seen"] = w * h
 		return out
 	var explored: Variant = SimSightings.explored_view(world, eyes)
+	var opaque_faces: bool = world.tilemap != null
 	# The candidates: every source whose reach could touch the view, brightest first (ties by id,
 	# so the order never depends on a Dictionary's), and each one's cast resolved once.
 	var candidates: Array = []
@@ -188,6 +189,8 @@ static func light_texels(world: Variant, eyes: int, view: Rect2i) -> Dictionary:
 					continue
 				if bool((cd["cast"] as Object).call("has_tile", tx, ty)):
 					mask |= 1 << int(cd["bit"])
+			if mask != 0 and opaque_faces and not _open(world.tilemap, tx, ty):
+				mask = _face_lit(world, candidates, mask, tx, ty)
 			if mask != 0:
 				lit_count += 1
 				used |= mask
@@ -205,6 +208,47 @@ static func light_texels(world: Variant, eyes: int, view: Rect2i) -> Dictionary:
 	out["seen"] = seen_count
 	out["lit"] = lit_count
 	return out
+
+
+# Which of `mask`'s sources light an opaque tile's face rather than only its far side: the sim's
+# shadowcast lights the first opaque tile it meets, including one met through a window -- a
+# hedge or a shelf behind the glass, whose own picture is solid and reads as the wall going on.
+# The screen lights an opaque tile only from a source that also lights one of its four open
+# neighbours (not solid, not blocking sight), the ground its lit face looks onto. Less light than
+# the sim's, never more: light passes a window onto the floor beyond, not onto masonry.
+static func _face_lit(world: Variant, candidates: Array, mask: int, tx: int, ty: int) -> int:
+	var open: Array[Vector2i] = []
+	for n in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var at: Vector2i = Vector2i(tx, ty) + (n as Vector2i)
+		if _open(world.tilemap, at.x, at.y):
+			open.append(at)
+	if open.is_empty():
+		return 0
+	var kept: int = 0
+	for c in candidates:
+		var cd: Dictionary = c as Dictionary
+		var bit: int = 1 << int(cd["bit"])
+		if mask & bit == 0:
+			continue
+		for at in open:
+			if bool((cd["cast"] as Object).call("has_tile", at.x, at.y)):
+				kept |= bit
+				break
+	return kept
+
+
+# Ground a lit face can look onto: neither blocking sight nor solid. The bare tile class answers
+# it from SimTileMap's own tables; a tile with an overlay (a door, a board, scrap) asks the sim's
+# full predicates, so the two never disagree. This runs once per lit seen tile every night frame,
+# which is why the common case does not take two static calls through the overlay table.
+static func _open(map: Variant, tx: int, ty: int) -> bool:
+	if tx < 0 or ty < 0 or tx >= int(map.w) or ty >= int(map.h):
+		return false
+	var at: int = ty * int(map.w) + tx
+	if (map.overlays as Dictionary).has(at):
+		return not SimTileMap.blocks_sight(map, tx, ty) and not SimTileMap.is_solid(map, tx, ty)
+	var tile: int = int(map.tiles[at])
+	return SimTileMap.OPACITY[tile] != SimTileMap.Opacity.Opaque and not SimTileMap.SOLID[tile]
 
 
 # The tiles a warm pool is painted on: **lit ∩ seen**, split into near and far by remaining reach.

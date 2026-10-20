@@ -433,7 +433,12 @@ revision costs the same. The second review's pass (edges faded per tile edge, re
 the texels, a darker floor) measured night `_draw` 11.62–13.13 ms and renderer 33.4–36.6 ms in a
 session where the untouched day path also read 7.63–9.19 ms: the night-to-day ratio held at about
 1.4, so the change is the machine's drift, not the pass's. The GPU cost remains unmeasured, as
-above.
+above. The third review's pass (an opaque tile behind a window lit only from an open neighbour,
+`LightLook._face_lit`) was measured five times interleaved with the commit before it on one
+container: night `_draw` median 21.77 ms against 20.91 ms (ranges 20.26–22.24 and 20.64–20.96),
+about 0.9 ms at the edge of this bench's noise. A first cut that asked the sim's full sight and
+solid predicates per neighbour cost about 2.5 ms and was replaced by the tile-class tables
+(`LightLook._open`), which defer to the sim's predicates only where a tile carries an overlay.
 
 **Open: the night's `_draw` stage is over target.** At night, with a carried torch and a lit
 campfire, the `_draw` CPU stage measured **17.0–18.3 ms** mean at 1280×720 after A10 (20.7–21.7 ms

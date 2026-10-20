@@ -66,8 +66,9 @@ func _run() -> void:
 	ok = _a_pool_is_rings_capped_by_its_reach() and ok
 	ok = _a_beam_is_content_and_needs_a_facing() and ok
 	ok = _a_flame_flickers_and_a_bulb_does_not() and ok
+	ok = _a_window_lights_the_floor_beyond_not_the_masonry() and ok
 	if ok:
-		print("LIGHT_LOOK_OK the light map's texels put light on no unseen tile (a walled campfire's far side carries no seen byte and no source bit, the open twin is lit, remembered tiles read 128), pools are rings capped by their reach (fire over lantern, and redder), the eye disc derives from sight (and differs from raw ambient on the same lit scene), falls back to ambient exactly with no observer or no emitter, pools are lit-and-seen with a walled far side drawn nowhere, the near/far split lands at %.0f m, full daylight clears the light map, and main.gd's _draw calls both helpers" % LightLook.POOL_SPLIT_METRES)
+		print("LIGHT_LOOK_OK the light map's texels put light on no unseen tile (a walled campfire's far side carries no seen byte and no source bit, the open twin is lit, remembered tiles read 128), light through a window lands on the floor beyond and not on the opaque tiles there, pools are rings capped by their reach (fire over lantern, and redder), the eye disc derives from sight (and differs from raw ambient on the same lit scene), falls back to ambient exactly with no observer or no emitter, pools are lit-and-seen with a walled far side drawn nowhere, the near/far split lands at %.0f m, full daylight clears the light map, and main.gd's _draw calls both helpers" % LightLook.POOL_SPLIT_METRES)
 		quit(0)
 	else:
 		push_error("LIGHT_LOOK_FAIL")
@@ -858,6 +859,60 @@ func _a_flame_flickers_and_a_bulb_does_not() -> bool:
 		push_error("FLICKER: the shader's flicker is no longer a dip below the sim's reach")
 		return false
 	print("FLICKER OK a campfire dips by up to %.0f%% of its reach, a cell torch is steady" % (flame * 100.0))
+	return true
+
+
+# WINDOW. A campfire inside a room lights, through a row of windows, what lies beyond: the sim's
+# shadowcast lights the first opaque tile it meets, so a screen of undergrowth behind the glass is
+# in the fire's cast and in the survivor's sight. Its picture is solid and reads as the wall going
+# on, so the screen must not light it -- light passes a window onto the floor beyond, not onto
+# masonry (art review 3). The true positives: the floor seen through the same glass keeps its bit,
+# the room-side face of the wall keeps its bit, and a screen tile with that lit floor beside it
+# keeps its bit -- so a builder that dropped every opaque tile, or every tile past the glass, fails.
+func _a_window_lights_the_floor_beyond_not_the_masonry() -> bool:
+	var f: Dictionary = {
+		"seed": 4141,
+		"tick_hz": 20,
+		"map": {"width": MAP_TILES, "height": MAP_TILES, "walls": []},
+		"player": {"id": 0, "x": PLAYER_X, "y": PLAYER_Y, "stance": 2},
+		"rng_probe": {"stream": "test", "samples": 0},
+	}
+	var w: Variant = World.new(f)
+	w.tick = Clock.tick_at_time_of_day(NIGHT_FRACTION)
+	var map: Variant = SimTileMap.blank_map(MAP_TILES, MAP_TILES)
+	for y in range(0, MAP_TILES):
+		map.tiles[y * MAP_TILES + WALL_X] = SimTileMap.Tile.Window if y >= 10 and y <= 14 else SimTileMap.Tile.Wall
+	for y in range(9, 13):
+		map.tiles[y * MAP_TILES + WALL_X + 1] = SimTileMap.Tile.Screen
+	SimBoot.attach_kernel(w, map)
+	w.components.set_component(w.player, "observer", SimVisibility.daylight_eyes())
+	w.components.set_component(w.player, "facing", {"radians": 0.0})
+	w.content = ContentLoader.load_tree("res://content")
+	_emitter(w, 10.5, 12.5, CAMPFIRE_M)
+	w.step()
+	var cast: Variant = w.light.tiles_for(int(w.light.sources_list()[0]))
+	var seen: Variant = w.vision.tiles_for(int(w.player))
+	var masked: Vector2i = Vector2i(WALL_X + 1, 11)
+	var floor_beyond: Vector2i = Vector2i(WALL_X + 1, 14)
+	var screen_by_floor: Vector2i = Vector2i(WALL_X + 1, 12)
+	var wall_face: Vector2i = Vector2i(WALL_X, 9)
+	for t in [masked, floor_beyond, screen_by_floor, wall_face]:
+		var at: Vector2i = t as Vector2i
+		if not bool((cast as Object).call("has_tile", at.x, at.y)) or not bool((seen as Object).call("has_tile", at.x, at.y)):
+			push_error("WINDOW: (%d, %d) is not lit and seen in the sim -- the lane has nothing to judge there" % [at.x, at.y])
+			return false
+	var texels: Dictionary = LightLook.light_texels(w, int(w.player), _view())
+	var t_masked: PackedByteArray = _texel(texels, masked.x, masked.y)
+	if t_masked[0] != 255 or (t_masked[1] | t_masked[2] | t_masked[3]) != 0:
+		push_error("WINDOW: the screen behind the glass at (%d, %d) carries the fire's bit (bytes %s) -- light lands on masonry past a window" % [masked.x, masked.y, str(t_masked)])
+		return false
+	for t in [floor_beyond, screen_by_floor, wall_face]:
+		var at: Vector2i = t as Vector2i
+		var b: PackedByteArray = _texel(texels, at.x, at.y)
+		if b[0] != 255 or (b[1] & 1) != 1:
+			push_error("WINDOW: (%d, %d) lost the fire's bit (bytes %s) -- the refusal took a tile it should keep" % [at.x, at.y, str(b)])
+			return false
+	print("WINDOW OK the screen behind the glass at (%d, %d) is lit and seen in the sim and carries no source bit; the floor beyond the same glass, the wall's room-side face and a screen beside that lit floor keep theirs" % [masked.x, masked.y])
 	return true
 
 
