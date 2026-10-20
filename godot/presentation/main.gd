@@ -1940,8 +1940,8 @@ func _draw_window_glass(rect: Rect2, tx: int, ty: int, col: Color = Palette.COLO
 		var pane_art: Texture2D = Appearance.resolve(keys[0])
 		var frame_art: Texture2D = Appearance.resolve(keys[1])
 		if pane_art != null and frame_art != null:
-			draw_texture_rect(pane_art, rect, false, glass)
-			draw_texture_rect(frame_art, rect, false, Palette.COLOURS["windowRim"])
+			_pen.draw_texture_rect(pane_art, rect, false, glass)
+			_pen.draw_texture_rect(frame_art, rect, false, Palette.COLOURS["windowRim"])
 			return
 	var c: Vector2 = rect.get_center()
 	var pane_long: float = rect.size.x * 0.75

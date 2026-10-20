@@ -634,10 +634,11 @@ func _the_shared_bet_holds() -> bool:
 	Appearance.forget()
 	# The roster: every body family content can draw -- an authored family that turns and is not a
 	# wearable -- plus any commissioned rig. Until 2026-10-19 this was PAWN_KEYS, the two generated
-	# face-on rigs; they joined the pose families and the bet is now judged across all of them.
+	# face-on rigs; they joined the pose families and the bet is now judged across all of them. A
+	# garment (`wear`, painted per frame onto a rig) turns with its rig but is not a body.
 	var rig_keys: Array[String] = []
 	for k in Appearance.authored_canvases().keys():
-		if Appearance.turns(String(k)) and not String(k).begins_with("item_"):
+		if Appearance.turns(String(k)) and not String(k).begins_with("item_") and not Appearance.is_garment(String(k)):
 			rig_keys.append(String(k))
 	for key in Appearance.authored_rig_keys():
 		rig_keys.append(String(key))
