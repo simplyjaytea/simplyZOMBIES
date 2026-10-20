@@ -1904,7 +1904,7 @@ func _the_floor_and_the_bag_draw_the_picture() -> bool:
 # against. The bag plate rides the same predicates, so all three screens are held to one rule.
 func _the_strip_and_the_inspector_draw_the_picture() -> bool:
 	var caller_needles: Array = ["Appearance.item_look(", "ItemPicture.draw("]
-	var draw_needles: Array = ["look[\"texture\"]", "draw_texture_rect(", "ItemGlyph.draw_glyph("]
+	var draw_needles: Array = ["look[\"texture\"]", "draw_texture_rect_region(", "ItemGlyph.draw_glyph("]
 	var callers: Array = [
 		["the quick strip", "res://ui/quick_strip.gd", "static func draw_strip("],
 		["the inspect pane", "res://ui/inspect_pane.gd", "static func draw_pane("],
@@ -1914,7 +1914,7 @@ func _the_strip_and_the_inspector_draw_the_picture() -> bool:
 	# True negatives first, on fabricated bodies, so the scanners are shown to fail before they are
 	# trusted on real code.
 	var caller_control: String = "var look = Appearance.item_look(world, base)\nItemPicture.draw(ci, box, look, a)\n"
-	var draw_control: String = "var art = look[\"texture\"]\nci.draw_texture_rect(art, r, false, c)\nItemGlyph.draw_glyph(ci, box, 0, c)\n"
+	var draw_control: String = "var art = look[\"texture\"]\nci.draw_texture_rect_region(art, r, src, c)\nItemGlyph.draw_glyph(ci, box, 0, c)\n"
 	if not _appears_in_order(caller_control, caller_needles) or not _appears_in_order(draw_control, draw_needles):
 		push_error("PICTURES: a scanner refused a body shaped like the real one; it would refuse the real ones")
 		return false
@@ -1922,8 +1922,8 @@ func _the_strip_and_the_inspector_draw_the_picture() -> bool:
 		["a draw that is only a comment", caller_needles, "var look = Appearance.item_look(world, base)\n# ItemPicture.draw(ci, box, look, a)\n"],
 		["a look that is never drawn", caller_needles, "var look = Appearance.item_look(world, base)\nItemGlyph.draw_glyph(ci, box, 0, c)\n"],
 		["a draw made before the look", caller_needles, "ItemPicture.draw(ci, box, look, a)\nvar look = Appearance.item_look(world, base)\n"],
-		["a shared draw whose texture draw is only a comment", draw_needles, "var art = look[\"texture\"]\n# ci.draw_texture_rect(art, r, false, c)\nItemGlyph.draw_glyph(ci, box, 0, c)\n"],
-		["a shared draw with no glyph for a base with no picture", draw_needles, "var art = look[\"texture\"]\nci.draw_texture_rect(art, r, false, c)\n"],
+		["a shared draw whose texture draw is only a comment", draw_needles, "var art = look[\"texture\"]\n# ci.draw_texture_rect_region(art, r, src, c)\nItemGlyph.draw_glyph(ci, box, 0, c)\n"],
+		["a shared draw with no glyph for a base with no picture", draw_needles, "var art = look[\"texture\"]\nci.draw_texture_rect_region(art, r, src, c)\n"],
 	]
 	for row in refused:
 		if _appears_in_order(String((row as Array)[2]), (row as Array)[1] as Array):
