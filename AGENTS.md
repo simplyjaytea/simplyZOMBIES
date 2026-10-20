@@ -43,6 +43,9 @@ exactly the failure the project keeps re-learning. The pointers:
 - The active design record is `.hermes/plans/2026-08-17_065300-vertical-slice-design.md`; it is
   **not** implementation evidence. `CONTEXT.md` holds the slice vocabulary — what to call needs,
   jobs, stances, and their states — so prose and code stay in one language.
+- For the whole-interface redesign, read [the UI brief](docs/32-ui-overhaul.md) and the
+  [October 3 owner decision](docs/30-decisions.md#the-whole-interface-2026-10-03) before applying
+  older kit/font/chart requirements. Its sole work list is [docs/23](docs/23-roadmap.md#ui-overhaul).
 - The boot colony is **three** by the owner's 2026-09-01 decision — the player, Mara, and Ellis
   (`survivor.unique.ellis`). The pause that decision put on new NPCs and roster growth was
   lifted on 2026-09-14 (docs/30, "The pause lifted"); the procedural-population arc in docs/23's
