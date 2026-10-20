@@ -136,9 +136,9 @@ def latrine():
         for x in range(10, 20):
             s.put(x, y, "seam" if x in (12, 17) and y > 19 else "door")
     s.rect(10, 19, 19, 19, "wood")
-    # the moon, a crescent cut through the door's upper boards east of centre, three pixels tall
-    # and curved, its horns opening east, with a pixel of door all round it
-    for x, y in ((16, 15), (17, 15), (15, 16), (16, 17), (17, 17)):
+    # the moon, a crescent cut through the door's upper boards east of centre: two rows, lying on
+    # its back with its horns up, a clear row of door above it and two below it before the rail
+    for x, y in ((15, 15), (18, 15), (16, 16), (17, 16)):
         s.put(x, y, "gap")
     s.put(18, 22, "metal")
     s.shine.add((18, 22))

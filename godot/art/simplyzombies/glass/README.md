@@ -17,7 +17,7 @@ They are greys on purpose. The colour still comes from the palette and the stree
 night, weather and a lit window keep working as before; the texture adds the lintel shadow, the
 mullion, four tones and the diagonal reflection streaks the flat rect could not. The frame's
 outside edge is white, not a body's near-black: tinted by `windowRim` it lands a step above the
-brick mortar's value (luminance 111 against 100) and the sill level with it, so the window reads
+brick mortar's value (luminance 111 against 101) and the sill just above it (104), so the window reads
 as part of the wall and still lifts off it. Each pane carries its reflection at
 its own offset. `glass.py` draws them in code, because a
 32-pixel window is a handful of pixels an image model would not place exactly.

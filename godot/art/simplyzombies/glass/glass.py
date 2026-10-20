@@ -19,9 +19,10 @@ from PIL import Image
 
 HERE = Path(__file__).resolve().parent
 # The outline the frame stands in. Tinted by windowRim it lands at the rim colour itself, (95, 116,
-# 128), luminance 111: a step above the brick's own mortar line (104, 101, 95), luminance 100, so the
+# 128), luminance 111: a step above the brick's own mortar line (104, 101, 95), luminance 101, so the
 # window's edge is drawn at the wall's line weight and lifts off it -- a window is part of the wall,
-# not a body's near-black outline. The sill row (224) lands level with the mortar, never below it.
+# not a body's near-black outline. The sill row (240) tints to (89, 109, 120), luminance 104: still
+# the frame's shaded side, but above the mortar, never below it.
 EDGE = (255, 255, 255, 255)
 CLEAR = (0, 0, 0, 0)
 
@@ -95,7 +96,7 @@ def frame(shape):
         for x in range(fx0, fx1 + 1):
             if fx0 < x < fx1 and fy0 < y < fy1:
                 continue
-            px[x, y] = grey(255 if y == fy0 else (224 if y == fy1 else 248))
+            px[x, y] = grey(255 if y == fy0 else (240 if y == fy1 else 248))
     # the mullion across the short way
     if (x1 - x0) >= (y1 - y0):
         mx = (x0 + x1) // 2
