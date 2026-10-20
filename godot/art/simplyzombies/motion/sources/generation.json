@@ -1,0 +1,12 @@
+{
+  "note": "The four survivor walk strips, as generated. Each is nine 64x64 frames side by side; frame 0 is the input (the pack's rest view, textures/characters/survivor_<view>.png, pasted at (16, 20)) and frames 1-8 are the cycle. build_motion.py reads frames 1-8.",
+  "tool": "PixelLab animate_image",
+  "frame_count": 8,
+  "no_background": true,
+  "strips": {
+    "survivor-east.png": {"job": "752b3ab3-bc21-4cee-932a-a47c51a0cb94", "input": "textures/characters/survivor_e.png", "action": "walking to the right, steady walk cycle, legs alternate stepping, arms swing gently, feet stay on the same ground line"},
+    "survivor-south.png": {"job": "3be1e7a5-6bfa-4ce6-97da-5b6dbc77a5db", "input": "textures/characters/survivor_s.png", "action": "walking towards the camera, steady walk cycle, legs alternate stepping, arms swing gently, feet stay on the same ground line"},
+    "survivor-north.png": {"job": "4a4aa3dc-a1d0-4bd4-9121-bc85eedae795", "input": "textures/characters/survivor_n.png", "action": "walking away from the camera, steady walk cycle, legs alternate stepping, arms swing gently, feet stay on the same ground line"},
+    "survivor-west.png": {"job": "e5667979-b4b3-40e7-991d-8450f0b2e030", "input": "textures/characters/survivor_w.png", "action": "walking to the left, steady walk cycle, legs alternate stepping, arms swing gently, feet stay on the same ground line"}
+  }
+}

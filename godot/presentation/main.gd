@@ -25,6 +25,7 @@ const RoadPaint = preload("res://presentation/road_paint.gd")
 const RoofLook = preload("res://presentation/roof_look.gd")
 const RainLook = preload("res://presentation/rain_look.gd")
 const FxLook = preload("res://presentation/fx_look.gd")
+const DecalLook = preload("res://presentation/decal_look.gd")
 const SimWeather = preload("res://sim/modules/weather.gd")
 const Dressing = preload("res://presentation/dressing.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
@@ -52,6 +53,7 @@ const InputMapRes = preload("res://presentation/input_map.gd")
 const SessionRes = preload("res://presentation/session.gd")
 const UiPrefs = preload("res://ui/prefs.gd")
 const RenderInterp = preload("res://presentation/interp.gd")
+const AnimClock = preload("res://presentation/anim_clock.gd")
 const WorldLayersRes = preload("res://presentation/world_layers.gd")
 const LightMapRes = preload("res://presentation/light_map.gd")
 
@@ -119,6 +121,12 @@ var accumulator: float = 0.0
 # Where bodies are drawn between two ticks (presentation/interp.gd): snapshotted before every
 # step, read by the draw and the camera follow. Never read by the sim.
 var _interp: RenderInterp = RenderInterp.new()
+# Which walk or breath frame each drawn body shows (presentation/anim_clock.gd): stepped by the
+# ground its drawn point covers and by `_anim_time`, never by the tick. Never read by the sim.
+var _anim: AnimClock = AnimClock.new()
+# Presentation time in game seconds: `delta * speed` summed while the world runs, held while it does
+# not, so a breath stops on pause and quickens under fast-forward with everything else.
+var _anim_time: float = 0.0
 var paused: bool = false
 var speed: int = 1
 var attention_channel: String = "off" # off/light: the O key; noise, scent and sight were never drawn (A22)
@@ -252,6 +260,10 @@ var _drew_tick: int = -1
 # frame drew, written by `_draw_effects` and read by `godot:check:fx`'s DRAWN lane -- the executing
 # proof that the draw loop reaches the sheets. Never read by the game.
 var _fx: RefCounted = FxLook.new()
+# The marks a fight leaves (decal_look.gd), and what the last frame drew of them -- the decals
+# gate reads `_decals_drawn` (the keys blitted) the way the fx gate reads `_fx_drawn`.
+var _decals: RefCounted = DecalLook.new()
+var _decals_drawn: Array = []
 var _fx_drawn: Array[Dictionary] = []
 # The baked ground, walls and roofs (presentation/world_layers.gd), and the pen the ground helpers
 # draw with: main itself, except while a chunk is being baked, when it is that chunk's own canvas
@@ -389,8 +401,12 @@ func _on_world_replaced() -> void:
 	_focal_drawn = []
 	_fx.call("clear")
 	_fx_drawn = []
+	_decals.call("clear")
+	_decals_drawn = []
 	_a2_wall_drawn = []
 	_interp.clear()
+	_anim.clear()
+	_anim_time = 0.0
 	if _context_menu != null:
 		_context_menu.call("close")
 	tick_count = 0
@@ -796,6 +812,9 @@ func _load() -> void:
 	if session == null:
 		return
 	if bool(session.call("load")):
+		# A load restores into this same world object, so the marks' chunk cache cannot tell
+		# itself apart by world; it starts again.
+		_decals.call("clear")
 		# The loaded body can be anywhere on the map; recentre unsmoothed rather than let the
 		# per-frame follow visibly pan there from wherever the camera sat before the load.
 		_snap_camera()
@@ -997,6 +1016,7 @@ func _process(delta: float) -> void:
 	# speed scales tick debt: more ticks per frame, not smaller tick. A sleeping survivor with
 	# nothing near runs at the sleep rate, which is `speed` unless it is faster.
 	var rate: int = SessionRes.run_rate(speed, world)
+	_anim_time += delta * float(rate)
 	accumulator += delta * float(rate)
 	var ticks_done: int = 0
 	var prev_tick: int = int(world.tick)
@@ -1209,6 +1229,7 @@ func _draw() -> void:
 	_a2_wall_drawn = []
 	_draw_orders()
 	_draw_entities()
+	_anim.end_draw()
 	_draw_effects(false)
 	_draw_afterimages()
 	_draw_bubbles()
@@ -1481,6 +1502,12 @@ func _draw_world() -> void:
 		"generation": int(world.map_generation), "map_w": map_w, "map_h": map_h, "view": view,
 		"snow": SimWeather.snow_cover(world), "signature": _bake_signature, "bake": _bake_layer,
 	})
+	# The marks on the ground (blood, holes in wall caps, scorch), over the baked ground they lie on
+	# and under everything that stands -- only where the player sees now, so never on a roof, which
+	# covers only tiles the player does not see (decal_look.gd says why). The baked DECOR layer (the
+	# nature and the flat furnishings) is inside the frame above, so a mark lands over a baked table
+	# or bush as it would on the floor: splatter on what it hit.
+	_draw_decals(seen, a2_wall_tiles, bounds)
 	# The nature dressing and the flat furnishings are baked too (the DECOR layer, _draw_decor): both
 	# are pictures on seen tiles that never move, so drawing them each frame was the cost of a tile
 	# nobody was looking at. Props stay per frame, last, over the ground and under the bodies
@@ -2294,6 +2321,19 @@ func _draw_a2_wall_piece(piece: Dictionary) -> void:
 		var dest := RoofLook.a2_rounded_screen_rect(Vector2(float(sc["sx"]), float(sc["sy"])), Vector2(float(sc_end["sx"]), float(sc_end["sy"])))
 		draw_texture_rect_region(texture, dest, src)
 		_a2_wall_drawn.append({"key": String(piece.get("key", "")), "source": src, "destination": dest})
+	# The holes a stray round left in this wall, on its face and after it in the sort.
+	_draw_decal_list(_decals.call("wall_draws", world, camera, seen, world_rect) as Array[Dictionary])
+
+
+func _draw_decals(seen: Variant, standing: Dictionary, bounds: Dictionary) -> void:
+	_decals_drawn = []
+	_decals.call("draw_ground", self, world, camera, seen, standing, bounds, _decals_drawn)
+
+
+func _draw_decal_list(draws: Array[Dictionary]) -> void:
+	for d in draws:
+		draw_texture_rect_region(d["texture"] as Texture2D, d["canvas"] as Rect2, d["region"] as Rect2, d["modulate"] as Color, bool(d["transpose"]))
+		_decals_drawn.append(String(d["key"]))
 
 
 # The door in a front face: a doorway whose south neighbour is the street takes the door
@@ -2557,6 +2597,7 @@ func _draw_entities() -> void:
 	if world == null: return
 	_focal_drawn = []
 	_interp.begin_draw()
+	_anim.begin_draw(_anim_time)
 	var sub_tick: float = _sub_tick()
 	# One art pixel in screen pixels, asked once: the camera cannot change inside a draw
 	# pass, and every body, shadow and glimpse disc below is sized off the same answer --
@@ -2732,7 +2773,8 @@ func _draw_entities() -> void:
 			var vsc: Dictionary = TopDownProjection.world_to_screen(camera, gp.x, gp.y)
 			var flip: float = Appearance.vehicle_flip(String(rec.get("facing", "")))
 			var v_remembered: bool = not Dressing.vehicle_is_seen(rec, seen)
-			items.append({"kind": "vehicle", "key": vkey, "flip": flip, "sx": float(vsc["sx"]), "sy": float(vsc["sy"]), "d": TopDownProjection.depth_of(gp.x, gp.y), "det": SimVisibility.Detail.Focal, "remembered": v_remembered})
+			items.append({"kind": "vehicle", "key": vkey, "flip": flip, "sx": float(vsc["sx"]), "sy": float(vsc["sy"]), "d": TopDownProjection.depth_of(gp.x, gp.y), "det": SimVisibility.Detail.Focal, "remembered": v_remembered,
+				"foot": Rect2(float(rec.get("x", 0)), float(rec.get("y", 0)), float(rec.get("w", 0)), float(rec.get("h", 0)))})
 	# The props taller than a tile -- the scrap barricade, a planted work lamp -- join the same sort
 	# (docs/23, "Props for things that exist"), on seen tiles only.
 	items.append_array(_standing_props(seen))
@@ -2797,7 +2839,12 @@ func _draw_entities() -> void:
 		var sprite_key: String = String(look.get("sprite", ""))
 		var vel_v: Variant = world.components.get_component(eid, "velocity")
 		var view: String = Appearance.body_view(sprite_key, facing_v, vel_v)
-		var texture: Texture2D = Appearance.body_texture(look, view, Appearance.moving(vel_v), int(world.tick), eid)
+		# Which frame: the animation clock's, from where this body is drawn (the item's x, y, already
+		# slid by the interpolation) and whether the sim moves it -- the walk advances by ground
+		# covered and the breath by presentation time, never by the tick (presentation/anim_clock.gd).
+		var motion: Dictionary = _anim.motion(eid, Vector2(float(it["x"]), float(it["y"])), Appearance.moving(vel_v), Appearance.stride_of(sprite_key), Appearance.pace_of(sprite_key))
+		var frame: String = Appearance.frame_key(sprite_key, view, motion)
+		var texture: Texture2D = Appearance.body_texture(look, view, motion)
 		if texture != null:
 			# Scaled by px_scale so a body covers the same fraction of a tile at every step on
 			# the zoom ladder. Where the picture hangs is Appearance.body_rect's answer: a pawn
@@ -2811,7 +2858,7 @@ func _draw_entities() -> void:
 			# feet-anchored canvas -- and a held weapon at its hand, turned by the draw call's own
 			# flags (`_layer_rect`). Drawn white, never the role/tint colour: a backpack is its own
 			# object, not a stand-in shape for the entity itself.
-			var equip: Array[Dictionary] = Appearance.equipment_layers_for(world, eid, view)
+			var equip: Array[Dictionary] = Appearance.equipment_layers_for(world, eid, view, frame, sprite_key)
 			var flip: float = Appearance.flip_for(sprite_key, screen_ang)
 			_blit_body(Appearance.body_rect(sx, sy, size, flip), texture, col, equip)
 			# The afterimage's own copy of this look, frozen at the moment a Focal body was drawn --
@@ -3246,6 +3293,10 @@ func _blit_vehicle(it: Dictionary, px_scale: float) -> void:
 	var size: Vector2 = texture.get_size() * px_scale
 	var tint: Color = Palette.remembered(Color.WHITE) if bool(it.get("remembered", false)) else Color.WHITE
 	draw_texture_rect(texture, Appearance.body_rect(float(it["sx"]), float(it["sy"]), size, float(it["flip"])), false, tint)
+	# The dents a stray round left in it, over the picture -- only on a car the player sees now.
+	if not bool(it.get("remembered", false)) and it.get("foot") is Rect2:
+		var seen: Variant = world.vision.tiles_for(int(world.player)) if world.vision != null else null
+		_draw_decal_list(_decals.call("over_draws", world, camera, seen, it["foot"] as Rect2) as Array[Dictionary])
 
 
 # One body and everything it is wearing, composited at one rect: under-body layers, the body,
@@ -3279,10 +3330,15 @@ func _blit_body(rect: Rect2, texture: Texture2D, col: Color, equip: Array[Dictio
 # pixel, and the draw call is handed the layer's `transpose` flag, so the weapon turns without a
 # transform. The body under it never mirrors: `flip_for` answers +1 for every body that turns.
 func _layer_rect(rect: Rect2, layer: Dictionary) -> Rect2:
-	if not layer.has("at"):
-		return rect
 	var px: float = absf(rect.size.x) / float(Appearance.PAWN_CANVAS.x)
 	var py: float = rect.size.y / float(Appearance.PAWN_CANVAS.y)
+	if not layer.has("at"):
+		# A wearable riding a head or a torso the body frame has moved (Appearance's layer contract,
+		# rule 2): the same rect, shifted by whole body pixels.
+		if layer.has("shift"):
+			var shift: Vector2i = layer["shift"] as Vector2i
+			return Rect2(rect.position + Vector2(shift.x * px, shift.y * py), rect.size)
+		return rect
 	var at: Vector2i = layer["at"] as Vector2i
 	var size: Vector2i = layer["size"] as Vector2i
 	return Rect2(rect.position + Vector2(at.x * px, at.y * py), Vector2(size.x * px, size.y * py))

@@ -629,6 +629,15 @@ projection are untouched.
 - ~~**The shot is seen.**~~ — **landed** 2026-09-26 for the four effects with an impact point, see
   the record (`npm run godot:check:fx` → `FX_OK`; `godot:check:authored` → HELD's muzzle and the
   widened READS).
+- ~~**The marks a fight leaves (alpha plan A13).**~~ — **landed** 2026-10-19 for six of the
+  pack's eight decals, see the record ("Art — the marks a fight leaves"; `npm run
+  godot:check:decals` → `DECALS_OK`). The shell pile and the footprint stay in the report.
+- **Remembered marks** (after alpha). A remembered tile shows the decals it held when the player
+  last saw it, dimmed with the ground, from a per-tile memory; today marks show only in sight.
+- **The glimpse disc on the art grid** (after alpha). A body seen only at the edge of the eye, or
+  remembered with no picture, draws an anonymous disc centred on its unsnapped screen point
+  (`main.gd`'s Peripheral branch and `_draw_afterimages`), so it sits up to one screen pixel off
+  the 2 × 2 art grid that every picture and mark keeps; snap its centre and radius to the grid.
 - ~~**The cars are the pack's, east-west.**~~ — **landed** 2026-09-26, see the record
   (`npm run godot:check:wrecks` → the new PACK lane and SILHOUETTE at the pack's rows;
   `npm run godot:m2:vehicles` → DRIVE's per-axis turn).
@@ -931,9 +940,8 @@ are all carried into the pieces that replace them.
 - **The frames.** Moved into the decoupled-paperdoll group above, where the legs strip it needs
   exists. Named here only so the cross-reference resolves.
 - ~~**The exploded body chart.**~~ — landed 2026-10-03; see the record.
-- **The idle breath — not decided.** One pixel of pelvis at a quarter of the walk's rate. It
-  was drawn in the fixture round and deliberately left out of the four answers; it is a small
-  call and it is the owner's.
+- ~~**The idle breath.**~~ — decided by the owner 2026-10-20 (keep it, docs/30's "The idle
+  breath, kept"); it shipped with A7, see the record.
 
 **Art & renderer — the Dungeon Settlers arc, decided by the owner (2026-09-03), on the floor
 the reference-look arc's first two slices laid (32 px a tile at 2×, the ground atlas).** The
@@ -2284,7 +2292,7 @@ not a to-do list:
   reads the same sub-tick fraction (`_sub_tick`). Presentation only: nothing under `godot/sim/`
   changed, and sight, picking and every position a gate reads are still the component.
   **Half shipped, and which half:** the four-view pick and the walk frame still change on the
-  tick, ground items and corpses do not move so they are not interpolated, and FX are placed at
+  tick (the walk frame moved to the render clock with A7, below), ground items and corpses do not move so they are not interpolated, and FX are placed at
   the sim point of the event, so a muzzle flash on a body walking at speed can sit up to one tick
   of travel ahead of it. The frame rate itself is A3/A4's work; this makes whatever rate there is
   read as motion.
@@ -2306,6 +2314,75 @@ not a to-do list:
   the 0.075 bound). READERS holds the textual half for the branches the boot does not drive: the
   snapshot before `world.step()`, the clamp before the loop, the camera after it, riders,
   vehicles and facing.
+
+- **Feel — frames on the render clock, eight-frame walks and a breath, 2026-10-19.** Item A7 of
+  the 2026-10-19 alpha plan, on A2's glide above. A walk frame used to be
+  `tick * fps / 20 + id`: it moved only when a tick did, at one cadence whatever the speed, so a
+  limping survivor's feet moonwalked and a sprinter's skated, and four poses a cycle read as a
+  stutter. `presentation/anim_clock.gd` (`AnimClock`) now advances each drawn body's place in
+  its cycle by the ground its *drawn* point covered since the last draw, so a body steps as fast
+  as it is seen to move, stops stepping when it stops, and ends a path on the same frame at 30
+  or at 144 frames a second. One cycle covers the family's own stride (`pace × frames / fps`, so
+  a body at its family's pace steps at exactly the manifest's rate); away from that pace the
+  stride lengthens with the square root of the speed, clamped to half and double, so a sprint at
+  three times the pace steps about 1.7 times as often rather than three. Bodies are seated by id
+  on the golden ratio so a crowd does not step as one, and a jump past `SNAP_METRES` re-seats
+  rather than spinning the legs. A standing body breathes on presentation time (`delta ×
+  speed`, so pause holds it and fast-forward quickens it) at the family's `breath_fps`.
+  The motion a draw asks about is one Dictionary, `{walking, cycle, idle}`, read by
+  `Appearance.frame_key`; it is the hook A8's action animations add a key to, and nothing here
+  builds them. `main.gd` changes in `_on_world_replaced`, `_process`, `_draw`, `_draw_entities`
+  and `_layer_rect` only. Presentation only: nothing under `godot/sim/` changed.
+
+  **The art.** Every body walks on **eight frames** a view, at twice the old rate (survivor 16,
+  workwear/commuter/raincoat 10, stalker 12, runner 18, armoured and heavy 8; the screamer 10
+  and the bloater 8 since zombie study 02 joined on the merge of 2026-10-20, built by the same
+  script from its four poses at paces 2.31 and 1.47), so the cadence on screen is unchanged and
+  the motion between steps is twice as fine. The survivor's walk is
+  **new generated art** -- four PixelLab strips, each animated from the pack's own rest view,
+  so frame 0 is the standing picture and the old walk's skin-tone and outline pop on setting
+  off is gone (the plan's "shambler palette pop" had moved to the survivor when the shambler
+  was retired; it is fixed where it now lived). The **zombies' in-betweens and every breath
+  are mechanical**: each family keeps its four pack poses as frames 0, 2, 4, 6, and frames 1,
+  3, 5, 7 are the pose before with the rows above the hip carried one pixel toward the next
+  pose's height; the breath is the rest view with the rows above the chest a pixel up (the
+  survivor) or down (the dead sag, which also keeps rest views already at their canvas's
+  tallest inside it). That is a row shift of the pack's pixels, not drawing, and the pack's
+  `STYLE.md` asks for authored frames: **this is the half a commissioned pass should replace.**
+  Built by one script, `godot/art/simplyzombies/motion/build_motion.py` (`--check` reports
+  `MOTION_OK`), which also writes the pack manifests' frame lists, `authored.json`'s new
+  `pace`, `breath_fps` and per-member points, and `SHA256SUMS`; sources, prompts and job ids are
+  in `motion/sources/generation.json` and the method in `motion/README.md`. Five generations
+  were spent: the four strips and one zombie trial that was not used.
+
+  **Per-frame points, and the layer contract A6 builds on.** Every walk and breath member
+  declares where its `head` and `torso` moved from the rest view, and the survivor's declare
+  each hand. A worn layer resolves in three rules, in order: (1) the layer's own member for that
+  frame, `<layer>_<frame suffix>` (`item_gear_vest_walk_e_3`), when it exists -- what A6's
+  clothing will author; (2) otherwise its view picture shifted by the frame's offset for the
+  region its family `rides` (`authored.json`: helmet and gas mask the head, vest and backpack the
+  torso); (3) a held weapon on the frame's own hand (`Appearance.frame_hand`, falling back to
+  `HELD_HANDS` at rest). A muzzle flash is still placed from the rest hand in `fx_look.gd`; A9's
+  aim rework owns that.
+
+  **The breath was the owner's call, and it is kept** (owner, 2026-10-20; docs/30's "The idle
+  breath, kept"). `breath_fps: 0` in `authored.json` would turn it off per family without code.
+
+  **Evidence:** `godot:check:worn` new FRAMES lane: **288** walk and breath frames over 8 bodies
+  declare head and torso offsets the renderer reads (427 of them move one, after the art
+  review's even bob; 448 before), **72** survivor hands sit on their own frame's arm (53 off the
+  rest point; 57 before), and a pistol, helmet and vest on a
+  walking frame follow its hand, head and torso; a corner hand, a frame-less pistol, a shifting
+  rest view, a riderless wearable and a dropped frame are each refused. `godot:check:zombie_art`
+  MOTION: eight distinct poses and a breath a view, stride equal to pace × frames / fps, and a
+  real clock walking one stride at pace at 60 Hz reaching every frame with under 0.02 cycle
+  drift. `godot:check:topdown` TURN: on the real clock, each family changes frame its manifest
+  rate (±1) in a second at its pace, more but less than threefold at three times the pace, fewer
+  but some at half; ids 1 and 2 seat apart; a standing second never walks. `godot:check:authored`
+  holds 40 members per zombie family, eight walk and two breath frames, and the frame-name
+  mapping both ways. `sprites:check` reproduces every new member from its source.
+  Before/after strips and GIFs for all eight bodies, and the survivor in helmet, vest and pistol,
+  are under `.hermes/plans/2026-10-19_a7-animation/`.
 
 - **UI — first-day hints, 2026-10-19 (alpha A21, from the alpha plan, not an M2 piece).** The
   first time a container is in reach, a wound is open, a zombie has been seen or night falls, the
@@ -2922,7 +2999,8 @@ not a to-do list:
     `fx-bullet-hole-metal/concrete`, `fx-scorch-mark`, `fx-wood-chips`, `fx-shell-pile`,
     `fx-footprint`). These are marks that outlast the moment, a different fact than slice 7's
     transient effects: a location, a surface or actor, and a tick, published once and read until
-    it fades, which nothing in `sim/` emits today. No slice names it. `fx-footprint` is the one
+    it fades. **Six landed 2026-10-19** with `sim/modules/decals.gd` (the record's "Art — the
+    marks a fight leaves"); the shell pile and the footprint remain here. `fx-footprint` is the one
     to watch before a reader is built for it: a trail rendered where an actor walked, unseen, is
     exactly the certainty clause 4 of the hardcore contract refuses the player (docs/01,
     "information is scarce and unreliable") unless it is scoped to ground the player's own
@@ -3057,6 +3135,55 @@ not a to-do list:
   strangers that a skin-only tint would need `main.gd` to fix; no belt, glove, eyewear or soft
   cap picture; only `body_survivor` is clothed; corpses are not clothed; the dressed composite
   is cached per rig frame and outfit with no eviction, bounded by the outfits actually drawn.
+
+  **On the eight-frame walk, 2026-10-20.** When A7 ("Feel — frames on the render
+  clock", above) merged over this, the painter moved onto the rig's new frames rather
+  than the pack's four-frame walk it had been built on: `parts.py` reads A7's eight walk frames
+  and the breath picture per view (`textures/characters/motion/`), so the rig has **40 frames**
+  and each garment **40 members** (**1160 keys**, from 580), on a 320x160 atlas (rest, walk 1-8,
+  breath). The breath is not painted: each garment's breath is its rest picture put through the
+  body's own breath (`build_motion.survivor_breath`: the chest a row up, the hands planted), so
+  the cloth cannot shift colour as the body breathes. Four of the generated east walk frames had drawn the hips bare, which left the painter
+  no waist to find; A7's `build_motion.py` now restores the shorts on those frames
+  (`restore_shorts`) rather than the painter guessing. The COVERAGE lane's frame count reads
+  `walk_frames + breath_frames` and pins eight and two; STEP drives `body_texture` with the
+  animation clock's motions and wants the rest picture, the breath and all eight walk frames
+  per view. **Measured:** `WEAR OK 29 garment(s), 1160 painted frame(s) ... (fewest painted
+  5)`; `COVERAGE OK ... on all 40 rig frames (fewest 5 garment pixels showing)`; `STEP OK ...
+  480 frame draws`; `CLOTHING_OK 29 garments, 1160 frames`; `SPRITES_OK ... 1643 authored keys
+  reproduced`. A walk GIF of the tee, leather, parka and hazmat outfits is under
+  `.hermes/plans/2026-10-19_a7-animation/`. **Art review, round 1:** a walking arm reaches
+  sideways or forward, and the row rule that found hands on the rest views left forearms up to
+  five by three bare under long sleeves; `parts.py` now labels the hand as the two-by-two at the
+  far end of each arm, measured from the shoulder, so a sleeve runs to the wrist on every frame
+  and an arm the body hides still ends in a hand. `build_motion.py` closes the ink ring where
+  six generated pixels touched the outside (`close_outline`) and lifts the ink seam two east
+  frames drew across the hips (`drop_hip_seams`); a zip's teeth count from the collar so they
+  ride the bob; the neck's shadow past its two rows reads as the cloth's own light. **Round 2,
+  the walk made even:** the generated cycles bobbed unevenly (south head-top rows 12, 11, 10, 10,
+  10, 12, 11, 10, a long beat and a short one with a two-row drop; north once a cycle; east a row
+  of jitter every step) and the side walks drifted forward through the cycle and snapped back on
+  the loop (the east head 16.7 to 18.7 pixels across, then 16.7). `build_motion.py` now
+  re-centres each frame's head over the rest view's (`recentre`) and moves the body from the hips
+  up, as one block, to `SURVIVOR_BOB`, two even beats a cycle, no frame moved more than a row
+  (`retime_bob`): south 11, 12, 11, 10, 11, 12, 11, 10; north 12, 11, 10, 11, 12, 11, 10, 11; east
+  11, 11, 12, 12 twice; west 12, 12, 13, 13 twice. Round 3: moving only the chest and head (the
+  first cut) shortened the torso on the frames it lowered and the collar, found from the hips,
+  rode over the chin, so the cut is under the hips and a walking frame's chest top is now found
+  from its head; the west and north walks wear the rest view's head on every frame
+  (`same_head`; the generator had redrawn it each frame, a nod), and so does the south, whose
+  trunk is held to the rest view's 19 rows from head top to belt (`trunk`; the generator drew it
+  a row short on three frames, so the torso squashed against the bob): south face rows 16, 17,
+  16, 15, 16, 17, 16, 15 and belt rows 30, 31, 30, 29, 30, 31, 30, 29, face to belt 14 on every
+  frame; a foot stands on the ground row
+  on every frame; and ink on the silhouette's edge is the ring's own black (`outline_black`).
+  **Measured** (changed pixels per step, 0 to 1 through 7 to 0): south 303, 302, 328, 294, 305,
+  291, 340, 352; east 161, 302, 172, 218, 140, 274, 156, 309; north 277, 316, 316, 297, 306, 323,
+  293, 329; west 170, 314, 157, 267, 124, 301, 164, 338. The loop step is 4, 2, 2 and 8 percent
+  over the next in south, east, north and west (it was 6, 13 and 20 percent in south, east and
+  west before the art review); what remains is the generated legs' own pose spacing, which
+  wants drawn frames. The breath plants the hands and lifts the shoulders, so no hand stretches a row
+  on the inhale.
 
 - **Art & renderer — zombies turn, walk and fall, 2026-10-02.** Closes "A silhouette per
   kind" and the Focal art half of "A corpse reads as a corpse", at the owner's request for
@@ -3319,7 +3446,8 @@ not a to-do list:
   the paint-over guides as drawn; every generated corpse pass blurred the outline and lost the
   head and is kept under `sources/rejected-*` with its prompt in `study-02/prompts.json`. Content
   names `body_zombie_screamer` / `body_zombie_bloater` and their `corpseSprites`; the bloater keeps
-  its variance tints.
+  its variance tints. Since the A7 merge (2026-10-20) both walk on eight frames at 10 and 8 fps
+  and breathe, the four poses here as frames 0, 2, 4, 6 (`build_motion.py`, A7's record).
 
   **Retired, by the standing rule:** `zombie_screamer.png`, `zombie_bloater.png`, every rig
   function, `_figure` and `REGISTRY` in `tools/sprites/parts/characters.py` (which keeps only the
@@ -4227,6 +4355,97 @@ not a to-do list:
   fixed**: a flash drawn after the bodies stands over a body south of the shooter, and over the
   shooter's own body seen from behind; the flash follows the shooter's position at the moment of
   the shot rather than the body, for its sixth of a second.
+
+- **Art — the marks a fight leaves, 2026-10-19 (alpha plan A13).** The owner's call (docs/30's
+  "Blood and bullet decals persist, for everything", carried by PR #147): every hit, death, bleed
+  and stray round leaves a mark whether or not the player saw it, kept for the run, and drawn
+  under the normal sight rules. **The sim half** is the new `sim/modules/decals.gd`, one
+  subscription per event kind and one system: `attack.connected` throws a `splat` 0.15–0.55 m past
+  the struck body away from the attacker (under the body when that point is solid); `bite.landed`
+  leaves one under the bitten body; `entity.killed` leaves one `pool` per body however often the
+  event fires for it (de-duplicated by entity id); `weapon.fired` — which now carries the shot's
+  origin, facing, reach and whether it hit anyone (`sim/modules/ranged.gd`) — walks a round that
+  hit nobody to the first wall (`hole`), tree, shut door or boarded window (`chips`) or parked car
+  (`dent`), letting glass and open doors pass; `weather.lightning` leaves a `scorch`; and
+  `decals.drip` reads `injuries.bloodLoss` every five ticks and drops a `drip` per 0.5 of it, drips
+  pooling into one another and a crawling bleeder leaving a `smear`. Randomness is its own `decals`
+  stream. Records live in `world.decals`, String-keyed chunks of 8 × 8 tiles holding an Array of
+  integer records (art pixels, so a save round-trips exactly), saved and restored by `world.gd`
+  with no `SAVE_VERSION` bump (an older save restores none). Bounded: 32 a chunk, 6,000 a run, the
+  oldest mark that is not a pool evicted first. **The draw half** is `presentation/decal_look.gd`:
+  the pack's own frames at one art pixel to one (`fx-blood-pool-fresh/dry`,
+  `fx-bullet-hole-concrete/metal`, `fx-scorch-mark`, `fx-wood-chips`, sourced through
+  `authored.json` as the new kind `decal`, plus the existing `fx_blood_hit` frames for splats and
+  drips), turned and flipped by the record's variant (0..63: the low three bits the turn, the
+  rest the picture), three hit frames for a splat; the first cut drew variants 0..7, whose high
+  bits never reached a second picture, so one spray repeated in one turn across a fight. Each mark is
+  cut hard (alpha 0 or 255: the pack's frames carry a faint fringe of alpha 1 to 94 that darkened
+  the ground round every mark and mixed new shades where marks overlapped), drawn in its frame's own
+  colours, and old blood with no dry picture of its own takes the dry pool's browns shade for shade,
+  never a tint. A smear is the pool's own picture laid along the run every 12 art pixels, turned and
+  nudged across it, so its edge is the pool's ragged edge; the first cut of it, a band sliced
+  from the pool, read as a stamped ribbon with a straight edge (art QA, 2026-10-20). The ground marks of a chunk are baked into
+  one picture with those of its neighbours that spill across its border, and the frame blits runs
+  of that picture's seen tiles; a chunk is re-baked only when its own revision moves, a neighbour
+  that spills into it changes, or a mark in it changes stage. A wall tile's cell is cleared from the
+  bake so blood never paints over a cap. Wall marks are single draws: on the ground pass for a cap
+  with no picture, by `_draw_a2_wall_piece` on a standing wall's face, and by `_blit_vehicle` over a
+  car. The ground pass runs in `_draw_world` straight after the world's baked layers are framed
+  (A4's `_layers.frame`, whose canvas items draw behind `main.gd`'s own), so the marks lie over the
+  baked ground and walls and under the nature, the furnishings, the props and every body drawn
+  after them; a roof covers only tiles the player does not see, where no mark draws. A hole sits on its wall's face strip and is cut to it: rows 23 to 30 of a tile's face
+  picture, under the ledge, where the windows are, or rows 17 to 42 of an A2 picture; the first
+  cut put it fourteen rows down a tile, on the courses above the ledge (art QA, 2026-10-20). **Shown only on a tile in the live sight set**, never the remembered map: the remembered
+  street is already drawn as a memory of a surface and not of the litter on it (`main.gd`'s
+  remembered floor arm draws no road paint, scrap, props or dressing), and a mark drawn there
+  would also be news the player never earned. Drawing what the player last saw on a remembered
+  tile would need a per-tile memory of the marks; it is not built. **Defaults
+  chosen** where the brief forked, closest to Zomboid: a pool spreads from a splash over five
+  seconds and browns after a quarter of a day; rain does not wash blood (there is no cleaning
+  yet); zombie and human blood are the one picture. **Gated.** New `npm run godot:check:decals` →
+  `DECALS_OK`, in the `godot:m2` chain after `godot:check:fx`, twelve lanes each red both ways:
+  HIT, UNSEEN, POOL, BLEED, ROUND, SCORCH, BOUND, BAKE, SAVE, WALL, MATTE and DRAWN (the gate's
+  header names what each holds; HIT also holds that 240 splats reach all 24 picture-and-turn
+  pairs and refuses variants 0..7; MATTE also holds every cut hard-edged in the pack's own colours,
+  fresh and dried, and refuses the raw frame's fringe, and the cuts of the hole, chips, dent and
+  scorch hard-edged in theirs; WALL also holds nine holes in one tile all inside its face strip and
+  refuses a hole on the courses or run onto the street). `check_fx.gd`'s ADMITS accepts an `fx_` key declared as a decal,
+  and `check_authored.gd`'s READS lane accepts a decal read by a function of the code that names
+  its key. **Sabotage pass**, each red and restored: the sight test removed → UNSEEN and DRAWN;
+  pool de-duplication removed → POOL ("3 pools"); the drip system off → BLEED; the hit check removed
+  → ROUND; the wall-cell clear removed → BAKE ("the wall tile must be clear"); the bake cache off →
+  BAKE ("a frame with nothing new re-baked 9 chunks"); neighbour spill ignored → BAKE ("re-baked 1
+  chunks, not 2"); the hard cut skipped → MATTE ("alpha 244"); the dry remap skipped → MATTE ("a
+  colour 46010a … that is not the pack's"); the hole put back fourteen rows down → WALL ("rows 358
+  to 422, off the face strip 406 to 422"). A with-and-without render of one frame of the restaged
+  fight differs only under the marks; of the pixels that change by more than six levels, 94% are
+  exact pack blood colours, and the rest sit under the translucent edges of bodies and props.
+  The pack's body art is not fully opaque (most of its pixels are alpha 252 to 254), so a mark
+  under a body shifts the body's own pixels by one or two levels; that is the body art's, not
+  the mark's. Split against two more renders with every body moved off the map, 2,698 mark pixels
+  have something drawn over them and 2,400 of those move two levels or less; the 298 that move
+  more sit under covers that are see-through by design: the 35% contact shadow, a glimpse disc,
+  facing lines, the aim cone, the soft rim of the pack's corpse art (about one pixel in eight of a
+  `corpse_*` picture is below alpha 230) and a partly clear outline pixel in the barrier prop. The
+  nearly clear covers move the most, up to 90 levels: art QA measured 53 on a corpse's rim and 48
+  on the barrier's outline pixel at about 26% alpha. Every pixel the marks change is one a cover
+  lets through; none is a mark drawn over a body or a prop.
+  **Measured**, with a throwaway driver built on the frame bench's harness and
+  deleted afterwards, on this container's llvmpipe at 1280 × 720 with every visible chunk full (850
+  marks placed, 365 kept, 337 tile runs drawn): the per-mark draw this slice first had cost 1.67 ms
+  of `_draw`, the bake 0.60–0.64 ms; re-baking one full chunk costs about 0.5 ms. Main's own
+  `_draw` on that machine was 27.6 ms median before A4, so this slice proves its own cost, not the
+  10 ms budget. Those numbers predate the art QA fixes, which add no per-frame work (the cuts are
+  cached) and were not re-measured. **Verified**: `DECALS_OK`, `FX_OK`, `AUTHORED_OK`, `APPEARANCE_OK`, `PLAY_OK`,
+  `M2_SAVE_OK`, `M2_RANGED_OK`, `M2_WOUNDS_OK`, `M2_UPKEEP_OK`, `R1_PARITY_OK`,
+  `GODOT_CONTENT_OK`, `SPRITES_OK`, `ROUTING_OK`, `TIMING_OK`; the full chain is CI's. **Not
+  built**: casings that persist (the shell pile), footprints, scorch from a campfire (the pit's own
+  picture is its char), blood washed by rain or cleaned, and a round's mark on a body it missed
+  but passed through. Splat size and count do not follow the blow's damage, on purpose: the blood a
+  blow draws must not tell the player what the blow did (`check_fx.gd`'s SAME lane, and docs/01's
+  clause 4); a bleed's trail does follow its wound, because that is what the body is doing. Before
+  and after shots of a fight, and one with the marks out of sight, are in the project's
+  `planning/decals/`.
 
 - **Art — the cursor, 2026-09-26.** The outpost pack's two UI icons that are not status
   (docs/30, "The whole outpost pack": "Cursors split by place") join `ui/cursors.gd`'s one table
