@@ -28,14 +28,16 @@ ZOMBIE_POSES lane at study 01's own geometry.
 **The bloater was repainted by code after the art review (2026-10-20).** The img2img pass gave
 it a lost purple head on the front row, a belly pasted over its near arm, single-pixel speckle
 for shading and an acid green past the pack's range. `guides/bloater_paint.py` now builds both
-its sheets straight from the heavy, with no generation: the heavy's head, face, neck, vest,
-arms and walk kept pixel for pixel, the skin carried onto a four-tone olive at the pack's
-saturation, and the belly an ellipsoid lit from the top left in contiguous bands, riding out
+its sheets straight from the heavy, with no generation: the heavy's head, face and walk kept,
+its body pushed apart into the bloater's own silhouette (arms out beside the gut, legs set wider
+and thicker; in the side views the near arm bent at the elbow so the forearm rests on the gut),
+the skin carried onto a four-tone olive at the pack's saturation, the clothes soured a step, and
+the belly an ellipsoid lit from the top left in contiguous bands with a fine grain, riding out
 from under the vest's hem (which keeps a one-pixel shadow), sagging over the belt, bulging
 forward in the side views 3-4 px past the arms and hips with its front edge held still through
 the walk, spilling past the flanks from behind, and outlined in the pack's near-black. In every
-side frame the leading forearm is painted over it, a step darker with a cast shadow, its hand
-where the heavy's hand is in that frame. Its corpses take the same skin and a mound shaded the
+side frame the forearm is painted over it in the upper arm's own skin with a cast shadow, and
+belly and forearm bob a pixel with each step. Its corpses take the same skin and a mound shaded the
 same way; on the prone one it bulges out from under the torso. The generated bloater sheets stay under
 `sources/` as the record `prompts.json` describes; nothing reads them.
 
@@ -43,7 +45,7 @@ The screamer's corpses are the paint-over guides **used as drawn**. Every img2im
 outline and lost the head (the `rejected-*-corpses-*` sheets), so the settled poses are study
 01's own commuter corpses, recoloured. `extract.py` also pulls the screamer's near-white
 highlights down into the pack's skin range, takes its shirt a value under its face, and shades
-each hand in two tones (166 lit, 142 shaded) inside the commuter's own hand range.
+each hand in two tones of the face's grey-green inside the commuter's own hand range.
 
 ## Rebuilding
 

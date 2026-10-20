@@ -1,8 +1,8 @@
 """The three cars seen nose-north -- the hatchback, the van and the pickup of the outpost pack's
 east-west set (groups/utility/native/) -- painted by code in the pack's own colours, at the
-pack's own length: the painted span north-south is the east-west picture's span plus a few rows
-of deep rear face (hatchback 91 against 86, van 108 against 102, pickup 110 against 106, with
-the outline), the roof short and the rear face deep for a strong three-quarter view.
+pack's own length: the painted span north-south, outline included, is the east-west picture's
+span (hatchback 86, van 102, pickup 106), the roof short and the rear face deep for a strong
+three-quarter view.
 
 Seen from behind and above, as the camera sees everything: the nose up the canvas, the roof and
 hood lit, the flanks a shaded side panel down each edge with a real wheel arch cut into it at
@@ -44,12 +44,12 @@ CELL_W, CELL_H, GAP = 64, 160, 16
 # The rear face is deep -- the pack draws its cars in a strong three-quarter view, the face toward
 # the camera most of the picture's height -- and the roof is short to pay for it.
 LAYOUT = {
-    "hatchback": {"width": 38, "sections": [("bumper", 3), ("hood", 16), ("windshield", 9), ("roof", 24),
+    "hatchback": {"width": 38, "sections": [("bumper", 3), ("hood", 14), ("windshield", 9), ("roof", 21),
                                              ("face", 34), ("bumper_r", 3)]},
-    "van": {"width": 42, "sections": [("bumper", 3), ("hood", 10), ("windshield", 9), ("roof", 46),
+    "van": {"width": 42, "sections": [("bumper", 3), ("hood", 9), ("windshield", 9), ("roof", 41),
                                        ("face", 35), ("bumper_r", 3)]},
-    "pickup": {"width": 42, "sections": [("bumper", 3), ("hood", 17), ("windshield", 8), ("roof", 12),
-                                          ("backlight", 4), ("bed", 34), ("face", 27), ("bumper_r", 3)]},
+    "pickup": {"width": 42, "sections": [("bumper", 3), ("hood", 16), ("windshield", 8), ("roof", 12),
+                                          ("backlight", 4), ("bed", 31), ("face", 27), ("bumper_r", 3)]},
 }
 
 

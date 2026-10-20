@@ -44,9 +44,10 @@ KNEE = 168.0
 # Rows below the top of the figure where the head ends: the screamer's chin sits eleven rows down.
 CHIN = 11
 # Below the chin a near-white is a hand: it is taken into the commuter's own hand range (luminance
-# 133 to 169) in two tones, the lit one where the generated pixel was brightest, the shade below.
-HAND_LIT = 166.0
-HAND_SHADE = 142.0
+# 133 to 169) in two tones, the lit one where the generated pixel was brightest, the shade below --
+# both in the face's own grey-green, never the blue the generated near-white carried.
+HAND_LIT = (158, 167, 148)
+HAND_SHADE = (132, 141, 122)
 HAND_SPLIT = 214.0
 # One value: the shirt's pale greys scaled by this, so the face reads a step above them.
 SHIRT_STEP = 0.80
@@ -88,7 +89,7 @@ def touch_up(cell):
             if a and 110.0 <= luma <= KNEE and spread <= 24:
                 _scale(px, x, y, SHIRT_STEP)
             elif a and luma > KNEE:
-                _scale(px, x, y, (HAND_LIT if luma >= HAND_SPLIT else HAND_SHADE) / luma)
+                px[x, y] = (HAND_LIT if luma >= HAND_SPLIT else HAND_SHADE) + (a,)
     return compress_highlights(cell)
 
 

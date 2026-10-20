@@ -1789,7 +1789,9 @@ func _every_held_weapon_is_the_packs_own() -> bool:
 # --- zombie locomotion and settled corpse geometry -----------------------------------------
 
 # Measured native occupancy: regular bodies 27-30 px tall and 13-24 wide, heavy 33-36 tall
-# and 22-31 wide; all soles are on their bottom row. Corpses occupy 29-42 by 16-29 px.
+# and 22-31 wide, the bloater (on the heavy's canvas, its arms out beside its gut) up to 35
+# wide -- so a broad body may fill its canvas to the two-pixel side margin, 36; all soles are on
+# their bottom row. Corpses occupy 29-42 by 16-29 px.
 # The heavy has separate explicit bounds; adding it never loosens the old PACK contract.
 func _pose_geometry_complaint(kind: String, image: Image, anchor: Array) -> String:
 	var size: Vector2i = image.get_size()
@@ -1824,7 +1826,7 @@ func _pose_geometry_complaint(kind: String, image: Image, anchor: Array) -> Stri
 			return "living height outside its canvas-specific bounds"
 		if size.y - 1 - int(box["max_y"]) > SOLE_LIFT_MAX:
 			return "soles float above the ground anchor"
-		if width < 10 or width > (34 if broad else 26):
+		if width < 10 or width > (36 if broad else 26):
 			return "living width outside its canvas-specific bounds"
 	else:
 		if int(box["min_y"]) < 2 or int(box["max_y"]) > size.y - 3:
