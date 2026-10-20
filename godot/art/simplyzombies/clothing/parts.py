@@ -107,6 +107,15 @@ def _hands(lab: list[list[str]], centre: int) -> None:
                 lab[y][x] = "K" if (x, y) in hand else "A"
 
 
+def _top_row(img: Image.Image) -> int:
+    """The first row holding a solid pixel: the top of the head."""
+    px = img.load()
+    for y in range(H):
+        if any(px[x, y][3] >= ALPHA_SOLID for x in range(W)):
+            return y
+    return H
+
+
 def view_of(suffix: str) -> str:
     return suffix[5] if suffix.startswith(("walk_", "idle_")) else suffix
 
@@ -123,11 +132,13 @@ def label(img: Image.Image, suffix: str) -> dict:
     torso_top = waist_top - 8
     view = view_of(suffix)
     side = view in ("e", "w")
-    if side and suffix != view:
-        # Seen from the side the pack's walk bobs the hips but not the shoulders: every side frame's
-        # chin is the idle frame's chin. Counting down from a hip that dropped a row would leave the
-        # top row of the chest bare for one frame in the cycle, a flicker at the neck.
-        torso_top = label(load(f"survivor_{view}.png"), view)["torso_top"]
+    if suffix != view:
+        # A walking body's chest starts under its chin, and the chin rides with the head: the rest
+        # view's chest top, moved by however far this frame's head sits from the rest head. Counted
+        # up from the hips instead, a frame whose torso the generator drew a row short put the
+        # collar over the chin, and one drawn a row long left the top of the chest bare.
+        rest_img = load(f"survivor_{view}.png")
+        torso_top = label(rest_img, view)["torso_top"] + _top_row(img) - _top_row(rest_img)
     lab = [["." for _ in range(W)] for _ in range(H)]
     for y in range(H):
         for x in range(W):

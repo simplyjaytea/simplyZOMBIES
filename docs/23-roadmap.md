@@ -2853,16 +2853,22 @@ not a to-do list:
   10, 12, 11, 10, a long beat and a short one with a two-row drop; north once a cycle; east a row
   of jitter every step) and the side walks drifted forward through the cycle and snapped back on
   the loop (the east head 16.7 to 18.7 pixels across, then 16.7). `build_motion.py` now
-  re-centres each frame's head over the rest view's (`recentre`) and moves the body above the
-  underwear to `SURVIVOR_BOB`, two even beats a cycle, no frame moved more than a row
+  re-centres each frame's head over the rest view's (`recentre`) and moves the body from the hips
+  up, as one block, to `SURVIVOR_BOB`, two even beats a cycle, no frame moved more than a row
   (`retime_bob`): south 11, 12, 11, 10, 11, 12, 11, 10; north 12, 11, 10, 11, 12, 11, 10, 11; east
-  11, 11, 12, 12 twice; west 12, 12, 13, 13 twice. **Measured** (changed pixels per step, 0 to 1
-  through 7 to 0): south 292, 262, 293, 284, 234, 207, 334, 340; east 161, 294, 160, 213, 141,
-  264, 153, 309; north 214, 284, 270, 234, 230, 301, 260, 275; west 237, 291, 224, 229, 132,
-  228, 233, 320. The loop step is still the largest in south, east and west, by 2, 5 and 10
-  percent (it was 6, 13 and 20): what remains is the generated legs' own pose spacing (the east
-  feet span 10, 15, 13, 9, 8, 12, 6, 14 pixels), which wants drawn frames. The breath now plants
-  the hands and lifts the shoulders, so no hand stretches a row on the inhale.
+  11, 11, 12, 12 twice; west 12, 12, 13, 13 twice. Round 3: moving only the chest and head (the
+  first cut) shortened the torso on the frames it lowered and the collar, found from the hips,
+  rode over the chin, so the cut is under the hips and a walking frame's chest top is now found
+  from its head; the west and north walks wear the rest view's head on every frame
+  (`same_head`; the generator had redrawn it each frame, a nod); a foot stands on the ground row
+  on every frame; and ink on the silhouette's edge is the ring's own black (`outline_black`).
+  **Measured** (changed pixels per step, 0 to 1 through 7 to 0): south 311, 270, 320, 287, 210,
+  207, 334, 330; east 161, 302, 172, 218, 140, 274, 156, 309; north 277, 316, 316, 297, 306, 323,
+  293, 329; west 170, 314, 157, 267, 124, 301, 164, 338. The loop step is no longer the largest
+  in south and is 2, 2 and 8 percent over the next in east, north and west (it was 6, 13 and 20
+  before the art review); what remains is the generated legs' own pose spacing, which wants
+  drawn frames. The breath plants the hands and lifts the shoulders, so no hand stretches a row
+  on the inhale.
 
 - **Art & renderer — zombies turn, walk and fall, 2026-10-02.** Closes "A silhouette per
   kind" and the Focal art half of "A corpse reads as a corpse", at the owner's request for

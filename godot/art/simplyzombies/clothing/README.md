@@ -20,12 +20,11 @@ of time with the legs, because they are chosen by the body's own frame key.
   arm, hand, pelvis, leg, foot. A hand is the two-by-two at the far end of each arm, measured
   from its shoulder, so a sleeve runs down a swinging arm to the wrist. The breath is not
   labelled or painted: its garment is the rest picture's, put through the body's own breath.
-  The landmarks come from the frame's
-  own underwear band, so the walk's bob moves them with the body -- except the side views'
-  chest, whose top row is the idle frame's: the pack's side walk bobs the hips but never the
-  shoulders, and a hip-derived chest left the top row bare once a cycle. Seen from the side, the near
-  arm past the underwear's span on the side the body faces is labelled arm, not chest, so a
-  short sleeve ends on it and a long one is creased apart from the body.
+  The waist comes from the frame's own underwear band and the chest top from its head (the rest
+  view's chest top, moved as far as the head moved), so the walk's bob moves both with the body
+  and a collar sits under the chin on every frame. Seen from the side, the near arm past the
+  underwear's span on the side the body faces is labelled arm, not chest, so a short sleeve ends
+  on it and a long one is creased apart from the body.
 - `build_clothing.py` repaints only the skin and underwear pixels of the parts a garment covers.
   A pixel is shaded on a light scale, not picked from four tones: it starts from the body's own
   tone under it (lit skin, shaded skin, the darkest skin; the underwear's flat grey counts as

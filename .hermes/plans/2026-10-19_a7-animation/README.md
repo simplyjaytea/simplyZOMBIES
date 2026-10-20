@@ -22,6 +22,6 @@ Added 2026-10-20, after the clothing (A6) merged over this:
   breathing at its one a second, dressed in four outfits, one row each -- slate tee and charcoal
   trousers, leather jacket and jeans, parka and insulated trousers, hazmat suit -- with the four
   views side by side; the `_120ms` copies run the walk at half the game's rate for reading frame
-  by frame. Re-exported after art review rounds 1 and 2.
+  by frame. Re-exported after art review rounds 1, 2 and 3.
 - `outfit_<name>_frames.png`: every frame of one outfit, a row per view: the eight walk frames,
   then the rest picture and the breath.
