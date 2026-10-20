@@ -550,7 +550,8 @@ func _surfaces() -> Array:
 	var strip: Dictionary = (load("res://ui/quick_strip.gd") as GDScript).get_script_constant_map()
 	var inv: Dictionary = (load(INVENTORY_GD) as GDScript).get_script_constant_map()
 	var bench: Dictionary = (load("res://ui/bench_panel.gd") as GDScript).get_script_constant_map()
-	var hud: Dictionary = (load("res://ui/hud.gd") as GDScript).get_script_constant_map()
+	# The HUD's cards and action bar left this list with the UI overhaul's first slice: they wear the
+	# Salvage Locker's steel now (`ui/locker.gd`), which has no nine-slice margins to fall under.
 	var cap: float = float((load(CHROME_GD) as GDScript).get_script_constant_map()["KEYCAP_MIN"])
 	var cell: float = float(bag["CELL"])
 	return [
@@ -560,8 +561,6 @@ func _surfaces() -> Array:
 		["a quick-strip slot", ["slot_empty", "slot_selected"], Vector2(float(strip["SLOT_W"]), float(strip["SLOT_H"]))],
 		["an equipment slot", ["slot_empty", "slot_selected"], Vector2(float(inv["SLOT_W"]), float(inv["SLOT_H"]))],
 		["a bench row", ["slot_empty"], Vector2(200.0, float(bench["ROW_H"]) - 4.0)],
-		["the action bar", ["panel_standard"], Vector2(400.0, float(hud["BAR_H"]))],
-		["a one-line HUD card", ["panel_standard"], Vector2(minf(float(hud["YOU_CARD_W"]), float(hud["OUT_CARD_W"])), 40.0 + float(hud["CARD_PAD"]) + 20.0)],
 		["the pause and title dialog, and the run-over one, with nothing in them", ["panel_dialog", "panel_danger"], Vector2(float(shell["PANEL_W"]), 40.0 + float(shell["PAD"]) * 2.0 + 30.0)],
 		["the smallest keycap", ["keycap"], Vector2(cap, cap)],
 	]
@@ -1336,7 +1335,7 @@ const READERS: Dictionary = {
 	"glyph_condition": {"file": INVENTORY_GD, "slice": "S3 Empty slots say what goes there"},
 	"glyph_inspect": {"file": "res://ui/inspect_pane.gd", "slice": "S3 Empty slots say what goes there"},
 	"glyph_inventory": {"file": "res://ui/bag_grid.gd", "slice": "S3 Empty slots say what goes there"},
-	"glyph_close": {"file": INVENTORY_GD, "slice": "The inventory, redone"},
+	"glyph_close": {"file": "res://ui/nav_bar.gd", "slice": "UI overhaul, slice 1"},
 	"glyph_settings": {"file": "res://ui/settings_panel.gd", "slice": "S4 The shell's rows are buttons"},
 	"glyph_journal": {"file": "res://ui/legend.gd", "slice": "S4 The shell's rows are buttons"},
 	"glyph_work": {"file": "res://ui/work_panel.gd", "slice": "S4 The shell's rows are buttons"},
@@ -1363,8 +1362,8 @@ const PENDING_GLYPHS: Dictionary = {
 
 # The owner's 2026-09-25 decision (docs/30, "The UI Field Kit, live") keeps these out, each with
 # its reason. `glyph_close` sat here until the Salvage Locker built the inventory's title bar
-# (docs/23, "The inventory, redone"): it is drawn beside the "Tab" keycap there now, and is a
-# reader in READERS.
+# (docs/23, "The inventory, redone"); since the UI overhaul's first slice that bar is the shared
+# navigation bar (`ui/nav_bar.gd`), which draws it beside the "Esc" keycap on all three screens.
 const UNUSED_GLYPHS: Dictionary = {
 	"glyph_lock": "no lock mechanic -- docs/30, \"The UI Field Kit, live\"",
 	"glyph_rotate": "not taken by the owner -- docs/30, \"The UI Field Kit, live\"",
@@ -1898,6 +1897,10 @@ func _keycaps_tail(body: String) -> String:
 		var line: String = String(raw).strip_edges()
 		if line.begins_with("var keys: String = \"") and line.ends_with("\""):
 			return line.substr(line.find("\"") + 1, line.length() - line.find("\"") - 2)
+		# The hint named once as a constant, which check_hud's BAR lane also measures: read it from
+		# the script itself, so the line drawn and the line judged are still the one string.
+		if line == "var keys: String = HINT":
+			return String((load(KEYCAPS_HUD_GD) as GDScript).get_script_constant_map().get("HINT", ""))
 	return ""
 
 
