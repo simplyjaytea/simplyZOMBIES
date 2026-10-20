@@ -17,7 +17,7 @@ const SimRaiders = preload("res://sim/modules/raiders.gd")
 # the old pacing to the night -- the way sight ships behind `SimShambler.SIGHT_ENABLED`:
 # measured at 2 on the FAST tier, seed 31337 wiped (a colony of two by night one, then three
 # packets on nights 4-6 it could not kill), and `survivors_end >= 1` is the assertion CLAUDE.md
-# refuses to relax. The flip is one number and an owner item in HANDOFF.md; check_m2_director's
+# refuses to relax. The flip is one number and an owner item in docs/33-owner-decisions.md; check_m2_director's
 # GRACE lane pins 2, proves it, and restores this. The composition (which types the mix can
 # hold) is `SimRoster`'s wave rule and was never this constant's.
 static var GRACE_NIGHTS: int = 7

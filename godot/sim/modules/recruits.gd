@@ -30,6 +30,8 @@ const CAP: int = 3
 const LEAVE_TICKS: int = 2400
 const CORPSE_SCENT: float = 8.0
 const CORPSE_SCENT_OLD: float = 25.0
+# Four one-hour days: the four-hour day this scent was tuned against, in the same real minutes.
+const CORPSE_OLD_TICKS: int = 4 * Clock.DAY_TICKS
 const STREAM: String = "recruits"
 
 
@@ -157,7 +159,7 @@ static func _tick_corpse(world: Variant) -> void:
 		var c: Variant = world.components.get_component(int(e), "corpse")
 		if not c is Dictionary:
 			continue
-		if int(world.tick) - int((c as Dictionary).get("sinceTick", 0)) >= Clock.DAY_TICKS:
+		if int(world.tick) - int((c as Dictionary).get("sinceTick", 0)) >= CORPSE_OLD_TICKS:
 			var em: Variant = world.components.get_component(int(e), "attention_emitter")
 			if em is Dictionary:
 				(em as Dictionary)["scent"] = CORPSE_SCENT_OLD

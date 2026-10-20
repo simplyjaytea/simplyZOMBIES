@@ -70,6 +70,8 @@ FAMILIES = {
     "body_zombie_runner": {"pace": 2.94, "fps": 18, "canvas": (32, 40), "dir": "zombie-runner"},
     "body_zombie_armored": {"pace": 1.68, "fps": 8, "canvas": (32, 40), "dir": "zombie-armored"},
     "body_zombie_heavy": {"pace": 1.26, "fps": 8, "canvas": (40, 48), "dir": "zombie-heavy"},
+    "body_zombie_screamer": {"pace": 2.31, "fps": 10, "canvas": (32, 40), "dir": "zombie-screamer"},
+    "body_zombie_bloater": {"pace": 1.47, "fps": 8, "canvas": (40, 48), "dir": "zombie-bloater"},
 }
 # Which part of a body each of the pack's wearables rides, so a frame that moves that part moves the
 # wearable with it (the layer contract, rule 2).

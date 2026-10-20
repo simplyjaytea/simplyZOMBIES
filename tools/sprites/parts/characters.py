@@ -1,60 +1,30 @@
-"""Bodies: the roster of pawns, one authoring convention -- upright, face-on, feet-anchored, squat.
+"""The published pawn skeleton: no bodies are generated here any more.
 
-Per docs/30's Dungeon Settlers decision every human and zombie on the roster is drawn as one
-family: a standing figure seen face-on, its soles on the bottom row of a **32x40** canvas,
-mirrored by the renderer when the body faces west. **Nobody rotates, the player included** --
-though that clause was reversed by the owner on 2026-09-11 and the arc that acts on it is
-slices away (docs/30, "The decoupled paperdoll"); what is described here is what ships today.
-Every function here ends on `Canvas.tone_pass`, the four-tone quantiser that replaced the
-continuous `nw_shade` in the same decision, and `Canvas.radial_shade` was deleted rather than
-left for a caller that no longer exists.
+Every body on the roster is hand-made art now. "The bodies turn and walk" (docs/23, 2026-09-26)
+moved every human onto the outpost pack's four-direction survivor and the shambler onto the
+pack's own; the zombie pose study of 2026-10-02 drew seven zombie families; and on 2026-10-19 the
+screamer and the bloater -- the last two generated, face-on, flipped rigs -- joined those
+families as zombie study 02 (`godot/art/simplyzombies/zombie-poses/study-02/`). Their functions,
+the `_figure` assembler, the face and the tone pass that drew them went with them, the standing
+rule for art the pack replaces (tools/sprites/README.md), and their keys are on build.py's
+`RETIRED_KEYS`.
 
-**Two rigs are left here, the screamer and the bloater.** "The bodies turn and walk" (docs/23,
-2026-09-26) moved every human -- the player, Mara, Ellis, the colonist and the raider -- onto the
-outpost pack's four-direction survivor and the shambler onto the pack's own shambler, both
-sourced from `godot/art/simplyzombies/` through `assets/sprites/authored.json`. Their six
-functions and PNGs went in the same commit, the standing rule for hand-made art
-(tools/sprites/README.md). The pack does not draw a screamer or a bloater, so those two stay
-generated, face-on and flipped, until a fixture round or a pack update grows more bodies (docs/30,
-"The outpost pack, adopted", decision 2). The skeleton below still publishes for them and for the
-inventory chart in `parts/paperdoll.py`; the face-on gear overlays that also read it
-(`parts/gear.py`) were retired on 2026-09-26 with "Pack gear on the body".
-
-The proportion is the owner's 2026-09-08 call (docs/30, "Overcast or torchlight"): a body about
-**one tile tall**, squashed the way RimWorld's and Zero Sievert's are -- the head keeps its
-10x11 and everything under it shortens, so a figure is a third head, a blocky trunk, and stub
-legs. The 48-tall canvas and its 38-42 px figure are superseded; what survives of that slice is
-everything but the rows: the flip, the feet anchor, the published skeleton, the one assembler,
-the outline-after-shade order. Width did not move at all -- SHOULDER_HALF, HAND_X, the leg and
-foot columns are the 2026-09-03 numbers -- so every horizontal number in the (since retired)
-`parts/gear.py` still landed where it did, and the thirty-one overlays refit by their rows alone.
-
-Because the picture is mirrored rather than turned, an asymmetric tell is not a hazard here the
-way it was overhead: a slung strap or a trailing arm swaps sides with the flip, which is what a
-strap does when a person turns round. Every rig therefore gets exactly one loud tell, and the
-tell is what names it at 32 px.
-
-**The skeleton below is published**, not private. One generated gear overlay (`parts/gear.py`,
-retired 2026-09-26) had to fit all eight bodies, and it fit them by reading these rows -- not by being redrawn per
-rig, which is how eight overlays and eight chances to disagree get created. The bloater is the
-one rig that moves the numbers, and its docstring says which and why.
-
-The ordering invariant -- legs, feet, torso, arms, hands, the hair behind the crown, the head,
-the hair over it, the tells, **the tone pass**, then the seam, the face and the outline last --
-lives in `_figure` below and is enforced there once rather than by convention in eight
-functions. The tone pass is the boundary: above it a thing is a material and is lit, below it a
-thing is a detail placed at a named tone.
+What is left is the skeleton the face-on rigs were authored against -- named rows in pixels above
+the soles of a 32x40 canvas -- because it is still published: `guide.py` draws it as the pawn
+guide sheet, and `check_authored.gd` carries a hand copy of two rows for the commissioned-rig
+bounds an artist would be held to (assets/sprites/README.md). The proportion is the owner's
+2026-09-08 call (docs/30, "Overcast or torchlight"): a body about one tile tall, a third of it
+head.
 """
 
-from draw import SIZE, Canvas
-from palette import OUTLINE, RAMPS, tone_map, tones_of
+from draw import SIZE
 
 PAWN_W = SIZE
 PAWN_H = SIZE * 5 // 4  # 40: a one-tile figure with ten rows of headroom, and 1.25 x zoom is an integer
 
 # --- the published skeleton -------------------------------------------------------------
 # Every row is in pixels above the soles, which sit on the canvas's bottom row: y counts
-# negative upwards, so FEET_Y = 0 is row 39 and HEAD_CY = -21 is row 18. A rig is authored
+# negative upwards, so FEET_Y = 0 is row 39 and HEAD_CY = -21 is row 18. A body is drawn
 # against these and never against a canvas row, so the day the canvas grows the figure does
 # not have to be re-derived -- only the anchor moves.
 #
@@ -63,7 +33,7 @@ PAWN_H = SIZE * 5 // 4  # 40: a one-tile figure with ten rows of headroom, and 1
 # no neck), crown at -27. A figure is 28 px tall against the 41 it was, and the head is 46% of
 # it where it was 27% -- the owner's second call of 2026-09-08, "shorter legs and a bigger
 # head", on top of the first. Only the rows and the skull moved; the columns (HAND_X,
-# SHOULDER_HALF, LEG_X, FOOT_X) are unchanged.
+# SHOULDER_HALF) are unchanged.
 FEET_Y = 0
 LEG_TOP_Y = -6
 TORSO_TOP_Y = -16
@@ -73,259 +43,3 @@ HAND_X = 8.4
 HEAD_CY = -21
 HEAD_R = 6.0
 SHOULDER_HALF = 8.0
-
-# HEAD_R is 6.0, up from the 5.0 of the taller rig, by the owner's call and then by
-# measurement. Pixel centres sit at half-integer offsets from a 32-wide canvas's middle (+-0.5,
-# +-1.5 ... +-15.5), so a shape centred on x = 0 is always an *even* number of pixels wide:
-# every r in [5.5, 6.5) renders 12 px, and 6.0 is that band's middle. The head is drawn as an
-# ellipse (HEAD_R, HEAD_R + 1.0) -- 12 wide by 13 tall, taller than wide, which is what a skull
-# is -- against the README's <= 13 x 14 bound. The head *grew* while the body shrank on
-# purpose: at one tile tall it is the head that carries the read, as it does on every RimWorld
-# pawn, and the three-pixel face keeps its placement on the bigger skull with the eyes one
-# column further apart (EYE_SPREAD).
-HEAD_B = HEAD_R + 1.0
-
-# --- private geometry: the default human, which every rig is expressed against -----------
-LEG_X, LEG_HALF = 3.0, 2.0
-FOOT_X, FOOT_HALF, FOOT_TOP_Y = 3.2, 2.6, -2
-ARM_HALF = 1.8
-HAND_R = 1.9
-TORSO_RADIUS = 2.5
-
-# The bloater's own three numbers, published beside the family's so the
-# gates can say where its hand is without reading the rig: the trunk half-width, the arm x, and
-# how far its head sinks. It is the rig at the canvas bound -- 26 px across, exactly 3 px of
-# side clearance -- and nothing else on the roster may come near it.
-BLOATER_HALF = 11.0
-BLOATER_HAND_X = 11.6
-BLOATER_HEAD_SINK = 2.0
-
-# The face, in the three pixels the README allows it: two 1 px eyes EYE_SPREAD apart and one
-# brow pixel above them. EYE_SPREAD is 2.5 because dx takes half-integer values only -- +-2.5
-# is one column each and exactly 5 px apart on the 12-wide skull (3 px, +-1.5, on the old
-# 10-wide one), which is the number the convention states.
-EYE_SPREAD = 2.5
-BROW_DY = -2
-
-
-def _face(eye, brow=None):
-    """Two eyes and a brow shadow, as a callable -- the whole of a face at this size.
-
-    The brow is a *single* pixel, above and slightly left of centre: a symmetric pair would be
-    four pixels and the convention is three, and the left side is the lit side, where a dark
-    pixel keeps its contrast after the shade pass rather than sinking into an already-dark
-    cheek. `brow` defaults to the eye colour; a rig passes its own only when the eye colour is
-    too dark for a second application of it to read.
-    """
-    brow = eye if brow is None else brow
-
-    def paint(c):
-        for side in (-1.0, 1.0):
-            c.rect(side * EYE_SPREAD, HEAD_CY, 0.0, 0.0, eye)
-        c.rect(-0.5, HEAD_CY + BROW_DY, 0.0, 0.0, brow)
-
-    return paint
-
-
-def _figure(canvas, p):
-    """Draw the shared stack from a dict of parts. The one place the roster's draw order lives.
-
-    Required: `legs` = (x, half_w, colour); `torso` = (half_w, top_y, bottom_y, radius,
-    colour); `head` = (cy, a, b, colour); `face` = a callable(canvas); `shade` = "nw".
-    Missing any of these is a rig that draws nothing recognisable -- a pawn with no face is the
-    one that would slip through, which is why `face` is required rather than habitual -- so it
-    raises rather than drawing a partial figure nobody asked for.
-
-    Optional, and absent means absent -- there is no inherited default, because a rig that
-    silently grew the player's limbs from a typo'd key is a bug `sprites:check` would happily
-    bless: `feet` = (x, half_w, colour); `arms` = (x, half_w, top_y, bottom_y, colour) and
-    `hands` = (x, y, r, colour), each mirrored across +-x; `trail` = (side, dx, dy), moving the
-    named side's arm *end* and hand by (dx, dy) so the limb swings rather than detaching from
-    its shoulder -- the shambler's reaching arm; `seam` = (x, colour), the 1 px column that
-    separates each arm from the trunk, drawn *after* the tone pass in the torso's own deep tone;
-    `hair_back` and `hair`, callables drawn under and over the head (Mara's bob is drawn as
-    both); `tells`, a list of callables drawn before the tone pass, because a tell is a
-    material.
-
-    Fixed order: legs -> feet -> torso -> arms -> hands -> hair_back -> head -> hair -> tells ->
-    **tone_pass** -> seam -> face -> `canvas.outline`. Two boundaries in that list carry weight.
-
-    The outline comes *last*. OUTLINE #161614 is (22,22,20), a channel delta of exactly 2, and
-    `check_appearance.gd`'s colonist lane bounds achromaticity at delta <= 2; a pass that
-    touched the outline afterwards would drift it to (25,25,22), 5 px over the bound by
-    measurement. Owning the order here, once, is what makes an outline-before-pass rig
-    unreachable rather than merely discouraged.
-
-    The tone pass sits between the materials and the details, and the note at that line says
-    why: what is above it is lit, what is below it is placed. `seam` and `face` moved below it
-    when the four-tone model landed, which is also when they stopped being allowed to paint in
-    OUTLINE at all.
-    """
-    for k in ("legs", "torso", "head", "face", "shade"):
-        if k not in p:
-            raise ValueError("rig is missing '%s'" % k)
-
-    lx, lhalf, lcol = p["legs"]
-    for side in (-1.0, 1.0):
-        canvas.rect(side * lx, (LEG_TOP_Y + FEET_Y) / 2.0, lhalf, (FEET_Y - LEG_TOP_Y) / 2.0, lcol)
-
-    if "feet" in p:
-        fx, fhalf, fcol = p["feet"]
-        for side in (-1.0, 1.0):
-            canvas.rect(side * fx, (FOOT_TOP_Y + FEET_Y) / 2.0, fhalf,
-                        (FEET_Y - FOOT_TOP_Y) / 2.0, fcol)
-
-    thalf, ttop, tbot, tradius, tcol = p["torso"]
-    canvas.rounded_rect(0.0, (ttop + tbot) / 2.0, thalf, (tbot - ttop) / 2.0, tradius, tcol)
-
-    trail_side, trail_dx, trail_dy = p.get("trail", (None, 0.0, 0.0))
-    if "arms" in p:
-        ax, ahalf, atop, abot, acol = p["arms"]
-        for side in (-1.0, 1.0):
-            dx, dy = (trail_dx, trail_dy) if side == trail_side else (0.0, 0.0)
-            # A limb is a band and not a box: the round cap is the shoulder and the wrist, and
-            # a swung arm keeps its shoulder end pinned while only the far end moves.
-            canvas.band((side * ax, atop), (side * ax + dx, abot + dy), ahalf * 2.0, acol,
-                        inside_only=False)
-
-    if "hands" in p:
-        hx, hy, hr, hcol = p["hands"]
-        for side in (-1.0, 1.0):
-            dx, dy = (trail_dx, trail_dy) if side == trail_side else (0.0, 0.0)
-            canvas.disc(side * hx + dx, hy + dy, hr, hcol)
-
-    if "hair_back" in p:
-        p["hair_back"](canvas)
-
-    hcy, ha, hb, hcol = p["head"]
-    canvas.ellipse(0.0, hcy, ha, hb, hcol)
-
-    if "hair" in p:
-        p["hair"](canvas)
-
-    for tell in p.get("tells", ()):
-        tell(canvas)
-
-    # --- the tone pass, and everything after it is a detail, not a material -----------------
-    #
-    # Tells run *before* this and the seam and the face run *after*, and the split is the whole
-    # of how the four-tone model works. A tell is a material -- a slung strap, a webbing band,
-    # a beard -- and a material is lit: it goes through the pass and comes out in its own four
-    # tones. A seam or an eye is a *detail placed at a named tone*, and if it went through the
-    # pass it would be re-ranked by where it sits and lose the darkness it was drawn for. An eye
-    # on the lit side of a face would come back as a highlight.
-    #
-    # This is also what lets the spec's "no dark lines inside the silhouette" hold without
-    # losing what those lines did. The seam used to be a different material's dark step drawn
-    # against the torso -- a line. It is now the torso's *own* deep tone, which separates the
-    # arm from the trunk by value the way the rest of the body is separated, and reads as form
-    # instead of ink. The rigs that painted an OUTLINE eye or an OUTLINE seam inside the
-    # silhouette paint a deep tone instead; `check_authored.gd`'s INTERIOR lane is what refuses
-    # a return to ink, and `tone_pass` itself refuses any colour no ramp claims.
-    if p["shade"] != "nw":
-        raise ValueError("unknown tone source %r: every pawn takes 'nw'" % (p["shade"],))
-    canvas.tone_pass(tone_map())
-
-    if "seam" in p:
-        # One column down each side of the torso, just inside its edge. Without it the arm and
-        # the trunk are one slab: an arm hangs *against* the body from the front and the
-        # silhouette outline can only draw the outside of the pair.
-        seam_x, seam_col = p["seam"]
-        for side in (-1.0, 1.0):
-            canvas.rect(side * seam_x, (SHOULDER_Y + HAND_Y) / 2.0, 0.0,
-                        (SHOULDER_Y - HAND_Y) / -2.0, seam_col)
-
-    p["face"](canvas)
-
-    canvas.outline(OUTLINE)
-
-
-def _pawn():
-    """The one canvas every body on the roster is drawn on: 32x40, anchored on the soles."""
-    return Canvas(PAWN_W, PAWN_H, origin="feet")
-
-
-def zombie_screamer():
-    """Narrow, all head, and the mouth void: the one rig whose silhouette is a proportion.
-
-    The head is the family's, unchanged -- the head bound is a bound -- and the *body* is what
-    shrinks, so "all head" is bought by a 12 px torso rather than by an illegal skull. No
-    forearm bulk, no brow: what a screamer has instead is the open mouth, drawn in the head's
-    own **deep tone** and painted with the face rather than as a tell. It used to be an OUTLINE
-    ellipse in the `tells` list, which worked only while tells were drawn after the shade pass;
-    they are drawn before the tone pass now, so a mouth left there would be re-ranked by where
-    it sits and come back as whatever tone its position earned. A void is a detail, and a
-    detail is placed at a named tone after the pass. Limbs use red[0]/[1] and the head pale[2]
-    because both ramps saturate above index 2 -- [3] duplicates [2] on each -- so the contrast
-    that reads "pale head on a dark body" has to live in indices 0/1/2.
-    """
-    red = RAMPS["screamer_red"]
-    pale = RAMPS["screamer_pale"]
-    canvas = _pawn()
-
-    def face(c):
-        # The eyes and the mouth are drawn in the *body* ramp's deep tone, not the head's. A
-        # screamer's head is the palest thing on the roster and its own deep tone sits only
-        # 0.134 luma under its base -- measured -- which is not a face, it is a smudge. The red
-        # deep tone clears the pale head by 0.315, and it is the honest colour besides: the
-        # mouth is a hole into the body, so it is the body's colour you are looking at.
-        _face(tones_of(red)[0])(c)
-        c.ellipse(0.0, HEAD_CY + 3.0, 2.0, 2.8, tones_of(red)[0])
-
-    _figure(
-        canvas,
-        {
-            "legs": (LEG_X - 0.4, LEG_HALF - 0.4, red[0]),
-            "feet": (FOOT_X - 0.4, FOOT_HALF - 0.6, red[0]),
-            "torso": (SHOULDER_HALF - 2.5, TORSO_TOP_Y + 1.0, LEG_TOP_Y, TORSO_RADIUS, red[1]),
-            "arms": (HAND_X - 2.0, ARM_HALF - 0.3, SHOULDER_Y, HAND_Y + 1.0, red[0]),
-            "seam": (SHOULDER_HALF - 4.0, tones_of(red)[0]),
-            "hands": (HAND_X - 2.0, HAND_Y + 1.0, HAND_R - 0.3, red[0]),
-            "head": (HEAD_CY - 1.0, HEAD_R, HEAD_B, pale[2]),
-            "face": face,
-            "shade": "nw",
-        },
-    )
-    return canvas.to_image()
-
-
-def zombie_bloater():
-    """The rig at the canvas bound, and the one rig that moves the published skeleton.
-
-    It moves three numbers and no others, and publishes them (BLOATER_HALF, BLOATER_HAND_X,
-    BLOATER_HEAD_SINK): the torso is half_w 11.0 rather than SHOULDER_HALF and starts a row
-    above TORSO_TOP_Y (the distension is in the trunk, so the trunk is what grows); the arms sit
-    at 11.6 rather than HAND_X, pushed out by it; and the head is sunk into the shoulders by two
-    rows. FEET_Y, LEG_TOP_Y and HAND_Y are untouched, which is what keeps the gear overlays
-    fitting this body too. 26 px across is the README's bloater ceiling and exactly 3 px of
-    side clearance, so nothing else on the roster may come near it.
-    """
-    green = RAMPS["bloater_green"]
-    canvas = _pawn()
-
-    def tells(c):
-        c.band((-8.0, LEG_TOP_Y - 7.0), (8.0, LEG_TOP_Y - 7.0), 2.0, green[3])
-        c.band((-9.0, LEG_TOP_Y - 3.0), (9.0, LEG_TOP_Y - 3.0), 2.0, green[3])
-
-    _figure(
-        canvas,
-        {
-            "legs": (LEG_X + 0.8, LEG_HALF + 0.6, green[1]),
-            "feet": (FOOT_X + 0.8, FOOT_HALF + 0.2, green[0]),
-            "torso": (BLOATER_HALF, TORSO_TOP_Y + 1.0, LEG_TOP_Y, 5.0, green[2]),
-            "arms": (BLOATER_HAND_X, ARM_HALF - 0.2, SHOULDER_Y + 1.0, HAND_Y, green[1]),
-            "seam": (9.5, tones_of(green)[0]),
-            "hands": (BLOATER_HAND_X, HAND_Y, HAND_R, green[1]),
-            "head": (HEAD_CY + BLOATER_HEAD_SINK, HEAD_R - 0.8, HEAD_B - 1.2, green[0]),
-            "face": _face(tones_of(green)[0]),
-            "tells": [tells],
-            "shade": "nw",
-        },
-    )
-    return canvas.to_image()
-
-
-REGISTRY = {
-    "zombie_screamer": zombie_screamer,
-    "zombie_bloater": zombie_bloater,
-}

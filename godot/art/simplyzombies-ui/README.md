@@ -5,10 +5,11 @@ mockups. Includes transparent sprites, scalable frames, live-text examples, UI
 animations, an offline browser preview and a standalone Godot demo.
 
 **Repository delivery:** resources live at `res://art/simplyzombies-ui/`.
-The live game uses the kit through `ui/kit.gd` and `ui/chrome.gd`; the standalone preview
-and demo do not alter game state. The owner's subsequent
-[whole-interface redesign](../../../docs/32-ui-overhaul.md) may replace this treatment.
-This pack remains the current runtime baseline and historical asset source.
+The live game UI already draws with this kit: `ui/chrome.gd` and `ui/cursors.gd` preload
+`ui/kit.gd`, which reads these textures, and `godot:check:ui_skin` gates them. The owner's
+subsequent [whole-interface redesign](../../../docs/32-ui-overhaul.md) may replace this
+treatment; this pack remains the current runtime baseline and historical asset source. The
+preview and demo do not alter game state.
 
 ## Start here
 
@@ -43,9 +44,9 @@ source sheets, previews and existing game art included for demonstration only.
 2. Assign `res://art/simplyzombies-ui/theme.tres` to a Control subtree. Set its
    texture filter to Nearest. Use whole-pixel positions and integer display scales.
    Import PNGs losslessly, with mipmaps disabled.
-3. The current game's `ui/chrome.gd` draws directly onto CanvasItem. A Theme will
-   not change those calls. Use the StyleBoxTexture resources or `ui_skin.gd` in
-   those draw helpers; see `docs/integration.md`. This kit does not replace game code.
+3. The game's `ui/chrome.gd` draws directly onto CanvasItem, so a Theme does not reach
+   those calls. It already reads this kit through `ui/kit.gd`; new draw helpers follow
+   the same path (see `docs/integration.md`). This kit does not replace game code.
 4. Load an animation `.tres` onto AnimatedSprite2D and play its named animation.
 
 `manifest.json` is the canonical runtime inventory. Nine-slice margins are left,
