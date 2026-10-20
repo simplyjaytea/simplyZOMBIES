@@ -692,6 +692,18 @@ const FE_INDEX: int = 8
 const FE_EXTENT: int = 9
 const FE_CLUSTER: int = 10
 const FE_PER_ROOM: int = 11
+const FE_KEPT: int = 12
+const FE_SHADOW: int = 13
+const FE_ROOMS: int = 14
+
+# What an indoor entry's `rooms` may name: any room (the default), a storage room (a room of a
+# building the block lists under `storage`) or a living room (any other).
+const ROOMS_ANY: int = 0
+const ROOMS_STORAGE: int = 1
+const ROOMS_LIVING: int = 2
+
+# What a `roll` may name: the default, and the street furniture's roll as it was before A12 (`_kept_pick`).
+const FURNISH_ROLL_KEPT: String = "kept"
 
 # What a `beside` may name here, and what each means.
 const FURNISH_BESIDE_WALL: String = "wall"
@@ -753,6 +765,8 @@ const SALT_ROOM: int = 700
 const SALT_LITTER_BLOCK: int = 640
 const SALT_LITTER_BLOCK_OFFSET: int = 641
 const SALT_LITTER_ROOM: int = 642
+# The order a room's pieces are judged in when it keeps its passages (`_room_drops`).
+const SALT_PASSAGE: int = 646
 
 # The four sides of a table, in the order a seat mask's bits name them: north, east, south, west.
 const SIDES: Array[Vector2i] = [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]
@@ -763,7 +777,7 @@ const SIDES: Array[Vector2i] = [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1),
 # with bit `n` set for each SimSurface number `n` it may stand on, whether it is an indoor entry,
 # its `beside` and `group` codes, its standing flag, its index in the list, its size in art pixels
 # (Vector2i.ZERO when the block's `sizes` has none, which the footprint rule refuses), its `cluster`
-# flag and its `per_room` cap (0 for none).
+# flag, its `per_room` cap (0 for none), whether it rolls `kept` and whether it is a `shadow`.
 #
 # The salt is the entry's `salt` when it names one, else its index in the list: a pinned salt keeps
 # an entry's rolls where they were when the list around it changes, so a pass that adds junk to the
@@ -808,8 +822,28 @@ static func _furnishing_entries(block: Dictionary) -> Array:
 		var per_room: int = int(entry.get("per_room", 0))
 		if salt < 0 or per_room < 0 or (per_room > 0 and where != FURNISH_INDOORS) or taken.has(salt):
 			continue
+		var roll: String = String(entry.get("roll", ""))
+		if not roll.is_empty() and roll != FURNISH_ROLL_KEPT:
+			continue
+		var kept: bool = roll == FURNISH_ROLL_KEPT
+		var shadow: bool = bool(entry.get("shadow", false))
+		var rooms_name: String = String(entry.get("rooms", ""))
+		var rooms: int = ROOMS_ANY
+		match rooms_name:
+			"":
+				rooms = ROOMS_ANY
+			"storage":
+				rooms = ROOMS_STORAGE
+			"living":
+				rooms = ROOMS_LIVING
+			_:
+				continue
+		if rooms != ROOMS_ANY and where != FURNISH_INDOORS:
+			continue
+		if (kept and (group != GROUP_NONE or per_room > 0 or bool(entry.get("cluster", false)))) or (shadow and not kept):
+			continue
 		taken[salt] = true
-		out.append([key, rarity, (SALT_FURNISH + salt) * _HASH_SALT, mask, where == FURNISH_INDOORS, beside, bool(entry.get("standing", false)), group, i, sizes.get(key, Vector2i.ZERO), bool(entry.get("cluster", false)), per_room])
+		out.append([key, rarity, (SALT_FURNISH + salt) * _HASH_SALT, mask, where == FURNISH_INDOORS, beside, bool(entry.get("standing", false)), group, i, sizes.get(key, Vector2i.ZERO), bool(entry.get("cluster", false)), per_room, kept, shadow, rooms])
 	return out
 
 
@@ -1133,7 +1167,7 @@ static func _furnishing_raw(entries: Array, map: Variant, seed_term: int, tx: in
 	var surface: int = int(map.surfaces[idx])
 	var base: int = (tx * _HASH_TX) ^ (ty * _HASH_TY) ^ seed_term
 	for entry in entries:
-		if int(entry[FE_GROUP]) != GROUP_NONE:
+		if int(entry[FE_GROUP]) != GROUP_NONE or bool(entry[FE_KEPT]):
 			continue
 		if bool(entry[FE_INDOORS]) != indoors:
 			continue
@@ -1144,6 +1178,8 @@ static func _furnishing_raw(entries: Array, map: Variant, seed_term: int, tx: in
 		if not _furnishing_ground_fits(entry as Array, map, seed_term, tx, ty, road):
 			continue
 		if _entry_reaches_clear(entry as Array, seed_term, tx, ty, clear):
+			continue
+		if int(entry[FE_ROOMS]) != ROOMS_ANY and (occ.is_empty() or _room_kind(occ, map, tx, ty) != int(entry[FE_ROOMS])):
 			continue
 		if int(entry[FE_PER_ROOM]) > 0 and (occ.is_empty() or not _room_keeps(occ, map, entry as Array, tx, ty)):
 			continue
@@ -1164,6 +1200,8 @@ static func _room_keeps(occ: Dictionary, map: Variant, entry: Array, tx: int, ty
 		return false
 	var picks: Dictionary = occ["room_picks"]
 	var memo_key: Vector2i = Vector2i(room, int(entry[FE_INDEX]))
+	if int(entry[FE_ROOMS]) != ROOMS_ANY and _room_kind(occ, map, tx, ty) != int(entry[FE_ROOMS]):
+		return false
 	if not picks.has(memo_key):
 		var seed_term: int = int(occ["seed_term"])
 		var clear: Rect2i = occ["clear"]
@@ -1186,6 +1224,43 @@ static func _room_keeps(occ: Dictionary, map: Variant, entry: Array, tx: int, ty
 			kept[int((ranked[i] as Array)[1])] = true
 		picks[memo_key] = kept
 	return (picks[memo_key] as Dictionary).has(ty * w + tx)
+
+
+# Whether a tile's room is a storage room (ROOMS_STORAGE: its first tile lies in a building whose id
+# the block lists under `storage`, a warehouse, a unit, a shed) or a living room (ROOMS_LIVING: any
+# other room, the colony's hall among them). Memoised per room in `occ`.
+static func _room_kind(occ: Dictionary, map: Variant, tx: int, ty: int) -> int:
+	var room: int = _room_of(occ, map, tx, ty)
+	if room < 0:
+		return ROOMS_LIVING
+	var kinds: Dictionary = occ.get("room_kinds", {})
+	if not kinds.has(room):
+		var w: int = int(map.w)
+		var first: int = ((occ["room_tiles"] as Array)[room] as PackedInt32Array)[0]
+		var at := Vector2i(first % w, floori(float(first) / float(w)))
+		var kind: int = ROOMS_LIVING
+		var storage: Dictionary = occ.get("storage", {})
+		var placed: Variant = map.get("buildings")
+		if placed is Array:
+			for record in placed as Array:
+				var r: Dictionary = record as Dictionary
+				if Rect2i(int(r.get("x", 0)), int(r.get("y", 0)), int(r.get("w", 0)), int(r.get("h", 0))).has_point(at):
+					if storage.has(String(r.get("id", ""))):
+						kind = ROOMS_STORAGE
+					break
+		kinds[room] = kind
+		occ["room_kinds"] = kinds
+	return int(kinds[room])
+
+
+# The block's `storage` building ids, as a set.
+static func _storage_of(block: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	var listed: Variant = block.get("storage")
+	if listed is Array:
+		for raw in listed as Array:
+			out[String(raw)] = true
+	return out
 
 
 # The room a tile of indoor floor lies in, as an index into `occ["room_tiles"]`, or -1: the indoor
@@ -1537,7 +1612,7 @@ static func occupancy(block: Dictionary, map: Variant, seed_val: int, props: Dic
 	for entry in furnish:
 		if int(entry[FE_GROUP]) == GROUP_TABLE:
 			tables.append(entry)
-	return {"map": map, "furnish": furnish, "tables": tables, "nature": _nature_entries(block), "litter": _litter_keys(block), "litter_tints": _litter_tints(block), "sizes": _sizes(block), "seed": seed_val, "seed_term": seed_val * _HASH_SEED, "clear": _clear_of(map), "road": RoadPaint.mask_for(map), "props": props, "memo": {}, "cells": {}, "rooms": {}, "room_tiles": [], "room_picks": {}, "litter_blocks": {}}
+	return {"map": map, "furnish": furnish, "tables": tables, "nature": _nature_entries(block), "litter": _litter_keys(block), "litter_tints": _litter_tints(block), "sizes": _sizes(block), "seed": seed_val, "seed_term": seed_val * _HASH_SEED, "clear": _clear_of(map), "road": RoadPaint.mask_for(map), "props": props, "kept": _kept_entries(furnish), "storage": _storage_of(block), "memo": {}, "cells": {}, "rooms": {}, "room_tiles": [], "room_picks": {}, "litter_blocks": {}}
 
 
 # The rect a sim object holds on its tile, in that tile's art frame, or null: a prop `occupancy` was
@@ -1601,7 +1676,7 @@ static func _entry_flag(entries: Array, key: String, index: int) -> bool:
 # The first entry carrying a key, or [].
 static func _entry_of(entries: Array, key: String) -> Array:
 	for entry in entries:
-		if String((entry as Array)[FE_KEY]) == key:
+		if String((entry as Array)[FE_KEY]) == key and not bool((entry as Array)[FE_SHADOW]):
 			return entry as Array
 	return []
 
@@ -1669,6 +1744,9 @@ static func _raw_top_uncached(occ: Dictionary, map: Variant, tx: int, ty: int) -
 	var held: Variant = _held_rect(occ, map, tx, ty)
 	if held != null:
 		return {"key": "", "rank": RANK_HELD, "rect": held}
+	var kept: Dictionary = _kept_raw(occ, map, tx, ty)
+	if not kept.is_empty():
+		return kept
 	var clear: Rect2i = occ["clear"]
 	if clear.has_point(Vector2i(tx, ty)):
 		return {}
@@ -1699,8 +1777,74 @@ static func _raw_top_uncached(occ: Dictionary, map: Variant, tx: int, ty: int) -
 	return {}
 
 
+# The street furniture a tile kept from before A12, as a raw top marked `kept`, or {}. The `kept`
+# entries roll the way the district rolled them before any of this file's placement rules: in salt
+# order (the salt is each one's index in that list), the first whose surface matches, whose roll
+# `((hash ^ salt) & 0x7fffffff) >> 8` lands on its rarity and whose ground fits the old way
+# (`_kept_fits`) takes the tile -- and a `shadow` entry that takes it (the old wall dumpster) leaves
+# it to the rest of the rules, so a tile that rolled a dumpster then rolls no sign. So every barrier,
+# cone, post, sign and lamp main drew stands where it stood, ignoring the clearing, and nothing but a
+# prop on its own tile (RANK_HELD) takes its place: a kept piece beats every neighbour it meets
+# (`_beats`) and gives way to none (`_kept_alone`). Its jitter is the plain rule's, held to the
+# middle of its tile where the jitter would leave its ground.
+static func _kept_raw(occ: Dictionary, map: Variant, tx: int, ty: int) -> Dictionary:
+	var idx: int = ty * int(map.w) + tx
+	if int(map.tiles[idx]) != SimTileMap.Tile.Floor:
+		return {}
+	var entries: Array = occ.get("kept", [])
+	if entries.is_empty():
+		return {}
+	var indoors: bool = int(map.indoors[idx]) == 1
+	var surface: int = int(map.surfaces[idx])
+	var seed_term: int = int(occ["seed_term"])
+	var base: int = (tx * _HASH_TX) ^ (ty * _HASH_TY) ^ seed_term
+	for entry in entries:
+		if bool(entry[FE_INDOORS]) != indoors or (int(entry[FE_MASK]) >> surface) & 1 == 0:
+			continue
+		if (((base ^ int(entry[FE_SALT])) & 0x7fffffff) >> 8) % int(entry[FE_RARITY]) != 0:
+			continue
+		if not _kept_fits(entry as Array, map, tx, ty):
+			continue
+		if bool(entry[FE_SHADOW]):
+			return {}
+		var key: String = String(entry[FE_KEY])
+		if not (occ["sizes"] as Dictionary).has(key):
+			return {}
+		var standing: bool = bool(entry[FE_STANDING])
+		var off: Vector2i = _offsets_for(entry as Array, seed_term, tx, ty)
+		if not _footprint_fits(map, _art_rect(entry[FE_EXTENT], off.x, off.y), tx, ty, indoors, int(entry[FE_MASK])):
+			off = Vector2i(0, off.y)
+		return {"key": key, "rank": RANK_STANDING if standing else RANK_FLAT, "prio": 3, "ox": off.x, "oy": off.y, "flip": false, "kept": true}
+	return {}
+
+
+# The old ground rule a `kept` entry is judged by: the same side of the walls on both sides of it,
+# no door north or south of it, and for a `beside: wall` entry a wall on one of its four sides.
+static func _kept_fits(entry: Array, map: Variant, tx: int, ty: int) -> bool:
+	var indoors: bool = bool(entry[FE_INDOORS])
+	if not (_floor_of(map, tx - 1, ty, indoors) and _floor_of(map, tx + 1, ty, indoors)):
+		return false
+	if _door_at(map, tx, ty - 1) or _door_at(map, tx, ty + 1):
+		return false
+	if int(entry[FE_BESIDE]) != BESIDE_WALL:
+		return true
+	return _wall_at(map, tx, ty - 1) or _wall_at(map, tx, ty + 1) or _wall_at(map, tx - 1, ty) or _wall_at(map, tx + 1, ty)
+
+
+# The `kept` entries of a block's furnishings, in salt order: the order the old list rolled them in.
+static func _kept_entries(furnish: Array) -> Array:
+	var out: Array = []
+	for entry in furnish:
+		if bool((entry as Array)[FE_KEPT]):
+			out.append(entry)
+	out.sort_custom(func(a: Array, b: Array) -> bool: return int(a[FE_SALT]) < int(b[FE_SALT]))
+	return out
+
+
 # Whether the picture on tile (nx, ny) beats the one on (tx, ty) for the space they share.
 static func _beats(occ: Dictionary, other: Dictionary, nx: int, ny: int, mine: Dictionary, tx: int, ty: int) -> bool:
+	if other.has("kept"):
+		return true
 	if int(other["rank"]) != int(mine["rank"]):
 		return int(other["rank"]) > int(mine["rank"])
 	if int(other.get("prio", 0)) != int(mine.get("prio", 0)):
@@ -1717,6 +1861,17 @@ static func _beats(occ: Dictionary, other: Dictionary, nx: int, ny: int, mine: D
 # unless an overlapping neighbour's raw top beats it. A held tile keeps its hold, which has no key and
 # draws nothing here.
 static func _kept_top(occ: Dictionary, map: Variant, tx: int, ty: int) -> Dictionary:
+	var top: Dictionary = _kept_seated(occ, map, tx, ty)
+	if top.is_empty() or not bool(occ.get("keep_passages", true)) or top.has("kept") or int(top["rank"]) < RANK_FLAT or int(top["rank"]) == RANK_HELD:
+		return top
+	var room: int = _room_of(occ, map, tx, ty)
+	if room >= 0 and (_room_drops(occ, map, room) as Dictionary).has(ty * int(map.w) + tx):
+		return {}
+	return top
+
+
+# A tile's top after the overlap rule and the chair's table, before a room keeps its passages.
+static func _kept_seated(occ: Dictionary, map: Variant, tx: int, ty: int) -> Dictionary:
 	var top: Dictionary = _kept_alone(occ, map, tx, ty)
 	# A chair is kept only beside its own table: where the overlap rule dropped the table (or the
 	# half of a pair it faces), the chair would stand alone or catty-corner to the other half.
@@ -1728,10 +1883,121 @@ static func _kept_top(occ: Dictionary, map: Variant, tx: int, ty: int) -> Dictio
 	return top
 
 
+# The furnished tiles a room gives up so that every free tile of it stays one walk: the room's
+# standing and flat pieces are taken in turn, the tables first, then the rest, each in its tile's
+# SALT_PASSAGE hash order, and a piece is kept only while the room's tiles left free stay one
+# four-connected walk and keep every tile inside a doorway free. A piece that would cut a corridor
+# or wall in a corner gives way: a two-tile corridor between walls never takes a piece on both of its
+# tiles. A chair whose table gave way goes with it. Memoised per room in `occ`. An occupancy whose
+# `keep_passages` is false (a gate's, to show the rule has work) skips it.
+static func _room_drops(occ: Dictionary, map: Variant, room: int) -> Dictionary:
+	var memo: Dictionary = occ.get("room_drops", {})
+	if memo.has(room):
+		return memo[room] as Dictionary
+	var w: int = int(map.w)
+	var seed_term: int = int(occ["seed_term"])
+	var tiles: PackedInt32Array = (occ["room_tiles"] as Array)[room]
+	var in_room: Dictionary = {}
+	for idx in tiles:
+		in_room[idx] = true
+	var pieces: Array = []
+	for idx in tiles:
+		var cx: int = idx % w
+		var cy: int = floori(float(idx) / float(w))
+		var top: Dictionary = _kept_seated(occ, map, cx, cy)
+		if top.is_empty() or top.has("kept") or int(top["rank"]) < RANK_FLAT or int(top["rank"]) == RANK_HELD:
+			continue
+		var first: int = 0 if int(top.get("prio", 0)) == 2 else 1
+		pieces.append([first, _mix(_hash_t(seed_term, cx, cy, SALT_PASSAGE)), idx, top.get("table", null)])
+	pieces.sort_custom(func(a: Array, b: Array) -> bool: return a.slice(0, 3) < b.slice(0, 3))
+	var blocked: Dictionary = {}
+	var drops: Dictionary = {}
+	for piece in pieces:
+		var idx: int = int(piece[2])
+		var faces: Variant = piece[3]
+		if faces != null and drops.has((faces as Vector2i).y * w + (faces as Vector2i).x):
+			drops[idx] = true
+			continue
+		if _by_door(map, idx % w, floori(float(idx) / float(w))):
+			drops[idx] = true
+			continue
+		blocked[idx] = true
+		if not _keeps_its_ring(w, idx, in_room, blocked) and not _one_walk(map, tiles, in_room, blocked):
+			blocked.erase(idx)
+			drops[idx] = true
+	memo[room] = drops
+	occ["room_drops"] = memo
+	return drops
+
+
+# Whether taking tile `idx` (already in `blocked`) leaves its free side neighbours joined round the
+# ring of its eight neighbours: then the room's walk is whole if it was, and the flood fill is not
+# needed. The ring runs N, NE, E, SE, S, SW, W, NW, each next to the one before by a side, so the free
+# side neighbours lie on one run of free ring tiles or they may have been cut apart.
+static func _keeps_its_ring(w: int, idx: int, in_room: Dictionary, blocked: Dictionary) -> bool:
+	var x: int = idx % w
+	var ring: Array[int] = [idx - w, idx - w + 1, idx + 1, idx + w + 1, idx + w, idx + w - 1, idx - 1, idx - w - 1]
+	var free: Array[bool] = []
+	for i in 8:
+		var n: int = ring[i]
+		var dx: int = [0, 1, 1, 1, 0, -1, -1, -1][i]
+		free.append(x + dx >= 0 and x + dx < w and in_room.has(n) and not blocked.has(n))
+	var runs_with_a_side: int = 0
+	for i in 8:
+		if not free[i] or free[(i + 7) % 8]:
+			continue
+		var j: int = i
+		var has_side: bool = false
+		while free[j % 8] and j < i + 8:
+			if (j % 8) % 2 == 0:
+				has_side = true
+			j += 1
+		if has_side:
+			runs_with_a_side += 1
+	if runs_with_a_side == 0:
+		# Every ring tile free (no run start) or no free side at all: one run, or nothing to cut.
+		return true
+	return runs_with_a_side == 1
+
+
+# Whether a tile lies inside a doorway: a door on one of its four sides.
+static func _by_door(map: Variant, tx: int, ty: int) -> bool:
+	for side in SIDES:
+		if _door_at(map, tx + side.x, ty + side.y):
+			return true
+	return false
+
+
+# Whether a room's tiles that are not `blocked` are one four-connected walk (an empty set is).
+static func _one_walk(map: Variant, tiles: PackedInt32Array, in_room: Dictionary, blocked: Dictionary) -> bool:
+	var w: int = int(map.w)
+	var start: int = -1
+	var free: int = 0
+	for idx in tiles:
+		if not blocked.has(idx):
+			free += 1
+			if start < 0:
+				start = idx
+	if free == 0:
+		return true
+	var seen: Dictionary = {start: true}
+	var queue: Array[int] = [start]
+	while not queue.is_empty():
+		var at: int = queue.pop_back()
+		for side in SIDES:
+			var n: int = at + side.y * w + side.x
+			if (side.x != 0 and floori(float(n) / float(w)) != floori(float(at) / float(w))):
+				continue
+			if in_room.has(n) and not blocked.has(n) and not seen.has(n):
+				seen[n] = true
+				queue.append(n)
+	return seen.size() == free
+
+
 # A tile's raw top as the overlap rule alone keeps it, before a chair asks after its table.
 static func _kept_alone(occ: Dictionary, map: Variant, tx: int, ty: int) -> Dictionary:
 	var top: Dictionary = _raw_top(occ, map, tx, ty)
-	if top.is_empty() or int(top["rank"]) == RANK_HELD:
+	if top.is_empty() or int(top["rank"]) == RANK_HELD or top.has("kept"):
 		return top
 	var rect: Rect2i = _top_rect(occ, top, tx, ty)
 	for dy in range(-1, 2):

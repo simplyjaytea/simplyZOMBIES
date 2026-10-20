@@ -9006,6 +9006,22 @@
         "path": "art/simplyzombies/glass/textures/frame-square.png"
       }
     },
+    "debris_sheet": {
+      "canvas": [
+        14,
+        11
+      ],
+      "kind": "tile",
+      "reads": "dressing.street"
+    },
+    "debris_can": {
+      "canvas": [
+        12,
+        7
+      ],
+      "kind": "tile",
+      "reads": "dressing.street"
+    },
     "debris_paper": {
       "canvas": [
         11,

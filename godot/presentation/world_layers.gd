@@ -71,6 +71,9 @@ const ALL_LAYERS: int = (1 << LAYER_COUNT) - 1
 var _parent: RID
 var _background: RID
 var _roots: Array[RID] = []
+# The marks on the ground (main.gd's decals), drawn each frame between the A2 boards and the DECOR
+# pictures, so a mark lies on the floor under a baked table or bush rather than over it.
+var _decals: RID
 var _materials: Array[ShaderMaterial] = []
 # Vector2i chunk -> {"items": Array[RID], "sig": int, "snow": int}
 var _chunks: Dictionary = {}
@@ -125,7 +128,8 @@ func attach(parent: RID) -> void:
 		var root: RID = RenderingServer.canvas_item_create()
 		RenderingServer.canvas_item_set_parent(root, _parent)
 		RenderingServer.canvas_item_set_draw_behind_parent(root, true)
-		RenderingServer.canvas_item_set_draw_index(root, layer + 1)
+		# Every second index, so the decal item fits between A2 and DECOR.
+		RenderingServer.canvas_item_set_draw_index(root, (layer + 1) * 2)
 		var mat := ShaderMaterial.new()
 		mat.shader = MaskShader
 		mat.set_shader_parameter("want", int(RULES[layer][0]))
@@ -133,6 +137,10 @@ func attach(parent: RID) -> void:
 		RenderingServer.canvas_item_set_material(root, mat.get_rid())
 		_roots.append(root)
 		_materials.append(mat)
+	_decals = RenderingServer.canvas_item_create()
+	RenderingServer.canvas_item_set_parent(_decals, _parent)
+	RenderingServer.canvas_item_set_draw_behind_parent(_decals, true)
+	RenderingServer.canvas_item_set_draw_index(_decals, (Layer.DECOR + 1) * 2 - 1)
 	_attached = true
 
 
@@ -143,6 +151,7 @@ func detach() -> void:
 	for root in _roots:
 		RenderingServer.free_rid(root)
 	RenderingServer.free_rid(_background)
+	RenderingServer.free_rid(_decals)
 	_roots.clear()
 	_materials.clear()
 	_attached = false
@@ -156,6 +165,16 @@ func detach() -> void:
 	_cells_tex = null
 	_cells_size = -1
 	_live_source = -1
+
+
+# A pen for this frame's marks on the ground, its last frame's marks cleared: the item draws over
+# the seen ground and the A2 boards and under the DECOR layer, in the parent's own coordinates (the
+# screen, as main.gd draws). Null before `attach`, so a caller falls back to drawing on itself.
+func decal_pen() -> Object:
+	if not _attached:
+		return null
+	RenderingServer.canvas_item_clear(_decals)
+	return Pen.new(_decals)
 
 
 # Frees every baked chunk. The next frame bakes what it can see again.
