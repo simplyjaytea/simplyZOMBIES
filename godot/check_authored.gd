@@ -188,10 +188,22 @@ const DECAL_KIND: String = "decal"
 # survivor's twenty frames: its outline is (0..8, 0..6, 0..4) and its darkest skin and hair are
 # above 50, so 45 sits in the gap; `clothing/parts.py` uses the same number to keep a garment off it.
 const WEAR_INK_MAX: int = 45
+# WEAR: how much warmer than blue a pixel below WEAR_INK_MAX may run and still be ink. The pack's
+# outline is neutral; the walk's generated frames shade some hair a brown under 45 (#2b1a0c), and
+# a hood covers it (`build_clothing.hood`, the same number). On the outline ring -- a pixel beside
+# the transparent -- a dark pixel is ink whatever its warmth: the silhouette is the body's.
+const WEAR_INK_WARM: int = 12
 # WEAR: the fewest pixels a garment member may paint. The smallest measured (2026-10-19) is 6, a
 # sandal on a foot mid-stride (a sole row and a strap pixel); a garment that paints fewer than 3 is
 # a garment missing from that frame.
 const WEAR_MIN_PAINTED: int = 3
+# WEAR: an action frame (A8) may hide a garment's part entirely -- a fold takes a crouching or
+# falling body's shins down to the sole row, so its footwear is gone, and side on both fists cover
+# the hips and thighs on a long gun's or a shotgun's first beat -- so it is held to the minimum per
+# run (one action seen one way, every frame of it) rather than per frame: a garment painted on no
+# frame of a run is still missing from it. Measured 2026-10-20, after the art review's first
+# round: 68 action frames paint fewer than three pixels of a garment, every one of them a garment
+# the pose hides (docs/23's record lists them), and no run paints fewer than 5.
 
 # The zombie set has its own measured contract rather than widening PACK's 32x40 body rules.
 # Living art stands on the sole boundary; settled corpses use a ground-centre anchor. Every
@@ -1809,10 +1821,26 @@ func _wear_members_complaint(garment: String, rig: String, members: Array, rig_m
 	return ""
 
 
+# Is the body pixel at (x, y) the pack's ink: dark and neutral, or dark on the outline ring.
+func _wear_is_ink(body: Image, x: int, y: int) -> bool:
+	var c: Color = body.get_pixel(x, y)
+	if maxi(c.r8, maxi(c.g8, c.b8)) >= WEAR_INK_MAX:
+		return false
+	if c.r8 - c.b8 < WEAR_INK_WARM:
+		return true
+	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var q: Vector2i = Vector2i(x, y) + d
+		if q.x < 0 or q.y < 0 or q.x >= body.get_width() or q.y >= body.get_height():
+			return true
+		if body.get_pixel(q.x, q.y).a8 < ALPHA_SOLID:
+			return true
+	return false
+
+
 # What is wrong with one painted frame against the body frame it was painted for, or "": every
 # pixel it paints (any alpha) lands on a solid pixel of the body that is not the pack's ink, and it
 # paints at least WEAR_MIN_PAINTED of them. Returns the painted count through `count[0]`.
-func _wear_fit_complaint(layer: Image, body: Image, count: Array) -> String:
+func _wear_fit_complaint(layer: Image, body: Image, count: Array, least: int = WEAR_MIN_PAINTED) -> String:
 	if layer == null or body == null:
 		return "does not resolve"
 	if layer.get_size() != body.get_size():
@@ -1826,13 +1854,22 @@ func _wear_fit_complaint(layer: Image, body: Image, count: Array) -> String:
 			var under: Color = body.get_pixel(x, y)
 			if under.a8 < ALPHA_SOLID:
 				return "paints (%d, %d), where its body frame is transparent: a garment may not move the silhouette" % [x, y]
-			if maxi(under.r8, maxi(under.g8, under.b8)) < WEAR_INK_MAX:
+			if _wear_is_ink(body, x, y):
 				return "paints (%d, %d), over the pack's ink: the outline is the body's" % [x, y]
 			if layer.get_pixel(x, y).a8 != 255:
 				return "paints (%d, %d) translucent (alpha %d): a garment pixel is cloth or nothing, and godot:check:worn's STEP reference composes it opaque" % [x, y, layer.get_pixel(x, y).a8]
 	count[0] = painted
-	if painted < WEAR_MIN_PAINTED:
+	if painted < least:
 		return "paints %d pixel(s); it is missing from this frame" % painted
+	return ""
+
+
+# What is wrong with a garment's action runs, or "": {"<action>_<view>": pixels painted over every
+# frame of that run}, each at least WEAR_MIN_PAINTED.
+func _wear_runs_complaint(runs: Dictionary) -> String:
+	for run in runs.keys():
+		if int(runs[run]) < WEAR_MIN_PAINTED:
+			return "paints %d pixel(s) over every frame of its '%s' run; it is missing from that action" % [int(runs[run]), String(run)]
 	return ""
 
 
@@ -1841,6 +1878,9 @@ func _every_garment_fits_its_rig_frame_by_frame() -> bool:
 	var garments: int = 0
 	var frames: int = 0
 	var fewest: int = 1 << 30
+	var action_frames: int = 0
+	var hidden: int = 0
+	var fewest_run: int = 1 << 30
 	for key in entries.keys():
 		var name: String = String(key)
 		var entry: Dictionary = entries[key] as Dictionary
@@ -1852,14 +1892,9 @@ func _every_garment_fits_its_rig_frame_by_frame() -> bool:
 			push_error("WEAR: '%s' fits '%s', which is not a pack_rig in authored.json" % [name, rig])
 			return false
 		var members: Array = ((entry.get("members", {}) as Dictionary)).keys()
-		# The rig's action pictures (A8) carry no garment yet and the renderer does not ask for one
-		# (`Appearance.body_texture`): they are left out here by `Appearance.is_action_frame`, so
-		# every rest, walk and breath frame is still required. docs/23 what's left, "Clothes on the
-		# action frames".
-		var rig_members: Array = []
-		for rm in (((rig_entry as Dictionary).get("members", {})) as Dictionary).keys():
-			if not Appearance.is_action_frame(rig, String(rm)):
-				rig_members.append(rm)
+		# Every frame the rig draws, its action pictures (A8) included: the renderer dresses them all
+		# (`Appearance.body_texture`), so a garment missing any one of them is refused here.
+		var rig_members: Array = (((rig_entry as Dictionary).get("members", {})) as Dictionary).keys()
 		var complaint: String = _wear_members_complaint(name, rig, members, rig_members)
 		if not complaint.is_empty():
 			push_error("WEAR: '%s' %s" % [name, complaint])
@@ -1875,27 +1910,34 @@ func _every_garment_fits_its_rig_frame_by_frame() -> bool:
 			if Appearance.wears(name, rig, slot) != (slot == own_slot):
 				push_error("WEAR: Appearance.wears('%s', '%s', '%s') answers wrong for a garment of slot '%s'" % [name, rig, slot, own_slot])
 				return false
+		var rig_actions: Array = _actions_of(rig_entry as Dictionary)
+		var runs: Dictionary = {}
 		for rm in rig_members:
 			var member: String = name + String(rm).substr(rig.length())
 			var count: Array = [0]
+			var acting: bool = _is_action_member(rig, String(rm), rig_actions)
 			# The renderer's own reader (`Appearance.image_of`, decoded RGBA8), so the gate judges the
 			# pixels the composite is built from rather than a second decoding of them.
-			var fit: String = _wear_fit_complaint(Appearance.image_of(member), Appearance.image_of(String(rm)), count)
+			var fit: String = _wear_fit_complaint(Appearance.image_of(member), Appearance.image_of(String(rm)), count, 0 if acting else WEAR_MIN_PAINTED)
 			if not fit.is_empty():
 				push_error("WEAR: '%s' %s" % [member, fit])
 				return false
-			fewest = mini(fewest, int(count[0]))
 			frames += 1
+			if acting:
+				action_frames += 1
+				var run: String = String(rm).substr(rig.length() + 1).rsplit("_", true, 1)[0]
+				runs[run] = int(runs.get(run, 0)) + int(count[0])
+				if int(count[0]) < WEAR_MIN_PAINTED:
+					hidden += 1
+			else:
+				fewest = mini(fewest, int(count[0]))
+		var short_run: String = _wear_runs_complaint(runs)
+		if not short_run.is_empty():
+			push_error("WEAR: '%s' %s" % [name, short_run])
+			return false
+		for run in runs.keys():
+			fewest_run = mini(fewest_run, int(runs[run]))
 		garments += 1
-	# The one exclusion above is action pictures and nothing else: a reload frame is one, and a walk,
-	# a breath and a rest picture of the same rig are not, so no frame the clothes are painted for
-	# can drop out of the list by being mistaken for an action.
-	if not Appearance.is_action_frame("body_survivor", "body_survivor_reload_long_e_3") \
-			or Appearance.is_action_frame("body_survivor", "body_survivor_walk_e_3") \
-			or Appearance.is_action_frame("body_survivor", "body_survivor_idle_e_1") \
-			or Appearance.is_action_frame("body_survivor", "body_survivor_e"):
-		push_error("WEAR: Appearance.is_action_frame does not tell a reload frame from a walk, a breath and a rest picture")
-		return false
 	if garments == 0:
 		push_error("WEAR judged no garment; the lane is here for the clothing and had nothing to judge")
 		return false
@@ -1922,6 +1964,29 @@ func _every_garment_fits_its_rig_frame_by_frame() -> bool:
 	if _wear_fit_complaint(inked, body, [0]).is_empty():
 		push_error("WEAR: a garment painting over the body's ink passed")
 		return false
+	# Warm dark hair inside the outline ring is not ink, and a hood may cover it; the same colour on
+	# the ring is, and a neutral dark pixel is wherever it sits.
+	var hair := Image.create(5, 5, false, Image.FORMAT_RGBA8)
+	for y in 5:
+		for x in 5:
+			hair.set_pixel(x, y, Color8(0, 0, 0, 255))
+	hair.set_pixel(2, 2, Color8(0x2b, 0x1a, 0x0c, 255))
+	hair.set_pixel(0, 2, Color8(0x2b, 0x1a, 0x0c, 255))
+	var hood := Image.create(5, 5, false, Image.FORMAT_RGBA8)
+	hood.set_pixel(2, 2, Color8(100, 100, 60, 255))
+	if not _wear_fit_complaint(hood, hair, [0], 0).is_empty():
+		push_error("WEAR: a hood over warm dark hair inside the outline ring was refused")
+		return false
+	var ring := Image.create(5, 5, false, Image.FORMAT_RGBA8)
+	ring.set_pixel(0, 2, Color8(100, 100, 60, 255))
+	if _wear_fit_complaint(ring, hair, [0], 0).is_empty():
+		push_error("WEAR: a garment painting warm dark ink on the outline ring passed")
+		return false
+	var neutral := Image.create(5, 5, false, Image.FORMAT_RGBA8)
+	neutral.set_pixel(1, 1, Color8(100, 100, 60, 255))
+	if _wear_fit_complaint(neutral, hair, [0], 0).is_empty():
+		push_error("WEAR: a garment painting neutral ink inside the outline passed")
+		return false
 	var sheer := good.duplicate() as Image
 	sheer.set_pixel(1, 1, Color8(100, 100, 60, 128))
 	if _wear_fit_complaint(sheer, body, [0]).is_empty():
@@ -1938,6 +2003,20 @@ func _every_garment_fits_its_rig_frame_by_frame() -> bool:
 			or _wear_members_complaint("wear_x", "body_survivor", ["wear_x_s", "wear_x_walk_s_0", "wear_x_walk_s_9"], rig_list).is_empty():
 		push_error("WEAR: a garment missing a walk frame, or carrying one its rig does not draw, passed")
 		return false
+	# The action pictures are frames like any other: a garment painted on the rest and walk but not on
+	# a reload is refused (the gap A8 left, docs/23's "Clothes on the action frames").
+	var acting: Array = rig_list + ["body_survivor_reload_s_0"]
+	if _wear_members_complaint("wear_x", "body_survivor", ["wear_x_s", "wear_x_walk_s_0"], acting).is_empty() \
+			or not _wear_members_complaint("wear_x", "body_survivor", ["wear_x_s", "wear_x_walk_s_0", "wear_x_reload_s_0"], acting).is_empty():
+		push_error("WEAR: a garment missing its rig's reload frame passed, or one carrying it was refused")
+		return false
+	if not _wear_runs_complaint({"reload_s": WEAR_MIN_PAINTED, "fall_e": WEAR_MIN_PAINTED}).is_empty() \
+			or _wear_runs_complaint({"reload_s": WEAR_MIN_PAINTED, "fall_e": WEAR_MIN_PAINTED - 1}).is_empty():
+		push_error("WEAR: the run minimum refused runs painted enough, or passed a run painted too little to be there")
+		return false
+	if action_frames == 0:
+		push_error("WEAR judged no action frame; the rig's swing, reloads and stances are dressed too and the lane had none to judge")
+		return false
 	var minimal_garment: String = _complaint({"canvas": [32, 40], "kind": "wear", "reads": "x", "fits": "body_survivor", "slot": "torso"})
 	if not minimal_garment.is_empty():
 		push_error("WEAR: MANIFEST refused a minimal well-formed garment (%s), so its refusals below prove nothing" % minimal_garment)
@@ -1952,7 +2031,7 @@ func _every_garment_fits_its_rig_frame_by_frame() -> bool:
 		push_error("WEAR: MANIFEST accepted a garment with no `slot`, a garment of slot 'head', or a `slot` on a kind that is no garment")
 		return false
 
-	print("WEAR OK %d garment(s), %d painted frame(s): every member is its rig's own frame, every painted pixel opaque and on a solid non-ink body pixel (fewest painted %d), each answering for its own slot only; a faint pixel off the body, a pixel over the ink, a translucent pixel, an empty frame, a missing and an extra frame, a garment with no rig and one with no or a foreign slot each refused" % [garments, frames, fewest])
+	print("WEAR OK %d garment(s), %d painted frame(s) (%d of them action frames, %d hiding the garment's part and every action run painting at least %d): every member is its rig's own frame, every painted pixel opaque and on a solid non-ink body pixel (fewest painted %d), each answering for its own slot only; a faint pixel off the body, a pixel over the ink (neutral inside the outline, warm on its ring; warm hair inside it allowed), a translucent pixel, an empty frame, a missing and an extra frame, a garment with no rig and one with no or a foreign slot, and one missing a reload frame, and an action run painted too little, each refused" % [garments, frames, action_frames, hidden, fewest_run, fewest])
 	return true
 
 

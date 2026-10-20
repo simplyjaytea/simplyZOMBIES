@@ -2592,10 +2592,16 @@ func _draw_corpse(it: Dictionary, px_scale: float) -> void:
 	var flip: bool = Appearance.corpse_flip(key, view)
 	if not fall.is_empty():
 		var fall_key: String = Appearance.fall_key(String(fall["key"]), String(fall["view"]), float(fall["t"]))
-		var falling: Texture2D = Appearance.resolve(fall_key) if not fall_key.is_empty() else null
+		# In the clothes it fell in: the outfit the clock recorded as it was last drawn standing.
+		var outfit: Array = fall.get("outfit", []) as Array
+		var falling: Texture2D = null
+		if not fall_key.is_empty():
+			falling = Appearance.dressed_texture(String(fall["key"]), fall_key, outfit) if not outfit.is_empty() else null
+			if falling == null:
+				falling = Appearance.resolve(fall_key)
 		if falling != null:
 			draw_texture_rect(falling, Appearance.body_rect(sx, sy, falling.get_size() * px_scale, 1.0), false, look["tint"] as Color)
-			_falls_drawn.append({"id": id, "key": fall_key})
+			_falls_drawn.append({"id": id, "key": fall_key, "dressed": not outfit.is_empty() and falling != Appearance.resolve(fall_key)})
 			return
 		if Appearance.fall_landing(String(fall["key"]), String(fall["view"]), float(fall["t"])):
 			draw_texture_rect(texture, Appearance.corpse_rect(sx, sy - float(Appearance.LAND_RAISE) * px_scale, size, feet, flip, px_scale), false, look["tint"] as Color)
@@ -2884,7 +2890,7 @@ func _draw_entities() -> void:
 		var motion: Dictionary = _anim.motion(eid, Vector2(float(it["x"]), float(it["y"])), Appearance.moving(vel_v), Appearance.stride_of(sprite_key), Appearance.pace_of(sprite_key), front)
 		# And what it is doing (docs/23, "Actions on the render clock"): the one-shot or held action
 		# and the stance, read off the sim's events and components; frame_key answers them first.
-		motion.merge(_anim.act(eid, world, sprite_key, view))
+		motion.merge(_anim.act(eid, world, sprite_key, view, look.get("outfit", []) as Array if look.get("outfit", []) is Array else []))
 		var frame: String = Appearance.frame_key(sprite_key, view, motion)
 		var texture: Texture2D = Appearance.body_texture(look, view, motion)
 		if texture != null:

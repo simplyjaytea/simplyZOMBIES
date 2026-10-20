@@ -158,9 +158,9 @@ def tone_of(cls: str, p: tuple[int, int, int, int]) -> int:
 
 
 class Frame:
-    def __init__(self, suffix: str, source: str) -> None:
+    def __init__(self, suffix: str, source: str, img: Image.Image | None = None) -> None:
         self.suffix = suffix
-        self.img = parts.load(source)
+        self.img = img if img is not None else parts.load(source)
         self.px = self.img.load()
         m = parts.label(self.img, suffix)
         self.lab: list[list[str]] = m["lab"]
@@ -173,6 +173,15 @@ class Frame:
         self.uw_max: int = m["uw_max"]
         self.centre: int = (self.uw_min + self.uw_max) // 2
         self.side = self.view in ("e", "w")
+        # An arm measured by its reach rather than its row (a generated swing frame, whose arms
+        # reach out sideways: `action_wear.swing_frame`): {pixel: pixels out from the body's edge}.
+        # None on every frame the pack draws standing, walking or breathing.
+        self.reach: dict[tuple[int, int], int] | None = None
+
+    @classmethod
+    def of_image(cls, img: Image.Image, view: str) -> "Frame":
+        """A frame labelled from a picture in hand, as a rest view facing `view` is."""
+        return cls(view, "", img)
 
     def at(self, x: int, y: int) -> str:
         if 0 <= x < parts.W and 0 <= y < parts.H:
@@ -381,6 +390,9 @@ def arm_reach(f: Frame, sleeve: int):
         if lab == "T":
             return True
         if lab == "A":
+            if f.reach is not None:
+                # Out along an arm that reaches sideways: a short sleeve's two pixels, or all of it.
+                return sleeve >= 99 or f.reach.get((x, y), 99) <= 2
             return y < f.torso_top + sleeve
         return False
 
@@ -411,6 +423,9 @@ def cuffs(c: Canvas, ramp: Ramp) -> None:
     f = c.f
     for (x, y) in list(c.painted):
         if f.at(x, y + 1) == "K":
+            c.tone(x, y, ramp, DEEP)
+        elif f.reach is not None and f.at(x, y) == "A" and any(f.at(x + dx, y) == "K" for dx in (1, -1)):
+            # An arm reaching sideways ends on its hand beside it, not below it.
             c.tone(x, y, ramp, DEEP)
 
 
@@ -582,6 +597,32 @@ def hood(c: Canvas, ramp: Ramp, trim: Ramp) -> None:
             c.put_level(x, y, ramp, LEVEL[BASE] - 6, head=True)
             if f.at(x, y - 1) == "O":
                 c.shift(x, y, 28)
+    # The walk's generated frames shade the hair a brown dark enough to pass for ink, so the
+    # labels call it outline and the hood left a seam of hair between itself and the face. Ink is
+    # neutral; a dark pixel warm by a dozen levels or more, inside the head's outline ring and
+    # touching hair (or hair found so), is hair -- down to the nape, a row or two under the chin line.
+    warm = set()
+    for y in range(min(parts.H, f.torso_top + 2)):
+        for x in range(parts.W):
+            r, g, b, _ = f.px[x, y]
+            if f.at(x, y) != "O" or max(r, g, b) >= 45 or r - b < 12:
+                continue
+            if any(f.at(x + dx, y + dy) == "." for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+                continue
+            warm.add((x, y))
+    hair: set[tuple[int, int]] = set()
+    grew = True
+    while grew:
+        grew = False
+        for (x, y) in sorted(warm - hair):
+            near = [(x + dx, y + dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1) if 0 <= y + dy < parts.H and 0 <= x + dx < parts.W]
+            if any((q in hair) or (f.at(*q) == "H" and f.cls[q[1]][q[0]] in ("u", "h")) for q in near):
+                hair.add((x, y))
+                grew = True
+    for (x, y) in hair:
+        c.cell[(x, y)] = [ramp, LEVEL[BASE] - 6]
+        c.fixed.pop((x, y), None)
+        c.painted.add((x, y))
     face = [(x, y) for (x, y) in head if f.cls[y][x] in ("S", "s")]
     if not face:
         return
@@ -706,6 +747,11 @@ def folds(c: Canvas, shape: str) -> None:
             for (x, y) in list(c.cell):
                 if f.at(x, y) == "A" and f.at(x, y + 1) == "A" and (x, y + 1) not in c.cell:
                     c.shadow_on_skin(x, y + 1)
+            if f.reach is not None:
+                # Out along an arm that reaches sideways, the pixel past the sleeve's end.
+                for (x, y), r in f.reach.items():
+                    if r == 3 and f.at(x, y) == "A":
+                        c.shadow_on_skin(x, y)
     if shape in ("pants", "shorts", "suit"):
         if front_or_back:
             # The crotch fold, and a pocket's mouth on each hip seen from the front.
@@ -850,38 +896,86 @@ def atlases(images: dict[str, Image.Image]) -> dict[str, Image.Image]:
     return out
 
 
-def write(sheets: dict[str, Image.Image]) -> None:
+ACTIONS = NATIVE / "actions"
+AUTHORED = HERE.parents[2] / "assets" / "sprites" / "authored.json"
+
+
+def members(family: str) -> dict:
+    """A garment's authored.json members: every frame of its rig, cropped from its sheet (the rest,
+    walk and breath frames) or its action sheet (`action_wear.cell_of`), in the rig's own order."""
+    import action_wear
+
+    out = {}
+    for suffix, _source in parts.frame_names():
+        x, y = cell_of(suffix)
+        out[f"{family}_{suffix}"] = {"source": {"path": f"art/simplyzombies/clothing/native/{family}.png", "crop": [x, y, parts.W, parts.H]}}
+    for suffix, *_rest in action_wear.action_frames():
+        x, y = action_wear.cell_of(suffix)
+        w, h = action_wear.size_of(suffix)
+        member = {"source": {"path": f"art/simplyzombies/clothing/native/actions/{family}.png", "crop": [x, y, w, h]}}
+        if (w, h) != (parts.W, parts.H):
+            member["canvas"] = [w, h]  # a fall frame, on the fall canvas
+        out[f"{family}_{suffix}"] = member
+    return out
+
+
+def authored_text() -> str:
+    """authored.json with every garment's members as `members` declares them, and every other byte
+    as it stands (the file is written by `json.dumps(..., indent=2)`, as build_motion.py writes it)."""
+    import json
+
+    doc = json.loads(AUTHORED.read_text())
+    for family in GARMENTS:
+        doc["keys"][family]["members"] = members(family)
+    return json.dumps(doc, indent=2) + "\n"
+
+
+def write(sheets: dict[str, Image.Image], action_sheets: dict[str, Image.Image]) -> None:
     NATIVE.mkdir(parents=True, exist_ok=True)
+    ACTIONS.mkdir(parents=True, exist_ok=True)
     for family, img in sheets.items():
         img.save(NATIVE / f"{family}.png")
+    for family, img in action_sheets.items():
+        img.save(ACTIONS / f"{family}.png")
+    AUTHORED.write_text(authored_text())
 
 
-def check(sheets: dict[str, Image.Image]) -> int:
+def check(sheets: dict[str, Image.Image], action_sheets: dict[str, Image.Image]) -> int:
     bad = 0
-    for family, img in sheets.items():
-        path = NATIVE / f"{family}.png"
-        if not path.exists():
-            print(f"missing {path}")
+    for folder, made in ((NATIVE, sheets), (ACTIONS, action_sheets)):
+        for family, img in made.items():
+            path = folder / f"{family}.png"
+            if not path.exists():
+                print(f"missing {path}")
+                bad += 1
+                continue
+            if Image.open(path).convert("RGBA").tobytes() != img.tobytes():
+                print(f"differs {path}")
+                bad += 1
+        on_disk = {p.stem for p in folder.glob("*.png")} if folder.exists() else set()
+        for stray in sorted(on_disk - set(made)):
+            print(f"stray {folder / stray}.png (no garment paints it)")
             bad += 1
-            continue
-        if Image.open(path).convert("RGBA").tobytes() != img.tobytes():
-            print(f"differs {path}")
-            bad += 1
-    on_disk = {p.stem for p in NATIVE.glob("*.png")} if NATIVE.exists() else set()
-    for stray in sorted(on_disk - set(sheets)):
-        print(f"stray {NATIVE / stray}.png (no garment paints it)")
+    if AUTHORED.read_text() != authored_text():
+        print(f"differs {AUTHORED}: a garment's members are not every frame of its rig, cropped from its sheets")
         bad += 1
     return bad
 
 
 if __name__ == "__main__":
-    sheets = atlases(build_all())
+    import action_wear
+
+    images = build_all()
+    sheets = atlases(images)
+    acted = action_wear.build(sys.modules[__name__], images)
+    action_sheets = action_wear.sheets(acted, GARMENTS)
+    frames = len(parts.frame_names()) + len(action_wear.action_frames())
     if "--check" in sys.argv:
-        n = check(sheets)
+        n = check(sheets, action_sheets)
         if n:
             print(f"CLOTHING_DIFFERS {n}")
             sys.exit(1)
-        print(f"CLOTHING_OK {len(sheets)} garments, {len(sheets) * len(parts.frame_names())} frames")
+        print(f"CLOTHING_OK {len(sheets)} garments, {len(sheets) * frames} frames")
         sys.exit(0)
-    write(sheets)
-    print(f"wrote {len(sheets)} garment sheets under {NATIVE}")
+    write(sheets, action_sheets)
+    print(f"wrote {len(sheets)} garment sheets and their action sheets under {NATIVE}, and their members in {AUTHORED.name}")
