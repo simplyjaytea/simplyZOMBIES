@@ -17,7 +17,8 @@ shader_type canvas_item;
 // Pixel art, not airbrush: everything is evaluated at the centre of the art pixel the fragment lies
 // in, every light is snapped to `pool_levels` flat rings with an ordered dither only in the band
 // where one ring gives way to the next, and the darkness is rounded to `levels` steps -- dithered
-// only where seen gives way to unseen, the one other place the picture changes.
+// only where seen gives way to unseen or the known map to the void, the other places the picture
+// changes.
 
 render_mode blend_mul, unshaded;
 
@@ -68,6 +69,10 @@ uniform float tint_strength = 0.85;
 uniform float edge_dark_day = 0.0;
 uniform float edge_dark_night = 0.95;
 uniform float levels = 20.0;
+// How much of the night's colour is left at midnight (LightLook.NIGHT_FLOOR), and how dark the
+// known map's edge beside the void goes.
+uniform float night_floor = 0.24;
+uniform float void_dark = 0.9;
 uniform float pool_levels = 5.0;
 uniform float band = 0.35;
 // A pool's radius: pool_scale of the source's sim reach, never under pool_min_m. The sim lights a
@@ -110,15 +115,36 @@ float rings(float v, float threshold) {
 	return min(pool_levels, k + step(threshold, t - 0.0001)) / pool_levels;
 }
 
-// A per-tile answer softened over the inner half of the tiles that hold it: the four tile centres
-// around the pixel, bilinear, then cut at one half so the fade ends exactly at the tile's edge and
-// never crosses it. A tile that does not hold the answer is 0 everywhere inside it.
-float feather(int b00, int b10, int b01, int b11, int own, vec2 f) {
+// How far inside its own tile an answer holds, 0 at the edge of a neighbour that does not hold it
+// and 1 half a tile in: the tile's own answer, its neighbour across the nearer vertical edge (h),
+// across the nearer horizontal edge (v) and across the nearer corner (d), and the pixel's distance
+// to those edges in tiles (0 to 0.5). Each missing neighbour fades it toward its own edge or corner,
+// so the fade always reaches 0 exactly at the tile boundary, corners included, and never crosses
+// it -- a bilinear blend of the four tile centres would leave a corner half-lit and step there.
+float inside(int own, int h, int v, int d, vec2 dist) {
 	if (own == 0) {
 		return 0.0;
 	}
-	float s = mix(mix(float(b00), float(b10), f.x), mix(float(b01), float(b11), f.x), f.y);
-	return smoothstep(0.5, 1.0, s);
+	float m = 1.0;
+	if (h == 0) {
+		m *= smoothstep(0.0, 0.5, dist.x);
+	}
+	if (v == 0) {
+		m *= smoothstep(0.0, 0.5, dist.y);
+	}
+	if (d == 0 && h != 0 && v != 0) {
+		m *= smoothstep(0.0, 0.5, length(dist));
+	}
+	return m;
+}
+
+// The same answer centred on the tile boundary instead: 1 half a tile inside the tiles that hold
+// it, 0 half a tile inside the ones that do not, one half on the boundary itself.
+float across(int own, int h, int v, int d, vec2 dist) {
+	if (own != 0) {
+		return 0.5 + 0.5 * inside(own, h, v, d, dist);
+	}
+	return 0.5 - 0.5 * inside(1, 1 - h, 1 - v, 1 - d, dist);
 }
 
 void fragment() {
@@ -134,24 +160,33 @@ void fragment() {
 	ivec4 t10 = texel(c0 + ivec2(1, 0));
 	ivec4 t01 = texel(c0 + ivec2(0, 1));
 	ivec4 t11 = texel(c0 + ivec2(1, 1));
-	// The pixel's own tile is one of the four corners: the one its fraction rounds toward.
-	ivec4 to = f.y < 0.5 ? (f.x < 0.5 ? t00 : t10) : (f.x < 0.5 ? t01 : t11);
+	// The pixel's own tile is one of the four corners, the one its fraction rounds toward; the
+	// other three are its neighbours across the nearer vertical edge, horizontal edge and corner.
+	bool right = f.x >= 0.5;
+	bool below = f.y >= 0.5;
+	ivec4 to = below ? (right ? t11 : t01) : (right ? t10 : t00);
+	ivec4 th = below ? (right ? t01 : t11) : (right ? t00 : t10);
+	ivec4 tv = below ? (right ? t10 : t00) : (right ? t11 : t01);
+	ivec4 td = below ? (right ? t00 : t10) : (right ? t01 : t11);
+	vec2 dist = abs(f - 0.5);
 	int own_r = to.r;
-	// Seen, as the darkness reads it: the edge of sight centred on the tile boundary, half a tile
-	// wide, so a lone seen tile is a rounded patch and the void beside it is not a hard rectangle.
-	// Only the sky and the survivor's own disc cross into the unseen side; no source's light does.
-	float s_seen = mix(mix(step(127.5, float(t00.r)), step(127.5, float(t10.r)), f.x), mix(step(127.5, float(t01.r)), step(127.5, float(t11.r)), f.x), f.y);
-	float seen = smoothstep(0.25, 0.75, s_seen);
+	// Seen (R 255) and known (R 128 or 255: seen now, or remembered), as the darkness reads them.
+	// The edge of sight is centred on the tile boundary, half a tile into each side, so a lone seen
+	// tile is a rounded patch rather than a hard square. Only the sky and the survivor's own disc
+	// cross into the unseen side; no source's light does.
+	float seen = across(int(to.r > 191), int(th.r > 191), int(tv.r > 191), int(td.r > 191), dist);
+	// The void -- tiles never seen, which no layer draws -- cannot be lit or faded by a multiply, so
+	// the known side does all the fading: its last half tile walks down to the void's own dark.
+	float known = inside(int(to.r > 63), int(th.r > 63), int(tv.r > 63), int(td.r > 63), dist);
 
 	// The brightest light here -- max, never sum, as the sim keeps it.
 	float best = 0.0;
 	vec3 hue = vec3(1.0);
-	if (light_count > 0 && own_r > 127) {
-		ivec3 b00 = t00.gba;
-		ivec3 b10 = t10.gba;
-		ivec3 b01 = t01.gba;
-		ivec3 b11 = t11.gba;
+	if (light_count > 0 && own_r > 191) {
 		ivec3 bo = to.gba;
+		ivec3 bh = th.gba;
+		ivec3 bv = tv.gba;
+		ivec3 bd = td.gba;
 		for (int i = 0; i < MAX_LIGHTS; i++) {
 			if (i >= light_count) {
 				break;
@@ -162,7 +197,7 @@ void fragment() {
 			if (own == 0) {
 				continue;
 			}
-			float mask = feather((b00[ch] >> bit) & 1, (b10[ch] >> bit) & 1, (b01[ch] >> bit) & 1, (b11[ch] >> bit) & 1, own, f);
+			float mask = inside(own, (bh[ch] >> bit) & 1, (bv[ch] >> bit) & 1, (bd[ch] >> bit) & 1, dist);
 			vec4 src = light_pos[i];
 			vec4 tint = light_tint[i];
 			float flick = 1.0 - src.w * (0.5 + 0.5 * sin(TIME * 9.0 + float(i) * 1.7) * sin(TIME * 4.3 + float(i) * 0.9));
@@ -213,15 +248,22 @@ void fragment() {
 	float edge_dark = mix(edge_dark_night, edge_dark_day, ambient);
 	float dark_unseen = dark_sky + edge_dark * (1.0 - dark_sky);
 	float dark = mix(dark_unseen, dark_seen, seen);
+	// Beside the void, the known side's last half tile goes most of the way to full dark, which is
+	// about where the void's own unlit background sits under the same night.
+	dark = mix(max(dark_unseen, void_dark), dark, known);
 
 	// Rounded to `levels` steps where the picture is flat; dithered between two steps only where
-	// seen gives way to unseen. The rings already carry their own dither.
-	float edge = step(0.001, seen) * step(seen, 0.999);
+	// seen gives way to unseen or the known map to the void. The rings carry their own dither.
+	float edge = max(step(0.001, seen) * step(seen, 0.999), step(0.001, known) * step(known, 0.999));
 	dark = mix(floor(dark * levels + 0.5), floor(dark * levels + threshold), edge) / levels;
 	dark = clamp(dark, 0.0, 1.0);
 
 	// A pool takes its source's hue in proportion to how much it out-lights the sky.
 	float pool = clamp((best - sky) / max(0.0001, 1.0 - sky), 0.0, 1.0) * seen;
 	vec3 light = mix(vec3(1.0), hue, tint_strength * pool);
-	COLOR = vec4(mix(light, night_colour.rgb, dark), 1.0);
+	// Full dark is the night's colour, and at midnight a fraction of it (night_floor), so the floor
+	// outside every light is near black with only a little blue in it; from dusk on up it is the
+	// night's colour itself, so dusk keeps its tone.
+	vec3 floor_colour = night_colour.rgb * mix(night_floor, 1.0, smoothstep(0.04, 0.3, ambient));
+	COLOR = vec4(mix(light, floor_colour, dark), 1.0);
 }

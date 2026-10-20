@@ -139,6 +139,7 @@ func frame(ctx: Dictionary, show: bool) -> void:
 	_material.set_shader_parameter("night_wash", float(ctx["night_wash"]))
 	_material.set_shader_parameter("eye_floor", LightLook.EYE_FLOOR)
 	_material.set_shader_parameter("pool_levels", float(LightLook.POOL_LEVELS))
+	_material.set_shader_parameter("night_floor", LightLook.NIGHT_FLOOR)
 	_material.set_shader_parameter("edge_dark_day", float(ctx["edge_dark_day"]))
 	_material.set_shader_parameter("edge_dark_night", float(ctx["edge_dark_night"]))
 	RenderingServer.canvas_item_add_rect(_dark, Rect2(Vector2.ZERO, ctx["viewport"] as Vector2), Color.WHITE)

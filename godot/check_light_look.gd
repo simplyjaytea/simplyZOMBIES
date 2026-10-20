@@ -34,6 +34,7 @@ const ContentLoader = preload("res://platform/content_loader.gd")
 const Items = preload("res://sim/modules/items.gd")
 const Inventory = preload("res://sim/modules/inventory.gd")
 const SimNeedsMod = preload("res://sim/modules/needs.gd")
+const SimSightings = preload("res://sim/modules/sightings.gd")
 
 const MAIN_GD: String = "res://presentation/main.gd"
 const MAP_TILES: int = 24
@@ -66,7 +67,7 @@ func _run() -> void:
 	ok = _a_beam_is_content_and_needs_a_facing() and ok
 	ok = _a_flame_flickers_and_a_bulb_does_not() and ok
 	if ok:
-		print("LIGHT_LOOK_OK the light map's texels put light on no unseen tile (a walled campfire's far side is four zero bytes, the open twin is lit), pools are rings capped by their reach (fire over lantern, and redder), the eye disc derives from sight (and differs from raw ambient on the same lit scene), falls back to ambient exactly with no observer or no emitter, pools are lit-and-seen with a walled far side drawn nowhere, the near/far split lands at %.0f m, full daylight clears the light map, and main.gd's _draw calls both helpers" % LightLook.POOL_SPLIT_METRES)
+		print("LIGHT_LOOK_OK the light map's texels put light on no unseen tile (a walled campfire's far side carries no seen byte and no source bit, the open twin is lit, remembered tiles read 128), pools are rings capped by their reach (fire over lantern, and redder), the eye disc derives from sight (and differs from raw ambient on the same lit scene), falls back to ambient exactly with no observer or no emitter, pools are lit-and-seen with a walled far side drawn nowhere, the near/far split lands at %.0f m, full daylight clears the light map, and main.gd's _draw calls both helpers" % LightLook.POOL_SPLIT_METRES)
 		quit(0)
 	else:
 		push_error("LIGHT_LOOK_FAIL")
@@ -240,6 +241,10 @@ func _a_pool_behind_a_wall_is_lit_and_never_drawn() -> bool:
 				return false
 
 	var open: Variant = _world(false, NIGHT_FRACTION)
+	# The explored map is the sightings module's; this fixture boots the kernel alone, so it is
+	# registered here for the walk-away check below.
+	SimSightings.register_module(open)
+	SimSightings.attach(open, int(open.player))
 	_emitter(open, float(far_tx) + 0.5, float(far_ty) + 0.5, CAMPFIRE_M)
 	open.step()
 	var drawn: Dictionary = LightLook.lit_pool_tiles(open, int(open.player), _all_bounds())
@@ -623,12 +628,12 @@ func _dead_socket_main_gd_draws_what_light_look_returns() -> bool:
 	# light_map.gd hands the shader every number LightLook owns, and the shader multiplies (so it
 	# can only darken) and reads the texels and the beams it is handed.
 	var map_src: String = FileAccess.get_file_as_string("res://presentation/light_map.gd")
-	for needle in ["LightLook.source_cap(", "LightLook.POOL_LEVELS", "LightLook.EYE_FLOOR", "LightLook.MAX_LIGHTS", "\"light_tex\"", "\"light_dir\"", "\"light_pos\"", "\"eye_reach\""]:
+	for needle in ["LightLook.source_cap(", "LightLook.POOL_LEVELS", "LightLook.EYE_FLOOR", "LightLook.NIGHT_FLOOR", "LightLook.MAX_LIGHTS", "\"light_tex\"", "\"light_dir\"", "\"light_pos\"", "\"eye_reach\""]:
 		if not map_src.contains(needle):
 			push_error("light_map.gd does not hand the shader %s" % needle)
 			return false
 	var shader_src: String = FileAccess.get_file_as_string("res://presentation/night_light.gdshader")
-	for needle in ["render_mode blend_mul", "float b = tint.w * rings(fall * mask, threshold);", "eye_floor * (1.0 - ambient) * eye_fade * rings(1.0 - smoothstep(disc_r * 0.45, disc_r, d_eye), threshold)", "texelFetch(light_tex", "light_dir[i]", "smoothstep(0.5, 1.0, s)", "if (light_count > 0 && own_r > 127)"]:
+	for needle in ["render_mode blend_mul", "float b = tint.w * rings(fall * mask, threshold);", "eye_floor * (1.0 - ambient) * eye_fade * rings(1.0 - smoothstep(disc_r * 0.45, disc_r, d_eye), threshold)", "texelFetch(light_tex", "light_dir[i]", "float mask = inside(own,", "if (light_count > 0 && own_r > 191)"]:
 		if not shader_src.contains(needle):
 			push_error("night_light.gdshader lost %s" % needle)
 			return false
@@ -648,8 +653,10 @@ func _texel(texels: Dictionary, tx: int, ty: int) -> PackedByteArray:
 
 
 # NO LIGHT ON UNSEEN. The plan's lane: a campfire behind a wall lights its own side in the sim, and
-# every tile there the survivor does not see is four zero bytes in the light map -- no seen bit, no
-# source bit -- so the shader has nothing to put there. Every tile carrying a source bit carries the
+# every tile there the survivor does not see carries no seen byte and no source bit in the light
+# map, so the shader has nothing to put there. The R byte is 128 exactly where the survivor only
+# remembers the tile (SimSightings.knows_tile and not seen), 0 for the void; the remembered case is
+# made, not assumed -- the survivor walks away from tiles they saw. Every tile carrying a source bit carries the
 # seen bit too (lit is a subset of seen, everywhere, not only past the wall). The true negative is
 # the open twin: the same tile with the wall gone is seen and carries the campfire's bit, so a
 # builder that returned zeros for everything could not pass.
@@ -669,7 +676,7 @@ func _the_light_map_lands_no_light_on_an_unseen_tile() -> bool:
 		for tx in MAP_TILES:
 			var t: PackedByteArray = _texel(texels, tx, ty)
 			var is_seen: bool = bool((seen as Object).call("has_tile", tx, ty))
-			if (t[0] == 255) != is_seen:
+			if (t[0] == 255) != is_seen or (t[0] != 255 and t[0] != 128 and t[0] != 0):
 				push_error("NO LIGHT ON UNSEEN: tile (%d, %d) has seen byte %d but the survivor's sight says %s" % [tx, ty, t[0], str(is_seen)])
 				return false
 			if (t[1] | t[2] | t[3]) != 0 and t[0] != 255:
@@ -677,14 +684,18 @@ func _the_light_map_lands_no_light_on_an_unseen_tile() -> bool:
 				return false
 			if not is_seen and float(walled.light.lit_metres(float(tx) + 0.5, float(ty) + 0.5)) > 0.0:
 				lit_unseen += 1
-				if (t[0] | t[1] | t[2] | t[3]) != 0:
-					push_error("NO LIGHT ON UNSEEN: tile (%d, %d) is lit in the sim and unseen, and its texel is not zero" % [tx, ty])
+				if t[0] == 255 or (t[1] | t[2] | t[3]) != 0:
+					push_error("NO LIGHT ON UNSEEN: tile (%d, %d) is lit in the sim and unseen, and its texel carries light or reads seen" % [tx, ty])
 					return false
 	if lit_unseen == 0:
 		push_error("NO LIGHT ON UNSEEN: no tile was lit and unseen -- the lane judged nothing")
 		return false
 
 	var open: Variant = _world(false, NIGHT_FRACTION)
+	# The explored map is the sightings module's; this fixture boots the kernel alone, so it is
+	# registered here for the walk-away check below.
+	SimSightings.register_module(open)
+	SimSightings.attach(open, int(open.player))
 	_emitter(open, float(far_tx) + 0.5, float(far_ty) + 0.5, CAMPFIRE_M)
 	open.step()
 	var open_texels: Dictionary = LightLook.light_texels(open, int(open.player), _view())
@@ -695,11 +706,31 @@ func _the_light_map_lands_no_light_on_an_unseen_tile() -> bool:
 	if int(open_texels["lit"]) <= 0 or int(open_texels["lit"]) > int(open_texels["seen"]):
 		push_error("NO LIGHT ON UNSEEN: the open twin reports %d lit of %d seen tiles" % [int(open_texels["lit"]), int(open_texels["seen"])])
 		return false
+	var p0: Dictionary = open.components.get_component(open.player, "position")
+	open.components.set_component(open.player, "position", {"x": 2.5, "y": float(p0["y"])})
+	open.step()
+	var moved: Dictionary = LightLook.light_texels(open, int(open.player), _view())
+	var seen_now: Variant = open.vision.tiles_for(int(open.player))
+	var remembered: int = 0
+	for ty in MAP_TILES:
+		for tx in MAP_TILES:
+			var r: int = _texel(moved, tx, ty)[0]
+			var is_seen_now: bool = bool((seen_now as Object).call("has_tile", tx, ty))
+			var known: bool = SimSightings.knows_tile(open, int(open.player), tx, ty)
+			var want: int = 255 if is_seen_now else (128 if known else 0)
+			if r != want:
+				push_error("NO LIGHT ON UNSEEN: tile (%d, %d) reads R %d, not %d (seen %s, remembered %s)" % [tx, ty, r, want, str(is_seen_now), str(known)])
+				return false
+			if r == 128:
+				remembered += 1
+	if remembered == 0:
+		push_error("NO LIGHT ON UNSEEN: walking away left no remembered tile -- the 128 byte was never judged")
+		return false
 	var nobody: Dictionary = LightLook.light_texels(open, -1, _view())
 	if (nobody["sources"] as Array).size() != 0 or _texel(nobody, far_tx, far_ty)[1] != 0 or _texel(nobody, far_tx, far_ty)[0] != 255:
 		push_error("NO LIGHT ON UNSEEN: with nobody to ask, the texels are not every-tile-seen with no source -- the ambient fallback moved")
 		return false
-	print("NO LIGHT ON UNSEEN OK %d tiles lit in the sim behind the wall are four zero bytes; every source bit sits on a seen tile; the open twin's tile is seen and carries its bit (%d lit of %d seen); nobody to ask is the sky alone" % [lit_unseen, int(open_texels["lit"]), int(open_texels["seen"])])
+	print("NO LIGHT ON UNSEEN OK %d tiles lit in the sim behind the wall carry no seen byte and no source bit; every source bit sits on a seen tile; the open twin's tile is seen and carries its bit (%d lit of %d seen); after walking away %d remembered tiles read 128 and the void 0; nobody to ask is the sky alone" % [lit_unseen, int(open_texels["lit"]), int(open_texels["seen"]), remembered])
 	return true
 
 
@@ -737,6 +768,11 @@ func _a_pool_is_rings_capped_by_its_reach() -> bool:
 	if not (fire_tint.g / fire_tint.r < lantern_tint.g / lantern_tint.r - 0.1):
 		push_error("RINGS: the campfire's tint %s is not redder than the storm lantern's %s" % [fire_tint.to_html(false), lantern_tint.to_html(false)])
 		return false
+	var night: Color = Palette.COLOURS["night"] as Color
+	for ch in [night.r, night.g, night.b]:
+		if float(ch) * LightLook.NIGHT_FLOOR * 255.0 > 8.0 + EPS:
+			push_error("RINGS: the midnight floor is night x %f, a channel above 8 of 255 on a white tile" % LightLook.NIGHT_FLOOR)
+			return false
 	w.step()
 	var dark_disc: float = LightLook.eye_disc_metres(w, int(w.player))
 	var expect: float = LightLook.ambient_of(w) * float(SimVisibility.daylight_eyes()["range_metres"])
