@@ -84,9 +84,10 @@ func _run() -> void:
 	ok = _a_dead_bloater_books_a_contamination_on_whoever_is_standing_there() and ok
 	ok = _a_respirator_is_contaminated_less_often_on_the_same_seed() and ok
 	ok = _a_cloth_mask_helps_and_is_not_safe() and ok
+	ok = _a_plume_gets_in_through_any_open_wound() and ok
 	ok = _a_bare_survivor_is_priced_exactly_as_before() and ok
 	if ok:
-		print("M2_FILTER_OK content worn max bloom cloud notsafe pinned")
+		print("M2_FILTER_OK content worn max bloom cloud notsafe open pinned")
 		quit(0)
 	else:
 		push_error("M2_FILTER_FAIL")
@@ -486,6 +487,43 @@ func _a_cloth_mask_helps_and_is_not_safe() -> bool:
 		push_error("NOTSAFE: a cloth mask halved the plume (%d against %d) -- that is a respirator's job and there would be no reason to look for one" % [cloth_hits, bare_hits])
 		return false
 	print("  NOTSAFE: over %d paired seeds a bare head took %d and a rag over the mouth %d, deciding %d -- better, and nowhere near safe" % [CLOTH_COUNT, bare_hits, cloth_hits, decided])
+	return true
+
+
+# --- OPEN -------------------------------------------------------------------------------------
+#
+# A plume gets in through an open wound, and an open wound is one whose kind bleeds: a bite, a cut,
+# a burn. `_has_open_wound` once matched "bite" alone, so a survivor with a laceration or a burn
+# walked through a cloud untouched. The closed kinds stay out: a fracture, a sprain, a concussion
+# and frostbite have no opening, so they are the true negatives. Each seed is one cloud over one
+# survivor carrying one wound, and the count is over the same seeds for every kind.
+const OPEN_KINDS: Array[String] = ["bite", "cut", "burn"]
+const CLOSED_KINDS: Array[String] = ["fracture", "sprain", "concussion", "frostbite"]
+const OPEN_COUNT: int = 40
+const OPEN_FIRST: int = 7600
+
+
+func _a_plume_gets_in_through_any_open_wound() -> bool:
+	var booked: Dictionary = {}
+	for kind in OPEN_KINDS + CLOSED_KINDS:
+		var hits: int = 0
+		for i in range(OPEN_COUNT):
+			var w: Variant = _world(OPEN_FIRST + i, false)
+			SimWounds.append_wound(w, w.player, kind, PART, -1, 4.0)
+			_cloud(w)
+			w.step()
+			if _contaminated(w):
+				hits += 1
+		booked[kind] = hits
+	for kind in OPEN_KINDS:
+		if int(booked[kind]) == 0:
+			push_error("OPEN: a survivor with a %s is an open wound and a plume booked nothing across %d seeds" % [kind, OPEN_COUNT])
+			return false
+	for kind in CLOSED_KINDS:
+		if int(booked[kind]) != 0:
+			push_error("OPEN: a survivor with a %s has no opening and a plume still got in %d times" % [kind, int(booked[kind])])
+			return false
+	print("  OPEN: over %d seeds a plume books bite %d, cut %d, burn %d; fracture %d, sprain %d, concussion %d, frostbite %d" % [OPEN_COUNT, int(booked["bite"]), int(booked["cut"]), int(booked["burn"]), int(booked["fracture"]), int(booked["sprain"]), int(booked["concussion"]), int(booked["frostbite"])])
 	return true
 
 
