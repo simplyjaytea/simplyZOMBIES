@@ -74,6 +74,9 @@ const STRIP_CLEARANCE: float = 116.0
 # does not ghost through the words.
 const STEEL_ALPHA: float = 0.96
 const YOU_CARD_W: float = 472.0
+# Where the "you" card starts. main.gd moves it right of the street's body card, so a "you" card
+# that grows a line per need runs down beside the figure instead of over it (UI review, round 3).
+var you_left: float = MARGIN
 const OUT_CARD_W: float = 496.0
 # Inner left/right gutter, and the skirt below the last line: clear of the kit frame's ten-pixel
 # border (Kit.SCALE times the manifest's five) with the same breathing room the old hairline had.
@@ -548,18 +551,36 @@ func _draw_hint(font: Font, view: Vector2) -> void:
 	_hint_rect = rect
 
 
+# Where a card of these lines stands: shared by the draw and the gate that keeps the "you" card
+# off the body card.
+func card_rect(font: Font, view: Vector2, lines: Array[String], right: bool) -> Rect2:
+	var width: float = OUT_CARD_W if right else YOU_CARD_W
+	for line in lines:
+		width = maxf(width, font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x + CARD_PAD * 2.0)
+	var height: float = Locker.HEAD_H + lines.size() * LINE + CARD_PAD
+	var left: float = view.x - MARGIN - width if right else you_left
+	return Rect2(Vector2(left, MARGIN), Vector2(width, height))
+
+
+# The "you" card as it stands now, and the top of the action bar: what the street's body card sits
+# between.
+func you_card_rect() -> Rect2:
+	return card_rect(Chrome.font(), get_viewport_rect().size, _left, false)
+
+
+func bar_top() -> float:
+	return get_viewport_rect().size.y - MARGIN - STRIP_CLEARANCE - BAR_H
+
+
 # One card in the Salvage Locker's skin (`ui/locker.gd`): a steel panel, its name on tape, and the
 # column's lines inside it. It sizes to its content in both directions -- a card with a fixed height would
 # either clip the chronicle or hang an empty box over the street on a quiet day.
 func _draw_card(font: Font, view: Vector2, lines: Array[String], label: String, right: bool) -> void:
 	if lines.is_empty():
 		return
-	var width: float = OUT_CARD_W if right else YOU_CARD_W
-	for line in lines:
-		width = maxf(width, font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x + CARD_PAD * 2.0)
-	var height: float = Locker.HEAD_H + lines.size() * LINE + CARD_PAD
-	var left: float = view.x - MARGIN - width if right else MARGIN
-	var rect := Rect2(Vector2(left, MARGIN), Vector2(width, height))
+	var rect: Rect2 = card_rect(font, view, lines, right)
+	var width: float = rect.size.x
+	var left: float = rect.position.x
 	Locker.panel(self, rect, STEEL_ALPHA)
 	var y: float = Locker.header(self, rect, label, STEEL_ALPHA) + FONT_SIZE + 2.0
 	if right:
