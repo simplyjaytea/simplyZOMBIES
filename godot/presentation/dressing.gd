@@ -1895,8 +1895,10 @@ static func _kept_seated(occ: Dictionary, map: Variant, tx: int, ty: int) -> Dic
 
 # The furnished tiles a room gives up so that every free tile of it stays one walk: the room's
 # standing and flat pieces are taken in turn, the tables first, then the rest, each in its tile's
-# SALT_PASSAGE hash order, and a piece is kept only while the room's tiles left free stay one
-# four-connected walk and keep every tile inside a doorway free. A piece that would cut a corridor
+# SALT_PASSAGE hash order, and a piece is kept only while the free tiles on its four sides -- the
+# sim's own objects' tiles taken from the start -- stay joined round its eight neighbours
+# (`_keeps_its_ring`), so it closes no passage and the room's walks stay as the objects left them,
+# and every tile inside a doorway stays free. A piece that would cut a corridor
 # or wall in a corner gives way: a two-tile corridor between walls never takes a piece on both of its
 # tiles. A chair whose table gave way goes with it. Memoised per room in `occ`. An occupancy whose
 # `keep_passages` is false (a gate's, to show the rule has work) skips it.
@@ -1920,8 +1922,16 @@ static func _room_drops(occ: Dictionary, map: Variant, room: int) -> Dictionary:
 		var first: int = 0 if int(top.get("prio", 0)) == 2 else 1
 		pieces.append([first, _mix(_hash_t(seed_term, cx, cy, SALT_PASSAGE)), idx, top.get("table", null)])
 	pieces.sort_custom(func(a: Array, b: Array) -> bool: return a.slice(0, 3) < b.slice(0, 3))
+	# A sim object (a crate, a searchable, a bed) holds its tile for the walk as much as a picture does,
+	# and was there first: the room's walk is judged with those tiles taken, and a piece may not split
+	# the free floor into more walks than they left it.
 	var blocked: Dictionary = {}
+	for idx in tiles:
+		var held: Dictionary = _raw_top(occ, map, idx % w, floori(float(idx) / float(w)))
+		if not held.is_empty() and int(held["rank"]) == RANK_HELD:
+			blocked[idx] = true
 	var drops: Dictionary = {}
+	var placed: Dictionary = {}
 	for piece in pieces:
 		var idx: int = int(piece[2])
 		var faces: Variant = piece[3]
@@ -1931,10 +1941,22 @@ static func _room_drops(occ: Dictionary, map: Variant, room: int) -> Dictionary:
 		if _by_door(map, idx % w, floori(float(idx) / float(w))):
 			drops[idx] = true
 			continue
+		# Kept only while the free tiles beside it stay joined round it: a piece that would close a
+		# passage gives way even where the room has a way round elsewhere, so a corridor is never
+		# filled wall to wall. Every piece kept this way leaves the room's walks as they were.
+		# A piece already kept beside it must keep its own ring too.
 		blocked[idx] = true
-		if not _keeps_its_ring(w, idx, in_room, blocked) and not _one_walk(map, tiles, in_room, blocked):
+		var closes: bool = not _keeps_its_ring(w, idx, in_room, blocked)
+		for n in _ring_of(w, idx):
+			if closes:
+				break
+			if placed.has(n) and not _keeps_its_ring(w, n, in_room, blocked):
+				closes = true
+		if closes:
 			blocked.erase(idx)
 			drops[idx] = true
+		else:
+			placed[idx] = true
 	# A table left with no chair of its own goes too: a lone table mid-floor reads as a mistake, and
 	# a set is one to SEATS_MAX chairs. Tables side by side are judged as one long table.
 	var seated: Dictionary = {}
@@ -2006,38 +2028,23 @@ static func _keeps_its_ring(w: int, idx: int, in_room: Dictionary, blocked: Dict
 	return runs_with_a_side == 1
 
 
+# The eight tiles round `idx` on a map `w` wide, those off the map's west or east edge left out.
+static func _ring_of(w: int, idx: int) -> Array[int]:
+	var x: int = idx % w
+	var out: Array[int] = []
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			if (dx != 0 or dy != 0) and x + dx >= 0 and x + dx < w:
+				out.append(idx + dy * w + dx)
+	return out
+
+
 # Whether a tile lies inside a doorway: a door on one of its four sides.
 static func _by_door(map: Variant, tx: int, ty: int) -> bool:
 	for side in SIDES:
 		if _door_at(map, tx + side.x, ty + side.y):
 			return true
 	return false
-
-
-# Whether a room's tiles that are not `blocked` are one four-connected walk (an empty set is).
-static func _one_walk(map: Variant, tiles: PackedInt32Array, in_room: Dictionary, blocked: Dictionary) -> bool:
-	var w: int = int(map.w)
-	var start: int = -1
-	var free: int = 0
-	for idx in tiles:
-		if not blocked.has(idx):
-			free += 1
-			if start < 0:
-				start = idx
-	if free == 0:
-		return true
-	var seen: Dictionary = {start: true}
-	var queue: Array[int] = [start]
-	while not queue.is_empty():
-		var at: int = queue.pop_back()
-		for side in SIDES:
-			var n: int = at + side.y * w + side.x
-			if (side.x != 0 and floori(float(n) / float(w)) != floori(float(at) / float(w))):
-				continue
-			if in_room.has(n) and not blocked.has(n) and not seen.has(n):
-				seen[n] = true
-				queue.append(n)
-	return seen.size() == free
 
 
 # A tile's raw top as the overlap rule alone keeps it, before a chair asks after its table.

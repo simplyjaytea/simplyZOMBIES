@@ -2587,6 +2587,17 @@ func _the_occupancy_holds() -> bool:
 
 
 # A room `w` x `h` with walls all round, the floor inside it indoor and paved.
+# A 40x9 walled block: a two-row corridor (rows 1 and 2) along the top, an inner wall on row 3 open
+# at both ends, and a room (rows 4 to 7) below, so a stretch of the corridor joins the rest along the
+# corridor or round through the room. Wide enough that the start's clearing leaves the west end
+# (columns 1 to 12) to the dressing.
+func _corridor_map() -> Variant:
+	var map: Variant = _walled_room(40, 9)
+	for tx in range(2, 38):
+		map.tiles[3 * 40 + tx] = SimTileMap.Tile.Wall
+	return map
+
+
 func _walled_room(w: int, h: int) -> Variant:
 	var map: Variant = _room_map(w, h, true)
 	for ty in h:
@@ -3467,8 +3478,8 @@ func _the_old_street_stands() -> bool:
 # Over a map's rooms: how many are cut (their free floor is not one four-connected walk, or a tile
 # inside a doorway holds a piece), and how many free tiles were judged. A tile is taken when a kept
 # standing or flat picture stands on it; scraps and the old street furniture do not count.
-static func _cut_rooms(block: Dictionary, map: Variant, seed_val: int, keep: bool = true) -> Vector2i:
-	var occ: Dictionary = Dressing.occupancy(block, map, seed_val)
+static func _cut_rooms(block: Dictionary, map: Variant, seed_val: int, keep: bool = true, held: Dictionary = {}, dressing_sees_held: bool = true) -> Vector2i:
+	var occ: Dictionary = Dressing.occupancy(block, map, seed_val, held if dressing_sees_held else {})
 	occ["keep_passages"] = keep
 	var w: int = int(map.w)
 	var room_seen: Dictionary = {}
@@ -3483,50 +3494,95 @@ static func _cut_rooms(block: Dictionary, map: Variant, seed_val: int, keep: boo
 			var tiles: PackedInt32Array = (occ["room_tiles"] as Array)[room]
 			var in_room: Dictionary = {}
 			var taken: Dictionary = {}
+			var by_sim: Dictionary = {}
 			var door_blocked: bool = false
 			for idx in tiles:
 				in_room[idx] = true
+				# A sim object's tile is taken whether or not the dressing was told of it.
+				if held.has(Vector2i(idx % w, floori(float(idx) / float(w)))):
+					by_sim[idx] = true
+					taken[idx] = true
+					continue
 				var top: Dictionary = Dressing._kept_top(occ, map, idx % w, floori(float(idx) / float(w)))
 				if not top.is_empty() and int(top["rank"]) >= Dressing.RANK_FLAT and int(top["rank"]) != Dressing.RANK_HELD:
 					taken[idx] = true
 					if Dressing._by_door(map, idx % w, floori(float(idx) / float(w))):
 						door_blocked = true
 			judged += tiles.size() - taken.size()
-			if door_blocked or not _walk_of(w, tiles, in_room, taken):
+			if door_blocked or _closes_a_passage(w, in_room, taken, by_sim):
+				cut += 1
+				continue
+			var walks: int = _walk_of(w, tiles, in_room, taken)
+			if walks > 1 and walks > _walk_of(w, tiles, in_room, by_sim):
 				cut += 1
 	return Vector2i(cut, judged)
 
 
-# The gate's own flood fill (not dressing.gd's): whether the room's free tiles are one walk.
-static func _walk_of(w: int, tiles: PackedInt32Array, in_room: Dictionary, taken: Dictionary) -> bool:
-	var free: Array[int] = []
-	for idx in tiles:
-		if not taken.has(idx):
-			free.append(idx)
-	if free.is_empty():
-		return true
-	var reached: Dictionary = {free[0]: true}
-	var queue: Array[int] = [free[0]]
-	while not queue.is_empty():
-		var at: int = queue.pop_back()
-		var x: int = at % w
-		for n in [at - w, at + w, at - 1 if x > 0 else -1, at + 1 if x < w - 1 else -1]:
-			if int(n) >= 0 and in_room.has(n) and not taken.has(n) and not reached.has(n):
-				reached[n] = true
-				queue.append(int(n))
-	return reached.size() == free.size()
+# Whether a picture closes a passage: the free tiles on its four sides are not all joined by free
+# tiles inside its own 3x3 square, so a walk that ran through its tile now has to go round. A sim
+# object's own tile is not judged. The gate's own fill, not dressing.gd's ring test.
+static func _closes_a_passage(w: int, in_room: Dictionary, taken: Dictionary, by_sim: Dictionary) -> bool:
+	for idx in taken:
+		if by_sim.has(idx):
+			continue
+		var x: int = int(idx) % w
+		var box: Dictionary = {}
+		for dy in range(-1, 2):
+			for dx in range(-1, 2):
+				var n: int = int(idx) + dy * w + dx
+				if (dx != 0 or dy != 0) and x + dx >= 0 and x + dx < w and in_room.has(n) and not taken.has(n):
+					box[n] = true
+		var sides: Array[int] = []
+		for n in [int(idx) - w, int(idx) + w, int(idx) - 1 if x > 0 else -1, int(idx) + 1 if x < w - 1 else -1]:
+			if box.has(n):
+				sides.append(n)
+		if sides.size() < 2:
+			continue
+		var reached: Dictionary = {sides[0]: true}
+		var queue: Array[int] = [sides[0]]
+		while not queue.is_empty():
+			var at: int = queue.pop_back()
+			for n in [at - w, at + w, at - 1, at + 1]:
+				if box.has(n) and not reached.has(n) and absi(int(n) % w - at % w) <= 1:
+					reached[n] = true
+					queue.append(int(n))
+		for n in sides:
+			if not reached.has(n):
+				return true
+	return false
+
+
+# The gate's own flood fill (not dressing.gd's): how many walks the room's free tiles make.
+static func _walk_of(w: int, tiles: PackedInt32Array, in_room: Dictionary, taken: Dictionary) -> int:
+	var reached: Dictionary = {}
+	var walks: int = 0
+	for start in tiles:
+		if taken.has(start) or reached.has(start):
+			continue
+		walks += 1
+		reached[start] = true
+		var queue: Array[int] = [start]
+		while not queue.is_empty():
+			var at: int = queue.pop_back()
+			var x: int = at % w
+			for n in [at - w, at + w, at - 1 if x > 0 else -1, at + 1 if x < w - 1 else -1]:
+				if int(n) >= 0 and in_room.has(n) and not taken.has(n) and not reached.has(n):
+					reached[n] = true
+					queue.append(int(n))
+	return walks
 
 
 func _the_rooms_stay_walkable() -> bool:
 	var tree: Dictionary = ContentLoader.load_tree()
 	var boot: Dictionary = SimBoot.playable(CANON_SEED, GATE_SIZE)
 	var block: Dictionary = Dressing.block_of(boot["world"])
-	var maps: Array = [["the boot map", boot["map"], int(boot["world"].seed)]]
+	var held: Dictionary = Dressing.held_props(boot["world"])
+	var maps: Array = [["the boot map", boot["map"], int(boot["world"].seed), held]]
 	for district_id in FURNISH_DISTRICTS:
-		maps.append([district_id, SimWorldgen.generate(CANON_SEED, GATE_SIZE, tree, district_id), CANON_SEED])
+		maps.append([district_id, SimWorldgen.generate(CANON_SEED, GATE_SIZE, tree, district_id), CANON_SEED, {}])
 	var judged: int = 0
 	for row in maps:
-		var got: Vector2i = _cut_rooms(block, row[1], int(row[2]))
+		var got: Vector2i = _cut_rooms(block, row[1], int(row[2]), true, row[3])
 		if got.x != 0:
 			push_error("PASSAGE: %s has %d rooms whose free floor is cut by their furniture" % [String(row[0]), got.x])
 			return false
@@ -3534,16 +3590,39 @@ func _the_rooms_stay_walkable() -> bool:
 	# TN: without the rule the same maps cut rooms, so the rule has work and the fill can say no.
 	var cut_without: int = 0
 	for row in maps:
-		cut_without += _cut_rooms(block, row[1], int(row[2]), false).x
+		cut_without += _cut_rooms(block, row[1], int(row[2]), false, row[3]).x
 		if cut_without > 0:
 			break
 	if cut_without == 0:
 		push_error("PASSAGE: no room on the judged maps is cut even without the rule; the rule is not proved")
 		return false
+	# The round-3 corridor, built by hand: a two-row corridor whose west end a crate holds on one row,
+	# with a way round through a room to the south, and barrels and pallets that roll on every wall
+	# tile. No piece may close the corridor's other row, though the room has a way round.
+	var hall: Variant = _corridor_map()
+	var corridor_block: Dictionary = {"sizes": block["sizes"], "furnishings": [{"key": "prop_barrel", "where": "indoors", "surfaces": ["paved"], "rarity": 2, "beside": "wall"}]}
+	# The crate stands on the first tile of the corridor's south row where a dressing not told of it
+	# rolls a barrel on the tile north of it -- the case to refuse.
+	var crate: Dictionary = {}
+	var blind: int = 0
+	for cx in range(2, 13):
+		crate = {Vector2i(cx, 2): Rect2i(0, 0, Dressing.ART_PER_TILE, Dressing.ART_PER_TILE)}
+		# TN: the dressing not told of the crate puts a barrel beside it and closes the corridor.
+		blind = _cut_rooms(corridor_block, hall, 7, true, crate, false).x
+		if blind > 0:
+			break
+	var shut: int = _cut_rooms(corridor_block, hall, 7, true, crate).x
+	var shut_without: int = _cut_rooms(corridor_block, hall, 7, false, crate).x
+	if shut != 0 or shut_without == 0 or blind == 0:
+		push_error("PASSAGE: the hand-built corridor is closed %d times with the rule, %d without it and %d with the crate unseen; want 0, more and more" % [shut, shut_without, blind])
+		return false
+	if held.is_empty():
+		push_error("PASSAGE: the boot world stands no sim object; the held tiles are not judged")
+		return false
 	if not _function_body(DRESSING_GD, "_kept_top").contains("_room_drops(occ, map, room)"):
 		push_error("PASSAGE: _kept_top no longer asks _room_drops; the rule has lost its reader")
 		return false
-	print("PASSAGE_OK every room on %d maps keeps one walk round its furniture and its doorways clear (%d free tiles judged); without the rule %d rooms are cut on the first map that cuts any" % [maps.size(), judged, cut_without])
+	print("PASSAGE_OK every room on %d maps keeps its walks and doorways clear round its furniture and the sim's own %d objects, and no piece closes a passage (%d free tiles judged); without the rule %d rooms are cut on the first map that cuts any; a hand-built corridor with a crate in one row and a way round stays open, closed %d times without the rule and %d with the crate unseen" % [maps.size(), held.size(), judged, cut_without, shut_without, blind])
 	return true
 
 
