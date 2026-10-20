@@ -343,7 +343,10 @@ def drop(img, bob, split=37):
     and gut move as one; the legs stay planted."""
     if not bob:
         return img
-    out = img.copy()
+    # a fresh canvas, not a copy: compositing over the original would leave its top rows in place
+    # under the moved ones, so the head and shoulders would never leave their rest position
+    out = Image.new("RGBA", (W, H))
+    out.alpha_composite(img.crop((0, split, W, H)), (0, split))
     out.alpha_composite(img.crop((0, 0, W, split)), (0, bob))
     return out
 
