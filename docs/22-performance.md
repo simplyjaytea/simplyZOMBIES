@@ -228,7 +228,9 @@ than an optimization to reach for later.
 - **Aggressive culling** via the spatial hash. At a ~30× draw-to-sim ratio, an entity that is
   simulated but not drawn is nearly free — so culling early is worth more than any sim optimization
   available.
-- **Sprite batching** by texture; the tile layer redraws only dirty regions.
+- **Sprite batching** by texture; the tile layer redraws only dirty regions. In the Godot build this
+  is [the world, baked](#the-world-baked): the ground, walls and roofs are drawn once per chunk
+  and a mask shader picks per tile which look shows.
 - **The renderer never writes to the sim** and is never on the tick's critical path.
 
 ## Save performance
@@ -567,6 +569,41 @@ and about 5 on the quiet host. A zombie's whole 12-tile recast after a nearby ma
 under 1 ms on its own, but several can land on one tick. Before a timing gate goes on, the worst
 tick needs measuring on a quiet, dedicated machine. Until then it says more about the container
 than about the sim.
+### The world, baked
+
+Plan item A4, 2026-10-19 (`presentation/world_layers.gd`, `world_mask.gdshader`; docs/23's
+record, "Performance — the world, baked"). The per-frame tile loop is gone: each 8×8-tile chunk's
+ground, walls and roofs are drawn once into five RenderingServer canvas items (seen, wall-module
+boards, remembered, roof, roof dimmed) that keep their commands. The sight sets reach a mask
+shader as two small textures, uploaded only when they change, and a chunk's layer with nothing to
+show is hidden. A chunk rebakes when its inputs change (zoom, map object, content tree and seed
+drop everything; a map generation change re-signs each chunk and drops the changed ones; snow
+rebakes within 2 ms a frame). `npm run godot:check:world_bake` holds the rebake triggers, the mask
+rule and the no-leak property.
+
+Measured 2026-10-19 with `npm run godot:bench:frame` on one container, the parent commit and this
+change back to back: Godot 4.7.1, X11/Xvfb, **llvmpipe (LLVM 20.1.2, 256 bits)**, Intel Xeon
+@ 2.10 GHz, 1280×720.
+
+| Stage | Before | After |
+|---|---:|---:|
+| shipped-draw `_draw` CPU, mean / p95 | 28.5 / 38.4 ms | **8.7 / 12.0 ms** |
+| shipped-draw RenderServer wall time, mean | 14.3 ms | 18.5 ms |
+| shipped-draw harness-inclusive interval, mean | 43.5 ms | 27.8 ms |
+| crowded-draw `_draw` CPU, mean | 317.9 ms | 108.0 ms |
+
+shipped-draw meets the 10 ms mean; crowded-draw is still the thousand bodies and is not met.
+A throwaway driver walking the player six tiles a second for 120 frames measured the `_draw`
+CPU stage at **18.9 → 9.4–10.5 ms** mean at zoom 64 and **37.6 → 11.3 ms** at zoom 32, the
+chunks entering the view baking inside the frame. An earlier pass on a four-core container
+measured shipped-draw at 1920×1080 **35.2 → 9.0 ms**; the frame command itself is fixed at
+1280×720.
+
+The renderer's own time grew on the software renderer, because every pixel of a baked layer runs
+the mask. Before the per-chunk cull it was 38.9 ms against the parent's 14.3 and the
+harness-inclusive interval was worse than before (49.1 against 43.5 ms); hiding layers with
+nothing to show brought it to 18.5 ms and the interval to 27.8. On a GPU the mask is two texel
+fetches a fragment. llvmpipe numbers are not hardware GPU results, as above.
 
 ### Remaining milestone evidence
 
