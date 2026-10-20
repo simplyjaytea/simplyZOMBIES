@@ -96,16 +96,28 @@ def _dressed(bare: Image.Image, garment: Image.Image) -> Image.Image:
 def _ink(px, x: int, y: int, size: tuple[int, int]) -> bool:
     """The body's ink at (x, y): dark and neutral, or dark on the outline ring (beside the
     transparent). A hood takes warm dark hair inside the ring (`build_clothing.hood`); a move can
-    bring that hair to the silhouette's edge, where it is the outline again."""
+    bring that hair to the silhouette's edge, where it is the outline again -- unless a neutral
+    outline pixel sits beside it, when the outline is drawn there and the hair stays hooded (the
+    hazmat hood's jaw pixel on the west recoil and flinch)."""
     r, g, b, a = px[x, y]
     if a < parts.ALPHA_SOLID or max(r, g, b) >= 45:
         return False
     if r - b < 12:
         return True
-    for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+    near = [(nx, ny) for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1))]
+    if any(_neutral_ink(px, nx, ny, size) for nx, ny in near):
+        return False
+    for nx, ny in near:
         if not (0 <= nx < size[0] and 0 <= ny < size[1]) or px[nx, ny][3] < parts.ALPHA_SOLID:
             return True
     return False
+
+
+def _neutral_ink(px, x: int, y: int, size: tuple[int, int]) -> bool:
+    if not (0 <= x < size[0] and 0 <= y < size[1]):
+        return False
+    r, g, b, a = px[x, y]
+    return a >= parts.ALPHA_SOLID and max(r, g, b) < 45 and r - b < 12
 
 
 def _shown(bare: Image.Image, dressed: Image.Image) -> Image.Image:
