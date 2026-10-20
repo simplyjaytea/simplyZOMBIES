@@ -233,7 +233,7 @@
     "class": "attachment",
     "size": { "w": 1, "h": 1 },
     "massKg": 0.2,
-    "light": { "tint": "#e5edf2", "magnitude": 16, "burnTicks": 9000, "feed": "cell" },
+    "light": { "tint": "#e5edf2", "magnitude": 16, "burnTicks": 9000, "feed": "cell", "beam": 20 },
     "attachment": {
       "fits": ["underbarrel"],
       "fieldSwap": true

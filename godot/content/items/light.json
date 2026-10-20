@@ -37,6 +37,6 @@
     "size": { "w": 1, "h": 2 },
     "massKg": 0.8,
     "equipSlot": "secondary",
-    "light": { "tint": "#ffd68c", "magnitude": 20, "burnTicks": 36000, "feed": "oil" }
+    "light": { "tint": "#ffdf80", "magnitude": 20, "burnTicks": 36000, "feed": "oil" }
   }
 ]

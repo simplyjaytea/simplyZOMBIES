@@ -8,7 +8,7 @@
     "massKg": 0.35,
     "appearance": { "sprite": "item_flashlight" },
     "equipSlot": "secondary",
-    "light": { "tint": "#e5edf2", "magnitude": 25, "burnTicks": 15000, "feed": "cell" }
+    "light": { "tint": "#e5edf2", "magnitude": 25, "burnTicks": 15000, "feed": "cell", "beam": 22 }
   },
   {
     "id": "item.torch.penlight",
@@ -19,7 +19,7 @@
     "massKg": 0.08,
     "stack": 2,
     "equipSlot": "secondary",
-    "light": { "tint": "#e5edf2", "magnitude": 8, "burnTicks": 30000, "feed": "cell" }
+    "light": { "tint": "#e5edf2", "magnitude": 8, "burnTicks": 30000, "feed": "cell", "beam": 15 }
   },
   {
     "id": "item.torch.steel",
@@ -30,7 +30,7 @@
     "massKg": 0.9,
     "appearance": { "sprite": "item_flashlight" },
     "equipSlot": "secondary",
-    "light": { "tint": "#e5edf2", "magnitude": 32, "burnTicks": 27000, "feed": "cell" }
+    "light": { "tint": "#e5edf2", "magnitude": 32, "burnTicks": 27000, "feed": "cell", "beam": 20 }
   },
   {
     "id": "item.headlamp.band",
@@ -40,7 +40,7 @@
     "size": { "w": 1, "h": 1 },
     "massKg": 0.15,
     "equipSlot": "head",
-    "light": { "tint": "#e5edf2", "magnitude": 18, "burnTicks": 24000, "feed": "cell" }
+    "light": { "tint": "#e5edf2", "magnitude": 18, "burnTicks": 24000, "feed": "cell", "beam": 30 }
   },
   {
     "id": "item.headlamp.miners",
@@ -50,7 +50,7 @@
     "size": { "w": 2, "h": 1 },
     "massKg": 0.5,
     "equipSlot": "head",
-    "light": { "tint": "#e5edf2", "magnitude": 28, "burnTicks": 18000, "feed": "cell" }
+    "light": { "tint": "#e5edf2", "magnitude": 28, "burnTicks": 18000, "feed": "cell", "beam": 25 }
   },
   {
     "id": "item.cliplight.glasses",
@@ -60,7 +60,7 @@
     "size": { "w": 1, "h": 1 },
     "massKg": 0.05,
     "equipSlot": "eyes",
-    "light": { "tint": "#e5edf2", "magnitude": 7, "burnTicks": 36000, "feed": "cell" }
+    "light": { "tint": "#e5edf2", "magnitude": 7, "burnTicks": 36000, "feed": "cell", "beam": 30 }
   },
   {
     "id": "item.glowstick",
@@ -102,7 +102,7 @@
     "size": { "w": 1, "h": 2 },
     "massKg": 0.7,
     "equipSlot": "secondary",
-    "light": { "tint": "#ffd68c", "magnitude": 16, "burnTicks": 48000, "feed": "oil" }
+    "light": { "tint": "#ffdf80", "magnitude": 16, "burnTicks": 48000, "feed": "oil" }
   },
   {
     "id": "item.candle.tallow",
