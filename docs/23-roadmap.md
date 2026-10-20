@@ -1936,6 +1936,103 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **Feel — bodies glide between ticks, and a slow frame drops time, 2026-10-19.** Item A2 of
+  the 2026-10-19 alpha plan. The sim steps at 20 Hz and every body used to be drawn on the
+  position component, so a walker held still for a tick and then jumped a tick's travel at
+  once, however fast the frames came. `presentation/interp.gd` (`RenderInterp`) snapshots each
+  drawn body's position and facing just before every `world.step()`, and `_draw_entities` draws
+  at `lerp(previous tick, current tick, accumulator / TICK_SECONDS)`: one tick of render delay,
+  traded for motion that never jumps. Riders slide with the vehicle they ride, a live vehicle's
+  picture with its entity, the facing line and aim cone turn the short way between ticks, and a
+  jump past `SNAP_METRES` (4 m in one tick: a load, a mount, a reused id) draws on the new point
+  at once. The camera now follows the drawn point and updates after the frame's ticks rather
+  than before them, so it no longer chases a target that steps. `_process` clamps its
+  accumulator to the per-frame cap (`RenderInterp.clamp_debt`): a hitch used to leave seconds of
+  debt that every later frame paid at the cap; now the time past the cap is dropped. The rain
+  reads the same sub-tick fraction (`_sub_tick`). Presentation only: nothing under `godot/sim/`
+  changed, and sight, picking and every position a gate reads are still the component.
+  **Half shipped, and which half:** the four-view pick and the walk frame still change on the
+  tick, ground items and corpses do not move so they are not interpolated, and FX are placed at
+  the sim point of the event, so a muzzle flash on a body walking at speed can sit up to one tick
+  of travel ahead of it. The frame rate itself is A3/A4's work; this makes whatever rate there is
+  read as motion.
+
+  **Evidence:** `npm run godot:check:motion` → `MOTION_OK`, chained after `godot:check:camera`.
+  HELPERS: `between` on the previous point at 0, the current at 1, strictly between at 0.5, snaps
+  past `SNAP_METRES` and glides under it; `turn_between` turns the short way across ±π; a debt
+  under the cap is left alone. CLAMP: on the real scene, a ten-second frame runs the cap of five
+  ticks and leaves under one tick owed, so the next half-tick frame runs none (the old loop ran
+  five more); a 75 ms frame runs one and keeps 25 ms. DRAWN: a walking player, a frame ending on
+  a tick draws the body on the previous tick's point and not the current one, and a half-tick
+  frame after it draws it strictly between the two on the line joining them, read back from the
+  real draw's `_focal_drawn`. SMOOTH, the measurement, coefficient of variation of per-frame
+  apparent speed: at a steady 60 Hz the drawn body is **0.000** against **1.414** on the tick (two
+  still frames and a leap), the camera **0.036** against **0.083** for the old follow; at a
+  seeded, jittered ~10 fps (60–140 ms frames, today's shipped rate) the body is **0.000** against
+  **0.248** and the camera **0.051** against **0.125**. Sabotaged (`offset` returning zero) the
+  gate goes red on DRAWN, both body CVs (1.414, 0.248) and both camera CVs (0.104, 0.109 against
+  the 0.075 bound). READERS holds the textual half for the branches the boot does not drive: the
+  snapshot before `world.step()`, the clamp before the loop, the camera after it, riders,
+  vehicles and facing.
+
+- **Performance — the world, baked, 2026-10-19.** Item A4 of the 2026-10-19 alpha plan. The
+  ground, the walls and the roofs were drawn tile by tile every frame, and the loop asked
+  `has_tile` of every tile to decide whether to draw it; at 1280×720 that loop alone was about
+  half of the draw. Now every look a tile can take is drawn once per 8×8-tile chunk into
+  RenderingServer canvas items that keep their commands (`presentation/world_layers.gd`), in five
+  layers behind `main`'s own item: the tile as seen (LIVE), the room boards under a standing wall
+  module (A2), the tile as the remembered map draws it (REMEMBERED), the roof sheet (ROOF) and the
+  same sheet dimmed (ROOF_DIM). Which look shows on a tile is a per-frame question answered by
+  `presentation/world_mask.gdshader` from two small textures — the shadowcast's own cells, and one
+  byte a tile for EXPLORED (unpacked from the sim's bitset where it changed), ROOF and A2 —
+  uploaded only when they change. Walking re-uploads a few kilobytes and rebakes nothing. A chunk
+  rebakes when what it was drawn from moves: the zoom, the map object, the content tree or the
+  seed drop every chunk; a map generation change re-signs each cached chunk (its tiles, ground,
+  indoors flags, overlays and parked vehicles, with a one-tile apron) and drops the ones whose
+  inputs changed, so a door or a board rebakes one chunk; snow is quantised to 64 steps and
+  stale chunks rebake inside a 2 ms frame budget, at least one a frame. A layer with no tile to
+  show in a chunk is hidden outright, which spares the renderer the shader over it. The helpers
+  draw through `_pen` (main itself, or `presentation/canvas_pen.gd` during a bake) and
+  `_bake_layer` swaps in a camera at the world origin, so every helper is unchanged but for that
+  prefix. `Appearance._content_entry` now hits an id index per content tree instead of scanning
+  the whole tree per lookup, which took the props from 0.23 ms per look to almost nothing.
+  `_draw_entities` and everything drawn after the world are untouched; lighting (A10) composites
+  over the layers and can read the same mask textures (`mask_textures()`) without rebaking.
+  Screenshots against the parent commit differ by at most 5 of 255 levels per channel at zoom 64,
+  32 and 16, standing and after a walk, roofs and remembered tiles included.
+  **Half shipped, and which half:** `npm run godot:bench:frame`'s shipped-draw now meets the
+  10 ms mean (**28.5 → 8.7 ms**, p95 38.4 → 12.0, same container, llvmpipe), but crowded-draw
+  does not (**318 → 108 ms**): that is the thousand bodies, which is body drawing and A7's. Of
+  what remains in shipped-draw about 2 ms is collecting entities, 2 ms the body loop (about 1 ms
+  of it `HudRead.pawn_tag`), and under 2 ms nature, furnishings and props, still drawn per frame.
+
+  **Evidence:** `npm run godot:check:world_bake` → `WORLD_BAKE_OK`, chained after
+  `godot:check:motion`. MASK-RULE: the shader's bit constants and discard rule are
+  `world_layers.gd`'s, read by a scanner first shown a copy with LIVE sabotaged to 2; each layer's
+  rule matches the layer table written out in the gate, and no tile state shows two ground looks
+  (a rule table with LIVE's deny dropped is shown to fail). SOCKET: `_draw` reaches the bake
+  through `_draw_world` and never calls `_draw_district`, which `_bake_layer` alone reaches; the
+  fifteen baked helpers draw only through `_pen`, the scanner proven on a fabricated bare
+  `draw_rect(`. SNOW, on a bare `WorldLayers` with a slow fake bake: a full snow step rebakes 1 of
+  12 chunks the first frame and every chunk carries it 13 frames later. BAKED, on the real scene
+  at 1280×720: all 12 chunks under the view bake on the first frame, the ring finishes in 18, and
+  unchanged frames and a one-tile camera step bake none. NO-LEAK, at boot, at a front door and
+  five tiles back into the street (**407 / 302 / 426** seen, **0 / 0 / 15** remembered,
+  **61 / 166 / 27** dark tiles): the mask's LIVE bit is the observer's `has_tile` and its EXPLORED
+  bit the remembered map's on every tile in view, a dark tile shows no ground look and a seen one
+  exactly one. CULL, same three places: no chunk hides a layer one of its tiles shows, and
+  48 / 38 / 34 of 60 chunk layers are hidden. ROOF: the ROOF bit is on exactly the 64 tiles
+  `RoofLook.roof_tiles` chose at the door. REBAKE: a ground change rebakes its own chunk and leaves
+  a chunk two away alone, a bare `invalidateMap` rebakes none, a zoom step rebakes every chunk
+  in view and a content tree swapped for a copy rebakes too. Sabotaged, the gate goes red: LIVE
+  forced on everywhere fails NO-LEAK, a signature that ignores the map fails REBAKE, a cull that
+  never shows REMEMBERED fails CULL. The look gates that read the old loop were re-pointed at the
+  new path, never relaxed: `check_water` (the fill goes to `_pen`, with a negative for a fill to
+  main's own frame), `check_light_look`, `check_trees`, `check_topdown` (order read in
+  `_draw_world`), `check_roof_look` (the floor probe records per bake layer and reads the screen
+  through `state_at`; the socket lane follows `_bake_layer`) and `check_memory_look` (the remembered
+  rule read through `WorldLayers.shows`). docs/22 has the timings.
+
 - **UI — the sheet and Work grid fit the reviewed viewports, 2026-10-03.** At 1280×720,
   inventory now separates its equipment, native 56-pixel bag cells and inspect pane, keeping
   all seven frame-pack columns reachable. The compact sheet uses the condition chart at integer

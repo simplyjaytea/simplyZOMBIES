@@ -32,6 +32,7 @@ const SimVisibility = preload("res://sim/vision/visibility.gd")
 const SimSightings = preload("res://sim/modules/sightings.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
 const MainScript = preload("res://presentation/main.gd")
+const WorldLayers = preload("res://presentation/world_layers.gd")
 
 const TICK_SECONDS: float = 1.0 / 20.0
 # How far off the player the fixture places a test body -- close enough that a district generated
@@ -319,10 +320,27 @@ func _the_remembered_map_stays_known_after_walking_away(main: Node, world: Varia
 	if not district.contains("Palette.remembered("):
 		push_error("MAP-READER: _draw_district never reaches Palette.remembered( -- a remembered tile would draw exactly as an unseen one")
 		return false
+	# The escape hatch for a tile that is neither seen nor explored left the tile loop when the world
+	# was baked (presentation/world_layers.gd): every tile's looks are baked, and the mask shows none
+	# of them on a tile with neither bit. Asked of the mask's own rule, both ways -- a remembered
+	# tile shows the remembered layer and only it, a seen one the live layer, and a tile that is
+	# neither shows no tile layer at all. The loop keeps one `continue`, the A2 pass's skip of a
+	# tile no wall module can stand on.
 	if district.count("continue") != 1:
-		push_error("MAP-READER: _draw_district holds %d `continue` statements in its tile loop, not the one escape hatch for a tile that is neither seen nor explored" % district.count("continue"))
+		push_error("MAP-READER: _draw_district holds %d `continue` statements in its tile loop, not the A2 pass's one skip" % district.count("continue"))
 		return false
-	print("MAP OK a tile explored a moment ago stays known after walking away, the frame carrying it finished drawing (tick %d), and the tile loop reaches Palette.remembered( with its one continue intact" % after)
+	var tile_layers: Array[int] = [WorldLayers.Layer.LIVE, WorldLayers.Layer.A2, WorldLayers.Layer.REMEMBERED]
+	for layer in tile_layers:
+		if WorldLayers.shows(layer, 0):
+			push_error("MAP-READER: the mask shows tile layer %d on a tile neither seen nor explored -- a tile never cast would be drawn" % layer)
+			return false
+	if not WorldLayers.shows(WorldLayers.Layer.REMEMBERED, WorldLayers.BIT_EXPLORED) or WorldLayers.shows(WorldLayers.Layer.LIVE, WorldLayers.BIT_EXPLORED):
+		push_error("MAP-READER: a remembered tile does not show the remembered layer alone")
+		return false
+	if not WorldLayers.shows(WorldLayers.Layer.LIVE, WorldLayers.BIT_LIVE | WorldLayers.BIT_EXPLORED) or WorldLayers.shows(WorldLayers.Layer.REMEMBERED, WorldLayers.BIT_LIVE | WorldLayers.BIT_EXPLORED):
+		push_error("MAP-READER: a seen tile does not show the live layer alone")
+		return false
+	print("MAP OK a tile explored a moment ago stays known after walking away, the frame carrying it finished drawing (tick %d), the tile loop reaches Palette.remembered(, and the mask shows the remembered layer on a remembered tile, the live one on a seen tile and no tile layer on a tile never cast" % after)
 	return true
 
 
