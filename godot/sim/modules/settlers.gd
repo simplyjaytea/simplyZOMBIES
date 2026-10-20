@@ -504,17 +504,22 @@ static func register_module(world: Variant) -> void:
 # human is one when the table says so -- which today is the raiders and nobody else.
 static func _threats(world: Variant) -> Array:
 	var out: Array = []
+	# Read-only over four tables (`SimComponentStore.table`, A3's tenth slice).
+	var corpses: Dictionary = world.components.table("corpse")
+	var shamblers: Dictionary = world.components.table("shambler")
+	var bodies: Dictionary = world.components.table("body")
+	var positions: Dictionary = world.components.table("position")
 	for e in world.components.query(["body", "position"]):
 		var ent: int = int(e)
-		if world.components.has_component(ent, "corpse"):
+		if corpses.has(ent):
 			continue
-		if not world.components.has_component(ent, "shambler"):
+		if not shamblers.has(ent):
 			if not SimAllegianceRes.factions_hostile(SimAllegianceRes.faction_of(world, ent), SimAllegianceRes.SETTLERS):
 				continue
-		var body: Variant = world.components.get_component(ent, "body")
+		var body: Variant = bodies.get(ent)
 		if not (body is Dictionary) or not SimHealthRes.is_alive(body as Dictionary):
 			continue
-		var p: Variant = world.components.get_component(ent, "position")
+		var p: Variant = positions.get(ent)
 		if p is Dictionary:
 			out.append(Vector2(float((p as Dictionary)["x"]), float((p as Dictionary)["y"])))
 	return out

@@ -48,7 +48,7 @@
         "equipSprite": {
           "type": "string",
           "pattern": "^[a-z0-9_.]+$",
-          "description": "A different picture from `sprite`: what this looks like worn or held on a body, not lying on the ground. One of two shapes, both declared in godot/assets/sprites/authored.json: a family with one member per view (the outpost pack's `item_gear_*` wearables, kind `pack_overlay`), drawn at the body's own feet-anchored rect in the view the body shows; or a held weapon (the pack's `item_held_*`, kind `pack_held`), one east-facing picture at its own canvas that the renderer turns per view and lands grip-first on the body's hand. Nothing else draws: the face-on overlays were retired on 2026-09-26 (docs/30, 'The whole outpost pack'), so a key of any other shape here is refused by godot:check:worn. Read only when this base occupies a slot presentation/appearance.gd's EQUIP_DRAW_ORDER draws (legs, torso, vest, back, primary, secondary, face, head)."
+          "description": "A different picture from `sprite`: what this looks like worn or held on a body, not lying on the ground. One of three shapes, all declared in godot/assets/sprites/authored.json: a family with one member per view (the outpost pack's `item_gear_*` wearables, kind `pack_overlay`), drawn at the body's own feet-anchored rect in the view the body shows; a held weapon (the pack's `item_held_*`, kind `pack_held`), one east-facing picture at its own canvas that the renderer turns per view and lands grip-first on the body's hand; or a garment (`wear_*`, kind `wear`, one member per frame of the rig it fits), painted into the body's own frame for a torso, legs or feet item (docs/23, 'clothe everyone'). Nothing else draws: the face-on overlays were retired on 2026-09-26 (docs/30, 'The whole outpost pack'), so a key of any other shape here is refused by godot:check:worn. Read only when this base occupies a slot presentation/appearance.gd draws: EQUIP_DRAW_ORDER's layers (vest, back, primary, secondary, face, head) or WORN_SLOTS' garments (legs, feet, torso)."
         },
         "fireFx": {
           "type": "string",
@@ -227,7 +227,7 @@
         "burnTicks": {
           "type": "integer",
           "exclusiveMinimum": 0,
-          "description": "How long a full charge, wick or fill lasts, in ticks, per the owner's decision of 2026-09-12. A lamp with no burnTicks burns for ever, which is what every light in the game did before this key existed -- so the key is what makes a light a resource rather than a permanent upgrade. Spent one tick per tick by SimLightModule's burn clock, and only while the light is actually the thing lighting somebody: max-not-sum means the dimmer lamp in your other hand is not lit and does not burn. At zero the light goes dark and the next-brightest thing you carry takes over. SimClock.DAY_TICKS is 288000, so one in-game hour is 12000; check_m2_light_burn.gd measures the fully dark stretch off the clock rather than quoting it here, and that measurement (72000 ticks, six in-game hours) is what every shipped burn time is judged against."
+          "description": "How long a full charge, wick or fill lasts, in ticks, per the owner's decision of 2026-09-12. A lamp with no burnTicks burns for ever, which is what every light in the game did before this key existed -- so the key is what makes a light a resource rather than a permanent upgrade. Spent one tick per tick by SimLightModule's burn clock, and only while the light is actually the thing lighting somebody: max-not-sum means the dimmer lamp in your other hand is not lit and does not burn. At zero the light goes dark and the next-brightest thing you carry takes over. Burn time is measured against the night: SimClock.DAY_TICKS is 72000 and the fully dark stretch is a quarter of it (18000), and check_m2_light_burn.gd measures that stretch off the clock rather than quoting it here. Every shipped burn time was divided by four when the day became one real hour, so a full lamp still lasts the same number of nights."
         },
         "feed": {
           "enum": [
@@ -240,6 +240,12 @@
           "type": "string",
           "pattern": "^#[0-9a-f]{6}$",
           "description": "Presentation-only light-pool colour in strict lowercase #rrggbb form. Absent or unknown content retains the legacy warm colour. Simulation ignores it."
+        },
+        "beam": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 90,
+          "description": "Presentation-only: the half-angle, in degrees, of the bright beam this light's pool is drawn as, pointed where its carrier faces (presentation/light_look.gd, plan item A10). Absent is a round pool. The simulation ignores it and still lights the whole omnidirectional cast -- outside the beam the cast is drawn as the dim halo, so the screen shows less light than the sim, never more. The directional torch in the sim is its own slice (docs/23, \"The torch\")."
         }
       }
     },
@@ -504,7 +510,7 @@
         "crashAfterTicks": {
           "type": "integer",
           "minimum": 1,
-          "description": "Ticks from drinking to the crash (12000 to the in-game hour)."
+          "description": "Ticks from drinking to the crash (12000 is ten real minutes)."
         },
         "mood": {
           "type": "number",
@@ -667,12 +673,12 @@
         "durationTicks": {
           "type": "integer",
           "exclusiveMinimum": 0,
-          "description": "How long it sounds once it starts, in ticks. This is what separates a spike from a beacon and it is the whole reason the block is not a single number: a string of firecrackers is a gunfight that is over in ten seconds, and a radio left playing is a quarter-magnitude siren that runs for an in-game hour. SimClock.DAY_TICKS is 288000, so one in-game hour is 12000. At the end the device falls silent where it stands and can be taken back up and re-armed."
+          "description": "How long it sounds once it starts, in ticks. This is what separates a spike from a beacon and it is the whole reason the block is not a single number: a string of firecrackers is a gunfight that is over in ten seconds, and a radio left playing is a quarter-magnitude siren that runs for an hour (72000 ticks). At the end the device falls silent where it stands and can be taken back up and re-armed."
         },
         "delayTicks": {
           "type": "integer",
           "minimum": 0,
-          "description": "How long after it is placed before it starts, in ticks. A wind-up clock's entire point is that you are somewhere else when it goes off, so the delay is the item's tactical content rather than a decoration on it: the firecracker's fuse is half a minute, the alarm clock's is half an in-game hour, and the air horn's is nothing at all because you blow it where you stand. Absent means zero, which is the honest default for anything without a clock in it."
+          "description": "How long after it is placed before it starts, in ticks. A wind-up clock's entire point is that you are somewhere else when it goes off, so the delay is the item's tactical content rather than a decoration on it: the firecracker's fuse is half a minute, the alarm clock's is thirty real minutes (36000 ticks), and the air horn's is nothing at all because you blow it where you stand. Absent means zero, which is the honest default for anything without a clock in it."
         }
       }
     },
@@ -693,7 +699,7 @@
         "ticks": {
           "type": "integer",
           "exclusiveMinimum": 0,
-          "description": "How long the whole comfort lasts before it lifts, in ticks (SimClock.DAY_TICKS is 288000, so one in-game hour is 12000). Deliberately a clock rather than a decay: grief drains away because a weight lifts by degrees, and a cigarette ends. A second item pushes the clock out to whichever end is later and never shortens one already running."
+          "description": "How long the whole comfort lasts before it lifts, in ticks (12000 is ten real minutes). Deliberately a clock rather than a decay: grief drains away because a weight lifts by degrees, and a cigarette ends. A second item pushes the clock out to whichever end is later and never shortens one already running."
         },
         "spends": {
           "type": "boolean",

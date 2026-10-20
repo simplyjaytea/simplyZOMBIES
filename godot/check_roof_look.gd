@@ -53,6 +53,7 @@ const MainRenderer = preload("res://presentation/main.gd")
 const TopDownProjection = preload("res://presentation/projection.gd")
 const Session = preload("res://presentation/session.gd")
 const SimVisibility = preload("res://sim/vision/visibility.gd")
+const WorldLayers = preload("res://presentation/world_layers.gd")
 
 const MAIN_GD: String = "res://presentation/main.gd"
 const ROOF_GD: String = "res://presentation/roof_look.gd"
@@ -107,22 +108,37 @@ class AllFocalVision extends RefCounted:
 
 # Instrument only the gate's scene instance. These overrides forward to the actual renderer,
 # then remember its arguments, so the underlay proof must reach the same floor blit as a room.
+# Since the world is baked (presentation/world_layers.gd) each call is filed under the layer
+# being baked when it was made, and what the *screen* shows on a tile is the calls of the layers
+# the mask lets through there (`_screen`) -- the same question the old per-frame loop answered by
+# drawing or skipping, asked of the bake and the mask together.
 class FloorRecordingRenderer extends MainRenderer:
+	var layer_now: int = -1
 	var floor_calls: Dictionary = {}
 	var underlay_tiles: Dictionary = {}
 	var threshold_tiles: Dictionary = {}
 
+	func _bake_layer(region: Rect2i, layer: int, pen: Object) -> void:
+		layer_now = layer
+		super._bake_layer(region, layer, pen)
+		layer_now = -1
+
+	func _filed(table: Dictionary) -> Dictionary:
+		if not table.has(layer_now):
+			table[layer_now] = {}
+		return table[layer_now] as Dictionary
+
 	func _draw_floor_tile(rect: Rect2, col: Color, tx: int, ty: int, row: int) -> void:
 		super._draw_floor_tile(rect, col, tx, ty, row)
-		floor_calls[Vector2i(tx, ty)] = {"colour": col, "row": row, "rect": rect}
+		_filed(floor_calls)[Vector2i(tx, ty)] = {"colour": col, "row": row, "rect": rect}
 
 	func _draw_a2_floor_underlay(rect: Rect2, tx: int, ty: int) -> void:
 		super._draw_a2_floor_underlay(rect, tx, ty)
-		underlay_tiles[Vector2i(tx, ty)] = true
+		_filed(underlay_tiles)[Vector2i(tx, ty)] = true
 
 	func _draw_threshold(rect: Rect2, col: Color, tx: int, ty: int) -> void:
 		super._draw_threshold(rect, col, tx, ty)
-		threshold_tiles[Vector2i(tx, ty)] = true
+		_filed(threshold_tiles)[Vector2i(tx, ty)] = true
 
 
 func _init() -> void:
@@ -461,9 +477,31 @@ func _redraw_floor_probe(main: Node) -> void:
 	(main.get("floor_calls") as Dictionary).clear()
 	(main.get("underlay_tiles") as Dictionary).clear()
 	(main.get("threshold_tiles") as Dictionary).clear()
+	# The fixture changes things a running game only ever changes through the map generation
+	# (overlays, the snow, a building's look, the cached atlas) in place, so every probe bakes
+	# from scratch: the lane judges what a bake of this state puts on screen, and the world gate
+	# (check_world_bake.gd) is the one that judges when a bake is redone.
+	main.call("_rebake_world")
 	main.queue_redraw()
 	await process_frame
 	await process_frame
+
+
+# What the screen shows on each tile, out of one of the recorder's tables: the calls of every
+# layer the mask lets through on that tile this frame (WorldLayers.shows over the mask's state).
+func _screen(main: Node, table_name: String) -> Dictionary:
+	var table: Dictionary = main.get(table_name)
+	var layers: Variant = main.get("_layers")
+	var out: Dictionary = {}
+	for layer in table.keys():
+		if int(layer) < 0:
+			continue
+		var calls: Dictionary = table[layer]
+		for cell in calls.keys():
+			var state: int = int(layers.call("state_at", (cell as Vector2i).x, (cell as Vector2i).y))
+			if WorldLayers.shows(int(layer), state):
+				out[cell] = calls[cell]
+	return out
 
 
 func _the_a2_scene_underlay_stays_inside_coverage(main: Node) -> bool:
@@ -488,8 +526,8 @@ func _the_a2_scene_underlay_stays_inside_coverage(main: Node) -> bool:
 		camera["zoom"] = Palette.GROUND_TEXTURE_MIN_ZOOM - 1.0 if scenario == "low_zoom" else 32.0
 		Appearance._cache[Appearance.GROUND_ATLAS_KEY] = null if scenario == "missing_atlas" else atlas
 		await _redraw_floor_probe(main)
-		var calls: Dictionary = main.get("floor_calls")
-		var underlays: Dictionary = main.get("underlay_tiles")
+		var calls: Dictionary = _screen(main, "floor_calls")
+		var underlays: Dictionary = _screen(main, "underlay_tiles")
 		if underlays.size() != 18 or underlays.has(Vector2i(8, 4)) or underlays.has(Vector2i(5, 6)):
 			push_error("A2_FLOOR %s expected 18 wall/window owners only, got %s" % [scenario, str(underlays.keys())])
 			ok = false
@@ -501,7 +539,7 @@ func _the_a2_scene_underlay_stays_inside_coverage(main: Node) -> bool:
 		# The same scene must still snow-tint outdoor ground, and the accepted door must reach
 		# the separate threshold drawer. Checking both keeps a blanket no-snow/floor fix red.
 		var outdoor: Color = (calls.get(Vector2i(0, 0), {}) as Dictionary).get("colour", Color.TRANSPARENT)
-		if not (main.get("threshold_tiles") as Dictionary).has(Vector2i(5, 6)) or outdoor.is_equal_approx(expected):
+		if not _screen(main, "threshold_tiles").has(Vector2i(5, 6)) or outdoor.is_equal_approx(expected):
 			push_error("A2_FLOOR %s changed the door threshold or painted room floor outdoors" % scenario)
 			ok = false
 		if scenario == "clear":
@@ -520,13 +558,13 @@ func _the_a2_scene_underlay_stays_inside_coverage(main: Node) -> bool:
 	for overlay in [{"kind": "board", "stage": 2}, {"kind": "scrap", "stage": 0}]:
 		map.overlays[6 * int(map.w) + 4] = overlay
 		await _redraw_floor_probe(main)
-		if (main.get("underlay_tiles") as Dictionary).has(Vector2i(4, 6)):
+		if _screen(main, "underlay_tiles").has(Vector2i(4, 6)):
 			push_error("A2_FLOOR leaked underlay into %s window fallback" % str(overlay))
 			ok = false
 	map.overlays.erase(6 * int(map.w) + 4)
 	main.set("_looks", {0: {"wall": "timber", "roof": "tar"}})
 	await _redraw_floor_probe(main)
-	if not (main.get("underlay_tiles") as Dictionary).is_empty():
+	if not _screen(main, "underlay_tiles").is_empty():
 		push_error("A2_FLOOR unsupported timber received A2 boards")
 		ok = false
 	main.set("_looks", {0: {"wall": "render", "roof": "tar"}})
@@ -541,12 +579,12 @@ func _the_a2_scene_underlay_stays_inside_coverage(main: Node) -> bool:
 	bits.fill(255)
 	world.components.set_component(int(world.player), "explored", {"w": int(map.w), "h": int(map.h), "bits": Marshalls.raw_to_base64(bits)})
 	await _redraw_floor_probe(main)
-	if not (main.get("underlay_tiles") as Dictionary).is_empty() or (main.get("floor_calls") as Dictionary).is_empty():
+	if not _screen(main, "underlay_tiles").is_empty() or _screen(main, "floor_calls").is_empty():
 		push_error("A2_FLOOR remembered-only frame did not keep generated fallback floor without A2 underlays")
 		ok = false
 	world.components.remove_component(int(world.player), "explored")
 	await _redraw_floor_probe(main)
-	if not (main.get("underlay_tiles") as Dictionary).is_empty() or not (main.get("floor_calls") as Dictionary).is_empty():
+	if not _screen(main, "underlay_tiles").is_empty() or not _screen(main, "floor_calls").is_empty():
 		push_error("A2_FLOOR never-seen frame drew floor")
 		ok = false
 	if ok:
@@ -1410,21 +1448,35 @@ func _the_draw_loop_reaches_every_helper() -> bool:
 		push_error("could not read _draw_district out of %s -- SOCKETS had nothing to judge" % MAIN_GD)
 		return false
 	var m1: String = _missing_needle(
-		district, ["_draw_wall_art(", "_draw_door_face(", "_draw_roofs(", "_draw_solid_tile(rect, col, tx, ty)"]
+		district, ["_draw_wall_art(", "_draw_door_face(", "_draw_solid_tile(rect, col, tx, ty)"]
 	)
 	if not m1.is_empty():
 		push_error("_draw_district does not contain %s" % m1)
 		return false
-
+	# The order, since the world is baked (presentation/world_layers.gd): the tiles (scatter last)
+	# and the roofs are layers of one bake, and the roof layers draw above the tile layers -- the
+	# Layer enum is their draw order -- and the props are drawn fresh by _draw_world after the
+	# layers are brought up to date, so they land over both.
+	var bake: String = _function_body(MAIN_GD, "_bake_layer")
+	var world_fn: String = _function_body(MAIN_GD, "_draw_world")
+	var m1b: String = _missing_needle(bake, ["_draw_district(", "_draw_roofs("])
+	if not m1b.is_empty() or world_fn.is_empty():
+		push_error("_bake_layer does not contain %s, or there is no _draw_world" % m1b)
+		return false
 	var at_scatter: int = district.find("_draw_scatter(")
-	var at_roofs: int = district.find("_draw_roofs(")
-	var at_props: int = district.find("_draw_props()")
-	if at_scatter < 0 or at_roofs < 0 or at_props < 0 or not (at_scatter < at_roofs and at_roofs < at_props):
-		push_error("_draw_district draws roofs out of order: scatter %d, roofs %d, props %d" % [at_scatter, at_roofs, at_props])
+	var at_roofs: int = WorldLayers.Layer.ROOF if bake.find("_draw_roofs(") >= 0 else -1
+	var at_tiles: int = maxi(WorldLayers.Layer.LIVE, WorldLayers.Layer.REMEMBERED)
+	var at_frame: int = world_fn.find("_layers.call(\"frame\"")
+	var at_props: int = world_fn.find("_draw_props()")
+	if at_scatter < 0 or at_roofs < 0 or at_frame < 0 or at_props < 0 or not (at_tiles < at_roofs and at_roofs < WorldLayers.Layer.ROOF_DIM + 1 and at_frame < at_props):
+		push_error("roofs out of order: tile layers %d, roof layer %d, layer frame %d, props %d" % [at_tiles, at_roofs, at_frame, at_props])
 		return false
 	# The order predicate's own true negative: a reversed sequence must not read as ascending.
-	if at_props < at_roofs and at_roofs < at_scatter:
+	if at_props < at_frame:
 		push_error("the order check accepted a reversed sequence; it cannot say no")
+		return false
+	if not world_fn.contains("RoofLook.roof_tiles("):
+		push_error("_draw_world does not ask RoofLook.roof_tiles which tiles show a roof; the baked sheets would show everywhere or nowhere")
 		return false
 
 	var wall_art: String = _function_body(MAIN_GD, "_draw_wall_art")
@@ -1443,7 +1495,7 @@ func _the_draw_loop_reaches_every_helper() -> bool:
 
 	var roofs_fn: String = _function_body(MAIN_GD, "_draw_roofs")
 	var m4: String = _missing_needle(
-		roofs_fn, ["RoofLook.roof_tiles(", "RoofLook.slope_of(", "Dressing.roof_key(", "Palette.COLOURS[\"roof\"]"]
+		roofs_fn, ["RoofLook.roof_candidates(", "RoofLook.slope_of(", "Dressing.roof_key(", "Palette.COLOURS[\"roof\"]"]
 	)
 	if not m4.is_empty():
 		push_error("_draw_roofs does not contain %s" % m4)
@@ -1456,8 +1508,8 @@ func _the_draw_loop_reaches_every_helper() -> bool:
 	var a2_selector: String = _function_body(MAIN_GD, "_a2_wall_modules")
 	var a2_entities: String = _function_body(MAIN_GD, "_draw_entities")
 	var a2_piece: String = _function_body(MAIN_GD, "_draw_a2_wall_piece")
-	if _missing_needle(district, ["_a2_wall_modules(", "a2_wall_tiles.has("]).is_empty() == false:
-		push_error("_draw_district does not consume A2 coverage before the generated fallback")
+	if _missing_needle(district, ["_a2_candidates(", "a2_wall_tiles.has("]).is_empty() == false or not _function_body(MAIN_GD, "_a2_candidates").contains("_a2_wall_modules(") or _missing_needle(world_fn, ["_a2_wall_modules(", "a2_wall_tiles, map_w"]).is_empty() == false:
+		push_error("_draw_district does not consume A2 coverage before the generated fallback, or _draw_world does not hand this frame's coverage to the mask")
 		return false
 	if _missing_needle(a2_selector, ["Dressing.wall_modules(", "_a2_supported_ring(", "_a2_corner_supported(", "_add_a2_leg_fragments("]).is_empty() == false:
 		push_error("A2 module selection is disconnected from content, topology, corner guards or continuous legs")
@@ -1488,7 +1540,7 @@ func _the_draw_loop_reaches_every_helper() -> bool:
 		push_error("Palette.COLOURS has no 'roof' fallback for a material with no art")
 		return false
 
-	print("SOCKETS OK _draw_district selects A2 pieces and preserves the solid fallback; supported rings/corners reach content keys; clipped A2 fragments draw through the body depth sort; roofs remain between scatter and props; Palette.COLOURS[\"roof\"] stands")
+	print("SOCKETS OK _draw_district selects A2 pieces and preserves the solid fallback; supported rings/corners reach content keys; clipped A2 fragments draw through the body depth sort; the roof layers bake over the tile layers, roof_tiles picks where they show and the props draw over both; Palette.COLOURS[\"roof\"] stands")
 	return true
 
 

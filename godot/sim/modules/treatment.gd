@@ -260,14 +260,16 @@ static func register_module(world: Variant) -> void:
 			# component, so a survivor who is caught again is pressing again almost at once.
 			if w.components.has_component(e, "breakAway"):
 				continue
+			# Every rung, not just the bleeding one. `context` is the one first-aid decision
+			# procedure in this simulation, and gating entry to it on "is this body bleeding"
+			# would have left the two new verbs reachable only by the player's own key. Asked
+			# before R10 below: both only read, and an unhurt body -- most of them, most ticks --
+			# then never pays for the walk over every shambler.
+			if not _needs_care(w, e):
+				continue
 			# R10: fight or run first, kneel when clear. Held bodies are exempt -- R1 is their
 			# whole answer -- and the radius is the shambler's own CONTACT_METRES, not a copy.
 			if not w.components.has_component(e, "grabbed") and _claw_in_reach(w, e):
-				continue
-			# Every rung, not just the bleeding one. `context` is the one first-aid decision
-			# procedure in this simulation, and gating entry to it on "is this body bleeding"
-			# would have left the two new verbs reachable only by the player's own key.
-			if not _needs_care(w, e):
 				continue
 			context(w, e)
 	)
@@ -557,10 +559,49 @@ static func _worst_part_for(world: Variant, entity: int, verb: String, kinds: Ar
 # Is there any rung of the ladder this body wants? Bleeding, dirty, or stopped and unsutured.
 # Whether the *actor* can pay for the rung is not asked here -- `context` decides that, and a body
 # whose only need is a suture kit nobody is carrying is still a body that needs care.
+#
+# One pass over the wound list, asking each wound the three selectors' own questions -- what
+# `_worst_bleeding_part` and `_worst_part_for` would each have found something for, without
+# building a per-part list ten times over three verbs for a body with nothing wrong with it (A3's
+# sixth slice: self-aid asked this of every colonist every tick). `check_m2_tick.gd` CARE holds it
+# to that composition.
 static func _needs_care(world: Variant, entity: int) -> bool:
-	if _worst_bleeding_part(world, entity) != "":
-		return true
-	return _worst_part_for(world, entity, "clean") != "" or _worst_part_for(world, entity, "close") != ""
+	var inj: Variant = world.components.get_component(entity, "injuries")
+	if not (inj is Dictionary):
+		return false
+	for wound in (inj as Dictionary).get("wounds", []) as Array:
+		var wd: Dictionary = wound as Dictionary
+		if not SimCombat.SURVIVOR_BODY_PARTS.has(String(wd.get("bodyPart", ""))):
+			continue
+		# The selectors keep the worst by `severity > best`, from -1: a wound below 0 is never "the" one.
+		if int(wd.get("severity", 0)) < 0:
+			continue
+		if bool(wd.get("bleeding", false)):
+			return true
+		# On today's kinds every cleanable wound that is not bleeding is closable too (each kind
+		# that bleeds has a suture), so the first test is never the one that answers; it stays so
+		# that a bleeding kind with no closer still asks for cleaning, as `_cleanable_wounds` does.
+		if _is_cleanable(wd) or _is_closable(wd):
+			return true
+	return false
+
+
+# `_cleanable_wounds`' test of one wound.
+static func _is_cleanable(wd: Dictionary) -> bool:
+	if bool(wd.get("cleaned", false)) or bool(wd.get("closed", false)):
+		return false
+	if not bool(SimWounds.kind_spec(String(wd.get("kind", "cut"))).get("bleeds", true)):
+		return false
+	if not bool(wd.get("bleeding", false)) and String(wd.get("bandage", "none")) != "none":
+		return false
+	return true
+
+
+# `_closable_wounds`' test of one wound, with no closer narrowing.
+static func _is_closable(wd: Dictionary) -> bool:
+	if bool(wd.get("bleeding", false)) or bool(wd.get("closed", false)):
+		return false
+	return SimWounds.close_kind_of(wd) != ""
 
 
 # `banked` is R8's one exception hatch: a stagger passes false and every other end to a channel
@@ -813,15 +854,17 @@ static func _claw_in_reach(world: Variant, entity: int) -> bool:
 	if not (at is Dictionary):
 		return false
 	var reach_sq: float = SimShambler.SWIPE_METRES * SimShambler.SWIPE_METRES
+	# Distance before health: a district holds a hundred dead and a claw is a metre and a half.
 	for z in world.components.query(["shambler", "position"]):
-		var zbody: Variant = world.components.get_component(int(z), "body")
-		if zbody is Dictionary and not SimHealth.is_alive(zbody as Dictionary):
-			continue
 		var zp: Dictionary = world.components.get_component(int(z), "position") as Dictionary
 		var dx: float = float(zp["x"]) - float((at as Dictionary)["x"])
 		var dy: float = float(zp["y"]) - float((at as Dictionary)["y"])
-		if dx * dx + dy * dy <= reach_sq:
-			return true
+		if dx * dx + dy * dy > reach_sq:
+			continue
+		var zbody: Variant = world.components.get_component(int(z), "body")
+		if zbody is Dictionary and not SimHealth.is_alive(zbody as Dictionary):
+			continue
+		return true
 	return false
 
 

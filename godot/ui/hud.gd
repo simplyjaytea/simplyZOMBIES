@@ -30,6 +30,7 @@ const SimWeather = preload("res://sim/modules/weather.gd")
 const SimCondition = preload("res://sim/condition.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
+const SimOrders = preload("res://sim/modules/orders.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
 const SimCamp = preload("res://sim/modules/camp.gd")
 const SimChronicle = preload("res://sim/modules/chronicle.gd")
@@ -83,11 +84,19 @@ const CONDITION_PROSE: Array[String] = ["", "hurt", "badly hurt", "barely standi
 
 var show_raw: bool = false
 var hint: String = ""
+# The session's first-day hints (`presentation/onboarding.gd`), handed over by main.gd once at boot. The
+# HUD only ever clears the one on screen through it; what is due is decided by main.gd each frame.
+var onboarding: RefCounted = null
 
 var _left: Array[String] = []
 var _right: Array[String] = []
 var _raw: String = ""
+# The clock's state in words, set by main each frame: "paused", "normal speed", "fast", "asleep, fast-forwarding".
+var time_words: String = ""
 var _action: String = ""
+# The first-day hint on screen, "" for none, and the card it is drawn in (empty when none is drawn).
+var _onboarding_line: String = ""
+var _hint_rect: Rect2 = Rect2()
 # Wall-clock seconds (`Time.get_ticks_msec()`, the clock `ui/motion.gd` asks for) at the last
 # save that landed, and at the start of the channel now running; -1 for none. Presentation state
 # only: nothing under godot/sim/ reads either.
@@ -113,6 +122,20 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
+# A click on the hint's card clears it, and the press stops there: a click on the card is not also a
+# move or a shot on the street beneath it, which would be a bad surprise on a zombie hint. Presses
+# outside the card, and every key, pass through untouched.
+func _input(event: InputEvent) -> void:
+	if onboarding == null or _hint_rect.size == Vector2.ZERO or not is_visible_in_tree():
+		return
+	var click: InputEventMouseButton = event as InputEventMouseButton
+	if click == null or not click.pressed or not _hint_rect.has_point(click.position):
+		return
+	onboarding.dismiss()
+	set_onboarding("")
+	get_viewport().set_input_as_handled()
+
+
 # `raw` is the old developer string, passed through unchanged and shown only on M.
 func refresh(world: Variant, actor: int, raw: String) -> void:
 	if world == null:
@@ -127,6 +150,14 @@ func refresh(world: Variant, actor: int, raw: String) -> void:
 	elif _busy_since < 0.0:
 		_busy_since = now
 	_busy_frame = busy_frame(_busy_since, now, Motion.reduced())
+	queue_redraw()
+
+
+# The first-day hint to speak this frame, or "" for none. main.gd asks the session's onboarding for it.
+func set_onboarding(text: String) -> void:
+	if text == _onboarding_line:
+		return
+	_onboarding_line = text
 	queue_redraw()
 
 
@@ -195,6 +226,12 @@ func _self_lines(world: Variant, actor: int) -> Array[String]:
 	if not needs.is_empty():
 		lines.append(needs)
 
+	# What a colonist you have ordered is doing for you, in the same third-person column as their
+	# needs. Empty for you and for any colonist without an order, so it only ever speaks of one.
+	var order: String = SimOrders.hud_clause(world, actor)
+	if not order.is_empty():
+		lines.append(order)
+
 	# How much it hurts -- which is the pain actually felt, not the damage carried. Somebody full
 	# of painkillers says less than their wounds warrant, which is docs/05's tactical option
 	# working as intended and, deliberately, its trap.
@@ -241,7 +278,8 @@ func _self_lines(world: Variant, actor: int) -> Array[String]:
 func _world_lines(world: Variant, actor: int) -> Array[String]:
 	var lines: Array[String] = []
 	var tod: float = Clock.time_of_day(int(world.tick))
-	lines.append("day %d, %s" % [Clock.day_number(int(world.tick)), Clock.PHASE_NAMES[Clock.phase_at(tod)]])
+	var clock_words: String = (", " + time_words) if not time_words.is_empty() else ""
+	lines.append("day %d, %s%s" % [Clock.day_number(int(world.tick)), Clock.PHASE_NAMES[Clock.phase_at(tod)], clock_words])
 	# The sky, in one sentence while it rains and nothing when it does not (docs/adr/0015).
 	var sky: String = SimWeather.hud_clause(world)
 	if not sky.is_empty():
@@ -476,11 +514,28 @@ func _draw() -> void:
 	_draw_card(font, view, _left, "you", false)
 	_draw_card(font, view, _right, "outside", true)
 	_draw_action_bar(font, view)
+	_draw_hint(font, view)
 
 	if show_raw and not _raw.is_empty():
 		# The developer sheet, wrapped so a long line does not run off the district, and above
 		# the action bar rather than through it.
 		draw_string(font, Vector2(MARGIN, view.y - MARGIN - STRIP_CLEARANCE - BAR_H - LINE), _raw, HORIZONTAL_ALIGNMENT_LEFT, view.x - MARGIN * 2.0, SMALL_SIZE, Palette.COLOURS["outline"])
+
+
+# The first-day hint: one sentence in its own card, centred just above the action bar and headed "tip".
+# Drawn only while the developer sheet is off, since the sheet's line takes that same space.
+func _draw_hint(font: Font, view: Vector2) -> void:
+	_hint_rect = Rect2()
+	if _onboarding_line.is_empty() or show_raw:
+		return
+	var width: float = maxf(OUT_CARD_W, font.get_string_size(_onboarding_line, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x + CARD_PAD * 2.0)
+	var height: float = Chrome.HEADER_H + LINE + CARD_PAD
+	var bar_top: float = view.y - MARGIN - STRIP_CLEARANCE - BAR_H
+	var rect := Rect2(Vector2(roundf((view.x - width) * 0.5), bar_top - BAR_GAP - height), Vector2(width, height))
+	Chrome.panel(self, rect, CARD_ALPHA)
+	var y: float = Chrome.header(self, rect, "tip", CARD_ALPHA) + FONT_SIZE + 2.0
+	draw_string(font, Vector2(rect.position.x + CARD_PAD, y), _onboarding_line, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, Palette.COLOURS["survivor"])
+	_hint_rect = rect
 
 
 # One card in `ui/chrome.gd`'s skin: panel, bracketed corners, a header strip, and the column's
@@ -550,7 +605,10 @@ func _draw_busy(bar: Rect2) -> void:
 func _draw_action_bar(font: Font, view: Vector2) -> void:
 	# Digit-free, like every other line on this screen: the strip draws its own key names, and the
 	# speed keys are punctuation now rather than the number row (docs/30, "The inventory sheet").
-	var keys: String = "F1 keys · Tab gear · J work · P pause · - = speed · Esc menu · O overlay · M raw"
+	var keys: String = "F1 keys · Tab gear · J work · P pause · - = speed · Esc menu · O overlay"
+	# M is the developer's raw sheet, so the hint names it only where the key does something.
+	if OS.is_debug_build():
+		keys += " · M raw"
 	var busy_room: float = BUSY_ROOM * 2.0 if _busy_frame >= 0 else 0.0
 	var fit: Dictionary = fit_bar(font, keycaps(_action, keys), view.x - MARGIN * 2.0 - CARD_PAD * 2.0 - busy_room)
 	var runs: Array = fit["runs"] as Array

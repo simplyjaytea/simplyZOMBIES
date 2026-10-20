@@ -36,6 +36,7 @@ const SimFortify = preload("res://sim/modules/fortify.gd")
 const SimDirector = preload("res://sim/modules/director.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimJobs = preload("res://sim/modules/jobs.gd")
+const SimOrders = preload("res://sim/modules/orders.gd")
 const SimNpcCombat = preload("res://sim/modules/npc_combat.gd")
 const SimRecruits = preload("res://sim/modules/recruits.gd")
 const SimStrangers = preload("res://sim/modules/strangers.gd")
@@ -78,7 +79,7 @@ static func wanderers_for(tiles: int) -> int:
 #
 # Ashgrove reads **320** here against the side reading's 165. That is four times what any measured
 # band has seen and the sizing measurement had no headroom, so it is a balance number as much as an
-# arithmetic one; it is listed for the owner in HANDOFF.md rather than assumed correct.
+# arithmetic one; it is listed for the owner in docs/33-owner-decisions.md rather than assumed correct.
 static func wanderers_for_map(map: Variant) -> int:
 	if map == null:
 		return wanderers_for(64)
@@ -164,6 +165,7 @@ static func register_playable_modules(world: Variant, map: Variant) -> void:
 	SimRaiders.register_module(world)
 	SimNeeds.register_module(world)
 	SimJobs.register_module(world)
+	SimOrders.register_module(world)
 	SimNpcCombat.register_module(world)
 	SimRecruits.register_module(world)
 	SimStrangers.register_module(world)

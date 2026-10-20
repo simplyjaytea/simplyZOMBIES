@@ -53,6 +53,11 @@ var content: Variant = null
 # a static memo is shared between the two worlds a gate boots (CLAUDE.md's trap), and two worlds
 # may carry two trees. `SimShambler.resolved_entry` is the one writer.
 var content_resolved: Dictionary = {}
+# Content entries by `id`, built from `content` by `SimItems._content_get` and kept here for the
+# same two-worlds reason as `content_resolved`. `content_index_of` is the tree it was built from, so
+# a world whose `content` is swapped (content_reload.gd, a gate pinning its own tree) rebuilds.
+var content_index: Dictionary = {}
+var content_index_of: Variant = null
 var entities: Variant = null
 var components: Variant = null
 var commands: Variant = null
@@ -388,8 +393,54 @@ func despawn(entity: int) -> bool:
 		(modifiers as RefCounted).call("remove_scope", entity)
 	return true
 
+# Every generation bump records which tiles it changed, so a cache keyed on `mapGeneration` can ask
+# "did anything change *near me*" instead of "did anything change". `invalidateMap()` records the
+# whole map; `invalidate_tiles(rect)` records one rectangle. A bump that records nothing -- a direct
+# `mapGeneration += 1`, which check_roof_look does -- has no entry, and `map_unchanged_within` reads
+# a missing generation as the whole map, so a caller that does not know the region still gets the
+# old behaviour. Derived and bounded, never saved: a restore bumps through `invalidateMap()`.
+const MAP_CHANGES_KEPT: int = 64
+var map_changes: Array = []
+
+
 func invalidateMap() -> void:
 	mapGeneration += 1
+	_log_map_change(Rect2i(0, 0, -1, -1))
+
+
+func invalidate_tiles(rect: Rect2i) -> void:
+	mapGeneration += 1
+	_log_map_change(rect)
+
+
+func _log_map_change(rect: Rect2i) -> void:
+	map_changes.append({"gen": mapGeneration, "rect": rect})
+	if map_changes.size() > MAP_CHANGES_KEPT:
+		map_changes.pop_front()
+
+
+# True when every generation after `since_gen`, up to the current one, is a logged rectangle that
+# misses `area`. False for a whole-map entry, an unlogged generation, a generation that went
+# backwards, or a span longer than the log keeps -- every doubt answers "changed".
+func map_unchanged_within(since_gen: int, area: Rect2i) -> bool:
+	if since_gen == mapGeneration:
+		return true
+	if since_gen > mapGeneration:
+		return false
+	var want: int = mapGeneration
+	var i: int = map_changes.size() - 1
+	while want > since_gen:
+		if i < 0:
+			return false
+		var entry: Dictionary = map_changes[i] as Dictionary
+		if int(entry["gen"]) != want:
+			return false
+		var rect: Rect2i = entry["rect"] as Rect2i
+		if rect.size.x < 0 or rect.intersects(area):
+			return false
+		want -= 1
+		i -= 1
+	return true
 
 
 func adopt_map(map: Variant) -> void:
@@ -610,21 +661,30 @@ func _walk_to(_world: Variant) -> void:
 
 
 func _integrate_movement(_world: Variant) -> void:
+	var cells: Array[int] = map_cells
+	var mw: int = map_width
+	var mh: int = map_height
+	# The tables read straight (`SimComponentStore.table`, A3's tenth slice): this pass writes into
+	# the values it reads and never adds a member to any of the four.
+	var vehicles: Dictionary = components.table("vehicle")
+	var positions: Dictionary = components.table("position")
+	var velocities: Dictionary = components.table("velocity")
+	var facings: Dictionary = components.table("facing")
 	for entity in (components as RefCounted).call("query", ["position", "velocity"]) as Array:
 		# A car is not a body: it is two tiles wide and five long, and the two-corner test below
 		# would let it clip through a wall it should stop flush against. SimVehicles integrates
 		# it at movement order 1 with its own leading-edge probe -- a component check here, the
 		# same shape as the `grabbed` check in _advance_posture, not a module dependency.
-		if components.has_component(int(entity), "vehicle"):
+		if vehicles.has(int(entity)):
 			continue
-		var position: Dictionary = components.get_component(int(entity), "position") as Dictionary
-		var velocity: Dictionary = components.get_component(int(entity), "velocity") as Dictionary
+		var position: Dictionary = positions.get(int(entity)) as Dictionary
+		var velocity: Dictionary = velocities.get(int(entity)) as Dictionary
 		var dx: float = float(velocity["dx"])
 		var dy: float = float(velocity["dy"])
 		if dx == 0.0 and dy == 0.0:
 			continue
-		if components.has_component(int(entity), "facing"):
-			var facing: Dictionary = components.get_component(int(entity), "facing") as Dictionary
+		if facings.has(int(entity)):
+			var facing: Dictionary = facings.get(int(entity)) as Dictionary
 			facing["radians"] = atan2(dy, dx)
 
 		# The press: the tile that stopped a wanted move this tick, or -1 when the move was
@@ -636,27 +696,41 @@ func _integrate_movement(_world: Variant) -> void:
 		velocity["pressY"] = -1
 		var nx: float = float(position["x"]) + dx * TICK_SECONDS
 		var lead_x: float = nx + _sign(dx) * BODY_RADIUS
-		if not _blocked_at(lead_x, float(position["y"]) - BODY_RADIUS) \
-				and not _blocked_at(lead_x, float(position["y"]) + BODY_RADIUS):
+		# `_blocked_at`, read straight off the cells: the four corner tests are most of what a
+		# moving body costs here, and a hundred bodies move every tick (A3's eighth slice). Each
+		# corner is asked once and its answer reused where the old code asked it again.
+		var x_lo: bool = _cell_blocked(cells, mw, mh, lead_x, float(position["y"]) - BODY_RADIUS)
+		var x_hi: bool = false if x_lo else _cell_blocked(cells, mw, mh, lead_x, float(position["y"]) + BODY_RADIUS)
+		if not x_lo and not x_hi:
 			position["x"] = nx
 		else:
 			if dx != 0.0:
-				var py: float = float(position["y"]) - BODY_RADIUS if _blocked_at(lead_x, float(position["y"]) - BODY_RADIUS) else float(position["y"]) + BODY_RADIUS
+				var py: float = float(position["y"]) - BODY_RADIUS if x_lo else float(position["y"]) + BODY_RADIUS
 				velocity["pressX"] = floori(lead_x)
 				velocity["pressY"] = floori(py)
 			velocity["dx"] = 0.0
 
 		var ny: float = float(position["y"]) + dy * TICK_SECONDS
 		var lead_y: float = ny + _sign(dy) * BODY_RADIUS
-		if not _blocked_at(float(position["x"]) - BODY_RADIUS, lead_y) \
-				and not _blocked_at(float(position["x"]) + BODY_RADIUS, lead_y):
+		var y_lo: bool = _cell_blocked(cells, mw, mh, float(position["x"]) - BODY_RADIUS, lead_y)
+		var y_hi: bool = false if y_lo else _cell_blocked(cells, mw, mh, float(position["x"]) + BODY_RADIUS, lead_y)
+		if not y_lo and not y_hi:
 			position["y"] = ny
 		else:
 			if dy != 0.0:
-				var px: float = float(position["x"]) - BODY_RADIUS if _blocked_at(float(position["x"]) - BODY_RADIUS, lead_y) else float(position["x"]) + BODY_RADIUS
+				var px: float = float(position["x"]) - BODY_RADIUS if y_lo else float(position["x"]) + BODY_RADIUS
 				velocity["pressX"] = floori(px)
 				velocity["pressY"] = floori(lead_y)
 			velocity["dy"] = 0.0
+
+
+# `is_blocked_tile(floori(x), floori(y))` with the world's cells handed in, for the integrate loop.
+static func _cell_blocked(cells: Array[int], mw: int, mh: int, x: float, y: float) -> bool:
+	var tx: int = floori(x)
+	var ty: int = floori(y)
+	if tx < 0 or ty < 0 or tx >= mw or ty >= mh:
+		return true
+	return cells[ty * mw + tx] == 1
 
 
 func _blocked_at(x: float, y: float) -> bool:

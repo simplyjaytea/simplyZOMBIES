@@ -21,8 +21,8 @@ func _init() -> void:
 		var avg: float = float(r["avg_ms"])
 		var p95: float = float(r["p95_ms"])
 		var budget: float = float(r["budget"])
-		var status: String = "PASS" if avg <= budget else "OVER"
-		if avg > budget:
+		var status: String = verdict(avg, budget)
+		if status == "OVER":
 			ok = false
 		print("BENCH %s avg %.4f ms p95 %.4f ms budget %.1f ms [%s] ticks=%d" % [String(r["id"]), avg, p95, budget, status, int(r["ticks"])])
 
@@ -33,6 +33,12 @@ func _init() -> void:
 		# R6 exit: bench runs on headless, Windows, web paths where cost differs (capacity gate, not hard fail on headless)
 	# Do not quit(1) on headless over — CI hard gate is Windows/web export boot + TS bench; headless Godot bench is informational until native optimization pass
 	quit(0)
+
+
+# The verdict for one measured row. Static so the R6 mutation gate can ask it with a budget of its
+# own choosing: a verdict that is always PASS is the failure that gate exists to catch.
+static func verdict(avg: float, budget: float) -> String:
+	return "PASS" if avg <= budget else "OVER"
 
 
 func _bench(tilemap: GDScript, attention: GDScript, hash_scr: GDScript, rng_scr: GDScript, id: String, wanderers: int, budget: float, shout_interval: int) -> Dictionary:

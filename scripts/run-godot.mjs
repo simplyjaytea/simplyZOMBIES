@@ -177,6 +177,9 @@ switch (mode) {
   case "--m2-hands":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_hands.gd"];
     break;
+  case "--m2-tick":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_tick.gd"];
+    break;
   case "--m2-bench":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_bench.gd"];
     break;
@@ -320,6 +323,9 @@ switch (mode) {
     break;
   case "--m2-teach":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_teach.gd"];
+    break;
+  case "--m2-orders":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_orders.gd"];
     break;
   case "--m2-people":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_people.gd"];
@@ -492,6 +498,18 @@ switch (mode) {
   case "--camera":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_camera.gd"];
     break;
+  case "--motion":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_motion.gd"];
+    break;
+  case "--world-bake":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_world_bake.gd",
+    ];
+    break;
   case "--light":
     args = [
       "--headless",
@@ -563,6 +581,21 @@ switch (mode) {
       "--script",
       "res://check_ban_health_bar.gd",
     ];
+    break;
+  case "--shots":
+    // The art review's capture driver. Needs a display: the pixels come from the root viewport.
+    // Anything after the mode is handed to the driver as user args (`--out=DIR`).
+    args = [
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://review/shots.gd",
+      "--",
+      ...process.argv.slice(3),
+    ];
+    break;
+  case "--shots-check":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_shots.gd"];
     break;
   case "--export":
     args = [];

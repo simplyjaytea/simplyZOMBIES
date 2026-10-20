@@ -55,7 +55,7 @@ positions in save data without adding entities, collision, scent or loot.
 Human corpses retain their existing inventory and simulation behavior; their
 standing equipment overlays are omitted on the ground poses.
 All settled corpse pictures are Focal-only. Crawler stance artwork is not added.
-Bloater and screamer are outside this first set.
+Bloater and screamer are outside this first set; they are study-02/ (2026-10-19).
 The generated frames retain small shape/detail variation and 1-3 native pixels
 of vertical pose variation, most visible in runner side views. A production
 polish pass should tune foot contact and stabilize incidental clothing detail.

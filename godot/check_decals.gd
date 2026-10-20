@@ -41,7 +41,7 @@ extends SceneTree
 #            MATTE_VALUE_MAX; and the cut each mark is drawn from is hard-edged (alpha 0 or 255,
 #            so no fringe darkens the ground) in the frame's own colours, or the dry pool's when
 #            old. TN: a bright red, and the raw frame with its fringe, are refused.
-#   DRAWN    the real scene: _draw_district calls the ground pass and _draw_a2_wall_piece the
+#   DRAWN    the real scene: _draw_world calls the ground pass and _draw_a2_wall_piece the
 #            wall pass, one frame of main.gd blits a seen mark, and a mark behind the wall is not
 #            blitted. Every picture art_for names resolves at the pack's 32x32.
 
@@ -249,6 +249,8 @@ func _unseen_is_kept_and_not_drawn() -> bool:
 		return false
 	# Walk round: put the player west of the wall; the first mark's tile is seen now and it draws.
 	w.components.set_component(w.player, "position", {"x": 1.5, "y": 12.5})
+	# Two steps: the player's cast is spread over the tick it moves and the next (A3).
+	w.step()
 	w.step()
 	seen = w.vision.tiles_for(int(w.player))
 	var tile: Vector2i = Vector2i(floori(_at_m(kept[0] as Dictionary).x), floori(_at_m(kept[0] as Dictionary).y))
@@ -661,6 +663,8 @@ func _a_wall_picture_wears_its_holes() -> bool:
 	w = w2
 	SimDecals.add(w, "hole", 4.5, 12.4)
 	w.components.set_component(w.player, "position", {"x": 20.5, "y": 12.5})
+	# Two steps: the player's cast is spread over the tick it moves and the next (A3).
+	w.step()
 	w.step()
 	seen = w.vision.tiles_for(int(w.player))
 	if DecalLook.visible(seen, Vector2i(WALL_X, 12)):
@@ -806,8 +810,8 @@ func _tap(code: Key) -> void:
 
 
 func _the_scene_draws_what_is_seen() -> bool:
-	if not _function_body(MAIN_GD, "_draw_district").contains("_draw_decals(seen, a2_wall_tiles, bounds)"):
-		push_error("DRAWN: _draw_district never calls the ground pass")
+	if not _function_body(MAIN_GD, "_draw_world").contains("_draw_decals(seen, a2_wall_tiles, bounds)"):
+		push_error("DRAWN: _draw_world never calls the ground pass")
 		return false
 	if not _function_body(MAIN_GD, "_draw_a2_wall_piece").contains("\"wall_draws\""):
 		push_error("DRAWN: _draw_a2_wall_piece never draws the holes in its wall")
@@ -879,5 +883,5 @@ func _the_scene_draws_what_is_seen() -> bool:
 	if keys.has("fx_scorch_mark"):
 		push_error("DRAWN: a scorch on an unseen tile at %s was blitted" % str(hidden))
 		return false
-	print("DRAWN OK _draw_district calls the ground pass and _draw_a2_wall_piece the wall pass, every kind names a 32x32 pack picture, and one frame of the real scene blitted the pool at the player's feet and not the scorch out of sight at %s" % str(hidden))
+	print("DRAWN OK _draw_world calls the ground pass and _draw_a2_wall_piece the wall pass, every kind names a 32x32 pack picture, and one frame of the real scene blitted the pool at the player's feet and not the scorch out of sight at %s" % str(hidden))
 	return true

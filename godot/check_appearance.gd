@@ -128,6 +128,13 @@ func _appearance_key_ok(k: String, path: String) -> bool:
 		return false
 	if k == "corpseSprites":
 		return path.begins_with("zombies/") or path.begins_with("players/")
+	# `outfit` ("clothe everyone", docs/23, 2026-10-19): the default garments a survivor-rig body
+	# wears in an empty torso, legs or feet slot. Only the player block carries it; every other
+	# survivor-rig body falls back to it (`Appearance.outfit_of`), as corpses fall back to the
+	# player's corpse poses. Its shape is player.schema.json's, which the oracle's Ajv recurses into,
+	# and godot:check:authored's READS lane holds every name in it to a garment.
+	if k == "outfit":
+		return path.begins_with("players/")
 	return k == "variants" and (path.begins_with("vehicles/") or path.begins_with("zombies/"))
 
 
@@ -159,6 +166,13 @@ func _declared_appearances_are_well_formed() -> bool:
 	for denied in ["vehicles/sedan.json#vehicle.sedan", "items/clothing.json#item.jacket", "props/stations.json#prop.bed", "raiders/scav.json#raider.scav", "survivors/uniques/mara.json#survivor.unique.mara", "colony/looks.json#colony.look.01"]:
 		if _appearance_key_ok("corpseSprites", denied):
 			push_error("the appearance allowlist accepts 'corpseSprites' outside players and zombies: %s" % denied)
+			return false
+	if not _appearance_key_ok("outfit", "players/player.json#player.body"):
+		push_error("the appearance allowlist refuses 'outfit' on the player, which is where the default clothes live")
+		return false
+	for denied in ["zombies/shambler.json#zombie.shambler", "items/clothing.json#item.jacket", "survivors/uniques/mara.json#survivor.unique.mara", "raiders/scav.json#raider.scav"]:
+		if _appearance_key_ok("outfit", denied):
+			push_error("the appearance allowlist accepts 'outfit' outside the player block: %s" % denied)
 			return false
 	for path in ["vehicles/sedan.json#vehicle.sedan", "zombies/shambler.json#zombie.shambler"]:
 		if _appearance_key_ok("sprrite", path):
@@ -248,7 +262,7 @@ func _declared_appearances_are_well_formed() -> bool:
 				push_error("%s: appearance.size '%s' is not a tile fraction in [0.1, %.1f]" % [path, str(sz), Appearance.PROP_SIZE_MAX])
 				return false
 	var campfire_lit: Dictionary = Appearance.of_content(World.new(_fixture()), "prop", "prop.campfire.lit")
-	if String((campfire_lit.get("light", {}) as Dictionary).get("tint", "")) != "#ffd68c":
+	if String((campfire_lit.get("light", {}) as Dictionary).get("tint", "")) != "#ff9452":
 		push_error("prop.campfire.lit does not declare the intended presentation light colour")
 		return false
 	print("SHAPE OK %d blocks" % blocks.size())
@@ -802,7 +816,7 @@ func _colonists_wear_the_pack_body_tinted() -> bool:
 	if _tints_differ(twice):
 		push_error("a tint list with one colour twice passed; the distinctness predicate reads nothing")
 		return false
-	if Appearance.turns("zombie_screamer") or not Appearance.turns(body):
+	if Appearance.turns("probe_face_on_body") or not Appearance.turns(body):
 		push_error("turns() cannot tell the pack body from a face-on rig; the pairing above proves nothing")
 		return false
 	Appearance.forget()
@@ -1890,7 +1904,7 @@ func _the_floor_and_the_bag_draw_the_picture() -> bool:
 # against. The bag plate rides the same predicates, so all three screens are held to one rule.
 func _the_strip_and_the_inspector_draw_the_picture() -> bool:
 	var caller_needles: Array = ["Appearance.item_look(", "ItemPicture.draw("]
-	var draw_needles: Array = ["look[\"texture\"]", "draw_texture_rect(", "ItemGlyph.draw_glyph("]
+	var draw_needles: Array = ["look[\"texture\"]", "draw_texture_rect_region(", "ItemGlyph.draw_glyph("]
 	var callers: Array = [
 		["the quick strip", "res://ui/quick_strip.gd", "static func draw_strip("],
 		["the inspect pane", "res://ui/inspect_pane.gd", "static func draw_pane("],
@@ -1900,7 +1914,7 @@ func _the_strip_and_the_inspector_draw_the_picture() -> bool:
 	# True negatives first, on fabricated bodies, so the scanners are shown to fail before they are
 	# trusted on real code.
 	var caller_control: String = "var look = Appearance.item_look(world, base)\nItemPicture.draw(ci, box, look, a)\n"
-	var draw_control: String = "var art = look[\"texture\"]\nci.draw_texture_rect(art, r, false, c)\nItemGlyph.draw_glyph(ci, box, 0, c)\n"
+	var draw_control: String = "var art = look[\"texture\"]\nci.draw_texture_rect_region(art, r, src, c)\nItemGlyph.draw_glyph(ci, box, 0, c)\n"
 	if not _appears_in_order(caller_control, caller_needles) or not _appears_in_order(draw_control, draw_needles):
 		push_error("PICTURES: a scanner refused a body shaped like the real one; it would refuse the real ones")
 		return false
@@ -1908,8 +1922,8 @@ func _the_strip_and_the_inspector_draw_the_picture() -> bool:
 		["a draw that is only a comment", caller_needles, "var look = Appearance.item_look(world, base)\n# ItemPicture.draw(ci, box, look, a)\n"],
 		["a look that is never drawn", caller_needles, "var look = Appearance.item_look(world, base)\nItemGlyph.draw_glyph(ci, box, 0, c)\n"],
 		["a draw made before the look", caller_needles, "ItemPicture.draw(ci, box, look, a)\nvar look = Appearance.item_look(world, base)\n"],
-		["a shared draw whose texture draw is only a comment", draw_needles, "var art = look[\"texture\"]\n# ci.draw_texture_rect(art, r, false, c)\nItemGlyph.draw_glyph(ci, box, 0, c)\n"],
-		["a shared draw with no glyph for a base with no picture", draw_needles, "var art = look[\"texture\"]\nci.draw_texture_rect(art, r, false, c)\n"],
+		["a shared draw whose texture draw is only a comment", draw_needles, "var art = look[\"texture\"]\n# ci.draw_texture_rect_region(art, r, src, c)\nItemGlyph.draw_glyph(ci, box, 0, c)\n"],
+		["a shared draw with no glyph for a base with no picture", draw_needles, "var art = look[\"texture\"]\nci.draw_texture_rect_region(art, r, src, c)\n"],
 	]
 	for row in refused:
 		if _appears_in_order(String((row as Array)[2]), (row as Array)[1] as Array):

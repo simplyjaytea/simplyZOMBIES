@@ -4,7 +4,8 @@ Drop a PNG here and a content entry can use it. No code change, no editor round-
 
 ## Living zombies and settled corpses, as of 2026-10-02
 
-The player, colonists and raiders use the outpost `body_survivor` family. Zombies now use seven
+The player, colonists and raiders use the outpost `body_survivor` family, clothed since
+2026-10-19 (see "Equipped-item overlays" below). Zombies now use seven
 original families: `body_zombie_workwear`, `body_zombie_commuter`, `body_zombie_raincoat`,
 `body_zombie_stalker`, `body_zombie_runner`, `body_zombie_armored`, `body_zombie_heavy`.
 `authored.json` registers their source pixels under `kind: zombie_rig`. Shambler content selects
@@ -377,6 +378,13 @@ and the two ochre road lines (drawn north-south only, and a road runs both ways)
 
 ## The pawn — upright, face-on, flipped
 
+**Historical since 2026-10-19: no shipped body uses this convention.** Humans wear the outpost
+pack's four-direction body and every zombie, the screamer and the bloater included since zombie
+study 02, is a four-direction pose family under `godot/art/simplyzombies/zombie-poses/`. The
+face-on path survives in `presentation/appearance.gd` only as the fallback for a single-picture
+key, and `check_authored.gd` still holds a commissioned `rig` to the bounds below. Read the code,
+not this section, for what ships.
+
 Every rig on the roster — player, colonists, zombies, raiders — is one family: a standing
 figure seen face-on, drawn once and mirrored rather than turned.
 `tools/sprites/parts/characters.py` holds the eight rigs and the one `_figure` assembler every
@@ -517,6 +525,15 @@ and would eat them).
   `main.gd::_draw_prop` hangs any non-square prop picture and centres a square one, so the
   crate, the fire and the well are unchanged. The bed is a tile and a third wide, so `prop.bed`
   declares `size` 1.3 and `prop.schema.json` allows up to `Appearance.PROP_SIZE_MAX` (1.5).
+- `prop_campfire`, `prop_campfire_lit`, `prop_well` and `prop_latrine` are the square ones: drawn
+  under `godot/art/simplyzombies/stations/` since 2026-10-19 and padded onto the 32×32 tile
+  (`source.pad`, kind `tile`), so `_draw_prop` centres them like the crates. Their content `size`
+  is the art's width over 32, which `check_appearance.gd`'s PROPS lane holds.
+- `glass_{pane,frame}_{ew,ns,square}` are a window's glass on a wall's cap since 2026-10-19:
+  greys drawn by `godot/art/simplyzombies/glass/glass.py` at the rects' old geometry, named by the
+  street dressing's `faces.glass` and tinted by `main.gd::_draw_window_glass` (the pane by the
+  window tile's colour lightened 0.28, the frame by `windowRim`). `check_topdown.gd`'s GLASS lane
+  holds the geometry, the greys and the draw.
 - `heap_bags` (32×22), `heap_barrel` (24×30) and `heap_pallets` (32×30) are what a Low tile no
   parked car covers draws, out of the dressing block's `heaps` list (`Dressing.heap_key`, a hash
   per tile). `_draw_heap` hangs them at their own size inside the tile; `check_wrecks.gd`'s HEAP
@@ -529,6 +546,14 @@ and would eat them).
   nothing under `godot/sim/` reads it (`check_trees.gd`'s NATURE and INERT lanes).
 
 ## The vehicle — one three-quarter picture per class, variant and axis
+
+**Historical since 2026-10-19: no vehicle picture is generated.** The three cars east-west are the
+outpost pack's (2026-09-26); the cars north-south (`vehicle_<car>_{intact,wreck}_ns`) and all
+thirty light-vehicle keys are drawn under `godot/art/simplyzombies/vehicles/` (its README says
+how) and sourced in `authored.json`, and the sedan is 2×3, the van and the truck 2×4, both ways.
+The canvas rule below (footprint plus a tile of roofline) still sizes every picture but the pack's
+east-west cars, held by `check_wrecks.gd`'s DRESSING lane against content's footprint; the
+generator's camera, its numbers and its two-copies table describe pictures that no longer exist.
 
 `vehicle_{sedan,van,truck}_{pale,green,burnt}_{ns,ew}` (`tools/sprites/parts/vehicles.py`) are
 the three car classes, eighteen keys — the five light classes below make forty-eight in all:
@@ -595,8 +620,8 @@ record; nothing is hashed at draw time beyond what that record already says.
 An item base can also carry `appearance.equipSprite` (item.schema.json), a **different** picture
 from its ground `sprite` — what it looks like worn or held on a body, not lying on the floor.
 Since "Pack gear on the body" and "Held weapons in the hand" (2026-09-26; docs/30, "The whole
-outpost pack") it names one of two shapes, both the outpost pack's and both declared in
-`authored.json`:
+outpost pack") and "clothe everyone" (2026-10-19, docs/23) it names one of three shapes, all
+declared in `authored.json`:
 
 - **A wearable that turns** — the pack's vest, helmet, gas mask and backpack (`item_gear_*`,
   kind `pack_overlay`), a family of four views cropped on the body's own 32×40 canvas and anchor.
@@ -610,23 +635,32 @@ outpost pack") it names one of two shapes, both the outpost pack's and both decl
   either way for south and north, the east picture mirrored for west so the weapon stays upright.
   The body under it never mirrors; only the weapon does, and only facing west. The pack's
   baseball bat and assault rifle are not declared: no shipped base is either.
+- **A garment** — a `torso`, `legs` or `feet` item names a `wear_*` family (kind `wear`, with its
+  own `slot`, and `fits` naming the rig it was painted for), one member per rig frame, 20 for
+  `body_survivor`.
+  A garment is not a layer: it repaints only body pixels, so `Appearance.body_texture` composes
+  the body frame and its three garments into one cached texture (`dressed_texture`) and the
+  clothes walk on the body's own clock. A body with no garment in a slot wears the default
+  outfit from its content block's `appearance.outfit`, or the player block's, picked by entity
+  id. The art, its labeller and its painter are in `godot/art/simplyzombies/clothing/`.
 
 Anything else draws nothing on the body. The 43 face-on generated overlays (`tools/sprites/parts/
 gear.py`), their `equipSpriteFront` straps and the three fitted-part pictures
-(`attachmentSprite`, placed by a host's `partAnchors`) were retired in that commit, so a jacket,
-a cap, trousers, the duffel, a weapon the pack does not draw or a fitted part shows nothing on the
-body — the gap the owner accepted, with the inventory and the inspect pane still saying what is
-worn. Which slots draw, and in what order, is `Appearance.EQUIP_DRAW_ORDER` — one ordered table
-rather than an under list and an over list, because the order layers compose in *is* the picture.
-Eight slots: `legs`, `torso`, `vest`, `back`, `primary`, `secondary`, `face`, `head`; `belt`,
-`eyes`, `gloves` and `feet` are equippable in content and draw nothing.
+(`attachmentSprite`, placed by a host's `partAnchors`) were retired in that commit, so a cap, the
+duffel, a weapon the pack does not draw or a fitted part shows nothing on the body — the gap the
+owner accepted, with the inventory and the inspect pane still saying what is worn. Which layer
+slots draw, and in what order, is `Appearance.EQUIP_DRAW_ORDER` — one ordered table rather than
+an under list and an over list, because the order layers compose in *is* the picture. Six slots:
+`vest`, `back`, `primary`, `secondary`, `face`, `head`; `legs`, `feet` and `torso` are
+`Appearance.WORN_SLOTS`, painted into the body; `belt`, `eyes` and `gloves` are equippable in
+content and draw nothing.
 
 ## Wiring one up
 
 Add the key to the content entry, not to any script:
 
 ```json
-{ "id": "zombie.screamer", "appearance": { "sprite": "zombie_screamer" } }
+{ "id": "zombie.screamer", "appearance": { "sprite": "body_zombie_screamer" } }
 ```
 
 `presentation/appearance.gd` resolves the key; `npm run godot:check:appearance` fails the build if

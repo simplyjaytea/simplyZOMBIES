@@ -75,8 +75,10 @@ const PONCHO: String = "item.poncho.rain"
 # Noon on day one is full daylight; deep night on day two is the cold half of the ladder.
 const NOON: float = 0.4
 const NIGHT: float = 0.8
-# The slots the renderer actually draws. A copy would drift, so it is read off the renderer.
-const DRAWN_SLOTS: Array[String] = ["legs", "torso", "vest", "back", "primary", "secondary", "face", "head"]
+# The slots the renderer actually draws: EQUIP_DRAW_ORDER's layers and, since "clothe everyone"
+# (docs/23, 2026-10-19), WORN_SLOTS' garments painted into the body. The lane reads both tables off
+# the renderer and holds them to this list, so a slot added or dropped on either side is noticed.
+const DRAWN_SLOTS: Array[String] = ["vest", "back", "primary", "secondary", "face", "head", "legs", "feet", "torso"]
 
 
 func _init() -> void:
@@ -786,21 +788,23 @@ func _body_armour_is_no_longer_one_hardcoded_key() -> bool:
 # --- ART --------------------------------------------------------------------------------------
 #
 # The dead-socket rule, aimed at the one place this slice could quietly have created one.
-# `presentation/appearance.gd`'s EQUIP_DRAW_ORDER covers eight slots; an `equipSprite` declared on
-# any other is a picture the renderer will never ask for. The wool gloves and the sandals sit in
-# exactly those other slots, so the rule is checked here rather than
-# trusted -- and checked against the renderer's own table, not a copy of it, since a copy is the
-# thing that drifts.
+# `presentation/appearance.gd`'s EQUIP_DRAW_ORDER draws six layer slots and WORN_SLOTS paints
+# three garment slots into the body; an `equipSprite` declared on any other is a picture the
+# renderer will never ask for. The wool gloves sit in exactly such a slot (the sandals did until
+# the feet were clothed), so the rule is checked here rather than trusted -- and checked against
+# the renderer's own tables, not a copy of them, since a copy is the thing that drifts.
 func _nothing_declares_art_that_would_never_draw() -> bool:
 	var drawn: Dictionary = {}
 	for row in Appearance.EQUIP_DRAW_ORDER:
 		drawn[String((row as Dictionary)["slot"])] = true
+	for slot in Appearance.WORN_SLOTS:
+		drawn[String(slot)] = true
 	for slot in DRAWN_SLOTS:
 		if not drawn.has(slot):
-			push_error("ART: this gate believes '%s' is drawn and EQUIP_DRAW_ORDER does not list it" % slot)
+			push_error("ART: this gate believes '%s' is drawn and neither EQUIP_DRAW_ORDER nor WORN_SLOTS lists it" % slot)
 			return false
 	if drawn.size() != DRAWN_SLOTS.size():
-		push_error("ART: EQUIP_DRAW_ORDER draws %s and this gate expected %s -- the renderer grew a slot and this lane has not been told" % [str(drawn.keys()), str(DRAWN_SLOTS)])
+		push_error("ART: EQUIP_DRAW_ORDER and WORN_SLOTS draw %s and this gate expected %s -- the renderer grew a slot and this lane has not been told" % [str(drawn.keys()), str(DRAWN_SLOTS)])
 		return false
 	var w: Variant = _world()
 	var judged: int = 0
@@ -813,11 +817,11 @@ func _nothing_declares_art_that_would_never_draw() -> bool:
 		judged += 1
 		var app: Variant = e.get("appearance")
 		if app is Dictionary and (app as Dictionary).has("equipSprite"):
-			push_error("ART: '%s' sits in the '%s' slot and declares an equipSprite, which EQUIP_DRAW_ORDER never reaches -- art that will never draw" % [String(e.get("id", "")), slot])
+			push_error("ART: '%s' sits in the '%s' slot and declares an equipSprite, which neither EQUIP_DRAW_ORDER nor WORN_SLOTS reaches -- art that will never draw" % [String(e.get("id", "")), slot])
 			return false
 		undrawn += 1
 	if judged == 0:
 		push_error("ART: no shipped base occupies an undrawn slot, so this lane is judging nothing")
 		return false
-	print("  ART: EQUIP_DRAW_ORDER draws %d slots; %d shipped bases sit outside them and not one declares a sprite key" % [drawn.size(), undrawn])
+	print("  ART: EQUIP_DRAW_ORDER and WORN_SLOTS draw %d slots; %d shipped bases sit outside them and not one declares a sprite key" % [drawn.size(), undrawn])
 	return true
