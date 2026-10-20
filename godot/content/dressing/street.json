@@ -9,6 +9,11 @@
   "litter": [
     "debris_paper"
   ],
+  "litter_tints": [
+    "#ffffff",
+    "#ffffff",
+    "#aaa49a"
+  ],
   "rubble": [
     "debris_rubble_a",
     "debris_rubble_b"
@@ -144,6 +149,7 @@
         "paved"
       ],
       "rarity": 28,
+      "salt": 0,
       "group": "table"
     },
     {
@@ -152,7 +158,8 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 2,
+      "rarity": 3,
+      "salt": 1,
       "group": "seat"
     },
     {
@@ -162,6 +169,7 @@
         "paved"
       ],
       "rarity": 4,
+      "salt": 2,
       "beside": "wall",
       "per_room": 1
     },
@@ -171,18 +179,9 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 3,
+      "rarity": 2,
+      "salt": 3,
       "beside": "wall_north"
-    },
-    {
-      "key": "prop_fridge",
-      "where": "indoors",
-      "surfaces": [
-        "paved"
-      ],
-      "rarity": 5,
-      "beside": "wall_north",
-      "standing": true
     },
     {
       "key": "prop_concrete_barrier",
@@ -219,6 +218,7 @@
         "paved"
       ],
       "rarity": 3,
+      "salt": 8,
       "beside": "wall_north"
     },
     {
@@ -247,7 +247,8 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 5,
+      "rarity": 3,
+      "salt": 11,
       "beside": "wall"
     },
     {
@@ -256,9 +257,11 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 10,
+      "rarity": 6,
+      "salt": 12,
       "beside": "wall",
-      "standing": true
+      "standing": true,
+      "per_room": 1
     },
     {
       "key": "prop_dumpster",
@@ -266,7 +269,8 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 6,
+      "rarity": 4,
+      "salt": 13,
       "beside": "wall",
       "cluster": true
     },
@@ -276,7 +280,8 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 6,
+      "rarity": 4,
+      "salt": 14,
       "beside": "wall",
       "cluster": true
     },
@@ -287,6 +292,7 @@
         "grass"
       ],
       "rarity": 7,
+      "salt": 15,
       "beside": "edge",
       "cluster": true
     },
@@ -296,7 +302,8 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 9,
+      "rarity": 6,
+      "salt": 16,
       "beside": "edge",
       "cluster": true
     },
@@ -306,9 +313,30 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 12,
+      "rarity": 8,
+      "salt": 17,
       "beside": "edge",
       "cluster": true
+    },
+    {
+      "key": "prop_barrel",
+      "where": "indoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 4,
+      "salt": 18,
+      "beside": "wall"
+    },
+    {
+      "key": "prop_pallet_stack",
+      "where": "indoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 6,
+      "salt": 19,
+      "beside": "wall"
     }
   ],
   "wall_modules": {

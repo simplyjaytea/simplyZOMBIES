@@ -152,6 +152,7 @@ func _run() -> void:
 	ok = _the_occupancy_holds() and ok
 	ok = _the_room_sets_and_the_edges_hold() and ok
 	ok = _the_rooms_and_the_street_keep_their_measure() and ok
+	ok = _the_second_review_holds() and ok
 	ok = _dressing_is_never_sim_state() and ok
 
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
@@ -1526,7 +1527,11 @@ func _the_furnishings_stand_where_they_should() -> bool:
 			push_error("furnishing entry '%s' is in group '%s', which the pick does not know" % [key, group])
 			return false
 		named[key] = true
-		where_of[key] = where
+		# A key may have an entry on each side of the walls (the barrel is street junk and a room's
+		# stores), so a picture is judged against every side its key's entries name.
+		if not where_of.has(key):
+			where_of[key] = {}
+		(where_of[key] as Dictionary)[where] = true
 	# The dead-socket half, both directions: every furnishing the pack ships that fits a tile is
 	# named, and nothing else is -- the workbench and the three tall props are refused by name.
 	for want in FURNISH_KEYS:
@@ -1942,8 +1947,9 @@ func _the_furnishings_stand_where_they_should() -> bool:
 			var pkey: String = String(pick3["key"])
 			placed[pkey] = int(placed.get(pkey, 0)) + 1
 			var indoors: bool = SimTileMap.is_indoors(map, px, py)
-			if indoors != (String(where_of.get(pkey, "")) == Dressing.FURNISH_INDOORS):
-				push_error("%s: '%s' stands at (%d,%d) which is %s, its entry says %s" % [district_id, pkey, px, py, "indoors" if indoors else "outdoors", String(where_of.get(pkey, ""))])
+			var sides: Dictionary = where_of.get(pkey, {})
+			if not sides.has(Dressing.FURNISH_INDOORS if indoors else Dressing.FURNISH_OUTDOORS):
+				push_error("%s: '%s' stands at (%d,%d) which is %s, its entries say %s" % [district_id, pkey, px, py, "indoors" if indoors else "outdoors", str(sides.keys())])
 				return false
 			if int(SimTileMap.tile_at(map, px, py)) != SimTileMap.Tile.Floor:
 				push_error("%s: '%s' stands on (%d,%d), which is not a Floor tile" % [district_id, pkey, px, py])
@@ -2522,8 +2528,8 @@ func _the_occupancy_holds() -> bool:
 	if kept_on_clear != 0 or scrap_on_held != 0:
 		push_error("%d pictures stand in the clearing and %d scraps sit on a held tile; the clearing and the held tiles are not kept" % [kept_on_clear, scrap_on_held])
 		return false
-	# The rate: a scrap rolled out of LITTER_SPAN on the street and LITTER_SPAN_INDOORS in a room, kept
-	# after the overlap rule, judged as a band so a rule that starves or floods the floor fails.
+	# The rate: a scrap dealt by its block's quota (LITTER_TENTHS), the street's and a room's apart,
+	# kept after the overlap rule, judged as a band so a rule that starves or floods the floor fails.
 	if paved == 0:
 		push_error("the shipped suburb has no paved floor; the scrap rate has nothing to judge")
 		return false
@@ -3062,9 +3068,233 @@ func _the_rooms_and_the_street_keep_their_measure() -> bool:
 	if missing.is_empty():
 		missing = _missing_needle(_function_body(DRESSING_GD, "_entry_rolls"), ["_spaced(seed_term, tx, ty)"])
 	if missing.is_empty():
-		missing = _missing_needle(_function_body(DRESSING_GD, "_litter_raw"), ["_litter_weight("])
+		missing = _missing_needle(_function_body(DRESSING_GD, "_litter_raw"), ["_block_litter("])
+	if missing.is_empty():
+		missing = _missing_needle(_function_body(DRESSING_GD, "_block_litter"), ["_litter_weight("])
 	if not missing.is_empty():
 		push_error("a round-one rule has lost its reader: %s" % missing)
 		return false
 	print("MEASURE_OK salts pinned and repeats dropped; the suburb's %d street furniture pieces stand where they stood with or without the junk; %d junk barrels each on its segment's tile (%d plain ones off it); %d rooms kept one cabinet (%d took several without the rule); %d shelves on a windowed wall, none in front of a pane (%d before walled-up panes); %d grass bags on the verge rows only; scraps lie anywhere in the tile (%d high, %d low); no kept picture reaches into the clearing" % [without.size(), spaced_hits, unspaced_plain, rooms_held, rooms_over, on_wall, where_panes, verge_hits, top_third, bottom_third])
+	return true
+
+# --- lane: round 2 of A12's review -------------------------------------------------------------
+# Litter dealt by block on both sides of the walls, one fridge a room, a chair only beside its own
+# table, a table clear of the plain picks round it, the scrap's tint and vertical flip reaching the
+# draw, and the review harness weighing scraps rather than refusing them. Each with a negative.
+
+
+# Whether a block's dealt count is its quota: `floor(n * 10 / LITTER_TENTHS)` or one more, the jitter
+# rounding the share either way.
+func _within_quota(dealt: int, floor_tiles: int) -> bool:
+	var low: int = floori(float(floor_tiles * 10) / float(Dressing.LITTER_TENTHS))
+	return dealt == low or dealt == low + 1
+
+
+# Every whole block of a map's paved floor on one side of the walls, as `[floor tiles, dealt]`.
+func _litter_blocks(occ: Dictionary, map: Variant, indoors: bool, dealt_by: Callable) -> Array:
+	var shift: int = Dressing._mix(Dressing._hash_t(int(occ["seed_term"]), 0, 0, Dressing.SALT_LITTER_BLOCK_OFFSET))
+	var ox: int = shift % Dressing.LITTER_BLOCK
+	var oy: int = (shift >> 8) % Dressing.LITTER_BLOCK
+	var out: Array = []
+	for by in range(0, int(map.h) / Dressing.LITTER_BLOCK + 2):
+		for bx in range(0, int(map.w) / Dressing.LITTER_BLOCK + 2):
+			var n: int = 0
+			var dealt: int = 0
+			var whole: bool = true
+			for dy in Dressing.LITTER_BLOCK:
+				for dx in Dressing.LITTER_BLOCK:
+					var cx: int = bx * Dressing.LITTER_BLOCK - ox + dx
+					var cy: int = by * Dressing.LITTER_BLOCK - oy + dy
+					if cx < 0 or cy < 0 or cx >= int(map.w) or cy >= int(map.h):
+						whole = false
+						continue
+					if not Dressing._paved_floor(map, cx, cy) or SimTileMap.is_indoors(map, cx, cy) != indoors:
+						continue
+					n += 1
+					if bool(dealt_by.call(cx, cy)):
+						dealt += 1
+			if whole and n > 0:
+				out.append([n, dealt])
+	return out
+
+
+func _the_second_review_holds() -> bool:
+	# --- BLOCKS: every block deals its quota, the street's and a room's apart --------------------
+	var scrap_block: Dictionary = {"sizes": {"debris_paper": [11, 12]}, "litter": ["debris_paper"]}
+	var halves: Variant = _room_map(36, 24, false)
+	for ty in 24:
+		for tx in range(18, 36):
+			halves.indoors[ty * 36 + tx] = 1
+	var blocks_judged: int = 0
+	var roll_off: int = 0
+	for seed_val in 4:
+		var bocc: Dictionary = Dressing.occupancy(scrap_block, halves, seed_val)
+		var kept_by: Callable = func(cx: int, cy: int) -> bool: return not Dressing._litter_raw(bocc, halves, cx, cy).is_empty()
+		# The per-tile roll the blocks replaced, at the same rate: the band has to refuse it somewhere.
+		var rolled_by: Callable = func(cx: int, cy: int) -> bool: return Dressing._mix(Dressing.hash_at(seed_val, cx, cy, Dressing.SALT_LITTER_PICK)) % Dressing.LITTER_TENTHS < 10
+		for side in [false, true]:
+			for row in _litter_blocks(bocc, halves, side, kept_by):
+				if not _within_quota(int(row[1]), int(row[0])):
+					push_error("BLOCKS: seed %d, a %s block of %d paved tiles took %d scraps; its quota is %d or one more" % [seed_val, "room" if side else "street", int(row[0]), int(row[1]), floori(float(int(row[0]) * 10) / float(Dressing.LITTER_TENTHS))])
+					return false
+				blocks_judged += 1
+			for row2 in _litter_blocks(bocc, halves, side, rolled_by):
+				if not _within_quota(int(row2[1]), int(row2[0])):
+					roll_off += 1
+	if blocks_judged < 16 or roll_off == 0 or _within_quota(9, 36):
+		push_error("BLOCKS: %d blocks judged, %d off quota under a per-tile roll; the band cannot fail or had nothing to judge" % [blocks_judged, roll_off])
+		return false
+
+	# --- FRIDGE: the shipped fridge and cabinet are one a room ------------------------------------
+	var boot: Dictionary = SimBoot.playable(CANON_SEED, GATE_SIZE)
+	var rworld: Variant = boot["world"]
+	var rmap: Variant = boot["map"]
+	var rblock: Dictionary = Dressing.block_of(rworld)
+	var rocc: Dictionary = Dressing.occupancy(rblock, rmap, int(rworld.seed))
+	var one_a_room: Array = ["prop_fridge", "prop_medical_cabinet"]
+	for entry in Dressing._furnishing_entries(rblock):
+		if one_a_room.has(String(entry[Dressing.FE_KEY])) and int(entry[Dressing.FE_PER_ROOM]) != 1:
+			push_error("FRIDGE: the shipped %s keeps %d a room; the review asked for one" % [String(entry[Dressing.FE_KEY]), int(entry[Dressing.FE_PER_ROOM])])
+			return false
+	var fridges: int = 0
+	for key in one_a_room:
+		var counts: Dictionary = _per_room_counts(rocc, rmap, String(key))
+		for room in counts:
+			if int(counts[room]) > 1:
+				push_error("FRIDGE: room %d of the suburb holds %d of %s" % [int(room), int(counts[room]), String(key)])
+				return false
+			if String(key) == "prop_fridge":
+				fridges += 1
+	if fridges == 0:
+		print("FRIDGE SKIP: the suburb stands no fridge at seed %d; the per-room count had nothing to judge (PER_ROOM holds the rule)" % int(rworld.seed))
+
+	# --- CHAIRS: a chair stands only beside its own kept table ------------------------------------
+	var set_block: Dictionary = {"sizes": FABRICATED_SIZES, "furnishings": [
+		{"key": "prop_table", "where": "indoors", "surfaces": ["paved"], "rarity": 9, "group": "table"},
+		{"key": "prop_chair", "where": "indoors", "surfaces": ["paved"], "rarity": 2, "group": "seat"},
+	]}
+	var hall: Variant = _walled_room(24, 18)
+	var chairs: int = 0
+	var orphaned: int = 0
+	for seed_val in 4:
+		var cocc: Dictionary = Dressing.occupancy(set_block, hall, seed_val)
+		for ty in 18:
+			for tx in 24:
+				var raw: Dictionary = Dressing._raw_top(cocc, hall, tx, ty)
+				if String(raw.get("key", "")) != "prop_chair":
+					continue
+				var faces: Vector2i = raw["table"]
+				var table: Dictionary = Dressing._kept_alone(cocc, hall, faces.x, faces.y)
+				var kept: Dictionary = Dressing._kept_top(cocc, hall, tx, ty)
+				if table.is_empty():
+					orphaned += 1
+					if not kept.is_empty():
+						push_error("CHAIRS: seed %d kept a chair at %s whose table at %s the overlap rule dropped" % [seed_val, str(Vector2i(tx, ty)), str(faces)])
+						return false
+					continue
+				if kept.is_empty():
+					continue
+				chairs += 1
+				if absi(faces.x - tx) + absi(faces.y - ty) != 1:
+					push_error("CHAIRS: seed %d's chair at %s faces a table at %s, not beside it" % [seed_val, str(Vector2i(tx, ty)), str(faces)])
+					return false
+	if chairs == 0:
+		push_error("CHAIRS: no chair kept in the hall over four seeds; the rule had nothing to judge")
+		return false
+	# The shipped rules seldom drop a table a chair faces, so the orphan half is also proven on a
+	# fabricated drop: the same chair, its table's raw top taken away, is not kept.
+	var focc: Dictionary = Dressing.occupancy(set_block, hall, 0)
+	var proven: bool = false
+	for ty in 18:
+		for tx in 24:
+			var top: Dictionary = Dressing._kept_top(focc, hall, tx, ty)
+			if proven or String(top.get("key", "")) != "prop_chair":
+				continue
+			var at: Vector2i = top["table"]
+			(focc["memo"] as Dictionary)[at.y * 24 + at.x] = {}
+			if not Dressing._kept_top(focc, hall, tx, ty).is_empty():
+				push_error("CHAIRS: the chair at %s stayed with its table at %s taken away" % [str(Vector2i(tx, ty)), str(at)])
+				return false
+			proven = true
+	if not proven:
+		push_error("CHAIRS: no chair in seed 0's hall to take a table from; the fabricated drop proves nothing")
+		return false
+
+	# --- NEIGHBOUR: a table stands where its eight neighbours roll no plain picture ---------------
+	var with_plain: Dictionary = {"sizes": FABRICATED_SIZES, "furnishings": (set_block["furnishings"] as Array) + [
+		{"key": "prop_shelf", "where": "indoors", "surfaces": ["paved"], "rarity": 2, "beside": "wall_north"},
+		{"key": "prop_medical_cabinet", "where": "indoors", "surfaces": ["paved"], "rarity": 6},
+	]}
+	var crowded: int = 0
+	var anchors: int = 0
+	for seed_val in 4:
+		var pocc: Dictionary = Dressing.occupancy(with_plain, hall, seed_val)
+		var bare_occ: Dictionary = Dressing.occupancy(set_block, hall, seed_val)
+		var table_p: Array = (pocc["tables"] as Array)[0]
+		var table_b: Array = (bare_occ["tables"] as Array)[0]
+		for ty in 18:
+			for tx in 24:
+				var with_t: bool = Dressing._anchor_in_cell(pocc, hall, table_p, tx, ty) == Vector2i(tx, ty)
+				var bare_t: bool = Dressing._anchor_in_cell(bare_occ, hall, table_b, tx, ty) == Vector2i(tx, ty)
+				if not with_t and not bare_t:
+					continue
+				var beside: bool = false
+				for dy in range(-1, 2):
+					for dx in range(-1, 2):
+						if (dx != 0 or dy != 0) and not Dressing._furnishing_raw(pocc["furnish"], hall, int(pocc["seed_term"]), tx + dx, ty + dy, pocc["clear"], pocc["road"], pocc).is_empty():
+							beside = true
+				if with_t:
+					anchors += 1
+					if beside:
+						push_error("NEIGHBOUR: seed %d stood a table at %s beside a plain pick" % [seed_val, str(Vector2i(tx, ty))])
+						return false
+				elif beside:
+					crowded += 1
+	if anchors == 0 or crowded == 0:
+		push_error("NEIGHBOUR: %d tables beside the plain picks' hall, %d that stand without them where a pick would crowd them; the rule is not read or cannot fail" % [anchors, crowded])
+		return false
+
+	# --- TINT: a scrap's tint and its vertical flip reach the draw ---------------------------------
+	var grey: int = 0
+	var white: int = 0
+	var upside: int = 0
+	var upright: int = 0
+	for ty in int(rmap.h):
+		for tx in int(rmap.w):
+			var placed: Dictionary = Dressing.litter_placed_in(rocc, tx, ty)
+			if placed.is_empty():
+				continue
+			if (placed["tint"] as Color).is_equal_approx(Color.WHITE):
+				white += 1
+			else:
+				grey += 1
+			if bool(placed["flip_v"]):
+				upside += 1
+			else:
+				upright += 1
+	var plain_occ: Dictionary = Dressing.occupancy(scrap_block, halves, 1)
+	var plain_tinted: int = 0
+	for ty in 24:
+		for tx in 36:
+			var p2: Dictionary = Dressing.litter_placed_in(plain_occ, tx, ty)
+			if not p2.is_empty() and not (p2["tint"] as Color).is_equal_approx(Color.WHITE):
+				plain_tinted += 1
+	if grey == 0 or white == 0 or upside == 0 or upright == 0 or plain_tinted != 0:
+		push_error("TINT: %d grey and %d plain scraps, %d upside down and %d upright on the suburb, %d tinted under a block naming no tints" % [grey, white, upside, upright, plain_tinted])
+		return false
+
+	# --- the readers ------------------------------------------------------------------------------
+	var missing: String = _missing_needle(_function_body(MAIN_GD, "_draw_litter"), ["placed.get(\"flip_v\"", "placed.get(\"tint\""])
+	if missing.is_empty():
+		missing = _missing_needle(_function_body(DRESSING_GD, "_kept_top"), ["_kept_alone(occ, map, at.x, at.y)"])
+	if missing.is_empty():
+		missing = _missing_needle(_function_body(DRESSING_GD, "_anchor_fits"), ["_furnishing_raw(occ[\"furnish\"]"])
+	if missing.is_empty():
+		missing = _missing_needle(_function_body("res://review/scenes.gd", "_street_spot"), ["_scraps_near("])
+	if missing.is_empty():
+		missing = _missing_needle(_function_body("res://review/scenes.gd", "_interior_spot"), ["colony_start(", "_shot_score("])
+	if not missing.is_empty():
+		push_error("a round-two rule has lost its reader: %s" % missing)
+		return false
+	print("REVIEW2_OK %d blocks dealt their quota on both sides of the walls (%d off it under a per-tile roll); the fridge and the cabinet one a room; %d chairs each beside its own table, %d over a dropped table dropped with it (and a fabricated drop); %d tables clear of the plain picks round them (%d spots the rule refused); scraps %d grey and %d plain, %d upside down, none tinted without tints; main.gd and the harness read it" % [blocks_judged, roll_off, chairs, orphaned, anchors, crowded, grey, white, upside])
 	return true
