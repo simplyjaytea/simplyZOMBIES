@@ -4348,6 +4348,51 @@ not a to-do list:
   picks round them against 102 the rule refused; grey, plain and upside-down scraps present and none
   tinted without tints; and the readers in `main.gd` and `review/scenes.gd`), `godot:check:wrecks`.
 
+  **A12's eighth pass** (the coordinator's art QA round 3 on #167, 2026-10-20). **Main's street
+  furniture stands where main put it.** The sixth pass pinned the barrier, cone, post, sign and lamp
+  to their salts but rolled them through this file's mixer at new rarities, so main's pieces moved or
+  went and new ones appeared. They now take `"roll": "kept"`: main's own roll (the old salt, its
+  rarity, the first match in main's list order), main's ground rule (`_kept_fits`), no jitter and no
+  mirror, so each hangs on main's own pixels; a `shadow` entry stands in for main's wall dumpster,
+  which took its tile first, so that tile rolls nothing main did not. A kept piece outranks every
+  neighbour and gives way only to a sim object on its own tile; two kept pieces that met in main
+  still meet (four on the suburb). The one difference left: a kept sign or lamp is a standing piece
+  and its foot drop sits on the art grid (the round-one rule), at most one screen pixel above main's.
+  **Rooms stay walkable.** A room takes its pieces in turn, tables first, and keeps each only while
+  its free floor stays one four-connected walk and no tile inside a doorway is taken
+  (`_room_drops`, memoised per room, a ring test before the flood fill), so a two-tile corridor never
+  takes a piece on both tiles; a chair goes with its table, and a table its rules left with no chair
+  goes too. **Stock stays in storage.** The indoor barrel and pallet line the walls of the storage
+  buildings only (the block's `storage` list: warehouse, industrial unit, gatehouse yard, the three
+  sheds; `rooms: storage`); a living room or the hall keeps at most one of each (`rooms: living`,
+  `per_room` 1, not one per wall run, which the room cap already bounds). **Litter** takes two new
+  shapes drawn in-repo, a newspaper sheet (14×11) and a tin can (12×7), beside the pack's paper.
+  **Long tables butt**: the halves sit one art pixel either side of their tiles' centres, so the
+  pack table's 34-pixel tops meet edge to edge; a table seating more than one takes all three chairs
+  in one in four (`FULL_SET_ODDS`). **Decals** draw on their own canvas item between the ground and
+  the dressing (`WorldLayers.decal_pen`), so a prop stands on the blood. The room shot ranks a room
+  showing a table set right after the counter (`_set_near`). **Measured** with the throwaway probe at
+  1280×720 / 1920×1080 on main 2e920b3 (export 21:58 UTC, before shots from a main 2e920b3
+  checkout at the same spots): every kept piece drawn on the six shots best matches main's shot at
+  offset (0, 0) except three standing pieces at (0, −1) (`after/kept_vs_main.json`); uncovered
+  pixels and off-grid 0; overlaps 0 on four shots and one on the two street shots, a kept cone and
+  sign that meet where main drew them; straddles 1 on three shots, each a kept barrier on paved and
+  unpaved ground as main had it; street litter outside the reserved squares 1 in 6.9 / 6.6 on the
+  street shot; no empty 7×7 of seen room floor. Gates:
+  `godot:check:trees` (OLD_STREET_OK: 280 of main's pieces on the boot map and four districts, none
+  missing, none moved, none added, against a plain roll that moves 118 and a shadowless block that
+  adds one; PASSAGE_OK: every room on five maps one walk, against two cut without the rule;
+  SEATED_OK: 42 tables each keep a chair, against one alone without the rule; STOCK_OK: living rooms
+  at most one barrel and one pallet, three storage rooms several, five in a living room without the
+  rule; SHAPES_OK: all three litter shapes on the boot map; OCCUPANCY holds eight long tables' tops
+  to a gap of 0 and refuses the old four-pixel shift), `godot:check:decals` (UNDER),
+  `godot:check:wrecks`, `godot:check:shots`, `sprites:check`, `godot:check:authored`. **Left as
+  they are:** the combat shot's street is the clearing's edge and takes litter 1 in 9.2 (the
+  clearing keeps scraps off the start's 9×9, and the block quota counts the floor it covers); the
+  seven single cones on the street shots are main's own cones, kept by the ruling above; the room
+  shot's lone-looking chair at its east wall faces a table on a tile the survivor does not see. Draw
+  was not re-benched: the eighth pass adds a memoised per-room walk and moves no draw call.
+
   **Container kinds are the table's.** `prop.container` gains a top-level `tables` map
   (`prop.schema.json`): residential and commercial containers keep the wood crate, `medical` draws
   `prop.container.medical`, `industrial` and `military_cache` draw `prop.container.metal`, each with
