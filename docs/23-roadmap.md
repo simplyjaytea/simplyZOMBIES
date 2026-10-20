@@ -1966,7 +1966,11 @@ not a to-do list:
   beside it walks down to the void's dark instead. A window's light is still per tile: the cast
   through it fades to nothing at the window row's edges, so its band on the far side peaks at
   the pane and the masonry above and below it stays nearly dark, but the pane's own outline is
-  not traced. By day the light map is cleared, not drawn, so the day frame is the one it
+  not traced. Light passes a window onto the floor beyond and not onto the masonry there: the
+  sim's shadowcast lights the first opaque tile it meets through glass (a hedge or a shelf whose
+  picture reads as the wall going on), so the screen lights an opaque tile only from a source
+  that also lights one of its four open neighbours, the ground its face looks onto
+  (`LightLook._face_lit`; art review 3). By day the light map is cleared, not drawn, so the day frame is the one it
   was before (pixel-identical at both sizes). Everything is evaluated on the 32 px art-pixel
   grid. Flames (a campfire, oil, a candle) flicker by at most 3% of reach, only ever down; cells
   and gas are steady. A torch, headlamp or weapon light draws as a beam along its carrier's
@@ -2001,7 +2005,10 @@ not a to-do list:
   that read them, and their lanes with them. `godot:check:appearance` pins the campfire's new
   tint. Budget: see docs/22's light-map section. Before, first-cut and revised shots are in the
   project's `planning/lighting/`, with an overlap shot and a torch aimed point-blank at a wall
-  with two windows: light passes the windows and stops at the masonry between them.
+  with two windows: light passes the windows and stops at the masonry between them. WINDOW: a
+  campfire inside a room lights a screen tile behind the glass in the sim, and it carries no
+  source bit; the floor beyond the same glass, the wall's room-side face and a screen beside that
+  lit floor keep theirs. With the refusal switched off the lane went red.
 
 - **Feel — bodies glide between ticks, and a slow frame drops time, 2026-10-19.** Item A2 of
   the 2026-10-19 alpha plan. The sim steps at 20 Hz and every body used to be drawn on the
