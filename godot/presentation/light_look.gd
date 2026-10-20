@@ -15,6 +15,7 @@ const Clock = preload("res://sim/time/clock.gd")
 const SimLight = preload("res://sim/vision/light.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const Items = preload("res://sim/modules/items.gd")
+const SimSightings = preload("res://sim/modules/sightings.gd")
 const LightModule = preload("res://sim/modules/light.gd")
 const Appearance = preload("res://presentation/appearance.gd")
 const Palette = preload("res://presentation/palette.gd")
@@ -50,6 +51,10 @@ const CAP_AT_ZERO: float = 0.35
 const CAP_METRES: float = 40.0
 const CAP_MIN: float = 0.45
 const CAP_MAX: float = 0.95
+# How much of the night's colour is left in full dark at midnight (night_light.gdshader's
+# `night_floor`): the floor outside every light is near black, a channel never above 8 of 255
+# on a white tile, with only a little blue in it.
+const NIGHT_FLOOR: float = 0.24
 
 
 # The raw ambient fraction for this world's tick -- daylight 1.0, deep night NIGHT_AMBIENT.
@@ -110,7 +115,8 @@ static func source_cap(magnitude: float) -> float:
 
 
 # The light map's texels for the tiles in `view` (tile coordinates, clamped to the map by the
-# caller): four bytes a tile. R is 255 where the survivor sees the tile. G, B and A are one bit per
+# caller): four bytes a tile. R is 255 where the survivor sees the tile, 128 where they only remember
+# it (their explored map), 0 for the void no layer draws. G, B and A are one bit per
 # source, bits 0-23 in `sources` order, set where that source's own shadowcast reaches the tile
 # **and** the survivor sees it -- lit ∩ seen, the rule `lit_pool_tiles` holds, as bits a shader can
 # read. A tile the survivor does not see is four zero bytes whatever lights it, so nothing a wall
@@ -138,6 +144,7 @@ static func light_texels(world: Variant, eyes: int, view: Rect2i) -> Dictionary:
 			bytes[i * 4] = 255
 		out["seen"] = w * h
 		return out
+	var explored: Variant = SimSightings.explored_view(world, eyes)
 	# The candidates: every source whose reach could touch the view, brightest first (ties by id,
 	# so the order never depends on a Dictionary's), and each one's cast resolved once.
 	var candidates: Array = []
@@ -167,9 +174,11 @@ static func light_texels(world: Variant, eyes: int, view: Rect2i) -> Dictionary:
 	var used: int = 0
 	for ty in range(view.position.y, view.end.y):
 		for tx in range(view.position.x, view.end.x):
-			if not bool((seen as Object).call("has_tile", tx, ty)):
-				continue
 			var at: int = ((ty - view.position.y) * w + (tx - view.position.x)) * 4
+			if not bool((seen as Object).call("has_tile", tx, ty)):
+				if explored != null and bool((explored as Object).call("has_tile", tx, ty)):
+					bytes[at] = 128
+				continue
 			bytes[at] = 255
 			seen_count += 1
 			var mask: int = 0

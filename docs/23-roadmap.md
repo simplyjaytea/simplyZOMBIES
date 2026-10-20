@@ -1940,7 +1940,7 @@ these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet he
 not a to-do list:
 
 - **Art — the night, per pixel, 2026-10-19.** Item A10 of the 2026-10-19 alpha plan, built on
-  the baked world (A4), revised once after the coordinator's art review (2026-10-20). The night
+  the baked world (A4), revised twice after the coordinator's art reviews (2026-10-20). The night
   was one flat navy fill whose alpha came from the survivor's own sight, warm pools were per-tile
   rects under the bodies, and the edge of sight was the shadowcast's tiles stepping straight into
   a navy void. Now `presentation/light_map.gd` draws one screen rect multiplied over everything
@@ -1948,18 +1948,25 @@ not a to-do list:
   for the flash and the flame. Where light may land is the sim's: the per-source "does this cast
   reach this tile and does the survivor see it" answer is handed over as bits
   (`LightLook.light_texels`), so a wall stops light on screen exactly where it stops it in the
-  sim, and a source's light is feathered over the inner half of the last tile it holds, inward
-  only, never onto a tile the survivor does not see. How much light lands is the look: each
+  sim, and a source's light fades over the inner half of the last tile it holds to nothing at
+  the edge of every neighbour it does not hold, corners included, never onto a tile the survivor
+  does not see. How much light lands is the look: each
   source draws a pool out to 0.3 of its sim reach and nothing past it, in five flat rings with an
   ordered dither only in the band between two (`LightLook.POOL_LEVELS`), at a brightness capped
   by its reach (`LightLook.source_cap`: a 20 m campfire 0.85 of daylight, a 16 m storm lantern
   0.75). The campfire's content tint is a redder orange (`#ff9452`) and the oil lanterns a
   yellower one (`#ffdf80`), so two overlapping pools read as two. Outside every pool the night
-  holds at the floor of the unseen dark (RGB 6 or under on the boot scene), and the survivor's
+  holds at the floor of the unseen dark: at midnight full dark is `LightLook.NIGHT_FLOOR` (0.24)
+  of the night's colour, no channel above 8 of 255 even on a white tile. The survivor's
   own disc of ground (`EYE_FLOOR` 0.55, ringed the same way) ends half a tile inside their sight
   radius (`LightLook.eye_disc_metres`), so it is round rather than cut by the plus of tiles a
   1.9 m night sight sees. The edge of sight is softened across the tile boundary, half a tile
-  wide, and dithered. By day the light map is cleared, not drawn, so the day frame is the one it
+  into each side, and dithered. The void (never seen, drawn by no layer, R 0 in the texels where
+  a remembered tile is 128) cannot be faded by a multiply, so the known map's last half tile
+  beside it walks down to the void's dark instead. A window's light is still per tile: the cast
+  through it fades to nothing at the window row's edges, so its band on the far side peaks at
+  the pane and the masonry above and below it stays nearly dark, but the pane's own outline is
+  not traced. By day the light map is cleared, not drawn, so the day frame is the one it
   was before (pixel-identical at both sizes). Everything is evaluated on the 32 px art-pixel
   grid. Flames (a campfire, oil, a candle) flicker by at most 3% of reach, only ever down; cells
   and gas are steady. A torch, headlamp or weapon light draws as a beam along its carrier's
@@ -1977,7 +1984,9 @@ not a to-do list:
   lane): a campfire behind a wall lights 288 tiles in the sim that the survivor does not see,
   and every one is four zero bytes in the light map. Every source bit sits on a seen tile, and
   the open twin's same tile is seen and carries its bit. A builder that writes bits before the
-  seen test was run as sabotage and went red. RINGS: four or five rings; `source_cap` keeps its
+  seen test was run as sabotage and went red. After the survivor walks away, every tile reads R
+  128 exactly where it is remembered and not seen, and 0 for the void. RINGS: four or five
+  rings; the midnight floor keeps every channel at 8 or under; `source_cap` keeps its
   ends and is monotonic; the campfire caps above the storm lantern and its tint is redder; the
   dark eye disc is the sky's share of the range and there is none with nobody to ask.
   SIGHT-DERIVED now judges the eye disc: a campfire a metre away widens it from 1.92 m to its

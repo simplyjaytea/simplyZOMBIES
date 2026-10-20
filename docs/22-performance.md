@@ -429,7 +429,11 @@ each, the same driver and bench:
 | night RenderServer wall time, mean | 31.66–35.06 ms | 32.08–32.76 ms |
 
 By day the shader no longer runs at all, so the renderer is back to its pre-A10 cost; at night the
-revision costs the same. The GPU cost remains unmeasured, as above.
+revision costs the same. The second review's pass (edges faded per tile edge, remembered tiles in
+the texels, a darker floor) measured night `_draw` 11.62–13.13 ms and renderer 33.4–36.6 ms in a
+session where the untouched day path also read 7.63–9.19 ms: the night-to-day ratio held at about
+1.4, so the change is the machine's drift, not the pass's. The GPU cost remains unmeasured, as
+above.
 
 **Open: the night's `_draw` stage is over target.** At night, with a carried torch and a lit
 campfire, the `_draw` CPU stage measured **17.0–18.3 ms** mean at 1280×720 after A10 (20.7–21.7 ms
