@@ -2867,7 +2867,8 @@ not a to-do list:
   past the vest (`round_top`), and the near arm is one limb (`side_arm`) from the shoulder,
   bent at the elbow to a hand on the belly's flank, in a fixed ramp a step darker than the lit
   gut, so it reads as an arm over the belly and its tones never change between frames. The bob
-  carries the whole upper body, head and shoulders included. Front and back the arms end in
+  carries the whole upper body, head and shoulders included (`drop` builds on a fresh canvas;
+  over a copy it left the rest-position head in place). Front and back the arms end in
   hands, and a `tidy` pass sweeps any pixel held on by one side or none and outlines every leg
   edge. Measured on the atlas: the side views' back, shoulder and belly contour (rows 22–36)
   shares 0–9 of the heavy's 31–41 outline pixels there; the whole side outline still shares

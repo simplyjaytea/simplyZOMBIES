@@ -7,7 +7,7 @@ beside the current art, with a reference row.
 
 | file | what it shows |
 | --- | --- |
-| `sheet-bloater-4x.png` | the heavy it is painted over, the bloater's fourth pass and now; both corpses of each below |
+| `sheet-bloater-4x.png` | the heavy it is painted over and the bloater now; both corpses of each below |
 | `sheet-screamer-4x.png` | the commuter beside the screamer's fourth pass and now; the lying frames of both below |
 | `sheet-cars-ns-3x.png` | the north-south cars, fourth pass and now, intact and wreck, with a margin; the pack's east-west cars for length |
 | `sheet-bikes-ns-4x.png`, `sheet-bikes-ns-1x.png` | the north-south bicycle and e-bike in three paint jobs, fourth pass and now, cropped to their pixels, and the east-west pair for length; the same sheet at 1x, labels above the art |
