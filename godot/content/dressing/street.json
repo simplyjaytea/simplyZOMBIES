@@ -7,8 +7,7 @@
     "heap_pallets"
   ],
   "litter": [
-    "debris_paper",
-    "debris_card"
+    "debris_paper"
   ],
   "rubble": [
     "debris_rubble_a",
@@ -59,7 +58,6 @@
   },
   "sizes": {
     "debris_paper": [11, 12],
-    "debris_card": [6, 8],
     "nature_reeds": [24, 30],
     "nature_bush": [32, 30],
     "nature_rock": [32, 22],
@@ -150,6 +148,16 @@
       "group": "seat"
     },
     {
+      "key": "prop_medical_cabinet",
+      "where": "indoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 4,
+      "beside": "wall",
+      "per_room": 1
+    },
+    {
       "key": "prop_shelf",
       "where": "indoors",
       "surfaces": [
@@ -159,121 +167,14 @@
       "beside": "wall_north"
     },
     {
-      "key": "prop_medical_cabinet",
-      "where": "indoors",
-      "surfaces": [
-        "paved"
-      ],
-      "rarity": 6,
-      "beside": "wall_north"
-    },
-    {
       "key": "prop_fridge",
       "where": "indoors",
       "surfaces": [
         "paved"
       ],
-      "rarity": 8,
+      "rarity": 5,
       "beside": "wall_north",
       "standing": true
-    },
-    {
-      "key": "prop_table",
-      "where": "indoors",
-      "surfaces": [
-        "paved"
-      ],
-      "rarity": 6,
-      "beside": "wall_north"
-    },
-    {
-      "key": "prop_medical_cabinet",
-      "where": "indoors",
-      "surfaces": [
-        "paved"
-      ],
-      "rarity": 14,
-      "beside": "wall"
-    },
-    {
-      "key": "prop_fridge",
-      "where": "indoors",
-      "surfaces": [
-        "paved"
-      ],
-      "rarity": 20,
-      "beside": "wall",
-      "standing": true
-    },
-    {
-      "key": "prop_shelf",
-      "where": "indoors",
-      "surfaces": [
-        "paved"
-      ],
-      "rarity": 16,
-      "beside": "wall"
-    },
-    {
-      "key": "prop_chair",
-      "where": "indoors",
-      "surfaces": [
-        "paved"
-      ],
-      "rarity": 60
-    },
-    {
-      "key": "prop_dumpster",
-      "where": "outdoors",
-      "surfaces": [
-        "paved"
-      ],
-      "rarity": 18,
-      "beside": "wall"
-    },
-    {
-      "key": "prop_trash_bags",
-      "where": "outdoors",
-      "surfaces": [
-        "paved"
-      ],
-      "rarity": 16,
-      "beside": "wall"
-    },
-    {
-      "key": "prop_trash_bags",
-      "where": "outdoors",
-      "surfaces": [
-        "grass"
-      ],
-      "rarity": 80,
-      "beside": "wall"
-    },
-    {
-      "key": "prop_barrel",
-      "where": "outdoors",
-      "surfaces": [
-        "paved"
-      ],
-      "rarity": 22,
-      "beside": "edge"
-    },
-    {
-      "key": "prop_pallet_stack",
-      "where": "outdoors",
-      "surfaces": [
-        "paved"
-      ],
-      "rarity": 30,
-      "beside": "edge"
-    },
-    {
-      "key": "prop_traffic_cone",
-      "where": "outdoors",
-      "surfaces": [
-        "paved"
-      ],
-      "rarity": 30
     },
     {
       "key": "prop_concrete_barrier",
@@ -281,7 +182,17 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 50
+      "rarity": 70,
+      "salt": 5
+    },
+    {
+      "key": "prop_traffic_cone",
+      "where": "outdoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 45,
+      "salt": 6
     },
     {
       "key": "prop_fence_post",
@@ -290,7 +201,17 @@
         "grass",
         "dirt"
       ],
-      "rarity": 70
+      "rarity": 70,
+      "salt": 7
+    },
+    {
+      "key": "prop_table",
+      "where": "indoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 3,
+      "beside": "wall_north"
     },
     {
       "key": "prop_road_sign",
@@ -298,8 +219,8 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 120,
-      "beside": "wall",
+      "rarity": 140,
+      "salt": 9,
       "standing": true
     },
     {
@@ -308,9 +229,78 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 150,
+      "rarity": 180,
+      "salt": 10,
+      "standing": true
+    },
+    {
+      "key": "prop_shelf",
+      "where": "indoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 5,
+      "beside": "wall"
+    },
+    {
+      "key": "prop_fridge",
+      "where": "indoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 10,
       "beside": "wall",
       "standing": true
+    },
+    {
+      "key": "prop_dumpster",
+      "where": "outdoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 6,
+      "beside": "wall",
+      "cluster": true
+    },
+    {
+      "key": "prop_trash_bags",
+      "where": "outdoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 6,
+      "beside": "wall",
+      "cluster": true
+    },
+    {
+      "key": "prop_trash_bags",
+      "where": "outdoors",
+      "surfaces": [
+        "grass"
+      ],
+      "rarity": 7,
+      "beside": "edge",
+      "cluster": true
+    },
+    {
+      "key": "prop_barrel",
+      "where": "outdoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 9,
+      "beside": "edge",
+      "cluster": true
+    },
+    {
+      "key": "prop_pallet_stack",
+      "where": "outdoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 12,
+      "beside": "edge",
+      "cluster": true
     }
   ],
   "wall_modules": {

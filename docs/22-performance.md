@@ -575,11 +575,15 @@ The density came from three places. Furnishing rarities in `content/dressing/str
 (shelf 4, cabinet 10, table 6, chair 6, dumpster 14, barrier 70, cone 45; post unchanged), and three
 pack props joined as scenery: the oil barrel (40), the pallet stack (55) and the rubbish bags (8,
 beside a wall or a kerb). The crates, footlockers and medical boxes are container kinds and stay out.
-Litter is cut from the pack's `overlay-debris` sheet: since A12's fifth pass a crumpled paper (11x12)
-and a scrap of card (6x8), drawn on whole art pixels like everything else, weighted toward walls,
-kerbs and cluttered blocks (docs/23's fifth-pass record has the numbers). About one in six of the
-visible floor on the review shots; the 64-tile suburb, mostly edge, counts 509 of 2,282 (OCCUPANCY
-lane). Each picture's extent is content: the block's `sizes`, checked against its authored canvas.
+Litter is cut from the pack's `overlay-debris` sheet: since A12's sixth pass a crumpled paper (11x12)
+alone, drawn on whole art pixels like everything else, weighted toward walls, kerbs and cluttered
+blocks (docs/23's sixth-pass record has the numbers). About one in six of the visible floor on the
+review shots; the 64-tile suburb, mostly edge, counts 387 of 2,282 (OCCUPANCY lane). Each picture's extent is content: the block's `sizes`, checked against its authored canvas.
+
+The sixth pass's cost, same machine, alternated with the fifth: the world `_draw` mean 6.03 ms
+before and 6.06 ms after over four runs each (`godot:bench:frame`, 1280x720), the crowded scene 88.6
+and 87.7; the tick 7.49 and 7.03 ms over two (`godot:bench:runtime`). The per-room keep and the
+room flood fill are memoised in the occupancy, so a room's pieces are ranked once per map.
 
 The fifth pass's cost, same machine, three runs each: the world `_draw` mean 5.82 ms before and
 5.94 ms after (`godot:bench:frame`, 1280x720), the crowded scene 87.6 and 87.5; the tick 7.37 and

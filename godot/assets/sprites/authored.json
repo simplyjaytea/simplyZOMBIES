@@ -3799,23 +3799,6 @@
         ]
       }
     },
-    "debris_card": {
-      "canvas": [
-        6,
-        8
-      ],
-      "kind": "tile",
-      "reads": "dressing.street",
-      "source": {
-        "path": "art/simplyzombies/groups/environment/textures/overlay-debris.png",
-        "crop": [
-          24,
-          22,
-          6,
-          8
-        ]
-      }
-    },
     "prop_barrel": {
       "canvas": [
         24,

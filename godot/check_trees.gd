@@ -151,6 +151,7 @@ func _run() -> void:
 	ok = _the_placement_is_read() and ok
 	ok = _the_occupancy_holds() and ok
 	ok = _the_room_sets_and_the_edges_hold() and ok
+	ok = _the_rooms_and_the_street_keep_their_measure() and ok
 	ok = _dressing_is_never_sim_state() and ok
 
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
@@ -2485,6 +2486,33 @@ func _the_occupancy_holds() -> bool:
 						if not kept_near.is_empty() and Dressing._meet(scrap_rect, Dressing._top_rect(occ, kept_near, tx + dx, ty + dy), Vector2i(dx, dy)):
 							kept_meets += 1
 	print("OCCUPANCY raw meetings on the suburb: %d standing over flat, %d flat over nature, %d scraps over a picture; kept pictures that meet: %d; kept under a higher raw rank: %d" % [meets_standing_flat, meets_flat_nature, meets_litter, kept_meets, kept_under_higher])
+	# The suburb's street junk is spaced along its rows and stands mostly on the paving, so flat over
+	# nature can miss this one map; a grass yard rolling both on every other tile is where that rule is
+	# proved, under the same kept checks.
+	if meets_flat_nature == 0:
+		var yard_block: Dictionary = {"sizes": FABRICATED_SIZES, "nature": [{"key": "nature_bush", "surfaces": ["grass"], "rarity": 2}], "furnishings": [{"key": "prop_dumpster", "where": "outdoors", "surfaces": ["grass"], "rarity": 2}]}
+		var grass_yard: Variant = _grass_map(16, 16)
+		var yocc: Dictionary = Dressing.occupancy(yard_block, grass_yard, seed_val)
+		for ty in 16:
+			for tx in 16:
+				var ytop: Dictionary = Dressing._raw_top(yocc, grass_yard, tx, ty)
+				var ykept: Dictionary = Dressing._kept_top(yocc, grass_yard, tx, ty)
+				for dy in range(-1, 2):
+					for dx in range(-1, 2):
+						if dx == 0 and dy == 0:
+							continue
+						var ynear: Dictionary = Dressing._raw_top(yocc, grass_yard, tx + dx, ty + dy)
+						if not ytop.is_empty() and not ynear.is_empty() and int(ytop["rank"]) == Dressing.RANK_FLAT and int(ynear["rank"]) == Dressing.RANK_NATURE and Dressing._meet(Dressing._top_rect(yocc, ytop, tx, ty), Dressing._top_rect(yocc, ynear, tx + dx, ty + dy), Vector2i(dx, dy)):
+							meets_flat_nature += 1
+						if ykept.is_empty():
+							continue
+						var yrect: Rect2i = Dressing._top_rect(yocc, ykept, tx, ty)
+						var ykept_near: Dictionary = Dressing._kept_top(yocc, grass_yard, tx + dx, ty + dy)
+						if not ykept_near.is_empty() and Dressing._meet(yrect, Dressing._top_rect(yocc, ykept_near, tx + dx, ty + dy), Vector2i(dx, dy)):
+							kept_meets += 1
+						if not ynear.is_empty() and int(ynear["rank"]) > int(ykept["rank"]) and Dressing._meet(yrect, Dressing._top_rect(yocc, ynear, tx + dx, ty + dy), Vector2i(dx, dy)):
+							kept_under_higher += 1
+		print("OCCUPANCY flat over nature met nowhere on the suburb; a grass yard took %d such meetings (kept that meet now %d, under a higher rank %d)" % [meets_flat_nature, kept_meets, kept_under_higher])
 	if meets_standing_flat == 0 or meets_flat_nature == 0 or meets_litter == 0:
 		push_error("the raw rolls never meet on this map (standing %d, flat %d, scrap %d); a rule with nothing to do is not proved" % [meets_standing_flat, meets_flat_nature, meets_litter])
 		return false
@@ -2541,6 +2569,15 @@ func _kept_keys_of(occ: Dictionary, map: Variant, key: String) -> Array[Vector2i
 	return out
 
 
+# The chairs standing directly south of a table: the pack's chair faces south, its back to the north.
+func _chairs_south_of_a_table(at_tables: Array[Vector2i], at_chairs: Array[Vector2i]) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for c in at_chairs:
+		if at_tables.has(c - Vector2i(0, 1)):
+			out.append(c)
+	return out
+
+
 func _the_room_sets_and_the_edges_hold() -> bool:
 	# --- tables with their chairs ---------------------------------------------------------------
 	var set_block: Dictionary = {"sizes": FABRICATED_SIZES, "furnishings": [
@@ -2551,49 +2588,106 @@ func _the_room_sets_and_the_edges_hold() -> bool:
 	var tables: int = 0
 	var chairs: int = 0
 	var lone_tables: int = 0
+	var pairs: int = 0
 	for seed_val in 4:
 		var occ: Dictionary = Dressing.occupancy(set_block, hall, seed_val)
+		var seed_term: int = seed_val * Dressing._HASH_SEED
+		var table_entry: Array = (occ["tables"] as Array)[0]
+		var seat_rarity: int = 2
 		var at_tables: Array[Vector2i] = _kept_keys_of(occ, hall, "prop_table")
 		var at_chairs: Array[Vector2i] = _kept_keys_of(occ, hall, "prop_chair")
 		tables += at_tables.size()
 		chairs += at_chairs.size()
+		var anchors: Array[Vector2i] = []
 		for t in at_tables:
+			if Dressing._anchor_in_cell(occ, hall, table_entry, t.x, t.y) == t:
+				anchors.append(t)
+		for t in at_tables:
+			var anchor: bool = anchors.has(t)
+			var east_half: bool = anchors.has(t - Vector2i(1, 0)) and Dressing._is_pair(occ, hall, table_entry, t.x - 1, t.y)
+			if not anchor and not east_half:
+				push_error("seed %d: a table at %s is neither its cell's table nor the east half of a pair" % [seed_val, str(t)])
+				return false
 			for dy in range(-1, 2):
 				for dx in range(-1, 2):
 					if not Dressing._floor_of(hall, t.x + dx, t.y + dy, true):
 						push_error("seed %d: a table at %s has a wall within a tile; a chair would not fit round it" % [seed_val, str(t)])
 						return false
+					# Two tables side by side are a pair and nothing else: the west one its cell's
+					# table, paired, the east one its half.
 					if (dx != 0 or dy != 0) and at_tables.has(t + Vector2i(dx, dy)):
-						push_error("seed %d: two tables stand side by side at %s; the cells should keep them apart" % [seed_val, str(t)])
-						return false
-			# A table's own chairs are the sides its seat mask sets: one to three, and a chair kept at
-			# one of them (a chair between two tables two tiles apart is the other table's too).
-			var mask: int = Dressing._seat_sides(seed_val * Dressing._HASH_SEED, t.x, t.y, 2)
+						var is_pair_east: bool = dx == 1 and dy == 0 and anchor and Dressing._is_pair(occ, hall, table_entry, t.x, t.y)
+						var is_pair_west: bool = dx == -1 and dy == 0 and east_half
+						if not is_pair_east and not is_pair_west:
+							push_error("seed %d: two tables stand side by side at %s and %s and are not a pair; the cells should keep them apart" % [seed_val, str(t), str(t + Vector2i(dx, dy))])
+							return false
+			if not anchor:
+				continue
+			var pair: bool = Dressing._is_pair(occ, hall, table_entry, t.x, t.y)
+			if pair:
+				pairs += 1
+				if not at_tables.has(t + Vector2i(1, 0)):
+					# The overlap rule may drop a half for a neighbour; say so rather than miss it.
+					print("SETS note: seed %d's pair at %s lost its east half to the overlap rule" % [seed_val, str(t)])
+			# A table's own chairs are the seats its slot mask sets: one to SEATS_MAX, and a chair kept
+			# at one of them.
+			var seats: Array = Dressing.PAIR_SEATS if pair else Dressing.SINGLE_SEATS
+			var slots: int = Dressing._seat_slots(seed_term, t.x, t.y, seat_rarity, seats.size())
+			var set_seats: int = 0
 			var round_it: int = 0
-			var set_sides: int = 0
-			for i in Dressing.SIDES.size():
-				if (mask >> i) & 1 == 1:
-					set_sides += 1
-					if at_chairs.has(t + Dressing.SIDES[i]):
+			for i in seats.size():
+				if (slots >> i) & 1 == 1:
+					set_seats += 1
+					if at_chairs.has(t + ((seats[i] as Array)[0] as Vector2i)):
 						round_it += 1
-			if set_sides < 1 or set_sides > 3:
-				push_error("seed %d: the table at %s seats %d sides; a set is one to three" % [seed_val, str(t), set_sides])
+			if set_seats < 1 or set_seats > Dressing.SEATS_MAX:
+				push_error("seed %d: the table at %s seats %d chairs; a set is one to %d" % [seed_val, str(t), set_seats, Dressing.SEATS_MAX])
 				return false
 			if round_it == 0:
 				lone_tables += 1
 		for c in at_chairs:
 			var seated: bool = false
-			for i in Dressing.SIDES.size():
-				var owner: Vector2i = c - Dressing.SIDES[i]
-				if at_tables.has(owner) and (Dressing._seat_sides(seed_val * Dressing._HASH_SEED, owner.x, owner.y, 2) >> i) & 1 == 1:
-					seated = true
+			for pair_c in [false, true]:
+				var seats_c: Array = Dressing.PAIR_SEATS if pair_c else Dressing.SINGLE_SEATS
+				for i in seats_c.size():
+					var owner: Vector2i = c - ((seats_c[i] as Array)[0] as Vector2i)
+					if anchors.has(owner) and Dressing._is_pair(occ, hall, table_entry, owner.x, owner.y) == pair_c and (Dressing._seat_slots(seed_term, owner.x, owner.y, seat_rarity, seats_c.size()) >> i) & 1 == 1:
+						seated = true
 			if not seated:
-				push_error("seed %d: a chair at %s stands on no side a table seats; the seat group only seats a table" % [seed_val, str(c)])
+				push_error("seed %d: a chair at %s stands on no seat a table offers; the seat group only seats a table" % [seed_val, str(c)])
 				return false
-	# A table the overlap rule drops for a neighbour leaves its chairs without one; most keep theirs.
-	if tables < 8 or chairs < tables or lone_tables * 4 > tables:
-		push_error("a 22x16 hall over four seeds took %d tables and %d chairs (%d tables with none); the sets are not set" % [tables, chairs, lone_tables])
+			# The pack's chair faces south, its back to the north: one directly south of a table would
+			# sit with its back to it.
+		var backs: Array[Vector2i] = _chairs_south_of_a_table(at_tables, at_chairs)
+		if not backs.is_empty():
+			push_error("seed %d: chairs at %s stand south of a table, their backs to it" % [seed_val, str(backs)])
+			return false
+	# The seat lists themselves never name the south side, and a seat list that did would be read: the
+	# same chair check run on a fabricated south seat finds the table north of it.
+	for seats_list in [Dressing.SINGLE_SEATS, Dressing.PAIR_SEATS]:
+		for seat_row in seats_list as Array:
+			if int((seat_row as Array)[1]) == 2 or ((seat_row as Array)[0] as Vector2i).y > 0:
+				push_error("a seat list offers the south side %s; a chair there sits with its back to the table" % str(seat_row))
+				return false
+	var fab_tables: Array[Vector2i] = [Vector2i(5, 5)]
+	var fab_chairs: Array[Vector2i] = [Vector2i(5, 4), Vector2i(5, 6)]
+	if _chairs_south_of_a_table(fab_tables, fab_chairs) != [Vector2i(5, 6)]:
+		push_error("the south-chair test missed a fabricated chair south of a table; it proves nothing")
 		return false
+	# A table the overlap rule drops for a neighbour leaves its chairs without one; most keep theirs.
+	if tables < 8 or chairs < tables / 2 or lone_tables * 4 > tables or pairs == 0:
+		push_error("a 22x16 hall over four seeds took %d tables (%d pairs) and %d chairs (%d tables with none); the sets are not set" % [tables, pairs, chairs, lone_tables])
+		return false
+	# Negative for the pair: a room three tiles wide inside has one column whose eight neighbours are
+	# floor, so the tile east of any table cannot take one and no table pairs.
+	var narrow: Variant = _walled_room(5, 18)
+	for seed_val in 8:
+		var nocc: Dictionary = Dressing.occupancy(set_block, narrow, seed_val)
+		var nt: Array[Vector2i] = _kept_keys_of(nocc, narrow, "prop_table")
+		for t in nt:
+			if nt.has(t + Vector2i(1, 0)):
+				push_error("seed %d: a table paired at %s in a room with no room east of it" % [seed_val, str(t)])
+				return false
 	# Negatives: a corridor two tiles wide has no tile whose eight neighbours are all floor, and a
 	# seat entry with no table entry seats nobody.
 	if not _kept_keys_of(Dressing.occupancy(set_block, _walled_room(24, 4), 1), _walled_room(24, 4), "prop_table").is_empty():
@@ -2729,5 +2823,248 @@ func _the_room_sets_and_the_edges_hold() -> bool:
 	if not missing.is_empty():
 		push_error("a placement rule has lost its reader: %s" % missing)
 		return false
-	print("SETS OK %d tables and %d chairs over four seeds in a walled hall, each table with floor round it and one to three chairs at its sides, none in a corridor and none from a seat entry alone; %d cabinets against the north wall (%d two tiles from the next), none against a south wall; edge barrels only beside the wall (%d) or on a sidewalk (%d) and none on an open yard; a held prop and a Low tile keep their tiles; clear_around says both; _mirrored flips in place and a standing rect sits on the art grid; main.gd and the harness read every rule" % [tables, chairs, runs, paired, wall_hits, slab_hits])
+	print("SETS OK %d tables (%d long pairs, none in a three-wide room) and %d chairs over four seeds in a walled hall, each table with floor round it and one to %d chairs on its north, east and west, none south of a table, none in a corridor and none from a seat entry alone; %d cabinets against the north wall (%d two tiles from the next), none against a south wall; edge barrels only beside the wall (%d) or on a sidewalk (%d) and none on an open yard; a held prop and a Low tile keep their tiles; clear_around says both; _mirrored flips in place and a standing rect sits on the art grid; main.gd and the harness read every rule" % [tables, pairs, chairs, Dressing.SEATS_MAX, runs, paired, wall_hits, slab_hits])
+	return true
+
+
+# --- lane: the measure the rooms and the street keep (A12, round 1 of its review) -------------
+# The rules the review asked for, each with the case it refuses: the street furniture keeps the
+# rolls it had before the junk joined it; the junk keeps its spacing; a room keeps one medical
+# cabinet; nothing stands in front of a window; the grass verge is an edge; a scrap lies anywhere in
+# its tile; a wide picture anchored beside the clearing does not reach into it.
+
+# The salts the street's own furniture rolled under before A12 added the junk beside it: its list
+# index then. Pinned, so reordering the list can never re-roll a barrier, a cone, a post, a sign or
+# a lamp off the spot it stood on.
+const ROAD_SALTS: Dictionary = {
+	"prop_concrete_barrier": 5, "prop_traffic_cone": 6, "prop_fence_post": 7, "prop_road_sign": 9, "prop_streetlamp": 10,
+}
+
+
+func _kept_set(occ: Dictionary, map: Variant, keys: Array) -> Dictionary:
+	var out: Dictionary = {}
+	for ty in int(map.h):
+		for tx in int(map.w):
+			var kept: Dictionary = Dressing._kept_top(occ, map, tx, ty)
+			if not kept.is_empty() and keys.has(String(kept.get("key", ""))):
+				out[Vector2i(tx, ty)] = String(kept["key"])
+	return out
+
+
+# The kept pictures of one entry, by room: the room index to how many it holds.
+func _per_room_counts(occ: Dictionary, map: Variant, key: String) -> Dictionary:
+	var out: Dictionary = {}
+	for at in _kept_keys_of(occ, map, key):
+		var room: int = Dressing._room_of(occ, map, at.x, at.y)
+		out[room] = int(out.get(room, 0)) + 1
+	return out
+
+
+func _the_rooms_and_the_street_keep_their_measure() -> bool:
+	# --- SALT: an entry's own salt, pinned; a second entry naming it is dropped ------------------
+	var salted: Dictionary = {"sizes": FABRICATED_SIZES, "furnishings": [
+		{"key": "prop_traffic_cone", "where": "outdoors", "surfaces": ["paved"], "rarity": 2, "salt": 5},
+		{"key": "prop_barrel", "where": "outdoors", "surfaces": ["paved"], "rarity": 2},
+		{"key": "prop_pallet_stack", "where": "outdoors", "surfaces": ["paved"], "rarity": 2, "salt": 5},
+		{"key": "prop_medical_cabinet", "where": "outdoors", "surfaces": ["paved"], "rarity": 2, "per_room": 1},
+	]}
+	var sentries: Array = Dressing._furnishing_entries(salted)
+	if sentries.size() != 2 or int(sentries[0][Dressing.FE_SALT]) != (Dressing.SALT_FURNISH + 5) * Dressing._HASH_SALT or int(sentries[1][Dressing.FE_SALT]) != (Dressing.SALT_FURNISH + 1) * Dressing._HASH_SALT:
+		push_error("SALT: four entries (a salt, an index, a repeated salt, a per-room piece outdoors) prepared as %d; the first two keep their salts and the last two are dropped" % sentries.size())
+		return false
+
+	# --- ROAD: the shipped street furniture rolls where it rolled, and the junk drops none of it ---
+	var boot: Dictionary = SimBoot.playable(CANON_SEED, GATE_SIZE)
+	var rworld: Variant = boot["world"]
+	var rmap: Variant = boot["map"]
+	var rblock: Dictionary = Dressing.block_of(rworld)
+	var rseed: int = int(rworld.seed)
+	var shipped: Array = (rblock.get("furnishings", []) as Array)
+	var seen_road: Dictionary = {}
+	for raw in shipped:
+		var entry: Dictionary = raw as Dictionary
+		var key: String = String(entry.get("key", ""))
+		if ROAD_SALTS.has(key) and String(entry.get("where", "")) == "outdoors":
+			seen_road[key] = true
+			if not entry.has("salt") or int(entry["salt"]) != int(ROAD_SALTS[key]) or bool(entry.get("cluster", false)):
+				push_error("ROAD: the street's %s rolls under salt %s (cluster %s); it rolled under %d before the junk joined it, plainly" % [key, str(entry.get("salt", "its index")), str(entry.get("cluster", false)), int(ROAD_SALTS[key])])
+				return false
+	if seen_road.size() != ROAD_SALTS.size():
+		push_error("ROAD: the shipped block names %d of the %d street furniture keys" % [seen_road.size(), ROAD_SALTS.size()])
+		return false
+	var no_junk: Array = []
+	for raw2 in shipped:
+		if not bool((raw2 as Dictionary).get("cluster", false)):
+			no_junk.append(raw2)
+	var with_junk: Dictionary = _kept_set(Dressing.occupancy(rblock, rmap, rseed), rmap, ROAD_SALTS.keys())
+	var without: Dictionary = _kept_set(Dressing.occupancy({"sizes": rblock.get("sizes", {}), "furnishings": no_junk, "litter": rblock.get("litter", [])}, rmap, rseed), rmap, ROAD_SALTS.keys())
+	if without.is_empty():
+		print("ROAD SKIP: the suburb at seed %d stands no street furniture; nothing to judge" % rseed)
+	elif with_junk != without:
+		push_error("ROAD: the junk moved the street furniture: %d pieces without it, %d with it" % [without.size(), with_junk.size()])
+		return false
+	# The comparison can say no: a set missing one piece is not the same set.
+	var short_set: Dictionary = without.duplicate()
+	if not short_set.is_empty():
+		short_set.erase(short_set.keys()[0])
+		if short_set == without:
+			push_error("ROAD: a set short a piece compared equal; the comparison proves nothing")
+			return false
+
+	# --- CLUSTER: the junk stands on its row segment's one tile, and only because it is junk -------
+	var yard: Variant = _room_map(30, 9, false)
+	for tx in 30:
+		yard.tiles[tx] = SimTileMap.Tile.Wall
+	var junk: Dictionary = {"sizes": FABRICATED_SIZES, "furnishings": [{"key": "prop_barrel", "where": "outdoors", "surfaces": ["paved"], "rarity": 2, "beside": "edge", "cluster": true}]}
+	var plain: Dictionary = {"sizes": FABRICATED_SIZES, "furnishings": [{"key": "prop_barrel", "where": "outdoors", "surfaces": ["paved"], "rarity": 2, "beside": "edge"}]}
+	var spaced_hits: int = 0
+	var unspaced_plain: int = 0
+	for seed_val in 8:
+		var st: int = seed_val * Dressing._HASH_SEED
+		for b in _kept_keys_of(Dressing.occupancy(junk, yard, seed_val), yard, "prop_barrel"):
+			if not Dressing._spaced(st, b.x, b.y):
+				push_error("CLUSTER: seed %d stood a junk barrel at %s, off its row segment's one tile" % [seed_val, str(b)])
+				return false
+			spaced_hits += 1
+		for b2 in _kept_keys_of(Dressing.occupancy(plain, yard, seed_val), yard, "prop_barrel"):
+			if not Dressing._spaced(st, b2.x, b2.y):
+				unspaced_plain += 1
+	if spaced_hits == 0 or unspaced_plain == 0:
+		push_error("CLUSTER: %d junk barrels on their segments' tiles, %d plain barrels off them; the spacing is not read or cannot fail" % [spaced_hits, unspaced_plain])
+		return false
+
+	# --- PER_ROOM: one medical cabinet a room, where the plain roll would stand several -----------
+	var two_rooms: Variant = _walled_room(25, 12)
+	for ty in 12:
+		two_rooms.tiles[ty * 25 + 12] = SimTileMap.Tile.Wall
+	var one_each: Dictionary = {"sizes": FABRICATED_SIZES, "furnishings": [{"key": "prop_medical_cabinet", "where": "indoors", "surfaces": ["paved"], "rarity": 2, "beside": "wall", "per_room": 1}]}
+	var many_each: Dictionary = {"sizes": FABRICATED_SIZES, "furnishings": [{"key": "prop_medical_cabinet", "where": "indoors", "surfaces": ["paved"], "rarity": 2, "beside": "wall"}]}
+	var rooms_held: int = 0
+	var rooms_over: int = 0
+	for seed_val in 4:
+		var counts: Dictionary = _per_room_counts(Dressing.occupancy(one_each, two_rooms, seed_val), two_rooms, "prop_medical_cabinet")
+		for room in counts:
+			if int(counts[room]) > 1:
+				push_error("PER_ROOM: seed %d stood %d medical cabinets in one room; a room keeps one" % [seed_val, int(counts[room])])
+				return false
+			rooms_held += 1
+		var plain_counts: Dictionary = _per_room_counts(Dressing.occupancy(many_each, two_rooms, seed_val), two_rooms, "prop_medical_cabinet")
+		for room2 in plain_counts:
+			if int(plain_counts[room2]) > 1:
+				rooms_over += 1
+	if rooms_held < 6 or rooms_over == 0:
+		push_error("PER_ROOM: %d rooms of eight held their one cabinet, %d rooms took several without the rule; the rule is not read or cannot fail" % [rooms_held, rooms_over])
+		return false
+
+	# --- WINDOW: no wall piece's art stands on a tile in front of a window --------------------------
+	var lit: Variant = _walled_room(24, 8)
+	var panes: Array[int] = [4, 5, 11, 17]
+	for px in panes:
+		lit.tiles[px] = SimTileMap.Tile.Window
+	var shelves: Dictionary = {"sizes": FABRICATED_SIZES, "furnishings": [{"key": "prop_shelf", "where": "indoors", "surfaces": ["paved"], "rarity": 2, "beside": "wall_north"}]}
+	var on_wall: int = 0
+	for seed_val in 8:
+		var wocc: Dictionary = Dressing.occupancy(shelves, lit, seed_val)
+		for at in _kept_keys_of(wocc, lit, "prop_shelf"):
+			on_wall += 1
+			var rect: Rect2i = Dressing._top_rect(wocc, Dressing._kept_top(wocc, lit, at.x, at.y), at.x, at.y)
+			for col in range(floori(float(rect.position.x) / 32.0), floori(float(rect.end.x - 1) / 32.0) + 1):
+				if at.y == 1 and panes.has(at.x + col):
+					push_error("WINDOW: seed %d's shelf at %s covers the tile in front of the window at %d" % [seed_val, str(at), at.x + col])
+					return false
+	# The same room with its panes walled up: the shelves stand in front of where the windows were.
+	var blind: Variant = _walled_room(24, 8)
+	var where_panes: int = 0
+	for seed_val in 8:
+		var bocc: Dictionary = Dressing.occupancy(shelves, blind, seed_val)
+		for at in _kept_keys_of(bocc, blind, "prop_shelf"):
+			var rect2: Rect2i = Dressing._top_rect(bocc, Dressing._kept_top(bocc, blind, at.x, at.y), at.x, at.y)
+			for col2 in range(floori(float(rect2.position.x) / 32.0), floori(float(rect2.end.x - 1) / 32.0) + 1):
+				if panes.has(at.x + col2):
+					where_panes += 1
+	if on_wall == 0 or where_panes == 0:
+		push_error("WINDOW: %d shelves on the windowed wall, %d before the walled-up panes; the window rule is not read or cannot fail" % [on_wall, where_panes])
+		return false
+
+	# --- VERGE: the grass beside the paving is an edge; the grass away from it is not ---------------
+	var verge_map: Variant = _room_map(20, 9, false)
+	for i in 20 * 9:
+		verge_map.surfaces[i] = SimSurface.Surface.Grass
+	for tx in 20:
+		verge_map.surfaces[4 * 20 + tx] = SimSurface.Surface.Paved
+	var bags: Dictionary = {"sizes": FABRICATED_SIZES, "furnishings": [{"key": "prop_trash_bags", "where": "outdoors", "surfaces": ["grass"], "rarity": 2, "beside": "edge"}]}
+	var verge_hits: int = 0
+	for seed_val in 8:
+		for b3 in _kept_keys_of(Dressing.occupancy(bags, verge_map, seed_val), verge_map, "prop_trash_bags"):
+			if b3.y != 3 and b3.y != 5:
+				push_error("VERGE: seed %d stood grass bags at %s, off the verge rows" % [seed_val, str(b3)])
+				return false
+			verge_hits += 1
+	if verge_hits == 0:
+		push_error("VERGE: no grass bags on the verge over eight seeds; the verge is not an edge")
+		return false
+
+	# --- LITTER: a scrap lies anywhere in its tile, on the art grid ---------------------------------
+	var paper: Vector2i = Vector2i(11, 12)
+	var top_third: int = 0
+	var bottom_third: int = 0
+	var left_third: int = 0
+	var right_third: int = 0
+	for ty in 20:
+		for tx in 20:
+			var off: Vector2i = Dressing._litter_offsets(CANON_SEED * Dressing._HASH_SEED, paper, tx, ty)
+			var r: Rect2i = Dressing._art_rect(paper, off.x, off.y)
+			if r.position.x < 0 or r.position.y < 0 or r.end.x > 32 or r.end.y > 32:
+				push_error("LITTER: a scrap at %s lies at %s, out of its own tile" % [str(Vector2i(tx, ty)), str(r)])
+				return false
+			var cy: float = float(r.position.y) + float(r.size.y) / 2.0
+			var cx: float = float(r.position.x) + float(r.size.x) / 2.0
+			top_third += 1 if cy < 32.0 / 3.0 else 0
+			bottom_third += 1 if cy > 32.0 - 32.0 / 3.0 else 0
+			left_third += 1 if cx < 32.0 / 3.0 else 0
+			right_third += 1 if cx > 32.0 - 32.0 / 3.0 else 0
+	# The furniture's own range, the scrap's before: every centre in the lower part of the tile.
+	var old_low: int = 0
+	var ry: Vector2i = Dressing._range_y(paper.y)
+	for oy in range(ry.x, ry.y + 1):
+		var r_old: Rect2i = Dressing._art_rect(paper, 0, oy)
+		if float(r_old.position.y) + float(r_old.size.y) / 2.0 < 32.0 / 3.0:
+			old_low += 1
+	if top_third == 0 or bottom_third == 0 or left_third == 0 or right_third == 0 or old_low != 0:
+		push_error("LITTER: of 400 scraps %d sit high, %d low, %d left, %d right (the furniture's range puts %d high); a scrap should lie anywhere in its tile" % [top_third, bottom_third, left_third, right_third, old_low])
+		return false
+
+	# --- CLEAR: a picture wider than its tile does not reach into the clearing ------------------------
+	var square := Rect2i(5, 5, 1, 1)
+	if not Dressing._reaches_clear(square, Rect2i(-8, 0, 40, 30), 6, 5) or Dressing._reaches_clear(square, Rect2i(4, 0, 24, 30), 6, 5):
+		push_error("CLEAR: _reaches_clear cannot tell a shelf reaching west into the clearing from a chair inside its own tile")
+		return false
+	var cocc: Dictionary = Dressing.occupancy(rblock, rmap, rseed)
+	var clear: Rect2i = cocc["clear"]
+	var reaching: int = 0
+	for ty in range(clear.position.y - 2, clear.end.y + 2):
+		for tx in range(clear.position.x - 2, clear.end.x + 2):
+			if tx < 0 or ty < 0 or tx >= int(rmap.w) or ty >= int(rmap.h):
+				continue
+			var kept2: Dictionary = Dressing._kept_top(cocc, rmap, tx, ty)
+			if kept2.is_empty() or int(kept2["rank"]) == Dressing.RANK_HELD:
+				continue
+			if Dressing._reaches_clear(clear, Dressing._top_rect(cocc, kept2, tx, ty), tx, ty):
+				reaching += 1
+	if reaching != 0:
+		push_error("CLEAR: %d kept pictures beside the clearing reach into it" % reaching)
+		return false
+
+	# --- the readers ------------------------------------------------------------------------------
+	var missing: String = _missing_needle(_function_body(DRESSING_GD, "_furnishing_raw"), ["_entry_reaches_clear(", "_room_keeps("])
+	if missing.is_empty():
+		missing = _missing_needle(_function_body(DRESSING_GD, "_furnishing_ground_fits"), ["_reaches_window(map, rect, tx, ty)"])
+	if missing.is_empty():
+		missing = _missing_needle(_function_body(DRESSING_GD, "_entry_rolls"), ["_spaced(seed_term, tx, ty)"])
+	if missing.is_empty():
+		missing = _missing_needle(_function_body(DRESSING_GD, "_litter_raw"), ["_litter_weight("])
+	if not missing.is_empty():
+		push_error("a round-one rule has lost its reader: %s" % missing)
+		return false
+	print("MEASURE_OK salts pinned and repeats dropped; the suburb's %d street furniture pieces stand where they stood with or without the junk; %d junk barrels each on its segment's tile (%d plain ones off it); %d rooms kept one cabinet (%d took several without the rule); %d shelves on a windowed wall, none in front of a pane (%d before walled-up panes); %d grass bags on the verge rows only; scraps lie anywhere in the tile (%d high, %d low); no kept picture reaches into the clearing" % [without.size(), spaced_hits, unspaced_plain, rooms_held, rooms_over, on_wall, where_panes, verge_hits, top_third, bottom_third])
 	return true

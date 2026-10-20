@@ -30,13 +30,14 @@ const ZOMBIE_METRES: float = 3.0
 const ZOMBIE_ID: String = "zombie.base"
 # How far from the body the verifier looks for the zombie it asked for.
 const ZOMBIE_NEAR: float = 4.5
-# How far the interior search walks from the body, in tiles.
+# How far the street search walks from the body, in tiles.
 const SEARCH_TILES: int = 80
+# How far the interior search walks, in tiles: the whole district if it has to, because a room with a
+# clear seven-tile square round the survivor is not on every block.
+const INTERIOR_SEARCH_TILES: int = 256
 # How far, in tiles (Chebyshev), a shot's survivor stands from any dressing picture. A room shot
 # takes the clearest spot its rooms offer, which may be less (`_interior_spot`).
 const SPOT_CLEAR: int = 3
-# How far past the colony's clearing a room shot stands, in tiles.
-const START_MARGIN: int = 3
 # The share of a room shot's window, in percent, that has to be indoor floor to count as a room.
 const ROOM_SHARE: int = 30
 
@@ -108,7 +109,7 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 			world.tick = Clock.tick_on_day(DAY, NOON)
 			var spot: Vector2 = _interior_spot(world)
 			if spot.x < 0.0:
-				return "no indoor floor within %d tiles" % SEARCH_TILES
+				return "no indoor floor within %d tiles" % INTERIOR_SEARCH_TILES
 			world.components.set_component(world.player, "position", {"x": spot.x, "y": spot.y})
 		"combat":
 			world.tick = Clock.tick_on_day(DAY, NOON)
@@ -218,7 +219,7 @@ static func _street_spot(world: Variant) -> Vector2:
 						break
 				if not open:
 					continue
-				if not _ring_free(occ, t):
+				if not _ring_free(occ, t) or not _held_free(occ, t):
 					continue
 				var count: int = _street_count(world.tilemap, t)
 				if count * 100 >= STREET_SHARE * STREET_WINDOW_AREA:
@@ -247,12 +248,20 @@ static func _ring_free(occ: Dictionary, at: Vector2i, radius: int = SPOT_CLEAR) 
 	return Dressing.clear_around(occ, at.x, at.y, radius)
 
 
-## Whether a room shot's spot lies well away from the colony's start: the dressing keeps a clearing
-## round the start (Dressing.FURNISH_CLEAR), and a room shot taken in it judges the clearing rather
-## than the furnished rooms. START_MARGIN tiles past the clearing's edge.
-static func _clear_of_start(world: Variant, at: Vector2i) -> bool:
-	var clear: Rect2i = Dressing._clear_of(world.tilemap)
-	return not clear.grow(START_MARGIN).has_point(at)
+## Whether no tile within SPOT_CLEAR tiles of `at` holds a sim object -- a parked car, a heap, a tree,
+## a prop: a street shot with a wreck beside the survivor shows the wreck, not the street. Room shots
+## do not ask, because the colony's own beds and fire stand in the clearing a room shot finds.
+static func _held_free(occ: Dictionary, at: Vector2i) -> bool:
+	var map: Variant = occ["map"]
+	for dy in range(-SPOT_CLEAR - 1, SPOT_CLEAR + 2):
+		for dx in range(-SPOT_CLEAR, SPOT_CLEAR + 1):
+			var x: int = at.x + dx
+			var y: int = at.y + dy
+			if x < 0 or y < 0 or x >= int(map.w) or y >= int(map.h):
+				continue
+			if Dressing._held_rect(occ, map, x, y) != null:
+				return false
+	return true
 
 
 ## The occupancy a spot search tests every candidate against, built once per search.
@@ -260,20 +269,23 @@ static func _spot_occupancy(world: Variant) -> Dictionary:
 	return Dressing.occupancy(Dressing.block_of(world), world.tilemap, int(world.seed), Dressing.held_props(world))
 
 
-## The indoor floor tile a room shot stands on: walkable, outside the colony's clearing, in a room
-## of at least ROOM_SHARE percent of the STREET_WINDOW, and as far from any dressing picture as such
-## a room offers -- SPOT_CLEAR tiles if one does, else one fewer, down to a tile. A furnished room
-## seldom has a clear seven-tile square (the density rule asks for no empty floor block over six),
-## so the shot takes the clearest spot the rooms have rather than a bare room. Nearest by Chebyshev
-## ring within each radius, so the answer is the same on every run from the same seed; failing a
-## room that large, the candidate in the biggest room. Its centre, or (-1, -1) for none.
+## The indoor floor tile a room shot stands on: walkable, in a room of at least ROOM_SHARE percent of
+## the STREET_WINDOW, and SPOT_CLEAR tiles from any dressing picture. A furnished room has no clear
+## seven-tile square of its own (litter alone, one tile in six, leaves one about once in ten thousand
+## squares, and the density rule asks for no empty floor block over six), so the square a room shot
+## finds is the colony's clearing -- the hall the body wakes in, with the clearing round it and the
+## hall furnished beyond. The search starts on the body's own tile and walks as far as
+## INTERIOR_SEARCH_TILES; failing a clear square it takes the clearest spot the rooms have, one tile
+## fewer at a time. Nearest by Chebyshev ring within each radius, so the answer is the same on every
+## run from the same seed; failing a room that large, the candidate in the biggest room. Its centre,
+## or (-1, -1) for none.
 static func _interior_spot(world: Variant) -> Vector2:
 	var from: Vector2i = _tile_under_player(world)
 	var occ: Dictionary = _spot_occupancy(world)
 	var best := Vector2(-1.0, -1.0)
 	var best_count: int = -1
 	var by_radius: Dictionary = {}
-	for ring in range(1, SEARCH_TILES + 1):
+	for ring in range(0, INTERIOR_SEARCH_TILES + 1):
 		for dy in range(-ring, ring + 1):
 			for dx in range(-ring, ring + 1):
 				if maxi(absi(dx), absi(dy)) != ring:
@@ -283,7 +295,7 @@ static func _interior_spot(world: Variant) -> Vector2:
 					continue
 				if world.is_blocked_tile(t.x, t.y) or not SimTileMap.is_indoors(world.tilemap, t.x, t.y):
 					continue
-				if not _clear_of_start(world, t) or not _ring_free(occ, t, 1):
+				if not _ring_free(occ, t, 1):
 					continue
 				var count: int = _room_count(world.tilemap, t)
 				var centre := Vector2(float(t.x) + 0.5, float(t.y) + 0.5)
