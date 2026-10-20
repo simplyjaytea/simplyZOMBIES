@@ -53,6 +53,7 @@ const InputMapRes = preload("res://presentation/input_map.gd")
 const SessionRes = preload("res://presentation/session.gd")
 const UiPrefs = preload("res://ui/prefs.gd")
 const RenderInterp = preload("res://presentation/interp.gd")
+const AnimClock = preload("res://presentation/anim_clock.gd")
 const WorldLayersRes = preload("res://presentation/world_layers.gd")
 const LightMapRes = preload("res://presentation/light_map.gd")
 
@@ -120,6 +121,12 @@ var accumulator: float = 0.0
 # Where bodies are drawn between two ticks (presentation/interp.gd): snapshotted before every
 # step, read by the draw and the camera follow. Never read by the sim.
 var _interp: RenderInterp = RenderInterp.new()
+# Which walk or breath frame each drawn body shows (presentation/anim_clock.gd): stepped by the
+# ground its drawn point covers and by `_anim_time`, never by the tick. Never read by the sim.
+var _anim: AnimClock = AnimClock.new()
+# Presentation time in game seconds: `delta * speed` summed while the world runs, held while it does
+# not, so a breath stops on pause and quickens under fast-forward with everything else.
+var _anim_time: float = 0.0
 var paused: bool = false
 var speed: int = 1
 var attention_channel: String = "off" # off/light: the O key; noise, scent and sight were never drawn (A22)
@@ -402,6 +409,8 @@ func _on_world_replaced() -> void:
 	_decals_drawn = []
 	_a2_wall_drawn = []
 	_interp.clear()
+	_anim.clear()
+	_anim_time = 0.0
 	if _context_menu != null:
 		_context_menu.call("close")
 	tick_count = 0
@@ -1011,6 +1020,7 @@ func _process(delta: float) -> void:
 	# speed scales tick debt: more ticks per frame, not smaller tick. A sleeping survivor with
 	# nothing near runs at the sleep rate, which is `speed` unless it is faster.
 	var rate: int = SessionRes.run_rate(speed, world)
+	_anim_time += delta * float(rate)
 	accumulator += delta * float(rate)
 	var ticks_done: int = 0
 	var prev_tick: int = int(world.tick)
@@ -1223,6 +1233,7 @@ func _draw() -> void:
 	_a2_wall_drawn = []
 	_draw_orders()
 	_draw_entities()
+	_anim.end_draw()
 	_draw_effects(false)
 	_draw_afterimages()
 	_draw_bubbles()
@@ -2561,6 +2572,7 @@ func _draw_entities() -> void:
 	if world == null: return
 	_focal_drawn = []
 	_interp.begin_draw()
+	_anim.begin_draw(_anim_time)
 	var sub_tick: float = _sub_tick()
 	# One art pixel in screen pixels, asked once: the camera cannot change inside a draw
 	# pass, and every body, shadow and glimpse disc below is sized off the same answer --
@@ -2802,7 +2814,12 @@ func _draw_entities() -> void:
 		var sprite_key: String = String(look.get("sprite", ""))
 		var vel_v: Variant = world.components.get_component(eid, "velocity")
 		var view: String = Appearance.body_view(sprite_key, facing_v, vel_v)
-		var texture: Texture2D = Appearance.body_texture(look, view, Appearance.moving(vel_v), int(world.tick), eid)
+		# Which frame: the animation clock's, from where this body is drawn (the item's x, y, already
+		# slid by the interpolation) and whether the sim moves it -- the walk advances by ground
+		# covered and the breath by presentation time, never by the tick (presentation/anim_clock.gd).
+		var motion: Dictionary = _anim.motion(eid, Vector2(float(it["x"]), float(it["y"])), Appearance.moving(vel_v), Appearance.stride_of(sprite_key), Appearance.pace_of(sprite_key))
+		var frame: String = Appearance.frame_key(sprite_key, view, motion)
+		var texture: Texture2D = Appearance.body_texture(look, view, motion)
 		if texture != null:
 			# Scaled by px_scale so a body covers the same fraction of a tile at every step on
 			# the zoom ladder. Where the picture hangs is Appearance.body_rect's answer: a pawn
@@ -2816,7 +2833,7 @@ func _draw_entities() -> void:
 			# feet-anchored canvas -- and a held weapon at its hand, turned by the draw call's own
 			# flags (`_layer_rect`). Drawn white, never the role/tint colour: a backpack is its own
 			# object, not a stand-in shape for the entity itself.
-			var equip: Array[Dictionary] = Appearance.equipment_layers_for(world, eid, view)
+			var equip: Array[Dictionary] = Appearance.equipment_layers_for(world, eid, view, frame, sprite_key)
 			var flip: float = Appearance.flip_for(sprite_key, screen_ang)
 			_blit_body(Appearance.body_rect(sx, sy, size, flip), texture, col, equip)
 			# The afterimage's own copy of this look, frozen at the moment a Focal body was drawn --
@@ -3275,10 +3292,15 @@ func _blit_body(rect: Rect2, texture: Texture2D, col: Color, equip: Array[Dictio
 # pixel, and the draw call is handed the layer's `transpose` flag, so the weapon turns without a
 # transform. The body under it never mirrors: `flip_for` answers +1 for every body that turns.
 func _layer_rect(rect: Rect2, layer: Dictionary) -> Rect2:
-	if not layer.has("at"):
-		return rect
 	var px: float = absf(rect.size.x) / float(Appearance.PAWN_CANVAS.x)
 	var py: float = rect.size.y / float(Appearance.PAWN_CANVAS.y)
+	if not layer.has("at"):
+		# A wearable riding a head or a torso the body frame has moved (Appearance's layer contract,
+		# rule 2): the same rect, shifted by whole body pixels.
+		if layer.has("shift"):
+			var shift: Vector2i = layer["shift"] as Vector2i
+			return Rect2(rect.position + Vector2(shift.x * px, shift.y * py), rect.size)
+		return rect
 	var at: Vector2i = layer["at"] as Vector2i
 	var size: Vector2i = layer["size"] as Vector2i
 	return Rect2(rect.position + Vector2(at.x * px, at.y * py), Vector2(size.x * px, size.y * py))
