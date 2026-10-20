@@ -72,6 +72,8 @@ FAMILIES = {
     "body_zombie_runner": {"pace": 2.94, "fps": 18, "canvas": (32, 40), "dir": "zombie-runner"},
     "body_zombie_armored": {"pace": 1.68, "fps": 8, "canvas": (32, 40), "dir": "zombie-armored"},
     "body_zombie_heavy": {"pace": 1.26, "fps": 8, "canvas": (40, 48), "dir": "zombie-heavy"},
+    "body_zombie_screamer": {"pace": 2.31, "fps": 10, "canvas": (32, 40), "dir": "zombie-screamer"},
+    "body_zombie_bloater": {"pace": 1.47, "fps": 8, "canvas": (40, 48), "dir": "zombie-bloater"},
 }
 # Which part of a body each of the pack's wearables rides, so a frame that moves that part moves the
 # wearable with it (the layer contract, rule 2).
@@ -116,6 +118,22 @@ def action_timing(fam):
 # is doubled (raised) or dropped (lowered), so the legs and soles never move.
 HIP = 0.68
 CHEST = 0.48
+
+# The ring of ink round every pack body: its most common colour.
+OUTLINE_BLACK = (1, 1, 1)
+
+# The survivor's head-top row on each walk frame, by view. The generated cycles bobbed unevenly
+# (south 12, 11, 10, 10, 10, 12, 11, 10: low at frames 0 and 5, a long beat and a short one with a
+# two-row drop on the short; north once a cycle; east a row of jitter on every step), so each
+# frame's body above the underwear is moved to these rows: two even beats a cycle, one row at a
+# time, chosen to move as few frames as the pattern allows (no frame moves more than a row). Front
+# and back views dip two rows, the side views one.
+SURVIVOR_BOB = {
+    "s": (11, 12, 11, 10, 11, 12, 11, 10),
+    "n": (12, 11, 10, 11, 12, 11, 10, 11),
+    "e": (11, 11, 12, 12, 11, 11, 12, 12),
+    "w": (12, 12, 13, 13, 12, 12, 13, 13),
+}
 
 # The survivor's hands on its rest views, as `Appearance.HELD_HANDS` has them (body-canvas pixels).
 REST_HANDS = {
@@ -205,16 +223,18 @@ def shift_above(im, cut, dy):
     return out
 
 
-def ground(im):
-    """Stands the lowest solid row on the bottom row or one above it (a step may lift one row)."""
+def ground(im, step=1):
+    """Stands the lowest solid row on the bottom row, or up to `step` rows above it (a step may lift
+    one row). The survivor plants a foot on the bottom row on every frame (`step=0`): its generated
+    walk lifted both feet clear for three frames running, which read as a hop."""
     rows = rows_of(im)
     if not rows:
         return im
     lift = im.size[1] - 1 - rows[-1]
-    if lift <= 1:
+    if lift <= step:
         return im
     out = Image.new("RGBA", im.size, (0, 0, 0, 0))
-    out.alpha_composite(im, (0, lift - 1))
+    out.alpha_composite(im, (0, lift - step))
     return out
 
 
@@ -328,6 +348,77 @@ def restore_shorts(cells, rest):
     return out
 
 
+def is_ink(p):
+    return solid(p) and max(p[:3]) < 45
+
+
+def close_outline(im):
+    """Every body pixel the pack draws is ringed by ink. A few generated frames let a pixel of skin
+    or cloth touch the transparent outside (a foot past its outline, a grey speck beside the hip),
+    and anything painted there -- a boot, a hood -- broke the ring. A pixel open on one side
+    becomes ink, which closes the ring where it is; one open on two or more sides is sticking out
+    of the silhouette and is cleared."""
+    w, h = im.size
+    px = im.load()
+    out = im.copy()
+    o = out.load()
+    for y in range(h):
+        for x in range(w):
+            p = px[x, y]
+            if not solid(p) or is_ink(p):
+                continue
+            around = [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
+            inside = [(nx, ny) for nx, ny in around if 0 <= nx < w and 0 <= ny < h]
+            open_sides = len(around) - len(inside) + sum(1 for nx, ny in inside if not solid(px[nx, ny]))
+            if open_sides == 0:
+                continue
+            if open_sides >= 2:
+                o[x, y] = (0, 0, 0, 0)
+            else:
+                ink = next(px[nx, ny] for nx, ny in inside if is_ink(px[nx, ny]))
+                o[x, y] = ink
+    return out
+
+
+def outline_black(im):
+    """The pack rings a body in near-black; a few generated frames left a dark-brown pixel on the
+    ring (#1d140e, #130d0a at a west shoulder's corner) that read as a notch. Ink on the silhouette's
+    edge (touching the transparent outside) that is lighter than the ring's own black takes it;
+    the brown ink inside the body (an arm's line against the chest) is left alone."""
+    w, h = im.size
+    px = im.load()
+    out = im.copy()
+    o = out.load()
+    for y in range(h):
+        for x in range(w):
+            p = px[x, y]
+            if not is_ink(p) or max(p[:3]) <= OUTLINE_BLACK[0] + 8:
+                continue
+            if outline(im, x, y):
+                o[x, y] = OUTLINE_BLACK + (255,)
+    return out
+
+
+def drop_hip_seams(im):
+    """Two generated east frames draw a line of ink straight across the top of the legs, under the
+    underwear: the pack's hips run into the legs with no line, and the seam showed through every
+    pair of trousers as a dark stripe. Within the underwear band and the row under it, an ink pixel with
+    underwear directly above it and leg skin directly below takes the underwear's colour; the ink
+    between the legs (nothing or more ink below it) stays."""
+    band = shorts_band(im)
+    if band is None:
+        return im
+    w, h = im.size
+    px = im.load()
+    out = im.copy()
+    o = out.load()
+    for y in range(band[0] + 1, min(h - 1, band[1] + 2)):
+        for x in range(w):
+            if is_ink(px[x, y]) and is_shorts(px[x, y - 1]) and is_skin(px[x, y + 1]):
+                o[x, y] = px[x, y - 1]
+    return out
+
+
 def png_bytes(im):
     import io
 
@@ -344,6 +435,98 @@ class Build:
 
     def put(self, path, im):
         self.files[Path(path)] = im
+
+
+def retime_bob(cell, top):
+    """Moves the body from the hips up, as one block, so its head's top row is `top`: the top row
+    of the legs is doubled to raise it, dropped to lower it, one row at a time. Moving only the
+    chest and head (cutting above the underwear) shortened the torso on the frames it lowered, and
+    a collar found by the hips rode up over the chin; the soles stay where the generator stood
+    them."""
+    band = shorts_band(cell)
+    cut = band[1] + 1
+    while rows_of(cell)[0] > top:
+        cell = shift_above(cell, cut, -1)
+    while rows_of(cell)[0] < top:
+        cell = shift_above(cell, cut, 1)
+    return cell
+
+
+# The views whose generated walk redrew the head on some frames (the west face 38, 38, 22, 29, 37,
+# 38, 34, 30 skin pixels; the north's ears and nape 22, 11, 11, 11, 11, 11, 24, 24; the south's
+# crown a row lower on frame 5): it read as a nod or a shimmer. Their walk wears the rest view's head on every frame, moved only by the bob.
+# Rows from the top of the head down to the chin.
+SAME_HEAD = ("s", "w", "n")
+HEAD_ROWS = 11
+# The south walk's trunk, head top to belt, on every frame: the rest view's 19 rows. The generator
+# drew it a row short on three of the eight (18), so the torso squashed and stretched against the
+# bob and the second down-beat read as the crown alone dropping.
+SOUTH_TRUNK = 19
+
+
+def trunk(cell, rows):
+    """Stretches or shortens the torso so the head's top sits `rows` above the underwear's top,
+    a row at a time at mid-chest (the upper arm grows or shrinks with it; the hands, the hips and
+    the legs stay)."""
+    while True:
+        top, belt = rows_of(cell)[0], shorts_band(cell)[0]
+        if belt - top == rows:
+            return cell
+        cell = shift_above(cell, belt - 4, -1 if belt - top < rows else 1)
+
+
+def same_head(cell, rest):
+    """The rest view's head, row for row, in place of the frame's own: the top `HEAD_ROWS` rows of
+    the body, set on the frame's own top row (the frame is already centred on the rest head), its
+    alpha made binary like every generated frame's."""
+    rt, ft = rows_of(rest)[0], rows_of(cell)[0]
+    out = cell.copy()
+    o = out.load()
+    src = binary(rest).load()
+    w = cell.size[0]
+    for k in range(HEAD_ROWS):
+        for x in range(w):
+            o[x, ft + k] = src[x, rt + k]
+    return out
+
+
+def recentre(cell, rest):
+    """Moves a whole frame sideways so its head sits over the rest view's. The generated side walks
+    drift forward through the cycle (the east head 16.7, 16.7, 17.8 ... 18.7 pixels across) and
+    snapped two pixels back on the loop from frame 7 to 0, the largest step in the cycle; a body
+    walking on the spot keeps its head where it stood."""
+    dx = round(head_and_torso(rest)[0] - head_and_torso(cell)[0])
+    if dx == 0:
+        return cell
+    out = Image.new("RGBA", cell.size, (0, 0, 0, 0))
+    out.alpha_composite(cell, (dx, 0))
+    return out
+
+
+def survivor_breath(rest, view):
+    """The survivor's breath from a rest picture (the body's, or a garment painted on it): the
+    chest and everything above it one row up, the hands planted where they hung. Raising the hands
+    with the chest stretched each one a row (the cut row is doubled, and the hands sit on it); a
+    planted hand under a lifted shoulder lengthens the arm instead, which a sleeve hides."""
+    cut = survivor_breath_cut(view)
+    out = shift_above(rest, cut, -1)
+    src = rest.load()
+    o = out.load()
+    w, h = out.size
+    for rx, _ in (by_view[view] for by_view in REST_HANDS.values()):
+        for x in range(max(0, rx - 1), min(w, rx + 2)):
+            for y in range(cut - 1, h):
+                o[x, y] = src[x, y]
+    return out
+
+
+def survivor_breath_cut(view):
+    """The row the survivor's breath raises everything above, on its rest view's canvas. The
+    clothing painter (clothing/build_clothing.py) raises each garment's rest picture at the same
+    row, so a breathing body's clothes are its standing clothes, lifted, never repainted."""
+    rest = load(PACK / "textures" / "characters" / f"survivor_{view}.png")
+    top = rows_of(rest)[0]
+    return top + round(CHEST * (rest.size[1] - top))
 
 
 def survivor(build):
@@ -364,8 +547,18 @@ def survivor(build):
         for n in range(8):
             x0 = (n + 1) * STRIP_FRAME + INPUT_AT[0]
             cell = strip.crop((x0, INPUT_AT[1], x0 + SURVIVOR_CANVAS[0], INPUT_AT[1] + SURVIVOR_CANVAS[1]))
-            cells.append(ground(drop_specks(binary(cell))))
+            cells.append(ground(drop_specks(binary(cell)), 0))
         cells = restore_shorts(cells, rest.crop((0, 0) + SURVIVOR_CANVAS))
+        cells = [drop_hip_seams(close_outline(c)) for c in cells]
+        rest_cell = rest.crop((0, 0) + SURVIVOR_CANVAS)
+        cells = [recentre(c, rest_cell) for c in cells]
+        if view in SAME_HEAD:
+            cells = [same_head(c, rest_cell) for c in cells]
+        if view == "s":
+            cells = [trunk(c, SOUTH_TRUNK) for c in cells]
+        cells = [retime_bob(c, top) for c, top in zip(cells, SURVIVOR_BOB[view])]
+        # Last, once every move is made: a pixel a move left on the silhouette's edge is ringed too.
+        cells = [outline_black(c) for c in cells]
         for n, cell in enumerate(cells):
             rel = f"textures/characters/motion/survivor_walk_{view}_{n:02d}.png"
             build.put(PACK / rel, cell)
@@ -382,8 +575,7 @@ def survivor(build):
             walk.append(rel)
             walks[view].append(cell)
             walk_hands[view].append({slot: tuple(pt) for slot, pt in hands.items()})
-        cut = rows_of(rest)[0] + round(CHEST * (rest.size[1] - rows_of(rest)[0]))
-        breath = shift_above(rest, cut, -1)
+        breath = survivor_breath(rest, view)
         rel = f"textures/characters/motion/survivor_idle_{view}_01.png"
         build.put(PACK / rel, breath)
         head, torso = offsets(breath, rest)
@@ -391,7 +583,7 @@ def survivor(build):
         hands = {}
         for slot, by_view in REST_HANDS.items():
             rx, ry = by_view[view]
-            hands[slot] = [rx, ry - 1 if ry < cut else ry]
+            hands[slot] = [rx, ry]
         entry["hands"] = dict(sorted(hands.items()))
         members[f"{fam}_idle_{view}_1"] = entry
         frames_by_view[view] = {"walk": walk, "idle": [f"textures/characters/survivor_{view}.png", rel]}

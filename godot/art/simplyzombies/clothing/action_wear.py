@@ -93,13 +93,29 @@ def _dressed(bare: Image.Image, garment: Image.Image) -> Image.Image:
     return out
 
 
+def _ink(px, x: int, y: int, size: tuple[int, int]) -> bool:
+    """The body's ink at (x, y): dark and neutral, or dark on the outline ring (beside the
+    transparent). A hood takes warm dark hair inside the ring (`build_clothing.hood`); a move can
+    bring that hair to the silhouette's edge, where it is the outline again."""
+    r, g, b, a = px[x, y]
+    if a < parts.ALPHA_SOLID or max(r, g, b) >= 45:
+        return False
+    if r - b < 12:
+        return True
+    for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+        if not (0 <= nx < size[0] and 0 <= ny < size[1]) or px[nx, ny][3] < parts.ALPHA_SOLID:
+            return True
+    return False
+
+
 def _shown(bare: Image.Image, dressed: Image.Image) -> Image.Image:
-    """The garment a dressed picture shows: every pixel where it differs from the bare one."""
+    """The garment a dressed picture shows: every pixel where it differs from the bare one, except
+    on the bare picture's ink."""
     out = Image.new("RGBA", bare.size, (0, 0, 0, 0))
     b, d, o = bare.load(), dressed.load(), out.load()
     for y in range(bare.size[1]):
         for x in range(bare.size[0]):
-            if d[x, y] != b[x, y]:
+            if d[x, y] != b[x, y] and not _ink(b, x, y, bare.size):
                 o[x, y] = d[x, y]
     return out
 
@@ -314,19 +330,53 @@ def _reload_garment(bc, family: str, final: Image.Image, view: str, beat: dict, 
 # --- generated: the swing seen from the east, the west and the front -------------------------
 
 
+def _band_legs(f) -> None:
+    """Skin in the underwear's rows that the rest-view rules called arm or hand, but that joins a
+    leg: a generated swing kicks the trailing leg back and up into the hips' rows, past their
+    span, where the rest view's hand hangs. A run of it touching the pelvis or a leg is leg, so the
+    trousers carry on down it to the shoe; a hand hanging that low touches neither."""
+    seen: set[tuple[int, int]] = set()
+    rows = range(f.waist_top, f.waist_bot + 1)
+    for y0 in rows:
+        for x0 in range(parts.W):
+            if (x0, y0) in seen or f.lab[y0][x0] not in ("A", "K"):
+                continue
+            run, stack = [], [(x0, y0)]
+            seen.add((x0, y0))
+            touches = False
+            while stack:
+                x, y = stack.pop()
+                run.append((x, y))
+                for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                    if not (0 <= nx < parts.W and 0 <= ny < parts.H):
+                        continue
+                    lab = f.lab[ny][nx]
+                    if lab in ("P", "L", "F"):
+                        touches = True
+                    elif lab in ("A", "K") and ny in rows and (nx, ny) not in seen:
+                        seen.add((nx, ny))
+                        stack.append((nx, ny))
+            if touches:
+                for x, y in run:
+                    f.lab[y][x] = "L"
+
+
 def swing_frame(bc, img: Image.Image, view: str):
     """A generated swing frame as a `build_clothing.Frame`, labelled from its own pixels like a rest
     frame, then its arms found: skin in the chest rows past the hips' span by more than a pixel,
     `A` with its reach (pixels out from the body's edge), and the last two pixels of each arm the
     hand, `K`."""
     f = bc.Frame.of_image(img, view)
+    _band_legs(f)
     lo, hi = f.uw_min - 1, f.uw_max + 1
     arm: dict[tuple[int, int], int] = {}
     reach: dict[tuple[int, int], int] = {}
     for y in range(f.torso_top, f.waist_top):
         for x in range(parts.W):
-            if f.cls[y][x] in ("S", "s", "h") and (x < lo or x > hi):
-                arm[(x, y)] = lo - x if x < lo else x - hi
+            # The column just past the hips' span is arm too, at no reach: left as chest-or-hand by
+            # the rest-view rows it was a one-pixel sliver of skin down a sleeve's inner edge.
+            if f.cls[y][x] in ("S", "s", "h") and (x <= lo or x >= hi):
+                arm[(x, y)] = lo - x if x <= lo else x - hi
     seen: set[tuple[int, int]] = set()
     for start in sorted(arm):
         if start in seen:

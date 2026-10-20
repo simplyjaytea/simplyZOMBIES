@@ -1,0 +1,38 @@
+{
+  "_comment": [
+    "Every generation the north-south cars ran, in order. init_image_strength is how much of the",
+    "guide the model keeps (higher is closer). The wrecks were not generated: guides/wreck.py damages",
+    "the kept intact sheet, the shared generation budget having gone on the bodies."
+  ],
+  "generations": [
+    {
+      "tool": "PixelLab create_image_pixflux (img2img)",
+      "no_background": true,
+      "outline": "single color black outline",
+      "view": "high top-down",
+      "output": "sources/rejected-cars-ns-pass1.png",
+      "kept": false,
+      "init": "sources/cars-ns-guide.png (guides/cars_ns.py)",
+      "init_image_strength": 300,
+      "direction": "north",
+      "seed": 61,
+      "why": "kept the guide almost pixel for pixel: flat, no texture, nothing the pack's cars have that the guide lacked",
+      "description": "three parked cars seen from above and behind, nose pointing up/north, top-down 3/4 game sprites side by side: faded teal compact hatchback, dusty cream delivery van with two rear doors, olive pickup truck with open empty cargo bed; roof and rear visible, blue-gray glass windshield, red tail lights, black tyres, chunky near-black stepped outline, broad flat pixels, 3-4 tones per material, muted desaturated colors, sparse wear"
+    },
+    {
+      "tool": "PixelLab create_image_pixflux (img2img)",
+      "no_background": true,
+      "outline": "single color black outline",
+      "view": "high top-down",
+      "output": "sources/cars-ns-pass2.png",
+      "kept": true,
+      "init": "sources/cars-ns-guide.png (guides/cars_ns.py)",
+      "init_image_strength": 180,
+      "direction": "north",
+      "shading": "medium shading",
+      "seed": 62,
+      "why": "the three intact cars: the pack's worn paint and dust, glass with a reflection, the guide's geometry kept",
+      "description": "three parked cars seen from above and behind, nose pointing up/north, top-down 3/4 game sprites side by side: faded teal compact hatchback, dusty cream delivery van with two rear doors, olive pickup truck with open empty cargo bed; roof and rear visible, blue-gray glass windshield, red tail lights, black tyres, chunky near-black stepped outline, broad flat pixels, 3-4 tones per material, muted desaturated colors, sparse wear, scuffs and panel seams"
+    }
+  ]
+}
