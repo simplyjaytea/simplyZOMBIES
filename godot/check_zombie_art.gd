@@ -1,5 +1,5 @@
 extends SceneTree
-# The new art must reach ordinary play: content selects seven bodies, the shared renderer
+# The new art must reach ordinary play: content selects nine bodies, the shared renderer
 # animates their four views from the sim clock, death retains a matching settled picture, and
 # the picture neither survives as an active zombie nor spends sight the player did not earn.
 # check_authored owns pixel bounds and source reproduction; this gate owns those real readers.
@@ -18,6 +18,9 @@ const EXPECT: Dictionary = {
 	"body_zombie_runner": {"type": "zombie.runner", "fps": 9, "canvas": Vector2i(32, 40)},
 	"body_zombie_armored": {"type": "zombie.armored", "fps": 4, "canvas": Vector2i(32, 40)},
 	"body_zombie_heavy": {"type": "zombie.heavy", "fps": 4, "canvas": Vector2i(40, 48)},
+	# Zombie study 02 (2026-10-19): the last two face-on generated rigs, redrawn as families.
+	"body_zombie_screamer": {"type": "zombie.screamer", "fps": 5, "canvas": Vector2i(32, 40)},
+	"body_zombie_bloater": {"type": "zombie.bloater", "fps": 4, "canvas": Vector2i(40, 48)},
 }
 const DIRECTIONS: Dictionary = {
 	"e": Vector2(1, 0), "s": Vector2(0, 1), "w": Vector2(-1, 0), "n": Vector2(0, -1),
@@ -41,7 +44,7 @@ func _run() -> void:
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
 	ok = _require(seconds <= BUDGET_SECONDS, "BUDGET: %.2f s exceeds %.0f s" % [seconds, BUDGET_SECONDS]) and ok
 	if ok:
-		print("ZOMBIE_ART_OK CONTENT seven selected families; MOTION four views with four distinct poses and static idle, sim-tick timing; CORPSES matching art centered on ground; DEATH one drop/despawn and no active corpse zombie; SAVE optional bounded cosmetic history without RNG/allocation; READERS Focal-only settled draw before standing gear/facing/speech; %.2f s" % seconds)
+		print("ZOMBIE_ART_OK CONTENT nine selected families; MOTION four views with four distinct poses and static idle, sim-tick timing; CORPSES matching art centered on ground; DEATH one drop/despawn and no active corpse zombie; SAVE optional bounded cosmetic history without RNG/allocation; READERS Focal-only settled draw before standing gear/facing/speech; %.2f s" % seconds)
 		quit(0)
 	else:
 		push_error("ZOMBIE_ART_FAIL")
@@ -98,11 +101,11 @@ func _variants_are_content_and_stable() -> bool:
 				seen[family] = true
 			if look != Appearance.for_entity(w, _item(type_id, entity)):
 				return _require(false, "CONTENT: repeated lookup changed the same body's appearance")
-	if not _require(seen.size() == EXPECT.size(), "CONTENT: seven families are not all selected by shipped content: %s" % str(seen.keys())):
+	if not _require(seen.size() == EXPECT.size(), "CONTENT: nine families are not all selected by shipped content: %s" % str(seen.keys())):
 		return false
 	if not _require(rng_before == w.rng.save() and entities_before == w.entities.save(), "CONTENT: drawing bodies consumes RNG or entity allocations"):
 		return false
-	print("CONTENT OK all seven family keys selected, inherited fields kept, original content unchanged, no RNG/allocation")
+	print("CONTENT OK all nine family keys selected, inherited fields kept, original content unchanged, no RNG/allocation")
 	return true
 
 
@@ -206,7 +209,7 @@ func _every_body_walks_and_stands() -> bool:
 			return false
 	if not _require(not Appearance.turns("no_such_body") and Appearance.resolve("no_such_body") == null, "MOTION: unknown body resolves to unrelated art"):
 		return false
-	print("MOTION OK 140 pictures; 28 four-frame loops have distinct pixels and silhouettes; idle/view/fps/phase and unmirrored west reach body_texture")
+	print("MOTION OK %d pictures; %d four-frame loops have distinct pixels and silhouettes; idle/view/fps/phase and unmirrored west reach body_texture" % [EXPECT.size() * 20, EXPECT.size() * 4])
 	return true
 
 
@@ -231,7 +234,7 @@ func _settled_poses_match() -> bool:
 			if not _require((look["texture"] as Texture2D).get_image().get_data() != (body["texture"] as Texture2D).get_image().get_data(), "CORPSES: %s still stands after death" % family):
 				return false
 			seen[expected] = true
-	if not _require(seen.size() == 14, "CORPSES: real content reaches %d zombie poses rather than fourteen" % seen.size()):
+	if not _require(seen.size() == EXPECT.size() * 2, "CORPSES: real content reaches %d zombie poses rather than %d" % [seen.size(), EXPECT.size() * 2]):
 		return false
 	var human: Dictionary = {}
 	for entity in 12:
@@ -257,7 +260,7 @@ func _settled_poses_match() -> bool:
 			return false
 	if not _require(not Appearance.body_rect(104, 208, Vector2(48, 32), 1.0).get_center().is_equal_approx(Vector2(104, 208)), "CORPSES: anchor control fails to distinguish a standing rectangle"):
 		return false
-	print("CORPSES OK fourteen variant-matched zombie poses and four human poses; no art yields no picture; ground-centered at both scales")
+	print("CORPSES OK %d variant-matched zombie poses and four human poses; no art yields no picture; ground-centered at both scales" % (EXPECT.size() * 2))
 	return true
 
 

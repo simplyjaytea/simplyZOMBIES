@@ -137,8 +137,7 @@ end without a developer explaining it.
 ### Where Milestone 2 stands
 
 This section took over `HANDOFF.md`'s live-status role when the per-item checkbox ledger of that
-name was retired (2026-08). A short `HANDOFF.md` came back a commit later and is still in the tree,
-but it is a cold-start pointer and an owner-decision list, **not** a status ledger: this section is
+name was retired (2026-08). A short `HANDOFF.md` came back a commit later and was removed on 2026-10-19; its owner-decision list moved to docs/33-owner-decisions.md, and neither file is a status ledger: this section is
 the authority, and where the two ever disagree this one is right. Keep it
 current **in the same commit** as the work it describes. Every claim of "landed" below is proven by a
 named gate (`npm run godot:m2` chains them all); the full done-item history with per-item evidence
@@ -167,8 +166,12 @@ navigation, every surface, integration seams and acceptance; [docs/30](30-decisi
 records the owner's choices. This is new work, not a claim that the redesign has shipped.
 The old Field Kit implementation remains the current baseline until replaced slice by slice.
 
-The grid-plus-fast-list recommendation and the illustrative concept's treatment are still
-open for feedback. Preserve existing grid capacity and pause behavior by default. The
+The grid-plus-fast-list recommendation is now the owner's decision, and the inventory's own
+look is settled as the Salvage Locker (docs/30, "The inventory's look"; the record's "UI — the
+inventory, redone"), which lands the storage half of the first bullet below: the grids, the
+list, the transfer and the inspect pane's actions. The anatomical diagram, the viewed versus
+acting survivor and the rest of that bullet remain. The illustrative concept's wider treatment
+is still open for feedback. Preserve existing grid capacity and pause behavior by default. The
 following order completes all existing UI, with a useful playable flow first:
 
 - **Shared frame and the scavenging flow.** Establish the common theme, explicit viewed
@@ -221,7 +224,7 @@ record together. No new camp, treatment, loadout or hidden-information mechanics
 ##### Other remaining work
 
 **Waiting on the owner — decisions, not code.** Each is measured and written up; none may be
-decided unilaterally. **The full list lives in `HANDOFF.md`** (eleven items as of 2026-09-09; the
+decided unilaterally. **The full list lives in [docs/33-owner-decisions.md](33-owner-decisions.md)** (items 0 to 10 as of 2026-10-19; the
 newest two are the water numbers and the main area's extent, and the six of 2026-09-06 were the
 driving and weather first cuts, the free wind, the unseen-wall roof, the one-handed silhouettes,
 the forest density, and the two playable-state flips against the compressed tier's survival
@@ -584,7 +587,9 @@ become y-sorted modules standing on a run's south edge; and sockets land now for
 east-west vehicles and the cursor, with held weapons, utilities, decals and the six status icons
 named for the report rather than built.
 The shared shambler picture was superseded by the seven-family zombie set on 2026-10-02
-("Zombies turn, walk and fall" in the record); the outpost survivor and equipment remain.
+("Zombies turn, walk and fall" in the record); the outpost survivor and equipment remain. The
+screamer and the bloater stopped being generated rigs on 2026-10-19 ("Zombie study 02" in the
+record), so no shipped body is generated or face-on any more.
 The tier tooling — a `source` `build.py` can reproduce, a `members` family, and the READS lane
 accepting any declarer — landed the same day, proved on the two containers (see the record). The
 pieces below are in the order they land, each one session, each with its gate red both ways and
@@ -975,12 +980,21 @@ group above amend this arc's mood, wall and pawn clauses; the pieces below stand
   only (the record's "Zombies turn, walk and fall", 2026-10-02). Widening their appearance at
   Peripheral detail remains an information-scarcity decision for the owner. Walk-cycle foot and
   clothing polish and the four-pose human corpse vest overlay remain unshipped.
-- **The torch.** The reference's night is a cone from the player's hand; every light here is an
-  omnidirectional shadowcast and there is no torch item. The piece is sim, not paint: a light
+- **The torch.** The reference's night is a cone from the player's hand. Since the light map
+  (2026-10-19, the record) a torch *draws* as a beam (content `light.beam`), but every light in
+  the sim is still an omnidirectional shadowcast. The piece left is sim, not paint: a light
   item whose `light` block carries a direction and a cone, `SimLight` masking that emitter's
   shadowcast to the wedge, the cone drawn from the gun hand in the lit-pool geometry, and the
   attention cost a lit torch is — an emitter zombies read. Its own gated slice, after the look
   lands, and not before: the arc is presentation and this is the one sim change in it.
+- **The night's reach on screen.** Since the art review of the light map (2026-10-20, the
+  record) the screen draws less light than the sim in two places, both sim numbers rather than
+  paint. A lit campfire's cast is 20 m (`SimNeeds.CAMPFIRE_LIGHT_M`) and its drawn pool 6 m, so a
+  body 7 to 20 m from the fire is seen by the sim and drawn at the night's floor, nearly black.
+  And an unlit survivor's night sight is the sky's share of 48 m, 1.9 m, which bounds the disc
+  of ground drawn around them to about one and a half tiles where the review asked for three. The
+  pieces are the campfire's reach brought toward its pool and a night-eyes floor of about 3.5 m,
+  each a balance change for the A24 pass or the owner, never a wider pool or disc on screen.
 - **What driving left behind.** The first driving slice landed 2026-09-05 (the record below,
   `godot:m2:vehicles`) at the owner's direction, ahead of the Milestone 3B schedule it used to
   sit behind; these are the halves it named rather than built, each its own piece:
@@ -1028,13 +1042,31 @@ group above amend this arc's mood, wall and pawn clauses; the pieces below stand
 - ~~**Per-source light tint.**~~ — landed 2026-10-03; each current emitter's content tint colours
   the existing light pool without changing its cast or reach. See the record.
 
-**Art remaining after the 2026-10-03 completion slices.** The bounded A2 wall mapping is live;
-its floor-underlay seam and remaining pack wall states are named above. The unseen-wall roof
-coverage choice remains with the owner. Full day/dusk/night grading remains
-unassessed, and the adopted ground palette stays pinned. The directional torch/cone is still a
-simulation and attention mechanic, not part of source colouring. Placed utility mechanics also
-remain absent: no placed stove, activated streetlamp, generator, rain collector or spike trap was
-added. These are separate pieces; the completed pictures do not imply those mechanics exist.
+**Art remaining after the 2026-10-03 completion slices.** The bounded A2 wall mapping is live; its
+floor-underlay seam and remaining pack wall states are named above. The unseen-wall roof coverage
+choice remains with the owner. The night itself is per pixel since the light map (2026-10-19, the
+record); a full day and dusk colour grade remains unassessed, and the adopted ground palette stays
+pinned. The torch draws as a beam, but the directional cone is still a simulation and attention
+mechanic, not part of source colouring. Placed utility mechanics also remain absent: no placed
+stove, activated streetlamp, generator, rain collector or spike trap was added. These are separate
+pieces; the completed pictures do not imply those mechanics exist.
+
+- **Vehicle pictures off the art grid.** Found by the A11 art review (2026-10-20), not caused by
+  it. `_blit_vehicle` stands every vehicle through `Appearance.body_rect`, which drops a
+  feet-anchored picture `FOOT_DROP_PX` (3.0 screen pixels, a body's contact-shadow line) below
+  its ground point, so a car's rear sits 1.5 art pixels past its footprint's south edge at the
+  2× rung rather than on the tile line; trees take the same drop on purpose (`check_trees.gd`
+  asserts it), so the fix is a placement rule for vehicles only, with its own lane, not a
+  change to `body_rect`. The same review saw the pack's east-west cars at an uneven scale; that
+  did not reproduce (they blit at `Appearance.blit_scale`, zoom / 32, a whole 2.0 at the default
+  rung, and their PNGs carry no doubled rows or columns), so it is noted here, not named as a
+  defect.
+
+- **The bloater's side walk, hand-drawn.** Left by the A11 art review's stop rule (2026-10-20).
+  The side views are built by `study-02/guides/bloater_paint.py` from shapes over the heavy's
+  walk, and their outline still shares 18–30% of the heavy's, mostly the legs and soles, which
+  are the heavy's own stride. A redraw of the eight side walk frames with the bloater's own
+  gait waits on PixelLab budget; `godot:check:authored`'s ZOMBIE_POSES lane judges the result.
 
 **The inventory sheet and the screens — decided by the owner (2026-09-08).** The inventory is
 mechanically complete and gated, and the screen reaches four of its commands: `item.move`,
@@ -1064,6 +1096,45 @@ session, each with its gate red both ways and its record.
   at all to anybody else. The fix is a smaller predicate than `searched` — "has contents and is
   not claimed" — and it moves what colonists scavenge, so it is a **measured** piece rather than
   a one-line filter change.
+
+**Colony management — the RimWorld half** (alpha scope, decided 2026-10-19 in docs/30: colonist orders and
+the NPCs that already exist, nothing more):
+
+- **Hide the stub job columns.** Firefight, Hunt, Farm, Craft, Modify and Butcher leave the work
+  grid until each has a consumer, so the grid stops promising work nothing does. Gate:
+  `godot:check:play`'s work lane.
+- **Draft and move orders.** Select a colonist, then right-click to move, attack or hold there; a
+  draft toggle stops a drafted colonist taking jobs. Sim-owned: a `colonist.order` command through
+  `godot/sim/context.gd`. Gate: `godot:check:context` and a new `godot:m2:orders`.
+**Parked until after the alpha** (decided 2026-10-19, docs/30): blueprints for wall, door, barricade,
+window board and bed, with Construct consuming materials; stockpile zones that replace the annex-floor
+test in `SimNeeds.is_stockpile_tile`; crafting at a bench, with the Craft job as its consumer. Each keeps
+its gate when it is picked up: `godot:m2:fortify` with a placement lane, `godot:m2:jobs`, and a new
+`godot:m2:craft` with `npm test` for the content.
+
+**Feel and speed — smooth motion, and time a player can live with:**
+
+- **Render interpolation between sim ticks.** Each body is drawn between its previous and current
+  sim position, and the tick accumulator is clamped so a slow tick drops time instead of
+  snowballing. Presentation only. Gate: a new motion lane, a true positive mid-tick and a true
+  negative at fraction zero.
+- **Sim tick to its budget.** The measured costs, one slice each: the visibility recast on a map
+  change, jobs re-pathing, shambler AI, sightings, encumbrance and self-aid. Gate:
+  `npm run godot:bench:runtime` under 8 ms mean and 16 ms worst, promoted to CI, with `godot:test`
+  parity and `godot:m2` unchanged.
+- **World draw to its budget.** Static ground, walls and roofs baked per chunk and invalidated on a
+  map, sight or weather change, so each frame draws only bodies, FX and overlays. Gate:
+  `npm run godot:bench:frame` under 10 ms mean at 1280 × 720, with the look gates re-pointed at the
+  new path.
+- **Sleep fast-forward, real 3x and 10x, and speed on the HUD.** Sleep runs at the fastest speed
+  until woken; paused and speed show in words on the HUD. Gate:   `godot:check:play` lanes for pause, speed and sleep. The 10x half waits on the sim-tick piece.
+- **Day length: one in-game day is one real hour at 1x**, as in Project Zomboid, with every per-day rate
+  rescaled. Decided 2026-10-19 (docs/30); not built. Gate: a balance re-baseline with `godot:m2:balance`
+  before and after, recorded in the record, and `godot:check:play` for the clock on the HUD.
+- **Aim follows the cursor.** The cursor is the aimer: the weapon is held toward it and the character turns
+  to follow, as in Project Zomboid. Decided 2026-10-19 (docs/30); not built. Gate: `godot:m2:aim` and
+  `godot:check:worn`.
+
 
 **UI:**
 
@@ -1314,10 +1385,13 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   `_observe_one`'s own body — not the file as a whole, since `_observe_containers` calls `detail`
   too — and asserts it calls `detail` and not `line_of_sight`. Narrows what a colonist remembers;
   no campaign outcome is claimed, and `godot:m2:balance` stays green.
-- **Four of the five infection verbs, and six other commands, have no way in.** `item.modify`,
-  `item.attach`, `item.detach`, `item.split`, `item.pickUp` and `container.search` are live command
-  handlers that nothing — no key, no button, no NPC decision — ever pushes, and the
-  attachment-fitting screen above is part of the same hole. `infection.respond` **now has a
+- **Four of the five infection verbs, and four other commands, have no way in.** `item.modify`,
+  `item.pickUp`, `container.search` and `recruit.ignore` are live command handlers that nothing —
+  no key, no button, no NPC decision — ever pushes. `item.pickUp` is the camelCase twin of
+  `item.pickup`, the command the right-click menu pushes (`godot/sim/context.gd:140`); only the
+  camelCase handler is dead. `item.attach`, `item.detach` and `item.split` **have producers** now:
+  the gunsmith bench (`godot/ui/bench_panel.gd:153-162`) and the inventory's split
+  (`godot/ui/inventory_panel.gd:774`). `infection.respond` **now has a
   producer** for exactly one of its verbs: the antibiotics word on the body screen
   (`godot:check:respond`, see the record). What is still unreachable, and why each is left that
   way rather than tidied up beside it:
@@ -1382,6 +1456,14 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   `map` and **named it there in a comment** rather than dropping it inside a slice about menus:
   the drawing reaches the same map through `world.tilemap`, so either deleting it or giving it the
   reader it was presumably meant to have is a decision of its own.
+- **A fifth, left by zombie study 02 (2026-10-19): the face-on body path.** With the screamer and
+  the bloater moved onto pose families, every shipped body `turns()`, so `Appearance`'s face-on
+  branch -- one picture a body, `body_flip`'s negative width facing west -- is reached by no
+  content. It is kept on purpose as the fallback for a single-picture body key (a commissioned
+  `rig`, which `check_authored.gd`'s SPEC lane still holds to the published bounds), and
+  `check_topdown.gd`, `check_worn.gd` and `check_appearance.gd` judge it on the probe key
+  `probe_face_on_body` rather than on shipped art. Deleting it, or the first commissioned rig
+  giving it a reader, is its own decision.
 - ~~**`repair_cost` is a stat nothing resolves.**~~ **Fixed 2026-09-13** (`godot:m2:upkeep`,
   REPAIR-COST; the record's "repair cost is read" entry under Survivors). The honest reader was
   never the scrap — repair still spends one whole unit, as the 2026-09-06 reasoning said it must —
@@ -2045,6 +2127,46 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **UI — the inventory, redone (the Salvage Locker), 2026-10-19.** The owner's answer to the
+  alpha plan's Q5: keep the grid, which reads like Tarkov's, but it "looks very plain" and has to
+  look bespoke; and a fast list beside it with the grid still the authority on capacity. Three
+  directions were drawn at 1920×1080 with the repo's own icons (canvas webbing, a salvage locker,
+  a hard case); the locker was built, and the owner confirmed it on 2026-10-20 (docs/30, "The
+  inventory's look"). What changed, all
+  under `godot/ui/`: a new `locker.gd` skin (brushed steel, rivets, masking-tape labels,
+  recessed cells, plates tinted by item class with a dog-ear, amber selection brackets, rust
+  hazard stripes for a refused drop) replaces the kit frames on the inventory's surfaces; a bag
+  cell is 60 px — thirty art pixels at the world's 2× — so an item's 32 px picture sits in one
+  cell at the size the same thing has on the floor, and `ItemPicture.draw` crops to the painted
+  part and lays a long gun along its footprint; the sheet gains a title bar (with the kit's close
+  glyph, now read), a list of everything in reach with six kind chips that fade the grids rather
+  than hide cells, a ctrl-click that sends an item to the box you stand at or back into the
+  first bag with room (cell by cell through `SimInventory.can_place`, then `item.move` through the
+  queue), and verb buttons along the inspect pane's foot drawn from the same rects the press is
+  tested against. The quick strip and the item menu (and so the street's right-click menu, which
+  draws through it) wear the same skin. The transfer window now clears the action bar where the
+  screen is tall enough for both. `Chrome.item_plate` lost its last caller and was removed.
+  **Not changed:** the sim, the read models, the digit and health-bar bans, the one typeface,
+  the column order, the 1280 two-lane rule. **Against docs/32**, which recommends flatter
+  surfaces and a sans body face: the owner's "super awesome, bespoke" ask and the locker pick
+  settle the inventory's surfaces; the face stays VT323 as the current baseline, because
+  typography is still one of docs/32's open recommendations and this slice does not decide it.
+
+  **Evidence:** `godot:check:inventory`'s new QUICK lane drives real presses in a 1920×1080
+  SubViewport: the list carries every item the grids do and only weapons under the arms chip
+  (pressed, not set), a row press selects; a ctrl-press moves the bottle into the open cupboard
+  after a step and pushes nothing with the box closed; the pane's drop button drops the knife
+  and a miss pushes nothing. Sabotaging the ctrl-press and the button's `_act` turns SEND and
+  BUTTONS red. Gate edits, each deliberate: `check_appearance`'s shared-draw needle reads
+  `draw_texture_rect_region(` (the crop), `check_ui_skin`'s CURSORS needle reads `Locker.refuse(`
+  for the refusal, PANEL drops `item_plate`, and GLYPHS moves `glyph_close` from unused to a
+  reader. `godot:check:inventory`, `:ui_skin`, `:appearance`, `:respond`, `:context`, `:hud`,
+  `:play`, `godot:ban:healthbar` and `godot:smoke` pass locally; the full chain passed in CI.
+  [Before/after captures](../.hermes/plans/2026-10-19_inventory-redesign/README.md) at 1280×720
+  and 1920×1080 from one throwaway driver (deleted). Not shown or proven: a drag in flight, the
+  ghost and the stripes on screen, a human using the list in a real run; and at 1280 with a box
+  open the inspect pane gives way to the two lanes, so its buttons are not on screen there.
+
 - **Gate infrastructure — the `godot:m2` chain runs as four CI shards, 2026-10-19.** The
   85-gate chain took 40m45s on one runner (job 118220307956, measured on 2b48fef), against the
   45-minute `godot-m2` limit. `scripts/m2-shards.mjs` splits it into four `godot-m2-shard` jobs,
@@ -2053,6 +2175,222 @@ not a to-do list:
   that write the per-machine `user://` store share shard 3. `npm run check:shards` (`SHARDS_OK`;
   its self-test refuses five broken layouts) proves each chained gate is in exactly one shard.
   Unsharded `npm run godot:m2` is unchanged. Wall time of the sharded run: see the PR.
+- **UI — the small fixes of alpha A22, 2026-10-19.** O cycles off and light. The noise, scent and
+  sight channels were never drawn (`godot:check:light`'s O-key rider), so they are dropped rather
+  than drawn; drawing them is a later slice if the owner wants it. M, the raw developer sheets, and
+  F8, the spawn menu, act only in a debug build: the router guards M the way it guards F8, the HUD
+  names M only in a debug build, and the legend lists neither. `godot:check:play`'s SOCKET lane
+  checks both guards in source, and its KEYS lane excuses M by name in UNLISTED. The guards are read
+  from source, so the gate proves the check is in front of the key, not how a release binary
+  behaves. A waiting recruit in reach offers "turn them away", which sends them through the sim's own
+  `recruit.ignore`; `godot:check:context`'s DECLINE lane proves the row is offered in reach, absent
+  out of reach and for a body that is not waiting, and that dispatching it removes the recruit.
+- **UI — the work grid draws only the columns something does, 2026-10-19 (alpha A15).**
+  `ui/work_panel.gd`'s `shown_columns` draws the twelve job columns that have a consumer
+  (`SimJobs.CONSUMERS`), in the sim's order, and no others: the six stubs (Firefight, Hunt, Farm,
+  Craft, Modify, Butcher) are gone from the grid. The sim still stores their numbers and nothing
+  reads them. Dropping them from `SimJobs.COLUMNS` would change the job row, presets and saves, so
+  that is a sim change and is not taken here. `godot:check:play`'s STUBS lane proves the grid's list
+  equals the consumers, names no stub, and that its first cell queues the first column it draws;
+  with the filter set to draw everything, that lane goes red.
+- **Art — the night, per pixel, 2026-10-19.** Item A10 of the 2026-10-19 alpha plan, built on
+  the baked world (A4), revised twice after the coordinator's art reviews (2026-10-20). The night
+  was one flat navy fill whose alpha came from the survivor's own sight, warm pools were per-tile
+  rects under the bodies, and the edge of sight was the shadowcast's tiles stepping straight into
+  a navy void. Now `presentation/light_map.gd` draws one screen rect multiplied over everything
+  main draws (`night_light.gdshader`, `blend_mul`, so it can only darken) and a glow item over it
+  for the flash and the flame. Where light may land is the sim's: the per-source "does this cast
+  reach this tile and does the survivor see it" answer is handed over as bits
+  (`LightLook.light_texels`), so a wall stops light on screen exactly where it stops it in the
+  sim, and a source's light fades over the inner half of the last tile it holds to nothing at
+  the edge of every neighbour it does not hold, corners included, never onto a tile the survivor
+  does not see. How much light lands is the look: each
+  source draws a pool out to 0.3 of its sim reach and nothing past it, in five flat rings with an
+  ordered dither only in the band between two (`LightLook.POOL_LEVELS`), at a brightness capped
+  by its reach (`LightLook.source_cap`: a 20 m campfire 0.85 of daylight, a 16 m storm lantern
+  0.75). The campfire's content tint is a redder orange (`#ff9452`) and the oil lanterns a
+  yellower one (`#ffdf80`), so two overlapping pools read as two. Outside every pool the night
+  holds at the floor of the unseen dark: at midnight full dark is `LightLook.NIGHT_FLOOR` (0.24)
+  of the night's colour, no channel above 8 of 255 even on a white tile. The survivor's
+  own disc of ground (`EYE_FLOOR` 0.55, ringed the same way) ends half a tile inside their sight
+  radius (`LightLook.eye_disc_metres`), so it is round rather than cut by the plus of tiles a
+  1.9 m night sight sees. The edge of sight is softened across the tile boundary, half a tile
+  into each side, and dithered. The void (never seen, drawn by no layer, R 0 in the texels where
+  a remembered tile is 128) cannot be faded by a multiply, so the known map's last half tile
+  beside it walks down to the void's dark instead. A window's light is still per tile: the cast
+  through it fades to nothing at the window row's edges, so its band on the far side peaks at
+  the pane and the masonry above and below it stays nearly dark, but the pane's own outline is
+  not traced. Light passes a window onto the floor beyond and not onto the masonry there: the
+  sim's shadowcast lights the first opaque tile it meets through glass (a hedge or a shelf whose
+  picture reads as the wall going on), so the screen lights an opaque tile only from a source
+  that also lights one of its four open neighbours (anything not blocking sight except glass),
+  the ground its face looks onto (`LightLook._face_lit`; art review 3). Deep water is solid but
+  clear, so it is not filtered: the middle of a pond stays lit. The window's own glass fades
+  toward the dark masonry behind it, as every lit tile fades toward an unlit neighbour. By day the light map is cleared, not drawn, so the day frame is the one it
+  was before (pixel-identical at both sizes). Everything is evaluated on the 32 px art-pixel
+  grid. Flames (a campfire, oil, a candle) flicker by at most 3% of reach, only ever down; cells
+  and gas are steady. A torch, headlamp or weapon light draws as a beam along its carrier's
+  facing: content's new `light.beam` half-angle, presentation only. The tile pools under the
+  bodies are now the O channel's alone. Looks chosen without the owner, each the default
+  nearest Zero Sievert: flames flicker, a torch is a wedge; full night near black is the owner's
+  pick on the darkness card (2026-10-20). **Half shipped, and which half:** the sim still lights
+  a torch's whole round cast, and outside the beam the screen draws only a disc at the hand, so
+  a zombie still reads the light behind you; the sim cone and its attention cost are the torch
+  piece in what's left. And the screen now draws less light than the sim in two places named
+  there as "The night's reach on screen": a campfire's sim cast is 20 m and its pool 6 m, and a
+  survivor's unlit night sight is 1.9 m, which bounds the disc.
+
+  **Evidence:** `npm run godot:check:light` → `LIGHT_LOOK_OK`. NO LIGHT ON UNSEEN (the plan's
+  lane): a campfire behind a wall lights 288 tiles in the sim that the survivor does not see,
+  and every one is four zero bytes in the light map. Every source bit sits on a seen tile, and
+  the open twin's same tile is seen and carries its bit. A builder that writes bits before the
+  seen test was run as sabotage and went red. After the survivor walks away, every tile reads R
+  128 exactly where it is remembered and not seen, and 0 for the void. RINGS: four or five
+  rings; the midnight floor keeps every channel at 8 or under; `source_cap` keeps its
+  ends and is monotonic; the campfire caps above the storm lantern and its tint is redder; the
+  dark eye disc is the sky's share of the range and there is none with nobody to ask.
+  SIGHT-DERIVED now judges the eye disc: a campfire a metre away widens it from 1.92 m to its
+  3.5 m cap. DAYLIGHT: at noon `ambient_of` is 1 and `_draw_night_wash` clears the light map
+  before it builds one. BEAM: a carried hand torch is its content's 22° along the facing; no
+  facing and a lantern are round; every content beam can be carried. FLICKER: a campfire
+  flickers, a cell torch does not. DEAD SOCKET is re-pointed: the night is built from
+  `light_texels`, `ambient_of` and `eye_disc_metres` before `_draw_effects(true)`, which blits
+  into the glow item; `light_map.gd` hands the shader the caps, rings, eye floor and disc; and
+  the shader rings every light and lights only seen tiles. The per-point fraction and curve
+  helpers the first cut drew from (`light_fraction_at`, `shown`, `wash_alpha`) went with the look
+  that read them, and their lanes with them. `godot:check:appearance` pins the campfire's new
+  tint. Budget: see docs/22's light-map section. Before, first-cut and revised shots are in the
+  project's `planning/lighting/`, with an overlap shot and a torch aimed point-blank at a wall
+  with two windows: light passes the windows and stops at the masonry between them. WINDOW: a
+  campfire inside a room lights a screen tile behind the glass in the sim, and it carries no
+  source bit; the floor beyond the same glass, the wall's room-side face, a screen beside that
+  lit floor and the middle of a pond keep theirs. With the refusal switched off the lane went
+  red, and so did the first cut of the rule, which filtered every solid tile and so darkened the
+  pond.
+
+- **Feel — bodies glide between ticks, and a slow frame drops time, 2026-10-19.** Item A2 of
+  the 2026-10-19 alpha plan. The sim steps at 20 Hz and every body used to be drawn on the
+  position component, so a walker held still for a tick and then jumped a tick's travel at
+  once, however fast the frames came. `presentation/interp.gd` (`RenderInterp`) snapshots each
+  drawn body's position and facing just before every `world.step()`, and `_draw_entities` draws
+  at `lerp(previous tick, current tick, accumulator / TICK_SECONDS)`: one tick of render delay,
+  traded for motion that never jumps. Riders slide with the vehicle they ride, a live vehicle's
+  picture with its entity, the facing line and aim cone turn the short way between ticks, and a
+  jump past `SNAP_METRES` (4 m in one tick: a load, a mount, a reused id) draws on the new point
+  at once. The camera now follows the drawn point and updates after the frame's ticks rather
+  than before them, so it no longer chases a target that steps. `_process` clamps its
+  accumulator to the per-frame cap (`RenderInterp.clamp_debt`): a hitch used to leave seconds of
+  debt that every later frame paid at the cap; now the time past the cap is dropped. The rain
+  reads the same sub-tick fraction (`_sub_tick`). Presentation only: nothing under `godot/sim/`
+  changed, and sight, picking and every position a gate reads are still the component.
+  **Half shipped, and which half:** the four-view pick and the walk frame still change on the
+  tick, ground items and corpses do not move so they are not interpolated, and FX are placed at
+  the sim point of the event, so a muzzle flash on a body walking at speed can sit up to one tick
+  of travel ahead of it. The frame rate itself is A3/A4's work; this makes whatever rate there is
+  read as motion.
+
+  **Evidence:** `npm run godot:check:motion` → `MOTION_OK`, chained after `godot:check:camera`.
+  HELPERS: `between` on the previous point at 0, the current at 1, strictly between at 0.5, snaps
+  past `SNAP_METRES` and glides under it; `turn_between` turns the short way across ±π; a debt
+  under the cap is left alone. CLAMP: on the real scene, a ten-second frame runs the cap of five
+  ticks and leaves under one tick owed, so the next half-tick frame runs none (the old loop ran
+  five more); a 75 ms frame runs one and keeps 25 ms. DRAWN: a walking player, a frame ending on
+  a tick draws the body on the previous tick's point and not the current one, and a half-tick
+  frame after it draws it strictly between the two on the line joining them, read back from the
+  real draw's `_focal_drawn`. SMOOTH, the measurement, coefficient of variation of per-frame
+  apparent speed: at a steady 60 Hz the drawn body is **0.000** against **1.414** on the tick (two
+  still frames and a leap), the camera **0.036** against **0.083** for the old follow; at a
+  seeded, jittered ~10 fps (60–140 ms frames, today's shipped rate) the body is **0.000** against
+  **0.248** and the camera **0.051** against **0.125**. Sabotaged (`offset` returning zero) the
+  gate goes red on DRAWN, both body CVs (1.414, 0.248) and both camera CVs (0.104, 0.109 against
+  the 0.075 bound). READERS holds the textual half for the branches the boot does not drive: the
+  snapshot before `world.step()`, the clamp before the loop, the camera after it, riders,
+  vehicles and facing.
+
+- **UI — first-day hints, 2026-10-19 (alpha A21, from the alpha plan, not an M2 piece).** The
+  first time a container is in reach, a wound is open, a zombie has been seen or night falls, the
+  HUD speaks one digit-free sentence in a "tip" card above the action bar. `presentation/onboarding.gd`
+  picks the due hint from the sim's read models (`SimContainers.hud_clause`, the injuries component,
+  `SimSightings.remembered`, the clock) and marks it seen when offered; the seen set rides the save
+  beside the snapshot and comes back on load. A click on the card clears it and stops there; the
+  hint is offered only while the street is playing. **Gated** by `godot:check:hud`'s ONBOARD and
+  HINT-CARD lanes and `godot:check:play`'s HINT lane (a real click through the engine's dispatch, and
+  the seen mark round-tripped through F5 and F9).
+- **Performance — the world, baked, 2026-10-19.** Item A4 of the 2026-10-19 alpha plan. The
+  ground, the walls and the roofs were drawn tile by tile every frame, and the loop asked
+  `has_tile` of every tile to decide whether to draw it; at 1280×720 that loop alone was about
+  half of the draw. Now every look a tile can take is drawn once per 8×8-tile chunk into
+  RenderingServer canvas items that keep their commands (`presentation/world_layers.gd`), in five
+  layers behind `main`'s own item: the tile as seen (LIVE), the room boards under a standing wall
+  module (A2), the tile as the remembered map draws it (REMEMBERED), the roof sheet (ROOF) and the
+  same sheet dimmed (ROOF_DIM). Which look shows on a tile is a per-frame question answered by
+  `presentation/world_mask.gdshader` from two small textures — the shadowcast's own cells, and one
+  byte a tile for EXPLORED (unpacked from the sim's bitset where it changed), ROOF and A2 —
+  uploaded only when they change. Walking re-uploads a few kilobytes and rebakes nothing. A chunk
+  rebakes when what it was drawn from moves: the zoom, the map object, the content tree or the
+  seed drop every chunk; a map generation change re-signs each cached chunk (its tiles, ground,
+  indoors flags, overlays and parked vehicles, with a one-tile apron) and drops the ones whose
+  inputs changed, so a door or a board rebakes one chunk; snow is quantised to 64 steps and
+  stale chunks rebake inside a 2 ms frame budget, at least one a frame. A layer with no tile to
+  show in a chunk is hidden outright, which spares the renderer the shader over it. The helpers
+  draw through `_pen` (main itself, or `presentation/canvas_pen.gd` during a bake) and
+  `_bake_layer` swaps in a camera at the world origin, so every helper is unchanged but for that
+  prefix. `Appearance._content_entry` now hits an id index per content tree instead of scanning
+  the whole tree per lookup, which took the props from 0.23 ms per look to almost nothing.
+  `_draw_entities` and everything drawn after the world are untouched; lighting (A10) composites
+  over the layers and can read the same mask textures (`mask_textures()`) without rebaking.
+  Screenshots against the parent commit differ by at most 5 of 255 levels per channel at zoom 64,
+  32 and 16, standing and after a walk, roofs and remembered tiles included.
+  **Half shipped, and which half:** `npm run godot:bench:frame`'s shipped-draw now meets the
+  10 ms mean (**28.5 → 8.7 ms**, p95 38.4 → 12.0, same container, llvmpipe), but crowded-draw
+  does not (**318 → 108 ms**): that is the thousand bodies, which is body drawing and A7's. Of
+  what remains in shipped-draw about 2 ms is collecting entities, 2 ms the body loop (about 1 ms
+  of it `HudRead.pawn_tag`), and under 2 ms nature, furnishings and props, still drawn per frame.
+
+  **Evidence:** `npm run godot:check:world_bake` → `WORLD_BAKE_OK`, chained after
+  `godot:check:motion`. MASK-RULE: the shader's bit constants and discard rule are
+  `world_layers.gd`'s, read by a scanner first shown a copy with LIVE sabotaged to 2; each layer's
+  rule matches the layer table written out in the gate, and no tile state shows two ground looks
+  (a rule table with LIVE's deny dropped is shown to fail). SOCKET: `_draw` reaches the bake
+  through `_draw_world` and never calls `_draw_district`, which `_bake_layer` alone reaches; the
+  fifteen baked helpers draw only through `_pen`, the scanner proven on a fabricated bare
+  `draw_rect(`. SNOW, on a bare `WorldLayers` with a slow fake bake: a full snow step rebakes 1 of
+  12 chunks the first frame and every chunk carries it 13 frames later. BAKED, on the real scene
+  at 1280×720: all 12 chunks under the view bake on the first frame, the ring finishes in 18, and
+  unchanged frames and a one-tile camera step bake none. NO-LEAK, at boot, at a front door and
+  five tiles back into the street (**407 / 302 / 426** seen, **0 / 0 / 15** remembered,
+  **61 / 166 / 27** dark tiles): the mask's LIVE bit is the observer's `has_tile` and its EXPLORED
+  bit the remembered map's on every tile in view, a dark tile shows no ground look and a seen one
+  exactly one. CULL, same three places: no chunk hides a layer one of its tiles shows, and
+  48 / 38 / 34 of 60 chunk layers are hidden. ROOF: the ROOF bit is on exactly the 64 tiles
+  `RoofLook.roof_tiles` chose at the door. REBAKE: a ground change rebakes its own chunk and leaves
+  a chunk two away alone, a bare `invalidateMap` rebakes none, a zoom step rebakes every chunk
+  in view and a content tree swapped for a copy rebakes too. Sabotaged, the gate goes red: LIVE
+  forced on everywhere fails NO-LEAK, a signature that ignores the map fails REBAKE, a cull that
+  never shows REMEMBERED fails CULL. The look gates that read the old loop were re-pointed at the
+  new path, never relaxed: `check_water` (the fill goes to `_pen`, with a negative for a fill to
+  main's own frame), `check_light_look`, `check_trees`, `check_topdown` (order read in
+  `_draw_world`), `check_roof_look` (the floor probe records per bake layer and reads the screen
+  through `state_at`; the socket lane follows `_bake_layer`) and `check_memory_look` (the remembered
+  rule read through `WorldLayers.shows`). docs/22 has the timings.
+
+- **Colonist orders: go there, hold there, haul that — plan A16, 2026-10-20.** A colonist picked on
+  the street takes three orders from the right-click menu. `go` walks to a tile and ends there.
+  `hold` walks there and stands, taking no work, until it is stood down: the draft in effect.
+  `haul` carries one loose item to the stockpile by the ordinary Haul job, and the item is reserved
+  to that colonist from the moment the order lands. Needs and sulking still come first, and an
+  unarmed colonist re-arms before taking an order. The HUD names what the colonist is doing, and a
+  ring marks the destination on the map. Gate: `godot:m2:orders`, which checks that a walk arrives
+  and ends; that a held colonist takes no work while a free colonist goes for the same item; that a
+  haul stocks the item and refuses a stocked or packed one; that a stand-down is refused with no
+  order; that an order drops the job in hand at once; that the words and the menu follow the sim;
+  and that the record is plain values. Also `godot:check:context` and `godot:check:hud`. Not in this
+  slice: a draft toggle apart from `hold`, a message when a destination has no route (the order ends
+  quietly), and a colonist who is already hauling an item on their own when the order lands (the
+  order ends when that colonist carries it off). Sim tick, `godot:bench:runtime`: mean 7.1 ms on the base
+  commit and 7.2 ms with the slice (medians of three to six runs each, the same container; the
+  spread between runs is about 1 ms), p95 about 10 ms both ways, inside the alpha target of a mean
+  at or under 10 ms. Before and after shots: `/mnt/project-files/planning/orders/`.
 - **UI — the sheet and Work grid fit the reviewed viewports, 2026-10-03.** At 1280×720,
   inventory now separates its equipment, native 56-pixel bag cells and inspect pane, keeping
   all seven frame-pack columns reachable. The compact sheet uses the condition chart at integer
@@ -2771,6 +3109,298 @@ not a to-do list:
   Generated motion retains 1–3 native pixels of pose-height and incidental clothing-detail
   variation; a later polish pass can refine foot contact and stabilize those details. No new
   zombie kind, spawn mix, wearable asset or corpse interaction is introduced.
+
+- **Art & renderer — window glass as art, 2026-10-19.** Alpha plan item A11's fourth and last
+  family. A window on a wall's cap was two `draw_rect` calls in `main.gd::_draw_window_glass`, a
+  pane and a two-pixel rim; it is now two pictures per shape, drawn by `glass.py` under
+  `godot/art/simplyzombies/glass/` at exactly the rects' geometry (a 24×8 pane east-west, 8×24
+  north-south, 12×12 square, centred on the tile): the pane in four greys (a shadow under the
+  lintel, a darker upper half, a lighter lower half, and diagonal reflection streaks either side
+  of a mullion, as the pack's car windows carry them); the frame lit along its top, shaded along
+  its bottom, with a white edge outside it that the rim tint takes a step above the brick
+  mortar's value (luminance 111 against 101), and a sill just above the mortar (104), at the wall's
+  line weight rather than a body's near-black outline;
+  each pane's reflection sits at its own offset, so no two are one stamp. Both are greys, sourced in
+  `authored.json` as kind `tile`, and the renderer tints them by the two colours the rects were
+  (`col.lightened(0.28)` for the pane, `Palette.COLOURS["windowRim"]` for the frame), so night,
+  weather and a boarded window's stage reach them unchanged. The pane's greys are 168, 206, 232
+  and 255, so the glass sits a little under the flat rect's brightness and the streak at it.
+
+  The keys are content: the street dressing's `faces` block gains `glass`, a map of
+  `pane_<shape>` and `frame_<shape>` for `ew`, `ns` and `square`, read through the new
+  `Dressing.glass_keys(block, shape)` (an empty answer for no glass, an unknown shape or half a
+  pair). `_draw_window_glass` picks the shape as it always did, draws the pair when both resolve,
+  and keeps the rects as the fallback. `dressing.schema.json`'s `faces` description names the
+  new map; the shallow validator and Ajv both accept it as an object.
+
+  **Gated:** `godot:check:topdown` (→ `TOPDOWN_OK`) gains GLASS: the shipped dressing names a pane
+  and frame for each shape; every pane's drawn pixels bound exactly the rect it replaced and every
+  frame's that rect grown by two; every pixel is a grey (channels within `GLASS_GREY_SPREAD`), so the tint stays the renderer's. Its true negatives: a pane a pixel low, a blue
+  pane, `glass_keys` over no glass, an unknown shape and half a pair. Reach is textual, as the
+  WALL lane's is, over the body with comments stripped whole-line **and** trailing: the
+  `glass_keys` call, both tinted `draw_texture_rect` calls, and the rect fallback after them; a
+  body naming the calls only in comments is refused, and a `#` inside a string is not taken for
+  one. `godot:check:weather` still finds `windowRim` in `_draw_window_glass`, and
+  `godot:check:topdown`'s WALL lane still finds `_draw_window_glass(rect, tx, ty, col)` in
+  `_draw_district`. `godot:check:authored` READS finds the six keys through the `faces` map;
+  `godot:check:roof` (`ROOF_LOOK_OK`) is unchanged, its LOOK and MOOD lanes reading only the three
+  opening keys. `sprites:check`: 51 generated keys, 413 sourced.
+
+  **Sabotage, red and restored:** the pane draw left behind a trailing comment
+  (`pass  # draw_texture_rect(pane_art, ...)`), which the first cut of the stripper let through
+  and the second refuses ("does not reach draw_texture_rect(pane_art, rect, false, glass)"); the
+  east-west frame pointed at the pane picture ("covers [P: (4, 12), S: (24, 8)], not
+  [P: (2, 10), S: (28, 12)]").
+
+  **Seen:** the camp hall's north wall at noon before and after, one window at 3×, and the six
+  grey pictures at 6×, in `.hermes/plans/2026-10-19_glass/`.
+
+  **What it leaves:** a window in a south face still draws the face's own window picture
+  (`faces.window`), not this glass; a broken or boarded window is still only the tint, with no
+  picture of its own.
+
+- **Art & renderer — the well, the latrine and the campfire, 2026-10-19.** Alpha plan item
+  A11's third family. The four station pictures `tools/sprites/parts/props.py` generated (a
+  stone ring for the fire, cold and lit, a ring for the well, a grey box for the latrine) become
+  art in the pack's manner under `godot/art/simplyzombies/stations/`: a brick well with its
+  windlass, rope and bucket, a plank outhouse with an ash bucket beside it, and a
+  ring of stones round crossed logs, charred and cold or burning down to embers. `stations.py`
+  draws all four with the vehicles' painter (a near-black outline, four tones a material, lit
+  from the north) onto a guide sheet; one img2img pass ran over it (`prompts.json`) and only its
+  well was kept, because it turned the cold fire's ash to embers and flattened the latrine's
+  boards. The lit fire's flames are still `fx_flame_loop`, whose anchor (`FxLook`'s
+  `FLAME_DROP_ART_PX`, four art pixels below centre) lands on the new logs unchanged.
+
+  Each picture is sourced in `authored.json` as kind `tile`, padded onto the 32×32 tile square
+  (`source.pad`) the way the pack's crates are drawn, so `main.gd::_draw_prop` still centres
+  them on their point and nothing in the renderer moved. Content's `appearance.size` follows the
+  art, because the PROPS lane measures one against the other: the two fires 0.5 and 0.56 →
+  **0.94**, the well 0.86 → **0.94**, the latrine 0.55 → **1.0** (30, 30, 30 and 32 pixels
+  across). `size` is presentation only; nothing in `godot/sim/` reads it.
+
+  **Retired, by the standing rule:** `tools/sprites/parts/props.py` whole and its `MODULES`
+  entry. The four keys kept their names and are re-sourced, not retired.
+
+  **Gated:** `godot:check:appearance` (→ `APPEARANCE_OK`): PROPS holds each picture's opaque
+  width to its content size within `FOOTPRINT_SLACK_PX`, the cold and lit fire to different
+  pixels, and the four to tile-square pictures `_draw_prop` centres; STANDING keeps the fire,
+  the well and the latrine flat. `godot:check:authored` (→ `AUTHORED_OK`): SOURCE resolves the
+  four at their declared canvas and READS finds each one's content entry. `godot:check:fx`
+  (→ `FX_OK`): FLAME draws the lit fire's flame over the new picture. `sprites:check`: 51
+  generated keys, 407 sourced.
+
+  **Sabotage, red and restored:** the latrine back at `size` 0.55 (PROPS: "prop.latrine
+  declares size 0.55 (18 px of a tile) and its art measures 32 px across").
+
+  **Seen:** the camp at noon with the fire lit, and the well, before (the base) and after, with
+  the four pictures old over new at 6×, are in `.hermes/plans/2026-10-19_stations/`.
+
+  **Second pass, after the art review (2026-10-20).** The first latrine, a bench with its lid up
+  over a front of boards, read as a crate. It is now an outhouse: a plank roof seen from above
+  and overhanging, upright wall planks with dark seams, a slatted vent under the eave, and a
+  door standing in a one-pixel dark gap with a crescent moon cut through its top board and a
+  latch. Same 32×28 picture, same pad and `size`, so PROPS and STANDING judge it unchanged.
+
+  **Third pass, after the second review (2026-10-20).** The roof's top edge carries the
+  one-pixel outline the rest of the picture has, and the moon is a three-pixel curved crescent
+  set off-centre in the upper door rather than a notch.
+
+  **Fourth pass, after the third review (2026-10-20).** The crescent stands free: three rows
+  tall, with a pixel of door between it and the frame above and the rail below.
+
+  **Fifth pass, after the fourth review (2026-10-20).** The crescent is two rows, lying on its
+  back with its horns up, with a clear row of door above it and two below it before the rail.
+
+  **What it leaves:** the latrine and the well are drawn three-quarter from the south and do not
+  turn; the cold fire has no smoke and the lit one no ember glow beyond its light.
+
+- **Art & renderer — the cars north-south, and the light vehicles, 2026-10-19.** Alpha plan
+  item A11's second family. The last generated vehicle pictures become art in the pack's manner:
+  the sedan, van and truck nose-north (intact and wreck, six keys) and the five light classes on
+  both axes in three paint jobs (thirty keys), all authored under
+  `godot/art/simplyzombies/vehicles/` and sourced in `authored.json` as kind `vehicle`. The cars
+  were painted over a guide (`guides/cars_ns.py`) in one img2img pass so the three share a hand,
+  then cut by `cars.py`; the wrecks are not generated but damaged deterministically from the kept
+  pass (`guides/wreck.py`: dulled paint, rust, crazed glass, a creased hood). The light vehicles
+  are drawn by `light.py` (a near-black outline, four tones a material lit from the north),
+  because thin frames and spokes are what an image model smears. Every prompt, kept and rejected,
+  is in `vehicles/prompts.json`.
+
+  **The owner's footprint, landed.** docs/30's "The outpost pack, adopted" named it on
+  2026-09-17: the cars shrink to **sedan 2×3, van and truck 2×4** once the pack's art draws
+  them. East-west did on 2026-09-26 through `lEw`; north-south does now, so content's `l` is 3,
+  4 and 4 and `lEw` is gone from all three — a car is one length whichever way it is parked or
+  turned. Pale and green share the intact picture north-south and burnt takes the wreck, as
+  east-west already did. `lEw` stays in the schema and in `SimWorldgen.vehicle_extent`, unused
+  by shipped content; DRIVE proves the helper still honours it on a fabricated footprint.
+
+  **Retired, by the standing rule:** `tools/sprites/parts/vehicles.py` and
+  `parts/light_vehicles.py` whole, `build.py`'s vehicle canvas table, and the nine generated
+  north-south car PNGs (`vehicle_<car>_{pale,green,burnt}_ns`, now on `RETIRED_KEYS`). On the
+  Godot side `Appearance.vehicle_canvas`, `VEHICLE_FOOTPRINTS`, `VEHICLE_VARIANTS` and
+  `VEHICLE_PACK_EW` went with the rule they fed: every vehicle picture is authored, so
+  `canvas_of`'s authored tier answers them all, and `vehicle_reach_tiles` is now the longest side
+  of any authored vehicle picture rather than a footprint table. The palette's `car_*` ramps
+  stay in `tools/sprites/palette.py` and `tones.json`, read by nothing generated now.
+
+  **Gated:** `godot:check:wrecks` (→ `WRECKS_OK`): DRESSING requires every vehicle key to be
+  declared in `authored.json` and holds every drawn picture's declared canvas to its class's
+  content footprint plus the roofline tile (refusing a fabricated key and one class's picture
+  against another's footprint); PACK keeps its own list, `PACK_EW_IDS`, holds it to the art both
+  ways by the pack manifest (a pack car east-west only, never north-south) and now asserts the
+  east-west length **equals** the north-south one, refusing a fabricated car four tiles one way
+  and six the other; SILHOUETTE judges the light classes on the footprint rows and the mirror
+  clearance, which made the e-scooter, kick scooter and skateboard move three pixels off their
+  canvas edges and the e-scooter's stem come down to 34 rows; MANIFEST's hand sedan is 2×3.
+  `godot:m2:vehicles` (→ `M2_VEHICLES_OK`): the hand sedan's length is one constant, `SEDAN_L`,
+  that CONTENT holds to content, and every wall, jam, heap and doorway expectation is derived
+  from it; DRIVE asserts the turned sedan is the north-south footprint laid flat. TIER's true
+  negative moved to a chart figure, the one family `canvas_of` still places by rule.
+  `sprites:check`: 55 generated keys, 403 sourced. `npm test` 594/594.
+
+  **Sabotage, red and restored:** the sedan at `l` 4 (DRESSING: "authored on (64, 128) where its
+  content footprint implies (64, 160)"; PACK: "spans 3 tiles ... parks it 4 long"; CONTENT:
+  "content's sedan is 4.0 long and this gate's copy says SEDAN_L 3"); the van given `lEw` 3
+  (PACK: "spans 4 tiles ... parks it 3 long east-west").
+
+  **Measured:** the suburb at 128 parks **152** vehicles over PLACED's four seeds against 149 on
+  the base (sedans 63 → 66; every other class unchanged), the shorter sedan fitting slots the
+  longer one was refused. The balance harness boots the 64-tile suburb, which parks nothing. The
+  before/after captures (every class staged on open street at noon, the before at the base) and
+  sheets of the cars beside the pack's and the light vehicles old against new are in
+  `.hermes/plans/2026-10-19_vehicles/`.
+
+  **Second pass, after the art review (2026-10-20).** The img2img cars drew 19–28% longer than
+  the pack's own east-west pictures (102, 131 and 133 rows against 86, 102 and 106), with a roof
+  in one tone, no side panel, tabs for wheels and red lamps on the nose. They are now painted by
+  code, `guides/cars_ns_paint.py`, with no generation: the painted span is the east-west span
+  plus a few rows of rear face (**91, 107 and 109** rows with the outline), the pack's paint in
+  four tones (flank, face and hood, roof, highlight) with its grain and a few dirt smudges, a
+  side panel down each edge with the side glass and door seams in it, a wheel arch cut into it at
+  each axle with the tyre a pixel proud of the body, amber indicators and pale headlamps on the
+  nose, red lamps and a plate on the rear face, and glass in four tones with the diagonal streak.
+  `cars.py` runs the painter and `wreck.py` damages its sheet as before; the generated sheet is
+  kept as `sources/rejected-cars-ns-pass2.png` and its guide script retired. Canvases, keys and
+  content are unchanged, so DRESSING, PACK and DRIVE judge the new pictures as they judged the
+  old. The north-south bicycle and e-bike, which read as a sword at 1×, are redrawn in
+  `light.py` from behind: each wheel a narrow upright ellipse (tyre, rim, hollow, hub), the
+  fork's legs outside the front one and the seat stays either side of the back one, a saddle wide
+  at the back with its nose running north, a swept bar with dark grips, and pedals out either
+  side.
+
+  **Third pass, after the second review (2026-10-20).** The cars' rear is closed by the outline
+  on the canvas's bottom row (it ran off the canvas), the tyres sit flush inside their arches
+  instead of a pixel proud, and the view is a stronger three-quarter: a shorter roof over a rear
+  face 27–35 rows deep, carrying rear glass (hatchback), two door windows and a seam (van) or a
+  lit tailgate (pickup), with the lamps and plate. Lengths are now **91, 108 and 110** rows; the
+  hatchback's paint is one step brighter. The north-south bicycle and e-bike are 56 rows long,
+  the pack's east-west span, with two identical oval wheels (a superellipse, no pointed crown).
+
+  **Fourth pass, after the third review (2026-10-20).** The north-south cars are now exactly as
+  long as the pack's east-west ones, outline included: **86, 102 and 106** rows (shorter hoods,
+  roof and bed; the deep rear face kept). The north-south e-bike is 58 rows, its east-west span,
+  on fat tyres: wider wheels with a three-pixel tyre ring, against the bicycle's two.
+
+  **Fifth pass, after the fourth review (2026-10-20).** The wrecks' rust is solid ragged patches,
+  lit at the top left and dark only along the bottom right, never a dark ring round a lighter
+  middle (one on the van's rear read as a letter), and no two within six pixels, so they cannot
+  join; `guides/wreck.py` keeps its fixed seed per car.
+
+  **What it leaves:** a car seen from behind is still the one picture for both north-south
+  facings (decision 11's limit, in what's left); no state between intact and wreck; no lamp glow.
+
+- **Art & renderer — zombie study 02: the screamer and the bloater, 2026-10-19.** Alpha plan
+  item A11's first family. The last two generated, face-on, flipped rigs become pose families
+  beside study 01's seven, at its geometry: the screamer at 32×40 and 5 fps, the bloater broad at
+  40×48 and 4 fps, each with four idle views, a four-frame walk each way and a supine and a prone
+  corpse (48×40 and 56×40) — **40 living and 4 corpse PNGs**. Painted over study 01 families that
+  already walk (the commuter, the heavy), then one img2img pass over each whole 5×4 atlas so the
+  twenty frames are one character, then cut mechanically (`study-02/extract.py`). The corpses are
+  the paint-over guides as drawn; every generated corpse pass blurred the outline and lost the
+  head and is kept under `sources/rejected-*` with its prompt in `study-02/prompts.json`. Content
+  names `body_zombie_screamer` / `body_zombie_bloater` and their `corpseSprites`; the bloater keeps
+  its variance tints.
+
+  **Retired, by the standing rule:** `zombie_screamer.png`, `zombie_bloater.png`, every rig
+  function, `_figure` and `REGISTRY` in `tools/sprites/parts/characters.py` (which keeps only the
+  published skeleton `guide.py` draws), `PAWN_KEYS` in both `build.py` and `appearance.gd`; both
+  keys are on `RETIRED_KEYS`. The face-on path itself stays as a fallback with no shipped reader,
+  named in what's left's dead-socket list.
+
+  **Gated:** `godot:check:authored` ZOMBIE_POSES now judges **9 rigs and 22 corpses** (sizes,
+  anchors, rates, grounded soles, real silhouette motion) and READS finds both families named by
+  content; SPEC, INTERIOR, TONES and HIGHLIGHT have no generated rig left to judge and say SKIP,
+  while their negatives now fabricate from the screamer's last generated picture kept as
+  `godot/test/fixtures/generated_rig_screamer.png`, so they can still say no. TIER's true negative
+  moved to a north-south car, the one family `canvas_of` still places by rule.
+  `godot:check:zombie_art` CONTENT/MOTION/CORPSES take **nine** families (180 pictures, 36 loops,
+  18 settled poses); `godot:check:topdown` TURN turns **10** bodies; `godot:check:worn` SHARED
+  counts **10** body families and RETIRED proves the old pair resolves nothing.
+  `sprites:check`: 94 generated keys, 367 sourced. `npm test` 594/594. `npm run godot:m2`: 84 of 85
+  gates green (the chain stopped at worldgen; the 16 after it were then run one by one, all
+  green). `godot:check:worldgen` failed only its own time budget, 103.9 s against 90 s, and failed
+  it the same way on the unchanged base (102.7 s) on this container; the art touches nothing it
+  boots, so that is the machine, and CI's `godot-m2` job is the judge.
+  Before/after captures of the real scene, and both families beside the study 01 family they
+  were painted over, are in `.hermes/plans/2026-10-19_zombie-study-02/`.
+
+  **Second pass, after the art review (2026-10-20).** The bloater's generated sheet lost its
+  head on the front row, pasted its belly over the near arm in the side views, shaded it in
+  single-pixel speckle and ran an acid green past the pack's saturation. It is now painted by
+  code, `study-02/guides/bloater_paint.py`, straight from the heavy with no generation: the
+  heavy's head, face, neck, vest, arms and walk kept pixel for pixel, the skin carried onto a
+  four-tone olive at HLS saturation 0.16–0.20 (the heavy's own sits near 0.2), and the belly an
+  ellipsoid lit from the top left in four contiguous bands, riding out from under the vest's hem
+  with a one-pixel shadow, sagging over the belt, bulging forward in the side views and kept
+  behind any arm that reaches outside it. Both corpses take the same skin; the supine mound is
+  shaded the same way, rimmed where it meets the body and outlined where it meets the ground.
+  The screamer keeps its sheet; `extract.py` now pulls every highlight above the commuter's
+  brightest skin (luminance 188) down toward it with its order kept, and takes the shirt's pale
+  greys one value under the face. Sizes, anchors, rates and keys are unchanged.
+
+  **Third pass, after the second review (2026-10-20).** The belly sits 3–4 px past the arms and
+  hips at the front and its front edge holds still through the walk (one centre a row, from the
+  idle); from behind it spills past the flanks over the belt; on the prone corpse it bulges out
+  from under the torso. In every side frame the leading forearm is painted over the belly, a
+  step darker than the gut with a one-pixel cast shadow, its hand where the heavy's own hand is in
+  that frame, so it swings with the walk. Every outline is the pack's near-black (3,3,3), not
+  (26,24,20). The screamer's hands take two tones, 166 lit and 142 shaded, in the commuter's
+  133–169 range.
+
+  **Fourth pass, after the third review (2026-10-20).** The bloater has its own silhouette in
+  every view rather than a belly inside the heavy's. Front and back, `widen` pushes each half of
+  the heavy out from the centre pixel for pixel (nothing at the head, two pixels from the chest
+  down, so the arms hang beside the gut, and at the legs, each leg moved whole), and
+  `thicken_legs` grows every leg a pixel each way; the gut is then wider than the heavy's whole
+  outline. In the side views the heavy's near arm is cut at the elbow and a forearm in that arm's
+  own skin bends forward from it to a hand with a knuckle resting on the belly's flank. The belly
+  and the forearm bob a pixel on the two contact frames, the belly carries a two-scale grain
+  hashed on its own coordinates (so it rides with the bob), and the vest and trousers are soured
+  a step warmer and darker, so at most 1.5% of a frame's pixels are the heavy's exact colours and
+  each frame adds 97–147 pixels outside the heavy's outline. ZOMBIE_POSES's broad living width
+  bound moves from 34 to 36, the 40-pixel canvas less its two-pixel side margin (which the lane
+  still holds), because the widest bloater frame is 35. The screamer's hands are the face's own
+  grey-green, (158,167,148) and (132,141,122).
+
+  **Fifth pass, after the fourth review (2026-10-20).** The side views are built from shapes in
+  `side_body` rather than the heavy's outline: a rounded back and seat in the vest's tones, the
+  heavy's head slumped two rows into the shoulders and jutting a pixel, and the heavy's walking
+  legs a pixel longer in the stride and two thicker at the thigh. The belly keeps its own curve
+  past the vest (`round_top`), and the near arm is one limb (`side_arm`) from the shoulder,
+  bent at the elbow to a hand on the belly's flank, in a fixed ramp a step darker than the lit
+  gut, so it reads as an arm over the belly and its tones never change between frames. The bob
+  carries the whole upper body, head and shoulders included (`drop` builds on a fresh canvas;
+  over a copy it left the rest-position head in place). Front and back the arms end in
+  hands, and a `tidy` pass sweeps any pixel held on by one side or none and outlines every leg
+  edge. Measured on the atlas: the side views' back, shoulder and belly contour (rows 22–36)
+  shares 0–9 of the heavy's 31–41 outline pixels there; the whole side outline still shares
+  **18–30%** of the heavy's, the legs and soles being the heavy's own walk. That is above the
+  review's 20% line, so under its stop rule the bloater ships as is and a hand-drawn side walk
+  waits in what's left. The screamer's hands are a step lighter, (164,172,154) and
+  (146,155,136), clear of the sleeve's (129,134,123).
+
+  **First cut,** like study 01: no attack, hit, death-transition or rising states; the scream and
+  the burst have no animation of their own.
 
 - **Art & renderer — the condition chart, furnishings, stove icon and source colours,
   2026-10-03.** Four bounded slices close the exploded body chart, the remaining four furnishings,
@@ -10203,6 +10833,17 @@ not a to-do list:
   also passed inside that chain. Independent diff review found no blocking issue; the optional
   Jev review service was unavailable. These are local results, not a new GitHub CI run.
 
+- **Kernel & tooling: the art review's screenshots** (`npm run godot:check:shots`, `SHOTS_OK`,
+  2026-10-19; alpha A14). `godot/review/scenes.gd` sets five fixed scenes up through real key
+  presses and the sim's own commands and clock (the day street, an interior, the street at night
+  with the lamps lit, a zombie three metres off, the inventory sheet open), and `verify` refuses a
+  setup the world does not match. `godot/review/shots.gd` photographs them at 1280x720 and
+  1920x1080 into a `review-shots` folder at the repository root (`DISPLAY=:1 npm run godot:shots`,
+  or `-- --out=DIR`). The gate runs the same setups headless: every scene verifies, a day street is
+  refused as a night, as a combat and as an open sheet, and an unknown name is refused. With a
+  display it also proves the day street and the combat scene are two pictures and neither is blank
+  (`PIXELS OK`); headless it says `PIXELS SKIP`, so a run with no display passes the setups and
+  never the pixels. "Interior" is the nearest floor tile with a wall beside it, not a verified room.
 - **Kernel & tooling: the routing table** (`npm run check:routing`, `ROUTING_OK`, 2026-09-06).
   `AGENTS.md` carries a routing table — by kind of work and by system: what to read first, where
   the code lives, which gate judges it, where the record goes — and a Node gate judges the table
@@ -10368,8 +11009,9 @@ not a to-do list:
   magazine, a sight, a can on a thread, a haft wrap, a bowstring) and every barrel, action, stock
   and axe head does not. `SimModification.apply` gains the same precondition in its own
   `{ok, reason}` shape, which is docs/11 finally being true about the thing it has always called a
-  bench, and it closes `item.modify` on docs/23's "no way in" list alongside `item.attach` and
-  `item.detach`. Every lane carries its negative: one scrap short builds nothing, an
+  bench, and it closes `item.attach` and `item.detach` on docs/23's "no way in" list. `item.modify`
+  still has a handler (`godot/sim/modules/modification.gd`) and no producer.
+  Every lane carries its negative: one scrap short builds nothing, an
   uninterrupted channel completes (or the stagger proves nothing), a colony with no bench must not
   serialise one, and REFUSE asserts **both** halves — a barrel refused in the field *and* the same
   barrel coming off at a bench, or "refused" would just mean the command never worked.

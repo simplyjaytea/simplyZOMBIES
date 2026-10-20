@@ -1,6 +1,6 @@
 // Milestone 0's exit criterion, asserted directly.
 //
-// From docs/23-roadmap.md and HANDOFF.md:
+// From docs/23-roadmap.md and the retired HANDOFF.md:
 //
 //   An entity moves around a tile map, deterministically, and the same seed plus inputs
 //   reproduces it byte-identically.

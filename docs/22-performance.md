@@ -228,7 +228,9 @@ than an optimization to reach for later.
 - **Aggressive culling** via the spatial hash. At a ~30× draw-to-sim ratio, an entity that is
   simulated but not drawn is nearly free — so culling early is worth more than any sim optimization
   available.
-- **Sprite batching** by texture; the tile layer redraws only dirty regions.
+- **Sprite batching** by texture; the tile layer redraws only dirty regions. In the Godot build this
+  is [the world, baked](#the-world-baked): the ground, walls and roofs are drawn once per chunk
+  and a mask shader picks per tile which look shows.
 - **The renderer never writes to the sim** and is never on the tick's critical path.
 
 ## Save performance
@@ -567,6 +569,97 @@ and about 5 on the quiet host. A zombie's whole 12-tile recast after a nearby ma
 under 1 ms on its own, but several can land on one tick. Before a timing gate goes on, the worst
 tick needs measuring on a quiet, dedicated machine. Until then it says more about the container
 than about the sim.
+### The world, baked
+
+Plan item A4, 2026-10-19 (`presentation/world_layers.gd`, `world_mask.gdshader`; docs/23's
+record, "Performance — the world, baked"). The per-frame tile loop is gone: each 8×8-tile chunk's
+ground, walls and roofs are drawn once into five RenderingServer canvas items (seen, wall-module
+boards, remembered, roof, roof dimmed) that keep their commands. The sight sets reach a mask
+shader as two small textures, uploaded only when they change, and a chunk's layer with nothing to
+show is hidden. A chunk rebakes when its inputs change (zoom, map object, content tree and seed
+drop everything; a map generation change re-signs each chunk and drops the changed ones; snow
+rebakes within 2 ms a frame). `npm run godot:check:world_bake` holds the rebake triggers, the mask
+rule and the no-leak property.
+
+Measured 2026-10-19 with `npm run godot:bench:frame` on one container, the parent commit and this
+change back to back: Godot 4.7.1, X11/Xvfb, **llvmpipe (LLVM 20.1.2, 256 bits)**, Intel Xeon
+@ 2.10 GHz, 1280×720.
+
+| Stage | Before | After |
+|---|---:|---:|
+| shipped-draw `_draw` CPU, mean / p95 | 28.5 / 38.4 ms | **8.7 / 12.0 ms** |
+| shipped-draw RenderServer wall time, mean | 14.3 ms | 18.5 ms |
+| shipped-draw harness-inclusive interval, mean | 43.5 ms | 27.8 ms |
+| crowded-draw `_draw` CPU, mean | 317.9 ms | 108.0 ms |
+
+shipped-draw meets the 10 ms mean; crowded-draw is still the thousand bodies and is not met.
+A throwaway driver walking the player six tiles a second for 120 frames measured the `_draw`
+CPU stage at **18.9 → 9.4–10.5 ms** mean at zoom 64 and **37.6 → 11.3 ms** at zoom 32, the
+chunks entering the view baking inside the frame. An earlier pass on a four-core container
+measured shipped-draw at 1920×1080 **35.2 → 9.0 ms**; the frame command itself is fixed at
+1280×720.
+
+The renderer's own time grew on the software renderer, because every pixel of a baked layer runs
+the mask. Before the per-chunk cull it was 38.9 ms against the parent's 14.3 and the
+harness-inclusive interval was worse than before (49.1 against 43.5 ms); hiding layers with
+nothing to show brought it to 18.5 ms and the interval to 27.8. On a GPU the mask is two texel
+fetches a fragment. llvmpipe numbers are not hardware GPU results, as above.
+
+The night, per pixel: plan item A10, 2026-10-19 (`presentation/light_map.gd`,
+`night_light.gdshader`; docs/23's record, "Art — the night, per pixel"). The flat night wash and
+the per-tile pool rects are replaced by one screen rect with a multiply shader. Each frame the CPU
+side builds one RGBA8 texel per tile in view (`LightLook.light_texels`, at most 24 sources); the
+shader then makes five texel fetches per fragment and loops over the sources. Measured the same
+way as above, on another container (llvmpipe, Intel Xeon @ 2.80 GHz, 1280×720). Night means a
+throwaway driver with a carried torch and a lit campfire on the boot scene:
+
+| Stage | Before | After |
+|---|---:|---:|
+| shipped-draw (day) `_draw` CPU, mean | 13.5 ms | 12.9–14.1 ms |
+| shipped-draw (day) RenderServer wall time, mean | 30.2 ms | 44.4–45.0 ms |
+| night `_draw` CPU, mean | 20.7–21.7 ms | 17.0–18.3 ms |
+| night RenderServer wall time, mean | 37.8–38.8 ms | 52.3–53.5 ms |
+
+The `_draw` stage, which is what the 10 ms target judges, did not grow: by day it is noise, and at
+night it fell because the pool rects are gone. On this machine that stage was already over the
+target before the slice. The renderer grew by about 14 ms because llvmpipe runs the full-screen
+fragment shader on the CPU. **The GPU cost of this shader is unmeasured.** No container here has
+a hardware GPU, and CI renders no real frame: `godot:bench:frame` is not in CI, and
+`check:runtime-budget` checks the runner's exit contract against fabricated evidence. So this
+shader cannot trip a CI budget, and no gate measures its cost. A software-renderer timing gate
+would judge llvmpipe rather than the product, so none was added. Measuring on hardware is the open
+item.
+
+The art review's revision (2026-10-20: pools bounded by their radius and cut into rings, the
+night held at its floor outside them, the light map cleared rather than drawn by day) was measured
+against the first cut on a third container (llvmpipe, Intel Xeon @ 2.10 GHz, 1280×720), two runs
+each, the same driver and bench:
+
+| Stage | First cut | Revised |
+|---|---:|---:|
+| shipped-draw (day) `_draw` CPU, mean | 7.45–7.99 ms | 7.42–7.69 ms |
+| shipped-draw (day) RenderServer wall time, mean | 25.97–28.18 ms | 16.21–16.86 ms |
+| night `_draw` CPU, mean | 10.35–11.58 ms | 10.35–10.91 ms |
+| night RenderServer wall time, mean | 31.66–35.06 ms | 32.08–32.76 ms |
+
+By day the shader no longer runs at all, so the renderer is back to its pre-A10 cost; at night the
+revision costs the same. The second review's pass (edges faded per tile edge, remembered tiles in
+the texels, a darker floor) measured night `_draw` 11.62–13.13 ms and renderer 33.4–36.6 ms in a
+session where the untouched day path also read 7.63–9.19 ms: the night-to-day ratio held at about
+1.4, so the change is the machine's drift, not the pass's. The GPU cost remains unmeasured, as
+above. The third review's pass (an opaque tile behind a window lit only from an open neighbour,
+`LightLook._face_lit`) was measured five times interleaved with the commit before it on one
+container: night `_draw` median 21.77 ms against 20.91 ms (ranges 20.26–22.24 and 20.64–20.96),
+about 0.9 ms at the edge of this bench's noise. A first cut that asked the sim's full sight and
+solid predicates per neighbour cost about 2.5 ms and was replaced by the tile-class tables
+(`LightLook._open`), which defer to the sim's predicates only where a tile carries an overlay.
+
+**Open: the night's `_draw` stage is over target.** At night, with a carried torch and a lit
+campfire, the `_draw` CPU stage measured **17.0–18.3 ms** mean at 1280×720 after A10 (20.7–21.7 ms
+before it). The 10 ms target is not met. The day boot scene sits at 12.9–14.1 ms on the same
+container. On the faster container of the revision table the same night stage is 10.35–10.91 ms,
+still just over. This is not the light map's cost, since A10 lowered the number; what the rest of
+the night frame spends it on has not been profiled.
 
 ### Remaining milestone evidence
 

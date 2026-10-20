@@ -38,6 +38,7 @@ const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
+const InspectPane = preload("res://ui/inspect_pane.gd")
 
 # The pane's whole vocabulary. Adding a key here is a decision about what the player is told, so
 # it is made in this file as well as in the read model -- the `check_ban_health_bar` arrangement,
@@ -74,8 +75,9 @@ func _run() -> void:
 	ok = _the_windows_are_gone_and_the_keys_moved() and ok
 	ok = await _a_cupboard_is_a_column_and_a_window() and ok
 	ok = _a_stack_that_cannot_merge_is_not_reported_as_stored() and ok
+	ok = await _the_list_and_the_buttons_reach_the_world() and ok
 	if ok:
-		print("INVENTORY_OK descriptions are prose, the pane carries only words, a verb is offered iff it works and reaches its command, the strip is belt and pockets and spends what you pressed, the column is fixed, the windows are gone, a cupboard is a column and a window, and a stack that cannot merge is not reported as stored")
+		print("INVENTORY_OK descriptions are prose, the pane carries only words, a verb is offered iff it works and reaches its command, the strip is belt and pockets and spends what you pressed, the column is fixed, the windows are gone, a cupboard is a column and a window, a stack that cannot merge is not reported as stored, and the list, a ctrl-click and the pane's buttons each move the world")
 		quit(0)
 	else:
 		push_error("INVENTORY_FAIL")
@@ -1245,3 +1247,156 @@ func _separate_sheet_rects(screen: Rect2, rects: Array) -> bool:
 			if (rects[i] as Rect2).intersects(rects[j] as Rect2):
 				return false
 	return true
+
+
+# --- QUICK -------------------------------------------------------------------------------------
+#
+# The Salvage Locker (docs/23, "The inventory, redone") added three ways to act that are not a drag
+# or the word menu: the list beside the grids, a ctrl-click that sends an item across to the box you
+# are standing at, and verb buttons along the inspect pane's foot. Each is a mechanism, so each is
+# asked whether a real press reaches the world -- not whether a helper returns the right rect. The
+# presses go through `_press_at` at the points the panel itself draws, in a 1920x1080 SubViewport.
+#
+#   LIST     the list carries every item the grids carry under `all`, and only weapons under the
+#            arms chip -- reached by pressing the chip, not by setting the filter; a press on a row
+#            selects that row's item.
+#   SEND     a ctrl-press on a pocket item with a cupboard open moves it into the cupboard after a
+#            step; the same press with no box open pushes no command and the item stays put.
+#   BUTTONS  a press on the inspect pane's `drop` button drops the selected item after a step; a
+#            press in the pane that misses every button pushes nothing.
+func _the_list_and_the_buttons_reach_the_world() -> bool:
+	var w: Variant = _world(3131)
+	SimContainers.register_module(w)
+	var actor: int = w.player
+	var bottle: int = _give(w, "item.water.bottle")
+	var knife: int = _give(w, "item.knife.kitchen")
+	if bottle < 0 or knife < 0:
+		push_error("QUICK: the fixture could not stow its bottle and knife")
+		return false
+	var at: Dictionary = w.components.get_component(actor, "position") as Dictionary
+	var box: int = SimContainers.make_container(w, float(at["x"]) + 0.5, float(at["y"]), "cupboard", "residential")
+	if not bool(SimContainers.open(w, actor, box).get("ok", false)):
+		push_error("QUICK: the fixture cupboard would not open")
+		return false
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(1920, 1080)
+	root.add_child(viewport)
+	var panel: Control = (load(PANEL_GD) as GDScript).new() as Control
+	viewport.add_child(panel)
+	await process_frame
+	panel.call("set_world", w, actor)
+	panel.call("set_open", true)
+	panel.call("set_loot", SimContainers.open_view(w, actor))
+	var ok: bool = true
+
+	# LIST: every item on the sheet, then only the weapons once the arms chip is pressed.
+	var carried: int = 0
+	for column in panel.call("_columns") as Array:
+		carried += ((column as Dictionary).get("items", []) as Array).size()
+	var rows: Array = panel.call("_list_rows")
+	if carried == 0 or rows.size() != carried:
+		push_error("QUICK: LIST has %d rows for the %d items the grids draw" % [rows.size(), carried])
+		ok = false
+	var arms: int = -1
+	var chips: Array = panel.call("_chip_rects")
+	for chip in chips:
+		if String(((panel.get("FILTERS") as Array)[int((chip as Dictionary)["index"])] as Array)[0]) == "arms":
+			arms = int((chip as Dictionary)["index"])
+			panel.call("_press_at", ((chip as Dictionary)["rect"] as Rect2).get_center())
+	if arms < 0 or int(panel.get("_filter")) != arms:
+		push_error("QUICK: LIST pressing the arms chip did not put the arms filter in force")
+		ok = false
+	var armed: Array = panel.call("_list_rows")
+	var knife_row: bool = false
+	for row in armed:
+		if not String((row as Dictionary)["class"]).begins_with("weapon."):
+			push_error("QUICK: LIST the arms chip let a %s through" % String((row as Dictionary)["class"]))
+			ok = false
+		knife_row = knife_row or int((row as Dictionary)["item"]) == knife
+	if not knife_row or armed.size() >= rows.size():
+		push_error("QUICK: LIST the arms chip dropped the knife or kept everything (%d of %d)" % [armed.size(), rows.size()])
+		ok = false
+	var hits: Array = panel.call("_list_hits")
+	if hits.is_empty():
+		push_error("QUICK: LIST has no rows on screen to press")
+		ok = false
+	else:
+		panel.set("_selected", -1)
+		panel.call("_press_at", ((hits[0] as Dictionary)["rect"] as Rect2).get_center())
+		panel.call("_cancel_drag")
+		if int(panel.get("_selected")) != int(((hits[0] as Dictionary)["row"] as Dictionary)["item"]):
+			push_error("QUICK: LIST a press on a row did not select its item")
+			ok = false
+	panel.set("_filter", 0)
+
+	# SEND: the true negative first, with no box open, then the real one. A frame after each change
+	# of layout, because the press is tested against what was last drawn, as it is in play.
+	SimContainers.close(w, actor)
+	panel.call("set_loot", SimContainers.open_view(w, actor))
+	await process_frame
+	var p: Variant = _plate_point(panel, bottle)
+	if p == null:
+		push_error("QUICK: SEND could not find the bottle's plate on screen")
+		ok = false
+	else:
+		panel.call("_press_at", p as Vector2, true)
+		if not (w.commands._pending as Array).is_empty():
+			push_error("QUICK: SEND a ctrl-press with no box open pushed %s" % str(w.commands._pending))
+			ok = false
+		if not bool(SimContainers.open(w, actor, box).get("ok", false)):
+			push_error("QUICK: SEND the fixture cupboard would not reopen")
+			ok = false
+		panel.call("set_loot", SimContainers.open_view(w, actor))
+		await process_frame
+		p = _plate_point(panel, bottle)
+		panel.call("_press_at", p as Vector2, true)
+		w.step()
+		var moved: bool = false
+		for entry in SimContainers.open_view(w, actor).get("items", []) as Array:
+			moved = moved or int((entry as Dictionary).get("item", -1)) == bottle
+		if not moved:
+			push_error("QUICK: SEND a ctrl-press on the bottle with the cupboard open did not move it into the cupboard")
+			ok = false
+
+	# BUTTONS: close the box so the pane is on screen, select the knife, miss, then press drop.
+	SimContainers.close(w, actor)
+	panel.call("set_loot", SimContainers.open_view(w, actor))
+	panel.call("set_world", w, actor)
+	await process_frame
+	panel.set("_selected", knife)
+	var pane: Rect2 = panel.call("_inspect_rect")
+	var buttons: Array = InspectPane.button_rects(pane, panel.call("_pane_verbs"))
+	var drop: Variant = null
+	for b in buttons:
+		if String((b as Dictionary)["verb"]) == "drop":
+			drop = (b as Dictionary)["rect"]
+	if drop == null:
+		push_error("QUICK: BUTTONS the pane offers no drop for a knife in the pockets: %s" % str(panel.call("_pane_verbs")))
+		ok = false
+	else:
+		panel.call("_press_at", pane.position + Vector2(8.0, 8.0))
+		if not (w.commands._pending as Array).is_empty():
+			push_error("QUICK: BUTTONS a press on the pane's header pushed %s" % str(w.commands._pending))
+			ok = false
+		panel.set("_selected", knife)
+		panel.call("_press_at", (drop as Rect2).get_center())
+		w.step()
+		if SimInventory.owns(w, actor, knife):
+			push_error("QUICK: BUTTONS pressing drop left the knife carried")
+			ok = false
+	if ok:
+		print("QUICK OK the list carries all %d items and the arms chip only weapons, a row press selects; ctrl-click sends the bottle into the cupboard and pushes nothing with no box open; the pane's drop button drops the knife and a miss pushes nothing" % carried)
+	viewport.queue_free()
+	return ok
+
+
+# The centre of `item`'s plate on the sheet, from the panel's own placement list, or null.
+func _plate_point(panel: Control, item: int) -> Variant:
+	var bag: GDScript = load("res://ui/bag_grid.gd") as GDScript
+	for placed in panel.call("_column_places") as Array:
+		var column: Dictionary = (placed as Dictionary)["column"] as Dictionary
+		for entry in column.get("items", []) as Array:
+			if int((entry as Dictionary).get("item", -1)) == item:
+				var origin: Vector2 = bag.call("origin_of", (placed as Dictionary)["at"] as Vector2)
+				return (bag.call("plate_rect", origin, entry) as Rect2).get_center()
+	return null

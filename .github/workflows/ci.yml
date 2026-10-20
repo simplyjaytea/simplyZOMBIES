@@ -92,7 +92,7 @@ jobs:
       - name: Sprite reproducibility
         run: npm run sprites:check
 
-      # The agent routing table in AGENTS.md is a set of claims -- this path, this script, this
+      # The agent routing table in CLAUDE.md is a set of claims -- this path, this script, this
       # heading -- and every gate under godot/ must be reachable from an npm script. Node only,
       # a second or so; it runs before any engine gate so a stale route is the first red, not
       # the last.
