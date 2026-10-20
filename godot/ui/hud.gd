@@ -550,7 +550,10 @@ func _draw_busy(bar: Rect2) -> void:
 func _draw_action_bar(font: Font, view: Vector2) -> void:
 	# Digit-free, like every other line on this screen: the strip draws its own key names, and the
 	# speed keys are punctuation now rather than the number row (docs/30, "The inventory sheet").
-	var keys: String = "F1 keys · Tab gear · J work · P pause · - = speed · Esc menu · O overlay · M raw"
+	var keys: String = "F1 keys · Tab gear · J work · P pause · - = speed · Esc menu · O overlay"
+	# M is the developer's raw sheet, so the hint names it only where the key does something.
+	if OS.is_debug_build():
+		keys += " · M raw"
 	var busy_room: float = BUSY_ROOM * 2.0 if _busy_frame >= 0 else 0.0
 	var fit: Dictionary = fit_bar(font, keycaps(_action, keys), view.x - MARGIN * 2.0 - CARD_PAD * 2.0 - busy_room)
 	var runs: Array = fit["runs"] as Array

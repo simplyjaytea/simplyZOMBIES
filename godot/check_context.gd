@@ -14,6 +14,7 @@ const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimFortify = preload("res://sim/modules/fortify.gd")
 const SimContext = preload("res://sim/context.gd")
+const SimRecruitsRes = preload("res://sim/modules/recruits.gd")
 const SimCamp = preload("res://sim/modules/camp.gd")
 const SimPath = preload("res://sim/path.gd")
 const Clock = preload("res://sim/time/clock.gd")
@@ -33,6 +34,7 @@ func _init() -> void:
 func _run() -> void:
 	var ok: bool = true
 	ok = _verbs() and ok
+	ok = _decline() and ok
 	ok = _dispatch() and ok
 	ok = _speed() and ok
 	var right_click_ok: bool = await _right_click()
@@ -218,6 +220,51 @@ func _verbs() -> bool:
 
 	if ok:
 		print("VERBS OK reach, doors, a grabbed colonist, a shambler, your own tile and a wall, every row digit-free")
+	return ok
+
+
+# A waiting recruit in reach offers "turn them away", and the row's command sends them off through
+# the sim's own `recruit.ignore`: the recruit leaves the world and never joins the colony. Out of
+# reach the row is absent, and so is it for a body that is not waiting at the gate.
+func _decline() -> bool:
+	var ok: bool = true
+	var w: Variant = _world()
+	SimRecruitsRes.register_module(w)
+	var near: int = int(w.entities.spawn())
+	w.components.set_component(near, "position", {"x": 11.0, "y": 10.5})
+	w.components.set_component(near, "identity", {"name": "Ren"})
+	w.components.set_component(near, "recruit", {"waiting": true})
+	var hit: Dictionary = {"kind": "colonist", "entity": near, "tile": Vector2i(11, 10)}
+	var rows: Array[Dictionary] = SimContext.verbs_at(w, w.player, hit)
+	if not _has_row(rows, "turn them away"):
+		push_error("DECLINE: a waiting recruit in reach offers no 'turn them away' row")
+		ok = false
+	for r in rows:
+		if String((r as Dictionary).get("text", "")) == "turn them away":
+			var cmd: Dictionary = (r as Dictionary).get("command", {}) as Dictionary
+			if String(cmd.get("type", "")) != "recruit.ignore" or int(cmd.get("entity", -1)) != near:
+				push_error("DECLINE: the decline row does not carry recruit.ignore for the recruit: %s" % str(cmd))
+				ok = false
+			w.commands.push(cmd)
+	w.step()
+	# `despawn` leaves the components in place (CLAUDE.md's traps), so the judge is liveness.
+	if bool(w.entities.is_alive(near)):
+		push_error("DECLINE: dispatching the row did not send the recruit away")
+		ok = false
+	var far: int = int(w.entities.spawn())
+	w.components.set_component(far, "position", {"x": 20.5, "y": 10.5})
+	w.components.set_component(far, "recruit", {"waiting": true})
+	var far_hit: Dictionary = {"kind": "colonist", "entity": far, "tile": Vector2i(20, 10)}
+	if _has_row(SimContext.verbs_at(w, w.player, far_hit), "turn them away"):
+		push_error("DECLINE: a recruit out of reach was offered the decline")
+		ok = false
+	var idle: int = int(w.entities.spawn())
+	w.components.set_component(idle, "position", {"x": 11.0, "y": 10.5})
+	w.components.set_component(idle, "identity", {"name": "Ren"})
+	var idle_hit: Dictionary = {"kind": "colonist", "entity": idle, "tile": Vector2i(11, 10)}
+	if _has_row(SimContext.verbs_at(w, w.player, idle_hit), "turn them away"):
+		push_error("DECLINE: a colonist who is not waiting was offered the decline")
+		ok = false
 	return ok
 
 

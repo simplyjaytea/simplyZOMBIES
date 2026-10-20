@@ -11,8 +11,8 @@ extends Control
 # The key column here is one half of a pair: `presentation/input_map.gd`'s `BINDINGS` is the
 # other, and `godot:check:play`'s KEYS lane reads them against each other both ways. A row added
 # here for a key nothing binds is red, and a binding with no row here is red too -- which is why
-# F8, the dev spawn menu, is not listed: it is bound only in a debug build, and a player is never
-# told about a key they do not have.
+# F8, the dev spawn menu, and M, the raw developer sheets, are not listed: both are bound only in a
+# debug build, and a player is never told about a key they do not have.
 #
 # The groupings are the ones a new player needs in the order they need them: move first,
 # fight second, look third, and the meta keys last.
@@ -63,8 +63,7 @@ const GROUPS: Array = [
 		["Tab", "gear and injuries — drag between bags, right-click a thing for what you can do"],
 		["J", "work priorities"],
 		["K", "the skill web — what they know, what they could learn, and the shape of it, for whoever you have selected"],
-		["O", "attention overlay: noise, scent, sight, light"],
-		["M", "raw developer sheets"],
+		["O", "light overlay: the lit ground, where lamps and fires reach"],
 		["Wheel", "zoom"],
 	]],
 	["Run", [

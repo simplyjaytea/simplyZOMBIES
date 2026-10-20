@@ -106,7 +106,7 @@ var commands_by_tick: Dictionary = {}
 var accumulator: float = 0.0
 var paused: bool = false
 var speed: int = 1
-var attention_channel: String = "off" # off/noise/scent/sight/light
+var attention_channel: String = "off" # off/light: the O key; noise, scent and sight were never drawn (A22)
 var inventory_open: bool = false
 var work_open: bool = false
 # The skill web screen (K), for the colonist selected on the street or for you.
@@ -742,7 +742,9 @@ func _dismiss_legend() -> void:
 
 
 func _cycle_overlay() -> void:
-	var order: Array[String] = ["off", "noise", "scent", "sight", "light"]
+	# Only the light channel draws anything. The other three were dead controls (check_light_look's
+	# O-key rider), so O cycles the one thing it shows rather than four presses of nothing.
+	var order: Array[String] = ["off", "light"]
 	var idx: int = order.find(attention_channel)
 	attention_channel = order[(idx + 1) % order.size()]
 
