@@ -58,6 +58,30 @@
       "tree_dead"
     ]
   },
+  "sizes": {
+    "debris_scrap_a": [5, 4],
+    "debris_scrap_b": [7, 10],
+    "debris_scrap_c": [5, 6],
+    "nature_reeds": [24, 30],
+    "nature_bush": [32, 30],
+    "nature_rock": [32, 22],
+    "nature_stump": [24, 22],
+    "nature_log": [48, 22],
+    "prop_shelf": [40, 30],
+    "prop_medical_cabinet": [24, 30],
+    "prop_table": [40, 30],
+    "prop_chair": [24, 30],
+    "prop_dumpster": [48, 30],
+    "prop_concrete_barrier": [48, 22],
+    "prop_traffic_cone": [16, 22],
+    "prop_fence_post": [16, 30],
+    "prop_fridge": [24, 38],
+    "prop_road_sign": [24, 38],
+    "prop_streetlamp": [24, 62],
+    "prop_barrel": [24, 30],
+    "prop_pallet_stack": [32, 30],
+    "prop_trash_bags": [32, 22]
+  },
   "nature": [
     {
       "key": "nature_reeds",
@@ -115,9 +139,8 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 6,
-      "beside": "wall",
-      "large": true
+      "rarity": 4,
+      "beside": "wall"
     },
     {
       "key": "prop_medical_cabinet",
@@ -125,9 +148,8 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 15,
-      "beside": "wall",
-      "large": true
+      "rarity": 10,
+      "beside": "wall"
     },
     {
       "key": "prop_table",
@@ -135,8 +157,7 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 10,
-      "large": true
+      "rarity": 6
     },
     {
       "key": "prop_chair",
@@ -144,7 +165,7 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 9
+      "rarity": 6
     },
     {
       "key": "prop_dumpster",
@@ -153,8 +174,7 @@
         "paved"
       ],
       "rarity": 14,
-      "beside": "wall",
-      "large": true
+      "beside": "wall"
     },
     {
       "key": "prop_concrete_barrier",
@@ -162,8 +182,7 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 70,
-      "large": true
+      "rarity": 70
     },
     {
       "key": "prop_traffic_cone",
@@ -189,8 +208,7 @@
         "paved"
       ],
       "rarity": 45,
-      "standing": true,
-      "large": true
+      "standing": true
     },
     {
       "key": "prop_road_sign",
@@ -216,8 +234,7 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 40,
-      "large": true
+      "rarity": 40
     },
     {
       "key": "prop_pallet_stack",
@@ -225,8 +242,7 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 55,
-      "large": true
+      "rarity": 55
     },
     {
       "key": "prop_trash_bags",
@@ -235,9 +251,8 @@
         "paved",
         "grass"
       ],
-      "rarity": 12,
-      "beside": "wall",
-      "large": true
+      "rarity": 8,
+      "beside": "wall"
     }
   ],
   "wall_modules": {

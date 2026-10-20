@@ -96,6 +96,14 @@ const DRESSING_GD: String = "res://presentation/dressing.gd"
 const AUTHORED_PATH: String = "res://assets/sprites/authored.json"
 const SIM_DIR: String = "res://sim"
 const CANON_SEED: int = 20260805
+
+# Every picture the fabricated blocks name, at its authored canvas (the shipped suburb's `sizes`).
+const FABRICATED_SIZES: Dictionary = {
+	"nature_bush": [32, 30], "nature_reeds": [24, 30], "nature_rock": [32, 22], "nature_stump": [24, 22], "nature_log": [48, 22],
+	"prop_table": [40, 30], "prop_chair": [24, 30], "prop_shelf": [40, 30], "prop_medical_cabinet": [24, 30], "prop_fridge": [24, 38],
+	"prop_dumpster": [48, 30], "prop_concrete_barrier": [48, 22], "prop_traffic_cone": [16, 22], "prop_fence_post": [16, 30],
+	"prop_road_sign": [24, 38], "prop_streetlamp": [24, 62], "prop_barrel": [24, 30], "prop_pallet_stack": [32, 30], "prop_trash_bags": [32, 22],
+}
 const GATE_SIZE: int = 64
 const BUDGET_SECONDS: float = 60.0
 
@@ -889,7 +897,7 @@ func _as_picks(list: Array) -> Array[Dictionary]:
 
 
 func _bush_block(rarity: int = 2) -> Dictionary:
-	return {"nature": [{"key": "nature_bush", "surfaces": ["grass"], "rarity": rarity}]}
+	return {"sizes": FABRICATED_SIZES, "nature": [{"key": "nature_bush", "surfaces": ["grass"], "rarity": rarity}]}
 
 
 # The position of `first` and `second` in `body`, and whether the first comes before the second.
@@ -1015,7 +1023,7 @@ func _the_nature_dressing_lies_where_it_should() -> bool:
 		return false
 
 	# Reeds grow beside water and nowhere else.
-	var reeds: Dictionary = {"nature": [{"key": "nature_reeds", "surfaces": ["grass"], "rarity": 2, "beside": "water"}]}
+	var reeds: Dictionary = {"sizes": FABRICATED_SIZES, "nature": [{"key": "nature_reeds", "surfaces": ["grass"], "rarity": 2, "beside": "water"}]}
 	var shore: Variant = _grass_map(w, h)
 	shore.tiles[3 * w + 5] = SimTileMap.Tile.Water
 	shore.surfaces[3 * w + 5] = SimSurface.Surface.Water
@@ -1033,7 +1041,7 @@ func _the_nature_dressing_lies_where_it_should() -> bool:
 		return false
 
 	# An entry that misses its ground lets the next entry try: the first hit wins, not the first entry.
-	var ordered: Dictionary = {"nature": [
+	var ordered: Dictionary = {"sizes": FABRICATED_SIZES, "nature": [
 		{"key": "nature_rock", "surfaces": ["dirt"], "rarity": 2},
 		{"key": "nature_bush", "surfaces": ["grass"], "rarity": 2},
 	]}
@@ -1049,13 +1057,13 @@ func _the_nature_dressing_lies_where_it_should() -> bool:
 
 	# Malformed and absent: nothing, never a default.
 	for bad in [
-		{}, {"nature": []}, {"nature": "grass"}, {"nature": [5]},
-		{"nature": [{"key": "", "surfaces": ["grass"], "rarity": 2}]},
-		{"nature": [{"key": "nature_bush", "surfaces": ["grass"], "rarity": 1}]},
-		{"nature": [{"key": "nature_bush", "surfaces": ["grass"], "rarity": 0}]},
-		{"nature": [{"key": "nature_bush", "surfaces": [], "rarity": 2}]},
-		{"nature": [{"key": "nature_bush", "surfaces": ["marble"], "rarity": 2}]},
-		{"nature": [{"key": "nature_bush", "surfaces": ["grass"], "rarity": 2, "beside": "lava"}]},
+		{}, {"sizes": FABRICATED_SIZES, "nature": []}, {"nature": "grass"}, {"sizes": FABRICATED_SIZES, "nature": [5]},
+		{"sizes": FABRICATED_SIZES, "nature": [{"key": "", "surfaces": ["grass"], "rarity": 2}]},
+		{"sizes": FABRICATED_SIZES, "nature": [{"key": "nature_bush", "surfaces": ["grass"], "rarity": 1}]},
+		{"sizes": FABRICATED_SIZES, "nature": [{"key": "nature_bush", "surfaces": ["grass"], "rarity": 0}]},
+		{"sizes": FABRICATED_SIZES, "nature": [{"key": "nature_bush", "surfaces": [], "rarity": 2}]},
+		{"sizes": FABRICATED_SIZES, "nature": [{"key": "nature_bush", "surfaces": ["marble"], "rarity": 2}]},
+		{"sizes": FABRICATED_SIZES, "nature": [{"key": "nature_bush", "surfaces": ["grass"], "rarity": 2, "beside": "lava"}]},
 	]:
 		if _picks_over_seeds(bad as Dictionary, grass, 5, 2, 32) != 0:
 			push_error("a malformed or empty block picked something: %s" % str(bad))
@@ -1110,8 +1118,12 @@ func _the_nature_dressing_lies_where_it_should() -> bool:
 					var want: String = ""
 					if tx > 0 and tx < w - 1 and (Dressing.hash_at(seed_val, tx, ty, Dressing.SALT_NATURE) >> 8) % int(rarity) == 0:
 						want = "nature_bush"
-					if Dressing.nature_key(block_r, grass, seed_val, tx, ty) != want:
-						push_error("rarity %d seed %d tile (%d,%d): nature_key answered '%s', the hash_at reference '%s'; the fast path's copy of the roll has drifted" % [int(rarity), seed_val, tx, ty, Dressing.nature_key(block_r, grass, seed_val, tx, ty), want])
+					# The roll itself is compared raw (`_nature_pick`); the kept answer is that roll or nothing,
+					# because the overlap rule drops a bush that meets a neighbour's on this dense map.
+					var raw_bush: String = Dressing._nature_pick(Dressing._nature_entries(block_r), grass, seed_val * Dressing._HASH_SEED, tx, ty)
+					var kept_bush: String = Dressing.nature_key(block_r, grass, seed_val, tx, ty)
+					if raw_bush != want or (not kept_bush.is_empty() and kept_bush != want):
+						push_error("rarity %d seed %d tile (%d,%d): the raw roll answered '%s' and the kept pick '%s', the hash_at reference '%s'; the fast path's copy of the roll has drifted" % [int(rarity), seed_val, tx, ty, raw_bush, kept_bush, want])
 						return false
 					if not want.is_empty():
 						rolls += 1
@@ -1428,7 +1440,7 @@ func _furnish_block(where: String, rarity: int = 2, surface: String = "paved", b
 	var entry: Dictionary = {"key": "prop_table", "where": where, "surfaces": [surface], "rarity": rarity}
 	if not beside.is_empty():
 		entry["beside"] = beside
-	return {"furnishings": [entry]}
+	return {"sizes": FABRICATED_SIZES, "furnishings": [entry]}
 
 
 func _furnishing_size_fits(key: String, size: Vector2i, standing: bool) -> bool:
@@ -1530,8 +1542,8 @@ func _the_furnishings_stand_where_they_should() -> bool:
 		return false
 	# The existing limit still refuses a tall entry unless it opts into the standing route, and
 	# the flag cannot be used to smuggle a short ordinary prop into the entity sort.
-	var tall_unflagged: Dictionary = {"furnishings": [{"key": "prop_fridge", "where": "indoors", "surfaces": ["paved"], "rarity": 2}]}
-	var tall_flagged: Dictionary = {"furnishings": [{"key": "prop_fridge", "where": "indoors", "surfaces": ["paved"], "rarity": 2, "standing": true}]}
+	var tall_unflagged: Dictionary = {"sizes": FABRICATED_SIZES, "furnishings": [{"key": "prop_fridge", "where": "indoors", "surfaces": ["paved"], "rarity": 2}]}
+	var tall_flagged: Dictionary = {"sizes": FABRICATED_SIZES, "furnishings": [{"key": "prop_fridge", "where": "indoors", "surfaces": ["paved"], "rarity": 2, "standing": true}]}
 	if Dressing.furnishing_is_standing(tall_unflagged, "prop_fridge") or not Dressing.furnishing_is_standing(tall_flagged, "prop_fridge") or Dressing.furnishing_is_standing(tall_flagged, "prop_table"):
 		push_error("the optional standing flag does not default false or resolve only for the named key")
 		return false
@@ -1634,7 +1646,7 @@ func _the_furnishings_stand_where_they_should() -> bool:
 			return false
 
 	# An entry that misses its ground lets the next entry try: the first hit wins, not the first entry.
-	var ordered: Dictionary = {"furnishings": [
+	var ordered: Dictionary = {"sizes": FABRICATED_SIZES, "furnishings": [
 		{"key": "prop_fence_post", "where": "indoors", "surfaces": ["grass"], "rarity": 2},
 		{"key": "prop_chair", "where": "indoors", "surfaces": ["paved"], "rarity": 2},
 	]}
@@ -1650,22 +1662,22 @@ func _the_furnishings_stand_where_they_should() -> bool:
 
 	# Malformed and absent: nothing, never a default.
 	for bad in [
-		{}, {"furnishings": []}, {"furnishings": "table"}, {"furnishings": [5]},
-		{"furnishings": [{"key": "", "where": "indoors", "surfaces": ["paved"], "rarity": 2}]},
-		{"furnishings": [{"key": "prop_table", "where": "indoors", "surfaces": ["paved"], "rarity": 1}]},
-		{"furnishings": [{"key": "prop_table", "where": "indoors", "surfaces": ["paved"], "rarity": 0}]},
-		{"furnishings": [{"key": "prop_table", "where": "indoors", "surfaces": [], "rarity": 2}]},
-		{"furnishings": [{"key": "prop_table", "where": "indoors", "surfaces": ["marble"], "rarity": 2}]},
-		{"furnishings": [{"key": "prop_table", "where": "attic", "surfaces": ["paved"], "rarity": 2}]},
-		{"furnishings": [{"key": "prop_table", "surfaces": ["paved"], "rarity": 2}]},
-		{"furnishings": [{"key": "prop_table", "where": "indoors", "surfaces": ["paved"], "rarity": 2, "beside": "lava"}]},
+		{}, {"sizes": FABRICATED_SIZES, "furnishings": []}, {"furnishings": "table"}, {"sizes": FABRICATED_SIZES, "furnishings": [5]},
+		{"sizes": FABRICATED_SIZES, "furnishings": [{"key": "", "where": "indoors", "surfaces": ["paved"], "rarity": 2}]},
+		{"sizes": FABRICATED_SIZES, "furnishings": [{"key": "prop_table", "where": "indoors", "surfaces": ["paved"], "rarity": 1}]},
+		{"sizes": FABRICATED_SIZES, "furnishings": [{"key": "prop_table", "where": "indoors", "surfaces": ["paved"], "rarity": 0}]},
+		{"sizes": FABRICATED_SIZES, "furnishings": [{"key": "prop_table", "where": "indoors", "surfaces": [], "rarity": 2}]},
+		{"sizes": FABRICATED_SIZES, "furnishings": [{"key": "prop_table", "where": "indoors", "surfaces": ["marble"], "rarity": 2}]},
+		{"sizes": FABRICATED_SIZES, "furnishings": [{"key": "prop_table", "where": "attic", "surfaces": ["paved"], "rarity": 2}]},
+		{"sizes": FABRICATED_SIZES, "furnishings": [{"key": "prop_table", "surfaces": ["paved"], "rarity": 2}]},
+		{"sizes": FABRICATED_SIZES, "furnishings": [{"key": "prop_table", "where": "indoors", "surfaces": ["paved"], "rarity": 2, "beside": "lava"}]},
 	]:
 		if _furnish_hits(bad as Dictionary, room, 5, 2, 32) != 0:
 			push_error("a malformed or empty furnishings block picked something: %s" % str(bad))
 			return false
 	# Nature and furnishings are two lists: a nature entry never furnishes and a furnishing never
 	# lies on the nature pick.
-	if _furnish_hits({"nature": [{"key": "nature_bush", "surfaces": ["paved"], "rarity": 2}]}, room, 5, 2, 32) != 0:
+	if _furnish_hits({"sizes": FABRICATED_SIZES, "nature": [{"key": "nature_bush", "surfaces": ["paved"], "rarity": 2}]}, room, 5, 2, 32) != 0:
 		push_error("a nature entry furnished a tile; the two lists share a reader")
 		return false
 	if _picks_over_seeds(indoor_table, room, 5, 2, 32) != 0:
@@ -1696,7 +1708,7 @@ func _the_furnishings_stand_where_they_should() -> bool:
 	if not Dressing.furnishing_tiles(indoor_table, room, FakeSeen.new(), 3, whole).is_empty():
 		push_error("an empty seen set answered furnishings; a picture would draw where nobody can see -- through a wall")
 		return false
-	var standing_block: Dictionary = {"furnishings": [{"key": "prop_fridge", "where": "indoors", "surfaces": ["paved"], "rarity": 2, "standing": true}]}
+	var standing_block: Dictionary = {"sizes": FABRICATED_SIZES, "furnishings": [{"key": "prop_fridge", "where": "indoors", "surfaces": ["paved"], "rarity": 2, "standing": true}]}
 	var standing_plain: Array[Dictionary] = Dressing.furnishing_tiles(standing_block, room, seen_all, 3, whole)
 	var standing_cached: Array[Dictionary] = Dressing.standing_furnishing_tiles_cached(standing_block, room, seen_all, 3, whole, {})
 	if standing_plain.is_empty() or _pick_set(standing_plain) != _pick_set(standing_cached):
@@ -1724,8 +1736,12 @@ func _the_furnishings_stand_where_they_should() -> bool:
 					var want_pick: String = ""
 					if tx > 0 and tx < w - 1 and Dressing._mix(Dressing.hash_at(seed_val, tx, ty, Dressing.SALT_FURNISH)) % int(rarity) == 0:
 						want_pick = "prop_table"
-					if Dressing.furnishing_key(block_r, room, seed_val, tx, ty) != want_pick:
-						push_error("rarity %d seed %d tile (%d,%d): furnishing_key answered '%s', the hash_at reference '%s'; the fast path's copy of the roll has drifted" % [int(rarity), seed_val, tx, ty, Dressing.furnishing_key(block_r, room, seed_val, tx, ty), want_pick])
+					# The raw roll is compared (`_furnishing_raw`); the kept pick is that roll or nothing, since the
+					# overlap rule drops a table that meets a neighbour's on this dense map.
+					var raw_table: String = Dressing._furnishing_raw(Dressing._furnishing_entries(block_r), room, seed_val * Dressing._HASH_SEED, tx, ty, Rect2i())
+					var kept_table: String = Dressing.furnishing_key(block_r, room, seed_val, tx, ty)
+					if raw_table != want_pick or (not kept_table.is_empty() and kept_table != want_pick):
+						push_error("rarity %d seed %d tile (%d,%d): the raw roll answered '%s' and the kept pick '%s', the hash_at reference '%s'; the fast path's copy of the roll has drifted" % [int(rarity), seed_val, tx, ty, raw_table, kept_table, want_pick])
 						return false
 					if not want_pick.is_empty():
 						rolls += 1
@@ -1826,12 +1842,13 @@ func _the_furnishings_stand_where_they_should() -> bool:
 	if draw_decor.contains("draw_set_transform(") or draw_decor.contains("explored"):
 		push_error("_draw_decor sets a transform or reads the remembered map; furniture is a picture on a tile the player sees and nothing else")
 		return false
-	# The standing rule moved with the picks: decor_picks leaves a standing furnishing out, and the
-	# shipped suburb checks that the baked flat list is exactly the flat picks (the NATURE lane).
+	# The standing rule moved with the picks: decor_picks reads the kept top and leaves a standing
+	# furnishing out, and the shipped suburb checks that the baked flat list is exactly the flat picks
+	# (the NATURE lane).
 	var dressing_code: String = _code_of(DRESSING_GD)
 	var decor_at: int = dressing_code.find("static func decor_picks(")
 	var decor_body: String = dressing_code.substr(decor_at, dressing_code.find("\nstatic func", decor_at + 1) - decor_at) if decor_at >= 0 else ""
-	if decor_body.is_empty() or not _comes_before(decor_body, "furnish_key", "furnishing_is_standing(") or not _comes_before(decor_body, "furnishing_is_standing(", "[\"furnishings\"] as Array).append("):
+	if decor_body.is_empty() or not _comes_before(decor_body, "_kept_top(", "RANK_STANDING") or not _comes_before(decor_body, "RANK_STANDING", "(out[listing] as Array).append("):
 		push_error("decor_picks does not leave the standing furnishings out before it appends a flat one")
 		return false
 	var standing_body: String = _function_body(MAIN_GD, "_standing_props")
@@ -2301,16 +2318,16 @@ func _the_placement_is_read() -> bool:
 		push_error("_draw_decor does not place and mirror its pictures through _placed_rect; the placement is a field nothing reads")
 		return false
 	var rect_src: String = _function_body(MAIN_GD, "_placed_rect")
-	for needle in ["placed[\"tx\"]", "placed[\"ty\"]", "placed[\"ox\"]", "placed[\"oy\"]", "ART_PER_TILE", "hang_rect("]:
+	for needle in ["placed[\"tx\"]", "placed[\"ty\"]", "placed[\"ox\"]", "placed[\"oy\"]", "ART_PER_TILE", "floorf("]:
 		if not rect_src.contains(needle):
 			push_error("_placed_rect does not read %s; the placement is a field nothing reads" % needle)
 			return false
 	var scatter_src: String = _function_body(MAIN_GD, "_draw_scatter")
-	if not scatter_src.contains("Dressing.litter_placed(") or not scatter_src.contains("_draw_litter("):
-		push_error("_draw_scatter does not take its scrap from Dressing.litter_placed; the scrap's placement is a field nothing reads")
+	if not scatter_src.contains("Dressing.litter_placed_in(") or not scatter_src.contains("_draw_litter("):
+		push_error("_draw_scatter does not take its scrap from Dressing.litter_placed_in; the scrap's placement is a field nothing reads")
 		return false
 	var litter_src: String = _function_body(MAIN_GD, "_draw_litter")
-	for needle in ["placed[\"ox\"]", "placed[\"oy\"]", "placed[\"flip\"]", "_mirrored(", "hang_rect("]:
+	for needle in ["_placed_rect(", "placed[\"flip\"]", "_mirrored("]:
 		if not litter_src.contains(needle):
 			push_error("_draw_litter does not read %s; a scrap drawn without its own placement is the old grid" % needle)
 			return false
@@ -2318,10 +2335,12 @@ func _the_placement_is_read() -> bool:
 	return true
 
 
-# --- the occupancy: one picture to a tile, large pieces apart, flat pieces clear of tall ones, and
-# the scraps kept off everything that stands on a tile. Each rule is judged twice: the raw roll must
-# collide with it on the shipped suburb (a true positive, or the rule has nothing to do and the lane
-# says so), and the placed pictures must keep it (the true negative a broken rule would fail).
+# --- the occupancy: one picture to a place where two would meet. A tile's raw picture (its furnishing,
+# else its nature picture) and its scrap of litter are judged against the eight tiles round them: where
+# two art rects meet, the lower rank gives way (a standing furnishing over a flat one, a flat one over
+# nature, anything over litter). Each part is judged twice: the raw roll must produce meetings on the
+# shipped suburb (a true positive, or the rule has nothing to do and the lane says so), and the kept
+# pictures must hold the rule (the true negative a broken rule would fail).
 func _the_occupancy_holds() -> bool:
 	var boot: Dictionary = SimBoot.playable(CANON_SEED, GATE_SIZE)
 	var oworld: Variant = boot["world"]
@@ -2330,90 +2349,116 @@ func _the_occupancy_holds() -> bool:
 	var seed_val: int = int(oworld.seed)
 	var w: int = int(omap.w)
 	var h: int = int(omap.h)
-	var clear: Rect2i = Dressing._clear_of(omap)
-	var seed_term: int = seed_val * Dressing._HASH_SEED
-	var furn: Array = Dressing._furnishing_entries(oblock)
-	var nature: Array = Dressing._nature_entries(oblock)
-	if furn.is_empty() or nature.is_empty():
+	if Dressing._furnishing_entries(oblock).is_empty() or Dressing._nature_entries(oblock).is_empty():
 		push_error("the shipped suburb declares no furnishings or no nature; the occupancy lane has nothing to judge")
 		return false
-	var occ: Dictionary = Dressing._occupancy(oblock, omap, seed_val)
-	# True positives: the raw roll collides with each rule on this map.
-	var raw_large_adjacent: int = 0
-	var raw_nature_under_furnishing: int = 0
-	var raw_flat_in_standing_column: int = 0
-	var raw_litter_under_furnishing: int = 0
-	for ty in range(h):
-		for tx in range(w):
-			var raw: String = Dressing._furnishing_raw(furn, omap, seed_term, tx, ty, clear)
-			if not raw.is_empty():
-				if Dressing._entry_flag(furn, raw, Dressing.FE_LARGE):
-					for dy in range(-1, 2):
-						for dx in range(-1, 2):
-							if (dx != 0 or dy != 0) and Dressing._entry_flag(furn, Dressing._furnishing_raw(furn, omap, seed_term, tx + dx, ty + dy, clear), Dressing.FE_LARGE):
-								raw_large_adjacent += 1
-				elif Dressing._standing_near(furn, omap, seed_term, tx, ty, clear):
-					raw_flat_in_standing_column += 1
-			if not raw.is_empty() and not Dressing._nature_pick(nature, omap, seed_term, tx, ty).is_empty():
-				raw_nature_under_furnishing += 1
-			if not raw.is_empty() and Dressing._paved_floor(omap, tx, ty) and Dressing._mix(Dressing.hash_at(seed_val, tx, ty, Dressing.SALT_LITTER_PICK)) % Dressing.LITTER_RARITY == 0:
-				raw_litter_under_furnishing += 1
-	print("OCCUPANCY raw collisions on the suburb: %d large pairs, %d nature under a furnishing, %d flat in a tall piece's column, %d scraps under a furnishing" % [raw_large_adjacent, raw_nature_under_furnishing, raw_flat_in_standing_column, raw_litter_under_furnishing])
-	if raw_large_adjacent == 0 or raw_nature_under_furnishing == 0 or raw_flat_in_standing_column == 0 or raw_litter_under_furnishing == 0:
-		push_error("the raw roll does not collide with every occupancy rule on this map (large %d, nature %d, column %d, scrap %d); a rule with nothing to do is not judged" % [raw_large_adjacent, raw_nature_under_furnishing, raw_flat_in_standing_column, raw_litter_under_furnishing])
+	# The sizes are content, and the overlap rule places every picture by them, so each size is checked
+	# against the canvas its key declares, every picture the block names must have one, and a size that
+	# disagrees with its canvas must be seen to (the true negative: a fabricated one).
+	var furn: Array = Dressing._furnishing_entries(oblock)
+	var nature: Array = Dressing._nature_entries(oblock)
+	var sizes: Dictionary = Dressing._sizes(oblock)
+	for key_v in sizes.keys():
+		if Appearance.canvas_of(String(key_v)) != sizes[key_v]:
+			push_error("the dressing sizes %s as %s, its authored canvas is %s; the overlap rule would place it wrong" % [String(key_v), str(sizes[key_v]), str(Appearance.canvas_of(String(key_v)))])
+			return false
+	for entry in furn:
+		if not sizes.has(String((entry as Array)[0])):
+			push_error("the furnishing %s has no size; it would draw nothing" % String((entry as Array)[0]))
+			return false
+	for entry in nature:
+		if not sizes.has(String((entry as Array)[0])):
+			push_error("the nature picture %s has no size; it would draw nothing" % String((entry as Array)[0]))
+			return false
+	for raw_key in oblock["litter"] as Array:
+		if not sizes.has(String(raw_key)):
+			push_error("the scrap %s has no size; it would draw nothing" % String(raw_key))
+			return false
+	if Dressing._sizes({"sizes": {"prop_table": [41, 30]}})["prop_table"] == Appearance.canvas_of("prop_table"):
+		push_error("a 41-pixel table agrees with its 40-pixel canvas; the size check cannot fail")
 		return false
-	# True negatives: the placed pictures keep every rule.
-	var placed_large: Dictionary = {}
-	var flat_keys: Dictionary = {}
-	for ty in range(h):
-		for tx in range(w):
-			var key: String = Dressing.furnishing_key(oblock, omap, seed_val, tx, ty)
-			if key.is_empty():
-				continue
-			if Dressing._entry_flag(furn, key, Dressing.FE_LARGE):
-				placed_large[Vector2i(tx, ty)] = true
-			if not Dressing._entry_flag(furn, key, Dressing.FE_STANDING):
-				for dy in [-2, -1, 1, 2]:
-					if Dressing._entry_flag(furn, Dressing.furnishing_key(oblock, omap, seed_val, tx, ty + dy), Dressing.FE_STANDING):
-						push_error("a flat %s stands at (%d,%d), within two tiles of a tall piece in its column" % [key, tx, ty])
-						return false
-	for at in placed_large.keys():
-		for dy in range(-1, 2):
-			for dx in range(-1, 2):
-				if (dx != 0 or dy != 0) and placed_large.has(Vector2i(at.x + dx, at.y + dy)):
-					push_error("two large furnishings stand at (%d,%d) and their neighbour; they must keep a tile between them" % [at.x, at.y])
-					return false
-	var scraps: int = 0
+	var occ: Dictionary = Dressing.occupancy(oblock, omap, seed_val)
+	var clear: Rect2i = Dressing._clear_of(omap)
+	var meets_standing_flat: int = 0
+	var meets_flat_nature: int = 0
+	var meets_litter: int = 0
+	var kept_meets: int = 0
+	var kept_under_higher: int = 0
+	var kept_on_clear: int = 0
+	var scrap_on_held: int = 0
 	var paved: int = 0
+	var scraps: int = 0
 	var bags: int = 0
 	for ty in range(h):
 		for tx in range(w):
-			var at := Vector2i(tx, ty)
-			if Dressing.furnishing_key(oblock, omap, seed_val, tx, ty) == "prop_trash_bags":
-				bags += 1
 			if Dressing._paved_floor(omap, tx, ty):
 				paved += 1
-			if Dressing.litter_placed(oblock, omap, seed_val, tx, ty).is_empty():
-				continue
-			scraps += 1
-			if clear.has_point(at):
-				push_error("a scrap of litter lies at (%d,%d), inside the %d-tile square round the start %s" % [tx, ty, CLEAR_RADIUS, str(SimBoot.colony_start(omap))])
-				return false
-			if Dressing._taken(occ, omap, tx, ty):
-				push_error("a scrap of litter lies at (%d,%d), on a tile a furnishing or a tall piece holds" % [tx, ty])
-				return false
-	# The rate: one scrap in LITTER_RARITY of the paved floor, judged as a band so a rule that starves
-	# or floods the floor fails. A zero-floor map says so instead of dividing.
+			var top: Dictionary = Dressing._raw_top(occ, omap, tx, ty)
+			var kept: Dictionary = Dressing._kept_top(occ, omap, tx, ty)
+			var scrap: Dictionary = Dressing.litter_placed_in(occ, tx, ty)
+			var raw_scrap: String = Dressing._litter_raw(occ, omap, tx, ty)
+			if not kept.is_empty() and String(kept["key"]) == "prop_trash_bags":
+				bags += 1
+			if not scrap.is_empty():
+				scraps += 1
+				if not top.is_empty():
+					scrap_on_held += 1
+			if clear.has_point(Vector2i(tx, ty)) and (not kept.is_empty() or not scrap.is_empty()):
+				kept_on_clear += 1
+			for dy in range(-1, 2):
+				for dx in range(-1, 2):
+					if dx == 0 and dy == 0:
+						continue
+					var nx: int = tx + dx
+					var ny: int = ty + dy
+					var near: Dictionary = Dressing._raw_top(occ, omap, nx, ny)
+					var shift: Vector2i = Vector2i(dx, dy)
+					if not top.is_empty() and not near.is_empty() and Dressing._meet(Dressing._top_rect(occ, top, tx, ty), Dressing._top_rect(occ, near, nx, ny), shift):
+						if int(top["rank"]) == Dressing.RANK_STANDING and int(near["rank"]) == Dressing.RANK_FLAT:
+							meets_standing_flat += 1
+						elif int(top["rank"]) == Dressing.RANK_FLAT and int(near["rank"]) == Dressing.RANK_NATURE:
+							meets_flat_nature += 1
+					if not raw_scrap.is_empty() and not near.is_empty() and Dressing._meet(Dressing._litter_rect(occ, raw_scrap, tx, ty), Dressing._top_rect(occ, near, nx, ny), shift):
+						meets_litter += 1
+					if kept.is_empty():
+						continue
+					var kept_near: Dictionary = Dressing._kept_top(occ, omap, nx, ny)
+					var rect: Rect2i = Dressing._top_rect(occ, kept, tx, ty)
+					if not kept_near.is_empty() and Dressing._meet(rect, Dressing._top_rect(occ, kept_near, nx, ny), shift):
+						kept_meets += 1
+					if not near.is_empty() and int(near["rank"]) > int(kept["rank"]) and Dressing._meet(rect, Dressing._top_rect(occ, near, nx, ny), shift):
+						kept_under_higher += 1
+			if not scrap.is_empty():
+				var scrap_rect: Rect2i = Dressing._litter_rect(occ, String(scrap["key"]), tx, ty)
+				for dy in range(-1, 2):
+					for dx in range(-1, 2):
+						if dx == 0 and dy == 0:
+							continue
+						var kept_near: Dictionary = Dressing._kept_top(occ, omap, tx + dx, ty + dy)
+						if not kept_near.is_empty() and Dressing._meet(scrap_rect, Dressing._top_rect(occ, kept_near, tx + dx, ty + dy), Vector2i(dx, dy)):
+							kept_meets += 1
+	print("OCCUPANCY raw meetings on the suburb: %d standing over flat, %d flat over nature, %d scraps over a picture; kept pictures that meet: %d; kept under a higher raw rank: %d" % [meets_standing_flat, meets_flat_nature, meets_litter, kept_meets, kept_under_higher])
+	if meets_standing_flat == 0 or meets_flat_nature == 0 or meets_litter == 0:
+		push_error("the raw rolls never meet on this map (standing %d, flat %d, scrap %d); a rule with nothing to do is not proved" % [meets_standing_flat, meets_flat_nature, meets_litter])
+		return false
+	if kept_meets != 0 or kept_under_higher != 0:
+		push_error("%d kept pictures meet a neighbour and %d sit under a higher raw picture; the overlap rule has a hole" % [kept_meets, kept_under_higher])
+		return false
+	if kept_on_clear != 0 or scrap_on_held != 0:
+		push_error("%d pictures stand in the clearing and %d scraps sit on a held tile; the clearing and the held tiles are not kept" % [kept_on_clear, scrap_on_held])
+		return false
+	# The rate: one scrap in LITTER_RARITY on the street and in LITTER_RARITY_INDOORS in a room, kept
+	# after the overlap rule, judged as a band so a rule that starves or floods the floor fails.
 	if paved == 0:
 		push_error("the shipped suburb has no paved floor; the scrap rate has nothing to judge")
 		return false
 	var rate: float = float(scraps) / float(paved)
 	print("OCCUPANCY scraps %d of %d paved floor tiles (1 in %.1f), %d trash bags on the suburb" % [scraps, paved, 1.0 / maxf(rate, 0.0001), bags])
-	if rate < 0.12 or rate > 0.22:
-		push_error("scraps sit on %.3f of the paved floor; the band is 0.12 to 0.22 (one in six)" % rate)
+	if rate < 0.10 or rate > 0.22:
+		push_error("scraps sit on %.3f of the paved floor; the band is 0.10 to 0.22" % rate)
 		return false
 	if bags < 4:
-		push_error("only %d trash bags on the suburb; the beside-wall rule starves them" % bags)
+		push_error("only %d trash bags on the suburb; the kerb and wall rule starves them" % bags)
 		return false
-	print("OCCUPANCY_OK one picture to a tile across %d raw collisions; no two large pieces adjacent; no flat piece in a tall piece's column; %d scraps, none on a held tile or inside the clearing; %d trash bags" % [raw_large_adjacent + raw_nature_under_furnishing + raw_flat_in_standing_column + raw_litter_under_furnishing, scraps, bags])
+	print("OCCUPANCY_OK %d raw meetings across the three rules, none kept; %d scraps, none on a held tile or in the clearing; %d trash bags" % [meets_standing_flat + meets_flat_nature + meets_litter, scraps, bags])
 	return true

@@ -3826,8 +3826,8 @@
       "source": {
         "path": "art/simplyzombies/groups/environment/textures/overlay-debris.png",
         "crop": [
-          3,
-          19,
+          24,
+          23,
           5,
           6
         ]

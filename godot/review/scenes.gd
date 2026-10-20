@@ -14,6 +14,7 @@ extends RefCounted
 const Clock = preload("res://sim/time/clock.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimSurface = preload("res://sim/map/surface.gd")
+const Dressing = preload("res://presentation/dressing.gd")
 
 const SCENE_PATH: String = "res://presentation/main.tscn"
 # The two windows the game supports: check_play's WORK-LAYOUT lane lays out at both.
@@ -209,6 +210,8 @@ static func _street_spot(world: Variant) -> Vector2:
 						break
 				if not open:
 					continue
+				if not _ring_free(world, t):
+					continue
 				var count: int = _street_count(world.tilemap, t)
 				if count * 100 >= STREET_SHARE * STREET_WINDOW_AREA:
 					return Vector2(float(t.x) + 0.5, float(t.y) + 0.5)
@@ -229,6 +232,12 @@ static func _street_count(map: Variant, at: Vector2i) -> int:
 	return n
 
 
+## Whether the survivor may stand on `at` in a shot: no picture of any kind on it or on the eight tiles
+## round it, so no shot has a table or a scrap drawn over the survivor's legs. Dressing's own test.
+static func _ring_free(world: Variant, at: Vector2i) -> bool:
+	return Dressing.free_ring(Dressing.block_of(world), world.tilemap, int(world.seed), at.x, at.y)
+
+
 ## The nearest floor tile, walkable and with a wall beside it, that a body can stand on. Its
 ## centre, or (-1, -1) when the search finds none. Nearest by Chebyshev ring, so the answer is the
 ## same on every run from the same seed.
@@ -244,6 +253,6 @@ static func _interior_spot(world: Variant) -> Vector2:
 					continue
 				if world.is_blocked_tile(t.x, t.y):
 					continue
-				if _walls_beside(world, t) >= 1:
+				if _walls_beside(world, t) >= 1 and _ring_free(world, t):
 					return Vector2(float(t.x) + 0.5, float(t.y) + 0.5)
 	return Vector2(-1.0, -1.0)

@@ -191,6 +191,11 @@ var _dressing_from: Variant = null
 # The furnishings' picks, kept the same way and emptied by the same four things -- see
 # _furnishing_cache_for.
 var _furnishing_cache: Dictionary = {}
+var _dressing_occ: Dictionary = {}
+var _dressing_occ_map: Variant = null
+var _dressing_occ_gen: int = 0
+var _dressing_occ_seed: int = 0
+var _dressing_occ_content: Variant = null
 var _furnishing_cache_map: Variant = null
 var _furnishing_cache_gen: int = -1
 var _furnishing_cache_seed: int = -1
@@ -1684,6 +1689,23 @@ func _dressing() -> Dictionary:
 	return _dressing_cache
 
 
+# The dressing's occupancy for the world on screen: the per-frame litter asks it of every tile it
+# draws, and building it parses the block, so it is kept. It is emptied by the same four things the
+# furnishing cache is (the map, its vehicle generation, the seed and the content), because the rule
+# reads the tile classes and surfaces a driven car changes.
+func _dressing_occupancy() -> Dictionary:
+	var map: Variant = world.tilemap
+	var gen: int = 0 if map == null else int(map.vehicle_generation)
+	if is_same(map, _dressing_occ_map) and gen == _dressing_occ_gen and int(world.seed) == _dressing_occ_seed and is_same(world.content, _dressing_occ_content):
+		return _dressing_occ
+	_dressing_occ = Dressing.occupancy(_dressing(), map, int(world.seed))
+	_dressing_occ_map = map
+	_dressing_occ_gen = gen
+	_dressing_occ_seed = int(world.seed)
+	_dressing_occ_content = world.content
+	return _dressing_occ
+
+
 # The furnishing cache, emptied by the same four things the nature cache is and for the same
 # reason: its picks include the ground test, which a driven car's Low tiles change.
 func _furnishing_cache_for() -> Dictionary:
@@ -1702,7 +1724,7 @@ func _furnishing_cache_for() -> Dictionary:
 # The flat dressing of one chunk, baked into the DECOR layer (world_layers.gd): the nature pictures
 # (bushes, reeds, rocks, stumps, logs over open outdoor floor) and the flat furnishings (a table, a
 # chair, a dumpster, a traffic cone). Dressing.decor_picks answers which tile takes which picture;
-# this only blits them, one hung on each tile's south edge at its own size (Appearance.hang_rect),
+# this only blits them, one hung on each tile's south edge at its own size (_placed_rect),
 # in the bake camera's world pixels. Nature first, then furniture, as the per-frame draw did, and
 # the layer's LIVE mask decides what shows, so a picture on a tile nobody sees is baked and never
 # drawn. A standing furnishing is not here: it joins the entity sort (_standing_props).
@@ -1724,22 +1746,22 @@ func _draw_decor(region: Rect2i) -> void:
 			var texture: Texture2D = Appearance.resolve(String(placed["key"]))
 			if texture == null:
 				continue
-			var rect: Rect2 = _placed_rect(placed, texture.get_size() * px_scale, px_scale)
+			var rect: Rect2 = _placed_rect(placed, texture.get_size(), px_scale)
 			_pen.draw_texture_rect(texture, _mirrored(rect, bool(placed["flip"])), false)
 
 
-# Where a flat picture's rect stands on screen: its base on the south edge of its tile, its
-# centre on the tile's centre line, each moved by the pick's whole-art-pixel offset. The tile's
-# corner is read off the same projection the ground is drawn from (the rounding `_draw_district`
-# applies), so the offset is a whole number of art pixels from the ground's own grid at any zoom.
-func _placed_rect(placed: Dictionary, size: Vector2, px_scale: float) -> Rect2:
+# Where a flat picture's rect stands on screen. Its art rect is Dressing's own (`_art_rect`): centred
+# on the tile's centre line and its base on the tile's south edge, each moved by the pick's whole
+# art-pixel offset, with its left edge a whole art pixel even when its width is odd. The tile's
+# corner is read off the same projection the ground is drawn from, so every edge lands on the
+# ground's own art grid at any zoom. `art_size` is the texture's size in art pixels.
+func _placed_rect(placed: Dictionary, art_size: Vector2, px_scale: float) -> Rect2:
 	var corner: Dictionary = TopDownProjection.world_to_screen(camera, float(placed["tx"]), float(placed["ty"]))
 	var x0: float = roundf(float(corner["sx"]))
 	var y0: float = roundf(float(corner["sy"]))
-	var art: float = Dressing.ART_PER_TILE
-	var centre_x: float = x0 + (art / 2.0 + float(placed["ox"])) * px_scale
-	var south_y: float = y0 + (art + float(placed["oy"])) * px_scale
-	return Appearance.hang_rect(centre_x, south_y, size)
+	var left: float = float(Dressing.ART_PER_TILE) / 2.0 + float(placed["ox"]) - floorf(art_size.x / 2.0)
+	var top: float = float(Dressing.ART_PER_TILE) + float(placed["oy"]) - art_size.y
+	return Rect2(roundf(x0 + left * px_scale), roundf(y0 + top * px_scale), roundf(art_size.x * px_scale), roundf(art_size.y * px_scale))
 
 
 # The same rect with its width turned about its centre line: a negative width draws the texture
@@ -1791,24 +1813,18 @@ func _draw_scatter(rect: Rect2, dress: Dictionary, tx: int, ty: int) -> void:
 			var flipped: bool = Dressing.flip_at(seed_val, tx, ty, Dressing.SALT_LITTER_FLIP)
 			_pen.draw_texture_rect(rubble, _mirrored(rect, flipped), false)
 		return
-	_draw_litter(rect, Dressing.litter_placed(dress, world.tilemap, seed_val, tx, ty))
+	_draw_litter(Dressing.litter_placed_in(_dressing_occupancy(), tx, ty))
 
 
-# One scrap of litter: a few art pixels, drawn at its own size and never stretched over the tile.
-# Its centre is the tile's centre line and its base the tile's south edge, each moved by the scrap's
-# own whole-art-pixel offset, and it is mirrored where its record says so.
-func _draw_litter(rect: Rect2, placed: Dictionary) -> void:
+# One scrap of litter: a few art pixels, drawn at its own size and never stretched over the tile, on
+# the same rect rule every flat picture uses (`_placed_rect`), and mirrored where its record says so.
+func _draw_litter(placed: Dictionary) -> void:
 	if placed.is_empty():
 		return
 	var texture: Texture2D = Appearance.resolve(String(placed["key"]))
 	if texture == null:
 		return
-	var px_scale: float = Appearance.blit_scale(float(camera["zoom"]))
-	var art: float = Dressing.ART_PER_TILE
-	var origin: Vector2 = rect.position
-	var centre_x: float = origin.x + (art / 2.0 + float(placed["ox"])) * px_scale
-	var south_y: float = origin.y + (art + float(placed["oy"])) * px_scale
-	var at: Rect2 = Appearance.hang_rect(centre_x, south_y, texture.get_size() * px_scale)
+	var at: Rect2 = _placed_rect(placed, texture.get_size(), Appearance.blit_scale(float(camera["zoom"])))
 	_pen.draw_texture_rect(texture, _mirrored(at, bool(placed["flip"])), false)
 
 
