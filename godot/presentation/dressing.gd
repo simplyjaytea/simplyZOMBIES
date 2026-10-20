@@ -742,9 +742,10 @@ const SPACING_TILES: int = 3
 # One table in PAIR_ODDS stands alone; the rest stand with a second pushed against their east end, a
 # long table of two, wherever the tile east of them has room.
 const PAIR_ODDS: int = 4
-# A paired table's two halves sit this many art pixels west and east of their tiles' centre lines,
-# so two 40-pixel tables in neighbouring tiles meet edge to edge and never overlap.
-const PAIR_SHIFT: int = 4
+# A paired table's two halves sit this many art pixels west and east of their tiles' centre lines.
+# The pack's table is 34 opaque pixels wide (columns 3 to 36 of its 40-pixel canvas), so one pixel
+# each way butts the two tops edge to edge with no gap between them: a long table, not two.
+const PAIR_SHIFT: int = 1
 
 # The salts the placement rules hash on, one per decision.
 const SALT_CELL: int = 404
@@ -1377,6 +1378,8 @@ const SINGLE_SEATS: Array = [[Vector2i(0, -1), 0, 0], [Vector2i(1, 0), 1, 0], [V
 const PAIR_SEATS: Array = [[Vector2i(0, -1), 0, 0], [Vector2i(1, -1), 0, 1], [Vector2i(-1, 0), 3, 0], [Vector2i(2, 0), 1, 1]]
 # The most chairs one table takes.
 const SEATS_MAX: int = 3
+# One table in FULL_SET_ODDS that seats more than one takes SEATS_MAX chairs; the rest take two.
+const FULL_SET_ODDS: int = 4
 
 
 # Which of a table's `count` seats take a chair, as a mask: one to SEATS_MAX of them, as many by one
@@ -1387,7 +1390,11 @@ static func _seat_slots(seed_term: int, ax: int, ay: int, rarity: int, count: in
 	var most: int = mini(SEATS_MAX, count)
 	var taken: int = 1
 	if _mix(_hash_t(seed_term, ax, ay, SALT_SEAT)) % rarity != 0:
-		taken = 2 + _mix(_hash_t(seed_term, ax, ay, SALT_SEAT + 1)) % maxi(1, most - 1)
+		# Two chairs mostly; a full set in FULL_SET_ODDS, so neighbouring tables seldom wear the
+		# same cross of three.
+		taken = 2
+		if most > 2 and _mix(_hash_t(seed_term, ax, ay, SALT_SEAT + 1)) % FULL_SET_ODDS == 0:
+			taken = most
 	taken = mini(taken, most)
 	var start: int = _mix(_hash_t(seed_term, ax, ay, SALT_SEAT + 2)) % count
 	var step: int = 1 if count % 2 == 0 or _mix(_hash_t(seed_term, ax, ay, SALT_SEAT + 3)) % 2 == 0 else 2
@@ -1495,11 +1502,15 @@ static func _group_top(occ: Dictionary, map: Variant, tx: int, ty: int) -> Dicti
 		if bool(table[FE_INDOORS]) != indoors or (int(table[FE_MASK]) >> surface) & 1 == 0:
 			continue
 		if _anchor_in_cell(occ, map, table as Array, tx, ty) == Vector2i(tx, ty):
-			var off: Vector2i = _table_off(seed_term, tx, ty, _is_pair(occ, map, table as Array, tx, ty), 0)
-			return {"key": String(table[FE_KEY]), "rank": RANK_FLAT, "prio": 2, "ox": off.x, "oy": off.y, "flip": flip_at(seed_val, tx, ty, SALT_FLIP)}
+			var pair: bool = _is_pair(occ, map, table as Array, tx, ty)
+			var off: Vector2i = _table_off(seed_term, tx, ty, pair, 0)
+			var single: Dictionary = {"key": String(table[FE_KEY]), "rank": RANK_FLAT, "prio": 2, "ox": off.x, "oy": off.y, "flip": flip_at(seed_val, tx, ty, SALT_FLIP)}
+			if pair:
+				single["pair"] = Vector2i(tx, ty)
+			return single
 		if _anchor_in_cell(occ, map, table as Array, tx - 1, ty) == Vector2i(tx - 1, ty) and _is_pair(occ, map, table as Array, tx - 1, ty):
 			var east: Vector2i = _table_off(seed_term, tx - 1, ty, true, 1)
-			return {"key": String(table[FE_KEY]), "rank": RANK_FLAT, "prio": 2, "ox": east.x, "oy": east.y, "flip": flip_at(seed_val, tx - 1, ty, SALT_FLIP)}
+			return {"key": String(table[FE_KEY]), "rank": RANK_FLAT, "prio": 2, "ox": east.x, "oy": east.y, "flip": flip_at(seed_val, tx - 1, ty, SALT_FLIP), "pair": Vector2i(tx - 1, ty)}
 	for seat in entries:
 		if int(seat[FE_GROUP]) != GROUP_SEAT or bool(seat[FE_INDOORS]) != indoors or (int(seat[FE_MASK]) >> surface) & 1 == 0:
 			continue
@@ -1925,9 +1936,45 @@ static func _room_drops(occ: Dictionary, map: Variant, room: int) -> Dictionary:
 		if not _keeps_its_ring(w, idx, in_room, blocked) and not _one_walk(map, tiles, in_room, blocked):
 			blocked.erase(idx)
 			drops[idx] = true
+	# A table left with no chair of its own goes too: a lone table mid-floor reads as a mistake, and
+	# a set is one to SEATS_MAX chairs. Tables side by side are judged as one long table.
+	var seated: Dictionary = {}
+	for piece in pieces:
+		if piece[3] != null and not drops.has(int(piece[2])):
+			seated[(piece[3] as Vector2i).y * w + (piece[3] as Vector2i).x] = true
+	for piece in pieces:
+		var idx: int = int(piece[2])
+		if int(piece[0]) != 0 or drops.has(idx):
+			continue
+		var run: Array[int] = [idx]
+		var at: int = idx
+		while (at + 1) % w != 0 and _is_table_piece(pieces, drops, at + 1):
+			at += 1
+			run.append(at)
+		at = idx
+		while at % w != 0 and _is_table_piece(pieces, drops, at - 1):
+			at -= 1
+			run.append(at)
+		var any: bool = false
+		for t in run:
+			if seated.has(t):
+				any = true
+		if not any:
+			for t in run:
+				drops[t] = true
 	memo[room] = drops
 	occ["room_drops"] = memo
 	return drops
+
+
+# Whether tile `idx` holds a kept table among a room's judged pieces.
+static func _is_table_piece(pieces: Array, drops: Dictionary, idx: int) -> bool:
+	if drops.has(idx):
+		return false
+	for piece in pieces:
+		if int(piece[2]) == idx:
+			return int(piece[0]) == 0
+	return false
 
 
 # Whether taking tile `idx` (already in `blocked`) leaves its free side neighbours joined round the
@@ -2008,6 +2055,10 @@ static func _kept_alone(occ: Dictionary, map: Variant, tx: int, ty: int) -> Dict
 			var ny: int = ty + dy
 			var other: Dictionary = _raw_top(occ, map, nx, ny)
 			if other.is_empty() or not _beats(occ, other, nx, ny, top, tx, ty):
+				continue
+			# The two halves of one long table butt on their tops; their canvases' clear margins
+			# overlap, and that is not a meeting.
+			if top.has("pair") and other.get("pair", null) == top["pair"]:
 				continue
 			if _meet(rect, _top_rect(occ, other, nx, ny), Vector2i(dx, dy)):
 				return {}

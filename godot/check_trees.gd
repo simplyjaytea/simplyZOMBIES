@@ -155,6 +155,7 @@ func _run() -> void:
 	ok = _the_second_review_holds() and ok
 	ok = _the_old_street_stands() and ok
 	ok = _the_rooms_stay_walkable() and ok
+	ok = _the_tables_keep_a_chair() and ok
 	ok = _the_stock_stays_in_storage() and ok
 	ok = _the_litter_takes_its_shapes() and ok
 	ok = _dressing_is_never_sim_state() and ok
@@ -2440,6 +2441,7 @@ func _the_occupancy_holds() -> bool:
 	var meets_litter: int = 0
 	var kept_meets: int = 0
 	var old_meets: int = 0
+	var halves: int = 0
 	var kept_under_higher: int = 0
 	var kept_on_clear: int = 0
 	var scrap_on_held: int = 0
@@ -2486,7 +2488,16 @@ func _the_occupancy_holds() -> bool:
 					# Two pieces of the old street furniture that met where main drew them still meet:
 					# both stand where they stood (`kept`), which outranks the overlap rule.
 					var both_old: bool = kept.has("kept") and kept_near.has("kept")
-					if not kept_near.is_empty() and Dressing._meet(rect, Dressing._top_rect(occ, kept_near, nx, ny), shift):
+					# The two halves of one long table butt on their tops; only their canvases' clear
+					# margins overlap, and the LONG check below holds the tops edge to edge.
+					var one_table: bool = kept.has("pair") and kept_near.get("pair", null) == kept["pair"]
+					if one_table and dx == 1 and dy == 0:
+						halves += 1
+						var gap: int = _table_top_gap(occ, kept, tx, kept_near, nx)
+						if gap != 0:
+							push_error("LONG: the long table at %s leaves %d art pixels between its halves' tops; they butt at 0" % [str(Vector2i(tx, ty)), gap])
+							return false
+					if not kept_near.is_empty() and not one_table and Dressing._meet(rect, Dressing._top_rect(occ, kept_near, nx, ny), shift):
 						if both_old:
 							old_meets += 1
 						else:
@@ -2502,7 +2513,16 @@ func _the_occupancy_holds() -> bool:
 						var kept_near: Dictionary = Dressing._kept_top(occ, omap, tx + dx, ty + dy)
 						if not kept_near.is_empty() and Dressing._meet(scrap_rect, Dressing._top_rect(occ, kept_near, tx + dx, ty + dy), Vector2i(dx, dy)):
 							kept_meets += 1
-	print("OCCUPANCY raw meetings on the suburb: %d standing over flat, %d flat over nature, %d scraps over a picture; kept pictures that meet: %d; kept under a higher raw rank: %d; old street furniture meeting old street furniture where main drew it: %d" % [meets_standing_flat, meets_flat_nature, meets_litter, kept_meets, kept_under_higher, old_meets])
+	print("OCCUPANCY raw meetings on the suburb: %d standing over flat, %d flat over nature, %d scraps over a picture; kept pictures that meet: %d; kept under a higher raw rank: %d; old street furniture meeting old street furniture where main drew it: %d; long tables whose halves butt: %d" % [meets_standing_flat, meets_flat_nature, meets_litter, kept_meets, kept_under_higher, old_meets, halves])
+	if halves == 0:
+		push_error("LONG: no long table stands on the suburb; the butt is not judged")
+		return false
+	# TN: the old shift (four art pixels each way) leaves a gap the check sees.
+	var shifted: Dictionary = {"key": "prop_table", "ox": -4, "oy": 0}
+	var shifted_east: Dictionary = {"key": "prop_table", "ox": 4, "oy": 0}
+	if _table_top_gap(occ, shifted, 0, shifted_east, 1) == 0:
+		push_error("LONG: a pair shifted four pixels apart reads as butted; the check cannot fail")
+		return false
 	# The suburb's street junk is spaced along its rows and stands mostly on the paving, so flat over
 	# nature can miss this one map; a grass yard rolling both on every other tile is where that rule is
 	# proved, under the same kept checks.
@@ -3521,6 +3541,94 @@ func _the_rooms_stay_walkable() -> bool:
 		push_error("PASSAGE: _kept_top no longer asks _room_drops; the rule has lost its reader")
 		return false
 	print("PASSAGE_OK every room on %d maps keeps one walk round its furniture and its doorways clear (%d free tiles judged); without the rule %d rooms are cut on the first map that cuts any" % [maps.size(), judged, cut_without])
+	return true
+
+
+# --- SEATED: no table stands in a room without a chair of its own ------------------------------
+
+# Over a map's rooms: how many kept tables (a run of side-by-side tables counted once) have no kept
+# chair facing them, and how many tables were judged. North-wall counters are not grouped tables
+# (their `prio` is not 2) and are not judged.
+static func _chairless_tables(block: Dictionary, map: Variant, seed_val: int, keep: bool = true) -> Vector2i:
+	var occ: Dictionary = Dressing.occupancy(block, map, seed_val)
+	occ["keep_passages"] = keep
+	var w: int = int(map.w)
+	var tables: Dictionary = {}
+	var faced: Dictionary = {}
+	for ty in int(map.h):
+		for tx in w:
+			if Dressing._room_of(occ, map, tx, ty) < 0:
+				continue
+			var top: Dictionary = Dressing._kept_top(occ, map, tx, ty)
+			if top.is_empty():
+				continue
+			if int(top.get("prio", 0)) == 2:
+				tables[ty * w + tx] = true
+			elif top.get("table", null) != null:
+				var at: Vector2i = top["table"]
+				faced[at.y * w + at.x] = true
+	var chairless: int = 0
+	var judged: int = 0
+	for idx in tables:
+		if tables.has(int(idx) - 1) and int(idx) % w != 0:
+			continue
+		judged += 1
+		var at: int = int(idx)
+		var any: bool = false
+		while tables.has(at):
+			if faced.has(at):
+				any = true
+			at += 1
+			if at % w == 0:
+				break
+		if not any:
+			chairless += 1
+	return Vector2i(chairless, judged)
+
+
+# The art pixels between the opaque tops of a long table's halves on tiles (ax, y) and (ex, y): the
+# west half's last opaque column to the east half's first, 0 when they butt, negative when they overlap.
+static func _table_top_gap(occ: Dictionary, west: Dictionary, ax: int, east: Dictionary, ex: int) -> int:
+	var tex: Texture2D = Appearance.resolve("prop_table")
+	var used: Rect2i = tex.get_image().get_used_rect()
+	var size: Vector2i = (occ["sizes"] as Dictionary)["prop_table"]
+	var w_left: int = ax * Dressing.ART_PER_TILE + (Dressing.ART_PER_TILE >> 1) - (size.x >> 1) + int(west["ox"])
+	var e_left: int = ex * Dressing.ART_PER_TILE + (Dressing.ART_PER_TILE >> 1) - (size.x >> 1) + int(east["ox"])
+	var w_mirror: int = size.x - used.end.x if bool(west.get("flip", false)) else used.position.x
+	var e_mirror: int = size.x - used.end.x if bool(east.get("flip", false)) else used.position.x
+	return (e_left + e_mirror) - (w_left + w_mirror + used.size.x)
+
+
+func _the_tables_keep_a_chair() -> bool:
+	var tree: Dictionary = ContentLoader.load_tree()
+	var boot: Dictionary = SimBoot.playable(CANON_SEED, GATE_SIZE)
+	var block: Dictionary = Dressing.block_of(boot["world"])
+	var maps: Array = [["the boot map", boot["map"], int(boot["world"].seed)]]
+	for district_id in FURNISH_DISTRICTS:
+		maps.append([district_id, SimWorldgen.generate(CANON_SEED, GATE_SIZE, tree, district_id), CANON_SEED])
+	var judged: int = 0
+	for row in maps:
+		var got: Vector2i = _chairless_tables(block, row[1], int(row[2]))
+		if got.x != 0:
+			push_error("SEATED: %s keeps %d tables with no chair of their own" % [String(row[0]), got.x])
+			return false
+		judged += got.y
+	if judged == 0:
+		push_error("SEATED: no table stands on the judged maps; nothing to judge")
+		return false
+	# TN: without the room rules the same maps keep a table whose chairs were all refused.
+	var without: int = 0
+	for row in maps:
+		without += _chairless_tables(block, row[1], int(row[2]), false).x
+		if without > 0:
+			break
+	if without == 0:
+		push_error("SEATED: no table is chairless even without the rule; the rule is not proved")
+		return false
+	if not _function_body(DRESSING_GD, "_room_drops").contains("_is_table_piece(pieces, drops"):
+		push_error("SEATED: _room_drops no longer drops a chairless table; the rule has lost its reader")
+		return false
+	print("SEATED_OK %d tables on %d maps each keep a chair of their own; without the rule %d stand alone on the first map that has any" % [judged, maps.size(), without])
 	return true
 
 
