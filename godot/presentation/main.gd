@@ -135,6 +135,10 @@ var _legend: Control = null
 var _inventory_panel: Control = null
 var _work_panel: Control = null
 var _web_panel: Control = null
+# The shared navigation bar over Colony and Skills (ui/nav_bar.gd); the inventory sheet draws the
+# same bar into its own title strip. `_show_screen` is the one place any of the three opens.
+var _nav_bar: Control = null
+var _nav_wash: Control = null
 var _paperdoll: Control = null
 var _dashboard: Control = null
 var _settings: Control = null
@@ -546,6 +550,13 @@ func _ensure_ui() -> void:
 	if inv_script != null:
 		_inventory_panel = inv_script.new() as Control
 		layer.add_child(_inventory_panel)
+	# The dark field under Colony and Skills, before both in sibling order so it draws beneath them.
+	var nav_res: GDScript = load("res://ui/nav_bar.gd") as GDScript
+	if nav_res != null:
+		_nav_wash = (nav_res.get_script_constant_map()["Wash"] as GDScript).new() as Control
+		_nav_wash.name = "NavWash"
+		_nav_wash.visible = false
+		layer.add_child(_nav_wash)
 	var work_script: GDScript = load("res://ui/work_panel.gd") as GDScript
 	if work_script != null:
 		_work_panel = work_script.new() as Control
@@ -562,6 +573,17 @@ func _ensure_ui() -> void:
 		_web_panel.position = Vector2(300, 120)
 		_web_panel.size = Vector2(1040, 760)
 		layer.add_child(_web_panel)
+	# The navigation bar, after the two screens it heads so it draws over both, and sized to the
+	# bar alone so it never takes a click meant for the screen under it.
+	var nav_script: GDScript = load("res://ui/nav_bar.gd") as GDScript
+	if nav_script != null:
+		_nav_bar = nav_script.new() as Control
+		_nav_bar.name = "NavBar"
+		_nav_bar.visible = false
+		layer.add_child(_nav_bar)
+		_nav_bar.connect("navigate", _show_screen)
+	if _inventory_panel != null and _inventory_panel.has_signal("navigate"):
+		_inventory_panel.connect("navigate", _show_screen)
 	# paperdoll glimpse bottom-left (always visible, cheap); the HUD keys hint moved to the
 	# bottom-right corner to make this one free.
 	var doll_script: GDScript = load("res://ui/paperdoll.gd") as GDScript
@@ -681,6 +703,89 @@ func _set_web_open(open: bool) -> void:
 		_web_panel.call("set_world", world, _who())
 	if open and _legend != null:
 		_legend.visible = false
+	_sync_nav()
+
+
+func _set_work_open(open: bool) -> void:
+	work_open = open
+	if _work_panel != null:
+		_work_panel.visible = open
+		if open and _work_panel.has_method("set_world"):
+			_work_panel.call("set_world", world)
+	if open and _legend != null:
+		_legend.visible = false
+	_sync_nav()
+
+
+# The three screens about people, by the names the navigation bar gives them: "survivor" (Tab),
+# "colony" (J), "skills" (K), and "" for none -- the street. One is up at a time.
+func _screen() -> String:
+	if inventory_open:
+		return "survivor"
+	if web_open:
+		return "skills"
+	if work_open:
+		return "colony"
+	return ""
+
+
+# The one way any of the three opens or closes, by key (`input_map.gd`) or by a click on the bar:
+# whatever else is up goes away first, so switching from the sheet to the work grid is one press,
+# not a close and an open, and two of them are never up under each other.
+func _show_screen(screen: String) -> void:
+	if screen != "survivor" and inventory_open:
+		_set_inventory_open(false)
+	if screen != "colony" and work_open:
+		_set_work_open(false)
+	if screen != "skills" and web_open:
+		_set_web_open(false)
+	match screen:
+		"survivor":
+			if not inventory_open:
+				_set_inventory_open(true)
+		"colony":
+			if not work_open:
+				_set_work_open(true)
+		"skills":
+			if not web_open:
+				_set_web_open(true)
+	_sync_nav()
+
+
+# A screen's key: the screen in front puts itself away, any other comes forward.
+func _toggle_screen(screen: String) -> void:
+	_show_screen("" if _screen() == screen else screen)
+
+
+# Who the bar names, and whether the street's HUD shows under it. The HUD's two cards sit where the
+# bar does, so they go while any of the three screens is up -- the sheet always peeled them; the
+# work grid and the web used to draw over a HUD still lit beneath their own headers.
+func _sync_nav() -> void:
+	var up: String = _screen()
+	if _hud != null:
+		_hud.visible = _in_a_run() and up.is_empty()
+	if _inventory_panel != null and bool(_inventory_panel.get("strip_hidden")) != (up == "colony" or up == "skills"):
+		_inventory_panel.set("strip_hidden", up == "colony" or up == "skills")
+		_inventory_panel.queue_redraw()
+	if _nav_bar == null:
+		return
+	_nav_bar.visible = up == "colony" or up == "skills"
+	if _nav_wash != null:
+		_nav_wash.visible = _nav_bar.visible
+		_nav_wash.queue_redraw()
+	if not _nav_bar.visible or world == null:
+		return
+	var who: int = _who() if up == "skills" else -1
+	_nav_bar.call("show_for", up, _name_for(who), who == int(world.player))
+
+
+# A person's name for the bar: "" for nobody, and for a survivor the roster never named -- the bar's
+# "you" stamp says the rest.
+func _name_for(entity: int) -> String:
+	if world == null or entity < 0:
+		return ""
+	var ident: Variant = world.components.get_component(entity, "identity")
+	return String((ident as Dictionary).get("name", "")) if ident is Dictionary else ""
 
 
 func _set_inventory_open(open: bool) -> void:
@@ -697,6 +802,7 @@ func _set_inventory_open(open: bool) -> void:
 	# noise.
 	if _paperdoll != null:
 		_paperdoll.visible = not open
+	_sync_nav()
 
 
 # The right-click menu. `input_map.gd` has already asked `Pick.pick_at` and `SimContext.verbs_at`
@@ -822,7 +928,7 @@ func _enter_state(next: int) -> void:
 	# body's needs and wounds beside a menu, and over the run-over screen they would be a dead
 	# survivor's. `inventory_open` still peels them under an open sheet -- see _set_inventory_open.
 	if _hud != null:
-		_hud.visible = in_run and not inventory_open
+		_hud.visible = in_run and _screen().is_empty()
 	if _paperdoll != null:
 		_paperdoll.visible = in_run and not inventory_open
 	# The quick strip draws during ordinary play whether or not the sheet is open, which is the
@@ -1188,6 +1294,10 @@ func _update_hud() -> void:
 	# its own for either.
 	if _web_panel != null and _web_panel.visible and _web_panel.has_method("set_world"):
 		_web_panel.call("set_world", world, who)
+	# The bar's name follows the same selection, so the Skills page and its heading cannot name two
+	# different people.
+	if _nav_bar != null and _nav_bar.visible:
+		_sync_nav()
 	# Always refreshed, not only while open: pinned bag windows read the same view during
 	# ordinary play, and a stale pinned bag is a lie about what you are carrying.
 	# The transfer window, fed whether or not the sheet is open: a cupboard you are standing at is

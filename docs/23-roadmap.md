@@ -169,8 +169,15 @@ The old Field Kit implementation remains the current baseline until replaced sli
 The grid-plus-fast-list recommendation is now the owner's decision, and the inventory's own
 look is settled as the Salvage Locker (docs/30, "The inventory's look"; the record's "UI — the
 inventory, redone"), which lands the storage half of the first bullet below: the grids, the
-list, the transfer and the inspect pane's actions. The anatomical diagram, the viewed versus
-acting survivor and the rest of that bullet remain. The illustrative concept's wider treatment
+list, the transfer and the inspect pane's actions. Slice 1 (alpha A20, 2026-10-20; the
+record's "UI overhaul, slice 1") lands the bullet's navigation half: one bar over Survivor,
+Colony and Skills on Tab, J and K, the viewed survivor's name with a you or viewing stamp,
+Escape that puts away the one thing in front, the field HUD put away under all three, and a
+picked body region on the existing figure showing its condition and only the care the sim
+would accept. Still open in that bullet: the re-illustrated anatomy, the 1280×720
+section-and-drawer layout, and a viewed-versus-acting split inside the sheet beyond the bar's
+stamp. The Colony and Skills screens themselves are untouched until the second bullet, and at
+1280×720 the skill web still runs past the window's right and bottom edges. The illustrative concept's wider treatment
 is still open for feedback. Preserve existing grid capacity and pause behavior by default. The
 following order completes all existing UI, with a useful playable flow first:
 
@@ -2126,6 +2133,50 @@ What landed and what proved it, system by system (condensed from the retired bac
 links in the slice-scope table above are the authority on each). The open tails that used to end
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
+
+- **UI overhaul, slice 1: one bar, care on the figure, the field HUD in the locker, 2026-10-20
+  (alpha A20).** Taken from docs/32's own order: the first bullet of [the UI overhaul
+  group](#ui-overhaul), less the storage half #153 already landed. What changed, all under
+  `godot/ui/` and the two coordinator files:
+  - **One navigation bar** (`ui/nav_bar.gd`). Survivor, Colony and Skills are tabs with their keys
+    on them. Tab, J and K switch in one press and put the screen in front away. The bar names who
+    is being looked at, stamped "you", "viewing" or (on Colony) "everyone", and ends in the kit's
+    close glyph. The sheet draws the same bar in its own title strip. Over Colony and Skills the
+    bar stands alone above the locker's wash, and `main.gd`'s `_show_screen` keeps exactly one
+    screen up.
+  - **Escape and the HUD.** Escape puts away the one thing in front. On the sheet that is a drag,
+    then the item menu, then a picked part, then the sheet. Before, Escape on the sheet or the
+    work grid also raised the settings sheet over it. The field HUD and the belt strip are put
+    away under all three screens; the work grid and the web used to draw over a lit HUD.
+  - **Care on the figure** (`ui/care_pane.gd`). A click on a region of the existing figure picks
+    it: an amber ring on the figure, and the inspect slot shows the part's state words, wound
+    notes and a care row. The figure's hit test reads the same painted chart the figure draws.
+    The care row comes from `SimTreatment.options_for`, the dry run behind command validation:
+    an offered verb is a button that pushes `treat.begin`, a refused one says why in words (no
+    dressing on you, stop the bleeding first), and a running treatment offers only "stop"
+    (`treat.cancel`). No new treatment rule lives in the interface.
+  - **The field HUD's cards, tip and action bar wear the Salvage Locker** (steel, tape label,
+    rivets), so the street and the sheet are one kit. The action bar and the F1 legend name the
+    three screens as the bar does.
+
+  **Not changed:** the sim, the read models, the figure's art, the Colony and Skills screens' own
+  contents, the bans. **Evidence:** `godot:check:play`'s new NAV lane, in the real scene at
+  1280×720: a key walk round all three screens with one screen up, the HUD dark and the belt
+  strip put away under each. A click on the bar's free room does nothing, a tab click switches,
+  close goes to the street and the sheet's own Skills tab reaches Skills. Escape on Colony opens
+  no settings, and on the sheet with a part picked it puts the part down and stops there. The
+  street's swing stays refused under the two new focuses. `godot:check:inventory`'s new CARE
+  lane picks a cut arm at the figure's own point and offers exactly what `options_for` says
+  works, every refusal in words. A press on hold pressure queues the one `treat.begin`, a
+  dressing in the bag makes "dress it" offered, and Escape puts the part down. Its negative is a
+  part with no wound, which offers nothing. `check_ui_skin`'s GLYPHS lane now finds the close
+  glyph's reader in `nav_bar.gd`. `check_shots` gains the care and skills scenes (seven now),
+  set up at 1280×720. `godot:check:play`, `:inventory`, `:hud`, `:respond`, `:appearance`,
+  `:context`, `:web_look`, `:speech`, `:memory`, `:ui_skin`, `:shots`, `godot:ban:healthbar`,
+  `godot:smoke`, `godot:validate`, `check:routing` and `npm test` pass locally. Before and after
+  shots of all seven scenes at both windows are in the project's planning files under
+  ui-slice-1. **Not shown or proven:** a treatment run to its end from the pane, a colonist
+  treated from the pane, and the skill web's overflow at 1280×720, which is the second bullet's.
 
 - **UI — the inventory, redone (the Salvage Locker), 2026-10-19.** The owner's answer to the
   alpha plan's Q5: keep the grid, which reads like Tarkov's, but it "looks very plain" and has to

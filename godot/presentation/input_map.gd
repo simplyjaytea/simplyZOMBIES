@@ -125,12 +125,15 @@ const ALLOWED: Dictionary = {
 	"shell": ["move", "dismiss", "escape"],
 	"legend": ["legend", "escape", "dismiss"],
 	"settings": ["escape"],
-	"web": ["web", "escape", "legend"],
+	# The three screens about people share one navigation bar (ui/nav_bar.gd), so each one's row
+	# lets the other two's keys through: Tab, J and K switch between them in one press (main.gd's
+	# `_show_screen`), which is the bar's whole promise.
+	"web": ["web", "escape", "legend", "inventory", "work"],
 	# The bench is the sim's own screen -- `benchFocus` on the survivor opens it and
 	# `bench.close` shuts it -- so Escape is the only key that has anything to say to it.
 	"bench": ["escape"],
-	"sheet": ["inventory", "escape", "reload", "strip", "sheets", "legend"],
-	"work": ["work", "escape"],
+	"sheet": ["inventory", "escape", "reload", "strip", "sheets", "legend", "work", "web"],
+	"work": ["work", "escape", "inventory", "web"],
 }
 
 
@@ -278,24 +281,29 @@ func _input(event: InputEvent) -> void:
 					main.call("_close_settings")
 				elif main.world != null and main._inventory_panel != null and main._inventory_panel.has_method("loot_open") and bool(main._inventory_panel.call("loot_open")):
 					main.world.commands.push({"type": "container.close"})
+				elif focus == "sheet" and main._inventory_panel != null and main._inventory_panel.has_method("escape") and bool(main._inventory_panel.call("escape")):
+					# The sheet's own top interaction first -- a lifted item, an open word menu, a
+					# selected body part -- and only that: one press, one thing put down.
+					pass
+				elif focus == "sheet" or focus == "work":
+					# A screen about people goes back to the street. Escape used to fall through to the
+					# settings sheet here, which put a second screen over the first instead of closing it.
+					main._show_screen("")
 				elif focus == "street":
 					# Nothing open: the pause menu. Escape used to open the settings sheet from
 					# here, and settings is a row on that menu now (docs/30, "The alpha shell").
 					main.call("_pause_to_menu")
 				elif main._settings != null:
 					main._settings.visible = true
+			# The three screens about people, through the one door main.gd keeps for them: a key
+			# brings its screen forward from the street or from either of the other two, and puts
+			# it away when it is already in front.
 			KEY_TAB:
-				main._set_inventory_open(not main.inventory_open)
+				main._toggle_screen("survivor")
 			KEY_J:
-				main.work_open = not main.work_open
-				if main._work_panel != null:
-					main._work_panel.visible = main.work_open
-					if main.work_open and main._work_panel.has_method("set_world"):
-						main._work_panel.call("set_world", main.world)
+				main._toggle_screen("colony")
 			KEY_K:
-				# Tab owns the screen while the sheet is up, the same rule the R arm keeps.
-				if not main.inventory_open:
-					main._set_web_open(not main.web_open)
+				main._toggle_screen("skills")
 			KEY_SPACE:
 				if main.world != null: main.world.commands.push({"type": "shout"})
 			KEY_F:

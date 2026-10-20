@@ -37,6 +37,11 @@ extends SceneTree
 #   ROUNDTRIP  F5 writes a save F9 restores; a corrupt slot leaves the world untouched
 #   CAMP-KEY   C is the camp key and only the camp key; Ctrl+C is the stance and only the stance
 #   FOCUS      an open sheet swallows the street's keys, and the body stops at the panel
+#   NAV        one navigation bar over Survivor, Colony and Skills: Tab, J and K switch between them
+#              in one press and put the one in front away; a click on a tab does the same and a
+#              click on the bar's free room does nothing; Escape closes a screen about people
+#              rather than opening settings over it, and on the sheet it puts a picked part down
+#              before it closes anything; the street's HUD is never lit under any of the three
 #   PAUSE      Escape on the street pauses to the menu and gives the street back
 #   NOTICE     a save this build cannot read leaves the run alone and says one fixed sentence
 #   HINT       a first-day hint is offered on the street, a click on its card clears it, and the
@@ -185,6 +190,8 @@ func _run() -> void:
 	ok = _c_is_the_camp_key_and_ctrl_c_is_the_stance(main) and ok
 	var focus_ok: bool = await _the_open_sheet_swallows_the_street(main)
 	ok = focus_ok and ok
+	var nav_ok: bool = await _one_bar_reaches_all_three_screens(main)
+	ok = nav_ok and ok
 	var pause_ok: bool = await _escape_pauses_to_the_menu(main)
 	ok = pause_ok and ok
 	var notice_ok: bool = await _a_refused_save_says_one_sentence(main)
@@ -942,6 +949,142 @@ func _c_is_the_camp_key_and_ctrl_c_is_the_stance(main: Node) -> bool:
 #
 # The table is proved on fabricated arguments first. An `ALLOWED` that answered true to
 # everything would pass every press below, which is a gate that cannot fail.
+# --- NAV ----------------------------------------------------------------------------------------
+
+# The shared navigation frame of the UI overhaul's first slice (docs/32, "Navigation and layout").
+# Driven the way a player drives it: real key presses and real clicks through the viewport, and the
+# answer read off main.gd's own flags and the bar's own visibility.
+func _one_bar_reaches_all_three_screens(main: Node) -> bool:
+	var nav: Control = main.get("_nav_bar") as Control
+	var hud: Control = main.get("_hud") as Control
+	var sheet: Control = main.get("_inventory_panel") as Control
+	if nav == null or hud == null or sheet == null or main.get("_work_panel") == null or main.get("_web_panel") == null:
+		return _skip("NAV", "the scene built no navigation bar, HUD or one of the three screens")
+	var NavBar: GDScript = load("res://ui/nav_bar.gd") as GDScript
+	# The headless window is tiny; the clicks below want the smallest window the game ships at, where
+	# the bar is in its compact form and every tab still has to fit.
+	var old_size: Vector2i = root.size
+	root.size = Vector2i(1280, 720)
+	main.call("_show_screen", "")
+	await process_frame
+	var ok: bool = true
+	# Keys: a walk round all three and back to the street.
+	var walk: Array = [
+		[KEY_TAB, "survivor"], [KEY_J, "colony"], [KEY_K, "skills"], [KEY_TAB, "survivor"],
+		[KEY_K, "skills"], [KEY_J, "colony"], [KEY_J, ""],
+	]
+	for step in walk:
+		_tap(step[0] as Key)
+		await process_frame
+		var want: String = String(step[1])
+		var up: String = String(main.call("_screen"))
+		var open: int = int(bool(main.get("inventory_open"))) + int(bool(main.get("work_open"))) + int(bool(main.get("web_open")))
+		if up != want or open != (0 if want.is_empty() else 1):
+			push_error("NAV: %s left %s up (%d screens open), not %s" % [OS.get_keycode_string(step[0] as Key), up, open, want if not want.is_empty() else "the street"])
+			ok = false
+		if hud.visible != want.is_empty():
+			push_error("NAV: the HUD is %s with %s up" % ["lit" if hud.visible else "dark", want if not want.is_empty() else "the street"])
+			ok = false
+		var bar_up: bool = want == "colony" or want == "skills"
+		if nav.visible != bar_up or (bar_up and String(nav.get("screen")) != want):
+			push_error("NAV: the bar over %s is %s and names %s" % [want, "up" if nav.visible else "down", String(nav.get("screen"))])
+			ok = false
+		if bool(sheet.get("strip_hidden")) != bar_up:
+			push_error("NAV: the belt strip is %s with %s up" % ["put away" if bool(sheet.get("strip_hidden")) else "lit", want if not want.is_empty() else "the street"])
+			ok = false
+	# Escape on Colony goes to the street, and opens no settings sheet and no menu over it.
+	_tap(KEY_J)
+	await process_frame
+	_tap(KEY_ESCAPE)
+	await process_frame
+	var settings: Variant = main.get("_settings")
+	if not String(main.call("_screen")).is_empty() or (settings != null and bool((settings as CanvasItem).visible)) or bool((_shell_of(main) as CanvasItem).visible if _shell_of(main) != null else false):
+		push_error("NAV: Escape on Colony left %s up, settings %s" % [String(main.call("_screen")), str(settings != null and bool((settings as CanvasItem).visible))])
+		ok = false
+		if settings != null:
+			(settings as CanvasItem).visible = false
+	# Clicks on the bar over Skills: the Colony tab, then the free room (nothing), then close.
+	_tap(KEY_K)
+	await process_frame
+	var compact: bool = bool(NavBar.call("compact_for", root.get_visible_rect().size))
+	var laid: Dictionary = NavBar.call("layout", Rect2(Vector2.ZERO, nav.size), "skills", String(nav.get("subject_name")), bool(nav.get("subject_is_you")), compact) as Dictionary
+	var colony_at: Vector2 = Vector2(-1.0, -1.0)
+	for t in laid["tabs"] as Array:
+		if String((t as Dictionary)["screen"]) == "colony":
+			colony_at = nav.global_position + ((t as Dictionary)["rect"] as Rect2).get_center()
+	var free_at: Vector2 = nav.global_position + Vector2((float(laid["left"]) + float(laid["right"])) / 2.0, nav.size.y / 2.0)
+	_click_at(free_at)
+	await process_frame
+	if String(main.call("_screen")) != "skills":
+		push_error("NAV: a click on the bar's free room moved Skills to %s" % String(main.call("_screen")))
+		ok = false
+	_click_at(colony_at)
+	await process_frame
+	if String(main.call("_screen")) != "colony":
+		push_error("NAV: a click on the Colony tab over Skills left %s up" % String(main.call("_screen")))
+		ok = false
+	var laid2: Dictionary = NavBar.call("layout", Rect2(Vector2.ZERO, nav.size), "colony", "", false, compact) as Dictionary
+	_click_at(nav.global_position + (laid2["close"] as Rect2).get_center())
+	await process_frame
+	if not String(main.call("_screen")).is_empty():
+		push_error("NAV: a click on close over Colony left %s up" % String(main.call("_screen")))
+		ok = false
+	# The sheet draws the same bar in its own title strip: its Skills tab, then Escape's order.
+	_tap(KEY_TAB)
+	await process_frame
+	var on_sheet: Dictionary = sheet.call("_nav_layout") as Dictionary
+	for t in on_sheet["tabs"] as Array:
+		if String((t as Dictionary)["screen"]) == "skills":
+			_click_at(sheet.global_position + ((t as Dictionary)["rect"] as Rect2).get_center())
+	await process_frame
+	if String(main.call("_screen")) != "skills":
+		push_error("NAV: a click on the sheet's Skills tab left %s up" % String(main.call("_screen")))
+		ok = false
+	_tap(KEY_TAB)
+	await process_frame
+	sheet.set("_part", "head")
+	_tap(KEY_ESCAPE)
+	await process_frame
+	if not bool(main.get("inventory_open")) or not String(sheet.get("_part")).is_empty():
+		push_error("NAV: Escape on the sheet with a part picked did not put the part down and stop there")
+		ok = false
+	_tap(KEY_ESCAPE)
+	await process_frame
+	if bool(main.get("inventory_open")):
+		push_error("NAV: a second Escape did not close the sheet")
+		ok = false
+	if settings != null and bool((settings as CanvasItem).visible):
+		push_error("NAV: Escape on the sheet opened the settings sheet over it")
+		ok = false
+		(settings as CanvasItem).visible = false
+	# The street's keys stay refused under the two new screens, the focus table's own negative.
+	var router: Node = _router(main)
+	for focus in ["work", "web"]:
+		if bool(router.call("_allows", focus, "swing")):
+			push_error("NAV: the %s focus lets a swing through" % focus)
+			ok = false
+		for k in ["inventory", "work", "web"]:
+			if not bool(router.call("_allows", focus, k)):
+				push_error("NAV: the %s focus refuses %s, so the bar's key cannot switch from it" % [focus, k])
+				ok = false
+	main.call("_show_screen", "")
+	root.size = old_size
+	await process_frame
+	if ok:
+		print("NAV OK Tab, J and K switch between Survivor, Colony and Skills in one press and put the one in front away, with one screen up, the HUD dark under each and the belt strip put away under Colony and Skills; a tab click switches, the free room does nothing and close goes to the street; the sheet's own bar reaches Skills; Escape closes Colony without settings and on the sheet puts a picked part down first; the street's swing stays refused under both new screens")
+	return ok
+
+
+func _click_at(at: Vector2) -> void:
+	for pressed in [true, false]:
+		var mb := InputEventMouseButton.new()
+		mb.button_index = MOUSE_BUTTON_LEFT
+		mb.pressed = pressed
+		mb.position = at
+		mb.global_position = at
+		root.push_input(mb)
+
+
 func _the_open_sheet_swallows_the_street(main: Node) -> bool:
 	var router: Node = _router(main)
 	if router == null:

@@ -46,6 +46,8 @@ const DRAW_ORDER: Array[String] = [
 ]
 
 const BASE_FILL: Color = Color("#4d5546")
+# The picked part's ring: the Salvage Locker's amber, the one colour for "this is the thing".
+const SELECT_COL: Color = Color("#e2a33a")
 const ARMOUR_COL: Color = Color(0.55, 0.66, 0.78)
 const LABEL_H: float = 26.0
 
@@ -53,8 +55,14 @@ const LABEL_H: float = 26.0
 # chart inside its equipment columns even though it also draws at 2x.
 var drawing_offset: float = -76.0
 
+# The part picked on the survivor screen (inventory_panel.gd's `_part`), drawn ringed in amber and
+# lifted over its neighbours; "" for none. The corner glimpse never sets it.
+var selected_part: String = ""
+
 var _view: Dictionary = {}
 var _by_part: Dictionary = {}
+# Each chart texture's pixels, read once, for `part_at`.
+var _image_cache: Dictionary = {}
 var _mark_plan_cache: Dictionary = {}
 var _armour_mask_cache: Dictionary = {}
 
@@ -136,6 +144,57 @@ func _chart_mark_plan(texture: Texture2D) -> Dictionary:
 	return empty_plan
 
 
+# The part under `local` (this control's coordinates), front to back in the order the figure is
+# stacked, so a hand over a hip answers "hand". Read off the same chart pictures the figure is drawn
+# from, on their opaque pixels: the shape you click is the shape you see, and there is no second
+# table of hit boxes to drift from the art (docs/32: region shapes and hit regions share the same
+# authored coordinates). "" over the gaps between limbs and anywhere off the figure.
+func part_at(local: Vector2) -> String:
+	if _view.is_empty():
+		return ""
+	var rect: Rect2 = _chart_rect()
+	rect.position.y += drawing_offset if size.y < 400.0 else 0.0
+	if not rect.has_point(local):
+		return ""
+	var scale: float = rect.size.x / float(Appearance.CHART_CANVAS.x)
+	var px: Vector2i = Vector2i(floori((local.x - rect.position.x) / scale), floori((local.y - rect.position.y) / scale))
+	var pose: String = POSE_NAMES[_pose_for_stance(int(_view.get("stance", 2)))]
+	for i in range(DRAW_ORDER.size() - 1, -1, -1):
+		var part: String = DRAW_ORDER[i]
+		var texture: Texture2D = Appearance.resolve(Appearance.chart_key(part, pose))
+		if texture == null:
+			continue
+		var image: Image = _image_of(texture)
+		if image == null or px.x < 0 or px.y < 0 or px.x >= image.get_width() or px.y >= image.get_height():
+			continue
+		if image.get_pixelv(px).a > 0.5:
+			return part
+	return ""
+
+
+# Where a part sits on the figure, in this control's coordinates: the middle of its opaque pixels.
+# What a gate clicks to pick a part the way a player would, and nothing else reads it.
+func point_of(part: String) -> Vector2:
+	if _view.is_empty():
+		return Vector2(-1.0, -1.0)
+	var pose: String = POSE_NAMES[_pose_for_stance(int(_view.get("stance", 2)))]
+	var texture: Texture2D = Appearance.resolve(Appearance.chart_key(part, pose))
+	if texture == null:
+		return Vector2(-1.0, -1.0)
+	var rect: Rect2 = _chart_rect()
+	rect.position.y += drawing_offset if size.y < 400.0 else 0.0
+	var scale: float = rect.size.x / float(Appearance.CHART_CANVAS.x)
+	var plan: Dictionary = _chart_mark_plan(texture)
+	return rect.position + ((plan["center"] as Vector2) + Vector2(0.5, 0.5)) * scale
+
+
+func _image_of(texture: Texture2D) -> Image:
+	var key: int = texture.get_instance_id()
+	if not _image_cache.has(key):
+		_image_cache[key] = texture.get_image()
+	return _image_cache[key] as Image
+
+
 func _armor_offsets(_scale: float) -> Array[Vector2]:
 	# One screen pixel keeps the stroke visible without consuming the chart's native-pixel moat.
 	return [Vector2(-1.0, 0.0), Vector2(1.0, 0.0), Vector2(0.0, -1.0), Vector2(0.0, 1.0)]
@@ -208,6 +267,16 @@ func _draw() -> void:
 				"wounded": _flag(part, "wounded"),
 				"infected": _infected(part),
 			})
+
+	# The picked part last but for the marks: lifted over its neighbours and ringed in amber, two
+	# screen pixels out on its own silhouette -- the armour stroke's trick in the selection colour.
+	if not selected_part.is_empty() and DRAW_ORDER.has(selected_part):
+		var sel_tex: Texture2D = Appearance.resolve(Appearance.chart_key(selected_part, pose))
+		if sel_tex != null:
+			var ring: Texture2D = _armor_mask(sel_tex)
+			for step in [Vector2(-2.0, 0.0), Vector2(2.0, 0.0), Vector2(0.0, -2.0), Vector2(0.0, 2.0)]:
+				draw_texture_rect(ring, Rect2(rect.position + (step as Vector2), rect.size), false, SELECT_COL)
+			draw_texture_rect(sel_tex, rect, false, _tint_for(selected_part))
 
 	# The marks last, over every part, so a wound on a thigh is not painted over by the trunk.
 	var backing: Color = Color(0.05, 0.055, 0.06)

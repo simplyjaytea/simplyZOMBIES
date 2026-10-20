@@ -41,6 +41,12 @@ const QuickStrip = preload("res://ui/quick_strip.gd")
 const Motion = preload("res://ui/motion.gd")
 const ItemPicture = preload("res://ui/item_picture.gd")
 const Appearance = preload("res://presentation/appearance.gd")
+const NavBar = preload("res://ui/nav_bar.gd")
+const CarePane = preload("res://ui/care_pane.gd")
+
+# A tab on the navigation bar was clicked: the screen it names, or "" for the close control.
+# main.gd's `_show_screen` answers, the same door Tab, J and K go through.
+signal navigate(screen: String)
 
 # PartState 0..3 as words. Same four grades the paperdoll tints, never a number.
 const PART_STATE_WORDS: Array[String] = ["unhurt", "hurt", "badly hurt", "unusable"]
@@ -170,6 +176,13 @@ var _notice_ms: int = 0
 
 var _paperdoll: Control = null
 var _ghost: Control = null
+# The body part picked on the figure, "" for none: while it is set and no item is, the inspect pane
+# is the part's care pane (ui/care_pane.gd). Presentation state only, like `_selected`.
+var _part: String = ""
+# Set by main.gd while Colony or Skills is up: the strip is field HUD, and the field HUD is put away
+# under every screen about people, not left lit under their wash.
+var strip_hidden: bool = false
+
 # The bag column is drawn into its own clipped child rather than straight onto the sheet: a deep
 # loadout is taller than the screen, and without a clip the last bag paints over the quick strip.
 # Input stays with the sheet -- the child ignores the mouse -- so every rect in `_placed` is still
@@ -253,6 +266,9 @@ func _ready() -> void:
 	_paperdoll.custom_minimum_size = Vector2(DOLL_W, DOLL_H)
 	_paperdoll.size = Vector2(DOLL_W, DOLL_H)
 	_paperdoll.visible = false
+	# The figure is drawn by its own Control but clicked through the sheet: the sheet owns every
+	# press (`_press_at`) and asks the figure which part is under it (`_part_under`).
+	_paperdoll.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_paperdoll)
 	var loot := LootWindow.new()
 	loot.panel = self
@@ -310,6 +326,7 @@ func set_open(open: bool) -> void:
 		_cancel_drag()
 		_close_menu()
 		_notice = ""
+		_part = ""
 	if _paperdoll != null:
 		_paperdoll.visible = open
 	if _column_layer != null:
@@ -935,6 +952,33 @@ func _press_at(p: Vector2, ctrl: bool = false) -> void:
 				return
 		_close_menu()
 		return
+	# The navigation bar: a tab, or the close control. Through main.gd's one door, as a key would.
+	var asked: Variant = NavBar.hit(_nav_layout(), p)
+	if asked != null:
+		navigate.emit("" if String(asked) == "survivor" else String(asked))
+		return
+	# The care pane's buttons, while it is the pane on show: the command the sim already said it
+	# would take (`CarePane.view_for` dry-runs every verb through `SimTreatment.options_for`).
+	if _showing_part() and _inspect_rect().has_area():
+		var care: Dictionary = _care_view()
+		for b in CarePane.button_rects(_inspect_rect(), care):
+			if (b["rect"] as Rect2).has_point(p):
+				var command: Dictionary = CarePane.command_for(care, String(b["verb"]))
+				if not command.is_empty():
+					_world.commands.push(command)
+					if String(b["verb"]) != CarePane.STOP_VERB:
+						_say("%s: %s" % [String(care.get("label", "")), CarePane.word_of(String(b["verb"]))], false)
+				_redraw_columns()
+				return
+	# A part of the figure: the inspect slot becomes that part's condition and care. Before the
+	# slots and the grids, which never overlap the figure, and after the bar and the pane, which do
+	# not either -- so the order only matters for the empty-body press below that clears a pick.
+	var part: String = _part_under(p)
+	if not part.is_empty():
+		_part = part
+		_selected = -1
+		_redraw_columns()
+		return
 	# Then the clickable words, for work_panel.gd's reason: they sit inside the body panel the
 	# slot maths also covers, so whichever target is more specific has to win.
 	for h in _hit:
@@ -963,6 +1007,7 @@ func _press_at(p: Vector2, ctrl: bool = false) -> void:
 			var r: Dictionary = row["row"] as Dictionary
 			var d0: Dictionary = r["view"] as Dictionary
 			_selected = int(r["item"])
+			_part = ""
 			if ctrl:
 				_quick_move(_selected)
 				_redraw_columns()
@@ -982,6 +1027,7 @@ func _press_at(p: Vector2, ctrl: bool = false) -> void:
 			# and inventory.intake used to act on everybody's.
 			var id: int = int((it as Dictionary).get("item", -1))
 			_selected = id
+			_part = ""
 			_begin_drag(id, false, Vector2i(1, 1))
 			_world.commands.push({"type": "item.unequip", "slot": String(box["slot"]), "item": id})
 		return
@@ -990,6 +1036,7 @@ func _press_at(p: Vector2, ctrl: bool = false) -> void:
 	if found is Dictionary:
 		var d: Dictionary = found as Dictionary
 		_selected = int(d.get("item", -1))
+		_part = ""
 		if ctrl:
 			_quick_move(_selected)
 			_redraw_columns()
@@ -1002,7 +1049,27 @@ func _press_at(p: Vector2, ctrl: bool = false) -> void:
 		return
 	if _column_rect().has_point(p) or _body_rect().has_point(p):
 		_selected = -1
+		_part = ""
 	_redraw_columns()
+
+
+# The body part under `p` (sheet coordinates), off the figure's own pictures, or "". The figure is
+# placed first, so a press before the first frame lands on the same figure the frame will draw.
+func _part_under(p: Vector2) -> String:
+	if _paperdoll == null or not _open or not _body_rect().has_point(p):
+		return ""
+	_place_doll()
+	return String(_paperdoll.call("part_at", p - _paperdoll.position))
+
+
+# Where the figure stands in the body panel: centred, under the tape, at the sheet's size for it.
+func _place_doll() -> void:
+	var body: Rect2 = _body_rect()
+	var doll_size: Vector2 = Vector2(DOLL_W_COMPACT, DOLL_H_COMPACT) if _compact() else Vector2(DOLL_W, DOLL_H)
+	_paperdoll.custom_minimum_size = doll_size
+	_paperdoll.size = doll_size
+	_paperdoll.set("drawing_offset", 0.0)
+	_paperdoll.position = Vector2(roundf(body.get_center().x - doll_size.x / 2.0), body.position.y + Locker.HEAD_H + 8.0)
 
 
 func _release_at(p: Vector2) -> void:
@@ -1206,6 +1273,12 @@ func cursor_at(p: Vector2) -> int:
 	for h in _hit:
 		if (h["rect"] as Rect2).has_point(p):
 			return Input.CURSOR_POINTING_HAND
+	if NavBar.hit(_nav_layout(), p) != null or not _part_under(p).is_empty():
+		return Input.CURSOR_POINTING_HAND
+	if _showing_part():
+		for b in CarePane.button_rects(_inspect_rect(), _care_view()):
+			if (b["rect"] as Rect2).has_point(p):
+				return Input.CURSOR_POINTING_HAND
 	if _selected != -1:
 		for b in InspectPane.button_rects(_inspect_rect(), _pane_verbs()):
 			if (b["rect"] as Rect2).has_point(p):
@@ -1361,7 +1434,7 @@ func _draw() -> void:
 	# during play, and a number key spends one. Drawing it from the closed sheet is free -- this
 	# Control ignores the mouse while closed, so nothing here can eat a click meant for the world.
 	if not _open:
-		if _world != null and not _view.is_empty():
+		if _world != null and not _view.is_empty() and not strip_hidden:
 			QuickStrip.draw_strip(self, QuickStrip.rect_for(view, PAD, STRIP_H), SimInventory.quick_strip_view(_world, _actor), UiPrefs.opacity("inventory_opacity"), _selected, _ping_view(), _world)
 		return
 	draw_rect(Rect2(Vector2.ZERO, view), Locker.WASH)
@@ -1379,9 +1452,43 @@ func _draw() -> void:
 		_column_layer.queue_redraw()
 	_draw_list(font, alpha)
 	if _inspect_rect().has_area():
-		InspectPane.draw_pane(self, _inspect_rect(), _inspect_view(), alpha, _pane_verbs(), _world)
+		if _showing_part():
+			CarePane.draw_pane(self, _inspect_rect(), _care_view(), alpha)
+		else:
+			InspectPane.draw_pane(self, _inspect_rect(), _inspect_view(), alpha, _pane_verbs(), _world)
 	QuickStrip.draw_strip(self, QuickStrip.rect_for(view, PAD, STRIP_H), SimInventory.quick_strip_view(_world, _actor) if _world != null else [], alpha, _selected, _ping_view(), _world)
 	ItemMenu.draw_menu(self, _menu_at, _menu_verbs, alpha)
+
+
+# Whether the inspect slot is talking about a body part rather than an item: a part is picked and
+# no item has been picked since.
+func _showing_part() -> bool:
+	return _selected == -1 and not _part.is_empty()
+
+
+# The picked part as the care pane draws it: the player's hands on this sheet's survivor.
+func _care_view() -> Dictionary:
+	if _world == null or _part.is_empty():
+		return {}
+	return CarePane.view_for(_world, int(_world.player), _actor, _part)
+
+
+# Escape, asked by `input_map.gd` before it closes the sheet: put down the one thing in front -- a
+# lifted item, the word menu, a picked part -- and say so. False when there was nothing, and the
+# sheet itself is what goes.
+func escape() -> bool:
+	if _drag_item != -1:
+		_cancel_drag()
+		_redraw_columns()
+		return true
+	if _menu_item != -1:
+		_close_menu()
+		return true
+	if not _part.is_empty():
+		_part = ""
+		_redraw_columns()
+		return true
+	return false
 
 
 func _inspect_view() -> Dictionary:
@@ -1390,49 +1497,20 @@ func _inspect_view() -> Dictionary:
 	return SimInventory.inspect_view(_world, _actor, _selected)
 
 
-# Whose sheet this is, by name: "You" for the survivor you are, as the HUD says it.
-func _whose() -> String:
-	if _world == null or _actor < 0:
-		return ""
-	var ident: Variant = _world.components.get_component(_actor, "identity")
-	var name: String = String((ident as Dictionary).get("name", "")) if ident is Dictionary else ""
-	if _actor == int(_world.player):
-		return "you" if name.is_empty() else "%s · you" % name
-	return name
-
-
-# The title bar: the sheet's name stamped large, whose it is, then -- from the right -- the close
-# key, the hint line, and whatever notice is up.
+# The title bar is the shared navigation bar (ui/nav_bar.gd): the three tabs with Survivor lit, whose
+# sheet this is, and the close control at the far end. The sheet's own line -- a notice when one is
+# up, else the hint -- sits in the room the bar leaves between the two.
 func _draw_top(font: Font, alpha: float) -> void:
 	var top: Rect2 = _top_rect()
-	Locker.panel(self, top, alpha)
-	var title_size: int = TITLE_SIZE_COMPACT if _compact() else TITLE_SIZE
-	var base: float = floorf(top.position.y + (top.size.y - Chrome.line_height(title_size)) / 2.0 + Chrome.ascent(title_size))
-	var x: float = top.position.x + Locker.PX * 8.0
-	draw_string(font, Vector2(x, base), "INVENTORY", HORIZONTAL_ALIGNMENT_LEFT, -1, title_size, Locker.TEXT)
-	x += font.get_string_size("INVENTORY", HORIZONTAL_ALIGNMENT_LEFT, -1, title_size).x + Locker.PX * 8.0
+	var laid: Dictionary = NavBar.draw_bar(self, top, "survivor", _whose_name(), _is_you(), alpha, _compact())
+	var x: float = float(laid.get("left", top.position.x))
+	var right: float = float(laid.get("right", top.end.x))
 	var mid: float = top.position.y + top.size.y / 2.0
-	var small_base: float = floorf(mid - Chrome.line_height(Locker.LABEL_SIZE) / 2.0 + Chrome.ascent(Locker.LABEL_SIZE))
-	draw_string(font, Vector2(x, small_base), _whose(), HORIZONTAL_ALIGNMENT_LEFT, -1, Locker.LABEL_SIZE, Locker.TEXT_DIM)
-	x += font.get_string_size(_whose(), HORIZONTAL_ALIGNMENT_LEFT, -1, Locker.LABEL_SIZE).x + Locker.PX * 10.0
-	# From the right: Tab, the close glyph and its word.
-	var right: float = top.end.x - Locker.PX * 8.0
-	var word: String = "close"
-	var ww: float = font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, Locker.LABEL_SIZE).x
-	right -= ww
-	draw_string(font, Vector2(right, small_base), word, HORIZONTAL_ALIGNMENT_LEFT, -1, Locker.LABEL_SIZE, Locker.TEXT_DIM)
-	right -= Chrome.GLYPH_SMALL + Locker.PX * 3.0
-	Chrome.glyph(self, "close", Vector2(right, roundf(mid - Chrome.GLYPH_SMALL / 2.0)), true, alpha * 0.8)
-	var cap_h: float = maxf(Chrome.KEYCAP_MIN, float(HINT_SIZE) + 8.0)
-	var cap_w: float = maxf(cap_h, font.get_string_size("Tab", HORIZONTAL_ALIGNMENT_LEFT, -1, HINT_SIZE).x + 26.0)
-	right -= cap_w + Locker.PX * 3.0
-	Chrome.keycap(self, Vector2(right, roundf(mid - cap_h / 2.0)), "Tab", HINT_SIZE, alpha)
-	right -= Locker.PX * 10.0
 	# A notice, when one is up, takes the hint line's place: it is the thing to read right now.
 	var line: String = _notice
 	var col: Color = Locker.DANGER if _notice_bad else Locker.GOOD
 	if line.is_empty():
-		line = "drag to move · right-click for what you can do · ctrl-click sends · R turns it"
+		line = "drag to move · right-click for what you can do · ctrl-click sends · R turns it · click the body for care"
 		if _compact():
 			line = "drag · right-click · ctrl-click sends · R turns"
 		col = Locker.TEXT_FAINT
@@ -1442,6 +1520,25 @@ func _draw_top(font: Font, alpha: float) -> void:
 	draw_string(font, Vector2(right - lw, hint_base), fitted, HORIZONTAL_ALIGNMENT_LEFT, -1, HINT_SIZE, col)
 
 
+# The navigation bar as it stands this frame, for a click: `NavBar.layout`, the same placement the
+# draw used.
+func _nav_layout() -> Dictionary:
+	return NavBar.layout(_top_rect(), "survivor", _whose_name(), _is_you(), _compact())
+
+
+func _is_you() -> bool:
+	return _world == null or _actor == int(_world.player)
+
+
+# The sheet's survivor by name, as the bar shows it: "" where the roster gave none, and the bar's
+# stamp says whether it is you.
+func _whose_name() -> String:
+	if _world == null or _actor < 0:
+		return ""
+	var ident: Variant = _world.components.get_component(_actor, "identity")
+	return String((ident as Dictionary).get("name", "")) if ident is Dictionary else ""
+
+
 func _draw_body(font: Font, alpha: float) -> void:
 	var body: Rect2 = _body_rect()
 	Locker.panel(self, body, alpha)
@@ -1449,11 +1546,8 @@ func _draw_body(font: Font, alpha: float) -> void:
 	Chrome.glyph(self, "condition", Vector2(body.end.x - Chrome.GLYPH_SMALL - Locker.PX * 5.0, body.position.y + Locker.PX * 2.0 + floorf((Locker.TAPE_H - Chrome.GLYPH_SMALL) / 2.0)), true, alpha * 0.7)
 	# One screen (the owner's call, 2026-08-19): the doll carries injuries and armour, the slots
 	# flank it, and anything wrong with the body reads as prose below the figure.
-	var doll_size: Vector2 = Vector2(DOLL_W_COMPACT, DOLL_H_COMPACT) if _compact() else Vector2(DOLL_W, DOLL_H)
-	_paperdoll.custom_minimum_size = doll_size
-	_paperdoll.size = doll_size
-	_paperdoll.set("drawing_offset", 0.0)
-	_paperdoll.position = Vector2(roundf(body.get_center().x - doll_size.x / 2.0), body.position.y + Locker.HEAD_H + 8.0)
+	_place_doll()
+	_paperdoll.set("selected_part", _part if _showing_part() else "")
 	_paperdoll.visible = true
 	for box in _slot_boxes():
 		var rect: Rect2 = box["rect"] as Rect2

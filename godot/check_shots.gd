@@ -6,7 +6,7 @@ extends SceneTree
 # gate runs the same `review/scenes.gd` functions the driver runs and asks the world what it made.
 #
 # Lanes, each with a true positive and a true negative:
-#   NAMES     the five scenes and the two windows, by name -- a scene added to the driver has to be
+#   NAMES     the seven scenes and the two windows, by name -- a scene added to the driver has to be
 #             added here too
 #   UNKNOWN   a scene name nothing knows is refused by setup and by verify, not passed quietly
 #   SETUP     each scene boots, is set up, and the world says it is that scene
@@ -34,12 +34,12 @@ func _run() -> void:
 	await _negative()
 	await _pixels()
 	if _ok:
-		print("SHOTS_OK five scenes boot, set up and verify at 1280x720 and 1920x1080; %s" % _pixels_note)
+		print("SHOTS_OK seven scenes boot, set up and verify at 1280x720 and 1920x1080; %s" % _pixels_note)
 	quit(0 if _ok else 1)
 
 
 func _names() -> void:
-	if Scenes.NAMES != ["day_street", "interior", "night_lights", "combat", "inventory"]:
+	if Scenes.NAMES != ["day_street", "interior", "night_lights", "combat", "inventory", "care", "skills"]:
 		_fail("NAMES: the scene list is %s" % str(Scenes.NAMES))
 	var sizes: Array[Vector2i] = Scenes.SIZES
 	if not sizes.has(Vector2i(1280, 720)) or not sizes.has(Vector2i(1920, 1080)):
@@ -60,6 +60,9 @@ func _unknown() -> void:
 
 
 func _setup() -> void:
+	# At the smallest window the game ships at, not the headless default: the care scene clicks a
+	# part on the figure, and the sheet has no room to draw one in a 64-pixel window.
+	root.size = Vector2i(1280, 720)
 	for scene in Scenes.NAMES:
 		var main: Node = await Scenes.boot(self)
 		if main == null:
