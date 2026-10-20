@@ -566,6 +566,10 @@ projection are untouched.
   godot:check:decals` → `DECALS_OK`). The shell pile and the footprint stay in the report.
 - **Remembered marks** (after alpha). A remembered tile shows the decals it held when the player
   last saw it, dimmed with the ground, from a per-tile memory; today marks show only in sight.
+- **The glimpse disc on the art grid** (after alpha). A body seen only at the edge of the eye, or
+  remembered with no picture, draws an anonymous disc centred on its unsnapped screen point
+  (`main.gd`'s Peripheral branch and `_draw_afterimages`), so it sits up to one screen pixel off
+  the 2 × 2 art grid that every picture and mark keeps; snap its centre and radius to the grid.
 - ~~**The cars are the pack's, east-west.**~~ — **landed** 2026-09-26, see the record
   (`npm run godot:check:wrecks` → the new PACK lane and SILHOUETTE at the pack's rows;
   `npm run godot:m2:vehicles` → DRIVE's per-axis turn).
@@ -3332,11 +3336,14 @@ not a to-do list:
   exact pack blood colours, and the rest sit under the translucent edges of bodies and props.
   The pack's body art is not fully opaque (most of its pixels are alpha 252 to 254), so a mark
   under a body shifts the body's own pixels by one or two levels; that is the body art's, not
-  the mark's. Split against two more renders with every body moved off the map, 3,078 mark pixels
-  have something drawn over them and 2,756 of those move two levels or less; the 322 that move
+  the mark's. Split against two more renders with every body moved off the map, 2,698 mark pixels
+  have something drawn over them and 2,400 of those move two levels or less; the 298 that move
   more sit under covers that are see-through by design: the 35% contact shadow, a glimpse disc,
-  facing lines, the aim cone, and the soft rim of the pack's corpse art (about one pixel in eight
-  of a `corpse_*` picture is below alpha 230), which moves by 19 at most.
+  facing lines, the aim cone, the soft rim of the pack's corpse art (about one pixel in eight of a
+  `corpse_*` picture is below alpha 230) and a partly clear outline pixel in the barrier prop. The
+  nearly clear covers move the most, up to 90 levels: art QA measured 53 on a corpse's rim and 48
+  on the barrier's outline pixel at about 26% alpha. Every pixel the marks change is one a cover
+  lets through; none is a mark drawn over a body or a prop.
   **Measured**, with a throwaway driver built on the frame bench's harness and
   deleted afterwards, on this container's llvmpipe at 1280 × 720 with every visible chunk full (850
   marks placed, 365 kept, 337 tile runs drawn): the per-mark draw this slice first had cost 1.67 ms
