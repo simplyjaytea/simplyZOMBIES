@@ -1897,6 +1897,10 @@ func _keycaps_tail(body: String) -> String:
 		var line: String = String(raw).strip_edges()
 		if line.begins_with("var keys: String = \"") and line.ends_with("\""):
 			return line.substr(line.find("\"") + 1, line.length() - line.find("\"") - 2)
+		# The hint named once as a constant, which check_hud's BAR lane also measures: read it from
+		# the script itself, so the line drawn and the line judged are still the one string.
+		if line == "var keys: String = HINT":
+			return String((load(KEYCAPS_HUD_GD) as GDScript).get_script_constant_map().get("HINT", ""))
 	return ""
 
 

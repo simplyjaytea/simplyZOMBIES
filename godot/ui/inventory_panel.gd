@@ -692,6 +692,13 @@ func _list_rect() -> Rect2:
 	if not right.has_area():
 		return Rect2()
 	var tall: float = roundf(right.size.y * LIST_SHARE / Locker.PX) * Locker.PX
+	# A picked part's care can need more than the inspect half: the list gives up rows to it, down to
+	# its header, the chips and a row, so every refusal reads instead of being cut off at 1280x720.
+	if _showing_part():
+		var need: float = CarePane.height_for(_care_view(), right.size.x - CarePane.PAD * 2.0)
+		var floor_h: float = Locker.HEAD_H + LIST_ROW * 2.0
+		tall = maxf(floor_h, minf(tall, right.size.y - GAP - need))
+		tall = floorf(tall / Locker.PX) * Locker.PX
 	return Rect2(right.position, Vector2(right.size.x, tall))
 
 
@@ -1512,7 +1519,7 @@ func _draw_top(font: Font, alpha: float) -> void:
 	if line.is_empty():
 		line = "drag to move · right-click for what you can do · ctrl-click sends · R turns it · click the body for care"
 		if _compact():
-			line = "drag · right-click · ctrl-click sends · R turns"
+			line = "drag · right-click · click the body for care · ctrl-click sends · R turns"
 		col = Locker.TEXT_FAINT
 	var hint_base: float = floorf(mid - Chrome.line_height(HINT_SIZE) / 2.0 + Chrome.ascent(HINT_SIZE))
 	var fitted: String = UiText.fit(font, line, HINT_SIZE, maxf(0.0, right - x))
@@ -1542,7 +1549,7 @@ func _whose_name() -> String:
 func _draw_body(font: Font, alpha: float) -> void:
 	var body: Rect2 = _body_rect()
 	Locker.panel(self, body, alpha)
-	Locker.header(self, body, "survivor", alpha, "", Chrome.GLYPH_SMALL + Locker.PX * 3.0)
+	Locker.header(self, body, "worn", alpha, "", Chrome.GLYPH_SMALL + Locker.PX * 3.0)
 	Chrome.glyph(self, "condition", Vector2(body.end.x - Chrome.GLYPH_SMALL - Locker.PX * 5.0, body.position.y + Locker.PX * 2.0 + floorf((Locker.TAPE_H - Chrome.GLYPH_SMALL) / 2.0)), true, alpha * 0.7)
 	# One screen (the owner's call, 2026-08-19): the doll carries injuries and armour, the slots
 	# flank it, and anything wrong with the body reads as prose below the figure.

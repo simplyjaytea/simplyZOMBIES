@@ -135,8 +135,7 @@ static func draw_bar(ci: CanvasItem, rect: Rect2, active: String, who: String, i
 		ci.draw_string(font, laid["name_at"] as Vector2, String(laid["name"]), HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_TEXT, Locker._a(Locker.TEXT, alpha))
 	var stamp_rect: Rect2 = laid["stamp_rect"] as Rect2
 	if stamp_rect.has_area():
-		# Amber when the person on this page is not you: what you do here lands on them.
-		Locker.chip(ci, stamp_rect, String(laid["stamp"]), String(laid["stamp"]) == VIEWING_WORD, alpha)
+		_stamp(ci, stamp_rect, String(laid["stamp"]), alpha)
 	return laid
 
 
@@ -166,7 +165,7 @@ static func _draw_tab(ci: CanvasItem, r: Rect2, word: String, key: String, on: b
 	if on:
 		ci.draw_rect(r, Locker._a(Locker._shade(Locker.ACCENT, 0.3), alpha))
 		ci.draw_rect(Rect2(r.position + Vector2(p, p), Vector2(r.size.x - p * 2.0, p)), Locker._a(Locker._shade(Locker.ACCENT, 0.55), alpha))
-		ci.draw_rect(r, Locker._a(Locker.ACCENT, minf(1.0, alpha + 0.1)), false, p)
+		_rim(ci, r, Locker._a(Locker.ACCENT, minf(1.0, alpha + 0.1)))
 	else:
 		Locker.well(ci, r, alpha)
 	var text: String = word.to_upper()
@@ -177,6 +176,28 @@ static func _draw_tab(ci: CanvasItem, r: Rect2, word: String, key: String, on: b
 	x += font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, word_size).x + p * 3.0
 	var cap: Vector2 = cap_extent(key)
 	Chrome.keycap(ci, Vector2(x, roundf(mid - cap.y / 2.0)), key, CAP_TEXT, alpha if on else alpha * 0.7)
+
+
+# A one-art-pixel rim drawn inside `r`, never straddling its edge: an outlined draw_rect centres its
+# stroke on the edge, which put half of a two-pixel rim on an odd screen pixel.
+static func _rim(ci: CanvasItem, r: Rect2, col: Color) -> void:
+	var p: float = Locker.PX
+	ci.draw_rect(Rect2(r.position, Vector2(r.size.x, p)), col)
+	ci.draw_rect(Rect2(Vector2(r.position.x, r.end.y - p), Vector2(r.size.x, p)), col)
+	ci.draw_rect(Rect2(r.position + Vector2(0.0, p), Vector2(p, r.size.y - p * 2.0)), col)
+	ci.draw_rect(Rect2(Vector2(r.end.x - p, r.position.y + p), Vector2(p, r.size.y - p * 2.0)), col)
+
+
+# Whose page it is, as a label stuck on the bar: masking tape in its marker ink for "you" and
+# "everyone", and the same label in the amber of the lit tab for "viewing" -- the one that matters,
+# because what you do on that page lands on somebody else. Words carry it; the colour only agrees.
+static func _stamp(ci: CanvasItem, r: Rect2, word: String, alpha: float) -> void:
+	var p: float = Locker.PX
+	var face: Color = Locker.ACCENT if word == VIEWING_WORD else Locker.TAPE
+	var shade: Color = Locker._shade(Locker.ACCENT, 0.7) if word == VIEWING_WORD else Locker.TAPE_SHADE
+	ci.draw_rect(r, Locker._a(face, alpha))
+	ci.draw_rect(Rect2(Vector2(r.position.x, r.end.y - p), Vector2(r.size.x, p)), Locker._a(shade, alpha))
+	Locker.text_centred(ci, Rect2(r.position, r.size - Vector2(0.0, p)), word, Locker.SMALL_SIZE, Locker.TAPE_INK, alpha)
 
 
 # How big `Chrome.keycap` draws `label` at the bar's cap size: its own arithmetic, measured ahead

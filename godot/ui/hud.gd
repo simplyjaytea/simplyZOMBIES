@@ -70,7 +70,9 @@ const STRIP_CLEARANCE: float = 116.0
 # A card is a *minimum* width, not a fixed one. A chronicle line longer than the nominal box
 # would otherwise hang off the left edge of a right-aligned card, which is the one way a drawn
 # panel can look broken; `_draw_card` grows the box to whatever the widest line needs.
-const CARD_ALPHA: float = 0.86
+# The cards' steel, the tip's and the action bar's: near opaque, as on the sheet, so the street
+# does not ghost through the words.
+const STEEL_ALPHA: float = 0.96
 const YOU_CARD_W: float = 472.0
 const OUT_CARD_W: float = 496.0
 # Inner left/right gutter, and the skirt below the last line: clear of the kit frame's ten-pixel
@@ -83,6 +85,9 @@ const BAR_H: float = 56.0
 const BAR_GAP: float = 12.0       # between words and the separating dot
 const CAP_GAP: float = 8.0        # between a keycap and the words, or the second cap, after it
 const ACTION_SEP: String = " · "
+# The standing hint after the clauses. `godot:check:hud`'s BAR lane holds it to fit whole at 1280x720
+# beside the longest one-key clause the street offers, with the debug build's M raw on the end.
+const HINT: String = "F1 keys · Tab J K screens · P pause · - = speed · Esc menu · O overlay"
 
 # Worst-part states from condition.gd, as a sentence rather than a grade.
 const CONDITION_PROSE: Array[String] = ["", "hurt", "badly hurt", "barely standing"]
@@ -537,8 +542,8 @@ func _draw_hint(font: Font, view: Vector2) -> void:
 	var height: float = Locker.HEAD_H + LINE + CARD_PAD
 	var bar_top: float = view.y - MARGIN - STRIP_CLEARANCE - BAR_H
 	var rect := Rect2(Vector2(roundf((view.x - width) * 0.5), bar_top - BAR_GAP - height), Vector2(width, height))
-	Locker.panel(self, rect, CARD_ALPHA)
-	var y: float = Locker.header(self, rect, "tip", CARD_ALPHA) + FONT_SIZE + 2.0
+	Locker.panel(self, rect, STEEL_ALPHA)
+	var y: float = Locker.header(self, rect, "tip", STEEL_ALPHA) + FONT_SIZE + 2.0
 	draw_string(font, Vector2(rect.position.x + CARD_PAD, y), _onboarding_line, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, Palette.COLOURS["survivor"])
 	_hint_rect = rect
 
@@ -555,8 +560,8 @@ func _draw_card(font: Font, view: Vector2, lines: Array[String], label: String, 
 	var height: float = Locker.HEAD_H + lines.size() * LINE + CARD_PAD
 	var left: float = view.x - MARGIN - width if right else MARGIN
 	var rect := Rect2(Vector2(left, MARGIN), Vector2(width, height))
-	Locker.panel(self, rect, CARD_ALPHA)
-	var y: float = Locker.header(self, rect, label, CARD_ALPHA) + FONT_SIZE + 2.0
+	Locker.panel(self, rect, STEEL_ALPHA)
+	var y: float = Locker.header(self, rect, label, STEEL_ALPHA) + FONT_SIZE + 2.0
 	if right:
 		_draw_saved(font, rect)
 	for i in lines.size():
@@ -612,8 +617,9 @@ func _draw_busy(bar: Rect2) -> void:
 func _draw_action_bar(font: Font, view: Vector2) -> void:
 	# Digit-free, like every other line on this screen: the strip draws its own key names, and the
 	# speed keys are punctuation now rather than the number row (docs/30, "The inventory sheet").
-	# The three screens are named as the bar over them names them (docs/32, "Navigation and layout").
-	var keys: String = "F1 keys · Tab survivor · J colony · K skills · P pause · - = speed · Esc menu · O overlay"
+	# The three screens share one token: the bar over them names each (docs/32, "Navigation and
+	# layout"), and three tokens pushed a key off the end at 1280x720 with an E clause up.
+	var keys: String = HINT
 	# M is the developer's raw sheet, so the hint names it only where the key does something.
 	if OS.is_debug_build():
 		keys += " · M raw"
@@ -629,7 +635,7 @@ func _draw_action_bar(font: Font, view: Vector2) -> void:
 	var bar_w: float = minf(maxf(total + CARD_PAD * 2.0 + busy_room, BAR_W), view.x - MARGIN * 2.0)
 	var bar := Rect2(Vector2(roundf((view.x - bar_w) * 0.5), view.y - MARGIN - STRIP_CLEARANCE - BAR_H), Vector2(bar_w, BAR_H))
 	# No rivets: a strip this low has no corners to spare for them beside the caps.
-	Locker.panel(self, bar, CARD_ALPHA, false)
+	Locker.panel(self, bar, STEEL_ALPHA, false)
 	if _busy_frame >= 0:
 		_draw_busy(bar)
 	var x: float = roundf(bar.position.x + (bar.size.x - total) * 0.5)
