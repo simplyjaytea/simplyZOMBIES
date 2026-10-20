@@ -30,6 +30,7 @@ const SimWeather = preload("res://sim/modules/weather.gd")
 const SimCondition = preload("res://sim/condition.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
+const SimOrders = preload("res://sim/modules/orders.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
 const SimCamp = preload("res://sim/modules/camp.gd")
 const SimChronicle = preload("res://sim/modules/chronicle.gd")
@@ -194,6 +195,12 @@ func _self_lines(world: Variant, actor: int) -> Array[String]:
 	var needs: String = SimNeeds.hud_clause(world, actor, false)
 	if not needs.is_empty():
 		lines.append(needs)
+
+	# What a colonist you have ordered is doing for you, in the same third-person column as their
+	# needs. Empty for you and for any colonist without an order, so it only ever speaks of one.
+	var order: String = SimOrders.hud_clause(world, actor)
+	if not order.is_empty():
+		lines.append(order)
 
 	# How much it hurts -- which is the pain actually felt, not the damage carried. Somebody full
 	# of painkillers says less than their wounds warrant, which is docs/05's tactical option

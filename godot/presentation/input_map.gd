@@ -424,7 +424,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		if main.world != null and not main.inventory_open and _focus() == "street":
 			var mb2: InputEventMouseButton = event as InputEventMouseButton
 			var hit: Dictionary = Pick.pick_at(main.world, main.camera, mb2.position)
-			var rows: Array[Dictionary] = SimContext.verbs_at(main.world, int(main.world.player), hit)
+			# The colonist picked on the street, if any: their orders join the menu beside yours.
+			var rows: Array[Dictionary] = SimContext.verbs_at(main.world, int(main.world.player), hit, int(main._who()))
 			main._open_context_menu(mb2.position, hit, rows)
 		return
 	# Any left click that reaches here landed off the menu -- a click the menu's own `_gui_input`
