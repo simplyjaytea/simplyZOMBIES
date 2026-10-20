@@ -105,7 +105,7 @@ func _run() -> void:
 	await process_frame
 	if ok:
 		var skipped: String = "no lane skipped" if _skips.is_empty() else "skipped: %s" % ", ".join(PackedStringArray(_skips))
-		print("WORLD_BAKE_OK the ground, walls and roofs bake once per chunk and the mask shows only what the survivor sees; %s (%s)" % ["; ".join(PackedStringArray(_report)), skipped])
+		print("WORLD_BAKE_OK the ground, walls, roofs and flat dressing bake once per chunk and the mask shows only what the survivor sees; %s (%s)" % ["; ".join(PackedStringArray(_report)), skipped])
 		quit(0)
 	else:
 		push_error("WORLD_BAKE_FAIL")
@@ -200,6 +200,7 @@ func _mask_rule() -> bool:
 		var expect: Array = [
 			(state & L) != 0 and (state & A) == 0,
 			(state & L) != 0 and (state & A) != 0,
+			(state & L) != 0,
 			(state & E) != 0 and (state & L) == 0,
 			(state & R) != 0 and (state & E) == 0,
 			(state & R) != 0 and (state & E) != 0,
@@ -216,7 +217,7 @@ func _mask_rule() -> bool:
 	if _one_look(sabotaged):
 		push_error("MASK-RULE: the one-look check passed a rule table with LIVE's deny dropped")
 		return false
-	print("MASK-RULE OK shader bits and discard rule match world_layers.gd; five layers mean what they say; one ground look a tile")
+	print("MASK-RULE OK shader bits and discard rule match world_layers.gd; six layers mean what they say; one ground look a tile")
 	return true
 
 
