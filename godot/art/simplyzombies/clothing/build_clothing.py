@@ -281,10 +281,11 @@ class Canvas:
                 step = tone_of(f.cls[y][x], f.px[x, y])
                 # The skin's darkest tone under the torso is the shadow the head casts on the
                 # neck, two rows deep on the pack's views. A generated frame that draws it a row
-                # deeper would carry a dark bar across the cloth below the collar, so past those
-                # two rows it is read as shade.
+                # deeper would carry a dark bar across the cloth below the collar (leather's hard
+                # light took even a shade to near black), so past those two rows the cloth is
+                # read as lit like the rest of the back.
                 if step == DEEP and f.lab[y][x] == "T" and y >= f.torso_top + 2:
-                    step = SHADE
+                    step = BASE
                 raw[(x, y)] = LEVEL[step]
         for (x, y), level in raw.items():
             # How far down its own column of cloth this pixel sits: cloth darkens as it falls
@@ -821,9 +822,9 @@ def cell_of(suffix: str) -> tuple[int, int]:
 def build_all() -> dict[str, Image.Image]:
     """Every garment's every frame, keyed `<family>/<family>_<suffix>`.
 
-    The breath is not painted: it is the rest picture's garment raised at the very row the body's
-    breath raises (`build_motion.survivor_breath_cut`), so the clothes on a breathing body are its
-    standing clothes, pixel for pixel, a row higher. Painting it afresh shifted the colour of
+    The breath is not painted: it is the rest picture's garment put through the body's own breath
+    (`build_motion.survivor_breath`: the chest a row up, the hands planted), so the clothes on a
+    breathing body are its standing clothes, pixel for pixel. Painting it afresh shifted the colour of
     dozens of pixels between the two and the cloth shimmered as the body breathed."""
     frames = [Frame(suffix, source) for suffix, source in parts.frame_names() if not suffix.startswith("idle_")]
     out: dict[str, Image.Image] = {}
@@ -834,7 +835,7 @@ def build_all() -> dict[str, Image.Image]:
             if suffix.startswith("idle_"):
                 view = parts.view_of(suffix)
                 rest = out[f"{family}/{family}_{view}"]
-                out[f"{family}/{family}_{suffix}"] = build_motion.shift_above(rest, build_motion.survivor_breath_cut(view), -1)
+                out[f"{family}/{family}_{suffix}"] = build_motion.survivor_breath(rest, view)
     return out
 
 
