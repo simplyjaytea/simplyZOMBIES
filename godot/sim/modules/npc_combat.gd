@@ -17,6 +17,7 @@ extends RefCounted
 # chases is not a post, and `jobs.gd` stays the only thing that decides where a survivor stands.
 
 const SimAllegiance = preload("res://sim/modules/allegiance.gd")
+const SimAimRes = preload("res://sim/aim.gd")
 const SimMelee = preload("res://sim/modules/melee.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
@@ -350,6 +351,9 @@ static func _face_at(world: Variant, ent: int, x: float, y: float) -> void:
 		# so this assignment is the collapse `headingOf` does.
 		radians = 0.0
 	(facing as Dictionary)["radians"] = radians
+	# The aim turns with the body (sim/aim.gd): a proposal the player left behind never points the
+	# swing this turn is for.
+	SimAimRes.follow_facing(world.components, ent)
 
 
 # Firing at a body you remember rather than one you can see. docs/09: "allowed, and it is a

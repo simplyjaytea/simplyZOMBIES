@@ -1506,6 +1506,12 @@ const HELD_BEHIND: Dictionary = {
 	"primary": ["n"],
 	"secondary": ["e", "w", "n"],
 }
+# The views in which a weapon the body is *wielding* -- the item its live ranged or melee profile
+# was built from (`wielded_items`) -- comes round in front of it whichever hand holds it: seen from
+# either side it is raised across the chest toward the aim, so the far hand's sidearm you are firing
+# is no longer the half-hidden one. Seen from behind it is still beyond the body. A weapon carried
+# but not wielded keeps its hand's side (`HELD_BEHIND`).
+const WIELDED_OVER: Array[String] = ["e", "w"]
 
 
 # --- per-frame placement: the layer contract ------------------------------------------------
@@ -1649,10 +1655,67 @@ static func held_layer(key: String, slot: String, view: String, frame: String = 
 	var texture: Texture2D = resolve(key)
 	if texture == null:
 		return {}
-	var pose: Dictionary = held_pose(Vector2i(texture.get_size()), grip_of(key), frame_hand(frame, slot, view), view)
+	var hand: Vector2i = frame_hand(frame, slot, view)
+	var pose: Dictionary = held_pose(Vector2i(texture.get_size()), grip_of(key), hand, view)
 	pose["texture"] = texture
 	pose["over"] = not (HELD_BEHIND.get(slot, []) as Array).has(view)
+	# What `held_quad` turns the picture about, and which of the four placements it starts from.
+	pose["hand"] = hand
+	pose["view"] = view
 	return pose
+
+
+# --- the weapon turned to the aim -------------------------------------------------------------
+#
+# "Weapon aim" (alpha plan A9; the owner's 2026-10-19 answer to Q3: the cursor is the aimer, the
+# weapon points at it and the body follows, Project Zomboid's way). The body keeps its four views
+# and shows the one its aim falls in (`view_of`); the held weapon is placed for that view exactly as
+# `held_pose` places it -- grip on the hand, barrel the view's way, mirrored only facing west -- and
+# then turned about the hand by what is left over (`held_turn`, never more than an eighth of a turn
+# either way), so the barrel points along the aim itself rather than along the nearest axis. The
+# turn is the four corners of the painted picture rotated about the hand pixel's centre and drawn as
+# one textured polygon (`held_quad`): no transform, the entity loop still holds none.
+
+# The heading each view's placement points the barrel along, screen radians (y down).
+const VIEW_RADIANS: Dictionary = {"e": 0.0, "s": PI / 2.0, "w": PI, "n": -PI / 2.0}
+
+
+# What is left of an aim once its view has turned the weapon: the signed angle from the view's own
+# heading to `radians`. Within an eighth of a turn either way whenever `view` is `view_of(radians)`.
+static func held_turn(view: String, radians: float) -> float:
+	return angle_difference(float(VIEW_RADIANS.get(view, 0.0)), radians)
+
+
+# A held layer's picture as one polygon: `points` the four corners of its painted area in
+# body-canvas pixels, turned `turn` radians about the centre of the hand pixel and slid `slide`
+# body pixels along the turned barrel (the shot's kick, negative to push it back), and `uvs` the
+# picture's own corners in the same order. At no turn and no slide the corners are exactly the rect
+# `held_pose` paints, so the four placements check_worn's HELD lane holds every weapon to are
+# unchanged.
+static func held_quad(layer: Dictionary, tex_size: Vector2i, turn: float, slide: float = 0.0) -> Dictionary:
+	var w: float = float(tex_size.x)
+	var h: float = float(tex_size.y)
+	var at := Vector2(layer["at"] as Vector2i)
+	var view: String = String(layer.get("view", "e"))
+	var uvs := PackedVector2Array([Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)])
+	var pivot: Vector2 = Vector2(layer.get("hand", Vector2i.ZERO) as Vector2i) + Vector2(0.5, 0.5)
+	var barrel: Vector2 = Vector2.RIGHT.rotated(float(VIEW_RADIANS.get(view, 0.0)) + turn)
+	var points := PackedVector2Array()
+	for uv in uvs:
+		var u: float = uv.x * w
+		var v: float = uv.y * h
+		var painted: Vector2
+		match view:
+			"w":
+				painted = at + Vector2(w - u, v)
+			"s":
+				painted = at + Vector2(h - v, u)
+			"n":
+				painted = at + Vector2(v, w - u)
+			_:
+				painted = at + Vector2(u, v)
+		points.append(pivot + (painted - pivot).rotated(turn) + barrel * slide)
+	return {"points": points, "uvs": uvs}
 
 
 # The props that stand in a district, as component -> content id.
@@ -1869,6 +1932,7 @@ static func equipment_layers_for(world: Variant, actor: int, view: String = VIEW
 	if not (eq is Dictionary):
 		return out
 	var slots: Dictionary = (eq as Dictionary).get("slots", {}) as Dictionary
+	var wielded: Array[int] = wielded_items(world, actor)
 	for entry in EQUIP_DRAW_ORDER:
 		var slot: String = String(entry["slot"])
 		var block: Variant = _equip_block_for(world, slots.get(slot))
@@ -1898,8 +1962,22 @@ static func equipment_layers_for(world: Variant, actor: int, view: String = VIEW
 		elif holds(key):
 			var held: Dictionary = held_layer(key, slot, view, frame)
 			if not held.is_empty():
-				held["over"] = bool(held["over"]) and bool(entry["over"])
+				var raised: bool = WIELDED_OVER.has(view) and slots.get(slot) != null and wielded.has(int(slots[slot]))
+				held["over"] = (bool(held["over"]) or raised) and bool(entry["over"])
 				out.append(held)
+	return out
+
+
+# The items `actor` is wielding: the `source` its live `rangedWeapon` and `meleeWeapon` profiles were
+# built from (sim/modules/items.gd stamps it). Bare hands carry none, so they add nothing.
+static func wielded_items(world: Variant, actor: int) -> Array[int]:
+	var out: Array[int] = []
+	for component in ["rangedWeapon", "meleeWeapon"]:
+		var profile: Variant = world.components.get_component(actor, component)
+		if profile is Dictionary and (profile as Dictionary).get("source") != null:
+			var item: int = int((profile as Dictionary)["source"])
+			if item >= 0 and not out.has(item):
+				out.append(item)
 	return out
 
 
