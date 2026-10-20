@@ -2860,14 +2860,18 @@ not a to-do list:
   first cut) shortened the torso on the frames it lowered and the collar, found from the hips,
   rode over the chin, so the cut is under the hips and a walking frame's chest top is now found
   from its head; the west and north walks wear the rest view's head on every frame
-  (`same_head`; the generator had redrawn it each frame, a nod); a foot stands on the ground row
+  (`same_head`; the generator had redrawn it each frame, a nod), and so does the south, whose
+  trunk is held to the rest view's 19 rows from head top to belt (`trunk`; the generator drew it
+  a row short on three frames, so the torso squashed against the bob): south face rows 16, 17,
+  16, 15, 16, 17, 16, 15 and belt rows 30, 31, 30, 29, 30, 31, 30, 29, face to belt 14 on every
+  frame; a foot stands on the ground row
   on every frame; and ink on the silhouette's edge is the ring's own black (`outline_black`).
-  **Measured** (changed pixels per step, 0 to 1 through 7 to 0): south 311, 270, 320, 287, 210,
-  207, 334, 330; east 161, 302, 172, 218, 140, 274, 156, 309; north 277, 316, 316, 297, 306, 323,
-  293, 329; west 170, 314, 157, 267, 124, 301, 164, 338. The loop step is no longer the largest
-  in south and is 2, 2 and 8 percent over the next in east, north and west (it was 6, 13 and 20
-  before the art review); what remains is the generated legs' own pose spacing, which wants
-  drawn frames. The breath plants the hands and lifts the shoulders, so no hand stretches a row
+  **Measured** (changed pixels per step, 0 to 1 through 7 to 0): south 303, 302, 328, 294, 305,
+  291, 340, 352; east 161, 302, 172, 218, 140, 274, 156, 309; north 277, 316, 316, 297, 306, 323,
+  293, 329; west 170, 314, 157, 267, 124, 301, 164, 338. The loop step is 4, 2, 2 and 8 percent
+  over the next in south, east, north and west (it was 6, 13 and 20 percent in south, east and
+  west before the art review); what remains is the generated legs' own pose spacing, which
+  wants drawn frames. The breath plants the hands and lifts the shoulders, so no hand stretches a row
   on the inhale.
 
 - **Art & renderer — zombies turn, walk and fall, 2026-10-02.** Closes "A silhouette per

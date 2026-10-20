@@ -421,12 +421,27 @@ def retime_bob(cell, top):
     return cell
 
 
-# The views whose generated walk redrew the head on every frame (the west face 38, 38, 22, 29, 37,
-# 38, 34, 30 skin pixels; the north's ears and nape 22, 11, 11, 11, 11, 11, 24, 24): it read as a
-# nod or a shimmer. Their walk wears the rest view's head on every frame, moved only by the bob.
+# The views whose generated walk redrew the head on some frames (the west face 38, 38, 22, 29, 37,
+# 38, 34, 30 skin pixels; the north's ears and nape 22, 11, 11, 11, 11, 11, 24, 24; the south's
+# crown a row lower on frame 5): it read as a nod or a shimmer. Their walk wears the rest view's head on every frame, moved only by the bob.
 # Rows from the top of the head down to the chin.
-SAME_HEAD = ("w", "n")
+SAME_HEAD = ("s", "w", "n")
 HEAD_ROWS = 11
+# The south walk's trunk, head top to belt, on every frame: the rest view's 19 rows. The generator
+# drew it a row short on three of the eight (18), so the torso squashed and stretched against the
+# bob and the second down-beat read as the crown alone dropping.
+SOUTH_TRUNK = 19
+
+
+def trunk(cell, rows):
+    """Stretches or shortens the torso so the head's top sits `rows` above the underwear's top,
+    a row at a time at mid-chest (the upper arm grows or shrinks with it; the hands, the hips and
+    the legs stay)."""
+    while True:
+        top, belt = rows_of(cell)[0], shorts_band(cell)[0]
+        if belt - top == rows:
+            return cell
+        cell = shift_above(cell, belt - 4, -1 if belt - top < rows else 1)
 
 
 def same_head(cell, rest):
@@ -499,12 +514,16 @@ def survivor(build):
             cell = strip.crop((x0, INPUT_AT[1], x0 + SURVIVOR_CANVAS[0], INPUT_AT[1] + SURVIVOR_CANVAS[1]))
             cells.append(ground(drop_specks(binary(cell)), 0))
         cells = restore_shorts(cells, rest.crop((0, 0) + SURVIVOR_CANVAS))
-        cells = [outline_black(drop_hip_seams(close_outline(c))) for c in cells]
+        cells = [drop_hip_seams(close_outline(c)) for c in cells]
         rest_cell = rest.crop((0, 0) + SURVIVOR_CANVAS)
         cells = [recentre(c, rest_cell) for c in cells]
         if view in SAME_HEAD:
             cells = [same_head(c, rest_cell) for c in cells]
+        if view == "s":
+            cells = [trunk(c, SOUTH_TRUNK) for c in cells]
         cells = [retime_bob(c, top) for c, top in zip(cells, SURVIVOR_BOB[view])]
+        # Last, once every move is made: a pixel a move left on the silhouette's edge is ringed too.
+        cells = [outline_black(c) for c in cells]
         for n, cell in enumerate(cells):
             rel = f"textures/characters/motion/survivor_walk_{view}_{n:02d}.png"
             build.put(PACK / rel, cell)
