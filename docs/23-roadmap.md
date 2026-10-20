@@ -2151,6 +2151,15 @@ not a to-do list:
   snapshot before `world.step()`, the clamp before the loop, the camera after it, riders,
   vehicles and facing.
 
+- **UI — first-day hints, 2026-10-19 (alpha A21, from the alpha plan, not an M2 piece).** The
+  first time a container is in reach, a wound is open, a zombie has been seen or night falls, the
+  HUD speaks one digit-free sentence in a "tip" card above the action bar. `presentation/onboarding.gd`
+  picks the due hint from the sim's read models (`SimContainers.hud_clause`, the injuries component,
+  `SimSightings.remembered`, the clock) and marks it seen when offered; the seen set rides the save
+  beside the snapshot and comes back on load. A click on the card clears it and stops there; the
+  hint is offered only while the street is playing. **Gated** by `godot:check:hud`'s ONBOARD and
+  HINT-CARD lanes and `godot:check:play`'s HINT lane (a real click through the engine's dispatch, and
+  the seen mark round-tripped through F5 and F9).
 - **UI — the sheet and Work grid fit the reviewed viewports, 2026-10-03.** At 1280×720,
   inventory now separates its equipment, native 56-pixel bag cells and inspect pane, keeping
   all seven frame-pack columns reachable. The compact sheet uses the condition chart at integer
