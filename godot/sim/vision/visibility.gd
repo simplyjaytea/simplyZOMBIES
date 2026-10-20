@@ -36,15 +36,30 @@ static var DEAD_KEEP_VIEW: bool = true
 ## the longest-waiting first. Their cast is the district's widest (48 m by day, ~7,000 cells, up to
 ## 6.5 ms of GDScript), and two of them crossing a tile on one tick was a 15 ms visibility step
 ## (A3's eighth slice). Until it lands they keep the view they had, a tile or two behind them --
-## the approximation the dead already live with. The player and the dead cast whole and at once,
-## as they always have. STAGGER_PERSON_CASTS is the gate-drivable switch back to the old rule; a
-## lane that pins it must restore it.
+## the approximation the dead already live with. The dead cast whole and at once, as they always
+## have. STAGGER_PERSON_CASTS is the gate-drivable switch back to the old rule; a lane that pins it
+## must restore it. One quadrant a tick since the eleventh slice: two of an open-ground cast were
+## up to 2.8 ms on a tick that might also hold the player's, and a colonist re-queues only every
+## two tiles, so the queue still drains.
 const PERSON_RECAST_TILES: int = 2
-const PERSON_QUADRANTS_PER_TICK: int = 2
+const PERSON_QUADRANTS_PER_TICK: int = 1
 static var STAGGER_PERSON_CASTS: bool = true
 ## Quadrants cast through that queue, and the most ticks any one person's cast took to land.
 var quadrants_spread: int = 0
 var longest_wait: int = 0
+
+## The player's own cast, spread too since A3's eleventh slice, but only over two ticks: it still
+## recasts on every tile it crosses, two quadrants on the tick it does and the other two on the
+## next, landing whole there, so the view the screen cuts roofs and pools light from is one tick
+## (50 ms) behind the step instead of current. It was the one whole 48 m cast left, about 3.5 ms on
+## the tick the player crossed a tile. The first cast is whole, as a person's is. Its own budget,
+## not the people's, so a colonist's queue can never hold the player's view back.
+## STAGGER_PLAYER_CAST is the gate-drivable switch back to the whole cast; a lane that pins it must
+## restore it.
+const PLAYER_QUADRANTS_PER_TICK: int = 2
+static var STAGGER_PLAYER_CAST: bool = true
+## Quadrants cast for the player that way.
+var player_quadrants: int = 0
 
 ## Daylight eyes — 48 m, 60° focal, 190° total FoV. Port of DAYLIGHT_EYES.
 static func daylight_eyes() -> Dictionary:
@@ -101,6 +116,7 @@ func refresh(world: Variant, map: Variant, sight_mul: float = 1.0) -> void:
 	var now: int = _tick_of(world)
 	var ambient_k: float = Clock.ambient_light_at(now)
 	var queue: Array = []
+	var player_queue: Array = []
 	var light_index: Variant = _light_index(world)
 	var rest: Dictionary = resting
 	resting = {}
@@ -197,14 +213,16 @@ func refresh(world: Variant, map: Variant, sight_mul: float = 1.0) -> void:
 				stale = true
 		# A person who is not the player, and who has a view already: a view never cast is not a
 		# tile behind but blind, so it is cast whole like the player's.
-		var spread: bool = STAGGER_PERSON_CASTS and not lit_target and cast_tiles >= 0 and not controlled.has(entity)
-		if spread:
-			if vd.get("pending") == null and (stale or moved >= PERSON_RECAST_TILES):
+		var is_player: bool = controlled.has(entity)
+		var spread: bool = STAGGER_PERSON_CASTS and not lit_target and cast_tiles >= 0 and not is_player
+		var player_spread: bool = STAGGER_PLAYER_CAST and not lit_target and cast_tiles >= 0 and is_player
+		if spread or player_spread:
+			if vd.get("pending") == null and (stale or (moved >= PERSON_RECAST_TILES if spread else moved > 0)):
 				if vd.get("back") == null:
 					vd["back"] = Shadowcast.VisibleTiles.new()
 				vd["pending"] = [now, int(entity), tile_x, tile_y, range_tiles, eye, gen, Shadowcast.Quadrant.North]
 			if vd.get("pending") != null:
-				queue.append(vd["pending"])
+				(queue if spread else player_queue).append(vd["pending"])
 		elif stale or (moved >= ZOMBIE_RECAST_TILES if lit_target else moved > 0):
 			Shadowcast.shadowcast(map, tile_x, tile_y, range_tiles, vd["tiles"] as Shadowcast.VisibleTiles, eye)
 			vd["pending"] = null
@@ -235,7 +253,19 @@ func refresh(world: Variant, map: Variant, sight_mul: float = 1.0) -> void:
 	# tile_y, range_tiles, eye, gen, next quadrant], cast into the view's back buffer and swapped
 	# in whole once its fourth quadrant lands -- `tiles_for` never hands out half a circle.
 	queue.sort_custom(func(a: Array, b: Array) -> bool: return int(a[0]) < int(b[0]) or (int(a[0]) == int(b[0]) and int(a[1]) < int(b[1])))
-	var budget: int = PERSON_QUADRANTS_PER_TICK
+	quadrants_spread += _spend(map, queue, PERSON_QUADRANTS_PER_TICK, now, true)
+	player_quadrants += _spend(map, player_queue, PLAYER_QUADRANTS_PER_TICK, now, false)
+
+	for entity in _views.keys():
+		if not seen.has(entity):
+			_views.erase(entity)
+
+
+# Cast `budget` quadrants of the pending casts in `queue`, in order, into each view's back buffer,
+# swapping a view in whole once its fourth lands. Returns the quadrants cast. `people` is whether
+# this is the people's queue, whose waits `longest_wait` reports.
+func _spend(map: Variant, queue: Array, budget: int, now: int, people: bool) -> int:
+	var spent: int = 0
 	for pend in queue:
 		if budget <= 0:
 			break
@@ -244,7 +274,7 @@ func refresh(world: Variant, map: Variant, sight_mul: float = 1.0) -> void:
 		var last: int = mini(int(Shadowcast.Quadrant.West), q + budget - 1)
 		Shadowcast.shadowcast(map, int(pend[2]), int(pend[3]), int(pend[4]), pd["back"] as Shadowcast.VisibleTiles, int(pend[5]), q, last)
 		budget -= last - q + 1
-		quadrants_spread += last - q + 1
+		spent += last - q + 1
 		if last < int(Shadowcast.Quadrant.West):
 			pend[7] = last + 1
 			continue
@@ -252,12 +282,10 @@ func refresh(world: Variant, map: Variant, sight_mul: float = 1.0) -> void:
 		pd["back"] = pd["tiles"]
 		pd["tiles"] = done
 		pd["pending"] = null
-		longest_wait = maxi(longest_wait, now - int(pend[0]) + 1)
+		if people:
+			longest_wait = maxi(longest_wait, now - int(pend[0]) + 1)
 		_landed(pd, int(pend[2]), int(pend[3]), int(pend[4]), int(pend[5]), int(pend[6]))
-
-	for entity in _views.keys():
-		if not seen.has(entity):
-			_views.erase(entity)
+	return spent
 
 
 # A cast has landed in `tiles`: the view's key now names where and how it was cast.

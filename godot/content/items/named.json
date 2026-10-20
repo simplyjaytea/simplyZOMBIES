@@ -99,6 +99,7 @@
     "size": { "w": 2, "h": 3 },
     "massKg": 2.8,
     "equipSlot": "torso",
+    "appearance": {"equipSprite": "wear_apron_butcher"},
     "scent": 6.0,
     "armor": { "torso": 0.75 },
     "named": { "prefixes": [], "suffixes": [] }

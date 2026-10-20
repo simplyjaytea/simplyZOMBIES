@@ -379,6 +379,8 @@ deleted afterwards.
 | 8. The per-body cuts | 2026-10-20 | 13.63 ms | 30.01 ms | a 21 ms A* on Dictionaries, thirteen modifier strips per unhurt body, a scan of every positioned thing for the screamer, the Dress test reading each item twice |
 | 9. The far quarter and the spread cast | 2026-10-20 | 12.07 ms | 27.29 ms | every far idle zombie thinking and recasting every tick, a colonist's 48 m cast landing whole on the tick they crossed a tile |
 | 10. The tables read straight | 2026-10-20 | 10.63 ms | 31.86 ms | four thousand component calls a tick through an untyped world, a sighting list walked per body in view, every body walked per swinging door |
+| *a third, slower container from here; slice 10 there: 13.70 / 37.70* | | | | |
+| 11. The worst tick's spikes | 2026-10-20 | 14.29 ms | 32.09 ms | the player's 48 m cast landing whole on the tick they stepped, two colonist quadrants landing together, a long plan expanding every tile tied on cost in arrival order |
 
 **Slice 1, content entries by id.** `SimItems._content_get` found an entry by walking every value
 in the flat content tree until one carried the id. `item_base_of` runs about a hundred times a
@@ -515,6 +517,38 @@ the door swing builds one set of occupied tiles. Median of three interleaved run
 container: slice 9 **12.27 / 28.78 ms** to **10.63 / 31.86**. The 3,000-tick hash with both slice 9
 switches off still matches `main`, and with them on matches slice 9.
 
+**Slice 11, the worst tick's spikes.** A driver that timed every system and every cast and
+plan on each tick over 14 ms, on a quiet container, named three spike sources: the player's whole
+48 m cast, about 3.5 ms on the tick they crossed a tile; two quadrants of a colonist's spread cast
+landing together, 1.3 to 2.8 ms; and a long job plan, 5 ms for 59 steps. Everything else over the
+line was one system or several slowing at once with no cast or plan behind it, which is the host.
+Each cut has its own gate-drivable switch, and a lane that pins one restores it.
+`SimVisibility.STAGGER_PLAYER_CAST` spreads the player's recast over two ticks, two quadrants
+each (`PLAYER_QUADRANTS_PER_TICK`), so the view lands whole one tick (50 ms) after the step. The
+old view stands until then; the first cast, a lit target and the switch off still cast at once.
+The player has a queue of its own, so colonists waiting never delay it. The colonist budget
+`PERSON_QUADRANTS_PER_TICK` goes from two quadrants a tick to one, which halves that spike. This
+is a constant, not a switch, because it changes only how fast a queue drains under the slice 9
+switch. `SimPath.NEAR_TIES` breaks a tie on cost toward the tile nearer the goal before arrival
+order, in both the flat and the Dictionary search. Plan lengths are unchanged, because the order
+among equal costs never changes whether a plan is shortest. A long plan expands fewer tiles, and
+a pair the old order gave up on at its 4,096-tile cap can now be reached. The plan still runs
+whole on one tick: amortizing a plan across ticks is a bigger change and stays post-alpha.
+
+Measured on a third container, roughly twice as slow and much noisier than the one that profiled
+it. Median of three interleaved runs: slice 10 **13.70 / 37.70 ms** to **14.29 / 32.09**. The
+mean is inside the noise, and single runs of either build swung by 2 ms. The worst tick of the
+visibility refresh, timed per system in three runs each with the two switches off and then on,
+went from 8.6, 17.1 and 15.6 ms to 6.4, 8.5 and 8.7. The job planner's went from 12.4, 13.4 and
+9.2 ms to 8.5, 13.7 and 8.2. The same runs show the host's noise directly: a cheap system such as
+encumbrance or the scent field, with a mean under 0.5 ms, took 7 to 25 ms on a single tick. Before
+the move, on the quiet container, the same build ran **7.22, 6.94 and 7.21 ms** mean with worst
+ticks of **14.96, 13.32 and 15.63 ms**, all under 16. Slice 10 alone there ran a 7.0 to 7.3 ms
+mean, with worst ticks of 14.7, 23.8 and 21.6. Those runs were not interleaved, so they are a
+reading, not a measurement. With both new switches off and the three earlier ones off too, the
+3,000-tick hash matches `main`. With them on, it repeats run to run. `godot:m2:tick` NEAR-TIES and
+PLAYER-CAST hold both rules, and the full `godot:m2` chain, run over four lanes, stayed green.
+
 **Where the tick stops for the alpha.** Against the baseline's 32.42 ms on the faster container,
 slice 10 reads about 9.5 ms by the ratio both containers measured for slice 7 (13.49 there, 15.15
 here), and 10.6 ms where it was measured. The mean meets the alpha's stop point of 10 ms; the 8 ms
@@ -645,6 +679,15 @@ is left as it is. `godot:check:trees` (`TREES_OK`, with its OCCUPANCY lane) hold
 the picks, the roll, the clearing, the occupancy and the placement fields, and
 `godot:check:world_bake` (`WORLD_BAKE_OK`) holds the DECOR rebake and mask rule.
 
+
+Slice 11 then took the measured spikes on the worst tick. On a quiet container the worst tick
+read under 16 ms in three of three runs. On a noisy one it stays 25 to 38 ms whichever build is
+running, because there the spike is the host slowing whatever system it lands on. Two causes
+remain in the sim, both post-alpha. A long job plan still runs whole on one tick, 8 to 14 ms there
+and about 5 on the quiet host. A zombie's whole 12-tile recast after a nearby map change costs
+under 1 ms on its own, but several can land on one tick. Before a timing gate goes on, the worst
+tick needs measuring on a quiet, dedicated machine. Until then it says more about the container
+than about the sim.
 
 ### Remaining milestone evidence
 
