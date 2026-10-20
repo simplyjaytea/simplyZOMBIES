@@ -855,11 +855,13 @@ def _off_target(view, kind, named, p_at):
     raise ValueError(named)
 
 
-def _draw_arms(base, view, arms, colours, dip, fresh=None):
+def _draw_arms(base, view, arms, colours, dip, fresh=None, record=None):
     """Draws `arms` -- {slot: (hand, reaching)} -- on the armless `base` by ARM_RIG's layering,
     the shoulders lowered `dip` with the body. `fresh`, a painter, draws the magazine the off hand
     holds onto the off hand's layer once the arm is down. Returns the picture and the pixels where
-    an arm (or what its hand holds) shows rather than the body."""
+    an arm (or what its hand holds) shows rather than the body. `record`, a dict, is given each
+    slot's limb as drawn -- its joints, its skin and where it shows -- for the clothing painter
+    (`clothing/build_clothing.py`), which sleeves the arm; it changes nothing drawn."""
     w, h = base.size
     b = base.load()
     shows = set()
@@ -878,14 +880,17 @@ def _draw_arms(base, view, arms, colours, dip, fresh=None):
         if layer == "over":
             floor = hand[1] + 1 if _side(view) and slot == "primary" else None
             _paint_limb(over, base, upper, fore, colours, root, floor)
-            shows |= upper | fore
+            limb_shows = upper | fore
         elif layer == "under" or not reaching:
             _paint_limb(under, base, upper, fore, colours, root)
-            shows |= {(x, y) for x, y in upper | fore if 0 <= x < w and 0 <= y < h and not solid(b[x, y])}
+            limb_shows = {(x, y) for x, y in upper | fore if 0 <= x < w and 0 <= y < h and not solid(b[x, y])}
         else:
             _paint_limb(under, base, upper, set(), colours, root)
             _paint_limb(over, base, set(), fore, colours, root)
-            shows |= fore | {(x, y) for x, y in upper if 0 <= x < w and 0 <= y < h and not solid(b[x, y])}
+            limb_shows = fore | {(x, y) for x, y in upper if 0 <= x < w and 0 <= y < h and not solid(b[x, y])}
+        shows |= limb_shows
+        if record is not None:
+            record[slot] = {"shoulder": shoulder, "hand": hand, "out_dir": out_dir, "across": not _side(view), "upper": upper, "fore": fore, "shows": frozenset(limb_shows)}
         if fresh is not None and slot == "secondary":
             fresh((over if layer == "over" or (layer == "far" and reaching) else under).load(), hand)
     out = under
@@ -1073,11 +1078,14 @@ def _knee(im, n):
     return out
 
 
-def reload_frames(rest, view, kind):
+def reload_frames(rest, view, kind, trace=None):
     """[(frame, hands)]: the reload of `kind` ("pistol", "long" or "tube"), a frame a beat, seen from
     `view`. Seen from behind, the long gun is taller than the body: it moves only on the rack's jolt,
     a pixel up, and never in, out or down -- not even with the body's dip -- so its stock stays by
-    the sole row and its muzzle behind the head instead of either showing a frame at a time."""
+    the sole row and its muzzle behind the head instead of either showing a frame at a time.
+    `trace`, a list, is given one entry a beat -- the armless body the arms were drawn on, its dip
+    and each arm's limb (`_draw_arms`'s `record`), or no body for the stance -- so the clothing
+    painter can carry a garment through the same beat; it changes nothing drawn."""
     w, h = rest.size
     colours = _body_colours(rest)
     ramp = _weapon_ramp()
@@ -1096,6 +1104,8 @@ def reload_frames(rest, view, kind):
         o_at = _off_target(view, kind, beat["o"], p_at)
         if beat.get("stance"):
             im = rest.copy()
+            if trace is not None:
+                trace.append({"body": None, "dip": 0, "arms": {}, "colours": colours})
         else:
             # From behind a long gun stays put, so the first beat's dip would move the body and
             # nothing else: there the dip waits for the second beat, when the arms are moving.
@@ -1115,7 +1125,10 @@ def reload_frames(rest, view, kind):
             elif beat.get("fresh") or beat.get("mag") == "held":
                 hang = beat.get("mag") == "held" or (beat.get("fresh") == "hang" and fx != 0)
                 fresh = lambda o, hand: _fresh_mag(o, (w, h), hand, ramp, colours, hang, view == "w")  # noqa: E731
-            im = _trim(_draw_arms(body, view, arms, colours, dip, fresh), body, colours, _held_cover(kind, view, p_at))
+            record = {} if trace is not None else None
+            im = _trim(_draw_arms(body, view, arms, colours, dip, fresh, record), body, colours, _held_cover(kind, view, p_at))
+            if trace is not None:
+                trace.append({"body": body, "dip": dip, "arms": record, "colours": colours})
             if fx:
                 _thin_back(im, rest, fx)
         o = im.load()
