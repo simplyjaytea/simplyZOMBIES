@@ -747,9 +747,9 @@ func _drawn(main: Node, id: int) -> String:
 	for m in _members(family):
 		if Appearance.resolve(String(m)) == texture:
 			return String(m)
-		# A clothed body's rest, walk and breath pictures are drawn dressed (`Appearance.body_texture`);
-		# its action pictures are not, and are matched above.
-		if outfit is Array and not (outfit as Array).is_empty() and not Appearance.is_action_frame(family, String(m)) \
+		# A clothed body draws every frame dressed, its action pictures included
+		# (`Appearance.body_texture`).
+		if outfit is Array and not (outfit as Array).is_empty() \
 				and Appearance.dressed_texture(family, String(m), outfit as Array) == texture:
 			return String(m)
 	return "?"

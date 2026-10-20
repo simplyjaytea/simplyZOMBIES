@@ -1093,14 +1093,6 @@ code: the frames slot into `build_motion.py` and every gate already judges them.
   own frames, so it lies by the feet only while the reload plays and goes with the stance.
   Accepted for alpha (art review, 2026-10-20); once the decal layer (A13) lands it becomes a
   mark left on the ground where the body stood, like the casings.
-- **Clothes on the action frames.** Not a generation budget: painter work. A6's garments are
-  painted on the survivor's rest, walk and breath frames only, so a clothed body swings, fires,
-  reloads, flinches, crouches, crawls and falls in the rig's own underwear (208 action frames
-  against 29 garments). `Appearance.body_texture` leaves an action picture undressed by name
-  (`is_action_frame`) and `godot:check:authored`'s WEAR lane leaves the same frames out, so
-  both say where the gap is. The derived actions are whole-pixel moves of a rest or walk frame
-  and could carry that frame's garment through the same move; the drawn reloads and the
-  generated swing need `clothing/parts.py` to label their redrawn arms.
 
 **The inventory sheet and the screens — decided by the owner (2026-09-08).** The inventory is
 mechanically complete and gated, and the screen reaches four of its commands: `item.move`,
@@ -3513,6 +3505,103 @@ not a to-do list:
   west before the art review); what remains is the generated legs' own pose spacing, which
   wants drawn frames. The breath plants the hands and lifts the shoulders, so no hand stretches a row
   on the inhale.
+
+  **On the action frames, 2026-10-20.** A8 ("Feel — actions on the render clock", above) left
+  every clothed body swinging, firing, reloading, flinching, crouching, crawling and falling in
+  the rig's underwear: its 208 action frames carried no garment, and `Appearance.body_texture`
+  skipped them by name (`is_action_frame`) rather than ask for members that did not exist. The
+  painter now carries all 29 garments onto every one of them, **6032 members**, without painting
+  any a second time (`clothing/action_wear.py`), in three ways that follow how each action was
+  made. **Moved** (recoil, flinch, crouch, the crouched walk, the crawl, both falls and the back
+  view's swing): the source rest or walk frame is dressed first and moved after, by the same
+  `actions.derive` or `actions.prone_frames` call, and the garment is whatever the dressed move
+  shows that the bare one does not; a fold or a lean takes the cloth with the skin under it,
+  pixel for pixel. **Drawn** (the three reloads): the dressed rest view goes through the beat's
+  own `_armless` and `_knee` (the patch that closes the torso where a forearm hung takes the
+  cloth beside it), and the jointed arms are sleeved by their length from the shoulder joint,
+  read from `actions.reload_frames`' new `trace` (each limb's joints, skin and where it shows; it
+  changes no pixel the reload draws, `MOTION_OK` unchanged): a short sleeve ends as far down the
+  arm as the rest view's tee does (1.5 px from the joint, 2.5 side on), a long one runs to a cuff
+  where the fist begins (the last half pixel to the hand point and the fist's tip past it), and
+  any skin the beat paints off the body goes to the nearest limb. **Generated** (the swing east,
+  west and south): labelled from their own pixels like a rest frame (`parts.label` through
+  `Frame.of_image`), an arm being skin in the chest rows more than a pixel past the hips' span,
+  measured out from the body's edge; a short sleeve covers two pixels and the last two are the
+  hand. The moved and drawn bare frames are rebuilt and held to the committed pictures on every
+  run, so a change to `actions.py` the painter has not followed stops it rather than dressing the
+  wrong pose. Each garment gains a second sheet, `native/actions/<garment>.png` (1792x160: a row
+  per view, the actions side by side, each as wide as its longest view); the 320x160 sheets and
+  their 1160 members are byte for byte as they were. `build_clothing.py` now writes every
+  garment's `authored.json` members from its sheets and `--check` holds them to that.
+  **Gated:** `Appearance.body_texture` dresses every frame and `is_action_frame` is gone (it had
+  no other reader), so a garment member missing for any frame is `dressed_image`'s error again;
+  `godot:check:action`'s SCENE lanes read every action frame through `dressed_texture`.
+  `godot:check:authored`'s WEAR lane requires every rig member, action frames included, and
+  judges an action frame's pixel minimum per run (one action seen one way, all its frames) rather
+  than per frame, because a pose can hide a garment's part outright; new true negatives a garment
+  missing its rig's reload frame and a run painted under the minimum. `godot:check:worn`'s
+  COVERAGE lane composes every torso, legs and feet item on all 248 frames against its reference
+  composite, each action run showing the garment somewhere, and refuses a reload frame dressed in
+  the garments' standing pictures; CANVAS covers the action members.
+  **Measured:** `WEAR OK 29 garment(s), 7192 painted frame(s) (6032 of them action frames, 82
+  hiding the garment's part and every action run painting at least 5)`; `COVERAGE OK ... on all
+  248 rig frames, 208 of them action frames (fewest 5 garment pixels showing standing, walking
+  or breathing; 50 action frames where the pose hides the garment's part, every action run
+  showing it)`; `CLOTHING_OK 29 garments, 7192 frames`; `SPRITES_OK ... 8107 authored keys
+  reproduced`; `npm test` 45 files / 594 tests. **What the poses hide, named:** footwear
+  on the fall's second frame every way, because A8's fold takes the shins down to the sole row's
+  outline and leaves no foot to shoe (the folded crouched-walk steps keep two to four pixels of
+  shoe); trousers and shorts side on under both fists on the long gun's first beat west and the
+  shotgun's first west and seventh both ways, with two or three pixels left on the long gun's and
+  the shotgun's first beat east and the shotgun's fourth, where the arms cover the hips and
+  thighs (after the round-one fixes below: WEAR 68 frames under its minimum, COVERAGE 36). **Half
+  shipped, named:** a short-sleeved garment leaves those fists and forearms bare over the hips,
+  which reads as more skin than trousers on those beats; on the front view's generated guard the
+  forearms cross inside the hips' span and take the torso garment, so a tee reads long-sleeved
+  for that one frame; the generated swing's arms are found from their own pixels, not drawn, so
+  its sleeve ends are a pixel rough where an arm meets the chest; the 4x review strips and an
+  in-game reload are under `/mnt/project-files/a8-actions/clothed/`.
+  **Art review round one, 2026-10-20.** The swing's trailing leg kicks back up into the
+  underwear's rows, where the rest-view rules hang a hand, so a strip of bare shin showed between
+  trouser and shoe (west, frame 1) and single skin pixels at the hem or ankle on four more swing
+  frames: skin below the belt that touches the pelvis or a leg is now leg (round two moved the
+  rule to `parts._legs_below_belt`, so it labels every frame, the walk's included).
+  The column just past the hips' span is arm at no reach, which closes the one-pixel skin slivers
+  down a sleeve's inner edge on the guard frames. The walk's generated frames shade some hair a
+  brown dark enough to classify as ink, so the hazmat hood left a seam of hair beside the face on
+  every walk and crouched-walk frame (and three to eight pixels of the rest views'); a hood now
+  takes a dark pixel warm by a dozen levels or more, inside the head's outline ring and touching
+  hair, as hair (`build_clothing.hood`); a moved frame drops any garment pixel that lands on the
+  moved body's ink, so hair a lean brings to the silhouette's edge stays outline.
+  `godot:check:authored`'s WEAR lane reads ink the same way (`_wear_is_ink`: dark and neutral, or
+  dark on the outline ring), with three new fabricated cases: a hood over warm hair inside the
+  ring passes, the same colour on the ring and a neutral dark pixel inside it are refused; the
+  old 45-level rule alone refused the hood (`'wear_suit_hazmat_s' paints (16, 16), over the
+  pack's ink`) and, once the hood was allowed, caught a lean carrying hood onto the outline
+  (`recoil_w_1`). The crouched walk's long sleeves stopping short of the
+  hand came from the walk's own labels and closed with #154's two-by-two hands, merged in.
+  **Body art, named and not this slice's:** the pack's rest pictures store about three hundred
+  pixels at alpha 247-254 and a handful near 75 percent, and every action frame moved from them
+  carries the same, so most of the drawn body drifts over the floor (the round-two review counted
+  190 of the body's 262 pixels off by one to three levels in game); the generated swing's
+  fists have no outline at the tip (south 1-2, west 1-3) and its east frame 1 has a background
+  slit between the rear arm and the torso; and A8's fold leaves the crouched walk's leg ends and
+  the gap between the legs on background without an outline. Each is in the body picture, under
+  any garment, and is fixed where that picture is made (the pack import or `motion/actions.py`).
+  **Art review round two, 2026-10-20.** Bare leg or foot skin below the belt on the crouched
+  walk (east frames 1, 4 and 7, west 0 and 5) came from #154's walk frames, which the crouch
+  inherits: the arm rules took a stepping shin for a hand. `parts._legs_below_belt` relabels a run
+  of arm or hand pixels that lies wholly at or below the underwear's top row and touches the
+  pelvis or a leg as leg, so the trouser or shoe covers it; the standing sheets change only on the
+  walk cells that showed it (east 2, 5, 7 and 8, west 1 and 6), rest and breath are untouched.
+  The hood's hair rule now chains (warm dark pixels joined to hair through other warm dark pixels
+  are hair), which closes the two pixels at the nape on the east crouched walk, and the reload's
+  heal pass runs until nothing more joins, which closes the single hair pixel behind the hood on
+  the east reloads. The crouch's fold drops the rows at the knee and can leave a hand one row tall,
+  so a long sleeve's cuff seemed to jump a pixel between frames; `action_wear._whole_hands` steps a
+  torso garment's cuff back off the bare skin straight above such a hand, never on what a trouser
+  or shoe covers. Where the fold leaves a hand one pixel wide between ink (south frame 0's right
+  hand), that is the body picture's, with the rest of the fold geometry above.
 
 - **Art & renderer — zombies turn, walk and fall, 2026-10-02.** Closes "A silhouette per
   kind" and the Focal art half of "A corpse reads as a corpse", at the owner's request for
