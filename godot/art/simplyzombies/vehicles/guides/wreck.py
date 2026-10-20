@@ -48,16 +48,24 @@ for cell in range(3):
             h, l, s = colorsys.rgb_to_hls(c[0] / 255, c[1] / 255, c[2] / 255)
             r, g, b = colorsys.hls_to_rgb(h, l * 0.9, s * 0.75)
             px[x, y] = (int(r * 255), int(g * 255), int(b * 255), c[3])
-    # rust: blooms of a few pixels on body panels, darkest at the edge
+    # rust: blooms of a few pixels on body panels -- a solid ragged patch, lit at its top left and
+    # darkest only along its bottom right, never a dark ring round a lighter middle (a closed ring
+    # reads as a letter); no two blooms within six pixels, so they cannot join into one
     body = [(x, y) for y in range(y0 + 4, y1 - 4) for x in range(x0 + 4, x1 - 4) if is_body(px[x, y])]
-    for _ in range(9):
+    blooms = []
+    while len(blooms) < 9:
         cx, cy = rnd.choice(body)
-        for dy in range(-1, 2):
-            for dx in range(-2, 3):
-                if abs(dx) + abs(dy) > 2 or rnd.random() < 0.25:
-                    continue
-                if is_body(px[cx + dx, cy + dy]):
-                    px[cx + dx, cy + dy] = RUST[0] + (255,) if abs(dx) + abs(dy) == 2 else RUST[1 + (dx + dy) % 2] + (255,)
+        if any(abs(cx - bx) + abs(cy - by) < 6 for bx, by in blooms):
+            continue
+        blooms.append((cx, cy))
+        patch = {(0, 0), (1, 0), (0, 1)} | {(dx, dy) for dy in range(-1, 2) for dx in range(-2, 3)
+                                            if abs(dx) + abs(dy) <= 2 and rnd.random() < 0.55}
+        for dx, dy in patch:
+            if not is_body(px[cx + dx, cy + dy]):
+                continue
+            edge = (dx + 1, dy) not in patch or (dx, dy + 1) not in patch
+            tone = RUST[0] if edge and dx + dy > 0 else (RUST[2] if dx + dy < 0 else RUST[1])
+            px[cx + dx, cy + dy] = tone + (255,)
     # crazed glass: a few short light cracks radiating from a point on each pane
     panes = {}
     for y in range(y0, y1):

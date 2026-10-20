@@ -21,8 +21,8 @@ view and all five light vehicles were drawn by `tools/sprites/parts/vehicles.py`
    axle with the tyre flush inside it, amber indicators on the nose, red lamps, a plate and (van,
    hatchback) rear glass on the rear face, glass in four tones with a diagonal streak.
 2. **The wrecks are not a second painting.** `guides/wreck.py` damages that sheet
-   deterministically: dulled paint, rust blooms, crazed glass, a starred windshield, a creased
-   hood and a crumpled corner. Same seed, same pixels.
+   deterministically: dulled paint, rust blooms (solid ragged patches, never a ring), crazed
+   glass, a starred windshield, a creased hood and a crumpled corner. Same seed, same pixels.
 3. **`cars.py`** runs both and cuts each car whole, standing on its canvas's bottom row.
 
 The first north-south cars were one img2img pass over a paint-over guide; the art review found

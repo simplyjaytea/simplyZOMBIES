@@ -1,7 +1,9 @@
 """The bloater, painted by code over the heavy: the heavy's head, face and walk kept pixel for
 pixel, its body pushed apart into the bloater's own silhouette -- front and back the arms hang
-out beside the gut and the legs stand wider and thicker; in the side views the near arm is cut
-at the elbow and its forearm bent forward to rest a hand on the gut -- its skin taken to a
+out beside the gut, end in hands and the legs stand wider and thicker; the side views are built
+from shapes rather than the heavy's outline (a rounded back and seat, the head slumped into the
+shoulders, the stride lengthened, the thighs thickened, and the near arm hanging from the
+shoulder and bent forward to rest a hand on the gut) -- its skin taken to a
 desaturated olive in the pack's range and its clothes soured a step, and a swollen belly built
 into the torso, not pasted over it. The belly is an ellipsoid lit from the top left, quantised
 into the same four skin tones in contiguous bands (the heavy's clustered shading, never
@@ -106,16 +108,19 @@ def grain(tone, u, v):
     return tuple(max(0, min(255, c + j)) for c in tone) + (255,)
 
 
-def belly(cell, src, cx, cy, rx, ry, hem, behind=False, veins=(), navel=None):
+def belly(cell, src, cx, cy, rx, ry, hem, behind=False, veins=(), navel=None, round_top=False):
     """Build the belly into one cell. `src` is the heavy cell before any belly, read to decide
     what stays in front: an arm or hand (skin reaching outside the belly) and the outline that
     bounds it. Above `hem` the vest stays: the belly rides out from under it. With `behind`, the
-    belly only fills what was empty -- the flanks spilling past the body seen from the back."""
+    belly only fills what was empty -- the flanks spilling past the body seen from the back. With
+    `round_top` the hem holds only over the body: past it the belly keeps its own curve."""
     px = cell.load()
     sp = src.load()
     inside = set()
-    for y in range(max(0, hem), H):
+    for y in range(H):
         for x in range(W):
+            if y < hem and not (round_top and sp[x, y][3] < 128):
+                continue
             dx = (x + 0.5 - cx) / rx
             dy = (y + 0.5 - cy) / ry
             if dx * dx + dy * dy <= 1.0:
@@ -190,13 +195,18 @@ def belly(cell, src, cx, cy, rx, ry, hem, behind=False, veins=(), navel=None):
 def spread(y):
     if y < 22:
         return 0
-    if y < 23:
-        return 1
+    if y < 25:
+        return 1                    # the shoulders slope; the arms flare out below them
+    if y < 30:
+        return 2
+    if y < 34:
+        return 2 if y % 2 else 1    # the forearms bow in toward the wrists, a pixel at a time
     return 2
 
 
 # The belly's bob through the walk, a column a frame: idle, then the four walk frames. It drops a
-# pixel on the two contact frames, when the step lands, and the forearm resting on it drops with it.
+# pixel on the two contact frames, when the step lands, and the whole upper body -- head, shoulders,
+# arms and gut -- drops with it.
 BOB = (0, 1, 0, 1, 0)
 
 
@@ -238,11 +248,11 @@ def widen(img, cx):
     return out
 
 
-def thicken_legs(img, y0):
+def thicken_legs(img, y0, y1=H):
     """Every run of pixels from row `y0` down grown a pixel each way: its outline stepped out and
     the colour inside it repeated, so the legs read heavier without a new colour."""
     px = img.load()
-    for y in range(y0, H):
+    for y in range(y0, y1):
         row = [px[x, y] for x in range(W)]
         runs, x = [], 0
         while x < W:
@@ -266,119 +276,52 @@ def thicken_legs(img, y0):
     return img
 
 
-def lower_arm(src, cx, sign, elbow):
-    """The heavy's near arm below the elbow in a side view: its skin behind the torso's centre,
-    and the outline that bounds nothing else."""
-    sp = src.load()
-    arm = {(x, y) for y in range(elbow + 1, H) for x in range(W)
-           if is_skin(sp[x, y]) and (x + 0.5 - cx) * sign < -1}
-    rim = set()
-    for (x, y) in arm:
-        for ex, ey in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, 1), (1, -1), (-1, -1)):
-            q = (x + ex, y + ey)
-            if 0 <= q[0] < W and q[1] > elbow and q not in arm and max(sp[q][:3]) < 34 and sp[q][3] >= 128:
-                rim.add(q)
-    # an outline pixel stays where it still bounds the body
-    for q in list(rim):
-        for ex, ey in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-            r = (q[0] + ex, q[1] + ey)
-            if 0 <= r[0] < W and 0 <= r[1] < H and r not in arm and r not in rim \
-                    and sp[r][3] >= 128 and max(sp[r][:3]) >= 34:
-                rim.discard(q)
-                break
-    return arm | rim
-
-
-def cut(img, gone):
-    """Remove `gone` and outline whatever it leaves exposed."""
-    px = img.load()
-    for q in gone:
-        px[q] = (0, 0, 0, 0)
-    for (x, y) in gone:
-        for ex, ey in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-            q = (x + ex, y + ey)
-            if 0 <= q[0] < W and 0 <= q[1] < H and q not in gone and px[q][3] >= 128:
-                px[q] = OUT
-    # then sweep the crumbs: outline bounding no colour, and pixels hanging on by a corner
-    changed = True
-    while changed:
-        changed = False
-        for y in range(H):
-            for x in range(W):
-                if px[x, y][3] < 128:
-                    continue
-                n4 = [px[x + ex, y + ey] for ex, ey in ((1, 0), (-1, 0), (0, 1), (0, -1))
-                      if 0 <= x + ex < W and 0 <= y + ey < H and px[x + ex, y + ey][3] >= 128]
-                lone = len(n4) <= 1
-                bare = max(px[x, y][:3]) < 34 and not any(max(q[:3]) >= 34 for q in n4)
-                if lone or bare:
-                    px[x, y] = (0, 0, 0, 0)
-                    changed = True
-    return img
-
-
-def arm_tones(cell, y, cx, sign):
-    """The upper arm's own three skin colours at row `y`, darkest first, read off the recoloured
-    heavy so the forearm is the same skin as the arm it hangs from."""
-    px = cell.load()
-    cols = [px[x, y][:3] for x in range(W)
-            if px[x, y][3] >= 128 and max(px[x, y][:3]) >= 34 and (x + 0.5 - cx) * sign < -1
-            and not is_blood(px[x, y])]
-    cols = sorted(set(cols), key=lum)
-    if len(cols) < 3:
-        return SKIN[0], SKIN[1], SKIN[2]
-    return cols[0], cols[len(cols) // 2], cols[-1]
-
-
 def arm_centre(src, y, cx, sign):
     xs = [x for x in range(W) if is_skin(src.getpixel((x, y))) and (x + 0.5 - cx) * sign < -1]
     return (min(xs) + max(xs) + 1) / 2 if xs else cx - sign * 6
 
 
-def forearm(cell, elbow, hand, tones):
-    """The near forearm, bent forward from the elbow to a hand resting on the belly's flank: a
-    tapered limb in the upper arm's own skin, lit on its west edge and shaded on its east, a
-    rounded hand with a lit knuckle, outlined where it meets anything but the arm it hangs from."""
+def side_arm(cell, shoulder, elbow, hand, tones):
+    """The near arm of a side view, whole: hanging from a sagging shoulder to the elbow, then bent
+    forward to a hand resting on the belly's flank. One tapered limb in a fixed skin ramp a step
+    darker than the lit gut it lies against -- lit on its west edge, shaded on its east, the same
+    tones every frame -- with a rounded hand, outlined like the pack outlines an arm over a body."""
     px = cell.load()
     dark, mid, light = tones
-    (sx, sy), (hx, hy) = elbow, hand
+    segs = ((shoulder, elbow, 3.0, 2.3), (elbow, hand, 2.3, 1.7))
+    centre = {}
     arm = set()
-    for y in range(sy - 1, hy + 1):
-        t = max(0.0, (y - sy) / max(1, hy - sy))
-        c = sx + (hx - sx) * t
-        half = 2.1 - 0.6 * t                                         # thick at the elbow
-        for x in range(int(c - half - 1), int(c + half + 2)):
-            if abs(x + 0.5 - c) <= half:
-                arm.add((x, y))
-    hand_px = set()
-    for y in range(hy - 1, hy + 4):
-        for x in range(int(hx) - 3, int(hx) + 4):
-            if (x + 0.5 - hx) ** 2 / 6.5 + (y + 0.5 - (hy + 1.0)) ** 2 / 3.6 <= 1.0:
-                hand_px.add((x, y))
+    for (ax, ay), (bx, by), ra, rb in segs:
+        for x in range(W):
+            for y in range(H):
+                vx, vy = bx - ax, by - ay
+                t = max(0.0, min(1.0, ((x + 0.5 - ax) * vx + (y + 0.5 - ay) * vy) / (vx * vx + vy * vy)))
+                qx, qy = ax + vx * t, ay + vy * t
+                r = ra + (rb - ra) * t
+                d = math.hypot(x + 0.5 - qx, y + 0.5 - qy)
+                if d <= r and y >= shoulder[1] - 1:
+                    arm.add((x, y))
+                    side = (x + 0.5 - qx) / r
+                    if (x, y) not in centre or abs(side) < abs(centre[(x, y)]):
+                        centre[(x, y)] = side
+    hx, hy = hand
+    hand_px = {(x, y) for y in range(int(hy) - 2, int(hy) + 3) for x in range(int(hx) - 3, int(hx) + 4)
+               if (x + 0.5 - hx) ** 2 / 6.0 + (y + 0.5 - (hy + 0.5)) ** 2 / 4.0 <= 1.0}
     arm |= hand_px
     for (x, y) in arm:
-        left = (x - 1, y) not in arm
-        right = (x + 1, y) not in arm
-        tone = light if left else (dark if right else mid)
-        if (x, y) in hand_px and y >= hy + 2 and not left:
+        side = centre.get((x, y), (x + 0.5 - hx) / 2.5)
+        tone = light if side < -0.45 else (dark if side > 0.45 else mid)
+        if (x, y) in hand_px and (x, y + 1) not in arm:
             tone = dark                                              # the hand's underside
         px[x, y] = tone + (255,)
-    k = (int(hx) - 1, hy)
+    k = (int(hx) - 1, int(hy) - 1)
     if k in hand_px:
         px[k] = light + (255,)                                       # a knuckle catching light
-    edge = set()
     for (x, y) in arm:
         for ex, ey in ((1, 0), (-1, 0), (0, 1), (0, -1)):
             q = (x + ex, y + ey)
-            if q not in arm and 0 <= q[0] < W and 0 <= q[1] < H and q[1] > sy + 1:
-                edge.add(q)
-    for q in edge:
-        px[q] = OUT
-    for (x, y) in edge:                                              # the cast shadow, east
-        q = (x + 1, y)
-        if q not in arm and q not in edge and 0 <= q[0] < W and y < hy + 2 and px[q][3] >= 128 \
-                and max(px[q][:3]) >= 34 and lum(px[q]) > lum(SKIN[0]) + 10:
-            px[q] = SKIN[0] + (255,)
+            if q not in arm and 0 <= q[0] < W and 0 <= q[1] < H and q[1] > shoulder[1] + 1:
+                px[q] = OUT
     return cell
 
 
@@ -390,7 +333,155 @@ def torso_centre(src):
     return (min(xs) + max(xs)) / 2 if xs else W / 2
 
 
-ELBOW = 27           # the side views' elbow row: the heavy's near arm is kept above it
+ARM = ((70, 74, 50), (98, 102, 70), (126, 130, 94))   # the side views' arm: shade, middle, lit
+ELBOW = 27           # the side views' elbow row: where the heavy's arm swing is read
+NECK = 22            # the side views' neck row: head and shoulder line sit above it
+
+
+def drop(img, bob, split=37):
+    """The body above the hips carried `bob` pixels down with the step: head, shoulders, arms
+    and gut move as one; the legs stay planted."""
+    if not bob:
+        return img
+    out = img.copy()
+    out.alpha_composite(img.crop((0, 0, W, split)), (0, bob))
+    return out
+
+
+def hands(cell, src, cx):
+    """A hand at the foot of each arm in a front or back view: a rounded lump a pixel wider than
+    the wrist, in the arm's own skin, lit at the knuckles, outlined."""
+    px = cell.load()
+    sp = src.load()
+    for side in (-1, 1):
+        cols = [(x, y) for y in range(26, 42) for x in range(W)
+                if is_skin(sp[x, y]) and (x + 0.5 - cx) * side > 8]
+        if not cols:
+            continue
+        bottom = max(y for _, y in cols)
+        xs = [x for x, y in cols if y >= bottom - 2]
+        hx = (min(xs) + max(xs) + 1) / 2
+        tones = sorted({px[x, y][:3] for x, y in cols if px[x, y][3] >= 128}, key=lum)
+        if len(tones) < 3:
+            continue
+        dark, mid, light = tones[len(tones) // 6], tones[len(tones) // 2], tones[-1 - len(tones) // 8]
+        lump = {(x, y) for y in range(bottom - 1, bottom + 3) for x in range(int(hx) - 3, int(hx) + 3)
+                if (x + 0.5 - hx) ** 2 / 6.0 + (y + 0.5 - (bottom + 0.8)) ** 2 / 3.0 <= 1.0}
+        for (x, y) in lump:
+            tone = light if (x - 1, y) not in lump or y == bottom - 1 else mid
+            if (x + 1, y) not in lump or y == max(q[1] for q in lump if q[0] == x):
+                tone = dark
+            px[x, y] = tone + (255,)
+        for (x, y) in lump:
+            for ex, ey in ((1, 0), (-1, 0), (0, 1)):
+                q = (x + ex, y + ey)
+                if q not in lump and 0 <= q[0] < W and 0 <= q[1] < H and (
+                        px[q][3] < 128 or not is_skin_like(px[q])):
+                    px[q] = OUT
+    return cell
+
+
+def is_skin_like(p):
+    return p[3] >= 128 and abs(p[0] - p[1]) < 14 and p[2] < p[1] - 14
+
+
+def tidy(cell):
+    """The finished cell's crumbs swept: any pixel held on by one side or none goes, and every
+    edge pixel of the legs that is not already outline becomes it, so a dark trouser leg still
+    shows its edge on dark ground."""
+    px = cell.load()
+    changed = True
+    while changed:
+        changed = False
+        for y in range(H):
+            for x in range(W):
+                if px[x, y][3] < 128:
+                    continue
+                n = sum(1 for ex, ey in ((1, 0), (-1, 0), (0, 1), (0, -1))
+                        if 0 <= x + ex < W and 0 <= y + ey < H and px[x + ex, y + ey][3] >= 128)
+                if n <= 1:
+                    px[x, y] = (0, 0, 0, 0)
+                    changed = True
+    for y in range(36, H):
+        for x in range(W):
+            if px[x, y][3] < 128 or max(px[x, y][:3]) < 34:
+                continue
+            if any(not (0 <= x + ex < W and 0 <= y + ey < H) or px[x + ex, y + ey][3] < 128
+                   for ex, ey in ((1, 0), (-1, 0))):
+                px[x, y] = OUT
+    return cell
+
+
+def ramp(cols, k=4):
+    """`k` tones spread across a set of colours, darkest first."""
+    cols = sorted(set(cols), key=lum)
+    if not cols:
+        return None
+    return [cols[min(len(cols) - 1, round(i * (len(cols) - 1) / (k - 1)))] for i in range(k)]
+
+
+def side_body(raw, idle, cx, sign):
+    """The bloater's own side view, built from shapes rather than the heavy's outline: a rounded
+    back and seat, the heavy's head slumped two rows into it and jutting a pixel, and the heavy's
+    walking legs taken a pixel longer in the stride and two pixels thicker at the thigh. The arm
+    is drawn later, over the belly, by `side_arm`.
+    Painted in the heavy's own raw colours -- vest tones read off its idle frame -- so `recolour`
+    and the belly treat it exactly as they treat the heavy."""
+    ip = idle.load()
+    vest = ramp([ip[x, y][:3] for y in range(22, 36) for x in range(W)
+                 if ip[x, y][3] >= 128 and not is_skin(ip[x, y]) and not is_blood(ip[x, y])
+                 and 34 <= max(ip[x, y][:3]) and abs(x + 0.5 - cx) < 4])
+    out = Image.new("RGBA", (W, H))
+    op = out.load()
+    rp = raw.load()
+    # the legs: the heavy's own walk from the hip down, the stride a pixel longer each way --
+    # a run of pixels ahead of the hip steps a pixel further forward, one behind a pixel back
+    for y in range(37, H):
+        x = 0
+        while x < W:
+            if rp[x, y][3] < 128:
+                x += 1
+                continue
+            s0 = x
+            while x < W and rp[x, y][3] >= 128:
+                x += 1
+            mid = (s0 + x) / 2
+            shift = 0 if y < 40 else (sign if (mid - (cx + 0.5)) * sign > 1 else (-sign if (mid - (cx + 0.5)) * sign < -1 else 0))
+            for k in range(s0, x):
+                if 0 <= k + shift < W:
+                    op[k + shift, y] = rp[k, y]
+    thicken_legs(thicken_legs(out, 37, 43), 37)
+
+    def blob(tx, ty, rx, ry, tones, mask, e):
+        for y in range(H):
+            for x in range(W):
+                dx, dy = (x + 0.5 - tx) / rx, (y + 0.5 - ty) / ry
+                if abs(dx) ** e + abs(dy) ** e <= 1.0:
+                    mask.add((x, y))
+                    op[x, y] = tones[lit(max(-0.99, min(0.99, dx)), max(-0.99, min(0.99, dy)))] + (255,)
+
+    def outline(mask):
+        for (x, y) in mask:
+            for ex, ey in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                q = (x + ex, y + ey)
+                if q not in mask:
+                    op[x, y] = OUT
+                    break
+
+    trunk = set()
+    blob(cx + 0.5 - sign * 1.0, 28.5, 8.0, 11.0, vest, trunk, 2.4)  # a rounded back and seat
+    outline(trunk)
+    # the head, slumped into the shoulders
+    head = Image.new("RGBA", (W, H))
+    hp = head.load()
+    for y in range(8, NECK):
+        for x in range(W):
+            if rp[x, y][3] >= 128 and (x + 0.5 - cx) * sign > -3:
+                nx, ny = x + sign, y + 2
+                if 0 <= nx < W and ny < H:
+                    hp[nx, ny] = rp[x, y]
+    out.alpha_composite(head)
+    return out
 
 
 def walk_sheet(heavy):
@@ -404,29 +495,31 @@ def walk_sheet(heavy):
             raw = heavy.crop(box)
             bob = BOB[col]
             if view in ("south", "north"):
-                # the bloater's own frame: shoulders spread, arms out beside the gut, legs apart
-                src = thicken_legs(widen(raw, cx), 38)
+                # the bloater's own frame: shoulders sloped, arms out beside the gut, legs apart
+                src = drop(thicken_legs(widen(raw, cx), 38), bob)
                 cell = recolour(src.copy())
                 if view == "south":
-                    belly(cell, src, cx + 0.5, 32.0 + bob, 12.5, 8.5, 26,
+                    belly(cell, src, cx + 0.5, 32.0 + bob, 12.5, 8.5, 26 + bob,
                           veins=((-5, 3), (3, -2)), navel=(0, 1))
                 else:
                     # from behind, the back of the gut spills out over the belt past the hips
-                    belly(cell, src, cx + 0.5, 35.0 + bob, 13.0, 6.0, 31)
+                    belly(cell, src, cx + 0.5, 35.0 + bob, 13.0, 6.0, 31 + bob)
+                hands(cell, src, cx)
             else:
                 sign = 1 if view == "east" else -1
                 elbow_x = arm_centre(raw, ELBOW, cx, sign)
-                gone = lower_arm(raw, cx, sign, ELBOW)
-                src = thicken_legs(cut(raw.copy(), gone), 38)
+                idle_x = arm_centre(heavy.crop((0, row * H, W, row * H + H)), ELBOW, cx, sign)
+                src = drop(side_body(raw, heavy.crop((0, row * H, W, row * H + H)), cx, sign), bob)
                 cell = recolour(src.copy())
-                tones = arm_tones(cell, ELBOW - 2, cx, sign)
                 # three to four pixels past the hip in front, bobbing with the step
-                belly(cell, src, cx + 0.5 + sign * 6.5, 31.5 + bob, 10.0, 8.5, 25,
-                      veins=((sign * 2, 3), (sign * -2, -3)), navel=(sign * 7, 1))
-                # the forearm bent forward from the elbow, the hand on the belly's flank; the hand
-                # swings with the upper arm and rides the belly's bob
-                swing = elbow_x - arm_centre(heavy.crop((0, row * H, W, row * H + H)), ELBOW, cx, sign)
-                forearm(cell, (elbow_x, ELBOW), (cx + 0.5 + sign * 1.5 + swing, 33 + bob), tones)
+                belly(cell, src, cx + 0.5 + sign * 6.5, 31.5 + bob, 10.0, 8.5, 25 + bob,
+                      veins=((sign * 2, 3), (sign * -2, -3)), navel=(sign * 7, 1), round_top=True)
+                # the near arm from the shoulder, bent forward at the elbow, the hand on the
+                # belly's flank; it swings as the heavy's arm swings and rides the bob
+                swing = elbow_x - idle_x
+                side_arm(cell, (cx + 0.5 - sign * 1.0, 21 + bob), (cx + 0.5 - sign * 2.0 + swing * 0.5, 29 + bob),
+                         (cx + 0.5 + sign * 3.5 + swing, 34 + bob), ARM)
+            tidy(cell)
             out.alpha_composite(cell, (box[0], box[1]))
     return out
 

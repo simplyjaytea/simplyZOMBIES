@@ -979,6 +979,12 @@ added. These are separate pieces; the completed pictures do not imply those mech
   rung, and their PNGs carry no doubled rows or columns), so it is noted here, not named as a
   defect.
 
+- **The bloater's side walk, hand-drawn.** Left by the A11 art review's stop rule (2026-10-20).
+  The side views are built by `study-02/guides/bloater_paint.py` from shapes over the heavy's
+  walk, and their outline still shares 18–30% of the heavy's, mostly the legs and soles, which
+  are the heavy's own stride. A redraw of the eight side walk frames with the bloater's own
+  gait waits on PixelLab budget; `godot:check:authored`'s ZOMBIE_POSES lane judges the result.
+
 **The inventory sheet and the screens — decided by the owner (2026-09-08).** The inventory is
 mechanically complete and gated, and the screen reaches four of its commands: `item.move`,
 `item.equip`, `item.unequip` and `item.use`. The owner opened an overhaul from four mockups and
@@ -2590,7 +2596,7 @@ not a to-do list:
   lintel, a darker upper half, a lighter lower half, and diagonal reflection streaks either side
   of a mullion, as the pack's car windows carry them); the frame lit along its top, shaded along
   its bottom, with a white edge outside it that the rim tint takes a step above the brick
-  mortar's value (luminance 111 against 100), and a sill level with the mortar, at the wall's
+  mortar's value (luminance 111 against 101), and a sill just above the mortar (104), at the wall's
   line weight rather than a body's near-black outline;
   each pane's reflection sits at its own offset, so no two are one stamp. Both are greys, sourced in
   `authored.json` as kind `tile`, and the renderer tints them by the two colours the rects were
@@ -2679,6 +2685,9 @@ not a to-do list:
 
   **Fourth pass, after the third review (2026-10-20).** The crescent stands free: three rows
   tall, with a pixel of door between it and the frame above and the rail below.
+
+  **Fifth pass, after the fourth review (2026-10-20).** The crescent is two rows, lying on its
+  back with its horns up, with a clear row of door above it and two below it before the rail.
 
   **What it leaves:** the latrine and the well are drawn three-quarter from the south and do not
   turn; the cold fire has no smoke and the lit one no ember glow beyond its light.
@@ -2770,6 +2779,11 @@ not a to-do list:
   roof and bed; the deep rear face kept). The north-south e-bike is 58 rows, its east-west span,
   on fat tyres: wider wheels with a three-pixel tyre ring, against the bicycle's two.
 
+  **Fifth pass, after the fourth review (2026-10-20).** The wrecks' rust is solid ragged patches,
+  lit at the top left and dark only along the bottom right, never a dark ring round a lighter
+  middle (one on the van's rear read as a letter), and no two within six pixels, so they cannot
+  join; `guides/wreck.py` keeps its fixed seed per car.
+
   **What it leaves:** a car seen from behind is still the one picture for both north-south
   facings (decision 11's limit, in what's left); no state between intact and wreck; no lamp glow.
 
@@ -2845,6 +2859,22 @@ not a to-do list:
   bound moves from 34 to 36, the 40-pixel canvas less its two-pixel side margin (which the lane
   still holds), because the widest bloater frame is 35. The screamer's hands are the face's own
   grey-green, (158,167,148) and (132,141,122).
+
+  **Fifth pass, after the fourth review (2026-10-20).** The side views are built from shapes in
+  `side_body` rather than the heavy's outline: a rounded back and seat in the vest's tones, the
+  heavy's head slumped two rows into the shoulders and jutting a pixel, and the heavy's walking
+  legs a pixel longer in the stride and two thicker at the thigh. The belly keeps its own curve
+  past the vest (`round_top`), and the near arm is one limb (`side_arm`) from the shoulder,
+  bent at the elbow to a hand on the belly's flank, in a fixed ramp a step darker than the lit
+  gut, so it reads as an arm over the belly and its tones never change between frames. The bob
+  carries the whole upper body, head and shoulders included. Front and back the arms end in
+  hands, and a `tidy` pass sweeps any pixel held on by one side or none and outlines every leg
+  edge. Measured on the atlas: the side views' back, shoulder and belly contour (rows 22–36)
+  shares 0–9 of the heavy's 31–41 outline pixels there; the whole side outline still shares
+  **18–30%** of the heavy's, the legs and soles being the heavy's own walk. That is above the
+  review's 20% line, so under its stop rule the bloater ships as is and a hand-drawn side walk
+  waits in what's left. The screamer's hands are a step lighter, (164,172,154) and
+  (146,155,136), clear of the sleeve's (129,134,123).
 
   **First cut,** like study 01: no attack, hit, death-transition or rising states; the scream and
   the burst have no animation of their own.

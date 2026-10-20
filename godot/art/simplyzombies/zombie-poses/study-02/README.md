@@ -29,15 +29,18 @@ ZOMBIE_POSES lane at study 01's own geometry.
 it a lost purple head on the front row, a belly pasted over its near arm, single-pixel speckle
 for shading and an acid green past the pack's range. `guides/bloater_paint.py` now builds both
 its sheets straight from the heavy, with no generation: the heavy's head, face and walk kept,
-its body pushed apart into the bloater's own silhouette (arms out beside the gut, legs set wider
-and thicker; in the side views the near arm bent at the elbow so the forearm rests on the gut),
+its body pushed apart into the bloater's own silhouette (arms out beside the gut and ending in
+hands, legs set wider and thicker; the side views built from shapes instead -- a rounded back,
+the head slumped into the shoulders, a longer stride and thicker thighs),
 the skin carried onto a four-tone olive at the pack's saturation, the clothes soured a step, and
 the belly an ellipsoid lit from the top left in contiguous bands with a fine grain, riding out
 from under the vest's hem (which keeps a one-pixel shadow), sagging over the belt, bulging
 forward in the side views 3-4 px past the arms and hips with its front edge held still through
 the walk, spilling past the flanks from behind, and outlined in the pack's near-black. In every
-side frame the forearm is painted over it in the upper arm's own skin with a cast shadow, and
-belly and forearm bob a pixel with each step. Its corpses take the same skin and a mound shaded the
+side frame the near arm is painted over it as one limb, shoulder to elbow to a hand on the gut,
+in a fixed ramp a step darker than the gut, and the whole upper body, head included, bobs a pixel
+with each step. The side outline still shares 18-30% of the heavy's (its legs and soles are the
+heavy's stride), so a hand-drawn side walk is a line in docs/23's what's left. Its corpses take the same skin and a mound shaded the
 same way; on the prone one it bulges out from under the torso. The generated bloater sheets stay under
 `sources/` as the record `prompts.json` describes; nothing reads them.
 

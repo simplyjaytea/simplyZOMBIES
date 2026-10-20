@@ -46,8 +46,8 @@ CHIN = 11
 # Below the chin a near-white is a hand: it is taken into the commuter's own hand range (luminance
 # 133 to 169) in two tones, the lit one where the generated pixel was brightest, the shade below --
 # both in the face's own grey-green, never the blue the generated near-white carried.
-HAND_LIT = (158, 167, 148)
-HAND_SHADE = (132, 141, 122)
+HAND_LIT = (164, 172, 154)
+HAND_SHADE = (146, 155, 136)
 HAND_SPLIT = 214.0
 # One value: the shirt's pale greys scaled by this, so the face reads a step above them.
 SHIRT_STEP = 0.80
