@@ -378,6 +378,13 @@ and the two ochre road lines (drawn north-south only, and a road runs both ways)
 
 ## The pawn — upright, face-on, flipped
 
+**Historical since 2026-10-19: no shipped body uses this convention.** Humans wear the outpost
+pack's four-direction body and every zombie, the screamer and the bloater included since zombie
+study 02, is a four-direction pose family under `godot/art/simplyzombies/zombie-poses/`. The
+face-on path survives in `presentation/appearance.gd` only as the fallback for a single-picture
+key, and `check_authored.gd` still holds a commissioned `rig` to the bounds below. Read the code,
+not this section, for what ships.
+
 Every rig on the roster — player, colonists, zombies, raiders — is one family: a standing
 figure seen face-on, drawn once and mirrored rather than turned.
 `tools/sprites/parts/characters.py` holds the eight rigs and the one `_figure` assembler every
@@ -518,6 +525,15 @@ and would eat them).
   `main.gd::_draw_prop` hangs any non-square prop picture and centres a square one, so the
   crate, the fire and the well are unchanged. The bed is a tile and a third wide, so `prop.bed`
   declares `size` 1.3 and `prop.schema.json` allows up to `Appearance.PROP_SIZE_MAX` (1.5).
+- `prop_campfire`, `prop_campfire_lit`, `prop_well` and `prop_latrine` are the square ones: drawn
+  under `godot/art/simplyzombies/stations/` since 2026-10-19 and padded onto the 32×32 tile
+  (`source.pad`, kind `tile`), so `_draw_prop` centres them like the crates. Their content `size`
+  is the art's width over 32, which `check_appearance.gd`'s PROPS lane holds.
+- `glass_{pane,frame}_{ew,ns,square}` are a window's glass on a wall's cap since 2026-10-19:
+  greys drawn by `godot/art/simplyzombies/glass/glass.py` at the rects' old geometry, named by the
+  street dressing's `faces.glass` and tinted by `main.gd::_draw_window_glass` (the pane by the
+  window tile's colour lightened 0.28, the frame by `windowRim`). `check_topdown.gd`'s GLASS lane
+  holds the geometry, the greys and the draw.
 - `heap_bags` (32×22), `heap_barrel` (24×30) and `heap_pallets` (32×30) are what a Low tile no
   parked car covers draws, out of the dressing block's `heaps` list (`Dressing.heap_key`, a hash
   per tile). `_draw_heap` hangs them at their own size inside the tile; `check_wrecks.gd`'s HEAP
@@ -530,6 +546,14 @@ and would eat them).
   nothing under `godot/sim/` reads it (`check_trees.gd`'s NATURE and INERT lanes).
 
 ## The vehicle — one three-quarter picture per class, variant and axis
+
+**Historical since 2026-10-19: no vehicle picture is generated.** The three cars east-west are the
+outpost pack's (2026-09-26); the cars north-south (`vehicle_<car>_{intact,wreck}_ns`) and all
+thirty light-vehicle keys are drawn under `godot/art/simplyzombies/vehicles/` (its README says
+how) and sourced in `authored.json`, and the sedan is 2×3, the van and the truck 2×4, both ways.
+The canvas rule below (footprint plus a tile of roofline) still sizes every picture but the pack's
+east-west cars, held by `check_wrecks.gd`'s DRESSING lane against content's footprint; the
+generator's camera, its numbers and its two-copies table describe pictures that no longer exist.
 
 `vehicle_{sedan,van,truck}_{pale,green,burnt}_{ns,ew}` (`tools/sprites/parts/vehicles.py`) are
 the three car classes, eighteen keys — the five light classes below make forty-eight in all:
@@ -636,7 +660,7 @@ content and draw nothing.
 Add the key to the content entry, not to any script:
 
 ```json
-{ "id": "zombie.screamer", "appearance": { "sprite": "zombie_screamer" } }
+{ "id": "zombie.screamer", "appearance": { "sprite": "body_zombie_screamer" } }
 ```
 
 `presentation/appearance.gd` resolves the key; `npm run godot:check:appearance` fails the build if

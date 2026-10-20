@@ -192,6 +192,26 @@ static func roof_tiles(map: Variant, seen: Variant, bounds: Dictionary, player_t
 	return out
 
 
+# Every tile a roof could ever cover in `region`: the indoor tiles of every footprint, without
+# roof_tiles' three questions about the observer (is the building known, is the observer inside it,
+# is the tile seen now). The baked roof layer (main.gd's _draw_roofs) draws a sheet on each of
+# these once; roof_tiles is still the rule for which of them the screen shows, asked per frame and
+# handed to the mask (presentation/world_layers.gd), so the rule and its gate are unchanged.
+static func roof_candidates(map: Variant, region: Rect2i) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	if map == null or not region.has_area():
+		return out
+	for index in indices_of(map):
+		var rect: Rect2i = rect_of(map, index).intersection(region)
+		if not rect.has_area():
+			continue
+		for ty in range(rect.position.y, rect.end.y):
+			for tx in range(rect.position.x, rect.end.x):
+				if SimTileMap.is_indoors(map, tx, ty):
+					out.append(Vector2i(tx, ty))
+	return out
+
+
 # Which half of a pitched roof a row takes: the ridge runs east-west through the footprint's
 # middle row; rows north of it face north, the ridge row and below face south. A flat material is
 # FLAT everywhere -- whether a material is pitched is the dressing block's answer (it declares
