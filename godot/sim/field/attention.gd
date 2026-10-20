@@ -281,8 +281,12 @@ func diffuse_scent(half_life_mul: float = 1.0) -> void:
 				value += scent[here - cols] * rate * w_py
 			var decayed: float = value * step_decay
 			_scent_next[here] = 0.0 if decayed < floor_v else decayed
-	for i in scent.size():
-		scent[i] = _scent_next[i]
+	# Every cell of `_scent_next` was written above, so the two buffers swap rather than copying
+	# one into the other cell by cell (A3's eighth slice): the old field becomes next step's
+	# scratch, and nothing outside this file holds either -- packed arrays are values.
+	var spent: PackedFloat32Array = scent
+	scent = _scent_next
+	_scent_next = spent
 
 
 # `half_life_mul` scales this tick's half-life exactly as `diffuse_scent`'s does: 1.0 is the

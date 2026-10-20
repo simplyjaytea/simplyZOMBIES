@@ -444,11 +444,17 @@ static func _grab_of(world: Variant, type_id: String) -> Dictionary:
 
 # The one place a shambler's speed is read. Every movement site goes through this so the cripple
 # penalty cannot be applied to three of the four and quietly missed on the fourth.
-static func _speed_of(world: Variant, entity: int, shambler_data: Dictionary, key: String) -> float:
+#
+# `sky` is that multiplier when the caller already has it: the think pass reads it once a tick
+# rather than once a body (A3's sixth slice), since the sky only turns in `weather.tick`, an input
+# system long before this one. Negative -- the default -- means read it here.
+static func _speed_of(world: Variant, entity: int, shambler_data: Dictionary, key: String, sky: float = -1.0) -> float:
 	# The sky's multiplier first (docs/adr/0016: a cold snap is the one state that weakens the
 	# dead directly), exactly 1.0 under clear, then the torso, then the cripple -- each derived
 	# from the body every tick, never latched.
-	var base: float = float(shambler_data.get(key, 0.0)) * SimWeatherRes.zombie_move_mul(world) * _torso_factor(world, entity)
+	if sky < 0.0:
+		sky = SimWeatherRes.zombie_move_mul(world)
+	var base: float = float(shambler_data.get(key, 0.0)) * sky * _torso_factor(world, entity)
 	if not _is_crawling(world, entity):
 		return base
 	return base * float(shambler_data.get("crawlFactor", DEFAULT_LOCOMOTION["crawl"]))
@@ -488,7 +494,7 @@ static func _steer_uphill(field: Variant, pos: Dictionary, vel: Dictionary, sham
 	return true
 
 
-static func _drift_upscent(field: Variant, pos: Dictionary, vel: Dictionary, shambler_data: Dictionary, seek: float) -> void:
+static func _drift_upscent(field: Variant, pos: Dictionary, vel: Dictionary, shambler_data: Dictionary, seek: float, steps: int = 1) -> void:
 	var uphill: Variant = field.uphill_scent(float(pos["x"]), float(pos["y"]))
 	if uphill == null:
 		return
@@ -502,7 +508,7 @@ static func _drift_upscent(field: Variant, pos: Dictionary, vel: Dictionary, sha
 		delta -= PI * 2.0
 	while delta < -PI:
 		delta += PI * 2.0
-	var angle: float = current + delta * SCENT_BIAS
+	var angle: float = current + delta * _steps_bias(SCENT_BIAS, steps)
 	vel["dx"] = cos(angle) * speed
 	vel["dy"] = sin(angle) * speed
 
@@ -534,9 +540,7 @@ static func _contact_target(survivors: Array, pos: Dictionary, radius_metres: fl
 # has no side and asks no allegiance question: a raider is meat on legs like everybody else.
 static func _gather_survivors(world: Variant) -> Array:
 	var out: Array = []
-	for entity in world.components.query(["position"]):
-		if not SimAllegianceRes.is_person(world, int(entity)):
-			continue
+	for entity in _people_with_position(world):
 		if world.components.has_component(int(entity), "corpse"):
 			continue
 		# A body at a wheel is inside a car, and a shambler has no way through the door: not
@@ -553,6 +557,12 @@ static func _gather_survivors(world: Variant) -> Array:
 			continue
 		out.append({"entity": int(entity), "x": float((at as Dictionary)["x"]), "y": float((at as Dictionary)["y"])})
 	return out
+
+
+# Every person with a position, ascending by id: `SimAllegiance.people_with_position`, which is
+# where the walk over the three markers' tables lives (A3's fourth slice).
+static func _people_with_position(world: Variant) -> Array[int]:
+	return SimAllegianceRes.people_with_position(world)
 
 
 static func _chase(world: Variant, target: int, pos: Dictionary, vel: Dictionary, shambler_data: Dictionary, seek: float) -> void:
@@ -593,12 +603,17 @@ static func _chase(world: Variant, target: int, pos: Dictionary, vel: Dictionary
 # with the same `sight_mul`. Neither is allowed to shrink alone -- docs/16's symmetry is that
 # the fog blinds the living and the dead by the same amount, and a reach that stayed open while
 # the cast closed (or the reverse) would be a fog that quietly favours one side.
-static func sight_reach(world: Variant, entity: int, shambler_data: Dictionary) -> float:
+#
+# `fog` is `SimWeather.sight_mul` when the caller already read it this tick, as `_speed_of`'s
+# `sky`; negative reads it here.
+static func sight_reach(world: Variant, entity: int, shambler_data: Dictionary, fog: float = -1.0) -> float:
 	var obs: Variant = world.components.get_component(entity, "observer")
 	if not obs is Dictionary:
 		return 0.0
+	if fog < 0.0:
+		fog = SimWeatherRes.sight_mul(world)
 	var light_sense: float = float(shambler_data.get("lightSense", LIGHT_SENSITIVITY))
-	return float((obs as Dictionary).get("range_metres", 0.0)) * sqrt(maxf(light_sense, 0.0)) * SimWeatherRes.sight_mul(world)
+	return float((obs as Dictionary).get("range_metres", 0.0)) * sqrt(maxf(light_sense, 0.0)) * fog
 
 
 # Sight as a stimulus, the way grabs were landed (GRABS_ENABLED above: built, gated, shipped
@@ -615,8 +630,45 @@ static func sight_reach(world: Variant, entity: int, shambler_data: Dictionary) 
 # it across every world it boots.
 static var SIGHT_ENABLED: bool = true
 
+# A wandering or dormant body with no person within FAR_THINK_METRES thinks on one tick in
+# FAR_THINK_EVERY, its phase set by its id so a quarter of them think on any tick (A3's ninth
+# slice, approved under the owner's standing brief of 2026-10-19). Between thinks it keeps its
+# velocity and its countdowns run, so it walks the same straight line it would have walked; what
+# it loses is the tick on which it turns, hears or smells, which can come up to three ticks
+# (0.15 s) late. Scent and light steer a fraction of the way per think, so a far think steers by
+# what FAR_THINK_EVERY ticks would have (`_steps_bias`). Nothing a zombie does near a person is
+# touched: 40 m is more than three times its sight and the stateless phase means a save and a
+# restore think on the same ticks. THINK_LOD is the gate-drivable switch back to thinking every
+# tick; a lane that pins it must restore it, one gate process sharing it across every world.
+const FAR_THINK_EVERY: int = 4
+const FAR_THINK_METRES: float = 40.0
+static var THINK_LOD: bool = true
 
-static func _seen_target(world: Variant, entity: int, survivors: Array, shambler_data: Dictionary) -> Variant:
+
+# True when no survivor stands within `metres`: the far half of the think-rate rule above.
+static func _nobody_within(survivors: Array, pos: Dictionary, metres: float) -> bool:
+	var limit: float = metres * metres
+	var x: float = float(pos["x"])
+	var y: float = float(pos["y"])
+	for survivor in survivors:
+		var s: Dictionary = survivor as Dictionary
+		var dx: float = float(s["x"]) - x
+		var dy: float = float(s["y"]) - y
+		if dx * dx + dy * dy <= limit:
+			return false
+	return true
+
+
+# A steer that closes `bias` of the angle each tick closes this much over `steps` ticks, so a body
+# that thinks every fourth tick turns towards a smell or a light at the rate it always did. One
+# step is the bias itself, untouched.
+static func _steps_bias(bias: float, steps: int) -> float:
+	if steps <= 1:
+		return bias
+	return 1.0 - pow(1.0 - bias, float(steps))
+
+
+static func _seen_target(world: Variant, entity: int, survivors: Array, shambler_data: Dictionary, fog: float = -1.0) -> Variant:
 	if not SIGHT_ENABLED:
 		return null
 	if world.vision == null or not world.components.has_component(entity, "observer"):
@@ -624,7 +676,7 @@ static func _seen_target(world: Variant, entity: int, survivors: Array, shambler
 	var pos: Variant = world.components.get_component(entity, "position")
 	if pos == null:
 		return null
-	var reach: float = sight_reach(world, entity, shambler_data)
+	var reach: float = sight_reach(world, entity, shambler_data, fog)
 	if reach <= 0.0:
 		return null
 	var best: Variant = null
@@ -644,7 +696,7 @@ static func _seen_target(world: Variant, entity: int, survivors: Array, shambler
 	return best
 
 
-static func _lean_to_light(world: Variant, entity: int, pos: Dictionary, vel: Dictionary, light_sense: float = LIGHT_SENSITIVITY) -> void:
+static func _lean_to_light(world: Variant, entity: int, pos: Dictionary, vel: Dictionary, light_sense: float = LIGHT_SENSITIVITY, steps: int = 1) -> void:
 	if not world.components.has_component(entity, "observer"):
 		return
 	var speed: float = sqrt(float(vel["dx"]) * float(vel["dx"]) + float(vel["dy"]) * float(vel["dy"]))
@@ -676,7 +728,7 @@ static func _lean_to_light(world: Variant, entity: int, pos: Dictionary, vel: Di
 		delta -= PI * 2.0
 	while delta < -PI:
 		delta += PI * 2.0
-	var angle: float = current + delta * LIGHT_BIAS * light_sense
+	var angle: float = current + delta * _steps_bias(LIGHT_BIAS * light_sense, steps)
 	vel["dx"] = cos(angle) * speed
 	vel["dy"] = sin(angle) * speed
 
@@ -983,17 +1035,48 @@ static func register_module(world: Variant, _map: Variant) -> void:
 		var rng: Variant = w.rng.stream("shambler")
 		var field: Variant = w.field
 		var survivors: Array = _gather_survivors(w)
+		# The sky, read once for every body: nothing between `weather.tick` and here turns it.
+		var sky: float = SimWeatherRes.zombie_move_mul(w)
+		var fog: float = SimWeatherRes.sight_mul(w)
 		var noise_floor: float = float(field.calibration["floor"])
 		var scent_floor: float = float(field.calibration["scentFloor"])
+		var rest_eyes: Variant = w.vision.resting if THINK_LOD and w.vision != null and "resting" in w.vision else null
+		# Five tables read straight (`SimComponentStore.table`, A3's tenth slice): this loop
+		# writes into the values it reads and adds no member to any of them -- a hold begins in
+		# step 4 below it, after the loop has finished.
+		var shamblers: Dictionary = w.components.table("shambler")
+		var positions: Dictionary = w.components.table("position")
+		var velocities: Dictionary = w.components.table("velocity")
+		var holds: Dictionary = w.components.table("grabState")
+		var emitters: Dictionary = w.components.table("attention_emitter")
 		for entity in w.components.query(["position", "velocity", "shambler"]):
-			var shambler_comp: Variant = w.components.get_component(int(entity), "shambler")
-			var pos: Variant = w.components.get_component(int(entity), "position")
-			var vel: Variant = w.components.get_component(int(entity), "velocity")
+			var shambler_comp: Variant = shamblers.get(int(entity))
+			var pos: Variant = positions.get(int(entity))
+			var vel: Variant = velocities.get(int(entity))
 			if shambler_comp == null or pos == null or vel == null:
 				continue
 			var sd: Dictionary = shambler_comp as Dictionary
 			var vd: Dictionary = vel as Dictionary
 			var pd: Dictionary = pos as Dictionary
+			# The think-rate rule (FAR_THINK_EVERY): a far wandering or dormant body off its phase
+			# runs its countdowns and keeps its velocity, and does nothing else this tick.
+			var steps: int = 1
+			var st: int = int(sd["state"])
+			if THINK_LOD and (st == ShamblerState["Wander"] or st == ShamblerState["Dormant"]) and _nobody_within(survivors, pd, FAR_THINK_METRES) and not holds.has(int(entity)):
+				# Its eyes rest too when it will not think on the coming tick either: the view
+				# `kernel.visibility` builds this tick is the one that think would read.
+				if rest_eyes != null and (int(w.tick) + 1 + int(entity)) % FAR_THINK_EVERY != 0:
+					(rest_eyes as Dictionary)[int(entity)] = true
+				if (int(w.tick) + int(entity)) % FAR_THINK_EVERY != 0:
+					if int(sd["ticksToGrab"]) > 0:
+						sd["ticksToGrab"] = int(sd["ticksToGrab"]) - 1
+					if st == ShamblerState["Dormant"]:
+						vd["dx"] = 0.0
+						vd["dy"] = 0.0
+					elif int(sd["ticksToTurn"]) > 0:
+						sd["ticksToTurn"] = int(sd["ticksToTurn"]) - 1
+					continue
+				steps = FAR_THINK_EVERY
 			# Thresholds per body from the type's `sensory` block: a sense of 0 hears or smells
 			# nothing at all, which is docs/14's "no single silence" made literal.
 			var noise_sense: float = float(sd.get("noiseSense", NOISE_SENSITIVITY))
@@ -1004,7 +1087,7 @@ static func register_module(world: Variant, _map: Variant) -> void:
 			# seek its own sound for ever. Its threshold is raised by what it gives off: only
 			# something louder than itself is a sound.
 			var own_noise: float = 0.0
-			var em: Variant = w.components.get_component(int(entity), "attention_emitter")
+			var em: Variant = emitters.get(int(entity))
 			if em is Dictionary:
 				own_noise = maxf(float((em as Dictionary).get("ambient", 0.0)), float((em as Dictionary).get("walking", 0.0)))
 			var heard: bool = noise_sense > 0.0 and field.noise_at(float(pd["x"]), float(pd["y"])) >= own_noise + noise_floor / noise_sense
@@ -1012,10 +1095,13 @@ static func register_module(world: Variant, _map: Variant) -> void:
 			# Resolved once per shambler per tick and handed to every steer below it, rather than
 			# each of them reaching for sd["seekSpeed"] -- which is what let the cripple penalty
 			# sit on the component unread for the whole of Milestone 2.
-			var seek: float = _speed_of(w, int(entity), sd, "seekSpeed")
+			# Read only by the arms that move a body towards something (Pursue, Seek, Wander): a
+			# dormant, staggered, milling or holding body never asks it, and a fifth of the
+			# district lies dormant (A3's seventh slice). Every arm that needs it sets it first.
+			var seek: float = 0.0
 			if int(sd["ticksToGrab"]) > 0:
 				sd["ticksToGrab"] = int(sd["ticksToGrab"]) - 1
-			if w.components.has_component(int(entity), "grabState"):
+			if holds.has(int(entity)):
 				# Holding is neither pathfinding nor pursuit. Both bodies stay exactly where
 				# the mistake happened until the survivor escapes or something knocks the
 				# grabber away -- see the hold-lifecycle loops below this state machine for
@@ -1076,10 +1162,12 @@ static func register_module(world: Variant, _map: Variant) -> void:
 						sd["state"] = ShamblerState["Wander"]
 						sd["ticksToTurn"] = int(rng.call("int_range", 20, 120))
 					else:
+						seek = _speed_of(w, int(entity), sd, "seekSpeed", sky)
 						_chase(w, int(target), pd, vd, sd, seek)
 				ShamblerState["Seek"]:
+					seek = _speed_of(w, int(entity), sd, "seekSpeed", sky)
 					var caught: Variant = _contact_target(survivors, pd, CONTACT_METRES)
-					var seen: Variant = _seen_target(w, int(entity), survivors, sd)
+					var seen: Variant = _seen_target(w, int(entity), survivors, sd, fog)
 					if caught != null:
 						sd["state"] = ShamblerState["Pursue"]
 						sd["ticksCommitted"] = 0
@@ -1107,14 +1195,16 @@ static func register_module(world: Variant, _map: Variant) -> void:
 						sd["ticksToTurn"] = 0
 					elif int(sd["ticksToTurn"]) <= 0:
 						var angle: float = rng.call("float_range", 0.0, PI * 2.0)
-						vd["dx"] = cos(angle) * _speed_of(w, int(entity), sd, "millSpeed")
-						vd["dy"] = sin(angle) * _speed_of(w, int(entity), sd, "millSpeed")
+						var mill: float = _speed_of(w, int(entity), sd, "millSpeed", sky)
+						vd["dx"] = cos(angle) * mill
+						vd["dy"] = sin(angle) * mill
 						sd["ticksToTurn"] = int(rng.call("int_range", 10, 25))
 					else:
 						sd["ticksToTurn"] = int(sd["ticksToTurn"]) - 1
 				_:
+					seek = _speed_of(w, int(entity), sd, "seekSpeed", sky)
 					var caught2: Variant = _contact_target(survivors, pd, CONTACT_METRES)
-					var seen2: Variant = _seen_target(w, int(entity), survivors, sd)
+					var seen2: Variant = _seen_target(w, int(entity), survivors, sd, fog)
 					if caught2 != null:
 						sd["state"] = ShamblerState["Pursue"]
 						_notice(w, int(entity), sd)
@@ -1131,14 +1221,15 @@ static func register_module(world: Variant, _map: Variant) -> void:
 						_steer_uphill(field, pd, vd, sd, seek)
 					elif int(sd["ticksToTurn"]) <= 0:
 						var angle2: float = rng.call("float_range", 0.0, PI * 2.0)
-						vd["dx"] = cos(angle2) * _speed_of(w, int(entity), sd, "wanderSpeed")
-						vd["dy"] = sin(angle2) * _speed_of(w, int(entity), sd, "wanderSpeed")
+						var wander: float = _speed_of(w, int(entity), sd, "wanderSpeed", sky)
+						vd["dx"] = cos(angle2) * wander
+						vd["dy"] = sin(angle2) * wander
 						sd["ticksToTurn"] = int(rng.call("int_range", 20, 120))
 					else:
 						sd["ticksToTurn"] = int(sd["ticksToTurn"]) - 1
 					if smelled:
-						_drift_upscent(field, pd, vd, sd, seek)
-					_lean_to_light(w, int(entity), pd, vd, float(sd.get("lightSense", LIGHT_SENSITIVITY)))
+						_drift_upscent(field, pd, vd, sd, seek, steps)
+					_lean_to_light(w, int(entity), pd, vd, float(sd.get("lightSense", LIGHT_SENSITIVITY)), steps)
 
 		# --- Hold lifecycle, alongside the state machine above rather than in a separate
 		# combat-phase system (plan deviates from the oracle here on purpose). Order is

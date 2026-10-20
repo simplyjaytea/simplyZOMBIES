@@ -14,7 +14,26 @@ container running** lives in `AGENTS.md`.
 
 ---
 
-## Start here: CI repair and the October follow-ups, 2026-10-03
+## Start here: the whole-interface redesign, 2026-10-03
+
+CI repair [#145](https://github.com/simplyjaytea/simplyZOMBIES/pull/145) and follow-ups
+[#146](https://github.com/simplyjaytea/simplyZOMBIES/pull/146) are merged into main `bf6b41a`.
+Both passed GitHub CI before merging; main's tree matches the locally verified 85-gate
+integration. The exact evidence remains in [docs/23](docs/23-roadmap.md#the-record-by-system).
+
+The owner now wants **all UI overhauled**: Project Zomboid practicality, Tarkov/Zero Sievert
+tactical detail and cohesion with Dungeon Settlers art. The chosen paperdoll is **a stylized
+anatomical diagram with equipment arranged around it**. Read [the design brief](docs/32-ui-overhaul.md),
+[the owner decision](docs/30-decisions.md#the-whole-interface-2026-10-03) and
+[the ordered work](docs/23-roadmap.md#ui-overhaul). The concept and grid-plus-fast-list proposal
+remain open for feedback; the old kit/font/chart proportions may be replaced. The proposal
+is not a shipped redesign. Existing pause, capacity and simulation authority still apply.
+
+Use separate worktrees and disjoint files after the shared interface contracts are fixed.
+One coordinator owns main/input and roadmap/README/handoff changes. The roadmap remains the
+single backlog; do not resume an older visual mandate or create another task ledger.
+
+## Previous handoff: CI repair and the October follow-ups, 2026-10-03
 
 The water failure after the art pass was a source-scanner boundary, not missing rendering.
 `check_water.gd` now follows the two Water branches and tests its scanner on positive and
@@ -1012,11 +1031,6 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    slows the player and nobody else — half a mechanic in exactly the way noise-only ground was
    before the worldgen arc. Widening it moves NPC pathing balance and is its own measured slice
    (it is in the debt list); until then a ford is a decision only the player makes.
-
-0b. **The idle breath** (2026-09-09). One pixel of pelvis at a quarter of the walk's rate,
-   drawn in the fixture round and deliberately left out of the four answers the owner gave that
-   day. Small, independent of every other piece, and named in docs/23's character-overhaul group
-   rather than decided there.
 
 0a. **The picture on select** (2026-09-08). The owner's answer on the pawn — *"when selecting
    the character, sprite art will appear. However, weapons, clothing, gear will be shown"* —

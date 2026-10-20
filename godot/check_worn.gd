@@ -125,8 +125,6 @@ const TURNING_BODIES: Array[String] = [
 # uses for its tier bounds: the gate names its own expectation rather than reading the value
 # under test back at itself.
 const EXPECT_ORDER: Array[Dictionary] = [
-	{"slot": "legs", "over": true},
-	{"slot": "torso", "over": true},
 	{"slot": "vest", "over": true},
 	{"slot": "back", "over": false},
 	{"slot": "primary", "over": true},
@@ -135,11 +133,20 @@ const EXPECT_ORDER: Array[Dictionary] = [
 	{"slot": "head", "over": true},
 ]
 
-# The four equip slots content declares (item.schema.json's equipSlot enum) that EQUIP_DRAW_ORDER
-# deliberately does not name -- appearance.gd's own comment calls these out as undrawn, and
-# REACHES' third true negative is that an item sitting in one of these resolves no layer no
-# matter what art it carries.
-const UNDRAWN_SLOTS: Array[String] = ["belt", "feet", "gloves", "eyes"]
+# The equip slots content declares (item.schema.json's equipSlot enum) that EQUIP_DRAW_ORDER does
+# not name, so nothing in them is a layer: `belt`, `gloves` and `eyes` draw nothing at all, and
+# since "Clothe everyone" (2026-10-19) `legs`, `feet` and `torso` are composed into the body picture
+# instead (`Appearance.WORN_SLOTS`, judged by COVERAGE, DRESSED and STEP below). REACHES' third
+# true negative is that an item sitting in one of these resolves no layer no matter what art it
+# carries.
+const UNDRAWN_SLOTS: Array[String] = ["belt", "feet", "gloves", "eyes", "legs", "torso"]
+
+# The gate's own copy of `Appearance.WORN_SLOTS`, in the order garments are laid on: trousers,
+# then footwear over the hem, then the torso garment over both. Never read back from the value under
+# test (the EXPECT_ORDER convention).
+const EXPECT_WORN: Array[String] = ["legs", "feet", "torso"]
+# The rig every garment is painted on, and the body content that names it.
+const CLOTHED_RIG: String = "body_survivor"
 
 # How many rigs `tools/sprites/` generates: the screamer and the bloater, the two the pack does not
 # draw. Pinned rather than measured, so PAWN_KEYS growing a key is caught here.
@@ -163,6 +170,9 @@ func _run() -> void:
 	ok = _the_weapon_is_in_the_hand() and ok
 	ok = _the_gear_follows_the_frame() and ok
 	ok = _the_weapon_turns_to_the_aim() and ok
+	ok = _every_worn_item_has_a_garment() and ok
+	ok = _nobody_is_drawn_in_underwear() and ok
+	ok = _the_clothes_walk_with_the_body() and ok
 
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
 	if seconds > BUDGET_SECONDS:
@@ -172,7 +182,7 @@ func _run() -> void:
 	if ok:
 		print(
 			(
-				"WORN_LOOK_OK EQUIP_DRAW_ORDER holds 8 slots in order (only back under) and an actor kitted in all eight composes them in that order, %d layers; %d content/items/ equip keys are a wearable at PAWN_CANVAS %s or a held weapon at its own canvas; the face-on path is gone (%s); %d equippable base(s) reach a layer in all four views (%s), refused for no-equipment/no-art/an-undrawn-slot/an-empty-slot; all %d generated rigs share PAWN_CANVAS with no per-rig key; %s; the pack's wearables turn with the body; %s; %.1f s of a %.0f s budget"
+				"WORN_LOOK_OK EQUIP_DRAW_ORDER holds 6 slots in order (only back under) and an actor kitted in all six composes them in that order, %d layers; %d content/items/ equip keys are a wearable at PAWN_CANVAS %s or a held weapon at its own canvas; the face-on path is gone (%s); %d equippable base(s) reach a layer in all four views (%s), refused for no-equipment/no-art/an-undrawn-slot/an-empty-slot; all %d generated rigs share PAWN_CANVAS with no per-rig key; %s; the pack's wearables turn with the body; %s; %s; %s; %s; %.1f s of a %.0f s budget"
 				% [
 					int(_stash.get("order_layers", 0)),
 					int(_stash.get("canvas_judged", 0)),
@@ -183,6 +193,9 @@ func _run() -> void:
 					GENERATED_RIGS,
 					String(_stash.get("played_note", "")),
 					String(_stash.get("held_note", "")) + "; " + String(_stash.get("aim_note", "")),
+					String(_stash.get("coverage_note", "")),
+					String(_stash.get("dressed_note", "")),
+					String(_stash.get("step_note", "")),
 					seconds,
 					BUDGET_SECONDS,
 				]
@@ -344,10 +357,10 @@ func _the_order_holds_and_composes() -> bool:
 		push_error("a shuffled EQUIP_DRAW_ORDER expectation still compared equal; ORDER's comparison cannot say no")
 		return false
 
-	# 2. Real composition, seen from the east: an actor kitted in all eight drawable slots. Content
-	# ships wearables for four slots, so legs and torso are fabricated bases reusing the helmet and
-	# the gas mask -- one picture per slot tells the slots apart by key, and nothing new is drawn;
-	# only the eight-slot *order* is exercised end to end. The pump shotgun in the primary hand and
+	# 2. Real composition, seen from the east: an actor kitted in all six drawable slots, plus legs
+	# and torso holding fabricated bases that reuse the helmet and the gas mask -- since "Clothe
+	# everyone" those two slots are composed into the body picture, never layered, so a standing
+	# wearable named in either must compose nothing here. The pump shotgun in the primary hand and
 	# the pistol in the secondary are real held weapons.
 	Appearance.forget()
 	var tree: Dictionary = ContentLoader.load_tree()
@@ -363,8 +376,6 @@ func _the_order_holds_and_composes() -> bool:
 	})
 	var layers: Array[Dictionary] = Appearance.equipment_layers_for(w, actor, "e")
 	var expect_keys: Array = [
-		["item_gear_helmet_e", true],       # legs
-		["item_gear_gasmask_e", true],      # torso
 		["item_gear_vest_e", true],         # vest
 		["item_gear_backpack_e", false],    # back, under seen from the side (the pack's z)
 		["item_held_pump_shotgun", true],   # primary, the near hand
@@ -373,7 +384,7 @@ func _the_order_holds_and_composes() -> bool:
 		["item_gear_helmet_e", true],       # head
 	]
 	if layers.size() != expect_keys.size():
-		push_error("kitting all eight slots returned %d layers seen from the east, want %d in EQUIP_DRAW_ORDER's order: %s" % [layers.size(), expect_keys.size(), str(layers)])
+		push_error("kitting all six drawn slots (and legs and torso) returned %d layers seen from the east, want %d in EQUIP_DRAW_ORDER's order: %s" % [layers.size(), expect_keys.size(), str(layers)])
 		return false
 	for i in layers.size():
 		var want_key: String = String(expect_keys[i][0])
@@ -414,7 +425,7 @@ func _the_order_holds_and_composes() -> bool:
 	w.components.remove_component(actor, "rangedWeapon")
 
 	_stash["order_layers"] = layers.size()
-	print("ORDER OK EQUIP_DRAW_ORDER == EXPECT_ORDER (8 slots, only back under); a shuffled expectation is refused; an actor kitted in all eight composes %d layers in order seen from the east, the backpack and the far hand's pistol the only ones under; wielded, that pistol comes over the body from e and w and stays under from n, and wielding the shotgun leaves it behind" % layers.size())
+	print("ORDER OK EQUIP_DRAW_ORDER == EXPECT_ORDER (6 slots, only back under); a shuffled expectation is refused; an actor kitted in all six (and legs and torso, which compose no layer) composes %d layers in order seen from the east, the backpack and the far hand's pistol the only ones under; wielded, that pistol comes over the body from e and w and stays under from n, and wielding the shotgun leaves it behind" % layers.size())
 	return true
 
 
@@ -437,7 +448,13 @@ func _the_canvas_is_the_declared_one() -> bool:
 	var judged: int = 0
 	for d in decls:
 		var key: String = String(d["key"])
-		if Appearance.turns(key):
+		if Appearance.is_garment(key):
+			for frame in _rig_members():
+				var worn: String = key + frame.substr(CLOTHED_RIG.length())
+				if not _is_pawn_canvas(Appearance.resolve(worn)):
+					push_error("CANVAS: %s's garment member '%s' is not a PAWN_CANVAS %s picture" % [String(d["id"]), worn, str(Appearance.PAWN_CANVAS)])
+					return false
+		elif Appearance.turns(key):
 			for view in Appearance.VIEWS:
 				var member: String = "%s_%s" % [key, view]
 				if not _is_pawn_canvas(Appearance.resolve(member)):
@@ -464,7 +481,7 @@ func _the_canvas_is_the_declared_one() -> bool:
 		return false
 
 	_stash["canvas_judged"] = judged
-	print("CANVAS OK %d equip declaration(s) under content/items/ are a wearable with four PAWN_CANVAS members or a held weapon at its declared canvas; a 32x32 fabrication and an unknown key are both refused" % judged)
+	print("CANVAS OK %d equip declaration(s) under content/items/ are a garment with a PAWN_CANVAS member per rig frame, a wearable with four PAWN_CANVAS members or a held weapon at its declared canvas; a 32x32 fabrication and an unknown key are both refused" % judged)
 	return true
 
 
@@ -1418,3 +1435,407 @@ func _aim_loop_complaint(source: String) -> String:
 		if not draw.contains(String(needle)):
 			return "_draw_entities does not contain %s" % String(needle)
 	return ""
+
+
+# --- clothing: shared helpers ---------------------------------------------------------------
+#
+# "Clothe everyone" (docs/23, 2026-10-19). Torso, legs and feet garments are `wear` families
+# painted per frame onto the pack survivor (godot/art/simplyzombies/clothing/) and composed into the
+# body picture by `Appearance.body_texture` on the very frame it draws. Three lanes:
+#
+#   COVERAGE every torso, legs and feet base content declares names a garment painted for the
+#            survivor rig and its own slot, and an actor wearing it is drawn, on every one of the
+#            rig's frames, as exactly the body with each of its three garments laid over it in
+#            order (`_composite_complaint`); the draw loop reaches `for_entity` and `body_texture`.
+#            TN: a fabricated torso item with no equipSprite, one naming a standing wearable, one
+#            naming trousers, and a garment painted for another rig are refused; the bare frame
+#            shows no garment pixel.
+#   DRESSED  nobody is drawn in underwear: every body content block on the survivor rig, and every
+#            human the shipped colony boots, resolves a garment in all three slots, and the dressed
+#            rest view repaints most of the body's skin. TN: a zombie, a body with no outfit to fall
+#            back on, and an outfit naming a garment painted for another rig resolve nothing.
+#   STEP     the clothes walk with the legs: for every view and a run of motions, moving and standing,
+#            `body_texture` answers the composite for exactly the frame `frame_key` picks, and that
+#            composite is the frame dressed in all three garments' members for that same frame.
+#            TN: the walk frame dressed in the garments' idle members (clothes that stood still), and
+#            one dressed with the trousers left off, are both refused by the same comparison; a
+#            frame not of the rig composes nothing.
+
+func _rig_members() -> Array[String]:
+	var out: Array[String] = []
+	for view in Appearance.VIEWS:
+		out.append("%s_%s" % [CLOTHED_RIG, view])
+		for n in Appearance.walk_frames(CLOTHED_RIG):
+			out.append("%s_walk_%s_%d" % [CLOTHED_RIG, view, n])
+		# The breath pictures after the rest view (docs/30, "The idle breath, kept"): a standing
+		# body shows them, so they are dressed like every other frame.
+		for n in range(1, Appearance.breath_frames(CLOTHED_RIG)):
+			out.append("%s_idle_%s_%d" % [CLOTHED_RIG, view, n])
+	return out
+
+
+# What is wrong with one worn item's equipSprite for its slot, or "".
+func _garment_complaint(key: String, slot: String) -> String:
+	if key.is_empty():
+		return "declares no equipSprite; worn, it would draw the default outfit and show nothing of itself"
+	if not Appearance.is_garment(key):
+		return "declares '%s', which is no garment (authored.json kind `wear`)" % key
+	if not Appearance.wears(key, CLOTHED_RIG):
+		return "declares '%s', a garment not painted for %s" % [key, CLOTHED_RIG]
+	if not Appearance.wears(key, CLOTHED_RIG, slot):
+		return "declares '%s', a garment for another slot than the %s" % [key, slot]
+	return ""
+
+
+# What is wrong with a dressed frame against an independent reference, or "": every pixel is the
+# last of `layers` (in WORN_SLOTS order) that paints it, else the bare `body`'s. WEAR holds every
+# garment pixel opaque, so the reference needs no blending. Written here rather than calling
+# `Appearance.dressed_image`, so the renderer's composite is judged by something it does not share.
+func _composite_complaint(dressed: Image, body: Image, layers: Array) -> String:
+	if dressed == null or body == null:
+		return "does not resolve"
+	for layer in layers:
+		if layer == null or (layer as Image).get_size() != body.get_size():
+			return "has a garment layer that does not resolve at the body's size"
+	if dressed.get_size() != body.get_size():
+		return "is %s and its body is %s" % [str(dressed.get_size()), str(body.get_size())]
+	for y in body.get_height():
+		for x in body.get_width():
+			var want: Color = body.get_pixel(x, y)
+			for layer in layers:
+				var c: Color = (layer as Image).get_pixel(x, y)
+				if c.a8 > 0:
+					want = c
+			if dressed.get_pixel(x, y) != want:
+				return "differs from the body dressed in its garments at (%d, %d)" % [x, y]
+	return ""
+
+
+func _layers_for(outfit: Array, suffix: String) -> Array:
+	var out: Array = []
+	for garment in outfit:
+		out.append(Appearance.image_of(String(garment) + suffix))
+	return out
+
+
+# How many of `garment`'s painted pixels show in `dressed` and differ from the bare `body`: the
+# garment is drawn there, not merely declared.
+func _garment_shows(dressed: Image, body: Image, garment: Image) -> int:
+	if dressed == null or body == null or garment == null:
+		return 0
+	var shown: int = 0
+	for y in garment.get_height():
+		for x in garment.get_width():
+			var g: Color = garment.get_pixel(x, y)
+			if g.a8 == 0:
+				continue
+			if dressed.get_pixel(x, y) == g and body.get_pixel(x, y) != g:
+				shown += 1
+	return shown
+
+
+# --- lane 9: COVERAGE ------------------------------------------------------------------------
+
+
+func _every_worn_item_has_a_garment() -> bool:
+	var lane: String = "COVERAGE"
+	Appearance.forget()
+	var tree: Dictionary = ContentLoader.load_tree()
+	var w: Variant = _world(tree)
+	var frames: Array[String] = _rig_members()
+	if frames.size() != Appearance.VIEWS.size() * (Appearance.breath_frames(CLOTHED_RIG) + Appearance.walk_frames(CLOTHED_RIG)) or Appearance.walk_frames(CLOTHED_RIG) != 8 or Appearance.breath_frames(CLOTHED_RIG) != 2:
+		push_error("%s: the %s rig draws %d frames, want four views of a rest picture, a breath and an eight-frame walk" % [lane, CLOTHED_RIG, frames.size()])
+		return false
+	var per_slot: Dictionary = {"legs": 0, "feet": 0, "torso": 0}
+	var fewest: int = 1 << 30
+	for path in tree.keys():
+		if not String(path).begins_with("items/"):
+			continue
+		var raw: Variant = tree[path]
+		for entry_v in (raw as Array if raw is Array else [raw]):
+			if not (entry_v is Dictionary):
+				continue
+			var entry: Dictionary = entry_v as Dictionary
+			var slot: String = String(entry.get("equipSlot", ""))
+			if not EXPECT_WORN.has(slot):
+				continue
+			var id: String = String(entry.get("id", "?"))
+			var app: Variant = entry.get("appearance", {})
+			var key: String = String((app as Dictionary).get("equipSprite", "")) if app is Dictionary else ""
+			var why: String = _garment_complaint(key, slot)
+			if not why.is_empty():
+				push_error("%s: %s (worn on the %s) %s" % [lane, id, slot, why])
+				return false
+			var kit: Dictionary = {}
+			kit[slot] = id
+			var actor: int = _kit(w, kit)
+			var look: Dictionary = Appearance.for_entity(w, {"player": true, "id": actor})
+			var outfit: Array = look.get("outfit", []) as Array
+			if outfit.size() != EXPECT_WORN.size() or String(outfit[EXPECT_WORN.find(slot)]) != key:
+				push_error("%s: an actor wearing %s is dressed in %s; want '%s' in the %s place of %s" % [lane, id, str(outfit), key, slot, str(EXPECT_WORN)])
+				return false
+			for frame in frames:
+				var suffix: String = frame.substr(CLOTHED_RIG.length())
+				var dressed: Image = Appearance.dressed_image(CLOTHED_RIG, frame, outfit)
+				var exact: String = _composite_complaint(dressed, Appearance.image_of(frame), _layers_for(outfit, suffix))
+				if not exact.is_empty():
+					push_error("%s: %s worn, %s dressed in %s %s" % [lane, id, frame, str(outfit), exact])
+					return false
+				var shown: int = _garment_shows(dressed, Appearance.image_of(frame), Appearance.image_of(key + suffix))
+				if shown == 0:
+					push_error("%s: %s's garment '%s' shows no pixel on %s dressed in %s" % [lane, id, key, frame, str(outfit)])
+					return false
+				fewest = mini(fewest, shown)
+			per_slot[slot] = int(per_slot[slot]) + 1
+	for slot in EXPECT_WORN:
+		if int(per_slot[slot]) == 0:
+			push_error("%s: no content item is worn on the %s; the lane is here for all three" % [lane, slot])
+			return false
+
+	# The draw loop reaches it: `_draw_entities` asks `for_entity` for the look and hands that look to
+	# `body_texture`, which is the one place the outfit is composed.
+	var source: String = FileAccess.get_file_as_string(MAIN_PATH)
+	var draw: String = _function_code(source, "_draw_entities")
+	for needle in ["Appearance.for_entity(", "Appearance.body_texture(look, view,"]:
+		if not draw.contains(needle):
+			push_error("%s: main.gd's _draw_entities no longer calls %s; the outfit would never be drawn" % [lane, needle])
+			return false
+	if _function_code("# func _draw_entities(\n#\tAppearance.body_texture(look, view,\n", "_draw_entities").contains("Appearance.body_texture(look, view,"):
+		push_error("%s: the needle scanner found a reader inside a comment; it cannot say no" % lane)
+		return false
+
+	# TN: an unmapped torso item, a standing wearable named as a garment, and a garment for another rig.
+	if _garment_complaint("", "torso").is_empty() or _garment_complaint("item_gear_vest", "torso").is_empty() \
+			or _garment_complaint("wear_pants_denim", "torso").is_empty():
+		push_error("%s: a torso item with no equipSprite, one naming the pack's standing vest, or one naming trousers passed" % lane)
+		return false
+	if not _garment_complaint("wear_tee_sand", "torso").is_empty():
+		push_error("%s: a torso item naming a tee was refused, so the refusals above prove nothing" % lane)
+		return false
+	# A garment painted for another rig: none ships, so one is registered for the length of this check
+	# and taken out again, through the same table `wears` reads.
+	Appearance._read_authored()
+	Appearance._wear["wear_gate_other_rig"] = {"fits": "body_zombie_workwear", "slot": "torso"}
+	var other_rig: String = _garment_complaint("wear_gate_other_rig", "torso")
+	Appearance._wear.erase("wear_gate_other_rig")
+	if not other_rig.contains("not painted for"):
+		push_error("%s: a torso garment painted for a zombie rig was not refused as another rig's (%s)" % [lane, other_rig])
+		return false
+	# And the renderer agrees: jeans forced into the torso slot do not paint trousers on the torso.
+	var misplaced: int = _kit(w, {"torso": "item.jeans.denim"})
+	var trousers: Array = Appearance.for_entity(w, {"player": true, "id": misplaced}).get("outfit", []) as Array
+	if trousers.size() != 3 or String(trousers[2]) == "wear_pants_denim" \
+			or String(trousers[2]) != Appearance.default_garment(Appearance.body_block_for(w, Appearance.PLAYER_LOOK_ID).get("outfit"), "torso", misplaced):
+		push_error("%s: jeans forced into the torso slot dressed the body in %s; want the default torso garment" % [lane, str(trousers)])
+		return false
+	# And the reference composite can say no: a frame dressed with its trousers left off is refused.
+	var probe_outfit: Array = ["wear_pants_denim", "wear_boots_leather", "wear_tee_sand"]
+	var probe_frame: String = "%s_walk_e_1" % CLOTHED_RIG
+	var no_legs: Image = Appearance.dressed_image(CLOTHED_RIG, probe_frame, probe_outfit.slice(1))
+	if not _composite_complaint(Appearance.dressed_image(CLOTHED_RIG, probe_frame, probe_outfit), Appearance.image_of(probe_frame), _layers_for(probe_outfit, "_walk_e_1")).is_empty() \
+			or _composite_complaint(no_legs, Appearance.image_of(probe_frame), _layers_for(probe_outfit, "_walk_e_1")).is_empty():
+		push_error("%s: the reference composite refused a correctly dressed frame, or passed one with its trousers left off" % lane)
+		return false
+	tree["items/_worn_gate_fixture.json"] = [{"id": "item.gate.bare_shirt", "equipSlot": "torso"}]
+	var w2: Variant = _world(tree)
+	var bare_shirt: int = _kit(w2, {"torso": "item.gate.bare_shirt"})
+	var fallback: Array = Appearance.for_entity(w2, {"player": true, "id": bare_shirt}).get("outfit", []) as Array
+	var player_block: Dictionary = Appearance.body_block_for(w2, Appearance.PLAYER_LOOK_ID)
+	if fallback.size() != 3 or String(fallback[2]) != Appearance.default_garment(player_block.get("outfit"), "torso", bare_shirt):
+		push_error("%s: an actor wearing a torso item with no garment is dressed in %s; want the default torso garment, never bare skin" % [lane, str(fallback)])
+		return false
+	var bare_frame: Image = Appearance.image_of("%s_s" % CLOTHED_RIG)
+	if _garment_shows(bare_frame, bare_frame, Appearance.image_of("wear_tee_sand_s")) != 0:
+		push_error("%s: the bare frame was counted as showing a garment; the pixel count cannot say no" % lane)
+		return false
+
+	var note: String = "%d torso, %d legs and %d feet item(s) each drawn in their own garment on all %d rig frames (fewest %d garment pixels showing)" % [int(per_slot["torso"]), int(per_slot["legs"]), int(per_slot["feet"]), frames.size(), fewest]
+	_stash["coverage_note"] = note
+	print("COVERAGE OK %s; the draw loop reaches for_entity and body_texture; an unmapped item, a standing wearable, trousers on the torso, another rig's garment, a frame missing its trousers and a commented reader are refused, and an unmapped torso item falls back to the default shirt" % note)
+	return true
+
+
+# --- lane 10: DRESSED ------------------------------------------------------------------------
+
+
+# The fewest pixels a default outfit's rest view must repaint against the bare body. Measured
+# 2026-10-19: every default pairing repaints 120 or more of the bare survivor's south view (a tee
+# leaves the forearms and the head bare); 100 leaves room for a repainted shade without letting an
+# outfit that dressed only the legs (about 40 pixels) or only the feet (about 15) pass.
+const DRESSED_MIN_PIXELS: int = 100
+
+
+func _repainted(a: Image, b: Image) -> int:
+	if a == null or b == null:
+		return 0
+	var n: int = 0
+	for y in a.get_height():
+		for x in a.get_width():
+			if a.get_pixel(x, y) != b.get_pixel(x, y):
+				n += 1
+	return n
+
+
+func _nobody_is_drawn_in_underwear() -> bool:
+	var lane: String = "DRESSED"
+	Appearance.forget()
+	var tree: Dictionary = ContentLoader.load_tree()
+	var w: Variant = _world(tree)
+	var rest: String = "%s_%s" % [CLOTHED_RIG, Appearance.VIEW_REST]
+	var bare: Image = Appearance.image_of(rest)
+
+	# Every body content block on the survivor rig, whatever kind of content carries it.
+	var blocks: int = 0
+	var least: int = 1 << 30
+	for path in tree.keys():
+		var p: String = String(path)
+		if p.begins_with("schemas/") or p.begins_with("items/"):
+			continue
+		var raw: Variant = tree[path]
+		for entry_v in (raw as Array if raw is Array else [raw]):
+			if not (entry_v is Dictionary):
+				continue
+			var app: Variant = (entry_v as Dictionary).get("appearance")
+			if not (app is Dictionary) or String((app as Dictionary).get("sprite", "")) != CLOTHED_RIG:
+				continue
+			var id: String = String((entry_v as Dictionary).get("id", ""))
+			for ent in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]:
+				var probe: Dictionary = {"id": ent, "cid": id}
+				if id == Appearance.PLAYER_LOOK_ID:
+					probe = {"id": ent, "player": true}
+				var look: Dictionary = Appearance.for_entity(w, probe)
+				var outfit: Array = look.get("outfit", []) as Array
+				if String(look.get("sprite", "")) != CLOTHED_RIG or outfit.size() != EXPECT_WORN.size():
+					push_error("%s: %s (entity %d) is drawn on '%s' dressed in %s; every survivor-rig body wears a garment in each of %s" % [lane, id, ent, String(look.get("sprite", "")), str(outfit), str(EXPECT_WORN)])
+					return false
+				var changed: int = _repainted(Appearance.dressed_image(CLOTHED_RIG, rest, outfit), bare)
+				if changed < DRESSED_MIN_PIXELS:
+					push_error("%s: %s (entity %d) dressed in %s repaints %d pixels of the bare body; want at least %d" % [lane, id, ent, str(outfit), changed, DRESSED_MIN_PIXELS])
+					return false
+				least = mini(least, changed)
+			blocks += 1
+	if blocks < 3:
+		push_error("%s: only %d content block(s) draw on %s; the player, the uniques and the colony looks all should" % [lane, blocks, CLOTHED_RIG])
+		return false
+
+	# Defaults vary from one body to the next rather than dressing a crowd alike.
+	var shirts: Dictionary = {}
+	var pairs: Dictionary = {}
+	for ent in 12:
+		var o: Array = Appearance.for_entity(w, {"id": ent, "player": true}).get("outfit", []) as Array
+		shirts[String(o[2])] = true
+		pairs["%s+%s" % [String(o[0]), String(o[2])]] = true
+	if shirts.size() < 2 or pairs.size() < 6:
+		push_error("%s: twelve bodies wear %d shirt(s) in %d shirt-and-trouser pairing(s); the defaults should vary" % [lane, shirts.size(), pairs.size()])
+		return false
+
+	# The shipped colony: every human it boots is dressed.
+	var boot: Dictionary = SimBoot.playable(CANON_SEED, GATE_SIZE)
+	var world: Variant = boot["world"]
+	var humans: int = 0
+	var candidates: Array = []
+	candidates.append(int(world.player))
+	for ent2 in world.components.query(["identity"]):
+		if not candidates.has(int(ent2)):
+			candidates.append(int(ent2))
+	for ent3 in candidates:
+		var cid: String = Appearance.body_look_id(world, int(ent3))
+		var probe2: Dictionary = {"id": int(ent3), "cid": cid, "player": int(ent3) == int(world.player)}
+		var look2: Dictionary = Appearance.for_entity(world, probe2)
+		if String(look2.get("sprite", "")) != CLOTHED_RIG:
+			push_error("%s: the shipped colony's entity %d (%s) is drawn on '%s', which no garment fits; it would stand in whatever that picture wears" % [lane, int(ent3), cid, String(look2.get("sprite", ""))])
+			return false
+		if (look2.get("outfit", []) as Array).size() != EXPECT_WORN.size():
+			push_error("%s: the shipped colony's entity %d (%s) is drawn dressed in %s" % [lane, int(ent3), cid, str(look2.get("outfit"))])
+			return false
+		humans += 1
+	if humans < 3:
+		push_error("%s: the shipped colony booted %d human(s) on the survivor rig; the boot colony is three" % [lane, humans])
+		return false
+
+	# TN: a zombie wears nothing; a body with no outfit and nothing to fall back on wears nothing; an
+	# outfit naming a standing wearable or another rig's garment leaves that slot empty.
+	var zombie: Dictionary = Appearance.for_entity(w, {"ztype": "zombie.shambler", "id": 4})
+	if not (zombie.get("outfit", []) as Array).is_empty():
+		push_error("%s: a shambler is dressed in %s; garments are painted for the survivor rig only" % [lane, str(zombie.get("outfit"))])
+		return false
+	if not Appearance.outfit_of(null, 1, CLOTHED_RIG, {}).is_empty():
+		push_error("%s: a body with no outfit and no world to fall back on was dressed" % lane)
+		return false
+	var odd: Array[String] = Appearance.outfit_of(null, 1, CLOTHED_RIG, {"outfit": {"torso": ["item_gear_vest"], "legs": ["wear_pants_denim"], "feet": ["body_zombie_workwear"]}})
+	if odd != ["wear_pants_denim"]:
+		push_error("%s: an outfit naming a standing vest, denim and a zombie body resolved %s; want only the denim" % [lane, str(odd)])
+		return false
+	if _repainted(bare, bare) != 0:
+		push_error("%s: the repaint count found a difference between a picture and itself" % lane)
+		return false
+
+	var note: String = "%d survivor-rig content block(s) and %d booted human(s) all dressed in three garments (fewest %d of the bare body's pixels repainted), defaults varying (%d shirts, %d pairings in twelve bodies)" % [blocks, humans, least, shirts.size(), pairs.size()]
+	_stash["dressed_note"] = note
+	print("DRESSED OK %s; a zombie, a body with nothing to fall back on and an outfit naming no garment for this rig wear nothing" % note)
+	return true
+
+
+# --- lane 11: STEP ---------------------------------------------------------------------------
+
+
+func _the_clothes_walk_with_the_body() -> bool:
+	var lane: String = "STEP"
+	Appearance.forget()
+	var w: Variant = _world(ContentLoader.load_tree())
+	var actor: int = _kit(w, {"torso": "item.jacket.leather", "legs": "item.jeans.denim", "feet": "item.boots.leather"})
+	var look: Dictionary = Appearance.for_entity(w, {"player": true, "id": actor})
+	var outfit: Array = look.get("outfit", []) as Array
+	if outfit != ["wear_pants_denim", "wear_boots_leather", "wear_jacket_leather"]:
+		push_error("%s: jeans, leather boots and a leather jacket dress the actor in %s" % [lane, str(outfit)])
+		return false
+	var judged: int = 0
+	var composite_of: Dictionary = {}
+	for view in Appearance.VIEWS:
+		var seen: Dictionary = {}
+		# Sixty steps through the walk cycle and sixty quarter-seconds of standing: every walk frame,
+		# the rest picture and the breath, each asked for the way the draw asks (a motion from
+		# presentation/anim_clock.gd).
+		for step in range(0, 60, 1):
+			for moving_now in [true, false]:
+				var motion: Dictionary = {"walking": moving_now, "cycle": float(step) / 60.0, "idle": float(step) * 0.25}
+				var frame: String = Appearance.frame_key(CLOTHED_RIG, view, motion)
+				var got: Texture2D = Appearance.body_texture(look, view, motion)
+				if got == null or got != Appearance.dressed_texture(CLOTHED_RIG, frame, outfit):
+					push_error("%s: body_texture on view '%s', step %d, moving %s is not the composite for %s" % [lane, view, step, str(moving_now), frame])
+					return false
+				if not composite_of.has(frame):
+					var dressed: Image = Appearance.dressed_image(CLOTHED_RIG, frame, outfit)
+					var exact: String = _composite_complaint(dressed, Appearance.image_of(frame), _layers_for(outfit, frame.substr(CLOTHED_RIG.length())))
+					if not exact.is_empty():
+						push_error("%s: %s %s: the jeans, boots and jacket are not that frame's own members" % [lane, frame, exact])
+						return false
+					composite_of[frame] = true
+				seen[frame] = true
+				judged += 1
+		if seen.size() != Appearance.breath_frames(CLOTHED_RIG) + Appearance.walk_frames(CLOTHED_RIG):
+			push_error("%s: view '%s' drew %d distinct frames over sixty steps; want the rest picture, the breath and every walk frame" % [lane, view, seen.size()])
+			return false
+
+	# TN: clothes that stood still are caught. For every view, some walk frame dressed in the
+	# garments' idle members (a renderer that ignored the step) is refused by the comparison above.
+	for view in Appearance.VIEWS:
+		var caught: bool = false
+		for n in Appearance.walk_frames(CLOTHED_RIG):
+			var walk: String = "%s_walk_%s_%d" % [CLOTHED_RIG, view, n]
+			var standing: Image = Appearance.image_of(walk).duplicate() as Image
+			for layer in _layers_for(outfit, "_%s" % view):
+				standing.blend_rect(layer as Image, Rect2i(Vector2i.ZERO, (layer as Image).get_size()), Vector2i.ZERO)
+			if not _composite_complaint(standing, Appearance.image_of(walk), _layers_for(outfit, walk.substr(CLOTHED_RIG.length()))).is_empty():
+				caught = true
+		if not caught:
+			push_error("%s: facing '%s', a walk dressed in the garments' standing pictures passed as the walk's own; nothing here could tell clothes that stood still" % [lane, view])
+			return false
+	if Appearance.dressed_image("body_zombie_workwear", "%s_s" % CLOTHED_RIG, outfit) != null:
+		push_error("%s: a survivor frame was dressed as a member of another rig" % lane)
+		return false
+
+	var note: String = "the clothes walk and breathe with the body: %d frame draws across four views, moving and standing, each the composite for exactly the frame the body shows, all three garments that frame's own members" % judged
+	_stash["step_note"] = note
+	print("STEP OK %s; a walk dressed in standing garments is refused in every view, and a frame of another rig composes nothing" % note)
+	return true

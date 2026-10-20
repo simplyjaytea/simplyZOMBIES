@@ -9,6 +9,11 @@
       "corpse_human_prone",
       "corpse_human_side",
       "corpse_human_supine_diagonal"
-    ]
+    ],
+    "outfit": {
+      "torso": ["wear_tee_sand", "wear_tee_olive", "wear_tee_slate", "wear_tee_rust"],
+      "legs": ["wear_pants_charcoal", "wear_pants_denim", "wear_pants_canvas"],
+      "feet": ["wear_shoes_worn"]
+    }
   }
 }

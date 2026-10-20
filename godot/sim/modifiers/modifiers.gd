@@ -73,6 +73,16 @@ func remove_by_source(source: String, scope: Variant = null) -> int:
 		if list == null:
 			continue
 		var arr: Array = list as Array
+		# Most calls remove nothing -- `wounds.impair` strips thirteen sources from every body
+		# every tick before it re-adds the few that apply -- so look before rebuilding the list.
+		# Nothing to remove leaves the list exactly as it was (A3's eighth slice).
+		var any: bool = false
+		for e in arr:
+			if str(((e as Dictionary)["modifier"] as Dictionary)["source"]) == source:
+				any = true
+				break
+		if not any:
+			continue
 		var kept: Array = []
 		var touched: Dictionary = {}
 		for e in arr:
@@ -92,6 +102,17 @@ func remove_by_source(source: String, scope: Variant = null) -> int:
 				var ent: int = int(sk) if sk != GLOBAL else 0
 				_invalidate(ent, st)
 	return removed
+
+# Whether `scope` holds any modifier whose source is a key of `sources`. One pass, nothing
+# changed: a caller that would strip a dozen sources it may not hold asks this first.
+func holds_any(scope: Variant, sources: Dictionary) -> bool:
+	var list: Variant = _entries.get(_scope_key(scope))
+	if list == null:
+		return false
+	for e in list as Array:
+		if sources.has(str(((e as Dictionary)["modifier"] as Dictionary)["source"])):
+			return true
+	return false
 
 func remove_scope(scope: Variant) -> void:
 	var sk: String = _scope_key(scope)

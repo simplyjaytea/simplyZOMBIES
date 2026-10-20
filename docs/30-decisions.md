@@ -5524,3 +5524,48 @@ and the current unseen-wall roof coverage stay as they are. The bounded implemen
 supported rectangular brick and plaster perimeters, with generated fallbacks; its gates and
 runtime captures are recorded in docs/23. The mapping is not a decision to extend roofs over
 unseen perimeter walls.
+
+## The whole interface, 2026-10-03
+
+After asking for the CI repair and parallel follow-ups to be merged to main, the owner asked
+for an overhaul of **all UI**, including the paperdoll: modern, bespoke, good-looking and
+comfortable to manage, while retaining hardcore play. They requested a plan and an opportunity
+to shape it before proceeding through the overhaul.
+
+Their reference choice was **"Tarkov detail + Project Zomboid practicality, with cleaner
+management"**. They then clarified that Project Zomboid is the main practical reference,
+Tarkov and Zero Sievert supply hardcore/tactical character, and the result must mesh with
+the existing **Dungeon Settlers** art direction.
+
+For the paperdoll they explicitly chose **"A stylized anatomical diagram with equipment
+arranged around it"**. A dressed portrait or live 3D avatar is not the selected direction.
+The diagram can be reauthored while preserving the ten existing semantic body regions and
+the truthful condition read model. Equipment around the figure must represent the actual
+twelve slots, not only those shown by an illustrative mockup.
+
+This opens replacement of the old UI Field Kit's visual treatment, compulsory VT323 type,
+fixed panel composition and D2 chart proportions. Earlier visual decisions remain history
+and the current implementation baseline; they are not a requirement to preserve the look
+the owner has now asked to replace. The Dungeon Settlers world direction, scarce-information
+contract, health-bar ban, simulation authority and existing legal actions remain in force.
+
+The precise palette, typography, responsive composition and grid-plus-fast-list proposal
+are **recommendations**, not additional owner decisions. The generated anatomical concept
+is illustrative and has not been accepted as a final layout. No pause-policy or inventory
+capacity change was requested. [The design brief](32-ui-overhaul.md) develops the proposal;
+[the roadmap](23-roadmap.md#ui-overhaul) alone carries implementation order and status.
+
+## The idle breath, kept, 2026-10-20
+
+**Decided by the owner**, on a decision card from the A7 thread: standing bodies breathe. The
+question had been on the owner's list since the 2026-09-09 fixture round, where one pixel of
+pelvis at a quarter of the walk's rate was drawn and deliberately left out of that day's answers.
+A7 built it as the alpha plan's default before the answer came, so the call is the one that
+shipped: a second idle picture per view, one pixel of chest raised for the survivor and lowered
+for the dead (a sag, which also keeps the rest views already at their canvas's tallest inside
+it), at one picture a second on presentation time, staggered by id so a crowd does not breathe
+as one. It is data, not code: `breath_fps` per family in `godot/assets/sprites/authored.json`,
+where `0` holds the rest view. The zombie breath is a mechanical row shift of the pack's pixels,
+like the zombie walk in-betweens, and goes with them when the action-animations work redraws
+those frames. Recorded in docs/23's A7 record; gated by `godot:check:zombie_art` MOTION and
+`godot:check:authored`.
