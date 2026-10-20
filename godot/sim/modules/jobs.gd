@@ -616,6 +616,21 @@ static func _near_home(world: Variant, x: float, y: float) -> bool:
 	return SimHomeRes.near_any(world, x, y, HOME_RADIUS_TILES)
 
 
+# Haul and Scavenge, the two errands that walk out among the wanderers for loot, reach only
+# `ERRAND_RADIUS_TILES` from anywhere the colony lives; the rest of the working ground (the gate a
+# guard stands at, the weapon a re-arm walks to) keeps HOME_RADIUS_TILES. Twenty since the A24
+# balance pass (2026-10-20): on the shipped 256-tile district the ten-day playtest lost both
+# colonists by the end of day two on all three seeds, the first bleeding out on Haul forty-odd
+# tiles out on the first morning; with the danger break-off and forty tiles the same colonist
+# died on the walk home, and at twenty they live. A static the gates and the harness can pin back
+# to HOME_RADIUS_TILES, which is the colony as it was before.
+static var ERRAND_RADIUS_TILES: float = 20.0
+
+
+static func _near_errand(world: Variant, x: float, y: float) -> bool:
+	return SimHomeRes.near_any(world, x, y, ERRAND_RADIUS_TILES)
+
+
 # The nearest container this survivor remembers seeing, unsearched, near home and not already
 # another colonist's claim. The claim is the Cook's `reserved` seam, so two scavengers never
 # walk to one cupboard. The job carries the box's tile, so `_job_tile` walks to it.
@@ -633,7 +648,7 @@ static func _scavenge_work(world: Variant, ent: int, x: float, y: float) -> Dict
 			continue
 		var bx: float = float((p as Dictionary)["x"])
 		var by: float = float((p as Dictionary)["y"])
-		if not _near_home(world, bx, by):
+		if not _near_errand(world, bx, by):
 			continue
 		if _is_unreachable(world, int(box)):
 			continue
@@ -679,7 +694,7 @@ static func _haul_work(world: Variant, x: float, y: float) -> Dictionary:
 			continue
 		if _under_order(world, int(item)):
 			continue
-		if not _near_home(world, float((p as Dictionary)["x"]), float((p as Dictionary)["y"])):
+		if not _near_errand(world, float((p as Dictionary)["x"]), float((p as Dictionary)["y"])):
 			continue
 		if _is_unreachable(world, int(item)):
 			continue
