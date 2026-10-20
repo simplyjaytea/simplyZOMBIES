@@ -96,7 +96,7 @@ ACTION_TIMING = {
         # sim's Reload or Clearing state lasts: a pistol's reloadTicks is 24 (1.2 s), a long gun's more.
         "reload": {"fps": 8, "loop": False},
         "reload_long": {"fps": 6, "loop": False},
-        "reload_tube": {"fps": 8, "loop": False},
+        "reload_tube": {"fps": 6, "loop": False},
         "flinch": {"fps": 12, "loop": False},
         "crouch": {"fps": 1, "loop": True},
         "crouchwalk": {"fps": 16, "loop": True},

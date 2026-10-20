@@ -531,27 +531,27 @@ RELOAD_BEATS = {
 JOLT = 1
 
 # Where the dropped magazine is, per view and variant, as its top-left in body pixels: the pistol's
-# "out" an offset from the weapon hand, under the grip and clear of the weapon's picture (the long
-# gun's is stripped from the well by the off hand and held at hand height, `_held_mag_at`), and
-# "ground" a fixed spot beside the feet, off the legs and never below the sole row
-# (the anchor is the lowest solid row, which a magazine must never become). The pistol's drops
-# out of the grip, still in the air above the boots, and lands the next beat; from the side it lands
-# ahead of the toes on the sole row itself, a pixel clear of the boot, because the grip is over the
-# legs there and a magazine landed under it would cover both feet. The long gun's falls two thirds
-# of the way from the hand first. The pistol's lands on the weapon's side, the long gun's on the off hand's, so the
+# "out" an offset from the weapon hand, clear of the weapon's picture (the long gun's is stripped
+# from the well by the off hand and held at hand height, `_held_mag_at`), and "ground" a fixed spot
+# beside the feet, off the legs and never below the sole row (the anchor is the lowest solid row,
+# which a magazine must never become). The pistol's drops out of the grip and lands the next beat.
+# From the side the grip is over the legs, and a magazine under it would black out the shin and
+# then cover both feet, so it falls ahead of the shin, in the air a pixel clear of the boot, and
+# lands straight below on the sole row; the west spots are the east ones mirrored (west x is 32
+# less east x). The long gun's falls two thirds of the way from the hand first. The pistol's lands on the weapon's side, the long gun's on the off hand's, so the
 # back view mirrors the front either way.
 MAG_SPOTS = {
     "pistol": {
         "s": {"out": (-5, 1), "ground": (2, 34)},
-        "n": {"out": (-2, 1), "ground": (25, 34)},
-        "e": {"out": (-2, 2), "ground": (22, 36)},
-        "w": {"out": (-1, 2), "ground": (7, 36)},
+        "n": {"out": (-2, 1), "ground": (26, 34)},
+        "e": {"out": (6, 1), "ground": (22, 36)},
+        "w": {"out": (-9, 1), "ground": (6, 36)},
     },
     "long": {
         "s": {"ground": (25, 35)},
         "n": {"ground": (2, 35)},
-        "e": {"ground": (23, 35)},
-        "w": {"ground": (4, 35)},
+        "e": {"ground": (24, 36)},
+        "w": {"ground": (4, 36)},
     },
 }
 
@@ -606,13 +606,14 @@ def _shell_ramp():
     return tuple(c + (255,) for c in (dark, hull, brass))
 
 
-def _shell(o, size, hand, ramp, tall=5):
+def _shell(o, size, hand, ramp, tall=5, west=False):
     """A shell standing out of the top of the fist at `hand`, outlined (4x5): two rows of red hull
     over a row of brass, the fist closing over its foot. `tall` 3 is one pushed into the loading
-    port: only its brass rim still shows."""
+    port: only its brass rim still shows. Facing west it starts a pixel further left, so the west
+    view mirrors the east one pixel for pixel (`_held_mag_at`)."""
     dark, hull, brass = ramp
     w, h = size
-    x0, y0 = hand[0] - 1, hand[1] - (tall - 1)
+    x0, y0 = hand[0] - (2 if west else 1), hand[1] - (tall - 1)
     for dy in range(tall):
         for dx in range(4):
             x, y = x0 + dx, y0 + dy
@@ -735,13 +736,15 @@ def _mag(o, size, at, ramp, lying=False):
             o[x, y] = dark if edge else (lit if dy == 1 else body)
 
 
-def _held_mag_at(hand, hang=False):
+def _held_mag_at(hand, hang=False, west=False):
     """Top-left of a magazine the fist at `hand` holds by one end: standing out of its top, or
-    (`hang`, just stripped from the well) hanging from its bottom."""
-    return (hand[0] - 1, hand[1] + 1 if hang else hand[1] - 5)
+    (`hang`, just stripped from the well) hanging from its bottom. Four pixels wide, it sits a pixel
+    further forward than back of the fist, so facing west it starts a pixel further left: the west
+    view is the east one mirrored, pixel for pixel."""
+    return (hand[0] - (2 if west else 1), hand[1] + 1 if hang else hand[1] - 5)
 
 
-def _fresh_mag(o, size, hand, ramp, colours, hang=False):
+def _fresh_mag(o, size, hand, ramp, colours, hang=False, west=False):
     """A magazine in the fist at `hand` (where `_held_mag_at` puts it). Standing out of the top, the
     fist (the forearm's own shaded skin, outlined where it closes over the magazine) is drawn again
     over its foot; hanging, the magazine is drawn over the fist's underside, so all of its body
@@ -749,7 +752,7 @@ def _fresh_mag(o, size, hand, ramp, colours, hang=False):
     w, h = size
     fist = _capsule((hand[0] + 0.5, hand[1] + 0.5), (hand[0] + 0.5, hand[1] + 0.5), ARM_RADIUS)
     if hang:
-        at = _held_mag_at(hand, hang)
+        at = _held_mag_at(hand, hang, west)
         _mag(o, size, at, ramp)
         # The fist's outline stacked against the magazine's own edge would be three deep there;
         # the outer pixel goes, so the pair reads as the pack's two-pixel outline.
@@ -758,7 +761,7 @@ def _fresh_mag(o, size, hand, ramp, colours, hang=False):
                 if 0 <= x < w and 0 <= y < h and 0 <= x + step < w and sum(o[x, y][:3]) < 40 and o[x, y][3] and o[x + step, y][3] and sum(o[x + step, y][:3]) < 40:
                     o[x + step, y] = (0, 0, 0, 0)
         return
-    _mag(o, size, _held_mag_at(hand, hang), ramp)
+    _mag(o, size, _held_mag_at(hand, hang, west), ramp)
     for x, y in _ring(fist):
         if 0 <= x < w and 0 <= y < h and y < hand[1] and o[x, y] in ramp[1:]:
             o[x, y] = colours["#"]
@@ -917,6 +920,41 @@ def _held_cover(kind, view, hand):
     return frozenset(out)
 
 
+def _thin_back(im, rest, fx):
+    """Side on, the far arm passes under the back of the body, and its outline lands against the
+    body's own: a back edge three or more pixels dark where the rest view's is two. The pixels past
+    the second take the colour just inside them, so the back edge stays the pack's two pixels.
+    `fx` is the way the body faces (1 east, -1 west); the back is the other side."""
+    o, r = im.load(), rest.load()
+    w, h = im.size
+
+    def dark(p):
+        return p[3] >= 128 and sum(p[:3]) < 40
+
+    step = 1 if fx > 0 else -1  # from the back edge inward
+
+    def run(px, y):
+        xs = range(w) if step > 0 else range(w - 1, -1, -1)
+        start = next((x for x in xs if px[x, y][3] >= 128), None)
+        if start is None:
+            return None, 0
+        n = 0
+        while 0 <= start + n * step < w and dark(px[start + n * step, y]):
+            n += 1
+        return start, n
+
+    for y in range(h):
+        start, n = run(o, y)
+        _rs, rn = run(r, y)
+        if start is None or n < 3 or rn != 2:
+            continue
+        inner = start + n * step
+        if not (0 <= inner < w) or o[inner, y][3] < 128 or dark(o[inner, y]):
+            continue
+        for k in range(2, n):
+            o[start + k * step, y] = o[inner, y]
+
+
 def _trim(drawn, base, colours, cover=frozenset()):
     """Pares the outline the arms added back to the pack's two pixels. `drawn` is what
     `_draw_arms` returns: the picture, and where an arm (or what a hand holds) shows on it; `cover`
@@ -1073,16 +1111,18 @@ def reload_frames(rest, view, kind):
             fresh = None
             if beat.get("shell"):
                 tall = 5 if beat["shell"] == "full" else 3
-                fresh = lambda o, hand: _shell(o, (w, h), hand, shells, tall)  # noqa: E731
+                fresh = lambda o, hand: _shell(o, (w, h), hand, shells, tall, view == "w")  # noqa: E731
             elif beat.get("fresh") or beat.get("mag") == "held":
                 hang = beat.get("mag") == "held" or (beat.get("fresh") == "hang" and fx != 0)
-                fresh = lambda o, hand: _fresh_mag(o, (w, h), hand, ramp, colours, hang)  # noqa: E731
+                fresh = lambda o, hand: _fresh_mag(o, (w, h), hand, ramp, colours, hang, view == "w")  # noqa: E731
             im = _trim(_draw_arms(body, view, arms, colours, dip, fresh), body, colours, _held_cover(kind, view, p_at))
+            if fx:
+                _thin_back(im, rest, fx)
         o = im.load()
         if beat.get("mag") == "out":
             out_at = (p_at[0] + spots["out"][0], p_at[1] + spots["out"][1])
         elif beat.get("mag") == "held":
-            out_at = _held_mag_at(o_at, hang=True)
+            out_at = _held_mag_at(o_at, hang=True, west=view == "w")
         ground = spots.get("ground")
         if beat.get("mag") == "out":
             _mag(o, (w, h), out_at, ramp)

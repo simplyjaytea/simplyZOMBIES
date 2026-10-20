@@ -4918,7 +4918,7 @@
             1
           ],
           "torso": [
-            0,
+            -1,
             1
           ],
           "hands": {
@@ -5005,7 +5005,7 @@
             1
           ],
           "torso": [
-            0,
+            -1,
             1
           ],
           "hands": {
@@ -7033,7 +7033,7 @@
           "loop": false
         },
         "reload_tube": {
-          "fps": 8,
+          "fps": 6,
           "loop": false
         },
         "flinch": {
