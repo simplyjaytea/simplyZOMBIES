@@ -221,7 +221,9 @@ def wheel_ns(s, cx, cy, rx, ry, fat=False, spoke=True):
     hollow, the hub and a spoke down its middle -- turned a few degrees toward the camera, as
     the pack draws a wheel it would otherwise see edge on."""
     def inside(x, y, ax, ay):
-        return ((x + 0.5 - cx) / ax) ** 2 + ((y + 0.5 - cy) / ay) ** 2 <= 1.0
+        # a squarer ellipse than x^2 + y^2, so a narrow wheel keeps round ends at this size
+        # rather than closing to a one-pixel point
+        return abs((x + 0.5 - cx) / ax) ** 2.8 + abs((y + 0.5 - cy) / ay) ** 2.8 <= 1.0
     t = 1.6 if fat else 1.2
     for y in range(s.h):
         for x in range(s.w):
@@ -240,44 +242,47 @@ def wheel_ns(s, cx, cy, rx, ry, fat=False, spoke=True):
 
 
 def bicycle_ns(e=False):
+    """Nose north, seen from behind and above, as long on the canvas as the east-west picture
+    (56 rows for the bicycle): two matching oval wheels, the frame between them, a saddle wide at
+    the back with its nose running north, a swept bar with dark grips over the front wheel, and
+    pedals out either side."""
     s = Sheet(32, 96)
     cx = 15.5
     c = int(cx)
     fat = e
-    # the front wheel first, beyond everything, the fork's legs outside it down to its hub
-    wheel_ns(s, cx, 37.5, 5.0 if fat else 4.5, 10.0, fat, spoke=False)
-    s.line(c - 5, 37, c - 2, 50, "frame")
-    s.line(c + 5, 37, c + 2, 50, "frame")
+    rx = 5.0 if fat else 4.5
+    ry = 8.5
+    # the front wheel first, beyond everything
+    wheel_ns(s, cx, 49.5, rx, ry, fat)
     # the frame, running away from the camera: top tube over the down tube
-    s.rect(c - 1, 50, c + 1, 70, "frame")
+    s.rect(c - 1, 58, c + 1, 76, "frame")
     if e:
-        s.rect(c - 2, 53, c + 2, 61, "battery")
-        s.rect(c - 1, 28, c, 29, "light")
-    # the bar, swept back at its ends, the stem up to it, grips dark
-    s.rect(c - 1, 44, c, 50, "metal")
-    s.rect(c - 7, 44, c + 7, 45, "metal")
-    s.rect(c - 10, 45, c - 8, 47, "grip")
-    s.rect(c + 8, 45, c + 10, 47, "grip")
-    s.put(c - 8, 44, "metal")
-    s.put(c + 7, 44, "metal")
+        s.rect(c - 2, 60, c + 2, 64, "battery")
+    # the bar, swept back at its ends, the stem down to it, grips dark
+    s.rect(c - 1, 55, c, 59, "metal")
+    s.rect(c - 7, 56, c + 7, 57, "metal")
+    s.rect(c - 10, 57, c - 8, 59, "grip")
+    s.rect(c + 8, 57, c + 10, 59, "grip")
+    s.put(c - 8, 56, "metal")
+    s.put(c + 7, 56, "metal")
+    if e:
+        s.rect(c - 1, 54, c, 54, "light")       # the headlamp on the bar
     # the cranks and pedals, out either side of the bottom bracket
-    s.rect(c - 2, 72, c + 1, 74, "metal")
-    s.rect(c - 6, 71, c - 3, 72, "grip")
-    s.rect(c + 2, 74, c + 5, 75, "grip")
-    # the back wheel, nearest the camera and over the frame's foot
-    wheel_ns(s, cx, 84.5, 5.5 if fat else 5.0, 11.0, fat)
-    # the seat stays down either side of it to the hub, and the saddle over them: wide at the
-    # back, its nose running away north
-    s.line(c - 2, 66, c - 4, 80, "frame")
-    s.line(c + 1, 66, c + 3, 80, "frame")
-    s.rect(c - 1, 64, c, 66, "metal")
-    s.rect(c - 4, 60, c + 3, 63, "seat")
-    s.rect(c - 3, 57, c + 2, 59, "seat")
-    s.rect(c - 2, 54, c + 1, 56, "seat")
-    s.rect(c - 1, 52, c, 53, "seat")
-    s.shine.update({(c - 2, 60), (c - 1, 60), (c, 60), (c - 2, 57), (c - 1, 57), (c - 1, 54)})
+    s.rect(c - 2, 74, c + 1, 76, "metal")
+    s.rect(c - 6, 73, c - 3, 74, "grip")
+    s.rect(c + 2, 76, c + 5, 77, "grip")
+    # the back wheel, nearest the camera and over the frame's foot -- the same wheel as the front
+    wheel_ns(s, cx, 86.0, rx, ry, fat)
+    # the seat stays down either side of it to the hub, and the saddle over them
+    s.line(c - 2, 71, c - 4, 84, "frame")
+    s.line(c + 1, 71, c + 3, 84, "frame")
+    s.rect(c - 1, 70, c, 71, "metal")
+    s.rect(c - 4, 67, c + 3, 69, "seat")
+    s.rect(c - 3, 65, c + 2, 66, "seat")
+    s.rect(c - 2, 63, c + 1, 64, "seat")
+    s.shine.update({(c - 2, 67), (c - 1, 67), (c, 67), (c - 2, 65), (c - 1, 65), (c - 1, 63)})
     if e:
-        s.rect(c - 1, 92, c, 93, "light")      # the tail lamp under the saddle's line
+        s.rect(c - 1, 72, c, 72, "light")       # the tail lamp under the saddle
     return s
 
 

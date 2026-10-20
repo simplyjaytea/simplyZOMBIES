@@ -1,11 +1,13 @@
 """The three cars seen nose-north -- the hatchback, the van and the pickup of the outpost pack's
 east-west set (groups/utility/native/) -- painted by code in the pack's own colours, at the
 pack's own length: the painted span north-south is the east-west picture's span plus a few rows
-of rear face (hatchback 90 against 86, van 106 against 102, pickup 108 against 106).
+of deep rear face (hatchback 91 against 86, van 108 against 102, pickup 110 against 106, with
+the outline), the roof short and the rear face deep for a strong three-quarter view.
 
 Seen from behind and above, as the camera sees everything: the nose up the canvas, the roof and
 hood lit, the flanks a shaded side panel down each edge with a real wheel arch cut into it at
-each axle, the rear face toward the camera with red lamps, and amber indicators on the nose
+each axle and the tyre tucked flush inside it, the rear face toward the camera with red lamps
+and the outline closing it along the canvas's bottom row, and amber indicators on the nose
 where the pack's east-west cars carry them. Every body is four tones of the pack's paint plus
 the pack's grain of a point or two either way; the glass is four tones with a diagonal
 reflection streak, as the pack's windows are.
@@ -31,20 +33,23 @@ HEAD = (232, 221, 201)
 PLATE = (196, 190, 172)
 # The pack's paint, darkest first: the flank, the face and hood, the roof, the highlight.
 BODIES = {
-    "hatchback": [(54, 72, 72), (74, 99, 99), (92, 123, 123), (116, 148, 146)],
+    # a step up from the pack's darkest teal: its median sits at the pack's own body tone
+    "hatchback": [(74, 99, 99), (92, 123, 123), (116, 148, 146), (140, 170, 166)],
     "van": [(150, 141, 122), (182, 172, 152), (201, 191, 169), (217, 206, 185)],
     "pickup": [(66, 70, 48), (84, 89, 63), (97, 103, 71), (118, 124, 88)],
 }
 CELL_W, CELL_H, GAP = 64, 160, 16
 
 # Per car, north to south: the sections' heights in rows, and the body's width.
+# The rear face is deep -- the pack draws its cars in a strong three-quarter view, the face toward
+# the camera most of the picture's height -- and the roof is short to pay for it.
 LAYOUT = {
-    "hatchback": {"width": 38, "sections": [("bumper", 3), ("hood", 18), ("windshield", 10), ("roof", 32),
-                                             ("backlight", 9), ("face", 15), ("bumper_r", 3)]},
-    "van": {"width": 42, "sections": [("bumper", 3), ("hood", 11), ("windshield", 10), ("roof", 63),
-                                       ("face", 16), ("bumper_r", 3)]},
-    "pickup": {"width": 42, "sections": [("bumper", 3), ("hood", 20), ("windshield", 9), ("roof", 15),
-                                          ("backlight", 4), ("bed", 39), ("face", 15), ("bumper_r", 3)]},
+    "hatchback": {"width": 38, "sections": [("bumper", 3), ("hood", 16), ("windshield", 9), ("roof", 24),
+                                             ("face", 34), ("bumper_r", 3)]},
+    "van": {"width": 42, "sections": [("bumper", 3), ("hood", 10), ("windshield", 9), ("roof", 46),
+                                       ("face", 35), ("bumper_r", 3)]},
+    "pickup": {"width": 42, "sections": [("bumper", 3), ("hood", 17), ("windshield", 8), ("roof", 12),
+                                          ("backlight", 4), ("bed", 34), ("face", 27), ("bumper_r", 3)]},
 }
 
 
@@ -70,7 +75,7 @@ class Car:
         x0 = CELL_W // 2 - w // 2
         x1 = x0 + w - 1
         length = sum(h for _, h in spec["sections"])
-        top = CELL_H - length
+        top = CELL_H - 1 - length          # the outline closes the rear on the canvas's bottom row
         rows = {}
         y = top
         for name, h in spec["sections"]:
@@ -81,7 +86,7 @@ class Car:
         # the body: hood and roof in their tones, the flanks a shaded strip down both edges
         for yy in range(rows["hood"][0], rows["face"][0]):
             for xx in range(x0, x1 + 1):
-                self.put(xx, yy, b[2] if rows["roof"][0] <= yy <= rows["roof"][1] else b[1])
+                self.put(xx, yy, b[2])
         for yy in range(rows["hood"][0], rows["face"][1] + 1):
             for xx in list(range(x0, x0 + flank)) + list(range(x1 - flank + 1, x1 + 1)):
                 self.put(xx, yy, b[0] if xx in (x0, x1) else b[1])
@@ -100,7 +105,7 @@ class Car:
         self._bumpers(rows, x0, x1)
         # the wheels: one arch an axle each side, front under the hood, rear ahead of the face
         front_axle = rows["hood"][0] + (rows["hood"][1] - rows["hood"][0]) * 2 // 3 + 2
-        rear_axle = rows["face"][0] - 9
+        rear_axle = rows["face"][1] - 9
         for axle in (front_axle, rear_axle):
             self._arch(axle, x0, flank, -1)
             self._arch(axle, x1, flank, 1)
@@ -119,7 +124,7 @@ class Car:
         b = self.b
         mid = (x0 + x1) // 2
         for yy in range(r[0], r[1] + 1):
-            self.put(mid - 4, yy, b[2])          # the two pressings down the hood, lit
+            self.put(mid - 4, yy, b[3])          # the two pressings down the hood, lit
             self.put(mid + 5, yy, b[0])
         self.rect(x0 + flank + 1, r[0], x1 - flank - 1, r[0], b[3])   # the nose's top edge catches the light
         self.rect(x0 + flank + 1, r[1], x1 - flank - 1, r[1], b[0])   # the cowl under the glass
@@ -159,11 +164,11 @@ class Car:
         cabin, a pillar of paint between the doors."""
         y0 = rows["windshield"][0] + 2
         if self.kind == "van":
-            y1 = rows["roof"][0] + 12                       # the cab's door; the load bay is blind
+            y1 = rows["roof"][0] + 10                       # the cab's door; the load bay is blind
         elif "bed" in rows:
             y1 = rows["backlight"][1] - 1
         else:
-            y1 = rows["backlight"][1] - 2
+            y1 = rows["roof"][1] - 1
         pillar = (y0 + y1) // 2
         for yy in range(y0, y1 + 1):
             if self.kind != "van" and abs(yy - pillar) <= 1:
@@ -174,15 +179,15 @@ class Car:
                 self.put(xx, yy, GLASS[0] if xx == x1 - 1 else GLASS[1])
         if self.kind == "van":
             # the sliding door's seam and its handle down the load bay
-            seam = rows["roof"][0] + 30
-            for yy in range(rows["roof"][0] + 14, rows["roof"][1] - 4):
+            seam = rows["roof"][0] + 24
+            for yy in range(rows["roof"][0] + 12, rows["roof"][1] - 4):
                 if yy == seam:
                     for xx in range(x0, x0 + 4):
                         self.put(xx, yy, self.b[0])
             self.put(x0 + 2, seam + 3, TRIM[1])
         else:
             # the door seams on the flank
-            for yy in (pillar - 9, pillar + 9) if self.kind == "hatchback" else (y1 + 2,):
+            for yy in (pillar - 7, pillar + 7) if self.kind == "hatchback" else (y1 + 2,):
                 for xx in list(range(x0 + 1, x0 + 4)) + list(range(x1 - 3, x1)):
                     self.put(xx, yy, self.b[0])
 
@@ -201,24 +206,38 @@ class Car:
         self.rect(x0 + flank, r[0], x1 - flank, r[0], b[2])   # the bed's front wall
 
     def _face(self, r, x0, x1):
-        """The rear face, toward the camera: the tailgate or hatch, its top lit, its foot shaded."""
+        """The rear face, toward the camera and most of the car's depth in this view: the roof's
+        edge rolling over at its top, the hatch glass or the rear doors' windows, the tailgate
+        below in the shaded tone, its foot darker, the plate."""
         b = self.b
-        for yy in range(r[0], r[1] + 1):
+        f0, f1 = r
+        for yy in range(f0, f1 + 1):
             for xx in range(x0, x1 + 1):
-                self.put(xx, yy, b[2] if yy - r[0] < 2 else (b[1] if yy - r[0] < r[1] - r[0] - 2 else b[0]))
-        self.rect(x0 + 1, r[0], x1 - 1, r[0], b[3])
-        if self.kind == "van":
-            # the two rear doors, each with its window, a seam between them
-            mid = (x0 + x1) // 2
-            for xx0, xx1 in ((x0 + 4, mid - 2), (mid + 2, x1 - 4)):
-                self._glass(r[0] + 2, r[0] + 6, xx0, xx1, slope=False)
-            for yy in range(r[0] + 1, r[1] + 1):
-                self.put(mid, yy, b[0])
-            self.put(mid - 2, r[0] + 9, TRIM[0])
-            self.put(mid + 2, r[0] + 9, TRIM[0])
+                self.put(xx, yy, b[1] if f1 - yy > 3 else b[0])
+        self.rect(x0 + 1, f0, x1 - 1, f0, b[3])                    # the roof's rear edge, lit
+        self.rect(x0 + 1, f0 + 1, x1 - 1, f0 + 1, b[2])            # rolling over into the face
+        for yy in range(f0 + 2, f1 - 3):
+            self.put(x0, yy, b[0])                                 # the face's corners turn away
+            self.put(x1, yy, b[0])
         mid = (x0 + x1) // 2
-        self.rect(mid - 3, r[1] - 5, mid + 3, r[1] - 3, PLATE)       # the plate
-        self.rect(mid - 3, r[1] - 5, mid + 3, r[1] - 5, (220, 214, 196))
+        if self.kind == "hatchback":
+            self._glass(f0 + 3, f0 + 13, x0 + 4, x1 - 4, slope=True)
+            self.rect(x0 + 3, f0 + 14, x1 - 3, f0 + 14, b[3])      # the hatch's lit lip under the glass
+            self.rect(x0 + 3, f0 + 15, x1 - 3, f0 + 15, b[0])
+        elif self.kind == "van":
+            for xx0, xx1 in ((x0 + 4, mid - 2), (mid + 2, x1 - 4)):
+                self._glass(f0 + 3, f0 + 12, xx0, xx1, slope=False)
+            for yy in range(f0 + 2, f1 - 3):
+                self.put(mid, yy, b[0])                            # the seam between the doors
+            for yy in (f0 + 17, f0 + 18):
+                self.put(mid - 2, yy, TRIM[1])
+                self.put(mid + 2, yy, TRIM[1])
+        else:
+            self.rect(x0 + 2, f0 + 1, x1 - 2, f0 + 1, b[3])        # the tailgate's lit top
+            self.rect(mid - 4, f0 + 6, mid + 4, f0 + 7, TRIM[1])  # its handle
+            self.rect(mid - 4, f0 + 6, mid + 4, f0 + 6, TRIM[3])
+        self.rect(mid - 3, f1 - 7, mid + 3, f1 - 5, PLATE)         # the plate
+        self.rect(mid - 3, f1 - 7, mid + 3, f1 - 7, (220, 214, 196))
 
     def _bumpers(self, rows, x0, x1):
         for name in ("bumper", "bumper_r"):
@@ -228,9 +247,9 @@ class Car:
                     self.put(xx, yy, TRIM[3] if yy == y0 else (TRIM[2] if yy == y0 + 1 else TRIM[0]))
 
     def _arch(self, axle, edge, flank, side):
-        """A wheel in its arch, seen across the side panel: the tyre's tread standing a pixel
-        proud of the body, its sidewall and hub inside the cut-out, the arch's lip lit along
-        its north edge and dark along its south."""
+        """A wheel in its arch, seen across the side panel: the tyre's tread flush with the body
+        line, its sidewall and hub inside the cut-out, the arch's lip lit along its north edge and
+        dark along its south."""
         half = 6
         inner = edge - side * (flank - 1)
         for yy in range(axle - half, axle + half + 1):
@@ -242,7 +261,6 @@ class Car:
                 if k == 0:
                     tone = 3 if yy < axle - 1 else (1 if yy < axle + 2 else 0)
                 self.put(xx, yy, TYRE[tone])
-            self.put(edge + side, yy, TYRE[0] if d <= 4 else self.px.get((edge + side, yy), None) or TYRE[0])
         for yy in (axle - 1, axle, axle + 1):
             self.put(edge - side * 1, yy, TRIM[3] if yy == axle - 1 else TRIM[2])     # the hub
         b = self.b
@@ -265,10 +283,12 @@ class Car:
                 self.put(x + side * k, y0 + 1, (204, 196, 178))
             self.put(x + side, by0 - 0, AMBER[0])
         fy0, fy1 = rows["face"]
+        top = {"hatchback": fy0 + 15, "van": fy0 + 3, "pickup": fy0 + 3}[self.kind]
+        bottom = top + {"hatchback": 8, "van": 14, "pickup": 9}[self.kind]
         for side, x in ((1, x0 + 1), (-1, x1 - 1)):
             for k in range(3):
-                for yy in range(fy0 + 2, fy0 + 8):
-                    tone = 2 if (yy == fy0 + 2 and k == 1) else (1 if yy < fy0 + 7 else 0)
+                for yy in range(top, bottom):
+                    tone = 2 if (yy == top and k == 1) else (1 if yy < bottom - 1 else 0)
                     self.put(x + side * k, yy, TAIL[tone])
 
     def _round(self, rows, x0, x1):
@@ -327,11 +347,8 @@ def main():
         car = Car(kind)
         car.paint()
         img = car.render()
-        # the outline adds a row under the bumper; the car stands on the cell's bottom row
-        box = img.getbbox()
-        shifted = Image.new("RGBA", img.size, (0, 0, 0, 0))
-        shifted.alpha_composite(img, (0, CELL_H - box[3]))
-        sheet.alpha_composite(shifted, (i * (CELL_W + GAP), 0))
+        # the car stands on the cell's bottom row, its outline closing the rear there
+        sheet.alpha_composite(img, (i * (CELL_W + GAP), 0))
     sheet.save(sys.argv[1])
 
 

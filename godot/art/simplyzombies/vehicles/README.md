@@ -15,9 +15,11 @@ view and all five light vehicles were drawn by `tools/sprites/parts/vehicles.py`
 
 1. **Painted by code** (`guides/cars_ns_paint.py`): the three cars nose-up on one 224x160 sheet,
    in the pack's own paint, as long north-south as the pack draws them east-west plus a few rows
-   of rear face (91, 107 and 109 rows). Four body tones, a side panel down each flank with the
-   side glass in it, a wheel arch at each axle, amber indicators on the nose, red lamps on the
-   rear face, glass in four tones with a diagonal streak.
+   of deep rear face (91, 108 and 110 rows with the outline, which closes the rear on the
+   canvas's bottom row). A short roof over a tall rear face for a strong three-quarter view,
+   four body tones, a side panel down each flank with the side glass in it, a wheel arch at each
+   axle with the tyre flush inside it, amber indicators on the nose, red lamps, a plate and (van,
+   hatchback) rear glass on the rear face, glass in four tones with a diagonal streak.
 2. **The wrecks are not a second painting.** `guides/wreck.py` damages that sheet
    deterministically: dulled paint, rust blooms, crazed glass, a starred windshield, a creased
    hood and a crumpled corner. Same seed, same pixels.

@@ -22,7 +22,7 @@ from PIL import Image
 
 W, H = 40, 48
 VIEWS = ("south", "east", "north", "west")
-OUT = (26, 24, 20, 255)
+OUT = (3, 3, 3, 255)          # the pack's own near-black outline
 # The bloater's skin, darkest first: an olive at the pack's saturation (the heavy's own skin sits
 # near 0.2 HLS saturation; these sit between 0.16 and 0.20), not the acid green it was.
 SKIN = [(92, 96, 66), (124, 128, 92), (154, 156, 116), (180, 180, 142)]
@@ -156,6 +156,55 @@ def belly(cell, src, cx, cy, rx, ry, hem, behind=False, veins=(), navel=None):
     return cell
 
 
+def forearm(cell, shoulder, hand):
+    """The leading arm hanging over the belly's flank in a side view: a tapered limb from the
+    shoulder down to a rounded hand, a step darker than the gut so it separates from it, lit on
+    its west edge and shaded on its east, outlined where it meets anything but the shoulder it
+    hangs from, and casting a one-pixel shadow onto the belly east of it."""
+    px = cell.load()
+    (sx, sy), (hx, hy) = shoulder, hand
+    arm = set()
+    for y in range(sy, hy + 1):
+        t = (y - sy) / max(1, hy - sy)
+        c = sx + (hx - sx) * t
+        half = 1.5 + 0.7 * math.sin(math.pi * min(1.0, t * 1.1))   # thicker at the elbow
+        for x in range(int(c - half - 1), int(c + half + 2)):
+            if abs(x + 0.5 - c) <= half:
+                arm.add((x, y))
+    for y in range(hy - 1, hy + 4):                                  # the hand, a rounded lump
+        for x in range(int(hx) - 3, int(hx) + 4):
+            if (x + 0.5 - hx) ** 2 / 7.5 + (y + 0.5 - (hy + 1.0)) ** 2 / 4.0 <= 1.0:
+                arm.add((x, y))
+    for (x, y) in arm:
+        left = (x - 1, y) not in arm
+        right = (x + 1, y) not in arm
+        tone = 2 if left else (0 if right else 1)
+        if y >= hy + 2 and not left:
+            tone = 0                                                 # the underside of the hand
+        px[x, y] = SKIN[tone] + (255,)
+    edge = set()
+    for (x, y) in arm:
+        for ex, ey in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            q = (x + ex, y + ey)
+            if q not in arm and 0 <= q[0] < W and 0 <= q[1] < H and q[1] > sy + 1:
+                edge.add(q)
+    for q in edge:
+        px[q] = OUT
+    for (x, y) in edge:                                              # the cast shadow, east
+        q = (x + 1, y)
+        if q not in arm and q not in edge and 0 <= q[0] < W and px[q][:3] in SKIN and y < hy + 2:
+            px[q] = SKIN[0] + (255,)
+    return cell
+
+
+def hand_x(src, cx, sign):
+    """Where the heavy's leading hand hangs in a side frame: the middle of its skin across the
+    rows above the belt, ahead of the torso's centre."""
+    xs = [x for y in range(28, 32) for x in range(W)
+          if is_skin(src.getpixel((x, y))) and (x + 0.5 - cx) * sign > 3]
+    return sum(xs) / len(xs) if xs else cx + sign * 6.0
+
+
 def torso_centre(src):
     """The middle of the vest's columns across the waist rows, where a belly sits."""
     xs = [x for y in range(26, 34) for x in range(W)
@@ -167,19 +216,28 @@ def torso_centre(src):
 def walk_sheet(heavy):
     out = Image.new("RGBA", heavy.size)
     for row, view in enumerate(VIEWS):
+        # one belly centre a row, taken from the idle pose: the gut does not swing with the arms,
+        # so its front edge stays put through the walk
+        cx = torso_centre(heavy.crop((0, row * H, W, row * H + H)))
         for col in range(5):
             box = (col * W, row * H, col * W + W, row * H + H)
             src = heavy.crop(box)
             cell = recolour(src.copy())
-            cx = torso_centre(src)
             if view == "south":
-                belly(cell, src, cx + 0.5, 32.0, 10.0, 8.0, 26, veins=((-5, 3), (3, -2)), navel=(0, 1))
+                # wider than the hips below the hands, so the outline is the bloater's own
+                belly(cell, src, cx + 0.5, 33.0, 12.0, 8.5, 26, veins=((-5, 3), (3, -2)), navel=(0, 1))
             elif view == "north":
-                belly(cell, src, cx + 0.5, 33.0, 13.0, 6.5, 0, behind=True)
+                # from behind, the back of the gut and its flanks spill out over the belt under
+                # the vest, past the hips either side
+                belly(cell, src, cx + 0.5, 35.0, 13.5, 6.0, 31)
             else:
+                # three to four pixels past the arm and the hip in front
                 sign = 1 if view == "east" else -1
-                belly(cell, src, cx + 0.5 + sign * 4.5, 31.5, 8.5, 8.0, 25,
-                      veins=((sign * 2, 3), (sign * -2, -3)), navel=(sign * 5, 1))
+                belly(cell, src, cx + 0.5 + sign * 6.5, 31.5, 10.0, 8.5, 25,
+                      veins=((sign * 2, 3), (sign * -2, -3)), navel=(sign * 7, 1))
+                # the leading forearm over the belly's flank in every frame, its hand where the
+                # heavy's own hand is in that frame, so it swings with the heavy's walk
+                forearm(cell, (cx + 0.5 + sign * 5.0, 24), (hand_x(src, cx, sign) + 0.5, 32))
             out.alpha_composite(cell, (box[0], box[1]))
     return out
 
@@ -232,7 +290,7 @@ def main():
     sup_src = Image.open(textures / "corpse-supine.png").convert("RGBA")
     sup = corpse_mound(recolour(sup_src.copy()), sup_src, 24.5, 16.5, 8.0, 7.5, False)
     pro_src = Image.open(textures / "corpse-prone.png").convert("RGBA")
-    pro = corpse_mound(recolour(pro_src.copy()), pro_src, 33.0, 13.0, 9.0, 8.0, True)
+    pro = corpse_mound(recolour(pro_src.copy()), pro_src, 27.0, 13.0, 11.0, 8.0, True)
     sheet = Image.new("RGBA", (112, 40))
     sheet.alpha_composite(sup, (0, 0))
     sheet.alpha_composite(pro, (56, 0))

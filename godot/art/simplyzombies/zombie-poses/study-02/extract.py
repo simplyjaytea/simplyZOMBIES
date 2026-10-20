@@ -43,6 +43,11 @@ SKIN_CAP = 188.0
 KNEE = 168.0
 # Rows below the top of the figure where the head ends: the screamer's chin sits eleven rows down.
 CHIN = 11
+# Below the chin a near-white is a hand: it is taken into the commuter's own hand range (luminance
+# 133 to 169) in two tones, the lit one where the generated pixel was brightest, the shade below.
+HAND_LIT = 166.0
+HAND_SHADE = 142.0
+HAND_SPLIT = 214.0
 # One value: the shirt's pale greys scaled by this, so the face reads a step above them.
 SHIRT_STEP = 0.80
 
@@ -69,7 +74,8 @@ def compress_highlights(image):
 
 
 def touch_up(cell):
-    """The screamer's hands no brighter than pack skin; its shirt one value under its face."""
+    """The screamer's hands shaded in two tones of the commuter's hand range; its shirt one value
+    under its face; anything left above KNEE (the face) pulled toward the pack's brightest skin."""
     box = solid_box(cell)
     if box is None:
         return cell
@@ -81,6 +87,8 @@ def touch_up(cell):
             spread = max(r, g, b) - min(r, g, b)
             if a and 110.0 <= luma <= KNEE and spread <= 24:
                 _scale(px, x, y, SHIRT_STEP)
+            elif a and luma > KNEE:
+                _scale(px, x, y, (HAND_LIT if luma >= HAND_SPLIT else HAND_SHADE) / luma)
     return compress_highlights(cell)
 
 

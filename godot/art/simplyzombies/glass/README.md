@@ -16,8 +16,9 @@ greys, and holds the draw to them.
 They are greys on purpose. The colour still comes from the palette and the street dressing, so
 night, weather and a lit window keep working as before; the texture adds the lintel shadow, the
 mullion, four tones and the diagonal reflection streaks the flat rect could not. The frame's
-outside edge is a mid grey, not a body's near-black: tinted by `windowRim` it lands one step darker
-than the brick's mortar, so the window reads as part of the wall. `glass.py` draws them in code, because a
+outside edge is a light grey, not a body's near-black: tinted by `windowRim` it lands at the brick
+mortar's own value, so the window reads as part of the wall. Each pane carries its reflection at
+its own offset. `glass.py` draws them in code, because a
 32-pixel window is a handful of pixels an image model would not place exactly.
 
 ```bash
