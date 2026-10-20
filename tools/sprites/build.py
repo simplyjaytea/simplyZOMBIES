@@ -139,7 +139,7 @@ def canvas_of(key):
 # absent too, while the original source sheets remain in the art pack for provenance.
 RETIRED_KEYS = (
     "tree_pine_a", "tree_pine_b", "tree_pine_c", "low_heap_a", "low_heap_b",
-    "debris_litter_a", "debris_litter_b", "debris_litter_c",
+    "debris_litter_a", "debris_litter_b", "debris_litter_c", "debris_litter_pack",
 ) + tuple(
     "body_shambler_" + suffix
     for view in ("s", "e", "n", "w")

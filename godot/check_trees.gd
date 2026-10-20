@@ -140,6 +140,7 @@ func _run() -> void:
 	ok = _the_roll_does_not_lattice() and ok
 	ok = _the_clearing_holds() and ok
 	ok = _the_placement_is_read() and ok
+	ok = _the_occupancy_holds() and ok
 	ok = _dressing_is_never_sim_state() and ok
 
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
@@ -1193,7 +1194,7 @@ func _the_nature_dressing_lies_where_it_should() -> bool:
 	if draw_decor.is_empty():
 		push_error("could not read _draw_decor out of %s" % MAIN_GD)
 		return false
-	var m: String = _missing_needle(draw_decor, ["Dressing.decor_picks(", "\"nature\"", "\"furnishings\"", "Appearance.hang_rect(", "Appearance.resolve(", "_pen.draw_texture_rect("])
+	var m: String = _missing_needle(draw_decor, ["Dressing.decor_picks(", "\"nature\"", "\"furnishings\"", "_placed_rect(", "Appearance.resolve(", "_pen.draw_texture_rect("])
 	if not m.is_empty():
 		push_error("_draw_decor does not contain %s" % m)
 		return false
@@ -1818,7 +1819,7 @@ func _the_furnishings_stand_where_they_should() -> bool:
 		push_error("_draw_world still draws the furnishings per frame; they are baked into DECOR")
 		return false
 	var draw_decor: String = _function_body(MAIN_GD, "_draw_decor")
-	var missing: String = _missing_needle(draw_decor, ["Dressing.decor_picks(", "\"furnishings\"", "Appearance.hang_rect(", "Appearance.resolve("])
+	var missing: String = _missing_needle(draw_decor, ["Dressing.decor_picks(", "\"furnishings\"", "_placed_rect(", "Appearance.resolve("])
 	if not missing.is_empty():
 		push_error("_draw_decor does not contain %s" % missing)
 		return false
@@ -2232,7 +2233,7 @@ func _the_clearing_holds() -> bool:
 		for tx in range(start.x - CLEAR_RADIUS, start.x + CLEAR_RADIUS + 1):
 			if tx < 0 or ty < 0 or tx >= w or ty >= h:
 				continue
-			if not Dressing._furnishing_pick(entries, smap, seed_term, tx, ty, Rect2i()).is_empty():
+			if not Dressing._furnishing_raw(entries, smap, seed_term, tx, ty, Rect2i()).is_empty():
 				raw_inside += 1
 	if raw_inside == 0:
 		print("CLEAR SKIP: the raw roll puts no furnishing within %d tiles of the start %s on this map; nothing to judge" % [CLEAR_RADIUS, str(start)])
@@ -2271,16 +2272,21 @@ func _the_placement_is_read() -> bool:
 		for raw in picks[kind] as Array:
 			var pick: Dictionary = raw as Dictionary
 			total += 1
-			var ox: float = float(pick["ox"])
-			var oy: float = float(pick["oy"])
-			if absf(ox) > 0.2 + 0.0001 or absf(oy) > 0.2 + 0.0001:
-				push_error("a picture sits %.3f, %.3f tiles off its centre; the jitter is ±0.2" % [ox, oy])
+			var ox: int = int(pick["ox"])
+			var oy: int = int(pick["oy"])
+			# Whole art pixels, never a fraction of one: a fraction lands between the ground's own art
+			# pixels at some zoom, which is the odd-pixel placement the density QA caught.
+			if typeof(pick["ox"]) != TYPE_INT or typeof(pick["oy"]) != TYPE_INT:
+				push_error("a picture's offset is not whole art pixels (%s, %s)" % [str(pick["ox"]), str(pick["oy"])])
+				return false
+			if absi(ox) > Dressing.JITTER_PX or oy > 0 or oy < -Dressing.JITTER_PX:
+				push_error("a picture sits %d, %d art pixels off its tile; the jitter is ±%d across and up to %d above the south edge" % [ox, oy, Dressing.JITTER_PX, Dressing.JITTER_PX])
 				return false
 			if bool(pick["flip"]):
 				flipped += 1
 			else:
 				straight += 1
-			offsets[snappedf(ox, 0.01)] = true
+			offsets[ox] = true
 	if total == 0:
 		push_error("the shipped suburb placed no flat pictures; the placement lane has nothing to judge")
 		return false
@@ -2291,13 +2297,123 @@ func _the_placement_is_read() -> bool:
 		push_error("only %d distinct horizontal offsets across %d pictures; the placement is still a grid" % [offsets.size(), total])
 		return false
 	var main_src: String = _function_body(MAIN_GD, "_draw_decor")
-	for needle in ["placed[\"ox\"]", "placed[\"oy\"]", "placed[\"flip\"]", "_mirrored("]:
-		if not main_src.contains(needle):
-			push_error("_draw_decor does not read %s; the placement is a field nothing reads" % needle)
+	if not main_src.contains("_placed_rect(") or not main_src.contains("_mirrored(") or not main_src.contains("placed[\"flip\"]"):
+		push_error("_draw_decor does not place and mirror its pictures through _placed_rect; the placement is a field nothing reads")
+		return false
+	var rect_src: String = _function_body(MAIN_GD, "_placed_rect")
+	for needle in ["placed[\"tx\"]", "placed[\"ty\"]", "placed[\"ox\"]", "placed[\"oy\"]", "ART_PER_TILE", "hang_rect("]:
+		if not rect_src.contains(needle):
+			push_error("_placed_rect does not read %s; the placement is a field nothing reads" % needle)
 			return false
 	var scatter_src: String = _function_body(MAIN_GD, "_draw_scatter")
-	if not scatter_src.contains("Dressing.flip_at(") or not scatter_src.contains("_mirrored("):
-		push_error("_draw_scatter does not mirror litter through Dressing.flip_at; the flip is a field nothing reads")
+	if not scatter_src.contains("Dressing.litter_placed(") or not scatter_src.contains("_draw_litter("):
+		push_error("_draw_scatter does not take its scrap from Dressing.litter_placed; the scrap's placement is a field nothing reads")
 		return false
-	print("PLACED %d flat pictures on the shipped suburb: %d mirrored, %d straight, %d distinct horizontal offsets, every offset within ±0.2 tile" % [total, flipped, straight, offsets.size()])
+	var litter_src: String = _function_body(MAIN_GD, "_draw_litter")
+	for needle in ["placed[\"ox\"]", "placed[\"oy\"]", "placed[\"flip\"]", "_mirrored(", "hang_rect("]:
+		if not litter_src.contains(needle):
+			push_error("_draw_litter does not read %s; a scrap drawn without its own placement is the old grid" % needle)
+			return false
+	print("PLACED %d flat pictures on the shipped suburb: %d mirrored, %d straight, %d distinct horizontal offsets, every offset a whole number of art pixels" % [total, flipped, straight, offsets.size()])
+	return true
+
+
+# --- the occupancy: one picture to a tile, large pieces apart, flat pieces clear of tall ones, and
+# the scraps kept off everything that stands on a tile. Each rule is judged twice: the raw roll must
+# collide with it on the shipped suburb (a true positive, or the rule has nothing to do and the lane
+# says so), and the placed pictures must keep it (the true negative a broken rule would fail).
+func _the_occupancy_holds() -> bool:
+	var boot: Dictionary = SimBoot.playable(CANON_SEED, GATE_SIZE)
+	var oworld: Variant = boot["world"]
+	var omap: Variant = boot["map"]
+	var oblock: Dictionary = Dressing.block_of(oworld)
+	var seed_val: int = int(oworld.seed)
+	var w: int = int(omap.w)
+	var h: int = int(omap.h)
+	var clear: Rect2i = Dressing._clear_of(omap)
+	var seed_term: int = seed_val * Dressing._HASH_SEED
+	var furn: Array = Dressing._furnishing_entries(oblock)
+	var nature: Array = Dressing._nature_entries(oblock)
+	if furn.is_empty() or nature.is_empty():
+		push_error("the shipped suburb declares no furnishings or no nature; the occupancy lane has nothing to judge")
+		return false
+	var occ: Dictionary = Dressing._occupancy(oblock, omap, seed_val)
+	# True positives: the raw roll collides with each rule on this map.
+	var raw_large_adjacent: int = 0
+	var raw_nature_under_furnishing: int = 0
+	var raw_flat_in_standing_column: int = 0
+	var raw_litter_under_furnishing: int = 0
+	for ty in range(h):
+		for tx in range(w):
+			var raw: String = Dressing._furnishing_raw(furn, omap, seed_term, tx, ty, clear)
+			if not raw.is_empty():
+				if Dressing._entry_flag(furn, raw, Dressing.FE_LARGE):
+					for dy in range(-1, 2):
+						for dx in range(-1, 2):
+							if (dx != 0 or dy != 0) and Dressing._entry_flag(furn, Dressing._furnishing_raw(furn, omap, seed_term, tx + dx, ty + dy, clear), Dressing.FE_LARGE):
+								raw_large_adjacent += 1
+				elif Dressing._standing_near(furn, omap, seed_term, tx, ty, clear):
+					raw_flat_in_standing_column += 1
+			if not raw.is_empty() and not Dressing._nature_pick(nature, omap, seed_term, tx, ty).is_empty():
+				raw_nature_under_furnishing += 1
+			if not raw.is_empty() and Dressing._paved_floor(omap, tx, ty) and Dressing._mix(Dressing.hash_at(seed_val, tx, ty, Dressing.SALT_LITTER_PICK)) % Dressing.LITTER_RARITY == 0:
+				raw_litter_under_furnishing += 1
+	print("OCCUPANCY raw collisions on the suburb: %d large pairs, %d nature under a furnishing, %d flat in a tall piece's column, %d scraps under a furnishing" % [raw_large_adjacent, raw_nature_under_furnishing, raw_flat_in_standing_column, raw_litter_under_furnishing])
+	if raw_large_adjacent == 0 or raw_nature_under_furnishing == 0 or raw_flat_in_standing_column == 0 or raw_litter_under_furnishing == 0:
+		push_error("the raw roll does not collide with every occupancy rule on this map (large %d, nature %d, column %d, scrap %d); a rule with nothing to do is not judged" % [raw_large_adjacent, raw_nature_under_furnishing, raw_flat_in_standing_column, raw_litter_under_furnishing])
+		return false
+	# True negatives: the placed pictures keep every rule.
+	var placed_large: Dictionary = {}
+	var flat_keys: Dictionary = {}
+	for ty in range(h):
+		for tx in range(w):
+			var key: String = Dressing.furnishing_key(oblock, omap, seed_val, tx, ty)
+			if key.is_empty():
+				continue
+			if Dressing._entry_flag(furn, key, Dressing.FE_LARGE):
+				placed_large[Vector2i(tx, ty)] = true
+			if not Dressing._entry_flag(furn, key, Dressing.FE_STANDING):
+				for dy in [-2, -1, 1, 2]:
+					if Dressing._entry_flag(furn, Dressing.furnishing_key(oblock, omap, seed_val, tx, ty + dy), Dressing.FE_STANDING):
+						push_error("a flat %s stands at (%d,%d), within two tiles of a tall piece in its column" % [key, tx, ty])
+						return false
+	for at in placed_large.keys():
+		for dy in range(-1, 2):
+			for dx in range(-1, 2):
+				if (dx != 0 or dy != 0) and placed_large.has(Vector2i(at.x + dx, at.y + dy)):
+					push_error("two large furnishings stand at (%d,%d) and their neighbour; they must keep a tile between them" % [at.x, at.y])
+					return false
+	var scraps: int = 0
+	var paved: int = 0
+	var bags: int = 0
+	for ty in range(h):
+		for tx in range(w):
+			var at := Vector2i(tx, ty)
+			if Dressing.furnishing_key(oblock, omap, seed_val, tx, ty) == "prop_trash_bags":
+				bags += 1
+			if Dressing._paved_floor(omap, tx, ty):
+				paved += 1
+			if Dressing.litter_placed(oblock, omap, seed_val, tx, ty).is_empty():
+				continue
+			scraps += 1
+			if clear.has_point(at):
+				push_error("a scrap of litter lies at (%d,%d), inside the %d-tile square round the start %s" % [tx, ty, CLEAR_RADIUS, str(SimBoot.colony_start(omap))])
+				return false
+			if Dressing._taken(occ, omap, tx, ty):
+				push_error("a scrap of litter lies at (%d,%d), on a tile a furnishing or a tall piece holds" % [tx, ty])
+				return false
+	# The rate: one scrap in LITTER_RARITY of the paved floor, judged as a band so a rule that starves
+	# or floods the floor fails. A zero-floor map says so instead of dividing.
+	if paved == 0:
+		push_error("the shipped suburb has no paved floor; the scrap rate has nothing to judge")
+		return false
+	var rate: float = float(scraps) / float(paved)
+	print("OCCUPANCY scraps %d of %d paved floor tiles (1 in %.1f), %d trash bags on the suburb" % [scraps, paved, 1.0 / maxf(rate, 0.0001), bags])
+	if rate < 0.12 or rate > 0.22:
+		push_error("scraps sit on %.3f of the paved floor; the band is 0.12 to 0.22 (one in six)" % rate)
+		return false
+	if bags < 4:
+		push_error("only %d trash bags on the suburb; the beside-wall rule starves them" % bags)
+		return false
+	print("OCCUPANCY_OK one picture to a tile across %d raw collisions; no two large pieces adjacent; no flat piece in a tall piece's column; %d scraps, none on a held tile or inside the clearing; %d trash bags" % [raw_large_adjacent + raw_nature_under_furnishing + raw_flat_in_standing_column + raw_litter_under_furnishing, scraps, bags])
 	return true

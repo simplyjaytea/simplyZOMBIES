@@ -3093,10 +3093,24 @@ not a to-do list:
   **A12's second pass** (the coordinator's visual QA of 07:13): the roll is `Dressing._mix` over
   the hash, because the plain hash laid the first draft on a lattice (`godot:check:trees`'s
   LATTICE lane: 250 and 241 neighbour pairs on a 32-square window, the shifted roll 320 and 192);
-  no furnishing stands within three tiles of the colony's start (CLEAR lane, which says so and
-  skips if the raw roll puts none there); every flat picture sits up to a fifth of a tile off its
-  centre and may be mirrored (PLACED lane, which also holds `_draw_decor` and `_draw_scatter` to
-  reading the fields). Three pack props join as scenery: the oil barrel, the pallet stack and the
+  nothing stands within three tiles of the colony's start (CLEAR lane, which says so and skips if
+  the raw roll puts none there; the clearing itself is four tiles out, `FURNISH_CLEAR`); every flat
+  picture sits on the art grid, whole art pixels off its tile's centre line and never past its south
+  edge, and may be mirrored (PLACED lane, which also holds `_draw_decor` and `_placed_rect` to
+  reading the fields).
+  **A12's third pass** (the coordinator's second visual QA, 2026-10-20 07:45): every flat picture is
+  placed in whole art pixels, so none lands between the ground's art pixels; scraps are three
+  pieces cut from the pack's `overlay-debris` (`debris_scrap_a/b/c`), jittered, mirrored and drawn at
+  their own size; one picture to a tile, with scraps and nature yielding to a furnishing and every
+  scrap kept off the clearing (`OCCUPANCY_OK`, which judges each rule on the raw roll first, 76 large
+  pairs, 2 nature under a furnishing, 4 flat in a tall piece's column, 44 scraps under a furnishing,
+  and then on the placed pictures); two large furnishings never neighbour (`large` in content,
+  `schema`'s `large`); nothing flat stands within two tiles of a standing piece in its column; the
+  scrap roll is 1 in 5 (1 in 5.9 measured over the paved floor, 388 of 2,282); trash bags went from 2
+  to 8 on the suburb (their rarity 35 to 12, the lane's floor is four); the `day_street` shot's camera
+  snaps to the survivor and its spot is mostly street. Not done: the grass verges are sparse because
+  the pack has no grass tuft to add, the bags are still few, the pack has no rugs, and the interior
+  camera's odd x is left as it was (it predates A12). Three pack props join as scenery: the oil barrel, the pallet stack and the
   rubbish bags. The crates, footlockers and medical boxes stay container kinds and stay out.
 
   **Container kinds are the table's.** `prop.container` gains a top-level `tables` map
@@ -4714,9 +4728,10 @@ not a to-do list:
   DRESSING lane walks it, resolves every key at 64×64, refuses a fabricated key and a duplicated
   one, and an empty block resolves nothing rather than defaulting.
   boots and saves by construction. **A12's second pass** replaced the litter scraps: the generated
-  `debris_litter_a/b/c` drew specks too small to read at game scale, so they are retired, and
-  litter is the pack's own `overlay-debris` (authored key `debris_litter_pack`), on 1 in 6 paved
-  floor tiles, room floors included, mirrored by a hash. `godot:check:wrecks`'s SCATTER lane holds
+  `debris_litter_a/b/c` drew specks too small to read at game scale, so they are retired; the pack's
+  `overlay-debris` rubble pile is retired too (`debris_litter_pack`), and litter is three scraps cut
+  from it (`debris_scrap_a/b/c`), on 1 in 5 paved floor tiles, room floors included, mirrored and
+  jittered by a hash. `godot:check:wrecks`'s SCATTER lane holds
   the surface rule and the density ceiling.
   **Gate lanes, red both ways.** `WRECKS_OK`: DRESSING (fabricated key, duplicated key, empty
   block), SEGMENTS (a lone tile mis-classified as a car front; front/rear swapped; `mid` never

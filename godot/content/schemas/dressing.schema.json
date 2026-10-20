@@ -168,6 +168,10 @@
           "standing": {
             "type": "boolean",
             "description": "Optional true only for a tall inert furnishing drawn in the tree/entity depth sort; absent means the existing flat furnishing pass."
+          },
+          "large": {
+            "type": "boolean",
+            "description": "Optional true for a furnishing wider than a tile in the picture; no other large furnishing may stand on a neighbouring tile (Dressing._gap_free), so large pieces keep a tile of floor between them."
           }
         }
       }
