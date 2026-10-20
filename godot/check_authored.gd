@@ -172,10 +172,17 @@ const AUTHORED_PATH: String = "res://assets/sprites/authored.json"
 # CELLS lanes' to judge and `sprites:check`'s to reproduce; its reader is code, not content, which
 # READS below holds it to (GROUND_READER).
 #
+# `decal` is one of the outpost pack's ground marks -- a blood pool, a bullet hole, a scorch, wood
+# chips (plan item A13, docs/30's "Blood and bullet decals persist, for everything"): a single 32x32
+# frame cut whole. Like `ground` its reader is code, not content -- a mark is a sim record, not a
+# content entry -- so READS holds its `reads`, `<file>:<function>`, to a function whose body names
+# the key as a quoted string (DECAL_KIND).
+#
 # `wear` is a garment painted per frame onto a pack rig (docs/23, "Clothe everyone", 2026-10-19),
 # judged by WEAR: its members are the rig's own, frame for frame, and every pixel it paints sits on
 # a solid, non-ink pixel of the frame it was painted for.
-const KINDS: Array[String] = ["rig", "overlay", "tile", "icon", "pack_rig", "zombie_rig", "corpse", "pack_overlay", "pack_held", "module", "sheet", "prop", "standing", "vehicle", "tree", "ground", "wear"]
+const KINDS: Array[String] = ["rig", "overlay", "tile", "icon", "pack_rig", "zombie_rig", "corpse", "pack_overlay", "pack_held", "module", "sheet", "prop", "standing", "vehicle", "tree", "ground", "wear", "decal"]
+const DECAL_KIND: String = "decal"
 
 # WEAR: the brightest channel below which a body pixel is the pack's ink. Measured on the pack
 # survivor's twenty frames: its outline is (0..8, 0..6, 0..4) and its darkest skin and hair are
@@ -1471,18 +1478,38 @@ func _crop_drops_solid(source: Image, crop: Array) -> bool:
 
 
 # A turning body's members under authored.json's convention: `<key>_<view>` for each of the four
-# views, and `<key>_walk_<view>_<n>` for the same n = 0..frames-1 every way, and nothing else.
-func _rig_members_complaint(key: String, members: Array) -> String:
+# views, `<key>_walk_<view>_<n>` for the same n = 0..frames-1 every way, and the breath
+# `<key>_idle_<view>_<n>` for the same n = 1..breaths-1 every way, and -- for each action the
+# family's `actions` block declares (docs/23, "Actions on the render clock") --
+# `<key>_<action>_<view>_<n>` for the same n = 0..frames-1 every way (the two side views only, for
+# a lying action), and nothing else.
+func _rig_members_complaint(key: String, members: Array, actions: Array = []) -> String:
 	var want: Array[String] = []
 	var frames: int = 0
 	while members.has("%s_walk_%s_%d" % [key, Appearance.VIEW_REST, frames]):
 		frames += 1
 	if frames == 0:
 		return "has no walk frames under '%s_walk_%s_0'" % [key, Appearance.VIEW_REST]
+	var breaths: int = 1
+	while members.has("%s_idle_%s_%d" % [key, Appearance.VIEW_REST, breaths]):
+		breaths += 1
 	for view in Appearance.VIEWS:
 		want.append("%s_%s" % [key, view])
 		for n in frames:
 			want.append("%s_walk_%s_%d" % [key, view, n])
+		for n in range(1, breaths):
+			want.append("%s_idle_%s_%d" % [key, view, n])
+	for a in actions:
+		var action: String = String(a)
+		var views: Array = ["e", "w"] if Appearance.LYING_ACTIONS.has(action) else Appearance.VIEWS
+		var count: int = 0
+		while members.has("%s_%s_%s_%d" % [key, action, String(views[0]), count]):
+			count += 1
+		if count == 0:
+			return "declares action '%s' with no frames under '%s_%s_%s_0'" % [action, key, action, String(views[0])]
+		for view in views:
+			for n in count:
+				want.append("%s_%s_%s_%d" % [key, action, String(view), n])
 	for w in want:
 		if not members.has(w):
 			return "is missing member '%s'" % w
@@ -1490,6 +1517,12 @@ func _rig_members_complaint(key: String, members: Array) -> String:
 		if not want.has(String(m)):
 			return "carries member '%s', which the convention does not name" % String(m)
 	return ""
+
+
+# The actions a family's authored.json entry declares, by name.
+func _actions_of(entry: Dictionary) -> Array:
+	var block: Variant = entry.get("actions", {})
+	return (block as Dictionary).keys() if block is Dictionary else []
 
 
 func _overlay_members_complaint(key: String, members: Array) -> String:
@@ -1514,6 +1547,25 @@ func _sole_complaint(box: Dictionary, h: int, idle: bool) -> String:
 	var height: int = int(box["max_y"]) - int(box["min_y"]) + 1
 	if height < HEIGHT_MIN or height > HEIGHT_MAX:
 		return "is %d px tall, outside %d-%d" % [height, HEIGHT_MIN, HEIGHT_MAX]
+	return ""
+
+
+# Whether `member` of `family` is one of its declared action frames.
+func _is_action_member(family: String, member: String, actions: Array) -> bool:
+	for a in actions:
+		if member.begins_with("%s_%s_" % [family, String(a)]):
+			return true
+	return false
+
+
+# An action frame's ground: something drawn, and the lowest of it on the anchor row (a derived pose
+# is stood there exactly; a generated one may lift a step, as a walk frame may).
+func _ground_complaint(box: Dictionary, h: int) -> String:
+	if box.is_empty():
+		return "draws nothing at or above alpha %d" % ALPHA_SOLID
+	var lift: int = h - 1 - int(box["max_y"])
+	if lift < 0 or lift > SOLE_LIFT_MAX:
+		return "lifts its lowest row %d row(s) off the anchor; an action frame stands at most %d" % [lift, SOLE_LIFT_MAX]
 	return ""
 
 
@@ -1575,7 +1627,7 @@ func _the_pack_families_keep_the_packs_own_spec() -> bool:
 			push_error("PACK: '%s' is a %s with no members; a pack body or wearable is a family" % [name, kind])
 			return false
 		var members: Array = (members_v as Dictionary).keys()
-		var complaint: String = _rig_members_complaint(name, members) if kind == "pack_rig" else _overlay_members_complaint(name, members)
+		var complaint: String = _rig_members_complaint(name, members, _actions_of(entry)) if kind == "pack_rig" else _overlay_members_complaint(name, members)
 		if not complaint.is_empty():
 			push_error("PACK: '%s' %s" % [name, complaint])
 			return false
@@ -1617,7 +1669,10 @@ func _the_pack_families_keep_the_packs_own_spec() -> bool:
 				return false
 			var box: Dictionary = _solid_box(image)
 			if kind == "pack_rig":
-				var sole: String = _sole_complaint(box, image.get_height(), not member.contains("_walk_"))
+				# An action frame stands on the ground like any other, but its height is the action's
+				# (a crouch, a fall, a body lying flat): check:action's GEOMETRY lane judges that.
+				var acting: bool = _is_action_member(name, member, _actions_of(entry))
+				var sole: String = _sole_complaint(box, image.get_height(), not member.contains("_walk_")) if not acting else _ground_complaint(box, image.get_height())
 				if not sole.is_empty():
 					push_error("PACK: '%s' %s" % [member, sole])
 					return false
@@ -1681,9 +1736,29 @@ func _the_pack_families_keep_the_packs_own_spec() -> bool:
 	short.erase("body_survivor_walk_n_3")
 	var extra: Array = real.duplicate()
 	extra.append("body_survivor_run_s_0")
-	if _rig_members_complaint("body_survivor", short).is_empty() or _rig_members_complaint("body_survivor", extra).is_empty():
-		push_error("PACK: a body missing a walk frame, or carrying one the convention does not name, passed")
+	var breathless: Array = real.duplicate()
+	breathless.erase("body_survivor_idle_w_1")
+	var acts: Array = _actions_of(entries["body_survivor"] as Dictionary)
+	if not _rig_members_complaint("body_survivor", real, acts).is_empty():
+		push_error("PACK: the real body_survivor members were refused by the convention they were built to")
 		return false
+	if _rig_members_complaint("body_survivor", short, acts).is_empty() or _rig_members_complaint("body_survivor", extra, acts).is_empty() or _rig_members_complaint("body_survivor", breathless, acts).is_empty():
+		push_error("PACK: a body missing a walk frame or one view's breath, or carrying one the convention does not name, passed")
+		return false
+	# The action half: an action member with no `actions` entry is unnamed, a declared action
+	# missing one view's frame is incomplete, and a declared action with no frames at all is empty.
+	if not acts.is_empty():
+		var one: String = String(acts[0])
+		var undeclared: Array = acts.duplicate()
+		undeclared.erase(one)
+		var gap: Array = real.duplicate()
+		var gap_view: String = "w"
+		gap.erase("body_survivor_%s_%s_0" % [one, gap_view])
+		var empty: Array = acts.duplicate()
+		empty.append("wave")
+		if _rig_members_complaint("body_survivor", real, undeclared).is_empty() or _rig_members_complaint("body_survivor", gap, acts).is_empty() or _rig_members_complaint("body_survivor", real, empty).is_empty():
+			push_error("PACK: an undeclared action, an action missing a view's frame, or a declared action with no frames passed")
+			return false
 	if _overlay_members_complaint("item_gear_x", ["item_gear_x_s", "item_gear_x_e", "item_gear_x_n"]).is_empty():
 		push_error("PACK: a wearable missing its west view passed")
 		return false
@@ -1771,7 +1846,14 @@ func _every_garment_fits_its_rig_frame_by_frame() -> bool:
 			push_error("WEAR: '%s' fits '%s', which is not a pack_rig in authored.json" % [name, rig])
 			return false
 		var members: Array = ((entry.get("members", {}) as Dictionary)).keys()
-		var rig_members: Array = (((rig_entry as Dictionary).get("members", {})) as Dictionary).keys()
+		# The rig's action pictures (A8) carry no garment yet and the renderer does not ask for one
+		# (`Appearance.body_texture`): they are left out here by `Appearance.is_action_frame`, so
+		# every rest, walk and breath frame is still required. docs/23 what's left, "Clothes on the
+		# action frames".
+		var rig_members: Array = []
+		for rm in (((rig_entry as Dictionary).get("members", {})) as Dictionary).keys():
+			if not Appearance.is_action_frame(rig, String(rm)):
+				rig_members.append(rm)
 		var complaint: String = _wear_members_complaint(name, rig, members, rig_members)
 		if not complaint.is_empty():
 			push_error("WEAR: '%s' %s" % [name, complaint])
@@ -1799,6 +1881,15 @@ func _every_garment_fits_its_rig_frame_by_frame() -> bool:
 			fewest = mini(fewest, int(count[0]))
 			frames += 1
 		garments += 1
+	# The one exclusion above is action pictures and nothing else: a reload frame is one, and a walk,
+	# a breath and a rest picture of the same rig are not, so no frame the clothes are painted for
+	# can drop out of the list by being mistaken for an action.
+	if not Appearance.is_action_frame("body_survivor", "body_survivor_reload_long_e_3") \
+			or Appearance.is_action_frame("body_survivor", "body_survivor_walk_e_3") \
+			or Appearance.is_action_frame("body_survivor", "body_survivor_idle_e_1") \
+			or Appearance.is_action_frame("body_survivor", "body_survivor_e"):
+		push_error("WEAR: Appearance.is_action_frame does not tell a reload frame from a walk, a breath and a rest picture")
+		return false
 	if garments == 0:
 		push_error("WEAR judged no garment; the lane is here for the clothing and had nothing to judge")
 		return false
@@ -1964,7 +2055,9 @@ func _every_held_weapon_is_the_packs_own() -> bool:
 # wide -- so a broad body may fill its canvas to the two-pixel side margin, 36; all soles are on
 # their bottom row. Corpses occupy 29-42 by 16-29 px.
 # The heavy has separate explicit bounds; adding it never loosens the old PACK contract.
-func _pose_geometry_complaint(kind: String, image: Image, anchor: Array) -> String:
+# `acting` is an action frame (a lunge, a stagger, a fall): it keeps every bound but the living
+# height and width, which are the action's own (check:action's GEOMETRY lane judges those).
+func _pose_geometry_complaint(kind: String, image: Image, anchor: Array, acting: bool = false) -> String:
 	var size: Vector2i = image.get_size()
 	var living: bool = kind == "zombie_rig"
 	var broad: bool = size == Vector2i(40, 48) if living else size == Vector2i(56, 40)
@@ -1993,11 +2086,11 @@ func _pose_geometry_complaint(kind: String, image: Image, anchor: Array) -> Stri
 	if living:
 		var height_min: int = 31 if broad else HEIGHT_MIN
 		var height_max: int = 38 if broad else HEIGHT_MAX
-		if height < height_min or height > height_max:
+		if not acting and (height < height_min or height > height_max):
 			return "living height outside its canvas-specific bounds"
 		if size.y - 1 - int(box["max_y"]) > SOLE_LIFT_MAX:
 			return "soles float above the ground anchor"
-		if width < 10 or width > (36 if broad else 26):
+		if not acting and (width < 10 or width > (36 if broad else 26)):
 			return "living width outside its canvas-specific bounds"
 	else:
 		if int(box["min_y"]) < 2 or int(box["max_y"]) > size.y - 3:
@@ -2021,15 +2114,17 @@ func _pose_silhouette(image: Image) -> String:
 	return "%d:%d:%s" % [int(box["max_x"]) - int(box["min_x"]), int(box["max_y"]) - int(box["min_y"]), bits.hex_encode()]
 
 
-func _pose_motion_complaint(frames: Array) -> String:
-	if frames.size() != 4:
-		return "locomotion needs four frames per direction"
+func _pose_motion_complaint(frames: Array, want: int = 8) -> String:
+	if frames.size() != want:
+		return "locomotion needs %d frames per direction" % want
 	var pixels: Dictionary = {}
 	var shapes: Dictionary = {}
 	for image in frames:
+		if image == null:
+			return "locomotion is missing a frame"
 		pixels[(image as Image).get_data().hex_encode()] = true
 		shapes[_pose_silhouette(image as Image)] = true
-	if pixels.size() != 4:
+	if pixels.size() != want:
 		return "locomotion repeats a frame"
 	if shapes.size() < 2:
 		return "locomotion only translates one silhouette"
@@ -2053,14 +2148,15 @@ func _pose_source_complaint(entry: Dictionary, source: Dictionary, asset: Dictio
 
 func _pose_frame_complaint(family: String, member: String, source: Dictionary, asset: Dictionary) -> String:
 	var tail: PackedStringArray = member.trim_prefix(family + "_").split("_")
-	var state: String = "walk" if tail.size() == 3 else "idle"
-	var view: String = tail[1] if state == "walk" else tail[0]
+	# `<view>` is the rest picture (idle frame 0); `walk_<view>_<n>` and `idle_<view>_<n>` the rest.
+	var state: String = tail[0] if tail.size() == 3 else "idle"
+	var view: String = tail[1] if tail.size() == 3 else tail[0]
 	var directions: Dictionary = {"s": "south", "e": "east", "n": "north", "w": "west"}
 	var asset_id: String = "%s-%s-%s" % [family.trim_prefix("body_").replace("_", "-"), state, directions.get(view, "")]
 	if String(asset.get("id", "")) != asset_id:
 		return "source belongs to a different family, state or direction"
 	var frames: Array = (asset.get("frames", {}) as Dictionary).get(state, [])
-	var index: int = int(tail[2]) if state == "walk" else 0
+	var index: int = int(tail[2]) if tail.size() == 3 else 0
 	if index >= frames.size() or String(source.get("path", "")) != ZOMBIE_POSE_ROOT + String((frames[index] as Dictionary).get("path", "")):
 		return "source is not the corresponding manifest frame"
 	return ""
@@ -2089,11 +2185,15 @@ func _the_zombie_poses_keep_their_geometry() -> bool:
 		var members: Dictionary = entry.get("members", {})
 		if kind == "zombie_rig":
 			rigs += 1
-			var member_error: String = _rig_members_complaint(String(key), members.keys())
-			if not member_error.is_empty() or members.size() != 20 or not Appearance.turns(String(key)):
-				push_error("ZOMBIE_POSES: %s needs four idle views, sixteen walk frames and a turning renderer: %s" % [key, member_error])
+			var member_error: String = _rig_members_complaint(String(key), members.keys(), _actions_of(entry))
+			var acted: int = 0
+			for m in members.keys():
+				if _is_action_member(String(key), String(m), _actions_of(entry)):
+					acted += 1
+			if not member_error.is_empty() or members.size() - acted != 40 or not Appearance.turns(String(key)):
+				push_error("ZOMBIE_POSES: %s needs four idle views, thirty-two walk frames, four breaths and a turning renderer: %s" % [key, member_error])
 				return false
-			if Appearance.walk_frames(String(key)) != 4 or Appearance.walk_fps(String(key)) != int(entry.get("fps", 0)):
+			if Appearance.walk_frames(String(key)) != 8 or Appearance.walk_fps(String(key)) != int(entry.get("fps", 0)) or Appearance.breath_frames(String(key)) != 2:
 				push_error("ZOMBIE_POSES: %s renderer frame count or rate disagrees" % key)
 				return false
 		else:
@@ -2108,7 +2208,7 @@ func _the_zombie_poses_keep_their_geometry() -> bool:
 				push_error("ZOMBIE_POSES: missing %s" % member)
 				return false
 			if complaint.is_empty():
-				complaint = _pose_geometry_complaint(kind, image, entry.get("anchor", []))
+				complaint = _pose_geometry_complaint(kind, image, entry.get("anchor", []), _is_action_member(String(key), String(member), _actions_of(entry)))
 			if complaint.is_empty() and kind == "zombie_rig":
 				complaint = _pose_frame_complaint(String(key), String(member), source, asset)
 			if not complaint.is_empty():
@@ -2118,7 +2218,7 @@ func _the_zombie_poses_keep_their_geometry() -> bool:
 		if kind == "zombie_rig":
 			for view in Appearance.VIEWS:
 				var frames: Array = []
-				for n in 4:
+				for n in Appearance.walk_frames(String(key)):
 					frames.append(_image_of("%s_walk_%s_%d" % [key, view, n]))
 				var motion: String = _pose_motion_complaint(frames)
 				if not motion.is_empty():
@@ -2142,7 +2242,7 @@ func _the_zombie_poses_keep_their_geometry() -> bool:
 	var translated: Array = []
 	for x in range(4, 8):
 		translated.append(_fab_source(32, 40, Rect2i(x, 12, 16, 28)))
-	if _pose_motion_complaint([body, body, body, body]).is_empty() or _pose_motion_complaint(translated).is_empty() or _pose_motion_complaint([body]).is_empty():
+	if _pose_motion_complaint([body, body, body, body], 4).is_empty() or _pose_motion_complaint(translated, 4).is_empty() or _pose_motion_complaint([body]).is_empty() or _pose_motion_complaint([body, body, body, null], 4).is_empty():
 		push_error("ZOMBIE_POSES: accepted duplicate, translated-only or incomplete animation")
 		return false
 	var control_entry: Dictionary = {"kind": "zombie_rig", "canvas": [32, 40], "anchor": [16, 40], "fps": 5}
@@ -2159,6 +2259,11 @@ func _the_zombie_poses_keep_their_geometry() -> bool:
 		return false
 	var frame_asset: Dictionary = {"id": "zombie-probe-walk-south", "frames": {"walk": [{"path": "a.png"}, {"path": "b.png"}]}}
 	var frame_source: Dictionary = {"path": ZOMBIE_POSE_ROOT + "a.png"}
+	var breath_asset: Dictionary = {"id": "zombie-probe-idle-south", "frames": {"idle": [{"path": "a.png"}, {"path": "b.png"}]}}
+	var breath_source: Dictionary = {"path": ZOMBIE_POSE_ROOT + "b.png"}
+	if not _pose_frame_complaint("body_zombie_probe", "body_zombie_probe_idle_s_1", breath_source, breath_asset).is_empty() or _pose_frame_complaint("body_zombie_probe", "body_zombie_probe_idle_s_1", frame_source, breath_asset).is_empty() or _pose_frame_complaint("body_zombie_probe", "body_zombie_probe_idle_s_1", breath_source, frame_asset).is_empty():
+		push_error("ZOMBIE_POSES: breath mapping refused the match or accepted the rest frame or a walk asset")
+		return false
 	if not _pose_frame_complaint("body_zombie_probe", "body_zombie_probe_walk_s_0", frame_source, frame_asset).is_empty() or _pose_frame_complaint("body_zombie_probe", "body_zombie_probe_walk_e_0", frame_source, frame_asset).is_empty() or _pose_frame_complaint("body_zombie_probe", "body_zombie_probe_walk_s_1", frame_source, frame_asset).is_empty():
 		push_error("ZOMBIE_POSES: frame mapping refused the match or accepted wrong direction/index")
 		return false
@@ -2311,10 +2416,30 @@ func _ground_reader_complaint(key: String, reads: String) -> String:
 	return ""
 
 
+# Whether a `decal` entry's `reads` names a renderer function that really picks it: `<file>:<func>`,
+# and the function's body names the key as a quoted string. "" when sound.
+func _decal_reader_complaint(key: String, reads: String) -> String:
+	var parts: PackedStringArray = reads.split(":")
+	if parts.size() != 2:
+		return "reads '%s'; a decal names `<file>:<function>`" % reads
+	var path: String = "res://%s" % parts[0]
+	if not FileAccess.file_exists(path):
+		return "reads '%s', and %s does not exist" % [reads, path]
+	var body: String = _function_body_of(path, parts[1])
+	if body.is_empty():
+		return "reads '%s', and %s defines no %s" % [reads, path, parts[1]]
+	if not body.contains("\"%s\"" % key):
+		return "reads '%s', whose body never names \"%s\": a decal nothing picks" % [reads, key]
+	return ""
+
+
 # One function's text out of a GDScript file: from `func <name>(` to the next top-level line.
 func _function_body_of(path: String, name: String) -> String:
 	var text: String = FileAccess.get_file_as_string(path)
 	var start: int = text.find("\nfunc %s(" % name)
+	if start < 0:
+		# A static function is a function too: the decal picker is one.
+		start = text.find("\nstatic func %s(" % name)
 	if start < 0:
 		return ""
 	var lines: PackedStringArray = text.substr(start + 1).split("\n")
@@ -2427,6 +2552,13 @@ func _authored_art_is_read_by_something() -> bool:
 				return false
 			code_read += 1
 			continue
+		if String((entries[key] as Dictionary).get("kind", "")) == DECAL_KIND:
+			var why_d: String = _decal_reader_complaint(name, String((entries[key] as Dictionary).get("reads", "")))
+			if not why_d.is_empty():
+				push_error("authored.json: '%s' %s" % [name, why_d])
+				return false
+			code_read += 1
+			continue
 		if not declared.has(name):
 			push_error("authored.json declares '%s' and no content entry's appearance block names it: art nothing draws" % name)
 			return false
@@ -2495,7 +2627,18 @@ func _authored_art_is_read_by_something() -> bool:
 		if _ground_reader_complaint("ground_atlas_elsewhere", "presentation/main.gd:_draw_floor_tile").is_empty():
 			push_error("the ground-reader predicate accepted a key Appearance.ground_atlas() does not resolve")
 			return false
+		# The same three for a decal: a function that names no such key, one that does not exist,
+		# and a claim with no function at all.
+		if _decal_reader_complaint("fx_blood_pool_fresh", "presentation/decal_look.gd:visible").is_empty():
+			push_error("the decal-reader predicate accepted a function that never names the key; it proves nothing")
+			return false
+		if _decal_reader_complaint("fx_blood_pool_fresh", "presentation/decal_look.gd:no_such_thing").is_empty():
+			push_error("the decal-reader predicate accepted a function that does not exist")
+			return false
+		if _decal_reader_complaint("fx_blood_pool_fresh", "presentation/decal_look.gd").is_empty():
+			push_error("the decal-reader predicate accepted a claim that names no function")
+			return false
 
 
-	print("READS OK %d authored keys are each named by one of the content entries that declare them, dressing lists included (a probe block's heaps, litter, rubble, trees, nature and building maps are all found, and a non-dressing entry's `heaps` is not), %d ground sheet read by the renderer function it names (a function that draws no ground, one that does not exist and a key the accessor does not resolve all refused)" % [entries.size() - code_read, code_read])
+	print("READS OK %d authored keys are each named by one of the content entries that declare them, dressing lists included (a probe block's heaps, litter, rubble, trees, nature and building maps are all found, and a non-dressing entry's `heaps` is not), %d keys (the ground sheet and the decals) read by the renderer function each names (a function that draws no ground, one that does not exist and a key the accessor does not resolve all refused)" % [entries.size() - code_read, code_read])
 	return true

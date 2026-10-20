@@ -629,6 +629,15 @@ projection are untouched.
 - ~~**The shot is seen.**~~ — **landed** 2026-09-26 for the four effects with an impact point, see
   the record (`npm run godot:check:fx` → `FX_OK`; `godot:check:authored` → HELD's muzzle and the
   widened READS).
+- ~~**The marks a fight leaves (alpha plan A13).**~~ — **landed** 2026-10-19 for six of the
+  pack's eight decals, see the record ("Art — the marks a fight leaves"; `npm run
+  godot:check:decals` → `DECALS_OK`). The shell pile and the footprint stay in the report.
+- **Remembered marks** (after alpha). A remembered tile shows the decals it held when the player
+  last saw it, dimmed with the ground, from a per-tile memory; today marks show only in sight.
+- **The glimpse disc on the art grid** (after alpha). A body seen only at the edge of the eye, or
+  remembered with no picture, draws an anonymous disc centred on its unsnapped screen point
+  (`main.gd`'s Peripheral branch and `_draw_afterimages`), so it sits up to one screen pixel off
+  the 2 × 2 art grid that every picture and mark keeps; snap its centre and radius to the grid.
 - ~~**The cars are the pack's, east-west.**~~ — **landed** 2026-09-26, see the record
   (`npm run godot:check:wrecks` → the new PACK lane and SILHOUETTE at the pack's rows;
   `npm run godot:m2:vehicles` → DRIVE's per-axis turn).
@@ -843,15 +852,6 @@ equipment slots draw". Each piece below is one session with its gate red both wa
 the flat projection, 32 px a tile, the feet anchor, the health-bar ban and the prose HUD are
 untouched, and the peripheral-anonymity clause is proved *more* strongly than before.
 
-- **Aim is a second heading, priced at a walk.** The sim carries `aim` beside `facing`; an absent
-  `aim` reads as `facing`, which is what keeps every existing fixture true. Accepted while moving
-  only at Walk or slower; `_integrate_movement` snaps it at Jog and Sprint, and a zombie never
-  grows one. The shot, the swing and the shadowcast read the aim; motion keeps the heading. **The
-  price must widen the cone past `WIDE_HALF`**, because a moving shooter is already pinned there
-  and a term under that clamp would be a dead socket — that is the lane's true positive. Owes a
-  `SAVE_VERSION` bump in **two** gates that each name the other, a measured driver on what
-  aim-while-walking does to sightings before the balance run, and a FAST re-baseline if a seed
-  line moves. Sim-only: it can run in parallel with the art slices.
 - **The canvas learns a pivot.** `Canvas` accepts a normalized pivot (0..1, y-up) with `centre`
   and `feet` as exact presets, and gains a `paste` that refuses a non-integral pixel delta; the
   assembler splits into legs/torso/head layers and a compose. **Additive by construction**: the
@@ -931,9 +931,8 @@ are all carried into the pieces that replace them.
 - **The frames.** Moved into the decoupled-paperdoll group above, where the legs strip it needs
   exists. Named here only so the cross-reference resolves.
 - ~~**The exploded body chart.**~~ — landed 2026-10-03; see the record.
-- **The idle breath — not decided.** One pixel of pelvis at a quarter of the walk's rate. It
-  was drawn in the fixture round and deliberately left out of the four answers; it is a small
-  call and it is the owner's.
+- ~~**The idle breath.**~~ — decided by the owner 2026-10-20 (keep it, docs/30's "The idle
+  breath, kept"); it shipped with A7, see the record.
 
 **Art & renderer — the Dungeon Settlers arc, decided by the owner (2026-09-03), on the floor
 the reference-look arc's first two slices laid (32 px a tile at 2×, the ground atlas).** The
@@ -1067,6 +1066,33 @@ pieces; the completed pictures do not imply those mechanics exist.
   walk, and their outline still shares 18–30% of the heavy's, mostly the legs and soles, which
   are the heavy's own stride. A redraw of the eight side walk frames with the bloater's own
   gait waits on PixelLab budget; `godot:check:authored`'s ZOMBIE_POSES lane judges the result.
+
+**Art remaining after the action animations (A8, 2026-10-19).** Each is a generation budget, not
+code: the frames slot into `build_motion.py` and every gate already judges them.
+
+- **The zombies' walk in-betweens, drawn.** Frames 1, 3, 5 and 7 of every zombie walk are still
+  the pose before carried a pixel (A7's half that a commissioned pass replaces). Drawing them
+  is two to four generations a family, seven families.
+- **A swing per weapon class.** One swing serves bare hands, a knife, a crowbar and a hatchet
+  alike; a heavy two-handed chop and a quick stab want their own strips.
+- **The back view's generated swing.** Its job turned the body side-on for six of eight frames,
+  so the north swing is derived (shoulders only). One more generation, one view.
+- **Drawn frames for the derived actions.** Recoil, flinch, crouch, the crawl, the falls, the
+  lunge and the stagger are moved from the pack's own pixels (the record says how). The reloads
+  are drawn arm by arm but move the weapon only by its hand point: tilting it down and in, and
+  the shotgun's pump sliding on the rack, wait on per-frame pictures of the held weapon.
+- **The dropped magazine, a ground mark.** A reload's spent magazine is drawn into the body's
+  own frames, so it lies by the feet only while the reload plays and goes with the stance.
+  Accepted for alpha (art review, 2026-10-20); once the decal layer (A13) lands it becomes a
+  mark left on the ground where the body stood, like the casings.
+- **Clothes on the action frames.** Not a generation budget: painter work. A6's garments are
+  painted on the survivor's rest, walk and breath frames only, so a clothed body swings, fires,
+  reloads, flinches, crouches, crawls and falls in the rig's own underwear (208 action frames
+  against 29 garments). `Appearance.body_texture` leaves an action picture undressed by name
+  (`is_action_frame`) and `godot:check:authored`'s WEAR lane leaves the same frames out, so
+  both say where the gap is. The derived actions are whole-pixel moves of a rest or walk frame
+  and could carry that frame's garment through the same move; the drawn reloads and the
+  generated swing need `clothing/parts.py` to label their redrawn arms.
 
 **The inventory sheet and the screens — decided by the owner (2026-09-08).** The inventory is
 mechanically complete and gated, and the screen reaches four of its commands: `item.move`,
@@ -2275,7 +2301,8 @@ not a to-do list:
   drawn body's position and facing just before every `world.step()`, and `_draw_entities` draws
   at `lerp(previous tick, current tick, accumulator / TICK_SECONDS)`: one tick of render delay,
   traded for motion that never jumps. Riders slide with the vehicle they ride, a live vehicle's
-  picture with its entity, the facing line and aim cone turn the short way between ticks, and a
+  picture with its entity, the facing line and aim cone (both retired by A9, below; the aim now
+  glides the same way) turn the short way between ticks, and a
   jump past `SNAP_METRES` (4 m in one tick: a load, a mount, a reused id) draws on the new point
   at once. The camera now follows the drawn point and updates after the frame's ticks rather
   than before them, so it no longer chases a target that steps. `_process` clamps its
@@ -2284,7 +2311,7 @@ not a to-do list:
   reads the same sub-tick fraction (`_sub_tick`). Presentation only: nothing under `godot/sim/`
   changed, and sight, picking and every position a gate reads are still the component.
   **Half shipped, and which half:** the four-view pick and the walk frame still change on the
-  tick, ground items and corpses do not move so they are not interpolated, and FX are placed at
+  tick (the walk frame moved to the render clock with A7, below), ground items and corpses do not move so they are not interpolated, and FX are placed at
   the sim point of the event, so a muzzle flash on a body walking at speed can sit up to one tick
   of travel ahead of it. The frame rate itself is A3/A4's work; this makes whatever rate there is
   read as motion.
@@ -2306,6 +2333,294 @@ not a to-do list:
   the 0.075 bound). READERS holds the textual half for the branches the boot does not drive: the
   snapshot before `world.step()`, the clamp before the loop, the camera after it, riders,
   vehicles and facing.
+
+- **Feel — frames on the render clock, eight-frame walks and a breath, 2026-10-19.** Item A7 of
+  the 2026-10-19 alpha plan, on A2's glide above. A walk frame used to be
+  `tick * fps / 20 + id`: it moved only when a tick did, at one cadence whatever the speed, so a
+  limping survivor's feet moonwalked and a sprinter's skated, and four poses a cycle read as a
+  stutter. `presentation/anim_clock.gd` (`AnimClock`) now advances each drawn body's place in
+  its cycle by the ground its *drawn* point covered since the last draw, so a body steps as fast
+  as it is seen to move, stops stepping when it stops, and ends a path on the same frame at 30
+  or at 144 frames a second. One cycle covers the family's own stride (`pace × frames / fps`, so
+  a body at its family's pace steps at exactly the manifest's rate); away from that pace the
+  stride lengthens with the square root of the speed, clamped to half and double, so a sprint at
+  three times the pace steps about 1.7 times as often rather than three. Bodies are seated by id
+  on the golden ratio so a crowd does not step as one, and a jump past `SNAP_METRES` re-seats
+  rather than spinning the legs. A standing body breathes on presentation time (`delta ×
+  speed`, so pause holds it and fast-forward quickens it) at the family's `breath_fps`.
+  The motion a draw asks about is one Dictionary, `{walking, cycle, idle}`, read by
+  `Appearance.frame_key`; it is the hook A8's action animations add a key to, and nothing here
+  builds them. `main.gd` changes in `_on_world_replaced`, `_process`, `_draw`, `_draw_entities`
+  and `_layer_rect` only. Presentation only: nothing under `godot/sim/` changed.
+
+  **The art.** Every body walks on **eight frames** a view, at twice the old rate (survivor 16,
+  workwear/commuter/raincoat 10, stalker 12, runner 18, armoured and heavy 8; the screamer 10
+  and the bloater 8 since zombie study 02 joined on the merge of 2026-10-20, built by the same
+  script from its four poses at paces 2.31 and 1.47), so the cadence on screen is unchanged and
+  the motion between steps is twice as fine. The survivor's walk is
+  **new generated art** -- four PixelLab strips, each animated from the pack's own rest view,
+  so frame 0 is the standing picture and the old walk's skin-tone and outline pop on setting
+  off is gone (the plan's "shambler palette pop" had moved to the survivor when the shambler
+  was retired; it is fixed where it now lived). The **zombies' in-betweens and every breath
+  are mechanical**: each family keeps its four pack poses as frames 0, 2, 4, 6, and frames 1,
+  3, 5, 7 are the pose before with the rows above the hip carried one pixel toward the next
+  pose's height; the breath is the rest view with the rows above the chest a pixel up (the
+  survivor) or down (the dead sag, which also keeps rest views already at their canvas's
+  tallest inside it). That is a row shift of the pack's pixels, not drawing, and the pack's
+  `STYLE.md` asks for authored frames: **this is the half a commissioned pass should replace.**
+  Built by one script, `godot/art/simplyzombies/motion/build_motion.py` (`--check` reports
+  `MOTION_OK`), which also writes the pack manifests' frame lists, `authored.json`'s new
+  `pace`, `breath_fps` and per-member points, and `SHA256SUMS`; sources, prompts and job ids are
+  in `motion/sources/generation.json` and the method in `motion/README.md`. Five generations
+  were spent: the four strips and one zombie trial that was not used.
+
+  **Per-frame points, and the layer contract A6 builds on.** Every walk and breath member
+  declares where its `head` and `torso` moved from the rest view, and the survivor's declare
+  each hand. A worn layer resolves in three rules, in order: (1) the layer's own member for that
+  frame, `<layer>_<frame suffix>` (`item_gear_vest_walk_e_3`), when it exists -- what A6's
+  clothing will author; (2) otherwise its view picture shifted by the frame's offset for the
+  region its family `rides` (`authored.json`: helmet and gas mask the head, vest and backpack the
+  torso); (3) a held weapon on the frame's own hand (`Appearance.frame_hand`, falling back to
+  `HELD_HANDS` at rest). A muzzle flash was still placed from the rest hand in `fx_look.gd`; A9
+  (below) moved it to the hand of the frame the shooter was last drawn on.
+
+  **The breath was the owner's call, and it is kept** (owner, 2026-10-20; docs/30's "The idle
+  breath, kept"). `breath_fps: 0` in `authored.json` would turn it off per family without code.
+
+  **Evidence:** `godot:check:worn` new FRAMES lane: **288** walk and breath frames over 8 bodies
+  declare head and torso offsets the renderer reads (427 of them move one, after the art
+  review's even bob; 448 before), **72** survivor hands sit on their own frame's arm (53 off the
+  rest point; 57 before), and a pistol, helmet and vest on a
+  walking frame follow its hand, head and torso; a corner hand, a frame-less pistol, a shifting
+  rest view, a riderless wearable and a dropped frame are each refused. `godot:check:zombie_art`
+  MOTION: eight distinct poses and a breath a view, stride equal to pace × frames / fps, and a
+  real clock walking one stride at pace at 60 Hz reaching every frame with under 0.02 cycle
+  drift. `godot:check:topdown` TURN: on the real clock, each family changes frame its manifest
+  rate (±1) in a second at its pace, more but less than threefold at three times the pace, fewer
+  but some at half; ids 1 and 2 seat apart; a standing second never walks. `godot:check:authored`
+  holds 40 members per zombie family, eight walk and two breath frames, and the frame-name
+  mapping both ways. `sprites:check` reproduces every new member from its source.
+  Before/after strips and GIFs for all eight bodies, and the survivor in helmet, vest and pistol,
+  are under `.hermes/plans/2026-10-19_a7-animation/`.
+
+- **Feel — actions on the render clock, 2026-10-19.** Item A8 of the 2026-10-19 alpha plan, on
+  A7's clock above. A body used to do nothing but walk and breathe: a shot, a blow landing, a
+  stagger and a death changed no picture (a dead body cut straight to its corpse), and the
+  stance was never drawn at all. Now each of those plays from what the sim already publishes or
+  already holds -- `presentation/anim_clock.gd` reads `world.events.drained` (never a bus
+  subscription) and the bodies' components, and `Appearance.action_key` answers the member:
+
+  | sim source | action | who |
+  | --- | --- | --- |
+  | `weapon.fired` | recoil (2 frames) | the firer |
+  | `attack.connected` | lunge (3) / flinch (3) | a zombie attacker / a living target |
+  | `grab.started` | lunge | the grabbing zombie |
+  | `entity.staggered` | stagger (3) / flinch | a zombie / a living body |
+  | `entity.killed` | fall (2), then the settled corpse | the dead, once (de-duplicated) |
+  | `swing.state` WindUp, then Recover | swing (5): the guard held, the strike thrown | survivors |
+  | `rangedWeapon.state` Reload, Clearing | reload (8), the long gun's (8) or the shotgun's (8), held on the stance | survivors |
+  | `posture.current` Crouch, Crawl | crouch (1) and crouched walk (8); the crawl (8) | survivors |
+
+  A one-shot wins over a stance, a body lying down plays nothing upright, and the crawl lies
+  across the screen (east or west, the side it last faced) carrying no worn or held layer.
+  Times are presentation seconds, so pause holds an action and fast-forward quickens it.
+  The survivor family is every pack human (player, colonists, raiders); every zombie pose family
+  carries lunge, stagger and fall, the screamer and the bloater included since zombie study 02
+  made them pose families (merged in from #154 with main, 2026-10-20).
+  `main.gd` changes in `_process` (one line: the drained events to the clock), `_draw_entities`
+  (one line: the clock's action merged into the motion) and `_draw_corpse` (the fall, and the
+  `_falls_drawn` list the gate reads). Presentation only: nothing under `godot/sim/` changed.
+
+  **The art, and which half is which.** **496** new members. **Generated: the swing's east,
+  west and south views** -- three PixelLab `animate_image` strips, each from the pack's own rest
+  view, five frames kept a view (`motion/sources/actions/generation.json` has the jobs, inputs,
+  prompts, and the two rejected jobs). **Derived: everything else** -- the back view's swing (its
+  job turned the body side-on), recoil, flinch, crouch, the crouched walk, the crawl, both
+  falls, the lunge and the stagger -- by whole-pixel moves of the pack's own pictures in
+  `motion/actions.py`: a lean, a dip or rise, a fold of the shins below the shorts or belt, a
+  step, and for the crawl the back view's walk turned a quarter flat. No pixel is resampled or
+  recoloured. **The reloads are drawn**, eight beats each for a magazine: the weapon brought in with the body
+  dipping a pixel, the off hand coming under it, the magazine out (the pistol's dropped at the
+  grip, the long gun's stripped from the well), the off hand to the hip as it falls, back up with
+  a fresh one, seated with the body rising, the rack jolting the weapon back a pixel and forward
+  again, half way home, and the stance, held while the sim's Reload lasts. Each arm the reload
+  moves is taken off the rest view (`ARMLESS` closes the torso's outline where it hung) and
+  drawn again as a jointed limb in the rest view's own outline and skin, so a hand goes where the
+  beat sends it with a closed outline over the body: from the front over the torso, from behind
+  only to the edge of the back (the hand point goes on behind it), side on the far arm under the
+  body with its forearm over the belly once it reaches round; outline an arm adds is pared back
+  to the pack's two pixels where it would wedge against the body's own (`_trim`). The dip and
+  the rise happen at the knee (`_knee`), so the legs bend and straighten under the hips rather
+  than the shorts sliding over the thighs or the waist stretching. The magazine is a 2x3 block,
+  outlined, in the held pistol's gunmetal: the long gun's hangs from the off hand at hand height
+  as it comes out, falls clear of the legs on the off hand's side (so the back view mirrors the
+  front), and lies by the feet to the end; side on, the fresh one hangs from the fist at the
+  back of the belt for a beat, below the stock, and seats with its foot showing under the well.
+  From behind the long gun is held still -- not lowered with the dip, not brought in -- but for
+  the rack's jolt, a pixel up: it is taller than the body there, and any travel put its muzzle
+  over the head or its stock in and out of sight. A dip never rises above the stance: the body
+  goes down a pixel and comes back to it. The pistol's is worked at the grip, the long gun's
+  (rifle and crossbow: a held picture 48 px wide, `Appearance.reload_action`) at the well and
+  fore-end five pixels along. **The shotgun is tube-fed** (`reload_tube`, for a long held
+  picture whose caliber is in `TUBE_CALIBERS`, today 12-gauge): no magazine, the off hand goes
+  from the belt to the loading port three times in eleven beats, a shell in the shells icon's own
+  red and brass standing out of the fist at the port and pushed up into it (only its rim still
+  showing) before the hand goes back for the next, so the hand is never empty and no shell
+  blinks; then one rack and home, at 6 frames a second, the long guns' rate, against the sim's
+  three-second Reload. The pump itself is part of A9's held picture and does not slide; the rack
+  reads as the weapon jolting back in the hands. An outline an arm adds round skin the held weapon covers is taken
+  back too (`_trim` knows the weapon each reload is drawn for, from the pack manifest), so no
+  dark wedge is left where a forearm went behind the pistol or the barrel. The first drawing, a
+  forearm sheared from the shoulder, was sent back by art review (2026-10-20): the off hand never
+  showed side on, arms vanished and popped, the magazine was a few dark pixels in the foot; this
+  replaced it, and three further review passes the same day tightened it (the jointed limbs; the
+  magazine's drop, the seat's rise, outline wedges, the back view's stock and a soft rifle edge
+  blending over the magazine; then the tube reload, the still back view, dips that never rise
+  above the stance, the fresh magazine shown side on, and the weapon's drop home split over
+  beats; then the pistol's magazine dropping out of the grip ahead of the shin and landing
+  straight below on the next beat instead of sliding along the floor, a push for every shell,
+  the west view's magazines and shells mirroring the east's pixel for pixel, a back edge kept to
+  two pixels where the far arm passes under it, and a pixel or two off a wedge, a trigger guard, a
+  muzzle and the floor magazines). The review strips are 48x56 cells with the body on the same
+  baseline as every other strip; in game every reload frame is the 32x40 canvas on sole row 39. Per-frame `head`, `torso` and `hands` ride every new member, so A6's clothing and
+  A9's weapon turn compose on them by the A7 contract. Five generations were spent (the three
+  kept strips, the back view, and a four-views-in-one trial). **Not built:** drawn zombie walk
+  in-betweens (the brief's added scope; still A7's one-pixel shifts), and a swing per weapon
+  class -- both are in what's left as generation budgets.
+
+  **Evidence:** `npm run godot:check:action` → `ACTION_OK`, chained after `godot:check:motion`.
+  CATALOGUE: 10 families, 496 frames, every view present and equal (the crawl only east and
+  west); an undeclared action, a crawl seen from the south and a face-on key carry none.
+  TIMING and PRIORITY hold `action_index` and `action_key` (ends, wraps, holds, a one-shot over a
+  stance, nothing upright while lying, nothing for nothing, the magazine reloads six to eight beats
+  and the tube up to twelve, all held on the stance). REACH: all three reloads in every view move the weapon hand (two
+  pixels, or one for a long gun from behind), bring the off hand to the weapon and away and end
+  on the stance; the three-beat head-bob reload they replaced is refused. GEOMETRY: **428**
+  derived frames carry only their rest view's colours (a reload's magazine the held pistol's
+  gunmetal, the tube reload's shells the shells icon's colours, and every one of the twelve
+  reload views shows its own load and not the other's; the rest view shows neither), a crouch stands lower than the rest and a fall lower
+  than the crouch, the crawl is wider than tall; a painted pixel is caught. STATES: the clock's
+  named states are the sim's enum values. CLOCK: each event starts its one-shot on its own body,
+  a repeated death does not restart a fall, a body never drawn does not fall, a wind-up strikes
+  only into Recover. PUBLISHERS: all five event arms are published under `godot/sim/`. READERS:
+  the three `main.gd` hooks, each shown missed when removed. SCENE, the dead-socket half, on the
+  booted scene with real steps and the real draw: weapon.fired drew `body_survivor_recoil_e_0`;
+  the swing command `..._swing_e_0` through the wind-up and `..._swing_e_1` on the strike; the
+  Reload state `..._reload_e_0` with the player's own weapon, `..._reload_long_e_0` with a
+  rifle put in hand and `..._reload_tube_e_0` with a pump shotgun; the crouch and crawl stances `..._crouch_e_0` and
+  `..._prone_e_0` with no worn layer; one attack.connected drew the zombie's lunge and the
+  player's flinch; entity.staggered the zombie's stagger; a killing head blow its fall in the
+  corpse pass and then the settled body -- each against the same body without it. With the
+  `_process` and `_draw_entities` hooks cut, every SCENE lane goes red. `godot:check:authored`
+  and `godot:check:worn` hold the new members to the pack's geometry (action frames are allowed
+  to stand lower and to move a layer point up to 10 px); `sprites:check` reproduces every one.
+  Before/after strips and GIFs per action, for the eight bodies there were before the screamer
+  and the bloater joined, are under
+  `.hermes/plans/2026-10-19_a8-actions/`.
+
+- **Feel — the weapon turned to the cursor, and the blow felt, 2026-10-19.** Item A9 of the
+  2026-10-19 alpha plan, with the owner's answer to its Q3 the same day: the cursor is the aimer,
+  the weapon points at it and the body follows, the way Project Zomboid plays it. Before this a
+  moving body faced where it walked and ignored the cursor, the held weapon could point only
+  along four axes, a white line and an arc stood over the player as the only readout of aim, and
+  a blow that landed changed nothing on the body it hit but the blood.
+
+  **The sim: aim is a second heading, priced at a walk** (the what's-left piece of that name,
+  docs/30's decoupled paperdoll decision 7). `sim/aim.gd` (`SimAim`) is the one copy of the rule.
+  A body carries `facing`, where its feet go, and once the player has proposed one an `aim`. The
+  `aim` command turns a standing body's feet and aim together, as the single heading always did;
+  a moving one keeps its heading and turns only its aim, and only on Walk or a slower rung --
+  `_integrate_movement` snaps a held aim back to the heading every tick at Jog and Sprint, and a
+  rider's aim is the machine's. The shot (`ranged.gd`), the swing (`melee.gd`) and the eyes
+  (`visibility.gd`) read `SimAim.radians_of`; an NPC turn (`npc_combat._face_at`) and a vehicle's
+  pin turn the aim with the body, so a stale proposal never points a swing. The price is
+  `SimRanged.cone_cap`: a moving shooter aiming away from where it walks has its cone widened
+  **past** `WIDE_HALF` by `TWIST_WIDEN` (0.35) at a full about-face, in proportion to the turn, and
+  a round may widen to that ceiling but never past it. **An absent `aim` reads as `facing`, and
+  nothing but the `aim` command writes one, which only presentation pushes** -- so every fixture,
+  every headless campaign and the balance harness describe exactly the world they did, and the
+  FAST tier needed no driver and no re-baseline (it passed unchanged inside `godot:m2`).
+  **No `SAVE_VERSION` bump**, against the piece's own note and by `kernel/serialize.gd`'s rule
+  (a bump is for a save an older build would misread): a save without `aim` restores every body
+  facing where it aims, which is what it was; the `visualRemains` precedent is the same shape.
+
+  **The picture.** Your body shows the view its aim falls in and the held weapon is placed for that
+  view exactly as before -- grip on the hand, barrel the view's way, mirrored only facing west --
+  then turned about the hand pixel's centre by what is left of the aim (`Appearance.held_turn`,
+  never more than an eighth of a turn), drawn as one textured polygon (`Appearance.held_quad`,
+  `main.gd`'s `_draw_layer`); no transform, so `check_topdown`'s counters still read zero. The
+  aim glides between ticks like the heading (`interp.gd`'s `aim`), and your own weapon draws the
+  cursor's bearing the frame it moves whenever `SimAim.holds` says the next tick will take it.
+  `input_map.gd` re-aims every frame once a real pointer has moved, because walking past a still
+  cursor swings the bearing too; a run nobody has pointed at proposes nothing. The facing line
+  over every body and the aim cone over the player are gone: the sway is a **reticle at the
+  cursor** (`_draw_reticle`) -- four ticks and a faint ring standing off it by the cone's half-angle
+  at the cursor's distance, dimmed while the weapon is not raised, firearms only, never a number.
+
+  **The blow felt** (`fx_look.gd`, presentation only). A seen blow flashes the struck body white
+  for 0.12 s (a silhouette of the body and what it wears, in the palette's new `hitFlash`, made
+  once per picture) and jolts its picture 3 art px straight away from the striker, easing back
+  over 0.18 s; the sim's position, the shadow and the world hash never move. A shot kicks the
+  weapon 2 art px back along its turned barrel over 0.12 s: the recoil *frames* are A8's, and
+  `FxLook.kick(entity)` is the hook they can key to. Neither varies with the blow -- a graze and a
+  killing blow flash and jolt alike, and `_felt` reads no damage, part or weapon. A muzzle flash
+  now leaves the turned muzzle (the sheet placed for the aim's view and turned about the same
+  hand), from the hand of the frame the shooter was last drawn on (`note_frame`). `main.gd`
+  changes: `_draw`, `_draw_entities`, `_blit_body`, `_layer_rect`, `_draw_effects`, and the new
+  `_draw_layer`, `_blit_flash`, `_white_of`, `_draw_reticle`.
+
+  **The body faces the cursor whichever way it walks.** The view is the aim's, never the walk's,
+  so a walker aiming over their shoulder would otherwise run the facing view's walk forwards while
+  carried backwards -- a moonwalk. The animation clock now steps such a body's cycle the other way
+  (`AnimClock.backpedals`, handed the view's own direction by `_draw_entities`): ground covered on
+  the far side of the view runs the same stride in reverse, a strafe square to the view steps
+  forwards, and a body with no view to compare (every face-on rig) never backpedals. **The weapon
+  you are wielding comes round in front.** A service pistol equips to the secondary hand, which
+  `HELD_BEHIND` hides behind the body seen from either side, so the gun you fired was the hidden
+  one. `Appearance.wielded_items` reads the item each live `rangedWeapon` and `meleeWeapon`
+  profile was built from (items.gd's `source`), and a wielded weapon draws over the body seen from
+  east or west (`WIELDED_OVER`) whichever hand holds it; seen from behind it stays beyond the body,
+  and a weapon carried but not wielded keeps its hand's side.
+
+  **Half shipped, and which half:** the legs still have the body's four views, so a backpedal is
+  the view's walk reversed rather than a stride of its own (legs on the movement vector is still
+  the decoupled paperdoll arc's); and the jolt is the picture only, by design, so a heavy blow does
+  not stagger a body in the sim.
+
+  **Evidence:** `godot:m2:aim` HEADING: a body never aimed reads its facing and grows no aim;
+  standing still turns feet and aim; walking east aimed north keeps the feet east, sees north
+  better than south, and widens the cone **0.550 → 0.725** (past `WIDE_HALF`); standing twisted is
+  free; jogging refuses a proposal and snaps a held aim back; an NPC turn turns the aim; the shot,
+  the swing and the eyes read it (a commented read refused). `godot:check:worn` AIM: **1,440**
+  aims over 10 held weapons in both hands keep the grip on the hand and the barrel on the aim
+  within 0.001 px, unkicked and kicked, at most 0.772 rad left after the view, and unturned the
+  quad is exactly HELD's rect on all four views; an unturned quad off the axis, a backwards turn, a
+  wrong pivot, and a draw loop ignoring the aim, the turn or the aim's view are each refused; HELD's
+  draw-loop needles follow the draw into `_draw_layer` and `held_quad`. `godot:check:fx` FELT: a
+  seen blow flashes 1.0 and jolts 3 px away from the striker, both fading to nothing; a graze and a
+  killing blow are felt alike while a blow from the far side jolts the other way; a sourceless
+  bite flashes without a jolt; nothing unseen starts anything; a real shot kicks and settles; the
+  draw loop reads all three. TURNED: a real pistol shot aimed 0.5, -0.6 and 2.0 puts the flash's
+  anchor on the turned muzzle and an axis shot keeps the plain rect; a walking frame's hand is
+  used. DRAWN now also blits the flashes as polygons and proves the hit flash reaches the draw.
+  `godot:check:topdown` and `godot:check:weather` follow the retired line and cone to the aim and
+  the reticle; `godot:check:zombie_art`'s READERS order follows the facing line to `SimAim.radians_of`.
+  `godot:check:topdown` TURN: a fifth of a second at pace through the real clock, walking away from
+  an east view runs exactly the forward stride in reverse, and a strafe south and a body handed no
+  front step forwards; `_draw_entities` hands the clock the view's front. `godot:check:worn` ORDER:
+  the kitted actor wielding its far hand's pistol draws it over the body from e and w and under from
+  n, and wielding the shotgun leaves the pistol behind (each fix sabotaged once and its lane went
+  red). Before/after GIFs (aiming in a circle, aiming while walking, a hit, a backpedal, the
+  sidearm seen from the side) are under `.hermes/plans/2026-10-19_a9-aim/`.
+
+- **Gate infrastructure — the `godot:m2` chain runs as four CI shards, 2026-10-19.** The
+  85-gate chain took 40m45s on one runner (job 118220307956, measured on 2b48fef), against the
+  45-minute `godot-m2` limit. `scripts/m2-shards.mjs` splits it into four `godot-m2-shard` jobs,
+  balanced by those per-gate times; `godot:m2:balance` alone (791 s) is the floor on wall time.
+  `godot-m2` is now the aggregate required check and fails unless every shard passed. The gates
+  that write the per-machine `user://` store share shard 3. `npm run check:shards` (`SHARDS_OK`;
+  its self-test refuses five broken layouts) proves each chained gate is in exactly one shard.
+  Unsharded `npm run godot:m2` is unchanged. Wall time of the sharded run: see the PR.
 
 - **UI — first-day hints, 2026-10-19 (alpha A21, from the alpha plan, not an M2 piece).** The
   first time a container is in reach, a wound is open, a zombie has been seen or night falls, the
@@ -2922,7 +3237,8 @@ not a to-do list:
     `fx-bullet-hole-metal/concrete`, `fx-scorch-mark`, `fx-wood-chips`, `fx-shell-pile`,
     `fx-footprint`). These are marks that outlast the moment, a different fact than slice 7's
     transient effects: a location, a surface or actor, and a tick, published once and read until
-    it fades, which nothing in `sim/` emits today. No slice names it. `fx-footprint` is the one
+    it fades. **Six landed 2026-10-19** with `sim/modules/decals.gd` (the record's "Art — the
+    marks a fight leaves"); the shell pile and the footprint remain here. `fx-footprint` is the one
     to watch before a reader is built for it: a trail rendered where an actor walked, unseen, is
     exactly the certainty clause 4 of the hardcore contract refuses the player (docs/01,
     "information is scarce and unreliable") unless it is scoped to ground the player's own
@@ -3057,6 +3373,55 @@ not a to-do list:
   strangers that a skin-only tint would need `main.gd` to fix; no belt, glove, eyewear or soft
   cap picture; only `body_survivor` is clothed; corpses are not clothed; the dressed composite
   is cached per rig frame and outfit with no eviction, bounded by the outfits actually drawn.
+
+  **On the eight-frame walk, 2026-10-20.** When A7 ("Feel — frames on the render
+  clock", above) merged over this, the painter moved onto the rig's new frames rather
+  than the pack's four-frame walk it had been built on: `parts.py` reads A7's eight walk frames
+  and the breath picture per view (`textures/characters/motion/`), so the rig has **40 frames**
+  and each garment **40 members** (**1160 keys**, from 580), on a 320x160 atlas (rest, walk 1-8,
+  breath). The breath is not painted: each garment's breath is its rest picture put through the
+  body's own breath (`build_motion.survivor_breath`: the chest a row up, the hands planted), so
+  the cloth cannot shift colour as the body breathes. Four of the generated east walk frames had drawn the hips bare, which left the painter
+  no waist to find; A7's `build_motion.py` now restores the shorts on those frames
+  (`restore_shorts`) rather than the painter guessing. The COVERAGE lane's frame count reads
+  `walk_frames + breath_frames` and pins eight and two; STEP drives `body_texture` with the
+  animation clock's motions and wants the rest picture, the breath and all eight walk frames
+  per view. **Measured:** `WEAR OK 29 garment(s), 1160 painted frame(s) ... (fewest painted
+  5)`; `COVERAGE OK ... on all 40 rig frames (fewest 5 garment pixels showing)`; `STEP OK ...
+  480 frame draws`; `CLOTHING_OK 29 garments, 1160 frames`; `SPRITES_OK ... 1643 authored keys
+  reproduced`. A walk GIF of the tee, leather, parka and hazmat outfits is under
+  `.hermes/plans/2026-10-19_a7-animation/`. **Art review, round 1:** a walking arm reaches
+  sideways or forward, and the row rule that found hands on the rest views left forearms up to
+  five by three bare under long sleeves; `parts.py` now labels the hand as the two-by-two at the
+  far end of each arm, measured from the shoulder, so a sleeve runs to the wrist on every frame
+  and an arm the body hides still ends in a hand. `build_motion.py` closes the ink ring where
+  six generated pixels touched the outside (`close_outline`) and lifts the ink seam two east
+  frames drew across the hips (`drop_hip_seams`); a zip's teeth count from the collar so they
+  ride the bob; the neck's shadow past its two rows reads as the cloth's own light. **Round 2,
+  the walk made even:** the generated cycles bobbed unevenly (south head-top rows 12, 11, 10, 10,
+  10, 12, 11, 10, a long beat and a short one with a two-row drop; north once a cycle; east a row
+  of jitter every step) and the side walks drifted forward through the cycle and snapped back on
+  the loop (the east head 16.7 to 18.7 pixels across, then 16.7). `build_motion.py` now
+  re-centres each frame's head over the rest view's (`recentre`) and moves the body from the hips
+  up, as one block, to `SURVIVOR_BOB`, two even beats a cycle, no frame moved more than a row
+  (`retime_bob`): south 11, 12, 11, 10, 11, 12, 11, 10; north 12, 11, 10, 11, 12, 11, 10, 11; east
+  11, 11, 12, 12 twice; west 12, 12, 13, 13 twice. Round 3: moving only the chest and head (the
+  first cut) shortened the torso on the frames it lowered and the collar, found from the hips,
+  rode over the chin, so the cut is under the hips and a walking frame's chest top is now found
+  from its head; the west and north walks wear the rest view's head on every frame
+  (`same_head`; the generator had redrawn it each frame, a nod), and so does the south, whose
+  trunk is held to the rest view's 19 rows from head top to belt (`trunk`; the generator drew it
+  a row short on three frames, so the torso squashed against the bob): south face rows 16, 17,
+  16, 15, 16, 17, 16, 15 and belt rows 30, 31, 30, 29, 30, 31, 30, 29, face to belt 14 on every
+  frame; a foot stands on the ground row
+  on every frame; and ink on the silhouette's edge is the ring's own black (`outline_black`).
+  **Measured** (changed pixels per step, 0 to 1 through 7 to 0): south 303, 302, 328, 294, 305,
+  291, 340, 352; east 161, 302, 172, 218, 140, 274, 156, 309; north 277, 316, 316, 297, 306, 323,
+  293, 329; west 170, 314, 157, 267, 124, 301, 164, 338. The loop step is 4, 2, 2 and 8 percent
+  over the next in south, east, north and west (it was 6, 13 and 20 percent in south, east and
+  west before the art review); what remains is the generated legs' own pose spacing, which
+  wants drawn frames. The breath plants the hands and lifts the shoulders, so no hand stretches a row
+  on the inhale.
 
 - **Art & renderer — zombies turn, walk and fall, 2026-10-02.** Closes "A silhouette per
   kind" and the Focal art half of "A corpse reads as a corpse", at the owner's request for
@@ -3319,7 +3684,8 @@ not a to-do list:
   the paint-over guides as drawn; every generated corpse pass blurred the outline and lost the
   head and is kept under `sources/rejected-*` with its prompt in `study-02/prompts.json`. Content
   names `body_zombie_screamer` / `body_zombie_bloater` and their `corpseSprites`; the bloater keeps
-  its variance tints.
+  its variance tints. Since the A7 merge (2026-10-20) both walk on eight frames at 10 and 8 fps
+  and breathe, the four poses here as frames 0, 2, 4, 6 (`build_motion.py`, A7's record).
 
   **Retired, by the standing rule:** `zombie_screamer.png`, `zombie_bloater.png`, every rig
   function, `_figure` and `REGISTRY` in `tools/sprites/parts/characters.py` (which keeps only the
@@ -4103,6 +4469,97 @@ not a to-do list:
   fixed**: a flash drawn after the bodies stands over a body south of the shooter, and over the
   shooter's own body seen from behind; the flash follows the shooter's position at the moment of
   the shot rather than the body, for its sixth of a second.
+
+- **Art — the marks a fight leaves, 2026-10-19 (alpha plan A13).** The owner's call (docs/30's
+  "Blood and bullet decals persist, for everything", carried by PR #147): every hit, death, bleed
+  and stray round leaves a mark whether or not the player saw it, kept for the run, and drawn
+  under the normal sight rules. **The sim half** is the new `sim/modules/decals.gd`, one
+  subscription per event kind and one system: `attack.connected` throws a `splat` 0.15–0.55 m past
+  the struck body away from the attacker (under the body when that point is solid); `bite.landed`
+  leaves one under the bitten body; `entity.killed` leaves one `pool` per body however often the
+  event fires for it (de-duplicated by entity id); `weapon.fired` — which now carries the shot's
+  origin, facing, reach and whether it hit anyone (`sim/modules/ranged.gd`) — walks a round that
+  hit nobody to the first wall (`hole`), tree, shut door or boarded window (`chips`) or parked car
+  (`dent`), letting glass and open doors pass; `weather.lightning` leaves a `scorch`; and
+  `decals.drip` reads `injuries.bloodLoss` every five ticks and drops a `drip` per 0.5 of it, drips
+  pooling into one another and a crawling bleeder leaving a `smear`. Randomness is its own `decals`
+  stream. Records live in `world.decals`, String-keyed chunks of 8 × 8 tiles holding an Array of
+  integer records (art pixels, so a save round-trips exactly), saved and restored by `world.gd`
+  with no `SAVE_VERSION` bump (an older save restores none). Bounded: 32 a chunk, 6,000 a run, the
+  oldest mark that is not a pool evicted first. **The draw half** is `presentation/decal_look.gd`:
+  the pack's own frames at one art pixel to one (`fx-blood-pool-fresh/dry`,
+  `fx-bullet-hole-concrete/metal`, `fx-scorch-mark`, `fx-wood-chips`, sourced through
+  `authored.json` as the new kind `decal`, plus the existing `fx_blood_hit` frames for splats and
+  drips), turned and flipped by the record's variant (0..63: the low three bits the turn, the
+  rest the picture), three hit frames for a splat; the first cut drew variants 0..7, whose high
+  bits never reached a second picture, so one spray repeated in one turn across a fight. Each mark is
+  cut hard (alpha 0 or 255: the pack's frames carry a faint fringe of alpha 1 to 94 that darkened
+  the ground round every mark and mixed new shades where marks overlapped), drawn in its frame's own
+  colours, and old blood with no dry picture of its own takes the dry pool's browns shade for shade,
+  never a tint. A smear is the pool's own picture laid along the run every 12 art pixels, turned and
+  nudged across it, so its edge is the pool's ragged edge; the first cut of it, a band sliced
+  from the pool, read as a stamped ribbon with a straight edge (art QA, 2026-10-20). The ground marks of a chunk are baked into
+  one picture with those of its neighbours that spill across its border, and the frame blits runs
+  of that picture's seen tiles; a chunk is re-baked only when its own revision moves, a neighbour
+  that spills into it changes, or a mark in it changes stage. A wall tile's cell is cleared from the
+  bake so blood never paints over a cap. Wall marks are single draws: on the ground pass for a cap
+  with no picture, by `_draw_a2_wall_piece` on a standing wall's face, and by `_blit_vehicle` over a
+  car. The ground pass runs in `_draw_world` straight after the world's baked layers are framed
+  (A4's `_layers.frame`, whose canvas items draw behind `main.gd`'s own), so the marks lie over the
+  baked ground and walls and under the nature, the furnishings, the props and every body drawn
+  after them; a roof covers only tiles the player does not see, where no mark draws. A hole sits on its wall's face strip and is cut to it: rows 23 to 30 of a tile's face
+  picture, under the ledge, where the windows are, or rows 17 to 42 of an A2 picture; the first
+  cut put it fourteen rows down a tile, on the courses above the ledge (art QA, 2026-10-20). **Shown only on a tile in the live sight set**, never the remembered map: the remembered
+  street is already drawn as a memory of a surface and not of the litter on it (`main.gd`'s
+  remembered floor arm draws no road paint, scrap, props or dressing), and a mark drawn there
+  would also be news the player never earned. Drawing what the player last saw on a remembered
+  tile would need a per-tile memory of the marks; it is not built. **Defaults
+  chosen** where the brief forked, closest to Zomboid: a pool spreads from a splash over five
+  seconds and browns after a quarter of a day; rain does not wash blood (there is no cleaning
+  yet); zombie and human blood are the one picture. **Gated.** New `npm run godot:check:decals` →
+  `DECALS_OK`, in the `godot:m2` chain after `godot:check:fx`, twelve lanes each red both ways:
+  HIT, UNSEEN, POOL, BLEED, ROUND, SCORCH, BOUND, BAKE, SAVE, WALL, MATTE and DRAWN (the gate's
+  header names what each holds; HIT also holds that 240 splats reach all 24 picture-and-turn
+  pairs and refuses variants 0..7; MATTE also holds every cut hard-edged in the pack's own colours,
+  fresh and dried, and refuses the raw frame's fringe, and the cuts of the hole, chips, dent and
+  scorch hard-edged in theirs; WALL also holds nine holes in one tile all inside its face strip and
+  refuses a hole on the courses or run onto the street). `check_fx.gd`'s ADMITS accepts an `fx_` key declared as a decal,
+  and `check_authored.gd`'s READS lane accepts a decal read by a function of the code that names
+  its key. **Sabotage pass**, each red and restored: the sight test removed → UNSEEN and DRAWN;
+  pool de-duplication removed → POOL ("3 pools"); the drip system off → BLEED; the hit check removed
+  → ROUND; the wall-cell clear removed → BAKE ("the wall tile must be clear"); the bake cache off →
+  BAKE ("a frame with nothing new re-baked 9 chunks"); neighbour spill ignored → BAKE ("re-baked 1
+  chunks, not 2"); the hard cut skipped → MATTE ("alpha 244"); the dry remap skipped → MATTE ("a
+  colour 46010a … that is not the pack's"); the hole put back fourteen rows down → WALL ("rows 358
+  to 422, off the face strip 406 to 422"). A with-and-without render of one frame of the restaged
+  fight differs only under the marks; of the pixels that change by more than six levels, 94% are
+  exact pack blood colours, and the rest sit under the translucent edges of bodies and props.
+  The pack's body art is not fully opaque (most of its pixels are alpha 252 to 254), so a mark
+  under a body shifts the body's own pixels by one or two levels; that is the body art's, not
+  the mark's. Split against two more renders with every body moved off the map, 2,698 mark pixels
+  have something drawn over them and 2,400 of those move two levels or less; the 298 that move
+  more sit under covers that are see-through by design: the 35% contact shadow, a glimpse disc,
+  facing lines, the aim cone, the soft rim of the pack's corpse art (about one pixel in eight of a
+  `corpse_*` picture is below alpha 230) and a partly clear outline pixel in the barrier prop. The
+  nearly clear covers move the most, up to 90 levels: art QA measured 53 on a corpse's rim and 48
+  on the barrier's outline pixel at about 26% alpha. Every pixel the marks change is one a cover
+  lets through; none is a mark drawn over a body or a prop.
+  **Measured**, with a throwaway driver built on the frame bench's harness and
+  deleted afterwards, on this container's llvmpipe at 1280 × 720 with every visible chunk full (850
+  marks placed, 365 kept, 337 tile runs drawn): the per-mark draw this slice first had cost 1.67 ms
+  of `_draw`, the bake 0.60–0.64 ms; re-baking one full chunk costs about 0.5 ms. Main's own
+  `_draw` on that machine was 27.6 ms median before A4, so this slice proves its own cost, not the
+  10 ms budget. Those numbers predate the art QA fixes, which add no per-frame work (the cuts are
+  cached) and were not re-measured. **Verified**: `DECALS_OK`, `FX_OK`, `AUTHORED_OK`, `APPEARANCE_OK`, `PLAY_OK`,
+  `M2_SAVE_OK`, `M2_RANGED_OK`, `M2_WOUNDS_OK`, `M2_UPKEEP_OK`, `R1_PARITY_OK`,
+  `GODOT_CONTENT_OK`, `SPRITES_OK`, `ROUTING_OK`, `TIMING_OK`; the full chain is CI's. **Not
+  built**: casings that persist (the shell pile), footprints, scorch from a campfire (the pit's own
+  picture is its char), blood washed by rain or cleaned, and a round's mark on a body it missed
+  but passed through. Splat size and count do not follow the blow's damage, on purpose: the blood a
+  blow draws must not tell the player what the blow did (`check_fx.gd`'s SAME lane, and docs/01's
+  clause 4); a bleed's trail does follow its wound, because that is what the body is doing. Before
+  and after shots of a fight, and one with the marks out of sight, are in the project's
+  `planning/decals/`.
 
 - **Art — the cursor, 2026-09-26.** The outpost pack's two UI icons that are not status
   (docs/30, "The whole outpost pack": "Cursors split by place") join `ui/cursors.gd`'s one table

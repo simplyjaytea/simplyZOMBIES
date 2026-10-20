@@ -5,6 +5,7 @@ extends RefCounted
 # Cone is the hit test — no displayed chance. No aim assist.
 
 const SimCombat = preload("res://sim/combat.gd")
+const SimAimRes = preload("res://sim/aim.gd")
 const SimStancesRes = preload("res://sim/stances.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimItemsRes = preload("res://sim/modules/items.gd")
@@ -38,6 +39,13 @@ const AMMO_SCALABLE: Array[String] = ["damage", "noise", "flash", "rangeMetres",
 const FLASH_TICKS: int = 4
 const WIDE_HALF: float = 0.55
 const TIGHT_HALF: float = 0.18
+# The price of aiming apart from where you walk (sim/aim.gd; docs/30's decoupled paperdoll,
+# decision 7): a moving shooter whose aim is turned from the heading has the cone widened past
+# WIDE_HALF by this much at a full about-face, in proportion to the turn, and never past
+# TWIST_HALF. Past WIDE_HALF on purpose: a moving shooter is already pinned at WIDE_HALF, so a term
+# under that clamp would change nothing at all.
+const TWIST_WIDEN: float = 0.35
+const TWIST_HALF: float = WIDE_HALF + TWIST_WIDEN
 const STREAM: String = "ranged"
 
 
@@ -76,6 +84,18 @@ static func cone_half(world: Variant, entity: int) -> float:
 	if rw is Dictionary and (rw as Dictionary).has("coneHalf"):
 		return float((rw as Dictionary)["coneHalf"])
 	return WIDE_HALF
+
+
+# How wide the cone may go for `entity` this tick: WIDE_HALF, or past it by the twist price while a
+# moving body aims away from its heading. Zero twist -- every body with no `aim` -- is WIDE_HALF.
+static func cone_cap(world: Variant, entity: int) -> float:
+	var vel: Variant = world.components.get_component(entity, "velocity")
+	if not (vel is Dictionary):
+		return WIDE_HALF
+	var spd: float = sqrt(float((vel as Dictionary)["dx"]) ** 2.0 + float((vel as Dictionary)["dy"]) ** 2.0)
+	if spd <= 0.2:
+		return WIDE_HALF
+	return minf(TWIST_HALF, WIDE_HALF + TWIST_WIDEN * SimAimRes.twist(world.components, entity) / PI)
 
 
 static func _refresh_cone(world: Variant, entity: int, r: Dictionary) -> void:
@@ -119,7 +139,12 @@ static func _refresh_cone(world: Variant, entity: int, r: Dictionary) -> void:
 	# this and a suppressor widens it -- docs/09 charges accuracy for the quiet branch -- and it is
 	# a property of the gun, which is why it rides the profile rather than the entity's stats.
 	half = half * float(r.get("cone", 1.0))
-	r["coneHalf"] = clampf(half, TIGHT_HALF * 0.75, WIDE_HALF)
+	# Aiming apart from where you walk, priced last and past the ceiling every condition above
+	# stops at: the twist is the one term allowed through WIDE_HALF (`cone_cap`).
+	var cap: float = cone_cap(world, entity)
+	if cap > WIDE_HALF:
+		half = maxf(half, cap)
+	r["coneHalf"] = clampf(half, TIGHT_HALF * 0.75, cap)
 
 
 static func _arm_ruined(world: Variant, entity: int) -> bool:
@@ -476,11 +501,11 @@ static func _with_ammo(scale: Dictionary, field: String, value: float) -> float:
 # it, which is a statement about the sim's own ceiling and not about ammunition. Birdshot at 1.7
 # therefore reaches the cap and stops, which is the honest answer: it is as wide as wide gets.
 #
-# Widening past `WIDE_HALF` is reserved for the aim slice in docs/23's what's-left, which needs it
-# for a different reason and says so; a round quietly getting there first would take that lane's
-# true positive away before it was written.
-static func _cone_with_ammo(scale: Dictionary, half: float) -> float:
-	return clampf(half * float(scale.get("cone", 1.0)), TIGHT_HALF * 0.75, WIDE_HALF)
+# Widening past `WIDE_HALF` belongs to the aim heading alone (sim/aim.gd, `cone_cap`), which
+# needs it for a different reason: `cap` is that ceiling, and a round may widen a cone to it but
+# never past it.
+static func _cone_with_ammo(scale: Dictionary, half: float, cap: float = WIDE_HALF) -> float:
+	return clampf(half * float(scale.get("cone", 1.0)), TIGHT_HALF * 0.75, maxf(WIDE_HALF, cap))
 
 
 static func _consume_ammo(world: Variant, actor: int, ammo_id: String) -> bool:
@@ -552,13 +577,15 @@ static func _fire_shot(world: Variant, attacker: int, weapon: Dictionary, rng: V
 		return
 	var fx: float = float((from as Dictionary)["x"])
 	var fy: float = float((from as Dictionary)["y"])
-	var facing: float = float((facing_v as Dictionary).get("radians", 0.0))
+	# The round leaves along the aim, which is the heading unless the player has turned it apart
+	# at a walk (sim/aim.gd) -- and `_refresh_cone` below charges for exactly that.
+	var facing: float = SimAimRes.radians_of(world.components, attacker)
 	var facing_x: float = cos(facing)
 	var facing_y: float = sin(facing)
 	_refresh_cone(world, attacker, weapon)
 	# After `_refresh_cone`, which recomputes `coneHalf` on the weapon -- fold here or the round
 	# scales a number that is about to be overwritten. Birdshot opens the cone; a slug tightens it.
-	var half: float = _cone_with_ammo(scale, float(weapon.get("coneHalf", TIGHT_HALF)))
+	var half: float = _cone_with_ammo(scale, float(weapon.get("coneHalf", TIGHT_HALF)), cone_cap(world, attacker))
 	var cos_half: float = cos(half)
 	var reach: float = _with_ammo(scale, "rangeMetres", float(weapon.get("rangeMetres", 30)))
 	var limit_sq: float = reach * reach
@@ -596,7 +623,10 @@ static func _fire_shot(world: Variant, attacker: int, weapon: Dictionary, rng: V
 	# this line can still refuse -- no ammo, no position, no facing -- and a shot that did not
 	# happen must not wear anything. This is the channel a firearm degrades on: it wears from
 	# firing, whether or not the round found a body.
-	world.events.publish({"type": "weapon.fired", "entity": attacker, "item": int(weapon.get("source", -1))})
+	# Where the round went rides along -- the muzzle, the line, its reach and the body it found (-1
+	# for none) -- so decals.gd can mark the wall a miss struck without walking the cone again.
+	world.events.publish({"type": "weapon.fired", "entity": attacker, "item": int(weapon.get("source", -1)),
+		"x": fx, "y": fy, "dx": facing_x, "dy": facing_y, "reach": reach, "hit": int(best) if best != null else -1})
 	var flash: float = _with_ammo(scale, "flash", float(weapon.get("flash", 0)))
 	if flash > 0.0:
 		weapon["flashTicks"] = FLASH_TICKS

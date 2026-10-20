@@ -510,6 +510,9 @@ switch (mode) {
   case "--motion":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_motion.gd"];
     break;
+  case "--action":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_action.gd"];
+    break;
   case "--world-bake":
     args = [
       "--headless",
@@ -575,6 +578,9 @@ switch (mode) {
     break;
   case "--fx":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_fx.gd"];
+    break;
+  case "--decals":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_decals.gd"];
     break;
   case "--m2-vehicles":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_vehicles.gd"];

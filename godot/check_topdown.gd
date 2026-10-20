@@ -17,6 +17,7 @@ const Appearance = preload("res://presentation/appearance.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimSurface = preload("res://sim/map/surface.gd")
 const SimBoot = preload("res://sim/boot.gd")
+const AnimClock = preload("res://presentation/anim_clock.gd")
 const Dressing = preload("res://presentation/dressing.gd")
 
 const ZOOMS: Array[float] = [16.0, 32.0, 64.0, 128.0]
@@ -52,7 +53,7 @@ func _run() -> void:
 	ok = _bodies_scale_with_the_zoom() and ok
 	ok = _a_still_body_is_not_glimpsed() and ok
 	if ok:
-		print("TOPDOWN_OK axes aligned, round-trip exact, depth is y, bounds are the AABB, ground tinted from the map, interiors and doorways drawn, props resolved from content, built mass capped and faced, windows drawn as tinted glass pictures, nobody rotates and a face-on body flips, the pack's bodies turn four ways and walk on the tick, bodies scale with the zoom, a still body is not glimpsed")
+		print("TOPDOWN_OK axes aligned, round-trip exact, depth is y, bounds are the AABB, ground tinted from the map, interiors and doorways drawn, props resolved from content, built mass capped and faced, windows drawn as tinted glass pictures, nobody rotates and a face-on body flips, the pack's bodies turn four ways and walk on the render clock, bodies scale with the zoom, a still body is not glimpsed")
 		quit(0)
 	else:
 		push_error("TOPDOWN_FAIL")
@@ -735,11 +736,17 @@ func _bodies_face_by_flipping() -> bool:
 		"Appearance.flip_for(",
 		"Appearance.body_rect(",
 		"_blit_body(",
-		"Palette.COLOURS[\"facing\"]",
+		"SimAim.radians_of(",
 		"Appearance.FOOT_DROP_PX",
 	])
 	if not missing.is_empty():
-		push_error("_draw_entities does not contain %s: the flip, the rect, the composite, the line or the shadow drop is resolved by nothing" % missing)
+		push_error("_draw_entities does not contain %s: the flip, the rect, the composite, the aim or the shadow drop is resolved by nothing" % missing)
+		return false
+	# The facing line over every body retired with alpha plan A9: the weapon turned to the aim
+	# carries the heading now, and the sway is read at the cursor (`_draw_reticle`). The colour is
+	# still the reticle's, so its absence from this loop is the line's absence.
+	if body.contains("Palette.COLOURS[\"facing\"]"):
+		push_error("_draw_entities still draws in the facing colour; the facing line over the body is retired")
 		return false
 	if body.contains("wants_facing_line"):
 		push_error("_draw_entities still asks wants_facing_line; the line draws for every body since the pawn slice")
@@ -793,14 +800,15 @@ func _bodies_face_by_flipping() -> bool:
 # The bodies turn and walk (docs/23, 2026-09-26; docs/30, "The outpost pack, adopted", decision 1).
 #
 # Every human draws on the outpost pack's survivor; zombies have seven distinct authored bodies:
-# four views, never mirrored, and a walk of four frames each way keyed to `world.tick`. The pure half is
-# exact answers from the functions the draw loop calls, each with its true negative -- a heading on
-# every quarter and on the diagonals, the walk's rate counted over one second of ticks against the
-# frame rate authored.json copies from the pack, a face-on rig that must keep flipping and must
-# never turn -- and every member resolves at its exact canvas (40x48 for the heavy, 32x40 for
-# every other body). The
+# four views, never mirrored, and since "Frames on the render clock" (docs/23) a walk of eight frames
+# each way stepped by ground covered (presentation/anim_clock.gd) and a breath when standing. The
+# pure half is exact answers from the functions the draw loop calls, each with its true negative --
+# a heading on every quarter and on the diagonals, the walk's rate counted over one second of
+# walking at the family's pace against the frame rate authored.json copies from the pack, a face-on
+# rig that must keep flipping and must never turn -- and every member resolves at its exact canvas
+# (40x48 for the heavy, 32x40 for every other body). The
 # textual half is the dead-socket assertion: `_draw_entities` must actually reach the view, the
-# frame, the per-view gear and the no-flip rule, with the tick handed over, and the afterimage must
+# frame, the per-view gear and the no-flip rule, with the clock's motion handed over, and the afterimage must
 # freeze the frame it drew rather than the rest picture.
 const TURNING_BODIES: Array[String] = [
 	"body_survivor", "body_zombie_workwear", "body_zombie_commuter", "body_zombie_raincoat",
@@ -816,14 +824,22 @@ const BROAD_BODIES: Array[String] = ["body_zombie_heavy", "body_zombie_bloater"]
 const FACE_ON_PROBE: String = "probe_face_on_body"
 
 
-func _changes_in_one_second(fps: int, frames: int) -> int:
+# How many times a body's frame changes over one second of walking at `mps`, drawn at 60 frames a
+# second through the real clock -- the walk's rate as the screen shows it.
+func _changes_in_one_second(key: String, mps: float) -> int:
+	var clock: AnimClock = AnimClock.new()
+	clock.begin_draw(0.0)
+	var last: String = Appearance.frame_key(key, "e", clock.motion(1, Vector2.ZERO, true, Appearance.stride_of(key), Appearance.pace_of(key)))
+	clock.end_draw()
 	var changes: int = 0
-	var last: int = Appearance.walk_frame(0, fps, frames, 0)
-	for tick in range(1, 20 + 1):
-		var f: int = Appearance.walk_frame(tick, fps, frames, 0)
-		if f != last:
+	for step in range(1, 61):
+		var t: float = float(step) / 60.0
+		clock.begin_draw(t)
+		var k: String = Appearance.frame_key(key, "e", clock.motion(1, Vector2(mps * t, 0.0), mps > 0.0, Appearance.stride_of(key), Appearance.pace_of(key)))
+		clock.end_draw()
+		if k != last:
 			changes += 1
-		last = f
+		last = k
 	return changes
 
 
@@ -858,24 +874,32 @@ func _bodies_turn_and_walk() -> bool:
 			push_error("TURN: '%s' claims to turn; turns() cannot say no" % key)
 			return false
 
-	# The walk: four frames each way at the pack's own rate, counted over one second of the sim's
-	# ticks, with the runner quicker and the armored/heavy slower than the common shambler.
+	# The walk: eight frames each way at the pack's own rate, doubled with the frame count, counted
+	# over one second of walking at the family's own pace -- with the runner quicker and the
+	# armored/heavy slower than the common shambler -- and a sprint at three times the pace stepping
+	# faster but by less than three times (the stride lengthens), a crawl slower.
 	var rates: Dictionary = {
-		"body_survivor": 8, "body_zombie_workwear": 5, "body_zombie_commuter": 5,
-		"body_zombie_raincoat": 5, "body_zombie_stalker": 6, "body_zombie_runner": 9,
-		"body_zombie_armored": 4, "body_zombie_heavy": 4,
-		"body_zombie_screamer": 5, "body_zombie_bloater": 4,
+		"body_survivor": 16, "body_zombie_workwear": 10, "body_zombie_commuter": 10,
+		"body_zombie_raincoat": 10, "body_zombie_stalker": 12, "body_zombie_runner": 18,
+		"body_zombie_armored": 8, "body_zombie_heavy": 8,
+		"body_zombie_screamer": 10, "body_zombie_bloater": 8,
 	}
 	var members: int = 0
 	for key in TURNING_BODIES:
 		var frames: int = Appearance.walk_frames(key)
 		var fps: int = Appearance.walk_fps(key)
-		if frames != 4 or fps != int(rates[key]):
-			push_error("TURN: '%s' walks %d frames at %d fps; the pack draws 4 at %d" % [key, frames, fps, int(rates[key])])
+		if frames != 8 or fps != int(rates[key]):
+			push_error("TURN: '%s' walks %d frames at %d fps; the motion set draws 8 at %d" % [key, frames, fps, int(rates[key])])
 			return false
-		var changes: int = _changes_in_one_second(fps, frames)
-		if changes != fps:
-			push_error("TURN: '%s' changed frame %d times in one second of ticks at %d fps" % [key, changes, fps])
+		var pace: float = Appearance.pace_of(key)
+		var changes: int = _changes_in_one_second(key, pace)
+		if absi(changes - fps) > 1:
+			push_error("TURN: '%s' changed frame %d times in one second at its pace; its rate is %d fps" % [key, changes, fps])
+			return false
+		var sprint: int = _changes_in_one_second(key, pace * 3.0)
+		var crawl: int = _changes_in_one_second(key, pace * 0.5)
+		if not (sprint > changes and sprint < changes * 3 and crawl < changes and crawl > 0):
+			push_error("TURN: '%s' at its pace changes %d a second, at three times it %d and at half %d; the cadence should rise and fall with speed, less than in proportion" % [key, changes, sprint, crawl])
 			return false
 		# Explicit bounds: the larger heavy is the only exception to the shared pawn canvas.
 		var expected_canvas: Vector2i = Vector2i(40, 48) if BROAD_BODIES.has(key) else Appearance.PAWN_CANVAS
@@ -885,13 +909,13 @@ func _bodies_turn_and_walk() -> bool:
 		# Every member resolves at that same canvas, and each view is its own picture.
 		var rest_views: Dictionary = {}
 		for view in Appearance.VIEWS:
-			var still: String = Appearance.frame_key(key, view, false, 0, 0)
+			var still: String = Appearance.frame_key(key, view, Appearance.STILL)
 			if still != "%s_%s" % [key, view]:
 				push_error("TURN: '%s' standing facing '%s' asks for '%s'" % [key, view, still])
 				return false
-			for tick in 20:
-				for moving in [false, true]:
-					var k: String = Appearance.frame_key(key, view, moving, tick, 0)
+			for i in 20:
+				for walking in [false, true]:
+					var k: String = Appearance.frame_key(key, view, {"walking": walking, "cycle": float(i) / 20.0, "idle": float(i) * 0.25})
 					var tex: Texture2D = Appearance.resolve(k)
 					if tex == null or Vector2i(tex.get_size()) != expected_canvas:
 						push_error("TURN: '%s' does not resolve at its exact canvas %s" % [k, str(expected_canvas)])
@@ -901,27 +925,66 @@ func _bodies_turn_and_walk() -> bool:
 		if rest_views.size() != 4:
 			push_error("TURN: '%s''s four views resolve %d different pictures" % [key, rest_views.size()])
 			return false
-		# Moving walks; standing does not; the same tick is the same frame; the phase staggers.
-		if Appearance.frame_key(key, "e", true, 0, 0) == Appearance.frame_key(key, "e", false, 0, 0):
+		# Moving walks; standing does not; the same motion is the same frame; the seat staggers.
+		var walk_e: Dictionary = {"walking": true, "cycle": 0.3, "idle": 0.0}
+		if Appearance.frame_key(key, "e", walk_e) == Appearance.frame_key(key, "e", Appearance.STILL):
 			push_error("TURN: '%s' moving and standing ask for the same picture" % key)
 			return false
-		if Appearance.frame_key(key, "e", true, 7, 3) != Appearance.frame_key(key, "e", true, 7, 3):
-			push_error("TURN: '%s' asked twice for one tick answered two frames" % key)
+		if Appearance.frame_key(key, "e", walk_e) != Appearance.frame_key(key, "e", walk_e.duplicate()):
+			push_error("TURN: '%s' asked twice for one motion answered two frames" % key)
 			return false
-		if Appearance.frame_key(key, "e", true, 0, 0) == Appearance.frame_key(key, "e", true, 0, 1):
-			push_error("TURN: '%s' staggered by one answered the same frame; a crowd would step as one" % key)
+		if Appearance.frame_key(key, "e", {"walking": true, "cycle": AnimClock.seat(1), "idle": 0.0}) == Appearance.frame_key(key, "e", {"walking": true, "cycle": AnimClock.seat(2), "idle": 0.0}):
+			push_error("TURN: '%s' seated by ids 1 and 2 answered the same frame; a crowd would step as one" % key)
 			return false
-	# TN, the walk clock: no rate or no frames stands on frame 0 and never divides by zero.
-	if Appearance.walk_frame(123, 0, 4, 0) != 0 or Appearance.walk_frame(123, 8, 0, 0) != 0:
-		push_error("TURN: a walk with no rate or no frames did not stand on frame 0")
+	# TN, the walk clock: no frames stands on frame 0, a standing body covers no stride, and the
+	# one-second counter sees no change at no speed -- it counts nothing it should not.
+	if AnimClock.frame_at(0.7, 0) != 0 or AnimClock.cycle_after(0.25, 0.0, 0.0, 1.0, 2.0) != 0.25:
+		push_error("TURN: a walk with no frames or no ground covered did not hold still")
 		return false
-	if _changes_in_one_second(0, 4) != 0:
-		push_error("TURN: the one-second counter saw a zero-rate walk move; it counts nothing it should not")
+	# A standing body still breathes, so the counter is asked about the walk alone: a second of
+	# standing draws shows no walk member and leaves the cycle where it was seated.
+	var still_clock: AnimClock = AnimClock.new()
+	for step in range(0, 61):
+		still_clock.begin_draw(float(step) / 60.0)
+		var m: Dictionary = still_clock.motion(1, Vector2.ZERO, false, Appearance.stride_of("body_survivor"), Appearance.pace_of("body_survivor"))
+		still_clock.end_draw()
+		if bool(m["walking"]) or float(m["cycle"]) != AnimClock.seat(1) or Appearance.frame_key("body_survivor", "e", m).contains("_walk_"):
+			push_error("TURN: a body standing for a second walked (%s); the clock counts nothing it should not" % str(m))
+			return false
+	# A backpedal runs the walk backwards (alpha plan A9: you aim over your shoulder at a walk and the
+	# body shows the aim's view, so its feet carry it away from that view). A fifth of a second at pace
+	# through the real clock, the view facing east: walking east steps forwards, walking west steps
+	# the same stride the other way -- the cycle mirrored about the seat -- and a strafe south,
+	# square to the view, steps forwards. TN: with no front handed over, walking west is forwards.
+	var pace_s: float = Appearance.pace_of("body_survivor")
+	var walk_for := func(dir: Vector2, front: Vector2) -> Dictionary:
+		var c: AnimClock = AnimClock.new()
+		var m: Dictionary = {}
+		for step in range(0, 13):
+			var t: float = float(step) / 60.0
+			c.begin_draw(t)
+			m = c.motion(1, dir * pace_s * t, step > 0, Appearance.stride_of("body_survivor"), pace_s, front)
+			c.end_draw()
+		return m
+	var fwd: Dictionary = walk_for.call(Vector2.RIGHT, Vector2.RIGHT)
+	var back: Dictionary = walk_for.call(Vector2.LEFT, Vector2.RIGHT)
+	var strafe: Dictionary = walk_for.call(Vector2.DOWN, Vector2.RIGHT)
+	var blind: Dictionary = walk_for.call(Vector2.LEFT, Vector2.ZERO)
+	var gone_fwd: float = fposmod(float(fwd["cycle"]) - AnimClock.seat(1), 1.0)
+	var gone_back: float = fposmod(AnimClock.seat(1) - float(back["cycle"]), 1.0)
+	if bool(fwd["backward"]) or not bool(back["backward"]) or gone_fwd < 0.05 or gone_fwd > 0.95 or absf(gone_fwd - gone_back) > 0.0001:
+		push_error("TURN: walking away from the view did not run the same stride backwards (forward %s, backpedal %s)" % [str(fwd), str(back)])
+		return false
+	if bool(strafe["backward"]) or bool(blind["backward"]) or absf(fposmod(float(blind["cycle"]) - AnimClock.seat(1), 1.0) - gone_fwd) > 0.0001:
+		push_error("TURN: a strafe or a body with no front stepped backwards (strafe %s, no front %s)" % [str(strafe), str(blind)])
+		return false
+	if not AnimClock.backpedals(Vector2(-1.0, 0.2), Vector2.RIGHT) or AnimClock.backpedals(Vector2(0.0, 1.0), Vector2.RIGHT) or AnimClock.backpedals(Vector2.LEFT, Vector2.ZERO):
+		push_error("TURN: backpedals answers the wrong side of the view")
 		return false
 	# TN, a face-on picture: it answers its own key walking or not, shows the rest view whatever its
 	# heading, and still flips. No shipped body is face-on any more, so the probe is a name no family
 	# declares -- the fallback a body without views would take.
-	if Appearance.frame_key(FACE_ON_PROBE, "w", true, 5, 0) != FACE_ON_PROBE:
+	if Appearance.frame_key(FACE_ON_PROBE, "w", {"walking": true, "cycle": 0.5, "idle": 0.0}) != FACE_ON_PROBE:
 		push_error("TURN: a face-on rig asked for a walk frame")
 		return false
 	if Appearance.body_view(FACE_ON_PROBE, {"radians": PI}, {"dx": -1.0, "dy": 0.0}) != Appearance.VIEW_REST:
@@ -944,23 +1007,26 @@ func _bodies_turn_and_walk() -> bool:
 	# body_texture: a look for a turning body answers the member; a face-on look answers its own.
 	Appearance.forget()
 	var look: Dictionary = {"sprite": "body_survivor", "texture": Appearance.resolve("body_survivor")}
-	if Appearance.body_texture(look, "w", false, 0, 0) != Appearance.resolve("body_survivor_w"):
+	if Appearance.body_texture(look, "w", Appearance.STILL) != Appearance.resolve("body_survivor_w"):
 		push_error("TURN: body_texture facing west did not answer the west view")
 		return false
-	if Appearance.body_texture(look, "w", false, 0, 0) == look["texture"]:
+	if Appearance.body_texture(look, "w", Appearance.STILL) == look["texture"]:
 		push_error("TURN: body_texture facing west answered the rest picture")
 		return false
 	var face_on: Dictionary = {"sprite": FACE_ON_PROBE, "texture": ImageTexture.create_from_image(Image.create(32, 40, false, Image.FORMAT_RGBA8))}
-	if Appearance.body_texture(face_on, "w", true, 9, 0) != face_on["texture"]:
+	if Appearance.body_texture(face_on, "w", {"walking": true, "cycle": 0.5, "idle": 0.0}) != face_on["texture"]:
 		push_error("TURN: body_texture answered a face-on rig something other than its own picture")
 		return false
 
-	# The draw loop reaches all of it, and the tick is what it walks on. Proved on a fabricated body
+	# The draw loop reaches all of it, and the clock's motion is what it walks on. Proved on a fabricated body
 	# first: a scanner that finds everything proves nothing.
 	var needles: Array[String] = [
 		"Appearance.body_view(",
-		"Appearance.body_texture(look, view, Appearance.moving(vel_v), int(world.tick), eid)",
-		"Appearance.equipment_layers_for(world, eid, view)",
+		"_anim.motion(eid, Vector2(float(it[\"x\"]), float(it[\"y\"])), Appearance.moving(vel_v)",
+		"Appearance.pace_of(sprite_key), front)",
+		"Vector2.from_angle(float(Appearance.VIEW_RADIANS[view]))",
+		"Appearance.body_texture(look, view, motion)",
+		"Appearance.equipment_layers_for(world, eid, view, frame, sprite_key)",
 		"Appearance.flip_for(sprite_key, screen_ang)",
 		"\"texture\": texture",
 	]
@@ -977,7 +1043,7 @@ func _bodies_turn_and_walk() -> bool:
 		push_error("TURN: _draw_afterimages does not draw the frozen frame; a body that turned away would be remembered facing south")
 		return false
 	Appearance.forget()
-	print("TURN OK view_of answers the nearest quarter (diagonals round away from zero); %d turning bodies walk 4 frames at their declared 4–9 fps, counted on the tick, %d views each on their own picture, every member on %s except the 40x48 heavy; a face-on rig keeps its one picture and its flip; a velocity under {x} does not turn a body; _draw_entities reaches the view, the tick-keyed frame, the per-view gear and flip_for, and the afterimage freezes the frame" % [TURNING_BODIES.size(), members / TURNING_BODIES.size(), str(Appearance.PAWN_CANVAS)])
+	print("TURN OK view_of answers the nearest quarter (diagonals round away from zero); %d turning bodies walk 8 frames at their declared 8–18 fps, counted over a second at pace through the real clock, faster but by less at a sprint and slower at a crawl, %d views each on their own picture, every member on %s except the 40x48 heavy; walking away from the view runs the same stride backwards while a strafe and a body with no front step forwards; a face-on rig keeps its one picture and its flip; a velocity under {x} does not turn a body; _draw_entities reaches the view, the clock's frame with the view's front, the per-view gear and flip_for, and the afterimage freezes the frame" % [TURNING_BODIES.size(), members / TURNING_BODIES.size(), str(Appearance.PAWN_CANVAS)])
 	return true
 
 
