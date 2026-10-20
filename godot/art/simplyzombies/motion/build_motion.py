@@ -236,6 +236,69 @@ def find_hand(frame, near):
     return list(best[1]) if best else None
 
 
+def is_shorts(p):
+    """The pack's underwear: a dark neutral grey, just above the ink. The same test the clothing
+    painter's part map uses (clothing/parts.py `kind`), so a frame this script passes is one the
+    painter can find its waist on."""
+    r, g, b, a = p
+    return a >= ALPHA_SOLID and max(r, g, b) >= 45 and abs(r - g) < 25 and abs(g - b) < 25
+
+
+def shorts_band(im):
+    """(top row, bottom row, left x, right x) of the underwear, or None when a frame has lost it:
+    rows from y 26 down holding three or more underwear pixels, the painter's own landmark."""
+    w, h = im.size
+    px = im.load()
+    rows = [y for y in range(26, h) if sum(1 for x in range(w) if is_shorts(px[x, y])) >= 3]
+    if not rows:
+        return None
+    xs = [x for y in rows for x in range(w) if is_shorts(px[x, y])]
+    return rows[0], rows[-1], min(xs), max(xs)
+
+
+def outline(im, x, y):
+    """A solid pixel with a transparent neighbour: the silhouette's ink, which nothing repaints."""
+    w, h = im.size
+    px = im.load()
+    for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+        if not (0 <= nx < w and 0 <= ny < h) or not solid(px[nx, ny]):
+            return True
+    return False
+
+
+def restore_shorts(cells, rest):
+    """Puts the underwear back on generated walk frames that drew the hips bare (four of the east
+    cycle's eight did: skin and a black line where the pack's grey shorts are). The band is placed
+    where the cycle's neighbouring frames that kept theirs have it -- rows and span from the
+    nearest one before and after, averaged -- and painted in the rest view's own grey, row by row,
+    over every pixel inside it except the silhouette's ink. The legs, the arm and the outline are
+    the generated frame's own; only the cloth that went missing comes back."""
+    bands = [shorts_band(c) for c in cells]
+    rb = shorts_band(rest)
+    rpx = rest.load()
+    tones = []
+    for y in range(rb[0], rb[1] + 1):
+        greys = [rpx[x, y][:3] for x in range(rest.size[0]) if is_shorts(rpx[x, y])]
+        tones.append(greys[len(greys) // 2] if greys else tones[-1])
+    n = len(cells)
+    out = list(cells)
+    for i, band in enumerate(bands):
+        if band is not None:
+            continue
+        before = next(bands[(i - k) % n] for k in range(1, n) if bands[(i - k) % n] is not None)
+        after = next(bands[(i + k) % n] for k in range(1, n) if bands[(i + k) % n] is not None)
+        top, bottom, left, right = ((a + b) // 2 for a, b in zip(before, after))
+        cell = cells[i].copy()
+        px = cell.load()
+        for y in range(top, bottom + 1):
+            tone = tones[min(y - top, len(tones) - 1)] if y < bottom else tones[-1]
+            for x in range(left, right + 1):
+                if solid(px[x, y]) and not outline(cell, x, y):
+                    px[x, y] = (tone[0], tone[1], tone[2], 255)
+        out[i] = cell
+    return out
+
+
 def png_bytes(im):
     import io
 
@@ -264,10 +327,13 @@ def survivor(build):
         members[f"{fam}_{view}"] = {"source": {"path": f"art/simplyzombies/textures/characters/survivor_{view}.png", "crop": [0, 0, 32, 40]}}
         strip = load(HERE / "sources" / f"survivor-{WORDS[view]}.png")
         walk = []
+        cells = []
         for n in range(8):
             x0 = (n + 1) * STRIP_FRAME + INPUT_AT[0]
             cell = strip.crop((x0, INPUT_AT[1], x0 + SURVIVOR_CANVAS[0], INPUT_AT[1] + SURVIVOR_CANVAS[1]))
-            cell = ground(drop_specks(binary(cell)))
+            cells.append(ground(drop_specks(binary(cell))))
+        cells = restore_shorts(cells, rest.crop((0, 0) + SURVIVOR_CANVAS))
+        for n, cell in enumerate(cells):
             rel = f"textures/characters/motion/survivor_walk_{view}_{n:02d}.png"
             build.put(PACK / rel, cell)
             head, torso = offsets(cell, rest)

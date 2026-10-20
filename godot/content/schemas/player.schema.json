@@ -53,6 +53,48 @@
             "pattern": "^corpse_[a-z0-9_]+$"
           },
           "description": "Settled corpse pictures. Presentation selects one stably per entity and draws it at its ground anchor only after death."
+        },
+        "outfit": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "torso",
+            "legs",
+            "feet"
+          ],
+          "description": "What a body on this rig wears in a slot it has nothing equipped in, so nobody is drawn in the pack survivor's underwear (docs/23, 'Clothe everyone'). Each slot lists garment families -- authored.json kind `wear`, painted per frame onto the pack survivor -- and presentation/appearance.gd's `outfit_of` picks one per body by its full entity id, with no simulation random draw: a cosmetic default, never an item, so it weighs nothing, warms nothing and is not in any inventory. An item equipped in the slot replaces it with the item's own `appearance.equipSprite`. Every body on the `body_survivor` rig without an outfit of its own falls back to this one, the way human corpses fall back to this entry's `corpseSprites`.",
+          "properties": {
+            "torso": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 8,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^wear_[a-z0-9_]+$"
+              }
+            },
+            "legs": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 8,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^wear_[a-z0-9_]+$"
+              }
+            },
+            "feet": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 8,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^wear_[a-z0-9_]+$"
+              }
+            }
+          }
         }
       }
     }
