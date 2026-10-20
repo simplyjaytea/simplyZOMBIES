@@ -8,7 +8,13 @@ Shots for the owner to judge. Nothing here is read by the game.
 - `in-game_three-passes_*.png` — the same scene cropped around the player and a colonist, on
   `main` (underwear), the first flat-tone pass, and the shaded pass that shipped (from
   `npm run godot:shots`, PR #148's harness, run against each tree).
-- `before_*_1920x1080.png`, `after_*_1920x1080.png` — the uncropped frames, main and shipped.
+- `before_*_1920x1080.png`, `after_*_1920x1080.png` — the uncropped frames, main and the first
+  shaded pass.
+- `in-game_outfits_day-night.png` — the harness's day_street and night_lights scenes on the final
+  art, cropped at 3x: the player in the default tee and then in the hazmat suit, Ellis in the
+  parka kit, Mara in the leather kit. `in-game_outfits_*_1920x1080.png` are the uncropped hazmat
+  frames. The colonists were moved beside the player and dressed by a throwaway patch to
+  `review/scenes.gd` (PR #148's harness), not committed.
 - `walk-cycle.gif` (4x) and `walk-cycle-1x.gif` (native) — the walk at the body's own 8 fps,
   all four views: bare, the default slate tee, leather jacket and jeans, the parka, the hazmat
   suit. A GIF holds 256 colours and a frame here has about 1,200, so each frame is quantised;

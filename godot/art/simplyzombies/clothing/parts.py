@@ -79,6 +79,11 @@ def label(img: Image.Image, suffix: str) -> dict:
     torso_top = waist_top - 8
     view = view_of(suffix)
     side = view in ("e", "w")
+    if side and suffix != view:
+        # Seen from the side the pack's walk bobs the hips but not the shoulders: every side frame's
+        # chin is the idle frame's chin. Counting down from a hip that dropped a row would leave the
+        # top row of the chest bare for one frame in the cycle, a flicker at the neck.
+        torso_top = label(load(f"survivor_{view}.png"), view)["torso_top"]
     lab = [["." for _ in range(W)] for _ in range(H)]
     for y in range(H):
         for x in range(W):

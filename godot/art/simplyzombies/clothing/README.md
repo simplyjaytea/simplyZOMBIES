@@ -15,7 +15,9 @@ of time with the legs, because they are chosen by the body's own frame key.
 - `parts.py` labels every opaque pixel of each of the twenty source frames
   (`../textures/characters/survivor_*.png`, cut 32x48 to 32x40 exactly as `authored.json` crops
   the body): ink, head, torso, arm, hand, pelvis, leg, foot. The landmarks come from the frame's
-  own underwear band, so the walk's bob moves them with the body. Seen from the side, the near
+  own underwear band, so the walk's bob moves them with the body -- except the side views'
+  chest, whose top row is the idle frame's: the pack's side walk bobs the hips but never the
+  shoulders, and a hip-derived chest left the top row bare once a cycle. Seen from the side, the near
   arm past the underwear's span on the side the body faces is labelled arm, not chest, so a
   short sleeve ends on it and a long one is creased apart from the body.
 - `build_clothing.py` repaints only the skin and underwear pixels of the parts a garment covers.
@@ -38,11 +40,13 @@ of time with the legs, because they are chosen by the body's own frame key.
   only by a hood (the hair, and the mask over the lower face), never its ink or its eyes.
 - `Canvas.render` turns each level into its ramp's colour through the material: plain cloth
   gains contrast and a faint grain, denim a twill, wool and fur a coarse nap, paper a crinkle;
-  leather and rubber take a hard light, deeper shadows and a shine where they face up (rubber
-  with no weave at all, so a hazmat suit is smooth rather than speckled). A garment frame comes
-  out at about the pack vest's tonal density, counted as distinct colours over painted pixels on
-  the south view: the tee 61 over 84, the leather jacket 76 over 100, the parka 73 over 122, the
-  hazmat suit 81 over 159; the pack's vest 85 over 117.
+  leather and rubber take a hard light, deeper shadows and a shine where they face up. Rubber has
+  no weave and keeps three tones and its shine: no crease cuts a dark blotch into it, so a hazmat
+  suit is smooth rather than dirty. The `boot` ramp (steel-toe boots, the suit's taped seams and
+  respirator) never falls below its deep tone, so dark rubber beside the pack's near-black ink
+  still reads at 1x. A garment frame comes out near the pack vest's tonal density, counted as
+  distinct colours over painted pixels on the south view: the tee 61 over 84, the leather jacket
+  55 over 100, the parka 82 over 116, the hazmat suit 86 over 159; the pack's vest 85 over 117.
 - Ramps are four tones in the pack's families (`../STYLE.md`), blended between and paled or
   cooled past either end; every number is an integer, so the output is the same bytes on every
   interpreter (checked on Python 3.12 and 3.13).

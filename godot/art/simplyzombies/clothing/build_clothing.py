@@ -52,7 +52,7 @@ RAMPS: dict[str, Ramp] = {
     "tarp": ((84, 120, 156), (60, 96, 132), (44, 72, 104), (32, 52, 78)),
     "rainy": ((196, 170, 70), (168, 142, 52), (130, 108, 40), (94, 78, 32)),
     "paper": ((222, 222, 214), (196, 196, 188), (160, 160, 154), (122, 122, 118)),
-    "hazmat": ((206, 178, 62), (178, 150, 46), (138, 114, 36), (98, 80, 28)),
+    "hazmat": ((200, 174, 96), (172, 146, 74), (134, 112, 60), (96, 80, 46)),
     "bloodied": ((214, 206, 192), (186, 178, 164), (150, 140, 128), (112, 96, 88)),
     # leather and rubber
     "leather": ((120, 82, 56), (94, 62, 42), (70, 46, 32), (50, 32, 24)),
@@ -65,6 +65,9 @@ RAMPS: dict[str, Ramp] = {
     "metal": ((196, 196, 188), (150, 150, 146), (110, 110, 108), (78, 78, 78)),
     "steel": ((150, 156, 162), (118, 124, 132), (90, 96, 104), (64, 68, 76)),
     "navy": ((124, 136, 176), (92, 104, 144), (68, 78, 112), (46, 52, 80)),
+    # black rubber that must still read against the pack's near-black ink: the belt's darkest tone
+    # is its floor (see FLOOR)
+    "boot": ((96, 100, 108), (70, 70, 76), (58, 58, 62), (47, 47, 49)),
 }
 
 # Which body parts each garment covers. `sleeve` is how far down the arm a torso garment reaches,
@@ -100,7 +103,7 @@ GARMENTS: dict[str, dict] = {
     "wear_poncho_tarp": {"shape": "poncho", "ramp": "tarp"},
     "wear_blanket": {"shape": "poncho", "ramp": "wool", "stripe": "sand"},
     "wear_coverall_paper": {"shape": "suit", "ramp": "paper", "trim": "ash"},
-    "wear_suit_hazmat": {"shape": "suit", "ramp": "hazmat", "trim": "black", "hood": True},
+    "wear_suit_hazmat": {"shape": "suit", "ramp": "hazmat", "trim": "boot", "hood": True},
     "wear_apron_butcher": {"shape": "apron", "ramp": "bloodied", "under": "slate"},
     "wear_apron_welding": {"shape": "apron", "ramp": "hide", "under": "charcoal"},
     "wear_wrap_cloth": {"shape": "wrap", "ramp": "ash", "under": "sand"},
@@ -114,7 +117,7 @@ GARMENTS: dict[str, dict] = {
     # feet
     "wear_shoes_worn": {"shape": "shoes", "ramp": "charcoal", "trim": "canvas"},
     "wear_boots_leather": {"shape": "boots", "ramp": "leather", "trim": "black"},
-    "wear_boots_steel": {"shape": "boots", "ramp": "black", "trim": "steel"},
+    "wear_boots_steel": {"shape": "boots", "ramp": "boot", "trim": "steel"},
     "wear_boots_insulated": {"shape": "boots", "ramp": "hide", "trim": "fur"},
     "wear_sandals_canvas": {"shape": "sandals", "ramp": "canvas", "trim": "leather"},
 }
@@ -195,8 +198,11 @@ MATERIAL: dict[str, str] = {
     "rainy": "rubber", "hazmat": "rubber", "tarp": "rubber",
     "wool": "wool", "fur": "wool",
     "paper": "paper",
-    "metal": "metal", "steel": "metal",
+    "metal": "metal", "steel": "metal", "boot": "metal",
 }
+# Ramps whose light never falls below their deep tone: dark rubber beside the ink would otherwise
+# sink into it at 1x, and a leg or a cuff would read a pixel short.
+FLOOR = {"boot"}
 RAMP_NAME: dict[int, str] = {id(r): n for n, r in RAMPS.items()}
 
 
@@ -331,7 +337,9 @@ class Canvas:
                     level += 26
             elif material == "rubber":
                 # Smooth coated cloth: hard contrast, no weave, a shine only where it faces up.
-                level = LEVEL[BASE] + (level - LEVEL[BASE]) * 3 // 2 + grain(gx, gy, seed, 1)
+                # Three tones and the top shine: a fold or a crease never cuts a dark blotch into
+                # rubber, which reads as dirt or camouflage rather than a smooth coat.
+                level = LEVEL[BASE] + (max(level, LEVEL[SHADE] - 8) - LEVEL[BASE]) * 3 // 2 + grain(gx, gy, seed, 1)
                 if (x, y - 1) not in self.cell:
                     level += 24
             elif material == "denim":
@@ -342,6 +350,8 @@ class Canvas:
                 level += grain(gx, gy, seed, 9)
             elif material == "metal":
                 pass
+            if name in FLOOR:
+                level = max(level, LEVEL[DEEP])
             else:
                 level = LEVEL[BASE] + (level - LEVEL[BASE]) * 11 // 8 + grain(gx, gy, seed, 3)
             r, g, b = colour_at(ramp, level)
@@ -412,15 +422,26 @@ def collar(c: Canvas, ramp: Ramp, trim: Ramp | None) -> None:
     """A turned collar: the two rows under the chin take the trim (or the highlight), either side."""
     f = c.f
     colour = trim if trim is not None else ramp
-    for y in range(f.torso_top, f.torso_top + 2):
+    # The collar sits on the first row the cloth crosses the middle of the body: on a frame whose
+    # top torso row is only shoulders either side of the neck's ink it would be two pixels, and pop
+    # to a full collar the moment the walk starts.
+    start = f.torso_top
+    while start < f.waist_top and not any((x, start) in c.painted for x in range(f.centre - 1, f.centre + 3)):
+        start += 1
+    for y in range(start, start + 2):
         for x in range(parts.W):
             if (x, y) not in c.painted:
                 continue
-            near_head = f.at(x, y - 1) in ("O", "H") or f.at(x, y - 2) in ("O", "H")
+            near_head = any(f.at(x, y - k) in ("O", "H") for k in (1, 2, 3))
             if not near_head:
                 continue
             if f.view == "n" or abs(x - f.centre) <= 4:
-                c.tone(x, y, colour, HI if trim is None else BASE)
+                # The turned edge catches the light; the fold under it drops a step, and the
+                # collar's ends turn away into shade.
+                step = (HI if trim is None else BASE) if y == start else (BASE if trim is None else SHADE)
+                c.tone(x, y, colour, step)
+                if f.view != "n" and abs(x - f.centre) >= 4:
+                    c.shift(x, y, -16)
 
 
 def paint(family: str, f: Frame) -> Image.Image:
@@ -457,7 +478,8 @@ def paint(family: str, f: Frame) -> Image.Image:
         cuffs(c, ramp)
         hem(c, ramp, f.waist_top, DEEP)
     elif shape == "coat":
-        reach = f.waist_bot + 1
+        # The skirt ends with the hips, so the trousers show beneath it on every frame, idle too.
+        reach = f.waist_bot
         c.cover(ramp, lambda x, y, lab: lab in ("T", "A") or (lab in ("P", "L") and y <= reach))
         collar(c, ramp, None if spec["trim"] == spec["ramp"] else trim)
         placket(c, ramp, None, True)
@@ -469,7 +491,7 @@ def paint(family: str, f: Frame) -> Image.Image:
             for x in range(parts.W):
                 if (x, f.waist_top - 1) in c.cell and x % 3 != 1:
                     c.tone(x, f.waist_top - 1, trim, SHADE)
-        hem(c, ramp, reach, DEEP)
+        hem(c, ramp, reach, SHADE)
     elif shape == "poncho":
         stripe = RAMPS[spec["stripe"]] if "stripe" in spec else None
         c.cover(ramp, lambda x, y, lab: lab in ("T", "A") or (lab == "P" and y <= f.waist_top + 1))
