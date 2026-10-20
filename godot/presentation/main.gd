@@ -623,10 +623,9 @@ func _ensure_ui() -> void:
 		# stops short of the action bar instead of touching it (UI review, round 3).
 		_paperdoll.offset_left = 24; _paperdoll.offset_top = -474; _paperdoll.offset_right = 152; _paperdoll.offset_bottom = -128
 		_paperdoll.set("framed", true)
-		# The "you" card starts right of the body card (its right edge is the doll's plus the card's
-		# 8 px, then the HUD's 16 px gap), so a card that grows a line per need never runs over it.
+		# The "you" card makes room for the body card when it grows tall enough to reach it.
 		if _hud != null:
-			_hud.set("you_left", 152.0 + 8.0 + 16.0)
+			_hud.set("body_card", _paperdoll)
 		layer.add_child(_paperdoll)
 	# The driver's dashboard, bottom centre: visible only while the player is at a wheel, fed by
 	# SimVehicles.dash_view in _update_hud. The one gauge on screen, and the car's, not the

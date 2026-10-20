@@ -2235,12 +2235,15 @@ not a to-do list:
   edges, and its lines are 2 px moved half their width onto even columns;
   `godot:check:web_look`'s CROWD lane now also holds every disc's box and art pixels to the
   even grid, refusing the odd box the review measured. Locked ink is (146,140,130), 4.5:1 even
-  on the steel's lighter streak. The "you" card starts right of the street's body card, so a
-  card that grows a line per need runs down beside the figure, not over it, and the body card
-  ends 4 px short of the action bar; `godot:check:play`'s HUD-CARDS lane holds both at
-  1280×720 and 1920×1080 with a five-line "you" card, its negative the same card from the old
-  left margin, which overlaps at 1280×720.
-  **Left for slice 2**, each also on main before this slice: VT323's 1 px glyph bearing, which
+  on the steel's lighter streak. A "you" card tall enough to reach the street's body card
+  starts right of it and runs down beside the figure, not over it; one that ends above the body
+  card stays at the margin, so at 1920×1080 it does not hang beside an empty strip. The body
+  card ends 4 px short of the action bar. `godot:check:play`'s HUD-CARDS lane holds all of it at
+  1280×720 and 1920×1080 with a one-line and a five-line "you" card, its negative the five-line
+  card with no body card to make room for, which overlaps at 1280×720.
+  **Left for slice 2**, from this slice: the web's dashed lines can start on an odd row, its
+  diagonal lines step a pixel per row rather than in 2×2 blocks, and the region circle's rim is
+  1 px. Each also on main before this slice: VT323's 1 px glyph bearing, which
   starts the bar's words and the care pane's text a pixel off the grid; the figure's wound dot
   (a 1 px red rim) and its smooth ground shadow; the keycaps' 1 px outlines and
   corner steps; text that is not on a whole VT323 multiple (the HUD's "You" and OUTSIDE lines,
