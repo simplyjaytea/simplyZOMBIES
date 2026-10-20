@@ -47,9 +47,12 @@ const Appearance = preload("res://presentation/appearance.gd")
 # same rule PROP_KINDS and PLAYER_LOOK_ID follow.
 const BLOCK_ID: String = "dressing.street"
 
-# One street tile in LITTER_RARITY carries a scrap. Sparse on purpose: litter is texture, and
-# texture that lands on a third of the street stops being texture and becomes a surface.
-const LITTER_RARITY: int = 17
+# One street tile in LITTER_RARITY carries a scrap. Still sparse: litter is texture, and texture that
+# lands on a third of the street stops being texture and becomes a surface. It was 1 in 17 until
+# the A12 density slice, whose before shots read as bare street; 1 in 6 is a judgement from those
+# shots, not a measured reference. The scatter is baked with the ground (the tile pass), so its
+# cost is the bake's, not the frame's.
+const LITTER_RARITY: int = 6
 
 # Hash salts, one per independent decision, so two choices about the same tile cannot correlate.
 # Which heap picture an uncovered Low tile takes out of the block's `heaps` list.
@@ -795,6 +798,39 @@ static func _furnishing_chunk_picks(entries: Array, map: Variant, seed_val: int,
 			var key: String = _furnishing_pick(entries, map, seed_term, tx, ty)
 			if not key.is_empty():
 				out.append({"tx": tx, "ty": ty, "key": key})
+	return out
+
+
+# The flat dressing a bake region holds (world_layers.gd's DECOR layer): every nature picture and
+# every flat furnishing picture on the tiles of `region` (a Rect2i whose `end` is exclusive, clipped
+# to the map here), as `{nature: [{tx, ty, key}], furnishings: [{tx, ty, key}]}`. Nothing is asked
+# of an observer -- the bake's LIVE mask decides which of them show, so a picture on a tile nobody
+# sees is baked and never drawn. The picks are the per-tile ones nature_tiles and furnishing_tiles
+# make, so a baked picture is the picture the per-frame draw made. A standing furnishing is left
+# out: it joins the entity sort, as standing_furnishing_tiles_cached says.
+static func decor_picks(block: Dictionary, map: Variant, seed_val: int, region: Rect2i) -> Dictionary:
+	var out: Dictionary = {"nature": [], "furnishings": []}
+	if map == null or block.is_empty():
+		return out
+	var nature: Array = _nature_entries(block)
+	var furnish: Array = _furnishing_entries(block)
+	var seed_term: int = seed_val * _HASH_SEED
+	var x0: int = maxi(0, region.position.x)
+	var y0: int = maxi(0, region.position.y)
+	var x1: int = mini(int(map.w), region.end.x)
+	var y1: int = mini(int(map.h), region.end.y)
+	if not nature.is_empty():
+		for ty in range(y0, y1):
+			for tx in range(x0, x1):
+				var nature_key: String = _nature_pick(nature, map, seed_term, tx, ty)
+				if not nature_key.is_empty():
+					(out["nature"] as Array).append({"tx": tx, "ty": ty, "key": nature_key})
+	if not furnish.is_empty():
+		for ty in range(y0, y1):
+			for tx in range(x0, x1):
+				var furnish_key: String = _furnishing_pick(furnish, map, seed_term, tx, ty)
+				if not furnish_key.is_empty() and not furnishing_is_standing(block, furnish_key):
+					(out["furnishings"] as Array).append({"tx": tx, "ty": ty, "key": furnish_key})
 	return out
 
 

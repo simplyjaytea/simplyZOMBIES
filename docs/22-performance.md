@@ -562,6 +562,44 @@ harness-inclusive interval was worse than before (49.1 against 43.5 ms); hiding 
 nothing to show brought it to 18.5 ms and the interval to 27.8. On a GPU the mask is two texel
 fetches a fragment. llvmpipe numbers are not hardware GPU results, as above.
 
+### Flat dressing, baked
+
+Plan item A12, 2026-10-20 (`presentation/world_layers.gd`, `presentation/dressing.gd::decor_picks`,
+`main.gd::_draw_decor`). The nature pictures and the furnishings left the per-frame draw loop and
+bake into a sixth world layer, DECOR, which is LIVE-only: it shows where the sim sees, and it is
+culled with its chunk like the seen ground. `decor_picks` takes the same hash picks the old loops
+took, so the pictures are the ones they were; the furnishing pass still skips a tile a standing
+picture holds. Density came from content: furnishing rarities in `content/dressing/street.json`
+went down (shelf 6, cabinet 15, table 10, chair 9, dumpster 14, barrier 70, cone 45; post
+unchanged), and litter went from one tile in 17 to one in 6. The litter rate is a judgement from
+the before and after shots, not a measured reference.
+
+Measured 2026-10-20 on one container, with `npm run godot:bench:runtime` and
+`npm run godot:bench:frame` at 1280×720, Godot 4.7.1, X11/Xvfb, llvmpipe (LLVM 20.1.2, 256 bits),
+Intel Xeon @ 2.10 GHz. The base is the parent commit 75ce22a, which already carries the A4 bake; the
+change is this one. Runs alternated base, change, base, change, two each.
+
+| Measure | Base, runs | Base mean | Change, runs | Change mean |
+|---|---|---:|---|---:|
+| shipped-tick, mean ms | 9.76, 8.32 | 9.04 | 9.04, 8.62 | 8.83 |
+| shipped-tick, worst ms | 24.0, 19.3 | — | 22.7, 22.5 | — |
+| shipped-draw `_draw` CPU, mean ms | 8.42, 9.21 | 8.82 | 8.45, 8.26 | 8.35 |
+| crowded-draw `_draw` CPU, mean ms | 122.6, 120.3 | 121.5 | 127.4, 119.3 | 123.4 |
+
+The density costs nothing measurable on either budget; the differences sit inside this
+container's run-to-run spread (same-code tick runs have differed by 1.5 ms or more). The tick
+misses its 8 ms mean and 16 ms worst before and after, and crowded-draw misses 10 ms before and
+after. Neither miss is this change's. Nothing under `godot/sim/` changed, and dressing is
+presentation-only. A single earlier run read about 10 ms before and 8 ms after; the base for
+that was the pre-bake tree, and this A/B does not reproduce a frame gain from DECOR on its own, so
+none is claimed.
+
+Trade-offs, measured by the gates rather than by a benchmark: the prop-occupancy skip left the
+bake, so a furnishing can show around a crate or a bed where a prop stands, and a prop placed after
+its chunk is baked shows the picture at its edges until the chunk rebakes. `godot:check:trees`
+(`TREES_OK`) holds the layer order and the picks, and `godot:check:world_bake` (`WORLD_BAKE_OK`)
+holds the DECOR rebake and mask rule.
+
 ### Remaining milestone evidence
 
 At the measured **34.00 ticks/second**, the FULL harness's exact no-wipe span from the default

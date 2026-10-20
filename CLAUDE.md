@@ -140,7 +140,7 @@ npm run check:routing    # AGENTS.md's routing table resolves; every check_*.gd 
 npm run check:timing     # the per-gate timing table names every mode the chain ran → TIMING_OK
 ```
 
-Those are the ones worth naming, not all of them: `godot:m2` chains **86**, and the authoritative
+Those are the ones worth naming, not all of them: `godot:m2` chains **88**, and the authoritative
 list is the `godot:m2:chain` script in `package.json` (`godot:m2` itself is
 `node scripts/m2-chain.mjs`, which reads that list and runs it) — read it there rather than
 trusting a copy here, because a copy here is one more thing that drifts. Run an individual gate

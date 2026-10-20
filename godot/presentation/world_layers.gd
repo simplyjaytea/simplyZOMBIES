@@ -16,6 +16,7 @@ extends RefCounted
 #   background  the screen-space clear the old _draw opened with
 #   LIVE        every tile as the survivor sees it now          shows where LIVE and not A2
 #   A2          the room boards under a standing wall module    shows where A2 and LIVE
+#   DECOR       the flat furnishings and the nature pictures    shows where LIVE
 #   REMEMBERED  every tile as the remembered map draws it       shows where EXPLORED and not LIVE
 #   ROOF        every roofable tile's sheet                     shows where ROOF and not EXPLORED
 #   ROOF_DIM    the same sheet, dimmed                          shows where ROOF and EXPLORED
@@ -35,8 +36,8 @@ const Shadowcast = preload("res://sim/vision/shadowcast.gd")
 
 const CHUNK: int = 8
 
-enum Layer { LIVE, A2, REMEMBERED, ROOF, ROOF_DIM }
-const LAYER_COUNT: int = 5
+enum Layer { LIVE, A2, DECOR, REMEMBERED, ROOF, ROOF_DIM }
+const LAYER_COUNT: int = 6
 
 # The tile-state bits world_mask.gdshader reads; the flags texture carries ROOF and A2, and LIVE
 # and EXPLORED too when the sight sets arrive as something other than the sim's own types.
@@ -49,6 +50,7 @@ const BIT_A2: int = 8
 const RULES: Array = [
 	[BIT_LIVE, BIT_A2],
 	[BIT_A2 | BIT_LIVE, 0],
+	[BIT_LIVE, 0],
 	[BIT_EXPLORED, BIT_LIVE],
 	[BIT_ROOF, BIT_EXPLORED],
 	[BIT_ROOF | BIT_EXPLORED, 0],
@@ -405,7 +407,8 @@ func set_sight(seen: Variant, explored: Variant, roof: Array, a2: Dictionary, ma
 # what the sight sets use.
 #
 # A2, ROOF and ROOF_DIM are read off the sparse bits (their tiles are few). LIVE and REMEMBERED are
-# counted per chunk: LIVE from the shadowcast's cells, a row slice at a time, and REMEMBERED as
+# counted per chunk: LIVE from the shadowcast's cells, a row slice at a time (DECOR rides on LIVE:
+# its pictures exist only on seen tiles, so a chunk with no seen tile draws none), and REMEMBERED as
 # "more EXPLORED tiles than LIVE ones", which is exact because the sim merges every cast into the
 # remembered map in the tick that made it (sightings.gd), so a seen tile is always an explored
 # one. A sight set that is not the sim's own (live_source 0, the gates' duck-typed sets) shows
@@ -414,7 +417,7 @@ func _cull(map_w: int, map_h: int) -> void:
 	var shown: Dictionary = {}
 	if _live_source == 2:
 		for key in _chunks.keys():
-			_show(key as Vector2i, (1 << Layer.LIVE) | (1 << Layer.A2) | _sparse_layers_all(key as Vector2i))
+			_show(key as Vector2i, (1 << Layer.LIVE) | (1 << Layer.A2) | (1 << Layer.DECOR) | _sparse_layers_all(key as Vector2i))
 		return
 	if _live_source != 1 or not _explored_dense:
 		for key in _chunks.keys():
@@ -433,7 +436,7 @@ func _cull(map_w: int, map_h: int) -> void:
 		var bits: int = int(shown.get(key, 0))
 		var n_live: int = int(live.get(key, 0))
 		if n_live > 0:
-			bits |= 1 << Layer.LIVE
+			bits |= (1 << Layer.LIVE) | (1 << Layer.DECOR)
 		if int(_explored_count.get(key, 0)) > n_live:
 			bits |= 1 << Layer.REMEMBERED
 		_show(key as Vector2i, bits)

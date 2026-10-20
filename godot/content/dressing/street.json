@@ -115,7 +115,7 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 12,
+      "rarity": 6,
       "beside": "wall"
     },
     {
@@ -124,7 +124,7 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 30,
+      "rarity": 15,
       "beside": "wall"
     },
     {
@@ -133,7 +133,7 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 20
+      "rarity": 10
     },
     {
       "key": "prop_chair",
@@ -141,7 +141,7 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 18
+      "rarity": 9
     },
     {
       "key": "prop_dumpster",
@@ -149,7 +149,7 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 20,
+      "rarity": 14,
       "beside": "wall"
     },
     {
@@ -158,7 +158,7 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 110
+      "rarity": 70
     },
     {
       "key": "prop_traffic_cone",
@@ -166,7 +166,7 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 90
+      "rarity": 45
     },
     {
       "key": "prop_fence_post",

@@ -3078,15 +3078,18 @@ not a to-do list:
   never an RNG stream), the first entry that lands and fits winning. A tile takes one only when it
   is a Floor tile of the entry's `where` with Floor of the same `where` east and west (which keeps
   every doorway and room edge clear), never with a door directly north or south, and `beside: wall`
-  only against a wall. Drawn by `main.gd::_draw_furnishings` after `_draw_nature` and before
-  `_draw_props`, on seen tiles only, hung by `Appearance.hang_rect`, and skipped wherever a real
-  prop stands (`Appearance.prop_tiles`, so a chair never peeks out from under a crate or a bed).
+  only against a wall. Drawn into the world bake's DECOR layer by `main.gd::_draw_decor` (A12,
+  docs/22's "Flat dressing, baked"), on seen tiles only, hung by `Appearance.hang_rect`, and
+  before `_draw_props`. A12 dropped the per-tile prop-occupancy skip from the bake, so a
+  furnishing can now show under a crate or a bed where a prop stands; the prop draws over it.
   Nothing under `godot/sim/` was touched: a furnishing blocks no step, sightline or shot, is not
   cover, is not looted, is never a path anyone avoids and is never a component, and a body walks
   across a table and is drawn over it. Rarities are content (shelf 12, medical cabinet 30, table 20,
   chair 18, dumpster 20, barrier 110, cone 90, post 70): **measured** over the four shipped
   districts at 64, 351 furnishings in eight kinds on 13,241 floor tiles, about one in thirty-eight,
-  every kind placed on at least one district and none in a doorway.
+  every kind placed on at least one district and none in a doorway. That measure predates A12,
+  which raised the density by lowering those rarities (shelf 6, cabinet 15, table 10, chair 9,
+  dumpster 14, barrier 70, cone 45; post unchanged); the new counts are not re-measured here.
 
   **Container kinds are the table's.** `prop.container` gains a top-level `tables` map
   (`prop.schema.json`): residential and commercial containers keep the wood crate, `medical` draws
