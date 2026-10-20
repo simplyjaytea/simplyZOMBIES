@@ -1069,7 +1069,7 @@ session, each with its gate red both ways and its record.
   observability progress. The older `godot:bench` remains synthetic and exits zero on overruns;
   CI's `bench` and `bench:frame` still measure the frozen TypeScript oracle. See docs/22 and the
   runtime evidence record for scope, results and next measurements.
-  The tick's ten slices (2026-10-19/20, the record's "tick to budget" entries;
+  The tick's eleven slices (2026-10-19/20, the record's "tick to budget" entries;
   [docs/22](22-performance.md#bringing-the-tick-to-budget) carries the running table) took the
   mean from 32.4 ms to about 9.5 on the baseline's machine (10.6 on the slower container that
   measured slices 8 to 10) and stopped there for the alpha. **The gap, post-alpha:** the mean is
@@ -1077,9 +1077,12 @@ session, each with its gate red both ways and its record.
   34 ms. Measured spikes: a whole 48 m cast for the player (the one cast not spread) and for a
   zombie after a nearby map change, about 7 ms; a long job plan, up to 12 ms; and runs of
   consecutive ticks where every system slows together, which reads as the shared container
-  rather than the sim. Next bounded slices: spread or cheapen the player's own cast, bound a
-  job plan's expansions per tick, and measure on a quiet machine before any timing gate is
-  enabled.
+  rather than the sim. Slice 11 spread the player's own cast over two ticks, halved the
+  colonist cast budget and cut a plan's expansions. On a quiet container the worst tick then read
+  under 16 ms in three runs; on a noisy one it stays 25 to 38 ms for either build, because the
+  host slows whatever system it lands on. Still post-alpha: a long job plan runs whole on one tick
+  (8 to 14 ms on the noisy container), so it wants splitting across ticks. The worst tick also
+  needs measuring on a quiet, dedicated machine before any timing gate is enabled.
   Draw-stage timing alone does not close delivered FPS, long-session, save or streaming budgets.
 
 **Weather — the rest of docs/16, opened by the owner 2026-09-06.** ADR 0016. The spine (kinds,
@@ -9946,6 +9949,33 @@ not a to-do list:
   Each was turned red by sabotage; with the two slice 9 switches off the 3,000-tick hash matches
   `main`, and with them on it matches slice 9.
   [docs/22](22-performance.md#bringing-the-tick-to-budget).
+
+- **Kernel & tooling — the tick to budget, slice 11: the worst tick's spikes, 2026-10-20
+  (partial).** Profiled on a quiet container, the three spike sources were these. The player's
+  whole 48 m cast cost about 3.5 ms on the tick they crossed a tile. Two quadrants of a colonist's
+  spread cast landing together cost up to 2.8 ms. A long job plan cost 5 ms for 59 steps. Each cut
+  has its own gate-drivable switch, which a lane that pins it restores.
+  `SimVisibility.STAGGER_PLAYER_CAST` spreads the player's recast over two ticks, two quadrants
+  each, on a queue of its own, so the view lands whole one tick (50 ms) after the step. The
+  colonist budget `PERSON_QUADRANTS_PER_TICK` goes from two to one. `SimPath.NEAR_TIES` breaks a
+  tie on cost toward the tile nearer the goal, in the flat and the Dictionary search alike. Plans
+  keep their length and expand fewer tiles. A plan still runs whole on one tick, so that spike is
+  smaller but not capped.
+  `godot:bench:runtime` on a third container, roughly twice as slow and noisy, median of three
+  interleaved runs: slice 10 **13.70 / 37.70 ms** to **14.29 / 32.09**, the mean inside the
+  noise. Timed per system with the two switches off and then on, the refresh's worst tick went from
+  8.6 to 17.1 ms down to 6.4 to 8.7. On the quiet container before the move, this build's worst
+  tick read 13.3 to 15.6 ms across three runs, a reading rather than a measurement because those
+  runs were not interleaved.
+  **Gated** in `godot:m2:tick`. NEAR-TIES holds every pair to the scan's length with a valid walk,
+  and the general search to the fast one tile for tile. It allows a reach where the scan gave up
+  only past the old 4,096-tile cap, and requires fewer expansions on the long pairs. PLAYER-CAST
+  holds a step's tick to the old view and the budget, and the next tick to a fresh whole cast from
+  the step's tile with a colonist queued beside it. It also holds the switch off to an immediate
+  recast. `godot:check:memory`'s walked-away control steps twice now, because the view lands a
+  tick late. Ten sabotages each turned the gate red, one of them only after the general-search
+  check was added. With every A3 switch off, the 3,000-tick hash matches `main`; with them on, it
+  repeats. [docs/22](22-performance.md#bringing-the-tick-to-budget).
 
 - **Kernel & tooling — water draw check follows its branches, 2026-10-03.** The A2 wall
   additions moved the water fill to character 4,473 after the drawing match, beyond
