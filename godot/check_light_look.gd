@@ -709,6 +709,9 @@ func _the_light_map_lands_no_light_on_an_unseen_tile() -> bool:
 		return false
 	var p0: Dictionary = open.components.get_component(open.player, "position")
 	open.components.set_component(open.player, "position", {"x": 2.5, "y": float(p0["y"])})
+	# Two steps, not one: the player's recast after a move lands whole one tick later
+	# (SimVisibility.STAGGER_PLAYER_CAST, A3), the check_memory_look precedent.
+	open.step()
 	open.step()
 	var moved: Dictionary = LightLook.light_texels(open, int(open.player), _view())
 	var seen_now: Variant = open.vision.tiles_for(int(open.player))
