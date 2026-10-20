@@ -968,6 +968,17 @@ simulation and attention mechanic, not part of source colouring. Placed utility 
 remain absent: no placed stove, activated streetlamp, generator, rain collector or spike trap was
 added. These are separate pieces; the completed pictures do not imply those mechanics exist.
 
+- **Vehicle pictures off the art grid.** Found by the A11 art review (2026-10-20), not caused by
+  it. `_blit_vehicle` stands every vehicle through `Appearance.body_rect`, which drops a
+  feet-anchored picture `FOOT_DROP_PX` (3.0 screen pixels, a body's contact-shadow line) below
+  its ground point, so a car's rear sits 1.5 art pixels past its footprint's south edge at the
+  2× rung rather than on the tile line; trees take the same drop on purpose (`check_trees.gd`
+  asserts it), so the fix is a placement rule for vehicles only, with its own lane, not a
+  change to `body_rect`. The same review saw the pack's east-west cars at an uneven scale; that
+  did not reproduce (they blit at `Appearance.blit_scale`, zoom / 32, a whole 2.0 at the default
+  rung, and their PNGs carry no doubled rows or columns), so it is noted here, not named as a
+  defect.
+
 **The inventory sheet and the screens — decided by the owner (2026-09-08).** The inventory is
 mechanically complete and gated, and the screen reaches four of its commands: `item.move`,
 `item.equip`, `item.unequip` and `item.use`. The owner opened an overhaul from four mockups and
@@ -2578,8 +2589,9 @@ not a to-do list:
   north-south, 12×12 square, centred on the tile): the pane in four greys (a shadow under the
   lintel, a darker upper half, a lighter lower half, and diagonal reflection streaks either side
   of a mullion, as the pack's car windows carry them); the frame lit along its top, shaded along
-  its bottom, with a grey edge outside it that the rim tint takes one step darker than the
-  brick's mortar line, at the wall's own line weight rather than a body's near-black outline. Both are greys, sourced in
+  its bottom, with a light grey edge outside it that the rim tint takes to the brick mortar's
+  own value (luminance 100), at the wall's line weight rather than a body's near-black outline;
+  each pane's reflection sits at its own offset, so no two are one stamp. Both are greys, sourced in
   `authored.json` as kind `tile`, and the renderer tints them by the two colours the rects were
   (`col.lightened(0.28)` for the pane, `Palette.COLOURS["windowRim"]` for the frame), so night,
   weather and a boarded window's stage reach them unchanged. The pane's greys are 168, 206, 232
@@ -2660,6 +2672,10 @@ not a to-do list:
   door standing in a one-pixel dark gap with a crescent moon cut through its top board and a
   latch. Same 32×28 picture, same pad and `size`, so PROPS and STANDING judge it unchanged.
 
+  **Third pass, after the second review (2026-10-20).** The roof's top edge carries the
+  one-pixel outline the rest of the picture has, and the moon is a three-pixel curved crescent
+  set off-centre in the upper door rather than a notch.
+
   **What it leaves:** the latrine and the well are drawn three-quarter from the south and do not
   turn; the cold fire has no smoke and the lit one no ember glow beyond its light.
 
@@ -2737,6 +2753,14 @@ not a to-do list:
   at the back with its nose running north, a swept bar with dark grips, and pedals out either
   side.
 
+  **Third pass, after the second review (2026-10-20).** The cars' rear is closed by the outline
+  on the canvas's bottom row (it ran off the canvas), the tyres sit flush inside their arches
+  instead of a pixel proud, and the view is a stronger three-quarter: a shorter roof over a rear
+  face 27–35 rows deep, carrying rear glass (hatchback), two door windows and a seam (van) or a
+  lit tailgate (pickup), with the lamps and plate. Lengths are now **91, 108 and 110** rows; the
+  hatchback's paint is one step brighter. The north-south bicycle and e-bike are 56 rows long,
+  the pack's east-west span, with two identical oval wheels (a superellipse, no pointed crown).
+
   **What it leaves:** a car seen from behind is still the one picture for both north-south
   facings (decision 11's limit, in what's left); no state between intact and wreck; no lamp glow.
 
@@ -2788,6 +2812,15 @@ not a to-do list:
   The screamer keeps its sheet; `extract.py` now pulls every highlight above the commuter's
   brightest skin (luminance 188) down toward it with its order kept, and takes the shirt's pale
   greys one value under the face. Sizes, anchors, rates and keys are unchanged.
+
+  **Third pass, after the second review (2026-10-20).** The belly sits 3–4 px past the arms and
+  hips at the front and its front edge holds still through the walk (one centre a row, from the
+  idle); from behind it spills past the flanks over the belt; on the prone corpse it bulges out
+  from under the torso. In every side frame the leading forearm is painted over the belly, a
+  step darker than the gut with a one-pixel cast shadow, its hand where the heavy's own hand is in
+  that frame, so it swings with the walk. Every outline is the pack's near-black (3,3,3), not
+  (26,24,20). The screamer's hands take two tones, 166 lit and 142 shaded, in the commuter's
+  133–169 range.
 
   **First cut,** like study 01: no attack, hit, death-transition or rising states; the scream and
   the burst have no animation of their own.

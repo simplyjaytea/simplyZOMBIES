@@ -32,14 +32,18 @@ its sheets straight from the heavy, with no generation: the heavy's head, face, 
 arms and walk kept pixel for pixel, the skin carried onto a four-tone olive at the pack's
 saturation, and the belly an ellipsoid lit from the top left in contiguous bands, riding out
 from under the vest's hem (which keeps a one-pixel shadow), sagging over the belt, bulging
-forward in the side views and staying behind any arm that hangs in front of it. Its corpses take
-the same skin and a mound shaded the same way. The generated bloater sheets stay under
+forward in the side views 3-4 px past the arms and hips with its front edge held still through
+the walk, spilling past the flanks from behind, and outlined in the pack's near-black. In every
+side frame the leading forearm is painted over it, a step darker with a cast shadow, its hand
+where the heavy's hand is in that frame. Its corpses take the same skin and a mound shaded the
+same way; on the prone one it bulges out from under the torso. The generated bloater sheets stay under
 `sources/` as the record `prompts.json` describes; nothing reads them.
 
 The screamer's corpses are the paint-over guides **used as drawn**. Every img2img pass over them blurred the
 outline and lost the head (the `rejected-*-corpses-*` sheets), so the settled poses are study
 01's own commuter corpses, recoloured. `extract.py` also pulls the screamer's near-white
-highlights down into the pack's skin range and takes its shirt a value under its face.
+highlights down into the pack's skin range, takes its shirt a value under its face, and shades
+each hand in two tones (166 lit, 142 shaded) inside the commuter's own hand range.
 
 ## Rebuilding
 

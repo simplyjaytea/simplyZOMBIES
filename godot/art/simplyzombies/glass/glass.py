@@ -18,10 +18,10 @@ from pathlib import Path
 from PIL import Image
 
 HERE = Path(__file__).resolve().parent
-# The outline the frame stands in. Tinted by windowRim it lands at (63, 76, 84): one step darker
-# than the brick's mortar line (104, 101, 95) so the window still reads, and nowhere near a body's
-# near-black outline -- a window is part of the wall, drawn at the wall's own line weight.
-EDGE = (168, 168, 168, 255)
+# The outline the frame stands in. Tinted by windowRim it lands at (86, 105, 115), luminance 100:
+# the brick's own mortar line (104, 101, 95) is luminance 100 too, so the window's edge is drawn at
+# the wall's line weight and value -- a window is part of the wall, not a body's near-black outline.
+EDGE = (230, 230, 230, 255)
 CLEAR = (0, 0, 0, 0)
 
 
@@ -63,17 +63,20 @@ def pane(shape):
     else:
         mid = (y0 + y1) // 2
         halves = [(y0, mid - 1), (mid + 1, y1)]
-    for a, b in halves:
+    for i, (a, b) in enumerate(halves):
+        # the broad streak a third of the way in and the thin one after it; the second pane takes
+        # its reflection further along and the thin streak first, so no two panes are one stamp
+        third = (b - a) // 3
+        streaks = ((a + third, 2), (a + third + 4, 1)) if i == 0 else ((a + third + 1, 1), (a + third + 4, 2))
         if long_x:
-            # the broad streak a third of the way in, the thin one two pixels after it
-            for k, width in ((a + (b - a) // 3, 2), (a + (b - a) // 3 + 4, 1)):
+            for k, width in streaks:
                 for y in range(y0 + 1, y1 + 1):
                     for w in range(width):
                         x = k + w + (y1 - y)
                         if a <= x <= b:
                             px[x, y] = grey(255)
         else:
-            for k, width in ((a + (b - a) // 3, 2), (a + (b - a) // 3 + 4, 1)):
+            for k, width in streaks:
                 for x in range(x0, x1 + 1):
                     for w in range(width):
                         y = k + w + (x - x0)
@@ -91,12 +94,12 @@ def frame(shape):
         for x in range(fx0, fx1 + 1):
             if fx0 < x < fx1 and fy0 < y < fy1:
                 continue
-            px[x, y] = grey(255 if y == fy0 else (176 if y == fy1 else 222))
+            px[x, y] = grey(255 if y == fy0 else (196 if y == fy1 else 248))
     # the mullion across the short way
     if (x1 - x0) >= (y1 - y0):
         mx = (x0 + x1) // 2
         for y in range(y0, y1 + 1):
-            px[mx, y] = grey(222)
+            px[mx, y] = grey(244)
     else:
         my = (y0 + y1) // 2
         for x in range(x0, x1 + 1):

@@ -120,8 +120,9 @@ def latrine():
             s.put(x, y, "seam" if (x - 4) % 4 == 3 else ("plank_a" if (x - 4) // 4 % 2 else "plank_b"))
     for x in (4, 25):
         s.rect(x, 9, x, 25, "wood")
-    # the roof, seen from above: planks running down the slope, overhanging the wall
-    for y in range(0, 8):
+    # the roof, seen from above: planks running down the slope, overhanging the wall; it starts a
+    # row down so the outline closes along its top edge too
+    for y in range(1, 8):
         for x in range(2, 28):
             s.put(x, y, "seam" if (x - 2) % 5 == 4 else "roof")
     s.rect(2, 8, 27, 8, "wood")
@@ -135,9 +136,10 @@ def latrine():
         for x in range(10, 20):
             s.put(x, y, "seam" if x in (12, 17) and y > 19 else "door")
     s.rect(10, 19, 19, 19, "wood")
-    # the moon, a crescent cut through the door's top board, opening east
-    for x, y in ((15, 14), (16, 14), (14, 15), (15, 15), (14, 16), (15, 16), (14, 17), (15, 17),
-                 (15, 18), (16, 18)):
+    # the moon, a crescent cut through the door's upper boards east of centre, three pixels wide
+    # and curved, its horns opening east
+    for x, y in ((16, 14), (17, 14), (15, 15), (16, 15), (15, 16), (15, 17), (16, 17), (16, 18),
+                 (17, 18)):
         s.put(x, y, "gap")
     s.put(18, 22, "metal")
     s.shine.add((18, 22))
@@ -146,8 +148,8 @@ def latrine():
     s.rect(27, 19, 30, 25, "metal")
     s.ellipse(28.5, 19, 2.0, 1.2, "ash")
     for x in range(3, 27, 5):
-        s.shine.add((x, 0))
-        s.shine.add((x + 1, 1))
+        s.shine.add((x, 1))
+        s.shine.add((x + 1, 2))
     return s
 
 
