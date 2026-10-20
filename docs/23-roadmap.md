@@ -852,15 +852,6 @@ equipment slots draw". Each piece below is one session with its gate red both wa
 the flat projection, 32 px a tile, the feet anchor, the health-bar ban and the prose HUD are
 untouched, and the peripheral-anonymity clause is proved *more* strongly than before.
 
-- **Aim is a second heading, priced at a walk.** The sim carries `aim` beside `facing`; an absent
-  `aim` reads as `facing`, which is what keeps every existing fixture true. Accepted while moving
-  only at Walk or slower; `_integrate_movement` snaps it at Jog and Sprint, and a zombie never
-  grows one. The shot, the swing and the shadowcast read the aim; motion keeps the heading. **The
-  price must widen the cone past `WIDE_HALF`**, because a moving shooter is already pinned there
-  and a term under that clamp would be a dead socket — that is the lane's true positive. Owes a
-  `SAVE_VERSION` bump in **two** gates that each name the other, a measured driver on what
-  aim-while-walking does to sightings before the balance run, and a FAST re-baseline if a seed
-  line moves. Sim-only: it can run in parallel with the art slices.
 - **The canvas learns a pivot.** `Canvas` accepts a normalized pivot (0..1, y-up) with `centre`
   and `feet` as exact presets, and gains a `paste` that refuses a non-integral pixel delta; the
   assembler splits into legs/torso/head layers and a compose. **Additive by construction**: the
@@ -2302,7 +2293,8 @@ not a to-do list:
   drawn body's position and facing just before every `world.step()`, and `_draw_entities` draws
   at `lerp(previous tick, current tick, accumulator / TICK_SECONDS)`: one tick of render delay,
   traded for motion that never jumps. Riders slide with the vehicle they ride, a live vehicle's
-  picture with its entity, the facing line and aim cone turn the short way between ticks, and a
+  picture with its entity, the facing line and aim cone (both retired by A9, below; the aim now
+  glides the same way) turn the short way between ticks, and a
   jump past `SNAP_METRES` (4 m in one tick: a load, a mount, a reused id) draws on the new point
   at once. The camera now follows the drawn point and updates after the frame's ticks rather
   than before them, so it no longer chases a target that steps. `_process` clamps its
@@ -2381,8 +2373,8 @@ not a to-do list:
   clothing will author; (2) otherwise its view picture shifted by the frame's offset for the
   region its family `rides` (`authored.json`: helmet and gas mask the head, vest and backpack the
   torso); (3) a held weapon on the frame's own hand (`Appearance.frame_hand`, falling back to
-  `HELD_HANDS` at rest). A muzzle flash is still placed from the rest hand in `fx_look.gd`; A9's
-  aim rework owns that.
+  `HELD_HANDS` at rest). A muzzle flash was still placed from the rest hand in `fx_look.gd`; A9
+  (below) moved it to the hand of the frame the shooter was last drawn on.
 
   **The breath was the owner's call, and it is kept** (owner, 2026-10-20; docs/30's "The idle
   breath, kept"). `breath_fps: 0` in `authored.json` would turn it off per family without code.
@@ -2517,6 +2509,101 @@ not a to-do list:
   Before/after strips and GIFs per action, for the eight bodies there were before the screamer
   and the bloater joined, are under
   `.hermes/plans/2026-10-19_a8-actions/`.
+
+- **Feel — the weapon turned to the cursor, and the blow felt, 2026-10-19.** Item A9 of the
+  2026-10-19 alpha plan, with the owner's answer to its Q3 the same day: the cursor is the aimer,
+  the weapon points at it and the body follows, the way Project Zomboid plays it. Before this a
+  moving body faced where it walked and ignored the cursor, the held weapon could point only
+  along four axes, a white line and an arc stood over the player as the only readout of aim, and
+  a blow that landed changed nothing on the body it hit but the blood.
+
+  **The sim: aim is a second heading, priced at a walk** (the what's-left piece of that name,
+  docs/30's decoupled paperdoll decision 7). `sim/aim.gd` (`SimAim`) is the one copy of the rule.
+  A body carries `facing`, where its feet go, and once the player has proposed one an `aim`. The
+  `aim` command turns a standing body's feet and aim together, as the single heading always did;
+  a moving one keeps its heading and turns only its aim, and only on Walk or a slower rung --
+  `_integrate_movement` snaps a held aim back to the heading every tick at Jog and Sprint, and a
+  rider's aim is the machine's. The shot (`ranged.gd`), the swing (`melee.gd`) and the eyes
+  (`visibility.gd`) read `SimAim.radians_of`; an NPC turn (`npc_combat._face_at`) and a vehicle's
+  pin turn the aim with the body, so a stale proposal never points a swing. The price is
+  `SimRanged.cone_cap`: a moving shooter aiming away from where it walks has its cone widened
+  **past** `WIDE_HALF` by `TWIST_WIDEN` (0.35) at a full about-face, in proportion to the turn, and
+  a round may widen to that ceiling but never past it. **An absent `aim` reads as `facing`, and
+  nothing but the `aim` command writes one, which only presentation pushes** -- so every fixture,
+  every headless campaign and the balance harness describe exactly the world they did, and the
+  FAST tier needed no driver and no re-baseline (it passed unchanged inside `godot:m2`).
+  **No `SAVE_VERSION` bump**, against the piece's own note and by `kernel/serialize.gd`'s rule
+  (a bump is for a save an older build would misread): a save without `aim` restores every body
+  facing where it aims, which is what it was; the `visualRemains` precedent is the same shape.
+
+  **The picture.** Your body shows the view its aim falls in and the held weapon is placed for that
+  view exactly as before -- grip on the hand, barrel the view's way, mirrored only facing west --
+  then turned about the hand pixel's centre by what is left of the aim (`Appearance.held_turn`,
+  never more than an eighth of a turn), drawn as one textured polygon (`Appearance.held_quad`,
+  `main.gd`'s `_draw_layer`); no transform, so `check_topdown`'s counters still read zero. The
+  aim glides between ticks like the heading (`interp.gd`'s `aim`), and your own weapon draws the
+  cursor's bearing the frame it moves whenever `SimAim.holds` says the next tick will take it.
+  `input_map.gd` re-aims every frame once a real pointer has moved, because walking past a still
+  cursor swings the bearing too; a run nobody has pointed at proposes nothing. The facing line
+  over every body and the aim cone over the player are gone: the sway is a **reticle at the
+  cursor** (`_draw_reticle`) -- four ticks and a faint ring standing off it by the cone's half-angle
+  at the cursor's distance, dimmed while the weapon is not raised, firearms only, never a number.
+
+  **The blow felt** (`fx_look.gd`, presentation only). A seen blow flashes the struck body white
+  for 0.12 s (a silhouette of the body and what it wears, in the palette's new `hitFlash`, made
+  once per picture) and jolts its picture 3 art px straight away from the striker, easing back
+  over 0.18 s; the sim's position, the shadow and the world hash never move. A shot kicks the
+  weapon 2 art px back along its turned barrel over 0.12 s: the recoil *frames* are A8's, and
+  `FxLook.kick(entity)` is the hook they can key to. Neither varies with the blow -- a graze and a
+  killing blow flash and jolt alike, and `_felt` reads no damage, part or weapon. A muzzle flash
+  now leaves the turned muzzle (the sheet placed for the aim's view and turned about the same
+  hand), from the hand of the frame the shooter was last drawn on (`note_frame`). `main.gd`
+  changes: `_draw`, `_draw_entities`, `_blit_body`, `_layer_rect`, `_draw_effects`, and the new
+  `_draw_layer`, `_blit_flash`, `_white_of`, `_draw_reticle`.
+
+  **The body faces the cursor whichever way it walks.** The view is the aim's, never the walk's,
+  so a walker aiming over their shoulder would otherwise run the facing view's walk forwards while
+  carried backwards -- a moonwalk. The animation clock now steps such a body's cycle the other way
+  (`AnimClock.backpedals`, handed the view's own direction by `_draw_entities`): ground covered on
+  the far side of the view runs the same stride in reverse, a strafe square to the view steps
+  forwards, and a body with no view to compare (every face-on rig) never backpedals. **The weapon
+  you are wielding comes round in front.** A service pistol equips to the secondary hand, which
+  `HELD_BEHIND` hides behind the body seen from either side, so the gun you fired was the hidden
+  one. `Appearance.wielded_items` reads the item each live `rangedWeapon` and `meleeWeapon`
+  profile was built from (items.gd's `source`), and a wielded weapon draws over the body seen from
+  east or west (`WIELDED_OVER`) whichever hand holds it; seen from behind it stays beyond the body,
+  and a weapon carried but not wielded keeps its hand's side.
+
+  **Half shipped, and which half:** the legs still have the body's four views, so a backpedal is
+  the view's walk reversed rather than a stride of its own (legs on the movement vector is still
+  the decoupled paperdoll arc's); and the jolt is the picture only, by design, so a heavy blow does
+  not stagger a body in the sim.
+
+  **Evidence:** `godot:m2:aim` HEADING: a body never aimed reads its facing and grows no aim;
+  standing still turns feet and aim; walking east aimed north keeps the feet east, sees north
+  better than south, and widens the cone **0.550 → 0.725** (past `WIDE_HALF`); standing twisted is
+  free; jogging refuses a proposal and snaps a held aim back; an NPC turn turns the aim; the shot,
+  the swing and the eyes read it (a commented read refused). `godot:check:worn` AIM: **1,440**
+  aims over 10 held weapons in both hands keep the grip on the hand and the barrel on the aim
+  within 0.001 px, unkicked and kicked, at most 0.772 rad left after the view, and unturned the
+  quad is exactly HELD's rect on all four views; an unturned quad off the axis, a backwards turn, a
+  wrong pivot, and a draw loop ignoring the aim, the turn or the aim's view are each refused; HELD's
+  draw-loop needles follow the draw into `_draw_layer` and `held_quad`. `godot:check:fx` FELT: a
+  seen blow flashes 1.0 and jolts 3 px away from the striker, both fading to nothing; a graze and a
+  killing blow are felt alike while a blow from the far side jolts the other way; a sourceless
+  bite flashes without a jolt; nothing unseen starts anything; a real shot kicks and settles; the
+  draw loop reads all three. TURNED: a real pistol shot aimed 0.5, -0.6 and 2.0 puts the flash's
+  anchor on the turned muzzle and an axis shot keeps the plain rect; a walking frame's hand is
+  used. DRAWN now also blits the flashes as polygons and proves the hit flash reaches the draw.
+  `godot:check:topdown` and `godot:check:weather` follow the retired line and cone to the aim and
+  the reticle; `godot:check:zombie_art`'s READERS order follows the facing line to `SimAim.radians_of`.
+  `godot:check:topdown` TURN: a fifth of a second at pace through the real clock, walking away from
+  an east view runs exactly the forward stride in reverse, and a strafe south and a body handed no
+  front step forwards; `_draw_entities` hands the clock the view's front. `godot:check:worn` ORDER:
+  the kitted actor wielding its far hand's pistol draws it over the body from e and w and under from
+  n, and wielding the shotgun leaves the pistol behind (each fix sabotaged once and its lane went
+  red). Before/after GIFs (aiming in a circle, aiming while walking, a hit, a backpedal, the
+  sidearm seen from the side) are under `.hermes/plans/2026-10-19_a9-aim/`.
 
 - **Gate infrastructure — the `godot:m2` chain runs as four CI shards, 2026-10-19.** The
   85-gate chain took 40m45s on one runner (job 118220307956, measured on 2b48fef), against the

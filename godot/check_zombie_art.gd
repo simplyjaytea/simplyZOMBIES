@@ -45,7 +45,7 @@ func _run() -> void:
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
 	ok = _require(seconds <= BUDGET_SECONDS, "BUDGET: %.2f s exceeds %.0f s" % [seconds, BUDGET_SECONDS]) and ok
 	if ok:
-		print("ZOMBIE_ART_OK CONTENT nine selected families; MOTION four views with eight distinct poses and a breath, render-clock stride timing; CORPSES matching art centered on ground; DEATH one drop/despawn and no active corpse zombie; SAVE optional bounded cosmetic history without RNG/allocation; READERS Focal-only settled draw before standing gear/facing/speech; %.2f s" % seconds)
+		print("ZOMBIE_ART_OK CONTENT nine selected families; MOTION four views with eight distinct poses and a breath, render-clock stride timing; CORPSES matching art centered on ground; DEATH one drop/despawn and no active corpse zombie; SAVE optional bounded cosmetic history without RNG/allocation; READERS Focal-only settled draw before standing aim/gear/speech; %.2f s" % seconds)
 		quit(0)
 	else:
 		push_error("ZOMBIE_ART_FAIL")
@@ -425,15 +425,17 @@ class GateSight:
 
 
 func _the_game_reads_the_art() -> bool:
-	var control: String = 'if bool(it.get("corpse", false)):\n\t_draw_corpse(it, px_scale)\n\tcontinue\nAppearance.for_entity(world, it)\nAppearance.equipment_layers_for(world, eid)\n_focal_drawn.append(it)\ndraw_line(a, b, c)\n'
-	var needles: Array = ['if bool(it.get("corpse", false)):', "_draw_corpse(it, px_scale)", "continue", "Appearance.for_entity(", "Appearance.equipment_layers_for(", "_focal_drawn.append(", "draw_line("]
+	# The standing body's heading is its aim since alpha plan A9 retired the facing line: the view
+	# and the weapon read `SimAim.radians_of`, after the look and before the gear it places.
+	var control: String = 'if bool(it.get("corpse", false)):\n\t_draw_corpse(it, px_scale)\n\tcontinue\nAppearance.for_entity(world, it)\nSimAim.radians_of(world.components, eid)\nAppearance.equipment_layers_for(world, eid)\n_focal_drawn.append(it)\n'
+	var needles: Array = ['if bool(it.get("corpse", false)):', "_draw_corpse(it, px_scale)", "continue", "Appearance.for_entity(", "SimAim.radians_of(", "Appearance.equipment_layers_for(", "_focal_drawn.append("]
 	if not _require(_ordered(control, needles) and not _ordered(control.replace("_draw_corpse(", "# _draw_corpse("), needles) and not _ordered(control.replace("continue", "pass"), needles) and not _ordered(control, ["Appearance.equipment_layers_for(", "_draw_corpse("]), "READERS: scanner accepts a missing/commented/misordered reader"):
 		return false
 	var main: String = FileAccess.get_file_as_string("res://presentation/main.gd")
 	var draw: String = _function(main, "func _draw_entities(")
 	if not _corpses_are_below_standing_pictures(draw):
 		return false
-	if not _require(_ordered(draw, needles), "READERS: real entity pass does not draw and exit the corpse branch before standing body, equipment, speech and facing"):
+	if not _require(_ordered(draw, needles), "READERS: real entity pass does not draw and exit the corpse branch before standing body, aim, equipment and speech"):
 		return false
 	if not _require(_ordered(draw, ['world.components.has_component(int(ent), "corpse")', 'if is_corpse and det != SimVisibility.Detail.Focal:', 'continue', '"corpse": is_corpse', 'items.append_array(_visual_remains_items())']), "READERS: human corpses or saved zombie remains do not join the Focal entity pass"):
 		return false
@@ -467,5 +469,5 @@ func _the_game_reads_the_art() -> bool:
 				ok = _require(int(item.get("id", -1)) == 34 and item.get("ztype") == "zombie.runner" and item.get("tint") == "#abcdef" and bool(item.get("corpse", false)) and Appearance.corpse_look(w, item).get("texture") != null, "READERS: real collector loses identity/type/tint/corpse art") and ok
 	scene.free()
 	if ok:
-		print("READERS OK real remains collector refuses Unseen/Peripheral and passes Focal art; entity branch exits before gear, speech and facing; living afterimage memory is unchanged")
+		print("READERS OK real remains collector refuses Unseen/Peripheral and passes Focal art; entity branch exits before aim, gear and speech; living afterimage memory is unchanged")
 	return ok
