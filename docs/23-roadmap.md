@@ -3090,6 +3090,14 @@ not a to-do list:
   every kind placed on at least one district and none in a doorway. That measure predates A12,
   which raised the density by lowering those rarities (shelf 6, cabinet 15, table 10, chair 9,
   dumpster 14, barrier 70, cone 45; post unchanged); the new counts are not re-measured here.
+  **A12's second pass** (the coordinator's visual QA of 07:13): the roll is `Dressing._mix` over
+  the hash, because the plain hash laid the first draft on a lattice (`godot:check:trees`'s
+  LATTICE lane: 250 and 241 neighbour pairs on a 32-square window, the shifted roll 320 and 192);
+  no furnishing stands within three tiles of the colony's start (CLEAR lane, which says so and
+  skips if the raw roll puts none there); every flat picture sits up to a fifth of a tile off its
+  centre and may be mirrored (PLACED lane, which also holds `_draw_decor` and `_draw_scatter` to
+  reading the fields). Three pack props join as scenery: the oil barrel, the pallet stack and the
+  rubbish bags. The crates, footlockers and medical boxes stay container kinds and stay out.
 
   **Container kinds are the table's.** `prop.container` gains a top-level `tables` map
   (`prop.schema.json`): residential and commercial containers keep the wood crate, `medical` draws
@@ -4705,11 +4713,11 @@ not a to-do list:
   the shallow validator checks that `wrecks` is an object and never once looks inside it — the
   DRESSING lane walks it, resolves every key at 64×64, refuses a fabricated key and a duplicated
   one, and an empty block resolves nothing rather than defaulting.
-  **Debris** (presentation). `debris_rubble_a/b` over every tile the slice-2 rubble pass painted —
-  129 of them on the canonical seed, which had been flat tint — and `debris_litter_a/b/c` on 1 in
-  17 tiles of outdoor street pavement, two independent hash salts so making the scatter denser
-  cannot silently reshuffle which scrap lands where. Both cosmetic, both deterministic across
-  boots and saves by construction.
+  boots and saves by construction. **A12's second pass** replaced the litter scraps: the generated
+  `debris_litter_a/b/c` drew specks too small to read at game scale, so they are retired, and
+  litter is the pack's own `overlay-debris` (authored key `debris_litter_pack`), on 1 in 6 paved
+  floor tiles, room floors included, mirrored by a hash. `godot:check:wrecks`'s SCATTER lane holds
+  the surface rule and the density ceiling.
   **Gate lanes, red both ways.** `WRECKS_OK`: DRESSING (fabricated key, duplicated key, empty
   block), SEGMENTS (a lone tile mis-classified as a car front; front/rear swapped; `mid` never
   returned; the quarter turn removed; the run anchor made per-tile), VARIATION (a constant

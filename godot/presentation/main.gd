@@ -1720,13 +1720,25 @@ func _draw_decor(region: Rect2i) -> void:
 	var px_scale: float = Appearance.blit_scale(zoom)
 	for kind in ["nature", "furnishings"]:
 		for pick in picks[kind] as Array:
-			var texture: Texture2D = Appearance.resolve(String((pick as Dictionary)["key"]))
+			var placed: Dictionary = pick as Dictionary
+			var texture: Texture2D = Appearance.resolve(String(placed["key"]))
 			if texture == null:
 				continue
-			var tx: int = int((pick as Dictionary)["tx"])
-			var ty: int = int((pick as Dictionary)["ty"])
-			var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(tx) + 0.5, float(ty) + 1.0)
-			_pen.draw_texture_rect(texture, Appearance.hang_rect(float(sc["sx"]), float(sc["sy"]), texture.get_size() * px_scale), false)
+			var tx: int = int(placed["tx"])
+			var ty: int = int(placed["ty"])
+			# Off the tile's centre by the pick's own jitter, so a row of the same picture does not
+			# stand on a lattice; mirrored where the pick says so.
+			var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(tx) + 0.5 + float(placed["ox"]), float(ty) + 1.0 + float(placed["oy"]))
+			var rect: Rect2 = Appearance.hang_rect(float(sc["sx"]), float(sc["sy"]), texture.get_size() * px_scale)
+			_pen.draw_texture_rect(texture, _mirrored(rect, bool(placed["flip"])), false)
+
+
+# The same rect with its width turned about its centre line: a negative width draws the texture
+# mirrored, which is how one picture gives two looks.
+func _mirrored(rect: Rect2, flip: bool) -> Rect2:
+	if not flip:
+		return rect
+	return Rect2(rect.position.x + rect.size.x, rect.position.y, -rect.size.x, rect.size.y)
 
 
 # One heap of junk over a Low tile no parked vehicle covers. False when content declares no
@@ -1771,7 +1783,8 @@ func _draw_scatter(rect: Rect2, dress: Dictionary, tx: int, ty: int) -> void:
 	var texture: Texture2D = Appearance.resolve(key)
 	if texture == null:
 		return
-	_pen.draw_texture_rect(texture, rect, false)
+	var flipped: bool = Dressing.flip_at(seed_val, tx, ty, Dressing.SALT_LITTER_FLIP)
+	_pen.draw_texture_rect(texture, _mirrored(rect, flipped), false)
 
 
 func _mask_at(mask: PackedByteArray, tx: int, ty: int) -> int:

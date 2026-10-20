@@ -2311,12 +2311,14 @@ func _the_scatter_lands_where_the_ground_says(stash: Dictionary) -> bool:
 			elif not rubble_key.is_empty():
 				push_error("tile (%d,%d) is not outdoor rubble floor and resolved rubble debris '%s'" % [tx, ty, rubble_key])
 				return false
-			if floor_outdoors and surface == SimTileMap.SURFACE_PAVED:
+			# Litter lies on any paved floor, a room's as much as the street's (A12, the second pass).
+			var paved_floor: bool = int(map.tiles[idx]) == SimTileMap.Tile.Floor and surface == SimTileMap.SURFACE_PAVED
+			if paved_floor:
 				paved_tiles += 1
 				if not litter_key.is_empty():
 					litter_drawn += 1
 			elif not litter_key.is_empty():
-				push_error("tile (%d,%d) is not outdoor street pavement and resolved litter '%s'" % [tx, ty, litter_key])
+				push_error("tile (%d,%d) is not paved floor and resolved litter '%s'" % [tx, ty, litter_key])
 				return false
 			for key in [rubble_key, litter_key]:
 				if not String(key).is_empty() and Appearance.resolve(String(key)) == null:

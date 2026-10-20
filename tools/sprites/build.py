@@ -137,7 +137,10 @@ def canvas_of(key):
 # a generator claiming it is already refused as declared in both tiers. The old body_shambler
 # family retired with the seven zombie designs (2026-10-02); all twenty member PNGs must stay
 # absent too, while the original source sheets remain in the art pack for provenance.
-RETIRED_KEYS = ("tree_pine_a", "tree_pine_b", "tree_pine_c", "low_heap_a", "low_heap_b") + tuple(
+RETIRED_KEYS = (
+    "tree_pine_a", "tree_pine_b", "tree_pine_c", "low_heap_a", "low_heap_b",
+    "debris_litter_a", "debris_litter_b", "debris_litter_c",
+) + tuple(
     "body_shambler_" + suffix
     for view in ("s", "e", "n", "w")
     for suffix in (view, *("walk_%s_%d" % (view, frame) for frame in range(4)))

@@ -7,9 +7,7 @@
     "heap_pallets"
   ],
   "litter": [
-    "debris_litter_a",
-    "debris_litter_b",
-    "debris_litter_c"
+    "debris_litter_pack"
   ],
   "rubble": [
     "debris_rubble_a",
@@ -203,6 +201,32 @@
       ],
       "rarity": 180,
       "standing": true
+    },
+    {
+      "key": "prop_barrel",
+      "where": "outdoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 40
+    },
+    {
+      "key": "prop_pallet_stack",
+      "where": "outdoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 55
+    },
+    {
+      "key": "prop_trash_bags",
+      "where": "outdoors",
+      "surfaces": [
+        "paved",
+        "grass"
+      ],
+      "rarity": 35,
+      "beside": "wall"
     }
   ],
   "wall_modules": {

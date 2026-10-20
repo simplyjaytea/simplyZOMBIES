@@ -567,38 +567,52 @@ fetches a fragment. llvmpipe numbers are not hardware GPU results, as above.
 Plan item A12, 2026-10-20 (`presentation/world_layers.gd`, `presentation/dressing.gd::decor_picks`,
 `main.gd::_draw_decor`). The nature pictures and the furnishings left the per-frame draw loop and
 bake into a sixth world layer, DECOR, which is LIVE-only: it shows where the sim sees, and it is
-culled with its chunk like the seen ground. `decor_picks` takes the same hash picks the old loops
-took, so the pictures are the ones they were; the furnishing pass still skips a tile a standing
-picture holds. Density came from content: furnishing rarities in `content/dressing/street.json`
-went down (shelf 6, cabinet 15, table 10, chair 9, dumpster 14, barrier 70, cone 45; post
-unchanged), and litter went from one tile in 17 to one in 6. The litter rate is a judgement from
-the before and after shots, not a measured reference.
+culled with its chunk like the seen ground. `decor_picks` answers the picks the per-tile functions
+make, each with its offset from the tile's centre and a mirror flag, so a baked picture is the one
+the frame would have drawn.
+
+The density came from three places. Furnishing rarities in `content/dressing/street.json` went down
+(shelf 6, cabinet 15, table 10, chair 9, dumpster 14, barrier 70, cone 45; post unchanged), and three
+pack props joined as scenery: the oil barrel (40), the pallet stack (55) and the rubbish bags (35,
+beside a wall or on grass). The crates, footlockers and medical boxes are container kinds and stay
+out. Litter is the pack's own `overlay-debris` on one paved floor tile in six, room floors as well
+as street. The generated scraps it replaced drew specks too small to read at game scale, so they
+are retired. The rate is a judgement from the shots, not a measured reference.
+
+Three rules keep the picks from reading as a showroom. The placement roll runs through
+`Dressing._mix`, a multiply-xorshift finaliser over the hash: the plain hash's low bits fell on a
+lattice, and `godot:check:trees`'s LATTICE lane holds the mixed roll to a near-even pair count on a
+32-square window (250 and 241 against 248 expected; the shifted roll gave 320 and 192). Each flat
+picture sits up to a fifth of a tile off its centre, and about half are mirrored (PLACED lane).
+Nothing stands within three tiles of the colony's start, the square the survivor is put on and
+the other boot colonists are offset from (CLEAR lane, which says so and skips when the raw roll
+puts nothing there).
 
 Measured 2026-10-20 on one container, with `npm run godot:bench:runtime` and
 `npm run godot:bench:frame` at 1280×720, Godot 4.7.1, X11/Xvfb, llvmpipe (LLVM 20.1.2, 256 bits),
 Intel Xeon @ 2.10 GHz. The base is the parent commit 75ce22a, which already carries the A4 bake; the
-change is this one. Runs alternated base, change, base, change, two each.
+change is the current head. Two runs each, base and change alternated.
 
 | Measure | Base, runs | Base mean | Change, runs | Change mean |
 |---|---|---:|---|---:|
-| shipped-tick, mean ms | 9.76, 8.32 | 9.04 | 9.04, 8.62 | 8.83 |
-| shipped-tick, worst ms | 24.0, 19.3 | — | 22.7, 22.5 | — |
-| shipped-draw `_draw` CPU, mean ms | 8.42, 9.21 | 8.82 | 8.45, 8.26 | 8.35 |
-| crowded-draw `_draw` CPU, mean ms | 122.6, 120.3 | 121.5 | 127.4, 119.3 | 123.4 |
+| shipped-tick, mean ms | 9.30, 9.34 | 9.32 | 8.54, 8.62 | 8.58 |
+| shipped-tick, worst ms | 20.2, 19.3 | — | 18.6, 25.9 | — |
+| shipped-draw `_draw` CPU, mean ms | 8.58, 8.58 | 8.58 | 7.91, 7.15 | 7.53 |
+| crowded-draw `_draw` CPU, mean ms | 115.7, 123.2 | 119.4 | 119.9, 119.9 | 119.9 |
 
-The density costs nothing measurable on either budget; the differences sit inside this
-container's run-to-run spread (same-code tick runs have differed by 1.5 ms or more). The tick
-misses its 8 ms mean and 16 ms worst before and after, and crowded-draw misses 10 ms before and
-after. Neither miss is this change's. Nothing under `godot/sim/` changed, and dressing is
-presentation-only. A single earlier run read about 10 ms before and 8 ms after; the base for
-that was the pre-bake tree, and this A/B does not reproduce a frame gain from DECOR on its own, so
-none is claimed.
+Neither budget moved for the worse, and the change's runs sit inside or below the base's. The
+container's run-to-run spread is wider than the differences (same-code tick runs have differed by
+1.5 ms or more), so no speed-up is claimed. The tick misses its 8 ms mean and 16 ms worst before
+and after, and crowded-draw misses 10 ms before and after. Nothing under `godot/sim/` changed, and
+dressing is presentation-only.
 
-Trade-offs, measured by the gates rather than by a benchmark: the prop-occupancy skip left the
-bake, so a furnishing can show around a crate or a bed where a prop stands, and a prop placed after
-its chunk is baked shows the picture at its edges until the chunk rebakes. `godot:check:trees`
-(`TREES_OK`) holds the layer order and the picks, and `godot:check:world_bake` (`WORLD_BAKE_OK`)
-holds the DECOR rebake and mask rule.
+Trade-offs: the prop-occupancy skip left the bake, so a furnishing can show around a crate or a
+bed where a prop stands, and a prop placed after its chunk is baked shows the picture at its edges
+until the chunk rebakes. The street and the room sit in the same bake. The harness's `day_street`
+now moves the survivor to an open paved street tile first; before, it photographed the room the
+survivor starts in. `godot:check:trees` (`TREES_OK`) holds the layer order, the picks, the roll,
+the clearing and the placement fields, and `godot:check:world_bake` (`WORLD_BAKE_OK`) holds the
+DECOR rebake and mask rule.
 
 ### Remaining milestone evidence
 
