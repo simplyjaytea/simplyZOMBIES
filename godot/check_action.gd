@@ -724,7 +724,7 @@ func _readers_complaint(text: String) -> String:
 		return "_draw_corpse does not draw the fall"
 	# And lands it: the landing beat, then the corpse lying from the feet the fall stood on, the
 	# fall's way (LANDING judges the placement these calls produce).
-	for call in ["Appearance.fall_landing(", "Appearance.corpse_feet(", "Appearance.corpse_flip(", "Appearance.LAND_RAISE"]:
+	for call in ["Appearance.fall_landing(", "Appearance.corpse_feet(", "Appearance.corpse_flip(", "Appearance.LAND_RAISE", "Appearance.dressed_texture("]:
 		if not corpse.contains(call):
 			return "_draw_corpse does not land the fall (no %s)" % call
 	return ""
@@ -745,6 +745,7 @@ func _readers() -> bool:
 		"Appearance.fall_landing(",
 		"Appearance.corpse_feet(",
 		"Appearance.corpse_flip(",
+		"Appearance.dressed_texture(",
 	]
 	for needle in sabotage:
 		if _readers_complaint(text.replace(String(needle), "_nothing(")).is_empty():
@@ -791,6 +792,26 @@ func _clock(main: Node) -> bool:
 	if not clock.fall_of(pid + 200000).is_empty():
 		push_error("CLOCK: a body never drawn fell")
 		ok = false
+	# A clothed body falls in its clothes: the outfit act() was drawn with goes with the fall, and a
+	# body drawn bare falls bare.
+	var dressed_clock: Variant = AnimClock.new()
+	var clothes: Array = ["wear_tee_sand", "wear_pants_denim", "wear_shoes_worn"]
+	dressed_clock.act(pid, world, SURVIVOR, "w", clothes)
+	dressed_clock.act(pid + 1, world, SURVIVOR, "w")
+	dressed_clock.from_events(world, [{"type": "entity.killed", "entity": pid}, {"type": "entity.killed", "entity": pid + 1}], 2.0)
+	if (dressed_clock.fall_of(pid).get("outfit", []) as Array) != clothes or not (dressed_clock.fall_of(pid + 1).get("outfit", []) as Array).is_empty():
+		push_error("CLOCK: the fall carried %s / %s, wanted the outfit it was drawn in and none for a bare body" % [str(dressed_clock.fall_of(pid).get("outfit")), str(dressed_clock.fall_of(pid + 1).get("outfit"))])
+		ok = false
+	# And every fall frame composes dressed: each garment's member for it is there at the frame's own
+	# (wider) canvas, so dressed_image answers rather than leaving a garment off.
+	for view in VIEWS:
+		for i in Appearance.action_frames(SURVIVOR, "fall", view):
+			var frame: String = "%s_fall_%s_%d" % [SURVIVOR, view, i]
+			var bare: Image = Appearance.image_of(frame)
+			var dressed: Image = Appearance.dressed_image(SURVIVOR, frame, clothes)
+			if bare == null or dressed == null or dressed.get_size() != bare.get_size() or dressed.get_data() == bare.get_data():
+				push_error("CLOCK: %s does not compose dressed at its own canvas" % frame)
+				ok = false
 	# The swing, read off the sim's own component: WindUp holds the guard, Recover throws the strike.
 	var saved: Variant = world.components.get_component(pid, "swing")
 	var swing: Dictionary = {"state": int(SimMelee.SwingState.WindUp), "ticksLeft": 3}
@@ -878,9 +899,9 @@ func _drawn(main: Node, id: int) -> String:
 	for m in _members(family):
 		if Appearance.resolve(String(m)) == texture:
 			return String(m)
-		# A clothed body's rest, walk and breath pictures are drawn dressed (`Appearance.body_texture`);
-		# its action pictures are not, and are matched above.
-		if outfit is Array and not (outfit as Array).is_empty() and not Appearance.is_action_frame(family, String(m)) \
+		# A clothed body draws every frame dressed, its action pictures included
+		# (`Appearance.body_texture`).
+		if outfit is Array and not (outfit as Array).is_empty() \
 				and Appearance.dressed_texture(family, String(m), outfit as Array) == texture:
 			return String(m)
 	return "?"
