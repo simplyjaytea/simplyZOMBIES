@@ -60,6 +60,7 @@ npm run godot:check:context  # the right-click menu, and walk-here → CONTEXT_O
 npm run godot:check:speech   # speech bubbles: a line said, and who says it → SPEECH_OK
 npm run godot:check:respond  # the antibiotics word  → RESPOND_OK
 npm run godot:check:camera   # smoothed follow, shake → CAMERA_OK
+npm run godot:check:motion   # bodies drawn between ticks, the accumulator clamped → MOTION_OK
 npm run godot:check:light    # sight-derived wash, lit ∩ seen pools → LIGHT_LOOK_OK
 npm run godot:check:memory   # the afterimage, and the remembered map dimmed → MEMORY_LOOK_OK
 npm run godot:check:road     # street manifest, paint, palette, rubble → ROAD_LOOK_OK
