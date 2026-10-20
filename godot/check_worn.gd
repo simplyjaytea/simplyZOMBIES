@@ -30,8 +30,8 @@ extends SceneTree
 #            a wearable's four members at PAWN_CANVAS, a held weapon at the canvas authored.json
 #            declares for it. TN: a fabricated 32x32 wearable is refused by the same predicate, and
 #            an unknown key answers null rather than passing.
-#   RETIRED  the face-on path is gone, not merely unused: PAWN_KEYS names the two rigs and nothing
-#            drawn on a body; no PNG under assets/sprites/ carries a retired overlay's `_equip` or
+#   RETIRED  the face-on path is gone, not merely unused: no generated rig is left (PAWN_KEYS
+#            retired with the screamer and bloater on 2026-10-19); no PNG under assets/sprites/ carries a retired overlay's `_equip` or
 #            `_part` name; every equipSprite in content turns or is held; and a base declaring a
 #            retired key -- or any real picture that neither turns nor is held -- composes nothing
 #            in any view, as does a fitted part on a held pistol. TN: the name scan and the shape
@@ -136,9 +136,11 @@ const EXPECT_WORN: Array[String] = ["legs", "feet", "torso"]
 # The rig every garment is painted on, and the body content that names it.
 const CLOTHED_RIG: String = "body_survivor"
 
-# How many rigs `tools/sprites/` generates: the screamer and the bloater, the two the pack does not
-# draw. Pinned rather than measured, so PAWN_KEYS growing a key is caught here.
-const GENERATED_RIGS: int = 2
+# The body families content can draw: every authored family that turns and is not a wearable --
+# the pack survivor and the nine zombie pose families. Pinned rather than measured, so a family
+# added or lost is caught here. `tools/sprites/` generated two face-on rigs until 2026-10-19, when
+# the screamer and the bloater joined the pose families and PAWN_KEYS retired.
+const BODY_FAMILIES: int = 10
 
 
 func _init() -> void:
@@ -169,7 +171,7 @@ func _run() -> void:
 	if ok:
 		print(
 			(
-				"WORN_LOOK_OK EQUIP_DRAW_ORDER holds 6 slots in order (only back under) and an actor kitted in all six composes them in that order, %d layers; %d content/items/ equip keys are a wearable at PAWN_CANVAS %s or a held weapon at its own canvas; the face-on path is gone (%s); %d equippable base(s) reach a layer in all four views (%s), refused for no-equipment/no-art/an-undrawn-slot/an-empty-slot; all %d generated rigs share PAWN_CANVAS with no per-rig key; %s; the pack's wearables turn with the body; %s; %s; %s; %s; %.1f s of a %.0f s budget"
+				"WORN_LOOK_OK EQUIP_DRAW_ORDER holds 6 slots in order (only back under) and an actor kitted in all six composes them in that order, %d layers; %d content/items/ equip keys are a wearable at PAWN_CANVAS %s or a held weapon at its own canvas; the face-on path is gone (%s); %d equippable base(s) reach a layer in all four views (%s), refused for no-equipment/no-art/an-undrawn-slot/an-empty-slot; all %d body families stand on their declared canvas with no per-rig key; %s; the pack's wearables turn with the body; %s; %s; %s; %s; %.1f s of a %.0f s budget"
 				% [
 					int(_stash.get("order_layers", 0)),
 					int(_stash.get("canvas_judged", 0)),
@@ -177,7 +179,7 @@ func _run() -> void:
 					String(_stash.get("retired_note", "")),
 					int(_stash.get("reaches_judged", 0)),
 					String(_stash.get("reaches_ids", "[]")),
-					GENERATED_RIGS,
+					BODY_FAMILIES,
 					String(_stash.get("played_note", "")),
 					String(_stash.get("held_note", "")),
 					String(_stash.get("coverage_note", "")),
@@ -461,14 +463,15 @@ func _the_face_on_path_is_gone() -> bool:
 	var lane: String = "RETIRED"
 	Appearance.forget()
 
-	# PAWN_KEYS names the two generated rigs and nothing drawn on a body.
-	if Appearance.PAWN_KEYS.size() != GENERATED_RIGS:
-		push_error("%s: PAWN_KEYS names %d keys, want the %d generated rigs: %s" % [lane, Appearance.PAWN_KEYS.size(), GENERATED_RIGS, str(Appearance.PAWN_KEYS)])
-		return false
-	for k in Appearance.PAWN_KEYS:
-		if String(k).begins_with("item_"):
-			push_error("%s: PAWN_KEYS still names '%s', a picture drawn on a body" % [lane, String(k)])
+	# No generated rig is left: the face-on screamer and bloater resolve nothing, while their
+	# families' resting members do (the TN that the resolver can answer at all).
+	for retired in ["zombie_screamer", "zombie_bloater"]:
+		if Appearance.resolve(retired) != null:
+			push_error("%s: the retired face-on '%s' still resolves a picture" % [lane, retired])
 			return false
+	if Appearance.resolve("body_zombie_screamer_s") == null or Appearance.resolve("body_zombie_bloater_s") == null:
+		push_error("%s: the screamer and bloater families resolve no resting picture; the retired check proves nothing" % lane)
+		return false
 
 	# No committed PNG carries a retired overlay's name -- and the scan can see one.
 	var files: Array = Array(DirAccess.get_files_at(Appearance.SPRITE_DIR))
@@ -500,21 +503,21 @@ func _the_face_on_path_is_gone() -> bool:
 	if turning == 0 or held == 0:
 		push_error("%s: content declares %d wearable(s) and %d held weapon(s); the lane is here for both" % [lane, turning, held])
 		return false
-	if _is_drawn_shape("item_bat_aluminium_equip") or _is_drawn_shape("zombie_screamer"):
+	if _is_drawn_shape("item_bat_aluminium_equip") or _is_drawn_shape("body_zombie_screamer_s"):
 		push_error("%s: the shape predicate accepts a retired key or a face-on rig" % lane)
 		return false
 
 	# A base declaring a retired key, or a real pawn-canvas picture that neither turns nor is held,
 	# composes nothing in any view: the face-on path is gone from the composer, not just missing
-	# its files. The screamer resolves -- it is a real 32x40 picture -- so the second is the one a
-	# surviving face-on branch would draw.
+	# its files. A family's resting member resolves -- it is a real 32x40 picture that, named on
+	# its own, does not turn -- so the second is the one a surviving face-on branch would draw.
 	tree["items/_worn_gate_fixture.json"] = [
 		{"id": "item.gate.retired", "appearance": {"equipSprite": "item_bat_aluminium_equip"}},
-		{"id": "item.gate.face_on", "appearance": {"equipSprite": "zombie_screamer"}},
+		{"id": "item.gate.face_on", "appearance": {"equipSprite": "body_zombie_screamer_s"}},
 	]
 	var w: Variant = _world(tree)
-	if Appearance.resolve("zombie_screamer") == null:
-		push_error("%s: the screamer resolves no picture; the face-on negative has nothing to refuse" % lane)
+	if Appearance.resolve("body_zombie_screamer_s") == null:
+		push_error("%s: body_zombie_screamer_s resolves no picture; the face-on negative has nothing to refuse" % lane)
 		return false
 	for base in ["item.gate.retired", "item.gate.face_on"]:
 		var actor: int = _kit(w, {"primary": base})
@@ -545,7 +548,7 @@ func _the_face_on_path_is_gone() -> bool:
 			push_error("%s: a pistol with a suppressor fitted composes %d layer(s) on view '%s', the bare pistol %d; a fitted part draws nothing since its picture was retired" % [lane, fitted, view, int(bare[view])])
 			return false
 
-	var note: String = "PAWN_KEYS the %d rigs, no retired file among %d, %d wearable and %d held declarations, a retired key, a face-on picture and a fitted part compose nothing" % [GENERATED_RIGS, files.size(), turning, held]
+	var note: String = "no generated rig left, no retired file among %d, %d wearable and %d held declarations, a retired key, a face-on picture and a fitted part compose nothing" % [files.size(), turning, held]
 	_stash["retired_note"] = note
 	print("RETIRED OK %s; the scan finds 3 fabricated retired names of 5, and a held knife still composes" % note)
 	return true
@@ -648,21 +651,24 @@ func _find_per_rig_overlay(keys: Array[String], rig_keys: Array[String]) -> Stri
 
 func _the_shared_bet_holds() -> bool:
 	Appearance.forget()
+	# The roster: every body family content can draw -- an authored family that turns and is not a
+	# wearable -- plus any commissioned rig. Until 2026-10-19 this was PAWN_KEYS, the two generated
+	# face-on rigs; they joined the pose families and the bet is now judged across all of them. A
+	# garment (`wear`, painted per frame onto a rig) turns with its rig but is not a body.
 	var rig_keys: Array[String] = []
-	for k in Appearance.PAWN_KEYS:
-		rig_keys.append(String(k))
+	for k in Appearance.authored_canvases().keys():
+		if Appearance.turns(String(k)) and not String(k).begins_with("item_") and not Appearance.is_garment(String(k)):
+			rig_keys.append(String(k))
 	for key in Appearance.authored_rig_keys():
 		rig_keys.append(String(key))
-	if Appearance.PAWN_KEYS.size() != GENERATED_RIGS:
-		push_error("PAWN_KEYS names %d rigs, want %d" % [Appearance.PAWN_KEYS.size(), GENERATED_RIGS])
+	rig_keys.sort()
+	if rig_keys.size() != BODY_FAMILIES:
+		push_error("%d body families %s, want %d" % [rig_keys.size(), str(rig_keys), BODY_FAMILIES])
 		return false
 	for rk in rig_keys:
 		var tex: Variant = Appearance.resolve(rk)
-		if not _is_pawn_canvas(tex):
-			push_error("rig '%s' does not resolve at PAWN_CANVAS %s" % [rk, str(Appearance.PAWN_CANVAS)])
-			return false
-		if Appearance.canvas_of(rk) != Appearance.PAWN_CANVAS:
-			push_error("canvas_of('%s') is %s, not PAWN_CANVAS" % [rk, str(Appearance.canvas_of(rk))])
+		if tex == null or Vector2i((tex as Texture2D).get_size()) != Appearance.canvas_of(rk):
+			push_error("body '%s' does not resolve at its declared canvas %s" % [rk, str(Appearance.canvas_of(rk))])
 			return false
 
 	var tree: Dictionary = ContentLoader.load_tree()
@@ -677,13 +683,13 @@ func _the_shared_bet_holds() -> bool:
 
 	# TN: the same scan finds one when handed a fabricated key list that names a rig explicitly.
 	var fabricated: Array[String] = keys.duplicate()
-	fabricated.append("zombie_screamer_bat_equip")
+	fabricated.append("body_zombie_screamer_bat_equip")
 	var found: String = _find_per_rig_overlay(fabricated, rig_keys)
 	if found.is_empty():
-		push_error("a fabricated per-rig key 'zombie_screamer_bat_equip' was not found; SHARED's scan cannot say no")
+		push_error("a fabricated per-rig key 'body_zombie_screamer_bat_equip' was not found; SHARED's scan cannot say no")
 		return false
 
-	print("SHARED OK all %d rigs stand on PAWN_CANVAS %s; %d equip key(s) under content/items/ name no rig; the same scan finds a fabricated one ('%s')" % [rig_keys.size(), str(Appearance.PAWN_CANVAS), keys.size(), found])
+	print("SHARED OK all %d body families stand on their declared canvas; %d equip key(s) under content/items/ name no body; the same scan finds a fabricated one ('%s')" % [rig_keys.size(), keys.size(), found])
 	return true
 
 
@@ -944,8 +950,8 @@ func _the_weapon_is_in_the_hand() -> bool:
 			push_error("%s: flip_for mirrors the pack body facing %.2f; the body never mirrors, only the weapon does" % [lane, facing])
 			return false
 	# TN: the same question asked of a face-on rig says no facing west, so the loop above can fail.
-	if Appearance.flip_for("zombie_screamer", PI) != -1.0:
-		push_error("%s: flip_for does not mirror the face-on screamer facing west; the never-mirrors check cannot say no" % lane)
+	if Appearance.flip_for("probe_face_on_body", PI) != -1.0:
+		push_error("%s: flip_for does not mirror a face-on key facing west; the never-mirrors check cannot say no" % lane)
 		return false
 
 	# Every held weapon content declares, in both hands, on all four views.

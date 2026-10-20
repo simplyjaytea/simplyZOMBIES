@@ -101,7 +101,7 @@
     "food": {
       "hunger": 25,
       "mood": -8,
-      "spoilDays": 2,
+      "spoilDays": 8,
       "illnessChance": 0.25
     }
   },
@@ -119,7 +119,7 @@
     "food": {
       "hunger": 60,
       "mood": 8,
-      "spoilDays": 1,
+      "spoilDays": 4,
       "illnessChance": 0
     }
   },
@@ -534,7 +534,7 @@
     "food": {
       "hunger": 30,
       "mood": 2,
-      "spoilDays": 14,
+      "spoilDays": 56,
       "illnessChance": 0
     }
   },
@@ -994,7 +994,7 @@
     "food": {
       "hunger": 25,
       "mood": -3,
-      "spoilDays": 3,
+      "spoilDays": 12,
       "illnessChance": 0
     }
   },
@@ -1012,7 +1012,7 @@
     "food": {
       "hunger": 30,
       "mood": 5,
-      "spoilDays": 10,
+      "spoilDays": 40,
       "illnessChance": 0
     }
   },
@@ -1033,7 +1033,7 @@
     "food": {
       "hunger": 15,
       "mood": 4,
-      "spoilDays": 8,
+      "spoilDays": 32,
       "illnessChance": 0
     }
   },
@@ -1050,7 +1050,7 @@
     "food": {
       "hunger": 30,
       "mood": -2,
-      "spoilDays": 25,
+      "spoilDays": 100,
       "illnessChance": 0
     }
   },
@@ -1068,7 +1068,7 @@
     "food": {
       "hunger": 22,
       "mood": 3,
-      "spoilDays": 12,
+      "spoilDays": 48,
       "illnessChance": 0.1
     }
   },
@@ -1086,7 +1086,7 @@
     "food": {
       "hunger": 34,
       "mood": 3,
-      "spoilDays": 20,
+      "spoilDays": 80,
       "illnessChance": 0
     }
   },
@@ -1104,7 +1104,7 @@
     "food": {
       "hunger": 18,
       "mood": 0,
-      "spoilDays": 4,
+      "spoilDays": 16,
       "illnessChance": 0.3
     }
   },
@@ -1121,7 +1121,7 @@
     "food": {
       "hunger": 65,
       "mood": 14,
-      "spoilDays": 1,
+      "spoilDays": 4,
       "illnessChance": 0
     }
   },

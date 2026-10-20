@@ -31,6 +31,7 @@ extends SceneTree
 #   TICKS      the loop advances the world, and P stops it
 #   WALK       a held key moves the body, release stops it, two keys sum to a diagonal
 #   SHEET      Tab opens the sheet and peels the four things that sit under it
+#   STUBS      the work grid draws the columns that have a consumer, and no others (A15)
 #   SETTINGS   Escape peels in order -- the legend first, the pause menu only once it is gone,
 #              and settings is a row on that menu rather than a key of its own
 #   ROUNDTRIP  F5 writes a save F9 restores; a corrupt slot leaves the world untouched
@@ -38,6 +39,8 @@ extends SceneTree
 #   FOCUS      an open sheet swallows the street's keys, and the body stops at the panel
 #   PAUSE      Escape on the street pauses to the menu and gives the street back
 #   NOTICE     a save this build cannot read leaves the run alone and says one fixed sentence
+#   HINT       a first-day hint is offered on the street, a click on its card clears it, and the
+#              seen mark rides the slot F5 writes and F9 reads back
 #   VOLUME     the settings row reaches the audio bus, and nought is mute
 #   AUTOSAVE   the first tick of a day writes the slot; an ordinary tick and a finished run do not
 #   LEGEND     a dismissed legend stays dismissed across a boot, and F1 brings it back
@@ -72,6 +75,9 @@ const Legend = preload("res://ui/legend.gd")
 const UiPrefs = preload("res://ui/prefs.gd")
 const InputMapRes = preload("res://presentation/input_map.gd")
 const Session = preload("res://presentation/session.gd")
+const Onboarding = preload("res://presentation/onboarding.gd")
+const SimWounds = preload("res://sim/modules/wounds.gd")
+const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimChronicle = preload("res://sim/modules/chronicle.gd")
 const SimRecruits = preload("res://sim/modules/recruits.gd")
 const SimAllegiance = preload("res://sim/modules/allegiance.gd")
@@ -111,6 +117,7 @@ const PRESSED_KEYS: Array = [
 const UNLISTED: Dictionary = {
 	"dismiss": "Enter closes the legend and opens nothing; the panel's own header names F1",
 	"debug": "F8 is the dev spawn menu, bound only under OS.is_debug_build()",
+	"sheets": "M is the raw developer sheet, bound only under OS.is_debug_build() (A22)",
 }
 
 # Legend rows that are keys but not `BINDINGS` rows. WASD and E are bound -- by `MOVE_KEYS` and
@@ -167,11 +174,14 @@ func _run() -> void:
 	ok = _the_loop_advances_the_world(main) and ok
 	ok = _a_held_key_walks_the_body(main) and ok
 	ok = await _the_work_grid_fits_and_keeps_its_clicks(main) and ok
+	ok = await _the_work_grid_draws_only_what_something_does(main) and ok
 	var sheet_ok: bool = await _tab_opens_the_sheet(main)
 	ok = sheet_ok and ok
 	var peel_ok: bool = await _escape_peels_in_order(main)
 	ok = peel_ok and ok
 	ok = _f5_and_f9_round_trip(main) and ok
+	var hint_ok: bool = await _a_first_day_hint_shows_clears_and_saves(main)
+	ok = hint_ok and ok
 	ok = _c_is_the_camp_key_and_ctrl_c_is_the_stance(main) and ok
 	var focus_ok: bool = await _the_open_sheet_swallows_the_street(main)
 	ok = focus_ok and ok
@@ -180,6 +190,7 @@ func _run() -> void:
 	var notice_ok: bool = await _a_refused_save_says_one_sentence(main)
 	ok = notice_ok and ok
 	ok = _the_volume_row_reaches_the_bus(main) and ok
+	ok = _the_clock_says_its_speed_and_sleep_skips(main) and ok
 	# Last on this scene: it puts the world's clock on the eve of day two and leaves it there.
 	ok = _a_dawn_writes_the_slot(main) and ok
 	main.queue_free()
@@ -201,7 +212,7 @@ func _run() -> void:
 
 	if ok:
 		var skipped: String = "no lane skipped" if _skips.is_empty() else "skipped: %s" % ", ".join(PackedStringArray(_skips))
-		print("PLAY_OK the scene boots to a title over a still world, ticks, walks, opens its screens, saves and loads, camps on C and crouches on Ctrl+C, refuses the street's keys under an open sheet, pauses to a menu on Escape, moves the audio bus, writes the slot at dawn and on the window's close, ends on a screen that speaks the chronicle and starts again, keeps a dismissed legend dismissed, and draws by day and by night in %d ms (%s)" % [elapsed, skipped])
+		print("PLAY_OK the scene boots to a title over a still world, ticks, walks, opens its screens, saves and loads, camps on C and crouches on Ctrl+C, refuses the street's keys under an open sheet, pauses to a menu on Escape, moves the audio bus, names its speed and sleeps through the night unless something is near, writes the slot at dawn and on the window's close, ends on a screen that speaks the chronicle and starts again, keeps a dismissed legend dismissed, offers a first-day hint that a click clears and a save keeps seen, and draws by day and by night in %d ms (%s)" % [elapsed, skipped])
 		quit(0)
 	else:
 		push_error("PLAY_FAIL")
@@ -478,6 +489,86 @@ func _the_loop_advances_the_world(main: Node) -> bool:
 	return true
 
 
+# --- LIVABLE TIME -----------------------------------------------------------------------------
+
+# The clock's speed is words on the HUD and a step in the loop. The lane asks the loop how far a
+# frame carries the world at each speed (the frames are deterministic: each one is a fixed tick),
+# the HUD what it says, and the sim whether anything living is within ten metres of a sleeper. A
+# words-only lane would pass with the loop ignoring sleep; a loop-only lane would pass with the HUD
+# silent. Both halves are asserted.
+func _the_clock_says_its_speed_and_sleep_skips(main: Node) -> bool:
+	var world: Variant = main.get("world")
+	var hud: Variant = main.get("_hud")
+	main.set("paused", false)
+	main.set("speed", 1)
+	_frames(main, 2)
+	if str(hud.get("time_words")) != "normal speed":
+		push_error("CLOCK: at 1x the HUD says '%s', not 'normal speed'" % str(hud.get("time_words")))
+		return false
+	_tap(KEY_EQUAL)
+	_frames(main, 1)
+	if int(main.get("speed")) != 3 or str(hud.get("time_words")) != "fast":
+		push_error("CLOCK: '=' left the speed at %d and the HUD saying '%s', not 3 and 'fast'" % [int(main.get("speed")), str(hud.get("time_words"))])
+		return false
+	var before: int = int(world.tick)
+	_frames(main, 20)
+	if int(world.tick) - before != 60:
+		push_error("CLOCK: 20 frames at fast advanced the world %d ticks, not 60" % (int(world.tick) - before))
+		return false
+	_tap(KEY_P)
+	_frames(main, 1)
+	if str(hud.get("time_words")) != "paused":
+		push_error("CLOCK: a paused clock says '%s', not 'paused'" % str(hud.get("time_words")))
+		return false
+	_tap(KEY_P)
+	_tap(KEY_MINUS)
+	# Asleep with nothing near: the loop runs at the sleep step whatever the user chose. The boot
+	# street has zombies in it, so the lane clears the living ones within ten metres first.
+	var player: int = int(world.player)
+	var here: Variant = world.components.get_component(player, "position")
+	for e in world.components.query(["position", "shambler"]):
+		var there: Variant = world.components.get_component(int(e), "position")
+		if world.entities.is_alive(int(e)) and there is Dictionary and Vector2(float(there["x"]) - float(here["x"]), float(there["y"]) - float(here["y"])).length() <= Session.THREAT_METRES:
+			world.despawn(int(e))
+	SimNeeds._start_sleep(world, player, -1)
+	_frames(main, 1)
+	if str(hud.get("time_words")) != "asleep, fast-forwarding":
+		push_error("CLOCK: asleep with nothing near the HUD says '%s'" % str(hud.get("time_words")))
+		return false
+	before = int(world.tick)
+	_frames(main, 20)
+	if int(world.tick) - before != 60:
+		push_error("CLOCK: 20 frames asleep at 1x advanced the world %d ticks, not 60" % (int(world.tick) - before))
+		return false
+	# A living zombie five metres off stops it, and the loop drops back to the user's own step.
+	var at: Variant = world.components.get_component(player, "position")
+	var zombie: int = world.entities.spawn()
+	world.components.set_component(zombie, "position", {"x": float(at["x"]) + 5.0, "y": float(at["y"])})
+	world.components.set_component(zombie, "shambler", {})
+	_frames(main, 1)
+	if str(hud.get("time_words")) != "asleep, zombie near, normal speed":
+		push_error("CLOCK: a zombie five metres off, the HUD says '%s'" % str(hud.get("time_words")))
+		return false
+	before = int(world.tick)
+	_frames(main, 20)
+	if int(world.tick) - before != 20:
+		push_error("CLOCK: a zombie near advanced the world %d ticks in 20 frames, not 20" % (int(world.tick) - before))
+		return false
+	# A despawned body keeps its components. It must not hold the fast-forward back.
+	world.despawn(zombie)
+	_frames(main, 1)
+	if str(hud.get("time_words")) != "asleep, fast-forwarding":
+		push_error("CLOCK: a dead zombie still stops the sleep, the HUD says '%s'" % str(hud.get("time_words")))
+		return false
+	world.components.remove_component(player, "sleeping")
+	_frames(main, 1)
+	if str(hud.get("time_words")) != "normal speed":
+		push_error("CLOCK: awake again at 1x the HUD says '%s'" % str(hud.get("time_words")))
+		return false
+	print("CLOCK OK 1x, 3x and paused read in words; asleep runs 60 ticks a 20-frame stretch, a living zombie within ten metres drops it to 20, a dead one does not")
+	return true
+
+
 # --- WALK -------------------------------------------------------------------------------------
 
 # A held key is not a tap: the router tracks the down event and `pump()` turns the held set into
@@ -694,6 +785,68 @@ func _f5_and_f9_round_trip(main: Node) -> bool:
 		push_error("ROUNDTRIP: a corrupt slot moved the live world (tick %d -> %d)" % [before_tick, int(world.tick)])
 		return false
 	print("ROUNDTRIP OK F5 wrote a save, F9 put the world back on tick %d, and a corrupt slot changed nothing" % saved_tick)
+	return true
+
+
+# --- HINT -------------------------------------------------------------------------------------
+
+# The first-day hint, played through the real path: a wounded survivor on the street is offered the wound
+# hint on a frame the HUD draws, a real left click on its card clears it through the engine's input
+# dispatch, and the seen set is written into the slot F5 writes and comes back out of F9. The injuries
+# are put back afterwards, so no later lane inherits a bleed it did not ask for.
+func _a_first_day_hint_shows_clears_and_saves(main: Node) -> bool:
+	var world: Variant = main.get("world")
+	var hud: Variant = main.get("_hud")
+	var session_now: Variant = main.get("session")
+	if _state(main) != Session.State.PLAYING or hud == null or bool(main.get("paused")) or not bool(hud.visible):
+		return _skip("HINT", "the street is not up, so no frame can offer a hint")
+	var before: Variant = world.components.get_component(world.player, "injuries")
+	var pristine: Variant = (before as Dictionary).duplicate(true) if before is Dictionary else null
+	session_now.onboarding.reset()
+	SimWounds.append_wound(world, world.player, "laceration", "torso", -1, 30.0)
+	_frames(main, 2)
+	await process_frame
+	var shown: String = String(hud.get("_onboarding_line"))
+	if shown != Onboarding.prose_of("wound"):
+		push_error("HINT: a wounded survivor on the street was offered '%s', not the wound hint" % shown)
+		return false
+	var rect: Rect2 = hud.get("_hint_rect")
+	if rect.size == Vector2.ZERO:
+		push_error("HINT: the wound hint was on screen but drew no card to click")
+		return false
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	click.position = rect.get_center()
+	root.push_input(click)
+	await process_frame
+	_frames(main, 2)
+	await process_frame
+	# Not the wound any more. Another hint may come due in its place (a zombie seen on the way here, say),
+	# and that is the next hint speaking, not this one left up.
+	if String(hud.get("_onboarding_line")) == Onboarding.prose_of("wound"):
+		push_error("HINT: a click on the hint's card left the wound hint up")
+		return false
+	_tap(KEY_F5)
+	var decoded: Dictionary = SimSave.decode_save(FileAccess.get_file_as_string(SAVE_PATH))
+	if decoded.has("__error") or not (decoded.get("onboarding", []) as Array).has("wound"):
+		push_error("HINT: the slot F5 wrote does not carry the wound hint as seen")
+		return false
+	session_now.onboarding.reset()
+	_tap(KEY_F9)
+	_frames(main, 2)
+	await process_frame
+	if not (session_now.onboarding.to_save() as Array).has("wound"):
+		push_error("HINT: F9 did not bring the seen wound hint back")
+		return false
+	if String(hud.get("_onboarding_line")) == Onboarding.prose_of("wound"):
+		push_error("HINT: a save that had told its player the wound hint offered it again")
+		return false
+	if pristine != null:
+		world.components.set_component(world.player, "injuries", pristine)
+	else:
+		world.components.set_component(world.player, "injuries", {"wounds": [], "bloodLoss": 0.0, "bledOut": false})
+	print("HINT OK the wound hint is offered on the street, a click on its card clears it, and the seen mark goes into the slot and comes back out of F9 without offering it again")
 	return true
 
 
@@ -1718,6 +1871,11 @@ func _the_keys_live_in_the_router() -> bool:
 	if router_src.find("OS.is_debug_build()", f8) < 0:
 		push_error("SOCKET: F8 is bound without an OS.is_debug_build() guard; a player can open the dev menu")
 		return false
+	# And M, the raw sheet, is guarded the same way (A22): a release build has no key for it.
+	var m_key: int = router_src.find("KEY_M:")
+	if m_key < 0 or router_src.find("OS.is_debug_build()", m_key) < 0 or router_src.find("OS.is_debug_build()", m_key) > router_src.find("main.show_sheets", m_key):
+		push_error("SOCKET: M toggles the raw sheet without an OS.is_debug_build() guard in front of it")
+		return false
 
 	# The second half of the split: the run's lifecycle lives in the session, the shell is built,
 	# and main.gd's frame loop reaches both. Every one of these is a socket the lanes above would
@@ -1799,6 +1957,73 @@ func _the_gate_fits_its_budget(elapsed_ms: int) -> bool:
 
 # The Work grid's visible cells and actual mouse dispatch share the responsive width.
 # The corner glimpse must clear the panel even while P has stopped the simulation.
+# The six job columns nothing does (alpha plan A15). The sim still stores their numbers, so this
+# lane judges what the grid draws and what its first cell does, not the sim's own dictionary.
+const STUB_COLUMNS: Array[String] = ["Firefight", "Hunt", "Farm", "Craft", "Modify", "Butcher"]
+
+
+func _the_work_grid_draws_only_what_something_does(main: Node) -> bool:
+	var panel: Control = main.get("_work_panel") as Control
+	var was_paused: bool = bool(main.get("paused"))
+	var old_size: Vector2i = root.size
+	main.set("paused", true)
+	# The grid lays itself out on a viewport change only, and the lane before this one leaves the
+	# window at whatever it was restored to, so this lane lays out at the window it means to judge.
+	root.size = Vector2i(1920, 1080)
+	await process_frame
+	var jobs: GDScript = load("res://sim/modules/jobs.gd") as GDScript
+	var all: Array = jobs.get("COLUMNS") as Array
+	var consumers: Array = jobs.get("CONSUMERS") as Array
+	var shown: Array = (panel.get_script() as GDScript).call("shown_columns") as Array
+	var expected: Array = all.filter(func(c: Variant) -> bool: return consumers.has(c))
+	var ok: bool = true
+	if shown != expected:
+		push_error("STUBS: the grid draws %s, not the columns with a consumer, %s" % [str(shown), str(expected)])
+		ok = false
+	for stub in STUB_COLUMNS:
+		if shown.has(stub):
+			push_error("STUBS: the grid still draws %s, which nothing does" % stub)
+			ok = false
+		if consumers.has(stub):
+			push_error("STUBS: %s is listed as a consumer, so it cannot be a stub" % stub)
+			ok = false
+	_tap(KEY_J)
+	main.call("_process", 0.0)
+	await process_frame
+	if not panel.visible:
+		push_error("STUBS: Work did not open")
+		ok = false
+	else:
+		var grid_x: float = float(panel.get_script().get("GRID_X"))
+		var grid_y: float = float(panel.get_script().get("GRID_Y"))
+		var cell_w: float = float(panel.call("_column_width"))
+		var at: Vector2 = panel.position + Vector2(grid_x + 0.5 * cell_w, grid_y + 28.0)
+		_drain(main)
+		for down in [true, false]:
+			var press := InputEventMouseButton.new()
+			press.button_index = MOUSE_BUTTON_LEFT
+			press.pressed = down
+			press.position = at
+			root.push_input(press)
+		var edits: Array = _pending(main).filter(func(command: Variant) -> bool: return String((command as Dictionary).get("type", "")) == "job.priority")
+		if edits.size() != 1 or String((edits[0] as Dictionary).get("column", "")) != String(shown[0]):
+			push_error("STUBS: the first cell did not queue the first column the grid draws")
+			ok = false
+		_drain(main)
+	_tap(KEY_J)
+	main.call("_process", 0.0)
+	await process_frame
+	if panel.visible:
+		push_error("STUBS: closing Work left it open")
+		ok = false
+	root.size = old_size
+	main.set("paused", was_paused)
+	await process_frame
+	if ok:
+		print("STUBS OK the grid draws the %d columns with a consumer and none of the six that do nothing, and its first cell queues the first of them" % shown.size())
+	return ok
+
+
 func _the_work_grid_fits_and_keeps_its_clicks(main: Node) -> bool:
 	var panel: Control = main.get("_work_panel") as Control
 	var doll: Control = main.get("_paperdoll") as Control
@@ -1818,8 +2043,7 @@ func _the_work_grid_fits_and_keeps_its_clicks(main: Node) -> bool:
 		var grid_x: float = float(panel.get_script().get("GRID_X"))
 		var grid_y: float = float(panel.get_script().get("GRID_Y"))
 		var cell_w: float = float(panel.call("_column_width"))
-		var jobs: GDScript = load("res://sim/modules/jobs.gd") as GDScript
-		var columns: Array = jobs.get("COLUMNS") as Array
+		var columns: Array = (panel.get_script() as GDScript).call("shown_columns") as Array
 		var last: int = columns.size() - 1
 		var at: Vector2 = panel.position + Vector2(grid_x + (float(last) + 0.5) * cell_w, grid_y + 28.0)
 		if not panel.get_rect().has_point(at):
