@@ -43,6 +43,11 @@ const Clock = preload("res://sim/time/clock.gd")
 const Palette = preload("res://presentation/palette.gd")
 const Chrome = preload("res://ui/chrome.gd")
 const Kit = preload("res://ui/kit.gd")
+# The cards, the tip and the action bar wear the Salvage Locker's steel and tape since the UI
+# overhaul's first slice (docs/23, "UI overhaul"): the same surfaces as the inventory sheet and the
+# quick strip under them, so the street and the sheet read as one interface. The keycaps are still
+# the kit's -- the sheet wears the same caps -- and so is the type.
+const Locker = preload("res://ui/locker.gd")
 const Motion = preload("res://ui/motion.gd")
 
 const MARGIN: float = 24.0
@@ -65,8 +70,17 @@ const STRIP_CLEARANCE: float = 116.0
 # A card is a *minimum* width, not a fixed one. A chronicle line longer than the nominal box
 # would otherwise hang off the left edge of a right-aligned card, which is the one way a drawn
 # panel can look broken; `_draw_card` grows the box to whatever the widest line needs.
-const CARD_ALPHA: float = 0.86
+# The cards' steel, the tip's and the action bar's: near opaque, as on the sheet, so the street
+# does not ghost through the words.
+const STEEL_ALPHA: float = 0.96
 const YOU_CARD_W: float = 472.0
+# The street's body card (main.gd's framed paperdoll), so the "you" card can make room for it: a
+# "you" card tall enough to reach the body card's top starts right of it instead and runs down
+# beside the figure (UI review, round 3); one that ends above it stays at the margin, so a tall
+# window does not leave it hanging beside an empty strip (round 4). Null on a HUD with no figure.
+var body_card: Control = null
+# The gap the "you" card keeps from the body card, either way.
+const BODY_GAP: float = 16.0
 const OUT_CARD_W: float = 496.0
 # Inner left/right gutter, and the skirt below the last line: clear of the kit frame's ten-pixel
 # border (Kit.SCALE times the manifest's five) with the same breathing room the old hairline had.
@@ -78,6 +92,9 @@ const BAR_H: float = 56.0
 const BAR_GAP: float = 12.0       # between words and the separating dot
 const CAP_GAP: float = 8.0        # between a keycap and the words, or the second cap, after it
 const ACTION_SEP: String = " · "
+# The standing hint after the clauses. `godot:check:hud`'s BAR lane holds it to fit whole at 1280x720
+# beside the longest one-key clause the street offers, with the debug build's M raw on the end.
+const HINT: String = "F1 keys · Tab J K screens · P pause · - = speed · Esc menu · O overlay"
 
 # Worst-part states from condition.gd, as a sentence rather than a grade.
 const CONDITION_PROSE: Array[String] = ["", "hurt", "badly hurt", "barely standing"]
@@ -529,29 +546,52 @@ func _draw_hint(font: Font, view: Vector2) -> void:
 	if _onboarding_line.is_empty() or show_raw:
 		return
 	var width: float = maxf(OUT_CARD_W, font.get_string_size(_onboarding_line, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x + CARD_PAD * 2.0)
-	var height: float = Chrome.HEADER_H + LINE + CARD_PAD
+	var height: float = Locker.HEAD_H + LINE + CARD_PAD
 	var bar_top: float = view.y - MARGIN - STRIP_CLEARANCE - BAR_H
 	var rect := Rect2(Vector2(roundf((view.x - width) * 0.5), bar_top - BAR_GAP - height), Vector2(width, height))
-	Chrome.panel(self, rect, CARD_ALPHA)
-	var y: float = Chrome.header(self, rect, "tip", CARD_ALPHA) + FONT_SIZE + 2.0
+	Locker.panel(self, rect, STEEL_ALPHA)
+	var y: float = Locker.header(self, rect, "tip", STEEL_ALPHA) + FONT_SIZE + 2.0
 	draw_string(font, Vector2(rect.position.x + CARD_PAD, y), _onboarding_line, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, Palette.COLOURS["survivor"])
 	_hint_rect = rect
 
 
-# One card in `ui/chrome.gd`'s skin: panel, bracketed corners, a header strip, and the column's
-# lines inside it. It sizes to its content in both directions -- a card with a fixed height would
+# Where a card of these lines stands: shared by the draw and the gate that keeps the "you" card
+# off the body card.
+func card_rect(font: Font, view: Vector2, lines: Array[String], right: bool) -> Rect2:
+	var width: float = OUT_CARD_W if right else YOU_CARD_W
+	for line in lines:
+		width = maxf(width, font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x + CARD_PAD * 2.0)
+	var height: float = Locker.HEAD_H + lines.size() * LINE + CARD_PAD
+	var left: float = view.x - MARGIN - width if right else MARGIN
+	if not right and body_card != null and body_card.visible and body_card.has_method("card_rect"):
+		var card: Rect2 = body_card.call("card_rect") as Rect2
+		card.position += body_card.get_global_rect().position
+		if MARGIN + height + BODY_GAP > card.position.y:
+			left = card.end.x + BODY_GAP
+	return Rect2(Vector2(left, MARGIN), Vector2(width, height))
+
+
+# The "you" card as it stands now, and the top of the action bar: what the street's body card sits
+# between.
+func you_card_rect() -> Rect2:
+	return card_rect(Chrome.font(), get_viewport_rect().size, _left, false)
+
+
+func bar_top() -> float:
+	return get_viewport_rect().size.y - MARGIN - STRIP_CLEARANCE - BAR_H
+
+
+# One card in the Salvage Locker's skin (`ui/locker.gd`): a steel panel, its name on tape, and the
+# column's lines inside it. It sizes to its content in both directions -- a card with a fixed height would
 # either clip the chronicle or hang an empty box over the street on a quiet day.
 func _draw_card(font: Font, view: Vector2, lines: Array[String], label: String, right: bool) -> void:
 	if lines.is_empty():
 		return
-	var width: float = OUT_CARD_W if right else YOU_CARD_W
-	for line in lines:
-		width = maxf(width, font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x + CARD_PAD * 2.0)
-	var height: float = Chrome.HEADER_H + lines.size() * LINE + CARD_PAD
-	var left: float = view.x - MARGIN - width if right else MARGIN
-	var rect := Rect2(Vector2(left, MARGIN), Vector2(width, height))
-	Chrome.panel(self, rect, CARD_ALPHA)
-	var y: float = Chrome.header(self, rect, label, CARD_ALPHA) + FONT_SIZE + 2.0
+	var rect: Rect2 = card_rect(font, view, lines, right)
+	var width: float = rect.size.x
+	var left: float = rect.position.x
+	Locker.panel(self, rect, STEEL_ALPHA)
+	var y: float = Locker.header(self, rect, label, STEEL_ALPHA) + FONT_SIZE + 2.0
 	if right:
 		_draw_saved(font, rect)
 	for i in lines.size():
@@ -565,8 +605,8 @@ func _draw_card(font: Font, view: Vector2, lines: Array[String], label: String, 
 
 
 # The "saved" stamp at the far end of the "outside" card's header: the kit's saved_tick at native
-# size (its 24 px doubled would stand taller than the strip) with the word before it, dim, on the
-# header label's own baseline. Chrome, never a line in `_right` -- check_hud's QUIET lane judges
+# size (its 24 px doubled would stand taller than the tape) with the word before it, dim, centred on
+# the tape's row the way the locker's header note is. Chrome, never a line in `_right` -- check_hud's QUIET lane judges
 # that array, and a save is not news about the street.
 func _draw_saved(font: Font, rect: Rect2) -> void:
 	var frame: int = saved_frame(_saved_at, float(Time.get_ticks_msec()) / 1000.0, Motion.reduced())
@@ -574,11 +614,13 @@ func _draw_saved(font: Font, rect: Rect2) -> void:
 	if tex == null:
 		return
 	var side: float = tex.get_size().y
-	var right_x: float = rect.end.x - Chrome.HEADER_INSET - 10.0
-	var at := Vector2(right_x - side, rect.position.y + floorf((Chrome.HEADER_H - side) / 2.0))
+	var row_top: float = rect.position.y + Locker.PX * 2.0
+	var right_x: float = rect.end.x - Locker.PX * 6.0
+	var at := Vector2(right_x - side, row_top + floorf((Locker.TAPE_H - side) / 2.0))
 	draw_texture(tex, at)
-	var w: float = font.get_string_size(SAVED_WORD, HORIZONTAL_ALIGNMENT_LEFT, -1, Chrome.FONT_SIZE).x
-	draw_string(font, Vector2(at.x - 8.0 - w, rect.position.y + Chrome.header_baseline()), SAVED_WORD, HORIZONTAL_ALIGNMENT_LEFT, -1, Chrome.FONT_SIZE, Chrome.TEXT_DIM)
+	var w: float = font.get_string_size(SAVED_WORD, HORIZONTAL_ALIGNMENT_LEFT, -1, Locker.SMALL_SIZE).x
+	var base: float = floorf(row_top + (Locker.TAPE_H - Chrome.line_height(Locker.SMALL_SIZE)) / 2.0 + Chrome.ascent(Locker.SMALL_SIZE))
+	draw_string(font, Vector2(at.x - 8.0 - w, base), SAVED_WORD, HORIZONTAL_ALIGNMENT_LEFT, -1, Locker.SMALL_SIZE, Locker.TEXT_DIM)
 
 
 # The busy loop at the action bar's left end, inside the frame's border, while a channel runs.
@@ -605,7 +647,9 @@ func _draw_busy(bar: Rect2) -> void:
 func _draw_action_bar(font: Font, view: Vector2) -> void:
 	# Digit-free, like every other line on this screen: the strip draws its own key names, and the
 	# speed keys are punctuation now rather than the number row (docs/30, "The inventory sheet").
-	var keys: String = "F1 keys · Tab gear · J work · P pause · - = speed · Esc menu · O overlay"
+	# The three screens share one token: the bar over them names each (docs/32, "Navigation and
+	# layout"), and three tokens pushed a key off the end at 1280x720 with an E clause up.
+	var keys: String = HINT
 	# M is the developer's raw sheet, so the hint names it only where the key does something.
 	if OS.is_debug_build():
 		keys += " · M raw"
@@ -620,7 +664,8 @@ func _draw_action_bar(font: Font, view: Vector2) -> void:
 	# back the floor, and on a 1280 window the bar hung past both edges of the screen.
 	var bar_w: float = minf(maxf(total + CARD_PAD * 2.0 + busy_room, BAR_W), view.x - MARGIN * 2.0)
 	var bar := Rect2(Vector2(roundf((view.x - bar_w) * 0.5), view.y - MARGIN - STRIP_CLEARANCE - BAR_H), Vector2(bar_w, BAR_H))
-	Chrome.panel(self, bar, CARD_ALPHA)
+	# No rivets: a strip this low has no corners to spare for them beside the caps.
+	Locker.panel(self, bar, STEEL_ALPHA, false)
 	if _busy_frame >= 0:
 		_draw_busy(bar)
 	var x: float = roundf(bar.position.x + (bar.size.x - total) * 0.5)
