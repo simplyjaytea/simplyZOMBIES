@@ -77,6 +77,7 @@ const PREFS_PATH: String = "user://ui_prefs.json"
 
 const Clock = preload("res://sim/time/clock.gd")
 const Legend = preload("res://ui/legend.gd")
+const Chrome = preload("res://ui/chrome.gd")
 const UiPrefs = preload("res://ui/prefs.gd")
 const InputMapRes = preload("res://presentation/input_map.gd")
 const Session = preload("res://presentation/session.gd")
@@ -2169,10 +2170,9 @@ func _the_work_grid_draws_only_what_something_does(main: Node) -> bool:
 		push_error("STUBS: Work did not open")
 		ok = false
 	else:
-		var grid_x: float = float(panel.get_script().get("GRID_X"))
+		var edges: Array = panel.call("_column_edges") as Array
 		var grid_y: float = float(panel.get_script().get("GRID_Y"))
-		var cell_w: float = float(panel.call("_column_width"))
-		var at: Vector2 = panel.position + Vector2(grid_x + 0.5 * cell_w, grid_y + 28.0)
+		var at: Vector2 = panel.position + Vector2((float(edges[0]) + float(edges[1])) / 2.0, grid_y + 28.0)
 		_drain(main)
 		for down in [true, false]:
 			var press := InputEventMouseButton.new()
@@ -2215,12 +2215,26 @@ func _the_work_grid_fits_and_keeps_its_clicks(main: Node) -> bool:
 		if not panel.visible or doll.visible or not Rect2(Vector2.ZERO, Vector2(dims)).encloses(panel.get_rect()):
 			push_error("WORK-LAYOUT: Work is outside the viewport or covered by the corner chart at %s" % str(dims))
 			ok = false
-		var grid_x: float = float(panel.get_script().get("GRID_X"))
+		var edges: Array = panel.call("_column_edges") as Array
 		var grid_y: float = float(panel.get_script().get("GRID_Y"))
-		var cell_w: float = float(panel.call("_column_width"))
 		var columns: Array = (panel.get_script() as GDScript).call("shown_columns") as Array
 		var last: int = columns.size() - 1
-		var at: Vector2 = panel.position + Vector2(grid_x + (float(last) + 0.5) * cell_w, grid_y + 28.0)
+		var at: Vector2 = panel.position + Vector2((float(edges[last]) + float(edges[last + 1])) / 2.0, grid_y + 28.0)
+		# The grid uses the panel's width (UI review round 2: it stopped 200 px short at 1280 and
+		# 460 at 1920 while the heads and taglines were cut): it ends at the right gutter, and
+		# every column is at least its own head plus the gap, so no head is cut and no two read
+		# as one. Both are checked against the drawn edges, which the click math also reads.
+		var gutter: float = float(panel.get_script().get("GUTTER"))
+		var gap: float = float(panel.get_script().get("COL_GAP"))
+		if absf(float(edges[edges.size() - 1]) - (panel.size.x - gutter)) > 2.0:
+			push_error("WORK-LAYOUT: the grid stops at %.0f, short of the panel's right gutter at %.0f (%s)" % [float(edges[edges.size() - 1]), panel.size.x - gutter, str(dims)])
+			ok = false
+		var font: Font = Chrome.font()
+		for i in columns.size():
+			var head_w: float = font.get_string_size(String(columns[i]), HORIZONTAL_ALIGNMENT_LEFT, -1, int(panel.get_script().get("SMALL_SIZE"))).x
+			if float(edges[i + 1]) - float(edges[i]) < head_w + gap or int(edges[i]) % 2 != 0:
+				push_error("WORK-LAYOUT: column %s is %.0f px from x %.0f, under its head plus the gap (%.0f) or off the even grid (%s)" % [columns[i], float(edges[i + 1]) - float(edges[i]), float(edges[i]), head_w + gap, str(dims)])
+				ok = false
 		if not panel.get_rect().has_point(at):
 			push_error("WORK-LAYOUT: the last priority cell is outside the frame")
 			ok = false
@@ -2253,7 +2267,7 @@ func _the_work_grid_fits_and_keeps_its_clicks(main: Node) -> bool:
 				ok = false
 			var wheel := InputEventMouseButton.new()
 			wheel.pressed = true
-			wheel.position = panel.position + Vector2(grid_x + 4.0, grid_y + 4.0)
+			wheel.position = panel.position + Vector2(float(edges[0]) + 4.0, grid_y + 4.0)
 			wheel.button_index = MOUSE_BUTTON_WHEEL_DOWN
 			for i in crowded.size() + 2:
 				root.push_input(wheel)
@@ -2262,7 +2276,7 @@ func _the_work_grid_fits_and_keeps_its_clicks(main: Node) -> bool:
 				push_error("WORK-LAYOUT: wheel did not clamp at the last survivor")
 				ok = false
 			var row_h: float = float(panel.get_script().get("ROW_H"))
-			var last_at: Vector2 = panel.position + Vector2(grid_x + (float(last) + 0.5) * cell_w, grid_y + float(visible_rows - 1) * row_h + 28.0)
+			var last_at: Vector2 = panel.position + Vector2((float(edges[last]) + float(edges[last + 1])) / 2.0, grid_y + float(visible_rows - 1) * row_h + 28.0)
 			for down in [true, false]:
 				var press := InputEventMouseButton.new()
 				press.button_index = MOUSE_BUTTON_LEFT
@@ -2302,5 +2316,5 @@ func _the_work_grid_fits_and_keeps_its_clicks(main: Node) -> bool:
 	main.set("paused", was_paused)
 	await process_frame
 	if ok:
-		print("WORK-LAYOUT OK Work fits 1280/1920, the last visible cell receives the click, scrolling reaches both ends and clicks the displayed survivor, Work/web peel the corner chart and restore it while paused")
+		print("WORK-LAYOUT OK Work fits 1280/1920 with every column at least its head plus the gap and the grid at the right gutter, the last visible cell receives the click, scrolling reaches both ends and clicks the displayed survivor, Work/web peel the corner chart and restore it while paused")
 	return ok

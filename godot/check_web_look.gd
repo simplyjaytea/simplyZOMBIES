@@ -49,6 +49,9 @@ const LAYOUT_GD: String = "res://ui/web_layout.gd"
 const SKILLS_GD: String = "res://sim/modules/skills.gd"
 const LEGEND_GD: String = "res://ui/legend.gd"
 const PANEL_SIZE: Vector2 = Vector2(1040, 760)
+# The panel main.gd's `_place_web` gives the web on a 1280x720 window: shorter than its natural
+# size, so the web between the words shrinks and the names crowd (UI review, round 2).
+const SHORT_SIZE: Vector2 = Vector2(1036, 620)
 const BUDGET_SECONDS: float = 60.0
 
 const MAP_KEYS: Array[String] = ["who", "manual", "regions", "nodes"]
@@ -74,6 +77,7 @@ func _run() -> void:
 	var w: Variant = boot["world"]
 	ok = _map_lane(w) and ok
 	ok = await _screen_lane(w) and ok
+	ok = await _crowd_lane(w) and ok
 	ok = _wired_lane() and ok
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
 	if seconds > BUDGET_SECONDS:
@@ -495,6 +499,37 @@ func _map_lane(w: Variant) -> bool:
 		return false
 	print("MAP OK %d nodes, %d regions, words and booleans only; Medicine lived and Craft not; the Auto twin lived Medicine with nothing banked; the prose line agrees" % [nodes.size(), lived.keys().size()])
 	return true
+
+
+# --- 4b. CROWD ---------------------------------------------------------------------------------
+# No name, price, region word or "start" within LABEL_CLEAR of another, and no word over a disc it
+# does not belong to, on your own web at the natural size and at the 1280x720 size. The negative:
+# the same check on the short panel with every name on its home row, as the web drew them before
+# the label plan, finds the crowd the review measured -- so the check can see one.
+
+
+func _crowd_lane(w: Variant) -> bool:
+	var panel: Control = (load(PANEL_GD) as GDScript).new() as Control
+	root.add_child(panel)
+	await process_frame
+	var ok: bool = true
+	var naive: Array = []
+	for dims in [PANEL_SIZE, SHORT_SIZE]:
+		panel.size = dims
+		panel.call("set_world", w, int(w.player))
+		var faults: Array = panel.call("label_faults", true)
+		if not faults.is_empty():
+			push_error("CROWD: at %s the web's words crowd: %s" % [str(dims), str(faults)])
+			ok = false
+		if dims == SHORT_SIZE:
+			naive = panel.call("label_faults", false)
+	if naive.is_empty():
+		push_error("CROWD: with every name on its home row the short web shows no crowd, so the check cannot fail")
+		ok = false
+	panel.queue_free()
+	if ok:
+		print("CROWD OK every word on the web keeps its clearance and its own disc at the natural size and at 1280x720; laid out naively the short web crowds %d times" % naive.size())
+	return ok
 
 
 # --- 4. SCREEN ---------------------------------------------------------------------------------

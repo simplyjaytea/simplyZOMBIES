@@ -2219,6 +2219,31 @@ not a to-do list:
   end from the pane, a colonist treated from the pane, the Colony grid's own look (still the old
   kit), and the speech bubble's style (both the second bullet's).
 
+  **Second review round, on the 2 px art grid.** The art QA pass measured the shots and the
+  fixes landed on this entry. Every locker outline is now inset 2 px fills
+  (`Locker.rim`) instead of a centred stroke, so the care pane's buttons, the active tab and
+  the chips start and end on even pixels; the care button's row is snapped to the grid. Text
+  sits on whole multiples of VT323's pixel: the tab words at 4x on a tall window and 2x on a
+  short one, the care pane's part heading at 2x. The figure on the sheet scales by an even
+  whole number and sits on an even pixel, so at 1920×1080 it is 2x where it was 3x and the
+  picked part's ring no longer has odd edges. The skill web keeps its full width at 1280×720
+  and only its height gives way, its discs sit on even centres and radii, and a label plan tries
+  each name (with a keystone's price) on its home side, then the other, a row or two up or down,
+  keeping 8 px of ink from every other word and off every other disc, so at 1280×720 no name
+  sits on another or under a node; `godot:check:web_look`'s new CROWD lane holds that at both
+  sizes, and its negative is the short web with every name on its home row, which crowds. Its locked ink is raised to (142,136,126), above 4.5:1 on
+  the steel, and its footer legend wraps to two lines instead of ending in "…". The Colony
+  grid sizes each column to its own head plus a 20 px gap and stands against the panel's right
+  edge, so the heads ("Construct") and the taglines get the width the grid used to leave empty,
+  and Scavenge no longer runs into Water; `godot:check:play`'s WORK-LAYOUT lane holds both, at
+  1280×720 and 1920×1080, against the edges the click math reads. The street's figure card
+  lines up with the belt at x 16 and carries a "body" tape like every other HUD card.
+  **Left for slice 2**, each also on main before this slice: the keycaps' 1 px outlines and
+  corner steps; text that is not on a whole VT323 multiple (the HUD's "You" and OUTSIDE lines,
+  the tip card, the interior action bar's shrunk labels, the bar's hint and stamps, the web's
+  labels); the inventory's filter chips and the equipped-knife slot off the grid; the interior
+  camera's odd offset; and the bark bubble's old green style and clipped first glyph.
+
 - **UI — the inventory, redone (the Salvage Locker), 2026-10-19.** The owner's answer to the
   alpha plan's Q5: keep the grid, which reads like Tarkov's, but it "looks very plain" and has to
   look bespoke; and a fast list beside it with the grid still the authority on capacity. Three

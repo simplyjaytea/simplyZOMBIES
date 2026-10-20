@@ -62,6 +62,8 @@ var selected_part: String = ""
 # Set by main.gd on the street's corner glimpse: the figure and its stance word sit on a Salvage
 # Locker card, like the HUD cards beside it, instead of loose over the road.
 var framed: bool = false
+# The framed card's tape: what the card shows, in the HUD's one-word idiom.
+const CARD_TAPE: String = "body"
 
 var _view: Dictionary = {}
 var _by_part: Dictionary = {}
@@ -222,13 +224,17 @@ func _armor_mask(texture: Texture2D) -> Texture2D:
 
 
 # Where the chart is drawn inside this control, and at what whole-number scale. Integer only: the
-# art is pixels, and a chart at 1.7x is a chart with some rows twice as thick as others.
+# art is pixels, and a chart at 1.7x is a chart with some rows twice as thick as others. Even too,
+# and placed on even pixels: the screen's art grid is two pixels, and a 3x chart put its outline
+# and the picked part's ring on odd pixels at 1920 (UI review, round 2).
 func _chart_rect() -> Rect2:
 	var canvas: Vector2 = Vector2(Appearance.CHART_CANVAS)
 	var room: Vector2 = Vector2(size.x, maxf(1.0, size.y - LABEL_H))
 	var scale: float = maxf(1.0, floorf(minf(room.x / canvas.x, room.y / canvas.y)))
+	if scale >= 2.0:
+		scale = floorf(scale / 2.0) * 2.0
 	var box: Vector2 = canvas * scale
-	return Rect2(Vector2(roundf((size.x - box.x) / 2.0), roundf((room.y - box.y) / 2.0)), box)
+	return Rect2(Vector2(floorf((size.x - box.x) / 4.0) * 2.0, floorf((room.y - box.y) / 4.0) * 2.0), box)
 
 
 func _draw() -> void:
@@ -243,9 +249,12 @@ func _draw() -> void:
 	var scale: float = rect.size.x / float(Appearance.CHART_CANVAS.x)
 
 	if framed:
-		var card_top: float = floorf((rect.position.y - 12.0) / 2.0) * 2.0
+		# Room above the figure for the card's own taped head, like every other card on the HUD.
+		var card_top: float = floorf((rect.position.y - Locker.HEAD_H - 4.0) / 2.0) * 2.0
 		var card_end: float = ceilf((size.y + corner_shift + 4.0) / 2.0) * 2.0
-		Locker.panel(self, Rect2(Vector2(-8.0, card_top), Vector2(size.x + 16.0, card_end - card_top)), 0.96, false)
+		var card := Rect2(Vector2(-8.0, card_top), Vector2(size.x + 16.0, card_end - card_top))
+		Locker.panel(self, card, 0.96, false)
+		Locker.header(self, card, CARD_TAPE, 0.96)
 	# A soft ground shadow under the figure, as before: it is what stops the chart floating.
 	draw_set_transform(Vector2(rect.get_center().x, rect.position.y + rect.size.y - 4.0 * scale), 0.0, Vector2(1.0, 0.28))
 	draw_circle(Vector2.ZERO, rect.size.x * 0.30, Color(0.0, 0.0, 0.0, 0.30))

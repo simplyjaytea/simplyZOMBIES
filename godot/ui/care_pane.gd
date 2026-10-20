@@ -33,7 +33,8 @@ const SimCondition = preload("res://sim/condition.gd")
 const SimTreatment = preload("res://sim/modules/treatment.gd")
 
 const PAD: float = 16.0
-const TITLE_TEXT: int = 30
+# 25, not 30: the face draws whole at 2x there, and 30 drew the heading at a fraction.
+const TITLE_TEXT: int = 25
 const BODY_TEXT: int = 25
 const LINE: float = 26.0
 const BUTTON_H: float = 36.0
@@ -165,7 +166,8 @@ static func command_for(view: Dictionary, verb: String) -> Dictionary:
 # click both come from here.
 static func button_rects(rect: Rect2, view: Dictionary) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
-	var y: float = _care_top(rect, view) + LINE * 0.5
+	# On the art-pixel grid, like the frame `Locker.panel` snaps to: half a 26 px line is odd.
+	var y: float = roundf((_care_top(rect, view) + LINE * 0.5) / Locker.PX) * Locker.PX
 	for v in verbs_of(view):
 		var w: float = minf(rect.size.x - PAD * 2.0, maxf(Locker.label_width(word_of(v), Locker.LABEL_SIZE), Locker.PX * 60.0))
 		out.append({"verb": v, "rect": Rect2(Vector2(rect.position.x + PAD, y), Vector2(w, BUTTON_H))})
