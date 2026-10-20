@@ -1182,18 +1182,6 @@ static func action_frames(key: String, action: String, view: String) -> int:
 	return n
 
 
-# Whether `frame` is one of `key`'s action pictures (`<key>_<action>_<view>_<i>` for an action its
-# `actions` block declares), as against its rest, walk and breath pictures.
-static func is_action_frame(key: String, frame: String) -> bool:
-	_read_authored()
-	if not _families.has(key):
-		return false
-	for action in ((_families[key] as Dictionary)["actions"] as Dictionary).keys():
-		if frame.begins_with("%s_%s_" % [key, String(action)]):
-			return true
-	return false
-
-
 # The action's rate (frames a second of presentation time) and whether it loops, from the family's
 # `actions` block. 0.0 / false for an action the family does not declare.
 static func action_fps(key: String, action: String) -> float:
@@ -1355,10 +1343,11 @@ static func body_texture(look: Dictionary, view: String, motion: Dictionary) -> 
 	var frame: String = frame_key(key, view, motion)
 	if frame != key:
 		var outfit: Variant = look.get("outfit", [])
-		# No garment is painted on an action picture yet (A8's swing, recoil, reloads, flinch, crouch,
-		# crawl and fall), so a body acts in the rig's own underwear rather than asking for garment
-		# members that do not exist: docs/23 what's left, "Clothes on the action frames".
-		if outfit is Array and not (outfit as Array).is_empty() and not is_action_frame(key, frame):
+		# Every frame the rig draws is dressed, its action pictures (A8's swing, recoil, reloads,
+		# flinch, crouch, crawl and fall) included: the clothing painter carries each garment onto
+		# them (godot/art/simplyzombies/clothing/action_wear.py), so a garment member missing for
+		# any frame is `dressed_image`'s error, never a body quietly acting in its underwear.
+		if outfit is Array and not (outfit as Array).is_empty():
 			var dressed: Texture2D = dressed_texture(key, frame, outfit as Array)
 			if dressed != null:
 				return dressed

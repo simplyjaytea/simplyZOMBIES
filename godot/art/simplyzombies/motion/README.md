@@ -93,3 +93,9 @@ Each frame declares `head`, `torso` and (on the survivor) `hands`, where the mov
 worn and held layers follow by the same contract as the walk. `godot:check:action` holds the
 catalogue, the timing and the colours (a derived frame carries only its source's colours, a
 reload's magazine only the held pistol's, the tube reload's shells only the shells icon's).
+
+The clothing painter (`../clothing/action_wear.py`) rebuilds every action frame from these same
+functions and holds the result to the committed picture byte for byte before it dresses it. Two
+hooks exist for it and change nothing drawn: `reload_frames(..., trace=[])` appends each beat's
+armless body, dip and colours, and `_draw_arms(..., record={})` records each limb's shoulder,
+hand, elbow and the pixels it showed, so a sleeve can be measured along the bone it covers.
