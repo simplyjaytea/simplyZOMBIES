@@ -935,7 +935,7 @@ static func _loot_goal(world: Variant, ent: int) -> Vector2i:
 	return best
 
 
-# The nearest enemy body inside `metres`, asked of `SimAllegiance.enemies_of` so the halt and
+# The nearest enemy body inside `metres`, asked of `SimAllegiance.enemies_within` so the halt and
 # `npc_combat._nearest_threat` cannot disagree about who counts as one.
 static func _enemy_within(world: Variant, ent: int, metres: float) -> bool:
 	var here: Variant = world.components.get_component(ent, "position")
@@ -944,7 +944,7 @@ static func _enemy_within(world: Variant, ent: int, metres: float) -> bool:
 	var hx: float = float((here as Dictionary)["x"])
 	var hy: float = float((here as Dictionary)["y"])
 	var limit_sq: float = metres * metres
-	for other in SimAllegianceRes.enemies_of(world, ent):
+	for other in SimAllegianceRes.enemies_within(world, ent, metres):
 		var body: Variant = world.components.get_component(int(other), "body")
 		if not (body is Dictionary) or not SimHealthRes.is_alive(body as Dictionary):
 			continue

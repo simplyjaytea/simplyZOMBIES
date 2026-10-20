@@ -76,14 +76,16 @@ const FOOT_DROP_PX: float = 3.0
 # (item.schema.json) but is silently not drawn -- extending it is a renderer change, not a
 # content one, because a new slot needs a decision about where in this order it sits.
 #
-# Only `back` goes under: a pack hangs behind the body. Clothing covers the body it is worn on,
-# and a held weapon is in front of the hand holding it, so everything else is over. `vest` and
+# Only `back` goes under: a pack hangs behind the body. A held weapon is in front of the hand
+# holding it, so everything else is over. `legs` and `torso` left this table on 2026-10-19 (docs/23,
+# "Clothe everyone"): clothing is painted per frame and composed INTO the body picture by
+# `body_texture` (WORN_SLOTS below), so it walks with the body instead of standing on it. `vest` and
 # `face` joined on 2026-09-26 with the outpost pack's four-direction vest and gas mask ("The
 # bodies turn and walk"), and where they sit is the pack's own answer rather than a guess: its
 # manifest layers vest 2, backpack 3, gas mask 4 and helmet 5 over the body at 0, so `vest` comes
 # before `back` and `face` before `head`. An under-body layer draws in the under pass wherever its
-# slot sits here. `belt`, `feet`, `gloves` and `eyes` are equippable in content and still
-# deliberately not here; an `appearance.equipSprite` on one of those four is a socket nothing
+# slot sits here. `belt`, `gloves` and `eyes` are equippable in content and still deliberately not
+# here or in WORN_SLOTS; an `appearance.equipSprite` on one of those three is a socket nothing
 # reads, which is why content declares none.
 #
 # Since "Pack gear on the body" (2026-09-26) every picture drawn here says which side of the body
@@ -92,8 +94,6 @@ const FOOT_DROP_PX: float = 3.0
 # `z` does not list), and a held weapon goes over only when both this slot and the hand holding
 # it in that view say so (`HELD_BEHIND`) -- the far hand, or a body seen from behind, hides it.
 const EQUIP_DRAW_ORDER: Array[Dictionary] = [
-	{"slot": "legs", "over": true},
-	{"slot": "torso", "over": true},
 	{"slot": "vest", "over": true},
 	{"slot": "back", "over": false},
 	{"slot": "primary", "over": true},
@@ -105,6 +105,35 @@ const EQUIP_DRAW_ORDER: Array[Dictionary] = [
 # key -> Texture2D, or null when the key has no file. Cached either way: a miss is the
 # common case and re-probing the filesystem every frame would cost more than the sprites.
 static var _cache: Dictionary = {}
+
+# The slots whose garments are composed INTO the body picture, in the order they are laid on
+# (docs/23, "Clothe everyone", 2026-10-19). Trousers first, then footwear over the trouser hem (a
+# boot's shaft over the shin), then the torso garment over both (a coat's skirt over the thigh).
+# Each garment is a `wear` family in authored.json, painted onto every frame of the rig it `fits`,
+# so `body_texture` composes the garment member with the body member of the very same frame and
+# the clothes walk with the legs. A slot with nothing equipped wears the body's default outfit
+# (`outfit_of`), so nobody is drawn in the pack survivor's underwear.
+const WORN_SLOTS: Array[String] = ["legs", "feet", "torso"]
+
+# How `outfit_of` picks a default garment per slot from the entity id: the id divided by this, so
+# a body's shirt and trousers do not step through their lists in lockstep (four shirts against three
+# trousers would otherwise pair the same way every twelve ids, and every first body alike).
+const OUTFIT_STRIDE: Dictionary = {"legs": 2, "feet": 5, "torso": 1}
+
+# Garment family -> {"fits": the rig it was painted on, "slot": the one slot it dresses}, read off
+# authored.json kind `wear`.
+static var _wear: Dictionary = {}
+# Rig key -> true for every rig at least one garment fits: `outfit_of` answers nothing at once for
+# any other body (every zombie), rather than resolving three slots per body per frame.
+static var _clothed_rigs: Dictionary = {}
+# key -> Image, the decoded pixels of one picture, for composing. Separate from `_cache` because a
+# texture's pixels are not readable headless (the dummy renderer answers an empty image), and the
+# composite is built from pixels.
+static var _images: Dictionary = {}
+# "<frame>|<garment>,<garment>,..." -> the composed ImageTexture. Bounded by what is drawn: one
+# entry per rig frame per outfit actually on screen (20 frames x the few dozen outfits a colony
+# wears), each 32x40 RGBA8. The composed Image is not kept; the gates rebuild it per call.
+static var _dressed: Dictionary = {}
 
 
 # Both lookups matter, and neither is sufficient alone.
@@ -143,6 +172,10 @@ static func resolve(key: String) -> Texture2D:
 # Clears the texture cache. For gates that probe resolution with and without files present.
 static func forget() -> void:
 	_cache.clear()
+	_images.clear()
+	_dressed.clear()
+	_wear.clear()
+	_clothed_rigs.clear()
 	# The authored declaration goes with the textures: a gate that swaps the file on disk and
 	# then asks `canvas_of` again would otherwise get the answer from before the swap, which is
 	# the whole failure mode a cache invalidation exists to prevent.
@@ -420,6 +453,8 @@ static func _read_authored() -> void:
 	_held = {}
 	_muzzles = {}
 	_sheets = {}
+	_wear = {}
+	_clothed_rigs = {}
 	if not FileAccess.file_exists(AUTHORED_PATH):
 		return
 	var text: String = FileAccess.get_file_as_string(AUTHORED_PATH)
@@ -440,6 +475,10 @@ static func _read_authored() -> void:
 		_authored[String(key)] = shape
 		if String((entry as Dictionary).get("kind", "")) == "rig":
 			_authored_rigs.append(String(key))
+		if String((entry as Dictionary).get("kind", "")) == "wear":
+			var fits: String = String((entry as Dictionary).get("fits", ""))
+			_wear[String(key)] = {"fits": fits, "slot": String((entry as Dictionary).get("slot", ""))}
+			_clothed_rigs[fits] = true
 		var grip: Variant = (entry as Dictionary).get("grip")
 		if String((entry as Dictionary).get("kind", "")) == "pack_held" and grip is Array and (grip as Array).size() == 2:
 			_held[String(key)] = Vector2i(floori(float((grip as Array)[0])), floori(float((grip as Array)[1])))
@@ -729,8 +768,10 @@ static func for_entity(world: Variant, it: Dictionary) -> Dictionary:
 	# id. All three are content ids, and content is what decides how a thing looks.
 	var content_id: String = _content_id_for_item(it)
 	var declared_tint: bool = false
+	var body_block: Dictionary = {}
 	if not content_id.is_empty():
 		var block: Dictionary = body_variant(body_block_for(world, content_id), int(it.get("id", 0)))
+		body_block = block
 		if block.has("tint"):
 			tint = Color(String(block["tint"]))
 			declared_tint = true
@@ -757,7 +798,15 @@ static func for_entity(world: Variant, it: Dictionary) -> Dictionary:
 	var radius: float = 14.0 if is_player else (12.0 if (is_unique or is_raider) else 10.0)
 	# `sprite` is the key the texture came from, handed on so the draw loop can ask a family that
 	# turns for the picture of one view and one step (`body_texture`); `texture` is the rest view.
-	return {"texture": texture, "tint": modulate_for(texture != null, declared_tint, tint), "radius": radius, "sprite": sprite_key}
+	# `outfit` is the garments that picture is dressed in (`outfit_of`), composed by `body_texture`
+	# on the very frame it draws; empty for every body on a rig no garment fits -- every zombie.
+	return {
+		"texture": texture,
+		"tint": modulate_for(texture != null, declared_tint, tint),
+		"radius": radius,
+		"sprite": sprite_key,
+		"outfit": outfit_of(world, int(it.get("id", 0)), sprite_key, body_block),
+	}
 
 
 # A cosmetic variant belongs to its content type, not to the spawn mix. Stable entity ids
@@ -1062,14 +1111,154 @@ static func body_view(key: String, facing_v: Variant, vel: Variant) -> String:
 
 # The picture for a body this frame, from the look `for_entity` answered: its family's member for
 # this view and step, or the look's own texture when the key does not turn.
+#
+# A look with an `outfit` (docs/23, "Clothe everyone") answers that frame dressed: the body member
+# with each garment's member for the same frame laid over it (`dressed_texture`). The garments are
+# chosen by the body's frame key rather than by a second clock, so whatever picks the body's frame
+# picks the clothes' -- they cannot step out of time with the legs under them.
 static func body_texture(look: Dictionary, view: String, moving_now: bool, tick: int, phase: int) -> Texture2D:
 	var key: String = String(look.get("sprite", ""))
 	var frame: String = frame_key(key, view, moving_now, tick, phase)
 	if frame != key:
+		var outfit: Variant = look.get("outfit", [])
+		if outfit is Array and not (outfit as Array).is_empty():
+			var dressed: Texture2D = dressed_texture(key, frame, outfit as Array)
+			if dressed != null:
+				return dressed
 		var texture: Texture2D = resolve(frame)
 		if texture != null:
 			return texture
 	return look.get("texture") as Texture2D
+
+
+# --- clothing ---------------------------------------------------------------------------------
+#
+# "Clothe everyone" (docs/23, 2026-10-19): the pack survivor is a paperdoll base in underwear, and
+# since the face-on overlays retired (docs/30, "The whole outpost pack") an equipped jacket showed
+# nothing. A garment is now a `wear` family painted onto every frame of the rig it fits
+# (godot/art/simplyzombies/clothing/), and it is part of the body picture rather than a layer over
+# it -- the pack's vest stands still on a walking body, which a shirt cannot.
+
+# Whether `key` is a garment painted for `rig`: an authored `wear` family whose `fits` is that rig,
+# and, when `slot` is given, whose own `slot` is that one -- a torso item naming a pair of trousers
+# does not paint trousers on the torso's turn.
+static func wears(key: String, rig: String, slot: String = "") -> bool:
+	if key.is_empty() or rig.is_empty():
+		return false
+	_read_authored()
+	if not _wear.has(key) or not turns(key):
+		return false
+	var entry: Dictionary = _wear[key] as Dictionary
+	return String(entry.get("fits", "")) == rig and (slot.is_empty() or String(entry.get("slot", "")) == slot)
+
+
+# Whether `key` is a garment at all, for any rig -- the layers path refuses one (`equipment_layers_for`).
+static func is_garment(key: String) -> bool:
+	_read_authored()
+	return _wear.has(key)
+
+
+# The garments one body wears, in WORN_SLOTS order: for each slot, the equipped item's own
+# `equipSprite` when it is a garment painted for this body's rig, and otherwise the body's default
+# outfit for that slot -- its own block's `outfit`, or the player's (the corpse fallback's
+# precedent) -- picked by the full entity id, so it spends no simulation random number and the
+# same body always wears the same thing. A body on a rig no garment fits wears nothing.
+static func outfit_of(world: Variant, entity: int, rig: String, block: Dictionary) -> Array[String]:
+	var out: Array[String] = []
+	_read_authored()
+	if rig.is_empty() or not _clothed_rigs.has(rig):
+		return out
+	var defaults: Variant = block.get("outfit")
+	if not (defaults is Dictionary) and world != null:
+		defaults = body_block_for(world, PLAYER_LOOK_ID).get("outfit")
+	var slots: Dictionary = {}
+	if world != null and world.components != null:
+		var eq: Variant = world.components.get_component(entity, "equipment")
+		if eq is Dictionary:
+			slots = (eq as Dictionary).get("slots", {}) as Dictionary
+	for slot in WORN_SLOTS:
+		var key: String = ""
+		var item_block: Variant = _equip_block_for(world, slots.get(slot)) if not slots.is_empty() else null
+		if item_block is Dictionary:
+			key = String((item_block as Dictionary).get("equipSprite", ""))
+		if not wears(key, rig, slot):
+			key = default_garment(defaults, slot, entity)
+		if wears(key, rig, slot):
+			out.append(key)
+	return out
+
+
+# One slot's default garment for one body, or "" when the outfit names none for that slot.
+static func default_garment(defaults: Variant, slot: String, entity: int) -> String:
+	if not (defaults is Dictionary):
+		return ""
+	var choices: Variant = (defaults as Dictionary).get(slot, [])
+	if not (choices is Array) or (choices as Array).is_empty():
+		return ""
+	return String((choices as Array)[posmod(entity / int(OUTFIT_STRIDE.get(slot, 1)), (choices as Array).size())])
+
+
+# `frame` (a member of `rig`, e.g. `body_survivor_walk_e_2`) dressed in `outfit`: the body's pixels
+# with each garment's member for the same frame (`wear_tee_sand_walk_e_2`) laid over them in order.
+# Built once per frame and outfit and cached; null when the body frame has no pixels to dress, so
+# the caller falls back to the bare picture rather than drawing nothing.
+static func dressed_texture(rig: String, frame: String, outfit: Array) -> Texture2D:
+	var cache_key: String = "%s|%s" % [frame, ",".join(PackedStringArray(outfit))]
+	if _dressed.has(cache_key):
+		return _dressed[cache_key] as Texture2D
+	var image: Image = dressed_image(rig, frame, outfit)
+	var texture: Texture2D = ImageTexture.create_from_image(image) if image != null else null
+	_dressed[cache_key] = texture
+	return texture
+
+
+# The composed pixels `dressed_texture` uploads, readable headless: the gates judge these. A garment
+# member that is missing or the wrong size is an error, not a quiet bare patch: the body still
+# draws, with that one garment left off.
+static func dressed_image(rig: String, frame: String, outfit: Array) -> Image:
+	if rig.is_empty() or not frame.begins_with(rig):
+		return null
+	var base: Image = image_of(frame)
+	if base == null:
+		return null
+	var out: Image = base.duplicate() as Image
+	var suffix: String = frame.substr(rig.length())
+	for garment in outfit:
+		var member: String = "%s%s" % [String(garment), suffix]
+		var layer: Image = image_of(member)
+		if layer == null or layer.get_size() != out.get_size():
+			var found: String = "missing" if layer == null else "%s, not %s" % [str(layer.get_size()), str(out.get_size())]
+			push_error("Appearance: garment frame '%s' is %s; '%s' draws without it" % [member, found, frame])
+			continue
+		out.blend_rect(layer, Rect2i(Vector2i.ZERO, layer.get_size()), Vector2i.ZERO)
+	return out
+
+
+# The decoded RGBA8 pixels of one picture: the raw file where it exists (dev and CI, and the only
+# route headless), else the imported texture's own image (an exported build ships no raw .png).
+static func image_of(key: String) -> Image:
+	if key.is_empty():
+		return null
+	if _images.has(key):
+		return _images[key] as Image
+	var path: String = "%s/%s.png" % [SPRITE_DIR, key]
+	var image: Image = null
+	if FileAccess.file_exists(path):
+		image = Image.new()
+		if image.load(path) != OK:
+			image = null
+	if image == null:
+		var texture: Texture2D = resolve(key)
+		if texture != null:
+			image = texture.get_image()
+	if image != null and not image.is_empty():
+		if image.is_compressed():
+			image.decompress()
+		image.convert(Image.FORMAT_RGBA8)
+	else:
+		image = null
+	_images[key] = image
+	return image
 
 
 # The flip for a body: one that turns is never mirrored (the pack draws the west view), and a
@@ -1416,10 +1605,11 @@ static func prop_of(world: Variant, id: String) -> Dictionary:
 # pack's `item_held_*` -- draws at its hand for that view (`held_layer`), and its layer carries
 # `at`, `size` and `transpose` so the draw loop can place and turn it. Nothing else draws: since
 # "Pack gear on the body" (2026-09-26) there is no face-on overlay left to draw, and a key of any
-# other shape -- the retired `_equip` overlays among them -- composes nothing, in every view. That
-# is the gap the owner accepted (docs/30, "The whole outpost pack"): a jacket, a cap, trousers or
-# the duffel worn shows nothing on the body until four-sided art exists, and the inventory and the
-# inspect pane still say it is worn.
+# other shape -- the retired `_equip` overlays among them -- composes nothing, in every view. The
+# gap the owner accepted (docs/30, "The whole outpost pack") is closed for torso, legs and feet by
+# "Clothe everyone" (docs/23, 2026-10-19): those garments are composed into the body picture by
+# `body_texture`, not here, and a garment key in any slot this table walks is skipped rather than
+# drawn standing still. A cap, gloves or the duffel worn still shows nothing on the body.
 static func equipment_layers_for(world: Variant, actor: int, view: String = VIEW_REST) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	if world == null or world.components == null:
@@ -1434,6 +1624,9 @@ static func equipment_layers_for(world: Variant, actor: int, view: String = VIEW
 		if not (block is Dictionary):
 			continue
 		var key: String = String((block as Dictionary).get("equipSprite", ""))
+		# A garment is part of the body picture (`body_texture`), never a standing layer over it.
+		if is_garment(key):
+			continue
 		if turns(key):
 			var turned: Texture2D = resolve("%s_%s" % [key, view])
 			if turned != null:

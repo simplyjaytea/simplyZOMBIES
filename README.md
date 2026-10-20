@@ -53,9 +53,16 @@ animations, an atlas, and native Godot resources. See the
 [offline preview](godot/art/simplyzombies-ui/simplyzombies-ui-preview.html).
 Run `godot/art/simplyzombies-ui/demo/demo.tscn` in Godot to try the native controls.
 The live UI uses the kit's frames, font, glyphs, cursors and animations through the shared chrome
-helpers, checked by `godot:check:ui_skin`. The inventory and work grid fit 1280×720 and 1920×1080,
-with scrolling for long condition lists, tall bags and larger rosters. See the
+helpers, checked by `godot:check:ui_skin`. The reviewed inventory and ordinary work layouts
+fit 1280×720 and 1920×1080, with scrolling for long condition lists, tall bags and larger rosters. See the
 [layout comparisons](.hermes/plans/2026-10-03_ui-layout/) for the reviewed panels.
+
+A complete [UI overhaul is being designed](docs/32-ui-overhaul.md): Project Zomboid-style
+management, Tarkov/Zero Sievert tactical detail, and an anatomical equipment diagram that
+fits the Dungeon Settlers-inspired world. The [all-screen audit](.hermes/plans/2026-10-03_ui-overhaul/audit/README.md)
+also identifies remaining skill-web/bench clipping, long learning-text overflow and vehicle
+HUD overlap. The [roadmap](docs/23-roadmap.md#ui-overhaul) describes the proposed delivery order;
+these improvements are not yet implemented.
 
 ## The loop, in five lines
 
@@ -297,6 +304,7 @@ and 30 sits with the technical set rather than all of them landing at the end.
 | [23 — Roadmap](docs/23-roadmap.md) | The vertical slice, milestones, risks, open questions |
 | [30 — Decision Records](docs/30-decisions.md) | What each chunk of work made structural, oldest first |
 | [31 — Godot Rebuild Roadmap](docs/31-godot-rebuild-roadmap.md) | Transition phases, parity gates, delivery, and cutover |
+| [32 — UI Overhaul](docs/32-ui-overhaul.md) | Proposed visual direction, management flows, anatomical equipment diagram and all-screen acceptance |
 
 ## Reading order
 

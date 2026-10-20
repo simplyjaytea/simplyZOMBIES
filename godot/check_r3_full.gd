@@ -371,12 +371,17 @@ func _check_save_roundtrip() -> bool:
 	if not SimInventory.contents_of(w2, pouch).has(band):
 		push_error("pouch no longer contains band after restore")
 		return false
-	# seed mismatch: restore should assert
+	# Seed guard. `SimWorld.restore` asserts the save's seed against the world's own, so a save only
+	# loads into the world it came from. The assert itself cannot be exercised here without aborting
+	# the process, so this lane judges the two numbers it compares: this save names the seed of the
+	# world it was written from, and a world of another seed would not match it.
 	var w3: Variant = _make_world(778)
-	var seed_ok: bool = false
-	# SimWorld.restore asserts seed mismatch; we just check that decoded seed differs
-	if int((decoded["snapshot"] as Dictionary)["seed"]) == int(w3.seed):
-		push_error("seed should differ for w3")
+	var saved_seed: int = int((decoded["snapshot"] as Dictionary)["seed"])
+	if saved_seed != int(w.seed):
+		push_error("seed guard: the save names seed %d, but it was written from seed %d" % [saved_seed, int(w.seed)])
+		return false
+	if saved_seed == int(w3.seed):
+		push_error("seed guard: a world of seed %d would match this save, so the guard could never refuse it" % saved_seed)
 		return false
 	print("SAVE OK ticks %d seed %d text_len %d" % [w.tick, w.seed, text.length()])
 	return true
