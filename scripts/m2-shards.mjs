@@ -61,6 +61,7 @@ export const M2_SHARDS = [
     "godot:ban:healthbar",
     "godot:check:camera",
     "godot:check:motion",
+    "godot:check:action",
   ],
   [
     "godot:m2:needs",
