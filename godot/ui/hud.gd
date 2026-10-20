@@ -90,6 +90,8 @@ var onboarding: RefCounted = null
 var _left: Array[String] = []
 var _right: Array[String] = []
 var _raw: String = ""
+# The clock's state in words, set by main each frame: "paused", "normal speed", "fast", "asleep, fast-forwarding".
+var time_words: String = ""
 var _action: String = ""
 # The first-day hint on screen, "" for none, and the card it is drawn in (empty when none is drawn).
 var _onboarding_line: String = ""
@@ -269,7 +271,8 @@ func _self_lines(world: Variant, actor: int) -> Array[String]:
 func _world_lines(world: Variant, actor: int) -> Array[String]:
 	var lines: Array[String] = []
 	var tod: float = Clock.time_of_day(int(world.tick))
-	lines.append("day %d, %s" % [Clock.day_number(int(world.tick)), Clock.PHASE_NAMES[Clock.phase_at(tod)]])
+	var clock_words: String = (", " + time_words) if not time_words.is_empty() else ""
+	lines.append("day %d, %s%s" % [Clock.day_number(int(world.tick)), Clock.PHASE_NAMES[Clock.phase_at(tod)], clock_words])
 	# The sky, in one sentence while it rains and nothing when it does not (docs/adr/0015).
 	var sky: String = SimWeather.hud_clause(world)
 	if not sky.is_empty():

@@ -5606,3 +5606,66 @@ This settles the inventory's surfaces only. Typography, the anatomical diagram a
 the interface remain the recommendations "The whole interface" describes; VT323 is still the
 baseline face, not a renewed decision. The health-bar ban, the digit ban and the scarce-
 information contract are unchanged.
+## The one-hour day, 2026-10-19
+
+The owner answered the alpha plan's Q2 with the Project Zomboid option: one in-game day is one real
+hour, not four. `SimClock.DAY_SECONDS` is 3600, so `DAY_TICKS` is 72,000 (was 288,000). Dawn and
+dusk are 7.5 minutes each, the day is 30 minutes, the night 15.
+
+Every value that depends on the day falls into one of three groups. The question for each is what
+it is measured against.
+
+1. **Calendar** (the story's clock): the director's beats, the day-8 recruit, raid nights and lulls,
+   the strangers' three-day deadline, roster waves, skills' daily drift, the night's length
+   (`0.25 * DAY_TICKS`), and the seasons (`seasonDays` 5). These follow `DAY_TICKS` and compress:
+   day 8 is eight real hours away, not thirty-two.
+2. **Body and world pressure, written in days**: multiplied by four, so the pressure per real minute
+   is what it was on the four-hour day. Hunger empties in 8 days (was 2), thirst in 4 (was 1), rest
+   drains over 3 (was 0.75 of a day), relief in 2 (was 0.5). Starvation kills after 4 days (was 1),
+   dehydration after 1 (was 0.25). Raw food spoils in 8 days (was 2), cooked in 4 (was 1); the 48
+   `spoilDays` in `content/items/kitchen.json` and `supplies.json` were multiplied, zero stays zero.
+   Wound recovery: scratch 8 (was 2), laceration 24 (was 6), deep wound 64 (was 16); per kind,
+   fracture 168 (was 42), sprain 20 (was 5), burn and frostbite 56 (was 14), heatstroke 28 (was 7),
+   concussion 24 (was 6). Wind re-rolls every 4 days (was 1), in `climate/temperate.json` and the
+   `weather.gd` default. A corpse's scent ages after 4 days (was 1), `recruits.gd` `CORPSE_OLD_TICKS`.
+3. **Night-relative literal ticks**: the exposure clock that turns a cold night into a deep band
+   (`EXPOSURE_TICKS`, 18000 to 4500, and the frostbite, cold, heatstroke and heat death doses that
+   are multiples of it), the campfire's burn (36000 to 9000, "half a night"), and every lamp, candle
+   and torch `burnTicks` (divided by four). The shipped burn times are judged against the night
+   (`check_m2_light_burn.gd`), so they move with it: a full lamp still lasts the same number of nights.
+   Left unchanged, these would make a clear night's cold unreachable: the cold clock clears at dawn,
+   and a night is now 15 real minutes.
+
+Left as literal real-time ticks, not scaled: weather spell lengths (clear, rain, storm, snow, cold
+snap, heat wave, in `weather.gd` and `content/weather/*.json`), noise `durationTicks` and `delayTicks`,
+comfort `ticks`, the noisemaker's 12000, the wet body's `dryAfterTicks` and `dryByFireTicks`, the
+sedan's range, the goodwill from a meal (36,000), grief and argument decay, and the infection timers
+(latent, onset, progression and critical, 60 to 72 real hours from bite to turn). These keep their
+real-minute length, so in in-game days they stretch four times: a cold snap is 4 to 12 days, not 1
+to 3, and a bite takes 60 to 72 days to turn, not 15 to 18.
+
+Judgement the owner may want to reverse: the weather spells and infection are real time, so their
+in-game length grew four times. Dividing them by four would restore their in-game length and make
+them four times as fast per real minute.
+
+Gates changed to the new values: `check_m2_needs.gd` (raw spoil 8 days, the pantry clock now
+computed rather than the literal 576), `check_m2_weather.gd` (its walks are sized in the four-hour
+day's ticks, since spells are real time), `check_weather.gd` (its `DAY_TICKS` probe reads
+`SimClock`), `check_m2_balance.gd` (comments). Parity (`godot:test`) is untouched because the
+walking skeleton does not read the clock.
+
+## Livable time, 2026-10-19
+
+Alpha plan A5, on the one-hour day. The clock's state is in words on the HUD: "paused", "normal
+speed", "fast", "asleep, fast-forwarding", "asleep, zombie near, normal speed". Digits stay off the
+player HUD (`check_hud`), so the step is named, not counted. The speed ladder is 1x and 3x. 10x is
+out until the sim tick is under budget (plan A3); `SimFortify.speed_after_events` still drops a 10x
+run on an alarm for when it returns. While the player sleeps with no living zombie within ten
+metres, the loop runs at 3x. A grab, a hit or an alarm wakes the sleeper through the sim, and the
+step returns to the user's own. The stop is the living zombie within ten metres (`THREAT_METRES`,
+docs/02's contact distance), which is checked before the sim's own wake. The plan's "every colonist
+asleep" clause is not built: only the player's sleep counts.
+
+Gate: `godot:check:play`, lane CLOCK (`_the_clock_says_its_speed_and_sleep_skips`). It counts ticks
+per frame at each step, asleep and near a zombie, and a dead zombie does not stop the sleep.
+
