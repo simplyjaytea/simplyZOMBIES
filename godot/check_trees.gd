@@ -153,6 +153,10 @@ func _run() -> void:
 	ok = _the_room_sets_and_the_edges_hold() and ok
 	ok = _the_rooms_and_the_street_keep_their_measure() and ok
 	ok = _the_second_review_holds() and ok
+	ok = _the_old_street_stands() and ok
+	ok = _the_rooms_stay_walkable() and ok
+	ok = _the_stock_stays_in_storage() and ok
+	ok = _the_litter_takes_its_shapes() and ok
 	ok = _dressing_is_never_sim_state() and ok
 
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
@@ -2435,6 +2439,7 @@ func _the_occupancy_holds() -> bool:
 	var meets_flat_nature: int = 0
 	var meets_litter: int = 0
 	var kept_meets: int = 0
+	var old_meets: int = 0
 	var kept_under_higher: int = 0
 	var kept_on_clear: int = 0
 	var scrap_on_held: int = 0
@@ -2478,9 +2483,15 @@ func _the_occupancy_holds() -> bool:
 						continue
 					var kept_near: Dictionary = Dressing._kept_top(occ, omap, nx, ny)
 					var rect: Rect2i = Dressing._top_rect(occ, kept, tx, ty)
+					# Two pieces of the old street furniture that met where main drew them still meet:
+					# both stand where they stood (`kept`), which outranks the overlap rule.
+					var both_old: bool = kept.has("kept") and kept_near.has("kept")
 					if not kept_near.is_empty() and Dressing._meet(rect, Dressing._top_rect(occ, kept_near, nx, ny), shift):
-						kept_meets += 1
-					if not near.is_empty() and int(near["rank"]) > int(kept["rank"]) and Dressing._meet(rect, Dressing._top_rect(occ, near, nx, ny), shift):
+						if both_old:
+							old_meets += 1
+						else:
+							kept_meets += 1
+					if not near.is_empty() and int(near["rank"]) > int(kept["rank"]) and Dressing._meet(rect, Dressing._top_rect(occ, near, nx, ny), shift) and not (kept.has("kept") and near.has("kept")):
 						kept_under_higher += 1
 			if not scrap.is_empty():
 				var scrap_rect: Rect2i = Dressing._litter_rect(occ, String(scrap["key"]), tx, ty)
@@ -2491,7 +2502,7 @@ func _the_occupancy_holds() -> bool:
 						var kept_near: Dictionary = Dressing._kept_top(occ, omap, tx + dx, ty + dy)
 						if not kept_near.is_empty() and Dressing._meet(scrap_rect, Dressing._top_rect(occ, kept_near, tx + dx, ty + dy), Vector2i(dx, dy)):
 							kept_meets += 1
-	print("OCCUPANCY raw meetings on the suburb: %d standing over flat, %d flat over nature, %d scraps over a picture; kept pictures that meet: %d; kept under a higher raw rank: %d" % [meets_standing_flat, meets_flat_nature, meets_litter, kept_meets, kept_under_higher])
+	print("OCCUPANCY raw meetings on the suburb: %d standing over flat, %d flat over nature, %d scraps over a picture; kept pictures that meet: %d; kept under a higher raw rank: %d; old street furniture meeting old street furniture where main drew it: %d" % [meets_standing_flat, meets_flat_nature, meets_litter, kept_meets, kept_under_higher, old_meets])
 	# The suburb's street junk is spaced along its rows and stands mostly on the paving, so flat over
 	# nature can miss this one map; a grass yard rolling both on every other tile is where that rule is
 	# proved, under the same kept checks.
@@ -3286,7 +3297,7 @@ func _the_second_review_holds() -> bool:
 	# --- the readers ------------------------------------------------------------------------------
 	var missing: String = _missing_needle(_function_body(MAIN_GD, "_draw_litter"), ["placed.get(\"flip_v\"", "placed.get(\"tint\""])
 	if missing.is_empty():
-		missing = _missing_needle(_function_body(DRESSING_GD, "_kept_top"), ["_kept_alone(occ, map, at.x, at.y)"])
+		missing = _missing_needle(_function_body(DRESSING_GD, "_kept_seated"), ["_kept_alone(occ, map, at.x, at.y)"])
 	if missing.is_empty():
 		missing = _missing_needle(_function_body(DRESSING_GD, "_anchor_fits"), ["_furnishing_raw(occ[\"furnish\"]"])
 	if missing.is_empty():
@@ -3297,4 +3308,320 @@ func _the_second_review_holds() -> bool:
 		push_error("a round-two rule has lost its reader: %s" % missing)
 		return false
 	print("REVIEW2_OK %d blocks dealt their quota on both sides of the walls (%d off it under a per-tile roll); the fridge and the cabinet one a room; %d chairs each beside its own table, %d over a dropped table dropped with it (and a fabricated drop); %d tables clear of the plain picks round them (%d spots the rule refused); scraps %d grey and %d plain, %d upside down, none tinted without tints; main.gd and the harness read it" % [blocks_judged, roll_off, chairs, orphaned, anchors, crowded, grey, white, upside])
+	return true
+
+
+# --- OLD_STREET: main's street furniture stands where main drew it ----------------------------
+
+# The street furniture's roll as main drew it before A12, frozen here as the reference the shipped
+# roll is judged against: main's list in its own order (the salt is the index), the shifted hash and
+# the old ground rule. Copied from main's dressing.gd at 9d9bc23; it must never follow dressing.gd.
+const OLD_STREET: Array = [
+	["prop_dumpster", 20, 4, ["paved"], true],
+	["prop_concrete_barrier", 110, 5, ["paved"], false],
+	["prop_traffic_cone", 90, 6, ["paved"], false],
+	["prop_fence_post", 70, 7, ["grass", "dirt"], false],
+	["prop_road_sign", 140, 9, ["paved"], false],
+	["prop_streetlamp", 180, 10, ["paved"], false],
+]
+const OLD_STREET_KEYS: Array[String] = ["prop_concrete_barrier", "prop_traffic_cone", "prop_fence_post", "prop_road_sign", "prop_streetlamp"]
+
+
+static func _old_floor(map: Variant, tx: int, ty: int) -> bool:
+	if tx < 0 or ty < 0 or tx >= int(map.w) or ty >= int(map.h):
+		return false
+	var idx: int = ty * int(map.w) + tx
+	return int(map.tiles[idx]) == SimTileMap.Tile.Floor and int(map.indoors[idx]) == 0
+
+
+static func _old_tile_is(map: Variant, tx: int, ty: int, tile: int) -> bool:
+	if tx < 0 or ty < 0 or tx >= int(map.w) or ty >= int(map.h):
+		return false
+	return int(map.tiles[ty * int(map.w) + tx]) == tile
+
+
+# What main's furnishing_key answered for an outdoor tile, or "".
+static func _old_street_pick(map: Variant, seed_val: int, tx: int, ty: int) -> String:
+	if not _old_floor(map, tx, ty):
+		return ""
+	var surface: int = int(map.surfaces[ty * int(map.w) + tx])
+	var base: int = (tx * 73856093) ^ (ty * 19349663) ^ (seed_val * 83492791)
+	for row in OLD_STREET:
+		var mask: int = 0
+		for name in row[3] as Array:
+			mask |= 1 << Dressing.surface_named(String(name))
+		if (mask >> surface) & 1 == 0:
+			continue
+		if (((base ^ ((300 + int(row[2])) * 2654435761)) & 0x7fffffff) >> 8) % int(row[1]) != 0:
+			continue
+		if not (_old_floor(map, tx - 1, ty) and _old_floor(map, tx + 1, ty)):
+			continue
+		if _old_tile_is(map, tx, ty - 1, SimTileMap.Tile.Door) or _old_tile_is(map, tx, ty + 1, SimTileMap.Tile.Door):
+			continue
+		if bool(row[4]) and not (_old_tile_is(map, tx, ty - 1, SimTileMap.Tile.Wall) or _old_tile_is(map, tx, ty + 1, SimTileMap.Tile.Wall) or _old_tile_is(map, tx - 1, ty, SimTileMap.Tile.Wall) or _old_tile_is(map, tx + 1, ty, SimTileMap.Tile.Wall)):
+			continue
+		return String(row[0])
+	return ""
+
+
+# Over a map, the tiles where main's street furniture and the kept pictures disagree: `missing`, a
+# piece main drew that the block does not keep there, and `extra`, a street piece the block keeps
+# where main drew none (or drew another). `held` counts main's pieces under a sim object.
+static func _old_street_diff(block: Dictionary, map: Variant, seed_val: int) -> Dictionary:
+	var occ: Dictionary = Dressing.occupancy(block, map, seed_val)
+	var same: int = 0
+	var missing: Array = []
+	var extra: Array = []
+	for ty in int(map.h):
+		for tx in int(map.w):
+			if not _old_floor(map, tx, ty):
+				continue
+			var was: String = _old_street_pick(map, seed_val, tx, ty)
+			var top: Dictionary = Dressing._kept_top(occ, map, tx, ty)
+			var now: String = String(top.get("key", ""))
+			var now_street: bool = OLD_STREET_KEYS.has(now)
+			if OLD_STREET_KEYS.has(was):
+				if now == was:
+					same += 1
+				else:
+					missing.append([Vector2i(tx, ty), was, now])
+			elif now_street:
+				extra.append([Vector2i(tx, ty), now])
+	return {"same": same, "missing": missing, "extra": extra}
+
+
+func _the_old_street_stands() -> bool:
+	var tree: Dictionary = ContentLoader.load_tree()
+	var boot: Dictionary = SimBoot.playable(CANON_SEED, GATE_SIZE)
+	var block: Dictionary = Dressing.block_of(boot["world"])
+	var maps: Array = [["the boot map", boot["map"], int(boot["world"].seed)]]
+	for district_id in FURNISH_DISTRICTS:
+		maps.append([district_id, SimWorldgen.generate(CANON_SEED, GATE_SIZE, tree, district_id), CANON_SEED])
+	var same: int = 0
+	for row in maps:
+		var diff: Dictionary = _old_street_diff(block, row[1], int(row[2]))
+		if not (diff["missing"] as Array).is_empty() or not (diff["extra"] as Array).is_empty():
+			push_error("OLD_STREET: %s: main's street furniture moved: missing %s, extra %s" % [String(row[0]), str((diff["missing"] as Array).slice(0, 4)), str((diff["extra"] as Array).slice(0, 4))])
+			return false
+		same += int(diff["same"])
+	if same < 20:
+		push_error("OLD_STREET: only %d pieces of main's street furniture on the judged maps; too few to prove the roll" % same)
+		return false
+	# TN: the same entries rolled the shipped way (no `roll: kept`) move main's pieces.
+	var plain_block: Dictionary = block.duplicate(true)
+	var shadowless: Dictionary = block.duplicate(true)
+	for entry in plain_block["furnishings"] as Array:
+		(entry as Dictionary).erase("roll")
+		(entry as Dictionary).erase("shadow")
+	var kept_list: Array = []
+	for entry in shadowless["furnishings"] as Array:
+		if not bool((entry as Dictionary).get("shadow", false)):
+			kept_list.append(entry)
+	shadowless["furnishings"] = kept_list
+	var moved: int = 0
+	var shadow_extra: int = 0
+	for row in maps:
+		if moved == 0:
+			var pd: Dictionary = _old_street_diff(plain_block, row[1], int(row[2]))
+			moved += (pd["missing"] as Array).size() + (pd["extra"] as Array).size()
+		if shadow_extra == 0:
+			shadow_extra += (_old_street_diff(shadowless, row[1], int(row[2]))["extra"] as Array).size()
+	if moved == 0:
+		push_error("OLD_STREET: rolling the street furniture the plain way moved nothing; the lane cannot say no")
+		return false
+	if shadow_extra == 0:
+		push_error("OLD_STREET: dropping the old wall dumpster's shadow added no street piece; the shadow is a dead socket")
+		return false
+	if not _function_body(DRESSING_GD, "_raw_top_uncached").contains("_kept_raw(occ, map, tx, ty)") or not _function_body(DRESSING_GD, "_beats").contains("other.has(\"kept\")") or not _function_body(DRESSING_GD, "_kept_alone").contains("top.has(\"kept\")"):
+		push_error("OLD_STREET: the raw top, the overlap rule or the keep no longer read the kept roll")
+		return false
+	print("OLD_STREET_OK %d pieces of main's street furniture on %d maps stand where main drew them, none missing, none added; the plain roll moves %d on the first map it is tried on, and without the dumpster's shadow %d appear where main drew a dumpster" % [same, maps.size(), moved, shadow_extra])
+	return true
+
+
+# --- PASSAGE: every room keeps one walk round its furniture ----------------------------------
+
+# Over a map's rooms: how many are cut (their free floor is not one four-connected walk, or a tile
+# inside a doorway holds a piece), and how many free tiles were judged. A tile is taken when a kept
+# standing or flat picture stands on it; scraps and the old street furniture do not count.
+static func _cut_rooms(block: Dictionary, map: Variant, seed_val: int, keep: bool = true) -> Vector2i:
+	var occ: Dictionary = Dressing.occupancy(block, map, seed_val)
+	occ["keep_passages"] = keep
+	var w: int = int(map.w)
+	var room_seen: Dictionary = {}
+	var cut: int = 0
+	var judged: int = 0
+	for ty in int(map.h):
+		for tx in w:
+			var room: int = Dressing._room_of(occ, map, tx, ty)
+			if room < 0 or room_seen.has(room):
+				continue
+			room_seen[room] = true
+			var tiles: PackedInt32Array = (occ["room_tiles"] as Array)[room]
+			var in_room: Dictionary = {}
+			var taken: Dictionary = {}
+			var door_blocked: bool = false
+			for idx in tiles:
+				in_room[idx] = true
+				var top: Dictionary = Dressing._kept_top(occ, map, idx % w, floori(float(idx) / float(w)))
+				if not top.is_empty() and int(top["rank"]) >= Dressing.RANK_FLAT and int(top["rank"]) != Dressing.RANK_HELD:
+					taken[idx] = true
+					if Dressing._by_door(map, idx % w, floori(float(idx) / float(w))):
+						door_blocked = true
+			judged += tiles.size() - taken.size()
+			if door_blocked or not _walk_of(w, tiles, in_room, taken):
+				cut += 1
+	return Vector2i(cut, judged)
+
+
+# The gate's own flood fill (not dressing.gd's): whether the room's free tiles are one walk.
+static func _walk_of(w: int, tiles: PackedInt32Array, in_room: Dictionary, taken: Dictionary) -> bool:
+	var free: Array[int] = []
+	for idx in tiles:
+		if not taken.has(idx):
+			free.append(idx)
+	if free.is_empty():
+		return true
+	var reached: Dictionary = {free[0]: true}
+	var queue: Array[int] = [free[0]]
+	while not queue.is_empty():
+		var at: int = queue.pop_back()
+		var x: int = at % w
+		for n in [at - w, at + w, at - 1 if x > 0 else -1, at + 1 if x < w - 1 else -1]:
+			if int(n) >= 0 and in_room.has(n) and not taken.has(n) and not reached.has(n):
+				reached[n] = true
+				queue.append(int(n))
+	return reached.size() == free.size()
+
+
+func _the_rooms_stay_walkable() -> bool:
+	var tree: Dictionary = ContentLoader.load_tree()
+	var boot: Dictionary = SimBoot.playable(CANON_SEED, GATE_SIZE)
+	var block: Dictionary = Dressing.block_of(boot["world"])
+	var maps: Array = [["the boot map", boot["map"], int(boot["world"].seed)]]
+	for district_id in FURNISH_DISTRICTS:
+		maps.append([district_id, SimWorldgen.generate(CANON_SEED, GATE_SIZE, tree, district_id), CANON_SEED])
+	var judged: int = 0
+	for row in maps:
+		var got: Vector2i = _cut_rooms(block, row[1], int(row[2]))
+		if got.x != 0:
+			push_error("PASSAGE: %s has %d rooms whose free floor is cut by their furniture" % [String(row[0]), got.x])
+			return false
+		judged += got.y
+	# TN: without the rule the same maps cut rooms, so the rule has work and the fill can say no.
+	var cut_without: int = 0
+	for row in maps:
+		cut_without += _cut_rooms(block, row[1], int(row[2]), false).x
+		if cut_without > 0:
+			break
+	if cut_without == 0:
+		push_error("PASSAGE: no room on the judged maps is cut even without the rule; the rule is not proved")
+		return false
+	if not _function_body(DRESSING_GD, "_kept_top").contains("_room_drops(occ, map, room)"):
+		push_error("PASSAGE: _kept_top no longer asks _room_drops; the rule has lost its reader")
+		return false
+	print("PASSAGE_OK every room on %d maps keeps one walk round its furniture and its doorways clear (%d free tiles judged); without the rule %d rooms are cut on the first map that cuts any" % [maps.size(), judged, cut_without])
+	return true
+
+
+# --- STOCK: barrels and pallets stand in storage rooms; a living room keeps one of each --------
+
+# Over a map: the most barrels (or pallets) one living room keeps, and how many storage rooms keep
+# more than one.
+static func _stock_by_room(block: Dictionary, map: Variant, seed_val: int) -> Vector2i:
+	var occ: Dictionary = Dressing.occupancy(block, map, seed_val)
+	var counts: Dictionary = {}
+	for ty in int(map.h):
+		for tx in int(map.w):
+			var room: int = Dressing._room_of(occ, map, tx, ty)
+			if room < 0:
+				continue
+			var key: String = String(Dressing._kept_top(occ, map, tx, ty).get("key", ""))
+			if key != "prop_barrel" and key != "prop_pallet_stack":
+				continue
+			var at := Vector2i(room, 0 if key == "prop_barrel" else 1)
+			counts[at] = int(counts.get(at, 0)) + 1
+	var living_most: int = 0
+	var storage_many: int = 0
+	for at in counts:
+		var tiles: PackedInt32Array = (occ["room_tiles"] as Array)[(at as Vector2i).x]
+		var kind: int = Dressing._room_kind(occ, map, tiles[0] % int(map.w), floori(float(tiles[0]) / float(int(map.w))))
+		if kind == Dressing.ROOMS_LIVING:
+			living_most = maxi(living_most, int(counts[at]))
+		elif int(counts[at]) > 1:
+			storage_many += 1
+	return Vector2i(living_most, storage_many)
+
+
+func _the_stock_stays_in_storage() -> bool:
+	var tree: Dictionary = ContentLoader.load_tree()
+	var boot: Dictionary = SimBoot.playable(CANON_SEED, GATE_SIZE)
+	var block: Dictionary = Dressing.block_of(boot["world"])
+	var maps: Array = [["the boot map", boot["map"], int(boot["world"].seed)]]
+	for district_id in FURNISH_DISTRICTS:
+		maps.append([district_id, SimWorldgen.generate(CANON_SEED, GATE_SIZE, tree, district_id), CANON_SEED])
+	var storage_many: int = 0
+	for row in maps:
+		var got: Vector2i = _stock_by_room(block, row[1], int(row[2]))
+		if got.x > 1:
+			push_error("STOCK: %s has a living room with %d barrels or pallets; a living room keeps one of each" % [String(row[0]), got.x])
+			return false
+		storage_many += got.y
+	if storage_many == 0:
+		push_error("STOCK: no storage room on the judged maps keeps more than one barrel or pallet; the storage rule has nothing to show")
+		return false
+	# TN: the same entries with no `rooms` and no cap put several in a living room.
+	var loose: Dictionary = block.duplicate(true)
+	for entry in loose["furnishings"] as Array:
+		if String((entry as Dictionary).get("rooms", "")) == "living":
+			(entry as Dictionary).erase("per_room")
+		(entry as Dictionary).erase("rooms")
+	var loose_most: int = 0
+	for row in maps:
+		loose_most = maxi(loose_most, _stock_by_room(loose, row[1], int(row[2])).x)
+		if loose_most > 1:
+			break
+	if loose_most <= 1:
+		push_error("STOCK: without the room rule no living room took more than one barrel or pallet; the rule is not proved")
+		return false
+	print("STOCK_OK living rooms keep at most one barrel and one pallet on %d maps, %d storage rooms keep several; without the rule a living room takes %d" % [maps.size(), storage_many, loose_most])
+	return true
+
+
+# --- SHAPES: the litter is three shapes, not one paper ---------------------------------------
+
+static func _litter_kinds(block: Dictionary, map: Variant, seed_val: int) -> Dictionary:
+	var occ: Dictionary = Dressing.occupancy(block, map, seed_val)
+	var kinds: Dictionary = {}
+	for ty in int(map.h):
+		for tx in int(map.w):
+			var key: String = Dressing._kept_litter(occ, map, tx, ty)
+			if not key.is_empty():
+				kinds[key] = int(kinds.get(key, 0)) + 1
+	return kinds
+
+
+func _the_litter_takes_its_shapes() -> bool:
+	var boot: Dictionary = SimBoot.playable(CANON_SEED, GATE_SIZE)
+	var block: Dictionary = Dressing.block_of(boot["world"])
+	var map: Variant = boot["map"]
+	var seed_val: int = int(boot["world"].seed)
+	var listed: Array = block.get("litter", []) as Array
+	var kinds: Dictionary = _litter_kinds(block, map, seed_val)
+	for key in ["debris_paper", "debris_sheet", "debris_can"]:
+		if not listed.has(key) or int(kinds.get(key, 0)) == 0:
+			push_error("SHAPES: the boot map keeps no '%s' scrap (%s); the litter reads as one shape" % [key, str(kinds)])
+			return false
+		var tex: Texture2D = Appearance.resolve(key)
+		var size: Vector2i = Vector2i(tex.get_size()) if tex != null else Vector2i.ZERO
+		if size.x < 8 and size.y < 8 or Dressing._sizes(block).get(key, Vector2i.ZERO) != size:
+			push_error("SHAPES: '%s' resolves at %s, which is under 8 art pixels or not its block size" % [key, str(size)])
+			return false
+	# TN: a block listing the paper alone keeps one shape.
+	var one: Dictionary = block.duplicate(true)
+	one["litter"] = ["debris_paper"]
+	if _litter_kinds(one, map, seed_val).size() != 1:
+		push_error("SHAPES: a block listing one scrap kept several shapes; the count cannot say no")
+		return false
+	print("SHAPES_OK the boot map's litter is %s" % str(kinds))
 	return true

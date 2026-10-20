@@ -1504,9 +1504,9 @@ func _draw_world() -> void:
 	})
 	# The marks on the ground (blood, holes in wall caps, scorch), over the baked ground they lie on
 	# and under everything that stands -- only where the player sees now, so never on a roof, which
-	# covers only tiles the player does not see (decal_look.gd says why). The baked DECOR layer (the
-	# nature and the flat furnishings) is inside the frame above, so a mark lands over a baked table
-	# or bush as it would on the floor: splatter on what it hit.
+	# covers only tiles the player does not see (decal_look.gd says why). They go into the layers'
+	# own decal item, between the A2 boards and the baked DECOR pictures, so a mark lies under a
+	# table or a bush (_draw_decals).
 	_draw_decals(seen, a2_wall_tiles, bounds)
 	# The nature dressing and the flat furnishings are baked too (the DECOR layer, _draw_decor): both
 	# are pictures on seen tiles that never move, so drawing them each frame was the cost of a tile
@@ -2327,7 +2327,10 @@ func _draw_a2_wall_piece(piece: Dictionary) -> void:
 
 func _draw_decals(seen: Variant, standing: Dictionary, bounds: Dictionary) -> void:
 	_decals_drawn = []
-	_decals.call("draw_ground", self, world, camera, seen, standing, bounds, _decals_drawn)
+	# Into the layers' decal item, under the baked DECOR pictures (world_layers.gd's decal_pen), so a
+	# mark lies under a table rather than over it; on main itself where no layers are attached.
+	var pen: Variant = _layers.call("decal_pen") if _layers != null else null
+	_decals.call("draw_ground", pen if pen != null else self, world, camera, seen, standing, bounds, _decals_drawn)
 
 
 func _draw_decal_list(draws: Array[Dictionary]) -> void:

@@ -134,9 +134,16 @@
         }
       }
     },
+    "storage": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "The building template ids whose rooms are storage rooms: a furnishing entry with rooms storage stands only there, and one with rooms living only elsewhere."
+    },
     "furnishings": {
       "type": "array",
-      "description": "The outpost pack's furnishing props as pictures over Floor tiles the sim still sees as open floor: a table, chair, shelf, medical cabinet and fridge inside a building; a dumpster, concrete barrier, traffic cone, fence post, road sign and streetlamp outside one. DRESSING, NEVER SIM STATE: nothing blocks a step, sightline or shot, becomes cover, is looted or becomes a component. Each entry is one hash roll per tile: key, where, surfaces, rarity, optional beside (wall: within a tile of a wall or, on paving, the kerb; wall_north: against the wall north of it, in runs; edge: at the street's edge, a wall or parked car within a tile, the kerb or the sidewalk), optional group (table or seat), optional salt (pins the entry's roll), optional cluster (the street's junk: spaced along a row and weighted by the street), optional per_room (at most that many in one room), and optional standing true. Absent or false standing keeps the short picture in the flat pass under bodies. True is reserved for the three named pictures taller than one tile; they use the entity depth sort and fade on overlap. All entries keep the same surface, indoor/outdoor, side-neighbour, doorway, wall, seen and occupied-real-prop checks. check_trees.gd's FURNISH lane holds both size classes and the reads.",
+      "description": "The outpost pack's furnishing props as pictures over Floor tiles the sim still sees as open floor: a table, chair, shelf, medical cabinet and fridge inside a building; a dumpster, concrete barrier, traffic cone, fence post, road sign and streetlamp outside one. DRESSING, NEVER SIM STATE: nothing blocks a step, sightline or shot, becomes cover, is looted or becomes a component. Each entry is one hash roll per tile: key, where, surfaces, rarity, optional beside (wall: within a tile of a wall or, on paving, the kerb; wall_north: against the wall north of it, in runs; edge: at the street's edge, a wall or parked car within a tile, the kerb or the sidewalk), optional group (table or seat), optional salt (pins the entry's roll), optional cluster (the street's junk: spaced along a row and weighted by the street), optional per_room (at most that many in one room), optional roll kept and shadow (the street furniture as it stood before A12), and optional standing true. Absent or false standing keeps the short picture in the flat pass under bodies. True is reserved for the three named pictures taller than one tile; they use the entity depth sort and fade on overlap. All entries keep the same surface, indoor/outdoor, side-neighbour, doorway, wall, seen and occupied-real-prop checks. check_trees.gd's FURNISH lane holds both size classes and the reads.",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -206,6 +213,25 @@
             "type": "integer",
             "minimum": 1,
             "description": "Optional, indoors only: at most this many of the entry in one room, on the tiles of the room its roll and ground allow."
+          },
+          "roll": {
+            "type": "string",
+            "enum": [
+              "kept"
+            ],
+            "description": "Optional: kept rolls the entry the way the district rolled its street furniture before A12 (salt order, the shifted hash, the old ground rule), so every piece main drew stands where it stood and nothing but a prop on its tile takes its place."
+          },
+          "rooms": {
+            "type": "string",
+            "enum": [
+              "storage",
+              "living"
+            ],
+            "description": "Optional, indoors only: storage places the entry only in a room of a building the block lists under storage, living only in any other room."
+          },
+          "shadow": {
+            "type": "boolean",
+            "description": "Optional, with roll kept only: the entry draws nothing, but a tile it rolls on rolls no later kept entry, as the old list's wall dumpster did."
           },
           "standing": {
             "type": "boolean",
