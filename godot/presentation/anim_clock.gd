@@ -17,6 +17,12 @@ extends RefCounted
 # times as often, not three, and a crouch at half the pace about 0.7 times. Fixed stride would have
 # a sprinter's legs a blur and a crawler's frozen.
 #
+# A body walking against the way it faces steps backwards: the player aiming over their shoulder at a
+# walk (sim/aim.gd) shows the view the aim falls in, so the feet carry it away from that view, and
+# the walk runs the same frames in reverse -- a backpedal, never a moonwalk. A strafe, square to the
+# view, steps forwards. The draw hands over the view's own direction (`front`) and the clock asks
+# which side of it this draw's ground lay; a body with no front (the default) always steps forwards.
+#
 # A body standing still breathes: its idle loop runs on presentation time (seconds of game time,
 # so it stops on pause and quickens under fast-forward with everything else), at the family's
 # `breath_fps`, staggered by id so a crowd does not inhale as one.
@@ -50,10 +56,20 @@ var _dt: float = 0.0
 # Where a body is in its walk after covering `metres` at `mps` metres per second, for a family
 # whose own stride is `stride` metres a cycle at `pace` metres per second. 0 to 1, wrapping. Pure,
 # so the gates can walk a path through it without a scene.
-static func cycle_after(cycle: float, metres: float, mps: float, stride: float, pace: float) -> float:
+# `direction` is 1 for a forward step and -1 for a backpedal: the same stride, run the other way.
+static func cycle_after(cycle: float, metres: float, mps: float, stride: float, pace: float, direction: float = 1.0) -> float:
 	if metres <= 0.0 or stride <= 0.0:
 		return fposmod(cycle, 1.0)
-	return fposmod(cycle + metres / stride_at(mps, stride, pace), 1.0)
+	return fposmod(cycle + signf(direction) * metres / stride_at(mps, stride, pace), 1.0)
+
+
+# Whether ground covered along `moved` steps backwards for a body whose view faces `front`: more
+# than square to it, the far side. A zero `front` or no movement never backpedals, and a strafe
+# exactly square to the view steps forwards.
+static func backpedals(moved: Vector2, front: Vector2) -> bool:
+	if front == Vector2.ZERO or moved == Vector2.ZERO:
+		return false
+	return moved.dot(front) < 0.0
 
 
 # The stride at `mps`: the family's own at its own pace, longer when faster and shorter when slower,
@@ -101,30 +117,33 @@ func begin_draw(now: float) -> void:
 
 
 # The motion of one body this pass, from where it is drawn and whether the sim says it moves:
-# {walking, cycle, idle}. `stride` and `pace` are its family's (Appearance.stride_of / pace_of).
+# {walking, cycle, idle, backward}. `stride` and `pace` are its family's (Appearance.stride_of /
+# pace_of); `front` is the unit direction of the view it is drawn in (zero: never backpedals).
 # Called once per drawn body per pass; a body not drawn in the last pass is re-seated.
-func motion(id: int, drawn: Vector2, sim_moving: bool, stride: float, pace: float) -> Dictionary:
+func motion(id: int, drawn: Vector2, sim_moving: bool, stride: float, pace: float, front: Vector2 = Vector2.ZERO) -> Dictionary:
 	var rec: Variant = _bodies.get(id)
 	if not (rec is Dictionary) or int((rec as Dictionary)["seen"]) < _pass - 1:
 		rec = {"x": drawn.x, "y": drawn.y, "cycle": seat(id), "idle": seat(id + 7919) * 4.0, "seen": _pass}
 		_bodies[id] = rec
 	var r: Dictionary = rec as Dictionary
-	var moved: float = drawn.distance_to(Vector2(float(r["x"]), float(r["y"])))
+	var step: Vector2 = drawn - Vector2(float(r["x"]), float(r["y"]))
+	var moved: float = step.length()
 	if moved > SNAP_METRES:
 		moved = 0.0
 	var mps: float = moved / _dt if _dt > 0.0 else 0.0
 	# Walking is the sim's word or the picture's: a body the sim has just stopped still glides the
 	# last tick out, and a paused body the sim says is moving holds its stride rather than standing.
 	var walking: bool = sim_moving or mps > STILL_MPS
+	var backward: bool = moved > 0.0 and backpedals(step, front)
 	if walking:
-		r["cycle"] = cycle_after(float(r["cycle"]), moved, mps, stride, pace)
+		r["cycle"] = cycle_after(float(r["cycle"]), moved, mps, stride, pace, -1.0 if backward else 1.0)
 		r["idle"] = 0.0
 	else:
 		r["idle"] = float(r["idle"]) + _dt
 	r["x"] = drawn.x
 	r["y"] = drawn.y
 	r["seen"] = _pass
-	return {"walking": walking, "cycle": float(r["cycle"]), "idle": float(r["idle"])}
+	return {"walking": walking, "cycle": float(r["cycle"]), "idle": float(r["idle"]), "backward": backward}
 
 
 # How many bodies the clock is holding -- a reader for the gate, so "a body nobody drew is

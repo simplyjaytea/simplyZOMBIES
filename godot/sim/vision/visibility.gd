@@ -6,6 +6,7 @@ extends RefCounted
 ## Geometry (shadowcast) + arcs (focal/peripheral dot product) + range check.
 
 const SimTileMapRes = preload("res://sim/map/tilemap.gd")
+const SimAimRes = preload("res://sim/aim.gd")
 const Shadowcast = preload("res://sim/vision/shadowcast.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const SimStancesRes = preload("res://sim/stances.gd")
@@ -120,11 +121,12 @@ func refresh(world: Variant, map: Variant, sight_mul: float = 1.0) -> void:
 	var light_index: Variant = _light_index(world)
 	var rest: Dictionary = resting
 	resting = {}
-	# Five tables read straight (`SimComponentStore.table`, A3's tenth slice); a refresh writes
+	# Six tables read straight (`SimComponentStore.table`, A3's tenth slice); a refresh writes
 	# none of them.
 	var positions: Dictionary = world.components.table("position")
 	var observers: Dictionary = world.components.table("observer")
 	var facings: Dictionary = world.components.table("facing")
+	var aims: Dictionary = world.components.table("aim")
 	var postures: Dictionary = world.components.table("posture")
 	var controlled: Dictionary = world.components.table("controlled")
 	for entity in world.components.query(["position", "observer"]):
@@ -135,10 +137,16 @@ func refresh(world: Variant, map: Variant, sight_mul: float = 1.0) -> void:
 		var obs: Variant = observers.get(entity)
 		if pos == null or obs == null:
 			continue
+		# The eyes follow the head, and the head follows the aim (sim/aim.gd): a body walking one
+		# way and looking another sees where it looks. An absent `aim` reads as `facing`, straight
+		# off the table -- only a body the player has aimed carries one.
 		var facing_rad: float = 0.0
-		var facing_c: Variant = facings.get(entity)
-		if facing_c != null:
-			facing_rad = float((facing_c as Dictionary)["radians"])
+		if aims.has(entity):
+			facing_rad = SimAimRes.radians_of(world.components, entity)
+		else:
+			var facing_c: Variant = facings.get(entity)
+			if facing_c != null:
+				facing_rad = float((facing_c as Dictionary)["radians"])
 
 		var tile_x: int = floori(float((pos as Dictionary)["x"]) / float(SimTileMapRes.TILE_METRES))
 		var tile_y: int = floori(float((pos as Dictionary)["y"]) / float(SimTileMapRes.TILE_METRES))

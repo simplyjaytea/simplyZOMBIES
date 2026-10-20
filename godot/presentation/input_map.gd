@@ -40,10 +40,14 @@ var main: Variant = null
 var _held: Dictionary = {}
 var _last_dx: float = 0.0
 var _last_dy: float = 0.0
-# Last aim angle pushed, so mouse motion only sends a command when the cursor has actually
-# swung the bearing -- the sim ignores aim while moving anyway (world.gd's "aim" case), this
-# just keeps the command queue from carrying a no-op per polled motion event.
+# Last aim angle pushed, so the cursor only sends a command when it has actually swung the
+# bearing -- this just keeps the command queue from carrying a no-op per frame.
 var _last_aim: float = 1e9
+# Whether a real pointer has moved over the window this run. The cursor is the aimer (alpha plan
+# A9, the owner's answer to Q3): once it has moved, `pump` re-aims at it every frame, because a body
+# walking past a still cursor swings the bearing as surely as the cursor moving does. A run nobody
+# has pointed at -- every gate that drives this scene with keys alone -- proposes nothing.
+var _pointer_live: bool = false
 # Which of the non-sprint rungs (Ctrl+Z/Ctrl+C/Ctrl+S/Ctrl+V) is selected, so releasing Shift
 # returns to it rather than to a fixed default. Presentation-local only -- the sim never reads
 # this, it only ever sees the stance commands _push_stance sends.
@@ -419,14 +423,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			CameraUtil.zoom_step(main.camera, -1)
 			main.queue_redraw()
-	# Mouse motion proposes an aim bearing; the sim takes it only while the body is
-	# stationary (world.gd's "aim" case), so this is turning on the spot to track the
-	# cursor, never steering.
+	# Mouse motion proposes an aim bearing. The sim takes it standing still and at a walk, and
+	# snaps it back to the heading any faster (sim/aim.gd) -- it turns the weapon and the head,
+	# never steers the feet.
 	if event is InputEventMouseMotion and main.world != null and not main.inventory_open:
-		var bearing: Variant = _aim_at((event as InputEventMouseMotion).position)
-		if bearing != null and absf(angle_difference(float(bearing), _last_aim)) > 0.02:
-			_last_aim = float(bearing)
-			main.world.commands.push({"type": "aim", "radians": _last_aim})
+		_pointer_live = true
+		_propose_aim((event as InputEventMouseMotion).position)
 	# The right-click street menu -- only under focus street with the sheet closed, per its own
 	# header: the inventory sheet and the loot window handle their own right-clicks (they
 	# `accept_event`), so this is never reached while either is up, and the two guards below
@@ -481,6 +483,23 @@ func _close_context_menu() -> bool:
 	return true
 
 
+# Pushes the bearing to a screen point as an aim command, when it has swung far enough to matter.
+func _propose_aim(screen_pos: Vector2) -> void:
+	var bearing: Variant = _aim_at(screen_pos)
+	if bearing != null and absf(angle_difference(float(bearing), _last_aim)) > 0.02:
+		_last_aim = float(bearing)
+		main.world.commands.push({"type": "aim", "radians": _last_aim})
+
+
+# The bearing the cursor points along from where the player's body stands, or null when nothing is
+# aiming: no pointer yet, or a screen other than the street in front of you. main.gd draws your own
+# weapon at it the frame it moves, ahead of the tick that will take it.
+func aim_bearing() -> Variant:
+	if not _pointer_live or main == null or main.world == null or main.inventory_open or _focus() != "street":
+		return null
+	return _aim_at(main.get_viewport().get_mouse_position())
+
+
 # The bearing from the player's body to a screen point, in world space -- what an aim command
 # carries. Null when there is nothing to aim from.
 func _aim_at(screen_pos: Vector2) -> Variant:
@@ -519,3 +538,6 @@ func pump() -> void:
 	if dx != _last_dx or dy != _last_dy:
 		main.world.commands.push({"type": "move", "dx": dx, "dy": dy})
 		_last_dx = dx; _last_dy = dy
+	# The cursor stays the aimer while the body walks under it.
+	if _pointer_live and not main.inventory_open and _focus() == "street":
+		_propose_aim(main.get_viewport().get_mouse_position())
