@@ -869,6 +869,7 @@ func _a_flame_flickers_and_a_bulb_does_not() -> bool:
 # masonry (art review 3). The true positives: the floor seen through the same glass keeps its bit,
 # the room-side face of the wall keeps its bit, and a screen tile with that lit floor beside it
 # keeps its bit -- so a builder that dropped every opaque tile, or every tile past the glass, fails.
+# Deep water is solid but clear: the middle of a pond, with only water round it, keeps its bit too.
 func _a_window_lights_the_floor_beyond_not_the_masonry() -> bool:
 	var f: Dictionary = {
 		"seed": 4141,
@@ -884,6 +885,9 @@ func _a_window_lights_the_floor_beyond_not_the_masonry() -> bool:
 		map.tiles[y * MAP_TILES + WALL_X] = SimTileMap.Tile.Window if y >= 10 and y <= 14 else SimTileMap.Tile.Wall
 	for y in range(9, 13):
 		map.tiles[y * MAP_TILES + WALL_X + 1] = SimTileMap.Tile.Screen
+	for y in range(14, 17):
+		for x in range(6, 9):
+			map.tiles[y * MAP_TILES + x] = SimTileMap.Tile.Water
 	SimBoot.attach_kernel(w, map)
 	w.components.set_component(w.player, "observer", SimVisibility.daylight_eyes())
 	w.components.set_component(w.player, "facing", {"radians": 0.0})
@@ -896,7 +900,8 @@ func _a_window_lights_the_floor_beyond_not_the_masonry() -> bool:
 	var floor_beyond: Vector2i = Vector2i(WALL_X + 1, 14)
 	var screen_by_floor: Vector2i = Vector2i(WALL_X + 1, 12)
 	var wall_face: Vector2i = Vector2i(WALL_X, 9)
-	for t in [masked, floor_beyond, screen_by_floor, wall_face]:
+	var water_middle: Vector2i = Vector2i(7, 15)
+	for t in [masked, floor_beyond, screen_by_floor, wall_face, water_middle]:
 		var at: Vector2i = t as Vector2i
 		if not bool((cast as Object).call("has_tile", at.x, at.y)) or not bool((seen as Object).call("has_tile", at.x, at.y)):
 			push_error("WINDOW: (%d, %d) is not lit and seen in the sim -- the lane has nothing to judge there" % [at.x, at.y])
@@ -906,13 +911,13 @@ func _a_window_lights_the_floor_beyond_not_the_masonry() -> bool:
 	if t_masked[0] != 255 or (t_masked[1] | t_masked[2] | t_masked[3]) != 0:
 		push_error("WINDOW: the screen behind the glass at (%d, %d) carries the fire's bit (bytes %s) -- light lands on masonry past a window" % [masked.x, masked.y, str(t_masked)])
 		return false
-	for t in [floor_beyond, screen_by_floor, wall_face]:
+	for t in [floor_beyond, screen_by_floor, wall_face, water_middle]:
 		var at: Vector2i = t as Vector2i
 		var b: PackedByteArray = _texel(texels, at.x, at.y)
 		if b[0] != 255 or (b[1] & 1) != 1:
 			push_error("WINDOW: (%d, %d) lost the fire's bit (bytes %s) -- the refusal took a tile it should keep" % [at.x, at.y, str(b)])
 			return false
-	print("WINDOW OK the screen behind the glass at (%d, %d) is lit and seen in the sim and carries no source bit; the floor beyond the same glass, the wall's room-side face and a screen beside that lit floor keep theirs" % [masked.x, masked.y])
+	print("WINDOW OK the screen behind the glass at (%d, %d) is lit and seen in the sim and carries no source bit; the floor beyond the same glass, the wall's room-side face, a screen beside that lit floor and the middle of a pond keep theirs" % [masked.x, masked.y])
 	return true
 
 

@@ -1969,8 +1969,10 @@ not a to-do list:
   not traced. Light passes a window onto the floor beyond and not onto the masonry there: the
   sim's shadowcast lights the first opaque tile it meets through glass (a hedge or a shelf whose
   picture reads as the wall going on), so the screen lights an opaque tile only from a source
-  that also lights one of its four open neighbours, the ground its face looks onto
-  (`LightLook._face_lit`; art review 3). By day the light map is cleared, not drawn, so the day frame is the one it
+  that also lights one of its four open neighbours (anything not blocking sight except glass),
+  the ground its face looks onto (`LightLook._face_lit`; art review 3). Deep water is solid but
+  clear, so it is not filtered: the middle of a pond stays lit. The window's own glass fades
+  toward the dark masonry behind it, as every lit tile fades toward an unlit neighbour. By day the light map is cleared, not drawn, so the day frame is the one it
   was before (pixel-identical at both sizes). Everything is evaluated on the 32 px art-pixel
   grid. Flames (a campfire, oil, a candle) flicker by at most 3% of reach, only ever down; cells
   and gas are steady. A torch, headlamp or weapon light draws as a beam along its carrier's
@@ -2007,8 +2009,10 @@ not a to-do list:
   project's `planning/lighting/`, with an overlap shot and a torch aimed point-blank at a wall
   with two windows: light passes the windows and stops at the masonry between them. WINDOW: a
   campfire inside a room lights a screen tile behind the glass in the sim, and it carries no
-  source bit; the floor beyond the same glass, the wall's room-side face and a screen beside that
-  lit floor keep theirs. With the refusal switched off the lane went red.
+  source bit; the floor beyond the same glass, the wall's room-side face, a screen beside that
+  lit floor and the middle of a pond keep theirs. With the refusal switched off the lane went
+  red, and so did the first cut of the rule, which filtered every solid tile and so darkened the
+  pond.
 
 - **Feel — bodies glide between ticks, and a slow frame drops time, 2026-10-19.** Item A2 of
   the 2026-10-19 alpha plan. The sim steps at 20 Hz and every body used to be drawn on the
