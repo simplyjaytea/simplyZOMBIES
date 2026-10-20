@@ -520,6 +520,12 @@
           },
           {
             "path": "textures/characters/motion/survivor_fall_s_01.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_fall_s_02.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_fall_s_03.png"
           }
         ],
         "fall_e": [
@@ -528,6 +534,12 @@
           },
           {
             "path": "textures/characters/motion/survivor_fall_e_01.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_fall_e_02.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_fall_e_03.png"
           }
         ],
         "fall_n": [
@@ -536,6 +548,12 @@
           },
           {
             "path": "textures/characters/motion/survivor_fall_n_01.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_fall_n_02.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_fall_n_03.png"
           }
         ],
         "fall_w": [
@@ -544,6 +562,12 @@
           },
           {
             "path": "textures/characters/motion/survivor_fall_w_01.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_fall_w_02.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_fall_w_03.png"
           }
         ],
         "swing_s": [

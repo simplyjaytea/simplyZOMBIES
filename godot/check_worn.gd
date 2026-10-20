@@ -115,6 +115,10 @@ var _stash: Dictionary = {}
 # An action frame moves further: a crouch sinks the head onto bent knees, a stagger throws it back
 # (docs/23, "Actions on the render clock"). Still bounded, so a head flung off the body is refused.
 const ACTION_DRIFT_MAX: int = 10
+# A fall turns the body as far as 60 degrees about its feet (motion/actions.py `turn_about_feet`),
+# so its head travels most of a body's height; it is drawn bare in the corpse pass, but its
+# offsets are still bounded by that turn.
+const FALL_DRIFT_MAX: int = 20
 const FRAME_DRIFT_MAX: int = 3
 # The bodies that turn, and so have frames for gear to follow.
 const TURNING_BODIES: Array[String] = [
@@ -1180,7 +1184,7 @@ func _the_gear_follows_the_frame() -> bool:
 				if p == null:
 					push_error("%s: %s declares no %s offset; gear riding it would not move with the frame" % [lane, member, region])
 					return false
-				var drift: int = FRAME_DRIFT_MAX if _is_walk_or_breath(suffix) else ACTION_DRIFT_MAX
+				var drift: int = FRAME_DRIFT_MAX if _is_walk_or_breath(suffix) else (FALL_DRIFT_MAX if suffix.begins_with("fall_") else ACTION_DRIFT_MAX)
 				if absi((p as Vector2i).x) > drift or absi((p as Vector2i).y) > drift:
 					push_error("%s: %s moves its %s by %s, past %d px" % [lane, member, region, str(p), drift])
 					return false

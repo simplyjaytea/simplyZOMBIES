@@ -27,6 +27,9 @@ static func run() -> bool:
 	var w: Variant = _world()
 	var entity: int = Roster.spawn_zombie(w, 9.5, 12.25, "zombie.armored", w.rng.stream("shambler"))
 	w.tick = 417
+	# It dies facing west: the record keeps the heading, so the settled picture lies the way it
+	# fell after a load as well (presentation/main.gd `_corpse_view`).
+	w.components.set_component(entity, "facing", {"radians": PI})
 	var type_before: Dictionary = (w.components.get_component(entity, "zombieType") as Dictionary).duplicate()
 	var control: Variant = _world()
 	# Component snapshots retain Dictionary references; independent worlds must not share the
@@ -54,7 +57,7 @@ static func run() -> bool:
 		return false
 	var expected: Dictionary = {
 		"entity": entity, "x": 9.5, "y": 12.25, "ztype": "zombie.armored",
-		"tint": String(type_before.get("tint", "")), "sinceTick": 417,
+		"tint": String(type_before.get("tint", "")), "sinceTick": 417, "facing": PI,
 	}
 	if Serialize.canonicalize(records[0]) != Serialize.canonicalize(expected):
 		push_error("REMAINS: the corpse lost the original identity, location, tint or death tick")
@@ -101,11 +104,19 @@ static func run() -> bool:
 	if restored.serialize() != before_duplicate:
 		push_error("REMAINS: duplicate or invalid history changed the retained records")
 		return false
+	# A heading is kept only when it is a finite number; a record without one is still a record.
+	restored.remember_visual_remains({"entity": 20001, "x": 1.0, "y": 2.0, "ztype": "zombie.shambler", "sinceTick": 1, "facing": NAN})
+	restored.remember_visual_remains({"entity": 20002, "x": 1.0, "y": 2.0, "ztype": "zombie.shambler", "sinceTick": 1, "facing": "west"})
+	restored.remember_visual_remains({"entity": 20003, "x": 1.0, "y": 2.0, "ztype": "zombie.shambler", "sinceTick": 1, "facing": 1.5})
+	var tail: Array = (restored.visualRemains as Array).slice(-3)
+	if (tail[0] as Dictionary).has("facing") or (tail[1] as Dictionary).has("facing") or float((tail[2] as Dictionary).get("facing", 0.0)) != 1.5:
+		push_error("REMAINS: a heading that is not a finite number was kept, or a finite one was lost: %s" % str(tail))
+		return false
 	var oversized: Dictionary = restored.snapshot()
 	var oversized_records: Array = oversized["visualRemains"] as Array
 	oversized_records.append({"entity": 90000, "x": 1.0, "y": 2.0, "ztype": "zombie.heavy", "sinceTick": 999})
 	w.restore(oversized)
-	if (w.visualRemains as Array).size() != World.VISUAL_REMAINS_MAX or int(((w.visualRemains as Array)[0] as Dictionary)["entity"]) != 10004:
+	if (w.visualRemains as Array).size() != World.VISUAL_REMAINS_MAX or int(((w.visualRemains as Array)[0] as Dictionary)["entity"]) != 10007:
 		push_error("REMAINS: restoring oversized history bypassed its bound")
 		return false
 	print("REMAINS OK actual equipped zombie death changes only bounded visual data; drops, RNG, field, entities and components match the old path; duplicate death, recycled slots, save text and old saves hold")

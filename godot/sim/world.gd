@@ -367,14 +367,20 @@ func remember_visual_remains(record: Dictionary) -> void:
 	for previous in visualRemains:
 		if int((previous as Dictionary)["entity"]) == entity:
 			return
-	visualRemains.append({
+	var kept: Dictionary = {
 		"entity": entity,
 		"x": x,
 		"y": y,
 		"ztype": ztype,
 		"tint": String(record.get("tint", "")),
 		"sinceTick": int(record.get("sinceTick", 0)),
-	})
+	}
+	# Optional, like the history itself: the heading it died with, which only says which way the
+	# settled picture lies. An older record has none and lies as the picture is drawn.
+	var facing: Variant = record.get("facing")
+	if (facing is float or facing is int) and is_finite(float(facing)):
+		kept["facing"] = float(facing)
+	visualRemains.append(kept)
 	while visualRemains.size() > VISUAL_REMAINS_MAX:
 		visualRemains.pop_front()
 

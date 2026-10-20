@@ -83,6 +83,7 @@ func _run() -> void:
 	ok = _timing() and ok
 	ok = _priority() and ok
 	ok = _geometry() and ok
+	ok = _landing() and ok
 	ok = _states() and ok
 	ok = _reach() and ok
 	ok = _publishers() and ok
@@ -317,6 +318,128 @@ func _priority() -> bool:
 
 
 # --- GEOMETRY ---------------------------------------------------------------------------------
+
+# LANDING: a fall ends where its corpse lies (art review round 1, 2026-10-20: the corpse used to
+# jump up and sideways on the cut, and every view landed east). For every family, view and corpse
+# picture it can land as, placed exactly as main.gd `_draw_corpse` places them at scale 1: the
+# settled corpse's lowest row is the last fall frame's lowest row; both lie to the view's fall
+# side of the feet (Appearance.FALL_SIDE); and the corpse's mass is within LAND_MASS_GAP columns
+# of the last frame's. The landing beat is the corpse LAND_RAISE rows up, on exactly the beat
+# after the last fall frame. Negatives: the old centred placement misses the sole row, an
+# unmirrored corpse lands on the wrong side in some view, and a pose CORPSE_HEAD does not know
+# has no head, no feet and no mirror.
+const LAND_MASS_GAP: float = 12.0
+
+
+func _placed(img: Image, rect: Rect2) -> Dictionary:
+	var flip: bool = rect.size.x < 0.0
+	var low: int = -1
+	var sum_x: float = 0.0
+	var n: int = 0
+	for y in img.get_height():
+		for x in img.get_width():
+			if img.get_pixel(x, y).a8 >= Appearance.ALPHA_SOLID_8:
+				var screen_x: float = rect.position.x + float(img.get_width() - 1 - x if flip else x)
+				sum_x += screen_x
+				n += 1
+				low = maxi(low, int(rect.position.y) + y)
+	return {"low": low, "cx": sum_x / float(maxi(n, 1)), "n": n}
+
+
+func _corpses_for(fam: String) -> Array[String]:
+	var out: Array[String] = []
+	var stem: String = "corpse_human_" if fam == SURVIVOR else "corpse_zombie_%s_" % fam.trim_prefix("body_zombie_")
+	var dir: DirAccess = DirAccess.open(SPRITES)
+	if dir == null:
+		return out
+	for f in dir.get_files():
+		if f.begins_with(stem) and f.ends_with(".png"):
+			out.append(f.trim_suffix(".png"))
+	out.sort()
+	return out
+
+
+func _landing() -> bool:
+	var ok: bool = true
+	var sx: float = 100.0
+	var sy: float = 100.0
+	var judged: int = 0
+	var centred_misses: int = 0
+	var unmirrored_wrong: int = 0
+	var widest: float = 0.0
+	for fam_v in _families_with_actions().keys():
+		var fam: String = String(fam_v)
+		if Appearance.action_frames(fam, "fall", "e") == 0:
+			continue
+		var corpses: Array[String] = _corpses_for(fam)
+		if corpses.is_empty():
+			push_error("LANDING: %s falls and has no corpse picture to land as" % fam)
+			ok = false
+			continue
+		for view in Appearance.VIEWS:
+			var frames: int = Appearance.action_frames(fam, "fall", view)
+			var last: Image = _image("%s_fall_%s_%d" % [fam, view, frames - 1])
+			if last == null:
+				push_error("LANDING: %s's last %s fall frame does not load" % [fam, view])
+				ok = false
+				continue
+			var fell: Dictionary = _placed(last, Appearance.body_rect(sx, sy, Vector2(last.get_size()), 1.0))
+			var side: int = int(Appearance.FALL_SIDE[view])
+			if signf(float(fell["cx"]) - sx) != float(side):
+				push_error("LANDING: %s's last %s fall frame leans to %+d, not its fall side %+d" % [fam, view, int(signf(float(fell["cx"]) - sx)), side])
+				ok = false
+			var fps: float = Appearance.action_fps(fam, "fall")
+			var key: String = "%s_fall_%s_0" % [fam, view]
+			if not Appearance.fall_landing(fam, view, (float(frames) + 0.5) / fps) or Appearance.fall_landing(fam, view, (float(frames) - 0.5) / fps) or Appearance.fall_landing(fam, view, (float(frames) + 1.5) / fps):
+				push_error("LANDING: %s's %s landing beat is not exactly the beat after its %d fall frames (%s)" % [fam, view, frames, key])
+				ok = false
+			for corpse in corpses:
+				var img: Image = _image(corpse)
+				var size: Vector2 = Vector2(img.get_size())
+				var feet: Vector2 = Appearance.corpse_feet(corpse)
+				var flip: bool = Appearance.corpse_flip(corpse, view)
+				var lay: Dictionary = _placed(img, Appearance.corpse_rect(sx, sy, size, feet, flip, 1.0))
+				var land: Dictionary = _placed(img, Appearance.corpse_rect(sx, sy - float(Appearance.LAND_RAISE), size, feet, flip, 1.0))
+				if int(lay["low"]) != int(fell["low"]) or int(land["low"]) != int(fell["low"]) - Appearance.LAND_RAISE:
+					push_error("LANDING: %s from %s lies on row %d (landing %d) where its last fall frame stood on %d" % [corpse, view, int(lay["low"]), int(land["low"]), int(fell["low"])])
+					ok = false
+				if signf(float(lay["cx"]) - sx) != float(side):
+					push_error("LANDING: %s from %s lies to %+d of its feet, not the fall side %+d" % [corpse, view, int(signf(float(lay["cx"]) - sx)), side])
+					ok = false
+				var gap: float = absf(float(lay["cx"]) - float(fell["cx"]))
+				widest = maxf(widest, gap)
+				if gap > LAND_MASS_GAP:
+					push_error("LANDING: %s from %s puts its mass %.1f columns from the last fall frame's, past %.0f" % [corpse, view, gap, LAND_MASS_GAP])
+					ok = false
+				if int(_placed(img, Appearance.corpse_rect(sx, sy, size)).get("low")) != int(fell["low"]):
+					centred_misses += 1
+				if signf(float(_placed(img, Appearance.corpse_rect(sx, sy, size, feet, false, 1.0))["cx"]) - sx) != float(side):
+					unmirrored_wrong += 1
+				judged += 1
+	if judged == 0:
+		push_error("LANDING: no fall had a corpse to land as; nothing was judged")
+		return false
+	if centred_misses == 0:
+		push_error("LANDING: the old centred placement lands every corpse on the sole row too; the row check cannot fail")
+		ok = false
+	if unmirrored_wrong == 0:
+		push_error("LANDING: an unmirrored corpse lies on the fall side in every view; the side check cannot fail")
+		ok = false
+	# Every corpse picture in the sprites is a pose CORPSE_HEAD knows; an invented one is not.
+	var dir: DirAccess = DirAccess.open(SPRITES)
+	for f in dir.get_files() if dir != null else PackedStringArray():
+		if f.begins_with("corpse_") and f.ends_with(".png") and Appearance.corpse_head(f.trim_suffix(".png")) == 0:
+			push_error("LANDING: %s is a corpse pose CORPSE_HEAD does not know, so it would never lie the fall's way" % f)
+			ok = false
+	var invented: String = "corpse_zombie_commuter_floating"
+	if Appearance.corpse_head(invented) != 0 or Appearance.corpse_flip(invented, "w") or Appearance.corpse_feet(invented) != Vector2(-1, -1):
+		push_error("LANDING: an invented corpse pose answered a head, a mirror or feet")
+		ok = false
+	if ok:
+		print("LANDING OK %d fall-to-corpse landings: each corpse lies on its last fall frame's row (landing beat %d rows up, on the beat after the fall), to the view's fall side, its mass within %.1f columns (bound %.0f); the old centred placement misses the row %d times, an unmirrored corpse lands on the wrong side %d times, and an invented pose has no head" % [judged, Appearance.LAND_RAISE, widest, LAND_MASS_GAP, centred_misses, unmirrored_wrong])
+		_report.append("LANDING %d" % judged)
+	return ok
+
 
 func _geometry() -> bool:
 	var ok: bool = true
@@ -599,6 +722,11 @@ func _readers_complaint(text: String) -> String:
 	var corpse: String = _function_body(text, "_draw_corpse")
 	if not corpse.contains("_anim.fall_of(") or not corpse.contains("Appearance.fall_key(") or not corpse.contains("_falls_drawn.append("):
 		return "_draw_corpse does not draw the fall"
+	# And lands it: the landing beat, then the corpse lying from the feet the fall stood on, the
+	# fall's way (LANDING judges the placement these calls produce).
+	for call in ["Appearance.fall_landing(", "Appearance.corpse_feet(", "Appearance.corpse_flip(", "Appearance.LAND_RAISE"]:
+		if not corpse.contains(call):
+			return "_draw_corpse does not land the fall (no %s)" % call
 	return ""
 
 
@@ -614,13 +742,16 @@ func _readers() -> bool:
 		"_anim.from_events(world, world.events.drained",
 		"motion.merge(_anim.act(",
 		"_anim.fall_of(",
+		"Appearance.fall_landing(",
+		"Appearance.corpse_feet(",
+		"Appearance.corpse_flip(",
 	]
 	for needle in sabotage:
 		if _readers_complaint(text.replace(String(needle), "_nothing(")).is_empty():
 			push_error("READERS: removing '%s' went unnoticed" % needle)
 			ok = false
 	if ok:
-		print("READERS OK the frame loop feeds the clock, the draw merges its action before the picture, the corpse pass draws the fall")
+		print("READERS OK the frame loop feeds the clock, the draw merges its action before the picture, the corpse pass draws the fall and lands it from the feet, the fall's way")
 	return ok
 
 
@@ -963,12 +1094,13 @@ func _zombie(main: Node, w: Variant, pid: int) -> bool:
 		ok = _fail("LUNGE", "attack.connected from the zombie drew it '%s'" % lunge)
 	if not flinch.contains("_flinch_"):
 		ok = _fail("FLINCH", "attack.connected on the player drew it '%s'" % flinch)
-	for i in 10:
+	# The five-beat lunge lasts half a second at the common zombie's 10 fps; 0.7 s on it is over.
+	for i in 14:
 		await _tick(main)
 	var settled: String = _drawn(main, z)
 	var player_settled: String = _drawn(main, pid)
 	if settled.contains("_lunge_") or player_settled.contains("_flinch_"):
-		ok = _fail("LUNGE", "still drawn '%s' / player '%s' half a second on" % [settled, player_settled])
+		ok = _fail("LUNGE", "still drawn '%s' / player '%s' 0.7 s on" % [settled, player_settled])
 	w.events.publish({"type": "entity.staggered", "entity": z, "ticks": 4})
 	await _tick(main)
 	var stagger: String = _drawn(main, z)

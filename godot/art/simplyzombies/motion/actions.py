@@ -110,7 +110,13 @@ def lean_at(y, top, hip, dx):
     return rdiv(dx * (hip - y), max(1, hip - top))
 
 
-def pose(im, dx=0, dy=0, fold=0, step=0, wide=0):
+# The feet a fold keeps, as a whole percent of the body's height from the soles up: a fold that
+# reached into them would take the boots off a short-legged body (the bloater's belly hangs to its
+# shins), so `keep_feet` folds no lower and sinks the upper body over the thighs for the rest.
+FEET_PCT = 15
+
+
+def pose(im, dx=0, dy=0, fold=0, step=0, wide=0, keep_feet=False):
     """One derived frame. Order: fold the shins (rows out from the knee, `KNEE_PCT`), then slide the upper body (lean dx at the head,
     dy up or down for all of it), then move the whole picture `step` pixels sideways. `wide` spreads
     the legs below the hip, one pixel each way per unit, about the body's own centre column -- the
@@ -121,6 +127,11 @@ def pose(im, dx=0, dy=0, fold=0, step=0, wide=0):
     top, _neck, _chest, hip = cuts(im)
     bottom = rows_of(im)[-1]
     knee = hip + rdiv(KNEE_PCT * (bottom - hip), 100)
+    if keep_feet:
+        feet = max(2, rdiv(FEET_PCT * (bottom - top + 1), 100))
+        room = max(0, min(fold, bottom + 1 - feet - knee))
+        dy += fold - room
+        fold = room
     fold = max(0, min(fold, bottom - 1 - knee))
     cols = cols_of(im)
     mid2 = cols[0] + cols[-1]  # twice the centre column, kept whole
@@ -217,26 +228,165 @@ def plan(action, view):
             return [{"fold": 3, "dx": 2 * fx}]
         return [{"fold": 3, "wide": 1, "dy": 1 if fy > 0 else 0}]
     if action == "lunge":
-        # Gathered, thrown at the target, held there reaching.
+        # Gathered, thrown at the target, reaching, and back a pixel a beat. The feet stay planted:
+        # only the upper body goes, so no frame slides the soles along the floor, and no beat moves
+        # the head more than three pixels or comes home more than one at a time.
         if fx:
-            return [{"dx": -fx}, {"dx": 2 * fx, "step": 2 * fx}, {"dx": 2 * fx, "step": fx}]
-        return [{"dy": -1}, {"dy": 2 if fy > 0 else -2, "step": 0}, {"dy": 1 if fy > 0 else -1}]
+            return [{"dx": -fx}, {"dx": 2 * fx}, {"dx": 3 * fx}, {"dx": 2 * fx}, {"dx": fx}]
+        # Toward or away from the camera the upper body goes down or up the screen instead, the
+        # knees braced apart under it on the throw.
+        return [{"dy": -fy}, {"dy": 2 * fy, "wide": 1}, {"dy": 3 * fy, "wide": 1}, {"dy": 2 * fy}, {"dy": fy}]
     if action == "stagger":
-        # Knocked back off its feet's line, reeling, catching itself.
+        # Knocked back off its feet's line, reeling, catching itself. Seen from the front or the
+        # back the knock is a pixel away from the blow on the first two beats as well as the sway:
+        # the whole body lifted a pixel from the south (`lift`), the upper body dipped from the north.
         if fx:
             return [{"dx": -2 * fx, "step": -fx}, {"dx": -2 * fx, "step": -fx, "dy": 1}, {"dx": -fx}]
-        return [{"dy": -1, "dx": 2, "step": 0}, {"dy": -1, "dx": -2}, {"dx": 1}]
+        if fy > 0:
+            return [{"dx": 2, "lift": 1}, {"dx": -2, "lift": 1}, {"dx": 1}]
+        return [{"dy": 1, "dx": 2}, {"dy": 1, "dx": -2}, {"dx": 1}]
     if action == "swing" and view == "n":
         # Seen from behind (SWING_GENERATED): wound back over the off shoulder and up on the toes,
         # thrown across with a step into it, the follow-through, and on the way home -- the same
         # five beats as the generated views, so the guard is frame 0 and the strike frames 1-4.
         return [{"dx": -2, "dy": -1}, {"dx": 2, "step": 1}, {"dx": 3, "step": 1}, {"dx": 2}, {"dx": 1}]
     if action == "fall":
-        # The knees go and the body folds onto them; the settled corpse picture follows.
-        if fx:
-            return [{"fold": 3, "dx": -2 * fx}, {"fold": 7, "dx": 2 * fx, "dy": 1}]
-        return [{"fold": 3, "wide": 1, "dx": 1}, {"fold": 7, "wide": 1, "dy": 1, "dx": 2}]
+        # The knees go, the body pitches toward the side it falls to, and goes down over them; the
+        # corpse pass then lands the settled picture, lying the same way (presentation/appearance.gd
+        # `corpse_rect`), from the feet this stood on. The feet are kept to the end: only the legs
+        # above them fold, and the upper body sinks over the thighs for whatever they cannot.
+        side = FALL_SIDE[view]
+        return [
+            {"fold": 2, "dx": side, "keep_feet": True},
+            {"fold": 3, "keep_feet": True, "turn": 20 * side},
+            {"fold": 3, "keep_feet": True, "turn": 40 * side},
+            {"fold": 4, "keep_feet": True, "turn": 60 * side},
+        ]
     raise ValueError(action)
+
+
+# The side a body falls toward from each view, +1 east and -1 west: a side view falls the way it
+# faces, and the front and back views crumple to one side, the south view to the east and the north
+# to the west, so every fall ends lying across the screen as every corpse picture does. The renderer
+# mirrors the corpse to lie the same way (presentation/appearance.gd FALL_SIDE says the same).
+FALL_SIDE = {"e": 1, "w": -1, "s": 1, "n": -1}
+
+
+# The fall canvas: the family's height, and wide enough for a body turned 60 degrees about its feet
+# to lie out to either side -- FALL_REACH columns each side of the standing canvas's middle.
+FALL_REACH = 48
+
+
+def fall_canvas(size):
+    return (2 * FALL_REACH, size[1])
+
+
+def widen(im, canvas):
+    """`im` on a wider canvas of the same height, its middle column on the new canvas's middle."""
+    out = Image.new("RGBA", canvas, (0, 0, 0, 0))
+    out.alpha_composite(im, ((canvas[0] - im.size[0]) // 2, canvas[1] - im.size[1]))
+    return out
+
+
+def _scale2x(im):
+    """EPX/Scale2x: twice the size, each pixel split four ways by its neighbours' agreement. Adds no
+    colour: every output pixel is a copy of one input pixel."""
+    w, h = im.size
+    src = im.load()
+    out = Image.new("RGBA", (2 * w, 2 * h))
+    o = out.load()
+    for y in range(h):
+        for x in range(w):
+            p = src[x, y]
+            a = src[x, y - 1] if y > 0 else p
+            b = src[x + 1, y] if x + 1 < w else p
+            c = src[x - 1, y] if x > 0 else p
+            d = src[x, y + 1] if y + 1 < h else p
+            e0, e1, e2, e3 = p, p, p, p
+            if c == a and c != d and a != b:
+                e0 = a
+            if a == b and a != c and b != d:
+                e1 = b
+            if d == c and d != b and c != a:
+                e2 = c
+            if b == d and b != a and d != c:
+                e3 = d
+            o[2 * x, 2 * y] = e0
+            o[2 * x + 1, 2 * y] = e1
+            o[2 * x, 2 * y + 1] = e2
+            o[2 * x + 1, 2 * y + 1] = e3
+    return out
+
+
+# Rotation in whole numbers: cosines and sines to TURN_ONE, so the same frame comes out of every
+# Python (CLAUDE.md's float trap -- byte-compared output must not decide a pixel in float math).
+TURN_ONE = 4096
+TURN_TABLE = {20: (3849, 1401), 40: (3138, 2633), 60: (2048, 3547)}
+
+
+def turn_about_feet(im, degrees):
+    """RotSprite's way of turning pixel art: up 8x by Scale2x three times, turned by sampling, and
+    back down by taking the 8x picture's pixel under each output pixel's centre. Every output pixel
+    is a copy of an input pixel, so no colour is invented. Turned `degrees` (positive clockwise:
+    the head toward the east) about the outer edge of the leading sole on the bottom row -- a body
+    tips over the foot on the side it falls to, so nothing turns below the floor -- then outlined
+    again where the turn opened the pack's black edge. 60 degrees is about the slope the pack's
+    corpses lie at (wider than tall, 30-35 degrees off the floor line): the last turned frame lies
+    the way the settled picture after it does."""
+    big = _scale2x(_scale2x(_scale2x(im)))
+    w, h = im.size
+    bw, bh = big.size
+    src = big.load()
+    px = im.load()
+    bottom = rows_of(im)[-1]
+    soles = [x for x in range(w) if solid(px[x, bottom])]
+    # The pivot, in eighths of a pixel: the leading sole's outer edge, on the bottom row's bottom edge.
+    pvx = 8 * (soles[-1] + 1) if degrees > 0 else 8 * soles[0]
+    pvy = 8 * (bottom + 1)
+    c, sn = TURN_TABLE[abs(degrees)]
+    if degrees < 0:
+        sn = -sn
+    # Turned onto a canvas twice the height, so whatever swings below the pivot (a belly carried
+    # out past the toes) is kept, then stood back on the bottom row of the family's own height.
+    out = Image.new("RGBA", (w, 2 * h), (0, 0, 0, 0))
+    o = out.load()
+    for y in range(2 * h):
+        for x in range(w):
+            # This output pixel's centre, in eighths, turned back by the angle onto the source.
+            dx = 8 * x + 4 - pvx
+            dy = 8 * y + 4 - pvy
+            sx = pvx + (dx * c + dy * sn) // TURN_ONE
+            sy = pvy + (-dx * sn + dy * c) // TURN_ONE
+            if 0 <= sx < bw and 0 <= sy < bh:
+                p = src[sx, sy]
+                if solid(p):
+                    o[x, y] = p
+    low = rows_of(out)[-1]
+    out = out.crop((0, low + 1 - h, w, low + 1))
+    return ground(_reoutline(out, im))
+
+
+def _reoutline(out, im):
+    """Rings any solid pixel the turn left on the silhouette's edge without the pack's outline
+    colour: the darkest colour of the source picture, copied, never a new one."""
+    px = im.load()
+    w, h = im.size
+    ink = min((px[x, y] for y in range(h) for x in range(w) if solid(px[x, y])), key=lambda p: p[0] + p[1] + p[2])
+    o = out.load()
+    edge = []
+    for y in range(h):
+        for x in range(w):
+            if not solid(o[x, y]):
+                continue
+            for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+                if not (0 <= nx < w and 0 <= ny < h) or not solid(o[nx, ny]):
+                    edge.append((x, y))
+                    break
+    for x, y in edge:
+        p = o[x, y]
+        if p[0] + p[1] + p[2] > ink[0] + ink[1] + ink[2] + 60:
+            o[x, y] = ink
+    return out
 
 
 def ground(im):
@@ -262,8 +412,27 @@ def derive(rest, action, view, walk=(), hands=None, walk_hands=()):
             out.append((ground(im), _moved_hands(walk_hands[i] if walk_hands else None, shift, im)))
         return out
     for args in plan(action, view):
+        args = dict(args)
+        lift = args.pop("lift", 0)
+        turn = args.pop("turn", None)
         im, shift = _clear_of_sides(rest, args)
-        out.append((ground(im), _moved_hands(hands, shift, im)))
+        hands_at = _moved_hands(hands, shift, im)
+        im = ground(im)
+        if action == "fall":
+            # Every fall frame is on the wider fall canvas, the body on its middle column, so a
+            # frame turned toward the ground has room to lie out to either side.
+            im = widen(im, fall_canvas(rest.size))
+            if turn:
+                im = turn_about_feet(im, turn)
+        if lift:
+            # Off the floor by `lift` rows (a knock back, seen from the front), at most the pack's
+            # one-row sole allowance.
+            raised = blank(im)
+            raised.alpha_composite(im, (0, -lift))
+            im = raised
+            if hands_at is not None:
+                hands_at = {slot: [x, y - lift] for slot, (x, y) in hands_at.items()}
+        out.append((im, hands_at))
     return out
 
 
@@ -282,9 +451,14 @@ def _clear_of_sides(rest, args):
         if cols[0] >= SIDE_CLEARANCE and im.size[0] - 1 - cols[-1] >= SIDE_CLEARANCE:
             return im, shift
         step = args.get("step", 0)
-        if step == 0:
+        if step != 0:
+            args["step"] = step - 1 if step > 0 else step + 1
+            continue
+        # With no step left to give, a lean too wide for the canvas gives up a pixel at a time.
+        lean = args.get("dx", 0)
+        if lean == 0:
             return im, shift
-        args["step"] = step - 1 if step > 0 else step + 1
+        args["dx"] = lean - 1 if lean > 0 else lean + 1
 
 
 def _moved_hands(hands, shift, im):

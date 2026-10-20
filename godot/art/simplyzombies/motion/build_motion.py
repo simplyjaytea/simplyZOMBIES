@@ -107,6 +107,9 @@ ACTION_TIMING = {
     },
     "zombie": {"lunge": {"fps": 10, "loop": False}, "stagger": {"fps": 8, "loop": False}, "fall": {"fps": 8, "loop": False}},
     "body_zombie_heavy": {"lunge": {"fps": 8, "loop": False}, "stagger": {"fps": 6, "loop": False}, "fall": {"fps": 6, "loop": False}},
+    # The bloater is the heavy's size and carries the same weight: at the common zombie's rates its
+    # lunge read as a twitch (art review, 2026-10-20).
+    "body_zombie_bloater": {"lunge": {"fps": 8, "loop": False}, "stagger": {"fps": 6, "loop": False}, "fall": {"fps": 6, "loop": False}},
 }
 
 
@@ -597,11 +600,21 @@ def _member(build, members, fam, action, view, n, rel_dir, rel_name, im, rest, h
     view's rest picture and, for a body that holds things, its hands."""
     rel = f"{rel_dir}/{rel_name}"
     build.put(base / rel, im)
+    wide = im.size != rest.size
+    if wide:
+        # A fall frame is on the wider fall canvas (actions.fall_canvas), and says so: the member's
+        # own canvas (and, where the family's members are cropped, a crop of all of it). Its offsets
+        # are against the rest view on that canvas.
+        rest = act.widen(rest, im.size)
+        if crop is not None:
+            crop = [0, 0, im.size[0], im.size[1]]
     head, torso = offsets(im, rest) if action not in act.LYING else ([0, 0], [0, 0])
     source = {"path": f"{root}{rel}"}
     if crop is not None:
         source["crop"] = crop
     entry = {"source": source, "head": head, "torso": torso}
+    if wide:
+        entry["canvas"] = [im.size[0], im.size[1]]
     if hands is not None:
         entry["hands"] = {slot: list(pt) for slot, pt in sorted(hands.items())}
     members[f"{fam}_{action}_{view}_{n}"] = entry
