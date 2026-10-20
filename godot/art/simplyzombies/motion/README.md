@@ -28,8 +28,11 @@ view's own grey, so the shorts never vanish mid-stride and the clothing painter
 the line of ink two east frames drew across the top of the legs, which showed through every pair
 of trousers as a stripe. `recentre` moves each frame sideways so its head sits over the rest
 view's (the side walks drifted forward through the cycle and snapped back on the loop), and
-`retime_bob` moves the body above the underwear to `SURVIVOR_BOB`'s head rows: two even beats a
-cycle, no frame moved more than a row. The survivor's breath (`survivor_breath`) lifts the chest a
+`retime_bob` moves the body from the hips up, as one block, to `SURVIVOR_BOB`'s head rows: two
+even beats a cycle, no frame moved more than a row. The west and north walks wear the rest view's
+head on every frame (`same_head`; the generator redrew it each frame, which read as a nod), every
+frame stands a foot on the ground row, and ink on the silhouette's edge is the ring's own black
+(`outline_black`). The survivor's breath (`survivor_breath`) lifts the chest a
 row and plants the hands where they hung; the clothing painter puts each garment's rest picture
 through the same function.
 
