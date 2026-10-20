@@ -2,7 +2,12 @@ class_name SimClock
 extends RefCounted
 
 const TICK_HZ: int = 20
-const DAY_SECONDS: int = 4 * 60 * 60
+# One in-game day is one real hour (owner decision Q2, 2026-10-19: mimic Project Zomboid). It was
+# four real hours, 288,000 ticks. Calendar quantities (the director's beats, nights, seasons) follow
+# this constant. Clocks that wear on the body or the world and were written in days are multiplied
+# by four so their real-time pace did not change, and clocks written in literal ticks were never
+# days and did not move. docs/30's "The one-hour day" lists every value in each group.
+const DAY_SECONDS: int = 60 * 60
 const DAY_TICKS: int = DAY_SECONDS * TICK_HZ
 const NIGHT_AMBIENT: float = 0.04
 

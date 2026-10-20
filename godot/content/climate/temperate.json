@@ -12,7 +12,7 @@
   "wetAfterTicks": 200,
   "dryAfterTicks": 12000,
   "dryByFireTicks": 2400,
-  "windDriftDays": 1,
+  "windDriftDays": 4,
   "windStrength": 0.6,
   "meltPerTick": 1.1574e-06,
   "snowCoverMoveMul": 0.8,

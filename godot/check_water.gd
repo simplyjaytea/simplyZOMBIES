@@ -37,7 +37,7 @@ extends SceneTree
 #           Sidewalk, so the re-index did not simply shift the bug along.
 #   PACK    the water is the outpost pack's (docs/23, "The ground is the pack's", 2026-09-27; the
 #           owner's answer in docs/30's "The whole outpost pack" that the ground takes the pack's
-#           own grade, which folds in HANDOFF's water-saturation question): the ford's colour is the
+#           own grade, which folds in the owner list's water-saturation question): the ford's colour is the
 #           pack's measured teal #244e56, cool, its atlas cells the pack's one water tile twice, and
 #           the deep channel derived from it still sits between the ford and the background in
 #           value -- a channel you can tell from the ford and from the void. TN: the warm-dark
@@ -394,6 +394,8 @@ func _the_water_is_the_packs() -> bool:
 # 6. DRAW: each water arm, bounded by indentation rather than a character window. The A2 wall
 # branches pushed the valid fill beyond the old 4,000-character slice. Scanning the rest of the
 # file instead would let a different tile or _draw_floor_tile's fill hide a missing water fill.
+# The fill goes through `_pen` since the world is baked (presentation/world_layers.gd): a bare
+# `draw_rect` in a bake would land in main's own frame, unmasked, so the scanner refuses it.
 func _water_draw_problem(src: String) -> String:
 	var in_district: bool = false
 	var match_indent: int = -1
@@ -442,7 +444,7 @@ func _water_draw_problem(src: String) -> String:
 			return "%s carries %d Water arms, not exactly one" % [names[i], counts[i]]
 	if not arms[0].contains("col = Palette.COLOURS[\"water\"].darkened(Palette.WATER_DEEP_SHADE)"):
 		return "the colour match's water arm does not derive the channel from WATER_DEEP_SHADE"
-	if not arms[1].split("\n").has("draw_rect(rect, col)"):
+	if not arms[1].split("\n").has("_pen.draw_rect(rect, col)"):
 		return "the draw match's water arm does not fill the tile"
 	return ""
 
@@ -450,14 +452,14 @@ func _water_draw_problem(src: String) -> String:
 func _the_water_draw_scanner_follows_only_the_water_arms() -> bool:
 	var shade: String = "col = Palette.COLOURS[\"water\"].darkened(Palette.WATER_DEEP_SHADE)"
 	var colour: String = "\tmatch tile:\n\t\tSimTileMap.Tile.Water:\n\t\t\t" + shade + "\n\t\t_:\n\t\t\tpass\n"
-	var fill: String = "\t\t\tdraw_rect(rect, col)\n"
+	var fill: String = "\t\t\t_pen.draw_rect(rect, col)\n"
 	var drawing: String = "\tmatch tile:\n\t\tSimTileMap.Tile.Water:\n" + fill + "\t\t_:\n\t\t\tpass\n"
 	var header: String = "func _draw_district() -> void:\n"
 	var valid: String = header + colour + drawing
 	# Both another arm and comments in Water grow beyond the former window. Neither should
 	# impose a size limit, and a comment at column zero must not end the containing function.
 	var long_drawing: String = drawing.replace("\t\tSimTileMap.Tile.Water:", "\t\tSimTileMap.Tile.Wall:\n" + "\t\t\tpass\n".repeat(600) + "\t\tSimTileMap.Tile.Water:")
-	long_drawing = long_drawing.replace(fill, "# draw_rect(rect, col)\n".repeat(200) + fill)
+	long_drawing = long_drawing.replace(fill, "# _pen.draw_rect(rect, col)\n".repeat(200) + fill)
 	for positive in [valid, header + colour + long_drawing, valid.replace("\t", "    "), valid.replace("\n", "\r\n")]:
 		var problem: String = _water_draw_problem(positive)
 		if not problem.is_empty():
@@ -472,13 +474,14 @@ func _the_water_draw_scanner_follows_only_the_water_arms() -> bool:
 		"commented shade": header + colour.replace(shade, "# " + shade) + drawing,
 		"shade in another arm": header + colour.replace(shade, "pass").replace("\t\t_:\n", "\t\t_:\n\t\t\t" + shade + "\n") + drawing,
 		"fill in another arm": header + colour + no_fill.replace("\t\t_:\n", "\t\t_:\n" + fill),
-		"commented fill": header + colour + drawing.replace("draw_rect(rect, col)", "# draw_rect(rect, col)"),
-		"fill after match": header + colour + no_fill + "\tdraw_rect(rect, col)\n",
-		"fill in next function": header + colour + no_fill + "func _draw_floor_tile() -> void:\n\tdraw_rect(rect, col)\n",
+		"commented fill": header + colour + drawing.replace("_pen.draw_rect(rect, col)", "# _pen.draw_rect(rect, col)"),
+		"fill after match": header + colour + no_fill + "\t_pen.draw_rect(rect, col)\n",
+		"fill in next function": header + colour + no_fill + "func _draw_floor_tile() -> void:\n\t_pen.draw_rect(rect, col)\n",
 		"both operations in colour arm": header + colour.replace(shade, shade + "\n" + fill.strip_edges(false, true)) + no_fill,
 		"duplicate water arm": header + colour + drawing.replace("\t\t_:\n", "\t\tSimTileMap.Tile.Water:\n"),
 		"extra tile match": valid + drawing,
-		"water label outside match": header + colour + "\tif tile == SimTileMap.Tile.Water:\n\t\tdraw_rect(rect, col)\n",
+		"water label outside match": header + colour + "\tif tile == SimTileMap.Tile.Water:\n\t\t_pen.draw_rect(rect, col)\n",
+		"fill to main's own frame, not the pen": header + colour + drawing.replace("_pen.draw_rect(rect, col)", "draw_rect(rect, col)"),
 	}
 	for label in negatives:
 		if _water_draw_problem(String(negatives[label])).is_empty():

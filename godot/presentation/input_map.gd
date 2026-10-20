@@ -84,7 +84,7 @@ const BINDINGS: Dictionary = {
 	"save": {"keys": [KEY_F5], "ctrl": false, "legend": ["F5"]},
 	"load": {"keys": [KEY_F9], "ctrl": false, "legend": ["F9"]},
 	"pause": {"keys": [KEY_P], "ctrl": false, "legend": ["P"]},
-	"sheets": {"keys": [KEY_M], "ctrl": false, "legend": ["M"]},
+	"sheets": {"keys": [KEY_M], "ctrl": false, "legend": []},
 	"overlay": {"keys": [KEY_O], "ctrl": false, "legend": ["O"]},
 	"legend": {"keys": [KEY_F1], "ctrl": false, "legend": ["F1"]},
 	"dismiss": {"keys": [KEY_ENTER, KEY_KP_ENTER], "ctrl": false, "legend": []},
@@ -251,8 +251,11 @@ func _input(event: InputEvent) -> void:
 			KEY_F9: main._load()
 			KEY_P: main._toggle_pause()
 			KEY_M:
-				main.show_sheets = not main.show_sheets
-				if main._hud != null: main._hud.set("show_raw", main.show_sheets)
+				# The raw developer sheets are the developer's: bound only in a debug build, like F8
+				# (alpha plan A22), so a release build has no key that opens them.
+				if OS.is_debug_build():
+					main.show_sheets = not main.show_sheets
+					if main._hud != null: main._hud.set("show_raw", main.show_sheets)
 			KEY_O: main._cycle_overlay()
 			KEY_F1: main._toggle_legend()
 			KEY_ENTER, KEY_KP_ENTER:
@@ -426,7 +429,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		if main.world != null and not main.inventory_open and _focus() == "street":
 			var mb2: InputEventMouseButton = event as InputEventMouseButton
 			var hit: Dictionary = Pick.pick_at(main.world, main.camera, mb2.position)
-			var rows: Array[Dictionary] = SimContext.verbs_at(main.world, int(main.world.player), hit)
+			# The colonist picked on the street, if any: their orders join the menu beside yours.
+			var rows: Array[Dictionary] = SimContext.verbs_at(main.world, int(main.world.player), hit, int(main._who()))
 			main._open_context_menu(mb2.position, hit, rows)
 		return
 	# Any left click that reaches here landed off the menu -- a click the menu's own `_gui_input`
