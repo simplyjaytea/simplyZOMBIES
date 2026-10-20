@@ -58,9 +58,19 @@ const SMEAR_STEP_PX: int = 12
 const SMEAR_SWAY_PX: int = 2
 # The spray a blow throws: three of the pack's four hit frames (the fourth is a single drop).
 const SPLAT_FRAMES: Array[String] = ["fx_blood_hit_1", "fx_blood_hit_2", "fx_blood_hit_0"]
-# A round's hole in a wall drawn flat from above sits this many art pixels down the tile from its
-# north edge -- on the face, not on the line the round crossed into the tile.
+# A dent sits this many art pixels down its tile from the north edge, on the car's side rather than
+# on the line the round crossed into the tile.
 const HOLE_ROW_PX: int = 14
+# A wall tile's face picture (every wall_*_face the street dressing names) is one stack of rows: the
+# wall's courses, the dark lip at row 20, the lit ledge at 21 and 22, the face strip with the windows
+# from row 23, and the dark base at row 31. A round's hole goes on that strip and is cut to it, so its
+# spray never climbs over the ledge or runs down onto the street.
+const FACE_TOP_PX: int = 23
+const FACE_END_PX: int = 31
+# The A2 wall pictures (48 rows, the foot at row 44) have their face from row 17, under the cap's
+# dark lip at 16, to the base at 43: counted from the picture's bottom, so a crop keeps them.
+const A2_FACE_FROM_END_PX: int = 31
+const A2_BASE_FROM_END_PX: int = 5
 # Kinds a round leaves: drawn on the wall's face when the wall stands as a picture.
 const WALL_KINDS: Array[String] = ["hole", "chips", "dent"]
 
@@ -170,15 +180,19 @@ static func items_for(world: Variant, rec: Dictionary, tick: int) -> Array[Dicti
 				"transpose": steep, "flip": fl, "modulate": mod, "dry": false,
 				"tile": Vector2i(floori(float(p.x) / ART_PX), floori(float(p.y) / ART_PX)), "wall": false, "x": p.x, "y": p.y, "t": int(rec["t"])})
 		return out
-	if kind == "hole" or kind == "dent":
-		# On the face of the tile the round struck, a little up or down by its variant so a burst
-		# reads as a group rather than a row.
+	var clip := Vector2i(-1, -1)
+	if kind == "hole":
+		# On the face strip of the tile the round struck, a pixel up or down by its variant so a
+		# burst reads as a group rather than a row, and cut to the strip.
+		y = tile.y * ART_PX + (FACE_TOP_PX + FACE_END_PX) / 2 + (v % 3) - 1
+		clip = Vector2i(tile.y * ART_PX + FACE_TOP_PX, tile.y * ART_PX + FACE_END_PX)
+	elif kind == "dent":
 		y = tile.y * ART_PX + HOLE_ROW_PX + (v % 5) - 2
 	var turn: int = v & 7
 	var mirror := Vector2(-full.size.x if (turn & 2) != 0 else full.size.x, -full.size.y if (turn & 4) != 0 else full.size.y)
 	out.append({"key": key, "texture": texture, "region": full, "at": Vector2(x, y) - full.size * 0.5, "size": full.size, "mirror": mirror,
 		"transpose": (turn & 1) == 1, "flip": Vector2i(-1 if (turn & 2) != 0 else 1, -1 if (turn & 4) != 0 else 1),
-		"modulate": mod, "dry": dry, "tile": tile, "wall": wall, "x": x, "y": y, "t": int(rec["t"])})
+		"modulate": mod, "dry": dry, "tile": tile, "wall": wall, "x": x, "y": y, "t": int(rec["t"]), "clip": clip})
 	return out
 
 
@@ -556,10 +570,12 @@ func _ground(world: Variant, camera: Dictionary, seen: Variant, standing: Dictio
 						continue
 				elif not visible(seen, tile):
 					continue
-				var sd: Dictionary = _screen(origin, px, d, d["at"])
+				var sd: Dictionary = _screen(origin, px, d, d["at"], d.get("clip", Vector2i(-1, -1)) as Vector2i)
+				if sd.is_empty():
+					continue
 				if canvas != null:
 					if sd["texture"] != null:
-						canvas.draw_texture_rect(sd["texture"], sd["rect"], false)
+						canvas.draw_texture_rect_region(sd["texture"], sd["rect"], sd["region"])
 						drawn.append(d["key"])
 				else:
 					out.append(sd)
@@ -617,14 +633,19 @@ func wall_draws(world: Variant, camera: Dictionary, seen: Variant, rect: Rect2) 
 					continue
 				var centre := Vector2(float(d["x"]), float(d["y"]))
 				var r_px := Rect2(rect.position * ART_PX, rect.size * ART_PX)
+				var clip := Vector2i(-1, -1)
 				if narrow:
 					centre.x = r_px.get_center().x
 					centre.y = clampf(centre.y, r_px.position.y + 4.0, r_px.end.y - 4.0)
 				else:
 					centre.x = clampf(centre.x, r_px.position.x + 4.0, r_px.end.x - 4.0)
-					# Mid-face, a little up or down by the record's variant so a burst is a group.
+					# Mid-face, a little up or down by the record's variant so a burst is a group,
+					# and cut to the face: below the cap's dark lip, above the base.
 					centre.y = r_px.position.y + r_px.size.y * 0.55 + float((int(d["x"]) + int(d["y"])) % 7 - 3)
-				out.append(_screen(origin, px, d, centre - (d["size"] as Vector2) * 0.5))
+					clip = Vector2i(roundi(r_px.end.y) - A2_FACE_FROM_END_PX, roundi(r_px.end.y) - A2_BASE_FROM_END_PX)
+				var sd: Dictionary = _screen(origin, px, d, centre - (d["size"] as Vector2) * 0.5, clip)
+				if not sd.is_empty():
+					out.append(sd)
 	return out
 
 
@@ -656,12 +677,21 @@ static func visible(seen: Variant, tile: Vector2i) -> bool:
 
 
 # One mark drawn on its own (a wall's or a car's), from its hard-cut, already-turned picture.
-func _screen(origin: Vector2, px: float, d: Dictionary, at: Vector2) -> Dictionary:
-	var size: Vector2 = (d["size"] as Vector2) * px
+# `clip` (art rows, end exclusive; x below zero for none) cuts it to a band of the world, as a hole
+# drawn flat from above is cut to its tile's face strip.
+func _screen(origin: Vector2, px: float, d: Dictionary, at: Vector2, clip: Vector2i = Vector2i(-1, -1)) -> Dictionary:
+	var region := Rect2(Vector2.ZERO, d["size"] as Vector2)
+	if clip.x >= 0:
+		var y0: float = maxf(at.y, float(clip.x))
+		var y1: float = minf(at.y + region.size.y, float(clip.y))
+		if y1 <= y0:
+			return {}
+		region = Rect2(0.0, y0 - at.y, region.size.x, y1 - y0)
+		at = Vector2(at.x, y0)
 	var pos: Vector2 = (origin + at * px).round()
 	var tex: Texture2D = _texture_of(d)
-	var rect := Rect2(pos, size)
-	return {"key": d["key"], "texture": tex, "region": Rect2(Vector2.ZERO, d["size"] as Vector2), "rect": rect,
+	var rect := Rect2(pos, region.size * px)
+	return {"key": d["key"], "texture": tex, "region": region, "rect": rect,
 		"canvas": rect, "transpose": false, "modulate": Color.WHITE}
 
 
