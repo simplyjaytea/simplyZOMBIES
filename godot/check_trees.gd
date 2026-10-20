@@ -3385,7 +3385,7 @@ static func _old_street_pick(map: Variant, seed_val: int, tx: int, ty: int) -> S
 
 
 # Over a map, the tiles where main's street furniture and the kept pictures disagree: `missing`, a
-# piece main drew that the block does not keep there, and `extra`, a street piece the block keeps
+# piece main drew that the block does not keep there (or keeps off main's own pixels), and `extra`, a street piece the block keeps
 # where main drew none (or drew another). `held` counts main's pieces under a sim object.
 static func _old_street_diff(block: Dictionary, map: Variant, seed_val: int) -> Dictionary:
 	var occ: Dictionary = Dressing.occupancy(block, map, seed_val)
@@ -3401,7 +3401,10 @@ static func _old_street_diff(block: Dictionary, map: Variant, seed_val: int) -> 
 			var now: String = String(top.get("key", ""))
 			var now_street: bool = OLD_STREET_KEYS.has(now)
 			if OLD_STREET_KEYS.has(was):
-				if now == was:
+				# Main hung it centred on its tile's south edge, unmirrored: offsets (0, 0).
+				if now == was and (int(top.get("ox", 0)) != 0 or int(top.get("oy", 0)) != 0 or bool(top.get("flip", false))):
+					missing.append([Vector2i(tx, ty), was, "%s shifted (%d, %d)%s" % [now, int(top.get("ox", 0)), int(top.get("oy", 0)), " mirrored" if bool(top.get("flip", false)) else ""]])
+				elif now == was:
 					same += 1
 				else:
 					missing.append([Vector2i(tx, ty), was, now])

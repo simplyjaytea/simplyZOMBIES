@@ -306,7 +306,8 @@ static func _spot_occupancy(world: Variant) -> Dictionary:
 ## floor outside the hall is all but absent. No sim object stands on the tile or the tiles north and
 ## south of it (`_held_free` at radius 0), and no scrap reaches the tile itself, so the survivor never
 ## stands on a chest or a scrap. Of those, one with a counter within COUNTER_HALF in its own room
-## first (`_counter_near`: the review asks the room shot to show one), then the clearest, then the
+## first (`_counter_near`: the review asks the room shot to show one), then one that shows a table
+## set in its own room (`_set_near`), then the clearest, then the
 ## one whose shot shows the most: the furnished pictures on its own room's floor in the STREET_WINDOW
 ## round it, one more for each kind, and INTERIOR_COUNTER_BONUS for a counter, less the scraps within
 ## SPOT_CLEAR (a furnished room seldom has a seven-tile square with no scrap either, so the scraps
@@ -340,9 +341,10 @@ static func _interior_spot(world: Variant) -> Vector2:
 			if _room_count(map, t) * 100 < ROOM_SHARE * STREET_WINDOW_AREA:
 				continue
 			var counter: bool = _counter_near(occ, map, t)
+			var seated: bool = _set_near(occ, map, t)
 			var score: int = _shot_score(occ, map, t)
 			var ring: int = maxi(absi(t.x - from.x), absi(t.y - from.y))
-			var key: Array = [1 if counter else 0, radius, score, -ring]
+			var key: Array = [1 if counter else 0, 1 if seated else 0, radius, score, -ring]
 			if best_key.is_empty() or key > best_key:
 				best_key = key
 				best = Vector2(float(t.x) + 0.5, float(t.y) + 0.5)
@@ -383,6 +385,19 @@ static func _counter_near(occ: Dictionary, map: Variant, at: Vector2i) -> bool:
 	for dy in range(-COUNTER_HALF.y, COUNTER_HALF.y + 1):
 		for dx in range(-COUNTER_HALF.x, COUNTER_HALF.x + 1):
 			if Dressing._room_of(occ, map, at.x + dx, at.y + dy) == room and _is_counter(occ, map, at.x + dx, at.y + dy):
+				return true
+	return false
+
+
+## Whether a room shot centred on `at` shows a table set in the survivor's own room: a chair kept
+## at its table within the STREET_WINDOW, so the room reads as lived in, not a counter and a cabinet.
+static func _set_near(occ: Dictionary, map: Variant, at: Vector2i) -> bool:
+	var room: int = Dressing._room_of(occ, map, at.x, at.y)
+	for dy in range(-STREET_WINDOW_HALF.y, STREET_WINDOW_HALF.y + 1):
+		for dx in range(-STREET_WINDOW_HALF.x, STREET_WINDOW_HALF.x + 1):
+			if Dressing._room_of(occ, map, at.x + dx, at.y + dy) != room:
+				continue
+			if Dressing._kept_top(occ, map, at.x + dx, at.y + dy).get("table", null) != null:
 				return true
 	return false
 
