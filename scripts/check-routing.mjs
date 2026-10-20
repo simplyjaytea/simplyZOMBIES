@@ -41,7 +41,8 @@ const OUTSIDE_M2 = {
     "the full campaign grid, opt-in by BALANCE_FULL=1; measure throughput first",
   "godot:m2:harness:full": "the full harness, opt-in by HARNESS_FULL=1",
   "godot:m2:chain": "the chain's own && list, read by scripts/m2-chain.mjs, not a gate itself",
-  "godot:check:shots": "the screenshot harness's own headless check, run beside godot:shots by hand",
+  "godot:check:shots":
+    "the screenshot harness's own headless check, run beside godot:shots by hand",
 };
 
 // --- pure functions, so the self-test can feed them fabricated input --------------------------
