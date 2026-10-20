@@ -3168,10 +3168,49 @@ not a to-do list:
   and 87.5. Gates: `godot:check:trees` (SETS_OK, a new lane: the sets, the runs, the edge and the
   sidewalk, held tiles, `clear_around` both ways, `_mirrored` and `_standing_rect` run, and the
   readers in `main.gd` and the harness), `godot:check:wrecks` (509 of 2,282 paved tiles on the 64-tile suburb, under its quarter ceiling: that
-  map is mostly edge). Not done: the room shot's survivor
-  has a picture two tiles away, because a furnished room has no clear seven-tile square and the
-  density rule asks for no empty block over six; window walls take no wall pieces (the run reads
-  `Tile.Wall` only); the colony hall's west half is the start's clearing; no new art.
+  map is mostly edge). Left by this pass, and closed by the sixth: the room shot's survivor had a
+  picture two tiles away; window walls took no wall pieces; the colony hall's west half was the
+  start's clearing. No new art.
+
+  **A12's sixth pass** (the coordinator's art QA round 1 on #167, 2026-10-20). **The street
+  furniture stands where it stood.** The fifth pass re-rolled every outdoor piece when it reordered
+  the list, so the before shots' barriers, signs, posts and lamps were gone. Each street furniture
+  entry now carries its old list index as a pinned `salt` (barrier 5, cone 6, post 7, sign 9, lamp
+  10; `dressing.schema.json`), rolls plainly as it did before A12, and wins a tie against the junk;
+  the junk (dumpsters, bags, barrels, pallets) is a `cluster` entry, weighted by the street and
+  standing on one tile of each three-tile row segment (`_spaced`), so it no longer lines the
+  sidewalk like pickets. Litter is the pack's crumpled paper alone (`debris_card` is retired: it
+  read as a pebble at game scale), anywhere in its tile on the art grid, 1 in `LITTER_SPAN` 11 on
+  the street and 17 in a room, nought in a clean street block. Bags on grass stand on the verge (a
+  grass tile beside outdoor paving is an edge), at rarity 7. **The rooms**: one table in two is a long
+  pair, its halves edge to edge, when the tile east of it has room and no other table beside it;
+  chairs sit north, east and west only (the pack's chair faces south, so one south of a table had
+  its back to it), never on a tile directly south of a table; a room keeps one medical cabinet
+  (`per_room`, the lowest of its room's hashes); no wall piece's art covers a tile in front of a
+  window, and the rest of the wall takes its pieces; tables against a north wall stand in for
+  counters (the pack has none, and its stove is a lit wood stove). **The clearing**: only the 9×9
+  round the colony start is kept clear, judged on every tile a picture's art covers rather than the
+  tile it rolled on, so a shelf beside it no longer reaches in; the rest of the hall is furnished.
+  The room shot now stands in that clearing: litter at 1 in 6 leaves a furnished room's own clear
+  seven-tile square about once in ten thousand squares, so the hall is the one room with the
+  survivor's three-tile clearance (the `interior` and `combat` shots share the spot).
+  **Measured** with the same throwaway probe at 1280×720 / 1920×1080: overlaps, off-grid and
+  straddles 0; nothing within three tiles of the survivor (nearest 4 on the street, 5 in the hall)
+  or four of the start; litter outside the reserved squares 1 in 6.8 / 6.0 on the street shot and
+  1 in 6.2 / 6.5 on the hall's floor; 6 / 8 tables with 7 / 9 chairs, every chair at a table but one
+  whose table is below the 1280 frame; one cabinet a room at most; no wall piece in front of a
+  window; no chair south of a table; bags on grass 0 / 1 on the street and 0 / 1 in the hall; the
+  densest 18 tiles of a sidewalk row hold 4 / 5 pieces; no empty 7×7 of seen room floor even
+  counting furniture alone. Uncovered pixels 0 on four shots and 388 on the two 1920 hall shots: the
+  left edge of a dumpster anchored on an unseen tile, no actor. Draw (`godot:bench:frame`, four runs each on one machine, alternated with the fifth pass): 6.03 ms mean
+  before, 6.06 after (5.73 to 6.52 and 5.77 to 6.31), the crowded scene 88.6 and 87.7; the tick
+  (`godot:bench:runtime`, two runs each) 7.49 and 7.03 ms, nothing under `godot/sim/` changed. Gates:
+  `godot:check:trees` (MEASURE_OK, a new lane: the pinned salts and the dropped repeat, the
+  suburb's street furniture identical with and without the junk, the spacing with a plain negative,
+  one cabinet a room against a rule-free negative, no shelf in front of a pane against walled-up
+  panes, the verge rows, a scrap anywhere in its tile against the furniture's range, nothing
+  reaching into the clearing; SETS_OK now holds pairs, the north/east/west seats and no chair south
+  of a table, with a fabricated true negative), `godot:check:wrecks`.
 
   **Container kinds are the table's.** `prop.container` gains a top-level `tables` map
   (`prop.schema.json`): residential and commercial containers keep the wood crate, `medical` draws
@@ -4790,9 +4829,9 @@ not a to-do list:
   boots and saves by construction. **A12's second pass** replaced the litter scraps: the generated
   `debris_litter_a/b/c` drew specks too small to read at game scale, so they are retired; the pack's
   `overlay-debris` rubble pile is retired too (`debris_litter_pack`), and litter is cut from it:
-  since A12's fifth pass the pack's crumpled paper and a scrap of card (`debris_paper`,
-  `debris_card`), weighted toward walls and kerbs (about 1 in 6 of the visible floor), mirrored and
-  jittered by a hash. `godot:check:wrecks`'s SCATTER lane holds
+  since A12's sixth pass the pack's crumpled paper alone (`debris_paper`; the card scrap read as a
+  pebble and is retired), weighted toward walls and kerbs (about 1 in 6 of the visible floor),
+  mirrored and placed anywhere in its tile by a hash. `godot:check:wrecks`'s SCATTER lane holds
   the surface rule and the density ceiling.
   **Gate lanes, red both ways.** `WRECKS_OK`: DRESSING (fabricated key, duplicated key, empty
   block), SEGMENTS (a lone tile mis-classified as a car front; front/rear swapped; `mid` never
