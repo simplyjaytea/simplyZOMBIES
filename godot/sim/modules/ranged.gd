@@ -623,7 +623,10 @@ static func _fire_shot(world: Variant, attacker: int, weapon: Dictionary, rng: V
 	# this line can still refuse -- no ammo, no position, no facing -- and a shot that did not
 	# happen must not wear anything. This is the channel a firearm degrades on: it wears from
 	# firing, whether or not the round found a body.
-	world.events.publish({"type": "weapon.fired", "entity": attacker, "item": int(weapon.get("source", -1))})
+	# Where the round went rides along -- the muzzle, the line, its reach and the body it found (-1
+	# for none) -- so decals.gd can mark the wall a miss struck without walking the cone again.
+	world.events.publish({"type": "weapon.fired", "entity": attacker, "item": int(weapon.get("source", -1)),
+		"x": fx, "y": fy, "dx": facing_x, "dy": facing_y, "reach": reach, "hit": int(best) if best != null else -1})
 	var flash: float = _with_ammo(scale, "flash", float(weapon.get("flash", 0)))
 	if flash > 0.0:
 		weapon["flashTicks"] = FLASH_TICKS

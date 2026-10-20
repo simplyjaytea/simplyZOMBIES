@@ -92,10 +92,16 @@ const ADMITTED: Dictionary = {
 	"fx_shotgun_muzzle": "fx-shotgun-muzzle",
 }
 # What stays in the report (docs/30, "The whole outpost pack"): the effects with no impact point,
-# the smoke with no source, and every decal. Named so a later declaration of one is red here.
+# the smoke with no source, the shell pile and the footprint. Named so a later declaration of one is
+# red here. The other six decals left this list with A13 (docs/30, "Blood and bullet decals persist,
+# for everything"): they are declared as kind `decal`, never as a sheet, and `godot:check:decals`
+# holds them.
 const REFUSED: Array[String] = ["fx_metal_sparks", "fx_concrete_dust", "fx_wood_splinters", "fx_water_splash",
-	"fx_explosion", "fx_smoke_loop", "fx_blood_pool_dry", "fx_blood_pool_fresh", "fx_bullet_hole_metal",
-	"fx_bullet_hole_concrete", "fx_scorch_mark", "fx_wood_chips", "fx_shell_pile", "fx_footprint"]
+	"fx_explosion", "fx_smoke_loop", "fx_shell_pile", "fx_footprint"]
+# The decals, declared as kind `decal` rather than as sheets: the one other way an fx_ key may stand
+# in authored.json.
+const DECALS: Array[String] = ["fx_blood_pool_dry", "fx_blood_pool_fresh", "fx_bullet_hole_metal",
+	"fx_bullet_hole_concrete", "fx_scorch_mark", "fx_wood_chips"]
 const WALL_X: int = 4
 const EFFECT_FIELDS: Array[String] = ["fireFx", "casingFx", "hitFx", "flameFx"]
 const BODY_KINDS: Array[String] = ["zombies/", "raiders/", "players/", "survivors/uniques/", "colony/looks"]
@@ -351,9 +357,16 @@ func _admits_complaint(declared: Array) -> String:
 
 func _only_the_effects_with_an_impact_point_are_admitted() -> bool:
 	var declared: Array = _sheets_declared().keys()
-	for key in _authored().keys():
-		if String(key).begins_with("fx_") and not declared.has(key):
-			push_error("ADMITS: '%s' is an fx_ key that is not a sheet" % String(key))
+	var all_keys: Dictionary = _authored()
+	for key in all_keys.keys():
+		if not String(key).begins_with("fx_") or declared.has(key):
+			continue
+		if not DECALS.has(String(key)) or String((all_keys[key] as Dictionary).get("kind", "")) != "decal":
+			push_error("ADMITS: '%s' is an fx_ key that is neither a sheet nor one of the decals" % String(key))
+			return false
+	for key in REFUSED:
+		if all_keys.has(key):
+			push_error("ADMITS: authored.json declares '%s', which docs/30 keeps in the report" % key)
 			return false
 	var complaint: String = _admits_complaint(declared)
 	if not complaint.is_empty():
