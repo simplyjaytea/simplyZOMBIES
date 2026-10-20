@@ -7,9 +7,9 @@ long pane in a wall running north-south, and a small square one where neither ru
 Each shape is two 32x32 layers over the whole tile, both drawn in greys because the renderer
 still tints them: the pane by the window tile's own colour (which is where a boarded-up window's
 stage shows) and the frame by the palette's `windowRim`. The pane carries the pack's glass
-reading -- a shadow under the lintel, a lit diagonal streak, a duller band at the sill; the frame
-a lit top and a shaded bottom, a mullion, and the pack's near-black outline outside it, which no
-tint lightens.
+reading -- a shadow under the lintel, four greys, lit diagonal streaks; the frame a lit top and a
+shaded bottom, a mullion, and a grey edge outside it that the rim tint takes a step darker than the
+brick's mortar, never to a body's near-black outline.
 
     python3 godot/art/simplyzombies/glass/glass.py
 """
@@ -18,7 +18,10 @@ from pathlib import Path
 from PIL import Image
 
 HERE = Path(__file__).resolve().parent
-OUT = (16, 14, 12, 255)
+# The outline the frame stands in. Tinted by windowRim it lands at (63, 76, 84): one step darker
+# than the brick's mortar line (104, 101, 95) so the window still reads, and nowhere near a body's
+# near-black outline -- a window is part of the wall, drawn at the wall's own line weight.
+EDGE = (168, 168, 168, 255)
 CLEAR = (0, 0, 0, 0)
 
 
@@ -36,29 +39,46 @@ SHAPES = {
 
 
 def pane(shape):
+    """The glass in four greys, lit like the pack's car windows: a shadow band under the lintel,
+    the body darker above and lighter below, and a diagonal reflection -- a broad streak and a thin
+    one beside it, running up and to the right -- in each half either side of the mullion."""
     x0, y0, x1, y1 = SHAPES[shape]
     img = Image.new("RGBA", (32, 32), CLEAR)
     px = img.load()
-    long_x = (x1 - x0) >= (y1 - y0)
+    h = y1 - y0 + 1
     for y in range(y0, y1 + 1):
         for x in range(x0, x1 + 1):
-            v = 246
-            if y == y0:
-                v = 206                     # the lintel's shadow on the glass
-            elif y == y1:
-                v = 226                     # the sill's duller reflection
+            if y - y0 < max(1, h // 6):
+                v = 168                     # the lintel's shadow on the glass
+            elif y - y0 < h // 2:
+                v = 206                     # the upper glass, under the shadow
+            else:
+                v = 232                     # the lower glass, catching the sky
             px[x, y] = grey(v)
-    # two lit streaks, one either side of the mullion, running up and to the right
-    span = (x1 - x0) if long_x else (y1 - y0)
-    for half in (0, 1):
+    long_x = (x1 - x0) >= (y1 - y0)
+    halves = []
+    if long_x:
+        mid = (x0 + x1) // 2
+        halves = [(x0, mid - 1), (mid + 1, x1)]
+    else:
+        mid = (y0 + y1) // 2
+        halves = [(y0, mid - 1), (mid + 1, y1)]
+    for a, b in halves:
         if long_x:
-            sx = x0 + 2 + half * (span // 2 + 1)
-            pts = [(sx + k, y1 - 1 - k) for k in range(min(4, y1 - y0 - 1))]
+            # the broad streak a third of the way in, the thin one two pixels after it
+            for k, width in ((a + (b - a) // 3, 2), (a + (b - a) // 3 + 4, 1)):
+                for y in range(y0 + 1, y1 + 1):
+                    for w in range(width):
+                        x = k + w + (y1 - y)
+                        if a <= x <= b:
+                            px[x, y] = grey(255)
         else:
-            sy = y0 + 2 + half * (span // 2 + 1)
-            pts = [(x0 + 1 + k, sy + 3 - k) for k in range(min(4, x1 - x0 - 1))]
-        for p in pts:
-            px[p] = grey(255)
+            for k, width in ((a + (b - a) // 3, 2), (a + (b - a) // 3 + 4, 1)):
+                for x in range(x0, x1 + 1):
+                    for w in range(width):
+                        y = k + w + (x - x0)
+                        if a <= y <= b and y != y0:
+                            px[x, y] = grey(255)
     return img
 
 
@@ -86,7 +106,7 @@ def frame(shape):
         for x in range(fx0 - 1, fx1 + 2):
             if fx0 <= x <= fx1 and fy0 <= y <= fy1:
                 continue
-            px[x, y] = OUT
+            px[x, y] = EDGE
     return img
 
 

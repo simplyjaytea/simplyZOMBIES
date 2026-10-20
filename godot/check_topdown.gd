@@ -28,8 +28,9 @@ const STREET_DRESSING: String = "res://content/dressing/street.json"
 # tile and a short side a quarter, or a square one and a half short sides, centred. The pictures
 # are held to it, so the art replaced the rects without moving a window.
 const GLASS_PANES: Dictionary = {"ew": Rect2i(4, 12, 24, 8), "ns": Rect2i(12, 4, 8, 24), "square": Rect2i(10, 10, 12, 12)}
-# How far a glass picture's channels may spread and still be a grey the renderer tints: the pack's
-# near-black outline, (16, 14, 12), is the widest.
+# How far a glass picture's channels may spread and still be a grey the renderer tints. The
+# shipped art is pure grey (spread 0); four is the pack's near-black (16, 14, 12), the widest
+# near-grey an outline might borrow.
 const GLASS_GREY_SPREAD: int = 4
 
 func _init() -> void:

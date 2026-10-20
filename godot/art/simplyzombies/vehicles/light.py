@@ -216,27 +216,68 @@ def skateboard_ew():
 
 # --- north-south: seen from behind and above, nose north (up) -----------------------------------
 
+def wheel_ns(s, cx, cy, rx, ry, fat=False, spoke=True):
+    """A wheel seen from behind and above: a narrow upright ellipse, tyre round a rim round a
+    hollow, the hub and a spoke down its middle -- turned a few degrees toward the camera, as
+    the pack draws a wheel it would otherwise see edge on."""
+    def inside(x, y, ax, ay):
+        return ((x + 0.5 - cx) / ax) ** 2 + ((y + 0.5 - cy) / ay) ** 2 <= 1.0
+    t = 1.6 if fat else 1.2
+    for y in range(s.h):
+        for x in range(s.w):
+            if not inside(x, y, rx, ry):
+                continue
+            if inside(x, y, rx - t, ry - t * 1.4):
+                if inside(x, y, rx - t - 0.9, ry - t * 1.4 - 1.2):
+                    s.mat[y][x] = None
+                else:
+                    s.put(x, y, "metal")
+            else:
+                s.put(x, y, "tyre")
+    s.rect(int(cx) - 1, int(cy) - 1, int(cx), int(cy), "metal")       # the hub
+    if spoke:
+        s.line(int(cx), int(cy - ry + t + 1), int(cx), int(cy + ry - t - 1), "metal")  # a spoke
+
+
 def bicycle_ns(e=False):
     s = Sheet(32, 96)
-    cx = 15
-    rear_y1, rear_y0 = 95, 74          # the back wheel, nearest the camera
-    front_y1, front_y0 = 52, 34        # the front wheel, foreshortened beyond the frame
-    s.rect(cx, rear_y0, cx + (2 if e else 1), rear_y1, "tyre")
-    s.rect(cx, front_y0, cx + (2 if e else 1), front_y1, "tyre")
-    s.line(cx, 80, cx, 52, "frame", 2)                      # the frame, seen end on
-    s.rect(cx - 1, 66, cx + 2, 72, "frame")                  # seat cluster
-    s.rect(cx - 2, 62, cx + 3, 66, "seat")                   # saddle
-    s.rect(cx - 1, 82, cx + 2, 84, "frame")                  # rear rack / stays
-    s.rect(cx - 8, 46, cx + 9, 47, "metal")                  # handlebar
-    s.rect(cx - 9, 45, cx - 7, 48, "grip")
-    s.rect(cx + 8, 45, cx + 10, 48, "grip")
-    s.rect(cx - 3, 76, cx - 2, 79, "metal")                  # pedals either side
-    s.rect(cx + 3, 76, cx + 4, 79, "metal")
+    cx = 15.5
+    c = int(cx)
+    fat = e
+    # the front wheel first, beyond everything, the fork's legs outside it down to its hub
+    wheel_ns(s, cx, 37.5, 5.0 if fat else 4.5, 10.0, fat, spoke=False)
+    s.line(c - 5, 37, c - 2, 50, "frame")
+    s.line(c + 5, 37, c + 2, 50, "frame")
+    # the frame, running away from the camera: top tube over the down tube
+    s.rect(c - 1, 50, c + 1, 70, "frame")
     if e:
-        s.rect(cx - 1, 54, cx + 2, 61, "battery")
-        s.rect(cx, 32, cx + 1, 33, "light")
-    for y in range(54, 79, 3):
-        s.shine.add((cx, y))
+        s.rect(c - 2, 53, c + 2, 61, "battery")
+        s.rect(c - 1, 28, c, 29, "light")
+    # the bar, swept back at its ends, the stem up to it, grips dark
+    s.rect(c - 1, 44, c, 50, "metal")
+    s.rect(c - 7, 44, c + 7, 45, "metal")
+    s.rect(c - 10, 45, c - 8, 47, "grip")
+    s.rect(c + 8, 45, c + 10, 47, "grip")
+    s.put(c - 8, 44, "metal")
+    s.put(c + 7, 44, "metal")
+    # the cranks and pedals, out either side of the bottom bracket
+    s.rect(c - 2, 72, c + 1, 74, "metal")
+    s.rect(c - 6, 71, c - 3, 72, "grip")
+    s.rect(c + 2, 74, c + 5, 75, "grip")
+    # the back wheel, nearest the camera and over the frame's foot
+    wheel_ns(s, cx, 84.5, 5.5 if fat else 5.0, 11.0, fat)
+    # the seat stays down either side of it to the hub, and the saddle over them: wide at the
+    # back, its nose running away north
+    s.line(c - 2, 66, c - 4, 80, "frame")
+    s.line(c + 1, 66, c + 3, 80, "frame")
+    s.rect(c - 1, 64, c, 66, "metal")
+    s.rect(c - 4, 60, c + 3, 63, "seat")
+    s.rect(c - 3, 57, c + 2, 59, "seat")
+    s.rect(c - 2, 54, c + 1, 56, "seat")
+    s.rect(c - 1, 52, c, 53, "seat")
+    s.shine.update({(c - 2, 60), (c - 1, 60), (c, 60), (c - 2, 57), (c - 1, 57), (c - 1, 54)})
+    if e:
+        s.rect(c - 1, 92, c, 93, "light")      # the tail lamp under the saddle's line
     return s
 
 

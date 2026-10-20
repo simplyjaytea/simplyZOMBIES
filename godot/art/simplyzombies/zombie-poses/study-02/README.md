@@ -10,7 +10,7 @@ ZOMBIE_POSES lane at study 01's own geometry.
 | family   | living canvas | anchor  | walk fps | corpse canvas | built on          |
 | -------- | ------------- | ------- | -------- | ------------- | ----------------- |
 | screamer | 32x40         | [16,40] | 5        | 48x40         | the commuter      |
-| bloater  | 40x48         | [20,48] | 4        | 56x40         | the heavy (broad) |
+| bloater  | 40x48         | [20,48] | 4        | 56x40         | the heavy, painted by code |
 
 ## How it was made
 
@@ -25,20 +25,29 @@ ZOMBIE_POSES lane at study 01's own geometry.
 3. **Mechanical extraction** (`extract.py`): each cell cut whole and moved so its soles sit on
    the bottom row; corpses centred on their ground anchor. Nothing repainted or resized.
 
-The corpses are the paint-over guides **used as drawn**. Every img2img pass over them blurred the
+**The bloater was repainted by code after the art review (2026-10-20).** The img2img pass gave
+it a lost purple head on the front row, a belly pasted over its near arm, single-pixel speckle
+for shading and an acid green past the pack's range. `guides/bloater_paint.py` now builds both
+its sheets straight from the heavy, with no generation: the heavy's head, face, neck, vest,
+arms and walk kept pixel for pixel, the skin carried onto a four-tone olive at the pack's
+saturation, and the belly an ellipsoid lit from the top left in contiguous bands, riding out
+from under the vest's hem (which keeps a one-pixel shadow), sagging over the belt, bulging
+forward in the side views and staying behind any arm that hangs in front of it. Its corpses take
+the same skin and a mound shaded the same way. The generated bloater sheets stay under
+`sources/` as the record `prompts.json` describes; nothing reads them.
+
+The screamer's corpses are the paint-over guides **used as drawn**. Every img2img pass over them blurred the
 outline and lost the head (the `rejected-*-corpses-*` sheets), so the settled poses are study
-01's own commuter and heavy corpses, recoloured and, for the bloater, given a belly mound and
-swollen flanks.
+01's own commuter corpses, recoloured. `extract.py` also pulls the screamer's near-white
+highlights down into the pack's skin range and takes its shirt a value under its face.
 
 ## Rebuilding
 
 ```bash
 python3 guides/screamer_walk.py ../atlases/zombie-commuter.png sources/screamer-walk-guide.png
-python3 guides/bloater_walk.py ../atlases/zombie-heavy.png sources/bloater-walk-guide.png
-python3 guides/bloater_north.py ../atlases/zombie-heavy.png sources/bloater-north-guide.png
 python3 guides/screamer_corpses.py ../textures sources/screamer-corpses.png
-python3 guides/bloater_corpses.py ../textures/zombie-heavy sources/bloater-corpses.png
-# the generated sheets are not reproducible offline; they are committed under sources/
+python3 guides/bloater_paint.py ../atlases/zombie-heavy.png ../textures/zombie-heavy sources/
+# the screamer's generated sheet is not reproducible offline; it is committed under sources/
 python3 extract.py
 python3 ../../../../../tools/sprites/build.py   # copies the textures into assets/sprites/
 ```

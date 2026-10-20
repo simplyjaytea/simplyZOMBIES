@@ -28,11 +28,15 @@ ASH = [(34, 32, 30), (48, 46, 42), (64, 60, 56), (84, 80, 74)]
 CHAR = [(22, 18, 16), (36, 28, 24), (50, 38, 30), (66, 50, 38)]
 EMBER = [(124, 40, 20), (184, 74, 28), (230, 128, 44), (252, 206, 110)]
 DIRT = [(58, 48, 38), (72, 60, 46), (86, 72, 56), (100, 86, 66)]
+ROOF = [(88, 74, 58), (114, 98, 78), (138, 120, 96), (162, 144, 116)]
+DOOR = [(76, 54, 36), (100, 72, 46), (122, 90, 58), (146, 110, 72)]
+SEAM = [(40, 28, 20), (50, 36, 24), (58, 42, 28), (66, 48, 32)]
+GAP = [(14, 12, 10), (18, 15, 12), (22, 18, 15), (26, 21, 17)]
 METAL = SHARED["metal"]
 RAMPS = {
     "stone_a": STONE, "stone_b": STONE, "mortar": MORTAR, "water": WATER, "wood": WOOD,
     "plank_a": PLANK, "plank_b": PLANK, "rope": ROPE, "ash": ASH, "char_a": CHAR, "char_b": CHAR,
-    "ember": EMBER, "dirt": DIRT, "metal": METAL,
+    "ember": EMBER, "dirt": DIRT, "metal": METAL, "roof": ROOF, "door": DOOR, "seam": SEAM, "gap": GAP,
 }
 
 
@@ -106,27 +110,44 @@ def well():
 
 
 def latrine():
-    """A plank bench over a pit with its lid up, a bucket of ash beside it to cover with."""
+    """An outhouse: a plank roof seen from above, its front wall toward the camera, and in the
+    wall a door that stands proud of it -- a dark gap all round, a crescent moon cut in its top
+    and a slatted vent above it -- with a bucket of ash beside it to cover with."""
     s = Station(32, 28)
-    # the bench top, planks running across, and the hole with the lid standing behind it
-    for y in range(10, 17):
-        for x in range(2, 26):
-            s.put(x, y, "plank_a" if (y - 10) // 2 % 2 else "plank_b")
-    s.ellipse(14, 13.5, 4.5, 2.4, "char_a")
-    s.rect(9, 3, 19, 9, "plank_a")
-    s.rect(10, 4, 18, 8, "plank_b")
-    # the front boards, toward the camera
-    for y in range(17, 26):
-        for x in range(2, 26):
-            s.put(x, y, "plank_b" if (x - 2) // 6 % 2 else "plank_a")
-    for x in (2, 25):
-        s.rect(x, 17, x, 25, "wood")
-    s.rect(1, 26, 26, 27, "dirt")
-    # the ash bucket
-    s.rect(27, 18, 30, 26, "metal")
-    s.ellipse(28.5, 18, 2.0, 1.2, "ash")
-    for x in range(4, 24, 5):
-        s.shine.add((x, 10))
+    # the front wall, upright planks with a dark seam between each
+    for y in range(9, 26):
+        for x in range(4, 26):
+            s.put(x, y, "seam" if (x - 4) % 4 == 3 else ("plank_a" if (x - 4) // 4 % 2 else "plank_b"))
+    for x in (4, 25):
+        s.rect(x, 9, x, 25, "wood")
+    # the roof, seen from above: planks running down the slope, overhanging the wall
+    for y in range(0, 8):
+        for x in range(2, 28):
+            s.put(x, y, "seam" if (x - 2) % 5 == 4 else "roof")
+    s.rect(2, 8, 27, 8, "wood")
+    # the vent under the eave: a dark slot crossed by upright slats
+    s.rect(11, 10, 18, 11, "gap")
+    for x in (12, 14, 16):
+        s.rect(x, 10, x, 11, "wood")
+    # the door, its own boards, a dark gap round three sides
+    s.rect(9, 13, 20, 25, "gap")
+    for y in range(14, 26):
+        for x in range(10, 20):
+            s.put(x, y, "seam" if x in (12, 17) and y > 19 else "door")
+    s.rect(10, 19, 19, 19, "wood")
+    # the moon, a crescent cut through the door's top board, opening east
+    for x, y in ((15, 14), (16, 14), (14, 15), (15, 15), (14, 16), (15, 16), (14, 17), (15, 17),
+                 (15, 18), (16, 18)):
+        s.put(x, y, "gap")
+    s.put(18, 22, "metal")
+    s.shine.add((18, 22))
+    s.rect(1, 26, 30, 27, "dirt")
+    # the ash bucket, against the wall's east end
+    s.rect(27, 19, 30, 25, "metal")
+    s.ellipse(28.5, 19, 2.0, 1.2, "ash")
+    for x in range(3, 27, 5):
+        s.shine.add((x, 0))
+        s.shine.add((x + 1, 1))
     return s
 
 

@@ -2575,13 +2575,15 @@ not a to-do list:
   family. A window on a wall's cap was two `draw_rect` calls in `main.gd::_draw_window_glass`, a
   pane and a two-pixel rim; it is now two pictures per shape, drawn by `glass.py` under
   `godot/art/simplyzombies/glass/` at exactly the rects' geometry (a 24×8 pane east-west, 8×24
-  north-south, 12×12 square, centred on the tile): the pane with a shadow under the lintel, a
-  duller sill and a lit streak either side of a mullion; the frame lit along its top, shaded
-  along its bottom, with the pack's near-black outline outside it. Both are greys, sourced in
+  north-south, 12×12 square, centred on the tile): the pane in four greys (a shadow under the
+  lintel, a darker upper half, a lighter lower half, and diagonal reflection streaks either side
+  of a mullion, as the pack's car windows carry them); the frame lit along its top, shaded along
+  its bottom, with a grey edge outside it that the rim tint takes one step darker than the
+  brick's mortar line, at the wall's own line weight rather than a body's near-black outline. Both are greys, sourced in
   `authored.json` as kind `tile`, and the renderer tints them by the two colours the rects were
   (`col.lightened(0.28)` for the pane, `Palette.COLOURS["windowRim"]` for the frame), so night,
-  weather and a boarded window's stage reach them unchanged. The pane's body grey is 246, so the
-  glass sits within a few percent of the flat rect's brightness.
+  weather and a boarded window's stage reach them unchanged. The pane's greys are 168, 206, 232
+  and 255, so the glass sits a little under the flat rect's brightness and the streak at it.
 
   The keys are content: the street dressing's `faces` block gains `glass`, a map of
   `pane_<shape>` and `frame_<shape>` for `ew`, `ns` and `square`, read through the new
@@ -2592,8 +2594,7 @@ not a to-do list:
 
   **Gated:** `godot:check:topdown` (→ `TOPDOWN_OK`) gains GLASS: the shipped dressing names a pane
   and frame for each shape; every pane's drawn pixels bound exactly the rect it replaced and every
-  frame's that rect grown by two; every pixel is a grey (channels within `GLASS_GREY_SPREAD`, the
-  outline's 4), so the tint stays the renderer's. Its true negatives: a pane a pixel low, a blue
+  frame's that rect grown by two; every pixel is a grey (channels within `GLASS_GREY_SPREAD`), so the tint stays the renderer's. Its true negatives: a pane a pixel low, a blue
   pane, `glass_keys` over no glass, an unknown shape and half a pair. Reach is textual, as the
   WALL lane's is, over the body with comments stripped whole-line **and** trailing: the
   `glass_keys` call, both tinted `draw_texture_rect` calls, and the rect fallback after them; a
@@ -2621,7 +2622,7 @@ not a to-do list:
   A11's third family. The four station pictures `tools/sprites/parts/props.py` generated (a
   stone ring for the fire, cold and lit, a ring for the well, a grey box for the latrine) become
   art in the pack's manner under `godot/art/simplyzombies/stations/`: a brick well with its
-  windlass, rope and bucket, a plank latrine with the lid up and an ash bucket beside it, and a
+  windlass, rope and bucket, a plank outhouse with an ash bucket beside it, and a
   ring of stones round crossed logs, charred and cold or burning down to embers. `stations.py`
   draws all four with the vehicles' painter (a near-black outline, four tones a material, lit
   from the north) onto a guide sheet; one img2img pass ran over it (`prompts.json`) and only its
@@ -2652,6 +2653,12 @@ not a to-do list:
 
   **Seen:** the camp at noon with the fire lit, and the well, before (the base) and after, with
   the four pictures old over new at 6×, are in `.hermes/plans/2026-10-19_stations/`.
+
+  **Second pass, after the art review (2026-10-20).** The first latrine, a bench with its lid up
+  over a front of boards, read as a crate. It is now an outhouse: a plank roof seen from above
+  and overhanging, upright wall planks with dark seams, a slatted vent under the eave, and a
+  door standing in a one-pixel dark gap with a crescent moon cut through its top board and a
+  latch. Same 32×28 picture, same pad and `size`, so PROPS and STANDING judge it unchanged.
 
   **What it leaves:** the latrine and the well are drawn three-quarter from the south and do not
   turn; the cold fire has no smoke and the lit one no ember glow beyond its light.
@@ -2712,6 +2719,24 @@ not a to-do list:
   sheets of the cars beside the pack's and the light vehicles old against new are in
   `.hermes/plans/2026-10-19_vehicles/`.
 
+  **Second pass, after the art review (2026-10-20).** The img2img cars drew 19–28% longer than
+  the pack's own east-west pictures (102, 131 and 133 rows against 86, 102 and 106), with a roof
+  in one tone, no side panel, tabs for wheels and red lamps on the nose. They are now painted by
+  code, `guides/cars_ns_paint.py`, with no generation: the painted span is the east-west span
+  plus a few rows of rear face (**91, 107 and 109** rows with the outline), the pack's paint in
+  four tones (flank, face and hood, roof, highlight) with its grain and a few dirt smudges, a
+  side panel down each edge with the side glass and door seams in it, a wheel arch cut into it at
+  each axle with the tyre a pixel proud of the body, amber indicators and pale headlamps on the
+  nose, red lamps and a plate on the rear face, and glass in four tones with the diagonal streak.
+  `cars.py` runs the painter and `wreck.py` damages its sheet as before; the generated sheet is
+  kept as `sources/rejected-cars-ns-pass2.png` and its guide script retired. Canvases, keys and
+  content are unchanged, so DRESSING, PACK and DRIVE judge the new pictures as they judged the
+  old. The north-south bicycle and e-bike, which read as a sword at 1×, are redrawn in
+  `light.py` from behind: each wheel a narrow upright ellipse (tyre, rim, hollow, hub), the
+  fork's legs outside the front one and the seat stays either side of the back one, a saddle wide
+  at the back with its nose running north, a swept bar with dark grips, and pedals out either
+  side.
+
   **What it leaves:** a car seen from behind is still the one picture for both north-south
   facings (decision 11's limit, in what's left); no state between intact and wreck; no lamp glow.
 
@@ -2749,6 +2774,20 @@ not a to-do list:
   boots, so that is the machine, and CI's `godot-m2` job is the judge.
   Before/after captures of the real scene, and both families beside the study 01 family they
   were painted over, are in `.hermes/plans/2026-10-19_zombie-study-02/`.
+
+  **Second pass, after the art review (2026-10-20).** The bloater's generated sheet lost its
+  head on the front row, pasted its belly over the near arm in the side views, shaded it in
+  single-pixel speckle and ran an acid green past the pack's saturation. It is now painted by
+  code, `study-02/guides/bloater_paint.py`, straight from the heavy with no generation: the
+  heavy's head, face, neck, vest, arms and walk kept pixel for pixel, the skin carried onto a
+  four-tone olive at HLS saturation 0.16–0.20 (the heavy's own sits near 0.2), and the belly an
+  ellipsoid lit from the top left in four contiguous bands, riding out from under the vest's hem
+  with a one-pixel shadow, sagging over the belt, bulging forward in the side views and kept
+  behind any arm that reaches outside it. Both corpses take the same skin; the supine mound is
+  shaded the same way, rimmed where it meets the body and outlined where it meets the ground.
+  The screamer keeps its sheet; `extract.py` now pulls every highlight above the commuter's
+  brightest skin (luminance 188) down toward it with its order kept, and takes the shirt's pale
+  greys one value under the face. Sizes, anchors, rates and keys are unchanged.
 
   **First cut,** like study 01: no attack, hit, death-transition or rising states; the scream and
   the burst have no animation of their own.
