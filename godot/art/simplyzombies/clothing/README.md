@@ -1,8 +1,10 @@
 # Survivor clothing
 
-Torso, legs and feet garments for the outpost survivor, painted onto **every frame** the pack
-survivor draws: four idle views and a four-frame walk each way, twenty frames. Landed 2026-10-19
-as alpha plan item A6 ("Clothe everyone"); docs/23 carries the record.
+Torso, legs and feet garments for the outpost survivor, painted onto **every frame** the
+survivor draws: four rest views, and an eight-frame walk and a breath picture each way, forty
+frames. Landed 2026-10-19 as alpha plan item A6 ("Clothe everyone") on the pack's four-frame walk,
+and moved onto A7's eight-frame walk and breath (`../motion/`) on 2026-10-20; docs/23 carries the
+record.
 
 The pack's survivor is a paperdoll base in underwear, and its four wearables (vest, helmet, gas
 mask, backpack) are fitted to the idle views and stand still while the body walks. A shirt cannot
@@ -12,14 +14,17 @@ of time with the legs, because they are chosen by the body's own frame key.
 
 ## How a garment is painted
 
-- `parts.py` labels every opaque pixel of each of the twenty source frames
-  (`../textures/characters/survivor_*.png`, cut 32x48 to 32x40 exactly as `authored.json` crops
-  the body): ink, head, torso, arm, hand, pelvis, leg, foot. The landmarks come from the frame's
-  own underwear band, so the walk's bob moves them with the body -- except the side views'
-  chest, whose top row is the idle frame's: the pack's side walk bobs the hips but never the
-  shoulders, and a hip-derived chest left the top row bare once a cycle. Seen from the side, the near
-  arm past the underwear's span on the side the body faces is labelled arm, not chest, so a
-  short sleeve ends on it and a long one is creased apart from the body.
+- `parts.py` labels every opaque pixel of each of the forty source frames (the rest views
+  `../textures/characters/survivor_*.png`, cut 32x48 to 32x40 exactly as `authored.json` crops
+  the body, and the walk and breath under `../textures/characters/motion/`): ink, head, torso,
+  arm, hand, pelvis, leg, foot. A hand is the two-by-two at the far end of each arm, measured
+  from its shoulder, so a sleeve runs down a swinging arm to the wrist. The breath is not
+  labelled or painted: its garment is the rest picture's, put through the body's own breath.
+  The waist comes from the frame's own underwear band and the chest top from its head (the rest
+  view's chest top, moved as far as the head moved), so the walk's bob moves both with the body
+  and a collar sits under the chin on every frame. Seen from the side, the near arm past the
+  underwear's span on the side the body faces is labelled arm, not chest, so a short sleeve ends
+  on it and a long one is creased apart from the body.
 - `build_clothing.py` repaints only the skin and underwear pixels of the parts a garment covers.
   A pixel is shaded on a light scale, not picked from four tones: it starts from the body's own
   tone under it (lit skin, shaded skin, the darkest skin; the underwear's flat grey counts as
@@ -45,15 +50,18 @@ of time with the legs, because they are chosen by the body's own frame key.
   suit is smooth rather than dirty. The `boot` ramp (steel-toe boots, the suit's taped seams and
   respirator) never falls below its deep tone, so dark rubber beside the pack's near-black ink
   still reads at 1x. A garment frame comes out near the pack vest's tonal density, counted as
-  distinct colours over painted pixels on the south view: the tee 61 over 84, the leather jacket
-  55 over 100, the parka 82 over 116, the hazmat suit 86 over 159; the pack's vest 85 over 117.
+  distinct colours over painted pixels on the south view: the slate tee 61 over 84, the leather
+  jacket 55 over 100, the parka 87 over 116, the hazmat suit 86 over 159; the pack's vest 85
+  over 117.
 - Ramps are four tones in the pack's families (`../STYLE.md`), blended between and paled or
   cooled past either end; every number is an integer, so the output is the same bytes on every
   interpreter (checked on Python 3.12 and 3.13).
 
-The output is one 160x160 sheet per garment under `native/`: a row per view (s, e, n, w), the
-idle picture in column 0 and the walk's frames in columns 1-4. `authored.json` declares each
-garment as kind `wear` with `fits: "body_survivor"` and crops its twenty members from the sheet;
+The output is one 320x160 sheet per garment under `native/`: a row per view (s, e, n, w), the
+rest picture in column 0, the walk's frames in columns 1-8 and the breath in column 9.
+`authored.json` declares each garment as kind `wear` with `fits: "body_survivor"` and crops its
+forty members from the sheet (no script writes those members; `godot:check:authored`'s WEAR lane
+refuses a garment whose members are not exactly the rig's frames);
 `npm run sprites:check` reproduces `godot/assets/sprites/wear_*.png` from those crops.
 
 ```bash

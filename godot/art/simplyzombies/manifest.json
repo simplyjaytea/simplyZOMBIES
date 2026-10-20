@@ -25,83 +25,143 @@
         "idle_s": [
           {
             "path": "textures/characters/survivor_s.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_idle_s_01.png"
           }
         ],
         "idle_e": [
           {
             "path": "textures/characters/survivor_e.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_idle_e_01.png"
           }
         ],
         "idle_n": [
           {
             "path": "textures/characters/survivor_n.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_idle_n_01.png"
           }
         ],
         "idle_w": [
           {
             "path": "textures/characters/survivor_w.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_idle_w_01.png"
           }
         ],
         "walk_s": [
           {
-            "path": "textures/characters/survivor_walk_s_00.png"
+            "path": "textures/characters/motion/survivor_walk_s_00.png"
           },
           {
-            "path": "textures/characters/survivor_walk_s_01.png"
+            "path": "textures/characters/motion/survivor_walk_s_01.png"
           },
           {
-            "path": "textures/characters/survivor_walk_s_02.png"
+            "path": "textures/characters/motion/survivor_walk_s_02.png"
           },
           {
-            "path": "textures/characters/survivor_walk_s_03.png"
+            "path": "textures/characters/motion/survivor_walk_s_03.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_walk_s_04.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_walk_s_05.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_walk_s_06.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_walk_s_07.png"
           }
         ],
         "walk_e": [
           {
-            "path": "textures/characters/survivor_walk_e_00.png"
+            "path": "textures/characters/motion/survivor_walk_e_00.png"
           },
           {
-            "path": "textures/characters/survivor_walk_e_01.png"
+            "path": "textures/characters/motion/survivor_walk_e_01.png"
           },
           {
-            "path": "textures/characters/survivor_walk_e_02.png"
+            "path": "textures/characters/motion/survivor_walk_e_02.png"
           },
           {
-            "path": "textures/characters/survivor_walk_e_03.png"
+            "path": "textures/characters/motion/survivor_walk_e_03.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_walk_e_04.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_walk_e_05.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_walk_e_06.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_walk_e_07.png"
           }
         ],
         "walk_n": [
           {
-            "path": "textures/characters/survivor_walk_n_00.png"
+            "path": "textures/characters/motion/survivor_walk_n_00.png"
           },
           {
-            "path": "textures/characters/survivor_walk_n_01.png"
+            "path": "textures/characters/motion/survivor_walk_n_01.png"
           },
           {
-            "path": "textures/characters/survivor_walk_n_02.png"
+            "path": "textures/characters/motion/survivor_walk_n_02.png"
           },
           {
-            "path": "textures/characters/survivor_walk_n_03.png"
+            "path": "textures/characters/motion/survivor_walk_n_03.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_walk_n_04.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_walk_n_05.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_walk_n_06.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_walk_n_07.png"
           }
         ],
         "walk_w": [
           {
-            "path": "textures/characters/survivor_walk_w_00.png"
+            "path": "textures/characters/motion/survivor_walk_w_00.png"
           },
           {
-            "path": "textures/characters/survivor_walk_w_01.png"
+            "path": "textures/characters/motion/survivor_walk_w_01.png"
           },
           {
-            "path": "textures/characters/survivor_walk_w_02.png"
+            "path": "textures/characters/motion/survivor_walk_w_02.png"
           },
           {
-            "path": "textures/characters/survivor_walk_w_03.png"
+            "path": "textures/characters/motion/survivor_walk_w_03.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_walk_w_04.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_walk_w_05.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_walk_w_06.png"
+          },
+          {
+            "path": "textures/characters/motion/survivor_walk_w_07.png"
           }
         ]
       },
       "fps": {
         "idle": 1,
-        "walk": 8
+        "walk": 16
       },
       "rotateWithAim": false,
       "flipWithAim": false,
