@@ -87,6 +87,13 @@ var chronicle: Array = []
 # Original entity ids include their generation, so recycling a slot cannot change an older
 # body's appearance. Plain records survive JSON without the integer-key dictionary trap.
 var visualRemains: Array = []
+# The marks a fight leaves (sim/modules/decals.gd): chunk key "cx:cy" -> {rev, d}, `d` an Array of
+# records. String keys, which JSON keeps; world.gd saves and restores the shape without knowing
+# what a kind means, and an older save that never heard of it restores no marks.
+var decals: Dictionary = {}
+# Bumped with every chunk's own `rev`, so the renderer can ask "did any mark change?" in one
+# compare. Not saved: a restore bumps it, and nothing reads its value, only whether it moved.
+var decals_rev: int = 0
 
 
 func _init(fixture: Dictionary) -> void:
@@ -241,6 +248,7 @@ func snapshot() -> Dictionary:
 		"player": int(player),
 		"chronicle": chronicle.duplicate(true),
 		"visualRemains": visualRemains.duplicate(true),
+		"decals": decals.duplicate(true),
 	}
 
 
@@ -294,6 +302,8 @@ func restore(snap: Dictionary) -> void:
 		for remains in snap["visualRemains"] as Array:
 			if remains is Dictionary:
 				remember_visual_remains(remains as Dictionary)
+	decals = _restored_decals(snap.get("decals"))
+	decals_rev += 1
 	if snap.has("player"):
 		player = int(snap["player"])
 	elif components != null:
@@ -321,6 +331,29 @@ func serialize() -> String:
 
 # Capture only the facts needed to draw a settled body. This makes no random draw and changes
 # no entity/component state; the same normalizer is used after JSON restores numbers as floats.
+# Every number back to an int (JSON hands them back as floats) and a malformed record dropped
+# rather than trusted. The keys a record may carry are decals.gd's; this copies them, not reads them.
+func _restored_decals(saved: Variant) -> Dictionary:
+	var out: Dictionary = {}
+	if not (saved is Dictionary):
+		return out
+	for key in (saved as Dictionary).keys():
+		var c: Variant = (saved as Dictionary)[key]
+		if not (c is Dictionary) or not ((c as Dictionary).get("d") is Array):
+			continue
+		var d: Array = []
+		for r in (c as Dictionary)["d"] as Array:
+			if not (r is Dictionary) or not (r as Dictionary).has("k"):
+				continue
+			var rec: Dictionary = {"k": String((r as Dictionary)["k"])}
+			for field in ["x", "y", "t", "v", "s", "e", "a", "b"]:
+				if (r as Dictionary).has(field):
+					rec[field] = int((r as Dictionary)[field])
+			d.append(rec)
+		out[String(key)] = {"rev": int((c as Dictionary).get("rev", 0)), "d": d}
+	return out
+
+
 func remember_visual_remains(record: Dictionary) -> void:
 	if not record.has("x") or not record.has("y"):
 		return
