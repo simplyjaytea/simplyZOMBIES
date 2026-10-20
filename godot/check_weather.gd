@@ -405,6 +405,21 @@ func _the_dead_keys_are_wired_and_the_dead_constants_are_gone() -> bool:
 			[
 				'Palette.COLOURS["glimpse"]',
 				'Palette.COLOURS["memory"]',
+			],
+			[
+				"Color(0.32, 0.38, 0.32",
+				"Color(0.24, 0.29, 0.24",
+				"Color(1, 1, 1, 0.55)",
+				"Color(0.85, 0.9, 1.0",
+			],
+		],
+		# The facing line and the aim cone left the body for the cursor in alpha plan A9: the
+		# reticle reads all three, so the sockets are followed to where they went -- and the frame
+		# calls the reticle, or the three keys would be read by a function nothing reaches.
+		["_draw", ["_draw_reticle()"], []],
+		[
+			"_draw_reticle",
+			[
 				'Palette.COLOURS["facing"]',
 				'Palette.COLOURS["aimCone"]',
 				"Palette.AIM_EDGE_DIM",
