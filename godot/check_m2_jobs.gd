@@ -34,8 +34,9 @@ func _run() -> void:
 	ok = _a_starving_colonist_still_eats() and ok
 	ok = _colonists_scavenge_near_home() and ok
 	ok = _an_unreachable_target_is_planned_for_once_and_then_dropped() and ok
+	ok = _bury_carries_only_the_corpse_its_own_job_took() and ok
 	if ok:
-		print("M2_JOBS_OK astar focus cook haul construct doctor rest corpse seek water clean bury succession, the well is reachable from a bottle the sim emptied, a cook claims its raw, Guard is the night post, a focus change keeps the authored row, a starving colonist still eats, colonists scavenge near home, and a target nobody can route to is planned for once and then left alone")
+		print("M2_JOBS_OK astar focus cook haul construct doctor rest corpse seek water clean bury succession, the well is reachable from a bottle the sim emptied, a cook claims its raw, Guard is the night post, a focus change keeps the authored row, a starving colonist still eats, colonists scavenge near home, a target nobody can route to is planned for once and then left alone, and a corpse another body took is left alone by Bury")
 		quit(0)
 	else:
 		push_error("M2_JOBS_FAIL")
@@ -1239,4 +1240,46 @@ func _an_unreachable_target_is_planned_for_once_and_then_dropped() -> bool:
 	if SimJobs._is_unreachable(w, near):
 		push_error("PATHING: a reachable item beside the player was marked unreachable, so this lane cannot fail")
 		return false
+	return true
+
+
+# --- Bury carries only what its own job took (docs/23's Bury defect) ----------------------------
+#
+# The finder offers only corpses that have a position, so a corpse without one was taken by another
+# body's Bury. `_do_bury` used to read that as "I am carrying it": it set `carrying`, walked off
+# with the body and buried it a second time. Only the position this job removes means carrying.
+
+func _bury_carries_only_the_corpse_its_own_job_took() -> bool:
+	var w: Variant = _world()
+	var mara: int = _mara(w)
+	SimHealth.finish_death(w, mara)
+	var start: Vector2i = _start(w)
+	var bury: Dictionary = SimJobs._bury_work(w, float(start.x), float(start.y))
+	if bury.is_empty() or int(bury.get("target", -1)) != mara:
+		push_error("BURY-CLAIM: no bury work for the corpse, got %s" % str(bury))
+		return false
+	# Another body takes the corpse between the finder and this job's first tick.
+	w.components.remove(mara, "position")
+	w.components.set_component(w.player, "job", bury)
+	SimJobs._do_bury(w, w.player, bury)
+	if bool(bury.get("carrying", false)):
+		push_error("BURY-CLAIM: a corpse with no position that this job never took was booked as carried")
+		return false
+	if not w.entities.is_alive(mara):
+		push_error("BURY-CLAIM: the corpse another body took was despawned by this job")
+		return false
+	# True positive: a corpse this job reaches at its own tile is taken, and its position goes.
+	var w2: Variant = _world()
+	var m2: int = _mara(w2)
+	SimHealth.finish_death(w2, m2)
+	var bury2: Dictionary = SimJobs._bury_work(w2, float(start.x), float(start.y))
+	w2.components.set_component(w2.player, "job", bury2)
+	var mp: Variant = w2.components.get_component(m2, "position")
+	var ctile := Vector2i(floori(float((mp as Dictionary)["x"])), floori(float((mp as Dictionary)["y"])))
+	w2.components.set_component(w2.player, "position", {"x": float(ctile.x) + 0.5, "y": float(ctile.y) + 0.5})
+	SimJobs._do_bury(w2, w2.player, bury2)
+	if not bool(bury2.get("carrying", false)) or w2.components.has_component(m2, "position"):
+		push_error("BURY-CLAIM: a corpse this job reached was not taken up")
+		return false
+	print("BURY-CLAIM OK a corpse another body took is left alone, and one this job reaches is carried")
 	return true

@@ -8,6 +8,21 @@ const SimTileMap = preload("res://sim/map/tilemap.gd")
 
 const DIRS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
 
+## Among open tiles of equal f, take the one nearer the goal first (A3's eleventh slice). On a
+## four-way grid every shortest route has the same f, so the first-in order the planner kept from
+## the linear scan opened the whole rectangle between the ends before it reached the far corner:
+## a 59-step plan round a block cost 5 ms in one tick. Nearest-first walks one of those equal
+## routes and stops. The plan is still a shortest one -- the heuristic is admissible and f still
+## leads -- but where several are equally short it may be a different one, which is why this is
+## a switch: false is the old order exactly. A gate-drivable static; a lane that pins it must
+## restore it, one gate process sharing it across every world it boots. `check_m2_tick.gd` PATH
+## pins it off against the scan and NEAR-TIES holds it on to the same lengths in fewer expansions.
+static var NEAR_TIES: bool = true
+
+## How many tiles the last `find` expanded, for the NEAR-TIES lane. Diagnostic only: nothing in
+## the sim reads it, and it describes the last call in this process, whichever world made it.
+static var last_expansions: int = 0
+
 
 static func walkable(world: Variant, tx: int, ty: int) -> bool:
 	if world == null:
@@ -71,14 +86,18 @@ static func find(world: Variant, from: Vector2i, to: Vector2i) -> Array[Vector2i
 	# O(log n) a pop instead of O(n), which was most of a 100 ms re-plan on a 256-tile district
 	# (A3's second slice; `check_m2_tick.gd` PATH holds it to the scan).
 	#
-	# Each heap entry is one int, f << 40 | seq << 20 | tile index, so comparing two is comparing
+	# Each heap entry is one int (the layout is beside `fast` below), so comparing two is comparing
 	# two ints: f leads, seq breaks ties, and a tile's seq never changes, so the index never decides
 	# anything. g, seq and the way back live in flat arrays indexed by tile, and `walkable` is read
 	# straight off the world's and the map's arrays rather than called per neighbour. A 59-step plan
 	# round a block was a 21 ms tick (A3's eighth slice); the expansions are the same ones.
 	var ww: int = int(world.map_width) if "map_cells" in world else 0
 	var wh: int = int(world.map_height) if "map_cells" in world else 0
-	var fast: bool = ww > 0 and wh > 0 and from.x >= 0 and from.y >= 0 and from.x < ww and from.y < wh and to.x >= 0 and to.y >= 0 and to.x < ww and to.y < wh and ww * wh <= 1 << 20
+	#
+	# The heap key packs f << 48 | h << 36 | seq << 20 | tile: h is the tie-break NEAR_TIES adds
+	# (zero when it is off, which leaves (f, seq) exactly), seq fits 16 bits because at most
+	# 4 * 4096 + 1 tiles are ever seen, and both sides of the map are at most 2048 so h fits 12.
+	var fast: bool = ww > 0 and wh > 0 and ww <= 2048 and wh <= 2048 and from.x >= 0 and from.y >= 0 and from.x < ww and from.y < wh and to.x >= 0 and to.y >= 0 and to.x < ww and to.y < wh and ww * wh <= 1 << 20
 	if not fast:
 		return _find_general(world, from, to)
 	var cells: Array[int] = world.map_cells
@@ -104,7 +123,9 @@ static func find(world: Variant, from: Vector2i, to: Vector2i) -> Array[Vector2i
 	g[from_i] = 0
 	var next_seq: int = 1
 	var open_count: int = 1
-	var heap: Array[int] = [((absi(from.x - to.x) + absi(from.y - to.y)) << 40) | from_i]
+	var near: bool = NEAR_TIES
+	var h0: int = absi(from.x - to.x) + absi(from.y - to.y)
+	var heap: Array[int] = [(h0 << 48) | ((h0 if near else 0) << 36) | from_i]
 	var guard: int = 0
 	var cap: int = 4096
 	while open_count > 0 and guard < cap:
@@ -112,12 +133,13 @@ static func find(world: Variant, from: Vector2i, to: Vector2i) -> Array[Vector2i
 		var cur_i: int = top & 0xFFFFF
 		var cx: int = cur_i % ww
 		var cy: int = cur_i / ww
-		if closed[cur_i] == 1 or (top >> 40) != g[cur_i] + absi(cx - to.x) + absi(cy - to.y):
+		if closed[cur_i] == 1 or (top >> 48) != g[cur_i] + absi(cx - to.x) + absi(cy - to.y):
 			continue
 		guard += 1
 		closed[cur_i] = 1
 		open_count -= 1
 		if cur_i == to_i:
+			last_expansions = guard
 			return _rebuild_flat(came, cur_i, ww)
 		var ng: int = g[cur_i] + 1
 		for k in 4:
@@ -146,13 +168,15 @@ static func find(world: Variant, from: Vector2i, to: Vector2i) -> Array[Vector2i
 			came[nxt_i] = cur_i
 			g[nxt_i] = ng
 			var h: int = absi(nx - to.x) + absi(ny - to.y)
+			var tie: int = h if near else 0
 			if not seen:
 				seq_of[nxt_i] = next_seq
 				next_seq += 1
 				open_count += 1
-				_int_heap_push(heap, ((ng + h) << 40) | (seq_of[nxt_i] << 20) | nxt_i)
+				_int_heap_push(heap, ((ng + h) << 48) | (tie << 36) | (seq_of[nxt_i] << 20) | nxt_i)
 			elif closed[nxt_i] == 0:
-				_int_heap_push(heap, ((ng + h) << 40) | (seq_of[nxt_i] << 20) | nxt_i)
+				_int_heap_push(heap, ((ng + h) << 48) | (tie << 36) | (seq_of[nxt_i] << 20) | nxt_i)
+	last_expansions = guard
 	return empty
 
 
@@ -225,6 +249,7 @@ static func _find_general(world: Variant, from: Vector2i, to: Vector2i) -> Array
 		closed[cur] = true
 		open_count -= 1
 		if cur == to:
+			last_expansions = guard
 			return _rebuild(came, cur)
 		for d in DIRS:
 			var nxt: Vector2i = cur + d
@@ -241,10 +266,19 @@ static func _find_general(world: Variant, from: Vector2i, to: Vector2i) -> Array
 				seq_of[nxt] = next_seq
 				next_seq += 1
 				open_count += 1
-				_heap_push(heap, [ng + absi(nxt.x - to.x) + absi(nxt.y - to.y), int(seq_of[nxt]), nxt.x, nxt.y])
+				_heap_push(heap, [ng + absi(nxt.x - to.x) + absi(nxt.y - to.y), _tie_of(nxt, to, int(seq_of[nxt])), nxt.x, nxt.y])
 			elif not closed.has(nxt):
-				_heap_push(heap, [ng + absi(nxt.x - to.x) + absi(nxt.y - to.y), int(seq_of[nxt]), nxt.x, nxt.y])
+				_heap_push(heap, [ng + absi(nxt.x - to.x) + absi(nxt.y - to.y), _tie_of(nxt, to, int(seq_of[nxt])), nxt.x, nxt.y])
+	last_expansions = guard
 	return empty
+
+
+# The general search's second key: NEAR_TIES's distance to the goal above the first-entry order,
+# or the order alone when it is off -- the fast path's h << 36 | seq << 20 in one int.
+static func _tie_of(at: Vector2i, to: Vector2i, seq: int) -> int:
+	if not NEAR_TIES:
+		return seq
+	return ((absi(at.x - to.x) + absi(at.y - to.y)) << 20) | seq
 
 
 static func _before(a: Array, b: Array) -> bool:

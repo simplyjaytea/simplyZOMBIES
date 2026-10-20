@@ -70,8 +70,10 @@ func _run() -> void:
 	ok = _a_table_is_the_store_it_reads() and ok
 	ok = _remembering_by_map_is_remembering_by_walk() and ok
 	ok = _the_door_swing_asks_the_set_the_walk_answered() and ok
+	ok = _equal_ties_go_to_the_nearer_tile() and ok
+	ok = _the_players_cast_lands_on_the_next_tick() and ok
 	if ok:
-		print("M2_TICK_OK content-agree content-follows content-reader map-log door-cells view-stands dead-keep path cast enemies people square query care claw sky observe ambient seek far-think spread impair dress scent arcs table recall swing")
+		print("M2_TICK_OK content-agree content-follows content-reader map-log door-cells view-stands dead-keep path cast enemies people square query care claw sky observe ambient seek far-think spread impair dress scent arcs table recall swing near-ties player-cast")
 		quit(0)
 	else:
 		push_error("M2_TICK_FAIL")
@@ -306,6 +308,16 @@ func _fresh_cast(w: Variant, ent: int) -> PackedByteArray:
 # door is the negative that proves the far one stood because it was far, not because nothing ever
 # recasts. Light casts are held to the same rule by the same log.
 func _a_view_stands_through_a_change_it_cannot_see() -> bool:
+	# The map log is what this lane judges, on the tick of the change: the player's two-tick cast
+	# (slice 11, PLAYER-CAST) is off for it and restored after.
+	var was: bool = SimVisibility.STAGGER_PLAYER_CAST
+	SimVisibility.STAGGER_PLAYER_CAST = false
+	var ok: bool = _view_stands_lane()
+	SimVisibility.STAGGER_PLAYER_CAST = was
+	return ok
+
+
+func _view_stands_lane() -> bool:
 	var w: Variant = _door_world()
 	w.vision.refresh(w, w.tilemap)
 	var before: int = int(w.vision.recomputes)
@@ -449,6 +461,38 @@ func _linear_find(world: Variant, from: Vector2i, to: Vector2i, prefer_last: boo
 # differently, so the pairs do meet ties.
 func _the_heap_plans_the_paths_the_scan_planned() -> bool:
 	var w: Variant = SimBoot.playable()["world"]
+	var pairs: Array = _path_pairs(w)
+	if pairs.size() < 30:
+		return _fail("PATH", "found only %d walkable pairs near the colony; the lane has too little to judge" % pairs.size())
+	# The scan's own tie order: NEAR_TIES (slice 11) off, restored after.
+	var was_near: bool = SimPath.NEAR_TIES
+	SimPath.NEAR_TIES = false
+	var flipped: int = 0
+	var found: int = 0
+	for pair in pairs:
+		var a: Vector2i = pair[0]
+		var b: Vector2i = pair[1]
+		var heap: Array[Vector2i] = SimPath.find(w, a, b)
+		var scan: Array[Vector2i] = _linear_find(w, a, b, false)
+		if heap != scan:
+			SimPath.NEAR_TIES = was_near
+			return _fail("PATH", "%s to %s: the heap planned %d steps where the scan planned %d, or the same length by other tiles" % [a, b, heap.size(), scan.size()])
+		if not heap.is_empty():
+			found += 1
+		if _linear_find(w, a, b, true) != scan:
+			flipped += 1
+	SimPath.NEAR_TIES = was_near
+	if found < 10:
+		return _fail("PATH", "only %d pairs had a route; the lane has too little to judge" % found)
+	if flipped == 0:
+		return _fail("PATH", "no pair planned differently with ties broken the other way, so tie order was never judged")
+	return true
+
+
+# The pairs PATH and NEAR-TIES plan: from the colony's own door out into the streets, ten long
+# ones round blocks and across the district, a start that is its own destination, and a target
+# walled in on every side.
+func _path_pairs(w: Variant) -> Array:
 	var start: Vector2i = SimBoot.colony_start(w.tilemap)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7303
@@ -486,26 +530,7 @@ func _the_heap_plans_the_paths_the_scan_planned() -> bool:
 			break
 	if sealed.x >= 0:
 		pairs.append([start, sealed])
-	if pairs.size() < 30:
-		return _fail("PATH", "found only %d walkable pairs near the colony; the lane has too little to judge" % pairs.size())
-	var flipped: int = 0
-	var found: int = 0
-	for pair in pairs:
-		var a: Vector2i = pair[0]
-		var b: Vector2i = pair[1]
-		var heap: Array[Vector2i] = SimPath.find(w, a, b)
-		var scan: Array[Vector2i] = _linear_find(w, a, b, false)
-		if heap != scan:
-			return _fail("PATH", "%s to %s: the heap planned %d steps where the scan planned %d, or the same length by other tiles" % [a, b, heap.size(), scan.size()])
-		if not heap.is_empty():
-			found += 1
-		if _linear_find(w, a, b, true) != scan:
-			flipped += 1
-	if found < 10:
-		return _fail("PATH", "only %d pairs had a route; the lane has too little to judge" % found)
-	if flipped == 0:
-		return _fail("PATH", "no pair planned differently with ties broken the other way, so tie order was never judged")
-	return true
+	return pairs
 
 
 # --- slice 3: the shadowcast itself --------------------------------------------------------------
@@ -1322,14 +1347,18 @@ func _far_think_lane() -> bool:
 # PERSON_QUADRANTS_PER_TICK quadrants a tick for everyone, longest-waiting first, and the view lands
 # whole: until it does `tiles_for` is the old cast, and after it is exactly a fresh cast from where
 # the person stood when it was queued. The negatives: a tile's walk queues nothing; with the switch
-# off a tile's walk recasts at once; the player casts whole and at once with the switch on; a view
+# off a tile's walk recasts at once; the player casts whole and at once with its own switch off; a view
 # never cast is cast at once; and the cut itself -- four one-quadrant casts mark what one whole
 # cast marks -- is held on doors shut and open, both eyes.
 func _a_persons_cast_lands_whole_and_in_turn() -> bool:
 	var was: bool = SimVisibility.STAGGER_PERSON_CASTS
+	var was_player: bool = SimVisibility.STAGGER_PLAYER_CAST
 	SimVisibility.STAGGER_PERSON_CASTS = true
+	# The player's own spread is PLAYER-CAST's; here the player is the whole cast it contrasts with.
+	SimVisibility.STAGGER_PLAYER_CAST = false
 	var ok: bool = _spread_lane()
 	SimVisibility.STAGGER_PERSON_CASTS = was
+	SimVisibility.STAGGER_PLAYER_CAST = was_player
 	return ok
 
 
@@ -1376,7 +1405,7 @@ func _spread_lane() -> bool:
 	step.call(1.0, [a])
 	var a_at := Vector2i(floori(float((w.components.get_component(a, "position") as Dictionary)["x"])), 40)
 	var landed: Array = []
-	for t in 6:
+	for t in 10:
 		var before_spread: int = int(w.vision.quadrants_spread)
 		var queued: bool = (w.vision._views[a] as Dictionary).get("pending") != null or (w.vision._views[b] as Dictionary).get("pending") != null
 		var a_gen: int = int(w.vision.cast_generation(a))
@@ -1940,4 +1969,155 @@ func _the_door_swing_asks_the_set_the_walk_answered() -> bool:
 		return _fail("SWING", "%d occupied and %d empty tiles judged; the lane judged an empty case" % [yes, no])
 	if _body_of("res://sim/modules/fortify.gd", "_tick_doors").find("_occupied_tiles(") < 0:
 		return _fail("SWING", "the door swing does not ask _occupied_tiles")
+	return true
+
+
+# --- slice 11: the worst tick ----------------------------------------------------------------------
+
+# NEAR-TIES. With equal-f ties broken towards the goal, every pair PATH plans comes back the same
+# length as the scan's (both are shortest), as a real walk -- each step one tile on and walkable,
+# or the destination -- and unreachable exactly where the scan's is, in the fast and the general
+# search alike. The point of it: across the long pairs it expands fewer tiles than the old order,
+# and strictly fewer on at least one. The negatives: some pair plans by other tiles (the order is
+# read), and the switch off is the old order (PATH holds that tile for tile).
+func _equal_ties_go_to_the_nearer_tile() -> bool:
+	var was_near: bool = SimPath.NEAR_TIES
+	var ok: bool = _near_ties_lane()
+	SimPath.NEAR_TIES = was_near
+	return ok
+
+
+func _near_ties_lane() -> bool:
+	var w: Variant = SimBoot.playable()["world"]
+	var pairs: Array = _path_pairs(w)
+	var fewer: int = 0
+	var more: int = 0
+	var other_tiles: int = 0
+	var near_total: int = 0
+	var old_total: int = 0
+	var past_cap: int = 0
+	for pair in pairs:
+		var a: Vector2i = pair[0]
+		var b: Vector2i = pair[1]
+		var scan: Array[Vector2i] = _linear_find(w, a, b, false)
+		SimPath.NEAR_TIES = false
+		SimPath.find(w, a, b)
+		var old_n: int = int(SimPath.last_expansions)
+		SimPath.NEAR_TIES = true
+		var near: Array[Vector2i] = SimPath.find(w, a, b)
+		var near_n: int = int(SimPath.last_expansions)
+		var general: Array[Vector2i] = SimPath._find_general(w, a, b)
+		for got in [near, general]:
+			# Past the expansion cap the old order gave up where the nearer-first order, expanding
+			# less, can reach: that is the one way the two may disagree on reachability, and only
+			# where the old one hit the cap.
+			if scan.is_empty() and not (got as Array).is_empty():
+				if old_n < 4096:
+					return _fail("NEAR-TIES", "%s to %s: planned %d steps where the scan, uncapped, found none" % [a, b, (got as Array).size()])
+				past_cap += 1
+			elif (got as Array).size() != scan.size():
+				return _fail("NEAR-TIES", "%s to %s: %d steps where the scan plans %d" % [a, b, (got as Array).size(), scan.size()])
+			var at: Vector2i = a
+			for step in got as Array:
+				var st: Vector2i = step
+				if absi(st.x - at.x) + absi(st.y - at.y) != 1 or not (SimPath.walkable(w, st.x, st.y) or st == b):
+					return _fail("NEAR-TIES", "%s to %s: the plan steps from %s to %s" % [a, b, at, st])
+				at = st
+			if not (got as Array).is_empty() and at != b:
+				return _fail("NEAR-TIES", "%s to %s: the plan ends at %s" % [a, b, at])
+		# The general path runs the same order on Dictionaries, so it plans the same tiles; without
+		# this the general tie could fall back to arrival order and every check above still pass.
+		if general != near:
+			return _fail("NEAR-TIES", "%s to %s: the general path planned other tiles than the fast one" % [a, b])
+		if near != scan:
+			other_tiles += 1
+		if absi(a.x - b.x) + absi(a.y - b.y) >= 60 and not scan.is_empty():
+			near_total += near_n
+			old_total += old_n
+			if near_n < old_n:
+				fewer += 1
+			elif near_n > old_n:
+				more += 1
+	if old_total == 0:
+		return _fail("NEAR-TIES", "no long pair had a route, so the expansions were never compared")
+	if fewer == 0 or near_total >= old_total:
+		return _fail("NEAR-TIES", "the long plans expanded %d tiles against the old order's %d (%d fewer, %d more)" % [near_total, old_total, fewer, more])
+	if other_tiles == 0:
+		return _fail("NEAR-TIES", "no pair planned by other tiles, so the tie order was never read")
+	return true
+
+
+# PLAYER-CAST. The player recasts on every tile it crosses, two quadrants that tick and two the
+# next, so its view lands whole one tick after the step: on the step's own tick `tiles_for` is
+# still the old cast, and on the next it is exactly a fresh cast from where the player stood. A
+# colonist's queue on the same ticks does not delay it. The negatives: with the switch off a step
+# recasts at once, a view never cast is cast whole, and standing still casts nothing.
+func _the_players_cast_lands_on_the_next_tick() -> bool:
+	var was: bool = SimVisibility.STAGGER_PLAYER_CAST
+	var was_people: bool = SimVisibility.STAGGER_PERSON_CASTS
+	SimVisibility.STAGGER_PLAYER_CAST = true
+	SimVisibility.STAGGER_PERSON_CASTS = true
+	var ok: bool = _player_cast_lane()
+	SimVisibility.STAGGER_PLAYER_CAST = was
+	SimVisibility.STAGGER_PERSON_CASTS = was_people
+	return ok
+
+
+func _player_cast_lane() -> bool:
+	var w: Variant = _door_world()
+	w.tick = Clock.tick_at_time_of_day(0.375)
+	var p: int = int(w.player)
+	if not w.components.has_component(p, "controlled"):
+		return _fail("PLAYER-CAST", "the fixture's player is not the controlled body")
+	var folk: int = int(w.entities.spawn())
+	w.components.set_component(folk, "position", {"x": 30.5, "y": 40.5})
+	w.components.set_component(folk, "facing", {"radians": 0.0})
+	w.components.set_component(folk, "observer", SimVisibility.daylight_eyes())
+	w.vision.refresh(w, w.tilemap)
+	if int(w.vision.cast_generation(p)) != 1:
+		return _fail("PLAYER-CAST", "the player's first view was not cast whole on its first refresh")
+	w.tick = int(w.tick) + 1
+	w.vision.refresh(w, w.tilemap)
+	if int(w.vision.cast_generation(p)) != 1 or (w.vision._views[p] as Dictionary).get("pending") != null:
+		return _fail("PLAYER-CAST", "a player standing still cast or queued")
+	var pos: Dictionary = w.components.get_component(p, "position") as Dictionary
+	var fp: Dictionary = w.components.get_component(folk, "position") as Dictionary
+	var old_cells: PackedByteArray = (w.vision.tiles_for(p).cells as PackedByteArray).duplicate()
+	var quads0: int = int(w.vision.player_quadrants)
+	pos["x"] = float(pos["x"]) + 1.0
+	fp["x"] = float(fp["x"]) + 2.0
+	var at := Vector2i(floori(float(pos["x"])), floori(float(pos["y"])))
+	w.tick = int(w.tick) + 1
+	w.vision.refresh(w, w.tilemap)
+	if int(w.vision.cast_generation(p)) != 1:
+		return _fail("PLAYER-CAST", "the player's cast landed on the step's own tick")
+	if (w.vision.tiles_for(p).cells as PackedByteArray) != old_cells:
+		return _fail("PLAYER-CAST", "the player's view changed before its cast landed whole")
+	if int(w.vision.player_quadrants) - quads0 != SimVisibility.PLAYER_QUADRANTS_PER_TICK:
+		return _fail("PLAYER-CAST", "the step's tick cast %d of the player's quadrants, not %d" % [int(w.vision.player_quadrants) - quads0, SimVisibility.PLAYER_QUADRANTS_PER_TICK])
+	w.tick = int(w.tick) + 1
+	w.vision.refresh(w, w.tilemap)
+	if int(w.vision.cast_generation(p)) != 2:
+		return _fail("PLAYER-CAST", "the player's cast had not landed on the tick after the step, with a colonist queued beside it")
+	if int(w.vision.player_quadrants) - quads0 != 4:
+		return _fail("PLAYER-CAST", "the player's cast took %d quadrants, not four" % (int(w.vision.player_quadrants) - quads0))
+	var tiles: Variant = w.vision.tiles_for(p)
+	if int(tiles.origin_x) != at.x or int(tiles.origin_y) != at.y:
+		return _fail("PLAYER-CAST", "the player's view was cast from %d,%d where the player stood at %d,%d" % [int(tiles.origin_x), int(tiles.origin_y), at.x, at.y])
+	var fresh := SimShadowcast.VisibleTiles.new()
+	SimShadowcast.shadowcast(w.tilemap, at.x, at.y, int(tiles.range_tiles), fresh, int((w.components.get_component(p, "observer") as Dictionary)["eye"]))
+	if fresh.cells != (tiles.cells as PackedByteArray):
+		return _fail("PLAYER-CAST", "the player's view landed in two halves is not what one whole cast sees")
+	if (w.vision._views[folk] as Dictionary).get("pending") == null and int(w.vision.cast_generation(folk)) == 1:
+		return _fail("PLAYER-CAST", "the colonist beside the player never queued, so the two budgets were never both spent")
+	SimVisibility.STAGGER_PLAYER_CAST = false
+	pos["x"] = float(pos["x"]) + 1.0
+	w.tick = int(w.tick) + 1
+	w.vision.refresh(w, w.tilemap)
+	if int(w.vision.cast_generation(p)) != 3:
+		return _fail("PLAYER-CAST", "with the switch off the player's step did not recast at once")
+	SimVisibility.STAGGER_PLAYER_CAST = true
+	var refresh: String = _fn_body("res://sim/vision/visibility.gd", "refresh")
+	if refresh.find("_spend(map, player_queue, PLAYER_QUADRANTS_PER_TICK") < 0 or refresh.find("_spend(map, queue, PERSON_QUADRANTS_PER_TICK") < 0:
+		return _fail("PLAYER-CAST", "refresh does not spend both queues on their own budgets")
 	return true
