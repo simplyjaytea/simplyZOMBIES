@@ -344,7 +344,7 @@ static func _interior_spot(world: Variant) -> Vector2:
 			var seated: bool = _set_near(occ, map, t)
 			var score: int = _shot_score(occ, map, t)
 			var ring: int = maxi(absi(t.x - from.x), absi(t.y - from.y))
-			var key: Array = [1 if counter else 0, 1 if seated else 0, radius, score, -ring]
+			var key: Array = [1 if counter and seated else 0, 1 if seated else 0, 1 if counter else 0, radius, score, -ring]
 			if best_key.is_empty() or key > best_key:
 				best_key = key
 				best = Vector2(float(t.x) + 0.5, float(t.y) + 0.5)

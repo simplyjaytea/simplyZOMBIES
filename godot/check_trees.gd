@@ -3519,16 +3519,17 @@ static func _cut_rooms(block: Dictionary, map: Variant, seed_val: int, keep: boo
 
 
 # Whether a picture closes a passage: the free tiles on its four sides are not all joined by free
-# tiles inside its own 3x3 square, so a walk that ran through its tile now has to go round. A sim
-# object's own tile is not judged. The gate's own fill, not dressing.gd's ring test.
+# tiles within Dressing.PASSAGE_REACH of it, so a walk that ran through its tile now has a long way
+# round. A sim object's own tile is not judged. The gate's own fill, not dressing.gd's.
 static func _closes_a_passage(w: int, in_room: Dictionary, taken: Dictionary, by_sim: Dictionary) -> bool:
 	for idx in taken:
 		if by_sim.has(idx):
 			continue
 		var x: int = int(idx) % w
 		var box: Dictionary = {}
-		for dy in range(-1, 2):
-			for dx in range(-1, 2):
+		var reach: int = Dressing.PASSAGE_REACH
+		for dy in range(-reach, reach + 1):
+			for dx in range(-reach, reach + 1):
 				var n: int = int(idx) + dy * w + dx
 				if (dx != 0 or dy != 0) and x + dx >= 0 and x + dx < w and in_room.has(n) and not taken.has(n):
 					box[n] = true

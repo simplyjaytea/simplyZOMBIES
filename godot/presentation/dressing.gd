@@ -768,6 +768,9 @@ const SALT_LITTER_BLOCK_OFFSET: int = 641
 const SALT_LITTER_ROOM: int = 642
 # The order a room's pieces are judged in when it keeps its passages (`_room_drops`).
 const SALT_PASSAGE: int = 646
+# How far a way round a piece may run and still leave its passage open: the tiles within this many of
+# it (`_keeps_its_passage`).
+const PASSAGE_REACH: int = 2
 
 # The four sides of a table, in the order a seat mask's bits name them: north, east, south, west.
 const SIDES: Array[Vector2i] = [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]
@@ -1896,9 +1899,9 @@ static func _kept_seated(occ: Dictionary, map: Variant, tx: int, ty: int) -> Dic
 # The furnished tiles a room gives up so that every free tile of it stays one walk: the room's
 # standing and flat pieces are taken in turn, the tables first, then the rest, each in its tile's
 # SALT_PASSAGE hash order, and a piece is kept only while the free tiles on its four sides -- the
-# sim's own objects' tiles taken from the start -- stay joined round its eight neighbours
-# (`_keeps_its_ring`), so it closes no passage and the room's walks stay as the objects left them,
-# and every tile inside a doorway stays free. A piece that would cut a corridor
+# sim's own objects' tiles taken from the start -- stay joined within PASSAGE_REACH of it
+# (`_keeps_its_passage`), and every piece kept near it keeps the same, so it closes no passage and
+# the room's walks stay as the objects left them, and every tile inside a doorway stays free. A piece that would cut a corridor
 # or wall in a corner gives way: a two-tile corridor between walls never takes a piece on both of its
 # tiles. A chair whose table gave way goes with it. Memoised per room in `occ`. An occupancy whose
 # `keep_passages` is false (a gate's, to show the rule has work) skips it.
@@ -1941,16 +1944,16 @@ static func _room_drops(occ: Dictionary, map: Variant, room: int) -> Dictionary:
 		if _by_door(map, idx % w, floori(float(idx) / float(w))):
 			drops[idx] = true
 			continue
-		# Kept only while the free tiles beside it stay joined round it: a piece that would close a
-		# passage gives way even where the room has a way round elsewhere, so a corridor is never
+		# Kept only while the free tiles beside it stay joined close by: a piece that would close a
+		# passage gives way even where the room has a long way round elsewhere, so a corridor is never
 		# filled wall to wall. Every piece kept this way leaves the room's walks as they were.
-		# A piece already kept beside it must keep its own ring too.
+		# A piece already kept near it must keep its own passage too.
 		blocked[idx] = true
-		var closes: bool = not _keeps_its_ring(w, idx, in_room, blocked)
-		for n in _ring_of(w, idx):
+		var closes: bool = not _keeps_its_passage(w, idx, in_room, blocked)
+		for n in _box_of(w, idx, PASSAGE_REACH):
 			if closes:
 				break
-			if placed.has(n) and not _keeps_its_ring(w, n, in_room, blocked):
+			if placed.has(n) and not _keeps_its_passage(w, n, in_room, blocked):
 				closes = true
 		if closes:
 			blocked.erase(idx)
@@ -2028,15 +2031,50 @@ static func _keeps_its_ring(w: int, idx: int, in_room: Dictionary, blocked: Dict
 	return runs_with_a_side == 1
 
 
-# The eight tiles round `idx` on a map `w` wide, those off the map's west or east edge left out.
-static func _ring_of(w: int, idx: int) -> Array[int]:
+# The tiles within `reach` of `idx` on a map `w` wide, `idx` and those off the map's west or east edge
+# left out.
+static func _box_of(w: int, idx: int, reach: int) -> Array[int]:
 	var x: int = idx % w
 	var out: Array[int] = []
-	for dy in range(-1, 2):
-		for dx in range(-1, 2):
+	for dy in range(-reach, reach + 1):
+		for dx in range(-reach, reach + 1):
 			if (dx != 0 or dy != 0) and x + dx >= 0 and x + dx < w:
 				out.append(idx + dy * w + dx)
 	return out
+
+
+# Whether the blocked tile `idx` leaves the free tiles on its four sides joined by free tiles within
+# PASSAGE_REACH of it: round its own ring (`_keeps_its_ring`), or by a short way round. A table
+# against a wall with a chair between them leaves a two-tile step round the table; a piece in a
+# two-row corridor beside a crate leaves no way round short of the next room, and closes it.
+static func _keeps_its_passage(w: int, idx: int, in_room: Dictionary, blocked: Dictionary) -> bool:
+	if _keeps_its_ring(w, idx, in_room, blocked):
+		return true
+	var box: Dictionary = {}
+	for n in _box_of(w, idx, PASSAGE_REACH):
+		if in_room.has(n) and not blocked.has(n):
+			box[n] = true
+	var x: int = idx % w
+	var sides: Array[int] = []
+	for side in SIDES:
+		var n: int = idx + side.y * w + side.x
+		if x + side.x >= 0 and x + side.x < w and box.has(n):
+			sides.append(n)
+	if sides.size() < 2:
+		return true
+	var reached: Dictionary = {sides[0]: true}
+	var queue: Array[int] = [sides[0]]
+	while not queue.is_empty():
+		var at: int = queue.pop_back()
+		for side in SIDES:
+			var n: int = at + side.y * w + side.x
+			if absi((at % w) + side.x - (n % w)) == 0 and box.has(n) and not reached.has(n):
+				reached[n] = true
+				queue.append(n)
+	for n in sides:
+		if not reached.has(n):
+			return false
+	return true
 
 
 # Whether a tile lies inside a doorway: a door on one of its four sides.
