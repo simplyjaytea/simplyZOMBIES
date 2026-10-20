@@ -224,7 +224,7 @@ def wheel_ns(s, cx, cy, rx, ry, fat=False, spoke=True):
         # a squarer ellipse than x^2 + y^2, so a narrow wheel keeps round ends at this size
         # rather than closing to a one-pixel point
         return abs((x + 0.5 - cx) / ax) ** 2.8 + abs((y + 0.5 - cy) / ay) ** 2.8 <= 1.0
-    t = 1.6 if fat else 1.2
+    t = 2.4 if fat else 1.2           # a fat tyre is a three-pixel ring
     for y in range(s.h):
         for x in range(s.w):
             if not inside(x, y, rx, ry):
@@ -243,17 +243,18 @@ def wheel_ns(s, cx, cy, rx, ry, fat=False, spoke=True):
 
 def bicycle_ns(e=False):
     """Nose north, seen from behind and above, as long on the canvas as the east-west picture
-    (56 rows for the bicycle): two matching oval wheels, the frame between them, a saddle wide at
+    (56 rows for the bicycle, 58 for the e-bike, whose tyres are fat): two matching oval wheels, the frame between them, a saddle wide at
     the back with its nose running north, a swept bar with dark grips over the front wheel, and
     pedals out either side."""
     s = Sheet(32, 96)
     cx = 15.5
     c = int(cx)
     fat = e
-    rx = 5.0 if fat else 4.5
-    ry = 8.5
+    rx = 6.0 if fat else 4.5          # the e-bike's fat tyres, wider than the bicycle's
+    ry = 9.0 if fat else 8.5
+    front, back = (48.0, 86.5) if fat else (49.5, 86.0)
     # the front wheel first, beyond everything
-    wheel_ns(s, cx, 49.5, rx, ry, fat)
+    wheel_ns(s, cx, front, rx, ry, fat)
     # the frame, running away from the camera: top tube over the down tube
     s.rect(c - 1, 58, c + 1, 76, "frame")
     if e:
@@ -272,7 +273,7 @@ def bicycle_ns(e=False):
     s.rect(c - 6, 73, c - 3, 74, "grip")
     s.rect(c + 2, 76, c + 5, 77, "grip")
     # the back wheel, nearest the camera and over the frame's foot -- the same wheel as the front
-    wheel_ns(s, cx, 86.0, rx, ry, fat)
+    wheel_ns(s, cx, back, rx, ry, fat)
     # the seat stays down either side of it to the hub, and the saddle over them
     s.line(c - 2, 71, c - 4, 84, "frame")
     s.line(c + 1, 71, c + 3, 84, "frame")

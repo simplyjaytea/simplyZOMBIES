@@ -2589,8 +2589,9 @@ not a to-do list:
   north-south, 12×12 square, centred on the tile): the pane in four greys (a shadow under the
   lintel, a darker upper half, a lighter lower half, and diagonal reflection streaks either side
   of a mullion, as the pack's car windows carry them); the frame lit along its top, shaded along
-  its bottom, with a light grey edge outside it that the rim tint takes to the brick mortar's
-  own value (luminance 100), at the wall's line weight rather than a body's near-black outline;
+  its bottom, with a white edge outside it that the rim tint takes a step above the brick
+  mortar's value (luminance 111 against 100), and a sill level with the mortar, at the wall's
+  line weight rather than a body's near-black outline;
   each pane's reflection sits at its own offset, so no two are one stamp. Both are greys, sourced in
   `authored.json` as kind `tile`, and the renderer tints them by the two colours the rects were
   (`col.lightened(0.28)` for the pane, `Palette.COLOURS["windowRim"]` for the frame), so night,
@@ -2675,6 +2676,9 @@ not a to-do list:
   **Third pass, after the second review (2026-10-20).** The roof's top edge carries the
   one-pixel outline the rest of the picture has, and the moon is a three-pixel curved crescent
   set off-centre in the upper door rather than a notch.
+
+  **Fourth pass, after the third review (2026-10-20).** The crescent stands free: three rows
+  tall, with a pixel of door between it and the frame above and the rail below.
 
   **What it leaves:** the latrine and the well are drawn three-quarter from the south and do not
   turn; the cold fire has no smoke and the lit one no ember glow beyond its light.
@@ -2761,6 +2765,11 @@ not a to-do list:
   hatchback's paint is one step brighter. The north-south bicycle and e-bike are 56 rows long,
   the pack's east-west span, with two identical oval wheels (a superellipse, no pointed crown).
 
+  **Fourth pass, after the third review (2026-10-20).** The north-south cars are now exactly as
+  long as the pack's east-west ones, outline included: **86, 102 and 106** rows (shorter hoods,
+  roof and bed; the deep rear face kept). The north-south e-bike is 58 rows, its east-west span,
+  on fat tyres: wider wheels with a three-pixel tyre ring, against the bicycle's two.
+
   **What it leaves:** a car seen from behind is still the one picture for both north-south
   facings (decision 11's limit, in what's left); no state between intact and wreck; no lamp glow.
 
@@ -2821,6 +2830,21 @@ not a to-do list:
   that frame, so it swings with the walk. Every outline is the pack's near-black (3,3,3), not
   (26,24,20). The screamer's hands take two tones, 166 lit and 142 shaded, in the commuter's
   133–169 range.
+
+  **Fourth pass, after the third review (2026-10-20).** The bloater has its own silhouette in
+  every view rather than a belly inside the heavy's. Front and back, `widen` pushes each half of
+  the heavy out from the centre pixel for pixel (nothing at the head, two pixels from the chest
+  down, so the arms hang beside the gut, and at the legs, each leg moved whole), and
+  `thicken_legs` grows every leg a pixel each way; the gut is then wider than the heavy's whole
+  outline. In the side views the heavy's near arm is cut at the elbow and a forearm in that arm's
+  own skin bends forward from it to a hand with a knuckle resting on the belly's flank. The belly
+  and the forearm bob a pixel on the two contact frames, the belly carries a two-scale grain
+  hashed on its own coordinates (so it rides with the bob), and the vest and trousers are soured
+  a step warmer and darker, so at most 1.5% of a frame's pixels are the heavy's exact colours and
+  each frame adds 97–147 pixels outside the heavy's outline. ZOMBIE_POSES's broad living width
+  bound moves from 34 to 36, the 40-pixel canvas less its two-pixel side margin (which the lane
+  still holds), because the widest bloater frame is 35. The screamer's hands are the face's own
+  grey-green, (158,167,148) and (132,141,122).
 
   **First cut,** like study 01: no attack, hit, death-transition or rising states; the scream and
   the burst have no animation of their own.
