@@ -74,9 +74,13 @@ const STRIP_CLEARANCE: float = 116.0
 # does not ghost through the words.
 const STEEL_ALPHA: float = 0.96
 const YOU_CARD_W: float = 472.0
-# Where the "you" card starts. main.gd moves it right of the street's body card, so a "you" card
-# that grows a line per need runs down beside the figure instead of over it (UI review, round 3).
-var you_left: float = MARGIN
+# The street's body card (main.gd's framed paperdoll), so the "you" card can make room for it: a
+# "you" card tall enough to reach the body card's top starts right of it instead and runs down
+# beside the figure (UI review, round 3); one that ends above it stays at the margin, so a tall
+# window does not leave it hanging beside an empty strip (round 4). Null on a HUD with no figure.
+var body_card: Control = null
+# The gap the "you" card keeps from the body card, either way.
+const BODY_GAP: float = 16.0
 const OUT_CARD_W: float = 496.0
 # Inner left/right gutter, and the skirt below the last line: clear of the kit frame's ten-pixel
 # border (Kit.SCALE times the manifest's five) with the same breathing room the old hairline had.
@@ -558,7 +562,12 @@ func card_rect(font: Font, view: Vector2, lines: Array[String], right: bool) -> 
 	for line in lines:
 		width = maxf(width, font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x + CARD_PAD * 2.0)
 	var height: float = Locker.HEAD_H + lines.size() * LINE + CARD_PAD
-	var left: float = view.x - MARGIN - width if right else you_left
+	var left: float = view.x - MARGIN - width if right else MARGIN
+	if not right and body_card != null and body_card.visible and body_card.has_method("card_rect"):
+		var card: Rect2 = body_card.call("card_rect") as Rect2
+		card.position += body_card.get_global_rect().position
+		if MARGIN + height + BODY_GAP > card.position.y:
+			left = card.end.x + BODY_GAP
 	return Rect2(Vector2(left, MARGIN), Vector2(width, height))
 
 
