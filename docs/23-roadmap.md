@@ -4487,6 +4487,36 @@ not a to-do list:
   shot's lone-looking chair at its east wall faces a table on a tile the survivor does not see. Draw
   was not re-benched: the eighth pass adds a memoised per-room walk and moves no draw call.
 
+  **A12's ninth pass** (the coordinator's art QA round 4 on #167, 2026-10-20). **No piece closes a
+  passage.** The eighth pass's room walk counted the sim's own objects (crates, searchables, beds) as
+  free floor and kept a piece wherever the room had a way round anywhere, so a barrel beside main's
+  crate closed a two-row corridor in the room shot. A room's walk now starts with the sim's objects'
+  tiles taken, and a piece is kept only while the free tiles on its four sides stay joined within
+  `PASSAGE_REACH` 2 tiles of it, and every piece kept near it still does (`_keeps_its_passage`): a
+  chair between a wall and its table leaves a two-tile step round the table and stands, a piece in a
+  corridor beside a crate leaves no way round short of the next room and goes. The room shot ranks a
+  room showing both a counter and a table set first, then a set, then a counter; it now stands in a
+  brick house's furnished rooms, two long tables with their chairs, shelves, a fridge and a barrel.
+  **The chairless table** the review found was the room's counter: a table with a wall straight
+  north takes no chair by design (round one), and the probe now lists counters apart from chairless
+  tables (`chairless_tables`, `counters` in `report.json`); the two it lists at 1280 have their
+  chairs north of the frame's top edge. **Read for the probe and the review:** the three-tile
+  clearance holds for the live spawn and play position (the combat shot); on the street and room
+  shots, where the survivor is moved to a spot, the 7×7 round them need only stay walkable and is
+  left out of the empty-block test, and furniture and litter inside it are fine. **Left as they
+  are:** a kept barrier straddling a seen and an unseen tile is clipped where its art reaches the
+  unseen one, as every picture is, because drawing it whole would draw on a tile the survivor has no
+  sightline to; main drew furnishings after the fog and so drew the flanges. A body is drawn over a
+  barrel because dressing is a picture the sim never reads (round one): a zombie walks across it as
+  it walks across a table. **Measured** (export 22:41 UTC, before shots from main 2e920b3 at the
+  same spots): uncovered and off-grid 0 on all six shots; no chairless table on a seen tile; kept
+  street pieces at offset (0, 0) but the three standing ones at (0, −1), and one more on the room
+  shot; overlaps and straddles only main's own pieces where main drew them. Gates:
+  `godot:check:trees` (PASSAGE_OK: every room on five maps, the boot world's 14 sim objects taken,
+  no piece closing a passage by the gate's own 5×5 fill; a hand-built corridor with a crate in one
+  row and a way round stays open, closed once without the rule and once with the crate hidden from
+  the dressing; SEATED_OK 42 tables), `godot:check:wrecks`, `godot:check:shots`.
+
   **Container kinds are the table's.** `prop.container` gains a top-level `tables` map
   (`prop.schema.json`): residential and commercial containers keep the wood crate, `medical` draws
   `prop.container.medical`, `industrial` and `military_cache` draw `prop.container.metal`, each with
