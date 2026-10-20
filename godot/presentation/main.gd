@@ -25,6 +25,7 @@ const RoadPaint = preload("res://presentation/road_paint.gd")
 const RoofLook = preload("res://presentation/roof_look.gd")
 const RainLook = preload("res://presentation/rain_look.gd")
 const FxLook = preload("res://presentation/fx_look.gd")
+const DecalLook = preload("res://presentation/decal_look.gd")
 const SimWeather = preload("res://sim/modules/weather.gd")
 const Dressing = preload("res://presentation/dressing.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
@@ -241,6 +242,10 @@ var _drew_tick: int = -1
 # frame drew, written by `_draw_effects` and read by `godot:check:fx`'s DRAWN lane -- the executing
 # proof that the draw loop reaches the sheets. Never read by the game.
 var _fx: RefCounted = FxLook.new()
+# The marks a fight leaves (decal_look.gd), and what the last frame drew of them -- the decals
+# gate reads `_decals_drawn` (the keys blitted) the way the fx gate reads `_fx_drawn`.
+var _decals: RefCounted = DecalLook.new()
+var _decals_drawn: Array = []
 var _fx_drawn: Array[Dictionary] = []
 
 # A rider drawn on an open vehicle: how far above the machine's ground point the pawn's soles
@@ -365,6 +370,8 @@ func _on_world_replaced() -> void:
 	_focal_drawn = []
 	_fx.call("clear")
 	_fx_drawn = []
+	_decals.call("clear")
+	_decals_drawn = []
 	_a2_wall_drawn = []
 	if _context_menu != null:
 		_context_menu.call("close")
@@ -760,6 +767,9 @@ func _load() -> void:
 	if session == null:
 		return
 	if bool(session.call("load")):
+		# A load restores into this same world object, so the marks' chunk cache cannot tell
+		# itself apart by world; it starts again.
+		_decals.call("clear")
 		# The loaded body can be anywhere on the map; recentre unsmoothed rather than let the
 		# per-frame follow visibly pan there from wherever the camera sat before the load.
 		_snap_camera()
@@ -1382,6 +1392,9 @@ func _draw_district() -> void:
 						# pavement. Cosmetic, hash-picked, and drawn over the paint rather than
 						# under it, because litter blows onto a road marking and not beneath one.
 						_draw_scatter(rect, dress, tx, ty)
+	# The marks on the ground (blood, holes in wall caps, scorch), over the floor they lie on and
+	# under everything that stands -- only where the player sees now (decal_look.gd says why).
+	_draw_decals(seen, a2_wall_tiles, bounds)
 	# The roofs, over the interiors the survivor cannot see: they fill tiles the loop above
 	# skipped as unseen, so a roof draws where the screen was black and never where the sim
 	# can see (RoofLook.roof_tiles is the rule; check_roof_look.gd holds it both ways).
@@ -2074,6 +2087,19 @@ func _draw_a2_wall_piece(piece: Dictionary) -> void:
 		var dest := RoofLook.a2_rounded_screen_rect(Vector2(float(sc["sx"]), float(sc["sy"])), Vector2(float(sc_end["sx"]), float(sc_end["sy"])))
 		draw_texture_rect_region(texture, dest, src)
 		_a2_wall_drawn.append({"key": String(piece.get("key", "")), "source": src, "destination": dest})
+	# The holes a stray round left in this wall, on its face and after it in the sort.
+	_draw_decal_list(_decals.call("wall_draws", world, camera, seen, world_rect) as Array[Dictionary])
+
+
+func _draw_decals(seen: Variant, standing: Dictionary, bounds: Dictionary) -> void:
+	_decals_drawn = []
+	_decals.call("draw_ground", self, world, camera, seen, standing, bounds, _decals_drawn)
+
+
+func _draw_decal_list(draws: Array[Dictionary]) -> void:
+	for d in draws:
+		draw_texture_rect_region(d["texture"] as Texture2D, d["canvas"] as Rect2, d["region"] as Rect2, d["modulate"] as Color, bool(d["transpose"]))
+		_decals_drawn.append(String(d["key"]))
 
 
 # The door in a front face: a doorway whose south neighbour is the street takes the door
@@ -2487,7 +2513,8 @@ func _draw_entities() -> void:
 			var vsc: Dictionary = TopDownProjection.world_to_screen(camera, gp.x, gp.y)
 			var flip: float = Appearance.vehicle_flip(String(rec.get("facing", "")))
 			var v_remembered: bool = not Dressing.vehicle_is_seen(rec, seen)
-			items.append({"kind": "vehicle", "key": vkey, "flip": flip, "sx": float(vsc["sx"]), "sy": float(vsc["sy"]), "d": TopDownProjection.depth_of(gp.x, gp.y), "det": SimVisibility.Detail.Focal, "remembered": v_remembered})
+			items.append({"kind": "vehicle", "key": vkey, "flip": flip, "sx": float(vsc["sx"]), "sy": float(vsc["sy"]), "d": TopDownProjection.depth_of(gp.x, gp.y), "det": SimVisibility.Detail.Focal, "remembered": v_remembered,
+				"foot": Rect2(float(rec.get("x", 0)), float(rec.get("y", 0)), float(rec.get("w", 0)), float(rec.get("h", 0)))})
 	# The props taller than a tile -- the scrap barricade, a planted work lamp -- join the same sort
 	# (docs/23, "Props for things that exist"), on seen tiles only.
 	items.append_array(_standing_props(seen))
@@ -2988,6 +3015,10 @@ func _blit_vehicle(it: Dictionary, px_scale: float) -> void:
 	var size: Vector2 = texture.get_size() * px_scale
 	var tint: Color = Palette.remembered(Color.WHITE) if bool(it.get("remembered", false)) else Color.WHITE
 	draw_texture_rect(texture, Appearance.body_rect(float(it["sx"]), float(it["sy"]), size, float(it["flip"])), false, tint)
+	# The dents a stray round left in it, over the picture -- only on a car the player sees now.
+	if not bool(it.get("remembered", false)) and it.get("foot") is Rect2:
+		var seen: Variant = world.vision.tiles_for(int(world.player)) if world.vision != null else null
+		_draw_decal_list(_decals.call("over_draws", world, camera, seen, it["foot"] as Rect2) as Array[Dictionary])
 
 
 # One body and everything it is wearing, composited at one rect: under-body layers, the body,
