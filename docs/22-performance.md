@@ -575,11 +575,17 @@ The density came from three places. Furnishing rarities in `content/dressing/str
 (shelf 4, cabinet 10, table 6, chair 6, dumpster 14, barrier 70, cone 45; post unchanged), and three
 pack props joined as scenery: the oil barrel (40), the pallet stack (55) and the rubbish bags (8,
 beside a wall or a kerb). The crates, footlockers and medical boxes are container kinds and stay out.
-Litter is three scraps cut from the pack's `overlay-debris` sheet (`debris_scrap_a/b/c`: 5x4 and 7x10
-grey, 5x6 paper, in art pixels), drawn on whole art pixels like everything else. The street rolls one
-paved tile in five and a room one in two; what survives the overlap rule is about one in six of the
-visible floor. The suburb counts 395 of 2,282 paved floor tiles, one in 5.8 (OCCUPANCY lane). Each
-picture's extent is content: the block's `sizes`, checked against its authored canvas.
+Litter is cut from the pack's `overlay-debris` sheet: since A12's fifth pass a crumpled paper (11x12)
+and a scrap of card (6x8), drawn on whole art pixels like everything else, weighted toward walls,
+kerbs and cluttered blocks (docs/23's fifth-pass record has the numbers). About one in six of the
+visible floor on the review shots; the 64-tile suburb, mostly edge, counts 509 of 2,282 (OCCUPANCY
+lane). Each picture's extent is content: the block's `sizes`, checked against its authored canvas.
+
+The fifth pass's cost, same machine, three runs each: the world `_draw` mean 5.82 ms before and
+5.94 ms after (`godot:bench:frame`, 1280x720), the crowded scene 87.6 and 87.5; the tick 7.37 and
+7.21 ms (`godot:bench:runtime`; nothing under `godot/sim/` changed). The occupancy is built once
+per map, seed, content and prop layout (`main.gd::_dressing_occupancy`) and memoises each tile's
+raw top, so the bake and the per-frame litter read it rather than recompute it.
 
 The per-tile rolls use `Dressing._mix`, a multiply-xorshift finaliser over the hash: the plain hash's
 low bits fell on a lattice, and `godot:check:trees`'s LATTICE lane holds the mixed roll to a near-even

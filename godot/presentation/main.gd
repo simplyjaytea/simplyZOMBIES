@@ -196,6 +196,7 @@ var _dressing_occ_map: Variant = null
 var _dressing_occ_gen: int = 0
 var _dressing_occ_seed: int = 0
 var _dressing_occ_content: Variant = null
+var _dressing_occ_props: Dictionary = {}
 var _furnishing_cache_map: Variant = null
 var _furnishing_cache_gen: int = -1
 var _furnishing_cache_seed: int = -1
@@ -1692,13 +1693,17 @@ func _dressing() -> Dictionary:
 # The dressing's occupancy for the world on screen: the per-frame litter asks it of every tile it
 # draws, and building it parses the block, so it is kept. It is emptied by the same four things the
 # furnishing cache is (the map, its vehicle generation, the seed and the content), because the rule
-# reads the tile classes and surfaces a driven car changes.
+# reads the tile classes and surfaces a driven car changes, and by a prop placed or taken away:
+# what the sim stands on a tile holds it against every picture (Dressing.held_props).
 func _dressing_occupancy() -> Dictionary:
 	var map: Variant = world.tilemap
 	var gen: int = 0 if map == null else int(map.vehicle_generation)
-	if is_same(map, _dressing_occ_map) and gen == _dressing_occ_gen and int(world.seed) == _dressing_occ_seed and is_same(world.content, _dressing_occ_content):
+	var prop_at: Dictionary = Appearance.prop_tiles(world)
+	if is_same(map, _dressing_occ_map) and gen == _dressing_occ_gen and int(world.seed) == _dressing_occ_seed and is_same(world.content, _dressing_occ_content) and prop_at == _dressing_occ_props:
 		return _dressing_occ
-	_dressing_occ = Dressing.occupancy(_dressing(), map, int(world.seed))
+	_dressing_occ_props = prop_at
+	_furnishing_cache_map = null
+	_dressing_occ = Dressing.occupancy(_dressing(), map, int(world.seed), Dressing.held_props(world))
 	_dressing_occ_map = map
 	_dressing_occ_gen = gen
 	_dressing_occ_seed = int(world.seed)
@@ -1737,7 +1742,7 @@ func _draw_decor(region: Rect2i) -> void:
 	var dress: Dictionary = _dressing()
 	if dress.is_empty() or world.tilemap == null:
 		return
-	var picks: Dictionary = Dressing.decor_picks(dress, world.tilemap, int(world.seed), region)
+	var picks: Dictionary = Dressing.decor_picks(dress, world.tilemap, int(world.seed), region, _dressing_occupancy())
 	var zoom: float = float(camera["zoom"])
 	var px_scale: float = Appearance.blit_scale(zoom)
 	for kind in ["nature", "furnishings"]:
@@ -1764,12 +1769,16 @@ func _placed_rect(placed: Dictionary, art_size: Vector2, px_scale: float) -> Rec
 	return Rect2(roundf(x0 + left * px_scale), roundf(y0 + top * px_scale), roundf(art_size.x * px_scale), roundf(art_size.y * px_scale))
 
 
-# The same rect with its width turned about its centre line: a negative width draws the texture
-# mirrored, which is how one picture gives two looks.
+# The same rect drawn mirrored: a negative width flips the texture in place, which is how one picture
+# gives two looks. The position stays where it is. The renderer flips a negative-width rect about
+# its own left edge's span (it draws from `position.x` to `position.x + |w|`), the rule
+# Appearance.body_rect already leans on for the face-on pawns, so moving the position to the right
+# edge first -- the A12 round-4 version -- drew every mirrored picture one full width east of where
+# the overlap rule had placed it: a mirrored cone landed on the trash bags beside it.
 func _mirrored(rect: Rect2, flip: bool) -> Rect2:
 	if not flip:
 		return rect
-	return Rect2(rect.position.x + rect.size.x, rect.position.y, -rect.size.x, rect.size.y)
+	return Rect2(rect.position.x, rect.position.y, -rect.size.x, rect.size.y)
 
 
 # One heap of junk over a Low tile no parked vehicle covers. False when content declares no
@@ -3121,9 +3130,10 @@ func _standing_props(seen: Variant) -> Array[Dictionary]:
 	# Tall inert furnishings use the exact same deterministic picks, observer set, cache, foot point
 	# and depth sort. Real props retain the existing occupied-tile exclusion from the flat pass.
 	if world != null and world.tilemap != null and seen != null:
-		var dress: Dictionary = Dressing.block_of(world)
+		var dress: Dictionary = _dressing()
 		var occupied: Dictionary = Appearance.prop_tiles(world)
-		for pick in Dressing.standing_furnishing_tiles_cached(dress, world.tilemap, seen, int(world.seed), bounds, _furnishing_cache_for()):
+		var occ: Dictionary = _dressing_occupancy()
+		for pick in Dressing.standing_furnishing_tiles_cached(dress, world.tilemap, seen, int(world.seed), bounds, _furnishing_cache_for(), occ):
 			var tx: int = int(pick["tx"])
 			var ty: int = int(pick["ty"])
 			if occupied.has(Vector2i(tx, ty)):
@@ -3143,8 +3153,20 @@ func _blit_standing(it: Dictionary, px_scale: float, focal_points: Array[Vector2
 	var rect: Rect2 = Appearance.body_rect(float(it["sx"]), float(it["sy"]), texture.get_size() * px_scale, 1.0)
 	var tint: Color = Color.WHITE
 	if bool(it.get("fade_on_overlap", false)):
+		rect = _standing_rect(float(it["sx"]), float(it["sy"]), texture.get_size(), px_scale)
 		tint.a = Dressing.tree_alpha(rect, focal_points)
 	draw_texture_rect(texture, rect, false, tint)
+
+
+# A standing furnishing's rect: body_rect's feet line, but on the ground's art grid. Its left edge is
+# the tile's centre less half its width in whole art pixels (Dressing._art_rect's rule) and its foot
+# drop is FOOT_DROP_PX rounded to whole art pixels, so a fridge's outline lands on the same 2x2 grid
+# as the floor under it -- the rect Dressing's overlap rule reasons about (`_top_rect`).
+func _standing_rect(sx: float, sy: float, art_size: Vector2, px_scale: float) -> Rect2:
+	var drop: float = px_scale * roundf(Appearance.FOOT_DROP_PX / px_scale)
+	var left: float = roundf(sx - px_scale * floorf(art_size.x / 2.0))
+	var size: Vector2 = art_size * px_scale
+	return Rect2(left, roundf(sy + drop - size.y), size.x, size.y)
 
 
 # One parked vehicle: a three-quarter picture standing feet-anchored on its footprint's south-edge
