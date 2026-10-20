@@ -1,5 +1,6 @@
 extends Control
-# Work grid (docs/07 order). Player is not a row. Stub columns store a number.
+# Work grid (docs/07 order). Player is not a row. The grid draws only the columns something does
+# (see `shown_columns`): a column it drew with nothing behind it would promise work nobody does.
 #
 # The panel is also where a survivor's **Focus** is chosen, which is the same act as choosing who
 # manages their skill web. docs/07: "Setting Focus to Manual gives full control of that one
@@ -51,6 +52,18 @@ var _hit: Array[Dictionary] = []
 var _row_scroll: int = 0
 
 
+# The columns this grid draws, in the sim's order: every job column that has a consumer. The six
+# that do not (Firefight, Hunt, Farm, Craft, Modify, Butcher) are hidden until each one has a
+# consumer (alpha plan A15), so the grid stops promising work. The sim still stores their numbers
+# and nothing reads them; hiding them here is the whole change.
+static func shown_columns() -> Array[String]:
+	var shown: Array[String] = []
+	for c in SimJobs.COLUMNS:
+		if SimJobs.CONSUMERS.has(c):
+			shown.append(c)
+	return shown
+
+
 func _ready() -> void:
 	get_viewport().size_changed.connect(_sync_layout)
 	_sync_layout()
@@ -65,7 +78,7 @@ func _sync_layout() -> void:
 
 
 func _column_width() -> float:
-	return minf(COL_W, (size.x - GRID_X - GUTTER) / float(SimJobs.COLUMNS.size()))
+	return minf(COL_W, (size.x - GRID_X - GUTTER) / float(shown_columns().size()))
 
 
 func _visible_rows() -> int:
@@ -105,9 +118,10 @@ func _gui_input(event: InputEvent) -> void:
 	if visible_row < 0 or visible_row >= _visible_rows():
 		return
 	var r: int = visible_row + _row_scroll
-	if r < 0 or r >= _rows.size() or c < 0 or c >= SimJobs.COLUMNS.size():
+	var columns: Array[String] = shown_columns()
+	if r < 0 or r >= _rows.size() or c < 0 or c >= columns.size():
 		return
-	var col: String = SimJobs.COLUMNS[c]
+	var col: String = columns[c]
 	if not SimJobs.CONSUMERS.has(col):
 		return
 	var row: Dictionary = _rows[r]
@@ -163,12 +177,12 @@ func _draw() -> void:
 	var ox: float = GRID_X
 	var oy: float = GRID_Y
 	var col_w: float = _column_width()
-	for i in SimJobs.COLUMNS.size():
+	var columns: Array[String] = shown_columns()
+	for i in columns.size():
 		# Fit the real column name to its width rather than cutting every one to 3 letters,
 		# which made Construct and Cook read identically.
-		var name: String = UiText.fit(font, String(SimJobs.COLUMNS[i]), SMALL_SIZE, col_w - 6.0)
-		var consumer: bool = SimJobs.CONSUMERS.has(SimJobs.COLUMNS[i])
-		draw_string(font, Vector2(ox + float(i) * col_w, oy - 4), name, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE, Chrome.TEXT if consumer else Chrome.TEXT_FAINT)
+		var name: String = UiText.fit(font, columns[i], SMALL_SIZE, col_w - 6.0)
+		draw_string(font, Vector2(ox + float(i) * col_w, oy - 4), name, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE, Chrome.TEXT)
 	_row_scroll = clampi(_row_scroll, 0, maxi(0, _rows.size() - _visible_rows()))
 	for visible_row in mini(_rows.size(), _visible_rows()):
 		var r: int = visible_row + _row_scroll
@@ -201,8 +215,8 @@ func _draw() -> void:
 			draw_string(font, Vector2(GUTTER, row_y + CLAUSE_DY), fitted, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE, Chrome.TEXT_DIM)
 		_draw_learning(font, ent, row_y + LEARN_DY)
 		var cols: Dictionary = row.get("cols", {}) as Dictionary
-		for i in SimJobs.COLUMNS.size():
-			var v: int = int(cols.get(SimJobs.COLUMNS[i], 0))
+		for i in columns.size():
+			var v: int = int(cols.get(columns[i], 0))
 			var label: String = "–" if v <= 0 else str(v)
 			# Urgent work reads brighter, so a row's shape is visible without reading digits.
 			var tint: Color = Chrome.TEXT_FAINT if v <= 0 else Chrome.TEXT.lerp(Chrome.TEXT_DIM, float(v - 1) / 3.0)

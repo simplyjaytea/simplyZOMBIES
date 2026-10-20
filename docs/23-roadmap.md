@@ -2094,6 +2094,24 @@ not a to-do list:
   that write the per-machine `user://` store share shard 3. `npm run check:shards` (`SHARDS_OK`;
   its self-test refuses five broken layouts) proves each chained gate is in exactly one shard.
   Unsharded `npm run godot:m2` is unchanged. Wall time of the sharded run: see the PR.
+- **UI — the small fixes of alpha A22, 2026-10-19.** O cycles off and light. The noise, scent and
+  sight channels were never drawn (`godot:check:light`'s O-key rider), so they are dropped rather
+  than drawn; drawing them is a later slice if the owner wants it. M, the raw developer sheets, and
+  F8, the spawn menu, act only in a debug build: the router guards M the way it guards F8, the HUD
+  names M only in a debug build, and the legend lists neither. `godot:check:play`'s SOCKET lane
+  checks both guards in source, and its KEYS lane excuses M by name in UNLISTED. The guards are read
+  from source, so the gate proves the check is in front of the key, not how a release binary
+  behaves. A waiting recruit in reach offers "turn them away", which sends them through the sim's own
+  `recruit.ignore`; `godot:check:context`'s DECLINE lane proves the row is offered in reach, absent
+  out of reach and for a body that is not waiting, and that dispatching it removes the recruit.
+- **UI — the work grid draws only the columns something does, 2026-10-19 (alpha A15).**
+  `ui/work_panel.gd`'s `shown_columns` draws the twelve job columns that have a consumer
+  (`SimJobs.CONSUMERS`), in the sim's order, and no others: the six stubs (Firefight, Hunt, Farm,
+  Craft, Modify, Butcher) are gone from the grid. The sim still stores their numbers and nothing
+  reads them. Dropping them from `SimJobs.COLUMNS` would change the job row, presets and saves, so
+  that is a sim change and is not taken here. `godot:check:play`'s STUBS lane proves the grid's list
+  equals the consumers, names no stub, and that its first cell queues the first column it draws;
+  with the filter set to draw everything, that lane goes red.
 - **UI — the sheet and Work grid fit the reviewed viewports, 2026-10-03.** At 1280×720,
   inventory now separates its equipment, native 56-pixel bag cells and inspect pane, keeping
   all seven frame-pack columns reachable. The compact sheet uses the condition chart at integer
@@ -10244,6 +10262,17 @@ not a to-do list:
   also passed inside that chain. Independent diff review found no blocking issue; the optional
   Jev review service was unavailable. These are local results, not a new GitHub CI run.
 
+- **Kernel & tooling: the art review's screenshots** (`npm run godot:check:shots`, `SHOTS_OK`,
+  2026-10-19; alpha A14). `godot/review/scenes.gd` sets five fixed scenes up through real key
+  presses and the sim's own commands and clock (the day street, an interior, the street at night
+  with the lamps lit, a zombie three metres off, the inventory sheet open), and `verify` refuses a
+  setup the world does not match. `godot/review/shots.gd` photographs them at 1280x720 and
+  1920x1080 into a `review-shots` folder at the repository root (`DISPLAY=:1 npm run godot:shots`,
+  or `-- --out=DIR`). The gate runs the same setups headless: every scene verifies, a day street is
+  refused as a night, as a combat and as an open sheet, and an unknown name is refused. With a
+  display it also proves the day street and the combat scene are two pictures and neither is blank
+  (`PIXELS OK`); headless it says `PIXELS SKIP`, so a run with no display passes the setups and
+  never the pixels. "Interior" is the nearest floor tile with a wall beside it, not a verified room.
 - **Kernel & tooling: the routing table** (`npm run check:routing`, `ROUTING_OK`, 2026-09-06).
   `AGENTS.md` carries a routing table — by kind of work and by system: what to read first, where
   the code lives, which gate judges it, where the record goes — and a Node gate judges the table

@@ -170,6 +170,9 @@ static func verbs_at(world: Variant, actor: int, hit: Dictionary) -> Array[Dicti
 			rows.append({"text": "pull %s free" % _name_of(world, entity, "them"), "command": {"type": "rescue"}, "target": entity})
 		if int(SimRecruitsRes.waiting_in_reach(world, actor)) == entity:
 			rows.append({"text": "talk to them", "command": {"type": "use.context"}, "target": -1})
+			# The decline: the same reach as the talk, and the sim's own `recruit.ignore` (A22). A
+			# recruit you send off leaves the gate and never joins the colony.
+			rows.append({"text": "turn them away", "command": {"type": "recruit.ignore", "entity": entity}, "target": entity})
 
 	# --- anywhere -----------------------------------------------------------------------------
 	if (kind == "zombie" or kind == "raider") and entity >= 0:
