@@ -19,7 +19,7 @@ of time with the legs, because they are chosen by the body's own frame key.
   the body, and the walk and breath under `../textures/characters/motion/`): ink, head, torso,
   arm, hand, pelvis, leg, foot. A hand is the two-by-two at the far end of each arm, measured
   from its shoulder, so a sleeve runs down a swinging arm to the wrist. The breath is not
-  labelled or painted: its garment is the rest picture's, raised at the row the body's breath is.
+  labelled or painted: its garment is the rest picture's, put through the body's own breath.
   The landmarks come from the frame's
   own underwear band, so the walk's bob moves them with the body -- except the side views'
   chest, whose top row is the idle frame's: the pack's side walk bobs the hips but never the

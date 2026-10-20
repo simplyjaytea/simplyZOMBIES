@@ -88,6 +88,19 @@ BREATH_FPS = 1
 HIP = 0.68
 CHEST = 0.48
 
+# The survivor's head-top row on each walk frame, by view. The generated cycles bobbed unevenly
+# (south 12, 11, 10, 10, 10, 12, 11, 10: low at frames 0 and 5, a long beat and a short one with a
+# two-row drop on the short; north once a cycle; east a row of jitter on every step), so each
+# frame's body above the underwear is moved to these rows: two even beats a cycle, one row at a
+# time, chosen to move as few frames as the pattern allows (no frame moves more than a row). Front
+# and back views dip two rows, the side views one.
+SURVIVOR_BOB = {
+    "s": (11, 12, 11, 10, 11, 12, 11, 10),
+    "n": (12, 11, 10, 11, 12, 11, 10, 11),
+    "e": (11, 11, 12, 12, 11, 11, 12, 12),
+    "w": (12, 12, 13, 13, 12, 12, 13, 13),
+}
+
 # The survivor's hands on its rest views, as `Appearance.HELD_HANDS` has them (body-canvas pixels).
 REST_HANDS = {
     "primary": {"e": (18, 31), "s": (9, 30), "w": (14, 31), "n": (23, 30)},
@@ -369,6 +382,49 @@ class Build:
         self.files[Path(path)] = im
 
 
+def retime_bob(cell, top):
+    """Moves the body above the underwear so its head's top row is `top`: the last torso row is
+    doubled to raise it, dropped to lower it, one row at a time. The hips, the legs and the soles
+    stay where the generator stood them."""
+    band = shorts_band(cell)
+    cut = band[0] - 1
+    while rows_of(cell)[0] > top:
+        cell = shift_above(cell, cut, -1)
+    while rows_of(cell)[0] < top:
+        cell = shift_above(cell, cut, 1)
+    return cell
+
+
+def recentre(cell, rest):
+    """Moves a whole frame sideways so its head sits over the rest view's. The generated side walks
+    drift forward through the cycle (the east head 16.7, 16.7, 17.8 ... 18.7 pixels across) and
+    snapped two pixels back on the loop from frame 7 to 0, the largest step in the cycle; a body
+    walking on the spot keeps its head where it stood."""
+    dx = round(head_and_torso(rest)[0] - head_and_torso(cell)[0])
+    if dx == 0:
+        return cell
+    out = Image.new("RGBA", cell.size, (0, 0, 0, 0))
+    out.alpha_composite(cell, (dx, 0))
+    return out
+
+
+def survivor_breath(rest, view):
+    """The survivor's breath from a rest picture (the body's, or a garment painted on it): the
+    chest and everything above it one row up, the hands planted where they hung. Raising the hands
+    with the chest stretched each one a row (the cut row is doubled, and the hands sit on it); a
+    planted hand under a lifted shoulder lengthens the arm instead, which a sleeve hides."""
+    cut = survivor_breath_cut(view)
+    out = shift_above(rest, cut, -1)
+    src = rest.load()
+    o = out.load()
+    w, h = out.size
+    for rx, _ in (by_view[view] for by_view in REST_HANDS.values()):
+        for x in range(max(0, rx - 1), min(w, rx + 2)):
+            for y in range(cut - 1, h):
+                o[x, y] = src[x, y]
+    return out
+
+
 def survivor_breath_cut(view):
     """The row the survivor's breath raises everything above, on its rest view's canvas. The
     clothing painter (clothing/build_clothing.py) raises each garment's rest picture at the same
@@ -395,6 +451,8 @@ def survivor(build):
             cells.append(ground(drop_specks(binary(cell))))
         cells = restore_shorts(cells, rest.crop((0, 0) + SURVIVOR_CANVAS))
         cells = [drop_hip_seams(close_outline(c)) for c in cells]
+        rest_cell = rest.crop((0, 0) + SURVIVOR_CANVAS)
+        cells = [retime_bob(recentre(c, rest_cell), top) for c, top in zip(cells, SURVIVOR_BOB[view])]
         for n, cell in enumerate(cells):
             rel = f"textures/characters/motion/survivor_walk_{view}_{n:02d}.png"
             build.put(PACK / rel, cell)
@@ -409,8 +467,7 @@ def survivor(build):
             entry["hands"] = dict(sorted(hands.items()))
             members[f"{fam}_walk_{view}_{n}"] = entry
             walk.append(rel)
-        cut = survivor_breath_cut(view)
-        breath = shift_above(rest, cut, -1)
+        breath = survivor_breath(rest, view)
         rel = f"textures/characters/motion/survivor_idle_{view}_01.png"
         build.put(PACK / rel, breath)
         head, torso = offsets(breath, rest)
@@ -418,7 +475,7 @@ def survivor(build):
         hands = {}
         for slot, by_view in REST_HANDS.items():
             rx, ry = by_view[view]
-            hands[slot] = [rx, ry - 1 if ry < cut else ry]
+            hands[slot] = [rx, ry]
         entry["hands"] = dict(sorted(hands.items()))
         members[f"{fam}_idle_{view}_1"] = entry
         frames_by_view[view] = {"walk": walk, "idle": [f"textures/characters/survivor_{view}.png", rel]}

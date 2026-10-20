@@ -26,7 +26,12 @@ view's own grey, so the shorts never vanish mid-stride and the clothing painter
 `close_outline` closes the ink ring where a generated pixel of skin or cloth touched the outside
 (open on one side it becomes ink; open on two or more it is cleared), and `drop_hip_seams` lifts
 the line of ink two east frames drew across the top of the legs, which showed through every pair
-of trousers as a stripe.
+of trousers as a stripe. `recentre` moves each frame sideways so its head sits over the rest
+view's (the side walks drifted forward through the cycle and snapped back on the loop), and
+`retime_bob` moves the body above the underwear to `SURVIVOR_BOB`'s head rows: two even beats a
+cycle, no frame moved more than a row. The survivor's breath (`survivor_breath`) lifts the chest a
+row and plants the hands where they hung; the clothing painter puts each garment's rest picture
+through the same function.
 
 **The zombies' in-betweens and every breath are mechanical.** Each zombie family keeps its four
 pack poses as frames 0, 2, 4 and 6; frames 1, 3, 5 and 7 are the pose before them with the rows

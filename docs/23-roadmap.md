@@ -2135,8 +2135,9 @@ not a to-do list:
   breath, kept"). `breath_fps: 0` in `authored.json` would turn it off per family without code.
 
   **Evidence:** `godot:check:worn` new FRAMES lane: **288** walk and breath frames over 8 bodies
-  declare head and torso offsets the renderer reads (448 of them move one), **72** survivor hands
-  sit on their own frame's arm (57 off the rest point), and a pistol, helmet and vest on a
+  declare head and torso offsets the renderer reads (427 of them move one, after the art
+  review's even bob; 448 before), **72** survivor hands sit on their own frame's arm (53 off the
+  rest point; 57 before), and a pistol, helmet and vest on a
   walking frame follow its hand, head and torso; a corner hand, a frame-less pistol, a shifting
   rest view, a riderless wearable and a dropped frame are each refused. `godot:check:zombie_art`
   MOTION: eight distinct poses and a breath a view, stride equal to pace × frames / fps, and a
@@ -2829,9 +2830,9 @@ not a to-do list:
   than the pack's four-frame walk it had been built on: `parts.py` reads A7's eight walk frames
   and the breath picture per view (`textures/characters/motion/`), so the rig has **40 frames**
   and each garment **40 members** (**1160 keys**, from 580), on a 320x160 atlas (rest, walk 1-8,
-  breath). The breath is not painted: each garment's breath is its rest picture raised at the
-  very row the body's breath is (`build_motion.survivor_breath_cut`), so the cloth cannot shift
-  colour as the body breathes. Four of the generated east walk frames had drawn the hips bare, which left the painter
+  breath). The breath is not painted: each garment's breath is its rest picture put through the
+  body's own breath (`build_motion.survivor_breath`: the chest a row up, the hands planted), so
+  the cloth cannot shift colour as the body breathes. Four of the generated east walk frames had drawn the hips bare, which left the painter
   no waist to find; A7's `build_motion.py` now restores the shorts on those frames
   (`restore_shorts`) rather than the painter guessing. The COVERAGE lane's frame count reads
   `walk_frames + breath_frames` and pins eight and two; STEP drives `body_texture` with the
@@ -2847,11 +2848,21 @@ not a to-do list:
   and an arm the body hides still ends in a hand. `build_motion.py` closes the ink ring where
   six generated pixels touched the outside (`close_outline`) and lifts the ink seam two east
   frames drew across the hips (`drop_hip_seams`); a zip's teeth count from the collar so they
-  ride the bob; the neck's shadow past its two rows reads as shade under cloth. **Not fixed,
-  named:** the generated walk's own rhythm -- the south head bobs 12, 11, 10, 10, 10, 12, 11, 10
-  and the loop back from frame 7 to 0 is each view's largest step -- is in the legs as well as
-  the head (the east feet span 10, 15, 13, 9, 8, 12, 6, 14 pixels), so it wants drawn frames,
-  not a shifted bob.
+  ride the bob; the neck's shadow past its two rows reads as the cloth's own light. **Round 2,
+  the walk made even:** the generated cycles bobbed unevenly (south head-top rows 12, 11, 10, 10,
+  10, 12, 11, 10, a long beat and a short one with a two-row drop; north once a cycle; east a row
+  of jitter every step) and the side walks drifted forward through the cycle and snapped back on
+  the loop (the east head 16.7 to 18.7 pixels across, then 16.7). `build_motion.py` now
+  re-centres each frame's head over the rest view's (`recentre`) and moves the body above the
+  underwear to `SURVIVOR_BOB`, two even beats a cycle, no frame moved more than a row
+  (`retime_bob`): south 11, 12, 11, 10, 11, 12, 11, 10; north 12, 11, 10, 11, 12, 11, 10, 11; east
+  11, 11, 12, 12 twice; west 12, 12, 13, 13 twice. **Measured** (changed pixels per step, 0 to 1
+  through 7 to 0): south 292, 262, 293, 284, 234, 207, 334, 340; east 161, 294, 160, 213, 141,
+  264, 153, 309; north 214, 284, 270, 234, 230, 301, 260, 275; west 237, 291, 224, 229, 132,
+  228, 233, 320. The loop step is still the largest in south, east and west, by 2, 5 and 10
+  percent (it was 6, 13 and 20): what remains is the generated legs' own pose spacing (the east
+  feet span 10, 15, 13, 9, 8, 12, 6, 14 pixels), which wants drawn frames. The breath now plants
+  the hands and lifts the shoulders, so no hand stretches a row on the inhale.
 
 - **Art & renderer — zombies turn, walk and fall, 2026-10-02.** Closes "A silhouette per
   kind" and the Focal art half of "A corpse reads as a corpse", at the owner's request for
