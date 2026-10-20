@@ -1479,8 +1479,11 @@ func _crop_drops_solid(source: Image, crop: Array) -> bool:
 
 # A turning body's members under authored.json's convention: `<key>_<view>` for each of the four
 # views, `<key>_walk_<view>_<n>` for the same n = 0..frames-1 every way, and the breath
-# `<key>_idle_<view>_<n>` for the same n = 1..breaths-1 every way, and nothing else.
-func _rig_members_complaint(key: String, members: Array) -> String:
+# `<key>_idle_<view>_<n>` for the same n = 1..breaths-1 every way, and -- for each action the
+# family's `actions` block declares (docs/23, "Actions on the render clock") --
+# `<key>_<action>_<view>_<n>` for the same n = 0..frames-1 every way (the two side views only, for
+# a lying action), and nothing else.
+func _rig_members_complaint(key: String, members: Array, actions: Array = []) -> String:
 	var want: Array[String] = []
 	var frames: int = 0
 	while members.has("%s_walk_%s_%d" % [key, Appearance.VIEW_REST, frames]):
@@ -1496,6 +1499,17 @@ func _rig_members_complaint(key: String, members: Array) -> String:
 			want.append("%s_walk_%s_%d" % [key, view, n])
 		for n in range(1, breaths):
 			want.append("%s_idle_%s_%d" % [key, view, n])
+	for a in actions:
+		var action: String = String(a)
+		var views: Array = ["e", "w"] if Appearance.LYING_ACTIONS.has(action) else Appearance.VIEWS
+		var count: int = 0
+		while members.has("%s_%s_%s_%d" % [key, action, String(views[0]), count]):
+			count += 1
+		if count == 0:
+			return "declares action '%s' with no frames under '%s_%s_%s_0'" % [action, key, action, String(views[0])]
+		for view in views:
+			for n in count:
+				want.append("%s_%s_%s_%d" % [key, action, String(view), n])
 	for w in want:
 		if not members.has(w):
 			return "is missing member '%s'" % w
@@ -1503,6 +1517,12 @@ func _rig_members_complaint(key: String, members: Array) -> String:
 		if not want.has(String(m)):
 			return "carries member '%s', which the convention does not name" % String(m)
 	return ""
+
+
+# The actions a family's authored.json entry declares, by name.
+func _actions_of(entry: Dictionary) -> Array:
+	var block: Variant = entry.get("actions", {})
+	return (block as Dictionary).keys() if block is Dictionary else []
 
 
 func _overlay_members_complaint(key: String, members: Array) -> String:
@@ -1527,6 +1547,25 @@ func _sole_complaint(box: Dictionary, h: int, idle: bool) -> String:
 	var height: int = int(box["max_y"]) - int(box["min_y"]) + 1
 	if height < HEIGHT_MIN or height > HEIGHT_MAX:
 		return "is %d px tall, outside %d-%d" % [height, HEIGHT_MIN, HEIGHT_MAX]
+	return ""
+
+
+# Whether `member` of `family` is one of its declared action frames.
+func _is_action_member(family: String, member: String, actions: Array) -> bool:
+	for a in actions:
+		if member.begins_with("%s_%s_" % [family, String(a)]):
+			return true
+	return false
+
+
+# An action frame's ground: something drawn, and the lowest of it on the anchor row (a derived pose
+# is stood there exactly; a generated one may lift a step, as a walk frame may).
+func _ground_complaint(box: Dictionary, h: int) -> String:
+	if box.is_empty():
+		return "draws nothing at or above alpha %d" % ALPHA_SOLID
+	var lift: int = h - 1 - int(box["max_y"])
+	if lift < 0 or lift > SOLE_LIFT_MAX:
+		return "lifts its lowest row %d row(s) off the anchor; an action frame stands at most %d" % [lift, SOLE_LIFT_MAX]
 	return ""
 
 
@@ -1588,7 +1627,7 @@ func _the_pack_families_keep_the_packs_own_spec() -> bool:
 			push_error("PACK: '%s' is a %s with no members; a pack body or wearable is a family" % [name, kind])
 			return false
 		var members: Array = (members_v as Dictionary).keys()
-		var complaint: String = _rig_members_complaint(name, members) if kind == "pack_rig" else _overlay_members_complaint(name, members)
+		var complaint: String = _rig_members_complaint(name, members, _actions_of(entry)) if kind == "pack_rig" else _overlay_members_complaint(name, members)
 		if not complaint.is_empty():
 			push_error("PACK: '%s' %s" % [name, complaint])
 			return false
@@ -1630,7 +1669,10 @@ func _the_pack_families_keep_the_packs_own_spec() -> bool:
 				return false
 			var box: Dictionary = _solid_box(image)
 			if kind == "pack_rig":
-				var sole: String = _sole_complaint(box, image.get_height(), not member.contains("_walk_"))
+				# An action frame stands on the ground like any other, but its height is the action's
+				# (a crouch, a fall, a body lying flat): check:action's GEOMETRY lane judges that.
+				var acting: bool = _is_action_member(name, member, _actions_of(entry))
+				var sole: String = _sole_complaint(box, image.get_height(), not member.contains("_walk_")) if not acting else _ground_complaint(box, image.get_height())
 				if not sole.is_empty():
 					push_error("PACK: '%s' %s" % [member, sole])
 					return false
@@ -1696,9 +1738,27 @@ func _the_pack_families_keep_the_packs_own_spec() -> bool:
 	extra.append("body_survivor_run_s_0")
 	var breathless: Array = real.duplicate()
 	breathless.erase("body_survivor_idle_w_1")
-	if _rig_members_complaint("body_survivor", short).is_empty() or _rig_members_complaint("body_survivor", extra).is_empty() or _rig_members_complaint("body_survivor", breathless).is_empty():
+	var acts: Array = _actions_of(entries["body_survivor"] as Dictionary)
+	if not _rig_members_complaint("body_survivor", real, acts).is_empty():
+		push_error("PACK: the real body_survivor members were refused by the convention they were built to")
+		return false
+	if _rig_members_complaint("body_survivor", short, acts).is_empty() or _rig_members_complaint("body_survivor", extra, acts).is_empty() or _rig_members_complaint("body_survivor", breathless, acts).is_empty():
 		push_error("PACK: a body missing a walk frame or one view's breath, or carrying one the convention does not name, passed")
 		return false
+	# The action half: an action member with no `actions` entry is unnamed, a declared action
+	# missing one view's frame is incomplete, and a declared action with no frames at all is empty.
+	if not acts.is_empty():
+		var one: String = String(acts[0])
+		var undeclared: Array = acts.duplicate()
+		undeclared.erase(one)
+		var gap: Array = real.duplicate()
+		var gap_view: String = "w"
+		gap.erase("body_survivor_%s_%s_0" % [one, gap_view])
+		var empty: Array = acts.duplicate()
+		empty.append("wave")
+		if _rig_members_complaint("body_survivor", real, undeclared).is_empty() or _rig_members_complaint("body_survivor", gap, acts).is_empty() or _rig_members_complaint("body_survivor", real, empty).is_empty():
+			push_error("PACK: an undeclared action, an action missing a view's frame, or a declared action with no frames passed")
+			return false
 	if _overlay_members_complaint("item_gear_x", ["item_gear_x_s", "item_gear_x_e", "item_gear_x_n"]).is_empty():
 		push_error("PACK: a wearable missing its west view passed")
 		return false
@@ -1786,7 +1846,14 @@ func _every_garment_fits_its_rig_frame_by_frame() -> bool:
 			push_error("WEAR: '%s' fits '%s', which is not a pack_rig in authored.json" % [name, rig])
 			return false
 		var members: Array = ((entry.get("members", {}) as Dictionary)).keys()
-		var rig_members: Array = (((rig_entry as Dictionary).get("members", {})) as Dictionary).keys()
+		# The rig's action pictures (A8) carry no garment yet and the renderer does not ask for one
+		# (`Appearance.body_texture`): they are left out here by `Appearance.is_action_frame`, so
+		# every rest, walk and breath frame is still required. docs/23 what's left, "Clothes on the
+		# action frames".
+		var rig_members: Array = []
+		for rm in (((rig_entry as Dictionary).get("members", {})) as Dictionary).keys():
+			if not Appearance.is_action_frame(rig, String(rm)):
+				rig_members.append(rm)
 		var complaint: String = _wear_members_complaint(name, rig, members, rig_members)
 		if not complaint.is_empty():
 			push_error("WEAR: '%s' %s" % [name, complaint])
@@ -1814,6 +1881,15 @@ func _every_garment_fits_its_rig_frame_by_frame() -> bool:
 			fewest = mini(fewest, int(count[0]))
 			frames += 1
 		garments += 1
+	# The one exclusion above is action pictures and nothing else: a reload frame is one, and a walk,
+	# a breath and a rest picture of the same rig are not, so no frame the clothes are painted for
+	# can drop out of the list by being mistaken for an action.
+	if not Appearance.is_action_frame("body_survivor", "body_survivor_reload_long_e_3") \
+			or Appearance.is_action_frame("body_survivor", "body_survivor_walk_e_3") \
+			or Appearance.is_action_frame("body_survivor", "body_survivor_idle_e_1") \
+			or Appearance.is_action_frame("body_survivor", "body_survivor_e"):
+		push_error("WEAR: Appearance.is_action_frame does not tell a reload frame from a walk, a breath and a rest picture")
+		return false
 	if garments == 0:
 		push_error("WEAR judged no garment; the lane is here for the clothing and had nothing to judge")
 		return false
@@ -1979,7 +2055,9 @@ func _every_held_weapon_is_the_packs_own() -> bool:
 # wide -- so a broad body may fill its canvas to the two-pixel side margin, 36; all soles are on
 # their bottom row. Corpses occupy 29-42 by 16-29 px.
 # The heavy has separate explicit bounds; adding it never loosens the old PACK contract.
-func _pose_geometry_complaint(kind: String, image: Image, anchor: Array) -> String:
+# `acting` is an action frame (a lunge, a stagger, a fall): it keeps every bound but the living
+# height and width, which are the action's own (check:action's GEOMETRY lane judges those).
+func _pose_geometry_complaint(kind: String, image: Image, anchor: Array, acting: bool = false) -> String:
 	var size: Vector2i = image.get_size()
 	var living: bool = kind == "zombie_rig"
 	var broad: bool = size == Vector2i(40, 48) if living else size == Vector2i(56, 40)
@@ -2008,11 +2086,11 @@ func _pose_geometry_complaint(kind: String, image: Image, anchor: Array) -> Stri
 	if living:
 		var height_min: int = 31 if broad else HEIGHT_MIN
 		var height_max: int = 38 if broad else HEIGHT_MAX
-		if height < height_min or height > height_max:
+		if not acting and (height < height_min or height > height_max):
 			return "living height outside its canvas-specific bounds"
 		if size.y - 1 - int(box["max_y"]) > SOLE_LIFT_MAX:
 			return "soles float above the ground anchor"
-		if width < 10 or width > (36 if broad else 26):
+		if not acting and (width < 10 or width > (36 if broad else 26)):
 			return "living width outside its canvas-specific bounds"
 	else:
 		if int(box["min_y"]) < 2 or int(box["max_y"]) > size.y - 3:
@@ -2107,8 +2185,12 @@ func _the_zombie_poses_keep_their_geometry() -> bool:
 		var members: Dictionary = entry.get("members", {})
 		if kind == "zombie_rig":
 			rigs += 1
-			var member_error: String = _rig_members_complaint(String(key), members.keys())
-			if not member_error.is_empty() or members.size() != 40 or not Appearance.turns(String(key)):
+			var member_error: String = _rig_members_complaint(String(key), members.keys(), _actions_of(entry))
+			var acted: int = 0
+			for m in members.keys():
+				if _is_action_member(String(key), String(m), _actions_of(entry)):
+					acted += 1
+			if not member_error.is_empty() or members.size() - acted != 40 or not Appearance.turns(String(key)):
 				push_error("ZOMBIE_POSES: %s needs four idle views, thirty-two walk frames, four breaths and a turning renderer: %s" % [key, member_error])
 				return false
 			if Appearance.walk_frames(String(key)) != 8 or Appearance.walk_fps(String(key)) != int(entry.get("fps", 0)) or Appearance.breath_frames(String(key)) != 2:
@@ -2126,7 +2208,7 @@ func _the_zombie_poses_keep_their_geometry() -> bool:
 				push_error("ZOMBIE_POSES: missing %s" % member)
 				return false
 			if complaint.is_empty():
-				complaint = _pose_geometry_complaint(kind, image, entry.get("anchor", []))
+				complaint = _pose_geometry_complaint(kind, image, entry.get("anchor", []), _is_action_member(String(key), String(member), _actions_of(entry)))
 			if complaint.is_empty() and kind == "zombie_rig":
 				complaint = _pose_frame_complaint(String(key), String(member), source, asset)
 			if not complaint.is_empty():
