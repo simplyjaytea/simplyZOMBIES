@@ -978,12 +978,21 @@ group above amend this arc's mood, wall and pawn clauses; the pieces below stand
   only (the record's "Zombies turn, walk and fall", 2026-10-02). Widening their appearance at
   Peripheral detail remains an information-scarcity decision for the owner. Walk-cycle foot and
   clothing polish and the four-pose human corpse vest overlay remain unshipped.
-- **The torch.** The reference's night is a cone from the player's hand; every light here is an
-  omnidirectional shadowcast and there is no torch item. The piece is sim, not paint: a light
+- **The torch.** The reference's night is a cone from the player's hand. Since the light map
+  (2026-10-19, the record) a torch *draws* as a beam (content `light.beam`), but every light in
+  the sim is still an omnidirectional shadowcast. The piece left is sim, not paint: a light
   item whose `light` block carries a direction and a cone, `SimLight` masking that emitter's
   shadowcast to the wedge, the cone drawn from the gun hand in the lit-pool geometry, and the
   attention cost a lit torch is — an emitter zombies read. Its own gated slice, after the look
   lands, and not before: the arc is presentation and this is the one sim change in it.
+- **The night's reach on screen.** Since the art review of the light map (2026-10-20, the
+  record) the screen draws less light than the sim in two places, both sim numbers rather than
+  paint. A lit campfire's cast is 20 m (`SimNeeds.CAMPFIRE_LIGHT_M`) and its drawn pool 6 m, so a
+  body 7 to 20 m from the fire is seen by the sim and drawn at the night's floor, nearly black.
+  And an unlit survivor's night sight is the sky's share of 48 m, 1.9 m, which bounds the disc
+  of ground drawn around them to about one and a half tiles where the review asked for three. The
+  pieces are the campfire's reach brought toward its pool and a night-eyes floor of about 3.5 m,
+  each a balance change for the A24 pass or the owner, never a wider pool or disc on screen.
 - **What driving left behind.** The first driving slice landed 2026-09-05 (the record below,
   `godot:m2:vehicles`) at the owner's direction, ahead of the Milestone 3B schedule it used to
   sit behind; these are the halves it named rather than built, each its own piece:
@@ -1031,13 +1040,14 @@ group above amend this arc's mood, wall and pawn clauses; the pieces below stand
 - ~~**Per-source light tint.**~~ — landed 2026-10-03; each current emitter's content tint colours
   the existing light pool without changing its cast or reach. See the record.
 
-**Art remaining after the 2026-10-03 completion slices.** The bounded A2 wall mapping is live;
-its floor-underlay seam and remaining pack wall states are named above. The unseen-wall roof
-coverage choice remains with the owner. Full day/dusk/night grading remains
-unassessed, and the adopted ground palette stays pinned. The directional torch/cone is still a
-simulation and attention mechanic, not part of source colouring. Placed utility mechanics also
-remain absent: no placed stove, activated streetlamp, generator, rain collector or spike trap was
-added. These are separate pieces; the completed pictures do not imply those mechanics exist.
+**Art remaining after the 2026-10-03 completion slices.** The bounded A2 wall mapping is live; its
+floor-underlay seam and remaining pack wall states are named above. The unseen-wall roof coverage
+choice remains with the owner. The night itself is per pixel since the light map (2026-10-19, the
+record); a full day and dusk colour grade remains unassessed, and the adopted ground palette stays
+pinned. The torch draws as a beam, but the directional cone is still a simulation and attention
+mechanic, not part of source colouring. Placed utility mechanics also remain absent: no placed
+stove, activated streetlamp, generator, rain collector or spike trap was added. These are separate
+pieces; the completed pictures do not imply those mechanics exist.
 
 **The inventory sheet and the screens — decided by the owner (2026-09-08).** The inventory is
 mechanically complete and gated, and the screen reaches four of its commands: `item.move`,
@@ -2156,6 +2166,81 @@ not a to-do list:
   that is a sim change and is not taken here. `godot:check:play`'s STUBS lane proves the grid's list
   equals the consumers, names no stub, and that its first cell queues the first column it draws;
   with the filter set to draw everything, that lane goes red.
+- **Art — the night, per pixel, 2026-10-19.** Item A10 of the 2026-10-19 alpha plan, built on
+  the baked world (A4), revised twice after the coordinator's art reviews (2026-10-20). The night
+  was one flat navy fill whose alpha came from the survivor's own sight, warm pools were per-tile
+  rects under the bodies, and the edge of sight was the shadowcast's tiles stepping straight into
+  a navy void. Now `presentation/light_map.gd` draws one screen rect multiplied over everything
+  main draws (`night_light.gdshader`, `blend_mul`, so it can only darken) and a glow item over it
+  for the flash and the flame. Where light may land is the sim's: the per-source "does this cast
+  reach this tile and does the survivor see it" answer is handed over as bits
+  (`LightLook.light_texels`), so a wall stops light on screen exactly where it stops it in the
+  sim, and a source's light fades over the inner half of the last tile it holds to nothing at
+  the edge of every neighbour it does not hold, corners included, never onto a tile the survivor
+  does not see. How much light lands is the look: each
+  source draws a pool out to 0.3 of its sim reach and nothing past it, in five flat rings with an
+  ordered dither only in the band between two (`LightLook.POOL_LEVELS`), at a brightness capped
+  by its reach (`LightLook.source_cap`: a 20 m campfire 0.85 of daylight, a 16 m storm lantern
+  0.75). The campfire's content tint is a redder orange (`#ff9452`) and the oil lanterns a
+  yellower one (`#ffdf80`), so two overlapping pools read as two. Outside every pool the night
+  holds at the floor of the unseen dark: at midnight full dark is `LightLook.NIGHT_FLOOR` (0.24)
+  of the night's colour, no channel above 8 of 255 even on a white tile. The survivor's
+  own disc of ground (`EYE_FLOOR` 0.55, ringed the same way) ends half a tile inside their sight
+  radius (`LightLook.eye_disc_metres`), so it is round rather than cut by the plus of tiles a
+  1.9 m night sight sees. The edge of sight is softened across the tile boundary, half a tile
+  into each side, and dithered. The void (never seen, drawn by no layer, R 0 in the texels where
+  a remembered tile is 128) cannot be faded by a multiply, so the known map's last half tile
+  beside it walks down to the void's dark instead. A window's light is still per tile: the cast
+  through it fades to nothing at the window row's edges, so its band on the far side peaks at
+  the pane and the masonry above and below it stays nearly dark, but the pane's own outline is
+  not traced. Light passes a window onto the floor beyond and not onto the masonry there: the
+  sim's shadowcast lights the first opaque tile it meets through glass (a hedge or a shelf whose
+  picture reads as the wall going on), so the screen lights an opaque tile only from a source
+  that also lights one of its four open neighbours (anything not blocking sight except glass),
+  the ground its face looks onto (`LightLook._face_lit`; art review 3). Deep water is solid but
+  clear, so it is not filtered: the middle of a pond stays lit. The window's own glass fades
+  toward the dark masonry behind it, as every lit tile fades toward an unlit neighbour. By day the light map is cleared, not drawn, so the day frame is the one it
+  was before (pixel-identical at both sizes). Everything is evaluated on the 32 px art-pixel
+  grid. Flames (a campfire, oil, a candle) flicker by at most 3% of reach, only ever down; cells
+  and gas are steady. A torch, headlamp or weapon light draws as a beam along its carrier's
+  facing: content's new `light.beam` half-angle, presentation only. The tile pools under the
+  bodies are now the O channel's alone. Looks chosen without the owner, each the default
+  nearest Zero Sievert: flames flicker, a torch is a wedge; full night near black is the owner's
+  pick on the darkness card (2026-10-20). **Half shipped, and which half:** the sim still lights
+  a torch's whole round cast, and outside the beam the screen draws only a disc at the hand, so
+  a zombie still reads the light behind you; the sim cone and its attention cost are the torch
+  piece in what's left. And the screen now draws less light than the sim in two places named
+  there as "The night's reach on screen": a campfire's sim cast is 20 m and its pool 6 m, and a
+  survivor's unlit night sight is 1.9 m, which bounds the disc.
+
+  **Evidence:** `npm run godot:check:light` → `LIGHT_LOOK_OK`. NO LIGHT ON UNSEEN (the plan's
+  lane): a campfire behind a wall lights 288 tiles in the sim that the survivor does not see,
+  and every one is four zero bytes in the light map. Every source bit sits on a seen tile, and
+  the open twin's same tile is seen and carries its bit. A builder that writes bits before the
+  seen test was run as sabotage and went red. After the survivor walks away, every tile reads R
+  128 exactly where it is remembered and not seen, and 0 for the void. RINGS: four or five
+  rings; the midnight floor keeps every channel at 8 or under; `source_cap` keeps its
+  ends and is monotonic; the campfire caps above the storm lantern and its tint is redder; the
+  dark eye disc is the sky's share of the range and there is none with nobody to ask.
+  SIGHT-DERIVED now judges the eye disc: a campfire a metre away widens it from 1.92 m to its
+  3.5 m cap. DAYLIGHT: at noon `ambient_of` is 1 and `_draw_night_wash` clears the light map
+  before it builds one. BEAM: a carried hand torch is its content's 22° along the facing; no
+  facing and a lantern are round; every content beam can be carried. FLICKER: a campfire
+  flickers, a cell torch does not. DEAD SOCKET is re-pointed: the night is built from
+  `light_texels`, `ambient_of` and `eye_disc_metres` before `_draw_effects(true)`, which blits
+  into the glow item; `light_map.gd` hands the shader the caps, rings, eye floor and disc; and
+  the shader rings every light and lights only seen tiles. The per-point fraction and curve
+  helpers the first cut drew from (`light_fraction_at`, `shown`, `wash_alpha`) went with the look
+  that read them, and their lanes with them. `godot:check:appearance` pins the campfire's new
+  tint. Budget: see docs/22's light-map section. Before, first-cut and revised shots are in the
+  project's `planning/lighting/`, with an overlap shot and a torch aimed point-blank at a wall
+  with two windows: light passes the windows and stops at the masonry between them. WINDOW: a
+  campfire inside a room lights a screen tile behind the glass in the sim, and it carries no
+  source bit; the floor beyond the same glass, the wall's room-side face, a screen beside that
+  lit floor and the middle of a pond keep theirs. With the refusal switched off the lane went
+  red, and so did the first cut of the rule, which filtered every solid tile and so darkened the
+  pond.
+
 - **Feel — bodies glide between ticks, and a slow frame drops time, 2026-10-19.** Item A2 of
   the 2026-10-19 alpha plan. The sim steps at 20 Hz and every body used to be drawn on the
   position component, so a walker held still for a tick and then jumped a tick's travel at
