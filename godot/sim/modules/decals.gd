@@ -31,7 +31,7 @@ extends RefCounted
 # `{rev, d}`: `d` an Array of records in the order they landed, `rev` bumped on every change so a
 # renderer that baked the chunk knows to bake it again. A record is
 #   {k: kind, x, y: position in art pixels (1/32 m, ints so a save round-trips exactly),
-#    t: tick it landed, v: variant 0..7 (rotation and picture), s: size 1..4,
+#    t: tick it landed, v: variant 0..63 (low three bits the turn, the rest the picture), s: size 1..4,
 #    e: the body a pool belongs to (-1 otherwise), a, b: a smear's run in art pixels}
 # CHUNK matches the world bake's chunk (presentation/world_layers.gd), so one new mark is one
 # chunk to rebake. PER_CHUNK bounds what any one chunk can hold -- the draw cost of a chunk is
@@ -139,7 +139,7 @@ static func add(world: Variant, kind: String, x: float, y: float, extra: Diction
 	var py: int = roundi(y * ART_PX)
 	var rec: Dictionary = {
 		"k": kind, "x": px, "y": py, "t": int(world.tick),
-		"v": int(rng.call("int_range", 0, 7)),
+		"v": int(rng.call("int_range", 0, 63)),
 		"s": clampi(int(extra.get("s", 1)), 1, 4),
 		"e": int(extra.get("e", -1)),
 	}
