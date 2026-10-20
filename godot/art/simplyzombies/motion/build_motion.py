@@ -299,6 +299,58 @@ def restore_shorts(cells, rest):
     return out
 
 
+def is_ink(p):
+    return solid(p) and max(p[:3]) < 45
+
+
+def close_outline(im):
+    """Every body pixel the pack draws is ringed by ink. A few generated frames let a pixel of skin
+    or cloth touch the transparent outside (a foot past its outline, a grey speck beside the hip),
+    and anything painted there -- a boot, a hood -- broke the ring. A pixel open on one side
+    becomes ink, which closes the ring where it is; one open on two or more sides is sticking out
+    of the silhouette and is cleared."""
+    w, h = im.size
+    px = im.load()
+    out = im.copy()
+    o = out.load()
+    for y in range(h):
+        for x in range(w):
+            p = px[x, y]
+            if not solid(p) or is_ink(p):
+                continue
+            around = [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
+            inside = [(nx, ny) for nx, ny in around if 0 <= nx < w and 0 <= ny < h]
+            open_sides = len(around) - len(inside) + sum(1 for nx, ny in inside if not solid(px[nx, ny]))
+            if open_sides == 0:
+                continue
+            if open_sides >= 2:
+                o[x, y] = (0, 0, 0, 0)
+            else:
+                ink = next(px[nx, ny] for nx, ny in inside if is_ink(px[nx, ny]))
+                o[x, y] = ink
+    return out
+
+
+def drop_hip_seams(im):
+    """Two generated east frames draw a line of ink straight across the top of the legs, under the
+    underwear: the pack's hips run into the legs with no line, and the seam showed through every
+    pair of trousers as a dark stripe. Within the underwear band and the row under it, an ink pixel with
+    underwear directly above it and leg skin directly below takes the underwear's colour; the ink
+    between the legs (nothing or more ink below it) stays."""
+    band = shorts_band(im)
+    if band is None:
+        return im
+    w, h = im.size
+    px = im.load()
+    out = im.copy()
+    o = out.load()
+    for y in range(band[0] + 1, min(h - 1, band[1] + 2)):
+        for x in range(w):
+            if is_ink(px[x, y]) and is_shorts(px[x, y - 1]) and is_skin(px[x, y + 1]):
+                o[x, y] = px[x, y - 1]
+    return out
+
+
 def png_bytes(im):
     import io
 
@@ -317,6 +369,15 @@ class Build:
         self.files[Path(path)] = im
 
 
+def survivor_breath_cut(view):
+    """The row the survivor's breath raises everything above, on its rest view's canvas. The
+    clothing painter (clothing/build_clothing.py) raises each garment's rest picture at the same
+    row, so a breathing body's clothes are its standing clothes, lifted, never repainted."""
+    rest = load(PACK / "textures" / "characters" / f"survivor_{view}.png")
+    top = rows_of(rest)[0]
+    return top + round(CHEST * (rest.size[1] - top))
+
+
 def survivor(build):
     fam = "body_survivor"
     members = {}
@@ -333,6 +394,7 @@ def survivor(build):
             cell = strip.crop((x0, INPUT_AT[1], x0 + SURVIVOR_CANVAS[0], INPUT_AT[1] + SURVIVOR_CANVAS[1]))
             cells.append(ground(drop_specks(binary(cell))))
         cells = restore_shorts(cells, rest.crop((0, 0) + SURVIVOR_CANVAS))
+        cells = [drop_hip_seams(close_outline(c)) for c in cells]
         for n, cell in enumerate(cells):
             rel = f"textures/characters/motion/survivor_walk_{view}_{n:02d}.png"
             build.put(PACK / rel, cell)
@@ -347,7 +409,7 @@ def survivor(build):
             entry["hands"] = dict(sorted(hands.items()))
             members[f"{fam}_walk_{view}_{n}"] = entry
             walk.append(rel)
-        cut = rows_of(rest)[0] + round(CHEST * (rest.size[1] - rows_of(rest)[0]))
+        cut = survivor_breath_cut(view)
         breath = shift_above(rest, cut, -1)
         rel = f"textures/characters/motion/survivor_idle_{view}_01.png"
         build.put(PACK / rel, breath)

@@ -23,6 +23,10 @@ frames came back with the hips bare (skin and a black line where the pack's grey
 `restore_shorts` puts the band back where the cycle's neighbouring frames have it, in the rest
 view's own grey, so the shorts never vanish mid-stride and the clothing painter
 (`../clothing/parts.py`), which finds every frame's waist by that band, can dress all of them.
+`close_outline` closes the ink ring where a generated pixel of skin or cloth touched the outside
+(open on one side it becomes ink; open on two or more it is cleared), and `drop_hip_seams` lifts
+the line of ink two east frames drew across the top of the legs, which showed through every pair
+of trousers as a stripe.
 
 **The zombies' in-betweens and every breath are mechanical.** Each zombie family keeps its four
 pack poses as frames 0, 2, 4 and 6; frames 1, 3, 5 and 7 are the pose before them with the rows
