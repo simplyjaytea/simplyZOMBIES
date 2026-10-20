@@ -233,9 +233,10 @@ def plan(action, view):
         # the head more than three pixels or comes home more than one at a time.
         if fx:
             return [{"dx": -fx}, {"dx": 2 * fx}, {"dx": 3 * fx}, {"dx": 2 * fx}, {"dx": fx}]
-        # Toward or away from the camera the upper body goes down or up the screen instead, the
-        # knees braced apart under it on the throw.
-        return [{"dy": -fy}, {"dy": 2 * fy, "wide": 1}, {"dy": 3 * fy, "wide": 1}, {"dy": 2 * fy}, {"dy": fy}]
+        # Toward or away from the camera the upper body goes down or up the screen instead, two
+        # rows a beat at most (a three-row throw grew the body by over 15% in one beat, art review
+        # round 2), the feet where they stood.
+        return [{"dy": -fy}, {"dy": fy}, {"dy": 3 * fy}, {"dy": 2 * fy}, {"dy": fy}]
     if action == "stagger":
         # Knocked back off its feet's line, reeling, catching itself. Seen from the front or the
         # back the knock is a pixel away from the blow on the first two beats as well as the sway:
@@ -251,16 +252,15 @@ def plan(action, view):
         # five beats as the generated views, so the guard is frame 0 and the strike frames 1-4.
         return [{"dx": -2, "dy": -1}, {"dx": 2, "step": 1}, {"dx": 3, "step": 1}, {"dx": 2}, {"dx": 1}]
     if action == "fall":
-        # The knees go, the body pitches toward the side it falls to, and goes down over them; the
-        # corpse pass then lands the settled picture, lying the same way (presentation/appearance.gd
-        # `corpse_rect`), from the feet this stood on. The feet are kept to the end: only the legs
-        # above them fold, and the upper body sinks over the thighs for whatever they cannot.
+        # The knees go, then the body goes over toward the side it falls to, turned about the
+        # leading sole ten degrees a beat until it lies flat across the screen -- the last frame is
+        # the corpse (presentation/main.gd `_draw_corpse` settles on it), so nothing changes shape
+        # on the cut. Ten degrees a beat keeps every step inside art review's bounds (2026-10-20:
+        # mass at most 15%, the centre of mass at most 4 px, no edge more than 6 px, the soles never
+        # lifting); twenty did not. The feet are kept to the end: only the legs above them fold.
         side = FALL_SIDE[view]
-        return [
-            {"fold": 2, "dx": side, "keep_feet": True},
-            {"fold": 3, "keep_feet": True, "turn": 20 * side},
-            {"fold": 3, "keep_feet": True, "turn": 40 * side},
-            {"fold": 4, "keep_feet": True, "turn": 60 * side},
+        return [{"fold": 2, "dx": side, "keep_feet": True}] + [
+            {"fold": 3, "keep_feet": True, "turn": degrees * side} for degrees in FALL_TURNS
         ]
     raise ValueError(action)
 
@@ -272,8 +272,11 @@ def plan(action, view):
 FALL_SIDE = {"e": 1, "w": -1, "s": 1, "n": -1}
 
 
-# The fall canvas: the family's height, and wide enough for a body turned 60 degrees about its feet
-# to lie out to either side -- FALL_REACH columns each side of the standing canvas's middle.
+# The fall's turns, in degrees from upright, one a beat: down to lying flat.
+FALL_TURNS = (10, 20, 30, 40, 50, 60, 70, 80, 90)
+
+# The fall canvas: the family's height, and wide enough for a body lying flat from its feet to
+# either side -- FALL_REACH columns each side of the standing canvas's middle.
 FALL_REACH = 48
 
 
@@ -321,7 +324,10 @@ def _scale2x(im):
 # Rotation in whole numbers: cosines and sines to TURN_ONE, so the same frame comes out of every
 # Python (CLAUDE.md's float trap -- byte-compared output must not decide a pixel in float math).
 TURN_ONE = 4096
-TURN_TABLE = {20: (3849, 1401), 40: (3138, 2633), 60: (2048, 3547)}
+TURN_TABLE = {
+    10: (4034, 711), 20: (3849, 1401), 30: (3547, 2048), 40: (3138, 2633), 50: (2633, 3138),
+    60: (2048, 3547), 70: (1401, 3849), 80: (711, 4034), 90: (0, 4096),
+}
 
 
 def turn_about_feet(im, degrees):
@@ -330,9 +336,8 @@ def turn_about_feet(im, degrees):
     is a copy of an input pixel, so no colour is invented. Turned `degrees` (positive clockwise:
     the head toward the east) about the outer edge of the leading sole on the bottom row -- a body
     tips over the foot on the side it falls to, so nothing turns below the floor -- then outlined
-    again where the turn opened the pack's black edge. 60 degrees is about the slope the pack's
-    corpses lie at (wider than tall, 30-35 degrees off the floor line): the last turned frame lies
-    the way the settled picture after it does."""
+    again where the turn opened the pack's black edge. At 90 degrees the body lies flat across the
+    screen: that last frame is the corpse."""
     big = _scale2x(_scale2x(_scale2x(im)))
     w, h = im.size
     bw, bh = big.size
@@ -350,6 +355,8 @@ def turn_about_feet(im, degrees):
     # out past the toes) is kept, then stood back on the bottom row of the family's own height.
     out = Image.new("RGBA", (w, 2 * h), (0, 0, 0, 0))
     o = out.load()
+    # Where each output pixel was sampled from, in the source picture's own pixels.
+    origin = {}
     for y in range(2 * h):
         for x in range(w):
             # This output pixel's centre, in eighths, turned back by the angle onto the source.
@@ -361,28 +368,41 @@ def turn_about_feet(im, degrees):
                 p = src[sx, sy]
                 if solid(p):
                     o[x, y] = p
+                    origin[(x, y)] = (sx // 8, sy // 8)
     low = rows_of(out)[-1]
-    out = out.crop((0, low + 1 - h, w, low + 1))
-    return ground(_reoutline(out, im))
+    top = low + 1 - h
+    out = out.crop((0, top, w, low + 1))
+    origin = {(x, y - top): q for (x, y), q in origin.items() if top <= y <= low}
+    return ground(_reoutline(out, im, origin))
 
 
-def _reoutline(out, im):
-    """Rings any solid pixel the turn left on the silhouette's edge without the pack's outline
-    colour: the darkest colour of the source picture, copied, never a new one."""
+def _on_edge(o, x, y, w, h):
+    for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+        if not (0 <= nx < w and 0 <= ny < h) or not solid(o[nx, ny]):
+            return True
+    return False
+
+
+def _reoutline(out, im, origin):
+    """Rings with the pack's outline colour (the darkest colour of the source picture, copied,
+    never a new one) only what the turn opened: a solid pixel on the silhouette's edge that was
+    sampled from inside the source picture, not from its edge. The pack's own edge keeps its own
+    colours (much of it is not the darkest), so a turned body's outline reads as the standing
+    one's rather than heavier (art review round 2)."""
     px = im.load()
     w, h = im.size
     ink = min((px[x, y] for y in range(h) for x in range(w) if solid(px[x, y])), key=lambda p: p[0] + p[1] + p[2])
     o = out.load()
-    edge = []
+    opened = []
     for y in range(h):
         for x in range(w):
-            if not solid(o[x, y]):
+            if not solid(o[x, y]) or not _on_edge(o, x, y, w, h):
                 continue
-            for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
-                if not (0 <= nx < w and 0 <= ny < h) or not solid(o[nx, ny]):
-                    edge.append((x, y))
-                    break
-    for x, y in edge:
+            sx, sy = origin.get((x, y), (-1, -1))
+            if 0 <= sx < w and 0 <= sy < h and _on_edge(px, sx, sy, w, h):
+                continue
+            opened.append((x, y))
+    for x, y in opened:
         p = o[x, y]
         if p[0] + p[1] + p[2] > ink[0] + ink[1] + ink[2] + 60:
             o[x, y] = ink

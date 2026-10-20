@@ -846,6 +846,8 @@ static func corpse_look(world: Variant, it: Dictionary) -> Dictionary:
 	if poses is Array and not (poses as Array).is_empty():
 		key = String((poses as Array)[posmod(entity / 3, (poses as Array).size())])
 	var look: Dictionary = for_entity(world, it)
+	# The living body's family, for the fall's own lying frame (`lying_key`).
+	look["body"] = String(look.get("sprite", ""))
 	look["sprite"] = key
 	var texture: Texture2D = resolve(key)
 	look["texture"] = texture
@@ -858,106 +860,28 @@ static func corpse_look(world: Variant, it: Dictionary) -> Dictionary:
 
 
 # A prone canvas is wider than it is tall and anchored at its ground centre. Shape-based
-# standing anchors would put a 48x40 corpse almost a tile north of the place the body fell.
-#
-# Given `feet` -- where in the picture the dead body's feet are (`corpse_feet`) -- it lies from
-# there instead: the feet on the sole line `body_rect` stands a living body on, so a body that falls
-# lands from the feet it stood on, its mass carried on the way it fell (docs/23, "Falls that land").
-# `flip` mirrors it, in place, so it lies the other way.
-static func corpse_rect(sx: float, sy: float, size: Vector2, feet: Vector2 = Vector2(-1, -1), flip: bool = false, scale: float = 1.0) -> Rect2:
-	if feet.x < 0.0:
-		return Rect2(Vector2(roundf(sx - size.x / 2.0), roundf(sy - size.y / 2.0)), size)
-	var fx: float = (size.x / scale - 1.0 - feet.x) if flip else feet.x
-	var left: float = roundf(sx - (fx + 0.5) * scale)
-	var top: float = roundf(sy + FOOT_DROP_PX - (feet.y + 1.0) * scale)
-	return Rect2(left, top, size.x * (-1.0 if flip else 1.0), size.y)
+# standing anchors would put a 48x40 corpse almost a tile north of the place the body fell. The
+# pack's corpse pictures are drawn this way only for a body whose family has no fall: a body that
+# falls lies as its own last fall frame (`lying_key`).
+static func corpse_rect(sx: float, sy: float, size: Vector2) -> Rect2:
+	return Rect2(Vector2(roundf(sx - size.x / 2.0), roundf(sy - size.y / 2.0)), size)
 
 
-# --- falls that land ----------------------------------------------------------------------------
+# --- falls that lie down -----------------------------------------------------------------------
 #
-# A body falls to one side and its corpse lies that way. Which side, from each view: a side view
-# falls the way it faces, and the front and back views crumple to one side, the south view to the
-# east and the north to the west -- the frames that say so are built by
-# art/simplyzombies/motion/actions.py, whose FALL_SIDE is this table. +1 is east, -1 west.
+# A body falls to one side and lies there. Which side, from each view: a side view falls the way it
+# faces, and the front and back views crumple to one side, the south view to the east and the
+# north to the west -- the frames are built by art/simplyzombies/motion/actions.py, whose
+# FALL_SIDE is this table (+1 east, -1 west); godot:check:action holds the frames to it.
 const FALL_SIDE: Dictionary = {"e": 1, "w": -1, "s": 1, "n": -1}
-# Which way each corpse picture lies, by its pose (the key's last word): the head east (+1) or
-# west (-1). Every corpse picture in the pack lies across the screen; the prone ones head east,
-# the supine and the side-lying ones west. A pose missing here is refused by godot:check:action.
-const CORPSE_HEAD: Dictionary = {"prone": 1, "supine": -1, "side": -1, "supine_diagonal": -1}
-# How many art pixels short of the ground the landing beat draws the corpse, the last beat of a
-# fall before the settled picture: the body hits, and settles.
-const LAND_RAISE: int = 2
-# The columns, from the end opposite the head, a corpse's feet are measured over.
-const FEET_COLUMNS: int = 4
-const ALPHA_SOLID_8: int = 128
-static var _feet_cache: Dictionary = {}
 
 
-# The pose a corpse key names: its last word, or the two-word diagonal.
-static func corpse_pose(key: String) -> String:
-	if key.ends_with("_supine_diagonal"):
-		return "supine_diagonal"
-	return key.get_slice("_", key.get_slice_count("_") - 1)
-
-
-# +1 when the picture's head is east, -1 when west, 0 for a pose this does not know.
-static func corpse_head(key: String) -> int:
-	return int(CORPSE_HEAD.get(corpse_pose(key), 0))
-
-
-# Whether the corpse picture is drawn mirrored for a body that fell from `view`: when it lies the
-# other way from the side that view falls to.
-static func corpse_flip(key: String, view: String) -> bool:
-	var head: int = corpse_head(key)
-	return head != 0 and FALL_SIDE.has(view) and head != int(FALL_SIDE[view])
-
-
-# Where a corpse picture's feet are, in its own pixels: the end opposite its head, over the last
-# FEET_COLUMNS solid columns there for the column (the mean column of their solid pixels), and the
-# picture's lowest solid row for the row: the row the body rests on, which the fall's last frame
-# stood on too. (-1, -1) for no picture or a pose with no head. Read off the decoded picture once.
-static func corpse_feet(key: String) -> Vector2:
-	if _feet_cache.has(key):
-		return _feet_cache[key] as Vector2
-	var out: Vector2 = Vector2(-1, -1)
-	var head: int = corpse_head(key)
-	var texture: Texture2D = resolve(key)
-	if texture != null and head != 0:
-		var image: Image = texture.get_image()
-		if image != null:
-			out = feet_of(image, head)
-	_feet_cache[key] = out
-	return out
-
-
-static func feet_of(image: Image, head: int) -> Vector2:
-	var w: int = image.get_width()
-	var h: int = image.get_height()
-	var cols: Array[int] = []
-	for x in w:
-		for y in h:
-			if image.get_pixel(x, y).a8 >= ALPHA_SOLID_8:
-				cols.append(x)
-				break
-	if cols.is_empty():
-		return Vector2(-1, -1)
-	var end: int = cols[0] if head > 0 else cols[cols.size() - 1]
-	var sum_x: float = 0.0
-	var n: int = 0
-	var low: int = -1
-	for x in w:
-		if (head > 0 and x > end + FEET_COLUMNS - 1) or (head < 0 and x < end - FEET_COLUMNS + 1):
-			continue
-		for y in h:
-			if image.get_pixel(x, y).a8 >= ALPHA_SOLID_8:
-				sum_x += float(x)
-				n += 1
-	for y in h:
-		for x in w:
-			if image.get_pixel(x, y).a8 >= ALPHA_SOLID_8:
-				low = y
-				break
-	return Vector2(roundf(sum_x / float(n)), float(low)) if n > 0 else Vector2(-1, -1)
+# The settled picture of a body of family `key` that fell from `view`: its fall's last frame, the
+# body turned flat across the screen (docs/23, "Falls that lie down"), or "" when the family has no
+# fall there -- the corpse pass then draws the pack's corpse picture.
+static func lying_key(key: String, view: String) -> String:
+	var frames: int = action_frames(key, "fall", view)
+	return "" if frames <= 0 else "%s_fall_%s_%d" % [key, view, frames - 1]
 
 
 # Picking uses the same content-selected canvas as the live renderer; the heavy occupies a
@@ -1360,14 +1284,6 @@ static func action_key(key: String, view: String, motion: Dictionary) -> String:
 static func fall_key(key: String, view: String, elapsed: float) -> String:
 	var idx: int = action_index(key, "fall", view, elapsed)
 	return "" if idx < 0 else "%s_fall_%s_%d" % [key, view, idx]
-
-
-# Whether a fall `elapsed` in is on its landing beat: the one beat after its last frame, when the
-# corpse pass draws the settled picture LAND_RAISE short of the ground (main.gd `_draw_corpse`).
-static func fall_landing(key: String, view: String, elapsed: float) -> bool:
-	var frames: int = action_frames(key, "fall", view)
-	var fps: float = action_fps(key, "fall")
-	return frames > 0 and fps > 0.0 and int(floor(maxf(0.0, elapsed) * fps)) == frames
 
 
 # The one picture a body draws: the member of its family for this view and this motion, or the key

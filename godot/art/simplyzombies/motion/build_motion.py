@@ -103,13 +103,14 @@ ACTION_TIMING = {
         "crouch": {"fps": 1, "loop": True},
         "crouchwalk": {"fps": 16, "loop": True},
         "prone": {"fps": 16, "loop": True},
-        "fall": {"fps": 10, "loop": False},
+        # Ten beats down to lying flat (actions.FALL_TURNS): 0.83 s.
+        "fall": {"fps": 12, "loop": False},
     },
-    "zombie": {"lunge": {"fps": 10, "loop": False}, "stagger": {"fps": 8, "loop": False}, "fall": {"fps": 8, "loop": False}},
-    "body_zombie_heavy": {"lunge": {"fps": 8, "loop": False}, "stagger": {"fps": 6, "loop": False}, "fall": {"fps": 6, "loop": False}},
+    "zombie": {"lunge": {"fps": 10, "loop": False}, "stagger": {"fps": 8, "loop": False}, "fall": {"fps": 12, "loop": False}},
+    "body_zombie_heavy": {"lunge": {"fps": 8, "loop": False}, "stagger": {"fps": 6, "loop": False}, "fall": {"fps": 10, "loop": False}},
     # The bloater is the heavy's size and carries the same weight: at the common zombie's rates its
     # lunge read as a twitch (art review, 2026-10-20).
-    "body_zombie_bloater": {"lunge": {"fps": 8, "loop": False}, "stagger": {"fps": 6, "loop": False}, "fall": {"fps": 6, "loop": False}},
+    "body_zombie_bloater": {"lunge": {"fps": 8, "loop": False}, "stagger": {"fps": 6, "loop": False}, "fall": {"fps": 10, "loop": False}},
 }
 
 

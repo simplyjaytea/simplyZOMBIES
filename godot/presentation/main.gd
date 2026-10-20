@@ -244,6 +244,9 @@ var _focal_drawn: Array[Dictionary] = []
 # draw call itself, so check_action.gd's FALL lane can prove a published death reaches the
 # picture (the dead-socket rule) without trusting anything but what was drawn.
 var _falls_drawn: Array[Dictionary] = []
+# Every settled body the last draw laid down as its own lying frame, `{id, key}`: the same proof
+# for the settled half (check_action.gd's FALL lane).
+var _lying_drawn: Array[Dictionary] = []
 var _a2_wall_pieces: Array[Dictionary] = []
 var _a2_wall_drawn: Array[Dictionary] = []
 var _content_poll_at: float = -1e9
@@ -2571,43 +2574,41 @@ func _draw_corpse(it: Dictionary, px_scale: float) -> void:
 	if int(it["det"]) != SimVisibility.Detail.Focal:
 		return
 	var look: Dictionary = Appearance.corpse_look(world, it)
-	var texture: Texture2D = look.get("texture") as Texture2D
-	if texture == null:
-		return
 	var sx: float = float(it["sx"])
 	var sy: float = float(it["sy"])
 	var id: int = int(it["id"])
-	var key: String = String(look.get("sprite", ""))
-	var size: Vector2 = texture.get_size() * px_scale
 	# A body that has just died falls before it settles (presentation/anim_clock.gd's `fall_of`):
 	# its own family's fall frames, from the view it was last drawn facing, standing on the point
-	# it died on, then one beat of the settled picture landing, until the settled picture below
-	# takes over. The corpse lies from the feet the body stood on, the way it fell (docs/23, "Falls
-	# that land"): mirrored when the picture lies the other way.
+	# it died on, in the clothes it was last drawn in. It then lies as the fall's last frame, the
+	# body turned flat across the screen (docs/23, "Falls that lie down"), so nothing changes shape
+	# on the cut; a body the clock never saw fall lies by the heading it died with.
 	var fall: Dictionary = _anim.fall_of(id)
 	var view: String = String(fall["view"]) if not fall.is_empty() else _anim.landed_view(id)
 	if view.is_empty():
 		view = _corpse_view(it)
-	var feet: Vector2 = Appearance.corpse_feet(key)
-	var flip: bool = Appearance.corpse_flip(key, view)
-	if not fall.is_empty():
-		var fall_key: String = Appearance.fall_key(String(fall["key"]), String(fall["view"]), float(fall["t"]))
-		# In the clothes it fell in: the outfit the clock recorded as it was last drawn standing.
-		var outfit: Array = fall.get("outfit", []) as Array
-		var falling: Texture2D = null
-		if not fall_key.is_empty():
-			falling = Appearance.dressed_texture(String(fall["key"]), fall_key, outfit) if not outfit.is_empty() else null
-			if falling == null:
-				falling = Appearance.resolve(fall_key)
-		if falling != null:
-			draw_texture_rect(falling, Appearance.body_rect(sx, sy, falling.get_size() * px_scale, 1.0), false, look["tint"] as Color)
-			_falls_drawn.append({"id": id, "key": fall_key, "dressed": not outfit.is_empty() and falling != Appearance.resolve(fall_key)})
+	var body: String = String(fall["key"]) if not fall.is_empty() else String(look.get("body", ""))
+	var outfit_v: Variant = fall.get("outfit", []) if not fall.is_empty() else look.get("outfit", [])
+	var outfit: Array = outfit_v as Array if outfit_v is Array else []
+	var frame: String = Appearance.fall_key(body, view, float(fall["t"])) if not fall.is_empty() else ""
+	var falling: bool = not frame.is_empty()
+	if not falling:
+		frame = Appearance.lying_key(body, view)
+	if not frame.is_empty():
+		var dressed: Texture2D = Appearance.dressed_texture(body, frame, outfit) if not outfit.is_empty() else null
+		var picture: Texture2D = dressed if dressed != null else Appearance.resolve(frame)
+		if picture != null:
+			draw_texture_rect(picture, Appearance.body_rect(sx, sy, picture.get_size() * px_scale, 1.0), false, look["tint"] as Color)
+			var drawn: Dictionary = {"id": id, "key": frame, "dressed": dressed != null}
+			if falling:
+				_falls_drawn.append(drawn)
+			else:
+				_lying_drawn.append(drawn)
 			return
-		if Appearance.fall_landing(String(fall["key"]), String(fall["view"]), float(fall["t"])):
-			draw_texture_rect(texture, Appearance.corpse_rect(sx, sy - float(Appearance.LAND_RAISE) * px_scale, size, feet, flip, px_scale), false, look["tint"] as Color)
-			_falls_drawn.append({"id": id, "key": "%s@land" % key})
-			return
-	draw_texture_rect(texture, Appearance.corpse_rect(sx, sy, size, feet, flip, px_scale), false, look["tint"] as Color)
+	# A family with no fall: the pack's corpse picture, on its ground centre.
+	var texture: Texture2D = look.get("texture") as Texture2D
+	if texture == null:
+		return
+	draw_texture_rect(texture, Appearance.corpse_rect(sx, sy, texture.get_size() * px_scale), false, look["tint"] as Color)
 
 
 # The view a corpse the clock never saw fall lies by: its facing when it died -- a dead human's
@@ -2627,6 +2628,7 @@ func _draw_entities() -> void:
 	if world == null: return
 	_focal_drawn = []
 	_falls_drawn = []
+	_lying_drawn = []
 	_interp.begin_draw()
 	_anim.begin_draw(_anim_time)
 	var sub_tick: float = _sub_tick()
