@@ -3287,7 +3287,9 @@ not a to-do list:
   the pack's own frames at one art pixel to one (`fx-blood-pool-fresh/dry`,
   `fx-bullet-hole-concrete/metal`, `fx-scorch-mark`, `fx-wood-chips`, sourced through
   `authored.json` as the new kind `decal`, plus the existing `fx_blood_hit` frames for splats and
-  drips), turned and flipped by the record's variant, three hit frames for a splat. Each mark is
+  drips), turned and flipped by the record's variant (0..63: the low three bits the turn, the
+  rest the picture), three hit frames for a splat; the first cut drew variants 0..7, whose high
+  bits never reached a second picture, so one spray repeated in one turn across a fight. Each mark is
   cut hard (alpha 0 or 255: the pack's frames carry a faint fringe of alpha 1 to 94 that darkened
   the ground round every mark and mixed new shades where marks overlapped), drawn in its frame's own
   colours, and old blood with no dry picture of its own takes the dry pool's browns shade for shade,
@@ -3299,13 +3301,18 @@ not a to-do list:
   that spills into it changes, or a mark in it changes stage. A wall tile's cell is cleared from the
   bake so blood never paints over a cap. Wall marks are single draws: on the ground pass for a cap
   with no picture, by `_draw_a2_wall_piece` on a standing wall's face, and by `_blit_vehicle` over a
-  car. **Shown only on a tile in the live sight set**, never the remembered map. **Defaults
+  car. **Shown only on a tile in the live sight set**, never the remembered map: the remembered
+  street is already drawn as a memory of a surface and not of the litter on it (`main.gd`'s
+  remembered floor arm draws no road paint, scrap, props or dressing), and a mark drawn there
+  would also be news the player never earned. Drawing what the player last saw on a remembered
+  tile would need a per-tile memory of the marks; it is not built. **Defaults
   chosen** where the brief forked, closest to Zomboid: a pool spreads from a splash over five
   seconds and browns after a quarter of a day; rain does not wash blood (there is no cleaning
   yet); zombie and human blood are the one picture. **Gated.** New `npm run godot:check:decals` →
   `DECALS_OK`, in the `godot:m2` chain after `godot:check:fx`, twelve lanes each red both ways:
   HIT, UNSEEN, POOL, BLEED, ROUND, SCORCH, BOUND, BAKE, SAVE, WALL, MATTE and DRAWN (the gate's
-  header names what each holds; MATTE also holds every cut hard-edged in the pack's own colours,
+  header names what each holds; HIT also holds that 240 splats reach all 24 picture-and-turn
+  pairs and refuses variants 0..7; MATTE also holds every cut hard-edged in the pack's own colours,
   fresh and dried, and refuses the raw frame's fringe). `check_fx.gd`'s ADMITS accepts an `fx_` key declared as a decal,
   and `check_authored.gd`'s READS lane accepts a decal read by a function of the code that names
   its key. **Sabotage pass**, each red and restored: the sight test removed → UNSEEN and DRAWN;
@@ -3314,7 +3321,11 @@ not a to-do list:
   BAKE ("a frame with nothing new re-baked 9 chunks"); neighbour spill ignored → BAKE ("re-baked 1
   chunks, not 2"); the hard cut skipped → MATTE ("alpha 244"); the dry remap skipped → MATTE ("a
   colour 46010a … that is not the pack's"). A with-and-without render of one frame of the restaged
-  fight differs only under the marks and under the translucent edges of bodies standing on them.
+  fight differs only under the marks; of the pixels that change by more than six levels, 94% are
+  exact pack blood colours, and the rest sit under the translucent edges of bodies and props.
+  The pack's body art is not fully opaque (most of its pixels are alpha 252 to 254), so a mark
+  under a body shifts the body's own pixels by one or two levels; that is the body art's, not
+  the mark's.
   **Measured**, with a throwaway driver built on the frame bench's harness and
   deleted afterwards, on this container's llvmpipe at 1280 × 720 with every visible chunk full (850
   marks placed, 365 kept, 337 tile runs drawn): the per-mark draw this slice first had cost 1.67 ms

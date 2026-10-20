@@ -9,8 +9,9 @@ extends SceneTree
 # screen until the player walks round and looks. Each lane is red both ways.
 #
 #   HIT      a blow leaves one splat, thrown past the body away from the attacker; a bite leaves
-#            one under the bitten body. TN: a step with no blow leaves nothing; a splat that would
-#            land in a wall lands under the body instead.
+#            one under the bitten body; splats reach every spray picture in all eight turns. TN: a
+#            step with no blow leaves nothing; a splat that would land in a wall lands under the
+#            body instead; variants 0..7 are refused as too few.
 #   UNSEEN   a blow behind a wall is recorded and draws nothing; the same mark draws once its tile
 #            is in the player's sight. TN: a mark on a seen tile draws on the first frame.
 #   POOL     a death leaves one pool however many times `entity.killed` fires for it (three
@@ -194,8 +195,33 @@ func _a_blow_leaves_a_splat() -> bool:
 		if SimTileMap.is_solid(w2.tilemap, floori(p.x), floori(p.y)):
 			push_error("HIT: a splat landed inside the wall at %s" % str(p))
 			return false
-	print("HIT OK a blow threw one splat %.2f m east of a body struck from the west, a bite left one, quiet steps left none, and twelve blows against a wall put nothing in it" % off.length())
+	# Variety: splats from the real sim cover every spray picture in every turn, so no two in a
+	# view are the same stamp more often than chance. TN: the predicate refuses variants 0..7, the
+	# range whose high bits never chose a second picture.
+	var w3: Variant = _world()
+	for i in 240:
+		SimDecals.add(w3, "splat", 2.0 + float(i % 20) * 0.9, 1.0 + float(i / 20) * 0.9)
+	var vs: Array = []
+	for r in _of(w3, "splat"):
+		vs.append(int((r as Dictionary)["v"]))
+	var why: String = variety_complaint(vs)
+	if not why.is_empty():
+		push_error("HIT: %s" % why)
+		return false
+	if variety_complaint(range(8)).is_empty():
+		push_error("HIT: the variety test passed variants 0..7; it proves nothing")
+		return false
+	print("HIT OK a blow threw one splat %.2f m east of a body struck from the west, a bite left one, quiet steps left none, twelve blows against a wall put nothing in it, and 240 splats used every spray picture in every turn" % off.length())
 	return true
+
+
+# Why a set of splat variants does not reach every spray picture in all eight turns, or "".
+static func variety_complaint(variants: Array) -> String:
+	var seen_pairs: Dictionary = {}
+	for v in variants:
+		seen_pairs["%s/%d" % [DecalLook.art_for("splat", 1, 0, int(v)), int(v) & 7]] = true
+	var want: int = DecalLook.SPLAT_FRAMES.size() * 8
+	return "" if seen_pairs.size() == want else "splats reached %d of the %d spray picture and turn pairs" % [seen_pairs.size(), want]
 
 
 # --- UNSEEN ------------------------------------------------------------------------------------
