@@ -282,9 +282,11 @@ func _the_remembered_map_stays_known_after_walking_away(main: Node, world: Varia
 		return false
 
 	# Walk far enough away that the tile drops out of the cone -- any movement recasts the
-	# player's own (non-lit-target) shadowcast, so one step is enough.
+	# player's own (non-lit-target) shadowcast. Under SimVisibility.STAGGER_PLAYER_CAST that
+	# recast lands one tick after the step rather than on it, so the control steps twice.
 	var far: Vector2 = _pos_of(world, int(world.player)) - Vector2(200.0, 200.0)
 	world.components.set_component(int(world.player), "position", {"x": clampf(far.x, 1.0, float(world.map_width) - 2.0), "y": clampf(far.y, 1.0, float(world.map_height) - 2.0)})
+	world.step()
 	world.step()
 	var seen: Variant = world.vision.tiles_for(int(world.player))
 	if seen != null and bool((seen as Object).call("has_tile", tx, ty)):

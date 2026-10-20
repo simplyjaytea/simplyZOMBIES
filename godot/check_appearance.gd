@@ -128,6 +128,13 @@ func _appearance_key_ok(k: String, path: String) -> bool:
 		return false
 	if k == "corpseSprites":
 		return path.begins_with("zombies/") or path.begins_with("players/")
+	# `outfit` ("clothe everyone", docs/23, 2026-10-19): the default garments a survivor-rig body
+	# wears in an empty torso, legs or feet slot. Only the player block carries it; every other
+	# survivor-rig body falls back to it (`Appearance.outfit_of`), as corpses fall back to the
+	# player's corpse poses. Its shape is player.schema.json's, which the oracle's Ajv recurses into,
+	# and godot:check:authored's READS lane holds every name in it to a garment.
+	if k == "outfit":
+		return path.begins_with("players/")
 	return k == "variants" and (path.begins_with("vehicles/") or path.begins_with("zombies/"))
 
 
@@ -159,6 +166,13 @@ func _declared_appearances_are_well_formed() -> bool:
 	for denied in ["vehicles/sedan.json#vehicle.sedan", "items/clothing.json#item.jacket", "props/stations.json#prop.bed", "raiders/scav.json#raider.scav", "survivors/uniques/mara.json#survivor.unique.mara", "colony/looks.json#colony.look.01"]:
 		if _appearance_key_ok("corpseSprites", denied):
 			push_error("the appearance allowlist accepts 'corpseSprites' outside players and zombies: %s" % denied)
+			return false
+	if not _appearance_key_ok("outfit", "players/player.json#player.body"):
+		push_error("the appearance allowlist refuses 'outfit' on the player, which is where the default clothes live")
+		return false
+	for denied in ["zombies/shambler.json#zombie.shambler", "items/clothing.json#item.jacket", "survivors/uniques/mara.json#survivor.unique.mara", "raiders/scav.json#raider.scav"]:
+		if _appearance_key_ok("outfit", denied):
+			push_error("the appearance allowlist accepts 'outfit' outside the player block: %s" % denied)
 			return false
 	for path in ["vehicles/sedan.json#vehicle.sedan", "zombies/shambler.json#zombie.shambler"]:
 		if _appearance_key_ok("sprrite", path):
