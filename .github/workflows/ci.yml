@@ -92,7 +92,7 @@ jobs:
       - name: Sprite reproducibility
         run: npm run sprites:check
 
-      # The agent routing table in AGENTS.md is a set of claims -- this path, this script, this
+      # The agent routing table in CLAUDE.md is a set of claims -- this path, this script, this
       # heading -- and every gate under godot/ must be reachable from an npm script. Node only,
       # a second or so; it runs before any engine gate so a stale route is the first red, not
       # the last.
@@ -105,6 +105,11 @@ jobs:
       # Node only, no engine involved.
       - name: Per-gate timing table
         run: npm run check:timing
+
+      # The shard split of godot:m2 (scripts/m2-shards.mjs) must run every chained gate exactly once.
+      # A gate added to the chain but to no shard fails here, rather than being left out of CI.
+      - name: Godot m2 shard layout
+        run: npm run check:shards
 
       # The strict shipped-runtime commands currently expose existing product overruns.
       # Keep their exit/fixture contract enforced while optimization remains open; do not
@@ -136,21 +141,21 @@ jobs:
       - name: R6 soak (memory/save/input/pause/tab)
         run: npm run godot:r6:soak
 
-  godot-m2:
+  # The Milestone 2 chain, split across parallel shards (scripts/m2-shards.mjs). The unsplit chain
+  # took 40m45s on one runner (job 118220307956, 85 gates, 2439 s of gate time, measured on
+  # 2b48fef). godot:m2:balance alone is 791 s of that, so the slowest shard is that gate by itself:
+  # the other three shards hold the remaining ~1650 s between them. Each shard is its own runner,
+  # so each has a separate user:// store. Re-measure when a shard's table grows past 15 minutes.
+  godot-m2-shard:
     runs-on: ubuntu-latest
-    # 45, and measured rather than guessed: the whole chain is **26m45s** wall clock, 69 gates
-    # green, measured 2026-09-12 on a project container at 362 bases. The ~11.8 min this file
-    # used to quote was 2026-09-04 at 51 gates, so the chain has grown 2.3x while that number
-    # sat here looking authoritative -- which is most of why `check` kept dying.
-    #
-    # Measured on CI too, once this job existed: **19m32s** for all 69 gates on 975efb5, which
-    # is FASTER than the container above rather than comparable, and faster than the cancelled
-    # run's ~28 minutes to reach gate 67 -- so that run was having a bad day on a shared runner
-    # as well as being out of budget. 45 therefore leaves well over twice the headroom actually
-    # needed, and slice 15's dressed arm (which roughly doubles the balance tier) fits easily.
-    # Re-measure when the chain grows; do not simply raise this, which is the instalment the
-    # split exists to stop paying.
-    timeout-minutes: 45
+    # A backstop, not the fix: the slowest shard is 13.2 min of gates plus setup. Raise this only
+    # after re-measuring a shard, never to hide growth.
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    name: godot-m2 shard ${{ matrix.shard }} of 4
     steps:
       - uses: actions/checkout@v4
 
@@ -187,34 +192,28 @@ jobs:
         shell: bash
         run: echo "GODOT_BIN=$PWD/.ci-tools/godot/Godot_v4.7.1-stable_linux.x86_64" >> "$GITHUB_ENV"
 
-      # Every Milestone 2 gate, chained by the npm script (count them off the script itself:
-      # every number written here has drifted, 42 then 45 then 51), and the same command
-      # CLAUDE.md tells a contributor to run before every commit, so CI and the desk agree by
-      # construction rather than by two lists being kept in step. It is by far the longest step
-      # here -- **26m45s measured 2026-09-12**, 69 gates green, at 362 bases. The previous
-      # figure was ~11.8 min on 2026-09-04 at 51 gates, of which five gates were 79%: balance
-      # 282 s, lethality 139 s, needs 70 s, raiders 36 s, worldgen 28 s. That per-gate split has
-      # NOT been re-measured and is left here as the last known breakdown rather than restated
-      # as current -- what is current is the total. A catalogue gate's cost scales with the
-      # roster, and the roster went from 152 bases to 362 in one arc, so the growth is not only
-      # the four added gates. Re-measure when the chain grows rather than raising the timeout
-      # again; the number belongs beside the thing it describes.
-      #
-      # The chain already ends with the three standing-ban gates, which used to be listed again
-      # as separate steps below and so ran twice on every push:
-      #
-      #   godot:ban:healthbar      the health-bar ban, made mechanical rather than merely
-      #                            stated -- it lived in the oracle's paperdoll.test.ts and is
-      #                            gated here so the ban survives that suite's retirement.
-      #                            docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable
-      #   godot:check:appearance   content_validator.gd does not recurse into nested objects, so
-      #                            `appearance`'s inner shape is enforced by a gate rather than
-      #                            by the schema at load time
-      #   godot:check:hud          the HUD speaks in words. Same reasoning as the health-bar
-      #                            ban: a number on screen invites optimising the number. Only
-      #                            the day counter is excepted
-      - name: Godot Milestone 2 gates (the whole chain, standing bans included)
-        run: npm run godot:m2
+      # Each shard runs the chained gates the layout assigns it (scripts/m2-shards.mjs), in chain
+      # order, and prints its own GATE_TIME_TABLE. The unsharded `npm run godot:m2` is unchanged.
+      - name: Godot Milestone 2 gates (shard ${{ matrix.shard }} of 4)
+        run: npm run godot:m2 -- --shard=${{ matrix.shard }}/4
+
+  # The required check, under the name branch protection already knows. It passes only when every
+  # shard succeeded: a failed or cancelled shard fails it, and `if: always()` stops a skipped
+  # parent from reading as a pass.
+  godot-m2:
+    needs: godot-m2-shard
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every shard passed
+        env:
+          SHARDS: ${{ needs.godot-m2-shard.result }}
+        run: |
+          if [ "$SHARDS" != "success" ]; then
+            echo "godot-m2 shards finished: $SHARDS"
+            exit 1
+          fi
 
   godot-exports:
     needs: [check, godot-m2]

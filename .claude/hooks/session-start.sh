@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-# Local machines and the Cursor Cloud snapshot already have their toolchain (AGENTS.md);
+# Local machines and the Cursor Cloud snapshot already have their toolchain (CLAUDE.md, Two different containers);
 # only the remote container starts empty.
 if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0

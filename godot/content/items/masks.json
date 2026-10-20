@@ -51,6 +51,7 @@
     "size": { "w": 2, "h": 3 },
     "massKg": 0.3,
     "equipSlot": "torso",
+    "appearance": {"equipSprite": "wear_coverall_paper"},
     "armor": { "torso": 0.1, "arm_left": 0.1, "arm_right": 0.1 },
     "filter": 0.5
   },
@@ -74,6 +75,7 @@
     "size": { "w": 3, "h": 3 },
     "massKg": 3.2,
     "equipSlot": "torso",
+    "appearance": {"equipSprite": "wear_suit_hazmat"},
     "armor": { "torso": 0.25, "arm_left": 0.25, "arm_right": 0.25 },
     "filter": 0.85
   },

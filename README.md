@@ -53,9 +53,16 @@ animations, an atlas, and native Godot resources. See the
 [offline preview](godot/art/simplyzombies-ui/simplyzombies-ui-preview.html).
 Run `godot/art/simplyzombies-ui/demo/demo.tscn` in Godot to try the native controls.
 The live UI uses the kit's frames, font, glyphs, cursors and animations through the shared chrome
-helpers, checked by `godot:check:ui_skin`. The inventory and work grid fit 1280×720 and 1920×1080,
-with scrolling for long condition lists, tall bags and larger rosters. See the
+helpers, checked by `godot:check:ui_skin`. The reviewed inventory and ordinary work layouts
+fit 1280×720 and 1920×1080, with scrolling for long condition lists, tall bags and larger rosters. See the
 [layout comparisons](.hermes/plans/2026-10-03_ui-layout/) for the reviewed panels.
+
+A complete [UI overhaul is being designed](docs/32-ui-overhaul.md): Project Zomboid-style
+management, Tarkov/Zero Sievert tactical detail, and an anatomical equipment diagram that
+fits the Dungeon Settlers-inspired world. The [all-screen audit](.hermes/plans/2026-10-03_ui-overhaul/audit/README.md)
+also identifies remaining skill-web/bench clipping, long learning-text overflow and vehicle
+HUD overlap. The [roadmap](docs/23-roadmap.md#ui-overhaul) describes the proposed delivery order;
+these improvements are not yet implemented.
 
 ## The loop, in five lines
 
@@ -153,7 +160,7 @@ npm run godot:run    # Godot — the game (also: godot:editor)
 
 If setup reports that it cannot link the engine onto `PATH`, set `GODOT_BIN` to the executable
 it prints before running the Godot commands. A headless machine also needs a display for play
-or screenshots; see [environment setup](AGENTS.md#running-the-game-gui).
+or screenshots; see [environment setup](docs/34-agents-and-environment.md#running-the-game-gui).
 
 ## Controls
 
@@ -229,12 +236,10 @@ status. Milestones close on their exit criterion, never on a feature count.
 
 ## Working on it?
 
-**`CLAUDE.md` is the engineer's entry point** — what the project is, the standing bans, how to
-verify a change, and the traps. `HANDOFF.md` is the short version for picking the project up cold:
-where it stands, what landed last, and which open questions are the owner's rather than the code's.
-`AGENTS.md` covers environment setup and carries the
-[routing table](AGENTS.md#routing-table): by kind of work and by system, what to read first, where
-the code lives, and which gate judges it -- checked by `npm run check:routing` so it cannot drift.
+**`CLAUDE.md` is the one entry point** — what the project is, how to start, the standing bans, how
+to verify a change, the traps, the environment, the owner's open decisions ([Waiting on the owner](docs/33-owner-decisions.md#waiting-on-the-owner)),
+and the [routing table](CLAUDE.md#routing-table): by kind of work and by system, what to read first, where the code
+lives, and which gate judges it, checked by `npm run check:routing` so it cannot drift.
 [docs/23-roadmap.md](docs/23-roadmap.md) owns product scope, milestone order, risks, playtest
 questions, and current implementation status; [docs/30-decisions.md](docs/30-decisions.md) records
 what each completed chunk made structural, and [docs/31](docs/31-godot-rebuild-roadmap.md) owns the
@@ -297,6 +302,7 @@ and 30 sits with the technical set rather than all of them landing at the end.
 | [23 — Roadmap](docs/23-roadmap.md) | The vertical slice, milestones, risks, open questions |
 | [30 — Decision Records](docs/30-decisions.md) | What each chunk of work made structural, oldest first |
 | [31 — Godot Rebuild Roadmap](docs/31-godot-rebuild-roadmap.md) | Transition phases, parity gates, delivery, and cutover |
+| [32 — UI Overhaul](docs/32-ui-overhaul.md) | Proposed visual direction, management flows, anatomical equipment diagram and all-screen acceptance |
 
 ## Reading order
 

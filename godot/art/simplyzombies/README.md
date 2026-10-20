@@ -47,9 +47,12 @@ All world tiles are 32×32. Characters use 32×48 canvases with ground pivot `[1
 
 This pack is checked into `godot/art/simplyzombies/` and is addressable at
 `res://art/simplyzombies/`. Its generated SpriteFrames resources use that path. The live game
-renderer has not yet been connected to this artwork; its existing authored/generated sprite
-registry remains authoritative for shipped visuals. The HTML preview is a standalone asset
-demonstration, not a Godot game capture or a reproduction of its gameplay systems.
+renderer reads this artwork through `godot/assets/sprites/authored.json`, which crops each shipped
+picture from its source here (`tools/sprites/build.py` reproduces every crop; `npm run
+sprites:check` judges them); the SpriteFrames resources themselves are not loaded by the game.
+`clothing/` is a later addition painted onto the survivor rig's own frames (its README says how).
+The HTML preview is a standalone asset demonstration, not a Godot game capture or a reproduction
+of its gameplay systems.
 
 Authoring sheets, source crops, prompts and preview renders have `.gdignore` files to keep them
 out of engine import. Native textures, frames, atlases and SpriteFrames resources remain

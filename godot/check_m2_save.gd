@@ -199,8 +199,11 @@ func _streams() -> bool:
 	w1.step()
 	var a2: float = float(w1.rng.stream("infection").call("next"))
 	var b2: float = float(w2.rng.stream("infection").call("next"))
-	if s1 != s2 or a2 == s1:
-		pass
+	# Stepping through the packet tick must not draw from the infection stream: the director has its
+	# own. This was computed here and never judged.
+	if absf(a2 - b2) > 0.0000001:
+		push_error("infection stream shifted by stepping the director across the packet tick")
+		return false
 	if absf(s1 - s2) > 0.0:
 		push_error("infection seed drift before director")
 		return false

@@ -286,7 +286,7 @@ static func _nearest_threat(world: Variant, ent: int, metres: float) -> int:
 	var best: int = -1
 	var best_sq: float = 1e12
 	var best_holds: bool = false
-	for other in SimAllegiance.enemies_of(world, ent):
+	for other in SimAllegiance.enemies_within(world, ent, metres):
 		var body: Variant = world.components.get_component(int(other), "body")
 		if not body is Dictionary or not SimHealth.is_alive(body as Dictionary):
 			continue

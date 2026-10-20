@@ -228,7 +228,9 @@ than an optimization to reach for later.
 - **Aggressive culling** via the spatial hash. At a ~30× draw-to-sim ratio, an entity that is
   simulated but not drawn is nearly free — so culling early is worth more than any sim optimization
   available.
-- **Sprite batching** by texture; the tile layer redraws only dirty regions.
+- **Sprite batching** by texture; the tile layer redraws only dirty regions. In the Godot build this
+  is [the world, baked](#the-world-baked): the ground, walls and roofs are drawn once per chunk
+  and a mask shader picks per tile which look shows.
 - **The renderer never writes to the sim** and is never on the tick's critical path.
 
 ## Save performance
@@ -352,6 +354,312 @@ lookups, unchanged component queries, pathfinding spikes and per-observer work a
 measured changes. After the runtime passes its budgets on the intended reference runner,
 wire the real commands into CI; quiet-night, siege, full frame/FPS, save, streaming and long-run
 memory scenarios still need their own representative fixtures.
+
+### Bringing the tick to budget
+
+Alpha plan item A3 takes the shipped tick to its unchanged 8 ms mean / 16 ms worst budget one
+system at a time, biggest measured win first. Each slice is a memo, an index or a cheaper route to
+the answer the sim already gave, never a change to what it decides; `npm run godot:m2:tick`
+(`godot/check_m2_tick.gd`) holds each fast path to the slow one it replaced and changes the data
+under it to prove it cannot go stale. Every number below is `npm run godot:bench:runtime` on the
+same cloud Xeon (2.10 GHz, four cores), same seed 20260805, same 100-warmup / 600-sample window;
+the attribution beside it is a throwaway driver timing each registered system over that window,
+deleted afterwards.
+
+| Slice | Date | Mean | Worst | What it cut |
+|---|---|---:|---:|---|
+| Baseline, `main` at `bf6b41a` | 2026-10-19 | 32.42 ms | 300.98 ms | -- |
+| 1. Content entries by id | 2026-10-19 | 24.41 ms | 319.35 ms | `SimItems._content_get` walked every file in the tree per lookup |
+| 2. The map-change spike | 2026-10-19 | 24.78 ms | 68.13 ms | a door swing rebuilt every solidity cell, recast every observer and re-planned with a linear A* |
+| 3. The shadowcast inlined | 2026-10-19 | 21.70 ms | 47.59 ms | four calls and a Dictionary per tile and per frame |
+| 4. The whole-district scans | 2026-10-19 | 19.40 ms | 37.11 ms | every AI asked about every body on the map, then kept the near ones |
+| 5. The component query memo | 2026-10-19 | 17.02 ms | 35.77 ms | a hundred `components.query` calls a tick rebuilt the same sorted intersection |
+| 6. What each body paid every tick | 2026-10-19 | 13.68 ms | 36.89 ms | each observer re-read every position, every colonist walked every zombie, every zombie re-read the sky |
+| 7. The cast's rows and the hour | 2026-10-19 | 13.49 ms | 32.67 ms | the shadowcast resolved its quadrant per tile, every observer re-read the hour, a dormant zombie resolved a speed it never used |
+| 8. The per-body cuts | 2026-10-20 | 13.63 ms | 30.01 ms | a 21 ms A* on Dictionaries, thirteen modifier strips per unhurt body, a scan of every positioned thing for the screamer, the Dress test reading each item twice |
+| 9. The far quarter and the spread cast | 2026-10-20 | 12.07 ms | 27.29 ms | every far idle zombie thinking and recasting every tick, a colonist's 48 m cast landing whole on the tick they crossed a tile |
+| 10. The tables read straight | 2026-10-20 | 10.63 ms | 31.86 ms | four thousand component calls a tick through an untyped world, a sighting list walked per body in view, every body walked per swinging door |
+| *a third, slower container from here; slice 10 there: 13.70 / 37.70* | | | | |
+| 11. The worst tick's spikes | 2026-10-20 | 14.29 ms | 32.09 ms | the player's 48 m cast landing whole on the tick they stepped, two colonist quadrants landing together, a long plan expanding every tile tied on cost in arrival order |
+
+**Slice 1, content entries by id.** `SimItems._content_get` found an entry by walking every value
+in the flat content tree until one carried the id. `item_base_of` runs about a hundred times a
+tick in the shipped world (dressing checks every loose garment, encumbrance weighs every pack) at
+about 0.12 ms a walk, which was **12.7 ms** of the 32 ms tick. The answer is now memoised on the
+world (`content_index`, never a static, for the two-worlds trap) and a hit is trusted only while
+the tree still holds that same object at the same key with the same id, so an entry swapped for an
+edited copy, an erased key, an added one or a replaced tree all fall back to the scan and rebuild.
+Jobs fell from 5.9 to 2.0 ms and encumbrance from 2.4 to 0.45 ms. The worst tick is unchanged
+within noise: it is the map-change spike, the next slice.
+
+**Slice 2, the map-change spike.** One door swinging shut cost about 300 ms: `SimFortify.sync_map`
+rebuilt all 65,536 solidity cells (90-170 ms), the generation bump recast every one of the 105
+observers (200 ms), and every walk re-planned on an A* whose open set was a linear scan (100 ms).
+The world now logs *where* each generation changed the map (`world.map_changes`, written by
+`invalidate_tiles(rect)`; `invalidateMap()` and a bare `mapGeneration += 1` still mean "all of
+it"), and `map_unchanged_within(gen, area)` answers "changed" whenever in doubt. In play, a door,
+board or barricade rewrites only the cells whose overlay changed and logs only their rectangle;
+a restore, a boot and a gate editing `map.tiles` keep the full rebuild. A car logs the footprints
+it moved. A view or a light cast made at an older generation stands when nothing changed inside
+its own square, since a shadowcast reads nothing outside it. A* keeps a binary heap ordered by
+(f, first-entry order), which is the order the linear scan chose in, so it plans the same path
+tie for tie.
+
+**One behaviour change, the dead's views.** A person's cast moves with their tile, so a person
+who keeps a view across a bump is still on the tile they cast from and keeps exactly what a recast
+would give. The dead recast only after walking two tiles (`ZOMBIE_RECAST_TILES`), and every bump
+used to recast every dead body a tile off its origin: half the district on a door swing and every
+tile a car crosses, 140 ms. They now keep that tile-off view across a bump outside their square too,
+which is the approximation they already live with between bumps; nothing draws a zombie's view.
+`SimVisibility.DEAD_KEEP_VIEW` switches the old rule back on. With it off, a serialized-world
+sha256 matches `main` at every 500-tick checkpoint across 3,000 ticks, so the rest of the slice
+changes no outcome. With it on, the run diverges from `main` at tick 36,968, when one shambler
+notices a colonist on a different tick.
+
+**Slice 3, the shadowcast inlined.** Every tile a cast visited cost four calls
+(`blocks_sight` → `opacity_at` → `overlay_at` and `tile_at`) and every wedge a Dictionary frame,
+and the reset zeroed its buffer one byte at a time. A 48-tile cast visits about seven thousand
+tiles. The cast now reads the tile class and overlay straight off the map's arrays, with the same
+answer per tile (out of bounds is a wall, an overlay outranks the class, Low blocks only a
+crouched eye), keeps its frames as five ints on one flat array popped in the same order, and
+clears with `fill`. Visibility fell from 3.7 to 2.2 ms mean and its worst from 140 to 19 ms. With
+`DEAD_KEEP_VIEW` off the 3,000-tick hash still matches `main`. This run and the slices after it
+were measured with gates running on the other cores, so treat each mean as within a millisecond
+or so.
+
+**Slice 4, the whole-district scans.** Three systems asked a question of every body on the
+district and then threw most of the answers away. Every armed NPC and raider asked
+`SimAllegiance.enemies_of` (a `hostile` test on each of the hundred bodies) and only then kept the
+ones in reach; `enemies_within` asks the distance first and returns the same ids in the same
+order. The shambler pass tested all 340-odd positioned things, every item on the ground among
+them, against the three person markers; `_people_with_position` walks the three markers' own
+tables. Sightings asked `detail` of every body and cupboard for every observer, though a target
+outside the observer's shadowcast square is Unseen by construction; `_in_square` skips those
+first. NPC combat fell from 2.7 to 1.1 ms, the shambler pass from 5.3 to 4.4 and sightings from
+3.4 to 2.6. No outcome moves: the 3,000-tick hash with `DEAD_KEEP_VIEW` off still matches `main`.
+
+**Slice 5, the component query memo.** `components.query` built and sorted a fresh intersection
+on every call, about a hundred calls a tick and 2.3 ms in all, nearly every one asking what it
+asked the tick before. The store now counts each table's membership changes (an entity gaining or
+losing the component, never a value replaced) and answers from a memo row while every count it
+was built against still holds; `restore` drops the memo, and every caller gets its own copy. The
+bench is noisy at this size, so from here each row is the median of three runs interleaved with
+three of the slice before on the same machine: slice 4 measured 18.85 / 38.49 ms that way, slice
+5 17.02 / 35.77. The 3,000-tick hash with `DEAD_KEEP_VIEW` off still matches `main`.
+
+**Slice 6, what each body paid every tick.** Sightings read every body's and cupboard's position
+once per observer; `observe` now reads them once and hands each observer only what lies inside its
+square (`_square_bounds` and `_in_bounds`, the same test as `_in_square`), with a searched
+cupboard handed to everybody because it is forgotten on sight of the flag. Self-aid walked every
+zombie for every colonist to ask whether a claw was in reach before asking whether the colonist
+needed care at all; it now asks care first, in one pass over the wound list instead of three
+selectors over ten parts, and the claw check asks distance before health. The shambler pass reads
+the sky's speed and sight multipliers once a tick instead of once a body. Measured as the median
+of three runs interleaved with slice 5 on a busier machine: slice 5 17.77 / 50.39 ms, slice 6
+13.68 / 36.89; the worst tick is the noisiest number here. The 3,000-tick hash with
+`DEAD_KEEP_VIEW` off still matches `main`.
+
+**Slice 7, the cast's rows and the hour.** The shadowcast now resolves each row's fixed axis,
+bounds test and index steps once per row instead of choosing a quadrant per tile, and its two
+row-limit divisions are inlined; inside the range circle a tile is inside the square, so the cell
+write needs no bounds test. `SimVisibility.refresh` reads the hour's ambient factor once for every
+observer. The shambler pass resolves a body's seek speed only in the three arms that move it, so
+the fifth of the district lying dormant no longer pays for it. A smaller step than the slices
+before it: slice 6 13.77 / 34.60 ms against slice 7 13.49 / 32.67, median of three interleaved,
+within the bench's noise on its own. The 3,000-tick hash with `DEAD_KEEP_VIEW` off still matches
+`main`.
+
+**Slice 8, the per-body cuts.** A fresh container ran the bench slower, so this row is read
+against slice 7 measured the same way on it: **15.15 / 41.62 ms** to **13.63 / 30.01**, median of
+three interleaved runs, about a tenth off the mean. `SimPath.find` keeps its heap order but packs
+each entry as one int (f, then first-entry order, then the tile) and holds g, order and the way
+back in flat arrays, with `walkable` read straight off the world's cells and the map's tiles: the
+59-step plan round a block that was a 21 ms tick is now about 7 ms, by the same expansions.
+`wounds.impair` stripped thirteen modifier sources from every body every tick before adding back
+the few that apply; a body with no wound, no impairing blood loss and none of those sources
+(`SimModifiers.holds_any`) is now skipped, and `remove_by_source` looks before it rebuilds a list
+it would leave unchanged, 0.42 to 0.06 ms. The screamer's alarm walked every positioned thing for
+its people; it asks `SimAllegiance.people_with_position`, the shambler's own walk moved there. The
+Dress test reads an item's base once and asks for an `armor` block first. Smaller: scent diffusion
+swaps its two buffers instead of copying one into the other, each view keeps its arc cosines beside
+the angle they came from, `refresh` reads the light index once, the movement pass reads the
+world's cells directly and asks each corner once, and the noise emitter preloads the stance table
+instead of loading it per body. The 3,000-tick hash with `DEAD_KEEP_VIEW` off still matches
+`main`.
+
+**Slice 9, the far quarter and the spread cast.** The first slice that changes what the sim
+decides, approved as an engineering call under the owner's standing brief of 2026-10-19 and held
+behind its own two switches. A wandering or dormant zombie with no person within 40 m
+(`SimShambler.FAR_THINK_METRES`) and no hold thinks on one tick in four (`FAR_THINK_EVERY`), its
+phase set by its id; between thinks its countdowns run, a dormant body stays pinned and anything
+else keeps the velocity it had, so it walks the line it would have walked and turns, hears or
+smells up to three ticks late. Scent and light steer by four ticks' worth on the tick it does
+think (`_steps_bias`). Its view rests on the ticks before it does not think: the shambler marks
+it in `SimVisibility.resting` and the next refresh keeps the view it has. A colonist other than
+the player recasts after two tiles (`PERSON_RECAST_TILES`) rather than one, and the recast is
+spread a quadrant at a time, two quadrants a tick for everyone together, longest-waiting first,
+with the old view standing until the new one lands whole; the player and the dead cast as
+before. `npm run godot:bench:runtime`, median of three interleaved runs on the slower container:
+slice 8 **14.00 / 31.35 ms** to **12.07 / 27.29**. With `THINK_LOD` and `STAGGER_PERSON_CASTS`
+off the 3,000-tick hash still matches `main`; with them on it repeats exactly run to run, and a
+save between thinks restores onto the same phase because the phase is the id and the tick.
+`godot:m2:tick` FAR-THINK and SPREAD hold both rules, and every lane in the chain the full tree
+was run against (51 gates over four lanes, balance included) stayed green.
+
+**Slice 10, the tables read straight.** A counting driver found about 3,300 `get_component` and
+800 `has_component` calls a tick, each two calls through an untyped world at about 0.7 µs against
+0.14 µs for the dictionary read underneath. `SimComponentStore.table` hands a pass the live table,
+read-only by convention, and the passes that made most of the calls hold their tables once:
+movement, the shambler think, sightings, the visibility refresh, the noise emitter,
+`enemies_within`, the settlers' threat scan, and the fortify doors and presses. Sightings finds a
+remembered body's record through a map of the first record per id, and a cupboard through a set;
+the door swing builds one set of occupied tiles. Median of three interleaved runs on the slower
+container: slice 9 **12.27 / 28.78 ms** to **10.63 / 31.86**. The 3,000-tick hash with both slice 9
+switches off still matches `main`, and with them on matches slice 9.
+
+**Slice 11, the worst tick's spikes.** A driver that timed every system and every cast and
+plan on each tick over 14 ms, on a quiet container, named three spike sources: the player's whole
+48 m cast, about 3.5 ms on the tick they crossed a tile; two quadrants of a colonist's spread cast
+landing together, 1.3 to 2.8 ms; and a long job plan, 5 ms for 59 steps. Everything else over the
+line was one system or several slowing at once with no cast or plan behind it, which is the host.
+Each cut has its own gate-drivable switch, and a lane that pins one restores it.
+`SimVisibility.STAGGER_PLAYER_CAST` spreads the player's recast over two ticks, two quadrants
+each (`PLAYER_QUADRANTS_PER_TICK`), so the view lands whole one tick (50 ms) after the step. The
+old view stands until then; the first cast, a lit target and the switch off still cast at once.
+The player has a queue of its own, so colonists waiting never delay it. The colonist budget
+`PERSON_QUADRANTS_PER_TICK` goes from two quadrants a tick to one, which halves that spike. This
+is a constant, not a switch, because it changes only how fast a queue drains under the slice 9
+switch. `SimPath.NEAR_TIES` breaks a tie on cost toward the tile nearer the goal before arrival
+order, in both the flat and the Dictionary search. Plan lengths are unchanged, because the order
+among equal costs never changes whether a plan is shortest. A long plan expands fewer tiles, and
+a pair the old order gave up on at its 4,096-tile cap can now be reached. The plan still runs
+whole on one tick: amortizing a plan across ticks is a bigger change and stays post-alpha.
+
+Measured on a third container, roughly twice as slow and much noisier than the one that profiled
+it. Median of three interleaved runs: slice 10 **13.70 / 37.70 ms** to **14.29 / 32.09**. The
+mean is inside the noise, and single runs of either build swung by 2 ms. The worst tick of the
+visibility refresh, timed per system in three runs each with the two switches off and then on,
+went from 8.6, 17.1 and 15.6 ms to 6.4, 8.5 and 8.7. The job planner's went from 12.4, 13.4 and
+9.2 ms to 8.5, 13.7 and 8.2. The same runs show the host's noise directly: a cheap system such as
+encumbrance or the scent field, with a mean under 0.5 ms, took 7 to 25 ms on a single tick. Before
+the move, on the quiet container, the same build ran **7.22, 6.94 and 7.21 ms** mean with worst
+ticks of **14.96, 13.32 and 15.63 ms**, all under 16. Slice 10 alone there ran a 7.0 to 7.3 ms
+mean, with worst ticks of 14.7, 23.8 and 21.6. Those runs were not interleaved, so they are a
+reading, not a measurement. With both new switches off and the three earlier ones off too, the
+3,000-tick hash matches `main`. With them on, it repeats run to run. `godot:m2:tick` NEAR-TIES and
+PLAYER-CAST hold both rules, and the full `godot:m2` chain, run over four lanes, stayed green.
+
+**Where the tick stops for the alpha.** Against the baseline's 32.42 ms on the faster container,
+slice 10 reads about 9.5 ms by the ratio both containers measured for slice 7 (13.49 there, 15.15
+here), and 10.6 ms where it was measured. The mean meets the alpha's stop point of 10 ms; the 8 ms
+budget and the 16 ms worst do not hold, and they are post-alpha work. The p95 is about 16 ms and
+single ticks run 20 to 34 ms. A per-system driver over the same window attributes the spikes: a
+whole 48 m cast (the player's, which slice 9 deliberately left whole because roofs and the light
+wash read it, and a zombie's after a map change near it) costs about 7 ms; a long job plan up to
+12 ms even on flat arrays; and some runs of consecutive ticks slow every system at once, which is
+the shared container rather than any one cost. The remaining mean is spread thin: the shambler
+think about 2.1 ms, sightings 1.3, the refresh 1.3, jobs 1.0, and nothing else above 0.6. The next
+cuts are named in docs/23's runtime budget entry under what's left.
+
+Slice 11 then took the measured spikes on the worst tick. On a quiet container the worst tick
+read under 16 ms in three of three runs. On a noisy one it stays 25 to 38 ms whichever build is
+running, because there the spike is the host slowing whatever system it lands on. Two causes
+remain in the sim, both post-alpha. A long job plan still runs whole on one tick, 8 to 14 ms there
+and about 5 on the quiet host. A zombie's whole 12-tile recast after a nearby map change costs
+under 1 ms on its own, but several can land on one tick. Before a timing gate goes on, the worst
+tick needs measuring on a quiet, dedicated machine. Until then it says more about the container
+than about the sim.
+### The world, baked
+
+Plan item A4, 2026-10-19 (`presentation/world_layers.gd`, `world_mask.gdshader`; docs/23's
+record, "Performance — the world, baked"). The per-frame tile loop is gone: each 8×8-tile chunk's
+ground, walls and roofs are drawn once into five RenderingServer canvas items (seen, wall-module
+boards, remembered, roof, roof dimmed) that keep their commands. The sight sets reach a mask
+shader as two small textures, uploaded only when they change, and a chunk's layer with nothing to
+show is hidden. A chunk rebakes when its inputs change (zoom, map object, content tree and seed
+drop everything; a map generation change re-signs each chunk and drops the changed ones; snow
+rebakes within 2 ms a frame). `npm run godot:check:world_bake` holds the rebake triggers, the mask
+rule and the no-leak property.
+
+Measured 2026-10-19 with `npm run godot:bench:frame` on one container, the parent commit and this
+change back to back: Godot 4.7.1, X11/Xvfb, **llvmpipe (LLVM 20.1.2, 256 bits)**, Intel Xeon
+@ 2.10 GHz, 1280×720.
+
+| Stage | Before | After |
+|---|---:|---:|
+| shipped-draw `_draw` CPU, mean / p95 | 28.5 / 38.4 ms | **8.7 / 12.0 ms** |
+| shipped-draw RenderServer wall time, mean | 14.3 ms | 18.5 ms |
+| shipped-draw harness-inclusive interval, mean | 43.5 ms | 27.8 ms |
+| crowded-draw `_draw` CPU, mean | 317.9 ms | 108.0 ms |
+
+shipped-draw meets the 10 ms mean; crowded-draw is still the thousand bodies and is not met.
+A throwaway driver walking the player six tiles a second for 120 frames measured the `_draw`
+CPU stage at **18.9 → 9.4–10.5 ms** mean at zoom 64 and **37.6 → 11.3 ms** at zoom 32, the
+chunks entering the view baking inside the frame. An earlier pass on a four-core container
+measured shipped-draw at 1920×1080 **35.2 → 9.0 ms**; the frame command itself is fixed at
+1280×720.
+
+The renderer's own time grew on the software renderer, because every pixel of a baked layer runs
+the mask. Before the per-chunk cull it was 38.9 ms against the parent's 14.3 and the
+harness-inclusive interval was worse than before (49.1 against 43.5 ms); hiding layers with
+nothing to show brought it to 18.5 ms and the interval to 27.8. On a GPU the mask is two texel
+fetches a fragment. llvmpipe numbers are not hardware GPU results, as above.
+
+The night, per pixel: plan item A10, 2026-10-19 (`presentation/light_map.gd`,
+`night_light.gdshader`; docs/23's record, "Art — the night, per pixel"). The flat night wash and
+the per-tile pool rects are replaced by one screen rect with a multiply shader. Each frame the CPU
+side builds one RGBA8 texel per tile in view (`LightLook.light_texels`, at most 24 sources); the
+shader then makes five texel fetches per fragment and loops over the sources. Measured the same
+way as above, on another container (llvmpipe, Intel Xeon @ 2.80 GHz, 1280×720). Night means a
+throwaway driver with a carried torch and a lit campfire on the boot scene:
+
+| Stage | Before | After |
+|---|---:|---:|
+| shipped-draw (day) `_draw` CPU, mean | 13.5 ms | 12.9–14.1 ms |
+| shipped-draw (day) RenderServer wall time, mean | 30.2 ms | 44.4–45.0 ms |
+| night `_draw` CPU, mean | 20.7–21.7 ms | 17.0–18.3 ms |
+| night RenderServer wall time, mean | 37.8–38.8 ms | 52.3–53.5 ms |
+
+The `_draw` stage, which is what the 10 ms target judges, did not grow: by day it is noise, and at
+night it fell because the pool rects are gone. On this machine that stage was already over the
+target before the slice. The renderer grew by about 14 ms because llvmpipe runs the full-screen
+fragment shader on the CPU. **The GPU cost of this shader is unmeasured.** No container here has
+a hardware GPU, and CI renders no real frame: `godot:bench:frame` is not in CI, and
+`check:runtime-budget` checks the runner's exit contract against fabricated evidence. So this
+shader cannot trip a CI budget, and no gate measures its cost. A software-renderer timing gate
+would judge llvmpipe rather than the product, so none was added. Measuring on hardware is the open
+item.
+
+The art review's revision (2026-10-20: pools bounded by their radius and cut into rings, the
+night held at its floor outside them, the light map cleared rather than drawn by day) was measured
+against the first cut on a third container (llvmpipe, Intel Xeon @ 2.10 GHz, 1280×720), two runs
+each, the same driver and bench:
+
+| Stage | First cut | Revised |
+|---|---:|---:|
+| shipped-draw (day) `_draw` CPU, mean | 7.45–7.99 ms | 7.42–7.69 ms |
+| shipped-draw (day) RenderServer wall time, mean | 25.97–28.18 ms | 16.21–16.86 ms |
+| night `_draw` CPU, mean | 10.35–11.58 ms | 10.35–10.91 ms |
+| night RenderServer wall time, mean | 31.66–35.06 ms | 32.08–32.76 ms |
+
+By day the shader no longer runs at all, so the renderer is back to its pre-A10 cost; at night the
+revision costs the same. The second review's pass (edges faded per tile edge, remembered tiles in
+the texels, a darker floor) measured night `_draw` 11.62–13.13 ms and renderer 33.4–36.6 ms in a
+session where the untouched day path also read 7.63–9.19 ms: the night-to-day ratio held at about
+1.4, so the change is the machine's drift, not the pass's. The GPU cost remains unmeasured, as
+above. The third review's pass (an opaque tile behind a window lit only from an open neighbour,
+`LightLook._face_lit`) was measured five times interleaved with the commit before it on one
+container: night `_draw` median 21.77 ms against 20.91 ms (ranges 20.26–22.24 and 20.64–20.96),
+about 0.9 ms at the edge of this bench's noise. A first cut that asked the sim's full sight and
+solid predicates per neighbour cost about 2.5 ms and was replaced by the tile-class tables
+(`LightLook._open`), which defer to the sim's predicates only where a tile carries an overlay.
+
+**Open: the night's `_draw` stage is over target.** At night, with a carried torch and a lit
+campfire, the `_draw` CPU stage measured **17.0–18.3 ms** mean at 1280×720 after A10 (20.7–21.7 ms
+before it). The 10 ms target is not met. The day boot scene sits at 12.9–14.1 ms on the same
+container. On the faster container of the revision table the same night stage is 10.35–10.91 ms,
+still just over. This is not the light map's cost, since A10 lowered the number; what the rest of
+the night frame spends it on has not been profiled.
 
 ### Remaining milestone evidence
 

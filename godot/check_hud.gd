@@ -29,6 +29,13 @@ const SimBoot = preload("res://sim/boot.gd")
 const SimFortify = preload("res://sim/modules/fortify.gd")
 const Shell = preload("res://ui/shell.gd")
 const Session = preload("res://presentation/session.gd")
+const Onboarding = preload("res://presentation/onboarding.gd")
+const Clock = preload("res://sim/time/clock.gd")
+const SimContainers = preload("res://sim/modules/containers.gd")
+const SimRoster = preload("res://sim/modules/roster.gd")
+const SimSightings = preload("res://sim/modules/sightings.gd")
+const SimSurvivors = preload("res://sim/modules/survivors.gd")
+const Chrome = preload("res://ui/chrome.gd")
 
 const RELOAD_GD: String = "res://platform/content_reload.gd"
 const FORTIFY_GD: String = "res://sim/modules/fortify.gd"
@@ -40,6 +47,7 @@ func _init() -> void:
 func _run() -> void:
 	var ok: bool = true
 	ok = _attention_speaks_in_words() and ok
+	ok = _the_suffering_survivor_has_the_clauses_it_is_judged_on() and ok
 	ok = _hud_lines_carry_no_numbers() and ok
 	ok = _a_healthy_survivor_says_little() and ok
 	ok = _the_body_speaks_for_itself() and ok
@@ -48,6 +56,9 @@ func _run() -> void:
 	ok = _the_chronicle_speaks_of_the_colony() and ok
 	ok = _the_action_line_names_keys_only() and ok
 	ok = _the_action_line_names_the_top_rung() and ok
+	ok = _the_first_day_hints_are_prose_and_due_once() and ok
+	var hint_ok: bool = await _the_hint_card_clears_on_a_click_and_never_blocks()
+	ok = hint_ok and ok
 	ok = _a_selected_colonist_is_spoken_of() and ok
 	ok = _a_click_finds_a_colonist() and ok
 	ok = _the_shell_speaks_in_words() and ok
@@ -56,7 +67,7 @@ func _run() -> void:
 	var reload_ok: bool = await _an_untouched_tree_is_not_reloaded()
 	ok = reload_ok and ok
 	if ok:
-		print("HUD_OK prose only, day counter excepted, raw sheet gated, the body speaks for itself, the action bar names the top rung, an untouched tree is not reloaded")
+		print("HUD_OK prose only, day counter excepted, raw sheet gated, the body speaks for itself, the action bar names the top rung, an untouched tree is not reloaded, the first-day hints are one line each and due once, and the hint card clears on a click and stops only that press")
 		quit(0)
 	else:
 		push_error("HUD_FAIL")
@@ -74,6 +85,17 @@ func _suffering_world() -> Variant:
 		if body[part] is float or body[part] is int:
 			body[String(part)] = float(body[part]) * 0.15
 	SimNeeds.attach(w, w.player, {"hunger": 9.0, "thirst": 4.0, "rest": 11.0})
+	return w
+
+
+# The same survivor with the wounds the bleeding and pain clauses read. Kept apart from
+# `_suffering_world` on purpose: the lanes that judge the player's clean state (no sepsis, a "You")
+# are written against the unwounded fixture, and a cut on the player would move them.
+func _wounded_world() -> Variant:
+	var w: Variant = _suffering_world()
+	w.components.set_component(w.player, "identity", {"id": "survivor.player", "name": "You"})
+	SimWounds.append_wound(w, w.player, "cut", "torso", -1, 12.0)
+	SimWounds.append_wound(w, w.player, "fracture", "leg_left", -1, 14.0)
 	return w
 
 func _digits(text: String) -> String:
@@ -97,6 +119,29 @@ func _without_day_counter(text: String) -> String:
 	if i == 4:
 		return text # "day " with no number is not the counter; judge the whole line
 	return text.substr(i)
+
+func _the_suffering_survivor_has_the_clauses_it_is_judged_on() -> bool:
+	# The digit lanes below pass on an empty string, so this lane says the judged clauses are
+	# produced, and that an unhurt survivor is told nothing about a wound. Red against the fixture
+	# as it was before the wound and identity were added.
+	var w: Variant = _wounded_world()
+	var bleeding: String = SimWounds.hud_clause(w, w.player)
+	var pain: String = SimWounds.pain_clause(w, w.player)
+	if bleeding.is_empty():
+		push_error("HUD: the suffering survivor's bleeding clause is empty -- the lanes below would judge nothing")
+		return false
+	if pain.is_empty():
+		push_error("HUD: the suffering survivor's pain clause is empty -- the lanes below would judge nothing")
+		return false
+	var fresh: Variant = World.new(_fixture())
+	SimHealth.make_survivor_body(fresh, fresh.player)
+	SimNeeds.attach(fresh, fresh.player, {"hunger": 0.0, "thirst": 0.0, "rest": 0.0})
+	if not SimWounds.hud_clause(fresh, fresh.player).is_empty():
+		push_error("HUD: an unhurt survivor is told about a wound: '%s'" % SimWounds.hud_clause(fresh, fresh.player))
+		return false
+	print("HUD CLAUSES OK bleeding and pain are produced for the suffering survivor and silent for an unhurt one")
+	return true
+
 
 func _attention_speaks_in_words() -> bool:
 	var w: Variant = _suffering_world()
@@ -837,4 +882,176 @@ func _an_untouched_tree_is_not_reloaded() -> bool:
 		push_error("RELOAD-COST: content_reload.gd still carries the poller that answered true for any non-empty tree")
 		return false
 	print("RELOAD-COST OK a forced poll over an untouched tree left it alone, a direct reload replaced it, and the fold tells a moved file from an unmoved one")
+	return true
+
+
+# --- ONBOARDING -------------------------------------------------------------------------------
+
+# A survivor on open ground on day one with the sight kernel attached, so the sightings read and the
+# clock read are the real ones. Nothing in it is hurt, nothing is near, and it is daylight.
+func _onboarding_world() -> Variant:
+	var w: Variant = World.new(_fixture())
+	SimBoot.attach_kernel(w, SimTileMap.blank_map(16, 16))
+	SimHealth.make_survivor_body(w, w.player)
+	SimSightings.register_module(w)
+	SimSurvivors.give_eyes(w, w.player)
+	w.tick = Clock.tick_on_day(1, 0.3)
+	return w
+
+
+# The four hints are one sentence each, digit-free, and each is due exactly when its situation holds and
+# never once the save has been told it. The negative is the quiet world; the positives are each situation
+# built for real: a box in reach, a wound on the body, a zombie the survivor has seen, and the dark.
+func _the_first_day_hints_are_prose_and_due_once() -> bool:
+	var font: Font = Chrome.font()
+	var room: float = 1280.0 - 2.0 * Hud.MARGIN
+	for id in Onboarding.ORDER:
+		var text: String = Onboarding.prose_of(id)
+		if text.is_empty() or text.contains("\n") or not _digits(text).is_empty():
+			push_error("ONBOARD: '%s' is not one line of digit-free prose: '%s'" % [id, text])
+			return false
+		if font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, Hud.FONT_SIZE).x > room:
+			push_error("ONBOARD: '%s' is wider than a 1280 window's bar (%s)" % [id, text])
+			return false
+	var quiet: Variant = _onboarding_world()
+	if Clock.phase_at(Clock.time_of_day(int(quiet.tick))) == Clock.Phase.Night:
+		push_error("ONBOARD: the quiet world is not day, so the night lane would prove nothing")
+		return false
+	if not Onboarding.due(quiet, quiet.player, {}).is_empty():
+		push_error("ONBOARD: a quiet survivor on day one was offered '%s'" % Onboarding.due(quiet, quiet.player, {}))
+		return false
+
+	var box: Variant = _onboarding_world()
+	SimContainers.make_container(box, 8.0, 8.0, "", "")
+	if Onboarding.due(box, box.player, {}) != "container":
+		push_error("ONBOARD: a box in reach was not the due hint (got '%s')" % Onboarding.due(box, box.player, {}))
+		return false
+
+	var hurt: Variant = _onboarding_world()
+	SimWounds.append_wound(hurt, hurt.player, "laceration", "torso", -1, 30.0)
+	if Onboarding.due(hurt, hurt.player, {}) != "wound":
+		push_error("ONBOARD: a wounded survivor was not offered the wound hint (got '%s')" % Onboarding.due(hurt, hurt.player, {}))
+		return false
+
+	var seen_zed: Variant = _onboarding_world()
+	var rng: Variant = seen_zed.rng.stream("shambler")
+	SimRoster.spawn_zombie(seen_zed, 9.5, 8.5, SimRoster.TYPE_SHAMBLER, rng)
+	seen_zed.events.drain()
+	# A tick, not a direct `observe`: the sight field is refreshed by the world's own systems, and the
+	# sightings are read from that field, so the zombie is only seen once the world has stepped.
+	seen_zed.step()
+	if Onboarding.due(seen_zed, seen_zed.player, {}) != "zombie":
+		push_error("ONBOARD: a zombie seen at arm's length was not the due hint (got '%s')" % Onboarding.due(seen_zed, seen_zed.player, {}))
+		return false
+
+	var dark: Variant = _onboarding_world()
+	dark.tick = Clock.tick_on_day(1, 0.9)
+	if Clock.phase_at(Clock.time_of_day(int(dark.tick))) != Clock.Phase.Night:
+		push_error("ONBOARD: 0.9 of day one is not night in this build, so the night lane is not testing night")
+		return false
+	if Onboarding.due(dark, dark.player, {}) != "night":
+		push_error("ONBOARD: a survivor in the dark was not offered the night hint (got '%s')" % Onboarding.due(dark, dark.player, {}))
+		return false
+
+	# Order and once: hurt at night offers the wound first, and the night only after the wound has been seen.
+	var both: Variant = _onboarding_world()
+	both.tick = Clock.tick_on_day(1, 0.9)
+	SimWounds.append_wound(both, both.player, "laceration", "torso", -1, 30.0)
+	var ob: RefCounted = Onboarding.new()
+	if ob.offer(both, both.player, 0) != Onboarding.prose_of("wound"):
+		push_error("ONBOARD: hurt at night did not offer the wound first")
+		return false
+	if ob.offer(both, both.player, 1000) != Onboarding.prose_of("wound"):
+		push_error("ONBOARD: a hint on screen was taken down before it had held")
+		return false
+	ob.dismiss()
+	if ob.offer(both, both.player, 2000) != Onboarding.prose_of("night"):
+		push_error("ONBOARD: once the wound was dismissed the night hint did not come due")
+		return false
+	ob.dismiss()
+	if not ob.offer(both, both.player, 3000).is_empty():
+		push_error("ONBOARD: a hint already told came due again")
+		return false
+	# The true negative for the save: a seen set that round-trips is the set that was written, and an unknown id is not kept.
+	var saved: Array = ob.to_save()
+	if saved != ["wound", "night"]:
+		push_error("ONBOARD: the seen set wrote as %s, not [wound, night]" % str(saved))
+		return false
+	var loaded: RefCounted = Onboarding.new()
+	loaded.from_save(["night", "bogus", "wound"])
+	if loaded.to_save() != ["wound", "night"]:
+		push_error("ONBOARD: a loaded seen set is %s, not the seen ids in order" % str(loaded.to_save()))
+		return false
+	# Expiry: a hint on screen lets go after HOLD_MS, and does not come back.
+	var timed: RefCounted = Onboarding.new()
+	timed.offer(hurt, hurt.player, 0)
+	if not timed.offer(hurt, hurt.player, Onboarding.HOLD_MS + 1).is_empty():
+		push_error("ONBOARD: a hint outlived its hold")
+		return false
+	if not timed.offer(hurt, hurt.player, Onboarding.HOLD_MS + 2).is_empty():
+		push_error("ONBOARD: an expired hint came back")
+		return false
+
+	print("ONBOARD OK one line each, digit-free, due by situation (box, wound, zombie seen, dark), wound before night, seen once, saved as written, and expired after its hold")
+	return true
+
+
+# The card is drawn, a click on it clears it and stops there, and a click off it leaves it and passes
+# through: the hint takes the press on its own card and nothing else.
+func _the_hint_card_clears_on_a_click_and_never_blocks() -> bool:
+	var hud: Control = Hud.new()
+	root.add_child(hud)
+	await process_frame
+	var ob: RefCounted = Onboarding.new()
+	hud.set("onboarding", ob)
+	var w: Variant = _onboarding_world()
+	SimWounds.append_wound(w, w.player, "laceration", "torso", -1, 30.0)
+	hud.call("set_onboarding", ob.offer(w, w.player, 0))
+	await process_frame
+	var rect: Rect2 = hud.get("_hint_rect")
+	if rect.size == Vector2.ZERO:
+		push_error("HINT-CARD: a hint on screen drew no card")
+		hud.queue_free()
+		return false
+	if hud.mouse_filter != Control.MOUSE_FILTER_IGNORE:
+		push_error("HINT-CARD: the HUD takes the mouse, so the card would block the street")
+		hud.queue_free()
+		return false
+	var away := InputEventMouseButton.new()
+	away.button_index = MOUSE_BUTTON_LEFT
+	away.pressed = true
+	away.position = Vector2(4.0, 4.0)
+	hud._input(away)
+	if String(hud.get("_onboarding_line")).is_empty() or ob.current.is_empty():
+		push_error("HINT-CARD: a click off the card cleared the hint")
+		hud.queue_free()
+		return false
+	if hud.get_viewport().is_input_handled():
+		push_error("HINT-CARD: a click off the card was stopped and should have passed through")
+		hud.queue_free()
+		return false
+	var on := InputEventMouseButton.new()
+	on.button_index = MOUSE_BUTTON_LEFT
+	on.pressed = true
+	on.position = rect.get_center()
+	hud._input(on)
+	if not String(hud.get("_onboarding_line")).is_empty() or not ob.current.is_empty():
+		push_error("HINT-CARD: a click on the card did not clear the hint")
+		hud.queue_free()
+		return false
+	if not hud.get_viewport().is_input_handled():
+		push_error("HINT-CARD: a click on the card was not stopped, so it would also reach the street")
+		hud.queue_free()
+		return false
+	if not ob.seen.has("wound"):
+		push_error("HINT-CARD: a dismissed hint lost its seen mark")
+		hud.queue_free()
+		return false
+	if not _function_body(HUD_GD, "_input").contains("onboarding.dismiss()") or not _function_body(HUD_GD, "_input").contains("set_input_as_handled"):
+		push_error("HINT-CARD: _input must clear the hint and stop the press on the card")
+		hud.queue_free()
+		return false
+	hud.queue_free()
+	await process_frame
+	print("HINT-CARD OK the card draws, a click off it leaves it, a click on it clears it and keeps the seen mark, the HUD takes no mouse, a click on the card is stopped and one off it is not")
 	return true

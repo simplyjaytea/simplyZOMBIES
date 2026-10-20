@@ -724,7 +724,7 @@ describe("scent in the world", () => {
   });
 
   it("leaves being quiet safe for a minute and unsafe for an hour", () => {
-    // The question HANDOFF.md has been carrying since the noise spine: is being quiet tense,
+    // The question the retired HANDOFF.md carried since the noise spine: is being quiet tense,
     // or just slow? With noise as the only channel the answer was "neither" -- standing still
     // left the field at literally zero live cells and nothing could ever find you.
     //

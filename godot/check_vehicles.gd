@@ -117,10 +117,17 @@ const FORTIFY_GD: String = "res://sim/modules/fortify.gd"
 const WORLDGEN_GD: String = "res://sim/map/worldgen.gd"
 const SCHEMA: String = "res://content/schemas/vehicle.schema.json"
 
-# The hand sedan: 2x5, nose north, parked in the middle of an empty paved square, so a drive in
-# any direction has twenty tiles of road before the edge.
+# The hand sedan: 2x3, nose north, parked in the middle of an empty paved square, so a drive in
+# any direction has twenty tiles of road before the edge. SEDAN_L is content's length for it
+# (three tiles since the cars were drawn at the pack's scale both ways, 2026-10-19; five before),
+# copied here so the lanes can name a tile, and CONTENT holds the copy to content: the positions
+# below are all derived from it, so a sedan resized in content fails one line, not twenty.
 const CAR_X: int = 29
 const CAR_Y: int = 40
+const SEDAN_L: int = 3
+const SEDAN_HALF: float = 1.5
+# The middle row of the hand sedan, where the driver's door is.
+const SEDAN_MID: int = 1
 
 
 func _init() -> void:
@@ -191,12 +198,12 @@ func _hand_world(record: Dictionary = {}) -> Variant:
 		hv["integrity"] = SimVehicles.INTEGRITY_MAX
 	var pos: Dictionary = w.components.get_component(w.player, "position") as Dictionary
 	pos["x"] = float(CAR_X - 1) + 0.5
-	pos["y"] = float(CAR_Y + 2) + 0.5
+	pos["y"] = float(CAR_Y + SEDAN_MID) + 0.5
 	return w
 
 
 func _sedan_record() -> Dictionary:
-	return {"x": CAR_X, "y": CAR_Y, "w": 2, "h": 5, "axis": "ns", "class": "vehicle.sedan", "facing": "n"}
+	return {"x": CAR_X, "y": CAR_Y, "w": 2, "h": SEDAN_L, "axis": "ns", "class": "vehicle.sedan", "facing": "n"}
 
 
 # A light vehicle parked where the sedan would be: one tile across, nose north, the player's
@@ -291,6 +298,13 @@ func _every_class_declares_how_it_drives(stash: Dictionary) -> bool:
 	if classes.is_empty():
 		push_error("CONTENT: no vehicle classes in content; nothing to judge")
 		return false
+	# The hand sedan's copy of content's length: every lane below parks, walls and measures by it.
+	for entry0 in classes:
+		if String((entry0 as Dictionary).get("id", "")) == "vehicle.sedan":
+			var foot0: Dictionary = (entry0 as Dictionary).get("footprint", {}) as Dictionary
+			if int(foot0.get("l", 0)) != SEDAN_L or not is_equal_approx(SEDAN_HALF, float(SEDAN_L) / 2.0) or SEDAN_MID != SEDAN_L / 2:
+				push_error("CONTENT: content's sedan is %s long and this gate's copy says SEDAN_L %d (half %.1f, middle row %d); every hand-sedan lane would be judging the wrong car" % [str(foot0.get("l", "?")), SEDAN_L, SEDAN_HALF, SEDAN_MID])
+				return false
 	for entry in classes:
 		var id: String = String((entry as Dictionary).get("id", "?"))
 		var drive: Dictionary = SimVehicles.drive_of(entry as Dictionary)
@@ -604,7 +618,7 @@ func _a_body_gets_in_and_out(stash: Dictionary) -> bool:
 	if w.components.has_component(car, "velocity") or w.components.has_component(car, "attention_emitter"):
 		push_error("MOUNT: the engine kept running after the dismount")
 		return false
-	var rect := Rect2i(CAR_X, CAR_Y, 2, 5)
+	var rect := Rect2i(CAR_X, CAR_Y, 2, SEDAN_L)
 	var out_tile := Vector2i(floori(float(p["x"])), floori(float(p["y"])))
 	if rect.has_point(out_tile):
 		push_error("MOUNT: the driver got out onto the car's own footprint %s" % str(out_tile))
@@ -691,11 +705,11 @@ func _the_driver_moves_the_car(stash: Dictionary) -> bool:
 	if not problem.is_empty():
 		push_error("DRIVE: the Low tiles do not match the moved record: %s" % problem)
 		return false
-	if SimTileMap.tile_at(map, CAR_X, CAR_Y + 4) != SimTileMap.Tile.Floor:
+	if SimTileMap.tile_at(map, CAR_X, CAR_Y + SEDAN_L - 1) != SimTileMap.Tile.Floor:
 		push_error("DRIVE: the tail tile the car left is still Low")
 		return false
-	if absf(float(rec["gx"]) - float(cp["x"])) > 1e-6 or absf(float(rec["gy"]) - (float(cp["y"]) + 2.5)) > 1e-6:
-		push_error("DRIVE: the record's ground point (%.2f, %.2f) is not the live south-edge centre (%.2f, %.2f)" % [rec["gx"], rec["gy"], cp["x"], float(cp["y"]) + 2.5])
+	if absf(float(rec["gx"]) - float(cp["x"])) > 1e-6 or absf(float(rec["gy"]) - (float(cp["y"]) + SEDAN_HALF)) > 1e-6:
+		push_error("DRIVE: the record's ground point (%.2f, %.2f) is not the live south-edge centre (%.2f, %.2f)" % [rec["gx"], rec["gy"], cp["x"], float(cp["y"]) + SEDAN_HALF])
 		return false
 	# Hold north until the cap: it gets there and stays there.
 	for i in 40:
@@ -748,14 +762,20 @@ func _the_driver_moves_the_car(stash: Dictionary) -> bool:
 	if String(v["heading"]) != "e":
 		push_error("DRIVE: a stopped car asked east is heading %s" % v["heading"])
 		return false
-	# The east-west extent is content's, turned by the one helper that turns footprints -- since
-	# the pack's cars that is 3x2 for a sedan, not the 5x2 of its north-south length laid flat, so
-	# the turn changed the car's length as well as its axis and the Low tiles below have to follow.
+	# The east-west extent is content's, turned by the one helper that turns footprints. Since
+	# 2026-10-19 a sedan is 3x2 east-west and 2x3 north-south -- one car, one length, as the owner
+	# named it on 2026-09-17 -- so the turn changes the axis and not the length. The helper still
+	# honours a class that declares an east-west length of its own (`lEw`, which no shipped class
+	# uses now); that branch is proven on a fabricated footprint, so it cannot rot unread.
 	rec = _record_of(map, car)
 	var sedan_foot: Dictionary = SimVehicles.class_of(w, "vehicle.sedan").get("footprint", {}) as Dictionary
 	var want_ew: Vector2i = SimWorldgen.vehicle_extent(sedan_foot, "ew")
-	if want_ew == Vector2i.ZERO or want_ew == Vector2i(SimWorldgen.vehicle_extent(sedan_foot, "ns").y, SimWorldgen.vehicle_extent(sedan_foot, "ns").x):
-		push_error("DRIVE: content's sedan is %s east-west, the north-south footprint laid flat; the turn would prove nothing about a per-axis length" % str(want_ew))
+	var want_ns: Vector2i = SimWorldgen.vehicle_extent(sedan_foot, "ns")
+	if want_ew == Vector2i.ZERO or want_ew != Vector2i(want_ns.y, want_ns.x):
+		push_error("DRIVE: content's sedan is %s east-west and %s north-south; a car is one length whichever way it is parked" % [str(want_ew), str(want_ns)])
+		return false
+	if SimWorldgen.vehicle_extent({"w": 2, "l": 5, "lEw": 3}, "ew") != Vector2i(3, 2) or SimWorldgen.vehicle_extent({"w": 2, "l": 5}, "ew") != Vector2i(5, 2):
+		push_error("DRIVE: vehicle_extent turned a fabricated 2x5 with lEw 3 to %s and one without to %s; wanted (3, 2) and (5, 2)" % [str(SimWorldgen.vehicle_extent({"w": 2, "l": 5, "lEw": 3}, "ew")), str(SimWorldgen.vehicle_extent({"w": 2, "l": 5}, "ew"))])
 		return false
 	if int(rec["w"]) != want_ew.x or int(rec["h"]) != want_ew.y or String(rec["axis"]) != "ew":
 		push_error("DRIVE: the turned record is %s, not the %dx%d ew one content declares" % [str(rec), want_ew.x, want_ew.y])
@@ -770,8 +790,8 @@ func _the_driver_moves_the_car(stash: Dictionary) -> bool:
 	if absf(fmod(float(cp["x"]), 1.0) - 0.5) > 1e-6 or absf(fmod(float(cp["y"]), 1.0)) > 1e-6:
 		push_error("DRIVE: an east-west sedan's centre (%.2f, %.2f) is not on the half-tile across and the boundary down" % [cp["x"], cp["y"]])
 		return false
-	# Let it roll east a little, stop, and then refuse a turn north into a wall: the ns footprint
-	# would cover (cx-1, cy-2.5) -> the tile north of the ew body's west end.
+	# Let it roll east a little, stop, and then refuse a turn north into a wall on a tile the ns
+	# footprint would cover and the ew body does not.
 	_move(w, 1.0, 0.0, 10)
 	_move(w, 0.0, 0.0, 80)
 	if float(v["speed"]) != 0.0:
@@ -780,13 +800,23 @@ func _the_driver_moves_the_car(stash: Dictionary) -> bool:
 	rec = _record_of(map, car)
 	var own := Rect2i(int(rec["x"]), int(rec["y"]), int(rec["w"]), int(rec["h"]))
 	var turned: Rect2i = SimVehicles.turned_footprint(v, cp, "n")
-	if turned.size != Vector2i(2, 5):
-		push_error("DRIVE: the turned footprint is %s, not 2x5" % str(turned))
+	if turned.size != Vector2i(2, SEDAN_L):
+		push_error("DRIVE: the turned footprint is %s, not 2x%d" % [str(turned), SEDAN_L])
 		return false
-	# The northernmost tile of the turned footprint is outside the ew body: that is where the
-	# wall goes, so the case proves the turn is judged on the tiles it would cover and not on
-	# the ones it already does.
+	# The northernmost tile of the turned footprint outside the ew body is where the wall goes, so
+	# the case proves the turn is judged on the tiles it would cover and not on the ones it
+	# already does. (A five-tile sedan's top-left corner was always outside; a three-tile one
+	# turns within a tile of its own body, so the tile is searched for rather than assumed.)
 	var blocked_tile := Vector2i(turned.position.x, turned.position.y)
+	for ty in range(turned.position.y, turned.end.y):
+		var found: bool = false
+		for tx in range(turned.position.x, turned.end.x):
+			if not own.has_point(Vector2i(tx, ty)):
+				blocked_tile = Vector2i(tx, ty)
+				found = true
+				break
+		if found:
+			break
 	if own.has_point(blocked_tile):
 		push_error("DRIVE: the fabricated wall would sit inside the car's own footprint; the case would prove nothing")
 		return false
@@ -823,19 +853,20 @@ func _north_ends_at(w: Variant, ticks: int) -> Dictionary:
 
 
 func _the_leading_edge_stops_it(stash: Dictionary) -> bool:
-	# The open road: sixty ticks north from centre y 42.5 gets well past y 36.
+	# The open road: sixty ticks north from centre y 41.5 gets well past y 36.
 	var open_w: Variant = _hand_world()
 	var open: Dictionary = _north_ends_at(open_w, 60)
 	if open.is_empty() or float(open["y"]) >= 36.0:
 		push_error("BLOCK: on an open road sixty ticks north ended at %s; the blocked cases below would prove nothing" % str(open))
 		return false
-	# A wall across y 35: the nose (centre - 2.5) stops at 36, so the centre at 38.5, speed 0.
+	# A wall across y 35: the nose (centre - SEDAN_HALF) stops at 36, so the centre at 37.5,
+	# speed 0.
 	var walled: Variant = _hand_world()
 	for tx in range(CAR_X - 2, CAR_X + 4):
 		_wall(walled, tx, 35)
 	var hit: Dictionary = _north_ends_at(walled, 60)
-	if absf(float(hit["y"]) - 38.5) > 1e-6 or float(hit["speed"]) != 0.0:
-		push_error("BLOCK: against a wall at y 35 the car ended at y %.3f, speed %.2f; expected 38.5 and stopped" % [hit["y"], hit["speed"]])
+	if absf(float(hit["y"]) - (36.0 + SEDAN_HALF)) > 1e-6 or float(hit["speed"]) != 0.0:
+		push_error("BLOCK: against a wall at y 35 the car ended at y %.3f, speed %.2f; expected %.1f and stopped" % [hit["y"], hit["speed"], 36.0 + SEDAN_HALF])
 		return false
 	for tx in range(CAR_X - 2, CAR_X + 4):
 		if SimTileMap.tile_at(walled.tilemap, tx, 35) != SimTileMap.Tile.Wall:
@@ -843,27 +874,27 @@ func _the_leading_edge_stops_it(stash: Dictionary) -> bool:
 			return false
 	# Held against it, it stays put and stays stopped.
 	_move(walled, 0.0, -1.0, 20)
-	if absf(float(_pos(walled, int(hit["car"]))["y"]) - 38.5) > 1e-6:
+	if absf(float(_pos(walled, int(hit["car"]))["y"]) - (36.0 + SEDAN_HALF)) > 1e-6:
 		push_error("BLOCK: twenty more ticks against the wall moved the car")
 		return false
-	# Another car across the road at y 30..34: the nose stops at 35, the centre at 37.5.
+	# Another car across the road at y 30..32: the nose stops at 33, the centre at 34.5.
 	var traffic: Variant = _hand_world()
-	var ahead: Dictionary = {"x": CAR_X, "y": 30, "w": 2, "h": 5, "axis": "ns", "class": "vehicle.sedan", "facing": "s"}
+	var ahead: Dictionary = {"x": CAR_X, "y": 30, "w": 2, "h": SEDAN_L, "axis": "ns", "class": "vehicle.sedan", "facing": "s"}
 	_park(traffic.tilemap, ahead)
 	SimVehicles.spawn_from_manifest(traffic, traffic.tilemap)
 	var jam: Dictionary = _north_ends_at(traffic, 60)
-	if absf(float(jam["y"]) - 37.5) > 1e-6 or float(jam["speed"]) != 0.0:
-		push_error("BLOCK: behind a parked car the driven one ended at y %.3f, speed %.2f; expected 37.5 and stopped" % [jam["y"], jam["speed"]])
+	if absf(float(jam["y"]) - (float(30 + SEDAN_L) + SEDAN_HALF)) > 1e-6 or float(jam["speed"]) != 0.0:
+		push_error("BLOCK: behind a parked car the driven one ended at y %.3f, speed %.2f; expected %.1f and stopped" % [jam["y"], jam["speed"], float(30 + SEDAN_L) + SEDAN_HALF])
 		return false
-	if _low_tiles(traffic.tilemap).size() != 20:
-		push_error("BLOCK: two sedans stand %d Low tiles, not 20; one drove into the other" % _low_tiles(traffic.tilemap).size())
+	if _low_tiles(traffic.tilemap).size() != 4 * SEDAN_L:
+		push_error("BLOCK: two sedans stand %d Low tiles, not %d; one drove into the other" % [_low_tiles(traffic.tilemap).size(), 4 * SEDAN_L])
 		return false
 	# A heap: one Low tile no record covers, at (CAR_X, 34).
 	var junk: Variant = _hand_world()
 	junk.tilemap.tiles[34 * HAND + CAR_X] = SimTileMap.Tile.Low
 	var heap: Dictionary = _north_ends_at(junk, 60)
-	if absf(float(heap["y"]) - 37.5) > 1e-6 or float(heap["speed"]) != 0.0:
-		push_error("BLOCK: against a heap at y 34 the car ended at y %.3f, speed %.2f; expected 37.5 and stopped" % [heap["y"], heap["speed"]])
+	if absf(float(heap["y"]) - (35.0 + SEDAN_HALF)) > 1e-6 or float(heap["speed"]) != 0.0:
+		push_error("BLOCK: against a heap at y 34 the car ended at y %.3f, speed %.2f; expected %.1f and stopped" % [heap["y"], heap["speed"], 35.0 + SEDAN_HALF])
 		return false
 	if SimTileMap.tile_at(junk.tilemap, CAR_X, 34) != SimTileMap.Tile.Low:
 		push_error("BLOCK: the heap is gone; the car drove over it and its sync cleared it")
@@ -872,8 +903,8 @@ func _the_leading_edge_stops_it(stash: Dictionary) -> bool:
 	var house: Variant = _hand_world()
 	house.tilemap.indoors[34 * HAND + CAR_X + 1] = 1
 	var porch: Dictionary = _north_ends_at(house, 60)
-	if absf(float(porch["y"]) - 37.5) > 1e-6 or float(porch["speed"]) != 0.0:
-		push_error("BLOCK: against an indoor tile at y 34 the car ended at y %.3f, speed %.2f; expected 37.5 and stopped" % [porch["y"], porch["speed"]])
+	if absf(float(porch["y"]) - (35.0 + SEDAN_HALF)) > 1e-6 or float(porch["speed"]) != 0.0:
+		push_error("BLOCK: against an indoor tile at y 34 the car ended at y %.3f, speed %.2f; expected %.1f and stopped" % [porch["y"], porch["speed"], 35.0 + SEDAN_HALF])
 		return false
 	# And the probe is the one that says so: `tile_blocks` refuses each kind and accepts open road.
 	var probe_w: Variant = _hand_world()
@@ -1241,7 +1272,7 @@ func _a_crash_costs_condition(stash: Dictionary) -> bool:
 	if bumped or float(_v(bump, bc)["integrity"]) != SimVehicles.INTEGRITY_MAX:
 		push_error("CONDITION: a bump from one tile off cost the car condition")
 		return false
-	if float(_pos(bump, bc)["y"]) != float(CAR_Y) + 2.5 or float(_v(bump, bc)["speed"]) != 0.0:
+	if float(_pos(bump, bc)["y"]) != float(CAR_Y) + SEDAN_HALF or float(_v(bump, bc)["speed"]) != 0.0:
 		push_error("CONDITION: the bump case moved or is still rolling (y %.2f, %.2f m/s)" % [float(_pos(bump, bc)["y"]), float(_v(bump, bc)["speed"])])
 		return false
 	# Battered is slower than sound over the same road, and wrecked does not move.
@@ -1267,7 +1298,7 @@ func _a_crash_costs_condition(stash: Dictionary) -> bool:
 		push_error("CONDITION: a wreck cannot even be sat in")
 		return false
 	_move(wreck, 0.0, -1.0, 40)
-	if float(_pos(wreck, wc)["y"]) != float(CAR_Y) + 2.5 or float(_v(wreck, wc)["speed"]) != 0.0:
+	if float(_pos(wreck, wc)["y"]) != float(CAR_Y) + SEDAN_HALF or float(_v(wreck, wc)["speed"]) != 0.0:
 		push_error("CONDITION: a wrecked car moved")
 		return false
 	var wreck_clause: String = SimVehicles.hud_clause(wreck, wreck.player)
@@ -1286,7 +1317,7 @@ func _a_crash_costs_condition(stash: Dictionary) -> bool:
 	for run in 6:
 		# Back off to the kerb and run at the wall again, at whatever speed the car still makes.
 		var tp: Dictionary = _pos(twice, tc)
-		tp["y"] = float(CAR_Y) + 2.5
+		tp["y"] = float(CAR_Y) + SEDAN_HALF
 		_v(twice, tc)["speed"] = 0.0
 		twice.commands.push({"type": "move", "dx": 0.0, "dy": -1.0})
 		for i in 120:
@@ -1301,7 +1332,7 @@ func _a_crash_costs_condition(stash: Dictionary) -> bool:
 		push_error("CONDITION: six runs at a wall left the car %s" % SimVehicles.condition_word(float(_v(twice, tc)["integrity"])))
 		return false
 	stash["crash_damage"] = damage
-	print("CONDITION OK %d of %d cars over four seeds spawn wrecked and the rest 40..100; five words in order, no digits; a run at a wall at %.1f m/s cost %.1f, bangs once on the bus and leaves the car %s, a bump against the nose costs nothing; battered drove %.1f m against sound's %.1f in sixty ticks; a wreck can be sat in and does not move; repeated runs at a wall wreck a sound car with one vehicle.wrecked, each crash slower than the last" % [wrecked, total, crash_speed, damage, SimVehicles.condition_word(float(v["integrity"])), float(CAR_Y) + 2.5 - battered_y, float(CAR_Y) + 2.5 - sound_y])
+	print("CONDITION OK %d of %d cars over four seeds spawn wrecked and the rest 40..100; five words in order, no digits; a run at a wall at %.1f m/s cost %.1f, bangs once on the bus and leaves the car %s, a bump against the nose costs nothing; battered drove %.1f m against sound's %.1f in sixty ticks; a wreck can be sat in and does not move; repeated runs at a wall wreck a sound car with one vehicle.wrecked, each crash slower than the last" % [wrecked, total, crash_speed, damage, SimVehicles.condition_word(float(v["integrity"])), float(CAR_Y) + SEDAN_HALF - battered_y, float(CAR_Y) + SEDAN_HALF - sound_y])
 	return true
 
 
@@ -1381,7 +1412,7 @@ func _the_hood_speaks_in_words(stash: Dictionary) -> bool:
 		return false
 	# At the side: not at the hood, and E gets in.
 	p["x"] = float(CAR_X - 1) + 0.5
-	p["y"] = float(CAR_Y + 2) + 0.5
+	p["y"] = float(CAR_Y + SEDAN_MID) + 0.5
 	if SimVehicles.at_hood(w, w.player, car):
 		push_error("HOOD: a body at the driver's door is at the hood")
 		return false
@@ -1394,7 +1425,7 @@ func _the_hood_speaks_in_words(stash: Dictionary) -> bool:
 	w.commands.push({"type": "use.context"})
 	w.step()
 	p["x"] = float(CAR_X) + 1.0
-	p["y"] = float(CAR_Y + 5) + 0.5
+	p["y"] = float(CAR_Y + SEDAN_L) + 0.5
 	if SimVehicles.at_hood(w, w.player, car):
 		push_error("HOOD: a body at the tail of a north-facing car is at the hood")
 		return false
@@ -1648,7 +1679,7 @@ func _a_can_fills_the_tank(stash: Dictionary) -> bool:
 	v["fuel"] = tank * 0.5
 	var p: Dictionary = _pos(w, w.player)
 	p["x"] = float(CAR_X - 1) + 0.5
-	p["y"] = float(CAR_Y + 2) + 0.5
+	p["y"] = float(CAR_Y + SEDAN_MID) + 0.5
 	w.commands.push({"type": "use.context"})
 	w.step()
 	if not w.components.has_component(w.player, "mounted") or w.components.has_component(w.player, "refuel") or not SimInventory.owns(w, w.player, can3):
@@ -2458,7 +2489,7 @@ func _the_sockets_are_wired() -> bool:
 		push_error("SOCKETS: the needle scanner called a present needle missing; it cannot say yes")
 		return false
 	var checks: Array = [
-		[WORLD_GD, "_integrate_movement", ["has_component(int(entity), \"vehicle\")"], "world's integrate would move a car by its two body corners as well as the module moving it"],
+		[WORLD_GD, "_integrate_movement", ["components.table(\"vehicle\")", "vehicles.has(int(entity))"], "world's integrate would move a car by its two body corners as well as the module moving it"],
 		[WORLD_GD, "restore", ["SimVehiclesRes.sync_map(self)"], "a restored car would stand on the kerb's Low tiles with its picture where it was driven"],
 		[BOOT_GD, "register_playable_modules", ["SimVehicles.register_module(world)"], "the toggle and the drive would run in no world"],
 		[BOOT_GD, "playable", ["SimVehicles.spawn_from_manifest(world, map)"], "no record would ever become an entity"],

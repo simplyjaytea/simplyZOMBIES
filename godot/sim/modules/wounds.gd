@@ -99,18 +99,18 @@ const CLOT_TICKS: Dictionary = {
 const WOUND_KINDS: Dictionary = {
 	"cut": {"bleeds": true, "recoveryDays": -1, "impairFloor": -1, "septicMul": 1.0, "global": {}, "closeKind": "suture"},
 	"bite": {"bleeds": true, "recoveryDays": -1, "impairFloor": -1, "septicMul": 1.0, "global": {}, "closeKind": "suture"},
-	"fracture": {"bleeds": false, "recoveryDays": 42, "impairFloor": 2, "septicMul": 0.0, "global": {}, "closeKind": "splint"},
+	"fracture": {"bleeds": false, "recoveryDays": 168, "impairFloor": 2, "septicMul": 0.0, "global": {}, "closeKind": "splint"},
 		# docs/05 treats a sprain with "Rest, wrap", and this row said `""` -- nothing in the game
 	# could close one, so the only treatment a sprain had was time. `wrap` is the third closer, and
 	# it is matched exactly like the other two: a suture does not compress a sprain and a wrap does
 	# not hold a cut shut.
-	"sprain": {"bleeds": false, "recoveryDays": 5, "impairFloor": 0, "septicMul": 0.0, "global": {}, "closeKind": "wrap"},
-	"burn": {"bleeds": true, "recoveryDays": 14, "impairFloor": 1, "septicMul": 2.0, "global": {}, "closeKind": "suture"},
+	"sprain": {"bleeds": false, "recoveryDays": 20, "impairFloor": 0, "septicMul": 0.0, "global": {}, "closeKind": "wrap"},
+	"burn": {"bleeds": true, "recoveryDays": 56, "impairFloor": 1, "septicMul": 2.0, "global": {}, "closeKind": "suture"},
 	# The exposure wounds (needs.gd's lethal ladders): no bleed, nothing to close, impairing
 	# the part they sit on; frostbite on an extremity for a fortnight, heatstroke on the torso
 	# for a week. Neither can go septic -- there is no opening.
-	"frostbite": {"bleeds": false, "recoveryDays": 14, "impairFloor": 1, "septicMul": 0.0, "global": {}, "closeKind": ""},
-	"heatstroke": {"bleeds": false, "recoveryDays": 7, "impairFloor": 1, "septicMul": 0.0, "global": {}, "closeKind": ""},
+	"frostbite": {"bleeds": false, "recoveryDays": 56, "impairFloor": 1, "septicMul": 0.0, "global": {}, "closeKind": ""},
+	"heatstroke": {"bleeds": false, "recoveryDays": 28, "impairFloor": 1, "septicMul": 0.0, "global": {}, "closeKind": ""},
 	# A concussion impairs the person, not the part: docs/05 wants "reaction and perception loss".
 	# swing_speed and ranged_accuracy are the two stats this model already has that mean
 	# "reactions", and they are what it gets. **Perception has no stat to attach to** -- vision is
@@ -120,7 +120,7 @@ const WOUND_KINDS: Dictionary = {
 	# would be a modifier that looks wired and is not, which is the exact failure this slice keeps
 	# finding elsewhere.
 	"concussion": {
-		"bleeds": false, "recoveryDays": 6, "impairFloor": -1, "septicMul": 0.0,
+		"bleeds": false, "recoveryDays": 24, "impairFloor": -1, "septicMul": 0.0,
 		"global": {"swing_speed": 0.85, "ranged_accuracy": 0.75}, "closeKind": "",
 	},
 }
@@ -329,6 +329,14 @@ static func _has_injuries(world: Variant, entity: int) -> bool:
 
 # Family (c): pain, entity-scoped, one source, recomputed from the wound list every pass -- the
 # same shape blood loss uses, for the same reason.
+# Every source `wounds.impair`'s three passes strip, as a set, built once a tick.
+static func _impair_sources() -> Dictionary:
+	var out: Dictionary = {BLOODLOSS_SOURCE: true, CONCUSSION_SOURCE: true, PAIN_SOURCE: true}
+	for part in SimCombat.SURVIVOR_BODY_PARTS:
+		out["wound." + String(part)] = true
+	return out
+
+
 static func _apply_pain(world: Variant, entity: int) -> void:
 	if world.modifiers == null:
 		return
@@ -453,9 +461,9 @@ const SEPSIS_MOOD: float = -12.0
 const SEPSIS_WORK_MUL: float = 0.7
 
 const RECOVERY_DAYS: Dictionary = {
-	Severity.Scratch: 2,
-	Severity.Laceration: 6,
-	Severity.DeepWound: 16,
+	Severity.Scratch: 8,
+	Severity.Laceration: 24,
+	Severity.DeepWound: 64,
 }
 
 # Recovery is *earned time*, not elapsed time. A wound's healedTicks only advances on ticks
@@ -1124,6 +1132,7 @@ static func register_module(world: Variant) -> void:
 	world.systems.register("wounds.impair", "input", -1, func(w: Variant) -> void:
 		if w.modifiers == null or not (w.modifiers as Object).has_method("add"):
 			return
+		var impair_src: Dictionary = _impair_sources()
 		for entity in w.components.query(["injuries"]):
 			var inj: Variant = w.components.get_component(int(entity), "injuries")
 			if inj == null:
@@ -1135,6 +1144,12 @@ static func register_module(world: Variant) -> void:
 			if w.components.has_component(int(entity), "corpse"):
 				continue
 			var d: Dictionary = inj as Dictionary
+			# A body with no wound, too little blood lost to impair it, and none of these sources
+			# on it has nothing to strip and nothing to add: the three passes below would remove
+			# thirteen sources it does not hold and add none, since pain needs a wound. Most of the
+			# district is such a body (A3's eighth slice).
+			if (d.get("wounds", []) as Array).is_empty() and float(d.get("bloodLoss", 0.0)) / BLOOD_LOSS_FATAL < 0.25 and not w.modifiers.holds_any(int(entity), impair_src):
+				continue
 			_apply_bloodloss_impairment(w, int(entity), float(d.get("bloodLoss", 0.0)))
 			_apply_part_impairment(w, int(entity), d.get("wounds", []) as Array)
 			_apply_pain(w, int(entity))
