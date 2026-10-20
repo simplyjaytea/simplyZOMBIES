@@ -3510,7 +3510,12 @@ not a to-do list:
   so a long sleeve's cuff seemed to jump a pixel between frames; `action_wear._whole_hands` steps a
   torso garment's cuff back off the bare skin straight above such a hand, never on what a trouser
   or shoe covers. Where the fold leaves a hand one pixel wide between ink (south frame 0's right
-  hand), that is the body picture's, with the rest of the fold geometry above.
+  hand), that is the body picture's, with the rest of the fold geometry above. The round-three
+  confirmation found one more pixel of the same kind: on the west recoil frame 1 and flinch frame
+  2 the lean brings a hood-covered hair pixel to the jaw's edge at (21, 21), where it read as
+  outline and showed as hair beside the hood. Warm dark hair on the ring beside a neutral outline
+  pixel is hair now (`action_wear._ink`, and `godot:check:authored`'s `_wear_is_ink` with a
+  fabricated case each way), which hoods those two frames and nothing else.
 
 - **Art & renderer — zombies turn, walk and fall, 2026-10-02.** Closes "A silhouette per
   kind" and the Focal art half of "A corpse reads as a corpse", at the owner's request for

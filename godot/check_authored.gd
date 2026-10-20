@@ -1822,6 +1822,15 @@ func _wear_is_ink(body: Image, x: int, y: int) -> bool:
 		return false
 	if c.r8 - c.b8 < WEAR_INK_WARM:
 		return true
+	# Beside a neutral outline pixel, warm dark hair is not the outline: the outline is drawn
+	# beside it (a lean that brings hood-covered hair to the edge, `action_wear._ink`).
+	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var n: Vector2i = Vector2i(x, y) + d
+		if n.x < 0 or n.y < 0 or n.x >= body.get_width() or n.y >= body.get_height():
+			continue
+		var nc: Color = body.get_pixel(n.x, n.y)
+		if nc.a8 >= ALPHA_SOLID and maxi(nc.r8, maxi(nc.g8, nc.b8)) < WEAR_INK_MAX and nc.r8 - nc.b8 < WEAR_INK_WARM:
+			return false
 	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 		var q: Vector2i = Vector2i(x, y) + d
 		if q.x < 0 or q.y < 0 or q.x >= body.get_width() or q.y >= body.get_height():
@@ -1959,13 +1968,16 @@ func _every_garment_fits_its_rig_frame_by_frame() -> bool:
 		push_error("WEAR: a garment painting over the body's ink passed")
 		return false
 	# Warm dark hair inside the outline ring is not ink, and a hood may cover it; the same colour on
-	# the ring is, and a neutral dark pixel is wherever it sits.
+	# the ring is, unless a neutral outline pixel sits beside it, and a neutral dark pixel is ink
+	# wherever it sits.
 	var hair := Image.create(5, 5, false, Image.FORMAT_RGBA8)
 	for y in 5:
 		for x in 5:
 			hair.set_pixel(x, y, Color8(0, 0, 0, 255))
 	hair.set_pixel(2, 2, Color8(0x2b, 0x1a, 0x0c, 255))
-	hair.set_pixel(0, 2, Color8(0x2b, 0x1a, 0x0c, 255))
+	for warm in [Vector2i(0, 1), Vector2i(0, 2), Vector2i(0, 3), Vector2i(1, 2), Vector2i(2, 1), Vector2i(2, 3), Vector2i(3, 2)]:
+		hair.set_pixel(warm.x, warm.y, Color8(0x2b, 0x1a, 0x0c, 255))
+	hair.set_pixel(4, 4, Color8(0x2b, 0x1a, 0x0c, 255))
 	var hood := Image.create(5, 5, false, Image.FORMAT_RGBA8)
 	hood.set_pixel(2, 2, Color8(100, 100, 60, 255))
 	if not _wear_fit_complaint(hood, hair, [0], 0).is_empty():
@@ -1975,6 +1987,11 @@ func _every_garment_fits_its_rig_frame_by_frame() -> bool:
 	ring.set_pixel(0, 2, Color8(100, 100, 60, 255))
 	if _wear_fit_complaint(ring, hair, [0], 0).is_empty():
 		push_error("WEAR: a garment painting warm dark ink on the outline ring passed")
+		return false
+	var edge := Image.create(5, 5, false, Image.FORMAT_RGBA8)
+	edge.set_pixel(4, 4, Color8(100, 100, 60, 255))
+	if not _wear_fit_complaint(edge, hair, [0], 0).is_empty():
+		push_error("WEAR: a hood over warm dark hair on the ring, beside a neutral outline pixel, was refused")
 		return false
 	var neutral := Image.create(5, 5, false, Image.FORMAT_RGBA8)
 	neutral.set_pixel(1, 1, Color8(100, 100, 60, 255))
