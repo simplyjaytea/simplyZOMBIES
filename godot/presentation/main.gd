@@ -51,6 +51,7 @@ const InputMapRes = preload("res://presentation/input_map.gd")
 const SessionRes = preload("res://presentation/session.gd")
 const UiPrefs = preload("res://ui/prefs.gd")
 const RenderInterp = preload("res://presentation/interp.gd")
+const WorldLayersRes = preload("res://presentation/world_layers.gd")
 
 const TICK_HZ: int = 20
 const TICK_SECONDS: float = 1.0 / 20.0
@@ -246,12 +247,23 @@ var _drew_tick: int = -1
 # proof that the draw loop reaches the sheets. Never read by the game.
 var _fx: RefCounted = FxLook.new()
 var _fx_drawn: Array[Dictionary] = []
+# The baked ground, walls and roofs (presentation/world_layers.gd), and the pen the ground helpers
+# draw with: main itself, except while a chunk is being baked, when it is that chunk's own canvas
+# item. Every draw call in _draw_district's helpers goes through `_pen`, which is the whole of how
+# one body of drawing code serves both.
+var _layers: RefCounted = WorldLayersRes.new()
+var _pen: Object = null
+# Which of a tile's looks a _draw_district pass bakes; the values are world_layers.gd's Layer ids.
+enum BakePass { LIVE = 0, A2 = 1, REMEMBERED = 2 }
 
 # A rider drawn on an open vehicle: how far above the machine's ground point the pawn's soles
 # stand (a saddle is about that high off the road), and how far in front of the picture it
 # sorts. Both are readouts of the interface, not lengths the sim knows.
 const RIDER_LIFT_M: float = 0.35
 const RIDER_DEPTH_EPS: float = 0.01
+
+func _init() -> void:
+	_pen = self
 
 func _ready() -> void:
 	content = ContentLoader.load_tree()
@@ -384,7 +396,9 @@ func _on_world_replaced() -> void:
 	_snap_camera()
 
 func _notification(what: int) -> void:
-	if what == 413: # NOTIFICATION_RESIZED
+	if what == NOTIFICATION_PREDELETE:
+		_layers.call("detach")
+	elif what == 413: # NOTIFICATION_RESIZED
 		_resize_camera()
 		queue_redraw()
 	elif what == NOTIFICATION_WM_CLOSE_REQUEST:
@@ -1174,9 +1188,9 @@ func _update_hud() -> void:
 
 func _draw() -> void:
 	if world == null: return
-	# background
-	draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Palette.COLOURS["background"])
-	_draw_district()
+	# The background, the ground, the walls and the roofs are baked layers drawn behind this item
+	# (_draw_world); everything below is drawn fresh each frame on top of them.
+	_draw_world()
 	_draw_light_pools()
 	_fx_drawn = []
 	_a2_wall_drawn = []
@@ -1197,40 +1211,41 @@ func _draw() -> void:
 	# An aborted draw never gets here, so the counter lagging the tick is the failure.
 	_drew_tick = int(world.tick)
 
-func _draw_district() -> void:
+# One chunk of the ground, walls and roofs-to-be, baked once into a layer that keeps it
+# (presentation/world_layers.gd) rather than redrawn every frame. `region` is the chunk's tiles;
+# `bake_pass` says which of a tile's looks this layer holds: as seen now (LIVE), as the remembered map
+# draws it (REMEMBERED), or the room boards a standing wall module sits on (A2). Which look the
+# screen shows on a given tile is world_mask.gdshader's per-frame question, asked of the sight
+# sets -- the one this loop used to ask with `has_tile` and a `continue`, tile by tile, every
+# frame. `camera` is the bake camera here (_bake_layer), so a tile's rect is its world pixels.
+func _draw_district(region: Rect2i, bake_pass: int) -> void:
 	var zoom: float = float(camera["zoom"])
-	# Resolved once per frame rather than once per tile: the lookup is a scan over the content
-	# tree and the loop below asks about every visible tile.
+	# Resolved once per chunk rather than once per tile: the lookup is a scan over the content
+	# tree and the loop below asks about every tile in the chunk.
 	var dress: Dictionary = _dressing()
 	var half: float = zoom / 2.0
-	var seen: Variant = null
-	if world.vision != null:
-		seen = world.vision.tiles_for(int(world.player))
-	# The remembered map: everything the player's own shadowcast has ever reached, dimmed rather
-	# than black once the current cone has moved past it (docs/23, "The remembered map, dimmed").
-	var explored: Variant = SimSightings.explored_view(world, int(world.player))
-	var bounds: Dictionary = TopDownProjection.visible_bounds(camera, 2.0)
-	var a2_wall_tiles: Dictionary = _a2_wall_modules(dress, seen, explored, bounds)
-	var min_x: int = maxi(0, floori(float(bounds["minX"])))
-	var max_x: int = mini(int(world.map_width) - 1, ceili(float(bounds["maxX"])))
-	var min_y: int = maxi(0, floori(float(bounds["minY"])))
-	var max_y: int = mini(int(world.map_height) - 1, ceili(float(bounds["maxY"])))
+	# The A2 pass bakes only the tiles a wall module can stand on; which of them carry one this
+	# frame is the mask's A2 bit, from the same _a2_wall_modules _draw_world asks with the
+	# survivor's own sight.
+	var a2_wall_tiles: Dictionary = _a2_candidates(dress, region) if bake_pass == BakePass.A2 else {}
+	var min_x: int = maxi(0, region.position.x)
+	var max_x: int = mini(int(world.map_width) - 1, region.end.x - 1)
+	var min_y: int = maxi(0, region.position.y)
+	var max_y: int = mini(int(world.map_height) - 1, region.end.y - 1)
 	# Row-major, no sort: flat tiles never overlap. Bodies overlap tiles and each
 	# other; they sort in _draw_entities.
-	# The sim's snow cover, one read a frame rather than one a tile (SimWeather.snow_cover).
+	# The sim's snow cover, one read a chunk rather than one a tile (SimWeather.snow_cover).
 	var snow_cover: float = SimWeather.snow_cover(world)
 	for ty in range(min_y, max_y + 1):
 		for tx in range(min_x, max_x + 1):
-			# Walls block sight: draw a tile the player has a sightline to (windows stay Clear), or
-			# one they no longer do but have stood inside before -- dimmed, below -- and skip a
-			# tile that is neither: a tile never cast is a tile never drawn.
-			var live: bool = seen == null or bool((seen as Object).call("has_tile", tx, ty))
-			var remembered: bool = false
-			if not live:
-				if explored != null and bool((explored as Object).call("has_tile", tx, ty)):
-					remembered = true
-				else:
-					continue
+			# A tile the player has a sightline to (windows stay Clear) draws in the LIVE and A2
+			# passes; one they no longer see but have stood inside before draws in the REMEMBERED
+			# pass -- dimmed, below. A tile that is neither is drawn by no layer at all: the mask
+			# discards every look of a tile never cast, so a tile never cast is a tile never seen.
+			var live: bool = bake_pass != BakePass.REMEMBERED
+			var remembered: bool = not live
+			if bake_pass == BakePass.A2 and not a2_wall_tiles.has(ty * int(world.map_width) + tx):
+				continue
 			var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(tx) + 0.5, float(ty) + 0.5)
 			var rect := Rect2(roundf(float(sc["sx"]) - half), roundf(float(sc["sy"]) - half), zoom, zoom)
 			var tile: int = SimTileMap.Tile.Floor
@@ -1324,7 +1339,7 @@ func _draw_district() -> void:
 						if not _draw_heap(rect, dress, tx, ty):
 							# Inset block with floor showing around it reads as waist-high.
 							var inset: float = zoom * 0.15625
-							draw_rect(Rect2(rect.position + Vector2(inset, inset), rect.size - Vector2(inset * 2.0, inset * 2.0)), col)
+							_pen.draw_rect(Rect2(rect.position + Vector2(inset, inset), rect.size - Vector2(inset * 2.0, inset * 2.0)), col)
 				SimTileMap.Tile.Door:
 					# The door tile draws its state: shut, a plank of the wall's timber filling the
 					# doorway (the class's palette colour, `door`); open or broken, the doorway it
@@ -1350,7 +1365,7 @@ func _draw_district() -> void:
 					# the water surface, so it falls through to the default arm below and draws
 					# the atlas's water row like any other ground. That difference is what makes
 					# a crossing something the player can see before stepping in.
-					draw_rect(rect, col)
+					_pen.draw_rect(rect, col)
 					_draw_water_shore(rect, tx, ty, col)
 				SimTileMap.Tile.Tree:
 					_draw_floor_tile(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground), tx, ty, Appearance.ground_row_for(world.tilemap, tx, ty, false))
@@ -1361,8 +1376,8 @@ func _draw_district() -> void:
 					var tree_key: String = Dressing.tree_key(dress, int(world.seed), tx, ty)
 					if tree_key.is_empty() or Appearance.resolve(tree_key) == null:
 						var centre: Vector2 = rect.get_center()
-						draw_circle(centre, zoom * 0.42, col)
-						draw_circle(centre, zoom * 0.0625, col.darkened(0.45))
+						_pen.draw_circle(centre, zoom * 0.42, col)
+						_pen.draw_circle(centre, zoom * 0.0625, col.darkened(0.45))
 				_:
 					# A floor knows whether it is inside a building and whether it is the tile you
 					# step through to get there. Both are read from the map -- `indoors` is an
@@ -1412,12 +1427,48 @@ func _draw_district() -> void:
 						# pavement. Cosmetic, hash-picked, and drawn over the paint rather than
 						# under it, because litter blows onto a road marking and not beneath one.
 						_draw_scatter(rect, dress, tx, ty)
-	# The roofs, over the interiors the survivor cannot see: they fill tiles the loop above
-	# skipped as unseen, so a roof draws where the screen was black and never where the sim
-	# can see (RoofLook.roof_tiles is the rule; check_roof_look.gd holds it both ways).
-	_draw_roofs(dress, seen, explored, bounds)
+
+# The world under the bodies, every frame: the baked layers brought up to date and moved with the
+# camera, then the dressing and the props drawn fresh on top of them. What is baked is everything
+# whose look does not depend on where the survivor is looking -- the ground, the walls, the roofs --
+# and what is drawn here is everything that is filtered by sight one picture at a time.
+func _draw_world() -> void:
+	var dress: Dictionary = _dressing()
+	var seen: Variant = null
+	if world.vision != null:
+		seen = world.vision.tiles_for(int(world.player))
+	# The remembered map: everything the player's own shadowcast has ever reached, dimmed rather
+	# than black once the current cone has moved past it (docs/23, "The remembered map, dimmed").
+	var explored: Variant = SimSightings.explored_view(world, int(world.player))
+	var bounds: Dictionary = TopDownProjection.visible_bounds(camera, 2.0)
+	# The standing wall modules for the entity sort, and the tiles they stand on for the mask.
+	var a2_wall_tiles: Dictionary = _a2_wall_modules(dress, seen, explored, bounds)
+	var map_w: int = int(world.map_width)
+	var map_h: int = int(world.map_height)
+	var min_x: int = maxi(0, floori(float(bounds["minX"])))
+	var max_x: int = mini(map_w - 1, ceili(float(bounds["maxX"])))
+	var min_y: int = maxi(0, floori(float(bounds["minY"])))
+	var max_y: int = mini(map_h - 1, ceili(float(bounds["maxY"])))
+	var view := Rect2i(min_x, min_y, maxi(0, max_x - min_x + 1), maxi(0, max_y - min_y + 1))
+	# The roofs, over the interiors the survivor cannot see: the roof rule picks the tiles
+	# (RoofLook.roof_tiles; check_roof_look.gd holds it both ways), the mask shows the baked
+	# sheet there and nowhere else, so a roof draws where the screen would be black and never
+	# where the sim can see.
+	var roof: Array = []
+	if world.tilemap != null and seen != null:
+		roof = RoofLook.roof_tiles(world.tilemap, seen, bounds, _player_tile())
+	_layers.call("attach", get_canvas_item())
+	_layers.call("set_sight", seen, explored, roof, a2_wall_tiles, map_w, map_h, view)
+	var origin: Dictionary = TopDownProjection.world_to_screen(camera, 0.0, 0.0)
+	_layers.call("frame", {
+		"zoom": float(camera["zoom"]), "offset": Vector2(float(origin["sx"]), float(origin["sy"])),
+		"viewport": get_viewport_rect().size, "background": Palette.COLOURS["background"],
+		"map": world.tilemap, "content": world.content, "seed": int(world.seed),
+		"generation": int(world.map_generation), "map_w": map_w, "map_h": map_h, "view": view,
+		"snow": SimWeather.snow_cover(world), "signature": _bake_signature, "bake": _bake_layer,
+	})
 	# The nature dressing, flat on the ground and under everything that stands: bushes, reeds,
-	# rocks, stumps and logs over open outdoor floor. After the tile loop and not inside it
+	# rocks, stumps and logs over open outdoor floor. After the baked tiles and not inside them
 	# because the log is wider than its tile and the floor drawn beside it would overdraw it;
 	# before the props and the bodies because nothing here is an object anyone can stand behind.
 	_draw_nature(dress, seen, bounds)
@@ -1427,6 +1478,88 @@ func _draw_district() -> void:
 	# Props last, over the ground and under the bodies _draw_entities sorts: a container, a bed,
 	# a campfire and the well all stood invisible in this district until this call existed.
 	_draw_props()
+
+
+# Every baked chunk thrown away; the next frame bakes what it sees again. The bake follows the map
+# generation, the content tree, the seed, the zoom and the snow on its own -- this is for a caller
+# that changed something a bake reads behind all of their backs (a gate swapping a cached texture or
+# a building's look in place), and for nothing in a running game.
+func _rebake_world() -> void:
+	_layers.call("clear")
+
+
+# One layer of one chunk, into `pen`. The camera is swapped for one at the world origin so every
+# helper's world_to_screen answers world pixels -- tile (tx, ty) at (tx * zoom, ty * zoom) -- and
+# the layer's transform (world_layers.gd) is the only thing that follows the real camera.
+func _bake_layer(region: Rect2i, layer: int, pen: Object) -> void:
+	var kept_pen: Object = _pen
+	var kept_camera: Dictionary = camera
+	_pen = pen
+	camera = CameraUtil.create_camera(float(kept_camera["zoom"]))
+	match layer:
+		WorldLayersRes.Layer.LIVE:
+			_draw_district(region, BakePass.LIVE)
+		WorldLayersRes.Layer.A2:
+			_draw_district(region, BakePass.A2)
+		WorldLayersRes.Layer.REMEMBERED:
+			_draw_district(region, BakePass.REMEMBERED)
+		WorldLayersRes.Layer.ROOF:
+			_draw_roofs(_dressing(), region, false)
+		WorldLayersRes.Layer.ROOF_DIM:
+			_draw_roofs(_dressing(), region, true)
+	_pen = kept_pen
+	camera = kept_camera
+
+
+# What a chunk's bake read off the map, hashed: its tiles and the ring around them (a tile's look
+# reads its neighbours -- the wall faces, the shore, the kerbs, the grass fringe), their ground,
+# indoors flags, overlays (doors, boards, scrap) and the parked vehicles over them. A tile that
+# changes anywhere changes the map generation; this is how world_layers.gd finds which chunks it
+# changed in, so a door swinging open rebakes one chunk and not the screen.
+func _bake_signature(region: Rect2i) -> int:
+	var map: Variant = world.tilemap
+	if map == null:
+		return 0
+	var w: int = int(map.w)
+	var ring: Rect2i = region.grow(1).intersection(Rect2i(0, 0, w, int(map.h)))
+	var parts: Array = []
+	var vehicles: PackedInt32Array = _vehicle_index()
+	var overlays: Variant = map.overlays
+	for ty in range(ring.position.y, ring.end.y):
+		var a: int = ty * w + ring.position.x
+		var b: int = a + ring.size.x
+		parts.append((map.tiles as PackedByteArray).slice(a, b))
+		parts.append((map.surfaces as PackedByteArray).slice(a, b))
+		parts.append((map.indoors as PackedByteArray).slice(a, b))
+		if vehicles.size() >= b:
+			parts.append(vehicles.slice(a, b))
+		if overlays is Dictionary:
+			for i in range(a, b):
+				var ov: Variant = (overlays as Dictionary).get(i)
+				if ov != null:
+					parts.append(i)
+					parts.append(ov)
+	return hash(parts)
+
+
+# Every tile a wall module could stand on in `region`, as if every owner were seen: the A2 pass
+# bakes the room boards under all of them, and the mask's A2 bit picks the ones standing now.
+# _a2_wall_modules also rebuilds the entity sort's wall pieces, which belong to this frame's
+# sight, so they are set aside and put back.
+func _a2_candidates(dress: Dictionary, region: Rect2i) -> Dictionary:
+	var kept: Array[Dictionary] = _a2_wall_pieces
+	_a2_wall_pieces = []
+	var covered: Dictionary = _a2_wall_modules(dress, null, null, {"minX": float(region.position.x), "minY": float(region.position.y), "maxX": float(region.end.x), "maxY": float(region.end.y)})
+	_a2_wall_pieces = kept
+	return covered
+
+
+func _player_tile() -> Vector2i:
+	var pos: Variant = world.components.get_component(int(world.player), "position")
+	if pos is Dictionary:
+		return Vector2i(floori(float((pos as Dictionary)["x"])), floori(float((pos as Dictionary)["y"])))
+	return Vector2i(-1, -1)
+
 
 # A floor is its ground's atlas cell, modulated to the flat colour the palette would have drawn,
 # at GROUND_TEXTURE_MIN_ZOOM and above; below that (16 px a tile, where the texture is noise) and
@@ -1438,9 +1571,9 @@ func _draw_floor_tile(rect: Rect2, col: Color, tx: int, ty: int, row: int) -> vo
 	var atlas: Texture2D = Appearance.ground_atlas()
 	if atlas != null and float(camera["zoom"]) >= Palette.GROUND_TEXTURE_MIN_ZOOM:
 		var variant: int = Dressing.variant_index(int(world.seed), tx, ty, Dressing.SALT_GROUND, Appearance.GROUND_VARIANTS)
-		draw_texture_rect_region(atlas, rect, Appearance.ground_cell(row, variant), Appearance.ground_modulate(col, Appearance.ground_row_tint(row)))
+		_pen.draw_texture_rect_region(atlas, rect, Appearance.ground_cell(row, variant), Appearance.ground_modulate(col, Appearance.ground_row_tint(row)))
 	else:
-		draw_rect(rect, col)
+		_pen.draw_rect(rect, col)
 
 
 # The accepted A2 wall/window owner cells are perimeter, not traversable indoor floor. Their
@@ -1514,13 +1647,13 @@ func _draw_water_shore(rect: Rect2, tx: int, ty: int, col: Color) -> void:
 	var band: float = maxf(1.0, rect.size.x * Palette.WATER_SHORE_SHARE)
 	# N, S, W, E -- each drawn only where the neighbour is something other than more channel.
 	if not _is_deep_water(tx, ty - 1):
-		draw_rect(Rect2(rect.position, Vector2(rect.size.x, band)), shore)
+		_pen.draw_rect(Rect2(rect.position, Vector2(rect.size.x, band)), shore)
 	if not _is_deep_water(tx, ty + 1):
-		draw_rect(Rect2(rect.position + Vector2(0.0, rect.size.y - band), Vector2(rect.size.x, band)), shore)
+		_pen.draw_rect(Rect2(rect.position + Vector2(0.0, rect.size.y - band), Vector2(rect.size.x, band)), shore)
 	if not _is_deep_water(tx - 1, ty):
-		draw_rect(Rect2(rect.position, Vector2(band, rect.size.y)), shore)
+		_pen.draw_rect(Rect2(rect.position, Vector2(band, rect.size.y)), shore)
 	if not _is_deep_water(tx + 1, ty):
-		draw_rect(Rect2(rect.position + Vector2(rect.size.x - band, 0.0), Vector2(band, rect.size.y)), shore)
+		_pen.draw_rect(Rect2(rect.position + Vector2(rect.size.x - band, 0.0), Vector2(band, rect.size.y)), shore)
 
 
 # Off the map is *not* deep water, so a channel running into the district wall still draws its own
@@ -1545,7 +1678,7 @@ func _draw_ground_edges(rect: Rect2, rows: PackedByteArray, tx: int, ty: int) ->
 		_row_at(rows, tx + 1, ty - 1), _row_at(rows, tx + 1, ty + 1), _row_at(rows, tx - 1, ty + 1), _row_at(rows, tx - 1, ty - 1),
 	])
 	for cell in Appearance.edge_shapes(centre, around):
-		draw_texture_rect_region(atlas, rect, Appearance.edge_cell(cell.x, cell.y), Color.WHITE)
+		_pen.draw_texture_rect_region(atlas, rect, Appearance.edge_cell(cell.x, cell.y), Color.WHITE)
 
 
 # The road-paint mask, cached against the map object it was resolved from. RoadPaint.mask_for is
@@ -1671,7 +1804,7 @@ func _draw_heap(rect: Rect2, dress: Dictionary, tx: int, ty: int) -> bool:
 	if texture == null:
 		return false
 	var size: Vector2 = texture.get_size() * Appearance.blit_scale(float(camera["zoom"]))
-	draw_texture_rect(texture, Appearance.hang_rect(rect.position.x + rect.size.x / 2.0, rect.end.y, size), false)
+	_pen.draw_texture_rect(texture, Appearance.hang_rect(rect.position.x + rect.size.x / 2.0, rect.end.y, size), false)
 	return true
 
 
@@ -1692,7 +1825,7 @@ func _draw_scatter(rect: Rect2, dress: Dictionary, tx: int, ty: int) -> void:
 	var texture: Texture2D = Appearance.resolve(key)
 	if texture == null:
 		return
-	draw_texture_rect(texture, rect, false)
+	_pen.draw_texture_rect(texture, rect, false)
 
 
 func _mask_at(mask: PackedByteArray, tx: int, ty: int) -> int:
@@ -1724,7 +1857,7 @@ func _draw_road_dash(rect: Rect2, mask: PackedByteArray, tx: int, ty: int) -> vo
 		dash = Rect2(centre - Vector2(long_side / 2.0, short_side / 2.0), Vector2(long_side, short_side))
 	else:
 		dash = Rect2(centre - Vector2(short_side, short_side), Vector2(short_side * 2.0, short_side * 2.0))
-	draw_rect(dash, Palette.COLOURS["roadPaint"])
+	_pen.draw_rect(dash, Palette.COLOURS["roadPaint"])
 
 
 # The kerb: a thin strip on each edge where pavement meets ground that is not pavement, read per
@@ -1735,13 +1868,13 @@ func _draw_kerbs(rect: Rect2, edges: int) -> void:
 	var t: float = maxf(1.0, rect.size.x * 0.09)
 	var kerb: Color = Palette.COLOURS["kerb"]
 	if (edges & RoadPaint.EDGE_N) != 0:
-		draw_rect(Rect2(rect.position, Vector2(rect.size.x, t)), kerb)
+		_pen.draw_rect(Rect2(rect.position, Vector2(rect.size.x, t)), kerb)
 	if (edges & RoadPaint.EDGE_S) != 0:
-		draw_rect(Rect2(rect.position + Vector2(0.0, rect.size.y - t), Vector2(rect.size.x, t)), kerb)
+		_pen.draw_rect(Rect2(rect.position + Vector2(0.0, rect.size.y - t), Vector2(rect.size.x, t)), kerb)
 	if (edges & RoadPaint.EDGE_W) != 0:
-		draw_rect(Rect2(rect.position, Vector2(t, rect.size.y)), kerb)
+		_pen.draw_rect(Rect2(rect.position, Vector2(t, rect.size.y)), kerb)
 	if (edges & RoadPaint.EDGE_E) != 0:
-		draw_rect(Rect2(rect.position + Vector2(rect.size.x - t, 0.0), Vector2(t, rect.size.y)), kerb)
+		_pen.draw_rect(Rect2(rect.position + Vector2(rect.size.x - t, 0.0), Vector2(t, rect.size.y)), kerb)
 
 # Solid tiles (walls, screens, boards, scrap): the whole tile is filled, because the whole tile
 # is what the sim blocks, but it is filled with the cap -- the top of the wall seen from above --
@@ -1754,7 +1887,7 @@ func _draw_kerbs(rect: Rect2, edges: int) -> void:
 # same way _draw_window_glass reads its pane, so a wall boarded up or torn open this tick is
 # shaded against what stands now.
 func _draw_solid_tile(rect: Rect2, col: Color, tx: int, ty: int) -> void:
-	draw_rect(rect, col.darkened(Palette.WALL_CAP_DARKEN))
+	_pen.draw_rect(rect, col.darkened(Palette.WALL_CAP_DARKEN))
 	var b: float = maxf(2.0, rect.size.x * Palette.WALL_FACE_SHARE)
 	# Light from the top-left, as the old bevel had it: the north and west faces catch it, the
 	# south and east ones are the same mass in shade. Both are lighter than the cap and than any
@@ -1762,13 +1895,13 @@ func _draw_solid_tile(rect: Rect2, col: Color, tx: int, ty: int) -> void:
 	var light: Color = col.lightened(Palette.WALL_FACE_LIT)
 	var dim: Color = col.lightened(Palette.WALL_FACE_DIM)
 	if not _is_solid_at(tx, ty - 1):
-		draw_rect(Rect2(rect.position, Vector2(rect.size.x, b)), light)
+		_pen.draw_rect(Rect2(rect.position, Vector2(rect.size.x, b)), light)
 	if not _is_solid_at(tx - 1, ty):
-		draw_rect(Rect2(rect.position, Vector2(b, rect.size.y)), light)
+		_pen.draw_rect(Rect2(rect.position, Vector2(b, rect.size.y)), light)
 	if not _is_solid_at(tx, ty + 1):
-		draw_rect(Rect2(rect.position + Vector2(0.0, rect.size.y - b), Vector2(rect.size.x, b)), dim)
+		_pen.draw_rect(Rect2(rect.position + Vector2(0.0, rect.size.y - b), Vector2(rect.size.x, b)), dim)
 	if not _is_solid_at(tx + 1, ty):
-		draw_rect(Rect2(rect.position + Vector2(rect.size.x - b, 0.0), Vector2(b, rect.size.y)), dim)
+		_pen.draw_rect(Rect2(rect.position + Vector2(rect.size.x - b, 0.0), Vector2(b, rect.size.y)), dim)
 
 # Windows: a bright glass pane + rim so they read against masonry. Orientation
 # follows the neighbouring walls; a corner window falls back to a square pane.
@@ -1786,8 +1919,8 @@ func _draw_window_glass(rect: Rect2, tx: int, ty: int, col: Color = Palette.COLO
 		pane = Rect2(c - Vector2(pane_short / 2.0, pane_long / 2.0), Vector2(pane_short, pane_long))
 	else:
 		pane = Rect2(c - Vector2(pane_short * 0.75, pane_short * 0.75), Vector2(pane_short * 1.5, pane_short * 1.5))
-	draw_rect(pane, glass)
-	draw_rect(pane, Palette.COLOURS["windowRim"], false, 2.0)
+	_pen.draw_rect(pane, glass)
+	_pen.draw_rect(pane, Palette.COLOURS["windowRim"], false, 2.0)
 
 # Doorways, cached against the map object rather than recomputed per frame: the derivation itself
 # is Appearance.door_tiles, which is pure, and the cache lives here because a static one would be
@@ -1819,13 +1952,13 @@ func _draw_threshold(rect: Rect2, col: Color, tx: int, ty: int) -> void:
 	var jamb: Color = (Palette.COLOURS["wall"] as Color).darkened(Palette.WALL_CAP_DARKEN)
 	var t: float = maxf(2.0, rect.size.x * 0.14)
 	if _is_solid_at(tx - 1, ty):
-		draw_rect(Rect2(rect.position, Vector2(t, rect.size.y)), jamb)
+		_pen.draw_rect(Rect2(rect.position, Vector2(t, rect.size.y)), jamb)
 	if _is_solid_at(tx + 1, ty):
-		draw_rect(Rect2(rect.position + Vector2(rect.size.x - t, 0.0), Vector2(t, rect.size.y)), jamb)
+		_pen.draw_rect(Rect2(rect.position + Vector2(rect.size.x - t, 0.0), Vector2(t, rect.size.y)), jamb)
 	if _is_solid_at(tx, ty - 1):
-		draw_rect(Rect2(rect.position, Vector2(rect.size.x, t)), jamb)
+		_pen.draw_rect(Rect2(rect.position, Vector2(rect.size.x, t)), jamb)
 	if _is_solid_at(tx, ty + 1):
-		draw_rect(Rect2(rect.position + Vector2(0.0, rect.size.y - t), Vector2(rect.size.x, t)), jamb)
+		_pen.draw_rect(Rect2(rect.position + Vector2(0.0, rect.size.y - t), Vector2(rect.size.x, t)), jamb)
 
 
 # tile -> building index, cached against the map object like the road mask: a reboot or a load
@@ -1918,13 +2051,13 @@ func _draw_wall_art(rect: Rect2, dress: Dictionary, tx: int, ty: int, window: bo
 	var texture: Texture2D = Appearance.resolve(Dressing.wall_key(dress, String(look.get("wall", "")), face))
 	if texture == null:
 		return false
-	draw_texture_rect(texture, rect, false)
+	_pen.draw_texture_rect(texture, rect, false)
 	if window:
 		var pane: Texture2D = null
 		if face:
 			pane = Appearance.resolve(Dressing.face_key(dress, "window"))
 		if pane != null:
-			draw_texture_rect(pane, rect, false)
+			_pen.draw_texture_rect(pane, rect, false)
 		else:
 			_draw_window_glass(rect, tx, ty)
 	return true
@@ -2124,27 +2257,24 @@ func _draw_door_face(rect: Rect2, dress: Dictionary, tx: int, ty: int) -> void:
 		return
 	var texture: Texture2D = Appearance.resolve(key)
 	if texture != null:
-		draw_texture_rect(texture, rect, false)
+		_pen.draw_texture_rect(texture, rect, false)
 
 
-# The roofs: RoofLook.roof_tiles says which interior tiles the survivor cannot see belong to a
-# building they can see part of, and each takes its material's sheet -- the north or south half
-# of a pitched roof about the footprint's ridge row, or the flat one -- or, with no art for the
-# material, the palette's roof slab. Drawn after the tile loop (those tiles were skipped as
-# unseen, so this is the first paint on them) and before the props, which are never drawn on
-# an unseen tile anyway.
-func _draw_roofs(dress: Dictionary, seen: Variant, explored: Variant, bounds: Dictionary) -> void:
-	if world.tilemap == null or seen == null:
+# The roofs, baked: every interior tile in `region` that a roof could ever cover
+# (RoofLook.roof_candidates) takes its material's sheet -- the north or south half of a pitched
+# roof about the footprint's ridge row, or the flat one -- or, with no art for the material, the
+# palette's roof slab. Which of them the screen shows is RoofLook.roof_tiles's per-frame answer
+# (the interior tiles the survivor cannot see, of a building they can see part of), passed to the
+# mask as the ROOF bit by _draw_world. The roof layers sit over the tile layers and under the
+# props, which are never drawn on an unseen tile anyway.
+func _draw_roofs(dress: Dictionary, region: Rect2i, remembered: bool) -> void:
+	if world.tilemap == null:
 		return
 	var zoom: float = float(camera["zoom"])
 	var half: float = zoom / 2.0
-	var player_tile := Vector2i(-1, -1)
-	var pos: Variant = world.components.get_component(int(world.player), "position")
-	if pos is Dictionary:
-		player_tile = Vector2i(floori(float((pos as Dictionary)["x"])), floori(float((pos as Dictionary)["y"])))
 	var index: PackedInt32Array = _building_index()
 	var w: int = int(world.tilemap.w)
-	for t in RoofLook.roof_tiles(world.tilemap, seen, bounds, player_tile):
+	for t in RoofLook.roof_candidates(world.tilemap, region):
 		var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(t.x) + 0.5, float(t.y) + 0.5)
 		var rect := Rect2(roundf(float(sc["sx"]) - half), roundf(float(sc["sy"]) - half), zoom, zoom)
 		var building: int = index[t.y * w + t.x]
@@ -2155,13 +2285,13 @@ func _draw_roofs(dress: Dictionary, seen: Variant, explored: Variant, bounds: Di
 			var slope: int = RoofLook.slope_of(RoofLook.rect_of(world.tilemap, building), t.y, Dressing.roof_pitched(dress, material))
 			texture = Appearance.resolve(Dressing.roof_key(dress, material, slope))
 		# The one difference the remembered map makes here: a roof over a tile this observer has
-		# stood under before draws dimmed, the same tint the floor beneath it would if it were ever
-		# drawn -- an unexplored roof stays the flat, unweighted unknown it always was.
-		var remembered: bool = explored != null and bool((explored as Object).call("has_tile", t.x, t.y))
+		# stood under before draws dimmed (ROOF_DIM, shown where the tile is explored), the same tint
+		# the floor beneath it would if it were ever drawn -- an unexplored roof stays the flat,
+		# unweighted unknown it always was (ROOF).
 		if texture != null:
-			draw_texture_rect(texture, rect, false, Palette.remembered(Color.WHITE) if remembered else Color.WHITE)
+			_pen.draw_texture_rect(texture, rect, false, Palette.remembered(Color.WHITE) if remembered else Color.WHITE)
 		else:
-			draw_rect(rect, Palette.remembered(Palette.COLOURS["roof"]) if remembered else Palette.COLOURS["roof"])
+			_pen.draw_rect(rect, Palette.remembered(Palette.COLOURS["roof"]) if remembered else Palette.COLOURS["roof"])
 
 
 # Everything standing in the district that is neither a body nor a carried item. What each one

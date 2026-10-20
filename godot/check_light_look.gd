@@ -549,13 +549,15 @@ func _dead_socket_main_gd_draws_what_light_look_returns() -> bool:
 		push_error("could not read _draw out of %s -- the reach assertion had nothing to judge" % MAIN_GD)
 		return false
 	var at_pools: int = draw_fn.find("_draw_light_pools()")
-	var at_district: int = draw_fn.find("_draw_district()")
+	# The floor is _draw_world since the world was baked (presentation/world_layers.gd): the baked
+	# ground draws behind main's own commands, and _draw_world brings it up to date first.
+	var at_district: int = draw_fn.find("_draw_world()")
 	var at_entities: int = draw_fn.find("_draw_entities()")
 	if at_pools < 0:
 		push_error("_draw does not call _draw_light_pools: the lit pools are never drawn")
 		return false
 	if at_district < 0 or at_entities < 0 or at_pools < at_district or at_pools > at_entities:
-		push_error("_draw_light_pools is not called between _draw_district and _draw_entities (district %d, pools %d, entities %d)" % [at_district, at_pools, at_entities])
+		push_error("_draw_light_pools is not called between _draw_world and _draw_entities (world %d, pools %d, entities %d)" % [at_district, at_pools, at_entities])
 		return false
 
 	var pools_fn: String = _function_body(MAIN_GD, "_draw_light_pools")
