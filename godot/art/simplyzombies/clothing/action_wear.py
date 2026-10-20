@@ -120,6 +120,45 @@ def _shown(bare: Image.Image, dressed: Image.Image) -> Image.Image:
     return out
 
 
+def _whole_hands(bare: Image.Image, garment: Image.Image, legs: set[tuple[int, int]]) -> Image.Image:
+    """A hand the garment leaves one row tall gets its second row back from the cuff above it.
+
+    The crouch's fold drops the rows at the knee, and a hand hanging there loses one: under a long
+    sleeve the hand then shows two pixels on one frame and four on the next, and the cuff line
+    seems to jump. So where a run of bare skin the garment leaves uncovered is one row tall, the
+    garment steps back off the bare skin straight above it and the hand reads as two rows again
+    (where the fold stepped the arm sideways, as much of it as sits over skin). Skin only, and
+    never on `legs` (what a trouser or shoe covers on the frame): a cuff over ink stays, and a
+    coat's hem over a shin is not a cuff."""
+    out = garment.copy()
+    b, o = bare.load(), out.load()
+    w, h = bare.size
+
+    def bare_skin(x: int, y: int) -> bool:
+        return 0 <= x < w and 0 <= y < h and parts.kind(b[x, y]) in ("s", "S") and o[x, y][3] == 0 and (x, y) not in legs
+
+    seen: set[tuple[int, int]] = set()
+    for y in range(h):
+        for x in range(w):
+            if (x, y) in seen or not bare_skin(x, y):
+                continue
+            run, todo = [], [(x, y)]
+            seen.add((x, y))
+            while todo:
+                px, py = todo.pop()
+                run.append((px, py))
+                for q in ((px + 1, py), (px - 1, py), (px, py + 1), (px, py - 1)):
+                    if q not in seen and bare_skin(*q):
+                        seen.add(q)
+                        todo.append(q)
+            if len({py for _px, py in run}) != 1:
+                continue
+            above = [(px, py - 1) for px, py in run if py > 0 and o[px, py - 1][3] > 0 and parts.kind(b[px, py - 1]) in ("s", "S")]
+            for q in above:
+                o[q] = (0, 0, 0, 0)
+    return out
+
+
 def _same(a: Image.Image, b: Image.Image) -> bool:
     return a.size == b.size and a.tobytes() == b.tobytes()
 
@@ -314,51 +353,26 @@ def _reload_garment(bc, family: str, final: Image.Image, view: str, beat: dict, 
             elif fp[x, y] == bp[x, y] and gp[x, y][3]:
                 o[x, y] = gp[x, y]
     # Side on, `_thin_back` gives the third pixel of a thickened back edge the colour just inside
-    # it: there the cloth beside it is carried out over it as well.
-    for y in range(h):
-        for x in range(w):
-            if o[x, y][3] or not fp[x, y][3] or fp[x, y] == bp[x, y] or arms.at(x, y) in ("A", "K") or parts.kind(fp[x, y]) == "#":
-                continue
-            for dx in (1, -1):
-                q = x + dx
-                if 0 <= q < w and o[q, y][3] and fp[q, y] == fp[x, y] and arms.at(q, y) not in ("A", "K"):
-                    o[x, y] = o[q, y]
-                    break
+    # it (and `_trim` the hair a pixel or two behind the head): there the cloth beside it is carried
+    # out over it as well, run after run until nothing more joins, so a pair of such pixels is not
+    # left half covered by the order it was scanned in.
+    grew = True
+    while grew:
+        grew = False
+        for y in range(h):
+            for x in range(w):
+                if o[x, y][3] or not fp[x, y][3] or fp[x, y] == bp[x, y] or arms.at(x, y) in ("A", "K") or parts.kind(fp[x, y]) == "#":
+                    continue
+                for dx in (1, -1):
+                    q = x + dx
+                    if 0 <= q < w and o[q, y][3] and fp[q, y] == fp[x, y] and arms.at(q, y) not in ("A", "K"):
+                        o[x, y] = o[q, y]
+                        grew = True
+                        break
     return out
 
 
 # --- generated: the swing seen from the east, the west and the front -------------------------
-
-
-def _band_legs(f) -> None:
-    """Skin in the underwear's rows that the rest-view rules called arm or hand, but that joins a
-    leg: a generated swing kicks the trailing leg back and up into the hips' rows, past their
-    span, where the rest view's hand hangs. A run of it touching the pelvis or a leg is leg, so the
-    trousers carry on down it to the shoe; a hand hanging that low touches neither."""
-    seen: set[tuple[int, int]] = set()
-    rows = range(f.waist_top, f.waist_bot + 1)
-    for y0 in rows:
-        for x0 in range(parts.W):
-            if (x0, y0) in seen or f.lab[y0][x0] not in ("A", "K"):
-                continue
-            run, stack = [], [(x0, y0)]
-            seen.add((x0, y0))
-            touches = False
-            while stack:
-                x, y = stack.pop()
-                run.append((x, y))
-                for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
-                    if not (0 <= nx < parts.W and 0 <= ny < parts.H):
-                        continue
-                    lab = f.lab[ny][nx]
-                    if lab in ("P", "L", "F"):
-                        touches = True
-                    elif lab in ("A", "K") and ny in rows and (nx, ny) not in seen:
-                        seen.add((nx, ny))
-                        stack.append((nx, ny))
-            if touches:
-                for x, y in run:
-                    f.lab[y][x] = "L"
 
 
 def swing_frame(bc, img: Image.Image, view: str):
@@ -367,7 +381,6 @@ def swing_frame(bc, img: Image.Image, view: str):
     `A` with its reach (pixels out from the body's edge), and the last two pixels of each arm the
     hand, `K`."""
     f = bc.Frame.of_image(img, view)
-    _band_legs(f)
     lo, hi = f.uw_min - 1, f.uw_max + 1
     arm: dict[tuple[int, int], int] = {}
     reach: dict[tuple[int, int], int] = {}
@@ -465,6 +478,20 @@ def build(bc, images: dict[str, Image.Image]) -> dict[str, Image.Image]:
                 walk_n_d = [_dressed(walks["n"][i], g(f"walk_n_{i}")) for i in range(parts.WALK)]
                 for suffix, dressed in zip(suffixes, _moved(action, view, rest_d, walks_d, walk_n_d)):
                     out[f"{family}/{family}_{suffix}"] = _shown(committed[suffix], dressed)
+    # A hand the fold left one row tall, under a sleeve: see `_whole_hands`. Legs and feet are
+    # what any trouser or shoe covers on that frame, so a shin under a coat's hem is never a hand.
+    moved = [s for (a, v), ss in by_group.items() if a not in RELOADS and not (a == "swing" and v in act.SWING_GENERATED) for s in ss]
+    for suffix in moved:
+        legs: set[tuple[int, int]] = set()
+        for family in bc.GARMENTS:
+            if bc.slot_of(family) != "torso":
+                im = out[f"{family}/{family}_{suffix}"]
+                px = im.load()
+                legs.update((x, y) for y in range(im.size[1]) for x in range(im.size[0]) if px[x, y][3] > 0)
+        for family in bc.GARMENTS:
+            if bc.slot_of(family) == "torso":
+                key = f"{family}/{family}_{suffix}"
+                out[key] = _whole_hands(committed[suffix], out[key], legs)
     return out
 
 

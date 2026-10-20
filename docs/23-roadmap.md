@@ -3386,7 +3386,8 @@ not a to-do list:
   **Art review round one, 2026-10-20.** The swing's trailing leg kicks back up into the
   underwear's rows, where the rest-view rules hang a hand, so a strip of bare shin showed between
   trouser and shoe (west, frame 1) and single skin pixels at the hem or ankle on four more swing
-  frames: skin in those rows that touches the pelvis or a leg is now leg (`action_wear._band_legs`).
+  frames: skin below the belt that touches the pelvis or a leg is now leg (round two moved the
+  rule to `parts._legs_below_belt`, so it labels every frame, the walk's included).
   The column just past the hips' span is arm at no reach, which closes the one-pixel skin slivers
   down a sleeve's inner edge on the guard frames. The walk's generated frames shade some hair a
   brown dark enough to classify as ink, so the hazmat hood left a seam of hair beside the face on
@@ -3403,11 +3404,26 @@ not a to-do list:
   hand came from the walk's own labels and closed with #154's two-by-two hands, merged in.
   **Body art, named and not this slice's:** the pack's rest pictures store about three hundred
   pixels at alpha 247-254 and a handful near 75 percent, and every action frame moved from them
-  carries the same, so the drawn body drifts a level or two over the floor; the generated swing's
+  carries the same, so most of the drawn body drifts over the floor (the round-two review counted
+  190 of the body's 262 pixels off by one to three levels in game); the generated swing's
   fists have no outline at the tip (south 1-2, west 1-3) and its east frame 1 has a background
   slit between the rear arm and the torso; and A8's fold leaves the crouched walk's leg ends and
   the gap between the legs on background without an outline. Each is in the body picture, under
   any garment, and is fixed where that picture is made (the pack import or `motion/actions.py`).
+  **Art review round two, 2026-10-20.** Bare leg or foot skin below the belt on the crouched
+  walk (east frames 1, 4 and 7, west 0 and 5) came from #154's walk frames, which the crouch
+  inherits: the arm rules took a stepping shin for a hand. `parts._legs_below_belt` relabels a run
+  of arm or hand pixels that lies wholly at or below the underwear's top row and touches the
+  pelvis or a leg as leg, so the trouser or shoe covers it; the standing sheets change only on the
+  walk cells that showed it (east 2, 5, 7 and 8, west 1 and 6), rest and breath are untouched.
+  The hood's hair rule now chains (warm dark pixels joined to hair through other warm dark pixels
+  are hair), which closes the two pixels at the nape on the east crouched walk, and the reload's
+  heal pass runs until nothing more joins, which closes the single hair pixel behind the hood on
+  the east reloads. The crouch's fold drops the rows at the knee and can leave a hand one row tall,
+  so a long sleeve's cuff seemed to jump a pixel between frames; `action_wear._whole_hands` steps a
+  torso garment's cuff back off the bare skin straight above such a hand, never on what a trouser
+  or shoe covers. Where the fold leaves a hand one pixel wide between ink (south frame 0's right
+  hand), that is the body picture's, with the rest of the fold geometry above.
 
 - **Art & renderer — zombies turn, walk and fall, 2026-10-02.** Closes "A silhouette per
   kind" and the Focal art half of "A corpse reads as a corpse", at the owner's request for

@@ -600,19 +600,29 @@ def hood(c: Canvas, ramp: Ramp, trim: Ramp) -> None:
     # The walk's generated frames shade the hair a brown dark enough to pass for ink, so the
     # labels call it outline and the hood left a seam of hair between itself and the face. Ink is
     # neutral; a dark pixel warm by a dozen levels or more, inside the head's outline ring and
-    # touching hair, is hair.
-    for y in range(f.torso_top):
+    # touching hair (or hair found so), is hair -- down to the nape, a row or two under the chin line.
+    warm = set()
+    for y in range(min(parts.H, f.torso_top + 2)):
         for x in range(parts.W):
             r, g, b, _ = f.px[x, y]
             if f.at(x, y) != "O" or max(r, g, b) >= 45 or r - b < 12:
                 continue
             if any(f.at(x + dx, y + dy) == "." for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
                 continue
-            if any(f.at(x + dx, y + dy) == "H" and f.cls[y + dy][x + dx] in ("u", "h")
-                   for dx in (-1, 0, 1) for dy in (-1, 0, 1) if 0 <= y + dy < parts.H and 0 <= x + dx < parts.W):
-                c.cell[(x, y)] = [ramp, LEVEL[BASE] - 6]
-                c.fixed.pop((x, y), None)
-                c.painted.add((x, y))
+            warm.add((x, y))
+    hair: set[tuple[int, int]] = set()
+    grew = True
+    while grew:
+        grew = False
+        for (x, y) in sorted(warm - hair):
+            near = [(x + dx, y + dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1) if 0 <= y + dy < parts.H and 0 <= x + dx < parts.W]
+            if any((q in hair) or (f.at(*q) == "H" and f.cls[q[1]][q[0]] in ("u", "h")) for q in near):
+                hair.add((x, y))
+                grew = True
+    for (x, y) in hair:
+        c.cell[(x, y)] = [ramp, LEVEL[BASE] - 6]
+        c.fixed.pop((x, y), None)
+        c.painted.add((x, y))
     face = [(x, y) for (x, y) in head if f.cls[y][x] in ("S", "s")]
     if not face:
         return

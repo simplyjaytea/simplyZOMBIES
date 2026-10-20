@@ -107,6 +107,37 @@ def _hands(lab: list[list[str]], centre: int) -> None:
                 lab[y][x] = "K" if (x, y) in hand else "A"
 
 
+def _legs_below_belt(lab: list[list[str]], waist_top: int) -> None:
+    """Skin below the belt that the arm rules took for a hand, but that is leg: a run of arm or
+    hand pixels lying wholly at or below the underwear's top row, with no arm above it, that
+    touches the pelvis or a leg. A walking or swinging leg shows a pixel or two of shin beside the
+    hip, past the underwear's span where the rest view hangs its hand; left as hand, it was bare
+    skin between trouser and shoe. A hand hanging beside the hips is reached from the arm above
+    the belt, so it stays a hand."""
+    seen: set[tuple[int, int]] = set()
+    for y0 in range(waist_top, H):
+        for x0 in range(W):
+            if (x0, y0) in seen or lab[y0][x0] not in ("A", "K"):
+                continue
+            run, stack = [], [(x0, y0)]
+            seen.add((x0, y0))
+            touches = False
+            while stack:
+                x, y = stack.pop()
+                run.append((x, y))
+                for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                    if not (0 <= nx < W and 0 <= ny < H):
+                        continue
+                    if lab[ny][nx] in ("P", "L", "F"):
+                        touches = True
+                    elif lab[ny][nx] in ("A", "K") and (nx, ny) not in seen:
+                        seen.add((nx, ny))
+                        stack.append((nx, ny))
+            if touches and min(y for _, y in run) >= waist_top:
+                for x, y in run:
+                    lab[y][x] = "L"
+
+
 def _top_row(img: Image.Image) -> int:
     """The first row holding a solid pixel: the top of the head."""
     px = img.load()
@@ -170,6 +201,7 @@ def label(img: Image.Image, suffix: str) -> dict:
                 if lab[y][x] == "T" and ((view == "e" and x > uw_max) or (view == "w" and x < uw_min)):
                     lab[y][x] = "A"
     _hands(lab, (uw_min + uw_max) // 2)
+    _legs_below_belt(lab, waist_top)
     # Feet: the lowest two body rows of every leg column.
     for x in range(W):
         legs = [y for y in range(waist_bot + 1, H) if lab[y][x] == "L"]
