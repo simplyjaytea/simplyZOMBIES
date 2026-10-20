@@ -14,7 +14,7 @@ Rendered from the committed runtime PNGs (`godot/assets/sprites/`), 4x, one row 
   real `held_layer` and the draw call `main.gd` makes, the weapon in hand, in 48x56 cells with the
   body at the same height as every other strip (the extra rows hold the long gun hanging below
   the soles from the front): rest,
-  the eight beats at their own rate, rest.
+  the beats at their own rate (eight for a magazine, eleven for the tube), rest.
 
 Survivor: swing, recoil, reload (pistol, long gun, and the tube-fed shotgun), flinch, crouch, crouchwalk, prone, fall. Every zombie family:
 lunge, stagger, fall. The swing's east, west and south views are generated; every other frame,

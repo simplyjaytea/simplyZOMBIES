@@ -61,20 +61,22 @@ moves per action and view):
 - the **crawl** is the back view's walk turned a quarter flat (`turn_flat`), drawn only east and
   west, and declares no hands: a body lying down carries no layer.
 
-**The reloads are drawn** (`reload_frames`, `RELOAD_BEATS`): eight beats. Each arm the reload
+**The reloads are drawn** (`reload_frames`, `RELOAD_BEATS`): eight beats for a magazine, eleven for the tube. Each arm the reload
 moves is taken off the rest view (`ARMLESS` closes the torso's outline where it hung) and drawn
 again as a jointed limb (`ARM_RIG`, `_limb`): an upper arm and a forearm in the rest view's own
 outline and skin, the elbow bending out as the hand comes close or across, a second outline
 where it meets open ground. From the front both arms are over the torso; from behind they reach
 only to the edge of the back (`BACK_EDGE`), the hand point going on behind it; side on the far
 arm is under the body, its forearm over the belly once it reaches round. The magazine is a 2x3
-block, outlined, in the held pistol's gunmetal (`_weapon_ramp`): the pistol's drops at the grip,
+block, outlined, in the held pistol's gunmetal (`_weapon_ramp`): the pistol's drops out of the grip
+and lands the next beat (side on ahead of the toes, since the grip is over the legs),
 the long gun's is stripped from the well (`reload_long`, `LONG_WELL` pixels along) and hangs from
 the off hand (`_held_mag_at`) before it falls, and it lies by the feet (`MAG_SPOTS`) to the end,
 the long gun's on the off hand's side; side on, the fresh one hangs from the fist at the back of
 the belt (`pouch`) for a beat, then seats with its foot showing under the well. The shotgun is
 tube-fed (`reload_tube`): no magazine, a shell in the shells icon's colours (`_shell`,
-`_shell_ramp`) thumbed into the loading port three times, then one rack. The body dips a pixel
+`_shell_ramp`) brought to the loading port and pushed into it three times, the next already in
+the fist as the hand goes back, then one rack. The body dips a pixel
 as the weapon comes down and comes back up to the stance, never above it, both at the knee
 (`_knee`). Outline an arm adds that would wedge against the body's own, or that rings skin the
 reload's own held weapon covers (`_held_cover`, read from the pack manifest), is taken back

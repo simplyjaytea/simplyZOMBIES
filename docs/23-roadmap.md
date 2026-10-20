@@ -2083,7 +2083,7 @@ not a to-do list:
   (one line: the clock's action merged into the motion) and `_draw_corpse` (the fall, and the
   `_falls_drawn` list the gate reads). Presentation only: nothing under `godot/sim/` changed.
 
-  **The art, and which half is which.** **420** new members. **Generated: the swing's east,
+  **The art, and which half is which.** **432** new members. **Generated: the swing's east,
   west and south views** -- three PixelLab `animate_image` strips, each from the pack's own rest
   view, five frames kept a view (`motion/sources/actions/generation.json` has the jobs, inputs,
   prompts, and the two rejected jobs). **Derived: everything else** -- the back view's swing (its
@@ -2091,7 +2091,7 @@ not a to-do list:
   falls, the lunge and the stagger -- by whole-pixel moves of the pack's own pictures in
   `motion/actions.py`: a lean, a dip or rise, a fold of the shins below the shorts or belt, a
   step, and for the crawl the back view's walk turned a quarter flat. No pixel is resampled or
-  recoloured. **The reloads are drawn**, eight beats each: the weapon brought in with the body
+  recoloured. **The reloads are drawn**, eight beats each for a magazine: the weapon brought in with the body
   dipping a pixel, the off hand coming under it, the magazine out (the pistol's dropped at the
   grip, the long gun's stripped from the well), the off hand to the hip as it falls, back up with
   a fresh one, seated with the body rising, the rack jolting the weapon back a pixel and forward
@@ -2115,8 +2115,10 @@ not a to-do list:
   (rifle and crossbow: a held picture 48 px wide, `Appearance.reload_action`) at the well and
   fore-end five pixels along. **The shotgun is tube-fed** (`reload_tube`, for a long held
   picture whose caliber is in `TUBE_CALIBERS`, today 12-gauge): no magazine, the off hand goes
-  from the belt to the loading port and back three times, a shell in the shells icon's own red
-  and brass standing out of the fist each time it reaches the port, then one rack and home. The
+  from the belt to the loading port three times in eleven beats, a shell in the shells icon's own
+  red and brass standing out of the fist at the port and pushed up into it (only its rim still
+  showing) before the hand goes back for the next, so the hand is never empty and no shell
+  blinks; then one rack and home, at 8 frames a second against the sim's three-second Reload. The
   pump itself is part of A9's held picture and does not slide; the rack reads as the weapon
   jolting back in the hands. An outline an arm adds round skin the held weapon covers is taken
   back too (`_trim` knows the weapon each reload is drawn for, from the pack manifest), so no
@@ -2127,7 +2129,9 @@ not a to-do list:
   magazine's drop, the seat's rise, outline wedges, the back view's stock and a soft rifle edge
   blending over the magazine; then the tube reload, the still back view, dips that never rise
   above the stance, the fresh magazine shown side on, and the weapon's drop home split over
-  beats). The review strips are 48x56 cells with the body on the same
+  beats; then the pistol's magazine dropping out of the grip and landing ahead of the toes on
+  the next beat instead of sliding along the floor, a push for every shell, and a pixel or two
+  off a wedge, a trigger guard, a muzzle and a hanging magazine). The review strips are 48x56 cells with the body on the same
   baseline as every other strip; in game every reload frame is the 32x40 canvas on sole row 39. Per-frame `head`, `torso` and `hands` ride every new member, so A6's clothing and
   A9's weapon turn compose on them by the A7 contract. Five generations were spent (the three
   kept strips, the back view, and a four-views-in-one trial). **Not built:** drawn zombie walk
@@ -2135,13 +2139,13 @@ not a to-do list:
   class -- both are in what's left as generation budgets.
 
   **Evidence:** `npm run godot:check:action` → `ACTION_OK`, chained after `godot:check:motion`.
-  CATALOGUE: 8 families, 420 frames, every view present and equal (the crawl only east and
+  CATALOGUE: 8 families, 432 frames, every view present and equal (the crawl only east and
   west); an undeclared action, a crawl seen from the south and a face-on key carry none.
   TIMING and PRIORITY hold `action_index` and `action_key` (ends, wraps, holds, a one-shot over a
-  stance, nothing upright while lying, nothing for nothing, all three reloads six to eight beats
-  and held on the stance). REACH: all three reloads in every view move the weapon hand (two
+  stance, nothing upright while lying, nothing for nothing, the magazine reloads six to eight beats
+  and the tube up to twelve, all held on the stance). REACH: all three reloads in every view move the weapon hand (two
   pixels, or one for a long gun from behind), bring the off hand to the weapon and away and end
-  on the stance; the three-beat head-bob reload they replaced is refused. GEOMETRY: **352**
+  on the stance; the three-beat head-bob reload they replaced is refused. GEOMETRY: **364**
   derived frames carry only their rest view's colours (a reload's magazine the held pistol's
   gunmetal, the tube reload's shells the shells icon's colours, and every one of the twelve
   reload views shows its own load and not the other's; the rest view shows neither), a crouch stands lower than the rest and a fall lower

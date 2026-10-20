@@ -262,7 +262,10 @@ func _timing() -> bool:
 	]
 	for reload in ["reload", "reload_long", "reload_tube"]:
 		var rn: int = Appearance.action_frames(SURVIVOR, reload, "e")
-		checks.append(["%s has six to eight beats" % reload, rn >= 6 and rn <= 8, true])
+		# A magazine swap is six to eight beats. The tube loads three shells one at a time (a reach,
+		# the port and a push each) before the rack and the stance, so it may run to twelve.
+		var most: int = 12 if reload == "reload_tube" else 8
+		checks.append(["%s has six to %d beats" % [reload, most], rn >= 6 and rn <= most, true])
 		checks.append(["%s held at its stance" % reload, Appearance.action_index(SURVIVOR, reload, "e", 60.0, 0, AnimClock.RELOAD_HOLD), rn - 1])
 		checks.append(["%s unheld ends" % reload, Appearance.action_index(SURVIVOR, reload, "e", 60.0), -1])
 		checks.append(["%s does not loop" % reload, Appearance.action_loops(SURVIVOR, reload), false])
