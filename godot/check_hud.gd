@@ -40,6 +40,7 @@ func _init() -> void:
 func _run() -> void:
 	var ok: bool = true
 	ok = _attention_speaks_in_words() and ok
+	ok = _the_suffering_survivor_has_the_clauses_it_is_judged_on() and ok
 	ok = _hud_lines_carry_no_numbers() and ok
 	ok = _a_healthy_survivor_says_little() and ok
 	ok = _the_body_speaks_for_itself() and ok
@@ -76,6 +77,17 @@ func _suffering_world() -> Variant:
 	SimNeeds.attach(w, w.player, {"hunger": 9.0, "thirst": 4.0, "rest": 11.0})
 	return w
 
+
+# The same survivor with the wounds the bleeding and pain clauses read. Kept apart from
+# `_suffering_world` on purpose: the lanes that judge the player's clean state (no sepsis, a "You")
+# are written against the unwounded fixture, and a cut on the player would move them.
+func _wounded_world() -> Variant:
+	var w: Variant = _suffering_world()
+	w.components.set_component(w.player, "identity", {"id": "survivor.player", "name": "You"})
+	SimWounds.append_wound(w, w.player, "cut", "torso", -1, 12.0)
+	SimWounds.append_wound(w, w.player, "fracture", "leg_left", -1, 14.0)
+	return w
+
 func _digits(text: String) -> String:
 	var found: String = ""
 	for c in text:
@@ -97,6 +109,29 @@ func _without_day_counter(text: String) -> String:
 	if i == 4:
 		return text # "day " with no number is not the counter; judge the whole line
 	return text.substr(i)
+
+func _the_suffering_survivor_has_the_clauses_it_is_judged_on() -> bool:
+	# The digit lanes below pass on an empty string, so this lane says the judged clauses are
+	# produced, and that an unhurt survivor is told nothing about a wound. Red against the fixture
+	# as it was before the wound and identity were added.
+	var w: Variant = _wounded_world()
+	var bleeding: String = SimWounds.hud_clause(w, w.player)
+	var pain: String = SimWounds.pain_clause(w, w.player)
+	if bleeding.is_empty():
+		push_error("HUD: the suffering survivor's bleeding clause is empty -- the lanes below would judge nothing")
+		return false
+	if pain.is_empty():
+		push_error("HUD: the suffering survivor's pain clause is empty -- the lanes below would judge nothing")
+		return false
+	var fresh: Variant = World.new(_fixture())
+	SimHealth.make_survivor_body(fresh, fresh.player)
+	SimNeeds.attach(fresh, fresh.player, {"hunger": 0.0, "thirst": 0.0, "rest": 0.0})
+	if not SimWounds.hud_clause(fresh, fresh.player).is_empty():
+		push_error("HUD: an unhurt survivor is told about a wound: '%s'" % SimWounds.hud_clause(fresh, fresh.player))
+		return false
+	print("HUD CLAUSES OK bleeding and pain are produced for the suffering survivor and silent for an unhurt one")
+	return true
+
 
 func _attention_speaks_in_words() -> bool:
 	var w: Variant = _suffering_world()

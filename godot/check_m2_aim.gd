@@ -56,13 +56,14 @@ func _run() -> void:
 	ok = _sway_tightens_and_widens() and ok
 	ok = _the_ladder_runs_on_the_weapons_own_clock() and ok
 	ok = _the_cone_is_normalised_to_each_weapons_rung() and ok
+	ok = _a_ruined_arm_widens_the_cone_and_an_intact_one_does_not() and ok
 	ok = _recovery_after_a_shot_is_per_weapon() and ok
 	ok = _aim_is_a_second_heading_priced_at_a_walk() and ok
 	if not ok:
 		push_error("M2_AIM_FAIL")
 		quit(1)
 		return
-	print("M2_AIM_OK sway heft cone recover heading")
+	print("M2_AIM_OK sway heft cone arm recover heading")
 	quit(0)
 
 
@@ -99,13 +100,8 @@ func _armed(w: Variant, id: String) -> Variant:
 ## penalty for low stamina and one for a ruined arm, and both saturate at WIDE_HALF, which is
 ## enough to swamp anything a rung is doing.
 ##
-## The arm line is not merely defensive. `ranged.gd` penalises when the worse arm is under 25,
-## and SimCombat.SURVIVOR_BODY gives a *healthy* arm 20 -- so the penalty is on for everybody,
-## always, and a genuinely ruined arm costs nothing more than an intact one. That is CLAUDE.md's
-## "a survivor's body parts do not share a scale" trap, sitting live in the aim path since limbs
-## were sided. It is named in docs/23's defect list rather than fixed here: correcting it tightens
-## every survivor's cone in every firefight, which is a balance change that needs its own slice
-## and its own measurement, not a quiet ride along beside a change about rate of fire.
+## The arm line keeps the arm penalty off the cone lanes: arms at 40 read Unhurt, so neither lane
+## is charged for a limb. ARM (below) is the lane that charges a ruined arm and an intact one apart.
 func _steady_hands(w: Variant) -> void:
 	var body: Variant = w.components.get_component(w.player, "body")
 	if body is Dictionary:
@@ -233,6 +229,54 @@ func _the_cone_is_normalised_to_each_weapons_rung() -> bool:
 		push_error("CONE: halfway up is still fully wide (%.4f), so this lane is comparing two saturated values and proves nothing" % light)
 		return false
 	print("CONE OK halfway up reads %.4f for a pistol and %.4f for a crossbow" % [light, heavy])
+	return true
+
+
+# --- a ruined arm, and only a ruined arm --------------------------------------------------------
+#
+# The arm penalty is for an arm the normaliser calls BadlyHurt or worse. Before the fix it read raw
+# integrity against 25, so an intact arm (20 of its own 20) was penalised for every survivor, and a
+# ruined arm (4 of 20) cost exactly what an intact one did. Judged at Steady, where the cone sits
+# well off saturation: at Idle the penalty clamps back to WIDE_HALF and cannot show.
+
+func _a_ruined_arm_widens_the_cone_and_an_intact_one_does_not() -> bool:
+	var cones: Dictionary = {}
+	for label in ["neutral", "intact", "ruined"]:
+		var w: Variant = _world()
+		var rw: Variant = _armed(w, "item.pistol.service")
+		if not rw is Dictionary:
+			return false
+		_steady_hands(w)
+		var body: Variant = w.components.get_component(w.player, "body")
+		if not body is Dictionary:
+			push_error("ARM: no body on the player")
+			return false
+		var b: Dictionary = body as Dictionary
+		match label:
+			"neutral":
+				b["arm_left"] = 40.0
+				b["arm_right"] = 40.0
+			"intact":
+				b["arm_left"] = 20.0
+				b["arm_right"] = 20.0
+			"ruined":
+				b["arm_left"] = 4.0
+				b["arm_right"] = 20.0
+		var r: Dictionary = rw as Dictionary
+		r["state"] = SimRanged.FireState.Steady
+		r["ticksLeft"] = SimRanged._steady_of(r)
+		SimRanged._refresh_cone(w, w.player, r)
+		cones[label] = float(r["coneHalf"])
+	var neutral: float = float(cones["neutral"])
+	var intact: float = float(cones["intact"])
+	var ruined: float = float(cones["ruined"])
+	if absf(intact - neutral) > 0.0001:
+		push_error("ARM: an intact survivor's cone is %.4f against %.4f with no arm penalty -- a healthy arm is being charged" % [intact, neutral])
+		return false
+	if ruined <= intact + 0.05:
+		push_error("ARM: a ruined arm's cone is %.4f against an intact one's %.4f -- a ruined arm costs nothing" % [ruined, intact])
+		return false
+	print("ARM OK intact %.4f matches neutral, ruined widens to %.4f" % [intact, ruined])
 	return true
 
 

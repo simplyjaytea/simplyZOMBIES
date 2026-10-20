@@ -6,6 +6,7 @@ extends RefCounted
 
 const SimRosterRes = preload("res://sim/modules/roster.gd")
 const SimInfectionRes = preload("res://sim/modules/infection.gd")
+const SimWounds = preload("res://sim/modules/wounds.gd")
 # `is_person`, shared with shambler.gd and screamer.gd. A bloater's plume gets into any open
 # wound in reach of it, and a raider standing in one has open wounds like anybody else.
 const SimAllegiance = preload("res://sim/modules/allegiance.gd")
@@ -110,6 +111,9 @@ static func register_module(world: Variant) -> void:
 	)
 
 
+# An open wound is one whose kind bleeds: a bite, a cut, a burn. The kind table says which, because
+# severity cannot -- a fracture is hurt badly and its skin is shut. Matching "bite" alone kept a
+# plume out of a laceration and a burn.
 static func _has_open_wound(world: Variant, entity: int) -> bool:
 	var inj: Variant = world.components.get_component(entity, "injuries")
 	if inj == null:
@@ -117,6 +121,6 @@ static func _has_open_wound(world: Variant, entity: int) -> bool:
 	var wounds: Array = (inj as Dictionary).get("wounds", []) as Array
 	for w in wounds:
 		var wd: Dictionary = w as Dictionary
-		if String(wd.get("kind", "")) == "bite":
+		if bool(SimWounds.kind_spec(String(wd.get("kind", "cut"))).get("bleeds", false)):
 			return true
 	return false
