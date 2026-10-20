@@ -15,6 +15,8 @@ extends RefCounted
 # The sim stays the only truth: sight, picking, collisions and every gate that reads a position
 # read the component. Only the picture and the camera that follows it slide.
 
+const SimAimRes = preload("res://sim/aim.gd")
+
 # A body that moved farther than this in one tick did not walk there -- a load, a mount, a
 # respawn, an id reused -- and gliding it across the street would draw a path it never took.
 # The fastest thing that moves on its own is a car, well under two metres a tick.
@@ -82,7 +84,9 @@ func before_step(world: Variant) -> void:
 		var f: Variant = world.components.get_component(id, "facing")
 		if f is Dictionary:
 			r = float((f as Dictionary).get("radians", 0.0))
-		fresh[id] = [float((p as Dictionary)["x"]), float((p as Dictionary)["y"]), r]
+		# The aim beside the heading (sim/aim.gd): the weapon turns between ticks as the feet do.
+		var a: float = SimAimRes.radians_of(world.components, id) if f is Dictionary else NAN
+		fresh[id] = [float((p as Dictionary)["x"]), float((p as Dictionary)["y"]), r, a]
 	_prev = fresh
 
 
@@ -113,6 +117,13 @@ func facing(id: int, cur_radians: float, t: float) -> float:
 	if not _prev.has(id):
 		return cur_radians
 	return turn_between(float((_prev[id] as Array)[2]), cur_radians, t)
+
+
+# The drawn aim of `id` at fraction `t`, given the sim's current one (`SimAim.radians_of`).
+func aim(id: int, cur_radians: float, t: float) -> float:
+	if not _prev.has(id) or (_prev[id] as Array).size() < 4:
+		return cur_radians
+	return turn_between(float((_prev[id] as Array)[3]), cur_radians, t)
 
 
 # How many bodies the next step will snapshot -- a reader for the gate, so "the watch set is
