@@ -46,7 +46,7 @@ extends SceneTree
 #             null.
 #   PANEL     Kit.style hands back a textured Kit.Style (frame and centre) at the asked opacity, with
 #             margins at NINE times Kit.SCALE, cached, and null for a rect smaller than those
-#             margins; `Chrome.panel`, `cell`, `item_plate` and
+#             margins; `Chrome.panel`, `cell` and
 #             `header` reach `Kit.style(` and `.draw(`, followed one call deep through `frame`,
 #             by a scanner that refuses a fabricated body that only draws rectangles, a link
 #             that does not reach the kit, and a needle that only a comment carries.
@@ -175,7 +175,7 @@ func _run() -> void:
 		ok = false
 	if ok:
 		print(
-			"UI_SKIN_OK %d kit styles agree with the manifest and their .tres, %d left unused with a reason; %d textures and %d glyphs at both sizes resolve headless; panel, cell, plate and header reach the kit; %d chrome helpers called, %d pending their slice; %.1f s of a %.0f s budget"
+			"UI_SKIN_OK %d kit styles agree with the manifest and their .tres, %d left unused with a reason; %d textures and %d glyphs at both sizes resolve headless; panel, cell and header reach the kit; %d chrome helpers called, %d pending their slice; %.1f s of a %.0f s budget"
 			% [
 				int(_stash.get("styles", 0)), UNUSED_STYLES.size(), int(_stash.get("textures", 0)),
 				int(_stash.get("glyphs", 0)), int(_stash.get("called", 0)), PENDING.size(), seconds,
@@ -918,7 +918,9 @@ func _panel_lane() -> bool:
 
 	# Textual: the shipped helpers reach the kit.
 	var bodies: Dictionary = _bodies(_text_of(CHROME_GD))
-	for fn in ["panel", "cell", "item_plate", "header"]:
+	# `item_plate` left this list with the Salvage Locker (docs/23, "The inventory, redone"): a bag
+	# plate is `ui/locker.gd`'s class-tinted plate now, and the helper went with its last caller.
+	for fn in ["panel", "cell", "header"]:
 		if not bodies.has(fn):
 			push_error("PANEL: chrome.gd has no `func %s(`" % fn)
 			ok = false
@@ -944,7 +946,7 @@ func _panel_lane() -> bool:
 		push_error("PANEL: a fabricated panel that does reach the kit through frame() was refused -- the scanner cannot pass")
 		ok = false
 	if ok:
-		print("PANEL OK a textured frame and centre at the asked opacity and doubled margins, cached, border-only apart on the same frame, none under its margins; panel, cell, item_plate and header reach Kit.style and draw it; a rect-only body, a dead link and a commented needle each refused")
+		print("PANEL OK a textured frame and centre at the asked opacity and doubled margins, cached, border-only apart on the same frame, none under its margins; panel, cell and header reach Kit.style and draw it; a rect-only body, a dead link and a commented needle each refused")
 	return ok
 
 
@@ -1334,6 +1336,7 @@ const READERS: Dictionary = {
 	"glyph_condition": {"file": INVENTORY_GD, "slice": "S3 Empty slots say what goes there"},
 	"glyph_inspect": {"file": "res://ui/inspect_pane.gd", "slice": "S3 Empty slots say what goes there"},
 	"glyph_inventory": {"file": "res://ui/bag_grid.gd", "slice": "S3 Empty slots say what goes there"},
+	"glyph_close": {"file": INVENTORY_GD, "slice": "The inventory, redone"},
 	"glyph_settings": {"file": "res://ui/settings_panel.gd", "slice": "S4 The shell's rows are buttons"},
 	"glyph_journal": {"file": "res://ui/legend.gd", "slice": "S4 The shell's rows are buttons"},
 	"glyph_work": {"file": "res://ui/work_panel.gd", "slice": "S4 The shell's rows are buttons"},
@@ -1359,14 +1362,12 @@ const PENDING_GLYPHS: Dictionary = {
 }
 
 # The owner's 2026-09-25 decision (docs/30, "The UI Field Kit, live") keeps these out, each with
-# its reason. `glyph_close` joins them here rather than in READERS: the approved mockup draws it
-# beside a "Tab · Close" title bar (previews/inventory-approved.png), and this screen has no such
-# hint yet to attach it to -- inventory_panel.gd's own close hint is the Tab binding in the
-# action bar's legend (input_map.gd), not a word on this sheet.
+# its reason. `glyph_close` sat here until the Salvage Locker built the inventory's title bar
+# (docs/23, "The inventory, redone"): it is drawn beside the "Tab" keycap there now, and is a
+# reader in READERS.
 const UNUSED_GLYPHS: Dictionary = {
 	"glyph_lock": "no lock mechanic -- docs/30, \"The UI Field Kit, live\"",
 	"glyph_rotate": "not taken by the owner -- docs/30, \"The UI Field Kit, live\"",
-	"glyph_close": "the inventory sheet has no close hint yet to draw it beside -- the approved mockup's \"Tab · Close\" title bar is not built",
 }
 
 
@@ -2098,9 +2099,10 @@ func _outliers_lane() -> bool:
 # The pointers (docs/23, "The UI Field Kit, live" and the outpost pack's "The cursor"): `ui/cursors.gd`
 # installs the kit's arrow, hand, move and blocked and the pack's crosshair and interaction hand at
 # their manifests' own hotspots, the panels say which shape they want where through a pure
-# `cursor_at`, a drag the sim would refuse wears blocked with the kit's `slot_invalid` over the
-# cells, and the street -- where no panel answers -- wears the crosshair and turns to the pack's hand
-# only over something seen that has a verb. The OS pointer itself is never judged -- the headless
+# `cursor_at`, a drag the sim would refuse wears blocked with the Salvage Locker's hazard stripes
+# (`Locker.refuse`, which replaced the kit's `slot_invalid` there) over the cells, and the street
+# -- where no panel answers -- wears the crosshair and turns to the pack's hand only over
+# something seen that has a verb. The OS pointer itself is never judged -- the headless
 # display server has none -- so the lane judges the table, who reaches it, and what each screen
 # asks for.
 #
@@ -2279,7 +2281,7 @@ func _cursors_lane() -> bool:
 		[INVENTORY_GD, "_gui_input", ["cursor_at(", "mouse_default_cursor_shape"]],
 		[INVENTORY_GD, "_loot_point", ["loot_cursor_at(", "mouse_default_cursor_shape"]],
 		[INVENTORY_GD, "_drop_verdict", ["SimInventory.can_place("]],
-		[INVENTORY_GD, "_draw_drop_hint_into", ["Chrome.frame(", "\"slot_invalid\"", "CURSOR_FORBIDDEN"]],
+		[INVENTORY_GD, "_draw_drop_hint_into", ["CURSOR_FORBIDDEN", "Locker.refuse("]],
 		[MAIN_GD, "_process", ["_update_pointer("]],
 		[MAIN_GD, "_update_pointer", ["SessionRes.State.PLAYING", "UiCursors.world_shape(", "Input.set_default_cursor_shape(", "Input.CURSOR_ARROW"]],
 		[CURSORS_GD, "world_shape", ["Pick.pick_at(", "SimContext.verbs_at(", "seen_now(", "shape_for("]],

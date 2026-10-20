@@ -977,19 +977,28 @@ func _the_claw_check_asks_distance_first_and_answers_the_same() -> bool:
 	var zp: Dictionary = w.components.get_component(z, "position") as Dictionary
 	var zb: Dictionary = w.components.get_component(z, "body") as Dictionary
 	var head: Variant = zb.get("head", 0)
+	# The cases need a spot no other zombie reaches, or a stray live one answers true for all
+	# three: a fixed (40, 40) did exactly that once the merged district put a walker there.
+	var spot: Vector2 = Vector2(-1.0, -1.0)
+	for cy in range(10, 65, 5):
+		for cx in range(10, 65, 5):
+			if spot.x < 0.0 and _no_other_zombie_near(w, z, Vector2(cx, cy), 3.0):
+				spot = Vector2(cx, cy)
+	if spot.x < 0.0:
+		return _fail("CLAW", "no spot on the stepped district is three metres clear of other zombies")
 	var cases: Array = []
 	for step_i in 4:
 		match step_i:
 			1:
-				pp["x"] = 40.0
-				pp["y"] = 40.0
-				zp["x"] = 40.5
-				zp["y"] = 40.5
+				pp["x"] = spot.x
+				pp["y"] = spot.y
+				zp["x"] = spot.x + 0.5
+				zp["y"] = spot.y + 0.5
 			2:
 				zb["head"] = 0
 			3:
 				zb["head"] = head
-				zp["x"] = 41.2
+				zp["x"] = spot.x + 1.2
 		for e in people:
 			var got: bool = SimTreatment._claw_in_reach(w, e)
 			if got != _reference_claw(w, e):
@@ -997,6 +1006,16 @@ func _the_claw_check_asks_distance_first_and_answers_the_same() -> bool:
 		cases.append(SimTreatment._claw_in_reach(w, p))
 	if cases.slice(1) != [true, false, false]:
 		return _fail("CLAW", "a live zombie in reach, a dead one, then one out of reach read %s" % str(cases.slice(1)))
+	return true
+
+
+func _no_other_zombie_near(w: Variant, own: int, at: Vector2, metres: float) -> bool:
+	for other in w.components.query(["shambler", "position"]):
+		if int(other) == own:
+			continue
+		var op: Dictionary = w.components.get_component(int(other), "position") as Dictionary
+		if Vector2(float(op["x"]), float(op["y"])).distance_to(at) <= metres:
+			return false
 	return true
 
 

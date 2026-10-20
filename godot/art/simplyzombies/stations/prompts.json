@@ -1,0 +1,20 @@
+{
+  "_comment": [
+    "The one generation the stations ran. Only the well was kept from it (stations.py says why)."
+  ],
+  "generations": [
+    {
+      "tool": "PixelLab create_image_pixflux (img2img)",
+      "no_background": true,
+      "outline": "single color black outline",
+      "view": "high top-down",
+      "output": "sources/stations-generated.png",
+      "kept": "the well only",
+      "init": "sources/stations-guide.png (stations.py)",
+      "init_image_strength": 220,
+      "seed": 71,
+      "why": "it cut the well's stone into courses; it turned the cold fire's ash to embers and flattened the latrine's boards, so those three ship as drawn",
+      "description": "row of four survival camp props, top-down 3/4 game sprites, same scale: a round stone well with a wooden windlass, rope and dark water; a wooden plank latrine bench with a hole and its lid up beside a metal bucket; a cold campfire ring of grey stones with charred logs and ash; the same campfire ring with glowing orange embers under the logs; chunky near-black stepped outline, broad flat pixels, 3-4 tones per material, muted desaturated colors"
+    }
+  ]
+}

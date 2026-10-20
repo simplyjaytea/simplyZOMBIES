@@ -5554,3 +5554,118 @@ are **recommendations**, not additional owner decisions. The generated anatomica
 is illustrative and has not been accepted as a final layout. No pause-policy or inventory
 capacity change was requested. [The design brief](32-ui-overhaul.md) develops the proposal;
 [the roadmap](23-roadmap.md#ui-overhaul) alone carries implementation order and status.
+
+## The alpha calls, 2026-10-19
+
+The owner answered the alpha plan's design questions on 2026-10-19. Each answer is recorded here, and the
+work it sets is in [what's left](23-roadmap.md#whats-left-in-milestone-2).
+
+**Colony scope for the alpha: colonist orders and the NPCs that already exist, nothing more.** Asked how
+much RimWorld the alpha carries, the owner said: "For now maybe colonist orders and just the fact that there
+are NPCs. very basic." Blueprints, stockpile zones and bench crafting are parked until after the alpha, and
+farming stays out. **How to apply:** a colony feature that is neither an order nor a colonist already in the
+sim waits.
+
+**The in-game day is one real hour at 1x.** The owner answered "mimic Project Zomboid for this." It is a
+balance change: every per-day rate is rescaled with it. It is not built. Until it is, a day is four hours at
+1x (`godot/sim/time/clock.gd`). **How to apply:** the first piece of work on the clock is a re-baseline,
+measured with `godot:m2:balance` before and after.
+
+**Aim is cursor-driven, and the body follows.** The cursor is the aimer. The weapon is held toward it and the
+character turns to follow, as in Project Zomboid. This is the owner's answer to the aiming question, and it
+replaces the plan's four-view-body default. It is not built.
+
+**Blood and bullet decals persist, for everything, and follow the normal visibility rules.** Every bleed, hit and shot leaves a decal, whether or not the player saw it happen. Decals are drawn under the same visibility and fog rules as any other world detail, so none shows through a wall. This is the owner's "everything" read with the scarce-information rule (CLAUDE.md, standing bans) kept intact. The orchestrator set this reading on 2026-10-19, and the decision card was closed on it.
+
+**The inventory keeps the grid and gets a full bespoke redesign.** The owner likes the grid, finds it plain
+and close to a Tarkov-style layout, and asked for a redesign that looks unique and bespoke. The work belongs
+to the UI overhaul group (docs/32, which lands with the UI overhaul PR). Whether a list view sits beside the grid is not
+decided.
+
+**HANDOFF.md and AGENTS.md are retired.** The owner asked for one file. The owner-decision list moved to [docs/33-owner-decisions.md](33-owner-decisions.md), so CLAUDE.md stays short. The routing table stays in CLAUDE.md, and `scripts/check-routing.mjs` reads it there. Old "HANDOFF item N" citations keep their numbers.
+
+**Gates per commit: the touched gates locally, the full chain in CI.** The owner left this to the
+orchestrator ("whatever you think is best"), and the orchestrator chose it. CI's `godot-m2` job already runs
+the full chain on every pull request and every push to main, so no workflow was added. CLAUDE.md's Verifying
+section states the policy. A change to a shared sim module or the save format still runs the full chain
+locally before its commit.
+## The inventory's look, 2026-10-20
+
+Asked on 2026-10-19 (the alpha plan's Q5) about the inventory, the owner kept the grid -- "I
+like how it's very much like Tarkov" -- and said it "looks very plain" and has to look "super
+awesome and like unique, bespoke even". The grid-plus-fast-list proposal above was accepted
+in the same answer: a list beside the grid, with the grid still the authority on capacity.
+
+Three directions were drawn at 1920×1080 with the repository's own item icons (canvas
+webbing, a salvage locker, a hard case). On 2026-10-20 the owner picked **B, the Salvage
+Locker**, on a decision card: brushed steel, rivets, masking-tape labels, recessed cells and
+plates tinted by item class, at the world's 2× pixel density. The mockups are under
+`.hermes/plans/2026-10-19_inventory-redesign/`.
+
+This settles the inventory's surfaces only. Typography, the anatomical diagram and the rest of
+the interface remain the recommendations "The whole interface" describes; VT323 is still the
+baseline face, not a renewed decision. The health-bar ban, the digit ban and the scarce-
+information contract are unchanged.
+## The one-hour day, 2026-10-19
+
+The owner answered the alpha plan's Q2 with the Project Zomboid option: one in-game day is one real
+hour, not four. `SimClock.DAY_SECONDS` is 3600, so `DAY_TICKS` is 72,000 (was 288,000). Dawn and
+dusk are 7.5 minutes each, the day is 30 minutes, the night 15.
+
+Every value that depends on the day falls into one of three groups. The question for each is what
+it is measured against.
+
+1. **Calendar** (the story's clock): the director's beats, the day-8 recruit, raid nights and lulls,
+   the strangers' three-day deadline, roster waves, skills' daily drift, the night's length
+   (`0.25 * DAY_TICKS`), and the seasons (`seasonDays` 5). These follow `DAY_TICKS` and compress:
+   day 8 is eight real hours away, not thirty-two.
+2. **Body and world pressure, written in days**: multiplied by four, so the pressure per real minute
+   is what it was on the four-hour day. Hunger empties in 8 days (was 2), thirst in 4 (was 1), rest
+   drains over 3 (was 0.75 of a day), relief in 2 (was 0.5). Starvation kills after 4 days (was 1),
+   dehydration after 1 (was 0.25). Raw food spoils in 8 days (was 2), cooked in 4 (was 1); the 48
+   `spoilDays` in `content/items/kitchen.json` and `supplies.json` were multiplied, zero stays zero.
+   Wound recovery: scratch 8 (was 2), laceration 24 (was 6), deep wound 64 (was 16); per kind,
+   fracture 168 (was 42), sprain 20 (was 5), burn and frostbite 56 (was 14), heatstroke 28 (was 7),
+   concussion 24 (was 6). Wind re-rolls every 4 days (was 1), in `climate/temperate.json` and the
+   `weather.gd` default. A corpse's scent ages after 4 days (was 1), `recruits.gd` `CORPSE_OLD_TICKS`.
+3. **Night-relative literal ticks**: the exposure clock that turns a cold night into a deep band
+   (`EXPOSURE_TICKS`, 18000 to 4500, and the frostbite, cold, heatstroke and heat death doses that
+   are multiples of it), the campfire's burn (36000 to 9000, "half a night"), and every lamp, candle
+   and torch `burnTicks` (divided by four). The shipped burn times are judged against the night
+   (`check_m2_light_burn.gd`), so they move with it: a full lamp still lasts the same number of nights.
+   Left unchanged, these would make a clear night's cold unreachable: the cold clock clears at dawn,
+   and a night is now 15 real minutes.
+
+Left as literal real-time ticks, not scaled: weather spell lengths (clear, rain, storm, snow, cold
+snap, heat wave, in `weather.gd` and `content/weather/*.json`), noise `durationTicks` and `delayTicks`,
+comfort `ticks`, the noisemaker's 12000, the wet body's `dryAfterTicks` and `dryByFireTicks`, the
+sedan's range, the goodwill from a meal (36,000), grief and argument decay, and the infection timers
+(latent, onset, progression and critical, 60 to 72 real hours from bite to turn). These keep their
+real-minute length, so in in-game days they stretch four times: a cold snap is 4 to 12 days, not 1
+to 3, and a bite takes 60 to 72 days to turn, not 15 to 18.
+
+Judgement the owner may want to reverse: the weather spells and infection are real time, so their
+in-game length grew four times. Dividing them by four would restore their in-game length and make
+them four times as fast per real minute.
+
+Gates changed to the new values: `check_m2_needs.gd` (raw spoil 8 days, the pantry clock now
+computed rather than the literal 576), `check_m2_weather.gd` (its walks are sized in the four-hour
+day's ticks, since spells are real time), `check_weather.gd` (its `DAY_TICKS` probe reads
+`SimClock`), `check_m2_balance.gd` (comments). Parity (`godot:test`) is untouched because the
+walking skeleton does not read the clock.
+
+## Livable time, 2026-10-19
+
+Alpha plan A5, on the one-hour day. The clock's state is in words on the HUD: "paused", "normal
+speed", "fast", "asleep, fast-forwarding", "asleep, zombie near, normal speed". Digits stay off the
+player HUD (`check_hud`), so the step is named, not counted. The speed ladder is 1x and 3x. 10x is
+out until the sim tick is under budget (plan A3); `SimFortify.speed_after_events` still drops a 10x
+run on an alarm for when it returns. While the player sleeps with no living zombie within ten
+metres, the loop runs at 3x. A grab, a hit or an alarm wakes the sleeper through the sim, and the
+step returns to the user's own. The stop is the living zombie within ten metres (`THREAT_METRES`,
+docs/02's contact distance), which is checked before the sim's own wake. The plan's "every colonist
+asleep" clause is not built: only the player's sleep counts.
+
+Gate: `godot:check:play`, lane CLOCK (`_the_clock_says_its_speed_and_sleep_skips`). It counts ticks
+per frame at each step, asleep and near a zombie, and a dead zombie does not stop the sleep.
+

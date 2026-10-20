@@ -36,7 +36,7 @@
     "dryAfterTicks": {
       "type": "integer",
       "minimum": 1,
-      "description": "How long a wet body stays wet once out of it with no fire. An hour for the shipped 12000."
+      "description": "How long a wet body stays wet once out of it with no fire. Ten real minutes for the shipped 12000."
     },
     "dryByFireTicks": {
       "type": "integer",

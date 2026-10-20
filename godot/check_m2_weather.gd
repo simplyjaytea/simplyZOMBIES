@@ -111,9 +111,14 @@ func _band(w: Variant, ent: int) -> String:
 
 # Jump the clock to just before the next flip and step through it; returns the spans seen as
 # {tick, kind, span, season}.
+# Weather spells are literal real-time ticks, so every window here is counted in the four-hour day's
+# ticks it was sized in: the calendar's day is one real hour now, and a window of `days` calendar
+# days would walk a quarter of the spells the gate was written to see.
+const WINDOW_DAY_TICKS: int = 288000
+
 func _walk_spans(w: Variant, days: int) -> Array:
 	var flips: Array = []
-	var stop: int = int(w.tick) + days * Clock.DAY_TICKS
+	var stop: int = int(w.tick) + days * WINDOW_DAY_TICKS
 	var guard: int = 0
 	while int(w.tick) < stop and guard < 400:
 		guard += 1

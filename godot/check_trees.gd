@@ -1167,9 +1167,12 @@ func _the_nature_dressing_lies_where_it_should() -> bool:
 	if _comes_before("_draw_props()\n_draw_nature(", "_draw_nature(", "_draw_props()"):
 		push_error("the order scanner passed a fabricated body that draws the props first; it cannot say no")
 		return false
-	var district: String = _function_body(MAIN_GD, "_draw_district")
-	if not _comes_before(district, "_draw_roofs(", "_draw_nature(") or not _comes_before(district, "_draw_nature(", "_draw_props()"):
-		push_error("_draw_district does not call _draw_nature( after _draw_roofs( and before _draw_props(); the dressing would draw over the props or not at all")
+	# The roofs are a baked layer since the world was baked (presentation/world_layers.gd), drawn
+	# behind main's own commands; _draw_world brings the layers up to date (`_layers.call("frame"`)
+	# and then draws the dressing and the props fresh over them, in this order.
+	var district: String = _function_body(MAIN_GD, "_draw_world")
+	if not _comes_before(district, "_layers.call(\"frame\"", "_draw_nature(") or not _comes_before(district, "_draw_nature(", "_draw_props()"):
+		push_error("_draw_world does not call _draw_nature( after the baked layers and before _draw_props(); the dressing would draw over the props or not at all")
 		return false
 	var draw_nature: String = _function_body(MAIN_GD, "_draw_nature")
 	if draw_nature.is_empty():
@@ -1242,7 +1245,7 @@ func _the_nature_dressing_lies_where_it_should() -> bool:
 
 	_stash["nature_tiles"] = picks.size()
 	_stash["nature_kinds"] = kinds.size()
-	print("NATURE OK %d entries (every key an authored prop that resolves at most %dx%d, every surface real, every rarity >= 2); the roll picks %d of 32 seeds on open grass and none on paved, walled, indoor, door-flanked, tree, heap, deep-water or edge tiles; reeds need water beside them and take a ford as water; an entry that misses its ground falls through; malformed blocks pick nothing; the roll is hash_at's own number on %d rolled tiles over four rarities and eight seeds; nature_tiles is a subset of seen and of bounds; the chunk cache answers the uncached picks over four windows and four observers (%d picks), serves a poisoned chunk and forgets it when emptied, and _nature_cache_for is emptied by the vehicle generation, the seed and the content; _draw_nature follows _draw_roofs and precedes _draw_props; suburb@%d takes %d pictures in %d kinds %s, cached and uncached alike" % [(entries as Array).size(), NATURE_MAX_W, NATURE_MAX_H, yes, rolls, cache_compared, GATE_SIZE, picks.size(), kinds.size(), str(kinds)])
+	print("NATURE OK %d entries (every key an authored prop that resolves at most %dx%d, every surface real, every rarity >= 2); the roll picks %d of 32 seeds on open grass and none on paved, walled, indoor, door-flanked, tree, heap, deep-water or edge tiles; reeds need water beside them and take a ford as water; an entry that misses its ground falls through; malformed blocks pick nothing; the roll is hash_at's own number on %d rolled tiles over four rarities and eight seeds; nature_tiles is a subset of seen and of bounds; the chunk cache answers the uncached picks over four windows and four observers (%d picks), serves a poisoned chunk and forgets it when emptied, and _nature_cache_for is emptied by the vehicle generation, the seed and the content; _draw_nature follows the baked layers and precedes _draw_props; suburb@%d takes %d pictures in %d kinds %s, cached and uncached alike" % [(entries as Array).size(), NATURE_MAX_W, NATURE_MAX_H, yes, rolls, cache_compared, GATE_SIZE, picks.size(), kinds.size(), str(kinds)])
 	return true
 
 
@@ -1780,9 +1783,9 @@ func _the_furnishings_stand_where_they_should() -> bool:
 		return false
 
 	# --- the draw pass is reached, in its place ------------------------------------------------
-	var district: String = _function_body(MAIN_GD, "_draw_district")
+	var district: String = _function_body(MAIN_GD, "_draw_world")
 	if not _comes_before(district, "_draw_nature(", "_draw_furnishings(") or not _comes_before(district, "_draw_furnishings(", "_draw_props()"):
-		push_error("_draw_district does not call _draw_furnishings( after _draw_nature( and before _draw_props(); the furniture would draw over the props or not at all")
+		push_error("_draw_world does not call _draw_furnishings( after _draw_nature( and before _draw_props(); the furniture would draw over the props or not at all")
 		return false
 	if _comes_before("_draw_props()\n_draw_furnishings(", "_draw_furnishings(", "_draw_props()"):
 		push_error("the order scanner passed a fabricated body that draws the props first; it cannot say no")
