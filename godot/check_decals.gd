@@ -588,6 +588,18 @@ func _the_record_survives_a_save() -> bool:
 
 # --- WALL --------------------------------------------------------------------------------------
 
+# Why a hole drawn at `r` is off its wall tile's face strip (rows FACE_TOP_PX to FACE_END_PX of a
+# tile whose top edge is at `tile_top` on screen, `px` screen pixels an art pixel), or "".
+static func face_complaint(r: Rect2, tile_top: float, px: float) -> String:
+	var top: float = tile_top + float(DecalLook.FACE_TOP_PX) * px
+	var end: float = tile_top + float(DecalLook.FACE_END_PX) * px
+	if r.size.y <= 0.0:
+		return "a hole drew no rows"
+	if r.position.y < top - 0.01 or r.end.y > end + 0.01:
+		return "a hole drew on rows %.0f to %.0f, off the face strip %.0f to %.0f" % [r.position.y, r.end.y, top, end]
+	return ""
+
+
 func _a_wall_picture_wears_its_holes() -> bool:
 	var w: Variant = _world()
 	SimDecals.add(w, "hole", 4.5, 12.4)
@@ -603,6 +615,27 @@ func _a_wall_picture_wears_its_holes() -> bool:
 	if (look.call("ground_draws", w, CAMERA, seen, {}, BOUNDS) as Array).size() != 1:
 		push_error("WALL: the ground pass did not draw a hole in a wall cap with no picture")
 		return false
+	# Drawn flat from above, every hole a burst leaves sits on the tile's face strip and is cut to
+	# it: never on the courses above the ledge, never down on the street. Eight more rounds, so the
+	# variant's jitter is judged across its range rather than at one value.
+	for i in 8:
+		SimDecals.add(w, "hole", 4.2 + 0.08 * float(i), 12.1 + 0.1 * float(i))
+	var tile_top: float = (12.0 - float(CAMERA["y"])) * 64.0 + 360.0
+	var flat: Array = look.call("ground_draws", w, CAMERA, seen, {}, BOUNDS) as Array
+	if flat.size() != 9:
+		push_error("WALL: nine holes in a cap drew %d" % flat.size())
+		return false
+	for d in flat:
+		var why: String = face_complaint((d as Dictionary)["rect"] as Rect2, tile_top, 2.0)
+		if not why.is_empty():
+			push_error("WALL: " + why)
+			return false
+	# TN: the complaint refuses a hole at the old row, up on the courses, and one run onto the street.
+	if face_complaint(Rect2(0.0, tile_top + 7.0 * 2.0, 28.0, 26.0), tile_top, 2.0).is_empty() or face_complaint(Rect2(0.0, tile_top + 24.0 * 2.0, 28.0, 26.0), tile_top, 2.0).is_empty():
+		push_error("WALL: the face check passed a hole off the face strip; it proves nothing")
+		return false
+	w = _world()
+	SimDecals.add(w, "hole", 4.5, 12.4)
 	# The picture: one tile wide, 44 px of it above the tile's south edge.
 	var rect := Rect2(float(WALL_X), 13.0 - 44.0 / 32.0, 1.0, 48.0 / 32.0)
 	var on_face: Array = look.call("wall_draws", w, CAMERA, seen, rect) as Array
@@ -636,7 +669,7 @@ func _a_wall_picture_wears_its_holes() -> bool:
 	if not (look.call("wall_draws", w, CAMERA, seen, rect) as Array).is_empty():
 		push_error("WALL: a wall the player cannot see wore its hole")
 		return false
-	print("WALL OK a hole in a standing wall drew on the picture's face and not on the ground, a cap with no picture took it on the ground, a picture elsewhere wore none, and the same wall walled off from the player wore none")
+	print("WALL OK a hole in a standing wall drew on the picture's face and not on the ground, a cap with no picture took it on the ground with nine holes all cut to its face strip, a picture elsewhere wore none, and the same wall walled off from the player wore none")
 	return true
 
 
@@ -692,6 +725,28 @@ func _blood_is_matte() -> bool:
 			if not why.is_empty():
 				push_error("MATTE: '%s'%s %s" % [String(k), " dried" if dry else "", why])
 				return false
+	# The marks that are not blood -- a hole, chips, a dent, a scorch -- are drawn from the same
+	# hard cut in their own colours: a wall's dust is the picture's grey, never a blend with the wall.
+	var other: Array = []
+	for kind in ["hole", "chips", "dent", "scorch"]:
+		var k2: String = DecalLook.art_for(kind, 1, 0, 0)
+		var tex2: Texture2D = Appearance.resolve(k2)
+		if tex2 == null:
+			push_error("MATTE: '%s' resolves to nothing" % k2)
+			return false
+		var src2: Image = DecalLook._source(k2, tex2)
+		var own2: Dictionary = {}
+		for y in src2.get_height():
+			for x in src2.get_width():
+				var c2: Color = src2.get_pixel(x, y)
+				if c2.a >= DecalLook.ALPHA_CUT:
+					own2[Color(c2.r, c2.g, c2.b, 1.0).to_html(false)] = true
+		var d2: Dictionary = {"key": k2, "texture": tex2, "region": Rect2(Vector2.ZERO, Vector2(32, 32)), "transpose": false, "flip": Vector2i(1, 1), "dry": false}
+		var why2: String = cut_complaint(look.call("_cut_of", d2) as Image, own2)
+		if not why2.is_empty():
+			push_error("MATTE: '%s' %s" % [k2, why2])
+			return false
+		other.append(k2)
 	# TN: the predicates refuse what they exist to refuse -- a bright red, and the pack's raw frame
 	# with its faint fringe.
 	var bright := Image.create(4, 4, false, Image.FORMAT_RGBA8)
@@ -703,7 +758,7 @@ func _blood_is_matte() -> bool:
 	if cut_complaint(raw, {}).is_empty():
 		push_error("MATTE: the raw pack frame passed as a hard cut; the cut test proves nothing")
 		return false
-	print("MATTE OK all %d blood pictures %s stay at or under value %.2f and are cut hard in their own colours fresh and the dry pool's old, a bright red is refused, and the raw frame's fringe is refused" % [keys.size(), str(keys), MATTE_VALUE_MAX])
+	print("MATTE OK all %d blood pictures %s stay at or under value %.2f and are cut hard in their own colours fresh and the dry pool's old, the marks a round or a bolt leaves %s are cut hard in theirs, a bright red is refused, and the raw frame's fringe is refused" % [keys.size(), str(keys), MATTE_VALUE_MAX, str(other)])
 	return true
 
 

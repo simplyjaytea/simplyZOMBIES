@@ -3303,7 +3303,9 @@ not a to-do list:
   that spills into it changes, or a mark in it changes stage. A wall tile's cell is cleared from the
   bake so blood never paints over a cap. Wall marks are single draws: on the ground pass for a cap
   with no picture, by `_draw_a2_wall_piece` on a standing wall's face, and by `_blit_vehicle` over a
-  car. **Shown only on a tile in the live sight set**, never the remembered map: the remembered
+  car. A hole sits on its wall's face strip and is cut to it: rows 23 to 30 of a tile's face
+  picture, under the ledge, where the windows are, or rows 17 to 42 of an A2 picture; the first
+  cut put it fourteen rows down a tile, on the courses above the ledge (art QA, 2026-10-20). **Shown only on a tile in the live sight set**, never the remembered map: the remembered
   street is already drawn as a memory of a surface and not of the litter on it (`main.gd`'s
   remembered floor arm draws no road paint, scrap, props or dressing), and a mark drawn there
   would also be news the player never earned. Drawing what the player last saw on a remembered
@@ -3315,19 +3317,26 @@ not a to-do list:
   HIT, UNSEEN, POOL, BLEED, ROUND, SCORCH, BOUND, BAKE, SAVE, WALL, MATTE and DRAWN (the gate's
   header names what each holds; HIT also holds that 240 splats reach all 24 picture-and-turn
   pairs and refuses variants 0..7; MATTE also holds every cut hard-edged in the pack's own colours,
-  fresh and dried, and refuses the raw frame's fringe). `check_fx.gd`'s ADMITS accepts an `fx_` key declared as a decal,
+  fresh and dried, and refuses the raw frame's fringe, and the cuts of the hole, chips, dent and
+  scorch hard-edged in theirs; WALL also holds nine holes in one tile all inside its face strip and
+  refuses a hole on the courses or run onto the street). `check_fx.gd`'s ADMITS accepts an `fx_` key declared as a decal,
   and `check_authored.gd`'s READS lane accepts a decal read by a function of the code that names
   its key. **Sabotage pass**, each red and restored: the sight test removed → UNSEEN and DRAWN;
   pool de-duplication removed → POOL ("3 pools"); the drip system off → BLEED; the hit check removed
   → ROUND; the wall-cell clear removed → BAKE ("the wall tile must be clear"); the bake cache off →
   BAKE ("a frame with nothing new re-baked 9 chunks"); neighbour spill ignored → BAKE ("re-baked 1
   chunks, not 2"); the hard cut skipped → MATTE ("alpha 244"); the dry remap skipped → MATTE ("a
-  colour 46010a … that is not the pack's"). A with-and-without render of one frame of the restaged
+  colour 46010a … that is not the pack's"); the hole put back fourteen rows down → WALL ("rows 358
+  to 422, off the face strip 406 to 422"). A with-and-without render of one frame of the restaged
   fight differs only under the marks; of the pixels that change by more than six levels, 94% are
   exact pack blood colours, and the rest sit under the translucent edges of bodies and props.
   The pack's body art is not fully opaque (most of its pixels are alpha 252 to 254), so a mark
   under a body shifts the body's own pixels by one or two levels; that is the body art's, not
-  the mark's.
+  the mark's. Split against two more renders with every body moved off the map, 3,078 mark pixels
+  have something drawn over them and 2,756 of those move two levels or less; the 322 that move
+  more sit under covers that are see-through by design: the 35% contact shadow, a glimpse disc,
+  facing lines, the aim cone, and the soft rim of the pack's corpse art (about one pixel in eight
+  of a `corpse_*` picture is below alpha 230), which moves by 19 at most.
   **Measured**, with a throwaway driver built on the frame bench's harness and
   deleted afterwards, on this container's llvmpipe at 1280 × 720 with every visible chunk full (850
   marks placed, 365 kept, 337 tile runs drawn): the per-mark draw this slice first had cost 1.67 ms
