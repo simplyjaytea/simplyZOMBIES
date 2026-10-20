@@ -17,13 +17,14 @@ of time with the legs, because they are chosen by the body's own frame key.
 - `parts.py` labels every opaque pixel of each of the forty source frames (the rest views
   `../textures/characters/survivor_*.png`, cut 32x48 to 32x40 exactly as `authored.json` crops
   the body, and the walk and breath under `../textures/characters/motion/`): ink, head, torso,
-  arm, hand, pelvis, leg, foot. A breath frame's chest starts a row higher, by however far the
-  breath lifted the head. The landmarks come from the frame's
-  own underwear band, so the walk's bob moves them with the body -- except the side views'
-  chest, whose top row is the idle frame's: the pack's side walk bobs the hips but never the
-  shoulders, and a hip-derived chest left the top row bare once a cycle. Seen from the side, the near
-  arm past the underwear's span on the side the body faces is labelled arm, not chest, so a
-  short sleeve ends on it and a long one is creased apart from the body.
+  arm, hand, pelvis, leg, foot. A hand is the two-by-two at the far end of each arm, measured
+  from its shoulder, so a sleeve runs down a swinging arm to the wrist. The breath is not
+  labelled or painted: its garment is the rest picture's, put through the body's own breath.
+  The waist comes from the frame's own underwear band and the chest top from its head (the rest
+  view's chest top, moved as far as the head moved), so the walk's bob moves both with the body
+  and a collar sits under the chin on every frame. Seen from the side, the near arm past the
+  underwear's span on the side the body faces is labelled arm, not chest, so a short sleeve ends
+  on it and a long one is creased apart from the body.
 - `build_clothing.py` repaints only the skin and underwear pixels of the parts a garment covers.
   A pixel is shaded on a light scale, not picked from four tones: it starts from the body's own
   tone under it (lit skin, shaded skin, the darkest skin; the underwear's flat grey counts as
@@ -49,8 +50,9 @@ of time with the legs, because they are chosen by the body's own frame key.
   suit is smooth rather than dirty. The `boot` ramp (steel-toe boots, the suit's taped seams and
   respirator) never falls below its deep tone, so dark rubber beside the pack's near-black ink
   still reads at 1x. A garment frame comes out near the pack vest's tonal density, counted as
-  distinct colours over painted pixels on the south view: the tee 61 over 84, the leather jacket
-  55 over 100, the parka 82 over 116, the hazmat suit 86 over 159; the pack's vest 85 over 117.
+  distinct colours over painted pixels on the south view: the slate tee 61 over 84, the leather
+  jacket 55 over 100, the parka 87 over 116, the hazmat suit 86 over 159; the pack's vest 85
+  over 117.
 - Ramps are four tones in the pack's families (`../STYLE.md`), blended between and paled or
   cooled past either end; every number is an integer, so the output is the same bytes on every
   interpreter (checked on Python 3.12 and 3.13).

@@ -2127,8 +2127,9 @@ not a to-do list:
   breath, kept"). `breath_fps: 0` in `authored.json` would turn it off per family without code.
 
   **Evidence:** `godot:check:worn` new FRAMES lane: **288** walk and breath frames over 8 bodies
-  declare head and torso offsets the renderer reads (448 of them move one), **72** survivor hands
-  sit on their own frame's arm (57 off the rest point), and a pistol, helmet and vest on a
+  declare head and torso offsets the renderer reads (427 of them move one, after the art
+  review's even bob; 448 before), **72** survivor hands sit on their own frame's arm (53 off the
+  rest point; 57 before), and a pistol, helmet and vest on a
   walking frame follow its hand, head and torso; a corner hand, a frame-less pistol, a shifting
   rest view, a riderless wearable and a dropped frame are each refused. `godot:check:zombie_art`
   MOTION: eight distinct poses and a breath a view, stride equal to pace × frames / fps, and a
@@ -2917,8 +2918,9 @@ not a to-do list:
   than the pack's four-frame walk it had been built on: `parts.py` reads A7's eight walk frames
   and the breath picture per view (`textures/characters/motion/`), so the rig has **40 frames**
   and each garment **40 members** (**1160 keys**, from 580), on a 320x160 atlas (rest, walk 1-8,
-  breath). A breath frame's chest starts a row higher, by however far the breath lifted the
-  head. Four of the generated east walk frames had drawn the hips bare, which left the painter
+  breath). The breath is not painted: each garment's breath is its rest picture put through the
+  body's own breath (`build_motion.survivor_breath`: the chest a row up, the hands planted), so
+  the cloth cannot shift colour as the body breathes. Four of the generated east walk frames had drawn the hips bare, which left the painter
   no waist to find; A7's `build_motion.py` now restores the shorts on those frames
   (`restore_shorts`) rather than the painter guessing. The COVERAGE lane's frame count reads
   `walk_frames + breath_frames` and pins eight and two; STEP drives `body_texture` with the
@@ -2927,7 +2929,38 @@ not a to-do list:
   5)`; `COVERAGE OK ... on all 40 rig frames (fewest 5 garment pixels showing)`; `STEP OK ...
   480 frame draws`; `CLOTHING_OK 29 garments, 1160 frames`; `SPRITES_OK ... 1643 authored keys
   reproduced`. A walk GIF of the tee, leather, parka and hazmat outfits is under
-  `.hermes/plans/2026-10-19_a7-animation/`.
+  `.hermes/plans/2026-10-19_a7-animation/`. **Art review, round 1:** a walking arm reaches
+  sideways or forward, and the row rule that found hands on the rest views left forearms up to
+  five by three bare under long sleeves; `parts.py` now labels the hand as the two-by-two at the
+  far end of each arm, measured from the shoulder, so a sleeve runs to the wrist on every frame
+  and an arm the body hides still ends in a hand. `build_motion.py` closes the ink ring where
+  six generated pixels touched the outside (`close_outline`) and lifts the ink seam two east
+  frames drew across the hips (`drop_hip_seams`); a zip's teeth count from the collar so they
+  ride the bob; the neck's shadow past its two rows reads as the cloth's own light. **Round 2,
+  the walk made even:** the generated cycles bobbed unevenly (south head-top rows 12, 11, 10, 10,
+  10, 12, 11, 10, a long beat and a short one with a two-row drop; north once a cycle; east a row
+  of jitter every step) and the side walks drifted forward through the cycle and snapped back on
+  the loop (the east head 16.7 to 18.7 pixels across, then 16.7). `build_motion.py` now
+  re-centres each frame's head over the rest view's (`recentre`) and moves the body from the hips
+  up, as one block, to `SURVIVOR_BOB`, two even beats a cycle, no frame moved more than a row
+  (`retime_bob`): south 11, 12, 11, 10, 11, 12, 11, 10; north 12, 11, 10, 11, 12, 11, 10, 11; east
+  11, 11, 12, 12 twice; west 12, 12, 13, 13 twice. Round 3: moving only the chest and head (the
+  first cut) shortened the torso on the frames it lowered and the collar, found from the hips,
+  rode over the chin, so the cut is under the hips and a walking frame's chest top is now found
+  from its head; the west and north walks wear the rest view's head on every frame
+  (`same_head`; the generator had redrawn it each frame, a nod), and so does the south, whose
+  trunk is held to the rest view's 19 rows from head top to belt (`trunk`; the generator drew it
+  a row short on three frames, so the torso squashed against the bob): south face rows 16, 17,
+  16, 15, 16, 17, 16, 15 and belt rows 30, 31, 30, 29, 30, 31, 30, 29, face to belt 14 on every
+  frame; a foot stands on the ground row
+  on every frame; and ink on the silhouette's edge is the ring's own black (`outline_black`).
+  **Measured** (changed pixels per step, 0 to 1 through 7 to 0): south 303, 302, 328, 294, 305,
+  291, 340, 352; east 161, 302, 172, 218, 140, 274, 156, 309; north 277, 316, 316, 297, 306, 323,
+  293, 329; west 170, 314, 157, 267, 124, 301, 164, 338. The loop step is 4, 2, 2 and 8 percent
+  over the next in south, east, north and west (it was 6, 13 and 20 percent in south, east and
+  west before the art review); what remains is the generated legs' own pose spacing, which
+  wants drawn frames. The breath plants the hands and lifts the shoulders, so no hand stretches a row
+  on the inhale.
 
 - **Art & renderer — zombies turn, walk and fall, 2026-10-02.** Closes "A silhouette per
   kind" and the Focal art half of "A corpse reads as a corpse", at the owner's request for

@@ -29,6 +29,9 @@ from PIL import Image
 
 import parts
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "motion"))
+import build_motion  # noqa: E402
+
 HERE = Path(__file__).resolve().parent
 NATIVE = HERE / "native"
 
@@ -275,7 +278,15 @@ class Canvas:
                 lab = f.lab[y][x]
                 if lab in (".", "O", "H") or not test(x, y, lab):
                     continue
-                raw[(x, y)] = LEVEL[tone_of(f.cls[y][x], f.px[x, y])]
+                step = tone_of(f.cls[y][x], f.px[x, y])
+                # The skin's darkest tone under the torso is the shadow the head casts on the
+                # neck, two rows deep on the pack's views. A generated frame that draws it a row
+                # deeper would carry a dark bar across the cloth below the collar (leather's hard
+                # light took even a shade to near black), so past those two rows the cloth is
+                # read as lit like the rest of the back.
+                if step == DEEP and f.lab[y][x] == "T" and y >= f.torso_top + 2:
+                    step = BASE
+                raw[(x, y)] = LEVEL[step]
         for (x, y), level in raw.items():
             # How far down its own column of cloth this pixel sits: cloth darkens as it falls
             # away from the light at the top of a part. The waist starts a new part -- a belt, a
@@ -413,7 +424,9 @@ def placket(c: Canvas, ramp: Ramp, trim: Ramp | None, buttons: bool) -> None:
         if (x, y) not in c.painted:
             continue
         if trim is not None:
-            c.tone(x, y, trim, HI if (y % 2 == 0) else BASE)
+            # The zip's teeth count from the collar, so they ride the walk's bob with the chest
+            # instead of flipping pattern every time the body rises a row.
+            c.tone(x, y, trim, HI if ((y - f.torso_top) % 2 == 1) else BASE)
         elif buttons and (y - f.torso_top) % 2 == 0:
             c.tone(x, y, ramp, HI)
         else:
@@ -807,12 +820,22 @@ def cell_of(suffix: str) -> tuple[int, int]:
 
 
 def build_all() -> dict[str, Image.Image]:
-    """Every garment's every frame, keyed `<family>/<family>_<suffix>`."""
-    frames = [Frame(suffix, source) for suffix, source in parts.frame_names()]
+    """Every garment's every frame, keyed `<family>/<family>_<suffix>`.
+
+    The breath is not painted: it is the rest picture's garment put through the body's own breath
+    (`build_motion.survivor_breath`: the chest a row up, the hands planted), so the clothes on a
+    breathing body are its standing clothes, pixel for pixel. Painting it afresh shifted the colour of
+    dozens of pixels between the two and the cloth shimmered as the body breathed."""
+    frames = [Frame(suffix, source) for suffix, source in parts.frame_names() if not suffix.startswith("idle_")]
     out: dict[str, Image.Image] = {}
     for family in GARMENTS:
         for f in frames:
             out[f"{family}/{family}_{f.suffix}"] = paint(family, f)
+        for suffix, _ in parts.frame_names():
+            if suffix.startswith("idle_"):
+                view = parts.view_of(suffix)
+                rest = out[f"{family}/{family}_{view}"]
+                out[f"{family}/{family}_{suffix}"] = build_motion.survivor_breath(rest, view)
     return out
 
 
