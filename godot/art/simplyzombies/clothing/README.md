@@ -25,7 +25,9 @@ of time with the legs, because they are chosen by the body's own frame key.
   view's chest top, moved as far as the head moved), so the walk's bob moves both with the body
   and a collar sits under the chin on every frame. Seen from the side, the near arm past the
   underwear's span on the side the body faces is labelled arm, not chest, so a short sleeve ends
-  on it and a long one is creased apart from the body.
+  on it and a long one is creased apart from the body. A run the arm rules took for a hand that
+  lies wholly below the underwear's top row and touches the pelvis or a leg is a stepping shin,
+  and is labelled leg (`_legs_below_belt`).
 - `build_clothing.py` repaints only the skin and underwear pixels of the parts a garment covers.
   A pixel is shaded on a light scale, not picked from four tones: it starts from the body's own
   tone under it (lit skin, shaded skin, the darkest skin; the underwear's flat grey counts as
@@ -45,8 +47,9 @@ of time with the legs, because they are chosen by the body's own frame key.
   The pack's ink is never touched, so a garment cannot move the silhouette; the head is touched
   only by a hood (the hair, and the mask over the lower face), never its ink or its eyes. The
   walk's generated frames shade some hair a brown dark enough to read as ink; a hood takes a dark
-  pixel warm by a dozen levels or more, inside the head's outline ring and touching hair, as
-  hair, so no seam of it shows between the hood and the face.
+  pixel warm by a dozen levels or more, inside the head's outline ring and touching hair (or
+  touching such a pixel, down to the nape), as hair, so no seam of it shows between the hood and
+  the face.
 - `Canvas.render` turns each level into its ramp's colour through the material: plain cloth
   gains contrast and a faint grain, denim a twill, wool and fur a coarse nap, paper a crinkle;
   leather and rubber take a hard light, deeper shadows and a shine where they face up. Rubber has
@@ -80,7 +83,9 @@ everything below works on the frames the game actually draws.
 - **Moved frames** (crouch, crouch walk, flinch, fall, prone): the garment is painted on the
   source frame as usual, the dressed source is moved by the same `derive` or `prone_frames` call
   as the bare one, and the layer is the pixels where the two results differ. A fold or a lean
-  carries the cloth exactly as it carries the skin.
+  carries the cloth exactly as it carries the skin. The fold drops the rows at the knee and can
+  leave a hand hanging there one row tall; a torso garment's cuff then steps back off the bare
+  skin straight above it (`_whole_hands`), so a long sleeve's hand keeps two rows.
 - **The reloads**: the torso, legs and feet are painted on the reload's armless body (the arm
   patches `ARMLESS` closed take the nearest cloth inward) and dipped at the knee with it. The
   arms the beat draws are painted as sleeves: every skin pixel the limb moved goes to the
@@ -94,8 +99,9 @@ everything below works on the frames the game actually draws.
   the chest and the waist (the column just past it included, at no reach, so no sliver of skin
   runs down a sleeve's inner edge), each island's last pixels toward the hand kept bare, and the
   frame is painted like a rest view with those arms. The swing kicks its trailing leg back up
-  into the underwear's rows, where the rest-view rules hang a hand; skin there that touches the
-  pelvis or a leg is leg, so the trousers run down it to the shoe.
+  into the underwear's rows, where the rest-view rules hang a hand; the labels' leg rule (below
+  the belt, touching the pelvis or a leg, no arm above it) makes that skin leg, so the trousers
+  run down it to the shoe.
 
 The sheets hold every garment on every frame; `godot:check:worn`'s COVERAGE lane composes them
 and asks, per action and view, that the garment shows somewhere in the run.
