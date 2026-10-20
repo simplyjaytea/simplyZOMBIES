@@ -88,6 +88,10 @@ var _held: Dictionary = {}
 var _looks: Dictionary = {}
 # id -> {"key", "view", "at"}: the falls in progress.
 var _falls: Dictionary = {}
+# id -> the view a body fell from, kept after its fall has played so its corpse goes on lying the
+# way it fell (`landed_view`), the oldest dropped past LANDED_MAX.
+var _landed: Dictionary = {}
+const LANDED_MAX: int = 512
 
 
 # Where a body is in its walk after covering `metres` at `mps` metres per second, for a family
@@ -146,6 +150,7 @@ func clear() -> void:
 	_held = {}
 	_looks = {}
 	_falls = {}
+	_landed = {}
 
 
 # The start of a draw pass. `now` is presentation time in game seconds -- the frame loop's own
@@ -260,6 +265,9 @@ func from_events(world: Variant, drained: Array, now: float) -> void:
 					var look: Dictionary = _looks[dead] as Dictionary
 					_falls[dead] = {"key": String(look["key"]), "view": String(look["view"]), "at": now}
 					_acts.erase(dead)
+					_landed[dead] = String(look["view"])
+					while _landed.size() > LANDED_MAX:
+						_landed.erase(_landed.keys()[0])
 
 
 # appearance.gd preloads this file, so it is loaded here when first needed rather than preloaded:
@@ -328,6 +336,12 @@ func _read_held(id: int, world: Variant) -> void:
 	if fire != int(r["fire"]):
 		r["fire"] = fire
 		r["at_fire"] = _time
+
+
+# The view `id` fell from, or "" for a body this clock never saw fall (one that died unseen, or
+# before a load): the corpse pass then reads it off the body's facing.
+func landed_view(id: int) -> String:
+	return String(_landed.get(id, ""))
 
 
 # The fall `id` is playing, {key, view, t}, or {} when it is not falling.

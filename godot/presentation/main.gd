@@ -2557,7 +2557,7 @@ func _visual_remains_items() -> Array[Dictionary]:
 			"d": TopDownProjection.depth_of(x, y), "det": SimVisibility.Detail.Focal,
 			"player": false, "unique": false, "zed": false, "bait": false, "raider": false,
 			"ztype": String(record["ztype"]), "tint": String(record["tint"]), "cid": "",
-			"id": int(record["entity"]), "corpse": true})
+			"id": int(record["entity"]), "corpse": true, "facing": record.get("facing")})
 	return out
 
 
@@ -2576,19 +2576,45 @@ func _draw_corpse(it: Dictionary, px_scale: float) -> void:
 		return
 	var sx: float = float(it["sx"])
 	var sy: float = float(it["sy"])
+	var id: int = int(it["id"])
+	var key: String = String(look.get("sprite", ""))
+	var size: Vector2 = texture.get_size() * px_scale
 	# A body that has just died falls before it settles (presentation/anim_clock.gd's `fall_of`):
 	# its own family's fall frames, from the view it was last drawn facing, standing on the point
-	# it died on, until they play through and the settled picture below takes over.
-	var fall: Dictionary = _anim.fall_of(int(it["id"]))
+	# it died on, then one beat of the settled picture landing, until the settled picture below
+	# takes over. The corpse lies from the feet the body stood on, the way it fell (docs/23, "Falls
+	# that land"): mirrored when the picture lies the other way.
+	var fall: Dictionary = _anim.fall_of(id)
+	var view: String = String(fall["view"]) if not fall.is_empty() else _anim.landed_view(id)
+	if view.is_empty():
+		view = _corpse_view(it)
+	var feet: Vector2 = Appearance.corpse_feet(key)
+	var flip: bool = Appearance.corpse_flip(key, view)
 	if not fall.is_empty():
 		var fall_key: String = Appearance.fall_key(String(fall["key"]), String(fall["view"]), float(fall["t"]))
 		var falling: Texture2D = Appearance.resolve(fall_key) if not fall_key.is_empty() else null
 		if falling != null:
 			draw_texture_rect(falling, Appearance.body_rect(sx, sy, falling.get_size() * px_scale, 1.0), false, look["tint"] as Color)
-			_falls_drawn.append({"id": int(it["id"]), "key": fall_key})
+			_falls_drawn.append({"id": id, "key": fall_key})
 			return
-	var size: Vector2 = texture.get_size() * px_scale
-	draw_texture_rect(texture, Appearance.corpse_rect(sx, sy, size), false, look["tint"] as Color)
+		if Appearance.fall_landing(String(fall["key"]), String(fall["view"]), float(fall["t"])):
+			draw_texture_rect(texture, Appearance.corpse_rect(sx, sy - float(Appearance.LAND_RAISE) * px_scale, size, feet, flip, px_scale), false, look["tint"] as Color)
+			_falls_drawn.append({"id": id, "key": "%s@land" % key})
+			return
+	draw_texture_rect(texture, Appearance.corpse_rect(sx, sy, size, feet, flip, px_scale), false, look["tint"] as Color)
+
+
+# The view a corpse the clock never saw fall lies by: its facing when it died -- a dead human's
+# own component, a zombie's as its saved remains record it -- or the rest view when neither says.
+func _corpse_view(it: Dictionary) -> String:
+	var facing_v: Variant = it.get("facing")
+	if facing_v == null and world != null and world.components != null:
+		var f: Variant = world.components.get_component(int(it["id"]), "facing")
+		if f is Dictionary:
+			facing_v = (f as Dictionary).get("radians")
+	if facing_v == null:
+		return Appearance.VIEW_REST
+	return Appearance.view_of(float(facing_v))
 
 
 func _draw_entities() -> void:
