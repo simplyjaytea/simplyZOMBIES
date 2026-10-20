@@ -70,9 +70,14 @@ static func ceil_div(a: int, b: int) -> int:
 
 ## Compute every tile with a sightline from (origin_x, origin_y) out to range_tiles.
 ## Results written into `out` (reused across recomputes). Own tile always visible.
-static func shadowcast(map: Variant, origin_x: int, origin_y: int, range_tiles: int, out: VisibleTiles, eye: int = 0) -> VisibleTiles:
-	out.reset(origin_x, origin_y, range_tiles)
-	out.mark(origin_x, origin_y)
+## `first_quadrant` and `last_quadrant` cast part of the circle: a call that starts at North
+## resets `out`, and one that starts later adds to what is there. The quadrants share only their
+## edges and marking is idempotent, so four one-quadrant calls give the very cells one whole call
+## does -- which is what lets a person's wide cast be spread over a few ticks (`SimVisibility`).
+static func shadowcast(map: Variant, origin_x: int, origin_y: int, range_tiles: int, out: VisibleTiles, eye: int = 0, first_quadrant: int = Quadrant.North, last_quadrant: int = Quadrant.West) -> VisibleTiles:
+	if first_quadrant == Quadrant.North:
+		out.reset(origin_x, origin_y, range_tiles)
+		out.mark(origin_x, origin_y)
 	var range_sq := range_tiles * range_tiles
 	if eye != SimTileMapRes.Eye.Crouched and eye != SimTileMapRes.Eye.Standing:
 		eye = SimTileMapRes.Eye.Standing
@@ -94,7 +99,7 @@ static func shadowcast(map: Variant, origin_x: int, origin_y: int, range_tiles: 
 	var base_y: int = range_tiles - origin_y
 	# A frame is five ints [depth, start_n, start_d, end_n, end_d], pushed and popped in the order
 	# the Dictionary frames were.
-	for q in range(Quadrant.North, Quadrant.West + 1):
+	for q in range(first_quadrant, last_quadrant + 1):
 		var stack: Array[int] = [1, -1, 1, 1, 1]
 		while stack.size() > 0:
 			var end_d: int = stack.pop_back()
