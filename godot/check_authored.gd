@@ -162,7 +162,14 @@ const AUTHORED_PATH: String = "res://assets/sprites/authored.json"
 # from whole pack pictures by a `cells` source. Its pixels are `check_road_look.gd`'s TEXTURE and
 # CELLS lanes' to judge and `sprites:check`'s to reproduce; its reader is code, not content, which
 # READS below holds it to (GROUND_READER).
-const KINDS: Array[String] = ["rig", "overlay", "tile", "icon", "pack_rig", "zombie_rig", "corpse", "pack_overlay", "pack_held", "module", "sheet", "prop", "standing", "vehicle", "tree", "ground"]
+#
+# `decal` is one of the outpost pack's ground marks -- a blood pool, a bullet hole, a scorch, wood
+# chips (plan item A13, docs/30's "Blood and bullet decals persist, for everything"): a single 32x32
+# frame cut whole. Like `ground` its reader is code, not content -- a mark is a sim record, not a
+# content entry -- so READS holds its `reads`, `<file>:<function>`, to a function whose body names
+# the key as a quoted string (DECAL_KIND).
+const KINDS: Array[String] = ["rig", "overlay", "tile", "icon", "pack_rig", "zombie_rig", "corpse", "pack_overlay", "pack_held", "module", "sheet", "prop", "standing", "vehicle", "tree", "ground", "decal"]
+const DECAL_KIND: String = "decal"
 
 # The zombie set has its own measured contract rather than widening PACK's 32x40 body rules.
 # Living art stands on the sole boundary; settled corpses use a ground-centre anchor. Every
@@ -2104,10 +2111,30 @@ func _ground_reader_complaint(key: String, reads: String) -> String:
 	return ""
 
 
+# Whether a `decal` entry's `reads` names a renderer function that really picks it: `<file>:<func>`,
+# and the function's body names the key as a quoted string. "" when sound.
+func _decal_reader_complaint(key: String, reads: String) -> String:
+	var parts: PackedStringArray = reads.split(":")
+	if parts.size() != 2:
+		return "reads '%s'; a decal names `<file>:<function>`" % reads
+	var path: String = "res://%s" % parts[0]
+	if not FileAccess.file_exists(path):
+		return "reads '%s', and %s does not exist" % [reads, path]
+	var body: String = _function_body_of(path, parts[1])
+	if body.is_empty():
+		return "reads '%s', and %s defines no %s" % [reads, path, parts[1]]
+	if not body.contains("\"%s\"" % key):
+		return "reads '%s', whose body never names \"%s\": a decal nothing picks" % [reads, key]
+	return ""
+
+
 # One function's text out of a GDScript file: from `func <name>(` to the next top-level line.
 func _function_body_of(path: String, name: String) -> String:
 	var text: String = FileAccess.get_file_as_string(path)
 	var start: int = text.find("\nfunc %s(" % name)
+	if start < 0:
+		# A static function is a function too: the decal picker is one.
+		start = text.find("\nstatic func %s(" % name)
 	if start < 0:
 		return ""
 	var lines: PackedStringArray = text.substr(start + 1).split("\n")
@@ -2220,6 +2247,13 @@ func _authored_art_is_read_by_something() -> bool:
 				return false
 			code_read += 1
 			continue
+		if String((entries[key] as Dictionary).get("kind", "")) == DECAL_KIND:
+			var why_d: String = _decal_reader_complaint(name, String((entries[key] as Dictionary).get("reads", "")))
+			if not why_d.is_empty():
+				push_error("authored.json: '%s' %s" % [name, why_d])
+				return false
+			code_read += 1
+			continue
 		if not declared.has(name):
 			push_error("authored.json declares '%s' and no content entry's appearance block names it: art nothing draws" % name)
 			return false
@@ -2284,7 +2318,18 @@ func _authored_art_is_read_by_something() -> bool:
 		if _ground_reader_complaint("ground_atlas_elsewhere", "presentation/main.gd:_draw_floor_tile").is_empty():
 			push_error("the ground-reader predicate accepted a key Appearance.ground_atlas() does not resolve")
 			return false
+		# The same three for a decal: a function that names no such key, one that does not exist,
+		# and a claim with no function at all.
+		if _decal_reader_complaint("fx_blood_pool_fresh", "presentation/decal_look.gd:visible").is_empty():
+			push_error("the decal-reader predicate accepted a function that never names the key; it proves nothing")
+			return false
+		if _decal_reader_complaint("fx_blood_pool_fresh", "presentation/decal_look.gd:no_such_thing").is_empty():
+			push_error("the decal-reader predicate accepted a function that does not exist")
+			return false
+		if _decal_reader_complaint("fx_blood_pool_fresh", "presentation/decal_look.gd").is_empty():
+			push_error("the decal-reader predicate accepted a claim that names no function")
+			return false
 
 
-	print("READS OK %d authored keys are each named by one of the content entries that declare them, dressing lists included (a probe block's heaps, litter, rubble, trees, nature and building maps are all found, and a non-dressing entry's `heaps` is not), %d ground sheet read by the renderer function it names (a function that draws no ground, one that does not exist and a key the accessor does not resolve all refused)" % [entries.size() - code_read, code_read])
+	print("READS OK %d authored keys are each named by one of the content entries that declare them, dressing lists included (a probe block's heaps, litter, rubble, trees, nature and building maps are all found, and a non-dressing entry's `heaps` is not), %d keys (the ground sheet and the decals) read by the renderer function each names (a function that draws no ground, one that does not exist and a key the accessor does not resolve all refused)" % [entries.size() - code_read, code_read])
 	return true
