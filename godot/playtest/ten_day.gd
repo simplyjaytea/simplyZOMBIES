@@ -282,7 +282,13 @@ func _think() -> void:
 	if rw is Dictionary and int((rw as Dictionary).get("mag", 0)) <= 0 and int(w.tick) % 100 == 50:
 		w.commands.push({"type": "reload"})
 
-	# 4. Food and water.
+	# 4. Food and water. Still at the well from the last press: keep pressing while E is the well.
+	if _well_visit:
+		if String(SimFortify.rung_of(w, me).get("verb", "")) == "well":
+			w.commands.push({"type": "use.context"})
+			_day["well"] = int(_day["well"]) + 1
+			return
+		_well_visit = false
 	var n: Dictionary = SimNeeds.of(w, me)
 	if float(n.get("thirst", 100.0)) < EAT_AT:
 		if _consume(me, "drink"):
@@ -311,6 +317,12 @@ func _set_goal(goal: String) -> void:
 
 
 var _retries: int = 0
+# Pressing E at a well until it is no longer the well (drunk, then every empty filled).
+var _well_visit: bool = false
+# A pile item the survivor stood on and could not pick up, and for how long.
+var _fetch_item: int = -1
+var _fetch_ticks: int = 0
+const FETCH_GIVE_UP_TICKS: int = 40
 # A zombie the survivor stood and waited for that never came (a wall or a fence between them): left
 # alone until the tick stored here, unless it comes within reach or takes hold.
 var _ignored: Dictionary = {}
@@ -403,8 +415,16 @@ func _consume(me: int, what: String) -> bool:
 	var tile := Vector2i(floori(sp.x), floori(sp.y))
 	match _arrived_or_failed(_pos(me), tile):
 		"arrived":
+			# Standing on it and the pickup still does not take (no room, nothing the pack can
+			# hold): leave it, or a drink nobody can lift would keep the survivor from the well.
+			_fetch_ticks = _fetch_ticks + 1 if stock == _fetch_item else 0
+			_fetch_item = stock
+			if _fetch_ticks > FETCH_GIVE_UP_TICKS:
+				_given_up[stock] = true
+				return false
 			w.commands.push({"type": "item.pickup", "item": stock})
 		"failed":
+			_given_up[stock] = true
 			return false
 		_:
 			_go(tile)
@@ -412,14 +432,20 @@ func _consume(me: int, what: String) -> bool:
 
 
 # Nothing to drink in the pack or on the pile: the nearest well (or river source), walked to and
-# E pressed, the way a player does it. Only when E there would be the well -- anything else E
-# would do first (a loose item, a box) is not a drink, and the plan falls through.
+# E pressed, the way a player does it. A well with a zombie standing by it is not worth the walk
+# while there is thirst to spare, the same call the survivor makes about a guarded box; with the
+# pool empty it goes anyway. At the well it presses E for as long as E is the well: drink, then
+# fill every empty bottle carried, so the next drink is in the pack and not past the gate. Only
+# when E there would be the well -- anything else E would do first (a loose item, a box) is not a
+# drink, and the plan falls through.
 func _drink_at_well(me: int) -> bool:
 	var here: Vector2 = _pos(me)
 	var source: int = SimNeeds.nearest_water_source(w, here.x, here.y)
 	if source < 0:
 		return false
 	var sp: Vector2 = _pos(source)
+	if float(SimNeeds.of(w, me).get("thirst", 100.0)) > 0.0 and not _threats(sp, THREAT_RADIUS).is_empty():
+		return false
 	var tile := Vector2i(floori(sp.x), floori(sp.y))
 	_set_goal("well")
 	match _arrived_or_failed(here, tile):
@@ -428,7 +454,7 @@ func _drink_at_well(me: int) -> bool:
 			if String(SimFortify.rung_of(w, me).get("verb", "")) != "well":
 				return false
 			w.commands.push({"type": "use.context"})
-			_day["drank"] = int(_day["drank"]) + 1
+			_well_visit = true
 			_day["well"] = int(_day["well"]) + 1
 		"failed":
 			return false
@@ -715,6 +741,8 @@ func _carried_kind(me: int, what: String) -> int:
 
 func _stock_kind(what: String) -> int:
 	for item in SimNeeds.stockpile_items(w):
+		if _given_up.has(int(item)):
+			continue
 		if _kind_of(int(item)) == what and w.components.has_component(int(item), "position"):
 			return int(item)
 	return -1
@@ -936,7 +964,7 @@ func _close_day(day: int) -> void:
 		row[key] = _day[key]
 		_run_total[key] = int(_run_total.get(key, 0)) + int(_day[key])
 	_emit(row)
-	print("DAY %2d head=%d alive=%s hunger=%5.1f thirst=%5.1f rest=%5.1f food=%d+%d drink=%d+%d wounds=%d bleed=%d infected=%d bites=%d kills=%d(you %d) deaths=%d left=%d searched=%d picked=%d ate=%d drank=%d(well %d) swings=%d grabs=%d(you %d) packets=%d raids=%d live=%d tick=%.2f/%.2f/%.2f ms" % [
+	print("DAY %2d head=%d alive=%s hunger=%5.1f thirst=%5.1f rest=%5.1f food=%d+%d drink=%d+%d wounds=%d bleed=%d infected=%d bites=%d kills=%d(you %d) deaths=%d left=%d searched=%d picked=%d ate=%d drank=%d well=%d swings=%d grabs=%d(you %d) packets=%d raids=%d live=%d tick=%.2f/%.2f/%.2f ms" % [
 		day, colony.size(), str(colony.has(me)), float(row["hunger"]), float(row["thirst"]), float(row["rest"]),
 		food_stock, food_carried, drink_stock, drink_carried, wounds, bleeding, infected, int(_day["bites"]),
 		int(_day["kills"]), int(_day["player_kills"]), int(_day["deaths"]), int(_day["left"]), int(_day["searched"]), int(_day["picked"]), int(_day["ate"]), int(_day["drank"]), int(_day["well"]),
