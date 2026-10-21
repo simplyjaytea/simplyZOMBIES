@@ -294,6 +294,21 @@ func _lightning_strikes_outdoors_and_is_heard() -> bool:
 # -- the NPC's own tick -- rather than through the helper, because a refusal that the picker
 # never consults is the dead socket this project has now paid for nine times.
 func _a_storm_sends_the_outdoor_work_in() -> bool:
+	# The lane's tiles are the scan's first outdoor and indoor tiles, near a map corner: past the
+	# A24 errand radius and beside wanderers. So the radius and the danger rule are pinned to the
+	# colony this lane was written against, and restored whichever way it returns. The storm is
+	# what is judged here; godot:m2:jobs judges the radius and the danger rule.
+	var was_radius: float = SimJobs.ERRAND_RADIUS_TILES
+	var was_danger: bool = SimJobs.BREAK_OFF_FROM_DANGER
+	SimJobs.ERRAND_RADIUS_TILES = SimJobs.HOME_RADIUS_TILES
+	SimJobs.BREAK_OFF_FROM_DANGER = false
+	var ok: bool = _storm_work()
+	SimJobs.ERRAND_RADIUS_TILES = was_radius
+	SimJobs.BREAK_OFF_FROM_DANGER = was_danger
+	return ok
+
+
+func _storm_work() -> bool:
 	var probe: Variant = _world()
 	var out: Vector2i = _tile_where(probe, false)
 	var inside: Vector2i = _tile_where(probe, true)
