@@ -90,7 +90,10 @@ moves per action and view):
   the mirror view lands mirrored. One beat count a family, the fewest that keep every step inside
   the bounds with a margin (`SETTLE_MASS_PCT`, `SETTLE_CENTRE_X2`, `SETTLE_EDGE`, the sole row
   held): each beat adds the corpse's pixels nearest the body first and drops the turned frame's
-  farthest first, linearly by count, and keeps only its largest connected run. The corpse is the
+  farthest first, linearly by count, and keeps only its largest connected run. A side view
+  carries its head whole (`HEAD_CARRIED`, `fall_head`, `corpse_head`), k/n of the way to the
+  corpse's head on beat k, and lands with its foot end within `SETTLE_FOOT` columns of where it
+  fell wherever a place settles there. The corpse is the
   last frame, the settled body the renderer draws where the fall stood
   (`presentation/appearance.gd` `lying_key`).
 

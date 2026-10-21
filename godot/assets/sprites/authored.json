@@ -7093,11 +7093,11 @@
           },
           "head": [
             18,
-            6
+            7
           ],
           "torso": [
             18,
-            6
+            7
           ],
           "canvas": [
             96,
@@ -7142,7 +7142,7 @@
             6
           ],
           "torso": [
-            16,
+            17,
             6
           ],
           "canvas": [
@@ -7153,6 +7153,29 @@
         "body_survivor_fall_s_12": {
           "source": {
             "path": "art/simplyzombies/textures/characters/motion/survivor_fall_s_12.png",
+            "crop": [
+              0,
+              0,
+              96,
+              40
+            ]
+          },
+          "head": [
+            19,
+            6
+          ],
+          "torso": [
+            16,
+            6
+          ],
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "body_survivor_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/motion/survivor_fall_s_13.png",
             "crop": [
               0,
               0,
@@ -7391,12 +7414,12 @@
             ]
           },
           "head": [
-            15,
-            12
+            19,
+            13
           ],
           "torso": [
-            15,
-            12
+            17,
+            13
           ],
           "canvas": [
             96,
@@ -7414,11 +7437,11 @@
             ]
           },
           "head": [
-            20,
+            23,
             9
           ],
           "torso": [
-            14,
+            18,
             9
           ],
           "canvas": [
@@ -7437,11 +7460,11 @@
             ]
           },
           "head": [
-            21,
+            26,
             5
           ],
           "torso": [
-            16,
+            19,
             5
           ],
           "canvas": [
@@ -7460,11 +7483,34 @@
             ]
           },
           "head": [
-            24,
+            29,
             0
           ],
           "torso": [
-            20,
+            21,
+            0
+          ],
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "body_survivor_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/motion/survivor_fall_e_13.png",
+            "crop": [
+              0,
+              0,
+              96,
+              40
+            ]
+          },
+          "head": [
+            27,
+            0
+          ],
+          "torso": [
+            23,
             0
           ],
           "canvas": [
@@ -7690,7 +7736,7 @@
             ]
           },
           "head": [
-            -19,
+            -18,
             6
           ],
           "torso": [
@@ -7717,7 +7763,7 @@
             6
           ],
           "torso": [
-            -18,
+            -19,
             6
           ],
           "canvas": [
@@ -7740,7 +7786,7 @@
             6
           ],
           "torso": [
-            -17,
+            -18,
             6
           ],
           "canvas": [
@@ -7751,6 +7797,29 @@
         "body_survivor_fall_n_12": {
           "source": {
             "path": "art/simplyzombies/textures/characters/motion/survivor_fall_n_12.png",
+            "crop": [
+              0,
+              0,
+              96,
+              40
+            ]
+          },
+          "head": [
+            -20,
+            6
+          ],
+          "torso": [
+            -16,
+            6
+          ],
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "body_survivor_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/motion/survivor_fall_n_13.png",
             "crop": [
               0,
               0,
@@ -7989,12 +8058,12 @@
             ]
           },
           "head": [
-            -17,
-            11
+            -19,
+            13
           ],
           "torso": [
-            -15,
-            11
+            -17,
+            13
           ],
           "canvas": [
             96,
@@ -8012,12 +8081,12 @@
             ]
           },
           "head": [
-            -21,
-            8
+            -24,
+            9
           ],
           "torso": [
-            -15,
-            8
+            -18,
+            9
           ],
           "canvas": [
             96,
@@ -8035,11 +8104,11 @@
             ]
           },
           "head": [
-            -22,
+            -27,
             5
           ],
           "torso": [
-            -17,
+            -19,
             5
           ],
           "canvas": [
@@ -8058,11 +8127,34 @@
             ]
           },
           "head": [
-            -25,
+            -29,
             0
           ],
           "torso": [
-            -21,
+            -22,
+            0
+          ],
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "body_survivor_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/textures/characters/motion/survivor_fall_w_13.png",
+            "crop": [
+              0,
+              0,
+              96,
+              40
+            ]
+          },
+          "head": [
+            -28,
+            0
+          ],
+          "torso": [
+            -24,
             0
           ],
           "canvas": [
@@ -11212,7 +11304,7 @@
             8
           ],
           "torso": [
-            10,
+            11,
             8
           ],
           "canvas": [
@@ -11225,7 +11317,7 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/motion/fall-south-10.png"
           },
           "head": [
-            11,
+            10,
             8
           ],
           "torso": [
@@ -11263,7 +11355,7 @@
             9
           ],
           "torso": [
-            8,
+            10,
             9
           ],
           "canvas": [
@@ -11274,6 +11366,23 @@
         "body_zombie_workwear_fall_s_13": {
           "source": {
             "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/motion/fall-south-13.png"
+          },
+          "head": [
+            11,
+            9
+          ],
+          "torso": [
+            8,
+            9
+          ],
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "body_zombie_workwear_fall_s_14": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/motion/fall-south-14.png"
           },
           "head": [
             10,
@@ -11463,11 +11572,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/motion/fall-east-10.png"
           },
           "head": [
-            12,
+            15,
             12
           ],
           "torso": [
-            13,
+            12,
             12
           ],
           "canvas": [
@@ -11480,12 +11589,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/motion/fall-east-11.png"
           },
           "head": [
-            12,
-            10
+            18,
+            9
           ],
           "torso": [
             12,
-            10
+            9
           ],
           "canvas": [
             96,
@@ -11497,12 +11606,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/motion/fall-east-12.png"
           },
           "head": [
-            12,
-            8
+            18,
+            7
           ],
           "torso": [
             12,
-            8
+            7
           ],
           "canvas": [
             96,
@@ -11514,11 +11623,28 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/motion/fall-east-13.png"
           },
           "head": [
-            16,
+            19,
             4
           ],
           "torso": [
             13,
+            4
+          ],
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "body_zombie_workwear_fall_e_14": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/motion/fall-east-14.png"
+          },
+          "head": [
+            17,
+            4
+          ],
+          "torso": [
+            14,
             4
           ],
           "canvas": [
@@ -11718,11 +11844,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/motion/fall-north-11.png"
           },
           "head": [
-            -13,
+            -14,
             9
           ],
           "torso": [
-            -12,
+            -13,
             9
           ],
           "canvas": [
@@ -11739,7 +11865,7 @@
             9
           ],
           "torso": [
-            -9,
+            -11,
             9
           ],
           "canvas": [
@@ -11750,6 +11876,23 @@
         "body_zombie_workwear_fall_n_13": {
           "source": {
             "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/motion/fall-north-13.png"
+          },
+          "head": [
+            -13,
+            9
+          ],
+          "torso": [
+            -9,
+            9
+          ],
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "body_zombie_workwear_fall_n_14": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/motion/fall-north-14.png"
           },
           "head": [
             -11,
@@ -11926,7 +12069,7 @@
             12
           ],
           "torso": [
-            -14,
+            -13,
             12
           ],
           "canvas": [
@@ -11939,12 +12082,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/motion/fall-west-10.png"
           },
           "head": [
-            -12,
-            11
+            -14,
+            12
           ],
           "torso": [
-            -13,
-            11
+            -12,
+            12
           ],
           "canvas": [
             96,
@@ -11956,11 +12099,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/motion/fall-west-11.png"
           },
           "head": [
-            -12,
+            -16,
             10
           ],
           "torso": [
-            -13,
+            -12,
             10
           ],
           "canvas": [
@@ -11973,12 +12116,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/motion/fall-west-12.png"
           },
           "head": [
-            -12,
-            9
+            -17,
+            7
           ],
           "torso": [
-            -13,
-            9
+            -12,
+            7
           ],
           "canvas": [
             96,
@@ -11990,11 +12133,28 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/motion/fall-west-13.png"
           },
           "head": [
-            -17,
+            -18,
             5
           ],
           "torso": [
             -13,
+            5
+          ],
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "body_zombie_workwear_fall_w_14": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/motion/fall-west-14.png"
+          },
+          "head": [
+            -18,
+            5
+          ],
+          "torso": [
+            -14,
             5
           ],
           "canvas": [
@@ -13349,11 +13509,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/motion/fall-east-09.png"
           },
           "head": [
-            19,
+            22,
             13
           ],
           "torso": [
-            14,
+            15,
             13
           ],
           "canvas": [
@@ -13366,12 +13526,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/motion/fall-east-10.png"
           },
           "head": [
-            20,
-            11
+            24,
+            9
           ],
           "torso": [
-            15,
-            11
+            17,
+            9
           ],
           "canvas": [
             96,
@@ -13383,12 +13543,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/motion/fall-east-11.png"
           },
           "head": [
-            23,
-            8
+            26,
+            5
           ],
           "torso": [
             18,
-            8
+            5
           ],
           "canvas": [
             96,
@@ -13791,11 +13951,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/motion/fall-west-09.png"
           },
           "head": [
-            -19,
+            -22,
             13
           ],
           "torso": [
-            -14,
+            -15,
             13
           ],
           "canvas": [
@@ -13808,12 +13968,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/motion/fall-west-10.png"
           },
           "head": [
-            -20,
-            11
+            -25,
+            9
           ],
           "torso": [
-            -15,
-            11
+            -17,
+            9
           ],
           "canvas": [
             96,
@@ -13825,12 +13985,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/motion/fall-west-11.png"
           },
           "head": [
-            -23,
-            8
+            -26,
+            5
           ],
           "torso": [
             -18,
-            8
+            5
           ],
           "canvas": [
             96,
@@ -14980,11 +15140,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/motion/fall-south-09.png"
           },
           "head": [
-            12,
+            11,
             11
           ],
           "torso": [
-            11,
+            10,
             11
           ],
           "canvas": [
@@ -14997,12 +15157,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/motion/fall-south-10.png"
           },
           "head": [
-            14,
-            12
+            12,
+            11
           ],
           "torso": [
             10,
-            12
+            11
           ],
           "canvas": [
             96,
@@ -15014,11 +15174,28 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/motion/fall-south-11.png"
           },
           "head": [
-            16,
+            13,
             12
           ],
           "torso": [
-            12,
+            11,
+            12
+          ],
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "body_zombie_raincoat_fall_s_12": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/motion/fall-south-12.png"
+          },
+          "head": [
+            13,
+            12
+          ],
+          "torso": [
+            9,
             12
           ],
           "canvas": [
@@ -15184,12 +15361,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/motion/fall-east-09.png"
           },
           "head": [
-            11,
-            12
+            12,
+            13
           ],
           "torso": [
-            11,
-            12
+            13,
+            13
           ],
           "canvas": [
             96,
@@ -15201,11 +15378,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/motion/fall-east-10.png"
           },
           "head": [
-            12,
+            16,
             9
           ],
           "torso": [
-            12,
+            13,
             9
           ],
           "canvas": [
@@ -15218,11 +15395,28 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/motion/fall-east-11.png"
           },
           "head": [
-            14,
+            16,
+            5
+          ],
+          "torso": [
+            15,
+            5
+          ],
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "body_zombie_raincoat_fall_e_12": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/motion/fall-east-12.png"
+          },
+          "head": [
+            16,
             4
           ],
           "torso": [
-            14,
+            16,
             4
           ],
           "canvas": [
@@ -15388,11 +15582,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/motion/fall-north-09.png"
           },
           "head": [
-            -16,
+            -14,
             11
           ],
           "torso": [
-            -16,
+            -15,
             11
           ],
           "canvas": [
@@ -15405,11 +15599,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/motion/fall-north-10.png"
           },
           "head": [
-            -15,
+            -14,
             12
           ],
           "torso": [
-            -14,
+            -13,
             12
           ],
           "canvas": [
@@ -15422,11 +15616,28 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/motion/fall-north-11.png"
           },
           "head": [
-            -15,
+            -12,
             12
           ],
           "torso": [
-            -11,
+            -10,
+            12
+          ],
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "body_zombie_raincoat_fall_n_12": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/motion/fall-north-12.png"
+          },
+          "head": [
+            -12,
+            12
+          ],
+          "torso": [
+            -8,
             12
           ],
           "canvas": [
@@ -15592,12 +15803,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/motion/fall-west-09.png"
           },
           "head": [
-            -10,
-            11
+            -13,
+            12
           ],
           "torso": [
-            -10,
-            11
+            -12,
+            12
           ],
           "canvas": [
             96,
@@ -15609,11 +15820,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/motion/fall-west-10.png"
           },
           "head": [
-            -11,
+            -15,
             8
           ],
           "torso": [
-            -12,
+            -13,
             8
           ],
           "canvas": [
@@ -15626,11 +15837,28 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/motion/fall-west-11.png"
           },
           "head": [
-            -14,
+            -17,
             3
           ],
           "torso": [
             -14,
+            3
+          ],
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "body_zombie_raincoat_fall_w_12": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/motion/fall-west-12.png"
+          },
+          "head": [
+            -16,
+            3
+          ],
+          "torso": [
+            -16,
             3
           ],
           "canvas": [
@@ -16765,11 +16993,11 @@
           },
           "head": [
             19,
-            11
+            10
           ],
           "torso": [
             16,
-            11
+            10
           ],
           "canvas": [
             96,
@@ -16785,7 +17013,7 @@
             9
           ],
           "torso": [
-            15,
+            14,
             9
           ],
           "canvas": [
@@ -16802,7 +17030,7 @@
             9
           ],
           "torso": [
-            13,
+            12,
             9
           ],
           "canvas": [
@@ -16819,7 +17047,7 @@
             9
           ],
           "torso": [
-            11,
+            9,
             9
           ],
           "canvas": [
@@ -16830,23 +17058,6 @@
         "body_zombie_stalker_fall_s_13": {
           "source": {
             "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/motion/fall-south-13.png"
-          },
-          "head": [
-            17,
-            9
-          ],
-          "torso": [
-            8,
-            9
-          ],
-          "canvas": [
-            96,
-            40
-          ]
-        },
-        "body_zombie_stalker_fall_s_14": {
-          "source": {
-            "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/motion/fall-south-14.png"
           },
           "head": [
             16,
@@ -17040,7 +17251,7 @@
             10
           ],
           "torso": [
-            21,
+            18,
             10
           ],
           "canvas": [
@@ -17053,12 +17264,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/motion/fall-east-11.png"
           },
           "head": [
-            27,
-            6
+            25,
+            5
           ],
           "torso": [
-            24,
-            6
+            21,
+            5
           ],
           "canvas": [
             96,
@@ -17070,12 +17281,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/motion/fall-east-12.png"
           },
           "head": [
-            29,
-            4
+            28,
+            1
           ],
           "torso": [
-            27,
-            4
+            23,
+            1
           ],
           "canvas": [
             96,
@@ -17087,28 +17298,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/motion/fall-east-13.png"
           },
           "head": [
-            30,
-            4
-          ],
-          "torso": [
-            30,
-            4
-          ],
-          "canvas": [
-            96,
-            40
-          ]
-        },
-        "body_zombie_stalker_fall_e_14": {
-          "source": {
-            "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/motion/fall-east-14.png"
-          },
-          "head": [
-            34,
+            28,
             1
           ],
           "torso": [
-            32,
+            26,
             1
           ],
           "canvas": [
@@ -17274,7 +17468,7 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/motion/fall-north-09.png"
           },
           "head": [
-            -13,
+            -14,
             11
           ],
           "torso": [
@@ -17295,7 +17489,7 @@
             10
           ],
           "torso": [
-            -11,
+            -10,
             10
           ],
           "canvas": [
@@ -17309,11 +17503,11 @@
           },
           "head": [
             -15,
-            9
+            8
           ],
           "torso": [
             -11,
-            9
+            8
           ],
           "canvas": [
             96,
@@ -17329,7 +17523,7 @@
             8
           ],
           "torso": [
-            -10,
+            -9,
             8
           ],
           "canvas": [
@@ -17340,23 +17534,6 @@
         "body_zombie_stalker_fall_n_13": {
           "source": {
             "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/motion/fall-north-13.png"
-          },
-          "head": [
-            -16,
-            8
-          ],
-          "torso": [
-            -8,
-            8
-          ],
-          "canvas": [
-            96,
-            40
-          ]
-        },
-        "body_zombie_stalker_fall_n_14": {
-          "source": {
-            "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/motion/fall-north-14.png"
           },
           "head": [
             -15,
@@ -17533,7 +17710,7 @@
             12
           ],
           "torso": [
-            -20,
+            -19,
             12
           ],
           "canvas": [
@@ -17550,7 +17727,7 @@
             10
           ],
           "torso": [
-            -21,
+            -19,
             10
           ],
           "canvas": [
@@ -17563,12 +17740,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/motion/fall-west-11.png"
           },
           "head": [
-            -27,
-            6
+            -26,
+            5
           ],
           "torso": [
-            -24,
-            6
+            -21,
+            5
           ],
           "canvas": [
             96,
@@ -17580,12 +17757,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/motion/fall-west-12.png"
           },
           "head": [
-            -29,
-            4
+            -28,
+            1
           ],
           "torso": [
-            -27,
-            4
+            -24,
+            1
           ],
           "canvas": [
             96,
@@ -17597,28 +17774,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/motion/fall-west-13.png"
           },
           "head": [
-            -31,
-            4
-          ],
-          "torso": [
-            -30,
-            4
-          ],
-          "canvas": [
-            96,
-            40
-          ]
-        },
-        "body_zombie_stalker_fall_w_14": {
-          "source": {
-            "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/motion/fall-west-14.png"
-          },
-          "head": [
-            -34,
+            -28,
             1
           ],
           "torso": [
-            -33,
+            -27,
             1
           ],
           "canvas": [
@@ -19008,11 +19168,11 @@
           },
           "head": [
             3,
-            9
+            10
           ],
           "torso": [
-            10,
-            9
+            12,
+            10
           ],
           "canvas": [
             96,
@@ -19024,12 +19184,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/motion/fall-east-10.png"
           },
           "head": [
-            5,
-            10
+            9,
+            11
           ],
           "torso": [
-            10,
-            10
+            13,
+            11
           ],
           "canvas": [
             96,
@@ -19041,12 +19201,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/motion/fall-east-11.png"
           },
           "head": [
-            7,
-            10
+            13,
+            11
           ],
           "torso": [
-            11,
-            10
+            14,
+            11
           ],
           "canvas": [
             96,
@@ -19058,11 +19218,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/motion/fall-east-12.png"
           },
           "head": [
-            8,
+            17,
             10
           ],
           "torso": [
-            12,
+            16,
             10
           ],
           "canvas": [
@@ -19075,12 +19235,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/motion/fall-east-13.png"
           },
           "head": [
-            11,
-            9
+            19,
+            8
           ],
           "torso": [
-            13,
-            9
+            17,
+            8
           ],
           "canvas": [
             96,
@@ -19092,11 +19252,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/motion/fall-east-14.png"
           },
           "head": [
-            14,
+            20,
             7
           ],
           "torso": [
-            15,
+            21,
             7
           ],
           "canvas": [
@@ -19517,7 +19677,7 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/motion/fall-west-09.png"
           },
           "head": [
-            -11,
+            -13,
             7
           ],
           "torso": [
@@ -19534,12 +19694,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/motion/fall-west-10.png"
           },
           "head": [
-            -12,
-            6
+            -13,
+            7
           ],
           "torso": [
-            -19,
-            6
+            -21,
+            7
           ],
           "canvas": [
             96,
@@ -19551,12 +19711,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/motion/fall-west-11.png"
           },
           "head": [
-            -12,
-            6
+            -16,
+            8
           ],
           "torso": [
-            -18,
-            6
+            -19,
+            8
           ],
           "canvas": [
             96,
@@ -19568,12 +19728,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/motion/fall-west-12.png"
           },
           "head": [
-            -14,
-            5
+            -18,
+            7
           ],
           "torso": [
-            -17,
-            5
+            -19,
+            7
           ],
           "canvas": [
             96,
@@ -19585,11 +19745,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/motion/fall-west-13.png"
           },
           "head": [
-            -14,
+            -20,
             5
           ],
           "torso": [
-            -16,
+            -20,
             5
           ],
           "canvas": [
@@ -19602,11 +19762,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/motion/fall-west-14.png"
           },
           "head": [
-            -14,
+            -20,
             5
           ],
           "torso": [
-            -15,
+            -21,
             5
           ],
           "canvas": [
@@ -20740,11 +20900,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/motion/fall-south-09.png"
           },
           "head": [
-            19,
+            17,
             9
           ],
           "torso": [
-            18,
+            17,
             9
           ],
           "canvas": [
@@ -20757,11 +20917,45 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/motion/fall-south-10.png"
           },
           "head": [
-            20,
-            10
+            17,
+            9
           ],
           "torso": [
             16,
+            9
+          ],
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "body_zombie_armored_fall_s_11": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/motion/fall-south-11.png"
+          },
+          "head": [
+            17,
+            10
+          ],
+          "torso": [
+            15,
+            10
+          ],
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "body_zombie_armored_fall_s_12": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/motion/fall-south-12.png"
+          },
+          "head": [
+            17,
+            10
+          ],
+          "torso": [
+            13,
             10
           ],
           "canvas": [
@@ -20927,12 +21121,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/motion/fall-east-09.png"
           },
           "head": [
-            14,
-            8
+            13,
+            11
           ],
           "torso": [
             12,
-            8
+            11
           ],
           "canvas": [
             96,
@@ -20942,6 +21136,40 @@
         "body_zombie_armored_fall_e_10": {
           "source": {
             "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/motion/fall-east-10.png"
+          },
+          "head": [
+            17,
+            8
+          ],
+          "torso": [
+            11,
+            8
+          ],
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "body_zombie_armored_fall_e_11": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/motion/fall-east-11.png"
+          },
+          "head": [
+            19,
+            4
+          ],
+          "torso": [
+            14,
+            4
+          ],
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "body_zombie_armored_fall_e_12": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/motion/fall-east-12.png"
           },
           "head": [
             18,
@@ -21114,7 +21342,7 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/motion/fall-north-09.png"
           },
           "head": [
-            -19,
+            -17,
             9
           ],
           "torso": [
@@ -21131,11 +21359,45 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/motion/fall-north-10.png"
           },
           "head": [
-            -22,
+            -17,
+            9
+          ],
+          "torso": [
+            -16,
+            9
+          ],
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "body_zombie_armored_fall_n_11": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/motion/fall-north-11.png"
+          },
+          "head": [
+            -17,
             10
           ],
           "torso": [
-            -17,
+            -15,
+            10
+          ],
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "body_zombie_armored_fall_n_12": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/motion/fall-north-12.png"
+          },
+          "head": [
+            -19,
+            10
+          ],
+          "torso": [
+            -14,
             10
           ],
           "canvas": [
@@ -21301,12 +21563,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/motion/fall-west-09.png"
           },
           "head": [
-            -13,
-            7
+            -12,
+            10
           ],
           "torso": [
-            -13,
-            7
+            -12,
+            10
           ],
           "canvas": [
             96,
@@ -21316,6 +21578,40 @@
         "body_zombie_armored_fall_w_10": {
           "source": {
             "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/motion/fall-west-10.png"
+          },
+          "head": [
+            -17,
+            7
+          ],
+          "torso": [
+            -12,
+            7
+          ],
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "body_zombie_armored_fall_w_11": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/motion/fall-west-11.png"
+          },
+          "head": [
+            -19,
+            3
+          ],
+          "torso": [
+            -14,
+            3
+          ],
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "body_zombie_armored_fall_w_12": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/motion/fall-west-12.png"
           },
           "head": [
             -18,
@@ -22460,7 +22756,7 @@
             7
           ],
           "torso": [
-            22,
+            23,
             7
           ],
           "canvas": [
@@ -22474,11 +22770,11 @@
           },
           "head": [
             22,
-            9
+            8
           ],
           "torso": [
-            19,
-            9
+            21,
+            8
           ],
           "canvas": [
             96,
@@ -22488,6 +22784,23 @@
         "body_zombie_heavy_fall_s_11": {
           "source": {
             "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/motion/fall-south-11.png"
+          },
+          "head": [
+            22,
+            10
+          ],
+          "torso": [
+            19,
+            10
+          ],
+          "canvas": [
+            96,
+            48
+          ]
+        },
+        "body_zombie_heavy_fall_s_12": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/motion/fall-south-12.png"
           },
           "head": [
             21,
@@ -22660,12 +22973,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/motion/fall-east-09.png"
           },
           "head": [
-            15,
-            10
+            14,
+            11
           ],
           "torso": [
-            14,
-            10
+            16,
+            11
           ],
           "canvas": [
             96,
@@ -22677,12 +22990,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/motion/fall-east-10.png"
           },
           "head": [
-            16,
-            8
+            18,
+            10
           ],
           "torso": [
-            14,
-            8
+            15,
+            10
           ],
           "canvas": [
             96,
@@ -22694,11 +23007,28 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/motion/fall-east-11.png"
           },
           "head": [
-            19,
-            4
+            20,
+            5
           ],
           "torso": [
             17,
+            5
+          ],
+          "canvas": [
+            96,
+            48
+          ]
+        },
+        "body_zombie_heavy_fall_e_12": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/motion/fall-east-12.png"
+          },
+          "head": [
+            21,
+            4
+          ],
+          "torso": [
+            19,
             4
           ],
           "canvas": [
@@ -22882,11 +23212,11 @@
           },
           "head": [
             -23,
-            8
+            7
           ],
           "torso": [
             -20,
-            8
+            7
           ],
           "canvas": [
             96,
@@ -22896,6 +23226,23 @@
         "body_zombie_heavy_fall_n_11": {
           "source": {
             "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/motion/fall-north-11.png"
+          },
+          "head": [
+            -22,
+            9
+          ],
+          "torso": [
+            -20,
+            9
+          ],
+          "canvas": [
+            96,
+            48
+          ]
+        },
+        "body_zombie_heavy_fall_n_12": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/motion/fall-north-12.png"
           },
           "head": [
             -22,
@@ -23069,11 +23416,11 @@
           },
           "head": [
             -15,
-            11
+            12
           ],
           "torso": [
-            -14,
-            11
+            -16,
+            12
           ],
           "canvas": [
             96,
@@ -23085,12 +23432,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/motion/fall-west-10.png"
           },
           "head": [
-            -16,
-            8
+            -18,
+            10
           ],
           "torso": [
-            -15,
-            8
+            -16,
+            10
           ],
           "canvas": [
             96,
@@ -23102,11 +23449,28 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/motion/fall-west-11.png"
           },
           "head": [
-            -19,
+            -21,
             5
           ],
           "torso": [
-            -17,
+            -18,
+            5
+          ],
+          "canvas": [
+            96,
+            48
+          ]
+        },
+        "body_zombie_heavy_fall_w_12": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/motion/fall-west-12.png"
+          },
+          "head": [
+            -21,
+            5
+          ],
+          "torso": [
+            -19,
             5
           ],
           "canvas": [
@@ -24461,7 +24825,7 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/fall-east-09.png"
           },
           "head": [
-            20,
+            22,
             12
           ],
           "torso": [
@@ -24478,12 +24842,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/fall-east-10.png"
           },
           "head": [
-            20,
-            10
+            24,
+            9
           ],
           "torso": [
-            16,
-            10
+            17,
+            9
           ],
           "canvas": [
             96,
@@ -24495,12 +24859,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/fall-east-11.png"
           },
           "head": [
-            23,
-            8
+            26,
+            5
           ],
           "torso": [
             18,
-            8
+            5
           ],
           "canvas": [
             96,
@@ -24903,11 +25267,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/fall-west-09.png"
           },
           "head": [
-            -19,
+            -22,
             12
           ],
           "torso": [
-            -14,
+            -15,
             12
           ],
           "canvas": [
@@ -24920,12 +25284,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/fall-west-10.png"
           },
           "head": [
-            -20,
-            10
+            -23,
+            9
           ],
           "torso": [
             -16,
-            10
+            9
           ],
           "canvas": [
             96,
@@ -24937,12 +25301,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/fall-west-11.png"
           },
           "head": [
-            -23,
-            8
+            -27,
+            5
           ],
           "torso": [
             -18,
-            8
+            5
           ],
           "canvas": [
             96,
@@ -26330,7 +26694,7 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/fall-east-09.png"
           },
           "head": [
-            10,
+            9,
             6
           ],
           "torso": [
@@ -26364,7 +26728,7 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/fall-east-11.png"
           },
           "head": [
-            12,
+            13,
             4
           ],
           "torso": [
@@ -26381,7 +26745,7 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/fall-east-12.png"
           },
           "head": [
-            13,
+            14,
             2
           ],
           "torso": [
@@ -26810,7 +27174,7 @@
             6
           ],
           "torso": [
-            -12,
+            -13,
             6
           ],
           "canvas": [
@@ -26823,7 +27187,7 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/fall-west-10.png"
           },
           "head": [
-            -13,
+            -11,
             5
           ],
           "torso": [
@@ -30788,6 +31152,21 @@
             40
           ]
         },
+        "wear_tee_sand_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_tee_sand.png",
+            "crop": [
+              2976,
+              0,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_tee_sand_fall_e_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_tee_sand.png",
@@ -30973,6 +31352,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_tee_sand.png",
             "crop": [
               2880,
+              40,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_tee_sand_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_tee_sand.png",
+            "crop": [
+              2976,
               40,
               96,
               40
@@ -31178,6 +31572,21 @@
             40
           ]
         },
+        "wear_tee_sand_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_tee_sand.png",
+            "crop": [
+              2976,
+              80,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_tee_sand_fall_w_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_tee_sand.png",
@@ -31363,6 +31772,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_tee_sand.png",
             "crop": [
               2880,
+              120,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_tee_sand_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_tee_sand.png",
+            "crop": [
+              2976,
               120,
               96,
               40
@@ -34221,6 +34645,21 @@
             40
           ]
         },
+        "wear_tee_olive_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_tee_olive.png",
+            "crop": [
+              2976,
+              0,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_tee_olive_fall_e_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_tee_olive.png",
@@ -34406,6 +34845,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_tee_olive.png",
             "crop": [
               2880,
+              40,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_tee_olive_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_tee_olive.png",
+            "crop": [
+              2976,
               40,
               96,
               40
@@ -34611,6 +35065,21 @@
             40
           ]
         },
+        "wear_tee_olive_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_tee_olive.png",
+            "crop": [
+              2976,
+              80,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_tee_olive_fall_w_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_tee_olive.png",
@@ -34796,6 +35265,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_tee_olive.png",
             "crop": [
               2880,
+              120,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_tee_olive_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_tee_olive.png",
+            "crop": [
+              2976,
               120,
               96,
               40
@@ -37654,6 +38138,21 @@
             40
           ]
         },
+        "wear_tee_slate_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_tee_slate.png",
+            "crop": [
+              2976,
+              0,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_tee_slate_fall_e_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_tee_slate.png",
@@ -37839,6 +38338,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_tee_slate.png",
             "crop": [
               2880,
+              40,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_tee_slate_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_tee_slate.png",
+            "crop": [
+              2976,
               40,
               96,
               40
@@ -38044,6 +38558,21 @@
             40
           ]
         },
+        "wear_tee_slate_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_tee_slate.png",
+            "crop": [
+              2976,
+              80,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_tee_slate_fall_w_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_tee_slate.png",
@@ -38229,6 +38758,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_tee_slate.png",
             "crop": [
               2880,
+              120,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_tee_slate_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_tee_slate.png",
+            "crop": [
+              2976,
               120,
               96,
               40
@@ -41087,6 +41631,21 @@
             40
           ]
         },
+        "wear_tee_rust_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_tee_rust.png",
+            "crop": [
+              2976,
+              0,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_tee_rust_fall_e_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_tee_rust.png",
@@ -41272,6 +41831,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_tee_rust.png",
             "crop": [
               2880,
+              40,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_tee_rust_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_tee_rust.png",
+            "crop": [
+              2976,
               40,
               96,
               40
@@ -41477,6 +42051,21 @@
             40
           ]
         },
+        "wear_tee_rust_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_tee_rust.png",
+            "crop": [
+              2976,
+              80,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_tee_rust_fall_w_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_tee_rust.png",
@@ -41662,6 +42251,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_tee_rust.png",
             "crop": [
               2880,
+              120,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_tee_rust_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_tee_rust.png",
+            "crop": [
+              2976,
               120,
               96,
               40
@@ -44520,6 +45124,21 @@
             40
           ]
         },
+        "wear_shirt_linen_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_shirt_linen.png",
+            "crop": [
+              2976,
+              0,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_shirt_linen_fall_e_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_shirt_linen.png",
@@ -44705,6 +45324,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_shirt_linen.png",
             "crop": [
               2880,
+              40,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_shirt_linen_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_shirt_linen.png",
+            "crop": [
+              2976,
               40,
               96,
               40
@@ -44910,6 +45544,21 @@
             40
           ]
         },
+        "wear_shirt_linen_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_shirt_linen.png",
+            "crop": [
+              2976,
+              80,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_shirt_linen_fall_w_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_shirt_linen.png",
@@ -45095,6 +45744,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_shirt_linen.png",
             "crop": [
               2880,
+              120,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_shirt_linen_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_shirt_linen.png",
+            "crop": [
+              2976,
               120,
               96,
               40
@@ -47953,6 +48617,21 @@
             40
           ]
         },
+        "wear_shirt_thermal_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_shirt_thermal.png",
+            "crop": [
+              2976,
+              0,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_shirt_thermal_fall_e_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_shirt_thermal.png",
@@ -48138,6 +48817,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_shirt_thermal.png",
             "crop": [
               2880,
+              40,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_shirt_thermal_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_shirt_thermal.png",
+            "crop": [
+              2976,
               40,
               96,
               40
@@ -48343,6 +49037,21 @@
             40
           ]
         },
+        "wear_shirt_thermal_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_shirt_thermal.png",
+            "crop": [
+              2976,
+              80,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_shirt_thermal_fall_w_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_shirt_thermal.png",
@@ -48528,6 +49237,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_shirt_thermal.png",
             "crop": [
               2880,
+              120,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_shirt_thermal_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_shirt_thermal.png",
+            "crop": [
+              2976,
               120,
               96,
               40
@@ -51386,6 +52110,21 @@
             40
           ]
         },
+        "wear_jacket_leather_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_jacket_leather.png",
+            "crop": [
+              2976,
+              0,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_jacket_leather_fall_e_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_jacket_leather.png",
@@ -51571,6 +52310,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_jacket_leather.png",
             "crop": [
               2880,
+              40,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_jacket_leather_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_jacket_leather.png",
+            "crop": [
+              2976,
               40,
               96,
               40
@@ -51776,6 +52530,21 @@
             40
           ]
         },
+        "wear_jacket_leather_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_jacket_leather.png",
+            "crop": [
+              2976,
+              80,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_jacket_leather_fall_w_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_jacket_leather.png",
@@ -51961,6 +52730,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_jacket_leather.png",
             "crop": [
               2880,
+              120,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_jacket_leather_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_jacket_leather.png",
+            "crop": [
+              2976,
               120,
               96,
               40
@@ -54819,6 +55603,21 @@
             40
           ]
         },
+        "wear_coat_winter_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_coat_winter.png",
+            "crop": [
+              2976,
+              0,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_coat_winter_fall_e_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_coat_winter.png",
@@ -55004,6 +55803,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_coat_winter.png",
             "crop": [
               2880,
+              40,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_coat_winter_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_coat_winter.png",
+            "crop": [
+              2976,
               40,
               96,
               40
@@ -55209,6 +56023,21 @@
             40
           ]
         },
+        "wear_coat_winter_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_coat_winter.png",
+            "crop": [
+              2976,
+              80,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_coat_winter_fall_w_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_coat_winter.png",
@@ -55394,6 +56223,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_coat_winter.png",
             "crop": [
               2880,
+              120,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_coat_winter_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_coat_winter.png",
+            "crop": [
+              2976,
               120,
               96,
               40
@@ -58252,6 +59096,21 @@
             40
           ]
         },
+        "wear_coat_parka_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_coat_parka.png",
+            "crop": [
+              2976,
+              0,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_coat_parka_fall_e_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_coat_parka.png",
@@ -58437,6 +59296,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_coat_parka.png",
             "crop": [
               2880,
+              40,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_coat_parka_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_coat_parka.png",
+            "crop": [
+              2976,
               40,
               96,
               40
@@ -58642,6 +59516,21 @@
             40
           ]
         },
+        "wear_coat_parka_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_coat_parka.png",
+            "crop": [
+              2976,
+              80,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_coat_parka_fall_w_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_coat_parka.png",
@@ -58827,6 +59716,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_coat_parka.png",
             "crop": [
               2880,
+              120,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_coat_parka_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_coat_parka.png",
+            "crop": [
+              2976,
               120,
               96,
               40
@@ -61685,6 +62589,21 @@
             40
           ]
         },
+        "wear_raincoat_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_raincoat.png",
+            "crop": [
+              2976,
+              0,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_raincoat_fall_e_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_raincoat.png",
@@ -61870,6 +62789,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_raincoat.png",
             "crop": [
               2880,
+              40,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_raincoat_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_raincoat.png",
+            "crop": [
+              2976,
               40,
               96,
               40
@@ -62075,6 +63009,21 @@
             40
           ]
         },
+        "wear_raincoat_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_raincoat.png",
+            "crop": [
+              2976,
+              80,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_raincoat_fall_w_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_raincoat.png",
@@ -62260,6 +63209,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_raincoat.png",
             "crop": [
               2880,
+              120,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_raincoat_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_raincoat.png",
+            "crop": [
+              2976,
               120,
               96,
               40
@@ -65118,6 +66082,21 @@
             40
           ]
         },
+        "wear_poncho_rain_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_poncho_rain.png",
+            "crop": [
+              2976,
+              0,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_poncho_rain_fall_e_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_poncho_rain.png",
@@ -65303,6 +66282,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_poncho_rain.png",
             "crop": [
               2880,
+              40,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_poncho_rain_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_poncho_rain.png",
+            "crop": [
+              2976,
               40,
               96,
               40
@@ -65508,6 +66502,21 @@
             40
           ]
         },
+        "wear_poncho_rain_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_poncho_rain.png",
+            "crop": [
+              2976,
+              80,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_poncho_rain_fall_w_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_poncho_rain.png",
@@ -65693,6 +66702,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_poncho_rain.png",
             "crop": [
               2880,
+              120,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_poncho_rain_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_poncho_rain.png",
+            "crop": [
+              2976,
               120,
               96,
               40
@@ -68551,6 +69575,21 @@
             40
           ]
         },
+        "wear_poncho_tarp_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_poncho_tarp.png",
+            "crop": [
+              2976,
+              0,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_poncho_tarp_fall_e_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_poncho_tarp.png",
@@ -68736,6 +69775,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_poncho_tarp.png",
             "crop": [
               2880,
+              40,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_poncho_tarp_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_poncho_tarp.png",
+            "crop": [
+              2976,
               40,
               96,
               40
@@ -68941,6 +69995,21 @@
             40
           ]
         },
+        "wear_poncho_tarp_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_poncho_tarp.png",
+            "crop": [
+              2976,
+              80,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_poncho_tarp_fall_w_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_poncho_tarp.png",
@@ -69126,6 +70195,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_poncho_tarp.png",
             "crop": [
               2880,
+              120,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_poncho_tarp_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_poncho_tarp.png",
+            "crop": [
+              2976,
               120,
               96,
               40
@@ -71984,6 +73068,21 @@
             40
           ]
         },
+        "wear_blanket_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_blanket.png",
+            "crop": [
+              2976,
+              0,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_blanket_fall_e_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_blanket.png",
@@ -72169,6 +73268,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_blanket.png",
             "crop": [
               2880,
+              40,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_blanket_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_blanket.png",
+            "crop": [
+              2976,
               40,
               96,
               40
@@ -72374,6 +73488,21 @@
             40
           ]
         },
+        "wear_blanket_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_blanket.png",
+            "crop": [
+              2976,
+              80,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_blanket_fall_w_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_blanket.png",
@@ -72559,6 +73688,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_blanket.png",
             "crop": [
               2880,
+              120,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_blanket_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_blanket.png",
+            "crop": [
+              2976,
               120,
               96,
               40
@@ -75417,6 +76561,21 @@
             40
           ]
         },
+        "wear_coverall_paper_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_coverall_paper.png",
+            "crop": [
+              2976,
+              0,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_coverall_paper_fall_e_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_coverall_paper.png",
@@ -75602,6 +76761,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_coverall_paper.png",
             "crop": [
               2880,
+              40,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_coverall_paper_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_coverall_paper.png",
+            "crop": [
+              2976,
               40,
               96,
               40
@@ -75807,6 +76981,21 @@
             40
           ]
         },
+        "wear_coverall_paper_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_coverall_paper.png",
+            "crop": [
+              2976,
+              80,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_coverall_paper_fall_w_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_coverall_paper.png",
@@ -75992,6 +77181,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_coverall_paper.png",
             "crop": [
               2880,
+              120,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_coverall_paper_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_coverall_paper.png",
+            "crop": [
+              2976,
               120,
               96,
               40
@@ -78850,6 +80054,21 @@
             40
           ]
         },
+        "wear_suit_hazmat_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_suit_hazmat.png",
+            "crop": [
+              2976,
+              0,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_suit_hazmat_fall_e_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_suit_hazmat.png",
@@ -79035,6 +80254,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_suit_hazmat.png",
             "crop": [
               2880,
+              40,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_suit_hazmat_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_suit_hazmat.png",
+            "crop": [
+              2976,
               40,
               96,
               40
@@ -79240,6 +80474,21 @@
             40
           ]
         },
+        "wear_suit_hazmat_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_suit_hazmat.png",
+            "crop": [
+              2976,
+              80,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_suit_hazmat_fall_w_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_suit_hazmat.png",
@@ -79425,6 +80674,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_suit_hazmat.png",
             "crop": [
               2880,
+              120,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_suit_hazmat_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_suit_hazmat.png",
+            "crop": [
+              2976,
               120,
               96,
               40
@@ -82283,6 +83547,21 @@
             40
           ]
         },
+        "wear_apron_butcher_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_apron_butcher.png",
+            "crop": [
+              2976,
+              0,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_apron_butcher_fall_e_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_apron_butcher.png",
@@ -82468,6 +83747,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_apron_butcher.png",
             "crop": [
               2880,
+              40,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_apron_butcher_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_apron_butcher.png",
+            "crop": [
+              2976,
               40,
               96,
               40
@@ -82673,6 +83967,21 @@
             40
           ]
         },
+        "wear_apron_butcher_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_apron_butcher.png",
+            "crop": [
+              2976,
+              80,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_apron_butcher_fall_w_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_apron_butcher.png",
@@ -82858,6 +84167,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_apron_butcher.png",
             "crop": [
               2880,
+              120,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_apron_butcher_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_apron_butcher.png",
+            "crop": [
+              2976,
               120,
               96,
               40
@@ -85716,6 +87040,21 @@
             40
           ]
         },
+        "wear_apron_welding_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_apron_welding.png",
+            "crop": [
+              2976,
+              0,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_apron_welding_fall_e_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_apron_welding.png",
@@ -85901,6 +87240,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_apron_welding.png",
             "crop": [
               2880,
+              40,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_apron_welding_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_apron_welding.png",
+            "crop": [
+              2976,
               40,
               96,
               40
@@ -86106,6 +87460,21 @@
             40
           ]
         },
+        "wear_apron_welding_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_apron_welding.png",
+            "crop": [
+              2976,
+              80,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_apron_welding_fall_w_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_apron_welding.png",
@@ -86291,6 +87660,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_apron_welding.png",
             "crop": [
               2880,
+              120,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_apron_welding_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_apron_welding.png",
+            "crop": [
+              2976,
               120,
               96,
               40
@@ -89149,6 +90533,21 @@
             40
           ]
         },
+        "wear_wrap_cloth_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_wrap_cloth.png",
+            "crop": [
+              2976,
+              0,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_wrap_cloth_fall_e_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_wrap_cloth.png",
@@ -89334,6 +90733,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_wrap_cloth.png",
             "crop": [
               2880,
+              40,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_wrap_cloth_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_wrap_cloth.png",
+            "crop": [
+              2976,
               40,
               96,
               40
@@ -89539,6 +90953,21 @@
             40
           ]
         },
+        "wear_wrap_cloth_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_wrap_cloth.png",
+            "crop": [
+              2976,
+              80,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_wrap_cloth_fall_w_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_wrap_cloth.png",
@@ -89724,6 +91153,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_wrap_cloth.png",
             "crop": [
               2880,
+              120,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_wrap_cloth_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_wrap_cloth.png",
+            "crop": [
+              2976,
               120,
               96,
               40
@@ -92582,6 +94026,21 @@
             40
           ]
         },
+        "wear_pants_charcoal_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_pants_charcoal.png",
+            "crop": [
+              2976,
+              0,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_pants_charcoal_fall_e_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_pants_charcoal.png",
@@ -92767,6 +94226,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_pants_charcoal.png",
             "crop": [
               2880,
+              40,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_pants_charcoal_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_pants_charcoal.png",
+            "crop": [
+              2976,
               40,
               96,
               40
@@ -92972,6 +94446,21 @@
             40
           ]
         },
+        "wear_pants_charcoal_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_pants_charcoal.png",
+            "crop": [
+              2976,
+              80,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_pants_charcoal_fall_w_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_pants_charcoal.png",
@@ -93157,6 +94646,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_pants_charcoal.png",
             "crop": [
               2880,
+              120,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_pants_charcoal_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_pants_charcoal.png",
+            "crop": [
+              2976,
               120,
               96,
               40
@@ -96015,6 +97519,21 @@
             40
           ]
         },
+        "wear_pants_denim_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_pants_denim.png",
+            "crop": [
+              2976,
+              0,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_pants_denim_fall_e_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_pants_denim.png",
@@ -96200,6 +97719,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_pants_denim.png",
             "crop": [
               2880,
+              40,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_pants_denim_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_pants_denim.png",
+            "crop": [
+              2976,
               40,
               96,
               40
@@ -96405,6 +97939,21 @@
             40
           ]
         },
+        "wear_pants_denim_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_pants_denim.png",
+            "crop": [
+              2976,
+              80,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_pants_denim_fall_w_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_pants_denim.png",
@@ -96590,6 +98139,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_pants_denim.png",
             "crop": [
               2880,
+              120,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_pants_denim_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_pants_denim.png",
+            "crop": [
+              2976,
               120,
               96,
               40
@@ -99448,6 +101012,21 @@
             40
           ]
         },
+        "wear_pants_canvas_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_pants_canvas.png",
+            "crop": [
+              2976,
+              0,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_pants_canvas_fall_e_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_pants_canvas.png",
@@ -99633,6 +101212,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_pants_canvas.png",
             "crop": [
               2880,
+              40,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_pants_canvas_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_pants_canvas.png",
+            "crop": [
+              2976,
               40,
               96,
               40
@@ -99838,6 +101432,21 @@
             40
           ]
         },
+        "wear_pants_canvas_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_pants_canvas.png",
+            "crop": [
+              2976,
+              80,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_pants_canvas_fall_w_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_pants_canvas.png",
@@ -100023,6 +101632,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_pants_canvas.png",
             "crop": [
               2880,
+              120,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_pants_canvas_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_pants_canvas.png",
+            "crop": [
+              2976,
               120,
               96,
               40
@@ -102881,6 +104505,21 @@
             40
           ]
         },
+        "wear_pants_insulated_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_pants_insulated.png",
+            "crop": [
+              2976,
+              0,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_pants_insulated_fall_e_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_pants_insulated.png",
@@ -103066,6 +104705,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_pants_insulated.png",
             "crop": [
               2880,
+              40,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_pants_insulated_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_pants_insulated.png",
+            "crop": [
+              2976,
               40,
               96,
               40
@@ -103271,6 +104925,21 @@
             40
           ]
         },
+        "wear_pants_insulated_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_pants_insulated.png",
+            "crop": [
+              2976,
+              80,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_pants_insulated_fall_w_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_pants_insulated.png",
@@ -103456,6 +105125,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_pants_insulated.png",
             "crop": [
               2880,
+              120,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_pants_insulated_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_pants_insulated.png",
+            "crop": [
+              2976,
               120,
               96,
               40
@@ -106314,6 +107998,21 @@
             40
           ]
         },
+        "wear_leggings_thermal_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_leggings_thermal.png",
+            "crop": [
+              2976,
+              0,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_leggings_thermal_fall_e_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_leggings_thermal.png",
@@ -106499,6 +108198,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_leggings_thermal.png",
             "crop": [
               2880,
+              40,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_leggings_thermal_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_leggings_thermal.png",
+            "crop": [
+              2976,
               40,
               96,
               40
@@ -106704,6 +108418,21 @@
             40
           ]
         },
+        "wear_leggings_thermal_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_leggings_thermal.png",
+            "crop": [
+              2976,
+              80,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_leggings_thermal_fall_w_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_leggings_thermal.png",
@@ -106889,6 +108618,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_leggings_thermal.png",
             "crop": [
               2880,
+              120,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_leggings_thermal_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_leggings_thermal.png",
+            "crop": [
+              2976,
               120,
               96,
               40
@@ -109747,6 +111491,21 @@
             40
           ]
         },
+        "wear_shorts_cotton_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_shorts_cotton.png",
+            "crop": [
+              2976,
+              0,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_shorts_cotton_fall_e_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_shorts_cotton.png",
@@ -109932,6 +111691,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_shorts_cotton.png",
             "crop": [
               2880,
+              40,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_shorts_cotton_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_shorts_cotton.png",
+            "crop": [
+              2976,
               40,
               96,
               40
@@ -110137,6 +111911,21 @@
             40
           ]
         },
+        "wear_shorts_cotton_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_shorts_cotton.png",
+            "crop": [
+              2976,
+              80,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_shorts_cotton_fall_w_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_shorts_cotton.png",
@@ -110322,6 +112111,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_shorts_cotton.png",
             "crop": [
               2880,
+              120,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_shorts_cotton_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_shorts_cotton.png",
+            "crop": [
+              2976,
               120,
               96,
               40
@@ -113180,6 +114984,21 @@
             40
           ]
         },
+        "wear_shoes_worn_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_shoes_worn.png",
+            "crop": [
+              2976,
+              0,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_shoes_worn_fall_e_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_shoes_worn.png",
@@ -113365,6 +115184,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_shoes_worn.png",
             "crop": [
               2880,
+              40,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_shoes_worn_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_shoes_worn.png",
+            "crop": [
+              2976,
               40,
               96,
               40
@@ -113570,6 +115404,21 @@
             40
           ]
         },
+        "wear_shoes_worn_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_shoes_worn.png",
+            "crop": [
+              2976,
+              80,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_shoes_worn_fall_w_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_shoes_worn.png",
@@ -113755,6 +115604,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_shoes_worn.png",
             "crop": [
               2880,
+              120,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_shoes_worn_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_shoes_worn.png",
+            "crop": [
+              2976,
               120,
               96,
               40
@@ -116613,6 +118477,21 @@
             40
           ]
         },
+        "wear_boots_leather_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_boots_leather.png",
+            "crop": [
+              2976,
+              0,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_boots_leather_fall_e_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_boots_leather.png",
@@ -116798,6 +118677,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_boots_leather.png",
             "crop": [
               2880,
+              40,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_boots_leather_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_boots_leather.png",
+            "crop": [
+              2976,
               40,
               96,
               40
@@ -117003,6 +118897,21 @@
             40
           ]
         },
+        "wear_boots_leather_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_boots_leather.png",
+            "crop": [
+              2976,
+              80,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_boots_leather_fall_w_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_boots_leather.png",
@@ -117188,6 +119097,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_boots_leather.png",
             "crop": [
               2880,
+              120,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_boots_leather_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_boots_leather.png",
+            "crop": [
+              2976,
               120,
               96,
               40
@@ -120046,6 +121970,21 @@
             40
           ]
         },
+        "wear_boots_steel_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_boots_steel.png",
+            "crop": [
+              2976,
+              0,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_boots_steel_fall_e_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_boots_steel.png",
@@ -120231,6 +122170,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_boots_steel.png",
             "crop": [
               2880,
+              40,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_boots_steel_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_boots_steel.png",
+            "crop": [
+              2976,
               40,
               96,
               40
@@ -120436,6 +122390,21 @@
             40
           ]
         },
+        "wear_boots_steel_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_boots_steel.png",
+            "crop": [
+              2976,
+              80,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_boots_steel_fall_w_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_boots_steel.png",
@@ -120621,6 +122590,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_boots_steel.png",
             "crop": [
               2880,
+              120,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_boots_steel_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_boots_steel.png",
+            "crop": [
+              2976,
               120,
               96,
               40
@@ -123479,6 +125463,21 @@
             40
           ]
         },
+        "wear_boots_insulated_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_boots_insulated.png",
+            "crop": [
+              2976,
+              0,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_boots_insulated_fall_e_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_boots_insulated.png",
@@ -123664,6 +125663,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_boots_insulated.png",
             "crop": [
               2880,
+              40,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_boots_insulated_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_boots_insulated.png",
+            "crop": [
+              2976,
               40,
               96,
               40
@@ -123869,6 +125883,21 @@
             40
           ]
         },
+        "wear_boots_insulated_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_boots_insulated.png",
+            "crop": [
+              2976,
+              80,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_boots_insulated_fall_w_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_boots_insulated.png",
@@ -124054,6 +126083,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_boots_insulated.png",
             "crop": [
               2880,
+              120,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_boots_insulated_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_boots_insulated.png",
+            "crop": [
+              2976,
               120,
               96,
               40
@@ -126912,6 +128956,21 @@
             40
           ]
         },
+        "wear_sandals_canvas_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_sandals_canvas.png",
+            "crop": [
+              2976,
+              0,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_sandals_canvas_fall_e_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_sandals_canvas.png",
@@ -127097,6 +129156,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_sandals_canvas.png",
             "crop": [
               2880,
+              40,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_sandals_canvas_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_sandals_canvas.png",
+            "crop": [
+              2976,
               40,
               96,
               40
@@ -127302,6 +129376,21 @@
             40
           ]
         },
+        "wear_sandals_canvas_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_sandals_canvas.png",
+            "crop": [
+              2976,
+              80,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
         "wear_sandals_canvas_fall_w_0": {
           "source": {
             "path": "art/simplyzombies/clothing/native/actions/wear_sandals_canvas.png",
@@ -127487,6 +129576,21 @@
             "path": "art/simplyzombies/clothing/native/actions/wear_sandals_canvas.png",
             "crop": [
               2880,
+              120,
+              96,
+              40
+            ]
+          },
+          "canvas": [
+            96,
+            40
+          ]
+        },
+        "wear_sandals_canvas_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/clothing/native/actions/wear_sandals_canvas.png",
+            "crop": [
+              2976,
               120,
               96,
               40

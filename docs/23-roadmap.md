@@ -1108,6 +1108,19 @@ code: the frames slot into `build_motion.py` and every gate already judges them.
   north f4 is f1, the east and west f3 is f1), since the reach moves a pixel a beat and a
   one-pixel return lands on a pose already shown. Art review round 3 called it minor. A sixth beat,
   or a reach that moves two pixels a beat outward, closes it.
+- **The settle's remaining minors** (art review round 4, for a follow-up pull request). The
+  front and back views' head takes the corpse's colours in one beat on the hold frame (the
+  workwear's north view turns the back of its head into a face): a colour cross-fade within the
+  head, or carrying it as the side views do, closes it. Mid-settle the two bodies' outlines show
+  through each other for a beat (the heavy's north view has 118 dark pixels inside its silhouette
+  at its second beat against 46 and 98 at either end; stray strokes across the bloater's belly).
+  The hazmat suit's belt thins to two to four pixels through the front and back settle before
+  the corpse's taped waist arrives. The runner's side views land 6 and 7 columns from where their
+  feet were, the least a mirrored
+  landing allows (its two turned frames are not mirror images). A survivor with no garment in a
+  slot would lie in the pack corpse's tee or trousers, but none is drawn so: `Appearance.outfit_of`
+  fills an empty slot from the body's default outfit, and every survivor block names one
+  (`godot:check:worn`'s DRESSED lane), so this stays a note unless a bare body becomes reachable.
 
 **The inventory sheet and the screens — decided by the owner (2026-09-08).** The inventory is
 mechanically complete and gated, and the screen reaches four of its commands: `item.move`,
@@ -2544,7 +2557,7 @@ not a to-do list:
   (one line: the clock's action merged into the motion) and `_draw_corpse` (the fall, and the
   `_falls_drawn` list the gate reads). Presentation only: nothing under `godot/sim/` changed.
 
-  **The art, and which half is which.** **496** new members (1016 since the falls landed and
+  **The art, and which half is which.** **496** new members (1036 since the falls landed and
   settled, the next record). **Generated: the swing's east,
   west and south views** -- three PixelLab `animate_image` strips, each from the pack's own rest
   view, five frames kept a view (`motion/sources/actions/generation.json` has the jobs, inputs,
@@ -2603,13 +2616,13 @@ not a to-do list:
   class -- both are in what's left as generation budgets.
 
   **Evidence:** `npm run godot:check:action` → `ACTION_OK`, chained after `godot:check:motion`.
-  CATALOGUE: 10 families, 496 frames (1016 since the next record), every view present and equal (the crawl only east and
+  CATALOGUE: 10 families, 496 frames (1036 since the next record), every view present and equal (the crawl only east and
   west); an undeclared action, a crawl seen from the south and a face-on key carry none.
   TIMING and PRIORITY hold `action_index` and `action_key` (ends, wraps, holds, a one-shot over a
   stance, nothing upright while lying, nothing for nothing, the magazine reloads six to eight beats
   and the tube up to twelve, all held on the stance). REACH: all three reloads in every view move the weapon hand (two
   pixels, or one for a long gun from behind), bring the off hand to the weapon and away and end
-  on the stance; the three-beat head-bob reload they replaced is refused. GEOMETRY: **428** (948 since)
+  on the stance; the three-beat head-bob reload they replaced is refused. GEOMETRY: **428** (968 since)
   derived frames carry only their rest view's colours (a reload's magazine the held pistol's
   gunmetal, the tube reload's shells the shells icon's colours, and every one of the twelve
   reload views shows its own load and not the other's; the rest view shows neither), a crouch stands lower than the rest and a fall lower
@@ -2648,7 +2661,10 @@ not a to-do list:
   third pass (NOT CLEAR, one major) found the lying frame was the knee buckle turned 90 degrees
   as a rigid block, and ruled that the pack's corpses are the quality floor: the fall ends on
   them. It also accepted the fall's rate, gave the stagger's first push a row, and named three
-  minors (below).
+  minors (below). The fourth (NOT CLEAR, one blocking) confirmed the corpse, the mirrored runner,
+  the belt and the stagger, and found the side views' settle dissolving the head away first and
+  drawing the corpse's in last, so the body lay headless for a beat or three and the head popped
+  back on the hold frame; its ruling, the head carried whole and a gate that sees it, is below.
 
   **The fall ends on the pack's corpse.** The knees go (a fold over the feet, which are kept to
   the end; the hip's top rows are drawn again over the sunk body, so a belt or a suit's taped
@@ -2664,13 +2680,29 @@ not a to-do list:
   the east and west views, and the south and north, land as exact mirrors of each other (the
   runner's included). The heavy's and the bloater's corpses, slimmer than the bodies that walked,
   are widened by whole sixteenths until they carry at least 95% of the last turned frame's mass
-  (`lying_corpses`, `BELLY_PCT`). The corpse is placed where it overlaps the last turn most,
-  within six columns, clear of the canvas edge, the mirror pair averaged; the beats between are
-  the turned frame becoming the corpse by count, the corpse's pixels nearest the body arriving
-  first and the turned frame's farthest leaving first, the sole row last to go, each beat keeping
-  only its largest connected run so no speck floats. Each family takes the fewest beats that keep
-  every step inside the bounds with a margin (13% mass, 3.5 columns of centre, 5 px of edge, the
-  sole row held): one to five, so a fall is 11 to 15 frames. The frames lie out on a wider
+  (`lying_corpses`, `BELLY_PCT`); the armored's prone corpse, lighter than its armour-bulked
+  body, is widened by the same rule, a sixteenth. The beats between are the turned frame
+  becoming the corpse by count, the corpse's pixels nearest the body arriving first and the
+  turned frame's farthest leaving first, the sole row last to go, each beat keeping only its
+  largest connected run so no speck floats. **A side view carries its head whole**
+  (`HEAD_CARRIED`, art review round 4): it lands face down with its head at the top of the
+  corpse, rows above where the turned frame's head lies, and a dissolve by distance dropped the
+  one head first and drew the other last. So the turned frame's head (`fall_head`: the pixels the
+  turn sampled from the standing head, `head_of`, its top rows down to the neck and back from the
+  face as far as it is tall) moves as one block, k/n of the way to the corpse's head
+  (`corpse_head`) on beat k, drawn over the body; the rest dissolves as before, the corpse's sole
+  row first, and the corpse redraws the head in place on the hold frame. The front and back views
+  land on their backs with the head where it fell and dissolve, as round 4 accepted. The corpse
+  is placed within ten columns of where it overlaps the last turn most, clear of the canvas edge,
+  the mirror pair averaged; a side pair takes the place whose foot end lies nearest where the
+  turned frame's lay, within `SETTLE_FOOT` (5 columns) wherever a place settles there, so a body
+  settles where it fell rather than skating along the floor (round 4's stalker slid 9 columns).
+  The runner's two side views are not mirror images of each other turned, so a mirrored landing
+  cannot keep both feet: it drifts 6 and 7, the least that settles. Each family takes the beat
+  count whose side pair drifts least, then the fewest beats, that keeps every step inside the
+  bounds with a margin (13% mass, 3.5 columns of centre, 5 px of edge, the sole row held), the
+  last step judged on every corpse pixel that shows (alpha 16 and up, its soft edge included):
+  three to five, so a fall is 13 to 15 frames. The frames lie out on a wider
   canvas, `fall_canvas`: 96 columns, the family's height, the standing body on its middle column,
   declared per member (`canvas` on the member, which `tools/sprites/build.py` and
   `Appearance.canvas_of` both honour). **The corpse is the fall's last frame, and the settled
@@ -2682,7 +2714,7 @@ not a to-do list:
   drawn), so it lies the same way after a load. The survivor's and the common zombies' falls play
   at 12 frames a second (83 ms a beat), the heavy's and the bloater's at 10 (100 ms); round 3
   accepted those rates over ten beats, and the settle keeps them per beat, so a fall now runs
-  0.9 to 1.4 s.
+  1.1 to 1.4 s.
 
   **The lunge** is five beats with the feet planted (a lean above the hip, never a step): a
   wind-back, the reach, the full reach, and two beats home, a pixel a beat, so the last frame
@@ -2696,11 +2728,18 @@ not a to-do list:
   gate allows a stagger that one row and nothing else.
 
   **Evidence:** `npm run godot:check:action` → `ACTION_OK`. Its LANDING lane places every fall the
-  way `_draw_corpse` does, rest view to the corpse: `LANDING OK 40 falls, 568 steps ... at most
-  11.8% mass, 3.4 columns of centre and 5 px of edge a step (bounds 15%, 4, 6), the sole row held,
+  way `_draw_corpse` does, rest view to the corpse: `LANDING OK 40 falls, 588 steps ... at most
+  12.2% mass, 3.4 columns of centre and 5 px of edge a step (bounds 15%, 4, 6), the sole row held,
   each lying to its fall side as its own last frame`. Its negatives: the pack's corpse cut in
   straight after the turn breaks the bounds 88 times, the same falls at every third frame 40
-  times, and a view or key with no fall answers no lying frame. STRIKE (which replaced
+  times, and a view or key with no fall answers no lying frame. HEAD looks for a head on every
+  beat of the 20 side-view settles, the last turned frame's or the corpse's (the fall-side end of
+  each, `HEAD_COLS` 8 columns, matched colour for colour wherever it moved between the two):
+  `HEAD OK 20 side-view settles, 74 beats: a head carried on every one, at least 61% of it ...
+  and the corpse's head adds at most 12.1% of the body at the hold frame (bound 15%)`; each
+  settle with both heads erased where they were found is refused, all 20, and round 4's art fails
+  it in all 20 side settles, each with a beat under half a head. The front and back
+  views are reported, not judged (least 50%). STRIKE (which replaced
   LUNGE_MASS) holds every lunge and stagger, rest to the beats and home, to the same 15% mass
   step and the sole row (`72 lunges and staggers ... at most 10.5%`, the commuter's north lunge;
   a stagger 1 row up on 18 steps, its allowance), and refuses a beat with its lower half cut off
@@ -2708,8 +2747,8 @@ not a to-do list:
   and holds the fall's last frame wider than tall. READERS needs `_draw_corpse` to call
   `lying_key` and `dressed_texture` and to record what it laid down, each shown missed when
   removed; the FALL scene lane kills a zombie on the booted scene and finds it lying as
-  `body_zombie_commuter_fall_w_12` after the fall played. CATALOGUE counts 1016 frames, GEOMETRY
-  948 derived frames on their rest view's colours.
+  `body_zombie_commuter_fall_w_12` after the fall played. CATALOGUE counts 1036 frames, GEOMETRY
+  968 derived frames on their rest view's colours.
   `godot:check:authored` judges a fall member at its own canvas (PACK cuts it whole,
   ZOMBIE_POSES holds it to its family's canvas and anchor, with a sound fall frame accepted and
   a wide picture that is not a fall, or a fall wider than the fall canvas, refused);
@@ -2721,7 +2760,7 @@ not a to-do list:
   **The survivor falls, and lies, in its clothes** (with #171 and #174 merged in). The painter
   follows the fall: `clothing/action_wear.py` dresses the fall's source and turns it by the same
   `derive` call, ringed in the bare body's ink so cloth and skin share one outline, lays each
-  action out on the garment's action sheet at its frames' own width (2976x160, a fall frame 96
+  action out on the garment's action sheet at its frames' own width (3072x160, a fall frame 96
   wide), and declares each fall member's `canvas`; a garment pixel the turn's ring lands on is
   made opaque, as cloth always is. The corpse it settles onto was never a standing frame, so
   `clothing/corpse_wear.py` labels the pack's lying human by its own colours (ink, the grey
@@ -2729,19 +2768,22 @@ not a to-do list:
   garment over the parts its shape covers, at the light of the corpse's own pixel, with the belt
   or a suit's taped waist and ankles where its trousers meet its tee and shoes; the beats are
   made from the dressed turn and the dressed corpse by the bare fall's own call. A survivor with
-  no garment in a slot lies in the pack corpse's own tee or trousers there. 252 action frames,
-  292 members a garment (`godot:check:authored` WEAR: 8468 painted frames). The clock records the outfit a body was
+  no garment in a slot would lie in the pack corpse's own tee or trousers there (none is drawn so;
+  what's left says why). 256 action frames, 296 members a garment (`godot:check:authored` WEAR:
+  8584 painted frames). The clock records the outfit a body was
   last drawn in (`AnimClock.act`'s `outfit`) and `_draw_corpse` composes the fall and the lying
   frame through `Appearance.dressed_texture`. `godot:check:action` CLOCK proves the outfit rides
   the fall and a bare body falls bare, and that every fall frame composes dressed at its own
   canvas. `godot:check:worn` CANVAS holds each garment member to its rig frame's own canvas.
   Strips and animations, laid out as the game draws them, are in
-  `/mnt/project-files/a8-actions/zombies/round4/` and, clothed,
-  `/mnt/project-files/a8-actions/clothed/falls-round4/`. **Not done:** the south lunge's legs read
+  `/mnt/project-files/a8-actions/zombies/round5/` and, clothed,
+  `/mnt/project-files/a8-actions/clothed/falls-round5/`. **Not done:** the south lunge's legs read
   about three rows shorter on its full reach than the rest view's; an action frame keeps only the
   pack's solid pixels (alpha 128 and up), so the faint soft-alpha specks at a standing body's edge
-  are not on the action frames; the lunge's homeward beat repeats an outward one; and the pack's
-  corpses keep their hole, missing outline and own palette. All four are in what's left.
+  are not on the action frames; the lunge's homeward beat repeats an outward one; the pack's
+  corpses keep their hole, missing outline and own palette; and the settle's round 4 minors (the
+  front and back views' head recoloured on the hold frame, outlines showing through mid-settle,
+  the hazmat belt thinning there, the runner's lopsided landing). All are in what's left.
 
 - **Feel — the weapon turned to the cursor, and the blow felt, 2026-10-19.** Item A9 of the
   2026-10-19 alpha plan, with the owner's answer to its Q3 the same day: the cursor is the aimer,

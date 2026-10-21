@@ -664,7 +664,7 @@ def corpse_pictures(folder):
 def settled(falls, folder):
     """{view: the whole fall} -- the turned frames, then the settle onto the corpse -- for `falls`,
     {view: (rest, the turned frames)}."""
-    plan = act.settle_plan({v: frames[-1] for v, (_rest, frames) in falls.items()}, corpse_pictures(folder))
+    plan = act.settle_plan({v: frames[-1] for v, (_rest, frames) in falls.items()}, corpse_pictures(folder), {v: rest for v, (rest, _frames) in falls.items()})
     return {v: frames + act.settle_frames(frames[-1], plan[v]["corpse"], plan[v]["beats"]) for v, (_rest, frames) in falls.items()}
 
 
