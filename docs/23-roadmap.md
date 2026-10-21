@@ -1108,16 +1108,20 @@ code: the frames slot into `build_motion.py` and every gate already judges them.
   north f4 is f1, the east and west f3 is f1), since the reach moves a pixel a beat and a
   one-pixel return lands on a pose already shown. Art review round 3 called it minor. A sixth beat,
   or a reach that moves two pixels a beat outward, closes it.
-- **The settle's remaining minors** (art review round 4, for a follow-up pull request). The
-  front and back views' head takes the corpse's colours in one beat on the hold frame (the
+- **The settle's remaining minors** (art review rounds 4 and 5, for a follow-up pull request).
+  The front and back views' head takes the corpse's colours in one beat on the hold frame (the
   workwear's north view turns the back of its head into a face): a colour cross-fade within the
-  head, or carrying it as the side views do, closes it. Mid-settle the two bodies' outlines show
+  head, or carrying it as the side views do, closes it. The side views have the same swap: the
+  carried head keeps its turned colours to the last beat and takes the corpse's on the hold frame
+  (the heavy's east view changes 38 of its 68 head pixels, the raincoat's west view 36 of 37,
+  the commuter and the screamer only mildly), and the survivor's head shrinks from 63 or 64
+  pixels to 31 to 39 there; a cross-fade over the carried beats closes both. Mid-settle the two bodies' outlines show
   through each other for a beat (the heavy's north view has 118 dark pixels inside its silhouette
   at its second beat against 46 and 98 at either end; stray strokes across the bloater's belly).
   The hazmat suit's belt thins to two to four pixels through the front and back settle before
   the corpse's taped waist arrives. The runner's side views land 6 and 7 columns from where their
-  feet were, the least a mirrored
-  landing allows (its two turned frames are not mirror images). A survivor with no garment in a
+  feet were, the least a mirrored landing allows (its two turned frames are not mirror images):
+  the east view's corpse now sits 6 columns further toward the head, where round 4 had none. A survivor with no garment in a
   slot would lie in the pack corpse's tee or trousers, but none is drawn so: `Appearance.outfit_of`
   fills an empty slot from the body's default outfit, and every survivor block names one
   (`godot:check:worn`'s DRESSED lane), so this stays a note unless a bare body becomes reachable.
