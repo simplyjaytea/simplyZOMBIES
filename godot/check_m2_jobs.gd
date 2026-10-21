@@ -1480,7 +1480,21 @@ func _an_errand_reaches_only_the_errand_radius() -> bool:
 	if int(SimJobs._doctor_work(w, ellis).get("target", -1)) != mara:
 		push_error("ERRAND: a patient at home was not offered to the doctor")
 		ok = false
+	# The Bury half: a body lying past the errand radius is left where it fell.
+	for c in w.components.query(["corpse"]):
+		w.despawn(int(c))
+	var body: int = int(w.entities.spawn())
+	w.components.set_component(body, "corpse", {})
+	w.components.set_component(body, "position", {"x": home.x + out_d, "y": home.y})
+	if int(SimJobs._bury_work(w, home.x, home.y).get("target", -1)) == body:
+		push_error("ERRAND: Bury walked to a body %.0f tiles out" % absf(out_d))
+		ok = false
+	SimJobs.ERRAND_RADIUS_TILES = SimJobs.HOME_RADIUS_TILES
+	if SimJobs._corpse_dump(w).x >= 0 and int(SimJobs._bury_work(w, home.x, home.y).get("target", -1)) != body:
+		push_error("ERRAND: with the radius pinned back Bury still refused the body, so the radius is not what refused it")
+		ok = false
+	SimJobs.ERRAND_RADIUS_TILES = was_r
 	SimJobs.BREAK_OFF_FROM_DANGER = was_d
 	if ok:
-		print("ERRAND OK Haul refuses an item %.0f tiles out at the %.0f-tile errand radius and takes it at %.0f; one %.0f tiles out is taken; the doctor walks to a patient at home and not to one that far out" % [absf(out_d), SimJobs.ERRAND_RADIUS_TILES, SimJobs.HOME_RADIUS_TILES, absf(in_d)])
+		print("ERRAND OK Haul refuses an item %.0f tiles out at the %.0f-tile errand radius and takes it at %.0f; one %.0f tiles out is taken; the doctor walks to a patient at home and not to one that far out, nor Bury to a body" % [absf(out_d), SimJobs.ERRAND_RADIUS_TILES, SimJobs.HOME_RADIUS_TILES, absf(in_d)])
 	return ok
