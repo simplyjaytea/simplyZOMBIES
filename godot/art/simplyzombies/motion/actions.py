@@ -336,7 +336,10 @@ BELLY_PCT = 95
 HEAD_CARRIED = {"prone", "supine"}
 # The beats over which a carried head takes the corpse head's colours and shape, the last ones
 # before the hold frame: half on the last beat, then the corpse (art review round 5's minor 1).
+# A half swap, not a soft fade: each pixel changes once (round 6 accepted it).
 HEAD_FADE = 1
+# How far in from the end column a supine corpse's head has its middle (`corpse_head`).
+HEAD_INSET = 3
 # The head of a standing body: its top rows down to the neck, the first row from the sixth on that
 # is two pixels narrower than the widest above it, else the top HEAD_ROWS rows.
 HEAD_ROWS = 8
@@ -345,6 +348,9 @@ HEAD_NECK_FROM = 6
 # fell rather than skating along the floor (art review round 4, the stalker's minor 1; round 5,
 # the runner's minor 2).
 SETTLE_FOOT = 2
+# How far from mirror images a side pair may lie, in columns: art review round 6 ruled that the
+# runner lands where its mirror lands, and accepted the others' two or three columns.
+SETTLE_MIRROR = 2
 
 
 def head_rows(im):
@@ -390,16 +396,24 @@ def head_of(im, side):
     return {(x, y) for x, y in pts if 0 <= side * (front - x) < reach}
 
 
-def corpse_head(mc, side, count):
-    """The `count` pixels of a lying corpse (`mc`) nearest its head: the head lies at the corpse's
-    `side` end (+1 east, -1 west), its top the highest pixel of that end's last third, its middle
-    a quarter of the head's width below."""
+def corpse_head(mc, side, count, pose="prone"):
+    """The `count` pixels of a lying corpse (`mc`) nearest its head, which lies at the corpse's
+    `side` end (+1 east, -1 west). Face down (prone), the head is the top of that end's last
+    third, its middle a quarter of the head's width below. On its back (supine) the body lies
+    flat with its arms raised, so the top of that third is an arm or the chest (art review round
+    6): the head is the end of the body, its middle HEAD_INSET columns in from the end column at
+    that column's middle row."""
     xs = [x for x, _y in mc]
     lo, hi = min(xs), max(xs)
-    third = (hi - lo + 1) // 3
-    end = [p for p in mc if (p[0] >= hi - third if side > 0 else p[0] <= lo + third)]
-    tx, ty = min(end, key=lambda p: (p[1], -side * p[0]))
-    cy = ty + _isqrt(count) // 2
+    if pose == "supine":
+        end = hi if side > 0 else lo
+        rows = sorted(y for x, y in mc if abs(x - end) <= 1)
+        tx, cy = end - side * HEAD_INSET, rows[len(rows) // 2]
+    else:
+        third = (hi - lo + 1) // 3
+        end = [p for p in mc if (p[0] >= hi - third if side > 0 else p[0] <= lo + third)]
+        tx, ty = min(end, key=lambda p: (p[1], -side * p[0]))
+        cy = ty + _isqrt(count) // 2
     return set(sorted(mc, key=lambda p: ((p[0] - tx) ** 2 + (p[1] - cy) ** 2, p[1], p[0]))[:count])
 
 
@@ -640,56 +654,57 @@ def settle_plan(f8s, pictures, rests):
     The front and back views (s and n) lie in the same place, mirrored: the place a few columns
     either side of where the corpse overlaps the two last turned frames most that settles both
     inside the bounds, the nearest that overlap first. A side view (e or w) lands face down along
-    the floor, and lies where its own feet were: its own place of least foot drift, counted from
-    SETTLE_FOOT up (within it every place is as good, the nearest its overlap first). The family
-    takes the beat count whose side views drift least, then the fewest beats. Every view carries
-    its head across the settle whole (HEAD_CARRIED)."""
+    the floor, and lies where its own feet were: each of the pair takes a place of its own, the
+    two lying mirrored within SETTLE_MIRROR columns, the pair whose feet drift least, counted from
+    SETTLE_FOOT up (within it every pair is as good, the most nearly mirrored and then the nearest
+    their overlaps first). The family takes the beat count whose side views drift least, then the
+    fewest beats. Every view carries its head across the settle whole (HEAD_CARRIED)."""
     corpses = lying_corpses(pictures, f8s)
     w = next(iter(f8s.values())).size[0]
     m8 = {v: _mask(f8s[v]) for v in f8s}
     h8 = {v: fall_head(rests[v], v) & m8[v] for v in f8s if LIE_POSE[v] in HEAD_CARRIED}
 
     def heads(v, mc):
-        return (h8[v], corpse_head(mc, FALL_SIDE[v], len(h8[v]))) if v in h8 else None
+        return (h8[v], corpse_head(mc, FALL_SIDE[v], len(h8[v]), LIE_POSE[v])) if v in h8 else None
 
     def near(mid, cw):
         # Never nearer either side of the canvas than the pack's margin (SIDE_CLEARANCE).
         lo, hi = SIDE_CLEARANCE, w - cw - SIDE_CLEARANCE
         return sorted(range(max(lo, mid - SETTLE_SEARCH), min(hi, mid + SETTLE_SEARCH) + 1), key=lambda x: (abs(x - mid), x))
 
-    # Each group is [(view, where its corpse lies for a place x)]: a side view alone (art review
-    # round 5: the runner's two turned frames are not mirror images, so a mirrored landing left one
-    # of them 6 columns from its feet), the front and back views together.
-    groups = []
-    for vs in (("e",), ("w",), ("s", "n")):
-        cw = corpses[vs[0]].size[0]
-        if len(vs) == 1:
-            ats = [lambda x: x]
-            mid = _best_x(f8s[vs[0]], corpses[vs[0]])
-        else:
-            ats = [lambda x: x, lambda x, cw=cw: w - x - cw]
-            mid = (_best_x(f8s["s"], corpses["s"]) + (w - _best_x(f8s["n"], corpses["n"]) - cw) + 1) // 2
-        places = near(mid, cw)
-        cut = {(v, x): (_mask(_place(corpses[v], f8s[v].size, at(x))), _shown(_place(corpses[v], f8s[v].size, at(x)))) for x in places for v, at in zip(vs, ats)}
-        drift = {x: max(abs(_foot(cut[(v, x)][0], FALL_SIDE[v]) - _foot(m8[v], FALL_SIDE[v])) for v in vs) for x in places}
-        groups.append((vs, ats, places, cut, drift))
+    # Every view's candidate places, nearest its overlap first; the front and back views as one,
+    # the north view mirrored from the south's place.
+    cw = {v: corpses[v].size[0] for v in f8s}
+    places = {}
+    for v in ("e", "w"):
+        # Around the best overlap and around where the foot end lies where it fell: a pair that
+        # must land mirrored may need either view well away from its own overlap.
+        mid = _best_x(f8s[v], corpses[v])
+        feet = mid - (_foot(_mask(_place(corpses[v], f8s[v].size, mid)), FALL_SIDE[v]) - _foot(m8[v], FALL_SIDE[v]))
+        places[v] = sorted(set(near(mid, cw[v])) | set(near(feet, cw[v])), key=lambda x, mid=mid: (abs(x - mid), x))
+    places["s"] = near((_best_x(f8s["s"], corpses["s"]) + (w - _best_x(f8s["n"], corpses["n"]) - cw["n"]) + 1) // 2, cw["s"])
+    at = {"e": lambda x: x, "w": lambda x: x, "s": lambda x: x, "n": lambda x: w - x - cw["n"]}
+    cut = {}
+    for v in f8s:
+        for x in places["s" if v == "n" else v]:
+            c = _place(corpses[v], f8s[v].size, at[v](x))
+            cut[(v, x)] = (_mask(c), _shown(c))
+    drift = {(v, x): abs(_foot(cut[(v, x)][0], FALL_SIDE[v]) - _foot(m8[v], FALL_SIDE[v])) for v in ("e", "w") for x in places[v]}
     best = None
     for n in range(1, SETTLE_MAX + 1):
-        xs, score = {}, 0
-        for vs, ats, places, cut, drift in groups:
-            ok = [x for x in places if all(_settles(m8[v], cut[(v, x)][0], n, heads(v, cut[(v, x)][0]), cut[(v, x)][1]) for v in vs)]
-            if not ok:
-                break
-            if LIE_POSE[vs[0]] == "prone":
-                x = min(ok, key=lambda x: (max(SETTLE_FOOT, drift[x]), ok.index(x)))
-                score = max(score, max(SETTLE_FOOT, drift[x]))
-            else:
-                x = ok[0]
-            for v, at in zip(vs, ats):
-                xs[v] = at(x)
-        else:
-            if best is None or score < best[0]:
-                best = (score, n, xs)
+        ok = {}
+        for v in f8s:
+            ok[v] = [x for x in places["s" if v == "n" else v] if _settles(m8[v], cut[(v, x)][0], n, heads(v, cut[(v, x)][0]), cut[(v, x)][1])]
+        front = [x for x in ok["s"] if x in ok["n"]]
+        # A side pair lies mirrored within SETTLE_MIRROR columns (art review round 6's ruling: the
+        # runner lands where its mirror lands), each view as near its own feet as that allows.
+        side = [(abs(xw - (w - xe - cw["e"])), xe, xw) for xe in ok["e"] for xw in ok["w"] if abs(xw - (w - xe - cw["e"])) <= SETTLE_MIRROR]
+        if not front or not side:
+            continue
+        mirror, xe, xw = min(side, key=lambda t: (max(SETTLE_FOOT, drift[("e", t[1])], drift[("w", t[2])]), t[0], ok["e"].index(t[1]) + ok["w"].index(t[2])))
+        score = max(SETTLE_FOOT, drift[("e", xe)], drift[("w", xw)])
+        if best is None or score < best[0]:
+            best = (score, n, {"e": xe, "w": xw, "s": front[0], "n": at["n"](front[0])})
     if best is not None:
         _score, n, xs = best
         out = {}

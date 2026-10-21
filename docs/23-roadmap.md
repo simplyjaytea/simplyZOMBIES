@@ -2686,13 +2686,21 @@ not a to-do list:
   row first. The front and back views, landing on their backs with the head about where it
   fell, carry theirs the same way since the follow-up below, and on every view the head takes
   the corpse head's colours and shape over its last beat (`HEAD_FADE`): half on the last beat,
-  the rest on the hold frame. The corpse is placed within ten columns of where it overlaps the
-  last turn most, clear of the canvas edge; the front and back views lie in one place, mirrored,
-  and each side view takes its own place, the one whose foot end lies nearest where its turned
-  frame's lay, within `SETTLE_FOOT` (2 columns) wherever a place settles there, so a body settles
-  where it fell rather than skating along the floor (round 4's stalker slid 9 columns, round 5's
-  runner 6, since its two turned frames are not mirror images and its corpses lay mirrored).
-  Every side view now lands within 3 columns. Each family takes the beat count whose side views
+  the rest on the hold frame. That is a half swap, each pixel changing once, not a soft fade
+  (round 6 accepted it as such). Lying on its back, the corpse's head is the end of the body,
+  `HEAD_INSET` columns in from its end column at that column's middle row; the top of the
+  fall-side third, which a face-down body's head is, is an arm or the chest there (round 6
+  found 24 of 30 front and back settles carrying the head to the chest). The corpse is placed
+  within ten columns of where it overlaps the last turn most, or of where its foot end meets
+  the turned frame's, clear of the canvas edge; the front and back views lie in one place,
+  mirrored, and the side views lie as a pair whose foot ends mirror within `SETTLE_MIRROR` (2
+  columns), the pair whose feet move least from where each turned frame's lay (a drift within
+  `SETTLE_FOOT`, 2 columns, counts as none), so a body settles where it fell rather than skating
+  along the floor (round 4's stalker slid 9 columns, round 5's runner 6). The runner is the one
+  exception to a 3-column drift: its two turned frames' foot ends lie 13 columns off mirror, so
+  corpses that land where their mirror lands must move 11 columns between them; it lands 6 each
+  side, its corpses 1 column off mirror. Every other side view lands within 3 columns and its
+  corpses within 2 of mirrored (round 6 accepted 2 to 3). Each family takes the beat count whose side views
   drift least, then the fewest beats, that keeps every step inside the
   bounds with a margin (13% mass, 3.5 columns of centre, 5 px of edge, the sole row held), the
   last step judged on every corpse pixel that shows (alpha 16 and up, its soft edge included):
@@ -2725,18 +2733,24 @@ not a to-do list:
 
   **Evidence:** `npm run godot:check:action` → `ACTION_OK`. Its LANDING lane places every fall the
   way `_draw_corpse` does, rest view to the corpse: `LANDING OK 40 falls, 592 steps ... at most
-  12.9% mass, 3.4 columns of centre and 5 px of edge a step (bounds 15%, 4, 6), the sole row held,
+  12.2% mass, 3.4 columns of centre and 5 px of edge a step (bounds 15%, 4, 6), the sole row held,
   each lying to its fall side as its own last frame`. Its negatives: the pack's corpse cut in
   straight after the turn breaks the bounds 88 times, the same falls at every third frame 40
   times, and a view or key with no fall answers no lying frame. HEAD looks for a head on every
   beat of all 40 settles, the last turned frame's or the corpse's (the fall-side end of each,
-  `HEAD_COLS` 8 columns, matched colour for colour wherever it moved between the two), or the
-  two together as much of the larger as a head handing its colours over shows: `HEAD OK 40
-  settles in every view, 152 beats: a head carried on every one, at least 51% of it ... and the
-  corpse's head adds at most 11.2% of the body at the hold frame (bound 15%)`, the least the
-  bloater's east view on its last beat; each settle with both heads erased where they were found
-  is refused, all 40, and round 4's art fails it in all 20 side settles, each with a beat under
-  half a head. STRIKE (which replaced LUNGE_MASS) holds every lunge and stagger, rest to the
+  `HEAD_COLS` 8 columns, and lying on its back the `HEAD_CORE` 64 pixels of it nearest the
+  head's middle, matched colour for colour wherever it moved between the two), or the two
+  together as much of the larger as a head handing its colours over shows, summed only where
+  their boxes meet (round 6 found the sum counting a head on the chest and the corpse's own as
+  one); and the carried head must end within `HEAD_LAND` (4 px) of the corpse's own head,
+  located in the lying body: `HEAD OK 40 settles in every view, 152 beats: a head carried on
+  every one, at least 51% of it ... the corpse's head adds at most 10.6% of the body at the hold
+  frame (bound 15%); the carried head ends at most 3.4 px from the corpse's (bound 4)`, the
+  least share the bloater's east view on its last beat. Its negatives: each settle with both
+  heads erased where they were found is refused, all 40; two half heads apart are not one head,
+  10 of 10; a head left where it fell is refused as a landing, 29 of 40. Round 4's art fails it
+  in all 20 side settles, each with a beat under half a head, and round 6's in 10 front and back
+  settles, ending its head 4.3 to 11.3 px from the corpse's. STRIKE (which replaced LUNGE_MASS) holds every lunge and stagger, rest to the
   beats and home, to the same 15% mass step and the sole row (`72 lunges and staggers ... at
   most 10.5%`, the commuter's north lunge; a stagger 1 row up on 18 steps, its allowance), and
   refuses a beat with its lower half cut off and a beat lifted past its allowance in all 72.
@@ -2773,8 +2787,8 @@ not a to-do list:
   the fall and a bare body falls bare, and that every fall frame composes dressed at its own
   canvas. `godot:check:worn` CANVAS holds each garment member to its rig frame's own canvas.
   Strips and animations, laid out as the game draws them, are in
-  `/mnt/project-files/a8-actions/zombies/round6/` and, clothed,
-  `/mnt/project-files/a8-actions/clothed/falls-round6/`. **Not done:** the south lunge's legs read
+  `/mnt/project-files/a8-actions/zombies/round7/` and, clothed,
+  `/mnt/project-files/a8-actions/clothed/falls-round7/`. **Not done:** the south lunge's legs read
   about three rows shorter on its full reach than the rest view's; an action frame keeps only the
   pack's solid pixels (alpha 128 and up), so the faint soft-alpha specks at a standing body's edge
   are not on the action frames; the lunge's homeward beat repeats an outward one; the pack's
@@ -2793,8 +2807,12 @@ not a to-do list:
   pixels on its way to the corpse's 49, where it was 82. A garment's seam across the body is
   handed over (`settle_frames`' `lines`, from `clothing/action_wear.py`): the corpse's belt or taped
   waist arrives first and the frame's goes evenly, so the hazmat suit's belt through the south
-  settle runs 14, 12, 9, 7, 5 where it was 12, 4, 2, 3. The side views' own placement closes the
-  runner's slide. The armored's prone corpse is the pack's 29x25, 306 pixels drawn 17/16 its
+  settle runs 14, 12, 9, 7, 5 where it was 12, 4, 2, 3. The side views' paired placement closes
+  the runner's slide as far as its mirror allows. Round 7 (art review round 6): the front and
+  back views carry the head onto the corpse's head, at most 3.4 px from it by HEAD's measure
+  where the reviewer found round 6's 6.9 to 10 px off on the chest, and their corpses lie in round 5's columns again, so round
+  6's hold-frame shifts of 1 to 2 columns are gone; buried outline pixels left across every
+  bridge are 68, at most 5 in a beat. The armored's prone corpse is the pack's 29x25, 306 pixels drawn 17/16 its
   size by the belly rule, 31x27 and 355 pixels (motion/README.md). Measured with a throwaway
   driver against main's committed sprites, deleted afterwards; the gates are HEAD and LANDING
   above.
