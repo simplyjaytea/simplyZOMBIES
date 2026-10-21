@@ -1311,17 +1311,6 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   and turned `godot:m2:balance`'s FAST seed 404 from a surviving colony to 0/3, so it was
   reverted. A fix wants a memory of the garment a colonist fled, or the owner's armour lever
   (docs/33, "the arc's difficulty"), and a re-measure of both harnesses.
-- **An idle colonist outside is pushed across the district.** Found by the building-noise pass.
-  A grab, a break-away, a stop inside reach and a re-grab, over and over, each break-away 2.7 m
-  further from home. The pass closed two ways in (kneeling with a pursuer near, the doctor
-  walking to a guarded patient) and left a third: nothing sends a colonist with no job home from
-  a zombie (the 6 m break-off covers errands only), and a dirty colonist with no water to wash in
-  has a hygiene seek that claims every tick and does nothing, so they stand at the door all day.
-  Seed 31337's c80 was pushed 150 tiles into a corner that way. A drafted fix (break off from any
-  non-errand state outside the annex, keep a walk home through a soft seek, skip a wash with
-  nothing to wash in) kept three seeds alive at day 3; it is the next PR. The scripted survivor
-  is pushed the same way (20260805's successor, c94, to (189, 38) on day 1), which is the bot's
-  own fight-or-flee and outside the colony's rules.
 - **Rest is handed out and dropped every tick.** A colonist with Rest work and rest at or over
   80 is given Rest (the picker does not read the pool), the Rest arm stops it at 80, and the
   next tick picks it again: 17,985 Rest starts in one day for one colonist on seed 31337. No
@@ -2228,6 +2217,26 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **Balance — an idle colonist walks home from a zombie, 2026-10-21 (alpha A24 follow-up).**
+  The third way into the push loop the building-noise pass found (a grab, a break-away, a stop
+  inside reach and a re-grab, each break-away 2.7 m further from home). Seed 31337's c80 was
+  dirty with no water to wash in, so the hygiene seek claimed every tick and did nothing; they
+  stood at the annex door with no job until a zombie took them and herded them 150 tiles into a
+  corner. One commit, three rules in `SimJobs._tick_one`, each with a lane that fails on the old
+  `jobs.gd` and its true negative in `godot:m2:jobs`:
+  - **IDLE:** a colonist outside the annex with a zombie within `DANGER_METRES` walks home
+    whatever they were doing, not only on an errand (`_exposed_idle`; Guard, an order, a Retreat
+    already under way and a running channel are exempt).
+  - **RETREAT-SEEK:** a walk home is not dropped for a need that can wait; an empty pool or the
+    far end of a band (`_hard_seek`) still outranks it.
+  - **WASH:** a wash with nothing to wash in (`_can_wash`) no longer takes the tick.
+
+  **Measured, three seeds:** a three-day check kept all three colonies alive at day 3, where the
+  building-noise head lost 20260805's colony by day 4. Ten-day runs on this head are in flight;
+  the numbers go in report-noise.md in the project's planning/balance folder, and here.
+  The scripted survivor is still pushed the same way (20260805's successor, c94, to (189, 38) on
+  day 1): that is the bot's own fight-or-flee, outside the colony's rules.
+
 - **Balance — the building-noise pass, 2026-10-21 (alpha A24 follow-up).** Four commits, each
   with its before and after on the A24 driver (`npm run godot:playtest`):
   - **Construction noise 30 to 15** (`SimFortify.CONSTRUCT_NOISE`, docs/03, docs/30). Zombies
@@ -2249,10 +2258,10 @@ not a to-do list:
   **Measured, three seeds:** main (A24 final) wiped on days 9, 2 and 2 (20260805, 31337, 404).
   With all four commits: 20260805 wiped day 4 (the scripted survivor's successor pushed 150 tiles
   on day 1, the last colonist turned),
-  31337 and 404 one alive at the end of day 4, where runs stopped by a session restart ended.
-  The day 10 target on 2 of 3 seeds is **not** met: the third way into the push loop, an idle
-  colonist, is on the defect list and is the next PR. The report and raw logs are in the project's
-  planning/balance folder as report-noise.md.
+  31337 and 404 one alive at the end of day 5 on ten-day runs of the merged head (still running
+  when this was written). The day 10 target on 2 of 3 seeds is **not** met by this pass: the
+  third way into the push loop, an idle colonist, is the entry above. The report and raw logs are
+  in the project's planning/balance folder as report-noise.md.
 
 - **Balance — the A24 pass: a ten-day playtest driver, and what it found, 2026-10-21 (alpha
   A24).** The measuring half shipped and the tuning half did not move the outcome. What landed:
