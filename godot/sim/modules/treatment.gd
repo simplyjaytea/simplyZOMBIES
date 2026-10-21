@@ -104,16 +104,17 @@ extends RefCounted
 #       colonist on seed 404 spent 378 ticks kneeling mid-fight and died there, head first, having
 #       fought back not once. Bites stay R2's business, and a swipe never targets a held body, so
 #       this rule only ever fires on the free -- the held arbitration above is untouched.
-#   R10 `treatment.self-aid` will not *start* a channel while a live shambler stands in
-#       SWIPE_METRES of a free survivor: with a claw in striking range you fight or you run, and
-#       kneeling is what the driver measured it to be -- a death. The radius is the swipe's own
-#       reach, not CONTACT_METRES, and the first cut of this rule paid for the difference: a
-#       break-away ends about 1.4-1.5 m out, inside contact but outside the claw, so at 1.6 the
-#       press R5 cancels could never re-open and R6's "deferred" quietly became "closed" -- the
-#       contact gate's FLIGHT-CANCELS-PRESS caught it. Reading SWIPE_METRES keeps "too close to
-#       kneel" and "close enough to be struck" the same number by construction. A *held* survivor
-#       is exempt: R1 grants them the self-press exactly because fighting is no longer among
-#       their options.
+#   R10 `treatment.self-aid` will not *start* a channel while a live shambler stands within
+#       RELEASE_METRES of a free survivor: with a pursuer that close you fight or you run, and
+#       kneeling is what two drivers measured it to be -- a death. The first radius was the claw's
+#       SWIPE_METRES (1.1), so the press could re-open after a break-away; the building-noise pass's
+#       ten-day playtest watched what that cost. A break-away ends 1.5-2 m from a holder that is
+#       still pursuing, the press re-opened there and pinned the survivor, and the hold re-formed
+#       within a dozen ticks: sixty cycles in a row on seed 31337, each pushing the colonist 2.7 m
+#       further from home until they died 60 tiles out. RELEASE_METRES is the distance a shambler
+#       keeps pursuing from, so "too close to kneel" now means "still being chased". A *held*
+#       survivor is exempt: R1 grants them the self-press exactly because fighting is no longer
+#       among their options, so the press a re-grab interrupts re-opens under the hold.
 #
 # Why coexistence rather than "pressing costs you the hold": every new hold resets the bite clock
 # (`_start_grab` writes a fresh ticksUntilBite), and a struggle cycle resolves at ~17-33 ticks with
@@ -846,14 +847,14 @@ static func _interrupt_struck(world: Variant, entity: int) -> void:
 		cancel(world, int((treated as Dictionary).get("treater", -1)))
 
 
-# R10's reach test: a live shambler inside its own SWIPE_METRES of this body. Reads the swipe's
-# radius rather than declaring one, so "close enough to be struck" and "too close to kneel" are
-# the same number by construction -- see R10 for why it is the claw's reach and not contact.
+# R10's reach test: a live shambler inside RELEASE_METRES of this body. Reads the shambler's own
+# pursuit radius rather than declaring one, so "too close to kneel" and "still being chased" are
+# the same number by construction -- see R10 for why it is not the claw's reach any more.
 static func _claw_in_reach(world: Variant, entity: int) -> bool:
 	var at: Variant = world.components.get_component(entity, "position")
 	if not (at is Dictionary):
 		return false
-	var reach_sq: float = SimShambler.SWIPE_METRES * SimShambler.SWIPE_METRES
+	var reach_sq: float = SimShambler.RELEASE_METRES * SimShambler.RELEASE_METRES
 	# Distance before health: a district holds a hundred dead and a claw is a metre and a half.
 	for z in world.components.query(["shambler", "position"]):
 		var zp: Dictionary = world.components.get_component(int(z), "position") as Dictionary

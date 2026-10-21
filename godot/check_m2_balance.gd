@@ -31,6 +31,7 @@ extends SceneTree
 const SimBoot = preload("res://sim/boot.gd")
 const SimDirector = preload("res://sim/modules/director.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimRoster = preload("res://sim/modules/roster.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimItems = preload("res://sim/modules/items.gd")
@@ -196,6 +197,7 @@ func _fast_tier() -> bool:
 	var ok: bool = _assert_invariants(runs)
 	ok = _assert_bands(runs) and ok
 	ok = _assert_the_seed_moves_placement(runs) and ok
+	ok = _the_placement_count_sees_a_packet_not_a_turned_colonist() and ok
 	ok = _the_armed_count_can_see_an_empty_hand() and ok
 	ok = _assert_grabs_reach_the_campaign(runs) and ok
 	ok = _the_grab_counters_can_see_a_grab() and ok
@@ -506,6 +508,31 @@ func _assert_invariants(runs: Array[Dictionary]) -> bool:
 	if ok:
 		print("INVARIANTS OK placement, cap %d at %d tiles, %d runs" % [SimDirector.live_cap_for(SimBoot.bare(int(FULL_SEEDS[0]), _tiles)["world"]), _tiles, runs.size()])
 	return ok
+
+
+# The counter the placement invariant reads, judged both ways on a real boot. A zombie that appears
+# on the gate tile is counted as a placement and refused as illegal -- the true positive, so the
+# invariant can still fail. A body risen from a colonist on the same tile is not counted at all --
+# the true negative, so a colony that dies at home is not booked as the director's doing.
+func _the_placement_count_sees_a_packet_not_a_turned_colonist() -> bool:
+	var w: Variant = _boot(int(FAST_SEEDS[0]), "mixed")
+	var gate: Vector2i = SimTileMap.gate_a(w.tilemap)
+	if gate.x < 0:
+		push_error("PLACED: the boot has no gate, so the lane judges nothing")
+		return false
+	var before: Array[int] = _shambler_ids(w)
+	var packet: int = SimRoster.spawn_zombie(w, float(gate.x) + 0.5, float(gate.y) + 0.5, SimRoster.TYPE_SHAMBLER, w.rng.stream("shambler"))
+	var seen: Array[Vector2i] = _placed_since(w, before)
+	if seen.size() != 1 or _legal_placement(w, seen[0]):
+		push_error("PLACED: a zombie put on the gate read %s, not one illegal placement" % str(seen))
+		return false
+	w.components.set_component(packet, "turnedFrom", {"entity": int(w.player)})
+	var risen: Array[Vector2i] = _placed_since(w, before)
+	if not risen.is_empty():
+		push_error("PLACED: a body risen from a colonist on the gate was counted as a placement (%s)" % str(risen))
+		return false
+	print("PLACED OK a zombie on the gate is one illegal placement; the same body risen from a colonist is none")
+	return true
 
 
 # The true negative for the counter the invariant above reads. An assertion that every colonist
@@ -1076,10 +1103,19 @@ func _survivors_alive(w: Variant) -> int:
 	return n
 
 
+# A body that is new since `before` and was never anybody is what the director placed. A survivor
+# who turned on the dusk tick is new too, and carries `turnedFrom` (infection.gd's reap and
+# recruits.gd's `_turn_with_kit` both stamp it): they rise wherever they died, which on a colony is
+# inside the annex. Counting them booked a colonist dying at home as "the director placed a packet
+# on a gate" -- the A24 pass recorded that defect and the building-noise pass traced it: seed
+# 20260805's one "illegal placement" at (25, 16) was colonist 26 risen in the annex. The PLACED
+# lane holds both halves.
 func _placed_since(w: Variant, before: Array[int]) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 	for ent in w.components.query(["shambler", "position"]):
 		if before.has(int(ent)):
+			continue
+		if w.components.has_component(int(ent), "turnedFrom"):
 			continue
 		var pos: Variant = w.components.get_component(int(ent), "position")
 		if pos is Dictionary:

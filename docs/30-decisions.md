@@ -5697,3 +5697,21 @@ playtest driver found on its first pilot. The weather spells and noise stay on r
 change is `godot/sim/modules/infection.gd`'s `HOUR_TICKS`, built before the answer as the card's
 default and kept; gated by `godot:m2:lethality`, `godot:m2:stats`, `godot:m2:treatment`,
 `godot:m2:medicine`, `godot:check:respond` and `godot:m2:filter`.
+
+## Building noise, and kneeling near a zombie, 2026-10-21
+
+**Engineering calls, taken in the building-noise pass** (the coordinator's tuning ruling: numbers
+are the coordinator's, a new mechanic is the owner's). Neither is a new mechanic; both move a
+number an existing rule already had.
+
+- **Construction is 15, not 30** (`SimFortify.CONSTRUCT_NOISE`, docs/03's table). At 30 the
+  colony's own Construct work drew 7 zombies to within 15 m of the annex by tick 12,000 on seed
+  31337, against 1 with Construct off. At 15 it draws 2. A build still carries down the street; it
+  no longer carries across the district.
+- **Self-aid waits until no zombie is within `RELEASE_METRES`** (treatment rule R10, which read
+  `SWIPE_METRES`). The claw's reach let a colonist who had just broken free kneel 1.5 to 2 m from
+  a zombie that was still chasing them. They were re-grabbed within a dozen ticks, and each
+  break-away pushed them further from home: sixty cycles on seed 31337, dead 60 tiles out. The
+  rule's own point ("fight or run first, kneel when clear") now means clear of a pursuer, not
+  clear of a claw. A held survivor still presses (R1), so the press a re-grab interrupts re-opens
+  under the hold. `godot:m2:contact`'s FLIGHT-CANCELS-PRESS was rewritten to say so.
