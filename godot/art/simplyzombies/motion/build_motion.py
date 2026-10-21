@@ -103,10 +103,15 @@ ACTION_TIMING = {
         "crouch": {"fps": 1, "loop": True},
         "crouchwalk": {"fps": 16, "loop": True},
         "prone": {"fps": 16, "loop": True},
-        "fall": {"fps": 10, "loop": False},
+        # The buckle, eight turns (actions.FALL_TURNS) and the settle onto the corpse: 83 ms a beat.
+        "fall": {"fps": 12, "loop": False},
     },
-    "zombie": {"lunge": {"fps": 10, "loop": False}, "stagger": {"fps": 8, "loop": False}, "fall": {"fps": 8, "loop": False}},
-    "body_zombie_heavy": {"lunge": {"fps": 8, "loop": False}, "stagger": {"fps": 6, "loop": False}, "fall": {"fps": 6, "loop": False}},
+    "zombie": {"lunge": {"fps": 10, "loop": False}, "stagger": {"fps": 8, "loop": False}, "fall": {"fps": 12, "loop": False}},
+    # The heavy and the bloater fall at 100 ms a beat.
+    "body_zombie_heavy": {"lunge": {"fps": 8, "loop": False}, "stagger": {"fps": 6, "loop": False}, "fall": {"fps": 10, "loop": False}},
+    # The bloater is the heavy's size and carries the same weight: at the common zombie's rates its
+    # lunge read as a twitch (art review, 2026-10-20).
+    "body_zombie_bloater": {"lunge": {"fps": 8, "loop": False}, "stagger": {"fps": 6, "loop": False}, "fall": {"fps": 10, "loop": False}},
 }
 
 
@@ -597,11 +602,21 @@ def _member(build, members, fam, action, view, n, rel_dir, rel_name, im, rest, h
     view's rest picture and, for a body that holds things, its hands."""
     rel = f"{rel_dir}/{rel_name}"
     build.put(base / rel, im)
+    wide = im.size != rest.size
+    if wide:
+        # A fall frame is on the wider fall canvas (actions.fall_canvas), and says so: the member's
+        # own canvas (and, where the family's members are cropped, a crop of all of it). Its offsets
+        # are against the rest view on that canvas.
+        rest = act.widen(rest, im.size)
+        if crop is not None:
+            crop = [0, 0, im.size[0], im.size[1]]
     head, torso = offsets(im, rest) if action not in act.LYING else ([0, 0], [0, 0])
     source = {"path": f"{root}{rel}"}
     if crop is not None:
         source["crop"] = crop
     entry = {"source": source, "head": head, "torso": torso}
+    if wide:
+        entry["canvas"] = [im.size[0], im.size[1]]
     if hands is not None:
         entry["hands"] = {slot: list(pt) for slot, pt in sorted(hands.items())}
     members[f"{fam}_{action}_{view}_{n}"] = entry
@@ -615,6 +630,14 @@ def survivor_actions(build, fam, members, frames_by_view, rests, walks, walk_han
         if action == "swing" and any(view not in swing for view in act.SWING_GENERATED):
             continue  # every generated view or none: a swing seen from one side only is not shipped
         views = act.LYING_VIEWS if action in act.LYING else VIEWS
+        if action == "fall":
+            falls = {view: (rests[view], [im for im, _h in act.derive(rests[view], "fall", view, walk=walks[view])]) for view in views}
+            for view, frames in settled(falls, POSES / "textures" / "human").items():
+                frames_by_view[view]["fall"] = [
+                    _member(build, members, fam, "fall", view, n, "textures/characters/motion", f"survivor_fall_{view}_{n:02d}.png", im, rests[view], None, crop=[0, 0, 32, 40])
+                    for n, im in enumerate(frames)
+                ]
+            continue
         for view in views:
             rest = rests[view]
             rest_hands = {slot: tuple(by_view[view]) for slot, by_view in REST_HANDS.items()}
@@ -633,10 +656,23 @@ def survivor_actions(build, fam, members, frames_by_view, rests, walks, walk_han
             frames_by_view[view][action] = rels
 
 
+def corpse_pictures(folder):
+    """{pose: the pack's corpse picture} for the family whose textures are in `folder`."""
+    return {pose: load(folder / f"corpse-{pose}.png") for pose in ("prone", "supine")}
+
+
+def settled(falls, folder):
+    """{view: the whole fall} -- the turned frames, then the settle onto the corpse -- for `falls`,
+    {view: (rest, the turned frames)}."""
+    plan = act.settle_plan({v: frames[-1] for v, (_rest, frames) in falls.items()}, corpse_pictures(folder), {v: rest for v, (rest, _frames) in falls.items()})
+    return {v: frames + act.settle_frames(frames[-1], plan[v]["corpse"], plan[v]["beats"]) for v, (_rest, frames) in falls.items()}
+
+
 def zombie(build, fam, spec):
     folder = POSES / "textures" / spec["dir"]
     members = {}
     frames_by_view = {}
+    falls = {}
     w, h = spec["canvas"]
     for view in VIEWS:
         word = WORDS[view]
@@ -672,10 +708,22 @@ def zombie(build, fam, spec):
         members[f"{fam}_idle_{view}_1"] = {"source": {"path": f"art/simplyzombies/zombie-poses/{rel}"}, "head": head, "torso": torso}
         frames_by_view[view] = {"walk": walk, "idle": [f"textures/{spec['dir']}/idle-{word}-00.png", rel]}
         for action in act.ZOMBIE_ACTIONS:
+            frames = [im for im, _hands in act.derive(rest, action, view)]
+            if action == "fall":
+                falls[view] = (rest, frames)
+                continue
             rels = []
-            for n, (im, _hands) in enumerate(act.derive(rest, action, view)):
+            for n, im in enumerate(frames):
                 rels.append(_member(build, members, fam, action, view, n, f"textures/{spec['dir']}/motion", f"{action}-{word}-{n:02d}.png", im, rest, root="art/simplyzombies/zombie-poses/", base=POSES))
             frames_by_view[view][action] = rels
+    # The fall settles onto the family's own corpse (actions.settle_plan), which needs every view's
+    # last turned frame at once: a view lies where its mirror does.
+    for view, frames in settled(falls, folder).items():
+        rest = falls[view][0]
+        frames_by_view[view]["fall"] = [
+            _member(build, members, fam, "fall", view, n, f"textures/{spec['dir']}/motion", f"fall-{WORDS[view]}-{n:02d}.png", im, rest, root="art/simplyzombies/zombie-poses/", base=POSES)
+            for n, im in enumerate(frames)
+        ]
     build.members[fam] = members
     build.manifest_frames[("poses", spec["dir"])] = frames_by_view
 

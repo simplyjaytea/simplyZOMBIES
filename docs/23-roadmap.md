@@ -169,10 +169,18 @@ The old Field Kit implementation remains the current baseline until replaced sli
 The grid-plus-fast-list recommendation is now the owner's decision, and the inventory's own
 look is settled as the Salvage Locker (docs/30, "The inventory's look"; the record's "UI — the
 inventory, redone"), which lands the storage half of the first bullet below: the grids, the
-list, the transfer and the inspect pane's actions. The anatomical diagram, the viewed versus
-acting survivor and the rest of that bullet remain. The illustrative concept's wider treatment
-is still open for feedback. Preserve existing grid capacity and pause behavior by default. The
-following order completes all existing UI, with a useful playable flow first:
+list, the transfer and the inspect pane's actions. Slice 1 (alpha A20, 2026-10-20; the
+record's "UI overhaul, slice 1") lands the bullet's navigation half: one bar over Survivor,
+Colony and Skills on Tab, J and K, the viewed survivor's name with a you or viewing stamp,
+Escape that puts away the one thing in front, the field HUD put away under all three, and a
+picked body region on the existing figure showing its condition and only the care the sim
+would accept. Still open in that bullet: the re-illustrated anatomy, the 1280×720
+section-and-drawer layout, and a viewed-versus-acting split inside the sheet beyond the bar's
+stamp. The Colony and Skills screens' contents are the second bullet's; slice 1 only fits the
+skill web to a 1280×720 window as a stopgap and puts it in the locker's steel. The illustrative
+concept's wider treatment is still open for feedback. Preserve existing grid capacity and pause
+behavior by default. The following order completes all existing UI, with a useful playable flow
+first:
 
 - **Shared frame and the scavenging flow.** Establish the common theme, explicit viewed
   survivor versus acting survivor, screen navigation and input/focus rules. In the same
@@ -1085,14 +1093,38 @@ code: the frames slot into `build_motion.py` and every gate already judges them.
   own frames, so it lies by the feet only while the reload plays and goes with the stance.
   Accepted for alpha (art review, 2026-10-20); once the decal layer (A13) lands it becomes a
   mark left on the ground where the body stood, like the casings.
-- **Clothes on the action frames.** Not a generation budget: painter work. A6's garments are
-  painted on the survivor's rest, walk and breath frames only, so a clothed body swings, fires,
-  reloads, flinches, crouches, crawls and falls in the rig's own underwear (208 action frames
-  against 29 garments). `Appearance.body_texture` leaves an action picture undressed by name
-  (`is_action_frame`) and `godot:check:authored`'s WEAR lane leaves the same frames out, so
-  both say where the gap is. The derived actions are whole-pixel moves of a rest or walk frame
-  and could carry that frame's garment through the same move; the drawn reloads and the
-  generated swing need `clothing/parts.py` to label their redrawn arms.
+- **The lunge's legs, and the soft edge.** Art review round 2's two remaining minors: the south
+  lunge's legs read about three rows shorter at full reach than the rest view's (the upper body
+  leans down over them), and an action frame keeps only the pack's solid pixels (alpha 128 and
+  up), so the soft-alpha specks at a standing body's edge drop off on the action frames. A
+  redrawn south reach, or carrying the specks through `motion/actions.py`'s moves, closes them.
+- **The pack's corpse pictures.** Every fall now settles onto the pack's own corpse (art review
+  round 3's ruling: the pack corpses are the quality floor). They are cut whole, so what round 1
+  found in them stays on every lying body: a one or two pixel hole inside the silhouette, no dark
+  outline, and a palette that differs from the standing body's. The heavy's and the bloater's
+  are widened to their belly mass by whole sixteenths, nearest neighbour, which doubles a column
+  or row here and there rather than drawing a belly. A drawn corpse per family closes all three.
+- **The lunge's ease-back beat.** Each lunge's homeward beat repeats an outward one (the south and
+  north f4 is f1, the east and west f3 is f1), since the reach moves a pixel a beat and a
+  one-pixel return lands on a pose already shown. Art review round 3 called it minor. A sixth beat,
+  or a reach that moves two pixels a beat outward, closes it.
+- **The settle's remaining minors** (art review rounds 4 and 5, for a follow-up pull request).
+  The front and back views' head takes the corpse's colours in one beat on the hold frame (the
+  workwear's north view turns the back of its head into a face): a colour cross-fade within the
+  head, or carrying it as the side views do, closes it. The side views have the same swap: the
+  carried head keeps its turned colours to the last beat and takes the corpse's on the hold frame
+  (the heavy's east view changes 38 of its 68 head pixels, the raincoat's west view 36 of 37,
+  the commuter and the screamer only mildly), and the survivor's head shrinks from 63 or 64
+  pixels to 31 to 39 there; a cross-fade over the carried beats closes both. Mid-settle the two bodies' outlines show
+  through each other for a beat (the heavy's north view has 118 dark pixels inside its silhouette
+  at its second beat against 46 and 98 at either end; stray strokes across the bloater's belly).
+  The hazmat suit's belt thins to two to four pixels through the front and back settle before
+  the corpse's taped waist arrives. The runner's side views land 6 and 7 columns from where their
+  feet were, the least a mirrored landing allows (its two turned frames are not mirror images):
+  the east view's corpse now sits 6 columns further toward the head, where round 4 had none. A survivor with no garment in a
+  slot would lie in the pack corpse's tee or trousers, but none is drawn so: `Appearance.outfit_of`
+  fills an empty slot from the body's default outfit, and every survivor block names one
+  (`godot:check:worn`'s DRESSED lane), so this stays a note unless a bare body becomes reachable.
 
 **The inventory sheet and the screens — decided by the owner (2026-09-08).** The inventory is
 mechanically complete and gated, and the screen reaches four of its commands: `item.move`,
@@ -2153,6 +2185,104 @@ links in the slice-scope table above are the authority on each). The open tails 
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
 
+- **UI overhaul, slice 1: one bar, care on the figure, the field HUD in the locker, 2026-10-20
+  (alpha A20).** Taken from docs/32's own order: the first bullet of [the UI overhaul
+  group](#ui-overhaul), less the storage half #153 already landed. What changed, all under
+  `godot/ui/` and the two coordinator files:
+  - **One navigation bar** (`ui/nav_bar.gd`). Survivor, Colony and Skills are tabs with their keys
+    on them. Tab, J and K switch in one press and put the screen in front away. The bar names who
+    is being looked at, stamped "you", "viewing" or (on Colony) "everyone", and ends in the kit's
+    close glyph. The sheet draws the same bar in its own title strip. Over Colony and Skills the
+    bar stands alone above the locker's wash, and `main.gd`'s `_show_screen` keeps exactly one
+    screen up.
+  - **Escape and the HUD.** Escape puts away the one thing in front. On the sheet that is a drag,
+    then the item menu, then a picked part, then the sheet. Before, Escape on the sheet or the
+    work grid also raised the settings sheet over it. The field HUD is put away under all three
+    screens, and the street's belt strip under Colony and Skills (the sheet keeps its own belt
+    row); the work grid and the web used to draw over a lit HUD.
+  - **Care on the figure** (`ui/care_pane.gd`). A click on a region of the existing figure picks
+    it: an amber ring on the figure, and the inspect slot shows the part's state words, wound
+    notes and a care row. The figure's hit test reads the same painted chart the figure draws.
+    The care row comes from `SimTreatment.options_for`, the dry run behind command validation:
+    an offered verb is a button that pushes `treat.begin`, a refused one says why in words (no
+    dressing on you, stop the bleeding first), and a running treatment offers only "stop"
+    (`treat.cancel`). No new treatment rule lives in the interface. The list above gives up rows
+    to the pane until every refusal fits, and a refusal too wide for the pane wraps rather than
+    losing its reason. The figure's panel is taped "worn", so it no longer repeats the tab.
+  - **The field HUD's cards, tip and action bar wear the Salvage Locker** (near-opaque steel,
+    tape label, rivets), so the street and the sheet are one kit, and the street's figure sits on
+    a locker card. The action bar names the three screens in one token, "Tab J K screens", so
+    every key still fits at 1280×720 beside an E clause; the F1 legend names each.
+  - **The skill web wears the locker too**, with a tape label that no longer repeats whose web it
+    is (the bar says that), and follows the bar when a colonist is picked while it is up. As a
+    stopgap it is centred under the bar and, on a window shorter than its natural size, the web
+    between its words shrinks to fit: at 1280×720 every node, region word and the footer are on
+    screen. Labels that already crowded each other still do; the reflow is the second bullet's.
+
+  **Not changed:** the sim, the read models, the figure's art, the Colony and Skills screens' own
+  contents, the bans. **Evidence:** `godot:check:play`'s new NAV lane, in the real scene at
+  1280×720: a key walk round all three screens with one screen up, the HUD dark and the belt
+  strip put away under each. A click on the bar's free room does nothing, a tab click switches,
+  close goes to the street and the sheet's own Skills tab reaches Skills. Escape on Colony opens
+  no settings, and on the sheet with a part picked it puts the part down and stops there. The
+  street's swing stays refused under the two new focuses. `godot:check:inventory`'s new CARE
+  lane picks a cut arm at the figure's own point and offers exactly what `options_for` says
+  works, every refusal in words. A press on hold pressure queues the one `treat.begin`, a
+  dressing in the bag makes "dress it" offered, and Escape puts the part down. Its negative is a
+  part with no wound, which offers nothing. `check_ui_skin`'s GLYPHS lane now finds the close
+  glyph's reader in `nav_bar.gd`. `check_shots` gains the care and skills scenes (seven now),
+  set up at 1280×720. `godot:check:play`, `:inventory`, `:hud`, `:respond`, `:appearance`,
+  `:context`, `:web_look`, `:speech`, `:memory`, `:ui_skin`, `:shots`, `godot:ban:healthbar`,
+  `godot:smoke`, `godot:validate`, `check:routing` and `npm test` pass locally. The NAV lane also
+  holds the bar and the web to the same person (you, then a colonist "viewing") and the web
+  inside the 1280×720 window; `godot:check:hud`'s new BAR lane holds the hint to every key at
+  1280×720 beside the trip-alarm clause, its negative a hint one token too long; the CARE lane's
+  FIT holds a refusal whole in a narrow pane. `check_shots` gains colony and viewing (nine
+  scenes). Before and after shots at both windows are in the project's planning files under
+  ui-slice-1, reviewed once by the art QA pass. **Not shown or proven:** a treatment run to its
+  end from the pane, a colonist treated from the pane, the Colony grid's own look (still the old
+  kit), and the speech bubble's style (both the second bullet's).
+
+  **Second review round, on the 2 px art grid.** The art QA pass measured the shots and the
+  fixes landed on this entry. Every locker outline is now inset 2 px fills
+  (`Locker.rim`) instead of a centred stroke, so the care pane's buttons, the active tab and
+  the chips start and end on even pixels; the care button's row is snapped to the grid. Text
+  sits on whole multiples of VT323's pixel: the tab words at 4x on a tall window and 2x on a
+  short one, the care pane's part heading at 2x. The figure on the sheet scales by an even
+  whole number and sits on an even pixel, so at 1920×1080 it is 2x where it was 3x and the
+  picked part's ring no longer has odd edges. The skill web keeps its full width at 1280×720
+  and only its height gives way, its discs sit on even centres and radii, and a label plan tries
+  each name (with a keystone's price) on its home side, then the other, a row or two up or down,
+  keeping 8 px of ink from every other word and off every other disc, so at 1280×720 no name
+  sits on another or under a node; `godot:check:web_look`'s new CROWD lane holds that at both
+  sizes, and its negative is the short web with every name on its home row, which crowds. Its locked ink is raised to (142,136,126), above 4.5:1 on
+  the steel, and its footer legend wraps to two lines instead of ending in "…". The Colony
+  grid sizes each column to its own head plus a 20 px gap and stands against the panel's right
+  edge, so the heads ("Construct") and the taglines get the width the grid used to leave empty,
+  and Scavenge no longer runs into Water; `godot:check:play`'s WORK-LAYOUT lane holds both, at
+  1280×720 and 1920×1080, against the edges the click math reads. The street's figure card
+  lines up with the belt at x 16 and carries a "body" tape like every other HUD card.
+  **Third round.** The web's discs, keystone rings and hub dot are drawn in whole 2×2 art
+  pixels (`web_panel.gd`'s `_blocks`) instead of smooth circles whose 2 px rings landed on odd
+  edges, and its lines are 2 px moved half their width onto even columns;
+  `godot:check:web_look`'s CROWD lane now also holds every disc's box and art pixels to the
+  even grid, refusing the odd box the review measured. Locked ink is (146,140,130), 4.5:1 even
+  on the steel's lighter streak. A "you" card tall enough to reach the street's body card
+  starts right of it and runs down beside the figure, not over it; one that ends above the body
+  card stays at the margin, so at 1920×1080 it does not hang beside an empty strip. The body
+  card ends 4 px short of the action bar. `godot:check:play`'s HUD-CARDS lane holds all of it at
+  1280×720 and 1920×1080 with a one-line and a five-line "you" card, its negative the five-line
+  card with no body card to make room for, which overlaps at 1280×720.
+  **Left for slice 2**, from this slice: the web's dashed lines can start on an odd row, its
+  diagonal lines step a pixel per row rather than in 2×2 blocks, and the region circle's rim is
+  1 px. Each also on main before this slice: VT323's 1 px glyph bearing, which
+  starts the bar's words and the care pane's text a pixel off the grid; the figure's wound dot
+  (a 1 px red rim) and its smooth ground shadow; the keycaps' 1 px outlines and
+  corner steps; text that is not on a whole VT323 multiple (the HUD's "You" and OUTSIDE lines,
+  the tip card, the interior action bar's shrunk labels, the bar's hint and stamps, the web's
+  labels); the inventory's filter chips and the equipped-knife slot off the grid; the interior
+  camera's odd offset; and the bark bubble's old green style and clipped first glyph.
+
 - **UI — the inventory, redone (the Salvage Locker), 2026-10-19.** The owner's answer to the
   alpha plan's Q5: keep the grid, which reads like Tarkov's, but it "looks very plain" and has to
   look bespoke; and a fast list beside it with the grid still the authority on capacity. Three
@@ -2431,7 +2561,8 @@ not a to-do list:
   (one line: the clock's action merged into the motion) and `_draw_corpse` (the fall, and the
   `_falls_drawn` list the gate reads). Presentation only: nothing under `godot/sim/` changed.
 
-  **The art, and which half is which.** **496** new members. **Generated: the swing's east,
+  **The art, and which half is which.** **496** new members (1036 since the falls landed and
+  settled, the next record). **Generated: the swing's east,
   west and south views** -- three PixelLab `animate_image` strips, each from the pack's own rest
   view, five frames kept a view (`motion/sources/actions/generation.json` has the jobs, inputs,
   prompts, and the two rejected jobs). **Derived: everything else** -- the back view's swing (its
@@ -2489,13 +2620,13 @@ not a to-do list:
   class -- both are in what's left as generation budgets.
 
   **Evidence:** `npm run godot:check:action` → `ACTION_OK`, chained after `godot:check:motion`.
-  CATALOGUE: 10 families, 496 frames, every view present and equal (the crawl only east and
+  CATALOGUE: 10 families, 496 frames (1036 since the next record), every view present and equal (the crawl only east and
   west); an undeclared action, a crawl seen from the south and a face-on key carry none.
   TIMING and PRIORITY hold `action_index` and `action_key` (ends, wraps, holds, a one-shot over a
   stance, nothing upright while lying, nothing for nothing, the magazine reloads six to eight beats
   and the tube up to twelve, all held on the stance). REACH: all three reloads in every view move the weapon hand (two
   pixels, or one for a long gun from behind), bring the off hand to the weapon and away and end
-  on the stance; the three-beat head-bob reload they replaced is refused. GEOMETRY: **428**
+  on the stance; the three-beat head-bob reload they replaced is refused. GEOMETRY: **428** (968 since)
   derived frames carry only their rest view's colours (a reload's magazine the held pistol's
   gunmetal, the tube reload's shells the shells icon's colours, and every one of the twelve
   reload views shows its own load and not the other's; the rest view shows neither), a crouch stands lower than the rest and a fall lower
@@ -2517,6 +2648,146 @@ not a to-do list:
   Before/after strips and GIFs per action, for the eight bodies there were before the screamer
   and the bloater joined, are under
   `.hermes/plans/2026-10-19_a8-actions/`.
+
+- **Feel — falls that lie down, and lunges that reach, 2026-10-20.** Art review's first pass over
+  the screamer and bloater strips (NOT CLEAR: three blocking, eight major) found the fall broken
+  for every family, the survivor's included. A fall was two frames of the body sinking straight
+  down into its feet, then a cut to the corpse picture drawn centred on the ground point: the
+  body jumped eight to eleven rows up and sideways on the cut, the bloater's boots vanished for a
+  frame, and every view landed with its head east, so a body falling west turned round as it hit.
+  The lunge snapped back two or three pixels on its last beat, skated its feet, held a frame
+  twice on the bloater's east view, and from the north and south was a stretch or a duck. The
+  second pass (NOT CLEAR again) measured the first fix: a three-frame turn to 60 degrees and a
+  cut to the pack's corpse still changed the body's mass by up to a third in one beat, a landing
+  beat two rows up read as a hop, and the north lunge lost a fifth of its body on one step. It
+  set the bounds the fall now keeps on every beat: mass at most 15%, the centre of mass at most
+  4 columns, no edge more than 6 px, and the lowest row never above the standing sole row. The
+  third pass (NOT CLEAR, one major) found the lying frame was the knee buckle turned 90 degrees
+  as a rigid block, and ruled that the pack's corpses are the quality floor: the fall ends on
+  them. It also accepted the fall's rate, gave the stagger's first push a row, and named three
+  minors (below). The fourth (NOT CLEAR, one blocking) confirmed the corpse, the mirrored runner,
+  the belt and the stagger, and found the side views' settle dissolving the head away first and
+  drawing the corpse's in last, so the body lay headless for a beat or three and the head popped
+  back on the hold frame; its ruling, the head carried whole and a gate that sees it, is below.
+
+  **The fall ends on the pack's corpse.** The knees go (a fold over the feet, which are kept to
+  the end; the hip's top rows are drawn again over the sunk body, so a belt or a suit's taped
+  waist stays painted), then the body is turned 10 degrees a beat, 10 to 80, about the outer edge
+  of its leading sole toward the side it falls to (`motion/actions.py` `turn_about_feet`):
+  RotSprite's way, up eight times by Scale2x, turned by sampling in whole-number sines and cosines
+  (`TURN_TABLE`), and back down, so every pixel is one of the pack's. Only the edge the turn
+  opened is ringed again, in the bare body's darkest colour (`_reoutline`); the pack's own edge
+  keeps its own colours. A side view falls the way it faces; the front view crumples east and the
+  back view west (`FALL_SIDE`, in `actions.py` and `presentation/appearance.gd` alike). Then it
+  **settles** (`settle_plan`, `settle_frames`) onto the family's own pack corpse, prone for a
+  side view and supine for the front and back (`LIE_POSE`), mirrored to the side it fell to, so
+  the east and west views, and the south and north, land as exact mirrors of each other (the
+  runner's included). The heavy's and the bloater's corpses, slimmer than the bodies that walked,
+  are widened by whole sixteenths until they carry at least 95% of the last turned frame's mass
+  (`lying_corpses`, `BELLY_PCT`); the armored's prone corpse, lighter than its armour-bulked
+  body, is widened by the same rule, a sixteenth. The beats between are the turned frame
+  becoming the corpse by count, the corpse's pixels nearest the body arriving first and the
+  turned frame's farthest leaving first, the sole row last to go, each beat keeping only its
+  largest connected run so no speck floats. **A side view carries its head whole**
+  (`HEAD_CARRIED`, art review round 4): it lands face down with its head at the top of the
+  corpse, rows above where the turned frame's head lies, and a dissolve by distance dropped the
+  one head first and drew the other last. So the turned frame's head (`fall_head`: the pixels the
+  turn sampled from the standing head, `head_of`, its top rows down to the neck and back from the
+  face as far as it is tall) moves as one block, k/n of the way to the corpse's head
+  (`corpse_head`) on beat k, drawn over the body; the rest dissolves as before, the corpse's sole
+  row first, and the corpse redraws the head in place on the hold frame. The front and back views
+  land on their backs with the head where it fell and dissolve, as round 4 accepted. The corpse
+  is placed within ten columns of where it overlaps the last turn most, clear of the canvas edge,
+  the mirror pair averaged; a side pair takes the place whose foot end lies nearest where the
+  turned frame's lay, within `SETTLE_FOOT` (5 columns) wherever a place settles there, so a body
+  settles where it fell rather than skating along the floor (round 4's stalker slid 9 columns).
+  The runner's two side views are not mirror images of each other turned, so a mirrored landing
+  cannot keep both feet: it drifts 6 and 7, the least that settles. Each family takes the beat
+  count whose side pair drifts least, then the fewest beats, that keeps every step inside the
+  bounds with a margin (13% mass, 3.5 columns of centre, 5 px of edge, the sole row held), the
+  last step judged on every corpse pixel that shows (alpha 16 and up, its soft edge included):
+  three to five, so a fall is 13 to 15 frames. The frames lie out on a wider
+  canvas, `fall_canvas`: 96 columns, the family's height, the standing body on its middle column,
+  declared per member (`canvas` on the member, which `tools/sprites/build.py` and
+  `Appearance.canvas_of` both honour). **The corpse is the fall's last frame, and the settled
+  body**: `_draw_corpse` draws `Appearance.lying_key` (the fall's last frame for the view it fell
+  from) where the fall stood, so the hold frame is the corpse and nothing cuts. The view a body
+  fell from is remembered on the render clock (`anim_clock.gd` `landed_view`, 512 bodies), and a
+  zombie's settled record carries the heading it died with (`visualRemains` gains an optional
+  `facing`, kept only when it is a finite number; no save version bump, an older record lies as
+  drawn), so it lies the same way after a load. The survivor's and the common zombies' falls play
+  at 12 frames a second (83 ms a beat), the heavy's and the bloater's at 10 (100 ms); round 3
+  accepted those rates over ten beats, and the settle keeps them per beat, so a fall now runs
+  1.1 to 1.4 s.
+
+  **The lunge** is five beats with the feet planted (a lean above the hip, never a step): a
+  wind-back, the reach, the full reach, and two beats home, a pixel a beat, so the last frame
+  is a pixel from the rest. From the front and back the upper body travels two rows a beat
+  down-screen or up-screen without losing a row, and the feet stay where they stood (round 2's
+  arms widening at full reach stepped the feet a pixel outward; it is gone). The stagger seen
+  from the south lifts the body a pixel on its first two beats, from the north dips it. The
+  bloater plays on the heavy's timing, 8, 6 and 10 frames a second, since at the common zombie's
+  rates it read lighter than the heavy on the same canvas. The stagger's first beat seen from the
+  south lowers the lowest row from 55 to 54: round 3 ruled it the agreed knock-back push, and the
+  gate allows a stagger that one row and nothing else.
+
+  **Evidence:** `npm run godot:check:action` → `ACTION_OK`. Its LANDING lane places every fall the
+  way `_draw_corpse` does, rest view to the corpse: `LANDING OK 40 falls, 588 steps ... at most
+  12.2% mass, 3.4 columns of centre and 5 px of edge a step (bounds 15%, 4, 6), the sole row held,
+  each lying to its fall side as its own last frame`. Its negatives: the pack's corpse cut in
+  straight after the turn breaks the bounds 88 times, the same falls at every third frame 40
+  times, and a view or key with no fall answers no lying frame. HEAD looks for a head on every
+  beat of the 20 side-view settles, the last turned frame's or the corpse's (the fall-side end of
+  each, `HEAD_COLS` 8 columns, matched colour for colour wherever it moved between the two):
+  `HEAD OK 20 side-view settles, 74 beats: a head carried on every one, at least 61% of it ...
+  and the corpse's head adds at most 12.1% of the body at the hold frame (bound 15%)`; each
+  settle with both heads erased where they were found is refused, all 20, and round 4's art fails
+  it in all 20 side settles, each with a beat under half a head. The front and back
+  views are reported, not judged (least 50%). STRIKE (which replaced
+  LUNGE_MASS) holds every lunge and stagger, rest to the beats and home, to the same 15% mass
+  step and the sole row (`72 lunges and staggers ... at most 10.5%`, the commuter's north lunge;
+  a stagger 1 row up on 18 steps, its allowance), and refuses a beat with its lower half cut off
+  and a beat lifted past its allowance in all 72. GEOMETRY lets a fall carry its corpse's colours
+  and holds the fall's last frame wider than tall. READERS needs `_draw_corpse` to call
+  `lying_key` and `dressed_texture` and to record what it laid down, each shown missed when
+  removed; the FALL scene lane kills a zombie on the booted scene and finds it lying as
+  `body_zombie_commuter_fall_w_12` after the fall played. CATALOGUE counts 1036 frames, GEOMETRY
+  968 derived frames on their rest view's colours.
+  `godot:check:authored` judges a fall member at its own canvas (PACK cuts it whole,
+  ZOMBIE_POSES holds it to its family's canvas and anchor, with a sound fall frame accepted and
+  a wide picture that is not a fall, or a fall wider than the fall canvas, refused);
+  `godot:check:worn` lets a fall frame move a layer point up to 40 px, a body's height, since at
+  90 degrees the head lies where the hip stood; the REMAINS lane in `godot:check:zombie_art`
+  round-trips the dying heading through save text and refuses a heading that is not a finite
+  number.
+
+  **The survivor falls, and lies, in its clothes** (with #171 and #174 merged in). The painter
+  follows the fall: `clothing/action_wear.py` dresses the fall's source and turns it by the same
+  `derive` call, ringed in the bare body's ink so cloth and skin share one outline, lays each
+  action out on the garment's action sheet at its frames' own width (3072x160, a fall frame 96
+  wide), and declares each fall member's `canvas`; a garment pixel the turn's ring lands on is
+  made opaque, as cloth always is. The corpse it settles onto was never a standing frame, so
+  `clothing/corpse_wear.py` labels the pack's lying human by its own colours (ink, the grey
+  trousers, the tan tee, skin, hair and shoes, the face, the arms and hands) and paints each
+  garment over the parts its shape covers, at the light of the corpse's own pixel, with the belt
+  or a suit's taped waist and ankles where its trousers meet its tee and shoes; the beats are
+  made from the dressed turn and the dressed corpse by the bare fall's own call. A survivor with
+  no garment in a slot would lie in the pack corpse's own tee or trousers there (none is drawn so;
+  what's left says why). 256 action frames, 296 members a garment (`godot:check:authored` WEAR:
+  8584 painted frames). The clock records the outfit a body was
+  last drawn in (`AnimClock.act`'s `outfit`) and `_draw_corpse` composes the fall and the lying
+  frame through `Appearance.dressed_texture`. `godot:check:action` CLOCK proves the outfit rides
+  the fall and a bare body falls bare, and that every fall frame composes dressed at its own
+  canvas. `godot:check:worn` CANVAS holds each garment member to its rig frame's own canvas.
+  Strips and animations, laid out as the game draws them, are in
+  `/mnt/project-files/a8-actions/zombies/round5/` and, clothed,
+  `/mnt/project-files/a8-actions/clothed/falls-round5/`. **Not done:** the south lunge's legs read
+  about three rows shorter on its full reach than the rest view's; an action frame keeps only the
+  pack's solid pixels (alpha 128 and up), so the faint soft-alpha specks at a standing body's edge
+  are not on the action frames; the lunge's homeward beat repeats an outward one; the pack's
+  corpses keep their hole, missing outline and own palette; and the settle's round 4 minors (the
+  front and back views' head recoloured on the hold frame, outlines showing through mid-settle,
+  the hazmat belt thinning there, the runner's lopsided landing). All are in what's left.
 
 - **Feel — the weapon turned to the cursor, and the blow felt, 2026-10-19.** Item A9 of the
   2026-10-19 alpha plan, with the owner's answer to its Q3 the same day: the cursor is the aimer,
@@ -3423,6 +3694,108 @@ not a to-do list:
   wants drawn frames. The breath plants the hands and lifts the shoulders, so no hand stretches a row
   on the inhale.
 
+  **On the action frames, 2026-10-20.** A8 ("Feel — actions on the render clock", above) left
+  every clothed body swinging, firing, reloading, flinching, crouching, crawling and falling in
+  the rig's underwear: its 208 action frames carried no garment, and `Appearance.body_texture`
+  skipped them by name (`is_action_frame`) rather than ask for members that did not exist. The
+  painter now carries all 29 garments onto every one of them, **6032 members**, without painting
+  any a second time (`clothing/action_wear.py`), in three ways that follow how each action was
+  made. **Moved** (recoil, flinch, crouch, the crouched walk, the crawl, both falls and the back
+  view's swing): the source rest or walk frame is dressed first and moved after, by the same
+  `actions.derive` or `actions.prone_frames` call, and the garment is whatever the dressed move
+  shows that the bare one does not; a fold or a lean takes the cloth with the skin under it,
+  pixel for pixel. **Drawn** (the three reloads): the dressed rest view goes through the beat's
+  own `_armless` and `_knee` (the patch that closes the torso where a forearm hung takes the
+  cloth beside it), and the jointed arms are sleeved by their length from the shoulder joint,
+  read from `actions.reload_frames`' new `trace` (each limb's joints, skin and where it shows; it
+  changes no pixel the reload draws, `MOTION_OK` unchanged): a short sleeve ends as far down the
+  arm as the rest view's tee does (1.5 px from the joint, 2.5 side on), a long one runs to a cuff
+  where the fist begins (the last half pixel to the hand point and the fist's tip past it), and
+  any skin the beat paints off the body goes to the nearest limb. **Generated** (the swing east,
+  west and south): labelled from their own pixels like a rest frame (`parts.label` through
+  `Frame.of_image`), an arm being skin in the chest rows more than a pixel past the hips' span,
+  measured out from the body's edge; a short sleeve covers two pixels and the last two are the
+  hand. The moved and drawn bare frames are rebuilt and held to the committed pictures on every
+  run, so a change to `actions.py` the painter has not followed stops it rather than dressing the
+  wrong pose. Each garment gains a second sheet, `native/actions/<garment>.png` (1792x160: a row
+  per view, the actions side by side, each as wide as its longest view); the 320x160 sheets and
+  their 1160 members are byte for byte as they were. `build_clothing.py` now writes every
+  garment's `authored.json` members from its sheets and `--check` holds them to that.
+  **Gated:** `Appearance.body_texture` dresses every frame and `is_action_frame` is gone (it had
+  no other reader), so a garment member missing for any frame is `dressed_image`'s error again;
+  `godot:check:action`'s SCENE lanes read every action frame through `dressed_texture`.
+  `godot:check:authored`'s WEAR lane requires every rig member, action frames included, and
+  judges an action frame's pixel minimum per run (one action seen one way, all its frames) rather
+  than per frame, because a pose can hide a garment's part outright; new true negatives a garment
+  missing its rig's reload frame and a run painted under the minimum. `godot:check:worn`'s
+  COVERAGE lane composes every torso, legs and feet item on all 248 frames against its reference
+  composite, each action run showing the garment somewhere, and refuses a reload frame dressed in
+  the garments' standing pictures; CANVAS covers the action members.
+  **Measured:** `WEAR OK 29 garment(s), 7192 painted frame(s) (6032 of them action frames, 82
+  hiding the garment's part and every action run painting at least 5)`; `COVERAGE OK ... on all
+  248 rig frames, 208 of them action frames (fewest 5 garment pixels showing standing, walking
+  or breathing; 50 action frames where the pose hides the garment's part, every action run
+  showing it)`; `CLOTHING_OK 29 garments, 7192 frames`; `SPRITES_OK ... 8107 authored keys
+  reproduced`; `npm test` 45 files / 594 tests. **What the poses hide, named:** footwear
+  on the fall's second frame every way, because A8's fold takes the shins down to the sole row's
+  outline and leaves no foot to shoe (the folded crouched-walk steps keep two to four pixels of
+  shoe); trousers and shorts side on under both fists on the long gun's first beat west and the
+  shotgun's first west and seventh both ways, with two or three pixels left on the long gun's and
+  the shotgun's first beat east and the shotgun's fourth, where the arms cover the hips and
+  thighs (after the round-one fixes below: WEAR 68 frames under its minimum, COVERAGE 36). **Half
+  shipped, named:** a short-sleeved garment leaves those fists and forearms bare over the hips,
+  which reads as more skin than trousers on those beats; on the front view's generated guard the
+  forearms cross inside the hips' span and take the torso garment, so a tee reads long-sleeved
+  for that one frame; the generated swing's arms are found from their own pixels, not drawn, so
+  its sleeve ends are a pixel rough where an arm meets the chest; the 4x review strips and an
+  in-game reload are under `/mnt/project-files/a8-actions/clothed/`.
+  **Art review round one, 2026-10-20.** The swing's trailing leg kicks back up into the
+  underwear's rows, where the rest-view rules hang a hand, so a strip of bare shin showed between
+  trouser and shoe (west, frame 1) and single skin pixels at the hem or ankle on four more swing
+  frames: skin below the belt that touches the pelvis or a leg is now leg (round two moved the
+  rule to `parts._legs_below_belt`, so it labels every frame, the walk's included).
+  The column just past the hips' span is arm at no reach, which closes the one-pixel skin slivers
+  down a sleeve's inner edge on the guard frames. The walk's generated frames shade some hair a
+  brown dark enough to classify as ink, so the hazmat hood left a seam of hair beside the face on
+  every walk and crouched-walk frame (and three to eight pixels of the rest views'); a hood now
+  takes a dark pixel warm by a dozen levels or more, inside the head's outline ring and touching
+  hair, as hair (`build_clothing.hood`); a moved frame drops any garment pixel that lands on the
+  moved body's ink, so hair a lean brings to the silhouette's edge stays outline.
+  `godot:check:authored`'s WEAR lane reads ink the same way (`_wear_is_ink`: dark and neutral, or
+  dark on the outline ring), with three new fabricated cases: a hood over warm hair inside the
+  ring passes, the same colour on the ring and a neutral dark pixel inside it are refused; the
+  old 45-level rule alone refused the hood (`'wear_suit_hazmat_s' paints (16, 16), over the
+  pack's ink`) and, once the hood was allowed, caught a lean carrying hood onto the outline
+  (`recoil_w_1`). The crouched walk's long sleeves stopping short of the
+  hand came from the walk's own labels and closed with #154's two-by-two hands, merged in.
+  **Body art, named and not this slice's:** the pack's rest pictures store about three hundred
+  pixels at alpha 247-254 and a handful near 75 percent, and every action frame moved from them
+  carries the same, so most of the drawn body drifts over the floor (the round-two review counted
+  190 of the body's 262 pixels off by one to three levels in game); the generated swing's
+  fists have no outline at the tip (south 1-2, west 1-3) and its east frame 1 has a background
+  slit between the rear arm and the torso; and A8's fold leaves the crouched walk's leg ends and
+  the gap between the legs on background without an outline. Each is in the body picture, under
+  any garment, and is fixed where that picture is made (the pack import or `motion/actions.py`).
+  **Art review round two, 2026-10-20.** Bare leg or foot skin below the belt on the crouched
+  walk (east frames 1, 4 and 7, west 0 and 5) came from #154's walk frames, which the crouch
+  inherits: the arm rules took a stepping shin for a hand. `parts._legs_below_belt` relabels a run
+  of arm or hand pixels that lies wholly at or below the underwear's top row and touches the
+  pelvis or a leg as leg, so the trouser or shoe covers it; the standing sheets change only on the
+  walk cells that showed it (east 2, 5, 7 and 8, west 1 and 6), rest and breath are untouched.
+  The hood's hair rule now chains (warm dark pixels joined to hair through other warm dark pixels
+  are hair), which closes the two pixels at the nape on the east crouched walk, and the reload's
+  heal pass runs until nothing more joins, which closes the single hair pixel behind the hood on
+  the east reloads. The crouch's fold drops the rows at the knee and can leave a hand one row tall,
+  so a long sleeve's cuff seemed to jump a pixel between frames; `action_wear._whole_hands` steps a
+  torso garment's cuff back off the bare skin straight above such a hand, never on what a trouser
+  or shoe covers. Where the fold leaves a hand one pixel wide between ink (south frame 0's right
+  hand), that is the body picture's, with the rest of the fold geometry above. The round-three
+  confirmation found one more pixel of the same kind: on the west recoil frame 1 and flinch frame
+  2 the lean brings a hood-covered hair pixel to the jaw's edge at (21, 21), where it read as
+  outline and showed as hair beside the hood. Warm dark hair on the ring beside a neutral outline
+  pixel is hair now (`action_wear._ink`, and `godot:check:authored`'s `_wear_is_ink` with a
+  fabricated case each way), which hoods those two frames and nothing else.
+
 - **Art & renderer — zombies turn, walk and fall, 2026-10-02.** Closes "A silhouette per
   kind" and the Focal art half of "A corpse reads as a corpse", at the owner's request for
   varied zombie/corpse poses, animation, actual game use and a GitHub merge. Seven original
@@ -4181,15 +4554,255 @@ not a to-do list:
   never an RNG stream), the first entry that lands and fits winning. A tile takes one only when it
   is a Floor tile of the entry's `where` with Floor of the same `where` east and west (which keeps
   every doorway and room edge clear), never with a door directly north or south, and `beside: wall`
-  only against a wall. Drawn by `main.gd::_draw_furnishings` after `_draw_nature` and before
-  `_draw_props`, on seen tiles only, hung by `Appearance.hang_rect`, and skipped wherever a real
-  prop stands (`Appearance.prop_tiles`, so a chair never peeks out from under a crate or a bed).
+  only against a wall. Drawn into the world bake's DECOR layer by `main.gd::_draw_decor` (A12,
+  docs/22's "Flat dressing, baked"), on seen tiles only, hung by `Appearance.hang_rect`, and
+  before `_draw_props`. A12 dropped the per-tile prop-occupancy skip from the bake, so a
+  furnishing can now show under a crate or a bed where a prop stands; the prop draws over it.
   Nothing under `godot/sim/` was touched: a furnishing blocks no step, sightline or shot, is not
   cover, is not looted, is never a path anyone avoids and is never a component, and a body walks
   across a table and is drawn over it. Rarities are content (shelf 12, medical cabinet 30, table 20,
   chair 18, dumpster 20, barrier 110, cone 90, post 70): **measured** over the four shipped
   districts at 64, 351 furnishings in eight kinds on 13,241 floor tiles, about one in thirty-eight,
-  every kind placed on at least one district and none in a doorway.
+  every kind placed on at least one district and none in a doorway. That measure predates A12,
+  which raised the density by lowering those rarities (shelf 6, cabinet 15, table 10, chair 9,
+  dumpster 14, barrier 70, cone 45; post unchanged); the new counts are not re-measured here.
+  **A12's second pass** (the coordinator's visual QA of 07:13): the roll is `Dressing._mix` over
+  the hash, because the plain hash laid the first draft on a lattice (`godot:check:trees`'s
+  LATTICE lane: 250 and 241 neighbour pairs on a 32-square window, the shifted roll 320 and 192);
+  nothing stands within three tiles of the colony's start (CLEAR lane, which says so and skips if
+  the raw roll puts none there; the clearing itself is four tiles out, `FURNISH_CLEAR`); every flat
+  picture sits on the art grid, whole art pixels off its tile's centre line and never past its south
+  edge, and may be mirrored (PLACED lane, which also holds `_draw_decor` and `_placed_rect` to
+  reading the fields).
+  **A12's third pass** (the coordinator's second visual QA, 2026-10-20 07:45): every flat picture is
+  placed in whole art pixels, so none lands between the ground's art pixels; scraps are three
+  pieces cut from the pack's `overlay-debris` (`debris_scrap_a/b/c`), jittered, mirrored and drawn at
+  their own size; one picture to a tile, with scraps and nature yielding to a furnishing and every
+  scrap kept off the clearing (`OCCUPANCY_OK`, which judges each rule on the raw roll first, 76 large
+  pairs, 2 nature under a furnishing, 4 flat in a tall piece's column, 44 scraps under a furnishing,
+  and then on the placed pictures); two large furnishings never neighbour (`large` in content,
+  `schema`'s `large`); nothing flat stands within two tiles of a standing piece in its column; the
+  scrap roll is 1 in 5 (1 in 5.9 measured over the paved floor, 388 of 2,282); trash bags went from 2
+  to 8 on the suburb (their rarity 35 to 12, the lane's floor is four); the `day_street` shot's camera
+  snaps to the survivor and its spot is mostly street. Not done: the grass verges are sparse because
+  the pack has no grass tuft to add, the bags are still few, the pack has no rugs, and the interior
+  camera's odd x is left as it was (it predates A12). Three pack props join as scenery: the oil barrel, the pallet stack and the
+  rubbish bags. The crates, footlockers and medical boxes stay container kinds and stay out.
+
+  **A12's fourth pass** (the coordinator's round-4 send-back, 2026-10-20 08:36): the overlap rule
+  replaces the one-picture-to-a-tile rules. A tile's raw picture is its furnishing, else its nature
+  picture; two pictures whose art rects meet cannot both be drawn, and the lower rank gives way
+  (standing over flat over nature over a scrap), a tie going to the higher hash (`_kept_top`). The
+  large-piece gap rule and the standing-column rule are gone, with the `large` flag they read, which
+  is what had culled the tables and chairs. Picture extents are content (`sizes` in street.json,
+  checked against each authored canvas by OCCUPANCY_OK). Scrap_c is now the pack's paper piece (5x6),
+  and every scrap and picture draws on whole art pixels, so no picture in the shots sits off the art
+  grid. The rubbish bags stand within one tile of a wall or a kerb (`beside: wall` now reads both),
+  and the harness's survivor spots need a free 3x3 ring, so no shot has a picture over the survivor's
+  legs. The rates: the street rolls one paved tile in five and a room one in two, which keeps about
+  one in six of the visible floor. Gates: `godot:check:trees` (OCCUPANCY_OK: 48 raw meetings, none
+  kept, 395 scraps of 2,282 paved tiles, 164 bags; the roll lanes now compare the raw roll and accept
+  the kept pick only as that roll or nothing), `godot:check:wrecks` (SCATTER reads `litter_placed_in`),
+  `godot:check:world_bake`, `godot:check:authored`, `npm test` (the oracle reads the new `sizes` and
+  the removed `large`). Not done: the fridge rolls rarely (1 in 45 indoors and standing), so few shots
+  show one; a room in the 1280 interior is still one in nine, since its furniture holds the litter;
+  the pack has no grass tuft or rug.
+
+  **A12's fifth pass** (the coordinator's round-4 findings, taken over in a new thread,
+  2026-10-20). The overlaps the round-4 QA saw (a cone on a bag pile, a bag pile on a lamp head)
+  and the probe's rects that did not match the drawn pictures had one cause: `main.gd::_mirrored`
+  moved a flipped picture's rect to its right edge before giving it a negative width, and Godot
+  flips a negative-width rect in place, so every mirrored picture drew one full width east of where
+  the overlap rule had put it. It now flips in place. Placement is rebuilt on four rules. **The
+  footprint**: a picture stands only where every tile its own art rect covers on its row is floor of
+  its side of the walls on a surface it names (`_footprint_fits`), which replaces the old "floor east
+  and west" rule, so a dumpster never hangs over the verge. **Held tiles**: a Low tile (a heap, a
+  parked car), a Tree tile and every live prop hold their tiles against every picture
+  (`RANK_HELD`, `held_props`, the occupancy `main.gd` builds and rebuilds when a prop moves).
+  **The room's sets**: a `group: table` entry stands one table per `rarity` floor tiles, one to a
+  square cell of the room, on a tile whose eight neighbours are its own room's floor, and a
+  `group: seat` entry puts one to three chairs flush at its sides; `beside: wall_north` stands shelves,
+  cabinets, fridges and counter tables in runs against a north wall, and `beside: wall` puts a few
+  against the other walls. **The street's edge**: the outdoor rolls weigh a wall, a parked car, the
+  kerb or a sidewalk slab (RoadPaint's mask) three times an open tile, times a clutter weight per
+  4-tile block that is nought in three blocks of ten, and `beside: edge` keeps the barrels and
+  pallets off the carriageway. Litter is the pack's crumpled paper and a scrap of card
+  (`debris_paper`, `debris_card`, cut from `overlay-debris`; the grey `debris_scrap_a/b/c` are
+  retired), rolled out of `LITTER_SPAN` 11 on the street and 9 in a room under the same weights.
+  Standing furnishings draw on the art grid (`_standing_rect`). The review harness stands a shot's
+  survivor where `Dressing.clear_around` finds no picture within three tiles on the street, and a
+  room shot in a furnished room outside the colony's clearing at the clearest spot it has.
+  **Measured** with a throwaway probe that photographs each shot, strips the dressing, photographs
+  it again and checks every listed rect against the difference (0 uncovered pixels on four of six
+  shots, 72 and 280 on the other two, at a heap's edge), at 1280×720 / 1920×1080: overlaps 0 / 0,
+  off-grid 0 / 0, litter on seen paved street 1 in 5.7 / 6.7 on `day_street`, on seen room floor 1 in
+  8.6 / 7.1 on `interior` (6 tables, 9 of 11 and 9 of 13 chairs at one) and 1 in 10.7 / 8.6 on
+  `combat`, bags on grass 0 on the street and the room shots and 1 on `combat`, no empty 7×7 block of seen room floor,
+  nearest picture to the survivor 4 tiles on the street, 5 in combat, 2 in the room. Tick
+  (`godot:bench:runtime`, three runs each on one machine): 7.37 ms mean before, 7.21 after (the sim
+  is untouched). Draw (`godot:bench:frame`): 5.82 ms mean before, 5.94 after; the crowded scene 87.6
+  and 87.5. Gates: `godot:check:trees` (SETS_OK, a new lane: the sets, the runs, the edge and the
+  sidewalk, held tiles, `clear_around` both ways, `_mirrored` and `_standing_rect` run, and the
+  readers in `main.gd` and the harness), `godot:check:wrecks` (509 of 2,282 paved tiles on the 64-tile suburb, under its quarter ceiling: that
+  map is mostly edge). Left by this pass, and closed by the sixth: the room shot's survivor had a
+  picture two tiles away; window walls took no wall pieces; the colony hall's west half was the
+  start's clearing. No new art.
+
+  **A12's sixth pass** (the coordinator's art QA round 1 on #167, 2026-10-20). **The street
+  furniture stands where it stood.** The fifth pass re-rolled every outdoor piece when it reordered
+  the list, so the before shots' barriers, signs, posts and lamps were gone. Each street furniture
+  entry now carries its old list index as a pinned `salt` (barrier 5, cone 6, post 7, sign 9, lamp
+  10; `dressing.schema.json`), rolls plainly as it did before A12, and wins a tie against the junk;
+  the junk (dumpsters, bags, barrels, pallets) is a `cluster` entry, weighted by the street and
+  standing on one tile of each three-tile row segment (`_spaced`), so it no longer lines the
+  sidewalk like pickets. Litter is the pack's crumpled paper alone (`debris_card` is retired: it
+  read as a pebble at game scale), anywhere in its tile on the art grid, 1 in `LITTER_SPAN` 11 on
+  the street and 17 in a room, nought in a clean street block. Bags on grass stand on the verge (a
+  grass tile beside outdoor paving is an edge), at rarity 7. **The rooms**: one table in two is a long
+  pair, its halves edge to edge, when the tile east of it has room and no other table beside it;
+  chairs sit north, east and west only (the pack's chair faces south, so one south of a table had
+  its back to it), never on a tile directly south of a table; a room keeps one medical cabinet
+  (`per_room`, the lowest of its room's hashes); no wall piece's art covers a tile in front of a
+  window, and the rest of the wall takes its pieces; tables against a north wall stand in for
+  counters (the pack has none, and its stove is a lit wood stove). **The clearing**: only the 9×9
+  round the colony start is kept clear, judged on every tile a picture's art covers rather than the
+  tile it rolled on, so a shelf beside it no longer reaches in; the rest of the hall is furnished.
+  The room shot now stands in that clearing: litter at 1 in 6 leaves a furnished room's own clear
+  seven-tile square about once in ten thousand squares, so the hall is the one room with the
+  survivor's three-tile clearance (the `interior` and `combat` shots share the spot).
+  **Measured** with the same throwaway probe at 1280×720 / 1920×1080: overlaps, off-grid and
+  straddles 0; nothing within three tiles of the survivor (nearest 4 on the street, 5 in the hall)
+  or four of the start; litter outside the reserved squares 1 in 6.8 / 6.0 on the street shot and
+  1 in 6.2 / 6.5 on the hall's floor; 6 / 8 tables with 7 / 9 chairs, every chair at a table but one
+  whose table is below the 1280 frame; one cabinet a room at most; no wall piece in front of a
+  window; no chair south of a table; bags on grass 0 / 1 on the street and 0 / 1 in the hall; the
+  densest 18 tiles of a sidewalk row hold 4 / 5 pieces; no empty 7×7 of seen room floor even
+  counting furniture alone. Uncovered pixels 0 on four shots and 388 on the two 1920 hall shots: the
+  left edge of a dumpster anchored on an unseen tile, no actor. Draw (`godot:bench:frame`, four runs each on one machine, alternated with the fifth pass): 6.03 ms mean
+  before, 6.06 after (5.73 to 6.52 and 5.77 to 6.31), the crowded scene 88.6 and 87.7; the tick
+  (`godot:bench:runtime`, two runs each) 7.49 and 7.03 ms, nothing under `godot/sim/` changed. Gates:
+  `godot:check:trees` (MEASURE_OK, a new lane: the pinned salts and the dropped repeat, the
+  suburb's street furniture identical with and without the junk, the spacing with a plain negative,
+  one cabinet a room against a rule-free negative, no shelf in front of a pane against walled-up
+  panes, the verge rows, a scrap anywhere in its tile against the furniture's range, nothing
+  reaching into the clearing; SETS_OK now holds pairs, the north/east/west seats and no chair south
+  of a table, with a fabricated true negative), `godot:check:wrecks`.
+  **A12's seventh pass** (the coordinator's art QA round 2 on #167, 2026-10-20). **The walls**: a
+  fridge is one a room (`per_room` 1, as the medical cabinet already was), and the free wall tiles
+  away from the windows take the pack's oil barrel and pallet stack (indoors only, `beside: wall`),
+  so the hall's walls no longer line up four fridges; a single tile of wall between two panes takes
+  a barrel or a pallet, since the shelf is too wide for it. **The tables**: one in `PAIR_ODDS` 4 stands
+  alone, offset in its tile, and the rest are long pairs wherever the tile east has room; a table's eight neighbours roll no plain piece, so a group
+  stands in the open floor rather than against a cabinet; its chairs vary in count and side
+  (`_seat_slots`, north, east and west only, never diagonal-only), and a chair is kept only while
+  its own table is kept (`_kept_top` asks `_kept_alone` of the table it faces). **The litter** is
+  dealt per 6×6 block of floor, each side of the walls on its own, the block's quota one in
+  `LITTER_TENTHS`/10 = 5.5 of its floor with a hashed remainder, the picks ranked by the round-one
+  weight (`_block_litter`), so no stretch of street is bare and none crowded; one scrap in three is
+  greyed (`litter_tints`, schema'd) and about half are turned upside down, so the one paper reads as
+  several without new art. **The shots**: the room shot stands outside the hall, on no chest and
+  under no scrap, and prefers a spot whose own room shows a counter, a table against a plain north
+  wall with no pane beside it (`_counter_near`); the district keeps four, all in kitchens, so the
+  room may fill a sixth of the frame (`ROOM_SHARE` 15) and the survivor is clear of furniture within
+  one tile. The street shot weighs the scraps near the survivor rather than refusing them. Every
+  shot marks the onboarding hints seen, so no tip card covers it. **Measured** with the throwaway
+  probe at 1280×720 / 1920×1080 on main 9d9bc23 (export 17:20 UTC): overlaps, off-grid, straddles and
+  uncovered pixels 0 on all six shots; street litter 1 in 5.8 / 6.0 of the seen paved tiles; hall
+  floor outside the reserved squares 1 in 8.0 / 7.2; 10 / 15 tables in the hall with 10 / 14 chairs,
+  every chair at a table but one whose table is below the 1280 frame; one fridge and one cabinet a
+  room at most; no wall piece in front of a window; no chair south of a table; no empty 7×7 of seen
+  room floor. Draw (`godot:bench:frame`, three runs each on one machine, alternated with main
+  9d9bc23): 9.74 ms mean before, 9.24 after (9.56 to 9.93 and 8.97 to 9.43), the crowded scene 182.6
+  and 181.7, so the per-frame furnishing and nature draws the merge retired are not missed; the tick
+  (`godot:bench:runtime`, two runs each) 11.09 and 10.77 ms, nothing under `godot/sim/` changed (the
+  tick sits over its 8 ms target on main as well; docs/22). Gates: `godot:check:trees` (REVIEW2_OK, a new lane: 78 blocks dealt their quota on
+  both sides of the walls against a per-tile roll that misses 49; one fridge a room; 158 chairs each
+  beside its own kept table, an orphan dropped, and a fabricated drop; 54 tables clear of the plain
+  picks round them against 102 the rule refused; grey, plain and upside-down scraps present and none
+  tinted without tints; and the readers in `main.gd` and `review/scenes.gd`), `godot:check:wrecks`.
+
+  **A12's eighth pass** (the coordinator's art QA round 3 on #167, 2026-10-20). **Main's street
+  furniture stands where main put it.** The sixth pass pinned the barrier, cone, post, sign and lamp
+  to their salts but rolled them through this file's mixer at new rarities, so main's pieces moved or
+  went and new ones appeared. They now take `"roll": "kept"`: main's own roll (the old salt, its
+  rarity, the first match in main's list order), main's ground rule (`_kept_fits`), no jitter and no
+  mirror, so each hangs on main's own pixels; a `shadow` entry stands in for main's wall dumpster,
+  which took its tile first, so that tile rolls nothing main did not. A kept piece outranks every
+  neighbour and gives way only to a sim object on its own tile; two kept pieces that met in main
+  still meet (four on the suburb). The one difference left: a kept sign or lamp is a standing piece
+  and its foot drop sits on the art grid (the round-one rule), at most one screen pixel above main's.
+  **Rooms stay walkable.** A room takes its pieces in turn, tables first, and keeps each only while
+  its free floor stays one four-connected walk and no tile inside a doorway is taken
+  (`_room_drops`, memoised per room, a ring test before the flood fill), so a two-tile corridor never
+  takes a piece on both tiles; a chair goes with its table, and a table its rules left with no chair
+  goes too. **Stock stays in storage.** The indoor barrel and pallet line the walls of the storage
+  buildings only (the block's `storage` list: warehouse, industrial unit, gatehouse yard, the three
+  sheds; `rooms: storage`); a living room or the hall keeps at most one of each (`rooms: living`,
+  `per_room` 1, not one per wall run, which the room cap already bounds). **Litter** takes two new
+  shapes drawn in-repo, a newspaper sheet (14×11) and a tin can (12×7), beside the pack's paper.
+  **Long tables butt**: the halves sit one art pixel either side of their tiles' centres, so the
+  pack table's 34-pixel tops meet edge to edge; a table seating more than one takes all three chairs
+  in one in four (`FULL_SET_ODDS`). **Decals** draw on their own canvas item between the ground and
+  the dressing (`WorldLayers.decal_pen`), so a prop stands on the blood. The room shot ranks a room
+  showing a table set right after the counter (`_set_near`). **Measured** with the throwaway probe at
+  1280×720 / 1920×1080 on main 2e920b3 (export 21:58 UTC, before shots from a main 2e920b3
+  checkout at the same spots): every kept piece drawn on the six shots best matches main's shot at
+  offset (0, 0) except three standing pieces at (0, −1) (`after/kept_vs_main.json`); uncovered
+  pixels and off-grid 0; overlaps 0 on four shots and one on the two street shots, a kept cone and
+  sign that meet where main drew them; straddles 1 on three shots, each a kept barrier on paved and
+  unpaved ground as main had it; street litter outside the reserved squares 1 in 6.9 / 6.6 on the
+  street shot; no empty 7×7 of seen room floor. Gates:
+  `godot:check:trees` (OLD_STREET_OK: 280 of main's pieces on the boot map and four districts, none
+  missing, none moved, none added, against a plain roll that moves 118 and a shadowless block that
+  adds one; PASSAGE_OK: every room on five maps one walk, against two cut without the rule;
+  SEATED_OK: 42 tables each keep a chair, against one alone without the rule; STOCK_OK: living rooms
+  at most one barrel and one pallet, three storage rooms several, five in a living room without the
+  rule; SHAPES_OK: all three litter shapes on the boot map; OCCUPANCY holds eight long tables' tops
+  to a gap of 0 and refuses the old four-pixel shift), `godot:check:decals` (UNDER),
+  `godot:check:wrecks`, `godot:check:shots`, `sprites:check`, `godot:check:authored`. **Left as
+  they are:** the combat shot's street is the clearing's edge and takes litter 1 in 9.2 (the
+  clearing keeps scraps off the start's 9×9, and the block quota counts the floor it covers); the
+  seven single cones on the street shots are main's own cones, kept by the ruling above; the room
+  shot's lone-looking chair at its east wall faces a table on a tile the survivor does not see. Draw
+  was not re-benched: the eighth pass adds a memoised per-room walk and moves no draw call.
+
+  **A12's ninth pass** (the coordinator's art QA round 4 on #167, 2026-10-20). **No piece closes a
+  passage.** The eighth pass's room walk counted the sim's own objects (crates, searchables, beds) as
+  free floor and kept a piece wherever the room had a way round anywhere, so a barrel beside main's
+  crate closed a two-row corridor in the room shot. A room's walk now starts with the sim's objects'
+  tiles taken, and a piece is kept only while the free tiles on its four sides stay joined within
+  `PASSAGE_REACH` 2 tiles of it, and every piece kept near it still does (`_keeps_its_passage`): a
+  chair between a wall and its table leaves a two-tile step round the table and stands, a piece in a
+  corridor beside a crate leaves no way round short of the next room and goes. The room shot ranks a
+  room showing both a counter and a table set first, then a set, then a counter; it now stands in a
+  brick house's furnished rooms, two long tables with their chairs, shelves, a fridge and a barrel.
+  **The chairless table** the review found was the room's counter: a table with a wall straight
+  north takes no chair by design (round one), and the probe now lists counters apart from chairless
+  tables (`chairless_tables`, `counters` in `report.json`); the two it lists at 1280 have their
+  chairs north of the frame's top edge. **Read for the probe and the review:** the three-tile
+  clearance holds for the live spawn and play position (the combat shot); on the street and room
+  shots, where the survivor is moved to a spot, the 7×7 round them need only stay walkable and is
+  left out of the empty-block test, and furniture and litter inside it are fine. **Left as they
+  are:** a kept barrier straddling a seen and an unseen tile is clipped where its art reaches the
+  unseen one, as every picture is, because drawing it whole would draw on a tile the survivor has no
+  sightline to; main drew furnishings after the fog and so drew the flanges. A body is drawn over a
+  barrel because dressing is a picture the sim never reads (round one): a zombie walks across it as
+  it walks across a table. **Measured** (export 22:41 UTC, before shots from main 2e920b3 at the
+  same spots): uncovered and off-grid 0 on all six shots; no chairless table on a seen tile; kept
+  street pieces at offset (0, 0) but the three standing ones at (0, −1), and one more on the room
+  shot; overlaps and straddles only main's own pieces where main drew them. Gates:
+  `godot:check:trees` (PASSAGE_OK: every room on five maps, the boot world's 14 sim objects taken,
+  no piece closing a passage by the gate's own 5×5 fill; a hand-built corridor with a crate in one
+  row and a way round stays open, closed once without the rule and once with the crate hidden from
+  the dressing; SEATED_OK 42 tables), `godot:check:wrecks`, `godot:check:shots`.
+
+  **A12's round 5 notes** (the coordinator's confirmation pass on #167, export 22:41 UTC, CLEAR,
+  2026-10-20). Three low notes, left for a later pass. The fridge at (178, 187) stands with its
+  north side on an unseen tile, so the room shot cannot show that its free side is clear. Its top
+  outline, one art pixel tall (y 506-507, x 1712-1745 at 1920), is drawn over the unseen tile
+  (178, 186), against the rule that a picture is clipped where its art reaches an unseen tile; it
+  is near invisible. The barrel at (181, 180) is unseen, so the shots cannot confirm the room's
+  one-barrel cap; `godot:check:trees`'s STOCK lane holds that cap on every room of five maps.
 
   **Container kinds are the table's.** `prop.container` gains a top-level `tables` map
   (`prop.schema.json`): residential and commercial containers keep the wood crate, `medical` draws
@@ -5896,11 +6509,13 @@ not a to-do list:
   the shallow validator checks that `wrecks` is an object and never once looks inside it — the
   DRESSING lane walks it, resolves every key at 64×64, refuses a fabricated key and a duplicated
   one, and an empty block resolves nothing rather than defaulting.
-  **Debris** (presentation). `debris_rubble_a/b` over every tile the slice-2 rubble pass painted —
-  129 of them on the canonical seed, which had been flat tint — and `debris_litter_a/b/c` on 1 in
-  17 tiles of outdoor street pavement, two independent hash salts so making the scatter denser
-  cannot silently reshuffle which scrap lands where. Both cosmetic, both deterministic across
-  boots and saves by construction.
+  boots and saves by construction. **A12's second pass** replaced the litter scraps: the generated
+  `debris_litter_a/b/c` drew specks too small to read at game scale, so they are retired; the pack's
+  `overlay-debris` rubble pile is retired too (`debris_litter_pack`), and litter is cut from it:
+  since A12's sixth pass the pack's crumpled paper alone (`debris_paper`; the card scrap read as a
+  pebble and is retired), weighted toward walls and kerbs (about 1 in 6 of the visible floor),
+  mirrored and placed anywhere in its tile by a hash. `godot:check:wrecks`'s SCATTER lane holds
+  the surface rule and the density ceiling.
   **Gate lanes, red both ways.** `WRECKS_OK`: DRESSING (fabricated key, duplicated key, empty
   block), SEGMENTS (a lone tile mis-classified as a car front; front/rear swapped; `mid` never
   returned; the quarter turn removed; the run anchor made per-tile), VARIATION (a constant

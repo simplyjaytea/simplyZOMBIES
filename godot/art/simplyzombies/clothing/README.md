@@ -1,10 +1,11 @@
 # Survivor clothing
 
 Torso, legs and feet garments for the outpost survivor, painted onto **every frame** the
-survivor draws: four rest views, and an eight-frame walk and a breath picture each way, forty
-frames. Landed 2026-10-19 as alpha plan item A6 ("Clothe everyone") on the pack's four-frame walk,
-and moved onto A7's eight-frame walk and breath (`../motion/`) on 2026-10-20; docs/23 carries the
-record.
+survivor draws: four rest views, an eight-frame walk and a breath picture each way (forty
+frames), and every action frame A8 draws (`../motion/actions.py`: the swing, the three reloads,
+crouch, crouch walk, flinch, fall and the prone crawl, 256 frames). Landed 2026-10-19 as alpha
+plan item A6 ("Clothe everyone") on the pack's four-frame walk, moved onto A7's eight-frame walk
+and breath (`../motion/`) and onto the action frames on 2026-10-20; docs/23 carries the record.
 
 The pack's survivor is a paperdoll base in underwear, and its four wearables (vest, helmet, gas
 mask, backpack) are fitted to the idle views and stand still while the body walks. A shirt cannot
@@ -14,7 +15,7 @@ of time with the legs, because they are chosen by the body's own frame key.
 
 ## How a garment is painted
 
-- `parts.py` labels every opaque pixel of each of the forty source frames (the rest views
+- `parts.py` labels every opaque pixel of each of the forty standing source frames (the rest views
   `../textures/characters/survivor_*.png`, cut 32x48 to 32x40 exactly as `authored.json` crops
   the body, and the walk and breath under `../textures/characters/motion/`): ink, head, torso,
   arm, hand, pelvis, leg, foot. A hand is the two-by-two at the far end of each arm, measured
@@ -24,7 +25,9 @@ of time with the legs, because they are chosen by the body's own frame key.
   view's chest top, moved as far as the head moved), so the walk's bob moves both with the body
   and a collar sits under the chin on every frame. Seen from the side, the near arm past the
   underwear's span on the side the body faces is labelled arm, not chest, so a short sleeve ends
-  on it and a long one is creased apart from the body.
+  on it and a long one is creased apart from the body. A run the arm rules took for a hand that
+  lies wholly below the underwear's top row and touches the pelvis or a leg is a stepping shin,
+  and is labelled leg (`_legs_below_belt`).
 - `build_clothing.py` repaints only the skin and underwear pixels of the parts a garment covers.
   A pixel is shaded on a light scale, not picked from four tones: it starts from the body's own
   tone under it (lit skin, shaded skin, the darkest skin; the underwear's flat grey counts as
@@ -42,7 +45,11 @@ of time with the legs, because they are chosen by the body's own frame key.
   placed on the frame's landmarks. Where cloth meets bare skin it ends on its deep tone, as the
   pack's vest does, and a short sleeve or short hem casts a pixel of shadow on the skin below.
   The pack's ink is never touched, so a garment cannot move the silhouette; the head is touched
-  only by a hood (the hair, and the mask over the lower face), never its ink or its eyes.
+  only by a hood (the hair, and the mask over the lower face), never its ink or its eyes. The
+  walk's generated frames shade some hair a brown dark enough to read as ink; a hood takes a dark
+  pixel warm by a dozen levels or more, inside the head's outline ring and touching hair (or
+  touching such a pixel, down to the nape), as hair, so no seam of it shows between the hood and
+  the face.
 - `Canvas.render` turns each level into its ramp's colour through the material: plain cloth
   gains contrast and a faint grain, denim a twill, wool and fur a coarse nap, paper a crinkle;
   leather and rubber take a hard light, deeper shadows and a shine where they face up. Rubber has
@@ -58,11 +65,47 @@ of time with the legs, because they are chosen by the body's own frame key.
   interpreter (checked on Python 3.12 and 3.13).
 
 The output is one 320x160 sheet per garment under `native/`: a row per view (s, e, n, w), the
-rest picture in column 0, the walk's frames in columns 1-8 and the breath in column 9.
-`authored.json` declares each garment as kind `wear` with `fits: "body_survivor"` and crops its
-forty members from the sheet (no script writes those members; `godot:check:authored`'s WEAR lane
-refuses a garment whose members are not exactly the rig's frames);
-`npm run sprites:check` reproduces `godot/assets/sprites/wear_*.png` from those crops.
+rest picture in column 0, the walk's frames in columns 1-8 and the breath in column 9; and one
+3072x160 sheet per garment under `native/actions/`, a row per view and every action frame in
+`SURVIVOR_ACTIONS` order, each action as wide as its longest view (prone draws only east and
+west; a fall's frames are on the 96-wide fall canvas, and their members declare that `canvas`). `authored.json` declares each garment as kind `wear` with `fits: "body_survivor"`, and
+`build_clothing.py` writes its 296 members from both sheets (`--check` fails when they differ;
+`godot:check:authored`'s WEAR lane refuses a garment whose members are not exactly the rig's
+frames); `npm run sprites:check` reproduces `godot/assets/sprites/wear_*.png` from those crops.
+
+## How an action frame is dressed
+
+`action_wear.py` never repaints an action frame from scratch, because most of them are the rest
+or walk picture moved by whole pixels. It first rebuilds every bare action frame from
+`../motion/actions.py` and stops if one differs from the committed picture by a single pixel, so
+everything below works on the frames the game actually draws.
+
+- **Moved frames** (crouch, crouch walk, flinch, fall, prone): the garment is painted on the
+  source frame as usual, the dressed source is moved by the same `derive` or `prone_frames` call
+  as the bare one, and the layer is the pixels where the two results differ. A fold or a lean
+  carries the cloth exactly as it carries the skin. The fold drops the rows at the knee and can
+  leave a hand hanging there one row tall; a torso garment's cuff then steps back off the bare
+  skin straight above it (`_whole_hands`), so a long sleeve's hand keeps two rows.
+- **The reloads**: the torso, legs and feet are painted on the reload's armless body (the arm
+  patches `ARMLESS` closed take the nearest cloth inward) and dipped at the knee with it. The
+  arms the beat draws are painted as sleeves: every skin pixel the limb moved goes to the
+  nearest bone (`_draw_arms` records each limb's shoulder, elbow and hand), the last half pixel
+  of the bone is the hand and stays bare, and the rest is arm, labelled with how far along the
+  bone it lies. A short sleeve covers the first one and a half pixels from the shoulder front on
+  (two and a half side on) and drops a pixel of shadow on the skin below it; a long sleeve
+  covers the whole arm and ends in a cuff beside the hand. The stance beat is the rest picture,
+  so it takes the rest garment.
+- **The generated swing**: the arms are the skin left and right of the underwear's span between
+  the chest and the waist (the column just past it included, at no reach, so no sliver of skin
+  runs down a sleeve's inner edge), each island's last pixels toward the hand kept bare, and the
+  frame is painted like a rest view with those arms. The swing kicks its trailing leg back up
+  into the underwear's rows, where the rest-view rules hang a hand; the labels' leg rule (below
+  the belt, touching the pelvis or a leg, no arm above it) makes that skin leg, so the trousers
+  run down it to the shoe.
+
+The sheets hold every garment on every frame; `godot:check:worn`'s COVERAGE lane composes them
+and asks, per action and view, that the garment shows somewhere in the run.
+
 
 ```bash
 python3 build_clothing.py           # repaint native/
@@ -103,5 +146,11 @@ random number). It is a picture, not an item: it weighs nothing and warms nothin
 - A body whose content block declares a tint (the six colony looks, a raider's) wears it
   over its clothes too: the draw modulates the whole dressed picture. Wanted for raiders; for
   colonists and strangers it browns or greys their clothes, and a skin-only tint needs `main.gd`.
+- On the action frames a pose can hide a part: A8's fold takes the feet off the first fall frame
+  and some crouch-walk frames, and side-on reloads cover the trousers with the gun and the arm
+  for a beat. Those frames carry what the pose shows (docs/23 lists them).
+- With a short sleeve the forearms over the hips on the long-gun and shotgun side beats are a
+  mass of bare skin, as a real arm in a tee would be; the swing's front guard frame takes the
+  torso garment across the forearms folded over the chest.
 - Settled human corpses still use the pack's four bare corpse poses.
 - Caps, hats, gloves, belts and eyewear still draw nothing on the body.

@@ -144,6 +144,10 @@ var _legend: Control = null
 var _inventory_panel: Control = null
 var _work_panel: Control = null
 var _web_panel: Control = null
+# The shared navigation bar over Colony and Skills (ui/nav_bar.gd); the inventory sheet draws the
+# same bar into its own title strip. `_show_screen` is the one place any of the three opens.
+var _nav_bar: Control = null
+var _nav_wash: Control = null
 var _paperdoll: Control = null
 var _dashboard: Control = null
 var _settings: Control = null
@@ -207,19 +211,15 @@ var _vehicle_index_gen: int = -1
 # what invalidates it -- see _dressing.
 var _dressing_cache: Dictionary = {}
 var _dressing_from: Variant = null
-# The nature dressing's picks, one list per 16 x 16 chunk (Dressing.nature_tiles_cached), and what
-# they were picked against: the map object, its vehicle generation (a driven car turns Low tiles
-# to Floor and back under the same map, which the ground test reads), the seed and the content
-# tree. Any of the four moving empties the cache -- see _nature_cache_for. Never a static: one
-# gate process boots two worlds.
-var _nature_cache: Dictionary = {}
-var _nature_cache_map: Variant = null
-var _nature_cache_gen: int = -1
-var _nature_cache_seed: int = -1
-var _nature_cache_content: Variant = null
 # The furnishings' picks, kept the same way and emptied by the same four things -- see
 # _furnishing_cache_for.
 var _furnishing_cache: Dictionary = {}
+var _dressing_occ: Dictionary = {}
+var _dressing_occ_map: Variant = null
+var _dressing_occ_gen: int = 0
+var _dressing_occ_seed: int = 0
+var _dressing_occ_content: Variant = null
+var _dressing_occ_props: Dictionary = {}
 var _furnishing_cache_map: Variant = null
 var _furnishing_cache_gen: int = -1
 var _furnishing_cache_seed: int = -1
@@ -244,6 +244,9 @@ var _focal_drawn: Array[Dictionary] = []
 # draw call itself, so check_action.gd's FALL lane can prove a published death reaches the
 # picture (the dead-socket rule) without trusting anything but what was drawn.
 var _falls_drawn: Array[Dictionary] = []
+# Every settled body the last draw laid down as its own lying frame, `{id, key}`: the same proof
+# for the settled half (check_action.gd's FALL lane).
+var _lying_drawn: Array[Dictionary] = []
 var _a2_wall_pieces: Array[Dictionary] = []
 var _a2_wall_drawn: Array[Dictionary] = []
 var _content_poll_at: float = -1e9
@@ -570,6 +573,13 @@ func _ensure_ui() -> void:
 	if inv_script != null:
 		_inventory_panel = inv_script.new() as Control
 		layer.add_child(_inventory_panel)
+	# The dark field under Colony and Skills, before both in sibling order so it draws beneath them.
+	var nav_res: GDScript = load("res://ui/nav_bar.gd") as GDScript
+	if nav_res != null:
+		_nav_wash = (nav_res.get_script_constant_map()["Wash"] as GDScript).new() as Control
+		_nav_wash.name = "NavWash"
+		_nav_wash.visible = false
+		layer.add_child(_nav_wash)
 	var work_script: GDScript = load("res://ui/work_panel.gd") as GDScript
 	if work_script != null:
 		_work_panel = work_script.new() as Control
@@ -583,9 +593,19 @@ func _ensure_ui() -> void:
 		_web_panel = web_script.new() as Control
 		_web_panel.name = "WebPanel"
 		_web_panel.visible = false
-		_web_panel.position = Vector2(300, 120)
-		_web_panel.size = Vector2(1040, 760)
+		_web_panel.size = Vector2(_web_panel.get_script().get("NATURAL"))
 		layer.add_child(_web_panel)
+	# The navigation bar, after the two screens it heads so it draws over both, and sized to the
+	# bar alone so it never takes a click meant for the screen under it.
+	var nav_script: GDScript = load("res://ui/nav_bar.gd") as GDScript
+	if nav_script != null:
+		_nav_bar = nav_script.new() as Control
+		_nav_bar.name = "NavBar"
+		_nav_bar.visible = false
+		layer.add_child(_nav_bar)
+		_nav_bar.connect("navigate", _show_screen)
+	if _inventory_panel != null and _inventory_panel.has_signal("navigate"):
+		_inventory_panel.connect("navigate", _show_screen)
 	# paperdoll glimpse bottom-left (always visible, cheap); the HUD keys hint moved to the
 	# bottom-right corner to make this one free.
 	var doll_script: GDScript = load("res://ui/paperdoll.gd") as GDScript
@@ -598,7 +618,13 @@ func _ensure_ui() -> void:
 		_paperdoll.anchor_left = 0.0; _paperdoll.anchor_top = 1.0; _paperdoll.anchor_right = 0.0; _paperdoll.anchor_bottom = 1.0
 		# Above the quick strip, which owns the bottom of the screen now. The doll is 128 x 346 and
 		# the strip is 92 tall inside a 24 margin, so the glimpse stops at 124 from the bottom.
-		_paperdoll.offset_left = 16; _paperdoll.offset_top = -470; _paperdoll.offset_right = 144; _paperdoll.offset_bottom = -124
+		# Four pixels higher than the strip's clearance alone would put it, so the card it is framed on
+		# stops short of the action bar instead of touching it (UI review, round 3).
+		_paperdoll.offset_left = 24; _paperdoll.offset_top = -474; _paperdoll.offset_right = 152; _paperdoll.offset_bottom = -128
+		_paperdoll.set("framed", true)
+		# The "you" card makes room for the body card when it grows tall enough to reach it.
+		if _hud != null:
+			_hud.set("body_card", _paperdoll)
 		layer.add_child(_paperdoll)
 	# The driver's dashboard, bottom centre: visible only while the player is at a wheel, fed by
 	# SimVehicles.dash_view in _update_hud. The one gauge on screen, and the car's, not the
@@ -701,10 +727,124 @@ func _set_web_open(open: bool) -> void:
 	if _web_panel == null:
 		return
 	_web_panel.visible = open
+	if open:
+		_place_web()
 	if open and _web_panel.has_method("set_world") and world != null:
 		_web_panel.call("set_world", world, _who())
 	if open and _legend != null:
 		_legend.visible = false
+	_sync_nav()
+
+
+func _set_work_open(open: bool) -> void:
+	work_open = open
+	if _work_panel != null:
+		_work_panel.visible = open
+		if open and _work_panel.has_method("set_world"):
+			_work_panel.call("set_world", world)
+	if open and _legend != null:
+		_legend.visible = false
+	_sync_nav()
+
+
+# The three screens about people, by the names the navigation bar gives them: "survivor" (Tab),
+# "colony" (J), "skills" (K), and "" for none -- the street. One is up at a time.
+func _screen() -> String:
+	if inventory_open:
+		return "survivor"
+	if web_open:
+		return "skills"
+	if work_open:
+		return "colony"
+	return ""
+
+
+# The one way any of the three opens or closes, by key (`input_map.gd`) or by a click on the bar:
+# whatever else is up goes away first, so switching from the sheet to the work grid is one press,
+# not a close and an open, and two of them are never up under each other.
+func _show_screen(screen: String) -> void:
+	if screen != "survivor" and inventory_open:
+		_set_inventory_open(false)
+	if screen != "colony" and work_open:
+		_set_work_open(false)
+	if screen != "skills" and web_open:
+		_set_web_open(false)
+	match screen:
+		"survivor":
+			if not inventory_open:
+				_set_inventory_open(true)
+		"colony":
+			if not work_open:
+				_set_work_open(true)
+		"skills":
+			if not web_open:
+				_set_web_open(true)
+	_sync_nav()
+
+
+# A screen's key: the screen in front puts itself away, any other comes forward.
+func _toggle_screen(screen: String) -> void:
+	_show_screen("" if _screen() == screen else screen)
+
+
+# Who the bar names, and whether the street's HUD shows under it. The HUD's two cards sit where the
+# bar does, so they go while any of the three screens is up -- the sheet always peeled them; the
+# work grid and the web used to draw over a HUD still lit beneath their own headers.
+func _sync_nav() -> void:
+	var up: String = _screen()
+	if _hud != null:
+		_hud.visible = _in_a_run() and up.is_empty()
+	if _inventory_panel != null and bool(_inventory_panel.get("strip_hidden")) != (up == "colony" or up == "skills"):
+		_inventory_panel.set("strip_hidden", up == "colony" or up == "skills")
+		_inventory_panel.queue_redraw()
+	if _nav_bar == null:
+		return
+	_nav_bar.visible = up == "colony" or up == "skills"
+	if up == "skills":
+		_place_web()
+	if _nav_wash != null:
+		_nav_wash.visible = _nav_bar.visible
+		_nav_wash.queue_redraw()
+	if not _nav_bar.visible or world == null:
+		return
+	var who: int = _who() if up == "skills" else -1
+	_nav_bar.call("show_for", up, _name_for(who), who == int(world.player))
+	# A colonist picked on the street while Skills is up: the web follows the bar to them, so the
+	# name on the bar and the map under it are always the same person.
+	if up == "skills" and _web_panel != null and int(_web_panel.get("_who")) != who:
+		_web_panel.call("set_world", world, who)
+
+
+# The web under the bar, centred in the room left below it, and made shorter where the window is
+# smaller than the web's natural size -- at 1280x720 its far nodes, a region word and its footer
+# were past the window's edge and could not be clicked. The web inside shrinks with the panel
+# (`web_panel.gd`'s `_side`); the words do not. A stopgap: the second UI overhaul bullet reflows the
+# web itself. Positioned on the art-pixel grid.
+func _place_web() -> void:
+	if _web_panel == null:
+		return
+	var view: Vector2 = get_viewport().get_visible_rect().size
+	var natural: Vector2 = Vector2(_web_panel.get_script().get("NATURAL"))
+	var top: float = 16.0 + 48.0 + 16.0
+	if _nav_bar != null:
+		var bar: Rect2 = _nav_bar.get_script().call("rect_for", view) as Rect2
+		top = bar.end.y + 16.0
+	var room := Vector2(view.x - 32.0, view.y - top - 16.0)
+	var fit := Vector2(floorf(minf(natural.x, room.x) / 2.0) * 2.0, floorf(minf(natural.y, room.y) / 2.0) * 2.0)
+	if _web_panel.size != fit:
+		_web_panel.size = fit
+		_web_panel.queue_redraw()
+	var at: Vector2 = Vector2(16.0, top) + (room - fit) / 2.0
+	_web_panel.position = Vector2(maxf(16.0, floorf(at.x / 2.0) * 2.0), maxf(top, floorf(at.y / 2.0) * 2.0))
+
+
+# A person's name for the bar: "" for nobody, and for a survivor the roster never named -- the bar's
+# "you" stamp says the rest.
+func _name_for(entity: int) -> String:
+	if world == null or entity < 0:
+		return ""
+	var ident: Variant = world.components.get_component(entity, "identity")
+	return String((ident as Dictionary).get("name", "")) if ident is Dictionary else ""
 
 
 func _set_inventory_open(open: bool) -> void:
@@ -721,6 +861,7 @@ func _set_inventory_open(open: bool) -> void:
 	# noise.
 	if _paperdoll != null:
 		_paperdoll.visible = not open
+	_sync_nav()
 
 
 # The right-click menu. `input_map.gd` has already asked `Pick.pick_at` and `SimContext.verbs_at`
@@ -849,7 +990,7 @@ func _enter_state(next: int) -> void:
 	# body's needs and wounds beside a menu, and over the run-over screen they would be a dead
 	# survivor's. `inventory_open` still peels them under an open sheet -- see _set_inventory_open.
 	if _hud != null:
-		_hud.visible = in_run and not inventory_open
+		_hud.visible = in_run and _screen().is_empty()
 	if _paperdoll != null:
 		_paperdoll.visible = in_run and not inventory_open
 	# The quick strip draws during ordinary play whether or not the sheet is open, which is the
@@ -1219,6 +1360,10 @@ func _update_hud() -> void:
 	# its own for either.
 	if _web_panel != null and _web_panel.visible and _web_panel.has_method("set_world"):
 		_web_panel.call("set_world", world, who)
+	# The bar's name follows the same selection, so the Skills page and its heading cannot name two
+	# different people.
+	if _nav_bar != null and _nav_bar.visible:
+		_sync_nav()
 	# Always refreshed, not only while open: pinned bag windows read the same view during
 	# ordinary play, and a stale pinned bag is a lie about what you are carrying.
 	# The transfer window, fed whether or not the sheet is open: a cupboard you are standing at is
@@ -1520,18 +1665,15 @@ func _draw_world() -> void:
 	})
 	# The marks on the ground (blood, holes in wall caps, scorch), over the baked ground they lie on
 	# and under everything that stands -- only where the player sees now, so never on a roof, which
-	# covers only tiles the player does not see (decal_look.gd says why).
+	# covers only tiles the player does not see (decal_look.gd says why). They go into the layers'
+	# own decal item, between the A2 boards and the baked DECOR pictures, so a mark lies under a
+	# table or a bush (_draw_decals).
 	_draw_decals(seen, a2_wall_tiles, bounds)
-	# The nature dressing, flat on the ground and under everything that stands: bushes, reeds,
-	# rocks, stumps and logs over open outdoor floor. After the baked tiles and not inside them
-	# because the log is wider than its tile and the floor drawn beside it would overdraw it;
-	# before the props and the bodies because nothing here is an object anyone can stand behind.
-	_draw_nature(dress, seen, bounds)
-	# The furnishings after the nature and before the props: still dressing, still under everything
-	# that stands, and skipped wherever a real prop stands (docs/23, "Furnishings and container kinds").
-	_draw_furnishings(dress, seen, bounds)
-	# Props last, over the ground and under the bodies _draw_entities sorts: a container, a bed,
-	# a campfire and the well all stood invisible in this district until this call existed.
+	# The nature dressing and the flat furnishings are baked too (the DECOR layer, _draw_decor): both
+	# are pictures on seen tiles that never move, so drawing them each frame was the cost of a tile
+	# nobody was looking at. Props stay per frame, last, over the ground and under the bodies
+	# _draw_entities sorts: a container, a bed, a campfire and the well all stood invisible in this
+	# district until this call existed.
 	_draw_props()
 
 
@@ -1556,6 +1698,8 @@ func _bake_layer(region: Rect2i, layer: int, pen: Object) -> void:
 			_draw_district(region, BakePass.LIVE)
 		WorldLayersRes.Layer.A2:
 			_draw_district(region, BakePass.A2)
+		WorldLayersRes.Layer.DECOR:
+			_draw_decor(region)
 		WorldLayersRes.Layer.REMEMBERED:
 			_draw_district(region, BakePass.REMEMBERED)
 		WorldLayersRes.Layer.ROOF:
@@ -1762,21 +1906,25 @@ func _dressing() -> Dictionary:
 	return _dressing_cache
 
 
-# The nature cache, emptied when anything its picks were made against has moved: the map object,
-# its vehicle generation, the seed or the content tree (`is_same`, so a content tree is compared
-# by identity and not walked). The picks include the ground test, which a parked car's Low tiles
-# change when it is driven off.
-func _nature_cache_for() -> Dictionary:
+# The dressing's occupancy for the world on screen: the per-frame litter asks it of every tile it
+# draws, and building it parses the block, so it is kept. It is emptied by the same four things the
+# furnishing cache is (the map, its vehicle generation, the seed and the content), because the rule
+# reads the tile classes and surfaces a driven car changes, and by a prop placed or taken away:
+# what the sim stands on a tile holds it against every picture (Dressing.held_props).
+func _dressing_occupancy() -> Dictionary:
 	var map: Variant = world.tilemap
 	var gen: int = 0 if map == null else int(map.vehicle_generation)
-	if is_same(map, _nature_cache_map) and gen == _nature_cache_gen and int(world.seed) == _nature_cache_seed and is_same(world.content, _nature_cache_content):
-		return _nature_cache
-	_nature_cache = {}
-	_nature_cache_map = map
-	_nature_cache_gen = gen
-	_nature_cache_seed = int(world.seed)
-	_nature_cache_content = world.content
-	return _nature_cache
+	var prop_at: Dictionary = Appearance.prop_tiles(world)
+	if is_same(map, _dressing_occ_map) and gen == _dressing_occ_gen and int(world.seed) == _dressing_occ_seed and is_same(world.content, _dressing_occ_content) and prop_at == _dressing_occ_props:
+		return _dressing_occ
+	_dressing_occ_props = prop_at
+	_furnishing_cache_map = null
+	_dressing_occ = Dressing.occupancy(_dressing(), map, int(world.seed), Dressing.held_props(world))
+	_dressing_occ_map = map
+	_dressing_occ_gen = gen
+	_dressing_occ_seed = int(world.seed)
+	_dressing_occ_content = world.content
+	return _dressing_occ
 
 
 # The furnishing cache, emptied by the same four things the nature cache is and for the same
@@ -1794,48 +1942,59 @@ func _furnishing_cache_for() -> Dictionary:
 	return _furnishing_cache
 
 
-# The furnishings, one picture per tile `Dressing.furnishing_tiles_cached` answers: a table, a chair,
-# a shelf and a cabinet indoors, a dumpster, a barrier, a cone and a post outside (docs/23,
-# "Furnishings and container kinds"). Seen tiles only, and never a remembered one, so nothing here
-# is drawn through a wall or where the observer has no sightline. Hung by `Appearance.hang_rect` at
-# the picture's own size, drawn over the nature and under the props and the bodies. A tile a real
-# prop stands on is skipped, so a chair never peeks out from under a container or a bed. Dressing
-# is never sim state: this reads the map and the props' positions and writes nothing, and a body
-# walks across a table and is drawn over it.
-func _draw_furnishings(dress: Dictionary, seen: Variant, bounds: Dictionary) -> void:
-	if dress.is_empty() or seen == null or world.tilemap == null:
+# The flat dressing of one chunk, baked into the DECOR layer (world_layers.gd): the nature pictures
+# (bushes, reeds, rocks, stumps, logs over open outdoor floor) and the flat furnishings (a table, a
+# chair, a dumpster, a traffic cone). Dressing.decor_picks answers which tile takes which picture;
+# this only blits them, one hung on each tile's south edge at its own size (_placed_rect),
+# in the bake camera's world pixels. Nature first, then furniture, as the per-frame draw did, and
+# the layer's LIVE mask decides what shows, so a picture on a tile nobody sees is baked and never
+# drawn. A standing furnishing is not here: it joins the entity sort (_standing_props).
+#
+# Dressing is never sim state: this reads the map and writes nothing, and a picture never sits on
+# anything the sim treats as solid. A prop standing on a tile is drawn over the picture beneath it
+# (_draw_props runs after the layers), which is the cost of baking: the old per-frame draw skipped
+# the picture under a prop, the baked one cannot notice a prop placed after its chunk was baked.
+func _draw_decor(region: Rect2i) -> void:
+	var dress: Dictionary = _dressing()
+	if dress.is_empty() or world.tilemap == null:
 		return
+	var picks: Dictionary = Dressing.decor_picks(dress, world.tilemap, int(world.seed), region, _dressing_occupancy())
 	var zoom: float = float(camera["zoom"])
 	var px_scale: float = Appearance.blit_scale(zoom)
-	var occupied: Dictionary = Appearance.prop_tiles(world)
-	for pick in Dressing.furnishing_tiles_cached(dress, world.tilemap, seen, int(world.seed), bounds, _furnishing_cache_for()):
-		if Dressing.furnishing_is_standing(dress, String(pick["key"])):
-			continue
-		if occupied.has(Vector2i(int(pick["tx"]), int(pick["ty"]))):
-			continue
-		var texture: Texture2D = Appearance.resolve(String(pick["key"]))
-		if texture == null:
-			continue
-		var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(int(pick["tx"])) + 0.5, float(int(pick["ty"])) + 1.0)
-		draw_texture_rect(texture, Appearance.hang_rect(float(sc["sx"]), float(sc["sy"]), texture.get_size() * px_scale), false)
+	for kind in ["nature", "furnishings"]:
+		for pick in picks[kind] as Array:
+			var placed: Dictionary = pick as Dictionary
+			var texture: Texture2D = Appearance.resolve(String(placed["key"]))
+			if texture == null:
+				continue
+			var rect: Rect2 = _placed_rect(placed, texture.get_size(), px_scale)
+			_pen.draw_texture_rect(texture, _mirrored(rect, bool(placed["flip"])), false)
 
 
-# The nature dressing, one picture per tile `Dressing.nature_tiles_cached` answers: seen tiles only, and
-# never a remembered one, so nothing here is drawn where the observer has no sightline. Each hangs
-# with its last row on the tile's south edge (Appearance.hang_rect) at its own size. Dressing is
-# never sim state: this reads the map and writes nothing, and the tiles it draws on are open floor
-# the sim treats as open floor -- a body walks across a stump and is drawn over it.
-func _draw_nature(dress: Dictionary, seen: Variant, bounds: Dictionary) -> void:
-	if dress.is_empty() or seen == null or world.tilemap == null:
-		return
-	var zoom: float = float(camera["zoom"])
-	var px_scale: float = Appearance.blit_scale(zoom)
-	for pick in Dressing.nature_tiles_cached(dress, world.tilemap, seen, int(world.seed), bounds, _nature_cache_for()):
-		var texture: Texture2D = Appearance.resolve(String(pick["key"]))
-		if texture == null:
-			continue
-		var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(int(pick["tx"])) + 0.5, float(int(pick["ty"])) + 1.0)
-		draw_texture_rect(texture, Appearance.hang_rect(float(sc["sx"]), float(sc["sy"]), texture.get_size() * px_scale), false)
+# Where a flat picture's rect stands on screen. Its art rect is Dressing's own (`_art_rect`): centred
+# on the tile's centre line and its base on the tile's south edge, each moved by the pick's whole
+# art-pixel offset, with its left edge a whole art pixel even when its width is odd. The tile's
+# corner is read off the same projection the ground is drawn from, so every edge lands on the
+# ground's own art grid at any zoom. `art_size` is the texture's size in art pixels.
+func _placed_rect(placed: Dictionary, art_size: Vector2, px_scale: float) -> Rect2:
+	var corner: Dictionary = TopDownProjection.world_to_screen(camera, float(placed["tx"]), float(placed["ty"]))
+	var x0: float = roundf(float(corner["sx"]))
+	var y0: float = roundf(float(corner["sy"]))
+	var left: float = float(Dressing.ART_PER_TILE) / 2.0 + float(placed["ox"]) - floorf(art_size.x / 2.0)
+	var top: float = float(Dressing.ART_PER_TILE) + float(placed["oy"]) - art_size.y
+	return Rect2(roundf(x0 + left * px_scale), roundf(y0 + top * px_scale), roundf(art_size.x * px_scale), roundf(art_size.y * px_scale))
+
+
+# The same rect drawn mirrored: a negative width flips the texture in place, which is how one picture
+# gives two looks. The position stays where it is. The renderer flips a negative-width rect about
+# its own left edge's span (it draws from `position.x` to `position.x + |w|`), the rule
+# Appearance.body_rect already leans on for the face-on pawns, so moving the position to the right
+# edge first -- the A12 round-4 version -- drew every mirrored picture one full width east of where
+# the overlap rule had placed it: a mirrored cone landed on the trash bags beside it.
+func _mirrored(rect: Rect2, flip: bool) -> Rect2:
+	if not flip:
+		return rect
+	return Rect2(rect.position.x, rect.position.y, -rect.size.x, rect.size.y)
 
 
 # One heap of junk over a Low tile no parked vehicle covers. False when content declares no
@@ -1873,14 +2032,29 @@ func _draw_scatter(rect: Rect2, dress: Dictionary, tx: int, ty: int) -> void:
 		return
 	var seed_val: int = int(world.seed)
 	var key: String = Dressing.rubble_key(dress, world.tilemap, seed_val, tx, ty)
-	if key.is_empty():
-		key = Dressing.litter_key(dress, world.tilemap, seed_val, tx, ty)
-	if key.is_empty():
+	if not key.is_empty():
+		var rubble: Texture2D = Appearance.resolve(key)
+		if rubble != null:
+			var flipped: bool = Dressing.flip_at(seed_val, tx, ty, Dressing.SALT_LITTER_FLIP)
+			_pen.draw_texture_rect(rubble, _mirrored(rect, flipped), false)
 		return
-	var texture: Texture2D = Appearance.resolve(key)
+	_draw_litter(Dressing.litter_placed_in(_dressing_occupancy(), tx, ty))
+
+
+# One scrap of litter: a few art pixels, drawn at its own size and never stretched over the tile, on
+# the same rect rule every flat picture uses (`_placed_rect`), and mirrored where its record says so.
+func _draw_litter(placed: Dictionary) -> void:
+	if placed.is_empty():
+		return
+	var texture: Texture2D = Appearance.resolve(String(placed["key"]))
 	if texture == null:
 		return
-	_pen.draw_texture_rect(texture, rect, false)
+	var at: Rect2 = _placed_rect(placed, texture.get_size(), Appearance.blit_scale(float(camera["zoom"])))
+	var drawn: Rect2 = _mirrored(at, bool(placed["flip"]))
+	# A half turn on top of the mirror: a negative height flips in place, as a negative width does.
+	if bool(placed.get("flip_v", false)):
+		drawn = Rect2(drawn.position.x, drawn.position.y, drawn.size.x, -drawn.size.y)
+	_pen.draw_texture_rect(texture, drawn, false, placed.get("tint", Color.WHITE) as Color)
 
 
 func _mask_at(mask: PackedByteArray, tx: int, ty: int) -> int:
@@ -2314,7 +2488,10 @@ func _draw_a2_wall_piece(piece: Dictionary) -> void:
 
 func _draw_decals(seen: Variant, standing: Dictionary, bounds: Dictionary) -> void:
 	_decals_drawn = []
-	_decals.call("draw_ground", self, world, camera, seen, standing, bounds, _decals_drawn)
+	# Into the layers' decal item, under the baked DECOR pictures (world_layers.gd's decal_pen), so a
+	# mark lies under a table rather than over it; on main itself where no layers are attached.
+	var pen: Variant = _layers.call("decal_pen") if _layers != null else null
+	_decals.call("draw_ground", pen if pen != null else self, world, camera, seen, standing, bounds, _decals_drawn)
 
 
 func _draw_decal_list(draws: Array[Dictionary]) -> void:
@@ -2557,7 +2734,7 @@ func _visual_remains_items() -> Array[Dictionary]:
 			"d": TopDownProjection.depth_of(x, y), "det": SimVisibility.Detail.Focal,
 			"player": false, "unique": false, "zed": false, "bait": false, "raider": false,
 			"ztype": String(record["ztype"]), "tint": String(record["tint"]), "cid": "",
-			"id": int(record["entity"]), "corpse": true})
+			"id": int(record["entity"]), "corpse": true, "facing": record.get("facing")})
 	return out
 
 
@@ -2571,30 +2748,61 @@ func _draw_corpse(it: Dictionary, px_scale: float) -> void:
 	if int(it["det"]) != SimVisibility.Detail.Focal:
 		return
 	var look: Dictionary = Appearance.corpse_look(world, it)
+	var sx: float = float(it["sx"])
+	var sy: float = float(it["sy"])
+	var id: int = int(it["id"])
+	# A body that has just died falls before it settles (presentation/anim_clock.gd's `fall_of`):
+	# its own family's fall frames, from the view it was last drawn facing, standing on the point
+	# it died on, in the clothes it was last drawn in. It then lies as the fall's last frame, the
+	# body turned flat across the screen (docs/23, "Falls that lie down"), so nothing changes shape
+	# on the cut; a body the clock never saw fall lies by the heading it died with.
+	var fall: Dictionary = _anim.fall_of(id)
+	var view: String = String(fall["view"]) if not fall.is_empty() else _anim.landed_view(id)
+	if view.is_empty():
+		view = _corpse_view(it)
+	var body: String = String(fall["key"]) if not fall.is_empty() else String(look.get("body", ""))
+	var outfit_v: Variant = fall.get("outfit", []) if not fall.is_empty() else look.get("outfit", [])
+	var outfit: Array = outfit_v as Array if outfit_v is Array else []
+	var frame: String = Appearance.fall_key(body, view, float(fall["t"])) if not fall.is_empty() else ""
+	var falling: bool = not frame.is_empty()
+	if not falling:
+		frame = Appearance.lying_key(body, view)
+	if not frame.is_empty():
+		var dressed: Texture2D = Appearance.dressed_texture(body, frame, outfit) if not outfit.is_empty() else null
+		var picture: Texture2D = dressed if dressed != null else Appearance.resolve(frame)
+		if picture != null:
+			draw_texture_rect(picture, Appearance.body_rect(sx, sy, picture.get_size() * px_scale, 1.0), false, look["tint"] as Color)
+			var drawn: Dictionary = {"id": id, "key": frame, "dressed": dressed != null}
+			if falling:
+				_falls_drawn.append(drawn)
+			else:
+				_lying_drawn.append(drawn)
+			return
+	# A family with no fall: the pack's corpse picture, on its ground centre.
 	var texture: Texture2D = look.get("texture") as Texture2D
 	if texture == null:
 		return
-	var sx: float = float(it["sx"])
-	var sy: float = float(it["sy"])
-	# A body that has just died falls before it settles (presentation/anim_clock.gd's `fall_of`):
-	# its own family's fall frames, from the view it was last drawn facing, standing on the point
-	# it died on, until they play through and the settled picture below takes over.
-	var fall: Dictionary = _anim.fall_of(int(it["id"]))
-	if not fall.is_empty():
-		var fall_key: String = Appearance.fall_key(String(fall["key"]), String(fall["view"]), float(fall["t"]))
-		var falling: Texture2D = Appearance.resolve(fall_key) if not fall_key.is_empty() else null
-		if falling != null:
-			draw_texture_rect(falling, Appearance.body_rect(sx, sy, falling.get_size() * px_scale, 1.0), false, look["tint"] as Color)
-			_falls_drawn.append({"id": int(it["id"]), "key": fall_key})
-			return
-	var size: Vector2 = texture.get_size() * px_scale
-	draw_texture_rect(texture, Appearance.corpse_rect(sx, sy, size), false, look["tint"] as Color)
+	draw_texture_rect(texture, Appearance.corpse_rect(sx, sy, texture.get_size() * px_scale), false, look["tint"] as Color)
+
+
+# The view a corpse the clock never saw fall lies by: its facing when it died -- a dead human's
+# own component, a zombie's as its saved remains record it -- or the rest view when neither says.
+func _corpse_view(it: Dictionary) -> String:
+	var facing_v: Variant = it.get("facing")
+	if facing_v == null and world != null and world.components != null:
+		var f: Variant = world.components.get_component(int(it["id"]), "facing")
+		if f is Dictionary:
+			facing_v = (f as Dictionary).get("radians")
+	if facing_v == null:
+		return Appearance.VIEW_REST
+	return Appearance.view_of(float(facing_v))
 
 
 func _draw_entities() -> void:
 	if world == null: return
 	_focal_drawn = []
 	_falls_drawn = []
+	_lying_drawn = []
 	_interp.begin_draw()
 	_anim.begin_draw(_anim_time)
 	var sub_tick: float = _sub_tick()
@@ -2858,7 +3066,7 @@ func _draw_entities() -> void:
 		var motion: Dictionary = _anim.motion(eid, Vector2(float(it["x"]), float(it["y"])), Appearance.moving(vel_v), Appearance.stride_of(sprite_key), Appearance.pace_of(sprite_key), front)
 		# And what it is doing (docs/23, "Actions on the render clock"): the one-shot or held action
 		# and the stance, read off the sim's events and components; frame_key answers them first.
-		motion.merge(_anim.act(eid, world, sprite_key, view))
+		motion.merge(_anim.act(eid, world, sprite_key, view, look.get("outfit", []) as Array if look.get("outfit", []) is Array else []))
 		var frame: String = Appearance.frame_key(sprite_key, view, motion)
 		var texture: Texture2D = Appearance.body_texture(look, view, motion)
 		if texture != null:
@@ -3246,9 +3454,10 @@ func _standing_props(seen: Variant) -> Array[Dictionary]:
 	# Tall inert furnishings use the exact same deterministic picks, observer set, cache, foot point
 	# and depth sort. Real props retain the existing occupied-tile exclusion from the flat pass.
 	if world != null and world.tilemap != null and seen != null:
-		var dress: Dictionary = Dressing.block_of(world)
+		var dress: Dictionary = _dressing()
 		var occupied: Dictionary = Appearance.prop_tiles(world)
-		for pick in Dressing.standing_furnishing_tiles_cached(dress, world.tilemap, seen, int(world.seed), bounds, _furnishing_cache_for()):
+		var occ: Dictionary = _dressing_occupancy()
+		for pick in Dressing.standing_furnishing_tiles_cached(dress, world.tilemap, seen, int(world.seed), bounds, _furnishing_cache_for(), occ):
 			var tx: int = int(pick["tx"])
 			var ty: int = int(pick["ty"])
 			if occupied.has(Vector2i(tx, ty)):
@@ -3268,8 +3477,20 @@ func _blit_standing(it: Dictionary, px_scale: float, focal_points: Array[Vector2
 	var rect: Rect2 = Appearance.body_rect(float(it["sx"]), float(it["sy"]), texture.get_size() * px_scale, 1.0)
 	var tint: Color = Color.WHITE
 	if bool(it.get("fade_on_overlap", false)):
+		rect = _standing_rect(float(it["sx"]), float(it["sy"]), texture.get_size(), px_scale)
 		tint.a = Dressing.tree_alpha(rect, focal_points)
 	draw_texture_rect(texture, rect, false, tint)
+
+
+# A standing furnishing's rect: body_rect's feet line, but on the ground's art grid. Its left edge is
+# the tile's centre less half its width in whole art pixels (Dressing._art_rect's rule) and its foot
+# drop is FOOT_DROP_PX rounded to whole art pixels, so a fridge's outline lands on the same 2x2 grid
+# as the floor under it -- the rect Dressing's overlap rule reasons about (`_top_rect`).
+func _standing_rect(sx: float, sy: float, art_size: Vector2, px_scale: float) -> Rect2:
+	var drop: float = px_scale * roundf(Appearance.FOOT_DROP_PX / px_scale)
+	var left: float = roundf(sx - px_scale * floorf(art_size.x / 2.0))
+	var size: Vector2 = art_size * px_scale
+	return Rect2(left, roundf(sy + drop - size.y), size.x, size.y)
 
 
 # One parked vehicle: a three-quarter picture standing feet-anchored on its footprint's south-edge

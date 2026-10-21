@@ -49,6 +49,9 @@ const LAYOUT_GD: String = "res://ui/web_layout.gd"
 const SKILLS_GD: String = "res://sim/modules/skills.gd"
 const LEGEND_GD: String = "res://ui/legend.gd"
 const PANEL_SIZE: Vector2 = Vector2(1040, 760)
+# The panel main.gd's `_place_web` gives the web on a 1280x720 window: shorter than its natural
+# size, so the web between the words shrinks and the names crowd (UI review, round 2).
+const SHORT_SIZE: Vector2 = Vector2(1036, 620)
 const BUDGET_SECONDS: float = 60.0
 
 const MAP_KEYS: Array[String] = ["who", "manual", "regions", "nodes"]
@@ -74,6 +77,7 @@ func _run() -> void:
 	var w: Variant = boot["world"]
 	ok = _map_lane(w) and ok
 	ok = await _screen_lane(w) and ok
+	ok = await _crowd_lane(w) and ok
 	ok = _wired_lane() and ok
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
 	if seconds > BUDGET_SECONDS:
@@ -495,6 +499,81 @@ func _map_lane(w: Variant) -> bool:
 		return false
 	print("MAP OK %d nodes, %d regions, words and booleans only; Medicine lived and Craft not; the Auto twin lived Medicine with nothing banked; the prose line agrees" % [nodes.size(), lived.keys().size()])
 	return true
+
+
+# --- 4b. CROWD ---------------------------------------------------------------------------------
+# No name, price, region word or "start" within LABEL_CLEAR of another, and no word over a disc it
+# does not belong to, on your own web at the natural size and at the 1280x720 size. The negative:
+# the same check on the short panel with every name on its home row, as the web drew them before
+# the label plan, finds the crowd the review measured -- so the check can see one.
+
+
+func _crowd_lane(w: Variant) -> bool:
+	var panel: Control = (load(PANEL_GD) as GDScript).new() as Control
+	root.add_child(panel)
+	await process_frame
+	var ok: bool = true
+	var naive: Array = []
+	for dims in [PANEL_SIZE, SHORT_SIZE]:
+		panel.size = dims
+		panel.call("set_world", w, int(w.player))
+		var faults: Array = panel.call("label_faults", true)
+		if not faults.is_empty():
+			push_error("CROWD: at %s the web's words crowd: %s" % [str(dims), str(faults)])
+			ok = false
+		if dims == SHORT_SIZE:
+			naive = panel.call("label_faults", false)
+	if naive.is_empty():
+		push_error("CROWD: with every name on its home row the short web shows no crowd, so the check cannot fail")
+		ok = false
+	# Every disc, ring and the hub's dot on the 2 px art grid at both sizes: an outer box that
+	# starts and ends on even pixels (UI review round 3 found all 21 on odd edges). The negative is
+	# the same box a pixel over, which the check must refuse.
+	var boxes: int = 0
+	for dims in [PANEL_SIZE, SHORT_SIZE]:
+		panel.size = dims
+		panel.call("set_world", w, int(w.player))
+		for box in panel.call("disc_boxes") as Array:
+			boxes += 1
+			var b: Rect2 = box as Rect2
+			if _odd_box(b) or not _runs_fill(b, b.size.x / 2.0):
+				push_error("GRID: a disc's box %s is off the even grid, or its art pixels are, at %s" % [str(b), str(dims)])
+				ok = false
+	# Negatives: the box round 3 measured, and the art pixels of a disc with an odd radius.
+	if boxes < 2 or not _odd_box(Rect2(Vector2(631, 181), Vector2(18, 18))) or _runs_fill(Rect2(Vector2(631, 181), Vector2(18, 18)), 9.0):
+		push_error("GRID: the disc check judged %d boxes and passed an odd box or odd art pixels, so it cannot fail" % boxes)
+		ok = false
+	# And the draw reaches the blocks: a smooth `draw_circle` back in `_draw` is the round 3 defect.
+	var draw_body: String = _function_body(PANEL_GD, "_draw")
+	if draw_body.contains("draw_circle(") or not draw_body.contains("_blocks("):
+		push_error("GRID: the web's _draw draws a smooth circle, or never calls _blocks")
+		ok = false
+	panel.queue_free()
+	if ok:
+		print("CROWD OK every word on the web keeps its clearance and its own disc at the natural size and at 1280x720; laid out naively the short web crowds %d times; %d disc boxes on the even grid, an odd one refused" % [naive.size(), boxes])
+	return ok
+
+
+# The art pixels `_blocks` draws for a disc of radius `r` centred in `box` (and for its 2 px ring):
+# every run on even pixels, and together they reach the box's four edges and no further.
+func _runs_fill(box: Rect2, r: float) -> bool:
+	var panel_gd: GDScript = load(PANEL_GD) as GDScript
+	for r_in in [0.0, r - 2.0]:
+		var reach := Rect2()
+		var first: bool = true
+		for run in panel_gd.call("block_runs", r, r_in) as Array:
+			var at := Rect2(box.get_center() + (run as Rect2).position, (run as Rect2).size)
+			if _odd_box(at):
+				return false
+			reach = at if first else reach.merge(at)
+			first = false
+		if first or reach != box:
+			return false
+	return true
+
+
+func _odd_box(r: Rect2) -> bool:
+	return posmod(int(r.position.x), 2) != 0 or posmod(int(r.position.y), 2) != 0 or posmod(int(r.size.x), 2) != 0 or posmod(int(r.size.y), 2) != 0
 
 
 # --- 4. SCREEN ---------------------------------------------------------------------------------

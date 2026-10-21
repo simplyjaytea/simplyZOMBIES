@@ -115,6 +115,10 @@ var _stash: Dictionary = {}
 # An action frame moves further: a crouch sinks the head onto bent knees, a stagger throws it back
 # (docs/23, "Actions on the render clock"). Still bounded, so a head flung off the body is refused.
 const ACTION_DRIFT_MAX: int = 10
+# A fall turns the body as far as 90 degrees about its feet (motion/actions.py `turn_about_feet`),
+# so its head travels as much as a body's height, the rig's 40 rows; it is drawn dressed in the
+# corpse pass, and its offsets are bounded by that turn.
+const FALL_DRIFT_MAX: int = 40
 const FRAME_DRIFT_MAX: int = 3
 # The bodies that turn, and so have frames for gear to follow.
 const TURNING_BODIES: Array[String] = [
@@ -454,10 +458,14 @@ func _the_canvas_is_the_declared_one() -> bool:
 	for d in decls:
 		var key: String = String(d["key"])
 		if Appearance.is_garment(key):
-			for frame in _rig_members():
+			for frame in _rig_members() + _rig_action_members():
 				var worn: String = key + frame.substr(CLOTHED_RIG.length())
-				if not _is_pawn_canvas(Appearance.resolve(worn)):
-					push_error("CANVAS: %s's garment member '%s' is not a PAWN_CANVAS %s picture" % [String(d["id"]), worn, str(Appearance.PAWN_CANVAS)])
+				# The rig frame's own canvas: PAWN_CANVAS, or a fall frame's wider fall canvas.
+				var own: Vector2i = Appearance.canvas_of(frame)
+				var tex: Variant = Appearance.resolve(worn)
+				var fits: bool = tex is Texture2D and Vector2i((tex as Texture2D).get_size()) == own
+				if not fits or (own != Appearance.PAWN_CANVAS and not frame.contains("_fall_")):
+					push_error("CANVAS: %s's garment member '%s' is not its rig frame's %s picture" % [String(d["id"]), worn, str(own)])
 					return false
 		elif Appearance.turns(key):
 			for view in Appearance.VIEWS:
@@ -486,7 +494,7 @@ func _the_canvas_is_the_declared_one() -> bool:
 		return false
 
 	_stash["canvas_judged"] = judged
-	print("CANVAS OK %d equip declaration(s) under content/items/ are a garment with a PAWN_CANVAS member per rig frame, a wearable with four PAWN_CANVAS members or a held weapon at its declared canvas; a 32x32 fabrication and an unknown key are both refused" % judged)
+	print("CANVAS OK %d equip declaration(s) under content/items/ are a garment with a member per rig frame at that frame's canvas (PAWN_CANVAS, a fall the fall canvas), a wearable with four PAWN_CANVAS members or a held weapon at its declared canvas; a 32x32 fabrication and an unknown key are both refused" % judged)
 	return true
 
 
@@ -1180,7 +1188,7 @@ func _the_gear_follows_the_frame() -> bool:
 				if p == null:
 					push_error("%s: %s declares no %s offset; gear riding it would not move with the frame" % [lane, member, region])
 					return false
-				var drift: int = FRAME_DRIFT_MAX if _is_walk_or_breath(suffix) else ACTION_DRIFT_MAX
+				var drift: int = FRAME_DRIFT_MAX if _is_walk_or_breath(suffix) else (FALL_DRIFT_MAX if suffix.begins_with("fall_") else ACTION_DRIFT_MAX)
 				if absi((p as Vector2i).x) > drift or absi((p as Vector2i).y) > drift:
 					push_error("%s: %s moves its %s by %s, past %d px" % [lane, member, region, str(p), drift])
 					return false
@@ -1499,6 +1507,26 @@ func _rig_members() -> Array[String]:
 	return out
 
 
+# The rig's action pictures (A8: the swing, recoil, reloads, flinch, crouch, crawl and fall), every
+# frame of every action its `actions` block declares, in every view that draws it: dressed like the
+# rest since "Clothes on the action frames" (docs/23).
+func _rig_action_members() -> Array[String]:
+	var out: Array[String] = []
+	Appearance.action_frames(CLOTHED_RIG, "", Appearance.VIEW_REST)
+	var actions: Dictionary = (Appearance._families[CLOTHED_RIG] as Dictionary)["actions"] as Dictionary
+	for action in actions.keys():
+		for view in Appearance.VIEWS:
+			for n in Appearance.action_frames(CLOTHED_RIG, String(action), view):
+				out.append("%s_%s_%s_%d" % [CLOTHED_RIG, String(action), view, n])
+	return out
+
+
+# One action frame's run, `<action>_<view>`: the frames a garment is judged over together, since a
+# pose may hide a garment's part on one frame of it (docs/23's record of the clothes on the actions).
+func _run_of(frame: String) -> String:
+	return frame.substr(CLOTHED_RIG.length() + 1).rsplit("_", true, 1)[0]
+
+
 # What is wrong with one worn item's equipSprite for its slot, or "".
 func _garment_complaint(key: String, slot: String) -> String:
 	if key.is_empty():
@@ -1571,6 +1599,12 @@ func _every_worn_item_has_a_garment() -> bool:
 	if frames.size() != Appearance.VIEWS.size() * (Appearance.breath_frames(CLOTHED_RIG) + Appearance.walk_frames(CLOTHED_RIG)) or Appearance.walk_frames(CLOTHED_RIG) != 8 or Appearance.breath_frames(CLOTHED_RIG) != 2:
 		push_error("%s: the %s rig draws %d frames, want four views of a rest picture, a breath and an eight-frame walk" % [lane, CLOTHED_RIG, frames.size()])
 		return false
+	var acting: Array[String] = _rig_action_members()
+	var rig_total: int = ((Appearance._families[CLOTHED_RIG] as Dictionary)["members"] as Array).size()
+	if acting.is_empty() or frames.size() + acting.size() != rig_total:
+		push_error("%s: %d rest, walk and breath frames and %d action frames, where the %s rig draws %d; every frame it draws is dressed" % [lane, frames.size(), acting.size(), CLOTHED_RIG, rig_total])
+		return false
+	var hidden: int = 0
 	var per_slot: Dictionary = {"legs": 0, "feet": 0, "torso": 0}
 	var fewest: int = 1 << 30
 	for path in tree.keys():
@@ -1599,7 +1633,8 @@ func _every_worn_item_has_a_garment() -> bool:
 			if outfit.size() != EXPECT_WORN.size() or String(outfit[EXPECT_WORN.find(slot)]) != key:
 				push_error("%s: an actor wearing %s is dressed in %s; want '%s' in the %s place of %s" % [lane, id, str(outfit), key, slot, str(EXPECT_WORN)])
 				return false
-			for frame in frames:
+			var runs: Dictionary = {}
+			for frame in frames + acting:
 				var suffix: String = frame.substr(CLOTHED_RIG.length())
 				var dressed: Image = Appearance.dressed_image(CLOTHED_RIG, frame, outfit)
 				var exact: String = _composite_complaint(dressed, Appearance.image_of(frame), _layers_for(outfit, suffix))
@@ -1607,10 +1642,21 @@ func _every_worn_item_has_a_garment() -> bool:
 					push_error("%s: %s worn, %s dressed in %s %s" % [lane, id, frame, str(outfit), exact])
 					return false
 				var shown: int = _garment_shows(dressed, Appearance.image_of(frame), Appearance.image_of(key + suffix))
-				if shown == 0:
-					push_error("%s: %s's garment '%s' shows no pixel on %s dressed in %s" % [lane, id, key, frame, str(outfit)])
+				if frames.has(frame):
+					if shown == 0:
+						push_error("%s: %s's garment '%s' shows no pixel on %s dressed in %s" % [lane, id, key, frame, str(outfit)])
+						return false
+					fewest = mini(fewest, shown)
+				else:
+					# An action frame may hide the garment's part (a fold takes the shins, both fists
+					# cover the hips): it is judged over its run, which must show it somewhere.
+					runs[_run_of(frame)] = int(runs.get(_run_of(frame), 0)) + shown
+					if shown == 0:
+						hidden += 1
+			for run in runs.keys():
+				if int(runs[run]) == 0:
+					push_error("%s: %s's garment '%s' shows no pixel on any frame of the %s run dressed in %s" % [lane, id, key, String(run), str(outfit)])
 					return false
-				fewest = mini(fewest, shown)
 			per_slot[slot] = int(per_slot[slot]) + 1
 	for slot in EXPECT_WORN:
 		if int(per_slot[slot]) == 0:
@@ -1674,9 +1720,19 @@ func _every_worn_item_has_a_garment() -> bool:
 		push_error("%s: the bare frame was counted as showing a garment; the pixel count cannot say no" % lane)
 		return false
 
-	var note: String = "%d torso, %d legs and %d feet item(s) each drawn in their own garment on all %d rig frames (fewest %d garment pixels showing)" % [int(per_slot["torso"]), int(per_slot["legs"]), int(per_slot["feet"]), frames.size(), fewest]
+	# TN: an action frame dressed in the garments' standing pictures (clothes that did not act with
+	# the body) is refused by the same comparison that passed every action frame above.
+	var reload_frame: String = "%s_reload_e_3" % CLOTHED_RIG
+	var stood: Image = Appearance.image_of(reload_frame).duplicate() as Image
+	for layer in _layers_for(probe_outfit, "_e"):
+		stood.blend_rect(layer as Image, Rect2i(Vector2i.ZERO, (layer as Image).get_size()), Vector2i.ZERO)
+	if not acting.has(reload_frame) or _composite_complaint(stood, Appearance.image_of(reload_frame), _layers_for(probe_outfit, "_reload_e_3")).is_empty():
+		push_error("%s: a reload frame dressed in the garments' standing pictures passed as dressed in its own" % lane)
+		return false
+
+	var note: String = "%d torso, %d legs and %d feet item(s) each drawn in their own garment on all %d rig frames, %d of them action frames (fewest %d garment pixels showing standing, walking or breathing; %d action frames where the pose hides the garment's part, every action run showing it)" % [int(per_slot["torso"]), int(per_slot["legs"]), int(per_slot["feet"]), frames.size() + acting.size(), acting.size(), fewest, hidden]
 	_stash["coverage_note"] = note
-	print("COVERAGE OK %s; the draw loop reaches for_entity and body_texture; an unmapped item, a standing wearable, trousers on the torso, another rig's garment, a frame missing its trousers and a commented reader are refused, and an unmapped torso item falls back to the default shirt" % note)
+	print("COVERAGE OK %s; the draw loop reaches for_entity and body_texture; an unmapped item, a standing wearable, trousers on the torso, another rig's garment, a frame missing its trousers, a reload dressed in standing clothes and a commented reader are refused, and an unmapped torso item falls back to the default shirt" % note)
 	return true
 
 

@@ -255,7 +255,7 @@ static func plate(ci: CanvasItem, rect: Rect2, item_class: String, alpha: float)
 	ci.draw_rect(r, _a(_shade(t, 0.85), alpha))
 	ci.draw_rect(Rect2(r.position + Vector2(p, p), Vector2(r.size.x - p * 2.0, p)), _a(_shade(t, 1.15), alpha))
 	ci.draw_rect(Rect2(Vector2(r.position.x + p, r.end.y - p * 2.0), Vector2(r.size.x - p * 2.0, p)), _a(_shade(t, 0.6), alpha))
-	ci.draw_rect(r, _a(_shade(t, 1.45), alpha), false, p)
+	rim(ci, r, _a(_shade(t, 1.45), alpha))
 	var ear: float = p * 5.0
 	if r.size.x > ear * 2.0 and r.size.y > ear * 2.0:
 		ci.draw_colored_polygon(PackedVector2Array([
@@ -281,7 +281,7 @@ static func brackets(ci: CanvasItem, rect: Rect2, col: Color) -> void:
 # A selected plate: an amber hairline round it and the brackets outside that.
 static func selected(ci: CanvasItem, rect: Rect2, alpha: float) -> void:
 	var r: Rect2 = _snap(rect)
-	ci.draw_rect(r, _a(ACCENT, minf(1.0, alpha + 0.1)), false, PX)
+	rim(ci, r, _a(ACCENT, minf(1.0, alpha + 0.1)))
 	brackets(ci, r, _a(ACCENT, minf(1.0, alpha + 0.1)))
 
 
@@ -290,7 +290,7 @@ static func selected(ci: CanvasItem, rect: Rect2, alpha: float) -> void:
 static func accept(ci: CanvasItem, rect: Rect2) -> void:
 	var r: Rect2 = _snap(rect)
 	ci.draw_rect(r, _a(GOOD, 0.18))
-	ci.draw_rect(r, _a(GOOD, 0.85), false, PX)
+	rim(ci, r, _a(GOOD, 0.85))
 
 
 # Where a held item would land and the sim would refuse it: hazard stripes in rust over the cells
@@ -309,7 +309,7 @@ static func refuse(ci: CanvasItem, rect: Rect2) -> void:
 		if b.x > a.x:
 			ci.draw_line(a, b, _a(DANGER, 0.7), p * 2.0)
 		x += step
-	ci.draw_rect(r, _a(DANGER, 0.95), false, p)
+	rim(ci, r, _a(DANGER, 0.95))
 
 
 # A stamped button: a recessed well when idle, an amber-rimmed plate when it is the obvious thing to
@@ -319,11 +319,20 @@ static func button(ci: CanvasItem, rect: Rect2, label: String, primary: bool, al
 	if primary:
 		ci.draw_rect(r, _a(_shade(ACCENT, 0.32), alpha))
 		ci.draw_rect(Rect2(r.position + Vector2(PX, PX), Vector2(r.size.x - PX * 2.0, PX)), _a(_shade(ACCENT, 0.55), alpha))
-		ci.draw_rect(r, _a(ACCENT, minf(1.0, alpha + 0.1)), false, PX)
+		rim(ci, r, _a(ACCENT, minf(1.0, alpha + 0.1)))
 	else:
 		well(ci, r, alpha)
-		ci.draw_rect(r, _a(RIM_SIDE, alpha), false, PX)
+		rim(ci, r, _a(RIM_SIDE, alpha))
 	text_centred(ci, r, label, LABEL_SIZE, TEXT if primary else TEXT_DIM, alpha)
+
+
+# A one-art-pixel rim drawn inside `r`. An outlined draw_rect centres its stroke on the edge, which
+# puts half of a two-pixel rim on an odd screen pixel; this keeps every edge on the grid.
+static func rim(ci: CanvasItem, r: Rect2, col: Color) -> void:
+	ci.draw_rect(Rect2(r.position, Vector2(r.size.x, PX)), col)
+	ci.draw_rect(Rect2(Vector2(r.position.x, r.end.y - PX), Vector2(r.size.x, PX)), col)
+	ci.draw_rect(Rect2(r.position + Vector2(0.0, PX), Vector2(PX, r.size.y - PX * 2.0)), col)
+	ci.draw_rect(Rect2(Vector2(r.end.x - PX, r.position.y + PX), Vector2(PX, r.size.y - PX * 2.0)), col)
 
 
 # A filter chip: a small stamped tag, lit amber when it is the filter in force.
@@ -331,10 +340,10 @@ static func chip(ci: CanvasItem, rect: Rect2, label: String, on: bool, alpha: fl
 	var r: Rect2 = _snap(rect)
 	if on:
 		ci.draw_rect(r, _a(_shade(ACCENT, 0.35), alpha))
-		ci.draw_rect(r, _a(ACCENT, minf(1.0, alpha + 0.1)), false, PX)
+		rim(ci, r, _a(ACCENT, minf(1.0, alpha + 0.1)))
 	else:
 		ci.draw_rect(r, _a(Color(0.0, 0.0, 0.0, 0.25), alpha))
-		ci.draw_rect(r, _a(TEXT_FAINT, alpha), false, PX)
+		rim(ci, r, _a(TEXT_FAINT, alpha))
 	text_centred(ci, r, label, SMALL_SIZE, TEXT if on else TEXT_DIM, alpha)
 
 
