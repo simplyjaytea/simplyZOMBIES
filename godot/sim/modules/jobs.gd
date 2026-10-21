@@ -228,6 +228,28 @@ static func _tick_one(world: Variant, ent: int) -> void:
 		return
 	var seek: String = SimNeeds.seek_kind(world, ent)
 	var job: Variant = world.components.get_component(ent, "job")
+	# A wash with nothing to wash in is not a reason to stand still. The hygiene seek returns
+	# without a job when there is no bottle of water to spend, and before this it still claimed the
+	# tick, so a dirty colonist in a district with no water took no work and no walk home for the
+	# rest of the run: the building-noise pass watched one stand idle at the annex door until a zombie
+	# took them and herded them 150 tiles across the district.
+	if seek == "hygiene" and not _can_wash(world, ent):
+		seek = ""
+	# Out past home's walls with a zombie within DANGER_METRES, whatever they were doing, a
+	# colonist walks home first. `_endangered` below covers the errands; this covers a colonist
+	# standing idle or walking a need, who before this had no rule that ever sent them in.
+	if BREAK_OFF_FROM_DANGER and _exposed_idle(world, ent, job):
+		if job is Dictionary:
+			_stop(world, ent)
+		_retreat(world, ent)
+		_advance_job(world, ent, world.components.get_component(ent, "job") as Dictionary)
+		return
+	# A walk home is not dropped for a need that can wait. Without this the seek branch below
+	# ended every Retreat it met (Retreat has ticksLeft 0), so a hungry or tired colonist turned
+	# back to the zombie they were walking away from.
+	if job is Dictionary and String((job as Dictionary).get("kind", "")) == "Retreat" and not (job as Dictionary).has("until") and not _hard_seek(n, seek):
+		_advance_job(world, ent, job as Dictionary)
+		return
 	if seek != "":
 		var hard: bool = false
 		if SimNeeds.POOLS.has(seek):
@@ -1457,6 +1479,25 @@ static func _endangered(world: Variant, ent: int, job: Dictionary) -> bool:
 	# An order is the player's word, and a colonist re-arming on the way to one is still under it.
 	if world.components.has_component(ent, ORDER_COMPONENT):
 		return false
+	return _outside_in_danger(world, ent)
+
+
+# A colonist not on an errand (`_endangered` covers those), not walking home already, not on the
+# watch, not under an order and not part way through a channel, standing outside home's walls with
+# a zombie within DANGER_METRES.
+static func _exposed_idle(world: Variant, ent: int, job: Variant) -> bool:
+	if job is Dictionary:
+		var kind: String = String((job as Dictionary).get("kind", ""))
+		if kind == "Retreat" or kind == "Guard" or DANGER_KINDS.has(kind):
+			return false
+		if int((job as Dictionary).get("ticksLeft", 0)) > 0:
+			return false
+	if world.components.has_component(ent, ORDER_COMPONENT):
+		return false
+	return _outside_in_danger(world, ent)
+
+
+static func _outside_in_danger(world: Variant, ent: int) -> bool:
 	var pos: Variant = world.components.get_component(ent, "position")
 	if not pos is Dictionary:
 		return false
@@ -1467,6 +1508,25 @@ static func _endangered(world: Variant, ent: int, job: Dictionary) -> bool:
 		if annex.has_point(Vector2i(floori(x), floori(y))):
 			return false
 	return _danger_at(world, x, y, DANGER_METRES)
+
+
+# The same line `_tick_one`'s seek branch draws: a pool at zero, or the far end of a band.
+static func _hard_seek(n: Dictionary, seek: String) -> bool:
+	if seek == "":
+		return false
+	if SimNeeds.POOLS.has(seek):
+		return float(n.get(seek, 100.0)) <= 0.0
+	if seek == "temperature":
+		var t: String = String(n.get("temperature", ""))
+		return t == "extremely_cold" or t == "extremely_hot"
+	if seek == "hygiene":
+		return String(n.get("hygiene", "")) == "filthy"
+	return false
+
+
+# Something to wash with: the one thing the hygiene seek spends, carried or on the pile.
+static func _can_wash(world: Variant, ent: int) -> bool:
+	return _carry_base(world, ent, SimNeeds.WATER_ID) >= 0 or _stock_base(world, SimNeeds.WATER_ID) >= 0
 
 
 # The walk home: a job with a tile and nothing to do there, which `_advance_job` ends on arrival.

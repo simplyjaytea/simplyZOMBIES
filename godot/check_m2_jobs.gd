@@ -49,8 +49,11 @@ func _run() -> void:
 	ok = _bury_carries_only_the_corpse_its_own_job_took() and ok
 	ok = _an_errand_breaks_off_from_a_zombie() and ok
 	ok = _an_errand_reaches_only_the_errand_radius() and ok
+	ok = _an_idle_colonist_walks_home_from_a_zombie() and ok
+	ok = _a_walk_home_outlasts_a_need_that_can_wait() and ok
+	ok = _a_wash_with_no_water_does_not_stop_work() and ok
 	if ok:
-		print("M2_JOBS_OK astar focus cook haul construct doctor rest corpse seek water clean bury succession, the well is reachable from a bottle the sim emptied, a cook claims its raw, Guard is the night post, a focus change keeps the authored row, a starving colonist still eats, colonists scavenge near home, a target nobody can route to is planned for once and then left alone, a corpse another body took is left alone by Bury, an errand breaks off from a zombie at arm's length, and Haul and Scavenge reach only the errand radius")
+		print("M2_JOBS_OK astar focus cook haul construct doctor rest corpse seek water clean bury succession, the well is reachable from a bottle the sim emptied, a cook claims its raw, Guard is the night post, a focus change keeps the authored row, a starving colonist still eats, colonists scavenge near home, a target nobody can route to is planned for once and then left alone, a corpse another body took is left alone by Bury, an errand breaks off from a zombie at arm's length, and Haul and Scavenge reach only the errand radius, an idle colonist outside walks home from one too, a walk home outlasts a need that can wait, and a wash with no water stops no work")
 		quit(0)
 	else:
 		push_error("M2_JOBS_FAIL")
@@ -1408,6 +1411,142 @@ func _a_guarded_patient_is_not_doctored() -> bool:
 	w.despawn(z)
 	if int(guarded.get("target", -1)) == mara:
 		push_error("DANGER: a patient with a zombie 2 m off was still offered as Doctor work")
+		return false
+	return true
+
+
+# --- IDLE: a colonist with no errand walks home from a zombie too (building-noise follow-up) -------
+#
+# The 6 m break-off covered errands only, so a colonist standing idle outside the annex was left
+# where they stood: the noise pass traced seed 31337's c80 grabbed at the door and pushed 150 tiles
+# into a corner, break-away by break-away, with no job to send them home. True positive: an idle
+# Ellis outside with a zombie 3 m off ends the tick walking home. True negatives: the zombie 10 m
+# off, Ellis inside the annex, under an order, on the watch, or the switch pinned off.
+func _an_idle_colonist_walks_home_from_a_zombie() -> bool:
+	var was: bool = SimJobs.BREAK_OFF_FROM_DANGER
+	var ok: bool = true
+	var cases: Array = [
+		["near", true, 3.0, false, "", "Retreat"],
+		["far", true, SimJobs.DANGER_METRES + 4.0, false, "", "not Retreat"],
+		["home", true, 3.0, true, "", "not Retreat"],
+		["ordered", true, 3.0, false, "order", "not Retreat"],
+		["guard", true, 3.0, false, "Guard", "not Retreat"],
+		["off", false, 3.0, false, "", "not Retreat"],
+	]
+	for c in cases:
+		var got: String = _idle_lane(bool(c[1]), float(c[2]), bool(c[3]), String(c[4]))
+		var want: String = String(c[5])
+		var pass_: bool = got == "Retreat" if want == "Retreat" else got != "Retreat"
+		if not pass_:
+			push_error("IDLE: case %s ended the tick on %s, want %s" % [String(c[0]), got, want])
+			ok = false
+	SimJobs.BREAK_OFF_FROM_DANGER = was
+	return ok
+
+
+# One tick of an Ellis with nothing to do (or the given job) and a zombie `metres` east; the job
+# kind he ends it with.
+func _idle_lane(on: bool, metres: float, at_home: bool, holding: String) -> String:
+	SimJobs.BREAK_OFF_FROM_DANGER = on
+	var w: Variant = _world()
+	for z in w.components.query(["shambler"]):
+		w.despawn(int(z))
+	var ellis: int = _ellis(w)
+	var spot: Vector2i = _start(w) if at_home else _open_tile_away_from_home(w)
+	if ellis < 0 or spot.x < 0:
+		return "no fixture"
+	w.components.remove(ellis, "job")
+	w.components.set_component(ellis, "position", {"x": float(spot.x) + 0.5, "y": float(spot.y) + 0.5})
+	if holding == "order":
+		w.components.set_component(ellis, SimJobs.ORDER_COMPONENT, {"kind": "hold", "tx": spot.x, "ty": spot.y, "path": [], "pathGen": -1})
+	elif holding == "Guard":
+		w.components.set_component(ellis, "job", {"kind": "Guard", "tx": spot.x, "ty": spot.y, "ticksLeft": 0, "path": [], "pathGen": -1})
+	SimRoster.spawn_zombie(w, float(spot.x) + 0.5 + metres, float(spot.y) + 0.5, SimRoster.TYPE_SHAMBLER, w.rng.stream("shambler"))
+	SimJobs._tick_one(w, ellis)
+	var job: Variant = w.components.get_component(ellis, "job")
+	return String((job as Dictionary).get("kind", "")) if job is Dictionary else "none"
+
+
+# A Retreat on its way home is not dropped for a soft hunger (the seek branch used to end every
+# Retreat it met, since a walk home has ticksLeft 0), and is dropped for an empty one: a crisis
+# still outranks the walk.
+func _a_walk_home_outlasts_a_need_that_can_wait() -> bool:
+	var was: bool = SimJobs.BREAK_OFF_FROM_DANGER
+	SimJobs.BREAK_OFF_FROM_DANGER = true
+	var kinds: Array[String] = []
+	for hunger in [20.0, 0.0]:
+		var w: Variant = _world()
+		for z in w.components.query(["shambler"]):
+			w.despawn(int(z))
+		var ellis: int = _ellis(w)
+		var spot: Vector2i = _open_tile_away_from_home(w)
+		if ellis < 0 or spot.x < 0:
+			push_error("RETREAT-SEEK: no fixture")
+			SimJobs.BREAK_OFF_FROM_DANGER = was
+			return false
+		w.components.set_component(ellis, "position", {"x": float(spot.x) + 0.5, "y": float(spot.y) + 0.5})
+		SimJobs._retreat(w, ellis)
+		SimNeeds.of(w, ellis)["hunger"] = hunger
+		if SimNeeds.seek_kind(w, ellis) != "hunger":
+			push_error("RETREAT-SEEK: hunger %.0f did not make a hunger seek (%s), so the lane judges nothing" % [hunger, SimNeeds.seek_kind(w, ellis)])
+			SimJobs.BREAK_OFF_FROM_DANGER = was
+			return false
+		SimJobs._tick_one(w, ellis)
+		var job: Variant = w.components.get_component(ellis, "job")
+		kinds.append(String((job as Dictionary).get("kind", "")) if job is Dictionary else "none")
+	SimJobs.BREAK_OFF_FROM_DANGER = was
+	if kinds[0] != "Retreat":
+		push_error("RETREAT-SEEK: a soft hunger ended the walk home (%s)" % kinds[0])
+		return false
+	if kinds[1] == "Retreat":
+		push_error("RETREAT-SEEK: an empty hunger pool did not outrank the walk home")
+		return false
+	return true
+
+
+# A dirty Ellis carrying a Haul inside the annex. With no water anywhere the hygiene seek has
+# nothing to spend, so it must not take the tick: the Haul is still his job afterwards. With a
+# bottle in his pack the seek is real and does take it (he washes and the Haul is dropped), which
+# is the true negative that shows the first half is the water and not the dirt.
+func _a_wash_with_no_water_does_not_stop_work() -> bool:
+	var kinds: Array[String] = []
+	for has_water in [false, true]:
+		var w: Variant = _world()
+		for it in SimInventory.ground_items(w):
+			var b: Variant = w.components.get_component(int(it), "itemBase")
+			if b is Dictionary and String((b as Dictionary).get("baseId", "")) == SimNeeds.WATER_ID:
+				w.despawn(int(it))
+		var ellis: int = _ellis(w)
+		if ellis < 0:
+			push_error("WASH: no Ellis")
+			return false
+		for it2 in SimInventory.carried_items(w, ellis):
+			var b2: Variant = w.components.get_component(int(it2), "itemBase")
+			if b2 is Dictionary and String((b2 as Dictionary).get("baseId", "")) == SimNeeds.WATER_ID:
+				SimInventory.remove_from_container(w, int(it2))
+				w.despawn(int(it2))
+		if has_water:
+			var bottle: int = SimItems.spawn_item(w, SimNeeds.WATER_ID, {"tier": "scavenged"})
+			if not SimInventory.stow(w, ellis, bottle):
+				push_error("WASH: could not put a bottle in Ellis's pack")
+				return false
+		var start: Vector2i = _start(w)
+		w.components.set_component(ellis, "position", {"x": float(start.x) + 0.5, "y": float(start.y) + 0.5})
+		var item: int = SimItems.spawn_item(w, "item.scrap.metal", {"tier": "scavenged"})
+		w.components.set_component(item, "position", {"x": float(start.x) + 0.5, "y": float(start.y) + 3.5})
+		w.components.set_component(ellis, "job", {"kind": "Haul", "target": item, "tx": start.x, "ty": start.y + 3, "ticksLeft": 0, "path": [], "pathGen": -1})
+		SimNeeds.of(w, ellis)["hygiene"] = "dirty"
+		if SimNeeds.seek_kind(w, ellis) != "hygiene":
+			push_error("WASH: a dirty Ellis did not seek a wash (%s), so the lane judges nothing" % SimNeeds.seek_kind(w, ellis))
+			return false
+		SimJobs._tick_one(w, ellis)
+		var job: Variant = w.components.get_component(ellis, "job")
+		kinds.append(String((job as Dictionary).get("kind", "")) if job is Dictionary else "none")
+	if kinds[0] != "Haul":
+		push_error("WASH: with no water anywhere the wash still took the tick and dropped the Haul (%s)" % kinds[0])
+		return false
+	if kinds[1] == "Haul":
+		push_error("WASH: with a bottle in the pack the wash did not take the tick, so the first case proves nothing")
 		return false
 	return true
 

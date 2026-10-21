@@ -5715,3 +5715,12 @@ number an existing rule already had.
   rule's own point ("fight or run first, kneel when clear") now means clear of a pursuer, not
   clear of a claw. A held survivor still presses (R1), so the press a re-grab interrupts re-opens
   under the hold. `godot:m2:contact`'s FLIGHT-CANCELS-PRESS was rewritten to say so.
+- **The 6 m break-off covers a colonist with no errand too** (`SimJobs._exposed_idle`, taken in
+  the follow-up PR). The A24 rule sent a colonist home from a zombie only while they were out on
+  Haul, Scavenge, Water, Bury, Dress, Rearm or Doctor, so one standing idle outside the annex, or
+  walking to a need, waited for the grab. The same radius and the same walk home now apply to
+  anyone outside home's walls except a guard, a colonist under the player's order, or one part way
+  through a channel. This widens who an existing rule reads, not what it does, so it is an
+  engineering call and not a new mechanic. Its two companions keep the walk home from being
+  undone: a need that can wait no longer ends it, and a wash with nothing to wash in no longer
+  claims the tick.
