@@ -28,16 +28,13 @@ addition, and a district that rolled no soap would have no way back from `filthy
 (see docs/23): the content is innocent, the armour-acquisition rule costs two of four seeds their
 colonists. The ten-day playtest is the right judge, and the lever is one static.
 
-**Where does a colony's water come from over ten days?** The A24 ten-day playtest found the
-district too dry to last: the Water job at the well needs an empty bottle, the only empties are
-bottles somebody drank, the player has no verb at the well, and the 256-tile map holds six or
-seven loose drinks. A colonist died of thirst on day 6 on seed 20260805 before and after the
-errand fixes (docs/23's defect list, and the A24 record). The levers are a starting empty bottle
-per colonist, a player's verb at the well, or more water in the loot tables; each changes a
-different part of the loop, so the pick is yours.
-
 These are design calls. They have been measured, written up, and deliberately **not** decided.
-(Sepsis came off this list on 2026-09-06 — **lethal untreated**, one of the owner's twelve
+(The water question, "where does a colony's water come from over ten days?", came off this list
+on 2026-10-21: put to the owner on a decision card from the balance thread, with the player's verb
+at the well as the default, and built as that default because cards do not gate work; docs/30's
+"Water at the well, 2026-10-21". The card's other two levers, a starting empty bottle per colonist
+and more water in the loot tables, stay unbuilt unless the owner picks one there.
+Sepsis came off this list on 2026-09-06 — **lethal untreated**, one of the owner's twelve
 playable-state decisions in docs/30's "The playable state" entry; it lands as the lethality piece
 in docs/23's playable-state group. Three long-standing items came off on 2026-09-01, decided by
 the owner: colony shape
