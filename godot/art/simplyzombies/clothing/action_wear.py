@@ -1,4 +1,4 @@
-"""Clothes on the action frames (A8): every garment carried onto the survivor's 252 action pictures.
+"""Clothes on the action frames (A8): every garment carried onto the survivor's 256 action pictures.
 
 `build_clothing.py` paints a garment on the forty frames a body stands, walks and breathes in. The
 action frames (`../motion/actions.py`: swing, recoil, three reloads, flinch, crouch, crouched walk,
@@ -231,7 +231,7 @@ def _fall_plan():
     walks = {v: [parts.load(f"{MOTION}/survivor_walk_{v}_{i:02d}.png") for i in range(parts.WALK)] for v in parts.VIEWS}
     turned = {v: _moved("fall", v, rests[v], walks[v], walks["n"])[-1] for v in parts.VIEWS}
     pictures = {pose: Image.open(CORPSES / f"corpse-{pose}.png").convert("RGBA") for pose in ("prone", "supine")}
-    return act.settle_plan(turned, pictures)
+    return act.settle_plan(turned, pictures, rests)
 
 
 # --- drawn: the reloads ----------------------------------------------------------------------

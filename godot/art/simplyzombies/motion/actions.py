@@ -264,9 +264,8 @@ def plan(action, view):
         return [{"dx": -2, "dy": -1}, {"dx": 2, "step": 1}, {"dx": 3, "step": 1}, {"dx": 2}, {"dx": 1}]
     if action == "fall":
         # The knees go, then the body goes over toward the side it falls to, turned about the
-        # leading sole ten degrees a beat until it lies flat across the screen -- the last frame is
-        # the corpse (presentation/main.gd `_draw_corpse` settles on it), so nothing changes shape
-        # on the cut. Ten degrees a beat keeps every step inside art review's bounds (2026-10-20:
+        # leading sole ten degrees a beat to 80 degrees, where it settles onto its corpse
+        # (`settle_plan`). Ten degrees a beat keeps every step inside art review's bounds (2026-10-20:
         # mass at most 15%, the centre of mass at most 4 px, no edge more than 6 px, the soles never
         # lifting); twenty did not. The feet are kept to the end: only the legs above them fold.
         side = FALL_SIDE[view]
@@ -328,6 +327,81 @@ SETTLE_EDGE = 5
 # A corpse lighter than this share of the falling body (in percent) is drawn bigger until it is not:
 # the bloater and the heavy die with their bellies (art review round 2's item 15).
 BELLY_PCT = 95
+# The poses whose head is carried across the settle as one piece (art review round 4): a side view
+# lands face down with its head at the top of the corpse, rows above where the turned frame's head
+# lies, and a pixel dissolve dropped the old head first and drew the new one last, so the body went
+# headless for a beat or three. The supine landings keep their head where it fell and dissolve.
+HEAD_CARRIED = {"prone"}
+# The head of a standing body: its top rows down to the neck, the first row from the sixth on that
+# is two pixels narrower than the widest above it, else the top HEAD_ROWS rows.
+HEAD_ROWS = 8
+HEAD_NECK_FROM = 6
+# How far the corpse's foot end may lie from the turned frame's, in columns: a body settles where it
+# fell rather than skating along the floor (art review round 4, the stalker's minor 1).
+SETTLE_FOOT = 5
+
+
+def head_rows(im):
+    """The rows of `im`'s head, from its top row to the row above its neck."""
+    px = im.load()
+    w, h = im.size
+    rows = [(y, sum(1 for x in range(w) if solid(px[x, y]))) for y in range(h)]
+    rows = [(y, n) for y, n in rows if n]
+    top = rows[0][0]
+    widest = 0
+    for i, (y, n) in enumerate(rows[:HEAD_ROWS + 2]):
+        if i >= HEAD_NECK_FROM and n <= widest - 2:
+            return range(top, y)
+        widest = max(widest, n)
+    return range(top, top + HEAD_ROWS)
+
+
+def fall_head(rest, view):
+    """The pixels of the fall's last turned frame (`derive(rest, "fall", view)[-1]`) that were the
+    head of the body before it turned: the turn's own record of where each pixel came from."""
+    args = dict(plan("fall", view)[-1])
+    args.pop("lift", None)
+    turn = args.pop("turn")
+    im, _shift = _clear_of_sides(rest, args)
+    im = widen(ground(im), fall_canvas(rest.size))
+    head = head_of(im, FALL_SIDE[view])
+    out, origin = _turned(im, turn)
+    return {p for p, q in origin.items() if q in head and solid(out.getpixel(p))}
+
+
+def head_of(im, side):
+    """The head of a standing (or buckled) body seen from the side it faces, `side` (+1 east, -1
+    west): in its head rows (`head_rows`), the columns from the face back as many as the head is
+    tall and one more. A hunched body carries its head ahead of its shoulders, so the head rows'
+    back half is shoulder, not head; the face is the farthest forward pixel of the top half."""
+    px = im.load()
+    w, _h = im.size
+    rows = head_rows(im)
+    pts = {(x, y) for y in rows for x in range(w) if solid(px[x, y])}
+    top = [x for x, y in pts if y < rows[0] + (len(rows) + 1) // 2]
+    front = max(top) if side > 0 else min(top)
+    reach = len(rows) + 1
+    return {(x, y) for x, y in pts if 0 <= side * (front - x) < reach}
+
+
+def corpse_head(mc, side, count):
+    """The `count` pixels of a lying corpse (`mc`) nearest its head: the head lies at the corpse's
+    `side` end (+1 east, -1 west), its top the highest pixel of that end's last third, its middle
+    a quarter of the head's width below."""
+    xs = [x for x, _y in mc]
+    lo, hi = min(xs), max(xs)
+    third = (hi - lo + 1) // 3
+    end = [p for p in mc if (p[0] >= hi - third if side > 0 else p[0] <= lo + third)]
+    tx, ty = min(end, key=lambda p: (p[1], -side * p[0]))
+    cy = ty + _isqrt(count) // 2
+    return set(sorted(mc, key=lambda p: ((p[0] - tx) ** 2 + (p[1] - cy) ** 2, p[1], p[0]))[:count])
+
+
+def _isqrt(n):
+    x = 0
+    while (x + 1) * (x + 1) <= n:
+        x += 1
+    return x
 
 
 def _mask(im):
@@ -397,6 +471,18 @@ def _overlap(m8, mc):
     return len(m8 & mc), len(m8 | mc)
 
 
+# The faintest pixel that still shows on the ground: the pack's corpses carry a halo of nearly clear
+# pixels (alpha under 16) that no background shows, and a few soft ones above it that do.
+SHOWN_ALPHA = 16
+
+
+def _shown(im):
+    """Every pixel of `im` that shows, its soft edge included."""
+    a = im.getchannel("A").load()
+    w, h = im.size
+    return {(x, y) for y in range(h) for x in range(w) if a[x, y] >= SHOWN_ALPHA}
+
+
 def _place(c, canvas, x):
     out = Image.new("RGBA", canvas, (0, 0, 0, 0))
     out.alpha_composite(c, (x, canvas[1] - c.size[1]))
@@ -414,21 +500,44 @@ def _best_x(f8, c):
     return best_x
 
 
-def _beats(m8, mc, low, n):
+def _beats(m8, mc, low, n, heads=None, sole_first=False):
     """The settle's `n` beats between the last turned frame (pixels `m8`) and the corpse (`mc`):
-    [(pixels drawn from the corpse, pixels drawn from the frame)]. Beat k of n shows k/(n+1) of the
+    [(pixels drawn from the corpse, pixels drawn from the frame, the head)]. `heads`, when given, is
+    (the frame's head, the corpse's head): the frame's head is then carried whole, k/n of the way
+    to the corpse's on beat k, drawn over the body as [(where, the frame pixel it is)], and the
+    rest of the two bodies dissolve as below; the corpse's head arrives with the corpse. Otherwise
+    the head is [] and the whole of both dissolve. Beat k of n shows k/(n+1) of the
     corpse's new pixels, nearest the frame first, and keeps (n+1-k)/(n+1) of the frame's pixels the
     corpse does not cover, the farthest from the corpse going first; where both lie, the corpse's
     colours spread from its middle out. The mass moves in even steps and every edge moves a little a
     beat, the limbs reaching out to the corpse's as the frame's own draw in. The sole row is the
     last of the frame to go and the first of the corpse to come. A pixel left apart from the body
     (a run of either picture not touching the rest) is not drawn: it would read as a speck."""
+    if heads is not None:
+        h8, hc = heads
+        # A head lying on the floor may be all the turned frame has on the sole row; then the
+        # corpse's sole row comes first, so the body stays on the floor as the head lifts off it.
+        body = _beats(m8 - h8, mc - hc, low, n, sole_first=True)
+        cx8, cy8 = sum(x for x, _y in h8), sum(y for _x, y in h8)
+        cxc, cyc = sum(x for x, _y in hc), sum(y for _x, y in hc)
+        out = []
+        for k, (from_c, from_f, _head) in enumerate(body, 1):
+            # The head's offset this beat, in whole pixels: k/n of the way between the two heads'
+            # middles, rounded to nearest, so on the last beat it lies where the corpse's head does
+            # and the corpse only redraws it in place.
+            dx = _round_div(k * (cxc * len(h8) - cx8 * len(hc)), n * len(h8) * len(hc))
+            dy = _round_div(k * (cyc * len(h8) - cy8 * len(hc)), n * len(h8) * len(hc))
+            head = sorted(((x + dx, y + dy), (x, y)) for x, y in h8)
+            at = {d for d, _s in head}
+            keep = _largest(from_c | from_f | at)
+            out.append((from_c & keep - at, from_f & keep - at, [(d, s) for d, s in head if d in keep]))
+        return out
     new, old, both = mc - m8, m8 - mc, m8 & mc
     d_new, d_old = _near(m8, new), _near(mc, old) if old else {}
     cn = len(mc)
     sx = sum(x for x, _y in mc)
     sy = sum(y for _x, y in mc)
-    new_order = sorted(new, key=lambda p: (d_new[p], p[1] != low, p[1], p[0]))
+    new_order = sorted(new, key=lambda p: ((p[1] != low) if sole_first else 0, d_new[p], p[1] != low, p[1], p[0]))
     old_order = sorted(old, key=lambda p: (p[1] == low, -d_old[p], p[1], p[0]))
     both_order = sorted(both, key=lambda p: ((p[0] * cn - sx) ** 2 + (p[1] * cn - sy) ** 2, p[1], p[0]))
     out = []
@@ -438,8 +547,13 @@ def _beats(m8, mc, low, n):
         from_c = set(new_order[:share(new_order)]) | set(both_order[:share(both_order)])
         from_f = set(old_order[share(old_order):]) | (both - from_c)
         body = _largest(from_c | from_f)
-        out.append((from_c & body, from_f & body))
+        out.append((from_c & body, from_f & body, []))
     return out
+
+
+def _round_div(a, b):
+    """a / b to the nearest whole number, halves away from zero (b > 0)."""
+    return (a + b // 2) // b if a >= 0 else -((-a + b // 2) // b)
 
 
 def _largest(m):
@@ -464,28 +578,46 @@ def _largest(m):
     return best
 
 
-def _settles(m8, mc, n):
-    """`n` settle beats from `m8` to `mc` keep every step inside the bounds."""
+def _settles(m8, mc, n, heads=None, shown=None):
+    """`n` settle beats from `m8` to `mc` keep every step inside the bounds, and a carried head
+    stays on the body. `shown` is every pixel the corpse picture draws, its soft edge included (the
+    beats draw only its solid pixels, but the last step lands on all of it)."""
     sole = max(y for _x, y in m8)
-    seq = [_measure(m8)] + [_measure(a | b) for a, b in _beats(m8, mc, sole, n)] + [_measure(mc)]
+    beats = _beats(m8, mc, sole, n, heads)
+    if heads is not None and any(2 * len(h) < len(heads[0]) for _a, _b, h in beats):
+        return False
+    seq = [_measure(m8)] + [_measure(a | b | {d for d, _s in h}) for a, b, h in beats] + [_measure(mc if shown is None else shown)]
     return all(_keeps_bounds(a, b, sole) for a, b in zip(seq, seq[1:]))
 
 
+def _foot(m, side):
+    """The column of a lying body's foot end: its edge away from the `side` it fell to."""
+    return min(x for x, _y in m) if side > 0 else max(x for x, _y in m)
+
+
 # How far either side of the best overlap the settle looks for a place that settles in fewer beats.
-SETTLE_SEARCH = 6
+SETTLE_SEARCH = 10
 
 
-def settle_plan(f8s, pictures):
+def settle_plan(f8s, pictures, rests):
     """How every view's fall settles onto its corpse: {view: {"corpse": the corpse on the fall
-    canvas, "beats": [(from the corpse, from the frame)]}}, one beat count for the whole family.
+    canvas, "beats": [(from the corpse, from the frame, the head)]}}, one beat count for the whole
+    family. `rests` is {view: the rest view the fall was derived from}, which says where the turned
+    frame's head is (`fall_head`).
 
     A view and its mirror (e and w, s and n) lie in the same place, mirrored. The family takes the
     fewest beats for which each pair has a place, a few columns either side of where the corpse
-    overlaps the two last turned frames most, that settles both inside the bounds; the place nearest
-    that overlap wins."""
+    overlaps the two last turned frames most, that settles both inside the bounds with the foot end
+    within SETTLE_FOOT columns of where it fell; the place nearest that overlap wins. A side view
+    carries its head across the settle whole (HEAD_CARRIED)."""
     corpses = lying_corpses(pictures, f8s)
     w = next(iter(f8s.values())).size[0]
     m8 = {v: _mask(f8s[v]) for v in f8s}
+    h8 = {v: fall_head(rests[v], v) & m8[v] for v in f8s if LIE_POSE[v] in HEAD_CARRIED}
+
+    def heads(v, mc):
+        return (h8[v], corpse_head(mc, FALL_SIDE[v], len(h8[v]))) if v in h8 else None
+
     pairs = []
     for v in ("e", "s"):
         m = next(k for k, o in MIRROR_OF.items() if o == v)
@@ -495,20 +627,41 @@ def settle_plan(f8s, pictures):
         lo, hi = SIDE_CLEARANCE, w - cw - SIDE_CLEARANCE
         places = sorted(range(max(lo, mid - SETTLE_SEARCH), min(hi, mid + SETTLE_SEARCH) + 1), key=lambda x: (abs(x - mid), x))
         masks = {x: (_mask(_place(corpses[v], f8s[v].size, x)), _mask(_place(corpses[m], f8s[m].size, w - x - cw))) for x in places}
-        pairs.append((v, m, cw, places, masks))
+        shown = {x: (_shown(_place(corpses[v], f8s[v].size, x)), _shown(_place(corpses[m], f8s[m].size, w - x - cw))) for x in places}
+        drift = {x: max(abs(_foot(masks[x][i], FALL_SIDE[u]) - _foot(m8[u], FALL_SIDE[u])) for i, u in enumerate((v, m))) for x in places}
+        pairs.append((v, m, cw, places, drift, masks, shown))
+    # Each beat count's best: for every pair, the places that settle in that many beats. A side
+    # view lands face down along the floor and must not skate off where it fell (art review round
+    # 4): its pair takes the place of least foot drift, counted from SETTLE_FOOT up (within it every
+    # place is as good, the nearest the overlap first), and the family the beat count whose side
+    # pair drifts least, then the fewest beats. A view whose turned frame is not its mirror's mirror
+    # (the runner's) cannot keep both feet where they fell and land mirrored, so its drift is the
+    # least the pair allows. The front and back pair, landing on its back across where it fell,
+    # takes the place nearest the overlap.
+    best = None
     for n in range(1, SETTLE_MAX + 1):
-        xs = {}
-        for v, m, cw, places, masks in pairs:
-            x = next((x for x in places if _settles(m8[v], masks[x][0], n) and _settles(m8[m], masks[x][1], n)), None)
-            if x is None:
+        xs, score = {}, 0
+        for v, m, cw, every, drift, masks, shown in pairs:
+            ok = [x for x in every if _settles(m8[v], masks[x][0], n, heads(v, masks[x][0]), shown[x][0]) and _settles(m8[m], masks[x][1], n, heads(m, masks[x][1]), shown[x][1])]
+            if not ok:
                 break
+            if LIE_POSE[v] in HEAD_CARRIED:
+                x = min(ok, key=lambda x: (max(SETTLE_FOOT, drift[x]), ok.index(x)))
+                score = max(score, max(SETTLE_FOOT, drift[x]))
+            else:
+                x = ok[0]
             xs[v], xs[m] = x, w - x - cw
         else:
-            out = {}
-            for v in f8s:
-                placed = _place(corpses[v], f8s[v].size, xs[v])
-                out[v] = {"corpse": placed, "beats": _beats(m8[v], _mask(placed), max(y for _x, y in m8[v]), n)}
-            return out
+            if best is None or score < best[0]:
+                best = (score, n, xs)
+    if best is not None:
+        _score, n, xs = best
+        out = {}
+        for v in f8s:
+            placed = _place(corpses[v], f8s[v].size, xs[v])
+            mc = _mask(placed)
+            out[v] = {"corpse": placed, "beats": _beats(m8[v], mc, max(y for _x, y in m8[v]), n, heads(v, mc))}
+        return out
     raise ValueError("settle: no beat count up to %d has a place within %d columns that settles every view" % (SETTLE_MAX, SETTLE_SEARCH))
 
 
@@ -518,13 +671,15 @@ def settle_frames(f8, corpse, beats):
     bare ones the plan was made from (the clothing painter's)."""
     f, c = f8.load(), corpse.load()
     out = []
-    for from_c, from_f in beats:
+    for from_c, from_f, head in beats:
         im = Image.new("RGBA", f8.size, (0, 0, 0, 0))
         o = im.load()
         for p in from_f:
             o[p] = f[p]
         for p in from_c:
             o[p] = c[p]
+        for d, s in head:
+            o[d] = f[s]
         out.append(im)
     return out + [corpse]
 
@@ -583,6 +738,13 @@ def turn_about_feet(im, degrees, ink=None):
     tips over the foot on the side it falls to, so nothing turns below the floor -- then outlined
     again where the turn opened the pack's black edge. At 90 degrees the body lies flat across the
     screen: that last frame is the corpse."""
+    out, origin = _turned(im, degrees)
+    return ground(_reoutline(out, im, origin, darkest(im) if ink is None else ink))
+
+
+def _turned(im, degrees):
+    """`turn_about_feet`'s turn before the ring: the turned picture, stood on the family's bottom
+    row, and {pixel: the source pixel it was sampled from}."""
     big = _scale2x(_scale2x(_scale2x(im)))
     w, h = im.size
     bw, bh = big.size
@@ -618,7 +780,7 @@ def turn_about_feet(im, degrees, ink=None):
     top = low + 1 - h
     out = out.crop((0, top, w, low + 1))
     origin = {(x, y - top): q for (x, y), q in origin.items() if top <= y <= low}
-    return ground(_reoutline(out, im, origin, darkest(im) if ink is None else ink))
+    return out, origin
 
 
 def _on_edge(o, x, y, w, h):

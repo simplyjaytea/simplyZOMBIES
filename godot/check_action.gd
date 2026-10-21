@@ -27,6 +27,10 @@ extends SceneTree
 #              review's bounds a step (mass 15%, centre 4 columns, any edge 6 px, the sole row
 #              held); the pack's corpse cut in centred after the turn and the fall at every third
 #              frame both break them.
+#   HEAD       every fall's settle, from the last turned frame to the corpse, keeps a head on every
+#              beat: the turned frame's head or the corpse's, found where it went, at least half
+#              there; and the corpse's head does not arrive at the hold frame in more pixels than
+#              the mass bound allows a step. A settle with its head erased is refused every way.
 #   STRIKE     every lunge and stagger, rest to its beats and home, inside the same 15% mass step
 #              and on the sole row (a stagger may rise one row, the knock-back); a cut beat and a
 #              beat lifted past its allowance are refused.
@@ -91,6 +95,7 @@ func _run() -> void:
 	ok = _priority() and ok
 	ok = _geometry() and ok
 	ok = _landing() and ok
+	ok = _head() and ok
 	ok = _strike() and ok
 	ok = _states() and ok
 	ok = _reach() and ok
@@ -474,6 +479,165 @@ func _landing() -> bool:
 	if ok:
 		print("LANDING OK %d falls, %d steps from the rest view down to lying flat: at most %.1f%% mass, %.1f columns of centre and %d px of edge a step (bounds %.0f%%, %.0f, %d), the sole row held, each lying to its fall side as its own last frame; the pack's corpse in its place breaks the bounds %d times and the falls at every third frame %d times" % [judged, steps, float(worst["mass"]) * 100.0, float(worst["centre"]), int(worst["edge"]), LAND_MASS_STEP * 100.0, LAND_CENTRE_STEP, LAND_EDGE_STEP, corpse_breaks, coarse_breaks])
 		_report.append("LANDING %d falls" % judged)
+	return ok
+
+
+# HEAD: art review round 4 found the side views' settle dissolving the head away first and drawing
+# the corpse's in last, so the body lay headless for a beat or three and the head popped back on the
+# hold frame; no bound caught it, since the torso filled in as the head drained. The side views
+# (HEAD_VIEWS) land face down with the head rows above where it fell, and carry it across
+# (motion/actions.py HEAD_CARRIED); the front and back views land on their backs with the head
+# where it fell, and dissolve, which the same review accepted: their least head share is reported,
+# not judged. A head here is the
+# fall-side end of a lying body, HEAD_COLS columns of it: the last turned frame's (frame
+# FALL_TURNED - 1) and the corpse's (the last frame). On every settle beat one of the two must be
+# found, its own colours in their own places, at least HEAD_PRESENT of it, somewhere between where
+# the two heads lie; and the corpse's head may not land on more empty pixels at the
+# hold frame than the mass bound lets a step add. Negative: each beat with both heads erased where
+# they were found is refused, in every view.
+const FALL_TURNED: int = 9  # the buckle and the eight turns of motion/actions.py FALL_TURNS
+const HEAD_VIEWS: Array[String] = ["e", "w"]
+const HEAD_COLS: int = 8
+const HEAD_PRESENT: float = 0.5
+const HEAD_SLACK: int = 6
+
+
+func _solid(img: Image) -> Dictionary:
+	var out: Dictionary = {}
+	for y in img.get_height():
+		for x in img.get_width():
+			var c: Color = img.get_pixel(x, y)
+			if c.a8 >= 128:
+				out[Vector2i(x, y)] = c.to_rgba32()
+	return out
+
+
+# The fall-side end of a lying body: {pixel: colour} of its last HEAD_COLS columns toward `side`.
+func _head_end(px: Dictionary, side: int) -> Dictionary:
+	var end: int = -(1 << 20)
+	for p in px.keys():
+		end = maxi(end, side * (p as Vector2i).x)
+	var out: Dictionary = {}
+	for p in px.keys():
+		if end - side * (p as Vector2i).x < HEAD_COLS:
+			out[p] = px[p]
+	return out
+
+
+func _centre(px: Dictionary) -> Vector2:
+	var s: Vector2 = Vector2.ZERO
+	for p in px.keys():
+		s += Vector2(p as Vector2i)
+	return s / float(maxi(px.size(), 1))
+
+
+# The best share of `head` found in `frame` at an offset in the box between `from` and `to`, widened
+# by HEAD_SLACK each way (the head travels between the two ends, not along the line joining them:
+# the corpse's end column may be an outstretched hand beside its head), and that offset.
+func _head_found(head: Dictionary, frame: Dictionary, from: Vector2, to: Vector2) -> Array:
+	var best: int = -1
+	var best_at: Vector2i = Vector2i.ZERO
+	var x0: int = int(floorf(minf(from.x, to.x))) - HEAD_SLACK
+	var x1: int = int(ceilf(maxf(from.x, to.x))) + HEAD_SLACK
+	var y0: int = int(floorf(minf(from.y, to.y))) - HEAD_SLACK
+	var y1: int = int(ceilf(maxf(from.y, to.y))) + HEAD_SLACK
+	for dy in range(y0, y1 + 1):
+		for dx in range(x0, x1 + 1):
+			var at := Vector2i(dx, dy)
+			var n: int = 0
+			for p in head.keys():
+				if frame.get((p as Vector2i) + at, -1) == int(head[p]):
+					n += 1
+			if n > best:
+				best = n
+				best_at = at
+	return [float(best) / float(maxi(head.size(), 1)), best_at]
+
+
+func _head_on(frame: Dictionary, h8: Dictionary, hc: Dictionary, path: Vector2) -> Array:
+	var a: Array = _head_found(h8, frame, Vector2.ZERO, path)
+	var b: Array = _head_found(hc, frame, -path, Vector2.ZERO)
+	return [maxf(float(a[0]), float(b[0])), a, b]
+
+
+func _head() -> bool:
+	var ok: bool = true
+	var judged: int = 0
+	var beats: int = 0
+	var worst: float = 1.0
+	var worst_at: String = ""
+	var worst_add: float = 0.0
+	var erased_refused: int = 0
+	var dissolved: float = 1.0
+	for fam_v in _families_with_actions().keys():
+		var fam: String = String(fam_v)
+		if Appearance.action_frames(fam, "fall", "e") == 0:
+			continue
+		for view in Appearance.VIEWS:
+			var frames: int = Appearance.action_frames(fam, "fall", view)
+			if frames <= FALL_TURNED:
+				push_error("HEAD: %s's %s fall has %d frames, no settle after its %d turned ones" % [fam, view, frames, FALL_TURNED])
+				ok = false
+				continue
+			var side: int = int(Appearance.FALL_SIDE[view])
+			var seq: Array = []
+			for i in range(FALL_TURNED - 1, frames):
+				var img: Image = _image("%s_fall_%s_%d" % [fam, view, i])
+				if img == null:
+					push_error("HEAD: %s_fall_%s_%d does not load" % [fam, view, i])
+					return false
+				seq.append(_solid(img))
+			var h8: Dictionary = _head_end(seq[0], side)
+			var hc: Dictionary = _head_end(seq.back(), side)
+			var path: Vector2 = _centre(hc) - _centre(h8)
+			var erased_ok: bool = true
+			var carried: bool = HEAD_VIEWS.has(view)
+			for i in range(1, seq.size() - 1):
+				var frame: Dictionary = seq[i]
+				var found: Array = _head_on(frame, h8, hc, path)
+				var share: float = float(found[0])
+				if not HEAD_VIEWS.has(view):
+					dissolved = minf(dissolved, share)
+					continue
+				if share < HEAD_PRESENT:
+					push_error("HEAD: %s from %s, settle beat %d of %d: only %.0f%% of a head is on the body" % [fam, view, i, seq.size() - 2, share * 100.0])
+					ok = false
+				if share < worst:
+					worst = share
+					worst_at = "%s %s beat %d" % [fam, view, i]
+				beats += 1
+				# Negative: the same beat with both heads taken off where they were found.
+				var cut: Dictionary = frame.duplicate()
+				for pair in [[h8, (found[1] as Array)[1]], [hc, (found[2] as Array)[1]]]:
+					for p in (pair[0] as Dictionary).keys():
+						cut.erase((p as Vector2i) + (pair[1] as Vector2i))
+				if float(_head_on(cut, h8, hc, path)[0]) >= HEAD_PRESENT:
+					erased_ok = false
+			if not carried:
+				continue
+			if not erased_ok:
+				push_error("HEAD: %s from %s keeps a head with both heads erased; the lane cannot fail there" % [fam, view])
+				ok = false
+			else:
+				erased_refused += 1
+			# The hold frame: the corpse's head on what the last beat left empty.
+			var last: Dictionary = seq[seq.size() - 2]
+			var empty: int = 0
+			for p in hc.keys():
+				if not last.has(p):
+					empty += 1
+			var add: float = float(empty) / float(maxi(last.size(), 1))
+			worst_add = maxf(worst_add, add)
+			if add > LAND_MASS_STEP:
+				push_error("HEAD: %s from %s: the corpse's head lands on %d empty pixels at the hold frame, %.1f%% of the last beat" % [fam, view, empty, add * 100.0])
+				ok = false
+			judged += 1
+	if judged == 0:
+		push_error("HEAD: no family falls; nothing was judged")
+		return false
+	if ok:
+		print("HEAD OK %d side-view settles, %d beats: a head carried on every one, at least %.0f%% of it (%s), and the corpse's head adds at most %.1f%% of the body at the hold frame (bound %.0f%%); each settle with both heads erased is refused (%d of %d); the front and back views dissolve, least head share %.0f%% (reported, not judged)" % [judged, beats, worst * 100.0, worst_at, worst_add * 100.0, LAND_MASS_STEP * 100.0, erased_refused, judged, dissolved * 100.0])
+		_report.append("HEAD %d settles" % judged)
 	return ok
 
 
