@@ -3,7 +3,7 @@
 Torso, legs and feet garments for the outpost survivor, painted onto **every frame** the
 survivor draws: four rest views, an eight-frame walk and a breath picture each way (forty
 frames), and every action frame A8 draws (`../motion/actions.py`: the swing, the three reloads,
-crouch, crouch walk, flinch, fall and the prone crawl, 208 frames). Landed 2026-10-19 as alpha
+crouch, crouch walk, flinch, fall and the prone crawl, 256 frames). Landed 2026-10-19 as alpha
 plan item A6 ("Clothe everyone") on the pack's four-frame walk, moved onto A7's eight-frame walk
 and breath (`../motion/`) and onto the action frames on 2026-10-20; docs/23 carries the record.
 
@@ -66,10 +66,10 @@ of time with the legs, because they are chosen by the body's own frame key.
 
 The output is one 320x160 sheet per garment under `native/`: a row per view (s, e, n, w), the
 rest picture in column 0, the walk's frames in columns 1-8 and the breath in column 9; and one
-1792x160 sheet per garment under `native/actions/`, a row per view and every action frame in
+3072x160 sheet per garment under `native/actions/`, a row per view and every action frame in
 `SURVIVOR_ACTIONS` order, each action as wide as its longest view (prone draws only east and
-west). `authored.json` declares each garment as kind `wear` with `fits: "body_survivor"`, and
-`build_clothing.py` writes its 248 members from both sheets (`--check` fails when they differ;
+west; a fall's frames are on the 96-wide fall canvas, and their members declare that `canvas`). `authored.json` declares each garment as kind `wear` with `fits: "body_survivor"`, and
+`build_clothing.py` writes its 296 members from both sheets (`--check` fails when they differ;
 `godot:check:authored`'s WEAR lane refuses a garment whose members are not exactly the rig's
 frames); `npm run sprites:check` reproduces `godot/assets/sprites/wear_*.png` from those crops.
 

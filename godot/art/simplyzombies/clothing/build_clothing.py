@@ -911,7 +911,11 @@ def members(family: str) -> dict:
         out[f"{family}_{suffix}"] = {"source": {"path": f"art/simplyzombies/clothing/native/{family}.png", "crop": [x, y, parts.W, parts.H]}}
     for suffix, *_rest in action_wear.action_frames():
         x, y = action_wear.cell_of(suffix)
-        out[f"{family}_{suffix}"] = {"source": {"path": f"art/simplyzombies/clothing/native/actions/{family}.png", "crop": [x, y, parts.W, parts.H]}}
+        w, h = action_wear.size_of(suffix)
+        member = {"source": {"path": f"art/simplyzombies/clothing/native/actions/{family}.png", "crop": [x, y, w, h]}}
+        if (w, h) != (parts.W, parts.H):
+            member["canvas"] = [w, h]  # a fall frame, on the fall canvas
+        out[f"{family}_{suffix}"] = member
     return out
 
 

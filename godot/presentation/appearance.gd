@@ -472,7 +472,10 @@ static func _read_authored() -> void:
 		if members is Dictionary:
 			var names: Array[String] = []
 			for member_key in (members as Dictionary).keys():
-				_authored[String(member_key)] = shape
+				# A member may declare its own canvas: a fall frame lies out on a wider one than the
+				# family stands on (motion/actions.py `fall_canvas`), on the same height.
+				var own: Variant = ((members as Dictionary)[member_key] as Dictionary).get("canvas") if (members as Dictionary)[member_key] is Dictionary else null
+				_authored[String(member_key)] = Vector2i(int((own as Array)[0]), int((own as Array)[1])) if own is Array and (own as Array).size() == 2 else shape
 				names.append(String(member_key))
 			var z: Variant = (entry as Dictionary).get("z", {})
 			_families[String(key)] = {
@@ -843,6 +846,8 @@ static func corpse_look(world: Variant, it: Dictionary) -> Dictionary:
 	if poses is Array and not (poses as Array).is_empty():
 		key = String((poses as Array)[posmod(entity / 3, (poses as Array).size())])
 	var look: Dictionary = for_entity(world, it)
+	# The living body's family, for the fall's own lying frame (`lying_key`).
+	look["body"] = String(look.get("sprite", ""))
 	look["sprite"] = key
 	var texture: Texture2D = resolve(key)
 	look["texture"] = texture
@@ -855,9 +860,28 @@ static func corpse_look(world: Variant, it: Dictionary) -> Dictionary:
 
 
 # A prone canvas is wider than it is tall and anchored at its ground centre. Shape-based
-# standing anchors would put a 48x40 corpse almost a tile north of the place the body fell.
+# standing anchors would put a 48x40 corpse almost a tile north of the place the body fell. The
+# pack's corpse pictures are drawn this way only for a body whose family has no fall: a body that
+# falls lies as its own last fall frame (`lying_key`).
 static func corpse_rect(sx: float, sy: float, size: Vector2) -> Rect2:
 	return Rect2(Vector2(roundf(sx - size.x / 2.0), roundf(sy - size.y / 2.0)), size)
+
+
+# --- falls that lie down -----------------------------------------------------------------------
+#
+# A body falls to one side and lies there. Which side, from each view: a side view falls the way it
+# faces, and the front and back views crumple to one side, the south view to the east and the
+# north to the west -- the frames are built by art/simplyzombies/motion/actions.py, whose
+# FALL_SIDE is this table (+1 east, -1 west); godot:check:action holds the frames to it.
+const FALL_SIDE: Dictionary = {"e": 1, "w": -1, "s": 1, "n": -1}
+
+
+# The settled picture of a body of family `key` that fell from `view`: its fall's last frame, the
+# body turned flat across the screen (docs/23, "Falls that lie down"), or "" when the family has no
+# fall there -- the corpse pass then draws the pack's corpse picture.
+static func lying_key(key: String, view: String) -> String:
+	var frames: int = action_frames(key, "fall", view)
+	return "" if frames <= 0 else "%s_fall_%s_%d" % [key, view, frames - 1]
 
 
 # Picking uses the same content-selected canvas as the live renderer; the heavy occupies a

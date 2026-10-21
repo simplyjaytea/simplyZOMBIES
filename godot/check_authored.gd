@@ -1665,8 +1665,14 @@ func _the_pack_families_keep_the_packs_own_spec() -> bool:
 				push_error("PACK: '%s' is cut from '%s', not from the family's own manifest asset '%s'" % [member, path, String(asset.get("id", ""))])
 				return false
 			var crop: Array = source.get("crop", []) as Array
-			if crop != [0, 0, int(canvas[0]), int(canvas[1])] and crop != [0.0, 0.0, float(canvas[0]), float(canvas[1])]:
-				push_error("PACK: '%s' crops %s; a pack member is cut [0, 0, %s, %s], the anchor row as its bottom" % [member, str(crop), str(canvas[0]), str(canvas[1])])
+			# A fall frame declares its own wider canvas (motion/actions.py `fall_canvas`), the
+			# family's height: it is cut whole at that canvas instead.
+			var cut: Array = canvas
+			var own: Variant = ((members_v as Dictionary)[m] as Dictionary).get("canvas")
+			if own is Array and (own as Array).size() == 2 and int((own as Array)[1]) == int(canvas[1]) and member.contains("_fall_"):
+				cut = own as Array
+			if crop != [0, 0, int(cut[0]), int(cut[1])] and crop != [0.0, 0.0, float(cut[0]), float(cut[1])]:
+				push_error("PACK: '%s' crops %s; a pack member is cut [0, 0, %s, %s], the anchor row as its bottom" % [member, str(crop), str(cut[0]), str(cut[1])])
 				return false
 			var original := Image.new()
 			if original.load("res://%s" % path) != OK:
@@ -2153,8 +2159,16 @@ func _every_held_weapon_is_the_packs_own() -> bool:
 # The heavy has separate explicit bounds; adding it never loosens the old PACK contract.
 # `acting` is an action frame (a lunge, a stagger, a fall): it keeps every bound but the living
 # height and width, which are the action's own (check:action's GEOMETRY lane judges those).
-func _pose_geometry_complaint(kind: String, image: Image, anchor: Array, acting: bool = false) -> String:
+# A fall frame (`falling`) lies out on the fall canvas, FALL_CANVAS_W wide and the family's own
+# height (motion/actions.py `fall_canvas`): its canvas and anchor are judged as the family's, the
+# standing body centred on the wider picture, and every other bound on the picture itself.
+const FALL_CANVAS_W: int = 96
+
+
+func _pose_geometry_complaint(kind: String, image: Image, anchor: Array, acting: bool = false, falling: bool = false) -> String:
 	var size: Vector2i = image.get_size()
+	if falling and acting and size.x == FALL_CANVAS_W and anchor.size() == 2:
+		size = Vector2i(int(float(anchor[0])) * 2, size.y)
 	var living: bool = kind == "zombie_rig"
 	var broad: bool = size == Vector2i(40, 48) if living else size == Vector2i(56, 40)
 	if living and size != Vector2i(32, 40) and not broad:
@@ -2169,12 +2183,12 @@ func _pose_geometry_complaint(kind: String, image: Image, anchor: Array, acting:
 		return "no solid body"
 	var width: int = int(box["max_x"]) - int(box["min_x"]) + 1
 	var height: int = int(box["max_y"]) - int(box["min_y"]) + 1
-	var clearance: int = mini(int(box["min_x"]), size.x - 1 - int(box["max_x"]))
+	var clearance: int = mini(int(box["min_x"]), image.get_width() - 1 - int(box["max_x"]))
 	if clearance < 2:
 		return "body touches the side margin"
 	var solid: int = 0
-	for y in size.y:
-		for x in size.x:
+	for y in image.get_height():
+		for x in image.get_width():
 			if _is_solid(image.get_pixel(x, y)):
 				solid += 1
 	if solid < 100:
@@ -2304,7 +2318,7 @@ func _the_zombie_poses_keep_their_geometry() -> bool:
 				push_error("ZOMBIE_POSES: missing %s" % member)
 				return false
 			if complaint.is_empty():
-				complaint = _pose_geometry_complaint(kind, image, entry.get("anchor", []), _is_action_member(String(key), String(member), _actions_of(entry)))
+				complaint = _pose_geometry_complaint(kind, image, entry.get("anchor", []), _is_action_member(String(key), String(member), _actions_of(entry)), String(member).contains("_fall_"))
 			if complaint.is_empty() and kind == "zombie_rig":
 				complaint = _pose_frame_complaint(String(key), String(member), source, asset)
 			if not complaint.is_empty():
@@ -2335,6 +2349,15 @@ func _the_zombie_poses_keep_their_geometry() -> bool:
 		if _pose_geometry_complaint(bad[0], bad[1], bad[2]).is_empty():
 			push_error("ZOMBIE_POSES: accepted broken anchor, sole, margin, height, posture, centre or empty art")
 			return false
+	# The fall canvas: a fall frame lying out on the 80-wide canvas is judged as its family's; the
+	# same picture as a standing member, or a fall a pixel wider than the fall canvas, is refused.
+	var lying: Image = _fab_source(FALL_CANVAS_W, 40, Rect2i(38, 24, 30, 16))
+	if not _pose_geometry_complaint("zombie_rig", lying, [16, 40], true, true).is_empty():
+		push_error("ZOMBIE_POSES: refused a sound fall frame on the fall canvas")
+		return false
+	if _pose_geometry_complaint("zombie_rig", lying, [16, 40], true, false).is_empty() or _pose_geometry_complaint("zombie_rig", _fab_source(FALL_CANVAS_W + 1, 40, Rect2i(38, 24, 30, 16)), [16, 40], true, true).is_empty():
+		push_error("ZOMBIE_POSES: accepted a wide picture that is not a fall, or a fall wider than the fall canvas")
+		return false
 	var translated: Array = []
 	for x in range(4, 8):
 		translated.append(_fab_source(32, 40, Rect2i(x, 12, 16, 28)))

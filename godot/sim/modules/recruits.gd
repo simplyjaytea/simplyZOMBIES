@@ -370,14 +370,19 @@ static func _remember_zombie_remains(world: Variant, entity: int) -> void:
 		tint = String((zt as Dictionary).get("tint", ""))
 	# No corpse entity, emitter or new allocation: the existing drop/despawn below remains the
 	# whole simulation outcome. The renderer can omit a type whose content has no corpse art.
-	world.remember_visual_remains({
+	var record: Dictionary = {
 		"entity": entity,
 		"x": float((pos as Dictionary).get("x", 0.0)),
 		"y": float((pos as Dictionary).get("y", 0.0)),
 		"ztype": type_id,
 		"tint": tint,
 		"sinceTick": int(world.tick),
-	})
+	}
+	# Which way it faced as it died, so the settled picture lies the way it fell after a load too.
+	var facing: Variant = world.components.get_component(entity, "facing")
+	if facing is Dictionary and (facing as Dictionary).has("radians"):
+		record["facing"] = float((facing as Dictionary)["radians"])
+	world.remember_visual_remains(record)
 
 
 static func _succession_pick(world: Variant, dead: int) -> int:

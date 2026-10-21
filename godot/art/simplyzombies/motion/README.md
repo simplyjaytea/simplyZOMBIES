@@ -76,7 +76,26 @@ moves per action and view):
   survive and the feet are never cut;
 - a **step** moves the whole picture, kept `SIDE_CLEARANCE` from either canvas edge;
 - the **crawl** is the back view's walk turned a quarter flat (`turn_flat`), drawn only east and
-  west, and declares no hands: a body lying down carries no layer.
+  west, and declares no hands: a body lying down carries no layer;
+- a **fall** folds the knees over feet that are kept (`keep_feet`, which redraws the hip's top
+  rows over the sunk body so a belt stays painted), then turns the body 10 degrees a beat, 10 to
+  80, about the outer edge of its leading sole toward `FALL_SIDE`
+  (`turn_about_feet`: Scale2x three times, sampled in whole-number sines and cosines from
+  `TURN_TABLE`, back down, and the edge the turn opened ringed in the bare body's own darkest
+  colour, so no colour is invented). Fall frames are on `fall_canvas`, 96 wide and the family's
+  height, and each member says so in its own `canvas`. The fall then **settles onto the pack's
+  own corpse** (`settle_plan`, `settle_frames`): prone for a side view, supine for the front and
+  back (`LIE_POSE`), mirrored to the fall side, the heavy's and the bloater's widened by whole
+  sixteenths to their belly mass (`BELLY_PCT`), placed where it overlaps the last turn most and
+  the mirror view lands mirrored. One beat count a family, the fewest that keep every step inside
+  the bounds with a margin (`SETTLE_MASS_PCT`, `SETTLE_CENTRE_X2`, `SETTLE_EDGE`, the sole row
+  held): each beat adds the corpse's pixels nearest the body first and drops the turned frame's
+  farthest first, linearly by count, and keeps only its largest connected run. A side view
+  carries its head whole (`HEAD_CARRIED`, `fall_head`, `corpse_head`), k/n of the way to the
+  corpse's head on beat k, and lands with its foot end within `SETTLE_FOOT` columns of where it
+  fell wherever a place settles there. The corpse is the
+  last frame, the settled body the renderer draws where the fall stood
+  (`presentation/appearance.gd` `lying_key`).
 
 **The reloads are drawn** (`reload_frames`, `RELOAD_BEATS`): eight beats for a magazine, eleven
 for the tube. Each arm the reload moves is taken off the rest view (`ARMLESS` closes the torso's
