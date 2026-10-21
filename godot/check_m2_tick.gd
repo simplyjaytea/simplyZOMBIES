@@ -949,7 +949,7 @@ func _reference_claw(world: Variant, entity: int) -> bool:
 	var at: Variant = world.components.get_component(entity, "position")
 	if not (at is Dictionary):
 		return false
-	var reach_sq: float = SimShambler.SWIPE_METRES * SimShambler.SWIPE_METRES
+	var reach_sq: float = SimShambler.RELEASE_METRES * SimShambler.RELEASE_METRES
 	for z in world.components.query(["shambler", "position"]):
 		var zbody: Variant = world.components.get_component(int(z), "body")
 		if zbody is Dictionary and not SimHealth.is_alive(zbody as Dictionary):
@@ -982,10 +982,10 @@ func _the_claw_check_asks_distance_first_and_answers_the_same() -> bool:
 	var spot: Vector2 = Vector2(-1.0, -1.0)
 	for cy in range(10, 65, 5):
 		for cx in range(10, 65, 5):
-			if spot.x < 0.0 and _no_other_zombie_near(w, z, Vector2(cx, cy), 3.0):
+			if spot.x < 0.0 and _no_other_zombie_near(w, z, Vector2(cx, cy), SimShambler.RELEASE_METRES + 3.0):
 				spot = Vector2(cx, cy)
 	if spot.x < 0.0:
-		return _fail("CLAW", "no spot on the stepped district is three metres clear of other zombies")
+		return _fail("CLAW", "no spot on the stepped district is clear of other zombies by RELEASE_METRES and three")
 	var cases: Array = []
 	for step_i in 4:
 		match step_i:
@@ -998,7 +998,7 @@ func _the_claw_check_asks_distance_first_and_answers_the_same() -> bool:
 				zb["head"] = 0
 			3:
 				zb["head"] = head
-				zp["x"] = spot.x + 1.2
+				zp["x"] = spot.x + SimShambler.RELEASE_METRES + 0.2
 		for e in people:
 			var got: bool = SimTreatment._claw_in_reach(w, e)
 			if got != _reference_claw(w, e):
