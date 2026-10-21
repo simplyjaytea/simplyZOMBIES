@@ -1323,17 +1323,6 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   kept off a post or out of a room by another colonist standing still. The lane pins the radius
   back to forty, the day it was written against, rather than judge this; a fix is a yield or a
   side-step in `SimJobs._walk`, with its own lane.
-- **The colony has no water that lasts ten days.** The A24 ten-day playtest
-  (`npm run godot:playtest`) watched the colony run dry: on seed 20260805 a colonist died of
-  thirst on day 6 (tick 369,020, thirst empty plus a day) on main 2e920b3 and again after the
-  errand fixes, and the scripted survivor followed on day 7. The whole 256-tile district holds 47
-  containers and about 93 loose items, six or seven of them drinks, four containers within 70
-  tiles of home. The renewable route is the Water job at the well, which needs an **empty**
-  bottle, and the only empties the sim makes are bottles somebody drank. The player has no verb
-  at the well at all. Part of it was a bug, fixed in the same pass: a colonist's thirst seek only
-  took bottled water, so a soda or a tea on the stockpile sat there while they died. Whether the
-  rest wants a starting empty, a player's well verb, or more water in the loot is a design call,
-  so it is on the owner list in docs/33 rather than tuned here.
 - **A melee raider band cannot reach a body that does not move.** `SimRaiders._approach` halts at
   `HALT_METRES` (2.6 m) and every melee reach a raider kit carries is shorter — the rusted machete
   is 1.2 plus `MELEE_REACH_FUDGE`, 1.55 — so nothing closes the last metre and a scav band stands
@@ -2216,6 +2205,21 @@ What landed and what proved it, system by system (condensed from the retired bac
 links in the slice-scope table above are the authority on each). The open tails that used to end
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
+
+- **Needs — water at the well, 2026-10-21 (alpha A24 follow-up).** The owner's water question
+  (docs/33), answered by the card's default: E at a water source drinks while a full drink fits and
+  then fills a carried empty bottle (`SimNeeds.well_offer`, `use_well`; the `well` rung of
+  `SimFortify.rung_of`; the right-click menu carries the same row), and tops up only while half a
+  drink still lands. Raw water is the untreated
+  bottle's `drink` block, illness included. The scripted survivor uses it when nothing drinkable
+  is carried or stocked. Gate: `godot:m2:needs` WELL, through the real E command on a booted
+  district's well, with true negatives for a survivor past the half-drink floor with nothing to fill and one four
+  metres off, and forty mouthfuls that make some ill and not all. Before it the colony's water
+  was the A24 defect "no water that lasts ten days": the Water job needed an empty bottle, the
+  player had no verb at the well, and after the building-noise and idle-colonist PRs the last
+  survivor on seeds 31337 and 404 died of thirst on day 6. Ten-day numbers with the well are in
+  report-noise.md in the project's planning/balance folder. Not built: the card's other two
+  levers (a starting empty bottle, more water in the loot).
 
 - **Balance — an idle colonist walks home from a zombie, 2026-10-21 (alpha A24 follow-up).**
   The third way into the push loop the building-noise pass found (a grab, a break-away, a stop

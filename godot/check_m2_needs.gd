@@ -50,8 +50,9 @@ func _run() -> void:
 	ok = _a_lit_fire_burns_down() and ok
 	ok = _bedding_moves_the_night_and_bare_boards_move_nothing() and ok
 	ok = _soap_buys_a_wash_that_lasts() and ok
+	ok = _a_survivor_drinks_at_the_well_and_fills_a_bottle_there() and ok
 	if ok:
-		print("M2_NEEDS_OK drain bands verbs hud hold, low mood has consequences, food is content and can make you ill, a death costs the living, everybody has to go, a meal's mood wears off, the dead give back the bed, the player gets up, the deep cold is reachable, sleep has a quality, what you sleep on moves it and bare boards do not, soap buys a wash that lasts, drinks are content and leave their empties, a stimulant is a loan, a careful pantry keeps, the well's water wants a fire, and a lit fire burns down")
+		print("M2_NEEDS_OK drain bands verbs hud hold, low mood has consequences, food is content and can make you ill, a death costs the living, everybody has to go, a meal's mood wears off, the dead give back the bed, the player gets up, the deep cold is reachable, sleep has a quality, what you sleep on moves it and bare boards do not, soap buys a wash that lasts, drinks are content and leave their empties, a stimulant is a loan, a careful pantry keeps, the well's water wants a fire, the player drinks and fills a bottle at the well, and a lit fire burns down")
 		quit(0)
 	else:
 		push_error("M2_NEEDS_FAIL")
@@ -2953,3 +2954,133 @@ func _soap_buys_a_wash_that_lasts() -> bool:
 	print("SOAP OK a wash with nothing banked is dirty again on the next job; a bar banks %d charges, is spent out of the pack, holds `clean` through %d dirtyings and is dirty on the one after" % [charges, charges])
 	return true
 
+
+# --- WELL -------------------------------------------------------------------------------------
+#
+# The owner's water pick (docs/33's water question, 2026-10-21): the player drinks at the well, or
+# fills a bottle there. Before it the well answered only the colony's Water and Clean jobs, so a
+# survivor left alone died of thirst beside it. Every case goes through E itself -- the
+# `use.context` command on a booted district's own well -- because a verb the ladder never offers
+# is the dead socket this milestone keeps paying for; the right-click menu is asserted to carry the
+# same row. True negatives both ways: a sated survivor with nothing to fill is offered nothing, and
+# one standing four metres off is not offered the well at all.
+func _well_of(w: Variant) -> int:
+	var tile: Vector2i = SimTileMap.well_tile(w.tilemap)
+	for e in w.components.query(["water_source", "position"]):
+		var p: Dictionary = w.components.get_component(int(e), "position") as Dictionary
+		if floori(float(p["x"])) == tile.x and floori(float(p["y"])) == tile.y:
+			return int(e)
+	return -1
+
+
+func _stand_by(w: Variant, at: int, dx: float, dy: float) -> void:
+	var p: Dictionary = w.components.get_component(at, "position") as Dictionary
+	var me: Dictionary = w.components.get_component(w.player, "position") as Dictionary
+	me["x"] = float(p["x"]) + dx
+	me["y"] = float(p["y"]) + dy
+	w.components.set_component(w.player, "facing", {"radians": atan2(-dy, -dx)})
+	# Nothing loose underfoot: a ground item is E's first rung and would answer instead.
+	for item in w.components.query(["itemBase", "position"]):
+		var ip: Dictionary = w.components.get_component(int(item), "position") as Dictionary
+		if Vector2(float(ip["x"]), float(ip["y"])).distance_to(Vector2(float(me["x"]), float(me["y"]))) < 3.0:
+			w.components.remove(int(item), "position")
+
+
+func _a_survivor_drinks_at_the_well_and_fills_a_bottle_there() -> bool:
+	const SimFortify = preload("res://sim/modules/fortify.gd")
+	const SimContext = preload("res://sim/context.gd")
+	var w: Variant = _world()
+	var well: int = _well_of(w)
+	if well < 0:
+		push_error("WELL: the booted district has no well at its anchor, so this lane judges nothing")
+		return false
+	for item in SimInventory.carried_items(w, w.player):
+		if String((w.components.get_component(int(item), "itemBase") as Dictionary).get("baseId", "")) == SimNeeds.EMPTY_ID:
+			SimInventory.drop_at_feet(w, w.player, int(item))
+	_stand_by(w, well, 0.0, 1.0)
+	var n: Dictionary = SimNeeds.of(w, w.player)
+	var drank: Array = []
+	w.events.subscribe({"type": "need.drank", "id": "gate.well", "handler": func(e: Dictionary) -> void:
+		drank.append(e)
+	})
+	# Thirsty, nothing to fill: E drinks from the well, and nothing in the pack is spent.
+	n["thirst"] = 30.0
+	var rung: Dictionary = SimFortify.rung_of(w, w.player)
+	if String(rung.get("verb", "")) != "well" or String(rung.get("prose", "")) != "drink from the well":
+		push_error("WELL: a thirsty survivor at the well is offered %s, not a drink" % str(rung))
+		return false
+	var menu: Array = SimContext.verbs_at(w, w.player, {"kind": "prop", "entity": well, "tile": SimTileMap.well_tile(w.tilemap)})
+	var listed: bool = false
+	for row in menu:
+		listed = listed or String((row as Dictionary).get("text", "")) == "drink from the well"
+	if not listed:
+		push_error("WELL: the right-click menu on the well does not carry the drink E would take: %s" % str(menu))
+		return false
+	var carried: int = SimInventory.carried_items(w, w.player).size()
+	w.commands.push({"type": "use.context"})
+	w.step()
+	var mouthful: float = float((SimNeeds.drink_spec(w, SimNeeds.UNTREATED_ID) as Dictionary)["thirst"])
+	n = SimNeeds.of(w, w.player)
+	if float(n["thirst"]) < 30.0 + mouthful - 1.0 or drank.size() != 1 or int((drank[0] as Dictionary).get("source", -1)) != well:
+		push_error("WELL: E at the well left thirst at %.1f from 30 (a drink is %.0f) with %d drink events" % [float(n["thirst"]), mouthful, drank.size()])
+		return false
+	if SimInventory.carried_items(w, w.player).size() != carried:
+		push_error("WELL: drinking at the well spent something from the pack")
+		return false
+	# Sated past a full drink, carrying an empty: E fills the bottle with well water instead.
+	n["thirst"] = 100.0 - mouthful + 5.0
+	var empty: int = SimItems.spawn_item(w, SimNeeds.EMPTY_ID, {"tier": "scavenged"})
+	if not SimInventory.stow(w, w.player, empty):
+		push_error("WELL: the fixture's empty bottle would not go in the pack")
+		return false
+	rung = SimFortify.rung_of(w, w.player)
+	if String(rung.get("prose", "")) != "fill a bottle at the well":
+		push_error("WELL: a sated survivor with an empty bottle is offered %s, not a fill" % str(rung))
+		return false
+	var before: float = float(n["thirst"])
+	w.commands.push({"type": "use.context"})
+	w.step()
+	var b: Dictionary = w.components.get_component(empty, "itemBase") as Dictionary
+	if String(b.get("baseId", "")) != SimNeeds.UNTREATED_ID or drank.size() != 1:
+		push_error("WELL: E filled nothing: the bottle is '%s' and %d drinks happened" % [String(b.get("baseId", "")), drank.size()])
+		return false
+	if float(SimNeeds.of(w, w.player)["thirst"]) > before:
+		push_error("WELL: filling a bottle also quenched the survivor")
+		return false
+	# Nothing left to fill: a top-up is a drink while at least half of it lands, and nothing past
+	# that. The second half is the one that ends a visit; without it a survivor a tick short of
+	# full was offered a drink on every tick (the playtest survivor pressed E 29,544 times).
+	SimNeeds.of(w, w.player)["thirst"] = 100.0 - mouthful * 0.5 - 1.0
+	rung = SimFortify.rung_of(w, w.player)
+	if String(rung.get("prose", "")) != "drink from the well":
+		push_error("WELL: a survivor with room for most of a drink and nothing to fill is offered %s" % str(rung))
+		return false
+	for full in [100.0 - mouthful * 0.5 + 1.0, 99.9, 100.0]:
+		SimNeeds.of(w, w.player)["thirst"] = full
+		rung = SimFortify.rung_of(w, w.player)
+		if String(rung.get("verb", "")) == "well":
+			push_error("WELL: a survivor at thirst %.1f with nothing to fill is still offered the well: %s" % [full, str(rung)])
+			return false
+	# True negative: thirsty, but four metres off -- out of reach, no well on the bar.
+	SimNeeds.of(w, w.player)["thirst"] = 30.0
+	_stand_by(w, well, 0.0, 4.0)
+	rung = SimFortify.rung_of(w, w.player)
+	if String(rung.get("verb", "")) == "well":
+		push_error("WELL: the well is offered from four metres away: %s" % str(rung))
+		return false
+	# The water is the untreated bottle's: a mouthful at the well rolls its illness. Forty drinks at
+	# 0.15 make some ill and not all; a rule that never rolls, or always does, fails here.
+	_stand_by(w, well, 0.0, 1.0)
+	var ill: int = 0
+	for _i in 40:
+		SimNeeds.of(w, w.player)["thirst"] = 10.0
+		var before_ill: int = drank.size()
+		SimNeeds.use_well(w, w.player, well)
+		w.events.drain()
+		if drank.size() == before_ill + 1 and bool((drank[drank.size() - 1] as Dictionary).get("ill", false)):
+			ill += 1
+	if ill == 0 or ill >= 40:
+		push_error("WELL: %d of 40 mouthfuls at the well made the survivor ill; the untreated chance is not what is rolled" % ill)
+		return false
+	print("WELL OK thirsty at the well, E drinks (+%.0f, nothing spent, the menu carries it); sated with an empty bottle, E fills it; a top-up while half of it lands, none past that or four metres off; %d of 40 mouthfuls made them ill" % [mouthful, ill])
+	return true
