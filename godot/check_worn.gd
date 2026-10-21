@@ -115,6 +115,10 @@ var _stash: Dictionary = {}
 # An action frame moves further: a crouch sinks the head onto bent knees, a stagger throws it back
 # (docs/23, "Actions on the render clock"). Still bounded, so a head flung off the body is refused.
 const ACTION_DRIFT_MAX: int = 10
+# A fall turns the body as far as 90 degrees about its feet (motion/actions.py `turn_about_feet`),
+# so its head travels as much as a body's height, the rig's 40 rows; it is drawn dressed in the
+# corpse pass, and its offsets are bounded by that turn.
+const FALL_DRIFT_MAX: int = 40
 const FRAME_DRIFT_MAX: int = 3
 # The bodies that turn, and so have frames for gear to follow.
 const TURNING_BODIES: Array[String] = [
@@ -456,8 +460,12 @@ func _the_canvas_is_the_declared_one() -> bool:
 		if Appearance.is_garment(key):
 			for frame in _rig_members() + _rig_action_members():
 				var worn: String = key + frame.substr(CLOTHED_RIG.length())
-				if not _is_pawn_canvas(Appearance.resolve(worn)):
-					push_error("CANVAS: %s's garment member '%s' is not a PAWN_CANVAS %s picture" % [String(d["id"]), worn, str(Appearance.PAWN_CANVAS)])
+				# The rig frame's own canvas: PAWN_CANVAS, or a fall frame's wider fall canvas.
+				var own: Vector2i = Appearance.canvas_of(frame)
+				var tex: Variant = Appearance.resolve(worn)
+				var fits: bool = tex is Texture2D and Vector2i((tex as Texture2D).get_size()) == own
+				if not fits or (own != Appearance.PAWN_CANVAS and not frame.contains("_fall_")):
+					push_error("CANVAS: %s's garment member '%s' is not its rig frame's %s picture" % [String(d["id"]), worn, str(own)])
 					return false
 		elif Appearance.turns(key):
 			for view in Appearance.VIEWS:
@@ -486,7 +494,7 @@ func _the_canvas_is_the_declared_one() -> bool:
 		return false
 
 	_stash["canvas_judged"] = judged
-	print("CANVAS OK %d equip declaration(s) under content/items/ are a garment with a PAWN_CANVAS member per rig frame, a wearable with four PAWN_CANVAS members or a held weapon at its declared canvas; a 32x32 fabrication and an unknown key are both refused" % judged)
+	print("CANVAS OK %d equip declaration(s) under content/items/ are a garment with a member per rig frame at that frame's canvas (PAWN_CANVAS, a fall the fall canvas), a wearable with four PAWN_CANVAS members or a held weapon at its declared canvas; a 32x32 fabrication and an unknown key are both refused" % judged)
 	return true
 
 
@@ -1180,7 +1188,7 @@ func _the_gear_follows_the_frame() -> bool:
 				if p == null:
 					push_error("%s: %s declares no %s offset; gear riding it would not move with the frame" % [lane, member, region])
 					return false
-				var drift: int = FRAME_DRIFT_MAX if _is_walk_or_breath(suffix) else ACTION_DRIFT_MAX
+				var drift: int = FRAME_DRIFT_MAX if _is_walk_or_breath(suffix) else (FALL_DRIFT_MAX if suffix.begins_with("fall_") else ACTION_DRIFT_MAX)
 				if absi((p as Vector2i).x) > drift or absi((p as Vector2i).y) > drift:
 					push_error("%s: %s moves its %s by %s, past %d px" % [lane, member, region, str(p), drift])
 					return false

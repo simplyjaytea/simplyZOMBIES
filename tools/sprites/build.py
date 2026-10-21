@@ -407,7 +407,10 @@ def authored():
         members = entry.get("members")
         if isinstance(members, dict):
             for member_key in sorted(members):
-                out[member_key] = canvas
+                # A member may declare a `canvas` of its own -- a fall frame, on the wider canvas a
+                # body turned onto the ground needs (godot/art/simplyzombies/motion/actions.py).
+                own = members[member_key].get("canvas") if isinstance(members[member_key], dict) else None
+                out[member_key] = _canvas_of(member_key, own) if own is not None else canvas
         else:
             out[key] = canvas
     return out

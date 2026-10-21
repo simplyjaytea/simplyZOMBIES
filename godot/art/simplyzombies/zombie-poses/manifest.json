@@ -3576,6 +3576,12 @@
           },
           {
             "path": "textures/zombie-workwear/motion/lunge-south-02.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/lunge-south-03.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/lunge-south-04.png"
           }
         ]
       },
@@ -3608,6 +3614,12 @@
           },
           {
             "path": "textures/zombie-workwear/motion/lunge-east-02.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/lunge-east-03.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/lunge-east-04.png"
           }
         ]
       },
@@ -3640,6 +3652,12 @@
           },
           {
             "path": "textures/zombie-workwear/motion/lunge-north-02.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/lunge-north-03.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/lunge-north-04.png"
           }
         ]
       },
@@ -3672,6 +3690,12 @@
           },
           {
             "path": "textures/zombie-workwear/motion/lunge-west-02.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/lunge-west-03.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/lunge-west-04.png"
           }
         ]
       },
@@ -3829,10 +3853,49 @@
           },
           {
             "path": "textures/zombie-workwear/motion/fall-south-01.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-south-02.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-south-03.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-south-04.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-south-05.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-south-06.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-south-07.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-south-08.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-south-09.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-south-10.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-south-11.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-south-12.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-south-13.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-south-14.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 12,
       "loop": false,
       "status": "derived-action"
     },
@@ -3858,10 +3921,49 @@
           },
           {
             "path": "textures/zombie-workwear/motion/fall-east-01.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-east-02.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-east-03.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-east-04.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-east-05.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-east-06.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-east-07.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-east-08.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-east-09.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-east-10.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-east-11.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-east-12.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-east-13.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-east-14.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 12,
       "loop": false,
       "status": "derived-action"
     },
@@ -3887,10 +3989,49 @@
           },
           {
             "path": "textures/zombie-workwear/motion/fall-north-01.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-north-02.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-north-03.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-north-04.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-north-05.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-north-06.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-north-07.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-north-08.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-north-09.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-north-10.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-north-11.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-north-12.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-north-13.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-north-14.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 12,
       "loop": false,
       "status": "derived-action"
     },
@@ -3916,10 +4057,49 @@
           },
           {
             "path": "textures/zombie-workwear/motion/fall-west-01.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-west-02.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-west-03.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-west-04.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-west-05.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-west-06.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-west-07.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-west-08.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-west-09.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-west-10.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-west-11.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-west-12.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-west-13.png"
+          },
+          {
+            "path": "textures/zombie-workwear/motion/fall-west-14.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 12,
       "loop": false,
       "status": "derived-action"
     },
@@ -3948,6 +4128,12 @@
           },
           {
             "path": "textures/zombie-commuter/motion/lunge-south-02.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/lunge-south-03.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/lunge-south-04.png"
           }
         ]
       },
@@ -3980,6 +4166,12 @@
           },
           {
             "path": "textures/zombie-commuter/motion/lunge-east-02.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/lunge-east-03.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/lunge-east-04.png"
           }
         ]
       },
@@ -4012,6 +4204,12 @@
           },
           {
             "path": "textures/zombie-commuter/motion/lunge-north-02.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/lunge-north-03.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/lunge-north-04.png"
           }
         ]
       },
@@ -4044,6 +4242,12 @@
           },
           {
             "path": "textures/zombie-commuter/motion/lunge-west-02.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/lunge-west-03.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/lunge-west-04.png"
           }
         ]
       },
@@ -4201,10 +4405,43 @@
           },
           {
             "path": "textures/zombie-commuter/motion/fall-south-01.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-south-02.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-south-03.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-south-04.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-south-05.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-south-06.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-south-07.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-south-08.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-south-09.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-south-10.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-south-11.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-south-12.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 12,
       "loop": false,
       "status": "derived-action"
     },
@@ -4230,10 +4467,43 @@
           },
           {
             "path": "textures/zombie-commuter/motion/fall-east-01.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-east-02.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-east-03.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-east-04.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-east-05.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-east-06.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-east-07.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-east-08.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-east-09.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-east-10.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-east-11.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-east-12.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 12,
       "loop": false,
       "status": "derived-action"
     },
@@ -4259,10 +4529,43 @@
           },
           {
             "path": "textures/zombie-commuter/motion/fall-north-01.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-north-02.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-north-03.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-north-04.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-north-05.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-north-06.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-north-07.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-north-08.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-north-09.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-north-10.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-north-11.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-north-12.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 12,
       "loop": false,
       "status": "derived-action"
     },
@@ -4288,10 +4591,43 @@
           },
           {
             "path": "textures/zombie-commuter/motion/fall-west-01.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-west-02.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-west-03.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-west-04.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-west-05.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-west-06.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-west-07.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-west-08.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-west-09.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-west-10.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-west-11.png"
+          },
+          {
+            "path": "textures/zombie-commuter/motion/fall-west-12.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 12,
       "loop": false,
       "status": "derived-action"
     },
@@ -4320,6 +4656,12 @@
           },
           {
             "path": "textures/zombie-raincoat/motion/lunge-south-02.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/lunge-south-03.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/lunge-south-04.png"
           }
         ]
       },
@@ -4352,6 +4694,12 @@
           },
           {
             "path": "textures/zombie-raincoat/motion/lunge-east-02.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/lunge-east-03.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/lunge-east-04.png"
           }
         ]
       },
@@ -4384,6 +4732,12 @@
           },
           {
             "path": "textures/zombie-raincoat/motion/lunge-north-02.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/lunge-north-03.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/lunge-north-04.png"
           }
         ]
       },
@@ -4416,6 +4770,12 @@
           },
           {
             "path": "textures/zombie-raincoat/motion/lunge-west-02.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/lunge-west-03.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/lunge-west-04.png"
           }
         ]
       },
@@ -4573,10 +4933,43 @@
           },
           {
             "path": "textures/zombie-raincoat/motion/fall-south-01.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-south-02.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-south-03.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-south-04.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-south-05.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-south-06.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-south-07.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-south-08.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-south-09.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-south-10.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-south-11.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-south-12.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 12,
       "loop": false,
       "status": "derived-action"
     },
@@ -4602,10 +4995,43 @@
           },
           {
             "path": "textures/zombie-raincoat/motion/fall-east-01.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-east-02.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-east-03.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-east-04.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-east-05.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-east-06.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-east-07.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-east-08.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-east-09.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-east-10.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-east-11.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-east-12.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 12,
       "loop": false,
       "status": "derived-action"
     },
@@ -4631,10 +5057,43 @@
           },
           {
             "path": "textures/zombie-raincoat/motion/fall-north-01.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-north-02.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-north-03.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-north-04.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-north-05.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-north-06.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-north-07.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-north-08.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-north-09.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-north-10.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-north-11.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-north-12.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 12,
       "loop": false,
       "status": "derived-action"
     },
@@ -4660,10 +5119,43 @@
           },
           {
             "path": "textures/zombie-raincoat/motion/fall-west-01.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-west-02.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-west-03.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-west-04.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-west-05.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-west-06.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-west-07.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-west-08.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-west-09.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-west-10.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-west-11.png"
+          },
+          {
+            "path": "textures/zombie-raincoat/motion/fall-west-12.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 12,
       "loop": false,
       "status": "derived-action"
     },
@@ -4692,6 +5184,12 @@
           },
           {
             "path": "textures/zombie-stalker/motion/lunge-south-02.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/lunge-south-03.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/lunge-south-04.png"
           }
         ]
       },
@@ -4724,6 +5222,12 @@
           },
           {
             "path": "textures/zombie-stalker/motion/lunge-east-02.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/lunge-east-03.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/lunge-east-04.png"
           }
         ]
       },
@@ -4756,6 +5260,12 @@
           },
           {
             "path": "textures/zombie-stalker/motion/lunge-north-02.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/lunge-north-03.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/lunge-north-04.png"
           }
         ]
       },
@@ -4788,6 +5298,12 @@
           },
           {
             "path": "textures/zombie-stalker/motion/lunge-west-02.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/lunge-west-03.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/lunge-west-04.png"
           }
         ]
       },
@@ -4945,10 +5461,46 @@
           },
           {
             "path": "textures/zombie-stalker/motion/fall-south-01.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-south-02.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-south-03.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-south-04.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-south-05.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-south-06.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-south-07.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-south-08.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-south-09.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-south-10.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-south-11.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-south-12.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-south-13.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 12,
       "loop": false,
       "status": "derived-action"
     },
@@ -4974,10 +5526,46 @@
           },
           {
             "path": "textures/zombie-stalker/motion/fall-east-01.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-east-02.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-east-03.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-east-04.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-east-05.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-east-06.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-east-07.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-east-08.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-east-09.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-east-10.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-east-11.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-east-12.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-east-13.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 12,
       "loop": false,
       "status": "derived-action"
     },
@@ -5003,10 +5591,46 @@
           },
           {
             "path": "textures/zombie-stalker/motion/fall-north-01.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-north-02.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-north-03.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-north-04.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-north-05.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-north-06.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-north-07.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-north-08.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-north-09.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-north-10.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-north-11.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-north-12.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-north-13.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 12,
       "loop": false,
       "status": "derived-action"
     },
@@ -5032,10 +5656,46 @@
           },
           {
             "path": "textures/zombie-stalker/motion/fall-west-01.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-west-02.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-west-03.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-west-04.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-west-05.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-west-06.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-west-07.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-west-08.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-west-09.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-west-10.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-west-11.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-west-12.png"
+          },
+          {
+            "path": "textures/zombie-stalker/motion/fall-west-13.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 12,
       "loop": false,
       "status": "derived-action"
     },
@@ -5064,6 +5724,12 @@
           },
           {
             "path": "textures/zombie-runner/motion/lunge-south-02.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/lunge-south-03.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/lunge-south-04.png"
           }
         ]
       },
@@ -5096,6 +5762,12 @@
           },
           {
             "path": "textures/zombie-runner/motion/lunge-east-02.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/lunge-east-03.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/lunge-east-04.png"
           }
         ]
       },
@@ -5128,6 +5800,12 @@
           },
           {
             "path": "textures/zombie-runner/motion/lunge-north-02.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/lunge-north-03.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/lunge-north-04.png"
           }
         ]
       },
@@ -5160,6 +5838,12 @@
           },
           {
             "path": "textures/zombie-runner/motion/lunge-west-02.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/lunge-west-03.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/lunge-west-04.png"
           }
         ]
       },
@@ -5317,10 +6001,49 @@
           },
           {
             "path": "textures/zombie-runner/motion/fall-south-01.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-south-02.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-south-03.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-south-04.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-south-05.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-south-06.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-south-07.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-south-08.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-south-09.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-south-10.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-south-11.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-south-12.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-south-13.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-south-14.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 12,
       "loop": false,
       "status": "derived-action"
     },
@@ -5346,10 +6069,49 @@
           },
           {
             "path": "textures/zombie-runner/motion/fall-east-01.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-east-02.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-east-03.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-east-04.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-east-05.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-east-06.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-east-07.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-east-08.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-east-09.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-east-10.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-east-11.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-east-12.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-east-13.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-east-14.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 12,
       "loop": false,
       "status": "derived-action"
     },
@@ -5375,10 +6137,49 @@
           },
           {
             "path": "textures/zombie-runner/motion/fall-north-01.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-north-02.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-north-03.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-north-04.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-north-05.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-north-06.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-north-07.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-north-08.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-north-09.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-north-10.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-north-11.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-north-12.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-north-13.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-north-14.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 12,
       "loop": false,
       "status": "derived-action"
     },
@@ -5404,10 +6205,49 @@
           },
           {
             "path": "textures/zombie-runner/motion/fall-west-01.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-west-02.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-west-03.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-west-04.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-west-05.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-west-06.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-west-07.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-west-08.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-west-09.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-west-10.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-west-11.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-west-12.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-west-13.png"
+          },
+          {
+            "path": "textures/zombie-runner/motion/fall-west-14.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 12,
       "loop": false,
       "status": "derived-action"
     },
@@ -5436,6 +6276,12 @@
           },
           {
             "path": "textures/zombie-armored/motion/lunge-south-02.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/lunge-south-03.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/lunge-south-04.png"
           }
         ]
       },
@@ -5468,6 +6314,12 @@
           },
           {
             "path": "textures/zombie-armored/motion/lunge-east-02.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/lunge-east-03.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/lunge-east-04.png"
           }
         ]
       },
@@ -5500,6 +6352,12 @@
           },
           {
             "path": "textures/zombie-armored/motion/lunge-north-02.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/lunge-north-03.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/lunge-north-04.png"
           }
         ]
       },
@@ -5532,6 +6390,12 @@
           },
           {
             "path": "textures/zombie-armored/motion/lunge-west-02.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/lunge-west-03.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/lunge-west-04.png"
           }
         ]
       },
@@ -5689,10 +6553,43 @@
           },
           {
             "path": "textures/zombie-armored/motion/fall-south-01.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-south-02.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-south-03.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-south-04.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-south-05.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-south-06.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-south-07.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-south-08.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-south-09.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-south-10.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-south-11.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-south-12.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 12,
       "loop": false,
       "status": "derived-action"
     },
@@ -5718,10 +6615,43 @@
           },
           {
             "path": "textures/zombie-armored/motion/fall-east-01.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-east-02.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-east-03.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-east-04.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-east-05.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-east-06.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-east-07.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-east-08.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-east-09.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-east-10.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-east-11.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-east-12.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 12,
       "loop": false,
       "status": "derived-action"
     },
@@ -5747,10 +6677,43 @@
           },
           {
             "path": "textures/zombie-armored/motion/fall-north-01.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-north-02.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-north-03.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-north-04.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-north-05.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-north-06.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-north-07.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-north-08.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-north-09.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-north-10.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-north-11.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-north-12.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 12,
       "loop": false,
       "status": "derived-action"
     },
@@ -5776,10 +6739,43 @@
           },
           {
             "path": "textures/zombie-armored/motion/fall-west-01.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-west-02.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-west-03.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-west-04.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-west-05.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-west-06.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-west-07.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-west-08.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-west-09.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-west-10.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-west-11.png"
+          },
+          {
+            "path": "textures/zombie-armored/motion/fall-west-12.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 12,
       "loop": false,
       "status": "derived-action"
     },
@@ -5808,6 +6804,12 @@
           },
           {
             "path": "textures/zombie-heavy/motion/lunge-south-02.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/lunge-south-03.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/lunge-south-04.png"
           }
         ]
       },
@@ -5840,6 +6842,12 @@
           },
           {
             "path": "textures/zombie-heavy/motion/lunge-east-02.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/lunge-east-03.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/lunge-east-04.png"
           }
         ]
       },
@@ -5872,6 +6880,12 @@
           },
           {
             "path": "textures/zombie-heavy/motion/lunge-north-02.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/lunge-north-03.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/lunge-north-04.png"
           }
         ]
       },
@@ -5904,6 +6918,12 @@
           },
           {
             "path": "textures/zombie-heavy/motion/lunge-west-02.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/lunge-west-03.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/lunge-west-04.png"
           }
         ]
       },
@@ -6061,10 +7081,43 @@
           },
           {
             "path": "textures/zombie-heavy/motion/fall-south-01.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-south-02.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-south-03.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-south-04.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-south-05.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-south-06.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-south-07.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-south-08.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-south-09.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-south-10.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-south-11.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-south-12.png"
           }
         ]
       },
-      "fps": 6,
+      "fps": 10,
       "loop": false,
       "status": "derived-action"
     },
@@ -6090,10 +7143,43 @@
           },
           {
             "path": "textures/zombie-heavy/motion/fall-east-01.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-east-02.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-east-03.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-east-04.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-east-05.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-east-06.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-east-07.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-east-08.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-east-09.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-east-10.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-east-11.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-east-12.png"
           }
         ]
       },
-      "fps": 6,
+      "fps": 10,
       "loop": false,
       "status": "derived-action"
     },
@@ -6119,10 +7205,43 @@
           },
           {
             "path": "textures/zombie-heavy/motion/fall-north-01.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-north-02.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-north-03.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-north-04.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-north-05.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-north-06.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-north-07.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-north-08.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-north-09.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-north-10.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-north-11.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-north-12.png"
           }
         ]
       },
-      "fps": 6,
+      "fps": 10,
       "loop": false,
       "status": "derived-action"
     },
@@ -6148,10 +7267,43 @@
           },
           {
             "path": "textures/zombie-heavy/motion/fall-west-01.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-west-02.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-west-03.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-west-04.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-west-05.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-west-06.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-west-07.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-west-08.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-west-09.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-west-10.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-west-11.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-west-12.png"
           }
         ]
       },
-      "fps": 6,
+      "fps": 10,
       "loop": false,
       "status": "derived-action"
     },
@@ -6180,6 +7332,12 @@
           },
           {
             "path": "textures/zombie-screamer/motion/lunge-south-02.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/lunge-south-03.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/lunge-south-04.png"
           }
         ]
       },
@@ -6212,6 +7370,12 @@
           },
           {
             "path": "textures/zombie-screamer/motion/lunge-east-02.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/lunge-east-03.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/lunge-east-04.png"
           }
         ]
       },
@@ -6244,6 +7408,12 @@
           },
           {
             "path": "textures/zombie-screamer/motion/lunge-north-02.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/lunge-north-03.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/lunge-north-04.png"
           }
         ]
       },
@@ -6276,6 +7446,12 @@
           },
           {
             "path": "textures/zombie-screamer/motion/lunge-west-02.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/lunge-west-03.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/lunge-west-04.png"
           }
         ]
       },
@@ -6433,10 +7609,43 @@
           },
           {
             "path": "textures/zombie-screamer/motion/fall-south-01.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-south-02.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-south-03.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-south-04.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-south-05.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-south-06.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-south-07.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-south-08.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-south-09.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-south-10.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-south-11.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-south-12.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 12,
       "loop": false,
       "status": "derived-action"
     },
@@ -6462,10 +7671,43 @@
           },
           {
             "path": "textures/zombie-screamer/motion/fall-east-01.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-east-02.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-east-03.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-east-04.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-east-05.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-east-06.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-east-07.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-east-08.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-east-09.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-east-10.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-east-11.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-east-12.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 12,
       "loop": false,
       "status": "derived-action"
     },
@@ -6491,10 +7733,43 @@
           },
           {
             "path": "textures/zombie-screamer/motion/fall-north-01.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-north-02.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-north-03.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-north-04.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-north-05.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-north-06.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-north-07.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-north-08.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-north-09.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-north-10.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-north-11.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-north-12.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 12,
       "loop": false,
       "status": "derived-action"
     },
@@ -6520,10 +7795,43 @@
           },
           {
             "path": "textures/zombie-screamer/motion/fall-west-01.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-west-02.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-west-03.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-west-04.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-west-05.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-west-06.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-west-07.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-west-08.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-west-09.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-west-10.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-west-11.png"
+          },
+          {
+            "path": "textures/zombie-screamer/motion/fall-west-12.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 12,
       "loop": false,
       "status": "derived-action"
     },
@@ -6552,10 +7860,16 @@
           },
           {
             "path": "textures/zombie-bloater/motion/lunge-south-02.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/lunge-south-03.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/lunge-south-04.png"
           }
         ]
       },
-      "fps": 10,
+      "fps": 8,
       "loop": false,
       "status": "derived-action"
     },
@@ -6584,10 +7898,16 @@
           },
           {
             "path": "textures/zombie-bloater/motion/lunge-east-02.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/lunge-east-03.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/lunge-east-04.png"
           }
         ]
       },
-      "fps": 10,
+      "fps": 8,
       "loop": false,
       "status": "derived-action"
     },
@@ -6616,10 +7936,16 @@
           },
           {
             "path": "textures/zombie-bloater/motion/lunge-north-02.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/lunge-north-03.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/lunge-north-04.png"
           }
         ]
       },
-      "fps": 10,
+      "fps": 8,
       "loop": false,
       "status": "derived-action"
     },
@@ -6648,10 +7974,16 @@
           },
           {
             "path": "textures/zombie-bloater/motion/lunge-west-02.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/lunge-west-03.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/lunge-west-04.png"
           }
         ]
       },
-      "fps": 10,
+      "fps": 8,
       "loop": false,
       "status": "derived-action"
     },
@@ -6683,7 +8015,7 @@
           }
         ]
       },
-      "fps": 8,
+      "fps": 6,
       "loop": false,
       "status": "derived-action"
     },
@@ -6715,7 +8047,7 @@
           }
         ]
       },
-      "fps": 8,
+      "fps": 6,
       "loop": false,
       "status": "derived-action"
     },
@@ -6747,7 +8079,7 @@
           }
         ]
       },
-      "fps": 8,
+      "fps": 6,
       "loop": false,
       "status": "derived-action"
     },
@@ -6779,7 +8111,7 @@
           }
         ]
       },
-      "fps": 8,
+      "fps": 6,
       "loop": false,
       "status": "derived-action"
     },
@@ -6805,10 +8137,46 @@
           },
           {
             "path": "textures/zombie-bloater/motion/fall-south-01.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-south-02.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-south-03.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-south-04.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-south-05.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-south-06.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-south-07.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-south-08.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-south-09.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-south-10.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-south-11.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-south-12.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-south-13.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 10,
       "loop": false,
       "status": "derived-action"
     },
@@ -6834,10 +8202,46 @@
           },
           {
             "path": "textures/zombie-bloater/motion/fall-east-01.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-east-02.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-east-03.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-east-04.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-east-05.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-east-06.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-east-07.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-east-08.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-east-09.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-east-10.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-east-11.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-east-12.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-east-13.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 10,
       "loop": false,
       "status": "derived-action"
     },
@@ -6863,10 +8267,46 @@
           },
           {
             "path": "textures/zombie-bloater/motion/fall-north-01.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-north-02.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-north-03.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-north-04.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-north-05.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-north-06.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-north-07.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-north-08.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-north-09.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-north-10.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-north-11.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-north-12.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-north-13.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 10,
       "loop": false,
       "status": "derived-action"
     },
@@ -6892,10 +8332,46 @@
           },
           {
             "path": "textures/zombie-bloater/motion/fall-west-01.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-west-02.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-west-03.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-west-04.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-west-05.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-west-06.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-west-07.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-west-08.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-west-09.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-west-10.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-west-11.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-west-12.png"
+          },
+          {
+            "path": "textures/zombie-bloater/motion/fall-west-13.png"
           }
         ]
       },
-      "fps": 8,
+      "fps": 10,
       "loop": false,
       "status": "derived-action"
     }

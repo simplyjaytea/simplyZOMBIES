@@ -88,6 +88,10 @@ var _held: Dictionary = {}
 var _looks: Dictionary = {}
 # id -> {"key", "view", "at"}: the falls in progress.
 var _falls: Dictionary = {}
+# id -> the view a body fell from, kept after its fall has played so its corpse goes on lying the
+# way it fell (`landed_view`), the oldest dropped past LANDED_MAX.
+var _landed: Dictionary = {}
+const LANDED_MAX: int = 512
 
 
 # Where a body is in its walk after covering `metres` at `mps` metres per second, for a family
@@ -146,6 +150,7 @@ func clear() -> void:
 	_held = {}
 	_looks = {}
 	_falls = {}
+	_landed = {}
 
 
 # The start of a draw pass. `now` is presentation time in game seconds -- the frame loop's own
@@ -258,8 +263,11 @@ func from_events(world: Variant, drained: Array, now: float) -> void:
 				var dead: int = int(ev.get("entity", -1))
 				if _looks.has(dead) and not _falls.has(dead):
 					var look: Dictionary = _looks[dead] as Dictionary
-					_falls[dead] = {"key": String(look["key"]), "view": String(look["view"]), "at": now}
+					_falls[dead] = {"key": String(look["key"]), "view": String(look["view"]), "at": now, "outfit": (look.get("outfit", []) as Array).duplicate()}
 					_acts.erase(dead)
+					_landed[dead] = String(look["view"])
+					while _landed.size() > LANDED_MAX:
+						_landed.erase(_landed.keys()[0])
 
 
 # appearance.gd preloads this file, so it is loaded here when first needed rather than preloaded:
@@ -274,10 +282,11 @@ static func _is_zombie(world: Variant, id: int) -> bool:
 
 # The action fields of one body's motion this pass, to merge into `motion()`'s answer: the one-shot
 # or held action it is in (`action`, `t` seconds in, `start`, `hold`), its stance, and the side a
-# lying body lies toward. Records the family and view it is drawn with, for a fall.
-func act(id: int, world: Variant, key: String, view: String) -> Dictionary:
+# lying body lies toward. Records the family, view and outfit it is drawn with, for a fall: a
+# clothed body falls in its clothes (the painter dresses the fall frames too).
+func act(id: int, world: Variant, key: String, view: String, outfit: Array = []) -> Dictionary:
 	var lie: String = view if view == "e" or view == "w" else String((_looks.get(id, {}) as Dictionary).get("lie", "e"))
-	_looks[id] = {"key": key, "view": view, "lie": lie}
+	_looks[id] = {"key": key, "view": view, "lie": lie, "outfit": outfit}
 	var out: Dictionary = {"stance": "", "lie": lie}
 	if world == null:
 		return out
@@ -330,9 +339,15 @@ func _read_held(id: int, world: Variant) -> void:
 		r["at_fire"] = _time
 
 
+# The view `id` fell from, or "" for a body this clock never saw fall (one that died unseen, or
+# before a load): the corpse pass then reads it off the body's facing.
+func landed_view(id: int) -> String:
+	return String(_landed.get(id, ""))
+
+
 # The fall `id` is playing, {key, view, t}, or {} when it is not falling.
 func fall_of(id: int) -> Dictionary:
 	var f: Variant = _falls.get(id)
 	if not (f is Dictionary):
 		return {}
-	return {"key": String((f as Dictionary)["key"]), "view": String((f as Dictionary)["view"]), "t": _time - float((f as Dictionary)["at"])}
+	return {"key": String((f as Dictionary)["key"]), "view": String((f as Dictionary)["view"]), "t": _time - float((f as Dictionary)["at"]), "outfit": (f as Dictionary).get("outfit", [])}
