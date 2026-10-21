@@ -27846,6 +27846,102 @@
         "path": "art/simplyzombies/glass/textures/frame-square.png"
       }
     },
+    "debris_sheet": {
+      "canvas": [
+        14,
+        11
+      ],
+      "kind": "tile",
+      "reads": "dressing.street"
+    },
+    "debris_can": {
+      "canvas": [
+        12,
+        7
+      ],
+      "kind": "tile",
+      "reads": "dressing.street"
+    },
+    "debris_paper": {
+      "canvas": [
+        11,
+        12
+      ],
+      "kind": "tile",
+      "reads": "dressing.street",
+      "source": {
+        "path": "art/simplyzombies/groups/environment/textures/overlay-debris.png",
+        "crop": [
+          12,
+          15,
+          11,
+          12
+        ]
+      }
+    },
+    "prop_barrel": {
+      "canvas": [
+        24,
+        30
+      ],
+      "kind": "prop",
+      "reads": "dressing.street",
+      "anchor": [
+        12,
+        30
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/prop-barrel.png",
+        "crop": [
+          0,
+          0,
+          24,
+          30
+        ]
+      }
+    },
+    "prop_pallet_stack": {
+      "canvas": [
+        32,
+        30
+      ],
+      "kind": "prop",
+      "reads": "dressing.street",
+      "anchor": [
+        16,
+        30
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/prop-pallet-stack.png",
+        "crop": [
+          0,
+          0,
+          32,
+          30
+        ]
+      }
+    },
+    "prop_trash_bags": {
+      "canvas": [
+        32,
+        22
+      ],
+      "kind": "prop",
+      "reads": "dressing.street",
+      "anchor": [
+        16,
+        22
+      ],
+      "source": {
+        "path": "art/simplyzombies/groups/props/native/prop-trash-bags.png",
+        "crop": [
+          0,
+          0,
+          32,
+          22
+        ]
+      }
+    },
     "wear_tee_sand": {
       "canvas": [
         32,

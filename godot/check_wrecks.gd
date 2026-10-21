@@ -2320,12 +2320,14 @@ func _the_scatter_lands_where_the_ground_says(stash: Dictionary) -> bool:
 			elif not rubble_key.is_empty():
 				push_error("tile (%d,%d) is not outdoor rubble floor and resolved rubble debris '%s'" % [tx, ty, rubble_key])
 				return false
-			if floor_outdoors and surface == SimTileMap.SURFACE_PAVED:
+			# Litter lies on any paved floor, a room's as much as the street's (A12, the second pass).
+			var paved_floor: bool = int(map.tiles[idx]) == SimTileMap.Tile.Floor and surface == SimTileMap.SURFACE_PAVED
+			if paved_floor:
 				paved_tiles += 1
 				if not litter_key.is_empty():
 					litter_drawn += 1
 			elif not litter_key.is_empty():
-				push_error("tile (%d,%d) is not outdoor street pavement and resolved litter '%s'" % [tx, ty, litter_key])
+				push_error("tile (%d,%d) is not paved floor and resolved litter '%s'" % [tx, ty, litter_key])
 				return false
 			for key in [rubble_key, litter_key]:
 				if not String(key).is_empty() and Appearance.resolve(String(key)) == null:
@@ -2340,9 +2342,9 @@ func _the_scatter_lands_where_the_ground_says(stash: Dictionary) -> bool:
 	if litter_drawn == 0:
 		push_error("not one of %d paved tiles carries litter; the scatter is dead" % paved_tiles)
 		return false
-	# Sparse, or it stops being texture and becomes a surface. The rarity is 1 in
-	# Dressing.LITTER_RARITY, so a quarter of the street is well past anything that could be a
-	# hash landing unluckily.
+	# Sparse, or it stops being texture and becomes a surface. Each six-tile block of street deals
+	# one scrap per Dressing.LITTER_TENTHS / 10 of its paved floor, about one tile in five
+	# and a half, so a quarter of the street is well past anything a block's quota could reach.
 	if float(litter_drawn) / float(paved_tiles) > 0.25:
 		push_error("%d of %d paved tiles carry litter; scatter that dense is a ground texture, not debris" % [litter_drawn, paved_tiles])
 		return false
@@ -2383,8 +2385,8 @@ func _the_scatter_lands_where_the_ground_says(stash: Dictionary) -> bool:
 
 	stash["rubble"] = rubble_drawn
 	stash["litter"] = litter_drawn
-	print("SCATTER OK %d/%d rubble tiles carry debris, %d of %d paved tiles carry litter (1 in %d), deterministic with %d tiles moving on another seed; grass, indoor rubble and an empty block all draw nothing" % [
-		rubble_drawn, rubble_tiles, litter_drawn, paved_tiles, Dressing.LITTER_RARITY, moved,
+	print("SCATTER OK %d/%d rubble tiles carry debris, %d of %d paved tiles carry litter (one per %d tenths of a block's paved floor), deterministic with %d tiles moving on another seed; grass, indoor rubble and an empty block all draw nothing" % [
+		rubble_drawn, rubble_tiles, litter_drawn, paved_tiles, Dressing.LITTER_TENTHS, moved,
 	])
 	return true
 
@@ -2450,7 +2452,7 @@ func _the_sockets_are_wired() -> bool:
 	if scatter.is_empty():
 		push_error("could not read _draw_scatter out of %s" % MAIN_GD)
 		return false
-	var missing4: String = _missing_needle(scatter, ["Dressing.rubble_key(", "Dressing.litter_key(", "draw_texture_rect("])
+	var missing4: String = _missing_needle(scatter, ["Dressing.rubble_key(", "Dressing.litter_placed_in(", "_draw_litter(", "draw_texture_rect("])
 	if not missing4.is_empty():
 		push_error("_draw_scatter does not contain %s" % missing4)
 		return false

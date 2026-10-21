@@ -211,19 +211,15 @@ var _vehicle_index_gen: int = -1
 # what invalidates it -- see _dressing.
 var _dressing_cache: Dictionary = {}
 var _dressing_from: Variant = null
-# The nature dressing's picks, one list per 16 x 16 chunk (Dressing.nature_tiles_cached), and what
-# they were picked against: the map object, its vehicle generation (a driven car turns Low tiles
-# to Floor and back under the same map, which the ground test reads), the seed and the content
-# tree. Any of the four moving empties the cache -- see _nature_cache_for. Never a static: one
-# gate process boots two worlds.
-var _nature_cache: Dictionary = {}
-var _nature_cache_map: Variant = null
-var _nature_cache_gen: int = -1
-var _nature_cache_seed: int = -1
-var _nature_cache_content: Variant = null
 # The furnishings' picks, kept the same way and emptied by the same four things -- see
 # _furnishing_cache_for.
 var _furnishing_cache: Dictionary = {}
+var _dressing_occ: Dictionary = {}
+var _dressing_occ_map: Variant = null
+var _dressing_occ_gen: int = 0
+var _dressing_occ_seed: int = 0
+var _dressing_occ_content: Variant = null
+var _dressing_occ_props: Dictionary = {}
 var _furnishing_cache_map: Variant = null
 var _furnishing_cache_gen: int = -1
 var _furnishing_cache_seed: int = -1
@@ -1669,18 +1665,15 @@ func _draw_world() -> void:
 	})
 	# The marks on the ground (blood, holes in wall caps, scorch), over the baked ground they lie on
 	# and under everything that stands -- only where the player sees now, so never on a roof, which
-	# covers only tiles the player does not see (decal_look.gd says why).
+	# covers only tiles the player does not see (decal_look.gd says why). They go into the layers'
+	# own decal item, between the A2 boards and the baked DECOR pictures, so a mark lies under a
+	# table or a bush (_draw_decals).
 	_draw_decals(seen, a2_wall_tiles, bounds)
-	# The nature dressing, flat on the ground and under everything that stands: bushes, reeds,
-	# rocks, stumps and logs over open outdoor floor. After the baked tiles and not inside them
-	# because the log is wider than its tile and the floor drawn beside it would overdraw it;
-	# before the props and the bodies because nothing here is an object anyone can stand behind.
-	_draw_nature(dress, seen, bounds)
-	# The furnishings after the nature and before the props: still dressing, still under everything
-	# that stands, and skipped wherever a real prop stands (docs/23, "Furnishings and container kinds").
-	_draw_furnishings(dress, seen, bounds)
-	# Props last, over the ground and under the bodies _draw_entities sorts: a container, a bed,
-	# a campfire and the well all stood invisible in this district until this call existed.
+	# The nature dressing and the flat furnishings are baked too (the DECOR layer, _draw_decor): both
+	# are pictures on seen tiles that never move, so drawing them each frame was the cost of a tile
+	# nobody was looking at. Props stay per frame, last, over the ground and under the bodies
+	# _draw_entities sorts: a container, a bed, a campfire and the well all stood invisible in this
+	# district until this call existed.
 	_draw_props()
 
 
@@ -1705,6 +1698,8 @@ func _bake_layer(region: Rect2i, layer: int, pen: Object) -> void:
 			_draw_district(region, BakePass.LIVE)
 		WorldLayersRes.Layer.A2:
 			_draw_district(region, BakePass.A2)
+		WorldLayersRes.Layer.DECOR:
+			_draw_decor(region)
 		WorldLayersRes.Layer.REMEMBERED:
 			_draw_district(region, BakePass.REMEMBERED)
 		WorldLayersRes.Layer.ROOF:
@@ -1911,21 +1906,25 @@ func _dressing() -> Dictionary:
 	return _dressing_cache
 
 
-# The nature cache, emptied when anything its picks were made against has moved: the map object,
-# its vehicle generation, the seed or the content tree (`is_same`, so a content tree is compared
-# by identity and not walked). The picks include the ground test, which a parked car's Low tiles
-# change when it is driven off.
-func _nature_cache_for() -> Dictionary:
+# The dressing's occupancy for the world on screen: the per-frame litter asks it of every tile it
+# draws, and building it parses the block, so it is kept. It is emptied by the same four things the
+# furnishing cache is (the map, its vehicle generation, the seed and the content), because the rule
+# reads the tile classes and surfaces a driven car changes, and by a prop placed or taken away:
+# what the sim stands on a tile holds it against every picture (Dressing.held_props).
+func _dressing_occupancy() -> Dictionary:
 	var map: Variant = world.tilemap
 	var gen: int = 0 if map == null else int(map.vehicle_generation)
-	if is_same(map, _nature_cache_map) and gen == _nature_cache_gen and int(world.seed) == _nature_cache_seed and is_same(world.content, _nature_cache_content):
-		return _nature_cache
-	_nature_cache = {}
-	_nature_cache_map = map
-	_nature_cache_gen = gen
-	_nature_cache_seed = int(world.seed)
-	_nature_cache_content = world.content
-	return _nature_cache
+	var prop_at: Dictionary = Appearance.prop_tiles(world)
+	if is_same(map, _dressing_occ_map) and gen == _dressing_occ_gen and int(world.seed) == _dressing_occ_seed and is_same(world.content, _dressing_occ_content) and prop_at == _dressing_occ_props:
+		return _dressing_occ
+	_dressing_occ_props = prop_at
+	_furnishing_cache_map = null
+	_dressing_occ = Dressing.occupancy(_dressing(), map, int(world.seed), Dressing.held_props(world))
+	_dressing_occ_map = map
+	_dressing_occ_gen = gen
+	_dressing_occ_seed = int(world.seed)
+	_dressing_occ_content = world.content
+	return _dressing_occ
 
 
 # The furnishing cache, emptied by the same four things the nature cache is and for the same
@@ -1943,48 +1942,59 @@ func _furnishing_cache_for() -> Dictionary:
 	return _furnishing_cache
 
 
-# The furnishings, one picture per tile `Dressing.furnishing_tiles_cached` answers: a table, a chair,
-# a shelf and a cabinet indoors, a dumpster, a barrier, a cone and a post outside (docs/23,
-# "Furnishings and container kinds"). Seen tiles only, and never a remembered one, so nothing here
-# is drawn through a wall or where the observer has no sightline. Hung by `Appearance.hang_rect` at
-# the picture's own size, drawn over the nature and under the props and the bodies. A tile a real
-# prop stands on is skipped, so a chair never peeks out from under a container or a bed. Dressing
-# is never sim state: this reads the map and the props' positions and writes nothing, and a body
-# walks across a table and is drawn over it.
-func _draw_furnishings(dress: Dictionary, seen: Variant, bounds: Dictionary) -> void:
-	if dress.is_empty() or seen == null or world.tilemap == null:
+# The flat dressing of one chunk, baked into the DECOR layer (world_layers.gd): the nature pictures
+# (bushes, reeds, rocks, stumps, logs over open outdoor floor) and the flat furnishings (a table, a
+# chair, a dumpster, a traffic cone). Dressing.decor_picks answers which tile takes which picture;
+# this only blits them, one hung on each tile's south edge at its own size (_placed_rect),
+# in the bake camera's world pixels. Nature first, then furniture, as the per-frame draw did, and
+# the layer's LIVE mask decides what shows, so a picture on a tile nobody sees is baked and never
+# drawn. A standing furnishing is not here: it joins the entity sort (_standing_props).
+#
+# Dressing is never sim state: this reads the map and writes nothing, and a picture never sits on
+# anything the sim treats as solid. A prop standing on a tile is drawn over the picture beneath it
+# (_draw_props runs after the layers), which is the cost of baking: the old per-frame draw skipped
+# the picture under a prop, the baked one cannot notice a prop placed after its chunk was baked.
+func _draw_decor(region: Rect2i) -> void:
+	var dress: Dictionary = _dressing()
+	if dress.is_empty() or world.tilemap == null:
 		return
+	var picks: Dictionary = Dressing.decor_picks(dress, world.tilemap, int(world.seed), region, _dressing_occupancy())
 	var zoom: float = float(camera["zoom"])
 	var px_scale: float = Appearance.blit_scale(zoom)
-	var occupied: Dictionary = Appearance.prop_tiles(world)
-	for pick in Dressing.furnishing_tiles_cached(dress, world.tilemap, seen, int(world.seed), bounds, _furnishing_cache_for()):
-		if Dressing.furnishing_is_standing(dress, String(pick["key"])):
-			continue
-		if occupied.has(Vector2i(int(pick["tx"]), int(pick["ty"]))):
-			continue
-		var texture: Texture2D = Appearance.resolve(String(pick["key"]))
-		if texture == null:
-			continue
-		var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(int(pick["tx"])) + 0.5, float(int(pick["ty"])) + 1.0)
-		draw_texture_rect(texture, Appearance.hang_rect(float(sc["sx"]), float(sc["sy"]), texture.get_size() * px_scale), false)
+	for kind in ["nature", "furnishings"]:
+		for pick in picks[kind] as Array:
+			var placed: Dictionary = pick as Dictionary
+			var texture: Texture2D = Appearance.resolve(String(placed["key"]))
+			if texture == null:
+				continue
+			var rect: Rect2 = _placed_rect(placed, texture.get_size(), px_scale)
+			_pen.draw_texture_rect(texture, _mirrored(rect, bool(placed["flip"])), false)
 
 
-# The nature dressing, one picture per tile `Dressing.nature_tiles_cached` answers: seen tiles only, and
-# never a remembered one, so nothing here is drawn where the observer has no sightline. Each hangs
-# with its last row on the tile's south edge (Appearance.hang_rect) at its own size. Dressing is
-# never sim state: this reads the map and writes nothing, and the tiles it draws on are open floor
-# the sim treats as open floor -- a body walks across a stump and is drawn over it.
-func _draw_nature(dress: Dictionary, seen: Variant, bounds: Dictionary) -> void:
-	if dress.is_empty() or seen == null or world.tilemap == null:
-		return
-	var zoom: float = float(camera["zoom"])
-	var px_scale: float = Appearance.blit_scale(zoom)
-	for pick in Dressing.nature_tiles_cached(dress, world.tilemap, seen, int(world.seed), bounds, _nature_cache_for()):
-		var texture: Texture2D = Appearance.resolve(String(pick["key"]))
-		if texture == null:
-			continue
-		var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(int(pick["tx"])) + 0.5, float(int(pick["ty"])) + 1.0)
-		draw_texture_rect(texture, Appearance.hang_rect(float(sc["sx"]), float(sc["sy"]), texture.get_size() * px_scale), false)
+# Where a flat picture's rect stands on screen. Its art rect is Dressing's own (`_art_rect`): centred
+# on the tile's centre line and its base on the tile's south edge, each moved by the pick's whole
+# art-pixel offset, with its left edge a whole art pixel even when its width is odd. The tile's
+# corner is read off the same projection the ground is drawn from, so every edge lands on the
+# ground's own art grid at any zoom. `art_size` is the texture's size in art pixels.
+func _placed_rect(placed: Dictionary, art_size: Vector2, px_scale: float) -> Rect2:
+	var corner: Dictionary = TopDownProjection.world_to_screen(camera, float(placed["tx"]), float(placed["ty"]))
+	var x0: float = roundf(float(corner["sx"]))
+	var y0: float = roundf(float(corner["sy"]))
+	var left: float = float(Dressing.ART_PER_TILE) / 2.0 + float(placed["ox"]) - floorf(art_size.x / 2.0)
+	var top: float = float(Dressing.ART_PER_TILE) + float(placed["oy"]) - art_size.y
+	return Rect2(roundf(x0 + left * px_scale), roundf(y0 + top * px_scale), roundf(art_size.x * px_scale), roundf(art_size.y * px_scale))
+
+
+# The same rect drawn mirrored: a negative width flips the texture in place, which is how one picture
+# gives two looks. The position stays where it is. The renderer flips a negative-width rect about
+# its own left edge's span (it draws from `position.x` to `position.x + |w|`), the rule
+# Appearance.body_rect already leans on for the face-on pawns, so moving the position to the right
+# edge first -- the A12 round-4 version -- drew every mirrored picture one full width east of where
+# the overlap rule had placed it: a mirrored cone landed on the trash bags beside it.
+func _mirrored(rect: Rect2, flip: bool) -> Rect2:
+	if not flip:
+		return rect
+	return Rect2(rect.position.x, rect.position.y, -rect.size.x, rect.size.y)
 
 
 # One heap of junk over a Low tile no parked vehicle covers. False when content declares no
@@ -2022,14 +2032,29 @@ func _draw_scatter(rect: Rect2, dress: Dictionary, tx: int, ty: int) -> void:
 		return
 	var seed_val: int = int(world.seed)
 	var key: String = Dressing.rubble_key(dress, world.tilemap, seed_val, tx, ty)
-	if key.is_empty():
-		key = Dressing.litter_key(dress, world.tilemap, seed_val, tx, ty)
-	if key.is_empty():
+	if not key.is_empty():
+		var rubble: Texture2D = Appearance.resolve(key)
+		if rubble != null:
+			var flipped: bool = Dressing.flip_at(seed_val, tx, ty, Dressing.SALT_LITTER_FLIP)
+			_pen.draw_texture_rect(rubble, _mirrored(rect, flipped), false)
 		return
-	var texture: Texture2D = Appearance.resolve(key)
+	_draw_litter(Dressing.litter_placed_in(_dressing_occupancy(), tx, ty))
+
+
+# One scrap of litter: a few art pixels, drawn at its own size and never stretched over the tile, on
+# the same rect rule every flat picture uses (`_placed_rect`), and mirrored where its record says so.
+func _draw_litter(placed: Dictionary) -> void:
+	if placed.is_empty():
+		return
+	var texture: Texture2D = Appearance.resolve(String(placed["key"]))
 	if texture == null:
 		return
-	_pen.draw_texture_rect(texture, rect, false)
+	var at: Rect2 = _placed_rect(placed, texture.get_size(), Appearance.blit_scale(float(camera["zoom"])))
+	var drawn: Rect2 = _mirrored(at, bool(placed["flip"]))
+	# A half turn on top of the mirror: a negative height flips in place, as a negative width does.
+	if bool(placed.get("flip_v", false)):
+		drawn = Rect2(drawn.position.x, drawn.position.y, drawn.size.x, -drawn.size.y)
+	_pen.draw_texture_rect(texture, drawn, false, placed.get("tint", Color.WHITE) as Color)
 
 
 func _mask_at(mask: PackedByteArray, tx: int, ty: int) -> int:
@@ -2463,7 +2488,10 @@ func _draw_a2_wall_piece(piece: Dictionary) -> void:
 
 func _draw_decals(seen: Variant, standing: Dictionary, bounds: Dictionary) -> void:
 	_decals_drawn = []
-	_decals.call("draw_ground", self, world, camera, seen, standing, bounds, _decals_drawn)
+	# Into the layers' decal item, under the baked DECOR pictures (world_layers.gd's decal_pen), so a
+	# mark lies under a table rather than over it; on main itself where no layers are attached.
+	var pen: Variant = _layers.call("decal_pen") if _layers != null else null
+	_decals.call("draw_ground", pen if pen != null else self, world, camera, seen, standing, bounds, _decals_drawn)
 
 
 func _draw_decal_list(draws: Array[Dictionary]) -> void:
@@ -3426,9 +3454,10 @@ func _standing_props(seen: Variant) -> Array[Dictionary]:
 	# Tall inert furnishings use the exact same deterministic picks, observer set, cache, foot point
 	# and depth sort. Real props retain the existing occupied-tile exclusion from the flat pass.
 	if world != null and world.tilemap != null and seen != null:
-		var dress: Dictionary = Dressing.block_of(world)
+		var dress: Dictionary = _dressing()
 		var occupied: Dictionary = Appearance.prop_tiles(world)
-		for pick in Dressing.standing_furnishing_tiles_cached(dress, world.tilemap, seen, int(world.seed), bounds, _furnishing_cache_for()):
+		var occ: Dictionary = _dressing_occupancy()
+		for pick in Dressing.standing_furnishing_tiles_cached(dress, world.tilemap, seen, int(world.seed), bounds, _furnishing_cache_for(), occ):
 			var tx: int = int(pick["tx"])
 			var ty: int = int(pick["ty"])
 			if occupied.has(Vector2i(tx, ty)):
@@ -3448,8 +3477,20 @@ func _blit_standing(it: Dictionary, px_scale: float, focal_points: Array[Vector2
 	var rect: Rect2 = Appearance.body_rect(float(it["sx"]), float(it["sy"]), texture.get_size() * px_scale, 1.0)
 	var tint: Color = Color.WHITE
 	if bool(it.get("fade_on_overlap", false)):
+		rect = _standing_rect(float(it["sx"]), float(it["sy"]), texture.get_size(), px_scale)
 		tint.a = Dressing.tree_alpha(rect, focal_points)
 	draw_texture_rect(texture, rect, false, tint)
+
+
+# A standing furnishing's rect: body_rect's feet line, but on the ground's art grid. Its left edge is
+# the tile's centre less half its width in whole art pixels (Dressing._art_rect's rule) and its foot
+# drop is FOOT_DROP_PX rounded to whole art pixels, so a fridge's outline lands on the same 2x2 grid
+# as the floor under it -- the rect Dressing's overlap rule reasons about (`_top_rect`).
+func _standing_rect(sx: float, sy: float, art_size: Vector2, px_scale: float) -> Rect2:
+	var drop: float = px_scale * roundf(Appearance.FOOT_DROP_PX / px_scale)
+	var left: float = roundf(sx - px_scale * floorf(art_size.x / 2.0))
+	var size: Vector2 = art_size * px_scale
+	return Rect2(left, roundf(sy + drop - size.y), size.x, size.y)
 
 
 # One parked vehicle: a three-quarter picture standing feet-anchored on its footprint's south-edge

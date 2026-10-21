@@ -7,9 +7,14 @@
     "heap_pallets"
   ],
   "litter": [
-    "debris_litter_a",
-    "debris_litter_b",
-    "debris_litter_c"
+    "debris_paper",
+    "debris_sheet",
+    "debris_can"
+  ],
+  "litter_tints": [
+    "#ffffff",
+    "#ffffff",
+    "#aaa49a"
   ],
   "rubble": [
     "debris_rubble_a",
@@ -66,6 +71,30 @@
       "tree_dead"
     ]
   },
+  "sizes": {
+    "debris_paper": [11, 12],
+    "debris_sheet": [14, 11],
+    "debris_can": [12, 7],
+    "nature_reeds": [24, 30],
+    "nature_bush": [32, 30],
+    "nature_rock": [32, 22],
+    "nature_stump": [24, 22],
+    "nature_log": [48, 22],
+    "prop_shelf": [40, 30],
+    "prop_medical_cabinet": [24, 30],
+    "prop_table": [40, 30],
+    "prop_chair": [24, 30],
+    "prop_dumpster": [48, 30],
+    "prop_concrete_barrier": [48, 22],
+    "prop_traffic_cone": [16, 22],
+    "prop_fence_post": [16, 30],
+    "prop_fridge": [24, 38],
+    "prop_road_sign": [24, 38],
+    "prop_streetlamp": [24, 62],
+    "prop_barrel": [24, 30],
+    "prop_pallet_stack": [32, 30],
+    "prop_trash_bags": [32, 22]
+  },
   "nature": [
     {
       "key": "nature_reeds",
@@ -118,30 +147,14 @@
   ],
   "furnishings": [
     {
-      "key": "prop_shelf",
-      "where": "indoors",
-      "surfaces": [
-        "paved"
-      ],
-      "rarity": 12,
-      "beside": "wall"
-    },
-    {
-      "key": "prop_medical_cabinet",
-      "where": "indoors",
-      "surfaces": [
-        "paved"
-      ],
-      "rarity": 30,
-      "beside": "wall"
-    },
-    {
       "key": "prop_table",
       "where": "indoors",
       "surfaces": [
         "paved"
       ],
-      "rarity": 20
+      "rarity": 28,
+      "salt": 0,
+      "group": "table"
     },
     {
       "key": "prop_chair",
@@ -149,16 +162,30 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 18
+      "rarity": 3,
+      "salt": 1,
+      "group": "seat"
     },
     {
-      "key": "prop_dumpster",
-      "where": "outdoors",
+      "key": "prop_medical_cabinet",
+      "where": "indoors",
       "surfaces": [
         "paved"
       ],
-      "rarity": 20,
-      "beside": "wall"
+      "rarity": 4,
+      "salt": 2,
+      "beside": "wall",
+      "per_room": 1
+    },
+    {
+      "key": "prop_shelf",
+      "where": "indoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 2,
+      "salt": 3,
+      "beside": "wall_north"
     },
     {
       "key": "prop_concrete_barrier",
@@ -166,7 +193,9 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 110
+      "rarity": 110,
+      "salt": 5,
+      "roll": "kept"
     },
     {
       "key": "prop_traffic_cone",
@@ -174,7 +203,9 @@
       "surfaces": [
         "paved"
       ],
-      "rarity": 90
+      "rarity": 90,
+      "salt": 6,
+      "roll": "kept"
     },
     {
       "key": "prop_fence_post",
@@ -183,16 +214,19 @@
         "grass",
         "dirt"
       ],
-      "rarity": 70
+      "rarity": 70,
+      "salt": 7,
+      "roll": "kept"
     },
     {
-      "key": "prop_fridge",
+      "key": "prop_table",
       "where": "indoors",
       "surfaces": [
         "paved"
       ],
-      "rarity": 45,
-      "standing": true
+      "rarity": 3,
+      "salt": 8,
+      "beside": "wall_north"
     },
     {
       "key": "prop_road_sign",
@@ -201,7 +235,9 @@
         "paved"
       ],
       "rarity": 140,
-      "standing": true
+      "salt": 9,
+      "standing": true,
+      "roll": "kept"
     },
     {
       "key": "prop_streetlamp",
@@ -210,8 +246,153 @@
         "paved"
       ],
       "rarity": 180,
-      "standing": true
+      "salt": 10,
+      "standing": true,
+      "roll": "kept"
+    },
+    {
+      "key": "prop_dumpster",
+      "where": "outdoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 20,
+      "salt": 4,
+      "beside": "wall",
+      "roll": "kept",
+      "shadow": true
+    },
+    {
+      "key": "prop_shelf",
+      "where": "indoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 3,
+      "salt": 11,
+      "beside": "wall"
+    },
+    {
+      "key": "prop_fridge",
+      "where": "indoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 6,
+      "salt": 12,
+      "beside": "wall",
+      "standing": true,
+      "per_room": 1
+    },
+    {
+      "key": "prop_dumpster",
+      "where": "outdoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 4,
+      "salt": 13,
+      "beside": "wall",
+      "cluster": true
+    },
+    {
+      "key": "prop_trash_bags",
+      "where": "outdoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 4,
+      "salt": 14,
+      "beside": "wall",
+      "cluster": true
+    },
+    {
+      "key": "prop_trash_bags",
+      "where": "outdoors",
+      "surfaces": [
+        "grass"
+      ],
+      "rarity": 7,
+      "salt": 15,
+      "beside": "edge",
+      "cluster": true
+    },
+    {
+      "key": "prop_barrel",
+      "where": "outdoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 6,
+      "salt": 16,
+      "beside": "edge",
+      "cluster": true
+    },
+    {
+      "key": "prop_pallet_stack",
+      "where": "outdoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 8,
+      "salt": 17,
+      "beside": "edge",
+      "cluster": true
+    },
+    {
+      "key": "prop_barrel",
+      "where": "indoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 4,
+      "salt": 18,
+      "beside": "wall",
+      "rooms": "storage"
+    },
+    {
+      "key": "prop_pallet_stack",
+      "where": "indoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 6,
+      "salt": 19,
+      "beside": "wall",
+      "rooms": "storage"
+    },
+    {
+      "key": "prop_barrel",
+      "where": "indoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 4,
+      "salt": 20,
+      "beside": "wall",
+      "rooms": "living",
+      "per_room": 1
+    },
+    {
+      "key": "prop_pallet_stack",
+      "where": "indoors",
+      "surfaces": [
+        "paved"
+      ],
+      "rarity": 6,
+      "salt": 21,
+      "beside": "wall",
+      "rooms": "living",
+      "per_room": 1
     }
+  ],
+  "storage": [
+    "building.warehouse.brick",
+    "building.unit.industrial",
+    "building.gatehouse.yard",
+    "building.shed.garage",
+    "building.shed.lockup",
+    "building.shed.tin"
   ],
   "wall_modules": {
     "render": {
