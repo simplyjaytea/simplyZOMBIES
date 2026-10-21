@@ -23,11 +23,13 @@ extends SceneTree
 #              icon's red and brass, shown in every reload view); a crouch and
 #              a fall stand lower than the rest, a prone body is wider than tall; each measure is
 #              shown failing on a fabricated picture.
-#   LANDING    every fall, rest to lying flat as its own last frame, inside art review's bounds a
-#              step (mass 15%, centre 4 columns, any edge 6 px, the sole row held); the pack's
-#              corpse in the last frame's place and the fall at every third frame both break them.
-#   LUNGE_MASS every lunge, rest to the five beats and home, inside the same 15% mass step; a beat
-#              with its lower half cut off is refused.
+#   LANDING    every fall, rest to the corpse it settles onto as its own last frame, inside art
+#              review's bounds a step (mass 15%, centre 4 columns, any edge 6 px, the sole row
+#              held); the pack's corpse cut in centred after the turn and the fall at every third
+#              frame both break them.
+#   STRIKE     every lunge and stagger, rest to its beats and home, inside the same 15% mass step
+#              and on the sole row (a stagger may rise one row, the knock-back); a cut beat and a
+#              beat lifted past its allowance are refused.
 #   REACH      all three reloads (pistol, long gun, tube-fed shotgun), every view: the weapon hand
 #              travels (a pixel at least for a long gun seen from behind, held still but for the
 #              rack's jolt, two everywhere else), the off hand comes to it and leaves, and the last
@@ -89,7 +91,7 @@ func _run() -> void:
 	ok = _priority() and ok
 	ok = _geometry() and ok
 	ok = _landing() and ok
-	ok = _lunge_mass() and ok
+	ok = _strike() and ok
 	ok = _states() and ok
 	ok = _reach() and ok
 	ok = _publishers() and ok
@@ -475,63 +477,87 @@ func _landing() -> bool:
 	return ok
 
 
-# LUNGE_MASS: a lunge, rest to the five beats and home to rest, with the same mass bound a fall keeps
-# (art review round 2: the north lunge lost a fifth of its body in one beat). The negative is a
-# beat with its lower half cut off, which the bound must refuse.
-func _lunge_mass() -> bool:
+# STRIKE: a lunge and a stagger, rest to their beats and home to rest, with the mass bound a fall
+# keeps (art review round 2: the north lunge lost a fifth of its body in one beat) and the sole row
+# held: a lunge plants its feet, and a stagger may leave the ground by one row, the knock-back push
+# seen from the front (art review round 3's ruling), never more. Negatives: a beat with its lower
+# half cut off breaks the mass bound, a lunge beat one row up and a stagger beat two rows up break
+# the sole row.
+const STAGGER_LIFT: int = 1
+
+
+func _lifted(seen: Dictionary, rows: int) -> Dictionary:
+	var out: Dictionary = seen.duplicate()
+	out["low"] = int(seen["low"]) - rows
+	return out
+
+
+func _strike() -> bool:
 	var ok: bool = true
 	var sx: float = 100.0
 	var sy: float = 100.0
 	var judged: int = 0
 	var worst: float = 0.0
 	var worst_at: String = ""
-	var cut_refused: int = 0
+	var refused: int = 0
+	var lifts: int = 0
 	for fam_v in _families_with_actions().keys():
 		var fam: String = String(fam_v)
-		if Appearance.action_frames(fam, "lunge", "e") == 0:
-			continue
-		for view in Appearance.VIEWS:
-			var frames: int = Appearance.action_frames(fam, "lunge", view)
-			var keys: Array[String] = ["%s_%s" % [fam, view]]
-			for i in frames:
-				keys.append("%s_lunge_%s_%d" % [fam, view, i])
-			keys.append("%s_%s" % [fam, view])
-			var seq: Array = []
-			for k in keys:
-				seq.append(_drawn_at(k, sx, sy))
-			if seq.has({}):
-				push_error("LUNGE_MASS: %s's %s lunge has a frame that does not load" % [fam, view])
-				ok = false
+		for action in ["lunge", "stagger"]:
+			if Appearance.action_frames(fam, action, "e") == 0:
 				continue
-			for i in range(1, seq.size()):
-				var a: Dictionary = seq[i - 1]
-				var b: Dictionary = seq[i]
-				var mass: float = absf(float(b["n"]) - float(a["n"])) / float(maxi(int(a["n"]), 1))
-				if mass > worst:
-					worst = mass
-					worst_at = "%s %s step %d" % [fam, view, i]
-				if mass > LAND_MASS_STEP:
-					push_error("LUNGE_MASS: %s from %s, step %d of %d: its mass changes %.1f%%, past %.0f%%" % [fam, view, i, seq.size() - 1, mass * 100.0, LAND_MASS_STEP * 100.0])
+			var allowance: int = STAGGER_LIFT if action == "stagger" else 0
+			for view in Appearance.VIEWS:
+				var frames: int = Appearance.action_frames(fam, action, view)
+				var keys: Array[String] = ["%s_%s" % [fam, view]]
+				for i in frames:
+					keys.append("%s_%s_%s_%d" % [fam, action, view, i])
+				keys.append("%s_%s" % [fam, view])
+				var seq: Array = []
+				for k in keys:
+					seq.append(_drawn_at(k, sx, sy))
+				if seq.has({}):
+					push_error("STRIKE: %s's %s %s has a frame that does not load" % [fam, view, action])
 					ok = false
-			var full: Image = _image(keys[3])
-			var cut: Image = full.duplicate() as Image
-			for y in range(cut.get_height() / 2, cut.get_height()):
-				for x in cut.get_width():
-					cut.set_pixel(x, y, Color(0, 0, 0, 0))
-			var at: Rect2 = Appearance.body_rect(sx, sy, Vector2(cut.get_size()), 1.0)
-			var cut_seen: Dictionary = _placed(cut, at)
-			if absf(float(cut_seen["n"]) - float((seq[2] as Dictionary)["n"])) / float(maxi(int((seq[2] as Dictionary)["n"]), 1)) > LAND_MASS_STEP:
-				cut_refused += 1
-			judged += 1
+					continue
+				var sole: int = int((seq[0] as Dictionary)["low"])
+				for i in range(1, seq.size()):
+					var a: Dictionary = seq[i - 1]
+					var b: Dictionary = seq[i]
+					var mass: float = absf(float(b["n"]) - float(a["n"])) / float(maxi(int(a["n"]), 1))
+					if mass > worst:
+						worst = mass
+						worst_at = "%s %s %s step %d" % [fam, action, view, i]
+					if mass > LAND_MASS_STEP:
+						push_error("STRIKE: %s %s from %s, step %d of %d: its mass changes %.1f%%, past %.0f%%" % [fam, action, view, i, seq.size() - 1, mass * 100.0, LAND_MASS_STEP * 100.0])
+						ok = false
+					if int(b["low"]) > sole or int(b["low"]) < sole - allowance:
+						push_error("STRIKE: %s %s from %s, step %d: its lowest row is %d, the sole row %d (allowed %d up)" % [fam, action, view, i, int(b["low"]), sole, allowance])
+						ok = false
+					if int(b["low"]) < sole:
+						lifts += 1
+				# Negatives on this view's middle beat.
+				var mid: Dictionary = seq[(seq.size() - 1) / 2]
+				var full: Image = _image(keys[(keys.size() - 1) / 2])
+				var cut: Image = full.duplicate() as Image
+				for y in range(cut.get_height() / 2, cut.get_height()):
+					for x in cut.get_width():
+						cut.set_pixel(x, y, Color(0, 0, 0, 0))
+				var cut_seen: Dictionary = _placed(cut, Appearance.body_rect(sx, sy, Vector2(cut.get_size()), 1.0))
+				var cut_mass: float = absf(float(cut_seen["n"]) - float(mid["n"])) / float(maxi(int(mid["n"]), 1))
+				var raised: Dictionary = _lifted(mid, allowance + 1)
+				if cut_mass > LAND_MASS_STEP and int(raised["low"]) < sole - allowance:
+					refused += 1
+				judged += 1
 	if judged == 0:
-		push_error("LUNGE_MASS: no family lunges; nothing was judged")
+		push_error("STRIKE: no family lunges or staggers; nothing was judged")
 		return false
-	if cut_refused != judged:
-		push_error("LUNGE_MASS: a lunge beat with its lower half cut off kept the mass bound in %d of %d views; the lane cannot fail" % [judged - cut_refused, judged])
+	if refused != judged:
+		push_error("STRIKE: a cut beat or a beat lifted past its allowance kept the bounds in %d of %d views; the lane cannot fail" % [judged - refused, judged])
 		ok = false
 	if ok:
-		print("LUNGE_MASS OK %d lunges, rest to the five beats and home: at most %.1f%% mass a step (%s, bound %.0f%%); a beat with its lower half cut off is refused in all %d" % [judged, worst * 100.0, worst_at, LAND_MASS_STEP * 100.0, cut_refused])
-		_report.append("LUNGE_MASS %d lunges" % judged)
+		print("STRIKE OK %d lunges and staggers, rest to their beats and home: at most %.1f%% mass a step (%s, bound %.0f%%), the sole row held (a stagger %d row up on %d steps, its allowance); a beat with its lower half cut off and a beat lifted past its allowance are refused in all %d" % [judged, worst * 100.0, worst_at, LAND_MASS_STEP * 100.0, STAGGER_LIFT, lifts, refused])
+		_report.append("STRIKE %d views" % judged)
 	return ok
 
 
@@ -605,6 +631,13 @@ func _geometry() -> bool:
 				if reload:
 					allowed = palette.duplicate()
 					allowed.merge(loads)
+				# A fall settles onto the family's own corpse picture (motion/actions.py
+				# `settle_plan`), so its settle beats and its last frame carry the corpse's colours
+				# too, and nothing else.
+				if action == "fall":
+					allowed = palette.duplicate()
+					for corpse in _corpses_for(String(fam)):
+						allowed.merge(_colours(_image(corpse)))
 				var shows_magazine: bool = false
 				for i in Appearance.action_frames(String(fam), String(action), view):
 					var key: String = "%s_%s_%s_%d" % [fam, action, view, i]
@@ -636,8 +669,10 @@ func _geometry() -> bool:
 	if _bounds(crouch_e).position.y <= _bounds(rest_e).position.y:
 		push_error("GEOMETRY: the crouch stands as tall as the rest")
 		ok = false
-	if _bounds(fall_e).position.y <= _bounds(crouch_e).position.y:
-		push_error("GEOMETRY: the fall's last frame stands no lower than the crouch")
+	# The fall ends lying on the ground: its last frame (the corpse it settles onto) is wider than
+	# it is tall, as the crawl is.
+	if _bounds(fall_e).size.x <= _bounds(fall_e).size.y:
+		push_error("GEOMETRY: the fall's last frame is not wider than tall (%s)" % str(_bounds(fall_e).size))
 		ok = false
 	if _bounds(prone_e).size.x <= _bounds(prone_e).size.y:
 		push_error("GEOMETRY: the prone body is not wider than tall (%s)" % str(_bounds(prone_e).size))
@@ -659,7 +694,7 @@ func _geometry() -> bool:
 		push_error("GEOMETRY: the standing rest view measures wider than tall, so the prone measure cannot fail")
 		ok = false
 	if ok:
-		print("GEOMETRY OK %d derived frames carry only their rest view's colours (a reload's magazine its gunmetal or its shells their own red and brass, shown in %d reload views); crouch < rest, fall < crouch, prone lies flat" % [judged, magazines])
+		print("GEOMETRY OK %d derived frames carry only their rest view's colours (a fall's also its corpse's, a reload's magazine its gunmetal or its shells their own red and brass, shown in %d reload views); crouch < rest, the fall and the crawl lie flat" % [judged, magazines])
 		_report.append("GEOMETRY %d derived frames" % judged)
 	return ok
 

@@ -1,4 +1,4 @@
-"""Clothes on the action frames (A8): every garment carried onto the survivor's 240 action pictures.
+"""Clothes on the action frames (A8): every garment carried onto the survivor's 252 action pictures.
 
 `build_clothing.py` paints a garment on the forty frames a body stands, walks and breathes in. The
 action frames (`../motion/actions.py`: swing, recoil, three reloads, flinch, crouch, crouched walk,
@@ -10,7 +10,10 @@ than painted a second time:
     `actions.prone_frames`). The frame is dressed first and moved after, by the very same call,
     and the garment is whatever the dressed move shows that the bare move does not. A fold or a
     lean takes the cloth with the skin under it, pixel for pixel, so the clothes cannot drift off
-    the body or out of time with it.
+    the body or out of time with it. A fall's last beats settle onto the pack's lying corpse
+    (`actions.settle_plan`), which no standing frame was moved into: `corpse_wear.py` paints the
+    garment on that corpse by its own parts, and the beats are made from the dressed turned frame
+    and the dressed corpse by the same `actions.settle_frames` call the bare fall uses.
   * **Drawn** (the three reloads): the arms the reload moves are taken off the rest view and drawn
     again as jointed limbs (`actions.reload_frames`). The body they are drawn on is the dressed rest
     view put through the same `_armless` and `_knee`, the patch closing the torso where an arm hung
@@ -36,6 +39,7 @@ from pathlib import Path
 
 from PIL import Image
 
+import corpse_wear
 import parts
 
 HERE = Path(__file__).resolve().parent
@@ -203,10 +207,31 @@ def _held(committed: Image.Image, rebuilt: Image.Image, what: str) -> None:
 # --- moved ------------------------------------------------------------------------------------
 
 
-def _moved(action: str, view: str, rest: Image.Image, walks: list[Image.Image], walk_n: list[Image.Image], ink=None) -> list[Image.Image]:
+def _moved(action: str, view: str, rest: Image.Image, walks: list[Image.Image], walk_n: list[Image.Image], ink=None, settle=None) -> list[Image.Image]:
+    """A moved action's frames. A fall's turned frames end on the settle onto the corpse when
+    `settle` is (the corpse on the fall canvas, the plan's beats): the beats take their pixels from
+    this call's own last turned frame and that corpse, so a dressed fall settles in its clothes."""
     if action == "prone":
         return act.prone_frames(walk_n, view)
-    return [im for im, _hands in act.derive(rest, action, view, walk=walks, ink=ink)]
+    frames = [im for im, _hands in act.derive(rest, action, view, walk=walks, ink=ink)]
+    if action == "fall" and settle is not None:
+        corpse, beats = settle
+        frames += act.settle_frames(frames[-1], corpse, beats)
+    return frames
+
+
+CORPSES = HERE.parent / "zombie-poses" / "textures" / "human"
+
+
+@functools.lru_cache(maxsize=None)
+def _fall_plan():
+    """The survivor's settle (`actions.settle_plan`), made from the bare turned falls exactly as
+    `../motion/build_motion.py` makes it."""
+    rests = {v: parts.load(f"survivor_{v}.png") for v in parts.VIEWS}
+    walks = {v: [parts.load(f"{MOTION}/survivor_walk_{v}_{i:02d}.png") for i in range(parts.WALK)] for v in parts.VIEWS}
+    turned = {v: _moved("fall", v, rests[v], walks[v], walks["n"])[-1] for v in parts.VIEWS}
+    pictures = {pose: Image.open(CORPSES / f"corpse-{pose}.png").convert("RGBA") for pose in ("prone", "supine")}
+    return act.settle_plan(turned, pictures)
 
 
 # --- drawn: the reloads ----------------------------------------------------------------------
@@ -472,7 +497,8 @@ def build(bc, images: dict[str, Image.Image]) -> dict[str, Image.Image]:
         elif action == "swing" and view in act.SWING_GENERATED:
             continue
         else:
-            rebuilt = _moved(action, view, rests[view], walks[view], walks["n"])
+            settle = (_fall_plan()[view]["corpse"], _fall_plan()[view]["beats"]) if action == "fall" else None
+            rebuilt = _moved(action, view, rests[view], walks[view], walks["n"], settle=settle)
         if len(rebuilt) != len(suffixes):
             raise SystemExit(f"action_wear: {action} {view} rebuilds {len(rebuilt)} frames, {len(suffixes)} are committed")
         for suffix, im in zip(suffixes, rebuilt):
@@ -508,7 +534,13 @@ def build(bc, images: dict[str, Image.Image]) -> dict[str, Image.Image]:
                 rest_d = _dressed(rests[view], g(view))
                 walks_d = [_dressed(walks[view][i], g(f"walk_{view}_{i}")) for i in range(parts.WALK)]
                 walk_n_d = [_dressed(walks["n"][i], g(f"walk_n_{i}")) for i in range(parts.WALK)]
-                for suffix, dressed in zip(suffixes, _moved(action, view, rest_d, walks_d, walk_n_d, act.darkest(rests[view]))):
+                settle = None
+                if action == "fall":
+                    # The corpse the fall settles onto, in this garment: painted over the pack's
+                    # lying body by its own parts (corpse_wear), on the plan's canvas and side.
+                    corpse = _fall_plan()[view]["corpse"]
+                    settle = (_dressed(corpse, corpse_wear.paint(bc, family, corpse)), _fall_plan()[view]["beats"])
+                for suffix, dressed in zip(suffixes, _moved(action, view, rest_d, walks_d, walk_n_d, act.darkest(rests[view]), settle)):
                     out[f"{family}/{family}_{suffix}"] = _shown(committed[suffix], dressed)
     # A hand the fold left one row tall, under a sleeve: see `_whole_hands`. Legs and feet are
     # what any trouser or shoe covers on that frame, so a shin under a coat's hem is never a hand.
