@@ -1311,17 +1311,17 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   and turned `godot:m2:balance`'s FAST seed 404 from a surviving colony to 0/3, so it was
   reverted. A fix wants a memory of the garment a colonist fled, or the owner's armour lever
   (docs/33, "the arc's difficulty"), and a re-measure of both harnesses.
-- **The colony's own building calls the district to the door.** On seed 31337 at 256 tiles,
-  with the A24 errand rules, five to eight zombies stood at the annex through the first night
-  and killed the guard and the player. Measured with a throwaway driver (no player input,
-  54,000 ticks from boot), it is the hammering: with Construct on, 7 zombies stand within 15 m
-  of the annex centre by tick 3,000 and 4 to 8 stay there all day (8 to 10 within 30 m); with
-  every colonist's Construct set to 0, 1 within 15 m and 2 to 4 within 30 m. The errand radius
-  made it show: colonists who no longer cross the map build at home instead. The lever is
-  `SimFortify.CONSTRUCT_NOISE`, or building by day only, and either wants both harnesses re-run.
-- **The director can place a packet on a gate.** With the reverted Dress change, the FAST
-  campaign's seed 404 put one packet on a gate, in the annex or inside GATE_EXCLUSION
-  (`check_m2_balance.gd`'s invariant). Main never reached it; the placement code allows it.
+- **An idle colonist outside is pushed across the district.** Found by the building-noise pass.
+  A grab, a break-away, a stop inside reach and a re-grab, over and over, each break-away 2.7 m
+  further from home. The pass closed two ways in (kneeling with a pursuer near, the doctor
+  walking to a guarded patient) and left a third: nothing sends a colonist with no job home from
+  a zombie (the 6 m break-off covers errands only), and a dirty colonist with no water to wash in
+  has a hygiene seek that claims every tick and does nothing, so they stand at the door all day.
+  Seed 31337's c80 was pushed 150 tiles into a corner that way. A drafted fix (break off from any
+  non-errand state outside the annex, keep a walk home through a soft seek, skip a wash with
+  nothing to wash in) kept three seeds alive at day 3; it is the next PR. The scripted survivor
+  is pushed the same way (20260805's successor, c94, to (189, 38) on day 1), which is the bot's
+  own fight-or-flee and outside the colony's rules.
 - **Rest is handed out and dropped every tick.** A colonist with Rest work and rest at or over
   80 is given Rest (the picker does not read the pool), the Rest arm stops it at 80, and the
   next tick picks it again: 17,985 Rest starts in one day for one colonist on seed 31337. No
@@ -2227,6 +2227,32 @@ What landed and what proved it, system by system (condensed from the retired bac
 links in the slice-scope table above are the authority on each). The open tails that used to end
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
+
+- **Balance — the building-noise pass, 2026-10-21 (alpha A24 follow-up).** Four commits, each
+  with its before and after on the A24 driver (`npm run godot:playtest`):
+  - **Construction noise 30 to 15** (`SimFortify.CONSTRUCT_NOISE`, docs/03, docs/30). Zombies
+    within 15 m of the annex at tick 12,000: 7 to 2 on seed 31337, 4 to 1 on 20260805, 1 to 2
+    either way on 404. Alone it saved no seed: 20260805, 31337 and 404 wiped on days 4, 1 and 2.
+  - **Self-aid waits for no zombie within `RELEASE_METRES`** (R10, docs/30). A freed colonist
+    knelt 2 m from a zombie still chasing them and was re-taken; sixty cycles on 31337 pushed one
+    60 tiles from home. Seed 404 went from wiped on day 2 to all three alive through day 2, bites
+    on day 1 107 to 20. Gates: `godot:m2:contact` FLIGHT-CANCELS-PRESS (no press while the holder
+    is near, re-grab later than the cooldown, the press re-opening under the hold) with
+    BREAKAWAY-DEFER the positive; `godot:m2:tick` CLAW at the new radius.
+  - **Doctor skips a patient with a zombie within `DANGER_TARGET_METRES`**, Haul's rule.
+    `godot:m2:jobs` DANGER.
+  - **The balance gate's "packet on a gate" was a colonist rising at home.** `_placed_since`
+    skips bodies with `turnedFrom`; the PLACED lane holds a zombie on the gate as one illegal
+    placement and the same body risen from a colonist as none. The A24 defect "the director can
+    place a packet on a gate" is answered by this: the director never did.
+
+  **Measured, three seeds:** main (A24 final) wiped on days 9, 2 and 2 (20260805, 31337, 404).
+  With all four commits: 20260805 wiped day 4 (the scripted survivor's successor pushed 150 tiles
+  on day 1, the last colonist turned),
+  31337 and 404 one alive at the end of day 4, where runs stopped by a session restart ended.
+  The day 10 target on 2 of 3 seeds is **not** met: the third way into the push loop, an idle
+  colonist, is on the defect list and is the next PR. The report and raw logs are in the project's
+  planning/balance folder as report-noise.md.
 
 - **Balance — the A24 pass: a ten-day playtest driver, and what it found, 2026-10-21 (alpha
   A24).** The measuring half shipped and the tuning half did not move the outcome. What landed:

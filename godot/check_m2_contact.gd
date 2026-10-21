@@ -1494,9 +1494,9 @@ func _struggling_and_pressing_are_not_the_same_hand() -> bool:
 # measurement: with the press winning, 94 of 120 escapes on seed 404 happened mid-press, 89 of the
 # 91 re-grab windows that followed one were exactly REGRAB_COOLDOWN_TICKS and not one exceeded it,
 # and total grabs rose 149 -> 214. Every stage of the cycle is a separate way for the rule to be
-# wrong, so every stage is asserted: the cancel lands, the flight covers ground, the press re-opens
-# once clear, the re-grab arrives *later* than the cooldown, the re-grab does not take the
-# re-opened press away, and the press still clots a wound.
+# wrong, so every stage is asserted: the cancel lands, the flight covers ground, no press opens
+# while the holder is still within RELEASE_METRES (R10), the re-grab arrives *later* than the
+# cooldown, the press re-opens under the new hold (R1), and the press still clots a wound.
 #
 # The drain ordering is design, not slack, and the first assertion pins it: `grab.broken` is
 # published inside the escape tick and handlers run at drain, at the *end* of `world.step()`, so on
@@ -1518,6 +1518,12 @@ func _struggling_and_pressing_are_not_the_same_hand() -> bool:
 # above: a second holder's `grab.started` does not touch the press (R2, the carve-out this rule is
 # the mirror of), a stagger still ends it (R3), and a `grab.broken` naming somebody else cancels
 # nothing at all (the handler is targeted).
+func _gap(w: Variant, a: int, b: int) -> float:
+	var pa: Dictionary = w.components.get_component(a, "position") as Dictionary
+	var pb: Dictionary = w.components.get_component(b, "position") as Dictionary
+	return sqrt(pow(float(pa["x"]) - float(pb["x"]), 2.0) + pow(float(pa["y"]) - float(pb["y"]), 2.0))
+
+
 func _flight_cancels_the_press_and_the_press_comes_back() -> bool:
 	var live: Dictionary = _held_and_pressing(9600, true)
 	if live.is_empty():
@@ -1557,43 +1563,51 @@ func _flight_cancels_the_press_and_the_press_comes_back() -> bool:
 		push_error("ten ticks of break-away covered %.4f m -- the cancel is not buying any distance" % flown)
 		return false
 
-	# P3. Once the running is done the hand goes back on the wound, unprompted.
-	var reopened: int = -1
+	# P3. Once the running is done the hand stays off the wound while the holder is still on them.
+	# R10 reads RELEASE_METRES since the building-noise pass: a free survivor does not kneel with a
+	# pursuer inside the distance a shambler keeps pursuing from, because the ten-day playtest
+	# watched what the old swipe-reach radius did -- the press re-opened about 1.5 m from the
+	# holder, pinned the survivor, and the hold re-formed a few ticks later, sixty times over, each
+	# break-away pushing them another 2.7 m from home. BREAKAWAY-DEFER is the positive half: with
+	# no zombie near, the press opens the tick the running ends.
 	for _i in (SimShambler.BREAK_AWAY_TICKS + 8):
 		w.step()
-		if w.components.has_component(npc, "treatment"):
-			reopened = int(w.tick) - release_tick
+		if w.components.has_component(npc, "grabbed"):
 			break
-	if reopened < 0:
-		push_error("the press never re-opened after the break-away ran out -- R6 has closed rather than deferred")
-		return false
+		if w.components.has_component(npc, "treatment") and SimTreatment._claw_in_reach(w, npc):
+			push_error("a free survivor knelt to press with the holder %.2f m off -- R10 lets a pursuer back into the treadmill" % _gap(w, npc, zed))
+			return false
 	if w.components.has_component(npc, "breakAway"):
-		push_error("the press re-opened while the break-away was still running")
-		return false
-	if w.components.has_component(npc, "grabbed"):
-		push_error("the NPC was re-taken before the press re-opened, so this measured a re-grab rather than R6")
-		return false
-	var reopened_verb: String = String((w.components.get_component(npc, "treatment") as Dictionary).get("verb", ""))
-	if reopened_verb != "pressure":
-		push_error("the channel that re-opened was %s, not a press" % reopened_verb)
+		push_error("the break-away was still running %d ticks after the escape" % (int(w.tick) - release_tick))
 		return false
 
-	# P4. The number the whole inversion is for: the shambler comes back *later* than its own
-	# cooldown, because the survivor is no longer standing where it left them.
+	# P4. The shambler comes back *later* than its own cooldown, because the survivor ran.
 	var retaken: int = -1
 	for _i in 120:
-		w.step()
 		if w.components.has_component(npc, "grabbed"):
 			retaken = int(w.tick) - release_tick
 			break
+		w.step()
 	if retaken < 0:
 		push_error("the shambler never came back inside 120 ticks, so the re-grab window has no data to judge -- raise the bound rather than dropping the assertion")
 		return false
 	if retaken <= SimShambler.REGRAB_COOLDOWN_TICKS:
 		push_error("re-taken %d ticks after the escape, which is not longer than REGRAB_COOLDOWN_TICKS %d -- the treadmill is back" % [retaken, SimShambler.REGRAB_COOLDOWN_TICKS])
 		return false
-	if not w.components.has_component(npc, "treatment"):
-		push_error("the re-grab cancelled the re-opened press -- R2 has gone with R5")
+	# And held again, the hand goes back on: R1 is the held survivor's answer, so the press the
+	# escape cancelled re-opens under the new hold rather than waiting for a clear patch.
+	var reopened: int = -1
+	for _i in 4:
+		w.step()
+		if w.components.has_component(npc, "treatment"):
+			reopened = int(w.tick) - release_tick
+			break
+	if reopened < 0:
+		push_error("re-taken at %d, the survivor never put a hand back on the wound -- R1 has closed with R10" % retaken)
+		return false
+	var reopened_verb: String = String((w.components.get_component(npc, "treatment") as Dictionary).get("verb", ""))
+	if reopened_verb != "pressure":
+		push_error("the channel that re-opened was %s, not a press" % reopened_verb)
 		return false
 	_pin_the_bite_clock(w, zed)
 	for _i in int(SimWounds.PRESSURE_TICKS[SimWounds.Severity.DeepWound]):
@@ -1676,7 +1690,7 @@ func _flight_cancels_the_press_and_the_press_comes_back() -> bool:
 		push_error("somebody else's escape cancelled this survivor's press -- the handler is not targeted")
 		return false
 
-	print("FLIGHT-CANCELS-PRESS OK escape tick pinned %.4f m and the press cancelled, %.3f m flown by tick 11, press re-opened at tick %d clear of the hold and clotted, re-taken at %d against a cooldown of %d -- the same seed with the subscription off stayed put and was re-taken at %d; a second holder, a stagger and a bystander's escape all still land where they should" % [pinned, flown, reopened, retaken, SimShambler.REGRAB_COOLDOWN_TICKS, control_retaken])
+	print("FLIGHT-CANCELS-PRESS OK escape tick pinned %.4f m and the press cancelled, %.3f m flown by tick 11, no press while the holder was near, re-opened at tick %d under the new hold and clotted, re-taken at %d against a cooldown of %d -- the same seed with the subscription off stayed put and was re-taken at %d; a second holder, a stagger and a bystander's escape all still land where they should" % [pinned, flown, reopened, retaken, SimShambler.REGRAB_COOLDOWN_TICKS, control_retaken])
 	return true
 
 
