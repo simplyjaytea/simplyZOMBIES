@@ -5,6 +5,7 @@ extends RefCounted
 
 const WorldRes = preload("res://sim/world.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimPath = preload("res://sim/path.gd")
 const SimWorldgen = preload("res://sim/map/worldgen.gd")
 const SimRegion = preload("res://sim/map/region.gd")
 const SimVisibility = preload("res://sim/vision/visibility.gd")
@@ -381,12 +382,84 @@ static func place_river_sources(world: Variant, map: Variant) -> int:
 # landed, and it answers the absent sentinel on a district with no anchors at all -- which is why
 # `place_stations` checks before building one. A map too small or too solid to hold a latrine
 # simply has none, and the bathroom need's accident path is what happens then.
+#
+# Near by the walk, not by the map (the A24 balance pass, 2026-10-20). The rule used to measure
+# Manhattan distance, and on every district it put the latrine six tiles north of the start, on the
+# far side of the annex's north wall: the walk there left by the gate and went round the block, 54
+# steps through the street, and the ten-day playtest lost a colonist on that walk on the second
+# morning of every seed it ran, the first time the bathroom pool crossed the seek line. So the tile
+# is the outdoor floor with the shortest walk from the start (19 steps, just outside the gate, on
+# all six maps measured), within LATRINE_MAX_ROUTE steps; only a map with no such tile falls back
+# to the old reckoning, so no map loses the latrine it had.
 const LATRINE_MIN_FROM_WELL: int = 4
 const LATRINE_MIN_FROM_START: int = 3
 const LATRINE_MAX_FROM_START: int = 9
+const LATRINE_MAX_ROUTE: int = 40
 
 
 static func latrine_tile(map: Variant) -> Vector2i:
+	var routed: Vector2i = _latrine_by_route(map)
+	if routed.x >= 0:
+		return routed
+	return _latrine_by_distance(map)
+
+
+# Breadth-first from the start over the tiles a person walks (a shut door is a step, as it is to
+# `SimPath.walkable_tile`), so the first candidate reached is the shortest walk; ties go to the
+# fixed neighbour order, so one map always sites one latrine.
+static func _latrine_by_route(map: Variant) -> Vector2i:
+	var start: Vector2i = colony_start(map)
+	if start.x < 0:
+		return Vector2i(-1, -1)
+	var well: Vector2i = SimTileMap.well_tile(map)
+	var taken: Array[Vector2i] = _latrine_taken(map)
+	var seen: Dictionary = {start: 0}
+	var frontier: Array[Vector2i] = [start]
+	var steps: Array[Vector2i] = [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]
+	while not frontier.is_empty():
+		var next: Array[Vector2i] = []
+		for t in frontier:
+			var d: int = int(seen[t])
+			if d >= LATRINE_MIN_FROM_START and _latrine_fits(map, t, well, taken):
+				return t
+			if d >= LATRINE_MAX_ROUTE:
+				continue
+			for st in steps:
+				var n: Vector2i = t + st
+				if seen.has(n) or not SimPath.walkable_tile(map, n.x, n.y):
+					continue
+				seen[n] = d + 1
+				next.append(n)
+		frontier = next
+	return Vector2i(-1, -1)
+
+
+static func _latrine_fits(map: Variant, t: Vector2i, well: Vector2i, taken: Array[Vector2i]) -> bool:
+	if t.x <= 0 or t.y <= 0 or t.x >= int(map.w) - 1 or t.y >= int(map.h) - 1:
+		return false
+	if SimTileMap.is_indoors(map, t.x, t.y) or SimTileMap.is_solid(map, t.x, t.y):
+		return false
+	if SimTileMap.tile_at(map, t.x, t.y) != SimTileMap.Tile.Floor:
+		return false
+	if well.x >= 0 and absi(t.x - well.x) + absi(t.y - well.y) < LATRINE_MIN_FROM_WELL:
+		return false
+	return not taken.has(t)
+
+
+static func _latrine_taken(map: Variant) -> Array[Vector2i]:
+	var gate: Vector2i = SimTileMap.gate_a(map)
+	# The gate itself and the corpse dump two tiles south of it (ADR 0010) are spoken for.
+	var taken: Array[Vector2i] = []
+	if gate.x >= 0:
+		taken.append(gate)
+		taken.append(Vector2i(gate.x, gate.y + 2))
+	var gate_b: Vector2i = SimTileMap.gate_b(map)
+	if gate_b.x >= 0:
+		taken.append(gate_b)
+	return taken
+
+
+static func _latrine_by_distance(map: Variant) -> Vector2i:
 	var start: Vector2i = colony_start(map)
 	var well: Vector2i = SimTileMap.well_tile(map)
 	var gate: Vector2i = SimTileMap.gate_a(map)
