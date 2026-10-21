@@ -4749,6 +4749,14 @@ not a to-do list:
   row and a way round stays open, closed once without the rule and once with the crate hidden from
   the dressing; SEATED_OK 42 tables), `godot:check:wrecks`, `godot:check:shots`.
 
+  **A12's round 5 notes** (the coordinator's confirmation pass on #167, export 22:41 UTC, CLEAR,
+  2026-10-20). Three low notes, left for a later pass. The fridge at (178, 187) stands with its
+  north side on an unseen tile, so the room shot cannot show that its free side is clear. Its top
+  outline, one art pixel tall (y 506-507, x 1712-1745 at 1920), is drawn over the unseen tile
+  (178, 186), against the rule that a picture is clipped where its art reaches an unseen tile; it
+  is near invisible. The barrel at (181, 180) is unseen, so the shots cannot confirm the room's
+  one-barrel cap; `godot:check:trees`'s STOCK lane holds that cap on every room of five maps.
+
   **Container kinds are the table's.** `prop.container` gains a top-level `tables` map
   (`prop.schema.json`): residential and commercial containers keep the wood crate, `medical` draws
   `prop.container.medical`, `industrial` and `military_cache` draw `prop.container.metal`, each with
