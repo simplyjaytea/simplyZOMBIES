@@ -27,7 +27,7 @@ extends SceneTree
 #      weapon that outreaches a shambler's hands against a lone one, stand and let it come.
 #   3. Bleeding with nothing near: treat (the T key's own choice of treatment).
 #   4. Hungry or thirsty: eat or drink from the pack; with nothing in it, fetch from the colony's
-#      floor.
+#      floor; thirsty with nothing on the floor either, walk to the nearest well and press E.
 #   5. Dusk or night, or exhausted: go home, lie down in a free bed, sleep until dawn.
 #   6. Day: scavenge the nearest unsearched container within reach of home, keep what is useful
 #      (food, water, medicine, weapons, ammunition), drop the rest, carry the surplus home.
@@ -48,6 +48,7 @@ const SimMelee = preload("res://sim/modules/melee.gd")
 const SimTreatment = preload("res://sim/modules/treatment.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
 const SimStances = preload("res://sim/stances.gd")
+const SimFortify = preload("res://sim/modules/fortify.gd")
 const Clock = preload("res://sim/time/clock.gd")
 
 const DAYS: int = 10
@@ -396,7 +397,7 @@ func _consume(me: int, what: String) -> bool:
 	# Nothing in the pack: the colony's floor, if it has any.
 	var stock: int = _stock_kind(what)
 	if stock < 0:
-		return false
+		return _drink_at_well(me) if what == "drink" else false
 	_set_goal("fetch")
 	var sp: Vector2 = _pos(stock)
 	var tile := Vector2i(floori(sp.x), floori(sp.y))
@@ -407,6 +408,32 @@ func _consume(me: int, what: String) -> bool:
 			return false
 		_:
 			_go(tile)
+	return true
+
+
+# Nothing to drink in the pack or on the pile: the nearest well (or river source), walked to and
+# E pressed, the way a player does it. Only when E there would be the well -- anything else E
+# would do first (a loose item, a box) is not a drink, and the plan falls through.
+func _drink_at_well(me: int) -> bool:
+	var here: Vector2 = _pos(me)
+	var source: int = SimNeeds.nearest_water_source(w, here.x, here.y)
+	if source < 0:
+		return false
+	var sp: Vector2 = _pos(source)
+	var tile := Vector2i(floori(sp.x), floori(sp.y))
+	_set_goal("well")
+	match _arrived_or_failed(here, tile):
+		"arrived":
+			_stop()
+			if String(SimFortify.rung_of(w, me).get("verb", "")) != "well":
+				return false
+			w.commands.push({"type": "use.context"})
+			_day["drank"] = int(_day["drank"]) + 1
+			_day["well"] = int(_day["well"]) + 1
+		"failed":
+			return false
+		_:
+			_go(_stand_tile(tile))
 	return true
 
 
@@ -761,7 +788,7 @@ func _blank_counters() -> Dictionary:
 		"hits_taken": 0, "grabs": 0, "player_grabs": 0, "packets": 0, "raids": 0, "recruits": 0,
 		"searched": 0, "picked": 0, "ignored": 0, "npc_searches": 0, "ate": 0, "drank": 0, "swings": 0, "shots": 0, "treats": 0,
 		"hauled": 0, "gave_up": 0, "equipped": 0, "woken": 0, "bed_fallback": 0, "slept_ticks": 0,
-		"successions": 0, "left": 0,
+		"successions": 0, "left": 0, "well": 0,
 	}
 
 
@@ -909,10 +936,10 @@ func _close_day(day: int) -> void:
 		row[key] = _day[key]
 		_run_total[key] = int(_run_total.get(key, 0)) + int(_day[key])
 	_emit(row)
-	print("DAY %2d head=%d alive=%s hunger=%5.1f thirst=%5.1f rest=%5.1f food=%d+%d drink=%d+%d wounds=%d bleed=%d infected=%d bites=%d kills=%d(you %d) deaths=%d left=%d searched=%d picked=%d ate=%d drank=%d swings=%d grabs=%d(you %d) packets=%d raids=%d live=%d tick=%.2f/%.2f/%.2f ms" % [
+	print("DAY %2d head=%d alive=%s hunger=%5.1f thirst=%5.1f rest=%5.1f food=%d+%d drink=%d+%d wounds=%d bleed=%d infected=%d bites=%d kills=%d(you %d) deaths=%d left=%d searched=%d picked=%d ate=%d drank=%d(well %d) swings=%d grabs=%d(you %d) packets=%d raids=%d live=%d tick=%.2f/%.2f/%.2f ms" % [
 		day, colony.size(), str(colony.has(me)), float(row["hunger"]), float(row["thirst"]), float(row["rest"]),
 		food_stock, food_carried, drink_stock, drink_carried, wounds, bleeding, infected, int(_day["bites"]),
-		int(_day["kills"]), int(_day["player_kills"]), int(_day["deaths"]), int(_day["left"]), int(_day["searched"]), int(_day["picked"]), int(_day["ate"]), int(_day["drank"]),
+		int(_day["kills"]), int(_day["player_kills"]), int(_day["deaths"]), int(_day["left"]), int(_day["searched"]), int(_day["picked"]), int(_day["ate"]), int(_day["drank"]), int(_day["well"]),
 		int(_day["swings"]), int(_day["grabs"]), int(_day["player_grabs"]), int(_day["packets"]), int(_day["raids"]),
 		int(row["live_shamblers"]), mean_ms, p99_ms, max_ms,
 	])

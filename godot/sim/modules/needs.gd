@@ -2140,6 +2140,14 @@ static func drink_item(world: Variant, entity: int, item: int) -> bool:
 	var ill: bool = _rolls_ill(world, entity, spec, false)
 	if not _consume_item(world, entity, item):
 		return false
+	var lift: float = _quench(world, entity, spec, ill)
+	world.events.publish({"type": "need.drank", "entity": entity, "item": item, "baseId": bid, "stimulant": lift > 0.0, "ill": ill})
+	return true
+
+
+# What a drink does to the body once it is down, whichever door it came through: a bottle
+# (`drink_item`) or the well (`use_well`). Answers the stimulant lift so the caller can say so.
+static func _quench(world: Variant, entity: int, spec: Dictionary, ill: bool) -> float:
 	var n: Dictionary = of(world, entity)
 	n["thirst"] = minf(100.0, float(n.get("thirst", 0.0)) + float(spec.get("thirst", 0.0)))
 	if String(n.get("crisis", "")) == "dehydrating" and float(n["thirst"]) > 0.0:
@@ -2158,8 +2166,7 @@ static func drink_item(world: Variant, entity: int, item: int) -> bool:
 		_fall_ill(world, entity)
 	_apply_muls(world, entity, n)
 	_intake(world, entity, RELIEF_PER_DRINK)
-	world.events.publish({"type": "need.drank", "entity": entity, "item": item, "baseId": bid, "stimulant": lift > 0.0, "ill": ill})
-	return true
+	return lift
 
 
 # Untreated water, by name: what a thirsty NPC with no fire and nothing clean drinks, and a verb
@@ -2167,6 +2174,58 @@ static func drink_item(world: Variant, entity: int, item: int) -> bool:
 static func drink_untreated(world: Variant, entity: int) -> bool:
 	var bottle: int = _carried_base(world, entity, UNTREATED_ID)
 	return bottle >= 0 and drink_item(world, entity, bottle)
+
+
+# --- the well by hand (docs/04, docs/33's water question, 2026-10-21) ---------------------------
+#
+# The owner's pick on "where does a colony's water come from over ten days": the player can drink at
+# the well, or fill a bottle there. Before this the well was the colony's alone -- the Water job
+# fills a bottle and the Clean job washes at it, and nothing a player pressed ever reached it -- so
+# a survivor left on their own drank the district's six or seven loose drinks and died of thirst on
+# day 5 or 6 standing beside the one thing that renews. Raw water is the untreated bottle's own
+# `drink` block, so a mouthful at the well quenches and sickens exactly as a filled bottle does.
+const EMPTY_ID: String = "item.water.bottle.empty"
+
+
+# What E would do at a well, as one word: "drink" while a full drink still fits, "fill" once it
+# would not and an empty bottle is carried, "drink" again for the last top-up with no bottle to
+# fill, and "" for a sated survivor with nothing to fill. Drink your fill, then fill your bottles.
+static func well_offer(world: Variant, entity: int) -> String:
+	var spec: Variant = drink_spec(world, UNTREATED_ID)
+	var mouthful: float = float((spec as Dictionary).get("thirst", 0.0)) if spec is Dictionary else 0.0
+	var thirst: float = float(of(world, entity).get("thirst", 100.0))
+	if thirst < 100.0 - mouthful:
+		return "drink"
+	if _carried_base(world, entity, EMPTY_ID) >= 0:
+		return "fill"
+	if thirst < 100.0:
+		return "drink"
+	return ""
+
+
+# The well verb itself, at `source` (a `water_source` the caller judged in reach). Drinking
+# consumes nothing and rolls the untreated bottle's illness; filling turns one carried empty bottle
+# into untreated water, the same rename the Water job's fill does.
+static func use_well(world: Variant, entity: int, source: int) -> bool:
+	if source < 0 or not world.components.has_component(source, "water_source"):
+		return false
+	match well_offer(world, entity):
+		"drink":
+			var spec: Variant = drink_spec(world, UNTREATED_ID)
+			if not spec is Dictionary:
+				return false
+			var ill: bool = _rolls_ill(world, entity, spec as Dictionary, false)
+			_quench(world, entity, spec as Dictionary, ill)
+			world.events.publish({"type": "need.drank", "entity": entity, "item": -1, "baseId": UNTREATED_ID, "stimulant": false, "ill": ill, "source": source})
+			return true
+		"fill":
+			var bottle: int = _carried_base(world, entity, EMPTY_ID)
+			if bottle < 0:
+				return false
+			fill_bottle(world, bottle)
+			world.events.publish({"type": "need.filled", "entity": entity, "item": bottle, "source": source})
+			return true
+	return false
 
 
 # The well's product. One producer, so `check_m2_gear.gd`'s CATALOGUE lane can read this file for
