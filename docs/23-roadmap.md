@@ -1302,6 +1302,48 @@ each wants its own gate and several want a balance re-measurement, which is a sl
 than a line apiece. Worst first. What the same sweep *did* fix is in
 [the record](#the-record-by-system) under **Kernel & review sweep**.
 
+- **A colonist walks to guarded armour all day.** Found by the A24 playtest on seed 404: Dress
+  picks the nearest better garment within 40 tiles, BREAK_OFF_FROM_DANGER turns the colonist
+  home at the zombie standing over it, and after the 600-tick wait Dress picks the same garment
+  again: 14 round trips for one colonist and 5 for the other on day 1, both dead by day 2.
+  Refusing a guarded target in `_dress_job` and `_rearm_job` (Haul's rule) fixed the playtest
+  and turned `godot:m2:balance`'s FAST seed 404 from a surviving colony to 0/3, so it was
+  reverted. A fix wants a memory of the garment a colonist fled, or the owner's armour lever
+  (docs/33, "the arc's difficulty"), and a re-measure of both harnesses.
+- **The colony's own building calls the district to the door.** On seed 31337 at 256 tiles,
+  with the A24 errand rules, five to eight zombies stood at the annex through the first night
+  and killed the guard and the player. Measured with a throwaway driver (no player input,
+  54,000 ticks from boot), it is the hammering: with Construct on, 7 zombies stand within 15 m
+  of the annex centre by tick 3,000 and 4 to 8 stay there all day (8 to 10 within 30 m); with
+  every colonist's Construct set to 0, 1 within 15 m and 2 to 4 within 30 m. The errand radius
+  made it show: colonists who no longer cross the map build at home instead. The lever is
+  `SimFortify.CONSTRUCT_NOISE`, or building by day only, and either wants both harnesses re-run.
+- **The director can place a packet on a gate.** With the reverted Dress change, the FAST
+  campaign's seed 404 put one packet on a gate, in the annex or inside GATE_EXCLUSION
+  (`check_m2_balance.gd`'s invariant). Main never reached it; the placement code allows it.
+- **Rest is handed out and dropped every tick.** A colonist with Rest work and rest at or over
+  80 is given Rest (the picker does not read the pool), the Rest arm stops it at 80, and the
+  next tick picks it again: 17,985 Rest starts in one day for one colonist on seed 31337. No
+  outcome changes, but it is job churn on every idle tick and it hides the colonist's real idle.
+- **Two walkers hold each other in a one-tile doorway.** Found by the A24 balance pass
+  (2026-10-20) when `godot:m2:jobs`'s guard lane went red against the twenty-tile errand radius:
+  Ellis walks to the gate from inside the annex, Mara stands in the one-tile gateway, and the two
+  bodies push each other back for the whole 6,000-tick watch (both at y 29.0 beside the gate at
+  (30, 31) on seed 20260805 at 64 tiles). Nobody yields and nobody re-plans, so a colonist can be
+  kept off a post or out of a room by another colonist standing still. The lane pins the radius
+  back to forty, the day it was written against, rather than judge this; a fix is a yield or a
+  side-step in `SimJobs._walk`, with its own lane.
+- **The colony has no water that lasts ten days.** The A24 ten-day playtest
+  (`npm run godot:playtest`) watched the colony run dry: on seed 20260805 a colonist died of
+  thirst on day 6 (tick 369,020, thirst empty plus a day) on main 2e920b3 and again after the
+  errand fixes, and the scripted survivor followed on day 7. The whole 256-tile district holds 47
+  containers and about 93 loose items, six or seven of them drinks, four containers within 70
+  tiles of home. The renewable route is the Water job at the well, which needs an **empty**
+  bottle, and the only empties the sim makes are bottles somebody drank. The player has no verb
+  at the well at all. Part of it was a bug, fixed in the same pass: a colonist's thirst seek only
+  took bottled water, so a soda or a tea on the stockpile sat there while they died. Whether the
+  rest wants a starting empty, a player's well verb, or more water in the loot is a design call,
+  so it is on the owner list in docs/33 rather than tuned here.
 - **A melee raider band cannot reach a body that does not move.** `SimRaiders._approach` halts at
   `HALT_METRES` (2.6 m) and every melee reach a raider kit carries is shorter — the rusted machete
   is 1.2 plus `MELEE_REACH_FUDGE`, 1.55 — so nothing closes the last metre and a scav band stands
@@ -2184,6 +2226,47 @@ What landed and what proved it, system by system (condensed from the retired bac
 links in the slice-scope table above are the authority on each). The open tails that used to end
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
+
+- **Balance — the A24 pass: a ten-day playtest driver, and what it found, 2026-10-21 (alpha
+  A24).** The measuring half shipped and the tuning half did not move the outcome. What landed:
+  - **The driver**, `godot/playtest/ten_day.gd` (`npm run godot:playtest`): the shipped 256-tile
+    district, one scripted survivor (fight what is in reach, hold or back off from a crowd, loot
+    the nearest unguarded container or ground item within 70 tiles, eat, drink, sleep in the
+    bed, give up on a zombie it cannot reach), ten days, a line per day (food, water, wounds,
+    infection, bites, kills, deaths and who, headcount, tick mean/p95/worst) and a JSON log. A
+    day ran 8 to 20 minutes of wall time on the loaded session machine.
+  - **Seven fixes, each its own commit with its before and after:** the player never woke from
+    a bed (`SimNeeds.wake`, `godot:m2:needs` WAKE); a bite took 60 to 72 in-game days to turn
+    (the owner's "Bite in days", docs/30; `godot:m2:lethality` and the infection gates); an
+    errand broke off from nothing (`SimJobs.BREAK_OFF_FROM_DANGER`: a colonist out on Haul,
+    Scavenge, Water, Bury, Dress, Rearm or Doctor with a zombie inside 6 m walks home and waits
+    600 ticks, and Haul and Scavenge refuse a target with one inside 10 m; `godot:m2:jobs`
+    DANGER); Haul, Scavenge, Doctor and Bury reached 40 tiles out, so colonists died 80 to 130
+    tiles from home (`SimJobs.ERRAND_RADIUS_TILES` 20, HOME_RADIUS_TILES still 40 for Dress,
+    Rearm and the guard; ERRAND); the latrine was sited by map distance and was a 54-step walk
+    through the street from the start, now 19 (`SimBoot._latrine_by_route`); a colonist's thirst
+    seek took only bottled water, so soda and tea on the pile were never drunk (WATER).
+  - **Three gate lanes** leaned on the old colony and now judge their own system: dormant
+    ASLEEP and settlers FIGHTS clear the colony (its building noise woke and called off their
+    probes), storm WORK pins the radius and the danger rule.
+
+  **Measured, same driver, main 2e920b3 against the final head, three seeds:**
+
+  | Seed | Baseline | Final |
+  |---|---|---|
+  | 20260805 | colonist dead on Haul 132 tiles out day 1, one of thirst day 6, player day 7: wiped day 7 | all three alive to day 4, one of thirst day 6, player day 7: wiped day 9 |
+  | 31337 | player dead 130 tiles out day 1, colonist on the latrine walk day 2, sepsis day 4: wiped day 4 | guard and player killed at home by the first night's crowd: wiped day 2 |
+  | 404 | doctor dead 83 tiles out and player 102 tiles out on day 1, last colonist alive to day 10 | both colonists dead on a Dress loop day 1, player day 2: wiped day 2 |
+
+  Colonist-days alive (headcount at each day's end, summed): 24 baseline, 19 final. The far
+  deaths are gone; what kills now is the crowd the colony's own building draws to the door,
+  the armour walk and thirst (each on the defect list with its numbers).
+  `godot:m2:balance` stayed green through every commit kept, so its expectations did not move;
+  its FAST lines did (20260805 3/3 to 2/3 survivors, the armour cut 28.7% to 24.1%). **Not
+  shipped:** refusing guarded armour and weapons in Dress and Rearm fixed seed 404 in the
+  playtest (headcount 2 through day 3) and lost the FAST campaign's seed 404 (0/3), so it was
+  reverted; the loop is on the defect list. The report, with the raw logs, is in the project's
+  planning/balance folder.
 
 - **UI overhaul, slice 1: one bar, care on the figure, the field HUD in the locker, 2026-10-20
   (alpha A20).** Taken from docs/32's own order: the first bullet of [the UI overhaul

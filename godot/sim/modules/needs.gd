@@ -62,6 +62,9 @@ const NEED_SOURCES: Array[String] = ["need.hunger", "need.thirst", "need.rest", 
 # own. What it costs is time and position -- it walks people out of the annex, on a clock that
 # eating and drinking speed up, which is exactly the pressure docs/04 asks a need to create.
 const RELIEF_EMPTY_DAYS: float = 2.0
+# How long a rested body stays down before `need.wake-rested` gets it up: ten seconds, so lying
+# down is still a thing E does when you are not tired.
+const WAKE_RESTED_AFTER_TICKS: int = 200
 # A sleeping body is quieter. Half rate rather than none, so a survivor who went to bed on a nearly
 # empty pool gets up in the night -- and one who went before bed does not.
 const RELIEF_SLEEP_MUL: float = 0.5
@@ -998,6 +1001,30 @@ static func register_module(world: Variant) -> void:
 			if kind == "item.use" or kind == "item.wash":
 				for actor in w.components.query(["controlled", "needs"]):
 					use_item(w, int(actor), int(c.get("item", -1)), kind == "item.wash" or bool(c.get("wash", false)))
+			elif kind == "walk.to" or (kind == "move" and (float(c.get("dx", 0.0)) != 0.0 or float(c.get("dy", 0.0)) != 0.0)):
+				# Getting up is a step. Nothing else woke the controlled survivor -- the colonists'
+				# jobs wake their own, and a hit, a grab or an alarm wakes anybody -- so a player who
+				# lay down walked off still `sleeping`: rest refilling on the march, and the HUD's
+				# fast-forward (`Session.run_rate`) running at the sleep rate until a zombie arrived.
+				# Passing out is not a choice, so it is not one a key undoes: `_tick_rest` ends it.
+				for sleeper in w.components.query(["controlled", "sleeping", "needs"]):
+					if String(of(w, int(sleeper)).get("crisis", "none")) != "passed_out":
+						_wake(w, int(sleeper))
+	)
+	# And the morning: a controlled survivor who is fully rested once the night is over wakes on
+	# their own, the way the colonists' Rest job ends at full, so the fast-forward stops at dawn
+	# rather than running through the day.
+	world.systems.register("need.wake-rested", "needs", 18, func(w: Variant) -> void:
+		if Clock.phase_of(int(w.tick)) == Clock.Phase.Night:
+			return
+		for sleeper in w.components.query(["controlled", "sleeping", "needs"]):
+			if float(of(w, int(sleeper)).get("rest", 0.0)) < 100.0:
+				continue
+			# Not on the tick they lay down: E on a bed is still a way to lie down rested.
+			var sl: Variant = w.components.get_component(int(sleeper), "sleeping")
+			if sl is Dictionary and int(w.tick) - int((sl as Dictionary).get("since", 0)) < WAKE_RESTED_AFTER_TICKS:
+				continue
+			_wake(w, int(sleeper))
 	)
 	world.events.subscribe({"id": "need.wake-alarm", "type": "alarm.tripped", "handler": func(_e: Dictionary) -> void:
 		_wake_all(world)
