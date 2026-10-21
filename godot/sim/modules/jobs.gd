@@ -510,6 +510,10 @@ static func _bury_work(world: Variant, x: float, y: float) -> Dictionary:
 		if cx == dump.x and cy == dump.y:
 			# Already at dump — bury in place.
 			return {"kind": "Bury", "target": int(c), "carrying": false, "ticksLeft": BURY_TICKS, "path": [], "pathGen": -1}
+		# A body lying out past the errand radius is left where it fell: the A24 playtest lost a
+		# colonist 135 tiles from home walking out to bury one of the player's kills.
+		if not _near_errand(world, float((p as Dictionary)["x"]), float((p as Dictionary)["y"])):
+			continue
 		var dx: float = float((p as Dictionary)["x"]) - x
 		var dy: float = float((p as Dictionary)["y"]) - y
 		var d: float = dx * dx + dy * dy
