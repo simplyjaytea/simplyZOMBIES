@@ -17,6 +17,11 @@ corpse from its own colours instead and paints each garment over the part it cov
   * **Colour.** Each covered pixel takes its garment's ramp at the light the corpse's own pixel
     has: its brightness against the middle of its own part's, so the corpse's folds and shading
     carry into the cloth. Ink is never painted; nothing is painted where the corpse is not.
+  * **Seams.** What `build_clothing.py` draws across the waist is drawn where the corpse's
+    trousers meet its tee: trousers and shorts their belt (the trim's deep tone, no buckle, since
+    the corpse shows no front), a suit its taped waist, and its taped ankles where the trousers
+    meet the shoes (the trim's base tone), lit as the cloth is, so a belt the fall carried down
+    is on the body it settles into.
 
 What the corpse wears under a garment that does not cover it is the pack's own tee and trousers,
 so a survivor with no garment in a slot lies in those (docs/23 records it).
@@ -170,4 +175,21 @@ def paint(bc, family: str, corpse: Image.Image) -> Image.Image:
         level = bc.LEVEL[bc.BASE] + (_lum(px[p]) - middle[lab[p]]) * 5 // 4
         r, g, b = bc.colour_at(ramp, max(0, min(255, level)))
         o[p] = (r, g, b, 255)
+    for p, step in sorted(seams(lab, spec["shape"]).items()):
+        level = bc.LEVEL[step] + (_lum(px[p]) - middle[lab[p]]) * 5 // 4
+        o[p] = (*bc.colour_at(bc.RAMPS[spec["trim"]], max(0, min(255, level))), 255)
     return out
+
+
+def seams(lab: dict[tuple[int, int], str], shape: str) -> dict[tuple[int, int], int]:
+    """{pixel: trim tone} for a garment's seams on the corpse: the trouser pixels beside the tee
+    (the waist) and, for a suit, beside the shoes (the ankles)."""
+
+    def beside(of: str, to: str) -> set[tuple[int, int]]:
+        return {p for p, k in lab.items() if k == of and any(lab.get((p[0] + dx, p[1] + dy)) == to for dx, dy in NEAR)}
+
+    if shape in ("pants", "shorts"):
+        return {p: 3 for p in beside("grey", "tan")}
+    if shape == "suit":
+        return {p: 1 for p in beside("grey", "tan") | beside("grey", "shoe")}
+    return {}

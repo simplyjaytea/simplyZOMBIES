@@ -2726,7 +2726,8 @@ not a to-do list:
   made opaque, as cloth always is. The corpse it settles onto was never a standing frame, so
   `clothing/corpse_wear.py` labels the pack's lying human by its own colours (ink, the grey
   trousers, the tan tee, skin, hair and shoes, the face, the arms and hands) and paints each
-  garment over the parts its shape covers, at the light of the corpse's own pixel; the beats are
+  garment over the parts its shape covers, at the light of the corpse's own pixel, with the belt
+  or a suit's taped waist and ankles where its trousers meet its tee and shoes; the beats are
   made from the dressed turn and the dressed corpse by the bare fall's own call. A survivor with
   no garment in a slot lies in the pack corpse's own tee or trousers there. 252 action frames,
   292 members a garment (`godot:check:authored` WEAR: 8468 painted frames). The clock records the outfit a body was
