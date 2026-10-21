@@ -882,6 +882,17 @@ func _clear_threats(w: Variant) -> int:
 	return gone
 
 
+# Every colonist but the player, for a lane that judges a body far from home and must not hear
+# home's work. Settlers carry no `needs`, so the query leaves the camp alone.
+func _clear_colony(w: Variant) -> int:
+	var gone: int = 0
+	for e in w.components.query(["needs", "body"]):
+		if int(e) != int(w.player):
+			w.despawn(int(e))
+			gone += 1
+	return gone
+
+
 # The settler who is not the willing one. Every fighting lane wants this body rather than the
 # first: `npc_combat._engages` refuses a `recruit`, so the willing one deliberately does not
 # fight, and a lane that picked them would be red about a refusal that is on purpose.
@@ -1015,6 +1026,11 @@ func _fights() -> bool:
 	var w: Variant = built["world"]
 	var settlers: Array[int] = built["settlers"] as Array[int]
 	_clear_threats(w)
+	# The colony out of the district too, the player aside. Since the A24 errand radius the two
+	# colonists spend the opening ticks building at home rather than hauling, and the hammering
+	# (`SimFortify.CONSTRUCT_NOISE`) calls the probe's shambler off before the settler can swing:
+	# right for the sim, and not what this lane measures.
+	_clear_colony(w)
 	var fighter: int = _a_fighter(w, settlers)
 	if fighter < 0:
 		push_error("%s: every settler in the camp is the willing one, so there is nobody this module is allowed to act for" % lane)

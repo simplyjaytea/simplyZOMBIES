@@ -288,6 +288,13 @@ static func _tick_one(world: Variant, ent: int) -> void:
 		if _refused_outdoors(world, ent, job as Dictionary):
 			_stop(world, ent)
 			return
+		# A zombie at arm's length of somebody out hauling or scavenging sends them home, the way
+		# the storm sends everybody in: the job is dropped (its claim released) and the walk home
+		# replaces it. See `_endangered`.
+		if BREAK_OFF_FROM_DANGER and _endangered(world, ent, job as Dictionary):
+			_stop(world, ent)
+			_retreat(world, ent)
+			return
 		# The watch ends at dawn wherever the guard stands -- on the post or still walking to
 		# it -- and completes (`job.completed`, the Endurance point). Here rather than in the
 		# Guard arm alone, because `_advance_job` walks a job to its tile before its arm runs,
@@ -503,6 +510,10 @@ static func _bury_work(world: Variant, x: float, y: float) -> Dictionary:
 		if cx == dump.x and cy == dump.y:
 			# Already at dump — bury in place.
 			return {"kind": "Bury", "target": int(c), "carrying": false, "ticksLeft": BURY_TICKS, "path": [], "pathGen": -1}
+		# A body lying out past the errand radius is left where it fell: the A24 playtest lost a
+		# colonist 135 tiles from home walking out to bury one of the player's kills.
+		if not _near_errand(world, float((p as Dictionary)["x"]), float((p as Dictionary)["y"])):
+			continue
 		var dx: float = float((p as Dictionary)["x"]) - x
 		var dy: float = float((p as Dictionary)["y"]) - y
 		var d: float = dx * dx + dy * dy
@@ -609,6 +620,21 @@ static func _near_home(world: Variant, x: float, y: float) -> bool:
 	return SimHomeRes.near_any(world, x, y, HOME_RADIUS_TILES)
 
 
+# Haul and Scavenge, the two errands that walk out among the wanderers for loot, reach only
+# `ERRAND_RADIUS_TILES` from anywhere the colony lives; the rest of the working ground (the gate a
+# guard stands at, the weapon a re-arm walks to) keeps HOME_RADIUS_TILES. Twenty since the A24
+# balance pass (2026-10-20): on the shipped 256-tile district the ten-day playtest lost both
+# colonists by the end of day two on all three seeds, the first bleeding out on Haul forty-odd
+# tiles out on the first morning; with the danger break-off and forty tiles the same colonist
+# died on the walk home, and at twenty they live. A static the gates and the harness can pin back
+# to HOME_RADIUS_TILES, which is the colony as it was before.
+static var ERRAND_RADIUS_TILES: float = 20.0
+
+
+static func _near_errand(world: Variant, x: float, y: float) -> bool:
+	return SimHomeRes.near_any(world, x, y, ERRAND_RADIUS_TILES)
+
+
 # The nearest container this survivor remembers seeing, unsearched, near home and not already
 # another colonist's claim. The claim is the Cook's `reserved` seam, so two scavengers never
 # walk to one cupboard. The job carries the box's tile, so `_job_tile` walks to it.
@@ -626,11 +652,13 @@ static func _scavenge_work(world: Variant, ent: int, x: float, y: float) -> Dict
 			continue
 		var bx: float = float((p as Dictionary)["x"])
 		var by: float = float((p as Dictionary)["y"])
-		if not _near_home(world, bx, by):
+		if not _near_errand(world, bx, by):
 			continue
 		if _is_unreachable(world, int(box)):
 			continue
 		if _claim_live(world, box):
+			continue
+		if BREAK_OFF_FROM_DANGER and _danger_at(world, bx, by, DANGER_TARGET_METRES):
 			continue
 		var dx: float = bx - x
 		var dy: float = by - y
@@ -670,11 +698,13 @@ static func _haul_work(world: Variant, x: float, y: float) -> Dictionary:
 			continue
 		if _under_order(world, int(item)):
 			continue
-		if not _near_home(world, float((p as Dictionary)["x"]), float((p as Dictionary)["y"])):
+		if not _near_errand(world, float((p as Dictionary)["x"]), float((p as Dictionary)["y"])):
 			continue
 		if _is_unreachable(world, int(item)):
 			continue
 		if world.components.has_component(item, "corpse"):
+			continue
+		if BREAK_OFF_FROM_DANGER and _danger_at(world, float((p as Dictionary)["x"]), float((p as Dictionary)["y"]), DANGER_TARGET_METRES):
 			continue
 		var dx: float = float((p as Dictionary)["x"]) - x
 		var dy: float = float((p as Dictionary)["y"]) - y
@@ -883,6 +913,11 @@ static func _doctor_work(world: Variant, ent: int) -> Dictionary:
 			continue
 		if not _injured(world, int(other)):
 			continue
+		# A patient out past the errand radius is not walked to: the A24 playtest lost a doctor on
+		# each of two seeds walking sixty-odd tiles into the street after the hurt survivor.
+		var op: Variant = world.components.get_component(int(other), "position")
+		if op is Dictionary and not _near_errand(world, float((op as Dictionary)["x"]), float((op as Dictionary)["y"])):
+			continue
 		var job: Variant = world.components.get_component(int(other), "job")
 		var idle: bool = job == null or (job is Dictionary and String((job as Dictionary).get("kind", "")) in ["Rest", "Patient", ""])
 		if not idle and not world.components.has_component(int(other), "sleeping"):
@@ -897,6 +932,31 @@ static func _doctor_work(world: Variant, ent: int) -> Dictionary:
 			"pathGen": -1,
 		}
 	return {}
+
+
+# The best clean drink a thirsty colonist can reach: carried first, then the stockpile, the one
+# that slakes most. "Clean" is a drink block with no illness chance, so untreated water never
+# comes this way. Claimed stock is skipped, the `_stock_base` rule.
+static func _clean_drink(world: Variant, ent: int) -> int:
+	var best: int = -1
+	var best_thirst: float = 0.0
+	for pool in [SimInventory.carried_items(world, ent), SimNeeds.stockpile_items(world)]:
+		for item in pool:
+			var b: Variant = world.components.get_component(item, "itemBase")
+			if not (b is Dictionary):
+				continue
+			var spec: Variant = SimNeeds.drink_spec(world, String((b as Dictionary).get("baseId", "")))
+			if spec == null or float((spec as Dictionary).get("illnessChance", 0.0)) > 0.0:
+				continue
+			if _claim_live(world, int(item)):
+				continue
+			var t: float = float((spec as Dictionary).get("thirst", 0.0))
+			if t > best_thirst:
+				best = int(item)
+				best_thirst = t
+		if best >= 0:
+			return best
+	return best
 
 
 static func _stock_base(world: Variant, base_id: String) -> int:
@@ -1008,6 +1068,14 @@ static func _advance_job(world: Variant, ent: int, job: Dictionary) -> void:
 		return
 	_still(world, ent)
 	match kind:
+		"Retreat":
+			# Home, and a while there before the next errand: without the wait a colonist walks
+			# straight back out at the same zombie and turns at the door again, every tick.
+			if not job.has("until"):
+				job["until"] = int(world.tick) + RETREAT_HOLD_TICKS
+				world.components.set_component(ent, "job", job)
+			elif int(world.tick) >= int(job["until"]):
+				_stop(world, ent)
 		"Haul":
 			_do_haul(world, ent, job)
 		"Rearm":
@@ -1335,6 +1403,76 @@ static func _do_rearm(world: Variant, ent: int, job: Dictionary) -> void:
 ## must put back the value it found**; `check_m2_balance.gd`'s FLAG lane is what says so when one
 ## does not.
 static var WEAR_FOUND_ARMOR: bool = true
+
+
+# --- danger: the work that takes a colonist out among the wanderers ---------------------------
+#
+# A colonist on Haul or Scavenge walked to the nearest loose item or box near home and kept walking
+# with a shambler in the way: npc_combat fights from where they stand and never moves them, a held
+# colonist struggles free and the job walks them straight back in. The A24 playtest measured it on
+# the shipped district: on every seed both colonists were dead by the end of day two, the first of
+# them bled out hauling on the first morning after 99 grabs. So the work-finders refuse a target
+# with a live zombie standing near it, and a colonist out working who finds one at arm's length
+# drops the job and walks home. Guard, Rest, Doctor and the rest are untouched: this is about the
+# errands that go out, not about where a colonist stands to fight.
+#
+# A static the balance harness and the gates can pin, the WEAR_FOUND_ARMOR precedent: false is the
+# colony as it was before the A24 pass.
+static var BREAK_OFF_FROM_DANGER: bool = true
+const DANGER_KINDS: Array[String] = ["Haul", "Scavenge", "Water", "Bury", "Dress", "Rearm", "Doctor"]
+# How close a zombie comes before an errand is dropped: a shambler's contact range (1.6 m) with
+# room for a colonist to turn and walk off before the hands close.
+const DANGER_METRES: float = 6.0
+# How far from a target a zombie has to be before the target is worth walking to.
+const DANGER_TARGET_METRES: float = 10.0
+# How long a colonist who walked home from a zombie stays there before taking work again: half a
+# minute of real time, a few in-game minutes.
+const RETREAT_HOLD_TICKS: int = 600
+
+
+static func _danger_at(world: Variant, x: float, y: float, metres: float) -> bool:
+	var r2: float = metres * metres
+	for z in world.components.query(["shambler", "position"]):
+		if world.components.has_component(int(z), "corpse"):
+			continue
+		var p: Variant = world.components.get_component(int(z), "position")
+		if not p is Dictionary:
+			continue
+		var dx: float = float((p as Dictionary)["x"]) - x
+		var dy: float = float((p as Dictionary)["y"]) - y
+		if dx * dx + dy * dy <= r2:
+			return true
+	return false
+
+
+# Out on an errand, away from home's walls, with a zombie within DANGER_METRES.
+static func _endangered(world: Variant, ent: int, job: Dictionary) -> bool:
+	if not DANGER_KINDS.has(String(job.get("kind", ""))):
+		return false
+	# An order is the player's word, and a colonist re-arming on the way to one is still under it.
+	if world.components.has_component(ent, ORDER_COMPONENT):
+		return false
+	var pos: Variant = world.components.get_component(ent, "position")
+	if not pos is Dictionary:
+		return false
+	var x: float = float((pos as Dictionary)["x"])
+	var y: float = float((pos as Dictionary)["y"])
+	if world.tilemap != null:
+		var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
+		if annex.has_point(Vector2i(floori(x), floori(y))):
+			return false
+	return _danger_at(world, x, y, DANGER_METRES)
+
+
+# The walk home: a job with a tile and nothing to do there, which `_advance_job` ends on arrival.
+static func _retreat(world: Variant, ent: int) -> void:
+	var home: Vector2 = _home_centre(world)
+	var tile := Vector2i(floori(home.x), floori(home.y))
+	if world.tilemap != null and SimTileMap.is_solid(world.tilemap, tile.x, tile.y):
+		var open: Dictionary = SimTileMap.find_open_tile(world.tilemap, tile.x, tile.y)
+		if bool(open.get("ok", open.has("x"))) and open.has("x"):
+			tile = Vector2i(int(open["x"]), int(open["y"]))
+	world.components.set_component(ent, "job", {"kind": "Retreat", "tx": tile.x, "ty": tile.y, "ticksLeft": 0, "path": [], "pathGen": -1})
 
 # The hands are the re-arm rule's business and nothing here may reach into them: a machete has no
 # `armor` block, so this would never fire on one anyway, and saying it out loud is cheaper than
@@ -1750,6 +1888,12 @@ static func _do_seek(world: Variant, ent: int, kind: String) -> void:
 			var bottle: int = _carry_base(world, ent, SimNeeds.WATER_ID)
 			if bottle < 0:
 				bottle = _stock_base(world, SimNeeds.WATER_ID)
+			if bottle < 0 and kind == "thirst":
+				# No water bottle, but a soda, a juice or a tea on the pile is still a drink. Without
+				# this a colonist died of thirst beside a stockpile holding three of them (the A24
+				# playtest, seed 20260805, day 6). Only clean drinks: untreated water stays the last
+				# rung below, behind the fire.
+				bottle = _clean_drink(world, ent)
 			if bottle < 0:
 				# Nothing clean anywhere. A wash waits; a drink has two more rungs -- boil what the
 				# well gave, or, thirsty enough, drink it as it comes.
@@ -1770,7 +1914,7 @@ static func _do_seek(world: Variant, ent: int, kind: String) -> void:
 			if kind == "hygiene":
 				SimNeeds.wash(world, ent)
 			else:
-				SimNeeds.drink(world, ent)
+				SimNeeds.drink_item(world, ent, bottle)
 		"relief":
 			# The NPC half of the bathroom need. Without this the whole thing would be a mechanism
 			# only the player can reach -- a tenth dead socket, and the one every colonist would
