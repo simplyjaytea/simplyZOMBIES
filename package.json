@@ -87,6 +87,7 @@
     "godot:m2:balance": "node scripts/run-godot.mjs --m2-balance",
     "godot:m2:balance:full": "BALANCE_FULL=1 node scripts/run-godot.mjs --m2-balance",
     "godot:m2:harness": "node scripts/run-godot.mjs --m2-harness",
+    "godot:playtest": "node scripts/run-godot.mjs --playtest",
     "godot:m2:harness:full": "HARNESS_FULL=1 node scripts/run-godot.mjs --m2-harness",
     "godot:ban:healthbar": "node scripts/run-godot.mjs --ban-health-bar",
     "godot:check:appearance": "node scripts/run-godot.mjs --appearance",

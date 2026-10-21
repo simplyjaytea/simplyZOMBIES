@@ -10,13 +10,16 @@ const BITE_TRANSMISSION_CHANCE: float = 0.85
 
 enum Stage { Latent = 0, Onset = 1, Progression = 2, Critical = 3, Turned = 4 }
 
-# Docs/06 timeline in real hours at 20 Hz: latent ~12h, onset 12–24h, progression ~24h, critical
-# ~12h. These are literal tick clocks, so they keep their real-time pace across the one-hour day.
-const LATENT_TICKS: int = 12 * 3600 * 20
-const ONSET_TICKS_MIN: int = 12 * 3600 * 20
-const ONSET_TICKS_MAX: int = 24 * 3600 * 20
-const PROGRESSION_TICKS: int = 24 * 3600 * 20
-const CRITICAL_TICKS: int = 12 * 3600 * 20
+# Docs/06's timeline, in **in-game** hours: latent ~12 h, onset 12-24 h, progression ~24 h, critical
+# ~12 h -- "roughly 2-4 in-game days" from bite to turn. These were written as real hours at 20 Hz,
+# which on the one-hour day put a turn 60 to 72 in-game days after the bite, so no bite could turn
+# inside a ten-day campaign (the A24 playtest, 2026-10-20). An in-game hour is `DAY_TICKS / 24`.
+const HOUR_TICKS: int = preload("res://sim/time/clock.gd").DAY_TICKS / 24
+const LATENT_TICKS: int = 12 * HOUR_TICKS
+const ONSET_TICKS_MIN: int = 12 * HOUR_TICKS
+const ONSET_TICKS_MAX: int = 24 * HOUR_TICKS
+const PROGRESSION_TICKS: int = 24 * HOUR_TICKS
+const CRITICAL_TICKS: int = 12 * HOUR_TICKS
 
 const QUARANTINE_NOISE_MAG: int = 20
 const TREATMENT_STREAM: String = "treatment"
