@@ -86,15 +86,23 @@ moves per action and view):
   height, and each member says so in its own `canvas`. The fall then **settles onto the pack's
   own corpse** (`settle_plan`, `settle_frames`): prone for a side view, supine for the front and
   back (`LIE_POSE`), mirrored to the fall side, the heavy's and the bloater's widened by whole
-  sixteenths to their belly mass (`BELLY_PCT`), placed where it overlaps the last turn most and
-  the mirror view lands mirrored. One beat count a family, the fewest that keep every step inside
-  the bounds with a margin (`SETTLE_MASS_PCT`, `SETTLE_CENTRE_X2`, `SETTLE_EDGE`, the sole row
-  held): each beat adds the corpse's pixels nearest the body first and drops the turned frame's
-  farthest first, linearly by count, and keeps only its largest connected run. A side view
-  carries its head whole (`HEAD_CARRIED`, `fall_head`, `corpse_head`), k/n of the way to the
-  corpse's head on beat k, and lands with its foot end within `SETTLE_FOOT` columns of where it
-  fell wherever a place settles there. The corpse is the
-  last frame, the settled body the renderer draws where the fall stood
+  sixteenths to their belly mass (`BELLY_PCT`). The armored's prone corpse is widened by the
+  same rule: 29x25 and 306 pixels in the pack, drawn 17/16 its size, 31x27 and 355 pixels, on
+  the fall. The front and back views lie in one place, mirrored, nearest where the corpse overlaps
+  the last turn most; the side views lie as a pair whose foot ends mirror within `SETTLE_MIRROR`
+  columns, the pair whose feet move least from where each turned frame's lay (`SETTLE_FOOT`
+  columns count as none). The runner's two turned frames lie 13 columns off mirror, so its
+  corpses land 6 columns from each turned frame's feet. One beat count a family, the fewest that keep every
+  step inside the bounds with a margin (`SETTLE_MASS_PCT`, `SETTLE_CENTRE_X2`, `SETTLE_EDGE`, the
+  sole row held): each beat adds the corpse's pixels nearest the body first and drops the turned
+  frame's farthest first, linearly by count, and keeps only its largest connected run. Every
+  view carries its head whole (`HEAD_CARRIED`, `fall_head`, `corpse_head`), k/n of the way to
+  the corpse's head on beat k, taking the corpse head's colours and shape over its last
+  `HEAD_FADE` beat, a half swap (each pixel changes once, half on that beat, the rest on the hold
+  frame). Face down the corpse's head is the top of its fall-side third; on its back it is the
+  body's end, `HEAD_INSET` columns in from the end column at that column's middle row. An outline either picture draws that a beat buries inside the body takes
+  the colour under it (`settle_frames`), so neither body's edge shows through the other. The
+  corpse is the last frame, the settled body the renderer draws where the fall stood
   (`presentation/appearance.gd` `lying_key`).
 
 **The reloads are drawn** (`reload_frames`, `RELOAD_BEATS`): eight beats for a magazine, eleven
