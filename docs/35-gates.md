@@ -27,6 +27,7 @@ npm run godot:validate   # content registry
 npm run godot:test       # R1 parity vs the frozen fixture
 npm run godot:m2         # all Milestone 2 gates    → M2_LETHALITY_OK et al
 npm run godot:m2:balance # the balance harness, fast tier → M2_BALANCE_OK (~15 min here, in godot:m2)
+npm run godot:playtest   # one scripted survivor, ten real days of one seed → PLAYTEST_OK (~2.5 h; not in godot:m2)
 npm run godot:m2:sight   # sightlines and memory     → M2_SIGHT_OK
 npm run godot:m2:attach  # attachment slots          → M2_ATTACH_OK
 npm run godot:m2:ammo    # calibers, and what a round changes → M2_AMMO_OK

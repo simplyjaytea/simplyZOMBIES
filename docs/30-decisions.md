@@ -5640,7 +5640,8 @@ Left as literal real-time ticks, not scaled: weather spell lengths (clear, rain,
 snap, heat wave, in `weather.gd` and `content/weather/*.json`), noise `durationTicks` and `delayTicks`,
 comfort `ticks`, the noisemaker's 12000, the wet body's `dryAfterTicks` and `dryByFireTicks`, the
 sedan's range, the goodwill from a meal (36,000), grief and argument decay, and the infection timers
-(latent, onset, progression and critical, 60 to 72 real hours from bite to turn). These keep their
+(latent, onset, progression and critical, 60 to 72 real hours from bite to turn; the owner moved
+these onto in-game hours on 2026-10-21, see "A bite turns in days" below). These keep their
 real-minute length, so in in-game days they stretch four times: a cold snap is 4 to 12 days, not 1
 to 3, and a bite takes 60 to 72 days to turn, not 15 to 18.
 
@@ -5683,3 +5684,16 @@ where `0` holds the rest view. The zombie breath is a mechanical row shift of th
 like the zombie walk in-betweens, and goes with them when the action-animations work redraws
 those frames. Recorded in docs/23's A7 record; gated by `godot:check:zombie_art` MOTION and
 `godot:check:authored`.
+
+## A bite turns in days, 2026-10-21
+
+**Decided by the owner**, on a decision card from the A24 balance thread ("Bite in days"): the
+infection timers run on in-game hours, so a bite turns in about 2.5 in-game days (latent 12 hours,
+onset 12 to 24, progression 24, critical 12), as docs/06's timeline says, and hunger and thirst
+stay as the one-hour day set them (hunger empty in 8 in-game days, thirst in 4). This reverses the
+"infection is real time" half of the judgement in "The one-hour day" above: left on real time, a
+bite took 60 to 72 in-game days to turn, so none could turn inside a ten-day run, which the
+playtest driver found on its first pilot. The weather spells and noise stay on real time. The
+change is `godot/sim/modules/infection.gd`'s `HOUR_TICKS`, built before the answer as the card's
+default and kept; gated by `godot:m2:lethality`, `godot:m2:stats`, `godot:m2:treatment`,
+`godot:m2:medicine`, `godot:check:respond` and `godot:m2:filter`.
