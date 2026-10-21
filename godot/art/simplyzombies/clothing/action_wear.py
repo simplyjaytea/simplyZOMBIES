@@ -209,14 +209,21 @@ def _held(committed: Image.Image, rebuilt: Image.Image, what: str) -> None:
 
 def _moved(action: str, view: str, rest: Image.Image, walks: list[Image.Image], walk_n: list[Image.Image], ink=None, settle=None) -> list[Image.Image]:
     """A moved action's frames. A fall's turned frames end on the settle onto the corpse when
-    `settle` is (the corpse on the fall canvas, the plan's beats): the beats take their pixels from
-    this call's own last turned frame and that corpse, so a dressed fall settles in its clothes."""
+    `settle` is (the corpse on the fall canvas, the plan's beats, and for a garment with a seam
+    across the body, (its trim's colours, the corpse's seam pixels))): the beats take their pixels
+    from this call's own last turned frame and that corpse, so a dressed fall settles in its
+    clothes, its belt or taped waist handed over to the corpse's (`actions.settle_frames`)."""
     if action == "prone":
         return act.prone_frames(walk_n, view)
     frames = [im for im, _hands in act.derive(rest, action, view, walk=walks, ink=ink)]
     if action == "fall" and settle is not None:
-        corpse, beats = settle
-        frames += act.settle_frames(frames[-1], corpse, beats)
+        corpse, beats, seam = settle if len(settle) == 3 else (*settle, None)
+        lines = None
+        if seam:
+            trim, on_corpse = seam
+            px = frames[-1].load()
+            lines = ({p for p in act._mask(frames[-1]) if px[p][:3] in trim}, on_corpse)
+        frames += act.settle_frames(frames[-1], corpse, beats, lines)
     return frames
 
 
@@ -539,7 +546,10 @@ def build(bc, images: dict[str, Image.Image]) -> dict[str, Image.Image]:
                     # The corpse the fall settles onto, in this garment: painted over the pack's
                     # lying body by its own parts (corpse_wear), on the plan's canvas and side.
                     corpse = _fall_plan()[view]["corpse"]
-                    settle = (_dressed(corpse, corpse_wear.paint(bc, family, corpse)), _fall_plan()[view]["beats"])
+                    spec = bc.GARMENTS[family]
+                    on_corpse = set(corpse_wear.seams(corpse_wear.labels(corpse), spec["shape"]))
+                    seam = (set(bc.RAMPS[spec["trim"]]), on_corpse) if on_corpse else None
+                    settle = (_dressed(corpse, corpse_wear.paint(bc, family, corpse)), _fall_plan()[view]["beats"], seam)
                 for suffix, dressed in zip(suffixes, _moved(action, view, rest_d, walks_d, walk_n_d, act.darkest(rests[view]), settle)):
                     out[f"{family}/{family}_{suffix}"] = _shown(committed[suffix], dressed)
     # A hand the fold left one row tall, under a sleeve: see `_whole_hands`. Legs and feet are
