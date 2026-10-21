@@ -127,10 +127,12 @@ def pose(im, dx=0, dy=0, fold=0, step=0, wide=0, keep_feet=False):
     top, _neck, _chest, hip = cuts(im)
     bottom = rows_of(im)[-1]
     knee = hip + rdiv(KNEE_PCT * (bottom - hip), 100)
+    sink = 0
     if keep_feet:
         feet = max(2, rdiv(FEET_PCT * (bottom - top + 1), 100))
         room = max(0, min(fold, bottom + 1 - feet - knee))
-        dy += fold - room
+        sink = fold - room
+        dy += sink
         fold = room
     fold = max(0, min(fold, bottom - 1 - knee))
     cols = cols_of(im)
@@ -163,6 +165,15 @@ def pose(im, dx=0, dy=0, fold=0, step=0, wide=0, keep_feet=False):
             tx, ty = to
             if 0 <= tx < w and 0 <= ty < h:
                 o[tx, ty] = p
+    # A body sunk over its thighs (`keep_feet`) brings its lowest torso rows down onto the top of
+    # its hips: the hips' top rows are drawn again over them, so the waist (a belt, a suit's taped
+    # seam) stays where it was and the torso gives up its last rows instead (art review round 3).
+    for y in range(hip, min(hip + sink, knee)):
+        for x in range(w):
+            p = src[x, y]
+            to = moved(x, y)
+            if solid(p) and to is not None and 0 <= to[0] < w and 0 <= to[1] < h:
+                o[to[0], to[1]] = p
     # A rise (dy < 0) leaves the rows between the lifted body and the hip empty: the hip row is
     # repeated into them, so the waist stretches rather than tearing.
     if dy < 0:
@@ -272,8 +283,10 @@ def plan(action, view):
 FALL_SIDE = {"e": 1, "w": -1, "s": 1, "n": -1}
 
 
-# The fall's turns, in degrees from upright, one a beat: down to lying flat.
-FALL_TURNS = (10, 20, 30, 40, 50, 60, 70, 80, 90)
+# The fall's turns, in degrees from upright, one a beat, down to all but flat. The body is not
+# turned the last ten degrees: it settles from there onto its family's own corpse picture
+# (`settle`), the pack's lying body, which is longer and looser than any standing frame turned.
+FALL_TURNS = (10, 20, 30, 40, 50, 60, 70, 80)
 
 # The fall canvas: the family's height, and wide enough for a body lying flat from its feet to
 # either side -- FALL_REACH columns each side of the standing canvas's middle.
@@ -289,6 +302,231 @@ def widen(im, canvas):
     out = Image.new("RGBA", canvas, (0, 0, 0, 0))
     out.alpha_composite(im, ((canvas[0] - im.size[0]) // 2, canvas[1] - im.size[1]))
     return out
+
+
+# --- settling: from the last turned frame onto the pack's corpse ----------------------------------
+#
+# Art review round 3 ruled that a fall ends on the pack's own corpse picture, the quality floor:
+# a standing frame turned flat lies as a compact block with its knees bent and its arms at its
+# sides. The fall turns to 80 degrees, then settles over a few beats into the corpse, and the corpse
+# is the fall's last frame, so it is what the body lies as from then on.
+#
+# The corpse a view lies as: a side view falls forward, so face down (prone); the front and back
+# views crumple sideways and land on their backs (supine). The pack draws a prone body head east
+# and a supine one head west, so each is mirrored to lie toward its fall side; a view and its
+# mirror (e and w, s and n) then lie as exact mirror images of one another, in the same place.
+LIE_POSE = {"e": "prone", "w": "prone", "s": "supine", "n": "supine"}
+CORPSE_HEAD = {"prone": 1, "supine": -1}
+MIRROR_OF = {"w": "e", "n": "s"}
+# The most beats a settle may take, and the bounds each one keeps with a margin under art review's
+# (15% mass, 4 columns of centre, 6 px of any edge; the sole row held): what the review measures
+# counts a few soft pixels the solid-pixel count here does not.
+SETTLE_MAX = 8
+SETTLE_MASS_PCT = 13
+SETTLE_CENTRE_X2 = 7  # 3.5 columns, in halves
+SETTLE_EDGE = 5
+# A corpse lighter than this share of the falling body (in percent) is drawn bigger until it is not:
+# the bloater and the heavy die with their bellies (art review round 2's item 15).
+BELLY_PCT = 95
+
+
+def _mask(im):
+    px = im.load()
+    w, h = im.size
+    return {(x, y) for y in range(h) for x in range(w) if solid(px[x, y])}
+
+
+def _near(src, pts):
+    """{point: the squared distance to the nearest point of `src`}, in whole numbers."""
+    src = list(src)
+    return {p: min((p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 for q in src) for p in pts}
+
+
+def _measure(m):
+    xs = [x for x, _y in m]
+    ys = [y for _x, y in m]
+    return {"n": len(m), "sx": sum(xs), "low": max(ys), "top": min(ys), "left": min(xs), "right": max(xs)}
+
+
+def _keeps_bounds(a, b, sole):
+    """One beat to the next inside the settle's bounds, in whole-number arithmetic."""
+    if 100 * abs(b["n"] - a["n"]) > SETTLE_MASS_PCT * a["n"]:
+        return False
+    # |b.sx/b.n - a.sx/a.n| <= SETTLE_CENTRE_X2 / 2
+    if 2 * abs(b["sx"] * a["n"] - a["sx"] * b["n"]) > SETTLE_CENTRE_X2 * a["n"] * b["n"]:
+        return False
+    if any(abs(b[k] - a[k]) > SETTLE_EDGE for k in ("low", "top", "left", "right")):
+        return False
+    return b["low"] == sole
+
+
+def _scaled(im, num, den):
+    """`im` drawn num/den times its size, nearest pixel, in whole numbers (every pixel is one of its
+    own)."""
+    w, h = im.size
+    nw, nh = (w * num + den - 1) // den, (h * num + den - 1) // den
+    out = Image.new("RGBA", (nw, nh), (0, 0, 0, 0))
+    src, o = im.load(), out.load()
+    for y in range(nh):
+        for x in range(nw):
+            o[x, y] = src[x * den // num, y * den // num]
+    return out
+
+
+def lying_corpses(pictures, f8s):
+    """{view: the corpse picture that view lies as}, cut to its picture, mirrored to its fall side and,
+    for a family whose corpse is slimmer than the body that falls onto it, drawn bigger in steps of
+    a sixteenth until it carries the falling body's mass. `pictures` is {pose: the pack picture},
+    `f8s` {view: the fall's last turned frame}."""
+    out = {}
+    for pose in ("prone", "supine"):
+        views = [v for v, p in LIE_POSE.items() if p == pose]
+        target = sum(len(_mask(f8s[v])) for v in views) // len(views)
+        c = pictures[pose].crop(pictures[pose].getbbox())
+        num = 16
+        while 100 * len(_mask(_scaled(c, num, 16))) < BELLY_PCT * target and num < 32:
+            num += 1
+        c = _scaled(c, num, 16) if num != 16 else c
+        for v in views:
+            out[v] = c if CORPSE_HEAD[pose] == FALL_SIDE[v] else c.transpose(Image.FLIP_LEFT_RIGHT)
+    return out
+
+
+def _overlap(m8, mc):
+    """IoU as a fraction (shared, union), for comparing without float."""
+    return len(m8 & mc), len(m8 | mc)
+
+
+def _place(c, canvas, x):
+    out = Image.new("RGBA", canvas, (0, 0, 0, 0))
+    out.alpha_composite(c, (x, canvas[1] - c.size[1]))
+    return out
+
+
+def _best_x(f8, c):
+    """The column the corpse lies best over the last turned frame from: most overlap."""
+    m8 = _mask(f8)
+    best, best_x = (-1, 1), 0
+    for x in range(0, f8.size[0] - c.size[0] + 1):
+        a, u = _overlap(m8, _mask(_place(c, f8.size, x)))
+        if a * best[1] > best[0] * u:
+            best, best_x = (a, u), x
+    return best_x
+
+
+def _beats(m8, mc, low, n):
+    """The settle's `n` beats between the last turned frame (pixels `m8`) and the corpse (`mc`):
+    [(pixels drawn from the corpse, pixels drawn from the frame)]. Beat k of n shows k/(n+1) of the
+    corpse's new pixels, nearest the frame first, and keeps (n+1-k)/(n+1) of the frame's pixels the
+    corpse does not cover, the farthest from the corpse going first; where both lie, the corpse's
+    colours spread from its middle out. The mass moves in even steps and every edge moves a little a
+    beat, the limbs reaching out to the corpse's as the frame's own draw in. The sole row is the
+    last of the frame to go and the first of the corpse to come. A pixel left apart from the body
+    (a run of either picture not touching the rest) is not drawn: it would read as a speck."""
+    new, old, both = mc - m8, m8 - mc, m8 & mc
+    d_new, d_old = _near(m8, new), _near(mc, old) if old else {}
+    cn = len(mc)
+    sx = sum(x for x, _y in mc)
+    sy = sum(y for _x, y in mc)
+    new_order = sorted(new, key=lambda p: (d_new[p], p[1] != low, p[1], p[0]))
+    old_order = sorted(old, key=lambda p: (p[1] == low, -d_old[p], p[1], p[0]))
+    both_order = sorted(both, key=lambda p: ((p[0] * cn - sx) ** 2 + (p[1] * cn - sy) ** 2, p[1], p[0]))
+    out = []
+    for k in range(1, n + 1):
+        def share(items, kk=k):
+            return (2 * kk * len(items) + n + 1) // (2 * (n + 1))
+        from_c = set(new_order[:share(new_order)]) | set(both_order[:share(both_order)])
+        from_f = set(old_order[share(old_order):]) | (both - from_c)
+        body = _largest(from_c | from_f)
+        out.append((from_c & body, from_f & body))
+    return out
+
+
+def _largest(m):
+    """The largest run of touching pixels (diagonals touch) in `m`; the first found on a tie."""
+    seen, best = set(), set()
+    for start in sorted(m, key=lambda p: (p[1], p[0])):
+        if start in seen:
+            continue
+        stack, run = [start], {start}
+        seen.add(start)
+        while stack:
+            x, y = stack.pop()
+            for dx in (-1, 0, 1):
+                for dy in (-1, 0, 1):
+                    q = (x + dx, y + dy)
+                    if q in m and q not in seen:
+                        seen.add(q)
+                        run.add(q)
+                        stack.append(q)
+        if len(run) > len(best):
+            best = run
+    return best
+
+
+def _settles(m8, mc, n):
+    """`n` settle beats from `m8` to `mc` keep every step inside the bounds."""
+    sole = max(y for _x, y in m8)
+    seq = [_measure(m8)] + [_measure(a | b) for a, b in _beats(m8, mc, sole, n)] + [_measure(mc)]
+    return all(_keeps_bounds(a, b, sole) for a, b in zip(seq, seq[1:]))
+
+
+# How far either side of the best overlap the settle looks for a place that settles in fewer beats.
+SETTLE_SEARCH = 6
+
+
+def settle_plan(f8s, pictures):
+    """How every view's fall settles onto its corpse: {view: {"corpse": the corpse on the fall
+    canvas, "beats": [(from the corpse, from the frame)]}}, one beat count for the whole family.
+
+    A view and its mirror (e and w, s and n) lie in the same place, mirrored. The family takes the
+    fewest beats for which each pair has a place, a few columns either side of where the corpse
+    overlaps the two last turned frames most, that settles both inside the bounds; the place nearest
+    that overlap wins."""
+    corpses = lying_corpses(pictures, f8s)
+    w = next(iter(f8s.values())).size[0]
+    m8 = {v: _mask(f8s[v]) for v in f8s}
+    pairs = []
+    for v in ("e", "s"):
+        m = next(k for k, o in MIRROR_OF.items() if o == v)
+        cw = corpses[v].size[0]
+        mid = (_best_x(f8s[v], corpses[v]) + (w - _best_x(f8s[m], corpses[m]) - cw) + 1) // 2
+        # Never nearer either side of the canvas than the pack's margin (SIDE_CLEARANCE).
+        lo, hi = SIDE_CLEARANCE, w - cw - SIDE_CLEARANCE
+        places = sorted(range(max(lo, mid - SETTLE_SEARCH), min(hi, mid + SETTLE_SEARCH) + 1), key=lambda x: (abs(x - mid), x))
+        masks = {x: (_mask(_place(corpses[v], f8s[v].size, x)), _mask(_place(corpses[m], f8s[m].size, w - x - cw))) for x in places}
+        pairs.append((v, m, cw, places, masks))
+    for n in range(1, SETTLE_MAX + 1):
+        xs = {}
+        for v, m, cw, places, masks in pairs:
+            x = next((x for x in places if _settles(m8[v], masks[x][0], n) and _settles(m8[m], masks[x][1], n)), None)
+            if x is None:
+                break
+            xs[v], xs[m] = x, w - x - cw
+        else:
+            out = {}
+            for v in f8s:
+                placed = _place(corpses[v], f8s[v].size, xs[v])
+                out[v] = {"corpse": placed, "beats": _beats(m8[v], _mask(placed), max(y for _x, y in m8[v]), n)}
+            return out
+    raise ValueError("settle: no beat count up to %d has a place within %d columns that settles every view" % (SETTLE_MAX, SETTLE_SEARCH))
+
+
+def settle_frames(f8, corpse, beats):
+    """The settle's pictures for one view, the corpse last: each beat's pixels from the corpse and
+    the last turned frame, in their own colours. `f8` and `corpse` may be dressed pictures of the
+    bare ones the plan was made from (the clothing painter's)."""
+    f, c = f8.load(), corpse.load()
+    out = []
+    for from_c, from_f in beats:
+        im = Image.new("RGBA", f8.size, (0, 0, 0, 0))
+        o = im.load()
+        for p in from_f:
+            o[p] = f[p]
+        for p in from_c:
+            o[p] = c[p]
+        out.append(im)
+    return out + [corpse]
 
 
 def _scale2x(im):
