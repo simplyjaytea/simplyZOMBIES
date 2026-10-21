@@ -284,11 +284,13 @@ func _think() -> void:
 
 	# 4. Food and water. Still at the well from the last press: keep pressing while E is the well.
 	if _well_visit:
-		if String(SimFortify.rung_of(w, me).get("verb", "")) == "well":
+		_well_presses += 1
+		if _well_presses <= WELL_PRESS_CAP and String(SimFortify.rung_of(w, me).get("verb", "")) == "well":
 			w.commands.push({"type": "use.context"})
 			_day["well"] = int(_day["well"]) + 1
 			return
 		_well_visit = false
+		_well_presses = 0
 	var n: Dictionary = SimNeeds.of(w, me)
 	if float(n.get("thirst", 100.0)) < EAT_AT:
 		if _consume(me, "drink"):
@@ -319,6 +321,9 @@ func _set_goal(goal: String) -> void:
 var _retries: int = 0
 # Pressing E at a well until it is no longer the well (drunk, then every empty filled).
 var _well_visit: bool = false
+var _well_presses: int = 0
+# A visit is a drink or two and a bottle per empty; anything past this is a loop, not a visit.
+const WELL_PRESS_CAP: int = 12
 # A pile item the survivor stood on and could not pick up, and for how long.
 var _fetch_item: int = -1
 var _fetch_ticks: int = 0

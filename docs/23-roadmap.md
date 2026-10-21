@@ -2209,10 +2209,11 @@ not a to-do list:
 - **Needs — water at the well, 2026-10-21 (alpha A24 follow-up).** The owner's water question
   (docs/33), answered by the card's default: E at a water source drinks while a full drink fits and
   then fills a carried empty bottle (`SimNeeds.well_offer`, `use_well`; the `well` rung of
-  `SimFortify.rung_of`; the right-click menu carries the same row). Raw water is the untreated
+  `SimFortify.rung_of`; the right-click menu carries the same row), and tops up only while half a
+  drink still lands. Raw water is the untreated
   bottle's `drink` block, illness included. The scripted survivor uses it when nothing drinkable
   is carried or stocked. Gate: `godot:m2:needs` WELL, through the real E command on a booted
-  district's well, with true negatives for a sated survivor with nothing to fill and one four
+  district's well, with true negatives for a survivor past the half-drink floor with nothing to fill and one four
   metres off, and forty mouthfuls that make some ill and not all. Before it the colony's water
   was the A24 defect "no water that lasts ten days": the Water job needed an empty bottle, the
   player had no verb at the well, and after the building-noise and idle-colonist PRs the last

@@ -2188,8 +2188,10 @@ const EMPTY_ID: String = "item.water.bottle.empty"
 
 
 # What E would do at a well, as one word: "drink" while a full drink still fits, "fill" once it
-# would not and an empty bottle is carried, "drink" again for the last top-up with no bottle to
-# fill, and "" for a sated survivor with nothing to fill. Drink your fill, then fill your bottles.
+# would not and an empty bottle is carried, "drink" again for a top-up with no bottle to fill as
+# long as at least half of it lands, and "" past that. Drink your fill, then fill your bottles.
+# The half-drink floor is what ends a visit: without it a survivor a tick short of full was
+# offered a drink on every tick, and each one rolled the well's illness.
 static func well_offer(world: Variant, entity: int) -> String:
 	var spec: Variant = drink_spec(world, UNTREATED_ID)
 	var mouthful: float = float((spec as Dictionary).get("thirst", 0.0)) if spec is Dictionary else 0.0
@@ -2198,7 +2200,7 @@ static func well_offer(world: Variant, entity: int) -> String:
 		return "drink"
 	if _carried_base(world, entity, EMPTY_ID) >= 0:
 		return "fill"
-	if thirst < 100.0:
+	if thirst <= 100.0 - mouthful * 0.5:
 		return "drink"
 	return ""
 
