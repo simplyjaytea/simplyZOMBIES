@@ -5740,8 +5740,10 @@ dying, put it to the owner on a card with that default, and had it built as the 
 
 - **E at a water source** (`SimNeeds.well_offer`, `use_well`, the `well` rung of
   `SimFortify.rung_of`): drink while a full drink still fits, then fill a carried empty bottle;
-  a last top-up with no bottle to fill is still a drink, and a sated survivor with nothing to fill
-  is offered nothing. Drink your fill, then fill your bottles.
+  a top-up with no bottle to fill is still a drink while at least half of it lands, and past that
+  the well offers nothing. Drink your fill, then fill your bottles. The half-drink floor ends a
+  visit: the first build offered a drink to anyone short of full, and the playtest survivor stood
+  at the well pressing E 29,544 times, each press rolling the illness.
 - **Raw water is the untreated bottle's own `drink` block** (thirst 50, illness 0.15): a mouthful
   at the well quenches and sickens exactly as a bottle filled there does, so neither door is the
   cheaper one. Nothing is spent from the pack.

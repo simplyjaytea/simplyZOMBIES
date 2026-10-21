@@ -3047,12 +3047,20 @@ func _a_survivor_drinks_at_the_well_and_fills_a_bottle_there() -> bool:
 	if float(SimNeeds.of(w, w.player)["thirst"]) > before:
 		push_error("WELL: filling a bottle also quenched the survivor")
 		return false
-	# True negative: full, nothing left to fill -- the well is not offered.
-	SimNeeds.of(w, w.player)["thirst"] = 100.0
+	# Nothing left to fill: a top-up is a drink while at least half of it lands, and nothing past
+	# that. The second half is the one that ends a visit; without it a survivor a tick short of
+	# full was offered a drink on every tick (the playtest survivor pressed E 29,544 times).
+	SimNeeds.of(w, w.player)["thirst"] = 100.0 - mouthful * 0.5 - 1.0
 	rung = SimFortify.rung_of(w, w.player)
-	if String(rung.get("verb", "")) == "well":
-		push_error("WELL: a sated survivor with nothing to fill is still offered the well: %s" % str(rung))
+	if String(rung.get("prose", "")) != "drink from the well":
+		push_error("WELL: a survivor with room for most of a drink and nothing to fill is offered %s" % str(rung))
 		return false
+	for full in [100.0 - mouthful * 0.5 + 1.0, 99.9, 100.0]:
+		SimNeeds.of(w, w.player)["thirst"] = full
+		rung = SimFortify.rung_of(w, w.player)
+		if String(rung.get("verb", "")) == "well":
+			push_error("WELL: a survivor at thirst %.1f with nothing to fill is still offered the well: %s" % [full, str(rung)])
+			return false
 	# True negative: thirsty, but four metres off -- out of reach, no well on the bar.
 	SimNeeds.of(w, w.player)["thirst"] = 30.0
 	_stand_by(w, well, 0.0, 4.0)
@@ -3074,5 +3082,5 @@ func _a_survivor_drinks_at_the_well_and_fills_a_bottle_there() -> bool:
 	if ill == 0 or ill >= 40:
 		push_error("WELL: %d of 40 mouthfuls at the well made the survivor ill; the untreated chance is not what is rolled" % ill)
 		return false
-	print("WELL OK thirsty at the well, E drinks (+%.0f, nothing spent, the menu carries it); sated with an empty bottle, E fills it; sated with nothing and four metres off, no well; %d of 40 mouthfuls made them ill" % [mouthful, ill])
+	print("WELL OK thirsty at the well, E drinks (+%.0f, nothing spent, the menu carries it); sated with an empty bottle, E fills it; a top-up while half of it lands, none past that or four metres off; %d of 40 mouthfuls made them ill" % [mouthful, ill])
 	return true
