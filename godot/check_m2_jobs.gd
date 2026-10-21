@@ -1460,7 +1460,27 @@ func _an_errand_reaches_only_the_errand_radius() -> bool:
 	if int(SimJobs._haul_work(w, home.x, home.y).get("target", -1)) != near:
 		push_error("ERRAND: an item %.0f tiles out, inside the errand radius, was not offered" % in_d)
 		ok = false
+	# The Doctor half: a hurt colonist lying past the errand radius is not walked to, and the same
+	# colonist is once the radius is pinned back; at home they are, either way.
+	var mara: int = _mara(w)
+	var ellis: int = _ellis(w)
+	var minj: Variant = w.components.get_component(mara, "injuries")
+	if minj is Dictionary:
+		((minj as Dictionary)["wounds"] as Array).append({"kind": "scratch", "bodyPart": "torso"})
+	w.components.set_component(mara, "position", {"x": home.x + out_d, "y": home.y})
+	if int(SimJobs._doctor_work(w, ellis).get("target", -1)) == mara:
+		push_error("ERRAND: the doctor was sent to a patient %.0f tiles out" % absf(out_d))
+		ok = false
+	SimJobs.ERRAND_RADIUS_TILES = SimJobs.HOME_RADIUS_TILES
+	if int(SimJobs._doctor_work(w, ellis).get("target", -1)) != mara:
+		push_error("ERRAND: with the radius pinned back the doctor still refused the patient, so the radius is not what refused them")
+		ok = false
+	SimJobs.ERRAND_RADIUS_TILES = was_r
+	w.components.set_component(mara, "position", {"x": home.x + 0.5, "y": home.y + 0.5})
+	if int(SimJobs._doctor_work(w, ellis).get("target", -1)) != mara:
+		push_error("ERRAND: a patient at home was not offered to the doctor")
+		ok = false
 	SimJobs.BREAK_OFF_FROM_DANGER = was_d
 	if ok:
-		print("ERRAND OK Haul refuses an item %.0f tiles out at the %.0f-tile errand radius and takes it at %.0f; one %.0f tiles out is taken" % [absf(out_d), SimJobs.ERRAND_RADIUS_TILES, SimJobs.HOME_RADIUS_TILES, absf(in_d)])
+		print("ERRAND OK Haul refuses an item %.0f tiles out at the %.0f-tile errand radius and takes it at %.0f; one %.0f tiles out is taken; the doctor walks to a patient at home and not to one that far out" % [absf(out_d), SimJobs.ERRAND_RADIUS_TILES, SimJobs.HOME_RADIUS_TILES, absf(in_d)])
 	return ok

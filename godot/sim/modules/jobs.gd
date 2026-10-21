@@ -909,6 +909,11 @@ static func _doctor_work(world: Variant, ent: int) -> Dictionary:
 			continue
 		if not _injured(world, int(other)):
 			continue
+		# A patient out past the errand radius is not walked to: the A24 playtest lost a doctor on
+		# each of two seeds walking sixty-odd tiles into the street after the hurt survivor.
+		var op: Variant = world.components.get_component(int(other), "position")
+		if op is Dictionary and not _near_errand(world, float((op as Dictionary)["x"]), float((op as Dictionary)["y"])):
+			continue
 		var job: Variant = world.components.get_component(int(other), "job")
 		var idle: bool = job == null or (job is Dictionary and String((job as Dictionary).get("kind", "")) in ["Rest", "Patient", ""])
 		if not idle and not world.components.has_component(int(other), "sleeping"):
@@ -1385,7 +1390,7 @@ static var WEAR_FOUND_ARMOR: bool = true
 # A static the balance harness and the gates can pin, the WEAR_FOUND_ARMOR precedent: false is the
 # colony as it was before the A24 pass.
 static var BREAK_OFF_FROM_DANGER: bool = true
-const DANGER_KINDS: Array[String] = ["Haul", "Scavenge", "Water", "Bury", "Dress", "Rearm"]
+const DANGER_KINDS: Array[String] = ["Haul", "Scavenge", "Water", "Bury", "Dress", "Rearm", "Doctor"]
 # How close a zombie comes before an errand is dropped: a shambler's contact range (1.6 m) with
 # room for a colonist to turn and walk off before the hands close.
 const DANGER_METRES: float = 6.0
