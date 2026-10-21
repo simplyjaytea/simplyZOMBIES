@@ -918,6 +918,11 @@ static func _doctor_work(world: Variant, ent: int) -> Dictionary:
 		var op: Variant = world.components.get_component(int(other), "position")
 		if op is Dictionary and not _near_errand(world, float((op as Dictionary)["x"]), float((op as Dictionary)["y"])):
 			continue
+		# Nor one with a zombie standing over them, the rule Haul and Scavenge already follow: the
+		# building-noise pass watched colonist 84 on seed 31337 leave the annex for the player with
+		# a zombie 8 m past the door, walk into its hands and never come back.
+		if BREAK_OFF_FROM_DANGER and op is Dictionary and _danger_at(world, float((op as Dictionary)["x"]), float((op as Dictionary)["y"]), DANGER_TARGET_METRES):
+			continue
 		var job: Variant = world.components.get_component(int(other), "job")
 		var idle: bool = job == null or (job is Dictionary and String((job as Dictionary).get("kind", "")) in ["Rest", "Patient", ""])
 		if not idle and not world.components.has_component(int(other), "sleeping"):
