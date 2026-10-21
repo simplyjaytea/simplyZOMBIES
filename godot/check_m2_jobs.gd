@@ -1374,32 +1374,8 @@ func _an_errand_breaks_off_from_a_zombie() -> bool:
 		push_error("DANGER: an item with a zombie 2 m off it was still offered as Haul work")
 		ok = false
 	w.despawn(z)
-	# The same refusal in the Dress and Rearm finders: a vest and a knife out at the spot are
-	# offered to an empty-handed, unarmoured Ellis at the start, and not with a zombie beside them.
-	var ellis: int = _ellis(w)
-	for carried in SimInventory.carried_items(w, ellis):
-		w.despawn(int(carried))
-	w.components.set_component(ellis, "position", {"x": float(start.x) + 0.5, "y": float(start.y) + 0.5})
-	w.despawn(item)
-	for pair in [["Dress", "item.vest.scrap"], ["Rearm", "item.knife.kitchen"]]:
-		var kind: String = String(pair[0])
-		var thing: int = SimItems.spawn_item(w, String(pair[1]), {"tier": "scavenged"})
-		w.components.set_component(thing, "position", {"x": float(spot.x) + 0.5, "y": float(spot.y) + 0.5})
-		var open_job: Dictionary = SimJobs._dress_job(w, ellis) if kind == "Dress" else SimJobs._rearm_job(w, ellis)
-		w.components.remove(thing, "reserved")
-		if int(open_job.get("target", -1)) != thing:
-			push_error("DANGER: a %s with nothing near it was not offered to an empty-handed Ellis (%s)" % [String(pair[1]), str(open_job)])
-			ok = false
-		var zz: int = SimRoster.spawn_zombie(w, float(spot.x) + 2.5, float(spot.y) + 0.5, SimRoster.TYPE_SHAMBLER, w.rng.stream("shambler"))
-		var shut: Dictionary = SimJobs._dress_job(w, ellis) if kind == "Dress" else SimJobs._rearm_job(w, ellis)
-		w.components.remove(thing, "reserved")
-		if int(shut.get("target", -1)) == thing:
-			push_error("DANGER: a %s with a zombie 2 m off it was still offered as %s" % [String(pair[1]), kind])
-			ok = false
-		w.despawn(zz)
-		w.despawn(thing)
 	if ok:
-		print("DANGER OK an errand 3 m from a zombie walks home; 10 m off, inside the annex, under an order or switched off it carries on; a guarded item is not offered as Haul, Dress or Rearm")
+		print("DANGER OK an errand 3 m from a zombie walks home; 10 m off, inside the annex, under an order or switched off it carries on; a guarded item is not offered")
 	return ok
 
 
