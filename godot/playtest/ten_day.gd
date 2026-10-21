@@ -60,7 +60,7 @@ const MOB_RADIUS: float = 6.0
 const MOB_SIZE: int = 3
 # How far from home the survivor will walk to a container, in tiles. Wide enough to reach the
 # neighbourhood of a 256-tile district and the whole of a 64-tile one.
-const SCAVENGE_RADIUS: float = 110.0
+const SCAVENGE_RADIUS: float = 70.0
 # The need line at which a careful player eats or drinks: needs.gd's own SEEK_START, the line the
 # colonists' autonomy reaches for food at.
 const EAT_AT: float = SimNeeds.SEEK_START
@@ -188,6 +188,19 @@ func _think() -> void:
 				mob += 1
 		if held or dist <= reach:
 			# Cornered, or already in hand: hit it (a swing while held is the struggle).
+			if not held and _goal == "fight" and int(nearest["e"]) == _fight_target:
+				_fight_ticks += 1
+				if _fight_ticks > FIGHT_GIVE_UP_TICKS:
+					# Swinging at it all this while and it neither falls nor reaches: a window or a
+					# fence between. Leave it be.
+					_ignored[_fight_target] = int(w.tick) + IGNORE_TICKS
+					_fight_ticks = 0
+					_set_goal("idle")
+					_day["ignored"] = int(_day.get("ignored", 0)) + 1
+					return
+			else:
+				_fight_target = int(nearest["e"])
+				_fight_ticks = 0
 			_strike(me, here, nearest)
 			return
 		if _loaded_gun(me) and dist <= 10.0:
@@ -302,6 +315,11 @@ var _retries: int = 0
 var _ignored: Dictionary = {}
 var _hold_ticks: int = 0
 const HOLD_GIVE_UP_TICKS: int = 300
+const FIGHT_GIVE_UP_TICKS: int = 600
+var _fight_target: int = -1
+var _fight_ticks: int = 0
+# A box or a thing on the ground with a zombie this close to it is not worth the walk.
+const GUARDED_METRES: float = 10.0
 const IGNORE_TICKS: int = 3000
 const WANTED: Array[String] = ["food", "drink", "medical", "ammo", "weapon"]
 func _go(tile: Vector2i) -> void:
@@ -542,6 +560,8 @@ func _next_item(here: Vector2) -> int:
 			continue
 		if not WANTED.has(_kind_of(int(item))):
 			continue
+		if not _threats(p, GUARDED_METRES).is_empty():
+			continue
 		var d: float = here.distance_to(p)
 		if d < best_d:
 			best_d = d
@@ -700,6 +720,8 @@ func _next_container(here: Vector2) -> int:
 			continue
 		var p: Vector2 = _pos(int(c))
 		if p.distance_to(home_c) > SCAVENGE_RADIUS:
+			continue
+		if not _threats(p, GUARDED_METRES).is_empty():
 			continue
 		var d: float = here.distance_to(p)
 		if d < best_d:
