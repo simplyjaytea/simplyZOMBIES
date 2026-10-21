@@ -2780,9 +2780,14 @@ not a to-do list:
   columns), the pair whose feet move least from where each turned frame's lay (a drift within
   `SETTLE_FOOT`, 2 columns, counts as none), so a body settles where it fell rather than skating
   along the floor (round 4's stalker slid 9 columns, round 5's runner 6). The runner is the one
-  exception to a 3-column drift: its two turned frames' foot ends lie 13 columns off mirror, so
-  corpses that land where their mirror lands must move 11 columns between them; it lands 6 each
-  side, its corpses 1 column off mirror. Every other side view lands within 3 columns and its
+  exception to a 3-column drift: its two turned frames' foot ends lie 13 columns off mirror (its
+  east and west turn frames are not mirror images of each other), so corpses that
+  land where their mirror lands must move 11 columns between them. Mirror first, as shipped: it
+  lands 6 columns each side, its corpses 1 column off mirror. Drift first, the alternative: its
+  feet within 3 columns, its corpses 7 or more off mirror. Round 7's review judges whether the
+  6 columns read as a skate; if so, drift first, since a slide shows in play and the side views'
+  mirror does not. The fix that holds both: mirror the runner's west turn frames from its east
+  ones. Every other side view lands within 3 columns and its
   corpses within 2 of mirrored (round 6 accepted 2 to 3). Each family takes the beat count whose side views
   drift least, then the fewest beats, that keeps every step inside the
   bounds with a margin (13% mass, 3.5 columns of centre, 5 px of edge, the sole row held), the
