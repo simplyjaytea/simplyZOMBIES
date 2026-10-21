@@ -342,6 +342,13 @@ func _stays_asleep() -> bool:
 	if before.size() != records.size():
 		push_error("%s: %d records and %d bodies asleep at boot" % [lane, records.size(), before.size()])
 		return false
+	# "Nothing near it" made true rather than assumed: every colonist but the player out of the
+	# world. Since the A24 errand radius the colonists spend the opening ticks building at home,
+	# and the hammering (`SimFortify.CONSTRUCT_NOISE`) wakes body 45 on tick 39, 31 m off. That is
+	# a noise doing its job, which WAKE judges; this lane judges a body with nothing to hear.
+	for c in w.components.query(["needs", "body"]):
+		if int(c) != int(w.player):
+			w.despawn(int(c))
 	for _t in ASLEEP_TICKS:
 		w.step()
 	for e in before.keys():

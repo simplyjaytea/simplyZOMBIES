@@ -66,8 +66,15 @@ func _run() -> void:
 
 # --- fixtures ----------------------------------------------------------------------------------
 
+# The lanes judge what an order does with a colonist's feet, so the district's zombies are cleared
+# out of it. They used to be left in, and the walk passed because of where they happened to be:
+# when the A24 danger rule changed what Ellis does on the first tick, seven of them gathered at
+# the annex door and Mara could not walk through them, which says nothing about orders.
 func _world() -> Variant:
-	return SimBoot.playable(SEED, MAP)["world"]
+	var w: Variant = SimBoot.playable(SEED, MAP)["world"]
+	for z in w.components.query(["shambler"]):
+		w.despawn(int(z))
+	return w
 
 
 func _survivor(w: Variant, id: String) -> int:

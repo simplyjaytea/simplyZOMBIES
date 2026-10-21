@@ -37,6 +37,7 @@ func _run() -> void:
 	ok = _an_npc_takes_itself_to_the_latrine() and ok
 	ok = _a_meals_mood_is_bounded_and_wears_off() and ok
 	ok = _a_survivor_who_dies_in_bed_gives_the_bed_back() and ok
+	ok = _the_player_gets_up() and ok
 	ok = _the_deep_cold_is_reachable_and_interrupts_work() and ok
 	ok = _a_good_nights_sleep_beats_a_bad_one_and_it_shows_the_next_morning() and ok
 	ok = _each_sleep_factor_moves_the_quality_alone() and ok
@@ -50,7 +51,7 @@ func _run() -> void:
 	ok = _bedding_moves_the_night_and_bare_boards_move_nothing() and ok
 	ok = _soap_buys_a_wash_that_lasts() and ok
 	if ok:
-		print("M2_NEEDS_OK drain bands verbs hud hold, low mood has consequences, food is content and can make you ill, a death costs the living, everybody has to go, a meal's mood wears off, the dead give back the bed, the deep cold is reachable, sleep has a quality, what you sleep on moves it and bare boards do not, soap buys a wash that lasts, drinks are content and leave their empties, a stimulant is a loan, a careful pantry keeps, the well's water wants a fire, and a lit fire burns down")
+		print("M2_NEEDS_OK drain bands verbs hud hold, low mood has consequences, food is content and can make you ill, a death costs the living, everybody has to go, a meal's mood wears off, the dead give back the bed, the player gets up, the deep cold is reachable, sleep has a quality, what you sleep on moves it and bare boards do not, soap buys a wash that lasts, drinks are content and leave their empties, a stimulant is a loan, a careful pantry keeps, the well's water wants a fire, and a lit fire burns down")
 		quit(0)
 	else:
 		push_error("M2_NEEDS_FAIL")
@@ -1329,6 +1330,87 @@ func _a_survivor_who_dies_in_bed_gives_the_bed_back() -> bool:
 	return true
 
 
+# The controlled survivor had no way out of bed. Nothing woke them but a hit, a grab or an alarm, so
+# a player who lay down walked off still `sleeping` -- rest refilling on the march, the HUD's
+# fast-forward running at the sleep rate -- which the A24 playtest driver found on its first night.
+# Two ways up, each with the case that must *not* wake beside it: a step wakes you and standing
+# still does not; a full night's rest wakes you once the night is over and not while it lasts; and
+# a body that passed out is not got up by a key.
+func _the_player_gets_up() -> bool:
+	var w: Variant = _world()
+	_clear_shamblers(w)
+	var me: int = int(w.player)
+	var beds: Array[int] = w.components.query(["bed", "position"])
+	if beds.is_empty():
+		push_error("WAKE: the booted district sited no bed, so this lane has nothing to judge")
+		return false
+	var bed: int = int(beds[0])
+	var bp: Dictionary = w.components.get_component(bed, "position") as Dictionary
+	w.components.set_component(me, "position", {"x": float(bp["x"]), "y": float(bp["y"])})
+	# Night, half rested: neither way up applies.
+	w.tick = Clock.tick_on_day(2, 0.8)
+	SimNeeds.start_sleep(w, me, bed)
+	SimNeeds.of(w, me)["rest"] = 50.0
+	for _i in 40:
+		w.commands.push({"type": "move", "dx": 0.0, "dy": 0.0})
+		w.step()
+	if not w.components.has_component(me, "sleeping"):
+		push_error("WAKE: a released key (a zero move) or the night itself got the player up")
+		return false
+	w.commands.push({"type": "move", "dx": 1.0, "dy": 0.0})
+	w.step()
+	if w.components.has_component(me, "sleeping"):
+		push_error("WAKE: a step left the player asleep, so they walk off still sleeping")
+		return false
+	# The same with a walk-here.
+	SimNeeds.start_sleep(w, me, bed)
+	var here: Dictionary = w.components.get_component(me, "position") as Dictionary
+	w.commands.push({"type": "walk.to", "tx": floori(float(here["x"])), "ty": floori(float(here["y"])) + 1})
+	w.step()
+	if w.components.has_component(me, "sleeping"):
+		push_error("WAKE: a walk-here left the player asleep")
+		return false
+	# Passed out: a key does not undo it.
+	SimNeeds.start_sleep(w, me, -1)
+	SimNeeds.of(w, me)["crisis"] = "passed_out"
+	SimNeeds.of(w, me)["rest"] = 5.0
+	w.commands.push({"type": "move", "dx": 1.0, "dy": 0.0})
+	w.step()
+	if not w.components.has_component(me, "sleeping"):
+		push_error("WAKE: a key got up a body that had passed out")
+		return false
+	SimNeeds.of(w, me)["crisis"] = "none"
+	# Rested: asleep through the night at full, up once it is over.
+	SimNeeds.start_sleep(w, me, bed)
+	SimNeeds.of(w, me)["rest"] = 100.0
+	w.tick = Clock.tick_on_day(2, 0.95)
+	w.step()
+	if not w.components.has_component(me, "sleeping"):
+		push_error("WAKE: a rested player was got up while it was still night")
+		return false
+	# Lying down rested in the day stays a thing E does: not up on the next tick.
+	w.tick = Clock.tick_on_day(3, 0.01)
+	(w.components.get_component(me, "sleeping") as Dictionary)["since"] = int(w.tick)
+	w.step()
+	if not w.components.has_component(me, "sleeping"):
+		push_error("WAKE: a rested player who has just lain down was got straight back up")
+		return false
+	w.tick = Clock.tick_on_day(3, 0.01) + SimNeeds.WAKE_RESTED_AFTER_TICKS
+	w.step()
+	if w.components.has_component(me, "sleeping"):
+		push_error("WAKE: a fully rested player slept on past the night, so the fast-forward never stops")
+		return false
+	# And somebody who is not rested sleeps on into the dawn.
+	SimNeeds.start_sleep(w, me, bed)
+	SimNeeds.of(w, me)["rest"] = 40.0
+	w.step()
+	if not w.components.has_component(me, "sleeping"):
+		push_error("WAKE: a tired player was woken at dawn before they were rested")
+		return false
+	print("WAKE OK a step or a walk-here gets the player up and standing still does not; a passed-out body stays down; a full night's rest wakes them once the night is over and not before")
+	return true
+
+
 # A tile outdoors, and a tile indoors, on the booted district's own map. Returned as (-1, -1) when
 # the map has none, so the lane says so rather than measuring a position it invented.
 func _tile_where(w: Variant, indoors: bool) -> Vector2i:
@@ -2471,7 +2553,8 @@ func _untreated_water_carries_illness_and_a_fire_boils_it() -> bool:
 	var out: Array[String] = []
 	for c in [
 		{"name": "boils", "fire": true, "clean": false, "thirst": 35.0, "want_boil": 1, "want_drink": SimNeeds.WATER_ID},
-		{"name": "clean-first", "fire": true, "clean": true, "thirst": 35.0, "want_boil": 0, "want_drink": SimNeeds.WATER_ID},
+		{"name": "clean-first", "fire": true, "clean": true, "soda": true, "thirst": 35.0, "want_boil": 0, "want_drink": SimNeeds.WATER_ID},
+		{"name": "soda", "fire": false, "clean": false, "soda": true, "thirst": 35.0, "want_boil": 0, "want_drink": "item.soda.can"},
 		{"name": "raw-at-soft", "fire": false, "clean": false, "thirst": 25.0, "want_boil": 0, "want_drink": SimNeeds.UNTREATED_ID},
 		{"name": "waits", "fire": false, "clean": false, "thirst": 35.0, "want_boil": 0, "want_drink": ""},
 	]:
@@ -2481,9 +2564,11 @@ func _untreated_water_carries_illness_and_a_fire_boils_it() -> bool:
 		if mara < 0:
 			push_error("WATER: no Mara")
 			return false
+		# Every drink out of the world, not just the bottled water: since A24 a thirsty colonist
+		# takes any clean drink, so a stray soda would answer the "waits" case.
 		for item in w4.components.query(["itemBase"]):
 			var b: Dictionary = w4.components.get_component(int(item), "itemBase") as Dictionary
-			if String(b.get("baseId", "")) == SimNeeds.WATER_ID:
+			if SimNeeds.is_drink(w4, String(b.get("baseId", ""))):
 				w4.despawn(int(item))
 		if not bool(c["fire"]):
 			for f in w4.components.query(["campfire"]):
@@ -2501,6 +2586,13 @@ func _untreated_water_carries_illness_and_a_fire_boils_it() -> bool:
 		if bool(c["clean"]):
 			var cb: int = SimItems.spawn_item(w4, SimNeeds.WATER_ID, {"tier": "scavenged"})
 			SimInventory.stow(w4, mara, cb)
+		if bool(c.get("soda", false)):
+			# A soda, carried: drunk when there is no bottled water (the "soda" case), passed
+			# over for one when there is ("clean-first"), and never ahead of nothing at all.
+			var can: int = SimItems.spawn_item(w4, "item.soda.can", {"tier": "scavenged"})
+			if not SimInventory.stow(w4, mara, can):
+				push_error("WATER: could not stow Mara's soda")
+				return false
 		var n: Dictionary = _quiet_pools(w4, mara)
 		n["thirst"] = float(c["thirst"])
 		w4.components.remove(mara, "job")
