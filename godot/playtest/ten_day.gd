@@ -60,7 +60,7 @@ const MOB_RADIUS: float = 6.0
 const MOB_SIZE: int = 3
 # How far from home the survivor will walk to a container, in tiles. Wide enough to reach the
 # neighbourhood of a 256-tile district and the whole of a 64-tile one.
-const SCAVENGE_RADIUS: float = 70.0
+const SCAVENGE_RADIUS: float = 110.0
 # The need line at which a careful player eats or drinks: needs.gd's own SEEK_START, the line the
 # colonists' autonomy reaches for food at.
 const EAT_AT: float = SimNeeds.SEEK_START
@@ -193,6 +193,17 @@ func _think() -> void:
 		if _loaded_gun(me) and dist <= 10.0:
 			_shoot(me, here, nearest)
 			return
+		if _goal == "hold":
+			_hold_ticks += 1
+			if _hold_ticks > HOLD_GIVE_UP_TICKS:
+				# Waited and it never came: something stands between. Leave it be and get on.
+				_ignored[int(nearest["e"])] = int(w.tick) + IGNORE_TICKS
+				_hold_ticks = 0
+				_set_goal("idle")
+				_day["ignored"] = int(_day.get("ignored", 0)) + 1
+				return
+		else:
+			_hold_ticks = 0
 		if mob <= 1 and _reach(me) >= HOLD_REACH and dist <= MOB_RADIUS:
 			# One, and a weapon long enough to land before its hands do: stand, face it, and let it
 			# walk into the swing.
@@ -286,6 +297,13 @@ func _set_goal(goal: String) -> void:
 
 
 var _retries: int = 0
+# A zombie the survivor stood and waited for that never came (a wall or a fence between them): left
+# alone until the tick stored here, unless it comes within reach or takes hold.
+var _ignored: Dictionary = {}
+var _hold_ticks: int = 0
+const HOLD_GIVE_UP_TICKS: int = 300
+const IGNORE_TICKS: int = 3000
+const WANTED: Array[String] = ["food", "drink", "medical", "ammo", "weapon"]
 func _go(tile: Vector2i) -> void:
 	if tile == _walking_to:
 		if w.components.has_component(int(w.player), "walkTo"):
@@ -438,6 +456,9 @@ func _haul_home(me: int, here: Vector2) -> void:
 func _scavenge(me: int, here: Vector2) -> void:
 	if _goal != "scavenge" or _target < 0 or _given_up.has(_target):
 		_target = _next_container(here)
+		var item: int = _next_item(here)
+		if item >= 0 and (_target < 0 or here.distance_to(_pos(item)) < here.distance_to(_pos(_target))):
+			_target = item
 		_set_goal("scavenge")
 		if _target < 0:
 			# Nothing left in reach: stand at home, which is what a run looks like once a
@@ -449,7 +470,10 @@ func _scavenge(me: int, here: Vector2) -> void:
 		_target_tile = _stand_tile(Vector2i(floori(cp.x), floori(cp.y)))
 	match _arrived_or_failed(here, _target_tile):
 		"arrived":
-			_loot(me)
+			if w.components.has_component(_target, "searchable"):
+				_loot(me)
+			else:
+				_pick_up(me)
 		"failed":
 			_given_up[_target] = true
 			_day["gave_up"] = int(_day["gave_up"]) + 1
@@ -487,6 +511,42 @@ func _loot(me: int) -> void:
 			_given_up[_target] = true
 			_target = -1
 			_open_step = 0
+
+
+# A useful thing lying loose: the district scatters most of its loot on the ground (47 containers
+# on a whole 256-tile map), so a survivor who only opened boxes would starve beside it.
+func _pick_up(me: int) -> void:
+	_stop()
+	if _open_step == 0:
+		w.commands.push({"type": "item.pickup", "item": _target})
+		_open_step = 1
+		return
+	if SimInventory.owns(w, me, _target):
+		_day["picked"] = int(_day.get("picked", 0)) + 1
+	_given_up[_target] = true
+	_target = -1
+	_open_step = 0
+
+
+func _next_item(here: Vector2) -> int:
+	var best: int = -1
+	var best_d: float = INF
+	var home_c: Vector2 = Vector2(_home_tile) + Vector2(0.5, 0.5)
+	for item in SimInventory.ground_items(w):
+		if _given_up.has(int(item)) or w.components.has_component(int(item), "corpse"):
+			continue
+		var p: Vector2 = _pos(int(item))
+		if p.x < 0.0 or SimNeeds.is_stockpile_tile(w, floori(p.x), floori(p.y)):
+			continue
+		if p.distance_to(home_c) > SCAVENGE_RADIUS:
+			continue
+		if not WANTED.has(_kind_of(int(item))):
+			continue
+		var d: float = here.distance_to(p)
+		if d < best_d:
+			best_d = d
+			best = int(item)
+	return best
 
 
 func _equip_best(me: int) -> void:
@@ -538,6 +598,8 @@ func _threats(here: Vector2, radius: float) -> Array:
 			var p: Vector2 = _pos(int(e))
 			var d: float = here.distance_to(p)
 			if d <= radius:
+				if int(_ignored.get(int(e), -1)) > int(w.tick) and d > _reach(int(w.player)) + 0.5 and not w.components.has_component(int(w.player), "grabbed"):
+					continue
 				out.append({"e": int(e), "p": p, "d": d})
 	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["d"]) < float(b["d"]))
 	return out
@@ -675,7 +737,7 @@ func _blank_counters() -> Dictionary:
 	return {
 		"kills": 0, "player_kills": 0, "deaths": 0, "turned": 0, "bites": 0, "player_bites": 0,
 		"hits_taken": 0, "grabs": 0, "player_grabs": 0, "packets": 0, "raids": 0, "recruits": 0,
-		"searched": 0, "npc_searches": 0, "ate": 0, "drank": 0, "swings": 0, "shots": 0, "treats": 0,
+		"searched": 0, "picked": 0, "ignored": 0, "npc_searches": 0, "ate": 0, "drank": 0, "swings": 0, "shots": 0, "treats": 0,
 		"hauled": 0, "gave_up": 0, "equipped": 0, "woken": 0, "bed_fallback": 0, "slept_ticks": 0,
 		"successions": 0, "left": 0,
 	}
@@ -825,10 +887,10 @@ func _close_day(day: int) -> void:
 		row[key] = _day[key]
 		_run_total[key] = int(_run_total.get(key, 0)) + int(_day[key])
 	_emit(row)
-	print("DAY %2d head=%d alive=%s hunger=%5.1f thirst=%5.1f rest=%5.1f food=%d+%d drink=%d+%d wounds=%d bleed=%d infected=%d bites=%d kills=%d(you %d) deaths=%d left=%d searched=%d ate=%d drank=%d swings=%d grabs=%d(you %d) packets=%d raids=%d live=%d tick=%.2f/%.2f/%.2f ms" % [
+	print("DAY %2d head=%d alive=%s hunger=%5.1f thirst=%5.1f rest=%5.1f food=%d+%d drink=%d+%d wounds=%d bleed=%d infected=%d bites=%d kills=%d(you %d) deaths=%d left=%d searched=%d picked=%d ate=%d drank=%d swings=%d grabs=%d(you %d) packets=%d raids=%d live=%d tick=%.2f/%.2f/%.2f ms" % [
 		day, colony.size(), str(colony.has(me)), float(row["hunger"]), float(row["thirst"]), float(row["rest"]),
 		food_stock, food_carried, drink_stock, drink_carried, wounds, bleeding, infected, int(_day["bites"]),
-		int(_day["kills"]), int(_day["player_kills"]), int(_day["deaths"]), int(_day["left"]), int(_day["searched"]), int(_day["ate"]), int(_day["drank"]),
+		int(_day["kills"]), int(_day["player_kills"]), int(_day["deaths"]), int(_day["left"]), int(_day["searched"]), int(_day["picked"]), int(_day["ate"]), int(_day["drank"]),
 		int(_day["swings"]), int(_day["grabs"]), int(_day["player_grabs"]), int(_day["packets"]), int(_day["raids"]),
 		int(row["live_shamblers"]), mean_ms, p99_ms, max_ms,
 	])
