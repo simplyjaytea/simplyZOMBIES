@@ -497,6 +497,16 @@ static func rung_of(world: Variant, actor: int) -> Dictionary:
 			return {"verb": "fire", "target": fire, "prose": "light the fire"}
 		if _would_purify(world, actor):
 			return {"verb": "purify", "target": -1, "prose": "purify a bottle with your filter"}
+		# The well, or a source on the river bank: drink while a drink fits, then fill a carried
+		# empty bottle (`SimNeeds.well_offer`). The owner's water pick, docs/30.
+		var source: int = int(Needs.call("nearest_water_source", world, hx, hy))
+		if source >= 0 and _entity_in_reach(world, actor, source):
+			var offer: String = String(Needs.call("well_offer", world, actor))
+			var where: String = "the river" if _on_river(world, source) else "the well"
+			if offer == "drink":
+				return {"verb": "well", "target": source, "prose": "drink from " + where}
+			if offer == "fill":
+				return {"verb": "well", "target": source, "prose": "fill a bottle at " + where}
 		var latrine: int = int(Needs.call("nearest_latrine", world, hx, hy))
 		if latrine >= 0 and _entity_in_reach(world, actor, latrine):
 			return {"verb": "relieve", "target": latrine, "prose": "use the latrine"}
@@ -677,6 +687,9 @@ static func _use_context(world: Variant, actor: int) -> void:
 		"purify":
 			if Needs != null:
 				Needs.call("purify", world, actor)
+		"well":
+			if Needs != null:
+				Needs.call("use_well", world, actor, int(rung.get("target", -1)))
 		"relieve":
 			if Needs != null:
 				Needs.call("relieve_at", world, actor, int(rung.get("target", -1)))
@@ -1207,6 +1220,19 @@ static func _same_tile(world: Variant, actor: int, other: int) -> bool:
 		return false
 	return floori(float((a as Dictionary)["x"])) == floori(float((b as Dictionary)["x"])) \
 		and floori(float((a as Dictionary)["y"])) == floori(float((b as Dictionary)["y"]))
+
+
+# A water source standing on the river's surface rather than at the yard's well: the same verb, and
+# the bar names the place you are actually standing at.
+static func _on_river(world: Variant, source: int) -> bool:
+	var p: Variant = world.components.get_component(source, "position")
+	if not p is Dictionary or world.tilemap == null:
+		return false
+	var tx: int = floori(float((p as Dictionary)["x"]))
+	var ty: int = floori(float((p as Dictionary)["y"]))
+	if tx < 0 or ty < 0 or tx >= int(world.tilemap.w) or ty >= int(world.tilemap.h):
+		return false
+	return int(world.tilemap.surfaces[ty * int(world.tilemap.w) + tx]) == SimTileMap.SURFACE_WATER
 
 
 static func _entity_in_reach(world: Variant, actor: int, other: int) -> bool:
