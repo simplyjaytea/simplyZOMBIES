@@ -661,6 +661,95 @@ container. On the faster container of the revision table the same night stage is
 still just over. This is not the light map's cost, since A10 lowered the number; what the rest of
 the night frame spends it on has not been profiled.
 
+### Flat dressing, baked
+
+Plan item A12, 2026-10-20 (`presentation/world_layers.gd`, `presentation/dressing.gd::decor_picks`,
+`main.gd::_draw_decor`). The nature pictures and the furnishings left the per-frame draw loop and
+bake into a sixth world layer, DECOR, which is LIVE-only: it shows where the sim sees, and it is
+culled with its chunk like the seen ground. `decor_picks` answers the picks the per-tile functions
+make, each with its offset from the tile's centre and a mirror flag, so a baked picture is the one
+the frame would have drawn.
+
+The density came from three places. Furnishing rarities in `content/dressing/street.json` went down
+(shelf 4, cabinet 10, table 6, chair 6, dumpster 14, barrier 70, cone 45; post unchanged), and three
+pack props joined as scenery: the oil barrel (40), the pallet stack (55) and the rubbish bags (8,
+beside a wall or a kerb). The crates, footlockers and medical boxes are container kinds and stay out.
+Litter is cut from the pack's `overlay-debris` sheet: since A12's sixth pass a crumpled paper (11x12)
+alone, drawn on whole art pixels like everything else, weighted toward walls, kerbs and cluttered
+blocks (docs/23's sixth-pass record has the numbers). About one in six of the visible floor on the
+review shots; the 64-tile suburb, mostly edge, counts 387 of 2,282 (OCCUPANCY lane). Each picture's extent is content: the block's `sizes`, checked against its authored canvas.
+
+The seventh pass's cost, same machine (a 2.80 GHz Xeon, llvmpipe), alternated with main 9d9bc23:
+the world `_draw` mean 9.74 ms before and 9.24 ms after over three runs each (`godot:bench:frame`,
+1280x720), the crowded scene 182.6 and 181.7; the tick 11.09 and 10.77 ms over two
+(`godot:bench:runtime`). The per-block litter quota and the table's own-chair test are memoised in
+the occupancy (`litter_blocks`, `memo`), so they are paid once per map, not per frame.
+
+The sixth pass's cost, same machine, alternated with the fifth: the world `_draw` mean 6.03 ms
+before and 6.06 ms after over four runs each (`godot:bench:frame`, 1280x720), the crowded scene 88.6
+and 87.7; the tick 7.49 and 7.03 ms over two (`godot:bench:runtime`). The per-room keep and the
+room flood fill are memoised in the occupancy, so a room's pieces are ranked once per map.
+
+The fifth pass's cost, same machine, three runs each: the world `_draw` mean 5.82 ms before and
+5.94 ms after (`godot:bench:frame`, 1280x720), the crowded scene 87.6 and 87.5; the tick 7.37 and
+7.21 ms (`godot:bench:runtime`; nothing under `godot/sim/` changed). The occupancy is built once
+per map, seed, content and prop layout (`main.gd::_dressing_occupancy`) and memoises each tile's
+raw top, so the bake and the per-frame litter read it rather than recompute it.
+
+The per-tile rolls use `Dressing._mix`, a multiply-xorshift finaliser over the hash: the plain hash's
+low bits fell on a lattice, and `godot:check:trees`'s LATTICE lane holds the mixed roll to a near-even
+pair count on a 32-square window (250 and 241 against 248 expected; the shifted roll gave 320 and 192).
+Every flat picture is placed in whole art pixels: its centre up to six art pixels off the tile's
+centre line, its base up to six above the tile's south edge, its left edge on the art grid even when
+its width is odd (PLACED lane). About half are mirrored.
+
+Overlap, not one picture to a tile. A tile's raw picture is its furnishing, else its nature picture.
+Two pictures whose art rects meet cannot both be drawn: the lower rank gives way (a standing
+furnishing over a flat one, a flat one over nature, anything over a scrap), and a tie goes to the
+tile whose hash is higher (`Dressing._kept_top`). Every art rect fits within one tile of its own, so
+the eight neighbours are the only tiles that can meet it. The rule reads raw neighbours, so a loser
+still blocks what lies beside it: that costs a little furniture and keeps every answer local and
+pure. OCCUPANCY lane judges it on the suburb: the raw rolls must meet (48 meetings across the three
+rules, so each rule has work), no two kept pictures meet, no kept picture sits under a higher raw
+one, and no scrap sits on a held tile or in the clearing. The clearing round the colony's start is
+four tiles out, so nothing stands within three of it (CLEAR lane, which says so and skips when the raw
+roll puts nothing there).
+
+Measured on the round-4 shots with a temporary probe that dumped every drawn picture's rect (deleted
+after): no two drawn pictures overlap, none overlaps the survivor's tile, none sits off the art grid.
+Street litter is one in 6.0 to 7.0 of the visible paved tiles across the shots; indoor litter one in
+6.4 to 9.5 of the visible floor; the day street holds 13 and 22 trash bags. The empty indoor 3x3
+windows left are inside the clearing, except two per interior shot.
+
+Measured 2026-10-20 on one container, with `npm run godot:bench:runtime` and
+`xvfb-run -a npm run godot:bench:frame` at 1280x720, Godot 4.7.1, X11/Xvfb, llvmpipe (LLVM 20.1.2,
+256 bits), Intel Xeon @ 2.10 GHz. The base is the parent commit 75ce22a, which already carries the A4
+bake. The third-pass numbers were two runs each, base and change alternated; the fourth pass is one
+run, because the container was busy with the full gate chain otherwise.
+
+| Measure | Base, runs | Base mean | Third pass, runs | Third pass mean | Fourth pass, one run |
+|---|---|---:|---|---:|---:|
+| shipped-tick, mean ms | 9.85, 9.63 | 9.74 | 10.03, 8.89 | 9.46 | 9.80 |
+| shipped-tick, worst (max) ms | 23.7, 25.0 | — | 24.6, 24.5 | — | 27.4 |
+| shipped-draw `_draw` CPU, mean ms | 9.43, 9.61 | 9.52 | 8.49, 7.37 | 7.93 | 7.36 |
+| crowded-draw `_draw` CPU, mean ms | 126.8, 130.5 | 128.7 | 122.7, 122.3 | 122.5 | 121.7 |
+
+Shipped-draw is the budget that applies to the frame (10 ms mean at 1280x720), and it is under it.
+Crowded-draw is a stress scene and misses 10 ms before and after. The tick misses its 8 ms mean and
+16 ms worst before and after, and its runs move both ways with no `godot/sim/` change: the
+difference is the container's spread, not a speed-up.
+
+Trade-offs: the prop-occupancy skip left the bake, so a furnishing can show around a crate or a
+bed where a prop stands, and a prop placed after its chunk is baked shows the picture at its edges
+until the chunk rebakes. The street and the room sit in the same bake. The harness's `day_street`
+moves the survivor to the nearest open paved street tile whose 21 x 11 surroundings are at least 75
+percent paved outdoor street and whose 3 x 3 ring holds no picture, then snaps the camera to the survivor (`_snap_camera`); before, the
+shot photographed the room the survivor starts in, and the follow lerp left the survivor off centre.
+The interior camera sits on an odd x in both the before and after shots. That predates this work and
+is left as it is. `godot:check:trees` (`TREES_OK`, with its OCCUPANCY lane) holds the layer order,
+the picks, the roll, the clearing, the occupancy and the placement fields, and
+`godot:check:world_bake` (`WORLD_BAKE_OK`) holds the DECOR rebake and mask rule.
+
 ### Remaining milestone evidence
 
 At the measured **34.00 ticks/second**, the FULL harness's exact no-wipe span from the default

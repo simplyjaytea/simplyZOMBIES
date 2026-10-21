@@ -128,8 +128,11 @@ def canvas_of(key):
 # pack's scale: content names `vehicle_<class>_{intact,wreck}_ns` now, and a stray pale, green or
 # burnt one would stand five tiles of car on a three-tile footprint. (The light vehicles kept
 # their key names when they became authored, so they are not retired, only re-sourced.)
+# The generated litter scraps retired with A12's density slice (2026-10-20), when the pack's own
+# paper scrap (`debris_paper`, authored) took their place.
 RETIRED_KEYS = ("tree_pine_a", "tree_pine_b", "tree_pine_c", "low_heap_a", "low_heap_b",
-                "zombie_screamer", "zombie_bloater") + tuple(
+                "zombie_screamer", "zombie_bloater", "debris_litter_a", "debris_litter_b",
+                "debris_litter_c", "debris_litter_pack") + tuple(
     "vehicle_%s_%s_ns" % (cls, variant)
     for cls in ("sedan", "van", "truck")
     for variant in ("pale", "green", "burnt")
@@ -404,7 +407,10 @@ def authored():
         members = entry.get("members")
         if isinstance(members, dict):
             for member_key in sorted(members):
-                out[member_key] = canvas
+                # A member may declare a `canvas` of its own -- a fall frame, on the wider canvas a
+                # body turned onto the ground needs (godot/art/simplyzombies/motion/actions.py).
+                own = members[member_key].get("canvas") if isinstance(members[member_key], dict) else None
+                out[member_key] = _canvas_of(member_key, own) if own is not None else canvas
         else:
             out[key] = canvas
     return out
