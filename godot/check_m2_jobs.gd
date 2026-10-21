@@ -1374,9 +1374,42 @@ func _an_errand_breaks_off_from_a_zombie() -> bool:
 		push_error("DANGER: an item with a zombie 2 m off it was still offered as Haul work")
 		ok = false
 	w.despawn(z)
+	var was_p: bool = SimJobs.BREAK_OFF_FROM_DANGER
+	ok = _a_guarded_patient_is_not_doctored() and ok
+	SimJobs.BREAK_OFF_FROM_DANGER = was_p
 	if ok:
-		print("DANGER OK an errand 3 m from a zombie walks home; 10 m off, inside the annex, under an order or switched off it carries on; a guarded item is not offered")
+		print("DANGER OK an errand 3 m from a zombie walks home; 10 m off, inside the annex, under an order or switched off it carries on; a guarded item and a guarded patient are not offered")
 	return ok
+
+
+# The Doctor finder half: a hurt colonist standing out in the open is offered as Doctor work, and
+# the same colonist with a zombie 2 m off is not. Ellis doctors; Mara is the patient.
+func _a_guarded_patient_is_not_doctored() -> bool:
+	SimJobs.BREAK_OFF_FROM_DANGER = true
+	var w: Variant = _world()
+	for z0 in w.components.query(["shambler"]):
+		w.despawn(int(z0))
+	var mara: int = _mara(w)
+	var ellis: int = _ellis(w)
+	var spot: Vector2i = _open_tile_away_from_home(w)
+	if mara < 0 or ellis < 0 or spot.x < 0:
+		push_error("DANGER: no doctor, no patient or no open tile for the patient lane")
+		return false
+	var minj: Variant = w.components.get_component(mara, "injuries")
+	if minj is Dictionary:
+		((minj as Dictionary)["wounds"] as Array).append({"kind": "scratch", "bodyPart": "torso"})
+	w.components.set_component(mara, "position", {"x": float(spot.x) + 0.5, "y": float(spot.y) + 0.5})
+	var free: Dictionary = SimJobs._doctor_work(w, ellis)
+	if int(free.get("target", -1)) != mara:
+		push_error("DANGER: a hurt colonist with nothing near was not offered as Doctor work (%s)" % str(free))
+		return false
+	var z: int = SimRoster.spawn_zombie(w, float(spot.x) + 2.5, float(spot.y) + 0.5, SimRoster.TYPE_SHAMBLER, w.rng.stream("shambler"))
+	var guarded: Dictionary = SimJobs._doctor_work(w, ellis)
+	w.despawn(z)
+	if int(guarded.get("target", -1)) == mara:
+		push_error("DANGER: a patient with a zombie 2 m off was still offered as Doctor work")
+		return false
+	return true
 
 
 # An open floor tile well outside the annex, so an errand there is "out".
