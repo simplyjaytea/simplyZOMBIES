@@ -1171,6 +1171,42 @@ test in `SimNeeds.is_stockpile_tile`; crafting at a bench, with the Craft job as
 its gate when it is picked up: `godot:m2:fortify` with a placement lane, `godot:m2:jobs`, and a new
 `godot:m2:craft` with `npm test` for the content.
 
+**Balance after the alpha — what the ten-day playtest found next.** The alpha stopped here on
+2026-10-21: the target, alive on day 10 on 2 of 3 seeds, is not met. The driver is
+`godot/playtest/ten_day.gd`, one scripted survivor, seeds 20260805, 31337 and 404; the seed
+tables and day lines are report-noise.md in the project's planning/balance folder. Worst first.
+
+- **The well stands outside the gate, so the last survivor dies of a bite taken there.** Day the
+  colony was wiped, by seed (20260805 / 31337 / 404): A24 main 9 / 2 / 2; the building-noise pass
+  (#178) 4 / 6 / 6; the idle-colonist fix (#179) 4 / 6 / 6; the well verb (#180) 4 / 8 / 9. The
+  well took the two thirst deaths from day 6 to days 8 and 9, and the next wall is the well's own
+  position. It stands two tiles past the annex gate (31337: well at (115, 139), gate at
+  (114, 137)), where the street's zombies gather round the colony.
+  - **The trace.** On the first well build (31337, tick 239,600) the survivor walked to the well
+    with a zombie 5.8 m from it, was grabbed, and was pushed 70 tiles south to (101, 202). The
+    driver now waits while the well has a zombie within 8 m (`THREAT_RADIUS`) unless thirst is 0.
+  - **What waiting does.** On 31337 the well was guarded through days 4 and 5, so the survivor
+    waited until thirst reached 0 at the end of day 5. On day 6 it went anyway: it drank, took 11
+    bites, was infected, and died on day 8 when the bite turned. On 404 it was the same: thirst
+    3.1 on day 6 with the well guarded, a drink on day 7 with 9 bites, dead on day 9. Nothing in
+    the run treats the infection.
+  - **20260805 is a different wall.** The successor is pushed off on day 1 by the driver's own
+    fight-or-flee, and the last colonist dies on day 4 of a day-2 bite. The well was used once, on
+    day 3.
+  - **Next, two driver tasks, in this order, each followed by a three-seed ten-day rerun.**
+    First, the scripted survivor keeps empty bottles instead of dropping them as junk while it
+    loots (`_kind_of` in `godot/playtest/ten_day.gd` classes `item.water.bottle.empty` as junk),
+    so a visit to the well fills bottles for later and the walks out past the gate get fewer.
+    Second, the driver treats infection with the antibiotics the content already has
+    (`item.antibiotics.course`, `item.antibiotics.veterinary`, `item.antibiotics.expired` in
+    `godot/content/items/supplies.json`), so a bite taken at the well is no longer a death two and
+    a half days later. Both change what the playtest measures, not the game, so neither waits on
+    the owner. The rerun on the same three seeds, before and after, is the gate; the numbers go
+    in the record.
+  - **What the game itself could change is the owner's.** Water at home, a well inside the wall
+    or a starting bottle, is docs/33's "Where does a colony drink without walking past the
+    gate?".
+
 **Feel and speed — smooth motion, and time a player can live with:**
 
 - **Render interpolation between sim ticks.** Each body is drawn between its previous and current

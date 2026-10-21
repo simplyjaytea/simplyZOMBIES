@@ -28,6 +28,27 @@ addition, and a district that rolled no soap would have no way back from `filthy
 (see docs/23): the content is innocent, the armour-acquisition rule costs two of four seeds their
 colonists. The ten-day playtest is the right judge, and the lever is one static.
 
+**Where does a colony drink without walking past the gate?** The alpha stopped on this wall on
+2026-10-21 (docs/23, "Balance after the alpha"; the numbers are report-noise.md in the project's
+planning/balance folder). With the well verb the colony lasted to days 4, 8 and 9 on seeds
+20260805, 31337 and 404, against 9, 2 and 2 on A24's main. The district's well stands two tiles
+past the annex gate, where the street's zombies gather. The scripted survivor waits while a
+zombie is within 8 m of it, runs dry, goes anyway, is bitten 9 to 11 times while drinking, and
+dies about two and a half days later when the bite turns. Two driver tasks come first and are not
+yours (docs/23 names them). What the game could change is a new mechanic or a change to the
+shipped district, which is why it is here:
+
+- **A well inside the wall.** The district template would place the yard well inside the annex wall.
+  It is the smallest change and removes the walk, and with it the risk the well now carries,
+  which may be part of the game you want.
+- **A starting empty bottle per colonist, or more water in the loot tables.** The water card's
+  other two levers, still unbuilt. Either gives a colony water at home without moving the well.
+- **A rain barrel or cistern at home.** A buildable water source that fills in rain (docs/16
+  names rain filling water as unbuilt). It keeps the well's risk and gives a colony a reason to
+  build.
+
+Until one is picked the alpha ships with the well where it is.
+
 These are design calls. They have been measured, written up, and deliberately **not** decided.
 (The water question, "where does a colony's water come from over ten days?", came off this list
 on 2026-10-21: put to the owner on a decision card from the balance thread, with the player's verb
