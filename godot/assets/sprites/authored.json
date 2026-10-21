@@ -7092,7 +7092,7 @@
             ]
           },
           "head": [
-            18,
+            17,
             7
           ],
           "torso": [
@@ -7119,7 +7119,7 @@
             6
           ],
           "torso": [
-            18,
+            17,
             6
           ],
           "canvas": [
@@ -7142,7 +7142,7 @@
             6
           ],
           "torso": [
-            17,
+            16,
             6
           ],
           "canvas": [
@@ -7740,7 +7740,7 @@
             6
           ],
           "torso": [
-            -19,
+            -18,
             6
           ],
           "canvas": [
@@ -7763,7 +7763,7 @@
             6
           ],
           "torso": [
-            -19,
+            -18,
             6
           ],
           "canvas": [
@@ -7782,11 +7782,11 @@
             ]
           },
           "head": [
-            -20,
+            -19,
             6
           ],
           "torso": [
-            -18,
+            -16,
             6
           ],
           "canvas": [
@@ -11300,7 +11300,7 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/motion/fall-south-09.png"
           },
           "head": [
-            10,
+            9,
             8
           ],
           "torso": [
@@ -11321,7 +11321,7 @@
             8
           ],
           "torso": [
-            11,
+            10,
             8
           ],
           "canvas": [
@@ -11334,7 +11334,7 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/motion/fall-south-11.png"
           },
           "head": [
-            11,
+            10,
             9
           ],
           "torso": [
@@ -11355,7 +11355,7 @@
             9
           ],
           "torso": [
-            10,
+            9,
             9
           ],
           "canvas": [
@@ -11610,7 +11610,7 @@
             7
           ],
           "torso": [
-            12,
+            13,
             7
           ],
           "canvas": [
@@ -11623,11 +11623,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/motion/fall-east-13.png"
           },
           "head": [
-            19,
+            20,
             4
           ],
           "torso": [
-            13,
+            14,
             4
           ],
           "canvas": [
@@ -11640,11 +11640,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/motion/fall-east-14.png"
           },
           "head": [
-            17,
+            18,
             4
           ],
           "torso": [
-            14,
+            15,
             4
           ],
           "canvas": [
@@ -11848,7 +11848,7 @@
             9
           ],
           "torso": [
-            -13,
+            -12,
             9
           ],
           "canvas": [
@@ -11861,7 +11861,7 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/motion/fall-north-12.png"
           },
           "head": [
-            -13,
+            -12,
             9
           ],
           "torso": [
@@ -11878,7 +11878,7 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-workwear/motion/fall-north-13.png"
           },
           "head": [
-            -13,
+            -12,
             9
           ],
           "torso": [
@@ -13288,11 +13288,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/motion/fall-south-09.png"
           },
           "head": [
-            16,
+            15,
             12
           ],
           "torso": [
-            16,
+            15,
             12
           ],
           "canvas": [
@@ -13747,7 +13747,7 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-commuter/motion/fall-north-10.png"
           },
           "head": [
-            -15,
+            -14,
             10
           ],
           "torso": [
@@ -15144,7 +15144,7 @@
             11
           ],
           "torso": [
-            10,
+            11,
             11
           ],
           "canvas": [
@@ -15157,11 +15157,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/motion/fall-south-10.png"
           },
           "head": [
-            12,
+            11,
             11
           ],
           "torso": [
-            10,
+            11,
             11
           ],
           "canvas": [
@@ -15395,12 +15395,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/motion/fall-east-11.png"
           },
           "head": [
-            16,
-            5
+            17,
+            4
           ],
           "torso": [
             15,
-            5
+            4
           ],
           "canvas": [
             96,
@@ -15582,7 +15582,7 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/motion/fall-north-09.png"
           },
           "head": [
-            -14,
+            -15,
             11
           ],
           "torso": [
@@ -15599,12 +15599,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-raincoat/motion/fall-north-10.png"
           },
           "head": [
-            -14,
-            12
+            -13,
+            11
           ],
           "torso": [
             -13,
-            12
+            11
           ],
           "canvas": [
             96,
@@ -15620,7 +15620,7 @@
             12
           ],
           "torso": [
-            -10,
+            -11,
             12
           ],
           "canvas": [
@@ -17026,11 +17026,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/motion/fall-south-11.png"
           },
           "head": [
-            18,
+            17,
             9
           ],
           "torso": [
-            12,
+            11,
             9
           ],
           "canvas": [
@@ -17268,7 +17268,7 @@
             5
           ],
           "torso": [
-            21,
+            20,
             5
           ],
           "canvas": [
@@ -17281,7 +17281,7 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/motion/fall-east-12.png"
           },
           "head": [
-            28,
+            27,
             1
           ],
           "torso": [
@@ -17298,11 +17298,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/motion/fall-east-13.png"
           },
           "head": [
-            28,
+            27,
             1
           ],
           "torso": [
-            26,
+            25,
             1
           ],
           "canvas": [
@@ -17468,7 +17468,7 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/motion/fall-north-09.png"
           },
           "head": [
-            -14,
+            -13,
             11
           ],
           "torso": [
@@ -17489,7 +17489,7 @@
             10
           ],
           "torso": [
-            -10,
+            -11,
             10
           ],
           "canvas": [
@@ -17723,11 +17723,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/motion/fall-west-10.png"
           },
           "head": [
-            -21,
+            -20,
             10
           ],
           "torso": [
-            -19,
+            -18,
             10
           ],
           "canvas": [
@@ -17740,11 +17740,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/motion/fall-west-11.png"
           },
           "head": [
-            -26,
+            -25,
             5
           ],
           "torso": [
-            -21,
+            -20,
             5
           ],
           "canvas": [
@@ -17757,11 +17757,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/motion/fall-west-12.png"
           },
           "head": [
-            -28,
+            -27,
             1
           ],
           "torso": [
-            -24,
+            -23,
             1
           ],
           "canvas": [
@@ -17774,11 +17774,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-stalker/motion/fall-west-13.png"
           },
           "head": [
-            -28,
+            -27,
             1
           ],
           "torso": [
-            -27,
+            -26,
             1
           ],
           "canvas": [
@@ -18947,11 +18947,11 @@
           },
           "head": [
             10,
-            10
+            9
           ],
           "torso": [
-            10,
-            10
+            11,
+            9
           ],
           "canvas": [
             96,
@@ -18963,7 +18963,7 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/motion/fall-south-12.png"
           },
           "head": [
-            11,
+            12,
             10
           ],
           "torso": [
@@ -18984,7 +18984,7 @@
             11
           ],
           "torso": [
-            9,
+            10,
             11
           ],
           "canvas": [
@@ -19235,12 +19235,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/motion/fall-east-13.png"
           },
           "head": [
-            19,
-            8
+            20,
+            7
           ],
           "torso": [
-            17,
-            8
+            18,
+            7
           ],
           "canvas": [
             96,
@@ -19426,7 +19426,7 @@
             11
           ],
           "torso": [
-            -20,
+            -19,
             11
           ],
           "canvas": [
@@ -19439,11 +19439,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/motion/fall-north-10.png"
           },
           "head": [
-            -18,
+            -17,
             11
           ],
           "torso": [
-            -18,
+            -17,
             11
           ],
           "canvas": [
@@ -19473,11 +19473,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/motion/fall-north-12.png"
           },
           "head": [
-            -16,
+            -17,
             12
           ],
           "torso": [
-            -13,
+            -12,
             12
           ],
           "canvas": [
@@ -19694,7 +19694,7 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/motion/fall-west-10.png"
           },
           "head": [
-            -13,
+            -14,
             7
           ],
           "torso": [
@@ -19711,7 +19711,7 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/motion/fall-west-11.png"
           },
           "head": [
-            -16,
+            -17,
             8
           ],
           "torso": [
@@ -19728,7 +19728,7 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/motion/fall-west-12.png"
           },
           "head": [
-            -18,
+            -19,
             7
           ],
           "torso": [
@@ -19745,11 +19745,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/motion/fall-west-13.png"
           },
           "head": [
-            -20,
+            -21,
             5
           ],
           "torso": [
-            -20,
+            -21,
             5
           ],
           "canvas": [
@@ -19762,11 +19762,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-runner/motion/fall-west-14.png"
           },
           "head": [
-            -20,
+            -21,
             5
           ],
           "torso": [
-            -21,
+            -22,
             5
           ],
           "canvas": [
@@ -20901,11 +20901,11 @@
           },
           "head": [
             17,
-            9
+            8
           ],
           "torso": [
             17,
-            9
+            8
           ],
           "canvas": [
             96,
@@ -20917,7 +20917,7 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/motion/fall-south-10.png"
           },
           "head": [
-            17,
+            16,
             9
           ],
           "torso": [
@@ -20938,7 +20938,7 @@
             10
           ],
           "torso": [
-            15,
+            14,
             10
           ],
           "canvas": [
@@ -21156,11 +21156,11 @@
           },
           "head": [
             19,
-            4
+            3
           ],
           "torso": [
             14,
-            4
+            3
           ],
           "canvas": [
             96,
@@ -21343,11 +21343,11 @@
           },
           "head": [
             -17,
-            9
+            8
           ],
           "torso": [
             -16,
-            9
+            8
           ],
           "canvas": [
             96,
@@ -21359,7 +21359,7 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/motion/fall-north-10.png"
           },
           "head": [
-            -17,
+            -16,
             9
           ],
           "torso": [
@@ -21376,7 +21376,7 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-armored/motion/fall-north-11.png"
           },
           "head": [
-            -17,
+            -18,
             10
           ],
           "torso": [
@@ -21598,11 +21598,11 @@
           },
           "head": [
             -19,
-            3
+            2
           ],
           "torso": [
             -14,
-            3
+            2
           ],
           "canvas": [
             96,
@@ -22753,11 +22753,11 @@
           },
           "head": [
             22,
-            7
+            6
           ],
           "torso": [
             23,
-            7
+            6
           ],
           "canvas": [
             96,
@@ -22769,7 +22769,7 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/motion/fall-south-10.png"
           },
           "head": [
-            22,
+            21,
             8
           ],
           "torso": [
@@ -22786,12 +22786,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/motion/fall-south-11.png"
           },
           "head": [
-            22,
-            10
+            21,
+            9
           ],
           "torso": [
-            19,
-            10
+            20,
+            9
           ],
           "canvas": [
             96,
@@ -22801,6 +22801,23 @@
         "body_zombie_heavy_fall_s_12": {
           "source": {
             "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/motion/fall-south-12.png"
+          },
+          "head": [
+            20,
+            10
+          ],
+          "torso": [
+            18,
+            10
+          ],
+          "canvas": [
+            96,
+            48
+          ]
+        },
+        "body_zombie_heavy_fall_s_13": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/motion/fall-south-13.png"
           },
           "head": [
             21,
@@ -22974,11 +22991,11 @@
           },
           "head": [
             14,
-            11
+            12
           ],
           "torso": [
-            16,
-            11
+            15,
+            12
           ],
           "canvas": [
             96,
@@ -22990,12 +23007,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/motion/fall-east-10.png"
           },
           "head": [
-            18,
-            10
+            14,
+            11
           ],
           "torso": [
-            15,
-            10
+            14,
+            11
           ],
           "canvas": [
             96,
@@ -23007,12 +23024,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/motion/fall-east-11.png"
           },
           "head": [
-            20,
-            5
+            16,
+            9
           ],
           "torso": [
-            17,
-            5
+            13,
+            9
           ],
           "canvas": [
             96,
@@ -23024,11 +23041,28 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/motion/fall-east-12.png"
           },
           "head": [
-            21,
+            18,
             4
           ],
           "torso": [
-            19,
+            16,
+            4
+          ],
+          "canvas": [
+            96,
+            48
+          ]
+        },
+        "body_zombie_heavy_fall_e_13": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/motion/fall-east-13.png"
+          },
+          "head": [
+            18,
+            4
+          ],
+          "torso": [
+            16,
             4
           ],
           "canvas": [
@@ -23194,12 +23228,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/motion/fall-north-09.png"
           },
           "head": [
-            -23,
-            6
+            -22,
+            5
           ],
           "torso": [
-            -20,
-            6
+            -21,
+            5
           ],
           "canvas": [
             96,
@@ -23215,7 +23249,7 @@
             7
           ],
           "torso": [
-            -20,
+            -21,
             7
           ],
           "canvas": [
@@ -23229,11 +23263,11 @@
           },
           "head": [
             -22,
-            9
+            8
           ],
           "torso": [
             -20,
-            9
+            8
           ],
           "canvas": [
             96,
@@ -23243,6 +23277,23 @@
         "body_zombie_heavy_fall_n_12": {
           "source": {
             "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/motion/fall-north-12.png"
+          },
+          "head": [
+            -21,
+            9
+          ],
+          "torso": [
+            -19,
+            9
+          ],
+          "canvas": [
+            96,
+            48
+          ]
+        },
+        "body_zombie_heavy_fall_n_13": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/motion/fall-north-13.png"
           },
           "head": [
             -22,
@@ -23415,11 +23466,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/motion/fall-west-09.png"
           },
           "head": [
-            -15,
+            -14,
             12
           ],
           "torso": [
-            -16,
+            -15,
             12
           ],
           "canvas": [
@@ -23432,12 +23483,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/motion/fall-west-10.png"
           },
           "head": [
-            -18,
-            10
+            -15,
+            11
           ],
           "torso": [
-            -16,
-            10
+            -13,
+            11
           ],
           "canvas": [
             96,
@@ -23449,12 +23500,12 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/motion/fall-west-11.png"
           },
           "head": [
-            -21,
-            5
+            -16,
+            10
           ],
           "torso": [
-            -18,
-            5
+            -12,
+            10
           ],
           "canvas": [
             96,
@@ -23466,11 +23517,28 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/motion/fall-west-12.png"
           },
           "head": [
-            -21,
+            -17,
             5
           ],
           "torso": [
-            -19,
+            -14,
+            5
+          ],
+          "canvas": [
+            96,
+            48
+          ]
+        },
+        "body_zombie_heavy_fall_w_13": {
+          "source": {
+            "path": "art/simplyzombies/zombie-poses/textures/zombie-heavy/motion/fall-west-13.png"
+          },
+          "head": [
+            -16,
+            5
+          ],
+          "torso": [
+            -14,
             5
           ],
           "canvas": [
@@ -25046,11 +25114,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/fall-north-09.png"
           },
           "head": [
-            -15,
+            -14,
             10
           ],
           "torso": [
-            -15,
+            -14,
             10
           ],
           "canvas": [
@@ -25067,7 +25135,7 @@
             10
           ],
           "torso": [
-            -12,
+            -13,
             10
           ],
           "canvas": [
@@ -25301,7 +25369,7 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-screamer/motion/fall-west-11.png"
           },
           "head": [
-            -27,
+            -26,
             5
           ],
           "torso": [
@@ -26456,11 +26524,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/fall-south-09.png"
           },
           "head": [
-            23,
+            24,
             4
           ],
           "torso": [
-            26,
+            25,
             4
           ],
           "canvas": [
@@ -26477,7 +26545,7 @@
             5
           ],
           "torso": [
-            25,
+            24,
             5
           ],
           "canvas": [
@@ -26494,7 +26562,7 @@
             7
           ],
           "torso": [
-            23,
+            22,
             7
           ],
           "canvas": [
@@ -26711,11 +26779,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/fall-east-10.png"
           },
           "head": [
-            11,
+            10,
             5
           ],
           "torso": [
-            10,
+            9,
             5
           ],
           "canvas": [
@@ -26728,11 +26796,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/fall-east-11.png"
           },
           "head": [
-            13,
+            12,
             4
           ],
           "torso": [
-            10,
+            9,
             4
           ],
           "canvas": [
@@ -26745,11 +26813,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/fall-east-12.png"
           },
           "head": [
-            14,
+            13,
             2
           ],
           "torso": [
-            11,
+            10,
             2
           ],
           "canvas": [
@@ -26762,11 +26830,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/fall-east-13.png"
           },
           "head": [
-            15,
+            14,
             2
           ],
           "torso": [
-            11,
+            10,
             2
           ],
           "canvas": [
@@ -26933,11 +27001,11 @@
           },
           "head": [
             -23,
-            4
+            3
           ],
           "torso": [
             -24,
-            4
+            3
           ],
           "canvas": [
             96,
@@ -26949,7 +27017,7 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/fall-north-10.png"
           },
           "head": [
-            -24,
+            -23,
             5
           ],
           "torso": [
@@ -26967,11 +27035,11 @@
           },
           "head": [
             -24,
-            7
+            6
           ],
           "torso": [
             -23,
-            7
+            6
           ],
           "canvas": [
             96,
@@ -26983,7 +27051,7 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/fall-north-12.png"
           },
           "head": [
-            -24,
+            -23,
             8
           ],
           "torso": [
@@ -27174,7 +27242,7 @@
             6
           ],
           "torso": [
-            -13,
+            -12,
             6
           ],
           "canvas": [
@@ -27204,11 +27272,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/fall-west-11.png"
           },
           "head": [
-            -13,
+            -12,
             4
           ],
           "torso": [
-            -12,
+            -11,
             4
           ],
           "canvas": [
@@ -27221,7 +27289,7 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/fall-west-12.png"
           },
           "head": [
-            -14,
+            -13,
             3
           ],
           "torso": [
@@ -27238,11 +27306,11 @@
             "path": "art/simplyzombies/zombie-poses/textures/zombie-bloater/motion/fall-west-13.png"
           },
           "head": [
-            -15,
+            -14,
             3
           ],
           "torso": [
-            -13,
+            -12,
             3
           ],
           "canvas": [

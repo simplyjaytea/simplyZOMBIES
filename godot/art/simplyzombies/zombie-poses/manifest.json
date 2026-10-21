@@ -7114,6 +7114,9 @@
           },
           {
             "path": "textures/zombie-heavy/motion/fall-south-12.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-south-13.png"
           }
         ]
       },
@@ -7176,6 +7179,9 @@
           },
           {
             "path": "textures/zombie-heavy/motion/fall-east-12.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-east-13.png"
           }
         ]
       },
@@ -7238,6 +7244,9 @@
           },
           {
             "path": "textures/zombie-heavy/motion/fall-north-12.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-north-13.png"
           }
         ]
       },
@@ -7300,6 +7309,9 @@
           },
           {
             "path": "textures/zombie-heavy/motion/fall-west-12.png"
+          },
+          {
+            "path": "textures/zombie-heavy/motion/fall-west-13.png"
           }
         ]
       },
