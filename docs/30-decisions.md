@@ -5724,3 +5724,32 @@ number an existing rule already had.
   engineering call and not a new mechanic. Its two companions keep the walk home from being
   undone: a need that can wait no longer ends it, and a wash with nothing to wash in no longer
   claims the tick.
+
+
+## Water at the well, 2026-10-21
+
+**The owner's water question, answered by the card's default.** docs/33 asked where a colony's
+water comes from over ten days, with three levers: a starting empty bottle per colonist, a
+player's verb at the well, or more water in the loot. The ten-day runs after the building-noise and
+idle-colonist PRs put it on the critical path: on seeds 31337 and 404 the colony was down to one
+survivor, the scripted player's successor, by day 3, whose thirst reached 0 by the end of day 5
+with nothing to drink carried or stocked, and both died on day 6. The colony's Water job could not
+help them (colony job rules skip the controlled survivor), and loot water only moves the same death
+later. The coordinator ruled the well verb the smallest build that reaches the survivor who is
+dying, put it to the owner on a card with that default, and had it built as the default.
+
+- **E at a water source** (`SimNeeds.well_offer`, `use_well`, the `well` rung of
+  `SimFortify.rung_of`): drink while a full drink still fits, then fill a carried empty bottle;
+  a last top-up with no bottle to fill is still a drink, and a sated survivor with nothing to fill
+  is offered nothing. Drink your fill, then fill your bottles.
+- **Raw water is the untreated bottle's own `drink` block** (thirst 50, illness 0.15): a mouthful
+  at the well quenches and sickens exactly as a bottle filled there does, so neither door is the
+  cheaper one. Nothing is spent from the pack.
+- **The river's bank sources are the same verb**, named "the river" on the bar where the source
+  stands on the water surface.
+- **The scripted survivor** (`godot/playtest/ten_day.gd`) walks to the nearest source and presses E
+  when nothing drinkable is carried or stocked, the way a player would.
+
+Gated by `godot:m2:needs` WELL through the real `use.context` command on a booted district's well,
+with the right-click menu (`SimContext.verbs_at`) asserted to carry the same row.
+
