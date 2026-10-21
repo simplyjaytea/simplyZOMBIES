@@ -29,8 +29,8 @@ extends SceneTree
 #              frame both break them.
 #   HEAD       every fall's settle, from the last turned frame to the corpse, keeps a head on every
 #              beat: the turned frame's head or the corpse's, found where it went, at least half
-#              there; the two summed only where they overlap; the carried head ends within 4 px of
-#              the corpse's own head; and the corpse's head does not arrive at the hold frame in
+#              there; the two summed only where they overlap; the carried head never moves away
+#              from the corpse's own head and ends within 4 px of it; and the corpse's head does not arrive at the hold frame in
 #              more pixels than the mass bound allows a step. A settle with its head erased, two
 #              half heads apart and a head left where it fell are refused.
 #   STRIKE     every lunge and stagger, rest to its beats and home, inside the same 15% mass step
@@ -503,8 +503,9 @@ func _landing() -> bool:
 # hold frame than the mass bound lets a step add. And the carried head must end on the corpse's
 # head: on the last beat, the turned frame's head where it is found lies within HEAD_LAND pixels of
 # the corpse's own head (art review round 6 found 24 of 30 front and back settles carrying it to
-# the chest, 6.9 to 10 px off). The corpse's head for that is located in the lying body itself:
-# on its back, as above; face down, the HEAD_CORE pixels nearest the top of its fall-side third,
+# the chest, 6.9 to 10 px off), and on every beat it is still whole it lies no farther from that
+# head than it fell, or than HEAD_LAND. The corpse's head for that is located in the lying body
+# itself: on its back, as above; face down, the HEAD_CORE pixels nearest the top of its fall-side third,
 # HEAD_COLS / 2 rows down (the end column of a face-down body may be an outstretched hand).
 # Negatives: each beat with both heads erased where they were found is refused, in every view;
 # where the two heads lie apart, under half of each in its own place is refused, so two heads are
@@ -689,10 +690,19 @@ func _head() -> bool:
 			var hc: Dictionary = _head_end(seq.back(), side, supine)
 			var path: Vector2 = _centre(hc) - _centre(h8)
 			var target: Vector2 = _centre(_corpse_head(seq.back(), side, supine))
+			var start: float = _centre(h8).distance_to(target)
 			var erased_ok: bool = true
 			for i in range(1, seq.size() - 1):
 				var frame: Dictionary = seq[i]
 				var found: Array = _head_on(frame, h8, hc, path)
+				# The carried head, wherever it is still whole, never farther from the corpse's head
+				# than it fell or than HEAD_LAND (art review round 6: carried 2 to 11 px away).
+				var whole: Array = _head_found(h8, frame, Vector2.ZERO, target - _centre(h8))
+				if float(whole[0]) >= HEAD_PRESENT:
+					var away: float = (_centre(h8) + Vector2(whole[1] as Vector2i)).distance_to(target)
+					if away > maxf(HEAD_LAND, start) + 0.01:
+						push_error("HEAD: %s from %s, settle beat %d carries its head %.1f px from the corpse's, farther than it fell (%.1f)" % [fam, view, i, away, start])
+						ok = false
 				var share: float = float(found[0])
 				if share < HEAD_PRESENT:
 					push_error("HEAD: %s from %s, settle beat %d of %d: only %.0f%% of a head is on the body" % [fam, view, i, seq.size() - 2, share * 100.0])
@@ -762,7 +772,7 @@ func _head() -> bool:
 		push_error("HEAD: every head falls onto the corpse's; the landing negative judged nothing")
 		return false
 	if ok:
-		print("HEAD OK %d settles in every view, %d beats: a head carried on every one, at least %.0f%% of it (%s), and the corpse's head adds at most %.1f%% of the body at the hold frame (bound %.0f%%); the carried head ends at most %.1f px from the corpse's (bound %.0f), where a head left where it fell is refused (%d of %d); each settle with both heads erased is refused (%d of %d), and two half heads apart are not one (%d of %d)" % [judged, beats, worst * 100.0, worst_at, worst_add * 100.0, LAND_MASS_STEP * 100.0, worst_land, HEAD_LAND, stayed, judged, erased_refused, judged, apart_refused, apart])
+		print("HEAD OK %d settles in every view, %d beats: a head carried on every one, at least %.0f%% of it (%s), and the corpse's head adds at most %.1f%% of the body at the hold frame (bound %.0f%%); the carried head never moves away from the corpse's and ends at most %.1f px from it (bound %.0f), where a head left where it fell is refused (%d of %d); each settle with both heads erased is refused (%d of %d), and two half heads apart are not one (%d of %d)" % [judged, beats, worst * 100.0, worst_at, worst_add * 100.0, LAND_MASS_STEP * 100.0, worst_land, HEAD_LAND, stayed, judged, erased_refused, judged, apart_refused, apart])
 		_report.append("HEAD %d settles" % judged)
 	return ok
 

@@ -1113,6 +1113,19 @@ code: the frames slot into `build_motion.py` and every gate already judges them.
   slot from the body's default outfit, and every survivor block names one (`godot:check:worn`'s
   DRESSED lane), so this stays a note unless a bare body becomes reachable. The settle's other
   round 4 and 5 minors are closed (the record's A8 follow-up).
+- **The settle's round 7 minors** (art review round 7, CLEAR, report
+  `a8-actions/zombies/round7/qa-round7.md` in the project files). None blocks; each is a
+  follow-up:
+  - The hold frame brings 1 to 8 more new corpse-head pixels than round 5 did in 21 of 40 front
+    and back strips (worst: the stalker's south, 12 against 4; the survivor's north, 11 to 13
+    against 6 to 9). The survivor's front and back gain the end column of hair on the hold.
+    Extending the last beat's head by that column would remove it.
+  - The survivor's default kit, east view: its head presence reads 51% by the reviewer's mask.
+    By eye it is one whole head.
+  - The workwear's feet drift 4 columns on the ground rows. The record's 3 is measured on the
+    foot end.
+  - Buried outlines: the reviewer counts 245, the thread 68 (own colour only). Define one count
+    in `godot:check:action` so the next review compares like with like.
 
 **The inventory sheet and the screens — decided by the owner (2026-09-08).** The inventory is
 mechanically complete and gated, and the screen reaches four of its commands: `item.move`,
