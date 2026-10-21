@@ -1342,6 +1342,11 @@ static func _rearm_job(world: Variant, ent: int) -> Dictionary:
 		var iy: float = float(p["y"])
 		if not _near_home(world, ix, iy):
 			continue
+		if BREAK_OFF_FROM_DANGER and _danger_at(world, ix, iy, DANGER_TARGET_METRES):
+			# Haul's and Scavenge's refusal, for the same reason: without it a colonist walks to
+			# a guarded garment, turns home at the zombie, waits, and walks out again all day (the
+			# A24 playtest, seed 404: five Dress-Retreat round trips to one vest, then dead).
+			continue
 		if _is_unreachable(world, int(item)):
 			continue
 		var d: float = (ix - hx) * (ix - hx) + (iy - hy) * (iy - hy)
@@ -1564,6 +1569,11 @@ static func _dress_job(world: Variant, ent: int) -> Dictionary:
 		var ix: float = float(p["x"])
 		var iy: float = float(p["y"])
 		if not _near_home(world, ix, iy):
+			continue
+		if BREAK_OFF_FROM_DANGER and _danger_at(world, ix, iy, DANGER_TARGET_METRES):
+			# Haul's and Scavenge's refusal, for the same reason: without it a colonist walks to
+			# a guarded garment, turns home at the zombie, waits, and walks out again all day (the
+			# A24 playtest, seed 404: five Dress-Retreat round trips to one vest, then dead).
 			continue
 		if _is_unreachable(world, int(item)):
 			continue
