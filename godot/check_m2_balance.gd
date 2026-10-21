@@ -31,6 +31,7 @@ extends SceneTree
 const SimBoot = preload("res://sim/boot.gd")
 const SimDirector = preload("res://sim/modules/director.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimRoster = preload("res://sim/modules/roster.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimItems = preload("res://sim/modules/items.gd")
