@@ -10,7 +10,14 @@ const SimVehicles = preload("res://sim/modules/vehicles.gd")
 
 const REACH: float = 1.5
 const CHANNEL_TICKS: int = 40
-const CONSTRUCT_NOISE: float = 30.0
+# 15, down from docs/03's first-cut 30 (the building-noise pass, 2026-10-21). At 30 the colony's own
+# Construct work -- boarding the annex windows, placing beds -- put a beacon on the field every tick
+# of the first morning, and a throwaway driver counted what it drew to the annex door on the
+# shipped 256-tile district: 7 zombies within 15 m by tick 12,000 on seed 31337 against 1 with
+# Construct switched off, and 4 against 1 on 20260805. At 15 the same count is 2 and 1, and 404,
+# which builds away from its wanderers, reads 1-2 at every magnitude. Still loud: it carries about
+# half as far, which is "the street hears you", not "the district does".
+const CONSTRUCT_NOISE: float = 15.0
 const ALARM_NOISE: float = 8.0
 const NOISEMAKER_MAG: float = 45.0
 const NOISEMAKER_TICKS: int = 12000

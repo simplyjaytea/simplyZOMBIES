@@ -147,7 +147,7 @@ Written as data (see [ECS & content](20-ecs-and-content.md)); magnitudes are in 
 | Speaking — talk | 8 | ~11 m. Conversational — exactly a melee connect |
 | Melee swing (connect) | 8 | Blunt louder than blade |
 | Breaking a window | 25 | |
-| Hammering / construction | 30 | Sustained — a build project is a beacon all day |
+| Hammering / construction | 15 | Sustained — the street hears a build all day. 30 drew seven zombies to the annex door on the first morning; see docs/23 |
 | Shouting | 120 | Loud enough to be a district event, quiet enough not to be a gunshot |
 | Generator (running) | 45 | Continuous, and it doesn't stop when you sleep |
 | Bow / crossbow | 4 | The [quiet branch](09-combat.md) |
