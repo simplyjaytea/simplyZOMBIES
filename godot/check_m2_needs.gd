@@ -2553,7 +2553,8 @@ func _untreated_water_carries_illness_and_a_fire_boils_it() -> bool:
 	var out: Array[String] = []
 	for c in [
 		{"name": "boils", "fire": true, "clean": false, "thirst": 35.0, "want_boil": 1, "want_drink": SimNeeds.WATER_ID},
-		{"name": "clean-first", "fire": true, "clean": true, "thirst": 35.0, "want_boil": 0, "want_drink": SimNeeds.WATER_ID},
+		{"name": "clean-first", "fire": true, "clean": true, "soda": true, "thirst": 35.0, "want_boil": 0, "want_drink": SimNeeds.WATER_ID},
+		{"name": "soda", "fire": false, "clean": false, "soda": true, "thirst": 35.0, "want_boil": 0, "want_drink": "item.soda.can"},
 		{"name": "raw-at-soft", "fire": false, "clean": false, "thirst": 25.0, "want_boil": 0, "want_drink": SimNeeds.UNTREATED_ID},
 		{"name": "waits", "fire": false, "clean": false, "thirst": 35.0, "want_boil": 0, "want_drink": ""},
 	]:
@@ -2563,9 +2564,11 @@ func _untreated_water_carries_illness_and_a_fire_boils_it() -> bool:
 		if mara < 0:
 			push_error("WATER: no Mara")
 			return false
+		# Every drink out of the world, not just the bottled water: since A24 a thirsty colonist
+		# takes any clean drink, so a stray soda would answer the "waits" case.
 		for item in w4.components.query(["itemBase"]):
 			var b: Dictionary = w4.components.get_component(int(item), "itemBase") as Dictionary
-			if String(b.get("baseId", "")) == SimNeeds.WATER_ID:
+			if SimNeeds.is_drink(w4, String(b.get("baseId", ""))):
 				w4.despawn(int(item))
 		if not bool(c["fire"]):
 			for f in w4.components.query(["campfire"]):
@@ -2583,6 +2586,13 @@ func _untreated_water_carries_illness_and_a_fire_boils_it() -> bool:
 		if bool(c["clean"]):
 			var cb: int = SimItems.spawn_item(w4, SimNeeds.WATER_ID, {"tier": "scavenged"})
 			SimInventory.stow(w4, mara, cb)
+		if bool(c.get("soda", false)):
+			# A soda, carried: drunk when there is no bottled water (the "soda" case), passed
+			# over for one when there is ("clean-first"), and never ahead of nothing at all.
+			var can: int = SimItems.spawn_item(w4, "item.soda.can", {"tier": "scavenged"})
+			if not SimInventory.stow(w4, mara, can):
+				push_error("WATER: could not stow Mara's soda")
+				return false
 		var n: Dictionary = _quiet_pools(w4, mara)
 		n["thirst"] = float(c["thirst"])
 		w4.components.remove(mara, "job")

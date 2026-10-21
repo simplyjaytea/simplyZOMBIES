@@ -934,6 +934,31 @@ static func _doctor_work(world: Variant, ent: int) -> Dictionary:
 	return {}
 
 
+# The best clean drink a thirsty colonist can reach: carried first, then the stockpile, the one
+# that slakes most. "Clean" is a drink block with no illness chance, so untreated water never
+# comes this way. Claimed stock is skipped, the `_stock_base` rule.
+static func _clean_drink(world: Variant, ent: int) -> int:
+	var best: int = -1
+	var best_thirst: float = 0.0
+	for pool in [SimInventory.carried_items(world, ent), SimNeeds.stockpile_items(world)]:
+		for item in pool:
+			var b: Variant = world.components.get_component(item, "itemBase")
+			if not (b is Dictionary):
+				continue
+			var spec: Variant = SimNeeds.drink_spec(world, String((b as Dictionary).get("baseId", "")))
+			if spec == null or float((spec as Dictionary).get("illnessChance", 0.0)) > 0.0:
+				continue
+			if _claim_live(world, int(item)):
+				continue
+			var t: float = float((spec as Dictionary).get("thirst", 0.0))
+			if t > best_thirst:
+				best = int(item)
+				best_thirst = t
+		if best >= 0:
+			return best
+	return best
+
+
 static func _stock_base(world: Variant, base_id: String) -> int:
 	for item in SimNeeds.stockpile_items(world):
 		var b: Variant = world.components.get_component(item, "itemBase")
@@ -1863,6 +1888,12 @@ static func _do_seek(world: Variant, ent: int, kind: String) -> void:
 			var bottle: int = _carry_base(world, ent, SimNeeds.WATER_ID)
 			if bottle < 0:
 				bottle = _stock_base(world, SimNeeds.WATER_ID)
+			if bottle < 0 and kind == "thirst":
+				# No water bottle, but a soda, a juice or a tea on the pile is still a drink. Without
+				# this a colonist died of thirst beside a stockpile holding three of them (the A24
+				# playtest, seed 20260805, day 6). Only clean drinks: untreated water stays the last
+				# rung below, behind the fire.
+				bottle = _clean_drink(world, ent)
 			if bottle < 0:
 				# Nothing clean anywhere. A wash waits; a drink has two more rungs -- boil what the
 				# well gave, or, thirsty enough, drink it as it comes.
@@ -1883,7 +1914,7 @@ static func _do_seek(world: Variant, ent: int, kind: String) -> void:
 			if kind == "hygiene":
 				SimNeeds.wash(world, ent)
 			else:
-				SimNeeds.drink(world, ent)
+				SimNeeds.drink_item(world, ent, bottle)
 		"relief":
 			# The NPC half of the bathroom need. Without this the whole thing would be a mechanism
 			# only the player can reach -- a tenth dead socket, and the one every colonist would
