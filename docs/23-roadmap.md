@@ -1197,8 +1197,9 @@ tables and day lines are report-noise.md in the project's planning/balance folde
     First, done in the driver only: the scripted survivor keeps empty bottles instead of
     dropping them as junk (`_kind_of` in `godot/playtest/ten_day.gd` now classes
     `item.water.bottle.empty` as `empty`, and the haul keeps them), so a visit to the well fills
-    bottles for later. Seed 31337 rerun alone, the colonist counters and the wipe day are in
-    report-noise.md; the three-seed rerun is still owed. The driver also counts colonist swings,
+    bottles for later. Seed 31337 rerun alone wiped on day 8, the same as #180, and the bottle
+    keep did not move it on that seed; the colonist counters read 38 swings, 12 hits and 1 kill
+    over ten days. The numbers are in report-noise.md; the three-seed rerun is still owed. The driver also counts colonist swings,
     hits, shots and kills, so "do colonists fight" reads off a trace rather than a guess.
     Second, the driver treats infection with the antibiotics the content already has
     (`item.antibiotics.course`, `item.antibiotics.veterinary`, `item.antibiotics.expired` in
