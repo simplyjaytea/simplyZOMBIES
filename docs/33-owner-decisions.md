@@ -254,7 +254,7 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
 
 7. **Does a raid that can actually connect get to wipe the colony?** The melee-reach fix
    (docs/23's defect list, "A melee raider band cannot reach a body that does not move", built
-   2026-09-16 on branch `claude/raider-reach-halt` and deliberately not landed) is a correctness
+   2026-09-16, deliberately not landed, and its branch deleted 2026-10-22) is a correctness
    fix, not a difficulty dial — a raider closes to its own weapon's reach instead of standing a
    metre short of everything — but `npm run godot:m2:balance`'s FAST tier measured what it
    costs: seed 404's `mixed` arm was already down to its last colonist before the fix, and after
@@ -265,8 +265,10 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    (permanent loss is Milestone 2's own exit criterion) and the assertion changes; the assertion
    was unknowingly grading the reach bug rather than the difficulty and the FAST seed set or its
    floor changes; or a raider first-cut number (band size, `HALT_METRES` itself, the withdraw
-   rule) moves and is re-measured. The branch carries its gate, its record and both measurement
-   tables, and merges the moment one of the three is picked.
+   rule) moves and is re-measured. The branch that carried the fix, its gate lanes and both
+   measurement tables was deleted on 2026-10-22 as too far behind `main`; the record and the
+   numbers stay in docs/23, and whichever of the three is picked, the fix is rebuilt from `main`
+   and measured again.
 
 8. **The four asks' first-cut numbers** (2026-09-17, docs/30's "What the owner asked for after
    the shell"). The owner picked the shape of each piece; the numbers inside were taken in the
