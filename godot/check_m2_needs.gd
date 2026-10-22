@@ -51,8 +51,9 @@ func _run() -> void:
 	ok = _bedding_moves_the_night_and_bare_boards_move_nothing() and ok
 	ok = _soap_buys_a_wash_that_lasts() and ok
 	ok = _a_survivor_drinks_at_the_well_and_fills_a_bottle_there() and ok
+	ok = _every_colonist_starts_with_an_empty_bottle_and_something_fills_it() and ok
 	if ok:
-		print("M2_NEEDS_OK drain bands verbs hud hold, low mood has consequences, food is content and can make you ill, a death costs the living, everybody has to go, a meal's mood wears off, the dead give back the bed, the player gets up, the deep cold is reachable, sleep has a quality, what you sleep on moves it and bare boards do not, soap buys a wash that lasts, drinks are content and leave their empties, a stimulant is a loan, a careful pantry keeps, the well's water wants a fire, the player drinks and fills a bottle at the well, and a lit fire burns down")
+		print("M2_NEEDS_OK drain bands verbs hud hold, low mood has consequences, food is content and can make you ill, a death costs the living, everybody has to go, a meal's mood wears off, the dead give back the bed, the player gets up, the deep cold is reachable, sleep has a quality, what you sleep on moves it and bare boards do not, soap buys a wash that lasts, drinks are content and leave their empties, a stimulant is a loan, a careful pantry keeps, the well's water wants a fire, the player drinks and fills a bottle at the well, every colonist starts with a bottle the well fills, and a lit fire burns down")
 		quit(0)
 	else:
 		push_error("M2_NEEDS_FAIL")
@@ -3083,4 +3084,64 @@ func _a_survivor_drinks_at_the_well_and_fills_a_bottle_there() -> bool:
 		push_error("WELL: %d of 40 mouthfuls at the well made the survivor ill; the untreated chance is not what is rolled" % ill)
 		return false
 	print("WELL OK thirsty at the well, E drinks (+%.0f, nothing spent, the menu carries it); sated with an empty bottle, E fills it; a top-up while half of it lands, none past that or four metres off; %d of 40 mouthfuls made them ill" % [mouthful, ill])
+	return true
+
+
+# BOTTLE: the owner's pick on the water card (docs/30, "Every colonist starts with a bottle,
+# 2026-10-22"). Each colonist at boot, the player and both uniques, carries exactly one empty
+# bottle, and the bottle is read: a unique's Water job is offered with that bottle as its
+# target, and the player at the well with a full drink in them is offered the fill. The true
+# negatives take the bottle away (and every empty on the colony's floor) and see both offers go.
+func _every_colonist_starts_with_an_empty_bottle_and_something_fills_it() -> bool:
+	var w: Variant = _world()
+	var colony: Array[int] = [int(w.player)]
+	for ent in w.components.query(["identity"]):
+		var ident: Variant = w.components.get_component(int(ent), "identity")
+		if ident is Dictionary and String((ident as Dictionary).get("id", "")).begins_with("survivor.unique."):
+			colony.append(int(ent))
+	if colony.size() != 3:
+		push_error("BOTTLE: the boot colony is %d bodies, not the three this lane judges" % colony.size())
+		return false
+	for ent in colony:
+		var held: int = _count_carried(w, ent, SimNeeds.EMPTY_ID)
+		if held != 1:
+			push_error("BOTTLE: colonist %d boots carrying %d empty bottles, not one" % [ent, held])
+			return false
+	var well: int = _well_of(w)
+	if well < 0:
+		push_error("BOTTLE: the booted district has no well at its anchor, so this lane judges nothing")
+		return false
+	var wp: Dictionary = w.components.get_component(well, "position") as Dictionary
+	for ent in colony.slice(1):
+		var p: Dictionary = w.components.get_component(ent, "position") as Dictionary
+		var job: Dictionary = SimJobs._water_work(w, ent, float(p["x"]), float(p["y"]))
+		var target: int = int(job.get("target", -1))
+		if String(job.get("kind", "")) != "Water" or _count_carried(w, ent, SimNeeds.EMPTY_ID) != 1 or not SimInventory.carried_items(w, ent).has(target):
+			push_error("BOTTLE: colonist %d's Water job does not take the bottle it carries: %s" % [ent, str(job)])
+			return false
+	_stand_by(w, well, 0.0, 1.0)
+	SimNeeds.of(w, w.player)["thirst"] = 100.0
+	if SimNeeds.well_offer(w, w.player) != "fill":
+		push_error("BOTTLE: the player at the well with a full drink is offered '%s', not the fill" % SimNeeds.well_offer(w, w.player))
+		return false
+	# True negatives: no empty carried by anyone and none on the colony's floor.
+	for item in SimNeeds.stockpile_items(w):
+		var b: Variant = w.components.get_component(int(item), "itemBase")
+		if b is Dictionary and String((b as Dictionary).get("baseId", "")) == SimNeeds.EMPTY_ID:
+			w.despawn(int(item))
+	for ent in colony:
+		for item in SimInventory.carried_items(w, ent):
+			var b: Variant = w.components.get_component(int(item), "itemBase")
+			if b is Dictionary and String((b as Dictionary).get("baseId", "")) == SimNeeds.EMPTY_ID:
+				w.despawn(int(item))
+	if SimNeeds.well_offer(w, w.player) != "":
+		push_error("BOTTLE: with no bottle the full player at the well is still offered '%s'" % SimNeeds.well_offer(w, w.player))
+		return false
+	for ent in colony.slice(1):
+		var p: Dictionary = w.components.get_component(ent, "position") as Dictionary
+		var job: Dictionary = SimJobs._water_work(w, ent, float(p["x"]), float(p["y"]))
+		if not job.is_empty():
+			push_error("BOTTLE: colonist %d is offered a Water job with no bottle anywhere: %s" % [ent, str(job)])
+			return false
+	print("BOTTLE OK three colonists, one bottle each, the Water job and the well's fill read it, and both go with it (well at %.1f, %.1f)" % [float(wp["x"]), float(wp["y"])])
 	return true
