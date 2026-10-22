@@ -1194,9 +1194,12 @@ tables and day lines are report-noise.md in the project's planning/balance folde
     fight-or-flee, and the last colonist dies on day 4 of a day-2 bite. The well was used once, on
     day 3.
   - **Next, two driver tasks, in this order, each followed by a three-seed ten-day rerun.**
-    First, the scripted survivor keeps empty bottles instead of dropping them as junk while it
-    loots (`_kind_of` in `godot/playtest/ten_day.gd` classes `item.water.bottle.empty` as junk),
-    so a visit to the well fills bottles for later and the walks out past the gate get fewer.
+    First, done in the driver only: the scripted survivor keeps empty bottles instead of
+    dropping them as junk (`_kind_of` in `godot/playtest/ten_day.gd` now classes
+    `item.water.bottle.empty` as `empty`, and the haul keeps them), so a visit to the well fills
+    bottles for later. Seed 31337 rerun alone, the colonist counters and the wipe day are in
+    report-noise.md; the three-seed rerun is still owed. The driver also counts colonist swings,
+    hits, shots and kills, so "do colonists fight" reads off a trace rather than a guess.
     Second, the driver treats infection with the antibiotics the content already has
     (`item.antibiotics.course`, `item.antibiotics.veterinary`, `item.antibiotics.expired` in
     `godot/content/items/supplies.json`), so a bite taken at the well is no longer a death two and
