@@ -893,6 +893,11 @@ func _observe() -> void:
 			"container.searched":
 				if int(ev.get("actor", -1)) != me:
 					_day["npc_searches"] = int(_day["npc_searches"]) + 1
+			"need.drank":
+				# A well drink publishes with a `source` and no item; a pack drink is counted when pressed
+				# above, so counting only the well ones here keeps each drink counted once.
+				if int(ev.get("entity", -1)) == me and ev.has("source"):
+					_day["drank"] = int(_day["drank"]) + 1
 			"antibiotics.used":
 				if int(ev.get("entity", -1)) == me:
 					_day["courses"] = int(_day["courses"]) + 1
