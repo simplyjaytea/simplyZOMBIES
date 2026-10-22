@@ -1216,9 +1216,20 @@ tables and day lines are report-noise.md in the project's planning/balance folde
     stays 0 or 1). On 404 the two builds match tick for tick to 9,300, and the split is the
     scripted player's route, which met a zombie 4 m off instead of 5.6 m. One pocket cell turned
     a seed from day 9 to day 1, so three seeds of one scripted survivor cannot tell a lever from
-    noise. **Next: the same driver on a wider seed set**, before any further lever is judged on
-    these numbers. A well inside the wall, more loot water and a rain barrel stay unbuilt and are
-    the owner's.
+    noise. A well inside the wall, more loot water and a rain barrel stay unbuilt and are the
+    owner's.
+  - **Next measurement: ten seeds, median wipe day.** The same driver on ten seeds, run on main
+    and on each candidate, reporting the median wipe day (and the spread) rather than three
+    single runs, so one perturbed route cannot flip a verdict. No balance lever is judged on the
+    three-seed numbers again.
+  - **Next trace: the colony's Water job barely runs, even with a bottle in every pocket.** The
+    pile's drink stock stays 0 or 1 on every day of every seed. Best guess, inferred from the code
+    and not yet traced: Water sits at priority 3 for both uniques, behind Mara's Doctor, Guard
+    and Cook and Ellis's Guard and Haul, and tied with Ellis's Scavenge, Construct and Cook, so it
+    is rarely the column picked; and when it is, Water is one of `SimJobs.DANGER_KINDS`, so the
+    walk out to the well past the gate breaks off at a zombie within 6 m of the walker
+    (`DANGER_METRES`), and the well is guarded most of the day on these seeds. A trace of one colonist's
+    picked job and break-offs over day 1 to day 3 would confirm or refute it.
 
 **Feel and speed — smooth motion, and time a player can live with:**
 
