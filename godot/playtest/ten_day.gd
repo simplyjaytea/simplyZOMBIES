@@ -107,6 +107,9 @@ var _tick_us: PackedInt64Array = PackedInt64Array()
 # `entity.killed` (a turn, a body taken off the books), so a departure is read off the roster.
 var _roster: Dictionary = {}
 var _accounted: Dictionary = {}
+# Each colonist's swing state as last polled, id -> SwingState int. A swing is counted on the tick
+# it leaves Idle; the fight is read off the bus and the `swing` component, never by driving it.
+var _swing_state: Dictionary = {}
 const ROSTER_EVERY: int = 20
 
 
@@ -521,7 +524,7 @@ func _haul_home(me: int, here: Vector2) -> void:
 			drink += 1
 			if drink <= KEEP_DRINK:
 				continue
-		elif kind == "medical" or kind == "ammo" or kind == "weapon":
+		elif kind == "medical" or kind == "ammo" or kind == "weapon" or kind == "empty":
 			continue
 		w.commands.push({"type": "item.drop", "item": item})
 		dropped += 1
@@ -723,6 +726,10 @@ func _kind_of(item: int) -> String:
 		return "food"
 	if SimNeeds.is_drink(w, base):
 		return "drink"
+	# An empty bottle is kept, not junk: the well fills it, and a survivor who drops it on the
+	# colony floor can never drink from the well again. docs/23 "Balance after the alpha" (a).
+	if base == "item.water.bottle.empty":
+		return "empty"
 	if SimTreatment.verb_of_supply(w, item) != "":
 		return "medical"
 	if base.begins_with("item.ammo"):
@@ -822,6 +829,7 @@ func _blank_counters() -> Dictionary:
 		"searched": 0, "picked": 0, "ignored": 0, "npc_searches": 0, "ate": 0, "drank": 0, "swings": 0, "shots": 0, "treats": 0,
 		"hauled": 0, "gave_up": 0, "equipped": 0, "woken": 0, "bed_fallback": 0, "slept_ticks": 0,
 		"successions": 0, "left": 0, "well": 0,
+		"colonist_swings": 0, "colonist_shots": 0, "colonist_hits": 0, "colonist_kills": 0,
 	}
 
 
@@ -838,6 +846,8 @@ func _observe() -> void:
 					_day["kills"] = int(_day["kills"]) + 1
 					if int(ev.get("killer", -2)) == me:
 						_day["player_kills"] = int(_day["player_kills"]) + 1
+					elif w.components.has_component(int(ev.get("killer", -2)), "needs"):
+						_day["colonist_kills"] = int(_day["colonist_kills"]) + 1
 				elif not w.components.has_component(victim, "raider") and (w.components.has_component(victim, "needs") or w.components.has_component(victim, "identity") or victim == me):
 					_day["deaths"] = int(_day["deaths"]) + 1
 					_accounted[victim] = true
@@ -849,7 +859,14 @@ func _observe() -> void:
 				_day["bites"] = int(_day["bites"]) + 1
 				if int(ev.get("victim", -1)) == me:
 					_day["player_bites"] = int(_day["player_bites"]) + 1
+			"weapon.fired":
+				var shooter: int = int(ev.get("entity", -1))
+				if shooter != me and w.components.has_component(shooter, "needs"):
+					_day["colonist_shots"] = int(_day["colonist_shots"]) + 1
 			"attack.connected":
+				var attacker: int = int(ev.get("attacker", -1))
+				if attacker != me and w.components.has_component(attacker, "needs") and w.components.has_component(int(ev.get("target", -1)), "shambler"):
+					_day["colonist_hits"] = int(_day["colonist_hits"]) + 1
 				if w.components.has_component(int(ev.get("target", -1)), "needs"):
 					_day["hits_taken"] = int(_day["hits_taken"]) + 1
 			"grab.started":
@@ -872,8 +889,23 @@ func _observe() -> void:
 					_day["npc_searches"] = int(_day["npc_searches"]) + 1
 			"player.succeeded", "succession", "player.changed":
 				_day["successions"] = int(_day["successions"]) + 1
+	_count_colonist_swings(me)
 	if int(w.tick) % ROSTER_EVERY == 0:
 		_roster_diff()
+
+
+# A colonist's swing, counted on the tick its `swing` leaves Idle. Polled off the component rather
+# than evented, because melee.gd publishes no swing-started event and the driver must not change
+# the game to get one.
+func _count_colonist_swings(me: int) -> void:
+	for ent in w.components.query(["swing", "needs"]):
+		var id: int = int(ent)
+		if id == me:
+			continue
+		var state: int = int((w.components.get_component(id, "swing") as Dictionary)["state"])
+		if int(_swing_state.get(id, 0)) == 0 and state != 0:
+			_day["colonist_swings"] = int(_day["colonist_swings"]) + 1
+		_swing_state[id] = state
 
 
 # Who was in the colony last look and is not now, with no event that said why: a death the event
@@ -969,11 +1001,12 @@ func _close_day(day: int) -> void:
 		row[key] = _day[key]
 		_run_total[key] = int(_run_total.get(key, 0)) + int(_day[key])
 	_emit(row)
-	print("DAY %2d head=%d alive=%s hunger=%5.1f thirst=%5.1f rest=%5.1f food=%d+%d drink=%d+%d wounds=%d bleed=%d infected=%d bites=%d kills=%d(you %d) deaths=%d left=%d searched=%d picked=%d ate=%d drank=%d well=%d swings=%d grabs=%d(you %d) packets=%d raids=%d live=%d tick=%.2f/%.2f/%.2f ms" % [
+	print("DAY %2d head=%d alive=%s hunger=%5.1f thirst=%5.1f rest=%5.1f food=%d+%d drink=%d+%d wounds=%d bleed=%d infected=%d bites=%d kills=%d(you %d) deaths=%d left=%d searched=%d picked=%d ate=%d drank=%d well=%d swings=%d grabs=%d(you %d) packets=%d raids=%d colonist=swings %d hits %d shots %d kills %d live=%d tick=%.2f/%.2f/%.2f ms" % [
 		day, colony.size(), str(colony.has(me)), float(row["hunger"]), float(row["thirst"]), float(row["rest"]),
 		food_stock, food_carried, drink_stock, drink_carried, wounds, bleeding, infected, int(_day["bites"]),
 		int(_day["kills"]), int(_day["player_kills"]), int(_day["deaths"]), int(_day["left"]), int(_day["searched"]), int(_day["picked"]), int(_day["ate"]), int(_day["drank"]), int(_day["well"]),
 		int(_day["swings"]), int(_day["grabs"]), int(_day["player_grabs"]), int(_day["packets"]), int(_day["raids"]),
+		int(_day["colonist_swings"]), int(_day["colonist_hits"]), int(_day["colonist_shots"]), int(_day["colonist_kills"]),
 		int(row["live_shamblers"]), mean_ms, p99_ms, max_ms,
 	])
 	_day = _blank_counters()
@@ -988,10 +1021,11 @@ func _summary(wall_ms: int) -> bool:
 	for key in _run_total.keys():
 		row[key] = _run_total[key]
 	_emit(row)
-	print("SUMMARY seed=%d day_reached=%d run_over=%s survivors=%d deaths=%d kills=%d(you %d) bites=%d searched=%d ate=%d drank=%d swings=%d wall=%ds" % [
+	print("SUMMARY seed=%d day_reached=%d run_over=%s survivors=%d deaths=%d kills=%d(you %d) bites=%d searched=%d ate=%d drank=%d swings=%d colonist_swings=%d colonist_hits=%d colonist_shots=%d colonist_kills=%d wall=%ds" % [
 		_seed, day_reached, str(bool(w.runOver)), colony.size(), int(_run_total["deaths"]), int(_run_total["kills"]),
 		int(_run_total["player_kills"]), int(_run_total["bites"]), int(_run_total["searched"]), int(_run_total["ate"]),
-		int(_run_total["drank"]), int(_run_total["swings"]), wall_ms / 1000,
+		int(_run_total["drank"]), int(_run_total["swings"]),
+		int(_run_total["colonist_swings"]), int(_run_total["colonist_hits"]), int(_run_total["colonist_shots"]), int(_run_total["colonist_kills"]), wall_ms / 1000,
 	])
 	# The driver's one assertion: the survivor played. Each behaviour is only owed when the run was
 	# long enough for it to come up -- a quarter-day smoke never reaches a night, so it never owes
