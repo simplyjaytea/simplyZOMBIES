@@ -270,6 +270,11 @@ func _think() -> void:
 				SimNeeds.wake(w, me)
 		return
 
+	# 2b. Symptomatic: take the antibiotics, as the response panel offers them. The sim decides
+	# whether the row is there (`response_view`, the same read the panel makes), so the bot takes
+	# only a course a player could take. Latent exposures read clear and get nothing, on purpose.
+	if int(w.tick) % 20 == 0 and not w.components.has_component(me, "treatment") and not SimTreatment.response_view(w, me).is_empty():
+		w.commands.push({"type": "infection.respond", "patient": me, "part": "", "verb": "antibiotics"})
 	# 3. Bleeding with nothing near: treat.
 	if _bleeding(me) and not w.components.has_component(me, "treatment"):
 		if int(w.tick) % 40 == 0:
@@ -830,6 +835,7 @@ func _blank_counters() -> Dictionary:
 		"hauled": 0, "gave_up": 0, "equipped": 0, "woken": 0, "bed_fallback": 0, "slept_ticks": 0,
 		"successions": 0, "left": 0, "well": 0,
 		"colonist_swings": 0, "colonist_shots": 0, "colonist_hits": 0, "colonist_kills": 0,
+		"courses": 0, "courses_cleared": 0,
 	}
 
 
@@ -887,6 +893,16 @@ func _observe() -> void:
 			"container.searched":
 				if int(ev.get("actor", -1)) != me:
 					_day["npc_searches"] = int(_day["npc_searches"]) + 1
+			"need.drank":
+				# A well drink publishes with a `source` and no item; a pack drink is counted when pressed
+				# above, so counting only the well ones here keeps each drink counted once.
+				if int(ev.get("entity", -1)) == me and ev.has("source"):
+					_day["drank"] = int(_day["drank"]) + 1
+			"antibiotics.used":
+				if int(ev.get("entity", -1)) == me:
+					_day["courses"] = int(_day["courses"]) + 1
+					if bool(ev.get("clears", false)):
+						_day["courses_cleared"] = int(_day["courses_cleared"]) + 1
 			"player.succeeded", "succession", "player.changed":
 				_day["successions"] = int(_day["successions"]) + 1
 	_count_colonist_swings(me)
@@ -1001,11 +1017,12 @@ func _close_day(day: int) -> void:
 		row[key] = _day[key]
 		_run_total[key] = int(_run_total.get(key, 0)) + int(_day[key])
 	_emit(row)
-	print("DAY %2d head=%d alive=%s hunger=%5.1f thirst=%5.1f rest=%5.1f food=%d+%d drink=%d+%d wounds=%d bleed=%d infected=%d bites=%d kills=%d(you %d) deaths=%d left=%d searched=%d picked=%d ate=%d drank=%d well=%d swings=%d grabs=%d(you %d) packets=%d raids=%d colonist=swings %d hits %d shots %d kills %d live=%d tick=%.2f/%.2f/%.2f ms" % [
+	print("DAY %2d head=%d alive=%s hunger=%5.1f thirst=%5.1f rest=%5.1f food=%d+%d drink=%d+%d wounds=%d bleed=%d infected=%d bites=%d kills=%d(you %d) deaths=%d left=%d searched=%d picked=%d ate=%d drank=%d well=%d swings=%d grabs=%d(you %d) packets=%d raids=%d courses=%d cleared=%d colonist=swings %d hits %d shots %d kills %d live=%d tick=%.2f/%.2f/%.2f ms" % [
 		day, colony.size(), str(colony.has(me)), float(row["hunger"]), float(row["thirst"]), float(row["rest"]),
 		food_stock, food_carried, drink_stock, drink_carried, wounds, bleeding, infected, int(_day["bites"]),
 		int(_day["kills"]), int(_day["player_kills"]), int(_day["deaths"]), int(_day["left"]), int(_day["searched"]), int(_day["picked"]), int(_day["ate"]), int(_day["drank"]), int(_day["well"]),
 		int(_day["swings"]), int(_day["grabs"]), int(_day["player_grabs"]), int(_day["packets"]), int(_day["raids"]),
+		int(_day["courses"]), int(_day["courses_cleared"]),
 		int(_day["colonist_swings"]), int(_day["colonist_hits"]), int(_day["colonist_shots"]), int(_day["colonist_kills"]),
 		int(row["live_shamblers"]), mean_ms, p99_ms, max_ms,
 	])
@@ -1021,10 +1038,11 @@ func _summary(wall_ms: int) -> bool:
 	for key in _run_total.keys():
 		row[key] = _run_total[key]
 	_emit(row)
-	print("SUMMARY seed=%d day_reached=%d run_over=%s survivors=%d deaths=%d kills=%d(you %d) bites=%d searched=%d ate=%d drank=%d swings=%d colonist_swings=%d colonist_hits=%d colonist_shots=%d colonist_kills=%d wall=%ds" % [
+	print("SUMMARY seed=%d day_reached=%d run_over=%s survivors=%d deaths=%d kills=%d(you %d) bites=%d searched=%d ate=%d drank=%d swings=%d courses=%d courses_cleared=%d colonist_swings=%d colonist_hits=%d colonist_shots=%d colonist_kills=%d wall=%ds" % [
 		_seed, day_reached, str(bool(w.runOver)), colony.size(), int(_run_total["deaths"]), int(_run_total["kills"]),
 		int(_run_total["player_kills"]), int(_run_total["bites"]), int(_run_total["searched"]), int(_run_total["ate"]),
 		int(_run_total["drank"]), int(_run_total["swings"]),
+		int(_run_total["courses"]), int(_run_total["courses_cleared"]),
 		int(_run_total["colonist_swings"]), int(_run_total["colonist_hits"]), int(_run_total["colonist_shots"]), int(_run_total["colonist_kills"]), wall_ms / 1000,
 	])
 	# The driver's one assertion: the survivor played. Each behaviour is only owed when the run was
