@@ -1199,14 +1199,16 @@ tables and day lines are report-noise.md in the project's planning/balance folde
     `item.water.bottle.empty` as `empty`, and the haul keeps them), so a visit to the well fills
     bottles for later. Seed 31337 rerun alone wiped on day 8, the same as #180, and the bottle
     keep did not move it on that seed; the colonist counters read 38 swings, 12 hits and 1 kill
-    over ten days. The numbers are in report-noise.md; the three-seed rerun is still owed. The driver also counts colonist swings,
-    hits, shots and kills, so "do colonists fight" reads off a trace rather than a guess.
-    Second, the driver treats infection with the antibiotics the content already has
-    (`item.antibiotics.course`, `item.antibiotics.veterinary`, `item.antibiotics.expired` in
-    `godot/content/items/supplies.json`), so a bite taken at the well is no longer a death two and
-    a half days later. Both change what the playtest measures, not the game, so neither waits on
-    the owner. The rerun on the same three seeds, before and after, is the gate; the numbers go
-    in the record.
+    over ten days. The three-seed numbers for both driver tasks are in report-noise.md.
+    The driver also counts colonist swings, hits, shots and kills, so "do colonists fight" reads
+    off a trace rather than a guess.
+    Second, done in the driver only (PR #184): the survivor takes a course when the sim's
+    response panel offers one (`SimTreatment.response_view`). Three seeds, ten days, wipe days
+    4, 8 and 9, the same as #180 on all three. No course reached the pack on any seed, so this
+    change is inert here: the only course is in `loot.medical` (10 of 274 weight, 3.6% a roll),
+    and the playtest's district, residential_suburb, has one medical container. Loot weights are
+    the owner's call. Numbers in report-noise.md, "Antibiotics at the response panel".
+
   - **What the game itself could change is the owner's.** Water at home, a well inside the wall
     or a starting bottle, is docs/33's "Where does a colony drink without walking past the
     gate?".
