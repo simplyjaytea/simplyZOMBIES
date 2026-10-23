@@ -5777,3 +5777,31 @@ a day-6 death of thirst.
 Gated by `godot:m2:needs` BOTTLE: three colonists, one bottle each, both readers offered it, and
 both offers gone once every empty is taken away; the lane was run red against main first.
 
+
+## The playbook, and AGENTS.md as a pointer, 2026-10-23
+
+**The owner asked for a playbook "for ALL other agents to access and know what's going on".**
+The 2026-10-19 alpha calls retired `AGENTS.md` because the owner wanted one file, and two status
+files had drifted apart. This request is read as keeping that rule for the repository's rules
+while giving the project around it a home:
+
+- **`CLAUDE.md` stays the one place the repository's rules live,** with the routing table that
+  `check:routing` judges, the standing bans, and the no-model-names rule.
+- **docs/38, the playbook, holds how the project runs.** That covers who decides what, how a pull
+  request reaches `main`, the merge and branch rules, the shared folder, the art review, and
+  which owner calls are open. Until now these lived only in the project chat and project memory,
+  out of reach of an agent that starts from the repository. The playbook links to docs/23,
+  docs/30, docs/33, docs/34, docs/35 and docs/37 rather than copying them, and carries no commit
+  hash and no status list.
+- **`AGENTS.md` returns as a pointer only.** Codex, Cursor and other tools look for that file
+  name, so it exists, and it says to read `CLAUDE.md` and then the playbook. It carries no rules
+  and no status, which is what made the old one drift. No gate holds it to that; the discipline
+  is the convention. If it ever gains a rule, move the rule into `CLAUDE.md`.
+- **Model routing is described by role, not by name.** The owner assigns models by role
+  (coordinator, working threads, planning, irreversible steps and art). The names stay out of
+  the repository under the rule that nothing pushed names a model. They live in the project's
+  memory and the owner's own project-chat instruction.
+
+**How to apply:** a fact about the build goes in the doc that owns it (docs/23 for status, docs/30
+for a call, docs/33 for an open owner question). A fact about how the project works goes in
+docs/38. Neither file is copied into the other.

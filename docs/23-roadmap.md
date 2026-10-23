@@ -232,8 +232,8 @@ record together. No new camp, treatment, loadout or hidden-information mechanics
 ##### Other remaining work
 
 **Waiting on the owner — decisions, not code.** Each is measured and written up; none may be
-decided unilaterally. **The full list lives in [docs/33-owner-decisions.md](33-owner-decisions.md)** (items 0 to 10 as of 2026-10-19; the
-newest two are the water numbers and the main area's extent, and the six of 2026-09-06 were the
+decided unilaterally. **The full list lives in [docs/33-owner-decisions.md](33-owner-decisions.md)** (items 0 to 12 as of 2026-10-23; the
+newest two are the antibiotic loot weight and a held colonist striking its holder, and the six of 2026-09-06 were the
 driving and weather first cuts, the free wind, the unseen-wall roof, the one-handed silhouettes,
 the forest density, and the two playable-state flips against the compressed tier's survival
 floor). The sepsis question that used to be repeated here was decided on 2026-09-06 (lethal
@@ -2267,6 +2267,22 @@ What landed and what proved it, system by system (condensed from the retired bac
 links in the slice-scope table above are the authority on each). The open tails that used to end
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
+
+- **Kernel & tooling — the playbook and the init audit, 2026-10-23.** The owner asked for the
+  repository to be initialised for agents and for one playbook every agent can read. An audit of
+  the build, test and gate commands against `CLAUDE.md` added three things to it: the commands for
+  one gate, one CI shard and one oracle test file; a short "How the code fits together" section
+  (the 20 Hz ECS and its phases, modules registering through `SimBoot.register_playable_modules`,
+  presentation reading only through read models, and the five places a new gate touches); and
+  `scripts/m2-shards.mjs` with `check:shards` in the routing table's gate row. docs/38 is the
+  playbook (how the project runs, linked from the top of `CLAUDE.md`), and `AGENTS.md` came back
+  as a pointer with no content of its own (docs/30, "The playbook, and AGENTS.md as a pointer").
+  The audit also found two open owner calls that were recorded only in docs/23's prose and in the
+  project chat, now docs/33 items 11 (antibiotic loot weight) and 12 (a held colonist striking its
+  holder). It found docs/37's throughput trap still pricing a day at 288,000 ticks, the four-hour
+  day, which is fixed to 72,000. Gates: `npm run check:routing` (the new routing-row paths and
+  scripts resolve) and `npm run format:check`. No game behaviour, sim code, gate, content or
+  workflow changed.
 
 - **Needs — every colonist starts with a bottle, 2026-10-22 (the owner's pick on the water
   card).** The player, Mara and Ellis each boot carrying one `item.water.bottle.empty`: the uniques
