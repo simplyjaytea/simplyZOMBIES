@@ -27,6 +27,13 @@ const COLUMNS: Array[String] = [
 	"Firefight", "Patient", "Doctor", "Rest", "Cook", "Hunt", "Construct", "Repair",
 	"Haul", "Scavenge", "Farm", "Water", "Craft", "Modify", "Butcher", "Clean", "Guard", "Bury",
 ]
+# Every `kind` this module writes on a `job` component. Nothing else in godot/sim/ writes one. The
+# Colony screen's "now" line (`sim/work_read.gd`) has words for each, and `check_m2_jobs.gd`'s
+# DOING lane holds this list to the literals in this file, so a new kind cannot go unsaid.
+const JOB_KINDS: Array[String] = [
+	"Haul", "Scavenge", "Construct", "Cook", "Doctor", "Rest", "Patient", "Guard", "Water", "Clean",
+	"Bury", "Repair", "Retreat", "Rearm", "Dress", "Seek",
+]
 const CONSUMERS: Array[String] = ["Haul", "Scavenge", "Construct", "Cook", "Doctor", "Rest", "Patient", "Guard", "Water", "Clean", "Bury", "Repair"]
 # How far from home a colonist works the ground: Haul and Scavenge reach only this far from the
 # annex's centre, in tiles. The whole of a 64-tile map, the neighbourhood of a 256 one -- the
@@ -239,9 +246,10 @@ static func _tick_one(world: Variant, ent: int) -> void:
 	# colonist walks home first. `_endangered` below covers the errands; this covers a colonist
 	# standing idle or walking a need, who before this had no rule that ever sent them in.
 	if BREAK_OFF_FROM_DANGER and _exposed_idle(world, ent, job):
+		var was_idle: String = String((job as Dictionary).get("kind", "")) if job is Dictionary else ""
 		if job is Dictionary:
 			_stop(world, ent)
-		_retreat(world, ent)
+		_retreat(world, ent, was_idle)
 		_advance_job(world, ent, world.components.get_component(ent, "job") as Dictionary)
 		return
 	# A walk home is not dropped for a need that can wait. Without this the seek branch below
@@ -314,8 +322,9 @@ static func _tick_one(world: Variant, ent: int) -> void:
 		# the storm sends everybody in: the job is dropped (its claim released) and the walk home
 		# replaces it. See `_endangered`.
 		if BREAK_OFF_FROM_DANGER and _endangered(world, ent, job as Dictionary):
+			var was_kind: String = String((job as Dictionary).get("kind", ""))
 			_stop(world, ent)
-			_retreat(world, ent)
+			_retreat(world, ent, was_kind)
 			return
 		# The watch ends at dawn wherever the guard stands -- on the post or still walking to
 		# it -- and completes (`job.completed`, the Endurance point). Here rather than in the
@@ -1530,14 +1539,17 @@ static func _can_wash(world: Variant, ent: int) -> bool:
 
 
 # The walk home: a job with a tile and nothing to do there, which `_advance_job` ends on arrival.
-static func _retreat(world: Variant, ent: int) -> void:
+# `was` is the kind of the job it broke off ("" for none). Nothing in the sim reads it: it is for
+# the Colony screen's now line (`sim/work_read.gd`), which out of the player's sight says the
+# errand the colony believes she is on rather than a walk home that would tell of a zombie near her.
+static func _retreat(world: Variant, ent: int, was: String = "") -> void:
 	var home: Vector2 = _home_centre(world)
 	var tile := Vector2i(floori(home.x), floori(home.y))
 	if world.tilemap != null and SimTileMap.is_solid(world.tilemap, tile.x, tile.y):
 		var open: Dictionary = SimTileMap.find_open_tile(world.tilemap, tile.x, tile.y)
 		if bool(open.get("ok", open.has("x"))) and open.has("x"):
 			tile = Vector2i(int(open["x"]), int(open["y"]))
-	world.components.set_component(ent, "job", {"kind": "Retreat", "tx": tile.x, "ty": tile.y, "ticksLeft": 0, "path": [], "pathGen": -1})
+	world.components.set_component(ent, "job", {"kind": "Retreat", "tx": tile.x, "ty": tile.y, "ticksLeft": 0, "path": [], "pathGen": -1, "was": was})
 
 # The hands are the re-arm rule's business and nothing here may reach into them: a machete has no
 # `armor` block, so this would never fire on one anyway, and saying it out loud is cheaper than

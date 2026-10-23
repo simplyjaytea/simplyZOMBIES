@@ -28,11 +28,10 @@ const WEB_SIDE: float = 600.0
 # Even radii, with centres snapped to even pixels (`_at`), so every disc starts on the screen's
 # two-pixel art grid.
 const NODE_R: float = 8.0
-# The hub's dot, and the lines: two pixels wide, moved half their width so a line centred on an
-# even pixel covers an even pair of columns rather than straddling one.
+# The hub's dot. The lines are drawn in whole 2x2 art pixels (`line_blocks`), so they need no width.
 const HUB_R: float = 4.0
-const LINE_W: float = 2.0
-const LINE_SHIFT: Vector2 = Vector2(1.0, 1.0)
+# A dotted line's dash and gap, in art pixels.
+const DASH: int = 3
 # A keystone's disc, and the ring outside it: the one thing on the web that costs something.
 const KEY_R: float = 12.0
 const RING_GAP: float = 4.0
@@ -116,7 +115,7 @@ func footer() -> String:
 		who = "you"
 	if who.is_empty():
 		who = "they"
-	return "%s %s on %s own path — set them to manual on the work grid to choose for them · esc to close" % [
+	return "%s %s on %s own path — set them to manual on the colony screen to choose for them · esc to close" % [
 		who, "are" if who == "you" else "is", "your" if who == "you" else "their"]
 
 
@@ -233,6 +232,59 @@ func _side() -> float:
 func _blocks(at: Vector2, r_out: float, r_in: float, col: Color) -> void:
 	for run in block_runs(r_out, r_in):
 		draw_rect(Rect2(at + (run as Rect2).position, (run as Rect2).size), col)
+
+
+# A line from `a` to `b` in whole 2x2 art pixels, `dash` art pixels on and as many off when it is
+# dotted (0 for solid). UI review, slice 1's leftovers: a smooth two-pixel line stepped a screen
+# pixel per row on a diagonal, and a dashed one could start on an odd row; this one steps a whole
+# art pixel, so every block is on the even grid whatever the angle.
+func _line(a: Vector2, b: Vector2, col: Color, dash: int = 0) -> void:
+	for r in line_blocks(a, b, dash):
+		draw_rect(r as Rect2, col)
+
+
+# The blocks of `_line`, absolute: both ends snapped down to the even grid, then Bresenham's walk in
+# art-pixel steps, one block per step, with blocks that touch along a row or a column merged into
+# one rect. Static so the gate can hold what is drawn to the grid without a screen.
+static func line_blocks(a: Vector2, b: Vector2, dash: int = 0) -> Array[Rect2]:
+	var p: float = Locker.PX
+	var x0: int = floori(a.x / p)
+	var y0: int = floori(a.y / p)
+	var x1: int = floori(b.x / p)
+	var y1: int = floori(b.y / p)
+	var dx: int = absi(x1 - x0)
+	var dy: int = -absi(y1 - y0)
+	var sx: int = 1 if x0 < x1 else -1
+	var sy: int = 1 if y0 < y1 else -1
+	var err: int = dx + dy
+	var cells: Array[Vector2i] = []
+	var step: int = 0
+	while true:
+		if dash <= 0 or (step / dash) % 2 == 0:
+			cells.append(Vector2i(x0, y0))
+		step += 1
+		if x0 == x1 and y0 == y1:
+			break
+		var e2: int = err * 2
+		if e2 >= dy:
+			err += dy
+			x0 += sx
+		if e2 <= dx:
+			err += dx
+			y0 += sy
+	var out: Array[Rect2] = []
+	for c in cells:
+		var r := Rect2(Vector2(float(c.x) * p, float(c.y) * p), Vector2(p, p))
+		if not out.is_empty():
+			var last: Rect2 = out[out.size() - 1]
+			if last.position.y == r.position.y and last.size.y == p and (r.position.x == last.end.x or r.end.x == last.position.x):
+				out[out.size() - 1] = last.merge(r)
+				continue
+			if last.position.x == r.position.x and last.size.x == p and (r.position.y == last.end.y or r.end.y == last.position.y):
+				out[out.size() - 1] = last.merge(r)
+				continue
+		out.append(r)
+	return out
 
 
 # The rows of `_blocks`' shape, relative to its centre: one rect per run of art pixels. Static so
@@ -425,6 +477,62 @@ static func _ink(line_box: Rect2, font_size: int) -> Rect2:
 	return Rect2(Vector2(line_box.position.x, top), Vector2(line_box.size.x, ceilf(float(font_size) * 0.8)))
 
 
+# Each region's fan: {region, lived, anchor, fan}, the fan a polygon from the hub round its arc.
+func _fans() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var hub: Vector2 = _at(WebLayout.HUB)
+	for r in _map.get("regions", []) as Array:
+		var rd: Dictionary = r as Dictionary
+		var region: String = String(rd.get("region", ""))
+		var anchor: Vector2 = WebLayout.region_anchor(_def, region)
+		if anchor == WebLayout.HUB:
+			continue
+		var dir: Vector2 = (anchor - WebLayout.HUB).normalized()
+		var mid: float = atan2(dir.y, dir.x)
+		var fan: PackedVector2Array = PackedVector2Array([hub])
+		for i in 13:
+			var a: float = mid - FAN_HALF + FAN_HALF * 2.0 * float(i) / 12.0
+			fan.append(hub + Vector2(cos(a), sin(a)) * FAN_RADIUS * _span())
+		out.append({"region": region, "lived": bool(rd.get("lived", false)), "anchor": anchor, "fan": fan})
+	return out
+
+
+# Every fan's edge in whole art pixels, the two radii and the arc, less the blocks that would run
+# through a region word or "start": the rim breaks for the word, an art pixel clear of its ink
+# (art QA, slice 2: the 2 px rim ran through "endurance" and "survival"). The draw and the gate read
+# this one list.
+func rim_blocks(font: Font, keep_out: bool = true) -> Array[Rect2]:
+	var words: Array[Rect2] = []
+	if keep_out:
+		for w in _fixed_word_rects(font):
+			words.append((w as Rect2).grow(Locker.PX))
+	var out: Array[Rect2] = []
+	for f in _fans():
+		var rim: PackedVector2Array = ((f as Dictionary)["fan"] as PackedVector2Array).duplicate()
+		rim.append(rim[0])
+		for i in rim.size() - 1:
+			for b in line_blocks(rim[i], rim[i + 1]):
+				if not _hits(b as Rect2, words):
+					out.append(b as Rect2)
+					continue
+				# A merged run that reaches a word is cut art pixel by art pixel, so only the part
+				# under the word goes.
+				var p: float = Locker.PX
+				for cy in int((b as Rect2).size.y / p):
+					for cx in int((b as Rect2).size.x / p):
+						var cell := Rect2((b as Rect2).position + Vector2(float(cx) * p, float(cy) * p), Vector2(p, p))
+						if not _hits(cell, words):
+							out.append(cell)
+	return out
+
+
+static func _hits(r: Rect2, rects: Array[Rect2]) -> bool:
+	for w in rects:
+		if w.intersects(r):
+			return true
+	return false
+
+
 # Where the region words and the hub's "start" are drawn, in the draw's own arithmetic.
 func _fixed_word_rects(font: Font) -> Array[Rect2]:
 	var out: Array[Rect2] = []
@@ -497,32 +605,23 @@ func _draw() -> void:
 		prices[String(nd.get("node", ""))] = String(nd.get("price", ""))
 	var hub: Vector2 = _at(WebLayout.HUB)
 	# The regions: a fan each, warm where the survivor has lived and faint where they have not,
-	# with the region's word out past its nodes.
-	for r in _map.get("regions", []) as Array:
-		var rd: Dictionary = r as Dictionary
-		var region: String = String(rd.get("region", ""))
-		var lived: bool = bool(rd.get("lived", false))
-		var anchor: Vector2 = WebLayout.region_anchor(_def, region)
-		if anchor == WebLayout.HUB:
-			continue
-		var dir: Vector2 = (anchor - WebLayout.HUB).normalized()
-		var mid: float = atan2(dir.y, dir.x)
-		var fan: PackedVector2Array = PackedVector2Array([hub])
-		for i in 13:
-			var a: float = mid - FAN_HALF + FAN_HALF * 2.0 * float(i) / 12.0
-			fan.append(hub + Vector2(cos(a), sin(a)) * FAN_RADIUS * _span())
+	# with the region's word out past its nodes. The fills first and every rim after, so a fan's
+	# fill never paints over its neighbour's edge.
+	for f in _fans():
+		var fd: Dictionary = f as Dictionary
 		# Warm where they have lived, and only there; every fan gets the same hairline so the six
 		# sectors read as sectors whether or not anybody has earned anything yet.
-		if lived:
+		if bool(fd["lived"]):
 			var fill: Color = Chrome.ITEM_FILL
 			fill.a = 0.7
-			draw_colored_polygon(fan, fill)
-		var rim: PackedVector2Array = fan.duplicate()
-		rim.append(hub)
-		draw_polyline(rim, Chrome.CELL_EDGE, 1.0)
-		var word: String = region.to_lower()
-		var label_at: Vector2 = _region_word_at(font, anchor, word)
-		draw_string(font, label_at, word, HORIZONTAL_ALIGNMENT_LEFT, -1, REGION_SIZE, Chrome.TEXT if lived else LOCKED_INK)
+			draw_colored_polygon(fd["fan"] as PackedVector2Array, fill)
+	for r in rim_blocks(font):
+		draw_rect(r as Rect2, Chrome.CELL_EDGE)
+	for f in _fans():
+		var fd: Dictionary = f as Dictionary
+		var word: String = String(fd["region"]).to_lower()
+		var label_at: Vector2 = _region_word_at(font, fd["anchor"] as Vector2, word)
+		draw_string(font, label_at, word, HORIZONTAL_ALIGNMENT_LEFT, -1, REGION_SIZE, Chrome.TEXT if bool(fd["lived"]) else LOCKED_INK)
 	# The lines: a focus path between two nodes, a spoke from the hub to where a path starts,
 	# and a dotted line to a node no path reaches. Bright where the survivor has walked it.
 	for e in WebLayout.edges(_def):
@@ -531,17 +630,17 @@ func _draw() -> void:
 		if not (pos.has(a) and pos.has(b)):
 			continue
 		var walked: bool = state.get(a, "") == "known" and state.get(b, "") == "known"
-		draw_line(_at(pos[a] as Vector2) + LINE_SHIFT, _at(pos[b] as Vector2) + LINE_SHIFT, Chrome.TEXT_DIM if walked else Chrome.CELL_EDGE, LINE_W)
+		_line(_at(pos[a] as Vector2), _at(pos[b] as Vector2), Chrome.TEXT_DIM if walked else Chrome.CELL_EDGE)
 	for s in WebLayout.spokes(_def):
 		if not pos.has(s):
 			continue
 		var walked_s: bool = state.get(s, "") == "known"
-		draw_line(hub + LINE_SHIFT, _at(pos[s] as Vector2) + LINE_SHIFT, Chrome.TEXT_DIM if walked_s else Chrome.CELL_EDGE, LINE_W)
+		_line(hub, _at(pos[s] as Vector2), Chrome.TEXT_DIM if walked_s else Chrome.CELL_EDGE)
 	for d in WebLayout.drift_only(_def):
 		if not pos.has(d):
 			continue
 		var walked_d: bool = state.get(d, "") == "known"
-		draw_dashed_line(hub + LINE_SHIFT, _at(pos[d] as Vector2) + LINE_SHIFT, Chrome.TEXT_DIM if walked_d else Chrome.CELL_EDGE, LINE_W, 6.0)
+		_line(hub, _at(pos[d] as Vector2), Chrome.TEXT_DIM if walked_d else Chrome.CELL_EDGE, DASH)
 	# The hub.
 	_blocks(hub, HUB_R, 0.0, Chrome.TEXT_DIM)
 	draw_string(font, _start_at(font), "start", HORIZONTAL_ALIGNMENT_LEFT, -1, FOOTER_SIZE, LOCKED_INK)
