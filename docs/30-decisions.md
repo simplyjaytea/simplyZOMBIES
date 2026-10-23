@@ -5870,3 +5870,32 @@ reading of it.
   is the locker header's note size, 20.
 - **The web's region fans break for their words.** Its 2 px rim stops an art pixel short of a
   region word or "start" rather than running through "endurance" and "survival".
+
+## Builders break off from a zombie, 2026-10-23
+
+**The coordinator's tuning call, JT informed.** Trace 99 (ace75bb1, seed 99) showed the early wipe:
+colonist 113 stayed on Construct at the annex wall with one to three zombies one to three metres
+off, and died on the job. Construct was not in `SimJobs.DANGER_KINDS`, so the break-off that sends
+Haul, Scavenge and Water home never fired for a builder.
+
+The first try, adding Construct to that list alone, did nothing. The annex lot (`annex_rect`)
+includes a two-tile yard of floor round the house, and a window is boarded from that yard, so
+`_outside_in_danger` counted every builder as home. A real tick with a zombie at 3 m stayed on
+Construct.
+
+The call that stands:
+
+- **For Construct, outside means outside the house walls.** `SimJobs._inside_walls` takes the box
+  the lot's walls, windows and doors draw and tests the builder's tile against it. The yard is
+  outside that box, so a builder boarding from the yard with a zombie within `DANGER_METRES` walks
+  home. A builder inside the house keeps building.
+- **Every other kind keeps the lot as home,** yard included. Haul and Scavenge at the yard are
+  judged as they were.
+- **A window with a zombie within `DANGER_TARGET_METRES` (10 m) is not offered as Construct work,**
+  as a Haul item with one near it is not. Without this the builder walks out at the same zombie
+  every time the Retreat hold ends.
+
+Gated by `godot:m2:jobs` BUILDER: a zombie 3 m off the yard breaks the job off, 20 m off does not,
+a builder inside the house is not broken off, the walk home holds for `RETREAT_HOLD_TICKS` and the
+builder goes back to the wall after it, and a window with a zombie at it is not offered. The
+lane was run red against the lot-as-home rule first.
