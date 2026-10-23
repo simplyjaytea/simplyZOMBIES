@@ -477,6 +477,11 @@ static func _work_for(world: Variant, ent: int, kind: String) -> Dictionary:
 		"Doctor":
 			return _doctor_work(world, ent)
 		"Rest":
+			# Rest finishes at SEEK_STOP (the arm in `_advance_job`). Handing it out to a rested
+			# colonist stops it on the same tick, every tick, so every column ranked below Rest
+			# (Water, Scavenge, Repair) was never picked.
+			if float(SimNeeds.of(world, ent).get("rest", 0.0)) >= SimNeeds.SEEK_STOP:
+				return {}
 			var bed: int = SimNeeds.nearest_bed(world, x, y, true)
 			if bed < 0:
 				return {}

@@ -1567,7 +1567,12 @@ func _zombie(main: Node, w: Variant, pid: int) -> bool:
 	var stagger: String = _drawn(main, z)
 	if not stagger.contains("_stagger_"):
 		ok = _fail("STAGGER", "entity.staggered on the zombie drew it '%s'" % stagger)
+	# The lane's zombie is held where the lane put it until the blow. Once colonists walk, this
+	# one reached the player inside the wait (1.0 m off, not 2.3 m), and the shove off a release
+	# on its death moved the player through the fall.
+	var stood: Dictionary = (w.components.get_component(z, "position") as Dictionary).duplicate()
 	for i in 12:
+		w.components.set_component(z, "position", stood.duplicate())
 		await _tick(main)
 	# The fall: a head blow that kills, through the sim's own health and the corpse pass.
 	if not _fell(main, z).is_empty():
