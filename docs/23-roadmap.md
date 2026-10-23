@@ -1234,14 +1234,27 @@ tables and day lines are report-noise.md in the project's planning/balance folde
     and on each candidate, reporting the median wipe day (and the spread) rather than three
     single runs, so one perturbed route cannot flip a verdict. No balance lever is judged on the
     three-seed numbers again.
-  - **Next trace: the colony's Water job barely runs, even with a bottle in every pocket.** The
-    pile's drink stock stays 0 or 1 on every day of every seed. Best guess, inferred from the code
-    and not yet traced: Water sits at priority 3 for both uniques, behind Mara's Doctor, Guard
-    and Cook and Ellis's Guard and Haul, and tied with Ellis's Scavenge, Construct and Cook, so it
-    is rarely the column picked; and when it is, Water is one of `SimJobs.DANGER_KINDS`, so the
-    walk out to the well past the gate breaks off at a zombie within 6 m of the walker
-    (`DANGER_METRES`), and the well is guarded most of the day on these seeds. A trace of one colonist's
-    picked job and break-offs over day 1 to day 3 would confirm or refute it.
+  - **The Water job barely ran because Rest starved it (traced, fixed on PR #188).** The pile's
+    drink stock stayed 0 or 1 on every day of every seed. The trace on seed 31337, day 1, showed
+    the medic at rest 100 picking Rest and stopping on the same tick, 536 times in a row, with no
+    Water pick at all. `SimJobs._work_for` handed Rest to a rested colonist with a free bed; Rest
+    finishes at `SEEK_STOP` in `_advance_job`, so every column ranked below Rest (Water, Scavenge,
+    Repair) was never reached. `_work_for` now returns no Rest work at `SEEK_STOP`. Gates:
+    `godot:m2:jobs` (the Rest lane takes a tired survivor and a rested one; the PATHING lane
+    watches the unreachable mark step by step), and `godot:check:action` (the FALL lane holds its
+    zombie at the spawn point until the blow, since a zombie that reaches the player shoves them
+    off through the fall).
+
+  - **Ten seeds, median wipe day (2026-10-23).** Same driver, ten seeds: 20260805, 31337, 404, 1,
+    7, 42, 99, 2024, 555, 8080. A seed alive on day 10 counts as day 11. Main a6ea1e0e: median 5.5,
+    mean 5.8, one alive on day 10. The Rest fix (ace75bb1): median 4.0, mean 6.1, four alive. The
+    fix keeps four seeds longer and ends four sooner. It is a real fault and it does not move the
+    wall, so no balance claim comes out of it. Per-seed files and the table are in
+    planning/balance/report-ten-seed.md.
+
+  - **Next: why the fix's colonists die early.** Six fix runs wiped by day 4. Now that Water runs,
+    the colonists walk out to the well and to work sooner. This is a hypothesis until a trace of
+    the early wipes says which colonist dies first, where, and doing what.
 
 **Feel and speed — smooth motion, and time a player can live with:**
 
