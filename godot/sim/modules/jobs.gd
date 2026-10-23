@@ -1460,7 +1460,11 @@ static var WEAR_FOUND_ARMOR: bool = true
 # A static the balance harness and the gates can pin, the WEAR_FOUND_ARMOR precedent: false is the
 # colony as it was before the A24 pass.
 static var BREAK_OFF_FROM_DANGER: bool = true
-const DANGER_KINDS: Array[String] = ["Haul", "Scavenge", "Water", "Bury", "Dress", "Rearm", "Doctor"]
+# Construct is on it too. A builder boards the annex's windows from the yard round the house,
+# which the annex lot counts as home, so `_endangered` judges a builder there by the house's walls
+# instead (`_inside_walls`). Without this a builder at the wall kept the job on with a zombie at
+# arm's length until they were taken (trace 99, docs/23).
+const DANGER_KINDS: Array[String] = ["Haul", "Scavenge", "Water", "Bury", "Dress", "Rearm", "Doctor", "Construct"]
 # How close a zombie comes before an errand is dropped: a shambler's contact range (1.6 m) with
 # room for a colonist to turn and walk off before the hands close.
 const DANGER_METRES: float = 6.0
@@ -1493,7 +1497,7 @@ static func _endangered(world: Variant, ent: int, job: Dictionary) -> bool:
 	# An order is the player's word, and a colonist re-arming on the way to one is still under it.
 	if world.components.has_component(ent, ORDER_COMPONENT):
 		return false
-	return _outside_in_danger(world, ent)
+	return _outside_in_danger(world, ent, String(job.get("kind", "")) == "Construct")
 
 
 # A colonist not on an errand (`_endangered` covers those), not walking home already, not on the
@@ -1511,7 +1515,8 @@ static func _exposed_idle(world: Variant, ent: int, job: Variant) -> bool:
 	return _outside_in_danger(world, ent)
 
 
-static func _outside_in_danger(world: Variant, ent: int) -> bool:
+# `walls` judges the house rather than the lot: a builder in the yard round the walls is outside.
+static func _outside_in_danger(world: Variant, ent: int, walls: bool = false) -> bool:
 	var pos: Variant = world.components.get_component(ent, "position")
 	if not pos is Dictionary:
 		return false
@@ -1520,8 +1525,24 @@ static func _outside_in_danger(world: Variant, ent: int) -> bool:
 	if world.tilemap != null:
 		var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
 		if annex.has_point(Vector2i(floori(x), floori(y))):
-			return false
+			if not walls or _inside_walls(world.tilemap, annex, floori(x), floori(y)):
+				return false
 	return _danger_at(world, x, y, DANGER_METRES)
+
+
+# The house inside the annex lot: the box its walls, windows and doors draw. The lot is that house
+# and a yard of floor round it, so a tile in the lot but outside the box is the yard.
+static func _inside_walls(map: Variant, annex: Rect2i, tx: int, ty: int) -> bool:
+	var lo: Vector2i = annex.end
+	var hi: Vector2i = annex.position
+	for j in range(annex.position.y, annex.end.y):
+		for i in range(annex.position.x, annex.end.x):
+			var t: int = SimTileMap.tile_at(map, i, j)
+			if t != SimTileMap.Tile.Wall and t != SimTileMap.Tile.Window and t != SimTileMap.Tile.Door:
+				continue
+			lo = Vector2i(mini(lo.x, i), mini(lo.y, j))
+			hi = Vector2i(maxi(hi.x, i), maxi(hi.y, j))
+	return tx >= lo.x and tx <= hi.x and ty >= lo.y and ty <= hi.y
 
 
 # The same line `_tick_one`'s seek branch draws: a pool at zero, or the far end of a band.
