@@ -86,11 +86,13 @@ const MARGIN: float = 16.0
 const TEXT_SIZE: int = 25
 const SMALL_SIZE: int = 20
 const LINE: float = 26.0
-# The drawer reserves this many lines for each block, so picking another colonist does not move
-# the grid; a block longer than its lines wraps into them and is cut, marked, only past them.
+# The most lines a drawer block may wrap to; past them a block is cut, marked. The drawer is as
+# tall as the longest block among the rows needs (`_sync_layout`), so picking another colonist
+# never moves the grid, and each block is laid out by the lines it uses, so no blank line sits
+# between two blocks.
 const FOCUS_LINES: int = 2
-const WHO_LINES: int = 3
-const LEARN_LINES: int = 2
+const WHO_LINES: int = 6
+const LEARN_LINES: int = 3
 const CHIP_H: float = 28.0
 # The drawer is a dossier: a word down the left for each block, the block beside it.
 const LABEL_W: float = 104.0
@@ -100,13 +102,17 @@ const FOOT_H: float = 36.0
 # Auto first because it is the handback (jobs.gd stamps it "auto"), Manual last.
 const FOCUS_CYCLE: Array[String] = ["Auto", "Fighter", "Worker", "Medic", "Scout", "Manual"]
 
+const NOW_LEAD: String = "now "
 const LEGEND: String = "1 first · 4 last · – never · click counts up, right-click down · a changed number makes the row manual"
 
 var _world: Variant = null
 var _rows: Array[Dictionary] = []
 var _row_scroll: int = 0
-# The colonist the drawer is about, by entity. -1 picks the first row.
+# The colonist the drawer is about, by entity: main.gd's selection when that is a row, else -1 and
+# the drawer asks for a click. A click on a name picks them for the game, so the two never differ.
 var _selected: int = -1
+# The lines the drawer gives each block, the most any row needs (see FOCUS_LINES).
+var _block_lines: Vector3i = Vector3i(1, 1, 1)
 # The Focus chip under the mouse, whose sentence the drawer shows while it is pointed at; "" for none.
 var _hover_focus: String = ""
 # The size the column heads were drawn at, for the gate (25, or 20 where 25 does not fit).
@@ -239,10 +245,9 @@ func _ready() -> void:
 func set_world(world: Variant, who: int = -1) -> void:
 	_world = world
 	_rows = SimJobs.work_view(world) if world != null else []
-	if who >= 0 and _row_of(who) >= 0:
-		_selected = who
-	elif _row_of(_selected) < 0:
-		_selected = int(_rows[0]["entity"]) if not _rows.is_empty() else -1
+	# The pick is the game's: whoever main has picked, or nobody when that is the player, so the bar
+	# and the drawer always name the same person.
+	_selected = who if _row_of(who) >= 0 else -1
 	_sync_layout()
 
 
@@ -258,13 +263,57 @@ func _row_of(entity: int) -> int:
 
 
 func _drawer_h() -> float:
-	return PX * 4.0 + LINE + PX * 4.0 + CHIP_H + PX * 4.0 + LINE * float(FOCUS_LINES + WHO_LINES + LEARN_LINES) + PX * 4.0
+	return PX * 4.0 + LINE + PX * 4.0 + CHIP_H + PX * 4.0 + LINE * float(_block_lines.x + _block_lines.y + _block_lines.z) + PX * 4.0
+
+
+# The drawer's text width at the panel's current size.
+func _inner() -> float:
+	return size.x - GUTTER * 2.0 - LABEL_W
+
+
+# The most lines each drawer block needs over every row, every Focus sentence a chip can show and
+# the "row of their own" line: the drawer's height, so it holds still while you pick and point.
+func _measure_blocks() -> void:
+	var font: Font = Chrome.font()
+	var inner: float = _inner()
+	var f: int = 1
+	var lines: Array[String] = ["%s, with a row of their own · point at a focus to see what it puts first" % "fighter"]
+	for focus in FOCUS_CYCLE:
+		lines.append(focus_sentence(focus))
+	for t in lines:
+		f = maxi(f, wrap_text(font, t, TEXT_SIZE, inner, FOCUS_LINES).size())
+	var w: int = 1
+	var l: int = 1
+	for i in _rows.size():
+		w = maxi(w, wrap_text(font, _clause_of(i), TEXT_SIZE, inner, WHO_LINES).size())
+		var runs: Array[Dictionary] = _learning_runs(font, Vector2.ZERO, inner, int(_rows[i].get("entity", -1)), String(_rows[i].get("focus", "Auto")))
+		var used: int = 1
+		for r in runs:
+			used = maxi(used, int(roundf(((r as Dictionary)["at"] as Vector2).y / LINE)) + 1)
+		l = maxi(l, used)
+	_block_lines = Vector3i(f, w, l)
+
+
+# Who the colonist on row `i` is: the sim's clause less its leading name, which the drawer's
+# heading already says.
+func _clause_of(i: int) -> String:
+	if _world == null or i < 0 or i >= _rows.size():
+		return ""
+	var clause: String = SimSurvivors.person_clause(_world, int(_rows[i].get("entity", -1)))
+	var lead: String = String(_rows[i].get("name", "?")) + ", "
+	if clause.begins_with(lead):
+		clause = clause.substr(lead.length())
+		clause = clause.substr(0, 1).to_upper() + clause.substr(1)
+	return clause
 
 
 func _sync_layout() -> void:
 	var view: Vector2 = get_viewport_rect().size
 	var top: float = NavBar.rect_for(view).end.y + MARGIN
 	var w: float = floorf(minf(MAX_W, view.x - MARGIN * 2.0) / 2.0) * 2.0
+	if size.x != w:
+		size.x = w
+	_measure_blocks()
 	var room: float = view.y - top - MARGIN
 	var fixed: float = GRID_Y + _drawer_h() + FOOT_H
 	var fits: int = maxi(1, floori((room - fixed) / ROW_H))
@@ -272,6 +321,12 @@ func _sync_layout() -> void:
 	size = Vector2(w, floorf(minf(room, fixed + ROW_H * float(shown_rows)) / 2.0) * 2.0)
 	position = Vector2(floorf((view.x - w) / 4.0) * 2.0, top)
 	queue_redraw()
+
+
+# The room the "now" phrase has on a row: from after "now " to the grid, less a gap.
+func now_room() -> float:
+	var lw: float = Chrome.font().get_string_size(NOW_LEAD, HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE).x
+	return _column_edges()[0] - GUTTER - PX * 8.0 - lw
 
 
 func _visible_rows() -> int:
@@ -406,7 +461,7 @@ func _layout() -> Dictionary:
 		})
 	var dt: float = GRID_Y + float(_visible_rows()) * ROW_H
 	out["drawer"] = Rect2(Vector2(PX * 4.0, dt), Vector2(size.x - PX * 8.0, _drawer_h()))
-	var inner: float = size.x - GUTTER * 2.0 - LABEL_W
+	var inner: float = _inner()
 	var body_x: float = GUTTER + LABEL_W
 	var y: float = dt + PX * 4.0
 	out["name_at"] = Vector2(GUTTER, y + NAME_DY - PX * 2.0)
@@ -427,24 +482,19 @@ func _layout() -> Dictionary:
 	var sel: int = _row_of(_selected)
 	var focus_now: String = String(_rows[sel].get("focus", "Auto")) if sel >= 0 else "Auto"
 	out["focus_now"] = focus_now
-	out["focus_lines"] = wrap_text(font, focus_line(), TEXT_SIZE, inner, FOCUS_LINES)
+	var focus_lines: Array[String] = wrap_text(font, focus_line(), TEXT_SIZE, inner, FOCUS_LINES)
+	out["focus_lines"] = focus_lines
 	out["focus_at"] = Vector2(body_x, y + NAME_DY - PX * 2.0)
-	y += LINE * float(FOCUS_LINES)
-	var clause: String = ""
-	if sel >= 0 and _world != null:
-		clause = SimSurvivors.person_clause(_world, _selected)
-		# The drawer's heading is the name; the clause's own leading "name, " is not said twice.
-		var lead: String = String(_rows[sel].get("name", "?")) + ", "
-		if clause.begins_with(lead):
-			clause = clause.substr(lead.length())
-			clause = clause.substr(0, 1).to_upper() + clause.substr(1)
+	y += LINE * float(maxi(1, focus_lines.size()))
+	var clause: String = _clause_of(sel)
+	var who_lines: Array[String] = wrap_text(font, clause, TEXT_SIZE, inner, WHO_LINES)
 	out["who_text"] = clause
-	out["who_lines"] = wrap_text(font, clause, TEXT_SIZE, inner, WHO_LINES)
+	out["who_lines"] = who_lines
 	out["who_at"] = Vector2(body_x, y + NAME_DY - PX * 2.0)
 	out["who_label_at"] = Vector2(GUTTER, y + NAME_DY - PX * 2.0)
-	y += LINE * float(WHO_LINES)
+	y += LINE * float(maxi(1, who_lines.size()))
 	out["learn_label_at"] = Vector2(GUTTER, y + NAME_DY - PX * 2.0)
-	out["learn"] = _learning_runs(font, Vector2(body_x, y + NAME_DY - PX * 2.0), inner, focus_now)
+	out["learn"] = _learning_runs(font, Vector2(body_x, y + NAME_DY - PX * 2.0), inner, _selected, focus_now)
 	out["foot_at"] = Vector2(GUTTER, size.y - FOOT_H + NAME_DY - PX * 2.0)
 	return out
 
@@ -452,11 +502,11 @@ func _layout() -> Dictionary:
 # What the picked colonist knows and, when the learning is the player's, what they could learn now,
 # as runs of words laid along at most LEARN_LINES lines: [{at, text, node, col}]. A learnable name
 # is one run with its node, so it is one click target; nothing here carries a cost or a count.
-func _learning_runs(font: Font, origin: Vector2, width: float, focus: String) -> Array[Dictionary]:
+func _learning_runs(font: Font, origin: Vector2, width: float, ent: int, focus: String) -> Array[Dictionary]:
 	var runs: Array[Dictionary] = []
-	if _world == null or _selected < 0:
+	if _world == null or ent < 0:
 		return runs
-	var view: Dictionary = SimSkills.web_view(_world, _selected)
+	var view: Dictionary = SimSkills.web_view(_world, ent)
 	var pieces: Array[Dictionary] = []
 	var known: Array = view.get("known", []) as Array
 	pieces.append({"text": (" · ".join(PackedStringArray(known)) if not known.is_empty() else "nothing yet"), "node": "", "col": Locker.TEXT})
@@ -575,7 +625,8 @@ func _draw() -> void:
 	var a: float = 0.96
 	Locker.panel(self, rect, a)
 	Locker.header(self, rect, "work", a, LEGEND, Chrome.GLYPH_SMALL + PX * 3.0)
-	Chrome.glyph(self, "work", Vector2(rect.end.x - Chrome.GLYPH_SMALL - PX * 5.0, PX * 2.0 + floorf((Locker.TAPE_H - Chrome.GLYPH_SMALL) / 2.0)), true, 0.7)
+	# One art pixel further in than the web's first cut, clear of the corner rivet.
+	Chrome.glyph(self, "work", Vector2(rect.end.x - Chrome.GLYPH_SMALL - PX * 6.0, PX * 3.0 + floorf((Locker.TAPE_H - Chrome.GLYPH_SMALL) / 2.0)), true, 0.7)
 	var edges: Array[float] = laid["edges"] as Array[float]
 	var columns: Array[String] = shown_columns()
 	# The group words over their columns, each on a groove that spans the group.
@@ -604,24 +655,27 @@ func _draw() -> void:
 		else:
 			Locker.groove(self, Vector2(band.position.x + PX * 2.0, band.end.y - PX * 2.0), band.size.x - PX * 4.0, a)
 		draw_string(font, row["name_at"] as Vector2, String(row["name"]), HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE, Locker.TEXT)
-		# Amber is the one Focus that means "you are doing this yourself".
+		# The stamp is never amber: amber on this screen is the picked person, the Focus in force on
+		# the drawer's chips and a name you can learn, all one meaning (docs/32, selection and
+		# available action). Manual says itself in the word.
 		var focus: String = String(row["focus"])
-		Locker.chip(self, row["focus_rect"] as Rect2, focus, focus == "manual", a, TEXT_SIZE)
+		Locker.chip(self, row["focus_rect"] as Rect2, focus, false, a, TEXT_SIZE)
 		var now: String = WorkRead.doing(_world, ent) if _world != null else ""
-		(drawn["rows"] as Dictionary)[ent] = {"now": now}
+		var shown_now: String = UiText.fit(font, now, TEXT_SIZE, now_room())
+		(drawn["rows"] as Dictionary)[ent] = {"now": shown_now}
 		if not now.is_empty():
-			var lead: String = "now "
 			var nat: Vector2 = row["now_at"] as Vector2
-			draw_string(font, nat, lead, HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE, Locker.TEXT_DIM)
-			var lw: float = font.get_string_size(lead, HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE).x
-			draw_string(font, nat + Vector2(lw, 0.0), UiText.fit(font, now, TEXT_SIZE, edges[0] - GUTTER - PX * 8.0 - lw), HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE, Locker.TEXT)
+			draw_string(font, nat, NOW_LEAD, HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE, Locker.TEXT_DIM)
+			var lw: float = font.get_string_size(NOW_LEAD, HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE).x
+			draw_string(font, nat + Vector2(lw, 0.0), shown_now, HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE, Locker.TEXT)
 		var vals: Dictionary = source.get("cols", {}) as Dictionary
 		for cell in row["cells"] as Array:
 			var cr: Rect2 = (cell as Dictionary)["rect"] as Rect2
 			var v: int = int(vals.get(String((cell as Dictionary)["column"]), 0))
 			Locker.well(self, cr, a)
 			# Urgent work reads brighter, so a row's shape shows without reading the digits.
-			var tint: Color = Locker.TEXT_FAINT if v <= 0 else Locker.TEXT.lerp(Locker.TEXT_DIM, float(v - 1) / 3.0)
+			# "Never" is the dim ink, not the faint one: the faint ink on a well is under 3:1.
+			var tint: Color = Locker.TEXT_DIM if v <= 0 else Locker.TEXT.lerp(Locker.TEXT_DIM, float(v - 1) / 3.0)
 			Locker.text_centred(self, cr, "–" if v <= 0 else str(v), TEXT_SIZE, tint, a)
 	if _rows.size() > _visible_rows():
 		var more: String = "wheel for more"
@@ -642,7 +696,8 @@ func _draw_drawer(font: Font, laid: Dictionary, a: float) -> void:
 	Locker.groove(self, dr.position, dr.size.x, a)
 	drawn["who"] = laid["who_lines"]
 	if _selected < 0:
-		draw_string(font, laid["name_at"] as Vector2, "nobody to manage yet", HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE, Locker.TEXT_DIM)
+		var ask: String = "nobody to manage yet" if _rows.is_empty() else "click a colonist's name to see them here"
+		draw_string(font, laid["name_at"] as Vector2, ask, HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE, Locker.TEXT_DIM)
 		return
 	var sel: int = _row_of(_selected)
 	var name: String = String(_rows[sel].get("name", "?")) if sel >= 0 else "?"

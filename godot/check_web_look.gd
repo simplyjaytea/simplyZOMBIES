@@ -37,6 +37,7 @@ const SimBoot = preload("res://sim/boot.gd")
 const SimSkills = preload("res://sim/modules/skills.gd")
 const SimRecruits = preload("res://sim/modules/recruits.gd")
 const WebLayout = preload("res://ui/web_layout.gd")
+const Chrome = preload("res://ui/chrome.gd")
 
 const WEB_PATH: String = "res://content/colony/skill_web.json"
 const MAIN_GD: String = "res://presentation/main.gd"
@@ -78,7 +79,7 @@ func _run() -> void:
 	ok = _map_lane(w) and ok
 	ok = await _screen_lane(w) and ok
 	ok = await _crowd_lane(w) and ok
-	ok = _lines_lane() and ok
+	ok = _lines_lane(w) and ok
 	ok = _wired_lane() and ok
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
 	if seconds > BUDGET_SECONDS:
@@ -580,7 +581,7 @@ func _runs_fill(box: Rect2, r: float) -> bool:
 # cover the two ends' snapped art pixels, a solid line is gap-free and a dotted one has gaps. The
 # negative: a smooth line from the same odd end starts on an odd pixel, which the check refuses.
 # And `_draw` reaches it: no smooth `draw_line`, `draw_dashed_line` or `draw_polyline` is left.
-func _lines_lane() -> bool:
+func _lines_lane(w: Variant) -> bool:
 	var panel_gd: GDScript = load(PANEL_GD) as GDScript
 	var ok: bool = true
 	var cases: Array = [
@@ -625,8 +626,39 @@ func _lines_lane() -> bool:
 	if draw_body.contains("draw_line(") or draw_body.contains("draw_dashed_line(") or draw_body.contains("draw_polyline(") or not draw_body.contains("_line("):
 		push_error("LINES: the web's _draw still draws a smooth line, or never calls _line")
 		ok = false
+	# The fan rims break for the region words: no rim block under a word's ink, where the unbroken
+	# rim does run through one (the negative; art QA, slice 2, "endurance" and "survival").
+	var who: int = _spawn_colonist(w, 13.0)
+	var panel: Control = panel_gd.new() as Control
+	panel.size = PANEL_SIZE
+	root.add_child(panel)
+	panel.call("set_world", w, who)
+	var font: Font = Chrome.font()
+	var words: Array = panel.call("_fixed_word_rects", font) as Array
+	var broken: Array = panel.call("rim_blocks", font) as Array
+	var whole: Array = panel.call("rim_blocks", font, false) as Array
+	var crossed: int = 0
+	for r in whole:
+		for wr in words:
+			if (wr as Rect2).intersects(r as Rect2):
+				crossed += 1
+	for r in broken:
+		if _odd_box(r as Rect2):
+			push_error("LINES: a rim block %s is off the even grid" % str(r))
+			ok = false
+		for wr in words:
+			if (wr as Rect2).intersects(r as Rect2):
+				push_error("LINES: a rim block %s runs through a region word at %s" % [str(r), str(wr)])
+				ok = false
+	if crossed == 0 or broken.is_empty() or words.size() < 6:
+		push_error("LINES: the whole rim crosses no word (%d) or there is no rim (%d) or too few words (%d), so the break was not judged" % [crossed, broken.size(), words.size()])
+		ok = false
+	if not _function_body(PANEL_GD, "_draw").contains("rim_blocks("):
+		push_error("LINES: the web's _draw does not draw rim_blocks, so the break is a dead socket")
+		ok = false
+	panel.queue_free()
 	if ok:
-		print("LINES OK %d blocks of solid and dotted lines at six angles, every one on the even grid, solid lines whole and dotted ones broken; the smooth draw calls are gone from _draw" % judged)
+		print("LINES OK the fan rims break for every region word where the whole rim crosses %d times; %d blocks of solid and dotted lines at six angles, every one on the even grid, solid lines whole and dotted ones broken; the smooth draw calls are gone from _draw" % [crossed, judged])
 	return ok
 
 

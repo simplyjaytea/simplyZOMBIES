@@ -6,12 +6,13 @@ extends SceneTree
 # gate runs the same `review/scenes.gd` functions the driver runs and asks the world what it made.
 #
 # Lanes, each with a true positive and a true negative:
-#   NAMES     the nine scenes and the two windows, by name -- a scene added to the driver has to be
+#   NAMES     the eleven scenes and the two windows, by name -- a scene added to the driver has to be
 #             added here too
 #   UNKNOWN   a scene name nothing knows is refused by setup and by verify, not passed quietly
 #   SETUP     each scene boots, is set up, and the world says it is that scene
-#   NEGATIVE  a day street is not a night, is not a combat, and has no sheet open: verify refuses
-#             a state that is not the one named, so a before/after pair cannot compare two states
+#   NEGATIVE  a day street is not a night, is not a combat, and has no sheet open; the plain Colony
+#             screen is not Mara picked and not a crowd: verify refuses a state that is not the one
+#             named, so a before/after pair cannot compare two states
 #   PIXELS    with a display, the day street and the combat scene each capture to a picture that is
 #             not blank and is not the other picture; headless, it says SKIP and passes on nothing
 #
@@ -34,12 +35,12 @@ func _run() -> void:
 	await _negative()
 	await _pixels()
 	if _ok:
-		print("SHOTS_OK nine scenes boot, set up and verify at 1280x720 and 1920x1080; %s" % _pixels_note)
+		print("SHOTS_OK eleven scenes boot, set up and verify at 1280x720 and 1920x1080; %s" % _pixels_note)
 	quit(0 if _ok else 1)
 
 
 func _names() -> void:
-	if Scenes.NAMES != ["day_street", "interior", "night_lights", "combat", "inventory", "care", "skills", "colony", "viewing"]:
+	if Scenes.NAMES != ["day_street", "interior", "night_lights", "combat", "inventory", "care", "skills", "colony", "viewing", "colony_picked", "colony_crowd"]:
 		_fail("NAMES: the scene list is %s" % str(Scenes.NAMES))
 	var sizes: Array[Vector2i] = Scenes.SIZES
 	if not sizes.has(Vector2i(1280, 720)) or not sizes.has(Vector2i(1920, 1080)):
@@ -92,6 +93,19 @@ func _negative() -> void:
 		_fail("NEGATIVE: a street with no zombie verified as a combat")
 	if Scenes.verify(main, "inventory").is_empty():
 		_fail("NEGATIVE: a street with no sheet open verified as the inventory")
+	await _discard(main)
+	# The plain Colony screen, nobody picked and the boot's two colonists, is neither fuller shot.
+	main = await Scenes.boot(self)
+	if main == null:
+		_fail("NEGATIVE: the main scene did not boot for the colony")
+		return
+	err = await Scenes.setup(self, main, "colony")
+	if not err.is_empty() or not Scenes.verify(main, "colony").is_empty():
+		_fail("NEGATIVE: the colony screen did not set up: %s" % err)
+	if Scenes.verify(main, "colony_picked").is_empty():
+		_fail("NEGATIVE: the colony with nobody picked verified as Mara picked")
+	if Scenes.verify(main, "colony_crowd").is_empty():
+		_fail("NEGATIVE: the boot's colony of two verified as a crowd")
 	await _discard(main)
 
 

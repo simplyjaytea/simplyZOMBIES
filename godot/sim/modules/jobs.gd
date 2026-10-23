@@ -27,6 +27,13 @@ const COLUMNS: Array[String] = [
 	"Firefight", "Patient", "Doctor", "Rest", "Cook", "Hunt", "Construct", "Repair",
 	"Haul", "Scavenge", "Farm", "Water", "Craft", "Modify", "Butcher", "Clean", "Guard", "Bury",
 ]
+# Every `kind` this module writes on a `job` component. Nothing else in godot/sim/ writes one. The
+# Colony screen's "now" line (`sim/work_read.gd`) has words for each, and `check_m2_jobs.gd`'s
+# DOING lane holds this list to the literals in this file, so a new kind cannot go unsaid.
+const JOB_KINDS: Array[String] = [
+	"Haul", "Scavenge", "Construct", "Cook", "Doctor", "Rest", "Patient", "Guard", "Water", "Clean",
+	"Bury", "Repair", "Retreat", "Rearm", "Dress", "Seek",
+]
 const CONSUMERS: Array[String] = ["Haul", "Scavenge", "Construct", "Cook", "Doctor", "Rest", "Patient", "Guard", "Water", "Clean", "Bury", "Repair"]
 # How far from home a colonist works the ground: Haul and Scavenge reach only this far from the
 # annex's centre, in tiles. The whole of a 64-tile map, the neighbourhood of a 256 one -- the

@@ -89,6 +89,7 @@ const SimChronicle = preload("res://sim/modules/chronicle.gd")
 const SimRecruits = preload("res://sim/modules/recruits.gd")
 const SimAllegiance = preload("res://sim/modules/allegiance.gd")
 const SimSave = preload("res://sim/save.gd")
+const SimSurvivors = preload("res://sim/modules/survivors.gd")
 const WorkRead = preload("res://sim/work_read.gd")
 const UiText = preload("res://ui/text.gd")
 
@@ -2398,8 +2399,14 @@ func _the_work_grid_fits_and_keeps_its_clicks(main: Node) -> bool:
 #   - the panel sits under the bar on the even grid and inside the window;
 #   - the groups hold every column with a consumer exactly once, and the footer names exactly the
 #     job columns nothing does;
-#   - each row's "now" line is `WorkRead.doing` for that colonist, and follows the sim when her job
-#     changes (cooking, then idle with none);
+#   - nobody is picked until a click, as in the game;
+#   - every phrase `WorkRead` can say fits the row's now room whole at both windows, where the line
+#     the first review found cut is still cut at 1280 (the negative);
+#   - every generated backstory at its longest and every unique reads whole in the drawer, where
+#     all of them end to end would be cut (the negative);
+#   - each row's "now" line is `WorkRead.doing` for that colonist as drawn, after the fit, and
+#     follows the sim when her job changes (cooking, then idle with none);
+#   - a right click on a name, a Focus chip or "their skills" does nothing;
 #   - a click on a row's name picks that colonist for the whole game (main's selection), a click on
 #     the footer picks nobody and queues nothing;
 #   - a Focus chip queues exactly that focus for the picked colonist; a right click on a cell counts
@@ -2407,7 +2414,7 @@ func _the_work_grid_fits_and_keeps_its_clicks(main: Node) -> bool:
 #   - the drawer's "who" lines are the sim's whole clause, wrapped and never cut, where one line at
 #     the row's width would cut it (the negative);
 #   - the Focus line describes a row by its preset only when the row is that preset;
-#   - "their skills" opens Skills on that colonist, stamped viewing.
+#   - "their skills" opens Skills on that colonist, stamped viewing, its top on the Colony screen's.
 func _the_colony_screen_is_one_survivor_context(main: Node) -> bool:
 	var panel: Control = main.get("_work_panel") as Control
 	var world: Variant = main.get("world")
@@ -2462,6 +2469,37 @@ func _the_colony_screen_is_one_survivor_context(main: Node) -> bool:
 		if Array(named) != stubs or stubs.size() != 6:
 			push_error("COLONY: the footer names %s, not the six job columns nothing does %s" % [str(named), str(stubs)])
 			ok = false
+		# Nobody is picked until a click (main has nobody), so the bar and the drawer agree.
+		if int(panel.call("selected")) != -1 or not ((panel.get("drawn") as Dictionary).get("who", []) as Array).is_empty():
+			push_error("COLONY: the screen opened on %d with nobody picked in the game" % int(panel.call("selected")))
+			ok = false
+		# Every phrase the read model can say fits the row whole; one twice the cap does not.
+		var row_font: Font = Chrome.font()
+		var room: float = float(panel.call("now_room"))
+		for phrase in WorkRead.phrases():
+			if UiText.fit(row_font, phrase, 25, room) != phrase:
+				push_error("COLONY: the now line %s is cut in %d px at %s" % [phrase, int(room), str(dims)])
+				ok = false
+		# At 1280 the room is tight: the line the review found cut is still cut there (the negative).
+		var too_long: String = "heading home, the dead are close"
+		if dims.x == 1280 and UiText.fit(row_font, too_long, 25, room) == too_long:
+			push_error("COLONY: %s fits the now room at 1280 (%d px), so the fit was not judged" % [too_long, int(room)])
+			ok = false
+		# Every backstory the colony can hold reads whole in the drawer: each generated story with the
+		# longest age and the three longest features a roll can give, and each unique as authored.
+		var clauses: Array[String] = _every_who_clause(world)
+		if clauses.size() < 10:
+			push_error("COLONY: only %d who clauses to judge, not the eight stories and the two uniques" % clauses.size())
+			ok = false
+		for clause in clauses:
+			var lines: Array = script.call("wrap_text", row_font, clause, 25, float(panel.call("_inner")), int(script.get("WHO_LINES"))) as Array
+			if " ".join(PackedStringArray(lines)) != clause:
+				push_error("COLONY: the drawer cuts %s at %s" % [clause, str(dims)])
+				ok = false
+		var piled: String = " ".join(PackedStringArray(_every_who_clause(world)))
+		if " ".join(PackedStringArray(script.call("wrap_text", row_font, piled, 25, float(panel.call("_inner")), int(script.get("WHO_LINES"))) as Array)) == piled:
+			push_error("COLONY: every clause end to end fits the drawer, so the cut was not judged")
+			ok = false
 		# The now line, and that it follows the sim.
 		var rows_drawn: Dictionary = (panel.get("drawn") as Dictionary).get("rows", {}) as Dictionary
 		for ent in [mara, ellis]:
@@ -2494,6 +2532,11 @@ func _the_colony_screen_is_one_survivor_context(main: Node) -> bool:
 			if int((row as Dictionary)["entity"]) == mara:
 				mara_band = (row as Dictionary)["band"] as Rect2
 		_drain(main)
+		# A right click on a name picks nobody and queues nothing.
+		_mouse(panel.position + mara_band.position + Vector2(24.0, 12.0), MOUSE_BUTTON_RIGHT)
+		if int(panel.call("selected")) != -1 or int(main.get("_selected")) != -1 or not _pending(main).is_empty():
+			push_error("COLONY: a right click on Mara's name picked %d or queued %s" % [int(panel.call("selected")), str(_pending(main))])
+			ok = false
 		_mouse(panel.position + mara_band.position + Vector2(24.0, 12.0), MOUSE_BUTTON_LEFT)
 		if int(main.get("_selected")) != mara or int(panel.call("selected")) != mara or not _pending(main).is_empty():
 			push_error("COLONY: a click on Mara's name picked %d (main %d) and queued %s" % [int(panel.call("selected")), int(main.get("_selected")), str(_pending(main))])
@@ -2508,6 +2551,13 @@ func _the_colony_screen_is_one_survivor_context(main: Node) -> bool:
 		for chip in laid["chips"] as Array:
 			if String((chip as Dictionary)["focus"]) == "Worker":
 				worker = (chip as Dictionary)["rect"] as Rect2
+		# A right click on a chip or on their skills does nothing at all.
+		_mouse(panel.position + worker.get_center(), MOUSE_BUTTON_RIGHT)
+		_mouse(panel.position + (laid["skills"] as Rect2).get_center(), MOUSE_BUTTON_RIGHT)
+		main.call("_process", 0.0)
+		if not _pending(main).is_empty() or bool(main.get("web_open")) or int(panel.call("selected")) != mara:
+			push_error("COLONY: a right click on a focus chip or their skills queued %s, opened the web or moved the pick" % str(_pending(main)))
+			ok = false
 		_mouse(panel.position + worker.get_center(), MOUSE_BUTTON_LEFT)
 		var focus_cmds: Array = _drain(main).filter(func(c: Variant) -> bool: return String((c as Dictionary).get("type", "")) == "job.focus")
 		if focus_cmds.size() != 1 or int((focus_cmds[0] as Dictionary).get("entity", -1)) != mara or String((focus_cmds[0] as Dictionary).get("focus", "")) != "Worker":
@@ -2584,6 +2634,10 @@ func _the_colony_screen_is_one_survivor_context(main: Node) -> bool:
 		if not bool(main.get("web_open")) or bool(main.get("work_open")) or int(web.get("_who")) != mara or bool(nav.get("subject_is_you")) or not String(nav.get("subject_name")).begins_with("Mara"):
 			push_error("COLONY: their skills left web %s on %d, the bar on %s" % [str(main.get("web_open")), int(web.get("_who")), String(nav.get("subject_name"))])
 			ok = false
+		# The two screens hang from one line under the bar, so switching does not move the top edge.
+		if web.position.y != panel.position.y:
+			push_error("COLONY: Skills starts at y %d and Colony at y %d (%s)" % [int(web.position.y), int(panel.position.y), str(dims)])
+			ok = false
 		_drain(main)
 		main.call("_show_screen", "")
 		main.set("_selected", -1)
@@ -2592,8 +2646,41 @@ func _the_colony_screen_is_one_survivor_context(main: Node) -> bool:
 	main.set("paused", was_paused)
 	await process_frame
 	if ok:
-		print("COLONY OK at 1280x720 and 1920x1080 the screen sits under the bar on the even grid; the groups hold every working column once and the footer names the six nothing does; each now line is the read model's and follows a job change; a name click picks the colonist for the game and a footer click picks nobody; a focus chip queues that focus; a right click counts 1 to never and never to 4; the who lines are the whole clause where one line would cut it; the focus line names a preset only for a preset row; their skills opens the web on them, viewing")
+		print("COLONY OK at 1280x720 and 1920x1080 the screen sits under the bar on the even grid and opens on nobody; the groups hold every working column once and the footer names the six nothing does; every now phrase and every backstory fits whole; each now line is the read model's as drawn and follows a job change; a right click on a name, a chip or their skills does nothing; a name click picks the colonist for the game and a footer click picks nobody; a focus chip queues that focus; a right click counts 1 to never and never to 4; the who lines are the whole clause where one line would cut it; the focus line names a preset only for a preset row; their skills opens the web on them, viewing, from the same top edge")
 	return ok
+
+
+# The drawer's "who" text for every backstory the colony can hold, less the name the heading says:
+# each generated story at its longest (the longest age prose, the three longest features a roll can
+# draw) and each unique as authored.
+func _every_who_clause(world: Variant) -> Array[String]:
+	var out: Array[String] = []
+	var pool: Dictionary = {}
+	var gen: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://content/colony/generator.json"))
+	if gen is Dictionary:
+		pool = gen as Dictionary
+	var age: String = ""
+	for band in pool.get("ageBands", []) as Array:
+		if String((band as Dictionary).get("prose", "")).length() > age.length():
+			age = String((band as Dictionary)["prose"])
+	var feats: Array = (pool.get("features", []) as Array).duplicate()
+	feats.sort_custom(func(x: Variant, y: Variant) -> bool: return String(x).length() > String(y).length())
+	var three: String = ", ".join(PackedStringArray(feats.slice(0, 3)))
+	for story in pool.get("backstories", []) as Array:
+		var line: String = String((story as Dictionary).get("line", ""))
+		out.append(line.substr(0, 1).to_upper() + line.substr(1) + ", " + age + "; " + three)
+	# The uniques as the boot built them: an identity with no generated story is an authored one.
+	for ent in world.components.query(["identity"]):
+		var ident: Dictionary = world.components.get_component(ent, "identity") as Dictionary
+		if String(ident.get("backstoryId", "")) != "":
+			continue
+		var clause: String = SimSurvivors.person_clause(world, ent)
+		var lead: String = String(ident.get("name", "")) + ", "
+		if clause.begins_with(lead):
+			clause = clause.substr(lead.length())
+			clause = clause.substr(0, 1).to_upper() + clause.substr(1)
+		out.append(clause)
+	return out
 
 
 func _mouse(at: Vector2, button: MouseButton) -> void:

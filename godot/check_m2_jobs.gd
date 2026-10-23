@@ -1695,6 +1695,19 @@ func _take_starting_empties(w: Variant, ent: int) -> void:
 # everybody. A grab, sleep, an order and a Seek outrank the job, as they do in the tick. No line
 # carries a digit, asking never changes the job, and the screen is the reader (the dead-socket
 # rule): `work_panel.gd` calls it.
+func _gd_files(dir: String) -> Array[String]:
+	var out: Array[String] = []
+	var d := DirAccess.open(dir)
+	if d == null:
+		return out
+	for f in d.get_files():
+		if f.ends_with(".gd"):
+			out.append(dir.path_join(f))
+	for sub in d.get_directories():
+		out.append_array(_gd_files(dir.path_join(sub)))
+	return out
+
+
 func _the_colony_screen_says_what_each_is_doing() -> bool:
 	var ok: bool = true
 	var src: String = FileAccess.get_file_as_string("res://sim/modules/jobs.gd")
@@ -1706,17 +1719,32 @@ func _the_colony_screen_says_what_each_is_doing() -> bool:
 	if kinds.size() < 10:
 		push_error("DOING: found only %d job kinds in jobs.gd, so the scan cannot judge the table" % kinds.size())
 		ok = false
+	# The exported list is the literals, both ways, and nothing else under godot/sim/ writes a job.
 	for k in kinds.keys():
-		if String(k) != "Seek" and not WorkRead.JOB_WORDS.has(k):
-			push_error("DOING: jobs.gd writes a %s job the now line has no words for" % String(k))
+		if not SimJobs.JOB_KINDS.has(k):
+			push_error("DOING: jobs.gd writes a %s job that JOB_KINDS does not list" % String(k))
+			ok = false
+	for k in SimJobs.JOB_KINDS:
+		if not kinds.has(k):
+			push_error("DOING: JOB_KINDS lists %s, which jobs.gd never writes" % k)
+			ok = false
+		if k != "Seek" and not WorkRead.JOB_WORDS.has(k):
+			push_error("DOING: the %s job has no words on the now line" % k)
+			ok = false
+	var writer := RegEx.new()
+	writer.compile("set_component\\([^\\n]*\"job\"")
+	for path in _gd_files("res://sim"):
+		if path == "res://sim/modules/jobs.gd":
+			continue
+		if writer.search(FileAccess.get_file_as_string(path)) != null:
+			push_error("DOING: %s writes a job component, so JOB_KINDS cannot be the whole list" % path)
 			ok = false
 	var digit := RegEx.new()
 	digit.compile("[0-9]")
-	for table in [WorkRead.JOB_WORDS, WorkRead.SEEK_WORDS, WorkRead.ORDER_WORDS]:
-		for v in (table as Dictionary).values():
-			if digit.search(String(v)) != null:
-				push_error("DOING: the line %s carries a digit" % String(v))
-				ok = false
+	for v in WorkRead.phrases():
+		if digit.search(String(v)) != null or String(v).length() > WorkRead.MAX_CHARS:
+			push_error("DOING: the line %s carries a digit or is longer than %d characters" % [String(v), WorkRead.MAX_CHARS])
+			ok = false
 	var w: Variant = _world()
 	var mara: int = _mara(w)
 	if mara < 0:
@@ -1754,9 +1782,37 @@ func _the_colony_screen_says_what_each_is_doing() -> bool:
 	if WorkRead.doing(w, mara) != "asleep":
 		push_error("DOING: a sleeper reads %s" % WorkRead.doing(w, mara))
 		ok = false
+	# A grab is said only where the player sees it: out of sight the line stays what she was set to
+	# do. The player is stood on her, then put beyond any sight, to judge both.
+	w.components.remove_component(mara, "sleeping")
+	w.components.remove_component(mara, SimJobs.ORDER_COMPONENT)
+	w.components.remove_component(mara, "grabbed")
+	var at: Dictionary = (w.components.get_component(mara, "position") as Dictionary).duplicate()
+	var me_was: Dictionary = (w.components.get_component(int(w.player), "position") as Dictionary).duplicate()
+	# Stood on her tile, the player sees her whatever way they face (`detail` at no distance).
+	w.components.set_component(int(w.player), "position", {"x": float(at["x"]), "y": float(at["y"])})
+	w.step()
+	w.components.set_component(mara, "position", at.duplicate())
+	w.components.set_component(int(w.player), "position", {"x": float(at["x"]), "y": float(at["y"])})
 	w.components.set_component(mara, "grabbed", {"by": -1})
-	if WorkRead.doing(w, mara) != "held by the dead":
-		push_error("DOING: a held colonist reads %s" % WorkRead.doing(w, mara))
+	w.components.set_component(mara, "job", {"kind": "Cook", "ticksLeft": 0})
+	var seen: bool = WorkRead.in_sight(w, mara)
+	var near: String = WorkRead.doing(w, mara)
+	w.components.remove_component(mara, "grabbed")
+	w.components.set_component(int(w.player), "position", {"x": float(at["x"]) + 60.0, "y": float(at["y"]) + 60.0})
+	w.step()
+	w.components.set_component(mara, "position", at.duplicate())
+	w.components.set_component(mara, "grabbed", {"by": -1})
+	w.components.set_component(mara, "job", {"kind": "Cook", "ticksLeft": 0})
+	var far: String = WorkRead.doing(w, mara)
+	w.components.set_component(int(w.player), "position", me_was)
+	if not seen:
+		print("DOING SKIP the player stood a metre from Mara and did not see her, so the grab in sight is not judged")
+	elif near != WorkRead.HELD:
+		push_error("DOING: a held colonist the player sees reads %s" % near)
+		ok = false
+	if WorkRead.in_sight(w, mara) or far != "cooking":
+		push_error("DOING: a held colonist out of sight reads %s, not her job" % far)
 		ok = false
 	if WorkRead.doing(w, -1) != "":
 		push_error("DOING: nobody reads as somebody")
@@ -1766,5 +1822,5 @@ func _the_colony_screen_says_what_each_is_doing() -> bool:
 		push_error("DOING: work_panel.gd never asks WorkRead.doing, so the line is a dead socket")
 		ok = false
 	if ok:
-		print("DOING OK every one of the %d job kinds jobs.gd writes has words; a job reads as its words and no job as idle; a seek, an order, sleep and a grab outrank it; no line carries a digit; asking changes nothing; the colony screen reads it" % kinds.size())
+		print("DOING OK every one of the %d job kinds jobs.gd writes has words; a job reads as its words and no job as idle; a seek, an order and sleep outrank it, and a grab does only in sight; no line carries a digit or runs long; asking changes nothing; the colony screen reads it" % kinds.size())
 	return ok
