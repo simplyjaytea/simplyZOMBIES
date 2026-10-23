@@ -167,9 +167,9 @@ DISPLAY=:1 npm run godot:run          # or npm run godot:editor
   errors, `libpulse.so.0: cannot open shared object file` and `All audio drivers failed, falling
   back to the dummy driver` are all expected here and harmless.
 - **It starts on day 1 in daylight** — `SimBoot` boots the clock at `Clock.DAY_BEGINS`, which is
-  the first tick of the Day phase. (AGENTS.md used to say it starts at night and that you should
-  wait for dawn. That was wrong, whenever it stopped being true.) A day is four hours at 1× (one hour is decided and not yet built: see docs/30), so
-  press `=` twice for 10× and wait if you want to see dark.
+  the first tick of the Day phase. A day is one real hour at 1× (`Clock.DAY_SECONDS`, the
+  owner's 2026-10-19 decision in docs/30); `=` steps to 3×, the top of the ladder until the tick
+  is under budget, so dark arrives after about half an hour at 1× or ten minutes at 3×.
 - The HUD is **prose only** — no numbers except the day counter, enforced by
   `npm run godot:check:hud`. Do not go looking for a `light` value on it; the numeric developer
   sheet lives behind the `M` toggle. `F1` shows the key list, which is up by default on a fresh
@@ -194,12 +194,10 @@ committed.
 
 ## When something looks broken
 
-Check it against `main` before treating it as environment breakage — but note that AGENTS.md previously listed three "known pre-existing" failures (`npm test` content-id and handoff-count
-drift, and `format:check` flagging `.scratch/*.html`) that have all since been **fixed**. Verified
-2026-08-25 on this container: `npm test` (45 files / 594 tests), `npm run typecheck`,
-`npm run lint`, `npm run format:check`, `npm run godot:validate`, `npm run godot:test`,
-`npm run godot:smoke` and the full `npm run godot:m2` chain all pass. A red one is a real
-regression, most likely yours.
+Check it against `main` before treating it as environment breakage. On a healthy checkout
+`npm test`, `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm run godot:validate`,
+`npm run godot:test`, `npm run godot:smoke` and the full `npm run godot:m2` chain all pass, and CI
+on main is green. A red one is a real regression, most likely yours.
 
 Long runs are not by themselves environment breakage: `npm run godot:m2` took **47m16s** for
 85 gates in the 2026-10-03 cloud run. `godot:m2:balance` took 15m29s and `godot:m2:storm` 6m09s.
