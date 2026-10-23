@@ -1886,21 +1886,16 @@ func _the_colony_screen_says_what_each_is_doing() -> bool:
 	w.components.remove_component(mara, "grabbed")
 	var at: Dictionary = (w.components.get_component(mara, "position") as Dictionary).duplicate()
 	var me_was: Dictionary = (w.components.get_component(int(w.player), "position") as Dictionary).duplicate()
-	# Stood on her tile, the player sees her whatever way they face (`detail` at no distance).
-	w.components.set_component(int(w.player), "position", {"x": float(at["x"]), "y": float(at["y"])})
-	w.step()
-	w.components.set_component(mara, "position", at.duplicate())
-	w.components.set_component(int(w.player), "position", {"x": float(at["x"]), "y": float(at["y"])})
+	# Stood on her tile, the player sees her whatever way they face (`detail` at no distance), once
+	# the player's staggered cast has looked all round (`_player_at`).
+	var cook: Dictionary = {"kind": "Cook", "ticksLeft": 0}
+	_player_at(w, mara, at, cook, Vector2.ZERO)
 	w.components.set_component(mara, "grabbed", {"by": -1})
-	w.components.set_component(mara, "job", {"kind": "Cook", "ticksLeft": 0})
 	var seen: bool = WorkRead.in_sight(w, mara)
 	var near: String = WorkRead.doing(w, mara)
 	w.components.remove_component(mara, "grabbed")
-	w.components.set_component(int(w.player), "position", {"x": float(at["x"]) + 60.0, "y": float(at["y"]) + 60.0})
-	w.step()
-	w.components.set_component(mara, "position", at.duplicate())
+	_player_at(w, mara, at, cook, Vector2(60.0, 60.0))
 	w.components.set_component(mara, "grabbed", {"by": -1})
-	w.components.set_component(mara, "job", {"kind": "Cook", "ticksLeft": 0})
 	var far: String = WorkRead.doing(w, mara)
 	w.components.set_component(int(w.player), "position", me_was)
 	# The player stood on her tile always sees her; if not, the in-sight case is unjudged and that

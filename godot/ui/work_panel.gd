@@ -117,6 +117,8 @@ var _selected: int = -1
 var _block_lines: Vector3i = Vector3i(1, 1, 1)
 # The Focus chip under the mouse, whose sentence the drawer shows while it is pointed at; "" for none.
 var _hover_focus: String = ""
+# The pick the roster last scrolled to, so the wheel is the player's until the pick changes.
+var _scrolled_for: int = -1
 # The size the column heads were drawn at, for the gate (25, or 20 where 25 does not fit).
 var head_size: int = TEXT_SIZE
 # What the last draw put on screen, for the gates: {entity: {"now": String}} per drawn row, and the
@@ -251,7 +253,11 @@ func set_world(world: Variant, who: int = -1) -> void:
 	# and the drawer always name the same person.
 	_selected = who if _row_of(who) >= 0 else -1
 	_sync_layout()
-	_scroll_to(_selected)
+	# Only when the pick changes: main calls this every frame, and scrolling to the pick each time
+	# undid every wheel step that moved the picked row off screen (art QA, slice 2, round three).
+	if _selected != _scrolled_for:
+		_scrolled_for = _selected
+		_scroll_to(_selected)
 
 
 func selected() -> int:
@@ -502,7 +508,11 @@ func _layout() -> Dictionary:
 			"cells": cells,
 		})
 	var dt: float = GRID_Y + float(_visible_rows()) * ROW_H
-	out["more_at"] = Vector2(GUTTER, dt + NAME_DY - PX * 4.0)
+	# The strip's words centred between the last row's well and the drawer's groove: VT323 at 25
+	# inks the 14 px over its baseline, so a baseline 20 px down leaves four pixels over the tallest
+	# letter and six under, with the lowercase body, most of the ink, on the middle (art QA, slice 2,
+	# round three: two pixels higher, it hung from the row).
+	out["more_at"] = Vector2(GUTTER, dt + 20.0)
 	if _overflows():
 		dt += MORE_H
 	out["drawer"] = Rect2(Vector2(PX * 4.0, dt), Vector2(size.x - PX * 8.0, _drawer_h()))

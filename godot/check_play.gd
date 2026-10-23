@@ -2415,7 +2415,8 @@ func _the_work_grid_fits_and_keeps_its_clicks(main: Node) -> bool:
 #     the row's width would cut it (the negative);
 #   - the Focus line describes a row by its preset only when the row is that preset;
 #   - "their skills" opens Skills on that colonist, stamped viewing, its top on the Colony screen's;
-#   - a roster of seven scrolls to a colonist picked in the game, and counts what is scrolled away.
+#   - a roster of seven scrolls to a colonist picked in the game, the wheel still moves it while
+#     they are picked, and the strip counts what is scrolled away each way.
 func _the_colony_screen_is_one_survivor_context(main: Node) -> bool:
 	var panel: Control = main.get("_work_panel") as Control
 	var world: Variant = main.get("world")
@@ -2648,7 +2649,7 @@ func _the_colony_screen_is_one_survivor_context(main: Node) -> bool:
 	main.set("paused", was_paused)
 	await process_frame
 	if ok:
-		print("COLONY OK at 1280x720 and 1920x1080 the screen sits under the bar on the even grid and opens on nobody; the groups hold every working column once and the footer names the six nothing does; every now phrase and every backstory fits whole; each now line is the read model's as drawn and follows a job change; a right click on a name, a chip or their skills does nothing; a name click picks the colonist for the game and a footer click picks nobody; a focus chip queues that focus; a right click counts 1 to never and never to 4; the who lines are the whole clause where one line would cut it; the focus line names a preset only for a preset row; their skills opens the web on them, viewing, from the same top edge; a roster of seven scrolls to the pick and counts the rows scrolled away")
+		print("COLONY OK at 1280x720 and 1920x1080 the screen sits under the bar on the even grid and opens on nobody; the groups hold every working column once and the footer names the six nothing does; every now phrase and every backstory fits whole; each now line is the read model's as drawn and follows a job change; a right click on a name, a chip or their skills does nothing; a name click picks the colonist for the game and a footer click picks nobody; a focus chip queues that focus; a right click counts 1 to never and never to 4; the who lines are the whole clause where one line would cut it; the focus line names a preset only for a preset row; their skills opens the web on them, viewing, from the same top edge; a roster of seven scrolls to the pick, keeps the wheel while it is picked and counts the rows scrolled away each way")
 	return ok
 
 
@@ -2726,6 +2727,19 @@ func _a_long_roster_scrolls_to_the_pick(main: Node, panel: Control) -> bool:
 	var end_more: String = String((panel.get("drawn") as Dictionary).get("more", ""))
 	if int(panel.call("selected")) != last or not shown.has(last) or end_more != "%d above · wheel" % (rows.size() - vis):
 		push_error("COLONY: the last colonist picked in the game is %s drawn (picked %d), the strip %s" % [str(shown.has(last)), int(panel.call("selected")), end_more])
+		ok = false
+	# The wheel stays the player's while somebody is picked: one step up, then the frames main
+	# runs, and the roster has moved off the pick and stays there (art QA, slice 2, round three:
+	# a scroll to the pick on every frame undid every step).
+	var end_scroll: int = int(panel.get("_row_scroll"))
+	_mouse(panel.position + Vector2(panel.size.x / 2.0, float(panel.get_script().get("GRID_Y")) + 20.0), MOUSE_BUTTON_WHEEL_UP)
+	for i in 3:
+		main.call("_process", 0.0)
+		await process_frame
+	var mid_more: String = String((panel.get("drawn") as Dictionary).get("more", ""))
+	var mid_scroll: int = int(panel.get("_row_scroll"))
+	if mid_scroll != end_scroll - 1 or int(panel.call("selected")) != last or mid_more != "%d above · 1 below · wheel" % mid_scroll:
+		push_error("COLONY: a wheel step up with %d picked left the roster at %d (was %d), the strip %s" % [last, mid_scroll, end_scroll, mid_more])
 		ok = false
 	var body: String = FileAccess.get_file_as_string("res://ui/work_panel.gd")
 	var draw_at: int = body.find("func _draw() -> void:")
