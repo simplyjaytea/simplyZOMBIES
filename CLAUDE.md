@@ -3,7 +3,9 @@
 The one entry point for anyone changing this repository, agent or person. It says what the
 project is, where the work is, how a unit of work runs, how to verify and push it, what must not
 be broken, and where every system lives. `README.md` is for players; this file is for builders.
-Other assistants read it too: it is the project's rules, not a Claude-only file.
+Other assistants read it too: it is the project's rules, not a Claude-only file (`AGENTS.md`
+points here). How the project around the repository runs (who decides what, how a pull request
+reaches `main`, the shared folder, what is open) is [docs/38, the playbook](docs/38-playbook.md).
 
 ## Start here
 
@@ -12,6 +14,9 @@ bash scripts/setup-web-session.sh   # verify or install the pinned engine and np
 npm run godot:smoke                 # the project boots
 npm run check:routing               # the routing table below, and every gate reachable
 npm run godot:run                   # play it (DISPLAY=:1 on a headless VM; docs/34)
+npm run godot:m2:needs              # one gate while iterating: any godot:m2:<name> or godot:check:<name>
+npm run godot:m2 -- --shard=1/4     # one of CI's four shards of the full chain
+npx vitest run test/unit/<file>     # one test file of the frozen oracle
 ```
 
 Then read, in order:
@@ -48,6 +53,33 @@ rollback point.
 not start with `4.7.1`, and the same version and SHA-512 appear in `.github/workflows/ci.yml`,
 `.github/workflows/pages.yml` and `scripts/setup-web-session.sh`. Change one, change all.
 
+## How the code fits together
+
+The parts that take several files to see. [docs/19](docs/19-architecture.md) and
+[docs/20](docs/20-ecs-and-content.md) are the specs.
+
+- **The sim is a deterministic ECS stepped at 20 Hz.** `SimWorld` (`godot/sim/world.gd`) owns
+  the entity and component stores, a command queue, an event bus, named RNG streams
+  (`rng_registry.gd`) and a system registry with twelve fixed phases, input to cleanup
+  (`system_registry.gd`). `step()` takes the tick's commands, runs every system in phase order,
+  and only then drains the events, so a handler runs after the tick's systems (docs/37).
+- **A sim module registers itself.** Most files under `godot/sim/modules/` expose
+  `register_module(world)`, which registers its systems and event handlers.
+  `SimBoot.register_playable_modules` (`godot/sim/boot.gd`) is the one list that installs them.
+  A module missing from it is a dead socket. `SimBoot.playable(seed)` builds the shipped district
+  world, and gates and drivers boot through it.
+- **Presentation reads the sim and never writes it.** `godot/presentation/main.gd` (scene
+  `main.tscn`) steps the world on a clamped accumulator, draws bodies between ticks, and turns
+  input into commands. The screen reads the sim through read models (`condition.gd`,
+  `attention_read.gd`, `context.gd`), never through raw components. `godot/ui/` holds the panels,
+  `godot/platform/` the content loader and validator, and `godot/content/` the JSON the sim and
+  the looks read.
+- **A gate is a headless script.** Each `godot/check_*.gd` boots its own worlds, prints
+  `<NAME>_OK` or `<NAME>_FAIL`, and exits non-zero on failure. A new gate touches five places: the
+  script, a mode in `scripts/run-godot.mjs`, a `package.json` script, the `godot:m2:chain` list,
+  and a shard in `scripts/m2-shards.mjs`. It also needs a routing row. Gates in one process share
+  `static var`s, so a lane that pins a flag restores it.
+
 ## Where the work is
 
 Milestone 2, the vertical slice: one district, a handful of survivors, enough of every system to
@@ -80,6 +112,7 @@ The longer state notes, the art history and the full dead-socket list are in
 
 | Need | Read |
 |---|---|
+| How the project runs: the owner, threads, merging, the shared folder, open calls | [docs/38, the playbook](docs/38-playbook.md) |
 | What is open, what landed, with evidence | [docs/23, the roadmap](docs/23-roadmap.md) |
 | Why something is shaped the way it is | [docs/30, the decisions](docs/30-decisions.md), oldest first |
 | Decisions waiting on the owner | [docs/33](docs/33-owner-decisions.md) |
@@ -253,7 +286,7 @@ row when a system gains a home; the gate goes red when a route stops being true.
 | What the screen says | [hardcore contract clause 4](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable), the vocabulary in [CONTEXT.md](CONTEXT.md) | `godot/ui/`, the read models `godot/sim/condition.gd`, `godot/sim/attention_read.gd`, `godot/sim/modules/chronicle.gd` and `SimSkills.web_map` in `godot/sim/modules/skills.gd`; the click that picks a colonist, `godot/presentation/pick.gd`, whose `Pick.pick_at` is also what is under a right-click; what you may do about it, `godot/sim/context.gd`'s `SimContext.verbs_at`, drawn by `godot/ui/context_menu.gd`; the keys that reach any of it, `godot/presentation/input_map.gd`; the run's four states and the three screens that are not the game, `godot/presentation/session.gd` and `godot/ui/shell.gd`; the afterimage and the dimmed remembered map, `godot/presentation/main.gd`'s `_draw_afterimages`/`_draw_district` and `godot/presentation/palette.gd`'s `remembered`; speech bubbles, `godot/sim/modules/speech.gd`'s `saying` component and `godot/presentation/main.gd`'s `_draw_bubbles`, drawn over a Focal body only (`_focal_drawn`) and never a name; the one bar over Survivor, Colony and Skills, `godot/ui/nav_bar.gd`, switched by `godot/presentation/main.gd`'s `_show_screen`; a picked body part's condition and care, `godot/ui/care_pane.gd`, offering only what `SimTreatment.options_for` in `godot/sim/modules/treatment.gd` allows | `npm run godot:check:hud`, `npm run godot:check:inventory`, `npm run godot:ban:healthbar`, `npm run godot:check:respond`, `npm run godot:check:web_look`; and `npm run godot:check:play`, which boots `godot/presentation/main.tscn` and presses the keys; `npm run godot:check:memory` (`godot/check_memory_look.gd`) for the afterimage and the remembered map; `npm run godot:check:context` (`godot/check_context.gd`) for the menu's rows, their dispatch, walk-here's speed and the scene that opens and closes it; `npm run godot:check:speech` (`godot/check_speech.gd`) for a bubble's content, its triggers and the draw path that reads it; the bar's keys, clicks and Escape in `godot:check:play`'s NAV lane, and the care pane in `godot:check:inventory`'s CARE lane | the record |
 | A claim about balance | [the workflow's step 5](CLAUDE.md#the-workflow), [docs/22 on measuring](docs/22-performance.md#measuring) | a throwaway driver, deleted afterwards; a claim about a whole run starts from the standing scripted survivor, `godot/playtest/ten_day.gd` (`npm run godot:playtest`, one seed, ten days, a line per day; `PLAYTEST_SEED`, `PLAYTEST_DAYS`, `PLAYTEST_LOG`) | `npm run godot:m2:balance` and `npm run godot:m2:harness`; the before/after numbers | the record, numbers included |
 | The save format | [docs/19's save model](docs/19-architecture.md#save-model) | `godot/sim/kernel/serialize.gd` (`SAVE_VERSION`), `godot/sim/save.gd` | `npm run godot:m2:save` | the record |
-| A gate, new or fixed | [a gate that cannot fail](CLAUDE.md#conventions), the dead-socket rule in [CLAUDE.md](CLAUDE.md#where-the-work-is) | `godot/check_*.gd`, a mode in `scripts/run-godot.mjs`, a script in `package.json`, a link in the `godot:m2` chain | `npm run check:routing` proves it is reachable | the record |
+| A gate, new or fixed | [a gate that cannot fail](CLAUDE.md#conventions), the dead-socket rule in [CLAUDE.md](CLAUDE.md#where-the-work-is) | `godot/check_*.gd`, a mode in `scripts/run-godot.mjs`, a script in `package.json`, a link in the `godot:m2` chain, a shard in `scripts/m2-shards.mjs` | `npm run check:routing` proves it is reachable; `npm run check:shards` proves CI runs it | the record |
 | The frozen TypeScript oracle | the top of this file | `src/`, `test/`, `bench/` | `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm test`, `npm run bench` | nothing: it gains no features |
 | CI, scripts, hooks, this table | [CLAUDE.md's verifying section](CLAUDE.md#verifying-a-change) | `.github/workflows/` (`.github/workflows/ci.yml` the gates, `.github/workflows/pages.yml` the web build, `.github/workflows/release.yml` the downloadable build, run by hand with a version or by a pushed `v` tag), `scripts/`, `.claude/` | `npm run check:routing`, `npm run check:timing`, `npm run format:check`; the engine pin in `scripts/run-godot.mjs` | the record's Kernel & tooling entry |
 | Shipped runtime performance | [docs/22](docs/22-performance.md#shipped-godot-runtime-measurements) | `godot/bench/runtime_tick.gd`, `godot/bench/runtime_frame.gd`, `godot/bench/measured_main.gd`, `scripts/runtime-budget.mjs`, `scripts/run-godot.mjs` | `npm run check:runtime-budget` judges the production runner contract; `npm run godot:m2:tick` (`godot/check_m2_tick.gd`) holds each tick speed-up to the slow answer it replaced; `npm run godot:bench:runtime` and `npm run godot:bench:frame` measure actual timing on a quiet machine (frame needs a display). Existing overruns remain product debt; the real timing commands are not yet CI shipping gates. | docs/22's dated measurements and the record |
