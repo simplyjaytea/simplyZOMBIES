@@ -1242,6 +1242,15 @@ tables and day lines are report-noise.md in the project's planning/balance folde
     walk out to the well past the gate breaks off at a zombie within 6 m of the walker
     (`DANGER_METRES`), and the well is guarded most of the day on these seeds. A trace of one colonist's
     picked job and break-offs over day 1 to day 3 would confirm or refute it.
+  - **Builders break off from a zombie at the annex wall (trace 99, the early wipe).** On ace75bb1,
+    seed 99, colonist 113 stayed on Construct at the annex wall with one to three zombies one to
+    three metres off, and died there on day 1. Construct was not in `SimJobs.DANGER_KINDS`, and the
+    annex lot counts as home with its yard. The call (the coordinator's, JT informed, 2026-10-23,
+    recorded in docs/30): for Construct, outside is outside the house walls (`SimJobs._inside_walls`),
+    so a builder boarding from the yard breaks off at `DANGER_METRES`; a window with a zombie within
+    `DANGER_TARGET_METRES` is not offered; every other kind keeps the lot as home. The one-line
+    `DANGER_KINDS` add alone changed nothing on the yard. Gate: `godot:m2:jobs` BUILDER lanes.
+    Measured: the ten-seed set, the column for the head commit in planning/balance/report-ten-seed.md.
 
 **Feel and speed — smooth motion, and time a player can live with:**
 

@@ -53,9 +53,10 @@ func _run() -> void:
 	ok = _an_idle_colonist_walks_home_from_a_zombie() and ok
 	ok = _a_walk_home_outlasts_a_need_that_can_wait() and ok
 	ok = _a_wash_with_no_water_does_not_stop_work() and ok
+	ok = _a_builder_breaks_off_from_a_zombie() and ok
 	ok = _the_colony_screen_says_what_each_is_doing() and ok
 	if ok:
-		print("M2_JOBS_OK the now line names every job kind, astar focus cook haul construct doctor rest corpse seek water clean bury succession, the well is reachable from a bottle the sim emptied, a cook claims its raw, Guard is the night post, a focus change keeps the authored row, a starving colonist still eats, colonists scavenge near home, a target nobody can route to is planned for once and then left alone, a corpse another body took is left alone by Bury, an errand breaks off from a zombie at arm's length, and Haul and Scavenge reach only the errand radius, an idle colonist outside walks home from one too, a walk home outlasts a need that can wait, and a wash with no water stops no work")
+		print("M2_JOBS_OK the now line names every job kind, astar focus cook haul construct doctor rest corpse seek water clean bury succession, the well is reachable from a bottle the sim emptied, a cook claims its raw, Guard is the night post, a focus change keeps the authored row, a starving colonist still eats, colonists scavenge near home, a target nobody can route to is planned for once and then left alone, a corpse another body took is left alone by Bury, an errand breaks off from a zombie at arm's length, and Haul and Scavenge reach only the errand radius, an idle colonist outside walks home from one too, a walk home outlasts a need that can wait, a wash with no water stops no work, and a builder at the annex wall breaks off from a zombie at arm's length, keeps building at 20 m and inside, and goes back to the wall after its hold")
 		quit(0)
 	else:
 		push_error("M2_JOBS_FAIL")
@@ -1553,6 +1554,151 @@ func _a_wash_with_no_water_does_not_stop_work() -> bool:
 		push_error("WASH: with a bottle in the pack the wash did not take the tick, so the first case proves nothing")
 		return false
 	return true
+
+
+# A builder at the annex wall: Ellis on Construct, boarding a window from outside. A zombie at arm's
+# length sends him home, a zombie 20 m off does not, and one with him inside the annex does not
+# (home is where they fight). After the Retreat hold he goes back to the wall.
+func _a_builder_breaks_off_from_a_zombie() -> bool:
+	var was: bool = SimJobs.BREAK_OFF_FROM_DANGER
+	SimJobs.BREAK_OFF_FROM_DANGER = true
+	var ok: bool = true
+	var cases: Array = [
+		["near", 3.0, false, "Retreat"],
+		["far", 20.0, false, "Construct"],
+		["inside", 3.0, true, "Construct"],
+	]
+	for c in cases:
+		var got: String = _builder_lane(float(c[1]), bool(c[2]))
+		if got != String(c[3]):
+			push_error("BUILDER: case %s ended the tick on %s, want %s" % [String(c[0]), got, String(c[3])])
+			ok = false
+	ok = _a_builder_goes_back_to_the_wall_after_the_hold() and ok
+	ok = _a_window_with_a_zombie_at_it_is_not_boarded() and ok
+	SimJobs.BREAK_OFF_FROM_DANGER = was
+	return ok
+
+
+# One tick of Ellis on Construct at a window's yard (or room) tile, a zombie `metres` east of him;
+# the job kind he ends it with.
+func _builder_lane(metres: float, inside: bool) -> String:
+	var w: Variant = _world()
+	for z in w.components.query(["shambler"]):
+		w.despawn(int(z))
+	var ellis: int = _ellis(w)
+	var wall: Dictionary = _window_wall(w)
+	if ellis < 0 or wall.is_empty():
+		push_error("BUILDER: no Ellis or no unboarded window with ground on both sides, so the lane judges nothing")
+		return "no fixture"
+	var spot: Vector2i = wall["inside"] if inside else wall["outside"]
+	var win: Vector2i = wall["window"]
+	w.components.set_component(ellis, "position", {"x": float(spot.x) + 0.5, "y": float(spot.y) + 0.5})
+	w.components.set_component(ellis, "job", {"kind": "Construct", "verb": "window", "tx": win.x, "ty": win.y, "ticksLeft": SimFortify.CHANNEL_TICKS, "path": [], "pathGen": -1})
+	SimRoster.spawn_zombie(w, float(spot.x) + 0.5 + metres, float(spot.y) + 0.5, SimRoster.TYPE_SHAMBLER, w.rng.stream("shambler"))
+	SimJobs._tick_one(w, ellis)
+	var job: Variant = w.components.get_component(ellis, "job")
+	return String((job as Dictionary).get("kind", "")) if job is Dictionary else "none"
+
+
+# A window with a zombie within DANGER_TARGET_METRES of it is not the window the finder offers, and
+# with the zombie gone it is: the true negative that shows the refusal is the zombie.
+func _a_window_with_a_zombie_at_it_is_not_boarded() -> bool:
+	var was: bool = SimJobs.BREAK_OFF_FROM_DANGER
+	SimJobs.BREAK_OFF_FROM_DANGER = true
+	var w: Variant = _world()
+	for z in w.components.query(["shambler"]):
+		w.despawn(int(z))
+	var wall: Dictionary = _window_wall(w)
+	if wall.is_empty():
+		push_error("BUILDER-WINDOW: no unboarded window, so the lane judges nothing")
+		SimJobs.BREAK_OFF_FROM_DANGER = was
+		return false
+	var win: Vector2i = wall["window"]
+	var mid: Vector2 = Vector2(float(win.x) + 0.5, float(win.y) + 0.5)
+	var zombie: int = SimRoster.spawn_zombie(w, mid.x, mid.y + 2.0, SimRoster.TYPE_SHAMBLER, w.rng.stream("shambler"))
+	var guarded: Dictionary = SimJobs._construct_work(w, mid.x, mid.y)
+	var ok: bool = not (int(guarded.get("tx", -1)) == win.x and int(guarded.get("ty", -1)) == win.y)
+	if not ok:
+		push_error("BUILDER-WINDOW: a window with a zombie 2 m off was still offered for boarding")
+	w.despawn(zombie)
+	var clear: Dictionary = SimJobs._construct_work(w, mid.x, mid.y)
+	if int(clear.get("tx", -1)) != win.x or int(clear.get("ty", -1)) != win.y:
+		push_error("BUILDER-WINDOW: with the zombie gone the window was not offered (%s), so the refusal is not what dropped it" % str(clear))
+		ok = false
+	SimJobs.BREAK_OFF_FROM_DANGER = was
+	return ok
+
+
+# The real tick, not one call: a builder breaks off, walks home, holds there for RETREAT_HOLD_TICKS
+# and only then takes the wall again, with the zombie gone. The hold is judged on the `until` the
+# Retreat stamps on arrival, so a resume before it is caught.
+func _a_builder_goes_back_to_the_wall_after_the_hold() -> bool:
+	var w: Variant = _world()
+	for z in w.components.query(["shambler"]):
+		w.despawn(int(z))
+	var ellis: int = _ellis(w)
+	var wall: Dictionary = _window_wall(w)
+	if ellis < 0 or wall.is_empty():
+		push_error("BUILDER-HOLD: no Ellis or no unboarded window, so the lane judges nothing")
+		return false
+	var spot: Vector2i = wall["outside"]
+	var win: Vector2i = wall["window"]
+	w.components.set_component(ellis, "position", {"x": float(spot.x) + 0.5, "y": float(spot.y) + 0.5})
+	w.components.set_component(ellis, "job", {"kind": "Construct", "verb": "window", "tx": win.x, "ty": win.y, "ticksLeft": SimFortify.CHANNEL_TICKS, "path": [], "pathGen": -1})
+	var zombie: int = SimRoster.spawn_zombie(w, float(spot.x) + 3.5, float(spot.y) + 0.5, SimRoster.TYPE_SHAMBLER, w.rng.stream("shambler"))
+	SimJobs._tick_one(w, ellis)
+	if String((w.components.get_component(ellis, "job") as Dictionary).get("kind", "")) != "Retreat":
+		push_error("BUILDER-HOLD: the builder did not break off, so there is no hold to judge")
+		return false
+	w.despawn(zombie)
+	var until: int = -1
+	var resumed: int = -1
+	for _i in range(SimJobs.RETREAT_HOLD_TICKS + 4000):
+		w.step()
+		var job: Variant = w.components.get_component(ellis, "job")
+		if not job is Dictionary:
+			continue
+		var kind: String = String((job as Dictionary).get("kind", ""))
+		if kind == "Retreat" and (job as Dictionary).has("until") and until < 0:
+			until = int((job as Dictionary)["until"])
+		elif kind == "Construct" and until >= 0:
+			resumed = int(w.tick)
+			break
+	if until < 0:
+		push_error("BUILDER-HOLD: the walk home never reached its hold")
+		return false
+	if resumed < 0:
+		push_error("BUILDER-HOLD: the builder never went back to the wall after the hold (until tick %d)" % until)
+		return false
+	if resumed < until:
+		push_error("BUILDER-HOLD: the builder went back to the wall at tick %d, before the hold ended at %d" % [resumed, until])
+		return false
+	return true
+
+
+# The first unboarded window in the annex wall with the yard outside it, reachable from home, and
+# the house floor inside it: `outside` is where a builder stands to board it from the yard, `inside`
+# the room side. Empty when the district has none.
+func _window_wall(w: Variant) -> Dictionary:
+	var annex: Rect2i = _annex(w)
+	var start: Vector2i = _start(w)
+	for j in range(annex.position.y, annex.position.y + annex.size.y):
+		for i in range(annex.position.x, annex.position.x + annex.size.x):
+			if SimTileMap.tile_at(w.tilemap, i, j) != SimTileMap.Tile.Window:
+				continue
+			var out := Vector2i(-1, -1)
+			var inn := Vector2i(-1, -1)
+			for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+				var p: Vector2i = Vector2i(i, j) + d
+				if SimTileMap.is_solid(w.tilemap, p.x, p.y) or not annex.has_point(p):
+					continue
+				if SimJobs._inside_walls(w.tilemap, annex, p.x, p.y):
+					inn = p
+				elif out.x < 0 and not SimPath.find(w, start, p).is_empty():
+					out = p
+			if out.x >= 0 and inn.x >= 0:
+				return {"window": Vector2i(i, j), "outside": out, "inside": inn}
+	return {}
 
 
 # An open floor tile well outside the annex, so an errand there is "out".
