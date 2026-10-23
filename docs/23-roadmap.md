@@ -207,7 +207,10 @@ first:
   than shrinking it to fit (slice 1's stopgap), with the selected node's detail and learn action
   separate from the web; keyboard navigation of the roster and the chips; and a roster layout
   for a large colony (review shot `colony_crowd`: at 1280×720 seven colonists show three rows and
-  scroll the rest, because the drawer keeps the room the longest clause needs). **Files:** `godot/ui/web_panel.gd`, `godot/ui/web_layout.gd`,
+  scroll the rest, because the drawer keeps the room the longest clause needs). One known nit in
+  the scroll to the pick: `work_panel.gd`'s `_scrolled_for` is not cleared when the screen
+  closes, so a colonist wheeled off screen, then picked again in the street after another,
+  can open off screen; clear it when the panel hides, or scroll from main.gd's `_set_work_open`. **Files:** `godot/ui/web_panel.gd`, `godot/ui/web_layout.gd`,
   `godot/ui/work_panel.gd`, and the coordinator's input routing. **Proof:** the web gate's
   layout lanes and a play lane that drives the roster from the keyboard.
 - **Weapon assembly and contextual actions.** Rework the bench around actual installed
