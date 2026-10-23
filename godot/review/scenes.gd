@@ -26,13 +26,17 @@ const SCENE_PATH: String = "res://presentation/main.tscn"
 const SIZES: Array[Vector2i] = [Vector2i(1280, 720), Vector2i(1920, 1080)]
 const NAMES: Array[String] = [
 	"day_street", "interior", "night_lights", "combat", "inventory", "care", "skills", "colony", "viewing",
-	"colony_picked", "colony_crowd",
+	"colony_picked", "colony_crowd", "colony_scrolled",
 ]
 # The Colony screen's two fuller shots (art QA, slice 2): Mara picked by a click on her name, her
 # row made manual by one changed number, the pointer resting on the medic chip; and a roster of
-# CROWD colonists with a generated one picked, so a backstory not authored by hand is shown whole.
+# CROWD colonists with a generated one picked, so a backstory not authored by hand is shown whole;
+# and the same roster with its last colonist picked in the game, as a click on their body in the
+# street would, so the screen opens scrolled to a row past the fold.
 const HOVER_FOCUS: String = "Medic"
 const CROWD: int = 7
+# The scrolled shot's roster: more than the 1920x1080 window draws, so both windows scroll.
+const SCROLL_CROWD: int = 12
 # The part the care scene cuts and then picks on the figure: an arm, so the pane has a bleeding
 # wound to offer pressure for and a dressing it can say is missing.
 const CARE_PART: String = "arm_left"
@@ -206,20 +210,20 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 			await _settle(tree, main)
 			if not _hover_chip(tree, main, HOVER_FOCUS):
 				return "the %s chip is not on the screen to point at" % HOVER_FOCUS
-		"colony_crowd":
+		"colony_crowd", "colony_scrolled":
 			world.tick = Clock.tick_on_day(DAY, NOON)
-			var at_c: Dictionary = world.components.get_component(world.player, "position") as Dictionary
-			var rng: Variant = world.rng.stream("recruit")
-			var born: Array[int] = []
-			while SimJobs.work_view(world).size() < CROWD:
-				var e: int = int(SimRecruits.spawn_generated(world, SimRecruits.roll(world, rng), float(at_c["x"]) + 2.0 + float(born.size()), float(at_c["y"]) + 1.0))
-				if e < 0:
-					return "a generated colonist did not spawn"
-				born.append(e)
-			press(tree, KEY_J)
-			await _settle(tree, main)
-			if born.is_empty() or not await _click_row(tree, main, born[0]):
-				return "no generated colonist's name is on the screen to click"
+			var born: Array[int] = _crowd(world, SCROLL_CROWD if scene == "colony_scrolled" else CROWD)
+			if born.is_empty():
+				return "the generated colonists did not spawn"
+			if scene == "colony_scrolled":
+				var rows: Array[Dictionary] = SimJobs.work_view(world)
+				main.set("_selected", int(rows[rows.size() - 1]["entity"]))
+				press(tree, KEY_J)
+			else:
+				press(tree, KEY_J)
+				await _settle(tree, main)
+				if not await _click_row(tree, main, born[0]):
+					return "no generated colonist's name is on the screen to click"
 		"viewing":
 			# Skills on somebody else: a colonist picked on the street, then K -- the bar names them
 			# and stamps the page "viewing".
@@ -300,6 +304,16 @@ static func verify(main: Node, scene: String) -> String:
 			if String(_row_of(world, mara_v).get("focus", "")) != "Manual":
 				return "Mara's row is not manual"
 			return "" if String(panel_p.get("_hover_focus")) == HOVER_FOCUS else "the pointer is not on the %s chip" % HOVER_FOCUS
+		"colony_scrolled":
+			if not bool(main.get("work_open")):
+				return "the colony screen is not open"
+			var rows_s: Array[Dictionary] = SimJobs.work_view(world)
+			var last: int = int(rows_s[rows_s.size() - 1]["entity"]) if rows_s.size() >= SCROLL_CROWD else -1
+			var panel_s: Object = main.get("_work_panel") as Object
+			var drawn_rows: Array = ((panel_s.call("_layout") as Dictionary)["rows"] as Array).map(func(r: Variant) -> int: return int((r as Dictionary)["entity"]))
+			if last < 0 or int(panel_s.call("selected")) != last or not drawn_rows.has(last):
+				return "the last of the roster is not picked and drawn"
+			return "" if int(panel_s.get("_row_scroll")) > 0 else "the roster is not scrolled"
 		"colony_crowd":
 			if not bool(main.get("work_open")):
 				return "the colony screen is not open"
@@ -317,6 +331,19 @@ static func verify(main: Node, scene: String) -> String:
 			return ""
 		_:
 			return "unknown scene %s" % scene
+
+
+## Generated colonists by the player until the roster is `size`. Returns the ones made.
+static func _crowd(world: Variant, size: int) -> Array[int]:
+	var at: Dictionary = world.components.get_component(world.player, "position") as Dictionary
+	var rng: Variant = world.rng.stream("recruit")
+	var born: Array[int] = []
+	while SimJobs.work_view(world).size() < size:
+		var e: int = int(SimRecruits.spawn_generated(world, SimRecruits.roll(world, rng), float(at["x"]) + 2.0 + float(born.size()), float(at["y"]) + 1.0))
+		if e < 0:
+			break
+		born.append(e)
+	return born
 
 
 ## Two ticks and a frame, so the screen draws what the world now holds.

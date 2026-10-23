@@ -97,6 +97,8 @@ const CHIP_H: float = 28.0
 # The drawer is a dossier: a word down the left for each block, the block beside it.
 const LABEL_W: float = 104.0
 const FOOT_H: float = 36.0
+# The strip under the rows that says how many more there are, only while some are scrolled away.
+const MORE_H: float = 26.0
 
 # The five self-managing focuses and the one that is not, in the order the drawer's chips stand.
 # Auto first because it is the handback (jobs.gd stamps it "auto"), Manual last.
@@ -249,10 +251,43 @@ func set_world(world: Variant, who: int = -1) -> void:
 	# and the drawer always name the same person.
 	_selected = who if _row_of(who) >= 0 else -1
 	_sync_layout()
+	_scroll_to(_selected)
 
 
 func selected() -> int:
 	return _selected
+
+
+# Scroll the roster just far enough that `entity`'s row is drawn: a colonist picked in the street
+# past the visible rows still gets their bracket.
+func _scroll_to(entity: int) -> void:
+	var i: int = _row_of(entity)
+	if i < 0:
+		return
+	var vis: int = _visible_rows()
+	if i < _row_scroll:
+		_row_scroll = i
+	elif i >= _row_scroll + vis:
+		_row_scroll = i - vis + 1
+	_row_scroll = clampi(_row_scroll, 0, maxi(0, _rows.size() - vis))
+
+
+# Whether the roster is longer than the rows drawn, so the more strip stands under them.
+func _overflows() -> bool:
+	return _rows.size() > _visible_rows()
+
+
+# "3 more below · wheel", "2 above · 3 below · wheel", "5 above · wheel", or "" when all are shown.
+func more_line() -> String:
+	if not _overflows():
+		return ""
+	var above: int = _row_scroll
+	var below: int = maxi(0, _rows.size() - _row_scroll - _visible_rows())
+	if above == 0:
+		return "%d more below · wheel" % below
+	if below == 0:
+		return "%d above · wheel" % above
+	return "%d above · %d below · wheel" % [above, below]
 
 
 func _row_of(entity: int) -> int:
@@ -317,6 +352,9 @@ func _sync_layout() -> void:
 	var room: float = view.y - top - MARGIN
 	var fixed: float = GRID_Y + _drawer_h() + FOOT_H
 	var fits: int = maxi(1, floori((room - fixed) / ROW_H))
+	if _rows.size() > fits:
+		fixed += MORE_H
+		fits = maxi(1, floori((room - fixed) / ROW_H))
 	var shown_rows: int = clampi(_rows.size(), 1, fits)
 	size = Vector2(w, floorf(minf(room, fixed + ROW_H * float(shown_rows)) / 2.0) * 2.0)
 	position = Vector2(floorf((view.x - w) / 4.0) * 2.0, top)
@@ -330,7 +368,11 @@ func now_room() -> float:
 
 
 func _visible_rows() -> int:
-	return maxi(1, floori((size.y - GRID_Y - _drawer_h() - FOOT_H) / ROW_H))
+	var room: float = size.y - GRID_Y - _drawer_h() - FOOT_H
+	var fits: int = maxi(1, floori(room / ROW_H))
+	if _rows.size() > fits:
+		fits = maxi(1, floori((room - MORE_H) / ROW_H))
+	return fits
 
 
 # The left edge of every shown column, plus one more entry for the grid's right edge, in whole even
@@ -460,6 +502,9 @@ func _layout() -> Dictionary:
 			"cells": cells,
 		})
 	var dt: float = GRID_Y + float(_visible_rows()) * ROW_H
+	out["more_at"] = Vector2(GUTTER, dt + NAME_DY - PX * 4.0)
+	if _overflows():
+		dt += MORE_H
 	out["drawer"] = Rect2(Vector2(PX * 4.0, dt), Vector2(size.x - PX * 8.0, _drawer_h()))
 	var inner: float = _inner()
 	var body_x: float = GUTTER + LABEL_W
@@ -644,6 +689,7 @@ func _draw() -> void:
 		var hw: float = font.get_string_size(head, HORIZONTAL_ALIGNMENT_LEFT, -1, head_size).x
 		draw_string(font, Vector2(floorf((edges[i] + (cw - hw) / 2.0) / 2.0) * 2.0, HEAD_BASE), head, HORIZONTAL_ALIGNMENT_LEFT, -1, head_size, Locker.TEXT)
 	drawn = {"rows": {}}
+	var picked_band: Rect2 = Rect2()
 	for rd in laid["rows"] as Array:
 		var row: Dictionary = rd as Dictionary
 		var ent: int = int(row["entity"])
@@ -651,7 +697,7 @@ func _draw() -> void:
 		var source: Dictionary = _rows[_row_of(ent)] if _row_of(ent) >= 0 else {}
 		if ent == _selected:
 			Locker.well(self, band, a)
-			Locker.brackets(self, band, Locker.ACCENT)
+			picked_band = band
 		else:
 			Locker.groove(self, Vector2(band.position.x + PX * 2.0, band.end.y - PX * 2.0), band.size.x - PX * 4.0, a)
 		draw_string(font, row["name_at"] as Vector2, String(row["name"]), HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE, Locker.TEXT)
@@ -677,11 +723,15 @@ func _draw() -> void:
 			# "Never" is the dim ink, not the faint one: the faint ink on a well is under 3:1.
 			var tint: Color = Locker.TEXT_DIM if v <= 0 else Locker.TEXT.lerp(Locker.TEXT_DIM, float(v - 1) / 3.0)
 			Locker.text_centred(self, cr, "–" if v <= 0 else str(v), TEXT_SIZE, tint, a)
-	if _rows.size() > _visible_rows():
-		var more: String = "wheel for more"
-		var mw: float = font.get_string_size(more, HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE).x
-		draw_string(font, Vector2(edges[0] - PX * 8.0 - mw, GRID_Y - PX * 4.0), more, HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE, Locker.TEXT_DIM)
+	# Under the last row drawn, while some are scrolled away: how many, and which way.
+	drawn["more"] = more_line()
+	if not String(drawn["more"]).is_empty():
+		draw_string(font, laid["more_at"] as Vector2, String(drawn["more"]), HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE, Locker.TEXT_DIM)
 	_draw_drawer(font, laid, a)
+	# The picked row's brackets go on last: the drawer's groove under the last row would otherwise
+	# cut their bottom arms.
+	if picked_band.size.x > 0.0:
+		Locker.brackets(self, picked_band, Locker.ACCENT)
 	var stubs: PackedStringArray = []
 	for c in unworked_columns():
 		stubs.append(c.to_lower())

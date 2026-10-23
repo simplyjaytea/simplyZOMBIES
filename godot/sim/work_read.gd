@@ -12,9 +12,11 @@ extends RefCounted
 # These are the player's own people. Telling the player that Mara is out scavenging while she is
 # out of sight is what a colony manager knows about the people it manages; it reveals nothing about
 # where she is, what is near her or what she has found. Two lines would reveal what is near her,
-# so neither is said out of sight: a grab reads as "held by the dead" only while the player can see
-# her (otherwise the line stays whatever she was last set to do, which is what the colony would
-# believe), and the walk home that danger starts reads plainly as "heading home".
+# so neither is said out of sight: a grab reads as "held by the dead", and the walk home a zombie
+# within reach starts reads as "heading home" ("staying in" once she is there and waiting it out),
+# only while the player can see her. Out of sight the line stays what she was last set to do, which
+# is what the colony would believe: the job under the grab, or the errand the walk home broke off
+# (the Retreat job's `was`).
 #
 # Every phrase is MAX_CHARS or shorter, so it fits the Colony row at 1280x720 whole
 # (`check_play.gd`'s COLONY lane measures every one of `phrases()` against the drawn room).
@@ -69,11 +71,12 @@ const LEAVING: String = "leaving the colony"
 const ASLEEP: String = "asleep"
 const REFUSING: String = "refusing work"
 const SEEING_TO: String = "seeing to a need"
+const STAYING_IN: String = "staying in"
 
 
 ## Every phrase `doing` can return, for the gate that measures them against the row.
 static func phrases() -> Array[String]:
-	var out: Array[String] = [IDLE, HELD, PASSED_OUT, LEAVING, ASLEEP, REFUSING, SEEING_TO]
+	var out: Array[String] = [IDLE, HELD, PASSED_OUT, LEAVING, ASLEEP, REFUSING, SEEING_TO, STAYING_IN]
 	for table in [JOB_WORDS, SEEK_WORDS, ORDER_WORDS]:
 		for v in (table as Dictionary).values():
 			out.append(String(v))
@@ -115,9 +118,13 @@ static func doing(world: Variant, ent: int) -> String:
 	var job: Variant = world.components.get_component(ent, "job")
 	if job is Dictionary:
 		var kind: String = String((job as Dictionary).get("kind", ""))
+		if kind == "Retreat":
+			if in_sight(world, ent):
+				return STAYING_IN if (job as Dictionary).has("until") else String(JOB_WORDS["Retreat"])
+			kind = String((job as Dictionary).get("was", ""))
 		if kind == "Seek":
 			var need: String = SimNeeds.seek_kind(world, ent)
 			return String(SEEK_WORDS.get(need, SEEING_TO))
-		if JOB_WORDS.has(kind):
+		if JOB_WORDS.has(kind) and kind != "Retreat":
 			return String(JOB_WORDS[kind])
 	return IDLE

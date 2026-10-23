@@ -2290,9 +2290,10 @@ not a to-do list:
   - **A row** is the name, its Focus as a stamp (never amber) and a "now" line from the new
     read model `godot/sim/work_read.gd`: the job's kind, the need a Seek walks for, an order,
     sleep, a grab, a crisis or a sulk, in words with no digit and at most eighteen characters, so
-    none is cut at 1280×720. A grab is said only while the player sees the colonist, and the walk
-    home that danger starts reads "heading home", so the line never says what is near somebody
-    out of sight. A click on the row picks that colonist for the game (main.gd's selection), so
+    none is cut at 1280×720. A grab and the walk home a zombie starts are said only while the
+    player sees the colonist; out of sight the line keeps the job under the grab or the errand
+    the walk home broke off (the Retreat job's `was`, which nothing in the sim reads), so it never
+    says what is near somebody out of sight. Home and waiting it out reads "staying in". A click on the row picks that colonist for the game (main.gd's selection), so
     the HUD and Skills follow; the screen opens on whoever the game has picked, or nobody.
   - **The drawer** for the picked colonist: Focus as six chips you press; a line saying what the
     pointed-at Focus puts first, read off `SimJobs.preset`, and describing their own Focus by its
@@ -2300,6 +2301,9 @@ not a to-do list:
     cut with an ellipsis at both sizes); what they know and, under manual, what they could learn,
     each a word you click; and "their skills", which opens Skills on them stamped viewing. Each
     block is as tall as the most any colonist on the roster needs, so the drawer holds still.
+    A roster longer than the window scrolls; a strip under the last row drawn counts the rows
+    scrolled away each way, and a colonist picked in the street scrolls the roster to their row.
+    The picked row's brackets are drawn after the drawer, whose groove cut their bottom arms.
   - **The footer** names the six job columns nothing does (firefight, hunt, farm, craft, modify,
     butcher), which were only hidden.
   - **The skill web's lines,** spokes, dotted lines and fan edges are drawn in whole 2×2 art
@@ -2312,7 +2316,8 @@ not a to-do list:
   - `godot:shots` takes `--only=a,b` to shoot a few scenes while iterating, and has two more
     scenes: `colony_picked` (Mara picked by a click on her name, her row made manual by one
     changed number, the pointer on the medic chip) and `colony_crowd` (seven colonists, a
-    generated one picked).
+    generated one picked) and `colony_scrolled` (twelve colonists, the last picked in the game,
+    the roster opened scrolled to that row).
 
   **Evidence:** `godot:check:play`'s new COLONY lane, in the real scene at 1280×720 and
   1920×1080: the panel under the bar on the even grid; the groups hold every column with a
@@ -2328,23 +2333,31 @@ not a to-do list:
   line that review found cut is still cut at 1280 (the negative); every generated backstory at its
   longest (the longest age, the three longest features) and both uniques read whole in the drawer,
   where all of them end to end would be cut; the drawn now line is the fitted string; a right
-  click on a name, a Focus chip or "their skills" does nothing. STUBS and WORK-LAYOUT were kept (STUBS now judges the
+  click on a name, a Focus chip or "their skills" does nothing. After the second round: a roster
+  of seven at 1280 leaves its last colonist below the fold, and picking that colonist in the game
+  scrolls the roster to the row; the strip reads "4 more below · wheel" at the top, "4 above ·
+  wheel" at the end and nothing with the boot's two; the brackets are drawn after the drawer. STUBS and WORK-LAYOUT were kept (STUBS now judges the
   columns as a set, WORK-LAYOUT the heads at the size actually drawn). `godot:m2:jobs`'s new DOING
   lane: `SimJobs.JOB_KINDS` is the sixteen kinds jobs.gd writes, both ways, and no other file
   under `godot/sim/` writes a job; every kind has words, a job reads as its words and no job as
   idle, a Seek, an order and sleep outrank the job, a grab does only in sight (Mara grabbed with
-  the player on her reads "held by the dead", out of sight "cooking"), no line carries a digit or
-  runs past eighteen characters, asking changes nothing, and `work_panel.gd` reads it.
+  the player on her reads "held by the dead", out of sight "cooking", and a player on her tile who
+  does not see her fails the lane), and so does the walk home: Ellis hauling with a zombie 3 m off
+  breaks off through the real tick into a Retreat that keeps the Haul, and reads "hauling" out of
+  sight, "heading home" in sight, "staying in" once home; an idle walk home reads "idle" out of
+  sight. No job kind in jobs.gd is written from a variable (the two event kinds that are, are
+  found), every consumer column is a listed kind, no line carries a digit or runs past eighteen
+  characters, asking changes nothing, and `work_panel.gd` reads it.
   `godot:m2:settlers`' PROSE lane: no unique's authored full stop runs on into a comma, where the
-  authored line run on does. `godot:check:shots`: eleven scenes, and the plain Colony screen
-  verifies as neither fuller shot. `godot:check:web_look`'s new LINES lane:
+  authored line run on does. `godot:check:shots`: twelve scenes, and the plain Colony screen
+  verifies as none of the three fuller shots. `godot:check:web_look`'s new LINES lane:
   342 blocks of solid and dotted lines at six angles, every one on the even grid, solid lines
   gap-free and dotted ones broken, the odd start refused, and no smooth line call left in
   `_draw`; no fan rim block under a region word, where the unbroken rim crosses them 32 times. `godot:check:play`, `:web_look`, `:ui_skin`, `:hud`, `:inventory`, `:respond`, `:shots`,
   `godot:m2:jobs`, `:autonomy`, `:settlers`, `:roster`, `godot:smoke`, `godot:validate`,
   `check:routing` and `check:shards` pass locally. Before and after shots of colony, skills and
   viewing at both windows are in the project's planning files under ui-slice-2, with the art
-  review's rounds beside them; round one's four majors and twelve minors are all fixed on the PR.
+  review's rounds beside them; every finding of rounds one and two is fixed on the PR.
   **Not shown or proven:** keyboard navigation of the roster and chips (mouse only); the web's
   own reflow; a measured UI draw cost. **Left open by the art review:** at 1280×720 a roster of
   seven shows three rows and scrolls the rest, because the drawer keeps the room the longest
