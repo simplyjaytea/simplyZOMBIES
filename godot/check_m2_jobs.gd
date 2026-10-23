@@ -373,6 +373,7 @@ func _water_clean_bury() -> bool:
 	var well: int = int(wells[0])
 	var wp: Variant = w.components.get_component(well, "position")
 	var well_tile := Vector2i(floori(float((wp as Dictionary)["x"])), floori(float((wp as Dictionary)["y"])))
+	_take_starting_empties(w, mara)
 	# Water: empty bottle → fill at well
 	var bottle: int = SimItems.spawn_item(w, "item.water.bottle.empty", {"tier": "scavenged"})
 	var start: Vector2i = _start(w)
@@ -495,6 +496,7 @@ func _an_empty_left_by_a_drink_is_what_the_water_job_wants() -> bool:
 	if w.components.query(["water_source"]).is_empty():
 		print("WELL SKIPPED the booted district stands no water_source, so there is nothing to judge")
 		return true
+	_take_starting_empties(w, mara)
 	var start: Vector2i = _start(w)
 	var before: Dictionary = {}
 	for e in w.components.query(["itemBase"]):
@@ -1670,3 +1672,15 @@ func _an_errand_reaches_only_the_errand_radius() -> bool:
 	if ok:
 		print("ERRAND OK Haul refuses an item %.0f tiles out at the %.0f-tile errand radius and takes it at %.0f; one %.0f tiles out is taken; the doctor walks to a patient at home and not to one that far out, nor Bury to a body" % [absf(out_d), SimJobs.ERRAND_RADIUS_TILES, SimJobs.HOME_RADIUS_TILES, absf(in_d)])
 	return ok
+
+
+# Every colonist boots with one empty bottle (docs/30, "Every colonist starts with a bottle,
+# 2026-10-22"). The two Water lanes above judge which bottle the job wants, so the one Mara
+# carried in from boot is taken away first; godot:m2:needs' BOTTLE lane is what judges that one.
+func _take_starting_empties(w: Variant, ent: int) -> void:
+	for item in SimInventory.carried_items(w, ent):
+		var b: Variant = w.components.get_component(int(item), "itemBase")
+		if b is Dictionary and String((b as Dictionary).get("baseId", "")) == "item.water.bottle.empty":
+			SimInventory.remove_from_container(w, int(item))
+			w.despawn(int(item))
+

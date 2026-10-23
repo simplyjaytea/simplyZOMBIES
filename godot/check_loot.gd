@@ -1359,6 +1359,7 @@ func _a_container_yields_once_and_is_empty_after() -> bool:
 func _only_somebody_standing_at_it_can_take_from_it() -> bool:
 	var w: Variant = _booted(7789)["world"]
 	var actor: int = int(w.player)
+	_take_starting_bottle(w, actor)
 	var at: Dictionary = w.components.get_component(actor, "position") as Dictionary
 	var box: int = SimContainers.make_container(w, float(at["x"]) + 0.5, float(at["y"]), "cupboard", "residential")
 	if not bool(SimContainers.open(w, actor, box).get("ok", false)):
@@ -1453,6 +1454,7 @@ func _only_somebody_standing_at_it_can_take_from_it() -> bool:
 func _take_all_takes_what_fits_and_leaves_the_rest() -> bool:
 	var w: Variant = _booted(7790)["world"]
 	var actor: int = int(w.player)
+	_take_starting_bottle(w, actor)
 	var at: Dictionary = w.components.get_component(actor, "position") as Dictionary
 	var box: int = SimContainers.make_container(w, float(at["x"]) + 0.5, float(at["y"]), "cupboard", "residential")
 	SimContainers.open(w, actor, box)
@@ -1801,3 +1803,15 @@ func _every_container_site_stands_in_the_booted_district() -> bool:
 
 func _ground_count(w: Variant) -> int:
 	return w.components.query(["itemBase", "position"]).size()
+
+
+# The player boots with an empty bottle in a pocket (docs/30, "Every colonist starts with a
+# bottle, 2026-10-22"). The two lanes that move items into the pockets by literal cell, or count
+# what fits in them, judge the move, not the boot kit, so they start from empty pockets.
+func _take_starting_bottle(w: Variant, actor: int) -> void:
+	for item in SimInventory.carried_items(w, actor):
+		var b: Variant = w.components.get_component(int(item), "itemBase")
+		if b is Dictionary and String((b as Dictionary).get("baseId", "")) == "item.water.bottle.empty":
+			SimInventory.remove_from_container(w, int(item))
+			w.despawn(int(item))
+

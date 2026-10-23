@@ -5755,3 +5755,25 @@ dying, put it to the owner on a card with that default, and had it built as the 
 Gated by `godot:m2:needs` WELL through the real `use.context` command on a booted district's well,
 with the right-click menu (`SimContext.verbs_at`) asserted to carry the same row.
 
+## Every colonist starts with a bottle, 2026-10-22
+
+**The owner's pick on the water card.** The card asked how a lone survivor gets water once the
+loose drinks run out, with three options: drink at the well (the default, built as #180), every
+colonist starting with an empty bottle, or more water in the loot. On 2026-10-22 the owner tapped
+the second. It is built on top of the well, not instead of it, because a bottle is only water once
+somebody fills it at the well; the card's wording ("tap another option to switch") is read as
+"add this", since taking the well verb away again would put the survivor the well reached back on
+a day-6 death of thirst.
+
+- **The player, Mara and Ellis each boot carrying one `item.water.bottle.empty`.** The uniques
+  carry it in their content `kit` (`godot/content/survivors/uniques/`); the player has no content
+  kit, so `SimBoot.playable` hands it over beside the annex knife. A recruit who joins later brings
+  only their own backstory kit.
+- **What reads it:** a colonist's Water job (`SimJobs._water_work`) takes the carried bottle to
+  the well and stocks the pile with it, and the player at the well is offered the fill
+  (`SimNeeds.well_offer`).
+- **Not built:** more water in the loot, a well inside the annex wall, a rain barrel at home.
+
+Gated by `godot:m2:needs` BOTTLE: three colonists, one bottle each, both readers offered it, and
+both offers gone once every empty is taken away; the lane was run red against main first.
+

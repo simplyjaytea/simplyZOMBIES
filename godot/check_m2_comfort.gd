@@ -532,6 +532,12 @@ func _every_comfort_is_findable_and_the_key_is_read() -> bool:
 func _the_menu_and_the_intake_are_one_function() -> bool:
 	var w: Variant = _world()
 	var ent: int = int(w.player)
+	# The player boots with an empty bottle (docs/30, "Every colonist starts with a bottle"), and
+	# with it in the pocket a sawn plank no longer fits. The lane judges the menu, not the pocket.
+	for carried in SimInventory.carried_items(w, ent):
+		var b: Variant = w.components.get_component(int(carried), "itemBase")
+		if b is Dictionary and String((b as Dictionary).get("baseId", "")) == "item.water.bottle.empty":
+			_take_back(w, int(carried))
 	var judged: int = 0
 	for entry_v in SimItems.content_entries(w, "item"):
 		var e: Dictionary = entry_v as Dictionary
