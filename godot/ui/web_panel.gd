@@ -28,11 +28,10 @@ const WEB_SIDE: float = 600.0
 # Even radii, with centres snapped to even pixels (`_at`), so every disc starts on the screen's
 # two-pixel art grid.
 const NODE_R: float = 8.0
-# The hub's dot, and the lines: two pixels wide, moved half their width so a line centred on an
-# even pixel covers an even pair of columns rather than straddling one.
+# The hub's dot. The lines are drawn in whole 2x2 art pixels (`line_blocks`), so they need no width.
 const HUB_R: float = 4.0
-const LINE_W: float = 2.0
-const LINE_SHIFT: Vector2 = Vector2(1.0, 1.0)
+# A dotted line's dash and gap, in art pixels.
+const DASH: int = 3
 # A keystone's disc, and the ring outside it: the one thing on the web that costs something.
 const KEY_R: float = 12.0
 const RING_GAP: float = 4.0
@@ -233,6 +232,59 @@ func _side() -> float:
 func _blocks(at: Vector2, r_out: float, r_in: float, col: Color) -> void:
 	for run in block_runs(r_out, r_in):
 		draw_rect(Rect2(at + (run as Rect2).position, (run as Rect2).size), col)
+
+
+# A line from `a` to `b` in whole 2x2 art pixels, `dash` art pixels on and as many off when it is
+# dotted (0 for solid). UI review, slice 1's leftovers: a smooth two-pixel line stepped a screen
+# pixel per row on a diagonal, and a dashed one could start on an odd row; this one steps a whole
+# art pixel, so every block is on the even grid whatever the angle.
+func _line(a: Vector2, b: Vector2, col: Color, dash: int = 0) -> void:
+	for r in line_blocks(a, b, dash):
+		draw_rect(r as Rect2, col)
+
+
+# The blocks of `_line`, absolute: both ends snapped down to the even grid, then Bresenham's walk in
+# art-pixel steps, one block per step, with blocks that touch along a row or a column merged into
+# one rect. Static so the gate can hold what is drawn to the grid without a screen.
+static func line_blocks(a: Vector2, b: Vector2, dash: int = 0) -> Array[Rect2]:
+	var p: float = Locker.PX
+	var x0: int = floori(a.x / p)
+	var y0: int = floori(a.y / p)
+	var x1: int = floori(b.x / p)
+	var y1: int = floori(b.y / p)
+	var dx: int = absi(x1 - x0)
+	var dy: int = -absi(y1 - y0)
+	var sx: int = 1 if x0 < x1 else -1
+	var sy: int = 1 if y0 < y1 else -1
+	var err: int = dx + dy
+	var cells: Array[Vector2i] = []
+	var step: int = 0
+	while true:
+		if dash <= 0 or (step / dash) % 2 == 0:
+			cells.append(Vector2i(x0, y0))
+		step += 1
+		if x0 == x1 and y0 == y1:
+			break
+		var e2: int = err * 2
+		if e2 >= dy:
+			err += dy
+			x0 += sx
+		if e2 <= dx:
+			err += dx
+			y0 += sy
+	var out: Array[Rect2] = []
+	for c in cells:
+		var r := Rect2(Vector2(float(c.x) * p, float(c.y) * p), Vector2(p, p))
+		if not out.is_empty():
+			var last: Rect2 = out[out.size() - 1]
+			if last.position.y == r.position.y and last.size.y == p and (r.position.x == last.end.x or r.end.x == last.position.x):
+				out[out.size() - 1] = last.merge(r)
+				continue
+			if last.position.x == r.position.x and last.size.x == p and (r.position.y == last.end.y or r.end.y == last.position.y):
+				out[out.size() - 1] = last.merge(r)
+				continue
+		out.append(r)
+	return out
 
 
 # The rows of `_blocks`' shape, relative to its centre: one rect per run of art pixels. Static so
@@ -517,9 +569,11 @@ func _draw() -> void:
 			var fill: Color = Chrome.ITEM_FILL
 			fill.a = 0.7
 			draw_colored_polygon(fan, fill)
+		# The fan's edge in whole art pixels too: the two radii and the arc between them.
 		var rim: PackedVector2Array = fan.duplicate()
 		rim.append(hub)
-		draw_polyline(rim, Chrome.CELL_EDGE, 1.0)
+		for i in rim.size() - 1:
+			_line(rim[i], rim[i + 1], Chrome.CELL_EDGE)
 		var word: String = region.to_lower()
 		var label_at: Vector2 = _region_word_at(font, anchor, word)
 		draw_string(font, label_at, word, HORIZONTAL_ALIGNMENT_LEFT, -1, REGION_SIZE, Chrome.TEXT if lived else LOCKED_INK)
@@ -531,17 +585,17 @@ func _draw() -> void:
 		if not (pos.has(a) and pos.has(b)):
 			continue
 		var walked: bool = state.get(a, "") == "known" and state.get(b, "") == "known"
-		draw_line(_at(pos[a] as Vector2) + LINE_SHIFT, _at(pos[b] as Vector2) + LINE_SHIFT, Chrome.TEXT_DIM if walked else Chrome.CELL_EDGE, LINE_W)
+		_line(_at(pos[a] as Vector2), _at(pos[b] as Vector2), Chrome.TEXT_DIM if walked else Chrome.CELL_EDGE)
 	for s in WebLayout.spokes(_def):
 		if not pos.has(s):
 			continue
 		var walked_s: bool = state.get(s, "") == "known"
-		draw_line(hub + LINE_SHIFT, _at(pos[s] as Vector2) + LINE_SHIFT, Chrome.TEXT_DIM if walked_s else Chrome.CELL_EDGE, LINE_W)
+		_line(hub, _at(pos[s] as Vector2), Chrome.TEXT_DIM if walked_s else Chrome.CELL_EDGE)
 	for d in WebLayout.drift_only(_def):
 		if not pos.has(d):
 			continue
 		var walked_d: bool = state.get(d, "") == "known"
-		draw_dashed_line(hub + LINE_SHIFT, _at(pos[d] as Vector2) + LINE_SHIFT, Chrome.TEXT_DIM if walked_d else Chrome.CELL_EDGE, LINE_W, 6.0)
+		_line(hub, _at(pos[d] as Vector2), Chrome.TEXT_DIM if walked_d else Chrome.CELL_EDGE, DASH)
 	# The hub.
 	_blocks(hub, HUB_R, 0.0, Chrome.TEXT_DIM)
 	draw_string(font, _start_at(font), "start", HORIZONTAL_ALIGNMENT_LEFT, -1, FOOTER_SIZE, LOCKED_INK)

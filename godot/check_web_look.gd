@@ -78,6 +78,7 @@ func _run() -> void:
 	ok = _map_lane(w) and ok
 	ok = await _screen_lane(w) and ok
 	ok = await _crowd_lane(w) and ok
+	ok = _lines_lane() and ok
 	ok = _wired_lane() and ok
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
 	if seconds > BUDGET_SECONDS:
@@ -570,6 +571,63 @@ func _runs_fill(box: Rect2, r: float) -> bool:
 		if first or reach != box:
 			return false
 	return true
+
+
+# LINES: every line on the web -- a path, a spoke, a dotted line and a fan's edge -- is drawn in
+# whole 2x2 art pixels (UI slice 1's leftovers: dashes started on odd rows and diagonals stepped a
+# screen pixel per row). Judged on `line_blocks`, the one function `_line` draws: from odd and even
+# ends at shallow, steep and exact angles, every block is on the even grid, the first and last
+# cover the two ends' snapped art pixels, a solid line is gap-free and a dotted one has gaps. The
+# negative: a smooth line from the same odd end starts on an odd pixel, which the check refuses.
+# And `_draw` reaches it: no smooth `draw_line`, `draw_dashed_line` or `draw_polyline` is left.
+func _lines_lane() -> bool:
+	var panel_gd: GDScript = load(PANEL_GD) as GDScript
+	var ok: bool = true
+	var cases: Array = [
+		[Vector2(101, 101), Vector2(357, 180)], [Vector2(100, 100), Vector2(140, 400)],
+		[Vector2(301, 77), Vector2(41, 77)], [Vector2(250, 250), Vector2(250, 251)],
+		[Vector2(400, 90), Vector2(120, 330)], [Vector2(33, 47), Vector2(33, 47)],
+	]
+	var judged: int = 0
+	for c in cases:
+		var a: Vector2 = (c as Array)[0]
+		var b: Vector2 = (c as Array)[1]
+		for dash in [0, 3]:
+			var blocks: Array = panel_gd.call("line_blocks", a, b, dash) as Array
+			if blocks.is_empty():
+				push_error("LINES: a line from %s to %s drew nothing" % [str(a), str(b)])
+				ok = false
+				continue
+			var cover: int = 0
+			for r in blocks:
+				judged += 1
+				if _odd_box(r as Rect2):
+					push_error("LINES: a block %s of the line %s to %s is off the even grid" % [str(r), str(a), str(b)])
+					ok = false
+				cover += int((r as Rect2).size.x / 2.0) * int((r as Rect2).size.y / 2.0)
+			var a_px := Vector2(floorf(a.x / 2.0) * 2.0, floorf(a.y / 2.0) * 2.0)
+			var b_px := Vector2(floorf(b.x / 2.0) * 2.0, floorf(b.y / 2.0) * 2.0)
+			if not (blocks[0] as Rect2).has_point(a_px + Vector2.ONE):
+				push_error("LINES: the line %s to %s does not start on its end's art pixel" % [str(a), str(b)])
+				ok = false
+			var steps: int = maxi(absi(int(b_px.x - a_px.x)) / 2, absi(int(b_px.y - a_px.y)) / 2) + 1
+			if dash == 0:
+				if not (blocks[blocks.size() - 1] as Rect2).has_point(b_px + Vector2.ONE) or cover != steps:
+					push_error("LINES: the solid line %s to %s covers %d art pixels of %d, or misses its far end" % [str(a), str(b), cover, steps])
+					ok = false
+			elif steps > 6 and cover >= steps:
+				push_error("LINES: the dotted line %s to %s has no gaps" % [str(a), str(b)])
+				ok = false
+	if not _odd_box(Rect2(Vector2(101, 101), Vector2(2, 2))):
+		push_error("LINES: a smooth line's odd start passes the grid check, so the check cannot fail")
+		ok = false
+	var draw_body: String = _function_body(PANEL_GD, "_draw")
+	if draw_body.contains("draw_line(") or draw_body.contains("draw_dashed_line(") or draw_body.contains("draw_polyline(") or not draw_body.contains("_line("):
+		push_error("LINES: the web's _draw still draws a smooth line, or never calls _line")
+		ok = false
+	if ok:
+		print("LINES OK %d blocks of solid and dotted lines at six angles, every one on the even grid, solid lines whole and dotted ones broken; the smooth draw calls are gone from _draw" % judged)
+	return ok
 
 
 func _odd_box(r: Rect2) -> bool:

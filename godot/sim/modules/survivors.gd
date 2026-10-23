@@ -180,7 +180,9 @@ static func person_clause(world: Variant, ent: int) -> String:
 	var id: Dictionary = ident as Dictionary
 	var name: String = String(id.get("name", "Someone"))
 	var parts: Array[String] = [name]
-	var line: String = _backstory_line(world, String(id.get("backstoryId", "")), String(id.get("id", "")))
+	# A unique's backstory is whole sentences, and the clause carries on after it with a comma: its
+	# own last full stop goes, or the line reads "in the way., settled into adulthood".
+	var line: String = _backstory_line(world, String(id.get("backstoryId", "")), String(id.get("id", ""))).strip_edges().trim_suffix(".")
 	if line != "":
 		parts.append(line)
 	var prose: String = _age_prose(world, int(id.get("age", 0)))

@@ -14,6 +14,7 @@ const Clock = preload("res://sim/time/clock.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
 const SimSightings = preload("res://sim/modules/sightings.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
+const WorkRead = preload("res://sim/work_read.gd")
 
 func _init() -> void:
 	call_deferred("_run")
@@ -52,8 +53,9 @@ func _run() -> void:
 	ok = _an_idle_colonist_walks_home_from_a_zombie() and ok
 	ok = _a_walk_home_outlasts_a_need_that_can_wait() and ok
 	ok = _a_wash_with_no_water_does_not_stop_work() and ok
+	ok = _the_colony_screen_says_what_each_is_doing() and ok
 	if ok:
-		print("M2_JOBS_OK astar focus cook haul construct doctor rest corpse seek water clean bury succession, the well is reachable from a bottle the sim emptied, a cook claims its raw, Guard is the night post, a focus change keeps the authored row, a starving colonist still eats, colonists scavenge near home, a target nobody can route to is planned for once and then left alone, a corpse another body took is left alone by Bury, an errand breaks off from a zombie at arm's length, and Haul and Scavenge reach only the errand radius, an idle colonist outside walks home from one too, a walk home outlasts a need that can wait, and a wash with no water stops no work")
+		print("M2_JOBS_OK the now line names every job kind, astar focus cook haul construct doctor rest corpse seek water clean bury succession, the well is reachable from a bottle the sim emptied, a cook claims its raw, Guard is the night post, a focus change keeps the authored row, a starving colonist still eats, colonists scavenge near home, a target nobody can route to is planned for once and then left alone, a corpse another body took is left alone by Bury, an errand breaks off from a zombie at arm's length, and Haul and Scavenge reach only the errand radius, an idle colonist outside walks home from one too, a walk home outlasts a need that can wait, and a wash with no water stops no work")
 		quit(0)
 	else:
 		push_error("M2_JOBS_FAIL")
@@ -1684,3 +1686,85 @@ func _take_starting_empties(w: Variant, ent: int) -> void:
 			SimInventory.remove_from_container(w, int(item))
 			w.despawn(int(item))
 
+
+
+# DOING: `WorkRead.doing`, the Colony screen's "now" line, says what the sim is acting on and
+# nothing else. Every job kind this module writes has words (a kind added without a line would
+# fall through to "idle" and lie); a job of each kind reads as its words, and a colonist with no
+# job reads "idle" -- the negative, so the lane cannot pass on a model that names a job for
+# everybody. A grab, sleep, an order and a Seek outrank the job, as they do in the tick. No line
+# carries a digit, asking never changes the job, and the screen is the reader (the dead-socket
+# rule): `work_panel.gd` calls it.
+func _the_colony_screen_says_what_each_is_doing() -> bool:
+	var ok: bool = true
+	var src: String = FileAccess.get_file_as_string("res://sim/modules/jobs.gd")
+	var re := RegEx.new()
+	re.compile("\"kind\": \"([A-Z][A-Za-z]+)\"")
+	var kinds: Dictionary = {}
+	for m in re.search_all(src):
+		kinds[m.get_string(1)] = true
+	if kinds.size() < 10:
+		push_error("DOING: found only %d job kinds in jobs.gd, so the scan cannot judge the table" % kinds.size())
+		ok = false
+	for k in kinds.keys():
+		if String(k) != "Seek" and not WorkRead.JOB_WORDS.has(k):
+			push_error("DOING: jobs.gd writes a %s job the now line has no words for" % String(k))
+			ok = false
+	var digit := RegEx.new()
+	digit.compile("[0-9]")
+	for table in [WorkRead.JOB_WORDS, WorkRead.SEEK_WORDS, WorkRead.ORDER_WORDS]:
+		for v in (table as Dictionary).values():
+			if digit.search(String(v)) != null:
+				push_error("DOING: the line %s carries a digit" % String(v))
+				ok = false
+	var w: Variant = _world()
+	var mara: int = _mara(w)
+	if mara < 0:
+		push_error("DOING: no Mara to read")
+		return false
+	w.components.remove_component(mara, "job")
+	w.components.remove_component(mara, SimJobs.ORDER_COMPONENT)
+	w.components.remove_component(mara, "sleeping")
+	if WorkRead.doing(w, mara) != WorkRead.IDLE:
+		push_error("DOING: Mara with no job reads %s, not idle" % WorkRead.doing(w, mara))
+		ok = false
+	for k in WorkRead.JOB_WORDS.keys():
+		var job: Dictionary = {"kind": String(k), "ticksLeft": 0}
+		w.components.set_component(mara, "job", job)
+		var said: String = WorkRead.doing(w, mara)
+		if said != String(WorkRead.JOB_WORDS[k]):
+			push_error("DOING: a %s job reads %s" % [String(k), said])
+			ok = false
+		if w.components.get_component(mara, "job") != job or (job as Dictionary).size() != 2:
+			push_error("DOING: asking what Mara is doing changed her job")
+			ok = false
+	# A Seek says what it walks for, by the tick's own call.
+	SimNeeds.of(w, mara)["thirst"] = 0.0
+	w.components.set_component(mara, "job", {"kind": "Seek", "target": -1, "path": [], "pathGen": -1})
+	var want: String = SimNeeds.seek_kind(w, mara)
+	if WorkRead.doing(w, mara) != String(WorkRead.SEEK_WORDS.get(want, "")) or want.is_empty():
+		push_error("DOING: a Seek for %s reads %s" % [want, WorkRead.doing(w, mara)])
+		ok = false
+	w.components.set_component(mara, "job", {"kind": "Cook", "ticksLeft": 0})
+	w.components.set_component(mara, SimJobs.ORDER_COMPONENT, {"kind": "hold"})
+	if WorkRead.doing(w, mara) != String(WorkRead.ORDER_WORDS["hold"]):
+		push_error("DOING: an order to hold reads %s, not the order" % WorkRead.doing(w, mara))
+		ok = false
+	w.components.set_component(mara, "sleeping", {"bed": -1, "since": int(w.tick)})
+	if WorkRead.doing(w, mara) != "asleep":
+		push_error("DOING: a sleeper reads %s" % WorkRead.doing(w, mara))
+		ok = false
+	w.components.set_component(mara, "grabbed", {"by": -1})
+	if WorkRead.doing(w, mara) != "held by the dead":
+		push_error("DOING: a held colonist reads %s" % WorkRead.doing(w, mara))
+		ok = false
+	if WorkRead.doing(w, -1) != "":
+		push_error("DOING: nobody reads as somebody")
+		ok = false
+	var panel_src: String = FileAccess.get_file_as_string("res://ui/work_panel.gd")
+	if panel_src.find("WorkRead.doing(") < 0:
+		push_error("DOING: work_panel.gd never asks WorkRead.doing, so the line is a dead socket")
+		ok = false
+	if ok:
+		print("DOING OK every one of the %d job kinds jobs.gd writes has words; a job reads as its words and no job as idle; a seek, an order, sleep and a grab outrank it; no line carries a digit; asking changes nothing; the colony screen reads it" % kinds.size())
+	return ok
