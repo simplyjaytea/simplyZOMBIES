@@ -5828,9 +5828,11 @@ reading of it.
   shows for a colonist out of sight. These are the player's own people, and knowing that Mara is
   out scavenging tells the player nothing about where she is or what is near her, so clause 4 of
   the hardcore contract is not touched. Two lines would tell what is near her, so neither is said
-  out of sight: a grab reads "held by the dead" only while the player sees her (otherwise the line
-  stays what she was set to do), and the walk home that danger starts reads plainly as "heading
-  home". Every phrase is eighteen characters or fewer, so it fits the row whole at 1280x720. The
+  out of sight: a grab reads "held by the dead", and the walk home that a zombie within reach
+  starts reads "heading home" ("staying in" once she is home and waiting it out), only while the
+  player sees her. Out of sight the line stays what the colony would believe: the job under the
+  grab, or the errand the walk home broke off, which the Retreat job keeps as `was` for this line
+  alone. Every phrase is eighteen characters or fewer, so it fits the row whole at 1280x720. The
   haul order's line does not name the item, because an item's name may carry a digit under the
   cartridge amendment.
 - **Focus is six chips you press,** not a word you click round a cycle. The line under them says
@@ -5856,6 +5858,10 @@ reading of it.
   chips, and a skill you can click to learn. A row's Focus stamp is never amber, manual included;
   the word says it. "Never" in a cell is the dim ink, not the faint one, which was under 3:1 on a
   well.
+- **A long roster scrolls, and says so.** Under the last row drawn, a strip counts the rows
+  scrolled away each way ("4 more below · wheel"); it is not there when every row is drawn. A
+  colonist picked in the street past the fold scrolls the roster to their row, so the drawer never
+  names somebody with no row bracketed.
 - **Colony and Skills hang from one line,** 16 px under the bar, so switching between them does
   not move the top edge; the web stays centred across.
 - **Every line on the screen is VT323 at 25,** its pixel-exact size, with two exceptions: the

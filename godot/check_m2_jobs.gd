@@ -1708,6 +1708,78 @@ func _gd_files(dir: String) -> Array[String]:
 	return out
 
 
+# A walk home starts only with a zombie within DANGER_METRES, so saying it out of sight would tell
+# of the zombie. Ellis hauling outside with a zombie 3 m off breaks off through the real tick: the
+# Retreat keeps the Haul it dropped, and the line reads "hauling" with the player far off, "heading
+# home" with the player on him, and "staying in" once he is home and waiting. An idle colonist sent
+# home reads "idle" out of sight.
+func _a_walk_home_is_said_only_in_sight() -> bool:
+	var ok: bool = true
+	var was_on: bool = SimJobs.BREAK_OFF_FROM_DANGER
+	SimJobs.BREAK_OFF_FROM_DANGER = true
+	var w: Variant = _world()
+	for z in w.components.query(["shambler"]):
+		w.despawn(int(z))
+	var ellis: int = _ellis(w)
+	var spot: Vector2i = _open_tile_away_from_home(w)
+	if ellis < 0 or spot.x < 0:
+		push_error("DOING: no Ellis or open ground away from home for the walk home")
+		SimJobs.BREAK_OFF_FROM_DANGER = was_on
+		return false
+	var item: int = SimItems.spawn_item(w, "item.scrap.metal", {"tier": "scavenged"})
+	w.components.set_component(item, "position", {"x": float(spot.x) + 0.5, "y": float(spot.y) + 6.5})
+	w.components.set_component(ellis, "position", {"x": float(spot.x) + 0.5, "y": float(spot.y) + 0.5})
+	w.components.set_component(ellis, "job", {"kind": "Haul", "target": item, "tx": spot.x, "ty": spot.y + 6, "ticksLeft": 0, "path": [], "pathGen": -1})
+	SimRoster.spawn_zombie(w, float(spot.x) + 3.5, float(spot.y) + 0.5, SimRoster.TYPE_SHAMBLER, w.rng.stream("shambler"))
+	SimJobs._tick_one(w, ellis)
+	var job: Variant = w.components.get_component(ellis, "job")
+	if not job is Dictionary or String((job as Dictionary).get("kind", "")) != "Retreat" or String((job as Dictionary).get("was", "")) != "Haul":
+		push_error("DOING: a hauler with a zombie 3 m off has job %s, not a Retreat that keeps the Haul" % str(job))
+		SimJobs.BREAK_OFF_FROM_DANGER = was_on
+		return false
+	# The zombie has done its part; gone, it cannot grab anybody while the player's view settles.
+	for z in w.components.query(["shambler"]):
+		w.despawn(int(z))
+	var at: Dictionary = (w.components.get_component(ellis, "position") as Dictionary).duplicate()
+	_player_at(w, ellis, at, job, Vector2(60.0, 60.0))
+	var far: String = WorkRead.doing(w, ellis)
+	var far_seen: bool = WorkRead.in_sight(w, ellis)
+	_player_at(w, ellis, at, job, Vector2.ZERO)
+	var near: String = WorkRead.doing(w, ellis)
+	var near_seen: bool = WorkRead.in_sight(w, ellis)
+	var home: Dictionary = (job as Dictionary).duplicate()
+	home["until"] = int(w.tick) + 100
+	w.components.set_component(ellis, "job", home)
+	var waiting: String = WorkRead.doing(w, ellis)
+	SimJobs.BREAK_OFF_FROM_DANGER = was_on
+	if far_seen or far != "hauling":
+		push_error("DOING: a walk home out of sight reads %s (seen %s), not the haul it broke off" % [far, str(far_seen)])
+		ok = false
+	if not near_seen or near != "heading home" or waiting != WorkRead.STAYING_IN:
+		push_error("DOING: a walk home in sight reads %s and, home, %s (seen %s)" % [near, waiting, str(near_seen)])
+		ok = false
+	# Nothing broken off: an idle colonist sent home reads idle out of sight.
+	var idle_home: Dictionary = (job as Dictionary).duplicate()
+	idle_home["was"] = ""
+	_player_at(w, ellis, at, idle_home, Vector2(60.0, 60.0))
+	if WorkRead.doing(w, ellis) != WorkRead.IDLE:
+		push_error("DOING: an idle colonist's walk home out of sight reads %s" % WorkRead.doing(w, ellis))
+		ok = false
+	return ok
+
+
+# The player put `off` from where `ent` stands, held there for the ticks the player's staggered
+# cast takes to look all round, with `ent` and its job put back after each.
+func _player_at(w: Variant, ent: int, at: Dictionary, job: Variant, off: Vector2) -> void:
+	for i in 4:
+		w.components.set_component(int(w.player), "position", {"x": float(at["x"]) + off.x, "y": float(at["y"]) + off.y})
+		w.step()
+		w.components.set_component(ent, "position", at.duplicate())
+		w.components.set_component(int(w.player), "position", {"x": float(at["x"]) + off.x, "y": float(at["y"]) + off.y})
+		w.components.set_component(ent, "job", (job as Dictionary).duplicate())
+		w.components.remove_component(ent, "sleeping")
+
+
 func _the_colony_screen_says_what_each_is_doing() -> bool:
 	var ok: bool = true
 	var src: String = FileAccess.get_file_as_string("res://sim/modules/jobs.gd")
@@ -1719,6 +1791,28 @@ func _the_colony_screen_says_what_each_is_doing() -> bool:
 	if kinds.size() < 10:
 		push_error("DOING: found only %d job kinds in jobs.gd, so the scan cannot judge the table" % kinds.size())
 		ok = false
+	# A kind the scan above cannot see: one written from a variable. The only ones in jobs.gd are
+	# events' kinds (a mistake, a completion), never a job's, and no job's kind is assigned after
+	# the fact. Negative: the scanner does find those two event lines.
+	var loose := RegEx.new()
+	loose.compile("\"kind\":\\s*[^\"\\s][^\n]*")
+	var loose_events: int = 0
+	for m in loose.search_all(src):
+		var line_start: int = src.rfind("\n", m.get_start()) + 1
+		var line: String = src.substr(line_start, src.find("\n", m.get_start()) - line_start)
+		if line.contains("events.publish("):
+			loose_events += 1
+		else:
+			push_error("DOING: jobs.gd writes a kind from a variable, which the literal scan cannot judge: %s" % line.strip_edges())
+			ok = false
+	if src.contains("[\"kind\"] =") or src.contains("[\"kind\"]=") or loose_events < 2:
+		push_error("DOING: jobs.gd assigns a job's kind after the fact, or the variable-kind scan found %d event lines, not the two" % loose_events)
+		ok = false
+	# Every column the scheduler runs is a kind the line has words for.
+	for c in SimJobs.CONSUMERS:
+		if not SimJobs.JOB_KINDS.has(c):
+			push_error("DOING: the consumer %s is not in JOB_KINDS" % c)
+			ok = false
 	# The exported list is the literals, both ways, and nothing else under godot/sim/ writes a job.
 	for k in kinds.keys():
 		if not SimJobs.JOB_KINDS.has(k):
@@ -1757,6 +1851,9 @@ func _the_colony_screen_says_what_each_is_doing() -> bool:
 		push_error("DOING: Mara with no job reads %s, not idle" % WorkRead.doing(w, mara))
 		ok = false
 	for k in WorkRead.JOB_WORDS.keys():
+		# The walk home is said by sight, judged with the grab below.
+		if String(k) == "Retreat":
+			continue
 		var job: Dictionary = {"kind": String(k), "ticksLeft": 0}
 		w.components.set_component(mara, "job", job)
 		var said: String = WorkRead.doing(w, mara)
@@ -1806,14 +1903,18 @@ func _the_colony_screen_says_what_each_is_doing() -> bool:
 	w.components.set_component(mara, "job", {"kind": "Cook", "ticksLeft": 0})
 	var far: String = WorkRead.doing(w, mara)
 	w.components.set_component(int(w.player), "position", me_was)
+	# The player stood on her tile always sees her; if not, the in-sight case is unjudged and that
+	# is a failure, not a skip.
 	if not seen:
-		print("DOING SKIP the player stood a metre from Mara and did not see her, so the grab in sight is not judged")
+		push_error("DOING: the player stood on Mara's tile and did not see her, so the grab in sight is not judged")
+		ok = false
 	elif near != WorkRead.HELD:
 		push_error("DOING: a held colonist the player sees reads %s" % near)
 		ok = false
 	if WorkRead.in_sight(w, mara) or far != "cooking":
 		push_error("DOING: a held colonist out of sight reads %s, not her job" % far)
 		ok = false
+	ok = _a_walk_home_is_said_only_in_sight() and ok
 	if WorkRead.doing(w, -1) != "":
 		push_error("DOING: nobody reads as somebody")
 		ok = false
@@ -1822,5 +1923,5 @@ func _the_colony_screen_says_what_each_is_doing() -> bool:
 		push_error("DOING: work_panel.gd never asks WorkRead.doing, so the line is a dead socket")
 		ok = false
 	if ok:
-		print("DOING OK every one of the %d job kinds jobs.gd writes has words; a job reads as its words and no job as idle; a seek, an order and sleep outrank it, and a grab does only in sight; no line carries a digit or runs long; asking changes nothing; the colony screen reads it" % kinds.size())
+		print("DOING OK every one of the %d job kinds jobs.gd writes has words, none from a variable, every consumer among them; a job reads as its words and no job as idle; a seek, an order and sleep outrank it; a grab and a walk home are said only in sight, and out of sight the walk home reads the errand it broke off; no line carries a digit or runs long; asking changes nothing; the colony screen reads it" % kinds.size())
 	return ok

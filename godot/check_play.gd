@@ -2414,7 +2414,8 @@ func _the_work_grid_fits_and_keeps_its_clicks(main: Node) -> bool:
 #   - the drawer's "who" lines are the sim's whole clause, wrapped and never cut, where one line at
 #     the row's width would cut it (the negative);
 #   - the Focus line describes a row by its preset only when the row is that preset;
-#   - "their skills" opens Skills on that colonist, stamped viewing, its top on the Colony screen's.
+#   - "their skills" opens Skills on that colonist, stamped viewing, its top on the Colony screen's;
+#   - a roster of seven scrolls to a colonist picked in the game, and counts what is scrolled away.
 func _the_colony_screen_is_one_survivor_context(main: Node) -> bool:
 	var panel: Control = main.get("_work_panel") as Control
 	var world: Variant = main.get("world")
@@ -2642,11 +2643,12 @@ func _the_colony_screen_is_one_survivor_context(main: Node) -> bool:
 		main.call("_show_screen", "")
 		main.set("_selected", -1)
 		await process_frame
+	ok = await _a_long_roster_scrolls_to_the_pick(main, panel) and ok
 	root.size = old_size
 	main.set("paused", was_paused)
 	await process_frame
 	if ok:
-		print("COLONY OK at 1280x720 and 1920x1080 the screen sits under the bar on the even grid and opens on nobody; the groups hold every working column once and the footer names the six nothing does; every now phrase and every backstory fits whole; each now line is the read model's as drawn and follows a job change; a right click on a name, a chip or their skills does nothing; a name click picks the colonist for the game and a footer click picks nobody; a focus chip queues that focus; a right click counts 1 to never and never to 4; the who lines are the whole clause where one line would cut it; the focus line names a preset only for a preset row; their skills opens the web on them, viewing, from the same top edge")
+		print("COLONY OK at 1280x720 and 1920x1080 the screen sits under the bar on the even grid and opens on nobody; the groups hold every working column once and the footer names the six nothing does; every now phrase and every backstory fits whole; each now line is the read model's as drawn and follows a job change; a right click on a name, a chip or their skills does nothing; a name click picks the colonist for the game and a footer click picks nobody; a focus chip queues that focus; a right click counts 1 to never and never to 4; the who lines are the whole clause where one line would cut it; the focus line names a preset only for a preset row; their skills opens the web on them, viewing, from the same top edge; a roster of seven scrolls to the pick and counts the rows scrolled away")
 	return ok
 
 
@@ -2681,6 +2683,61 @@ func _every_who_clause(world: Variant) -> Array[String]:
 			clause = clause.substr(0, 1).to_upper() + clause.substr(1)
 		out.append(clause)
 	return out
+
+
+# A roster of seven at 1280x720: the last colonist picked in the game (as a click on their body in
+# the street would) scrolls the roster to their row, which the screen would otherwise leave below
+# the fold (the negative, at the top); the strip under the rows counts what is scrolled away each
+# way and says nothing when every row is drawn; the picked row's brackets are drawn after the
+# drawer, whose groove would cut their bottom arms (art QA, slice 2, round two).
+func _a_long_roster_scrolls_to_the_pick(main: Node, panel: Control) -> bool:
+	var ok: bool = true
+	var world: Variant = main.get("world")
+	var jobs: GDScript = load("res://sim/modules/jobs.gd") as GDScript
+	root.size = Vector2i(1280, 720)
+	await process_frame
+	_tap(KEY_J)
+	main.call("_process", 0.0)
+	await process_frame
+	if String((panel.get("drawn") as Dictionary).get("more", "?")) != "":
+		push_error("COLONY: the boot's two colonists all drawn still say %s" % String((panel.get("drawn") as Dictionary).get("more", "?")))
+		ok = false
+	var at: Dictionary = world.components.get_component(int(world.player), "position") as Dictionary
+	var born: Array[int] = []
+	while (jobs.call("work_view", world) as Array).size() < 7:
+		born.append(int(SimRecruits.spawn_generated(world, SimRecruits.roll(world, world.rng.stream("recruit")), float(at["x"]) + 2.0 + float(born.size()), float(at["y"]) + 1.0)))
+	var rows: Array = jobs.call("work_view", world) as Array
+	var last: int = int((rows[rows.size() - 1] as Dictionary)["entity"])
+	panel.set("_row_scroll", 0)
+	main.call("_process", 0.0)
+	panel.queue_redraw()
+	await process_frame
+	var vis: int = int(panel.call("_visible_rows"))
+	var top_more: String = String((panel.get("drawn") as Dictionary).get("more", ""))
+	var shown: Array = ((panel.call("_layout") as Dictionary)["rows"] as Array).map(func(r: Variant) -> int: return int((r as Dictionary)["entity"]))
+	if vis >= rows.size() or shown.has(last) or top_more != "%d more below · wheel" % (rows.size() - vis):
+		push_error("COLONY: seven colonists at 1280 show %d rows, the last drawn %s, the strip %s" % [vis, str(shown.has(last)), top_more])
+		ok = false
+	main.set("_selected", last)
+	main.call("_process", 0.0)
+	panel.queue_redraw()
+	await process_frame
+	shown = ((panel.call("_layout") as Dictionary)["rows"] as Array).map(func(r: Variant) -> int: return int((r as Dictionary)["entity"]))
+	var end_more: String = String((panel.get("drawn") as Dictionary).get("more", ""))
+	if int(panel.call("selected")) != last or not shown.has(last) or end_more != "%d above · wheel" % (rows.size() - vis):
+		push_error("COLONY: the last colonist picked in the game is %s drawn (picked %d), the strip %s" % [str(shown.has(last)), int(panel.call("selected")), end_more])
+		ok = false
+	var body: String = FileAccess.get_file_as_string("res://ui/work_panel.gd")
+	var draw_at: int = body.find("func _draw() -> void:")
+	if draw_at < 0 or body.find("Locker.brackets(", draw_at) < body.find("_draw_drawer(font", draw_at):
+		push_error("COLONY: the picked row's brackets are drawn before the drawer, whose groove cuts them")
+		ok = false
+	for e in born:
+		world.despawn(e)
+	main.set("_selected", -1)
+	main.call("_show_screen", "")
+	await process_frame
+	return ok
 
 
 func _mouse(at: Vector2, button: MouseButton) -> void:

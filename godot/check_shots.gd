@@ -6,12 +6,12 @@ extends SceneTree
 # gate runs the same `review/scenes.gd` functions the driver runs and asks the world what it made.
 #
 # Lanes, each with a true positive and a true negative:
-#   NAMES     the eleven scenes and the two windows, by name -- a scene added to the driver has to be
+#   NAMES     the twelve scenes and the two windows, by name -- a scene added to the driver has to be
 #             added here too
 #   UNKNOWN   a scene name nothing knows is refused by setup and by verify, not passed quietly
 #   SETUP     each scene boots, is set up, and the world says it is that scene
 #   NEGATIVE  a day street is not a night, is not a combat, and has no sheet open; the plain Colony
-#             screen is not Mara picked and not a crowd: verify refuses a state that is not the one
+#             screen is not Mara picked, not a crowd and not scrolled: verify refuses a state that is not the one
 #             named, so a before/after pair cannot compare two states
 #   PIXELS    with a display, the day street and the combat scene each capture to a picture that is
 #             not blank and is not the other picture; headless, it says SKIP and passes on nothing
@@ -35,12 +35,12 @@ func _run() -> void:
 	await _negative()
 	await _pixels()
 	if _ok:
-		print("SHOTS_OK eleven scenes boot, set up and verify at 1280x720 and 1920x1080; %s" % _pixels_note)
+		print("SHOTS_OK twelve scenes boot, set up and verify at 1280x720 and 1920x1080; %s" % _pixels_note)
 	quit(0 if _ok else 1)
 
 
 func _names() -> void:
-	if Scenes.NAMES != ["day_street", "interior", "night_lights", "combat", "inventory", "care", "skills", "colony", "viewing", "colony_picked", "colony_crowd"]:
+	if Scenes.NAMES != ["day_street", "interior", "night_lights", "combat", "inventory", "care", "skills", "colony", "viewing", "colony_picked", "colony_crowd", "colony_scrolled"]:
 		_fail("NAMES: the scene list is %s" % str(Scenes.NAMES))
 	var sizes: Array[Vector2i] = Scenes.SIZES
 	if not sizes.has(Vector2i(1280, 720)) or not sizes.has(Vector2i(1920, 1080)):
@@ -106,6 +106,8 @@ func _negative() -> void:
 		_fail("NEGATIVE: the colony with nobody picked verified as Mara picked")
 	if Scenes.verify(main, "colony_crowd").is_empty():
 		_fail("NEGATIVE: the boot's colony of two verified as a crowd")
+	if Scenes.verify(main, "colony_scrolled").is_empty():
+		_fail("NEGATIVE: the boot's colony of two verified as a scrolled roster")
 	await _discard(main)
 
 
