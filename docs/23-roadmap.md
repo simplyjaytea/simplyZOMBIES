@@ -1255,6 +1255,19 @@ tables and day lines are report-noise.md in the project's planning/balance folde
   - **Next: why the fix's colonists die early.** Six fix runs wiped by day 4. Now that Water runs,
     the colonists walk out to the well and to work sooner. This is a hypothesis until a trace of
     the early wipes says which colonist dies first, where, and doing what.
+  - **Builders break off from a zombie at the annex wall (trace 99, the early wipe).** On ace75bb1,
+    seed 99, colonist 113 stayed on Construct at the annex wall with one to three zombies one to
+    three metres off, and died there on day 1. Construct was not in `SimJobs.DANGER_KINDS`, and the
+    annex lot counts as home with its yard. The call (the coordinator's, JT informed, 2026-10-23,
+    recorded in docs/30): for Construct, outside is outside the house walls (`SimJobs._inside_walls`),
+    so a builder boarding from the yard breaks off at `DANGER_METRES`; every other kind keeps the lot
+    as home. The one-line `DANGER_KINDS` add alone changed nothing on the yard. A window refusal at
+    `DANGER_TARGET_METRES` was tried and reverted: it broke `godot:m2:needs` (a builder left a
+    boarding from inside the house and died resting beside the zombies). Open: a builder walks back
+    to a window with a zombie still at it after each Retreat hold. Deferred (the coordinator's call,
+    2026-10-23): after a Retreat, skip Construct targets with a zombie within the danger radius for the
+    hold, without refusing windows outright. Gate: `godot:m2:jobs` BUILDER lanes.
+    Measured: the ten-seed set, the column for the head commit in planning/balance/report-ten-seed.md.
 
 **Feel and speed — smooth motion, and time a player can live with:**
 
