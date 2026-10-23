@@ -585,6 +585,10 @@ func _ensure_ui() -> void:
 		_work_panel = work_script.new() as Control
 		_work_panel.visible = false
 		layer.add_child(_work_panel)
+		# A colonist picked on the Colony screen is the person the screens are about, the same
+		# selection a click on the street makes; its Skills button then brings that web forward.
+		_work_panel.connect("picked", _on_work_picked)
+		_work_panel.connect("navigate", _show_screen)
 	# The skill web drawn as a web (K), over the work grid because it is the grid's own prose
 	# line opened out, and under everything that follows in this list -- sibling order is
 	# z-order here. web_panel.gd's header says what it draws and what it refuses to compute.
@@ -741,9 +745,19 @@ func _set_work_open(open: bool) -> void:
 	if _work_panel != null:
 		_work_panel.visible = open
 		if open and _work_panel.has_method("set_world"):
-			_work_panel.call("set_world", world)
+			_work_panel.call("set_world", world, _who())
 	if open and _legend != null:
 		_legend.visible = false
+	_sync_nav()
+
+
+# A row picked on the Colony screen: that colonist becomes the selection, as a click on their body
+# in the street would make them.
+func _on_work_picked(entity: int) -> void:
+	if world == null:
+		return
+	_selected = -1 if entity == int(world.player) else entity
+	_update_hud()
 	_sync_nav()
 
 
@@ -834,8 +848,10 @@ func _place_web() -> void:
 	if _web_panel.size != fit:
 		_web_panel.size = fit
 		_web_panel.queue_redraw()
-	var at: Vector2 = Vector2(16.0, top) + (room - fit) / 2.0
-	_web_panel.position = Vector2(maxf(16.0, floorf(at.x / 2.0) * 2.0), maxf(top, floorf(at.y / 2.0) * 2.0))
+	# Centred across, but hung from the same line as the Colony screen: 16 px under the bar, so
+	# switching between the two screens does not move the top edge.
+	var at: Vector2 = Vector2(16.0 + (room.x - fit.x) / 2.0, top)
+	_web_panel.position = Vector2(maxf(16.0, floorf(at.x / 2.0) * 2.0), floorf(top / 2.0) * 2.0)
 
 
 # A person's name for the bar: "" for nobody, and for a survivor the roster never named -- the bar's
@@ -1354,7 +1370,7 @@ func _update_hud() -> void:
 	if _dashboard != null and _dashboard.has_method("set_view"):
 		_dashboard.call("set_view", SimVehicles.dash_view(world, world.player) if _in_a_run() else {})
 	if _work_panel != null and _work_panel.visible and _work_panel.has_method("set_world"):
-		_work_panel.call("set_world", world)
+		_work_panel.call("set_world", world, _who())
 	# The web follows the selection every frame: click another colonist on the street and the
 	# screen is theirs, and a selection that dies drops the screen back to you, with no code of
 	# its own for either.

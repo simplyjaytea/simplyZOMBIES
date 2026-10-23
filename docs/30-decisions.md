@@ -5805,3 +5805,68 @@ while giving the project around it a home:
 **How to apply:** a fact about the build goes in the doc that owns it (docs/23 for status, docs/30
 for a call, docs/33 for an open owner question). A fact about how the project works goes in
 docs/38. Neither file is copied into the other.
+
+
+## The Colony screen, 2026-10-23
+
+**UI overhaul, slice 2: the second bullet of docs/23's UI overhaul group, read against docs/32's
+roster row** ("persistent identity, readable job groups, explicit priority controls and Focus
+choices; details open from the selected person") **and its call for "truthful current
+activity".** No owner card was needed: each call below is either in the brief or an engineering
+reading of it.
+
+- **The job columns stand in four groups:** care (patient, doctor, rest), home (cook, water,
+  clean), build (construct, repair, haul) and field (scavenge, guard, bury). The order is display
+  only, and that is truthful because `SimJobs._pick` breaks a priority tie by the job's name,
+  never by column position. A column with a consumer that no group names still shows, in a last
+  "other" group, so a job added to the sim cannot be hidden by the table.
+- **The six job columns nothing does are named in the footer** ("not yet anyone's work") rather
+  than only hidden, so the grid neither promises them nor looks like it is hiding work.
+- **Each row says what that colonist is doing now,** from a new read model, `godot/sim/work_read.gd`.
+  It says what the sim is acting on (the job's kind, the need a Seek walks for, an order, sleep, a
+  grab, a crisis, a sulk) and nothing else: no destination, no duration, no count, no digit. It
+  shows for a colonist out of sight. These are the player's own people, and knowing that Mara is
+  out scavenging tells the player nothing about where she is or what is near her, so clause 4 of
+  the hardcore contract is not touched. Two lines would tell what is near her, so neither is said
+  out of sight: a grab reads "held by the dead", and the walk home that a zombie within reach
+  starts reads "heading home" ("staying in" once she is home and waiting it out), only while the
+  player sees her. Out of sight the line stays what the colony would believe: the job under the
+  grab, or the errand the walk home broke off, which the Retreat job keeps as `was` for this line
+  alone. Every phrase is eighteen characters or fewer, so it fits the row whole at 1280x720. The
+  haul order's line does not name the item, because an item's name may carry a digit under the
+  cartridge amendment.
+- **Focus is six chips you press,** not a word you click round a cycle. The line under them says
+  what the pointed-at Focus puts first, read off `SimJobs.preset` so it cannot drift from the sim.
+  With no chip pointed at, it describes the colonist's own Focus by that preset only when their
+  row is that preset; an authored or hand-edited row is called "a row of their own".
+- **A right click counts a priority down** (never, 4, 3, 2, 1, never), the reverse of the left
+  click's walk. Before, a right click on a cell did nothing.
+- **A row is two lines** (name with its Focus stamp, then the "now" line). Who they are moved to
+  the drawer, where the whole clause is wrapped instead of cut with an ellipsis at the row's
+  width.
+- **Picking a colonist on Colony picks them for the game,** the same selection a click on their
+  body in the street makes, so the HUD and Skills follow; "their skills" opens Skills on them,
+  stamped viewing. The screen opens on whoever the game has picked, and on nobody when that is
+  the player (it used to pick its first row without telling the game). The bar over Colony still
+  says "everyone": the screen is the colony's, the drawer names the one picked, and Skills puts
+  that name on the bar.
+- **The drawer holds still.** Each of its blocks (the Focus line, who they are, what they know)
+  is as tall as the most any colonist on the roster needs, so picking another colonist or pointing
+  at a chip never moves what is under it. With Ellis on the roster that is three lines for who
+  he is at 1920 and 1280.
+- **Amber means one thing:** the picked person's brackets, the Focus in force on the drawer's
+  chips, and a skill you can click to learn. A row's Focus stamp is never amber, manual included;
+  the word says it. "Never" in a cell is the dim ink, not the faint one, which was under 3:1 on a
+  well.
+- **A long roster scrolls, and says so.** Under the last row drawn, a strip counts the rows
+  scrolled away each way ("4 more below · wheel"); it is not there when every row is drawn. A
+  colonist picked in the street past the fold scrolls the roster to their row, so the drawer never
+  names somebody with no row bracketed.
+- **Colony and Skills hang from one line,** 16 px under the bar, so switching between them does
+  not move the top edge; the web stays centred across.
+- **Every line on the screen is VT323 at 25,** its pixel-exact size, with two exceptions: the
+  column heads would take the ladder's 20 where twelve heads at 25 do not fit the window, which
+  does not happen at 1280x720 or 1920x1080 (both draw them at 25), and the legend on the tape row
+  is the locker header's note size, 20.
+- **The web's region fans break for their words.** Its 2 px rim stops an art pixel short of a
+  region word or "start" rather than running through "endurance" and "survival".
