@@ -9,7 +9,7 @@ extends RefCounted
 # photographed, so a before/after pair cannot silently compare two different states.
 #
 # The capture itself is the one `check_shots.gd` skips without a display: `root.get_texture()`
-# is empty under `--headless`, so the pixels need `DISPLAY` (AGENTS.md, "Screenshots").
+# is empty under `--headless`, so the pixels need `DISPLAY` (docs/34, "Screenshots").
 
 const Clock = preload("res://sim/time/clock.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")

@@ -1,91 +1,163 @@
 # CLAUDE.md
 
-Read this before touching anything. It is the one entry point: what the project is, how a unit of work
-runs, the routing table, the environment, the owner's open decisions, and what must not be broken.
+The one entry point for anyone changing this repository, agent or person. It says what the
+project is, where the work is, how a unit of work runs, how to verify and push it, what must not
+be broken, and where every system lives. `README.md` is for players; this file is for builders.
+Other assistants read it too: it is the project's rules, not a Claude-only file.
 
 ## Start here
 
-- **Where the work is:** [what's left in Milestone 2](docs/23-roadmap.md#whats-left-in-milestone-2) names every open piece. [Where Milestone 2 stands](docs/23-roadmap.md#where-milestone-2-stands) is the status, each claim naming its gate.
-- **Owner decisions:** [docs/33-owner-decisions.md](docs/33-owner-decisions.md). Never pick one of them up unilaterally.
-- **Why it is shaped this way:** [docs/30](docs/30-decisions.md) records the calls the code made structural, and the owner's 2026-10-19 answers. `CONTEXT.md` holds the slice vocabulary.
-- **Agents, environment, GUI:** [docs/34](docs/34-agents-and-environment.md). **Gates:** [docs/35](docs/35-gates.md). **Traps:** [docs/37](docs/37-traps.md), read before touching the sim.
-- **Commands:** standard commands live in `package.json`, `README.md` and `.github/workflows/ci.yml`; those are the source of truth.
-
-Cold start:
-
 ```bash
-bash scripts/setup-web-session.sh   # verify or install the pinned engine
+bash scripts/setup-web-session.sh   # verify or install the pinned engine and npm packages
 npm run godot:smoke                 # the project boots
-npm run check:routing               # the routing table, and every gate reachable
-npm run godot:run                   # play it (DISPLAY=:1 on a headless VM)
+npm run check:routing               # the routing table below, and every gate reachable
+npm run godot:run                   # play it (DISPLAY=:1 on a headless VM; docs/34)
 ```
 
-## Godot is the only implementation that ships
+Then read, in order:
 
-The game is `godot/` — Godot 4.7.1 (Compatibility), typed GDScript. New behaviour goes here and
-nowhere else. `npm run build` is `godot:export`, and Pages publishes the Godot build at `/`.
+1. This file, top to bottom.
+2. [What's left in Milestone 2](docs/23-roadmap.md#whats-left-in-milestone-2), the open work, and
+   [the record, by system](docs/23-roadmap.md#the-record-by-system) for how the neighbouring
+   systems landed.
+3. [Waiting on the owner](docs/33-owner-decisions.md#waiting-on-the-owner): decisions that are
+   not yours to make.
+4. [docs/37, the traps](docs/37-traps.md), before touching the sim.
+5. [docs/30, the decisions](docs/30-decisions.md), before changing anything that looks
+   arbitrary. It usually is not.
 
-**But the TypeScript oracle is still in the tree and still runs in CI, which this file used to
-deny.** `src/`, `test/`, `bench/` and the Vite/vitest configs are all present on `main`, and the
-`check` job runs `npm test`, `npm run typecheck`, `npm run lint`, `npm run format:check` and
-`npm run bench` against them alongside the Godot gates. As of this writing all of it is green:
-**45 files / 594 tests** (one file, `handoff.test.ts`, retired with the checkbox ledger it
-counted — see the note under Conventions). It is a
-*frozen reference*, not a second product — do not add features
-to it, do not port Godot changes into it — but do not delete it or let it go red either, because
-CI will stop you. Its frozen parity fixtures under `godot/parity/` are what `npm run godot:test`
-compares against, and tag `ts-oracle-final` is the rollback point.
+## What the project is
 
-The engine pin is exact. `scripts/run-godot.mjs` rejects any engine whose `--version` does not
-start with `4.7.1`, and the same version and SHA-512 appear in `.github/workflows/ci.yml`,
-`pages.yml`, and `scripts/setup-web-session.sh`. Changing one means changing all of them.
+A hardcore zombie survival colony sim: RimWorld's colony management, Project Zomboid's survival,
+Zero Sievert's top-down pixel art. One attention system (noise, scent, light) ties survival to
+the pressure the dead put on the colony. [docs/00](docs/00-vision.md) is the vision and
+[docs/01](docs/01-hardcore-contract.md) the hardcore contract.
+
+**Godot is the only implementation that ships.** The game is `godot/`: Godot 4.7.1
+(Compatibility), typed GDScript. New behaviour goes there and nowhere else. `npm run build` is
+`godot:export`, and Pages publishes the Godot build at `/`.
+
+**The TypeScript oracle is frozen, not gone.** `src/`, `test/`, `bench/` and the Vite and vitest
+configs are on `main`, and CI's `check` job runs `npm test`, `typecheck`, `lint`, `format:check`
+and `bench` against them. It is a reference, not a second product: add no features to it, port
+no Godot change into it, and do not delete it or let it go red. Its frozen parity fixtures under
+`godot/parity/` are what `npm run godot:test` compares against; tag `ts-oracle-final` is the
+rollback point.
+
+**The engine pin is exact.** `scripts/run-godot.mjs` rejects any engine whose `--version` does
+not start with `4.7.1`, and the same version and SHA-512 appear in `.github/workflows/ci.yml`,
+`.github/workflows/pages.yml` and `scripts/setup-web-session.sh`. Change one, change all.
+
+## Where the work is
+
+Milestone 2, the vertical slice: one district, a handful of survivors, enough of every system to
+find out whether the loop is fun. Its exit criterion is ten in-game days, permanent loss,
+succession, and still wanting another run. The alpha plan's pieces (A0 to A24) have all landed;
+what remains is the post-alpha balance wall (docs/23's "Balance after the alpha"), the UI
+overhaul's later slices, and the rest of [what's left](docs/23-roadmap.md#whats-left-in-milestone-2).
+[docs/23](docs/23-roadmap.md) is the authority on what is built and what remains. Facts that
+matter every session:
+
+- **The survival loop is built, gated and on.** `SimShambler.GRABS_ENABLED` ships `true`. Any
+  gate that pins the flag restores the previous value.
+- **The presentation is flat top-down, not isometric,** in the Dungeon Settlers look decided
+  2026-09-03. Read docs/30 in date order before changing a body or a tile.
+- **A day is one real hour** (`Clock.DAY_SECONDS`, the owner's 2026-10-19 call). The speed
+  ladder is 1x and 3x; 10x waits on the tick budget.
+- **The boot colony is three**, the player, Mara and Ellis, by the owner's 2026-09-01 decision.
+- **Dead sockets.** Complete, correct, gated code that nothing reads has turned up many times. A
+  mechanism needs an assertion that something reaches it.
+- **The whole-interface redesign is a proposal being built slice by slice,** not a shipped
+  change. Read [docs/32](docs/32-ui-overhaul.md) and
+  [the owner's 2026-10-03 decision](docs/30-decisions.md#the-whole-interface-2026-10-03) before
+  applying older kit, font or chart requirements. Its work list is
+  [docs/23's UI overhaul group](docs/23-roadmap.md#ui-overhaul).
+
+The longer state notes, the art history and the full dead-socket list are in
+[the state of the build](docs/36-state-of-the-build.md).
+
+## The docs map
+
+| Need | Read |
+|---|---|
+| What is open, what landed, with evidence | [docs/23, the roadmap](docs/23-roadmap.md) |
+| Why something is shaped the way it is | [docs/30, the decisions](docs/30-decisions.md), oldest first |
+| Decisions waiting on the owner | [docs/33](docs/33-owner-decisions.md) |
+| Other agents, the two containers, MCP servers, running the game, screenshots | [docs/34](docs/34-agents-and-environment.md) |
+| Every gate, its command, its timing, and what CI runs | [docs/35](docs/35-gates.md) |
+| The state of the build in full, and the dead-socket list | [docs/36](docs/36-state-of-the-build.md) |
+| Traps that already cost someone a session | [docs/37](docs/37-traps.md) |
+| Performance targets and dated measurements | [docs/22](docs/22-performance.md) |
+| The slice vocabulary | `CONTEXT.md` |
+| How a pull request is driven to green | `.claude/skills/steward/SKILL.md` |
+| A system's design spec | the "By system" table under [Routing table](#routing-table) |
+| Architecture, content, extensibility | [docs/19](docs/19-architecture.md), [docs/20](docs/20-ecs-and-content.md), [docs/21](docs/21-extensibility.md) |
+| The UI overhaul's brief | [docs/32](docs/32-ui-overhaul.md) |
+| Post-slice designs: the wider region, mobile bases, multiplayer | [docs/24](docs/24-world-and-scale.md), [docs/26](docs/26-mobile-bases.md), [docs/27](docs/27-multiplayer.md) |
+| History: the engine move, the early need ADRs | [docs/31](docs/31-godot-rebuild-roadmap.md), `docs/adr/` |
+| Screenshots and plans from past pieces (evidence, not instructions) | `.hermes/plans/` |
+
+The design specs are numbered in the order they were written, not reading order. New to the
+design? Read docs/00, 01, 03, then 23.
 
 ## The workflow
 
-How a unit of work goes through this repo — the same loop for a human, an agent, or both. The
+How a unit of work goes through this repo, the same loop for a person, an agent, or both. The
 pattern that works here is the **slice**: one named piece, built together with the gate that can
-fail it, measured if it claims anything about balance, recorded in the same commit. The sessions
-that followed this loop landed six slices in a run; the sessions that did not are where the traps
-section came from.
+fail it, measured if it claims anything about balance, recorded in the same commit.
 
-1. **Orient before touching anything.** This file top to bottom, then the
-   [routing table](#routing-table) for where each kind of work lives and which gate
-   judges it, then
-   [what's left](docs/23-roadmap.md#whats-left-in-milestone-2) for what is open and
-   [the record, by system](docs/23-roadmap.md#the-record-by-system) for how the neighbouring
-   systems landed. The owner list under [Waiting on the owner](docs/33-owner-decisions.md#waiting-on-the-owner) names what is waiting on the owner. Read
-   [docs/30](docs/30-decisions.md) before changing anything that looks arbitrary — it usually
-   is not.
-2. **Pick one named piece from what's left.** They are sized to land in a session. The "waiting
-   on the owner" group is not pickable — those are decisions, and deciding one unilaterally is
-   the one mistake at this stage no gate will catch. Work that is not on the list gets named and
-   added there first (or asked about), never smuggled in beside a slice.
+1. **Orient before touching anything.** [Start here](#start-here), then the
+   [routing table](#routing-table) for where the work lives and which gate judges it.
+2. **Pick one named piece from what's left.** Pieces are sized to land in a session. Owner
+   decisions are not pickable: deciding one unilaterally is the one mistake no gate catches.
+   Work that is not on the list gets named and added there first (or asked about), never
+   smuggled in beside a slice.
 3. **Design inside the seams.** Effects are sim-owned and command-driven; `godot/sim/` never
    reads presentation state; how a thing looks is content; new randomness gets its own named RNG
-   stream. Anything player-facing goes through the standing bans *before* it is built, not after.
+   stream. Anything player-facing goes through the standing bans *before* it is built.
 4. **Build the gate with the thing.** Every assertion wants a true positive *and* a true
-   negative, and every mechanism wants the assertion that something **reads** it — the
-   dead-socket rule, paid for eight times this milestone. An assertion with no data to judge says
-   so and skips; it never passes quietly.
+   negative, and every mechanism wants the assertion that something **reads** it (the dead-socket
+   rule). An assertion with no data to judge says so and skips; it never passes quietly.
 5. **Measure balance claims; never theorise them.** A claim about campaign outcomes comes from a
-   throwaway driver, run before and after on the same driver — two consecutive guesses at the
-   harness each cost a full run to disprove. Check the throughput arithmetic first (the shipped
-   world runs at ~34 ticks/s: a game day is ~2 h 21 min, a ten-day campaign ~23 h; see
-   Throughput below). Drivers are deleted
-   afterwards; anything that stays behind gets a gate keeping it honest.
-6. **Verify before committing.** Run the gates for what the change touched; the policy is under
-   [Verifying a change](#verifying-a-change). A content edit is not verified until `npm test` has also run — the frozen oracle's Ajv recurses where `godot:validate` does not.
-   Touching a `.ts` file or any prettier-covered path adds `typecheck`, `lint`, `format:check`.
-7. **Record in the same commit.** Delete the piece from what's left; write its record — named,
-   gated, measured — into the record, by system. Update the owner list under [Waiting on the owner](docs/33-owner-decisions.md#waiting-on-the-owner) only when what is waiting on the owner changed. Prose is hand-wrapped.
+   throwaway driver, run before and after on the same driver. Do the throughput arithmetic
+   first, from a fresh measurement on the machine you have: a game day is 72,000 ticks, and
+   recorded throughput has ranged from under 30 to over 100 ticks/s by district and machine.
+   `npm run godot:playtest` (one seed, ten days) is the standing whole-run driver; docs/35 has
+   its last timing. Drivers are deleted afterwards; anything that stays gets a gate.
+6. **Verify before committing,** per [Verifying a change](#verifying-a-change).
+7. **Record in the same commit.** Delete the piece from what's left; write its record (named,
+   gated, measured) into the record, by system. Update docs/33 only when what waits on the owner
+   changed. Prose is hand-wrapped.
 8. **Leave it honest.** No checkbox ledgers anywhere; every claim names the gate that proves it;
    where only half a thing shipped, the record says which half.
 
 ## Verifying a change
 
-Correctness for a Godot change is the Godot gates. **Policy (decided 2026-10-19, docs/30):** before a commit, run the gates for what the change touched: its `godot:m2:<name>` lane, `godot:smoke` and `godot:validate` for a boot or content change, `godot:check:play` for a scene or input change, and `npm test` for anything under `godot/content/`. Touching a `.ts` file or a prettier-covered path adds `typecheck`, `lint` and `format:check`. The full `npm run godot:m2` chain runs in CI's `godot-m2` job on every pull request and every push to main, and nothing merges red. A change to a shared sim module or the save format still runs the full chain locally before its commit.
+Correctness for a Godot change is the Godot gates. **Policy (the owner's call, 2026-10-19,
+docs/30):** before a commit, run the gates for what the change touched: its `godot:m2:<name>`
+lane, `godot:smoke` and `godot:validate` for a boot or content change, `godot:check:play` for a
+scene or input change, and `npm test` for anything under `godot/content/` (the oracle's Ajv
+recurses where `godot:validate` does not). Touching a `.ts` file or a prettier-covered path adds
+`typecheck`, `lint` and `format:check`; touching a script, a runner mode, a `check_*.gd` or the
+routing table adds `check:routing`. **A change to a shared sim module or the save format runs the
+full `npm run godot:m2` chain locally before its commit.** CI runs the full chain on every pull
+request and every push to main, split across four shards, and nothing merges red.
 
-The commands, the timings and the CI jobs are in [the gate list](docs/35-gates.md).
+The commands, timings and CI jobs are in [the gate list](docs/35-gates.md).
+
+## Pushing and pull requests
+
+- **One piece, one branch, one pull request,** opened from a fresh branch off `main` and based
+  on `main`. A session pushes only its own branch. Never push to `main`.
+- **No model identifiers in anything pushed.** Commit messages, PR titles and bodies, code
+  comments and docs never name the model that wrote them. That includes a `Co-Authored-By`
+  trailer naming a model: leave it out and keep the session link (`Claude-Session:`).
+- **Fill in the PR template** (`.github/pull_request_template.md`): the piece, the gate, the
+  measurement, the record, what was verified.
+- **Drive it green** by the steward skill. Never skip, disable or loosen a gate to get there.
+- **Merge with a merge commit,** after re-checking the head and CI right before merging.
+- **Cloud sessions cannot delete remote branches** (the git proxy returns 403 for any ref but
+  the session's own). Name the branches that should go and let the owner delete them.
 
 ## Standing bans
 
@@ -128,18 +200,6 @@ is written down here is that a ban amended once is a ban that gets amended again
 does not ship until it is fixed. Exceeding a budget fails the build at the same severity as a
 failing test.
 
-## Where the work is
-
-Milestone 2, the vertical slice: one district, a handful of survivors, enough of every system to find out whether the loop is fun. Its exit criterion is ten in-game days, permanent loss, succession, and still wanting another run. [docs/23](docs/23-roadmap.md) is the authority on what is built and what remains. Three facts matter every session:
-
-- **The survival loop is built, gated and on.** `SimShambler.GRABS_ENABLED` ships `true`. Any gate that pins the flag restores the previous value.
-- **The presentation is flat top-down, not isometric,** in the Dungeon Settlers look decided 2026-09-03. Read docs/30 in date order before changing a body or a tile.
-- **Dead sockets.** Complete, correct, gated code that nothing reads has turned up many times. A mechanism needs an assertion that something reaches it.
-
-The boot colony is **three** by the owner's 2026-09-01 decision, and the longer state notes, the art history and the full dead-socket list are in [the state of the build](docs/36-state-of-the-build.md).
-
-The whole-interface redesign is a proposal, not a shipped change. Read [docs/32](docs/32-ui-overhaul.md) and [the owner's 2026-10-03 decision](docs/30-decisions.md#the-whole-interface-2026-10-03) before applying older kit, font or chart requirements. Its work list is [docs/23's UI overhaul group](docs/23-roadmap.md#ui-overhaul).
-
 ## Conventions
 
 - Typed GDScript. `godot/sim/` is deterministic and must not read presentation state.
@@ -159,15 +219,16 @@ The whole-interface redesign is a proposal, not a shipped change. Read [docs/32]
   seed loop that ran four seeds and proved one. If an assertion has no data to judge (a shortened
   campaign the director never pressured), make it **say so and skip**, never pass quietly.
 - Update [docs/23's milestone status section](docs/23-roadmap.md#where-milestone-2-stands) in the
-  same commit as the work it describes (workflow step 7). There is no `HANDOFF.md` any more; its owner list is under [Waiting on the owner](docs/33-owner-decisions.md#waiting-on-the-owner). **Never** put per-item checkboxes in any status file.
-  Its checkbox predecessor drifted four times, most recently by ~34 shipped-but-unticked items,
-  which is why status is condensed prose with each claim naming the gate that proves it. No gate
-  enforces this any more (`godot:check:handoff` retired with the old file), so the discipline is
-  the convention. Where only half an item shipped, say which half.
+  same commit as the work it describes (workflow step 7). **Never** put per-item checkboxes in
+  any status file: the retired `HANDOFF.md` ledger drifted four times, most recently by ~34
+  shipped-but-unticked items, which is why status is condensed prose with each claim naming the
+  gate that proves it. No gate enforces this, so the discipline is the convention. Where only
+  half an item shipped, say which half.
 
 ## Traps
 
-The traps that have already cost someone a session are in [docs/37-traps.md](docs/37-traps.md). Read them before touching the sim. Each one was found the expensive way.
+The traps that have already cost someone a session are in [docs/37](docs/37-traps.md). Read them
+before touching the sim. Each one was found the expensive way.
 
 ## Routing table
 
@@ -196,7 +257,7 @@ row when a system gains a home; the gate goes red when a route stops being true.
 | The frozen TypeScript oracle | the top of this file | `src/`, `test/`, `bench/` | `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm test`, `npm run bench` | nothing: it gains no features |
 | CI, scripts, hooks, this table | [CLAUDE.md's verifying section](CLAUDE.md#verifying-a-change) | `.github/workflows/` (`.github/workflows/ci.yml` the gates, `.github/workflows/pages.yml` the web build, `.github/workflows/release.yml` the downloadable build, run by hand with a version or by a pushed `v` tag), `scripts/`, `.claude/` | `npm run check:routing`, `npm run check:timing`, `npm run format:check`; the engine pin in `scripts/run-godot.mjs` | the record's Kernel & tooling entry |
 | Shipped runtime performance | [docs/22](docs/22-performance.md#shipped-godot-runtime-measurements) | `godot/bench/runtime_tick.gd`, `godot/bench/runtime_frame.gd`, `godot/bench/measured_main.gd`, `scripts/runtime-budget.mjs`, `scripts/run-godot.mjs` | `npm run check:runtime-budget` judges the production runner contract; `npm run godot:m2:tick` (`godot/check_m2_tick.gd`) holds each tick speed-up to the slow answer it replaced; `npm run godot:bench:runtime` and `npm run godot:bench:frame` measure actual timing on a quiet machine (frame needs a display). Existing overruns remain product debt; the real timing commands are not yet CI shipping gates. | docs/22's dated measurements and the record |
-| Driving a pull request | `.claude/skills/steward/SKILL.md` | -- | whatever CI reports; `npm run godot:m2` before every push | the PR itself |
+| Driving a pull request | `.claude/skills/steward/SKILL.md`, then [Pushing and pull requests](CLAUDE.md#pushing-and-pull-requests) | -- | whatever CI reports; the touched gates before every push, per [Verifying a change](CLAUDE.md#verifying-a-change) | the PR itself |
 | Playing it, or a screenshot | [Running the game](docs/34-agents-and-environment.md#running-the-game-gui) below | `godot/presentation/main.tscn` | `npm run godot:run` | -- |
 | Art review: before and after screenshots of fixed scenes at both windows | the header of `godot/review/shots.gd`, then `godot/review/scenes.gd` | `godot/review/scenes.gd` (each scene and its verify), `godot/review/shots.gd` (the capture driver, run with `DISPLAY=:1 npm run godot:shots`) | `npm run godot:check:shots` (`godot/check_shots.gd`); its PIXELS lane skips without a display | the record |
 
