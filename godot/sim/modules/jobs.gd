@@ -778,10 +778,6 @@ static func _construct_work(world: Variant, x: float, y: float) -> Dictionary:
 		for i in range(annex.position.x, annex.position.x + annex.size.x):
 			if SimTileMap.tile_at(world.tilemap, i, j) != SimTileMap.Tile.Window:
 				continue
-			# A window with a zombie standing near it is not worth boarding, the same as a box a
-			# zombie stands on: the builder would walk out to it, break off and walk out again.
-			if BREAK_OFF_FROM_DANGER and _danger_at(world, float(i) + 0.5, float(j) + 0.5, DANGER_TARGET_METRES):
-				continue
 			var d: float = pow(float(i) + 0.5 - x, 2.0) + pow(float(j) + 0.5 - y, 2.0)
 			if d < best_d:
 				best_d = d

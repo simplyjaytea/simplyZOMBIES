@@ -1574,7 +1574,6 @@ func _a_builder_breaks_off_from_a_zombie() -> bool:
 			push_error("BUILDER: case %s ended the tick on %s, want %s" % [String(c[0]), got, String(c[3])])
 			ok = false
 	ok = _a_builder_goes_back_to_the_wall_after_the_hold() and ok
-	ok = _a_window_with_a_zombie_at_it_is_not_boarded() and ok
 	SimJobs.BREAK_OFF_FROM_DANGER = was
 	return ok
 
@@ -1598,35 +1597,6 @@ func _builder_lane(metres: float, inside: bool) -> String:
 	SimJobs._tick_one(w, ellis)
 	var job: Variant = w.components.get_component(ellis, "job")
 	return String((job as Dictionary).get("kind", "")) if job is Dictionary else "none"
-
-
-# A window with a zombie within DANGER_TARGET_METRES of it is not the window the finder offers, and
-# with the zombie gone it is: the true negative that shows the refusal is the zombie.
-func _a_window_with_a_zombie_at_it_is_not_boarded() -> bool:
-	var was: bool = SimJobs.BREAK_OFF_FROM_DANGER
-	SimJobs.BREAK_OFF_FROM_DANGER = true
-	var w: Variant = _world()
-	for z in w.components.query(["shambler"]):
-		w.despawn(int(z))
-	var wall: Dictionary = _window_wall(w)
-	if wall.is_empty():
-		push_error("BUILDER-WINDOW: no unboarded window, so the lane judges nothing")
-		SimJobs.BREAK_OFF_FROM_DANGER = was
-		return false
-	var win: Vector2i = wall["window"]
-	var mid: Vector2 = Vector2(float(win.x) + 0.5, float(win.y) + 0.5)
-	var zombie: int = SimRoster.spawn_zombie(w, mid.x, mid.y + 2.0, SimRoster.TYPE_SHAMBLER, w.rng.stream("shambler"))
-	var guarded: Dictionary = SimJobs._construct_work(w, mid.x, mid.y)
-	var ok: bool = not (int(guarded.get("tx", -1)) == win.x and int(guarded.get("ty", -1)) == win.y)
-	if not ok:
-		push_error("BUILDER-WINDOW: a window with a zombie 2 m off was still offered for boarding")
-	w.despawn(zombie)
-	var clear: Dictionary = SimJobs._construct_work(w, mid.x, mid.y)
-	if int(clear.get("tx", -1)) != win.x or int(clear.get("ty", -1)) != win.y:
-		push_error("BUILDER-WINDOW: with the zombie gone the window was not offered (%s), so the refusal is not what dropped it" % str(clear))
-		ok = false
-	SimJobs.BREAK_OFF_FROM_DANGER = was
-	return ok
 
 
 # The real tick, not one call: a builder breaks off, walks home, holds there for RETREAT_HOLD_TICKS

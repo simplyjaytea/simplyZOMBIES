@@ -5891,11 +5891,13 @@ The call that stands:
   home. A builder inside the house keeps building.
 - **Every other kind keeps the lot as home,** yard included. Haul and Scavenge at the yard are
   judged as they were.
-- **A window with a zombie within `DANGER_TARGET_METRES` (10 m) is not offered as Construct work,**
-  as a Haul item with one near it is not. Without this the builder walks out at the same zombie
-  every time the Retreat hold ends.
+- **No window is refused for a zombie near it.** A first version refused any window with a zombie
+  within `DANGER_TARGET_METRES` (10 m), as a Haul item is refused. It broke `godot:m2:needs`: a
+  builder boarding from inside the house with a zombie outside the window left the job for a bed,
+  rested beside the zombies in the room and died. Boarding from inside is safe; only the walk out
+  is not, and the rule above covers that. The cost: a builder walks back out to a window after
+  each Retreat hold (`RETREAT_HOLD_TICKS`) while the zombie is still there. Open call, see docs/23.
 
 Gated by `godot:m2:jobs` BUILDER: a zombie 3 m off the yard breaks the job off, 20 m off does not,
-a builder inside the house is not broken off, the walk home holds for `RETREAT_HOLD_TICKS` and the
-builder goes back to the wall after it, and a window with a zombie at it is not offered. The
-lane was run red against the lot-as-home rule first.
+a builder inside the house is not broken off, and the walk home holds for `RETREAT_HOLD_TICKS` and
+the builder goes back to the wall after it. The lane was run red against the lot-as-home rule first.
