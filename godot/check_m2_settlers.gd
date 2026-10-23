@@ -30,8 +30,9 @@ extends SceneTree
 #   NO-HEIR  a dying player with a real settler nearer than any colonist: the colonist inherits.
 #            Negative: the same body declared colony does inherit. The allegiance gate asserts
 #            this on hand-built bodies; this is the same claim against the ones that ship.
-#   PROSE    `person_clause` renders every real settler non-empty and digit-free. Negative: the
-#            digit scanner must refuse a fabricated clause that carries one.
+#   PROSE    `person_clause` renders every real settler non-empty and digit-free, and no unique's
+#            authored stop runs on into a comma. Negatives: the digit scanner must refuse a
+#            fabricated clause that carries one, and the authored line run on does carry ".,".
 #   SAVE     the camp round-trips: the settlement's rect, its member Array, and each member still
 #            a settler with no `needs`. Negative: a world booted on a seed with no camp restores
 #            without one, and the member ids are resolved back to live bodies rather than
@@ -724,7 +725,29 @@ func _prose() -> bool:
 	if not _has_digit(lines[0] + ", 41"):
 		push_error("%s: the digit scanner accepted a clause with an age printed in it" % lane)
 		return false
-	print("%s OK %d clauses, digit-free; first reads `%s`" % [lane, lines.size(), lines[0]])
+	# The uniques' backstories are whole sentences, and the clause runs on after them with a comma:
+	# their own last full stop goes (`person_clause` trims it), so no clause reads "way., settled".
+	# `work_panel.gd` is the one screen that shows this clause; a raider's has its own builder.
+	# Negative: the authored line with its stop, run on the same way, does carry the ".,".
+	var uniques: int = 0
+	for ent in w.components.query(["identity"]):
+		var ident: Dictionary = w.components.get_component(ent, "identity") as Dictionary
+		if String(ident.get("backstoryId", "")) != "":
+			continue
+		var whole: String = SimSurvivors.person_clause(w, ent)
+		var authored: String = SimSurvivors._backstory_line(w, "", String(ident.get("id", ""))).strip_edges()
+		if whole.contains(".,") or whole.contains(". ,"):
+			push_error("%s: unique %d reads `%s`, a full stop run on with a comma" % [lane, ent, whole])
+			return false
+		if authored.ends_with(".") and not (authored + ", ").contains(".,"):
+			push_error("%s: the run-on scanner cannot see a stop before a comma" % lane)
+			return false
+		if authored.ends_with("."):
+			uniques += 1
+	if uniques < 2:
+		push_error("%s: %d unique has a backstory ending in a full stop, so the run-on was not judged" % [lane, uniques])
+		return false
+	print("%s OK %d clauses, digit-free, and %d uniques with no stop run on into a comma; first reads `%s`" % [lane, lines.size(), uniques, lines[0]])
 	return true
 
 

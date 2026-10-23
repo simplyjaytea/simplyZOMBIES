@@ -335,8 +335,9 @@ static func rim(ci: CanvasItem, r: Rect2, col: Color) -> void:
 	ci.draw_rect(Rect2(Vector2(r.end.x - PX, r.position.y + PX), Vector2(PX, r.size.y - PX * 2.0)), col)
 
 
-# A filter chip: a small stamped tag, lit amber when it is the filter in force.
-static func chip(ci: CanvasItem, rect: Rect2, label: String, on: bool, alpha: float) -> void:
+# A filter chip: a small stamped tag, lit amber when it is the filter in force. `size` is the
+# label's text size, the ladder's 20 by default.
+static func chip(ci: CanvasItem, rect: Rect2, label: String, on: bool, alpha: float, size: int = SMALL_SIZE) -> void:
 	var r: Rect2 = _snap(rect)
 	if on:
 		ci.draw_rect(r, _a(_shade(ACCENT, 0.35), alpha))
@@ -344,7 +345,7 @@ static func chip(ci: CanvasItem, rect: Rect2, label: String, on: bool, alpha: fl
 	else:
 		ci.draw_rect(r, _a(Color(0.0, 0.0, 0.0, 0.25), alpha))
 		rim(ci, r, _a(TEXT_FAINT, alpha))
-	text_centred(ci, r, label, SMALL_SIZE, TEXT if on else TEXT_DIM, alpha)
+	text_centred(ci, r, label, size, TEXT if on else TEXT_DIM, alpha)
 
 
 # The width a chip or button needs for `label` at `size`: the words and five art pixels a side.

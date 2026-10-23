@@ -4,6 +4,7 @@ extends SceneTree
 #
 #   DISPLAY=:1 npm run godot:shots                 # writes <repo>/review-shots/<W>x<H>/<scene>.png
 #   DISPLAY=:1 npm run godot:shots -- --out=DIR    # or anywhere else
+#   DISPLAY=:1 npm run godot:shots -- --only=colony,viewing   # just those scenes, while iterating
 #
 # Run it with a display: the capture reads the root viewport, and `--headless` has no pixels to
 # read. On a headless VM, `xvfb-run -a npm run godot:shots` gives it one. The gate that keeps this
@@ -29,7 +30,8 @@ func _run() -> void:
 		var dir: String = out.path_join("%dx%d" % [size.x, size.y])
 		DirAccess.make_dir_recursive_absolute(dir)
 		for scene in Scenes.NAMES:
-			await _shoot(size, dir, scene)
+			if _only().is_empty() or _only().has(scene):
+				await _shoot(size, dir, scene)
 	print("SHOTS_OUT %s" % out)
 	quit(1 if _failed else 0)
 
@@ -68,6 +70,14 @@ func _shoot(size: Vector2i, dir: String, scene: String) -> void:
 func _refuse(message: String) -> void:
 	push_error("SHOTS REFUSED %s" % message)
 	_failed = true
+
+
+# `--only=a,b` if given: the scenes to shoot, by name. Empty means every scene.
+func _only() -> PackedStringArray:
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--only="):
+			return arg.substr("--only=".length()).split(",", false)
+	return PackedStringArray()
 
 
 # `--out=DIR` if given, else `review-shots/` beside the repository's godot/ folder. The default is
