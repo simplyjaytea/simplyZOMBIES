@@ -542,6 +542,13 @@ static func playable(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.D
 	# Annex knife is the default find — equip so F works without a scavenger loop.
 	var knife: int = SimItems.spawn_item(world, "item.knife.kitchen", {"tier": "scavenged"})
 	SimInventory.equip(world, world.player, knife)
+	# And one empty bottle, the owner's pick on the water card (docs/30, "Every colonist starts
+	# with a bottle, 2026-10-22"). The uniques carry theirs in their kit; the player has no
+	# content kit, so it is handed over here, the same way as the knife. A full pack drops it at
+	# the player's feet rather than losing it.
+	var bottle: int = SimItems.spawn_item(world, SimNeeds.EMPTY_ID, {"tier": "scavenged"})
+	if not SimInventory.stow(world, world.player, bottle):
+		SimInventory.drop_at_feet(world, world.player, bottle)
 	place_loot(world, map)
 	# The parked cars become entities here and not in `bare`: a bare world is the one every gate
 	# boots two of, and its entity table stays exactly what it was. At 64 the suburb parks

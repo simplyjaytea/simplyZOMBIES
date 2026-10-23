@@ -1209,9 +1209,27 @@ tables and day lines are report-noise.md in the project's planning/balance folde
     and the playtest's district, residential_suburb, has one medical container. Loot weights are
     the owner's call. Numbers in report-noise.md, "Antibiotics at the response panel".
 
-  - **What the game itself could change is the owner's.** Water at home, a well inside the wall
-    or a starting bottle, is docs/33's "Where does a colony drink without walking past the
-    gate?".
+  - **The owner picked the starting bottle (2026-10-22), and it did not move this wall.** Every
+    boot colonist now carries an empty bottle (the record's "Needs — every colonist starts with a
+    bottle"). Ten days, three seeds, wipe day 20260805 / 31337 / 404: 4 / 8 / 9 before, 7 / 3 / 1
+    after. No death reads as thirst; the colony's Water job barely ran (the pile's drink stock
+    stays 0 or 1). On 404 the two builds match tick for tick to 9,300, and the split is the
+    scripted player's route, which met a zombie 4 m off instead of 5.6 m. One pocket cell turned
+    a seed from day 9 to day 1, so three seeds of one scripted survivor cannot tell a lever from
+    noise. A well inside the wall, more loot water and a rain barrel stay unbuilt and are the
+    owner's.
+  - **Next measurement: ten seeds, median wipe day.** The same driver on ten seeds, run on main
+    and on each candidate, reporting the median wipe day (and the spread) rather than three
+    single runs, so one perturbed route cannot flip a verdict. No balance lever is judged on the
+    three-seed numbers again.
+  - **Next trace: the colony's Water job barely runs, even with a bottle in every pocket.** The
+    pile's drink stock stays 0 or 1 on every day of every seed. Best guess, inferred from the code
+    and not yet traced: Water sits at priority 3 for both uniques, behind Mara's Doctor, Guard
+    and Cook and Ellis's Guard and Haul, and tied with Ellis's Scavenge, Construct and Cook, so it
+    is rarely the column picked; and when it is, Water is one of `SimJobs.DANGER_KINDS`, so the
+    walk out to the well past the gate breaks off at a zombie within 6 m of the walker
+    (`DANGER_METRES`), and the well is guarded most of the day on these seeds. A trace of one colonist's
+    picked job and break-offs over day 1 to day 3 would confirm or refute it.
 
 **Feel and speed — smooth motion, and time a player can live with:**
 
@@ -2249,6 +2267,18 @@ What landed and what proved it, system by system (condensed from the retired bac
 links in the slice-scope table above are the authority on each). The open tails that used to end
 these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
 not a to-do list:
+
+- **Needs — every colonist starts with a bottle, 2026-10-22 (the owner's pick on the water
+  card).** The player, Mara and Ellis each boot carrying one `item.water.bottle.empty`: the uniques
+  in their content `kit`, the player from `SimBoot.playable` beside the annex knife. The well verb
+  stays. Gate: `godot:m2:needs` BOTTLE, three colonists with one bottle each, a unique's Water job
+  targeting the bottle it carries and the full player at the well offered the fill, both offers gone
+  with every empty taken away; run red against main first. Three pocket fixtures that assumed empty
+  pockets now take the boot bottle away first (`godot:m2:comfort` MENU, `godot:check:loot`'s
+  take-from and take-all lanes, `godot:m2:jobs`' two Water lanes). Measured, ten days, three seeds,
+  wipe day 20260805 / 31337 / 404: 4 / 8 / 9 on main bbb4a46, 7 / 3 / 1 with the bottles; what that
+  does and does not show is in "Balance after the alpha" above, and the tables are report-noise.md
+  in the project's planning/balance folder.
 
 - **Needs — water at the well, 2026-10-21 (alpha A24 follow-up).** The owner's water question
   (docs/33), answered by the card's default: E at a water source drinks while a full drink fits and
