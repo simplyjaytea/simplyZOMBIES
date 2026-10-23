@@ -10,20 +10,30 @@ is only about the pull request around it.
 
 ## What CI runs
 
-`.github/workflows/ci.yml`, four jobs since the 2026-09-12 split. `check` (25 min) is the
-TypeScript oracle (`npm run typecheck`, `lint`, `format:check`, `npm test`),
-`npm run sprites:check` (needs Pillow), `npm run check:routing`, `npm run check:timing`,
-`npm run check:runtime-budget`, R1 parity, the smoke, the
-content validator, the headless bench and the four R6 gates. `godot-m2` (45 min timeout) is the whole
-`npm run godot:m2` chain on its own -- 47m16s locally for 85 gates on the 2026-10-03 cloud
-workspace; earlier 69-gate CI runs took 19-23 minutes -- split
-out after `check` was cancelled at 30m15s on the second-to-last gate. `godot-exports` packages
-Windows and web on a Windows runner and only runs once both are green. `performance` runs the
-two TypeScript benchmarks; a budget breach there is a failure, not a warning (docs/00, pillar 6).
+`.github/workflows/ci.yml`, on every pull request and every push to main:
+
+- `check` (25 min): the frozen TypeScript oracle (`npm run typecheck`, `lint`, `format:check`,
+  `npm test`), `npm run sprites:check` (needs Pillow), `check:routing`, `check:timing`,
+  `check:shards`, `check:runtime-budget`, R1 parity, the smoke, the content validator, the
+  headless bench and the four R6 gates.
+- `godot-m2 shard N of 4` (25 min each): the `npm run godot:m2` chain split by
+  `scripts/m2-shards.mjs`. Shard 4 is `godot:m2:balance` alone. A gate added to the chain must
+  be added to a shard in the same commit, or `check:shards` goes red.
+- `godot-m2` (5 min): the required check. It passes only when every shard passed.
+- `godot-exports`: packages Windows and web on a Windows runner once `check` and `godot-m2` are
+  green. It sometimes crashes on import; a re-run settles it.
+- `performance`: the two TypeScript benchmarks. A budget breach there is a failure, not a
+  warning (docs/00, pillar 6).
 
 ## Before every push
 
-- `npm run godot:m2` for anything under `godot/`; `npm test` as well for anything under
+The policy is CLAUDE.md's "Verifying a change" (the owner's 2026-10-19 call, docs/30): the gates
+for what the change touched, locally; the full chain in CI.
+
+- The `godot:m2:<name>` lane of each system touched. A change to a shared sim module or the save
+  format runs the full `npm run godot:m2` locally as well.
+- `npm run godot:smoke` and `npm run godot:validate` for a boot or content change;
+  `npm run godot:check:play` for a scene or input change; `npm test` as well for anything under
   `godot/content/` (the oracle's Ajv recurses where `godot:validate` does not).
 - `npm run typecheck && npm run lint && npm run format:check` for any `.ts`, `.mjs`, `.json` or
   `.yml` change -- prettier covers the workflows and `.claude/settings.json`, not `docs/` or
@@ -40,11 +50,9 @@ two TypeScript benchmarks; a budget breach there is a failure, not a warning (do
 - `BENCH_OVER_BUDGET` from legacy `godot:bench` exits 0; the real `godot:bench:runtime` and
   `godot:bench:frame` commands fail on overruns. CI currently enforces their deterministic
   contract, not their real timings; product performance debt remains in docs/23.
-- The `godot-m2` job's timeout is 45 minutes (`check` is 25 and no longer runs the chain).
-  The October 3 local baseline exceeded that; historical CI was faster, so do not claim current
-  headroom without a fresh CI result. A run that dies with every gate green and the balance
-  harness still going is the chain having grown, not a flake: re-measure and move the number in
-  the workflow comment, never bump the timeout blind.
+- Each shard's timeout is 25 minutes. A shard that dies with every gate green and a gate still
+  going is the chain having grown, not a flake: re-measure, rebalance `scripts/m2-shards.mjs`,
+  and move the number in the workflow comment. Never bump the timeout blind.
 - A `godot:m2` gate that goes red on a branch that did not touch its system is still this PR's to
   root-cause: gate worlds share one process, and a `static var` or an unrestored flag in one lane
   leaks into the next (the traps in `CLAUDE.md`).
