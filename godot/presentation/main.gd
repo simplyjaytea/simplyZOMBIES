@@ -848,8 +848,10 @@ func _place_web() -> void:
 	if _web_panel.size != fit:
 		_web_panel.size = fit
 		_web_panel.queue_redraw()
-	var at: Vector2 = Vector2(16.0, top) + (room - fit) / 2.0
-	_web_panel.position = Vector2(maxf(16.0, floorf(at.x / 2.0) * 2.0), maxf(top, floorf(at.y / 2.0) * 2.0))
+	# Centred across, but hung from the same line as the Colony screen: 16 px under the bar, so
+	# switching between the two screens does not move the top edge.
+	var at: Vector2 = Vector2(16.0 + (room.x - fit.x) / 2.0, top)
+	_web_panel.position = Vector2(maxf(16.0, floorf(at.x / 2.0) * 2.0), floorf(top / 2.0) * 2.0)
 
 
 # A person's name for the bar: "" for nobody, and for a survivor the roster never named -- the bar's

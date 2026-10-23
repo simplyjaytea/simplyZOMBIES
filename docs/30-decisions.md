@@ -5827,8 +5827,12 @@ reading of it.
   grab, a crisis, a sulk) and nothing else: no destination, no duration, no count, no digit. It
   shows for a colonist out of sight. These are the player's own people, and knowing that Mara is
   out scavenging tells the player nothing about where she is or what is near her, so clause 4 of
-  the hardcore contract is not touched. The haul order's line does not name the item, because an
-  item's name may carry a digit under the cartridge amendment.
+  the hardcore contract is not touched. Two lines would tell what is near her, so neither is said
+  out of sight: a grab reads "held by the dead" only while the player sees her (otherwise the line
+  stays what she was set to do), and the walk home that danger starts reads plainly as "heading
+  home". Every phrase is eighteen characters or fewer, so it fits the row whole at 1280x720. The
+  haul order's line does not name the item, because an item's name may carry a digit under the
+  cartridge amendment.
 - **Focus is six chips you press,** not a word you click round a cycle. The line under them says
   what the pointed-at Focus puts first, read off `SimJobs.preset` so it cannot drift from the sim.
   With no chip pointed at, it describes the colonist's own Focus by that preset only when their
@@ -5840,7 +5844,23 @@ reading of it.
   width.
 - **Picking a colonist on Colony picks them for the game,** the same selection a click on their
   body in the street makes, so the HUD and Skills follow; "their skills" opens Skills on them,
-  stamped viewing. The bar over Colony still says "everyone".
+  stamped viewing. The screen opens on whoever the game has picked, and on nobody when that is
+  the player (it used to pick its first row without telling the game). The bar over Colony still
+  says "everyone": the screen is the colony's, the drawer names the one picked, and Skills puts
+  that name on the bar.
+- **The drawer holds still.** Each of its blocks (the Focus line, who they are, what they know)
+  is as tall as the most any colonist on the roster needs, so picking another colonist or pointing
+  at a chip never moves what is under it. With Ellis on the roster that is three lines for who
+  he is at 1920 and 1280.
+- **Amber means one thing:** the picked person's brackets, the Focus in force on the drawer's
+  chips, and a skill you can click to learn. A row's Focus stamp is never amber, manual included;
+  the word says it. "Never" in a cell is the dim ink, not the faint one, which was under 3:1 on a
+  well.
+- **Colony and Skills hang from one line,** 16 px under the bar, so switching between them does
+  not move the top edge; the web stays centred across.
 - **Every line on the screen is VT323 at 25,** its pixel-exact size, with two exceptions: the
-  column heads take the ladder's 20 only where twelve heads at 25 do not fit the window
-  (1280x720), and the legend on the tape row is the locker header's note size, 20.
+  column heads would take the ladder's 20 where twelve heads at 25 do not fit the window, which
+  does not happen at 1280x720 or 1920x1080 (both draw them at 25), and the legend on the tape row
+  is the locker header's note size, 20.
+- **The web's region fans break for their words.** Its 2 px rim stops an art pixel short of a
+  region word or "start" rather than running through "endurance" and "survival".

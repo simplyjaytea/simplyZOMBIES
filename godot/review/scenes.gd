@@ -18,11 +18,21 @@ const Dressing = preload("res://presentation/dressing.gd")
 const SimBootRes = preload("res://sim/boot.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimHealthModule = preload("res://sim/modules/health.gd")
+const SimRecruits = preload("res://sim/modules/recruits.gd")
+const SimJobs = preload("res://sim/modules/jobs.gd")
 
 const SCENE_PATH: String = "res://presentation/main.tscn"
 # The two windows the game supports: check_play's WORK-LAYOUT lane lays out at both.
 const SIZES: Array[Vector2i] = [Vector2i(1280, 720), Vector2i(1920, 1080)]
-const NAMES: Array[String] = ["day_street", "interior", "night_lights", "combat", "inventory", "care", "skills", "colony", "viewing"]
+const NAMES: Array[String] = [
+	"day_street", "interior", "night_lights", "combat", "inventory", "care", "skills", "colony", "viewing",
+	"colony_picked", "colony_crowd",
+]
+# The Colony screen's two fuller shots (art QA, slice 2): Mara picked by a click on her name, her
+# row made manual by one changed number, the pointer resting on the medic chip; and a roster of
+# CROWD colonists with a generated one picked, so a backstory not authored by hand is shown whole.
+const HOVER_FOCUS: String = "Medic"
+const CROWD: int = 7
 # The part the care scene cuts and then picks on the figure: an arm, so the pane has a bleeding
 # wound to offer pressure for and a dressing it can say is missing.
 const CARE_PART: String = "arm_left"
@@ -181,6 +191,35 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 		"colony":
 			world.tick = Clock.tick_on_day(DAY, NOON)
 			press(tree, KEY_J)
+		"colony_picked":
+			world.tick = Clock.tick_on_day(DAY, NOON)
+			press(tree, KEY_J)
+			await _settle(tree, main)
+			var mara: int = _row_named(world, "Mara")
+			if mara < 0:
+				return "the colony has no Mara"
+			if not await _click_row(tree, main, mara):
+				return "Mara's name is not on the screen to click"
+			# One changed number: a priority edit makes the row manual, as the legend says.
+			var cook: int = int(((_row_of(world, mara)).get("cols", {}) as Dictionary).get("Cook", 0))
+			world.commands.push({"type": "job.priority", "entity": mara, "column": "Cook", "value": 1 if cook != 1 else 2})
+			await _settle(tree, main)
+			if not _hover_chip(tree, main, HOVER_FOCUS):
+				return "the %s chip is not on the screen to point at" % HOVER_FOCUS
+		"colony_crowd":
+			world.tick = Clock.tick_on_day(DAY, NOON)
+			var at_c: Dictionary = world.components.get_component(world.player, "position") as Dictionary
+			var rng: Variant = world.rng.stream("recruit")
+			var born: Array[int] = []
+			while SimJobs.work_view(world).size() < CROWD:
+				var e: int = int(SimRecruits.spawn_generated(world, SimRecruits.roll(world, rng), float(at_c["x"]) + 2.0 + float(born.size()), float(at_c["y"]) + 1.0))
+				if e < 0:
+					return "a generated colonist did not spawn"
+				born.append(e)
+			press(tree, KEY_J)
+			await _settle(tree, main)
+			if born.is_empty() or not await _click_row(tree, main, born[0]):
+				return "no generated colonist's name is on the screen to click"
 		"viewing":
 			# Skills on somebody else: a colonist picked on the street, then K -- the bar names them
 			# and stamps the page "viewing".
@@ -251,6 +290,24 @@ static func verify(main: Node, scene: String) -> String:
 				return "the colony screen is not open"
 			var nav_c: Variant = main.get("_nav_bar")
 			return "" if nav_c != null and bool((nav_c as CanvasItem).visible) and String(nav_c.get("screen")) == "colony" else "the navigation bar is not over the colony screen"
+		"colony_picked":
+			if not bool(main.get("work_open")):
+				return "the colony screen is not open"
+			var mara_v: int = _row_named(world, "Mara")
+			var panel_p: Variant = main.get("_work_panel")
+			if mara_v < 0 or int(main.get("_selected")) != mara_v or int(panel_p.call("selected")) != mara_v:
+				return "Mara is not picked for the game"
+			if String(_row_of(world, mara_v).get("focus", "")) != "Manual":
+				return "Mara's row is not manual"
+			return "" if String(panel_p.get("_hover_focus")) == HOVER_FOCUS else "the pointer is not on the %s chip" % HOVER_FOCUS
+		"colony_crowd":
+			if not bool(main.get("work_open")):
+				return "the colony screen is not open"
+			if SimJobs.work_view(world).size() < CROWD:
+				return "the roster is %d, not %d" % [SimJobs.work_view(world).size(), CROWD]
+			var picked: int = int((main.get("_work_panel") as Object).call("selected"))
+			var ident: Variant = world.components.get_component(picked, "identity") if picked >= 0 else null
+			return "" if ident is Dictionary and String((ident as Dictionary).get("backstoryId", "")) != "" else "no generated colonist is picked"
 		"viewing":
 			if not bool(main.get("web_open")):
 				return "the skills screen is not open"
@@ -260,6 +317,52 @@ static func verify(main: Node, scene: String) -> String:
 			return ""
 		_:
 			return "unknown scene %s" % scene
+
+
+## Two ticks and a frame, so the screen draws what the world now holds.
+static func _settle(tree: SceneTree, main: Node) -> void:
+	for i in 2:
+		main.call("_process", TICK_SECONDS)
+	await tree.process_frame
+
+
+## The colonist whose name begins with `first`, from the Colony screen's own view, or -1.
+static func _row_named(world: Variant, first: String) -> int:
+	for row in SimJobs.work_view(world):
+		if String(row.get("name", "")).begins_with(first):
+			return int(row["entity"])
+	return -1
+
+
+static func _row_of(world: Variant, ent: int) -> Dictionary:
+	for row in SimJobs.work_view(world):
+		if int(row["entity"]) == ent:
+			return row
+	return {}
+
+
+## A real click on `ent`'s name on the Colony screen. False when the row is not drawn.
+static func _click_row(tree: SceneTree, main: Node, ent: int) -> bool:
+	var panel: Control = main.get("_work_panel") as Control
+	for row in (panel.call("_layout") as Dictionary)["rows"] as Array:
+		if int((row as Dictionary)["entity"]) == ent:
+			click(tree, panel.global_position + ((row as Dictionary)["band"] as Rect2).position + Vector2(24.0, 12.0))
+			await _settle(tree, main)
+			return true
+	return false
+
+
+## The pointer moved onto a Focus chip in the drawer, through the viewport. False with no chip.
+static func _hover_chip(tree: SceneTree, main: Node, focus: String) -> bool:
+	var panel: Control = main.get("_work_panel") as Control
+	for chip in (panel.call("_layout") as Dictionary)["chips"] as Array:
+		if String((chip as Dictionary)["focus"]) == focus:
+			var move := InputEventMouseMotion.new()
+			move.position = panel.global_position + ((chip as Dictionary)["rect"] as Rect2).get_center()
+			move.global_position = move.position
+			tree.root.push_input(move)
+			return true
+	return false
 
 
 ## The first colonist who is not you and not dead, or -1.

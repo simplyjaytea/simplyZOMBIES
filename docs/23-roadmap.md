@@ -182,7 +182,8 @@ skill web to a 1280×720 window as a stopgap and puts it in the locker's steel. 
 roster as an entry point, job groups, Focus as explicit chips, a "now" line from a new read
 model, the picked colonist's drawer with their whole clause and learning, and a button to their
 Skills; it also draws the web's lines in whole art pixels. Still open in that bullet: the web's
-own reflow (beyond slice 1's stopgap) and keyboard navigation of the roster. The illustrative
+own reflow (beyond slice 1's stopgap), keyboard navigation of the roster, and a roster layout
+for a large colony. The illustrative
 concept's wider treatment is still open for feedback. Preserve existing grid capacity and pause
 behavior by default. The following order completes all existing UI, with a useful playable flow
 first:
@@ -204,8 +205,9 @@ first:
   (roster entry point, job groups, explicit priority and Focus, the six stubs named, a truthful
   "now" line, the drawer and its Skills button). Still open: reflow the skill web itself rather
   than shrinking it to fit (slice 1's stopgap), with the selected node's detail and learn action
-  separate from the web; keyboard navigation of the roster and the chips; and a larger-roster
-  fixture at both sizes. **Files:** `godot/ui/web_panel.gd`, `godot/ui/web_layout.gd`,
+  separate from the web; keyboard navigation of the roster and the chips; and a roster layout
+  for a large colony (review shot `colony_crowd`: at 1280×720 seven colonists show three rows and
+  scroll the rest, because the drawer keeps the room the longest clause needs). **Files:** `godot/ui/web_panel.gd`, `godot/ui/web_layout.gd`,
   `godot/ui/work_panel.gd`, and the coordinator's input routing. **Proof:** the web gate's
   layout lanes and a play lane that drives the roster from the keyboard.
 - **Weapon assembly and contextual actions.** Rework the bench around actual installed
@@ -2285,23 +2287,32 @@ not a to-do list:
     group word on a groove; a cell is a recessed well with its number. Left click counts up,
     right click counts down (it did nothing before). The legend on the tape says a changed
     number makes the row manual, which `SimJobs.set_priority` already did silently.
-  - **A row** is the name, its Focus as a stamp (amber only for manual) and a "now" line from
-    the new read model `godot/sim/work_read.gd`: the job's kind, the need a Seek walks for, an
-    order, sleep, a grab, a crisis or a sulk, in words with no digit. A click on the row picks
-    that colonist for the game (main.gd's selection), so the HUD and Skills follow.
+  - **A row** is the name, its Focus as a stamp (never amber) and a "now" line from the new
+    read model `godot/sim/work_read.gd`: the job's kind, the need a Seek walks for, an order,
+    sleep, a grab, a crisis or a sulk, in words with no digit and at most eighteen characters, so
+    none is cut at 1280×720. A grab is said only while the player sees the colonist, and the walk
+    home that danger starts reads "heading home", so the line never says what is near somebody
+    out of sight. A click on the row picks that colonist for the game (main.gd's selection), so
+    the HUD and Skills follow; the screen opens on whoever the game has picked, or nobody.
   - **The drawer** for the picked colonist: Focus as six chips you press; a line saying what the
     pointed-at Focus puts first, read off `SimJobs.preset`, and describing their own Focus by its
     preset only when the row is that preset; who they are, the sim's whole clause wrapped (it was
     cut with an ellipsis at both sizes); what they know and, under manual, what they could learn,
-    each a word you click; and "their skills", which opens Skills on them stamped viewing.
+    each a word you click; and "their skills", which opens Skills on them stamped viewing. Each
+    block is as tall as the most any colonist on the roster needs, so the drawer holds still.
   - **The footer** names the six job columns nothing does (firefight, hunt, farm, craft, modify,
     butcher), which were only hidden.
   - **The skill web's lines,** spokes, dotted lines and fan edges are drawn in whole 2×2 art
     pixels (`web_panel.gd`'s `line_blocks`), closing three of slice 1's leftovers: dashes on odd
-    rows, diagonals stepping a screen pixel per row, and the 1 px region rim.
+    rows, diagonals stepping a screen pixel per row, and the 1 px region rim. The rim breaks an
+    art pixel short of each region word and "start" (`rim_blocks`), and the web hangs from the
+    same top edge as the Colony screen.
   - **One prose fix in a read model:** `SimSurvivors.person_clause` drops a unique's backstory's
     own last full stop, which read "in the way., settled into adulthood".
-  - `godot:shots` takes `--only=a,b` to shoot a few scenes while iterating.
+  - `godot:shots` takes `--only=a,b` to shoot a few scenes while iterating, and has two more
+    scenes: `colony_picked` (Mara picked by a click on her name, her row made manual by one
+    changed number, the pointer on the medic chip) and `colony_crowd` (seven colonists, a
+    generated one picked).
 
   **Evidence:** `godot:check:play`'s new COLONY lane, in the real scene at 1280×720 and
   1920×1080: the panel under the bar on the even grid; the groups hold every column with a
@@ -2311,20 +2322,33 @@ not a to-do list:
   Worker focus for her; a right click counts her 1 to never and a never to 4; the drawer's lines
   are her whole clause where one row-width line would cut it (the negative); the Focus line names
   a preset only for a preset row, and a medic row with one cell changed is not one; "their
-  skills" opens the web on her, viewing. STUBS and WORK-LAYOUT were kept (STUBS now judges the
+  skills" opens the web on her, viewing, from the Colony screen's top edge. After the art review's
+  first round the lane also holds: the screen opens on nobody when the game has nobody picked;
+  every phrase `WorkRead.phrases()` can return fits the now room whole at both windows, where the
+  line that review found cut is still cut at 1280 (the negative); every generated backstory at its
+  longest (the longest age, the three longest features) and both uniques read whole in the drawer,
+  where all of them end to end would be cut; the drawn now line is the fitted string; a right
+  click on a name, a Focus chip or "their skills" does nothing. STUBS and WORK-LAYOUT were kept (STUBS now judges the
   columns as a set, WORK-LAYOUT the heads at the size actually drawn). `godot:m2:jobs`'s new DOING
-  lane: every one of the sixteen job kinds jobs.gd writes has words, a job reads as its words and
-  no job as idle, a Seek, an order, sleep and a grab outrank the job, no line carries a digit,
-  asking changes nothing, and `work_panel.gd` reads it. `godot:check:web_look`'s new LINES lane:
+  lane: `SimJobs.JOB_KINDS` is the sixteen kinds jobs.gd writes, both ways, and no other file
+  under `godot/sim/` writes a job; every kind has words, a job reads as its words and no job as
+  idle, a Seek, an order and sleep outrank the job, a grab does only in sight (Mara grabbed with
+  the player on her reads "held by the dead", out of sight "cooking"), no line carries a digit or
+  runs past eighteen characters, asking changes nothing, and `work_panel.gd` reads it.
+  `godot:m2:settlers`' PROSE lane: no unique's authored full stop runs on into a comma, where the
+  authored line run on does. `godot:check:shots`: eleven scenes, and the plain Colony screen
+  verifies as neither fuller shot. `godot:check:web_look`'s new LINES lane:
   342 blocks of solid and dotted lines at six angles, every one on the even grid, solid lines
   gap-free and dotted ones broken, the odd start refused, and no smooth line call left in
-  `_draw`. `godot:check:play`, `:web_look`, `:ui_skin`, `:hud`, `:inventory`, `:respond`, `:shots`,
+  `_draw`; no fan rim block under a region word, where the unbroken rim crosses them 32 times. `godot:check:play`, `:web_look`, `:ui_skin`, `:hud`, `:inventory`, `:respond`, `:shots`,
   `godot:m2:jobs`, `:autonomy`, `:settlers`, `:roster`, `godot:smoke`, `godot:validate`,
   `check:routing` and `check:shards` pass locally. Before and after shots of colony, skills and
-  viewing at both windows are in the project's planning files under ui-slice-2.
-  **Not shown or proven:** keyboard navigation of the roster and chips (mouse only); a roster
-  larger than the boot's two beyond the WORK-LAYOUT crowd fixture; the web's own reflow; a
-  measured UI draw cost. **Still left from slice 1's list:** VT323's 1 px glyph bearing, the
+  viewing at both windows are in the project's planning files under ui-slice-2, with the art
+  review's rounds beside them; round one's four majors and twelve minors are all fixed on the PR.
+  **Not shown or proven:** keyboard navigation of the roster and chips (mouse only); the web's
+  own reflow; a measured UI draw cost. **Left open by the art review:** at 1280×720 a roster of
+  seven shows three rows and scrolls the rest, because the drawer keeps the room the longest
+  clause on the roster needs; a roster layout for a large colony stays open in the second bullet. **Still left from slice 1's list:** VT323's 1 px glyph bearing, the
   figure's wound dot and smooth shadow, the keycaps' 1 px outlines, HUD text off VT323's
   multiples, the inventory's filter chips and knife slot off the grid, the interior camera's odd
   offset, and the bark bubble's old style.

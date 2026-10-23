@@ -115,7 +115,7 @@ func footer() -> String:
 		who = "you"
 	if who.is_empty():
 		who = "they"
-	return "%s %s on %s own path — set them to manual on the work grid to choose for them · esc to close" % [
+	return "%s %s on %s own path — set them to manual on the colony screen to choose for them · esc to close" % [
 		who, "are" if who == "you" else "is", "your" if who == "you" else "their"]
 
 
@@ -477,6 +477,62 @@ static func _ink(line_box: Rect2, font_size: int) -> Rect2:
 	return Rect2(Vector2(line_box.position.x, top), Vector2(line_box.size.x, ceilf(float(font_size) * 0.8)))
 
 
+# Each region's fan: {region, lived, anchor, fan}, the fan a polygon from the hub round its arc.
+func _fans() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var hub: Vector2 = _at(WebLayout.HUB)
+	for r in _map.get("regions", []) as Array:
+		var rd: Dictionary = r as Dictionary
+		var region: String = String(rd.get("region", ""))
+		var anchor: Vector2 = WebLayout.region_anchor(_def, region)
+		if anchor == WebLayout.HUB:
+			continue
+		var dir: Vector2 = (anchor - WebLayout.HUB).normalized()
+		var mid: float = atan2(dir.y, dir.x)
+		var fan: PackedVector2Array = PackedVector2Array([hub])
+		for i in 13:
+			var a: float = mid - FAN_HALF + FAN_HALF * 2.0 * float(i) / 12.0
+			fan.append(hub + Vector2(cos(a), sin(a)) * FAN_RADIUS * _span())
+		out.append({"region": region, "lived": bool(rd.get("lived", false)), "anchor": anchor, "fan": fan})
+	return out
+
+
+# Every fan's edge in whole art pixels, the two radii and the arc, less the blocks that would run
+# through a region word or "start": the rim breaks for the word, an art pixel clear of its ink
+# (art QA, slice 2: the 2 px rim ran through "endurance" and "survival"). The draw and the gate read
+# this one list.
+func rim_blocks(font: Font, keep_out: bool = true) -> Array[Rect2]:
+	var words: Array[Rect2] = []
+	if keep_out:
+		for w in _fixed_word_rects(font):
+			words.append((w as Rect2).grow(Locker.PX))
+	var out: Array[Rect2] = []
+	for f in _fans():
+		var rim: PackedVector2Array = ((f as Dictionary)["fan"] as PackedVector2Array).duplicate()
+		rim.append(rim[0])
+		for i in rim.size() - 1:
+			for b in line_blocks(rim[i], rim[i + 1]):
+				if not _hits(b as Rect2, words):
+					out.append(b as Rect2)
+					continue
+				# A merged run that reaches a word is cut art pixel by art pixel, so only the part
+				# under the word goes.
+				var p: float = Locker.PX
+				for cy in int((b as Rect2).size.y / p):
+					for cx in int((b as Rect2).size.x / p):
+						var cell := Rect2((b as Rect2).position + Vector2(float(cx) * p, float(cy) * p), Vector2(p, p))
+						if not _hits(cell, words):
+							out.append(cell)
+	return out
+
+
+static func _hits(r: Rect2, rects: Array[Rect2]) -> bool:
+	for w in rects:
+		if w.intersects(r):
+			return true
+	return false
+
+
 # Where the region words and the hub's "start" are drawn, in the draw's own arithmetic.
 func _fixed_word_rects(font: Font) -> Array[Rect2]:
 	var out: Array[Rect2] = []
@@ -549,34 +605,23 @@ func _draw() -> void:
 		prices[String(nd.get("node", ""))] = String(nd.get("price", ""))
 	var hub: Vector2 = _at(WebLayout.HUB)
 	# The regions: a fan each, warm where the survivor has lived and faint where they have not,
-	# with the region's word out past its nodes.
-	for r in _map.get("regions", []) as Array:
-		var rd: Dictionary = r as Dictionary
-		var region: String = String(rd.get("region", ""))
-		var lived: bool = bool(rd.get("lived", false))
-		var anchor: Vector2 = WebLayout.region_anchor(_def, region)
-		if anchor == WebLayout.HUB:
-			continue
-		var dir: Vector2 = (anchor - WebLayout.HUB).normalized()
-		var mid: float = atan2(dir.y, dir.x)
-		var fan: PackedVector2Array = PackedVector2Array([hub])
-		for i in 13:
-			var a: float = mid - FAN_HALF + FAN_HALF * 2.0 * float(i) / 12.0
-			fan.append(hub + Vector2(cos(a), sin(a)) * FAN_RADIUS * _span())
+	# with the region's word out past its nodes. The fills first and every rim after, so a fan's
+	# fill never paints over its neighbour's edge.
+	for f in _fans():
+		var fd: Dictionary = f as Dictionary
 		# Warm where they have lived, and only there; every fan gets the same hairline so the six
 		# sectors read as sectors whether or not anybody has earned anything yet.
-		if lived:
+		if bool(fd["lived"]):
 			var fill: Color = Chrome.ITEM_FILL
 			fill.a = 0.7
-			draw_colored_polygon(fan, fill)
-		# The fan's edge in whole art pixels too: the two radii and the arc between them.
-		var rim: PackedVector2Array = fan.duplicate()
-		rim.append(hub)
-		for i in rim.size() - 1:
-			_line(rim[i], rim[i + 1], Chrome.CELL_EDGE)
-		var word: String = region.to_lower()
-		var label_at: Vector2 = _region_word_at(font, anchor, word)
-		draw_string(font, label_at, word, HORIZONTAL_ALIGNMENT_LEFT, -1, REGION_SIZE, Chrome.TEXT if lived else LOCKED_INK)
+			draw_colored_polygon(fd["fan"] as PackedVector2Array, fill)
+	for r in rim_blocks(font):
+		draw_rect(r as Rect2, Chrome.CELL_EDGE)
+	for f in _fans():
+		var fd: Dictionary = f as Dictionary
+		var word: String = String(fd["region"]).to_lower()
+		var label_at: Vector2 = _region_word_at(font, fd["anchor"] as Vector2, word)
+		draw_string(font, label_at, word, HORIZONTAL_ALIGNMENT_LEFT, -1, REGION_SIZE, Chrome.TEXT if bool(fd["lived"]) else LOCKED_INK)
 	# The lines: a focus path between two nodes, a spoke from the hub to where a path starts,
 	# and a dotted line to a node no path reaches. Bright where the survivor has walked it.
 	for e in WebLayout.edges(_def):
