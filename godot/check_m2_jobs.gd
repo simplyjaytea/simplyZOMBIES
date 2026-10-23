@@ -235,11 +235,21 @@ func _jobs() -> bool:
 	if con.is_empty() or String(con.get("verb", "")) != "window":
 		push_error("construct %s" % str(con))
 		return false
-	# Rest
+	# Rest: a tired survivor with a free bed is handed Rest; a rested one is not. Rest finishes at
+	# SEEK_STOP, so a rested colonist handed Rest stopped on the same tick every tick and never
+	# reached a lower column (Water, Scavenge, Repair).
+	var needs_m: Dictionary = SimNeeds.of(w, mara)
+	var rest_was: float = float(needs_m.get("rest", 100.0))
+	needs_m["rest"] = 40.0
 	var rest: Dictionary = SimJobs._work_for(w, mara, "Rest")
-	if rest.is_empty():
-		push_error("rest work empty")
+	if rest.is_empty() or String(rest.get("kind", "")) != "Rest":
+		push_error("rest work empty for a tired survivor with a bed")
 		return false
+	needs_m["rest"] = SimNeeds.SEEK_STOP
+	if not SimJobs._work_for(w, mara, "Rest").is_empty():
+		push_error("rest work offered to a survivor already at SEEK_STOP")
+		return false
+	needs_m["rest"] = rest_was
 	# Doctor: injure mara
 	var inj: Variant = w.components.get_component(mara, "injuries")
 	if inj is Dictionary:
@@ -1265,15 +1275,22 @@ func _unreachable_lane() -> bool:
 	if SimJobs._is_unreachable(w, item):
 		push_error("PATHING: the item was marked before anybody tried to walk to it")
 		return false
-	# Somebody takes it, fails to route, and the target is marked rather than re-offered.
+	# Somebody takes it, fails to route, and the target is marked rather than re-offered. A mark
+	# lasts for one map generation, and a colonist walking through a door moves the generation on
+	# and clears it, so the run is watched step by step: the offer is judged on the tick the mark
+	# first holds, not at whatever tick the run happens to end on.
+	var marked: bool = false
 	for _i in 200:
 		w.step()
-	if not SimJobs._is_unreachable(w, item):
+		if marked or not SimJobs._is_unreachable(w, item):
+			continue
+		marked = true
+		var offered: Dictionary = SimJobs._haul_work(w, float(sealed.x) + 0.5, float(sealed.y) + 0.5)
+		if int(offered.get("target", -1)) == item:
+			push_error("PATHING: the sealed item is still being offered as Haul work after it was marked")
+			return false
+	if not marked:
 		push_error("PATHING: nobody marked the sealed item at %s unreachable, so the search re-runs every tick" % str(sealed))
-		return false
-	var offered: Dictionary = SimJobs._haul_work(w, float(sealed.x) + 0.5, float(sealed.y) + 0.5)
-	if int(offered.get("target", -1)) == item:
-		push_error("PATHING: the sealed item is still being offered as Haul work after it was marked")
 		return false
 
 	# The true negative: a reachable item in the same world must NOT be marked, and must still be
