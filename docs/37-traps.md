@@ -129,8 +129,9 @@ Each of these was found the expensive way. They are not style opinions.
   nothing. After merging branches that both touched `godot/content/`, scan for duplicate keys
   (Python's `json.load(..., object_pairs_hook=...)` sees them) before trusting a green validator.
 - **Throughput, measured:** the shipped world measured **34 ticks/second** headless (docs/22,
-  "Remaining milestone evidence", 2026-10-03), so a game day (288,000 ticks) is about 2 h 21 min
-  and a no-wipe ten-day campaign (2,772,000 ticks) about 22.6 hours. The ~1,085 ticks/second figure
+  "Remaining milestone evidence", 2026-10-03), so a game day (72,000 ticks since the one-hour day
+  of 2026-10-19) is about 35 minutes and a no-wipe ten-day campaign (693,000 ticks) about 5.7
+  hours. (Before the one-hour day this line said 288,000 ticks and 22.6 hours.) The ~1,085 ticks/second figure
   is the 64-tile district harness, not the world; do not use it for world estimates. Anything
   phrased as "run a few campaigns" is an overnight job — check the arithmetic before promising a
   grid.

@@ -292,3 +292,18 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    which keeps their old capital height but is not pixel-exact (strokes land 1 and 2 px wide) —
    crisp 25 reads smaller, 50 reads loud. One line per file if re-decided; the FONT lane holds
    whatever is picked to the ladder.
+
+11. **The antibiotic loot weight** (2026-10-22, docs/23's "Balance after the alpha"). A course,
+   `item.antibiotics.course`, drops only from `loot.medical`, at weight 10 of 274 (3.6% a roll).
+   The other four tables carry no course. The expired and veterinary grades are the other drops
+   (`godot/content/loot/tables.json`). The playtest's survivor took a course
+   whenever the response panel offered one, and no course reached its pack on any of three seeds.
+   So nothing in a ten-day run treats a bite. Keeping a course rare is the hardcore reading.
+   Raising its weight, or adding it to more tables, is a one-line content change and moves the
+   balance. Which one is the call.
+
+12. **Whether a held colonist strikes its holder** (2026-10-22, the colonist-combat work). A
+   grabbed body cannot swing: `SimMelee.try_begin_swing` refuses it, and `npc_combat.gd` takes a
+   grabbed colonist out of play. The answer to a grab is somebody else's weapon, or breaking free.
+   Letting a held colonist hit back is a new mechanic. It was offered on an optional card that was
+   never answered. The default is **no**, and nothing is built.
