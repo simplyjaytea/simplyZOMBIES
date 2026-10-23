@@ -2293,7 +2293,10 @@ not a to-do list:
     none is cut at 1280×720. A grab and the walk home a zombie starts are said only while the
     player sees the colonist; out of sight the line keeps the job under the grab or the errand
     the walk home broke off (the Retreat job's `was`, which nothing in the sim reads), so it never
-    says what is near somebody out of sight. Home and waiting it out reads "staying in". A click on the row picks that colonist for the game (main.gd's selection), so
+    says what is near somebody out of sight. Home and waiting it out reads "staying in". `was`
+    goes into saves with the job (the component store writes every component's dictionary) and
+    needs no `SAVE_VERSION` bump: a v33 save's walk home has none and reads "idle" out of sight
+    until it ends. `serialize.gd`'s ledger says so beside the `visualRemains` note. A click on the row picks that colonist for the game (main.gd's selection), so
     the HUD and Skills follow; the screen opens on whoever the game has picked, or nobody.
   - **The drawer** for the picked colonist: Focus as six chips you press; a line saying what the
     pointed-at Focus puts first, read off `SimJobs.preset`, and describing their own Focus by its
@@ -2302,7 +2305,8 @@ not a to-do list:
     each a word you click; and "their skills", which opens Skills on them stamped viewing. Each
     block is as tall as the most any colonist on the roster needs, so the drawer holds still.
     A roster longer than the window scrolls; a strip under the last row drawn counts the rows
-    scrolled away each way, and a colonist picked in the street scrolls the roster to their row.
+    scrolled away each way, and a colonist picked in the street scrolls the roster to their row,
+    once, when the pick changes: the wheel stays the player's while they are picked.
     The picked row's brackets are drawn after the drawer, whose groove cut their bottom arms.
   - **The footer** names the six job columns nothing does (firefight, hunt, farm, craft, modify,
     butcher), which were only hidden.
@@ -2336,7 +2340,11 @@ not a to-do list:
   click on a name, a Focus chip or "their skills" does nothing. After the second round: a roster
   of seven at 1280 leaves its last colonist below the fold, and picking that colonist in the game
   scrolls the roster to the row; the strip reads "4 more below · wheel" at the top, "4 above ·
-  wheel" at the end and nothing with the boot's two; the brackets are drawn after the drawer. STUBS and WORK-LAYOUT were kept (STUBS now judges the
+  wheel" at the end and nothing with the boot's two; the brackets are drawn after the drawer.
+  After the third round: one wheel step up with the last colonist still picked moves the roster
+  off them and it stays moved over the frames main runs, the strip reading "3 above · 1 below ·
+  wheel" (with a scroll to the pick on every frame, as the second round's fix had it, the step
+  is undone and the lane fails). STUBS and WORK-LAYOUT were kept (STUBS now judges the
   columns as a set, WORK-LAYOUT the heads at the size actually drawn). `godot:m2:jobs`'s new DOING
   lane: `SimJobs.JOB_KINDS` is the sixteen kinds jobs.gd writes, both ways, and no other file
   under `godot/sim/` writes a job; every kind has words, a job reads as its words and no job as
@@ -2357,7 +2365,7 @@ not a to-do list:
   `godot:m2:jobs`, `:autonomy`, `:settlers`, `:roster`, `godot:smoke`, `godot:validate`,
   `check:routing` and `check:shards` pass locally. Before and after shots of colony, skills and
   viewing at both windows are in the project's planning files under ui-slice-2, with the art
-  review's rounds beside them; every finding of rounds one and two is fixed on the PR.
+  review's rounds beside them; every finding of its three rounds is fixed on the PR.
   **Not shown or proven:** keyboard navigation of the roster and chips (mouse only); the web's
   own reflow; a measured UI draw cost. **Left open by the art review:** at 1280×720 a roster of
   seven shows three rows and scrolls the rest, because the drawer keeps the room the longest
