@@ -20,6 +20,9 @@ const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimHealthModule = preload("res://sim/modules/health.gd")
 const SimRecruits = preload("res://sim/modules/recruits.gd")
 const SimJobs = preload("res://sim/modules/jobs.gd")
+const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
+const SimItems = preload("res://sim/modules/items.gd")
+const SimInventory = preload("res://sim/modules/inventory.gd")
 
 const SCENE_PATH: String = "res://presentation/main.tscn"
 # The two windows the game supports: check_play's WORK-LAYOUT lane lays out at both.
@@ -27,6 +30,7 @@ const SIZES: Array[Vector2i] = [Vector2i(1280, 720), Vector2i(1920, 1080)]
 const NAMES: Array[String] = [
 	"day_street", "interior", "night_lights", "combat", "inventory", "care", "skills", "colony", "viewing",
 	"colony_picked", "colony_crowd", "colony_scrolled",
+	"bench",
 ]
 # The Colony screen's two fuller shots (art QA, slice 2): Mara picked by a click on her name, her
 # row made manual by one changed number, the pointer resting on the medic chip; and a roster of
@@ -40,6 +44,12 @@ const SCROLL_CROWD: int = 12
 # The part the care scene cuts and then picks on the figure: an arm, so the pane has a bleeding
 # wound to offer pressure for and a dressing it can say is missing.
 const CARE_PART: String = "arm_left"
+# The assembly scene (UI overhaul, slice 3): a hunting rifle on the bench, with parts in the pack
+# that fit three of its slots, and the sight picked so the candidates column has something to list.
+const BENCH_WEAPON: String = "item.rifle.hunting"
+const BENCH_PARTS: Array[String] = ["item.attach.optic.red_dot", "item.attach.optic.scope", "item.attach.suppressor", "item.attach.magazine.extended", "item.attach.barrel.long"]
+const BENCH_SLOT: String = "optic"
+const BENCH_PACK: String = "item.pack.hiking"
 
 const TICK_SECONDS: float = 1.0 / 20.0
 const DAY: int = 1
@@ -233,6 +243,19 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 				return "the colony has nobody but you to view"
 			main.set("_selected", other)
 			press(tree, KEY_K)
+		"bench":
+			world.tick = Clock.tick_on_day(DAY, NOON)
+			var why: String = _bench_setup(world)
+			if not why.is_empty():
+				return why
+			main.call("_process", TICK_SECONDS)
+			await tree.process_frame
+			var bench_panel: Variant = main.get("_bench_panel")
+			if bench_panel != null and bench_panel.has_method("pick_slot"):
+				bench_panel.call("pick_slot", BENCH_SLOT)
+				# Enter on an empty slot crosses to what fits it, through the router as a key would,
+				# so the shot shows a candidate focused and the footer's lit button.
+				press(tree, KEY_ENTER)
 		_:
 			return "unknown scene %s" % scene
 	# The camera jumps to where the body now stands. Without this the follow lerp was still walking
@@ -329,8 +352,42 @@ static func verify(main: Node, scene: String) -> String:
 			if nav_v == null or bool(nav_v.get("subject_is_you")) or String(nav_v.get("subject_name")).is_empty():
 				return "the bar is not viewing a colonist"
 			return ""
+		"bench":
+			var rifle: int = SimGunsmith.focus_of(world, int(world.player))
+			var base: Variant = world.components.get_component(rifle, "itemBase") if rifle >= 0 else null
+			if not base is Dictionary or String((base as Dictionary).get("baseId", "")) != BENCH_WEAPON:
+				return "the bench is not open on the %s" % BENCH_WEAPON
+			var bench_panel_v: Variant = main.get("_bench_panel")
+			if bench_panel_v == null or not bool((bench_panel_v as CanvasItem).visible):
+				return "the assembly screen is not up"
+			if bench_panel_v.has_method("picked_slot") and String(bench_panel_v.call("picked_slot")) != BENCH_SLOT:
+				return "the %s is not picked" % BENCH_SLOT
+			if bench_panel_v.has_method("side") and String(bench_panel_v.call("side")) != "offers":
+				return "no candidate for the %s is focused" % BENCH_SLOT
+			return ""
 		_:
 			return "unknown scene %s" % scene
+
+
+## A bench where the survivor stands, a hunting rifle in their hands and the parts that fit it in
+## the pack, and the bench opened on the rifle through the sim's own command. "" or the reason not.
+static func _bench_setup(world: Variant) -> String:
+	var me: int = int(world.player)
+	var at: Dictionary = world.components.get_component(me, "position") as Dictionary
+	SimGunsmith.make_bench(world, float(at["x"]), float(at["y"]))
+	var rifle: int = SimItems.spawn_item(world, BENCH_WEAPON, {"tier": "scavenged"})
+	if not SimInventory.equip(world, me, rifle):
+		return "the survivor could not take up the %s" % BENCH_WEAPON
+	# A pack on the back, so the parts have somewhere to be carried whatever the boot kit holds.
+	var pack: int = SimItems.spawn_item(world, BENCH_PACK, {"tier": "scavenged"})
+	if not SimInventory.equip(world, me, pack):
+		return "the survivor could not shoulder the %s" % BENCH_PACK
+	for part_id in BENCH_PARTS:
+		var part: int = SimItems.spawn_item(world, part_id, {"tier": "scavenged"})
+		if not SimInventory.stow(world, me, part):
+			return "the pack had no room for %s" % part_id
+	world.commands.push({"type": "bench.open", "item": rifle})
+	return ""
 
 
 ## Generated colonists by the player until the roster is `size`. Returns the ones made.
