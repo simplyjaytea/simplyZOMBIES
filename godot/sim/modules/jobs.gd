@@ -471,7 +471,7 @@ static func _work_for(world: Variant, ent: int, kind: String) -> Dictionary:
 		"Scavenge":
 			return _scavenge_work(world, ent, x, y)
 		"Construct":
-			return _construct_work(world, x, y)
+			return _construct_work(world, x, y, ent)
 		"Cook":
 			return _cook_work(world, ent)
 		"Doctor":
@@ -769,7 +769,9 @@ static func _haul_work(world: Variant, x: float, y: float) -> Dictionary:
 	return {"kind": "Haul", "target": best, "ticksLeft": 0, "path": [], "pathGen": -1}
 
 
-static func _construct_work(world: Variant, x: float, y: float) -> Dictionary:
+# `ent` is the colonist asking, or -1 for none. A colonist shaken by a Retreat (its hold just ended)
+# takes no window with a zombie within DANGER_TARGET_METRES of it; taking one clears the shake.
+static func _construct_work(world: Variant, x: float, y: float, ent: int = -1) -> Dictionary:
 	if world.tilemap == null:
 		return {}
 	# Hoisted at loop entry: this walks the whole annex footprint, and the rect is a lookup on the
@@ -777,17 +779,22 @@ static func _construct_work(world: Variant, x: float, y: float) -> Dictionary:
 	var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
 	if annex.size.x <= 0 or annex.size.y <= 0:
 		return {}
+	var shaken: bool = ent >= 0 and BREAK_OFF_FROM_DANGER and world.components.has_component(ent, "shaken")
 	var best: Vector2i = Vector2i(-1, -1)
 	var best_d: float = 1e12
 	for j in range(annex.position.y, annex.position.y + annex.size.y):
 		for i in range(annex.position.x, annex.position.x + annex.size.x):
 			if SimTileMap.tile_at(world.tilemap, i, j) != SimTileMap.Tile.Window:
 				continue
+			if shaken and _danger_at(world, float(i) + 0.5, float(j) + 0.5, DANGER_TARGET_METRES):
+				continue
 			var d: float = pow(float(i) + 0.5 - x, 2.0) + pow(float(j) + 0.5 - y, 2.0)
 			if d < best_d:
 				best_d = d
 				best = Vector2i(i, j)
 	if best.x >= 0:
+		if shaken:
+			world.components.remove(ent, "shaken")
 		return {"kind": "Construct", "verb": "window", "tx": best.x, "ty": best.y, "ticksLeft": SimFortify.CHANNEL_TICKS, "path": [], "pathGen": -1}
 	# place a bed on indoor floor if extras need one
 	var bodies: int = 0
@@ -1104,6 +1111,14 @@ static func _progress(world: Variant, ent: int, job: Dictionary) -> int:
 static func _advance_job(world: Variant, ent: int, job: Dictionary) -> void:
 	var kind: String = String(job.get("kind", ""))
 	var dest: Vector2i = _job_tile(world, job)
+	if kind == "Retreat" and dest.x >= 0 and not _at(world, ent, dest, REACH):
+		# A walk home that has run its bound stops following its old route: it is re-planned to the
+		# nearest tile inside the walls, once. A route that has no way in is handled in `_walk`.
+		job["walked"] = int(job.get("walked", 0)) + 1
+		world.components.set_component(ent, "job", job)
+		if int(job["walked"]) > RETREAT_WALK_TICKS and not bool(job.get("rerouted", false)):
+			_retreat_inside(world, ent, job)
+			dest = _job_tile(world, job)
 	if dest.x >= 0 and not _at(world, ent, dest, REACH):
 		_walk(world, ent, job, dest)
 		return
@@ -1116,6 +1131,9 @@ static func _advance_job(world: Variant, ent: int, job: Dictionary) -> void:
 				job["until"] = int(world.tick) + RETREAT_HOLD_TICKS
 				world.components.set_component(ent, "job", job)
 			elif int(world.tick) >= int(job["until"]):
+				# The hold is over. Until a window with no zombie near it is taken, Construct does
+				# not resume at one that has a zombie within DANGER_TARGET_METRES (`_construct_work`).
+				world.components.set_component(ent, "shaken", {"tick": int(world.tick)})
 				_stop(world, ent)
 		"Haul":
 			_do_haul(world, ent, job)
@@ -1473,6 +1491,12 @@ const DANGER_TARGET_METRES: float = 10.0
 # How long a colonist who walked home from a zombie stays there before taking work again: half a
 # minute of real time, a few in-game minutes.
 const RETREAT_HOLD_TICKS: int = 600
+# How long a walk home may run before it is re-planned to the nearest tile inside the walls. At the
+# colonist's pace (2.1 tiles a second, 20 ticks) a walk across the lot is about 200 ticks, so 200
+# leaves room for a detour and no more. The day-99 trace ran 6,000 ticks round the yard.
+const RETREAT_WALK_TICKS: int = 200
+# How many of the nearest interior tiles a re-plan tries. Each is a full path search.
+const RETREAT_INSIDE_TRIES: int = 4
 
 
 static func _danger_at(world: Variant, x: float, y: float, metres: float) -> bool:
@@ -1598,6 +1622,45 @@ static func _hard_seek(n: Dictionary, seek: String) -> bool:
 # Something to wash with: the one thing the hygiene seek spends, carried or on the pile.
 static func _can_wash(world: Variant, ent: int) -> bool:
 	return _carry_base(world, ent, SimNeeds.WATER_ID) >= 0 or _stock_base(world, SimNeeds.WATER_ID) >= 0
+
+
+# The nearest tile inside the walls that a route reaches, for a walk home that has run too long or
+# has no route to its tile. The doorway is on that route, so this is the way in. Sets the job to
+# walk there and marks it `rerouted`, so it is tried once per walk, not on every tick. Returns
+# whether a route was found.
+static func _retreat_inside(world: Variant, ent: int, job: Dictionary) -> bool:
+	job["rerouted"] = true
+	if world.tilemap == null:
+		return false
+	var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
+	var pos: Variant = world.components.get_component(ent, "position")
+	if annex.size.x <= 0 or not pos is Dictionary:
+		return false
+	var here := Vector2i(floori(float((pos as Dictionary)["x"])), floori(float((pos as Dictionary)["y"])))
+	var inside: Array[Vector2i] = []
+	for j in range(annex.position.y, annex.position.y + annex.size.y):
+		for i in range(annex.position.x, annex.position.x + annex.size.x):
+			if _inside_walls(world.tilemap, annex, i, j) and not SimTileMap.is_solid(world.tilemap, i, j):
+				inside.append(Vector2i(i, j))
+	inside.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return (a - here).length_squared() < (b - here).length_squared())
+	for n in mini(inside.size(), RETREAT_INSIDE_TRIES):
+		var t: Vector2i = inside[n]
+		var found: Array[Vector2i] = SimPath.find(world, here, t)
+		if found.is_empty():
+			continue
+		var path: Array = []
+		for step in found:
+			path.append({"x": step.x, "y": step.y})
+		job["tx"] = t.x
+		job["ty"] = t.y
+		job["path"] = path
+		job["pathGen"] = int(world.mapGeneration)
+		job.erase("pathFailGen")
+		job["walked"] = 0
+		world.components.set_component(ent, "job", job)
+		return true
+	world.components.set_component(ent, "job", job)
+	return false
 
 
 # The walk home: a job with a tile and nothing to do there, which `_advance_job` ends on arrival.
@@ -2303,6 +2366,9 @@ static func _walk(world: Variant, ent: int, job: Dictionary, dest: Vector2i) -> 
 			path.append({"x": s.x, "y": s.y})
 		job["path"] = path
 		job["pathGen"] = gen
+		if found.is_empty() and String(job.get("kind", "")) == "Retreat" and not bool(job.get("rerouted", false)):
+			if _retreat_inside(world, ent, job):
+				return
 		if found.is_empty():
 			job["pathFailGen"] = gen
 			# And the target is not somewhere anyone can get to right now, so stop offering it.
