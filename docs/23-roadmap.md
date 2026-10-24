@@ -2414,9 +2414,10 @@ not a to-do list:
   occupied slot is never swapped by a drop. Gate: `godot:check:inventory` FIT-DROP (an empty
   magazine slot takes the spare and the hover says so; a bipod the hands cannot fit goes to the
   grid over a free underbarrel; a second magazine on a full rifle goes to the grid). Sabotage
-  checked: removing the hands-or-bench test turns the bipod lane red. **Not shown yet:** the hover
-  tint at both sizes (no review scene). The call is in docs/30, "A dropped part fits only an empty
-  slot".
+  checked: removing the hands-or-bench test turns the bipod lane red. The hover is shown by the
+  review scene `bench_drop` (`godot:check:shots` lists it; `planning/ui-slice-3/c3_drop_fit_*.png`
+  at both sizes, no before shot since the drop-to-fit did not exist on main). The call is in
+  docs/30, "A dropped part fits only an empty slot".
 
 - **Kernel & tooling — the playbook and the init audit, 2026-10-23.** The owner asked for the
   repository to be initialised for agents and for one playbook every agent can read. An audit of
