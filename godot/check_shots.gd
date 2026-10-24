@@ -6,12 +6,12 @@ extends SceneTree
 # gate runs the same `review/scenes.gd` functions the driver runs and asks the world what it made.
 #
 # Lanes, each with a true positive and a true negative:
-#   NAMES     the seventeen scenes and the two windows, by name -- a scene added to the driver has to be
+#   NAMES     the twenty scenes and the two windows, by name -- a scene added to the driver has to be
 #             added here too
 #   UNKNOWN   a scene name nothing knows is refused by setup and by verify, not passed quietly
 #   SETUP     each scene boots, is set up, and the world says it is that scene
-#   NEGATIVE  a day street is not a night, is not a combat, is not the torch shot, and has no sheet
-#             open; the night with no torch in hand is not the torch shot; the plain Colony
+#   NEGATIVE  a day street is not a night, is not a combat, is not the torch shot, is not the
+#             stockpile being marked, and has no sheet open; the night with no torch in hand is not the torch shot; the plain Colony
 #             screen is not Mara picked, not a crowd and not scrolled: verify refuses a state that is not the one
 #             named, so a before/after pair cannot compare two states
 #   PIXELS    with a display, the day street and the combat scene each capture to a picture that is
@@ -36,12 +36,15 @@ func _run() -> void:
 	await _negative()
 	await _pixels()
 	if _ok:
-		print("SHOTS_OK seventeen scenes boot, set up and verify at 1280x720 and 1920x1080; %s" % _pixels_note)
+		print("SHOTS_OK twenty scenes boot, set up and verify at 1280x720 and 1920x1080; %s" % _pixels_note)
 	quit(0 if _ok else 1)
 
 
 func _names() -> void:
-	if Scenes.NAMES != ["day_street", "interior", "night_lights", "combat", "inventory", "care", "skills", "colony", "viewing", "colony_picked", "colony_crowd", "colony_scrolled", "bench_drop", "bench", "bench_field", "context_menu", "night_torch"]:
+	if Scenes.NAMES != ["day_street", "interior", "night_lights", "combat", "inventory", "care", "skills", "colony", "viewing", "colony_picked", "colony_crowd", "colony_scrolled", "bench_drop", "bench", "bench_field", "context_menu", "night_torch",
+			"stockpile_mark",
+			"stockpile_rest",
+			"stockpile_night"]:
 		_fail("NAMES: the scene list is %s" % str(Scenes.NAMES))
 	var sizes: Array[Vector2i] = Scenes.SIZES
 	if not sizes.has(Vector2i(1280, 720)) or not sizes.has(Vector2i(1920, 1080)):
@@ -96,6 +99,10 @@ func _negative() -> void:
 		_fail("NEGATIVE: a street with no sheet open verified as the inventory")
 	if Scenes.verify(main, "night_torch").is_empty():
 		_fail("NEGATIVE: a day street verified as the torch at night")
+	if Scenes.verify(main, "stockpile_mark").is_empty():
+		_fail("NEGATIVE: a day street with the brush down verified as the stockpile being marked")
+	if Scenes.verify(main, "stockpile_rest").is_empty():
+		_fail("NEGATIVE: a day street outside the stockpile verified as standing in it")
 	await _discard(main)
 	# The night with no torch in hand is not the torch shot: night_lights throws no beam.
 	main = await Scenes.boot(self)
@@ -107,6 +114,8 @@ func _negative() -> void:
 		_fail("NEGATIVE: the night did not set up: %s" % err)
 	if Scenes.verify(main, "night_torch").is_empty():
 		_fail("NEGATIVE: the night with no torch in hand verified as the torch shot")
+	if Scenes.verify(main, "stockpile_night").is_empty():
+		_fail("NEGATIVE: the night with the whole annex in the zone verified as the zone's edge by the fire")
 	await _discard(main)
 	# The plain Colony screen, nobody picked and the boot's two colonists, is neither fuller shot.
 	main = await Scenes.boot(self)

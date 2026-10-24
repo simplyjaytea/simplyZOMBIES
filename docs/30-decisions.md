@@ -6137,3 +6137,80 @@ stacked on one tile. JT's 2026-10-24 "yes" covered the plan, and its card defaul
   and is not loosened. A bound of 0.5 or 0.75 m was tried first and flips the FAST balance wipe on
   seed 20260805 red; 1.0 keeps the band. That is a bound picked for the balance gate, so the
   record says so.
+
+## Marking the stockpile on screen, 2026-10-24
+
+Slice S2 of the stockpile and hauling plan: Z picks up a brush, a left drag marks a rectangle of
+stockpile, a right drag clears one, and the zone shows on the ground. JT approved the feature and
+the card defaults are built (drag tiles, not crates; any explored ground, indoors or out). Calls
+taken without the owner:
+
+- **The brush is a focus, not a flag.** `mark` sits in `input_map.gd`'s `FOCUSES` just before
+  `street`, because the mouse means something else under it (the left button paints instead of
+  attacking, the right one clears instead of opening the menu) and the focus table is where "what
+  fires here" is written. Under it: walking, the stance ladder, the sprint latch, pause, the two
+  speed keys, F1, Z and Escape. No swing, shot, E, camp or screen. Picking it up does not stop a
+  walk, and a refused key under it does not either.
+- **Ctrl+Z stays the prone rung.** Z is its own `BINDINGS` row with `ctrl: false`, and the match arm
+  checks the modifier, the camp key's C and Ctrl+C precedent.
+- **Escape puts the brush down, and a second Escape is the menu.** Escape speaks to the thing in
+  front, as everywhere else.
+- **The bar names the keys as keycaps.** The plan's sentence ended "Z to finish"; the bar draws every
+  key it names as a cap, so the line is "Marking the stockpile: drag to mark, right-drag to clear"
+  then a Z cap, an Esc cap and "put the brush down" (both keys do; art QA asked for Esc to be named,
+  so a lead clause may now name two keys as "Z / Esc — ..."). A drag the sim would refuse whole
+  (past the tile cap) says "Too much ground for the stockpile: let go and nothing changes" and
+  previews nothing. No digit either way.
+- **The preview is the sim's answer.** `SimStockpile.preview` returns the tiles a mark would add or
+  take back, or that it would be refused; `mark` now applies exactly that answer, so what the drag
+  draws is what the release changes. A mark that changes nothing no longer writes a zone record.
+- **The roof wins.** An indoor zone tile under a roof shows the roof, with the brush up or down. The
+  plan drew the zone on every explored tile; a wash over shingles read as paint on the roof, so
+  indoor ground is marked from indoors, where the roof is off. The preview follows the same rule.
+- **Under the props, over the baked floor.** The wash is drawn after the ground and the marks on it
+  and before the props and bodies, so a bed or a crate stands on the stockpile. It does lie over the
+  baked flat furnishings (the DECOR layer), because a per-frame pass cannot go under a bake; at rest
+  the wash is light enough that a table under it still reads.
+- **Masking tape, in strips.** The rim is the Salvage Locker's tape with its shadow one art pixel
+  inside, on outer sides only, laid six art pixels on and two off from each tile's corner. A solid
+  line along a wall read as a skirting board. The drag's preview is one solid strip, amber to mark
+  and a lighter rust to clear, so a patch not made yet never looks laid.
+- **The rim is held to 3:1, the line for a graphic rather than text.** On every ground the district
+  has, live, at rest and marking, and both preview colours. The pale tape alone is under 3:1 on
+  dirt and the sidewalk, so the shadow carries it there. A remembered tile's rim is pulled through
+  `Palette.remembered` with the ground under it and is not held to 3:1: the remembered map is dim on
+  purpose.
+- **The pointer is the arrow under the brush.** A crosshair over a zombie would offer an attack the
+  brush does not make.
+- **A mark let go while paused shows as pending.** The sim takes a command on its next tick, and a
+  paused world has none, so a drag released under P drew nothing until play resumed. main.gd keeps
+  each released mark with the tick it was pushed on and draws it in the preview's look until the
+  tick moves. It is pending, not laid: the zone itself does not change until the sim says so.
+- **The overlay is drawn from a kept batch.** Painting the 320-tile default zone fresh every frame,
+  one rect per piece of tape, cost about 8 ms a frame on the bench box. The zone is read again only
+  when `SimStockpile.signature` moves; what it paints is batched into row-run fills and one
+  `draw_multiline` per colour, in tile-grid coordinates offset to the screen as they are drawn; and
+  the batch is rebuilt only when a zone tile's state (explored, seen, roofed), the brush or the zoom
+  changes. The drag's preview and the pending marks are small and drawn fresh.
+
+- **The cap is 1000 tiles, up from S1's 400.** The default zone (the annex floor) is 320 tiles, so
+  400 left about 80 to mark anywhere else, which is not "any explored ground". The coordinator's
+  tuning call, taken here. The cap bounds the zone query the Haul drop asks every tick a hauler walks
+  with an item (`SimStockpile.tiles`), which cost 2.1 to 3.4 ms at 320 tiles and would have been
+  about 9 ms at 1000; the query is rewritten to parse each key once and sort natively, and now costs
+  0.67 ms at 320 and 2.1 ms at 1000 on the bench box, under what 400 cost before. A drag's preview
+  over a full 1000-tile rectangle costs about 5 ms to answer, so the screen asks it once per change of
+  the rectangle, not per frame.
+- **The wash is stronger at night.** The night pass darkens the wash with the ground, and at the day
+  alphas the zone all but vanished on the board floor by firelight (art QA). The wash leans from its
+  day alphas (0.16 at rest, 0.26 marking) to night ones (0.34, 0.55) as the ambient falls, and the
+  STOCKPILE lane holds it, by firelight on every ground, at least as plain as the day wash at noon.
+  The rim is left as it is: its 3:1 is judged on the unlit ground, as every ground graphic's is, and
+  under the night pass it falls with the ground's own detail (about 1.9 to 2.5:1 by firelight in the
+  lane's model). Drawing it over the night would make it glow.
+
+**How to apply:** what the brush may change is `SimStockpile.preview`'s answer, never a second one on
+screen; how it looks is `presentation/stockpile_look.gd`. Gated by `godot:check:play` MARK,
+`godot:check:memory` STOCKPILE, `godot:check:hud` ACTION, `godot:m2:stockpile` PREVIEW and
+`godot:check:shots` (`stockpile_mark`, `stockpile_rest`, `stockpile_night`).
+

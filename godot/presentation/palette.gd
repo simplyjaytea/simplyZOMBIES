@@ -313,6 +313,42 @@ const LIGHT_POOL_FAR: Color = Color(LIGHT_POOL_RGB.r, LIGHT_POOL_RGB.g, LIGHT_PO
 const LIGHT_POOL_NEAR_OVERLAY: Color = Color(LIGHT_POOL_RGB.r, LIGHT_POOL_RGB.g, LIGHT_POOL_RGB.b, 0.45)
 const LIGHT_POOL_FAR_OVERLAY: Color = Color(LIGHT_POOL_RGB.r, LIGHT_POOL_RGB.g, LIGHT_POOL_RGB.b, 0.22)
 
+# The stockpile on the street (presentation/stockpile_look.gd, slice S2 of the stockpile plan): a
+# cool steel wash over the zone's tiles and a strip of masking tape round its outer edge, with the
+# tape's shadow one art pixel inside it. The colours are the Salvage Locker's own (ui/locker.gd's
+# TAPE, RIM_OUTER, ACCENT, DANGER and TEXT, and a lighter cousin of its steel for the wash, since the
+# panel steel itself is darker than every ground), named here rather than read off the UI file so
+# the street does not depend on a screen's skin. Constants rather than COLOURS rows: the PALETTE
+# lane's warm family judges what the district *is*, and a cool wash the player paints over it is not
+# that. Two alphas each, at rest and with the brush in hand; godot:check:memory's STOCKPILE lane
+# holds the rim's contrast on the district's grounds at both, and the rest pair below the marking
+# pair, so the quieter look is never the louder one.
+const STOCKPILE_WASH: Color = Color("#8a96a3")
+const STOCKPILE_WASH_REST: float = 0.16
+const STOCKPILE_WASH_MARKING: float = 0.26
+# The same two by night. The night pass darkens the wash with the ground under it, so at the day
+# alphas the zone all but vanished on the board floor by firelight; StockpileLook.cells leans from
+# the day pair to this one as the ambient falls, and the STOCKPILE lane's NIGHT half holds the wash
+# by firelight at least as plain as the day wash is at noon, on every ground.
+const STOCKPILE_WASH_REST_NIGHT: float = 0.34
+const STOCKPILE_WASH_MARKING_NIGHT: float = 0.55
+const STOCKPILE_TAPE: Color = Color("#cfc6a8")
+const STOCKPILE_SHADOW: Color = Color("#08090a")
+const STOCKPILE_RIM_REST: float = 0.85
+const STOCKPILE_RIM_MARKING: float = 1.0
+# The shadow's alpha as a share of the tape's. Near whole, because on the district's lightest grounds
+# (dirt, the sidewalk) the pale tape alone falls under 3:1 and the dark line beside it is what reads.
+const STOCKPILE_SHADOW_SHARE: float = 0.9
+# The drag's preview: amber where the release would mark, rust where it would clear. The clear rim is
+# a lighter rust than its fill: DANGER itself is under 3:1 on the asphalt and the board floor, where a
+# rim has to read.
+const STOCKPILE_ADD: Color = Color("#e2a33a")
+const STOCKPILE_CLEAR: Color = Color("#c4532c")
+const STOCKPILE_CLEAR_RIM: Color = Color("#f09070")
+const STOCKPILE_PREVIEW_FILL: float = 0.34
+# The brush's own tile outline.
+const STOCKPILE_CURSOR: Color = Color("#e4dfcf")
+
 # The aim cone is drawn twice from one colour: the arc at the key's own alpha (it is the
 # readout) and the two edge rays a shade quieter (they only say where it stops). A second key
 # for "the same colour, dimmer" would be two values to keep in step; a factor is one, and
