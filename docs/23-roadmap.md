@@ -2412,7 +2412,7 @@ not a to-do list:
   over a weapon in the grid or in an equipment box, a fit is the accent wash (`Locker.fit`) and
   the release pushes `item.attach`; anywhere else the drop is the ordinary grid placement. An
   occupied slot is never swapped by a drop. Gate: `godot:check:inventory` FIT-DROP (an empty
-  magazine slot takes the spare and the hover says so; a bipod the hands cannot fit goes to the
+  magazine slot takes the spare, on the grid plate or a worn rifle's box, and the hover says so; a bipod the hands cannot fit goes to the
   grid over a free underbarrel; a second magazine on a full rifle goes to the grid). Sabotage
   checked: removing the hands-or-bench test turns the bipod lane red. The hover is shown by the
   review scene `bench_drop` (`godot:check:shots` lists it; `planning/ui-slice-3/c3_drop_fit_*.png`

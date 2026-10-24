@@ -298,7 +298,7 @@ static func accept(ci: CanvasItem, rect: Rect2) -> void:
 static func fit(ci: CanvasItem, rect: Rect2) -> void:
 	var r: Rect2 = _snap(rect)
 	ci.draw_rect(r, _a(ACCENT, 0.18))
-	rim(ci, r, _a(ACCENT, 0.85))
+	rim(ci, r.grow(-PX), _a(ACCENT, 0.85))
 
 
 # Where a held item would land and the sim would refuse it: hazard stripes in rust over the cells
