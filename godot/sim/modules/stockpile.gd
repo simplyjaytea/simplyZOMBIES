@@ -125,26 +125,32 @@ static func count(world: Variant) -> int:
 ## of their first tile, so the list has one order whatever the record's keys were.
 static func patches(world: Variant) -> Array:
 	var zone: Array[Vector2i] = tiles(world)
+	# Keyed by the tile itself: a String key per tile and per neighbour was most of this walk's cost.
 	var member: Dictionary = {}
 	for t in zone:
-		member[_key(t.x, t.y)] = true
+		member[t] = true
+	var w: int = int(world.tilemap.w)
 	var seen: Dictionary = {}
 	var out: Array = []
 	for t in zone:
-		if seen.has(_key(t.x, t.y)):
+		if seen.has(t):
 			continue
-		var group: Array[Vector2i] = []
+		var order := PackedInt32Array()
 		var pending: Array[Vector2i] = [t]
-		seen[_key(t.x, t.y)] = true
+		seen[t] = true
 		while not pending.is_empty():
 			var c: Vector2i = pending.pop_back()
-			group.append(c)
-			for n in [Vector2i(c.x + 1, c.y), Vector2i(c.x - 1, c.y), Vector2i(c.x, c.y + 1), Vector2i(c.x, c.y - 1)]:
-				var k: String = _key(n.x, n.y)
-				if member.has(k) and not seen.has(k):
-					seen[k] = true
+			order.append(c.y * w + c.x)
+			for n: Vector2i in [Vector2i(c.x + 1, c.y), Vector2i(c.x - 1, c.y), Vector2i(c.x, c.y + 1), Vector2i(c.x, c.y - 1)]:
+				if member.has(n) and not seen.has(n):
+					seen[n] = true
 					pending.append(n)
-		group.sort_custom(_row_major)
+		# Row-major is `y * w + x` ascending, so a native sort of that number is `_row_major`.
+		order.sort()
+		var group: Array[Vector2i] = []
+		group.resize(order.size())
+		for i in order.size():
+			group[i] = Vector2i(order[i] % w, order[i] / w)
 		out.append(group)
 	return out
 
@@ -158,7 +164,7 @@ static func patches(world: Variant) -> Array:
 static func drop_tile(world: Variant, from: Vector2, lying: Array[Vector2i], free: Callable) -> Vector2i:
 	var load: Dictionary = {}
 	for t in lying:
-		load[_key(t.x, t.y)] = int(load.get(_key(t.x, t.y), 0)) + 1
+		load[t] = int(load.get(t, 0)) + 1
 	var ranked: Array = []
 	for p in patches(world):
 		ranked.append({"d": _patch_distance(p, from), "patch": p, "i": ranked.size()})
@@ -172,7 +178,7 @@ static func drop_tile(world: Variant, from: Vector2, lying: Array[Vector2i], fre
 		for t in entry["patch"]:
 			if not free.call(t.x, t.y):
 				continue
-			var n: int = int(load.get(_key(t.x, t.y), 0))
+			var n: int = int(load.get(t, 0))
 			var d: float = _centre_distance(from, t)
 			if best.x < 0 or n < best_load or (n == best_load and d < best_d):
 				best = t
