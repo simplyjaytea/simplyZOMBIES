@@ -3803,6 +3803,20 @@ not a to-do list:
   7.3 ms down to 1.7 to 2.0 ms. At 1000 tiles `patches` went from 9.8 to 10.9 ms down to 3.8 to
   6.4 ms, and the drop from 20.4 to 28.0 ms down to 5.0 to 8.0 ms. `tiles` is unchanged: 0.7 ms at
   320 and 2.1 to 2.5 ms at 1000.
+- **Three small things from the stockpile review (findings 8 to 10).** The cap counted tiles that
+  were not stockpile: `SimStockpile.preview` judged `MAX_TILES` by the record's size, so a marked
+  tile walled over since (out of the zone, `has_tile` false) still held a place against the cap.
+  It now counts the record's live tiles (`_live_count`, `count` without the sort), as `count` and
+  the Colony screen do. Two comments said what was no longer true: `jobs.gd`'s head note that
+  `_stock_drop` does not follow home "because the stockpile is the annex's indoor floor" (it
+  follows the nearest patch of the zone since S3), and `stockpile.gd`'s note that the Haul drop
+  asks `tiles` every tick a hauler walks (it asks once per pickup since S3 and keeps the point on
+  the job). And docs/33 now carries the feature's five cards and the one tuning call to object
+  to, which the plan posted in the planning thread and nothing in the repository recorded. Gate:
+  `godot:m2:stockpile` PREVIEW's cap case (a zone one short of the cap with a walled key takes
+  one more tile and refuses two; the record counted by size refuses the one, shown red) and SAVE's
+  new half (the open window and a claimed tin round-trip a save; a save with no `stockpileOpen`
+  record loads shut). No sim behaviour changed but the cap's count.
 - **Nowhere to put it: the two ways a hauled or cooked thing left the map (the stockpile review,
   findings 1 and 2).** The feature's end-to-end review (`planning/stockpile/review.md` in the
   project files) found two paths that lost an item for good. A Haul or Repair pickup whose stow

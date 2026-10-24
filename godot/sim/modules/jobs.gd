@@ -656,8 +656,9 @@ static func _anyone_buries(world: Variant) -> bool:
 # claimed `_post_tile`, `_corpse_dump` and `_stock_drop` hung off this too, "all for one edit". They
 # did not -- all three read `SimTileMap` directly -- so the camp slice moved the Haul/Scavenge/Rearm
 # radius and nothing else, while three sentences in the record said it had moved four things. The
-# post and the dump follow home now (see `_post_tile` and `_corpse_dump`); `_stock_drop` still does
-# not, on purpose, because the stockpile is the annex's *indoor floor* and a camp has no roof.
+# post and the dump follow home now (see `_post_tile` and `_corpse_dump`), and since the stockpile
+# became a zone (`stockpile.gd`) `_stock_drop` follows the nearest patch of it, wherever the player
+# marked one -- not home, and not this function.
 static func _home_centre(world: Variant) -> Vector2:
 	return SimHomeRes.centre(world)
 
