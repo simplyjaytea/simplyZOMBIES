@@ -6122,6 +6122,8 @@ stacked on one tile. JT's 2026-10-24 "yes" covered the plan, and its card defaul
   `godot:m2:jobs`'s guard lane, which passes on main. The lane is not loosened: the walk yield that
   fixes the deadlock is its own slice, and this change waits on it.
 
+## A watch stands on its post, 2026-10-24
+
 - **A watch stands on its post, and a walker does not yield to another (2026-10-24).** The known
   issue filed as "two walkers hold each other in a one-tile doorway" was a stop rule. Bodies never
   block each other in this sim: `_integrate_movement` tests walls only, and a body removed from the
