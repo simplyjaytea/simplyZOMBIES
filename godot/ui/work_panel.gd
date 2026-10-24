@@ -131,8 +131,9 @@ var _hover_focus: String = ""
 var _show_stores: bool = false
 # The stockpile's summary and the world and tick it was read on. Reading it walks every loose item
 # (about half a millisecond on a booted district), and nothing on the tiles moves between ticks, so
-# the panel reads it once a tick rather than on every layout. A gate that edits the tiles without a
-# tick clears the key.
+# the panel reads it once a tick rather than on every layout. Showing the panel clears the key, so
+# whatever moved without a tick (a drop while paused, a load onto the same tick) is read afresh
+# when the screen opens.
 var _stores: Array[Dictionary] = []
 var _stores_key: Array = []
 # The pick the roster last scrolled to, so the wheel is the player's until the pick changes.
@@ -582,8 +583,9 @@ func _layout() -> Dictionary:
 
 
 # The stockpile's place in the drawer, whose top line is at `y`: {stores_shown, stores_toggle (the
-# button, Rect2() with nobody picked), stores_toggle_label, stores_head_at, stores_hint,
-# stores_hint_at, stores: [{group, words, names, label_at, word_at, names_at}]}. `names` are the
+# button, Rect2() with nobody picked), stores_toggle_label, stores_head_at, stores_hint (the ask
+# with nobody picked), stores_hint_at (right-aligned against the gutter, on the heading's line, so
+# the heading keeps the name's place), stores: [{group, words, names, label_at, word_at, names_at}]}. `names` are the
 # summary's names that fit the column whole, joined (`_fit_names`).
 func _layout_stores(out: Dictionary, font: Font, y: float) -> void:
 	var shown: bool = stores_shown()
@@ -625,7 +627,7 @@ func _layout_stores(out: Dictionary, font: Font, y: float) -> void:
 		var lw: float = 0.0
 		for i in range(c * STORES_ROWS, mini(summary.size(), (c + 1) * STORES_ROWS)):
 			lw = maxf(lw, font.get_string_size(String(summary[i]["group"]), HORIZONTAL_ALIGNMENT_LEFT, -1, TEXT_SIZE).x)
-		lw = ceilf((lw + PX * 6.0) / 2.0) * 2.0
+		lw = ceilf((lw + PX * 8.0) / 2.0) * 2.0
 		var room: float = colw - lw - ww
 		for i in range(c * STORES_ROWS, mini(summary.size(), (c + 1) * STORES_ROWS)):
 			var row: Dictionary = summary[i]
@@ -639,6 +641,11 @@ func _layout_stores(out: Dictionary, font: Font, y: float) -> void:
 				"names_at": Vector2(x + lw + ww, base),
 			})
 	out["stores"] = rows
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_VISIBILITY_CHANGED:
+		_stores_key = []
 
 
 func _summary() -> Array[Dictionary]:

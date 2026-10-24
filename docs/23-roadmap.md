@@ -3609,9 +3609,10 @@ not a to-do list:
   never moves and the roster keeps every row it had (1280x720 measured: a ninth block under the
   drawer would cost the roster its rows). Names that do not fit a column whole are passed over, not
   cut, so a shorter one after them may stand. The panel reads the summary once a tick (about half a
-  millisecond on a booted district). Gates: `godot:check:play` STOCKPILE (at both windows the words
-  are the read model's and the names are its names in order; an emptied pile reads none, dim,
-  naming nothing; no digit but an item name `_name_is_allowed` allows, where an amount of "12" is
+  millisecond on a booted district) and afresh whenever the screen opens, so a drop while paused or a
+  load onto the same tick is not shown stale. Gates: `godot:check:play` STOCKPILE (at both windows
+  the words are the read model's and the names are its names in order; a pile emptied with no tick
+  reads none, dim, naming nothing once the screen opens again; no digit but an item name `_name_is_allowed` allows, where an amount of "12" is
   refused; every row inside the drawer, which holds still between the pile and a person; the button
   shows the pile without moving the game's pick or queueing anything, a right click does nothing,
   a Focus chip's place queues nothing while the pile is shown, and the way back shows the person;

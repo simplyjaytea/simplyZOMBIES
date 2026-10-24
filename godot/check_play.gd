@@ -2836,7 +2836,8 @@ func _mouse(at: Vector2, button: MouseButton) -> void:
 #   - with nobody picked the drawer shows the stockpile, each group's word is the read model's
 #     (`StockpileRead.summary`) and each name drawn is one of its names, in its order; a pile with
 #     a stack of rounds is not all "none" (the positive the negative below is judged against);
-#   - with the pile emptied every group reads "none", dim, and names nothing (the negative);
+#   - with the pile emptied (no tick between) and the screen opened again, every group reads
+#     "none", dim, and names nothing (the negative);
 #   - no string the block draws carries a digit but an item's name that `_name_is_allowed` allows,
 #     where the same digits as an amount word would be refused (the check can fail);
 #   - every row sits inside the drawer, and the drawer is the same rectangle for the stockpile and
@@ -2936,12 +2937,16 @@ func _the_colony_screen_reads_the_stockpile(main: Node) -> bool:
 			if at.x < drawer.position.x or end_x > drawer.end.x or at.y - Chrome.ascent(25) < drawer.position.y or at.y > drawer.end.y:
 				push_error("STOCKPILE: the %s row at %s to x %d leaves the drawer %s (%s)" % [String(rd["group"]), str(at), int(end_x), str(drawer), str(dims)])
 				ok = false
-		# Emptied: every row none, dim, naming nothing.
+		# Emptied with no tick, as a drop while paused would: closing and opening the screen reads it
+		# afresh, and every row reads none, dim, naming nothing.
 		var moved: Dictionary = {}
 		for item in SimNeeds.stockpile_items(world):
 			moved[item] = (world.components.get_component(item, "position") as Dictionary).duplicate()
 			world.components.remove_component(item, "position")
-		panel.set("_stores_key", [])
+		main.call("_show_screen", "")
+		await process_frame
+		_tap(KEY_J)
+		main.call("_process", 0.0)
 		panel.queue_redraw()
 		await process_frame
 		for d in (panel.get("drawn") as Dictionary).get("stores", []) as Array:
