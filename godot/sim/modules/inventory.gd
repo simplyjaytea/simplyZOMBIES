@@ -678,13 +678,13 @@ static func verbs_for(world: Variant, actor: int, item: int) -> Array[String]:
 			if int(s3) == item:
 				worn = true
 	var offered: Dictionary = {"inspect": true}
-	# On the bench: offered only for something that comes apart, and only where the survivor could
-	# actually work on it. The same rule every verb here follows -- a thing you cannot do is
-	# absent, never greyed -- so this appears when you are standing at a bench holding a rifle and
-	# at no other time.
+	# Offered only for something that comes apart, and only where the survivor could actually work
+	# on it: at a bench, or with their hands on a part that can be changed by hand. The same rule
+	# every verb here follows -- a thing you cannot do is absent, never greyed -- and the question is
+	# asked of `SimGunsmith.may_open`, the one the open command asks too.
 	if not _Attachments().call("slots_of", world, item).is_empty():
 		var Gunsmith: GDScript = load("res://sim/modules/gunsmith.gd") as GDScript
-		if Gunsmith != null and int(Gunsmith.call("bench_in_reach", world, actor)) >= 0:
+		if Gunsmith != null and bool(Gunsmith.call("may_open", world, actor, item)):
 			offered["modify"] = true
 	if worn:
 		offered["unequip"] = true

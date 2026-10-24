@@ -151,7 +151,7 @@ try {
     1,
   );
   check("malformed JSON", "tick", "RUNTIME_RESULT {\nRUNTIME_MEASUREMENT_COMPLETE tick\n", 1);
-  const frames = () => [frame("shipped-draw"), frame("crowded-draw")];
+  const frames = () => [frame("shipped-draw"), frame("crowded-draw"), frame("night-draw")];
   check("valid renderer", "frame", transcript("frame", frames()), 0);
   const slow = frames();
   slow[1].samples_ms.fill(10.001);

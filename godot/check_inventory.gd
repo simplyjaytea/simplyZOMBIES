@@ -573,15 +573,25 @@ func _every_offered_verb_reaches_a_command() -> bool:
 		push_error("the fixture could not be carried (stack limit %d)" % limit)
 		return false
 
-	# modify -- absent away from a bench, present at one, and the command it pushes opens the
-	# weapon on it. The absence is the half that matters: a verb offered everywhere is a menu
-	# entry the sim silently drops when the player picks it.
+	# modify -- at a bench, or by hand where a part can be changed without one, and the command it
+	# pushes opens the weapon on it. The absence is the half that matters: a verb offered everywhere
+	# is a menu entry the sim silently drops when the player picks it. The rifle's magazine is a
+	# part a hand can change, so away from a bench the verb is offered for it; take that magazine
+	# out of the world and nothing is left to change by hand, and the verb goes.
 	var rifle: int = _give(w, "item.rifle.hunting")
 	if rifle < 0:
 		push_error("the fixture rifle could not be carried")
 		return false
+	if not SimInventory.verbs_for(w, w.player, rifle).has("modify"):
+		push_error("\"modify\" was not on offer for a rifle with a magazine a hand can change")
+		return false
+	var magazine: int = SimAttachments.in_slot(w, rifle, "magazine")
+	w.commands.push({"type": "item.detach", "item": magazine})
+	w.step()
+	w.despawn(magazine)
+	w.step()
 	if SimInventory.verbs_for(w, w.player, rifle).has("modify"):
-		push_error("\"modify\" was on offer with no bench anywhere")
+		push_error("\"modify\" was on offer with nothing to change by hand and no bench anywhere")
 		return false
 	var here: Dictionary = w.components.get_component(w.player, "position") as Dictionary
 	SimGunsmith.make_bench(w, float(here["x"]), float(here["y"]))

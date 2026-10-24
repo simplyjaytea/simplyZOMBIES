@@ -91,6 +91,33 @@ static func refusal(world: Variant, actor: int, part: int) -> String:
 	return "" if may_work(world, actor, part) else "no-bench"
 
 
+## Whether this survivor can work on this host where they stand, with their hands alone: it wears
+## a part that can be changed by hand, or it carries one that fits a slot of the host and can be.
+## A bench is not needed for either. Asked by the verb and by the open alike, so they cannot drift.
+static func field_work(world: Variant, actor: int, host: int) -> bool:
+	if host < 0 or SimAttachments.slots_of(world, host).is_empty():
+		return false
+	for part in SimAttachments.attached(world, host).values():
+		if int(part) >= 0 and is_field_swap(world, int(part)):
+			return true
+	for item in SimInventory.carried_items(world, actor):
+		var spare: int = int(item)
+		if spare == host or world.components.has_component(spare, "attachedTo"):
+			continue
+		if not is_field_swap(world, spare):
+			continue
+		for slot in SimAttachments.slots_of(world, host):
+			if SimAttachments.fits(world, spare, String(slot)):
+				return true
+	return false
+
+
+## Whether this survivor may open this item on the bench screen: standing at a bench, or with
+## their hands alone when `field_work` says there is something to change. One predicate for the
+## open command and for the verb `SimInventory.verbs_for` offers.
+static func may_open(world: Variant, actor: int, item: int) -> bool:
+	return bench_in_reach(world, actor) >= 0 or field_work(world, actor, item)
+
 ## The slot a part dropped on a host would go into, or "" for none: the first empty slot the part
 ## `fits`, for an actor who may work on that part here. The screen asks this and decides nothing.
 ## An occupied slot is never swapped by a drop -- the assembly screen does the swapping.
@@ -136,7 +163,7 @@ static func focus_of(world: Variant, actor: int) -> int:
 
 
 static func open_bench(world: Variant, actor: int, item: int) -> bool:
-	if bench_in_reach(world, actor) < 0:
+	if not may_open(world, actor, item):
 		return false
 	if not SimAttachments.slots_of(world, item).is_empty():
 		world.components.set_component(actor, "benchFocus", {"item": item})
@@ -185,6 +212,7 @@ static func bench_view(world: Variant, actor: int, host: int) -> Dictionary:
 			"required": _has(required, slot),
 			"structural": part >= 0 and _is_structural(world, part),
 			"removable": part >= 0 and may_work(world, actor, part),
+			"field": part >= 0 and is_field_swap(world, part),
 		})
 	var offers: Array = []
 	for item in SimInventory.carried_items(world, actor):
@@ -210,6 +238,7 @@ static func bench_view(world: Variant, actor: int, host: int) -> Dictionary:
 			})
 	return {
 		"bench": bench_in_reach(world, actor),
+		"at_bench": bench_in_reach(world, actor) >= 0,
 		"host": host,
 		"name": String((base as Dictionary).get("name", "weapon")),
 		"condition": SimItems.condition_band({"current": SimItems.assembly_condition(world, host)}),
@@ -261,9 +290,11 @@ static func register_module(world: Variant) -> void:
 				w.events.publish({"type": "bench.refused", "entity": actor, "reason": refusal(w, actor, -1)})
 	)
 	# Walking away closes it, the way `SimContainers` closes a box that has gone out of reach:
-	# a screen about a place you are no longer standing in is a screen showing a lie.
+	# a screen about a place you are no longer standing in is a screen showing a lie. The one
+	# exception is a weapon you can still change with your hands, which stays open where you stand.
 	world.systems.register("gunsmith.reach", "structures", 6, func(w: Variant) -> void:
 		for actor in w.components.query(["benchFocus"]):
-			if bench_in_reach(w, int(actor)) < 0:
-				close_bench(w, int(actor))
+			var a: int = int(actor)
+			if not may_open(w, a, focus_of(w, a)):
+				close_bench(w, a)
 	)
