@@ -305,10 +305,6 @@ owner's call and is recorded as one. The pieces, in the order they land — the 
   - **The camp's labour cost.** Materials, a real clock, survivors helping. Establishing costs
     fortify's ordinary 40-tick channel today, which is cheaper than boarding a window — half of the
     "deliberate commitment" Task 8 asks for, and the loud half is the half that shipped.
-  - **A stash at the camp.** `_stock_drop` is one tile in the annex, so an outpost extends what
-    colonists *collect* and not where they *put it* — the far round trip is the trade the reach
-    slice measured rather than hid. Needs `SimNeeds.is_stockpile_tile` to mean something without a
-    roof, which is the piece below.
   - **Evolving a camp** into something with an indoor floor, a stockpile and walls. The owner's
     "camps are temporary, the player can evolve them later".
   - **Camp-local occupancy and defenses** as the director's pressure inputs. Occupancy does not
@@ -3601,13 +3597,32 @@ not a to-do list:
   MARK (a 3x3 in and out; a wall, a door and an unexplored tile refused; the cap; `stockpile.changed`
   heard twice), WALLED, READERS, SAVE (a marked zone round-trips, and a save with no record reads the
   default). Sabotage: an unexplored-tile check turned to `true` turns MARK red. Not proven yet: a ford
-  (no explored ford on the seed's map, skipped out loud); a full Haul walk onto a marked outdoor pile
-  (the drop point and the haul test are checked, not a walk); and the raider looter, which still asks
-  `SimHome.rect` (the annex), so an outdoor pile is not looted yet. Both move to S3: its raider lane
-  switches the looter to the stockpile module, and its gate walks a Haul onto a marked outdoor pile. Sim tick, `godot:bench:runtime`, three
-  interleaved pairs on this box: head mean 13.42, 13.25, 13.26 ms; base 14.06, 12.88, 12.96 ms (medians
-  13.26 against 12.96, inside the box's roughly 1 ms spread). Both sit above the 8 ms target here, as
-  main does on this box.
+  (no explored ford on the seed's map, skipped out loud). The two gaps S1 named, a full Haul walk onto
+  a marked outdoor pile and the raider looter reading the annex, are closed by S3 below. Sim tick,
+  `godot:bench:runtime`, three interleaved pairs on this box: head mean 13.42, 13.25, 13.26 ms; base
+  14.06, 12.88, 12.96 ms (medians 13.26 against 12.96, inside the box's roughly 1 ms spread). Both sit
+  above the 8 ms target here, as main does on this box.
+- **Stockpile hauling: items spread over the pile, slice S3 of the 2026-10-24 plan.** A hauled item
+  or a cooked meal goes down on the emptiest free tile of the nearest patch of the stockpile zone
+  (`SimStockpile.patches` and `drop_tile` in `godot/sim/modules/stockpile.gd`; `_stock_drop`,
+  `_haul_drop` and `_lying_tiles` in `godot/sim/modules/jobs.gd`). Six items dropped in turn land on six
+  tiles, not one. A haul keeps its drop point on the job (`dropX`, `dropY`) and re-chooses only when the
+  point stops being a free zone tile. A pile marked beside a camp is its own patch, so the camp's
+  stash closes here. The raider looter (`raiders.gd`'s `_is_stores` and `_loot_goal`) reads the zone
+  instead of `SimHome.rect`, so a marked outdoor pile is looted. Gate `godot:m2:stockpile` gains SPREAD
+  (six items, six tiles; the first-free answer stacks them and goes red), PATCH (a pile clear of the
+  annex is its own patch; from beside it the drop is on the pile, from home at home), WALK (a Haul
+  picks an item up beside an outdoor pile and stocks it on the pile), COOK (a meal lands nearest the
+  fire, not the cook's feet) and RAIDER (a looter beside a marked pile heads for it, an item off the
+  zone is not stores). Carried: the day half of the colony's walks moves, and that surfaced
+  `godot:m2:jobs`'s guard lane on the one-tile doorway case in the "Two walkers hold each other" entry
+  above. Main's watch fix (#210, `SimJobs.GUARD_REACH`) cleared it on the merge; the lane was not loosened.
+  Bench, `godot:bench:runtime`, three interleaved pairs against main 21211eac: shipped tick (`shipped-tick`) head mean 16.76, 18.66, 18.02 ms, median 18.02; main 17.22, 17.28,
+  17.09 ms, median 17.22 (+0.8 ms on the median, inside a head spread of about 2 ms on this box).
+  Colony tick (`colony-tick`, 200 loose items) head 20.92, 19.90, 19.51 ms, median 19.90; main 19.88,
+  19.35, 20.33 ms, median 19.88 (level). Both branches are over the 8 ms mean target here, as main is.
+  The +0.8 ms on the shipped median is inside the noise here but not yet explained; it is not
+  attributed to the drop walk until a per-system timing says where it is.
 - **Attack order: a picked colonist goes after one zombie or raider they can see — 2026-10-24 orders slice A2.**
   With a colonist picked on the street, the menu's "have Mara attack it" row offers an `attack` order on a
   zombie or raider the colonist or the player can see right now (`SimOrders.accepts`, the scarce-information

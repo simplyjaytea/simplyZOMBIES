@@ -68,6 +68,7 @@ const SimInventoryRes = preload("res://sim/modules/inventory.gd")
 const SimItemsRes = preload("res://sim/modules/items.gd")
 const SimNeedsRes = preload("res://sim/modules/needs.gd")
 const SimPeopleRes = preload("res://sim/modules/people.gd")
+const SimStockpileRes = preload("res://sim/modules/stockpile.gd")
 const SimSightingsRes = preload("res://sim/modules/sightings.gd")
 const SimSkillsRes = preload("res://sim/modules/skills.gd")
 const SimStancesRes = preload("res://sim/stances.gd")
@@ -751,18 +752,16 @@ static func _at_objective(world: Variant, r: Dictionary, item: int) -> bool:
 	return _at_tile(pos as Dictionary, site, SITE_REACH)
 
 
-# Is this item lying on the colony's stores? `SimNeeds.is_stockpile_tile` is the colony's own
-# answer to that -- indoors, a floor, inside the annex -- and asking it here rather than writing a
-# second one is what stops a raider and a hauler disagreeing about where the pantry is.
-# `SimHome.rect` is the other half: home is where the colony *is*, so a camp's footprint with no
-# annex floor in it honestly has no stores and a looter there falls back to the gate.
+# Is this item lying on the colony's stores? `SimNeeds.is_stockpile_tile` is the colony's own answer
+# to that: the stockpile zone, the annex floor by default and whatever the player has marked, indoors
+# or out. Asking it here rather than writing a second one is what stops a raider and a hauler
+# disagreeing about where the pantry is. The zone is the whole test: a pile marked beside a camp is
+# looted as home's is, and `SimHome.rect` is not consulted.
 static func _is_stores(world: Variant, item: int) -> bool:
 	var pos: Variant = world.components.get_component(item, "position")
 	if not (pos is Dictionary):
 		return false
 	var tile := Vector2i(floori(float((pos as Dictionary)["x"])), floori(float((pos as Dictionary)["y"])))
-	if not SimHomeRes.rect(world).has_point(tile):
-		return false
 	return SimNeedsRes.is_stockpile_tile(world, tile.x, tile.y)
 
 
@@ -899,16 +898,13 @@ static func _objective(world: Variant, r: Dictionary, role: String = ROLE_FIGHTE
 # standing there, and going home on the same clock a fighter goes home on.
 #
 # Scanned rather than kept: `SimNeeds.stockpile_items` is the colony's own list of what is lying on
-# its floor, and the rect underneath the fallback is `SimHome.rect`. A looter pays for this once
-# when it sets out and once per armful (`_loot_step` clears the cached goal), never once a tick.
+# its stores, and the fallback reads the zone's tiles. A looter pays for this once when it sets out
+# and once per armful (`_loot_step` clears the cached goal), never once a tick.
 static func _loot_goal(world: Variant, ent: int) -> Vector2i:
 	var here: Variant = world.components.get_component(ent, "position")
 	if not (here is Dictionary):
 		return Vector2i(-1, -1)
 	var from := Vector2(float((here as Dictionary)["x"]), float((here as Dictionary)["y"]))
-	var rect: Rect2i = SimHomeRes.rect(world)
-	if rect.size.x <= 0 or rect.size.y <= 0:
-		return Vector2i(-1, -1)
 	var best := Vector2i(-1, -1)
 	var best_d: float = 1e12
 	for item in SimNeedsRes.stockpile_items(world):
@@ -916,22 +912,17 @@ static func _loot_goal(world: Variant, ent: int) -> Vector2i:
 		if not (p is Dictionary):
 			continue
 		var tile := Vector2i(floori(float((p as Dictionary)["x"])), floori(float((p as Dictionary)["y"])))
-		if not rect.has_point(tile):
-			continue
 		var d: float = from.distance_squared_to(Vector2(float(tile.x) + 0.5, float(tile.y) + 0.5))
 		if d < best_d:
 			best_d = d
 			best = tile
 	if best.x >= 0:
 		return best
-	for ty in range(rect.position.y, rect.position.y + rect.size.y):
-		for tx in range(rect.position.x, rect.position.x + rect.size.x):
-			if not SimNeedsRes.is_stockpile_tile(world, tx, ty):
-				continue
-			var d2: float = from.distance_squared_to(Vector2(float(tx) + 0.5, float(ty) + 0.5))
-			if d2 < best_d:
-				best_d = d2
-				best = Vector2i(tx, ty)
+	for t in SimStockpileRes.tiles(world):
+		var d2: float = from.distance_squared_to(Vector2(float(t.x) + 0.5, float(t.y) + 0.5))
+		if d2 < best_d:
+			best_d = d2
+			best = t
 	return best
 
 
