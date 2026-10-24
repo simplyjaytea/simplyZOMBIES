@@ -83,8 +83,9 @@ func _run() -> void:
 	ok = _a_stack_that_cannot_merge_is_not_reported_as_stored() and ok
 	ok = await _the_list_and_the_buttons_reach_the_world() and ok
 	ok = await _a_picked_part_offers_only_legal_care() and ok
+	ok = await _a_part_dropped_on_a_weapon_fits_it_or_lands_in_the_grid() and ok
 	if ok:
-		print("INVENTORY_OK a picked body part offers the care the sim would take and nothing else, descriptions are prose, the pane carries only words, a verb is offered iff it works and reaches its command, the strip is belt and pockets and spends what you pressed, the column is fixed, the windows are gone, a cupboard is a column and a window, a stack that cannot merge is not reported as stored, and the list, a ctrl-click and the pane's buttons each move the world")
+		print("INVENTORY_OK a picked body part offers the care the sim would take and nothing else, descriptions are prose, the pane carries only words, a verb is offered iff it works and reaches its command, the strip is belt and pockets and spends what you pressed, the column is fixed, the windows are gone, a cupboard is a column and a window, a stack that cannot merge is not reported as stored, the list, a ctrl-click and the pane's buttons each move the world, and a part dropped on a weapon fits an empty slot and lands in the grid otherwise")
 		quit(0)
 	else:
 		push_error("INVENTORY_FAIL")
@@ -1417,6 +1418,182 @@ func _plate_point(panel: Control, item: int) -> Variant:
 				var origin: Vector2 = bag.call("origin_of", (placed as Dictionary)["at"] as Vector2)
 				return (bag.call("plate_rect", origin, entry) as Rect2).get_center()
 	return null
+
+
+# --- FIT-DROP ---------------------------------------------------------------------------------
+#
+# A part dropped on a weapon is the fit when the weapon has an empty slot the part goes into and
+# the survivor may work on the part here; anywhere else it is the ordinary grid placement. Three
+# drops, three answers: an empty magazine slot takes the spare (attached, and the hover says so); a
+# bipod the survivor cannot change by hand goes to a free underbarrel and is placed in the grid (the
+# negative: the slot is free and the rule is the hands); a second magazine on a rifle whose magazine
+# slot is full is placed in the grid (the negative: no empty slot).
+func _a_part_dropped_on_a_weapon_fits_it_or_lands_in_the_grid() -> bool:
+	var w: Variant = _world(3157)
+	var actor: int = w.player
+	if not _room(w):
+		push_error("FIT-DROP: the pack would not go on")
+		return false
+	var rifle: int = _give(w, "item.rifle.hunting")
+	if rifle < 0:
+		push_error("FIT-DROP: the fixture rifle could not be carried")
+		return false
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(1920, 1080)
+	root.add_child(viewport)
+	var panel: Control = (load(PANEL_GD) as GDScript).new() as Control
+	viewport.add_child(panel)
+	await process_frame
+	panel.call("set_world", w, actor)
+	panel.call("set_open", true)
+	await process_frame
+
+	# Away from a bench the magazine comes off by hand. It is now a spare in the pack, and the
+	# rifle's magazine slot is empty.
+	var spare: int = SimAttachments.in_slot(w, rifle, "magazine")
+	w.commands.push({"type": "item.detach", "item": spare})
+	w.step()
+	if SimAttachments.in_slot(w, rifle, "magazine") >= 0:
+		push_error("FIT-DROP: the fixture magazine would not come off by hand")
+		viewport.queue_free()
+		return false
+	var ok: bool = true
+
+	# TP: the spare, held over the rifle, is the fit and the release attaches it.
+	_refresh_sheet(panel, w, actor)
+	var at_rifle: Variant = _plate_point(panel, rifle)
+	if at_rifle == null:
+		push_error("FIT-DROP: the rifle has no plate on the sheet")
+		viewport.queue_free()
+		return false
+	panel.set("_drag_item", spare)
+	var hint: Dictionary = panel.call("drop_hint", at_rifle) as Dictionary
+	if not bool(hint.get("fit", false)) or not (hint.get("rect", Rect2()) as Rect2).has_area():
+		push_error("FIT-DROP: a magazine held over a rifle with an empty slot shows no fit")
+		ok = false
+	w.commands.take(int(w.tick))
+	panel.call("_release_at", at_rifle)
+	if not _pending_has(w, "item.attach", spare):
+		push_error("FIT-DROP: a magazine dropped on a rifle with an empty magazine slot was not attached")
+		ok = false
+	w.step()
+	if SimAttachments.in_slot(w, rifle, "magazine") != spare:
+		push_error("FIT-DROP: the dropped magazine is not in the rifle")
+		ok = false
+
+	# Negative 1: a bipod the survivor cannot change by hand, dropped on a rifle whose underbarrel
+	# is empty, is the grid's. The slot is free, so only the hands-or-bench rule can refuse it.
+	var bipod: int = _give(w, "item.attach.underbarrel.bipod")
+	_refresh_sheet(panel, w, actor)
+	at_rifle = _plate_point(panel, rifle)
+	if bipod < 0 or at_rifle == null:
+		push_error("FIT-DROP: the bipod fixture could not be carried or drawn")
+		viewport.queue_free()
+		return false
+	panel.set("_drag_item", bipod)
+	w.commands.take(int(w.tick))
+	panel.call("_release_at", at_rifle)
+	if _pending_has(w, "item.attach", bipod):
+		push_error("FIT-DROP: a bipod was fitted by a drop away from a bench")
+		ok = false
+	if not _pending_has(w, "item.move", bipod):
+		push_error("FIT-DROP: a bipod dropped on a rifle away from a bench was not placed in the grid")
+		ok = false
+	w.step()
+
+	# Negative 2: a second magazine onto a rifle whose magazine slot is full is the grid's too.
+	var extra: int = _give(w, "item.attach.magazine.extended")
+	_refresh_sheet(panel, w, actor)
+	at_rifle = _plate_point(panel, rifle)
+	if extra < 0 or at_rifle == null:
+		push_error("FIT-DROP: the second magazine could not be carried or drawn")
+		viewport.queue_free()
+		return false
+	panel.set("_drag_item", extra)
+	w.commands.take(int(w.tick))
+	panel.call("_release_at", at_rifle)
+	if _pending_has(w, "item.attach", extra):
+		push_error("FIT-DROP: a magazine was fitted over a full magazine slot")
+		ok = false
+	if not _pending_has(w, "item.move", extra):
+		push_error("FIT-DROP: a magazine dropped on a full rifle was not placed in the grid")
+		ok = false
+	w.step()
+
+	# A worn weapon takes a part by its box: the magazine comes off the rifle again, the rifle is worn
+	# in its primary slot, and the spare dropped on that box is the fit (the box used to equip it).
+	var box_spare: int = SimAttachments.in_slot(w, rifle, "magazine")
+	w.commands.push({"type": "item.detach", "item": box_spare})
+	w.step()
+	if not SimInventory.equip(w, actor, rifle, "primary"):
+		push_error("FIT-DROP: the rifle would not be worn in its primary slot")
+		ok = false
+	_refresh_sheet(panel, w, actor)
+	var box_at: Variant = _box_centre(panel, "primary")
+	if box_at == null:
+		push_error("FIT-DROP: the primary slot has no box on the sheet")
+		ok = false
+	else:
+		panel.set("_drag_item", box_spare)
+		var box_hint: Dictionary = panel.call("drop_hint", box_at) as Dictionary
+		if not bool(box_hint.get("fit", false)):
+			push_error("FIT-DROP: a magazine held over a worn rifle's box shows no fit")
+			ok = false
+		w.commands.take(int(w.tick))
+		panel.call("_release_at", box_at)
+		if not _pending_has(w, "item.attach", box_spare):
+			push_error("FIT-DROP: a magazine dropped on a worn rifle's box was not attached")
+			ok = false
+		if _pending_has(w, "item.equip", box_spare):
+			push_error("FIT-DROP: a magazine dropped on a worn rifle's box was equipped instead")
+			ok = false
+		w.step()
+		if SimAttachments.in_slot(w, rifle, "magazine") != box_spare:
+			push_error("FIT-DROP: the magazine dropped on the worn rifle is not in the rifle")
+			ok = false
+
+		# A part that does not fit the worn rifle goes to its box as before, and the box equips it.
+		# The negative: a fit is not made just because the box is the one under the pointer.
+		var box_part: int = _give(w, "item.attach.underbarrel.bipod")
+		if box_part < 0:
+			push_error("FIT-DROP: the part could not be carried for the worn-box negative")
+			ok = false
+		else:
+			panel.set("_drag_item", box_part)
+			w.commands.take(int(w.tick))
+			panel.call("_release_at", box_at)
+			if _pending_has(w, "item.attach", box_part):
+				push_error("FIT-DROP: a part that is not hand-swappable was fitted by a drop on a worn rifle's box")
+				ok = false
+			if not _pending_has(w, "item.equip", box_part):
+				push_error("FIT-DROP: a part dropped on a worn rifle's box did not reach the box's equip")
+				ok = false
+			w.step()
+
+	viewport.queue_free()
+	await process_frame
+	return ok
+
+
+func _box_centre(panel: Control, slot: String) -> Variant:
+	for box in panel.call("_slot_boxes") as Array:
+		if String((box as Dictionary)["slot"]) == slot:
+			return ((box as Dictionary)["rect"] as Rect2).get_center()
+	return null
+
+
+func _refresh_sheet(panel: Control, w: Variant, actor: int) -> void:
+	panel.call("set_world", w, actor)
+	panel.call("_redraw_columns")
+	panel.set("_placed", panel.call("_column_places"))
+
+
+func _pending_has(w: Variant, kind: String, item: int) -> bool:
+	for c in w.commands._pending as Array:
+		var d: Dictionary = c as Dictionary
+		if String(d.get("type", "")) == kind and int(d.get("item", -1)) == item:
+			return true
+	return false
 
 
 # --- CARE -------------------------------------------------------------------------------------

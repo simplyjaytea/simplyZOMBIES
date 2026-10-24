@@ -5947,3 +5947,13 @@ the command (`SimOrders.draft_command`); the key pushes it.
 
 **How to apply:** the draft is the `hold` order on the colonist's own tile. A new draft-like verb
 goes through `orders.gd`, not a second flag.
+
+## A dropped part fits only an empty slot, 2026-10-24
+
+The drop on a weapon is the fit and nothing more (C3). Calls taken without the owner:
+
+- **A drop never swaps.** An occupied slot takes no part from a drop; the grid placement is the
+  answer, and swapping stays with the assembly screen, where a choice is made on purpose.
+- **The hands rule holds for a drop too.** A part the survivor cannot change by hand is not fitted
+  by a drop away from a bench, even into an empty slot. `SimGunsmith.drop_slot` asks `may_work`,
+  the question the open command and the attach command already ask.

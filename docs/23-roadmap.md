@@ -2435,6 +2435,20 @@ not a to-do list:
   and the 720p bench clip (C2), a part dropped on a weapon (C3), and the shared menu and E-prompt
   grammar (C4).
 
+- **UI overhaul, slice 3, part two: a part dropped on a weapon fits it, 2026-10-24 (C3 of the
+  three-features plan, `/mnt/project-files/planning/2026-10-24_three-features.md`).**
+  `SimGunsmith.drop_slot` answers with the first empty slot a held part `fits`, for a survivor who
+  may work on that part here, or "" for none. The inventory sheet asks it on release and on hover:
+  over a weapon in the grid or in an equipment box, a fit is the accent wash (`Locker.fit`) and
+  the release pushes `item.attach`; anywhere else the drop is the ordinary grid placement. An
+  occupied slot is never swapped by a drop. Gate: `godot:check:inventory` FIT-DROP (an empty
+  magazine slot takes the spare, on the grid plate or a worn rifle's box, and the hover says so; a bipod the hands cannot fit goes to the
+  grid over a free underbarrel; a second magazine on a full rifle goes to the grid). Sabotage
+  checked: removing the hands-or-bench test turns the bipod lane red. The hover is shown by the
+  review scene `bench_drop` (`godot:check:shots` lists it; `planning/ui-slice-3/c3_drop_fit_*.png`
+  at both sizes, no before shot since the drop-to-fit did not exist on main). The call is in
+  docs/30, "A dropped part fits only an empty slot".
+
 - **Kernel & tooling — the playbook and the init audit, 2026-10-23.** The owner asked for the
   repository to be initialised for agents and for one playbook every agent can read. An audit of
   the build, test and gate commands against `CLAUDE.md` added three things to it: the commands for
