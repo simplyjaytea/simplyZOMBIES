@@ -330,6 +330,15 @@ switch (mode) {
   case "--m2-orders":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_orders.gd"];
     break;
+  case "--m2-stockpile":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_stockpile.gd",
+    ];
+    break;
   case "--m2-people":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_people.gd"];
     break;
@@ -615,7 +624,7 @@ switch (mode) {
     // The art review's capture driver. Needs a display: the pixels come from the root viewport.
     // Anything after the mode is handed to the driver as user args (`--out=DIR`). A fixed frame
     // step makes shader TIME the same at every capture, so a flame's flicker matches between two
-    // runs and a before/after pair of a night scene compares byte for byte.
+    // runs and a before/after pair of a night scene compares pixel for pixel.
     args = [
       "--fixed-fps",
       "60",

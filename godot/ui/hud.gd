@@ -406,6 +406,19 @@ const VERB_PROSE: Dictionary = {
 }
 
 
+# The bar with the stockpile brush in hand (Z, slice S2 of the stockpile plan): what the two buttons
+# do, then the two keys that put the brush down, as keycaps like every key the bar names. A drag the
+# sim would refuse whole (`SimStockpile.preview`'s `refused`, past `MAX_TILES`) says so instead of
+# drawing a preview that would not happen. Words only: no count of tiles, no cap, no digit.
+const MARKING_WORDS: String = "Marking the stockpile: drag to mark, right-drag to clear"
+const MARKING_REFUSED: String = "Too much ground for the stockpile: let go and nothing changes"
+const MARKING_DONE: String = "Z / Esc — put the brush down"
+
+
+static func marking_line(refused: bool) -> String:
+	return ACTION_SEP.join([MARKING_REFUSED if refused else MARKING_WORDS, MARKING_DONE])
+
+
 static func action_line(world: Variant, actor: int) -> String:
 	if world == null or actor < 0:
 		return ""
@@ -674,7 +687,8 @@ func _draw_action_bar(font: Font, view: Vector2) -> void:
 # `_draw_action_bar` lays out, so `godot:check:ui_skin`'s KEYCAPS lane judges every cap on the bar
 # by calling this rather than by reading pixels.
 #
-# A clause is "<key> — <words>", exactly as `action_line` built it, and it keeps its words whole.
+# A clause is "<key> — <words>", exactly as `action_line` built it, and it keeps its words whole;
+# a clause whose key part is "<key> / <key>" names both, as two caps.
 # A hint token is split at its first word that begins with a lowercase letter: everything before
 # it is a key -- so "- = speed" is two keys and a word -- and everything from it on is the words.
 # The hint is written that way on purpose, key names in capitals or punctuation and the words in
@@ -685,7 +699,11 @@ static func keycaps(action: String, tail: String) -> Array[Dictionary]:
 	for clause in action.split(ACTION_SEP, false):
 		var parts: PackedStringArray = String(clause).split(" — ")
 		if parts.size() >= 2:
-			out.append({"keys": [String(parts[0])], "word": " — ".join(parts.slice(1)), "lead": true})
+			# "Z / Esc — put the brush down" names two keys for one thing: two caps, then the words.
+			var keys: Array = []
+			for k in String(parts[0]).split(" / ", false):
+				keys.append(String(k))
+			out.append({"keys": keys, "word": " — ".join(parts.slice(1)), "lead": true})
 		else:
 			out.append({"keys": [], "word": String(clause), "lead": true})
 	for token in tail.split(ACTION_SEP, false):

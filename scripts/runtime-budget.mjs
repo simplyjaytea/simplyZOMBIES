@@ -2,6 +2,7 @@
 // The draw result measures the shipped GDScript _draw CPU work, not GPU completion.
 export const TARGETS = Object.freeze({
   "shipped-tick": { samples: 600, warmup: 100, mean: 8, max: 16 },
+  "colony-tick": { samples: 600, warmup: 100, mean: 8, max: 16 },
   "shipped-draw": { samples: 120, warmup: 30, mean: 10 },
   "crowded-draw": { samples: 120, warmup: 30, mean: 10 },
   "night-draw": { samples: 120, warmup: 30, mean: 10 },
@@ -20,7 +21,9 @@ export function judgeRuntime(kind, stdout, engineExit = 0) {
   const errors = [];
   const summaries = [];
   const wanted =
-    kind === "tick" ? ["shipped-tick"] : ["shipped-draw", "crowded-draw", "night-draw"];
+    kind === "tick"
+      ? ["shipped-tick", "colony-tick"]
+      : ["shipped-draw", "crowded-draw", "night-draw"];
   if (!["tick", "frame"].includes(kind)) errors.push(`unknown runtime kind: ${kind}`);
   if (engineExit !== 0) errors.push(`engine exited ${engineExit}`);
   if (/SCRIPT ERROR:|Parse Error:|RUNTIME_FRAME_FAIL/.test(stdout)) {
@@ -58,7 +61,13 @@ export function judgeRuntime(kind, stdout, engineExit = 0) {
     if (r.warmup !== target.warmup || r.tiles !== 256) {
       errors.push(`${id}: fixture size or warmup changed`);
     }
-    if (kind === "tick") {
+    if (id === "colony-tick") {
+      // The sample is only a colony if the load was really placed: boot's 72 loose items plus the 200.
+      if (!Number.isInteger(r.loose_items_start) || r.loose_items_start < 200) {
+        errors.push(`${id}: the loose-item load was not placed`);
+      }
+      if (r.seed !== 20260805) errors.push(`${id}: canonical seed changed or is missing`);
+    } else if (kind === "tick") {
       if (
         ![r.start_tick, r.end_tick, r.systems].every(Number.isInteger) ||
         r.end_tick - r.start_tick !== target.samples ||

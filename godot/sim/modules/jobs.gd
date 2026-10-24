@@ -17,6 +17,7 @@ const SimHomeRes = preload("res://sim/home.gd")
 const SimCombat = preload("res://sim/combat.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimWeather = preload("res://sim/modules/weather.gd")
+const SimStockpile = preload("res://sim/modules/stockpile.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
 const SimSightings = preload("res://sim/modules/sightings.gd")
@@ -54,6 +55,13 @@ const CLEAN_TICKS: int = 40
 const BURY_TICKS: int = 40
 const REPAIR_TICKS: int = 80
 const REACH: float = 1.5
+# A watch stands on its post, not within a body's reach of it. Guard arrives at REACH like every
+# other job, and from the west that stops it 1.48 m short of the post at (29.05, 30.5): 1.8 m from
+# the gateway the GUARD lane measures, so the watch never reached the gate. Nothing pushed it back;
+# the arrival test simply ended the walk early. A watch that stops within 1.0 m of the post centre
+# is inside the gateway's 1.5 m, which is the test the GUARD lane makes. Tighter bounds (0.5, 0.75)
+# flip the FAST balance wipe on seed 20260805; 1.0 keeps it. See docs/23's record of the fix.
+const GUARD_REACH: float = 1.0
 const EMPTY_BOTTLE: String = "item.water.bottle.empty"
 
 
@@ -722,9 +730,12 @@ static func _do_scavenge(world: Variant, ent: int, job: Dictionary) -> void:
 		_stop(world, ent)
 
 
+# The nearest loose item a colonist at (x, y) may haul: no stockpile, no order, near the errands,
+# not unreachable, not a corpse, and no zombie standing near it. The cheap filters run on every
+# item, as they always did; the zombie walk runs only on the nearest of what is left
+# (`_nearest_clear`), so a colony with a lot on the ground pays one walk instead of one per item.
 static func _haul_work(world: Variant, x: float, y: float) -> Dictionary:
-	var best: int = -1
-	var best_d: float = 1e12
+	var cands: Array[Dictionary] = []
 	for item in SimInventory.ground_items(world):
 		var p: Variant = world.components.get_component(item, "position")
 		if not p is Dictionary:
@@ -741,14 +752,10 @@ static func _haul_work(world: Variant, x: float, y: float) -> Dictionary:
 			continue
 		if world.components.has_component(item, "corpse"):
 			continue
-		if BREAK_OFF_FROM_DANGER and _danger_at(world, float((p as Dictionary)["x"]), float((p as Dictionary)["y"]), DANGER_TARGET_METRES):
-			continue
 		var dx: float = float((p as Dictionary)["x"]) - x
 		var dy: float = float((p as Dictionary)["y"]) - y
-		var d: float = dx * dx + dy * dy
-		if d < best_d:
-			best_d = d
-			best = item
+		cands.append({"item": int(item), "x": float((p as Dictionary)["x"]), "y": float((p as Dictionary)["y"]), "d": dx * dx + dy * dy, "i": cands.size()})
+	var best: int = _nearest_clear(world, cands, DANGER_TARGET_METRES)
 	if best < 0:
 		# Corpse haul-to-dump only when nobody has Bury enabled (ADR 0013 overflow).
 		if _anyone_buries(world):
@@ -768,6 +775,33 @@ static func _haul_work(world: Variant, x: float, y: float) -> Dictionary:
 			return {"kind": "Haul", "target": int(c), "corpse": true, "ticksLeft": 0, "path": [], "pathGen": -1}
 		return {}
 	return {"kind": "Haul", "target": best, "ticksLeft": 0, "path": [], "pathGen": -1}
+
+
+# The item in `cands` nearest the colonist, ties to the earlier one (`i`, the order they were
+# found in), that no live zombie stands within `metres` of; -1 when none is. Each candidate is
+# {item, x, y, d, i}, `d` the squared distance. The nearest is tested first alone, which is the
+# common case; only when a zombie stands near it is the list sorted and walked in order, so the
+# answer is the one a loop testing every candidate in order would keep.
+static func _nearest_clear(world: Variant, cands: Array[Dictionary], metres: float) -> int:
+	if cands.is_empty():
+		return -1
+	var first: int = 0
+	for k in range(1, cands.size()):
+		if _nearer(cands[k], cands[first]):
+			first = k
+	var nearest: Dictionary = cands[first]
+	if not (BREAK_OFF_FROM_DANGER and _danger_at(world, float(nearest["x"]), float(nearest["y"]), metres)):
+		return int(nearest["item"])
+	cands.sort_custom(_nearer)
+	for k in range(1, cands.size()):
+		var c: Dictionary = cands[k]
+		if not (BREAK_OFF_FROM_DANGER and _danger_at(world, float(c["x"]), float(c["y"]), metres)):
+			return int(c["item"])
+	return -1
+
+
+static func _nearer(a: Dictionary, b: Dictionary) -> bool:
+	return float(a["d"]) < float(b["d"]) or (float(a["d"]) == float(b["d"]) and int(a["i"]) < int(b["i"]))
 
 
 # `ent` is the colonist asking, or -1 for none. A colonist shaken by a Retreat (its hold just ended)
@@ -818,7 +852,7 @@ static func _free_indoor(world: Variant) -> Vector2i:
 		return Vector2i(-1, -1)
 	for j in range(annex.position.y, annex.position.y + annex.size.y):
 		for i in range(annex.position.x, annex.position.x + annex.size.x):
-			if not SimNeeds.is_stockpile_tile(world, i, j):
+			if not SimNeeds.is_annex_floor(world, i, j):
 				continue
 			if _bed_at(world, i, j) >= 0:
 				continue
@@ -1120,7 +1154,8 @@ static func _advance_job(world: Variant, ent: int, job: Dictionary) -> void:
 		if int(job["walked"]) > RETREAT_WALK_TICKS and not bool(job.get("rerouted", false)):
 			_retreat_inside(world, ent, job)
 			dest = _job_tile(world, job)
-	if dest.x >= 0 and not _at(world, ent, dest, REACH):
+	var reach: float = GUARD_REACH if kind == "Guard" else REACH
+	if dest.x >= 0 and not _at(world, ent, dest, reach):
 		_walk(world, ent, job, dest)
 		return
 	_still(world, ent)
@@ -1796,6 +1831,10 @@ static func _do_dress(world: Variant, ent: int, job: Dictionary) -> void:
 	_stop(world, ent, "Dress")
 
 
+static func _tile_centre(t: Vector2i) -> Vector2:
+	return Vector2(float(t.x) + 0.5, float(t.y) + 0.5)
+
+
 static func _entity_tile(world: Variant, ent: int) -> Vector2i:
 	var p: Variant = world.components.get_component(ent, "position")
 	if not p is Dictionary:
@@ -1819,7 +1858,7 @@ static func _do_haul(world: Variant, ent: int, job: Dictionary) -> void:
 			SimNeeds.dirt(world, ent, 1)
 			_stop(world, ent, "Haul")
 			return
-		var drop: Vector2i = _stock_drop(world)
+		var drop: Vector2i = _haul_drop(world, ent, job)
 		if drop.x < 0:
 			_stop(world, ent)
 			return
@@ -1883,21 +1922,48 @@ static func _corpse_dump(world: Variant) -> Vector2i:
 	return Vector2i(gate.x, gate.y + 2)
 
 
-# The stamped annex, and **deliberately not `SimHome.rect`** -- the one home reader that does not
-# follow a camp. `SimNeeds.is_stockpile_tile` is "indoors, floor, inside the annex", and a camp has
-# no roof to be indoors under, so a camp-relative drop point would be a stockpile the weather rains
-# into. Giving a camp a real one is the "evolve a camp" work in docs/23's what's left. Until then a
-# far outpost extends what colonists *collect* and not where they *put it*, which is the trade the
-# reach slice measured rather than hid.
-static func _stock_drop(world: Variant) -> Vector2i:
-	var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
-	if annex.size.x <= 0 or annex.size.y <= 0:
-		return Vector2i(-1, -1)
-	for j in range(annex.position.y, annex.position.y + annex.size.y):
-		for i in range(annex.position.x, annex.position.x + annex.size.x):
-			if SimNeeds.is_stockpile_tile(world, i, j) and _bed_at(world, i, j) < 0 and _campfire_at(world, i, j) < 0:
-				return Vector2i(i, j)
-	return Vector2i(-1, -1)
+# The stockpile's tiles are the drop point for a hauled item and a cooked meal (`stockpile.gd`'s
+# `drop_tile`): the nearest patch with a free tile takes it, and inside that patch the emptiest tile.
+# A pile marked at a camp is its own patch, so a colonist beside a camp stocks the camp's pile and
+# one at home stocks home's. The camp is not read anywhere: the nearest pile is the whole rule. A
+# zone the player marks outdoors is a deliberate choice, and its tiles are read as they are.
+# The beds and campfires are read once per drop into a set of tiles, the answer `_bed_at` and
+# `_campfire_at` give tile by tile: asked per zone tile, they walked every bed and fire each time.
+static func _stock_drop(world: Variant, from: Vector2) -> Vector2i:
+	var taken: Dictionary = {}
+	for kind in ["bed", "campfire"]:
+		for e in world.components.query([kind, "position"]):
+			var p: Variant = world.components.get_component(int(e), "position")
+			if p is Dictionary:
+				taken[Vector2i(floori(float((p as Dictionary)["x"])), floori(float((p as Dictionary)["y"])))] = true
+	return SimStockpile.drop_tile(world, from, _lying_tiles(world), func(tx: int, ty: int) -> bool:
+		return not taken.has(Vector2i(tx, ty))
+	)
+
+
+# The tile of every loose item, one entry each, for the drop point's count.
+static func _lying_tiles(world: Variant) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for item in SimInventory.ground_items(world):
+		var p: Variant = world.components.get_component(item, "position")
+		if p is Dictionary:
+			out.append(Vector2i(floori(float((p as Dictionary)["x"])), floori(float((p as Dictionary)["y"]))))
+	return out
+
+
+# The drop point a carried item walks to. It is chosen once, where the colonist stands when the item
+# comes up, and kept on the job: chosen again every tick from wherever the carrier is, the carrier
+# would turn back and forth at the line between two patches. A kept point that stops being a free
+# stockpile tile (walled over, or a bed or a fire put on it) is chosen again from where they stand.
+static func _haul_drop(world: Variant, ent: int, job: Dictionary) -> Vector2i:
+	var kept := Vector2i(int(job.get("dropX", -1)), int(job.get("dropY", -1)))
+	if kept.x >= 0 and SimStockpile.has_tile(world, kept.x, kept.y) and _bed_at(world, kept.x, kept.y) < 0 and _campfire_at(world, kept.x, kept.y) < 0:
+		return kept
+	var here: Vector2i = _entity_tile(world, ent)
+	var drop: Vector2i = _stock_drop(world, _tile_centre(here))
+	job["dropX"] = drop.x
+	job["dropY"] = drop.y
+	return drop
 
 
 static func _do_construct(world: Variant, ent: int, job: Dictionary) -> void:
@@ -1952,7 +2018,9 @@ static func _do_cook(world: Variant, ent: int, job: Dictionary) -> void:
 	world.despawn(raw)
 	var cooked: int = SimItems.spawn_item(world, into, {"tier": "scavenged"})
 	SimNeeds.mark_spoilage(world, cooked, into)
-	var drop: Vector2i = _stock_drop(world)
+	# The meal lands nearest the fire it was made at, not the cook's feet: a cook may be standing
+	# somewhere else when the job completes.
+	var drop: Vector2i = _stock_drop(world, _tile_centre(_entity_tile(world, fire if fire >= 0 else ent)))
 	if drop.x >= 0:
 		world.components.set_component(cooked, "position", {"x": float(drop.x) + 0.5, "y": float(drop.y) + 0.5})
 	SimNeeds.set_lit(world, fire, true, false)

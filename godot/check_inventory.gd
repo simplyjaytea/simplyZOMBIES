@@ -43,6 +43,9 @@ const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
+const SimStockpile = preload("res://sim/modules/stockpile.gd")
+const SimBoot = preload("res://sim/boot.gd")
+const SimTileMap = preload("res://sim/map/tilemap.gd")
 const InspectPane = preload("res://ui/inspect_pane.gd")
 const CarePane = preload("res://ui/care_pane.gd")
 
@@ -84,8 +87,9 @@ func _run() -> void:
 	ok = await _the_list_and_the_buttons_reach_the_world() and ok
 	ok = await _a_picked_part_offers_only_legal_care() and ok
 	ok = await _a_part_dropped_on_a_weapon_fits_it_or_lands_in_the_grid() and ok
+	ok = await _the_stockpile_is_the_window_where_you_stand() and ok
 	if ok:
-		print("INVENTORY_OK a picked body part offers the care the sim would take and nothing else, descriptions are prose, the pane carries only words, a verb is offered iff it works and reaches its command, the strip is belt and pockets and spends what you pressed, the column is fixed, the windows are gone, a cupboard is a column and a window, a stack that cannot merge is not reported as stored, the list, a ctrl-click and the pane's buttons each move the world, and a part dropped on a weapon fits an empty slot and lands in the grid otherwise")
+		print("INVENTORY_OK a picked body part offers the care the sim would take and nothing else, descriptions are prose, the pane carries only words, a verb is offered iff it works and reaches its command, the strip is belt and pockets and spends what you pressed, the column is fixed, the windows are gone, a cupboard is a column and a window, a stack that cannot merge is not reported as stored, the list, a ctrl-click and the pane's buttons each move the world, a part dropped on a weapon fits an empty slot and lands in the grid otherwise, and standing in the stockpile the window is the stockpile, a ctrl-click takes and a drag puts back")
 		quit(0)
 	else:
 		push_error("INVENTORY_FAIL")
@@ -1775,3 +1779,194 @@ func _a_picked_part_offers_only_legal_care() -> bool:
 		print("CARE OK a press on the drawn arm picks it and one off the figure puts it down; the arm's buttons are options_for's (%s) and the head's are none, dressing is refused in words and nothing-to-do is absent; the button pushes treat.begin and starts the channel, stop cancels it, a header press pushes nothing; a bandage makes it dressable; every word is digit-free; Escape puts the part down first" % ", ".join(CarePane.verbs_of(words)))
 	viewport.queue_free()
 	return ok
+
+
+# --- STOCKPILE ---------------------------------------------------------------------------------
+#
+# Slice S4: the loot window fed the stockpile. On a shipped district, a 3x3 pile marked outdoors
+# with a wall dropped on its centre, the player on its west middle tile with the window open:
+#   - the window is up, called "the stockpile", and lists the tins in view and not the one behind the
+#     wall on the same patch (the negative), nor one just off the zone;
+#   - a ctrl-click on a tin in the window takes it into the pockets and off the ground;
+#   - a drag from the pockets onto the stockpile grid puts it back on a tile of the patch;
+#   - one tile off the zone the window is gone (the negative);
+#   - a cupboard opened in reach takes the window: the stockpile shuts, the box is what is drawn.
+# And the reader half: main.gd feeds the window the stockpile after a cupboard, and the Escape that
+# shuts the cupboard's window shuts the stockpile's.
+func _the_stockpile_is_the_window_where_you_stand() -> bool:
+	var w: Variant = SimBoot.playable(STORES_SEED, 64)["world"]
+	var bytes: PackedByteArray = PackedByteArray()
+	bytes.resize(int((w.tilemap.w * w.tilemap.h + 7) / 8))
+	bytes.fill(255)
+	w.components.set_component(w.player, "explored", {"w": int(w.tilemap.w), "h": int(w.tilemap.h), "bits": Marshalls.raw_to_base64(bytes)})
+	w.step()
+	var block: Vector2i = _open_block(w)
+	if block.x < 0:
+		push_error("STOCKPILE: no 3x3 of markable ground with open ground west of it on this map")
+		return false
+	w.commands.push({"type": SimStockpile.COMMAND, "x0": block.x, "y0": block.y, "x1": block.x + 2, "y1": block.y + 2, "on": true})
+	w.step()
+	var wall := Vector2i(block.x + 1, block.y + 1)
+	w.tilemap.tiles[wall.y * int(w.tilemap.w) + wall.x] = SimTileMap.Tile.Wall
+	w.map_generation = int(w.map_generation) + 1
+	var actor: int = w.player
+	_stand_on(w, Vector2i(block.x, block.y + 1))
+	var tin: int = _lay(w, Vector2i(block.x, block.y + 1))
+	var other: int = _lay(w, Vector2i(block.x + 1, block.y))
+	var hidden: int = _lay(w, Vector2i(block.x + 2, block.y + 1))
+	var outside: int = _lay(w, Vector2i(block.x - 1, block.y + 1))
+	# The player's sight lands whole a tick after a move (STAGGER_PLAYER_CAST), so one tick to see.
+	w.step()
+	w.commands.push({"type": SimStockpile.OPEN_COMMAND})
+	w.step()
+
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(1920, 1080)
+	root.add_child(viewport)
+	var panel: Control = (load(PANEL_GD) as GDScript).new() as Control
+	viewport.add_child(panel)
+	await process_frame
+	var feed: Callable = func() -> void:
+		panel.call("set_world", w, actor)
+		var cap: Vector2i = panel.call("loot_capacity")
+		var box_view: Dictionary = SimContainers.open_view(w, actor)
+		panel.call("set_loot", box_view if not box_view.is_empty() else SimStockpile.stores_view(w, actor, cap.x, cap.y))
+		panel.set("_loot_placed", panel.call("_loot_places"))
+	panel.call("set_open", false)
+	feed.call()
+	var ok: bool = true
+	var shown: Dictionary = panel.get("_loot") as Dictionary
+	var listed: Array[int] = []
+	for entry in shown.get("items", []) as Array:
+		listed.append(int((entry as Dictionary).get("item", -1)))
+	if not bool(panel.call("loot_open")) or String(shown.get("label", "")) != "the stockpile":
+		push_error("STOCKPILE: standing in the open stockpile showed no window called the stockpile: %s" % str(shown.get("label", "")))
+		ok = false
+	elif not listed.has(tin) or not listed.has(other):
+		push_error("STOCKPILE: the window does not list the tins in view: %s " % str(listed))
+		ok = false
+	elif listed.has(hidden) or listed.has(outside):
+		push_error("STOCKPILE: the window lists the tin behind the wall or the one off the zone: %s" % str(listed))
+		ok = false
+	# Ctrl-click the tin in the window: it is taken, into the pockets, off the ground.
+	if ok:
+		var at_tin: Variant = _window_point(panel, tin, 0)
+		if at_tin == null:
+			push_error("STOCKPILE: the tin has no plate in the window")
+			ok = false
+		else:
+			_window_click(panel, at_tin as Vector2, true, true)
+			_window_click(panel, at_tin as Vector2, false, true)
+			w.step()
+			if w.components.has_component(tin, "position") or not SimInventory.owns(w, actor, tin):
+				push_error("STOCKPILE: a ctrl-click on the tin in the window did not take it into the pockets")
+				ok = false
+	# Drag it from the pockets onto the stockpile grid: it goes back down on a tile of the patch.
+	if ok:
+		feed.call()
+		var from: Variant = _window_point(panel, tin, 1)
+		var places: Array = panel.call("_loot_places")
+		var grid_at: Vector2 = (load("res://ui/bag_grid.gd") as GDScript).call("origin_of", (places[0] as Dictionary)["at"] as Vector2) + Vector2(30.0, 30.0)
+		if from == null:
+			push_error("STOCKPILE: the taken tin has no plate in the pockets")
+			ok = false
+		else:
+			_window_click(panel, from as Vector2, true, false)
+			_window_click(panel, grid_at, false, false)
+			w.step()
+			var p: Variant = w.components.get_component(tin, "position")
+			if not (p is Dictionary) or w.components.has_component(tin, "stored"):
+				push_error("STOCKPILE: a drag from the pockets onto the stockpile grid did not put the tin down")
+				ok = false
+			elif not SimStockpile.has_tile(w, floori(float((p as Dictionary)["x"])), floori(float((p as Dictionary)["y"]))):
+				push_error("STOCKPILE: the put tin lies off the zone at %s" % str(p))
+				ok = false
+	# A cupboard opened in reach takes the window.
+	if ok:
+		var at: Dictionary = w.components.get_component(actor, "position") as Dictionary
+		var box: int = SimContainers.make_container(w, float(at["x"]), float(at["y"]) + 0.6, "cupboard", "residential")
+		w.commands.push({"type": "container.open", "container": box})
+		w.step()
+		feed.call()
+		if SimStockpile.is_open(w, actor) or String((panel.get("_loot") as Dictionary).get("label", "")) != "cupboard":
+			push_error("STOCKPILE: a cupboard opened in the stockpile did not take the window: %s" % str((panel.get("_loot") as Dictionary).get("label", "")))
+			ok = false
+		w.commands.push({"type": "container.close"})
+		w.step()
+		w.entities.despawn(box)
+	# One tile off the zone, with the window opened first: it is gone.
+	if ok:
+		w.commands.push({"type": SimStockpile.OPEN_COMMAND})
+		w.step()
+		feed.call()
+		if not bool(panel.call("loot_open")):
+			push_error("STOCKPILE: the window did not come back up when opened again")
+			ok = false
+		_stand_on(w, Vector2i(block.x - 1, block.y + 1))
+		w.step()
+		feed.call()
+		if bool(panel.call("loot_open")):
+			push_error("STOCKPILE: one tile off the zone the stockpile window is still up")
+			ok = false
+	# The reader half, textually: main.gd feeds the stockpile to the window after a cupboard, and the
+	# key router's Escape shuts it.
+	if ok:
+		var main_src: String = FileAccess.get_file_as_string("res://presentation/main.gd")
+		var keys_src: String = FileAccess.get_file_as_string("res://presentation/input_map.gd")
+		if main_src.find("SimStockpile.stores_view") < 0 or main_src.find("_stores_for_window()") < 0:
+			push_error("STOCKPILE: main.gd never feeds the window the stockpile")
+			ok = false
+		elif keys_src.find("stockpile.close") < 0:
+			push_error("STOCKPILE: nothing in the key router shuts the stockpile window")
+			ok = false
+	viewport.queue_free()
+	if ok:
+		print("STOCKPILE OK standing in the stockpile the window is called the stockpile and lists what is in view, a ctrl-click takes a tin and a drag puts it back, a cupboard takes the window and a step off the zone shuts it")
+	return ok
+
+
+const STORES_SEED: int = 20260805
+
+
+# The first 3x3 of markable ground with markable ground west of its middle row, or (-1, -1).
+func _open_block(w: Variant) -> Vector2i:
+	for ty in range(1, int(w.tilemap.h) - 3):
+		for tx in range(1, int(w.tilemap.w) - 3):
+			var fine: bool = SimStockpile.markable(w, tx - 1, ty + 1) and not SimStockpile.has_tile(w, tx - 1, ty + 1)
+			for j in 3:
+				for i in 3:
+					if not SimStockpile.markable(w, tx + i, ty + j) or SimStockpile.has_tile(w, tx + i, ty + j):
+						fine = false
+			if fine:
+				return Vector2i(tx, ty)
+	return Vector2i(-1, -1)
+
+
+func _stand_on(w: Variant, t: Vector2i) -> void:
+	w.components.set_component(w.player, "position", {"x": float(t.x) + 0.5, "y": float(t.y) + 0.5})
+
+
+func _lay(w: Variant, t: Vector2i) -> int:
+	var item: int = SimItems.spawn_item(w, "item.food.canned", {"tier": "scavenged"})
+	w.components.set_component(item, "position", {"x": float(t.x) + 0.5, "y": float(t.y) + 0.5})
+	return item
+
+
+# The middle of `item`'s plate in the window's own frame: grid 0 is the stockpile, grid 1 the pockets.
+func _window_point(panel: Control, item: int, grid: int) -> Variant:
+	var bag: GDScript = load("res://ui/bag_grid.gd") as GDScript
+	var placed: Dictionary = (panel.call("_loot_places") as Array)[grid] as Dictionary
+	for entry in ((placed["column"] as Dictionary).get("items", []) as Array):
+		if int((entry as Dictionary).get("item", -1)) == item:
+			var origin: Vector2 = bag.call("origin_of", placed["at"] as Vector2)
+			return (bag.call("plate_rect", origin, entry) as Rect2).get_center()
+	return null
+
+
+func _window_click(panel: Control, at: Vector2, pressed: bool, ctrl: bool) -> void:
+	var mb := InputEventMouseButton.new()
+	mb.button_index = MOUSE_BUTTON_LEFT
+	mb.pressed = pressed
+	mb.ctrl_pressed = ctrl
+	mb.position = at
+	panel.call("_loot_input", mb)

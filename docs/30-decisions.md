@@ -5989,6 +5989,21 @@ taken without the owner, all presentation:
   something in the pack that fits wears an amber dog-ear. Both are the read model's answers
   (`required`, an offer for the slot), never a guess on the screen.
 
+## Haul's walk runs on the nearest item, 2026-10-24
+
+The tick's P0 slice (docs/22, "P0, the colony sample"). Calls taken without the owner, all sim-side
+and behaviour-preserving:
+
+- **The zombie walk is deferred, not removed.** `_haul_work` still asks `_danger_at` of every
+  candidate it would pick, and of nothing it would not; it asks it of the nearest one first, and
+  of the rest in distance order only when that one has a zombie near it. Same answer, pinned by
+  `godot:m2:tick`'s ORDER lane and a serialize hash equal to main's.
+- **Dress and Repair were left alone.** Dress asks `_is_better_armor` of every ground item and may
+  erase a stale claim as it goes, so its order is part of what it decides; cutting it needs a
+  memo, which is a behaviour question for the coordinator, not a loop cut. Repair's double scan of
+  the stockpile happens only when a worn item sits on the pile, which starts a job rather than
+  recurring each tick, so it was left alone too.
+
 ## Menus and the E prompt speak one grammar, 2026-10-24
 
 The action bar's E clause names what E does, in the words the right-click menu uses for the same
@@ -6050,6 +6065,229 @@ without the owner:
 
 **How to apply:** a change to how a beam is drawn changes `lights_tile` or the shader's wedge, never
 a second presentation answer. Gated by `godot:check:light` BEAM and `godot:m2:torch` CONE and READS.
+
+## Stockpiles are in scope, 2026-10-24
+
+JT's 2026-10-23 answer to the alpha plan's Q1 moved orders, blueprints, stockpiles and crafting into
+scope, and the 2026-10-19 "parked until after the alpha" line no longer holds for stockpiles. JT's
+2026-10-24 "yes" started the stockpile and hauling feature, and this is its first slice (S1, the zone
+as tiles in the sim). Calls taken without the owner:
+
+- **The zone is a record on the player, made at the first mark.** `stockpile: {"tiles": {"tx,ty":
+  true}}`, keyed by the String `"tx,ty"`. Until anybody marks anything there is no record, and the zone
+  is the annex's indoor floor, so an unchanged colony and every save from before this slice read as
+  they always did. No `SAVE_VERSION` bump, the `was` and `night_eyes` precedent. The record sits on the
+  player rather than a new entity, so no entity id after it moves.
+- **Marking is explored-only, indoors or out.** A tile the player has never seen cannot be marked.
+  Indoors and out are both allowed: the card default, which keeps the camp's ground open to a pile
+  if the player wants one there.
+- **Only open floor can be marked.** A wall, deep or ford water, a door, a low tile, a tree or a
+  scrap barricade is refused. The plan named the first four; the rule is floor only, and it is
+  stricter than the plan.
+- **A tile walled over leaves the zone and comes back when opened.** A zone is a choice about ground,
+  and a barricade on it is not a stockpile tile while it stands.
+- **Caps are 400 tiles.** The zone holds at most 400 tiles, and one `on` rectangle covers at most 400
+  tiles. Both refuse whole, so a drag too large is a no-op and the screen may split it. An `off`
+  scans the zone, not the rectangle, so clearing a large area is always safe.
+- **Beds stay on the annex floor.** `_free_indoor` asks `is_annex_floor`, so moving the stockpile
+  never moves where a bed goes.
+
+## Hauled items spread over the stockpile, 2026-10-24
+
+The stockpile plan's S3 slice (`claude/project-thread-spo`). Until now every hauled item and every
+cooked meal went down on the first free annex tile in row-major order, so a colony's whole pantry
+stacked on one tile. JT's 2026-10-24 "yes" covered the plan, and its card defaults are built here.
+
+- **The drop point is the emptiest free tile of the nearest patch.** A patch is a group of zone
+  tiles that touch edge to edge. The nearest patch with a free tile takes the item, and inside it the
+  tile with the fewest items wins, ties to the nearest to where the carrier stands, then row-major.
+  Six items dropped one after another land on six tiles. Nothing is refused for room: a full pile
+  keeps taking items, evenly, the way a hauler would stack them.
+- **A pile marked beside a camp is the camp's stash.** A camp has no indoor floor, so the default zone
+  stays the annex and a camp never stocks anything by itself. A pile the player marks beside a camp is
+  its own patch, and a colonist standing near the camp stocks it. The drop reads positions, not camps.
+- **The drop point is chosen once per haul and kept on the job.** A carrier re-choosing each tick
+  from wherever they stood would turn back and forth at the line between two patches. The point is
+  recorded as `dropX` and `dropY` on the job and is chosen again only when it stops being a free zone
+  tile (walled over, or a bed or fire put on it). An old save's job has no keys and chooses on its
+  next carry, so there is no version bump.
+- **A meal lands nearest the fire it was cooked at,** not the cook's feet. The fire is where the food
+  was made, and a cook may be standing somewhere else when the job completes.
+- **The raider looter reads the zone.** `_is_stores` and `_loot_goal` ask `is_stockpile_tile` and
+  the zone's tiles, so a marked outdoor pile is looted the way the annex is. The `SimHome.rect` test
+  is gone from both.
+- **The day half of the colony moves.** Spreading puts the drops where the carriers walk, so a day's
+  walks inside the annex change. This is the plan's stated cost, not tuned here. It surfaced the
+  documented doorway deadlock (docs/23, "Two walkers hold each other in a one-tile doorway") on
+  `godot:m2:jobs`'s guard lane, which passes on main. The lane was not loosened. Main's watch fix
+  (the entry below, #210) cleared it: Guard's arrival bound, not a walk yield, was the cause.
+
+## A watch stands on its post, 2026-10-24
+
+- **A watch stands on its post, and a walker does not yield to another (2026-10-24).** The known
+  issue filed as "two walkers hold each other in a one-tile doorway" was a stop rule. Bodies never
+  block each other in this sim: `_integrate_movement` tests walls only, and a body removed from the
+  gateway leaves another's trajectory identical. So the yield the issue asked for would not have
+  changed the failing lane. What did change it is that Guard arrived at the walk's `REACH` (1.5 m)
+  from the post, so a watch from the west stopped at (29.05, 30.5). The fix gives Guard its own
+  arrival bound, `SimJobs.GUARD_REACH` (1.0 m), and nothing else moves: every other job still
+  arrives at `REACH`, and `SimJobs._walk` is unchanged. The STAND lane in `godot:m2:jobs` is the
+  true positive (red on the old bound, from the west), and it asserts the stop is within
+  `GUARD_REACH` plus 2 art px (1/16 m, one tile being 32 px). The GUARD lane keeps its gateway measure
+  and is not loosened. A bound of 0.5 or 0.75 m was tried first and flips the FAST balance wipe on
+  seed 20260805 red; 1.0 keeps the band. That is a bound picked for the balance gate, so the
+  record says so.
+
+## Marking the stockpile on screen, 2026-10-24
+
+Slice S2 of the stockpile and hauling plan: Z picks up a brush, a left drag marks a rectangle of
+stockpile, a right drag clears one, and the zone shows on the ground. JT approved the feature and
+the card defaults are built (drag tiles, not crates; any explored ground, indoors or out). Calls
+taken without the owner:
+
+- **The brush is a focus, not a flag.** `mark` sits in `input_map.gd`'s `FOCUSES` just before
+  `street`, because the mouse means something else under it (the left button paints instead of
+  attacking, the right one clears instead of opening the menu) and the focus table is where "what
+  fires here" is written. Under it: walking, the stance ladder, the sprint latch, pause, the two
+  speed keys, F1, Z and Escape. No swing, shot, E, camp or screen. Picking it up does not stop a
+  walk, and a refused key under it does not either.
+- **Ctrl+Z stays the prone rung.** Z is its own `BINDINGS` row with `ctrl: false`, and the match arm
+  checks the modifier, the camp key's C and Ctrl+C precedent.
+- **Escape puts the brush down, and a second Escape is the menu.** Escape speaks to the thing in
+  front, as everywhere else.
+- **The bar names the keys as keycaps.** The plan's sentence ended "Z to finish"; the bar draws every
+  key it names as a cap, so the line is "Marking the stockpile: drag to mark, right-drag to clear"
+  then a Z cap, an Esc cap and "put the brush down" (both keys do; art QA asked for Esc to be named,
+  so a lead clause may now name two keys as "Z / Esc — ..."). A drag the sim would refuse whole
+  (past the tile cap) says "Too much ground for the stockpile: let go and nothing changes" and
+  previews nothing. No digit either way.
+- **The preview is the sim's answer.** `SimStockpile.preview` returns the tiles a mark would add or
+  take back, or that it would be refused; `mark` now applies exactly that answer, so what the drag
+  draws is what the release changes. A mark that changes nothing no longer writes a zone record.
+- **The roof wins.** An indoor zone tile under a roof shows the roof, with the brush up or down. The
+  plan drew the zone on every explored tile; a wash over shingles read as paint on the roof, so
+  indoor ground is marked from indoors, where the roof is off. The preview follows the same rule.
+- **Under the props, over the baked floor.** The wash is drawn after the ground and the marks on it
+  and before the props and bodies, so a bed or a crate stands on the stockpile. It does lie over the
+  baked flat furnishings (the DECOR layer), because a per-frame pass cannot go under a bake; at rest
+  the wash is light enough that a table under it still reads.
+- **Masking tape, in strips.** The rim is the Salvage Locker's tape with its shadow one art pixel
+  inside, on outer sides only, laid six art pixels on and two off from each tile's corner. A solid
+  line along a wall read as a skirting board. The drag's preview is one solid strip, amber to mark
+  and a lighter rust to clear, so a patch not made yet never looks laid.
+- **The rim is held to 3:1, the line for a graphic rather than text.** On every ground the district
+  has, live, at rest and marking, and both preview colours. The pale tape alone is under 3:1 on
+  dirt and the sidewalk, so the shadow carries it there. A remembered tile's rim is pulled through
+  `Palette.remembered` with the ground under it and is not held to 3:1: the remembered map is dim on
+  purpose.
+- **The pointer is the arrow under the brush.** A crosshair over a zombie would offer an attack the
+  brush does not make.
+- **A mark let go while paused shows as pending.** The sim takes a command on its next tick, and a
+  paused world has none, so a drag released under P drew nothing until play resumed. main.gd keeps
+  each released mark with the tick it was pushed on and draws it in the preview's look until the
+  tick moves. It is pending, not laid: the zone itself does not change until the sim says so.
+- **The overlay is drawn from a kept batch.** Painting the 320-tile default zone fresh every frame,
+  one rect per piece of tape, cost about 8 ms a frame on the bench box. The zone is read again only
+  when `SimStockpile.signature` moves; what it paints is batched into row-run fills and one
+  `draw_multiline` per colour, in tile-grid coordinates offset to the screen as they are drawn; and
+  the batch is rebuilt only when a zone tile's state (explored, seen, roofed), the brush or the zoom
+  changes. The drag's preview and the pending marks are small and drawn fresh.
+
+- **The cap is 1000 tiles, up from S1's 400.** The default zone (the annex floor) is 320 tiles, so
+  400 left about 80 to mark anywhere else, which is not "any explored ground". The coordinator's
+  tuning call, taken here. The cap bounds the zone query the Haul drop asks every tick a hauler walks
+  with an item (`SimStockpile.tiles`), which cost 2.1 to 3.4 ms at 320 tiles and would have been
+  about 9 ms at 1000; the query is rewritten to parse each key once and sort natively, and now costs
+  0.67 ms at 320 and 2.1 ms at 1000 on the bench box, under what 400 cost before. A drag's preview
+  over a full 1000-tile rectangle costs about 5 ms to answer, so the screen asks it once per change of
+  the rectangle, not per frame.
+- **The wash is stronger at night.** The night pass darkens the wash with the ground, and at the day
+  alphas the zone all but vanished on the board floor by firelight (art QA). The wash leans from its
+  day alphas (0.16 at rest, 0.26 marking) to night ones (0.34, 0.55) as the ambient falls, and the
+  STOCKPILE lane holds it, by firelight on every ground, at least as plain as the day wash at noon.
+  The rim is left as it is: its 3:1 is judged on the unlit ground, as every ground graphic's is, and
+  under the night pass it falls with the ground's own detail (about 1.9 to 2.5:1 by firelight in the
+  lane's model). Drawing it over the night would make it glow.
+
+**How to apply:** what the brush may change is `SimStockpile.preview`'s answer, never a second one on
+screen; how it looks is `presentation/stockpile_look.gd`. Gated by `godot:check:play` MARK,
+`godot:check:memory` STOCKPILE, `godot:check:hud` ACTION, `godot:m2:stockpile` PREVIEW and
+`godot:check:shots` (`stockpile_mark`, `stockpile_rest`, `stockpile_night`).
+
+## The stockpile on the Colony screen, 2026-10-24
+
+Slice S5 of the stockpile plan. JT's card 4 default stands: the Colony screen reads the stockpile as
+a word per group and up to three names, never a count. Calls taken without the owner:
+
+- **The colony knows its own stockpile.** The summary reads what lies on the stockpile's tiles now,
+  not what anybody saw there. A colony keeping its own stores is what a colony manager knows, the
+  same footing as the "now" line's job words; it says nothing about where anything is, and nothing
+  outside the stockpile (a loose tin in the yard, what a colonist carries) is counted. The feature
+  review checks this against the scarce-information rule.
+- **The water group reads "drink".** The plan named it water, but sodas, beer and coffee fall in it
+  by the content's own `drink` block, and "water: a few, Can of Beer" would read wrong. Purification
+  tablets go with it, as what makes water drinkable.
+- **Groups come off fields the content already carries.** First match wins: a `food` block, a
+  `drink` block or `purifies`, a care field the treatment code reads, an `ammo` block, a weapon
+  class, armour or a container you wear, then tools, materials, attachments and other containers,
+  then other. No content key was added.
+- **The block takes the drawer's place.** Measured at 1280x720, a ninth block under the drawer costs
+  the roster rows it needs. With nobody picked the drawer shows the stockpile; with somebody picked
+  a "the stockpile" button shows it in their drawer, with "back to" their name. The drawer keeps one
+  height for both, so pressing the button never moves the grid.
+- **A name that does not fit is passed over, not cut.** Names stand most numerous first, and one
+  too long for what is left of its column is skipped so a shorter one after it may still stand; a
+  stocked group never reads as a word with no name, because the first is cut, marked, when none
+  fits whole.
+- **The read model lives beside `work_read.gd`, not in the stockpile module.** Two other slices
+  were editing `stockpile.gd` at the same time; a read model that asks `SimNeeds.stockpile_items`
+  follows the zone just as well.
+
+**How to apply:** a change to what the Colony screen says about the stores changes
+`StockpileRead.summary`, never the panel. Gated by `godot:check:play` STOCKPILE and
+`godot:m2:stockpile` SUMMARY.
+
+## Taking from the stockpile, 2026-10-24
+
+Slice S4 of the stockpile plan: the loot window fed the stockpile, with take and put away. The
+owner's cards were built at their defaults (the window lists the patch you can see; words, not
+counts). The calls below are engineering calls taken in the slice.
+
+- **E opens the stockpile where it used to pick up a stockpiled item.** Standing in the zone, when
+  the loose item E would pick up lies on the zone and no cupboard is in reach, E opens the window
+  (`SimStockpile.e_opens`, the rung before the pick-up in `SimFortify._use_context`). An item off
+  the zone is still picked up, and a door, a bed or a fire beside an empty pile keeps E, so the rest
+  of the ladder is unchanged. An empty patch opens on E as the last rung, so there is a window to
+  put things away into. The words are "go through the stockpile" on the bar and first in the menu
+  (`SimContext.reach_words`, `verbs_at`), the way a cupboard is "open the cupboard".
+- **The window lists what the player sees from where they stand, not what they face.** The test is
+  walls and range (`SimVisibility.line_of_sight`), or a lit spot past the dark's reach
+  (`detail`). It is not the facing arc: the body faces the pointer, and the pointer is on the
+  window, so an arc would change the list as the mouse crossed it. An item behind a wall or out of
+  the night's reach on the same patch is not listed and cannot be taken.
+- **Nearest first, and the window says when the pile holds more.** The sim lays the nearest items
+  into the cells the screen gives it (`stores_view`), biggest first so a pack is not shut out by
+  tins, and the grid's header reads "and more besides" when something seen did not fit. Walking
+  across the pile shows the rest; "take all that fits" takes from the whole list.
+- **A put lands in view.** `stockpile.put` uses S3's rule (`drop_tile`: the emptiest tile, then the
+  nearest) over the tiles of the player's patch the player can see. On the emptiest tile of a big
+  pile, out of sight, the thing put away would drop off the list the moment it was put.
+- **The window is a sim state.** `stockpileOpen` on the player, set by E, the menu or
+  `stockpile.open`, taken off by `stockpile.close` (Escape), by stepping off the zone, or by opening
+  a cupboard. A cupboard opened in the stockpile takes the window. A save from before the slice has
+  no such component and loads with the window shut; there is no version bump.
+- **The window never drops over the action bar.** `set_loot` puts a box too tall to clear the bar
+  over it, which at 1280x720 cut the bar's sentence in half under the window. The stockpile's grid is
+  sized to clear it instead: eight by three at 1280x720, ten by six at 1920x1080. A pack, four cells
+  tall, does not fit the 720 grid; the header says "and more besides" and the sheet's column (Tab,
+  seven by six) holds it.
+- **A take drops the item's claim.** A cook's claim on a raw (`reserved`) goes with the item when
+  the player takes it, so the cook's job cannot finish on a tin in the player's pocket.
+
+**How to apply:** what the window may take or put is the sim's answer (`SimStockpile.take`,
+`put`, `in_sight`), never the panel's. Gated by `godot:m2:stockpile` TAKE, `godot:check:inventory`
+STOCKPILE, `godot:check:context` BAR and `godot:check:shots` (`stockpile_window`).
+
 ## The overcast day, as a grade, 2026-10-24
 
 The three-features plan's B5, paying for the day half of "Overcast or torchlight" (2026-09-08):
@@ -6096,10 +6334,19 @@ taken without the owner, clause by clause against what the 2026-09-03 warm grade
   over the pavement before any grade. It now draws `Chrome.TEXT_DIM` lifted 40% toward
   `Chrome.TEXT` (`main.gd`'s `bubble_ink`), 4.89:1 over the worst ground and still quieter than
   speech. The kit's own `TEXT_DIM` is unchanged everywhere else.
+- **The stockpile's rims are held under the grade.** The stockpile (S2) landed before the grade
+  and its rims were measured in their source colours. Under the noon grade the rest rim on dirt
+  fell to 2.83:1 and both drag-preview rims fell under 3:1 on the indoor floor. The rims change,
+  not the bar: the tape's shadow is drawn at the tape's own alpha (`STOCKPILE_SHADOW_SHARE` 0.9 to
+  1.0), the mark preview's rim is its own lighter amber (`STOCKPILE_ADD_RIM` #e6b158, the fill
+  stays the kit's ACCENT), and the clear rim is lighter (`STOCKPILE_CLEAR_RIM` #f09070 to #f2a185),
+  each 15% toward white. `godot:check:memory`'s STOCKPILE lane now holds every rim at 3:1 in the
+  graded picture too, and refuses a graded measure that lowers no rim.
 
 **How to apply:** a word drawn into the world goes through `_world_text_ops` and
 `_paint_world_text`, never a `draw_string` of main's own (`godot:check:grade`'s WORDS lane counts
 them). A tune of the grade changes `day_grade.gd`'s six constants, re-measures
 `check_grade_look.gd`'s DAY_TABLE and re-shoots `day_street`, `interior` and `dusk_street` in the
-same commit. A palette change does not touch the grade, and the grade never touches a palette
-lane. Nothing draws over the grade except the world's words, the night, the glow and the HUD.
+same commit, and re-runs `godot:check:memory`, whose STOCKPILE lane measures the rims through
+`DayGrade.grade`. A palette change does not touch the grade, and the grade touches no palette
+lane but that one. Nothing draws over the grade except the world's words, the night, the glow and the HUD.

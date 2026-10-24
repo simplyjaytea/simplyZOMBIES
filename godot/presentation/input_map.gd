@@ -100,6 +100,9 @@ const BINDINGS: Dictionary = {
 	"treat": {"keys": [KEY_T], "ctrl": false, "legend": ["T"]},
 	"camp": {"keys": [KEY_C], "ctrl": false, "legend": ["C"]},
 	"draft": {"keys": [KEY_X], "ctrl": false, "legend": ["X"]},
+	# Marking the stockpile: Z in and Z out. `ctrl: false` is what keeps it apart from Ctrl+Z,
+	# the prone rung below -- the camp key's C and Ctrl+C precedent, one row each.
+	"stockpile": {"keys": [KEY_Z], "ctrl": false, "legend": ["Z"]},
 	"slower": {"keys": [KEY_MINUS, KEY_KP_SUBTRACT], "ctrl": false, "legend": ["-"]},
 	"faster": {"keys": [KEY_EQUAL, KEY_KP_ADD], "ctrl": false, "legend": ["="]},
 	"strip": {"keys": [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6], "ctrl": false, "legend": ["1 … 6"]},
@@ -115,7 +118,13 @@ const BINDINGS: Dictionary = {
 # the run-over screen -- is at the front because it sits in front of everything else on screen,
 # so it takes the keys first: the slot this list reserved for it in a comment until the shell
 # landed (docs/30, "The alpha shell, 2026-09-16").
-const FOCUSES: Array[String] = ["shell", "legend", "settings", "web", "bench", "sheet", "work", "street"]
+#
+# `mark` is the street with the stockpile brush in hand (slice S2 of the stockpile plan): the same
+# ground under the same camera, so it sits last before `street`, behind every screen that covers the
+# street. It is a focus rather than a flag the street reads because the mouse means something else
+# under it -- the left button paints instead of attacking and the right one clears instead of opening
+# the menu -- and the focus table is where "what fires here" is written down.
+const FOCUSES: Array[String] = ["shell", "legend", "settings", "web", "bench", "sheet", "work", "mark", "street"]
 
 # What still fires under each screen. `street` is deliberately absent: it is the one focus with
 # no gate at all, and an empty row here would read as "nothing fires" rather than "everything
@@ -141,6 +150,11 @@ const ALLOWED: Dictionary = {
 	"bench": ["escape", "move", "dismiss"],
 	"sheet": ["inventory", "escape", "reload", "strip", "sheets", "legend", "work", "web"],
 	"work": ["work", "escape", "inventory", "web"],
+	# Marking keeps the body under the player's feet -- walking, the stance ladder, the sprint latch --
+	# and the clock: pause and the two speed keys, because laying out a stockpile is something you do
+	# with the world stopped. Z and Escape put the brush down; F1 still shows the keys. Nothing that
+	# acts on the world fires: no swing, no shot, no E, no camp, no screen opening over the brush.
+	"mark": ["stockpile", "escape", "legend", "move", "sprint", "stance.prone", "stance.crouch", "stance.stand", "stance.jog", "pause", "slower", "faster"],
 }
 
 
@@ -166,7 +180,15 @@ func _focus() -> String:
 		return "sheet"
 	if bool(main.work_open):
 		return "work"
+	if bool(main.marking):
+		return "mark"
 	return "street"
+
+
+# The two focuses with the body on the street under them. Leaving the street for the brush does
+# not stop a walk; leaving either for a screen does.
+func _walkable(focus: String) -> bool:
+	return focus == "street" or focus == "mark"
 
 
 func _is_up(node: Variant) -> bool:
@@ -241,7 +263,10 @@ func _input(event: InputEvent) -> void:
 			main.queue_redraw()
 			return
 		if not _allows(focus, action):
-			_release_the_street()
+			# Under the brush the body keeps walking whatever was refused: a refused F is "not
+			# now", and the street the player is marking is still the street they stand on.
+			if focus != "mark":
+				_release_the_street()
 			return
 		# The shell answers its own keys and the game sees none of them. It returns here rather
 		# than falling through the match below, because every key it takes means something else
@@ -303,6 +328,9 @@ func _input(event: InputEvent) -> void:
 					main.call("_close_settings")
 				elif main.world != null and main._inventory_panel != null and main._inventory_panel.has_method("loot_open") and bool(main._inventory_panel.call("loot_open")):
 					main.world.commands.push({"type": "container.close"})
+					# The stockpile's window is the same window (slice S4); each close is a no-op
+					# when its own window is not the one up.
+					main.world.commands.push({"type": "stockpile.close"})
 				elif focus == "sheet" and main._inventory_panel != null and main._inventory_panel.has_method("escape") and bool(main._inventory_panel.call("escape")):
 					# The sheet's own top interaction first -- a lifted item, an open word menu, a
 					# selected body part -- and only that: one press, one thing put down.
@@ -311,6 +339,9 @@ func _input(event: InputEvent) -> void:
 					# A screen about people goes back to the street. Escape used to fall through to the
 					# settings sheet here, which put a second screen over the first instead of closing it.
 					main._show_screen("")
+				elif focus == "mark":
+					# The brush goes down and the street comes back; a second Escape is the menu.
+					main._set_marking(false)
 				elif focus == "street":
 					# Nothing open: the pause menu. Escape used to open the settings sheet from
 					# here, and settings is a row on that menu now (docs/30, "The alpha shell").
@@ -342,6 +373,12 @@ func _input(event: InputEvent) -> void:
 					main._inventory_panel.call("rotate")
 				elif main.world != null:
 					main.world.commands.push({"type": "reload"})
+			KEY_Z:
+				# The stockpile brush, in and out. `not ke.ctrl_pressed` for the same reason the
+				# camp arm below has it: a match arm sees only the keycode, so Ctrl+Z -- the prone
+				# rung, its own BINDINGS row -- reaches this arm too, and must not pick up the brush.
+				if not ke.ctrl_pressed:
+					main._set_marking(not bool(main.marking))
 			KEY_X:
 				# The draft: the colonist picked on the street stands where they are, or goes free.
 				# Street only, because `ALLOWED` names no other focus that takes it. The command is
@@ -419,7 +456,7 @@ func _input(event: InputEvent) -> void:
 		# And if that press is what took the focus off the street, the street lets go of whatever
 		# was held: the walk stops at the panel rather than continuing behind it. The edge, not
 		# the state -- see _release_the_street on why that distinction is the gate's.
-		if focus == "street" and _focus() != "street":
+		if _walkable(focus) and not _walkable(_focus()):
 			_release_the_street()
 		main.queue_redraw()
 	if event is InputEventKey and not event.pressed:
@@ -446,6 +483,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			CameraUtil.zoom_step(main.camera, -1)
 			main.queue_redraw()
+	# Under the brush the pointer is the brush and nothing else: no aim, no attack, no menu.
+	if _focus() == "mark":
+		_mark_input(event)
+		return
 	# Mouse motion proposes an aim bearing. The sim takes it standing still and at a walk, and
 	# snaps it back to the heading any faster (sim/aim.gd) -- it turns the weapon and the head,
 	# never steers the feet.
@@ -494,6 +535,49 @@ func _unhandled_input(event: InputEvent) -> void:
 				main.world.commands.push({"type": "fire"})
 			else:
 				main.world.commands.push({"type": "swing"})
+
+
+# The stockpile brush (slice S2). A press of either button starts a rectangle at the tile under the
+# pointer, motion stretches it, and the release of the same button pushes one `stockpile.mark` with
+# that rectangle -- the left button marks (`on: true`), the right one clears (`on: false`). A press
+# and release on one tile is a one-tile rectangle, so a click marks a tile. The other button pressed
+# mid-drag is ignored rather than starting a second rectangle under the first. What the rectangle
+# would change is the sim's answer (`SimStockpile.preview`), drawn by main.gd's `_draw_stockpile`;
+# this decides only which tiles were asked about.
+func _mark_input(event: InputEvent) -> void:
+	if not (event is InputEventMouse) or main.world == null:
+		return
+	var tile: Vector2i = _tile_at((event as InputEventMouse).position)
+	main._mark_hover = tile
+	var drag: Dictionary = main._mark_drag as Dictionary
+	if event is InputEventMouseButton:
+		var mb: InputEventMouseButton = event as InputEventMouseButton
+		if mb.button_index != MOUSE_BUTTON_LEFT and mb.button_index != MOUSE_BUTTON_RIGHT:
+			return
+		if mb.pressed and drag.is_empty():
+			main._mark_drag = {"from": tile, "to": tile, "button": int(mb.button_index)}
+		elif not mb.pressed and not drag.is_empty() and int(drag["button"]) == int(mb.button_index):
+			var from: Vector2i = drag["from"] as Vector2i
+			main._mark_drag = {}
+			var cmd: Dictionary = mark_command(from, tile, mb.button_index == MOUSE_BUTTON_LEFT)
+			main.world.commands.push(cmd)
+			# Until the sim takes it (the next tick; never, while paused) the frame draws it as pending.
+			main._mark_pending.append({"cmd": cmd, "tick": int(main.world.tick)})
+	elif event is InputEventMouseMotion and not drag.is_empty():
+		drag["to"] = tile
+	main.queue_redraw()
+
+
+## The command a drag from `from` to `to` pushes: the sim's own shape, an inclusive rectangle. One
+## place, so the preview main.gd draws asks the sim about the very rectangle the release will send.
+static func mark_command(from: Vector2i, to: Vector2i, on: bool) -> Dictionary:
+	return {"type": "stockpile.mark", "x0": from.x, "y0": from.y, "x1": to.x, "y1": to.y, "on": on}
+
+
+# The tile under a screen point.
+func _tile_at(screen_pos: Vector2) -> Vector2i:
+	var at: Dictionary = CameraUtil.screen_to_world(main.camera, screen_pos.x, screen_pos.y)
+	return Vector2i(floori(float(at["x"])), floori(float(at["y"])))
 
 
 # Closes the street context menu if it is open, and says whether it was -- callers use the answer
