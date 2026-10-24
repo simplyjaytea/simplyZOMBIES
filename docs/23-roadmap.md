@@ -2887,8 +2887,8 @@ not a to-do list:
   tile-centre staircase the first cut drew; and a carrier with no facing throws round, as the B2
   plan said and the light index did not. Where a beam crosses a round pool the brighter sets the
   level and the colour is the two tints weighed by brightness, so a torch over a campfire's ground
-  stays warm; a pixel only one light reaches keeps its tint exactly (the torch shots are
-  pixel-identical to before). New review scene `night_torch`: midnight on an open
+  stays warm, with no channel above what the brighter light gives alone; a pixel only one light
+  reaches keeps its tint exactly (the torch shots are pixel-identical to before). New review scene `night_torch`: midnight on an open
   street, a hand torch down the longest east-west run, a shambler 5 m into the beam and one 5 m
   behind in the dark.
 

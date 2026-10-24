@@ -635,7 +635,7 @@ func _dead_socket_main_gd_draws_what_light_look_returns() -> bool:
 			push_error("light_map.gd does not hand the shader %s" % needle)
 			return false
 	var shader_src: String = FileAccess.get_file_as_string("res://presentation/night_light.gdshader")
-	for needle in ["render_mode blend_mul", "float b = tint.w * rings(fall * mask, threshold);", "eye_floor * (1.0 - ambient) * eye_fade * rings(1.0 - smoothstep(disc_r * 0.45, disc_r, d_eye), threshold)", "texelFetch(light_tex", "light_dir[i]", "float mask = inside(own,", "if (light_count > 0 && own_r > 191)", "float hand = 1.0 - smoothstep(spill_m * 0.4, spill_m, d);", "float wedge = smoothstep(beam.z, beam.w, along);", "hue = best > 0.0 ? mix(hue, hue_beam, best_beam / (best + best_beam)) : hue_beam;"]:
+	for needle in ["render_mode blend_mul", "float b = tint.w * rings(fall * mask, threshold);", "eye_floor * (1.0 - ambient) * eye_fade * rings(1.0 - smoothstep(disc_r * 0.45, disc_r, d_eye), threshold)", "texelFetch(light_tex", "light_dir[i]", "float mask = inside(own,", "if (light_count > 0 && own_r > 191)", "float hand = 1.0 - smoothstep(spill_m * 0.4, spill_m, d);", "float wedge = smoothstep(beam.z, beam.w, along);", "hue = min(mix(hue, hue_beam, best_beam / (best + best_beam)), cap);"]:
 		if not shader_src.contains(needle):
 			push_error("night_light.gdshader lost %s" % needle)
 			return false
