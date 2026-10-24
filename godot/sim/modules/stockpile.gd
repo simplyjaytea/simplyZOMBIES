@@ -121,6 +121,29 @@ static func count(world: Variant) -> int:
 	return tiles(world).size()
 
 
+## Whether the zone has any tile at all right now -- the question "is there anywhere to haul to",
+## asked by the Haul search for every idle colonist every tick, so it stops at the first live tile:
+## the default zone answers at its first floor tile, a marked zone at its first open key. Only a
+## zone of nothing but walled-over tiles walks the whole record.
+static func has_any_tile(world: Variant) -> bool:
+	if world.tilemap == null:
+		return false
+	var rec: Variant = _record(world)
+	if rec == null:
+		var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
+		for j in range(annex.position.y, annex.position.y + annex.size.y):
+			for i in range(annex.position.x, annex.position.x + annex.size.x):
+				if has_tile(world, i, j):
+					return true
+		return false
+	var map: Variant = world.tilemap
+	for key in (rec as Dictionary)["tiles"].keys():
+		var t: Vector2i = _parse(String(key))
+		if not SimTileMap.is_solid(map, t.x, t.y):
+			return true
+	return false
+
+
 ## The zone's patches: groups of zone tiles that touch edge to edge, each row-major. A pile marked at
 ## a camp is its own patch however far it is from the annex. Patches come out in the row-major order
 ## of their first tile, so the list has one order whatever the record's keys were. Served from the
