@@ -31,6 +31,11 @@ const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimOrders = preload("res://sim/modules/orders.gd")
 const SimContext = preload("res://sim/context.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimRoster = preload("res://sim/modules/roster.gd")
+const SimHealth = preload("res://sim/modules/health.gd")
+const SimClock = preload("res://sim/time/clock.gd")
+const SimNpcCombat = preload("res://sim/modules/npc_combat.gd")
+const SimShambler = preload("res://sim/modules/shambler.gd")
 
 const SEED: int = 20260805
 const MAP: int = 64
@@ -55,9 +60,14 @@ func _run() -> void:
 	ok = _stand_down_ends_a_hold_and_refuses_when_there_is_none() and ok
 	ok = _an_order_drops_the_job_in_hand_at_once() and ok
 	ok = _the_words_and_the_menu_follow_the_order() and ok
+	ok = _draft_holds_a_colonist_where_they_stand_and_a_second_press_frees_them() and ok
+	ok = _an_attack_order_walks_to_its_target_and_strikes_it() and ok
+	ok = _the_ordered_target_is_picked_before_a_nearer_one() and ok
+	ok = _an_attack_order_refuses_what_is_unseen_colonist_or_dead() and ok
+	ok = _a_critically_injured_colonist_loses_the_attack_order() and ok
 	ok = _the_record_is_plain_values() and ok
 	if ok:
-		print("M2_ORDERS_OK go walks and ends, hold keeps off work against a free control, haul stocks the item, stand down refuses with none, an order drops the job in hand, the HUD and the menu follow the sim, and the record is plain values")
+		print("M2_ORDERS_OK go walks and ends, hold keeps off work against a free control, haul stocks the item, stand down refuses with none, an order drops the job in hand, the HUD and the menu follow the sim, the draft holds and frees a colonist, an attack walks to its target and strikes it, the order picks its target before a nearer one, and the record is plain values")
 		quit(0)
 	else:
 		push_error("M2_ORDERS_FAIL")
@@ -372,6 +382,232 @@ func _the_words_and_the_menu_follow_the_order() -> bool:
 	var ok: bool = silent and not without and offered and not_on_own_tile and go_words and stand_down and hold_words and dest_hold and dest_none
 	if not ok:
 		push_error("WORDS: silent %s without-select-hides %s offered %s own-tile-hides %s go %s (%s) stand-down %s hold %s (%s) destination %s none %s" % [silent, not without, offered, not_on_own_tile, go_words, go_line, stand_down, hold_words, hold_line, dest_hold, dest_none])
+	return ok
+
+
+func _draft_holds_a_colonist_where_they_stand_and_a_second_press_frees_them() -> bool:
+	# CONTROL first: an undrafted Mara with a loose item beside her takes the work. Without this the
+	# drafted lane below could pass on a street with nothing to refuse.
+	var free: Variant = _world()
+	var free_mara: int = _mara(free)
+	var loose_free: Vector2i = _reachable_away(free, _tile(free, free_mara), 3, SEARCH_RADIUS)
+	if loose_free.x < 0:
+		push_error("DRAFT: no loose tile near Mara to make work on")
+		return false
+	_loose_item_at(free, loose_free)
+	var control_works: bool = false
+	for _i in WATCH_TICKS:
+		free.step()
+		if free.components.get_component(free_mara, "job") is Dictionary:
+			control_works = true
+			break
+	if not control_works:
+		push_error("DRAFT: control found Mara take no work in %d ticks, so the drafted lane would prove nothing" % WATCH_TICKS)
+		return false
+
+	var w: Variant = _world()
+	var mara: int = _mara(w)
+	var start: Vector2i = _tile(w, mara)
+	_loose_item_at(w, _reachable_away(w, start, 3, SEARCH_RADIUS))
+	var draft: Dictionary = SimOrders.draft_command(w, mara)
+	var drafts: bool = String(draft.get("kind", "")) == "hold" and int(draft.get("entity", -1)) == mara and int(draft.get("tx", -1)) == start.x and int(draft.get("ty", -1)) == start.y
+	w.commands.push(draft)
+	w.step()
+	var held_order: Variant = _order(w, mara)
+	var held: bool = held_order is Dictionary and String((held_order as Dictionary)["kind"]) == "hold"
+	var worked: bool = false
+	var strayed: bool = false
+	for _i in 2400:
+		w.step()
+		if w.components.get_component(mara, "job") is Dictionary:
+			worked = true
+		if _dist(w, mara, start) > REACH:
+			strayed = true
+	# The same key again hands them back: a clear, the order gone, and work taken up at once.
+	var free_cmd: Dictionary = SimOrders.draft_command(w, mara)
+	var frees: bool = String(free_cmd.get("kind", "")) == "clear"
+	w.commands.push(free_cmd)
+	w.step()
+	var free_again: bool = not (_order(w, mara) is Dictionary)
+	var took_work: bool = false
+	for _i in WATCH_TICKS:
+		w.step()
+		if w.components.get_component(mara, "job") is Dictionary:
+			took_work = true
+			break
+
+	# Refusals: the player, and a colonist grabbed, a corpse or a recruit, get no command at all.
+	var refused_player: bool = SimOrders.draft_command(w, int(w.player)).is_empty()
+	var refused: bool = true
+	for c in ["grabbed", "corpse", "recruit"]:
+		w.components.set_component(mara, c, {})
+		refused = refused and SimOrders.draft_command(w, mara).is_empty()
+		w.components.remove_component(mara, c)
+	var ok: bool = control_works and drafts and held and not worked and not strayed and frees and free_again and took_work and refused_player and refused
+	if not ok:
+		push_error("DRAFT: control works %s; drafted %s held %s worked %s strayed %s; freed %s free again %s took work %s; refused player %s, grabbed/corpse/recruit %s" % [control_works, drafts, held, worked, strayed, frees, free_again, took_work, refused_player, refused])
+	return ok
+
+
+# --- attack lanes (plan A2) -----------------------------------------------------------------
+
+# A tile a route reaches from `from`, between `lo` and `hi` tiles away, that Mara can see right now.
+# Reachable is not seen: a route round a wall is walkable and still out of sight, so the order's
+# own "seen" test is what this lane has to meet.
+func _seen_away(w: Variant, mara: int, lo: int, hi: int) -> Vector2i:
+	var from: Vector2i = _tile(w, mara)
+	for d in range(lo, hi + 1):
+		for dy in range(-d, d + 1):
+			for dx in range(-d, d + 1):
+				if maxi(absi(dx), absi(dy)) != d:
+					continue
+				var t := Vector2i(from.x + dx, from.y + dy)
+				if not SimPath.walkable(w, t.x, t.y) or SimPath.find(w, from, t).is_empty():
+					continue
+				if int(w.vision.detail(mara, float(t.x) + 0.5, float(t.y) + 0.5)) > 0:
+					return t
+	return Vector2i(-1, -1)
+
+func _zombie(w: Variant, x: float, y: float) -> int:
+	return SimRoster.spawn_zombie(w, x, y, SimRoster.TYPE_SHAMBLER, w.rng.stream("shambler"))
+
+
+# Midday: a survivor's night sight is 1.9 m, so a zombie 8 m off is unseen at the boot's 3 a.m.
+func _noon(w: Variant) -> void:
+	w.tick = SimClock.tick_on_day(1, 0.5)
+
+
+func _wound_to(w: Variant, ent: int, part: String, state: int) -> void:
+	var body: Dictionary = w.components.get_component(ent, "body") as Dictionary
+	var maxv: Variant = SimHealth.max_of(body, part)
+	var top: float = float(int(maxv)) if maxv != null else 40.0
+	for step in range(int(top), -1, -1):
+		body[part] = float(step)
+		if int(SimHealth.part_state(body, part)) >= state:
+			return
+
+
+# Every attack.connected this step, as the attacker's and the target's ids, in the order they landed.
+func _landed_this_step(w: Variant) -> Array:
+	var out: Array = []
+	for e in w.events.drained:
+		var ev: Dictionary = e as Dictionary
+		if String(ev.get("type", "")) == "attack.connected":
+			out.append([int(ev.get("attacker", -1)), int(ev.get("target", -1))])
+	return out
+
+
+func _an_attack_order_walks_to_its_target_and_strikes_it() -> bool:
+	var w: Variant = _world()
+	var mara: int = _mara(w)
+	_noon(w)
+	w.step()
+	var spot: Vector2i = _seen_away(w, mara, 7, 9)
+	if spot.x < 0:
+		push_error("ATTACK: no tile 7 to 9 tiles from Mara that she can see and a route reaches")
+		return false
+	var zombie: int = _zombie(w, float(spot.x) + 0.5, float(spot.y) + 0.5)
+	w.step()
+	var accepted: bool = SimOrders.accepts(w, mara, {"kind": "attack", "target": zombie})
+	w.commands.push(_cmd(mara, {"kind": "attack", "target": zombie}))
+	w.step()
+	var issued: bool = _order(w, mara) is Dictionary
+	var struck: int = 0
+	var ticks: int = 0
+	while _order(w, mara) is Dictionary and ticks < WALK_TICKS:
+		w.step()
+		ticks += 1
+		for pair in _landed_this_step(w):
+			if int(pair[0]) == mara and int(pair[1]) == zombie:
+				struck += 1
+	var ok: bool = accepted and issued and struck >= 1
+	if not ok:
+		push_error("ATTACK: accepted %s issued %s struck the target %d times in %d ticks" % [accepted, issued, struck, ticks])
+	return ok
+
+
+func _the_ordered_target_is_picked_before_a_nearer_one() -> bool:
+	var w: Variant = _world()
+	var mara: int = _mara(w)
+	var at: Dictionary = w.components.get_component(mara, "position") as Dictionary
+	var mx: float = float(at["x"])
+	var my: float = float(at["y"])
+	_noon(w)
+	w.step()
+	var ordered: int = _zombie(w, mx + 0.7, my)
+	var nearer: int = _zombie(w, mx - 0.3, my)
+	# Staggered, so neither can grab Mara before the order lands: a grabbed colonist takes no order,
+	# and that refusal is not what this lane is about.
+	for z in [ordered, nearer]:
+		(w.components.get_component(z, "shambler") as Dictionary)["state"] = SimShambler.ShamblerState["Staggered"]
+	# Both inside knife reach, the ordered one a little further out. Free, Mara's pick is the nearer.
+	var free_pick: int = SimNpcCombat._nearest_threat(w, mara, 2.0)
+	var accepted: bool = SimOrders.accepts(w, mara, {"kind": "attack", "target": ordered})
+	w.commands.push(_cmd(mara, {"kind": "attack", "target": ordered}))
+	w.step()
+	# Under the order the pick is the ordered one; the swing's own arc is melee.gd's and not asserted here.
+	var ordered_pick: int = SimNpcCombat._nearest_threat(w, mara, 2.0)
+	var ok: bool = accepted and free_pick == nearer and ordered_pick == ordered
+	if not ok:
+		push_error("ATTACK-PICK: accepted %s; free pick %d (nearer %d); under the order %d (ordered %d)" % [accepted, free_pick, nearer, ordered_pick, ordered])
+	return ok
+
+
+func _an_attack_order_refuses_what_is_unseen_colonist_or_dead() -> bool:
+	var w: Variant = _world()
+	_noon(w)
+	var mara: int = _mara(w)
+	var ellis: int = _ellis(w)
+	var refused_colonist: bool = not SimOrders.accepts(w, mara, {"kind": "attack", "target": ellis})
+	var spot: Vector2i = _reachable_away(w, _tile(w, mara), 4, 6)
+	if spot.x < 0:
+		push_error("ATTACK: no reachable tile for the corpse test")
+		return false
+	var corpse: int = _zombie(w, float(spot.x) + 0.5, float(spot.y) + 0.5)
+	w.components.set_component(corpse, "corpse", {})
+	var refused_corpse: bool = not SimOrders.accepts(w, mara, {"kind": "attack", "target": corpse})
+	# Unseen: a standing zombie at least 10 tiles off that neither Mara nor the player can see now.
+	var hidden: Vector2i = Vector2i(-1, -1)
+	var here: Vector2i = _tile(w, mara)
+	for d in range(10, 30):
+		for dy in range(-d, d + 1):
+			for dx in [-d, d]:
+				var t := Vector2i(here.x + dx, here.y + dy)
+				if hidden.x < 0 and SimPath.walkable(w, t.x, t.y) and not SimPath.find(w, here, t).is_empty():
+					hidden = t
+	if hidden.x < 0:
+		push_error("ATTACK: no reachable tile for the unseen test")
+		return false
+	var far: int = _zombie(w, float(hidden.x) + 0.5, float(hidden.y) + 0.5)
+	w.step()
+	var unseen: bool = int(w.vision.detail(mara, float(hidden.x) + 0.5, float(hidden.y) + 0.5)) == 0 and int(w.vision.detail(int(w.player), float(hidden.x) + 0.5, float(hidden.y) + 0.5)) == 0
+	var refused_unseen: bool = not SimOrders.accepts(w, mara, {"kind": "attack", "target": far})
+	var ok: bool = refused_colonist and refused_corpse and (refused_unseen or not unseen)
+	if not ok or not unseen:
+		push_error("ATTACK: refused colonist %s corpse %s; unseen tile hidden %s refused %s" % [refused_colonist, refused_corpse, unseen, refused_unseen])
+	return ok and unseen
+
+
+func _a_critically_injured_colonist_loses_the_attack_order() -> bool:
+	var w: Variant = _world()
+	var mara: int = _mara(w)
+	_noon(w)
+	w.step()
+	var spot: Vector2i = _seen_away(w, mara, 3, 5)
+	if spot.x < 0:
+		push_error("ATTACK-BREAK: no tile 3 to 5 tiles from Mara that she can see")
+		return false
+	var zombie: int = _zombie(w, float(spot.x) + 0.5, float(spot.y) + 0.5)
+	w.step()
+	w.commands.push(_cmd(mara, {"kind": "attack", "target": zombie}))
+	w.step()
+	var held: bool = _order(w, mara) is Dictionary
+	_wound_to(w, mara, "arm_right", SimNpcCombat.BREAK_OFF_STATE)
+	w.step()
+	var lost: bool = not (_order(w, mara) is Dictionary)
+	var ok: bool = held and lost
+	if not ok:
+		push_error("ATTACK-BREAK: held %s, order gone after a critical wound %s" % [held, lost])
 	return ok
 
 

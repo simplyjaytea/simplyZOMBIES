@@ -300,6 +300,9 @@ switch (mode) {
   case "--m2-jobs":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_jobs.gd"];
     break;
+  case "--m2-walls":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_walls.gd"];
+    break;
   case "--m2-strangers":
     args = [
       "--headless",
@@ -422,6 +425,9 @@ switch (mode) {
     break;
   case "--m2-filter":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_filter.gd"];
+    break;
+  case "--m2-torch":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_torch.gd"];
     break;
   case "--m2-light-burn":
     args = [

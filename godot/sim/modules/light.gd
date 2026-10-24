@@ -23,6 +23,8 @@ const FUEL_KINDS: Array[String] = ["cell", "oil", "gas"]
 ## How near you must be to top up something standing in the yard. A floodlight is furniture and
 ## you have to walk to it.
 const FEED_REACH: float = 1.8
+# A beam's half-angle never exceeds a right angle: wider than that is a room, not a cone.
+const BEAM_CAP_RAD: float = PI / 2.0
 
 
 # The canonical content accessor, borrowed rather than copied. This module used to carry its own,
@@ -430,7 +432,19 @@ static func brightest_carried(world: Variant, entity: int) -> Dictionary:
 		if float(pick.get("magnitude", 0.0)) > best:
 			best = float(pick["magnitude"])
 			who = int(pick["item"])
-	return {"item": who, "magnitude": best}
+	return {"item": who, "magnitude": best, "beam": beam_of(world, who)}
+
+
+## The half-angle, in radians, of the cone `item` throws, from its content's `light.beam` (degrees).
+## Zero for a round light, and for no item at all. Capped at a right angle: a lamp that throws wider
+## than that is a room, not a beam, and the cone rule below is only for beams.
+static func beam_of(world: Variant, item: int) -> float:
+	if item < 0:
+		return 0.0
+	var light: Variant = light_block_of(world, item)
+	if not (light is Dictionary):
+		return 0.0
+	return minf(deg_to_rad(float((light as Dictionary).get("beam", 0.0))), BEAM_CAP_RAD)
 
 
 ## The light a *person* carries. One scan, not two: this is `brightest_carried`'s magnitude, so
@@ -477,9 +491,15 @@ static func _within(world: Variant, actor: int, target: int, reach: float) -> bo
 ## A mounted light therefore went out permanently on the first shot, silently, and the guard read
 ## as though it were being careful.
 static func refresh_carried(world: Variant, entity: int) -> void:
-	var mag: float = carried_magnitude(world, entity)
+	var pick: Dictionary = brightest_carried(world, entity)
+	var mag: float = float(pick.get("magnitude", 0.0))
 	if mag > 0.0:
-		world.components.set_component(entity, "light_source", {"magnitude": mag})
+		var source: Dictionary = {"magnitude": mag}
+		# A round light carries no `beam` key at all, so every save that holds one stays byte-identical.
+		var beam: float = float(pick.get("beam", 0.0))
+		if beam > 0.0:
+			source["beam"] = beam
+		world.components.set_component(entity, "light_source", source)
 	elif world.components.has_component(entity, "light_source"):
 		world.components.remove(entity, "light_source")
 	world.events.publish({"type": "light.changed", "entity": entity, "magnitude": mag})

@@ -5902,6 +5902,52 @@ Gated by `godot:m2:jobs` BUILDER: a zombie 3 m off the yard breaks the job off, 
 a builder inside the house is not broken off, and the walk home holds for `RETREAT_HOLD_TICKS` and
 the builder goes back to the wall after it. The lane was run red against the lot-as-home rule first.
 
+## The torch is a cone, 2026-10-24
+
+**JT's two calls, taken as the plan's defaults.** The torch lights a wedge, not a round pool, and
+only a zombie in its light is drawn toward it (cards in the planning thread, 2026-10-24).
+
+- **Only the beam pulls.** `SimShambler._lean_to_light` asks `SimLight.lights_tile` before a beam
+  source pulls: a zombie inside the wedge, or inside the spill round the holder's feet, leans to
+  the light; one behind the holder does not. A round light (a lantern, a campfire, a flash) is
+  unchanged.
+- **The wedge is the content's `light.beam`, capped at a right angle.** A hand torch throws 22°
+  either side of its carrier's facing. The facing is read every tick from the holder, and turning
+  moves the wedge without recasting the round shadowcast (gated by `godot:m2:torch` TURN).
+- **A spill of 1.5 m round the source is lit whatever way the beam points.** A torch lights the
+  ground at the holder's feet and a zombie at arm's length; that is the spill's only purpose.
+- **Light sources carry `beam` only when they have one.** A round light's `light_source` is the
+  same `{magnitude}` it was, so every save that holds one is byte-identical.
+
+Still open: the screen draws the wedge from the sim's cone only after the beam-on-screen slice (B3).
+Until then `LightLook` draws its own wedge from content, which is the half `godot:m2:torch` READS
+skips out loud.
+
+## Weapon assembly starts with the hands, 2026-10-24
+
+The three-features plan (C1) made the bench's screen reachable away from a bench, for one reason:
+a magazine and a sight are changed by hand (`fieldSwap`), and a gun that has one should open where
+you stand. Calls taken without the owner:
+
+- **The question is one predicate.** `SimGunsmith.may_open` (at a bench, or `field_work`) is what
+  the `modify` verb and the open command both ask, so a verb cannot be offered for a gun the
+  command refuses.
+- **A screen opened by hand stays open where you stand** while there is still a part to change
+  by hand, and closes when there is none. Walking away from a bench still closes the bench screen,
+  as `SimContainers` closes a box, for a gun with nothing to change.
+- **`modify` in the item menu pushes `bench.open`.** It was offered at a bench and pushed nothing,
+  which the dead-socket rule forbids. Gated by `godot:m2:bench` FIELD and `godot:check:inventory`.
+
+## The draft key on X, 2026-10-24
+
+**JT picked the draft toggle for a colonist: X.** With a colonist picked on the street, X holds them
+where they stand and takes them off work; X again sets them free. The menu keeps "hold here" and
+"go here" as they were, so a right-click move still says whether it keeps the draft. The sim decides
+the command (`SimOrders.draft_command`); the key pushes it.
+
+**How to apply:** the draft is the `hold` order on the colonist's own tile. A new draft-like verb
+goes through `orders.gd`, not a second flag.
+
 ## A dropped part fits only an empty slot, 2026-10-24
 
 The drop on a weapon is the fit and nothing more (C3). Calls taken without the owner:
