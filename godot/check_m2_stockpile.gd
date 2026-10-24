@@ -41,6 +41,15 @@ extends SceneTree
 #              lists the walled tin and turns TAKE red.
 #   SAVE    -- the zone round-trips a save. A save with no zone record (every save from before this
 #              slice) loads with the default zone.
+#   EMPTY   -- the zone emptied (one `off` over the annex, which READERS already does), the sim stays
+#              honest: `has_any_tile` says no (and yes again once a tile is marked), the Haul search
+#              offers nothing and the haul order row refuses, so no loose item is carried into a
+#              pack with nowhere to put it; a meal cooked with nowhere to go lies at the fire's own
+#              tile instead of nowhere. Sabotage, each red: the old `_do_cook` (a meal with no
+#              position), the old `_haul_work` (a Haul job for the tin).
+#   FULL    -- a hauler whose pack will not take the tin leaves it where it lay: `position` kept,
+#              `handsFull` set, no Haul offered for HANDS_FULL_TICKS and offered again after. The
+#              old code took the tin off the map and stopped, leaving it on no tile and in no pack.
 #   NEXTDOOR -- E opens the window only for a tin of the patch the player stands in: a tin on a
 #              neighbouring patch within arm's reach is picked up (the window would not list it),
 #              and the bar's words say so; the same tin moved onto the player's patch is the window.
@@ -106,12 +115,14 @@ func _run() -> void:
 	ok = _a_raider_loots_an_outdoor_pile() and ok
 	ok = _the_summary_reads_the_pile_in_words() and ok
 	ok = _the_window_takes_and_puts_by_the_sims_rules() and ok
+	ok = _an_emptied_zone_hauls_nothing_and_the_meal_lies_at_the_fire() and ok
+	ok = _a_full_pack_leaves_the_tin_where_it_lay() and ok
 	ok = _e_opens_only_for_the_patch_underfoot() and ok
 	var skip_note: String = ""
 	if not _skipped.is_empty():
 		skip_note = " SKIPPED(no data): " + ", ".join(_skipped)
 	if ok:
-		print("M2_STOCKPILE_OK default mark walled readers save preview spread patch walk cook raider summary take nextdoor%s" % skip_note)
+		print("M2_STOCKPILE_OK default mark walled readers save preview spread patch walk cook raider summary take empty full nextdoor%s" % skip_note)
 		quit(0)
 	else:
 		push_error("M2_STOCKPILE_FAIL")
@@ -648,7 +659,28 @@ func _a_pile_apart_from_home_is_its_own_patch() -> bool:
 	if not SimNeeds.is_annex_floor(w, from_home.x, from_home.y):
 		push_error("PATCH: an item dropped at home went to %s, not into the annex" % str(from_home))
 		return false
-	print("PATCH OK the pile is its own patch: beside it the drop is %s, at home %s" % [str(from_camp), str(from_home)])
+	# `patches` is served from the index the window reads (`patch_under`), so the two cannot
+	# disagree, and the index follows the zone and the map: a tile marked beside the pile joins its
+	# patch, and a wall across the pile splits it. Each answer is the fresh walk's.
+	var n_before: int = SimStockpile.patches(w).size()
+	_mark(w, block.x + 2, block.y, block.x + 2, block.y, true)
+	var grown: Array = []
+	for patch2 in SimStockpile.patches(w):
+		if (patch2 as Array).has(block):
+			grown = patch2 as Array
+	if grown.size() != 5 or SimStockpile.patches(w).size() != n_before or not _same(SimStockpile.patches(w), SimStockpile._walk_patches(w)):
+		push_error("PATCH: a tile marked beside the pile did not join its patch in the kept index (%d tiles, %d patches)" % [grown.size(), SimStockpile.patches(w).size()])
+		return false
+	w.components.set_component(w.player, "position", {"x": float(block.x) + 0.5, "y": float(block.y) + 0.5})
+	if SimStockpile.patch_under(w, w.player).size() != 5 or not SimStockpile.patch_under(w, w.player).has(Vector2i(block.x + 2, block.y)):
+		push_error("PATCH: the patch under the player is not the grown pile, keyed by the tile: %s" % str(SimStockpile.patch_under(w, w.player).keys()))
+		return false
+	w.tilemap.tiles[block.y * int(w.tilemap.w) + block.x + 1] = SimTileMap.Tile.Wall
+	w.invalidate_tiles(Rect2i(block.x + 1, block.y, 1, 1))
+	if SimStockpile.patches(w).size() != n_before + 1 or not _same(SimStockpile.patches(w), SimStockpile._walk_patches(w)):
+		push_error("PATCH: a wall across the pile did not split the kept index (%d patches, expected %d)" % [SimStockpile.patches(w).size(), n_before + 1])
+		return false
+	print("PATCH OK the pile is its own patch: beside it the drop is %s, at home %s; the kept index grows with a mark and splits at a wall" % [str(from_camp), str(from_home)])
 	return true
 
 
@@ -881,7 +913,7 @@ func _the_window_takes_and_puts_by_the_sims_rules() -> bool:
 	var near_tin: int = _put_on(w, corner, CANNED)
 	var off_tin: int = _put_on(w, off, CANNED)
 	w.step()
-	if SimStockpile.patch_under(w, w.player).size() != 8 or not SimStockpile.patch_under(w, w.player).has("%d,%d" % [hidden.x, hidden.y]):
+	if SimStockpile.patch_under(w, w.player).size() != 8 or not SimStockpile.patch_under(w, w.player).has(hidden):
 		push_error("TAKE: the walled pile is not one patch of eight round the wall: %s" % str(SimStockpile.patch_under(w, w.player).keys()))
 		return false
 	# Shut, the window takes nothing, and lists nothing.
@@ -920,10 +952,17 @@ func _the_window_takes_and_puts_by_the_sims_rules() -> bool:
 	if _lies(w, here_tin) or not SimInventory.owns(w, w.player, here_tin):
 		push_error("TAKE: the tin in view was not taken into the pockets")
 		return false
+	# "Take all that fits": the one tin still listed comes in (into the pockets, or merged into the
+	# stack of the tin already there), the hidden and off-zone tins stay.
+	_send(w, {"type": SimStockpile.TAKE_COMMAND, "all": true})
+	var near_taken: bool = not _lies(w, near_tin) and (not w.entities.is_alive(near_tin) or SimInventory.owns(w, w.player, near_tin))
+	if not near_taken or not _lies(w, hid_tin) or not _lies(w, off_tin):
+		push_error("TAKE: take all did not take exactly the tins in view (near taken %s, hidden lies %s, off lies %s)" % [str(near_taken), str(_lies(w, hid_tin)), str(_lies(w, off_tin))])
+		return false
 	# Put back: onto a tile of this patch the player sees, not the hidden side.
 	_send(w, {"type": SimStockpile.PUT_COMMAND, "item": here_tin})
 	var back: Vector2i = _tile_of(w, here_tin)
-	if not _lies(w, here_tin) or not SimStockpile.patch_under(w, w.player).has("%d,%d" % [back.x, back.y]) or not SimStockpile.in_view(w, w.player, float(back.x) + 0.5, float(back.y) + 0.5):
+	if not _lies(w, here_tin) or not SimStockpile.patch_under(w, w.player).has(back) or not SimStockpile.in_view(w, w.player, float(back.x) + 0.5, float(back.y) + 0.5):
 		push_error("TAKE: the put tin is at %s, not on a tile of the patch in view" % str(back))
 		return false
 	# Off the zone the window shuts, and a put is refused: the tin stays in the pockets.
@@ -946,6 +985,155 @@ func _the_window_takes_and_puts_by_the_sims_rules() -> bool:
 		push_error("TAKE: E off the pile did not pick the tin up, or opened the window")
 		return false
 	print("TAKE OK the window takes a tin in view and puts it back in view; out of sight, off the zone, shut or off the pile it refuses; E opens it on the pile and picks up off it")
+	return true
+
+
+# EMPTY. The zone emptied, nothing is hauled anywhere and a meal still lands somewhere.
+func _an_emptied_zone_hauls_nothing_and_the_meal_lies_at_the_fire() -> bool:
+	var w: Variant = _world()
+	var mara: int = _colonist(w)
+	var fires: Array[int] = w.components.query(["campfire"])
+	var home: Array[Vector2i] = _annex_floor(w)
+	if mara < 0 or fires.is_empty() or home.size() < 4:
+		push_error("EMPTY: needs Mara, a campfire and an annex floor; the booted map did not give them all")
+		return false
+	if not SimStockpile.has_any_tile(w):
+		push_error("EMPTY: the default zone reads as having no tile")
+		return false
+	var a: Rect2i = _annex(w)
+	_mark(w, a.position.x, a.position.y, a.position.x + a.size.x - 1, a.position.y + a.size.y - 1, false)
+	if SimStockpile.count(w) != 0 or SimStockpile.has_any_tile(w):
+		push_error("EMPTY: an off over the annex left %d tiles, has_any_tile %s" % [SimStockpile.count(w), str(SimStockpile.has_any_tile(w))])
+		return false
+	# Haul: a tin on the bare annex floor beside Mara, who hauls and nothing else. No zombie rule in
+	# the way (pinned and restored), no Haul job and the tin stays where it is, in nobody's pack.
+	var tin_at: Vector2i = home[home.size() / 2]
+	var tin: int = _put_on(w, tin_at, CANNED)
+	w.components.set_component(mara, "position", {"x": float(tin_at.x) + 0.5, "y": float(tin_at.y) + 1.5})
+	var jp: Dictionary = w.components.get_component(mara, "jobPriorities") as Dictionary
+	for k in (jp["cols"] as Dictionary).keys():
+		(jp["cols"] as Dictionary)[k] = 0
+	(jp["cols"] as Dictionary)["Haul"] = 3
+	# The zombie rule is pinned off for the lane (and restored): this map has zombies near the annex,
+	# and the lane is about the zone, not about danger.
+	var danger_was: bool = SimJobs.BREAK_OFF_FROM_DANGER
+	SimJobs.BREAK_OFF_FROM_DANGER = false
+	if not SimJobs._haul_work(w, float(tin_at.x) + 0.5, float(tin_at.y) + 1.5).is_empty():
+		SimJobs.BREAK_OFF_FROM_DANGER = danger_was
+		push_error("EMPTY: the Haul search offered the tin with no zone to carry it to")
+		return false
+	if SimOrders._haulable(w, w.player, tin):
+		SimJobs.BREAK_OFF_FROM_DANGER = danger_was
+		push_error("EMPTY: the haul order row offers the tin with no zone to carry it to")
+		return false
+	var hauled: bool = false
+	for _i in 60:
+		w.step()
+		var job: Variant = w.components.get_component(mara, "job")
+		if job is Dictionary and String((job as Dictionary).get("kind", "")) == "Haul":
+			hauled = true
+	if hauled or not _lies(w, tin) or SimInventory.owns(w, mara, tin):
+		SimJobs.BREAK_OFF_FROM_DANGER = danger_was
+		push_error("EMPTY: with no zone Mara took a Haul (%s), or the tin left the floor (lies %s, owned %s)" % [str(hauled), str(_lies(w, tin)), str(SimInventory.owns(w, mara, tin))])
+		return false
+	# The positive: one tile marked again and the same tin is a haul.
+	var block: Vector2i = _markable_block(w, 1)
+	if block.x < 0:
+		SimJobs.BREAK_OFF_FROM_DANGER = danger_was
+		push_error("EMPTY: no explored open tile outside the annex to mark")
+		return false
+	_mark(w, block.x, block.y, block.x, block.y, true)
+	var offered: bool = SimStockpile.has_any_tile(w) and not SimJobs._haul_work(w, float(tin_at.x) + 0.5, float(tin_at.y) + 1.5).is_empty()
+	SimJobs.BREAK_OFF_FROM_DANGER = danger_was
+	if not offered:
+		push_error("EMPTY: with one tile marked again the tin is still not a haul")
+		return false
+	_mark(w, block.x, block.y, block.x, block.y, false)
+	# Cook: a raw by the fire, the zone empty, and the meal lies at the fire's tile.
+	var fire_at: Vector2i = _tile_of(w, fires[0])
+	var raw: int = _put_on(w, home[0], RAW_FOOD)
+	var into: String = SimJobs.cooks_into(w, raw)
+	var meals_before: Array[int] = _items_based_on(w, into)
+	w.components.set_component(raw, "reserved", {"by": mara, "job": "Cook"})
+	var job2: Dictionary = {"kind": "Cook", "target": raw, "fire": fires[0], "ticksLeft": 1, "path": [], "pathGen": -1}
+	w.components.set_component(mara, "job", job2)
+	SimJobs._do_cook(w, mara, job2)
+	var meal: int = -1
+	for m in _items_based_on(w, into):
+		if not meals_before.has(m):
+			meal = m
+	if meal < 0:
+		push_error("EMPTY: cooking the raw made no '%s'" % into)
+		return false
+	if not _lies(w, meal) or _tile_of(w, meal) != fire_at:
+		push_error("EMPTY: the meal cooked with no zone lies at %s (on the map: %s), not at the fire %s" % [str(_tile_of(w, meal)), str(_lies(w, meal)), str(fire_at)])
+		return false
+	print("EMPTY OK with the zone emptied no Haul is offered or ordered and the tin stays on the floor; the meal lies at the fire %s; one tile marked makes the tin a haul again" % str(fire_at))
+	return true
+
+
+# FULL. A hauler whose pack will not take the item leaves it lying, and is not offered a haul for a
+# while. The pack is shut by giving every bag Mara reaches a grid with no cells.
+func _a_full_pack_leaves_the_tin_where_it_lay() -> bool:
+	var w: Variant = _world()
+	var mara: int = _colonist(w)
+	var block: Vector2i = _markable_block(w, 2, 6)
+	if mara < 0 or block.x < 0:
+		push_error("FULL: needs Mara and a 2x2 clear of the annex; the booted map did not give them")
+		return false
+	_mark(w, block.x, block.y, block.x + 1, block.y + 1, true)
+	var beside := Vector2i(-1, -1)
+	for t in [Vector2i(block.x - 1, block.y), Vector2i(block.x + 2, block.y), Vector2i(block.x, block.y - 1), Vector2i(block.x, block.y + 2)]:
+		if _is_outdoor_floor_outside_annex(w, t.x, t.y) and not SimStockpile.has_tile(w, t.x, t.y):
+			beside = t
+			break
+	if beside.x < 0:
+		push_error("FULL: no open ground beside the pile")
+		return false
+	var bags: Array[int] = SimInventory.reachable_containers(w, mara)
+	if bags.is_empty():
+		push_error("FULL: Mara carries no bag to shut, so the lane cannot be judged")
+		return false
+	for bag in bags:
+		var grid: Dictionary = w.components.get_component(int(bag), "container") as Dictionary
+		grid["w"] = 0
+		grid["h"] = 0
+	# A helmet: nothing it could merge into, so only a bag could take it, and none will.
+	var item: int = _put_on(w, beside, "item.helmet.bike")
+	w.components.set_component(mara, "position", {"x": float(beside.x) + 0.5, "y": float(beside.y) + 0.5})
+	w.components.set_component(mara, "job", {"kind": "Haul", "target": item, "ticksLeft": 0, "path": [], "pathGen": -1})
+	# Pinned and restored: the zombie rule, and the errand radius (the pile sits clear of the annex,
+	# past twenty tiles from home). First the positive: with her hands free the helmet is a haul.
+	var danger_was: bool = SimJobs.BREAK_OFF_FROM_DANGER
+	var radius_was: float = SimJobs.ERRAND_RADIUS_TILES
+	SimJobs.BREAK_OFF_FROM_DANGER = false
+	SimJobs.ERRAND_RADIUS_TILES = 1000.0
+	var ok: bool = true
+	if SimJobs._work_for(w, mara, "Haul").is_empty():
+		push_error("FULL: with her hands free Mara is not offered the helmet, so the hold cannot be judged")
+		ok = false
+	if ok:
+		w.step()
+	if ok and (not _lies(w, item) or _tile_of(w, item) != beside):
+		push_error("FULL: the helmet the pack refused is at %s (on the map: %s), not where it lay at %s" % [str(_tile_of(w, item)), str(_lies(w, item)), str(beside)])
+		ok = false
+	if ok and not w.components.has_component(mara, SimJobs.HANDS_FULL):
+		push_error("FULL: the refused pickup did not mark Mara's hands full")
+		ok = false
+	if ok and not SimJobs._work_for(w, mara, "Haul").is_empty():
+		push_error("FULL: Mara is offered a haul with her hands full")
+		ok = false
+	if ok:
+		var held: Dictionary = w.components.get_component(mara, SimJobs.HANDS_FULL) as Dictionary
+		held["tick"] = int(w.tick) - SimJobs.HANDS_FULL_TICKS
+		if SimJobs._work_for(w, mara, "Haul").is_empty() or w.components.has_component(mara, SimJobs.HANDS_FULL):
+			push_error("FULL: after the hold Mara is still not offered the haul, or the hold did not clear")
+			ok = false
+	SimJobs.BREAK_OFF_FROM_DANGER = danger_was
+	SimJobs.ERRAND_RADIUS_TILES = radius_was
+	if not ok:
+		return false
+	print("FULL OK the helmet the pack refused lies where it lay at %s, the hauler's hands are full for %d ticks and the haul comes back after" % [str(beside), SimJobs.HANDS_FULL_TICKS])
 	return true
 
 

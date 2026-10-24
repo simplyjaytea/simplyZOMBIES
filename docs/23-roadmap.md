@@ -3803,6 +3803,47 @@ not a to-do list:
   7.3 ms down to 1.7 to 2.0 ms. At 1000 tiles `patches` went from 9.8 to 10.9 ms down to 3.8 to
   6.4 ms, and the drop from 20.4 to 28.0 ms down to 5.0 to 8.0 ms. `tiles` is unchanged: 0.7 ms at
   320 and 2.1 to 2.5 ms at 1000.
+- **Nowhere to put it: the two ways a hauled or cooked thing left the map (the stockpile review,
+  findings 1 and 2).** The feature's end-to-end review (`planning/stockpile/review.md` in the
+  project files) found two paths that lost an item for good. A Haul or Repair pickup whose stow
+  failed (`_do_haul`, `_do_repair` in `godot/sim/modules/jobs.gd`) had already taken the item's
+  `position` off and stopped, leaving it on no tile and in no pack; a probe with the zone emptied
+  lost four of six tins in fifty ticks to Ellis's full stack. And with no stockpile tile anywhere --
+  one right-drag over the annex empties the zone -- a cooked meal was spawned without a position,
+  and every loose item near home became a haul that ended in the hauler's pack. Now a refused stow
+  puts the `position` back and holds the colonist off Haul and Repair for `HANDS_FULL_TICKS` (600,
+  the `handsFull: {tick}` record, absent by default so no save changes); a meal with no free zone
+  tile lies at the fire's own tile; and while the zone has no tile (`SimStockpile.has_any_tile`,
+  which stops at the first live tile) the Haul search offers no item and the haul order row is
+  absent (`SimOrders._haulable`); the corpse dump is not the stockpile and is still offered. Gate:
+  `godot:m2:stockpile` EMPTY (the zone emptied: no Haul offered or ordered over sixty ticks, the tin
+  stays on the floor and in nobody's pack, the meal lies at the fire; one tile marked again makes
+  the tin a haul) and FULL (a helmet a shut pack refuses lies where it lay, the hauler's hands read
+  full, no Haul is offered during the hold and it comes back after; the positive, the helmet
+  offered with hands free, is proven first). Sabotage, each shown red: the old `_do_haul` (the
+  helmet at no tile), the old `_do_cook` (the meal at no tile), the old `_haul_work` (a haul with no
+  zone). Whether emptying the zone should be allowed at all is on a card to the owner; this keeps it
+  allowed and honest. No balance claim: the paths it closes never fired on the shipped default zone
+  unless a pack was full.
+- **The patches read once, and "take all" at cost (the stockpile review, findings 3 to 5).** The
+  drop point (`SimStockpile.drop_tile`) walked the zone's patches afresh on every haul pickup, cooked
+  meal and re-choice, 2.7 ms on the default zone and 3.0 at 960 tiles, while `_patch_index` kept the
+  same answer for the window at 0.04 ms; `patches` is served from that index now (the walk is
+  `_walk_patches`), and the index is keyed by the tile throughout, closing the entry above's open
+  item (`_patch_index` and `put` keyed on `"x,y"` Strings; `patch_under` hands back a set keyed by
+  `Vector2i`, and `context.gd`'s menu row reads it so). `get_meta` with a null default raised an
+  engine error on every world's first ask (one line in four gate logs on main); `has_meta` is asked
+  first. "Take all that fits" asked `in_sight` again for every take, a line-of-sight test per thing
+  per take: 120 tins in sight cost 182 ms in one tick; the list is read once and handed to each
+  take, and a footprint the pack has refused is not tried again for a thing that can neither merge
+  nor be worn: 47 ms. Measured with the review's probe on the gate's boot: `patches` 2.66 to 0.30
+  ms (320 tiles) and 2.97 to 0.33 (960), `_stock_drop` 2.91 to 0.26 and 3.02 to 0.30, `take_all`
+  182 to 47 ms. Same answers: `godot:m2:tick` DROP still holds the patches and twenty-four drops to
+  the String-keyed oracle; `godot:m2:stockpile` PATCH now also holds `patches` to the fresh walk
+  after a mark joins a tile to the pile and after a wall splits it (sabotage: an index blind to the
+  map generation, red), and TAKE gains "take all" taking exactly the tins in view. Nothing drawn
+  changed. The engine error has no lane: a gate cannot read its own stderr, so the guard is the
+  record.
 - **E on the stockpile answers for the patch underfoot (a follow-up to S4).** S4's `e_opens`
   (`godot/sim/modules/stockpile.gd`) asked whether the nearest loose item lay on the *zone*, while
   the window it opens lists the *patch* the player stands in. With two patches an arm's reach apart
