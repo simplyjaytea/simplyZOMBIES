@@ -408,14 +408,11 @@ const LOOT_WORD: String = "take all that fits"
 # The stockpile's grid in the window (slice S4): the sim lays the pile out into as many cells as the
 # screen gives it, nearest first, and says when something seen did not fit. The bounds keep the
 # window a window: never narrower than a cupboard's few cells, never so tall it covers the HUD's
-# prose. At 1280x720 that is eight by four, over the action bar as a tall cupboard sits; at
-# 1920x1080, ten by six, clear of it.
+# prose or drops over the action bar. At 1280x720 that is eight by three; at 1920x1080, ten by six.
 const STORES_COLS_MIN: int = 4
 const STORES_COLS_MAX: int = 10
 const STORES_ROWS_MIN: int = 2
 const STORES_ROWS_MAX: int = 6
-# The rows a pack needs: the tallest plate the pile commonly holds.
-const STORES_ROWS_WANT: int = 4
 const STORES_SHEET_COLS: int = 7
 # The share of the screen's width the whole window may take, pockets included.
 const STORES_WIDE_SHARE: float = 0.62
@@ -467,17 +464,11 @@ func loot_capacity() -> Vector2i:
 	var spare_w: float = view_size.x * STORES_WIDE_SHARE - LOOT_PAD * 2.0 - LOOT_GAP - pockets.x - BagGrid.PAD * 2.0
 	var cols: int = clampi(floori(spare_w / float(BagGrid.CELL)), STORES_COLS_MIN, STORES_COLS_MAX)
 	var foot: float = Hud.MARGIN + Hud.STRIP_CLEARANCE + Hud.BAR_H + LOOT_GAP
-	var rows: int = _stores_rows(view_size.y, foot)
-	# A short screen cannot clear the bar and still hold a pack (four cells tall): there the window
-	# drops to the cupboard's low foot over the bar, as `set_loot` already places a tall box.
-	if rows < STORES_ROWS_WANT:
-		rows = maxi(rows, _stores_rows(view_size.y, LOOT_LOW))
+	# Never so tall that `set_loot` has to drop it over the action bar: a sentence cut in half under
+	# the window reads as broken. What does not fit says so ("and more besides") and is on the sheet.
+	var spare_h: float = view_size.y * (1.0 - LOOT_CLEAR_TOP) - foot - LOOT_PAD * 2.0 - LOOT_FOOT - BagGrid.HEAD - BagGrid.PAD
+	var rows: int = clampi(floori(spare_h / float(BagGrid.CELL)), STORES_ROWS_MIN, STORES_ROWS_MAX)
 	return Vector2i(cols, rows)
-
-
-func _stores_rows(view_h: float, foot: float) -> int:
-	var spare_h: float = view_h * (1.0 - LOOT_CLEAR_TOP) - foot - LOOT_PAD * 2.0 - LOOT_FOOT - BagGrid.HEAD - BagGrid.PAD
-	return clampi(floori(spare_h / float(BagGrid.CELL)), STORES_ROWS_MIN, STORES_ROWS_MAX)
 
 
 # Whether a column, or the window's box, is the stockpile rather than a container entity.
