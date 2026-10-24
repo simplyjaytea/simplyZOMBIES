@@ -51,6 +51,7 @@ const SimVehicles = preload("res://sim/modules/vehicles.gd")
 const SimChronicle = preload("res://sim/modules/chronicle.gd")
 const SimDecals = preload("res://sim/modules/decals.gd")
 const SimSpeech = preload("res://sim/modules/speech.gd")
+const SimStockpile = preload("res://sim/modules/stockpile.gd")
 
 const DISTRICT_SEED: int = 20260805
 const DEFAULT_DISTRICT: String = "district.residential_suburb"
@@ -186,6 +187,7 @@ static func register_playable_modules(world: Variant, map: Variant) -> void:
 	SimChronicle.register_module(world)
 	SimDecals.register_module(world)
 	SimSpeech.register_module(world)
+	SimStockpile.register_module(world)
 
 
 # Scatters each of the map's loot sites from the content table its `table` names, per docs/12:

@@ -17,6 +17,7 @@ const SimHomeRes = preload("res://sim/home.gd")
 const SimCombat = preload("res://sim/combat.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimWeather = preload("res://sim/modules/weather.gd")
+const SimStockpile = preload("res://sim/modules/stockpile.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
 const SimSightings = preload("res://sim/modules/sightings.gd")
@@ -818,7 +819,7 @@ static func _free_indoor(world: Variant) -> Vector2i:
 		return Vector2i(-1, -1)
 	for j in range(annex.position.y, annex.position.y + annex.size.y):
 		for i in range(annex.position.x, annex.position.x + annex.size.x):
-			if not SimNeeds.is_stockpile_tile(world, i, j):
+			if not SimNeeds.is_annex_floor(world, i, j):
 				continue
 			if _bed_at(world, i, j) >= 0:
 				continue
@@ -1884,19 +1885,16 @@ static func _corpse_dump(world: Variant) -> Vector2i:
 
 
 # The stamped annex, and **deliberately not `SimHome.rect`** -- the one home reader that does not
-# follow a camp. `SimNeeds.is_stockpile_tile` is "indoors, floor, inside the annex", and a camp has
-# no roof to be indoors under, so a camp-relative drop point would be a stockpile the weather rains
-# into. Giving a camp a real one is the "evolve a camp" work in docs/23's what's left. Until then a
-# far outpost extends what colonists *collect* and not where they *put it*, which is the trade the
+# follow a camp. The default zone is "indoors, floor, inside the annex", and a camp has no roof to be
+# indoors under, so a camp-relative drop point would be a stockpile the weather rains into. A zone
+# the player marks outdoors (`stockpile.gd`) is a deliberate choice, and its tiles are read here in
+# row-major order as they are. Giving a camp a real one is the "evolve a camp" work in docs/23's
+# what's left. Until then a far outpost extends what colonists *collect* and not where they *put it*, which is the trade the
 # reach slice measured rather than hid.
 static func _stock_drop(world: Variant) -> Vector2i:
-	var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
-	if annex.size.x <= 0 or annex.size.y <= 0:
-		return Vector2i(-1, -1)
-	for j in range(annex.position.y, annex.position.y + annex.size.y):
-		for i in range(annex.position.x, annex.position.x + annex.size.x):
-			if SimNeeds.is_stockpile_tile(world, i, j) and _bed_at(world, i, j) < 0 and _campfire_at(world, i, j) < 0:
-				return Vector2i(i, j)
+	for t in SimStockpile.tiles(world):
+		if _bed_at(world, t.x, t.y) < 0 and _campfire_at(world, t.x, t.y) < 0:
+			return t
 	return Vector2i(-1, -1)
 
 

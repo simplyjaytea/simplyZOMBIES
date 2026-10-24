@@ -6050,3 +6050,29 @@ without the owner:
 
 **How to apply:** a change to how a beam is drawn changes `lights_tile` or the shader's wedge, never
 a second presentation answer. Gated by `godot:check:light` BEAM and `godot:m2:torch` CONE and READS.
+
+## Stockpiles are in scope, 2026-10-24
+
+JT's 2026-10-23 answer to the alpha plan's Q1 moved orders, blueprints, stockpiles and crafting into
+scope, and the 2026-10-19 "parked until after the alpha" line no longer holds for stockpiles. JT's
+2026-10-24 "yes" started the stockpile and hauling feature, and this is its first slice (S1, the zone
+as tiles in the sim). Calls taken without the owner:
+
+- **The zone is a record on the player, made at the first mark.** `stockpile: {"tiles": {"tx,ty":
+  true}}`, keyed by the String `"tx,ty"`. Until anybody marks anything there is no record, and the zone
+  is the annex's indoor floor, so an unchanged colony and every save from before this slice read as
+  they always did. No `SAVE_VERSION` bump, the `was` and `night_eyes` precedent. The record sits on the
+  player rather than a new entity, so no entity id after it moves.
+- **Marking is explored-only, indoors or out.** A tile the player has never seen cannot be marked.
+  Indoors and out are both allowed: the card default, which keeps the camp's ground open to a pile
+  if the player wants one there.
+- **Only open floor can be marked.** A wall, deep or ford water, a door, a low tile, a tree or a
+  scrap barricade is refused. The plan named the first four; the rule is floor only, and it is
+  stricter than the plan.
+- **A tile walled over leaves the zone and comes back when opened.** A zone is a choice about ground,
+  and a barricade on it is not a stockpile tile while it stands.
+- **Caps are 400 tiles.** The zone holds at most 400 tiles, and one `on` rectangle covers at most 400
+  tiles. Both refuse whole, so a drag too large is a no-op and the screen may split it. An `off`
+  scans the zone, not the rectangle, so clearing a large area is always safe.
+- **Beds stay on the annex floor.** `_free_indoor` asks `is_annex_floor`, so moving the stockpile
+  never moves where a bed goes.
