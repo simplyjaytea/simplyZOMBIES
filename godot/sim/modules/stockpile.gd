@@ -88,10 +88,11 @@ static func tiles(world: Variant) -> Array[Vector2i]:
 				if has_tile(world, i, j):
 					out.append(Vector2i(i, j))
 		return out
-	# The Haul drop asks this every tick a hauler walks with an item, so it is kept cheap: each key
-	# is parsed once, the solid test is asked directly (the key is in the zone by construction, the
-	# rest of `has_tile`), and the row-major order is a native sort of `ty * w + tx`. Same answer as
-	# `has_tile` over the keys sorted by (ty, tx); godot:m2:stockpile's WALLED lane holds it to that.
+	# The drop point, the overlay and the raiders' looter ask this (the Haul drop once per pickup,
+	# since it keeps its point on the job), so it is kept cheap: each key is parsed once, the solid
+	# test is asked directly (the key is in the zone by construction, the rest of `has_tile`), and
+	# the row-major order is a native sort of `ty * w + tx`. Same answer as `has_tile` over the keys
+	# sorted by (ty, tx); godot:m2:stockpile's WALLED lane holds it to that.
 	var map: Variant = world.tilemap
 	var w: int = int(map.w)
 	var order := PackedInt32Array()
@@ -266,7 +267,9 @@ static func preview(world: Variant, cmd: Dictionary) -> Dictionary:
 			for tx in range(x0, x1 + 1):
 				if not have.has(_key(tx, ty)) and markable_in(world, explored, tx, ty):
 					out.append(Vector2i(tx, ty))
-		if have.size() + out.size() > MAX_TILES:
+		# The cap counts the tiles that are stockpile right now, as `count` does: a marked tile
+		# walled over since is not in the zone and does not hold a place against it.
+		if _live_count(world, have) + out.size() > MAX_TILES:
 			return {"tiles": [] as Array[Vector2i], "refused": true}
 		return {"tiles": out, "refused": false}
 	var keys: Array = (rec as Dictionary)["tiles"].keys() if rec is Dictionary else _default_keys(world).keys()
@@ -339,6 +342,16 @@ static func _default_keys(world: Variant) -> Dictionary:
 	for t in _default_tiles(world):
 		out[_key(t.x, t.y)] = true
 	return out
+
+
+# How many of the record's keys are open ground right now: `count` without the sort.
+static func _live_count(world: Variant, keys: Dictionary) -> int:
+	var n: int = 0
+	for key in keys.keys():
+		var t: Vector2i = _parse(String(key))
+		if not SimTileMap.is_solid(world.tilemap, t.x, t.y):
+			n += 1
+	return n
 
 
 static func _key(tx: int, ty: int) -> String:
