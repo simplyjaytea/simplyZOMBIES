@@ -6091,3 +6091,67 @@ as tiles in the sim). Calls taken without the owner:
   scans the zone, not the rectangle, so clearing a large area is always safe.
 - **Beds stay on the annex floor.** `_free_indoor` asks `is_annex_floor`, so moving the stockpile
   never moves where a bed goes.
+
+## Marking the stockpile on screen, 2026-10-24
+
+Slice S2 of the stockpile and hauling plan: Z picks up a brush, a left drag marks a rectangle of
+stockpile, a right drag clears one, and the zone shows on the ground. JT approved the feature and
+the card defaults are built (drag tiles, not crates; any explored ground, indoors or out). Calls
+taken without the owner:
+
+- **The brush is a focus, not a flag.** `mark` sits in `input_map.gd`'s `FOCUSES` just before
+  `street`, because the mouse means something else under it (the left button paints instead of
+  attacking, the right one clears instead of opening the menu) and the focus table is where "what
+  fires here" is written. Under it: walking, the stance ladder, the sprint latch, pause, the two
+  speed keys, F1, Z and Escape. No swing, shot, E, camp or screen. Picking it up does not stop a
+  walk, and a refused key under it does not either.
+- **Ctrl+Z stays the prone rung.** Z is its own `BINDINGS` row with `ctrl: false`, and the match arm
+  checks the modifier, the camp key's C and Ctrl+C precedent.
+- **Escape puts the brush down, and a second Escape is the menu.** Escape speaks to the thing in
+  front, as everywhere else.
+- **The bar names the key as a keycap.** The plan's sentence ended "Z to finish"; the bar draws every
+  key it names as a cap, so the line is "Marking the stockpile: drag to mark, right-drag to clear"
+  then a Z cap and "finish". A drag the sim would refuse whole (past the 400-tile cap) says "Too
+  much ground for the stockpile: let go and nothing changes" and previews nothing. No digit either
+  way.
+- **The preview is the sim's answer.** `SimStockpile.preview` returns the tiles a mark would add or
+  take back, or that it would be refused; `mark` now applies exactly that answer, so what the drag
+  draws is what the release changes. A mark that changes nothing no longer writes a zone record.
+- **The roof wins.** An indoor zone tile under a roof shows the roof, with the brush up or down. The
+  plan drew the zone on every explored tile; a wash over shingles read as paint on the roof, so
+  indoor ground is marked from indoors, where the roof is off. The preview follows the same rule.
+- **Under the props, over the baked floor.** The wash is drawn after the ground and the marks on it
+  and before the props and bodies, so a bed or a crate stands on the stockpile. It does lie over the
+  baked flat furnishings (the DECOR layer), because a per-frame pass cannot go under a bake; at rest
+  the wash is light enough that a table under it still reads.
+- **Masking tape, in strips.** The rim is the Salvage Locker's tape with its shadow one art pixel
+  inside, on outer sides only, laid six art pixels on and two off from each tile's corner. A solid
+  line along a wall read as a skirting board. The drag's preview is one solid strip, amber to mark
+  and a lighter rust to clear, so a patch not made yet never looks laid.
+- **The rim is held to 3:1, the line for a graphic rather than text.** On every ground the district
+  has, live, at rest and marking, and both preview colours. The pale tape alone is under 3:1 on
+  dirt and the sidewalk, so the shadow carries it there. A remembered tile's rim is pulled through
+  `Palette.remembered` with the ground under it and is not held to 3:1: the remembered map is dim on
+  purpose.
+- **The pointer is the arrow under the brush.** A crosshair over a zombie would offer an attack the
+  brush does not make.
+- **A mark let go while paused shows as pending.** The sim takes a command on its next tick, and a
+  paused world has none, so a drag released under P drew nothing until play resumed. main.gd keeps
+  each released mark with the tick it was pushed on and draws it in the preview's look until the
+  tick moves. It is pending, not laid: the zone itself does not change until the sim says so.
+- **The overlay is drawn from a kept batch.** Painting the 320-tile default zone fresh every frame,
+  one rect per piece of tape, cost about 8 ms a frame on the bench box. The zone is read again only
+  when `SimStockpile.signature` moves; what it paints is batched into row-run fills and one
+  `draw_multiline` per colour, in tile-grid coordinates moved under the camera by a transform; and
+  the batch is rebuilt only when a zone tile's state (explored, seen, roofed), the brush or the zoom
+  changes. The drag's preview and the pending marks are small and drawn fresh.
+
+Worth the owner's eye: the default zone (the annex floor) is 320 of the 400 tiles S1 allows, so a
+player can mark about 80 tiles elsewhere before they have to clear part of the annex. That is S1's
+cap, unchanged here.
+
+**How to apply:** what the brush may change is `SimStockpile.preview`'s answer, never a second one on
+screen; how it looks is `presentation/stockpile_look.gd`. Gated by `godot:check:play` MARK,
+`godot:check:memory` STOCKPILE, `godot:check:hud` ACTION, `godot:m2:stockpile` PREVIEW and
+`godot:check:shots` (`stockpile_mark`, `stockpile_rest`).
+

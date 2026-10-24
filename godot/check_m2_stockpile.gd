@@ -23,6 +23,12 @@ extends SceneTree
 #              is the annex, so an outdoor pile is not one it loots (stated in the PR, not hidden).
 #   SAVE    -- the zone round-trips a save. A save with no zone record (every save from before this
 #              slice) loads with the default zone.
+#   PREVIEW -- slice S2's read model: `SimStockpile.preview` is what the screen's drag draws, so it
+#              has to be what `mark` does. On a fresh world it creates no record (it only asks);
+#              `markable_in` answers `markable` tile for tile, an unexplored tile included; an `on`
+#              previews exactly the tiles the mark then adds, an `off` exactly the ones it takes
+#              back, and a rectangle that would take the zone past MAX_TILES previews refused and
+#              its mark changes nothing, where a small one beside it is not refused.
 #
 # Every lane carries its true negative. The sabotage that proves the lanes are not vacuous: making
 # `has_tile` ignore the record turns MARK and READERS red; making `markable` accept a wall turns
@@ -57,11 +63,12 @@ func _run() -> void:
 	ok = _a_walled_tile_leaves_the_zone_and_returns() and ok
 	ok = _the_readers_follow_the_zone_but_beds_do_not() and ok
 	ok = _the_zone_survives_a_save_and_an_old_save_reads_the_default() and ok
+	ok = _the_preview_is_what_the_mark_does() and ok
 	var skip_note: String = ""
 	if not _skipped.is_empty():
 		skip_note = " SKIPPED(no data): " + ", ".join(_skipped)
 	if ok:
-		print("M2_STOCKPILE_OK default mark walled readers save%s" % skip_note)
+		print("M2_STOCKPILE_OK default mark walled readers save preview%s" % skip_note)
 		quit(0)
 	else:
 		push_error("M2_STOCKPILE_FAIL")
@@ -380,3 +387,93 @@ func _restored(w: Variant) -> Variant:
 	var back: Variant = _world()
 	back.restore(decoded["snapshot"] as Dictionary)
 	return back
+
+
+func _the_preview_is_what_the_mark_does() -> bool:
+	var w: Variant = _world()
+	var at: Vector2i = _markable_block(w, 3)
+	if at.x < 0:
+		_skipped.append("PREVIEW")
+		print("PREVIEW SKIP no 3x3 of markable ground outside the annex")
+		return true
+	var hole := Vector2i(at.x + 1, at.y + 1)
+	_forget(w, hole.x, hole.y)
+	var on_cmd: Dictionary = {"type": SimStockpile.COMMAND, "x0": at.x, "y0": at.y, "x1": at.x + 2, "y1": at.y + 2, "on": true}
+	var before: Array[Vector2i] = SimStockpile.tiles(w)
+	var pv: Dictionary = SimStockpile.preview(w, on_cmd)
+	if w.components.has_component(w.player, COMPONENT):
+		push_error("PREVIEW: asking what a mark would do wrote a zone record")
+		return false
+	var explored: Variant = SimSightings.explored_view(w, w.player)
+	for j in range(at.y, at.y + 3):
+		for i in range(at.x, at.x + 3):
+			if SimStockpile.markable_in(w, explored, i, j) != SimStockpile.markable(w, i, j):
+				push_error("PREVIEW: markable_in and markable disagree at (%d, %d)" % [i, j])
+				return false
+	if SimStockpile.markable(w, hole.x, hole.y):
+		push_error("PREVIEW: the forgotten tile is still markable, so the agreement above proves nothing")
+		return false
+	var want: Array[Vector2i] = []
+	for j in range(at.y, at.y + 3):
+		for i in range(at.x, at.x + 3):
+			if Vector2i(i, j) != hole:
+				want.append(Vector2i(i, j))
+	if bool(pv["refused"]) or not _same(pv["tiles"] as Array, want):
+		push_error("PREVIEW: an on over the 3x3 previews %s (refused %s), not its eight explored tiles" % [str(pv["tiles"]), str(pv["refused"])])
+		return false
+	# The signature main.gd keeps the zone by: still while nothing changes, moved by a mark.
+	var sig0: int = SimStockpile.signature(w)
+	if SimStockpile.signature(w) != sig0:
+		push_error("PREVIEW: the zone's signature moved with nothing changed")
+		return false
+	_mark(w, at.x, at.y, at.x + 2, at.y + 2, true)
+	var after: Array[Vector2i] = SimStockpile.tiles(w)
+	if SimStockpile.signature(w) == sig0:
+		push_error("PREVIEW: a mark that added %d tiles left the zone's signature where it was, so a reader keeping the zone by it never sees the change" % after.size())
+		return false
+	var gained: Array[Vector2i] = after.filter(func(t: Vector2i) -> bool: return not before.has(t))
+	if not _same(gained, want):
+		push_error("PREVIEW: the mark added %s where the preview said %s" % [str(gained), str(want)])
+		return false
+	var off_cmd: Dictionary = on_cmd.duplicate()
+	off_cmd["on"] = false
+	var pv_off: Dictionary = SimStockpile.preview(w, off_cmd)
+	_mark(w, at.x, at.y, at.x + 2, at.y + 2, false)
+	var lost: Array[Vector2i] = after.filter(func(t: Vector2i) -> bool: return not SimStockpile.tiles(w).has(t))
+	if bool(pv_off["refused"]) or not _same(pv_off["tiles"] as Array, lost) or lost.size() != want.size():
+		push_error("PREVIEW: an off previews %s and the mark took back %s" % [str(pv_off["tiles"]), str(lost)])
+		return false
+	# Past the cap: the default zone plus a big outdoor rectangle. Refused whole, and so is the mark.
+	var big: Dictionary = {}
+	for ty in range(0, int(w.tilemap.h) - 20, 4):
+		for tx in range(0, int(w.tilemap.w) - 20, 4):
+			var c: Dictionary = {"type": SimStockpile.COMMAND, "x0": tx, "y0": ty, "x1": tx + 19, "y1": ty + 19, "on": true}
+			if bool(SimStockpile.preview(w, c)["refused"]):
+				big = c
+				break
+		if not big.is_empty():
+			break
+	if big.is_empty():
+		_skipped.append("PREVIEW cap")
+		print("PREVIEW SKIP no rectangle on this map has enough markable ground to pass MAX_TILES")
+		return true
+	if not (SimStockpile.preview(w, big)["tiles"] as Array).is_empty():
+		push_error("PREVIEW: a refused preview still lists tiles")
+		return false
+	var held: Array[Vector2i] = SimStockpile.tiles(w)
+	var sig_held: int = SimStockpile.signature(w)
+	_mark(w, int(big["x0"]), int(big["y0"]), int(big["x1"]), int(big["y1"]), true)
+	if not _same(SimStockpile.tiles(w), held):
+		push_error("PREVIEW: the mark the preview refused changed the zone")
+		return false
+	if SimStockpile.signature(w) != sig_held:
+		push_error("PREVIEW: a refused mark moved the zone's signature")
+		return false
+	var small: Dictionary = on_cmd.duplicate()
+	small["x1"] = at.x
+	small["y1"] = at.y
+	if bool(SimStockpile.preview(w, small)["refused"]):
+		push_error("PREVIEW: a one-tile mark is refused too, so the cap's refusal proves nothing")
+		return false
+	print("PREVIEW OK asking writes no record, markable_in is markable, an on and an off preview exactly what the mark changes, the signature moves with a mark and holds otherwise, and a rectangle past the cap previews refused and changes nothing")
+	return true

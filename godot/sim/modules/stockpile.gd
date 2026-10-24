@@ -97,6 +97,14 @@ static func tiles(world: Variant) -> Array[Vector2i]:
 	return out
 
 
+## A number that changes whenever `tiles` could answer differently: the zone record, whose record it
+## is, and the map's generation (a tile walled over or opened bumps it). For a reader that keeps the zone between
+## frames -- the overlay asks every frame, and walks the zone only when this moves.
+static func signature(world: Variant) -> int:
+	var rec: Variant = _record(world)
+	return hash([int(world.map_generation), int(world.player), (rec as Dictionary)["tiles"] if rec is Dictionary else null])
+
+
 static func count(world: Variant) -> int:
 	return tiles(world).size()
 
@@ -105,6 +113,14 @@ static func count(world: Variant) -> int:
 ## Indoors and out are both allowed. An unexplored tile is refused, because a player cannot mark
 ## ground they have never seen.
 static func markable(world: Variant, tx: int, ty: int) -> bool:
+	return markable_in(world, SimSightings.explored_view(world, world.player), tx, ty)
+
+
+## `markable` with the player's explored set already decoded (`SimSightings.explored_view`), for a
+## caller that asks about many tiles at once -- the drag preview asks about a whole rectangle every
+## frame, and decoding the bitset once per tile would be most of its cost. Same answer, same order of
+## tests; `markable` is this with the view fetched for one tile.
+static func markable_in(world: Variant, explored: Variant, tx: int, ty: int) -> bool:
 	if world.tilemap == null:
 		return false
 	var map: Variant = world.tilemap
@@ -119,45 +135,67 @@ static func markable(world: Variant, tx: int, ty: int) -> bool:
 	var ov: Variant = SimTileMap.overlay_at(map, tx, ty)
 	if ov is Dictionary and String((ov as Dictionary).get("kind", "")) == "door":
 		return false
-	return SimSightings.knows_tile(world, world.player, tx, ty)
+	return explored != null and bool((explored as Object).call("has_tile", tx, ty))
+
+
+## What `stockpile.mark` would change, without changing it: {"tiles": the tiles it would add (`on`)
+## or take back (`off`), row-major; "refused": true when an `on` would be refused whole}. `mark`
+## below applies exactly this answer, so the screen's drag preview and the command cannot disagree
+## about a tile: what the preview draws is what the release changes, and a refused rectangle draws
+## nothing because it changes nothing.
+static func preview(world: Variant, cmd: Dictionary) -> Dictionary:
+	var x0: int = mini(int(cmd.get("x0", 0)), int(cmd.get("x1", 0)))
+	var x1: int = maxi(int(cmd.get("x0", 0)), int(cmd.get("x1", 0)))
+	var y0: int = mini(int(cmd.get("y0", 0)), int(cmd.get("y1", 0)))
+	var y1: int = maxi(int(cmd.get("y0", 0)), int(cmd.get("y1", 0)))
+	var out: Array[Vector2i] = []
+	if world.tilemap == null:
+		return {"tiles": out, "refused": false}
+	var on: bool = bool(cmd.get("on", true))
+	if on and (x1 - x0 + 1) * (y1 - y0 + 1) > MAX_TILES:
+		return {"tiles": out, "refused": true}
+	var rec: Variant = _record(world)
+	if on:
+		var have: Dictionary = (rec as Dictionary)["tiles"] if rec is Dictionary else _default_keys(world)
+		var explored: Variant = SimSightings.explored_view(world, world.player)
+		for ty in range(y0, y1 + 1):
+			for tx in range(x0, x1 + 1):
+				if not have.has(_key(tx, ty)) and markable_in(world, explored, tx, ty):
+					out.append(Vector2i(tx, ty))
+		if have.size() + out.size() > MAX_TILES:
+			return {"tiles": [] as Array[Vector2i], "refused": true}
+		return {"tiles": out, "refused": false}
+	var keys: Array = (rec as Dictionary)["tiles"].keys() if rec is Dictionary else _default_keys(world).keys()
+	for key in keys:
+		var t: Vector2i = _parse(String(key))
+		if t.x >= x0 and t.x <= x1 and t.y >= y0 and t.y <= y1:
+			out.append(t)
+	out.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		return a.y < b.y or (a.y == b.y and a.x < b.x)
+	)
+	return {"tiles": out, "refused": false}
 
 
 ## `stockpile.mark {x0, y0, x1, y1, on}`: an inclusive rectangle. `on` adds every markable tile in it,
 ## and a rectangle larger than MAX_TILES is refused whole, as is an `on` that would take the zone past
 ## MAX_TILES. `off` takes back every zone tile inside it, markable or not; it scans the zone rather
-## than the rectangle, so a rectangle of any size is safe to clear.
+## than the rectangle, so a rectangle of any size is safe to clear. What changes is `preview`'s answer.
 static func mark(world: Variant, cmd: Dictionary) -> void:
-	var x0: int = mini(int(cmd.get("x0", 0)), int(cmd.get("x1", 0)))
-	var x1: int = maxi(int(cmd.get("x0", 0)), int(cmd.get("x1", 0)))
-	var y0: int = mini(int(cmd.get("y0", 0)), int(cmd.get("y1", 0)))
-	var y1: int = maxi(int(cmd.get("y0", 0)), int(cmd.get("y1", 0)))
 	if world.tilemap == null:
 		return
+	var change: Dictionary = preview(world, cmd)
+	var tiles_changed: Array = change["tiles"] as Array
+	if bool(change["refused"]) or tiles_changed.is_empty():
+		return
 	var on: bool = bool(cmd.get("on", true))
-	if on and (x1 - x0 + 1) * (y1 - y0 + 1) > MAX_TILES:
-		return
 	var set_tiles: Dictionary = _ensure(world)["tiles"]
-	var added: Array[String] = []
-	var removed: int = 0
-	if on:
-		for ty in range(y0, y1 + 1):
-			for tx in range(x0, x1 + 1):
-				var key: String = _key(tx, ty)
-				if not set_tiles.has(key) and markable(world, tx, ty):
-					added.append(key)
-		if set_tiles.size() + added.size() > MAX_TILES:
-			return
-		for key in added:
+	for t in tiles_changed:
+		var key: String = _key((t as Vector2i).x, (t as Vector2i).y)
+		if on:
 			set_tiles[key] = true
-	else:
-		for key in set_tiles.keys():
-			var t: Vector2i = _parse(String(key))
-			if t.x >= x0 and t.x <= x1 and t.y >= y0 and t.y <= y1:
-				set_tiles.erase(key)
-				removed += 1
-	if added.is_empty() and removed == 0:
-		return
-	world.events.publish({"type": "stockpile.changed", "added": added.size(), "removed": removed})
+		else:
+			set_tiles.erase(key)
+	world.events.publish({"type": "stockpile.changed", "added": tiles_changed.size() if on else 0, "removed": 0 if on else tiles_changed.size()})
 
 
 # The record, or null while the zone is still the default.
@@ -188,6 +226,14 @@ static func _default_tiles(world: Variant) -> Array[Vector2i]:
 		for i in range(annex.position.x, annex.position.x + annex.size.x):
 			if is_annex_floor(world, i, j):
 				out.append(Vector2i(i, j))
+	return out
+
+
+# The default zone as the record would hold it, for `preview` to ask about before any record exists.
+static func _default_keys(world: Variant) -> Dictionary:
+	var out: Dictionary = {}
+	for t in _default_tiles(world):
+		out[_key(t.x, t.y)] = true
 	return out
 
 

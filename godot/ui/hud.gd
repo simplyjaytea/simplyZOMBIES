@@ -406,6 +406,19 @@ const VERB_PROSE: Dictionary = {
 }
 
 
+# The bar with the stockpile brush in hand (Z, slice S2 of the stockpile plan): what the two buttons
+# do, then the one key that puts the brush down, as a keycap like every key the bar names. A drag the
+# sim would refuse whole (`SimStockpile.preview`'s `refused`, past `MAX_TILES`) says so instead of
+# drawing a preview that would not happen. Words only: no count of tiles, no cap, no digit.
+const MARKING_WORDS: String = "Marking the stockpile: drag to mark, right-drag to clear"
+const MARKING_REFUSED: String = "Too much ground for the stockpile: let go and nothing changes"
+const MARKING_DONE: String = "Z — finish"
+
+
+static func marking_line(refused: bool) -> String:
+	return ACTION_SEP.join([MARKING_REFUSED if refused else MARKING_WORDS, MARKING_DONE])
+
+
 static func action_line(world: Variant, actor: int) -> String:
 	if world == null or actor < 0:
 		return ""
