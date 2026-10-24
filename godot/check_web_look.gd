@@ -859,9 +859,12 @@ func _wired_lane() -> bool:
 	if not m.is_empty():
 		push_error("WIRED: _input does not contain %s -- nothing opens the web" % m)
 		return false
-	# The Esc arm alone, so the order is judged inside it and not against a mention elsewhere.
-	var esc_from: int = input.find("KEY_ESCAPE:")
-	var esc_to: int = input.find("KEY_TAB:")
+	# The Esc arm alone, so the order is judged inside it and not against a mention elsewhere. A
+	# match arm is a line that is nothing but its label: `ke.keycode == KEY_ESCAPE:` closing an `if`
+	# earlier in the function is not the arm, and once the bench's key hand-off sat between the two
+	# the first-occurrence search judged that hand-off as the arm's first line.
+	var esc_from: int = _arm_at(input, "KEY_ESCAPE:")
+	var esc_to: int = _arm_at(input, "KEY_TAB:")
 	if esc_from < 0 or esc_to < 0 or esc_to <= esc_from:
 		push_error("WIRED: could not isolate the KEY_ESCAPE arm in _input")
 		return false
@@ -920,3 +923,14 @@ func _wired_lane() -> bool:
 		return false
 	print("WIRED OK main.gd loads the panel, binds K, peels it on Esc before the bench, re-pulls it each frame; the six methods it names exist; the legend's K row is prose")
 	return true
+
+
+# Where the match arm labelled `label` starts in `body`: the first line that is the label alone,
+# or -1.
+func _arm_at(body: String, label: String) -> int:
+	var at: int = 0
+	for line in body.split("\n"):
+		if String(line).strip_edges() == label:
+			return at + String(line).find(label)
+		at += String(line).length() + 1
+	return -1
