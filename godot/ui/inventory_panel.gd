@@ -25,6 +25,7 @@ extends Control
 
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
+const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
 const SimCondition = preload("res://sim/condition.gd")
 const SimTreatment = preload("res://sim/modules/treatment.gd")
 const UiText = preload("res://ui/text.gd")
@@ -1086,6 +1087,16 @@ func _release_at(p: Vector2) -> void:
 	var rotated: bool = _drag_rotated
 	var verdict: Dictionary = drop_hint(p)
 	_cancel_drag()
+	# A part dropped on a weapon fits it when there is an empty slot for it and the survivor may work
+	# on it here. It is asked before the equipment boxes, as `drop_hint` asks it, so a worn weapon's
+	# box fits a part rather than equipping it. Otherwise the drop is the box or the grid, as before.
+	var host: Dictionary = _host_under(p)
+	if not host.is_empty():
+		var slot: String = SimGunsmith.drop_slot(_world, _actor, item, int(host["item"]))
+		if slot != "":
+			_world.commands.push({"type": "item.attach", "host": int(host["item"]), "item": item, "slot": slot})
+			_redraw_columns()
+			return
 	for box in _slot_boxes():
 		if (box["rect"] as Rect2).has_point(p):
 			_world.commands.push({"type": "item.equip", "item": item, "slot": String(box["slot"])})
@@ -1247,6 +1258,37 @@ func _slot_item(slot: String) -> Variant:
 	return null
 
 
+# The weapon, or any item with slots, under the pointer: its id and the rect it is drawn in, as
+# {item, rect}, or {} over nothing. An equipment box answers for what is worn there; a grid answers
+# for the plate under the cursor. Release and hover both ask this, so they cannot disagree.
+func _host_under(p: Vector2) -> Dictionary:
+	for box in _slot_boxes():
+		if not (box["rect"] as Rect2).has_point(p):
+			continue
+		var worn: Variant = _slot_item(String(box["slot"]))
+		if worn is Dictionary and int((worn as Dictionary).get("item", -1)) >= 0:
+			return {"item": int((worn as Dictionary)["item"]), "rect": box["rect"] as Rect2}
+		return {}
+	if not _column_rect().has_point(p):
+		return {}
+	for placed in _placed:
+		var at: Vector2 = placed["at"] as Vector2
+		var column: Dictionary = placed["column"] as Dictionary
+		var cell: Variant = BagGrid.cell_at(at, column, p)
+		if cell == null:
+			continue
+		var view: Variant = BagGrid.item_at(column, cell as Vector2i)
+		if not view is Dictionary or int((view as Dictionary).get("item", -1)) < 0:
+			return {}
+		# Clipped to the grid it is drawn in: a plate that runs under the scroll edge is not a target
+		# past it, and its wash is not drawn past it either.
+		var drawn: Rect2 = BagGrid.plate_rect(BagGrid.origin_of(at), view as Dictionary).intersection(_column_rect())
+		if not drawn.has_area():
+			return {}
+		return {"item": int((view as Dictionary)["item"]), "rect": drawn}
+	return {}
+
+
 # The item view under a point, across every drawn grid, or null.
 func _item_under(p: Vector2) -> Variant:
 	if not _column_rect().has_point(p):
@@ -1317,6 +1359,9 @@ func cursor_at(p: Vector2) -> int:
 func drop_hint(p: Vector2) -> Dictionary:
 	if _drag_item == -1:
 		return {}
+	var host: Dictionary = _host_under(p)
+	if not host.is_empty() and SimGunsmith.drop_slot(_world, _actor, _drag_item, int(host["item"])) != "":
+		return {"shape": Input.CURSOR_MOVE, "rect": host["rect"] as Rect2, "fit": true}
 	for box in _slot_boxes():
 		if (box["rect"] as Rect2).has_point(p):
 			return {"shape": Input.CURSOR_MOVE, "rect": Rect2()}
@@ -1384,7 +1429,9 @@ func _draw_drop_hint_into(ci: CanvasItem) -> void:
 	if not r.has_area():
 		return
 	r.position += shift
-	if int(hint.get("shape", Input.CURSOR_MOVE)) == Input.CURSOR_FORBIDDEN:
+	if bool(hint.get("fit", false)):
+		Locker.fit(ci, r)
+	elif int(hint.get("shape", Input.CURSOR_MOVE)) == Input.CURSOR_FORBIDDEN:
 		Locker.refuse(ci, r)
 	else:
 		Locker.accept(ci, r)
