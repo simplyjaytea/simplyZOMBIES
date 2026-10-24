@@ -3615,9 +3615,8 @@ not a to-do list:
   picks an item up beside an outdoor pile and stocks it on the pile), COOK (a meal lands nearest the
   fire, not the cook's feet) and RAIDER (a looter beside a marked pile heads for it, an item off the
   zone is not stores). Carried: the day half of the colony's walks moves, and that surfaced
-  `godot:m2:jobs`'s guard lane on the documented one-tile doorway deadlock (docs/23, the "Two walkers
-  hold each other" entry above). That lane passes on main and stays red here until the walk yield
-  lands as its own slice; the lane is not loosened.
+  `godot:m2:jobs`'s guard lane on the one-tile doorway case in the "Two walkers hold each other" entry
+  above. Main's watch fix (#210, `SimJobs.GUARD_REACH`) cleared it on the merge; the lane was not loosened.
   Bench, `godot:bench:runtime`, three interleaved pairs against main 21211eac: shipped tick (`shipped-tick`) head mean 16.76, 18.66, 18.02 ms, median 18.02; main 17.22, 17.28,
   17.09 ms, median 17.22 (+0.8 ms on the median, inside a head spread of about 2 ms on this box).
   Colony tick (`colony-tick`, 200 loose items) head 20.92, 19.90, 19.51 ms, median 19.90; main 19.88,

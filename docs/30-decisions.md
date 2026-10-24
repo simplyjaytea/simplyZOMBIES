@@ -6119,8 +6119,8 @@ stacked on one tile. JT's 2026-10-24 "yes" covered the plan, and its card defaul
 - **The day half of the colony moves.** Spreading puts the drops where the carriers walk, so a day's
   walks inside the annex change. This is the plan's stated cost, not tuned here. It surfaced the
   documented doorway deadlock (docs/23, "Two walkers hold each other in a one-tile doorway") on
-  `godot:m2:jobs`'s guard lane, which passes on main. The lane is not loosened: the walk yield that
-  fixes the deadlock is its own slice, and this change waits on it.
+  `godot:m2:jobs`'s guard lane, which passes on main. The lane was not loosened. Main's watch fix
+  (the entry below, #210) cleared it: Guard's arrival bound, not a walk yield, was the cause.
 
 ## A watch stands on its post, 2026-10-24
 
