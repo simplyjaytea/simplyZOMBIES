@@ -5976,3 +5976,20 @@ taken without the owner, all presentation:
 - **A required slot wears a "needed" tape, rimmed in rust while it is empty,** and a plate with
   something in the pack that fits wears an amber dog-ear. Both are the read model's answers
   (`required`, an offer for the slot), never a guess on the screen.
+
+## Menus and the E prompt speak one grammar, 2026-10-24
+
+The action bar's E clause names what E does, in the words the right-click menu uses for the same
+row. It used to lead with the look-at, so a boarded window put its state under the key ("E —
+intact") while E boarded it. The states still reach the screen, on the survivor's lines; the key's
+clause is a verb or nothing. One source for the words, `SimContext.reach_words`, walking
+`_use_context`'s ladder, held to `verbs_at` by `godot:check:context`'s BAR lane.
+
+The menu's header names what was clicked and nothing more: a colonist by name, a thing by its kind,
+any zombie as "a zombie". With the menu open the arrows are the menu's, never a step, and Enter
+does what the ringed row says; the ring opens on the first row, which is the bar's E clause
+whenever the clicked thing is the one in reach.
+
+**How to apply:** a new E rung gets its words in `reach_words` and its row in `verbs_at` in the
+same commit, and BAR gains a case for it. A state is never an E clause.
+

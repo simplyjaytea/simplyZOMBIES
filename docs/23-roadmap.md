@@ -215,9 +215,10 @@ first:
   layout lanes and a play lane that drives the roster from the keyboard.
 - **Weapon assembly and contextual actions.** Rework the bench around actual installed
   slots, eligible carried parts and categorical comparisons. Slice 3 (2026-10-24) landed the
-  by-hand half of this bullet, field work on a fitted part (C1), and the assembly screen with the
-  720p bench clip (C2), both recorded below; drop-to-fit and the shared menu grammar are still
-  open. Bring item/world menus,
+  by-hand half of this bullet, field work on a fitted part (C1), the assembly screen with the
+  720p bench clip (C2), a part dropped on a weapon (C3), and the street menu's header and keys
+  with the action bar's E clause in the menu's words (C4), all recorded below; building feedback
+  is still open. Bring item/world menus,
   building feedback and other E actions into the shared hierarchy. **Files:** bench,
   inspect and context/item menu controls. **Proof:** bench, inventory, context, play and
   skin gates; compare/fit/strip and cancel flows with correct ownership/reach at both sizes.
@@ -2505,6 +2506,45 @@ not a to-do list:
   review scene `bench_drop` (`godot:check:shots` lists it; `planning/ui-slice-3/c3_drop_fit_*.png`
   at both sizes, no before shot since the drop-to-fit did not exist on main). The call is in
   docs/30, "A dropped part fits only an empty slot".
+
+- **UI overhaul, slice 3: menus and the E prompt speak one grammar, 2026-10-24 (C4 of the
+  three-features plan, `/mnt/project-files/planning/2026-10-24_three-features.md`).** **The
+  finding:** the plan assumed the action bar's E clause and the menu's in-reach row both came from
+  `SimFortify.rung_of`. They did not. `ui/hud.gd`'s `_reach_clause` led with the look-at, so facing
+  a boarded window the bar said "E — intact" (the board's state) while E boarded it and the menu
+  said "board up the window"; at a door the bar said nothing while E opened it and the menu said
+  "open the door"; and main.gd's context line was the fallback, so a state could stand under E
+  wherever nothing else spoke. **The fix:** `SimContext.reach_words`, appended to
+  `godot/sim/context.gd`, walks `_use_context`'s ladder in its own order (the loose item, the
+  container, the door, the stranger, the car, then `rung_of`) in the words `verbs_at` writes for the
+  same row, and `_reach_clause` asks it (from a seat, the car's own clause). `action_line` lost its
+  `look` and `hint` arguments; the states still reach the survivor's lines through `hint`.
+  **The header:** `SimContext.target_label` ("Mara Sato", "you", "the crate", "the tin's name", "the
+  door", "a zombie" whatever kind it is, nothing for the ground) is drawn above the rows in the
+  small dim ink with a groove under it, by `ItemMenu`'s own `size_of`, `draw_menu` and `verb_rects`
+  taking an optional header, so the loot sheet's menu keeps its shape and both menus still wear one
+  steel. **The keys:** with the menu open, `input_map.gd` hands keys to `context_menu.gd`'s `key()`
+  first; an amber ring opens on the first row, Up and Down move it and wrap, Enter dispatches the
+  ringed row through `main._context_pick`, Escape closes with nothing sent, any other key closes it
+  and does what it does, and the ring follows the pointer. **Gates:** `godot:check:context` gains
+  HEADER (each label, the ground's absence, rows under the header, a headerless menu unchanged),
+  BAR (the bar's E clause equals the menu's first row at a boarded window, a shut and an open door
+  and a loose tin; the board's state is not that row) and KEYS on the scene's own menu (the ring
+  opens on row one, Down, Up and both wraps, Down then Enter pushes row two's command and closes,
+  an arrow walks nobody, Escape sends nothing, a click on the header picks nothing, the ground's
+  menu has no header); RIGHT-CLICK clicks a row by the menu's own `row_rects`.
+  `godot:check:play` gains MENU-ESCAPE: a right click on yourself opens a menu headed "you",
+  Escape closes it and raises no screen, and with no menu the same key still pauses.
+  `godot:check:hud`'s ACTION lane runs on a real map: E names "board up the window" at a boarded
+  window and never the board's state; RUNG follows `_reach_clause` to `reach_words` and
+  `reach_words` to `rung_of`. A review scene, `context_menu` (a crate right-clicked on the street,
+  its verify holding the header, the first row and the bar's E clause together), joins
+  `godot/review/scenes.gd`. Sabotage checked: the door taken out of `reach_words` (BAR), the bar
+  back on the look-at (BAR), the header not passed (HEADER), Down and Up made no-ops (KEYS), Enter
+  dispatching nothing (KEYS), and Escape no longer spent on the menu (MENU-ESCAPE) each turn their
+  lane red. **Not done:** `verbs_at`'s door row is offered for a broken door, and for an open one
+  somebody stands in, where E does nothing (`_door_would_toggle` refuses); the plan kept this slice
+  out of `verbs_at`, so the fix is a follow-up. No UI draw cost was measured.
 
 - **Kernel & tooling — the playbook and the init audit, 2026-10-23.** The owner asked for the
   repository to be initialised for agents and for one playbook every agent can read. An audit of

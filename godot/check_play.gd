@@ -216,6 +216,8 @@ func _run() -> void:
 	ok = focus_ok and ok
 	var nav_ok: bool = await _one_bar_reaches_all_three_screens(main)
 	ok = nav_ok and ok
+	var menu_ok: bool = await _escape_closes_the_menu_first(main)
+	ok = menu_ok and ok
 	var pause_ok: bool = await _escape_pauses_to_the_menu(main)
 	ok = pause_ok and ok
 	var notice_ok: bool = await _a_refused_save_says_one_sentence(main)
@@ -3119,3 +3121,72 @@ func _bench_done(main: Node, old_size: Vector2i, ok: bool) -> bool:
 	if ok:
 		print("BENCH OK E at a bench opens the assembly inside 1280x720 and centred at 1920x1080 where the old rect does not fit; plate then candidate fits, take off detaches and then is gone, Enter crosses and fits, arrows stay on the screen, the wash eats a click, every word is digit-free but a name, Escape closes it; by hand the parts only a bench can take off wear a \"bench\" tape and the magazine does not")
 	return ok
+
+
+# --- MENU-ESCAPE ---------------------------------------------------------------------------------
+
+const PickRes = preload("res://presentation/pick.gd")
+const ProjectionRes = preload("res://presentation/projection.gd")
+
+# Escape with the street's right-click menu open is the menu's, before any screen: a real right
+# click on your own body opens it (headed "you"), Escape closes it, and the pause menu, the sheet,
+# the Colony screen, the skill web and the bench all stay down and the run keeps playing. The
+# negative is the same Escape with no menu open, which still pauses -- otherwise "the menu took
+# it" could be "Escape reaches nothing" -- and a second Escape gives the street back.
+func _escape_closes_the_menu_first(main: Node) -> bool:
+	var lane: String = "MENU-ESCAPE"
+	var menu: Variant = main.get("_context_menu")
+	var shell: Variant = main.get("_shell")
+	var world: Variant = main.get("world")
+	if menu == null or shell == null:
+		return _skip(lane, "the scene built no context menu or no shell")
+	if _state(main) != Session.State.PLAYING:
+		return _skip(lane, "the scene is not playing, so there is no street to right-click")
+	var me: int = int(world.player)
+	var p: Dictionary = world.components.get_component(me, "position") as Dictionary
+	var camera: Dictionary = main.get("camera")
+	var sc: Dictionary = ProjectionRes.world_to_screen(camera, float(p["x"]), float(p["y"]))
+	var at: Vector2 = Vector2(-1.0, -1.0)
+	for lift in range(0, 64, 4):
+		var probe := Vector2(float(sc["sx"]), float(sc["sy"]) - float(lift))
+		var hit: Dictionary = PickRes.pick_at(world, camera, probe)
+		if String(hit.get("kind", "")) == "colonist" and int(hit.get("entity", -1)) == me:
+			at = probe
+			break
+	if at.x < 0.0:
+		return _skip(lane, "no point on screen picks your own body")
+	_mouse(at, MOUSE_BUTTON_RIGHT)
+	await process_frame
+	if not bool(menu.call("is_open")):
+		push_error("%s: a right click on your own body opened no menu" % lane)
+		return false
+	if String(menu.call("header")) != "you":
+		push_error("%s: the menu on your own body is headed '%s', not 'you'" % [lane, String(menu.call("header"))])
+		return false
+	_tap(KEY_ESCAPE)
+	await process_frame
+	if bool(menu.call("is_open")):
+		push_error("%s: Escape left the menu open" % lane)
+		return false
+	var screens: Dictionary = {"the pause menu": shell, "the skill web": main.get("_web_panel"), "the bench": main.get("_bench_panel"), "the settings": main.get("_settings")}
+	for name in screens.keys():
+		var node: Variant = screens[name]
+		if node != null and bool((node as CanvasItem).visible):
+			push_error("%s: the Escape that closed the menu also raised %s" % [lane, String(name)])
+			return false
+	if bool(main.get("inventory_open")) or bool(main.get("work_open")) or _state(main) != Session.State.PLAYING:
+		push_error("%s: the Escape that closed the menu opened a screen or left the run (state %d)" % [lane, _state(main)])
+		return false
+	# The negative: no menu, the same key pauses; a second gives the street back.
+	_tap(KEY_ESCAPE)
+	await process_frame
+	if _state(main) != Session.State.PAUSED:
+		push_error("%s: with no menu open Escape did not pause, so the lane cannot tell the menu took it" % lane)
+		return false
+	_tap(KEY_ESCAPE)
+	await process_frame
+	if _state(main) != Session.State.PLAYING:
+		push_error("%s: the second Escape did not give the street back" % lane)
+		return false
+	print("%s OK a right click on yourself opens a menu headed 'you', Escape closes it and raises nothing, and with no menu the same key still pauses" % lane)
+	return true
