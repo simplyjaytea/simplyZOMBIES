@@ -3595,6 +3595,39 @@ not a to-do list:
   interleaved pairs on this box: head mean 13.42, 13.25, 13.26 ms; base 14.06, 12.88, 12.96 ms (medians
   13.26 against 12.96, inside the box's roughly 1 ms spread). Both sit above the 8 ms target here, as
   main does on this box.
+- **Marking the stockpile on screen, slice S2 of the 2026-10-24 plan.** Z picks up a brush (a `mark`
+  focus in `godot/presentation/input_map.gd`, the `stockpile` binding; Ctrl+Z stays the prone rung).
+  Under it a left drag pushes one `stockpile.mark` on over the dragged rectangle, a right drag one
+  off, a click one tile; walking, the stances, pause and the speed keys still work, nothing attacks
+  and the right-click menu is off; Escape or Z puts it down. The drag previews what the sim says the
+  release changes (`SimStockpile.preview`, which `mark` now applies exactly), amber to mark and rust
+  to clear, and nothing when the sim would refuse it whole; a mark let go while paused draws as
+  pending until a tick takes it. The zone is drawn on the ground (`godot/presentation/stockpile_look.gd`,
+  `_draw_stockpile` in main.gd): a cool steel wash and a dashed masking-tape rim, only on tiles the
+  player has explored, dimmed through `Palette.remembered` out of sight, never over a roof, quieter
+  at rest than under the brush, under the props and bodies. The HUD speaks the brush in words
+  (`HudRead.marking_line`) and the legend has a Z row. Gates: `godot:check:play` MARK (the keys, the
+  three drags, the street drag that marks nothing, the paused pending draw and its end, the zone on
+  explored tiles only, the bar), `godot:check:memory` STOCKPILE (explored only, remembered dimmed,
+  roof wins, one rim with no inner seams and the concave notch, the batch, the kept shape and the
+  state bytes, the rim at 3:1 or better on seven grounds, the frame reaching it), `godot:check:hud`
+  ACTION (the brush's lines digit-free), `godot:m2:stockpile` PREVIEW (preview is what the mark
+  does, the cap refuses whole, the zone's signature moves with a mark and holds otherwise),
+  `godot:check:shots` (`stockpile_mark`, `stockpile_rest`; nineteen scenes). Sabotage, each shown
+  red: no push on release (MARK), no explored check in `cells` (STOCKPILE), `cells` ignoring the
+  kept geometry (STOCKPILE), no pending entry on release (MARK), a constant signature (PREVIEW).
+  Frame cost, `xvfb-run -a npm run godot:bench:frame`, three interleaved pairs against the same
+  build with `_draw_stockpile` returning at once: the first cut, painting every tile fresh each
+  frame, was 17.77, 17.61, 18.04 ms shipped-draw against 9.04, 10.86, 10.26, a regression. The zone
+  is now kept by `SimStockpile.signature`, its paint batched (row-run fills, one `draw_multiline` per
+  colour, in tile-grid coordinates under a transform) and rebuilt only when a zone tile's state, the
+  brush or the zoom moves: shipped-draw 10.76, 9.38, 10.71 against 9.94, 9.66, 10.72; night-draw
+  9.63, 10.10, 10.12 against 9.43, 10.85, 10.44, inside the box's spread. The bench holds the sim,
+  so it measures the kept path; a tick reads the zone's state (about 0.3 ms for the 320-tile default
+  zone on this box) and a change of state rebuilds the batch (about 1.5 ms). Shots, before and after
+  at both sizes, are in the project's shared folder under planning/stockpile/s2. Not in this slice:
+  S3's placement, stash and looter, and S5's Colony-screen words. Owner's eye: the default zone is
+  320 of S1's 400-tile cap.
 - **Attack order: a picked colonist goes after one zombie or raider they can see — 2026-10-24 orders slice A2.**
   With a colonist picked on the street, the menu's "have Mara attack it" row offers an `attack` order on a
   zombie or raider the colonist or the player can see right now (`SimOrders.accepts`, the scarce-information
