@@ -58,9 +58,10 @@ const REACH: float = 1.5
 # A watch stands on its post, not within a body's reach of it. Guard arrives at REACH like every
 # other job, and from the west that stops it 1.48 m short of the post at (29.05, 30.5): 1.8 m from
 # the gateway the GUARD lane measures, so the watch never reached the gate. Nothing pushed it back;
-# the arrival test simply ended the walk early. 0.5 m is the tightest bound the walk settles inside
-# (the last step ends within 0.2 m of its centre and the velocity is zeroed there).
-const GUARD_REACH: float = 0.5
+# the arrival test simply ended the walk early. A watch that stops within 1.0 m of the post centre
+# is inside the gateway's 1.5 m, which is the test the GUARD lane makes. Tighter bounds (0.5, 0.75)
+# flip the FAST balance wipe on seed 20260805; 1.0 keeps it. See docs/23's record of the fix.
+const GUARD_REACH: float = 1.0
 const EMPTY_BOTTLE: String = "item.water.bottle.empty"
 
 

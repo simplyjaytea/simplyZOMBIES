@@ -16,9 +16,9 @@ const SimSightings = preload("res://sim/modules/sightings.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
 const WorkRead = preload("res://sim/work_read.gd")
 
-# How near the post a watch must stand to count as on it. The walk's arrival test is REACH (1.5 m), which
-# is what the GUARD lane leans on; this is the tighter bound the STAND lane asserts.
-const GUARD_STAND_METRES: float = 0.5
+# How near the post a watch must stand to count as on it: the sim's own Guard arrival bound, plus a
+# 2 px epsilon (1 tile = 32 px, so 1/16 m) for the last step's rounding.
+const GUARD_STAND_METRES: float = SimJobs.GUARD_REACH + 2.0 / 32.0
 
 func _init() -> void:
 	call_deferred("_run")

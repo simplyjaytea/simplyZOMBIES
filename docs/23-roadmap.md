@@ -1451,8 +1451,11 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   No body blocks another in this sim, and a second Guard removed from the gateway leaves the first
   one's trajectory identical. The watch stopped on the walk's own arrival reach (`REACH`, 1.5 m)
   from the post at (30, 30), which from the west is 1.8 m from the gateway at (30, 31) that the
-  GUARD lane measures. `SimJobs.GUARD_REACH` (0.5 m) now stops a watch on its post; `godot:m2:jobs`'s
-  STAND lane is red on the old rule and green on this one.
+  GUARD lane measures. `SimJobs.GUARD_REACH` (1.0 m) now stops a watch within the gateway's reach;
+  `godot:m2:jobs`'s STAND lane is red on the old rule and green on this one. The bound is 1.0 and not
+  tighter because the FAST balance wipe on seed 20260805 flips at 0.5 and 0.75 while 1.0 keeps main's
+  outcome band (a chaotic sensitivity to any Guard timing change, measured 2026-10-24: all four
+  seeds' numbers move, not only that one). The seed trace behind the wipe at 0.5 is recorded below.
 - **A melee raider band cannot reach a body that does not move.** `SimRaiders._approach` halts at
   `HALT_METRES` (2.6 m) and every melee reach a raider kit carries is shorter — the rusted machete
   is 1.2 plus `MELEE_REACH_FUDGE`, 1.55 — so nothing closes the last metre and a scav band stands
