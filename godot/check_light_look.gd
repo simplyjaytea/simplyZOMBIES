@@ -635,11 +635,11 @@ func _dead_socket_main_gd_draws_what_light_look_returns() -> bool:
 			push_error("light_map.gd does not hand the shader %s" % needle)
 			return false
 	var shader_src: String = FileAccess.get_file_as_string("res://presentation/night_light.gdshader")
-	for needle in ["render_mode blend_mul", "float b = tint.w * rings(fall * mask, threshold);", "eye_floor * (1.0 - ambient) * eye_fade * rings(1.0 - smoothstep(disc_r * 0.45, disc_r, d_eye), threshold)", "texelFetch(light_tex", "light_dir[i]", "float mask = inside(own,", "if (light_count > 0 && own_r > 191)", "float hand = 1.0 - smoothstep(spill_m * 0.4, spill_m, d);", "float wedge = smoothstep(beam.z, beam.w, along);"]:
+	for needle in ["render_mode blend_mul", "float b = tint.w * rings(fall * mask, threshold);", "eye_floor * (1.0 - ambient) * eye_fade * rings(1.0 - smoothstep(disc_r * 0.45, disc_r, d_eye), threshold)", "texelFetch(light_tex", "light_dir[i]", "float mask = inside(own,", "if (light_count > 0 && own_r > 191)", "float hand = 1.0 - smoothstep(spill_m * 0.4, spill_m, d);", "float wedge = smoothstep(beam.z, beam.w, along);", "hue = best > 0.0 ? mix(hue, hue_beam, best_beam / (best + best_beam)) : hue_beam;"]:
 		if not shader_src.contains(needle):
 			push_error("night_light.gdshader lost %s" % needle)
 			return false
-	print("DEAD SOCKET OK the O channel alone draws tile pools (lit_pool_tiles, both Palette tints); _draw_night_wash builds the light map from light_texels and ambient_of before _draw_effects(true), which blits into the glow item; light_map.gd hands the shader LightLook's caps, rings, eye floor, eye disc and texels and the sim's spill; a beam leaves the hand (LightLook.hand_metres); the shader multiplies, rings every light, feathers source light inward on seen tiles only, reads the beams, ends each at its half-angle and draws the spill's disc at the hand")
+	print("DEAD SOCKET OK the O channel alone draws tile pools (lit_pool_tiles, both Palette tints); _draw_night_wash builds the light map from light_texels and ambient_of before _draw_effects(true), which blits into the glow item; light_map.gd hands the shader LightLook's caps, rings, eye floor, eye disc and texels and the sim's spill; a beam leaves the hand (LightLook.hand_metres); the shader multiplies, rings every light, feathers source light inward on seen tiles only, reads the beams, ends each at its half-angle draws the spill's disc at the hand and lays a beam over a pool's colour")
 	return true
 
 
