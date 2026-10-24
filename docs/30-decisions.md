@@ -6143,7 +6143,7 @@ taken without the owner:
 - **The overlay is drawn from a kept batch.** Painting the 320-tile default zone fresh every frame,
   one rect per piece of tape, cost about 8 ms a frame on the bench box. The zone is read again only
   when `SimStockpile.signature` moves; what it paints is batched into row-run fills and one
-  `draw_multiline` per colour, in tile-grid coordinates moved under the camera by a transform; and
+  `draw_multiline` per colour, in tile-grid coordinates offset to the screen as they are drawn; and
   the batch is rebuilt only when a zone tile's state (explored, seen, roofed), the brush or the zoom
   changes. The drag's preview and the pending marks are small and drawn fresh.
 
