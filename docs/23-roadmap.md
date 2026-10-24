@@ -3620,7 +3620,7 @@ not a to-do list:
   build with `_draw_stockpile` returning at once: the first cut, painting every tile fresh each
   frame, was 17.77, 17.61, 18.04 ms shipped-draw against 9.04, 10.86, 10.26, a regression. The zone
   is now kept by `SimStockpile.signature`, its paint batched (row-run fills, one `draw_multiline` per
-  colour, in tile-grid coordinates under a transform) and rebuilt only when a zone tile's state, the
+  colour, in tile-grid coordinates offset as drawn) and rebuilt only when a zone tile's state, the
   brush or the zoom moves: shipped-draw 10.76, 9.38, 10.71 against 9.94, 9.66, 10.72; night-draw
   9.63, 10.10, 10.12 against 9.43, 10.85, 10.44, inside the box's spread. The bench holds the sim,
   so it measures the kept path; a tick reads the zone's state (about 0.3 ms for the 320-tile default

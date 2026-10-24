@@ -2842,7 +2842,7 @@ func _draw_stockpile(seen: Variant, explored: Variant, roof: Array, view: Rect2i
 		_stockpile_geom = StockpileLook.geometry(_stockpile_zone)
 	# What the zone paints changes only with the zone, what the player knows and sees of it, the roof,
 	# the brush, the zoom and the daylight. So it is batched once per change, on the whole map in
-	# tile-grid coordinates, and moved under the camera with a transform. The frame key stands in for
+	# tile-grid coordinates, and moved under the camera at draw time (`_draw_painted`). The frame key stands in for
 	# the sight sets and the roof without reading them: both are built from the tick's shadowcast, the
 	# player's tile, the map's generation and the tiles on screen (`view`; RoofLook.roof_tiles cuts the
 	# roof to the same rectangle). A frame with the same key reuses everything; a new key reads each
@@ -2898,23 +2898,26 @@ func _draw_stockpile(seen: Variant, explored: Variant, roof: Array, view: Rect2i
 		if not change.is_empty():
 			drag_paint = _drag_paint
 			_stockpile_drawn.append_array(_drag_cells)
-	draw_set_transform(origin)
-	_draw_painted(_stockpile_paint, px)
-	_draw_painted(_pending_paint, px)
-	_draw_painted(drag_paint, px)
-	draw_set_transform(Vector2.ZERO)
+	_draw_painted(_stockpile_paint, px, origin)
+	_draw_painted(_pending_paint, px, origin)
+	_draw_painted(drag_paint, px, origin)
 	if marking and _mark_hover.x >= 0:
 		for part in StockpileLook.cursor(_tile_origin(_mark_hover), zoom, px):
 			draw_rect((part as Array)[0] as Rect2, (part as Array)[1] as Color)
 
 
-# One StockpileLook.batch onto the canvas: its fills, then each colour's segments in one call.
-func _draw_painted(painted: Dictionary, px: float) -> void:
+# One StockpileLook.batch onto the canvas, moved from tile-grid coordinates to the screen by
+# `origin` (tile (0, 0)'s top-left): its fills, then each colour's segments in one call, the points
+# moved by one native transform of the whole array. The canvas itself is never transformed: nothing in
+# this file rotates or offsets the canvas (check_wrecks and check_topdown hold that).
+func _draw_painted(painted: Dictionary, px: float, origin: Vector2) -> void:
 	for fill in painted.get("fills", []):
-		draw_rect((fill as Array)[0] as Rect2, (fill as Array)[1] as Color)
+		var r: Rect2 = (fill as Array)[0] as Rect2
+		draw_rect(Rect2(r.position + origin, r.size), (fill as Array)[1] as Color)
 	var lines: Dictionary = painted.get("lines", {})
+	var shift := Transform2D(0.0, origin)
 	for col in lines:
-		draw_multiline(lines[col] as PackedVector2Array, col as Color, px)
+		draw_multiline(shift * (lines[col] as PackedVector2Array), col as Color, px)
 
 
 # A tile's top-left corner on screen, on the same whole-pixel grid _fill_pool_tiles lays a pool on.
