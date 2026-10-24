@@ -3745,6 +3745,28 @@ not a to-do list:
   7.3 ms down to 1.7 to 2.0 ms. At 1000 tiles `patches` went from 9.8 to 10.9 ms down to 3.8 to
   6.4 ms, and the drop from 20.4 to 28.0 ms down to 5.0 to 8.0 ms. `tiles` is unchanged: 0.7 ms at
   320 and 2.1 to 2.5 ms at 1000.
+- **Nowhere to put it: the two ways a hauled or cooked thing left the map (the stockpile review,
+  findings 1 and 2).** The feature's end-to-end review (`planning/stockpile/review.md` in the
+  project files) found two paths that lost an item for good. A Haul or Repair pickup whose stow
+  failed (`_do_haul`, `_do_repair` in `godot/sim/modules/jobs.gd`) had already taken the item's
+  `position` off and stopped, leaving it on no tile and in no pack; a probe with the zone emptied
+  lost four of six tins in fifty ticks to Ellis's full stack. And with no stockpile tile anywhere --
+  one right-drag over the annex empties the zone -- a cooked meal was spawned without a position,
+  and every loose item near home became a haul that ended in the hauler's pack. Now a refused stow
+  puts the `position` back and holds the colonist off Haul and Repair for `HANDS_FULL_TICKS` (600,
+  the `handsFull: {tick}` record, absent by default so no save changes); a meal with no free zone
+  tile lies at the fire's own tile; and while the zone has no tile (`SimStockpile.has_any_tile`,
+  which stops at the first live tile) the Haul search offers no item and the haul order row is
+  absent (`SimOrders._haulable`); the corpse dump is not the stockpile and is still offered. Gate:
+  `godot:m2:stockpile` EMPTY (the zone emptied: no Haul offered or ordered over sixty ticks, the tin
+  stays on the floor and in nobody's pack, the meal lies at the fire; one tile marked again makes
+  the tin a haul) and FULL (a helmet a shut pack refuses lies where it lay, the hauler's hands read
+  full, no Haul is offered during the hold and it comes back after; the positive, the helmet
+  offered with hands free, is proven first). Sabotage, each shown red: the old `_do_haul` (the
+  helmet at no tile), the old `_do_cook` (the meal at no tile), the old `_haul_work` (a haul with no
+  zone). Whether emptying the zone should be allowed at all is on a card to the owner; this keeps it
+  allowed and honest. No balance claim: the paths it closes never fired on the shipped default zone
+  unless a pack was full.
 - **Attack order: a picked colonist goes after one zombie or raider they can see — 2026-10-24 orders slice A2.**
   With a colonist picked on the street, the menu's "have Mara attack it" row offers an `attack` order on a
   zombie or raider the colonist or the player can see right now (`SimOrders.accepts`, the scarce-information
