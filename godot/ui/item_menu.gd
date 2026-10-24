@@ -92,7 +92,16 @@ static func _head(header: String) -> float:
 	return 0.0 if header.is_empty() else HEADER_H
 
 
-static func draw_menu(ci: CanvasItem, at: Vector2, verbs: Array, alpha: float, header: String = "") -> void:
+# A row's ink. The loot sheet's menu (`lit` -1) lights its lead verbs. The street menu passes the
+# ringed row as `lit`: that row alone is amber, so the ring and the colour name the same row and an
+# old lead word ("walk here") cannot outshine the row Enter would take.
+static func row_colour(verb: String, index: int, lit: int) -> Color:
+	if lit >= 0:
+		return Locker.ACCENT if index == lit else Locker.TEXT
+	return Locker.ACCENT if _is_lead(verb) else Locker.TEXT
+
+
+static func draw_menu(ci: CanvasItem, at: Vector2, verbs: Array, alpha: float, header: String = "", lit: int = -1) -> void:
 	if verbs.is_empty():
 		return
 	var rect := Rect2(at, size_of(verbs, header))
@@ -107,7 +116,7 @@ static func draw_menu(ci: CanvasItem, at: Vector2, verbs: Array, alpha: float, h
 	var top: float = PAD_Y + _head(header)
 	for i in verbs.size():
 		var verb: String = String(verbs[i])
-		var col: Color = Locker.ACCENT if _is_lead(verb) else Locker.TEXT
+		var col: Color = row_colour(verb, i, lit)
 		var mark: String = glyph_of(verb)
 		if not mark.is_empty():
 			Chrome.glyph(ci, mark, at + Vector2(PAD_X, top + ROW_H * float(i) + floorf((ROW_H - Chrome.GLYPH_SMALL) / 2.0)), true, minf(1.0, alpha))

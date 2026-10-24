@@ -2526,14 +2526,18 @@ not a to-do list:
   steel. **The keys:** with the menu open, `input_map.gd` hands keys to `context_menu.gd`'s `key()`
   first; an amber ring opens on the first row, Up and Down move it and wrap, Enter dispatches the
   ringed row through `main._context_pick`, Escape closes with nothing sent, any other key closes it
-  and does what it does, and the ring follows the pointer. **Gates:** `godot:check:context` gains
-  HEADER (each label, the ground's absence, rows under the header, a headerless menu unchanged),
-  BAR (the bar's E clause equals the menu's first row at a boarded window, a shut and an open door
-  and a loose tin; the board's state is not that row) and KEYS on the scene's own menu (the ring
+  and does what it does, and the ring follows the pointer. The ringed row is the street menu's one
+  amber row (`ItemMenu.row_colour`; the loot sheet's menu keeps its lead verbs lit), and the menu
+  opens on the art grid and stops above the HUD's action bar however low the click. **Gates:** `godot:check:context` gains
+  HEADER (each label, a colonist by the whole name, the ground's absence, rows under the header, a
+  headerless menu unchanged, the ink following the ring),
+  BAR (the bar's E clause equals the menu's first row at a boarded window, a shut and an open door,
+  a loose tin and a crate; the board's state is not that row) and KEYS on the scene's own menu (the ring
   opens on row one, Down, Up and both wraps, Down then Enter pushes row two's command and closes,
   an arrow walks nobody, Escape sends nothing, a click on the header picks nothing, the ground's
   menu has no header); RIGHT-CLICK clicks a row by the menu's own `row_rects`.
-  `godot:check:play` gains MENU-ESCAPE: a right click on yourself opens a menu headed "you",
+  `godot:check:play` gains MENU-ESCAPE: a menu opened low at 1280×720 ends above the action bar and
+  on the grid, a right click on yourself opens a menu headed "you",
   Escape closes it and raises no screen, and with no menu the same key still pauses.
   `godot:check:hud`'s ACTION lane runs on a real map: E names "board up the window" at a boarded
   window and never the board's state; RUNG follows `_reach_clause` to `reach_words` and

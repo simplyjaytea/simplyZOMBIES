@@ -5993,3 +5993,7 @@ whenever the clicked thing is the one in reach.
 **How to apply:** a new E rung gets its words in `reach_words` and its row in `verbs_at` in the
 same commit, and BAR gains a case for it. A state is never an E clause.
 
+`reach_words` reads three of `SimFortify`'s underscore helpers (`_door_in_reach`,
+`_door_would_toggle`, `_on_river`), as `verbs_at` already read the first: they are the ladder's own
+predicates, and a copy here would drift from `_use_context`. Renaming one breaks the BAR lane, which
+is the point.

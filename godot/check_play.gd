@@ -3155,6 +3155,30 @@ func _escape_closes_the_menu_first(main: Node) -> bool:
 			break
 	if at.x < 0.0:
 		return _skip(lane, "no point on screen picks your own body")
+	# Where it opens: on the art grid, and above the HUD's bottom band however low the click. A
+	# click a few pixels above the window's bottom edge is the case the clamp exists for; the old
+	# clamp (to the window) would have dropped this menu over the action bar and the belt.
+	var hud: Variant = main.get("_hud")
+	var old_size: Vector2i = root.size
+	root.size = Vector2i(1280, 720)
+	await process_frame
+	var probe_rows: Array[Dictionary] = [{"text": "walk here", "command": {}, "target": -1}, {"text": "shout", "command": {}, "target": -1}]
+	var view_h: float = (menu as Control).get_viewport_rect().size.y
+	menu.call("open", Vector2(101.0, view_h - 7.0), probe_rows, "a probe")
+	var probe: Rect2 = (menu as Control).get_rect()
+	var bar: float = float(hud.call("bar_top")) if hud != null and bool((hud as CanvasItem).visible) else -1.0
+	menu.call("close")
+	root.size = old_size
+	await process_frame
+	if bar <= probe.size.y or bar >= view_h:
+		push_error("%s: no HUD band to judge the clamp against at 1280x720 (bar top %.0f, window %.0f)" % [lane, bar, view_h])
+		return false
+	if probe.end.y > bar:
+		push_error("%s: a menu opened low ends at %.0f, over the action bar at %.0f" % [lane, probe.end.y, bar])
+		return false
+	if fmod(probe.position.x, 2.0) != 0.0 or fmod(probe.position.y, 2.0) != 0.0:
+		push_error("%s: the menu opened off the art grid at %s" % [lane, str(probe.position)])
+		return false
 	_mouse(at, MOUSE_BUTTON_RIGHT)
 	await process_frame
 	if not bool(menu.call("is_open")):
@@ -3188,5 +3212,5 @@ func _escape_closes_the_menu_first(main: Node) -> bool:
 	if _state(main) != Session.State.PLAYING:
 		push_error("%s: the second Escape did not give the street back" % lane)
 		return false
-	print("%s OK a right click on yourself opens a menu headed 'you', Escape closes it and raises nothing, and with no menu the same key still pauses" % lane)
+	print("%s OK a menu opened low stops above the action bar on the art grid, a right click on yourself opens one headed 'you', Escape closes it and raises nothing, and with no menu the same key still pauses" % lane)
 	return true
