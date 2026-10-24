@@ -6,7 +6,7 @@ extends SceneTree
 # gate runs the same `review/scenes.gd` functions the driver runs and asks the world what it made.
 #
 # Lanes, each with a true positive and a true negative:
-#   NAMES     the seventeen scenes and the two windows, by name -- a scene added to the driver has to be
+#   NAMES     every scene and the two windows, by name -- a scene added to the driver has to be
 #             added here too
 #   UNKNOWN   a scene name nothing knows is refused by setup and by verify, not passed quietly
 #   SETUP     each scene boots, is set up, and the world says it is that scene
@@ -36,7 +36,7 @@ func _run() -> void:
 	await _negative()
 	await _pixels()
 	if _ok:
-		print("SHOTS_OK seventeen scenes boot, set up and verify at 1280x720 and 1920x1080; %s" % _pixels_note)
+		print("SHOTS_OK %d scenes boot, set up and verify at 1280x720 and 1920x1080; %s" % [Scenes.NAMES.size(), _pixels_note])
 	quit(0 if _ok else 1)
 
 
