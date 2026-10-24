@@ -357,26 +357,43 @@ static func standing_on(world: Variant, actor: int) -> bool:
 	return t.x >= 0 and has_tile(world, t.x, t.y)
 
 
-## The patch `actor` stands in, as a set of "tx,ty" keys; empty off the zone. A flood from the
-## actor's own tile over the zone, so a far patch costs nothing to leave out.
+## The patch `actor` stands in, as a set of "tx,ty" keys; empty off the zone. Read from the zone's
+## patches, which are worked out once per zone and map (`_patch_index`), not once per ask: the window
+## asks every tick it is open, and walking the default zone tile by tile is milliseconds.
 static func patch_under(world: Variant, actor: int) -> Dictionary:
-	var out: Dictionary = {}
 	var start: Vector2i = tile_of(world, actor)
-	if start.x < 0 or not has_tile(world, start.x, start.y):
-		return out
-	var member: Dictionary = {}
-	for t in tiles(world):
-		member[_key(t.x, t.y)] = true
-	var pending: Array[Vector2i] = [start]
-	out[_key(start.x, start.y)] = true
-	while not pending.is_empty():
-		var c: Vector2i = pending.pop_back()
-		for n in [Vector2i(c.x + 1, c.y), Vector2i(c.x - 1, c.y), Vector2i(c.x, c.y + 1), Vector2i(c.x, c.y - 1)]:
-			var k: String = _key(n.x, n.y)
-			if member.has(k) and not out.has(k):
-				out[k] = true
-				pending.append(n)
-	return out
+	if start.x < 0:
+		return {}
+	var index: Dictionary = _patch_index(world)
+	var which: Variant = (index["of"] as Dictionary).get(_key(start.x, start.y))
+	if which == null:
+		return {}
+	return (index["sets"] as Array)[int(which)] as Dictionary
+
+
+# The zone's patches as {sig, of: {"tx,ty": patch}, sets: [{"tx,ty": true}]}, kept on the world (as
+# metadata, never saved and never shared between two worlds) for as long as the zone record and the
+# map generation are what they were. Every answer is the one `patches` gives; this only keeps it.
+const _PATCH_META: StringName = &"stockpile_patch_index"
+
+
+static func _patch_index(world: Variant) -> Dictionary:
+	var rec: Variant = _record(world)
+	var sig: int = hash([int(world.map_generation), (rec as Dictionary)["tiles"] if rec is Dictionary else null])
+	var kept: Variant = (world as Object).get_meta(_PATCH_META, null)
+	if kept is Dictionary and int((kept as Dictionary)["sig"]) == sig:
+		return kept as Dictionary
+	var of: Dictionary = {}
+	var sets: Array = []
+	for group in patches(world):
+		var members: Dictionary = {}
+		for t in group:
+			members[_key((t as Vector2i).x, (t as Vector2i).y)] = true
+			of[_key((t as Vector2i).x, (t as Vector2i).y)] = sets.size()
+		sets.append(members)
+	var built: Dictionary = {"sig": sig, "of": of, "sets": sets}
+	(world as Object).set_meta(_PATCH_META, built)
+	return built
 
 
 ## Whether the window is open for `actor` right now: the component, and still standing on the zone.
@@ -486,18 +503,27 @@ static func stores_view(world: Variant, actor: int, cols: int = VIEW_COLS, rows:
 		return a["cells"] > b["cells"] or (a["cells"] == b["cells"] and a["i"] < b["i"])
 	)
 	var placed: Dictionary = {}
+	var free_cells: int = w * h
 	for c in chosen:
 		var it: int = int(c["item"])
 		var spot: Variant = _first_fit(used, w, h, int((sizes[it] as Dictionary).get("w", 1)), int((sizes[it] as Dictionary).get("h", 1)))
 		if spot != null:
 			placed[it] = spot
+			free_cells -= int(c["cells"])
+	# The gaps, while there are any: a full grid asks nothing more of the rest of the pile.
 	for item2 in seen:
+		if free_cells <= 0:
+			break
 		if placed.has(item2):
 			continue
 		var size2: Dictionary = sizes[item2] if sizes.has(item2) else SimItems.call("size_of_item", world, item2) as Dictionary
+		var cells2: int = int(size2.get("w", 1)) * int(size2.get("h", 1))
+		if cells2 > free_cells:
+			continue
 		var spot2: Variant = _first_fit(used, w, h, int(size2.get("w", 1)), int(size2.get("h", 1)))
 		if spot2 != null:
 			placed[item2] = spot2
+			free_cells -= cells2
 	var items: Array = []
 	var more: bool = false
 	for item3 in seen:
