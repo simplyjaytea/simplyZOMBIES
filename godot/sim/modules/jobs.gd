@@ -55,6 +55,12 @@ const CLEAN_TICKS: int = 40
 const BURY_TICKS: int = 40
 const REPAIR_TICKS: int = 80
 const REACH: float = 1.5
+# A watch stands on its post, not within a body's reach of it. Guard arrives at REACH like every
+# other job, and from the west that stops it 1.48 m short of the post at (29.05, 30.5): 1.8 m from
+# the gateway the GUARD lane measures, so the watch never reached the gate. Nothing pushed it back;
+# the arrival test simply ended the walk early. 0.5 m is the tightest bound the walk settles inside
+# (the last step ends within 0.2 m of its centre and the velocity is zeroed there).
+const GUARD_REACH: float = 0.5
 const EMPTY_BOTTLE: String = "item.water.bottle.empty"
 
 
@@ -1147,7 +1153,8 @@ static func _advance_job(world: Variant, ent: int, job: Dictionary) -> void:
 		if int(job["walked"]) > RETREAT_WALK_TICKS and not bool(job.get("rerouted", false)):
 			_retreat_inside(world, ent, job)
 			dest = _job_tile(world, job)
-	if dest.x >= 0 and not _at(world, ent, dest, REACH):
+	var reach: float = GUARD_REACH if kind == "Guard" else REACH
+	if dest.x >= 0 and not _at(world, ent, dest, reach):
 		_walk(world, ent, job, dest)
 		return
 	_still(world, ent)
