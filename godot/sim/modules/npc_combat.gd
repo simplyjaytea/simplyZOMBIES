@@ -278,6 +278,9 @@ static func _ranged_range(world: Variant, ent: int) -> float:
 # they are busy. Every line below it -- the range envelope, the sightline refusal, the holder
 # preference -- is untouched and now applies to all three.
 static func _nearest_threat(world: Variant, ent: int, metres: float) -> int:
+	var ordered: int = _ordered_target(world, ent, metres)
+	if ordered >= 0:
+		return ordered
 	var here: Variant = world.components.get_component(ent, "position")
 	if not here is Dictionary:
 		return -1
@@ -315,6 +318,46 @@ static func _nearest_threat(world: Variant, ent: int, metres: float) -> int:
 		best_holds = holds
 		best = int(other)
 	return best
+
+
+# The target a colonist was ordered to attack (plan A2), if this colonist can act on it inside
+# `metres` right now: alive, hostile, seen, and in the sightline the shot itself would take. The
+# player pointed at it, so it outranks every other threat in the envelope. The order's record
+# lives in jobs.gd (`ORDER_COMPONENT`, "colonistOrder"); this file cannot preload jobs.gd, because
+# jobs.gd preloads this one, so the component name is written out here.
+static func _ordered_target(world: Variant, ent: int, metres: float) -> int:
+	var order: Variant = world.components.get_component(ent, "colonistOrder")
+	if not (order is Dictionary) or String((order as Dictionary).get("kind", "")) != "attack":
+		return -1
+	var target: int = int((order as Dictionary).get("target", -1))
+	if target < 0 or not world.entities.is_alive(target) or world.components.has_component(target, "corpse"):
+		return -1
+	var body: Variant = world.components.get_component(target, "body")
+	if not (body is Dictionary) or not SimHealth.is_alive(body as Dictionary):
+		return -1
+	if not SimAllegiance.hostile(world, ent, target):
+		return -1
+	if _distance(world, ent, target) > metres:
+		return -1
+	var there: Dictionary = world.components.get_component(target, "position") as Dictionary
+	if not SimRanged.can_target(world, ent, float(there["x"]), float(there["y"])):
+		return -1
+	return target
+
+
+# Whether `target` is inside the blow or the shot this colonist would land right now: the melee reach
+# `_engage` swings with, or the ranged envelope with a sightline. Asked by the attack walk, so the
+# colonist stops exactly where the fight begins.
+static func can_strike(world: Variant, ent: int, target: int) -> bool:
+	var d: float = _distance(world, ent, target)
+	var reach: float = _melee_reach(world, ent)
+	if reach > 0.0 and d <= reach:
+		return true
+	var range_metres: float = _ranged_range(world, ent)
+	if range_metres <= 0.0 or d > range_metres:
+		return false
+	var there: Dictionary = world.components.get_component(target, "position") as Dictionary
+	return SimRanged.can_target(world, ent, float(there["x"]), float(there["y"]))
 
 
 static func _distance(world: Variant, a: int, b: int) -> float:
