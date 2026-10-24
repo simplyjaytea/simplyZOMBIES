@@ -30,6 +30,7 @@ const SUPPRESSOR: String = "item.attach.suppressor"
 const STD_BARREL: String = "item.part.barrel.standard"
 const LONG_BARREL: String = "item.attach.barrel.long"
 const SCRAP: String = "item.scrap.metal"
+const EXT_MAG: String = "item.attach.magazine.extended"
 
 
 func _init() -> void:
@@ -42,13 +43,14 @@ func _run() -> void:
 	ok = _a_channel_that_is_interrupted_builds_nothing() and ok
 	ok = _nobody_holds_two_jobs_at_once() and ok
 	ok = _structural_work_wants_the_bench_and_a_magazine_does_not() and ok
+	ok = _a_weapon_you_can_change_by_hand_opens_where_you_stand() and ok
 	ok = _the_affix_bench_is_the_same_bench() and ok
 	ok = _a_bench_survives_a_save() and ok
 	ok = _every_field_has_a_direction_and_the_direction_is_read() and ok
 	ok = _the_screen_is_handed_words_and_handles_and_nothing_else() and ok
 	ok = _the_panel_pushes_what_the_sim_answers() and ok
 	if ok:
-		print("M2_BENCH_OK build channel exclusive refuse modify save polarity view panel")
+		print("M2_BENCH_OK build channel exclusive refuse field modify save polarity view panel")
 		quit(0)
 	else:
 		push_error("M2_BENCH_FAIL")
@@ -283,6 +285,104 @@ func _structural_work_wants_the_bench_and_a_magazine_does_not() -> bool:
 	return true
 
 
+# --- FIELD ------------------------------------------------------------------------------------
+#
+# A weapon you can change with your hands is a weapon you can open where you stand. The verb and
+# the open ask the same question (`may_open`), and the rows say which parts a person can touch
+# without a bench. Both halves again: a magazine comes off in a field and a barrel does not, and a
+# gun with nothing to change by hand does not open at all -- the verb is absent and the command
+# refuses.
+func _a_weapon_you_can_change_by_hand_opens_where_you_stand() -> bool:
+	var lane: String = "FIELD"
+
+	# TP: away from any bench, the fitted magazine is enough for the verb, the open and the row.
+	var w: Variant = _world()
+	var pistol: int = SimItems.spawn_item(w, PISTOL, {"tier": "scavenged"})
+	SimInventory.equip(w, w.player, pistol)
+	var spare: int = SimItems.spawn_item(w, EXT_MAG, {"tier": "scavenged"})
+	SimInventory.stow(w, w.player, spare)
+	w.events.drain()
+	if SimGunsmith.bench_in_reach(w, w.player) >= 0:
+		push_error("%s: the lane started at a bench" % lane)
+		return false
+	if not SimInventory.verbs_for(w, w.player, pistol).has("modify"):
+		push_error("%s: no modify offered for a pistol with a fitted magazine, away from a bench" % lane)
+		return false
+	w.commands.push({"type": "bench.open", "item": pistol})
+	w.step()
+	if SimGunsmith.focus_of(w, w.player) != pistol:
+		push_error("%s: bench.open away from a bench opened nothing" % lane)
+		return false
+	var view: Dictionary = SimGunsmith.bench_view(w, w.player, pistol)
+	if bool(view.get("at_bench", true)):
+		push_error("%s: the view says at_bench with no bench" % lane)
+		return false
+	var mag_row: Dictionary = _row(view, "magazine")
+	if mag_row.is_empty() or not bool(mag_row.get("removable", false)) or not bool(mag_row.get("field", false)):
+		push_error("%s: the fitted magazine is not shown as removable by hand" % lane)
+		return false
+	if not _offers_include(view, "magazine", spare):
+		push_error("%s: the spare magazine in the pack is not offered for the magazine slot" % lane)
+		return false
+	var mag: int = SimAttachments.in_slot(w, pistol, "magazine")
+	w.commands.push({"type": "item.detach", "item": mag})
+	w.step()
+	if SimAttachments.in_slot(w, pistol, "magazine") >= 0:
+		push_error("%s: a magazine would not come off in a field" % lane)
+		return false
+
+	# TN: the barrel row is not removable away from a bench, and the command agrees.
+	var barrel: int = SimAttachments.in_slot(w, pistol, "barrel")
+	var barrel_row: Dictionary = _row(SimGunsmith.bench_view(w, w.player, pistol), "barrel")
+	if barrel_row.is_empty() or bool(barrel_row.get("removable", true)) or bool(barrel_row.get("field", true)):
+		push_error("%s: the barrel row says it can be changed by hand" % lane)
+		return false
+	w.commands.push({"type": "item.detach", "item": barrel})
+	w.step()
+	if SimAttachments.in_slot(w, pistol, "barrel") != barrel:
+		push_error("%s: a barrel came off in a field" % lane)
+		return false
+
+	# TN: no hand-swappable part fitted and nothing in the pack that fits: no verb, and the open
+	# refuses. The magazine goes to a bench and out of the world, so the gun has nothing left a
+	# person could change without one.
+	var w2: Variant = _world()
+	var p2: int = SimItems.spawn_item(w2, PISTOL, {"tier": "scavenged"})
+	SimInventory.equip(w2, w2.player, p2)
+	w2.events.drain()
+	SimGunsmith.make_bench(w2, 8.5, 12.5)
+	var mag2: int = SimAttachments.in_slot(w2, p2, "magazine")
+	w2.commands.push({"type": "item.detach", "item": mag2})
+	w2.step()
+	w2.despawn(mag2)
+	var away: Dictionary = w2.components.get_component(w2.player, "position") as Dictionary
+	away["x"] = float(away["x"]) + 8.0
+	w2.step()
+	if SimInventory.verbs_for(w2, w2.player, p2).has("modify"):
+		push_error("%s: modify offered for a gun with nothing to change by hand, away from a bench" % lane)
+		return false
+	if SimGunsmith.open_bench(w2, w2.player, p2):
+		push_error("%s: open_bench took a gun with nothing to change by hand, away from a bench" % lane)
+		return false
+
+	print("  FIELD OK a magazine comes off by hand where you stand, a barrel does not, and a gun with nothing to change opens for no one")
+	return true
+
+
+func _row(view: Dictionary, slot: String) -> Dictionary:
+	for r in view.get("slots", []) as Array:
+		if String((r as Dictionary).get("slot", "")) == slot:
+			return r as Dictionary
+	return {}
+
+
+func _offers_include(view: Dictionary, slot: String, item: int) -> bool:
+	for o in view.get("offers", []) as Array:
+		if String((o as Dictionary).get("slot", "")) == slot and int((o as Dictionary).get("item", -1)) == item:
+			return true
+	return false
+
+
 # --- MODIFY -----------------------------------------------------------------------------------
 #
 # docs/11 has always called SimModification's consumables a bench, and now there is one. Its
@@ -431,7 +531,7 @@ func _every_field_has_a_direction_and_the_direction_is_read() -> bool:
 # command. There is no magnitude in this view at all, which is what makes "no digits on the bench"
 # structural rather than something somebody has to remember.
 const HANDLE_KEYS: Array[String] = ["bench", "host", "part", "item"]
-const VIEW_KEYS: Array[String] = ["bench", "host", "name", "condition", "refusal", "slots", "offers"]
+const VIEW_KEYS: Array[String] = ["bench", "at_bench", "host", "name", "condition", "refusal", "slots", "offers"]
 
 func _the_screen_is_handed_words_and_handles_and_nothing_else() -> bool:
 	var lane: String = "VIEW"
@@ -549,12 +649,22 @@ func _the_panel_pushes_what_the_sim_answers() -> bool:
 		return false
 
 	# Walking away closes it. A screen about a place you are no longer standing in is a lie, and
-	# this is the rule SimContainers already follows for an open box.
+	# this is the rule SimContainers already follows for an open box. The one exception is work
+	# still to do by hand: the pistol wears a magazine a person can change, so it stays open until
+	# that magazine is out of the world too.
 	var pos: Dictionary = w.components.get_component(w.player, "position") as Dictionary
 	pos["x"] = float(pos["x"]) + 8.0
 	w.step()
+	if SimGunsmith.focus_of(w, w.player) != pistol:
+		push_error("%s: walking away closed a gun that can still be changed by hand" % lane)
+		return false
+	var last_mag: int = SimAttachments.in_slot(w, pistol, "magazine")
+	w.commands.push({"type": "item.detach", "item": last_mag})
+	w.step()
+	w.despawn(last_mag)
+	w.step()
 	if SimGunsmith.focus_of(w, w.player) >= 0:
-		push_error("%s: walking away from the bench left it open" % lane)
+		push_error("%s: walking away from the bench left it open with nothing left to change" % lane)
 		return false
 
 	# The textual half: the panel draws the read model and pushes the commands, and computes
