@@ -129,6 +129,7 @@ func _triggers_speak_the_right_key_and_nobody_else() -> bool:
 	ok = _the_shout_command_publishes_shouted_and_speaks() and ok
 	ok = _a_real_shambler_transition_publishes_zombie_noticed() and ok
 	ok = _a_real_screamer_alarm_publishes_zombie_screamed() and ok
+	ok = _an_order_with_no_route_is_said_and_no_other_ending_is() and ok
 	return ok
 
 
@@ -268,6 +269,39 @@ func _the_shout_command_publishes_shouted_and_speaks() -> bool:
 		return false
 	print("TRIGGERS OK the real shout command publishes shouted and the player says \"%s\"" % _saying_text(w, int(w.player)))
 	return true
+
+
+# The no-route line is said when an order ends for want of a route, and for no other ending. The
+# ending is published by the sim's own `order.ended` (jobs.gd's `end_order`); the lane publishes the
+# same event for each reason and reads whether the colonist says anything.
+func _an_order_with_no_route_is_said_and_no_other_ending_is() -> bool:
+	var ok: bool = true
+	for reason in ["arrived", "stood-down", "gone", "broke-off"]:
+		var w: Variant = _world()
+		var who: int = int(w.player)
+		w.events.publish({"type": "order.ended", "entity": who, "kind": "go", "reason": reason})
+		w.step()
+		if not _saying_text(w, who).is_empty():
+			push_error("NO-ROUTE: an order that ended as %s made the colonist speak \"%s\"" % [reason, _saying_text(w, who)])
+			ok = false
+	var w2: Variant = _world()
+	var who2: int = int(w2.player)
+	w2.events.publish({"type": "order.ended", "entity": who2, "kind": "go", "reason": "no-route"})
+	w2.step()
+	var line: String = _saying_text(w2, who2)
+	var entry: Dictionary = {}
+	for e in JSON.parse_string(FileAccess.get_file_as_string("res://content/speech/lines.json")) as Array:
+		if String((e as Dictionary).get("id", "")) == "speech.order.no_route":
+			entry = e as Dictionary
+	if line.is_empty() or not ((entry.get("lines", []) as Array).has(line)):
+		push_error("NO-ROUTE: an order that ended with no route said \"%s\", not a line from speech.order.no_route" % line)
+		ok = false
+	if _has_digit(line):
+		push_error("NO-ROUTE: the line \"%s\" carries a digit" % line)
+		ok = false
+	if ok:
+		print("NO-ROUTE OK an order that ends with no route is said in its line, and arrived, stood-down, gone and broke-off say nothing")
+	return ok
 
 
 # A real shambler, not a hand-built event: spawned adjacent to the controlled player in its
