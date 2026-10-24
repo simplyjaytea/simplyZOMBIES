@@ -3666,6 +3666,65 @@ not a to-do list:
   shared with the bar, and the pending marks once per change; the bar says "Z / Esc — put the brush
   down" as two caps. Not in this slice: S3's placement, stash and looter, and S5's Colony-screen
   words.
+- **The stockpile on the Colony screen, in words: slice S5 of the 2026-10-24 plan.** The Colony
+  screen (J) says what the colony keeps, so a run can be planned without walking to the pile. A
+  read model, `godot/sim/stockpile_read.gd` (`StockpileRead.summary`), gives one row per group in a
+  fixed order (food, drink, medicine, ammunition, weapons, clothing and armour, tools and
+  materials, other), each an amount word (none, one, a few for two to four, some for five to nine,
+  plenty for ten or more, a stack counted as its count) and up to three item names, most numerous
+  first. It reads what lies on the stockpile's tiles now (`SimNeeds.stockpile_items`), so it follows
+  the zone S1 made; a group comes off fields the content already carries, so no content key was
+  added. The block stands in the drawer's place, two columns of four, whenever nobody is picked,
+  and a "the stockpile" button beside "their skills" shows it for a picked colonist, with "back to"
+  their name where "their skills" was; the drawer is the same rectangle either way, so the grid
+  never moves and the roster keeps every row it had (1280x720 measured: a ninth block under the
+  drawer would cost the roster its rows). Names that do not fit a column whole are passed over, not
+  cut, so a shorter one after them may stand. The panel reads the summary once a tick (about half a
+  millisecond on a booted district) and afresh whenever the screen opens, so a drop while paused or a
+  load onto the same tick is not shown stale. Gates: `godot:check:play` STOCKPILE (at both windows
+  the words are the read model's and the names are its names in order; a pile emptied with no tick
+  reads none, dim, naming nothing once the screen opens again; no digit but an item name `_name_is_allowed` allows, where an amount of "12" is
+  refused; every row inside the drawer, which holds still between the pile and a person; the button
+  shows the pile without moving the game's pick or queueing anything, a right click does nothing,
+  a Focus chip's place queues nothing while the pile is shown, and the way back shows the person;
+  both inks at 4.5:1 or better on the steel) and `godot:m2:stockpile` SUMMARY (an emptied pile
+  reads none with a tin lying outside it; a stack of three tins and one of two read food "some",
+  named most numerous first; a bandage reads medicine "one"; the amount ladder at each edge; every
+  group has content that falls in it). Sabotage: the read model walking every loose item instead of
+  the stockpile's turns SUMMARY and STOCKPILE red; a stack counted as one turns SUMMARY red; the
+  button that does not flip turns STOCKPILE red; "none" drawn in the full ink turns STOCKPILE red.
+  Review scenes `colony_stockpile` (nobody picked, a pile stocked across seven groups) and
+  `colony_stockpile_picked` (the pile shown for Mara), both windows, with before and after of
+  `colony`, `colony_picked` and `colony_crowd`. Not in this slice: taking from the Colony screen,
+  and anything carried or lying outside the stockpile. No sim system changed, so no bench.
+- **Taking from the stockpile: the loot window, slice S4 of the 2026-10-24 plan.** Standing in the
+  stockpile, E opens the loot window on it, titled "the stockpile", beside the pockets. It lists every
+  loose item on the patch the player stands in that the player sees from there, nearest first
+  (`SimStockpile.in_sight`, `stores_view` in `godot/sim/modules/stockpile.gd`). The same drag,
+  ctrl-click and "take all that fits" the cupboard window has send `stockpile.take` and
+  `stockpile.put`, and the sim decides each one: a take is the ordinary pick-up without the 1.5 m
+  reach, a put goes down by S3's drop rule on a tile of the patch in view. With the sheet open the
+  stockpile is the sheet's first column, as a cupboard is. E's rung, the menu's row and the bar's
+  words are in `godot/sim/modules/fortify.gd` and `godot/sim/context.gd`; the window is
+  `godot/ui/inventory_panel.gd` (`_send`, `loot_capacity`) fed by `godot/presentation/main.gd`
+  (`_stores_for_window`). Gates: `godot:m2:stockpile` TAKE (a tin in view taken and put back in view;
+  a tin behind a wall on the same patch, a tin off the zone and a take with the window shut refused;
+  off the zone the window shuts and a put is refused; E opens it on the pile and picks up off it),
+  `godot:check:inventory` STOCKPILE (the window is the stockpile and lists the tins in view and not the
+  walled or off-zone one; a ctrl-click takes, a drag puts back; a cupboard takes the window; a tile
+  off the zone shuts it), `godot:check:context` BAR (a tin on the pile: E's words are the menu's first
+  row), and the `stockpile_window` review scene in `godot:check:shots`. Sabotage: dropping the sight
+  test lists the walled tin (TAKE red); removing the E rung picks the tin up (TAKE red); a put that
+  pushes nothing leaves the tin in the pockets (STOCKPILE red). Frame cost, measured with a throwaway
+  driver on the shipped district with 120 tins in sight: `stores_view` 3.8 ms, once per sim tick
+  while the window is open (main.gd and the panel share one layout); the zone's patches are cached on
+  the world, so finding the patch went from 7.1 ms to 0.01 ms. Nothing runs on the tick path but a
+  close check over bodies with the window open, so no tick bench. Not built: a pile holding more than
+  the window's cells shows the nearest and says "and more besides" rather than scrolling. At 1280x720
+  the grid is eight by three so the window clears the action bar, and a pack (four cells tall) is
+  reached from the sheet's column (Tab) or by "take all that fits". Shots, before and after at both
+  sizes:
+  `planning/stockpile/s4/` in the project files.
 - **The stockpile drop point, brought down to cost (a follow-up to S3).** S3's drop
   (`_stock_drop` in `godot/sim/modules/jobs.gd`) ran once per haul pickup and once per cooked meal,
   and cost a single tick 6.6 to 7.3 ms on the 320-tile default zone and 20 to 28 ms at the
