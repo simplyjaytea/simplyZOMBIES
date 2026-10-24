@@ -644,7 +644,28 @@ func _a_pile_apart_from_home_is_its_own_patch() -> bool:
 	if not SimNeeds.is_annex_floor(w, from_home.x, from_home.y):
 		push_error("PATCH: an item dropped at home went to %s, not into the annex" % str(from_home))
 		return false
-	print("PATCH OK the pile is its own patch: beside it the drop is %s, at home %s" % [str(from_camp), str(from_home)])
+	# `patches` is served from the index the window reads (`patch_under`), so the two cannot
+	# disagree, and the index follows the zone and the map: a tile marked beside the pile joins its
+	# patch, and a wall across the pile splits it. Each answer is the fresh walk's.
+	var n_before: int = SimStockpile.patches(w).size()
+	_mark(w, block.x + 2, block.y, block.x + 2, block.y, true)
+	var grown: Array = []
+	for patch2 in SimStockpile.patches(w):
+		if (patch2 as Array).has(block):
+			grown = patch2 as Array
+	if grown.size() != 5 or SimStockpile.patches(w).size() != n_before or not _same(SimStockpile.patches(w), SimStockpile._walk_patches(w)):
+		push_error("PATCH: a tile marked beside the pile did not join its patch in the kept index (%d tiles, %d patches)" % [grown.size(), SimStockpile.patches(w).size()])
+		return false
+	w.components.set_component(w.player, "position", {"x": float(block.x) + 0.5, "y": float(block.y) + 0.5})
+	if SimStockpile.patch_under(w, w.player).size() != 5 or not SimStockpile.patch_under(w, w.player).has(Vector2i(block.x + 2, block.y)):
+		push_error("PATCH: the patch under the player is not the grown pile, keyed by the tile: %s" % str(SimStockpile.patch_under(w, w.player).keys()))
+		return false
+	w.tilemap.tiles[block.y * int(w.tilemap.w) + block.x + 1] = SimTileMap.Tile.Wall
+	w.invalidate_tiles(Rect2i(block.x + 1, block.y, 1, 1))
+	if SimStockpile.patches(w).size() != n_before + 1 or not _same(SimStockpile.patches(w), SimStockpile._walk_patches(w)):
+		push_error("PATCH: a wall across the pile did not split the kept index (%d patches, expected %d)" % [SimStockpile.patches(w).size(), n_before + 1])
+		return false
+	print("PATCH OK the pile is its own patch: beside it the drop is %s, at home %s; the kept index grows with a mark and splits at a wall" % [str(from_camp), str(from_home)])
 	return true
 
 
@@ -877,7 +898,7 @@ func _the_window_takes_and_puts_by_the_sims_rules() -> bool:
 	var near_tin: int = _put_on(w, corner, CANNED)
 	var off_tin: int = _put_on(w, off, CANNED)
 	w.step()
-	if SimStockpile.patch_under(w, w.player).size() != 8 or not SimStockpile.patch_under(w, w.player).has("%d,%d" % [hidden.x, hidden.y]):
+	if SimStockpile.patch_under(w, w.player).size() != 8 or not SimStockpile.patch_under(w, w.player).has(hidden):
 		push_error("TAKE: the walled pile is not one patch of eight round the wall: %s" % str(SimStockpile.patch_under(w, w.player).keys()))
 		return false
 	# Shut, the window takes nothing, and lists nothing.
@@ -916,10 +937,17 @@ func _the_window_takes_and_puts_by_the_sims_rules() -> bool:
 	if _lies(w, here_tin) or not SimInventory.owns(w, w.player, here_tin):
 		push_error("TAKE: the tin in view was not taken into the pockets")
 		return false
+	# "Take all that fits": the one tin still listed comes in (into the pockets, or merged into the
+	# stack of the tin already there), the hidden and off-zone tins stay.
+	_send(w, {"type": SimStockpile.TAKE_COMMAND, "all": true})
+	var near_taken: bool = not _lies(w, near_tin) and (not w.entities.is_alive(near_tin) or SimInventory.owns(w, w.player, near_tin))
+	if not near_taken or not _lies(w, hid_tin) or not _lies(w, off_tin):
+		push_error("TAKE: take all did not take exactly the tins in view (near taken %s, hidden lies %s, off lies %s)" % [str(near_taken), str(_lies(w, hid_tin)), str(_lies(w, off_tin))])
+		return false
 	# Put back: onto a tile of this patch the player sees, not the hidden side.
 	_send(w, {"type": SimStockpile.PUT_COMMAND, "item": here_tin})
 	var back: Vector2i = _tile_of(w, here_tin)
-	if not _lies(w, here_tin) or not SimStockpile.patch_under(w, w.player).has("%d,%d" % [back.x, back.y]) or not SimStockpile.in_view(w, w.player, float(back.x) + 0.5, float(back.y) + 0.5):
+	if not _lies(w, here_tin) or not SimStockpile.patch_under(w, w.player).has(back) or not SimStockpile.in_view(w, w.player, float(back.x) + 0.5, float(back.y) + 0.5):
 		push_error("TAKE: the put tin is at %s, not on a tile of the patch in view" % str(back))
 		return false
 	# Off the zone the window shuts, and a put is refused: the tin stays in the pockets.
