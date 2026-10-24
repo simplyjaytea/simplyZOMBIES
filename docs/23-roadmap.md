@@ -3025,7 +3025,8 @@ not a to-do list:
   untouched); the renderer pays about 6.3 ms of llvmpipe wall time by day for the screen copy and
   the pass, and docs/22 says why there is no cheaper path. **Shots,** before and after at both
   windows, of `day_street`, `interior`, `dusk_street`, `combat`, `night_lights` and `night_torch`,
-  in the project's `planning/night-torch/b5/`. **What did not ship:** the plan's palette re-pin of
+  in the project's `planning/night-torch/b5/`; with the fixed frame step both night scenes decode
+  to identical pixels before and after at both windows. **What did not ship:** the plan's palette re-pin of
   the PALETTE, TEXTURE, ACCENT, WALL and GREY lanes, deliberately (their source tables did not
   move).
 - **Feel — bodies glide between ticks, and a slow frame drops time, 2026-10-19.** Item A2 of
