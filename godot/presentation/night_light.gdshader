@@ -239,9 +239,15 @@ void fragment() {
 	}
 	// Where a beam crosses a pool the brighter of the two sets the level, and the colour is the two
 	// tints weighed by how bright each is here: a torch over a campfire's ground stays warm under the
-	// white. A pixel only one of them reaches keeps that one's tint exactly.
+	// white. A pixel only one of them reaches keeps that one's tint exactly. No channel of the blend,
+	// at the brighter level, comes out above what the brighter of the two lights gives it alone.
 	if (best_beam > 0.0) {
-		hue = best > 0.0 ? mix(hue, hue_beam, best_beam / (best + best_beam)) : hue_beam;
+		if (best > 0.0) {
+			vec3 cap = max(hue * best, hue_beam * best_beam) / max(best, best_beam);
+			hue = min(mix(hue, hue_beam, best_beam / (best + best_beam)), cap);
+		} else {
+			hue = hue_beam;
+		}
 		best = max(best, best_beam);
 	}
 
