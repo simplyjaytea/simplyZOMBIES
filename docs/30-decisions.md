@@ -5805,3 +5805,14 @@ while giving the project around it a home:
 **How to apply:** a fact about the build goes in the doc that owns it (docs/23 for status, docs/30
 for a call, docs/33 for an open owner question). A fact about how the project works goes in
 docs/38. Neither file is copied into the other.
+
+
+## The draft key on X, 2026-10-24
+
+**JT picked the draft toggle for a colonist: X.** With a colonist picked on the street, X holds them
+where they stand and takes them off work; X again sets them free. The menu keeps "hold here" and
+"go here" as they were, so a right-click move still says whether it keeps the draft. The sim decides
+the command (`SimOrders.draft_command`); the key pushes it.
+
+**How to apply:** the draft is the `hold` order on the colonist's own tile. A new draft-like verb
+goes through `orders.gd`, not a second flag.
