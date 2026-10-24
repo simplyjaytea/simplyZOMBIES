@@ -720,10 +720,7 @@ projection stays flat top-down; 32 px a tile stays.
 - ~~**The grade: overcast day, warm night.**~~ — **landed** 2026-10-24 as a grade of the
   finished picture rather than a palette regrade (docs/30, "The overcast day, as a grade"), see the
   record, "Art — the overcast day" (`npm run godot:check:grade` → `GRADE_LOOK_OK`). The palette
-  lanes kept their tables; the grade has its own. Left from it: **a zombie's sound-word in a speech
-  bubble reads under 4.5:1** (`Chrome.TEXT_DIM` on the tooltip plate, 4.18:1 ungraded and 3.71:1
-  under the day grade); either the bubble draws above the grade or its dim text is lifted, a
-  presentation call in `main.gd`'s `_draw_bubbles`.
+  lanes kept their tables; the grade has its own.
 - ~~**The remembered map, dimmed.**~~ — **landed** 2026-09-17 inside the "After the shell"
   group's afterimage piece, see the record (`npm run godot:check:memory` → `MEMORY_LOOK_OK`;
   `godot:m2:sight`'s EXPLORED lane).
@@ -2981,38 +2978,56 @@ not a to-do list:
   "Overcast or torchlight", as docs/30's "The overcast day, as a grade" records it: a pass over the
   finished picture, not a palette regrade, because most of the screen is the outpost pack's art and
   no palette entry reaches it. **The grade** is `presentation/day_grade.gd` and
-  `day_grade.gdshader`, one RenderingServer rect at draw index 999 under main's canvas item, under
+  `day_grade.gdshader`, one RenderingServer rect at draw index 998 under main's canvas item, under
   the night's multiply (1000) and its glow (1001) and under the HUD's CanvasLayer. By day it pulls
   each pixel toward its own grey (keeps 68% of its colour in the lit middle, 20% in the darks),
-  cools it (red 0.97, blue 1.03) and veils it 10% toward #5c5e60; its weight is
-  `smoothstep(NIGHT_AMBIENT, 1, ambient)`, a half at mid-dusk and 0 at night, when it draws nothing.
-  The void goes from #15141f to #1c1c20 by day. `main.gd`'s `_draw_day_grade` drives it, called in
-  `_draw` before `_draw_night_wash`. **A new review scene,** `dusk_street`: the day street's spot at
-  mid-dusk (`Scenes.DUSK` 0.6875), eighteen scenes now in `check_shots.gd`'s NAMES. **The gate**
-  is new, `npm run godot:check:grade` (`godot/check_grade_look.gd`, `GRADE_LOOK_OK`): PHASE (1 at
-  noon, 0 at midnight, 0.5 at mid-dusk, rising through dawn), DAY (fourteen palette entries through
-  the grade pinned to a measured table, each source colour and the weight-0 answer refused by its
-  pin; 23 warm entries lose warmth, 23 coloured ones that are not cool lose saturation; the void's
-  chroma 11 → 5), NIGHT (weight 0 returns all 39 palette colours bit for bit; draw index under the
-  night and the glow), CONTRAST (bubble speech 10.04:1 → 8.33:1), SHADER (the screen read and the
-  five steps in `DayGrade.grade`'s order on the seven uniforms `day_grade.gd` sets), READS (the
-  call order in `_draw`; noon draws at weight 1, midnight and the switched-off grade draw nothing;
-  all 18 HUD controls on a CanvasLayer over the world) and PIXELS (with a display: the day street
-  with and without the grade, every saturated HUD pixel identical, 23,329 of 23,661 street pixels
-  moved, mean r - b 0.0072 → -0.0119; it skips without one, and `godot:check:grade` runs headed
-  when `DISPLAY` is set). **Sabotage,** each red and restored: the weight forced to 1 (PHASE and
-  READS: "the grade is still on at night"); the grade's constants back to identity (DAY: every pin
-  fails, e.g. "dirt grades to #896840, pinned #796952"); the veil step deleted from the shader
-  (SHADER); the `_draw_day_grade()` call deleted (READS, PIXELS); `enabled` ignored (READS, PIXELS);
-  the grade attached under the HUD's canvas item (PIXELS: "21 of 21 saturated HUD pixels changed").
-  **Measured** in docs/22 ("The overcast day grade"): the `_draw` stage did not move past noise
-  (day 5.46 → 5.69 ms, night untouched); the renderer pays about 6.3 ms of llvmpipe wall time by
-  day for the screen copy and the pass. **Shots,** before and after at both windows, of
-  `day_street`, `interior`, `dusk_street`, `combat`, `night_lights` and `night_torch`, in the
-  project's `planning/night-torch/b5/`: `night_torch` decodes to identical pixels before and after,
-  and `night_lights` differs only inside the campfire's pool, which flickers on the shader's clock. **What did not ship:** the plan's palette re-pin of the PALETTE,
-  TEXTURE, ACCENT, WALL and GREY lanes, deliberately (their source tables did not move); and a
-  zombie's dim sound-word in a speech bubble, under 4.5:1 before and after, named in what's left.
+  cools it (red 0.97, blue 1.03) and veils it 10% toward #5c5e60. Its weight is
+  `smoothstep(NIGHT_AMBIENT, 1, ambient)`: 1 by day, 0.5 at mid-dusk, 0 at night, when it draws
+  nothing. At mid-dusk the night's multiply already holds the frame and the grey shift is barely
+  measurable (`dusk_street` chroma 6.2 → 6.4 at 1280×720, 7.3 → 7.0 at 1920×1080, the art review's
+  numbers). The void goes from #15141f to #1c1c20 by day. `main.gd`'s `_draw_day_grade` drives it,
+  called in `_draw` before `_draw_night_wash`. **The world's words are never graded:** the speech
+  bubbles and the pawn tag are recorded in `_world_text_ops` during `_draw` and painted by
+  `_paint_world_text` on a child item, `_world_text`, at draw index 999 (`DayGrade.TEXT_INDEX`),
+  over the grade and under the night, which still dims them as before; `godot:check:ui_skin`'s
+  OUTLIERS lane follows the plate's `Chrome.frame(` to `_paint_world_text`, re-pointed with its
+  commented-call negative, not loosened. **A zombie's sound-word is
+  lifted** from `Chrome.TEXT_DIM` 40% toward `Chrome.TEXT` (`main.gd`'s `bubble_ink`), from 3.34:1
+  to 4.89:1 on its plate over the brightest ground, still quieter than speech (art review round 1).
+  **A new review scene,** `dusk_street`: the day street's spot at mid-dusk (`Scenes.DUSK` 0.6875),
+  eighteen scenes now in `check_shots.gd`'s NAMES; and the shot driver runs at a fixed frame step
+  (`--fixed-fps 60` in `scripts/run-godot.mjs`'s `--shots` mode), so shader time and a flame's
+  flicker are the same at every capture. **The gate** is new, `npm run godot:check:grade`
+  (`godot/check_grade_look.gd`, `GRADE_LOOK_OK`): PHASE (1 at noon, 0 at midnight, 0.5 at
+  mid-dusk, rising through dawn), DAY (fourteen palette entries through the grade pinned to a
+  measured table, each source colour and the weight-0 answer refused by its pin; 23 warm entries
+  lose warmth, 23 coloured ones that are not cool lose saturation; the void's chroma 11 → 5), NIGHT
+  (weight 0 returns all 39 palette colours bit for bit; draw index under the night and the glow),
+  CONTRAST (a bubble's speech 8.02:1 and sound-word 4.89:1 on the plate over the worst of ten
+  grounds, graded or not; the kit's dim text, 3.34:1, refused), WORDS (all three `draw_string(`
+  calls in `main.gd` are in `_paint_world_text`; `_draw_bubbles` records and draws nothing; the
+  words' draw index between the grade and the night; a fabricated main drawing its own bubble line
+  refused), SHADER (the screen read and the five steps in `DayGrade.grade`'s order on the seven
+  uniforms `day_grade.gd` sets), READS (the call order in `_draw`; noon draws at weight 1, midnight
+  and the switched-off grade draw nothing; a line the survivor says is recorded and painted; all 18
+  HUD controls on a CanvasLayer over the world) and PIXELS (with a display: the day street with a
+  spoken line, with and without the grade; every saturated HUD pixel and all 494 bubble ink pixels
+  identical, 22,940 of 23,661 street pixels moved, mean r - b 0.0095 → -0.0086; it skips without
+  one, and `godot:check:grade` runs headed when `DISPLAY` is set). **Sabotage,** each red and
+  restored: the weight forced to 1 (PHASE and READS: "the grade is still on at night"); the grade's
+  constants back to identity (DAY: every pin fails, e.g. "dirt grades to #896840, pinned #796952");
+  the veil step deleted from the shader (SHADER); the `_draw_day_grade()` call deleted (READS,
+  PIXELS); `enabled` ignored (READS, PIXELS); the grade attached under the HUD's canvas item
+  (PIXELS: "21 of 21 saturated HUD pixels changed"); the sound-word lift at 0 (CONTRAST: "3.34:1 on
+  its plate over sidewalk"); the words under the grade at 997 (WORDS, and PIXELS: "494 of 494
+  speech bubble ink pixels changed"); a bubble line drawn by main (WORDS). **Measured** in docs/22
+  ("The overcast day grade"): the `_draw` stage did not move past noise (day 5.46 → 5.69 ms, night
+  untouched); the renderer pays about 6.3 ms of llvmpipe wall time by day for the screen copy and
+  the pass, and docs/22 says why there is no cheaper path. **Shots,** before and after at both
+  windows, of `day_street`, `interior`, `dusk_street`, `combat`, `night_lights` and `night_torch`,
+  in the project's `planning/night-torch/b5/`. **What did not ship:** the plan's palette re-pin of
+  the PALETTE, TEXTURE, ACCENT, WALL and GREY lanes, deliberately (their source tables did not
+  move).
 - **Feel — bodies glide between ticks, and a slow frame drops time, 2026-10-19.** Item A2 of
   the 2026-10-19 alpha plan. The sim steps at 20 Hz and every body used to be drawn on the
   position component, so a walker held still for a tick and then jumped a tick's travel at

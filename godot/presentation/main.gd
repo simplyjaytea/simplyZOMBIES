@@ -241,6 +241,13 @@ var _last_look: Dictionary = {}
 # which is what keeps the name-plate refusal's peripheral-anonymity clause holding for words the
 # same way it already holds for the afterimage's picture.
 var _focal_drawn: Array[Dictionary] = []
+# The words main writes into the world -- the speech bubbles and the pawn tag beside your own body
+# -- recorded during `_draw` and painted by `_world_text`, a child item drawn over the day grade
+# and under the night (DayGrade.TEXT_INDEX), so the grade never washes their contrast out and the
+# night still darkens them exactly as it did. `_world_text_frame` is the frame that painted them.
+var _world_text: Node2D = null
+var _world_text_ops: Array[Dictionary] = []
+var _world_text_frame: int = -1
 # Every falling body the last draw put up, `{id, key}`: written by `_draw_corpse` beside the
 # draw call itself, so check_action.gd's FALL lane can prove a published death reaches the
 # picture (the dead-socket rule) without trusting anything but what was drawn.
@@ -308,6 +315,10 @@ func _init() -> void:
 	_pen = self
 
 func _ready() -> void:
+	_world_text = Node2D.new()
+	_world_text.name = "WorldText"
+	add_child(_world_text)
+	_world_text.draw.connect(_paint_world_text)
 	content = ContentLoader.load_tree()
 	session = SessionRes.new()
 	# Every save that lands, from any of its five callers, stamps the HUD. Connected once: the
@@ -1421,13 +1432,18 @@ func _update_hud() -> void:
 		_bench_panel.call("set_world", world, world.player)
 
 func _draw() -> void:
-	if world == null: return
+	if world == null:
+		_world_text_ops = []
+		if _world_text != null:
+			_world_text.queue_redraw()
+		return
 	# The background, the ground, the walls and the roofs are baked layers drawn behind this item
 	# (_draw_world); everything below is drawn fresh each frame on top of them.
 	_draw_world()
 	_draw_light_pools()
 	_fx_drawn = []
 	_a2_wall_drawn = []
+	_world_text_ops = []
 	_draw_orders()
 	_draw_entities()
 	_anim.end_draw()
@@ -3170,8 +3186,8 @@ func _draw_entities() -> void:
 				var tag_at := Vector2(sx + r + 10.0, sy - r - 6.0).round()
 				# A dark backing pass rather than a panel: the tag sits on the street, and a box
 				# round it would read as chrome rather than as something you noticed.
-				draw_string(tag_font, tag_at + Vector2(1.0, 1.0), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, Color(0.0, 0.0, 0.0, 0.85))
-				draw_string(tag_font, tag_at, tag, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, Palette.COLOURS["survivor"])
+				# Painted over the day grade by `_paint_world_text`, not here.
+				_world_text_ops.append({"kind": "tag", "font": tag_font, "at": tag_at, "text": tag})
 	# Ground items — focal only, because searching a room is an action rather than a glance.
 	# What one looks like is `Appearance.item_look`: its own picture when content declares one, and
 	# its class's glyph when it does not. This used to be one ten-pixel square for everything, so
@@ -3279,6 +3295,18 @@ const BUBBLE_LIFT_PX: float = 14.0
 # shape the mark and the afterimage already fade on -- so a bubble ending mid-scene never looks
 # like a draw call that stopped.
 const BUBBLE_FADE_TICKS: int = 20
+# The plate's opacity over the street, and how far a zombie's sound-word is lifted from the kit's
+# dim text toward its full text: a noise still reads quieter than somebody talking, but at 4.5:1
+# or better on the plate over the brightest ground (check_grade_look.gd's CONTRAST lane), where
+# the kit's own dim text read 3.3:1.
+const BUBBLE_PLATE_ALPHA: float = 0.85
+const BUBBLE_SOUND_LIFT: float = 0.4
+
+
+# A bubble's ink: the plate's text colour for speech, and the kit's dim text lifted by
+# BUBBLE_SOUND_LIFT for a zombie's sound-word.
+static func bubble_ink(is_zombie: bool) -> Color:
+	return Chrome.TEXT_DIM.lerp(Chrome.TEXT, BUBBLE_SOUND_LIFT) if is_zombie else Chrome.TEXT
 
 
 # The bubble's own rect: wide enough for its text, tall enough for its lines, and never smaller
@@ -3321,26 +3349,52 @@ func _draw_bubbles() -> void:
 		var sx: float = float(it["sx"])
 		var sy: float = float(it["sy"])
 		var plate: Rect2 = _bubble_plate(sx, sy, float(it["r"]), block_w, lines.size(), line_h)
+		# A zombie's sound-word draws dimmer (it is a noise, not somebody talking); everybody else in
+		# the plate's own text colour.
+		var is_zombie: bool = world.components.has_component(eid, "shambler")
+		var text_col: Color = bubble_ink(is_zombie)
+		text_col.a = alpha
+		# Painted over the day grade by `_paint_world_text`, not here.
+		_world_text_ops.append({
+			"kind": "bubble", "font": font, "plate": plate, "alpha": alpha, "lines": lines,
+			"line_h": line_h, "sx": sx, "ink": text_col,
+		})
+
+
+# The world's words, painted on `_world_text` (its draw signal) from what this frame's `_draw`
+# recorded: the pawn tag with its dark backing pass, and each speech bubble's plate, tail and lines.
+func _paint_world_text() -> void:
+	_world_text_frame = Engine.get_frames_drawn()
+	var c: Node2D = _world_text
+	for op in _world_text_ops:
+		if String(op["kind"]) == "tag":
+			var tag_font: Font = op["font"] as Font
+			var tag_at: Vector2 = op["at"] as Vector2
+			var tag: String = String(op["text"])
+			c.draw_string(tag_font, tag_at + Vector2(1.0, 1.0), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, Color(0.0, 0.0, 0.0, 0.85))
+			c.draw_string(tag_font, tag_at, tag, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, Palette.COLOURS["survivor"])
+			continue
+		var font: Font = op["font"] as Font
+		var plate: Rect2 = op["plate"] as Rect2
+		var alpha: float = float(op["alpha"])
+		var lines: Array[String] = op["lines"] as Array[String]
+		var line_h: float = float(op["line_h"])
+		var sx: float = float(op["sx"])
 		var fill: Color = Chrome.PANEL
-		fill.a = 0.85 * alpha
-		if not Chrome.frame(self, plate, "panel_tooltip", 0.85 * alpha):
-			draw_rect(plate, fill)
+		fill.a = BUBBLE_PLATE_ALPHA * alpha
+		if not Chrome.frame(c, plate, "panel_tooltip", BUBBLE_PLATE_ALPHA * alpha):
+			c.draw_rect(plate, fill)
 			var edge: Color = Chrome.PANEL_EDGE
 			edge.a = alpha
-			draw_rect(plate, edge, false, 1.0)
+			c.draw_rect(plate, edge, false, 1.0)
 		# A small tail pointing down at the head -- the one thing that reads a plate as spoken
 		# rather than as a floating card. Coloured to meet the frame: the kit's tooltip texture is
 		# the same dark olive `fill` already was, at the frame's own opacity.
 		var tail_base_y: float = plate.position.y + plate.size.y
-		draw_colored_polygon(PackedVector2Array([Vector2(sx - 6.0, tail_base_y), Vector2(sx + 6.0, tail_base_y), Vector2(sx, tail_base_y + 7.0)]), fill)
-		# A zombie's sound-word draws dim (it is a noise, not somebody talking); everybody else in
-		# the plate's own text colour.
-		var is_zombie: bool = world.components.has_component(eid, "shambler")
-		var text_col: Color = Chrome.TEXT_DIM if is_zombie else Chrome.TEXT
-		text_col.a = alpha
+		c.draw_colored_polygon(PackedVector2Array([Vector2(sx - 6.0, tail_base_y), Vector2(sx + 6.0, tail_base_y), Vector2(sx, tail_base_y + 7.0)]), fill)
 		for i in lines.size():
 			var ly: float = plate.position.y + BUBBLE_PAD_PX + line_h * float(i) + float(TAG_SIZE) * 0.85
-			draw_string(font, Vector2(plate.position.x + BUBBLE_PAD_PX, ly), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, text_col)
+			c.draw_string(font, Vector2(plate.position.x + BUBBLE_PAD_PX, ly), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, op["ink"] as Color)
 
 
 # Greedy word wrap at `max_width`, measured the same way every other panel in this codebase
@@ -3787,3 +3841,8 @@ func _draw_night_wash() -> void:
 func _draw_day_grade() -> void:
 	_day_grade.call("attach", get_canvas_item())
 	_day_grade.call("frame", get_viewport_rect().size, LightLook.ambient_of(world))
+	# The world's words go over the grade and under the night. Set every frame: the engine resets
+	# a child node's draw index to its place among main's children whenever that place moves.
+	if _world_text != null:
+		RenderingServer.canvas_item_set_draw_index(_world_text.get_canvas_item(), DayGradeRes.TEXT_INDEX)
+		_world_text.queue_redraw()

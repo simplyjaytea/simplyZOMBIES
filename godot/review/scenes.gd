@@ -69,7 +69,7 @@ const DAY: int = 1
 const NOON: float = 0.5
 const NIGHT: float = 0.9
 # Halfway down the dusk ramp (Clock: dusk runs 0.625 to 0.75), so the sky's share of daylight is
-# about a half and the day grade is about half on (presentation/day_grade.gd).
+# about a half and the day grade's weight is 0.5 (presentation/day_grade.gd's weight_of).
 const DUSK: float = 0.6875
 # A zombie is placed this many metres east of the body, close enough to read as a fight in frame.
 const ZOMBIE_METRES: float = 3.0
@@ -400,7 +400,7 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 					"x": (zombie_at as Vector2).x, "y": (zombie_at as Vector2).y,
 				})
 		"dusk_street":
-			# The day street's spot at dusk: the grade halfway between the overcast day and the night.
+			# The day street's spot at dusk: the day grade at weight 0.5, under a darkening sky.
 			world.tick = Clock.tick_on_day(DAY, DUSK)
 			var dusk_at: Vector2 = _street_spot(world)
 			if dusk_at.x < 0.0:

@@ -613,8 +613,12 @@ switch (mode) {
     break;
   case "--shots":
     // The art review's capture driver. Needs a display: the pixels come from the root viewport.
-    // Anything after the mode is handed to the driver as user args (`--out=DIR`).
+    // Anything after the mode is handed to the driver as user args (`--out=DIR`). A fixed frame
+    // step makes shader TIME the same at every capture, so a flame's flicker matches between two
+    // runs and a before/after pair of a night scene compares byte for byte.
     args = [
+      "--fixed-fps",
+      "60",
       "--path",
       resolve(root, "godot"),
       "--script",

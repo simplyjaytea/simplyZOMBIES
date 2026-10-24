@@ -6074,22 +6074,32 @@ taken without the owner, clause by clause against what the 2026-09-03 warm grade
   saturation, and the glass and the outline -- the cool exceptions the warm grade kept -- stay the
   coolest things on the street.
 - **The night is not graded at all.** The weight is `smoothstep(NIGHT_AMBIENT, 1, ambient)`: 1
-  under a full day's sky, a half at mid-dusk, exactly 0 at night, when the grade draws nothing
-  and the frame is the light map's picture bit for bit. The grade sits under the night's multiply
+  under a full day's sky, 0.5 at mid-dusk, exactly 0 at night, when the grade draws nothing and
+  the frame is the light map's picture bit for bit. At mid-dusk the night's multiply already holds
+  the frame, so the grade's grey is barely measurable there (the `dusk_street` pair's chroma moves
+  6.2 to 6.4 at 1280×720 and 7.3 to 7.0 at 1920×1080): the weight is the claim, not a visible
+  half-strength look. The grade sits under the night's multiply
   and its glow, so a pool's hue and a flame are laid on after it: the pools, the fire and the
   torch stay the one saturated thing after dark, which is the night half of the 2026-09-08
   sentence and was already true.
 - **The void lifts to a dark grey through the same pass,** #15141f to #1c1c20 by day, rather than
   by moving `Palette.background`, which the night also reads. It stays the cool near-black the
   district sits in at night.
-- **The HUD is never in the graded picture.** Every control is on a CanvasLayer above main's
-  canvas item; the grade reads the screen before any of it draws. Translucent panels show the
-  graded street through them, which is what translucent means. The speech bubble is the one piece
-  of chrome drawn into the world, and is graded with it: speech holds 8.3:1 (10.0 before); a
-  zombie's dim sound-word goes from 4.18:1 to 3.71:1, under 4.5:1 before the grade too, and is
-  named in docs/23 rather than fixed here.
+- **No readable word is graded.** Every HUD control is on a CanvasLayer above main's canvas
+  item; the grade reads the screen before any of it draws. Translucent panels show the graded
+  street through them, which is what translucent means. The words main writes into the world --
+  the speech bubbles and the pawn tag -- are recorded during `_draw` and painted on a child item,
+  `_world_text`, at draw index 999: over the grade (998) and under the night (1000), so the night
+  still dims them exactly as before and the day never greys them. The art review's round 1 made
+  this a slice fix rather than a follow-up: readable text under 4.5:1 is fixed where it is found.
+- **A zombie's sound-word is lifted to 4.5:1.** It drew in the kit's dim text, 3.3:1 on its plate
+  over the pavement before any grade. It now draws `Chrome.TEXT_DIM` lifted 40% toward
+  `Chrome.TEXT` (`main.gd`'s `bubble_ink`), 4.89:1 over the worst ground and still quieter than
+  speech. The kit's own `TEXT_DIM` is unchanged everywhere else.
 
-**How to apply:** a tune of the grade changes `day_grade.gd`'s six constants, re-measures
+**How to apply:** a word drawn into the world goes through `_world_text_ops` and
+`_paint_world_text`, never a `draw_string` of main's own (`godot:check:grade`'s WORDS lane counts
+them). A tune of the grade changes `day_grade.gd`'s six constants, re-measures
 `check_grade_look.gd`'s DAY_TABLE and re-shoots `day_street`, `interior` and `dusk_street` in the
 same commit. A palette change does not touch the grade, and the grade never touches a palette
-lane. Nothing draws over the grade except the night, the glow and the HUD.
+lane. Nothing draws over the grade except the world's words, the night, the glow and the HUD.
