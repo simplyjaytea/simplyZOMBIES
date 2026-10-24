@@ -18,6 +18,11 @@ const LIGHT_TABLE := {
 # The spill round a beam throws at its feet: a tile this close to the source is lit whatever way the
 # beam points, so a torch lights the ground under the holder's hand and a zombie at arm's length.
 const SPILL_M: float = 1.5
+# How close to a beam a tile's centre may be and still be lit, in metres: half a tile's diagonal, so
+# a tile is lit by any of the beam that falls on it, and a hand's breadth more, because the beam
+# leaves the hand that holds it, which stands up to about a third of a metre off the body's own point.
+# A tile's bearing is allowed the angle this subtends from the source past the half-angle.
+const BEAM_EDGE_M: float = 1.0
 
 var _casts: Dictionary = {}
 var _ordered_sources: Array[int] = []
@@ -75,8 +80,10 @@ func refresh(world: Variant, map: Variant) -> void:
 		(c as Dictionary)["y"] = float((pos as Dictionary)["y"])
 		(c as Dictionary)["magnitude"] = mag
 		# The beam is the carrier's to aim: its facing is read here, every tick, and never recasts the
-		# round shadowcast above, so turning moves the wedge without costing a cast.
-		(c as Dictionary)["beam"] = float((src as Dictionary).get("beam", 0.0))
+		# round shadowcast above, so turning moves the wedge without costing a cast. A carrier with no
+		# facing has nowhere to point it, and its light throws round.
+		var aimed: bool = world.components.has_component(entity, "facing")
+		(c as Dictionary)["beam"] = float((src as Dictionary).get("beam", 0.0)) if aimed else 0.0
 		(c as Dictionary)["facing"] = _facing_of(world, entity)
 		seen[entity] = true
 		_ordered_sources.append(entity)
@@ -86,9 +93,13 @@ func refresh(world: Variant, map: Variant) -> void:
 
 
 ## Whether `source`'s light lands on tile (tx, ty). A round light: the shadowcast has the tile. A
-## beam: the same, and the tile is inside the wedge (its bearing from the source within the beam's
-## half-angle of the carrier's facing) or inside the spill round the source. Facing turns the wedge
-## only; the cast it clips is the round one.
+## beam: the same, and the beam falls on the tile (its centre's bearing from the source within the
+## beam's half-angle of the carrier's facing, widened by the angle BEAM_EDGE_M subtends at that
+## distance) or its centre is inside the spill round the source. A tile is lit by any of the beam that
+## lands on it, not only by a beam through its centre: the lit tiles then hold every point the beam
+## reaches from the holder's hand, so the screen draws the beam's own straight edges inside them
+## instead of the staircase the tile centres make. Facing turns the wedge only; the cast it clips is
+## the round one.
 func lights_tile(source: int, tx: int, ty: int) -> bool:
 	var c: Variant = _casts.get(source)
 	if c == null:
@@ -102,10 +113,11 @@ func lights_tile(source: int, tx: int, ty: int) -> bool:
 		return true
 	var dx: float = (float(tx) + 0.5) * float(SimTileMapRes.TILE_METRES) - float(cd["x"])
 	var dy: float = (float(ty) + 0.5) * float(SimTileMapRes.TILE_METRES) - float(cd["y"])
-	if dx * dx + dy * dy <= SPILL_M * SPILL_M:
+	var d2: float = dx * dx + dy * dy
+	if d2 <= SPILL_M * SPILL_M:
 		return true
 	var off: float = wrapf(atan2(dy, dx) - float(cd["facing"]), -PI, PI)
-	return absf(off) <= beam
+	return absf(off) <= beam + asin(minf(1.0, BEAM_EDGE_M / sqrt(d2)))
 
 
 static func _facing_of(world: Variant, entity: int) -> float:
