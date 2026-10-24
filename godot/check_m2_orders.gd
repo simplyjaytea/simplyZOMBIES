@@ -55,9 +55,10 @@ func _run() -> void:
 	ok = _stand_down_ends_a_hold_and_refuses_when_there_is_none() and ok
 	ok = _an_order_drops_the_job_in_hand_at_once() and ok
 	ok = _the_words_and_the_menu_follow_the_order() and ok
+	ok = _draft_holds_a_colonist_where_they_stand_and_a_second_press_frees_them() and ok
 	ok = _the_record_is_plain_values() and ok
 	if ok:
-		print("M2_ORDERS_OK go walks and ends, hold keeps off work against a free control, haul stocks the item, stand down refuses with none, an order drops the job in hand, the HUD and the menu follow the sim, and the record is plain values")
+		print("M2_ORDERS_OK go walks and ends, hold keeps off work against a free control, haul stocks the item, stand down refuses with none, an order drops the job in hand, the HUD and the menu follow the sim, the draft holds and frees a colonist, and the record is plain values")
 		quit(0)
 	else:
 		push_error("M2_ORDERS_FAIL")
@@ -372,6 +373,70 @@ func _the_words_and_the_menu_follow_the_order() -> bool:
 	var ok: bool = silent and not without and offered and not_on_own_tile and go_words and stand_down and hold_words and dest_hold and dest_none
 	if not ok:
 		push_error("WORDS: silent %s without-select-hides %s offered %s own-tile-hides %s go %s (%s) stand-down %s hold %s (%s) destination %s none %s" % [silent, not without, offered, not_on_own_tile, go_words, go_line, stand_down, hold_words, hold_line, dest_hold, dest_none])
+	return ok
+
+
+func _draft_holds_a_colonist_where_they_stand_and_a_second_press_frees_them() -> bool:
+	# CONTROL first: an undrafted Mara with a loose item beside her takes the work. Without this the
+	# drafted lane below could pass on a street with nothing to refuse.
+	var free: Variant = _world()
+	var free_mara: int = _mara(free)
+	var loose_free: Vector2i = _reachable_away(free, _tile(free, free_mara), 3, SEARCH_RADIUS)
+	if loose_free.x < 0:
+		push_error("DRAFT: no loose tile near Mara to make work on")
+		return false
+	_loose_item_at(free, loose_free)
+	var control_works: bool = false
+	for _i in WATCH_TICKS:
+		free.step()
+		if free.components.get_component(free_mara, "job") is Dictionary:
+			control_works = true
+			break
+	if not control_works:
+		push_error("DRAFT: control found Mara take no work in %d ticks, so the drafted lane would prove nothing" % WATCH_TICKS)
+		return false
+
+	var w: Variant = _world()
+	var mara: int = _mara(w)
+	var start: Vector2i = _tile(w, mara)
+	_loose_item_at(w, _reachable_away(w, start, 3, SEARCH_RADIUS))
+	var draft: Dictionary = SimOrders.draft_command(w, mara)
+	var drafts: bool = String(draft.get("kind", "")) == "hold" and int(draft.get("entity", -1)) == mara and int(draft.get("tx", -1)) == start.x and int(draft.get("ty", -1)) == start.y
+	w.commands.push(draft)
+	w.step()
+	var held_order: Variant = _order(w, mara)
+	var held: bool = held_order is Dictionary and String((held_order as Dictionary)["kind"]) == "hold"
+	var worked: bool = false
+	var strayed: bool = false
+	for _i in 2400:
+		w.step()
+		if w.components.get_component(mara, "job") is Dictionary:
+			worked = true
+		if _dist(w, mara, start) > REACH:
+			strayed = true
+	# The same key again hands them back: a clear, the order gone, and work taken up at once.
+	var free_cmd: Dictionary = SimOrders.draft_command(w, mara)
+	var frees: bool = String(free_cmd.get("kind", "")) == "clear"
+	w.commands.push(free_cmd)
+	w.step()
+	var free_again: bool = not (_order(w, mara) is Dictionary)
+	var took_work: bool = false
+	for _i in WATCH_TICKS:
+		w.step()
+		if w.components.get_component(mara, "job") is Dictionary:
+			took_work = true
+			break
+
+	# Refusals: the player, and a colonist grabbed, a corpse or a recruit, get no command at all.
+	var refused_player: bool = SimOrders.draft_command(w, int(w.player)).is_empty()
+	var refused: bool = true
+	for c in ["grabbed", "corpse", "recruit"]:
+		w.components.set_component(mara, c, {})
+		refused = refused and SimOrders.draft_command(w, mara).is_empty()
+		w.components.remove_component(mara, c)
+	var ok: bool = control_works and drafts and held and not worked and not strayed and frees and free_again and took_work and refused_player and refused
+	if not ok:
+		push_error("DRAFT: control works %s; drafted %s held %s worked %s strayed %s; freed %s free again %s took work %s; refused player %s, grabbed/corpse/recruit %s" % [control_works, drafts, held, worked, strayed, frees, free_again, took_work, refused_player, refused])
 	return ok
 
 
