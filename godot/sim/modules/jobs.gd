@@ -894,11 +894,11 @@ static func _campfire_at(world: Variant, tx: int, ty: int) -> int:
 # holds this very job; `_stock_base` skips a live claim and erases a stale one, `_stop` releases it,
 # and `_do_cook` cooks nothing when the raw is gone or is somebody else's.
 static func _cook_work(world: Variant, ent: int) -> Dictionary:
-	var raw: int = _stock_cookable(world)
-	if raw < 0:
-		return {}
 	var fires: Array[int] = world.components.query(["campfire"])
 	if fires.is_empty():
+		return {}
+	var raw: int = _stock_cookable(world, _tile_centre(_entity_tile(world, fires[0])))
+	if raw < 0:
 		return {}
 	world.components.set_component(raw, "reserved", {"by": ent, "job": "Cook"})
 	return {"kind": "Cook", "target": raw, "fire": fires[0], "ticksLeft": COOK_TICKS, "path": [], "pathGen": -1, "stage": "goto"}
@@ -940,8 +940,17 @@ static func cooks_into_base(world: Variant, base_id: String) -> String:
 # feeds itself tonight and cures tomorrow. Without the split, whichever the loot happened to drop
 # first won -- and it did: the shipped suburb's stockpile holds a canning jar, so the first cook of
 # the run spent 2400 ticks on preserves while the raw food beside it went off.
-static func _stock_cookable(world: Variant) -> int:
-	var fallback: int = -1
+#
+# Within a pass, the nearest to `from` (the fire) wins, and a raw in danger (`_cookable_in_danger`)
+# is not a candidate. Both arrived with the stockpile review (finding 7): until the zone could be
+# marked outdoors every raw lay on the annex floor, so the first in entity order was as good as any
+# and never beside a zombie; with a pile marked by a camp, the first in entity order could be the
+# far one, past the dead.
+static func _stock_cookable(world: Variant, from: Vector2) -> int:
+	var best_food: int = -1
+	var best_food_d: float = INF
+	var best_other: int = -1
+	var best_other_d: float = INF
 	for item in SimNeeds.stockpile_items(world):
 		var base: Variant = world.components.get_component(int(item), "itemBase")
 		if not (base is Dictionary):
@@ -950,11 +959,34 @@ static func _stock_cookable(world: Variant) -> int:
 			continue
 		if _claim_live(world, int(item)):
 			continue
+		var p: Dictionary = world.components.get_component(int(item), "position") as Dictionary
+		var px: float = float(p["x"])
+		var py: float = float(p["y"])
+		if BREAK_OFF_FROM_DANGER and _cookable_in_danger(world, px, py):
+			continue
+		var d: float = from.distance_squared_to(Vector2(px, py))
 		if SimNeeds.is_food(world, String((base as Dictionary).get("baseId", ""))):
-			return int(item)
-		if fallback < 0:
-			fallback = int(item)
-	return fallback
+			if d < best_food_d:
+				best_food = int(item)
+				best_food_d = d
+		elif d < best_other_d:
+			best_other = int(item)
+			best_other_d = d
+	return best_food if best_food >= 0 else best_other
+
+
+# Whether a raw at (x, y) is ground a cook should not walk to. Inside home's walls it is as safe as
+# home is, judged as `_outside_in_danger` judges a colonist there: only a zombie inside the walls
+# counts, not the yard's dead within DANGER_TARGET_METRES of the floor. Anywhere else it is the
+# ground Haul would walk to, judged by Haul's rule for a target (`_nearest_clear`).
+static func _cookable_in_danger(world: Variant, x: float, y: float) -> bool:
+	if world.tilemap != null:
+		var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
+		var tx: int = floori(x)
+		var ty: int = floori(y)
+		if annex.has_point(Vector2i(tx, ty)) and _inside_walls(world.tilemap, annex, tx, ty):
+			return _zombie_inside_walls(world, annex, x, y)
+	return _danger_at(world, x, y, DANGER_TARGET_METRES)
 
 
 # Is this item's claim still held? Live means the holder is alive to the job system and carries a
@@ -1531,7 +1563,9 @@ static var BREAK_OFF_FROM_DANGER: bool = true
 # which the annex lot counts as home, so `_endangered` judges a builder there by the house's walls
 # instead (`_inside_walls`). Without this a builder at the wall kept the job on with a zombie at
 # arm's length until they were taken (trace 99, docs/23).
-const DANGER_KINDS: Array[String] = ["Haul", "Scavenge", "Water", "Bury", "Dress", "Rearm", "Doctor", "Construct"]
+# Cook joined with the stockpile review (finding 7): a raw on a pile marked outdoors is a walk out
+# among the dead, which it never was while every raw lay on the annex floor.
+const DANGER_KINDS: Array[String] = ["Haul", "Scavenge", "Water", "Bury", "Dress", "Rearm", "Doctor", "Construct", "Cook"]
 # How close a zombie comes before an errand is dropped: a shambler's contact range (1.6 m) with
 # room for a colonist to turn and walk off before the hands close.
 const DANGER_METRES: float = 6.0
