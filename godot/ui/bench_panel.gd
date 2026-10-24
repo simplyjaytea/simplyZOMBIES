@@ -67,6 +67,8 @@ const PLATE_TEXT_TOP: float = 16.0
 # The amber corner's key: a small well wearing the corner, and its sentence beside it.
 const LEGEND: float = 24.0
 const LEGEND_SAYS: String = "something you carry fits"
+# Over a locked part's picture: the wash the window wears, lighter, so the part still shows.
+const LOCKED_WASH: Color = Color(0.027, 0.031, 0.039, 0.6)
 # Rust light enough to read at 4.5:1 on the cells' dark well, where the Locker's DANGER (made for
 # rims and hazard stripes) measures about 4 to 1. Only words wear it.
 const DANGER_INK: Color = Color("#e07a4f")
@@ -91,6 +93,10 @@ var _offer: int = 0
 var _offer_top: int = 0
 # What the last draw put on screen, for the gate's digit scan: {text, kind: "name"|"word"}.
 var _said: Array = []
+# The slots drawn locked (by hand, a fitted part only a bench can take off) and the slots drawn with
+# the amber corner, on the last draw: what a gate holds against the read model.
+var _locked: Array[String] = []
+var _eared: Array[String] = []
 
 
 func _ready() -> void:
@@ -156,6 +162,14 @@ func pick_slot(slot: String) -> bool:
 	_side = "slots"
 	queue_redraw()
 	return true
+
+
+func locked() -> Array[String]:
+	return _locked
+
+
+func eared() -> Array[String]:
+	return _eared
 
 
 func said() -> Array:
@@ -379,6 +393,8 @@ func _baseline(top: float, font_size: int) -> float:
 
 func _draw() -> void:
 	_said.clear()
+	_locked.clear()
+	_eared.clear()
 	if _view.is_empty():
 		return
 	var lay: Dictionary = layout()
@@ -426,15 +442,12 @@ func _draw_assembly(lay: Dictionary) -> void:
 	_draw_legend(lay)
 
 
-# The key to the amber corner, drawn only while some plate wears one.
+# The key to the amber corner, drawn only while some plate wears one (the plates draw first).
 func _draw_legend(lay: Dictionary) -> void:
 	var at: Vector2 = lay["legend_at"] as Vector2
 	if at.x < 0.0:
 		return
-	var any: bool = false
-	for row_v in _view.get("slots", []) as Array:
-		any = any or _fits(String((row_v as Dictionary).get("slot", "")))
-	if not any:
+	if _eared.is_empty():
 		return
 	var box: Rect2 = Rect2(at, Vector2(LEGEND, LEGEND))
 	Locker.well(self, box, 1.0)
@@ -480,6 +493,11 @@ func _draw_plate(row: Dictionary, r: Rect2) -> void:
 	var required: bool = bool(row.get("required", false))
 	Locker.well(self, r, 1.0)
 	var thumb: Rect2 = Rect2(Vector2(r.position.x + PX * 4.0, r.position.y + floorf((r.size.y - THUMB) / 2.0 / PX) * PX), Vector2(THUMB, THUMB))
+	# By hand, a fitted part the hands cannot take off (`removable` is the sim's answer) is locked:
+	# its picture washed, its words dimmed, a "bench" tape on its top edge, and no amber corner.
+	var locked: bool = part >= 0 and not _at_bench() and not bool(row.get("removable", false))
+	if locked:
+		_locked.append(String(row.get("slot", "")))
 	if part >= 0:
 		var base: String = ItemPicture.base_of(_world, part)
 		# A recessed well, not a class plate: a plate's bright corner would read as the amber "fits"
@@ -487,6 +505,8 @@ func _draw_plate(row: Dictionary, r: Rect2) -> void:
 		Locker.well(self, thumb, 1.0)
 		if not base.is_empty():
 			ItemPicture.draw(self, thumb.grow(-PX), Appearance.item_look(_world, base), 1.0)
+		if locked:
+			draw_rect(thumb.grow(-PX), LOCKED_WASH)
 	else:
 		Locker.rim(self, thumb, Locker.WELL_LIP)
 	var tx: float = thumb.end.x + 12.0
@@ -502,12 +522,13 @@ func _draw_plate(row: Dictionary, r: Rect2) -> void:
 		_say(Vector2(r.end.x - PX * 4.0 - cond_w, line1), cond, SMALL_SIZE, _band_colour(cond))
 	var line2: float = _baseline(r.position.y + PLATE_TEXT_TOP + 26.0, NAME_SIZE)
 	if part >= 0:
-		_say(Vector2(tx, line2), UiText.fit(font, String(row.get("name", "")), NAME_SIZE, room), NAME_SIZE, Locker.TEXT, "name")
+		_say(Vector2(tx, line2), UiText.fit(font, String(row.get("name", "")), NAME_SIZE, room), NAME_SIZE, Locker.TEXT_DIM if locked else Locker.TEXT, "name")
 	else:
 		_say(Vector2(tx, line2), "empty", NAME_SIZE, DANGER_INK if required else Locker.TEXT_DIM)
 	if required and part < 0:
 		Locker.rim(self, r, Locker.DANGER)
-	if _fits(String(row.get("slot", ""))):
+	if not locked and _fits(String(row.get("slot", ""))):
+		_eared.append(String(row.get("slot", "")))
 		# An amber dog-ear in the bottom-right corner: something you carry fits this slot. The
 		# sim's answer (an offer for the slot), not a guess here.
 		_draw_ear(r)
@@ -523,6 +544,11 @@ func _draw_plate(row: Dictionary, r: Rect2) -> void:
 		var tw: float = Locker.label_width(label.to_upper(), Locker.LABEL_SIZE)
 		Locker.tape(self, Vector2(r.end.x - tw - PX * 6.0, r.position.y - floorf(Locker.TAPE_H / 2.0 / PX) * PX), label, 1.0)
 		_said.append({"text": label.to_upper(), "kind": "word"})
+	if locked:
+		# The "needed" tape's style at the other end of the top edge: this part is the bench's job.
+		var lock_label: String = "bench"
+		Locker.tape(self, Vector2(r.position.x + PX * 6.0, r.position.y - floorf(Locker.TAPE_H / 2.0 / PX) * PX), lock_label, 1.0)
+		_said.append({"text": lock_label.to_upper(), "kind": "word"})
 
 
 func _draw_candidates(lay: Dictionary, font: Font) -> void:
