@@ -214,7 +214,9 @@ first:
   `godot/ui/work_panel.gd`, and the coordinator's input routing. **Proof:** the web gate's
   layout lanes and a play lane that drives the roster from the keyboard.
 - **Weapon assembly and contextual actions.** Rework the bench around actual installed
-  slots, eligible carried parts and categorical comparisons. Bring item/world menus,
+  slots, eligible carried parts and categorical comparisons. Slice 3 (2026-10-24) landed the
+  by-hand half of this bullet, field work on a fitted part, and is recorded below; the assembly
+  screen, drop-to-fit and the shared menu grammar are still open. Bring item/world menus,
   building feedback and other E actions into the shared hierarchy. **Files:** bench,
   inspect and context/item menu controls. **Proof:** bench, inventory, context, play and
   skin gates; compare/fit/strip and cancel flows with correct ownership/reach at both sizes.
@@ -2428,6 +2430,21 @@ not a to-do list:
   figure's wound dot and smooth shadow, the keycaps' 1 px outlines, HUD text off VT323's
   multiples, the inventory's filter chips and knife slot off the grid, the interior camera's odd
   offset, and the bark bubble's old style.
+
+- **UI overhaul, slice 3: weapon assembly, by hand first, 2026-10-24 (C1 of the three-features
+  plan, `/mnt/project-files/planning/2026-10-24_three-features.md`).** A weapon you can change
+  with your hands opens where you stand. `SimGunsmith.field_work` is true when the host wears a
+  part that content marks `fieldSwap`, or carries one that fits a slot of it; `may_open` is
+  "at a bench or field work", and both the `modify` verb (`SimInventory.verbs_for`) and the
+  open command ask it. `bench_view` says `at_bench` and marks each slot row `field`. The screen
+  stays open where you stand while there is still something to change by hand, and closes when
+  there is not. `modify` in the item menu now pushes `bench.open`; it pushed nothing before.
+  Gates: `godot:m2:bench` gains FIELD (a fitted magazine comes off away from a bench, a barrel
+  does not, a gun with nothing to change opens for no one); `godot:check:inventory`'s modify lane
+  now says absent-with-nothing-to-change rather than absent-away; `godot:m2:attach`,
+  `godot:check:context`, `godot:check:play`. **Still open in the bullet:** the assembly screen
+  and the 720p bench clip (C2), a part dropped on a weapon (C3), and the shared menu and E-prompt
+  grammar (C4).
 
 - **Kernel & tooling — the playbook and the init audit, 2026-10-23.** The owner asked for the
   repository to be initialised for agents and for one playbook every agent can read. An audit of
