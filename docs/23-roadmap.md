@@ -2424,13 +2424,16 @@ not a to-do list:
 - **UI overhaul, slice 3: the assembly screen, 2026-10-24 (C2 of the three-features plan,
   `/mnt/project-files/planning/2026-10-24_three-features.md`).** `godot/ui/bench_panel.gd` is
   rewritten on the Salvage Locker's steel: the weapon's name on tape with its condition word and
-  "at the bench" or "by hand" (the view's `at_bench`, absent meaning a bench is in reach); its
-  picture in a well at the largest whole scale up to eight; one plate per real slot placed round it
+  "at the bench" or "by hand" (the view's `at_bench`; until C1 adds it, the panel falls back to
+  `bench_view`'s `bench` being a real bench); its picture in a well at the largest whole scale up to eight; one plate per real slot placed round it
   from a fixed anchor table (sight above, stock left, muzzle device right, magazine below,
   underbarrel below right, everything else in rows of three beneath), each with the part's picture
   or class glyph, the slot's noun, the part's name and condition word, a "needed" tape on a
-  required slot (rimmed in rust while empty), an amber dog-ear where something you carry fits, and
-  a two-pixel leader to the picture for the anchored five. The picked slot's column on the right
+  required slot (rimmed in rust while empty), an amber dog-ear where something you carry fits
+  (keyed by a small well wearing the same corner, "something you carry fits", under the assembly
+  while some slot wears one; every part's thumbnail, on a plate or a candidate card, sits in a
+  plain well rather than a class plate, so no other corner competes with it), and a two-pixel
+  leader to the picture for the anchored five. The picked slot's column on the right
   says what is in it now and lists what you carry that fits, each with its change words and kit
   arrows; it scrolls with the wheel and the keys when it is longer than the frame. The footer
   carries the sim's refusal sentence, a "take off" button when the picked part is removable, a
@@ -2449,7 +2452,8 @@ not a to-do list:
   the window and centred at 1920 where the old rect does not fit 720; a click on the wash pushes no
   swing; a plate then a candidate pushes one `item.attach` and the view follows; "take off" pushes
   one `item.detach` and is gone once the slot is empty; Enter crosses and fits; Left then Down stay
-  on the screen and walk nobody; every drawn word is digit-free but an item name, judged by
+  on the screen and walk nobody; the amber corner's key is drawn while parts that fit are carried
+  and not once the same view loses its offers; every drawn word is digit-free but an item name, judged by
   `check_inventory.gd`'s `_name_is_allowed`; Escape closes it and clears `benchFocus`. Sabotage
   checked: the old fixed rect, `move` taken off ALLOWED, a digit in the footer, the attach, the
   detach and the close each turn the lane red. `godot:check:ui_skin`: `Chrome.cell` went with its

@@ -105,6 +105,7 @@ const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimFortify = preload("res://sim/modules/fortify.gd")
 const ReviewScenes = preload("res://review/scenes.gd")
 const CheckInventory = preload("res://check_inventory.gd")
+const BenchPanel = preload("res://ui/bench_panel.gd")
 
 # The frame loop's own delta. main.gd's TICK_SECONDS, named again here rather than read off the
 # scene, so a gate that claims "one frame, one tick" is not quoting the thing it is judging.
@@ -2976,6 +2977,29 @@ func _the_bench_opens_fits_and_closes() -> bool:
 			elif not _digits_in(text).is_empty():
 				push_error("%s: a word drawn on the bench carries a digit: '%s'" % [lane, text])
 				ok = false
+
+		# The amber corner has its key on screen while some slot wears it, and none once nothing
+		# carried fits: the same view with its offers taken away draws no key.
+		var says: String = BenchPanel.LEGEND_SAYS
+		var corner_keyed: bool = false
+		for t_v in said:
+			corner_keyed = corner_keyed or String((t_v as Dictionary).get("text", "")) == says
+		if not corner_keyed or (lay["legend_at"] as Vector2).x < 0.0:
+			push_error("%s: parts that fit are carried, but the amber corner has no key at %s" % [lane, str(dims)])
+			ok = false
+		var kept: Dictionary = panel.get("_view") as Dictionary
+		var bare: Dictionary = kept.duplicate()
+		bare["offers"] = []
+		panel.set("_view", bare)
+		panel.queue_redraw()
+		await process_frame
+		for t_v in panel.call("said") as Array:
+			if String((t_v as Dictionary).get("text", "")) == says:
+				push_error("%s: the amber corner's key is drawn with nothing that fits" % lane)
+				ok = false
+		panel.set("_view", kept)
+		panel.queue_redraw()
+		await process_frame
 
 		# Escape closes it and clears the focus.
 		_tap(KEY_ESCAPE)
