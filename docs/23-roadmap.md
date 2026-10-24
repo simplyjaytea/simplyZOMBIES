@@ -3844,6 +3844,41 @@ not a to-do list:
   zone). Whether emptying the zone should be allowed at all is on a card to the owner; this keeps it
   allowed and honest. No balance claim: the paths it closes never fired on the shipped default zone
   unless a pack was full.
+- **The patches read once, and "take all" at cost (the stockpile review, findings 3 to 5).** The
+  drop point (`SimStockpile.drop_tile`) walked the zone's patches afresh on every haul pickup, cooked
+  meal and re-choice, 2.7 ms on the default zone and 3.0 at 960 tiles, while `_patch_index` kept the
+  same answer for the window at 0.04 ms; `patches` is served from that index now (the walk is
+  `_walk_patches`), and the index is keyed by the tile throughout, closing the entry above's open
+  item (`_patch_index` and `put` keyed on `"x,y"` Strings; `patch_under` hands back a set keyed by
+  `Vector2i`, and `context.gd`'s menu row reads it so). `get_meta` with a null default raised an
+  engine error on every world's first ask (one line in four gate logs on main); `has_meta` is asked
+  first. "Take all that fits" asked `in_sight` again for every take, a line-of-sight test per thing
+  per take: 120 tins in sight cost 182 ms in one tick; the list is read once and handed to each
+  take, and a footprint the pack has refused is not tried again for a thing that can neither merge
+  nor be worn: 47 ms. Measured with the review's probe on the gate's boot: `patches` 2.66 to 0.30
+  ms (320 tiles) and 2.97 to 0.33 (960), `_stock_drop` 2.91 to 0.26 and 3.02 to 0.30, `take_all`
+  182 to 47 ms. Same answers: `godot:m2:tick` DROP still holds the patches and twenty-four drops to
+  the String-keyed oracle; `godot:m2:stockpile` PATCH now also holds `patches` to the fresh walk
+  after a mark joins a tile to the pile and after a wall splits it (sabotage: an index blind to the
+  map generation, red), and TAKE gains "take all" taking exactly the tins in view. Nothing drawn
+  changed. The engine error has no lane: a gate cannot read its own stderr, so the guard is the
+  record.
+- **E on the stockpile answers for the patch underfoot (a follow-up to S4).** S4's `e_opens`
+  (`godot/sim/modules/stockpile.gd`) asked whether the nearest loose item lay on the *zone*, while
+  the window it opens lists the *patch* the player stands in. With two patches an arm's reach apart
+  and a tin on the other one, E opened a window that could not list the tin, and the bar's words
+  promised "go through the stockpile" for a tin the window never showed. `e_opens` now asks
+  `on_own_patch`, the patch the actor stands in, so a tin on a neighbouring patch is picked up as
+  anywhere else and the same tin on the player's own patch is still the window. The menu follows
+  E (the review's second half of the finding): `SimContext.verbs_at` builds the stockpile row once,
+  puts it first when no cupboard is in reach, where it is what E does, and after the pick-up and
+  the cupboard rows when a cupboard is in reach, where E keeps its old ladder; so the bar's E words
+  and the menu's first row agree on the pile as they do everywhere else. Nothing on screen changed
+  but the order of two rows in that one case. Gate: `godot:m2:stockpile` NEXTDOOR (a tin on the
+  next patch inside the pick-up reach is picked up and the bar says "pick up"; moved onto the
+  player's patch it makes E the window; both halves fail on the old `has_tile` test) and
+  `godot:check:context` BAR's new case (a tin on the stockpile beside a crate: the bar's E words
+  begin "pick up", the menu's first row is the same, and the stockpile row is still offered).
 - **Attack order: a picked colonist goes after one zombie or raider they can see — 2026-10-24 orders slice A2.**
   With a colonist picked on the street, the menu's "have Mara attack it" row offers an `attack` order on a
   zombie or raider the colonist or the player can see right now (`SimOrders.accepts`, the scarce-information
