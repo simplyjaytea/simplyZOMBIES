@@ -2879,8 +2879,9 @@ not a to-do list:
   past the spill carry no bit though its round cast reaches them. `source_beam` and the facing
   are read off the light index (`source_at`), not content. The beam leaves the hand that holds
   the light (`LightLook.hand_metres`: the slot's hand off the feet-anchored pawn canvas, on the
-  frame the body was drawn on), and a headlamp, in no hand, leaves the body's point. The disc at
-  the hand is `SimLight.SPILL_M`, handed to the shader as `spill_m`. Two sim calls came with it
+  frame the body was drawn on; seen from behind, the hand's side on the ground under the body, so
+  the beam does not read as a headlamp), and a headlamp, in no hand, leaves the body's point. The
+  disc at the hand is `SimLight.SPILL_M`, handed to the shader as `spill_m`. Two sim calls came with it
   (docs/30, "The torch on screen"): a beam lights every tile it falls on, within `BEAM_EDGE_M`
   (1 m) of its edge, so the drawn beam keeps straight edges inside the lit tiles instead of the
   tile-centre staircase the first cut drew; and a carrier with no facing throws round, as the B2
@@ -2900,7 +2901,7 @@ not a to-do list:
   no longer skips: the light map lights 6 m ahead and not 6 m behind. Each was run red by
   sabotage: texels asking the round cast (BEAM, READS), no edge margin (CONE), a beam kept with no
   facing (CONE, BEAM), the hand origin zeroed (BEAM), the spill not handed to the shader (DEAD
-  SOCKET). `npm run godot:check:shots` → `SHOTS_OK` with thirteen scenes; NEGATIVE refuses a day
+  SOCKET). `npm run godot:check:shots` → `SHOTS_OK` with sixteen scenes; NEGATIVE refuses a day
   street and the torchless night as the torch shot. Before and after shots of `night_lights` and
   `night_torch` at both windows, and the first cut's staircase, are in the project's
   `planning/night-torch/`. Art QA on the beam's origin and the disc. Frame cost, the committed

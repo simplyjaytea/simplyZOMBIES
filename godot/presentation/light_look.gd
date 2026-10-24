@@ -39,6 +39,8 @@ const FLAME_FLICKER: float = 0.03
 # How lit the survivor's own disc of night is at least (night_light.gdshader's `eye_floor`): their
 # body and the ground at their feet, which the sim already says they see, stay readable.
 const EYE_FLOOR: float = 0.55
+# The view that shows a body from behind, whose beam starts on the ground under it (`hand_metres`).
+const BACK_VIEW: String = "n"
 # The widest that disc is drawn, in metres, however far the survivor sees: in a lit room they see
 # the whole room, and the room is the pools' to light; the disc is only the ground at their feet.
 const EYE_DISC_MAX_M: float = 3.5
@@ -507,7 +509,8 @@ static func _sim_source(world: Variant, source: int) -> Variant:
 # Where a beam leaves its carrier's body, in metres from the body's ground point, as the screen
 # draws it: the hand that holds the light (Appearance's HELD_HANDS, or the frame's own hand when the
 # body was drawn on a walk frame that moves it) mapped off the feet-anchored pawn canvas, so the
-# light starts where the torch is held and not at the soles. A light in no hand -- a headlamp, a
+# light starts where the torch is held and not at the soles -- except seen from behind, where it
+# starts at the hand's side on the ground under the body. A light in no hand -- a headlamp, a
 # clip light on the glasses -- has no socket, and its beam starts at the ground point (zero).
 #
 # `member` is the body frame the carrier was last drawn on (FxLook's drawn_frames, "" for none),
@@ -528,7 +531,13 @@ static func hand_metres(world: Variant, source: int, facing: float, member: Stri
 	var art: float = CameraUtil.ART_NATIVE
 	var canvas := Vector2(Appearance.PAWN_CANVAS)
 	var drop: float = Appearance.FOOT_DROP_PX / zoom if zoom > 0.0 else 0.0
-	return Vector2((float(hand.x) + 0.5 - canvas.x / 2.0) / art, (float(hand.y) + 0.5 - canvas.y) / art + drop)
+	var x: float = (float(hand.x) + 0.5 - canvas.x / 2.0) / art
+	# Seen from behind, the hand is in front of the body and the beam runs up the screen through it,
+	# so a beam from the hand's height shows first above the head and reads as a headlamp. It starts
+	# at the hand's side on the ground under the body instead (art review, round 1).
+	if view == BACK_VIEW:
+		return Vector2(x, 0.0)
+	return Vector2(x, (float(hand.y) + 0.5 - canvas.y) / art + drop)
 
 
 # The hand slot ("primary" or "secondary") holding the light a body throws: the slot whose item is
