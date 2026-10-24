@@ -260,12 +260,13 @@ func restore(snap: Dictionary) -> void:
 	(rng as RefCounted).call("restore", snap["rng"])
 	(entities as RefCounted).call("restore", snap["entities"])
 	(components as RefCounted).call("restore", snap["components"])
-	# A save from before the night-eyes floor (visibility.gd NIGHT_EYES_FLOOR_M) has no `night_eyes` on
-	# a person's observer. Restore it as give_eyes would have set it, so an old save's survivors see the
-	# floor the same as a new one's. Zombies and raiders are the observers that are not people.
+	# A save from before the night-eyes floor (SimLight.NIGHT_EYES_FLOOR_M) has no `night_eyes` on a
+	# person's observer. Restore it as give_eyes would have set it, so an old save's survivors see the
+	# floor the same as a new one's. Zombies are the observers that are not people: they carry a
+	# zombieType (kept even when the shambler component is stripped), and raiders are excluded too.
 	for e in components.query(["observer"]):
 		var obs: Variant = components.get_component(int(e), "observer")
-		if obs is Dictionary and not (obs as Dictionary).has("night_eyes") and not components.has_component(int(e), "shambler") and not components.has_component(int(e), "raider"):
+		if obs is Dictionary and not (obs as Dictionary).has("night_eyes") and not components.has_component(int(e), "zombieType") and not components.has_component(int(e), "shambler") and not components.has_component(int(e), "raider"):
 			(obs as Dictionary)["night_eyes"] = true
 	(modifiers as RefCounted).call("restore", snap["modifiers"])
 	(field as RefCounted).call("restore", snap["field"])
