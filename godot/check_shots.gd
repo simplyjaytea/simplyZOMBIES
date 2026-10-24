@@ -11,7 +11,7 @@ extends SceneTree
 #   UNKNOWN   a scene name nothing knows is refused by setup and by verify, not passed quietly
 #   SETUP     each scene boots, is set up, and the world says it is that scene
 #   NEGATIVE  a day street is not a night, is not a combat, is not the torch shot, is not the
-#             stockpile being marked, and has no sheet open; the night with no torch in hand is not the torch shot; the plain Colony
+#             stockpile being marked or the stockpile window, and has no sheet open; the night with no torch in hand is not the torch shot; the plain Colony
 #             screen is not Mara picked, not a crowd and not scrolled: verify refuses a state that is not the one
 #             named, so a before/after pair cannot compare two states
 #   PIXELS    with a display, the day street and the combat scene each capture to a picture that is
@@ -46,7 +46,8 @@ func _names() -> void:
 			"stockpile_rest",
 			"stockpile_night",
 			"colony_stockpile",
-			"colony_stockpile_picked"]:
+			"colony_stockpile_picked",
+			"stockpile_window"]:
 		_fail("NAMES: the scene list is %s" % str(Scenes.NAMES))
 	var sizes: Array[Vector2i] = Scenes.SIZES
 	if not sizes.has(Vector2i(1280, 720)) or not sizes.has(Vector2i(1920, 1080)):
@@ -105,6 +106,8 @@ func _negative() -> void:
 		_fail("NEGATIVE: a day street with the brush down verified as the stockpile being marked")
 	if Scenes.verify(main, "stockpile_rest").is_empty():
 		_fail("NEGATIVE: a day street outside the stockpile verified as standing in it")
+	if Scenes.verify(main, "stockpile_window").is_empty():
+		_fail("NEGATIVE: a day street with no window up verified as the stockpile window")
 	await _discard(main)
 	# The night with no torch in hand is not the torch shot: night_lights throws no beam.
 	main = await Scenes.boot(self)

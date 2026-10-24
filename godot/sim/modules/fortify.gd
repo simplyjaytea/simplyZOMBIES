@@ -612,7 +612,18 @@ static func _use_context(world: Variant, actor: int) -> void:
 	if world.components.has_component(actor, "mounted"):
 		SimVehicles.dismount(world, actor)
 		return
-	if SimInventory.nearest_ground_item(world, actor) != null:
+	# Standing in the stockpile, the loose item E would pick up is one of the colony's stores: E opens
+	# the stockpile window instead, where any of them can be taken (slice S4). A cupboard in reach
+	# keeps E for itself, and an item off the zone is still picked up, so this rung only ever takes
+	# E from the pick-up it replaces -- the door, the bed and the fire keep their places.
+	var Stockpile: GDScript = load("res://sim/modules/stockpile.gd") as GDScript
+	var Containers: GDScript = load("res://sim/modules/containers.gd") as GDScript
+	var loose: Variant = SimInventory.nearest_ground_item(world, actor)
+	var box_near: bool = int(Containers.call("nearest", world, actor, false, Containers.Want.Openable)) >= 0
+	if bool(Stockpile.call("e_opens", world, actor, loose, box_near)):
+		Stockpile.call("open", world, actor)
+		return
+	if loose != null:
 		SimInventory.pick_up_nearest(world, actor)
 		return
 	# Loose items first, then the container beside them. E *opens* a container now rather than
@@ -621,7 +632,6 @@ static func _use_context(world: Variant, actor: int) -> void:
 	# sheet"). The rung wants `Openable` and not merely unsearched, so a box you opened and left
 	# half full is still worth the key while an emptied one falls through to the door behind it
 	# and costs nothing.
-	var Containers: GDScript = load("res://sim/modules/containers.gd") as GDScript
 	if Containers != null and Containers.has_method("open"):
 		var box: int = int(Containers.call("nearest", world, actor, false, Containers.Want.Openable))
 		if box >= 0:
@@ -672,6 +682,11 @@ static func _use_context(world: Variant, actor: int) -> void:
 	# window, the trap, the bait, a lift, the barricade -- the same ladder this used to decide and
 	# act on in one pass, now decided once and acted on here.
 	var rung: Dictionary = rung_of(world, actor)
+	# The last rung: nothing else here wants E and the actor stands in the stockpile, so E opens it --
+	# an empty patch still has a window to put things away into.
+	if rung.is_empty() and bool(Stockpile.call("standing_on", world, actor)):
+		Stockpile.call("open", world, actor)
+		return
 	var Needs: GDScript = load("res://sim/modules/needs.gd") as GDScript
 	var Gunsmith: GDScript = _Gunsmith()
 	match String(rung.get("verb", "")):

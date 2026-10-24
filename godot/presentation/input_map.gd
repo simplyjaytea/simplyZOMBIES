@@ -328,6 +328,9 @@ func _input(event: InputEvent) -> void:
 					main.call("_close_settings")
 				elif main.world != null and main._inventory_panel != null and main._inventory_panel.has_method("loot_open") and bool(main._inventory_panel.call("loot_open")):
 					main.world.commands.push({"type": "container.close"})
+					# The stockpile's window is the same window (slice S4); each close is a no-op
+					# when its own window is not the one up.
+					main.world.commands.push({"type": "stockpile.close"})
 				elif focus == "sheet" and main._inventory_panel != null and main._inventory_panel.has_method("escape") and bool(main._inventory_panel.call("escape")):
 					# The sheet's own top interaction first -- a lifted item, an open word menu, a
 					# selected body part -- and only that: one press, one thing put down.
