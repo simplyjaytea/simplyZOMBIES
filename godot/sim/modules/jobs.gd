@@ -22,6 +22,7 @@ const SimContainers = preload("res://sim/modules/containers.gd")
 const SimSightings = preload("res://sim/modules/sightings.gd")
 const SimMelee = preload("res://sim/modules/melee.gd")
 const SimWalk = preload("res://sim/walk.gd")
+const SimNpcCombat = preload("res://sim/modules/npc_combat.gd")
 
 const COLUMNS: Array[String] = [
 	"Firefight", "Patient", "Doctor", "Rest", "Cook", "Hunt", "Construct", "Repair",
@@ -2428,6 +2429,9 @@ static func _follow_order(world: Variant, ent: int, order: Dictionary) -> void:
 	# the order owns the colonist's feet.
 	if world.components.has_component(ent, "job"):
 		_stop(world, ent)
+	if kind == "attack":
+		_follow_attack(world, ent, order)
+		return
 	var goal := Vector2i(int(order.get("tx", 0)), int(order.get("ty", 0)))
 	if _at(world, ent, goal, REACH):
 		_still(world, ent)
@@ -2471,6 +2475,62 @@ static func _follow_haul(world: Variant, ent: int, order: Dictionary) -> void:
 		_still(world, ent)
 		return
 	_advance_job(world, ent, job as Dictionary)
+
+
+# An attack order walks toward the one target the player pointed at, and stops where a blow or a
+# shot can land (`npc_combat`'s own reach, so the colonist never stands in front of a zombie doing
+# nothing). The fight itself is npc_combat's: it prefers this target, so the colonist swings at it.
+# The order ends when the target is gone, when nobody has seen it for `SimSightings.FRESH_TICKS`,
+# or when the colonist is critically injured -- the break-off rule npc_combat applies, so a badly
+# hurt colonist falls back to the retreat rules instead of walking on at it.
+static func _follow_attack(world: Variant, ent: int, order: Dictionary) -> void:
+	var target: int = int(order.get("target", -1))
+	if not _target_standing(world, target) or not _target_fresh(world, ent, target):
+		end_order(world, ent)
+		return
+	var body: Variant = world.components.get_component(ent, "body")
+	if body is Dictionary and SimNpcCombat._critically_injured(world, ent, body as Dictionary):
+		end_order(world, ent)
+		return
+	if SimNpcCombat.can_strike(world, ent, target):
+		_still(world, ent)
+		return
+	# The target moves, so the walk is re-planned when its tile changes and at least every ten
+	# ticks; SimWalk alone re-plans only when the map changes or the path runs out.
+	var there: Dictionary = world.components.get_component(target, "position") as Dictionary
+	var goal := Vector2i(floori(float(there["x"])), floori(float(there["y"])))
+	if int(order.get("gx", -1)) != goal.x or int(order.get("gy", -1)) != goal.y or int(world.tick) - int(order.get("gtick", -100)) >= 10:
+		order["path"] = []
+		order["gx"] = goal.x
+		order["gy"] = goal.y
+		order["gtick"] = int(world.tick)
+	SimWalk.step(world, ent, order, goal, _walk_speed(world, ent))
+	# An empty path after a fresh plan is a target nobody can reach from here: the order ends.
+	if (order.get("path", []) as Array).is_empty():
+		end_order(world, ent)
+
+
+static func _target_standing(world: Variant, target: int) -> bool:
+	if target < 0 or not world.entities.is_alive(target) or world.components.has_component(target, "corpse"):
+		return false
+	if not world.components.has_component(target, "position"):
+		return false
+	var body: Variant = world.components.get_component(target, "body")
+	return body is Dictionary and SimHealth.is_alive(body as Dictionary)
+
+
+# Seen right now by the colonist or by the player, or remembered by the colonist within the fresh
+# window. The same test `SimOrders.accepts` makes when the order is given, held for as long as it runs.
+static func _target_fresh(world: Variant, ent: int, target: int) -> bool:
+	var there: Variant = world.components.get_component(target, "position")
+	if there is Dictionary and world.vision != null:
+		var x: float = float((there as Dictionary)["x"])
+		var y: float = float((there as Dictionary)["y"])
+		for observer in [ent, int(world.player)]:
+			if int(world.vision.detail(observer, x, y)) > 0:
+				return true
+	var row: Variant = SimSightings.recall(world, ent, target)
+	return row is Dictionary and int((row as Dictionary).get("age", 0)) <= SimSightings.FRESH_TICKS
 
 
 static func _haul_still_wanted(world: Variant, item: int, carrying: bool) -> bool:

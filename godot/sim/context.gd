@@ -137,6 +137,10 @@ static func _order_rows(world: Variant, colonist: int, kind: String, entity: int
 		if SimOrdersRes.accepts(world, colonist, haul):
 			var item_text: String = SimItemsRes.item_name(world, entity).to_lower()
 			out.append({"text": "have %s haul the %s" % [who, item_text], "command": _as_command(haul), "target": colonist})
+	if (kind == "zombie" or kind == "raider") and entity >= 0:
+		var attack: Dictionary = {"entity": colonist, "kind": "attack", "target": entity}
+		if SimOrdersRes.accepts(world, colonist, attack):
+			out.append({"text": "have %s attack it" % who, "command": _as_command(attack), "target": colonist})
 	if tile.x >= 0:
 		var go: Dictionary = {"entity": colonist, "kind": "go", "tx": tile.x, "ty": tile.y}
 		if SimOrdersRes.accepts(world, colonist, go):
