@@ -3,9 +3,17 @@ const MeasuredMain = preload("res://bench/measured_main.gd")
 const Roster = preload("res://sim/modules/roster.gd")
 const Visibility = preload("res://sim/vision/visibility.gd")
 const DrawProjection = preload("res://presentation/projection.gd")
+const Clock = preload("res://sim/time/clock.gd")
+const Items = preload("res://sim/modules/items.gd")
+const Inventory = preload("res://sim/modules/inventory.gd")
+const Needs = preload("res://sim/modules/needs.gd")
+const SimLightMod = preload("res://sim/modules/light.gd")
 const WARMUP: int = 30
 const SAMPLES: int = 120
 const CROWD: int = 1000
+# The night the review scenes use (scenes.gd NIGHT), and the campfire's distance from the survivor.
+const NIGHT_FRACTION: float = 0.9
+const FIRE_M: float = 4.0
 var _server_start: int = 0
 var _server_ms: float = 0.0
 
@@ -54,6 +62,15 @@ func _run() -> void:
 	ok = await _sample(main, "crowded-draw", crowd) and ok
 	if not ok:
 		_fail("a sample did not finish the real draw consumer or failed its visible-body floor")
+		return
+	# The night draw: the crowd goes, the survivor carries a hand torch, and a lit campfire four
+	# metres off is the second source, so the light map has both kinds the night draw reads.
+	for ent in crowd:
+		w.despawn(ent)
+	_set_night(w)
+	ok = await _sample(main, "night-draw", []) and ok
+	if not ok:
+		_fail("the night sample did not finish the real draw consumer")
 		return
 	print("RUNTIME_MEASUREMENT_COMPLETE frame")
 	main.queue_free()
@@ -112,6 +129,19 @@ func _sample(main: Node, id: String, crowd: Array[int]) -> bool:
 		"scope": "main.tscn world _draw CPU stage only; simulation and _process held; UI draw excluded; server wall time and harness-inclusive intervals separate; not GPU time or fps"
 	}))
 	return true
+
+func _set_night(w: Variant) -> void:
+	w.tick = Clock.tick_on_day(1, NIGHT_FRACTION)
+	var torch: int = int(Items.spawn_item(w, "item.torch.handheld", {}))
+	Inventory.equip(w, int(w.player), torch, "")
+	SimLightMod.refresh_carried(w, int(w.player))
+	var player: Dictionary = w.components.get_component(int(w.player), "position")
+	var fire: int = int(w.entities.spawn())
+	w.components.set_component(fire, "position", {"x": float(player["x"]) + FIRE_M, "y": float(player["y"])})
+	w.components.set_component(fire, "campfire", {"lit": true, "cooking": false})
+	SimLightMod.make_light_source(w, fire, Needs.CAMPFIRE_LIGHT_M)
+	w.step()
+
 
 func _add_visible_crowd(main: Node, w: Variant) -> Array[int]:
 	var player: Dictionary = w.components.get_component(int(w.player), "position")
