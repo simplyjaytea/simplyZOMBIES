@@ -18,6 +18,8 @@ const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimPath = preload("res://sim/path.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimItems = preload("res://sim/modules/items.gd")
+const SimAllegiance = preload("res://sim/modules/allegiance.gd")
+const SimHealth = preload("res://sim/modules/health.gd")
 
 const COMMAND: String = "colonist.order"
 
@@ -55,8 +57,38 @@ static func accepts(world: Variant, ent: int, command: Dictionary) -> bool:
 			return SimPath.walkable(world, int(command.get("tx", -1)), int(command.get("ty", -1)))
 		"haul":
 			return _haulable(world, int(command.get("target", -1)))
+		"attack":
+			return _attackable(world, ent, int(command.get("target", -1)))
 		"clear":
 			return holds(world, ent)
+	return false
+
+
+# A hostile body the colonist or the player can see this instant. Zombies and raiders only: a
+# colonist is never an attack target, and a corpse is never one. The scarce-information rule holds
+# here too -- nobody orders a swing at a thing nobody can see.
+static func _attackable(world: Variant, ent: int, target: int) -> bool:
+	if target < 0 or not world.entities.is_alive(target) or world.components.has_component(target, "corpse"):
+		return false
+	if not world.components.has_component(target, "position"):
+		return false
+	var body: Variant = world.components.get_component(target, "body")
+	if not (body is Dictionary) or not SimHealth.is_alive(body as Dictionary):
+		return false
+	if not SimAllegiance.hostile(world, ent, target):
+		return false
+	return _seen_by_either(world, ent, target)
+
+
+static func _seen_by_either(world: Variant, ent: int, target: int) -> bool:
+	var there: Variant = world.components.get_component(target, "position")
+	if not (there is Dictionary) or world.vision == null:
+		return false
+	var x: float = float((there as Dictionary)["x"])
+	var y: float = float((there as Dictionary)["y"])
+	for observer in [ent, int(world.player)]:
+		if int(world.vision.detail(observer, x, y)) > 0:
+			return true
 	return false
 
 
@@ -89,6 +121,8 @@ static func issue(world: Variant, command: Dictionary) -> bool:
 	if kind == "haul":
 		order["target"] = int(command.get("target", -1))
 		SimJobs.reserve_item(world, ent, int(order["target"]))
+	elif kind == "attack":
+		order["target"] = int(command.get("target", -1))
 	else:
 		order["tx"] = int(command.get("tx", 0))
 		order["ty"] = int(command.get("ty", 0))
@@ -122,13 +156,15 @@ static func register_module(world: Variant) -> void:
 
 
 ## Where a colonist's order is taking them, as a tile: the spot for a walk or a hold, the item's tile
-## for a haul. (-1, -1) when there is no order, or the item is gone or stocked already.
+## for a haul, the target's tile for an attack. (-1, -1) when there is no order, or the item or the
+## target is gone (or the item stocked already).
 static func destination(world: Variant, ent: int) -> Vector2i:
 	var order: Variant = world.components.get_component(ent, SimJobs.ORDER_COMPONENT)
 	if not (order is Dictionary):
 		return Vector2i(-1, -1)
 	var d: Dictionary = order as Dictionary
-	if String(d.get("kind", "")) != "haul":
+	var kind: String = String(d.get("kind", ""))
+	if kind != "haul" and kind != "attack":
 		return Vector2i(int(d.get("tx", -1)), int(d.get("ty", -1)))
 	var item: int = int(d.get("target", -1))
 	if item < 0 or not world.entities.is_alive(item) or not world.components.has_component(item, "position"):
@@ -153,6 +189,8 @@ static func hud_clause(world: Variant, actor: int) -> String:
 			if item < 0 or not world.entities.is_alive(item):
 				return "Hauling something to the stockpile."
 			return "Hauling the %s to the stockpile." % SimItems.item_name(world, item).to_lower()
+		"attack":
+			return "Going after the one you pointed at."
 	return ""
 
 
