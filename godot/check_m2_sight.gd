@@ -47,6 +47,7 @@ func _run() -> void:
 	ok = _the_prose_degrades() and ok
 	ok = _an_npc_fires_at_a_remembered_position() and ok
 	ok = _a_zombie_sees_what_is_lit_at_night() and ok
+	ok = _a_survivor_sees_three_and_a_half_metres_in_the_dark() and ok
 	ok = _crouching_lowers_the_eye_over_low_cover() and ok
 	ok = _the_visibility_path_reads_eye_of() and ok
 	ok = _a_hostile_behind_the_observer_is_not_recorded() and ok
@@ -316,6 +317,59 @@ func _settle(w: Variant, npc: int) -> void:
 	if rw is Dictionary:
 		(rw as Dictionary)["state"] = SimRanged.FireState.Idle
 		(rw as Dictionary)["ticksLeft"] = 0
+
+
+# FLOOR. After dark a survivor sees the ground 3.5 m off with no light anywhere (docs/23, "The night's
+# reach on screen", JT's 2026-10-24 card), and not 4 m off. A zombie in the same dark does not get it.
+# At noon the floor changes nothing: the survivor sees 4 m as they always did.
+func _a_survivor_sees_three_and_a_half_metres_in_the_dark() -> bool:
+	var night: int = Clock.tick_at_time_of_day(0.95)
+	var w: Variant = _world(false)
+	w.tick = night
+	w.components.set_component(w.player, "position", {"x": 8.5, "y": 12.5})
+	w.components.set_component(w.player, "facing", {"radians": 0.0})
+	SimSurvivors.give_eyes(w, w.player)
+	var zed: int = _zombie(w, 8.5, 12.5)
+	w.step()
+	var near: int = int(w.vision.call("detail", w.player, 11.5, 12.5))
+	var far: int = int(w.vision.call("detail", w.player, 12.5, 12.5))
+	if near == SimVisibility.Detail.Unseen:
+		push_error("FLOOR: a survivor in the dark does not see the ground 3 m off -- the night-eyes floor is not reaching sight")
+		return false
+	if far != SimVisibility.Detail.Unseen:
+		push_error("FLOOR: a survivor in the dark sees the ground 4 m off, past the 3.5 m floor")
+		return false
+	var zed_near: int = int(w.vision.call("detail", zed, 11.5, 12.5))
+	if zed_near != SimVisibility.Detail.Unseen:
+		push_error("FLOOR: a zombie in the dark sees 3 m, and only a survivor should get the floor")
+		return false
+	w.tick = Clock.tick_at_time_of_day(0.5)
+	w.step()
+	if int(w.vision.call("detail", w.player, 12.5, 12.5)) == SimVisibility.Detail.Unseen:
+		push_error("FLOOR: at noon the survivor does not see 4 m -- the floor changed the day")
+		return false
+	# A save from before the floor: the survivor's observer has no `night_eyes`, and a restore gives it
+	# the floor as give_eyes would have. The zombie's old-shape observer does not get it.
+	var old: Variant = _world(false)
+	old.tick = night
+	old.components.set_component(old.player, "position", {"x": 8.5, "y": 12.5})
+	old.components.set_component(old.player, "facing", {"radians": 0.0})
+	old.components.set_component(old.player, "observer", SimVisibility.daylight_eyes())
+	var old_zed: int = _zombie(old, 8.5, 12.5)
+	var snap: Dictionary = old.snapshot()
+	var back: Variant = _world(false)
+	back.restore(snap)
+	back.tick = night
+	back.step()
+	if int(back.vision.call("detail", back.player, 11.5, 12.5)) == SimVisibility.Detail.Unseen:
+		push_error("FLOOR LOAD: a survivor restored from a save with no night_eyes does not see 3 m in the dark")
+		return false
+	if bool((back.components.get_component(old_zed, "observer") as Dictionary).get("night_eyes", false)):
+		push_error("FLOOR LOAD: a zombie restored from an old save got the survivor floor")
+		return false
+	print("FLOOR LOAD OK an old save's survivor gets the floor on restore; its zombie does not")
+	print("FLOOR OK a survivor sees 3 m and not 4 m in the dark; a zombie does not get the floor; noon unchanged")
+	return true
 
 
 func _run_npc(w: Variant, npc: int, ticks: int) -> Dictionary:

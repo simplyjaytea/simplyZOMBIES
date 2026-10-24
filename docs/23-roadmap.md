@@ -1014,6 +1014,14 @@ group above amend this arc's mood, wall and pawn clauses; the pieces below stand
   of ground drawn around them to about one and a half tiles where the review asked for three. The
   pieces are the campfire's reach brought toward its pool and a night-eyes floor of about 3.5 m,
   each a balance change for the A24 pass or the owner, never a wider pool or disc on screen.
+  **Built 2026-10-24 (B4, JT's card: both changes).** A campfire sim-lights 8 m
+  (`SimNeeds.CAMPFIRE_LIGHT_M`); its drawn pool keeps the 20 m look it had
+  (`LightLook.CAMPFIRE_POOL_REACH_M`, a look number, about 6 m across). A survivor's eyes carry
+  `night_eyes`, and sight takes at least 3.5 m of it after dark (`godot:m2:sight` FLOOR, with a
+  load lane for a save with no key). Red-to-green under sabotage; `godot:check:light` RINGS re-pinned
+  to the drawn reach. **Not yet measured:** one ten-seed set on main after the torch slices land
+  batches this change with them and is the balance number; ten-day numbers are a measurement here,
+  not a merge gate (coordinator, 2026-10-24).
 - **What driving left behind.** The first driving slice landed 2026-09-05 (the record below,
   `godot:m2:vehicles`) at the owner's direction, ahead of the Milestone 3B schedule it used to
   sit behind; these are the halves it named rather than built, each its own piece:
