@@ -20,6 +20,7 @@ const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimHealthModule = preload("res://sim/modules/health.gd")
 const SimRecruits = preload("res://sim/modules/recruits.gd")
 const SimJobs = preload("res://sim/modules/jobs.gd")
+const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
@@ -170,7 +171,14 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 				return "no open paved street within %d tiles" % SEARCH_TILES
 			world.components.set_component(world.player, "position", {"x": street.x, "y": street.y})
 		"night_lights":
+			# A lit campfire near the body, so the night shot has its warm pool on screen (the boot
+			# campfire starts unlit, and an unlit fire lights nothing).
 			world.tick = Clock.tick_on_day(DAY, NIGHT)
+			var body: Dictionary = world.components.get_component(world.player, "position") as Dictionary
+			var fire: int = SimNeeds.nearest_campfire(world, float(body["x"]), float(body["y"]))
+			if fire < 0:
+				return "no campfire in the world"
+			SimNeeds.set_lit(world, fire, true)
 		"interior":
 			world.tick = Clock.tick_on_day(DAY, NOON)
 			var spot: Vector2 = _interior_spot(world)
@@ -349,7 +357,12 @@ static func verify(main: Node, scene: String) -> String:
 				return "it is not day"
 			return "" if _outdoor_paved(world.tilemap, _tile_under_player(world)) else "the body is not on an open paved street tile"
 		"night_lights":
-			return "" if Clock.phase_of(int(world.tick)) == Clock.Phase.Night else "it is not night"
+			if Clock.phase_of(int(world.tick)) != Clock.Phase.Night:
+				return "it is not night"
+			for e in world.components.query(["campfire"]):
+				if bool((world.components.get_component(int(e), "campfire") as Dictionary).get("lit", false)):
+					return ""
+			return "no campfire is lit"
 		"interior":
 			var at: Vector2i = _tile_under_player(world)
 			if SimTileMap.tile_at(world.tilemap, at.x, at.y) != SimTileMap.Tile.Floor:

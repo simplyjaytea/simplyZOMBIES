@@ -28,7 +28,8 @@ const CAMPFIRE_HEAT_M: float = 4.0
 # hundred-point body `WARMTH_WEIGHTS` divides. See `wearing_armor`, which used to ask the torso
 # key alone and so could not tell a full suit from a chest plate.
 const ARMOR_POINTS_HEAT: int = 25
-const CAMPFIRE_LIGHT_M: float = 20.0
+# A lit campfire lights what is near it: 8 m (docs/23, "The night's reach on screen", JT 2026-10-24).
+const CAMPFIRE_LIGHT_M: float = 8.0
 # A lit fire burns down. Half a night (9,000 ticks on the one-hour day) from the last lighting, then
 # it is doused
 # unless somebody is cooking on it; a cook's completion, a warm-seek and the E toggle each
