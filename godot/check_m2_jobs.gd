@@ -1366,7 +1366,7 @@ func _an_errand_breaks_off_from_a_zombie() -> bool:
 		ok = false
 	var home: String = _danger_lane(true, 3.0, true)
 	if home != "Haul":
-		push_error("DANGER: a colonist inside the annex walked off the job (%s); home is where they fight" % home)
+		push_error("DANGER: a colonist inside the walls walked off the job for a zombie outside them (%s)" % home)
 		ok = false
 	var off: String = _danger_lane(false, 3.0, false)
 	if off != "Haul":
@@ -1376,6 +1376,12 @@ func _an_errand_breaks_off_from_a_zombie() -> bool:
 	var ordered: String = _danger_lane(true, 3.0, false, true)
 	if ordered != "false":
 		push_error("DANGER: a colonist under an order counted as endangered (%s)" % ordered)
+		ok = false
+	# A zombie that is already inside the walls is not kept out by them: the same colonist, at home,
+	# with one three metres east of him in the house, walks off the job.
+	var inside: String = _danger_lane(true, 3.0, true, false, true)
+	if inside != "Retreat":
+		push_error("DANGER: a zombie inside the walls 3 m off did not break a colonist's errand off (%s); the walls only keep out what is outside" % inside)
 		ok = false
 	SimJobs.BREAK_OFF_FROM_DANGER = was
 	# The finder half: an item with a zombie standing on it is not offered, and the same item
@@ -1443,7 +1449,8 @@ func _a_guarded_patient_is_not_doctored() -> bool:
 # where they stood: the noise pass traced seed 31337's c80 grabbed at the door and pushed 150 tiles
 # into a corner, break-away by break-away, with no job to send them home. True positive: an idle
 # Ellis outside with a zombie 3 m off ends the tick walking home. True negatives: the zombie 10 m
-# off, Ellis inside the annex, under an order, on the watch, or the switch pinned off.
+# off, Ellis inside the walls with a zombie outside them, under an order, on the watch, or the
+# switch pinned off. Ellis inside the walls with a zombie inside them too walks home (WALLS).
 func _an_idle_colonist_walks_home_from_a_zombie() -> bool:
 	var was: bool = SimJobs.BREAK_OFF_FROM_DANGER
 	var ok: bool = true
@@ -1451,6 +1458,7 @@ func _an_idle_colonist_walks_home_from_a_zombie() -> bool:
 		["near", true, 3.0, false, "", "Retreat"],
 		["far", true, SimJobs.DANGER_METRES + 4.0, false, "", "not Retreat"],
 		["home", true, 3.0, true, "", "not Retreat"],
+		["home-inside", true, 3.0, true, "inside", "Retreat"],
 		["ordered", true, 3.0, false, "order", "not Retreat"],
 		["guard", true, 3.0, false, "Guard", "not Retreat"],
 		["off", false, 3.0, false, "", "not Retreat"],
@@ -1483,7 +1491,12 @@ func _idle_lane(on: bool, metres: float, at_home: bool, holding: String) -> Stri
 		w.components.set_component(ellis, SimJobs.ORDER_COMPONENT, {"kind": "hold", "tx": spot.x, "ty": spot.y, "path": [], "pathGen": -1})
 	elif holding == "Guard":
 		w.components.set_component(ellis, "job", {"kind": "Guard", "tx": spot.x, "ty": spot.y, "ticksLeft": 0, "path": [], "pathGen": -1})
-	SimRoster.spawn_zombie(w, float(spot.x) + 0.5 + metres, float(spot.y) + 0.5, SimRoster.TYPE_SHAMBLER, w.rng.stream("shambler"))
+	# At home the zombie is either outside the north wall (the walls keep it out) or, for the
+	# "inside" case, three metres east of him in the house.
+	var zombie: Vector2 = Vector2(float(spot.x) + 0.5 + metres, float(spot.y) + 0.5)
+	if at_home and holding != "inside":
+		zombie = Vector2(float(spot.x) + 0.5, float(_annex(w).position.y) + 1.5)
+	SimRoster.spawn_zombie(w, zombie.x, zombie.y, SimRoster.TYPE_SHAMBLER, w.rng.stream("shambler"))
 	SimJobs._tick_one(w, ellis)
 	var job: Variant = w.components.get_component(ellis, "job")
 	return String((job as Dictionary).get("kind", "")) if job is Dictionary else "none"
@@ -1595,8 +1608,8 @@ func _a_builder_breaks_off_from_a_zombie() -> bool:
 	return ok
 
 
-# One tick of Ellis on Construct at a window's yard (or room) tile, a zombie `metres` east of him;
-# the job kind he ends it with.
+# One tick of Ellis on Construct at a window's yard (or room) tile, a zombie `metres` east of the
+# window's yard tile, outside the wall either way; the job kind he ends it with.
 func _builder_lane(metres: float, inside: bool) -> String:
 	var w: Variant = _world()
 	for z in w.components.query(["shambler"]):
@@ -1610,7 +1623,8 @@ func _builder_lane(metres: float, inside: bool) -> String:
 	var win: Vector2i = wall["window"]
 	w.components.set_component(ellis, "position", {"x": float(spot.x) + 0.5, "y": float(spot.y) + 0.5})
 	w.components.set_component(ellis, "job", {"kind": "Construct", "verb": "window", "tx": win.x, "ty": win.y, "ticksLeft": SimFortify.CHANNEL_TICKS, "path": [], "pathGen": -1})
-	SimRoster.spawn_zombie(w, float(spot.x) + 0.5 + metres, float(spot.y) + 0.5, SimRoster.TYPE_SHAMBLER, w.rng.stream("shambler"))
+	var outside: Vector2i = wall["outside"]
+	SimRoster.spawn_zombie(w, float(outside.x) + 0.5 + metres, float(outside.y) + 0.5, SimRoster.TYPE_SHAMBLER, w.rng.stream("shambler"))
 	SimJobs._tick_one(w, ellis)
 	var job: Variant = w.components.get_component(ellis, "job")
 	return String((job as Dictionary).get("kind", "")) if job is Dictionary else "none"
@@ -1706,7 +1720,9 @@ func _open_tile_away_from_home(w: Variant) -> Vector2i:
 
 
 # One tick of a hauling Ellis with a zombie `metres` east of him; the job kind he ends it with.
-func _danger_lane(on: bool, metres: float, at_home: bool, ordered: bool = false) -> String:
+# At home the zombie stands in the yard above the north wall, 5.5 m off, unless `inside_walls`
+# puts it `metres` east of him in the house.
+func _danger_lane(on: bool, metres: float, at_home: bool, ordered: bool = false, inside_walls: bool = false) -> String:
 	SimJobs.BREAK_OFF_FROM_DANGER = on
 	var w: Variant = _world()
 	for z in w.components.query(["shambler"]):
@@ -1719,7 +1735,10 @@ func _danger_lane(on: bool, metres: float, at_home: bool, ordered: bool = false)
 	w.components.set_component(item, "position", {"x": float(spot.x) + 0.5, "y": float(spot.y) + 6.5})
 	w.components.set_component(ellis, "position", {"x": float(spot.x) + 0.5, "y": float(spot.y) + 0.5})
 	w.components.set_component(ellis, "job", {"kind": "Haul", "target": item, "tx": spot.x, "ty": spot.y + 6, "ticksLeft": 0, "path": [], "pathGen": -1})
-	SimRoster.spawn_zombie(w, float(spot.x) + 0.5 + metres, float(spot.y) + 0.5, SimRoster.TYPE_SHAMBLER, w.rng.stream("shambler"))
+	var zombie: Vector2 = Vector2(float(spot.x) + 0.5 + metres, float(spot.y) + 0.5)
+	if at_home and not inside_walls:
+		zombie = Vector2(float(spot.x) + 0.5, float(_annex(w).position.y) + 1.5)
+	SimRoster.spawn_zombie(w, zombie.x, zombie.y, SimRoster.TYPE_SHAMBLER, w.rng.stream("shambler"))
 	if ordered:
 		w.components.set_component(ellis, SimJobs.ORDER_COMPONENT, {"kind": "haul", "target": item})
 		return str(SimJobs._endangered(w, ellis, w.components.get_component(ellis, "job") as Dictionary))

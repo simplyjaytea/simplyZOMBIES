@@ -1271,6 +1271,21 @@ tables and day lines are report-noise.md in the project's planning/balance folde
     2026-10-23): after a Retreat, skip Construct targets with a zombie within the danger radius for the
     hold, without refusing windows outright. Gate: `godot:m2:jobs` BUILDER lanes.
     Measured: the ten-seed set, the column for the head commit in planning/balance/report-ten-seed.md.
+  - **Zombies inside the walls break the errand off (the day-one trace, 2024 and 8080).** On
+    7753a14f, seed 2024, colonist 129 stood on Construct inside the annex walls for about 30,000
+    ticks, and a zombie that had got in grabbed it at tick 30300. `_outside_in_danger` answered
+    "safe" for every colonist inside the walls box, and for every colonist in the lot unless it was
+    outside the walls, without looking at zombies inside. The fix: inside the walls, a shambler
+    inside the walls within `DANGER_METRES` breaks the errand off, for every kind; in the yard, the
+    lot counts as home only while no zombie is in the lot. The walls box itself is unchanged; a
+    zombie outside the wall still does not count. Gate: `godot:m2:walls` (WALLS-IN, WALLS-OUT,
+    YARD-IN, YARD-OUT, each with its fixture asserted first); `godot:m2:jobs` DANGER moved its home
+    true negative outside the wall and gained the inside case. Seed 8080 is a different wipe: the
+    scripted survivor was grabbed six times in a crowd on day 2, and the driver's walk is the main
+    cause; no driver change in this piece. The ten-seed column for the head is in
+    planning/balance/report-ten-seed.md. The yard question (should the yard ever count as safe
+    while zombies are in the lot?) went to the owner on 2026-10-24: the yard is home while the lot
+    is clear, which is what is built.
 
 **Feel and speed — smooth motion, and time a player can live with:**
 

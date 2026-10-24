@@ -1516,6 +1516,10 @@ static func _exposed_idle(world: Variant, ent: int, job: Variant) -> bool:
 
 
 # `walls` judges the house rather than the lot: a builder in the yard round the walls is outside.
+#
+# The walls keep out the zombies outside them, not the ones already in. So a colonist inside the
+# walls is safe only while no zombie is inside the walls within DANGER_METRES, and the yard inside
+# the lot counts as home only while no zombie is in the lot at all.
 static func _outside_in_danger(world: Variant, ent: int, walls: bool = false) -> bool:
 	var pos: Variant = world.components.get_component(ent, "position")
 	if not pos is Dictionary:
@@ -1525,9 +1529,41 @@ static func _outside_in_danger(world: Variant, ent: int, walls: bool = false) ->
 	if world.tilemap != null:
 		var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
 		if annex.has_point(Vector2i(floori(x), floori(y))):
-			if not walls or _inside_walls(world.tilemap, annex, floori(x), floori(y)):
+			if _inside_walls(world.tilemap, annex, floori(x), floori(y)):
+				return _zombie_inside_walls(world, annex, x, y)
+			if not walls and not _zombie_in_lot(world, annex):
 				return false
 	return _danger_at(world, x, y, DANGER_METRES)
+
+
+# A shambler inside the walls box within DANGER_METRES of (x, y). The box is the house: its wall,
+# window and door tiles bound it, so a zombie in the yard outside the wall is not counted here.
+static func _zombie_inside_walls(world: Variant, annex: Rect2i, x: float, y: float) -> bool:
+	var r2: float = DANGER_METRES * DANGER_METRES
+	for z in world.components.query(["shambler", "position"]):
+		if world.components.has_component(int(z), "corpse"):
+			continue
+		var p: Variant = world.components.get_component(int(z), "position")
+		if not p is Dictionary:
+			continue
+		var dx: float = float((p as Dictionary)["x"]) - x
+		var dy: float = float((p as Dictionary)["y"]) - y
+		if dx * dx + dy * dy > r2:
+			continue
+		if _inside_walls(world.tilemap, annex, floori(float((p as Dictionary)["x"])), floori(float((p as Dictionary)["y"]))):
+			return true
+	return false
+
+
+# Any shambler standing on a tile of the lot, walls or yard.
+static func _zombie_in_lot(world: Variant, annex: Rect2i) -> bool:
+	for z in world.components.query(["shambler", "position"]):
+		if world.components.has_component(int(z), "corpse"):
+			continue
+		var p: Variant = world.components.get_component(int(z), "position")
+		if p is Dictionary and annex.has_point(Vector2i(floori(float((p as Dictionary)["x"])), floori(float((p as Dictionary)["y"])))):
+			return true
+	return false
 
 
 # The house inside the annex lot: the box its walls, windows and doors draw. The lot is that house
