@@ -215,8 +215,9 @@ first:
   layout lanes and a play lane that drives the roster from the keyboard.
 - **Weapon assembly and contextual actions.** Rework the bench around actual installed
   slots, eligible carried parts and categorical comparisons. Slice 3 (2026-10-24) landed the
-  by-hand half of this bullet, field work on a fitted part, and is recorded below; the assembly
-  screen, drop-to-fit and the shared menu grammar are still open. Bring item/world menus,
+  by-hand half of this bullet, field work on a fitted part (C1), and the assembly screen with the
+  720p bench clip (C2), both recorded below; drop-to-fit and the shared menu grammar are still
+  open. Bring item/world menus,
   building feedback and other E actions into the shared hierarchy. **Files:** bench,
   inspect and context/item menu controls. **Proof:** bench, inventory, context, play and
   skin gates; compare/fit/strip and cancel flows with correct ownership/reach at both sizes.
@@ -2443,8 +2444,78 @@ not a to-do list:
   does not, a gun with nothing to change opens for no one); `godot:check:inventory`'s modify lane
   now says absent-with-nothing-to-change rather than absent-away; `godot:m2:attach`,
   `godot:check:context`, `godot:check:play`. **Still open in the bullet:** the assembly screen
-  and the 720p bench clip (C2), a part dropped on a weapon (C3), and the shared menu and E-prompt
-  grammar (C4).
+  and the 720p bench clip (C2, the next entry), a part dropped on a weapon (C3), and the shared
+  menu and E-prompt grammar (C4).
+
+- **UI overhaul, slice 3: the assembly screen, 2026-10-24 (C2 of the three-features plan,
+  `/mnt/project-files/planning/2026-10-24_three-features.md`).** `godot/ui/bench_panel.gd` is
+  rewritten on the Salvage Locker's steel: the weapon's name on tape with its condition word and
+  "at the bench" or "by hand" (the view's `at_bench`; until C1 adds it, the panel falls back to
+  `bench_view`'s `bench` being a real bench); its picture in a well at the largest whole scale up to eight; one plate per real slot placed round it
+  from a fixed anchor table (sight above, stock left, muzzle device right, magazine below,
+  underbarrel below right, everything else in rows of three beneath), each with the part's picture
+  or class glyph, the slot's noun, the part's name and condition word, a "needed" tape on a
+  required slot (rimmed in rust while empty), an amber dog-ear where something you carry fits
+  (keyed by a small well wearing the same corner, "something you carry fits", under the assembly
+  while some slot wears one; every part's thumbnail, on a plate or a candidate card, sits in a
+  plain well rather than a class plate, so no other corner competes with it), and a two-pixel
+  leader to the picture for the anchored five. The picked slot's column on the right
+  says what is in it now and lists what you carry that fits, each with its change words and kit
+  arrows; it scrolls with the wheel and the keys when it is longer than the frame. The footer
+  carries the sim's refusal sentence, a "take off" button when the picked part is removable, a
+  "fit" button when a candidate has the keys, the lit one marked with an Enter keycap, and Esc.
+  Every word comes out of `SimGunsmith.bench_view`; the panel pushes `item.detach` and
+  `item.attach` and computes nothing. **Where it sits:** main.gd stretches it over the window and
+  its frame is `frame_for(size)`, the natural 1376×752 shrunk to a 16 px margin and centred, so it
+  fits 1280×720 (the old fixed 960×620 at (320, 140) hung forty pixels off it) and follows a
+  resize. The rest of the window is washed, and a click there is the screen's rather than a swing
+  at the street. **Keys:** the bench focus's ALLOWED row gains `move` and `dismiss`, and
+  `input_map.gd` hands those presses to the panel's `key()` the way the shell takes its own; the
+  arrows (and WASD) walk the plates by where they are drawn, Right off the last plate crosses to the
+  candidates, Left comes back, Enter does what the lit button says (on an empty slot it crosses to
+  what fits), Escape is still the router's `bench.close`. **Gates:** `godot:check:play` gains
+  BENCH, in its own scene at both windows: E at a bench with a rifle opens it; the frame is inside
+  the window and centred at 1920 where the old rect does not fit 720; a click on the wash pushes no
+  swing; a plate then a candidate pushes one `item.attach` and the view follows; "take off" pushes
+  one `item.detach` and is gone once the slot is empty; Enter crosses and fits; Left then Down stay
+  on the screen and walk nobody; the amber corner's key is drawn while parts that fit are carried
+  and not once the same view loses its offers; every drawn word is digit-free but an item name, judged by
+  `check_inventory.gd`'s `_name_is_allowed`; Escape closes it and clears `benchFocus`. Sabotage
+  checked: the old fixed rect, `move` taken off ALLOWED, a digit in the footer, the attach, the
+  detach and the close each turn the lane red. `godot:check:ui_skin`: `Chrome.cell` went with its
+  last caller (the old bench rows), so PANEL's helper list is panel and header, the bench row left
+  `_surfaces`, and its replacement is PANEL's BENCH-LOCKER check (the bench calls `Locker.panel`
+  and `Locker.well` and no kit frame helper; a fabricated kit-framed bench is refused);
+  `FONT_NO_FACE` lost "→", which nothing draws any more. `godot:check:web_look`'s WIRED lane
+  isolated the Escape arm by the first "KEY_ESCAPE:" in `_input`, which is an `if` line closing
+  the context menu; with the bench's hand-off sitting between the two it judged the hand-off as
+  the arm, so it now finds the line that is the label alone. A new review scene, `bench`, shoots a
+  hunting rifle at a bench with the sight picked and a candidate keyed; before and after shots at
+  both windows are in the project's planning files under ui-slice-3. `godot:check:context`,
+  `:inventory`, `:hud`, `:shots`, `godot:m2:bench` and `check:routing` pass locally. A second
+  scene, `bench_field`, shoots the same rifle by hand on the street (C1's field work) with the
+  fitted magazine picked: the header says "by hand", and only parts the hands can fit wear the
+  amber corner. By hand, a fitted part the hands cannot take off (the view's `removable` false) is
+  drawn locked: its picture washed, its name dimmed, a "bench" tape on its top edge in the
+  "needed" tape's style, and no amber corner; BENCH's by-hand half holds the locked plates to the
+  view's own list, with the magazine never among them, and the at-bench half draws none.
+  **Not done:** the kit's `slot_empty` style is
+  now drawn by no screen (it stays in `Kit.NINE` and its manifest checks); no UI draw cost was
+  measured.
+
+- **UI overhaul, slice 3, part two: a part dropped on a weapon fits it, 2026-10-24 (C3 of the
+  three-features plan, `/mnt/project-files/planning/2026-10-24_three-features.md`).**
+  `SimGunsmith.drop_slot` answers with the first empty slot a held part `fits`, for a survivor who
+  may work on that part here, or "" for none. The inventory sheet asks it on release and on hover:
+  over a weapon in the grid or in an equipment box, a fit is the accent wash (`Locker.fit`) and
+  the release pushes `item.attach`; anywhere else the drop is the ordinary grid placement. An
+  occupied slot is never swapped by a drop. Gate: `godot:check:inventory` FIT-DROP (an empty
+  magazine slot takes the spare, on the grid plate or a worn rifle's box, and the hover says so; a bipod the hands cannot fit goes to the
+  grid over a free underbarrel; a second magazine on a full rifle goes to the grid). Sabotage
+  checked: removing the hands-or-bench test turns the bipod lane red. The hover is shown by the
+  review scene `bench_drop` (`godot:check:shots` lists it; `planning/ui-slice-3/c3_drop_fit_*.png`
+  at both sizes, no before shot since the drop-to-fit did not exist on main). The call is in
+  docs/30, "A dropped part fits only an empty slot".
 
 - **Kernel & tooling — the playbook and the init audit, 2026-10-23.** The owner asked for the
   repository to be initialised for agents and for one playbook every agent can read. An audit of

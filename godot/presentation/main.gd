@@ -646,12 +646,15 @@ func _ensure_ui() -> void:
 	# debug spawn menu (F8) -- dev tooling beside the M raw sheet
 	# The gunsmithing bench. The sim decides when it is open -- `benchFocus` on the survivor, set
 	# by E at a bench -- so this only ever asks the read model whether there is anything to draw.
+	# Stretched over the whole window, which it washes: its frame is `frame_for` the window's size,
+	# so it fits 1280x720 and centres at 1920x1080 and follows a resize without being told. The
+	# fixed 960x620 at (320, 140) it replaced hung forty pixels off a 720-pixel window.
 	var bench_script: GDScript = load("res://ui/bench_panel.gd") as GDScript
 	if bench_script != null:
 		_bench_panel = bench_script.new() as Control
+		_bench_panel.name = "BenchPanel"
 		_bench_panel.visible = false
-		_bench_panel.position = Vector2(320, 140)
-		_bench_panel.size = Vector2(960, 620)
+		_bench_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		layer.add_child(_bench_panel)
 	var debug_script: GDScript = load("res://ui/debug_panel.gd") as GDScript
 	if debug_script != null:

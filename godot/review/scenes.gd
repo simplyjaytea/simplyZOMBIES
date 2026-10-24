@@ -21,13 +21,18 @@ const SimHealthModule = preload("res://sim/modules/health.gd")
 const SimRecruits = preload("res://sim/modules/recruits.gd")
 const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
+const SimItems = preload("res://sim/modules/items.gd")
+const SimInventory = preload("res://sim/modules/inventory.gd")
+const SimAttachments = preload("res://sim/modules/attachments.gd")
+const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
 
 const SCENE_PATH: String = "res://presentation/main.tscn"
 # The two windows the game supports: check_play's WORK-LAYOUT lane lays out at both.
 const SIZES: Array[Vector2i] = [Vector2i(1280, 720), Vector2i(1920, 1080)]
 const NAMES: Array[String] = [
 	"day_street", "interior", "night_lights", "combat", "inventory", "care", "skills", "colony", "viewing",
-	"colony_picked", "colony_crowd", "colony_scrolled",
+	"colony_picked", "colony_crowd", "colony_scrolled", "bench_drop",
+	"bench", "bench_field",
 ]
 # The Colony screen's two fuller shots (art QA, slice 2): Mara picked by a click on her name, her
 # row made manual by one changed number, the pointer resting on the medic chip; and a roster of
@@ -38,9 +43,22 @@ const HOVER_FOCUS: String = "Medic"
 const CROWD: int = 7
 # The scrolled shot's roster: more than the 1920x1080 window draws, so both windows scroll.
 const SCROLL_CROWD: int = 12
+# The weapon the drop scene holds a spare over: a rifle carried in a pack, its magazine taken off by
+# hand, so the spare held over it is a fit and the rifle wears the fit wash.
+const RIFLE: String = "item.rifle.hunting"
+const PACK: String = "item.pack.frame"
 # The part the care scene cuts and then picks on the figure: an arm, so the pane has a bleeding
 # wound to offer pressure for and a dressing it can say is missing.
 const CARE_PART: String = "arm_left"
+# The assembly scene (UI overhaul, slice 3): a hunting rifle on the bench, with parts in the pack
+# that fit three of its slots, and the sight picked so the candidates column has something to list.
+const BENCH_WEAPON: String = "item.rifle.hunting"
+const BENCH_PARTS: Array[String] = ["item.attach.optic.red_dot", "item.attach.optic.scope", "item.attach.suppressor", "item.attach.magazine.extended", "item.attach.barrel.long"]
+const BENCH_SLOT: String = "optic"
+const BENCH_PACK: String = "item.pack.hiking"
+# The same rifle and parts by hand (C1's field work), out on the street with no bench in reach, and
+# the magazine picked: a slot hands can change, so the screen says "by hand" over a real job.
+const BENCH_FIELD_SLOT: String = "magazine"
 
 const TICK_SECONDS: float = 1.0 / 20.0
 const DAY: int = 1
@@ -232,6 +250,39 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 				await _settle(tree, main)
 				if not await _click_row(tree, main, born[0]):
 					return "no generated colonist's name is on the screen to click"
+		"bench_drop":
+			# C3 of the three-features plan: a magazine held over a rifle whose magazine slot is empty.
+			# The rifle sits in a pack on the back; its magazine comes off by hand, which is the fit.
+			world.tick = Clock.tick_on_day(DAY, NOON)
+			var pack: int = SimItems.spawn_item(world, PACK, {"tier": "scavenged"})
+			if not SimInventory.equip(world, world.player, pack, "back"):
+				return "no pack would go on the back"
+			var rifle: int = SimItems.spawn_item(world, RIFLE, {"tier": "scavenged"})
+			if not SimInventory.stow(world, world.player, rifle):
+				return "the rifle would not go in the pack"
+			var mag: int = SimAttachments.in_slot(world, rifle, "magazine")
+			if mag < 0:
+				return "the rifle has no magazine to take off"
+			world.commands.push({"type": "item.detach", "item": mag})
+			await _settle(tree, main)
+			await _settle(tree, main)
+			press(tree, KEY_TAB)
+			await _settle(tree, main)
+			var sheet: Variant = main.get("_inventory_panel")
+			if sheet == null:
+				return "the sheet is not on the screen"
+			var plate: Variant = _plate_rect(sheet as Control, rifle)
+			if plate == null:
+				return "the rifle has no plate on the sheet to point at"
+			# The top third of the plate, not its centre: the held magazine is drawn on the pointer,
+			# and the rifle has to show around it.
+			var over: Vector2 = (plate as Rect2).position + Vector2((plate as Rect2).size.x * 0.5, (plate as Rect2).size.y / 3.0)
+			sheet.set("_drag_item", mag)
+			sheet.set("_placed", sheet.call("_column_places"))
+			var window_at: Vector2 = (sheet as Control).get_global_transform_with_canvas() * over
+			Input.warp_mouse(window_at)
+			main.set_meta("bench_drop_rifle", rifle)
+			await _settle(tree, main)
 		"viewing":
 			# Skills on somebody else: a colonist picked on the street, then K -- the bar names them
 			# and stamps the page "viewing".
@@ -241,6 +292,35 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 				return "the colony has nobody but you to view"
 			main.set("_selected", other)
 			press(tree, KEY_K)
+		"bench":
+			world.tick = Clock.tick_on_day(DAY, NOON)
+			var why: String = _bench_setup(world)
+			if not why.is_empty():
+				return why
+			main.call("_process", TICK_SECONDS)
+			await tree.process_frame
+			var bench_panel: Variant = main.get("_bench_panel")
+			if bench_panel != null and bench_panel.has_method("pick_slot"):
+				bench_panel.call("pick_slot", BENCH_SLOT)
+				# Enter on an empty slot crosses to what fits it, through the router as a key would,
+				# so the shot shows a candidate focused and the footer's lit button.
+				press(tree, KEY_ENTER)
+		"bench_field":
+			world.tick = Clock.tick_on_day(DAY, NOON)
+			var street_b: Vector2 = _street_spot(world)
+			if street_b.x < 0.0:
+				return "no open paved street within %d tiles" % SEARCH_TILES
+			world.components.set_component(world.player, "position", {"x": street_b.x, "y": street_b.y})
+			var why_f: String = _bench_setup(world, false)
+			if not why_f.is_empty():
+				return why_f
+			main.call("_process", TICK_SECONDS)
+			await tree.process_frame
+			var field_panel: Variant = main.get("_bench_panel")
+			if field_panel != null and field_panel.has_method("pick_slot"):
+				# The plate keeps the keys: the column beside it already lists what fits, and the footer
+				# shows "take off" lit, the hands' own job on a fitted magazine.
+				field_panel.call("pick_slot", BENCH_FIELD_SLOT)
 		_:
 			return "unknown scene %s" % scene
 	# The camera jumps to where the body now stands. Without this the follow lerp was still walking
@@ -261,6 +341,17 @@ static func verify(main: Node, scene: String) -> String:
 	if world == null:
 		return "no world"
 	match scene:
+		"bench_drop":
+			var rifle: int = int(main.get_meta("bench_drop_rifle", -1))
+			var sheet: Variant = main.get("_inventory_panel")
+			if rifle < 0 or sheet == null:
+				return "the rifle or the sheet is not there"
+			var held: int = int(sheet.get("_drag_item"))
+			if held < 0:
+				return "nothing is held over the sheet"
+			if SimAttachments.in_slot(world, rifle, "magazine") >= 0:
+				return "the rifle's magazine slot is not empty"
+			return "" if SimGunsmith.drop_slot(world, int(world.player), held, rifle) != "" else "the held part does not fit the rifle"
 		"day_street":
 			if Clock.phase_of(int(world.tick)) != Clock.Phase.Day:
 				return "it is not day"
@@ -342,8 +433,57 @@ static func verify(main: Node, scene: String) -> String:
 			if nav_v == null or bool(nav_v.get("subject_is_you")) or String(nav_v.get("subject_name")).is_empty():
 				return "the bar is not viewing a colonist"
 			return ""
+		"bench":
+			var rifle: int = SimGunsmith.focus_of(world, int(world.player))
+			var base: Variant = world.components.get_component(rifle, "itemBase") if rifle >= 0 else null
+			if not base is Dictionary or String((base as Dictionary).get("baseId", "")) != BENCH_WEAPON:
+				return "the bench is not open on the %s" % BENCH_WEAPON
+			var bench_panel_v: Variant = main.get("_bench_panel")
+			if bench_panel_v == null or not bool((bench_panel_v as CanvasItem).visible):
+				return "the assembly screen is not up"
+			if bench_panel_v.has_method("picked_slot") and String(bench_panel_v.call("picked_slot")) != BENCH_SLOT:
+				return "the %s is not picked" % BENCH_SLOT
+			if bench_panel_v.has_method("side") and String(bench_panel_v.call("side")) != "offers":
+				return "no candidate for the %s is focused" % BENCH_SLOT
+			return ""
+		"bench_field":
+			var gun: int = SimGunsmith.focus_of(world, int(world.player))
+			if gun < 0:
+				return "no weapon is open by hand"
+			if SimGunsmith.bench_in_reach(world, int(world.player)) >= 0:
+				return "a bench is in reach, so this is not by hand"
+			var field_v: Variant = main.get("_bench_panel")
+			if field_v == null or not bool((field_v as CanvasItem).visible):
+				return "the assembly screen is not up by hand"
+			if String(field_v.call("picked_slot")) != BENCH_FIELD_SLOT:
+				return "the %s is not picked" % BENCH_FIELD_SLOT
+			if String(field_v.call("side")) != "slots":
+				return "the keys are not on the %s plate" % BENCH_FIELD_SLOT
+			return ""
 		_:
 			return "unknown scene %s" % scene
+
+
+## A hunting rifle in the survivor's hands and the parts that fit it in the pack, a bench where they
+## stand unless `at_bench` is false, and the screen opened on the rifle through the sim's own command.
+static func _bench_setup(world: Variant, at_bench: bool = true) -> String:
+	var me: int = int(world.player)
+	var at: Dictionary = world.components.get_component(me, "position") as Dictionary
+	if at_bench:
+		SimGunsmith.make_bench(world, float(at["x"]), float(at["y"]))
+	var rifle: int = SimItems.spawn_item(world, BENCH_WEAPON, {"tier": "scavenged"})
+	if not SimInventory.equip(world, me, rifle):
+		return "the survivor could not take up the %s" % BENCH_WEAPON
+	# A pack on the back, so the parts have somewhere to be carried whatever the boot kit holds.
+	var pack: int = SimItems.spawn_item(world, BENCH_PACK, {"tier": "scavenged"})
+	if not SimInventory.equip(world, me, pack):
+		return "the survivor could not shoulder the %s" % BENCH_PACK
+	for part_id in BENCH_PARTS:
+		var part: int = SimItems.spawn_item(world, part_id, {"tier": "scavenged"})
+		if not SimInventory.stow(world, me, part):
+			return "the pack had no room for %s" % part_id
+	world.commands.push({"type": "bench.open", "item": rifle})
+	return ""
 
 
 ## Generated colonists by the player until the roster is `size`. Returns the ones made.
@@ -364,6 +504,19 @@ static func _settle(tree: SceneTree, main: Node) -> void:
 	for i in 2:
 		main.call("_process", TICK_SECONDS)
 	await tree.process_frame
+
+
+## An item's plate on the sheet, in the sheet's own coordinates, or null when it is not drawn there.
+## The same arithmetic the drop path uses, so the pointer lands on the plate it names.
+static func _plate_rect(sheet: Control, item: int) -> Variant:
+	var bag: GDScript = load("res://ui/bag_grid.gd") as GDScript
+	for placed in sheet.call("_column_places") as Array:
+		var column: Dictionary = (placed as Dictionary)["column"] as Dictionary
+		for entry in column.get("items", []) as Array:
+			if int((entry as Dictionary).get("item", -1)) == item:
+				var origin: Vector2 = bag.call("origin_of", (placed as Dictionary)["at"] as Vector2)
+				return bag.call("plate_rect", origin, entry) as Rect2
+	return null
 
 
 ## The colonist whose name begins with `first`, from the Colony screen's own view, or -1.

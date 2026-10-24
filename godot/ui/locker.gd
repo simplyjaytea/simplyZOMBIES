@@ -293,6 +293,14 @@ static func accept(ci: CanvasItem, rect: Rect2) -> void:
 	rim(ci, r, _a(GOOD, 0.85))
 
 
+# Where a held part would fit the weapon under the pointer: the weapon's plate washed and rimmed in
+# the accent, so a fit reads as a choice of target and not as a grid placement.
+static func fit(ci: CanvasItem, rect: Rect2) -> void:
+	var r: Rect2 = _snap(rect)
+	ci.draw_rect(r, _a(ACCENT, 0.18))
+	rim(ci, r.grow(-PX), _a(ACCENT, 0.85))
+
+
 # Where a held item would land and the sim would refuse it: hazard stripes in rust over the cells
 # it would cover, and a rust rim. Stripes, not only a colour, so the refusal reads without one.
 static func refuse(ci: CanvasItem, rect: Rect2) -> void:
