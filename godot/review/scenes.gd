@@ -34,6 +34,7 @@ const NAMES: Array[String] = [
 	"colony_picked", "colony_crowd", "colony_scrolled", "bench_drop",
 	"bench", "bench_field",
 	"context_menu",
+	"dusk_street",
 ]
 # The Colony screen's two fuller shots (art QA, slice 2): Mara picked by a click on her name, her
 # row made manual by one changed number, the pointer resting on the medic chip; and a roster of
@@ -65,6 +66,9 @@ const TICK_SECONDS: float = 1.0 / 20.0
 const DAY: int = 1
 const NOON: float = 0.5
 const NIGHT: float = 0.9
+# Halfway down the dusk ramp (Clock: dusk runs 0.625 to 0.75), so the sky's share of daylight is
+# about a half and the day grade is about half on (presentation/day_grade.gd).
+const DUSK: float = 0.6875
 # A zombie is placed this many metres east of the body, close enough to read as a fight in frame.
 const ZOMBIE_METRES: float = 3.0
 const ZOMBIE_ID: String = "zombie.base"
@@ -357,6 +361,13 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 				mb.position = at
 				mb.global_position = at
 				tree.root.push_input(mb)
+		"dusk_street":
+			# The day street's spot at dusk: the grade halfway between the overcast day and the night.
+			world.tick = Clock.tick_on_day(DAY, DUSK)
+			var dusk_at: Vector2 = _street_spot(world)
+			if dusk_at.x < 0.0:
+				return "no open paved street within %d tiles" % SEARCH_TILES
+			world.components.set_component(world.player, "position", {"x": dusk_at.x, "y": dusk_at.y})
 		_:
 			return "unknown scene %s" % scene
 	# The camera jumps to where the body now stands. Without this the follow lerp was still walking
@@ -510,6 +521,10 @@ static func verify(main: Node, scene: String) -> String:
 			if String(field_v.call("side")) != "slots":
 				return "the keys are not on the %s plate" % BENCH_FIELD_SLOT
 			return ""
+		"dusk_street":
+			if Clock.phase_of(int(world.tick)) != Clock.Phase.Dusk:
+				return "it is not dusk"
+			return "" if _outdoor_paved(world.tilemap, _tile_under_player(world)) else "the body is not on an open paved street tile"
 		_:
 			return "unknown scene %s" % scene
 

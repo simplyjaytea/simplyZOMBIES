@@ -6009,3 +6009,47 @@ same commit, and BAR gains a case for it. A state is never an E clause.
 `_door_would_toggle`, `_on_river`), as `verbs_at` already read the first: they are the ladder's own
 predicates, and a copy here would drift from `_use_context`. Renaming one breaks the BAR lane, which
 is the point.
+
+## The overcast day, as a grade, 2026-10-24
+
+The three-features plan's B5, paying for the day half of "Overcast or torchlight" (2026-09-08):
+cool, desaturated daylight under a grey sky, the night left warm, the void lifted off blue-black.
+The owner was shown before/after pairs of the day street, a room, dusk and the night on a decision
+card ("keep / softer / stronger / drop the day half") with keep as the default built. The calls
+taken without the owner, clause by clause against what the 2026-09-03 warm grade said:
+
+- **It is a grade of the finished picture, not a regrade of the palette.** The plan, written from
+  docs/23's 2026-09-08 bullet, asked for two palette families keyed to the phase and the five
+  palette lanes (PALETTE, TEXTURE, ACCENT, WALL, GREY) re-pinned. Since 2026-09-26 most of the
+  screen is the outpost pack's own art -- the ground, the walls, the props, the pawns, the cars --
+  which no palette entry reaches, so a palette regrade would have cooled the generated half of the
+  street and left the pack half warm, and could not follow the phase without a rebake. One
+  screen-space pass, `presentation/day_grade.gd` with `day_grade.gdshader`, treats both alike and
+  reads the sky every frame. The five palette lanes keep their tables untouched: they pin the
+  *source* colours, which did not move, and the grade has its own measured table in the new gate.
+- **"Warm, and cool only where the dark is" becomes "cool by day, warm by night".** By day every
+  pixel is pulled toward its own grey (68% of its colour kept in the lit middle, 20% in the darks,
+  eased over luma 0 to 0.25), given a cool gain (red 0.97, blue 1.03) and veiled 10% toward an
+  overcast grey (#5c5e60). The warm surfaces lose warmth, every colour that is not cool loses
+  saturation, and the glass and the outline -- the cool exceptions the warm grade kept -- stay the
+  coolest things on the street.
+- **The night is not graded at all.** The weight is `smoothstep(NIGHT_AMBIENT, 1, ambient)`: 1
+  under a full day's sky, a half at mid-dusk, exactly 0 at night, when the grade draws nothing
+  and the frame is the light map's picture bit for bit. The grade sits under the night's multiply
+  and its glow, so a pool's hue and a flame are laid on after it: the pools, the fire and the
+  torch stay the one saturated thing after dark, which is the night half of the 2026-09-08
+  sentence and was already true.
+- **The void lifts to a dark grey through the same pass,** #15141f to #1c1c20 by day, rather than
+  by moving `Palette.background`, which the night also reads. It stays the cool near-black the
+  district sits in at night.
+- **The HUD is never in the graded picture.** Every control is on a CanvasLayer above main's
+  canvas item; the grade reads the screen before any of it draws. Translucent panels show the
+  graded street through them, which is what translucent means. The speech bubble is the one piece
+  of chrome drawn into the world, and is graded with it: speech holds 8.3:1 (10.0 before); a
+  zombie's dim sound-word goes from 4.18:1 to 3.71:1, under 4.5:1 before the grade too, and is
+  named in docs/23 rather than fixed here.
+
+**How to apply:** a tune of the grade changes `day_grade.gd`'s six constants, re-measures
+`check_grade_look.gd`'s DAY_TABLE and re-shoots `day_street`, `interior` and `dusk_street` in the
+same commit. A palette change does not touch the grade, and the grade never touches a palette
+lane. Nothing draws over the grade except the night, the glow and the HUD.
