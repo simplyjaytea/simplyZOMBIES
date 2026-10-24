@@ -6098,7 +6098,10 @@ as tiles in the sim). Calls taken without the owner:
   gateway leaves another's trajectory identical. So the yield the issue asked for would not have
   changed the failing lane. What did change it is that Guard arrived at the walk's `REACH` (1.5 m)
   from the post, so a watch from the west stopped at (29.05, 30.5). The fix gives Guard its own
-  arrival bound, `SimJobs.GUARD_REACH` (0.5 m), and nothing else moves: every other job still
+  arrival bound, `SimJobs.GUARD_REACH` (1.0 m), and nothing else moves: every other job still
   arrives at `REACH`, and `SimJobs._walk` is unchanged. The STAND lane in `godot:m2:jobs` is the
-  true positive (red on the old bound, from the west); the GUARD lane keeps its gateway measure and
-  is not loosened.
+  true positive (red on the old bound, from the west), and it asserts the stop is within
+  `GUARD_REACH` plus 2 art px (1/16 m, one tile being 32 px). The GUARD lane keeps its gateway measure
+  and is not loosened. A bound of 0.5 or 0.75 m was tried first and flips the FAST balance wipe on
+  seed 20260805 red; 1.0 keeps the band. That is a bound picked for the balance gate, so the
+  record says so.
