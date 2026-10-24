@@ -15,6 +15,11 @@ const PAD_X: float = 22.0
 const PAD_Y: float = 12.0
 const FONT_SIZE: int = 25
 const MIN_W: float = 150.0
+# The street menu's header: what was clicked, in the small dim ink above the rows, then an engraved
+# groove. Not a row: `verb_rects` starts beneath it, so nothing can pick it. The loot sheet's menu
+# passes no header and keeps its old shape.
+const HEADER_H: float = 32.0
+const HEADER_SIZE: int = 20
 
 # The one verb that is the obvious thing to do with the item under the cursor, drawn in the accent
 # the way the treatment responses are. Everything else is plain text -- amber is chrome.gd's one
@@ -71,41 +76,63 @@ static func gutter_of(verbs: Array) -> float:
 	return 0.0
 
 
-static func size_of(verbs: Array) -> Vector2:
+static func size_of(verbs: Array, header: String = "") -> Vector2:
 	var font: Font = Chrome.font()
 	var gutter: float = gutter_of(verbs)
 	var wide: float = MIN_W
 	for verb in verbs:
 		wide = maxf(wide, font.get_string_size(String(verb), HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x + gutter + PAD_X * 2.0)
-	return Vector2(wide, PAD_Y * 2.0 + ROW_H * float(verbs.size()))
+	if not header.is_empty():
+		wide = maxf(wide, font.get_string_size(header, HORIZONTAL_ALIGNMENT_LEFT, -1, HEADER_SIZE).x + PAD_X * 2.0)
+	return Vector2(ceilf(wide / Locker.PX) * Locker.PX, PAD_Y * 2.0 + _head(header) + ROW_H * float(verbs.size()))
 
 
-static func draw_menu(ci: CanvasItem, at: Vector2, verbs: Array, alpha: float) -> void:
+# How far the rows sit below the pad: the header's height when there is one.
+static func _head(header: String) -> float:
+	return 0.0 if header.is_empty() else HEADER_H
+
+
+# A row's ink. The loot sheet's menu (`lit` -1) lights its lead verbs. The street menu passes the
+# ringed row as `lit`: that row alone is amber, so the ring and the colour name the same row and an
+# old lead word ("walk here") cannot outshine the row Enter would take.
+static func row_colour(verb: String, index: int, lit: int) -> Color:
+	if lit >= 0:
+		return Locker.ACCENT if index == lit else Locker.TEXT
+	return Locker.ACCENT if _is_lead(verb) else Locker.TEXT
+
+
+static func draw_menu(ci: CanvasItem, at: Vector2, verbs: Array, alpha: float, header: String = "", lit: int = -1) -> void:
 	if verbs.is_empty():
 		return
-	var rect := Rect2(at, size_of(verbs))
+	var rect := Rect2(at, size_of(verbs, header))
 	# A small steel plate without rivets: a menu is a tag hung off the sheet, not another locker.
 	Locker.panel(ci, rect, minf(1.0, alpha + 0.05), false)
 	var font: Font = Chrome.font()
 	var gutter: float = gutter_of(verbs)
+	if not header.is_empty():
+		var base: float = floorf(at.y + PAD_Y + (HEADER_H - Locker.PX * 4.0 - Chrome.line_height(HEADER_SIZE)) / 2.0 + Chrome.ascent(HEADER_SIZE))
+		ci.draw_string(font, Vector2(at.x + PAD_X, base), header, HORIZONTAL_ALIGNMENT_LEFT, -1, HEADER_SIZE, Locker.TEXT_DIM)
+		Locker.groove(ci, Vector2(at.x + Locker.PX * 4.0, at.y + PAD_Y + HEADER_H - Locker.PX * 3.0), rect.size.x - Locker.PX * 8.0, minf(1.0, alpha))
+	var top: float = PAD_Y + _head(header)
 	for i in verbs.size():
 		var verb: String = String(verbs[i])
-		var col: Color = Locker.ACCENT if _is_lead(verb) else Locker.TEXT
+		var col: Color = row_colour(verb, i, lit)
 		var mark: String = glyph_of(verb)
 		if not mark.is_empty():
-			Chrome.glyph(ci, mark, at + Vector2(PAD_X, PAD_Y + ROW_H * float(i) + floorf((ROW_H - Chrome.GLYPH_SMALL) / 2.0)), true, minf(1.0, alpha))
-		ci.draw_string(font, at + Vector2(PAD_X + gutter, PAD_Y + ROW_H * float(i) + ROW_H * 0.7), verb, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, col)
+			Chrome.glyph(ci, mark, at + Vector2(PAD_X, top + ROW_H * float(i) + floorf((ROW_H - Chrome.GLYPH_SMALL) / 2.0)), true, minf(1.0, alpha))
+		ci.draw_string(font, at + Vector2(PAD_X + gutter, top + ROW_H * float(i) + ROW_H * 0.7), verb, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, col)
 
 
 # The rectangle for each row, in the same arithmetic `draw_menu` uses, so the word you can see and
 # the word you can click cannot drift apart. The rule `work_panel.gd` set and `inventory_panel.gd`
 # has followed since the treatment words landed.
-static func verb_rects(at: Vector2, verbs: Array) -> Array[Dictionary]:
+static func verb_rects(at: Vector2, verbs: Array, header: String = "") -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
-	var wide: float = size_of(verbs).x
+	var wide: float = size_of(verbs, header).x
+	var top: float = PAD_Y + _head(header)
 	for i in verbs.size():
 		out.append({
-			"rect": Rect2(at + Vector2(0.0, PAD_Y + ROW_H * float(i)), Vector2(wide, ROW_H)),
+			"rect": Rect2(at + Vector2(0.0, top + ROW_H * float(i)), Vector2(wide, ROW_H)),
 			"verb": String(verbs[i]),
 		})
 	return out

@@ -239,3 +239,80 @@ static func verbs_at(world: Variant, actor: int, hit: Dictionary, selected: int 
 			rows.append({"text": "shout", "command": {"type": "shout"}, "target": -1})
 
 	return rows
+
+
+## What the menu is about, for its header line: "Mara Sato", "the crate", "the tin can", "a
+## zombie". It names only what `hit` already names, and `presentation/pick.gd` names only what you
+## can see or remember (a body or a loose item Focal, a container, a fixture, a car or a door on a
+## tile seen or explored), so the header adds nothing the picture did not already show: never a
+## count, never a state, never which kind of dead it is. The bare ground has no label, and the
+## menu draws no header over it.
+static func target_label(world: Variant, hit: Dictionary) -> String:
+	if world == null or hit.is_empty():
+		return ""
+	var kind: String = String(hit.get("kind", "ground"))
+	var entity: int = int(hit.get("entity", -1))
+	if kind == "door":
+		return "the door"
+	if entity < 0:
+		return ""
+	match kind:
+		"colonist":
+			if entity == int(world.player):
+				return "you"
+			return _name_of(world, entity, "someone")
+		"zombie":
+			return "a zombie"
+		"raider":
+			return "a raider"
+		"item":
+			return "the %s" % SimItemsRes.item_name(world, entity).to_lower()
+		"container":
+			var s: Variant = world.components.get_component(entity, "searchable")
+			return "the %s" % (String((s as Dictionary).get("kind", SimContainersRes.DEFAULT_KIND)) if s is Dictionary else SimContainersRes.DEFAULT_KIND)
+		"vehicle":
+			var v: Variant = world.components.get_component(entity, "vehicle")
+			var cls: String = String((v as Dictionary).get("class", "")) if v is Dictionary else ""
+			return "the %s" % String(SimVehiclesRes.class_of(world, cls).get("name", "car")).to_lower()
+		"prop":
+			if world.components.has_component(entity, "campfire"):
+				return "the fire"
+			if world.components.has_component(entity, "bed"):
+				return "the bed"
+			if world.components.has_component(entity, "water_source"):
+				return "the river" if SimFortifyRes._on_river(world, entity) else "the well"
+			if world.components.has_component(entity, "latrine"):
+				return "the latrine"
+	return ""
+
+
+## What E does where `actor` stands, in the words the menu's in-reach row uses for the same thing:
+## the action bar's E clause (`ui/hud.gd`'s `_reach_clause`). It walks `SimFortify._use_context`'s
+## ladder in that function's own order -- the loose item, the container, the door, the stranger at
+## the gate, the car, then `rung_of` for the rest -- so the bar never names a rung below the one E
+## would take. `verbs_at` above writes the same sentences for a row; `godot:check:context`'s BAR
+## lane holds the two equal at a window, a door, a loose item and a container, so the words
+## cannot drift apart without a gate going red. A body in a seat answers "" here: the car's own
+## clause (`SimVehicles.hud_clause`) speaks for E from inside it, and the menu offers nothing there.
+static func reach_words(world: Variant, actor: int) -> String:
+	if world == null or actor < 0 or world.tilemap == null:
+		return ""
+	if world.components.has_component(actor, "mounted"):
+		return ""
+	var item: Variant = SimInventoryRes.nearest_ground_item(world, actor)
+	if item != null:
+		return "pick up the %s" % SimItemsRes.item_name(world, int(item)).to_lower()
+	var box: int = int(SimContainersRes.nearest(world, actor, false, SimContainersRes.Want.Openable))
+	if box >= 0:
+		var s: Variant = world.components.get_component(box, "searchable")
+		return "open the %s" % (String((s as Dictionary).get("kind", SimContainersRes.DEFAULT_KIND)) if s is Dictionary else SimContainersRes.DEFAULT_KIND)
+	var door: Vector2i = SimFortifyRes._door_in_reach(world, actor)
+	if door.x >= 0 and SimFortifyRes._door_would_toggle(world, door.x, door.y):
+		var d: Variant = SimFortifyRes.door_state(world, door.x, door.y)
+		return "shut the door" if d is Dictionary and bool((d as Dictionary).get("open", false)) else "open the door"
+	if int(SimRecruitsRes.waiting_in_reach(world, actor)) >= 0:
+		return "talk to them"
+	var car: int = int(SimVehiclesRes.nearest_in_reach(world, actor))
+	if car != SimVehiclesRes.NO_DRIVER:
+		return _vehicle_row_text(world, actor, car)
+	return String(SimFortifyRes.rung_of(world, actor).get("prose", ""))
