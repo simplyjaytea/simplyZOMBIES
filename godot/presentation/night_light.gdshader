@@ -52,12 +52,16 @@ uniform float eye_floor = 0.55;
 uniform int light_count = 0;
 uniform vec4 light_pos[MAX_LIGHTS];
 uniform vec4 light_tint[MAX_LIGHTS];
-// A beam, for a light whose content has one: xy the way its carrier faces, z the cosine of its
-// half-angle (0 means a round pool), w unused. Outside the beam there is only a disc at the hand.
+// A beam, for a light the sim casts as one: xy the way its carrier faces, z the cosine of its
+// half-angle (0 means a round pool), w the cosine a little inside it, where the light is full.
+// Outside the beam there is only the spill's disc at the hand.
 uniform vec4 light_dir[MAX_LIGHTS];
 // How far a beam reaches, as a fraction of the source's reach: a torch throws its light further
 // forward than a lamp throws it all round.
 uniform float beam_scale = 0.55;
+// The disc a beam draws at the hand, in metres: the sim's spill (SimLight.SPILL_M), the ground a
+// torch lights whichever way it points.
+uniform float spill_m = 1.5;
 
 // The look: the colour of full dark, how much of the way to it a lightless pixel goes at dusk (all
 // of it at midnight), how much a
@@ -179,9 +183,12 @@ void fragment() {
 	// the known side does all the fading: its last half tile walks down to the void's own dark.
 	float known = inside(int(to.r > 63), int(th.r > 63), int(tv.r > 63), int(td.r > 63), dist);
 
-	// The brightest light here -- max, never sum, as the sim keeps it.
+	// The brightest light here -- max, never sum, as the sim keeps it. Round pools and beams are kept
+	// apart so a beam crossing a pool can lay its light over the pool's colour instead of replacing it.
 	float best = 0.0;
 	vec3 hue = vec3(1.0);
+	float best_beam = 0.0;
+	vec3 hue_beam = vec3(1.0);
 	if (light_count > 0 && own_r > 191) {
 		ivec3 bo = to.gba;
 		ivec3 bh = th.gba;
@@ -207,22 +214,41 @@ void fragment() {
 			float fall = 1.0 - smoothstep(radius * 0.2, radius, d);
 			vec4 beam = light_dir[i];
 			if (beam.z > 0.0) {
-				// The wedge: full inside the half-angle, softened over a few degrees past it, and
-				// a small disc at the hand so the carrier stands in their own light.
+				// The wedge, from the hand: full a little inside the half-angle and gone at it, so it
+				// ends inside the tiles the sim's own wedge lights (the bits), and the spill at the
+				// hand, so the carrier stands in their own light.
 				vec2 ray = at - src.xy;
 				float along = d > 0.0001 ? dot(ray / d, beam.xy) : 1.0;
-				float wedge = smoothstep(beam.z - 0.06, beam.z, along);
+				float wedge = smoothstep(beam.z, beam.w, along);
 				float reach_m = max(pool_min_m, src.z * beam_scale) * flick;
 				float thrown = wedge * (1.0 - smoothstep(reach_m * 0.45, reach_m, d));
-				float hand = 1.0 - smoothstep(0.6, 1.6, d);
+				float hand = 1.0 - smoothstep(spill_m * 0.4, spill_m, d);
 				fall = max(thrown, hand * 0.7);
 			}
 			float b = tint.w * rings(fall * mask, threshold);
-			if (b > best) {
+			if (beam.z > 0.0) {
+				if (b > best_beam) {
+					best_beam = b;
+					hue_beam = tint.rgb;
+				}
+			} else if (b > best) {
 				best = b;
 				hue = tint.rgb;
 			}
 		}
+	}
+	// Where a beam crosses a pool the brighter of the two sets the level, and the colour is the two
+	// tints weighed by how bright each is here: a torch over a campfire's ground stays warm under the
+	// white. A pixel only one of them reaches keeps that one's tint exactly. No channel of the blend,
+	// at the brighter level, comes out above what the brighter of the two lights gives it alone.
+	if (best_beam > 0.0) {
+		if (best > 0.0) {
+			vec3 cap = max(hue * best, hue_beam * best_beam) / max(best, best_beam);
+			hue = min(mix(hue, hue_beam, best_beam / (best + best_beam)), cap);
+		} else {
+			hue = hue_beam;
+		}
+		best = max(best, best_beam);
 	}
 
 	// The sky is shown as it is -- dusk is half dark -- out to half a tile inside the survivor's

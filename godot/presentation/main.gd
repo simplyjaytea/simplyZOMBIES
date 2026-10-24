@@ -3745,6 +3745,10 @@ func _draw_night_wash() -> void:
 		light["y"] = float(light["y"]) + slide.y
 		if float(light.get("beam", 0.0)) > 0.0:
 			light["facing"] = _interp.facing(int(light["entity"]), float(light["facing"]), sub_tick)
+			# A beam leaves the hand that holds it, on the frame the body was drawn on, not the soles.
+			var hand: Vector2 = LightLook.hand_metres(world, int(light["entity"]), float(light["facing"]), String((_fx.get("drawn_frames") as Dictionary).get(int(light["entity"]), "")), float(camera["zoom"]))
+			light["x"] = float(light["x"]) + hand.x
+			light["y"] = float(light["y"]) + hand.y
 		lights.append(light)
 	var range_m: float = 0.0
 	var obs: Variant = world.components.get_component(eyes, "observer") if eyes >= 0 else null

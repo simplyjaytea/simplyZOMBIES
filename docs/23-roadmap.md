@@ -1002,12 +1002,6 @@ group above amend this arc's mood, wall and pawn clauses; the pieces below stand
   only (the record's "Zombies turn, walk and fall", 2026-10-02). Widening their appearance at
   Peripheral detail remains an information-scarcity decision for the owner. Walk-cycle foot and
   clothing polish and the four-pose human corpse vest overlay remain unshipped.
-- **The torch on screen.** The sim casts a torch as a cone (2026-10-24, B2, `godot:m2:torch`,
-  docs/30's "The torch is a cone" entry): the wedge is clipped from the round shadowcast by the
-  carrier's facing, a 1.5 m spill lights the feet, and only a zombie in the light leans toward it.
-  Still open, the beam-on-screen slice (B3): the screen's wedge (`LightLook`, drawn from content
-  today) reads the sim's `lights_tile` tile for tile, the beam starts at the hand, and the night
-  review scene `night_torch` shows it. Art QA on the beam's origin and the disc.
 - **The night's reach on screen.** Since the art review of the light map (2026-10-20, the
   record) the screen draws less light than the sim in two places, both sim numbers rather than
   paint. A lit campfire's cast is 20 m (`SimNeeds.CAMPFIRE_LIGHT_M`) and its drawn pool 6 m, so a
@@ -1067,10 +1061,10 @@ group above amend this arc's mood, wall and pawn clauses; the pieces below stand
 floor-underlay seam and remaining pack wall states are named above. The unseen-wall roof coverage
 choice remains with the owner. The night itself is per pixel since the light map (2026-10-19, the
 record); a full day and dusk colour grade remains unassessed, and the adopted ground palette stays
-pinned. The torch draws as a beam, but the directional cone is still a simulation and attention
-mechanic, not part of source colouring. Placed utility mechanics also remain absent: no placed
-stove, activated streetlamp, generator, rain collector or spike trap was added. These are separate
-pieces; the completed pictures do not imply those mechanics exist.
+pinned. The torch draws as a beam, and since 2026-10-24 the beam is the sim's cone (the record's
+"The torch on screen"), not part of source colouring. Placed utility mechanics also remain absent:
+no placed stove, activated streetlamp, generator, rain collector or spike trap was added. These are
+separate pieces; the completed pictures do not imply those mechanics exist.
 
 - **Vehicle pictures off the art grid.** Found by the A11 art review (2026-10-20), not caused by
   it. `_blit_vehicle` stands every vehicle through `Appearance.body_rect`, which drops a
@@ -2889,6 +2883,47 @@ not a to-do list:
   lit floor and the middle of a pond keep theirs. With the refusal switched off the lane went
   red, and so did the first cut of the rule, which filtered every solid tile and so darkened the
   pond.
+
+- **The torch on screen, 2026-10-24.** Slice B3 of the three-features plan, after the sim's cone
+  (B2, docs/30's "The torch is a cone"). The light map's bits for a beam are the sim's own:
+  `LightLook.light_texels` asks `SimLight.lights_tile` for every seen tile in view, so a hand
+  torch lights the tiles ahead in its wedge and the spill at its back, and the tiles behind it
+  past the spill carry no bit though its round cast reaches them. `source_beam` and the facing
+  are read off the light index (`source_at`), not content. The beam leaves the hand that holds
+  the light (`LightLook.hand_metres`: the slot's hand off the feet-anchored pawn canvas, on the
+  frame the body was drawn on; seen from behind, the hand's side on the ground under the body, so
+  the beam does not read as a headlamp), and a headlamp, in no hand, leaves the body's point. The
+  disc at the hand is `SimLight.SPILL_M`, handed to the shader as `spill_m`. Two sim calls came with it
+  (docs/30, "The torch on screen"): a beam lights every tile it falls on, within `BEAM_EDGE_M`
+  (1 m) of its edge, so the drawn beam keeps straight edges inside the lit tiles instead of the
+  tile-centre staircase the first cut drew; and a carrier with no facing throws round, as the B2
+  plan said and the light index did not. Where a beam crosses a round pool the brighter sets the
+  level and the colour is the two tints weighed by brightness, so a torch over a campfire's ground
+  stays warm, with no channel above what the brighter light gives alone; a pixel only one light
+  reaches keeps its tint exactly (the torch shots are pixel-identical to before). New review scene `night_torch`: midnight on an open
+  street, a hand torch down the longest east-west run, a shambler 5 m into the beam and one 5 m
+  behind in the dark.
+
+  **Evidence:** `npm run godot:check:light` → `LIGHT_LOOK_OK`. BEAM is re-pointed, not loosened:
+  the torch's beam on screen equals the sim's and the content's 22°; on a tile 6 m ahead, the
+  spill tile behind and a tile 6 m behind, all seen, the bit equals `lights_tile` (present, present,
+  absent) though the round cast reaches the third; a storm lantern's bit is on that tile; a carrier
+  with no facing is round in the sim and on screen; the torch leaves the secondary hand
+  (-0.14, -0.25 m off the feet at zoom 64) and a headlamp the body's point. DEAD SOCKET adds
+  `LightLook.hand_metres` in `_draw_night_wash`, `SimLight.SPILL_M` in `light_map.gd` and the
+  shader's spill disc and inward edge. `npm run godot:m2:torch` → `M2_TORCH_OK`: CONE adds the
+  tile the beam's edge crosses (27° off at 4.5 m, lit) and the no-facing carrier (round); READS
+  no longer skips: the light map lights 6 m ahead and not 6 m behind. Each was run red by
+  sabotage: texels asking the round cast (BEAM, READS), no edge margin (CONE), a beam kept with no
+  facing (CONE, BEAM), the hand origin zeroed (BEAM), the spill not handed to the shader and a
+  beam's tint replacing a pool's (DEAD SOCKET). `npm run godot:check:shots` → `SHOTS_OK` with sixteen scenes; NEGATIVE refuses a day
+  street and the torchless night as the torch shot. Before and after shots of `night_lights` and
+  `night_torch` at both windows, and the first cut's staircase, are in the project's
+  `planning/night-torch/`. Art QA on the beam's origin and the disc. Frame cost, the committed
+  `night-draw` sample (a hand torch and a campfire), three interleaved runs each on llvmpipe:
+  branch 11.45, 10.62, 11.17 ms mean (median 11.17), main 10.75, 10.24, 11.36 (median 10.75),
+  inside the run-to-run noise of about 1 ms. Main's night draw is itself over its 10 ms target
+  on this container; that is B1's open number, not this slice's.
 
 - **Feel — bodies glide between ticks, and a slow frame drops time, 2026-10-19.** Item A2 of
   the 2026-10-19 alpha plan. The sim steps at 20 Hz and every body used to be drawn on the
