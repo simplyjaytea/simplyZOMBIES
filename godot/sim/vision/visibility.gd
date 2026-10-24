@@ -10,6 +10,7 @@ const SimAimRes = preload("res://sim/aim.gd")
 const Shadowcast = preload("res://sim/vision/shadowcast.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const SimStancesRes = preload("res://sim/stances.gd")
+const SimLightRes = preload("res://sim/vision/light.gd")
 
 enum Detail { Unseen = 0, Peripheral = 1, Focal = 2 }
 
@@ -61,6 +62,9 @@ const PLAYER_QUADRANTS_PER_TICK: int = 2
 static var STAGGER_PLAYER_CAST: bool = true
 ## Quadrants cast for the player that way.
 var player_quadrants: int = 0
+
+# The night floor's metres live with SimLight.sight_metres, which the drawn disc reads too.
+const NIGHT_EYES_FLOOR_M: float = SimLightRes.NIGHT_EYES_FLOOR_M
 
 ## Daylight eyes — 48 m, 60° focal, 190° total FoV. Port of DAYLIGHT_EYES.
 static func daylight_eyes() -> Dictionary:
@@ -336,7 +340,8 @@ func _sight_metres(world: Variant, observer: Dictionary, x: float, y: float, amb
 	var light_idx: Variant = _light_index(world)
 	if light_idx != null:
 		lit = light_idx.lit_metres(x, y)
-	return min(float(observer["range_metres"]), max(ambient, lit))
+	var floor_m: float = NIGHT_EYES_FLOOR_M if bool(observer.get("night_eyes", false)) else 0.0
+	return min(float(observer["range_metres"]), max(ambient, lit, floor_m))
 
 
 ## How many times this observer's shadowcast has actually recomputed, or -1 for an observer with

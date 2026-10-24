@@ -359,32 +359,41 @@ func _the_chronicle_speaks_of_the_colony() -> bool:
 # The action bar's line: which key does what, right here. docs/30's "The alpha shell" -- the sim
 # decides the verb, presentation names the key -- so this lane asks two things of it.
 #
-# The prose half: the line names E for a boarded window and carries no digit, with the scanner
-# proved on the literal "E — 3 boards", which is what the line would look like if somebody
-# swapped a read model's prose for a count. The em dash is not decoration here: the bar splits on
-# it to draw the key in amber and the words in khaki, so a clause without one loses its accent.
+# The prose half: the line names E for the window in reach with the verb E would take there, and
+# carries no digit, with the scanner proved on the literal "E — 3 boards", which is what the line
+# would look like if somebody swapped a read model's prose for a count. The em dash is not
+# decoration here: the bar splits on it to draw the key in amber and the words in khaki, so a
+# clause without one loses its accent.
 #
 # The reach half: every source is asked for a true positive, because a clause that can never
-# appear is a key the bar will never name -- the look-at first, the `hint` main.gd resolved for
-# this frame behind it (the parameter would otherwise be a dead socket in the signature), T for a
-# bleeding body and H for a held one. True negatives all round: a content-error hint is not an
-# action, a survivor standing in an empty street with nothing wrong gets no line at all, and the
-# whole line is "" for a null world.
+# appear is a key the bar will never name -- E for the window (a real map, so the verb is the
+# sim's ladder and not a string this file made up), T for a bleeding body and H for a held one.
+# The window wears a board, and the board's state ("intact") is what the bar used to put under E
+# while E boarded it: the true negative is that state never standing under the key. A survivor in
+# an empty street with nothing wrong gets no line at all, and the whole line is "" for a null
+# world. Whether E's words are the menu's words is check_context's BAR lane.
 #
 # And the dead-socket half, textually: `_update_hud` in main.gd has to hand the line over, or
 # every clause above is prose nothing draws. The needle is the call as written rather than
 # `set_action(` alone, because `_hud` is typed `Control` and the call goes through `call()` --
 # and a needle a comment could satisfy cannot fail (CLAUDE.md, the READ_KEYS lesson).
 func _the_action_line_names_keys_only() -> bool:
-	var w: Variant = _suffering_world()
+	var w: Variant = _rung_window_world()
+	SimFortify._board_window(w, 10, 12)
+	var board_state: String = String(SimFortify.look_at(w, w.player).get("window", ""))
+	if board_state.is_empty():
+		push_error("ACTION: the fixture's window wears no board, so the look-at negative has nothing to judge")
+		return false
 	SimWounds.append_wound(w, w.player, "laceration", "torso", -1, 30.0)
-	var look: Dictionary = {"window": "boarded, holding"}
-	var line: String = Hud.action_line(w, w.player, look, "a hint nobody should need")
+	var line: String = Hud.action_line(w, w.player)
 	if line.is_empty():
 		push_error("ACTION: a survivor at a boarded window is offered nothing")
 		return false
-	if line.find("E — boarded, holding") < 0:
+	if line.find("E — board up the window") < 0:
 		push_error("ACTION: the line does not name E for the window in reach: '%s'" % line)
+		return false
+	if line.find("E — " + board_state) >= 0:
+		push_error("ACTION: the window's state '%s' stands under E, which boards it: '%s'" % [board_state, line])
 		return false
 	if not _digits(line).is_empty():
 		push_error("ACTION: the action line carries digits (%s): '%s'" % [_digits(line), line])
@@ -398,37 +407,25 @@ func _the_action_line_names_keys_only() -> bool:
 		push_error("ACTION: a bleeding survivor is offered no aid key: '%s'" % line)
 		return false
 	# H, for a neighbour with something holding her, by name.
-	var mara: int = _person(w, "Mara Sato", 8.5, 8.0)
+	var mara: int = _person(w, "Mara Sato", 11.5, 13.5)
 	w.components.set_component(mara, "grabbed", {"by": 4242, "sinceTick": 0})
-	var held: String = Hud.action_line(w, w.player, look, "")
+	var held: String = Hud.action_line(w, w.player)
 	if held.find("H — pull Mara Sato free") < 0:
 		push_error("ACTION: nobody is offered the rescue key for a held colonist: '%s'" % held)
 		return false
 	# The clauses join, in the order the keys sit under the hand.
-	if held.find("E — ") > held.find("T — ") or held.find("T — ") > held.find("H — "):
+	if held.find("E — ") < 0 or held.find("E — ") > held.find("T — ") or held.find("T — ") > held.find("H — "):
 		push_error("ACTION: the clauses are not in E, T, H order: '%s'" % held)
-		return false
-	# `hint` is read: with the look-at silent it is the E clause, and it never wins over one.
-	var hinted: String = Hud.action_line(w, w.player, {}, "the gate stands open")
-	if hinted.find("E — the gate stands open") < 0:
-		push_error("ACTION: main.gd's own context line never reaches the bar: '%s'" % hinted)
-		return false
-	if line.find("the gate") >= 0 or Hud.action_line(w, w.player, look, "the gate stands open").find("the gate") >= 0:
-		push_error("ACTION: the hint displaced the look-at clause it is a fallback for")
-		return false
-	# A content error is a fault report main.gd borrows the hint for, not something E does.
-	if Hud.action_line(w, w.player, {}, "content: boom").find("E") >= 0:
-		push_error("ACTION: a content error was offered as an action")
 		return false
 	# The true negative that matters: nothing to do, no line.
 	var quiet: Variant = World.new(_fixture())
 	SimHealth.make_survivor_body(quiet, quiet.player)
 	SimNeeds.attach(quiet, quiet.player, {"hunger": 100.0, "thirst": 100.0, "rest": 100.0})
-	var nothing: String = Hud.action_line(quiet, int(quiet.player), {}, "")
+	var nothing: String = Hud.action_line(quiet, int(quiet.player))
 	if not nothing.is_empty():
 		push_error("ACTION: a survivor in an empty street with nothing wrong is offered '%s'" % nothing)
 		return false
-	if not Hud.action_line(null, 0, {}, "").is_empty():
+	if not Hud.action_line(null, 0).is_empty():
 		push_error("ACTION: a null world produced a line")
 		return false
 	# The reader. Without this every clause above is prose nothing draws.
@@ -453,7 +450,7 @@ func _the_action_line_names_keys_only() -> bool:
 	if hud_src.find("func _draw_action_bar(") < 0 or _function_body("res://ui/hud.gd", "_draw").find("_draw_action_bar(") < 0:
 		push_error("ACTION: the HUD holds an action line that nothing draws")
 		return false
-	print("ACTION OK '%s', digit-free, E/T/H in order, the hint behind the look-at, and _update_hud hands it over" % held)
+	print("ACTION OK '%s', digit-free, E/T/H in order, the board's state never under E, and _update_hud hands it over" % held)
 	return true
 
 
@@ -495,7 +492,7 @@ func _rung_window_world(px: float = 10.5, py: float = 13.5, wall_face: bool = fa
 # -- both isolated past a stripped comment, so a commented-out call cannot satisfy either needle.
 func _the_action_line_names_the_top_rung() -> bool:
 	var near: Variant = _rung_window_world()
-	var near_line: String = Hud.action_line(near, near.player, {}, "")
+	var near_line: String = Hud.action_line(near, near.player)
 	if near_line.find("E — board up the window") < 0:
 		push_error("RUNG: beside a boardable window with no look-at, the bar does not name rung_of's word: '%s'" % near_line)
 		return false
@@ -507,7 +504,7 @@ func _the_action_line_names_the_top_rung() -> bool:
 	# fallback that open ground would otherwise offer cannot fire either. Not the same body as the
 	# true positive -- position is read at construction, not moved.
 	var far: Variant = _rung_window_world(10.5, 16.5, true)
-	var far_line: String = Hud.action_line(far, far.player, {}, "")
+	var far_line: String = Hud.action_line(far, far.player)
 	if not far_line.is_empty():
 		push_error("RUNG: a survivor with nothing in reach is offered '%s'" % far_line)
 		return false
@@ -540,8 +537,17 @@ func _the_action_line_names_the_top_rung() -> bool:
 	for row in reach_body.split("\n"):
 		if not String(row).strip_edges().begins_with("#"):
 			reach_code += String(row) + "\n"
-	if reach_code.find("SimFortify.rung_of(") < 0:
-		push_error("RUNG: action_line's reach clause never asks rung_of for the top rung")
+	# It asks through `SimContext.reach_words`, the menu's own words for E, which ends on rung_of.
+	if reach_code.find("SimContext.reach_words(") < 0:
+		push_error("RUNG: action_line's reach clause never asks SimContext.reach_words for E's verb")
+		return false
+	var words_body: String = _function_body("res://sim/context.gd", "reach_words")
+	var words_code: String = ""
+	for row in words_body.split("\n"):
+		if not String(row).strip_edges().begins_with("#"):
+			words_code += String(row) + "\n"
+	if words_code.find("SimFortifyRes.rung_of(") < 0:
+		push_error("RUNG: SimContext.reach_words never asks rung_of for the top rung")
 		return false
 	print("RUNG OK '%s' beside the window, nothing three tiles off it, digit-free both ways, and both readers reach rung_of" % near_line)
 	return true

@@ -55,6 +55,10 @@ const CAP_AT_ZERO: float = 0.35
 const CAP_METRES: float = 40.0
 const CAP_MIN: float = 0.45
 const CAP_MAX: float = 0.95
+# The reach a campfire's pool is drawn at. The sim lights a campfire 8 m (needs.gd CAMPFIRE_LIGHT_M),
+# but its drawn pool has always been 0.3 of 20 m, about 6 m across, and that is what the screen keeps:
+# a look number, not a sim one (docs/23, "The night's reach on screen").
+const CAMPFIRE_POOL_REACH_M: float = 20.0
 # How much of the night's colour is left in full dark at midnight (night_light.gdshader's
 # `night_floor`): the floor outside every light is near black, a channel never above 8 of 255
 # on a white tile, with only a little blue in it.
@@ -116,6 +120,14 @@ static func eye_disc_metres(world: Variant, eyes: int) -> float:
 # stronger light is never drawn dimmer than a weaker one.
 static func source_cap(magnitude: float) -> float:
 	return clampf(CAP_AT_ZERO + maxf(0.0, magnitude) / CAP_METRES, CAP_MIN, CAP_MAX)
+
+
+# The reach a source's pool is drawn at (night_light.gdshader takes 0.3 of it): the sim's own reach,
+# except a campfire, which keeps the pool it has always had (CAMPFIRE_POOL_REACH_M).
+static func pool_reach_of(world: Variant, source: int, sim_reach: float) -> float:
+	if world != null and world.components.has_component(source, "campfire"):
+		return maxf(sim_reach, CAMPFIRE_POOL_REACH_M)
+	return sim_reach
 
 
 # The light map's texels for the tiles in `view` (tile coordinates, clamped to the map by the
@@ -215,7 +227,7 @@ static func light_texels(world: Variant, eyes: int, view: Rect2i) -> Dictionary:
 		var id: int = int(cd["id"])
 		sources.append(id)
 		var lit_any: bool = (used >> int(cd["bit"])) & 1 == 1
-		lights.append({"entity": id, "x": float(cd["x"]), "y": float(cd["y"]), "magnitude": float(cd["magnitude"]) if lit_any else 0.0, "tint": source_tint(world, id), "flicker": source_flicker(world, id), "beam": source_beam(world, id), "facing": _facing_of(world, id)})
+		lights.append({"entity": id, "x": float(cd["x"]), "y": float(cd["y"]), "magnitude": pool_reach_of(world, id, float(cd["magnitude"])) if lit_any else 0.0, "tint": source_tint(world, id), "flicker": source_flicker(world, id), "beam": source_beam(world, id), "facing": _facing_of(world, id)})
 	out["seen"] = seen_count
 	out["lit"] = lit_count
 	return out

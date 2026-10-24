@@ -5948,6 +5948,18 @@ the command (`SimOrders.draft_command`); the key pushes it.
 **How to apply:** the draft is the `hold` order on the colonist's own tile. A new draft-like verb
 goes through `orders.gd`, not a second flag.
 
+## The night's reach on screen, 2026-10-24
+
+**JT's card, both changes (the default).** A campfire lights 8 m in the sim, not 20. Its drawn pool
+keeps the 20 m look it had, so the lit pool stays about 6 m across and the screen does not lose the
+fire. Survivors see at least 3.5 m after dark with no light, through a `night_eyes` key on their
+observer (zombies and raiders do not get it). Noon is unchanged. A save from before the key gets it
+on restore, as give_eyes would have set it, so no version bump (coordinator, 2026-10-24).
+
+**How to apply:** a survivor's sight floor is `SimLight.NIGHT_EYES_FLOOR_M` in `sim/vision/light.gd`,
+not a light, and the drawn eye disc reads it through `sight_metres` like the sim does; a look that
+should match the sim's reach reads `pool_reach_of`, never the raw sim number.
+
 ## A dropped part fits only an empty slot, 2026-10-24
 
 The drop on a weapon is the fit and nothing more (C3). Calls taken without the owner:
@@ -5976,6 +5988,27 @@ taken without the owner, all presentation:
 - **A required slot wears a "needed" tape, rimmed in rust while it is empty,** and a plate with
   something in the pack that fits wears an amber dog-ear. Both are the read model's answers
   (`required`, an offer for the slot), never a guess on the screen.
+
+## Menus and the E prompt speak one grammar, 2026-10-24
+
+The action bar's E clause names what E does, in the words the right-click menu uses for the same
+row. It used to lead with the look-at, so a boarded window put its state under the key ("E —
+intact") while E boarded it. The states still reach the screen, on the survivor's lines; the key's
+clause is a verb or nothing. One source for the words, `SimContext.reach_words`, walking
+`_use_context`'s ladder, held to `verbs_at` by `godot:check:context`'s BAR lane.
+
+The menu's header names what was clicked and nothing more: a colonist by name, a thing by its kind,
+any zombie as "a zombie". With the menu open the arrows are the menu's, never a step, and Enter
+does what the ringed row says; the ring opens on the first row, which is the bar's E clause
+whenever the clicked thing is the one in reach.
+
+**How to apply:** a new E rung gets its words in `reach_words` and its row in `verbs_at` in the
+same commit, and BAR gains a case for it. A state is never an E clause.
+
+`reach_words` reads three of `SimFortify`'s underscore helpers (`_door_in_reach`,
+`_door_would_toggle`, `_on_river`), as `verbs_at` already read the first: they are the ladder's own
+predicates, and a copy here would drift from `_use_context`. Renaming one breaks the BAR lane, which
+is the point.
 
 ## The torch on screen, 2026-10-24
 

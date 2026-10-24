@@ -215,9 +215,10 @@ first:
   layout lanes and a play lane that drives the roster from the keyboard.
 - **Weapon assembly and contextual actions.** Rework the bench around actual installed
   slots, eligible carried parts and categorical comparisons. Slice 3 (2026-10-24) landed the
-  by-hand half of this bullet, field work on a fitted part (C1), and the assembly screen with the
-  720p bench clip (C2), both recorded below; drop-to-fit and the shared menu grammar are still
-  open. Bring item/world menus,
+  by-hand half of this bullet, field work on a fitted part (C1), the assembly screen with the
+  720p bench clip (C2), a part dropped on a weapon (C3), and the street menu's header and keys
+  with the action bar's E clause in the menu's words (C4), all recorded below; building feedback
+  is still open. Bring item/world menus,
   building feedback and other E actions into the shared hierarchy. **Files:** bench,
   inspect and context/item menu controls. **Proof:** bench, inventory, context, play and
   skin gates; compare/fit/strip and cancel flows with correct ownership/reach at both sizes.
@@ -1010,6 +1011,17 @@ group above amend this arc's mood, wall and pawn clauses; the pieces below stand
   of ground drawn around them to about one and a half tiles where the review asked for three. The
   pieces are the campfire's reach brought toward its pool and a night-eyes floor of about 3.5 m,
   each a balance change for the A24 pass or the owner, never a wider pool or disc on screen.
+  **Built 2026-10-24 (B4, JT's card: both changes).** A campfire sim-lights 8 m
+  (`SimNeeds.CAMPFIRE_LIGHT_M`); its drawn pool keeps the 20 m look it had
+  (`LightLook.CAMPFIRE_POOL_REACH_M`, a look number, about 6 m across). A survivor's eyes carry
+  `night_eyes`, and sight takes at least 3.5 m of it after dark (`godot:m2:sight` FLOOR, with a
+  load lane for a save with no key). The floor sits in `SimLight.sight_metres`, which the drawn eye
+  disc reads too, so the disc grows with the sight (1.92 m to 3.5 m, `godot:check:light` NIGHT
+  FLOOR). Red-to-green under sabotage; `godot:check:light` RINGS re-pinned to the drawn reach.
+  The night shot lights the campfire nearest the body, so its warm pool is on screen.
+  **Not yet measured:** one ten-seed set on main after the torch slices land
+  batches this change with them and is the balance number; ten-day numbers are a measurement here,
+  not a merge gate (coordinator, 2026-10-24).
 - **What driving left behind.** The first driving slice landed 2026-09-05 (the record below,
   `godot:m2:vehicles`) at the owner's direction, ahead of the Milestone 3B schedule it used to
   sit behind; these are the halves it named rather than built, each its own piece:
@@ -1167,10 +1179,6 @@ session, each with its gate red both ways and its record.
 **Colony management — the RimWorld half** (alpha scope, decided 2026-10-19 in docs/30: colonist orders and
 the NPCs that already exist, nothing more):
 
-- **Colonist orders, the rest.** Still open from plan A16: a line from the colonist when a
-  destination has no route, and a haul order on an item another colonist is already carrying off.
-  Named non-goals: box or multi-select, formation moves, blueprints, stockpiles, crafting and farming.
-  Gate: `godot:m2:orders` (its ENDINGS lane, once it lands) and `godot:check:speech`.
 **Parked until after the alpha** (decided 2026-10-19, docs/30): blueprints for wall, door, barricade,
 window board and bed, with Construct consuming materials; stockpile zones that replace the annex-floor
 test in `SimNeeds.is_stockpile_tile`; crafting at a bench, with the Craft job as its consumer. Each keeps
@@ -1259,10 +1267,8 @@ tables and day lines are report-noise.md in the project's planning/balance folde
     so a builder boarding from the yard breaks off at `DANGER_METRES`; every other kind keeps the lot
     as home. The one-line `DANGER_KINDS` add alone changed nothing on the yard. A window refusal at
     `DANGER_TARGET_METRES` was tried and reverted: it broke `godot:m2:needs` (a builder left a
-    boarding from inside the house and died resting beside the zombies). Open: a builder walks back
-    to a window with a zombie still at it after each Retreat hold. Deferred (the coordinator's call,
-    2026-10-23): after a Retreat, skip Construct targets with a zombie within the danger radius for the
-    hold, without refusing windows outright. Gate: `godot:m2:jobs` BUILDER lanes.
+    boarding from inside the house and died resting beside the zombies). Gate: `godot:m2:jobs`
+    BUILDER lanes.
     Measured: the ten-seed set, the column for the head commit in planning/balance/report-ten-seed.md.
   - **Zombies inside the walls break the errand off (the day-one trace, 2024 and 8080).** On
     7753a14f, seed 2024, colonist 129 stood on Construct inside the annex walls for about 30,000
@@ -1279,6 +1285,20 @@ tables and day lines are report-noise.md in the project's planning/balance folde
     planning/balance/report-ten-seed.md. The yard question (should the yard ever count as safe
     while zombies are in the lot?) went to the owner on 2026-10-24: the yard is home while the lot
     is clear, which is what is built.
+  - **A Retreat that will not end, and a builder that goes back to a zombie (the day-99 trace).**
+    On 6b89d17e, seed 99, colonist 113 spent 9,000 ticks on Retreat round the north yard and died
+    there on day 1, grabbed at 0.8 to 1 m each time it turned, with the doorway about 4 m away at
+    tick 12000. Two rules, one piece. (1) A walk home that has run `RETREAT_WALK_TICKS` (200 ticks,
+    about 21 tiles at the colonist's pace) is re-planned once to the nearest tile inside the walls
+    that a route reaches (`_retreat_inside`, at most `RETREAT_INSIDE_TRIES` path searches); a route
+    with no way home is re-planned the same way before the walk is dropped. (2) The hold's end
+    leaves a `shaken` component; until a window is taken, Construct does not resume at one with a
+    zombie within `DANGER_TARGET_METRES` (`_construct_work`, which takes the colonist), and taking a
+    window clears the shake. The rest of the day-99 chain (the Retreat that began at tick 9900 with
+    a zombie 7.8 m off) is not changed here. Gate: `godot:m2:walls` RETREAT and CONSTRUCT-RESUME
+    lanes; the bound lane fails with the re-plan switched off, the resume lane with the shake off.
+    The walk-home bound lane moves the body by hand, since the world step does not run in a lane.
+    Ten seeds on this head are a separate measurement, after the 6b89d17e set.
 
 **Feel and speed — smooth motion, and time a player can live with:**
 
@@ -2500,6 +2520,49 @@ not a to-do list:
   at both sizes, no before shot since the drop-to-fit did not exist on main). The call is in
   docs/30, "A dropped part fits only an empty slot".
 
+- **UI overhaul, slice 3: menus and the E prompt speak one grammar, 2026-10-24 (C4 of the
+  three-features plan, `/mnt/project-files/planning/2026-10-24_three-features.md`).** **The
+  finding:** the plan assumed the action bar's E clause and the menu's in-reach row both came from
+  `SimFortify.rung_of`. They did not. `ui/hud.gd`'s `_reach_clause` led with the look-at, so facing
+  a boarded window the bar said "E — intact" (the board's state) while E boarded it and the menu
+  said "board up the window"; at a door the bar said nothing while E opened it and the menu said
+  "open the door"; and main.gd's context line was the fallback, so a state could stand under E
+  wherever nothing else spoke. **The fix:** `SimContext.reach_words`, appended to
+  `godot/sim/context.gd`, walks `_use_context`'s ladder in its own order (the loose item, the
+  container, the door, the stranger, the car, then `rung_of`) in the words `verbs_at` writes for the
+  same row, and `_reach_clause` asks it (from a seat, the car's own clause). `action_line` lost its
+  `look` and `hint` arguments; the states still reach the survivor's lines through `hint`.
+  **The header:** `SimContext.target_label` ("Mara Sato", "you", "the crate", "the tin's name", "the
+  door", "a zombie" whatever kind it is, nothing for the ground) is drawn above the rows in the
+  small dim ink with a groove under it, by `ItemMenu`'s own `size_of`, `draw_menu` and `verb_rects`
+  taking an optional header, so the loot sheet's menu keeps its shape and both menus still wear one
+  steel. **The keys:** with the menu open, `input_map.gd` hands keys to `context_menu.gd`'s `key()`
+  first; an amber ring opens on the first row, Up and Down move it and wrap, Enter dispatches the
+  ringed row through `main._context_pick`, Escape closes with nothing sent, any other key closes it
+  and does what it does, and the ring follows the pointer. The ringed row is the street menu's one
+  amber row (`ItemMenu.row_colour`; the loot sheet's menu keeps its lead verbs lit), and the menu
+  opens on the art grid and stops above the HUD's action bar however low the click. **Gates:** `godot:check:context` gains
+  HEADER (each label, a colonist by the whole name, the ground's absence, rows under the header, a
+  headerless menu unchanged, the ink following the ring),
+  BAR (the bar's E clause equals the menu's first row at a boarded window, a shut and an open door,
+  a loose tin and a crate; the board's state is not that row) and KEYS on the scene's own menu (the ring
+  opens on row one, Down, Up and both wraps, Down then Enter pushes row two's command and closes,
+  an arrow walks nobody, Escape sends nothing, a click on the header picks nothing, the ground's
+  menu has no header); RIGHT-CLICK clicks a row by the menu's own `row_rects`.
+  `godot:check:play` gains MENU-ESCAPE: a menu opened low at 1280×720 ends above the action bar and
+  on the grid, a right click on yourself opens a menu headed "you",
+  Escape closes it and raises no screen, and with no menu the same key still pauses.
+  `godot:check:hud`'s ACTION lane runs on a real map: E names "board up the window" at a boarded
+  window and never the board's state; RUNG follows `_reach_clause` to `reach_words` and
+  `reach_words` to `rung_of`. A review scene, `context_menu` (a crate right-clicked on the street,
+  its verify holding the header, the first row and the bar's E clause together), joins
+  `godot/review/scenes.gd`. Sabotage checked: the door taken out of `reach_words` (BAR), the bar
+  back on the look-at (BAR), the header not passed (HEADER), Down and Up made no-ops (KEYS), Enter
+  dispatching nothing (KEYS), and Escape no longer spent on the menu (MENU-ESCAPE) each turn their
+  lane red. **Not done:** `verbs_at`'s door row is offered for a broken door, and for an open one
+  somebody stands in, where E does nothing (`_door_would_toggle` refuses); the plan kept this slice
+  out of `verbs_at`, so the fix is a follow-up. No UI draw cost was measured.
+
 - **Kernel & tooling — the playbook and the init audit, 2026-10-23.** The owner asked for the
   repository to be initialised for agents and for one playbook every agent can read. An audit of
   the build, test and gate commands against `CLAUDE.md` added three things to it: the commands for
@@ -2904,8 +2967,9 @@ not a to-do list:
   no longer skips: the light map lights 6 m ahead and not 6 m behind. Each was run red by
   sabotage: texels asking the round cast (BEAM, READS), no edge margin (CONE), a beam kept with no
   facing (CONE, BEAM), the hand origin zeroed (BEAM), the spill not handed to the shader and a
-  beam's tint replacing a pool's (DEAD SOCKET). `npm run godot:check:shots` → `SHOTS_OK` with sixteen scenes; NEGATIVE refuses a day
-  street and the torchless night as the torch shot. Before and after shots of `night_lights` and
+  beam's tint replacing a pool's (DEAD SOCKET). `npm run godot:check:shots` → `SHOTS_OK` with
+  seventeen scenes (sixteen on main's C4 head, plus `night_torch`); NEGATIVE refuses a day street
+  and the torchless night as the torch shot. Before and after shots of `night_lights` and
   `night_torch` at both windows, and the first cut's staircase, are in the project's
   `planning/night-torch/`. Art QA on the beam's origin and the disc. Frame cost, the committed
   `night-draw` sample (a hand torch and a campfire), three interleaved runs each on llvmpipe:
@@ -3534,6 +3598,19 @@ not a to-do list:
   drafted colonist does not for 2,400 ticks and strays nowhere, the second press frees them and they
   take it, the refusals), and `godot:check:play`'s DRAFT lane and KEYS row (X with Mara picked pushes
   the hold, X again the clear, X with nobody picked pushes nothing).
+- **Unreachable-spot callout: an order that cannot be done says so — 2026-10-24 orders slice A3.**
+  An order ends with a reason, published as `order.ended` by `SimJobs.end_order`: `arrived` (a walk or a
+  hold reached its spot), `stood-down` (the player cleared it), `gone` (the haul item or the attack target
+  went), `broke-off` (the critical-injury rule), or `no-route` (a walk or a haul found no path). Only
+  `no-route` is said aloud: speech.gd's `order.no_route` handler makes the colonist say a line from
+  `speech.order.no_route` (two lines, digit-free). The other endings stay silent. The haul offer also
+  refuses an item another live colonist's Haul job is carrying off (its `reserved` claim names that
+  colonist and the job), so the menu never sends two colonists to one item; a reservation alone, with no
+  job yet, does not withhold the item. Gate: `godot:m2:orders`'s ENDINGS lane (a walk into a walled-off
+  pocket ends `no-route`, a reachable walk ends `arrived`) and COLLIDE lane (the free item is offered, the
+  one another colonist carries is refused, and a reservation with no job does not refuse), and
+  `godot:check:speech`'s NO-ROUTE lane (no-route is said from its entry, the other endings say nothing).
+  A haul that finds no path ends `no-route` too, so it is said as well. Bench, `godot:bench:runtime`: see the PR.
 - **UI — the sheet and Work grid fit the reviewed viewports, 2026-10-03.** At 1280×720,
   inventory now separates its equipment, native 56-pixel bag cells and inspect pane, keeping
   all seven frame-pack columns reachable. The compact sheet uses the condition chart at integer
