@@ -465,6 +465,25 @@ func _the_zone_survives_a_save_and_an_old_save_reads_the_default() -> bool:
 	if not SimStockpile.has_tile(back, block.x, block.y) or SimStockpile.count(back) != expected_count:
 		push_error("SAVE: the marked zone did not come back out of a save (%d tiles, expected %d)" % [SimStockpile.count(back), expected_count])
 		return false
+	# The window's state and a claim ride the same store: open on the pile with a claimed tin, both
+	# come back; a save from before the window (no `stockpileOpen`) loads shut.
+	w.components.set_component(w.player, "position", {"x": float(block.x) + 0.5, "y": float(block.y) + 0.5})
+	w.step()
+	var tin: int = _put_on(w, block, CANNED)
+	w.components.set_component(tin, "reserved", {"by": w.player, "job": "Cook"})
+	if not bool(SimStockpile.open(w, w.player).get("ok", false)):
+		push_error("SAVE: the window did not open on the marked pile")
+		return false
+	var back2: Variant = _restored(w)
+	var claim: Variant = back2.components.get_component(tin, "reserved")
+	if not SimStockpile.is_open(back2, back2.player) or not (claim is Dictionary) or int((claim as Dictionary).get("by", -1)) != int(w.player):
+		push_error("SAVE: the open window (%s) or the tin's claim (%s) did not come back out of a save" % [str(SimStockpile.is_open(back2, back2.player)), str(claim)])
+		return false
+	w.components.remove_component(w.player, SimStockpile.OPEN_COMPONENT)
+	var shut: Variant = _restored(w)
+	if SimStockpile.is_open(shut, shut.player) or shut.components.has_component(shut.player, SimStockpile.OPEN_COMPONENT):
+		push_error("SAVE: a save with no window record loaded with the window open")
+		return false
 	# An old save: the same world with the record taken out, which is what a save from before this
 	# slice holds. It must read as the annex floor, with no error.
 	w.components.remove_component(w.player, COMPONENT)
@@ -472,7 +491,7 @@ func _the_zone_survives_a_save_and_an_old_save_reads_the_default() -> bool:
 	if not _same(SimStockpile.tiles(old), _annex_floor(old)):
 		push_error("SAVE: a save with no zone record did not load as the default zone")
 		return false
-	print("SAVE OK the marked zone round-trips, and a save with no record reads the annex floor")
+	print("SAVE OK the marked zone, the open window and a claim round-trip; a save with no window record loads shut, and one with no zone record reads the annex floor")
 	return true
 
 
@@ -573,6 +592,41 @@ func _the_preview_is_what_the_mark_does() -> bool:
 	if bool(SimStockpile.preview(w, small)["refused"]):
 		push_error("PREVIEW: a one-tile mark is refused too, so the cap's refusal proves nothing")
 		return false
+	# A marked tile walled over holds no place against the cap: a zone one short of MAX_TILES with
+	# one of its tiles walled takes one more tile; with the wall counted it would have been refused.
+	var wcap: Variant = _world()
+	var cap_block: Vector2i = _markable_block(wcap, 2)
+	if cap_block.x < 0:
+		push_error("PREVIEW: no explored 2x2 of open ground outside the annex for the cap count")
+		return false
+	var rec_tiles: Dictionary = SimStockpile._ensure(wcap)["tiles"]
+	# Fill the record to one short of the cap with the map's own open tiles (a key off the map or on
+	# a wall is not live and would not count), clear of the block the lane then marks; the one key
+	# the lane wants dead goes on a wall tile.
+	var wall_tile: Vector2i = _find(wcap, func(tx: int, ty: int) -> bool: return SimTileMap.tile_at(wcap.tilemap, tx, ty) == SimTileMap.Tile.Wall)
+	var live: int = SimStockpile._live_count(wcap, rec_tiles)
+	var cap_rect := Rect2i(cap_block.x, cap_block.y, 2, 2)
+	for ty in range(0, int(wcap.tilemap.h)):
+		for tx in range(0, int(wcap.tilemap.w)):
+			if live + 1 >= SimStockpile.MAX_TILES:
+				break
+			var key: String = "%d,%d" % [tx, ty]
+			if cap_rect.has_point(Vector2i(tx, ty)) or rec_tiles.has(key) or SimTileMap.is_solid(wcap.tilemap, tx, ty):
+				continue
+			rec_tiles[key] = true
+			live += 1
+	if wall_tile.x < 0 or live + 1 < SimStockpile.MAX_TILES:
+		_skipped.append("PREVIEW cap")
+	else:
+		rec_tiles["%d,%d" % [wall_tile.x, wall_tile.y]] = true
+		var one_more: Dictionary = SimStockpile.preview(wcap, {"x0": cap_block.x, "y0": cap_block.y, "x1": cap_block.x, "y1": cap_block.y, "on": true})
+		if bool(one_more["refused"]) or (one_more["tiles"] as Array).size() != 1:
+			push_error("PREVIEW: a zone one short of the cap with a walled key refused one more tile: %s" % str(one_more))
+			return false
+		var two_more: Dictionary = SimStockpile.preview(wcap, {"x0": cap_block.x, "y0": cap_block.y, "x1": cap_block.x + 1, "y1": cap_block.y, "on": true})
+		if not bool(two_more["refused"]):
+			push_error("PREVIEW: a zone one short of the cap took two more tiles")
+			return false
 	print("PREVIEW OK asking writes no record, markable_in is markable, an on and an off preview exactly what the mark changes, the signature moves with a mark and holds otherwise, and a rectangle past the cap previews refused and changes nothing")
 	return true
 

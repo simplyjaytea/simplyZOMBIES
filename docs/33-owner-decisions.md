@@ -307,3 +307,18 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    grabbed colonist out of play. The answer to a grab is somebody else's weapon, or breaking free.
    Letting a held colonist hit back is a new mechanic. It was offered on an optional card that was
    never answered. The default is **no**, and nothing is built.
+
+13. **The stockpile's five cards (2026-10-24).** The stockpile and hauling feature shipped on
+   defaults while its cards wait: (1) **how you mark it**, a dragged rectangle of tiles (built) or
+   crates you build, each a container; (2) **where it may go**, any explored ground, indoors or
+   out (built) or indoor floor only, the old annex rule; (3) **what you can take standing in it**,
+   everything in view on the patch you stand in (built) or arm's reach only; (4) **how the Colony
+   screen reads it**, a word per group and up to three names, never a count (built) or exact
+   counts; (5) **whether the zone may be emptied**, one right-drag over the annex leaves no
+   stockpile anywhere, and the sim stays honest about it -- no haul is offered, a meal lies at the
+   fire (built, the review's follow-up `godot:m2:stockpile` EMPTY) -- or the last tile refuses to
+   go. One tuning call to object to: `SimStockpile.MAX_TILES` is 1000, set by the coordinator
+   (slice S2) from the measured cost of the patch walk, not from play. Each is one line if
+   re-decided; the alternatives change readers (1), the camp's stash (2), the window's list (3),
+   the information rule for the colony's own stores (4), or one refusal line (5). The plan is
+   `planning/2026-10-24_stockpile-hauling.md` section 11 in the project files.
