@@ -445,9 +445,13 @@ const _PATCH_META: StringName = &"stockpile_patch_index"
 static func _patch_index(world: Variant) -> Dictionary:
 	var rec: Variant = _record(world)
 	var sig: int = hash([int(world.map_generation), (rec as Dictionary)["tiles"] if rec is Dictionary else null])
-	var kept: Variant = (world as Object).get_meta(_PATCH_META, null)
-	if kept is Dictionary and int((kept as Dictionary)["sig"]) == sig:
-		return kept as Dictionary
+	# `has_meta` first: `get_meta` with a null default raises an engine error when the key is absent,
+	# which it is on every world's first ask (the review's finding 5, fixed with the patch cache too;
+	# carried here because `on_own_patch` is the first reader to run under the export smoke's boot).
+	if (world as Object).has_meta(_PATCH_META):
+		var kept: Variant = (world as Object).get_meta(_PATCH_META)
+		if kept is Dictionary and int((kept as Dictionary)["sig"]) == sig:
+			return kept as Dictionary
 	var of: Dictionary = {}
 	var sets: Array = []
 	for group in patches(world):
