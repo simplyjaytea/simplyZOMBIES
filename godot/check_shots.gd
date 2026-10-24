@@ -41,7 +41,7 @@ func _run() -> void:
 
 
 func _names() -> void:
-	if Scenes.NAMES != ["day_street", "interior", "night_lights", "combat", "inventory", "care", "skills", "colony", "viewing", "colony_picked", "colony_crowd", "colony_scrolled", "bench_drop", "bench", "bench_field", "context_menu", "night_torch"]:
+	if Scenes.NAMES != ["day_street", "interior", "night_lights", "combat", "inventory", "care", "skills", "colony", "viewing", "colony_picked", "colony_crowd", "colony_scrolled", "bench_drop", "bench", "bench_field", "context_menu", "night_torch", "colony_stockpile", "colony_stockpile_picked"]:
 		_fail("NAMES: the scene list is %s" % str(Scenes.NAMES))
 	var sizes: Array[Vector2i] = Scenes.SIZES
 	if not sizes.has(Vector2i(1280, 720)) or not sizes.has(Vector2i(1920, 1080)):
@@ -122,6 +122,10 @@ func _negative() -> void:
 		_fail("NEGATIVE: the boot's colony of two verified as a crowd")
 	if Scenes.verify(main, "colony_scrolled").is_empty():
 		_fail("NEGATIVE: the boot's colony of two verified as a scrolled roster")
+	if Scenes.verify(main, "colony_stockpile").is_empty():
+		_fail("NEGATIVE: the boot's stockpile verified as the stocked one")
+	if Scenes.verify(main, "colony_stockpile_picked").is_empty():
+		_fail("NEGATIVE: the colony with nobody picked verified as the stockpile shown for Mara")
 	await _discard(main)
 
 

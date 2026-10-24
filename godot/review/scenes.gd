@@ -26,6 +26,7 @@ const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
 const SimLightMod = preload("res://sim/modules/light.gd")
+const SimStockpile = preload("res://sim/modules/stockpile.gd")
 
 const SCENE_PATH: String = "res://presentation/main.tscn"
 # The two windows the game supports: check_play's WORK-LAYOUT lane lays out at both.
@@ -36,6 +37,8 @@ const NAMES: Array[String] = [
 	"bench", "bench_field",
 	"context_menu",
 	"night_torch",
+	"colony_stockpile",
+	"colony_stockpile_picked",
 ]
 # The Colony screen's two fuller shots (art QA, slice 2): Mara picked by a click on her name, her
 # row made manual by one changed number, the pointer resting on the medic chip; and a roster of
@@ -58,6 +61,27 @@ const CARE_PART: String = "arm_left"
 const BENCH_WEAPON: String = "item.rifle.hunting"
 const BENCH_PARTS: Array[String] = ["item.attach.optic.red_dot", "item.attach.optic.scope", "item.attach.suppressor", "item.attach.magazine.extended", "item.attach.barrel.long"]
 const BENCH_SLOT: String = "optic"
+# The stockpile shot (stockpile plan, slice S5): the Colony screen with nobody picked, so the
+# stockpile stands in the drawer's place, over a pile stocked across the groups -- stacks of rounds
+# counted as their rounds ("plenty"), the most numerous a round whose name carries a digit, so it is
+# named first, and one group left empty so "none" reads dim -- spread one item a tile from the
+# zone's first tile.
+const STOCKED: Array[Dictionary] = [
+	{"id": "item.food.beans.tin", "count": 3},
+	{"id": "item.food.fruit.tin", "count": 2},
+	{"id": "item.food.crackers", "count": 1},
+	{"id": "item.water.bottle", "count": 1},
+	{"id": "item.water.bottle", "count": 1},
+	{"id": "item.bandage.cloth", "count": 1},
+	{"id": "item.ammo.9mm", "count": 8},
+	{"id": "item.ammo.rifle.match", "count": 10},
+	{"id": "item.knife.kitchen", "count": 1},
+	{"id": "item.crowbar.steel", "count": 1},
+	{"id": "item.hat.wool", "count": 1},
+	{"id": "item.plank.sawn", "count": 5},
+	{"id": "item.fixings.nails", "count": 10},
+	{"id": "item.cordage.rope", "count": 2},
+]
 const BENCH_PACK: String = "item.pack.hiking"
 # The same rifle and parts by hand (C1's field work), out on the street with no bench in reach, and
 # the magazine picked: a slot hands can change, so the screen says "by hand" over a real job.
@@ -266,6 +290,29 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 			await _settle(tree, main)
 			if not _hover_chip(tree, main, HOVER_FOCUS):
 				return "the %s chip is not on the screen to point at" % HOVER_FOCUS
+		"colony_stockpile", "colony_stockpile_picked":
+			world.tick = Clock.tick_on_day(DAY, NOON)
+			var pile: Array[Vector2i] = SimStockpile.tiles(world)
+			if pile.is_empty():
+				return "the colony has no stockpile tile"
+			for i in STOCKED.size():
+				var stock: Dictionary = STOCKED[i]
+				var item: int = int(SimItems.spawn_item(world, String(stock["id"]), {"tier": "scavenged", "count": int(stock["count"])}))
+				var tile: Vector2i = pile[i % pile.size()]
+				world.components.set_component(item, "position", {"x": float(tile.x) + 0.5, "y": float(tile.y) + 0.5})
+			press(tree, KEY_J)
+			# The second shot: Mara picked by her name, then the drawer's "the stockpile" button, so the
+			# pile stands in her drawer with the way back to her where "their skills" was.
+			if scene == "colony_stockpile_picked":
+				await _settle(tree, main)
+				var who_k: int = _row_named(world, "Mara")
+				if who_k < 0 or not await _click_row(tree, main, who_k):
+					return "Mara's name is not on the screen to click"
+				var panel_t: Control = main.get("_work_panel") as Control
+				var toggle: Rect2 = (panel_t.call("_layout") as Dictionary)["stores_toggle"] as Rect2
+				if toggle.size.x <= 0.0:
+					return "the drawer has no stockpile button"
+				click(tree, panel_t.global_position + toggle.get_center())
 		"colony_crowd", "colony_scrolled":
 			world.tick = Clock.tick_on_day(DAY, NOON)
 			var born: Array[int] = _crowd(world, SCROLL_CROWD if scene == "colony_scrolled" else CROWD)
@@ -492,6 +539,22 @@ static func verify(main: Node, scene: String) -> String:
 			if last < 0 or int(panel_s.call("selected")) != last or not drawn_rows.has(last):
 				return "the last of the roster is not picked and drawn"
 			return "" if int(panel_s.get("_row_scroll")) > 0 else "the roster is not scrolled"
+		"colony_stockpile", "colony_stockpile_picked":
+			if not bool(main.get("work_open")):
+				return "the colony screen is not open"
+			var panel_k: Object = main.get("_work_panel") as Object
+			var want: int = _row_named(world, "Mara") if scene == "colony_stockpile_picked" else -1
+			if int(panel_k.call("selected")) != want or not bool(panel_k.call("stores_shown")):
+				return "the drawer does not show the stockpile for %s" % ("Mara" if want >= 0 else "nobody")
+			var said: Array = ((panel_k.get("drawn") as Dictionary).get("stores", []) as Array)
+			var stocked: int = 0
+			var empty: int = 0
+			for r in said:
+				if String((r as Dictionary)["words"]) == "none":
+					empty += 1
+				else:
+					stocked += 1
+			return "" if stocked >= 7 and empty >= 1 else "the stockpile reads %d groups stocked and %d empty, not seven and one" % [stocked, empty]
 		"colony_crowd":
 			if not bool(main.get("work_open")):
 				return "the colony screen is not open"
