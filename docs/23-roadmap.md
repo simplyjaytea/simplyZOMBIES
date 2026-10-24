@@ -3803,6 +3803,24 @@ not a to-do list:
   7.3 ms down to 1.7 to 2.0 ms. At 1000 tiles `patches` went from 9.8 to 10.9 ms down to 3.8 to
   6.4 ms, and the drop from 20.4 to 28.0 ms down to 5.0 to 8.0 ms. `tiles` is unchanged: 0.7 ms at
   320 and 2.1 to 2.5 ms at 1000.
+- **E on the stockpile answers for the patch underfoot (a follow-up to S4).** S4's `e_opens`
+  (`godot/sim/modules/stockpile.gd`) asked whether the nearest loose item lay on the *zone*, while
+  the window it opens lists the *patch* the player stands in. With two patches an arm's reach apart
+  and a tin on the other one, E opened a window that could not list the tin, and the bar's words
+  promised "go through the stockpile" for a tin the window never showed. `e_opens` now asks
+  `on_own_patch`, the patch the actor stands in, so a tin on a neighbouring patch is picked up as
+  anywhere else and the same tin on the player's own patch is still the window. The menu follows
+  E (the review's second half of the finding): `SimContext.verbs_at` builds the stockpile row once,
+  puts it first when no cupboard is in reach, where it is what E does, and after the pick-up and
+  the cupboard rows when a cupboard is in reach, where E keeps its old ladder; so the bar's E words
+  and the menu's first row agree on the pile as they do everywhere else. Nothing on screen changed
+  but the order of two rows in that one case. Gate: `godot:m2:stockpile` NEXTDOOR (a tin on the
+  next patch inside the pick-up reach is picked up and the bar says "pick up"; moved onto the
+  player's patch it makes E the window; both halves fail on the old `has_tile` test) and
+  `godot:check:context` BAR's new case (a tin on the stockpile beside a crate: the bar's E words
+  begin "pick up", the menu's first row is the same, and the stockpile row is still offered).
+  `on_own_patch` asks the patch set by the tile and by its `"tx,ty"` String until the drop-point
+  follow-up's `Vector2i` keys land; the String branch goes with it.
 - **Attack order: a picked colonist goes after one zombie or raider they can see — 2026-10-24 orders slice A2.**
   With a colonist picked on the street, the menu's "have Mara attack it" row offers an `attack` order on a
   zombie or raider the colonist or the player can see right now (`SimOrders.accepts`, the scarce-information
