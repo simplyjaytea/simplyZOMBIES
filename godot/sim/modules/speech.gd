@@ -46,7 +46,7 @@ const MUTTER_P: float = 0.15
 # silent no-op discovered in play.
 const KEYS: Array[String] = [
 	"shout", "grabbed", "rescued", "treating", "joined", "hail",
-	"zombie.noticed", "zombie.scream",
+	"zombie.noticed", "zombie.scream", "order.no_route",
 	"mutter.hungry", "mutter.thirsty", "mutter.tired", "mutter.cold", "mutter.hot", "mutter.soaked", "mutter.shaken",
 ]
 
@@ -79,6 +79,13 @@ static func register_module(world: Variant) -> void:
 	})
 	world.events.subscribe({"type": "zombie.screamed", "id": "speech.screamed", "order": 0, "handler": func(ev: Dictionary) -> void:
 		say(world, int(ev.get("entity", -1)), "zombie.scream", SCREAM_TICKS)
+	})
+	# A colonist who cannot get where they were sent says so, once, and only for that reason: an order
+	# that ended on arrival, was stood down, or lost its item is silent.
+	world.events.subscribe({"type": "order.ended", "id": "speech.no_route", "order": 0, "handler": func(ev: Dictionary) -> void:
+		if String(ev.get("reason", "")) != "no-route":
+			return
+		say(world, int(ev.get("entity", -1)), "order.no_route")
 	})
 	world.systems.register("speech.hail", "ai", 0, func(w: Variant) -> void:
 		_hail(w)
