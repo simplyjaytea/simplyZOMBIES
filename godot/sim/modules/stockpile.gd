@@ -481,13 +481,24 @@ static func close(world: Variant, actor: int) -> void:
 
 
 ## What E would open here: the actor stands on the zone, no cupboard is in reach (a cupboard wins),
-## and the loose item E would otherwise pick up lies on the zone. That last condition keeps E's
-## ladder as it was everywhere else -- a door, a bed or a fire beside an empty pile still takes E.
+## and the loose item E would otherwise pick up lies on the patch the actor stands in. That last
+## condition keeps E's ladder as it was everywhere else -- a door, a bed or a fire beside an empty
+## pile still takes E -- and it is the patch, not the zone: a tin on a neighbouring patch within
+## arm's reach is not in the window this would open (the window lists the actor's patch), so E picks
+## it up instead (the review's finding 6).
 static func e_opens(world: Variant, actor: int, nearest_item: Variant, box_in_reach: bool) -> bool:
 	if box_in_reach or nearest_item == null or not standing_on(world, actor):
 		return false
 	var t: Vector2i = tile_of(world, int(nearest_item))
-	return t.x >= 0 and has_tile(world, t.x, t.y)
+	return t.x >= 0 and on_own_patch(world, actor, t)
+
+
+## Whether tile `t` is in the patch `actor` stands in. The patch set is keyed by the tile once the
+## patch index moves to `Vector2i` keys (the review's follow-up on the drop point) and by the
+## `"tx,ty"` String until then; both are asked so the answer holds across that change.
+static func on_own_patch(world: Variant, actor: int, t: Vector2i) -> bool:
+	var patch: Dictionary = patch_under(world, actor)
+	return patch.has(t) or patch.has(_key(t.x, t.y))
 
 
 ## Whether `actor` sees the spot from where they stand: walls and range (`line_of_sight`), or a lit
