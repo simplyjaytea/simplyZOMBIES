@@ -10,6 +10,7 @@ const SimAimRes = preload("res://sim/aim.gd")
 const Shadowcast = preload("res://sim/vision/shadowcast.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const SimStancesRes = preload("res://sim/stances.gd")
+const SimLightRes = preload("res://sim/vision/light.gd")
 
 enum Detail { Unseen = 0, Peripheral = 1, Focal = 2 }
 
@@ -62,10 +63,8 @@ static var STAGGER_PLAYER_CAST: bool = true
 ## Quadrants cast for the player that way.
 var player_quadrants: int = 0
 
-# The least a survivor sees after dark, with no light anywhere (docs/23, "The night's reach on
-# screen"): a person who can see at all can see the tile at their feet and the one past it. Only a
-# survivor's eyes carry `night_eyes`; a zombie or a raider does not get the floor.
-const NIGHT_EYES_FLOOR_M: float = 3.5
+# The night floor's metres live with SimLight.sight_metres, which the drawn disc reads too.
+const NIGHT_EYES_FLOOR_M: float = SimLightRes.NIGHT_EYES_FLOOR_M
 
 ## Daylight eyes — 48 m, 60° focal, 190° total FoV. Port of DAYLIGHT_EYES.
 static func daylight_eyes() -> Dictionary:
