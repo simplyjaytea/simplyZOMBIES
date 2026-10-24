@@ -50,6 +50,9 @@ extends SceneTree
 #   FULL    -- a hauler whose pack will not take the tin leaves it where it lay: `position` kept,
 #              `handsFull` set, no Haul offered for HANDS_FULL_TICKS and offered again after. The
 #              old code took the tin off the map and stopped, leaving it on no tile and in no pack.
+#   NEXTDOOR -- E opens the window only for a tin of the patch the player stands in: a tin on a
+#              neighbouring patch within arm's reach is picked up (the window would not list it),
+#              and the bar's words say so; the same tin moved onto the player's patch is the window.
 #   PREVIEW -- slice S2's read model: `SimStockpile.preview` is what the screen's drag draws, so it
 #              has to be what `mark` does. On a fresh world it creates no record (it only asks);
 #              `markable_in` answers `markable` tile for tile, an unexplored tile included; an `on`
@@ -114,11 +117,12 @@ func _run() -> void:
 	ok = _the_window_takes_and_puts_by_the_sims_rules() and ok
 	ok = _an_emptied_zone_hauls_nothing_and_the_meal_lies_at_the_fire() and ok
 	ok = _a_full_pack_leaves_the_tin_where_it_lay() and ok
+	ok = _e_opens_only_for_the_patch_underfoot() and ok
 	var skip_note: String = ""
 	if not _skipped.is_empty():
 		skip_note = " SKIPPED(no data): " + ", ".join(_skipped)
 	if ok:
-		print("M2_STOCKPILE_OK default mark walled readers save preview spread patch walk cook raider summary take empty full%s" % skip_note)
+		print("M2_STOCKPILE_OK default mark walled readers save preview spread patch walk cook raider summary take empty full nextdoor%s" % skip_note)
 		quit(0)
 	else:
 		push_error("M2_STOCKPILE_FAIL")
@@ -1130,6 +1134,50 @@ func _a_full_pack_leaves_the_tin_where_it_lay() -> bool:
 	if not ok:
 		return false
 	print("FULL OK the helmet the pack refused lies where it lay at %s, the hauler's hands are full for %d ticks and the haul comes back after" % [str(beside), SimJobs.HANDS_FULL_TICKS])
+	return true
+
+
+# NEXTDOOR. Two one-tile patches two tiles apart; the player on the first, a tin on the second inside
+# the pick-up reach. E picks it up. Moved onto the player's own patch, the same tin makes E the window.
+func _e_opens_only_for_the_patch_underfoot() -> bool:
+	var w: Variant = _world()
+	var b: Vector2i = _markable_block(w, 3, 2)
+	if b.x < 0:
+		push_error("NEXTDOOR: no explored 3x1 of open ground clear of the annex on this map")
+		return false
+	_mark(w, b.x, b.y, b.x, b.y, true)
+	_mark(w, b.x + 2, b.y, b.x + 2, b.y, true)
+	if SimStockpile.has_tile(w, b.x + 1, b.y):
+		push_error("NEXTDOOR: the tile between the two patches is in the zone")
+		return false
+	w.components.set_component(w.player, "position", {"x": float(b.x) + 0.9, "y": float(b.y) + 0.5})
+	var tin: int = _put_on(w, Vector2i(b.x + 2, b.y), CANNED)
+	w.components.set_component(tin, "position", {"x": float(b.x) + 2.1, "y": float(b.y) + 0.5})
+	w.step()
+	w.step()
+	var nearest: Variant = SimInventory.nearest_ground_item(w, w.player)
+	if nearest == null or int(nearest) != tin:
+		push_error("NEXTDOOR: the tin on the next patch is not the nearest loose item, so the lane cannot be judged")
+		return false
+	if SimContext.reach_words(w, w.player).find("pick up") != 0:
+		push_error("NEXTDOOR: the bar's E words with a tin on the next patch are '%s'" % SimContext.reach_words(w, w.player))
+		return false
+	_send(w, {"type": "use.context"})
+	if _lies(w, tin) or w.components.has_component(w.player, SimStockpile.OPEN_COMPONENT):
+		push_error("NEXTDOOR: E with a tin on the next patch opened the window (%s) or left the tin (%s)" % [str(w.components.has_component(w.player, SimStockpile.OPEN_COMPONENT)), str(_lies(w, tin))])
+		return false
+	# The positive: the tin on the player's own patch, E is the window.
+	var tin2: int = _put_on(w, Vector2i(b.x, b.y), CANNED)
+	w.components.set_component(tin2, "position", {"x": float(b.x) + 0.4, "y": float(b.y) + 0.5})
+	w.step()
+	if SimContext.reach_words(w, w.player) != SimStockpile.OPEN_WORDS:
+		push_error("NEXTDOOR: the bar's E words with a tin on the player's own patch are '%s'" % SimContext.reach_words(w, w.player))
+		return false
+	_send(w, {"type": "use.context"})
+	if not _lies(w, tin2) or not SimStockpile.is_open(w, w.player):
+		push_error("NEXTDOOR: E with a tin on the player's own patch did not open the window")
+		return false
+	print("NEXTDOOR OK a tin on the next patch is picked up and the bar says so; the same tin on the player's patch makes E the window")
 	return true
 
 

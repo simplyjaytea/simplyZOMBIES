@@ -416,6 +416,29 @@ func _bar() -> bool:
 		push_error("BAR: on the stockpile with a tin of it in reach, E's words are '%s'" % SimContext.reach_words(wsp, wsp.player))
 		ok = false
 	cases.append(["tin on the stockpile", wsp, {"kind": "item", "entity": tin, "tile": Vector2i(11, 10)}])
+	# The same tin with a crate in reach too: E keeps its ladder (the pick-up), the bar says so, and
+	# the stockpile row follows rather than leads (the review's finding 6).
+	var wsc: Variant = _world()
+	SimStockpile.register_module(wsc)
+	wsc.components.set_component(wsc.player, "explored", {"w": MAP_TILES, "h": MAP_TILES, "bits": Marshalls.raw_to_base64(bits)})
+	SimStockpile.mark(wsc, {"x0": 9, "y0": 9, "x1": 11, "y1": 11, "on": true})
+	var tin2: int = _spawn_test_item(wsc)
+	wsc.components.set_component(tin2, "position", {"x": 11.0, "y": 10.5})
+	var crate2: int = int(wsc.entities.spawn())
+	wsc.components.set_component(crate2, "position", {"x": 10.5, "y": 11.5})
+	wsc.components.set_component(crate2, "searchable", {"kind": "crate", "searched": false})
+	if SimContext.reach_words(wsc, wsc.player).find("pick up") != 0:
+		push_error("BAR: on the stockpile beside a crate, E's words are '%s'" % SimContext.reach_words(wsc, wsc.player))
+		ok = false
+	var rows_c: Array[Dictionary] = SimContext.verbs_at(wsc, wsc.player, {"kind": "item", "entity": tin2, "tile": Vector2i(11, 10)})
+	var has_stores_row: bool = false
+	for r in rows_c:
+		if String(r.get("text", "")) == SimStockpile.OPEN_WORDS:
+			has_stores_row = true
+	if not has_stores_row:
+		push_error("BAR: on the stockpile beside a crate the menu lost the stockpile row")
+		ok = false
+	cases.append(["tin on the stockpile beside a crate", wsc, {"kind": "item", "entity": tin2, "tile": Vector2i(11, 10)}])
 	for c in cases:
 		ok = _bar_matches(String(c[0]), c[1], c[2] as Dictionary) and ok
 	SimFortify.toggle_door(wd, 11, 10)
@@ -427,7 +450,7 @@ func _bar() -> bool:
 		push_error("BAR: the boarded window's state '%s' cannot be told from the menu's row, so this lane cannot fail" % state)
 		ok = false
 	if ok:
-		print("BAR OK the bar's E clause is the menu's first row at a boarded window, a shut and an open door, a loose tin, a crate and a tin on the stockpile, and the window's state is not that row")
+		print("BAR OK the bar's E clause is the menu's first row at a boarded window, a shut and an open door, a loose tin, a crate, a tin on the stockpile and the same tin beside a crate, and the window's state is not that row")
 	return ok
 
 
