@@ -316,7 +316,7 @@ func _corpse_haul() -> bool:
 		"kind": "Haul", "target": m2, "corpse": true, "carrying": true, "ticksLeft": 0, "path": [], "pathGen": -1,
 	}
 	w2.components.remove(m2, "position")
-	var stock: Vector2i = SimJobs._stock_drop(w2)
+	var stock: Vector2i = SimJobs._stock_drop(w2, Vector2.ZERO)
 	if stock.x < 0:
 		push_error("no stockpile")
 		return false
