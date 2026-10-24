@@ -5948,6 +5948,18 @@ the command (`SimOrders.draft_command`); the key pushes it.
 **How to apply:** the draft is the `hold` order on the colonist's own tile. A new draft-like verb
 goes through `orders.gd`, not a second flag.
 
+## The night's reach on screen, 2026-10-24
+
+**JT's card, both changes (the default).** A campfire lights 8 m in the sim, not 20. Its drawn pool
+keeps the 20 m look it had, so the lit pool stays about 6 m across and the screen does not lose the
+fire. Survivors see at least 3.5 m after dark with no light, through a `night_eyes` key on their
+observer (zombies and raiders do not get it). Noon is unchanged. A save from before the key gets it
+on restore, as give_eyes would have set it, so no version bump (coordinator, 2026-10-24).
+
+**How to apply:** a survivor's sight floor is `SimLight.NIGHT_EYES_FLOOR_M` in `sim/vision/light.gd`,
+not a light, and the drawn eye disc reads it through `sight_metres` like the sim does; a look that
+should match the sim's reach reads `pool_reach_of`, never the raw sim number.
+
 ## A dropped part fits only an empty slot, 2026-10-24
 
 The drop on a weapon is the fit and nothing more (C3). Calls taken without the owner:
