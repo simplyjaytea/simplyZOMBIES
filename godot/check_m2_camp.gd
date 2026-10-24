@@ -527,7 +527,8 @@ func _the_post_and_the_dump_follow_home_and_the_stockpile_does_not() -> bool:
 	var map: Variant = world.tilemap
 	var post_before: Vector2i = SimJobs._post_tile(world)
 	var dump_before: Vector2i = SimJobs._corpse_dump(world)
-	var stock_before: Vector2i = SimJobs._stock_drop(world)
+	var home_spot: Vector2 = Vector2(SimTileMap.annex_rect(map).get_center())
+	var stock_before: Vector2i = SimJobs._stock_drop(world, home_spot)
 	if post_before.x < 0 or dump_before.x < 0 or stock_before.x < 0:
 		push_error("ANCHORS: the gate district has no post (%s), dump (%s) or stockpile (%s) to move" % [str(post_before), str(dump_before), str(stock_before)])
 		return false
@@ -557,10 +558,12 @@ func _the_post_and_the_dump_follow_home_and_the_stockpile_does_not() -> bool:
 		push_error("ANCHORS: the corpse dump is %s, not the camp's gate at %s" % [str(dump_after), str(Vector2i(spot.x, spot.y + 2))])
 		return false
 
-	# The stockpile deliberately does **not** move: it is the annex's *indoor floor* and a camp has
-	# no roof. This half is an assertion rather than an oversight, and it is what stops a later
-	# session "fixing" it into a stockpile the rain falls into.
-	var stock_after: Vector2i = SimJobs._stock_drop(world)
+	# The default stockpile deliberately does **not** move: it is the annex's *indoor floor* and a camp
+	# has no roof. A pile the player marks beside a camp is its own patch (`stockpile.gd`), and that is
+	# the camp's stash; the default zone is not. This half is an assertion rather than an oversight, and
+	# it is what stops a later session "fixing" it into a stockpile the rain falls into. The drop is
+	# read from home's centre in both halves, so only the zone can move it.
+	var stock_after: Vector2i = SimJobs._stock_drop(world, home_spot)
 	if stock_after != stock_before:
 		push_error("ANCHORS: the stockpile drop moved from %s to %s -- a camp has no indoor floor to stock" % [str(stock_before), str(stock_after)])
 		return false

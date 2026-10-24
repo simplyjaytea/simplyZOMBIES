@@ -6092,6 +6092,128 @@ as tiles in the sim). Calls taken without the owner:
 - **Beds stay on the annex floor.** `_free_indoor` asks `is_annex_floor`, so moving the stockpile
   never moves where a bed goes.
 
+## Hauled items spread over the stockpile, 2026-10-24
+
+The stockpile plan's S3 slice (`claude/project-thread-spo`). Until now every hauled item and every
+cooked meal went down on the first free annex tile in row-major order, so a colony's whole pantry
+stacked on one tile. JT's 2026-10-24 "yes" covered the plan, and its card defaults are built here.
+
+- **The drop point is the emptiest free tile of the nearest patch.** A patch is a group of zone
+  tiles that touch edge to edge. The nearest patch with a free tile takes the item, and inside it the
+  tile with the fewest items wins, ties to the nearest to where the carrier stands, then row-major.
+  Six items dropped one after another land on six tiles. Nothing is refused for room: a full pile
+  keeps taking items, evenly, the way a hauler would stack them.
+- **A pile marked beside a camp is the camp's stash.** A camp has no indoor floor, so the default zone
+  stays the annex and a camp never stocks anything by itself. A pile the player marks beside a camp is
+  its own patch, and a colonist standing near the camp stocks it. The drop reads positions, not camps.
+- **The drop point is chosen once per haul and kept on the job.** A carrier re-choosing each tick
+  from wherever they stood would turn back and forth at the line between two patches. The point is
+  recorded as `dropX` and `dropY` on the job and is chosen again only when it stops being a free zone
+  tile (walled over, or a bed or fire put on it). An old save's job has no keys and chooses on its
+  next carry, so there is no version bump.
+- **A meal lands nearest the fire it was cooked at,** not the cook's feet. The fire is where the food
+  was made, and a cook may be standing somewhere else when the job completes.
+- **The raider looter reads the zone.** `_is_stores` and `_loot_goal` ask `is_stockpile_tile` and
+  the zone's tiles, so a marked outdoor pile is looted the way the annex is. The `SimHome.rect` test
+  is gone from both.
+- **The day half of the colony moves.** Spreading puts the drops where the carriers walk, so a day's
+  walks inside the annex change. This is the plan's stated cost, not tuned here. It surfaced the
+  documented doorway deadlock (docs/23, "Two walkers hold each other in a one-tile doorway") on
+  `godot:m2:jobs`'s guard lane, which passes on main. The lane was not loosened. Main's watch fix
+  (the entry below, #210) cleared it: Guard's arrival bound, not a walk yield, was the cause.
+
+## A watch stands on its post, 2026-10-24
+
+- **A watch stands on its post, and a walker does not yield to another (2026-10-24).** The known
+  issue filed as "two walkers hold each other in a one-tile doorway" was a stop rule. Bodies never
+  block each other in this sim: `_integrate_movement` tests walls only, and a body removed from the
+  gateway leaves another's trajectory identical. So the yield the issue asked for would not have
+  changed the failing lane. What did change it is that Guard arrived at the walk's `REACH` (1.5 m)
+  from the post, so a watch from the west stopped at (29.05, 30.5). The fix gives Guard its own
+  arrival bound, `SimJobs.GUARD_REACH` (1.0 m), and nothing else moves: every other job still
+  arrives at `REACH`, and `SimJobs._walk` is unchanged. The STAND lane in `godot:m2:jobs` is the
+  true positive (red on the old bound, from the west), and it asserts the stop is within
+  `GUARD_REACH` plus 2 art px (1/16 m, one tile being 32 px). The GUARD lane keeps its gateway measure
+  and is not loosened. A bound of 0.5 or 0.75 m was tried first and flips the FAST balance wipe on
+  seed 20260805 red; 1.0 keeps the band. That is a bound picked for the balance gate, so the
+  record says so.
+
+## Marking the stockpile on screen, 2026-10-24
+
+Slice S2 of the stockpile and hauling plan: Z picks up a brush, a left drag marks a rectangle of
+stockpile, a right drag clears one, and the zone shows on the ground. JT approved the feature and
+the card defaults are built (drag tiles, not crates; any explored ground, indoors or out). Calls
+taken without the owner:
+
+- **The brush is a focus, not a flag.** `mark` sits in `input_map.gd`'s `FOCUSES` just before
+  `street`, because the mouse means something else under it (the left button paints instead of
+  attacking, the right one clears instead of opening the menu) and the focus table is where "what
+  fires here" is written. Under it: walking, the stance ladder, the sprint latch, pause, the two
+  speed keys, F1, Z and Escape. No swing, shot, E, camp or screen. Picking it up does not stop a
+  walk, and a refused key under it does not either.
+- **Ctrl+Z stays the prone rung.** Z is its own `BINDINGS` row with `ctrl: false`, and the match arm
+  checks the modifier, the camp key's C and Ctrl+C precedent.
+- **Escape puts the brush down, and a second Escape is the menu.** Escape speaks to the thing in
+  front, as everywhere else.
+- **The bar names the keys as keycaps.** The plan's sentence ended "Z to finish"; the bar draws every
+  key it names as a cap, so the line is "Marking the stockpile: drag to mark, right-drag to clear"
+  then a Z cap, an Esc cap and "put the brush down" (both keys do; art QA asked for Esc to be named,
+  so a lead clause may now name two keys as "Z / Esc — ..."). A drag the sim would refuse whole
+  (past the tile cap) says "Too much ground for the stockpile: let go and nothing changes" and
+  previews nothing. No digit either way.
+- **The preview is the sim's answer.** `SimStockpile.preview` returns the tiles a mark would add or
+  take back, or that it would be refused; `mark` now applies exactly that answer, so what the drag
+  draws is what the release changes. A mark that changes nothing no longer writes a zone record.
+- **The roof wins.** An indoor zone tile under a roof shows the roof, with the brush up or down. The
+  plan drew the zone on every explored tile; a wash over shingles read as paint on the roof, so
+  indoor ground is marked from indoors, where the roof is off. The preview follows the same rule.
+- **Under the props, over the baked floor.** The wash is drawn after the ground and the marks on it
+  and before the props and bodies, so a bed or a crate stands on the stockpile. It does lie over the
+  baked flat furnishings (the DECOR layer), because a per-frame pass cannot go under a bake; at rest
+  the wash is light enough that a table under it still reads.
+- **Masking tape, in strips.** The rim is the Salvage Locker's tape with its shadow one art pixel
+  inside, on outer sides only, laid six art pixels on and two off from each tile's corner. A solid
+  line along a wall read as a skirting board. The drag's preview is one solid strip, amber to mark
+  and a lighter rust to clear, so a patch not made yet never looks laid.
+- **The rim is held to 3:1, the line for a graphic rather than text.** On every ground the district
+  has, live, at rest and marking, and both preview colours. The pale tape alone is under 3:1 on
+  dirt and the sidewalk, so the shadow carries it there. A remembered tile's rim is pulled through
+  `Palette.remembered` with the ground under it and is not held to 3:1: the remembered map is dim on
+  purpose.
+- **The pointer is the arrow under the brush.** A crosshair over a zombie would offer an attack the
+  brush does not make.
+- **A mark let go while paused shows as pending.** The sim takes a command on its next tick, and a
+  paused world has none, so a drag released under P drew nothing until play resumed. main.gd keeps
+  each released mark with the tick it was pushed on and draws it in the preview's look until the
+  tick moves. It is pending, not laid: the zone itself does not change until the sim says so.
+- **The overlay is drawn from a kept batch.** Painting the 320-tile default zone fresh every frame,
+  one rect per piece of tape, cost about 8 ms a frame on the bench box. The zone is read again only
+  when `SimStockpile.signature` moves; what it paints is batched into row-run fills and one
+  `draw_multiline` per colour, in tile-grid coordinates offset to the screen as they are drawn; and
+  the batch is rebuilt only when a zone tile's state (explored, seen, roofed), the brush or the zoom
+  changes. The drag's preview and the pending marks are small and drawn fresh.
+
+- **The cap is 1000 tiles, up from S1's 400.** The default zone (the annex floor) is 320 tiles, so
+  400 left about 80 to mark anywhere else, which is not "any explored ground". The coordinator's
+  tuning call, taken here. The cap bounds the zone query the Haul drop asks every tick a hauler walks
+  with an item (`SimStockpile.tiles`), which cost 2.1 to 3.4 ms at 320 tiles and would have been
+  about 9 ms at 1000; the query is rewritten to parse each key once and sort natively, and now costs
+  0.67 ms at 320 and 2.1 ms at 1000 on the bench box, under what 400 cost before. A drag's preview
+  over a full 1000-tile rectangle costs about 5 ms to answer, so the screen asks it once per change of
+  the rectangle, not per frame.
+- **The wash is stronger at night.** The night pass darkens the wash with the ground, and at the day
+  alphas the zone all but vanished on the board floor by firelight (art QA). The wash leans from its
+  day alphas (0.16 at rest, 0.26 marking) to night ones (0.34, 0.55) as the ambient falls, and the
+  STOCKPILE lane holds it, by firelight on every ground, at least as plain as the day wash at noon.
+  The rim is left as it is: its 3:1 is judged on the unlit ground, as every ground graphic's is, and
+  under the night pass it falls with the ground's own detail (about 1.9 to 2.5:1 by firelight in the
+  lane's model). Drawing it over the night would make it glow.
+
+**How to apply:** what the brush may change is `SimStockpile.preview`'s answer, never a second one on
+screen; how it looks is `presentation/stockpile_look.gd`. Gated by `godot:check:play` MARK,
+`godot:check:memory` STOCKPILE, `godot:check:hud` ACTION, `godot:m2:stockpile` PREVIEW and
+`godot:check:shots` (`stockpile_mark`, `stockpile_rest`, `stockpile_night`).
+
 ## The stockpile on the Colony screen, 2026-10-24
 
 Slice S5 of the stockpile plan. JT's card 4 default stands: the Colony screen reads the stockpile as
