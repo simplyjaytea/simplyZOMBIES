@@ -52,12 +52,16 @@ uniform float eye_floor = 0.55;
 uniform int light_count = 0;
 uniform vec4 light_pos[MAX_LIGHTS];
 uniform vec4 light_tint[MAX_LIGHTS];
-// A beam, for a light whose content has one: xy the way its carrier faces, z the cosine of its
-// half-angle (0 means a round pool), w unused. Outside the beam there is only a disc at the hand.
+// A beam, for a light the sim casts as one: xy the way its carrier faces, z the cosine of its
+// half-angle (0 means a round pool), w the cosine a little inside it, where the light is full.
+// Outside the beam there is only the spill's disc at the hand.
 uniform vec4 light_dir[MAX_LIGHTS];
 // How far a beam reaches, as a fraction of the source's reach: a torch throws its light further
 // forward than a lamp throws it all round.
 uniform float beam_scale = 0.55;
+// The disc a beam draws at the hand, in metres: the sim's spill (SimLight.SPILL_M), the ground a
+// torch lights whichever way it points.
+uniform float spill_m = 1.5;
 
 // The look: the colour of full dark, how much of the way to it a lightless pixel goes at dusk (all
 // of it at midnight), how much a
@@ -207,14 +211,15 @@ void fragment() {
 			float fall = 1.0 - smoothstep(radius * 0.2, radius, d);
 			vec4 beam = light_dir[i];
 			if (beam.z > 0.0) {
-				// The wedge: full inside the half-angle, softened over a few degrees past it, and
-				// a small disc at the hand so the carrier stands in their own light.
+				// The wedge, from the hand: full a little inside the half-angle and gone at it, so it
+				// ends inside the tiles the sim's own wedge lights (the bits), and the spill at the
+				// hand, so the carrier stands in their own light.
 				vec2 ray = at - src.xy;
 				float along = d > 0.0001 ? dot(ray / d, beam.xy) : 1.0;
-				float wedge = smoothstep(beam.z - 0.06, beam.z, along);
+				float wedge = smoothstep(beam.z, beam.w, along);
 				float reach_m = max(pool_min_m, src.z * beam_scale) * flick;
 				float thrown = wedge * (1.0 - smoothstep(reach_m * 0.45, reach_m, d));
-				float hand = 1.0 - smoothstep(0.6, 1.6, d);
+				float hand = 1.0 - smoothstep(spill_m * 0.4, spill_m, d);
 				fall = max(thrown, hand * 0.7);
 			}
 			float b = tint.w * rings(fall * mask, threshold);
