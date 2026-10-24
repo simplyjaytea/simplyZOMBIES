@@ -5901,3 +5901,24 @@ The call that stands:
 Gated by `godot:m2:jobs` BUILDER: a zombie 3 m off the yard breaks the job off, 20 m off does not,
 a builder inside the house is not broken off, and the walk home holds for `RETREAT_HOLD_TICKS` and
 the builder goes back to the wall after it. The lane was run red against the lot-as-home rule first.
+
+## The torch is a cone, 2026-10-24
+
+**JT's two calls, taken as the plan's defaults.** The torch lights a wedge, not a round pool, and
+only a zombie in its light is drawn toward it (cards in the planning thread, 2026-10-24).
+
+- **Only the beam pulls.** `SimShambler._lean_to_light` asks `SimLight.lights_tile` before a beam
+  source pulls: a zombie inside the wedge, or inside the spill round the holder's feet, leans to
+  the light; one behind the holder does not. A round light (a lantern, a campfire, a flash) is
+  unchanged.
+- **The wedge is the content's `light.beam`, capped at a right angle.** A hand torch throws 22°
+  either side of its carrier's facing. The facing is read every tick from the holder, and turning
+  moves the wedge without recasting the round shadowcast (gated by `godot:m2:torch` TURN).
+- **A spill of 1.5 m round the source is lit whatever way the beam points.** A torch lights the
+  ground at the holder's feet and a zombie at arm's length; that is the spill's only purpose.
+- **Light sources carry `beam` only when they have one.** A round light's `light_source` is the
+  same `{magnitude}` it was, so every save that holds one is byte-identical.
+
+Still open: the screen draws the wedge from the sim's cone only after the beam-on-screen slice (B3).
+Until then `LightLook` draws its own wedge from content, which is the half `godot:m2:torch` READS
+skips out loud.

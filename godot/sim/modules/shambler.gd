@@ -714,6 +714,13 @@ static func _lean_to_light(world: Variant, entity: int, pos: Dictionary, vel: Di
 		var rem: float = float((at as Dictionary)["magnitude"]) - sqrt(dx * dx + dy * dy)
 		if rem <= best_rem:
 			continue
+		# A beam pulls only the zombies it lights: inside the wedge or the spill at the holder's feet
+		# (docs/30, 2026-10-24). A round light is unchanged.
+		if float((at as Dictionary)["beam"]) > 0.0:
+			var tile_x: int = floori(float(pos["x"]) / float(SimTileMapRes.TILE_METRES))
+			var tile_y: int = floori(float(pos["y"]) / float(SimTileMapRes.TILE_METRES))
+			if not world.light.lights_tile(int(source), tile_x, tile_y):
+				continue
 		if world.vision.detail(int(entity), float((at as Dictionary)["x"]), float((at as Dictionary)["y"])) == 0:
 			continue
 		best_rem = rem

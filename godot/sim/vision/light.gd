@@ -15,6 +15,10 @@ const LIGHT_TABLE := {
 	"floodlight": 90,
 }
 
+# The spill round a beam throws at its feet: a tile this close to the source is lit whatever way the
+# beam points, so a torch lights the ground under the holder's hand and a zombie at arm's length.
+const SPILL_M: float = 1.5
+
 var _casts: Dictionary = {}
 var _ordered_sources: Array[int] = []
 var recomputes: int = 0
@@ -50,7 +54,7 @@ func refresh(world: Variant, map: Variant) -> void:
 		if c == null:
 			# The cache key as four ints (the eye is always Standing here), not a formatted String:
 			# the same reason visibility.gd's views stopped formatting one per observer per tick.
-			c = {"tile_x": -1, "tile_y": -1, "range_tiles": -1, "gen": -1, "tiles": Shadowcast.VisibleTiles.new(), "x": 0.0, "y": 0.0, "magnitude": 0.0}
+			c = {"tile_x": -1, "tile_y": -1, "range_tiles": -1, "gen": -1, "tiles": Shadowcast.VisibleTiles.new(), "x": 0.0, "y": 0.0, "magnitude": 0.0, "beam": 0.0, "facing": 0.0}
 			_casts[entity] = c
 		var cd: Dictionary = c as Dictionary
 		var same: bool = int(cd["tile_x"]) == tile_x and int(cd["tile_y"]) == tile_y and int(cd["range_tiles"]) == range_tiles
@@ -70,11 +74,45 @@ func refresh(world: Variant, map: Variant) -> void:
 		(c as Dictionary)["x"] = float((pos as Dictionary)["x"])
 		(c as Dictionary)["y"] = float((pos as Dictionary)["y"])
 		(c as Dictionary)["magnitude"] = mag
+		# The beam is the carrier's to aim: its facing is read here, every tick, and never recasts the
+		# round shadowcast above, so turning moves the wedge without costing a cast.
+		(c as Dictionary)["beam"] = float((src as Dictionary).get("beam", 0.0))
+		(c as Dictionary)["facing"] = _facing_of(world, entity)
 		seen[entity] = true
 		_ordered_sources.append(entity)
 	for entity in _casts.keys():
 		if not seen.has(entity):
 			_casts.erase(entity)
+
+
+## Whether `source`'s light lands on tile (tx, ty). A round light: the shadowcast has the tile. A
+## beam: the same, and the tile is inside the wedge (its bearing from the source within the beam's
+## half-angle of the carrier's facing) or inside the spill round the source. Facing turns the wedge
+## only; the cast it clips is the round one.
+func lights_tile(source: int, tx: int, ty: int) -> bool:
+	var c: Variant = _casts.get(source)
+	if c == null:
+		return false
+	var cd: Dictionary = c as Dictionary
+	var tiles: Shadowcast.VisibleTiles = cd["tiles"]
+	if not tiles.has_tile(tx, ty):
+		return false
+	var beam: float = float(cd["beam"])
+	if beam <= 0.0:
+		return true
+	var dx: float = (float(tx) + 0.5) * float(SimTileMapRes.TILE_METRES) - float(cd["x"])
+	var dy: float = (float(ty) + 0.5) * float(SimTileMapRes.TILE_METRES) - float(cd["y"])
+	if dx * dx + dy * dy <= SPILL_M * SPILL_M:
+		return true
+	var off: float = wrapf(atan2(dy, dx) - float(cd["facing"]), -PI, PI)
+	return absf(off) <= beam
+
+
+static func _facing_of(world: Variant, entity: int) -> float:
+	var facing: Variant = world.components.get_component(entity, "facing")
+	if facing is Dictionary:
+		return float((facing as Dictionary).get("radians", 0.0))
+	return 0.0
 
 
 ## How much light reaches (x,y) in metres of usable reach. Max across sources, never sum.
@@ -86,8 +124,7 @@ func lit_metres(x: float, y: float) -> float:
 		var c: Variant = _casts.get(entity)
 		if c == null:
 			continue
-		var tiles: Shadowcast.VisibleTiles = (c as Dictionary)["tiles"]
-		if not tiles.has_tile(tx, ty):
+		if not lights_tile(int(entity), tx, ty):
 			continue
 		var rem: float = float((c as Dictionary)["magnitude"]) - sqrt(pow(x - float((c as Dictionary)["x"]), 2.0) + pow(y - float((c as Dictionary)["y"]), 2.0))
 		if rem > best:
@@ -137,7 +174,7 @@ func source_at(entity: int) -> Variant:
 	var c: Variant = _casts.get(entity)
 	if c == null:
 		return null
-	return {"x": float((c as Dictionary)["x"]), "y": float((c as Dictionary)["y"]), "magnitude": float((c as Dictionary)["magnitude"])}
+	return {"x": float((c as Dictionary)["x"]), "y": float((c as Dictionary)["y"]), "magnitude": float((c as Dictionary)["magnitude"]), "beam": float((c as Dictionary)["beam"]), "facing": float((c as Dictionary)["facing"])}
 
 func sourceAt(entity: int) -> Variant:
 	return source_at(entity)

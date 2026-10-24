@@ -999,13 +999,12 @@ group above amend this arc's mood, wall and pawn clauses; the pieces below stand
   only (the record's "Zombies turn, walk and fall", 2026-10-02). Widening their appearance at
   Peripheral detail remains an information-scarcity decision for the owner. Walk-cycle foot and
   clothing polish and the four-pose human corpse vest overlay remain unshipped.
-- **The torch.** The reference's night is a cone from the player's hand. Since the light map
-  (2026-10-19, the record) a torch *draws* as a beam (content `light.beam`), but every light in
-  the sim is still an omnidirectional shadowcast. The piece left is sim, not paint: a light
-  item whose `light` block carries a direction and a cone, `SimLight` masking that emitter's
-  shadowcast to the wedge, the cone drawn from the gun hand in the lit-pool geometry, and the
-  attention cost a lit torch is — an emitter zombies read. Its own gated slice, after the look
-  lands, and not before: the arc is presentation and this is the one sim change in it.
+- **The torch on screen.** The sim casts a torch as a cone (2026-10-24, B2, `godot:m2:torch`,
+  docs/30's "The torch is a cone" entry): the wedge is clipped from the round shadowcast by the
+  carrier's facing, a 1.5 m spill lights the feet, and only a zombie in the light leans toward it.
+  Still open, the beam-on-screen slice (B3): the screen's wedge (`LightLook`, drawn from content
+  today) reads the sim's `lights_tile` tile for tile, the beam starts at the hand, and the night
+  review scene `night_torch` shows it. Art QA on the beam's origin and the disc.
 - **The night's reach on screen.** Since the art review of the light map (2026-10-20, the
   record) the screen draws less light than the sim in two places, both sim numbers rather than
   paint. A lit campfire's cast is 20 m (`SimNeeds.CAMPFIRE_LIGHT_M`) and its drawn pool 6 m, so a
