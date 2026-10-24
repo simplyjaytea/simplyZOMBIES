@@ -6121,3 +6121,17 @@ stacked on one tile. JT's 2026-10-24 "yes" covered the plan, and its card defaul
   documented doorway deadlock (docs/23, "Two walkers hold each other in a one-tile doorway") on
   `godot:m2:jobs`'s guard lane, which passes on main. The lane is not loosened: the walk yield that
   fixes the deadlock is its own slice, and this change waits on it.
+
+- **A watch stands on its post, and a walker does not yield to another (2026-10-24).** The known
+  issue filed as "two walkers hold each other in a one-tile doorway" was a stop rule. Bodies never
+  block each other in this sim: `_integrate_movement` tests walls only, and a body removed from the
+  gateway leaves another's trajectory identical. So the yield the issue asked for would not have
+  changed the failing lane. What did change it is that Guard arrived at the walk's `REACH` (1.5 m)
+  from the post, so a watch from the west stopped at (29.05, 30.5). The fix gives Guard its own
+  arrival bound, `SimJobs.GUARD_REACH` (1.0 m), and nothing else moves: every other job still
+  arrives at `REACH`, and `SimJobs._walk` is unchanged. The STAND lane in `godot:m2:jobs` is the
+  true positive (red on the old bound, from the west), and it asserts the stop is within
+  `GUARD_REACH` plus 2 art px (1/16 m, one tile being 32 px). The GUARD lane keeps its gateway measure
+  and is not loosened. A bound of 0.5 or 0.75 m was tried first and flips the FAST balance wipe on
+  seed 20260805 red; 1.0 keeps the band. That is a bound picked for the balance gate, so the
+  record says so.
