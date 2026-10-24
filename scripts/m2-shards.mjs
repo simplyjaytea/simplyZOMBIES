@@ -51,6 +51,7 @@ export const M2_SHARDS = [
     "godot:m2:transform",
     "godot:m2:splint",
     "godot:m2:light_burn",
+    "godot:m2:torch",
     "godot:m2:stance",
     "godot:m2:medicine",
     "godot:m2:materials",

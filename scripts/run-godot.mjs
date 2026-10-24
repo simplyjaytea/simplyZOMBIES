@@ -426,6 +426,9 @@ switch (mode) {
   case "--m2-filter":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_filter.gd"];
     break;
+  case "--m2-torch":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_torch.gd"];
+    break;
   case "--m2-light-burn":
     args = [
       "--headless",
