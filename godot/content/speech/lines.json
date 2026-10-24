@@ -30,6 +30,11 @@
     "lines": ["You there. Got room for one more?", "Wait — can you help me?"]
   },
   {
+    "id": "speech.order.no_route",
+    "description": "A colonist sent to a place nobody can walk to (`order.ended` with reason no-route): said by the colonist, once, and never on an order that ended on arrival, a stand-down or a lost item.",
+    "lines": ["Can't get there from here.", "Something's in the way. I can't reach it."]
+  },
+  {
     "id": "speech.zombie.noticed",
     "description": "A shambler's own state machine crossing from Wander/Investigate into Seek or Pursue -- a sound-word, not a word, and never a name (it does not know one).",
     "lines": ["hhrrrh…", "…nnngh"]

@@ -338,7 +338,7 @@ func _the_readers_follow_the_zone_but_beds_do_not() -> bool:
 	if not stocked.has(on_block) or stocked.has(on_annex):
 		push_error("READERS: stockpile_items does not list the 2x2 pile and not the unmarked annex floor")
 		return false
-	if SimOrders._haulable(w, on_block) or not SimOrders._haulable(w, on_annex):
+	if SimOrders._haulable(w, w.player, on_block) or not SimOrders._haulable(w, w.player, on_annex):
 		push_error("READERS: an order's haul test ignores the zone")
 		return false
 	var bed_tile: Vector2i = SimJobs._free_indoor(w)

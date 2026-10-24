@@ -12,8 +12,16 @@ extends Control
 #
 # This file decides nothing about *what* is on offer -- `main._context_pick` reads the row's own
 # `command` Dictionary and pushes it, and the sim decided that Dictionary before this ever drew.
+#
+# Over the rows, a header names what was clicked (`SimContext.target_label`, handed in by main.gd):
+# dim, not a row, not clickable. The keys while it is open, handed over by `input_map.gd`: Up and
+# Down move an amber ring between the rows, Enter dispatches the ringed row through the same
+# `main._context_pick` a click uses, Escape closes it with nothing dispatched. The ring opens on the
+# first row, so Enter straight away does what the first row says -- the row the action bar's E
+# clause names whenever the clicked thing is the one in reach.
 
 const ItemMenu = preload("res://ui/item_menu.gd")
+const Locker = preload("res://ui/locker.gd")
 
 # Set by main.gd before `add_child`, `Variant` for the reason `input_map.gd`'s own `main` field
 # is: this script preloads nothing that would preload it back, but naming the type here would
@@ -21,6 +29,8 @@ const ItemMenu = preload("res://ui/item_menu.gd")
 var main: Variant = null
 
 var _rows: Array[Dictionary] = []
+var _header: String = ""
+var _focus: int = 0
 
 
 func _ready() -> void:
@@ -36,17 +46,42 @@ func rows() -> Array[Dictionary]:
 	return _rows
 
 
+func header() -> String:
+	return _header
+
+
+# The ringed row, the one Enter would dispatch.
+func focused() -> int:
+	return _focus
+
+
+# Each row's rect in this control's own frame, the same `ItemMenu.verb_rects` the draw and the
+# press use -- for a gate or a caller that has to click a row it found by its words.
+func row_rects() -> Array[Dictionary]:
+	return ItemMenu.verb_rects(Vector2.ZERO, _texts(), _header)
+
+
 # `rows_in` empty opens nothing -- the caller (`input_map.gd`) already knows this from
 # `SimContext.verbs_at` coming back empty, but a menu that could draw zero rows and sit there
 # eating clicks over a wall tile would be its own small bug, so the guard is here too.
-func open(at: Vector2, rows_in: Array[Dictionary]) -> void:
+func open(at: Vector2, rows_in: Array[Dictionary], header_in: String = "") -> void:
 	if rows_in.is_empty():
 		close()
 		return
 	_rows = rows_in
-	var sz: Vector2 = ItemMenu.size_of(_texts())
+	_header = header_in
+	_focus = 0
+	var sz: Vector2 = ItemMenu.size_of(_texts(), _header)
 	var view: Vector2 = get_viewport_rect().size
-	position = Vector2(clampf(at.x, 0.0, maxf(0.0, view.x - sz.x)), clampf(at.y, 0.0, maxf(0.0, view.y - sz.y)))
+	# The menu stops above the HUD's bottom band (the action bar and the belt under it), so a
+	# right-click just over the bar does not cover the keys it would otherwise hide. Snapped to the
+	# art grid, like every panel.
+	var floor_y: float = view.y
+	var hud: Variant = main.get("_hud") if main != null else null
+	if hud != null and bool((hud as CanvasItem).visible) and (hud as Object).has_method("bar_top"):
+		floor_y = minf(view.y, float(hud.call("bar_top")) - Locker.PX * 2.0)
+	position = Vector2(clampf(at.x, 0.0, maxf(0.0, view.x - sz.x)), clampf(at.y, 0.0, maxf(0.0, floor_y - sz.y)))
+	position = (position / Locker.PX).floor() * Locker.PX
 	size = sz
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = true
@@ -57,6 +92,8 @@ func close() -> void:
 	if _rows.is_empty() and not visible:
 		return
 	_rows = []
+	_header = ""
+	_focus = 0
 	visible = false
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	queue_redraw()
@@ -70,14 +107,45 @@ func _texts() -> Array:
 
 
 func _draw() -> void:
-	ItemMenu.draw_menu(self, Vector2.ZERO, _texts(), 1.0)
+	ItemMenu.draw_menu(self, Vector2.ZERO, _texts(), 1.0, _header, _focus)
+	var rects: Array[Dictionary] = row_rects()
+	if _focus >= 0 and _focus < rects.size():
+		var r: Rect2 = rects[_focus]["rect"] as Rect2
+		Locker.rim(self, Rect2(r.position + Vector2(Locker.PX * 3.0, 0.0), r.size - Vector2(Locker.PX * 6.0, 0.0)), Locker.ACCENT)
+
+
+# A key while the menu is open, from `input_map.gd`. True when the key was the menu's: Up and Down
+# move the ring and wrap, Enter dispatches the ringed row, Escape closes with nothing dispatched.
+# Any other key is not the menu's, and the caller closes it and lets the key do what it does.
+func key(ke: InputEventKey) -> bool:
+	if not visible or _rows.is_empty():
+		return false
+	match ke.keycode:
+		KEY_UP:
+			_focus = (_focus - 1 + _rows.size()) % _rows.size()
+			queue_redraw()
+			return true
+		KEY_DOWN:
+			_focus = (_focus + 1) % _rows.size()
+			queue_redraw()
+			return true
+		KEY_ENTER, KEY_KP_ENTER:
+			var picked: Dictionary = _rows[clampi(_focus, 0, _rows.size() - 1)]
+			close()
+			if main != null and main.has_method("_context_pick"):
+				main.call("_context_pick", picked)
+			return true
+		KEY_ESCAPE:
+			close()
+			return true
+	return false
 
 
 # Which pointer the kit dresses the mouse in at `p`, in this control's own frame (ui/cursors.gd):
 # the hand over a verb, the arrow over the menu's padding. The rows are `ItemMenu.verb_rects`, the
 # same rects a press is tested against, so the hand and the pick cannot disagree about a row.
 func cursor_at(p: Vector2) -> int:
-	for row in ItemMenu.verb_rects(Vector2.ZERO, _texts()):
+	for row in row_rects():
 		if (row["rect"] as Rect2).has_point(p):
 			return Input.CURSOR_POINTING_HAND
 	return Input.CURSOR_ARROW
@@ -88,7 +156,14 @@ func cursor_at(p: Vector2) -> int:
 # which is what keeps a click on the menu from also swinging at whatever is behind it.
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
-		mouse_default_cursor_shape = cursor_at((event as InputEventMouseMotion).position) as Control.CursorShape
+		var at: Vector2 = (event as InputEventMouseMotion).position
+		mouse_default_cursor_shape = cursor_at(at) as Control.CursorShape
+		# The ring follows the pointer, so the hand and the ring never name two rows.
+		var rects_m: Array[Dictionary] = row_rects()
+		for i in rects_m.size():
+			if (rects_m[i]["rect"] as Rect2).has_point(at) and i != _focus:
+				_focus = i
+				queue_redraw()
 		return
 	if not (event is InputEventMouseButton) or not (event as InputEventMouseButton).pressed:
 		return
@@ -96,7 +171,7 @@ func _gui_input(event: InputEvent) -> void:
 	accept_event()
 	var picked: Dictionary = {}
 	if mb.button_index == MOUSE_BUTTON_LEFT:
-		var rects: Array[Dictionary] = ItemMenu.verb_rects(Vector2.ZERO, _texts())
+		var rects: Array[Dictionary] = row_rects()
 		for i in rects.size():
 			if (rects[i]["rect"] as Rect2).has_point(mb.position):
 				picked = _rows[i]
