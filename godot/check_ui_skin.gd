@@ -1932,23 +1932,32 @@ func _keycaps_tail(body: String) -> String:
 	return ""
 
 
-# A real action line with all three keys live: a boarded window in reach (E), a bleeding torso
-# (T), and Mara held beside the player (H) -- check_hud's ACTION fixture, rebuilt here so the
-# lead caps judged are ones `Hud.action_line` actually offers.
+# A real action line with all three keys live: a window in reach on a real map (E, "board up the
+# window" -- the verb is the sim's ladder now, not a fabricated look-at), a bleeding torso (T), and
+# Mara held beside the player (H) -- check_hud's ACTION fixture, rebuilt here so the lead caps
+# judged are ones `Hud.action_line` actually offers.
 func _keycaps_action() -> String:
 	var world_script: GDScript = load("res://sim/world.gd") as GDScript
+	var boot: GDScript = load("res://sim/boot.gd") as GDScript
+	var tilemap: GDScript = load("res://sim/map/tilemap.gd") as GDScript
+	var fortify: GDScript = load("res://sim/modules/fortify.gd") as GDScript
 	var health: GDScript = load("res://sim/modules/health.gd") as GDScript
 	var wounds: GDScript = load("res://sim/modules/wounds.gd") as GDScript
 	var hud: GDScript = load(KEYCAPS_HUD_GD) as GDScript
-	var w: Variant = world_script.new({"seed": 31, "tick_hz": 20, "map": {"width": 16, "height": 16, "walls": []}, "player": {"id": 0, "x": 8.0, "y": 8.0, "stance": 2}, "rng_probe": {"stream": "test", "samples": 0}})
+	var w: Variant = world_script.new({"seed": 31, "tick_hz": 20, "map": {"width": 24, "height": 24, "walls": []}, "player": {"id": 0, "x": 10.5, "y": 13.5, "stance": 2}, "rng_probe": {"stream": "test", "samples": 0}})
+	boot.call("attach_kernel", w, tilemap.call("blank_map", 24, 24))
+	health.call("register_module", w)
+	fortify.call("register_module", w)
+	w.components.set_component(w.player, "facing", {"radians": -PI / 2.0})
+	w.tilemap.tiles[12 * int(w.tilemap.w) + 10] = int(tilemap.get_script_constant_map()["Tile"]["Window"])
 	health.call("make_survivor_body", w, w.player)
 	wounds.call("append_wound", w, w.player, "laceration", "torso", -1, 30.0)
 	var mara: int = int(w.entities.spawn())
 	w.components.set_component(mara, "identity", {"id": "survivor.test.mara", "name": "Mara Sato"})
-	w.components.set_component(mara, "position", {"x": 8.5, "y": 8.0})
+	w.components.set_component(mara, "position", {"x": 11.5, "y": 13.5})
 	health.call("make_survivor_body", w, mara)
 	w.components.set_component(mara, "grabbed", {"by": 4242, "sinceTick": 0})
-	return String(hud.call("action_line", w, w.player, {"window": "boarded, holding"}, ""))
+	return String(hud.call("action_line", w, w.player))
 
 
 # What is wrong with a list of bar entries. Empty when every cap is a bound, legended key name.
