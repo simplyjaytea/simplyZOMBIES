@@ -146,6 +146,10 @@ extends RefCounted
 # The zombie art integration adds optional `visualRemains` history without a version bump.
 # It contains settled-body pictures only: no entities, equipment, scent or RNG state. A v33
 # save without this key restores an empty history; all existing simulation state is unchanged.
+# The Colony screen adds an optional `was` to a `Retreat` job without a version bump: the kind of
+# the job the walk home broke off, which nothing in the sim reads (only `sim/work_read.gd`'s now
+# line, out of the player's sight). A v33 save's walk home has none and reads "idle" out of sight
+# until it ends; the walk itself restores and runs exactly as before.
 const SAVE_VERSION: int = 33
 
 

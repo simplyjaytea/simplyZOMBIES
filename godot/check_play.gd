@@ -90,6 +90,9 @@ const SimChronicle = preload("res://sim/modules/chronicle.gd")
 const SimRecruits = preload("res://sim/modules/recruits.gd")
 const SimAllegiance = preload("res://sim/modules/allegiance.gd")
 const SimSave = preload("res://sim/save.gd")
+const SimSurvivors = preload("res://sim/modules/survivors.gd")
+const WorkRead = preload("res://sim/work_read.gd")
+const UiText = preload("res://ui/text.gd")
 
 # The frame loop's own delta. main.gd's TICK_SECONDS, named again here rather than read off the
 # scene, so a gate that claims "one frame, one tick" is not quoting the thing it is judging.
@@ -185,6 +188,7 @@ func _run() -> void:
 	ok = await _the_body_card_clears_the_you_card(main) and ok
 	ok = await _the_work_grid_fits_and_keeps_its_clicks(main) and ok
 	ok = await _the_work_grid_draws_only_what_something_does(main) and ok
+	ok = await _the_colony_screen_is_one_survivor_context(main) and ok
 	var sheet_ok: bool = await _tab_opens_the_sheet(main)
 	ok = sheet_ok and ok
 	var peel_ok: bool = await _escape_peels_in_order(main)
@@ -2199,7 +2203,13 @@ func _the_work_grid_draws_only_what_something_does(main: Node) -> bool:
 	var shown: Array = (panel.get_script() as GDScript).call("shown_columns") as Array
 	var expected: Array = all.filter(func(c: Variant) -> bool: return consumers.has(c))
 	var ok: bool = true
-	if shown != expected:
+	# The grid's order is the groups' (UI overhaul, slice 2), so the columns are judged as a set:
+	# every column with a consumer exactly once, and nothing else.
+	var sorted_shown: Array = shown.duplicate()
+	sorted_shown.sort()
+	var sorted_expected: Array = expected.duplicate()
+	sorted_expected.sort()
+	if sorted_shown != sorted_expected:
 		push_error("STUBS: the grid draws %s, not the columns with a consumer, %s" % [str(shown), str(expected)])
 		ok = false
 	for stub in STUB_COLUMNS:
@@ -2336,7 +2346,7 @@ func _the_work_grid_fits_and_keeps_its_clicks(main: Node) -> bool:
 			ok = false
 		var font: Font = Chrome.font()
 		for i in columns.size():
-			var head_w: float = font.get_string_size(String(columns[i]), HORIZONTAL_ALIGNMENT_LEFT, -1, int(panel.get_script().get("SMALL_SIZE"))).x
+			var head_w: float = font.get_string_size(String(columns[i]), HORIZONTAL_ALIGNMENT_LEFT, -1, int(panel.get("head_size"))).x
 			if float(edges[i + 1]) - float(edges[i]) < head_w + gap or int(edges[i]) % 2 != 0:
 				push_error("WORK-LAYOUT: column %s is %.0f px from x %.0f, under its head plus the gap (%.0f) or off the even grid (%s)" % [columns[i], float(edges[i + 1]) - float(edges[i]), float(edges[i]), head_w + gap, str(dims)])
 				ok = false
@@ -2423,3 +2433,376 @@ func _the_work_grid_fits_and_keeps_its_clicks(main: Node) -> bool:
 	if ok:
 		print("WORK-LAYOUT OK Work fits 1280/1920 with every column at least its head plus the gap and the grid at the right gutter, the last visible cell receives the click, scrolling reaches both ends and clicks the displayed survivor, Work/web peel the corner chart and restore it while paused")
 	return ok
+
+
+
+# --- COLONY ---------------------------------------------------------------------------------------
+
+# The Colony screen as one survivor context (UI overhaul, slice 2; docs/32's roster row: "persistent
+# identity, readable job groups, explicit priority controls and Focus choices; details open from the
+# selected person"). In the real scene at 1280x720 and 1920x1080, through real clicks:
+#   - the panel sits under the bar on the even grid and inside the window;
+#   - the groups hold every column with a consumer exactly once, and the footer names exactly the
+#     job columns nothing does;
+#   - nobody is picked until a click, as in the game;
+#   - every phrase `WorkRead` can say fits the row's now room whole at both windows, where the line
+#     the first review found cut is still cut at 1280 (the negative);
+#   - every generated backstory at its longest and every unique reads whole in the drawer, where
+#     all of them end to end would be cut (the negative);
+#   - each row's "now" line is `WorkRead.doing` for that colonist as drawn, after the fit, and
+#     follows the sim when her job changes (cooking, then idle with none);
+#   - a right click on a name, a Focus chip or "their skills" does nothing;
+#   - a click on a row's name picks that colonist for the whole game (main's selection), a click on
+#     the footer picks nobody and queues nothing;
+#   - a Focus chip queues exactly that focus for the picked colonist; a right click on a cell counts
+#     its number down (1 to never, never to 4);
+#   - the drawer's "who" lines are the sim's whole clause, wrapped and never cut, where one line at
+#     the row's width would cut it (the negative);
+#   - the Focus line describes a row by its preset only when the row is that preset;
+#   - "their skills" opens Skills on that colonist, stamped viewing, its top on the Colony screen's;
+#   - a roster of seven scrolls to a colonist picked in the game, the wheel still moves it while
+#     they are picked, and the strip counts what is scrolled away each way.
+func _the_colony_screen_is_one_survivor_context(main: Node) -> bool:
+	var panel: Control = main.get("_work_panel") as Control
+	var world: Variant = main.get("world")
+	if panel == null or world == null:
+		return _skip("COLONY", "the scene built no Colony screen")
+	var script: GDScript = panel.get_script() as GDScript
+	var jobs: GDScript = load("res://sim/modules/jobs.gd") as GDScript
+	var NavBar: GDScript = load("res://ui/nav_bar.gd") as GDScript
+	var old_size: Vector2i = root.size
+	var was_paused: bool = bool(main.get("paused"))
+	main.set("paused", true)
+	main.call("_show_screen", "")
+	main.set("_selected", -1)
+	var ok: bool = true
+	# The groups and the footer, judged once: they do not depend on the window.
+	var flat: Array = []
+	for g in script.call("groups") as Array:
+		flat.append_array((g as Dictionary)["columns"] as Array)
+	var consumers: Array = (jobs.get("CONSUMERS") as Array).duplicate()
+	var sorted_flat: Array = flat.duplicate()
+	sorted_flat.sort()
+	consumers.sort()
+	if sorted_flat != consumers or flat != (script.call("shown_columns") as Array):
+		push_error("COLONY: the groups hold %s, not every column with a consumer once" % str(flat))
+		ok = false
+	var mara: int = -1
+	var ellis: int = -1
+	for row in jobs.call("work_view", world) as Array:
+		var nm: String = String((row as Dictionary).get("name", ""))
+		if nm.begins_with("Mara"):
+			mara = int((row as Dictionary)["entity"])
+		elif nm.begins_with("Ellis"):
+			ellis = int((row as Dictionary)["entity"])
+	if mara < 0 or ellis < 0:
+		main.set("paused", was_paused)
+		return _skip("COLONY", "the boot colony has no Mara and Ellis to manage")
+	for dims in [Vector2i(1280, 720), Vector2i(1920, 1080)]:
+		root.size = dims
+		await process_frame
+		_tap(KEY_J)
+		main.call("_process", 0.0)
+		await process_frame
+		var view := Vector2(dims)
+		var bar: Rect2 = NavBar.call("rect_for", view) as Rect2
+		var r: Rect2 = panel.get_rect()
+		if not panel.visible or not Rect2(Vector2.ZERO, view).encloses(r) or r.position.y < bar.end.y + 16.0 or int(r.position.x) % 2 != 0 or int(r.position.y) % 2 != 0 or int(r.size.x) % 2 != 0 or int(r.size.y) % 2 != 0:
+			push_error("COLONY: the panel %s is not up, not inside %s, not under the bar or off the even grid" % [str(r), str(dims)])
+			ok = false
+		var foot: String = String((panel.get("drawn") as Dictionary).get("foot", ""))
+		var named: PackedStringArray = foot.get_slice(": ", 1).split(", ", false)
+		var stubs: Array = (script.call("unworked_columns") as Array).map(func(c: Variant) -> String: return String(c).to_lower())
+		if Array(named) != stubs or stubs.size() != 6:
+			push_error("COLONY: the footer names %s, not the six job columns nothing does %s" % [str(named), str(stubs)])
+			ok = false
+		# Nobody is picked until a click (main has nobody), so the bar and the drawer agree.
+		if int(panel.call("selected")) != -1 or not ((panel.get("drawn") as Dictionary).get("who", []) as Array).is_empty():
+			push_error("COLONY: the screen opened on %d with nobody picked in the game" % int(panel.call("selected")))
+			ok = false
+		# Every phrase the read model can say fits the row whole; one twice the cap does not.
+		var row_font: Font = Chrome.font()
+		var room: float = float(panel.call("now_room"))
+		for phrase in WorkRead.phrases():
+			if UiText.fit(row_font, phrase, 25, room) != phrase:
+				push_error("COLONY: the now line %s is cut in %d px at %s" % [phrase, int(room), str(dims)])
+				ok = false
+		# At 1280 the room is tight: the line the review found cut is still cut there (the negative).
+		var too_long: String = "heading home, the dead are close"
+		if dims.x == 1280 and UiText.fit(row_font, too_long, 25, room) == too_long:
+			push_error("COLONY: %s fits the now room at 1280 (%d px), so the fit was not judged" % [too_long, int(room)])
+			ok = false
+		# Every backstory the colony can hold reads whole in the drawer: each generated story with the
+		# longest age and the three longest features a roll can give, and each unique as authored.
+		var clauses: Array[String] = _every_who_clause(world)
+		if clauses.size() < 10:
+			push_error("COLONY: only %d who clauses to judge, not the eight stories and the two uniques" % clauses.size())
+			ok = false
+		for clause in clauses:
+			var lines: Array = script.call("wrap_text", row_font, clause, 25, float(panel.call("_inner")), int(script.get("WHO_LINES"))) as Array
+			if " ".join(PackedStringArray(lines)) != clause:
+				push_error("COLONY: the drawer cuts %s at %s" % [clause, str(dims)])
+				ok = false
+		var piled: String = " ".join(PackedStringArray(_every_who_clause(world)))
+		if " ".join(PackedStringArray(script.call("wrap_text", row_font, piled, 25, float(panel.call("_inner")), int(script.get("WHO_LINES"))) as Array)) == piled:
+			push_error("COLONY: every clause end to end fits the drawer, so the cut was not judged")
+			ok = false
+		# The now line, and that it follows the sim.
+		var rows_drawn: Dictionary = (panel.get("drawn") as Dictionary).get("rows", {}) as Dictionary
+		for ent in [mara, ellis]:
+			var said: String = String((rows_drawn.get(ent, {}) as Dictionary).get("now", ""))
+			if said.is_empty() or said != WorkRead.doing(world, ent):
+				push_error("COLONY: the row for %d says now %s, the read model %s" % [ent, said, WorkRead.doing(world, ent)])
+				ok = false
+		var job_was: Variant = world.components.get_component(mara, "job")
+		var sleep_was: Variant = world.components.get_component(mara, "sleeping")
+		world.components.remove_component(mara, "sleeping")
+		world.components.set_component(mara, "job", {"kind": "Cook", "ticksLeft": 0})
+		panel.queue_redraw()
+		await process_frame
+		var cooking: String = String((((panel.get("drawn") as Dictionary)["rows"] as Dictionary).get(mara, {}) as Dictionary).get("now", ""))
+		world.components.remove_component(mara, "job")
+		panel.queue_redraw()
+		await process_frame
+		var idle: String = String((((panel.get("drawn") as Dictionary)["rows"] as Dictionary).get(mara, {}) as Dictionary).get("now", ""))
+		if job_was is Dictionary:
+			world.components.set_component(mara, "job", job_was)
+		if sleep_was is Dictionary:
+			world.components.set_component(mara, "sleeping", sleep_was)
+		if cooking != "cooking" or idle != WorkRead.IDLE:
+			push_error("COLONY: Mara's now line read %s with a cook job and %s with none" % [cooking, idle])
+			ok = false
+		# Pick Mara by her name, then a footer click that picks nobody.
+		var laid: Dictionary = panel.call("_layout") as Dictionary
+		var mara_band: Rect2 = Rect2()
+		for row in laid["rows"] as Array:
+			if int((row as Dictionary)["entity"]) == mara:
+				mara_band = (row as Dictionary)["band"] as Rect2
+		_drain(main)
+		# A right click on a name picks nobody and queues nothing.
+		_mouse(panel.position + mara_band.position + Vector2(24.0, 12.0), MOUSE_BUTTON_RIGHT)
+		if int(panel.call("selected")) != -1 or int(main.get("_selected")) != -1 or not _pending(main).is_empty():
+			push_error("COLONY: a right click on Mara's name picked %d or queued %s" % [int(panel.call("selected")), str(_pending(main))])
+			ok = false
+		_mouse(panel.position + mara_band.position + Vector2(24.0, 12.0), MOUSE_BUTTON_LEFT)
+		if int(main.get("_selected")) != mara or int(panel.call("selected")) != mara or not _pending(main).is_empty():
+			push_error("COLONY: a click on Mara's name picked %d (main %d) and queued %s" % [int(panel.call("selected")), int(main.get("_selected")), str(_pending(main))])
+			ok = false
+		_mouse(panel.position + Vector2(panel.size.x / 2.0, panel.size.y - 8.0), MOUSE_BUTTON_LEFT)
+		if int(panel.call("selected")) != mara or not _pending(main).is_empty():
+			push_error("COLONY: a click on the footer changed the pick or queued %s" % str(_pending(main)))
+			ok = false
+		# An explicit Focus chip.
+		laid = panel.call("_layout") as Dictionary
+		var worker: Rect2 = Rect2()
+		for chip in laid["chips"] as Array:
+			if String((chip as Dictionary)["focus"]) == "Worker":
+				worker = (chip as Dictionary)["rect"] as Rect2
+		# A right click on a chip or on their skills does nothing at all.
+		_mouse(panel.position + worker.get_center(), MOUSE_BUTTON_RIGHT)
+		_mouse(panel.position + (laid["skills"] as Rect2).get_center(), MOUSE_BUTTON_RIGHT)
+		main.call("_process", 0.0)
+		if not _pending(main).is_empty() or bool(main.get("web_open")) or int(panel.call("selected")) != mara:
+			push_error("COLONY: a right click on a focus chip or their skills queued %s, opened the web or moved the pick" % str(_pending(main)))
+			ok = false
+		_mouse(panel.position + worker.get_center(), MOUSE_BUTTON_LEFT)
+		var focus_cmds: Array = _drain(main).filter(func(c: Variant) -> bool: return String((c as Dictionary).get("type", "")) == "job.focus")
+		if focus_cmds.size() != 1 or int((focus_cmds[0] as Dictionary).get("entity", -1)) != mara or String((focus_cmds[0] as Dictionary).get("focus", "")) != "Worker":
+			push_error("COLONY: the worker chip queued %s, not one Worker focus for Mara" % str(focus_cmds))
+			ok = false
+		# A right click counts a cell down: Mara's 1 to never, a never to 4.
+		var cols: Dictionary = {}
+		for row in jobs.call("work_view", world) as Array:
+			if int((row as Dictionary)["entity"]) == mara:
+				cols = (row as Dictionary)["cols"] as Dictionary
+		var edges: Array = panel.call("_column_edges") as Array
+		var shown: Array = script.call("shown_columns") as Array
+		var picked_cells: Dictionary = {}
+		for i in shown.size():
+			var v: int = int(cols.get(String(shown[i]), 0))
+			if v == 1 and not picked_cells.has(1):
+				picked_cells[1] = i
+			if v == 0 and not picked_cells.has(0):
+				picked_cells[0] = i
+		for v in picked_cells.keys():
+			var i: int = int(picked_cells[v])
+			var at: Vector2 = panel.position + Vector2((float(edges[i]) + float(panel.call("_column_end", edges, i))) / 2.0, mara_band.position.y + 20.0)
+			_mouse(at, MOUSE_BUTTON_RIGHT)
+			var edits: Array = _drain(main).filter(func(c: Variant) -> bool: return String((c as Dictionary).get("type", "")) == "job.priority")
+			var want: int = 0 if int(v) == 1 else 4
+			if edits.size() != 1 or String((edits[0] as Dictionary).get("column", "")) != String(shown[i]) or int((edits[0] as Dictionary).get("value", -1)) != want:
+				push_error("COLONY: a right click on Mara's %s (%d) queued %s, not %d" % [String(shown[i]), int(v), str(edits), want])
+				ok = false
+		if picked_cells.size() < 2:
+			push_error("COLONY: Mara's row has no 1 and no never to count down, so the right click was not judged")
+			ok = false
+		# The whole clause, wrapped, as the next frame draws it for Mara.
+		panel.queue_redraw()
+		await process_frame
+		laid = panel.call("_layout") as Dictionary
+		var who_text: String = String(laid["who_text"])
+		var who_lines: Array = (panel.get("drawn") as Dictionary).get("who", []) as Array
+		var name_room: float = float(edges[0]) - 24.0
+		var font: Font = Chrome.font()
+		if who_text.is_empty() or " ".join(PackedStringArray(who_lines)) != who_text or who_lines.size() < 2:
+			push_error("COLONY: the drawer's who lines %s are not the sim's whole clause %s" % [str(who_lines), who_text])
+			ok = false
+		if UiText.fit(font, who_text, 25, name_room) == who_text:
+			push_error("COLONY: the clause fits one row-width line, so the wrap was not judged")
+			ok = false
+		# The Focus line: by the preset only when the row is the preset.
+		var sel_row: Dictionary = {}
+		for row in jobs.call("work_view", world) as Array:
+			if int((row as Dictionary)["entity"]) == mara:
+				sel_row = row as Dictionary
+		var line: String = String(panel.call("focus_line"))
+		var is_preset: bool = bool(script.call("row_is_preset", sel_row))
+		if is_preset != (line == String(script.call("focus_sentence", String(sel_row.get("focus", "Auto"))))):
+			push_error("COLONY: the focus line %s does not match whether Mara's row is her focus's preset (%s)" % [line, str(is_preset)])
+			ok = false
+		var edited: Dictionary = sel_row.duplicate(true)
+		edited["focus"] = "Medic"
+		edited["cols"] = jobs.call("preset", "Medic")
+		var preset_ok: bool = bool(script.call("row_is_preset", edited))
+		(edited["cols"] as Dictionary)["Cook"] = 2
+		if not preset_ok or bool(script.call("row_is_preset", edited)):
+			push_error("COLONY: a medic preset row is not judged a preset, or one with a cell changed still is")
+			ok = false
+		if not String(script.call("focus_sentence", "Medic")).begins_with("medic puts doctor first"):
+			push_error("COLONY: the medic sentence %s does not put doctor first" % String(script.call("focus_sentence", "Medic")))
+			ok = false
+		# Their skills.
+		var sk: Rect2 = laid["skills"] as Rect2
+		_mouse(panel.position + sk.get_center(), MOUSE_BUTTON_LEFT)
+		main.call("_process", 0.0)
+		await process_frame
+		var nav: Control = main.get("_nav_bar") as Control
+		var web: Control = main.get("_web_panel") as Control
+		if not bool(main.get("web_open")) or bool(main.get("work_open")) or int(web.get("_who")) != mara or bool(nav.get("subject_is_you")) or not String(nav.get("subject_name")).begins_with("Mara"):
+			push_error("COLONY: their skills left web %s on %d, the bar on %s" % [str(main.get("web_open")), int(web.get("_who")), String(nav.get("subject_name"))])
+			ok = false
+		# The two screens hang from one line under the bar, so switching does not move the top edge.
+		if web.position.y != panel.position.y:
+			push_error("COLONY: Skills starts at y %d and Colony at y %d (%s)" % [int(web.position.y), int(panel.position.y), str(dims)])
+			ok = false
+		_drain(main)
+		main.call("_show_screen", "")
+		main.set("_selected", -1)
+		await process_frame
+	ok = await _a_long_roster_scrolls_to_the_pick(main, panel) and ok
+	root.size = old_size
+	main.set("paused", was_paused)
+	await process_frame
+	if ok:
+		print("COLONY OK at 1280x720 and 1920x1080 the screen sits under the bar on the even grid and opens on nobody; the groups hold every working column once and the footer names the six nothing does; every now phrase and every backstory fits whole; each now line is the read model's as drawn and follows a job change; a right click on a name, a chip or their skills does nothing; a name click picks the colonist for the game and a footer click picks nobody; a focus chip queues that focus; a right click counts 1 to never and never to 4; the who lines are the whole clause where one line would cut it; the focus line names a preset only for a preset row; their skills opens the web on them, viewing, from the same top edge; a roster of seven scrolls to the pick, keeps the wheel while it is picked and counts the rows scrolled away each way")
+	return ok
+
+
+# The drawer's "who" text for every backstory the colony can hold, less the name the heading says:
+# each generated story at its longest (the longest age prose, the three longest features a roll can
+# draw) and each unique as authored.
+func _every_who_clause(world: Variant) -> Array[String]:
+	var out: Array[String] = []
+	var pool: Dictionary = {}
+	var gen: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://content/colony/generator.json"))
+	if gen is Dictionary:
+		pool = gen as Dictionary
+	var age: String = ""
+	for band in pool.get("ageBands", []) as Array:
+		if String((band as Dictionary).get("prose", "")).length() > age.length():
+			age = String((band as Dictionary)["prose"])
+	var feats: Array = (pool.get("features", []) as Array).duplicate()
+	feats.sort_custom(func(x: Variant, y: Variant) -> bool: return String(x).length() > String(y).length())
+	var three: String = ", ".join(PackedStringArray(feats.slice(0, 3)))
+	for story in pool.get("backstories", []) as Array:
+		var line: String = String((story as Dictionary).get("line", ""))
+		out.append(line.substr(0, 1).to_upper() + line.substr(1) + ", " + age + "; " + three)
+	# The uniques as the boot built them: an identity with no generated story is an authored one.
+	for ent in world.components.query(["identity"]):
+		var ident: Dictionary = world.components.get_component(ent, "identity") as Dictionary
+		if String(ident.get("backstoryId", "")) != "":
+			continue
+		var clause: String = SimSurvivors.person_clause(world, ent)
+		var lead: String = String(ident.get("name", "")) + ", "
+		if clause.begins_with(lead):
+			clause = clause.substr(lead.length())
+			clause = clause.substr(0, 1).to_upper() + clause.substr(1)
+		out.append(clause)
+	return out
+
+
+# A roster of seven at 1280x720: the last colonist picked in the game (as a click on their body in
+# the street would) scrolls the roster to their row, which the screen would otherwise leave below
+# the fold (the negative, at the top); the strip under the rows counts what is scrolled away each
+# way and says nothing when every row is drawn; the picked row's brackets are drawn after the
+# drawer, whose groove would cut their bottom arms (art QA, slice 2, round two).
+func _a_long_roster_scrolls_to_the_pick(main: Node, panel: Control) -> bool:
+	var ok: bool = true
+	var world: Variant = main.get("world")
+	var jobs: GDScript = load("res://sim/modules/jobs.gd") as GDScript
+	root.size = Vector2i(1280, 720)
+	await process_frame
+	_tap(KEY_J)
+	main.call("_process", 0.0)
+	await process_frame
+	if String((panel.get("drawn") as Dictionary).get("more", "?")) != "":
+		push_error("COLONY: the boot's two colonists all drawn still say %s" % String((panel.get("drawn") as Dictionary).get("more", "?")))
+		ok = false
+	var at: Dictionary = world.components.get_component(int(world.player), "position") as Dictionary
+	var born: Array[int] = []
+	while (jobs.call("work_view", world) as Array).size() < 7:
+		born.append(int(SimRecruits.spawn_generated(world, SimRecruits.roll(world, world.rng.stream("recruit")), float(at["x"]) + 2.0 + float(born.size()), float(at["y"]) + 1.0)))
+	var rows: Array = jobs.call("work_view", world) as Array
+	var last: int = int((rows[rows.size() - 1] as Dictionary)["entity"])
+	panel.set("_row_scroll", 0)
+	main.call("_process", 0.0)
+	panel.queue_redraw()
+	await process_frame
+	var vis: int = int(panel.call("_visible_rows"))
+	var top_more: String = String((panel.get("drawn") as Dictionary).get("more", ""))
+	var shown: Array = ((panel.call("_layout") as Dictionary)["rows"] as Array).map(func(r: Variant) -> int: return int((r as Dictionary)["entity"]))
+	if vis >= rows.size() or shown.has(last) or top_more != "%d more below · wheel" % (rows.size() - vis):
+		push_error("COLONY: seven colonists at 1280 show %d rows, the last drawn %s, the strip %s" % [vis, str(shown.has(last)), top_more])
+		ok = false
+	main.set("_selected", last)
+	main.call("_process", 0.0)
+	panel.queue_redraw()
+	await process_frame
+	shown = ((panel.call("_layout") as Dictionary)["rows"] as Array).map(func(r: Variant) -> int: return int((r as Dictionary)["entity"]))
+	var end_more: String = String((panel.get("drawn") as Dictionary).get("more", ""))
+	if int(panel.call("selected")) != last or not shown.has(last) or end_more != "%d above · wheel" % (rows.size() - vis):
+		push_error("COLONY: the last colonist picked in the game is %s drawn (picked %d), the strip %s" % [str(shown.has(last)), int(panel.call("selected")), end_more])
+		ok = false
+	# The wheel stays the player's while somebody is picked: one step up, then the frames main
+	# runs, and the roster has moved off the pick and stays there (art QA, slice 2, round three:
+	# a scroll to the pick on every frame undid every step).
+	var end_scroll: int = int(panel.get("_row_scroll"))
+	_mouse(panel.position + Vector2(panel.size.x / 2.0, float(panel.get_script().get("GRID_Y")) + 20.0), MOUSE_BUTTON_WHEEL_UP)
+	for i in 3:
+		main.call("_process", 0.0)
+		await process_frame
+	var mid_more: String = String((panel.get("drawn") as Dictionary).get("more", ""))
+	var mid_scroll: int = int(panel.get("_row_scroll"))
+	if mid_scroll != end_scroll - 1 or int(panel.call("selected")) != last or mid_more != "%d above · 1 below · wheel" % mid_scroll:
+		push_error("COLONY: a wheel step up with %d picked left the roster at %d (was %d), the strip %s" % [last, mid_scroll, end_scroll, mid_more])
+		ok = false
+	var body: String = FileAccess.get_file_as_string("res://ui/work_panel.gd")
+	var draw_at: int = body.find("func _draw() -> void:")
+	if draw_at < 0 or body.find("Locker.brackets(", draw_at) < body.find("_draw_drawer(font", draw_at):
+		push_error("COLONY: the picked row's brackets are drawn before the drawer, whose groove cuts them")
+		ok = false
+	for e in born:
+		world.despawn(e)
+	main.set("_selected", -1)
+	main.call("_show_screen", "")
+	await process_frame
+	return ok
+
+
+func _mouse(at: Vector2, button: MouseButton) -> void:
+	for down in [true, false]:
+		var press := InputEventMouseButton.new()
+		press.button_index = button
+		press.pressed = down
+		press.position = at
+		root.push_input(press)
