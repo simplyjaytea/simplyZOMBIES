@@ -1175,7 +1175,9 @@ func _the_hour_read_once_is_the_hour_read_per_observer() -> bool:
 			var range_m: float = float(obs["range_metres"])
 			var ambient_ref: float = range_m * Clock.ambient_light_at(int(w.tick))
 			var lit: float = float(w.light.lit_metres(at.x, at.y)) if w.light != null else 0.0
-			var sight_ref: float = min(range_m, max(ambient_ref, lit))
+			# A survivor's eyes take the night floor (visibility.gd NIGHT_EYES_FLOOR_M, 2026-10-24); a zombie's do not.
+			var floor_ref: float = SimVisibility.NIGHT_EYES_FLOOR_M if bool(obs.get("night_eyes", false)) else 0.0
+			var sight_ref: float = min(range_m, max(ambient_ref, lit, floor_ref))
 			for got in [vis._sight_metres(w, obs, at.x, at.y), vis._sight_metres(w, obs, at.x, at.y, k)]:
 				if got != sight_ref:
 					return _fail("AMBIENT", "hour %d, observer %d: a sight reach of %.4f where the clock and the lamps give %.4f" % [hour, ob, got, sight_ref])
