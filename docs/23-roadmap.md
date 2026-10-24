@@ -1455,7 +1455,10 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   `godot:m2:jobs`'s STAND lane is red on the old rule and green on this one. The bound is 1.0 and not
   tighter because the FAST balance wipe on seed 20260805 flips at 0.5 and 0.75 while 1.0 keeps main's
   outcome band (a chaotic sensitivity to any Guard timing change, measured 2026-10-24: all four
-  seeds' numbers move, not only that one). The seed trace behind the wipe at 0.5 is recorded below.
+  seeds' numbers move, not only that one). Open: why the seed 20260805 wipe happens at 0.5 is not
+  settled. A ten-day trace was stopped early; its one death on day 1 (tick 67500, at (143.5, 164.6),
+  far from the gate) was not a Guard death. So the Guard's exposure at the gate is not shown to be
+  the cause, and the flip is not shown to be a real balance effect rather than path chaos.
 - **A melee raider band cannot reach a body that does not move.** `SimRaiders._approach` halts at
   `HALT_METRES` (2.6 m) and every melee reach a raider kit carries is shorter — the rusted machete
   is 1.2 plus `MELEE_REACH_FUDGE`, 1.55 — so nothing closes the last metre and a scav band stands
