@@ -5901,3 +5901,13 @@ The call that stands:
 Gated by `godot:m2:jobs` BUILDER: a zombie 3 m off the yard breaks the job off, 20 m off does not,
 a builder inside the house is not broken off, and the walk home holds for `RETREAT_HOLD_TICKS` and
 the builder goes back to the wall after it. The lane was run red against the lot-as-home rule first.
+
+## A dropped part fits only an empty slot, 2026-10-24
+
+The drop on a weapon is the fit and nothing more (C3). Calls taken without the owner:
+
+- **A drop never swaps.** An occupied slot takes no part from a drop; the grid placement is the
+  answer, and swapping stays with the assembly screen, where a choice is made on purpose.
+- **The hands rule holds for a drop too.** A part the survivor cannot change by hand is not fitted
+  by a drop away from a bench, even into an empty slot. `SimGunsmith.drop_slot` asks `may_work`,
+  the question the open command and the attach command already ask.
