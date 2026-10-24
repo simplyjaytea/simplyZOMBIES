@@ -2846,7 +2846,11 @@ not a to-do list:
   SOCKET). `npm run godot:check:shots` → `SHOTS_OK` with thirteen scenes; NEGATIVE refuses a day
   street and the torchless night as the torch shot. Before and after shots of `night_lights` and
   `night_torch` at both windows, and the first cut's staircase, are in the project's
-  `planning/night-torch/`. Art QA on the beam's origin and the disc.
+  `planning/night-torch/`. Art QA on the beam's origin and the disc. Frame cost, the committed
+  `night-draw` sample (a hand torch and a campfire), three interleaved runs each on llvmpipe:
+  branch 11.45, 10.62, 11.17 ms mean (median 11.17), main 10.75, 10.24, 11.36 (median 10.75),
+  inside the run-to-run noise of about 1 ms. Main's night draw is itself over its 10 ms target
+  on this container; that is B1's open number, not this slice's.
 
 - **Feel — bodies glide between ticks, and a slow frame drops time, 2026-10-19.** Item A2 of
   the 2026-10-19 alpha plan. The sim steps at 20 Hz and every body used to be drawn on the
