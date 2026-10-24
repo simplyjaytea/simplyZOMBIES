@@ -3803,6 +3803,25 @@ not a to-do list:
   7.3 ms down to 1.7 to 2.0 ms. At 1000 tiles `patches` went from 9.8 to 10.9 ms down to 3.8 to
   6.4 ms, and the drop from 20.4 to 28.0 ms down to 5.0 to 8.0 ms. `tiles` is unchanged: 0.7 ms at
   320 and 2.1 to 2.5 ms at 1000.
+- **The cook's raw: nearest the fire, never past the dead (the stockpile review, finding 7).**
+  `_stock_cookable` (`godot/sim/modules/jobs.gd`) took the first raw food in entity order from
+  anywhere on the zone, with no thought for distance or danger, and Cook was not in `DANGER_KINDS`,
+  so a cook on that walk did not break off as a hauler would. Both were harmless while every raw
+  lay on the annex floor; with a pile marked by a camp (slice S2), the first in entity order could
+  be the far one, past the dead, and the cook walked to it. Now the raw nearest the fire wins
+  within each pass (food first, then the rest, as before), a raw in danger is no candidate, and
+  Cook is in `DANGER_KINDS`. Danger for a raw follows the rule the colonist's own body is judged
+  by (`_outside_in_danger`): inside home's walls only a zombie inside the walls counts
+  (`_zombie_inside_walls`), since the yard's dead stand within `DANGER_TARGET_METRES` of the annex
+  floor on most seeds and a raw at home is as safe as home is; anywhere else it is Haul's rule for
+  the ground it will walk to (`_cookable_in_danger`). Gate: `godot:m2:stockpile` FAR, with every
+  zombie moved by hand and put back: a raw at home and one on a far pile beside a zombie, spawned
+  first, and the home raw is cooked; only the far raw, and no Cook is offered; every zombie in a
+  far corner, and the far raw is cooked; a second home raw spawned after the far one, and the
+  nearest to the fire wins. Sabotage, each shown red: no danger skip (a Cook offered for the raw
+  beside the zombie), first in entity order (the far raw taken over the home one). `godot:m2:jobs`
+  COOK CLAIM and `godot:m2:transform` PINNED, COOK and ORDER went red under a danger test that
+  counted the yard's dead against the annex floor, and hold green under the walls rule.
 - **Nowhere to put it: the two ways a hauled or cooked thing left the map (the stockpile review,
   findings 1 and 2).** The feature's end-to-end review (`planning/stockpile/review.md` in the
   project files) found two paths that lost an item for good. A Haul or Repair pickup whose stow

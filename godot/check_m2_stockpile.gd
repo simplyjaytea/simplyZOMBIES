@@ -50,6 +50,11 @@ extends SceneTree
 #   FULL    -- a hauler whose pack will not take the tin leaves it where it lay: `position` kept,
 #              `handsFull` set, no Haul offered for HANDS_FULL_TICKS and offered again after. The
 #              old code took the tin off the map and stopped, leaving it on no tile and in no pack.
+#   FAR     -- the cook takes the raw nearest the fire, not the first in entity order, and never one
+#              with a zombie within DANGER_TARGET_METRES: with a raw at home and one on a far pile
+#              beside a zombie (spawned first), the home raw is cooked; with only the far raw, no
+#              Cook is offered; with the zombie gone, the far raw is. Cook is in DANGER_KINDS, so a
+#              cook on that walk breaks off like a hauler.
 #   PREVIEW -- slice S2's read model: `SimStockpile.preview` is what the screen's drag draws, so it
 #              has to be what `mark` does. On a fresh world it creates no record (it only asks);
 #              `markable_in` answers `markable` tile for tile, an unexplored tile included; an `on`
@@ -114,11 +119,12 @@ func _run() -> void:
 	ok = _the_window_takes_and_puts_by_the_sims_rules() and ok
 	ok = _an_emptied_zone_hauls_nothing_and_the_meal_lies_at_the_fire() and ok
 	ok = _a_full_pack_leaves_the_tin_where_it_lay() and ok
+	ok = _the_cook_takes_the_near_raw_and_never_one_by_a_zombie() and ok
 	var skip_note: String = ""
 	if not _skipped.is_empty():
 		skip_note = " SKIPPED(no data): " + ", ".join(_skipped)
 	if ok:
-		print("M2_STOCKPILE_OK default mark walled readers save preview spread patch walk cook raider summary take empty full%s" % skip_note)
+		print("M2_STOCKPILE_OK default mark walled readers save preview spread patch walk cook raider summary take empty full far%s" % skip_note)
 		quit(0)
 	else:
 		push_error("M2_STOCKPILE_FAIL")
@@ -1102,6 +1108,74 @@ func _a_full_pack_leaves_the_tin_where_it_lay() -> bool:
 	if not ok:
 		return false
 	print("FULL OK the helmet the pack refused lies where it lay at %s, the hauler's hands are full for %d ticks and the haul comes back after" % [str(beside), SimJobs.HANDS_FULL_TICKS])
+	return true
+
+
+# FAR. The cook's raw: nearest the fire, never beside a zombie, and Cook breaks off like an errand.
+func _the_cook_takes_the_near_raw_and_never_one_by_a_zombie() -> bool:
+	var w: Variant = _world()
+	var mara: int = _colonist(w)
+	var fires: Array[int] = w.components.query(["campfire"])
+	var home: Array[Vector2i] = _annex_floor(w)
+	var block: Vector2i = _markable_block(w, 2, 6)
+	var zombies: Array[int] = w.components.query(["shambler", "position"])
+	if mara < 0 or fires.is_empty() or home.is_empty() or block.x < 0 or zombies.is_empty():
+		push_error("FAR: needs Mara, a campfire, an annex floor, a pile clear of the annex and a zombie; the booted map did not give them all")
+		return false
+	if not SimJobs.DANGER_KINDS.has("Cook"):
+		push_error("FAR: Cook is not a job the danger rule breaks off")
+		return false
+	_mark(w, block.x, block.y, block.x + 1, block.y + 1, true)
+	var danger_was: bool = SimJobs.BREAK_OFF_FROM_DANGER
+	SimJobs.BREAK_OFF_FROM_DANGER = true
+	# The far raw is spawned first, so the old first-in-order answer would be the far one.
+	var far_raw: int = _put_on(w, block, RAW_FOOD)
+	var near_tile := Vector2i(-1, -1)
+	for t in home:
+		if _free(w, t):
+			near_tile = t
+			break
+	var near_raw: int = _put_on(w, near_tile, RAW_FOOD)
+	# Every zombie is moved by hand and put back, and nothing steps in between: the booted map's dead
+	# stand where they like, and the lane is about the rule, not about where this seed put them.
+	var zombie_was: Dictionary = {}
+	for z in zombies:
+		zombie_was[int(z)] = (w.components.get_component(int(z), "position") as Dictionary).duplicate()
+	var far_corner := Vector2(0.5, 0.5) if block.x > int(w.tilemap.w) / 2 else Vector2(float(w.tilemap.w) - 0.5, 0.5)
+	for z in zombies:
+		w.components.set_component(int(z), "position", {"x": far_corner.x, "y": far_corner.y})
+	w.components.set_component(int(zombies[0]), "position", {"x": float(block.x) + 1.5, "y": float(block.y) + 1.5})
+	var ok: bool = true
+	var first: Dictionary = SimJobs._cook_work(w, mara)
+	if int(first.get("target", -1)) != near_raw:
+		push_error("FAR: with a raw at home and one on the far pile by a zombie, the cook took %s, not the home raw %d" % [str(first.get("target", -1)), near_raw])
+		ok = false
+	w.components.remove(near_raw, "reserved")
+	w.components.remove(near_raw, "position")
+	w.despawn(near_raw)
+	if ok and not SimJobs._cook_work(w, mara).is_empty():
+		push_error("FAR: with only the far raw, beside a zombie, a Cook was offered")
+		ok = false
+	w.components.set_component(int(zombies[0]), "position", {"x": far_corner.x, "y": far_corner.y})
+	if ok and SimJobs._danger_at(w, float(block.x) + 0.5, float(block.y) + 0.5, SimJobs.DANGER_TARGET_METRES):
+		push_error("FAR: a zombie still stands within danger of the pile with all of them in the far corner, so the positive cannot be judged")
+		ok = false
+	if ok and int(SimJobs._cook_work(w, mara).get("target", -1)) != far_raw:
+		push_error("FAR: with the zombie gone the far raw is still not cooked")
+		ok = false
+	# The ranking on its own, no zombie near either: a second home raw, spawned after the far one, so
+	# the first in entity order is the far raw and the nearest to the fire is this one.
+	w.components.remove(far_raw, "reserved")
+	var near_again: int = _put_on(w, near_tile, RAW_FOOD)
+	if ok and int(SimJobs._cook_work(w, mara).get("target", -1)) != near_again:
+		push_error("FAR: with no zombie near either raw, the cook took %s, not the home raw %d nearest the fire" % [str(SimJobs._cook_work(w, mara).get("target", -1)), near_again])
+		ok = false
+	for z in zombies:
+		w.components.set_component(int(z), "position", zombie_was[int(z)])
+	SimJobs.BREAK_OFF_FROM_DANGER = danger_was
+	if not ok:
+		return false
+	print("FAR OK the cook takes the home raw over the far one by a zombie, takes nothing when only the far one is there, takes it once the zombie is gone, and with no zombie near either takes the one nearest the fire")
 	return true
 
 
