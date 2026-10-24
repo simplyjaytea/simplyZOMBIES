@@ -28,7 +28,9 @@ extends SceneTree
 #              the brush up or down, the rim on outer sides only with the concave notch, the rest
 #              look quieter than the marking look, the drag preview only on explored unroofed
 #              tiles, the rim's contrast at least 3:1 on every ground the district has (the measure
-#              proved on a rim that matches its ground first); textual: `_draw_world` reaches
+#              proved on a rim that matches its ground first); by firelight (NIGHT_POOL) the wash at
+#              least as plain as the day wash at noon on every ground, at rest and marking, which the
+#              day alphas fail; textual: `_draw_world` reaches
 #              `_draw_stockpile`, which paints StockpileLook's cells over `SimStockpile.tiles` (read
 #              again only when `SimStockpile.signature` moves, and batched again only when the zone,
 #              the tick, the brush, the zoom or the roof moves) with the explored set and the roof,
@@ -429,6 +431,19 @@ class FakeTiles:
 # against the rim the day it lands.
 const RIM_GROUNDS: Array[String] = ["floor", "dirt", "grass", "undergrowth", "rubble", "indoorFloor", "sidewalk"]
 const RIM_CONTRAST: float = 3.0
+# How far the night pass darkens the ground inside a campfire's pool, as a share of its noon colour:
+# the darkest channel of the board floor in the pool in the night_lights review shot is about 0.55 of
+# the same floor at noon (the red channel keeps more, up to 0.9, for the fire's warmth). A flat
+# multiply is the model, and the darkest share is the hard case for a wash to stay visible.
+const NIGHT_POOL: float = 0.55
+
+
+# The wash over `ground` against the bare ground, both darkened by `light` (1 at noon).
+func _wash_contrast(alpha: float, ground: Color, light: float) -> float:
+	var wash: Color = Palette.STOCKPILE_WASH
+	wash.a = alpha
+	var top: Color = StockpileLook.over(wash, ground)
+	return StockpileLook.contrast(Color(top.r * light, top.g * light, top.b * light), Color(ground.r * light, ground.g * light, ground.b * light))
 
 
 func _cell_at(cells: Array[Dictionary], t: Vector2i) -> Dictionary:
@@ -579,6 +594,30 @@ func _the_stockpile_draws_on_known_ground_and_dims_with_it() -> bool:
 			if r < RIM_CONTRAST:
 				push_error("%s: the %s rim is %.2f:1 on %s, under %.1f" % [lane, String(name), r, key, RIM_CONTRAST])
 				ok = false
+	# NIGHT: by firelight the wash is at least as plain on every ground as the day wash is at noon, at
+	# rest and marking. Measured first on the day alphas at night, which must fall short -- else the
+	# night pair is not what makes the difference -- and `cells` must use the night alpha when it is
+	# handed the dark.
+	var night_worst: float = 99.0
+	for marking_now in [false, true]:
+		var short: bool = false
+		for key in RIM_GROUNDS:
+			var ground: Color = Palette.COLOURS[key] as Color
+			var day_c: float = _wash_contrast(StockpileLook.wash_alpha(marking_now, 1.0), ground, 1.0)
+			var night_c: float = _wash_contrast(StockpileLook.wash_alpha(marking_now, 0.0), ground, NIGHT_POOL)
+			night_worst = minf(night_worst, night_c / day_c)
+			if night_c < day_c:
+				push_error("%s: by firelight the %s wash is %.3f:1 on %s, under its %.3f:1 at noon" % [lane, "marking" if marking_now else "rest", night_c, key, day_c])
+				ok = false
+			if _wash_contrast(StockpileLook.wash_alpha(marking_now, 1.0), ground, NIGHT_POOL) < day_c:
+				short = true
+		if not short:
+			push_error("%s: the day wash already holds its noon contrast by firelight, so the NIGHT measure cannot fail" % lane)
+			ok = false
+	var dark_cell: Dictionary = _cell_at(StockpileLook.cells(zone, seen, explored, [], false, view, {}, 0.0), Vector2i(11, 11))
+	if not is_equal_approx((dark_cell.get("wash", Color()) as Color).a, Palette.STOCKPILE_WASH_REST_NIGHT):
+		push_error("%s: cells handed the dark washes at %.2f, not the night alpha" % [lane, (dark_cell.get("wash", Color()) as Color).a])
+		ok = false
 	# Textual: the frame reaches it, with the sim's zone, the explored set and the roof.
 	var world_body: String = _function_body(MAIN_GD, "_draw_world")
 	var draw_body: String = _function_body(MAIN_GD, "_draw_stockpile")
@@ -588,9 +627,9 @@ func _the_stockpile_draws_on_known_ground_and_dims_with_it() -> bool:
 	elif not world_body.contains("_draw_stockpile(seen, explored, roof"):
 		push_error("%s: _draw_world never calls _draw_stockpile with the sight sets and the roof" % lane)
 		ok = false
-	elif not draw_body.contains("SimStockpile.tiles(world)") or not draw_body.contains("SimStockpile.signature(world)") or not draw_body.contains("StockpileLook.cells(_stockpile_zone, seen, explored, roof, marking, whole, _stockpile_geom)") or not draw_body.contains("StockpileLook.batch(cells") or not draw_body.contains("int(world.tick)") or not draw_body.contains("StockpileLook.states(_stockpile_zone, seen, explored, roof)"):
+	elif not draw_body.contains("SimStockpile.tiles(world)") or not draw_body.contains("SimStockpile.signature(world)") or not draw_body.contains("StockpileLook.cells(_stockpile_zone, seen, explored, roof, marking, whole, _stockpile_geom, light)") or not draw_body.contains("LightLook.ambient_of(world)") or not draw_body.contains("StockpileLook.batch(cells") or not draw_body.contains("int(world.tick)") or not draw_body.contains("StockpileLook.states(_stockpile_zone, seen, explored, roof)"):
 		push_error("%s: _draw_stockpile does not paint StockpileLook's cells over SimStockpile.tiles, kept by its signature" % lane)
 		ok = false
 	if ok:
-		print("%s OK never on unexplored ground, remembered tiles dimmed through Palette.remembered, roofs win with the brush up or down, one rim with no inner seams and the concave notch, a row of one wash in one fill, the state bytes move with sight and roof, quieter at rest, the preview on explored unroofed ground in one strip, the rim %.2f:1 at worst on %d grounds, and _draw_world reaches it" % [lane, worst, RIM_GROUNDS.size()])
+		print("%s OK never on unexplored ground, remembered tiles dimmed through Palette.remembered, roofs win with the brush up or down, one rim with no inner seams and the concave notch, a row of one wash in one fill, the state bytes move with sight and roof, quieter at rest, the preview on explored unroofed ground in one strip, the rim %.2f:1 at worst on %d grounds, the wash by firelight at least its noon contrast (worst %.2fx), and _draw_world reaches it" % [lane, worst, RIM_GROUNDS.size(), night_worst])
 	return ok

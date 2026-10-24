@@ -3625,9 +3625,17 @@ not a to-do list:
   9.63, 10.10, 10.12 against 9.43, 10.85, 10.44, inside the box's spread. The bench holds the sim,
   so it measures the kept path; a tick reads the zone's state (about 0.3 ms for the 320-tile default
   zone on this box) and a change of state rebuilds the batch (about 1.5 ms). Shots, before and after
-  at both sizes, are in the project's shared folder under planning/stockpile/s2. Not in this slice:
-  S3's placement, stash and looter, and S5's Colony-screen words. Owner's eye: the default zone is
-  320 of S1's 400-tile cap.
+  at both sizes, are in the project's shared folder under planning/stockpile/s2. After art QA round
+  1: the cap is 1000 tiles (`SimStockpile.MAX_TILES`, from S1's 400, which left about 80 past the
+  default zone); the zone query the Haul drop asks every carrying tick (`SimStockpile.tiles`) now
+  parses each key once and sorts natively, 0.67 ms at 320 tiles and 2.1 ms at 1000 on this box
+  against 2.1 to 3.4 ms at 320 before, held to the old answer by WALLED (sabotage: no sort, no solid
+  test, each red); the wash leans to night alphas in the dark, held by STOCKPILE's NIGHT half (by
+  firelight at least its noon contrast on every ground, which the day alphas fail); the drag's
+  preview (about 5 ms for a full 1000-tile rectangle) is asked once per change of the rectangle and
+  shared with the bar, and the pending marks once per change; the bar says "Z / Esc — put the brush
+  down" as two caps. Not in this slice: S3's placement, stash and looter, and S5's Colony-screen
+  words.
 - **Attack order: a picked colonist goes after one zombie or raider they can see — 2026-10-24 orders slice A2.**
   With a colonist picked on the street, the menu's "have Mara attack it" row offers an `attack` order on a
   zombie or raider the colonist or the player can see right now (`SimOrders.accepts`, the scarce-information
