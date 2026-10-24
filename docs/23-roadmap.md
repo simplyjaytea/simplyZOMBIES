@@ -225,9 +225,11 @@ first:
 - **Field HUD and every vehicle instrument layout.** Finish compact prose, six quick slots,
   colony access, interaction hints, speech and event/feedback treatment. Reserve space for
   car, handlebar and board instruments; retain their existing information semantics.
-  **Files:** HUD, dashboard, quick strip, motion/cursors and coordinator-owned world UI
-  composition. **Proof:** HUD, vehicles, speech, play and skin gates; long prose and all
-  three mounting/driving/exit layouts without covering active controls.
+  One known nit, seen in C4's review shots: at 1280×720 a quick slot cuts a longer name short
+  ("Empty Bo…" for the empty bottle in slot 1); it predates C4. **Files:** HUD, dashboard,
+  quick strip, motion/cursors and coordinator-owned world UI composition. **Proof:** HUD,
+  vehicles, speech, play and skin gates; long prose and all three mounting/driving/exit layouts
+  without covering active controls.
 - **Title, pause, settings, help and end of run.** Carry the visual identity through every
   shell state and save/load feedback; retain opacity, volume and reduced motion and a
   scannable key reference. Keep developer tools distinct. **Files:** shell, settings,
@@ -303,10 +305,6 @@ owner's call and is recorded as one. The pieces, in the order they land — the 
   - **The camp's labour cost.** Materials, a real clock, survivors helping. Establishing costs
     fortify's ordinary 40-tick channel today, which is cheaper than boarding a window — half of the
     "deliberate commitment" Task 8 asks for, and the loud half is the half that shipped.
-  - **A stash at the camp.** `_stock_drop` is one tile in the annex, so an outpost extends what
-    colonists *collect* and not where they *put it* — the far round trip is the trade the reach
-    slice measured rather than hid. Needs `SimNeeds.is_stockpile_tile` to mean something without a
-    roof, which is the piece below.
   - **Evolving a camp** into something with an indoor floor, a stockpile and walls. The owner's
     "camps are temporary, the player can evolve them later".
   - **Camp-local occupancy and defenses** as the director's pressure inputs. Occupancy does not
@@ -1444,14 +1442,19 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   80 is given Rest (the picker does not read the pool), the Rest arm stops it at 80, and the
   next tick picks it again: 17,985 Rest starts in one day for one colonist on seed 31337. No
   outcome changes, but it is job churn on every idle tick and it hides the colonist's real idle.
-- **Two walkers hold each other in a one-tile doorway.** Found by the A24 balance pass
-  (2026-10-20) when `godot:m2:jobs`'s guard lane went red against the twenty-tile errand radius:
-  Ellis walks to the gate from inside the annex, Mara stands in the one-tile gateway, and the two
-  bodies push each other back for the whole 6,000-tick watch (both at y 29.0 beside the gate at
-  (30, 31) on seed 20260805 at 64 tiles). Nobody yields and nobody re-plans, so a colonist can be
-  kept off a post or out of a room by another colonist standing still. The lane pins the radius
-  back to forty, the day it was written against, rather than judge this; a fix is a yield or a
-  side-step in `SimJobs._walk`, with its own lane.
+- **A watch stopped short of its gate, not pushed (fixed 2026-10-24).** Found by the A24 balance
+  pass (2026-10-20) as "two walkers hold each other in a one-tile doorway". It was not a collision.
+  No body blocks another in this sim, and a second Guard removed from the gateway leaves the first
+  one's trajectory identical. The watch stopped on the walk's own arrival reach (`REACH`, 1.5 m)
+  from the post at (30, 30), which from the west is 1.8 m from the gateway at (30, 31) that the
+  GUARD lane measures. `SimJobs.GUARD_REACH` (1.0 m) now stops a watch within the gateway's reach;
+  `godot:m2:jobs`'s STAND lane is red on the old rule and green on this one. The bound is 1.0 and not
+  tighter because the FAST balance wipe on seed 20260805 flips at 0.5 and 0.75 while 1.0 keeps main's
+  outcome band (a chaotic sensitivity to any Guard timing change, measured 2026-10-24: all four
+  seeds' numbers move, not only that one). Open: why the seed 20260805 wipe happens at 0.5 is not
+  settled. A ten-day trace was stopped early; its one death on day 1 (tick 67500, at (143.5, 164.6),
+  far from the gate) was not a Guard death. So the Guard's exposure at the gate is not shown to be
+  the cause, and the flip is not shown to be a real balance effect rather than path chaos.
 - **A melee raider band cannot reach a body that does not move.** `SimRaiders._approach` halts at
   `HALT_METRES` (2.6 m) and every melee reach a raider kit carries is shorter — the rusted machete
   is 1.2 plus `MELEE_REACH_FUDGE`, 1.55 — so nothing closes the last metre and a scav band stands
@@ -2560,7 +2563,9 @@ not a to-do list:
   dispatching nothing (KEYS), and Escape no longer spent on the menu (MENU-ESCAPE) each turn their
   lane red. **Not done:** `verbs_at`'s door row is offered for a broken door, and for an open one
   somebody stands in, where E does nothing (`_door_would_toggle` refuses); the plan kept this slice
-  out of `verbs_at`, so the fix is a follow-up. No UI draw cost was measured.
+  out of `verbs_at`, so the fix is a follow-up. No UI draw cost was measured. The shots of the
+  merged head (fe6d3a60), `context_menu` at both windows, are in the project's
+  `planning/ui-slice-3/c4/`; they match the shots the art review judged byte for byte.
 
 - **Kernel & tooling — the playbook and the init audit, 2026-10-23.** The owner asked for the
   repository to be initialised for agents and for one playbook every agent can read. An audit of
@@ -2975,6 +2980,10 @@ not a to-do list:
   branch 11.45, 10.62, 11.17 ms mean (median 11.17), main 10.75, 10.24, 11.36 (median 10.75),
   inside the run-to-run noise of about 1 ms. Main's night draw is itself over its 10 ms target
   on this container; that is B1's open number, not this slice's.
+  A campfire's flicker follows the shader's real-time clock (`TIME` in `night_light.gdshader`),
+  so a shot with a fire in it is not pixel-stable between runs (about 20k pixels at 1080p in the
+  torch-over-campfire shot). A before/after pixel diff of such a shot pins the time first, or
+  compares only shots with no flame in view; the plain `night_torch` scene has none and is stable.
 
 - **Feel — bodies glide between ticks, and a slow frame drops time, 2026-10-19.** Item A2 of
   the 2026-10-19 alpha plan. The sim steps at 20 Hz and every body used to be drawn on the
@@ -3588,13 +3597,32 @@ not a to-do list:
   MARK (a 3x3 in and out; a wall, a door and an unexplored tile refused; the cap; `stockpile.changed`
   heard twice), WALLED, READERS, SAVE (a marked zone round-trips, and a save with no record reads the
   default). Sabotage: an unexplored-tile check turned to `true` turns MARK red. Not proven yet: a ford
-  (no explored ford on the seed's map, skipped out loud); a full Haul walk onto a marked outdoor pile
-  (the drop point and the haul test are checked, not a walk); and the raider looter, which still asks
-  `SimHome.rect` (the annex), so an outdoor pile is not looted yet. Both move to S3: its raider lane
-  switches the looter to the stockpile module, and its gate walks a Haul onto a marked outdoor pile. Sim tick, `godot:bench:runtime`, three
-  interleaved pairs on this box: head mean 13.42, 13.25, 13.26 ms; base 14.06, 12.88, 12.96 ms (medians
-  13.26 against 12.96, inside the box's roughly 1 ms spread). Both sit above the 8 ms target here, as
-  main does on this box.
+  (no explored ford on the seed's map, skipped out loud). The two gaps S1 named, a full Haul walk onto
+  a marked outdoor pile and the raider looter reading the annex, are closed by S3 below. Sim tick,
+  `godot:bench:runtime`, three interleaved pairs on this box: head mean 13.42, 13.25, 13.26 ms; base
+  14.06, 12.88, 12.96 ms (medians 13.26 against 12.96, inside the box's roughly 1 ms spread). Both sit
+  above the 8 ms target here, as main does on this box.
+- **Stockpile hauling: items spread over the pile, slice S3 of the 2026-10-24 plan.** A hauled item
+  or a cooked meal goes down on the emptiest free tile of the nearest patch of the stockpile zone
+  (`SimStockpile.patches` and `drop_tile` in `godot/sim/modules/stockpile.gd`; `_stock_drop`,
+  `_haul_drop` and `_lying_tiles` in `godot/sim/modules/jobs.gd`). Six items dropped in turn land on six
+  tiles, not one. A haul keeps its drop point on the job (`dropX`, `dropY`) and re-chooses only when the
+  point stops being a free zone tile. A pile marked beside a camp is its own patch, so the camp's
+  stash closes here. The raider looter (`raiders.gd`'s `_is_stores` and `_loot_goal`) reads the zone
+  instead of `SimHome.rect`, so a marked outdoor pile is looted. Gate `godot:m2:stockpile` gains SPREAD
+  (six items, six tiles; the first-free answer stacks them and goes red), PATCH (a pile clear of the
+  annex is its own patch; from beside it the drop is on the pile, from home at home), WALK (a Haul
+  picks an item up beside an outdoor pile and stocks it on the pile), COOK (a meal lands nearest the
+  fire, not the cook's feet) and RAIDER (a looter beside a marked pile heads for it, an item off the
+  zone is not stores). Carried: the day half of the colony's walks moves, and that surfaced
+  `godot:m2:jobs`'s guard lane on the one-tile doorway case in the "Two walkers hold each other" entry
+  above. Main's watch fix (#210, `SimJobs.GUARD_REACH`) cleared it on the merge; the lane was not loosened.
+  Bench, `godot:bench:runtime`, three interleaved pairs against main 21211eac: shipped tick (`shipped-tick`) head mean 16.76, 18.66, 18.02 ms, median 18.02; main 17.22, 17.28,
+  17.09 ms, median 17.22 (+0.8 ms on the median, inside a head spread of about 2 ms on this box).
+  Colony tick (`colony-tick`, 200 loose items) head 20.92, 19.90, 19.51 ms, median 19.90; main 19.88,
+  19.35, 20.33 ms, median 19.88 (level). Both branches are over the 8 ms mean target here, as main is.
+  The +0.8 ms on the shipped median is inside the noise here but not yet explained; it is not
+  attributed to the drop walk until a per-system timing says where it is.
 - **Marking the stockpile on screen, slice S2 of the 2026-10-24 plan.** Z picks up a brush (a `mark`
   focus in `godot/presentation/input_map.gd`, the `stockpile` binding; Ctrl+Z stays the prone rung).
   Under it a left drag pushes one `stockpile.mark` on over the dragged rectangle, a right drag one

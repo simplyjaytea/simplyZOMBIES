@@ -120,6 +120,69 @@ static func count(world: Variant) -> int:
 	return tiles(world).size()
 
 
+## The zone's patches: groups of zone tiles that touch edge to edge, each row-major. A pile marked at
+## a camp is its own patch however far it is from the annex. Patches come out in the row-major order
+## of their first tile, so the list has one order whatever the record's keys were.
+static func patches(world: Variant) -> Array:
+	var zone: Array[Vector2i] = tiles(world)
+	var member: Dictionary = {}
+	for t in zone:
+		member[_key(t.x, t.y)] = true
+	var seen: Dictionary = {}
+	var out: Array = []
+	for t in zone:
+		if seen.has(_key(t.x, t.y)):
+			continue
+		var group: Array[Vector2i] = []
+		var pending: Array[Vector2i] = [t]
+		seen[_key(t.x, t.y)] = true
+		while not pending.is_empty():
+			var c: Vector2i = pending.pop_back()
+			group.append(c)
+			for n in [Vector2i(c.x + 1, c.y), Vector2i(c.x - 1, c.y), Vector2i(c.x, c.y + 1), Vector2i(c.x, c.y - 1)]:
+				var k: String = _key(n.x, n.y)
+				if member.has(k) and not seen.has(k):
+					seen[k] = true
+					pending.append(n)
+		group.sort_custom(_row_major)
+		out.append(group)
+	return out
+
+
+## Where a hauled item goes down, from `from`. The nearest patch with a free zone tile takes it, and
+## inside that patch the free tile with the fewest items on it wins, ties to the nearest to `from`,
+## ties again to row-major order. `lying` holds the tile of every loose item, one entry each, and
+## `free` says whether a tile can take an item at all (no bed, no campfire). The zone is never full:
+## a tile's count only rises as it fills, so nothing is refused for room. (-1, -1) when no zone tile
+## is free.
+static func drop_tile(world: Variant, from: Vector2, lying: Array[Vector2i], free: Callable) -> Vector2i:
+	var load: Dictionary = {}
+	for t in lying:
+		load[_key(t.x, t.y)] = int(load.get(_key(t.x, t.y), 0)) + 1
+	var ranked: Array = []
+	for p in patches(world):
+		ranked.append({"d": _patch_distance(p, from), "patch": p, "i": ranked.size()})
+	ranked.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return a["d"] < b["d"] or (a["d"] == b["d"] and a["i"] < b["i"])
+	)
+	for entry in ranked:
+		var best := Vector2i(-1, -1)
+		var best_load: int = 0
+		var best_d: float = INF
+		for t in entry["patch"]:
+			if not free.call(t.x, t.y):
+				continue
+			var n: int = int(load.get(_key(t.x, t.y), 0))
+			var d: float = _centre_distance(from, t)
+			if best.x < 0 or n < best_load or (n == best_load and d < best_d):
+				best = t
+				best_load = n
+				best_d = d
+		if best.x >= 0:
+			return best
+	return Vector2i(-1, -1)
+
+
 ## May the player mark this tile: open, dry, a floor, a door left out, and ground the player has seen.
 ## Indoors and out are both allowed. An unexplored tile is refused, because a player cannot mark
 ## ground they have never seen.
@@ -255,3 +318,18 @@ static func _key(tx: int, ty: int) -> String:
 static func _parse(key: String) -> Vector2i:
 	var parts: PackedStringArray = key.split(",")
 	return Vector2i(int(parts[0]), int(parts[1]))
+
+
+static func _row_major(a: Vector2i, b: Vector2i) -> bool:
+	return a.y < b.y or (a.y == b.y and a.x < b.x)
+
+
+static func _centre_distance(from: Vector2, t: Vector2i) -> float:
+	return from.distance_squared_to(Vector2(float(t.x) + 0.5, float(t.y) + 0.5))
+
+
+static func _patch_distance(patch: Array, from: Vector2) -> float:
+	var best: float = INF
+	for t in patch:
+		best = minf(best, _centre_distance(from, t))
+	return best
