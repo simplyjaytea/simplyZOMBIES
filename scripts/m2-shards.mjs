@@ -83,6 +83,7 @@ export const M2_SHARDS = [
     "godot:m2:attach",
     "godot:check:context",
     "godot:check:memory",
+    "godot:check:grade",
     "godot:check:appearance",
     "godot:m2:ammo",
     "godot:check:mods",
