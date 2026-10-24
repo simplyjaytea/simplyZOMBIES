@@ -146,7 +146,7 @@ static func preview_cells(tiles: Array, on: bool, explored: Variant, roof: Array
 	var base: Color = Palette.STOCKPILE_ADD if on else Palette.STOCKPILE_CLEAR
 	var fill: Color = base
 	fill.a = Palette.STOCKPILE_PREVIEW_FILL
-	var tape: Color = Palette.STOCKPILE_ADD if on else Palette.STOCKPILE_CLEAR_RIM
+	var tape: Color = Palette.STOCKPILE_ADD_RIM if on else Palette.STOCKPILE_CLEAR_RIM
 	var shadow: Color = Palette.STOCKPILE_SHADOW
 	shadow.a = Palette.STOCKPILE_SHADOW_SHARE
 	for v in tiles:

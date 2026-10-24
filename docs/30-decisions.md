@@ -6287,3 +6287,66 @@ counts). The calls below are engineering calls taken in the slice.
 **How to apply:** what the window may take or put is the sim's answer (`SimStockpile.take`,
 `put`, `in_sight`), never the panel's. Gated by `godot:m2:stockpile` TAKE, `godot:check:inventory`
 STOCKPILE, `godot:check:context` BAR and `godot:check:shots` (`stockpile_window`).
+
+## The overcast day, as a grade, 2026-10-24
+
+The three-features plan's B5, paying for the day half of "Overcast or torchlight" (2026-09-08):
+cool, desaturated daylight under a grey sky, the night left warm, the void lifted off blue-black.
+The owner was shown before/after pairs of the day street, a room, dusk and the night on a decision
+card ("keep / softer / stronger / drop the day half") with keep as the default built. The calls
+taken without the owner, clause by clause against what the 2026-09-03 warm grade said:
+
+- **It is a grade of the finished picture, not a regrade of the palette.** The plan, written from
+  docs/23's 2026-09-08 bullet, asked for two palette families keyed to the phase and the five
+  palette lanes (PALETTE, TEXTURE, ACCENT, WALL, GREY) re-pinned. Since 2026-09-26 most of the
+  screen is the outpost pack's own art -- the ground, the walls, the props, the pawns, the cars --
+  which no palette entry reaches, so a palette regrade would have cooled the generated half of the
+  street and left the pack half warm, and could not follow the phase without a rebake. One
+  screen-space pass, `presentation/day_grade.gd` with `day_grade.gdshader`, treats both alike and
+  reads the sky every frame. The five palette lanes keep their tables untouched: they pin the
+  *source* colours, which did not move, and the grade has its own measured table in the new gate.
+- **"Warm, and cool only where the dark is" becomes "cool by day, warm by night".** By day every
+  pixel is pulled toward its own grey (68% of its colour kept in the lit middle, 20% in the darks,
+  eased over luma 0 to 0.25), given a cool gain (red 0.97, blue 1.03) and veiled 10% toward an
+  overcast grey (#5c5e60). The warm surfaces lose warmth, every colour that is not cool loses
+  saturation, and the glass and the outline -- the cool exceptions the warm grade kept -- stay the
+  coolest things on the street.
+- **The night is not graded at all.** The weight is `smoothstep(NIGHT_AMBIENT, 1, ambient)`: 1
+  under a full day's sky, 0.5 at mid-dusk, exactly 0 at night, when the grade draws nothing and
+  the frame is the light map's picture bit for bit. At mid-dusk the night's multiply already holds
+  the frame, so the grade's grey is barely measurable there (the `dusk_street` pair's chroma moves
+  6.2 to 6.4 at 1280×720 and 7.3 to 7.0 at 1920×1080): the weight is the claim, not a visible
+  half-strength look. The grade sits under the night's multiply
+  and its glow, so a pool's hue and a flame are laid on after it: the pools, the fire and the
+  torch stay the one saturated thing after dark, which is the night half of the 2026-09-08
+  sentence and was already true.
+- **The void lifts to a dark grey through the same pass,** #15141f to #1c1c20 by day, rather than
+  by moving `Palette.background`, which the night also reads. It stays the cool near-black the
+  district sits in at night.
+- **No readable word is graded.** Every HUD control is on a CanvasLayer above main's canvas
+  item; the grade reads the screen before any of it draws. Translucent panels show the graded
+  street through them, which is what translucent means. The words main writes into the world --
+  the speech bubbles and the pawn tag -- are recorded during `_draw` and painted on a child item,
+  `_world_text`, at draw index 999: over the grade (998) and under the night (1000), so the night
+  still dims them exactly as before and the day never greys them. The art review's round 1 made
+  this a slice fix rather than a follow-up: readable text under 4.5:1 is fixed where it is found.
+- **A zombie's sound-word is lifted to 4.5:1.** It drew in the kit's dim text, 3.3:1 on its plate
+  over the pavement before any grade. It now draws `Chrome.TEXT_DIM` lifted 40% toward
+  `Chrome.TEXT` (`main.gd`'s `bubble_ink`), 4.89:1 over the worst ground and still quieter than
+  speech. The kit's own `TEXT_DIM` is unchanged everywhere else.
+- **The stockpile's rims are held under the grade.** The stockpile (S2) landed before the grade
+  and its rims were measured in their source colours. Under the noon grade the rest rim on dirt
+  fell to 2.83:1 and both drag-preview rims fell under 3:1 on the indoor floor. The rims change,
+  not the bar: the tape's shadow is drawn at the tape's own alpha (`STOCKPILE_SHADOW_SHARE` 0.9 to
+  1.0), the mark preview's rim is its own lighter amber (`STOCKPILE_ADD_RIM` #e6b158, the fill
+  stays the kit's ACCENT), and the clear rim is lighter (`STOCKPILE_CLEAR_RIM` #f09070 to #f2a185),
+  each 15% toward white. `godot:check:memory`'s STOCKPILE lane now holds every rim at 3:1 in the
+  graded picture too, and refuses a graded measure that lowers no rim.
+
+**How to apply:** a word drawn into the world goes through `_world_text_ops` and
+`_paint_world_text`, never a `draw_string` of main's own (`godot:check:grade`'s WORDS lane counts
+them). A tune of the grade changes `day_grade.gd`'s six constants, re-measures
+`check_grade_look.gd`'s DAY_TABLE and re-shoots `day_street`, `interior` and `dusk_street` in the
+same commit, and re-runs `godot:check:memory`, whose STOCKPILE lane measures the rims through
+`DayGrade.grade`. A palette change does not touch the grade, and the grade touches no palette
+lane but that one. Nothing draws over the grade except the world's words, the night, the glow and the HUD.

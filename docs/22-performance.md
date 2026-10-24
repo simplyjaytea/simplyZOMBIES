@@ -703,6 +703,30 @@ layers on this container, shared with the day. Night is about 0.1–0.3 ms above
 this bench's noise. The 10 ms target is met by the median on this container only because the day
 draw sits at it too; a faster container will read lower, and a slower one higher, for both.
 
+**The overcast day grade (2026-10-24, B5).** One more screen-sized pass by day and none at night:
+`presentation/day_grade.gd` draws a rect whose shader reads the screen (`hint_screen_texture`),
+so the renderer copies the frame once and runs one cheap fragment over it. `_draw` gains one
+rect and one uniform. Three runs each, interleaved with the grade switched off
+(`DayGrade.enabled`), llvmpipe, Intel Xeon @ 2.10 GHz, 1280×720, on one container:
+
+| Sample | Grade off (median of 3) | Grade on (median of 3) |
+|---|---:|---:|
+| shipped-draw (day) `_draw` CPU, mean | 5.46 ms (5.21–6.18) | 5.69 ms (5.58–5.83) |
+| shipped-draw (day) RenderServer wall time, mean | 16.26 ms (15.62–17.48) | 22.59 ms (22.51–23.30) |
+| crowded-draw `_draw` CPU, mean | 153.10 ms | 156.06 ms |
+| night-draw `_draw` CPU, mean | 6.23 ms (5.35–6.45) | 5.68 ms (5.26–6.05) |
+| night-draw RenderServer wall time, mean | 31.54 ms | 29.80 ms |
+
+The `_draw` stage the budget judges did not move past this bench's noise, and the night did not
+move at all (the grade draws nothing there). The cost is on the renderer, by day: about 6.3 ms of
+llvmpipe wall time for the screen copy and the pass, which is software rasterising what a GPU does
+in a fraction of a millisecond. The GPU cost remains unmeasured, as above. There is no cheaper path that
+keeps the look: the night's pass is a `blend_mul` multiply and reads no screen, and a multiply can
+darken and tint but cannot pull a colour toward its grey or lift a dark, which the overcast grade
+needs; the renderer time was over 10 ms by day before this slice too (16.26 ms here), and the
+`_draw` delta is within noise. The crowded sample is over target before and after,
+as it was.
+
 ### Flat dressing, baked
 
 Plan item A12, 2026-10-20 (`presentation/world_layers.gd`, `presentation/dressing.gd::decor_picks`,
