@@ -91,6 +91,24 @@ static func refusal(world: Variant, actor: int, part: int) -> String:
 	return "" if may_work(world, actor, part) else "no-bench"
 
 
+## The slot a part dropped on a host would go into, or "" for none: the first empty slot the part
+## `fits`, for an actor who may work on that part here. The screen asks this and decides nothing.
+## An occupied slot is never swapped by a drop -- the assembly screen does the swapping.
+static func drop_slot(world: Variant, actor: int, part: int, host: int) -> String:
+	if part < 0 or host < 0 or part == host or world.components.has_component(part, "attachedTo"):
+		return ""
+	if not may_work(world, actor, part):
+		return ""
+	var fitted: Dictionary = SimAttachments.attached(world, host)
+	for slot_v in SimAttachments.slots_of(world, host):
+		var slot: String = String(slot_v)
+		if int(fitted.get(slot, -1)) >= 0:
+			continue
+		if SimAttachments.fits(world, part, slot):
+			return slot
+	return ""
+
+
 ## The survivor whose hands this operation is in. The commands carry no actor -- nothing else in
 ## the inventory vocabulary does either -- so it is the one the player is driving, the same set
 ## SimFortify's ladder walks.
