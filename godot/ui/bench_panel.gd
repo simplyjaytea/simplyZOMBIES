@@ -64,6 +64,9 @@ const LINE: float = 24.0
 const OFFER_GAP: float = 8.0
 # A plate's first line of words starts this far down, clear of a "needed" tape's lower half.
 const PLATE_TEXT_TOP: float = 16.0
+# The amber corner's key: a small well wearing the corner, and its sentence beside it.
+const LEGEND: float = 24.0
+const LEGEND_SAYS: String = "something you carry fits"
 # Rust light enough to read at 4.5:1 on the cells' dark well, where the Locker's DANGER (made for
 # rims and hazard stripes) measures about 4 to 1. Only words wear it.
 const DANGER_INK: Color = Color("#e07a4f")
@@ -275,6 +278,14 @@ func layout() -> Dictionary:
 		var x: float = left + floorf(lead / PX) * PX + float(i % 3) * (PLATE.x + PLATE_GAP.x)
 		plates[String(rest[i])] = Rect2(Vector2(x, ry2.x), PLATE)
 
+	# The key to the amber corner, under the assembly on its left, when the plates leave room.
+	var lowest: float = picture.end.y
+	for r_v in plates.values():
+		lowest = maxf(lowest, (r_v as Rect2).end.y)
+	var legend_at: Vector2 = Vector2(left, floorf((bottom - LEGEND) / PX) * PX)
+	if legend_at.y < lowest + PLATE_GAP.y:
+		legend_at = Vector2(-1.0, -1.0)
+
 	# The candidates column: the slot's tape, what is in it now, then what fits it.
 	var tape_at: Vector2 = Vector2(col_x, top)
 	var current: Rect2 = Rect2(Vector2(col_x, top + Locker.TAPE_H + 12.0), Vector2(col_w, THUMB + 16.0))
@@ -315,7 +326,7 @@ func layout() -> Dictionary:
 	return {
 		"frame": frame, "picture": picture, "plates": plates, "tape_at": tape_at, "current": current,
 		"fits_label_y": fits_label_y, "offers": offers, "more_above": more_above, "more_below": more_below,
-		"foot_y": foot_y, "buttons": buttons, "esc_at": esc_at, "enter_x": bx, "col_x": col_x, "col_w": col_w,
+		"legend_at": legend_at, "foot_y": foot_y, "buttons": buttons, "esc_at": esc_at, "enter_x": bx, "col_x": col_x, "col_w": col_w,
 	}
 
 
@@ -380,7 +391,8 @@ func _draw() -> void:
 	# being done at the far end.
 	var name: String = String(_view.get("name", "weapon"))
 	var place: String = "at the bench" if _at_bench() else "by hand"
-	Locker.header(self, frame, name, 1.0, place)
+	# The note sits in from the frame's corner bracket rather than against it.
+	Locker.header(self, frame, name, 1.0, place, PX * 4.0)
 	_said.append({"text": name.to_upper(), "kind": "name"})
 	_said.append({"text": place, "kind": "word"})
 	var tape_w: float = Locker.label_width(name.to_upper(), Locker.LABEL_SIZE)
@@ -411,6 +423,31 @@ func _draw_assembly(lay: Dictionary) -> void:
 		var slot: String = String(row.get("slot", ""))
 		if plates.has(slot):
 			_draw_plate(row, plates[slot] as Rect2)
+	_draw_legend(lay)
+
+
+# The key to the amber corner, drawn only while some plate wears one.
+func _draw_legend(lay: Dictionary) -> void:
+	var at: Vector2 = lay["legend_at"] as Vector2
+	if at.x < 0.0:
+		return
+	var any: bool = false
+	for row_v in _view.get("slots", []) as Array:
+		any = any or _fits(String((row_v as Dictionary).get("slot", "")))
+	if not any:
+		return
+	var box: Rect2 = Rect2(at, Vector2(LEGEND, LEGEND))
+	Locker.well(self, box, 1.0)
+	_draw_ear(box)
+	var base_y: float = floorf(at.y + (LEGEND - Chrome.line_height(SMALL_SIZE)) / 2.0 + Chrome.ascent(SMALL_SIZE))
+	_say(Vector2(box.end.x + 12.0, base_y), LEGEND_SAYS, SMALL_SIZE, Locker.TEXT_DIM)
+
+
+func _draw_ear(r: Rect2) -> void:
+	var ear: float = PX * 5.0
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(r.end.x - PX, r.end.y - PX - ear), Vector2(r.end.x - PX, r.end.y - PX), Vector2(r.end.x - PX - ear, r.end.y - PX),
+	]), Locker.ACCENT)
 
 
 # A two-pixel line from an anchored plate to the picture's nearest edge: the sight down onto the
@@ -445,7 +482,9 @@ func _draw_plate(row: Dictionary, r: Rect2) -> void:
 	var thumb: Rect2 = Rect2(Vector2(r.position.x + PX * 4.0, r.position.y + floorf((r.size.y - THUMB) / 2.0 / PX) * PX), Vector2(THUMB, THUMB))
 	if part >= 0:
 		var base: String = ItemPicture.base_of(_world, part)
-		Locker.plate(self, thumb, "attachment", 1.0)
+		# A recessed well, not a class plate: a plate's bright corner would read as the amber "fits"
+		# corner below, and on this screen only that corner means anything.
+		Locker.well(self, thumb, 1.0)
 		if not base.is_empty():
 			ItemPicture.draw(self, thumb.grow(-PX), Appearance.item_look(_world, base), 1.0)
 	else:
@@ -471,10 +510,7 @@ func _draw_plate(row: Dictionary, r: Rect2) -> void:
 	if _fits(String(row.get("slot", ""))):
 		# An amber dog-ear in the bottom-right corner: something you carry fits this slot. The
 		# sim's answer (an offer for the slot), not a guess here.
-		var ear: float = PX * 5.0
-		draw_colored_polygon(PackedVector2Array([
-			Vector2(r.end.x - PX, r.end.y - PX - ear), Vector2(r.end.x - PX, r.end.y - PX), Vector2(r.end.x - PX - ear, r.end.y - PX),
-		]), Locker.ACCENT)
+		_draw_ear(r)
 	if String(row.get("slot", "")) == _pick:
 		if _side == "slots":
 			Locker.selected(self, r, 1.0)
@@ -508,7 +544,7 @@ func _draw_candidates(lay: Dictionary, font: Font) -> void:
 	var room: float = cur.end.x - PX * 4.0 - tx
 	_say(Vector2(tx, _baseline(cur.position.y + 10.0, SMALL_SIZE)), "in it now", SMALL_SIZE, Locker.TEXT_DIM)
 	if part >= 0:
-		Locker.plate(self, thumb, "attachment", 1.0)
+		Locker.well(self, thumb, 1.0)
 		var base: String = ItemPicture.base_of(_world, part)
 		if not base.is_empty():
 			ItemPicture.draw(self, thumb.grow(-PX), Appearance.item_look(_world, base), 1.0)
@@ -545,7 +581,7 @@ func _draw_candidates(lay: Dictionary, font: Font) -> void:
 func _draw_offer(offer: Dictionary, r: Rect2, focused: bool, font: Font) -> void:
 	Locker.well(self, r, 1.0)
 	var thumb: Rect2 = Rect2(r.position + Vector2(PX * 4.0, PX * 4.0), Vector2(OFFER_THUMB, OFFER_THUMB))
-	Locker.plate(self, thumb, "attachment", 1.0)
+	Locker.well(self, thumb, 1.0)
 	var base: String = ItemPicture.base_of(_world, int(offer.get("item", -1)))
 	if not base.is_empty():
 		ItemPicture.draw(self, thumb.grow(-PX), Appearance.item_look(_world, base), 1.0)
