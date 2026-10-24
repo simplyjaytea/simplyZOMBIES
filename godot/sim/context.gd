@@ -34,6 +34,7 @@ const SimCampRes = preload("res://sim/modules/camp.gd")
 const SimPathRes = preload("res://sim/path.gd")
 const SimItemsRes = preload("res://sim/modules/items.gd")
 const SimOrdersRes = preload("res://sim/modules/orders.gd")
+const SimStockpileRes = preload("res://sim/modules/stockpile.gd")
 
 # A tile more than this from the actor reads as a walk *over* rather than a walk *here* -- the same
 # distinction the word already carries in speech, an errand across the street versus a step to the
@@ -175,6 +176,14 @@ static func verbs_at(world: Variant, actor: int, hit: Dictionary, selected: int 
 		var name: String = SimItemsRes.item_name(world, entity).to_lower()
 		rows.append({"text": "pick up the %s" % name, "command": {"type": "item.pickup", "item": entity}, "target": entity})
 
+	# The stockpile, from inside it: an item of the patch you stand in, or your own tile. The window
+	# lists what you see of the patch, so the row says nothing about which item; it opens the lot.
+	if (kind == "item" or tile.x >= 0) and SimStockpileRes.standing_on(world, actor):
+		var patch: Dictionary = SimStockpileRes.patch_under(world, actor)
+		var at: Vector2i = SimStockpileRes.tile_of(world, entity) if kind == "item" and entity >= 0 else tile
+		if patch.has("%d,%d" % [at.x, at.y]):
+			rows.append({"text": SimStockpileRes.OPEN_WORDS, "command": {"type": SimStockpileRes.OPEN_COMMAND}, "target": -1})
+
 	if kind == "container" and entity >= 0:
 		if int(SimContainersRes.nearest(world, actor, false, SimContainersRes.Want.Openable)) == entity:
 			var s: Variant = world.components.get_component(entity, "searchable")
@@ -300,9 +309,12 @@ static func reach_words(world: Variant, actor: int) -> String:
 	if world.components.has_component(actor, "mounted"):
 		return ""
 	var item: Variant = SimInventoryRes.nearest_ground_item(world, actor)
+	var box: int = int(SimContainersRes.nearest(world, actor, false, SimContainersRes.Want.Openable))
+	# The stockpile's rung, where `_use_context` takes it: before the pick-up it replaces.
+	if SimStockpileRes.e_opens(world, actor, item, box >= 0):
+		return SimStockpileRes.OPEN_WORDS
 	if item != null:
 		return "pick up the %s" % SimItemsRes.item_name(world, int(item)).to_lower()
-	var box: int = int(SimContainersRes.nearest(world, actor, false, SimContainersRes.Want.Openable))
 	if box >= 0:
 		var s: Variant = world.components.get_component(box, "searchable")
 		return "open the %s" % (String((s as Dictionary).get("kind", SimContainersRes.DEFAULT_KIND)) if s is Dictionary else SimContainersRes.DEFAULT_KIND)
@@ -315,4 +327,8 @@ static func reach_words(world: Variant, actor: int) -> String:
 	var car: int = int(SimVehiclesRes.nearest_in_reach(world, actor))
 	if car != SimVehiclesRes.NO_DRIVER:
 		return _vehicle_row_text(world, actor, car)
-	return String(SimFortifyRes.rung_of(world, actor).get("prose", ""))
+	var prose: String = String(SimFortifyRes.rung_of(world, actor).get("prose", ""))
+	# And the last rung: nothing else wants E on an empty patch of the stockpile.
+	if prose.is_empty() and SimStockpileRes.standing_on(world, actor):
+		return SimStockpileRes.OPEN_WORDS
+	return prose

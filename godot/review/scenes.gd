@@ -26,6 +26,7 @@ const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
 const SimLightMod = preload("res://sim/modules/light.gd")
+const SimStockpileRes = preload("res://sim/modules/stockpile.gd")
 
 const SCENE_PATH: String = "res://presentation/main.tscn"
 # The two windows the game supports: check_play's WORK-LAYOUT lane lays out at both.
@@ -36,6 +37,7 @@ const NAMES: Array[String] = [
 	"bench", "bench_field",
 	"context_menu",
 	"night_torch",
+	"stockpile_window",
 ]
 # The Colony screen's two fuller shots (art QA, slice 2): Mara picked by a click on her name, her
 # row made manual by one changed number, the pointer resting on the medic chip; and a roster of
@@ -62,6 +64,13 @@ const BENCH_PACK: String = "item.pack.hiking"
 # The same rifle and parts by hand (C1's field work), out on the street with no bench in reach, and
 # the magazine picked: a slot hands can change, so the screen says "by hand" over a real job.
 const BENCH_FIELD_SLOT: String = "magazine"
+
+# The stockpile window's shot (slice S4): a mixed stack hauled into the annex, food, water, care,
+# ammunition, a tool, a weapon and a pack, so the grid shows small and large plates together.
+const STOCKPILE_STACK: Array[String] = [
+	"item.food.canned", "item.food.canned", "item.water.bottle", "item.bandage.cloth", "item.ammo.9mm",
+	"item.crowbar.steel", "item.rifle.hunting", "item.pack.hiking", "item.knife.kitchen",
+]
 
 const TICK_SECONDS: float = 1.0 / 20.0
 const DAY: int = 1
@@ -395,6 +404,24 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 					"type": "debug.spawn", "kind": "zombie", "id": TORCH_ZOMBIE_ID,
 					"x": (zombie_at as Vector2).x, "y": (zombie_at as Vector2).y,
 				})
+		"stockpile_window":
+			# The player in the annex stockpile after a haul, the window open with a mixed stack: the
+			# items go down where the Haul job would put them (`SimJobs._stock_drop`, S3's spread)
+			# from the player's own tile, and E opens the window through the key, as a player would.
+			world.tick = Clock.tick_on_day(DAY, NOON)
+			var pile_at: Vector2i = _stockpile_spot(world)
+			if pile_at.x < 0:
+				return "no stockpile tile with the pile round it"
+			world.components.set_component(world.player, "position", {"x": float(pile_at.x) + 0.5, "y": float(pile_at.y) + 0.5})
+			for id in STOCKPILE_STACK:
+				var thing: int = int(SimItems.spawn_item(world, String(id), {"tier": "scavenged", "count": 3 if String(id).begins_with("item.ammo") else 1}))
+				if thing < 0:
+					return "could not spawn %s" % String(id)
+				var drop: Vector2i = SimJobs._stock_drop(world, Vector2(float(pile_at.x) + 0.5, float(pile_at.y) + 0.5))
+				world.components.set_component(thing, "position", {"x": float(drop.x) + 0.5, "y": float(drop.y) + 0.5})
+			# One tick so the sight the window lists by is the sight from here, then E.
+			main.call("_process", TICK_SECONDS)
+			press(tree, KEY_E)
 		_:
 			return "unknown scene %s" % scene
 	# The camera jumps to where the body now stands. Without this the follow lerp was still walking
@@ -571,6 +598,14 @@ static func verify(main: Node, scene: String) -> String:
 			if lit == 0:
 				return "no zombie stands in the beam"
 			return "" if dark > 0 else "no zombie stands in the dark behind the beam"
+		"stockpile_window":
+			var sheet_s: Variant = main.get("_inventory_panel")
+			if sheet_s == null or not bool(sheet_s.call("loot_open")):
+				return "the loot window is not open"
+			var shown: Dictionary = sheet_s.get("_loot") as Dictionary
+			if String(shown.get("label", "")) != SimStockpileRes.LABEL:
+				return "the window is not the stockpile's"
+			return "" if (shown.get("items", []) as Array).size() >= STOCKPILE_STACK.size() - 2 else "the window lists too little of the stack"
 		_:
 			return "unknown scene %s" % scene
 
@@ -731,6 +766,37 @@ static func _a_colonist(world: Variant) -> int:
 
 
 ## The tile the body stands on, from the sim's own position.
+## The stockpile tile nearest the zone's middle whose eight neighbours are all free stockpile tiles,
+## so a hauled stack spreads round the player and every plate in the window is in sight. (-1, -1)
+## when the zone has none.
+static func _stockpile_spot(world: Variant) -> Vector2i:
+	var zone: Array[Vector2i] = SimStockpileRes.tiles(world)
+	if zone.is_empty():
+		return Vector2i(-1, -1)
+	var member: Dictionary = {}
+	var mid := Vector2.ZERO
+	for t in zone:
+		member[t] = true
+		mid += Vector2(t)
+	mid /= float(zone.size())
+	var best := Vector2i(-1, -1)
+	var best_d: float = INF
+	for t in zone:
+		var ok: bool = true
+		for dy in range(-1, 2):
+			for dx in range(-1, 2):
+				var n := Vector2i(t.x + dx, t.y + dy)
+				if not member.has(n) or SimJobs._bed_at(world, n.x, n.y) >= 0 or SimJobs._campfire_at(world, n.x, n.y) >= 0:
+					ok = false
+		if not ok:
+			continue
+		var d: float = Vector2(t).distance_squared_to(mid)
+		if d < best_d:
+			best_d = d
+			best = t
+	return best
+
+
 static func _tile_under_player(world: Variant) -> Vector2i:
 	var at: Dictionary = world.components.get_component(world.player, "position") as Dictionary
 	return Vector2i(floori(float(at["x"])), floori(float(at["y"])))

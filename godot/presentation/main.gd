@@ -57,6 +57,7 @@ const RenderInterp = preload("res://presentation/interp.gd")
 const AnimClock = preload("res://presentation/anim_clock.gd")
 const WorldLayersRes = preload("res://presentation/world_layers.gd")
 const LightMapRes = preload("res://presentation/light_map.gd")
+const SimStockpile = preload("res://sim/modules/stockpile.gd")
 
 const TICK_HZ: int = 20
 const TICK_SECONDS: float = 1.0 / 20.0
@@ -1406,8 +1407,13 @@ func _update_hud() -> void:
 	# The transfer window, fed whether or not the sheet is open: a cupboard you are standing at is
 	# drawn beside your pockets during ordinary play, and the panel hides it while the full sheet
 	# is up (where the same box is a column instead).
+	# A cupboard you have open wins; with none, the stockpile you are standing in, once E or the menu
+	# has opened it (slice S4), laid out into the cells the window has room for at this size.
 	if _inventory_panel != null and _inventory_panel.has_method("set_loot"):
-		_inventory_panel.call("set_loot", SimContainers.open_view(world, world.player))
+		var loot: Dictionary = SimContainers.open_view(world, world.player)
+		if loot.is_empty():
+			loot = _stores_for_window()
+		_inventory_panel.call("set_loot", loot)
 	if _inventory_panel != null and _inventory_panel.has_method("set_world"):
 		_inventory_panel.call("set_world", world, world.player)
 	# The bench asks the sim whether it is open, every frame, rather than being told by a key --
@@ -1415,6 +1421,24 @@ func _update_hud() -> void:
 	# about a place you are no longer standing in closes itself.
 	if _bench_panel != null and _bench_panel.has_method("set_world"):
 		_bench_panel.call("set_world", world, world.player)
+
+# The stockpile window's view, kept for the tick and the size it was laid out for: the frame asks
+# every refresh, and the pile only changes when the sim steps.
+var _stores_window_key: Array = []
+var _stores_window_view: Dictionary = {}
+
+
+func _stores_for_window() -> Dictionary:
+	if not SimStockpile.is_open(world, world.player):
+		_stores_window_key = []
+		return {}
+	var cap: Vector2i = _inventory_panel.call("loot_capacity") if _inventory_panel.has_method("loot_capacity") else Vector2i(SimStockpile.VIEW_COLS, SimStockpile.VIEW_ROWS)
+	var key: Array = [int(world.tick), int(world.player), cap]
+	if key != _stores_window_key:
+		_stores_window_key = key
+		_stores_window_view = SimStockpile.stores_view(world, world.player, cap.x, cap.y)
+	return _stores_window_view
+
 
 func _draw() -> void:
 	if world == null: return
