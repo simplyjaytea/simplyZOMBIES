@@ -230,6 +230,13 @@ func _input(event: InputEvent) -> void:
 		# in the way); Escape is *spent* on the menu, because it is the thing in front and the
 		# peel order below would otherwise raise the pause menu on the same press -- which is
 		# exactly the double meaning the alpha shell's audit found on C.
+		# The open menu takes its own keys first: Up and Down move its ring, Enter dispatches the
+		# ringed row, Escape closes it (`context_menu.gd`'s `key`). An arrow under the menu is the
+		# menu's, never a step.
+		if focus == "street" and main._context_menu != null and bool(main._context_menu.call("is_open")):
+			if bool(main._context_menu.call("key", ke)):
+				main.queue_redraw()
+				return
 		if focus == "street" and _close_context_menu() and ke.keycode == KEY_ESCAPE:
 			main.queue_redraw()
 			return

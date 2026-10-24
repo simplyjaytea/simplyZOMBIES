@@ -20,10 +20,12 @@ const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimHealthModule = preload("res://sim/modules/health.gd")
 const SimRecruits = preload("res://sim/modules/recruits.gd")
 const SimJobs = preload("res://sim/modules/jobs.gd")
+const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
+const SimLightMod = preload("res://sim/modules/light.gd")
 
 const SCENE_PATH: String = "res://presentation/main.tscn"
 # The two windows the game supports: check_play's WORK-LAYOUT lane lays out at both.
@@ -32,6 +34,8 @@ const NAMES: Array[String] = [
 	"day_street", "interior", "night_lights", "combat", "inventory", "care", "skills", "colony", "viewing",
 	"colony_picked", "colony_crowd", "colony_scrolled", "bench_drop",
 	"bench", "bench_field",
+	"context_menu",
+	"night_torch",
 ]
 # The Colony screen's two fuller shots (art QA, slice 2): Mara picked by a click on her name, her
 # row made manual by one changed number, the pointer resting on the medic chip; and a roster of
@@ -95,6 +99,24 @@ const STREET_WINDOW_HALF: Vector2i = Vector2i(10, 5)
 const STREET_WINDOW_AREA: int = 21 * 11
 const STREET_SHARE: int = 75
 
+# The torch shot (slice B3): midnight, the survivor holding a hand torch down the longest open run of
+# street from the day shot's spot, one zombie standing in the beam and one in the dark behind.
+const TORCH_ID: String = "item.torch.handheld"
+# The district's own walker, with its own picture: `zombie.base` has no art and draws as the
+# fallback disc, which would make the lit body a white dot rather than a shape the beam finds.
+const TORCH_ZOMBIE_ID: String = "zombie.shambler"
+# How far ahead the lit zombie stands, and how far behind the dark one, in metres: the first well
+# inside the beam's drawn reach, the second past the spill and the survivor's own small disc of
+# night, so the shot shows a body the torch finds and the dark one it does not.
+const TORCH_AHEAD_M: float = 5.0
+const TORCH_BEHIND_M: float = 5.0
+# How many tiles of the run the facing search counts, at most: past this a longer street is no
+# better a picture.
+const TORCH_RUN_TILES: int = 9
+# How many tiles of open street the shot wants behind the survivor: enough that the dark zombie
+# stands on the street, not in a wall.
+const TORCH_BACK_TILES: int = 6
+
 
 ## Boot a fresh main scene the way a player reaches the street: the title takes Enter, the
 ## legend takes Escape. Returns null when the scene does not come up with a world.
@@ -155,6 +177,15 @@ static func click(tree: SceneTree, at: Vector2) -> void:
 		tree.root.push_input(mb)
 
 
+# The street menu's shot (C4): a crate in reach on the street, right-clicked, so the menu's header
+# ("the crate"), its first row and the action bar's E clause are in one picture and can be read
+# against each other.
+const HudRes = preload("res://ui/hud.gd")
+const PickRes = preload("res://presentation/pick.gd")
+const ProjectionRes = preload("res://presentation/projection.gd")
+const MENU_CRATE: String = "crate"
+
+
 ## Set up the named scene on a booted `main`. Returns "" on success, or the reason it could not.
 static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 	var world: Variant = main.get("world")
@@ -170,7 +201,14 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 				return "no open paved street within %d tiles" % SEARCH_TILES
 			world.components.set_component(world.player, "position", {"x": street.x, "y": street.y})
 		"night_lights":
+			# A lit campfire near the body, so the night shot has its warm pool on screen (the boot
+			# campfire starts unlit, and an unlit fire lights nothing).
 			world.tick = Clock.tick_on_day(DAY, NIGHT)
+			var body: Dictionary = world.components.get_component(world.player, "position") as Dictionary
+			var fire: int = SimNeeds.nearest_campfire(world, float(body["x"]), float(body["y"]))
+			if fire < 0:
+				return "no campfire in the world"
+			SimNeeds.set_lit(world, fire, true)
 		"interior":
 			world.tick = Clock.tick_on_day(DAY, NOON)
 			var spot: Vector2 = _interior_spot(world)
@@ -313,6 +351,50 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 				# The plate keeps the keys: the column beside it already lists what fits, and the footer
 				# shows "take off" lit, the hands' own job on a fitted magazine.
 				field_panel.call("pick_slot", BENCH_FIELD_SLOT)
+		"context_menu":
+			world.tick = Clock.tick_on_day(DAY, NOON)
+			var street_m: Vector2 = _street_spot(world)
+			if street_m.x < 0.0:
+				return "no open paved street within %d tiles" % SEARCH_TILES
+			world.components.set_component(world.player, "position", {"x": street_m.x, "y": street_m.y})
+			world.components.set_component(world.player, "facing", {"radians": 0.0})
+			var crate: int = int(world.entities.spawn())
+			world.components.set_component(crate, "position", {"x": street_m.x + 1.0, "y": street_m.y})
+			world.components.set_component(crate, "searchable", {"kind": MENU_CRATE, "searched": false})
+			main.call("_snap_camera")
+			await _settle(tree, main)
+			main.call("_snap_camera")
+			var camera: Dictionary = main.get("camera")
+			var cp: Dictionary = world.components.get_component(crate, "position") as Dictionary
+			var sc: Dictionary = ProjectionRes.world_to_screen(camera, float(cp["x"]), float(cp["y"]))
+			var at := Vector2(float(sc["sx"]), float(sc["sy"]))
+			if String(PickRes.pick_at(world, camera, at).get("kind", "")) != "container":
+				return "the crate beside the body does not pick as a container"
+			for pressed in [true, false]:
+				var mb := InputEventMouseButton.new()
+				mb.button_index = MOUSE_BUTTON_RIGHT
+				mb.pressed = pressed
+				mb.position = at
+				mb.global_position = at
+				tree.root.push_input(mb)
+		"night_torch":
+			world.tick = Clock.tick_on_day(DAY, NIGHT)
+			var pick: Dictionary = _torch_spot(world)
+			if pick.is_empty():
+				return "no open paved street within %d tiles" % SEARCH_TILES
+			var spot_t: Vector2 = pick["at"] as Vector2
+			var ahead: Vector2 = pick["heading"] as Vector2
+			world.components.set_component(world.player, "position", {"x": spot_t.x, "y": spot_t.y})
+			var torch: int = int(SimItems.spawn_item(world, TORCH_ID, {}))
+			if torch < 0 or not SimInventory.equip(world, int(world.player), torch, ""):
+				return "the survivor could not take up a hand torch"
+			SimLightMod.refresh_carried(world, int(world.player))
+			world.commands.push({"type": "aim", "radians": ahead.angle()})
+			for zombie_at in [spot_t + ahead * TORCH_AHEAD_M, spot_t - ahead * TORCH_BEHIND_M]:
+				world.commands.push({
+					"type": "debug.spawn", "kind": "zombie", "id": TORCH_ZOMBIE_ID,
+					"x": (zombie_at as Vector2).x, "y": (zombie_at as Vector2).y,
+				})
 		_:
 			return "unknown scene %s" % scene
 	# The camera jumps to where the body now stands. Without this the follow lerp was still walking
@@ -349,7 +431,12 @@ static func verify(main: Node, scene: String) -> String:
 				return "it is not day"
 			return "" if _outdoor_paved(world.tilemap, _tile_under_player(world)) else "the body is not on an open paved street tile"
 		"night_lights":
-			return "" if Clock.phase_of(int(world.tick)) == Clock.Phase.Night else "it is not night"
+			if Clock.phase_of(int(world.tick)) != Clock.Phase.Night:
+				return "it is not night"
+			for e in world.components.query(["campfire"]):
+				if bool((world.components.get_component(int(e), "campfire") as Dictionary).get("lit", false)):
+					return ""
+			return "no campfire is lit"
 		"interior":
 			var at: Vector2i = _tile_under_player(world)
 			if SimTileMap.tile_at(world.tilemap, at.x, at.y) != SimTileMap.Tile.Floor:
@@ -413,6 +500,20 @@ static func verify(main: Node, scene: String) -> String:
 			var picked: int = int((main.get("_work_panel") as Object).call("selected"))
 			var ident: Variant = world.components.get_component(picked, "identity") if picked >= 0 else null
 			return "" if ident is Dictionary and String((ident as Dictionary).get("backstoryId", "")) != "" else "no generated colonist is picked"
+		"context_menu":
+			var menu: Variant = main.get("_context_menu")
+			if menu == null or not bool(menu.call("is_open")):
+				return "the street menu is not open"
+			if String(menu.call("header")) != "the " + MENU_CRATE:
+				return "the menu is headed '%s', not the crate" % String(menu.call("header"))
+			var rows: Array = menu.call("rows") as Array
+			var first: String = String((rows[0] as Dictionary).get("text", "")) if not rows.is_empty() else ""
+			if first != "open the " + MENU_CRATE:
+				return "the menu's first row is '%s', not opening the crate" % first
+			var line: String = HudRes.action_line(world, int(world.player))
+			if line.find("E — " + first) < 0:
+				return "the action bar says '%s', not E for the menu's first row" % line
+			return ""
 		"viewing":
 			if not bool(main.get("web_open")):
 				return "the skills screen is not open"
@@ -447,6 +548,29 @@ static func verify(main: Node, scene: String) -> String:
 			if String(field_v.call("side")) != "slots":
 				return "the keys are not on the %s plate" % BENCH_FIELD_SLOT
 			return ""
+		"night_torch":
+			if Clock.phase_of(int(world.tick)) != Clock.Phase.Night:
+				return "it is not night"
+			var eid: int = int(world.player)
+			var source: Variant = world.light.source_at(eid) if world.light != null else null
+			if not (source is Dictionary) or not (float((source as Dictionary).get("beam", 0.0)) > 0.0):
+				return "the survivor throws no beam"
+			var lit: int = 0
+			var dark: int = 0
+			var me: Dictionary = world.components.get_component(eid, "position") as Dictionary
+			for e in world.components.query(["zombieType", "position"]):
+				var p: Dictionary = world.components.get_component(int(e), "position") as Dictionary
+				var dx: float = float(p["x"]) - float(me["x"])
+				var dy: float = float(p["y"]) - float(me["y"])
+				if dx * dx + dy * dy > 36.0:
+					continue
+				if bool(world.light.lights_tile(eid, floori(float(p["x"])), floori(float(p["y"])))):
+					lit += 1
+				else:
+					dark += 1
+			if lit == 0:
+				return "no zombie stands in the beam"
+			return "" if dark > 0 else "no zombie stands in the dark behind the beam"
 		_:
 			return "unknown scene %s" % scene
 
@@ -471,6 +595,59 @@ static func _bench_setup(world: Variant, at_bench: bool = true) -> String:
 			return "the pack had no room for %s" % part_id
 	world.commands.push({"type": "bench.open", "item": rifle})
 	return ""
+
+
+## Where the torch shot stands and which way it faces: of the open paved street tiles out to
+## SEARCH_TILES, the nearest ring first, one clear of pictures and sim objects as a day shot's spot is,
+## with TORCH_RUN_TILES of open street east or west of it and TORCH_BACK_TILES the other way -- the
+## window is wider than it is tall, so a beam thrown along it is in the picture end to end and clear
+## of the HUD's panels. Failing any, the day shot's spot and its longest run (`_torch_heading`).
+## `{at, heading}`, or empty with no street at all.
+static func _torch_spot(world: Variant) -> Dictionary:
+	var from: Vector2i = _tile_under_player(world)
+	var occ: Dictionary = _spot_occupancy(world)
+	for ring in range(1, SEARCH_TILES + 1):
+		for dy in range(-ring, ring + 1):
+			for dx in range(-ring, ring + 1):
+				if maxi(absi(dx), absi(dy)) != ring:
+					continue
+				var t := Vector2i(from.x + dx, from.y + dy)
+				if world.is_blocked_tile(t.x, t.y) or not _outdoor_paved(world.tilemap, t):
+					continue
+				if not Dressing.clear_around(occ, t.x, t.y, SPOT_CLEAR, false) or not _held_free(occ, t):
+					continue
+				for d in [Vector2i(1, 0), Vector2i(-1, 0)]:
+					if _run(world, t, d as Vector2i) >= TORCH_RUN_TILES and _run(world, t, -(d as Vector2i)) >= TORCH_BACK_TILES:
+						return {"at": Vector2(float(t.x) + 0.5, float(t.y) + 0.5), "heading": Vector2(d as Vector2i)}
+	var street: Vector2 = _street_spot(world)
+	if street.x < 0.0:
+		return {}
+	return {"at": street, "heading": _torch_heading(world, Vector2i(floori(street.x), floori(street.y)))}
+
+
+## The way down the street from `at` with the longest open run (`_run`): east or west first on a
+## tie, since the window is wider than it is tall.
+static func _torch_heading(world: Variant, at: Vector2i) -> Vector2:
+	var best := Vector2.RIGHT
+	var best_run: int = -1
+	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var run: int = _run(world, at, d as Vector2i)
+		if run > best_run:
+			best_run = run
+			best = Vector2(d as Vector2i)
+	return best
+
+
+## How many tiles of open outdoor street run from `at` along `d`, not counting `at`, up to
+## TORCH_RUN_TILES: paved, outdoors, and not blocking sight, so the beam is not cut short by a wall.
+static func _run(world: Variant, at: Vector2i, d: Vector2i) -> int:
+	var run: int = 0
+	while run < TORCH_RUN_TILES:
+		var t: Vector2i = at + d * (run + 1)
+		if not _outdoor_paved(world.tilemap, t) or SimTileMap.blocks_sight(world.tilemap, t.x, t.y):
+			break
+		run += 1
+	return run
 
 
 ## Generated colonists by the player until the roster is `size`. Returns the ones made.

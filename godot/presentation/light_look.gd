@@ -18,6 +18,8 @@ const Items = preload("res://sim/modules/items.gd")
 const SimSightings = preload("res://sim/modules/sightings.gd")
 const LightModule = preload("res://sim/modules/light.gd")
 const Appearance = preload("res://presentation/appearance.gd")
+const FxLook = preload("res://presentation/fx_look.gd")
+const CameraUtil = preload("res://presentation/camera.gd")
 const Palette = preload("res://presentation/palette.gd")
 
 # Metres of remaining reach that split a pool's near half from its far half. Straight off the
@@ -37,6 +39,8 @@ const FLAME_FLICKER: float = 0.03
 # How lit the survivor's own disc of night is at least (night_light.gdshader's `eye_floor`): their
 # body and the ground at their feet, which the sim already says they see, stay readable.
 const EYE_FLOOR: float = 0.55
+# The view that shows a body from behind, whose beam starts on the ground under it (`hand_metres`).
+const BACK_VIEW: String = "n"
 # The widest that disc is drawn, in metres, however far the survivor sees: in a lit room they see
 # the whole room, and the room is the pools' to light; the disc is only the ground at their feet.
 const EYE_DISC_MAX_M: float = 3.5
@@ -51,6 +55,10 @@ const CAP_AT_ZERO: float = 0.35
 const CAP_METRES: float = 40.0
 const CAP_MIN: float = 0.45
 const CAP_MAX: float = 0.95
+# The reach a campfire's pool is drawn at. The sim lights a campfire 8 m (needs.gd CAMPFIRE_LIGHT_M),
+# but its drawn pool has always been 0.3 of 20 m, about 6 m across, and that is what the screen keeps:
+# a look number, not a sim one (docs/23, "The night's reach on screen").
+const CAMPFIRE_POOL_REACH_M: float = 20.0
 # How much of the night's colour is left in full dark at midnight (night_light.gdshader's
 # `night_floor`): the floor outside every light is near black, a channel never above 8 of 255
 # on a white tile, with only a little blue in it.
@@ -114,6 +122,14 @@ static func source_cap(magnitude: float) -> float:
 	return clampf(CAP_AT_ZERO + maxf(0.0, magnitude) / CAP_METRES, CAP_MIN, CAP_MAX)
 
 
+# The reach a source's pool is drawn at (night_light.gdshader takes 0.3 of it): the sim's own reach,
+# except a campfire, which keeps the pool it has always had (CAMPFIRE_POOL_REACH_M).
+static func pool_reach_of(world: Variant, source: int, sim_reach: float) -> float:
+	if world != null and world.components.has_component(source, "campfire"):
+		return maxf(sim_reach, CAMPFIRE_POOL_REACH_M)
+	return sim_reach
+
+
 # The light map's texels for the tiles in `view` (tile coordinates, clamped to the map by the
 # caller): four bytes a tile. R is 255 where the survivor sees the tile, 128 where they only remember
 # it (their explored map), 0 for the void no layer draws. G, B and A are one bit per
@@ -121,6 +137,12 @@ static func source_cap(magnitude: float) -> float:
 # **and** the survivor sees it -- lit ∩ seen, the rule `lit_pool_tiles` holds, as bits a shader can
 # read. A tile the survivor does not see is four zero bytes whatever lights it, so nothing a wall
 # hides can come out the far side of the shader.
+#
+# A beam's bits are the sim's own wedge, tile for tile: `world.light.lights_tile` (sim/vision/light.gd)
+# decides them -- its cast, inside the half-angle of its carrier's facing or within the spill at its
+# feet -- so the screen draws a torch's light on exactly the tiles the sim says it lands on, and none
+# behind the holder. A round light's bits are its cast, which is the same answer `lights_tile` gives
+# a source with no beam, asked directly so the common case does not pay a second lookup per tile.
 #
 # `sources` is the light index's sources that reach a seen tile in view, brightest first and at
 # most MAX_LIGHTS; `lights` is each one's origin, reach, tint and flicker, in the same order.
@@ -161,7 +183,8 @@ static func light_texels(world: Variant, eyes: int, view: Rect2i) -> Dictionary:
 			var oy: float = float((origin as Dictionary)["y"])
 			if ox + reach < float(view.position.x) or ox - reach > float(view.end.x) or oy + reach < float(view.position.y) or oy - reach > float(view.end.y):
 				continue
-			candidates.append({"id": id, "x": ox, "y": oy, "magnitude": reach, "cast": cast, "bit": -1})
+			var beamed: bool = float((origin as Dictionary).get("beam", 0.0)) > 0.0
+			candidates.append({"id": id, "x": ox, "y": oy, "magnitude": reach, "cast": cast, "beamed": beamed, "bit": -1})
 	candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		if float(a["magnitude"]) != float(b["magnitude"]):
 			return float(a["magnitude"]) > float(b["magnitude"])
@@ -187,7 +210,7 @@ static func light_texels(world: Variant, eyes: int, view: Rect2i) -> Dictionary:
 				var cd: Dictionary = c as Dictionary
 				if absf(float(tx) + 0.5 - float(cd["x"])) > float(cd["magnitude"]) + 1.0 or absf(float(ty) + 0.5 - float(cd["y"])) > float(cd["magnitude"]) + 1.0:
 					continue
-				if bool((cd["cast"] as Object).call("has_tile", tx, ty)):
+				if _lands(world, cd, tx, ty):
 					mask |= 1 << int(cd["bit"])
 			if mask != 0 and opaque_faces and _opaque(world.tilemap, tx, ty):
 				mask = _face_lit(world, candidates, mask, tx, ty)
@@ -204,7 +227,7 @@ static func light_texels(world: Variant, eyes: int, view: Rect2i) -> Dictionary:
 		var id: int = int(cd["id"])
 		sources.append(id)
 		var lit_any: bool = (used >> int(cd["bit"])) & 1 == 1
-		lights.append({"entity": id, "x": float(cd["x"]), "y": float(cd["y"]), "magnitude": float(cd["magnitude"]) if lit_any else 0.0, "tint": source_tint(world, id), "flicker": source_flicker(world, id), "beam": source_beam(world, id), "facing": _facing_of(world, id)})
+		lights.append({"entity": id, "x": float(cd["x"]), "y": float(cd["y"]), "magnitude": pool_reach_of(world, id, float(cd["magnitude"])) if lit_any else 0.0, "tint": source_tint(world, id), "flicker": source_flicker(world, id), "beam": source_beam(world, id), "facing": _facing_of(world, id)})
 	out["seen"] = seen_count
 	out["lit"] = lit_count
 	return out
@@ -231,10 +254,18 @@ static func _face_lit(world: Variant, candidates: Array, mask: int, tx: int, ty:
 		if mask & bit == 0:
 			continue
 		for at in open:
-			if bool((cd["cast"] as Object).call("has_tile", at.x, at.y)):
+			if _lands(world, cd, at.x, at.y):
 				kept |= bit
 				break
 	return kept
+
+
+# Whether a candidate source's light lands on tile (tx, ty): the sim's `lights_tile` for a beam, its
+# cast for a round light (the same answer, without the second lookup).
+static func _lands(world: Variant, cd: Dictionary, tx: int, ty: int) -> bool:
+	if bool(cd["beamed"]):
+		return bool(world.light.lights_tile(int(cd["id"]), tx, ty))
+	return bool((cd["cast"] as Object).call("has_tile", tx, ty))
 
 
 # Ground a lit face can look onto: anything that does not block sight except the glass of a
@@ -439,22 +470,13 @@ static func source_flicker(world: Variant, source: int) -> float:
 
 
 # The half-angle, in radians, of the beam a source's pool is drawn as, or 0 for a round pool: the
-# content `beam` of the light a body carries, pointed where that body faces. Only a carried light
-# has a facing to point along, so a lamp planted in the yard is round whatever its content says.
-# Presentation only -- the sim lights the whole cast either way, and outside the beam the light map
-# draws only a disc at the hand, which is less light than the sim's, never more.
+# sim's own -- the `beam` the light index keeps for the source (sim/modules/light.gd writes it from
+# the brightest carried light's content, and sim/vision/light.gd keeps it only while its carrier has
+# a facing to point it along). The screen reads it rather than the content, so the wedge it draws
+# and the tiles `lights_tile` lights are one answer.
 static func source_beam(world: Variant, source: int) -> float:
-	if world == null or world.components == null or source < 0:
-		return 0.0
-	if not world.components.has_component(source, "equipment") or not world.components.has_component(source, "facing"):
-		return 0.0
-	var light: Variant = _source_light_block(world, source)
-	if not light is Dictionary:
-		return 0.0
-	var beam: Variant = (light as Dictionary).get("beam")
-	if not (beam is float or beam is int) or not (float(beam) > 0.0):
-		return 0.0
-	return deg_to_rad(minf(90.0, float(beam)))
+	var at: Variant = _sim_source(world, source)
+	return float((at as Dictionary).get("beam", 0.0)) if at is Dictionary else 0.0
 
 
 # The content `light` block behind a source: a planted lamp's base, a loose item's own base, or the
@@ -483,6 +505,71 @@ static func _source_light_block(world: Variant, source: int) -> Variant:
 	return null
 
 
+# The way a source's beam points: the carrier's facing as the light index read it this tick, the
+# facing `lights_tile` cut the wedge along, so the drawn wedge and the lit tiles turn together.
 static func _facing_of(world: Variant, entity: int) -> float:
-	var facing: Variant = world.components.get_component(entity, "facing")
-	return float((facing as Dictionary).get("radians", 0.0)) if facing is Dictionary else 0.0
+	var at: Variant = _sim_source(world, entity)
+	return float((at as Dictionary).get("facing", 0.0)) if at is Dictionary else 0.0
+
+
+static func _sim_source(world: Variant, source: int) -> Variant:
+	if world == null or source < 0 or world.light == null:
+		return null
+	return world.light.source_at(source)
+
+
+# Where a beam leaves its carrier's body, in metres from the body's ground point, as the screen
+# draws it: the hand that holds the light (Appearance's HELD_HANDS, or the frame's own hand when the
+# body was drawn on a walk frame that moves it) mapped off the feet-anchored pawn canvas, so the
+# light starts where the torch is held and not at the soles -- except seen from behind, where it
+# starts at the hand's side on the ground under the body. A light in no hand -- a headlamp, a
+# clip light on the glasses -- has no socket, and its beam starts at the ground point (zero).
+#
+# `member` is the body frame the carrier was last drawn on (FxLook's drawn_frames, "" for none),
+# whose view is the one the hand is read for; with no frame, the view the facing shows. `zoom` is
+# screen pixels a tile, which only the soles' drop below the ground point depends on.
+static func hand_metres(world: Variant, source: int, facing: float, member: String, zoom: float) -> Vector2:
+	var slot: String = _hand_slot(world, source)
+	if slot.is_empty():
+		return Vector2.ZERO
+	var view: String = Appearance.view_of(facing)
+	for v in Appearance.VIEWS:
+		if not member.is_empty() and FxLook.member_in_view(member, v):
+			view = v
+			break
+	var hand: Vector2i = Appearance.frame_hand(member if FxLook.member_in_view(member, view) else "", slot, view)
+	if hand.x < 0:
+		return Vector2.ZERO
+	var art: float = CameraUtil.ART_NATIVE
+	var canvas := Vector2(Appearance.PAWN_CANVAS)
+	var drop: float = Appearance.FOOT_DROP_PX / zoom if zoom > 0.0 else 0.0
+	var x: float = (float(hand.x) + 0.5 - canvas.x / 2.0) / art
+	# Seen from behind, the hand is in front of the body and the beam runs up the screen through it,
+	# so a beam from the hand's height shows first above the head and reads as a headlamp. It starts
+	# at the hand's side on the ground under the body instead (art review, round 1).
+	if view == BACK_VIEW:
+		return Vector2(x, 0.0)
+	return Vector2(x, (float(hand.y) + 0.5 - canvas.y) / art + drop)
+
+
+# The hand slot ("primary" or "secondary") holding the light a body throws: the slot whose item is
+# the lit one, or carries it fitted (a weapon light under a barrel). "" when the light is in no hand.
+static func _hand_slot(world: Variant, source: int) -> String:
+	if world == null or world.components == null or source < 0:
+		return ""
+	var eq: Variant = world.components.get_component(source, "equipment")
+	if not eq is Dictionary:
+		return ""
+	var slots: Variant = (eq as Dictionary).get("slots")
+	if not slots is Dictionary:
+		return ""
+	var lit: int = int(LightModule.brightest_carried(world, source).get("item", -1))
+	if lit < 0:
+		return ""
+	for slot in Appearance.HELD_HANDS.keys():
+		var there: Variant = (slots as Dictionary).get(slot)
+		if there == null:
+			continue
+		if int(there) == lit or int(LightModule.brightest_of(world, int(there)).get("item", -1)) == lit:
+			return String(slot)
+	return ""

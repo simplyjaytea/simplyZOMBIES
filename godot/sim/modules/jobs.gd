@@ -17,6 +17,7 @@ const SimHomeRes = preload("res://sim/home.gd")
 const SimCombat = preload("res://sim/combat.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimWeather = preload("res://sim/modules/weather.gd")
+const SimStockpile = preload("res://sim/modules/stockpile.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
 const SimSightings = preload("res://sim/modules/sightings.gd")
@@ -844,7 +845,7 @@ static func _free_indoor(world: Variant) -> Vector2i:
 		return Vector2i(-1, -1)
 	for j in range(annex.position.y, annex.position.y + annex.size.y):
 		for i in range(annex.position.x, annex.position.x + annex.size.x):
-			if not SimNeeds.is_stockpile_tile(world, i, j):
+			if not SimNeeds.is_annex_floor(world, i, j):
 				continue
 			if _bed_at(world, i, j) >= 0:
 				continue
@@ -1910,19 +1911,16 @@ static func _corpse_dump(world: Variant) -> Vector2i:
 
 
 # The stamped annex, and **deliberately not `SimHome.rect`** -- the one home reader that does not
-# follow a camp. `SimNeeds.is_stockpile_tile` is "indoors, floor, inside the annex", and a camp has
-# no roof to be indoors under, so a camp-relative drop point would be a stockpile the weather rains
-# into. Giving a camp a real one is the "evolve a camp" work in docs/23's what's left. Until then a
-# far outpost extends what colonists *collect* and not where they *put it*, which is the trade the
+# follow a camp. The default zone is "indoors, floor, inside the annex", and a camp has no roof to be
+# indoors under, so a camp-relative drop point would be a stockpile the weather rains into. A zone
+# the player marks outdoors (`stockpile.gd`) is a deliberate choice, and its tiles are read here in
+# row-major order as they are. Giving a camp a real one is the "evolve a camp" work in docs/23's
+# what's left. Until then a far outpost extends what colonists *collect* and not where they *put it*, which is the trade the
 # reach slice measured rather than hid.
 static func _stock_drop(world: Variant) -> Vector2i:
-	var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
-	if annex.size.x <= 0 or annex.size.y <= 0:
-		return Vector2i(-1, -1)
-	for j in range(annex.position.y, annex.position.y + annex.size.y):
-		for i in range(annex.position.x, annex.position.x + annex.size.x):
-			if SimNeeds.is_stockpile_tile(world, i, j) and _bed_at(world, i, j) < 0 and _campfire_at(world, i, j) < 0:
-				return Vector2i(i, j)
+	for t in SimStockpile.tiles(world):
+		if _bed_at(world, t.x, t.y) < 0 and _campfire_at(world, t.x, t.y) < 0:
+			return t
 	return Vector2i(-1, -1)
 
 
@@ -2474,13 +2472,19 @@ static func drop_job(world: Variant, ent: int) -> void:
 	_stop(world, ent)
 
 
-# Remove the order and any Haul job it started. The one door every ending goes through: arrival,
-# an item that is no longer there to carry, a destination with no route, and a stand-down.
-static func end_order(world: Variant, ent: int) -> void:
+# Remove the order and any Haul job it started. The one door every ending goes through, and each
+# caller says why: `arrived`, `no-route` (a destination nobody can walk to), `gone` (the item or the
+# target is no longer there), `stood-down` (the player's clear), or `broke-off` (the colonist is too
+# hurt to keep going). Publishes `order.ended` with that reason, so the colonist can say so.
+static func end_order(world: Variant, ent: int, reason: String = "") -> void:
 	var order: Variant = world.components.get_component(ent, ORDER_COMPONENT)
-	if order is Dictionary and String((order as Dictionary).get("kind", "")) == "haul":
+	if not (order is Dictionary):
+		return
+	var kind: String = String((order as Dictionary).get("kind", ""))
+	if kind == "haul":
 		_release_item(world, ent, int((order as Dictionary).get("target", -1)))
 	world.components.remove(ent, ORDER_COMPONENT)
+	world.events.publish({"type": "order.ended", "entity": ent, "kind": kind, "reason": reason})
 	var job: Variant = world.components.get_component(ent, "job")
 	if job is Dictionary and String((job as Dictionary).get("kind", "")) == "Haul":
 		_stop(world, ent)
@@ -2528,14 +2532,14 @@ static func _follow_order(world: Variant, ent: int, order: Dictionary) -> void:
 	if _at(world, ent, goal, REACH):
 		_still(world, ent)
 		if kind == "go":
-			end_order(world, ent)
+			end_order(world, ent, "arrived")
 		return
 	SimWalk.step(world, ent, order, goal, _walk_speed(world, ent))
 	# SimWalk leaves the path empty both at its goal and when there is no route. The goal is caught
 	# by `_at` above, so an empty path here is a destination nobody can reach, and the order is
 	# dropped rather than re-planned against the same wall every tick.
 	if (order.get("path", []) as Array).is_empty():
-		end_order(world, ent)
+		end_order(world, ent, "no-route")
 
 
 # The Haul job for the order's item, run by the ordinary job machinery. The order ends when the
@@ -2547,7 +2551,8 @@ static func _follow_haul(world: Variant, ent: int, order: Dictionary) -> void:
 	var ours: bool = job is Dictionary and int((job as Dictionary).get("target", -1)) == item and String((job as Dictionary).get("kind", "")) == "Haul"
 	var carrying: bool = ours and bool((job as Dictionary).get("carrying", false))
 	if not _haul_still_wanted(world, item, carrying):
-		end_order(world, ent)
+		# Stocked is the job having finished; an item that is gone was taken by somebody else.
+		end_order(world, ent, "arrived" if world.entities.is_alive(item) else "gone")
 		return
 	if not ours:
 		if job is Dictionary:
@@ -2555,7 +2560,7 @@ static func _follow_haul(world: Variant, ent: int, order: Dictionary) -> void:
 		# A route that failed once for this item is not retried under an order (the same mark the
 		# rows' own haul search honours); the order ends rather than planning it again.
 		if _is_unreachable(world, item):
-			end_order(world, ent)
+			end_order(world, ent, "no-route")
 			return
 		job = {"kind": "Haul", "target": item, "ticksLeft": 0, "path": [], "pathGen": -1}
 		world.components.set_component(ent, "job", job)
@@ -2578,11 +2583,11 @@ static func _follow_haul(world: Variant, ent: int, order: Dictionary) -> void:
 static func _follow_attack(world: Variant, ent: int, order: Dictionary) -> void:
 	var target: int = int(order.get("target", -1))
 	if not _target_standing(world, target) or not _target_fresh(world, ent, target):
-		end_order(world, ent)
+		end_order(world, ent, "gone")
 		return
 	var body: Variant = world.components.get_component(ent, "body")
 	if body is Dictionary and SimNpcCombat._critically_injured(world, ent, body as Dictionary):
-		end_order(world, ent)
+		end_order(world, ent, "broke-off")
 		return
 	if SimNpcCombat.can_strike(world, ent, target):
 		_still(world, ent)
@@ -2599,7 +2604,7 @@ static func _follow_attack(world: Variant, ent: int, order: Dictionary) -> void:
 	SimWalk.step(world, ent, order, goal, _walk_speed(world, ent))
 	# An empty path after a fresh plan is a target nobody can reach from here: the order ends.
 	if (order.get("path", []) as Array).is_empty():
-		end_order(world, ent)
+		end_order(world, ent, "no-route")
 
 
 static func _target_standing(world: Variant, target: int) -> bool:
