@@ -569,6 +569,25 @@ and about 5 on the quiet host. A zombie's whole 12-tile recast after a nearby ma
 under 1 ms on its own, but several can land on one tick. Before a timing gate goes on, the worst
 tick needs measuring on a quiet, dedicated machine. Until then it says more about the container
 than about the sim.
+**P0, the colony sample and Haul's walk (2026-10-24, `-p0-tick`).** The shipped sample measures a
+boot with its 72 loose items; a colony mid-run carries more on the ground, so
+`godot/bench/runtime_tick.gd` now also samples `colony-tick`: the same booted world with 200 more
+loose items on outdoor floor inside the errand radius, placed from a local seeded stream, 100
+warm-up and 600 samples, judged by `scripts/runtime-budget.mjs` at the same 8 ms mean and 16 ms
+worst. Haul's search ran `_danger_at` (one query and one walk over every shambler) for every loose
+item, so a colony with 272 on the ground paid about 21.5 ms for one idle colonist's Haul call. The
+cheap filters still run on every item, in their old order, and the zombie walk now runs on the
+nearest item left, and on the next only when a zombie stands near the first: the same answer as
+the old loop, pinned by the `ORDER` lane in `godot:m2:tick` and by a 3,000-tick serialize hash on a
+colony-loaded world, identical to `main`'s. The call is 3.7 ms (1.6 ms with the zombie walk off).
+Across three interleaved colony runs on this container jobs.ai's mean went from 4.45 ms (4.07,
+4.45, 4.73) to 3.85 ms (3.77, 3.85, 4.89); the whole tick did not separate from noise, since the
+box's own spread is 8.6 to 13.3 ms between runs of the same code. The tick stays over budget. The
+next costs, from the same driver on an idle colonist with 272 loose items: the Dress scan 1.3 ms
+(every ground item asks `_is_better_armor` and may erase a stale claim, so its order is part of
+what it decides and it was left alone), the stockpile scan 0.7 ms a call (`stockpile_items`, read
+by Cook, Repair and Water), Repair 0.7 ms and Cook 0.6 ms.
+
 ### The world, baked
 
 Plan item A4, 2026-10-19 (`presentation/world_layers.gd`, `world_mask.gdshader`; docs/23's
