@@ -180,7 +180,7 @@ static func verbs_at(world: Variant, actor: int, hit: Dictionary, selected: int 
 	if (kind == "item" or (kind == "ground" and tile.x >= 0)) and SimStockpileRes.standing_on(world, actor):
 		var patch: Dictionary = SimStockpileRes.patch_under(world, actor)
 		var at: Vector2i = SimStockpileRes.tile_of(world, entity) if kind == "item" and entity >= 0 else tile
-		if patch.has("%d,%d" % [at.x, at.y]):
+		if patch.has(at):
 			rows.append({"text": SimStockpileRes.OPEN_WORDS, "command": {"type": SimStockpileRes.OPEN_COMMAND}, "target": -1})
 
 	if kind == "item" and entity >= 0 and _within(world, actor, entity, SimInventoryRes.PICKUP_REACH):
