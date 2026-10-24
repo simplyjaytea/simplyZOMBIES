@@ -16,6 +16,10 @@ const SimSightings = preload("res://sim/modules/sightings.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
 const WorkRead = preload("res://sim/work_read.gd")
 
+# How near the post a watch must stand to count as on it: the sim's own Guard arrival bound, plus a
+# 2 px epsilon (1 tile = 32 px, so 1/16 m) for the last step's rounding.
+const GUARD_STAND_METRES: float = SimJobs.GUARD_REACH + 2.0 / 32.0
+
 func _init() -> void:
 	call_deferred("_run")
 
@@ -43,6 +47,7 @@ func _run() -> void:
 	ok = _succession() and ok
 	ok = _the_cook_claims_its_raw_and_a_vanished_raw_cooks_nothing() and ok
 	ok = _guard_is_the_night_post_and_the_day_belongs_to_the_row() and ok
+	ok = _a_guard_stands_on_the_post_from_the_west() and ok
 	ok = _a_focus_change_keeps_the_authored_row() and ok
 	ok = _a_starving_colonist_still_eats() and ok
 	ok = _colonists_scavenge_near_home() and ok
@@ -56,7 +61,7 @@ func _run() -> void:
 	ok = _a_builder_breaks_off_from_a_zombie() and ok
 	ok = _the_colony_screen_says_what_each_is_doing() and ok
 	if ok:
-		print("M2_JOBS_OK the now line names every job kind, astar focus cook haul construct doctor rest corpse seek water clean bury succession, the well is reachable from a bottle the sim emptied, a cook claims its raw, Guard is the night post, a focus change keeps the authored row, a starving colonist still eats, colonists scavenge near home, a target nobody can route to is planned for once and then left alone, a corpse another body took is left alone by Bury, an errand breaks off from a zombie at arm's length, and Haul and Scavenge reach only the errand radius, an idle colonist outside walks home from one too, a walk home outlasts a need that can wait, a wash with no water stops no work, and a builder at the annex wall breaks off from a zombie at arm's length, keeps building at 20 m and inside, and goes back to the wall after its hold")
+		print("M2_JOBS_OK the now line names every job kind, astar focus cook haul construct doctor rest corpse seek water clean bury succession, the well is reachable from a bottle the sim emptied, a cook claims its raw, Guard is the night post, a focus change keeps the authored row, a starving colonist still eats, colonists scavenge near home, a target nobody can route to is planned for once and then left alone, a corpse another body took is left alone by Bury, an errand breaks off from a zombie at arm's length, and Haul and Scavenge reach only the errand radius, an idle colonist outside walks home from one too, a walk home outlasts a need that can wait, a wash with no water stops no work, and a builder at the annex wall breaks off from a zombie at arm's length, keeps building at 20 m and inside, and goes back to the wall after its hold, and a watch that comes in from the west stands on its post")
 		quit(0)
 	else:
 		push_error("M2_JOBS_FAIL")
@@ -316,7 +321,7 @@ func _corpse_haul() -> bool:
 		"kind": "Haul", "target": m2, "corpse": true, "carrying": true, "ticksLeft": 0, "path": [], "pathGen": -1,
 	}
 	w2.components.remove(m2, "position")
-	var stock: Vector2i = SimJobs._stock_drop(w2)
+	var stock: Vector2i = SimJobs._stock_drop(w2, Vector2.ZERO)
 	if stock.x < 0:
 		push_error("no stockpile")
 		return false
@@ -819,6 +824,51 @@ func _guard_lane() -> bool:
 		push_error("guard post: a district with no gate handed out a post")
 		return false
 	print("GUARD POST OK by day the row (%s), at dusk the post, at dawn job.completed and Endurance %d -> %d, no gate no post" % [", ".join(PackedStringArray(day_kinds.keys())), before, after])
+	return true
+
+
+# The GUARD lane above measures "at the gate" from the gateway tile, one tile south of the post the
+# watch stands on. The watch's own arrival test is the walk's REACH (1.5 m) from the post's centre,
+# so a watch that comes in from the west stops 1.48 m short of the post -- 1.8 m from the gateway
+# -- and stands there for the whole night. Nobody pushes it: no body blocks another in this sim, and
+# a second Guard in the gateway changes nothing (the trajectory is identical with it removed). The
+# fixture is the west approach along row 30, which the route is asserted to take first.
+func _a_guard_stands_on_the_post_from_the_west() -> bool:
+	var w: Variant = _world()
+	var ellis: int = _ellis(w)
+	if ellis < 0:
+		push_error("guard stand: no Ellis in the playable boot")
+		return false
+	var post := Vector2i(30, 30)
+	var route: Array = SimPath.find(w, Vector2i(25, 30), post)
+	if route.is_empty() or route[0] != Vector2i(26, 30) or route.back() != post:
+		push_error("guard stand: the west approach no longer runs along row 30 to the post (%s), so the fixture judges nothing" % str(route))
+		return false
+	for z in w.components.query(["shambler"]):
+		w.despawn(int(z))
+	w.components.set_component(ellis, "position", {"x": 25.5, "y": 30.5})
+	w.components.set_component(ellis, "job", {"kind": "Guard", "tx": post.x, "ty": post.y, "ticksLeft": 0, "path": [], "pathGen": -1})
+	w.tick = Clock.tick_on_day(1, Clock.DAY_ENDS)
+	var stood: bool = false
+	for _i in 600:
+		w.step()
+		if SimJobs._at(w, ellis, post, GUARD_STAND_METRES):
+			stood = true
+			break
+	var pos: Dictionary = w.components.get_component(ellis, "position") as Dictionary
+	if not stood:
+		push_error("guard stand: Ellis from the west stopped at (%.3f, %.3f), short of the post (30, 30)" % [pos["x"], pos["y"]])
+		return false
+	for _i in 40:
+		w.step()
+	if not SimJobs._at(w, ellis, post, GUARD_STAND_METRES):
+		pos = w.components.get_component(ellis, "position") as Dictionary
+		push_error("guard stand: Ellis stood on the post and then walked off it, to (%.3f, %.3f)" % [pos["x"], pos["y"]])
+		return false
+	var job: Variant = w.components.get_component(ellis, "job")
+	if not (job is Dictionary and String((job as Dictionary).get("kind", "")) == "Guard"):
+		push_error("guard stand: the watch was dropped on the way to the post")
+		return false
 	return true
 
 

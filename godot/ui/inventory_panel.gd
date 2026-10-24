@@ -25,6 +25,7 @@ extends Control
 
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
+const SimStockpile = preload("res://sim/modules/stockpile.gd")
 const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
 const SimCondition = preload("res://sim/condition.gd")
 const SimTreatment = preload("res://sim/modules/treatment.gd")
@@ -404,6 +405,20 @@ const LOOT_CLEAR_TOP: float = 0.3
 const LOOT_LOW: float = 150.0
 # The window's one clickable word; the draw and the pointer measure the same string.
 const LOOT_WORD: String = "take all that fits"
+# The stockpile's grid in the window (slice S4): the sim lays the pile out into as many cells as the
+# screen gives it, nearest first, and says when something seen did not fit. The bounds keep the
+# window a window: never narrower than a cupboard's few cells, never so tall it covers the HUD's
+# prose or drops over the action bar. At 1280x720 that is eight by three; at 1920x1080, ten by six.
+const STORES_COLS_MIN: int = 4
+const STORES_COLS_MAX: int = 10
+const STORES_ROWS_MIN: int = 2
+const STORES_ROWS_MAX: int = 6
+const STORES_SHEET_COLS: int = 7
+# The share of the screen's width the whole window may take, pockets included.
+const STORES_WIDE_SHARE: float = 0.62
+# The stockpile grid's header note: where its things are, and when the pile holds more than the grid.
+const STORES_NOTE: String = "in sight"
+const STORES_MORE: String = "and more besides"
 func set_loot(view: Dictionary) -> void:
 	_loot = view if view is Dictionary else {}
 	if _loot_layer == null:
@@ -438,6 +453,63 @@ func loot_open() -> bool:
 	return _loot_layer != null and _loot_layer.visible
 
 
+## How many cells the window's stockpile grid gets at this screen size: as wide as fits beside the
+## pockets in STORES_WIDE_SHARE of the width, and as tall as keeps the window's top clear of the HUD's
+## prose columns with its foot over the action bar -- the same two lines `set_loot` places it by.
+## main.gd hands this to `SimStockpile.stores_view`.
+func loot_capacity() -> Vector2i:
+	var view_size: Vector2 = get_viewport_rect().size
+	var mine: Dictionary = _pockets()
+	var pockets: Vector2 = BagGrid.size_of(int(mine.get("w", 0)), int(mine.get("h", 0)))
+	var spare_w: float = view_size.x * STORES_WIDE_SHARE - LOOT_PAD * 2.0 - LOOT_GAP - pockets.x - BagGrid.PAD * 2.0
+	var cols: int = clampi(floori(spare_w / float(BagGrid.CELL)), STORES_COLS_MIN, STORES_COLS_MAX)
+	var foot: float = Hud.MARGIN + Hud.STRIP_CLEARANCE + Hud.BAR_H + LOOT_GAP
+	# Never so tall that `set_loot` has to drop it over the action bar: a sentence cut in half under
+	# the window reads as broken. What does not fit says so ("and more besides") and is on the sheet.
+	var spare_h: float = view_size.y * (1.0 - LOOT_CLEAR_TOP) - foot - LOOT_PAD * 2.0 - LOOT_FOOT - BagGrid.HEAD - BagGrid.PAD
+	var rows: int = clampi(floori(spare_h / float(BagGrid.CELL)), STORES_ROWS_MIN, STORES_ROWS_MAX)
+	return Vector2i(cols, rows)
+
+
+# Whether a column, or the window's box, is the stockpile rather than a container entity.
+static func _is_stores(column: Dictionary) -> bool:
+	return int(column.get("container", -1)) == SimStockpile.STORES
+
+
+# Whether `item` is listed in `column`.
+static func _lists(column: Dictionary, item: int) -> bool:
+	for entry in column.get("items", []) as Array:
+		if int((entry as Dictionary).get("item", -1)) == item:
+			return true
+	return false
+
+
+# The one door a dropped or sent item goes through. Between two of your own bags, or into or out of
+# a cupboard, it is the `item.move` it always was. Out of the stockpile it is `stockpile.take` (to
+# the cell it was dropped on, when `cell` names one); into it, `stockpile.put`, which lays it on a
+# tile by S3's rule, so the cell it was dropped on means nothing. The sim decides every one.
+func _send(item: int, column: Dictionary, cell: Variant, rotated: bool) -> void:
+	if _world == null or item < 0:
+		return
+	var here: Dictionary = _open_here()
+	var from_stores: bool = _is_stores(here) and _lists(here, item)
+	if _is_stores(column):
+		if not from_stores:
+			_world.commands.push({"type": SimStockpile.PUT_COMMAND, "item": item})
+		return
+	if from_stores:
+		var take: Dictionary = {"type": SimStockpile.TAKE_COMMAND, "item": item}
+		if cell is Vector2i:
+			take["container"] = int(column.get("container", -1))
+			take["x"] = (cell as Vector2i).x
+			take["y"] = (cell as Vector2i).y
+			take["rotated"] = rotated
+		_world.commands.push(take)
+		return
+	if cell is Vector2i:
+		_world.commands.push({"type": "item.move", "item": item, "container": int(column.get("container", -1)), "x": (cell as Vector2i).x, "y": (cell as Vector2i).y, "rotated": rotated})
+
+
 func _pockets() -> Dictionary:
 	for entry in _view.get("containers", []) as Array:
 		if int((entry as Dictionary)["container"]) == _actor:
@@ -454,7 +526,7 @@ func _draw_loot_into(ci: CanvasItem) -> void:
 	var rect := Rect2(Vector2.ZERO, (_loot_layer as Control).size)
 	Locker.panel(ci, rect, alpha)
 	_loot_placed = _loot_places()
-	BagGrid.draw_bag(ci, _loot_placed[0]["at"] as Vector2, _loot, alpha, _drag_item, "here", _world)
+	BagGrid.draw_bag(ci, _loot_placed[0]["at"] as Vector2, _loot, alpha, _drag_item, _loot_note(), _world)
 	BagGrid.draw_bag(ci, _loot_placed[1]["at"] as Vector2, _loot_placed[1]["column"] as Dictionary, alpha, _drag_item, "on you", _world)
 	# One clickable word, in work_panel.gd's idiom, and the sentence that says what it will and
 	# will not do -- *that fits* is half the verb, because the grid has already told you the axe
@@ -467,6 +539,14 @@ func _draw_loot_into(ci: CanvasItem) -> void:
 	ci.draw_string(font, Vector2(rect.size.x - hw - LOOT_PAD - Locker.PX * 2.0, rect.size.y - LOOT_PAD - 10.0), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, HINT_SIZE, Locker.TEXT_DIM)
 
 
+# The box's header note: "here" for a cupboard; for the stockpile, that these are the things in
+# sight, or that the pile holds more than the grid.
+func _loot_note() -> String:
+	if not _is_stores(_loot):
+		return "here"
+	return STORES_MORE if bool(_loot.get("more", false)) else STORES_NOTE
+
+
 func _loot_input(event: InputEvent) -> void:
 	if _world == null or _loot.is_empty() or not (event is InputEventMouseButton):
 		return
@@ -474,7 +554,10 @@ func _loot_input(event: InputEvent) -> void:
 	if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
 		for h in _loot_hit:
 			if (h["rect"] as Rect2).has_point(mb.position):
-				_world.commands.push({"type": "container.takeAll"})
+				if _is_stores(_loot):
+					_world.commands.push({"type": SimStockpile.TAKE_COMMAND, "all": true})
+				else:
+					_world.commands.push({"type": "container.takeAll"})
 				(_loot_layer as Control).accept_event()
 				return
 		var found: Variant = _loot_item_under(mb.position)
@@ -499,7 +582,7 @@ func _loot_input(event: InputEvent) -> void:
 				var cell: Variant = BagGrid.cell_at(placed["at"] as Vector2, placed["column"] as Dictionary, mb.position)
 				if cell == null:
 					continue
-				_world.commands.push({"type": "item.move", "item": item, "container": int((placed["column"] as Dictionary).get("container", -1)), "x": (cell as Vector2i).x, "y": (cell as Vector2i).y, "rotated": rotated})
+				_send(item, placed["column"] as Dictionary, cell, rotated)
 				break
 		(_loot_layer as Control).accept_event()
 	elif mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed:
@@ -606,8 +689,15 @@ func _quick_targets(item: int) -> Array:
 func _quick_move(item: int) -> bool:
 	if _world == null or item < 0:
 		return false
-	var targets: Array = _quick_targets(item)
 	var name: String = _name_of(item)
+	# Onto the stockpile there are no cells to ask about: it goes down on a tile by the sim's rule.
+	# Off it, the cell is found below like any other, and `_send` makes it a `stockpile.take`.
+	var here: Dictionary = _open_here()
+	if _is_stores(here) and not _lists(here, item):
+		_send(item, here, null, false)
+		_say("%s onto the stockpile" % name, false)
+		return true
+	var targets: Array = _quick_targets(item)
 	if targets.is_empty():
 		_say("nothing open to send %s to" % name, true)
 		return false
@@ -618,7 +708,7 @@ func _quick_move(item: int) -> bool:
 			for y in int(d.get("h", 0)):
 				for x in int(d.get("w", 0)):
 					if bool(SimInventory.can_place(_world, item, box, x, y, rotated).get("ok", false)):
-						_world.commands.push({"type": "item.move", "item": item, "container": box, "x": x, "y": y, "rotated": rotated})
+						_send(item, d, Vector2i(x, y), rotated)
 						_say("%s into the %s" % [name, String(d.get("label", ""))], false)
 						return true
 	_say("no room for %s in the %s" % [name, String((targets[0] as Dictionary).get("label", ""))], true)
@@ -626,6 +716,9 @@ func _quick_move(item: int) -> bool:
 
 
 func _name_of(item: int) -> String:
+	for entry in _open_here().get("items", []) as Array:
+		if int((entry as Dictionary).get("item", -1)) == item:
+			return String((entry as Dictionary).get("name", "it"))
 	for column in _columns():
 		for entry in (column as Dictionary).get("items", []) as Array:
 			if int((entry as Dictionary).get("item", -1)) == item:
@@ -791,10 +884,37 @@ func _columns() -> Array:
 
 # The container the survivor is standing at, as a column. Pulled fresh rather than cached, because
 # the whole thing changes every time something moves in or out of it.
+#
+# The stockpile when no cupboard is open (slice S4), laid out for wherever it is drawn: the sheet's
+# column when the sheet is up, the window's grid when it is not. Kept for the tick it was read on,
+# because a frame asks for it a dozen times and the pile changes only when the sim steps.
+var _stores_key: Array = []
+var _stores_memo: Dictionary = {}
+
+
 func _open_here() -> Dictionary:
 	if _world == null or _actor < 0:
 		return {}
-	return SimContainers.open_view(_world, _actor)
+	var box: Dictionary = SimContainers.open_view(_world, _actor)
+	if not box.is_empty():
+		return box
+	# With the sheet shut, the window's own feed is this exact view (main.gd lays it out at
+	# `loot_capacity`), so it is read rather than laid out a second time.
+	if not _open and _is_stores(_loot):
+		return _loot
+	var cap: Vector2i = _sheet_capacity() if _open else loot_capacity()
+	var key: Array = [int(_world.tick), _actor, cap, _open]
+	if key != _stores_key:
+		_stores_key = key
+		_stores_memo = SimStockpile.stores_view(_world, _actor, cap.x, cap.y)
+	return _stores_memo
+
+
+# The stockpile's column on the sheet: as wide as a lane's narrowest (`_lane_min`, seven cells), so it
+# fits the box's lane at every size the sheet lays out at, and a fixed height (the lane scrolls). A
+# constant, not a measure of the column rect: that rect asks `_open_here` whether a box is open.
+func _sheet_capacity() -> Vector2i:
+	return Vector2i(STORES_SHEET_COLS, STORES_ROWS_MAX)
 
 
 # A bag that is no longer reachable -- dropped, given away, eaten by a fire -- leaves no column
@@ -1113,8 +1233,8 @@ func _release_at(p: Vector2) -> void:
 			continue
 		# Propose the move; the sim decides depth, fit and cycle. A move the sim's own predicate
 		# already refuses is still proposed -- the sim is the one that decides -- and the title bar
-		# says why it will not land.
-		_world.commands.push({"type": "item.move", "item": item, "container": int(column.get("container", -1)), "x": (cell as Vector2i).x, "y": (cell as Vector2i).y, "rotated": rotated})
+		# says why it will not land. Into or out of the stockpile it is the stockpile's command.
+		_send(item, column, cell, rotated)
 		if int(verdict.get("shape", Input.CURSOR_MOVE)) == Input.CURSOR_FORBIDDEN:
 			_say(_refusal_words(String(verdict.get("reason", ""))), true)
 		_redraw_columns()
@@ -1389,6 +1509,17 @@ func _drop_verdict(places: Array, p: Vector2) -> Dictionary:
 		if cell == null:
 			continue
 		var c: Vector2i = cell as Vector2i
+		# Over the stockpile, a thing you carry goes onto the pile wherever it is let go; the cells
+		# are the window's, not the ground's, so the whole grid is the target.
+		if _is_stores(column):
+			if _lists(column, _drag_item):
+				return {"shape": Input.CURSOR_MOVE, "rect": Rect2()}
+			var put_ok: bool = SimInventory.owns(_world, _actor, _drag_item)
+			return {
+				"shape": Input.CURSOR_MOVE if put_ok else Input.CURSOR_FORBIDDEN,
+				"rect": Rect2(BagGrid.origin_of(at), Vector2(float(int(column.get("w", 0))), float(int(column.get("h", 0)))) * float(BagGrid.CELL)),
+				"reason": "" if put_ok else "not-carried",
+			}
 		var verdict: Dictionary = SimInventory.can_place(_world, _drag_item, int(column.get("container", -1)), c.x, c.y, _drag_rotated)
 		var ok: bool = bool(verdict.get("ok", false))
 		return {

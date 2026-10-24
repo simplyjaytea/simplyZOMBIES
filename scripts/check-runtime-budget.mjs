@@ -36,6 +36,16 @@ const tick = () => ({
   end_tick: 36700,
   systems: 70,
 });
+const colony = () => ({
+  id: "colony-tick",
+  samples_ms: Array(600).fill(1),
+  warmup: 100,
+  tiles: 256,
+  seed: 20260805,
+  loose_items_start: 272,
+  loose_items_end: 270,
+  zombies_end: 99,
+});
 const frame = (id) => ({
   id,
   samples_ms: Array(120).fill(1),
@@ -106,48 +116,67 @@ function check(label, kind, output, expected, engineExit = 0) {
 try {
   assert.equal(TARGETS["shipped-tick"].mean, 8);
   assert.equal(TARGETS["shipped-tick"].max, 16);
+  assert.equal(TARGETS["colony-tick"].mean, 8);
+  assert.equal(TARGETS["colony-tick"].max, 16);
   assert.equal(TARGETS["crowded-draw"].mean, 10);
-  check("valid tick", "tick", transcript("tick", [tick()]), 0);
+  check("valid tick", "tick", transcript("tick", [tick(), colony()]), 0);
   const mean = tick();
   mean.samples_ms.fill(8.001);
-  check("mean overrun", "tick", transcript("tick", [mean]), 1);
+  check("mean overrun", "tick", transcript("tick", [mean, colony()]), 1);
   const worst = tick();
   worst.samples_ms[300] = 16.001;
-  check("single worst tick", "tick", transcript("tick", [worst]), 1);
+  check("single worst tick", "tick", transcript("tick", [worst, colony()]), 1);
   const edge = tick();
   edge.samples_ms.fill(8);
-  check("inclusive mean boundary", "tick", transcript("tick", [edge]), 0);
+  check("inclusive mean boundary", "tick", transcript("tick", [edge, colony()]), 0);
   const zero = tick();
   zero.samples_ms.fill(0);
-  check("no timing", "tick", transcript("tick", [zero]), 1);
+  check("no timing", "tick", transcript("tick", [zero, colony()]), 1);
   const short = tick();
   short.samples_ms.pop();
-  check("short run", "tick", transcript("tick", [short]), 1);
+  check("short run", "tick", transcript("tick", [short, colony()]), 1);
   const notStepped = tick();
   notStepped.end_tick = notStepped.start_tick;
-  check("dead step consumer", "tick", transcript("tick", [notStepped]), 1);
+  check("dead step consumer", "tick", transcript("tick", [notStepped, colony()]), 1);
   const small = tick();
   small.tiles = 64;
-  check("wrong map size", "tick", transcript("tick", [small]), 1);
+  check("wrong map size", "tick", transcript("tick", [small, colony()]), 1);
   const noSeed = tick();
   delete noSeed.seed;
-  check("missing seed", "tick", transcript("tick", [noSeed]), 1);
+  check("missing seed", "tick", transcript("tick", [noSeed, colony()]), 1);
   const badTick = tick();
   badTick.end_tick = String(badTick.end_tick);
-  check("coercible tick metadata", "tick", transcript("tick", [badTick]), 1);
+  check("coercible tick metadata", "tick", transcript("tick", [badTick, colony()]), 1);
+  const unloaded = colony();
+  unloaded.loose_items_start = 72;
+  check(
+    "colony sample without the loose-item load",
+    "tick",
+    transcript("tick", [tick(), unloaded]),
+    1,
+  );
+  const colonyMean = colony();
+  colonyMean.samples_ms.fill(8.001);
+  check("colony mean overrun", "tick", transcript("tick", [tick(), colonyMean]), 1);
+  const colonyWorst = colony();
+  colonyWorst.samples_ms[300] = 16.001;
+  check("colony single worst tick", "tick", transcript("tick", [tick(), colonyWorst]), 1);
+  const colonyEdge = colony();
+  colonyEdge.samples_ms.fill(8);
+  check("colony inclusive mean boundary", "tick", transcript("tick", [tick(), colonyEdge]), 0);
   check(
     "missing completion",
     "tick",
-    transcript("tick", [tick()]).split("RUNTIME_MEASUREMENT")[0],
+    transcript("tick", [tick(), colony()]).split("RUNTIME_MEASUREMENT")[0],
     1,
   );
-  check("duplicate result", "tick", transcript("tick", [tick(), tick()]), 1);
-  check("engine failure", "tick", transcript("tick", [tick()]), 1, 1);
-  check("engine timeout with null status", "tick", transcript("tick", [tick()]), 1, null);
+  check("duplicate result", "tick", transcript("tick", [tick(), tick(), colony()]), 1);
+  check("engine failure", "tick", transcript("tick", [tick(), colony()]), 1, 1);
+  check("engine timeout with null status", "tick", transcript("tick", [tick(), colony()]), 1, null);
   check(
     "script failure despite exit zero",
     "tick",
-    transcript("tick", [tick()]) + "SCRIPT ERROR: test\n",
+    transcript("tick", [tick(), colony()]) + "SCRIPT ERROR: test\n",
     1,
   );
   check("malformed JSON", "tick", "RUNTIME_RESULT {\nRUNTIME_MEASUREMENT_COMPLETE tick\n", 1);

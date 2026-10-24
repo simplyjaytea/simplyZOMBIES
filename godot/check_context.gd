@@ -28,6 +28,7 @@ const SimRoster = preload("res://sim/modules/roster.gd")
 const Hud = preload("res://ui/hud.gd")
 const Pick = preload("res://presentation/pick.gd")
 const Locker = preload("res://ui/locker.gd")
+const SimStockpile = preload("res://sim/modules/stockpile.gd")
 
 const MAP_TILES: int = 24
 const SCENE_PATH: String = "res://presentation/main.tscn"
@@ -399,6 +400,22 @@ func _bar() -> bool:
 	wc.components.set_component(crate, "position", {"x": 11.0, "y": 10.5})
 	wc.components.set_component(crate, "searchable", {"kind": "crate", "searched": false})
 	cases.append(["crate", wc, {"kind": "container", "entity": crate, "tile": Vector2i(11, 10)}])
+	# A loose tin in reach on a stockpile the player stands in (slice S4): E opens the stockpile, and
+	# that is the menu's first row too. The same tin off the pile stays "pick up" -- the loose-item
+	# case above is that negative.
+	var wsp: Variant = _world()
+	SimStockpile.register_module(wsp)
+	var bits: PackedByteArray = PackedByteArray()
+	bits.resize(int((MAP_TILES * MAP_TILES + 7) / 8))
+	bits.fill(255)
+	wsp.components.set_component(wsp.player, "explored", {"w": MAP_TILES, "h": MAP_TILES, "bits": Marshalls.raw_to_base64(bits)})
+	SimStockpile.mark(wsp, {"x0": 9, "y0": 9, "x1": 11, "y1": 11, "on": true})
+	var tin: int = _spawn_test_item(wsp)
+	wsp.components.set_component(tin, "position", {"x": 11.0, "y": 10.5})
+	if SimContext.reach_words(wsp, wsp.player) != SimStockpile.OPEN_WORDS:
+		push_error("BAR: on the stockpile with a tin of it in reach, E's words are '%s'" % SimContext.reach_words(wsp, wsp.player))
+		ok = false
+	cases.append(["tin on the stockpile", wsp, {"kind": "item", "entity": tin, "tile": Vector2i(11, 10)}])
 	for c in cases:
 		ok = _bar_matches(String(c[0]), c[1], c[2] as Dictionary) and ok
 	SimFortify.toggle_door(wd, 11, 10)
@@ -410,7 +427,7 @@ func _bar() -> bool:
 		push_error("BAR: the boarded window's state '%s' cannot be told from the menu's row, so this lane cannot fail" % state)
 		ok = false
 	if ok:
-		print("BAR OK the bar's E clause is the menu's first row at a boarded window, a shut and an open door, a loose tin and a crate, and the window's state is not that row")
+		print("BAR OK the bar's E clause is the menu's first row at a boarded window, a shut and an open door, a loose tin, a crate and a tin on the stockpile, and the window's state is not that row")
 	return ok
 
 
