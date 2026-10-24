@@ -39,6 +39,7 @@ const NAMES: Array[String] = [
 	"night_torch",
 	"stockpile_mark",
 	"stockpile_rest",
+	"stockpile_night",
 ]
 # The Colony screen's two fuller shots (art QA, slice 2): Mara picked by a click on her name, her
 # row made manual by one changed number, the pointer resting on the medic chip; and a roster of
@@ -138,6 +139,13 @@ const MARK_DRAG_TO: Vector2i = Vector2i(6, 1)
 # for open ground walks along it.
 const MARK_SOUTH: int = 3
 const MARK_SEARCH: int = 24
+# The stockpile at night (art QA round 2 on the same slice): the annex by its lit campfire with the
+# zone cleared west of the fire, so the zone's edge -- wash on one side, bare planks on the other,
+# the tape between -- runs through the firelight on the dark board floor. The edge stands this many
+# tiles west of the fire's tile, inside the pool, and the verify looks for it within NIGHT_EDGE_ROWS
+# tiles of the fire (and NIGHT_EDGE_WEST more to the west).
+const NIGHT_EDGE_WEST: int = 1
+const NIGHT_EDGE_ROWS: int = 2
 
 
 ## Boot a fresh main scene the way a player reaches the street: the title takes Enter, the
@@ -456,6 +464,32 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 			world.commands.push({"type": "aim", "radians": 0.0})
 			for i in 4:
 				main.call("_process", TICK_SECONDS)
+		"stockpile_night":
+			world.tick = Clock.tick_on_day(DAY, NIGHT)
+			var night_body: Dictionary = world.components.get_component(world.player, "position") as Dictionary
+			var night_fire: int = SimNeeds.nearest_campfire(world, float(night_body["x"]), float(night_body["y"]))
+			if night_fire < 0:
+				return "no campfire in the world"
+			SimNeeds.set_lit(world, night_fire, true)
+			for i in 4:
+				main.call("_process", TICK_SECONDS)
+			var ft: Vector2i = _fire_tile(world, night_fire)
+			var night_zone: Array[Vector2i] = SimStockpileRes.tiles(world)
+			if night_zone.is_empty():
+				return "the stockpile has no tiles"
+			var west: int = night_zone[0].x
+			var top: int = night_zone[0].y
+			var bottom: int = night_zone[0].y
+			for t in night_zone:
+				west = mini(west, t.x)
+				top = mini(top, t.y)
+				bottom = maxi(bottom, t.y)
+			var edge: int = ft.x - NIGHT_EDGE_WEST
+			if edge - 1 < west:
+				return "the fire stands too near the zone's west side to clear ground west of it"
+			world.commands.push(InputMapRes.mark_command(Vector2i(west, top), Vector2i(edge - 1, bottom), false))
+			for i in 2:
+				main.call("_process", TICK_SECONDS)
 		_:
 			return "unknown scene %s" % scene
 	# The camera jumps to where the body now stands. Without this the follow lerp was still walking
@@ -667,6 +701,32 @@ static func verify(main: Node, scene: String) -> String:
 			if not SimStockpileRes.has_tile(world, under.x, under.y):
 				return "the survivor is not standing in the stockpile"
 			return "" if SimSightings.knows_tile(world, int(world.player), under.x, under.y) else "the stockpile under the survivor is ground nobody has seen"
+		"stockpile_night":
+			if Clock.phase_of(int(world.tick)) != Clock.Phase.Night:
+				return "it is not night"
+			if bool(main.get("marking")):
+				return "the stockpile brush is in hand"
+			var lit_fire: int = -1
+			for e in world.components.query(["campfire"]):
+				if bool((world.components.get_component(int(e), "campfire") as Dictionary).get("lit", false)):
+					lit_fire = int(e)
+			if lit_fire < 0:
+				return "no campfire is lit"
+			# An edge of the zone near the fire: a seen zone tile with a seen annex floor tile beside it
+			# that is not in the zone. The whole annex in the zone (the default) has none -- its every
+			# zone tile is bounded by walls -- which check_shots' NEGATIVE lane holds.
+			var at_fire: Vector2i = _fire_tile(world, lit_fire)
+			var pid: int = int(world.player)
+			for dy in range(-NIGHT_EDGE_ROWS, NIGHT_EDGE_ROWS + 1):
+				for dx in range(-NIGHT_EDGE_ROWS - NIGHT_EDGE_WEST, NIGHT_EDGE_ROWS + 1):
+					var inside := at_fire + Vector2i(dx, dy)
+					if not SimStockpileRes.has_tile(world, inside.x, inside.y) or not SimSightings.knows_tile(world, pid, inside.x, inside.y):
+						continue
+					for step in [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1)]:
+						var outside: Vector2i = inside + (step as Vector2i)
+						if not SimStockpileRes.has_tile(world, outside.x, outside.y) and SimStockpileRes.is_annex_floor(world, outside.x, outside.y) and SimSightings.knows_tile(world, pid, outside.x, outside.y):
+							return ""
+			return "no seen edge of the zone, zone on one side and bare annex floor on the other, runs beside the fire"
 		_:
 			return "unknown scene %s" % scene
 
@@ -867,6 +927,11 @@ static func _a_colonist(world: Variant) -> int:
 
 
 ## The tile the body stands on, from the sim's own position.
+static func _fire_tile(world: Variant, fire: int) -> Vector2i:
+	var p: Dictionary = world.components.get_component(fire, "position") as Dictionary
+	return Vector2i(floori(float(p["x"])), floori(float(p["y"])))
+
+
 static func _tile_under_player(world: Variant) -> Vector2i:
 	var at: Dictionary = world.components.get_component(world.player, "position") as Dictionary
 	return Vector2i(floori(float(at["x"])), floori(float(at["y"])))

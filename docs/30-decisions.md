@@ -6166,5 +6166,5 @@ taken without the owner:
 **How to apply:** what the brush may change is `SimStockpile.preview`'s answer, never a second one on
 screen; how it looks is `presentation/stockpile_look.gd`. Gated by `godot:check:play` MARK,
 `godot:check:memory` STOCKPILE, `godot:check:hud` ACTION, `godot:m2:stockpile` PREVIEW and
-`godot:check:shots` (`stockpile_mark`, `stockpile_rest`).
+`godot:check:shots` (`stockpile_mark`, `stockpile_rest`, `stockpile_night`).
 
