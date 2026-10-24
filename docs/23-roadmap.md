@@ -2765,7 +2765,10 @@ not a to-do list:
   the shader rings every light and lights only seen tiles. The per-point fraction and curve
   helpers the first cut drew from (`light_fraction_at`, `shown`, `wash_alpha`) went with the look
   that read them, and their lanes with them. `godot:check:appearance` pins the campfire's new
-  tint. Budget: see docs/22's light-map section. Before, first-cut and revised shots are in the
+  tint. Budget: see docs/22's light-map section. **2026-10-24 (night draw, B1):** the committed
+  `night-draw` sample (`godot:bench:frame`, `check:runtime-budget`) measures the night at the day's
+  draw on llvmpipe, median 10.0 ms against 13.9 ms; the texels are cached per tick and the light
+  texture uploads only when they change, and night screenshots are pixel-identical. Numbers in docs/22. Before, first-cut and revised shots are in the
   project's `planning/lighting/`, with an overlap shot and a torch aimed point-blank at a wall
   with two windows: light passes the windows and stops at the masonry between them. WINDOW: a
   campfire inside a room lights a screen tile behind the glass in the sim, and it carries no
