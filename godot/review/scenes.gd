@@ -26,7 +26,8 @@ const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
 const SimLightMod = preload("res://sim/modules/light.gd")
-const SimStockpileRes = preload("res://sim/modules/stockpile.gd")
+const SimSightings = preload("res://sim/modules/sightings.gd")
+const SimStockpile = preload("res://sim/modules/stockpile.gd")
 
 const SCENE_PATH: String = "res://presentation/main.tscn"
 # The two windows the game supports: check_play's WORK-LAYOUT lane lays out at both.
@@ -37,6 +38,11 @@ const NAMES: Array[String] = [
 	"bench", "bench_field",
 	"context_menu",
 	"night_torch",
+	"stockpile_mark",
+	"stockpile_rest",
+	"stockpile_night",
+	"colony_stockpile",
+	"colony_stockpile_picked",
 	"stockpile_window",
 ]
 # The Colony screen's two fuller shots (art QA, slice 2): Mara picked by a click on her name, her
@@ -60,6 +66,27 @@ const CARE_PART: String = "arm_left"
 const BENCH_WEAPON: String = "item.rifle.hunting"
 const BENCH_PARTS: Array[String] = ["item.attach.optic.red_dot", "item.attach.optic.scope", "item.attach.suppressor", "item.attach.magazine.extended", "item.attach.barrel.long"]
 const BENCH_SLOT: String = "optic"
+# The stockpile shot (stockpile plan, slice S5): the Colony screen with nobody picked, so the
+# stockpile stands in the drawer's place, over a pile stocked across the groups -- stacks of rounds
+# counted as their rounds ("plenty"), the most numerous a round whose name carries a digit, so it is
+# named first, and one group left empty so "none" reads dim -- spread one item a tile from the
+# zone's first tile.
+const STOCKED: Array[Dictionary] = [
+	{"id": "item.food.beans.tin", "count": 3},
+	{"id": "item.food.fruit.tin", "count": 2},
+	{"id": "item.food.crackers", "count": 1},
+	{"id": "item.water.bottle", "count": 1},
+	{"id": "item.water.bottle", "count": 1},
+	{"id": "item.bandage.cloth", "count": 1},
+	{"id": "item.ammo.9mm", "count": 8},
+	{"id": "item.ammo.rifle.match", "count": 10},
+	{"id": "item.knife.kitchen", "count": 1},
+	{"id": "item.crowbar.steel", "count": 1},
+	{"id": "item.hat.wool", "count": 1},
+	{"id": "item.plank.sawn", "count": 5},
+	{"id": "item.fixings.nails", "count": 10},
+	{"id": "item.cordage.rope", "count": 2},
+]
 const BENCH_PACK: String = "item.pack.hiking"
 # The same rifle and parts by hand (C1's field work), out on the street with no bench in reach, and
 # the magazine picked: a slot hands can change, so the screen says "by hand" over a real job.
@@ -125,6 +152,32 @@ const TORCH_RUN_TILES: int = 9
 # How many tiles of open street the shot wants behind the survivor: enough that the dark zombie
 # stands on the street, not in a wall.
 const TORCH_BACK_TILES: int = 6
+
+# The stockpile brush's shot (slice S2 of the stockpile plan): noon, the survivor on open ground just
+# south of the annex, a patch already marked east of them, and the brush in hand partway through a
+# left drag that would extend it further east -- so the annex the default zone lies in (under its
+# roof, which hides the wash), a marked patch with its rim, the drag's preview and the brush's own
+# tile are in one picture. Tiles are offsets from the survivor's tile.
+const SimStockpileRes = preload("res://sim/modules/stockpile.gd")
+const InputMapRes = preload("res://presentation/input_map.gd")
+const MARK_PATCH: Rect2i = Rect2i(1, -1, 3, 3)
+const MARK_DRAG_FROM: Vector2i = Vector2i(4, -1)
+const MARK_DRAG_TO: Vector2i = Vector2i(6, 1)
+# The stockpile at rest (the same slice): noon in the annex where the boot puts the survivor, the
+# default zone round them with the brush down -- the quieter wash and tape the player lives with,
+# under the beds and the campfire, and the remembered half of the room pulled through the same dim
+# as its floor once the survivor faces east, away from it.
+# How far south of the annex's bottom wall the survivor stands, in tiles, and how far the search
+# for open ground walks along it.
+const MARK_SOUTH: int = 3
+const MARK_SEARCH: int = 24
+# The stockpile at night (art QA round 2 on the same slice): the annex by its lit campfire with the
+# zone cleared west of the fire, so the zone's edge -- wash on one side, bare planks on the other,
+# the tape between -- runs through the firelight on the dark board floor. The edge stands this many
+# tiles west of the fire's tile, inside the pool, and the verify looks for it within NIGHT_EDGE_ROWS
+# tiles of the fire (and NIGHT_EDGE_WEST more to the west).
+const NIGHT_EDGE_WEST: int = 1
+const NIGHT_EDGE_ROWS: int = 2
 
 
 ## Boot a fresh main scene the way a player reaches the street: the title takes Enter, the
@@ -275,6 +328,29 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 			await _settle(tree, main)
 			if not _hover_chip(tree, main, HOVER_FOCUS):
 				return "the %s chip is not on the screen to point at" % HOVER_FOCUS
+		"colony_stockpile", "colony_stockpile_picked":
+			world.tick = Clock.tick_on_day(DAY, NOON)
+			var pile: Array[Vector2i] = SimStockpile.tiles(world)
+			if pile.is_empty():
+				return "the colony has no stockpile tile"
+			for i in STOCKED.size():
+				var stock: Dictionary = STOCKED[i]
+				var item: int = int(SimItems.spawn_item(world, String(stock["id"]), {"tier": "scavenged", "count": int(stock["count"])}))
+				var tile: Vector2i = pile[i % pile.size()]
+				world.components.set_component(item, "position", {"x": float(tile.x) + 0.5, "y": float(tile.y) + 0.5})
+			press(tree, KEY_J)
+			# The second shot: Mara picked by her name, then the drawer's "the stockpile" button, so the
+			# pile stands in her drawer with the way back to her where "their skills" was.
+			if scene == "colony_stockpile_picked":
+				await _settle(tree, main)
+				var who_k: int = _row_named(world, "Mara")
+				if who_k < 0 or not await _click_row(tree, main, who_k):
+					return "Mara's name is not on the screen to click"
+				var panel_t: Control = main.get("_work_panel") as Control
+				var toggle: Rect2 = (panel_t.call("_layout") as Dictionary)["stores_toggle"] as Rect2
+				if toggle.size.x <= 0.0:
+					return "the drawer has no stockpile button"
+				click(tree, panel_t.global_position + toggle.get_center())
 		"colony_crowd", "colony_scrolled":
 			world.tick = Clock.tick_on_day(DAY, NOON)
 			var born: Array[int] = _crowd(world, SCROLL_CROWD if scene == "colony_scrolled" else CROWD)
@@ -404,6 +480,71 @@ static func setup(tree: SceneTree, main: Node, scene: String) -> String:
 					"type": "debug.spawn", "kind": "zombie", "id": TORCH_ZOMBIE_ID,
 					"x": (zombie_at as Vector2).x, "y": (zombie_at as Vector2).y,
 				})
+		"stockpile_mark":
+			world.tick = Clock.tick_on_day(DAY, NOON)
+			# The boot puts the survivor inside the annex: a few ticks there explore it, so the
+			# default zone has ground the player has seen.
+			for i in 4:
+				main.call("_process", TICK_SECONDS)
+			var spot: Vector2i = _mark_spot(world)
+			if spot.x < 0:
+				return "no open ground south of the annex within %d tiles" % MARK_SEARCH
+			world.components.set_component(world.player, "position", {"x": float(spot.x) + 0.5, "y": float(spot.y) + 0.5})
+			main.call("_snap_camera")
+			for i in 4:
+				main.call("_process", TICK_SECONDS)
+			var patch: Rect2i = Rect2i(spot + MARK_PATCH.position, MARK_PATCH.size)
+			world.commands.push(InputMapRes.mark_command(patch.position, patch.end - Vector2i.ONE, true))
+			for i in 2:
+				main.call("_process", TICK_SECONDS)
+			press(tree, KEY_Z)
+			await tree.process_frame
+			var camera: Dictionary = main.get("camera")
+			var from: Vector2i = spot + MARK_DRAG_FROM
+			var to: Vector2i = spot + MARK_DRAG_TO
+			var down := InputEventMouseButton.new()
+			down.button_index = MOUSE_BUTTON_LEFT
+			down.pressed = true
+			down.position = _tile_centre_on_screen(camera, from)
+			down.global_position = down.position
+			tree.root.push_input(down)
+			var move := InputEventMouseMotion.new()
+			move.position = _tile_centre_on_screen(camera, to)
+			move.global_position = move.position
+			tree.root.push_input(move)
+			main.set_meta("stockpile_mark_patch", patch)
+			main.set_meta("stockpile_mark_drag", Rect2i(from, to - from + Vector2i.ONE))
+		"stockpile_rest":
+			world.tick = Clock.tick_on_day(DAY, NOON)
+			world.commands.push({"type": "aim", "radians": 0.0})
+			for i in 4:
+				main.call("_process", TICK_SECONDS)
+		"stockpile_night":
+			world.tick = Clock.tick_on_day(DAY, NIGHT)
+			var night_body: Dictionary = world.components.get_component(world.player, "position") as Dictionary
+			var night_fire: int = SimNeeds.nearest_campfire(world, float(night_body["x"]), float(night_body["y"]))
+			if night_fire < 0:
+				return "no campfire in the world"
+			SimNeeds.set_lit(world, night_fire, true)
+			for i in 4:
+				main.call("_process", TICK_SECONDS)
+			var ft: Vector2i = _fire_tile(world, night_fire)
+			var night_zone: Array[Vector2i] = SimStockpileRes.tiles(world)
+			if night_zone.is_empty():
+				return "the stockpile has no tiles"
+			var west: int = night_zone[0].x
+			var top: int = night_zone[0].y
+			var bottom: int = night_zone[0].y
+			for t in night_zone:
+				west = mini(west, t.x)
+				top = mini(top, t.y)
+				bottom = maxi(bottom, t.y)
+			var edge: int = ft.x - NIGHT_EDGE_WEST
+			if edge - 1 < west:
+				return "the fire stands too near the zone's west side to clear ground west of it"
+			world.commands.push(InputMapRes.mark_command(Vector2i(west, top), Vector2i(edge - 1, bottom), false))
+			for i in 2:
+				main.call("_process", TICK_SECONDS)
 		"stockpile_window":
 			# The player in the annex stockpile after a haul, the window open with a mixed stack: the
 			# items go down where the Haul job would put them (`SimJobs._stock_drop`, S3's spread)
@@ -519,6 +660,22 @@ static func verify(main: Node, scene: String) -> String:
 			if last < 0 or int(panel_s.call("selected")) != last or not drawn_rows.has(last):
 				return "the last of the roster is not picked and drawn"
 			return "" if int(panel_s.get("_row_scroll")) > 0 else "the roster is not scrolled"
+		"colony_stockpile", "colony_stockpile_picked":
+			if not bool(main.get("work_open")):
+				return "the colony screen is not open"
+			var panel_k: Object = main.get("_work_panel") as Object
+			var want: int = _row_named(world, "Mara") if scene == "colony_stockpile_picked" else -1
+			if int(panel_k.call("selected")) != want or not bool(panel_k.call("stores_shown")):
+				return "the drawer does not show the stockpile for %s" % ("Mara" if want >= 0 else "nobody")
+			var said: Array = ((panel_k.get("drawn") as Dictionary).get("stores", []) as Array)
+			var stocked: int = 0
+			var empty: int = 0
+			for r in said:
+				if String((r as Dictionary)["words"]) == "none":
+					empty += 1
+				else:
+					stocked += 1
+			return "" if stocked >= 7 and empty >= 1 else "the stockpile reads %d groups stocked and %d empty, not seven and one" % [stocked, empty]
 		"colony_crowd":
 			if not bool(main.get("work_open")):
 				return "the colony screen is not open"
@@ -598,6 +755,67 @@ static func verify(main: Node, scene: String) -> String:
 			if lit == 0:
 				return "no zombie stands in the beam"
 			return "" if dark > 0 else "no zombie stands in the dark behind the beam"
+		"stockpile_mark":
+			if Clock.phase_of(int(world.tick)) != Clock.Phase.Day:
+				return "it is not day"
+			if not bool(main.get("marking")):
+				return "the stockpile brush is not in hand"
+			var patch_v: Variant = main.get_meta("stockpile_mark_patch", null)
+			var drag_v: Variant = main.get_meta("stockpile_mark_drag", null)
+			if not (patch_v is Rect2i) or not (drag_v is Rect2i):
+				return "the scene did not record its patch and drag"
+			for ty in range((patch_v as Rect2i).position.y, (patch_v as Rect2i).end.y):
+				for tx in range((patch_v as Rect2i).position.x, (patch_v as Rect2i).end.x):
+					if not SimStockpileRes.has_tile(world, tx, ty):
+						return "the marked patch is missing (%d, %d)" % [tx, ty]
+			var drag: Dictionary = main.get("_mark_drag") as Dictionary
+			if drag.is_empty() or int(drag["button"]) != MOUSE_BUTTON_LEFT:
+				return "no left drag is in progress"
+			if Rect2i(drag["from"] as Vector2i, (drag["to"] as Vector2i) - (drag["from"] as Vector2i) + Vector2i.ONE) != (drag_v as Rect2i):
+				return "the drag in progress is not the one the scene made"
+			var change: Dictionary = main.call("_mark_change") as Dictionary
+			if bool(change.get("refused", true)) or (change.get("tiles", []) as Array).size() != (drag_v as Rect2i).get_area():
+				return "the drag would not mark every tile it covers"
+			# The zone at rest is in the picture too: the annex's floor, explored before the walk out.
+			for t in SimStockpileRes.tiles(world):
+				if not _outdoor_open(world.tilemap, t) and SimSightings.knows_tile(world, int(world.player), t.x, t.y):
+					return ""
+			return "the annex's zone has no tile the player has seen"
+		"stockpile_rest":
+			if Clock.phase_of(int(world.tick)) != Clock.Phase.Day:
+				return "it is not day"
+			if bool(main.get("marking")):
+				return "the stockpile brush is in hand"
+			var under: Vector2i = _tile_under_player(world)
+			if not SimStockpileRes.has_tile(world, under.x, under.y):
+				return "the survivor is not standing in the stockpile"
+			return "" if SimSightings.knows_tile(world, int(world.player), under.x, under.y) else "the stockpile under the survivor is ground nobody has seen"
+		"stockpile_night":
+			if Clock.phase_of(int(world.tick)) != Clock.Phase.Night:
+				return "it is not night"
+			if bool(main.get("marking")):
+				return "the stockpile brush is in hand"
+			var lit_fire: int = -1
+			for e in world.components.query(["campfire"]):
+				if bool((world.components.get_component(int(e), "campfire") as Dictionary).get("lit", false)):
+					lit_fire = int(e)
+			if lit_fire < 0:
+				return "no campfire is lit"
+			# An edge of the zone near the fire: a seen zone tile with a seen annex floor tile beside it
+			# that is not in the zone. The whole annex in the zone (the default) has none -- its every
+			# zone tile is bounded by walls -- which check_shots' NEGATIVE lane holds.
+			var at_fire: Vector2i = _fire_tile(world, lit_fire)
+			var pid: int = int(world.player)
+			for dy in range(-NIGHT_EDGE_ROWS, NIGHT_EDGE_ROWS + 1):
+				for dx in range(-NIGHT_EDGE_ROWS - NIGHT_EDGE_WEST, NIGHT_EDGE_ROWS + 1):
+					var inside := at_fire + Vector2i(dx, dy)
+					if not SimStockpileRes.has_tile(world, inside.x, inside.y) or not SimSightings.knows_tile(world, pid, inside.x, inside.y):
+						continue
+					for step in [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1)]:
+						var outside: Vector2i = inside + (step as Vector2i)
+						if not SimStockpileRes.has_tile(world, outside.x, outside.y) and SimStockpileRes.is_annex_floor(world, outside.x, outside.y) and SimSightings.knows_tile(world, pid, outside.x, outside.y):
+							return ""
+			return "no seen edge of the zone, zone on one side and bare annex floor on the other, runs beside the fire"
 		"stockpile_window":
 			var sheet_s: Variant = main.get("_inventory_panel")
 			if sheet_s == null or not bool(sheet_s.call("loot_open")):
@@ -608,6 +826,46 @@ static func verify(main: Node, scene: String) -> String:
 			return "" if (shown.get("items", []) as Array).size() >= STOCKPILE_STACK.size() - 2 else "the window lists too little of the stack"
 		_:
 			return "unknown scene %s" % scene
+
+
+## Where the brush's shot stands: open outdoor ground MARK_SOUTH tiles south of the annex zone's
+## bottom row, with the patch and the drag east of it all open outdoor ground too. The tile, or
+## (-1, -1) for none.
+static func _mark_spot(world: Variant) -> Vector2i:
+	var zone: Array[Vector2i] = SimStockpileRes.tiles(world)
+	if zone.is_empty():
+		return Vector2i(-1, -1)
+	var lo: Vector2i = zone[0]
+	var hi: Vector2i = zone[0]
+	for t in zone:
+		lo = Vector2i(mini(lo.x, t.x), mini(lo.y, t.y))
+		hi = Vector2i(maxi(hi.x, t.x), maxi(hi.y, t.y))
+	var y: int = hi.y + 1 + MARK_SOUTH
+	var mid: int = (lo.x + hi.x) / 2
+	for step in range(0, MARK_SEARCH):
+		for x in [mid - step, mid + step]:
+			var at := Vector2i(int(x), y)
+			var ok: bool = _outdoor_open(world.tilemap, at)
+			for dy in range(-1, 2):
+				for dx in range(1, MARK_DRAG_TO.x + 1):
+					ok = ok and _outdoor_open(world.tilemap, at + Vector2i(dx, dy))
+			if ok:
+				return at
+	return Vector2i(-1, -1)
+
+
+## Open outdoor ground the brush can mark: a floor, not solid, not water, not indoors.
+static func _outdoor_open(map: Variant, at: Vector2i) -> bool:
+	if at.x < 0 or at.y < 0 or at.x >= int(map.w) or at.y >= int(map.h):
+		return false
+	var idx: int = at.y * int(map.w) + at.x
+	return int(map.tiles[idx]) == SimTileMap.Tile.Floor and int(map.indoors[idx]) == 0 \
+		and int(map.surfaces[idx]) != SimSurface.Surface.Water and not SimTileMap.is_solid(map, at.x, at.y)
+
+
+static func _tile_centre_on_screen(camera: Dictionary, t: Vector2i) -> Vector2:
+	var sc: Dictionary = ProjectionRes.world_to_screen(camera, float(t.x) + 0.5, float(t.y) + 0.5)
+	return Vector2(float(sc["sx"]), float(sc["sy"]))
 
 
 ## A hunting rifle in the survivor's hands and the parts that fit it in the pack, a bench where they
@@ -766,6 +1024,9 @@ static func _a_colonist(world: Variant) -> int:
 
 
 ## The tile the body stands on, from the sim's own position.
+static func _fire_tile(world: Variant, fire: int) -> Vector2i:
+	var p: Dictionary = world.components.get_component(fire, "position") as Dictionary
+	return Vector2i(floori(float(p["x"])), floori(float(p["y"])))
 ## The stockpile tile nearest the zone's middle whose eight neighbours are all free stockpile tiles,
 ## so a hauled stack spreads round the player and every plate in the window is in sight. (-1, -1)
 ## when the zone has none.

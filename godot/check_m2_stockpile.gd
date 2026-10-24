@@ -15,7 +15,8 @@ extends SceneTree
 #              a wall, deep water, a door and an unexplored tile are each refused, and a rectangle
 #              past MAX_TILES changes nothing.
 #   WALLED  -- a marked tile that is walled over stops reading as a stockpile tile, and reads again
-#              once it is open. Both directions.
+#              once it is open. Both directions. At each step the zone query (`SimStockpile.tiles`,
+#              kept cheap for the Haul drop) answers exactly `has_tile` over the record, row-major.
 #   READERS -- with the annex unmarked and a 2x2 marked outside it, the readers follow the zone:
 #              `is_stockpile_tile`, `stockpile_items`, the drop point and the orders' haul test. The
 #              bed test does not: `_free_indoor` still answers an annex floor tile.
@@ -40,6 +41,19 @@ extends SceneTree
 #              lists the walled tin and turns TAKE red.
 #   SAVE    -- the zone round-trips a save. A save with no zone record (every save from before this
 #              slice) loads with the default zone.
+#   PREVIEW -- slice S2's read model: `SimStockpile.preview` is what the screen's drag draws, so it
+#              has to be what `mark` does. On a fresh world it creates no record (it only asks);
+#              `markable_in` answers `markable` tile for tile, an unexplored tile included; an `on`
+#              previews exactly the tiles the mark then adds, an `off` exactly the ones it takes
+#              back, and a rectangle that would take the zone past MAX_TILES previews refused and
+#              its mark changes nothing, where a small one beside it is not refused.
+#   SUMMARY -- slice S5's read model (`godot/sim/stockpile_read.gd`), which the Colony screen draws:
+#              a stack of three tins and a stack of two read food "some", the stack counted as its
+#              count, named most numerous first; a bandage reads medicine "one"; every other group
+#              "none". The negative: a tin outside the stockpile is not counted, so an emptied
+#              pile reads food "none" with it lying there. The amount ladder is held at each edge,
+#              and every group is one some content item falls in, so no group is a word nothing
+#              can fill.
 #
 # Every lane carries its true negative. The sabotage that proves the lanes are not vacuous: making
 # `has_tile` ignore the record turns MARK and READERS red; making `markable` accept a wall turns
@@ -81,17 +95,19 @@ func _run() -> void:
 	ok = _a_walled_tile_leaves_the_zone_and_returns() and ok
 	ok = _the_readers_follow_the_zone_but_beds_do_not() and ok
 	ok = _the_zone_survives_a_save_and_an_old_save_reads_the_default() and ok
+	ok = _the_preview_is_what_the_mark_does() and ok
 	ok = _six_items_spread_over_the_pile_emptiest_first() and ok
 	ok = _a_pile_apart_from_home_is_its_own_patch() and ok
 	ok = _a_haul_walks_onto_an_outdoor_pile() and ok
 	ok = _a_meal_lands_at_the_fire_not_at_the_cooks_feet() and ok
 	ok = _a_raider_loots_an_outdoor_pile() and ok
+	ok = _the_summary_reads_the_pile_in_words() and ok
 	ok = _the_window_takes_and_puts_by_the_sims_rules() and ok
 	var skip_note: String = ""
 	if not _skipped.is_empty():
 		skip_note = " SKIPPED(no data): " + ", ".join(_skipped)
 	if ok:
-		print("M2_STOCKPILE_OK default mark walled readers save spread patch walk cook raider take%s" % skip_note)
+		print("M2_STOCKPILE_OK default mark walled readers save preview spread patch walk cook raider summary take%s" % skip_note)
 		quit(0)
 	else:
 		push_error("M2_STOCKPILE_FAIL")
@@ -284,9 +300,10 @@ func _mark_reaches_the_zone_and_refuses_the_bad_tiles() -> bool:
 		if SimStockpile.has_tile(w, unseen.x, unseen.y):
 			push_error("MARK: a tile the player has never seen was marked")
 			return false
-	# A rectangle of 441 tiles is past MAX_TILES and is refused whole: nothing changes.
+	# A square one tile wider than MAX_TILES allows is past it and is refused whole: nothing changes.
+	var side: int = ceili(sqrt(float(SimStockpile.MAX_TILES + 1)))
 	var size_before: int = SimStockpile.count(w)
-	_mark(w, block.x, block.y, block.x + 20, block.y + 20, true)
+	_mark(w, block.x, block.y, block.x + side - 1, block.y + side - 1, true)
 	if SimStockpile.count(w) != size_before:
 		push_error("MARK: a rectangle past MAX_TILES changed the zone")
 		return false
@@ -321,15 +338,50 @@ func _a_walled_tile_leaves_the_zone_and_returns() -> bool:
 	if not SimStockpile.has_tile(w, block.x, block.y):
 		push_error("WALLED: the marked tile is not stockpile before anything walls it")
 		return false
+	if not _tiles_match(w, "with the patch marked"):
+		return false
 	w.tilemap.tiles[idx] = SimTileMap.Tile.Wall
 	if SimStockpile.has_tile(w, block.x, block.y):
 		push_error("WALLED: a walled-over stockpile tile still reads as stockpile")
+		return false
+	if not _tiles_match(w, "with a tile walled over") or SimStockpile.tiles(w).has(block):
+		push_error("WALLED: the zone query still lists the walled tile")
 		return false
 	w.tilemap.tiles[idx] = floor_tile
 	if not SimStockpile.has_tile(w, block.x, block.y):
 		push_error("WALLED: the tile did not come back into the zone once it was open again")
 		return false
-	print("WALLED OK a walled stockpile tile leaves the zone and returns when open")
+	if not _tiles_match(w, "with the tile open again") or not SimStockpile.tiles(w).has(block):
+		push_error("WALLED: the zone query did not list the reopened tile")
+		return false
+	print("WALLED OK a walled stockpile tile leaves the zone and returns when open, and the zone query is has_tile over the record in row-major order each time")
+	return true
+
+
+# The zone query as it was written first: `has_tile` over every key, sorted by (ty, tx). The fast
+# `SimStockpile.tiles` must answer exactly this.
+func _slow_tiles(w: Variant) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var rec: Variant = w.components.get_component(w.player, SimStockpile.COMPONENT)
+	if not rec is Dictionary:
+		return SimStockpile.tiles(w)
+	for key in (rec as Dictionary)["tiles"].keys():
+		var parts: PackedStringArray = String(key).split(",")
+		var t := Vector2i(int(parts[0]), int(parts[1]))
+		if SimStockpile.has_tile(w, t.x, t.y):
+			out.append(t)
+	out.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		return a.y < b.y or (a.y == b.y and a.x < b.x)
+	)
+	return out
+
+
+func _tiles_match(w: Variant, when: String) -> bool:
+	var fast: Array[Vector2i] = SimStockpile.tiles(w)
+	var slow: Array[Vector2i] = _slow_tiles(w)
+	if fast != slow or fast.is_empty():
+		push_error("WALLED: %s the zone query answers %d tiles where has_tile over the record answers %d, or in another order" % [when, fast.size(), slow.size()])
+		return false
 	return true
 
 
@@ -410,6 +462,98 @@ func _restored(w: Variant) -> Variant:
 	var back: Variant = _world()
 	back.restore(decoded["snapshot"] as Dictionary)
 	return back
+
+
+func _the_preview_is_what_the_mark_does() -> bool:
+	var w: Variant = _world()
+	var at: Vector2i = _markable_block(w, 3)
+	if at.x < 0:
+		_skipped.append("PREVIEW")
+		print("PREVIEW SKIP no 3x3 of markable ground outside the annex")
+		return true
+	var hole := Vector2i(at.x + 1, at.y + 1)
+	_forget(w, hole.x, hole.y)
+	var on_cmd: Dictionary = {"type": SimStockpile.COMMAND, "x0": at.x, "y0": at.y, "x1": at.x + 2, "y1": at.y + 2, "on": true}
+	var before: Array[Vector2i] = SimStockpile.tiles(w)
+	var pv: Dictionary = SimStockpile.preview(w, on_cmd)
+	if w.components.has_component(w.player, COMPONENT):
+		push_error("PREVIEW: asking what a mark would do wrote a zone record")
+		return false
+	var explored: Variant = SimSightings.explored_view(w, w.player)
+	for j in range(at.y, at.y + 3):
+		for i in range(at.x, at.x + 3):
+			if SimStockpile.markable_in(w, explored, i, j) != SimStockpile.markable(w, i, j):
+				push_error("PREVIEW: markable_in and markable disagree at (%d, %d)" % [i, j])
+				return false
+	if SimStockpile.markable(w, hole.x, hole.y):
+		push_error("PREVIEW: the forgotten tile is still markable, so the agreement above proves nothing")
+		return false
+	var want: Array[Vector2i] = []
+	for j in range(at.y, at.y + 3):
+		for i in range(at.x, at.x + 3):
+			if Vector2i(i, j) != hole:
+				want.append(Vector2i(i, j))
+	if bool(pv["refused"]) or not _same(pv["tiles"] as Array, want):
+		push_error("PREVIEW: an on over the 3x3 previews %s (refused %s), not its eight explored tiles" % [str(pv["tiles"]), str(pv["refused"])])
+		return false
+	# The signature main.gd keeps the zone by: still while nothing changes, moved by a mark.
+	var sig0: int = SimStockpile.signature(w)
+	if SimStockpile.signature(w) != sig0:
+		push_error("PREVIEW: the zone's signature moved with nothing changed")
+		return false
+	_mark(w, at.x, at.y, at.x + 2, at.y + 2, true)
+	var after: Array[Vector2i] = SimStockpile.tiles(w)
+	if SimStockpile.signature(w) == sig0:
+		push_error("PREVIEW: a mark that added %d tiles left the zone's signature where it was, so a reader keeping the zone by it never sees the change" % after.size())
+		return false
+	var gained: Array[Vector2i] = after.filter(func(t: Vector2i) -> bool: return not before.has(t))
+	if not _same(gained, want):
+		push_error("PREVIEW: the mark added %s where the preview said %s" % [str(gained), str(want)])
+		return false
+	var off_cmd: Dictionary = on_cmd.duplicate()
+	off_cmd["on"] = false
+	var pv_off: Dictionary = SimStockpile.preview(w, off_cmd)
+	_mark(w, at.x, at.y, at.x + 2, at.y + 2, false)
+	var lost: Array[Vector2i] = after.filter(func(t: Vector2i) -> bool: return not SimStockpile.tiles(w).has(t))
+	if bool(pv_off["refused"]) or not _same(pv_off["tiles"] as Array, lost) or lost.size() != want.size():
+		push_error("PREVIEW: an off previews %s and the mark took back %s" % [str(pv_off["tiles"]), str(lost)])
+		return false
+	# Past the cap: the default zone plus a big outdoor rectangle. Refused whole, and so is the mark.
+	var big: Dictionary = {}
+	# The widest square one `on` may cover, so the refusal below is the zone's cap, not the area's.
+	var reach: int = floori(sqrt(float(SimStockpile.MAX_TILES)))
+	for ty in range(0, int(w.tilemap.h) - reach, 4):
+		for tx in range(0, int(w.tilemap.w) - reach, 4):
+			var c: Dictionary = {"type": SimStockpile.COMMAND, "x0": tx, "y0": ty, "x1": tx + reach - 1, "y1": ty + reach - 1, "on": true}
+			if bool(SimStockpile.preview(w, c)["refused"]):
+				big = c
+				break
+		if not big.is_empty():
+			break
+	if big.is_empty():
+		_skipped.append("PREVIEW cap")
+		print("PREVIEW SKIP no rectangle on this map has enough markable ground to pass MAX_TILES")
+		return true
+	if not (SimStockpile.preview(w, big)["tiles"] as Array).is_empty():
+		push_error("PREVIEW: a refused preview still lists tiles")
+		return false
+	var held: Array[Vector2i] = SimStockpile.tiles(w)
+	var sig_held: int = SimStockpile.signature(w)
+	_mark(w, int(big["x0"]), int(big["y0"]), int(big["x1"]), int(big["y1"]), true)
+	if not _same(SimStockpile.tiles(w), held):
+		push_error("PREVIEW: the mark the preview refused changed the zone")
+		return false
+	if SimStockpile.signature(w) != sig_held:
+		push_error("PREVIEW: a refused mark moved the zone's signature")
+		return false
+	var small: Dictionary = on_cmd.duplicate()
+	small["x1"] = at.x
+	small["y1"] = at.y
+	if bool(SimStockpile.preview(w, small)["refused"]):
+		push_error("PREVIEW: a one-tile mark is refused too, so the cap's refusal proves nothing")
+		return false
+	print("PREVIEW OK asking writes no record, markable_in is markable, an on and an off preview exactly what the mark changes, the signature moves with a mark and holds otherwise, and a rectangle past the cap previews refused and changes nothing")
+	return true
 
 
 func _centre(t: Vector2i) -> Vector2:
@@ -644,6 +788,69 @@ func _items_based_on(w: Variant, base: String) -> Array[int]:
 	return out
 
 
+# SUMMARY. The pile emptied, a tin left outside it, then two stacks of tins and a bandage on it.
+func _the_summary_reads_the_pile_in_words() -> bool:
+	var Read: GDScript = load("res://sim/stockpile_read.gd") as GDScript
+	var w: Variant = _world()
+	var pile: Array[Vector2i] = SimStockpile.tiles(w)
+	var outside: Vector2i = _find(w, func(tx: int, ty: int) -> bool: return _is_outdoor_floor_outside_annex(w, tx, ty))
+	if pile.size() < 2 or outside.x < 0:
+		push_error("SUMMARY: no two stockpile tiles and an open floor outside them to judge with")
+		return false
+	# Empty the pile: an item with no position is not on the ground.
+	for item in SimNeeds.stockpile_items(w):
+		w.components.remove_component(item, "position")
+	var stray: int = SimItems.spawn_item(w, "item.food.beans.tin", {"tier": "scavenged", "count": 3})
+	w.components.set_component(stray, "position", {"x": float(outside.x) + 0.5, "y": float(outside.y) + 0.5})
+	var bare: Array = Read.call("summary", w) as Array
+	for row in bare:
+		if String((row as Dictionary)["words"]) != "none" or not ((row as Dictionary)["names"] as Array).is_empty():
+			push_error("SUMMARY: the emptied pile, a tin outside it, reads %s" % str(row))
+			return false
+	var placed: Array[Dictionary] = [
+		{"id": "item.food.beans.tin", "count": 3},
+		{"id": "item.food.fruit.tin", "count": 2},
+		{"id": "item.bandage.cloth", "count": 1},
+	]
+	for i in placed.size():
+		var item: int = SimItems.spawn_item(w, String(placed[i]["id"]), {"tier": "scavenged", "count": int(placed[i]["count"])})
+		var t: Vector2i = pile[i % pile.size()]
+		w.components.set_component(item, "position", {"x": float(t.x) + 0.5, "y": float(t.y) + 0.5})
+	var rows: Dictionary = {}
+	var order: Array[String] = []
+	for row in Read.call("summary", w) as Array:
+		rows[String((row as Dictionary)["group"])] = row
+		order.append(String((row as Dictionary)["group"]))
+	if order != (Read.get("GROUPS") as Array):
+		push_error("SUMMARY: the rows stand %s, not the groups' order" % str(order))
+		return false
+	var food: Dictionary = rows["food"] as Dictionary
+	if String(food["words"]) != "some" or (food["names"] as Array) != ["Tin of Beans", "Tin of Peaches"]:
+		push_error("SUMMARY: three tins and two read food %s %s, not some, Tin of Beans then Tin of Peaches" % [String(food["words"]), str(food["names"])])
+		return false
+	var med: Dictionary = rows["medicine"] as Dictionary
+	if String(med["words"]) != "one" or (med["names"] as Array) != ["Cloth Bandage"]:
+		push_error("SUMMARY: a bandage reads medicine %s %s, not one Cloth Bandage" % [String(med["words"]), str(med["names"])])
+		return false
+	for g in rows.keys():
+		if g != "food" and g != "medicine" and String((rows[g] as Dictionary)["words"]) != "none":
+			push_error("SUMMARY: %s reads %s with nothing of it on the pile" % [String(g), String((rows[g] as Dictionary)["words"])])
+			return false
+	var ladder: Dictionary = {0: "none", 1: "one", 2: "a few", 4: "a few", 5: "some", 9: "some", 10: "plenty", 40: "plenty"}
+	for n in ladder.keys():
+		if String(Read.call("amount_word", int(n))) != String(ladder[n]):
+			push_error("SUMMARY: %d reads %s, not %s" % [int(n), String(Read.call("amount_word", int(n))), String(ladder[n])])
+			return false
+	var filled: Dictionary = {}
+	for base in SimItems.content_entries(w, "item"):
+		if base is Dictionary:
+			filled[String(Read.call("group_of", base as Dictionary))] = true
+	for g in Read.get("GROUPS") as Array:
+		if not filled.has(String(g)):
+			push_error("SUMMARY: no item in the content falls in %s" % String(g))
+			return false
+	print("SUMMARY OK an emptied pile reads none with a tin outside it; three tins and two read food some, named most first; a bandage reads medicine one; the ladder holds at each edge; every group has content")
+	return true
 # TAKE. The window's four commands, each accepted and refused by the sim's own rules. A 3x3 pile
 # outdoors, the player on its west middle tile, a wall dropped on its centre: the east middle tile is
 # on the same patch (round the wall by the top and bottom rows) and out of sight behind the wall.

@@ -3623,6 +3623,80 @@ not a to-do list:
   19.35, 20.33 ms, median 19.88 (level). Both branches are over the 8 ms mean target here, as main is.
   The +0.8 ms on the shipped median is inside the noise here but not yet explained; it is not
   attributed to the drop walk until a per-system timing says where it is.
+- **Marking the stockpile on screen, slice S2 of the 2026-10-24 plan.** Z picks up a brush (a `mark`
+  focus in `godot/presentation/input_map.gd`, the `stockpile` binding; Ctrl+Z stays the prone rung).
+  Under it a left drag pushes one `stockpile.mark` on over the dragged rectangle, a right drag one
+  off, a click one tile; walking, the stances, pause and the speed keys still work, nothing attacks
+  and the right-click menu is off; Escape or Z puts it down. The drag previews what the sim says the
+  release changes (`SimStockpile.preview`, which `mark` now applies exactly), amber to mark and rust
+  to clear, and nothing when the sim would refuse it whole; a mark let go while paused draws as
+  pending until a tick takes it. The zone is drawn on the ground (`godot/presentation/stockpile_look.gd`,
+  `_draw_stockpile` in main.gd): a cool steel wash and a dashed masking-tape rim, only on tiles the
+  player has explored, dimmed through `Palette.remembered` out of sight, never over a roof, quieter
+  at rest than under the brush, under the props and bodies. The HUD speaks the brush in words
+  (`HudRead.marking_line`) and the legend has a Z row. Gates: `godot:check:play` MARK (the keys, the
+  three drags, the street drag that marks nothing, the paused pending draw and its end, the zone on
+  explored tiles only, the bar), `godot:check:memory` STOCKPILE (explored only, remembered dimmed,
+  roof wins, one rim with no inner seams and the concave notch, the batch, the kept shape and the
+  state bytes, the rim at 3:1 or better on seven grounds, the frame reaching it), `godot:check:hud`
+  ACTION (the brush's lines digit-free), `godot:m2:stockpile` PREVIEW (preview is what the mark
+  does, the cap refuses whole, the zone's signature moves with a mark and holds otherwise),
+  `godot:check:shots` (`stockpile_mark`, `stockpile_rest`, and `stockpile_night`, the zone's edge
+  through the campfire's pool on the board floor, added after art QA round 2; twenty scenes).
+  Sabotage, each shown red: no push on release (MARK), no explored check in `cells` (STOCKPILE),
+  `cells` ignoring the kept geometry (STOCKPILE), no pending entry on release (MARK), a constant
+  signature (PREVIEW).
+  Frame cost, `xvfb-run -a npm run godot:bench:frame`, three interleaved pairs against the same
+  build with `_draw_stockpile` returning at once: the first cut, painting every tile fresh each
+  frame, was 17.77, 17.61, 18.04 ms shipped-draw against 9.04, 10.86, 10.26, a regression. The zone
+  is now kept by `SimStockpile.signature`, its paint batched (row-run fills, one `draw_multiline` per
+  colour, in tile-grid coordinates offset as drawn) and rebuilt only when a zone tile's state, the
+  brush or the zoom moves: shipped-draw 10.76, 9.38, 10.71 against 9.94, 9.66, 10.72; night-draw
+  9.63, 10.10, 10.12 against 9.43, 10.85, 10.44, inside the box's spread. The bench holds the sim,
+  so it measures the kept path; a tick reads the zone's state (about 0.3 ms for the 320-tile default
+  zone on this box) and a change of state rebuilds the batch (about 1.5 ms). Shots, before and after
+  at both sizes, are in the project's shared folder under planning/stockpile/s2. After art QA round
+  1: the cap is 1000 tiles (`SimStockpile.MAX_TILES`, from S1's 400, which left about 80 past the
+  default zone); the zone query the Haul drop asks every carrying tick (`SimStockpile.tiles`) now
+  parses each key once and sorts natively, 0.67 ms at 320 tiles and 2.1 ms at 1000 on this box
+  against 2.1 to 3.4 ms at 320 before, held to the old answer by WALLED (sabotage: no sort, no solid
+  test, each red); the wash leans to night alphas in the dark, held by STOCKPILE's NIGHT half (by
+  firelight at least its noon contrast on every ground, which the day alphas fail); the drag's
+  preview (about 5 ms for a full 1000-tile rectangle) is asked once per change of the rectangle and
+  shared with the bar, and the pending marks once per change; the bar says "Z / Esc — put the brush
+  down" as two caps. Not in this slice: S3's placement, stash and looter, and S5's Colony-screen
+  words.
+- **The stockpile on the Colony screen, in words: slice S5 of the 2026-10-24 plan.** The Colony
+  screen (J) says what the colony keeps, so a run can be planned without walking to the pile. A
+  read model, `godot/sim/stockpile_read.gd` (`StockpileRead.summary`), gives one row per group in a
+  fixed order (food, drink, medicine, ammunition, weapons, clothing and armour, tools and
+  materials, other), each an amount word (none, one, a few for two to four, some for five to nine,
+  plenty for ten or more, a stack counted as its count) and up to three item names, most numerous
+  first. It reads what lies on the stockpile's tiles now (`SimNeeds.stockpile_items`), so it follows
+  the zone S1 made; a group comes off fields the content already carries, so no content key was
+  added. The block stands in the drawer's place, two columns of four, whenever nobody is picked,
+  and a "the stockpile" button beside "their skills" shows it for a picked colonist, with "back to"
+  their name where "their skills" was; the drawer is the same rectangle either way, so the grid
+  never moves and the roster keeps every row it had (1280x720 measured: a ninth block under the
+  drawer would cost the roster its rows). Names that do not fit a column whole are passed over, not
+  cut, so a shorter one after them may stand. The panel reads the summary once a tick (about half a
+  millisecond on a booted district) and afresh whenever the screen opens, so a drop while paused or a
+  load onto the same tick is not shown stale. Gates: `godot:check:play` STOCKPILE (at both windows
+  the words are the read model's and the names are its names in order; a pile emptied with no tick
+  reads none, dim, naming nothing once the screen opens again; no digit but an item name `_name_is_allowed` allows, where an amount of "12" is
+  refused; every row inside the drawer, which holds still between the pile and a person; the button
+  shows the pile without moving the game's pick or queueing anything, a right click does nothing,
+  a Focus chip's place queues nothing while the pile is shown, and the way back shows the person;
+  both inks at 4.5:1 or better on the steel) and `godot:m2:stockpile` SUMMARY (an emptied pile
+  reads none with a tin lying outside it; a stack of three tins and one of two read food "some",
+  named most numerous first; a bandage reads medicine "one"; the amount ladder at each edge; every
+  group has content that falls in it). Sabotage: the read model walking every loose item instead of
+  the stockpile's turns SUMMARY and STOCKPILE red; a stack counted as one turns SUMMARY red; the
+  button that does not flip turns STOCKPILE red; "none" drawn in the full ink turns STOCKPILE red.
+  Review scenes `colony_stockpile` (nobody picked, a pile stocked across seven groups) and
+  `colony_stockpile_picked` (the pile shown for Mara), both windows, with before and after of
+  `colony`, `colony_picked` and `colony_crowd`. Not in this slice: taking from the Colony screen,
+  and anything carried or lying outside the stockpile. No sim system changed, so no bench.
 - **Taking from the stockpile: the loot window, slice S4 of the 2026-10-24 plan.** Standing in the
   stockpile, E opens the loot window on it, titled "the stockpile", beside the pockets. It lists every
   loose item on the patch the player stands in that the player sees from there, nearest first
