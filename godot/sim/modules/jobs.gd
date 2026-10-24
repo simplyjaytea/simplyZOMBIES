@@ -1927,9 +1927,17 @@ static func _corpse_dump(world: Variant) -> Vector2i:
 # A pile marked at a camp is its own patch, so a colonist beside a camp stocks the camp's pile and
 # one at home stocks home's. The camp is not read anywhere: the nearest pile is the whole rule. A
 # zone the player marks outdoors is a deliberate choice, and its tiles are read as they are.
+# The beds and campfires are read once per drop into a set of tiles, the answer `_bed_at` and
+# `_campfire_at` give tile by tile: asked per zone tile, they walked every bed and fire each time.
 static func _stock_drop(world: Variant, from: Vector2) -> Vector2i:
+	var taken: Dictionary = {}
+	for kind in ["bed", "campfire"]:
+		for e in world.components.query([kind, "position"]):
+			var p: Variant = world.components.get_component(int(e), "position")
+			if p is Dictionary:
+				taken[Vector2i(floori(float((p as Dictionary)["x"])), floori(float((p as Dictionary)["y"])))] = true
 	return SimStockpile.drop_tile(world, from, _lying_tiles(world), func(tx: int, ty: int) -> bool:
-		return _bed_at(world, tx, ty) < 0 and _campfire_at(world, tx, ty) < 0
+		return not taken.has(Vector2i(tx, ty))
 	)
 
 

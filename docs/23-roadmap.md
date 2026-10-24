@@ -3725,6 +3725,26 @@ not a to-do list:
   reached from the sheet's column (Tab) or by "take all that fits". Shots, before and after at both
   sizes:
   `planning/stockpile/s4/` in the project files.
+- **The stockpile drop point, brought down to cost (a follow-up to S3).** S3's drop
+  (`_stock_drop` in `godot/sim/modules/jobs.gd`) ran once per haul pickup and once per cooked meal,
+  and cost a single tick 6.6 to 7.3 ms on the 320-tile default zone and 20 to 28 ms at the
+  1000-tile cap on this box. Most of it was String work: `SimStockpile.patches` keyed its flood
+  fill and `drop_tile` its load count by `"x,y"`, and each patch sorted by a comparator. The free
+  test also walked every bed and campfire for every zone tile. Now the patch walk and the load
+  count key on the tile itself, a patch sorts by its row-major number, and `_stock_drop` reads the
+  beds and fires once per drop into a set of taken tiles. The answer is unchanged. On seeds
+  20260805 and 99, hashes of the patches, of forty drops in a row from sixteen points on three zones
+  (default, default plus four far blocks, 1000 tiles), and of every ground item after 3000 ticks
+  are identical before and after. Gate: `godot:m2:tick` DROP carries the String-keyed code and holds
+  the shipped code to it: the patches, twenty-four drops in a row from eight points on two zones,
+  and `_stock_drop` with a lit campfire on a zone tile. Its negative is a drop blind to the fire,
+  which lands on the fire's tile, while `_stock_drop` must not. Sabotage, each shown red: no sort
+  in a patch, no campfire in the taken set, a load that never counts. `godot:m2:stockpile` SPREAD
+  and PATCH stay green. Cost, two interleaved runs a seed against main 3bb0bfd6, on this box: at
+  320 tiles `patches` went from 2.9 to 3.1 ms down to 1.2 to 1.6 ms, and the drop from 6.6 to
+  7.3 ms down to 1.7 to 2.0 ms. At 1000 tiles `patches` went from 9.8 to 10.9 ms down to 3.8 to
+  6.4 ms, and the drop from 20.4 to 28.0 ms down to 5.0 to 8.0 ms. `tiles` is unchanged: 0.7 ms at
+  320 and 2.1 to 2.5 ms at 1000.
 - **Attack order: a picked colonist goes after one zombie or raider they can see — 2026-10-24 orders slice A2.**
   With a colonist picked on the street, the menu's "have Mara attack it" row offers an `attack` order on a
   zombie or raider the colonist or the player can see right now (`SimOrders.accepts`, the scarce-information
