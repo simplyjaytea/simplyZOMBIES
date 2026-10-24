@@ -180,7 +180,13 @@ func sourceAt(entity: int) -> Variant:
 	return source_at(entity)
 
 
-## How far observer can see from (x,y) — min(eyes, max(ambient, lit)).
+## The least a survivor sees after dark, with no light anywhere (docs/23, "The night's reach on
+## screen"): a person who can see at all can see the tile at their feet and the one past it. Only a
+## survivor's eyes carry `night_eyes`; a zombie or a raider does not get the floor. Read here and by
+## visibility.gd's `_sight_metres`, so the drawn disc (LightLook.eye_disc_metres) and the sim agree.
+const NIGHT_EYES_FLOOR_M: float = 3.5
+
+## How far observer can see from (x,y) — min(eyes, max(ambient, lit, night floor)).
 static func sight_metres(world: Variant, observer: Dictionary, x: float, y: float) -> float:
 	var tick: int = 0
 	if world is Dictionary:
@@ -196,7 +202,8 @@ static func sight_metres(world: Variant, observer: Dictionary, x: float, y: floa
 		light_idx = world.light
 	if light_idx != null:
 		lit = light_idx.lit_metres(x, y)
-	return min(float(observer["range_metres"]), max(ambient, lit))
+	var floor_m: float = NIGHT_EYES_FLOOR_M if bool(observer.get("night_eyes", false)) else 0.0
+	return min(float(observer["range_metres"]), max(ambient, lit, floor_m))
 
 static func sightMetres(world: Variant, observer: Dictionary, x: float, y: float) -> float:
 	return sight_metres(world, observer, x, y)

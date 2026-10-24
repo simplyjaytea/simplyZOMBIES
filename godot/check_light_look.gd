@@ -27,6 +27,7 @@ const SimBoot = preload("res://sim/boot.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimVisibility = preload("res://sim/vision/visibility.gd")
 const SimLightMod = preload("res://sim/modules/light.gd")
+const SimLight = preload("res://sim/vision/light.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const LightLook = preload("res://presentation/light_look.gd")
 const Palette = preload("res://presentation/palette.gd")
@@ -67,6 +68,7 @@ func _run() -> void:
 	ok = _a_beam_is_content_and_needs_a_facing() and ok
 	ok = _a_flame_flickers_and_a_bulb_does_not() and ok
 	ok = _a_window_lights_the_floor_beyond_not_the_masonry() and ok
+	ok = _the_night_floor_grows_the_drawn_disc() and ok
 	if ok:
 		print("LIGHT_LOOK_OK the light map's texels put light on no unseen tile (a walled campfire's far side carries no seen byte and no source bit, the open twin is lit, remembered tiles read 128), light through a window lands on the floor beyond and not on the opaque tiles there, pools are rings capped by their reach (fire over lantern, and redder), the eye disc derives from sight (and differs from raw ambient on the same lit scene), falls back to ambient exactly with no observer or no emitter, pools are lit-and-seen with a walled far side drawn nowhere, the near/far split lands at %.0f m, full daylight clears the light map, and main.gd's _draw calls both helpers" % LightLook.POOL_SPLIT_METRES)
 		quit(0)
@@ -634,7 +636,7 @@ func _dead_socket_main_gd_draws_what_light_look_returns() -> bool:
 			push_error("light_map.gd does not hand the shader %s" % needle)
 			return false
 	var shader_src: String = FileAccess.get_file_as_string("res://presentation/night_light.gdshader")
-	for needle in ["render_mode blend_mul", "float b = tint.w * rings(fall * mask, threshold);", "eye_floor * (1.0 - ambient) * eye_fade * rings(1.0 - smoothstep(disc_r * 0.45, disc_r, d_eye), threshold)", "texelFetch(light_tex", "light_dir[i]", "float mask = inside(own,", "if (light_count > 0 && own_r > 191)"]:
+	for needle in ["render_mode blend_mul", "float b = tint.w * rings(fall * mask, threshold);", "eye_floor * (1.0 - ambient) * eye_fade * rings(1.0 - smoothstep(disc_r * 0.3, disc_r, d_eye), threshold)", "texelFetch(light_tex", "light_dir[i]", "float mask = inside(own,", "if (light_count > 0 && own_r > 191)"]:
 		if not shader_src.contains(needle):
 			push_error("night_light.gdshader lost %s" % needle)
 			return false
@@ -761,7 +763,9 @@ func _a_pool_is_rings_capped_by_its_reach() -> bool:
 	var w: Variant = _world(false, NIGHT_FRACTION)
 	var lantern: Dictionary = Items.content_entry(w, "item", "item.lantern.storm") as Dictionary
 	var lantern_light: Dictionary = lantern.get("light", {}) as Dictionary
-	var fire_cap: float = LightLook.source_cap(SimNeedsMod.CAMPFIRE_LIGHT_M)
+	# The campfire is drawn at the pool it has always had (CAMPFIRE_POOL_REACH_M), not at its 8 m sim reach:
+	# the brightness the screen gives a fire is the drawn number, and that is what this lane judges.
+	var fire_cap: float = LightLook.source_cap(LightLook.CAMPFIRE_POOL_REACH_M)
 	var lantern_cap: float = LightLook.source_cap(float(lantern_light.get("magnitude", 0.0)))
 	if not (fire_cap > lantern_cap + 0.05):
 		push_error("RINGS: the campfire's pool caps at %f and the storm lantern's at %f -- overlapping, they clip to one level" % [fire_cap, lantern_cap])
@@ -787,6 +791,34 @@ func _a_pool_is_rings_capped_by_its_reach() -> bool:
 		push_error("RINGS: with nobody to ask there is still an eye disc")
 		return false
 	print("RINGS OK %d rings; caps %.2f..%.2f, monotonic; campfire %.2f over storm lantern %.2f, and redder; the dark eye disc is %.2f m" % [LightLook.POOL_LEVELS, LightLook.CAP_MIN, LightLook.CAP_MAX, fire_cap, lantern_cap, dark_disc])
+	return true
+
+
+# NIGHT FLOOR ON SCREEN. At midnight with no light, a survivor's sim sight is the night floor (their
+# eyes carry night_eyes) and the drawn eye disc is that same sight, capped by EYE_DISC_MAX_M. The
+# true negative is the same survivor without night_eyes: the disc is the sky's share, as before.
+# This is the lane that goes red when the floor is applied to the sim but not to the drawn disc.
+func _the_night_floor_grows_the_drawn_disc() -> bool:
+	var w: Variant = _world(false, NIGHT_FRACTION)
+	w.step()
+	var obs: Dictionary = w.components.get_component(int(w.player), "observer") as Dictionary
+	var range_m: float = float(SimVisibility.daylight_eyes()["range_metres"])
+	var sky: float = LightLook.ambient_of(w) * range_m
+	obs.erase("night_eyes")
+	var plain: float = LightLook.eye_disc_metres(w, int(w.player))
+	if absf(plain - sky) > 0.0001:
+		push_error("NIGHT FLOOR: with no night_eyes the eye disc is %f m, not the sky's share %f m" % [plain, sky])
+		return false
+	obs["night_eyes"] = true
+	var floored: float = LightLook.eye_disc_metres(w, int(w.player))
+	var sight: float = SimLight.sight_metres(w, obs, PLAYER_X, PLAYER_Y)
+	if absf(sight - SimLight.NIGHT_EYES_FLOOR_M) > 0.0001:
+		push_error("NIGHT FLOOR: the sim's sight with night_eyes is %f m, not the %f m floor" % [sight, SimLight.NIGHT_EYES_FLOOR_M])
+		return false
+	if absf(floored - minf(sight, LightLook.EYE_DISC_MAX_M)) > 0.0001 or floored <= plain + EPS:
+		push_error("NIGHT FLOOR: the drawn eye disc is %f m, not min(sight %f, cap %f), or no wider than the %f m without the floor" % [floored, sight, LightLook.EYE_DISC_MAX_M, plain])
+		return false
+	print("NIGHT FLOOR OK the drawn eye disc grows from %.2f m to %.2f m with night_eyes, the sim's sight is %.2f m" % [plain, floored, sight])
 	return true
 
 
