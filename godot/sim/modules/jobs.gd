@@ -723,9 +723,12 @@ static func _do_scavenge(world: Variant, ent: int, job: Dictionary) -> void:
 		_stop(world, ent)
 
 
+# The nearest loose item a colonist at (x, y) may haul: no stockpile, no order, near the errands,
+# not unreachable, not a corpse, and no zombie standing near it. The cheap filters run on every
+# item, as they always did; the zombie walk runs only on the nearest of what is left
+# (`_nearest_clear`), so a colony with a lot on the ground pays one walk instead of one per item.
 static func _haul_work(world: Variant, x: float, y: float) -> Dictionary:
-	var best: int = -1
-	var best_d: float = 1e12
+	var cands: Array[Dictionary] = []
 	for item in SimInventory.ground_items(world):
 		var p: Variant = world.components.get_component(item, "position")
 		if not p is Dictionary:
@@ -742,14 +745,10 @@ static func _haul_work(world: Variant, x: float, y: float) -> Dictionary:
 			continue
 		if world.components.has_component(item, "corpse"):
 			continue
-		if BREAK_OFF_FROM_DANGER and _danger_at(world, float((p as Dictionary)["x"]), float((p as Dictionary)["y"]), DANGER_TARGET_METRES):
-			continue
 		var dx: float = float((p as Dictionary)["x"]) - x
 		var dy: float = float((p as Dictionary)["y"]) - y
-		var d: float = dx * dx + dy * dy
-		if d < best_d:
-			best_d = d
-			best = item
+		cands.append({"item": int(item), "x": float((p as Dictionary)["x"]), "y": float((p as Dictionary)["y"]), "d": dx * dx + dy * dy, "i": cands.size()})
+	var best: int = _nearest_clear(world, cands, DANGER_TARGET_METRES)
 	if best < 0:
 		# Corpse haul-to-dump only when nobody has Bury enabled (ADR 0013 overflow).
 		if _anyone_buries(world):
@@ -769,6 +768,33 @@ static func _haul_work(world: Variant, x: float, y: float) -> Dictionary:
 			return {"kind": "Haul", "target": int(c), "corpse": true, "ticksLeft": 0, "path": [], "pathGen": -1}
 		return {}
 	return {"kind": "Haul", "target": best, "ticksLeft": 0, "path": [], "pathGen": -1}
+
+
+# The item in `cands` nearest the colonist, ties to the earlier one (`i`, the order they were
+# found in), that no live zombie stands within `metres` of; -1 when none is. Each candidate is
+# {item, x, y, d, i}, `d` the squared distance. The nearest is tested first alone, which is the
+# common case; only when a zombie stands near it is the list sorted and walked in order, so the
+# answer is the one a loop testing every candidate in order would keep.
+static func _nearest_clear(world: Variant, cands: Array[Dictionary], metres: float) -> int:
+	if cands.is_empty():
+		return -1
+	var first: int = 0
+	for k in range(1, cands.size()):
+		if _nearer(cands[k], cands[first]):
+			first = k
+	var nearest: Dictionary = cands[first]
+	if not (BREAK_OFF_FROM_DANGER and _danger_at(world, float(nearest["x"]), float(nearest["y"]), metres)):
+		return int(nearest["item"])
+	cands.sort_custom(_nearer)
+	for k in range(1, cands.size()):
+		var c: Dictionary = cands[k]
+		if not (BREAK_OFF_FROM_DANGER and _danger_at(world, float(c["x"]), float(c["y"]), metres)):
+			return int(c["item"])
+	return -1
+
+
+static func _nearer(a: Dictionary, b: Dictionary) -> bool:
+	return float(a["d"]) < float(b["d"]) or (float(a["d"]) == float(b["d"]) and int(a["i"]) < int(b["i"]))
 
 
 # `ent` is the colonist asking, or -1 for none. A colonist shaken by a Retreat (its hold just ended)
