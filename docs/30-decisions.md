@@ -5901,3 +5901,18 @@ The call that stands:
 Gated by `godot:m2:jobs` BUILDER: a zombie 3 m off the yard breaks the job off, 20 m off does not,
 a builder inside the house is not broken off, and the walk home holds for `RETREAT_HOLD_TICKS` and
 the builder goes back to the wall after it. The lane was run red against the lot-as-home rule first.
+
+## Weapon assembly starts with the hands, 2026-10-24
+
+The three-features plan (C1) made the bench's screen reachable away from a bench, for one reason:
+a magazine and a sight are changed by hand (`fieldSwap`), and a gun that has one should open where
+you stand. Calls taken without the owner:
+
+- **The question is one predicate.** `SimGunsmith.may_open` (at a bench, or `field_work`) is what
+  the `modify` verb and the open command both ask, so a verb cannot be offered for a gun the
+  command refuses.
+- **A screen opened by hand stays open where you stand** while there is still a part to change
+  by hand, and closes when there is none. Walking away from a bench still closes the bench screen,
+  as `SimContainers` closes a box, for a gun with nothing to change.
+- **`modify` in the item menu pushes `bench.open`.** It was offered at a bench and pushed nothing,
+  which the dead-socket rule forbids. Gated by `godot:m2:bench` FIELD and `godot:check:inventory`.
