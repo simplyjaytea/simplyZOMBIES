@@ -2487,8 +2487,11 @@ not a to-do list:
   `:inventory`, `:hud`, `:shots`, `godot:m2:bench` and `check:routing` pass locally. A second
   scene, `bench_field`, shoots the same rifle by hand on the street (C1's field work) with the
   fitted magazine picked: the header says "by hand", and only parts the hands can fit wear the
-  amber corner. **Not done:** a slot only a bench can change (`field` false in the view) looks the
-  same as one the hands can, by hand; the kit's `slot_empty` style is
+  amber corner. By hand, a fitted part the hands cannot take off (the view's `removable` false) is
+  drawn locked: its picture washed, its name dimmed, a "bench" tape on its top edge in the
+  "needed" tape's style, and no amber corner; BENCH's by-hand half holds the locked plates to the
+  view's own list, with the magazine never among them, and the at-bench half draws none.
+  **Not done:** the kit's `slot_empty` style is
   now drawn by no screen (it stays in `Kit.NINE` and its manifest checks); no UI draw cost was
   measured.
 

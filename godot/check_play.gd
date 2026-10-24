@@ -3032,6 +3032,11 @@ func _the_bench_opens_fits_and_closes() -> bool:
 		if not corner_keyed or (lay["legend_at"] as Vector2).x < 0.0:
 			push_error("%s: parts that fit are carried, but the amber corner has no key at %s" % [lane, str(dims)])
 			ok = false
+		# At the bench nothing is locked: the "bench" tape is a by-hand mark (the negative for the
+		# by-hand half after this loop).
+		if not (panel.call("locked") as Array).is_empty():
+			push_error("%s: at the bench the screen draws %s locked" % [lane, str(panel.call("locked"))])
+			ok = false
 		var kept: Dictionary = panel.get("_view") as Dictionary
 		var bare: Dictionary = kept.duplicate()
 		bare["offers"] = []
@@ -3057,6 +3062,52 @@ func _the_bench_opens_fits_and_closes() -> bool:
 		var fitted: int = SimAttachments.in_slot(world, rifle, "optic")
 		if fitted >= 0:
 			SimAttachments.detach(world, fitted)
+
+	# By hand (C1's field work): the bench taken far off, the same rifle opened where the survivor
+	# stands. A fitted part the hands cannot take off is drawn locked -- a "bench" tape on each --
+	# exactly the slots the read model says are fitted and not `removable`; the magazine, which
+	# hands can change, is not among them. (No amber corner on a locked plate is not asserted: by
+	# hand the view offers nothing for such a slot, `may_work` filters it, so there is no case to
+	# fail; the panel's own guard is belt and braces.)
+	root.size = Vector2i(1280, 720)
+	await process_frame
+	var bench_at: Dictionary = (world.components.get_component(bench, "position") as Dictionary).duplicate()
+	world.components.set_component(bench, "position", {"x": float(bench_at["x"]) + 60.0, "y": float(bench_at["y"])})
+	_drain(main)
+	world.commands.push({"type": "bench.open", "item": rifle})
+	_frames(main, 2)
+	await process_frame
+	await process_frame
+	var hand_view: Dictionary = SimGunsmith.bench_view(world, me, rifle)
+	if SimGunsmith.focus_of(world, me) != rifle or not panel.visible or bool(hand_view.get("at_bench", true)):
+		push_error("%s: the rifle did not open by hand away from the bench (view at_bench %s)" % [lane, str(hand_view.get("at_bench", "?"))])
+		ok = false
+	else:
+		var want: Array[String] = []
+		for row_v in hand_view.get("slots", []) as Array:
+			var row: Dictionary = row_v as Dictionary
+			if int(row.get("part", -1)) >= 0 and not bool(row.get("removable", false)):
+				want.append(String(row.get("slot", "")))
+		var got: Array[String] = (panel.call("locked") as Array[String]).duplicate()
+		want.sort()
+		got.sort()
+		if want.is_empty() or got != want:
+			push_error("%s: by hand the screen draws %s locked where the view says %s" % [lane, str(got), str(want)])
+			ok = false
+		if got.has("magazine"):
+			push_error("%s: by hand the magazine, which hands can change, is drawn locked" % lane)
+			ok = false
+		var taped: int = 0
+		for t_v in panel.call("said") as Array:
+			if String((t_v as Dictionary).get("text", "")) == "BENCH":
+				taped += 1
+		if taped != got.size():
+			push_error("%s: %d locked plates but %d \"bench\" tapes" % [lane, got.size(), taped])
+			ok = false
+	_tap(KEY_ESCAPE)
+	_frames(main, 1)
+	await process_frame
+	world.components.set_component(bench, "position", bench_at)
 	return await _bench_done(main, old_size, ok)
 
 
@@ -3066,5 +3117,5 @@ func _bench_done(main: Node, old_size: Vector2i, ok: bool) -> bool:
 	main.queue_free()
 	await process_frame
 	if ok:
-		print("BENCH OK E at a bench opens the assembly inside 1280x720 and centred at 1920x1080 where the old rect does not fit; plate then candidate fits, take off detaches and then is gone, Enter crosses and fits, arrows stay on the screen, the wash eats a click, every word is digit-free but a name, Escape closes it")
+		print("BENCH OK E at a bench opens the assembly inside 1280x720 and centred at 1920x1080 where the old rect does not fit; plate then candidate fits, take off detaches and then is gone, Enter crosses and fits, arrows stay on the screen, the wash eats a click, every word is digit-free but a name, Escape closes it; by hand the parts only a bench can take off wear a \"bench\" tape and the magazine does not")
 	return ok
