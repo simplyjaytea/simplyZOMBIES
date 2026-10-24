@@ -5958,6 +5958,25 @@ The drop on a weapon is the fit and nothing more (C3). Calls taken without the o
   by a drop away from a bench, even into an empty slot. `SimGunsmith.drop_slot` asks `may_work`,
   the question the open command and the attach command already ask.
 
+
+## The assembly screen is a screen, 2026-10-24
+
+The three-features plan's C2 rewrote the bench as an assembly view on the Salvage Locker. Calls
+taken without the owner, all presentation:
+
+- **It washes the window and keeps its clicks.** The bench already held the keys (its focus
+  refuses the street's), but the old panel was a rect over a live street, so a click beside it
+  swung at whatever was there. The new one covers the window, dims it, and spends a click off its
+  frame on nothing.
+- **Enter does what the lit button says.** The footer shows "take off" when the picked part can
+  come off and "fit" when a candidate has the keys; the one Enter would press wears the accent
+  and an Enter keycap. On an empty slot Enter crosses to what fits it.
+- **A click on a candidate fits it at once,** as the old list did. Every fit is undone by the
+  next click, so a confirm step would be a second press for nothing.
+- **A required slot wears a "needed" tape, rimmed in rust while it is empty,** and a plate with
+  something in the pack that fits wears an amber dog-ear. Both are the read model's answers
+  (`required`, an offer for the slot), never a guess on the screen.
+
 ## The torch on screen, 2026-10-24
 
 The three-features plan (B3) put the sim's cone on screen. JT's card "torch seen from behind"
