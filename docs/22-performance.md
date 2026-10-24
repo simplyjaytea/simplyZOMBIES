@@ -588,6 +588,14 @@ next costs, from the same driver on an idle colonist with 272 loose items: the D
 what it decides and it was left alone), the stockpile scan 0.7 ms a call (`stockpile_items`, read
 by Cook, Repair and Water), Repair 0.7 ms and Cook 0.6 ms.
 
+**Stockpile spread, 2026-10-24 (S3, `claude/project-thread-spo`).** A haul's drop point is now the
+emptiest free tile of the nearest stockpile patch, chosen once per haul and kept on the job. Three
+interleaved pairs of `godot:bench:runtime` against main 21211eac on this box: `shipped-tick` head
+16.76, 18.66, 18.02 ms (median 18.02) against main 17.22, 17.28, 17.09 ms (median 17.22); `colony-tick`
+head 20.92, 19.90, 19.51 ms (median 19.90) against main 19.88, 19.35, 20.33 ms (median 19.88). The
+shipped median is +0.8 ms, inside the 1 to 4 ms run-to-run spread this box shows; the colony tick is
+level. Both sit over the 8 ms mean target, as main does.
+
 ### The world, baked
 
 Plan item A4, 2026-10-19 (`presentation/world_layers.gd`, `world_mask.gdshader`; docs/23's
