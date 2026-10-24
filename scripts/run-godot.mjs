@@ -555,6 +555,17 @@ switch (mode) {
       "res://check_memory_look.gd",
     ];
     break;
+  case "--grade":
+    // Headless unless there is a display: with one (DISPLAY=:1, xvfb-run) the PIXELS lane
+    // captures the day street with and without the grade; without one it says so and skips.
+    args = [
+      ...(process.env.DISPLAY ? [] : ["--headless"]),
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_grade_look.gd",
+    ];
+    break;
   case "--road":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_road_look.gd"];
     break;
@@ -611,8 +622,12 @@ switch (mode) {
     break;
   case "--shots":
     // The art review's capture driver. Needs a display: the pixels come from the root viewport.
-    // Anything after the mode is handed to the driver as user args (`--out=DIR`).
+    // Anything after the mode is handed to the driver as user args (`--out=DIR`). A fixed frame
+    // step makes shader TIME the same at every capture, so a flame's flicker matches between two
+    // runs and a before/after pair of a night scene compares pixel for pixel.
     args = [
+      "--fixed-fps",
+      "60",
       "--path",
       resolve(root, "godot"),
       "--script",

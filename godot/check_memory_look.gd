@@ -27,8 +27,9 @@ extends SceneTree
 #              tile pulled through Palette.remembered and a seen one not, a roofed tile absent with
 #              the brush up or down, the rim on outer sides only with the concave notch, the rest
 #              look quieter than the marking look, the drag preview only on explored unroofed
-#              tiles, the rim's contrast at least 3:1 on every ground the district has (the measure
-#              proved on a rim that matches its ground first); by firelight (NIGHT_POOL) the wash at
+#              tiles, the rim's contrast at least 3:1 on every ground the district has, in its own
+#              colours and under the noon day grade (the measure proved on a rim that matches its
+#              ground first, the graded measure on the grade lowering some rim); by firelight (NIGHT_POOL) the wash at
 #              least as plain as the day wash at noon on every ground, at rest and marking, which the
 #              day alphas fail; textual: `_draw_world` reaches
 #              `_draw_stockpile`, which paints StockpileLook's cells over `SimStockpile.tiles` (read
@@ -413,6 +414,7 @@ func _function_body(path: String, name: String) -> String:
 
 const StockpileLook = preload("res://presentation/stockpile_look.gd")
 const Palette = preload("res://presentation/palette.gd")
+const DayGrade = preload("res://presentation/day_grade.gd")
 
 
 # A sight set the fixture writes by hand: anything with `has_tile`, which is all the look asks of
@@ -457,6 +459,13 @@ func _cell_at(cells: Array[Dictionary], t: Vector2i) -> Dictionary:
 # either does.
 func _rim_contrast(tape: Color, shadow: Color, ground: Color) -> float:
 	return maxf(StockpileLook.contrast(StockpileLook.over(tape, ground), ground), StockpileLook.contrast(StockpileLook.over(shadow, ground), ground))
+
+
+# The same pair after the noon grade: the ground and the rim over it both graded at full weight, as
+# the shader hands them back.
+func _rim_contrast_graded(tape: Color, shadow: Color, ground: Color) -> float:
+	var g: Color = DayGrade.grade(ground, 1.0)
+	return maxf(StockpileLook.contrast(DayGrade.grade(StockpileLook.over(tape, ground), 1.0), g), StockpileLook.contrast(DayGrade.grade(StockpileLook.over(shadow, ground), 1.0), g))
 
 
 func _the_stockpile_draws_on_known_ground_and_dims_with_it() -> bool:
@@ -585,6 +594,8 @@ func _the_stockpile_draws_on_known_ground_and_dims_with_it() -> bool:
 	var clr_c: Dictionary = StockpileLook.preview_cells([Vector2i(11, 11)], false, explored, [])[0]
 	var rims: Dictionary = {"rest": rest_c, "marking": mark_c, "mark preview": add_c, "clear preview": clr_c}
 	var worst: float = 99.0
+	var graded_worst: float = 99.0
+	var graded_lower: bool = false
 	for key in RIM_GROUNDS:
 		var ground: Color = Palette.COLOURS[key] as Color
 		for name in rims.keys():
@@ -594,6 +605,19 @@ func _the_stockpile_draws_on_known_ground_and_dims_with_it() -> bool:
 			if r < RIM_CONTRAST:
 				push_error("%s: the %s rim is %.2f:1 on %s, under %.1f" % [lane, String(name), r, key, RIM_CONTRAST])
 				ok = false
+			# By day the street is seen through the overcast grade (presentation/day_grade.gd), which
+			# veils every pixel toward the sky's grey and so takes contrast off the rim: the rim is held
+			# to the same bar in the picture the player sees at noon, not only in the source colours.
+			var rg: float = _rim_contrast_graded(c["tape"] as Color, c["shadow"] as Color, ground)
+			graded_worst = minf(graded_worst, rg)
+			if rg < r:
+				graded_lower = true
+			if rg < RIM_CONTRAST:
+				push_error("%s: under the day grade the %s rim is %.2f:1 on %s, under %.1f" % [lane, String(name), rg, key, RIM_CONTRAST])
+				ok = false
+	if not graded_lower:
+		push_error("%s: the day grade lowered no rim's contrast on any ground, so the graded measure is the source measure and cannot fail apart from it" % lane)
+		ok = false
 	# NIGHT: by firelight the wash is at least as plain on every ground as the day wash is at noon, at
 	# rest and marking. Measured first on the day alphas at night, which must fall short -- else the
 	# night pair is not what makes the difference -- and `cells` must use the night alpha when it is
@@ -631,5 +655,5 @@ func _the_stockpile_draws_on_known_ground_and_dims_with_it() -> bool:
 		push_error("%s: _draw_stockpile does not paint StockpileLook's cells over SimStockpile.tiles, kept by its signature" % lane)
 		ok = false
 	if ok:
-		print("%s OK never on unexplored ground, remembered tiles dimmed through Palette.remembered, roofs win with the brush up or down, one rim with no inner seams and the concave notch, a row of one wash in one fill, the state bytes move with sight and roof, quieter at rest, the preview on explored unroofed ground in one strip, the rim %.2f:1 at worst on %d grounds, the wash by firelight at least its noon contrast (worst %.2fx), and _draw_world reaches it" % [lane, worst, RIM_GROUNDS.size(), night_worst])
+		print("%s OK never on unexplored ground, remembered tiles dimmed through Palette.remembered, roofs win with the brush up or down, one rim with no inner seams and the concave notch, a row of one wash in one fill, the state bytes move with sight and roof, quieter at rest, the preview on explored unroofed ground in one strip, the rim %.2f:1 at worst on %d grounds (%.2f:1 under the day grade), the wash by firelight at least its noon contrast (worst %.2fx), and _draw_world reaches it" % [lane, worst, RIM_GROUNDS.size(), graded_worst, night_worst])
 	return ok
