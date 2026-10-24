@@ -1178,9 +1178,8 @@ the NPCs that already exist, nothing more):
   Named non-goals: box or multi-select, formation moves, blueprints, stockpiles, crafting and farming.
   Gate: `godot:m2:orders` (its ENDINGS lane, once it lands) and `godot:check:speech`.
 **Parked until after the alpha** (decided 2026-10-19, docs/30): blueprints for wall, door, barricade,
-window board and bed, with Construct consuming materials; stockpile zones that replace the annex-floor
-test in `SimNeeds.is_stockpile_tile`; crafting at a bench, with the Craft job as its consumer. Each keeps
-its gate when it is picked up: `godot:m2:fortify` with a placement lane, `godot:m2:jobs`, and a new
+window board and bed, with Construct consuming materials; crafting at a bench, with the Craft job as
+its consumer. Each keeps its gate when it is picked up: `godot:m2:fortify` with a placement lane, `godot:m2:jobs`, and a new
 `godot:m2:craft` with `npm test` for the content.
 
 **Balance after the alpha — what the ten-day playtest found next.** The alpha stopped here on
@@ -3488,6 +3487,26 @@ not a to-do list:
   commit and 7.2 ms with the slice (medians of three to six runs each, the same container; the
   spread between runs is about 1 ms), p95 about 10 ms both ways, inside the alpha target of a mean
   at or under 10 ms. Before and after shots: `/mnt/project-files/planning/orders/`.
+
+- **Stockpile zones: the stockpile as tiles, slice S1 of the 2026-10-24 plan.** The stockpile is a
+  zone the sim keeps (`godot/sim/modules/stockpile.gd`), a `stockpile` record on the player keyed by
+  `"tx,ty"`. Until the first mark there is no record and the zone is the annex's indoor floor, so an
+  unchanged colony and every save from before this slice read as they did. `stockpile.mark
+  {x0, y0, x1, y1, on}` marks or clears a rectangle through the input phase. A tile can be marked only
+  if it is open floor, dry, not a door, and explored by the player, indoors or out. A zone holds at
+  most 400 tiles and an `on` rectangle covers at most 400; both refuse whole. A marked tile walled
+  over leaves the zone and returns when opened. `SimNeeds.is_stockpile_tile` asks the zone, the Haul
+  drop (`_stock_drop`) walks its tiles row-major, and the orders' haul test follows it. Beds stay on
+  the annex floor (`SimNeeds.is_annex_floor`). Gate: `godot:m2:stockpile` (`M2_STOCKPILE_OK`): DEFAULT,
+  MARK (a 3x3 in and out; a wall, a door and an unexplored tile refused; the cap; `stockpile.changed`
+  heard twice), WALLED, READERS, SAVE (a marked zone round-trips, and a save with no record reads the
+  default). Sabotage: an unexplored-tile check turned to `true` turns MARK red. Not proven yet: a ford
+  (no explored ford on the seed's map, skipped out loud); a full Haul walk onto a marked outdoor pile
+  (the drop point and the haul test are checked, not a walk); and the raider looter, which still asks
+  `SimHome.rect` (the annex), so an outdoor pile is not looted. Sim tick, `godot:bench:runtime`, three
+  interleaved pairs on this box: head mean 13.42, 13.25, 13.26 ms; base 14.06, 12.88, 12.96 ms (medians
+  13.26 against 12.96, inside the box's roughly 1 ms spread). Both sit above the 8 ms target here, as
+  main does on this box.
 - **Attack order: a picked colonist goes after one zombie or raider they can see — 2026-10-24 orders slice A2.**
   With a colonist picked on the street, the menu's "have Mara attack it" row offers an `attack` order on a
   zombie or raider the colonist or the player can see right now (`SimOrders.accepts`, the scarce-information
