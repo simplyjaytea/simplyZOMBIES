@@ -2382,13 +2382,19 @@ static func drop_job(world: Variant, ent: int) -> void:
 	_stop(world, ent)
 
 
-# Remove the order and any Haul job it started. The one door every ending goes through: arrival,
-# an item that is no longer there to carry, a destination with no route, and a stand-down.
-static func end_order(world: Variant, ent: int) -> void:
+# Remove the order and any Haul job it started. The one door every ending goes through, and each
+# caller says why: `arrived`, `no-route` (a destination nobody can walk to), `gone` (the item or the
+# target is no longer there), `stood-down` (the player's clear), or `broke-off` (the colonist is too
+# hurt to keep going). Publishes `order.ended` with that reason, so the colonist can say so.
+static func end_order(world: Variant, ent: int, reason: String = "") -> void:
 	var order: Variant = world.components.get_component(ent, ORDER_COMPONENT)
-	if order is Dictionary and String((order as Dictionary).get("kind", "")) == "haul":
+	if not (order is Dictionary):
+		return
+	var kind: String = String((order as Dictionary).get("kind", ""))
+	if kind == "haul":
 		_release_item(world, ent, int((order as Dictionary).get("target", -1)))
 	world.components.remove(ent, ORDER_COMPONENT)
+	world.events.publish({"type": "order.ended", "entity": ent, "kind": kind, "reason": reason})
 	var job: Variant = world.components.get_component(ent, "job")
 	if job is Dictionary and String((job as Dictionary).get("kind", "")) == "Haul":
 		_stop(world, ent)
@@ -2436,14 +2442,14 @@ static func _follow_order(world: Variant, ent: int, order: Dictionary) -> void:
 	if _at(world, ent, goal, REACH):
 		_still(world, ent)
 		if kind == "go":
-			end_order(world, ent)
+			end_order(world, ent, "arrived")
 		return
 	SimWalk.step(world, ent, order, goal, _walk_speed(world, ent))
 	# SimWalk leaves the path empty both at its goal and when there is no route. The goal is caught
 	# by `_at` above, so an empty path here is a destination nobody can reach, and the order is
 	# dropped rather than re-planned against the same wall every tick.
 	if (order.get("path", []) as Array).is_empty():
-		end_order(world, ent)
+		end_order(world, ent, "no-route")
 
 
 # The Haul job for the order's item, run by the ordinary job machinery. The order ends when the
@@ -2455,7 +2461,8 @@ static func _follow_haul(world: Variant, ent: int, order: Dictionary) -> void:
 	var ours: bool = job is Dictionary and int((job as Dictionary).get("target", -1)) == item and String((job as Dictionary).get("kind", "")) == "Haul"
 	var carrying: bool = ours and bool((job as Dictionary).get("carrying", false))
 	if not _haul_still_wanted(world, item, carrying):
-		end_order(world, ent)
+		# Stocked is the job having finished; an item that is gone was taken by somebody else.
+		end_order(world, ent, "arrived" if world.entities.is_alive(item) else "gone")
 		return
 	if not ours:
 		if job is Dictionary:
@@ -2463,7 +2470,7 @@ static func _follow_haul(world: Variant, ent: int, order: Dictionary) -> void:
 		# A route that failed once for this item is not retried under an order (the same mark the
 		# rows' own haul search honours); the order ends rather than planning it again.
 		if _is_unreachable(world, item):
-			end_order(world, ent)
+			end_order(world, ent, "no-route")
 			return
 		job = {"kind": "Haul", "target": item, "ticksLeft": 0, "path": [], "pathGen": -1}
 		world.components.set_component(ent, "job", job)
@@ -2486,11 +2493,11 @@ static func _follow_haul(world: Variant, ent: int, order: Dictionary) -> void:
 static func _follow_attack(world: Variant, ent: int, order: Dictionary) -> void:
 	var target: int = int(order.get("target", -1))
 	if not _target_standing(world, target) or not _target_fresh(world, ent, target):
-		end_order(world, ent)
+		end_order(world, ent, "gone")
 		return
 	var body: Variant = world.components.get_component(ent, "body")
 	if body is Dictionary and SimNpcCombat._critically_injured(world, ent, body as Dictionary):
-		end_order(world, ent)
+		end_order(world, ent, "broke-off")
 		return
 	if SimNpcCombat.can_strike(world, ent, target):
 		_still(world, ent)
@@ -2507,7 +2514,7 @@ static func _follow_attack(world: Variant, ent: int, order: Dictionary) -> void:
 	SimWalk.step(world, ent, order, goal, _walk_speed(world, ent))
 	# An empty path after a fresh plan is a target nobody can reach from here: the order ends.
 	if (order.get("path", []) as Array).is_empty():
-		end_order(world, ent)
+		end_order(world, ent, "no-route")
 
 
 static func _target_standing(world: Variant, target: int) -> bool:

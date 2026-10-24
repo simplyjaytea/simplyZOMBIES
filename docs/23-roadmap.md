@@ -1172,10 +1172,6 @@ session, each with its gate red both ways and its record.
 **Colony management — the RimWorld half** (alpha scope, decided 2026-10-19 in docs/30: colonist orders and
 the NPCs that already exist, nothing more):
 
-- **Colonist orders, the rest.** Still open from plan A16: a line from the colonist when a
-  destination has no route, and a haul order on an item another colonist is already carrying off.
-  Named non-goals: box or multi-select, formation moves, blueprints, stockpiles, crafting and farming.
-  Gate: `godot:m2:orders` (its ENDINGS lane, once it lands) and `godot:check:speech`.
 **Parked until after the alpha** (decided 2026-10-19, docs/30): blueprints for wall, door, barricade,
 window board and bed, with Construct consuming materials; stockpile zones that replace the annex-floor
 test in `SimNeeds.is_stockpile_tile`; crafting at a bench, with the Craft job as its consumer. Each keeps
@@ -3428,6 +3424,19 @@ not a to-do list:
   drafted colonist does not for 2,400 ticks and strays nowhere, the second press frees them and they
   take it, the refusals), and `godot:check:play`'s DRAFT lane and KEYS row (X with Mara picked pushes
   the hold, X again the clear, X with nobody picked pushes nothing).
+- **Unreachable-spot callout: an order that cannot be done says so — 2026-10-24 orders slice A3.**
+  An order ends with a reason, published as `order.ended` by `SimJobs.end_order`: `arrived` (a walk or a
+  hold reached its spot), `stood-down` (the player cleared it), `gone` (the haul item or the attack target
+  went), `broke-off` (the critical-injury rule), or `no-route` (a walk or a haul found no path). Only
+  `no-route` is said aloud: speech.gd's `order.no_route` handler makes the colonist say a line from
+  `speech.order.no_route` (two lines, digit-free). The other endings stay silent. The haul offer also
+  refuses an item another live colonist's Haul job is carrying off (its `reserved` claim names that
+  colonist and the job), so the menu never sends two colonists to one item; a reservation alone, with no
+  job yet, does not withhold the item. Gate: `godot:m2:orders`'s ENDINGS lane (a walk into a walled-off
+  pocket ends `no-route`, a reachable walk ends `arrived`) and COLLIDE lane (the free item is offered, the
+  one another colonist carries is refused, and a reservation with no job does not refuse), and
+  `godot:check:speech`'s NO-ROUTE lane (no-route is said from its entry, the other endings say nothing).
+  A haul that finds no path ends `no-route` too, so it is said as well. Bench, `godot:bench:runtime`: see the PR.
 - **UI — the sheet and Work grid fit the reviewed viewports, 2026-10-03.** At 1280×720,
   inventory now separates its equipment, native 56-pixel bag cells and inspect pane, keeping
   all seven frame-pack columns reachable. The compact sheet uses the condition chart at integer
