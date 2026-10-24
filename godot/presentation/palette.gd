@@ -336,15 +336,20 @@ const STOCKPILE_TAPE: Color = Color("#cfc6a8")
 const STOCKPILE_SHADOW: Color = Color("#08090a")
 const STOCKPILE_RIM_REST: float = 0.85
 const STOCKPILE_RIM_MARKING: float = 1.0
-# The shadow's alpha as a share of the tape's. Near whole, because on the district's lightest grounds
-# (dirt, the sidewalk) the pale tape alone falls under 3:1 and the dark line beside it is what reads.
-const STOCKPILE_SHADOW_SHARE: float = 0.9
-# The drag's preview: amber where the release would mark, rust where it would clear. The clear rim is
-# a lighter rust than its fill: DANGER itself is under 3:1 on the asphalt and the board floor, where a
-# rim has to read.
+# The shadow's alpha as a share of the tape's. Whole, because on the district's lightest grounds
+# (dirt, the sidewalk) the pale tape alone falls under 3:1 and the dark line beside it is what reads;
+# 0.9 held 3:1 in the source colours but the rest rim on dirt fell to 2.83:1 under the overcast day
+# grade (presentation/day_grade.gd), and the lane holds the rim in the graded picture too.
+const STOCKPILE_SHADOW_SHARE: float = 1.0
+# The drag's preview: amber where the release would mark, rust where it would clear. Each rim is a
+# lighter cousin of its fill: DANGER itself is under 3:1 on the asphalt and the board floor, where a
+# rim has to read, and the overcast day grade takes enough saturation and contrast off both that the
+# kit's ACCENT (#e2a33a, 2.94:1) and the first clear rim (#f09070, 2.80:1) fell under 3:1 on the
+# indoor floor by day; these two are each 15% toward white from those.
 const STOCKPILE_ADD: Color = Color("#e2a33a")
+const STOCKPILE_ADD_RIM: Color = Color("#e6b158")
 const STOCKPILE_CLEAR: Color = Color("#c4532c")
-const STOCKPILE_CLEAR_RIM: Color = Color("#f09070")
+const STOCKPILE_CLEAR_RIM: Color = Color("#f2a185")
 const STOCKPILE_PREVIEW_FILL: float = 0.34
 # The brush's own tile outline.
 const STOCKPILE_CURSOR: Color = Color("#e4dfcf")

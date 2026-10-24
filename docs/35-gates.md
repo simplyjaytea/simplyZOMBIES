@@ -68,6 +68,7 @@ npm run godot:check:action   # actions and stances played on the render clock �
 npm run godot:check:world_bake # ground, walls, roofs baked per chunk; the mask leaks nothing → WORLD_BAKE_OK
 npm run godot:check:light    # sight-derived wash, lit ∩ seen pools → LIGHT_LOOK_OK
 npm run godot:check:memory   # the afterimage, and the remembered map dimmed → MEMORY_LOOK_OK
+npm run godot:check:grade    # the overcast day grade: phase, table, night, HUD → GRADE_LOOK_OK
 npm run godot:check:road     # street manifest, paint, palette, rubble → ROAD_LOOK_OK
 npm run godot:check:water    # deep water solid and clear, the ford slow and loud → WATER_OK
 npm run godot:m2:region      # four districts in one space, each identical to itself → M2_REGION_OK
