@@ -847,6 +847,12 @@ func _a_beam_is_content_and_needs_a_facing() -> bool:
 	if hand.distance_to(want_hand) > 0.0001 or hand.length() < 0.05:
 		push_error("BEAM: the torch's beam leaves %s, not the secondary hand's point %s" % [str(hand), str(want_hand)])
 		return false
+	# Seen from behind the beam starts at the hand's side on the ground, not above the head.
+	var back: Vector2 = LightLook.hand_metres(w, int(w.player), -PI / 2.0, "", 64.0)
+	var back_grip: Vector2i = Appearance.HELD_HANDS["secondary"]["n"] as Vector2i
+	if absf(back.y) > 0.0001 or absf(back.x - (float(back_grip.x) + 0.5 - float(Appearance.PAWN_CANVAS.x) / 2.0) / 32.0) > 0.0001:
+		push_error("BEAM: facing north the beam leaves %s, not the hand's side on the ground under the body" % str(back))
+		return false
 	w.components.remove(w.player, "facing")
 	w.step()
 	if LightLook.source_beam(w, int(w.player)) != 0.0 or not bool(w.light.lights_tile(int(w.player), behind.x, behind.y)):
@@ -886,7 +892,7 @@ func _a_beam_is_content_and_needs_a_facing() -> bool:
 	if beams == 0:
 		push_error("BEAM: no content declares a beam -- the key is read by nothing")
 		return false
-	print("BEAM OK a carried hand torch is the sim's %.0f degree beam on screen: its bits are lights_tile's, lit 6 m ahead and in the spill, dark 6 m behind where its round cast reaches; it leaves the secondary hand (%.2f, %.2f) m off the feet; no facing and a lantern are round and light the tile behind; a headlamp leaves the body's point; %d content lights declare a beam and every one can be carried" % [rad_to_deg(want), hand.x, hand.y, beams])
+	print("BEAM OK a carried hand torch is the sim's %.0f degree beam on screen: its bits are lights_tile's, lit 6 m ahead and in the spill, dark 6 m behind where its round cast reaches; it leaves the secondary hand (%.2f, %.2f) m off the feet, and seen from behind that hand's side on the ground; no facing and a lantern are round and light the tile behind; a headlamp leaves the body's point; %d content lights declare a beam and every one can be carried" % [rad_to_deg(want), hand.x, hand.y, beams])
 	return true
 
 
