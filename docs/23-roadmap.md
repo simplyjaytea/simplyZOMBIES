@@ -1446,14 +1446,19 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   80 is given Rest (the picker does not read the pool), the Rest arm stops it at 80, and the
   next tick picks it again: 17,985 Rest starts in one day for one colonist on seed 31337. No
   outcome changes, but it is job churn on every idle tick and it hides the colonist's real idle.
-- **Two walkers hold each other in a one-tile doorway.** Found by the A24 balance pass
-  (2026-10-20) when `godot:m2:jobs`'s guard lane went red against the twenty-tile errand radius:
-  Ellis walks to the gate from inside the annex, Mara stands in the one-tile gateway, and the two
-  bodies push each other back for the whole 6,000-tick watch (both at y 29.0 beside the gate at
-  (30, 31) on seed 20260805 at 64 tiles). Nobody yields and nobody re-plans, so a colonist can be
-  kept off a post or out of a room by another colonist standing still. The lane pins the radius
-  back to forty, the day it was written against, rather than judge this; a fix is a yield or a
-  side-step in `SimJobs._walk`, with its own lane.
+- **A watch stopped short of its gate, not pushed (fixed 2026-10-24).** Found by the A24 balance
+  pass (2026-10-20) as "two walkers hold each other in a one-tile doorway". It was not a collision.
+  No body blocks another in this sim, and a second Guard removed from the gateway leaves the first
+  one's trajectory identical. The watch stopped on the walk's own arrival reach (`REACH`, 1.5 m)
+  from the post at (30, 30), which from the west is 1.8 m from the gateway at (30, 31) that the
+  GUARD lane measures. `SimJobs.GUARD_REACH` (1.0 m) now stops a watch within the gateway's reach;
+  `godot:m2:jobs`'s STAND lane is red on the old rule and green on this one. The bound is 1.0 and not
+  tighter because the FAST balance wipe on seed 20260805 flips at 0.5 and 0.75 while 1.0 keeps main's
+  outcome band (a chaotic sensitivity to any Guard timing change, measured 2026-10-24: all four
+  seeds' numbers move, not only that one). Open: why the seed 20260805 wipe happens at 0.5 is not
+  settled. A ten-day trace was stopped early; its one death on day 1 (tick 67500, at (143.5, 164.6),
+  far from the gate) was not a Guard death. So the Guard's exposure at the gate is not shown to be
+  the cause, and the flip is not shown to be a real balance effect rather than path chaos.
 - **A melee raider band cannot reach a body that does not move.** `SimRaiders._approach` halts at
   `HALT_METRES` (2.6 m) and every melee reach a raider kit carries is shorter — the rusted machete
   is 1.2 plus `MELEE_REACH_FUDGE`, 1.55 — so nothing closes the last metre and a scav band stands
