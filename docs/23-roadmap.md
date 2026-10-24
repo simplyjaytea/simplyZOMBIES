@@ -1183,12 +1183,10 @@ session, each with its gate red both ways and its record.
 **Colony management — the RimWorld half** (alpha scope, decided 2026-10-19 in docs/30: colonist orders and
 the NPCs that already exist, nothing more):
 
-- **Colonist orders, the rest.** Still open from plan A16: an attack order (a picked colonist walks
-  to one zombie or raider they can see and strikes it, breaking off by the normal rules); a line from
-  the colonist when a destination has no route; and a haul order on an item another colonist is
-  already carrying off. Named non-goals: box or multi-select, formation moves, blueprints, stockpiles,
-  crafting and farming. Gate: `godot:m2:orders` (its ATTACK and ENDINGS lanes, once they land) and
-  `godot:check:speech`.
+- **Colonist orders, the rest.** Still open from plan A16: a line from the colonist when a
+  destination has no route, and a haul order on an item another colonist is already carrying off.
+  Named non-goals: box or multi-select, formation moves, blueprints, stockpiles, crafting and farming.
+  Gate: `godot:m2:orders` (its ENDINGS lane, once it lands) and `godot:check:speech`.
 **Parked until after the alpha** (decided 2026-10-19, docs/30): blueprints for wall, door, barricade,
 window board and bed, with Construct consuming materials; stockpile zones that replace the annex-floor
 test in `SimNeeds.is_stockpile_tile`; crafting at a bench, with the Craft job as its consumer. Each keeps
@@ -3418,6 +3416,20 @@ not a to-do list:
   commit and 7.2 ms with the slice (medians of three to six runs each, the same container; the
   spread between runs is about 1 ms), p95 about 10 ms both ways, inside the alpha target of a mean
   at or under 10 ms. Before and after shots: `/mnt/project-files/planning/orders/`.
+- **Attack order: a picked colonist goes after one zombie or raider they can see — 2026-10-24 orders slice A2.**
+  With a colonist picked on the street, the menu's "have Mara attack it" row offers an `attack` order on a
+  zombie or raider the colonist or the player can see right now (`SimOrders.accepts`, the scarce-information
+  rule). The colonist walks to the target's tile, re-planning when it moves or every ten ticks, and stops
+  where `SimNpcCombat.can_strike` says a blow or a shot lands. npc_combat's `_nearest_threat` picks the
+  ordered target over a nearer one while it is inside the envelope. The order ends when the target is gone,
+  when nobody has seen it for `SimSightings.FRESH_TICKS`, or when the colonist is critically injured (the
+  break-off rule from npc_combat). Gate: `godot:m2:orders`'s ATTACK lanes (a walk reaches the target and
+  lands a blow; the pick prefers the ordered target to a nearer one; the row and the order are refused for
+  an unseen zombie, a colonist and a corpse; a critically injured colonist loses the order). Not built:
+  the ordered target is picked, but the blow itself is melee.gd's: a swing lands on whatever is nearest
+  inside its arc, so a nearer zombie in front can still be struck. Whether the arc should honour the
+  order is not asserted. Night sight: a survivor sees 1.9 m at night (docs/23's night reach), so the lanes
+  run at midday.
 - **Draft key: X holds a colonist where they stand, X again sets them free — 2026-10-24 orders slice A1.**
   With a colonist picked on the street, X pushes the command `SimOrders.draft_command` decides: a
   `hold` on the tile they stand on, or a `clear` when they already hold an order. A drafted colonist
